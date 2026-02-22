@@ -1,4 +1,18 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(gh)",
+      "Bash(gh:*)",
+      "Bash(gh-pr-reply:*)",
+      "Bash(gh-pr-resolve-thread:*)",
+      "Bash(gh-pr-threads:*)",
+      "Read(/tmp/*)",
+      "Write(/tmp/*)",
+      "Edit(/tmp/*)",
+      "Bash(claude-log:*)"
+    ],
+    "defaultMode": "default"
+  },
   "hooks": {
     "PreToolUse": [
       {
