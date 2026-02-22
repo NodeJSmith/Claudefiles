@@ -36,10 +36,18 @@ async function main() {
 
   const context = fs.readFileSync(contextFile, "utf8");
 
+  const preamble = [
+    "## Post-Compaction Context Restored",
+    "",
+    "The pre-compaction hook saved context from your previous session state.",
+    "IMPORTANT: Briefly tell the user that pre-compaction context was restored and summarize what was preserved (files, tasks, errors) in 1-2 sentences.",
+    "",
+  ].join("\n");
+
   console.log(JSON.stringify({
     hookSpecificOutput: {
       hookEventName: "SessionStart",
-      additionalContext: context,
+      additionalContext: preamble + context,
     },
   }));
 
