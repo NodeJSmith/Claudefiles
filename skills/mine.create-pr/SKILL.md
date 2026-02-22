@@ -56,8 +56,8 @@ Based on the above changes:
      - **GitHub**: `#` (e.g., `(#123)`) — links to the PR
      - **Azure DevOps**: `!` (e.g., `(!123)`) — links to the PR (`#` would link to a work item instead)
    - Use `git diff <base-branch>...HEAD -- CHANGELOG.md` to identify lines added in this branch
-   - For each newly added changelog entry line (lines starting with `- `) that does not already contain a PR reference (`(#...)` or `(!...)`), append ` (<prefix><PR_NUMBER>)` to the end of the line
-   - Commit with message: `changelog: add PR <prefix><NUMBER>`
+   - For each newly added changelog entry line (lines starting with `- `) that does not already contain a PR reference (`(#...)` or `(!...)`), append ` (#<PR_NUMBER>)` for GitHub or ` (!<PR_NUMBER>)` for Azure DevOps to the end of the line
+   - Commit with message: e.g., `changelog: add PR #<NUMBER>` for GitHub or `changelog: add PR !<NUMBER>` for Azure DevOps
    - Push
    - If no `CHANGELOG.md` exists, suggest to the user that they add one to track notable changes per release
 10. Return the PR URL
