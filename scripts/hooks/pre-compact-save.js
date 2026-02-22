@@ -4,12 +4,11 @@
  *
  * Reads the session transcript JSONL and saves structured context
  * (file paths, task state, error tracking) to a temp file. The companion
- * SessionStart 'compact' hook (post-compact-inject.sh) re-injects this
+ * SessionStart 'compact' hook (post-compact-inject.js) re-injects this
  * context after compaction.
  */
 
 const fs = require("fs");
-const path = require("path");
 
 function extractContext(transcriptPath, sessionId, cwd) {
   if (!fs.existsSync(transcriptPath)) {
