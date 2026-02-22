@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## [Unreleased]
 
 ### Added
-- `/mine.eval-repo` skill — evaluate third-party GitHub repos before adopting them; assesses test coverage, code quality, maintenance health, bus factor, and project maturity with parallel subagents
+- `/mine.eval-repo` skill — evaluate third-party GitHub repos before adopting them; assesses test coverage, code quality, maintenance health, bus factor, and project maturity with parallel subagents (#1)
 
 ## 2026-02-21
 
