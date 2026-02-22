@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Resolve one or more PR review threads by their GraphQL node IDs (PRRT_...)
+# Usage: gh-pr-resolve-thread <thread-id> [thread-id...]
+
+set -euo pipefail
+
+if [[ $# -eq 0 ]]; then
+    echo "Usage: gh-pr-resolve-thread <thread-id> [thread-id...]" >&2
+    exit 1
+fi
+
+for thread_id in "$@"; do
+    resolved=$(gh api graphql \
+        -f query='mutation($id: ID!) {
+            resolveReviewThread(input: {threadId: $id}) {
+                thread { isResolved }
+            }
+        }' \
+        -f id="$thread_id" \
+        --jq '.data.resolveReviewThread.thread.isResolved')
+    if [[ "$resolved" != "true" ]]; then
+        echo "FAILED to resolve $thread_id (got: $resolved)" >&2
+        exit 1
+    fi
+    echo "Resolved $thread_id"
+done

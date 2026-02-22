@@ -261,7 +261,7 @@ After all edits are complete, run the **code-reviewer** agent on all modified fi
 
 ## Helper Scripts
 
-**IMPORTANT**: Use these helper scripts instead of inline `python3 -c` commands. They are in PATH (`~/Dotfiles/home/bin/mine/`) and avoid unnecessary permission prompts.
+**IMPORTANT**: Use these helper scripts instead of inline `python3 -c` commands. They are in PATH (`bin/` in this repo, symlinked by `install.sh`) and avoid unnecessary permission prompts.
 
 ### Fetch unresolved threads
 

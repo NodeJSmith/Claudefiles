@@ -6,6 +6,12 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Added
 - `/mine.eval-repo` skill — evaluate third-party GitHub repos before adopting them; assesses test coverage, code quality, maintenance health, bus factor, and project maturity with parallel subagents (#1)
+- `CLAUDE.md` project instructions for repo contributors (#2)
+- `bin/` directory with `gh-pr-threads`, `gh-pr-reply`, `gh-pr-resolve-thread` helper scripts (symlinked to `~/.local/bin` by installer) (#2)
+- `settings.json` with hook wiring and default permissions for Claudefiles-owned tools (#2)
+
+### Changed
+- `/mine.pre-compact` command now outputs a ready-to-paste `/compact` prompt instead of offering to run it (#2)
 
 ## 2026-02-21
 

@@ -1,8 +1,8 @@
 ---
-description: Analyze session context and generate a focused /compact prompt that preserves what matters for the next phase.
+description: Generate a /compact prompt that preserves what matters for the next phase.
 ---
 
-# Pre-Compact Command
+# Pre-Compact
 
 Generate a strategic `/compact` prompt before transitioning to the next phase of work. Keeps critical context, drops noise.
 
@@ -45,40 +45,18 @@ Sort everything in the session into three buckets:
 - Back-and-forth clarification that reached a conclusion
 - Verbose error messages that were already resolved
 
-## Step 3: Generate Compact Prompt
+## Step 3: Output
 
-Write a compact prompt in this format and present it to the user:
+Output ONLY the ready-to-paste `/compact` command. No preamble, no explanation, no "here's what I came up with", no offer to edit. Just the command.
+
+Format:
 
 ```
 /compact Preserve for [NEXT PHASE]: [2-4 bullet points of critical context]. Decisions: [key decisions]. Files: [paths relevant to next phase]. Drop: exploration/research output, resolved errors, superseded drafts.
 ```
 
-Guidelines for the prompt:
-- Keep it under 200 words — the prompt itself shouldn't bloat context
+Guidelines:
+- Keep it under 200 words
 - Be specific about file paths and decisions, not vague
 - Name the next phase explicitly so compact knows the frame
 - Include any task list items that should survive
-
-## Step 4: Offer to Run
-
-After presenting the prompt, ask the user:
-
-> Ready to compact with this prompt? You can edit it first or I can run it as-is.
-
-Do NOT run `/compact` automatically — let the user review and adjust.
-
-## Example
-
-```
-User: /pre-compact refactor the auth module
-
-Claude: Here's what I'd preserve for the refactor phase:
-
-/compact Preserve for auth module refactor: (1) Decided to extract token validation into middleware at src/auth/middleware.ts, keeping session logic in src/auth/session.ts. (2) Current tests pass — 47/47 green. (3) The RefreshToken type needs the `expiresAt` field added (discovered during debugging). (4) Task list: extract middleware, update routes, add integration tests. Files: src/auth/middleware.ts, src/auth/session.ts, src/auth/types.ts, tests/auth/. Drop: exploration of passport.js alternatives, resolved CORS debugging session, earlier draft that put everything in one file.
-
-Ready to compact with this prompt? You can edit it first or I can run it as-is.
-```
-
-## Integration
-
-- This command handles *what* to preserve when you compact

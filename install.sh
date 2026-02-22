@@ -39,4 +39,21 @@ if [ -d "$REPO_DIR/rules" ]; then
   done
 fi
 
+# Bin: symlink scripts into ~/.local/bin (should be in PATH)
+if [ -d "$REPO_DIR/bin" ]; then
+  BIN_DIR="$HOME/.local/bin"
+  mkdir -p "$BIN_DIR"
+  for item in "$REPO_DIR/bin"/*; do
+    [ -e "$item" ] || continue
+    target="$BIN_DIR/$(basename "$item")"
+    if [ -L "$target" ]; then
+      rm "$target"
+    elif [ -e "$target" ]; then
+      echo "skip: $target exists (not a symlink)" >&2
+      continue
+    fi
+    ln -s "$item" "$target"
+  done
+fi
+
 echo "Claudefiles installed to $CLAUDE_DIR"
