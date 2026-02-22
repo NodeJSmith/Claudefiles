@@ -25,7 +25,7 @@ rules/
 skills/
   mine.*/        → Each skill is a directory with SKILL.md inside
 scripts/
-  hooks/         → Hook scripts (PreToolUse, PostToolUse, PreCompact, SessionStart)
+  hooks/         → Hook scripts (PreToolUse)
 bin/             → Helper scripts symlinked into ~/.local/bin
 install.sh       → Symlink installer
 ```
@@ -36,7 +36,7 @@ install.sh       → Symlink installer
 - **Commands** (`commands/*.md`) are simpler slash commands — single-file prompts without the SKILL.md directory structure.
 - **Agents** (`agents/*.md`) define subagent behavior for the `Task` tool. They specify model, tools, and detailed system prompts. Currently: `code-reviewer` (runs ruff/pyright/bandit/pytest) and `planner` (implementation planning).
 - **Rules** (`rules/`) auto-load into Claude Code context. Python rules explicitly extend common rules (each file notes this). Rules govern coding style, testing, security, git workflow, error tracking, and agent orchestration.
-- **Hooks** (`scripts/hooks/`) are Node.js scripts for hook events. `block-git-c.js` blocks `git -C` usage (PreToolUse). `pre-compact-save.js` preserves context before compaction (PreCompact). `post-compact-inject.js` re-injects that context afterward (SessionStart). Hook scripts require wiring in your `settings.json` — see [Claude Code hook configuration docs](https://docs.anthropic.com/en/docs/claude-code/hooks) for setup.
+- **Hooks** (`scripts/hooks/`) are Node.js scripts for hook events. `block-git-c.js` blocks `git -C` usage (PreToolUse). Hook scripts require wiring in your `settings.json` — see [Claude Code hook configuration docs](https://docs.anthropic.com/en/docs/claude-code/hooks) for setup.
 
 ## Naming Convention
 

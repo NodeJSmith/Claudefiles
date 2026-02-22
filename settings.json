@@ -25,28 +25,7 @@
         ]
       }
     ],
-    "PreCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node ~/.claude/scripts/hooks/pre-compact-save.js",
-            "timeout": 30
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "matcher": "compact",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node ~/.claude/scripts/hooks/post-compact-inject.js",
-            "timeout": 10
-          }
-        ]
-      }
-    ]
+    "PreCompact": [],
+    "SessionStart": []
   }
 }
