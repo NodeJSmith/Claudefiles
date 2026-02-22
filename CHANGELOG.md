@@ -6,10 +6,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Added
 - `/mine.eval-repo` skill — evaluate third-party GitHub repos before adopting them; assesses test coverage, code quality, maintenance health, bus factor, and project maturity with parallel subagents (#1)
-- `CLAUDE.md` project instructions for repo contributors
+- `CLAUDE.md` project instructions for repo contributors (#2)
 
 ### Changed
-- `/mine.pre-compact` command replaced with docs — context preservation now automated via PreCompact/SessionStart hooks
+- `/mine.pre-compact` command replaced with docs — context preservation now automated via PreCompact/SessionStart hooks (#2)
 
 ## 2026-02-21
 
