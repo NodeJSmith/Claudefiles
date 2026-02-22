@@ -8,6 +8,7 @@ All notable changes to this Claudefiles repository are documented here.
 - `/mine.eval-repo` skill — evaluate third-party GitHub repos before adopting them; assesses test coverage, code quality, maintenance health, bus factor, and project maturity with parallel subagents (#1)
 - `CLAUDE.md` project instructions for repo contributors (#2)
 - `pre-compact-save.js` and `post-compact-inject.js` hook scripts for automatic context preservation across compaction (#2)
+- `bin/` directory with `gh-pr-threads`, `gh-pr-reply`, `gh-pr-resolve-thread` helper scripts (symlinked to `~/.local/bin` by installer) (#2)
 
 ### Removed
 - `/mine.pre-compact` command — replaced by the compaction hook scripts (#2)

@@ -12,7 +12,7 @@ A personal Claude Code configuration repository — skills, commands, agents, ru
 ./install.sh
 ```
 
-Symlinks key configuration directories (`agents/`, `skills/`, `commands/`, `scripts/hooks/`, and per-language `rules/`) into `~/.claude/`. Safe to re-run (updates existing symlinks, skips non-symlink conflicts). Respects `$CLAUDE_HOME` if set.
+Symlinks key configuration directories (`agents/`, `skills/`, `commands/`, `scripts/hooks/`, and per-language `rules/`) into `~/.claude/`, and helper scripts from `bin/` into `~/.local/bin/`. Safe to re-run (updates existing symlinks, skips non-symlink conflicts). Respects `$CLAUDE_HOME` if set.
 
 ## Repository Structure
 
@@ -26,6 +26,7 @@ skills/
   mine.*/        → Each skill is a directory with SKILL.md inside
 scripts/
   hooks/         → Hook scripts (PreToolUse, PostToolUse, PreCompact, SessionStart)
+bin/             → Helper scripts symlinked into ~/.local/bin
 install.sh       → Symlink installer
 ```
 

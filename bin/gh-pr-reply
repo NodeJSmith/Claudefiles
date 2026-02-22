@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Reply to a PR review comment thread and print the new comment's ID
+# Usage: gh-pr-reply <pr-number> <comment-id> <body>
+# Auto-detects owner/repo from current git remote
+
+set -euo pipefail
+
+if [[ $# -lt 3 ]]; then
+    echo "Usage: gh-pr-reply <pr-number> <comment-id> <body>" >&2
+    exit 1
+fi
+
+pr_number="$1"
+comment_id="$2"
+body="$3"
+
+id=$(gh api "repos/{owner}/{repo}/pulls/${pr_number}/comments/${comment_id}/replies" \
+    -f body="$body" \
+    --jq '.id')
+
+echo "Reply posted: $id"

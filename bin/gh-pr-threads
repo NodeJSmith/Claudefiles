@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# List unresolved PR review threads with summary
+# Usage: gh-pr-threads [pr-number]
+# If no PR number given, auto-detects from current branch
+
+set -euo pipefail
+
+if [[ $# -ge 1 ]]; then
+    pr_number="$1"
+else
+    pr_number=$(gh pr view --json number -q '.number')
+fi
+
+nwo=$(gh repo view --json nameWithOwner -q '.nameWithOwner')
+repo_owner="${nwo%%/*}"
+repo_name="${nwo#*/}"
+
+gh api graphql -f query='
+query($owner: String!, $repo: String!, $pr: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $pr) {
+      title
+      url
+      reviewThreads(first: 100) {
+        nodes {
+          id
+          isResolved
+          isOutdated
+          path
+          line
+          startLine
+          diffSide
+          comments(first: 50) {
+            nodes {
+              id
+              databaseId
+              body
+              author { login }
+              createdAt
+              updatedAt
+            }
+          }
+        }
+      }
+    }
+  }
+}' -f owner="$repo_owner" -f repo="$repo_name" -F pr="$pr_number" \
+    --jq '
+    .data.repository.pullRequest as $pr |
+    ($pr.reviewThreads.nodes | length) as $total |
+    [$pr.reviewThreads.nodes[] | select(.isResolved | not)] as $unresolved |
+    "PR: \($pr.title)",
+    "URL: \($pr.url)",
+    "Total threads: \($total), Unresolved: \($unresolved | length)",
+    "",
+    ($unresolved[] |
+        "\(.path):\(.line // "?") [\(.id)] (comment: \(.comments.nodes[0].databaseId))" +
+        (if .isOutdated then " [OUTDATED]" else "" end),
+        "  @\(.comments.nodes[0].author.login): \(.comments.nodes[0].body[0:150] | gsub("\n"; " "))",
+        ""
+    )
+'
