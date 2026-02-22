@@ -51,11 +51,15 @@ Based on the above changes:
      )" --source-branch <branch> --target-branch <default-branch>
      ```
 9. **Update CHANGELOG with PR number**: If a `CHANGELOG.md` exists in the repo root:
-   - Extract the PR number from the PR URL (e.g., `#123`)
+   - Extract the PR number from the PR URL
+   - Use the platform-appropriate prefix for the PR reference:
+     - **GitHub**: `#` (e.g., `(#123)`) — links to the PR
+     - **Azure DevOps**: `!` (e.g., `(!123)`) — links to the PR (`#` would link to a work item instead)
    - Use `git diff <base-branch>...HEAD -- CHANGELOG.md` to identify lines added in this branch
-   - For each newly added changelog entry line (lines starting with `- `) that does not already contain a `(#...)` reference, append ` (#<PR_NUMBER>)` to the end of the line
-   - Commit with message: `changelog: add PR #<NUMBER>`
+   - For each newly added changelog entry line (lines starting with `- `) that does not already contain a PR reference (`(#...)` or `(!...)`), append ` (<prefix><PR_NUMBER>)` to the end of the line
+   - Commit with message: `changelog: add PR <prefix><NUMBER>`
    - Push
+   - If no `CHANGELOG.md` exists, suggest to the user that they add one to track notable changes per release
 10. Return the PR URL
 
 You have the capability to call multiple tools in a single response. You should gather all necessary context first (steps 1-6), then create the PR in a single action. Do not create multiple PRs.
