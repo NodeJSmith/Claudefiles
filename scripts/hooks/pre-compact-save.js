@@ -19,7 +19,26 @@ function extractContext(transcriptPath, sessionId, cwd) {
   const taskCreates = [];
   const taskUpdates = {}; // taskId -> latest fields
 
-  const lines = fs.readFileSync(transcriptPath, "utf8").split("\n");
+  // Tail-read: only load the last 1 MiB to avoid OOM on large transcripts
+  const MAX_TAIL_BYTES = 1024 * 1024;
+  const stats = fs.statSync(transcriptPath);
+  const start = stats.size > MAX_TAIL_BYTES ? stats.size - MAX_TAIL_BYTES : 0;
+  const length = stats.size - start;
+
+  const fd = fs.openSync(transcriptPath, "r");
+  let lines;
+  try {
+    const buffer = Buffer.alloc(length);
+    fs.readSync(fd, buffer, 0, length, start);
+    lines = buffer.toString("utf8").split("\n");
+    // If we started mid-file, the first line is likely a partial JSON entry
+    if (start > 0 && lines.length > 0) {
+      lines.shift();
+    }
+  } finally {
+    fs.closeSync(fd);
+  }
+
   for (const raw of lines) {
     const line = raw.trim();
     if (!line) continue;
@@ -194,7 +213,12 @@ async function main() {
   }
 
   const savePath = `/tmp/claude-precompact-${sessionId}.md`;
-  fs.writeFileSync(savePath, context);
+  // Remove any existing file first (may exist from prior compaction in same session),
+  // then exclusive-create with restrictive permissions to prevent symlink attacks.
+  try { fs.unlinkSync(savePath); } catch { /* ignore if absent */ }
+  const fd2 = fs.openSync(savePath, "wx", 0o600);
+  fs.writeFileSync(fd2, context);
+  fs.closeSync(fd2);
   process.exit(0);
 }
 
