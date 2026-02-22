@@ -9,6 +9,7 @@ All notable changes to this Claudefiles repository are documented here.
 - `CLAUDE.md` project instructions for repo contributors (#2)
 - `pre-compact-save.js` and `post-compact-inject.js` hook scripts for automatic context preservation across compaction (#2)
 - `bin/` directory with `gh-pr-threads`, `gh-pr-reply`, `gh-pr-resolve-thread` helper scripts (symlinked to `~/.local/bin` by installer) (#2)
+- `settings.json` with hook wiring for all Claudefiles-owned hooks (PreToolUse, PreCompact, SessionStart) (#2)
 
 ### Removed
 - `/mine.pre-compact` command — replaced by the compaction hook scripts (#2)
