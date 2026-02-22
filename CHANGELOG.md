@@ -11,7 +11,7 @@ All notable changes to this Claudefiles repository are documented here.
 - `settings.json` with hook wiring and default permissions for Claudefiles-owned tools (#2)
 
 ### Changed
-- `/mine.create-pr` now uses `!` prefix for Azure DevOps PR references in changelogs (instead of `#`, which links to work items) and suggests adding a `CHANGELOG.md` if one doesn't exist
+- `/mine.create-pr` now uses `!` prefix for Azure DevOps PR references in changelogs (instead of `#`, which links to work items) and suggests adding a `CHANGELOG.md` if one doesn't exist (#3)
 - `/mine.pre-compact` command now outputs a ready-to-paste `/compact` prompt instead of offering to run it (#2)
 
 ## 2026-02-21
