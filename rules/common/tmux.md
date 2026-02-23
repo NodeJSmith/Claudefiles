@@ -2,13 +2,13 @@
 
 ## Convention
 
-At conversation start, if inside tmux (`$TMUX` is set), rename the session to reflect the current work:
+At conversation start, rename the session to reflect the current work:
 
 ```bash
-tmux rename-session "<name>"
+claude-tmux rename "<name>"
 ```
 
-If `$TMUX` is not set, skip silently — never warn or comment about it.
+The script handles the `$TMUX` check internally — exits silently when not in tmux.
 
 ## Name Format
 

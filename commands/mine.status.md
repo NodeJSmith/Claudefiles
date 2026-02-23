@@ -12,9 +12,9 @@ Collect these in parallel where possible. Each section is **optional** — skip 
 
 ### Tmux (Bash)
 
-Run: `tmux display-message -p '#S' 2>/dev/null`
+Run: `claude-tmux current`
 
-If the command fails (not in tmux), skip. If the result is purely numeric, treat it as unnamed.
+If the output is empty (not in tmux), skip. If the result is purely numeric, treat it as unnamed.
 
 ### Git (Bash)
 

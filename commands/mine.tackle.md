@@ -120,7 +120,7 @@ Skip plan mode entirely. The issue summary from Phase 2 will be used directly as
    To start:
      cd <path> && claude
    Or, if using tmux:
-     tmux new-session -d -s "<branch-name>" -c "<path>" && tmux switch-client -t "<branch-name>"
+     claude-tmux new "<branch-name>" "<path>"
    Then accept the project trust prompt, and use /mine.start to begin.
    ```
 

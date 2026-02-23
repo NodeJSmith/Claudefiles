@@ -14,7 +14,7 @@ user-invokable: true
 
 1. If the plan context above shows `NO_PLAN_FOUND`, tell the user no plan was found and ask what they'd like to work on.
 2. Otherwise, summarize the plan briefly.
-3. If inside tmux (`$TMUX` is set), rename the session based on the plan title. Derive `<project>-<context>` from the working directory name and plan subject (kebab-case, ~30 chars max). E.g., plan "Fix URL quote parsing" in hassette → `tmux rename-session "hassette-url-quote-fix"`.
+3. Rename the tmux session based on the plan title. Derive `<project>-<context>` from the working directory name and plan subject (kebab-case, ~30 chars max). E.g., plan "Fix URL quote parsing" in hassette → `claude-tmux rename "hassette-url-quote-fix"`.
 4. Ask the user to confirm before starting.
 5. Once confirmed, begin implementation following the plan.
 6. When all work is complete, rename the plan file:

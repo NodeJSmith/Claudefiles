@@ -10,6 +10,7 @@ All notable changes to this Claudefiles repository are documented here.
 - `bin/` directory with `gh-pr-threads`, `gh-pr-reply`, `gh-pr-resolve-thread` helper scripts (symlinked to `~/.local/bin` by installer) (#2)
 - `settings.json` with hook wiring and default permissions for Claudefiles-owned tools (#2)
 - Automatic tmux session naming — Claude renames the tmux session at conversation start based on project and branch/task context (#4)
+- `bin/claude-tmux` helper script — consolidates tmux operations (rename, current, new) behind a single pre-allowed tool
 
 ### Fixed
 - Skill template parser error when `!` appeared in backticks (affected `/mine.ship` and `/mine.create-pr` ADO changelog instructions) (#4)

@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# Tmux helper for Claude Code — consolidates tmux operations behind one pre-allowed tool.
+# Usage: claude-tmux <command> [args...]
+#
+# Commands:
+#   rename <name>         Rename current tmux session
+#   current               Print current session name
+#   new <name> <path>     Create detached session at path, switch to it
+#
+# All commands exit 0 silently when not inside tmux ($TMUX unset).
+
+set -euo pipefail
+
+# Not in tmux — exit silently
+if [[ -z "${TMUX:-}" ]]; then
+    exit 0
+fi
+
+usage() {
+    echo "Usage: claude-tmux <command> [args...]" >&2
+    echo "Commands:" >&2
+    echo "  rename <name>         Rename current session" >&2
+    echo "  current               Print current session name" >&2
+    echo "  new <name> <path>     Create detached session at path and switch to it" >&2
+    exit 1
+}
+
+if [[ $# -lt 1 ]]; then
+    usage
+fi
+
+cmd="$1"
+shift
+
+case "$cmd" in
+    rename)
+        if [[ $# -lt 1 ]]; then
+            echo "Usage: claude-tmux rename <name>" >&2
+            exit 1
+        fi
+        tmux rename-session "$1"
+        ;;
+    current)
+        tmux display-message -p '#S'
+        ;;
+    new)
+        if [[ $# -lt 2 ]]; then
+            echo "Usage: claude-tmux new <name> <path>" >&2
+            exit 1
+        fi
+        name="$1"
+        path="$2"
+        if [[ ! -d "$path" ]]; then
+            echo "Error: directory does not exist: $path" >&2
+            exit 1
+        fi
+        tmux new-session -d -s "$name" -c "$path"
+        tmux switch-client -t "$name"
+        ;;
+    *)
+        echo "Unknown command: $cmd" >&2
+        usage
+        ;;
+esac

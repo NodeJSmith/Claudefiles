@@ -18,7 +18,7 @@ Review the conversation so far and identify:
 2. **What's pending** — open tasks, unfinished work, known issues
 3. **What the next phase is** — from $ARGUMENTS or inferred from context
 4. **Active task list** — check TaskList for any tracked items
-5. **Tmux session name** — if in tmux, run `tmux display-message -p '#S' 2>/dev/null` and check whether the name still reflects the current work. If it no longer matches (topic drifted), update it with `tmux rename-session "<new-name>"` before generating the compact prompt.
+5. **Tmux session name** — run `claude-tmux current` and check whether the name still reflects the current work. If it no longer matches (topic drifted), update it with `claude-tmux rename "<new-name>"` before generating the compact prompt.
 
 Do NOT use subagents for this — you already have full conversation context.
 
