@@ -49,6 +49,7 @@ When editing skills or commands:
 - Commands are flat markdown files in `commands/`
 - Rules files in `python/` should reference their `common/` counterpart (pattern: "This file extends [common/foo.md]")
 - After adding new directories under `agents/`, `skills/`, `commands/`, or `scripts/hooks/`, re-run `./install.sh` to create the symlink
+- **Always update `README.md`** when adding, removing, or renaming skills, commands, agents, rules, or bin/ scripts — the README has inventory tables with counts that must stay in sync
 
 When adding a new language to rules:
 - Create `rules/<language>/` with markdown files

@@ -35,7 +35,7 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 
 ## Contents
 
-### Skills (18)
+### Skills (19)
 
 | Skill | Description |
 |-------|-------------|
@@ -46,6 +46,7 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `mine.bare-repo` | One-time setup of a bare git repo with worktree-based directory structure |
 | `mine.commit-push` | Commit and push changes to the current branch |
 | `mine.create-pr` | Review branch changes and create a PR on GitHub or Azure DevOps |
+| `mine.eval-repo` | Evaluate a third-party GitHub repo before adopting it -- test coverage, code quality, maintenance health, bus factor |
 | `mine.human-centered-design` | Human-centered frontend design -- empathy, accessibility, progressive enhancement |
 | `mine.interface-design` | Craft and consistency for interface design -- dashboards, admin panels, apps, tools |
 | `mine.python-patterns` | Pythonic idioms, PEP 8, type hints, and best practices |
@@ -80,15 +81,28 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `code-reviewer` | Expert code reviewer -- PEP 8, type hints, security, performance |
 | `planner` | Implementation planning for complex features and refactoring |
 
-### Rules (14)
+### Rules (17)
 
 Coding guidelines organized by language. These load automatically and shape how Claude writes code.
 
-**Common** (9): agents, coding-style, error-tracking, git-workflow, hooks, patterns, performance, security, testing
+**Common** (12): agents, capabilities, coding-style, command-output, error-tracking, git-workflow, hooks, patterns, performance, security, testing, tmux
 
 **Python** (5): coding-style, hooks, patterns, security, testing
 
-### Scripts (1)
+### Helper Scripts (6)
+
+CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
+
+| Script | Description |
+|--------|-------------|
+| `claude-merge-settings` | Three-layer settings merge tool for `~/.claude/settings.json` |
+| `claude-tmux` | Tmux session helper -- rename, list, create, capture, kill sessions |
+| `get-tmp-filename` | Create temp files for command output capture |
+| `gh-pr-reply` | Reply to a PR review comment thread |
+| `gh-pr-resolve-thread` | Resolve one or more PR review threads by GraphQL ID |
+| `gh-pr-threads` | List unresolved PR review threads with summary |
+
+### Hooks (1)
 
 | Script | Description |
 |--------|-------------|
