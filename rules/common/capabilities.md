@@ -34,6 +34,7 @@ Skills and commands exist for common workflows. **Use these instead of ad-hoc to
 | "session retrospective", "what did we learn" | `/mine.session_reflect` |
 | "capture this pattern", "save this lesson" | `/mine.capture_lesson` |
 | "evaluate this repo", "should I use this library" | `/mine.eval-repo` |
+| "merge settings", "apply settings", "update claude settings" | `claude-merge-settings` |
 
 ---
 
@@ -93,6 +94,27 @@ claude-tmux kill "old-session"            # kill one or more sessions
 - `list` output: `name|attached|windows|last_activity` (one line per session)
 - `panes` output: `session|window_index|command|path|pid` (one line per pane)
 - `kill` accepts multiple session names as arguments; fails fast if any session doesn't exist
+
+### claude-merge-settings
+
+Merge Claude Code settings from three layers into `~/.claude/settings.json`.
+
+```bash
+claude-merge-settings                              # merge all layers
+CLAUDE_DOTFILES_SETTINGS=/dev/null claude-merge-settings   # skip Dotfiles layer
+```
+
+Layers (later wins):
+1. `~/Claudefiles/settings.json` — shared, portable
+2. `~/Dotfiles/config/claude/settings.json` — private, cross-machine (override with `$CLAUDE_DOTFILES_SETTINGS`)
+3. `~/.claude/settings.machine.json` — machine-specific
+
+Special merge rules:
+- `permissions.allow` — concatenate + deduplicate across layers
+- `permissions.deny` — concatenate + deduplicate across layers
+- `allowedTools` — concatenate + deduplicate across layers
+- `hooks.<type>` arrays — concatenate + deduplicate across layers
+- Everything else — deep merge, last wins
 
 ---
 

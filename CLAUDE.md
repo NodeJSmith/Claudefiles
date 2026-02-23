@@ -54,6 +54,10 @@ When adding a new language to rules:
 - Create `rules/<language>/` with markdown files
 - The installer will symlink the entire language directory into `~/.claude/rules/<language>`
 
+
 When changing settings or permissions:
 - Edit `settings.json` in this repo — **never** write directly to `~/.claude/settings.json`
-- The user runs `merge-settings` to combine this repo's settings with other sources into `~/.claude/settings.json`
+- Run `claude-merge-settings` to combine three layers into `~/.claude/settings.json`:
+  1. `~/Claudefiles/settings.json` (shared, portable)
+  2. `~/Dotfiles/config/claude/settings.json` (private — override with `$CLAUDE_DOTFILES_SETTINGS`)
+  3. `~/.claude/settings.machine.json` (machine-specific)
