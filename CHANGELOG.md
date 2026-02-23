@@ -6,6 +6,11 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Added
 - `capabilities.md` rule — intent routing table and usage reference for all skills, commands, and CLI tools (#5)
+- Automatic tmux session naming — Claude renames the tmux session at conversation start based on project and branch/task context (#4)
+- `bin/claude-tmux` helper script — consolidates tmux operations (rename, current, new) behind a single pre-allowed tool (#4)
+
+### Fixed
+- Skill template parser error when `!` appeared in backticks (affected `/mine.ship` and `/mine.create-pr` ADO changelog instructions) (#4)
 
 ## 2026-02-21
 
@@ -14,11 +19,6 @@ All notable changes to this Claudefiles repository are documented here.
 - `CLAUDE.md` project instructions for repo contributors (#2)
 - `bin/` directory with `gh-pr-threads`, `gh-pr-reply`, `gh-pr-resolve-thread` helper scripts (symlinked to `~/.local/bin` by installer) (#2)
 - `settings.json` with hook wiring and default permissions for Claudefiles-owned tools (#2)
-- Automatic tmux session naming — Claude renames the tmux session at conversation start based on project and branch/task context (#4)
-- `bin/claude-tmux` helper script — consolidates tmux operations (rename, current, new) behind a single pre-allowed tool
-
-### Fixed
-- Skill template parser error when `!` appeared in backticks (affected `/mine.ship` and `/mine.create-pr` ADO changelog instructions) (#4)
 
 ### Changed
 - `/mine.create-pr` and `/mine.ship` now use `!` prefix for Azure DevOps PR references in changelogs (instead of `#`, which links to work items) and suggest adding a `CHANGELOG.md` if one doesn't exist (#3)
