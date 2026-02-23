@@ -89,13 +89,14 @@ Coding guidelines organized by language. These load automatically and shape how 
 
 **Python** (5): coding-style, hooks, patterns, security, testing
 
-### Helper Scripts (6)
+### Helper Scripts (7)
 
 CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
 | Script | Description |
 |--------|-------------|
 | `claude-merge-settings` | Three-layer settings merge tool for `~/.claude/settings.json` |
+| `claude-log` | Query Claude Code JSONL session logs — search, stats, skill/agent usage, permission auditing |
 | `claude-tmux` | Tmux session helper -- rename, list, create, capture, kill sessions |
 | `get-tmp-filename` | Create temp files for command output capture |
 | `gh-pr-reply` | Reply to a PR review comment thread |

@@ -35,6 +35,7 @@ Skills and commands exist for common workflows. **Use these instead of ad-hoc to
 | "capture this pattern", "save this lesson" | `/mine.capture_lesson` |
 | "evaluate this repo", "should I use this library" | `/mine.eval-repo` |
 | "merge settings", "apply settings", "update claude settings" | `claude-merge-settings` |
+| "what did I work on yesterday", "find that session where...", "show me the logs" | `claude-log` |
 
 ---
 
@@ -94,6 +95,59 @@ claude-tmux kill "old-session"            # kill one or more sessions
 - `list` output: `name|attached|windows|last_activity` (one line per session)
 - `panes` output: `session|window_index|command|path|pid` (one line per pane)
 - `kill` accepts multiple session names as arguments; fails fast if any session doesn't exist
+
+### claude-log
+
+Query Claude Code JSONL session logs. Pre-allowed via `Bash(claude-log:*)`.
+
+#### When to Use
+
+Finding past sessions, reviewing what was done, searching conversation history, usage stats.
+
+#### Quick Usage
+
+```bash
+# List recent sessions
+claude-log list --limit 10
+claude-log list --project Dotfiles --since 2026-02-15
+
+# Show session content
+claude-log show <session-id> --messages    # user + assistant text
+claude-log show <session-id> --tools       # tool use blocks
+claude-log show <session-id> --usage       # token usage per turn
+
+# Search across sessions
+claude-log search "authentication" --since 2026-02-15 --limit 30
+claude-log search "error" --project myapp --type assistant
+
+# Session statistics
+claude-log stats <session-id>
+
+# Skill/agent usage trends
+claude-log skills --since 2026-02-01
+claude-log agents --project Dotfiles
+
+# Extract structured data as JSON
+claude-log extract <session-id> --tools    # all tool_use blocks
+claude-log extract <session-id> --bash     # bash commands only
+claude-log extract <session-id> --usage    # token counts
+```
+
+#### Key Flags
+
+| Flag              | Purpose                                        |
+| ----------------- | ---------------------------------------------- |
+| `--json`          | JSON output                                    |
+| `--project`, `-p` | Filter by project name substring               |
+| `--since`, `-s`   | Filter by date (YYYY-MM-DD)                    |
+| `--limit`, `-l`   | Max results                                    |
+| `--type`          | Search filter: `user`, `assistant`, `tool_use` |
+
+#### Show Filters
+
+`--messages` (`-m`), `--tools` (`-t`), `--user` (`-u`), `--assistant` (`-a`), `--thinking`, `--usage`
+
+Session IDs accept full UUID, 8-char prefix, or partial match.
 
 ### claude-merge-settings
 
