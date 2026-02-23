@@ -11,12 +11,13 @@
 #   capture <session>     Capture last 20 lines of a session's active pane
 #   kill <session>...     Kill one or more sessions
 #
-# All commands exit 0 silently when not inside tmux ($TMUX unset).
+# All commands print "Not in tmux" and exit 0 when $TMUX is unset.
 
 set -euo pipefail
 
-# Not in tmux — exit silently
+# Not in tmux — report and exit
 if [[ -z "${TMUX:-}" ]]; then
+    echo "Not in tmux"
     exit 0
 fi
 

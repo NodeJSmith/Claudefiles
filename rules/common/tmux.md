@@ -8,7 +8,7 @@ At conversation start, rename the session to reflect the current work:
 claude-tmux rename "<name>"
 ```
 
-The script handles the `$TMUX` check internally — exits silently when not in tmux.
+If the output says **"Not in tmux"**, you are not inside a tmux session — do NOT attempt any further tmux commands for the rest of this conversation. No retries, no drift detection, no renaming.
 
 ## Name Format
 
