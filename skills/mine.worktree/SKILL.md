@@ -26,7 +26,7 @@ Creates a new worktree and writes a plan handoff file for a separate Claude sess
    ```
    $(dirname "$(git rev-parse --show-toplevel)")/<branch-name>
    ```
-   Example: if in `~/source/hassette/main`, new worktree goes at `~/source/hassette/fix-auth-bug`.
+   Example: if in `~/source/myapp/main`, new worktree goes at `~/source/myapp/fix-auth-bug`.
 4. **Create the worktree**:
    - New branch: `git worktree add -b <branch> <path> <base-branch>`
    - Existing remote branch: `git fetch origin <branch> && git worktree add <path> <branch>`
