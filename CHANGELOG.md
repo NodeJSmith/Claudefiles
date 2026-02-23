@@ -10,8 +10,8 @@ All notable changes to this Claudefiles repository are documented here.
 - `bin/claude-merge-settings` — three-layer settings merge tool, configurable via `$CLAUDE_DOTFILES_SETTINGS` (#10)
 
 ### Changed
-- Replaced project-specific example name ("hassette") with generic "myapp" across docs and skills
-- Clarified that the Dotfiles merge layer in `claude-merge-settings` is optional and silently skipped when missing
+- Replaced project-specific example name ("hassette") with generic "myapp" across docs and skills (#12)
+- Clarified that the Dotfiles merge layer in `claude-merge-settings` is optional and silently skipped when missing (#12)
 
 ### Fixed
 - `claude-tmux` no longer silently succeeds outside tmux — now reports "Not in tmux" so Claude stops attempting tmux operations (#11)
