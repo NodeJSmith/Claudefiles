@@ -13,6 +13,7 @@ Skills and commands exist for common workflows. **Use these instead of ad-hoc to
 | "list PR threads", "unresolved comments", "PR review threads" | `gh-pr-threads` |
 | "reply to PR comment", "respond to review" | `gh-pr-reply` |
 | "resolve PR thread", "mark thread resolved" | `gh-pr-resolve-thread` |
+| "rename tmux session", "new tmux session", "current session name" | `claude-tmux` |
 | "create a worktree", "parallel work", "list worktrees" | `/mine.worktree` |
 | "start the plan", "begin implementation" (in a plan worktree) | `/mine.start` |
 | "set up bare repo", "convert to worktrees" | `/mine.bare-repo` |
@@ -38,7 +39,7 @@ Skills and commands exist for common workflows. **Use these instead of ad-hoc to
 
 ## CLI Tools
 
-Purpose-built scripts in `~/.local/bin/`. **Use these directly instead of raw `gh api` calls.**
+Purpose-built scripts in `~/.local/bin/`. **Use these directly instead of raw shell commands.**
 
 ### gh-pr-threads
 
@@ -74,6 +75,20 @@ gh-pr-resolve-thread PRRT_abc123 PRRT_def456 PRRT_ghi789   # bulk
 
 - Thread IDs are the `PRRT_...` values from `gh-pr-threads` output
 - Fails fast if any thread can't be resolved
+
+### claude-tmux
+
+Tmux session helper. Exits silently when not inside tmux — no need to check `$TMUX` yourself.
+
+```bash
+claude-tmux rename "myproject-feature"    # rename current session
+claude-tmux current                       # print current session name
+claude-tmux new "myproject-feat" ~/src/myproject   # create + switch to new session
+```
+
+- `rename`: use at conversation start per tmux naming rules
+- `new`: creates a detached session at the given path, then switches to it
+- All commands are no-ops outside tmux
 
 ---
 
