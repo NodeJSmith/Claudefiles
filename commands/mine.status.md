@@ -14,7 +14,7 @@ Collect these in parallel where possible. Each section is **optional** — skip 
 
 Run: `claude-tmux current`
 
-If the output is empty (not in tmux), skip. If the result is purely numeric, treat it as unnamed.
+If the output is "Not in tmux", skip. If the result is purely numeric, treat it as unnamed.
 
 ### Git (Bash)
 
