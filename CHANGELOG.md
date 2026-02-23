@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-02-22
 
 ### Changed
-- `/mine.refactor` skill — replaced line-count metrics and numeric thresholds with holistic code reading throughout all phases
+- `/mine.refactor` skill — replaced line-count metrics and numeric thresholds with holistic code reading throughout all phases (#7)
 
 ### Added
 - `capabilities.md` rule — intent routing table and usage reference for all skills, commands, and CLI tools (#5)
