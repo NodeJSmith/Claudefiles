@@ -10,6 +10,12 @@ Fast "where am I?" snapshot. No subagents. Target output: 10-15 lines.
 
 Collect these in parallel where possible. Each section is **optional** — skip gracefully if data is unavailable.
 
+### Tmux (Bash)
+
+Run: `claude-tmux current`
+
+If the output is empty (not in tmux), skip. If the result is purely numeric, treat it as unnamed.
+
 ### Git (Bash)
 
 Run: `git log --oneline -1 --format="%s (%cr)" 2>/dev/null && git status --short 2>/dev/null && git rev-list --count HEAD --not $(git rev-parse --abbrev-ref @{upstream} 2>/dev/null || echo HEAD) 2>/dev/null`
@@ -29,6 +35,7 @@ Read `/tmp/claude-errors-$CLAUDE_SESSION_ID.md`. If the file doesn't exist or is
 Print a compact status block. Use exactly this structure, omitting sections that have no data:
 
 ```
+Session: <name> (or "<number> (unnamed)" if numeric, omit if not in tmux)
 Branch: <branch> (<N> ahead of <upstream>)
 Uncommitted: <N> files modified, <N> untracked
 
