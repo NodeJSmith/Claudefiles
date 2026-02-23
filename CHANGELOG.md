@@ -8,7 +8,7 @@ All notable changes to this Claudefiles repository are documented here.
 - `command-output.md` rule — two-step pattern for preserving verbose command output in `/tmp` files to avoid re-running truncated commands (#9)
 - `bin/get-tmp-filename` helper script — creates temp files for output capture, pre-allowed via `Bash(get-tmp-filename)` (#9)
 - `bin/claude-merge-settings` — three-layer settings merge tool, configurable via `$CLAUDE_DOTFILES_SETTINGS` (#10)
-- `bin/claude-log` — query Claude Code JSONL session logs with search, stats, skill/agent usage, and permission auditing
+- `bin/claude-log` — query Claude Code JSONL session logs with search, stats, skill/agent usage, and permission auditing (#13)
 
 ### Changed
 - Replaced project-specific example name ("hassette") with generic "myapp" across docs and skills (#12)
