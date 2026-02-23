@@ -92,7 +92,7 @@ claude-tmux kill "old-session"            # kill one or more sessions
 
 - `list` output: `name|attached|windows|last_activity` (one line per session)
 - `panes` output: `session|window_index|command|path|pid` (one line per pane)
-- `kill` accepts multiple session names as arguments
+- `kill` accepts multiple session names as arguments; fails fast if any session doesn't exist
 
 ---
 
