@@ -14,12 +14,12 @@ If the output says **"Not in tmux"**, you are not inside a tmux session — do N
 
 `<project>-<context>`, kebab-case, max ~30 chars.
 
-- **project**: derived from the working directory name (e.g., `dotfiles`, `hassette`, `claudefiles`)
+- **project**: derived from the working directory name (e.g., `dotfiles`, `myapp`, `claudefiles`)
 - **context**: branch name, issue number, task description — whatever best identifies the work
 
 Examples:
 - `dotfiles-main` — general work on main branch
-- `hassette-238-url-fix` — issue worktree
+- `myapp-238-url-fix` — issue worktree
 - `claudefiles-pr3` — PR review
 - `dotfiles-tmux-naming` — feature work
 

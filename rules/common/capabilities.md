@@ -109,6 +109,8 @@ Layers (later wins):
 2. `~/Dotfiles/config/claude/settings.json` — private, cross-machine (override with `$CLAUDE_DOTFILES_SETTINGS`)
 3. `~/.claude/settings.machine.json` — machine-specific
 
+Layer 2 (Dotfiles) is optional — the script skips any missing layer. To use your own private settings layer, set `$CLAUDE_DOTFILES_SETTINGS` to its path. If unset and `~/Dotfiles/config/claude/settings.json` doesn't exist, it's silently skipped.
+
 Special merge rules:
 - `permissions.allow` — concatenate + deduplicate across layers
 - `permissions.deny` — concatenate + deduplicate across layers
