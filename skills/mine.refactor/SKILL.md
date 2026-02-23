@@ -19,36 +19,43 @@ $ARGUMENTS — what to refactor. Can be:
 
 ## How to Analyze Code
 
-**Read the code and reason about it directly.** Use the Read tool, Grep, and Glob to examine files. Use Explore subagents to read multiple files in parallel. Do NOT write or execute Python/shell scripts to perform analysis — no AST parsing scripts, no custom complexity calculators, no throwaway code to count imports or detect feature envy. You can read code and identify these patterns yourself.
+**Read the code and reason about it holistically.** Use the Read tool, Grep, and Glob to examine files. Use Explore subagents to read multiple files in parallel. Form your own judgment about what needs refactoring by reading and understanding the code — its structure, clarity, coupling, and intent.
+
+Do NOT:
+- Write or execute scripts to perform analysis (no AST parsers, no complexity calculators, no throwaway code)
+- Count lines of code, cyclomatic complexity, or any other metric as a proxy for code quality
+- Use numeric thresholds to decide what needs refactoring (e.g., "this function is 52 lines so it needs splitting")
+- Rely on `wc -l`, `radon`, `pylint --score`, or any tool that reduces code quality to a number
 
 The only commands to execute during analysis are:
 - `git log` / `git diff` — for churn and history data
 - `pytest --cov` or equivalent — for actual test coverage numbers
 - Project linters (`ruff`, `eslint`) — for existing lint configuration output
 
-Everything else — identifying smells, mapping dependencies, assessing coupling, spotting duplication — comes from reading the files.
+Everything else — identifying smells, mapping dependencies, assessing coupling, spotting duplication — comes from **reading the actual code** and understanding what it does. A 200-line function that does one coherent thing well might be fine. A 30-line function that tangles three concerns might be urgent. You can tell the difference by reading, not by counting.
 
 ## Phase 1: Discover Scope
 
 ### If target is specific (file, function, class)
 
-1. Read the target code
+1. Read the target code — understand what it does, how it's structured, where it's unclear
 2. Identify its dependencies — use Grep to find imports and call sites
-3. Measure size (lines, complexity) to gauge effort
+3. Assess the code holistically — is it doing too much? Is it tangled? Is it hard to follow?
 4. Check for existing test coverage — this determines how aggressive we can safely be
 
 ### If target is vague or empty
 
 1. If empty, check `git diff --name-only HEAD~5` for recently changed files
-2. Read candidate files and look for code smells:
-   - Functions > 50 lines
-   - Files > 400 lines
-   - Deep nesting (> 4 levels)
-   - God classes / modules doing too many things
+2. Read candidate files and look for code smells — things you notice by reading, not by measuring:
+   - Functions that do too many things or are hard to follow
+   - Files that lack a clear single purpose
+   - Deep nesting that obscures the main logic path
+   - God classes / modules with tangled responsibilities
    - Duplicated logic across files
-   - Long parameter lists
+   - Functions that take too many parameters to reason about
    - Feature envy (function uses another module's data more than its own)
-3. Rank findings by impact (how much cleaner the code would be) and risk (how many call sites, how much test coverage)
+   - Code where you have to read it twice to understand what it does
+3. Rank findings by impact (how much clearer the code would be) and risk (how many call sites, how much test coverage)
 
 ### Present findings with AskUserQuestion
 
@@ -58,9 +65,9 @@ AskUserQuestion:
   header: "Target"
   multiSelect: false
   options:
-    - label: "user_service.py (210 lines)"
-      description: "3 functions over 50 lines, low test coverage — split into focused modules"
-    - label: "auth.py:handle_login (85 lines)"
+    - label: "user_service.py"
+      description: "Several functions tangling validation, persistence, and notification logic — split into focused modules"
+    - label: "auth.py:handle_login"
       description: "Deep nesting, mixed concerns — extract validation and token logic"
     - label: "models/ duplication"
       description: "serialize_response() duplicated in 4 files — consolidate"
@@ -106,7 +113,7 @@ Always present at least 2 approaches — a conservative one and a more thorough 
 
 ```
 AskUserQuestion:
-  question: "How would you like to refactor auth.py:handle_login (85 lines)?"
+  question: "How would you like to refactor auth.py:handle_login?"
   header: "Strategy"
   multiSelect: false
   options:
@@ -248,11 +255,11 @@ After all steps are complete:
 
 1. **Run full test suite** — not just the files we touched
 2. **Run linter** on all modified files
-3. **Compare before/after**:
-   - Lines of code (target file)
-   - Max function length
-   - Nesting depth
-   - Number of responsibilities per module
+3. **Assess the result holistically** — re-read the modified code and confirm:
+   - Each function does one clear thing
+   - Each file has a focused purpose
+   - The code reads top-to-bottom without confusion
+   - Responsibilities are properly separated
 
 ### Present summary
 
@@ -260,22 +267,22 @@ After all steps are complete:
 ## Refactor Complete: auth.py — Extract Functions
 
 ### Changes
-- Extracted validate_login_request() (28 lines) from handle_login()
-- Extracted create_auth_token() (24 lines) from handle_login()
-- handle_login() reduced from 85 → 18 lines
+- Extracted validate_login_request() from handle_login() — isolates input validation
+- Extracted create_auth_token() from handle_login() — isolates token creation
+- handle_login() is now a thin orchestrator that reads top-to-bottom
 
 ### Files Modified
-- src/auth.py — restructured
-- tests/test_auth.py — added 4 tests for extracted functions
+- src/auth.py — restructured into focused functions
+- tests/test_auth.py — added tests for extracted functions
 
-### Metrics
-- Max function length: 85 → 28 lines
-- Test coverage: 72% → 89%
-- All 47 tests passing
+### Result
+- Each function now has a single clear responsibility
+- handle_login() reads as a sequence of named steps
+- All tests passing, coverage improved
 
 ### What I didn't touch
-- Token refresh logic (lines 90-140) — works fine as-is
-- The AuthManager class — handle_login was the only oversized method
+- Token refresh logic — coherent as-is, single responsibility
+- The AuthManager class — handle_login was the only tangled method
 ```
 
 ## Refactoring Catalogue
@@ -284,12 +291,12 @@ Reference for identifying which technique applies:
 
 | Smell | Technique | Risk |
 |-------|-----------|------|
-| Long function (> 50 lines) | Extract function | Low |
-| Long file (> 400 lines) | Extract module / split file | Medium |
-| Deep nesting (> 4 levels) | Early returns, extract conditions | Low |
+| Function doing too many things | Extract function | Low |
+| File lacking a clear single purpose | Extract module / split file | Medium |
+| Deep nesting obscuring the main path | Early returns, extract conditions | Low |
 | Duplicated logic | Extract shared function/utility | Low-Medium |
 | God class (too many responsibilities) | Split into focused classes | Medium-High |
-| Long parameter list (> 4 params) | Introduce parameter object / dataclass | Low |
+| Too many parameters to reason about | Introduce parameter object / dataclass | Low |
 | Feature envy | Move function to the class it envies | Medium |
 | Primitive obsession | Introduce value objects | Medium |
 | Shotgun surgery (1 change = many files) | Consolidate related logic | Medium |
