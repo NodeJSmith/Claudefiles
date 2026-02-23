@@ -6,6 +6,10 @@
 #   rename <name>         Rename current tmux session
 #   current               Print current session name
 #   new <name> <path>     Create detached session at path, switch to it
+#   list                  List sessions with metadata (pipe-delimited)
+#   panes                 List all panes with metadata (pipe-delimited)
+#   capture <session>     Capture last 20 lines of a session's active pane
+#   kill <session>...     Kill one or more sessions
 #
 # All commands exit 0 silently when not inside tmux ($TMUX unset).
 
@@ -22,6 +26,10 @@ usage() {
     echo "  rename <name>         Rename current session" >&2
     echo "  current               Print current session name" >&2
     echo "  new <name> <path>     Create detached session at path and switch to it" >&2
+    echo "  list                  List sessions (pipe-delimited)" >&2
+    echo "  panes                 List all panes (pipe-delimited)" >&2
+    echo "  capture <session>     Capture last 20 lines of session pane" >&2
+    echo "  kill <session>...     Kill one or more sessions" >&2
     exit 1
 }
 
@@ -56,6 +64,29 @@ case "$cmd" in
         fi
         tmux new-session -d -s "$name" -c "$path"
         tmux switch-client -t "$name"
+        ;;
+    list)
+        tmux list-sessions -F '#{session_name}|#{session_attached}|#{session_windows}|#{session_activity}'
+        ;;
+    panes)
+        tmux list-panes -a -F '#{session_name}|#{window_index}|#{pane_current_command}|#{pane_current_path}|#{pane_pid}'
+        ;;
+    capture)
+        if [[ $# -lt 1 ]]; then
+            echo "Usage: claude-tmux capture <session>" >&2
+            exit 1
+        fi
+        tmux capture-pane -t "$1" -p | tail -20
+        ;;
+    kill)
+        if [[ $# -lt 1 ]]; then
+            echo "Usage: claude-tmux kill <session> [session...]" >&2
+            exit 1
+        fi
+        for session in "$@"; do
+            tmux kill-session -t "$session"
+            echo "Killed $session"
+        done
         ;;
     *)
         echo "Unknown command: $cmd" >&2

@@ -8,6 +8,7 @@ All notable changes to this Claudefiles repository are documented here.
 - `capabilities.md` rule — intent routing table and usage reference for all skills, commands, and CLI tools (#5)
 - Automatic tmux session naming — Claude renames the tmux session at conversation start based on project and branch/task context (#4)
 - `bin/claude-tmux` helper script — consolidates tmux operations (rename, current, new) behind a single pre-allowed tool (#4)
+- `claude-tmux` list, panes, capture, and kill subcommands — eliminates raw tmux calls for session management
 
 ### Fixed
 - Skill template parser error when `!` appeared in backticks (affected `/mine.ship` and `/mine.create-pr` ADO changelog instructions) (#4)

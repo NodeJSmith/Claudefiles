@@ -78,17 +78,21 @@ gh-pr-resolve-thread PRRT_abc123 PRRT_def456 PRRT_ghi789   # bulk
 
 ### claude-tmux
 
-Tmux session helper. Exits silently when not inside tmux — no need to check `$TMUX` yourself.
+Tmux session helper. All commands exit silently when not inside tmux — no need to check `$TMUX` yourself.
 
 ```bash
 claude-tmux rename "myproject-feature"    # rename current session
 claude-tmux current                       # print current session name
 claude-tmux new "myproject-feat" ~/src/myproject   # create + switch to new session
+claude-tmux list                          # list sessions (pipe-delimited)
+claude-tmux panes                         # list all panes (pipe-delimited)
+claude-tmux capture "myproject-feat"      # last 20 lines of session's active pane
+claude-tmux kill "old-session"            # kill one or more sessions
 ```
 
-- `rename`: use at conversation start per tmux naming rules
-- `new`: creates a detached session at the given path, then switches to it
-- All commands are no-ops outside tmux
+- `list` output: `name|attached|windows|last_activity` (one line per session)
+- `panes` output: `session|window_index|command|path|pid` (one line per pane)
+- `kill` accepts multiple session names as arguments
 
 ---
 
