@@ -111,6 +111,8 @@ Layers (later wins):
 
 Special merge rules:
 - `permissions.allow` — concatenate + deduplicate across layers
+- `permissions.deny` — concatenate + deduplicate across layers
+- `allowedTools` — concatenate + deduplicate across layers
 - `hooks.<type>` arrays — concatenate + deduplicate across layers
 - Everything else — deep merge, last wins
 
