@@ -58,7 +58,7 @@ Creates a new worktree and writes a plan handoff file for a separate Claude sess
    To start:
      cd <path> && claude
    Or, if using tmux:
-     tmux new-session -d -s "<branch-name>" -c "<path>" && tmux attach -t "<branch-name>"
+     tmux new-session -d -s "<branch-name>" -c "<path>" && tmux switch-client -t "<branch-name>"
    Then accept the project trust prompt, and use /mine.start to begin.
    ```
 
