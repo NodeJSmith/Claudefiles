@@ -79,7 +79,7 @@ gh-pr-resolve-thread PRRT_abc123 PRRT_def456 PRRT_ghi789   # bulk
 
 ### claude-tmux
 
-Tmux session helper. All commands exit silently when not inside tmux — no need to check `$TMUX` yourself.
+Tmux session helper. All commands print "Not in tmux" and exit 0 when `$TMUX` is unset.
 
 ```bash
 claude-tmux rename "myproject-feature"    # rename current session

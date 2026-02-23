@@ -9,6 +9,9 @@ All notable changes to this Claudefiles repository are documented here.
 - `bin/get-tmp-filename` helper script — creates temp files for output capture, pre-allowed via `Bash(get-tmp-filename)` (#9)
 - `bin/claude-merge-settings` — three-layer settings merge tool, configurable via `$CLAUDE_DOTFILES_SETTINGS` (#10)
 
+### Fixed
+- `claude-tmux` no longer silently succeeds outside tmux — now reports "Not in tmux" so Claude stops attempting tmux operations (#11)
+
 ## 2026-02-22
 
 ### Changed
