@@ -118,8 +118,10 @@ Skip plan mode entirely. The issue summary from Phase 2 will be used directly as
    ```
    Worktree ready at <path>
    To start:
-     tmux new-session -d -s "<branch-name>" -c "<path>" && tma <branch-name>
-   Then run claude, accept the project trust prompt, and use /mine.start to begin.
+     cd <path> && claude
+   Or, if using tmux:
+     tmux new-session -d -s "<branch-name>" -c "<path>" && tmux attach -t "<branch-name>"
+   Then accept the project trust prompt, and use /mine.start to begin.
    ```
 
 ## Error Handling
