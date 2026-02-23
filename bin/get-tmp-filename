@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Create a temp file for capturing command output.
+# Prints the file path to stdout. Pair with tee/tail in the next command.
+#
+# Usage:
+#   _f=$(get-tmp-filename)
+#   command 2>&1 | tee "$_f" | tail -80
+#
+# Permission: add Bash(get-tmp-filename) to allowedTools for auto-approve.
+set -euo pipefail
+
+mktemp /tmp/claude-cmd-XXXXXX.txt

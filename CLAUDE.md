@@ -53,3 +53,7 @@ When editing skills or commands:
 When adding a new language to rules:
 - Create `rules/<language>/` with markdown files
 - The installer will symlink the entire language directory into `~/.claude/rules/<language>`
+
+When changing settings or permissions:
+- Edit `settings.json` in this repo — **never** write directly to `~/.claude/settings.json`
+- The user runs `merge-settings` to combine this repo's settings with other sources into `~/.claude/settings.json`
