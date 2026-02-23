@@ -24,7 +24,7 @@ Ship the current changes: commit, push, and open a PR. Follow each phase in orde
    - **Update silently** for: new features, user-facing bug fixes, behavior changes, new integrations, breaking changes.
    - **Skip silently** for: fixing tests, lint/format cleanup, internal refactoring with no behavior change, code comments/docstrings, typo fixes in code.
    - **Ask the user** if you're unsure — e.g., a mix of internal and user-facing changes, or changes that could be described either way.
-   - If updating, add entries under the `## [Unreleased]` section. Keep them **high-level and terse** — one bullet per change, two at most. These are **user-facing** entries; describe what changed for the user, not implementation details.
+   - If updating, **match the existing changelog structure**: read the file to determine whether it uses `## [Unreleased]` sections or date-based sections (`## YYYY-MM-DD`). Add entries under the appropriate heading — either the existing `[Unreleased]` section or today's date section (creating it if needed). Keep them **high-level and terse** — one bullet per change, two at most. These are **user-facing** entries; describe what changed for the user, not implementation details.
    - If you need to ask, do so **before** proceeding to the commit.
 4. Stage all relevant files (including CHANGELOG.md if updated).
 5. Create a single commit with an appropriate message.
