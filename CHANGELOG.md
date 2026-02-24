@@ -7,6 +7,7 @@ All notable changes to this Claudefiles repository are documented here.
 ### Added
 - `tests/test_claude_log.py` — 86 unit tests for claude-log pure functions and helpers
 - `.github/workflows/test.yml` — CI pipeline runs tests, lint, and format checks on PRs and pushes
+- `bin/ado-builds` — Azure DevOps build management CLI for listing, canceling, and bulk-canceling pipeline builds (#18)
 
 ### Changed
 - `bin/claude-log` — deduplicated iteration pattern across 4 commands into shared `iter_session_files` generator; added input validation for `--since` and `--limit` flags
