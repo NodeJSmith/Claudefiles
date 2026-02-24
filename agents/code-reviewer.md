@@ -430,6 +430,44 @@ safety check
 pytest --cov=app --cov-report=term-missing
 ```
 
+## Batching Verification Scripts (IMPORTANT)
+
+Each Bash invocation triggers a permission prompt. To minimize friction:
+
+1. **Batch shell checks into a single script file.** Instead of running N one-off commands to test logic, write all checks to a single temporary script and run it once.
+2. **Use `/tmp/review-checks-*.sh`** as the script path. Write the file, make it executable, run it, done — one permission prompt instead of many.
+
+Example — instead of running these separately:
+```bash
+# BAD: 4 separate Bash calls = 4 permission prompts
+echo 'hello world' | grep -c hello
+test -f some/path && echo exists
+shellcheck some_script.sh
+diff <(sort file1) <(sort file2)
+```
+
+Do this:
+```bash
+# GOOD: 1 script file = 1 permission prompt
+# Write all checks to /tmp/review-checks-<hash>.sh, then run it
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "=== Check 1: grep test ==="
+echo 'hello world' | grep -c hello
+
+echo "=== Check 2: path exists ==="
+test -f some/path && echo exists || echo missing
+
+echo "=== Check 3: shellcheck ==="
+shellcheck some_script.sh
+
+echo "=== Check 4: diff ==="
+diff <(sort file1) <(sort file2) || true
+```
+
+This applies to **all ad-hoc verification** — shell logic tests, regex checks, file inspections, format validations. The only commands that should run as individual Bash calls are the standard diagnostic tools above (ruff, pyright, bandit, pip-audit, safety, pytest) which have their own permission allow-list entries.
+
 ## Approval Criteria
 
 - **Approve**: No CRITICAL or HIGH issues
