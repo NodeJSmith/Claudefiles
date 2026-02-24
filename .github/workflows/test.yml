@@ -1,0 +1,24 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Run tests
+        run: uv run --with pytest pytest tests/ -v
+
+      - name: Lint
+        run: uv run --with ruff ruff check bin/ tests/
+
+      - name: Format check
+        run: uv run --with ruff ruff format --check bin/ tests/

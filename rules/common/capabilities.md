@@ -35,6 +35,7 @@ Skills and commands exist for common workflows. **Use these instead of ad-hoc to
 | "session retrospective", "what did we learn" | `/mine.session_reflect` |
 | "capture this pattern", "save this lesson" | `/mine.capture_lesson` |
 | "evaluate this repo", "should I use this library" | `/mine.eval-repo` |
+| "mutation test", "do my tests actually catch bugs", "verify test quality" | `/mine.mutation-test` |
 | "merge settings", "apply settings", "update claude settings" | `claude-merge-settings` |
 | "what did I work on yesterday", "find that session where...", "show me the logs" | `claude-log` |
 
@@ -258,6 +259,10 @@ Create and maintain Architecture Decision Records. Tracks context, choices, cons
 ### /mine.eval-repo
 
 Evaluate a third-party GitHub repo before adopting it. Security, maintenance, code quality, and fit assessment.
+
+### /mine.mutation-test
+
+Mutation testing — intentionally break code to verify tests catch real bugs. Claude-driven mutations (no framework). Reads code, crafts targeted semantic mutations, applies each one, runs tests, reverts. Reports surviving mutations and helps write tests to kill them.
 
 ---
 

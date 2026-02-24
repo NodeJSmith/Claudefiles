@@ -56,6 +56,58 @@ def c(code: str, text: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _parse_since(since: str | None) -> datetime | None:
+    """Parse a YYYY-MM-DD date string into a timezone-aware datetime.
+
+    Returns ``None`` when *since* is falsy.  Exits with a user-friendly
+    error on invalid format.
+    """
+    if not since:
+        return None
+    try:
+        return datetime.strptime(since, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    except ValueError:
+        print(
+            f"Error: invalid date '{since}' — expected YYYY-MM-DD format",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+def iter_session_files(
+    *,
+    project_filter: str | None = None,
+    since: str | None = None,
+) -> Generator[tuple[str, str, Path], None, None]:
+    """Yield ``(project_name, session_id, jsonl_path)`` for matching sessions.
+
+    Handles project name filtering and mtime-based date filtering so callers
+    don't have to.
+    """
+    if not PROJECTS_DIR.is_dir():
+        return
+
+    since_dt = _parse_since(since)
+
+    for project_dir in sorted(PROJECTS_DIR.iterdir()):
+        if not project_dir.is_dir():
+            continue
+
+        proj_name = project_name_from_dir(project_dir.name)
+        if project_filter and project_filter.lower() not in proj_name.lower():
+            continue
+
+        for jsonl_file in sorted(project_dir.glob("*.jsonl")):
+            if since_dt:
+                mod_time = datetime.fromtimestamp(
+                    jsonl_file.stat().st_mtime, tz=timezone.utc
+                )
+                if mod_time < since_dt:
+                    continue
+
+            yield proj_name, jsonl_file.stem, jsonl_file
+
+
 def project_name_from_dir(dirname: str) -> str:
     """Extract human-readable project name from encoded dir name.
 
@@ -83,65 +135,45 @@ def find_sessions(
     limit: int = 20,
 ) -> list[dict[str, Any]]:
     """Find sessions across all projects."""
-    if not PROJECTS_DIR.is_dir():
-        return []
-
-    since_dt: datetime | None = None
-    if since:
-        since_dt = datetime.strptime(since, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-
     sessions: list[dict[str, Any]] = []
 
-    for project_dir in PROJECTS_DIR.iterdir():
-        if not project_dir.is_dir():
+    for proj_name, session_id, jsonl_file in iter_session_files(
+        project_filter=project_filter, since=since
+    ):
+        mod_time = datetime.fromtimestamp(jsonl_file.stat().st_mtime, tz=timezone.utc)
+        branch = ""
+        msg_count = 0
+        first_ts = ""
+
+        try:
+            with open(jsonl_file) as f:
+                for line in f:
+                    entry = json.loads(line)
+                    entry_type = entry.get("type", "")
+                    if entry_type in ("user", "assistant"):
+                        msg_count += 1
+                    if not branch and entry.get("gitBranch"):
+                        branch = entry["gitBranch"]
+                    if not first_ts and entry.get("timestamp"):
+                        first_ts = entry["timestamp"]
+        except (json.JSONDecodeError, OSError):
             continue
 
-        proj_name = project_name_from_dir(project_dir.name)
-        if project_filter and project_filter.lower() not in proj_name.lower():
+        if msg_count == 0:
             continue
 
-        for jsonl_file in project_dir.glob("*.jsonl"):
-            stat = jsonl_file.stat()
-            mod_time = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
-
-            if since_dt and mod_time < since_dt:
-                continue
-
-            # Quick scan: read first few lines for metadata
-            session_id = jsonl_file.stem
-            branch = ""
-            msg_count = 0
-            first_ts = ""
-
-            try:
-                with open(jsonl_file) as f:
-                    for line in f:
-                        entry = json.loads(line)
-                        entry_type = entry.get("type", "")
-                        if entry_type in ("user", "assistant"):
-                            msg_count += 1
-                        if not branch and entry.get("gitBranch"):
-                            branch = entry["gitBranch"]
-                        if not first_ts and entry.get("timestamp"):
-                            first_ts = entry["timestamp"]
-            except (json.JSONDecodeError, OSError):
-                continue
-
-            if msg_count == 0:
-                continue
-
-            sessions.append(
-                {
-                    "session_id": session_id,
-                    "project": proj_name,
-                    "project_path": project_path_from_dir(project_dir.name),
-                    "date": first_ts[:10] if first_ts else mod_time.strftime("%Y-%m-%d"),
-                    "timestamp": first_ts or mod_time.isoformat(),
-                    "messages": msg_count,
-                    "branch": branch,
-                    "path": str(jsonl_file),
-                }
-            )
+        sessions.append(
+            {
+                "session_id": session_id,
+                "project": proj_name,
+                "project_path": project_path_from_dir(jsonl_file.parent.name),
+                "date": first_ts[:10] if first_ts else mod_time.strftime("%Y-%m-%d"),
+                "timestamp": first_ts or mod_time.isoformat(),
+                "messages": msg_count,
+                "branch": branch,
+                "path": str(jsonl_file),
+            }
+        )
 
     sessions.sort(key=lambda s: s["timestamp"], reverse=True)
     return sessions[:limit]
@@ -166,11 +198,16 @@ def resolve_session(session_id_prefix: str) -> Path:
                 matches.append(jsonl_file)
 
     if not matches:
-        print(f"Error: no session found matching '{session_id_prefix}'", file=sys.stderr)
+        print(
+            f"Error: no session found matching '{session_id_prefix}'", file=sys.stderr
+        )
         sys.exit(1)
 
     if len(matches) > 1:
-        print(f"Error: ambiguous session prefix '{session_id_prefix}', matches:", file=sys.stderr)
+        print(
+            f"Error: ambiguous session prefix '{session_id_prefix}', matches:",
+            file=sys.stderr,
+        )
         for m in matches[:10]:
             proj = project_name_from_dir(m.parent.name)
             print(f"  {m.stem}  ({proj})", file=sys.stderr)
@@ -225,7 +262,9 @@ def extract_tool_uses(message: dict[str, Any]) -> list[dict[str, Any]]:
 def format_table(rows: list[list[str]], headers: list[str]) -> str:
     """Format rows as an aligned text table."""
     all_rows = [headers, *rows]
-    col_widths = [max(len(str(row[i])) for row in all_rows) for i in range(len(headers))]
+    col_widths = [
+        max(len(str(row[i])) for row in all_rows) for i in range(len(headers))
+    ]
 
     lines: list[str] = []
     header_line = "  ".join(h.ljust(w) for h, w in zip(headers, col_widths))
@@ -282,9 +321,17 @@ def tool_signature(name: str, inp: dict[str, Any]) -> str:
     if name in ("Read", "Write", "Edit"):
         return f"{name}({inp.get('file_path', '')})"
     if name == "Grep":
-        return f"Grep({inp.get('path', '')})" if inp.get("path") else f"Grep({inp.get('pattern', '')})"
+        return (
+            f"Grep({inp.get('path', '')})"
+            if inp.get("path")
+            else f"Grep({inp.get('pattern', '')})"
+        )
     if name == "Glob":
-        return f"Glob({inp.get('path', '')})" if inp.get("path") else f"Glob({inp.get('pattern', '')})"
+        return (
+            f"Glob({inp.get('path', '')})"
+            if inp.get("path")
+            else f"Glob({inp.get('pattern', '')})"
+        )
     if name == "WebFetch":
         return f"WebFetch({inp.get('url', '')})"
     if name == "Task":
@@ -492,23 +539,27 @@ def cmd_show(args: argparse.Namespace) -> None:
                     name = block.get("name", "?")
                     inp = block.get("input", {})
                     summary = _summarize_tool_input(name, inp)
-                    print(f"{c(DIM, ts_short)} {c(YELLOW, 'TOOL')}  {c(BOLD, name)}  {summary}")
+                    print(
+                        f"{c(DIM, ts_short)} {c(YELLOW, 'TOOL')}  {c(BOLD, name)}  {summary}"
+                    )
 
                 elif btype == "thinking" and (show_all or args.thinking):
                     text = block.get("thinking", "").strip()
                     if text:
-                        print(f"{c(DIM, ts_short)} {c(MAGENTA, 'THINK')} {truncate(text, 120)}")
+                        print(
+                            f"{c(DIM, ts_short)} {c(MAGENTA, 'THINK')} {truncate(text, 120)}"
+                        )
 
             if args.usage:
                 usage = message.get("usage", {})
                 if usage:
-                    inp = usage.get("input_tokens", 0)
-                    out = usage.get("output_tokens", 0)
+                    inp_tokens = usage.get("input_tokens", 0)
+                    out_tokens = usage.get("output_tokens", 0)
                     cache_read = usage.get("cache_read_input_tokens", 0)
                     cache_create = usage.get("cache_creation_input_tokens", 0)
                     print(
                         f"{c(DIM, ts_short)} {c(CYAN, 'USAGE')} "
-                        f"in={inp} out={out} cache_read={cache_read} cache_create={cache_create}"
+                        f"in={inp_tokens} out={out_tokens} cache_read={cache_read} cache_create={cache_create}"
                     )
 
 
@@ -523,7 +574,12 @@ def _filter_entries_for_show(
         entry_type = entry.get("type", "")
         is_user = entry_type == "user" and (show_all or args.messages or args.user)
         is_assistant = entry_type == "assistant" and (
-            show_all or args.messages or args.assistant or args.tools or args.thinking or args.usage
+            show_all
+            or args.messages
+            or args.assistant
+            or args.tools
+            or args.thinking
+            or args.usage
         )
         if is_user or is_assistant:
             result.append(entry)
@@ -556,84 +612,71 @@ def _summarize_tool_input(name: str, inp: dict[str, Any]) -> str:
     return ", ".join(parts)
 
 
+def _match_entry(
+    entry_type: str,
+    message: dict[str, Any],
+    pattern: re.Pattern[str],
+    type_filter: str | None,
+) -> str:
+    """Return matched text from an entry, or empty string if no match."""
+    if entry_type == "user" and (not type_filter or type_filter == "user"):
+        text = extract_text(message)
+        if pattern.search(text):
+            return text
+
+    elif entry_type == "assistant":
+        content = message.get("content", [])
+        if not isinstance(content, list):
+            return ""
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            btype = block.get("type", "")
+
+            if btype == "text" and (not type_filter or type_filter == "assistant"):
+                text = block.get("text", "")
+                if pattern.search(text):
+                    return text
+
+            if btype == "tool_use" and (not type_filter or type_filter == "tool_use"):
+                inp_str = json.dumps(block.get("input", {}))
+                if pattern.search(inp_str):
+                    name = block.get("name", "?")
+                    return f"[{name}] {_summarize_tool_input(name, block.get('input', {}))}"
+
+    return ""
+
+
 def cmd_search(args: argparse.Namespace) -> None:
     """Search across sessions."""
     pattern = re.compile(re.escape(args.query), re.IGNORECASE)
 
-    if not PROJECTS_DIR.is_dir():
-        print("Error: ~/.claude/projects/ not found", file=sys.stderr)
-        sys.exit(1)
-
-    since_dt: datetime | None = None
-    if args.since:
-        since_dt = datetime.strptime(args.since, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-
     results: list[dict[str, Any]] = []
     max_results = args.limit
 
-    for project_dir in sorted(PROJECTS_DIR.iterdir()):
-        if not project_dir.is_dir():
-            continue
+    for proj_name, session_id, jsonl_file in iter_session_files(
+        project_filter=args.project, since=args.since
+    ):
+        for entry in iter_entries(jsonl_file):
+            entry_type = entry.get("type", "")
+            message = entry.get("message", {})
+            ts = entry.get("timestamp", "")
 
-        proj_name = project_name_from_dir(project_dir.name)
-        if args.project and args.project.lower() not in proj_name.lower():
-            continue
+            matched_text = _match_entry(entry_type, message, pattern, args.type)
 
-        for jsonl_file in sorted(project_dir.glob("*.jsonl")):
-            if since_dt:
-                mod_time = datetime.fromtimestamp(jsonl_file.stat().st_mtime, tz=timezone.utc)
-                if mod_time < since_dt:
-                    continue
-
-            session_id = jsonl_file.stem
-            for entry in iter_entries(jsonl_file):
-                entry_type = entry.get("type", "")
-                message = entry.get("message", {})
-                ts = entry.get("timestamp", "")
-
-                matched_text = ""
-
-                if entry_type == "user" and (not args.type or args.type == "user"):
-                    text = extract_text(message)
-                    if pattern.search(text):
-                        matched_text = text
-
-                elif entry_type == "assistant":
-                    content = message.get("content", [])
-                    if not isinstance(content, list):
-                        continue
-                    for block in content:
-                        if not isinstance(block, dict):
-                            continue
-                        btype = block.get("type", "")
-
-                        if btype == "text" and (not args.type or args.type == "assistant"):
-                            text = block.get("text", "")
-                            if pattern.search(text):
-                                matched_text = text
-                                break
-
-                        if btype == "tool_use" and (not args.type or args.type == "tool_use"):
-                            inp_str = json.dumps(block.get("input", {}))
-                            if pattern.search(inp_str):
-                                name = block.get("name", "?")
-                                matched_text = f"[{name}] {_summarize_tool_input(name, block.get('input', {}))}"
-                                break
-
-                if matched_text:
-                    result = {
+            if matched_text:
+                results.append(
+                    {
                         "session_id": session_id[:8],
                         "project": proj_name,
                         "timestamp": ts,
                         "type": entry_type,
                         "text": truncate(matched_text, 120),
                     }
-                    results.append(result)
-                    if len(results) >= max_results:
-                        break
+                )
+                if len(results) >= max_results:
+                    break
 
-            if len(results) >= max_results:
-                break
         if len(results) >= max_results:
             break
 
@@ -646,7 +689,9 @@ def cmd_search(args: argparse.Namespace) -> None:
         return
 
     for r in results:
-        ts_short = r["timestamp"][11:19] if len(r["timestamp"]) >= 19 else r["timestamp"]
+        ts_short = (
+            r["timestamp"][11:19] if len(r["timestamp"]) >= 19 else r["timestamp"]
+        )
         type_color = GREEN if r["type"] == "user" else BLUE
         print(
             f"{c(DIM, r['session_id'])} {c(DIM, ts_short)} "
@@ -767,73 +812,60 @@ def cmd_stats(args: argparse.Namespace) -> None:
     print(f"  {'Cache create':<25} {total_cache_create:,}")
 
 
+_BUILTIN_COMMANDS = frozenset(
+    (
+        "help",
+        "clear",
+        "compact",
+        "resume",
+        "rename",
+        "init",
+        "login",
+        "permissions",
+        "plan",
+    )
+)
+
+
 def cmd_skills(args: argparse.Namespace) -> None:
     """Show skill/command usage across sessions."""
-    if not PROJECTS_DIR.is_dir():
-        print("Error: ~/.claude/projects/ not found", file=sys.stderr)
-        sys.exit(1)
-
-    since_dt: datetime | None = None
-    if args.since:
-        since_dt = datetime.strptime(args.since, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-
     skill_pattern = re.compile(r"<command-name>/([^<]+)</command-name>")
     skill_counts: dict[str, int] = {}
     skill_sessions: dict[str, set[str]] = {}
 
-    for project_dir in sorted(PROJECTS_DIR.iterdir()):
-        if not project_dir.is_dir():
-            continue
+    for _proj_name, session_id, jsonl_file in iter_session_files(
+        project_filter=args.project, since=args.since
+    ):
+        sid = session_id[:8]
+        seen_in_session: set[str] = set()
 
-        proj_name = project_name_from_dir(project_dir.name)
-        if args.project and args.project.lower() not in proj_name.lower():
-            continue
+        for entry in iter_entries(jsonl_file):
+            entry_type = entry.get("type", "")
+            message = entry.get("message", {})
 
-        for jsonl_file in sorted(project_dir.glob("*.jsonl")):
-            if since_dt:
-                mod_time = datetime.fromtimestamp(jsonl_file.stat().st_mtime, tz=timezone.utc)
-                if mod_time < since_dt:
-                    continue
+            # User messages: look for <command-name>/skill</command-name>
+            if entry_type == "user":
+                text = extract_text(message)
+                for match in skill_pattern.finditer(text):
+                    name = match.group(1)
+                    if name in _BUILTIN_COMMANDS:
+                        continue
+                    skill_counts[name] = skill_counts.get(name, 0) + 1
+                    seen_in_session.add(name)
 
-            session_id = jsonl_file.stem[:8]
-            seen_in_session: set[str] = set()
+            # Assistant messages: look for Skill tool_use blocks
+            elif entry_type == "assistant":
+                for tool in extract_tool_uses(message):
+                    if tool.get("name") == "Skill":
+                        skill_name = tool.get("input", {}).get("skill", "")
+                        if skill_name:
+                            skill_counts[skill_name] = (
+                                skill_counts.get(skill_name, 0) + 1
+                            )
+                            seen_in_session.add(skill_name)
 
-            for entry in iter_entries(jsonl_file):
-                entry_type = entry.get("type", "")
-                message = entry.get("message", {})
-
-                # User messages: look for <command-name>/skill</command-name>
-                if entry_type == "user":
-                    text = extract_text(message)
-                    for match in skill_pattern.finditer(text):
-                        name = match.group(1)
-                        # Skip built-in CLI commands
-                        if name in (
-                            "help",
-                            "clear",
-                            "compact",
-                            "resume",
-                            "rename",
-                            "init",
-                            "login",
-                            "permissions",
-                            "plan",
-                        ):
-                            continue
-                        skill_counts[name] = skill_counts.get(name, 0) + 1
-                        seen_in_session.add(name)
-
-                # Assistant messages: look for Skill tool_use blocks
-                elif entry_type == "assistant":
-                    for tool in extract_tool_uses(message):
-                        if tool.get("name") == "Skill":
-                            skill_name = tool.get("input", {}).get("skill", "")
-                            if skill_name:
-                                skill_counts[skill_name] = skill_counts.get(skill_name, 0) + 1
-                                seen_in_session.add(skill_name)
-
-            for name in seen_in_session:
-                skill_sessions.setdefault(name, set()).add(session_id)
+        for name in seen_in_session:
+            skill_sessions.setdefault(name, set()).add(sid)
 
     if not skill_counts:
         print("No skill invocations found.")
@@ -845,13 +877,19 @@ def cmd_skills(args: argparse.Namespace) -> None:
     for name, count in skill_counts.items():
         canonical = name.replace(":", ".", 1) if ":" in name else name
         normalized[canonical] = normalized.get(canonical, 0) + count
-        normalized_sessions.setdefault(canonical, set()).update(skill_sessions.get(name, set()))
+        normalized_sessions.setdefault(canonical, set()).update(
+            skill_sessions.get(name, set())
+        )
 
     sorted_skills = sorted(normalized.items(), key=lambda x: -x[1])
 
     if args.json:
         result = [
-            {"skill": name, "invocations": count, "sessions": len(normalized_sessions.get(name, set()))}
+            {
+                "skill": name,
+                "invocations": count,
+                "sessions": len(normalized_sessions.get(name, set())),
+            }
             for name, count in sorted_skills
         ]
         print(json.dumps(result, indent=2))
@@ -864,50 +902,33 @@ def cmd_skills(args: argparse.Namespace) -> None:
 
     print(format_table(rows, ["USES", "SESSIONS", "SKILL"]))
     print()
-    print(f"{c(DIM, f'Total: {sum(normalized.values())} invocations across {len(normalized)} skills')}")
+    print(
+        f"{c(DIM, f'Total: {sum(normalized.values())} invocations across {len(normalized)} skills')}"
+    )
 
 
 def cmd_agents(args: argparse.Namespace) -> None:
     """Show agent usage across sessions."""
-    if not PROJECTS_DIR.is_dir():
-        print("Error: ~/.claude/projects/ not found", file=sys.stderr)
-        sys.exit(1)
-
-    since_dt: datetime | None = None
-    if args.since:
-        since_dt = datetime.strptime(args.since, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-
     agent_counts: dict[str, int] = {}
     agent_sessions: dict[str, set[str]] = {}
 
-    for project_dir in sorted(PROJECTS_DIR.iterdir()):
-        if not project_dir.is_dir():
-            continue
+    for _proj_name, session_id, jsonl_file in iter_session_files(
+        project_filter=args.project, since=args.since
+    ):
+        sid = session_id[:8]
+        seen_in_session: set[str] = set()
 
-        proj_name = project_name_from_dir(project_dir.name)
-        if args.project and args.project.lower() not in proj_name.lower():
-            continue
+        for entry in iter_entries(jsonl_file, type_filter="assistant"):
+            message = entry.get("message", {})
+            for tool in extract_tool_uses(message):
+                if tool.get("name") == "Task":
+                    agent_name = tool.get("input", {}).get("subagent_type", "")
+                    if agent_name:
+                        agent_counts[agent_name] = agent_counts.get(agent_name, 0) + 1
+                        seen_in_session.add(agent_name)
 
-        for jsonl_file in sorted(project_dir.glob("*.jsonl")):
-            if since_dt:
-                mod_time = datetime.fromtimestamp(jsonl_file.stat().st_mtime, tz=timezone.utc)
-                if mod_time < since_dt:
-                    continue
-
-            session_id = jsonl_file.stem[:8]
-            seen_in_session: set[str] = set()
-
-            for entry in iter_entries(jsonl_file, type_filter="assistant"):
-                message = entry.get("message", {})
-                for tool in extract_tool_uses(message):
-                    if tool.get("name") == "Task":
-                        agent_name = tool.get("input", {}).get("subagent_type", "")
-                        if agent_name:
-                            agent_counts[agent_name] = agent_counts.get(agent_name, 0) + 1
-                            seen_in_session.add(agent_name)
-
-            for name in seen_in_session:
-                agent_sessions.setdefault(name, set()).add(session_id)
+        for name in seen_in_session:
+            agent_sessions.setdefault(name, set()).add(sid)
 
     if not agent_counts:
         print("No agent invocations found.")
@@ -917,7 +938,11 @@ def cmd_agents(args: argparse.Namespace) -> None:
 
     if args.json:
         result = [
-            {"agent": name, "invocations": count, "sessions": len(agent_sessions.get(name, set()))}
+            {
+                "agent": name,
+                "invocations": count,
+                "sessions": len(agent_sessions.get(name, set())),
+            }
             for name, count in sorted_agents
         ]
         print(json.dumps(result, indent=2))
@@ -930,7 +955,9 @@ def cmd_agents(args: argparse.Namespace) -> None:
 
     print(format_table(rows, ["USES", "SESSIONS", "AGENT"]))
     print()
-    print(f"{c(DIM, f'Total: {sum(agent_counts.values())} invocations across {len(agent_counts)} agents')}")
+    print(
+        f"{c(DIM, f'Total: {sum(agent_counts.values())} invocations across {len(agent_counts)} agents')}"
+    )
 
 
 def cmd_extract(args: argparse.Namespace) -> None:
@@ -984,7 +1011,9 @@ def _extract_usage(path: Path) -> None:
                     "input_tokens": usage.get("input_tokens", 0),
                     "output_tokens": usage.get("output_tokens", 0),
                     "cache_read_input_tokens": usage.get("cache_read_input_tokens", 0),
-                    "cache_creation_input_tokens": usage.get("cache_creation_input_tokens", 0),
+                    "cache_creation_input_tokens": usage.get(
+                        "cache_creation_input_tokens", 0
+                    ),
                 }
             )
     print(json.dumps(results, indent=2))
@@ -1054,7 +1083,9 @@ def cmd_permissions(args: argparse.Namespace) -> None:
         pattern = suggest_pattern(sig)
         suggestion_sigs.setdefault(pattern, []).append(sig)
         suggestion_counts[pattern] = suggestion_counts.get(pattern, 0) + count
-        suggestion_sessions.setdefault(pattern, set()).update(unmatched_sessions.get(sig, set()))
+        suggestion_sessions.setdefault(pattern, set()).update(
+            unmatched_sessions.get(sig, set())
+        )
 
     if args.json:
         result = {
@@ -1067,7 +1098,9 @@ def cmd_permissions(args: argparse.Namespace) -> None:
                         "pattern": pat,
                         "invocations": suggestion_counts[pat],
                         "sessions": len(suggestion_sessions.get(pat, set())),
-                        "examples": [truncate(s, 120) for s in sorted(suggestion_sigs[pat])[:5]],
+                        "examples": [
+                            truncate(s, 120) for s in sorted(suggestion_sigs[pat])[:5]
+                        ],
                     }
                     for pat in suggestion_counts
                 ],
@@ -1114,6 +1147,17 @@ def cmd_permissions(args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _positive_int(value: str) -> int:
+    """Argparse type: a positive integer."""
+    try:
+        n = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"invalid int value: '{value}'") from exc
+    if n <= 0:
+        raise argparse.ArgumentTypeError(f"must be a positive integer, got {n}")
+    return n
+
+
 def _add_global_opts(parser: argparse.ArgumentParser) -> None:
     """Add --json and --no-color to a subparser."""
     parser.add_argument("--json", action="store_true", help="Output as JSON")
@@ -1133,16 +1177,28 @@ def build_parser() -> argparse.ArgumentParser:
     p_list = subs.add_parser("list", help="List sessions")
     p_list.add_argument("--project", "-p", help="Filter by project name substring")
     p_list.add_argument("--since", "-s", help="Filter by date (YYYY-MM-DD)")
-    p_list.add_argument("--limit", "-l", type=int, default=20, help="Max results (default: 20)")
+    p_list.add_argument(
+        "--limit",
+        "-l",
+        type=_positive_int,
+        default=20,
+        help="Max results (default: 20)",
+    )
     _add_global_opts(p_list)
 
     # show
     p_show = subs.add_parser("show", help="Show session content")
     p_show.add_argument("session_id", help="Session ID or prefix")
-    p_show.add_argument("--messages", "-m", action="store_true", help="User + assistant text only")
-    p_show.add_argument("--tools", "-t", action="store_true", help="Tool use blocks only")
+    p_show.add_argument(
+        "--messages", "-m", action="store_true", help="User + assistant text only"
+    )
+    p_show.add_argument(
+        "--tools", "-t", action="store_true", help="Tool use blocks only"
+    )
     p_show.add_argument("--user", "-u", action="store_true", help="User messages only")
-    p_show.add_argument("--assistant", "-a", action="store_true", help="Assistant messages only")
+    p_show.add_argument(
+        "--assistant", "-a", action="store_true", help="Assistant messages only"
+    )
     p_show.add_argument("--thinking", action="store_true", help="Thinking blocks only")
     p_show.add_argument("--usage", action="store_true", help="Token usage per turn")
     _add_global_opts(p_show)
@@ -1151,9 +1207,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_search = subs.add_parser("search", help="Search across sessions")
     p_search.add_argument("query", help="Search query")
     p_search.add_argument("--project", "-p", help="Filter by project name substring")
-    p_search.add_argument("--type", choices=["user", "assistant", "tool_use"], help="Filter by type")
+    p_search.add_argument(
+        "--type", choices=["user", "assistant", "tool_use"], help="Filter by type"
+    )
     p_search.add_argument("--since", "-s", help="Filter by date (YYYY-MM-DD)")
-    p_search.add_argument("--limit", "-l", type=int, default=50, help="Max results (default: 50)")
+    p_search.add_argument(
+        "--limit",
+        "-l",
+        type=_positive_int,
+        default=50,
+        help="Max results (default: 50)",
+    )
     _add_global_opts(p_search)
 
     # stats
@@ -1184,10 +1248,18 @@ def build_parser() -> argparse.ArgumentParser:
     _add_global_opts(p_extract)
 
     # permissions
-    p_perms = subs.add_parser("permissions", help="Suggest new permission allow entries")
+    p_perms = subs.add_parser(
+        "permissions", help="Suggest new permission allow entries"
+    )
     p_perms.add_argument("--project", "-p", help="Filter by project name substring")
     p_perms.add_argument("--since", "-s", help="Filter by date (YYYY-MM-DD)")
-    p_perms.add_argument("--limit", "-l", type=int, default=20, help="Max sessions to scan (default: 20)")
+    p_perms.add_argument(
+        "--limit",
+        "-l",
+        type=_positive_int,
+        default=20,
+        help="Max sessions to scan (default: 20)",
+    )
     _add_global_opts(p_perms)
 
     return parser
