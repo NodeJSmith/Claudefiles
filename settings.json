@@ -6,6 +6,7 @@
       "Bash(gh-pr-reply:*)",
       "Bash(gh-pr-resolve-thread:*)",
       "Bash(gh-pr-threads:*)",
+      "Bash(ado-builds:*)",
       "Read(/tmp/*)",
       "Write(/tmp/*)",
       "Edit(/tmp/*)",

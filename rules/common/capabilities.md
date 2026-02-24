@@ -38,6 +38,7 @@ Skills and commands exist for common workflows. **Use these instead of ad-hoc to
 | "mutation test", "do my tests actually catch bugs", "verify test quality" | `/mine.mutation-test` |
 | "merge settings", "apply settings", "update claude settings" | `claude-merge-settings` |
 | "what did I work on yesterday", "find that session where...", "show me the logs" | `claude-log` |
+| "cancel builds", "cancel pipeline runs", "list ADO builds", "cancel-by-tag" | `ado-builds` |
 
 ---
 
@@ -173,6 +174,29 @@ Special merge rules:
 - `allowedTools` — concatenate + deduplicate across layers
 - `hooks.<type>` arrays — concatenate + deduplicate across layers
 - Everything else — deep merge, last wins
+
+### ado-builds
+
+Azure DevOps build management. List, cancel, or bulk-cancel pipeline builds.
+
+```bash
+# List builds by tag
+ado-builds list --tags 5a4086c1
+
+# List in-progress builds on a branch
+ado-builds list --branch master --status inProgress
+
+# Cancel specific builds
+ado-builds cancel 235302 235305 235306
+
+# Cancel all in-progress builds for a tag
+ado-builds cancel-by-tag 5a4086c1
+ado-builds cancel-by-tag 5a4086c1 --branch master
+```
+
+- Uses `az devops` defaults for org/project (no flags needed)
+- `cancel` skips already completed/cancelled builds
+- `cancel-by-tag` lists matches then cancels all in-progress ones
 
 ---
 
