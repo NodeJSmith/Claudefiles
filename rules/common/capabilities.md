@@ -9,7 +9,7 @@ Skills and commands exist for common workflows. **Use these instead of ad-hoc to
 | "ship it", "commit push and PR" | `/mine.ship` |
 | "commit and push" | `/mine.commit-push` |
 | "create a PR", "open pull request" | `/mine.create-pr` |
-| "address PR comments", "fix review feedback" | `/mine.address-pr-comments` |
+| "address PR comments", "fix review feedback", "check PR issues", "fix failing CI", "resolve merge conflicts" | `/mine.address-pr-issues` |
 | "list PR threads", "unresolved comments", "PR review threads" | `gh-pr-threads` |
 | "reply to PR comment", "respond to review" | `gh-pr-reply` |
 | "resolve PR thread", "mark thread resolved" | `gh-pr-resolve-thread` |
@@ -289,9 +289,9 @@ Commit staged/unstaged changes and push to current branch. Analyzes diff, drafts
 
 Review full branch diff, draft PR title and summary, create via `gh` (GitHub) or `az repos` (ADO).
 
-### /mine.address-pr-comments
+### /mine.address-pr-issues
 
-Fetch unresolved PR review threads, address each systematically in plan mode, resolve threads on GitHub with explanatory comments. Uses `gh-pr-threads`, `gh-pr-reply`, and `gh-pr-resolve-thread` under the hood.
+Triage and resolve PR blockers — review comments, merge conflicts, and failing CI — on GitHub or Azure DevOps. Uses plan mode for structured resolution, helper scripts for both platforms (`gh-pr-threads`/`gh-pr-reply`/`gh-pr-resolve-thread` for GitHub, `ado-pr`/`ado-pr-threads` for ADO).
 
 ---
 

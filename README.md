@@ -39,7 +39,7 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 
 | Skill | Description |
 |-------|-------------|
-| `mine.address-pr-comments` | Fetch unresolved PR review comments and systematically address them |
+| `mine.address-pr-issues` | Triage and resolve PR blockers — review comments, merge conflicts, and failing CI |
 | `mine.adrs` | Create and maintain Architecture Decision Records for project decisions |
 | `mine.audit` | Systematic codebase health audit -- surfaces aging code, brittle designs, missing tests, ranked by impact |
 | `mine.backend-patterns` | Backend architecture patterns, API design, database optimization for Python/FastAPI |
