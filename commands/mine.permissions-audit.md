@@ -107,7 +107,7 @@ After presenting the report, use AskUserQuestion:
 
 - "Which recommendations should I add to your settings?" with options:
   - **All recommended** — add everything from the "Recommend" section
-  - **Let me pick** — list individual patterns to select from (multiSelect)
+  - **Let me pick** — presents a follow-up AskUserQuestion with `multiSelect: true`, listing each recommended pattern as an option
   - **None for now** — just the report, no changes
 
 If the user chooses to apply:
