@@ -11,9 +11,9 @@ Intentionally introduce bugs into source code and verify that tests catch them. 
 ## Arguments
 
 $ARGUMENTS — what to mutation-test. Can be:
-- A file path: `/mutation-test src/services/payment.py`
-- A function name: `/mutation-test calculate_total`
-- A module: `/mutation-test src/auth/`
+- A file path: `/mine.mutation-test src/services/payment.py`
+- A function name: `/mine.mutation-test calculate_total`
+- A module: `/mine.mutation-test src/auth/`
 - Empty: auto-detect from git diff or recent test context
 
 ## Phase 0: Pre-flight
