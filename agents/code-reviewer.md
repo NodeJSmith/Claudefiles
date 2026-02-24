@@ -466,7 +466,7 @@ echo "=== Check 4: diff ==="
 diff <(sort file1) <(sort file2) || true
 ```
 
-This applies to **all ad-hoc verification** — shell logic tests, regex checks, file inspections, format validations. The only commands that should run as individual Bash calls are the standard diagnostic tools above (ruff, pyright, bandit, pytest) which have their own permission allow-list entries.
+This applies to **all ad-hoc verification** — shell logic tests, regex checks, file inspections, format validations. The only commands that should run as individual Bash calls are the standard diagnostic tools above (ruff, pyright, bandit, pip-audit, safety, pytest) which have their own permission allow-list entries.
 
 ## Approval Criteria
 
