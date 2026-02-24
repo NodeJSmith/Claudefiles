@@ -24,7 +24,7 @@ If `$ARGUMENTS` is empty, use `claude-log permissions --json --limit 20`.
 
 ### Current settings
 
-Read the settings file that manages allow-list entries: `~/Claudefiles/settings.json`. Note the existing `permissions.allow` entries — these are already handled.
+Read `~/Claudefiles/settings.json` if it exists (it may not yet — that's fine). This is for context only — `claude-log permissions` already filters out patterns that match existing `permissions.allow` entries, so its suggestions won't include already-allowed patterns.
 
 ## Step 2: Filter and Categorize
 
@@ -35,7 +35,7 @@ Parse the JSON `suggestions` array. Apply these filters:
 - `AskUserQuestion(*)` — user interaction must always prompt
 - `EnterPlanMode(*)` — deliberate mode switch
 - `ExitPlanMode(*)` — plan approval is the whole point
-- Any pattern where the full serialized content appears (e.g., ExitPlanMode with an entire plan body) — these are one-off invocations, not reusable patterns
+- Patterns over ~200 characters or containing multi-line content — these are one-off invocations with serialized arguments (e.g., ExitPlanMode with an entire plan body), not reusable patterns
 
 ### Skip: too specific to generalize
 
@@ -47,7 +47,7 @@ Parse the JSON `suggestions` array. Apply these filters:
 Categorize remaining suggestions into:
 
 **File access** — Read, Edit, Write, Glob, Grep with project paths. Look for patterns that generalize:
-- Multiple paths under the same project root → suggest `Tool(/path/to/project/*)`
+- Multiple paths under the same project root → suggest per-tool patterns: `Read(/path/to/project/*)`, `Edit(/path/to/project/*)`, `Write(/path/to/project/*)`, `Grep(/path/to/project/*)`, `Glob(/path/to/project/*)`
 - If the project is the current working directory, note it can use a relative-style pattern
 
 **Bash commands** — `Bash(command:*)` patterns. Assess safety:
@@ -112,7 +112,8 @@ After presenting the report, use AskUserQuestion:
 
 If the user chooses to apply:
 
-1. Edit `~/Claudefiles/settings.json` to add the selected patterns to `permissions.allow`
-2. Deduplicate against existing entries
-3. Run `claude-merge-settings` to propagate to `~/.claude/settings.json`
-4. Confirm what was added
+1. If `~/Claudefiles/settings.json` doesn't exist, create it with `{"permissions": {"allow": []}}`
+2. Edit `~/Claudefiles/settings.json` to add the selected patterns to `permissions.allow`
+3. Deduplicate against existing entries
+4. Run `claude-merge-settings` to propagate to `~/.claude/settings.json`
+5. Confirm what was added

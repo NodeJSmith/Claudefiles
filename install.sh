@@ -3,6 +3,7 @@
 set -euo pipefail
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLAUDE_DIR="${CLAUDE_HOME:-$HOME/.claude}"
+BIN_DIR="$HOME/.local/bin"
 
 shadowed=()
 
@@ -43,7 +44,6 @@ fi
 
 # Bin: symlink scripts into ~/.local/bin (should be in PATH)
 if [ -d "$REPO_DIR/bin" ]; then
-  BIN_DIR="$HOME/.local/bin"
   mkdir -p "$BIN_DIR"
   for item in "$REPO_DIR/bin"/*; do
     [ -e "$item" ] || continue
