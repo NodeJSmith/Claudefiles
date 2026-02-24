@@ -4,6 +4,9 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-02-24
 
+### Changed
+- Renamed `mine.address-pr-comments` → `mine.address-pr-issues` — now handles review comments, merge conflicts, and failing CI on both GitHub and Azure DevOps (#22)
+
 ### Added
 - `tests/test_claude_log.py` — 86 unit tests for claude-log pure functions and helpers
 - `.github/workflows/test.yml` — CI pipeline runs tests, lint, and format checks on PRs and pushes
@@ -61,7 +64,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Initial release
 - Extracted shareable Claude Code configuration from personal dotfiles
-- 18 skills: address-pr-comments, adrs, audit, backend-patterns, bare-repo, commit-push, create-pr, human-centered-design, interface-design, python-patterns, python-testing, refactor, research, security-review, ship, start, ux-antipatterns, worktree
+- 18 skills: address-pr-issues, adrs, audit, backend-patterns, bare-repo, commit-push, create-pr, human-centered-design, interface-design, python-patterns, python-testing, refactor, research, security-review, ship, start, ux-antipatterns, worktree
 - 10 commands: 5whys, capture_lesson, interface-design, issues-scan, issues, pre-compact, session_reflect, status, tackle, ux-review
 - 2 agents: code-reviewer, planner
 - 14 rules across common and Python domains (coding-style, testing, security, git-workflow, performance, error-tracking, hooks, patterns, agents)
