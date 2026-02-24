@@ -35,7 +35,7 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 
 ## Contents
 
-### Skills (19)
+### Skills (20)
 
 | Skill | Description |
 |-------|-------------|
@@ -49,6 +49,7 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `mine.eval-repo` | Evaluate a third-party GitHub repo before adopting it -- test coverage, code quality, maintenance health, bus factor |
 | `mine.human-centered-design` | Human-centered frontend design -- empathy, accessibility, progressive enhancement |
 | `mine.interface-design` | Craft and consistency for interface design -- dashboards, admin panels, apps, tools |
+| `mine.mutation-test` | Mutation testing -- intentionally break code to verify tests catch real bugs |
 | `mine.python-patterns` | Pythonic idioms, PEP 8, type hints, and best practices |
 | `mine.python-testing` | Python testing strategies using pytest, TDD, fixtures, mocking, parametrization |
 | `mine.refactor` | Interactive refactoring with strategy selection and incremental verification |
