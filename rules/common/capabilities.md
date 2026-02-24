@@ -39,6 +39,8 @@ Skills and commands exist for common workflows. **Use these instead of ad-hoc to
 | "merge settings", "apply settings", "update claude settings" | `claude-merge-settings` |
 | "what did I work on yesterday", "find that session where...", "show me the logs" | `claude-log` |
 | "cancel builds", "cancel pipeline runs", "list ADO builds", "cancel-by-tag" | `ado-builds` |
+| "create ADO PR", "list ADO PRs", "show ADO PR", "update ADO PR" | `ado-pr` |
+| "list ADO PR threads", "reply to ADO PR comment", "resolve ADO PR thread" | `ado-pr-threads` |
 
 ---
 
@@ -208,6 +210,68 @@ ado-builds cancel-by-tag 5a4086c1 --branch master
 - `cancel` skips already completed/cancelled builds
 - `cancel-by-tag` lists matches then cancels all in-progress ones
 - `cancel-by-tag` defaults to the branch from `git-default-branch` (falls back to `master` outside a git repo)
+
+### ado-pr
+
+Azure DevOps PR helper — simplified wrapper around `az repos pr` with smart defaults.
+
+```bash
+# List PRs
+ado-pr list                           # defaults: --status active, --top 50
+ado-pr list --status completed --top 10
+ado-pr list --author @me              # @me expands to current user
+
+# Show PR details
+ado-pr show                           # auto-detect from current branch
+ado-pr show 123                       # specific PR ID
+
+# Current branch PR
+ado-pr current                        # errors if no PR found
+
+# Create PR
+ado-pr create                         # defaults: --target master
+ado-pr create --title "Fix bug" --description "Details..." --draft
+
+# Update PR
+ado-pr update 123 --title "New title"
+ado-pr update 123 --status completed  # status: active, abandoned, completed
+```
+
+- Uses `az devops` defaults for org/project (no flags needed)
+- Auto-detects PR from current branch when omitted
+- `@me` author shortcut expands to current user
+- All commands support `--json` flag for structured output
+
+### ado-pr-threads
+
+Azure DevOps PR thread operations — list, reply, resolve threads.
+
+```bash
+# List threads
+ado-pr-threads list                   # auto-detect PR, show active threads
+ado-pr-threads list 123               # specific PR
+ado-pr-threads list --all             # include resolved threads
+ado-pr-threads list --json            # JSON output
+
+# Reply to thread
+ado-pr-threads reply 123 456 "Fixed in commit abc1234"
+
+# Resolve threads
+ado-pr-threads resolve 456            # default status: fixed
+ado-pr-threads resolve 456 789 --status closed
+ado-pr-threads resolve 456 --status wontFix
+
+# Resolve by pattern (bulk)
+ado-pr-threads resolve-pattern 123 "typo" --dry-run
+ado-pr-threads resolve-pattern 123 "addressed" --status closed
+```
+
+**Valid statuses**: active, byDesign, closed, fixed, pending, wontFix
+
+- Uses `az devops` defaults for org/project (no flags needed)
+- Auto-detects PR from current branch for `list` and `resolve` commands
+- `resolve-pattern` matches substring in any comment body
+- Skips threads already in target status (idempotent)
 
 ---
 

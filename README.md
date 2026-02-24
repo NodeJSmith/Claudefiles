@@ -91,14 +91,17 @@ Coding guidelines organized by language. These load automatically and shape how 
 
 **Python** (5): coding-style, hooks, patterns, security, testing
 
-### Helper Scripts (8)
+### Helper Scripts (11)
 
 CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
 | Script | Description |
 |--------|-------------|
-| `claude-merge-settings` | Three-layer settings merge tool for `~/.claude/settings.json` |
+| `ado-builds` | Azure DevOps build management -- list, cancel, or bulk-cancel pipeline builds |
+| `ado-pr` | Azure DevOps PR helper -- simplified wrapper around az repos pr with smart defaults |
+| `ado-pr-threads` | Azure DevOps PR thread operations -- list, reply, resolve threads |
 | `claude-log` | Query Claude Code JSONL session logs — search, stats, skill/agent usage, permission auditing |
+| `claude-merge-settings` | Three-layer settings merge tool for `~/.claude/settings.json` |
 | `claude-tmux` | Tmux session helper -- rename, list, create, capture, kill sessions |
 | `get-tmp-filename` | Create temp files for command output capture |
 | `gh-pr-reply` | Reply to a PR review comment thread |
