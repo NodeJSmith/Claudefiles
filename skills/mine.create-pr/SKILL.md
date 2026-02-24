@@ -9,8 +9,8 @@ user-invokable: true
 - Current branch: !`git branch --show-current`
 - Default branch: !`git remote show origin | grep "HEAD branch" | cut -d: -f2 | xargs`
 - Remote URL: !`git remote get-url origin 2>/dev/null`
-- Commits in this branch: !`git log --oneline origin/main..HEAD 2>/dev/null || git log --oneline main..HEAD 2>/dev/null || echo "No commits found"`
-- Full diff summary: !`git diff --stat origin/main...HEAD 2>/dev/null || git diff --stat main...HEAD 2>/dev/null`
+- Commits in this branch: !`db=$(git-default-branch); git log --oneline "origin/${db}..HEAD" 2>/dev/null || git log --oneline "${db}..HEAD" 2>/dev/null || echo "No commits found"`
+- Full diff summary: !`db=$(git-default-branch); git diff --stat "origin/${db}...HEAD" 2>/dev/null || git diff --stat "${db}...HEAD" 2>/dev/null`
 
 ## Your task
 

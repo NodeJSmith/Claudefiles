@@ -18,7 +18,7 @@ Ship the current changes: commit, push, and open a PR. Follow each phase in orde
 
 ### Phase 1 — Commit & Push
 
-1. If on `main` or `master`, create a new branch first.
+1. If on the default branch (detected in Context above), create a new branch first.
 2. **COMMIT SCOPE CHECK:** Review the diff for unrelated changes that belong in separate commits (e.g., a feature + an unrelated bug fix, or a config change mixed with new functionality). If the changes clearly span distinct concerns, **ask the user** whether to split them into separate commits before proceeding. If the changes are all part of one logical unit of work, continue.
 3. **CHANGELOG CHECK (mandatory — never skip this step):** Check whether `CHANGELOG.md` exists in the repo root. If it does, decide whether the changes deserve a changelog entry:
    - **Update silently** for: new features, user-facing bug fixes, behavior changes, new integrations, breaking changes.

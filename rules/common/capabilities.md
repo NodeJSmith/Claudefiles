@@ -175,6 +175,16 @@ Special merge rules:
 - `hooks.<type>` arrays — concatenate + deduplicate across layers
 - Everything else — deep merge, last wins
 
+### git-default-branch
+
+Print the default branch name for the current repository. Tries local symbolic ref first, then queries the remote, then falls back to first remote branch.
+
+```bash
+git-default-branch    # → "main", "master", "develop", etc.
+```
+
+Used by other scripts and skills to avoid hardcoding branch names.
+
 ### ado-builds
 
 Azure DevOps build management. List, cancel, or bulk-cancel pipeline builds.
@@ -197,6 +207,7 @@ ado-builds cancel-by-tag 5a4086c1 --branch master
 - Uses `az devops` defaults for org/project (no flags needed)
 - `cancel` skips already completed/cancelled builds
 - `cancel-by-tag` lists matches then cancels all in-progress ones
+- `cancel-by-tag` defaults to the branch from `git-default-branch` (falls back to `master` outside a git repo)
 
 ---
 
