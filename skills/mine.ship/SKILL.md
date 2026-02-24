@@ -9,7 +9,7 @@ user-invokable: true
 - Current git status: !`git status`
 - Current git diff (staged and unstaged changes): !`git diff HEAD`
 - Current branch: !`git branch --show-current`
-- Default branch: !`git remote show origin | grep "HEAD branch" | cut -d: -f2 | xargs`
+- Default branch: !`git-default-branch`
 - Remote URL: !`git remote get-url origin 2>/dev/null`
 
 ## Your task
