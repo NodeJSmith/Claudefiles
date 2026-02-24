@@ -2,6 +2,15 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-02-24
+
+### Added
+- `tests/test_claude_log.py` — 86 unit tests for claude-log pure functions and helpers
+- `.github/workflows/test.yml` — CI pipeline runs tests, lint, and format checks on PRs and pushes
+
+### Changed
+- `bin/claude-log` — deduplicated iteration pattern across 4 commands into shared `iter_session_files` generator; added input validation for `--since` and `--limit` flags
+
 ## 2026-02-23
 
 ### Added
