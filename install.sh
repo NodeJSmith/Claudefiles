@@ -3,6 +3,9 @@
 set -euo pipefail
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLAUDE_DIR="${CLAUDE_HOME:-$HOME/.claude}"
+BIN_DIR="$HOME/.local/bin"
+
+shadowed=()
 
 for dir in agents skills commands scripts/hooks; do
   src="$REPO_DIR/$dir"
@@ -15,7 +18,7 @@ for dir in agents skills commands scripts/hooks; do
     if [ -L "$target" ]; then
       rm "$target"  # replace existing symlink
     elif [ -e "$target" ]; then
-      echo "skip: $target exists (not a symlink)" >&2
+      shadowed+=("$target (shadows $item)")
       continue
     fi
     ln -s "$item" "$target"
@@ -32,7 +35,7 @@ if [ -d "$REPO_DIR/rules" ]; then
     if [ -L "$target" ]; then
       rm "$target"
     elif [ -e "$target" ]; then
-      echo "skip: $target exists (not a symlink)" >&2
+      shadowed+=("$target (shadows ${lang_dir%/})")
       continue
     fi
     ln -s "${lang_dir%/}" "$target"
@@ -41,7 +44,6 @@ fi
 
 # Bin: symlink scripts into ~/.local/bin (should be in PATH)
 if [ -d "$REPO_DIR/bin" ]; then
-  BIN_DIR="$HOME/.local/bin"
   mkdir -p "$BIN_DIR"
   for item in "$REPO_DIR/bin"/*; do
     [ -e "$item" ] || continue
@@ -49,11 +51,42 @@ if [ -d "$REPO_DIR/bin" ]; then
     if [ -L "$target" ]; then
       rm "$target"
     elif [ -e "$target" ]; then
-      echo "skip: $target exists (not a symlink)" >&2
+      shadowed+=("$target (shadows $item)")
       continue
     fi
     ln -s "$item" "$target"
   done
+fi
+
+# Check for stale symlinks (point to targets that no longer exist)
+stale=()
+for dir in "$CLAUDE_DIR"/agents "$CLAUDE_DIR"/skills "$CLAUDE_DIR"/commands "$CLAUDE_DIR"/scripts/hooks "$CLAUDE_DIR"/rules "$BIN_DIR"; do
+  [ -d "$dir" ] || continue
+  for link in "$dir"/*; do
+    [ -L "$link" ] || continue
+    if [ ! -e "$link" ]; then
+      stale+=("$link -> $(readlink "$link")")
+    fi
+  done
+done
+
+# Report problems
+if [ ${#shadowed[@]} -gt 0 ]; then
+  echo "" >&2
+  echo "warning: ${#shadowed[@]} file(s) not symlinked — a non-symlink already exists at the destination:" >&2
+  for entry in "${shadowed[@]}"; do
+    echo "  $entry" >&2
+  done
+  echo "  These files won't update when the repo changes. To fix: delete the destination and re-run install.sh" >&2
+fi
+
+if [ ${#stale[@]} -gt 0 ]; then
+  echo "" >&2
+  echo "warning: ${#stale[@]} stale symlink(s) found (target no longer exists):" >&2
+  for entry in "${stale[@]}"; do
+    echo "  $entry" >&2
+  done
+  echo "  Remove with: rm <symlink-path>" >&2
 fi
 
 echo "Claudefiles installed to $CLAUDE_DIR"

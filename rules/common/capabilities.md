@@ -29,6 +29,7 @@ Skills and commands exist for common workflows. **Use these instead of ad-hoc to
 | "design this UI", "build this dashboard" | `/mine.interface-design` |
 | "accessible design", "inclusive patterns" | `/mine.human-centered-design` |
 | "UX review", "check for anti-patterns" | `/mine.ux-review` / `/mine.ux-antipatterns` |
+| "audit permissions", "reduce permission prompts", "what should I auto-allow" | `/mine.permissions-audit` |
 | "status", "where am I", "quick summary" | `/mine.status` |
 | "prepare to compact", "running low on context" | `/mine.pre-compact` |
 | "session retrospective", "what did we learn" | `/mine.session_reflect` |
@@ -282,6 +283,15 @@ Scan frontend code for UX anti-patterns: layout shifts, missing feedback, broken
 ---
 
 ## Session Management
+
+### /mine.permissions-audit
+
+Analyze permission prompt frequency across sessions, filter noise, categorize by risk, and recommend `permissions.allow` entries. Runs `claude-log permissions`, applies intelligent filtering, and optionally updates settings.
+
+```
+/mine.permissions-audit                  # default: last 20 sessions
+/mine.permissions-audit --since 2026-02-01 --limit 50
+```
 
 ### /mine.status
 

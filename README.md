@@ -25,7 +25,7 @@ cd ~/Claudefiles
 ./install.sh
 ```
 
-This symlinks everything into `~/.claude/`. It won't overwrite existing non-symlink files -- those get skipped with a warning. Running it again safely updates symlinks.
+This symlinks everything into `~/.claude/`. Running it again safely updates symlinks. It also warns about non-symlink files that shadow repo entries (preventing updates) and stale symlinks whose targets no longer exist.
 
 To uninstall, just delete the symlinks (they point back to this repo) and remove the clone.
 
@@ -60,7 +60,7 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `mine.ux-antipatterns` | Detect UX anti-patterns -- layout shifts, missing feedback, broken forms, a11y gaps |
 | `mine.worktree` | Manage git worktrees with plan handoff for concurrent Claude sessions |
 
-### Commands (10)
+### Commands (11)
 
 | Command | Description |
 |---------|-------------|
@@ -69,6 +69,7 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `mine.interface-design` | Build UI with craft and consistency |
 | `mine.issues` | Deep-dive issues by key, or scan and pick |
 | `mine.issues-scan` | Scan open issues, classify by effort, pick one to deep-dive |
+| `mine.permissions-audit` | Analyze frequent permission prompts and recommend allow-list entries |
 | `mine.pre-compact` | Generate a focused /compact prompt preserving what matters |
 | `mine.session_reflect` | End-of-session reflection grounded in git evidence |
 | `mine.status` | Quick orientation -- branch, tasks, errors, last commit |
