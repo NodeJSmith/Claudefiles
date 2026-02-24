@@ -13,7 +13,7 @@
 #       Cancel one or more builds by ID. Skips already completed/cancelled builds.
 #
 #   cancel-by-tag <tag> [--branch BRANCH]
-#       Cancel all in-progress builds matching a tag. Defaults: --branch master.
+#       Cancel all in-progress builds matching a tag. Default: branch from git-default-branch.
 #       Shows what will be cancelled and proceeds.
 
 set -euo pipefail
@@ -26,7 +26,7 @@ usage() {
     echo "  cancel <build-id> [build-id...]" >&2
     echo "      Cancel one or more builds by ID." >&2
     echo "  cancel-by-tag <tag> [--branch BRANCH]" >&2
-    echo "      Cancel all in-progress builds for a tag. Default branch: master." >&2
+    echo "      Cancel all in-progress builds for a tag. Default: branch from git-default-branch." >&2
     exit 1
 }
 
@@ -99,7 +99,7 @@ case "$cmd" in
 
         tag="$1"
         shift
-        branch="master"
+        branch=$(git-default-branch 2>/dev/null || echo "master")
 
         while [[ $# -gt 0 ]]; do
             case "$1" in

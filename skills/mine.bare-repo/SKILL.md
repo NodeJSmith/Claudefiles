@@ -47,7 +47,7 @@ Ask the user for any missing info:
    ```
    If that fails (some hosts don't set origin/HEAD), fall back:
    ```bash
-   cd <target> && git branch -r | grep -oP 'origin/\K(main|master)' | head -1
+   cd <target> && git branch -r | grep -oP 'origin/\K\S+' | grep -vxF 'HEAD' | head -1
    ```
 7. Create the initial worktree for the default branch:
    ```bash

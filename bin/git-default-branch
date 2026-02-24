@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Print the default branch name for the current repository.
+#
+# Tries (in order):
+#   1. git symbolic-ref refs/remotes/origin/HEAD  (local, fast, no network)
+#   2. git remote show origin                      (queries remote)
+#   3. First remote branch that isn't HEAD         (best-effort fallback)
+#
+# Usage: git-default-branch
+#
+# Exit codes:
+#   0  success — branch name printed to stdout
+#   1  not a git repo or no remote named "origin"
+
+set -euo pipefail
+
+# 1. Local symbolic ref (fastest — no network round-trip)
+branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|^refs/remotes/origin/||') || true
+if [[ -n "$branch" ]]; then
+    echo "$branch"
+    exit 0
+fi
+
+# 2. Query the remote (requires network, but authoritative)
+branch=$(git remote show origin 2>/dev/null | awk '/HEAD branch:/ {print $NF}') || true
+if [[ -n "$branch" && "$branch" != "(unknown)" ]]; then
+    echo "$branch"
+    exit 0
+fi
+
+# 3. Best-effort: first remote tracking branch that isn't HEAD
+branch=$(git branch -r 2>/dev/null | grep -oP 'origin/\K\S+' | grep -vxF 'HEAD' | head -1) || true
+if [[ -n "$branch" ]]; then
+    echo "$branch"
+    exit 0
+fi
+
+echo "fatal: could not determine default branch" >&2
+exit 1
