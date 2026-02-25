@@ -50,14 +50,14 @@ get_ado_config() {
     config=$(az devops configure --list 2>/dev/null)
 
     local org
-    org=$(echo "$config" | grep -E '^organization' | cut -d' ' -f3)
+    org=$(echo "$config" | grep -E '^organization' | sed 's/^organization = //')
     if [[ -z "$org" ]]; then
         echo "Error: organization not configured. Run 'az devops configure --defaults organization=<org>'" >&2
         exit 1
     fi
 
     local project
-    project=$(echo "$config" | grep -E '^project' | cut -d' ' -f3)
+    project=$(echo "$config" | grep -E '^project' | sed 's/^project = //')
     if [[ -z "$project" ]]; then
         echo "Error: project not configured. Run 'az devops configure --defaults project=<project>'" >&2
         exit 1
