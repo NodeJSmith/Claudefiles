@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-02-25
+
+### Fixed
+- ADO helper scripts — fixed broken PR URLs, wrong auth format, hardcoded `master` default, missing API error handling; consolidated shared code into `ado-common.sh`
+- `ado-pr-threads resolve` now accepts `--pr PR_ID` flag and uses case-insensitive pattern matching
+
 ## 2026-02-24
 
 ### Changed
