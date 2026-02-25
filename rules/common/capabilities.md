@@ -71,6 +71,7 @@ gh-pr-reply 42 1234567 "Fixed in abc1234 — moved the check earlier."
 
 - `comment-id` is the **database ID** from `gh-pr-threads` output
 - Body supports markdown
+- Auto-uses bot token if `gh-app-token` is installed and `GITHUB_APP_ID` is set; otherwise falls back to your personal `GH_TOKEN`
 
 ### gh-pr-resolve-thread
 
@@ -83,6 +84,7 @@ gh-pr-resolve-thread PRRT_abc123 PRRT_def456 PRRT_ghi789   # bulk
 
 - Thread IDs are the `PRRT_...` values from `gh-pr-threads` output
 - Fails fast if any thread can't be resolved
+- Auto-uses bot token if `gh-app-token` is installed and `GITHUB_APP_ID` is set; otherwise falls back to your personal `GH_TOKEN`
 
 ### claude-tmux
 
