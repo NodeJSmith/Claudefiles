@@ -61,7 +61,7 @@ Ship the current changes: commit, push, and open a PR. Follow each phase in orde
       ```
     - **Azure DevOps**:
       ```bash
-      az repos pr create --draft --title "..." --description "$(cat <<'EOF'
+      az repos pr create --draft true --title "..." --description "$(cat <<'EOF'
       ...
       EOF
       )" --source-branch <branch> --target-branch <default-branch>

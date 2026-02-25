@@ -45,7 +45,7 @@ Based on the above changes:
      ```
    - **Azure DevOps**:
      ```bash
-     az repos pr create --draft --title "..." --description "$(cat <<'EOF'
+     az repos pr create --draft true --title "..." --description "$(cat <<'EOF'
      ...
      EOF
      )" --source-branch <branch> --target-branch <default-branch>
