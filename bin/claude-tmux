@@ -8,7 +8,7 @@
 #   new <name> <path>     Create detached session at path, switch to it
 #   list                  List sessions with metadata (pipe-delimited)
 #   panes                 List all panes with metadata (pipe-delimited)
-#   capture <session>     Capture last 20 lines of a session's active pane
+#   capture <session> [N] Capture last N lines (default 20) of a session's active pane
 #   kill <session>...     Kill one or more sessions
 #
 # All commands print "Not in tmux" and exit 0 when $TMUX is unset.
@@ -29,7 +29,7 @@ usage() {
     echo "  new <name> <path>     Create detached session at path and switch to it" >&2
     echo "  list                  List sessions (pipe-delimited)" >&2
     echo "  panes                 List all panes (pipe-delimited)" >&2
-    echo "  capture <session>     Capture last 20 lines of session pane" >&2
+    echo "  capture <session> [N] Capture last N lines (default 20) of session pane" >&2
     echo "  kill <session>...     Kill one or more sessions" >&2
     exit 1
 }
@@ -74,10 +74,11 @@ case "$cmd" in
         ;;
     capture)
         if [[ $# -lt 1 ]]; then
-            echo "Usage: claude-tmux capture <session>" >&2
+            echo "Usage: claude-tmux capture <session> [N]" >&2
             exit 1
         fi
-        tmux capture-pane -t "$1" -p | tail -20
+        lines="${2:-20}"
+        tmux capture-pane -t "$1" -p -S -"$lines" | tail -"$lines"
         ;;
     kill)
         if [[ $# -lt 1 ]]; then

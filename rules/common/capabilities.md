@@ -94,6 +94,7 @@ claude-tmux new "myproject-feat" ~/src/myproject   # create + switch to new sess
 claude-tmux list                          # list sessions (pipe-delimited)
 claude-tmux panes                         # list all panes (pipe-delimited)
 claude-tmux capture "myproject-feat"      # last 20 lines of session's active pane
+claude-tmux capture "myproject-feat" 200  # last 200 lines (build logs, stack traces)
 claude-tmux kill "old-session"            # kill one or more sessions
 ```
 
