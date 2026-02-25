@@ -5,8 +5,8 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-02-25
 
 ### Changed
-- `claude-tmux capture` accepts optional line count — `claude-tmux capture session 200` for deeper history (default remains 20)
-- Added cross-pane monitoring docs to tmux rules — discover running processes with `panes`, grab their output with `capture`
+- `claude-tmux capture` accepts optional line count — `claude-tmux capture session 200` for deeper history (default remains 20) (#23)
+- Added cross-pane monitoring docs to tmux rules — discover running processes with `panes`, grab their output with `capture` (#23)
 
 ## 2026-02-24
 
