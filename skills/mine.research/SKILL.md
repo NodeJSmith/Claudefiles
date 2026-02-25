@@ -41,6 +41,28 @@ The only commands to execute during analysis are:
 
 Everything else — architecture mapping, pattern identification, dependency tracing, feasibility assessment — comes from reading the files.
 
+## Model Check
+
+This skill performs deep analysis that benefits from Opus-level reasoning. Before starting, check what model you're running on (shown in your system prompt as "You are powered by the model named...").
+
+If you are NOT running on Opus:
+
+```
+AskUserQuestion:
+  question: "This skill benefits from Opus for deep reasoning, but you're currently on <current model>. Want to switch before we start?"
+  header: "Model"
+  multiSelect: false
+  options:
+    - label: "Switch to Opus"
+      description: "Run /model opus — I'll wait, then proceed with the analysis"
+    - label: "Continue on <current model>"
+      description: "Run the analysis with the current model"
+```
+
+If the user chooses to switch, note their original model so you can offer to switch back at the end.
+
+If already on Opus, skip this check silently.
+
 ## Phase 1: Understand the Ask
 
 **Do not start exploring the codebase yet.** First, understand what the user actually wants and why.
@@ -347,6 +369,24 @@ AskUserQuestion:
     - label: "I need to think about it"
       description: "The brief has what I need — I'll come back when I'm ready"
 ```
+
+## Model Restore
+
+If the user switched models at the start of this skill (from the Model Check), offer to switch back:
+
+```
+AskUserQuestion:
+  question: "Analysis complete. You switched from <original model> to Opus for this skill. Want to switch back?"
+  header: "Model"
+  multiSelect: false
+  options:
+    - label: "Switch back to <original model>"
+      description: "Run /model <original model> to restore your previous model"
+    - label: "Stay on Opus"
+      description: "Keep using Opus for the rest of this session"
+```
+
+If the user did NOT switch models (was already on Opus, or chose to continue on their current model), skip this silently.
 
 ## Principles
 

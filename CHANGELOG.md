@@ -6,6 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Added
 - `CLAUDE.md` Bash Tool Restrictions section documenting `$()`, backtick, and bare-pipe limitations with workarounds (#24)
+- Model check preamble and postamble in `/mine.audit`, `/mine.research`, `/mine.eval-repo`, and `/mine.refactor` — prompts to switch to Opus before deep-reasoning skills and offers to switch back afterward
 
 ### Changed
 - `gh-pr-reply` and `gh-pr-resolve-thread` auto-use bot token when `gh-app-token` is installed and `GITHUB_APP_ID` is set; falls back to personal token otherwise (#27)
