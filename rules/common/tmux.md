@@ -34,7 +34,7 @@ When the conversation topic shifts significantly (e.g., pivoting from one featur
 
 ## Cross-Pane Monitoring
 
-Claude Code can read output from other tmux panes. When a dev server, build process, or test runner is running in another window, use `claude-tmux capture` to grab its output:
+Claude Code can read output from other tmux panes. When a dev server, build process, or test runner is running in another pane, use `claude-tmux capture` to grab its output:
 
 ```bash
 claude-tmux capture "session-name"       # last 20 lines
