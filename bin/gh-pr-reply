@@ -5,6 +5,15 @@
 
 set -euo pipefail
 
+# Use GitHub App bot token if gh-app-token is installed and configured.
+# This is optional — if gh-app-token doesn't exist or GITHUB_APP_ID is unset,
+# the script falls back to the default GH_TOKEN (your personal token).
+# Any user can wire this up by creating a gh-app-token helper that prints
+# a valid GitHub App installation token.
+if command -v gh-app-token &>/dev/null && [[ -n "${GITHUB_APP_ID:-}" ]]; then
+    export GH_TOKEN="$(gh-app-token)"
+fi
+
 if [[ $# -lt 3 ]]; then
     echo "Usage: gh-pr-reply <pr-number> <comment-id> <body>" >&2
     exit 1

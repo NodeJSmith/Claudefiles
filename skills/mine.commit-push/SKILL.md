@@ -16,7 +16,7 @@ Based on the above changes:
 
 1. If on the default branch (run `git-default-branch` to check), create a new branch first.
 2. **COMMIT SCOPE CHECK:** Review the diff for unrelated changes that belong in separate commits (e.g., a feature + an unrelated bug fix, or a config change mixed with new functionality). If the changes clearly span distinct concerns, **ask the user** whether to split them into separate commits before proceeding. If the changes are all part of one logical unit of work, continue.
-3. **CHANGELOG CHECK (mandatory — never skip this step):** Check whether `CHANGELOG.md` exists in the repo root. If it does, decide whether the changes deserve a changelog entry:
+3. **CHANGELOG CHECK (mandatory — never skip this step):** Use the Read tool to open `CHANGELOG.md` at the repo root. Do NOT guess whether it exists — actually read it. If the read succeeds, the file exists; decide whether the changes deserve a changelog entry:
    - **Update silently** for: new features, user-facing bug fixes, behavior changes, new integrations, breaking changes.
    - **Skip silently** for: fixing tests, lint/format cleanup, internal refactoring with no behavior change, code comments/docstrings, typo fixes in code.
    - **Ask the user** if you're unsure — e.g., a mix of internal and user-facing changes, or changes that could be described either way.
