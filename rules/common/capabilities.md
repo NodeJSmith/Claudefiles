@@ -39,6 +39,7 @@ Skills and commands exist for common workflows. **Use these instead of ad-hoc to
 | "merge settings", "apply settings", "update claude settings" | `claude-merge-settings` |
 | "what did I work on yesterday", "find that session where...", "show me the logs" | `claude-log` |
 | "cancel builds", "cancel pipeline runs", "list ADO builds", "cancel-by-tag" | `ado-builds` |
+| "build logs", "CI logs", "why did the build fail", "show build errors" | `ado-logs` |
 | "create ADO PR", "list ADO PRs", "show ADO PR", "update ADO PR" | `ado-pr` |
 | "list ADO PR threads", "reply to ADO PR comment", "resolve ADO PR thread" | `ado-pr-threads` |
 
@@ -195,6 +196,7 @@ Azure DevOps build management. List, cancel, or bulk-cancel pipeline builds.
 ```bash
 # List builds by tag
 ado-builds list --tags 5a4086c1
+ado-builds list --tags 5a4086c1 --json    # JSON output
 
 # List in-progress builds on a branch
 ado-builds list --branch master --status inProgress
@@ -211,6 +213,39 @@ ado-builds cancel-by-tag 5a4086c1 --branch master
 - `cancel` skips already completed/cancelled builds
 - `cancel-by-tag` lists matches then cancels all in-progress ones
 - `cancel-by-tag` defaults to the branch from `git-default-branch` (falls back to `master` outside a git repo)
+
+### ado-logs
+
+Azure DevOps CI log viewer. Inspect build timelines, errors, and raw log content.
+
+```bash
+# List timeline steps
+ado-logs list 235302                      # all steps with results
+ado-logs list 235302 --failed             # only failed/succeededWithIssues
+ado-logs list 235302 --type Task          # filter by record type
+ado-logs list 235302 --json               # raw JSON
+
+# Fetch raw log content
+ado-logs get 235302 42                    # full log for log ID 42
+ado-logs get 235302 42 --tail 20          # last 20 lines
+ado-logs get 235302 42 --head 10          # first 10 lines (API-side)
+
+# Show errors from failed steps
+ado-logs errors 235302                    # error/warning messages
+ado-logs errors 235302 --with-log         # errors + last 50 lines of each log
+ado-logs errors 235302 --with-log 100     # errors + last 100 lines
+ado-logs errors 235302 --json             # raw JSON
+
+# Search across build logs
+ado-logs search 235302 "error CS"         # grep all logs
+ado-logs search 235302 "timeout" --step "Build"   # narrow to matching steps
+ado-logs search 235302 "failed" --context 5       # 5 lines of context
+```
+
+- Uses build IDs from `ado-builds list`
+- Uses `az devops` defaults for org/project (no flags needed)
+- `list` shows: order, type, name, result, log ID, error/warning counts, duration
+- `search --step` reduces HTTP requests by filtering steps before downloading logs
 
 ### ado-pr
 
@@ -230,7 +265,7 @@ ado-pr show 123                       # specific PR ID
 ado-pr current                        # errors if no PR found
 
 # Create PR
-ado-pr create                         # defaults: --target master
+ado-pr create                         # defaults: --target from git-default-branch
 ado-pr create --title "Fix bug" --description "Details..." --draft
 
 # Update PR
@@ -258,9 +293,9 @@ ado-pr-threads list --json            # JSON output
 ado-pr-threads reply 123 456 "Fixed in commit abc1234"
 
 # Resolve threads
-ado-pr-threads resolve 456            # default status: fixed
-ado-pr-threads resolve 456 789 --status closed
-ado-pr-threads resolve 456 --status wontFix
+ado-pr-threads resolve 456                      # auto-detect PR, default status: fixed
+ado-pr-threads resolve 456 789 --status closed  # bulk resolve
+ado-pr-threads resolve 456 --pr 123             # explicit PR ID
 
 # Resolve by pattern (bulk)
 ado-pr-threads resolve-pattern 123 "typo" --dry-run
@@ -271,7 +306,7 @@ ado-pr-threads resolve-pattern 123 "addressed" --status closed
 
 - Uses `az devops` defaults for org/project (no flags needed)
 - Auto-detects PR from current branch for `list` and `resolve` commands
-- `resolve-pattern` matches substring in any comment body
+- `resolve-pattern` matches pattern in any comment body (case-insensitive)
 - Skips threads already in target status (idempotent)
 
 ---
