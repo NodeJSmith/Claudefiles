@@ -39,7 +39,7 @@ Print a compact status block. Use exactly this structure, omitting sections that
 
 ```
 Session: <name> (or "<number> (unnamed)" if numeric, omit if not in tmux)
-Branch: <branch> (<N> ahead of <upstream>)
+Branch: <branch> (<N> ahead of <upstream>)  ← omit parenthetical if no upstream
 Uncommitted: <N> files modified, <N> untracked
 
 Tasks:
