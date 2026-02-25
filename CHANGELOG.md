@@ -2,6 +2,14 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-02-25
+
+### Fixed
+- Eliminated `$()` command substitution from all skills, commands, and template expansions to avoid Bash tool eval bugs
+
+### Added
+- `CLAUDE.md` Bash Tool Restrictions section documenting `$()`, backtick, and bare-pipe limitations with workarounds
+
 ## 2026-02-24
 
 ### Changed

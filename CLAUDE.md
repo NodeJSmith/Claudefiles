@@ -42,6 +42,24 @@ install.sh       → Symlink installer
 
 All skills and commands use the `mine.` prefix to namespace them and avoid collisions with other skill packs.
 
+## Bash Tool Restrictions
+
+The Bash tool wraps commands in `eval '...' < /dev/null`, which breaks certain shell patterns. **Never use these in Bash tool calls or `!` backtick template expansions:**
+
+- **`$(...)` command substitution** — gets mangled by the eval wrapper, causing syntax errors or silent failures
+- **Backticks** — same broken code path as `$()`
+- **Bare pipes as the final element** (sandbox mode) — data silently lost; add a trailing `;` if needed
+
+**Workarounds:**
+- Split into sequential commands: run the inner command first, then use the result in the next call
+- Use `xargs -I {}` piping: `git-default-branch | xargs -I {} git log "origin/{}..HEAD"`
+- For complex fallbacks: `git-default-branch | xargs -I {} sh -c 'git log "origin/{}..HEAD" 2>/dev/null || git log "{}..HEAD"'`
+
+**Wrong:** `git diff --name-only "$(git-default-branch)"` / `db=$(git-default-branch); git log "${db}..HEAD"`
+**Right:** `git-default-branch | xargs -I {} git diff --name-only {}` / run `git-default-branch` first, then `git log "<result>..HEAD"`
+
+This applies to all skills, commands, rules, and agent prompts in this repo.
+
 ## Making Changes
 
 When editing skills or commands:
