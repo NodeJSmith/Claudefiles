@@ -31,3 +31,14 @@ Rules:
 ## Drift Detection
 
 When the conversation topic shifts significantly (e.g., pivoting from one feature to another), update the session name to match the new focus.
+
+## Cross-Pane Monitoring
+
+Claude Code can read output from other tmux panes. When a dev server, build process, or test runner is running in another pane, use `claude-tmux capture` to grab its output:
+
+```bash
+claude-tmux capture "session-name"       # last 20 lines
+claude-tmux capture "session-name" 200   # last 200 lines (build logs, stack traces)
+```
+
+Use `claude-tmux panes` to discover what's running in other panes (command, path, PID) before capturing.
