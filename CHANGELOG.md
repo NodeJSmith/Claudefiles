@@ -7,6 +7,7 @@ All notable changes to this Claudefiles repository are documented here.
 ### Changed
 - `claude-tmux capture` accepts optional line count — `claude-tmux capture session 200` for deeper history (default remains 20) (#23)
 - Added cross-pane monitoring docs to tmux rules — discover running processes with `panes`, grab their output with `capture` (#23)
+- PR creation now uses draft→ready flow — changelog PR numbers are added before reviewers see the PR, eliminating the confusing second commit (#25)
 
 ## 2026-02-24
 

@@ -51,17 +51,17 @@ Ship the current changes: commit, push, and open a PR. Follow each phase in orde
       <1-3 bullet points explaining what changed and why>
 
       ```
-14. Create the PR using the platform-appropriate command:
+14. Create the PR as a **draft** using the platform-appropriate command:
     - **GitHub**:
       ```bash
-      gh pr create --title "..." --body "$(cat <<'EOF'
+      gh pr create --draft --title "..." --body "$(cat <<'EOF'
       ...
       EOF
       )"
       ```
     - **Azure DevOps**:
       ```bash
-      az repos pr create --title "..." --description "$(cat <<'EOF'
+      az repos pr create --draft true --title "..." --description "$(cat <<'EOF'
       ...
       EOF
       )" --source-branch <branch> --target-branch <default-branch>
@@ -76,7 +76,10 @@ Ship the current changes: commit, push, and open a PR. Follow each phase in orde
     - Commit with message: e.g., `changelog: add PR #<NUMBER>` for GitHub or `changelog: add PR !<NUMBER>` for Azure DevOps
     - Push
     - If no `CHANGELOG.md` exists, suggest to the user that they add one to track notable changes per release
-16. Return the PR URL
+16. **Mark PR as ready** (reviewers see the final state with changelog PR numbers already in place):
+    - **GitHub**: `gh pr ready`
+    - **Azure DevOps**: `az repos pr update --id <PR_ID> --draft false`
+17. Return the PR URL
 
 **Important:**
 - If a PR already exists, show the PR URL and do not create a duplicate

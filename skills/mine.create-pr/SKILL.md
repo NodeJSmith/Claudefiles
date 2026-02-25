@@ -35,17 +35,17 @@ Based on the above changes:
      <1-3 bullet points explaining what changed and why>
 
      ```
-8. Create the PR using the platform-appropriate command:
+8. Create the PR as a **draft** using the platform-appropriate command:
    - **GitHub**:
      ```bash
-     gh pr create --title "..." --body "$(cat <<'EOF'
+     gh pr create --draft --title "..." --body "$(cat <<'EOF'
      ...
      EOF
      )"
      ```
    - **Azure DevOps**:
      ```bash
-     az repos pr create --title "..." --description "$(cat <<'EOF'
+     az repos pr create --draft true --title "..." --description "$(cat <<'EOF'
      ...
      EOF
      )" --source-branch <branch> --target-branch <default-branch>
@@ -60,7 +60,10 @@ Based on the above changes:
    - Commit with message: e.g., `changelog: add PR #<NUMBER>` for GitHub or `changelog: add PR !<NUMBER>` for Azure DevOps
    - Push
    - If no `CHANGELOG.md` exists, suggest to the user that they add one to track notable changes per release
-10. Return the PR URL
+10. **Mark PR as ready** (reviewers see the final state with changelog PR numbers already in place):
+    - **GitHub**: `gh pr ready`
+    - **Azure DevOps**: `az repos pr update --id <PR_ID> --draft false`
+11. Return the PR URL
 
 You have the capability to call multiple tools in a single response. You should gather all necessary context first (steps 1-6), then create the PR in a single action. Do not create multiple PRs.
 
