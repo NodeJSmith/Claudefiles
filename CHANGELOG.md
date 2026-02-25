@@ -13,7 +13,7 @@ All notable changes to this Claudefiles repository are documented here.
 - `claude-tmux capture` accepts optional line count — `claude-tmux capture session 200` for deeper history (default remains 20) (#23)
 - Added cross-pane monitoring docs to tmux rules — discover running processes with `panes`, grab their output with `capture` (#23)
 - PR creation now uses draft→ready flow — changelog PR numbers are added before reviewers see the PR, eliminating the confusing second commit (#25)
-- Switched `code-reviewer` and `planner` agents from Opus to Sonnet to reduce token usage
+- Switched `code-reviewer` and `planner` agents from Opus to Sonnet to reduce token usage (#29)
 
 ### Fixed
 - Changelog check in `/mine.ship` and `/mine.commit-push` now requires an explicit file read instead of guessing, preventing false "no changelog" skips
