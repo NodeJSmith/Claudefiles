@@ -6,8 +6,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Changed
 - `gh-pr-reply` and `gh-pr-resolve-thread` auto-use bot token when `gh-app-token` is installed and `GITHUB_APP_ID` is set; falls back to personal token otherwise (#27)
+- `install.sh` warnings now print copy-pastable `rm` commands for each shadowed file and stale symlink
 
 ### Fixed
+- Changelog check in `/mine.ship` and `/mine.commit-push` now requires an explicit file read instead of guessing, preventing false "no changelog" skips
 - Eliminated `$()` command substitution from affected template expansions and Bash tool instructions to avoid eval wrapper bugs (#24)
 
 ### Added

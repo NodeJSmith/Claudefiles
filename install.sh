@@ -75,18 +75,23 @@ if [ ${#shadowed[@]} -gt 0 ]; then
   echo "" >&2
   echo "warning: ${#shadowed[@]} file(s) not symlinked — a non-symlink already exists at the destination:" >&2
   for entry in "${shadowed[@]}"; do
+    # entry format: "target (shadows source)" — extract target for the rm command
+    target_path="${entry%% (shadows *}"
     echo "  $entry" >&2
+    echo "    rm \"$target_path\"" >&2
   done
-  echo "  These files won't update when the repo changes. To fix: delete the destination and re-run install.sh" >&2
+  echo "  Remove the above file(s) and re-run install.sh" >&2
 fi
 
 if [ ${#stale[@]} -gt 0 ]; then
   echo "" >&2
   echo "warning: ${#stale[@]} stale symlink(s) found (target no longer exists):" >&2
   for entry in "${stale[@]}"; do
+    # entry format: "link -> target" — extract link path for the rm command
+    link_path="${entry%% -> *}"
     echo "  $entry" >&2
+    echo "    rm \"$link_path\"" >&2
   done
-  echo "  Remove with: rm <symlink-path>" >&2
 fi
 
 echo "Claudefiles installed to $CLAUDE_DIR"
