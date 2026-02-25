@@ -18,7 +18,10 @@ If the output is "Not in tmux", skip. If the result is purely numeric, treat it 
 
 ### Git (Bash)
 
-Run: `git log --oneline -1 --format="%s (%cr)" 2>/dev/null && git status --short 2>/dev/null && git rev-list --count HEAD --not $(git rev-parse --abbrev-ref @{upstream} 2>/dev/null || echo HEAD) 2>/dev/null`
+Run these commands (in parallel where possible):
+- `git log --oneline -1 --format="%s (%cr)" 2>/dev/null`
+- `git status --short 2>/dev/null`
+- `git rev-parse --abbrev-ref @{upstream} 2>/dev/null` — if this returns an upstream name, then run `git rev-list --count HEAD --not <upstream> 2>/dev/null` to get the ahead count
 
 If not a git repo, skip the entire Git section.
 
@@ -36,7 +39,7 @@ Print a compact status block. Use exactly this structure, omitting sections that
 
 ```
 Session: <name> (or "<number> (unnamed)" if numeric, omit if not in tmux)
-Branch: <branch> (<N> ahead of <upstream>)
+Branch: <branch> (<N> ahead of <upstream>)  ← omit parenthetical if no upstream
 Uncommitted: <N> files modified, <N> untracked
 
 Tasks:
