@@ -195,6 +195,7 @@ Azure DevOps build management. List, cancel, or bulk-cancel pipeline builds.
 ```bash
 # List builds by tag
 ado-builds list --tags 5a4086c1
+ado-builds list --tags 5a4086c1 --json    # JSON output
 
 # List in-progress builds on a branch
 ado-builds list --branch master --status inProgress
@@ -263,7 +264,7 @@ ado-pr show 123                       # specific PR ID
 ado-pr current                        # errors if no PR found
 
 # Create PR
-ado-pr create                         # defaults: --target master
+ado-pr create                         # defaults: --target from git-default-branch
 ado-pr create --title "Fix bug" --description "Details..." --draft
 
 # Update PR
@@ -291,9 +292,9 @@ ado-pr-threads list --json            # JSON output
 ado-pr-threads reply 123 456 "Fixed in commit abc1234"
 
 # Resolve threads
-ado-pr-threads resolve 456            # default status: fixed
-ado-pr-threads resolve 456 789 --status closed
-ado-pr-threads resolve 456 --status wontFix
+ado-pr-threads resolve 456                      # auto-detect PR, default status: fixed
+ado-pr-threads resolve 456 789 --status closed  # bulk resolve
+ado-pr-threads resolve 456 --pr 123             # explicit PR ID
 
 # Resolve by pattern (bulk)
 ado-pr-threads resolve-pattern 123 "typo" --dry-run
@@ -304,7 +305,7 @@ ado-pr-threads resolve-pattern 123 "addressed" --status closed
 
 - Uses `az devops` defaults for org/project (no flags needed)
 - Auto-detects PR from current branch for `list` and `resolve` commands
-- `resolve-pattern` matches substring in any comment body
+- `resolve-pattern` matches pattern in any comment body (case-insensitive)
 - Skips threads already in target status (idempotent)
 
 ---

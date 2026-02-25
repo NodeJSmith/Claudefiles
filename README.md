@@ -98,7 +98,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | Script | Description |
 |--------|-------------|
 | `ado-builds` | Azure DevOps build management -- list, cancel, or bulk-cancel pipeline builds |
-| `ado-common.sh` | Shared Azure DevOps utilities -- PAT auth, config, API calls (sourced by ADO scripts) |
+| `ado-common.sh` | Shared Azure DevOps utilities -- PAT auth, config, API calls, PR detection (sourced by ADO scripts) |
 | `ado-logs` | Azure DevOps CI log viewer -- inspect build timelines, errors, and log content |
 | `ado-pr` | Azure DevOps PR helper -- simplified wrapper around az repos pr with smart defaults |
 | `ado-pr-threads` | Azure DevOps PR thread operations -- list, reply, resolve threads |

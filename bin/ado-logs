@@ -115,11 +115,7 @@ case "$cmd" in
         url="$org/$project_encoded/_apis/build/builds/$build_id/timeline?api-version=$ADO_API_VERSION"
         timeline=$(call_ado_api GET "$url")
 
-        # Check for API error (error responses have .message but no .records)
-        if ! echo "$timeline" | jq -e '.records' &>/dev/null; then
-            echo "Error: $(echo "$timeline" | jq -r '.message // "unknown API error"')" >&2
-            exit 1
-        fi
+        check_api_response "$timeline" "records"
 
         if [[ "$output_json" == true ]]; then
             echo "$timeline"
@@ -240,11 +236,7 @@ case "$cmd" in
         url="$org/$project_encoded/_apis/build/builds/$build_id/timeline?api-version=$ADO_API_VERSION"
         timeline=$(call_ado_api GET "$url")
 
-        # Check for API error (error responses have .message but no .records)
-        if ! echo "$timeline" | jq -e '.records' &>/dev/null; then
-            echo "Error: $(echo "$timeline" | jq -r '.message // "unknown API error"')" >&2
-            exit 1
-        fi
+        check_api_response "$timeline" "records"
 
         # Filter to failed records with issues
         failed=$(echo "$timeline" | jq '[.records[] | select(
@@ -271,11 +263,11 @@ case "$cmd" in
 
         if [[ "$with_log" == true ]]; then
             # Fetch last N lines of each failed step's log
+            auth_header=$(build_auth_header)
             echo "$failed" | jq -r '.[] | select(.log != null) | [(.name), (.log.id | tostring)] | @tsv' | while IFS=$'\t' read -r name log_id; do
                 echo ""
                 echo "=== Log tail: $name (log $log_id, last $log_lines lines) ==="
                 log_url="$org/$project_encoded/_apis/build/builds/$build_id/logs/$log_id?api-version=$ADO_API_VERSION"
-                auth_header=$(build_auth_header)
                 curl -s -X GET "$log_url" \
                     -H "$auth_header" \
                     -H "Accept: text/plain" | tail -n "$log_lines"
@@ -315,11 +307,7 @@ case "$cmd" in
         url="$org/$project_encoded/_apis/build/builds/$build_id/timeline?api-version=$ADO_API_VERSION"
         timeline=$(call_ado_api GET "$url")
 
-        # Check for API error (error responses have .message but no .records)
-        if ! echo "$timeline" | jq -e '.records' &>/dev/null; then
-            echo "Error: $(echo "$timeline" | jq -r '.message // "unknown API error"')" >&2
-            exit 1
-        fi
+        check_api_response "$timeline" "records"
 
         # Build list of (name, log_id) pairs, optionally filtered by step name
         jq_filter='.records[] | select(.log != null)'

@@ -307,7 +307,7 @@ gh-pr-resolve-thread {thread-id}
 **ADO:**
 ```bash
 ado-pr-threads reply {PR} {thread-id} "Fixed — replaced print() with logging.info() as suggested."
-ado-pr-threads resolve {thread-id}
+ado-pr-threads resolve {thread-id} --pr {PR}
 ```
 
 ### Merge conflicts
@@ -389,7 +389,7 @@ Keep replies professional and direct. Don't be dismissive of reviewer feedback e
 | `ado-pr show [pr-id]` | PR metadata (auto-detects from branch) |
 | `ado-pr-threads list [pr-id] [--json]` | List active threads |
 | `ado-pr-threads reply <pr> <thread-id> <body>` | Post reply comment on a thread |
-| `ado-pr-threads resolve <thread-id> [...]` | Resolve one or more threads |
+| `ado-pr-threads resolve <thread-id> [...] [--pr PR_ID] [--status STATUS]` | Resolve threads. Status: fixed (default), closed, byDesign, wontFix, pending |
 
 ### Getting comment IDs
 

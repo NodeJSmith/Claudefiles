@@ -5,7 +5,7 @@
 # Usage: ado-builds <command> [args...]
 #
 # Commands:
-#   list [--tags TAG] [--branch BRANCH] [--status STATUS] [--top N]
+#   list [--tags TAG] [--branch BRANCH] [--status STATUS] [--top N] [--json]
 #       List builds with optional filters. Defaults: --top 50.
 #       Output: one line per build — ID, status, result, pipeline name, tags.
 #
@@ -21,7 +21,7 @@ set -euo pipefail
 usage() {
     echo "Usage: ado-builds <command> [args...]" >&2
     echo "Commands:" >&2
-    echo "  list [--tags TAG] [--branch BRANCH] [--status STATUS] [--top N]" >&2
+    echo "  list [--tags TAG] [--branch BRANCH] [--status STATUS] [--top N] [--json]" >&2
     echo "      List builds. Defaults: --top 50." >&2
     echo "  cancel <build-id> [build-id...]" >&2
     echo "      Cancel one or more builds by ID." >&2
@@ -43,6 +43,7 @@ case "$cmd" in
         branch=""
         status=""
         top="50"
+        output_json=false
 
         while [[ $# -gt 0 ]]; do
             case "$1" in
@@ -50,6 +51,7 @@ case "$cmd" in
                 --branch) branch="$2"; shift 2 ;;
                 --status) status="$2"; shift 2 ;;
                 --top) top="$2"; shift 2 ;;
+                --json) output_json=true; shift ;;
                 *)
                     echo "Unknown option: $1" >&2
                     usage
@@ -62,13 +64,19 @@ case "$cmd" in
         [[ -n "$branch" ]] && args+=(--branch "$branch")
         [[ -n "$status" ]] && args+=(--status "$status")
 
-        "${args[@]}" | jq -r '.[] | [
-            (.id | tostring),
-            .status,
-            (.result // "-"),
-            .definition.name,
-            ((.tags // []) | join(","))
-        ] | @tsv' | column -t -s $'\t'
+        result=$("${args[@]}")
+
+        if [[ "$output_json" == true ]]; then
+            echo "$result"
+        else
+            echo "$result" | jq -r '.[] | [
+                (.id | tostring),
+                .status,
+                (.result // "-"),
+                .definition.name,
+                ((.tags // []) | join(","))
+            ] | @tsv' | column -t -s $'\t'
+        fi
         ;;
 
     cancel)

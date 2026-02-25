@@ -11,8 +11,9 @@
 #   reply PR_ID THREAD_ID BODY
 #       Reply to a thread. Prints new comment ID on success.
 #
-#   resolve THREAD_ID [THREAD_ID...] [--status STATUS]
-#       Resolve one or more threads. Default status: fixed.
+#   resolve THREAD_ID [THREAD_ID...] [--pr PR_ID] [--status STATUS]
+#       Resolve one or more threads. Auto-detects PR if --pr omitted.
+#       Default status: fixed.
 #
 #   resolve-pattern PR_ID PATTERN [--status STATUS] [--dry-run]
 #       Resolve all active threads matching PATTERN (substring match).
@@ -32,76 +33,11 @@ usage() {
     echo "      List threads. Default: active only. Auto-detects PR if omitted." >&2
     echo "  reply PR_ID THREAD_ID BODY" >&2
     echo "      Reply to a thread. Prints new comment ID." >&2
-    echo "  resolve THREAD_ID [THREAD_ID...] [--status STATUS]" >&2
-    echo "      Resolve threads. Default status: fixed." >&2
+    echo "  resolve THREAD_ID [THREAD_ID...] [--pr PR_ID] [--status STATUS]" >&2
+    echo "      Resolve threads. Auto-detects PR if --pr omitted. Default status: fixed." >&2
     echo "  resolve-pattern PR_ID PATTERN [--status STATUS] [--dry-run]" >&2
     echo "      Resolve threads matching PATTERN. Default status: closed." >&2
     exit 1
-}
-
-get_repo_name() {
-    # Parse git remote URL to extract repo name
-    local remote_url
-    remote_url=$(git remote get-url origin 2>/dev/null || true)
-
-    if [[ -z "$remote_url" ]]; then
-        echo "Error: not in a git repository with origin remote" >&2
-        exit 1
-    fi
-
-    # Extract repo name from URL (last component before .git or end)
-    # Example: https://dev.azure.com/org/project/_git/repo or git@ssh.dev.azure.com:v3/org/project/repo
-    local repo
-    repo=$(basename "$remote_url" .git)
-
-    if [[ -z "$repo" ]]; then
-        echo "Error: could not extract repo name from origin URL: $remote_url" >&2
-        exit 1
-    fi
-
-    echo "$repo"
-}
-
-get_pr_from_env_or_branch() {
-    # Check SYSTEM_PULLREQUEST_PULLREQUESTID first (CI/CD env)
-    if [[ -n "${SYSTEM_PULLREQUEST_PULLREQUESTID:-}" ]]; then
-        echo "$SYSTEM_PULLREQUEST_PULLREQUESTID"
-        return 0
-    fi
-
-    # Auto-detect from current branch
-    local branch
-    branch=$(git branch --show-current 2>/dev/null || true)
-    if [[ -z "$branch" ]]; then
-        echo "Error: not on a branch and SYSTEM_PULLREQUEST_PULLREQUESTID not set" >&2
-        exit 1
-    fi
-
-    local pr_id
-    pr_id=$(az repos pr list --source-branch "refs/heads/$branch" --status active \
-        | jq -r '.[0].pullRequestId // empty' 2>/dev/null || true)
-
-    if [[ -z "$pr_id" ]]; then
-        echo "Error: no active PR found for branch '$branch'" >&2
-        exit 1
-    fi
-
-    echo "$pr_id"
-}
-
-setup_ado_context() {
-    # Returns org, project, repo, project_encoded (one per line for mapfile)
-    mapfile -t _base < <(setup_ado_base)
-    local org="${_base[0]}"
-    local project="${_base[1]}"
-    local project_encoded="${_base[2]}"
-    local repo
-    repo=$(get_repo_name)
-
-    echo "$org"
-    echo "$project"
-    echo "$repo"
-    echo "$project_encoded"
 }
 
 validate_thread_status() {
@@ -201,6 +137,7 @@ case "$cmd" in
         url="$org/$project_encoded/_apis/git/repositories/$repo/pullRequests/$pr_id/threads?api-version=$ADO_API_VERSION"
 
         result=$(call_ado_api GET "$url")
+        check_api_response "$result" "value"
 
         if [[ "$output_json" == true ]]; then
             echo "$result"
@@ -272,15 +209,17 @@ case "$cmd" in
 
     resolve)
         if [[ $# -lt 1 ]]; then
-            echo "Usage: ado-pr-threads resolve THREAD_ID [THREAD_ID...] [--status STATUS]" >&2
+            echo "Usage: ado-pr-threads resolve THREAD_ID [THREAD_ID...] [--pr PR_ID] [--status STATUS]" >&2
             exit 1
         fi
 
+        pr_id=""
         status="fixed"
         thread_ids=()
 
         while [[ $# -gt 0 ]]; do
             case "$1" in
+                --pr) pr_id="$2"; shift 2 ;;
                 --status) status="$2"; shift 2 ;;
                 *)
                     thread_ids+=("$1")
@@ -302,12 +241,9 @@ case "$cmd" in
         repo="${context[2]}"
         project_encoded="${context[3]}"
 
-        # Need to get PR ID from one of the threads
-        # Fetch first thread to extract PR ID
-        thread_url="$org/$project_encoded/_apis/git/repositories/$repo/pullRequests?api-version=$ADO_API_VERSION"
-        # Actually, we need PR ID to resolve. Let's require it as an env var or error
-        # For simplicity, try to auto-detect from branch
-        pr_id=$(get_pr_from_env_or_branch)
+        if [[ -z "$pr_id" ]]; then
+            pr_id=$(get_pr_from_env_or_branch)
+        fi
 
         for thread_id in "${thread_ids[@]}"; do
             result=$(resolve_single_thread "$org" "$project_encoded" "$repo" "$pr_id" "$thread_id" "$status")
@@ -357,12 +293,13 @@ case "$cmd" in
         # Fetch all threads
         url="$org/$project_encoded/_apis/git/repositories/$repo/pullRequests/$pr_id/threads?api-version=$ADO_API_VERSION"
         threads=$(call_ado_api GET "$url")
+        check_api_response "$threads" "value"
 
-        # Filter: active status AND pattern match in any comment
+        # Filter: active status AND case-insensitive pattern match in any comment
         matching=$(echo "$threads" | jq -r --arg pattern "$pattern" '
             [.value[] |
                 select(.status == "active") |
-                select(.comments | any(.content | contains($pattern)))
+                select(.comments | any(.content // "" | test($pattern; "i")))
             ]
         ')
 
