@@ -20,7 +20,10 @@
 
 set -euo pipefail
 
-API_VERSION="7.0"
+# Source shared ADO utilities (resolve symlink to find real bin/ dir)
+ADO_API_VERSION="7.0"
+_self="$(readlink -f "$0")"
+source "$(dirname "$_self")/ado-common.sh"
 
 usage() {
     echo "Usage: ado-pr-threads <command> [args...]" >&2
@@ -34,64 +37,6 @@ usage() {
     echo "  resolve-pattern PR_ID PATTERN [--status STATUS] [--dry-run]" >&2
     echo "      Resolve threads matching PATTERN. Default status: closed." >&2
     exit 1
-}
-
-get_pat() {
-    # Check env vars first
-    if [[ -n "${SYSTEM_ACCESSTOKEN:-}" ]]; then
-        echo "$SYSTEM_ACCESSTOKEN"
-        return 0
-    fi
-
-    if [[ -n "${ADO_PAT:-}" ]]; then
-        echo "$ADO_PAT"
-        return 0
-    fi
-
-    # Parse ~/.azure/azuredevops/personalAccessTokens
-    local token_file="$HOME/.azure/azuredevops/personalAccessTokens"
-    if [[ -f "$token_file" ]]; then
-        # File format: line 1 is header, line 2 is "key = value"
-        local pat
-        pat=$(sed -n '2p' "$token_file" | cut -d' ' -f3)
-        if [[ -n "$pat" ]]; then
-            echo "$pat"
-            return 0
-        fi
-    fi
-
-    echo "Error: Missing Azure DevOps PAT. Set SYSTEM_ACCESSTOKEN, ADO_PAT, or configure ~/.azure/azuredevops/personalAccessTokens" >&2
-    exit 1
-}
-
-build_auth_header() {
-    local pat
-    pat=$(get_pat)
-    local b64
-    b64=$(printf "%s" "basic user:$pat" | base64 -w 0)
-    echo "Authorization: Basic $b64"
-}
-
-get_ado_config() {
-    # Parse az devops configure --list for org and project
-    local config
-    config=$(az devops configure --list 2>/dev/null)
-
-    local org
-    org=$(echo "$config" | grep -E '^organization' | cut -d' ' -f3)
-    if [[ -z "$org" ]]; then
-        echo "Error: organization not configured. Run 'az devops configure --defaults organization=<org>'" >&2
-        exit 1
-    fi
-
-    local project
-    project=$(echo "$config" | grep -E '^project' | cut -d' ' -f3)
-    if [[ -z "$project" ]]; then
-        echo "Error: project not configured. Run 'az devops configure --defaults project=<project>'" >&2
-        exit 1
-    fi
-
-    echo "$org|$project"
 }
 
 get_repo_name() {
@@ -115,20 +60,6 @@ get_repo_name() {
     fi
 
     echo "$repo"
-}
-
-call_ado_api() {
-    local method="$1"
-    local url="$2"
-    shift 2
-
-    local auth_header
-    auth_header=$(build_auth_header)
-
-    curl -s -X "$method" "$url" \
-        -H "$auth_header" \
-        -H "Content-Type: application/json" \
-        "$@"
 }
 
 get_pr_from_env_or_branch() {
@@ -160,13 +91,12 @@ get_pr_from_env_or_branch() {
 
 setup_ado_context() {
     # Returns org, project, repo, project_encoded (one per line for mapfile)
-    local config
-    config=$(get_ado_config)
-    local org="${config%%|*}"
-    local project="${config#*|}"
+    mapfile -t _base < <(setup_ado_base)
+    local org="${_base[0]}"
+    local project="${_base[1]}"
+    local project_encoded="${_base[2]}"
     local repo
     repo=$(get_repo_name)
-    local project_encoded="${project// /%20}"
 
     echo "$org"
     echo "$project"
@@ -201,7 +131,7 @@ resolve_single_thread() {
     local status="$6"
 
     # Check current status first
-    local thread_url="https://dev.azure.com/$org/$project_encoded/_apis/git/repositories/$repo/pullRequests/$pr_id/threads/$thread_id?api-version=$API_VERSION"
+    local thread_url="$org/$project_encoded/_apis/git/repositories/$repo/pullRequests/$pr_id/threads/$thread_id?api-version=$ADO_API_VERSION"
     local thread_data
     thread_data=$(call_ado_api GET "$thread_url")
     local current_status
@@ -268,7 +198,7 @@ case "$cmd" in
         repo="${context[2]}"
         project_encoded="${context[3]}"
 
-        url="https://dev.azure.com/$org/$project_encoded/_apis/git/repositories/$repo/pullRequests/$pr_id/threads?api-version=$API_VERSION"
+        url="$org/$project_encoded/_apis/git/repositories/$repo/pullRequests/$pr_id/threads?api-version=$ADO_API_VERSION"
 
         result=$(call_ado_api GET "$url")
 
@@ -310,7 +240,7 @@ case "$cmd" in
         project_encoded="${context[3]}"
 
         # First, get the thread to find the last comment (parent)
-        thread_url="https://dev.azure.com/$org/$project_encoded/_apis/git/repositories/$repo/pullRequests/$pr_id/threads/$thread_id?api-version=$API_VERSION"
+        thread_url="$org/$project_encoded/_apis/git/repositories/$repo/pullRequests/$pr_id/threads/$thread_id?api-version=$ADO_API_VERSION"
         thread_data=$(call_ado_api GET "$thread_url")
 
         last_comment_id=$(echo "$thread_data" | jq -r '.comments[-1].id')
@@ -321,7 +251,7 @@ case "$cmd" in
         fi
 
         # Post reply to the thread
-        url="https://dev.azure.com/$org/$project_encoded/_apis/git/repositories/$repo/pullRequests/$pr_id/threads/$thread_id/comments?api-version=$API_VERSION"
+        url="$org/$project_encoded/_apis/git/repositories/$repo/pullRequests/$pr_id/threads/$thread_id/comments?api-version=$ADO_API_VERSION"
         payload=$(jq -n --arg content "$body" --argjson parent_id "$last_comment_id" '{
             content: $content,
             parentCommentId: $parent_id,
@@ -374,7 +304,7 @@ case "$cmd" in
 
         # Need to get PR ID from one of the threads
         # Fetch first thread to extract PR ID
-        thread_url="https://dev.azure.com/$org/$project_encoded/_apis/git/repositories/$repo/pullRequests?api-version=$API_VERSION"
+        thread_url="$org/$project_encoded/_apis/git/repositories/$repo/pullRequests?api-version=$ADO_API_VERSION"
         # Actually, we need PR ID to resolve. Let's require it as an env var or error
         # For simplicity, try to auto-detect from branch
         pr_id=$(get_pr_from_env_or_branch)
@@ -425,7 +355,7 @@ case "$cmd" in
         project_encoded="${context[3]}"
 
         # Fetch all threads
-        url="https://dev.azure.com/$org/$project_encoded/_apis/git/repositories/$repo/pullRequests/$pr_id/threads?api-version=$API_VERSION"
+        url="$org/$project_encoded/_apis/git/repositories/$repo/pullRequests/$pr_id/threads?api-version=$ADO_API_VERSION"
         threads=$(call_ado_api GET "$url")
 
         # Filter: active status AND pattern match in any comment

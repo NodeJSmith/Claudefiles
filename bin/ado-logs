@@ -1,0 +1,365 @@
+#!/usr/bin/env bash
+# Azure DevOps CI log viewer — inspect build timelines, errors, and log content.
+# Uses the Build REST API (works with build IDs from ado-builds).
+#
+# Usage: ado-logs <command> [args...]
+#
+# Commands:
+#   list <build-id> [--failed] [--type TYPE] [--json]
+#       Show timeline steps: order, type, name, result, log ID, issues, duration.
+#       --failed    Only show failed/succeededWithIssues records.
+#       --type      Filter by record type (Task, Job, Stage).
+#
+#   get <build-id> <log-id> [--tail N] [--head N]
+#       Fetch raw log content for a specific log ID.
+#       --head N    First N lines (uses API startLine/endLine).
+#       --tail N    Last N lines (downloads full log, pipes through tail).
+#
+#   errors <build-id> [--with-log [N]] [--json]
+#       Show failed steps with error/warning messages from timeline issues.
+#       --with-log [N]  Append last N lines of each failed step's log (default 50).
+#
+#   search <build-id> <pattern> [--step NAME] [--context N]
+#       Grep for a pattern across build logs.
+#       --step NAME   Only search steps matching NAME (substring, reduces API calls).
+#       --context N   Lines of context around matches (default 3).
+
+set -euo pipefail
+
+# Source shared ADO utilities (resolve symlink to find real bin/ dir)
+_self="$(readlink -f "$0")"
+source "$(dirname "$_self")/ado-common.sh"
+
+usage() {
+    echo "Usage: ado-logs <command> [args...]" >&2
+    echo "Commands:" >&2
+    echo "  list <build-id> [--failed] [--type TYPE] [--json]" >&2
+    echo "      Show timeline steps with results and log IDs." >&2
+    echo "  get <build-id> <log-id> [--tail N] [--head N]" >&2
+    echo "      Fetch raw log content." >&2
+    echo "  errors <build-id> [--with-log [N]] [--json]" >&2
+    echo "      Show failed steps with error/warning messages." >&2
+    echo "  search <build-id> <pattern> [--step NAME] [--context N]" >&2
+    echo "      Grep for a pattern across build logs." >&2
+    exit 1
+}
+
+# Format duration from ISO 8601 or start/finish timestamps
+format_duration() {
+    local start="$1"
+    local finish="$2"
+
+    if [[ -z "$start" || "$start" == "null" || -z "$finish" || "$finish" == "null" ]]; then
+        echo "-"
+        return
+    fi
+
+    local start_epoch finish_epoch
+    start_epoch=$(date -d "$start" +%s 2>/dev/null || echo "")
+    finish_epoch=$(date -d "$finish" +%s 2>/dev/null || echo "")
+
+    if [[ -z "$start_epoch" || -z "$finish_epoch" ]]; then
+        echo "-"
+        return
+    fi
+
+    local diff=$((finish_epoch - start_epoch))
+    if [[ $diff -lt 0 ]]; then
+        echo "-"
+    elif [[ $diff -lt 60 ]]; then
+        echo "${diff}s"
+    elif [[ $diff -lt 3600 ]]; then
+        echo "$((diff / 60))m$((diff % 60))s"
+    else
+        echo "$((diff / 3600))h$((diff % 3600 / 60))m"
+    fi
+}
+
+if [[ $# -lt 1 ]]; then
+    usage
+fi
+
+cmd="$1"
+shift
+
+case "$cmd" in
+    list)
+        if [[ $# -lt 1 ]]; then
+            echo "Usage: ado-logs list <build-id> [--failed] [--type TYPE] [--json]" >&2
+            exit 1
+        fi
+
+        build_id="$1"
+        shift
+
+        failed_only=false
+        type_filter=""
+        output_json=false
+
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                --failed) failed_only=true; shift ;;
+                --type) type_filter="$2"; shift 2 ;;
+                --json) output_json=true; shift ;;
+                *)
+                    echo "Unknown option: $1" >&2
+                    usage
+                    ;;
+            esac
+        done
+
+        mapfile -t base < <(setup_ado_base)
+        org="${base[0]}"
+        project_encoded="${base[2]}"
+
+        url="$org/$project_encoded/_apis/build/builds/$build_id/timeline?api-version=$ADO_API_VERSION"
+        timeline=$(call_ado_api GET "$url")
+
+        # Check for API error (error responses have .message but no .records)
+        if ! echo "$timeline" | jq -e '.records' &>/dev/null; then
+            echo "Error: $(echo "$timeline" | jq -r '.message // "unknown API error"')" >&2
+            exit 1
+        fi
+
+        if [[ "$output_json" == true ]]; then
+            echo "$timeline"
+            exit 0
+        fi
+
+        # Build jq filter
+        jq_filter='.records[]'
+
+        if [[ "$failed_only" == true ]]; then
+            jq_filter="$jq_filter | select(.result == \"failed\" or .result == \"succeededWithIssues\")"
+        fi
+
+        if [[ -n "$type_filter" ]]; then
+            jq_filter="$jq_filter | select(.type == \"$type_filter\")"
+        fi
+
+        # Sort by order, format as table
+        echo "$timeline" | jq -r "[$jq_filter] | sort_by(.order) | .[] |
+            [
+                (.order // 0 | tostring),
+                (.type // \"-\"),
+                (.name // \"-\"),
+                (.result // .state // \"-\"),
+                (if .log then (.log.id | tostring) else \"-\" end),
+                (((.issues // []) | map(select(.type == \"error\")) | length | tostring) + \"E/\" +
+                 ((.issues // []) | map(select(.type == \"warning\")) | length | tostring) + \"W\"),
+                (.startTime // \"-\"),
+                (.finishTime // \"-\")
+            ] | @tsv" | while IFS=$'\t' read -r order type name result log_id issues start finish; do
+            duration=$(format_duration "$start" "$finish")
+            printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\n" "$order" "$type" "$name" "$result" "$log_id" "$issues" "$duration"
+        done | column -t -s $'\t' -N "ORDER,TYPE,NAME,RESULT,LOG,ISSUES,DURATION"
+        ;;
+
+    get)
+        if [[ $# -lt 2 ]]; then
+            echo "Usage: ado-logs get <build-id> <log-id> [--tail N] [--head N]" >&2
+            exit 1
+        fi
+
+        build_id="$1"
+        log_id="$2"
+        shift 2
+
+        tail_lines=""
+        head_lines=""
+
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                --tail) tail_lines="$2"; shift 2 ;;
+                --head) head_lines="$2"; shift 2 ;;
+                *)
+                    echo "Unknown option: $1" >&2
+                    usage
+                    ;;
+            esac
+        done
+
+        mapfile -t base < <(setup_ado_base)
+        org="${base[0]}"
+        project_encoded="${base[2]}"
+
+        url="$org/$project_encoded/_apis/build/builds/$build_id/logs/$log_id?api-version=$ADO_API_VERSION"
+
+        if [[ -n "$head_lines" ]]; then
+            url="${url}&startLine=1&endLine=$head_lines"
+        fi
+
+        auth_header=$(build_auth_header)
+        content=$(curl -s -X GET "$url" \
+            -H "$auth_header" \
+            -H "Accept: text/plain")
+
+        if [[ -n "$tail_lines" ]]; then
+            echo "$content" | tail -n "$tail_lines"
+        else
+            echo "$content"
+        fi
+        ;;
+
+    errors)
+        if [[ $# -lt 1 ]]; then
+            echo "Usage: ado-logs errors <build-id> [--with-log [N]] [--json]" >&2
+            exit 1
+        fi
+
+        build_id="$1"
+        shift
+
+        with_log=false
+        log_lines=50
+        output_json=false
+
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                --with-log)
+                    with_log=true
+                    shift
+                    # Optional numeric argument
+                    if [[ $# -gt 0 && "$1" =~ ^[0-9]+$ ]]; then
+                        log_lines="$1"
+                        shift
+                    fi
+                    ;;
+                --json) output_json=true; shift ;;
+                *)
+                    echo "Unknown option: $1" >&2
+                    usage
+                    ;;
+            esac
+        done
+
+        mapfile -t base < <(setup_ado_base)
+        org="${base[0]}"
+        project_encoded="${base[2]}"
+
+        url="$org/$project_encoded/_apis/build/builds/$build_id/timeline?api-version=$ADO_API_VERSION"
+        timeline=$(call_ado_api GET "$url")
+
+        # Check for API error (error responses have .message but no .records)
+        if ! echo "$timeline" | jq -e '.records' &>/dev/null; then
+            echo "Error: $(echo "$timeline" | jq -r '.message // "unknown API error"')" >&2
+            exit 1
+        fi
+
+        # Filter to failed records with issues
+        failed=$(echo "$timeline" | jq '[.records[] | select(
+            (.result == "failed" or .result == "succeededWithIssues") and
+            ((.issues // []) | length > 0)
+        )]')
+
+        count=$(echo "$failed" | jq 'length')
+
+        if [[ "$count" -eq 0 ]]; then
+            echo "No failed steps with issues found in build $build_id"
+            exit 0
+        fi
+
+        if [[ "$output_json" == true ]]; then
+            echo "$failed"
+            exit 0
+        fi
+
+        echo "$failed" | jq -r '.[] | "--- \(.name) [\(.result)] ---\n" +
+            ((.issues // []) | map("  [\(.type)] \(.message)") | join("\n"))' | while IFS= read -r line; do
+            echo "$line"
+        done
+
+        if [[ "$with_log" == true ]]; then
+            # Fetch last N lines of each failed step's log
+            echo "$failed" | jq -r '.[] | select(.log != null) | [(.name), (.log.id | tostring)] | @tsv' | while IFS=$'\t' read -r name log_id; do
+                echo ""
+                echo "=== Log tail: $name (log $log_id, last $log_lines lines) ==="
+                log_url="$org/$project_encoded/_apis/build/builds/$build_id/logs/$log_id?api-version=$ADO_API_VERSION"
+                auth_header=$(build_auth_header)
+                curl -s -X GET "$log_url" \
+                    -H "$auth_header" \
+                    -H "Accept: text/plain" | tail -n "$log_lines"
+            done
+        fi
+        ;;
+
+    search)
+        if [[ $# -lt 2 ]]; then
+            echo "Usage: ado-logs search <build-id> <pattern> [--step NAME] [--context N]" >&2
+            exit 1
+        fi
+
+        build_id="$1"
+        pattern="$2"
+        shift 2
+
+        step_filter=""
+        context_lines=3
+
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                --step) step_filter="$2"; shift 2 ;;
+                --context) context_lines="$2"; shift 2 ;;
+                *)
+                    echo "Unknown option: $1" >&2
+                    usage
+                    ;;
+            esac
+        done
+
+        mapfile -t base < <(setup_ado_base)
+        org="${base[0]}"
+        project_encoded="${base[2]}"
+
+        # Fetch timeline to map log IDs to step names
+        url="$org/$project_encoded/_apis/build/builds/$build_id/timeline?api-version=$ADO_API_VERSION"
+        timeline=$(call_ado_api GET "$url")
+
+        # Check for API error (error responses have .message but no .records)
+        if ! echo "$timeline" | jq -e '.records' &>/dev/null; then
+            echo "Error: $(echo "$timeline" | jq -r '.message // "unknown API error"')" >&2
+            exit 1
+        fi
+
+        # Build list of (name, log_id) pairs, optionally filtered by step name
+        jq_filter='.records[] | select(.log != null)'
+        if [[ -n "$step_filter" ]]; then
+            jq_filter="$jq_filter | select(.name | test(\"$step_filter\"; \"i\"))"
+        fi
+
+        steps=$(echo "$timeline" | jq -r "[$jq_filter] | sort_by(.order) | .[] | [.name, (.log.id | tostring)] | @tsv")
+
+        if [[ -z "$steps" ]]; then
+            echo "No log steps found${step_filter:+ matching '$step_filter'}"
+            exit 0
+        fi
+
+        found=false
+        auth_header=$(build_auth_header)
+
+        while IFS=$'\t' read -r name log_id; do
+            log_url="$org/$project_encoded/_apis/build/builds/$build_id/logs/$log_id?api-version=$ADO_API_VERSION"
+            content=$(curl -s -X GET "$log_url" \
+                -H "$auth_header" \
+                -H "Accept: text/plain")
+
+            matches=$(echo "$content" | grep -n -i -C "$context_lines" "$pattern" 2>/dev/null || true)
+
+            if [[ -n "$matches" ]]; then
+                found=true
+                echo "=== $name (log $log_id) ==="
+                echo "$matches"
+                echo ""
+            fi
+        done <<< "$steps"
+
+        if [[ "$found" != true ]]; then
+            echo "No matches for '$pattern' in build $build_id${step_filter:+ (step filter: '$step_filter')}"
+        fi
+        ;;
+
+    *)
+        echo "Unknown command: $cmd" >&2
+        usage
+        ;;
+esac
