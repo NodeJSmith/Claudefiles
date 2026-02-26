@@ -17,6 +17,47 @@ MANDATORY workflow:
 5. Refactor (IMPROVE)
 6. Verify coverage (80%+)
 
+## Test Execution
+
+**NEVER run tests without understanding how the project expects them to run.** Running tests with the wrong command, environment, or dependencies leads to false positives that waste time and break trust in the test suite.
+
+### Discovery Process
+
+Before executing tests:
+
+1. **Check project-specific guidance** - CLAUDE.md
+   - Look for "Test Execution" or "Testing" section
+   - If documented, use that command (skip further discovery)
+
+2. **Check CI configuration** - the authoritative source
+   - `.github/workflows/`, `.gitlab-ci.yml`, CI pipeline files
+   - Use the exact commands CI uses
+
+3. **Check task runners and build tools**
+   - Project-specific orchestration (language-dependent)
+   - May handle environment setup, dependencies, and isolation
+
+4. **Check documentation**
+   - README, CONTRIBUTING, or docs/ may specify test commands
+
+5. **Ask the user** - if no configuration found
+   - Use AskUserQuestion to ask how tests should be run
+   - Store the answer in CLAUDE.md to prevent asking again
+   - This creates project-specific guidance for future sessions
+
+6. **Fallback carefully** - only if user doesn't know
+   - Only use default test commands if no other information available
+   - Verify environment setup requirements first
+
+### Why This Matters
+
+- **Environment mismatch**: Missing dependencies, wrong Python version, incorrect env vars
+- **Scope mismatch**: CI might run only unit tests, or specific test markers
+- **Isolation issues**: Task runners may provide test isolation that raw commands don't
+- **False confidence**: Passing tests locally that fail in CI (or vice versa)
+
+**Golden rule**: If CI uses a specific command, you should too.
+
 ## Handling Test Failures
 
 **Default stance: YOU OWN IT.** When tests fail, your job is to fix them — not explain why they're not your problem.
