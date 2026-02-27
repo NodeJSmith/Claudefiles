@@ -25,21 +25,61 @@ for dir in agents skills commands scripts/hooks; do
   done
 done
 
-# Rules: symlink per-language directories (common/, python/, etc.)
+# Rules: symlink individual files within each language subdirectory (common/, python/, etc.)
+# File-level symlinks allow multiple sources (Claudefiles, Dotfiles) to contribute
+# files into the same ~/.claude/rules/<lang>/ directory without conflict.
 if [ -d "$REPO_DIR/rules" ]; then
   mkdir -p "$CLAUDE_DIR/rules"
   for lang_dir in "$REPO_DIR/rules"/*/; do
     [ -d "$lang_dir" ] || continue
     lang="$(basename "$lang_dir")"
-    target="$CLAUDE_DIR/rules/$lang"
-    if [ -L "$target" ]; then
-      rm "$target"
-    elif [ -e "$target" ]; then
-      shadowed+=("$target (shadows ${lang_dir%/})")
+    dest="$CLAUDE_DIR/rules/$lang"
+    if [ -L "$dest" ]; then
+      rm "$dest"   # upgrade: remove old whole-directory symlink
+    elif [ -e "$dest" ] && [ ! -d "$dest" ]; then
+      shadowed+=("$dest (shadows directory $lang_dir)")
       continue
     fi
-    ln -s "${lang_dir%/}" "$target"
+    mkdir -p "$dest"
+    for item in "$lang_dir"*; do
+      [ -e "$item" ] || continue
+      target="$dest/$(basename "$item")"
+      if [ -L "$target" ]; then
+        rm "$target"
+      elif [ -e "$target" ]; then
+        shadowed+=("$target (shadows $item)")
+        continue
+      fi
+      ln -s "$item" "$target"
+    done
   done
+fi
+
+# Learned: symlink individual files into ~/.claude/learned/
+# File-level symlinks allow Dotfiles (and future sources) to also contribute files
+# without conflict. Skipped silently if Claudefiles has no learned/ directory.
+if [ -d "$REPO_DIR/learned" ]; then
+  dest="$CLAUDE_DIR/learned"
+  if [ -L "$dest" ]; then
+    rm "$dest"   # upgrade: remove old whole-directory symlink
+  elif [ -e "$dest" ] && [ ! -d "$dest" ]; then
+    shadowed+=("$dest (shadows directory $REPO_DIR/learned)")
+    dest=""
+  fi
+  if [ -n "$dest" ]; then
+    mkdir -p "$dest"
+    for item in "$REPO_DIR/learned"/*; do
+      [ -e "$item" ] || continue
+      target="$dest/$(basename "$item")"
+      if [ -L "$target" ]; then
+        rm "$target"
+      elif [ -e "$target" ]; then
+        shadowed+=("$target (shadows $item)")
+        continue
+      fi
+      ln -s "$item" "$target"
+    done
+  fi
 fi
 
 # Bin: symlink scripts into ~/.local/bin (should be in PATH)
@@ -60,15 +100,36 @@ fi
 
 # Check for stale symlinks (point to targets that no longer exist)
 stale=()
-for dir in "$CLAUDE_DIR"/agents "$CLAUDE_DIR"/skills "$CLAUDE_DIR"/commands "$CLAUDE_DIR"/scripts/hooks "$CLAUDE_DIR"/rules "$BIN_DIR"; do
+
+# Top-level dirs: agents, skills, commands, hooks, bin
+for dir in "$CLAUDE_DIR"/agents "$CLAUDE_DIR"/skills "$CLAUDE_DIR"/commands \
+           "$CLAUDE_DIR"/scripts/hooks "$BIN_DIR"; do
   [ -d "$dir" ] || continue
   for link in "$dir"/*; do
     [ -L "$link" ] || continue
-    if [ ! -e "$link" ]; then
-      stale+=("$link -> $(readlink "$link")")
-    fi
+    [ ! -e "$link" ] && stale+=("$link -> $(readlink "$link")")
   done
 done
+
+# Rules: check file-level symlinks within each language subdirectory
+if [ -d "$CLAUDE_DIR/rules" ]; then
+  for lang_dir in "$CLAUDE_DIR/rules"/*/; do
+    [ -d "$lang_dir" ] || continue
+    [ ! -L "${lang_dir%/}" ] || continue
+    for link in "$lang_dir"*; do
+      [ -L "$link" ] || continue
+      [ ! -e "$link" ] && stale+=("$link -> $(readlink "$link")")
+    done
+  done
+fi
+
+# Learned: check file-level symlinks (skip if it's itself a whole-dir symlink)
+if [ -d "$CLAUDE_DIR/learned" ] && [ ! -L "$CLAUDE_DIR/learned" ]; then
+  for link in "$CLAUDE_DIR/learned"/*; do
+    [ -L "$link" ] || continue
+    [ ! -e "$link" ] && stale+=("$link -> $(readlink "$link")")
+  done
+fi
 
 # Report problems
 if [ ${#shadowed[@]} -gt 0 ]; then
