@@ -36,6 +36,9 @@ if [ -d "$REPO_DIR/rules" ]; then
     dest="$CLAUDE_DIR/rules/$lang"
     if [ -L "$dest" ]; then
       rm "$dest"   # upgrade: remove old whole-directory symlink
+    elif [ -e "$dest" ] && [ ! -d "$dest" ]; then
+      shadowed+=("$dest (shadows directory $lang_dir)")
+      continue
     fi
     mkdir -p "$dest"
     for item in "$lang_dir"*; do
@@ -59,19 +62,24 @@ if [ -d "$REPO_DIR/learned" ]; then
   dest="$CLAUDE_DIR/learned"
   if [ -L "$dest" ]; then
     rm "$dest"   # upgrade: remove old whole-directory symlink
+  elif [ -e "$dest" ] && [ ! -d "$dest" ]; then
+    shadowed+=("$dest (shadows directory $REPO_DIR/learned)")
+    dest=""
   fi
-  mkdir -p "$dest"
-  for item in "$REPO_DIR/learned"/*; do
-    [ -e "$item" ] || continue
-    target="$dest/$(basename "$item")"
-    if [ -L "$target" ]; then
-      rm "$target"
-    elif [ -e "$target" ]; then
-      shadowed+=("$target (shadows $item)")
-      continue
-    fi
-    ln -s "$item" "$target"
-  done
+  if [ -n "$dest" ]; then
+    mkdir -p "$dest"
+    for item in "$REPO_DIR/learned"/*; do
+      [ -e "$item" ] || continue
+      target="$dest/$(basename "$item")"
+      if [ -L "$target" ]; then
+        rm "$target"
+      elif [ -e "$target" ]; then
+        shadowed+=("$target (shadows $item)")
+        continue
+      fi
+      ln -s "$item" "$target"
+    done
+  fi
 fi
 
 # Bin: symlink scripts into ~/.local/bin (should be in PATH)
