@@ -14,6 +14,8 @@
       "Bash(claude-log:*)",
       "Bash(get-tmp-filename)",
       "Bash(git-default-branch)",
+      "Bash(git:*)",
+      "Bash(cd:*)",
       "Grep(/tmp/*)"
     ],
     "defaultMode": "default"

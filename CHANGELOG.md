@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-02-28
+
+### Changed
+- Auto-allow `git` and `cd` commands in permissions — eliminates frequent "manual approval required" prompts for basic git operations and directory navigation
+
 ## 2026-02-27
 
 ### Changed
