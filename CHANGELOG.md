@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-02-28
 
 ### Changed
-- Auto-allow `git` and `cd` commands in permissions — eliminates frequent "manual approval required" prompts for basic git operations and directory navigation (#33)
+- Auto-allow `git` commands in permissions — eliminates frequent "manual approval required" prompts for basic git operations (#33)
 
 ### Fixed
 - `block-git-c.js` hook no longer false-positives on "git -C" appearing inside commit messages, PR bodies, or quoted strings — now strips heredocs and string literals before matching (#33)
