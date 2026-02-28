@@ -25,4 +25,4 @@ Based on the above changes:
 4. Stage all relevant files (including CHANGELOG.md if updated).
 5. For multi-line commit messages, use the Write tool to write the message to a temp file, then run `git commit -F <path>`. For simple one-line messages, `git commit -m "..."` is fine. Do NOT use `git commit -m "$(cat <<'EOF'...)"` — command substitution triggers extra permission prompts.
 6. Push the branch to origin (use `-u` flag only if you just created a new branch).
-7. You MUST do steps 4–6 in a single message. Do not use any other tools or do anything else. Do not send any other text or messages besides these tool calls.
+7. You MUST do steps 4–6 in a single message. Include the Write call for the commit message file (if needed) in that same message. Do not use any other tools or do anything else besides these tool calls.
