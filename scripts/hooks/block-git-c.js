@@ -23,9 +23,9 @@ async function main() {
   // Strip heredocs (<<'EOF'...EOF, <<EOF...EOF, <<"EOF"...EOF)
   // so we don't match git -C inside commit messages or PR bodies
   const stripped = cmd
-    .replace(/<<-?\s*'(\w+)'[\s\S]*?^\1$/gm, '')
-    .replace(/<<-?\s*"(\w+)"[\s\S]*?^\1$/gm, '')
-    .replace(/<<-?\s*(\w+)[\s\S]*?^\1$/gm, '')
+    .replace(/<<\s*'(\w+)'[\s\S]*?^\1$/gm, '')
+    .replace(/<<\s*"(\w+)"[\s\S]*?^\1$/gm, '')
+    .replace(/<<\s*(\w+)[\s\S]*?^\1$/gm, '')
     // Strip double-quoted strings (handles escaped quotes)
     .replace(/"(?:[^"\\]|\\.)*"/g, '')
     // Strip single-quoted strings
