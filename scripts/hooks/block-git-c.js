@@ -20,7 +20,18 @@ async function main() {
   const input = JSON.parse(data);
   const cmd = input.tool_input?.command || '';
 
-  if (/git\s+-C\b/.test(cmd)) {
+  // Strip heredocs (<<'EOF'...EOF, <<EOF...EOF, <<"EOF"...EOF)
+  // so we don't match git -C inside commit messages or PR bodies
+  const stripped = cmd
+    .replace(/<<-?\s*'(\w+)'[\s\S]*?^\1$/gm, '')
+    .replace(/<<-?\s*"(\w+)"[\s\S]*?^\1$/gm, '')
+    .replace(/<<-?\s*(\w+)[\s\S]*?^\1$/gm, '')
+    // Strip double-quoted strings (handles escaped quotes)
+    .replace(/"(?:[^"\\]|\\.)*"/g, '')
+    // Strip single-quoted strings
+    .replace(/'[^']*'/g, '');
+
+  if (/git\s+-C\b/.test(stripped)) {
     console.error('[Hook] BLOCKED: Do not use git -C. Run git commands directly from the working directory.');
     process.exit(2);
   }

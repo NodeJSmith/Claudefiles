@@ -179,29 +179,31 @@ Based on the user's choice per finding:
 
 ### Filing issues
 
-When the user chooses "Create an issue" for a finding, create it immediately using `gh issue create`:
+When the user chooses "Create an issue" for a finding, create it immediately:
 
-```bash
-gh issue create --title "<concise problem statement>" --body "$(cat <<'EOF'
-## Problem
+1. Use the Write tool to write the issue body to a temp file (e.g., `/tmp/issue-body.md`):
+   ```markdown
+   ## Problem
 
-<2-3 sentence description of the finding from the audit>
+   <2-3 sentence description of the finding from the audit>
 
-## Evidence
+   ## Evidence
 
-- <specific files, line counts, churn data, coverage numbers>
-- <dependency information if relevant>
+   - <specific files, line counts, churn data, coverage numbers>
+   - <dependency information if relevant>
 
-## Suggested approach
+   ## Suggested approach
 
-<brief recommendation — e.g., "Add test coverage first, then refactor" or "Needs architectural decision — consider an ADR">
+   <brief recommendation — e.g., "Add test coverage first, then refactor" or "Needs architectural decision — consider an ADR">
 
-## Source
+   ## Source
 
-Identified during codebase audit on <date>.
-EOF
-)"
-```
+   Identified during codebase audit on <date>.
+   ```
+2. Create the issue:
+   ```bash
+   gh issue create --title "<concise problem statement>" --body-file /tmp/issue-body.md
+   ```
 
 After creating the issue, confirm the URL and move on to the next finding. The user can batch multiple findings as issues — ask once per finding, don't force them to address everything in this session.
 
