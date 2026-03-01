@@ -35,7 +35,7 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 
 ## Contents
 
-### Skills (20)
+### Skills (21)
 
 | Skill | Description |
 |-------|-------------|
@@ -57,6 +57,7 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `mine.security-review` | Security checklist for auth, user input, secrets, API endpoints |
 | `mine.ship` | Commit, push, and create a PR in one step |
 | `mine.start` | Read a plan handoff from a previous session and begin implementation |
+| `mine.tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |
 | `mine.ux-antipatterns` | Detect UX anti-patterns -- layout shifts, missing feedback, broken forms, a11y gaps |
 | `mine.worktree` | Manage git worktrees with plan handoff for concurrent Claude sessions |
 

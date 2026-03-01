@@ -36,6 +36,7 @@ Skills and commands exist for common workflows. **Use these instead of ad-hoc to
 | "capture this pattern", "save this lesson" | `/mine.capture_lesson` |
 | "evaluate this repo", "should I use this library" | `/mine.eval-repo` |
 | "mutation test", "do my tests actually catch bugs", "verify test quality" | `/mine.mutation-test` |
+| "find tool gaps", "what am I scripting by hand", "session archaeology", "missing cli features" | `/mine.tool-gaps` |
 | "merge settings", "apply settings", "update claude settings" | `claude-merge-settings` |
 | "what did I work on yesterday", "find that session where...", "show me the logs" | `claude-log` |
 | "cancel builds", "cancel pipeline runs", "list ADO builds", "cancel-by-tag" | `ado-builds` |
@@ -400,6 +401,10 @@ Evaluate a third-party GitHub repo before adopting it. Security, maintenance, co
 ### /mine.mutation-test
 
 Mutation testing — intentionally break code to verify tests catch real bugs. Claude-driven mutations (no framework). Reads code, crafts targeted semantic mutations, applies each one, runs tests, reverts. Reports surviving mutations and helps write tests to kill them.
+
+### /mine.tool-gaps
+
+Mine session history for workarounds — pipes to python/jq, inline scripts, repeated manual sequences — that reveal missing CLI functionality or unscripted patterns worth automating.
 
 ---
 
