@@ -77,12 +77,20 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `mine.tackle` | Deep-dive an issue, plan implementation, create a worktree |
 | `mine.ux-review` | Scan frontend code for UX anti-patterns |
 
-### Agents (2)
+### Agents (10)
 
 | Agent | Description |
 |-------|-------------|
+| `architect` | Read-only architecture documentation -- Mermaid diagrams and high-level overviews, no code changes |
+| `browser-qa-agent` | Live browser QA via Playwright MCP -- UI bugs, console errors, UX issues on running apps |
 | `code-reviewer` | Expert code reviewer -- PEP 8, type hints, security, performance |
+| `db-auditor` | Database query and schema audit -- N+1 queries, missing indexes, ORM misuse |
+| `dep-auditor` | Dependency vulnerability audit -- CVEs, outdated packages, license issues, unused deps |
+| `issue-refiner` | Enrich GitHub issues with acceptance criteria, edge cases, technical considerations, and NFRs |
 | `planner` | Implementation planning for complex features and refactoring |
+| `qa-specialist` | Adversarial QA -- systematic and exploratory testing to find defects before they ship |
+| `ui-auditor` | Accessibility and UX audit -- WCAG violations, missing ARIA, hardcoded styles, UX anti-patterns |
+| `visual-diff` | Visual regression testing via Playwright MCP -- before/after screenshots to catch unintended UI changes |
 
 ### Rules (17)
 
