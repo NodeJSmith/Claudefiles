@@ -128,7 +128,7 @@ Create `.claude/audits/VISUAL_DIFF_REPORT.md`:
 ## Best Practices
 
 - Capture baselines BEFORE making code changes, not after
-- Wait for all async content to load before capturing (use `browser_wait_for`)
+- Wait for all async content to load before capturing (use `mcp__plugin_playwright_playwright__browser_wait_for`)
 - Use consistent viewport sizes across baseline and current captures
 - Clear cache/cookies if testing auth-dependent pages
 - Document which detected changes are intentional vs unexpected
