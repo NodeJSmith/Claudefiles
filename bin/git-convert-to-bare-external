@@ -17,15 +17,18 @@
 #   └── bin/
 #
 # Into:
-#   ~/source/Claudefiles/    (bare repo — git database only)
-#   ~/Claudefiles/           (worktree at original path — files unchanged)
-#   ├── .git                 (pointer to ~/source/Claudefiles/)
+#   ~/source/Claudefiles/        (external bare container)
+#   ├── .bare/                   (bare repo — git database)
+#   ├── .git                     (pointer: gitdir: ./.bare)
+#   └── <name>/                  (feature worktrees)
+#   ~/Claudefiles/               (worktree at original path — files unchanged)
+#   ├── .git                     (pointer to ~/source/Claudefiles/.bare/worktrees/)
 #   ├── agents/
 #   └── bin/
 #
 # Feature worktrees:
 #   cd ~/source/Claudefiles
-#   git worktree add worktrees/feat-name -b feat/name
+#   git worktree add <name> -b feat/<name>
 
 set -euo pipefail
 
@@ -167,20 +170,23 @@ STAGING_TEMPLATE="${REPO_PARENT}/.convert-staging-${REPO_NAME}.XXXXXX"
 if $DRY_RUN; then
     echo "Would perform these steps:"
     echo "  1. Move all files to temporary staging area (in $REPO_PARENT/.convert-staging-${REPO_NAME}.XXXX)"
-    echo "  2. Move .git/ → $BARE_PATH/"
+    echo "  2. Move .git/ → $BARE_PATH/.bare/  (and create $BARE_PATH/.git pointer)"
     echo "  3. Configure as bare, fix fetch refspec"
     echo "  4. Create worktree at $REPO_PATH (path unchanged)"
     echo "  5. Restore preserved files into $REPO_PATH/"
     echo ""
     echo "Result structure:"
-    echo "  $BARE_PATH/          (bare repo — git database)"
+    echo "  $BARE_PATH/"
+    echo "  ├── .bare/           (bare repo — git database)"
+    echo "  ├── .git             (pointer: gitdir: ./.bare)"
+    echo "  └── <name>/          (feature worktrees)"
     echo "  $REPO_PATH/          (worktree — files at same path as before)"
-    echo "  ├── .git             (pointer to $BARE_PATH/)"
+    echo "  ├── .git             (pointer to $BARE_PATH/.bare/worktrees/)"
     echo "  └── (all original files)"
     echo ""
     echo "Feature worktrees:"
     echo "  cd $BARE_PATH"
-    echo "  git worktree add worktrees/feat-name -b feat/name"
+    echo "  git worktree add <name> -b feat/<name>"
     echo ""
     echo "Run without --dry-run to convert."
     exit 0
@@ -201,13 +207,20 @@ cleanup() {
         if [[ -d "$STAGING_DIR" ]] && [[ "$(ls -A "$STAGING_DIR" 2>/dev/null)" ]]; then
             echo "Staged files are preserved in: $STAGING_DIR" >&2
             echo "To recover manually:" >&2
-            if [[ -d "$BARE_PATH" ]]; then
-                # .git was successfully moved to BARE_PATH; move it back first
-                echo "  1. Move bare repo back: mv \"$BARE_PATH\" \"$REPO_PATH/.git\"" >&2
+            if [[ -d "$BARE_PATH/.bare" ]]; then
+                # .git was successfully moved to BARE_PATH/.bare/; move it back first
+                echo "  1. Move bare repo back: mv \"$BARE_PATH/.bare\" \"$REPO_PATH/.git\"" >&2
+                echo "  2. Remove bare container: rm -rf \"$BARE_PATH\"" >&2
+                echo "  3. Restore staged files: mv \"$STAGING_DIR\"/* \"$STAGING_DIR\"/.[!.]* \"$REPO_PATH/\" 2>/dev/null" >&2
+                echo "  4. rmdir $STAGING_DIR" >&2
+                echo "  5. Fix bare flag: cd \"$REPO_PATH\" && git config core.bare false" >&2
+            elif [[ -d "$BARE_PATH" ]]; then
+                # BARE_PATH dir was created but .bare/ move not yet complete
+                echo "  1. Remove bare container: rm -rf \"$BARE_PATH\"" >&2
                 echo "  2. Restore staged files: mv \"$STAGING_DIR\"/* \"$STAGING_DIR\"/.[!.]* \"$REPO_PATH/\" 2>/dev/null" >&2
                 echo "  3. rmdir $STAGING_DIR" >&2
             else
-                # .git is still at $REPO_PATH/.git (step 2 not yet reached or failed)
+                # .git is still at $REPO_PATH/.git (step 2 not yet reached)
                 echo "  1. Restore staged files: mv \"$STAGING_DIR\"/* \"$STAGING_DIR\"/.[!.]* \"$REPO_PATH/\" 2>/dev/null" >&2
                 echo "  2. rmdir $STAGING_DIR" >&2
             fi
@@ -244,21 +257,24 @@ if [[ -n "$remaining" ]]; then
 fi
 STEP=2
 
-# Step 2: Move .git/ to bare path
-echo "  [2/5] Moving .git/ → $BARE_PATH/"
-mv "$REPO_PATH/.git" "$BARE_PATH"
+# Step 2: Move .git/ to bare path as .bare/, create .git pointer
+echo "  [2/5] Moving .git/ → $BARE_PATH/.bare/"
+mkdir -p "$BARE_PATH"
+mv "$REPO_PATH/.git" "$BARE_PATH/.bare"
+echo "gitdir: ./.bare" > "$BARE_PATH/.git"
 STEP=3
 
 # Step 3: Configure as bare and fix fetch refspec (only if an origin remote exists)
 echo "  [3/5] Configuring bare repo"
-git -C "$BARE_PATH" config core.bare true
-if git -C "$BARE_PATH" remote get-url origin &>/dev/null; then
-    git -C "$BARE_PATH" config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+git -C "$BARE_PATH/.bare" config core.bare true
+if git -C "$BARE_PATH/.bare" remote get-url origin &>/dev/null; then
+    git -C "$BARE_PATH/.bare" config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
 fi
 STEP=4
 
 # Step 4: Register original path as the main worktree
-# git worktree add writes the .git pointer file and registers the worktree automatically.
+# git -C "$BARE_PATH" follows the .git pointer to .bare/, then worktree add writes
+# the .git pointer file into $REPO_PATH and registers the worktree automatically.
 echo "  [4/5] Creating worktree at $REPO_PATH (path unchanged)"
 git -C "$BARE_PATH" worktree add "$REPO_PATH" "$current_branch"
 STEP=5
@@ -291,9 +307,12 @@ echo ""
 echo "Done! Converted to bare repo with external storage."
 echo ""
 echo "Structure:"
-echo "  $BARE_PATH/          (bare repo — git database)"
+echo "  $BARE_PATH/"
+echo "  ├── .bare/           (bare repo — git database)"
+echo "  ├── .git             (pointer: gitdir: ./.bare)"
+echo "  └── <name>/          (feature worktrees)"
 echo "  $REPO_PATH/          (worktree — original path preserved)"
-echo "  ├── .git             (pointer to $BARE_PATH/)"
+echo "  ├── .git             (pointer to $BARE_PATH/.bare/worktrees/)"
 echo "  └── (all original files)"
 if [[ $moved_extra -gt 0 ]]; then
     echo ""
@@ -302,4 +321,4 @@ fi
 echo ""
 echo "Feature worktrees:"
 echo "  cd $BARE_PATH"
-echo "  git worktree add worktrees/<name> -b feat/<name>"
+echo "  git worktree add <name> -b feat/<name>"

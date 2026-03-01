@@ -153,14 +153,18 @@ Ask the user for any missing info:
 #### Result
 
 ```
-<bare-path>/        ← bare repo (git database)
+<bare-path>/
+├── .bare/          ← bare repo (git database)
+├── .git            ← pointer: "gitdir: ./.bare"
+└── <name>/         ← feature worktrees as siblings to .bare/
+
 <repo-path>/        ← original worktree at unchanged path
-├── .git            ← pointer to <bare-path>/
+├── .git            ← pointer to <bare-path>/.bare/worktrees/
 └── (all files)
 ```
 
 Tell the user the conversion is complete and show them how to add feature worktrees:
 ```
 cd <bare-path>
-git worktree add worktrees/<name> -b feat/<name>
+git worktree add <name> -b feat/<name>
 ```
