@@ -35,20 +35,15 @@ Based on the above changes:
      <1-3 bullet points explaining what changed and why>
 
      ```
-8. Create the PR as a **draft** using the platform-appropriate command:
+8. Create the PR as a **draft**:
+   - Use the Write tool to write the PR body to a temp file (e.g., `/tmp/pr-body.md`)
    - **GitHub**:
      ```bash
-     gh pr create --draft --title "..." --body "$(cat <<'EOF'
-     ...
-     EOF
-     )"
+     gh pr create --draft --title "..." --body-file /tmp/pr-body.md
      ```
    - **Azure DevOps**:
      ```bash
-     az repos pr create --draft true --title "..." --description "$(cat <<'EOF'
-     ...
-     EOF
-     )" --source-branch <branch> --target-branch <default-branch>
+     az repos pr create --draft true --title "..." --description "$(cat /tmp/pr-body.md)" --source-branch <branch> --target-branch <default-branch>
      ```
 9. **Update CHANGELOG with PR number**: If a `CHANGELOG.md` exists in the repo root:
    - Extract the PR number from the PR URL
@@ -70,7 +65,7 @@ You have the capability to call multiple tools in a single response. You should 
 **Important:**
 - If the branch is not pushed, inform the user they need to push first
 - If a PR already exists, show the PR URL and do not create a duplicate
-- Always use HEREDOC format for PR body to ensure proper formatting
+- Always write the PR body to a temp file and use `--body-file` (GitHub) to avoid command substitution
 - Focus on the "why" rather than the "what" in the summary
 
 **Azure DevOps notes:**
