@@ -1,0 +1,267 @@
+#!/bin/bash
+# git-convert-to-bare — Convert an existing git repo to a bare repo with worktree structure
+#
+# Usage:
+#   git-convert-to-bare [--dry-run] [path]
+#
+# If path is omitted, uses the current directory.
+#
+# Converts:
+#   repo/
+#   ├── .git/
+#   ├── .vscode/
+#   ├── .claude/
+#   └── src/
+#
+# Into:
+#   repo/
+#   ├── .bare/          (was .git/)
+#   ├── .git            (pointer file)
+#   └── main/           (worktree with all original files)
+#       ├── .vscode/
+#       ├── .claude/
+#       └── src/
+#
+# Preserves:
+#   - All tracked files (via worktree checkout)
+#   - All untracked & gitignored files (.vscode, .claude, .env, etc.)
+#   - Git hooks (stay in .bare/hooks/)
+#   - Stashes, reflog, and full history
+
+set -euo pipefail
+
+DRY_RUN=false
+REPO_PATH=""
+
+usage() {
+    local exit_code="${1:-1}"
+    echo "Usage: $(basename "$0") [--dry-run] [path]"
+    echo ""
+    echo "Convert an existing git repo to a bare repo with worktree structure."
+    echo ""
+    echo "Options:"
+    echo "  --dry-run    Show what would happen without making changes"
+    echo "  path         Path to the repo (default: current directory)"
+    exit "$exit_code"
+}
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --dry-run) DRY_RUN=true; shift ;;
+        --help|-h) usage 0 ;;
+        -*) echo "Error: unknown option: $1" >&2; usage ;;
+        *)
+            if [[ -n "$REPO_PATH" ]]; then
+                echo "Error: unexpected argument: $1" >&2
+                usage
+            fi
+            REPO_PATH="$1"
+            shift
+            ;;
+    esac
+done
+
+REPO_PATH="${REPO_PATH:-.}"
+REPO_PATH="$(cd "$REPO_PATH" && pwd)"
+
+# --- Validation ---
+
+if [[ ! -d "$REPO_PATH/.git" ]]; then
+    if [[ -f "$REPO_PATH/.git" ]]; then
+        echo "Error: $REPO_PATH/.git is already a pointer file (repo may already be converted)" >&2
+        exit 1
+    fi
+    echo "Error: $REPO_PATH is not a git repository (no .git directory)" >&2
+    exit 1
+fi
+
+if [[ -d "$REPO_PATH/.bare" ]]; then
+    echo "Error: $REPO_PATH/.bare already exists — repo may already be converted" >&2
+    exit 1
+fi
+
+# Check for submodules
+if [[ -f "$REPO_PATH/.gitmodules" ]]; then
+    echo "Error: repo has submodules (.gitmodules found)" >&2
+    echo "Submodule conversion is not supported. Remove submodules first or convert manually." >&2
+    exit 1
+fi
+
+# Check for existing worktrees (beyond the main one)
+worktree_count=$(git -C "$REPO_PATH" worktree list 2>/dev/null | wc -l)
+if [[ "$worktree_count" -gt 1 ]]; then
+    echo "Error: repo already has $worktree_count worktrees" >&2
+    echo "Remove extra worktrees before converting: git worktree remove <path>" >&2
+    exit 1
+fi
+
+# Detect current branch
+current_branch=$(git -C "$REPO_PATH" branch --show-current 2>/dev/null || true)
+if [[ -z "$current_branch" ]]; then
+    echo "Error: HEAD is detached — check out a branch before converting" >&2
+    exit 1
+fi
+
+# Guard against branch names that conflict with bare repo structure
+if [[ "$current_branch" == ".bare" || "$current_branch" == ".git" ]]; then
+    echo "Error: branch name '$current_branch' conflicts with bare repo structure" >&2
+    echo "Rename the branch first: git branch -m <new-name>"
+    exit 1
+fi
+
+# Check for uncommitted changes (staged or unstaged)
+if ! git -C "$REPO_PATH" diff --quiet 2>/dev/null || ! git -C "$REPO_PATH" diff --cached --quiet 2>/dev/null; then
+    echo "Error: repo has uncommitted changes" >&2
+    echo "Commit or stash changes before converting." >&2
+    exit 1
+fi
+
+# Collect untracked files (including gitignored) for reporting
+untracked_count=$(git -C "$REPO_PATH" ls-files --others --exclude-standard 2>/dev/null | wc -l)
+ignored_count=$(git -C "$REPO_PATH" ls-files --others --ignored --exclude-standard 2>/dev/null | wc -l)
+
+echo "Repository:  $REPO_PATH"
+echo "Branch:      $current_branch"
+echo "Untracked:   $untracked_count files"
+echo "Ignored:     $ignored_count files (will be preserved)"
+echo "Mode:        $( $DRY_RUN && echo "DRY RUN" || echo "LIVE" )"
+echo ""
+
+if $DRY_RUN; then
+    echo "Would perform these steps:"
+    echo "  1. Move all non-.git files to temporary staging area"
+    echo "  2. Move .git/ → .bare/"
+    echo "  3. Create .git pointer file"
+    echo "  4. Configure fetch refspec"
+    echo "  5. Create worktree: $current_branch/"
+    echo "  6. Move preserved files into $current_branch/"
+    echo ""
+    echo "Result structure:"
+    echo "  $REPO_PATH/"
+    echo "  ├── .bare/"
+    echo "  ├── .git            (pointer: gitdir: ./.bare)"
+    echo "  └── $current_branch/"
+    echo "      └── (all original files)"
+    echo ""
+    echo "Run without --dry-run to convert."
+    exit 0
+fi
+
+# --- Point of no return ---
+
+echo "Converting..."
+STAGING_DIR=$(mktemp -d "${REPO_PATH}/.convert-staging.XXXXXX")
+
+STEP=1
+cleanup() {
+    local exit_code=$?
+    if [[ $exit_code -ne 0 ]]; then
+        echo "" >&2
+        echo "ERROR: Conversion failed at step $STEP" >&2
+        echo "" >&2
+        # Attempt recovery based on how far we got
+        if [[ -d "$STAGING_DIR" ]] && [[ "$(ls -A "$STAGING_DIR" 2>/dev/null)" ]]; then
+            echo "Staged files are preserved in: $STAGING_DIR" >&2
+            echo "To recover manually:" >&2
+            if [[ -f "$REPO_PATH/.git" ]] && [[ -d "$REPO_PATH/.bare" ]]; then
+                echo "  1. rm $REPO_PATH/.git" >&2
+                echo "  2. mv $REPO_PATH/.bare $REPO_PATH/.git" >&2
+            fi
+            echo "  3. mv \"$STAGING_DIR\"/* \"$STAGING_DIR\"/.[!.]* \"$STAGING_DIR\"/..?* \"$REPO_PATH/\" 2>/dev/null" >&2
+            echo "  4. rmdir $STAGING_DIR" >&2
+        else
+            # Staging dir is empty or gone — nothing extra to recover
+            if [[ -d "$STAGING_DIR" ]]; then
+                rmdir "$STAGING_DIR" 2>/dev/null || true
+            fi
+        fi
+    else
+        # Success — clean up staging dir if empty
+        if [[ -d "$STAGING_DIR" ]]; then
+            rmdir "$STAGING_DIR" 2>/dev/null || true
+        fi
+    fi
+}
+trap cleanup EXIT
+
+# Step 1: Move all non-.git files to staging
+echo "  [$STEP/6] Moving files to staging area..."
+for item in "$REPO_PATH"/* "$REPO_PATH"/.[!.]* "$REPO_PATH"/..?*; do
+    [[ -e "$item" ]] || continue
+    basename="$(basename "$item")"
+    # Skip .git directory and our staging dir
+    [[ "$basename" == ".git" ]] && continue
+    [[ "$item" == "$STAGING_DIR" ]] && continue
+    mv "$item" "$STAGING_DIR/"
+done
+STEP=2
+
+# Step 2: Move .git/ to .bare/
+echo "  [$STEP/6] Moving .git/ → .bare/"
+mv "$REPO_PATH/.git" "$REPO_PATH/.bare"
+STEP=3
+
+# Step 3: Create .git pointer file and mark as bare
+echo "  [$STEP/6] Creating .git pointer file"
+echo "gitdir: ./.bare" > "$REPO_PATH/.git"
+# Mark as bare so git doesn't treat root as a working tree for the current branch
+# (without this, git worktree add fails because the branch appears "already checked out")
+git -C "$REPO_PATH" config core.bare true
+STEP=4
+
+# Step 4: Fix fetch refspec (only if an origin remote exists)
+echo "  [$STEP/6] Configuring fetch refspec"
+if git -C "$REPO_PATH" remote get-url origin &>/dev/null; then
+    git -C "$REPO_PATH" config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+fi
+STEP=5
+
+# Step 5: Create worktree
+echo "  [$STEP/6] Creating worktree: $current_branch/"
+git -C "$REPO_PATH" worktree add "$REPO_PATH/$current_branch" "$current_branch"
+STEP=6
+
+# Step 6: Move preserved files (untracked, ignored, dotfiles) into worktree
+echo "  [$STEP/6] Restoring preserved files to worktree"
+moved_extra=0
+for item in "$STAGING_DIR"/* "$STAGING_DIR"/.[!.]* "$STAGING_DIR"/..?*; do
+    [[ -e "$item" ]] || continue
+    basename="$(basename "$item")"
+    target="$REPO_PATH/$current_branch/$basename"
+
+    if [[ -e "$target" ]]; then
+        # Git already checked out this file/dir — merge in any untracked extras
+        if [[ -d "$item" ]] && [[ -d "$target" ]]; then
+            # Recursively copy without overwriting — preserves nested untracked files
+            # that live inside tracked directories (e.g., src/deep/untracked.txt)
+            cp -r --update=none "$item/." "$target/"
+            rm -rf "$item"
+            moved_extra=$((moved_extra + 1))
+        fi
+        # For files that already exist (tracked by git), the checkout version wins
+    else
+        # File doesn't exist in checkout — it's untracked/ignored, move it over
+        mv "$item" "$target"
+        moved_extra=$((moved_extra + 1))
+    fi
+done
+
+# Clean up staging dir — any remaining files are tracked duplicates (git checked them out fresh)
+rm -rf "$STAGING_DIR"
+
+echo ""
+echo "Done! Converted to bare repo with worktree structure."
+echo ""
+echo "Structure:"
+echo "  $REPO_PATH/"
+echo "  ├── .bare/"
+echo "  ├── .git            (pointer)"
+echo "  └── $current_branch/"
+if [[ $moved_extra -gt 0 ]]; then
+    echo ""
+    echo "Preserved $moved_extra untracked/ignored items in worktree."
+fi
+echo ""
+echo "Next steps:"
+echo "  cd $REPO_PATH/$current_branch"
