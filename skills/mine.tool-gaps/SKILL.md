@@ -19,7 +19,7 @@ Mine Claude Code session history for workarounds — pipes to `python3 -c`, comp
 Determine mode and scope from `$ARGUMENTS`.
 
 **Targeted mode** (tool name given):
-- Confirm the tool exists: check `~/.local/bin/` for scripts, or `~/Dotfiles/` for tool directories
+- Confirm the tool exists: check `~/.local/bin/` for scripts
 - Check if the tool has a `capabilities.md` entry; note if thin or absent
 - Set the search term to the tool name
 - Default date range: 90 days
