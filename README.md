@@ -101,7 +101,7 @@ Coding guidelines organized by language. These load automatically and shape how 
 
 **Python** (5): coding-style, hooks, patterns, security, testing
 
-### Helper Scripts (13)
+### Helper Scripts (18)
 
 CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
@@ -116,10 +116,15 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `claude-merge-settings` | Three-layer settings merge tool for `~/.claude/settings.json` |
 | `claude-tmux` | Tmux session helper -- rename, list, create, capture, kill sessions |
 | `get-tmp-filename` | Create temp files for command output capture |
+| `gh-issue` | Run `gh issue` subcommands using bot token if available, personal token otherwise |
+| `gh-pr-create` | Create a GitHub PR using bot token if available, personal token otherwise |
 | `gh-pr-reply` | Reply to a PR review comment thread |
 | `gh-pr-resolve-thread` | Resolve one or more PR review threads by GraphQL ID |
 | `gh-pr-threads` | List unresolved PR review threads with summary |
+| `git-convert-to-bare` | Convert a repo to bare+worktree structure with worktree nested inside the repo directory |
+| `git-convert-to-bare-external` | Convert a repo to bare+worktree keeping the original path, bare db at an external location |
 | `git-default-branch` | Print the default branch name for the current repo |
+| `setup-worktree` | Set up editor and AI config (`.vscode/`, `.claude/`, `CLAUDE.md`) in a new git worktree |
 
 ### Hooks (1)
 

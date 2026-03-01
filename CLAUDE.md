@@ -68,6 +68,7 @@ When editing skills or commands:
 - Rules files in `python/` should reference their `common/` counterpart (pattern: "This file extends [common/foo.md]")
 - After adding new directories under `agents/`, `skills/`, `commands/`, or `scripts/hooks/`, re-run `./install.sh` to create the symlink
 - **Always update `README.md`** when adding, removing, or renaming skills, commands, agents, rules, or bin/ scripts — the README has inventory tables with counts that must stay in sync
+- **CLI tools referenced in skills/commands/agents** must be one of: a script in `bin/` (symlinked to `~/.local/bin/` by the installer), a standard system tool (`git`, `gh`, `az`, `jq`, etc.), or a well-known dev tool (`ruff`, `pyright`, `pytest`, etc.). Do not reference private tools that live outside this repo.
 
 When adding a new language to rules:
 - Create `rules/<language>/` with markdown files

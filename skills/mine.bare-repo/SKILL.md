@@ -11,8 +11,12 @@ Set up a bare repository with a worktree-based directory structure. There are tw
 ### Detect mode
 
 - If the user provides a **repository URL** → use **Clone mode** (fresh setup from remote)
-- If the user says "convert" or refers to an **existing local repo** → use **Convert mode**
+- If the user says "convert" or refers to an **existing local repo** → **ask nested vs external** (AskUserQuestion), then proceed with chosen mode
 - If ambiguous, ask which mode they want
+
+When asking nested vs external, offer:
+- **Nested** — worktree lives inside the repo dir at `<repo>/main/` (standard layout)
+- **External** — bare db moves to a separate location, worktree stays at original path (use when path is load-bearing)
 
 ---
 
@@ -76,12 +80,12 @@ Ask the user for any missing info:
 
 1. **Dry run first** — always preview before converting:
    ```bash
-   git-convert-to-bare.sh --dry-run <path>
+   git-convert-to-bare --dry-run <path>
    ```
 2. Show the user the dry-run output and ask for confirmation to proceed.
 3. **Run the conversion**:
    ```bash
-   git-convert-to-bare.sh <path>
+   git-convert-to-bare <path>
    ```
 
 #### What the script handles
@@ -98,4 +102,56 @@ Ask the user for any missing info:
 Tell the user the conversion is complete and show them how to continue:
 ```
 cd <path>/<branch>
+```
+
+---
+
+### Convert-External mode (existing local repo → external bare + same-path worktree)
+
+Use when the repo path is load-bearing — referenced by symlinks, installed tools, or
+editor/IDE settings — and must not change after conversion.
+
+Ask the user for any missing info:
+- **Repo path** (default: current directory)
+- **External bare location** (e.g., `~/source/<reponame>`)
+
+#### Steps
+
+1. **Dry run first** — always preview before converting:
+   ```bash
+   git-convert-to-bare-external --dry-run <repo-path> --bare <bare-path>
+   ```
+2. Show the user the dry-run output and ask for confirmation to proceed.
+3. **Run the conversion**:
+   ```bash
+   git-convert-to-bare-external <repo-path> --bare <bare-path>
+   ```
+4. If the repo has an install script that creates symlinks (e.g., `install.sh`), re-run it
+   from the worktree after conversion to refresh any symlinks.
+
+#### What the script handles
+
+- All validations from Convert mode (clean tree, no submodules, etc.)
+- Moves `.git/` to the external bare location
+- Configures bare repo and fixes fetch refspec
+- Registers the original directory as the main worktree (path unchanged)
+- Preserves all untracked/gitignored files in place
+
+#### Result
+
+```
+<bare-path>/          ← bare repo (git database only)
+<repo-path>/          ← worktree at original path (files unchanged)
+    .git              ← pointer to <bare-path>/
+    (all files)
+
+Feature worktrees:
+  cd <bare-path>
+  git worktree add worktrees/<name> -b feat/<name>
+```
+
+Tell the user the conversion is complete and show them how to add feature worktrees:
+```
+cd <bare-path>
+git worktree add worktrees/<name> -b feat/<name>
 ```

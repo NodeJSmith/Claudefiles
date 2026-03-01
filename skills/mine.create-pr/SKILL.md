@@ -39,7 +39,7 @@ Based on the above changes:
    - Use the Write tool to write the PR body to a temp file (e.g., `/tmp/pr-body.md`)
    - **GitHub**:
      ```bash
-     gh pr create --draft --title "..." --body-file /tmp/pr-body.md
+     gh-pr-create --draft --title "..." --body-file /tmp/pr-body.md
      ```
    - **Azure DevOps**:
      ```bash
