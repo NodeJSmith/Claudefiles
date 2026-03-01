@@ -33,7 +33,7 @@ Creates a new worktree and writes a plan handoff file for a separate Claude sess
    - Existing local branch: `git worktree add <path> <branch>`
 5. **Set up shared config**: Run the setup script to symlink editor/AI config from the current worktree into the new one:
    ```bash
-   setup-worktree.sh <source-worktree> <new-worktree>
+   setup-worktree <source-worktree> <new-worktree>
    ```
    Where `<source-worktree>` is `$(git rev-parse --show-toplevel)` (current worktree root).
 

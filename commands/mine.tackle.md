@@ -82,7 +82,7 @@ Skip plan mode entirely. The issue summary from Phase 2 will be used directly as
 4. **Create the worktree**: `git worktree add -b <branch> <path> <base-branch>`
 5. **Set up shared config**:
    ```bash
-   setup-worktree.sh <source-worktree> <new-worktree>
+   setup-worktree <source-worktree> <new-worktree>
    ```
 6. **Write plan handoff** to `<worktree-path>/.claude/plan.md`:
 
@@ -129,4 +129,4 @@ Skip plan mode entirely. The issue summary from Phase 2 will be used directly as
 - Issue not found → inform user and stop
 - Worktree path already exists → inform user, ask how to proceed
 - Branch already exists locally → ask whether to use it or pick a new name
-- `setup-worktree.sh` not found → warn but continue (config can be set up manually)
+- `setup-worktree` not found → warn but continue (config can be set up manually)

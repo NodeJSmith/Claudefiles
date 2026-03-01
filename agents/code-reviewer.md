@@ -462,7 +462,6 @@ Any `/mine.X` reference in a changed skill must correspond to a real skill direc
 ```
 skills/mine.<name>/   → must exist
 ```
-Any CLI tool referenced (`gh-bot`, `claude-log`, `karakeep-api`, etc.) must be in `~/.local/bin/` or `~/Dotfiles/`.
 
 ### Supporting File Sync (HIGH)
 

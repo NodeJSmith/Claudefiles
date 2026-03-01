@@ -11,7 +11,7 @@ Mine Claude Code session history for workarounds — pipes to `python3 -c`, comp
 ## Arguments
 
 `$ARGUMENTS` — optional tool name. Can be:
-- A tool name: `/mine.tool-gaps karakeep-api`
+- A tool name: `/mine.tool-gaps claude-log`
 - Empty: broad scan for any recurring manual patterns across all tools
 
 ## Phase 1: Orient
@@ -48,7 +48,7 @@ Determine mode and scope from `$ARGUMENTS`.
 - Standard git workflow (`git status`, `git log`, `git add`, `git commit`, etc.)
 - Navigation (`cd`, `ls`, `pwd`, `find`)
 - Simple output (`echo`, `printf`, `cat`)
-- Single-invocation health checks (`karakeep-api health`, `paperless-api stats`)
+- Single-invocation health checks (`claude-log list`, `ado-builds list`)
 - Test/lint runners (`pytest`, `nox`, `ruff`, `pyright`)
 - One-time setup commands (installs, migrations)
 
@@ -151,7 +151,7 @@ AskUserQuestion:
 
 For each selected gap, confirm the action:
 - **Implement now** → hand off to plan mode
-- **Create an issue** → `gh-bot issue create` with the gap description
+- **Create an issue** → `gh-issue create` with the gap description
 - **Note it** → acknowledged, no action
 
 ## Phase 5: Act
@@ -188,7 +188,7 @@ Draft and file immediately. Use the Write tool to save the body first, then crea
 
 2. Create the issue:
    ```bash
-   gh-bot issue create --title "<concise gap description>" --body-file /tmp/tool-gap-issue.md
+   gh-issue create --title "<concise gap description>" --body-file /tmp/tool-gap-issue.md
    ```
 
 **Update capabilities.md:**
