@@ -4,13 +4,18 @@ description: Validate agent, skill, command, and CLAUDE.md files with agnix.
 
 # Validate AI Config Files
 
+## Arguments
+
+`$ARGUMENTS` — optional path or glob to scope validation (e.g. `agents/`, `skills/mine.foo/SKILL.md`). If omitted, validates the entire repo.
+
 Run agnix from the repo root:
 
 ```bash
 agnix .
 ```
 
-With $ARGUMENTS (optional path to scope to a file or directory):
+Or scoped to a specific path:
+
 ```bash
 agnix $ARGUMENTS
 ```

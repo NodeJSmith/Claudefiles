@@ -36,7 +36,7 @@ Before testing, verify:
 ```
 Navigate to [URL]
 Wait for page load
-Check console for errors (browser_console_messages with level: "error")
+Check console for errors (mcp__plugin_playwright_playwright__browser_console_messages with level: "error")
 Take screenshot of initial state
 Report initial state
 ```
@@ -46,7 +46,7 @@ Report initial state
 For each user flow:
 - Execute the interaction sequence using click/type/fill_form tools
 - After each significant action, check console for runtime errors
-- Take a snapshot (browser_snapshot) to verify expected DOM state
+- Take a snapshot (mcp__plugin_playwright_playwright__browser_snapshot) to verify expected DOM state
 - Take screenshots to document findings
 - Note any visual anomalies
 

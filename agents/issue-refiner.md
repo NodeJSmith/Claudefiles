@@ -90,11 +90,7 @@ Omit any section that would just be empty boilerplate. Only add sections that ge
 
 ### 5. Update the Issue
 
-```bash
-gh issue edit <number> --body "<original body>\n\n---\n\n<enriched sections>"
-```
-
-Be careful to escape the body correctly. If the original body is complex, write it to a temp file first:
+Always use `--body-file` to avoid shell escaping issues with the issue body:
 
 ```bash
 gh issue view <number> --json body --jq '.body' > /tmp/issue-body.txt

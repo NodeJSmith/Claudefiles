@@ -89,7 +89,7 @@ grep -rn "for .* in .*\.query\|for .* in .*\.session" src --include="*.py"
 grep -rn "lazy=" src --include="*.py"
 
 # Unbounded queries
-grep -rn "\.all()\b" src --include="*.py"
+grep -rn "\.all()" src --include="*.py"
 
 # Raw queries with string interpolation (SQL injection risk)
 grep -rn 'cursor\.execute.*%.*\|f".*SELECT\|f".*INSERT\|f".*UPDATE\|f".*DELETE\|f".*WHERE' src --include="*.py"

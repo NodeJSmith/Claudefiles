@@ -27,7 +27,7 @@ Capture screenshots before and after changes to detect unintended visual regress
 
 ```
 Navigate to [URL]
-Wait for page fully loaded (browser_wait_for)
+Wait for page fully loaded (mcp__plugin_playwright_playwright__browser_wait_for)
 Resize to target viewport if needed
 Capture full-page screenshot as baseline
 Save to .claude/audits/screenshots/baseline/[page-name].png
@@ -61,9 +61,9 @@ Test at these standard viewports:
 
 | Name | Width | Height | Tool Call |
 |------|-------|--------|-----------|
-| Mobile | 375px | 812px | `browser_resize({width: 375, height: 812})` |
-| Tablet | 768px | 1024px | `browser_resize({width: 768, height: 1024})` |
-| Desktop | 1280px | 800px | `browser_resize({width: 1280, height: 800})` |
+| Mobile | 375px | 812px | `mcp__plugin_playwright_playwright__browser_resize({width: 375, height: 812})` |
+| Tablet | 768px | 1024px | `mcp__plugin_playwright_playwright__browser_resize({width: 768, height: 1024})` |
+| Desktop | 1280px | 800px | `mcp__plugin_playwright_playwright__browser_resize({width: 1280, height: 800})` |
 
 ## Diff Categories
 
