@@ -159,7 +159,7 @@ Ask the user for any missing info:
 └── <name>/         ← feature worktrees as siblings to .bare/
 
 <repo-path>/        ← original worktree at unchanged path
-├── .git            ← pointer to <bare-path>/.bare/worktrees/
+├── .git            ← pointer to <bare-path>/.bare/worktrees/<name>/
 └── (all files)
 ```
 
