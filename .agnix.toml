@@ -1,0 +1,20 @@
+[rules]
+disabled_rules = [
+  # AS-004: The mine.* prefix uses dots by design (Claude Code skill namespace
+  #         convention). agnix requires names to be [a-z0-9-] only, which
+  #         conflicts with this repo's intentional naming scheme.
+  "AS-004",
+
+  # XML-001: Template placeholders in skill/command markdown (<KEY>, <branch>,
+  #          <default-branch>, etc.) are intentional, not broken XML tags.
+  "XML-001",
+
+  # CC-SK-006: mine.commit-push and mine.ship are user-invokable skills, not
+  #            autonomous agents — the "dangerous skill" guard doesn't apply.
+  "CC-SK-006",
+
+  # CC-HK-008: Hook scripts live in scripts/hooks/ and are symlinked into
+  #            ~/.claude/ at install time. CI checks out the repo without
+  #            running install.sh, so the resolved paths don't exist there.
+  "CC-HK-008",
+]
