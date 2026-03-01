@@ -1,22 +1,21 @@
 ---
 name: mine.bare-repo
-description: One-time setup of a bare git repo with worktree-based directory structure. Use when the user wants to set up a new project for worktree-based development.
+description: One-time setup of a bare git repo with worktree-based directory structure. Clone a new repo, or convert an existing one (nested or external path).
 user-invokable: true
 ---
 
 ## Your task
 
-Set up a bare repository with a worktree-based directory structure. There are two modes:
+Set up a bare repository with a worktree-based directory structure. There are three modes:
 
 ### Detect mode
 
 - If the user provides a **repository URL** → use **Clone mode** (fresh setup from remote)
-- If the user says "convert" or refers to an **existing local repo** → **ask nested vs external** (AskUserQuestion), then proceed with chosen mode
-- If ambiguous, ask which mode they want
-
-When asking nested vs external, offer:
-- **Nested** — worktree lives inside the repo dir at `<repo>/main/` (standard layout)
-- **External** — bare db moves to a separate location, worktree stays at original path (use when path is load-bearing)
+- If the user explicitly says "external" or mentions the path being load-bearing (symlinks, tools, or editor settings depend on the current path) → use **Convert-External mode**
+- If the user says "convert" or refers to an **existing local repo** (without specifying external) → use **Convert mode** (nested)
+- If ambiguous, ask whether they want to convert an existing repo nested or external:
+  - **Convert** — convert an existing local repo (worktree moves inside `<repo>/<branch>/`)
+  - **Convert-External** — convert an existing local repo but keep the worktree at its original path (use when path is load-bearing — symlinks, tools, or editor settings depend on the current path not changing)
 
 ---
 
@@ -62,7 +61,14 @@ Note: All git commands run via `cd <target> &&` since the `.git` pointer file in
 
 #### Result
 
-Tell the user the structure is ready and show them how to start:
+Tell the user the structure is ready and show the layout:
+```
+<target>/
+├── .bare/
+├── .git
+└── <default-branch>/   ← cd here to work
+```
+
 ```
 cd <target>/<default-branch>
 ```
@@ -99,7 +105,14 @@ Ask the user for any missing info:
 
 #### Result
 
-Tell the user the conversion is complete and show them how to continue:
+Tell the user the conversion is complete and show the layout:
+```
+<path>/
+├── .bare/
+├── .git
+└── <branch>/   ← cd here to work
+```
+
 ```
 cd <path>/<branch>
 ```
@@ -140,18 +153,18 @@ Ask the user for any missing info:
 #### Result
 
 ```
-<bare-path>/          ← bare repo (git database only)
-<repo-path>/          ← worktree at original path (files unchanged)
-    .git              ← pointer to <bare-path>/
-    (all files)
+<bare-path>/
+├── .bare/          ← bare repo (git database)
+├── .git            ← pointer: "gitdir: ./.bare"
+└── <name>/         ← feature worktrees as siblings to .bare/
 
-Feature worktrees:
-  cd <bare-path>
-  git worktree add worktrees/<name> -b feat/<name>
+<repo-path>/        ← original worktree at unchanged path
+├── .git            ← pointer to <bare-path>/.bare/worktrees/<name>/
+└── (all files)
 ```
 
 Tell the user the conversion is complete and show them how to add feature worktrees:
 ```
 cd <bare-path>
-git worktree add worktrees/<name> -b feat/<name>
+git worktree add <name> -b feat/<name>
 ```
