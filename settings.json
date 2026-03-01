@@ -15,7 +15,14 @@
       "Bash(get-tmp-filename)",
       "Bash(git-default-branch)",
       "Bash(git:*)",
-      "Grep(/tmp/*)"
+      "Grep(/tmp/*)",
+      "Bash(ruff:*)",
+      "Bash(pyright:*)",
+      "Bash(bandit:*)",
+      "Bash(pip-audit:*)",
+      "Bash(safety:*)",
+      "Bash(pytest:*)",
+      "Bash(agnix:*)"
     ],
     "defaultMode": "default"
   },

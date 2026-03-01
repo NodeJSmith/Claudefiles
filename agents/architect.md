@@ -1,7 +1,7 @@
 ---
 name: architect
 description: Read-only architecture documentation specialist — generates Mermaid diagrams and architectural overviews without modifying code. Use when onboarding to a new codebase, before major refactors, or after significant changes.
-tools: ["Read", "Grep", "Glob"]
+tools: ["Read", "Grep", "Glob", "Write", "Edit"]
 model: sonnet
 ---
 
@@ -80,17 +80,14 @@ Emits GitHub Flavored Markdown (GFM) that passes common markdownlint rules:
 
 - Each Mermaid diagram is saved as a `.mmd` file under `docs/diagrams/` and linked:
 
-  ````markdown
-  ```mermaid src="./diagrams/payments_sequence.mmd" alt="Payment request sequence"```
-  ````
+  ```markdown
+  [Payment request sequence](./diagrams/payments_sequence.mmd)
+  ```
 
-- Every `.mmd` file begins with YAML front-matter specifying `alt`:
+- Every `.mmd` file uses `accTitle` and `accDescr` directives for accessibility:
 
   ````markdown
   ```mermaid
-  ---
-  alt: "Payment request sequence"
-  ---
   graph LR
       accTitle: Payment request sequence
       accDescr: End-to-end call path for /payments

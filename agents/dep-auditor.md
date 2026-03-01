@@ -88,7 +88,7 @@ uv pip list --outdated 2>/dev/null
 # Outdated packages (poetry)
 poetry show --outdated 2>/dev/null
 
-# Unused imports / dead dependencies
+# Unused code / imports (dead code finder, not installed deps)
 vulture . 2>/dev/null | head -50
 
 # License check

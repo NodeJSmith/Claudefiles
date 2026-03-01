@@ -67,7 +67,7 @@ Use the detected stack to select the appropriate grep patterns below.
 grep -rn "for.*await.*find\|forEach.*await.*query" src --include="*.ts"
 
 # Unbounded fetches
-grep -rn "findMany()\|find({})\|SELECT \*" src --include="*.ts"
+grep -rn "findMany(\|find\s*({\|SELECT \*" src --include="*.ts"
 
 # Raw queries (potential injection)
 grep -rn "\$queryRaw\|\$executeRaw\|\.query(" src --include="*.ts"
