@@ -101,7 +101,7 @@ Coding guidelines organized by language. These load automatically and shape how 
 
 **Python** (5): coding-style, hooks, patterns, security, testing
 
-### Helper Scripts (13)
+### Helper Scripts (15)
 
 CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
@@ -119,6 +119,8 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `gh-pr-reply` | Reply to a PR review comment thread |
 | `gh-pr-resolve-thread` | Resolve one or more PR review threads by GraphQL ID |
 | `gh-pr-threads` | List unresolved PR review threads with summary |
+| `git-convert-to-bare` | Convert a repo to bare+worktree structure with worktree nested inside the repo directory |
+| `git-convert-to-bare-external` | Convert a repo to bare+worktree keeping the original path, bare db at an external location |
 | `git-default-branch` | Print the default branch name for the current repo |
 
 ### Hooks (1)
