@@ -61,10 +61,11 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `mine.ux-antipatterns` | Detect UX anti-patterns -- layout shifts, missing feedback, broken forms, a11y gaps |
 | `mine.worktree` | Manage git worktrees with plan handoff for concurrent Claude sessions |
 
-### Commands (11)
+### Commands (12)
 
 | Command | Description |
 |---------|-------------|
+| `mine.agnix` | Validate agent, skill, command, and CLAUDE.md files with agnix |
 | `mine.5whys` | Root cause analysis using Five Whys, grounded in codebase evidence |
 | `mine.capture_lesson` | Quick mid-session pattern capture as a reusable skill file |
 | `mine.interface-design` | Build UI with craft and consistency |
