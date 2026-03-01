@@ -25,6 +25,7 @@ The only commands to execute during analysis are:
 - `pytest --cov` or equivalent — for actual test coverage numbers
 - Project linters (`ruff`, `eslint`) — for existing lint output
 - `wc -l` or similar — for quick file size counts when scanning many files
+- `agnix .` — if auditing a Claudefiles-style repo (agents/, skills/, commands/)
 
 Everything else — identifying smells, mapping dependencies, assessing coupling, spotting duplication — comes from reading the files.
 

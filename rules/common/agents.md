@@ -8,6 +8,14 @@ Located in `~/.claude/agents/`:
 |-------|---------|-------------|
 | planner | Implementation planning | Complex features, refactoring |
 | code-reviewer | Code review | After writing or modifying code |
+| qa-specialist | Adversarial QA testing | After implementation, before PR; when test coverage is thin |
+| architect | Architecture documentation | Onboarding to new codebase; before major refactor; after significant changes |
+| issue-refiner | Enrich GitHub issues | Before assigning work; when issue lacks AC or technical detail |
+| db-auditor | Database query audit | Database-heavy PRs; performance investigations |
+| dep-auditor | Dependency vulnerability audit | Before releases; after adding dependencies |
+| ui-auditor | Accessibility/UX audit | Before shipping any UI; a11y reviews |
+| browser-qa-agent | Live browser QA via Playwright | After UI changes; smoke testing running app (requires Playwright MCP) |
+| visual-diff | Visual regression screenshots | Before/after UI changes to catch unintended regressions (requires Playwright MCP) |
 
 ## Immediate Agent Usage
 

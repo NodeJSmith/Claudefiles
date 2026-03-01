@@ -1,0 +1,20 @@
+name: Lint AI Config Files
+
+on:
+  push:
+    branches: [main]
+    paths: ['agents/**', 'skills/**', 'commands/**', 'CLAUDE.md']
+  pull_request:
+    branches: [main]
+    paths: ['agents/**', 'skills/**', 'commands/**', 'CLAUDE.md']
+
+jobs:
+  agnix:
+    name: agnix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install agnix
+        run: npm install -g agnix@0.14.0
+      - name: Lint AI config files
+        run: agnix .
