@@ -29,11 +29,25 @@ Based on the above changes:
 6. Read key modified files if needed for additional context
 7. Draft a comprehensive PR:
    - Title: < 70 characters, summarize the change
-   - Body format:
+   - Body format: group changes by topic. For each logical area with multiple related changes, use an `### H3` header followed by bullet points. Order sections from most to least impactful. Bullets should explain *why* a change was made, not just *what* changed — include motivation, tradeoffs, or decisions worth preserving for future readers. Exception: if the PR includes changes to `./design/` (ADRs, design docs, decision records), don't re-explain that reasoning in the PR body — just reference the document (e.g., "see `design/adr-012-auth-approach.md`"). Duplicating it risks going stale or conflicting. Collect small, standalone changes (one-liners that don't warrant their own section) into one or two ungrouped sections:
+     - **`### Notable Changes`** (top) — small but important changes worth seeing first
+     - **`### Housekeeping`** (bottom) — minor cleanup, dependency bumps, typo fixes, etc.
+     - Use both if needed, one if all small changes fall into the same category, or neither if everything fits under a topic header.
+     - Example shape (all sections present):
      ```markdown
-     ## Summary
-     <1-3 bullet points explaining what changed and why>
+     ### Notable Changes
+     - Important small change and why it matters
 
+     ### Feature name or area
+     - What changed and why this approach was chosen over alternatives
+     - Any tradeoff or decision future readers should know about
+
+     ### Another significant area
+     - Change detail with motivation
+
+     ### Housekeeping
+     - Bump dependency X to v2
+     - Fix typo in README
      ```
 8. Create the PR as a **draft**:
    - Use the Write tool to write the PR body to a temp file (e.g., `/tmp/pr-body.md`)

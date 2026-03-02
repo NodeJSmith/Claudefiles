@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-03-02
+
+### Changed
+- `mine.create-pr` PR body format revised — changes grouped under `### H3` headers ordered most-to-least impactful; bullets explain *why* not just *what*; small standalone items collected under `### Notable Changes` (top) or `### Housekeeping` (bottom); design docs in `./design/` are referenced rather than re-summarized in the PR body (#41)
+
 ## 2026-03-01
 
 ### Fixed
