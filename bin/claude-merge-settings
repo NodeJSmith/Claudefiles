@@ -27,12 +27,17 @@ from typing import Any
 from deepmerge import Merger
 
 
+def _serialize_item(x: Any) -> str:
+    """Stable identity key for a JSON-serializable value."""
+    return json.dumps(x, sort_keys=True) if isinstance(x, dict) else str(x)
+
+
 def _concat_unique(base: list[Any], nxt: list[Any]) -> list[Any]:
     """Concatenate two lists, deduplicating by serialized value (preserve order)."""
     seen: set[str] = set()
     merged: list[Any] = []
     for item in [*base, *nxt]:
-        key = json.dumps(item, sort_keys=True) if isinstance(item, dict) else str(item)
+        key = _serialize_item(item)
         if key not in seen:
             seen.add(key)
             merged.append(item)
@@ -40,7 +45,10 @@ def _concat_unique(base: list[Any], nxt: list[Any]) -> list[Any]:
 
 
 # Keys whose lists should concatenate + deduplicate across layers
-_CONCAT_KEYS = {"allow", "deny", "allowedTools"}
+_CONCAT_KEYS: set[str] = {"allow", "deny", "allowedTools"}
+
+# Keys not promoted from runtime (managed via other means, e.g. env var)
+_SKIP_PROMOTE_KEYS: set[str] = {"model"}
 
 
 def _list_strategy(config: Merger, path: list[str], base: list[Any], nxt: list[Any]) -> list[Any]:
@@ -67,6 +75,67 @@ merger = Merger(
 )
 
 
+def _write_json(path: Path, data: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+
+
+def _print_additions_summary(additions: dict[str, Any], indent: int = 4) -> None:
+    prefix = " " * indent
+    for key, val in additions.items():
+        if isinstance(val, list):
+            print(f"{prefix}+ {key}: {len(val)} new item(s)")
+            for item in val:
+                print(f"{prefix}  - {json.dumps(item) if isinstance(item, dict) else item}")
+        elif isinstance(val, dict):
+            print(f"{prefix}+ {key}:")
+            _print_additions_summary(val, indent + 2)
+        else:
+            print(f"{prefix}+ {key}: {val!r}")
+
+
+def compute_additions(
+    runtime: dict[str, Any],
+    expected: dict[str, Any],
+) -> dict[str, Any]:
+    """Find items in runtime not already captured in expected output.
+
+    - Lists: items in runtime not in expected (compared by serialized value)
+    - Dicts: recursive diff
+    - Scalars: if runtime value differs from expected
+    Skips keys in _SKIP_PROMOTE_KEYS.
+    """
+    additions: dict[str, Any] = {}
+    for key, runtime_val in runtime.items():
+        if key in _SKIP_PROMOTE_KEYS:
+            continue
+        expected_val = expected.get(key)
+        if isinstance(runtime_val, list):
+            expected_set = {
+                _serialize_item(x)
+                for x in (expected_val if isinstance(expected_val, list) else [])
+            }
+            new_items = [
+                x for x in runtime_val
+                if (k := _serialize_item(x)) not in expected_set
+            ]
+            if new_items:
+                additions[key] = new_items
+        elif isinstance(runtime_val, dict):
+            sub = compute_additions(
+                runtime_val,
+                expected_val if isinstance(expected_val, dict) else {},
+            )
+            if sub:
+                additions[key] = sub
+        else:
+            if runtime_val != expected_val:
+                additions[key] = runtime_val
+    return additions
+
+
 def load_json(path: Path) -> dict[str, Any] | None:
     """Load a JSON file, returning None if missing or empty. Exits on parse error."""
     if not path.exists():
@@ -88,18 +157,20 @@ def load_json(path: Path) -> dict[str, Any] | None:
 def main() -> int:
     home = Path.home()
 
+    machine_path = home / ".claude" / "settings.machine.json"
     layers: list[tuple[str, Path]] = [
         ("Claudefiles", home / "Claudefiles" / "settings.json"),
         ("Dotfiles", Path(os.environ.get(
             "CLAUDE_DOTFILES_SETTINGS",
             str(home / "Dotfiles" / "config" / "claude" / "settings.json"),
         ))),
-        ("Machine", home / ".claude" / "settings.machine.json"),
+        ("Machine", machine_path),
     ]
     output_file = home / ".claude" / "settings.json"
 
     merged: dict[str, Any] = {}
     active: list[str] = []
+    machine_data: dict[str, Any] = {}
 
     for label, path in layers:
         data = load_json(path)
@@ -107,6 +178,8 @@ def main() -> int:
             merger.merge(merged, data)
             active.append(label)
             print(f"  Loaded {label}: {path}")
+            if path == machine_path:
+                machine_data = data
         else:
             print(f"  Skipped {label} (not found): {path}")
 
@@ -114,11 +187,29 @@ def main() -> int:
         print("ERROR: No settings files found", file=sys.stderr)
         return 1
 
+    # Promote runtime additions to machine.json before writing
+    runtime = load_json(output_file)
+    if runtime:
+        additions = compute_additions(runtime, merged)
+        if additions:
+            print(f"\n  Runtime additions found (would promote to {machine_path}):")
+            _print_additions_summary(additions)
+            if not sys.stdin.isatty():
+                print("  Non-interactive — skipping promotion.")
+            else:
+                answer = input("\n  Promote these to machine.json? [y/N] ").strip().lower()
+                if answer == "y":
+                    merger.merge(machine_data, additions)
+                    _write_json(machine_path, machine_data)
+                    merger.merge(merged, additions)
+                    print("  Promoted.")
+                else:
+                    print("  Skipped promotion.")
+        else:
+            print("\n  No runtime additions to promote.")
+
     # Write output
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_file, "w") as f:
-        json.dump(merged, f, indent=2)
-        f.write("\n")
+    _write_json(output_file, merged)
 
     print(f"\n  Merged settings written to {output_file}")
     print(f"  Active layers: {' -> '.join(active)}")
