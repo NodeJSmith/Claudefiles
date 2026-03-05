@@ -8,13 +8,12 @@ My personal [Claude Code](https://docs.anthropic.com/en/docs/claude-code) config
 - **Commands** -- slash commands for common workflows (root cause analysis, session reflection, issue triage)
 - **Agents** -- specialized subagent definitions (code review, planning)
 - **Rules** -- coding guidelines that load automatically (style, testing, security, git workflow)
-- **Scripts** -- hooks that run before/after tool calls (like blocking `git -C`)
+- **Scripts** -- hooks that run before/after tool calls
 
 ## Things I find most useful
 
 - **`/mine.research`** and **`/mine.audit`** -- the research skill maps architecture and evaluates feasibility before you commit to a direction. The audit skill finds the biggest problems in a codebase ranked by impact. Both feed into planning and ADRs.
 - **`/mine.worktree`** and **`/mine.start`** -- create git worktrees with plan handoffs so you can run multiple Claude sessions in parallel on different branches. One session plans, another implements.
-- **`block-git-c.js`** -- a PreToolUse hook that prevents Claude from using `git -C <path>`, which breaks permission patterns. Small thing but saves headaches.
 - **`/mine.refactor`** -- interactive refactoring that asks you questions about naming, scope, and approach instead of guessing.
 
 ## Install
@@ -125,12 +124,6 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `git-convert-to-bare-external` | Convert a repo to bare+worktree keeping the original path, bare db at an external location |
 | `git-default-branch` | Print the default branch name for the current repo |
 | `setup-worktree` | Set up editor and AI config (`.vscode/`, `.claude/`, `CLAUDE.md`) in a new git worktree |
-
-### Hooks (1)
-
-| Script | Description |
-|--------|-------------|
-| `hooks/block-git-c.js` | PreToolUse hook that blocks `git -C` (breaks permission patterns) |
 
 ## Requirements
 

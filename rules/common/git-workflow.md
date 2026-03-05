@@ -2,7 +2,7 @@
 
 ## Git Command Style
 
-NEVER use `git -C <path>` — always run git commands directly from the working directory. The `-C` flag breaks permission patterns and is unnecessary since you're already in the correct directory.
+Prefer `git -C <path>` over `cd <path> && git` — compound commands with `cd` require a separate permission approval. Using `git -C` avoids unnecessary prompts and reduces bare repository attack surface.
 
 ## Commit Message Format
 

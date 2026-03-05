@@ -36,7 +36,7 @@ install.sh       → Symlink installer
 - **Commands** (`commands/*.md`) are simpler slash commands — single-file prompts without the SKILL.md directory structure.
 - **Agents** (`agents/*.md`) define subagent behavior for the `Task` tool. They specify model, tools, and detailed system prompts. Currently: `code-reviewer` (runs ruff/pyright/bandit/pytest) and `planner` (implementation planning).
 - **Rules** (`rules/`) auto-load into Claude Code context. Python rules explicitly extend common rules (each file notes this). Rules govern coding style, testing, security, git workflow, error tracking, and agent orchestration.
-- **Hooks** (`scripts/hooks/`) are Node.js scripts for hook events. `block-git-c.js` blocks `git -C` usage (PreToolUse). Hook scripts require wiring in your `settings.json` — see [Claude Code hook configuration docs](https://docs.anthropic.com/en/docs/claude-code/hooks) for setup.
+- **Hooks** (`scripts/hooks/`) are Node.js scripts for hook events. Hook scripts require wiring in your `settings.json` — see [Claude Code hook configuration docs](https://docs.anthropic.com/en/docs/claude-code/hooks) for setup.
 
 ## Naming Convention
 
