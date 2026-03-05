@@ -26,6 +26,7 @@
     ],
     "defaultMode": "default"
   },
+  "includeGitInstructions": false,
   "hooks": {
     "PreToolUse": [
       {
