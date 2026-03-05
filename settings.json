@@ -28,17 +28,7 @@
   },
   "includeGitInstructions": false,
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node ~/.claude/scripts/hooks/block-git-c.js"
-          }
-        ]
-      }
-    ],
+    "PreToolUse": [],
     "PreCompact": [],
     "SessionStart": []
   }
