@@ -22,7 +22,15 @@
       "Bash(pip-audit:*)",
       "Bash(safety:*)",
       "Bash(pytest:*)",
-      "Bash(agnix:*)"
+      "Bash(agnix:*)",
+      "Bash(ls:*)",
+      "Bash(uv:*)",
+      "Skill(mine.commit-push)",
+      "Bash(claude-tmux:*)",
+      "Bash(which:*)"
+    ],
+    "ask": [
+      "Bash(uv run python:*)"
     ],
     "defaultMode": "default"
   },
