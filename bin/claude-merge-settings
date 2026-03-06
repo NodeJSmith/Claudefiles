@@ -13,7 +13,7 @@ Merge Claude Code settings from three layers (later layers override earlier):
   →  ~/.claude/settings.json  (merged output)
 
 Merge strategy:
-  - permissions.allow/deny, allowedTools: concatenate + deduplicate across layers
+  - permissions.allow/deny/ask, allowedTools: concatenate + deduplicate across layers
   - hooks.<type>: concatenate arrays across layers
   - Everything else: deep merge, last wins
 """
@@ -45,7 +45,7 @@ def _concat_unique(base: list[Any], nxt: list[Any]) -> list[Any]:
 
 
 # Keys whose lists should concatenate + deduplicate across layers
-_CONCAT_KEYS: set[str] = {"allow", "deny", "allowedTools"}
+_CONCAT_KEYS: set[str] = {"allow", "deny", "allowedTools", "ask"}
 
 # Keys not promoted from runtime (managed via other means, e.g. env var)
 _SKIP_PROMOTE_KEYS: set[str] = {"model"}

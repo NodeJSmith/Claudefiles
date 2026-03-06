@@ -12,7 +12,7 @@ $ARGUMENTS — optional flags passed through to `claude-log permissions` (e.g., 
 
 ## Step 1: Gather Data
 
-Run in parallel:
+Run all four sources in parallel:
 
 ### Permission data (Bash)
 
@@ -26,6 +26,29 @@ If `$ARGUMENTS` is empty, use `claude-log permissions --json --limit 20`.
 
 Read `~/Claudefiles/settings.json` if it exists (it may not yet — that's fine). This is for context only — `claude-log permissions` already filters out patterns that match existing `permissions.allow` entries, so its suggestions won't include already-allowed patterns.
 
+### Debug log scan (Bash)
+
+Scan recent Claude Code debug logs for actual permission prompts. These capture what Claude Code itself prompted for — ground truth that bypasses any counting heuristics in `claude-log permissions`.
+
+```bash
+ls -t ~/.claude/debug/*.txt 2>/dev/null | head -20 | xargs grep -h "ruleContent" 2>/dev/null | grep -oP '"ruleContent": "\K[^"]+' | sort | uniq -c | sort -rn | head -40
+```
+
+This gives a ranked list of `(count, ruleContent)` — the exact strings Claude Code suggested adding to the allow list. Filter out noise:
+- `for sid in ...`, `do echo ...`, `done` — for loop artifacts; note that for loops cause extra prompts and I should use sequential calls instead
+- `bash:*`, `bash -c:*` — shell-in-shell invocations
+- Single-character or obviously one-off commands
+
+### Local settings drift (Bash + Read)
+
+`settings.local.json` accumulates per-session approvals that Claude Code writes automatically when the user approves a permission prompt. Entries that survive multiple sessions here are strong candidates for promotion to the portable allow list.
+
+```bash
+find ~/.claude/projects -name "settings.local.json" 2>/dev/null | head -5
+```
+
+Then read each found file. Cross-reference its `permissions.allow` entries against the merged `~/.claude/settings.json` allow list to find entries present in local but not in the portable settings.
+
 ## Step 2: Filter and Categorize
 
 Parse the JSON `suggestions` array. Apply these filters:
@@ -36,6 +59,7 @@ Parse the JSON `suggestions` array. Apply these filters:
 - `EnterPlanMode(*)` — deliberate mode switch
 - `ExitPlanMode(*)` — plan approval is the whole point
 - Patterns over ~200 characters or containing multi-line content — these are one-off invocations with serialized arguments (e.g., ExitPlanMode with an entire plan body), not reusable patterns
+- For loop artifacts: `for sid in ...`, `do echo ...`, `done` — these come from multi-line shell loops; the fix is to use sequential Bash calls, not to allow `for:*`
 
 ### Skip: too specific to generalize
 
@@ -65,7 +89,7 @@ Categorize remaining suggestions into:
 
 ## Step 3: Present Recommendations
 
-Output a compact report. Group by action:
+Output a compact report with three sections:
 
 ```
 ## Permissions Audit
@@ -87,19 +111,39 @@ USES  SESSIONS  PATTERN                     NOTE
    5       1    Bash(python3:*)             Can execute arbitrary code
    ...
 
+### Local settings drift
+
+Entries in settings.local.json not yet in portable settings — these survived at least one session approval and may be worth promoting:
+
+  Bash(claude-log extract:*)          [project: Claudefiles]
+  Read(//home/jessica/.claude/**)     [project: Claudefiles]
+  ...
+
+### Debug log findings
+
+Top prompted patterns from recent debug logs (ground truth):
+
+COUNT  PATTERN
+─────  ───────
+    7  Read(//home/jessica/.claude/**)
+    3  for sid in ...              ← for loop artifact; use sequential calls
+    ...
+
 ### Skipped
 
 - AskUserQuestion, EnterPlanMode, ExitPlanMode (always prompt)
 - TaskCreate/TaskUpdate with specific content (not generalizable)
+- For loop artifacts (for/do/done lines) — fix call sites, not permissions
 - N one-off patterns (1 use, 1 session)
 ```
 
 ### Rules
 
 - Sort each group by sessions (descending), then invocations (descending)
-- Show at most 15 entries in "Recommend", 10 in "Consider"
+- Show at most 15 entries in "Recommend", 10 in "Consider", 10 in "Local settings drift"
 - Don't show the full raw pattern for truncated entries — summarize
 - Do NOT show the "Add to permissions.allow" JSON from the raw output — that's what the next step is for
+- For debug log findings: use the `//path/**` format as-is (that's what Claude Code 2.x generates and matches)
 
 ## Step 4: Offer to Apply
 
