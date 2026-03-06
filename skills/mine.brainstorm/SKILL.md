@@ -33,10 +33,7 @@ Once the topic is known, ask two quick questions in one `AskUserQuestion` call:
 
 ```
 AskUserQuestion:
-  question: "A couple of quick questions before we start:"
-  freeform fields:
-    - "What's off the table? (time, tech, scope — anything that would make an idea immediately unworkable)"
-    - "What's already been tried or rejected, and why?"
+  question: "A couple of quick questions before we start:\n1. What's off the table? (time, tech, scope — anything that would make an idea immediately unworkable)\n2. What's already been tried or rejected, and why?"
 ```
 
 Then ask about codebase context:

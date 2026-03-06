@@ -21,6 +21,7 @@ Skills and commands exist for common workflows. **Use these instead of ad-hoc to
 | "show issue 123", "investigate this issue" | `/mine.issues` |
 | "scan issues", "what issues are open" | `/mine.issues-scan` |
 | "refactor this", "extract function", "split this file" | `/mine.refactor` |
+| "brainstorm options", "generate ideas", "what should we build next", "explore ideas", "what are our options" | `/mine.brainstorm` |
 | "audit the codebase", "find tech debt", "health check" | `/mine.audit` |
 | "lint agents", "validate skills", "check agent format", "run agnix" | `/mine.agnix` |
 | "research adding X", "feasibility study", "evaluate approach" | `/mine.research` |
