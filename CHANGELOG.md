@@ -4,6 +4,9 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-03-06
 
+### Changed
+- `mine.ship`, `mine.commit-push`, `mine.create-pr` — changelog lookup now uses the `CHANGELOG.md` closest to the current working directory instead of always defaulting to the repo root; temp files for commit messages and PR bodies now use `get-tmp-filename` for unique paths to prevent session collisions that trigger permission prompts
+
 ### Added
 - `claude-log list --cwd <substring>` — filter sessions by working directory path; JSON output schema documented in `--help` (#46)
 - `settings.json` — new portable allow entries (`ls`, `uv`, `claude-tmux`, `which`, `mine.commit-push`); `Bash(uv run python:*)` moved to `ask` list (#46)

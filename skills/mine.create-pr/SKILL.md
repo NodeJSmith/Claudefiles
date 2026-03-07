@@ -50,7 +50,7 @@ Based on the above changes:
      - Fix typo in README
      ```
 8. Create the PR as a **draft**:
-   - Use the Write tool to write the PR body to a temp file (e.g., `/tmp/pr-body.md`)
+   - Use the Write tool to write the PR body to a unique temp file — run `get-tmp-filename` first to get a unique path (e.g., `/tmp/claude-cmd-abc123.txt`) to avoid collisions with other sessions that would trigger unnecessary permission requests
    - **GitHub**:
      ```bash
      gh-pr-create --draft --title "..." --body-file /tmp/pr-body.md
@@ -59,7 +59,7 @@ Based on the above changes:
      ```bash
      az repos pr create --draft true --title "..." --description "$(cat /tmp/pr-body.md)" --source-branch <branch> --target-branch <default-branch>
      ```
-9. **Update CHANGELOG with PR number**: If a `CHANGELOG.md` exists in the repo root:
+9. **Update CHANGELOG with PR number**: If a `CHANGELOG.md` exists (use the one closest to the current working directory if multiple exist — not necessarily the repo root):
    - Extract the PR number from the PR URL
    - Use the platform-appropriate prefix for the PR reference:
      - **GitHub**: `#` (e.g., `(#123)`) — links to the PR
