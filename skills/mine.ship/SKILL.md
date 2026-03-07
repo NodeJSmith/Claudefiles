@@ -20,7 +20,7 @@ Ship the current changes: commit, push, and open a PR. Follow each phase in orde
 
 1. If on the default branch (detected in Context above), create a new branch first.
 2. **COMMIT SCOPE CHECK:** Review the diff for unrelated changes that belong in separate commits (e.g., a feature + an unrelated bug fix, or a config change mixed with new functionality). If the changes clearly span distinct concerns, **ask the user** whether to split them into separate commits before proceeding. If the changes are all part of one logical unit of work, continue.
-3. **CHANGELOG CHECK (mandatory — never skip this step):** Use the Read tool to open `CHANGELOG.md`. If multiple `CHANGELOG.md` files exist in the repo, use the one **closest to the current working directory** — not the repo root. Do NOT guess whether it exists — actually read it. If the read succeeds, the file exists; decide whether the changes deserve a changelog entry:
+3. **CHANGELOG CHECK (mandatory — never skip this step):** Locate the nearest `CHANGELOG.md` by running `git ls-files '*CHANGELOG.md' 'CHANGELOG.md'` to list all changelogs in the repo. If multiple exist, pick the one whose path has the fewest components relative to the current working directory (i.e., shortest directory distance from CWD — not necessarily the repo root). If only one exists, use it. If none exist, skip this step. Use the Read tool on the specific path you identified — do NOT try to read `CHANGELOG.md` from CWD blindly and treat a failed read as "no changelog". Once read, decide whether the changes deserve a changelog entry:
    - **Update silently** for: new features, user-facing bug fixes, behavior changes, new integrations, breaking changes.
    - **Skip silently** for: fixing tests, lint/format cleanup, internal refactoring with no behavior change, code comments/docstrings, typo fixes in code.
    - **Ask the user** if you're unsure — e.g., a mix of internal and user-facing changes, or changes that could be described either way.
@@ -55,11 +55,11 @@ Ship the current changes: commit, push, and open a PR. Follow each phase in orde
     - Use the Write tool to write the PR body to a unique temp file — run `get-tmp-filename` first to get a unique path (e.g., `/tmp/claude-cmd-abc123.txt`) to avoid collisions with other sessions that would trigger unnecessary permission requests
     - **GitHub**:
       ```bash
-      gh-pr-create --draft --title "..." --body-file /tmp/pr-body.md
+      gh-pr-create --draft --title "..." --body-file <tmpfile>
       ```
     - **Azure DevOps**:
       ```bash
-      az repos pr create --draft true --title "..." --description "$(cat /tmp/pr-body.md)" --source-branch <branch> --target-branch <default-branch>
+      az repos pr create --draft true --title "..." --description "$(cat <tmpfile>)" --source-branch <branch> --target-branch <default-branch>
       ```
 15. **Update CHANGELOG with PR number**: If a `CHANGELOG.md` exists (use the one closest to the current working directory if multiple exist — not necessarily the repo root):
     - Extract the PR number from the PR URL
