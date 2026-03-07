@@ -26,6 +26,12 @@ When asked to change **anything** on a UI page, before writing a single line of 
 
 Take fresh screenshots to verify the change looks right before committing. Visual bugs only appear in screenshots — code review alone is not sufficient for UI work.
 
-## Design Review Skills
+## Screenshots Before Any Design Review (MANDATORY)
 
-The design review skills (`/mine.ux-review`, `/mine.ux-antipatterns`, `/mine.interface-design`, `/mine.human-centered-design`) all check for Playwright MCP and take screenshots automatically when available. You do not need to prompt for screenshots before running these skills — they handle it.
+Before running **any** frontend design review — UX audit, interface design critique, HCD review, anti-pattern scan — always get visual context first:
+
+1. Check for an existing `screenshots/current/` directory; if present and recent, read those screenshots
+2. If Playwright MCP tools are available and a dev server is running, take fresh screenshots of all main pages and save to `screenshots/current/`
+3. Read each screenshot alongside the code — visual review catches overflow, clipping, empty states, contrast failures, and density issues that are invisible in code alone
+
+This applies regardless of which skill or command triggers the review. Individual skill files do not need to repeat this step.

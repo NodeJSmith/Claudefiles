@@ -63,7 +63,6 @@ Scan frontend code for patterns that cause user frustration.
 
 ## Workflow
 
-0. **Get visual context first.** Check for an existing `screenshots/current/` directory — if present, read those screenshots before touching code. If Playwright MCP tools are available and a dev server is running, take fresh screenshots of all main pages and save to `screenshots/current/`. Visual review catches presentation issues (overflow, clipping, empty states, contrast, density) that are invisible in code alone. Correlate every code finding with what it produces visually.
 1. Read `references/antipatterns.md` to load detection heuristics.
 2. Scan the code under review against each applicable category.
 3. Report findings grouped by anti-pattern, citing file:line locations.
