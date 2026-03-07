@@ -4,6 +4,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-03-06
 
+### Added
+- `rules/common/frontend-workflow.md` — scope expansion rule for UI changes: before implementing any page change, screenshot with Playwright, identify the full surface, check sibling pages, present the full scope in one plan
+- `mine.ux-review` and `mine.ux-antipatterns` now take live Playwright screenshots automatically (if MCP available + dev server running) before scanning code — no need to manually prompt for screenshots first
+
 ### Changed
 - `mine.ship`, `mine.commit-push`, `mine.create-pr` — changelog lookup now uses the `CHANGELOG.md` closest to the current working directory instead of always defaulting to the repo root; temp files for commit messages and PR bodies now use `get-tmp-filename` for unique paths to prevent session collisions that trigger permission prompts (#47)
 

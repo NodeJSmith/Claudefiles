@@ -10,9 +10,20 @@ Before scanning, read completely:
 1. Read the skill: `~/.claude/skills/mine.ux-antipatterns/SKILL.md`
 2. Read the reference: `~/.claude/skills/mine.ux-antipatterns/references/antipatterns.md`
 
+## Screenshots (Live App)
+
+Before scanning code, check whether Playwright MCP is available and a dev server is running:
+
+1. Check for an existing `screenshots/current/` directory — if present and recent, read those screenshots first
+2. If Playwright MCP tools are available, try navigating to the running app (common ports: 3000, 5173, 8000, 8080) and screenshot all main pages — save to `screenshots/current/` in the project root
+3. Read each screenshot alongside the code — visual review surfaces presentation issues invisible in code alone
+4. Correlate code findings with what's visible: "this code produces that visual"
+
+If Playwright MCP is not available and no screenshots exist, proceed with code-only review and note the limitation.
+
 ## Scan Target
 
-If the user specified files or paths, scan those. Otherwise, search for UI files in the project (tsx, jsx, vue, svelte) and scan all of them.
+If the user specified files or paths, scan those. Otherwise, search for UI files in the project (tsx, jsx, vue, svelte, html, jinja, erb) and scan all of them.
 
 ## Review Process
 
