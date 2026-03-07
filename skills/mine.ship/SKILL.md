@@ -20,14 +20,14 @@ Ship the current changes: commit, push, and open a PR. Follow each phase in orde
 
 1. If on the default branch (detected in Context above), create a new branch first.
 2. **COMMIT SCOPE CHECK:** Review the diff for unrelated changes that belong in separate commits (e.g., a feature + an unrelated bug fix, or a config change mixed with new functionality). If the changes clearly span distinct concerns, **ask the user** whether to split them into separate commits before proceeding. If the changes are all part of one logical unit of work, continue.
-3. **CHANGELOG CHECK (mandatory — never skip this step):** Use the Read tool to open `CHANGELOG.md` at the repo root. Do NOT guess whether it exists — actually read it. If the read succeeds, the file exists; decide whether the changes deserve a changelog entry:
+3. **CHANGELOG CHECK (mandatory — never skip this step):** Locate the nearest `CHANGELOG.md` using this algorithm: walk upward from the current working directory one level at a time toward the repo root, checking each directory for `CHANGELOG.md` — the first one found is the nearest, use it. If no `CHANGELOG.md` is found by walking up, run `git ls-files '*CHANGELOG.md'` to find any changelogs elsewhere in the repo and pick the one with the shortest relative path from CWD. If none exist anywhere, skip this step. Use the Read tool on the specific path identified — do NOT treat a failed read of `./CHANGELOG.md` as proof that no changelog exists. Once read, decide whether the changes deserve a changelog entry:
    - **Update silently** for: new features, user-facing bug fixes, behavior changes, new integrations, breaking changes.
    - **Skip silently** for: fixing tests, lint/format cleanup, internal refactoring with no behavior change, code comments/docstrings, typo fixes in code.
    - **Ask the user** if you're unsure — e.g., a mix of internal and user-facing changes, or changes that could be described either way.
    - If updating, **match the existing changelog structure**: read the file to determine whether it uses `## [Unreleased]` sections or date-based sections (`## YYYY-MM-DD`). Add entries under the appropriate heading — either the existing `[Unreleased]` section or today's date section (creating it if needed). Keep them **high-level and terse** — one bullet per change, two at most. These are **user-facing** entries; describe what changed for the user, not implementation details.
    - If you need to ask, do so **before** proceeding to the commit.
 4. Stage all relevant files (including CHANGELOG.md if updated).
-5. For multi-line commit messages, use the Write tool to write the message to a temp file, then run `git commit -F <path>`. For simple one-line messages, `git commit -m "..."` is fine. Do NOT use `git commit -m "$(cat <<'EOF'...)"` — command substitution triggers extra permission prompts.
+5. For multi-line commit messages, use the Write tool to write the message to a temp file, then run `git commit -F <path>`. For simple one-line messages, `git commit -m "..."` is fine. Do NOT use `git commit -m "$(cat <<'EOF'...)"` — command substitution triggers extra permission prompts. Use a unique temp file name: run `get-tmp-filename` as a **bare command** (not inside `$()` or assigned to a variable — the bare invocation is pre-approved; wrapping it breaks the permission match), then use the printed path in the next command.
 6. Push the branch to origin (use `-u` flag if the branch has no upstream yet).
 7. You MUST do steps 4–6 in a single message. Include the Write call for the commit message file (if needed) in that same message. Do not use any other tools or do anything else besides these tool calls.
 
@@ -52,16 +52,16 @@ Ship the current changes: commit, push, and open a PR. Follow each phase in orde
 
       ```
 14. Create the PR as a **draft**:
-    - Use the Write tool to write the PR body to a temp file (e.g., `/tmp/pr-body.md`)
+    - Use the Write tool to write the PR body to a unique temp file — run `get-tmp-filename` as a **bare command** (not inside `$()`) to get a unique path, then use the printed path in subsequent commands
     - **GitHub**:
       ```bash
-      gh-pr-create --draft --title "..." --body-file /tmp/pr-body.md
+      gh-pr-create --draft --title "..." --body-file <tmpfile>
       ```
     - **Azure DevOps**:
       ```bash
-      az repos pr create --draft true --title "..." --description "$(cat /tmp/pr-body.md)" --source-branch <branch> --target-branch <default-branch>
+      az repos pr create --draft true --title "..." --description "$(cat <tmpfile>)" --source-branch <branch> --target-branch <default-branch>
       ```
-15. **Update CHANGELOG with PR number**: If a `CHANGELOG.md` exists in the repo root:
+15. **Update CHANGELOG with PR number**: If a `CHANGELOG.md` exists (use the one closest to the current working directory if multiple exist — not necessarily the repo root):
     - Extract the PR number from the PR URL
     - Use the platform-appropriate prefix for the PR reference:
       - **GitHub**: `#` (e.g., `(#123)`) — links to the PR

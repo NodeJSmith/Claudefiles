@@ -12,7 +12,7 @@ Before scanning, read completely:
 
 ## Scan Target
 
-If the user specified files or paths, scan those. Otherwise, search for UI files in the project (tsx, jsx, vue, svelte) and scan all of them.
+If the user specified files or paths, scan those. Otherwise, search for UI files in the project (tsx, jsx, vue, svelte, html, jinja, erb) and scan all of them.
 
 ## Review Process
 

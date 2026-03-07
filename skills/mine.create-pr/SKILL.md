@@ -50,21 +50,21 @@ Based on the above changes:
      - Fix typo in README
      ```
 8. Create the PR as a **draft**:
-   - Use the Write tool to write the PR body to a temp file (e.g., `/tmp/pr-body.md`)
+   - Use the Write tool to write the PR body to a unique temp file — run `get-tmp-filename` as a **bare command** (not inside `$()`) to get a unique path, then use the printed path in subsequent commands
    - **GitHub**:
      ```bash
-     gh-pr-create --draft --title "..." --body-file /tmp/pr-body.md
+     gh-pr-create --draft --title "..." --body-file <tmpfile>
      ```
    - **Azure DevOps**:
      ```bash
-     az repos pr create --draft true --title "..." --description "$(cat /tmp/pr-body.md)" --source-branch <branch> --target-branch <default-branch>
+     az repos pr create --draft true --title "..." --description "$(cat <tmpfile>)" --source-branch <branch> --target-branch <default-branch>
      ```
-9. **Update CHANGELOG with PR number**: If a `CHANGELOG.md` exists in the repo root:
+9. **Update CHANGELOG with PR number**: Locate the nearest `CHANGELOG.md` using the ancestor-walk algorithm: walk upward from the current working directory one level at a time toward the repo root, checking each directory for `CHANGELOG.md` — the first one found is the nearest. If none found by walking up, run `git ls-files '*CHANGELOG.md'` and pick the result with the shortest relative path from CWD. If no `CHANGELOG.md` exists anywhere, suggest the user add one. Once located:
    - Extract the PR number from the PR URL
    - Use the platform-appropriate prefix for the PR reference:
      - **GitHub**: `#` (e.g., `(#123)`) — links to the PR
      - **Azure DevOps**: **!** prefix (e.g., `(!123)`) — links to the PR (`#` would link to a work item instead)
-   - Use `git diff <base-branch>...HEAD -- CHANGELOG.md` to identify lines added in this branch
+   - Use `git diff <base-branch>...HEAD -- <changelog-path>` to identify lines added in this branch
    - For each newly added changelog entry line (lines starting with `- `) that does not already contain a PR reference (`(#...)` or `(!...)`), append ` (#<PR_NUMBER>)` for GitHub or ` (!<PR_NUMBER>)` for Azure DevOps to the end of the line
    - Commit with message: e.g., `changelog: add PR #<NUMBER>` for GitHub or `changelog: add PR !<NUMBER>` for Azure DevOps
    - Push
