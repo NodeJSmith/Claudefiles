@@ -30,8 +30,8 @@ Take fresh screenshots to verify the change looks right before committing. Visua
 
 Before running **any** frontend design review — UX audit, interface design critique, HCD review, anti-pattern scan — always get visual context first:
 
-1. Check for an existing `screenshots/current/` directory; if present and recent, read those screenshots
-2. If Playwright MCP tools are available and a dev server is running, take fresh screenshots of all main pages and save to `screenshots/current/`
+1. Check for an existing `.claude/audits/screenshots/current/` directory; if present and recent, read those screenshots
+2. If Playwright MCP tools are available and a dev server is running, take fresh screenshots of all main pages and save to `.claude/audits/screenshots/current/`
 3. Read each screenshot alongside the code — visual review catches overflow, clipping, empty states, contrast failures, and density issues that are invisible in code alone
 
 This applies regardless of which skill or command triggers the review. Individual skill files do not need to repeat this step.

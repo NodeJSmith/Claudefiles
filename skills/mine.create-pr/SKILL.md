@@ -50,7 +50,7 @@ Based on the above changes:
      - Fix typo in README
      ```
 8. Create the PR as a **draft**:
-   - Use the Write tool to write the PR body to a unique temp file — run `get-tmp-filename` first to get a unique path (e.g., `/tmp/claude-cmd-abc123.txt`) to avoid collisions with other sessions that would trigger unnecessary permission requests
+   - Use the Write tool to write the PR body to a unique temp file — run `get-tmp-filename` as a **bare command** (not inside `$()`) to get a unique path, then use the printed path in subsequent commands
    - **GitHub**:
      ```bash
      gh-pr-create --draft --title "..." --body-file <tmpfile>
