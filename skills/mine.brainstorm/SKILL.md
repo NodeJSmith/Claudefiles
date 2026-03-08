@@ -263,6 +263,16 @@ AskUserQuestion:
 
 If selected: invoke the backlog save flow from `rules/common/backlog.md`. Treat the ranked ideas as the item list. Use the idea's ranking tier (e.g. "Top 3", score) as the label.
 
+For GitHub issue creation, use this template:
+
+- **Title:** `[Brainstorm] <topic>: <concise idea name>`
+- **Body:**
+  - **Summary:** One-paragraph description of the idea.
+  - **Rationale:** Why this idea is valuable or promising.
+  - **Ranking:** Tier and score (e.g. `Top 3`, `Score: 4.7/5`).
+  - **Ranked by:** The criteria used (e.g. "feasibility, user impact, speed to ship").
+  - **Suggested next step:** e.g. "Run /mine.research on this idea" or "Start implementation plan".
+
 ### Saving the session
 
 If saving: write to `design/brainstorms/YYYY-MM-DD-<topic>/brainstorm.md`

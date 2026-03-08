@@ -26,11 +26,11 @@ AskUserQuestion:
 
 ### If "Save all to .claude/backlog.md"
 
-Append to `.claude/backlog.md` (create if it doesn't exist). Do not overwrite previous entries — each session appends a new dated section.
+Ensure the `.claude/` directory exists (create it if needed), then append to `.claude/backlog.md` (create the file if it doesn't exist). Do not overwrite previous entries — each session appends a new dated section.
 
 ### If "Create all as GitHub issues"
 
-Create one issue per finding using `gh-issue create`. This wrapper uses a bot token if `gh-app-token` is available, otherwise falls back to your personal token. Use the issue body format defined by the originating skill (each skill documents its own issue format).
+Create one issue per finding using `gh-bot issue create` (uses bot token if available, falls back to personal token). Use the issue body format defined by the originating skill (each skill documents its own issue format).
 
 ### If "Let me split"
 
@@ -57,3 +57,13 @@ Confirm what was saved (file path and/or issue URLs), then ask which finding to 
 ```
 
 The label comes from whatever the originating skill produces — severity for audit and challenge (CRITICAL / HIGH / MEDIUM / LOW), ranking tier or score for brainstorm. Preserve whatever label the skill used so the backlog stays actionable on its own.
+
+## Gitignore
+
+`.claude/backlog.md` is a local workspace file. If you want it out of version control:
+
+```
+.claude/backlog.md
+```
+
+Do not gitignore the entire `.claude/` directory — it may contain committed config files (agents, settings).
