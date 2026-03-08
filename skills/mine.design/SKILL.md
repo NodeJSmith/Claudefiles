@@ -34,10 +34,6 @@ AskUserQuestion:
     2. Are there known constraints or non-goals (things this change should NOT do)?
     3. Is there an existing design doc, research brief, or prior investigation I should build on?
   header: "Scope the design"
-  multiSelect: false
-  options:
-    - label: "Answer inline"
-      description: "Type your answers in the text field above"
 ```
 
 Capture:
@@ -135,11 +131,11 @@ Populate each section from the research brief and scoping answers. Be specific â
 
 ## Phase 4: Sign-off Gate
 
-Present the design doc path and ask:
+Announce the actual file path (e.g. "Design doc written to `design/plans/2026-03-08-add-rate-limiting/design.md`."), then ask:
 
 ```
 AskUserQuestion:
-  question: "Design doc written to design/plans/YYYY-MM-DD-<topic>/design.md. What next?"
+  question: "Design doc written to <actual resolved path>. What next?"
   header: "Design sign-off"
   multiSelect: false
   options:

@@ -113,8 +113,9 @@ Tell the user:
 
 ### On "Request revisions"
 
-Surface the reviewer's blocking issues as a numbered list. Tell the user:
-> Run `/mine.draft-plan <design doc path>` with the following reviewer notes:
+Surface the reviewer's blocking issues as a numbered list. Write them to the conversation so the user can copy them, then tell the user:
+> Start a new conversation (or continue this one) and run `/mine.draft-plan <design doc path>`. Paste the following reviewer notes at the start so the skill can incorporate them:
+>
 > [blocking issues list]
 
 ### On "Abandon"
