@@ -158,7 +158,7 @@ fi
 echo "Claudefiles installed to $CLAUDE_DIR"
 
 # Prerequisite checks
-if ! command -v pyright-langserver &>/dev/null; then
+if ! command -v pyright &>/dev/null; then
   echo "" >&2
   echo "note: pyright not found — LSP features (go-to-definition, find-references, hover)" >&2
   echo "      will not work until you install it:" >&2
