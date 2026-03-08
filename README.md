@@ -13,7 +13,7 @@ My personal [Claude Code](https://docs.anthropic.com/en/docs/claude-code) config
 ## Things I find most useful
 
 - **`/mine.research`** and **`/mine.audit`** -- the research skill maps architecture and evaluates feasibility before you commit to a direction. The audit skill finds the biggest problems in a codebase ranked by impact. Both feed into planning and ADRs.
-- **`claude --worktree <branch>`** -- start a fresh Claude session in an isolated branch. Use `--resume <session-id>` to return to any previous session. `/mine.tackle` researches an issue and creates the worktree ready for this.
+- **`claude --worktree <branch>`** -- start a fresh Claude session in an isolated branch. Use `--resume <session-id>` to return to any previous session. Use `/mine.issues` in plan mode to research an issue before starting.
 - **`/mine.refactor`** -- interactive refactoring that asks you questions about naming, scope, and approach instead of guessing.
 
 ## Install
