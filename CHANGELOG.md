@@ -4,6 +4,11 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-03-08
 
+### Fixed
+- `settings.json` — `/tmp/*` permission globs upgraded to `/tmp/**` so files in subdirectories (e.g. eval-repo clones, sandbox tmp dirs) are auto-approved without prompts
+- `bin/get-tmp-filename` — now uses `$CLAUDE_CODE_TMPDIR` when set (sandbox mode), falling back to `/tmp`; updated header comment to show correct two-call pattern instead of prohibited `$()`
+- All `/tmp/` hardcodes in skills, agents, commands, and rules updated to `${CLAUDE_CODE_TMPDIR:-/tmp}` — covers `mine.brainstorm`, `mine.challenge`, `mine.audit`, `mine.eval-repo`, `mine.tool-gaps`, `mine.status`, `issue-refiner`, `code-reviewer`, `error-tracking`, `command-output`
+
 ### Removed
 - `mine.worktree`, `mine.start`, `mine.bare-repo` skills — superseded by `claude --worktree <branch>` + `--resume`; no plan file handoff needed (#50)
 - `mine.tackle` command — its value was the worktree+handoff flow; without that it duplicates `/mine.issues` + plan mode (#50)

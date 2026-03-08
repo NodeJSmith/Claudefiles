@@ -11,13 +11,15 @@ Two Bash calls:
 ```bash
 # Step 1: create the capture file (pre-allowed, no permission prompt)
 get-tmp-filename
-# → /tmp/claude-cmd-abc123.txt
+# → /tmp/claude-cmd-abc123.txt  (or $CLAUDE_CODE_TMPDIR/claude-cmd-abc123.txt under sandbox)
 ```
 
 ```bash
-# Step 2: substitute the path from step 1 into tee (user approves the real command)
-pytest -v 2>&1 | tee /tmp/claude-cmd-abc123.txt | tail -80
+# Step 2: substitute the exact path printed by step 1 (user approves the real command)
+pytest -v 2>&1 | tee /path/from/step-1 | tail -80
 ```
+
+`get-tmp-filename` automatically uses `$CLAUDE_CODE_TMPDIR` when set (sandbox mode), falling back to `/tmp`.
 
 Remember the path printed by step 1 and substitute it directly into step 2.
 
@@ -59,4 +61,4 @@ If the tail didn't capture what you need, **do not re-run the command**. Instead
 
 ## Cleanup
 
-Files in `/tmp` are cleaned automatically by the OS. No manual cleanup needed.
+Files in the tmp directory (`/tmp` or `$CLAUDE_CODE_TMPDIR`) are cleaned automatically by the OS. No manual cleanup needed.

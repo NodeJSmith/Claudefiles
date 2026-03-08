@@ -2,11 +2,13 @@
 # Create a temp file for capturing command output.
 # Prints the file path to stdout. Pair with tee/tail in the next command.
 #
-# Usage:
-#   _f=$(get-tmp-filename)
-#   command 2>&1 | tee "$_f" | tail -80
+# Usage (correct two-call pattern — do NOT wrap in $() in Bash tool calls):
+#   get-tmp-filename
+#   command 2>&1 | tee /path/from/above | tail -80
+#
+# See rules/common/command-output.md for the correct pattern.
 #
 # Permission: add Bash(get-tmp-filename) to allowedTools for auto-approve.
 set -euo pipefail
 
-mktemp /tmp/claude-cmd-XXXXXX.txt
+mktemp "${CLAUDE_CODE_TMPDIR:-/tmp}/claude-cmd-XXXXXX.txt"

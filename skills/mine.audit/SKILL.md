@@ -186,7 +186,7 @@ Based on the user's choice per finding:
 
 When the user chooses "Create an issue" for a finding, create it immediately:
 
-1. Use the Write tool to write the issue body to a temp file (e.g., `/tmp/issue-body.md`):
+1. Use the Write tool to write the issue body to a temp file (e.g., `${CLAUDE_CODE_TMPDIR:-/tmp}/issue-body.md`):
    ```markdown
    ## Problem
 
@@ -207,7 +207,7 @@ When the user chooses "Create an issue" for a finding, create it immediately:
    ```
 2. Create the issue:
    ```bash
-   gh issue create --title "<concise problem statement>" --body-file /tmp/issue-body.md
+   gh issue create --title "<concise problem statement>" --body-file "${CLAUDE_CODE_TMPDIR:-/tmp}/issue-body.md"
    ```
 
 After creating the issue, confirm the URL and move on to the next finding. The user can batch multiple findings as issues — ask once per finding, don't force them to address everything in this session.
