@@ -61,4 +61,4 @@ If the tail didn't capture what you need, **do not re-run the command**. Instead
 
 ## Cleanup
 
-Files in the tmp directory (`/tmp` or `$CLAUDE_CODE_TMPDIR`) are cleaned automatically by the OS. No manual cleanup needed.
+Files in the system tmp directory (e.g. `/tmp`) are typically cleaned automatically by the OS or are ephemeral in sandboxed environments. If you set `$CLAUDE_CODE_TMPDIR` to a custom, non-ephemeral location, you may need to clean up old capture files manually.

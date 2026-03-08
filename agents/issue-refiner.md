@@ -93,9 +93,9 @@ Omit any section that would just be empty boilerplate. Only add sections that ge
 Always use `--body-file` to avoid shell escaping issues with the issue body:
 
 ```bash
-gh issue view <number> --json body --jq '.body' > "${CLAUDE_CODE_TMPDIR:-/tmp}/issue-body.txt"
+gh-issue view <number> --json body --jq '.body' > "${CLAUDE_CODE_TMPDIR:-/tmp}/issue-body.txt"
 # append enriched sections to ${CLAUDE_CODE_TMPDIR:-/tmp}/issue-body.txt
-gh issue edit <number> --body-file "${CLAUDE_CODE_TMPDIR:-/tmp}/issue-body.txt"
+gh-issue edit <number> --body-file "${CLAUDE_CODE_TMPDIR:-/tmp}/issue-body.txt"
 ```
 
 ### 6. Report Back
