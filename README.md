@@ -100,7 +100,7 @@ Coding guidelines organized by language. These load automatically and shape how 
 
 **Python** (5): coding-style, hooks, patterns, security, testing
 
-### Helper Scripts (21)
+### Helper Scripts (19)
 
 CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
@@ -120,10 +120,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `gh-pr-reply` | Reply to a PR review comment thread |
 | `gh-pr-resolve-thread` | Resolve one or more PR review threads by GraphQL ID |
 | `gh-pr-threads` | List unresolved PR review threads with summary |
-| `git-convert-to-bare` | Convert a repo to bare+worktree structure with worktree nested inside the repo directory |
-| `git-convert-to-bare-external` | Convert a repo to bare+worktree keeping the original path, bare db at an external location |
 | `git-default-branch` | Print the default branch name for the current repo |
-| `setup-worktree` | Set up editor and AI config (`.vscode/`, `.claude/`, `CLAUDE.md`) in a new git worktree |
 | `skill-eval-aggregate` | Aggregate graded skill evaluation results with pass rates and score statistics |
 | `skill-eval-run` | Run skill evaluation iterations — invoke skill variants and save outputs |
 | `sophia-install` | Download and install the sophia binary for the current platform |
