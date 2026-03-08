@@ -2,11 +2,11 @@
 
 ## Why This Matters
 
-Every Bash invocation requires user approval; dedicated tools (Read, Write, Edit, Grep, Glob) are pre-approved. `sed -i` carries additional risk: in-place file edits have no undo.
+By default, Bash invocations require user approval unless the command is explicitly allow-listed in `settings.json`; dedicated tools (Read, Write, Edit, Grep, Glob) are pre-approved. `sed -i` carries additional risk: in-place file edits have no undo.
 
-Hooks also reject Bash commands where quoted characters appear in flag arguments — this is the less obvious cost:
+The permissions allow-list can also reject Bash commands where quoted characters appear in arguments — this is a less obvious cost:
 
-**WRONG:** `grep "endblock" templates/base.html` → rejected by hook
+**WRONG:** `grep "endblock" templates/base.html` → not allowed by the permissions allow-list
 **RIGHT:** Use `Grep` with `pattern="endblock"` and `path="templates/base.html"`
 
 ## Tool Mapping
