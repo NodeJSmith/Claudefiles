@@ -120,6 +120,8 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `gh-pr-reply` | Reply to a PR review comment thread |
 | `gh-pr-resolve-thread` | Resolve one or more PR review threads by GraphQL ID |
 | `gh-pr-threads` | List unresolved PR review threads with summary |
+| `git-branch-diff-stat` | Print `git diff --stat` for current branch vs default branch (with remote/local fallback) |
+| `git-branch-log` | Print `git log --oneline` for current branch vs default branch (with remote/local fallback) |
 | `git-default-branch` | Print the default branch name for the current repo |
 | `skill-eval-aggregate` | Aggregate graded skill evaluation results with pass rates and score statistics |
 | `skill-eval-run` | Run skill evaluation iterations — invoke skill variants and save outputs |
