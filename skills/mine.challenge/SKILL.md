@@ -62,9 +62,9 @@ AskUserQuestion:
 Before launching, generate a temp file path for each critic's report using these paths (substitute `$CLAUDE_SESSION_ID`):
 
 ```
-/tmp/mine-challenge-senior-$CLAUDE_SESSION_ID.md
-/tmp/mine-challenge-architect-$CLAUDE_SESSION_ID.md
-/tmp/mine-challenge-adversarial-$CLAUDE_SESSION_ID.md
+${CLAUDE_CODE_TMPDIR:-/tmp}/mine-challenge-senior-$CLAUDE_SESSION_ID.md
+${CLAUDE_CODE_TMPDIR:-/tmp}/mine-challenge-architect-$CLAUDE_SESSION_ID.md
+${CLAUDE_CODE_TMPDIR:-/tmp}/mine-challenge-adversarial-$CLAUDE_SESSION_ID.md
 ```
 
 Launch all three as parallel Task calls with `subagent_type: general-purpose`. Each critic receives:
@@ -230,9 +230,9 @@ Include an appendix in the saved report with the three temp file paths for refer
 
 These files contain each critic's unfiltered findings and are available for the duration of this session:
 
-- Senior Engineer: /tmp/mine-challenge-senior-<session-id>.md
-- Systems Architect: /tmp/mine-challenge-architect-<session-id>.md
-- Adversarial Reviewer: /tmp/mine-challenge-adversarial-<session-id>.md
+- Senior Engineer: ${CLAUDE_CODE_TMPDIR:-/tmp}/mine-challenge-senior-<session-id>.md
+- Systems Architect: ${CLAUDE_CODE_TMPDIR:-/tmp}/mine-challenge-architect-<session-id>.md
+- Adversarial Reviewer: ${CLAUDE_CODE_TMPDIR:-/tmp}/mine-challenge-adversarial-<session-id>.md
 ```
 
 ## Principles

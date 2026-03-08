@@ -31,7 +31,7 @@ Call `TaskList` to get current tasks.
 
 ### Errors (Read)
 
-Read `/tmp/claude-errors-$CLAUDE_SESSION_ID.md`. If the file doesn't exist or is empty, skip.
+Read `${CLAUDE_CODE_TMPDIR:-/tmp}/claude-errors-$CLAUDE_SESSION_ID.md`. If the file doesn't exist or is empty, skip.
 
 ## Output Format
 
