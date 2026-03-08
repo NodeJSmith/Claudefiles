@@ -1,0 +1,67 @@
+version: v1
+
+contract:
+  required_fields:
+    - why
+    - scope
+    - non_goals
+    - invariants
+    - blast_radius
+    - test_plan
+    - rollback_plan
+
+task_contract:
+  required_fields:
+    - intent
+    - acceptance_criteria
+    - scope
+
+scope:
+  allowed_prefixes:
+    - "."
+
+# Classification: customize suffixes and paths for your project's language
+classification:
+  test:
+    suffixes:
+      # - "_test.go"
+      # - ".test.ts"
+      - "_test.py"
+      - ".spec.py"
+    path_contains:
+      - "/test/"
+      - "/tests/"
+  dependency:
+    file_names:
+      - "pyproject.toml"
+      - "requirements.txt"
+      - "uv.lock"
+      # - "package.json"
+      # - "go.mod"
+
+merge:
+  mode: pr_gate          # pr_gate | local
+  allow_override: true
+
+archive:
+  enabled: true
+  path: ".sophia-tracked/cr"
+  format: yaml
+  include_full_diffs: false
+
+trust:
+  mode: advisory
+  gate:
+    enabled: false
+  checks:
+    freshness_hours: 24
+    definitions:
+      # Uncomment and customize for your project:
+      # - key: test
+      #   command: pytest
+      #   tiers: [low, medium, high]
+      #   allow_exit_codes: [0]
+      # - key: lint
+      #   command: ruff check .
+      #   tiers: [low, medium, high]
+      #   allow_exit_codes: [0]

@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# Download and install the sophia binary.
+#
+# Detects platform (linux/darwin) and arch (amd64/arm64).
+# Downloads from GitHub releases and installs to ~/.local/bin/sophia.
+#
+# Usage: sophia-install [--force]
+#   --force    Reinstall even if sophia is already installed
+#
+# Exit codes:
+#   0  success
+#   1  error (unsupported platform, download failure, etc.)
+
+set -euo pipefail
+
+VERSION="${SOPHIA_VERSION:-latest}"
+INSTALL_DIR="$HOME/.local/bin"
+REPO="Kevandrew/sophia"
+FORCE=false
+
+for arg in "$@"; do
+  case "$arg" in
+    --force) FORCE=true ;;
+    -h|--help)
+      sed -n '2,/^$/{ s/^# //; s/^#$//; p }' "$0"
+      exit 0
+      ;;
+    *)
+      echo "error: unknown argument: $arg" >&2
+      echo "Usage: sophia-install [--force]" >&2
+      exit 1
+      ;;
+  esac
+done
+
+# Skip if already installed (unless --force)
+if [ "$FORCE" = false ] && command -v sophia >/dev/null 2>&1; then
+  echo "sophia is already installed: $(sophia --version 2>&1 || echo 'unknown version')"
+  echo "Use --force to reinstall."
+  exit 0
+fi
+
+# Detect OS
+OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+case "$OS" in
+  linux|darwin) ;;
+  *)
+    echo "error: unsupported OS: $OS" >&2
+    exit 1
+    ;;
+esac
+
+# Detect architecture
+ARCH="$(uname -m)"
+case "$ARCH" in
+  x86_64)         ARCH="amd64" ;;
+  aarch64|arm64)  ARCH="arm64" ;;
+  *)
+    echo "error: unsupported architecture: $ARCH" >&2
+    exit 1
+    ;;
+esac
+
+# Resolve latest version if needed
+if [ "$VERSION" = "latest" ]; then
+  VERSION="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"//;s/".*//')"
+  if [ -z "$VERSION" ]; then
+    echo "error: could not resolve latest version from GitHub API" >&2
+    exit 1
+  fi
+  echo "Resolved latest version: $VERSION"
+fi
+
+# Set up temp dir with cleanup trap
+TMPDIR_DL="$(mktemp -d)"
+trap 'rm -rf "$TMPDIR_DL"' EXIT
+
+# Download
+ARCHIVE_NAME="sophia_${OS}_${ARCH}.tar.gz"
+DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${ARCHIVE_NAME}"
+echo "Downloading ${DOWNLOAD_URL}..."
+if ! curl -fsSL -o "$TMPDIR_DL/$ARCHIVE_NAME" "$DOWNLOAD_URL"; then
+  echo "error: download failed — check that version ${VERSION} exists and has a ${OS}/${ARCH} binary" >&2
+  exit 1
+fi
+
+# Extract and install
+tar -xzf "$TMPDIR_DL/$ARCHIVE_NAME" -C "$TMPDIR_DL"
+if [ ! -f "$TMPDIR_DL/sophia" ]; then
+  echo "error: extracted archive does not contain 'sophia' binary" >&2
+  exit 1
+fi
+
+mkdir -p "$INSTALL_DIR"
+install -m 755 "$TMPDIR_DL/sophia" "$INSTALL_DIR/sophia"
+
+# Verify
+echo "Installed to $INSTALL_DIR/sophia"
+"$INSTALL_DIR/sophia" --version 2>&1 || true
