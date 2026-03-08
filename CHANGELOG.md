@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-08
 
 ### Fixed
-- `install.sh` — parallel shadowed-file arrays replaced with an associative array (eliminates accidental cross-pairing), `rm` on shadowed directories now uses `rm -rf` (prevents crash under `set -e`), directory entries annotated before the `[y/N]` prompt, stale-link non-interactive block gains a header, prompts redirected to `/dev/tty`
+- `install.sh` — parallel shadowed-file arrays replaced with an associative array (eliminates accidental cross-pairing), `rm` on shadowed directories now uses `rm -rf` (prevents crash under `set -e`), directory entries annotated before the `[y/N]` prompt, stale-link non-interactive block gains a header, prompts redirected to `/dev/tty` (#51)
 
 ### Changed
 - `install.sh` — TTY-aware interactive cleanup: when run from a terminal, shadowed files and stale symlinks now prompt `[y/N]` instead of printing `rm` commands; non-interactive (piped/CI) behavior is unchanged (#51)
