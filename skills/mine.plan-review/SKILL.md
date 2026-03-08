@@ -55,7 +55,7 @@ The path printed is `${CLAUDE_CODE_TMPDIR:-/tmp}/claude-cmd-<random>.txt`. Use t
 
 ### Read reviewer prompt
 
-Read `skills/mine.plan-review/reviewer-prompt.md` to get the checklist content. If that path doesn't resolve (symlinked environment), try `~/.claude/skills/mine.plan-review/reviewer-prompt.md`.
+Read `~/.claude/skills/mine.plan-review/reviewer-prompt.md` to get the checklist content.
 
 ### Launch subagent
 

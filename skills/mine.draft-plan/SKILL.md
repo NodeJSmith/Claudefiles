@@ -162,8 +162,8 @@ AskUserQuestion:
   header: "Review gate"
   multiSelect: false
   options:
-    - label: "Yes — run mine.plan-review now"
-      description: "Launch the 6-point checklist reviewer against this plan"
+    - label: "Yes — show me the command"
+      description: "Display the /mine.plan-review command to run next"
     - label: "No — I'll review manually first"
       description: "Stop here; run /mine.plan-review when ready"
 ```
