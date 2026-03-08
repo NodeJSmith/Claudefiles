@@ -4,7 +4,7 @@ My personal [Claude Code](https://docs.anthropic.com/en/docs/claude-code) config
 
 ## What's here
 
-- **Skills** -- reusable prompts Claude can invoke by name (like `/mine.audit` or `/mine.worktree`)
+- **Skills** -- reusable prompts Claude can invoke by name (like `/mine.audit` or `/mine.research`)
 - **Commands** -- slash commands for common workflows (root cause analysis, session reflection, issue triage)
 - **Agents** -- specialized subagent definitions (code review, planning)
 - **Rules** -- coding guidelines that load automatically (style, testing, security, git workflow)
@@ -13,7 +13,7 @@ My personal [Claude Code](https://docs.anthropic.com/en/docs/claude-code) config
 ## Things I find most useful
 
 - **`/mine.research`** and **`/mine.audit`** -- the research skill maps architecture and evaluates feasibility before you commit to a direction. The audit skill finds the biggest problems in a codebase ranked by impact. Both feed into planning and ADRs.
-- **`/mine.worktree`** and **`/mine.start`** -- create git worktrees with plan handoffs so you can run multiple Claude sessions in parallel on different branches. One session plans, another implements.
+- **`claude --worktree <branch>`** -- start a fresh Claude session in an isolated branch. Use `--resume <session-id>` to return to any previous session. Use `/mine.issues` in plan mode to research an issue before starting.
 - **`/mine.refactor`** -- interactive refactoring that asks you questions about naming, scope, and approach instead of guessing.
 
 ## Install
@@ -34,7 +34,7 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 
 ## Contents
 
-### Skills (23)
+### Skills (20)
 
 | Skill | Description |
 |-------|-------------|
@@ -42,7 +42,6 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `mine.adrs` | Create and maintain Architecture Decision Records for project decisions |
 | `mine.audit` | Systematic codebase health audit -- surfaces aging code, brittle designs, missing tests, ranked by impact |
 | `mine.backend-patterns` | Backend architecture patterns, API design, database optimization for Python/FastAPI |
-| `mine.bare-repo` | One-time setup of a bare git repo with worktree-based directory structure |
 | `mine.brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas ranked by user-chosen criteria, with handoff to research, ADRs, or planning |
 | `mine.challenge` | Adversarial design critique using three parallel critics — assumes the design is wrong, finds out why, argues for better |
 | `mine.commit-push` | Commit and push changes to the current branch |
@@ -57,12 +56,10 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `mine.research` | Deep codebase research and feasibility analysis with parallel subagents |
 | `mine.security-review` | Security checklist for auth, user input, secrets, API endpoints |
 | `mine.ship` | Commit, push, and create a PR in one step |
-| `mine.start` | Read a plan handoff from a previous session and begin implementation |
 | `mine.tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |
 | `mine.ux-antipatterns` | Detect UX anti-patterns -- layout shifts, missing feedback, broken forms, a11y gaps |
-| `mine.worktree` | Manage git worktrees with plan handoff for concurrent Claude sessions |
 
-### Commands (12)
+### Commands (11)
 
 | Command | Description |
 |---------|-------------|
@@ -76,7 +73,6 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `mine.pre-compact` | Generate a focused /compact prompt preserving what matters |
 | `mine.session_reflect` | End-of-session reflection grounded in git evidence |
 | `mine.status` | Quick orientation -- branch, tasks, errors, last commit |
-| `mine.tackle` | Deep-dive an issue, plan implementation, create a worktree |
 | `mine.ux-review` | Scan frontend code for UX anti-patterns |
 
 ### Agents (10)
@@ -94,11 +90,11 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `ui-auditor` | Accessibility and UX audit -- WCAG violations, missing ARIA, hardcoded styles, UX anti-patterns |
 | `visual-diff` | Visual regression testing via Playwright MCP -- before/after screenshots to catch unintended UI changes |
 
-### Rules (20)
+### Rules (21)
 
 Coding guidelines organized by language. These load automatically and shape how Claude writes code.
 
-**Common** (15): agents, backlog, bash-tools, capabilities, coding-style, command-output, error-tracking, frontend-workflow, git-workflow, hooks, patterns, performance, security, testing, tmux
+**Common** (16): agents, backlog, bash-tools, capabilities, coding-style, command-output, error-tracking, frontend-workflow, git-workflow, hooks, patterns, performance, security, testing, tmux, worktrees
 
 **Python** (5): coding-style, hooks, patterns, security, testing
 
