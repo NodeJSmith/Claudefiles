@@ -12,7 +12,8 @@ BIN_DIR="$HOME/.local/bin"
 interactive=false
 [ -t 0 ] && [ -t 1 ] && interactive=true
 
-declare -A shadowed   # shadowed[$target]=$source
+declare -A shadowed             # shadowed[$target]=$source — re-linkable with ln -s
+declare -A shadowed_containers  # container dirs requiring mkdir+per-file on re-run
 
 for dir in agents skills commands scripts/hooks; do
   src="$REPO_DIR/$dir"
@@ -44,7 +45,7 @@ if [ -d "$REPO_DIR/rules" ]; then
     if [ -L "$dest" ]; then
       rm "$dest"   # upgrade: remove old whole-directory symlink
     elif [ -e "$dest" ] && [ ! -d "$dest" ]; then
-      shadowed["$dest"]="$lang_dir"
+      shadowed_containers["$dest"]="$lang_dir"
       continue
     fi
     mkdir -p "$dest"
@@ -71,7 +72,7 @@ if [ -d "$REPO_DIR/learned" ]; then
   if [ -L "$dest" ]; then
     rm "$dest"   # upgrade: remove old whole-directory symlink
   elif [ -e "$dest" ] && [ ! -d "$dest" ]; then
-    shadowed["$dest"]="$REPO_DIR/learned"
+    shadowed_containers["$dest"]="$REPO_DIR/learned"
     skip_learned=true
   fi
   if [ "$skip_learned" = false ]; then
@@ -140,16 +141,17 @@ if [ -d "$CLAUDE_DIR/learned" ] && [ ! -L "$CLAUDE_DIR/learned" ]; then
 fi
 
 # Report problems
-if [ ${#shadowed[@]} -gt 0 ]; then
+_shadowed_total=$(( ${#shadowed[@]} + ${#shadowed_containers[@]} ))
+if [ "$_shadowed_total" -gt 0 ]; then
   echo "" >&2
-  echo "warning: ${#shadowed[@]} file(s) not symlinked — a non-symlink already exists:" >&2
+  echo "warning: $_shadowed_total file(s) not symlinked — a non-symlink already exists:" >&2
   for tgt in "${!shadowed[@]}"; do
     src="${shadowed[$tgt]}"
-    if [ -d "$src" ]; then
-      echo "  $tgt (shadows dir $src — re-run install.sh to restore links)" >&2
-    else
-      echo "  $tgt (shadows $src)" >&2
-    fi
+    echo "  $tgt (shadows $src)" >&2
+  done
+  for tgt in "${!shadowed_containers[@]}"; do
+    src="${shadowed_containers[$tgt]}"
+    echo "  $tgt (shadows dir $src — re-run install.sh to restore links)" >&2
   done
 
   if [ "$interactive" = true ]; then
@@ -161,18 +163,22 @@ if [ ${#shadowed[@]} -gt 0 ]; then
       for tgt in "${!shadowed[@]}"; do
         src="${shadowed[$tgt]}"
         rm -rf -- "$tgt"
-        if [ -d "$src" ]; then
-          echo "  removed: $tgt (was shadowing $src — re-run install.sh to restore links)" >&2
-        else
-          ln -s "$src" "$tgt"
-          echo "  linked: $tgt" >&2
-        fi
+        ln -s "$src" "$tgt"
+        echo "  linked: $tgt" >&2
+      done
+      for tgt in "${!shadowed_containers[@]}"; do
+        src="${shadowed_containers[$tgt]}"
+        rm -rf -- "$tgt"
+        echo "  removed: $tgt (was shadowing $src — re-run install.sh to restore links)" >&2
       done
     fi
   else
     echo "  Remove the above file(s) and re-run install.sh:" >&2
     for tgt in "${!shadowed[@]}"; do
-      echo "    rm \"$tgt\"" >&2
+      echo "    rm -rf -- \"$tgt\"" >&2
+    done
+    for tgt in "${!shadowed_containers[@]}"; do
+      echo "    rm -rf -- \"$tgt\"" >&2
     done
   fi
 fi
