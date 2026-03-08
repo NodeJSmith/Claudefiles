@@ -6,7 +6,7 @@ CLAUDE_DIR="${CLAUDE_HOME:-$HOME/.claude}"
 BIN_DIR="$HOME/.local/bin"
 
 interactive=false
-[ -t 0 ] && interactive=true
+[ -t 0 ] && [ -t 1 ] && interactive=true
 
 shadowed_targets=()
 shadowed_sources=()
@@ -43,7 +43,7 @@ if [ -d "$REPO_DIR/rules" ]; then
       rm "$dest"   # upgrade: remove old whole-directory symlink
     elif [ -e "$dest" ] && [ ! -d "$dest" ]; then
       shadowed_targets+=("$dest")
-      shadowed_sources+=("directory $lang_dir")
+      shadowed_sources+=("$lang_dir")
       continue
     fi
     mkdir -p "$dest"
@@ -71,7 +71,7 @@ if [ -d "$REPO_DIR/learned" ]; then
     rm "$dest"   # upgrade: remove old whole-directory symlink
   elif [ -e "$dest" ] && [ ! -d "$dest" ]; then
     shadowed_targets+=("$dest")
-    shadowed_sources+=("directory $REPO_DIR/learned")
+    shadowed_sources+=("$REPO_DIR/learned")
     dest=""
   fi
   if [ -n "$dest" ]; then
@@ -155,9 +155,15 @@ if [ ${#shadowed_targets[@]} -gt 0 ]; then
     read -r answer </dev/tty
     if [[ "$answer" =~ ^[Yy] ]]; then
       for i in "${!shadowed_targets[@]}"; do
-        rm "${shadowed_targets[$i]}"
-        ln -s "${shadowed_sources[$i]}" "${shadowed_targets[$i]}"
-        echo "  linked: ${shadowed_targets[$i]}" >&2
+        src="${shadowed_sources[$i]}"
+        tgt="${shadowed_targets[$i]}"
+        rm "$tgt"
+        if [ -d "$src" ]; then
+          echo "  removed: $tgt (was shadowing $src — re-run install.sh to restore links)" >&2
+        else
+          ln -s "$src" "$tgt"
+          echo "  linked: $tgt" >&2
+        fi
       done
     fi
   else
