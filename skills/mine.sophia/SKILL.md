@@ -50,7 +50,7 @@ test -f SOPHIA.yaml && echo "exists" || echo "missing"
 
 If `SOPHIA.yaml` is missing, offer to initialize:
 
-1. Copy `templates/SOPHIA.yaml.template` to `SOPHIA.yaml` in the project root (use the template from this repo — find it relative to the skill location or at `~/Claudefiles/templates/SOPHIA.yaml.template`)
+1. Copy `templates/SOPHIA.yaml.template` to `SOPHIA.yaml` in the project root — locate the template by resolving the installed skill's symlink target (e.g., `readlink ~/.claude/skills/mine.sophia` to find the repo root, then use `templates/SOPHIA.yaml.template` relative to it)
 2. Ask which trust checks to enable:
 
 ```
