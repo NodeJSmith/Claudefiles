@@ -98,7 +98,7 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 
 Coding guidelines organized by language. These load automatically and shape how Claude writes code.
 
-**Common** (13): agents, capabilities, coding-style, command-output, error-tracking, frontend-workflow, git-workflow, hooks, patterns, performance, security, testing, tmux
+**Common** (14): agents, bash-tools, capabilities, coding-style, command-output, error-tracking, frontend-workflow, git-workflow, hooks, patterns, performance, security, testing, tmux
 
 **Python** (5): coding-style, hooks, patterns, security, testing
 
