@@ -30,7 +30,7 @@ Ensure the `.claude/` directory exists (create it if needed), then append to `.c
 
 ### If "Create all as GitHub issues"
 
-Create one issue per finding using `gh-bot issue create` (uses bot token if available, falls back to personal token). Use the issue body format defined by the originating skill (each skill documents its own issue format).
+Create one issue per finding using `gh-issue create`. This wrapper uses a bot token if `gh-app-token` is available, otherwise falls back to your personal token. Use the issue body format defined by the originating skill (each skill documents its own issue format).
 
 ### If "Let me split"
 
