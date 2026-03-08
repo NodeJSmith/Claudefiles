@@ -120,6 +120,8 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `gh-pr-threads` | List unresolved PR review threads with summary |
 | `git-convert-to-bare` | Convert a repo to bare+worktree structure with worktree nested inside the repo directory |
 | `git-convert-to-bare-external` | Convert a repo to bare+worktree keeping the original path, bare db at an external location |
+| `git-branch-diff-stat` | Print `git diff --stat` for current branch vs default branch (with remote/local fallback) |
+| `git-branch-log` | Print `git log --oneline` for current branch vs default branch (with remote/local fallback) |
 | `git-default-branch` | Print the default branch name for the current repo |
 | `setup-worktree` | Set up editor and AI config (`.vscode/`, `.claude/`, `CLAUDE.md`) in a new git worktree |
 

@@ -4,6 +4,13 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-03-08
 
+### Fixed
+- `mine.create-pr` no longer fails with a permission prompt on load — `||` fallback chains in `!` template expansions replaced by `git-branch-log` and `git-branch-diff-stat` helper scripts that handle remote/local fallback internally
+
+### Added
+- `bin/git-branch-log` — prints `git log --oneline` for current branch vs default, with remote/local fallback
+- `bin/git-branch-diff-stat` — prints `git diff --stat` for current branch vs default, with remote/local fallback
+
 ### Removed
 - `mine.worktree`, `mine.start`, `mine.bare-repo` skills — superseded by `claude --worktree <branch>` + `--resume`; no plan file handoff needed (#50)
 - `mine.tackle` command — its value was the worktree+handoff flow; without that it duplicates `/mine.issues` + plan mode (#50)

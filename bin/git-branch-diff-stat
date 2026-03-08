@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Print git diff --stat for current branch vs default branch.
+#
+# Tries origin/<default>...HEAD first (branch pushed to remote), then
+# falls back to <default>...HEAD (local only).
+#
+# Usage: git-branch-diff-stat
+#
+# Exit codes:
+#   0  always (best-effort output)
+
+set -uo pipefail
+
+default=$(git-default-branch 2>/dev/null) || exit 0
+
+if git diff --stat "origin/${default}...HEAD" 2>/dev/null | grep -q .; then
+    git diff --stat "origin/${default}...HEAD"
+else
+    git diff --stat "${default}...HEAD" 2>/dev/null || true
+fi

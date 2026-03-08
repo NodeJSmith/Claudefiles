@@ -14,6 +14,8 @@
       "Bash(claude-log:*)",
       "Bash(get-tmp-filename)",
       "Bash(git-default-branch)",
+      "Bash(git-branch-log)",
+      "Bash(git-branch-diff-stat)",
       "Bash(git:*)",
       "Grep(/tmp/*)",
       "Bash(ruff:*)",

@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Print one-line git log for commits in current branch vs default branch.
+#
+# Tries origin/<default>..HEAD first (branch pushed to remote), then
+# falls back to <default>..HEAD (local only), then prints "No commits found".
+#
+# Usage: git-branch-log
+#
+# Exit codes:
+#   0  always (best-effort output)
+
+set -uo pipefail
+
+default=$(git-default-branch 2>/dev/null) || { echo "No commits found"; exit 0; }
+
+if git log --oneline "origin/${default}..HEAD" 2>/dev/null | grep -q .; then
+    git log --oneline "origin/${default}..HEAD"
+elif git log --oneline "${default}..HEAD" 2>/dev/null | grep -q .; then
+    git log --oneline "${default}..HEAD"
+else
+    echo "No commits found"
+fi
