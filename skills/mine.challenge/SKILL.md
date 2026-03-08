@@ -159,6 +159,12 @@ For TENSION findings, add:
 **The disagreement**: [Critic A argues X because Y. Critic B argues Z because W. Worth deciding which matters more here.]
 ```
 
+### Save the backlog first
+
+If there are 3 or more actionable findings, invoke the backlog save flow from `rules/common/backlog.md` before presenting the action options. Confirm what was saved, then proceed. If fewer than 3 findings, skip this step.
+
+**Note:** If you created GitHub issues via the backlog save flow, skip the "Create issues for tracked concerns" option below — those findings are already tracked.
+
 ### After presenting findings
 
 ```

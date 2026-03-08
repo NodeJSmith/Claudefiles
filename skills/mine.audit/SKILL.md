@@ -129,6 +129,10 @@ Present the findings organized by severity, then ask what to focus on:
 6. **8 TODO/FIXME comments older than 6 months** — may be stale or forgotten
 ```
 
+### Save the backlog first
+
+If there are 3 or more actionable findings, invoke the backlog save flow from `rules/common/backlog.md` before asking what to focus on. Confirm what was saved, then proceed. If fewer than 3 findings, skip this step.
+
 ### Ask what to focus on
 
 ```
