@@ -8,8 +8,7 @@ BIN_DIR="$HOME/.local/bin"
 interactive=false
 [ -t 0 ] && [ -t 1 ] && interactive=true
 
-shadowed_targets=()
-shadowed_sources=()
+declare -A shadowed   # shadowed[$target]=$source
 
 for dir in agents skills commands scripts/hooks; do
   src="$REPO_DIR/$dir"
@@ -22,8 +21,7 @@ for dir in agents skills commands scripts/hooks; do
     if [ -L "$target" ]; then
       rm "$target"  # replace existing symlink
     elif [ -e "$target" ]; then
-      shadowed_targets+=("$target")
-      shadowed_sources+=("$item")
+      shadowed["$target"]="$item"
       continue
     fi
     ln -s "$item" "$target"
@@ -42,8 +40,7 @@ if [ -d "$REPO_DIR/rules" ]; then
     if [ -L "$dest" ]; then
       rm "$dest"   # upgrade: remove old whole-directory symlink
     elif [ -e "$dest" ] && [ ! -d "$dest" ]; then
-      shadowed_targets+=("$dest")
-      shadowed_sources+=("$lang_dir")
+      shadowed["$dest"]="$lang_dir"
       continue
     fi
     mkdir -p "$dest"
@@ -53,8 +50,7 @@ if [ -d "$REPO_DIR/rules" ]; then
       if [ -L "$target" ]; then
         rm "$target"
       elif [ -e "$target" ]; then
-        shadowed_targets+=("$target")
-        shadowed_sources+=("$item")
+        shadowed["$target"]="$item"
         continue
       fi
       ln -s "$item" "$target"
@@ -67,14 +63,14 @@ fi
 # without conflict. Skipped silently if Claudefiles has no learned/ directory.
 if [ -d "$REPO_DIR/learned" ]; then
   dest="$CLAUDE_DIR/learned"
+  skip_learned=false
   if [ -L "$dest" ]; then
     rm "$dest"   # upgrade: remove old whole-directory symlink
   elif [ -e "$dest" ] && [ ! -d "$dest" ]; then
-    shadowed_targets+=("$dest")
-    shadowed_sources+=("$REPO_DIR/learned")
-    dest=""
+    shadowed["$dest"]="$REPO_DIR/learned"
+    skip_learned=true
   fi
-  if [ -n "$dest" ]; then
+  if [ "$skip_learned" = false ]; then
     mkdir -p "$dest"
     for item in "$REPO_DIR/learned"/*; do
       [ -e "$item" ] || continue
@@ -82,8 +78,7 @@ if [ -d "$REPO_DIR/learned" ]; then
       if [ -L "$target" ]; then
         rm "$target"
       elif [ -e "$target" ]; then
-        shadowed_targets+=("$target")
-        shadowed_sources+=("$item")
+        shadowed["$target"]="$item"
         continue
       fi
       ln -s "$item" "$target"
@@ -100,8 +95,7 @@ if [ -d "$REPO_DIR/bin" ]; then
     if [ -L "$target" ]; then
       rm "$target"
     elif [ -e "$target" ]; then
-      shadowed_targets+=("$target")
-      shadowed_sources+=("$item")
+      shadowed["$target"]="$item"
       continue
     fi
     ln -s "$item" "$target"
@@ -116,7 +110,7 @@ for dir in "$CLAUDE_DIR"/agents "$CLAUDE_DIR"/skills "$CLAUDE_DIR"/commands \
            "$CLAUDE_DIR"/scripts/hooks "$BIN_DIR"; do
   [ -d "$dir" ] || continue
   for link in "$dir"/*; do
-    [ -L "$link" ] || continue
+    [ -L "$link" ] || continue   # also skips literal "$dir/*" when dir is empty
     [ ! -e "$link" ] && stale_links+=("$link")
   done
 done
@@ -127,7 +121,7 @@ if [ -d "$CLAUDE_DIR/rules" ]; then
     [ -d "$lang_dir" ] || continue
     [ ! -L "${lang_dir%/}" ] || continue
     for link in "$lang_dir"*; do
-      [ -L "$link" ] || continue
+      [ -L "$link" ] || continue   # also skips literal "$lang_dir*" when dir is empty
       [ ! -e "$link" ] && stale_links+=("$link")
     done
   done
@@ -136,28 +130,32 @@ fi
 # Learned: check file-level symlinks (skip if it's itself a whole-dir symlink)
 if [ -d "$CLAUDE_DIR/learned" ] && [ ! -L "$CLAUDE_DIR/learned" ]; then
   for link in "$CLAUDE_DIR/learned"/*; do
-    [ -L "$link" ] || continue
+    [ -L "$link" ] || continue   # also skips literal "$CLAUDE_DIR/learned/*" when dir is empty
     [ ! -e "$link" ] && stale_links+=("$link")
   done
 fi
 
 # Report problems
-if [ ${#shadowed_targets[@]} -gt 0 ]; then
+if [ ${#shadowed[@]} -gt 0 ]; then
   echo "" >&2
-  echo "warning: ${#shadowed_targets[@]} file(s) not symlinked — a non-symlink already exists:" >&2
-  for i in "${!shadowed_targets[@]}"; do
-    echo "  ${shadowed_targets[$i]} (shadows ${shadowed_sources[$i]})" >&2
+  echo "warning: ${#shadowed[@]} file(s) not symlinked — a non-symlink already exists:" >&2
+  for tgt in "${!shadowed[@]}"; do
+    src="${shadowed[$tgt]}"
+    if [ -d "$src" ]; then
+      echo "  $tgt (shadows dir $src — re-run install.sh to restore links)" >&2
+    else
+      echo "  $tgt (shadows $src)" >&2
+    fi
   done
 
-  if $interactive; then
+  if [ "$interactive" = true ]; then
     echo "  (these are real files, not symlinks — remove only if you don't need them)" >&2
-    printf "  Remove and re-link? [y/N] " >&2
+    printf "  Remove and re-link? [y/N] " >/dev/tty
     read -r answer </dev/tty
     if [[ "$answer" =~ ^[Yy] ]]; then
-      for i in "${!shadowed_targets[@]}"; do
-        src="${shadowed_sources[$i]}"
-        tgt="${shadowed_targets[$i]}"
-        rm "$tgt"
+      for tgt in "${!shadowed[@]}"; do
+        src="${shadowed[$tgt]}"
+        rm -rf "$tgt"
         if [ -d "$src" ]; then
           echo "  removed: $tgt (was shadowing $src — re-run install.sh to restore links)" >&2
         else
@@ -168,8 +166,8 @@ if [ ${#shadowed_targets[@]} -gt 0 ]; then
     fi
   else
     echo "  Remove the above file(s) and re-run install.sh:" >&2
-    for i in "${!shadowed_targets[@]}"; do
-      echo "    rm \"${shadowed_targets[$i]}\"" >&2
+    for tgt in "${!shadowed[@]}"; do
+      echo "    rm \"$tgt\"" >&2
     done
   fi
 fi
@@ -181,8 +179,8 @@ if [ ${#stale_links[@]} -gt 0 ]; then
     echo "  $link -> $(readlink "$link")" >&2
   done
 
-  if $interactive; then
-    printf "  Remove stale symlink(s)? [y/N] " >&2
+  if [ "$interactive" = true ]; then
+    printf "  Remove stale symlink(s)? [y/N] " >/dev/tty
     read -r answer </dev/tty
     if [[ "$answer" =~ ^[Yy] ]]; then
       for link in "${stale_links[@]}"; do
@@ -191,6 +189,7 @@ if [ ${#stale_links[@]} -gt 0 ]; then
       done
     fi
   else
+    echo "  Remove stale symlink(s) manually:" >&2
     for link in "${stale_links[@]}"; do
       echo "    rm \"$link\"" >&2
     done
