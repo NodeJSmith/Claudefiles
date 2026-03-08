@@ -159,6 +159,10 @@ For TENSION findings, add:
 **The disagreement**: [Critic A argues X because Y. Critic B argues Z because W. Worth deciding which matters more here.]
 ```
 
+### Save the backlog first
+
+Before asking what to do, invoke the backlog save flow from `rules/common/backlog.md`. Present all findings, save the list, confirm, then proceed.
+
 ### After presenting findings
 
 ```

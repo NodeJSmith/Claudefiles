@@ -253,11 +253,15 @@ AskUserQuestion:
       description: "Enter plan mode for the chosen idea"
     - label: "Save the session"
       description: "Write to design/brainstorms/YYYY-MM-DD-<topic>/brainstorm.md"
-    - label: "Create an issue"
-      description: "File the top idea(s) as tracked issues"
+    - label: "Create issues / save to backlog"
+      description: "File ideas as tracked issues or save to .claude/backlog.md — follows the backlog save convention"
     - label: "Keep exploring"
       description: "Run another round with a different framing or constraint"
 ```
+
+### Creating issues / saving to backlog
+
+If selected: invoke the backlog save flow from `rules/common/backlog.md`. Treat the ranked ideas as the item list. Use the idea's ranking tier (e.g. "Top 3", score) as the label.
 
 ### Saving the session
 
