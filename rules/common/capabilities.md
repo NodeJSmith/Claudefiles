@@ -412,7 +412,7 @@ Scopes a change via AskUserQuestion, dispatches mine.research for investigation,
 
 ### /mine.draft-plan
 
-Takes a design doc and produces a strict caliper-format plan. Every task requires 5 fields: files, steps, verification, done-when, avoid+why. Writes to `design/plans/YYYY-MM-DD-<topic>/plan.md`. Dispatches mine.plan-review.
+Takes a design doc and produces a strict caliper-format plan. Every task requires 5 fields: files, steps, verification, done-when, avoid+why. Writes to `design/plans/YYYY-MM-DD-<topic>/plan.md`. Prompts to run `/mine.plan-review` for review.
 
 ### /mine.plan-review
 

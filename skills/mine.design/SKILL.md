@@ -135,7 +135,7 @@ Announce the actual file path (e.g. "Design doc written to `design/plans/2026-03
 
 ```
 AskUserQuestion:
-  question: "Design doc written to <actual resolved path>. What next?"
+  question: "Design doc written to <actual resolved path with topic-slug>. What next?"
   header: "Design sign-off"
   multiSelect: false
   options:
@@ -152,7 +152,7 @@ AskUserQuestion:
 Update `**Status:**` from `draft` to `approved`.
 
 Tell the user:
-> Design approved. Run `/mine.draft-plan design/plans/YYYY-MM-DD-<topic>/design.md` to create the implementation plan.
+> Design approved. Run `/mine.draft-plan design/plans/YYYY-MM-DD-<topic-slug>/design.md` to create the implementation plan.
 
 ### On "Revise"
 

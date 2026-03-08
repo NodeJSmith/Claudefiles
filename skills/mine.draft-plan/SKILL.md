@@ -1,6 +1,6 @@
 ---
 name: mine.draft-plan
-description: Turn a design doc into a strict caliper-format plan with 5-field tasks. Dispatches mine.plan-review on completion.
+description: Turn a design doc into a strict caliper-format plan with 5-field tasks. Offers to run /mine.plan-review on completion.
 user-invokable: true
 ---
 
@@ -129,7 +129,7 @@ Every task must have all 5 fields. A plan with any missing fields is rejected be
 
 ### Field rules
 
-- **files**: Every path must be verified via Glob. No placeholders. If a file will be created, list it with a `(new)` annotation.
+- **files**: Existing file paths must be verified via Glob. New files (annotate with `(new)`) must have their parent directory Glob-verified and use a concrete, non-placeholder filename.
 - **steps**: Use imperative, specific language. "Add `validate_input()` to `src/handlers/base.py`" not "update the handler".
 - **verification**: Must be a command you can paste into a terminal and run immediately. If no test exists yet, the verification step is to run the new test.
 - **done-when**: Must be observable without reading the code. "Running `pytest tests/test_foo.py -v` shows 3 passing tests" not "the feature works".

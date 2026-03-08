@@ -35,11 +35,11 @@ AskUserQuestion:
       description: "Tell me the correct path and I'll use that"
 ```
 
-### Read both documents
+### Read the plan and design doc
 
-Read the plan.md. From the plan header, extract the **Design doc:** path. Read that design doc too. Both are required — do not proceed without both.
+Read the plan.md. From the plan header, extract the **Design doc:** path and attempt to read that design doc as well.
 
-If the design doc path is not in the plan header or the file doesn't exist, note it as a structural issue (automatic WARN on checklist item 3 — design alignment).
+If the design doc path is not in the plan header or the file doesn't exist, proceed with a plan-only review and treat this as a structural issue: automatically set checklist item 3 (design alignment) to WARN and note in the summary that no design doc was available. If both documents are present, use them throughout the review.
 
 ## Phase 2: Dispatch Reviewer Subagent
 
@@ -59,7 +59,7 @@ Read `~/.claude/skills/mine.plan-review/reviewer-prompt.md` to get the checklist
 
 ### Launch subagent
 
-Launch a general-purpose subagent with this prompt (fill in the bracketed values from the files you read):
+Launch a general-purpose subagent using the Opus model (claude-opus-4-6) for highest-quality review judgment. Pass this prompt (fill in the bracketed values from the files you read):
 
 ```
 You are reviewing a caliper implementation plan.
