@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-08
 
 ### Added
-- `rules/common/bash-tools.md` — new rule reinforcing when to use dedicated tools (Read/Write/Edit/Grep/Glob) vs Bash; covers permission cost, hook rejection on quoted arguments, and `sed -i` risk
+- `rules/common/bash-tools.md` — new rule reinforcing when to use dedicated tools (Read/Write/Edit/Grep/Glob) vs Bash; covers permission cost, hook rejection on quoted arguments, and `sed -i` risk (#49)
 
 ## 2026-03-06
 
