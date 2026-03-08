@@ -94,11 +94,11 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `ui-auditor` | Accessibility and UX audit -- WCAG violations, missing ARIA, hardcoded styles, UX anti-patterns |
 | `visual-diff` | Visual regression testing via Playwright MCP -- before/after screenshots to catch unintended UI changes |
 
-### Rules (19)
+### Rules (20)
 
 Coding guidelines organized by language. These load automatically and shape how Claude writes code.
 
-**Common** (14): agents, backlog, capabilities, coding-style, command-output, error-tracking, frontend-workflow, git-workflow, hooks, patterns, performance, security, testing, tmux
+**Common** (15): agents, backlog, bash-tools, capabilities, coding-style, command-output, error-tracking, frontend-workflow, git-workflow, hooks, patterns, performance, security, testing, tmux
 
 **Python** (5): coding-style, hooks, patterns, security, testing
 
