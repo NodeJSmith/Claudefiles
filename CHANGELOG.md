@@ -6,11 +6,15 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Fixed
 - `mine.create-pr` no longer fails with a permission prompt on load — `||` fallback chains in `!` template expansions replaced by `git-branch-log` and `git-branch-diff-stat` helper scripts that handle remote/local fallback internally (#60)
+- `install.sh` — parallel shadowed-file arrays replaced with an associative array (eliminates accidental cross-pairing; **requires Bash 4+**), `rm -rf` used for all shadowed targets (prevents crash under `set -e`), directory entries annotated before the `[y/N]` prompt, stale-link non-interactive block gains a header, prompts redirected to `/dev/tty` (#51)
+- `install.sh` — `shadowed_containers` array separates true container dirs (`rules/<lang>`, `learned`) from ordinary dir symlinks (skills, agents, etc.); `shadowed` entries now always re-link inline with `ln -s` without a `[ -d ]` branch (#51)
 
 ### Added
 - `bin/git-branch-log` — prints `git log --oneline` for current branch vs default, with remote/local fallback (#60)
 - `bin/git-branch-diff-stat` — prints `git diff --stat` for current branch vs default, with remote/local fallback (#60)
 
+### Changed
+- `install.sh` — TTY-aware interactive cleanup: when run from a terminal, shadowed files and stale symlinks now prompt `[y/N]` instead of printing `rm` commands; non-interactive (piped/CI) behavior is unchanged (#51)
 ### Removed
 - `mine.worktree`, `mine.start`, `mine.bare-repo` skills — superseded by `claude --worktree <branch>` + `--resume`; no plan file handoff needed (#50)
 - `mine.tackle` command — its value was the worktree+handoff flow; without that it duplicates `/mine.issues` + plan mode (#50)
