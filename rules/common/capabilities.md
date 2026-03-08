@@ -14,10 +14,6 @@ Skills and commands exist for common workflows. **Use these instead of ad-hoc to
 | "reply to PR comment", "respond to review" | `gh-pr-reply` |
 | "resolve PR thread", "mark thread resolved" | `gh-pr-resolve-thread` |
 | "rename tmux session", "new tmux session", "current session name" | `claude-tmux` |
-| "create a worktree", "parallel work", "list worktrees" | `/mine.worktree` |
-| "start the plan", "begin implementation" (in a plan worktree) | `/mine.start` |
-| "set up bare repo", "convert to worktrees" | `/mine.bare-repo` |
-| "tackle issue 123", "work on PROJ-456" | `/mine.tackle` |
 | "show issue 123", "investigate this issue" | `/mine.issues` |
 | "scan issues", "what issues are open" | `/mine.issues-scan` |
 | "refactor this", "extract function", "split this file" | `/mine.refactor` |
@@ -338,27 +334,16 @@ Triage and resolve PR blockers — review comments, merge conflicts, and failing
 
 ## Workflow — Worktrees & Issues
 
-### /mine.worktree
+### Worktree Sessions
 
-Create, list, or delete git worktrees. Creates plan handoff files for parallel Claude sessions.
+To start a new isolated Claude session on a branch:
 
+```bash
+claude --worktree feat/new-thing    # creates worktree + starts Claude in it
+claude --resume <session-id>        # return to a previous session
 ```
-/mine.worktree create feat/new-thing    # new worktree + plan handoff
-/mine.worktree list                     # show active worktrees
-/mine.worktree delete feat/old-thing    # clean up
-```
 
-### /mine.bare-repo
-
-One-time setup: convert a regular clone to a bare repo with worktree-based directory structure.
-
-### /mine.start
-
-Read a plan handoff from a previous session (left by `/mine.worktree`) and begin implementation.
-
-### /mine.tackle
-
-End-to-end: deep-dive an issue, plan the implementation, create a worktree ready for work.
+Use `git rev-parse --git-dir` to check if you're already in a worktree (output contains `worktrees/`).
 
 ### /mine.issues
 
