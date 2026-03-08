@@ -4,10 +4,10 @@
 
 By default, Bash invocations require user approval unless the command is explicitly allow-listed in `settings.json`; dedicated tools (Read, Write, Edit, Grep, Glob) are pre-approved. `sed -i` carries additional risk: in-place file edits have no undo.
 
-The permissions allow-list can also reject Bash commands where quoted characters appear in arguments — this is a less obvious cost:
+The permissions allow-list may only match certain command/argument patterns; variations (including different quoting) can prevent auto-approval and trigger a permission prompt:
 
-**WRONG:** `grep "endblock" templates/base.html` → not allowed by the permissions allow-list
-**RIGHT:** Use `Grep` with `pattern="endblock"` and `path="templates/base.html"`
+**WRONG:** `grep "endblock" templates/base.html` → may not be auto-approved by the permissions allow-list
+**RIGHT:** Use `Grep` with `pattern="endblock"` and `path="templates/base.html"` → uses a dedicated, pre-approved tool
 
 ## Tool Mapping
 
