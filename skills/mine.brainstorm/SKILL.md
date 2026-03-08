@@ -261,7 +261,9 @@ AskUserQuestion:
 
 ### Creating issues / saving to backlog
 
-If selected: invoke the backlog save flow from `rules/common/backlog.md`. Treat the ranked ideas as the item list. Use the idea's ranking tier (e.g. "Top 3", score) as the label.
+If selected: invoke the backlog save flow from `rules/common/backlog.md`. Treat the ranked ideas as the item list. Use the idea's ranking tier (e.g. "Top 3", score) as the label. The 3-item threshold does not apply here — the user explicitly selected this action.
+
+**When multiple Phase 6 options are selected**, execute in this order: (1) create issues / save to backlog first, (2) save the session, (3) proceed to research, planning, or further exploration.
 
 For GitHub issue creation, use this template:
 

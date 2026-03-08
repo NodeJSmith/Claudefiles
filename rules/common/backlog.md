@@ -6,7 +6,7 @@ When analysis skills produce multiple work items, **save the full list before as
 
 Any time you present **3 or more actionable findings or work items** from an analysis skill (audit, challenge, brainstorm, etc.), invoke this flow before asking which to address first.
 
-For fewer than 3 items, skip this flow — the per-finding "Create an issue" or "Save" option within each skill is sufficient.
+For fewer than 3 items, you may skip this flow **only if** the originating skill already provides a per-finding "Create an issue" or "Save" option that doesn't route through this convention. If it doesn't, use this flow anyway so findings aren't lost.
 
 ## Backlog Save Flow
 

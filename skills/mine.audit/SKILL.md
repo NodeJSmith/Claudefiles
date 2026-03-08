@@ -131,7 +131,7 @@ Present the findings organized by severity, then ask what to focus on:
 
 ### Save the backlog first
 
-Before asking what to focus on, invoke the backlog save flow from `rules/common/backlog.md`. Confirm what was saved, then proceed.
+If there are 3 or more actionable findings, invoke the backlog save flow from `rules/common/backlog.md` before asking what to focus on. Confirm what was saved, then proceed. If fewer than 3 findings, skip this step.
 
 ### Ask what to focus on
 
