@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Symlink Claudefiles into ~/.claude/
 set -euo pipefail
+if [ "${BASH_VERSINFO[0]:-0}" -lt 4 ]; then
+  echo "error: install.sh requires Bash 4.0 or newer (found: ${BASH_VERSION:-unknown})" >&2
+  exit 1
+fi
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLAUDE_DIR="${CLAUDE_HOME:-$HOME/.claude}"
 BIN_DIR="$HOME/.local/bin"
@@ -151,11 +155,12 @@ if [ ${#shadowed[@]} -gt 0 ]; then
   if [ "$interactive" = true ]; then
     echo "  (these are real files, not symlinks — remove only if you don't need them)" >&2
     printf "  Remove and re-link? [y/N] " >/dev/tty
-    read -r answer </dev/tty
+    answer=""
+    read -r answer </dev/tty || true
     if [[ "$answer" =~ ^[Yy] ]]; then
       for tgt in "${!shadowed[@]}"; do
         src="${shadowed[$tgt]}"
-        rm -rf "$tgt"
+        rm -rf -- "$tgt"
         if [ -d "$src" ]; then
           echo "  removed: $tgt (was shadowing $src — re-run install.sh to restore links)" >&2
         else
@@ -181,11 +186,15 @@ if [ ${#stale_links[@]} -gt 0 ]; then
 
   if [ "$interactive" = true ]; then
     printf "  Remove stale symlink(s)? [y/N] " >/dev/tty
-    read -r answer </dev/tty
+    answer=""
+    read -r answer </dev/tty || true
     if [[ "$answer" =~ ^[Yy] ]]; then
       for link in "${stale_links[@]}"; do
-        rm "$link"
-        echo "  removed: $link" >&2
+        if rm -f -- "$link"; then
+          echo "  removed: $link" >&2
+        else
+          echo "  warning: could not remove $link" >&2
+        fi
       done
     fi
   else
