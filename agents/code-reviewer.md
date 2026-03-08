@@ -87,6 +87,15 @@ When invoked:
       f.close()
   ```
 
+## Spec Verification (HIGH)
+
+Do not trust the implementer's self-reported status. When reviewing code changes that claim to implement a specification:
+
+- **Read the actual code** against the spec — verify behavior, not just function signatures
+- **Check edge cases** mentioned in the spec are handled in the implementation
+- **Verify error paths** are implemented, not just the happy path
+- **Compare the implementation** to the described behavior — look for gaps between what the spec says and what the code does
+
 ## Type Hints (HIGH)
 
 - **Missing Type Hints**: Public functions without type annotations
