@@ -34,7 +34,7 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 
 ## Contents
 
-### Skills (20)
+### Skills (22)
 
 | Skill | Description |
 |-------|-------------|
@@ -56,6 +56,8 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `mine.research` | Deep codebase research and feasibility analysis with parallel subagents |
 | `mine.security-review` | Security checklist for auth, user input, secrets, API endpoints |
 | `mine.ship` | Commit, push, and create a PR in one step |
+| `mine.skill-eval` | Evaluate and compare skill variants — setup, execution, grading, comparison, and reporting |
+| `mine.sophia` | Sophia intent-tracking CLI — CR lifecycle, contracts, checkpoints, and validation |
 | `mine.tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |
 | `mine.ux-antipatterns` | Detect UX anti-patterns -- layout shifts, missing feedback, broken forms, a11y gaps |
 
@@ -98,7 +100,7 @@ Coding guidelines organized by language. These load automatically and shape how 
 
 **Python** (5): coding-style, hooks, patterns, security, testing
 
-### Helper Scripts (18)
+### Helper Scripts (19)
 
 CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
@@ -120,10 +122,10 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `gh-pr-threads` | List unresolved PR review threads with summary |
 | `git-branch-diff-stat` | Print `git diff --stat` for current branch vs default branch (with remote/local fallback) |
 | `git-branch-log` | Print `git log --oneline` for current branch vs default branch (with remote/local fallback) |
-| `git-convert-to-bare` | Convert a repo to bare+worktree structure with worktree nested inside the repo directory |
-| `git-convert-to-bare-external` | Convert a repo to bare+worktree keeping the original path, bare db at an external location |
 | `git-default-branch` | Print the default branch name for the current repo |
-| `setup-worktree` | Set up editor and AI config (`.vscode/`, `.claude/`, `CLAUDE.md`) in a new git worktree |
+| `skill-eval-aggregate` | Aggregate graded skill evaluation results with pass rates and score statistics |
+| `skill-eval-run` | Run skill evaluation iterations — invoke skill variants and save outputs |
+| `sophia-install` | Download and install the sophia binary for the current platform |
 
 ## Requirements
 

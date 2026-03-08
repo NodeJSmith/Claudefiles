@@ -29,55 +29,40 @@ The only commands to execute during analysis are:
 
 Everything else — identifying smells, mapping dependencies, assessing coupling, spotting duplication — comes from reading the files.
 
-## Phase 1: Reconnaissance
+## Phase 1: Directory Discovery
 
-Gather raw data about the codebase. Launch these in **parallel** using subagents:
+Identify the top-level modules and determine review units.
 
-### Subagent 1: Structure & Size
+1. Map the directory tree (depth 2-3) using Glob
+2. Identify top-level modules (e.g., `src/api/`, `src/services/`, `src/models/`)
+3. Group small related directories into single review units if needed
+4. Skip vendored, generated, and build output directories
 
-- Map the directory tree (depth 3-4)
-- Count files and lines per top-level module/directory
-- Identify the largest files (> 400 lines) and largest functions (> 50 lines)
-- Flag any single file that's grown disproportionately large relative to its peers
+## Phase 1.5: Per-Directory Reconnaissance
 
-### Subagent 2: Churn & Age
+Launch parallel `Explore` subagents — one per review unit identified in Phase 1. Each subagent assesses ALL concerns for its directory:
 
-Using git history:
-- **Hot spots**: files changed most frequently in last 3-6 months (`git log --format=format: --name-only | sort | uniq -c | sort -rn`)
-- **Cold spots**: files not touched in 6+ months that are still imported/used
-- **Churn + complexity**: files that are both frequently changed AND large — these are the highest-risk files in the codebase
-- **Recent growth**: files whose line count has grown significantly in recent commits
+- **Structure & Size** — largest files, largest functions, disproportionate growth
+- **Churn & Age** — hot spots, cold spots, churn + complexity
+- **Dependencies** — imports in/out, fan-in, fan-out, circular refs
+- **Tests** — coverage, stale tests, untested high-churn code
+- **Quality signals** — nesting, params, duplication, broad catches, hardcoded values
 
-### Subagent 3: Dependency & Coupling
+Each subagent returns a structured summary for its directory. This is faster and produces better results than concern-based slicing because each subagent sees the full context of its directory.
 
-- Map import relationships between modules
-- Identify modules with the most inbound dependents (high fan-in — hard to change safely)
-- Identify modules that import the most others (high fan-out — fragile, breaks when anything changes)
-- Flag circular imports or tightly coupled clusters
-- Look for god modules that everything depends on
+## Phase 1.6: Cross-Scope Synthesis
 
-### Subagent 4: Test & Safety
+Launch a single `Explore` subagent that reads ALL per-directory findings plus the full file manifest. This subagent looks for problems that only emerge at the boundary between directories:
 
-- Check test coverage if tooling is available (`pytest --cov`, `coverage report`, etc.)
-- Identify untested or poorly tested modules — especially high-churn ones
-- Look for test files that are stale (testing code that has since changed significantly)
-- Flag code paths with no error handling
-
-### Subagent 5: Code Quality Signals
-
-- Run linter if available (ruff, eslint, etc.) and summarize issue counts by category
-- Scan for common smells:
-  - Deep nesting (> 4 levels)
-  - Long parameter lists (> 5 params)
-  - Duplicated logic across files
-  - Broad exception catches (`except Exception`, `catch (e)`)
-  - Hardcoded values that should be config
-  - TODO/FIXME/HACK comments (especially old ones)
-- Check for inconsistent patterns (e.g., some modules use one error handling style, others use a different one)
+- Cross-directory DRY violations (same logic duplicated in multiple modules)
+- Naming drift (same concept called different things in different directories)
+- Circular dependencies between top-level modules
+- Inconsistent patterns (error handling, logging, config access)
+- God modules that everything imports from
 
 ## Phase 2: Synthesize Findings
 
-Don't just dump raw data. Synthesize the subagent results into a prioritized assessment.
+Don't just dump raw data. Synthesize the per-directory and cross-scope results into a prioritized assessment.
 
 ### Prioritization criteria
 
@@ -186,7 +171,7 @@ Based on the user's choice per finding:
 
 When the user chooses "Create an issue" for a finding, create it immediately:
 
-1. Use the Write tool to write the issue body to a temp file (e.g., `/tmp/issue-body.md`):
+1. Use the Write tool to write the issue body to a temp file (e.g., `${CLAUDE_CODE_TMPDIR:-/tmp}/issue-body.md`):
    ```markdown
    ## Problem
 
@@ -207,7 +192,7 @@ When the user chooses "Create an issue" for a finding, create it immediately:
    ```
 2. Create the issue:
    ```bash
-   gh issue create --title "<concise problem statement>" --body-file /tmp/issue-body.md
+   gh-issue create --title "<concise problem statement>" --body-file "${CLAUDE_CODE_TMPDIR:-/tmp}/issue-body.md"
    ```
 
 After creating the issue, confirm the URL and move on to the next finding. The user can batch multiple findings as issues — ask once per finding, don't force them to address everything in this session.

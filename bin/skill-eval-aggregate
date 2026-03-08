@@ -1,0 +1,211 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["pyyaml"]
+# ///
+"""Aggregate graded skill evaluation results.
+
+Reads graded results from eval-results/<timestamp>/ and computes summary
+statistics: pass rates, mean scores, standard deviation, and high-variance flags.
+
+Usage: skill-eval-aggregate <results-dir>
+
+Expects:
+  <results-dir>/eval-meta.json         — eval config with assertions
+  <results-dir>/variant-*/graded-*.json — grader output per run
+  <results-dir>/variant-*/compared-*.json — comparator output per pair (optional)
+"""
+
+import json
+import math
+import sys
+from pathlib import Path
+
+
+def mean(values: list[float]) -> float:
+    if not values:
+        return 0.0
+    return sum(values) / len(values)
+
+
+def std_dev(values: list[float]) -> float:
+    if len(values) < 2:
+        return 0.0
+    avg = mean(values)
+    variance = sum((x - avg) ** 2 for x in values) / (len(values) - 1)
+    return math.sqrt(variance)
+
+
+def load_graded_results(results_dir: Path) -> dict[str, list[dict]]:
+    """Load all graded-*.json files, grouped by variant."""
+    variants: dict[str, list[dict]] = {}
+
+    for variant_dir in sorted(results_dir.glob("variant-*")):
+        if not variant_dir.is_dir():
+            continue
+        variant_key = variant_dir.name.removeprefix("variant-")
+        graded_files = sorted(variant_dir.rglob("graded-*.json"))
+        results = []
+        for gf in graded_files:
+            with open(gf) as f:
+                results.append(json.load(f))
+        variants[variant_key] = results
+
+    return variants
+
+
+def load_comparison_results(results_dir: Path) -> list[dict]:
+    """Load all compared-*.json files."""
+    comparisons = []
+    for cf in sorted(results_dir.rglob("compared-*.json")):
+        with open(cf) as f:
+            comparisons.append(json.load(f))
+    return comparisons
+
+
+def compute_assertion_stats(
+    variants: dict[str, list[dict]],
+) -> dict[str, dict[str, dict]]:
+    """Compute pass rate and variance per assertion per variant."""
+    stats: dict[str, dict[str, dict]] = {}
+
+    for variant_key, results in variants.items():
+        assertion_passes: dict[int, list[bool]] = {}
+
+        for result in results:
+            for assertion in result.get("assertions", []):
+                aid = assertion["id"]
+                passed = assertion["verdict"] == "PASS"
+                assertion_passes.setdefault(aid, []).append(passed)
+
+        variant_stats: dict[str, dict] = {}
+        for aid, passes in sorted(assertion_passes.items()):
+            pass_rate = sum(passes) / len(passes) if passes else 0.0
+            variant_stats[str(aid)] = {
+                "pass_rate": round(pass_rate, 2),
+                "runs": len(passes),
+                "high_variance": 0.2 < pass_rate < 0.8,
+            }
+
+        stats[variant_key] = variant_stats
+
+    return stats
+
+
+def compute_score_stats(comparisons: list[dict]) -> dict[str, dict]:
+    """Compute mean and std dev of content/structure scores."""
+    scores: dict[str, dict[str, list[float]]] = {}
+
+    for comp in comparisons:
+        for output_key in ("output_1", "output_2"):
+            data = comp.get(output_key, {})
+            scores.setdefault(output_key, {"content": [], "structure": []})
+            if "content_score" in data:
+                scores[output_key]["content"].append(data["content_score"])
+            if "structure_score" in data:
+                scores[output_key]["structure"].append(data["structure_score"])
+
+    result: dict[str, dict] = {}
+    for output_key, metrics in scores.items():
+        result[output_key] = {}
+        for metric, values in metrics.items():
+            result[output_key][metric] = {
+                "mean": round(mean(values), 1),
+                "std_dev": round(std_dev(values), 1),
+                "n": len(values),
+            }
+
+    return result
+
+
+def print_report(
+    assertion_stats: dict[str, dict[str, dict]],
+    score_stats: dict[str, dict],
+    comparisons: list[dict],
+) -> None:
+    """Print a summary report."""
+    print("=" * 60)
+    print("SKILL EVALUATION SUMMARY")
+    print("=" * 60)
+
+    # Assertion pass rates
+    print("\n## Assertion Pass Rates\n")
+    variant_keys = sorted(assertion_stats.keys())
+    header = f"{'Assertion':<12}" + "".join(f"{'Variant ' + k:<16}" for k in variant_keys) + "Variance"
+    print(header)
+    print("-" * len(header))
+
+    all_aids = set()
+    for vs in assertion_stats.values():
+        all_aids.update(vs.keys())
+
+    for aid in sorted(all_aids, key=int):
+        row = f"#{aid:<11}"
+        high_var = False
+        for vk in variant_keys:
+            vstats = assertion_stats.get(vk, {}).get(aid, {})
+            pr = vstats.get("pass_rate", 0)
+            row += f"{pr:<16.0%}"
+            if vstats.get("high_variance"):
+                high_var = True
+        row += "  !!!" if high_var else ""
+        print(row)
+
+    # Comparison scores
+    if score_stats:
+        print("\n## Comparison Scores (mean +/- std dev)\n")
+        for output_key, metrics in sorted(score_stats.items()):
+            label = output_key.replace("_", " ").title()
+            parts = []
+            for metric, stats in sorted(metrics.items()):
+                parts.append(f"{metric}: {stats['mean']} +/- {stats['std_dev']}")
+            print(f"  {label}: {', '.join(parts)}")
+
+    # Winner tally
+    if comparisons:
+        wins: dict[str, int] = {}
+        for comp in comparisons:
+            winner = comp.get("winner", "tie")
+            wins[winner] = wins.get(winner, 0) + 1
+        print(f"\n## Winner Tally: {wins}")
+
+    # High-variance warnings
+    hv_assertions = []
+    for vk, vstats in assertion_stats.items():
+        for aid, stats in vstats.items():
+            if stats.get("high_variance"):
+                hv_assertions.append(f"  Assertion #{aid} in variant {vk} ({stats['pass_rate']:.0%} pass rate)")
+
+    if hv_assertions:
+        print("\n## High-Variance Assertions (unreliable tests)")
+        for hv in hv_assertions:
+            print(hv)
+
+    print()
+
+
+def main() -> None:
+    if len(sys.argv) != 2:
+        print("Usage: skill-eval-aggregate <results-dir>", file=sys.stderr)
+        sys.exit(1)
+
+    results_dir = Path(sys.argv[1])
+    if not results_dir.is_dir():
+        print(f"Error: {results_dir} is not a directory", file=sys.stderr)
+        sys.exit(1)
+
+    variants = load_graded_results(results_dir)
+    comparisons = load_comparison_results(results_dir)
+
+    if not variants:
+        print("No graded results found. Run grader subagents first.", file=sys.stderr)
+        sys.exit(1)
+
+    assertion_stats = compute_assertion_stats(variants)
+    score_stats = compute_score_stats(comparisons)
+
+    print_report(assertion_stats, score_stats, comparisons)
+
+
+if __name__ == "__main__":
+    main()
