@@ -11,7 +11,8 @@ set -euo pipefail
 # Any user can wire this up by creating a gh-app-token helper that prints
 # a valid GitHub App installation token.
 if command -v gh-app-token &> /dev/null && [[ -n "${GITHUB_APP_ID:-}" ]]; then
-  export GH_TOKEN="$(gh-app-token)"
+  GH_TOKEN="$(gh-app-token)"
+  export GH_TOKEN
 fi
 
 exec gh issue "$@"

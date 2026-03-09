@@ -304,7 +304,6 @@ case "$cmd" in
 
     mapfile -t context < <(setup_ado_context)
     org="${context[0]}"
-    project="${context[1]}"
     repo="${context[2]}"
     project_encoded="${context[3]}"
 
