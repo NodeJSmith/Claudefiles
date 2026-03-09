@@ -10,7 +10,7 @@ Turn an approved design doc into a strict caliper-format implementation plan. Ev
 
 ## Arguments
 
-$ARGUMENTS — path to a `design.md` file. If empty, find the most recently modified `design/plans/*/design.md` and confirm with the user before proceeding.
+$ARGUMENTS — path to a `design.md` or `spec.md` file. If empty, find the most recently modified file across both `design/plans/*/design.md` and `design/specs/*/spec.md` and confirm with the user before proceeding.
 
 ## Phase 1: Read the Design Doc
 
@@ -20,9 +20,10 @@ If $ARGUMENTS is provided, use it directly. If empty:
 
 ```
 Glob: design/plans/*/design.md
+Glob: design/specs/*/spec.md
 ```
 
-Sort by modification time, take the most recent. Then confirm:
+Run both globs, merge the two result lists, sort by modification time, take the single most recent file across both. Then confirm:
 
 ```
 AskUserQuestion:
@@ -37,13 +38,19 @@ AskUserQuestion:
 
 ### Extract key information
 
-Read the design doc fully. Extract:
+Read the doc fully. Extract:
 
 - **Problem** — what is being solved
 - **Proposed approach** — the recommended direction
 - **Non-goals** — explicit exclusions (tasks must NOT touch these)
 - **Impact / affected files** — modules and files named in the design
 - **Open questions** — if any remain non-empty, warn the user before proceeding (open questions should be resolved before planning)
+
+**If the input is a `spec.md`** (from `mine.interviewer`), remap sections:
+- "Key requirements" → proposed approach
+- "Scope (Out of scope)" → non-goals
+- "Who this is for" + "Success looks like" → inform the plan overview
+- Impact / affected files will be derived during Phase 2 rather than read from the doc (spec.md is product-level, not technical)
 
 If open questions exist, surface them:
 
@@ -83,6 +90,8 @@ Ground the plan in reality before writing a single task:
 
 Do NOT guess file paths. If Glob returns no match, note it explicitly — the plan must not contain phantom paths.
 
+**If the input is a `spec.md` and no existing files are found** (greenfield project): shift Phase 2's goal from "find existing patterns" to "establish the initial directory and file structure from scratch." Derive a sensible project layout from the spec's key requirements and constraints. Note in the plan overview that this is a greenfield project with no existing codebase to reference.
+
 ## Phase 3: Write the Plan
 
 Derive the topic slug from the design doc filename or the `# Design:` heading. Use the same date prefix as the design doc.
@@ -91,10 +100,12 @@ Create the plan at: `design/plans/YYYY-MM-DD-<topic>/plan.md`
 
 ### Plan format
 
+Use the actual input file path in the `**Design doc:**` field — `design/plans/.../design.md` when the source was a design doc, `design/specs/.../spec.md` when the source was a spec.
+
 ```markdown
 # Plan: <Topic>
 **Date:** YYYY-MM-DD
-**Design doc:** design/plans/YYYY-MM-DD-<topic>/design.md
+**Design doc:** <actual input path>
 **Status:** draft
 
 ## Overview
