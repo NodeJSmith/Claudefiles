@@ -12,8 +12,8 @@ BIN_DIR="$HOME/.local/bin"
 interactive=false
 [ -t 0 ] && [ -t 1 ] && interactive=true
 
-declare -A shadowed            # shadowed[$target]=$source — re-linkable with ln -s
-declare -A shadowed_containers # container dirs requiring mkdir+per-file on re-run
+declare -A shadowed=()            # shadowed[$target]=$source — re-linkable with ln -s
+declare -A shadowed_containers=() # container dirs requiring mkdir+per-file on re-run
 
 for dir in agents skills commands scripts/hooks; do
   src="$REPO_DIR/$dir"
@@ -141,10 +141,7 @@ if [ -d "$CLAUDE_DIR/learned" ] && [ ! -L "$CLAUDE_DIR/learned" ]; then
 fi
 
 # Report problems
-# bash 5+ treats empty associative arrays as unbound with nounset; disable briefly for size check
-set +u
 _shadowed_total=$((${#shadowed[@]} + ${#shadowed_containers[@]}))
-set -u
 if [ "$_shadowed_total" -gt 0 ]; then
   echo "" >&2
   echo "warning: $_shadowed_total file(s) not symlinked — a non-symlink already exists:" >&2
