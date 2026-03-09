@@ -100,10 +100,12 @@ Create the plan at: `design/plans/YYYY-MM-DD-<topic>/plan.md`
 
 ### Plan format
 
+Use the actual input file path in the `**Design doc:**` field — `design/plans/.../design.md` when the source was a design doc, `design/specs/.../spec.md` when the source was a spec.
+
 ```markdown
 # Plan: <Topic>
 **Date:** YYYY-MM-DD
-**Design doc:** design/plans/YYYY-MM-DD-<topic>/design.md   ← use actual input path here (design/specs/... if input was a spec.md)
+**Design doc:** <actual input path>
 **Status:** draft
 
 ## Overview

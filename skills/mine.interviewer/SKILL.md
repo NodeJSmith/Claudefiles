@@ -184,9 +184,9 @@ Update `**Status:**` from `draft` to `approved`.
 
 Tell the user:
 > Spec approved. To move to technical design, run:
-> `/mine.design design/specs/<actual-resolved-path>/spec.md`
+> `/mine.design "<topic description>"`
 >
-> When mine.design asks about prior work, provide this spec path — it will skip Phase 1 and use the spec directly.
+> When `mine.design` asks "Is there existing prior work?" in Phase 1, provide the spec path: `design/specs/<actual-resolved-path>/spec.md` — it will skip codebase investigation and use the spec directly.
 
 ### On "Revise"
 
