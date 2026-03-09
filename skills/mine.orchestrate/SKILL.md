@@ -208,8 +208,9 @@ Quality review: PASS|NEEDS_ATTENTION
 [Any WARN or FAIL details]
 ```
 
-Then gate:
+Then gate. Show different options depending on verdict:
 
+**Normal verdict (PASS, WARN, FAIL, or non-architectural BLOCKED):**
 ```
 AskUserQuestion:
   question: "Task N complete. What next?"
@@ -217,16 +218,29 @@ AskUserQuestion:
   multiSelect: false
   options:
     - label: "Continue to Task N+1"
-      description: "Move on (only shown if verdict is PASS or WARN)"
+      description: "Move on — only offer this if verdict is PASS or WARN"
     - label: "Fix and retry this task"
       description: "Re-run the executor with the reviewer's notes"
     - label: "Mark as blocked and skip"
-      description: "Note the blocker and move to the next task"
+      description: "Record the blocker and move to the next task"
     - label: "Stop here"
       description: "Pause execution; resume later with /mine.orchestrate"
 ```
 
-If the verdict is BLOCKED (architectural), do not offer "Continue" — only "Fix and retry" or "Stop here".
+**Architectural BLOCKED verdict only:**
+```
+AskUserQuestion:
+  question: "Task N is blocked on an architectural issue not covered by the plan. This requires a plan change before retrying."
+  header: "Architectural block"
+  multiSelect: false
+  options:
+    - label: "Stop and revise the plan"
+      description: "Return to /mine.draft-plan or /mine.plan-review to update the plan"
+    - label: "Stop here for now"
+      description: "Pause execution; resume after the plan is updated"
+```
+
+Do not offer "Fix and retry" or "skip" for architectural blocks — retrying without a plan change will produce the same result.
 
 ### Step 8: Sophia CR update (if active)
 

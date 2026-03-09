@@ -39,7 +39,7 @@ AskUserQuestion:
 
 Read the plan.md. From the `**Design doc:**` field, read the design doc as well.
 
-If the design doc is missing or not found, proceed with plan-only review and automatically set checklist item 7 (test coverage) to WARN with the note "no design doc available for cross-reference."
+If the design doc is missing or not found, proceed with plan-only review and automatically set checklist item 3 (duplication) and item 6 (integration gaps) to WARN where design intent is unverifiable, and note in the summary: "Design doc unavailable — design alignment could not be fully verified."
 
 ### Collect changed files
 

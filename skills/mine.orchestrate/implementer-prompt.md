@@ -8,7 +8,7 @@ Pause and answer these before touching any file:
 
 1. **Ambiguous terms** — is any step in the task spec unclear or ambiguous? (e.g., "update the handler" — which handler? what change?) If yes, note the ambiguity and your resolution.
 2. **Missing context** — do you need to read any file not listed in the task's `files` field to understand the existing code? (e.g., a base class, a config schema, a test fixture) If yes, read it now.
-3. **Verification command** — can you run the task's `verification` command as-is? Confirm the test file exists and the command is valid. If not, note the issue and adjust only the command, not the test scope.
+3. **Verification command** — can you run the task's `verification` command as-is? Confirm the test file exists and the command is valid. If not, treat it as a BLOCKED condition: write `BLOCKED: verification command is unrunnable — <reason>` to the output file and stop. Do not silently adjust the command; a broken verification command means the plan spec needs updating first.
 
 Document your answers briefly before starting. If a blocker exists that prevents the task from proceeding, write `BLOCKED: <reason>` to the output file and stop.
 
