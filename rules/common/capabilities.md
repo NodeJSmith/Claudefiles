@@ -35,6 +35,9 @@ Skills and commands exist for common workflows. **Use these instead of ad-hoc to
 | "evaluate this repo", "should I use this library" | `/mine.eval-repo` |
 | "mutation test", "do my tests actually catch bugs", "verify test quality" | `/mine.mutation-test` |
 | "find tool gaps", "what am I scripting by hand", "session archaeology", "missing cli features" | `/mine.tool-gaps` |
+| "design this change", "write a design doc", "investigate before planning" | `/mine.design` |
+| "draft a plan", "create implementation plan", "caliper plan" | `/mine.draft-plan` |
+| "review this plan", "check the plan", "plan review" | `/mine.plan-review` |
 | "start a CR", "sophia create", "change request", "track this change" | `/mine.sophia` |
 | "evaluate skill", "compare skill variants", "skill A/B test", "grade this skill" | `/mine.skill-eval` |
 | "merge settings", "apply settings", "update claude settings" | `claude-merge-settings` |
@@ -402,6 +405,18 @@ Sophia intent-tracking CLI — CR lifecycle, contracts, checkpoints, and validat
 ### /mine.skill-eval
 
 Evaluate and compare skill variants using structured grading, blind comparison, and statistical analysis. Supports single-variant grading, A/B comparison, and consistency testing across multiple iterations.
+
+### /mine.design
+
+Scopes a change via AskUserQuestion, dispatches mine.research for investigation, writes design doc to `design/plans/YYYY-MM-DD-<topic>/design.md`, then gates on user sign-off before handoff to mine.draft-plan.
+
+### /mine.draft-plan
+
+Takes a design doc and produces a strict caliper-format plan. Every task requires 5 fields: files, steps, verification, done-when, avoid+why. Writes to `design/plans/YYYY-MM-DD-<topic>/plan.md`. Prompts to run `/mine.plan-review` for review.
+
+### /mine.plan-review
+
+Reviews a caliper plan with an Opus subagent against a 6-point checklist (dependency sequencing, artifact naming, design alignment, test structure, task completeness, context independence). Gates on approve / request revisions / abandon.
 
 ---
 

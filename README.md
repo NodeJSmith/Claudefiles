@@ -34,7 +34,7 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 
 ## Contents
 
-### Skills (22)
+### Skills (25)
 
 | Skill | Description |
 |-------|-------------|
@@ -46,10 +46,13 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `mine.challenge` | Adversarial design critique using three parallel critics — assumes the design is wrong, finds out why, argues for better |
 | `mine.commit-push` | Commit and push changes to the current branch |
 | `mine.create-pr` | Review branch changes and create a PR on GitHub or Azure DevOps |
+| `mine.design` | Scope + research + design doc + sign-off gate — raw idea to approved design |
+| `mine.draft-plan` | Design doc → strict 5-field caliper implementation plan |
 | `mine.eval-repo` | Evaluate a third-party GitHub repo before adopting it -- test coverage, code quality, maintenance health, bus factor |
 | `mine.human-centered-design` | Human-centered frontend design -- empathy, accessibility, progressive enhancement |
 | `mine.interface-design` | Craft and consistency for interface design -- dashboards, admin panels, apps, tools |
 | `mine.mutation-test` | Mutation testing -- intentionally break code to verify tests catch real bugs |
+| `mine.plan-review` | Opus checklist review (6 points) + approve/revise/abandon gate |
 | `mine.python-patterns` | Pythonic idioms, PEP 8, type hints, and best practices |
 | `mine.python-testing` | Python testing strategies using pytest, TDD, fixtures, mocking, parametrization |
 | `mine.refactor` | Interactive refactoring with strategy selection and incremental verification |
