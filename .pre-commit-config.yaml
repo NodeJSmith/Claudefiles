@@ -1,4 +1,11 @@
 repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.5
+    hooks:
+      - id: ruff
+      - id: ruff-format
+        args: [--check]
+
   - repo: https://github.com/shellcheck-rs/shellcheck-precommit
     rev: v0.10.0
     hooks:
