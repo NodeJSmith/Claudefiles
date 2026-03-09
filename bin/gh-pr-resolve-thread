@@ -9,27 +9,28 @@ set -euo pipefail
 # the script falls back to the default GH_TOKEN (your personal token).
 # Any user can wire this up by creating a gh-app-token helper that prints
 # a valid GitHub App installation token.
-if command -v gh-app-token &>/dev/null && [[ -n "${GITHUB_APP_ID:-}" ]]; then
-    export GH_TOKEN="$(gh-app-token)"
+if command -v gh-app-token &> /dev/null && [[ -n "${GITHUB_APP_ID:-}" ]]; then
+  GH_TOKEN="$(gh-app-token)"
+  export GH_TOKEN
 fi
 
 if [[ $# -eq 0 ]]; then
-    echo "Usage: gh-pr-resolve-thread <thread-id> [thread-id...]" >&2
-    exit 1
+  echo "Usage: gh-pr-resolve-thread <thread-id> [thread-id...]" >&2
+  exit 1
 fi
 
 for thread_id in "$@"; do
-    resolved=$(gh api graphql \
-        -f query='mutation($id: ID!) {
+  resolved=$(gh api graphql \
+    -f query='mutation($id: ID!) {
             resolveReviewThread(input: {threadId: $id}) {
                 thread { isResolved }
             }
         }' \
-        -f id="$thread_id" \
-        --jq '.data.resolveReviewThread.thread.isResolved')
-    if [[ "$resolved" != "true" ]]; then
-        echo "FAILED to resolve $thread_id (got: $resolved)" >&2
-        exit 1
-    fi
-    echo "Resolved $thread_id"
+    -f id="$thread_id" \
+    --jq '.data.resolveReviewThread.thread.isResolved')
+  if [[ "$resolved" != "true" ]]; then
+    echo "FAILED to resolve $thread_id (got: $resolved)" >&2
+    exit 1
+  fi
+  echo "Resolved $thread_id"
 done

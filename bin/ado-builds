@@ -19,131 +19,149 @@
 set -euo pipefail
 
 usage() {
-    echo "Usage: ado-builds <command> [args...]" >&2
-    echo "Commands:" >&2
-    echo "  list [--tags TAG] [--branch BRANCH] [--status STATUS] [--top N] [--json]" >&2
-    echo "      List builds. Defaults: --top 50." >&2
-    echo "  cancel <build-id> [build-id...]" >&2
-    echo "      Cancel one or more builds by ID." >&2
-    echo "  cancel-by-tag <tag> [--branch BRANCH]" >&2
-    echo "      Cancel all in-progress builds for a tag. Default: branch from git-default-branch." >&2
-    exit 1
+  echo "Usage: ado-builds <command> [args...]" >&2
+  echo "Commands:" >&2
+  echo "  list [--tags TAG] [--branch BRANCH] [--status STATUS] [--top N] [--json]" >&2
+  echo "      List builds. Defaults: --top 50." >&2
+  echo "  cancel <build-id> [build-id...]" >&2
+  echo "      Cancel one or more builds by ID." >&2
+  echo "  cancel-by-tag <tag> [--branch BRANCH]" >&2
+  echo "      Cancel all in-progress builds for a tag. Default: branch from git-default-branch." >&2
+  exit 1
 }
 
 if [[ $# -lt 1 ]]; then
-    usage
+  usage
 fi
 
 cmd="$1"
 shift
 
 case "$cmd" in
-    list)
-        tags=""
-        branch=""
-        status=""
-        top="50"
-        output_json=false
+  list)
+    tags=""
+    branch=""
+    status=""
+    top="50"
+    output_json=false
 
-        while [[ $# -gt 0 ]]; do
-            case "$1" in
-                --tags) tags="$2"; shift 2 ;;
-                --branch) branch="$2"; shift 2 ;;
-                --status) status="$2"; shift 2 ;;
-                --top) top="$2"; shift 2 ;;
-                --json) output_json=true; shift ;;
-                *)
-                    echo "Unknown option: $1" >&2
-                    usage
-                    ;;
-            esac
-        done
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --tags)
+          tags="$2"
+          shift 2
+          ;;
+        --branch)
+          branch="$2"
+          shift 2
+          ;;
+        --status)
+          status="$2"
+          shift 2
+          ;;
+        --top)
+          top="$2"
+          shift 2
+          ;;
+        --json)
+          output_json=true
+          shift
+          ;;
+        *)
+          echo "Unknown option: $1" >&2
+          usage
+          ;;
+      esac
+    done
 
-        args=(az pipelines build list --top "$top")
-        [[ -n "$tags" ]] && args+=(--tags "$tags")
-        [[ -n "$branch" ]] && args+=(--branch "$branch")
-        [[ -n "$status" ]] && args+=(--status "$status")
+    args=(az pipelines build list --top "$top")
+    [[ -n "$tags" ]] && args+=(--tags "$tags")
+    [[ -n "$branch" ]] && args+=(--branch "$branch")
+    [[ -n "$status" ]] && args+=(--status "$status")
 
-        result=$("${args[@]}")
+    result=$("${args[@]}")
 
-        if [[ "$output_json" == true ]]; then
-            echo "$result"
-        else
-            echo "$result" | jq -r '.[] | [
+    if [[ "$output_json" == true ]]; then
+      echo "$result"
+    else
+      echo "$result" | jq -r '.[] | [
                 (.id | tostring),
                 .status,
                 (.result // "-"),
                 .definition.name,
                 ((.tags // []) | join(","))
             ] | @tsv' | column -t -s $'\t'
-        fi
-        ;;
+    fi
+    ;;
 
-    cancel)
-        if [[ $# -lt 1 ]]; then
-            echo "Usage: ado-builds cancel <build-id> [build-id...]" >&2
-            exit 1
-        fi
+  cancel)
+    if [[ $# -lt 1 ]]; then
+      echo "Usage: ado-builds cancel <build-id> [build-id...]" >&2
+      exit 1
+    fi
 
-        for build_id in "$@"; do
-            # Fetch current status before attempting cancel
-            current=$(az pipelines build show --id "$build_id" | jq -r '.status')
+    for build_id in "$@"; do
+      # Fetch current status before attempting cancel
+      current=$(az pipelines build show --id "$build_id" | jq -r '.status')
 
-            if [[ "$current" == "completed" || "$current" == "cancelling" ]]; then
-                echo "Skipped $build_id (already $current)"
-                continue
-            fi
+      if [[ "$current" == "completed" || "$current" == "cancelling" ]]; then
+        echo "Skipped $build_id (already $current)"
+        continue
+      fi
 
-            az pipelines build cancel --build-id "$build_id" > /dev/null
-            echo "Cancelled $build_id"
-        done
-        ;;
+      az pipelines build cancel --build-id "$build_id" > /dev/null
+      echo "Cancelled $build_id"
+    done
+    ;;
 
-    cancel-by-tag)
-        if [[ $# -lt 1 ]]; then
-            echo "Usage: ado-builds cancel-by-tag <tag> [--branch BRANCH]" >&2
-            exit 1
-        fi
+  cancel-by-tag)
+    if [[ $# -lt 1 ]]; then
+      echo "Usage: ado-builds cancel-by-tag <tag> [--branch BRANCH]" >&2
+      exit 1
+    fi
 
-        tag="$1"
-        shift
-        branch=$(git-default-branch 2>/dev/null || echo "master")
+    tag="$1"
+    shift
+    branch=$(git-default-branch 2> /dev/null || echo "master")
 
-        while [[ $# -gt 0 ]]; do
-            case "$1" in
-                --branch) branch="$2"; shift 2 ;;
-                *)
-                    echo "Unknown option: $1" >&2
-                    exit 1
-                    ;;
-            esac
-        done
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --branch)
+          branch="$2"
+          shift 2
+          ;;
+        *)
+          echo "Unknown option: $1" >&2
+          exit 1
+          ;;
+      esac
+    done
 
-        # Fetch builds matching tag + branch that are still in progress or not started
-        builds=$(az pipelines build list --tags "$tag" --branch "$branch" --top 100 \
-            | jq -r '.[] | select(.status != "completed") | [(.id | tostring), .status, .definition.name] | @tsv')
+    # Fetch builds matching tag + branch that are still in progress or not started
+    builds=$(az pipelines build list --tags "$tag" --branch "$branch" --top 100 |
+      jq -r '.[] | select(.status != "completed") | [(.id | tostring), .status, .definition.name] | @tsv')
 
-        if [[ -z "$builds" ]]; then
-            echo "No in-progress builds found for tag '$tag' on branch '$branch'"
-            exit 0
-        fi
+    if [[ -z "$builds" ]]; then
+      echo "No in-progress builds found for tag '$tag' on branch '$branch'"
+      exit 0
+    fi
 
-        count=$(echo "$builds" | wc -l)
-        echo "Found $count build(s) to cancel for tag '$tag' on branch '$branch':"
-        echo "$builds" | column -t -s $'\t'
-        echo ""
+    count=$(echo "$builds" | wc -l)
+    echo "Found $count build(s) to cancel for tag '$tag' on branch '$branch':"
+    echo "$builds" | column -t -s $'\t'
+    echo ""
 
-        while IFS=$'\t' read -r build_id status name; do
-            az pipelines build cancel --build-id "$build_id" > /dev/null
-            echo "Cancelled $build_id ($name)"
-        done <<< "$builds"
+    while IFS=$'\t' read -r build_id status name; do
+      az pipelines build cancel --build-id "$build_id" > /dev/null
+      echo "Cancelled $build_id ($name)"
+    done <<< "$builds"
 
-        echo ""
-        echo "Done — cancelled $count build(s)"
-        ;;
+    echo ""
+    echo "Done — cancelled $count build(s)"
+    ;;
 
-    *)
-        echo "Unknown command: $cmd" >&2
-        usage
-        ;;
+  *)
+    echo "Unknown command: $cmd" >&2
+    usage
+    ;;
 esac

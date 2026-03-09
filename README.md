@@ -135,6 +135,20 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
 - The skills reference tools like `gh` (GitHub CLI), `git`, `pytest`, `ruff`, `pyright` -- install what's relevant to your workflow
 
+### Local Development
+
+For contributing to this repo, install the shell linting tools:
+
+- [`shellcheck`](https://github.com/koalaman/shellcheck) — shell script static analysis
+- [`shfmt`](https://github.com/mvdan/sh) — shell script formatter
+- [`pre-commit`](https://pre-commit.com/) — git hook framework
+
+Then install the hooks:
+
+```bash
+pre-commit install
+```
+
 ## License
 
 MIT

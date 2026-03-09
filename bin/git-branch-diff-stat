@@ -11,10 +11,10 @@
 
 set -uo pipefail
 
-default=$(git-default-branch 2>/dev/null) || exit 0
+default=$(git-default-branch 2> /dev/null) || exit 0
 
-if git diff --stat "origin/${default}...HEAD" 2>/dev/null | grep -q .; then
-    git diff --stat "origin/${default}...HEAD"
+if git diff --stat "origin/${default}...HEAD" 2> /dev/null | grep -q .; then
+  git diff --stat "origin/${default}...HEAD"
 else
-    git diff --stat "${default}...HEAD" 2>/dev/null || true
+  git diff --stat "${default}...HEAD" 2> /dev/null || true
 fi

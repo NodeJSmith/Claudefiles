@@ -2,6 +2,16 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-03-09
+
+### Added
+- `shellcheck` + `shfmt` pre-commit hooks and CI job (`shell-check`) to catch shell bugs and style drift automatically (#62)
+- `.shellcheckrc` — targets bash, follows `source` calls (#62)
+- `ruff` lint + format-check added to pre-commit hooks (complements existing CI coverage) (#62)
+
+### Changed
+- All bash scripts in `bin/` and `install.sh` reformatted to consistent 2-space indent style via `shfmt` (#62)
+
 ## 2026-03-08
 
 ### Fixed

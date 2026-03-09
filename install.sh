@@ -12,8 +12,8 @@ BIN_DIR="$HOME/.local/bin"
 interactive=false
 [ -t 0 ] && [ -t 1 ] && interactive=true
 
-declare -A shadowed             # shadowed[$target]=$source — re-linkable with ln -s
-declare -A shadowed_containers  # container dirs requiring mkdir+per-file on re-run
+declare -A shadowed=()            # shadowed[$target]=$source — re-linkable with ln -s
+declare -A shadowed_containers=() # container dirs requiring mkdir+per-file on re-run
 
 for dir in agents skills commands scripts/hooks; do
   src="$REPO_DIR/$dir"
@@ -24,7 +24,7 @@ for dir in agents skills commands scripts/hooks; do
     [ -e "$item" ] || continue
     target="$dest/$(basename "$item")"
     if [ -L "$target" ]; then
-      rm "$target"  # replace existing symlink
+      rm "$target" # replace existing symlink
     elif [ -e "$target" ]; then
       shadowed["$target"]="$item"
       continue
@@ -43,7 +43,7 @@ if [ -d "$REPO_DIR/rules" ]; then
     lang="$(basename "$lang_dir")"
     dest="$CLAUDE_DIR/rules/$lang"
     if [ -L "$dest" ]; then
-      rm "$dest"   # upgrade: remove old whole-directory symlink
+      rm "$dest" # upgrade: remove old whole-directory symlink
     elif [ -e "$dest" ] && [ ! -d "$dest" ]; then
       shadowed_containers["$dest"]="$lang_dir"
       continue
@@ -70,7 +70,7 @@ if [ -d "$REPO_DIR/learned" ]; then
   dest="$CLAUDE_DIR/learned"
   skip_learned=false
   if [ -L "$dest" ]; then
-    rm "$dest"   # upgrade: remove old whole-directory symlink
+    rm "$dest" # upgrade: remove old whole-directory symlink
   elif [ -e "$dest" ] && [ ! -d "$dest" ]; then
     shadowed_containers["$dest"]="$REPO_DIR/learned"
     skip_learned=true
@@ -112,10 +112,10 @@ stale_links=()
 
 # Top-level dirs: agents, skills, commands, hooks, bin
 for dir in "$CLAUDE_DIR"/agents "$CLAUDE_DIR"/skills "$CLAUDE_DIR"/commands \
-           "$CLAUDE_DIR"/scripts/hooks "$BIN_DIR"; do
+  "$CLAUDE_DIR"/scripts/hooks "$BIN_DIR"; do
   [ -d "$dir" ] || continue
   for link in "$dir"/*; do
-    [ -L "$link" ] || continue   # also skips literal "$dir/*" when dir is empty
+    [ -L "$link" ] || continue # also skips literal "$dir/*" when dir is empty
     [ ! -e "$link" ] && stale_links+=("$link")
   done
 done
@@ -126,7 +126,7 @@ if [ -d "$CLAUDE_DIR/rules" ]; then
     [ -d "$lang_dir" ] || continue
     [ ! -L "${lang_dir%/}" ] || continue
     for link in "$lang_dir"*; do
-      [ -L "$link" ] || continue   # also skips literal "$lang_dir*" when dir is empty
+      [ -L "$link" ] || continue # also skips literal "$lang_dir*" when dir is empty
       [ ! -e "$link" ] && stale_links+=("$link")
     done
   done
@@ -135,13 +135,13 @@ fi
 # Learned: check file-level symlinks (skip if it's itself a whole-dir symlink)
 if [ -d "$CLAUDE_DIR/learned" ] && [ ! -L "$CLAUDE_DIR/learned" ]; then
   for link in "$CLAUDE_DIR/learned"/*; do
-    [ -L "$link" ] || continue   # also skips literal "$CLAUDE_DIR/learned/*" when dir is empty
+    [ -L "$link" ] || continue # also skips literal "$CLAUDE_DIR/learned/*" when dir is empty
     [ ! -e "$link" ] && stale_links+=("$link")
   done
 fi
 
 # Report problems
-_shadowed_total=$(( ${#shadowed[@]} + ${#shadowed_containers[@]} ))
+_shadowed_total=$((${#shadowed[@]} + ${#shadowed_containers[@]}))
 if [ "$_shadowed_total" -gt 0 ]; then
   echo "" >&2
   echo "warning: $_shadowed_total file(s) not symlinked — a non-symlink already exists:" >&2
@@ -156,9 +156,9 @@ if [ "$_shadowed_total" -gt 0 ]; then
 
   if [ "$interactive" = true ]; then
     echo "  (these are real files, not symlinks — remove only if you don't need them)" >&2
-    printf "  Remove and re-link? [y/N] " >/dev/tty
+    printf "  Remove and re-link? [y/N] " > /dev/tty
     answer=""
-    read -r answer </dev/tty || true
+    read -r answer < /dev/tty || true
     if [[ "$answer" =~ ^[Yy] ]]; then
       for tgt in "${!shadowed[@]}"; do
         src="${shadowed[$tgt]}"
@@ -191,9 +191,9 @@ if [ ${#stale_links[@]} -gt 0 ]; then
   done
 
   if [ "$interactive" = true ]; then
-    printf "  Remove stale symlink(s)? [y/N] " >/dev/tty
+    printf "  Remove stale symlink(s)? [y/N] " > /dev/tty
     answer=""
-    read -r answer </dev/tty || true
+    read -r answer < /dev/tty || true
     if [[ "$answer" =~ ^[Yy] ]]; then
       for link in "${stale_links[@]}"; do
         if rm -f -- "$link"; then
@@ -214,7 +214,7 @@ fi
 echo "Claudefiles installed to $CLAUDE_DIR"
 
 # Prerequisite checks
-if ! command -v pyright &>/dev/null; then
+if ! command -v pyright &> /dev/null; then
   echo "" >&2
   echo "note: pyright not found — LSP features (go-to-definition, find-references, hover)" >&2
   echo "      will not work until you install it:" >&2
