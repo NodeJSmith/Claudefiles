@@ -28,24 +28,24 @@ _self="$(readlink -f "$0")"
 source "$(dirname "$_self")/ado-common.sh"
 
 usage() {
-    echo "Usage: ado-pr <command> [args...]" >&2
-    echo "Commands:" >&2
-    echo "  list [--status STATUS] [--author AUTHOR] [--target BRANCH] [--top N] [--json]" >&2
-    echo "      List PRs. Defaults: --status active, --top 50." >&2
-    echo "  show [PR_ID] [--json]" >&2
-    echo "      Show PR details. Auto-detects from current branch if PR_ID omitted." >&2
-    echo "  current [--json]" >&2
-    echo "      Show PR for current branch (errors if no PR found)." >&2
-    echo "  create [--title TITLE] [--description DESC] [--target BRANCH] [--draft] [--json]" >&2
-    echo "      Create PR from current branch. Default: --target from git-default-branch." >&2
-    echo "  update PR_ID [--title TITLE] [--description DESC] [--status STATUS]" >&2
-    echo "      Update PR. Status: active, abandoned, completed." >&2
-    exit 1
+  echo "Usage: ado-pr <command> [args...]" >&2
+  echo "Commands:" >&2
+  echo "  list [--status STATUS] [--author AUTHOR] [--target BRANCH] [--top N] [--json]" >&2
+  echo "      List PRs. Defaults: --status active, --top 50." >&2
+  echo "  show [PR_ID] [--json]" >&2
+  echo "      Show PR details. Auto-detects from current branch if PR_ID omitted." >&2
+  echo "  current [--json]" >&2
+  echo "      Show PR for current branch (errors if no PR found)." >&2
+  echo "  create [--title TITLE] [--description DESC] [--target BRANCH] [--draft] [--json]" >&2
+  echo "      Create PR from current branch. Default: --target from git-default-branch." >&2
+  echo "  update PR_ID [--title TITLE] [--description DESC] [--status STATUS]" >&2
+  echo "      Update PR. Status: active, abandoned, completed." >&2
+  exit 1
 }
 
 format_pr_detail() {
-    # Format az repos pr show JSON as human-readable output
-    jq -r '
+  # Format az repos pr show JSON as human-readable output
+  jq -r '
         "PR #\(.pullRequestId): \(.title)",
         "Status: \(.status)",
         "Author: \(.createdBy.displayName) (\(.createdBy.uniqueName))",
@@ -59,208 +59,253 @@ format_pr_detail() {
 }
 
 expand_author() {
-    local author="$1"
-    if [[ "$author" == "@me" ]]; then
-        az account show --query user.name -o tsv
-    else
-        echo "$author"
-    fi
+  local author="$1"
+  if [[ "$author" == "@me" ]]; then
+    az account show --query user.name -o tsv
+  else
+    echo "$author"
+  fi
 }
 
 if [[ $# -lt 1 ]]; then
-    usage
+  usage
 fi
 
 cmd="$1"
 shift
 
 case "$cmd" in
-    list)
-        status="active"
-        author=""
-        target=""
-        top="50"
-        output_json=false
+  list)
+    status="active"
+    author=""
+    target=""
+    top="50"
+    output_json=false
 
-        while [[ $# -gt 0 ]]; do
-            case "$1" in
-                --status) status="$2"; shift 2 ;;
-                --author) author=$(expand_author "$2"); shift 2 ;;
-                --target) target="$2"; shift 2 ;;
-                --top) top="$2"; shift 2 ;;
-                --json) output_json=true; shift ;;
-                *)
-                    echo "Unknown option: $1" >&2
-                    usage
-                    ;;
-            esac
-        done
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --status)
+          status="$2"
+          shift 2
+          ;;
+        --author)
+          author=$(expand_author "$2")
+          shift 2
+          ;;
+        --target)
+          target="$2"
+          shift 2
+          ;;
+        --top)
+          top="$2"
+          shift 2
+          ;;
+        --json)
+          output_json=true
+          shift
+          ;;
+        *)
+          echo "Unknown option: $1" >&2
+          usage
+          ;;
+      esac
+    done
 
-        args=(az repos pr list --top "$top")
-        [[ -n "$status" ]] && args+=(--status "$status")
-        [[ -n "$author" ]] && args+=(--creator "$author")
-        [[ -n "$target" ]] && args+=(--target-branch "$target")
+    args=(az repos pr list --top "$top")
+    [[ -n "$status" ]] && args+=(--status "$status")
+    [[ -n "$author" ]] && args+=(--creator "$author")
+    [[ -n "$target" ]] && args+=(--target-branch "$target")
 
-        result=$("${args[@]}")
+    result=$("${args[@]}")
 
-        if [[ "$output_json" == true ]]; then
-            echo "$result"
-        else
-            echo "$result" | jq -r '.[] | [
+    if [[ "$output_json" == true ]]; then
+      echo "$result"
+    else
+      echo "$result" | jq -r '.[] | [
                 (.pullRequestId | tostring),
                 .status,
                 .createdBy.displayName,
                 .title,
                 .creationDate[0:10]
             ] | @tsv' | column -t -s $'\t'
-        fi
-        ;;
+    fi
+    ;;
 
-    show)
-        pr_id=""
-        output_json=false
+  show)
+    pr_id=""
+    output_json=false
 
-        while [[ $# -gt 0 ]]; do
-            case "$1" in
-                --json) output_json=true; shift ;;
-                *)
-                    if [[ -z "$pr_id" ]]; then
-                        pr_id="$1"
-                        shift
-                    else
-                        echo "Unknown option: $1" >&2
-                        usage
-                    fi
-                    ;;
-            esac
-        done
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --json)
+          output_json=true
+          shift
+          ;;
+        *)
+          if [[ -z "$pr_id" ]]; then
+            pr_id="$1"
+            shift
+          else
+            echo "Unknown option: $1" >&2
+            usage
+          fi
+          ;;
+      esac
+    done
 
-        if [[ -z "$pr_id" ]]; then
-            pr_id=$(get_pr_from_env_or_branch)
-        fi
+    if [[ -z "$pr_id" ]]; then
+      pr_id=$(get_pr_from_env_or_branch)
+    fi
 
-        result=$(az repos pr show --id "$pr_id")
+    result=$(az repos pr show --id "$pr_id")
 
-        if [[ "$output_json" == true ]]; then
-            echo "$result"
-        else
-            echo "$result" | format_pr_detail
-        fi
-        ;;
+    if [[ "$output_json" == true ]]; then
+      echo "$result"
+    else
+      echo "$result" | format_pr_detail
+    fi
+    ;;
 
-    current)
-        output_json=false
+  current)
+    output_json=false
 
-        while [[ $# -gt 0 ]]; do
-            case "$1" in
-                --json) output_json=true; shift ;;
-                *)
-                    echo "Unknown option: $1" >&2
-                    usage
-                    ;;
-            esac
-        done
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --json)
+          output_json=true
+          shift
+          ;;
+        *)
+          echo "Unknown option: $1" >&2
+          usage
+          ;;
+      esac
+    done
 
-        pr_id=$(get_pr_from_env_or_branch)
+    pr_id=$(get_pr_from_env_or_branch)
 
-        result=$(az repos pr show --id "$pr_id")
+    result=$(az repos pr show --id "$pr_id")
 
-        if [[ "$output_json" == true ]]; then
-            echo "$result"
-        else
-            echo "$result" | format_pr_detail
-        fi
-        ;;
+    if [[ "$output_json" == true ]]; then
+      echo "$result"
+    else
+      echo "$result" | format_pr_detail
+    fi
+    ;;
 
-    create)
-        title=""
-        description=""
-        target=$(git-default-branch 2>/dev/null || echo "master")
-        draft=false
-        output_json=false
+  create)
+    title=""
+    description=""
+    target=$(git-default-branch 2> /dev/null || echo "master")
+    draft=false
+    output_json=false
 
-        while [[ $# -gt 0 ]]; do
-            case "$1" in
-                --title) title="$2"; shift 2 ;;
-                --description) description="$2"; shift 2 ;;
-                --target) target="$2"; shift 2 ;;
-                --draft) draft=true; shift ;;
-                --json) output_json=true; shift ;;
-                *)
-                    echo "Unknown option: $1" >&2
-                    usage
-                    ;;
-            esac
-        done
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --title)
+          title="$2"
+          shift 2
+          ;;
+        --description)
+          description="$2"
+          shift 2
+          ;;
+        --target)
+          target="$2"
+          shift 2
+          ;;
+        --draft)
+          draft=true
+          shift
+          ;;
+        --json)
+          output_json=true
+          shift
+          ;;
+        *)
+          echo "Unknown option: $1" >&2
+          usage
+          ;;
+      esac
+    done
 
-        branch=$(git branch --show-current)
-        if [[ -z "$branch" ]]; then
-            echo "Error: not on a branch" >&2
-            exit 1
-        fi
+    branch=$(git branch --show-current)
+    if [[ -z "$branch" ]]; then
+      echo "Error: not on a branch" >&2
+      exit 1
+    fi
 
-        args=(az repos pr create --source-branch "$branch" --target-branch "$target")
-        [[ -n "$title" ]] && args+=(--title "$title")
-        [[ -n "$description" ]] && args+=(--description "$description")
-        [[ "$draft" == true ]] && args+=(--draft true)
+    args=(az repos pr create --source-branch "$branch" --target-branch "$target")
+    [[ -n "$title" ]] && args+=(--title "$title")
+    [[ -n "$description" ]] && args+=(--description "$description")
+    [[ "$draft" == true ]] && args+=(--draft true)
 
-        result=$("${args[@]}")
+    result=$("${args[@]}")
 
-        if [[ "$output_json" == true ]]; then
-            echo "$result"
-        else
-            pr_id=$(echo "$result" | jq -r '.pullRequestId')
-            pr_url=$(echo "$result" | jq -r '"\(.repository.webUrl)/pullrequest/\(.pullRequestId)"')
-            echo "Created PR #$pr_id"
-            echo "$pr_url"
-        fi
-        ;;
+    if [[ "$output_json" == true ]]; then
+      echo "$result"
+    else
+      pr_id=$(echo "$result" | jq -r '.pullRequestId')
+      pr_url=$(echo "$result" | jq -r '"\(.repository.webUrl)/pullrequest/\(.pullRequestId)"')
+      echo "Created PR #$pr_id"
+      echo "$pr_url"
+    fi
+    ;;
 
-    update)
-        if [[ $# -lt 1 ]]; then
-            echo "Usage: ado-pr update PR_ID [--title TITLE] [--description DESC] [--status STATUS]" >&2
-            exit 1
-        fi
+  update)
+    if [[ $# -lt 1 ]]; then
+      echo "Usage: ado-pr update PR_ID [--title TITLE] [--description DESC] [--status STATUS]" >&2
+      exit 1
+    fi
 
-        pr_id="$1"
-        shift
+    pr_id="$1"
+    shift
 
-        title=""
-        description=""
-        status=""
+    title=""
+    description=""
+    status=""
 
-        while [[ $# -gt 0 ]]; do
-            case "$1" in
-                --title) title="$2"; shift 2 ;;
-                --description) description="$2"; shift 2 ;;
-                --status) status="$2"; shift 2 ;;
-                *)
-                    echo "Unknown option: $1" >&2
-                    usage
-                    ;;
-            esac
-        done
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --title)
+          title="$2"
+          shift 2
+          ;;
+        --description)
+          description="$2"
+          shift 2
+          ;;
+        --status)
+          status="$2"
+          shift 2
+          ;;
+        *)
+          echo "Unknown option: $1" >&2
+          usage
+          ;;
+      esac
+    done
 
-        if [[ -z "$title" && -z "$description" && -z "$status" ]]; then
-            echo "Error: at least one of --title, --description, or --status is required" >&2
-            exit 1
-        fi
+    if [[ -z "$title" && -z "$description" && -z "$status" ]]; then
+      echo "Error: at least one of --title, --description, or --status is required" >&2
+      exit 1
+    fi
 
-        args=(az repos pr update --id "$pr_id")
-        [[ -n "$title" ]] && args+=(--title "$title")
-        [[ -n "$description" ]] && args+=(--description "$description")
-        [[ -n "$status" ]] && args+=(--status "$status")
+    args=(az repos pr update --id "$pr_id")
+    [[ -n "$title" ]] && args+=(--title "$title")
+    [[ -n "$description" ]] && args+=(--description "$description")
+    [[ -n "$status" ]] && args+=(--status "$status")
 
-        "${args[@]}" > /dev/null
+    "${args[@]}" > /dev/null
 
-        echo "Updated PR #$pr_id"
-        [[ -n "$title" ]] && echo "  Title: $title"
-        [[ -n "$description" ]] && echo "  Description updated"
-        [[ -n "$status" ]] && echo "  Status: $status"
-        ;;
+    echo "Updated PR #$pr_id"
+    [[ -n "$title" ]] && echo "  Title: $title"
+    [[ -n "$description" ]] && echo "  Description updated"
+    [[ -n "$status" ]] && echo "  Status: $status"
+    ;;
 
-    *)
-        echo "Unknown command: $cmd" >&2
-        usage
-        ;;
+  *)
+    echo "Unknown command: $cmd" >&2
+    usage
+    ;;
 esac

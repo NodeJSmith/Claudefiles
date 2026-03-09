@@ -21,7 +21,7 @@ FORCE=false
 for arg in "$@"; do
   case "$arg" in
     --force) FORCE=true ;;
-    -h|--help)
+    -h | --help)
       sed -n '2,/^$/{ s/^# //; s/^#$//; p }' "$0"
       exit 0
       ;;
@@ -34,7 +34,7 @@ for arg in "$@"; do
 done
 
 # Skip if already installed (unless --force)
-if [ "$FORCE" = false ] && command -v sophia >/dev/null 2>&1; then
+if [ "$FORCE" = false ] && command -v sophia > /dev/null 2>&1; then
   echo "sophia is already installed: $(sophia --version 2>&1 || echo 'unknown version')"
   echo "Use --force to reinstall."
   exit 0
@@ -43,7 +43,7 @@ fi
 # Detect OS
 OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
 case "$OS" in
-  linux|darwin) ;;
+  linux | darwin) ;;
   *)
     echo "error: unsupported OS: $OS" >&2
     exit 1
@@ -53,8 +53,8 @@ esac
 # Detect architecture
 ARCH="$(uname -m)"
 case "$ARCH" in
-  x86_64)         ARCH="amd64" ;;
-  aarch64|arm64)  ARCH="arm64" ;;
+  x86_64) ARCH="amd64" ;;
+  aarch64 | arm64) ARCH="arm64" ;;
   *)
     echo "error: unsupported architecture: $ARCH" >&2
     exit 1

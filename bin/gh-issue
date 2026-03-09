@@ -10,8 +10,8 @@ set -euo pipefail
 # the script falls back to the default GH_TOKEN (your personal token).
 # Any user can wire this up by creating a gh-app-token helper that prints
 # a valid GitHub App installation token.
-if command -v gh-app-token &>/dev/null && [[ -n "${GITHUB_APP_ID:-}" ]]; then
-    export GH_TOKEN="$(gh-app-token)"
+if command -v gh-app-token &> /dev/null && [[ -n "${GITHUB_APP_ID:-}" ]]; then
+  export GH_TOKEN="$(gh-app-token)"
 fi
 
 exec gh issue "$@"

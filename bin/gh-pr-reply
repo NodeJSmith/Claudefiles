@@ -10,13 +10,13 @@ set -euo pipefail
 # the script falls back to the default GH_TOKEN (your personal token).
 # Any user can wire this up by creating a gh-app-token helper that prints
 # a valid GitHub App installation token.
-if command -v gh-app-token &>/dev/null && [[ -n "${GITHUB_APP_ID:-}" ]]; then
-    export GH_TOKEN="$(gh-app-token)"
+if command -v gh-app-token &> /dev/null && [[ -n "${GITHUB_APP_ID:-}" ]]; then
+  export GH_TOKEN="$(gh-app-token)"
 fi
 
 if [[ $# -lt 3 ]]; then
-    echo "Usage: gh-pr-reply <pr-number> <comment-id> <body>" >&2
-    exit 1
+  echo "Usage: gh-pr-reply <pr-number> <comment-id> <body>" >&2
+  exit 1
 fi
 
 pr_number="$1"
@@ -24,7 +24,7 @@ comment_id="$2"
 body="$3"
 
 id=$(gh api "repos/{owner}/{repo}/pulls/${pr_number}/comments/${comment_id}/replies" \
-    -f body="$body" \
-    --jq '.id')
+  -f body="$body" \
+  --jq '.id')
 
 echo "Reply posted: $id"

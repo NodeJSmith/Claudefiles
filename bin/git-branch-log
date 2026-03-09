@@ -11,12 +11,15 @@
 
 set -uo pipefail
 
-default=$(git-default-branch 2>/dev/null) || { echo "No commits found"; exit 0; }
+default=$(git-default-branch 2> /dev/null) || {
+  echo "No commits found"
+  exit 0
+}
 
-if git log --oneline "origin/${default}..HEAD" 2>/dev/null | grep -q .; then
-    git log --oneline "origin/${default}..HEAD"
-elif git log --oneline "${default}..HEAD" 2>/dev/null | grep -q .; then
-    git log --oneline "${default}..HEAD"
+if git log --oneline "origin/${default}..HEAD" 2> /dev/null | grep -q .; then
+  git log --oneline "origin/${default}..HEAD"
+elif git log --oneline "${default}..HEAD" 2> /dev/null | grep -q .; then
+  git log --oneline "${default}..HEAD"
 else
-    echo "No commits found"
+  echo "No commits found"
 fi

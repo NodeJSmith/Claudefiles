@@ -17,81 +17,81 @@ set -euo pipefail
 
 # Not in tmux — report and exit
 if [[ -z "${TMUX:-}" ]]; then
-    echo "Not in tmux"
-    exit 0
+  echo "Not in tmux"
+  exit 0
 fi
 
 usage() {
-    echo "Usage: claude-tmux <command> [args...]" >&2
-    echo "Commands:" >&2
-    echo "  rename <name>         Rename current session" >&2
-    echo "  current               Print current session name" >&2
-    echo "  new <name> <path>     Create detached session at path and switch to it" >&2
-    echo "  list                  List sessions (pipe-delimited)" >&2
-    echo "  panes                 List all panes (pipe-delimited)" >&2
-    echo "  capture <session> [N] Capture last N lines (default 20) of session pane" >&2
-    echo "  kill <session>...     Kill one or more sessions" >&2
-    exit 1
+  echo "Usage: claude-tmux <command> [args...]" >&2
+  echo "Commands:" >&2
+  echo "  rename <name>         Rename current session" >&2
+  echo "  current               Print current session name" >&2
+  echo "  new <name> <path>     Create detached session at path and switch to it" >&2
+  echo "  list                  List sessions (pipe-delimited)" >&2
+  echo "  panes                 List all panes (pipe-delimited)" >&2
+  echo "  capture <session> [N] Capture last N lines (default 20) of session pane" >&2
+  echo "  kill <session>...     Kill one or more sessions" >&2
+  exit 1
 }
 
 if [[ $# -lt 1 ]]; then
-    usage
+  usage
 fi
 
 cmd="$1"
 shift
 
 case "$cmd" in
-    rename)
-        if [[ $# -lt 1 ]]; then
-            echo "Usage: claude-tmux rename <name>" >&2
-            exit 1
-        fi
-        tmux rename-session "$1"
-        ;;
-    current)
-        tmux display-message -p '#S'
-        ;;
-    new)
-        if [[ $# -lt 2 ]]; then
-            echo "Usage: claude-tmux new <name> <path>" >&2
-            exit 1
-        fi
-        name="$1"
-        path="$2"
-        if [[ ! -d "$path" ]]; then
-            echo "Error: directory does not exist: $path" >&2
-            exit 1
-        fi
-        tmux new-session -d -s "$name" -c "$path"
-        tmux switch-client -t "$name"
-        ;;
-    list)
-        tmux list-sessions -F '#{session_name}|#{session_attached}|#{session_windows}|#{session_activity}'
-        ;;
-    panes)
-        tmux list-panes -a -F '#{session_name}|#{window_index}|#{pane_current_command}|#{pane_current_path}|#{pane_pid}'
-        ;;
-    capture)
-        if [[ $# -lt 1 ]]; then
-            echo "Usage: claude-tmux capture <session> [N]" >&2
-            exit 1
-        fi
-        lines="${2:-20}"
-        tmux capture-pane -t "$1" -p -S -"$lines" | tail -"$lines"
-        ;;
-    kill)
-        if [[ $# -lt 1 ]]; then
-            echo "Usage: claude-tmux kill <session> [session...]" >&2
-            exit 1
-        fi
-        for session in "$@"; do
-            tmux kill-session -t "$session"
-            echo "Killed $session"
-        done
-        ;;
-    *)
-        echo "Unknown command: $cmd" >&2
-        usage
-        ;;
+  rename)
+    if [[ $# -lt 1 ]]; then
+      echo "Usage: claude-tmux rename <name>" >&2
+      exit 1
+    fi
+    tmux rename-session "$1"
+    ;;
+  current)
+    tmux display-message -p '#S'
+    ;;
+  new)
+    if [[ $# -lt 2 ]]; then
+      echo "Usage: claude-tmux new <name> <path>" >&2
+      exit 1
+    fi
+    name="$1"
+    path="$2"
+    if [[ ! -d "$path" ]]; then
+      echo "Error: directory does not exist: $path" >&2
+      exit 1
+    fi
+    tmux new-session -d -s "$name" -c "$path"
+    tmux switch-client -t "$name"
+    ;;
+  list)
+    tmux list-sessions -F '#{session_name}|#{session_attached}|#{session_windows}|#{session_activity}'
+    ;;
+  panes)
+    tmux list-panes -a -F '#{session_name}|#{window_index}|#{pane_current_command}|#{pane_current_path}|#{pane_pid}'
+    ;;
+  capture)
+    if [[ $# -lt 1 ]]; then
+      echo "Usage: claude-tmux capture <session> [N]" >&2
+      exit 1
+    fi
+    lines="${2:-20}"
+    tmux capture-pane -t "$1" -p -S -"$lines" | tail -"$lines"
+    ;;
+  kill)
+    if [[ $# -lt 1 ]]; then
+      echo "Usage: claude-tmux kill <session> [session...]" >&2
+      exit 1
+    fi
+    for session in "$@"; do
+      tmux kill-session -t "$session"
+      echo "Killed $session"
+    done
+    ;;
+  *)
+    echo "Unknown command: $cmd" >&2
+    usage
+    ;;
 esac

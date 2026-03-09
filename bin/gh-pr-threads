@@ -6,9 +6,9 @@
 set -euo pipefail
 
 if [[ $# -ge 1 ]]; then
-    pr_number="$1"
+  pr_number="$1"
 else
-    pr_number=$(gh pr view --json number -q '.number')
+  pr_number=$(gh pr view --json number -q '.number')
 fi
 
 nwo=$(gh repo view --json nameWithOwner -q '.nameWithOwner')
@@ -45,7 +45,7 @@ query($owner: String!, $repo: String!, $pr: Int!) {
     }
   }
 }' -f owner="$repo_owner" -f repo="$repo_name" -F pr="$pr_number" \
-    --jq '
+  --jq '
     .data.repository.pullRequest as $pr |
     ($pr.reviewThreads.nodes | length) as $total |
     [$pr.reviewThreads.nodes[] | select(.isResolved | not)] as $unresolved |
