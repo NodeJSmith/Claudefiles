@@ -32,7 +32,7 @@ AskUserQuestion:
 
     1. What problem does this solve, and what does success look like?
     2. Are there known constraints or non-goals (things this change should NOT do)?
-    3. Is there an existing design doc, research brief, or prior investigation I should build on?
+    3. Is there an existing design doc, research brief, or prior investigation I should build on? *(e.g., a `spec.md` from `/mine.interviewer`, an ADR, or a research brief)*
   header: "Scope the design"
 ```
 

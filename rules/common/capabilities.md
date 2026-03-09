@@ -35,6 +35,7 @@ Skills and commands exist for common workflows. **Use these instead of ad-hoc to
 | "evaluate this repo", "should I use this library" | `/mine.eval-repo` |
 | "mutation test", "do my tests actually catch bugs", "verify test quality" | `/mine.mutation-test` |
 | "find tool gaps", "what am I scripting by hand", "session archaeology", "missing cli features" | `/mine.tool-gaps` |
+| "interview this idea", "spec this out", "capture my idea", "help me define what I want to build", "what do I want to build" | `/mine.interviewer` |
 | "design this change", "write a design doc", "investigate before planning" | `/mine.design` |
 | "draft a plan", "create implementation plan", "caliper plan" | `/mine.draft-plan` |
 | "review this plan", "check the plan", "plan review" | `/mine.plan-review` |
