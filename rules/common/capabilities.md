@@ -39,6 +39,8 @@ Skills and commands exist for common workflows. **Use these instead of ad-hoc to
 | "design this change", "write a design doc", "investigate before planning" | `/mine.design` |
 | "draft a plan", "create implementation plan", "caliper plan" | `/mine.draft-plan` |
 | "review this plan", "check the plan", "plan review" | `/mine.plan-review` |
+| "execute the plan", "run the caliper plan", "orchestrate implementation", "start executing" | `/mine.orchestrate` |
+| "review the implementation", "post-implementation review", "did we build what we planned" | `/mine.implementation-review` |
 | "start a CR", "sophia create", "change request", "track this change" | `/mine.sophia` |
 | "evaluate skill", "compare skill variants", "skill A/B test", "grade this skill" | `/mine.skill-eval` |
 | "merge settings", "apply settings", "update claude settings" | `claude-merge-settings` |
@@ -422,6 +424,14 @@ Takes a design doc and produces a strict caliper-format plan. Every task require
 ### /mine.plan-review
 
 Reviews a caliper plan with an Opus subagent against a 6-point checklist (dependency sequencing, artifact naming, design alignment, test structure, task completeness, context independence). Gates on approve / request revisions / abandon.
+
+### /mine.orchestrate
+
+Executes an approved caliper plan task-by-task. For each task: launches an executor subagent (implements with TDD), a spec reviewer subagent (verifies against the plan — reads actual code, not the executor's self-report), and a quality reviewer subagent (DRY, error handling, tests, architecture, security). Classifies deviations automatically (bug fixes and security gaps auto-allowed; architectural changes blocked). Integrates with sophia CR tracking if active. Offers handoff to `/mine.implementation-review` after all tasks complete.
+
+### /mine.implementation-review
+
+Post-execution quality gate for a completed caliper plan. Uses an Opus subagent to review all changed files against the original plan and design doc across 7 categories: cross-task boundaries, duplication, dead code, documentation, error handling, integration gaps, and test coverage. Gates on approve (updates plan status to `implemented`) / request fixes / abandon.
 
 ---
 
