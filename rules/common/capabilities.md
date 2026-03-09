@@ -407,6 +407,10 @@ Sophia intent-tracking CLI — CR lifecycle, contracts, checkpoints, and validat
 
 Evaluate and compare skill variants using structured grading, blind comparison, and statistical analysis. Supports single-variant grading, A/B comparison, and consistency testing across multiple iterations.
 
+### /mine.interviewer
+
+Structured interview skill — extracts full intent from a vague idea and produces a `spec.md` in `design/specs/YYYY-MM-DD-<topic>/` as input to `mine.design` or `mine.draft-plan`. Upstream of `mine.design` — answers "what exactly are we building?" before the pipeline answers "how do we build it?"
+
 ### /mine.design
 
 Scopes a change via AskUserQuestion, dispatches mine.research for investigation, writes design doc to `design/plans/YYYY-MM-DD-<topic>/design.md`, then gates on user sign-off before handoff to mine.draft-plan.

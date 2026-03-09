@@ -103,7 +103,7 @@ Create the plan at: `design/plans/YYYY-MM-DD-<topic>/plan.md`
 ```markdown
 # Plan: <Topic>
 **Date:** YYYY-MM-DD
-**Design doc:** design/plans/YYYY-MM-DD-<topic>/design.md
+**Design doc:** design/plans/YYYY-MM-DD-<topic>/design.md   ← use actual input path here (design/specs/... if input was a spec.md)
 **Status:** draft
 
 ## Overview

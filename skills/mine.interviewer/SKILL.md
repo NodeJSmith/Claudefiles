@@ -49,6 +49,8 @@ Derive a topic slug from the idea: kebab-case, max ~40 chars (e.g., `home-mainte
 
 Ask the three always-required questions in a single `AskUserQuestion` call (multi-question mode). Skip any category already clearly answered from the intake.
 
+If all three categories are already clearly answered from `$ARGUMENTS`, skip Phase 2 entirely and proceed to Phase 3.
+
 The three always-required categories:
 
 1. **Problem grounding**: What is the actual pain? What triggered this idea? What are you doing today that this replaces or improves?
