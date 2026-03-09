@@ -29,4 +29,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: pre-commit/action@v3.0.1
         with:
-          extra_args: shellcheck shfmt --all-files
+          extra_args: shellcheck --all-files
+      - uses: pre-commit/action@v3.0.1
+        with:
+          extra_args: shfmt --all-files
