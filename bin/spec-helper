@@ -17,6 +17,7 @@ import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, NoReturn
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -187,13 +188,13 @@ def find_wp_file(feature_dir: Path, wp_id: str) -> Path:
 
     # Fuzzy: find any file whose stem starts with the normalized ID
     for f in sorted(tasks_dir.glob("WP*.md")):
-        if f.stem.upper() == normalized:
+        if f.stem.upper().startswith(normalized):
             return f
 
     die(f"WP file '{normalized}.md' not found in {tasks_dir}")
 
 
-def die(msg: str) -> None:
+def die(msg: str) -> NoReturn:
     print(f"error: {msg}", file=sys.stderr)
     sys.exit(1)
 
@@ -216,7 +217,7 @@ def parse_frontmatter(text: str) -> tuple[dict, str]:
         return {}, text
     fm_block = text[3:end].strip()
     body = text[end + 4 :].lstrip("\n")
-    fields: dict = {}
+    fields: dict[str, Any] = {}
     for line in fm_block.splitlines():
         if ":" not in line:
             continue
@@ -236,20 +237,26 @@ def parse_frontmatter(text: str) -> tuple[dict, str]:
 
 
 def update_frontmatter_field(text: str, field: str, value: str) -> str:
-    """Replace a scalar frontmatter field value in-place."""
+    """Replace a scalar frontmatter field value in-place (frontmatter only)."""
+    if not text.startswith("---"):
+        die(f"Field '{field}' not found in frontmatter")
+    end = text.find("\n---", 3)
+    if end == -1:
+        die(f"Field '{field}' not found in frontmatter")
+    fm_section = text[: end + 4]  # "---\n...\n---"
+    body = text[end + 4 :]
     pattern = re.compile(
         r"^(" + re.escape(field) + r':\s*)(".*?"|\'.*?\'|[^\n]*)',
         re.MULTILINE,
     )
-    replacement = f'\\1"{value}"'
-    new_text, count = pattern.subn(replacement, text, count=1)
+    new_fm, count = pattern.subn(f'\\1"{value}"', fm_section, count=1)
     if count == 0:
         die(f"Field '{field}' not found in frontmatter")
-    return new_text
+    return new_fm + body
 
 
-def read_wp_files(feature_dir: Path) -> list[tuple[str, dict]]:
-    """Read all WP*.md files in tasks/, return list of (filename, frontmatter)."""
+def read_wp_files(feature_dir: Path) -> list[dict[str, Any]]:
+    """Read all WP*.md files in tasks/, return list of dicts with filename + frontmatter."""
     tasks_dir = feature_dir / "tasks"
     if not tasks_dir.exists():
         return []
@@ -257,7 +264,7 @@ def read_wp_files(feature_dir: Path) -> list[tuple[str, dict]]:
     for f in sorted(tasks_dir.glob("WP*.md")):
         text = f.read_text()
         fm, _ = parse_frontmatter(text)
-        results.append((f.name, fm))
+        results.append({"filename": f.name, **fm})
     return results
 
 
@@ -280,6 +287,9 @@ def cmd_init(args: argparse.Namespace) -> None:
     slug = args.slug.lower().replace(" ", "-").replace("_", "-")
     # Strip leading digits if user passed them (e.g. "001-auth")
     slug = re.sub(r"^\d+-", "", slug)
+
+    if not slug or slug.isdigit():
+        die(f"Slug must be a non-empty, non-numeric string (got: '{slug}')")
 
     number = next_feature_number(root)
     padded = f"{number:03d}"
@@ -393,9 +403,9 @@ def cmd_status(args: argparse.Namespace) -> None:
     for feature_dir in feature_dirs:
         wps = read_wp_files(feature_dir)
         lanes: dict[str, list[str]] = {k: [] for k in LANE_KEYS}
-        for filename, fm in wps:
-            lane = fm.get("lane", "planned")
-            wp_id = fm.get("work_package_id", Path(filename).stem)
+        for wp in wps:
+            lane = wp.get("lane", "planned")
+            wp_id = wp.get("work_package_id", Path(wp["filename"]).stem)
             if lane in lanes:
                 lanes[lane].append(wp_id)
             else:

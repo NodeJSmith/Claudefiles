@@ -57,7 +57,7 @@ Get a temp file path for the review output:
 get-tmp-filename
 ```
 
-The path printed is `${CLAUDE_CODE_TMPDIR:-/tmp}/claude-cmd-<random>.txt`. Use this exact path — do not construct it manually.
+Use this exact path — do not construct it manually.
 
 ### Read reviewer prompt
 

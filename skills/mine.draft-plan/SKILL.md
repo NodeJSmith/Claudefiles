@@ -174,7 +174,7 @@ After writing all WP files, commit them:
 
 ```bash
 git add design/specs/<feature>/tasks/
-git commit -m "feat: add work packages for <feature>"
+git commit -m "feat: add work packages for NNN-<slug>"
 ```
 
 If git operations fail (not a repo, nothing to commit), note it and continue.

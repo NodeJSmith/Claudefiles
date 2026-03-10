@@ -53,7 +53,7 @@ Read all `<feature_dir>/tasks/WP*.md` files in order. For each WP, extract:
 - `lane`
 - `depends_on`
 
-Check WP statuses — warn if any WPs with `lane: done` appear ahead of `lane: planned` WPs (unexpected ordering).
+Check WP statuses — warn if any WPs with `lane: done` or `lane: doing` appear ahead of `lane: planned` WPs (unexpected ordering).
 
 ---
 
