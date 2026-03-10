@@ -6,7 +6,7 @@ user-invokable: true
 
 # Build
 
-One command to go from idea to shipped code. Routes your request to the right workflow: implement directly for small changes, or engage the full caliper pipeline (design → plan → review → orchestrate → implementation-review) for complex ones. Optionally integrates sophia CR tracking.
+One command to go from idea to shipped code. Routes your request to the right workflow: implement directly for small changes, or engage the full caliper pipeline (design → draft-plan → plan-review → orchestrate → implementation-review → ship) for complex ones. Optionally integrates sophia CR tracking.
 
 ## Arguments
 
@@ -27,7 +27,7 @@ Paraphrase the request back in one or two sentences to confirm understanding bef
 Make two separate tool calls to check sophia readiness:
 
 ```bash
-command -v sophia && echo "installed" || echo "missing"
+command -v sophia > /dev/null 2>&1 && echo "installed" || echo "missing"
 ```
 
 ```
