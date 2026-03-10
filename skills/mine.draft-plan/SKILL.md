@@ -1,33 +1,38 @@
 ---
 name: mine.draft-plan
-description: Turn a design doc into a strict caliper-format plan with 5-field tasks. Offers to run /mine.plan-review on completion.
+description: Turn a design doc into Work Package (WP) files. Offers to run /mine.plan-review on completion.
 user-invokable: true
 ---
 
 # Draft Plan
 
-Turn an approved design doc into a strict caliper-format implementation plan. Every task requires exactly 5 fields. File paths are grounded in the real codebase. Verification commands are runnable as-is.
+Turn an approved design doc into a set of Work Package (WP) files. Each WP is an independently executable unit of work with its own objectives, subtasks, test strategy, and review guidance. Generates up to ~8 WPs per feature. Commits all WP files after generation.
 
 ## Arguments
 
-$ARGUMENTS — path to a `design.md` or `spec.md` file. If empty, find the most recently modified file across both `design/plans/*/design.md` and `design/specs/*/spec.md` and confirm with the user before proceeding.
+$ARGUMENTS — path to a `design.md` or the feature directory (`design/specs/NNN-feature/`). If empty, find the most recently modified `design/specs/*/design.md` and confirm with the user before proceeding.
+
+---
 
 ## Phase 1: Read the Design Doc
 
 ### Locate the design doc
 
-If $ARGUMENTS is provided, use it directly. If empty:
+If $ARGUMENTS points to a feature directory (`design/specs/NNN-*/`), read `design.md` from that directory.
+
+If $ARGUMENTS is a direct path to a file, use it.
+
+If $ARGUMENTS is empty:
 
 ```
-Glob: design/plans/*/design.md
-Glob: design/specs/*/spec.md
+Glob: design/specs/*/design.md
 ```
 
-Run both globs, merge the two result lists, sort by modification time, take the single most recent file across both. Then confirm:
+Sort by modification time, take the most recent. Then confirm:
 
 ```
 AskUserQuestion:
-  question: "Found design.md at <path>. Draft a plan from this?"
+  question: "Found design.md at <path>. Generate work packages from this?"
   header: "Confirm design doc"
   multiSelect: false
   options:
@@ -41,18 +46,12 @@ AskUserQuestion:
 Read the doc fully. Extract:
 
 - **Problem** — what is being solved
-- **Proposed approach** — the recommended direction
-- **Non-goals** — explicit exclusions (tasks must NOT touch these)
+- **Architecture / Proposed approach** — the recommended direction and design decisions
+- **Non-goals** — explicit exclusions (WPs must NOT implement these)
 - **Impact / affected files** — modules and files named in the design
-- **Open questions** — if any remain non-empty, warn the user before proceeding (open questions should be resolved before planning)
+- **Open questions** — if any remain non-empty, warn before proceeding
 
-**If the input is a `spec.md`** (from `mine.interviewer`), remap sections:
-- "Key requirements" → proposed approach
-- "Scope (Out of scope)" → non-goals
-- "Who this is for" + "Success looks like" → inform the plan overview
-- Impact / affected files will be derived during Phase 2 rather than read from the doc (spec.md is product-level, not technical)
-
-If open questions exist, surface them:
+If open questions exist:
 
 ```
 AskUserQuestion:
@@ -64,13 +63,19 @@ AskUserQuestion:
     - label: "Stop — I'll update the design doc first"
 ```
 
+### Identify the feature directory
+
+The feature directory is `design/specs/NNN-feature/` containing the design.md. All WP files will be written to `<feature_dir>/tasks/`. Create the `tasks/` subdirectory if it doesn't exist.
+
+---
+
 ## Phase 2: Explore the Codebase Concretely
 
 **Use Glob, Grep, and Read only — no Bash for exploration.**
 
-Ground the plan in reality before writing a single task:
+Ground the work packages in reality before writing:
 
-1. **Find exact file paths** — for every module, class, or function named in the design doc, run Glob to get the real path. Record each one.
+1. **Find exact file paths** — for every module, class, or function named in the design, run Glob to get the real path. Record each one.
 
 2. **Locate test infrastructure**
    - Test directories: `Glob: tests/**/*.py` or equivalent
@@ -78,98 +83,121 @@ Ground the plan in reality before writing a single task:
    - CI test command: read `.github/workflows/*.yml`, `noxfile.py`, `tox.ini`, or `Makefile` (whichever applies)
 
 3. **Find existing patterns to follow**
-   - Naming conventions (read 2-3 similar files)
+   - Naming conventions (read 2–3 similar files)
    - Module structure (read `__init__.py` or index files)
-   - Abstractions already in use (protocols, base classes, decorators)
+   - Abstractions already in use
 
 4. **Note gotchas**
    - Shared state or global singletons
    - Circular import risks
-   - Files that are imported by many modules (high blast radius)
-   - Any TODO/FIXME comments in affected files
+   - Files imported by many modules (high blast radius)
 
-Do NOT guess file paths. If Glob returns no match, note it explicitly — the plan must not contain phantom paths.
+Do NOT guess file paths. If Glob returns no match, note it explicitly.
 
-**If the input is a `spec.md` and no existing files are found** (greenfield project): shift Phase 2's goal from "find existing patterns" to "establish the initial directory and file structure from scratch." Derive a sensible project layout from the spec's key requirements and constraints. Note in the plan overview that this is a greenfield project with no existing codebase to reference.
+---
 
-## Phase 3: Write the Plan
+## Phase 3: Write WP Files
 
-Derive the topic slug from the design doc filename or the `# Design:` heading. Use the same date prefix as the design doc.
+Decompose the design into 3–8 Work Packages. Each WP represents a distinct, independently reviewable unit of work that a single executor subagent can complete in one session.
 
-Create the plan at: `design/plans/YYYY-MM-DD-<topic>/plan.md`
+**WP sizing rules:**
+- Too small: a single file edit with no design decisions → merge with adjacent WP
+- Too large: more than one architectural boundary, or > ~500 lines of new/changed code → split
+- Ideal: one component, one service, one data migration, one integration point
 
-### Plan format
+**WP ordering rules:**
+- WPs that create foundational types/interfaces come first
+- WPs that implement against those interfaces come later
+- WPs that write integration tests come after the units they test
+- No WP may depend on outputs from a WP with a higher ID unless explicitly noted in `depends_on`
 
-Use the actual input file path in the `**Design doc:**` field — `design/plans/.../design.md` when the source was a design doc, `design/specs/.../spec.md` when the source was a spec.
+### WP file location
+
+Write each WP to: `<feature_dir>/tasks/WPNN.md`
+
+Where NN is zero-padded: WP01.md, WP02.md, etc.
+
+### WP file format
 
 ```markdown
-# Plan: <Topic>
-**Date:** YYYY-MM-DD
-**Design doc:** <actual input path>
-**Status:** draft
+---
+work_package_id: "WPNN"
+title: "<Short imperative title>"
+lane: "planned"
+plan_section: "<Section title from design.md this WP implements>"
+depends_on: []
+---
 
-## Overview
-[1-2 sentences: what will be built and in what order]
+## Objectives & Success Criteria
 
-## Task sequence
-1. Task 1 title
-2. Task 2 title
+<What this WP achieves. Observable outcomes that confirm it's done. Be specific — name the tests that will pass, the endpoint that will respond correctly, the migration that will have run.>
+
+## Subtasks
+
+1. <Concrete action — specific enough that an executor knows exactly what to write>
+2. <Next action>
 ...
-```
 
-### 5-field caliper format (required for every task)
+## Test Strategy
 
-Every task must have all 5 fields. A plan with any missing fields is rejected before writing.
+<What tests are written, what they verify, and which test file they go in. TDD: write the test first. Name the test functions.>
 
-```markdown
-## Task N: <Short imperative title>
+## Review Guidance
 
-**files:** `path/to/file.py`, `path/to/test_file.py`
+<What the spec reviewer and quality reviewer should check. Name the design constraints they must verify. Call out any areas where deviation from the design would be a blocker vs. a warning.>
 
-**steps:**
-1. [Specific action — no vague verbs like "update" or "handle"; say exactly what changes]
-2. [Next action]
+## Activity Log
 
-**verification:** `pytest tests/test_foo.py -v` (exact, runnable command)
-
-**done-when:** [Observable state — what the user can run or see that confirms this task is complete]
-
-**avoid:**
-- [Anti-pattern] — why: [one-sentence rationale]
+- <ISO timestamp> — system — lane=planned — WP created
 ```
 
 ### Field rules
 
-- **files**: Existing file paths must be verified via Glob. New files (annotate with `(new)`) must have their parent directory Glob-verified and use a concrete, non-placeholder filename.
-- **steps**: Use imperative, specific language. "Add `validate_input()` to `src/handlers/base.py`" not "update the handler".
-- **verification**: Must be a command you can paste into a terminal and run immediately. If no test exists yet, the verification step is to run the new test.
-- **done-when**: Must be observable without reading the code. "Running `pytest tests/test_foo.py -v` shows 3 passing tests" not "the feature works".
-- **avoid**: At least one entry per task. State the anti-pattern AND why it's wrong in this specific context.
-
-### Task ordering rules
-
-- Tasks that create files must come before tasks that import or reference those files
-- Implementation tasks must come before the tests that verify them, OR the test task must note it's a TDD red-phase task that precedes implementation
-- Configuration tasks must come before code that reads that configuration
-- No task may reference files from a task that comes later in sequence
+- **Objectives**: Must be observable without reading the code. "The `UserRepository.find_by_email()` method returns `None` for unknown users and raises `UserError` for database failures" not "the method works".
+- **Subtasks**: Use imperative, specific language. "Add `validate_email()` to `src/validators.py`" not "add validation". Reference actual file paths.
+- **Test Strategy**: At least one test per WP. Name the file and function. Follow TDD: test first.
+- **Review Guidance**: Explicitly name the design constraints being verified. What would a FAIL look like?
+- **plan_section**: Must match an actual section header in design.md.
+- **depends_on**: List WP IDs this WP must wait for (e.g., `["WP01"]`). Empty array if none.
 
 ### Scope rules
 
-- Only include tasks that implement the proposed approach from the design doc
+- Only implement what is in the design doc's Architecture/Proposed Approach
 - Do NOT include tasks for Non-goals
-- Do NOT include cleanup, refactoring, or "nice to have" tasks not in the design
-- Do NOT include tasks from a different CR or design
+- Do NOT include cleanup or "nice to have" work not in the design
 
-## Phase 4: Gate and Dispatch
+---
 
-After writing the plan file, announce:
-> Plan written to `design/plans/YYYY-MM-DD-<topic>/plan.md` with N tasks.
+## Phase 4: Commit WP Files
+
+After writing all WP files, commit them:
+
+```bash
+git add design/specs/<feature>/tasks/
+git commit -m "feat: add work packages for <feature>"
+```
+
+If git operations fail (not a repo, nothing to commit), note it and continue.
+
+---
+
+## Phase 5: Gate and Dispatch
+
+Announce:
+> Work packages written: WP01–WPNN in `<feature_dir>/tasks/`. All files committed.
+
+List each WP with its title:
+```
+WP01  Set up data model
+WP02  Implement service layer
+...
+```
 
 Then ask:
 
 ```
 AskUserQuestion:
-  question: "Plan written. Proceed to review?"
+  question: "Work packages ready. Proceed to plan review?"
   header: "Review gate"
   multiSelect: false
   options:
@@ -179,8 +207,8 @@ AskUserQuestion:
       description: "Stop here; run /mine.plan-review when ready"
 ```
 
-On "Yes": tell the user to run `/mine.plan-review design/plans/YYYY-MM-DD-<topic>/plan.md`.
+On "Yes": tell the user to run `/mine.plan-review <feature_dir>/design.md`.
 
-On "No": confirm the plan path and stop.
+On "No": confirm the WP paths and stop.
 
 **Do NOT call mine.plan-review automatically** — always wait for user confirmation.
