@@ -11,8 +11,8 @@ All notable changes to this Claudefiles repository are documented here.
 - `bin/spec-helper` — Python stdlib CLI for feature directory and WP management: `init`, `wp-move`, `status`, `next-number`
 
 ### Changed
-- Replaced `get-tmp-filename` two-call pattern with session-ID-scoped fixed paths in `mine.commit-push`, `mine.ship`, `mine.create-pr`, `mine.design`, `mine.plan-review`, `mine.implementation-review`, `mine.orchestrate`, `mine.audit`, `mine.tool-gaps`, `mine.eval-repo`, `issue-refiner`, and `code-reviewer` — removes unnecessary Bash calls for use cases that only need a writable path (Write tool usage, not piped capture)
-- Stripped `${CLAUDE_CODE_TMPDIR:-/tmp}` guard from all skill/agent/rule text; replaced with plain `/tmp` (guard is only preserved in `command-output.md` which explains `get-tmp-filename` behavior)
+- Replaced `get-tmp-filename` two-call pattern with session-ID-scoped fixed paths in `mine.commit-push`, `mine.ship`, `mine.create-pr`, `mine.design`, `mine.plan-review`, `mine.implementation-review`, `mine.orchestrate`, `mine.audit`, `mine.tool-gaps`, `mine.eval-repo`, `issue-refiner`, and `code-reviewer` — removes unnecessary Bash calls for use cases that only need a writable path (Write tool usage, not piped capture) (#68)
+- Stripped `${CLAUDE_CODE_TMPDIR:-/tmp}` guard from all skill/agent/rule text; replaced with plain `/tmp` (guard is only preserved in `command-output.md` which explains `get-tmp-filename` behavior) (#68)
 - `mine.build` — removed sophia Path C; simplified to Simple / Complex two-option routing; Complex path now starts with `mine.specify`
 - `mine.design` — added constitution check, proportional planning interrogation (1–5+ architecture questions), and updated output path to `design/specs/NNN-slug/design.md`
 - `mine.draft-plan` — generates `WP*.md` files (with frontmatter lane state + structured sections) instead of caliper `plan.md`; commits WPs after generation
