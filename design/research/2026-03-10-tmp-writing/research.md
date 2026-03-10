@@ -1,7 +1,7 @@
 # Research Brief: /tmp Writing in Claudefiles — Usage Review
 
 **Date**: 2026-03-10
-**Status**: Ready for Decision
+**Status**: Implemented — PR #68
 **Proposal**: Evaluate whether the tmp-writing helpers and patterns in Claudefiles are adding friction vs. solving real problems — and whether Claude Code's native behavior has changed the calculus.
 **Initiated by**: "I want to see if we're making things more difficult for ourselves with the direction/helpers we've added"
 
@@ -112,18 +112,18 @@ Fix the two specific places where we've accumulated unnecessary complexity, leav
 **Changes:**
 1. **Pattern B usages** — replace `get-tmp-filename` + Write with a fixed predictable path or inline session-ID path. Affected: `mine.create-pr`, `mine.ship`, `mine.orchestrate`, `mine.design`, `mine.plan-review`, `mine.implementation-review`
 2. **`${CLAUDE_CODE_TMPDIR:-/tmp}` guard** — simplify to `/tmp` everywhere except the one place that documents why the guard exists (`command-output.md`). The guard in skill files adds verbosity without practical value.
-3. **allowedTools dedup** — remove the `/*` variants, keep only `/**` (4 entries → 4 entries)
+3. **allowedTools dedup** — ~~remove the `/*` variants, keep only `/**`~~ **NOT DONE** — Claude Code's permission system does not treat `/**` as covering flat `/tmp/foo.md` files. Both `/tmp/*` and `/tmp/**` are required. This was confirmed by the #64 regression: removing `/tmp/*` caused permission prompts on flat-file writes (commit messages, PR bodies). The `/**` pattern only matches paths with at least one subdirectory segment.
 4. **Keep Pattern A unchanged** — `get-tmp-filename` + tee for command output capture is the right solution to a real constraint
 
 **Pros:**
 - Removes friction from the most common use cases (skills that just need a path for Write)
 - Reduces skill text length and complexity (less to explain, less to get wrong)
-- Fixed paths for PR bodies, review outputs etc. are predictable and debuggable
+- Session-ID paths are predictable, debuggable, and collision-safe across concurrent sessions
 - Doesn't change the behavior that actually matters
 
 **Cons:**
-- Fixed paths could collide if the same skill runs concurrently (unlikely but possible)
-- Requires touching 6 skills
+- `mine.orchestrate` reuses the same 3 paths across WP iterations — per-WP output not retained on disk (safe because files are read immediately within each iteration)
+- Requires touching 13 files
 
 **Effort:** Small — text changes to skill files and settings.json
 
@@ -157,7 +157,9 @@ The CLAUDE.md `$()` warning is based on how the Bash tool currently works (eval 
 
 ### Session-ID naming has a hidden assumption
 
-Brainstorm and challenge skills use `$CLAUDE_SESSION_ID` to name temp files. This works because Claude constructs the path as a literal string at runtime — it doesn't need shell expansion. But if `$CLAUDE_SESSION_ID` is not in the system context as a resolvable variable (it's sometimes in the system prompt, sometimes not), this could silently fail and produce files literally named `...-$CLAUDE_SESSION_ID.md`. Worth verifying.
+Brainstorm and challenge skills use `$CLAUDE_SESSION_ID` to name temp files. This works because Claude constructs the path as a literal string at runtime — it doesn't need shell expansion. But if `$CLAUDE_SESSION_ID` is not in the system context as a resolvable variable (it's sometimes in the system prompt, sometimes not), this could silently fail and produce files literally named `...-$CLAUDE_SESSION_ID.md`.
+
+**Worst case:** paths collapse to a fixed literal (e.g., `/tmp/mine-pr-body-$CLAUDE_SESSION_ID.md`), which still functions correctly for non-concurrent use — it just loses isolation between simultaneous sessions. Since concurrent skill runs are rare in practice, this is an acceptable degradation rather than a hard failure.
 
 ### Fixed paths and concurrent skills
 
@@ -168,8 +170,9 @@ If Option A uses fixed paths (e.g., `/tmp/mine-pr-body.md`), two simultaneous `m
 ## Open Questions
 
 - [ ] Has the Bash tool `eval` wrapper changed recently? If `$()` now works, the two-call pattern can be simplified further
-- [ ] Does `$CLAUDE_SESSION_ID` reliably resolve in skill context? Or is it sometimes literal text in the constructed path?
-- [ ] Is sandbox mode with custom `CLAUDE_CODE_TMPDIR` actually used by this user? (If no, the guard is pure noise)
+- [x] Does `$CLAUDE_SESSION_ID` reliably resolve in skill context? — Worst case: paths are literal strings (isolation lost, functionality preserved). Acceptable degradation.
+- [x] Is sandbox mode with custom `CLAUDE_CODE_TMPDIR` actually used by this user? — No. Guard was pure noise; stripped.
+- [x] Can `/tmp/*` allowedTools entries be removed (keep only `/**`)? — **No.** Claude Code's permission system requires both. `/**` does not cover flat `/tmp/foo.md` files — confirmed by #64 regression.
 
 ---
 

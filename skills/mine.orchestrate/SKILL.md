@@ -108,6 +108,8 @@ Use these session-scoped paths for subagent outputs:
 - Spec reviewer output: `/tmp/mine-orchestrate-spec-reviewer-$CLAUDE_SESSION_ID.md`
 - Quality reviewer output: `/tmp/mine-orchestrate-quality-reviewer-$CLAUDE_SESSION_ID.md`
 
+These paths are **reused each WP iteration** — each WP's executor output overwrites the previous. This is safe because the files are read immediately within the same iteration before the loop advances. Per-WP output is not retained on disk after the next WP begins.
+
 ### Step 3: Launch executor subagent
 
 Read these files:
