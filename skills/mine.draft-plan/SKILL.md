@@ -183,8 +183,9 @@ If git operations fail (not a repo, nothing to commit), note it and continue.
 
 ## Phase 5: Gate and Dispatch
 
-Announce:
-> Work packages written: WP01–WPNN in `<feature_dir>/tasks/`. All files committed.
+Announce based on git outcome:
+- If commit succeeded: `Work packages written: WP01–WPNN in \`<feature_dir>/tasks/\`. All files committed.`
+- If commit failed or was skipped: `Work packages written: WP01–WPNN in \`<feature_dir>/tasks/\`. Git commit was not completed — please commit these files manually if needed.`
 
 List each WP with its title:
 ```

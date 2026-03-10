@@ -6,7 +6,7 @@ user-invokable: true
 
 # Plan Review
 
-Review a caliper implementation plan for correctness, completeness, and design alignment before execution begins. Uses a subagent reviewer against a 6-point checklist.
+Review a design doc and its Work Packages for correctness, completeness, and design alignment before execution begins. Uses a subagent reviewer against a 6-point checklist.
 
 ## Arguments
 

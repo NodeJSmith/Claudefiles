@@ -44,7 +44,7 @@ design/
 - `design.md` — how to build it. Architecture, decisions, API contracts. Never contains tasks.
 - `WP*.md` — executable work packages. The **only** place tasks live. Lane state tracked in YAML frontmatter (`planned | doing | for_review | done`), updated by `spec-helper wp-move`.
 
-Freeze gate: WPs are generated after `mine.plan-review` approves `design.md`. Once WPs exist, `design.md` is frozen — substantive changes require regenerating WPs via `mine.draft-plan`.
+Freeze gate: WPs are generated from `design.md` by `/mine.draft-plan` before `/mine.plan-review`. `/mine.plan-review` reviews `design.md` plus the existing WPs; once that review is approved, `design.md` is frozen — substantive changes require regenerating WPs via `/mine.draft-plan`.
 
 ## How the Pieces Connect
 
