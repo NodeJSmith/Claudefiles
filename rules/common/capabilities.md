@@ -36,6 +36,7 @@ Skills and commands exist for common workflows. **Use these instead of ad-hoc to
 | "mutation test", "do my tests actually catch bugs", "verify test quality" | `/mine.mutation-test` |
 | "find tool gaps", "what am I scripting by hand", "session archaeology", "missing cli features" | `/mine.tool-gaps` |
 | "interview this idea", "spec this out", "capture my idea", "help me define what I want to build", "what do I want to build" | `/mine.interviewer` |
+| "build this", "implement this", "make this change", "start a feature", "what workflow should I use" | `/mine.build` |
 | "design this change", "write a design doc", "investigate before planning" | `/mine.design` |
 | "draft a plan", "create implementation plan", "caliper plan" | `/mine.draft-plan` |
 | "review this plan", "check the plan", "plan review" | `/mine.plan-review` |
@@ -412,6 +413,10 @@ Evaluate and compare skill variants using structured grading, blind comparison, 
 ### /mine.interviewer
 
 Structured interview skill — extracts full intent from a vague idea and produces a `spec.md` in `design/specs/YYYY-MM-DD-<topic>/` as input to `mine.design` or `mine.draft-plan`. Upstream of `mine.design` — answers "what exactly are we building?" before the pipeline answers "how do we build it?"
+
+### /mine.build
+
+Single entry point for implementing changes. Assesses complexity, checks for sophia, and routes to: direct implementation + code review + ship (simple), or the full caliper chain design → draft-plan → plan-review → orchestrate → implementation-review → ship (complex). Optionally integrates sophia CR tracking throughout.
 
 ### /mine.design
 

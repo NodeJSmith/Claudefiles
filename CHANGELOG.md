@@ -8,6 +8,7 @@ All notable changes to this Claudefiles repository are documented here.
 - `settings.json` — `/tmp/*` permissions restored alongside `/tmp/**`; the previous upgrade accidentally dropped flat-file auto-approval (e.g. commit message and PR body temp files), causing two spurious permission prompts per ship (#64)
 
 ### Added
+- `mine.build` skill — single entry point that routes a change request to simple direct implementation (explore → implement → code-review → ship) or the full caliper workflow (design → plan → review → orchestrate → implementation-review → ship), with optional sophia CR tracking (#66)
 - `mine.orchestrate` skill — executes a caliper plan task-by-task with a three-subagent loop (executor, spec reviewer, quality reviewer); classifies deviations automatically and integrates with sophia CR tracking (#65)
 - `mine.implementation-review` skill — post-execution quality gate using an Opus subagent across 7 categories (cross-task boundaries, duplication, dead code, docs, error handling, integration gaps, test coverage) (#65)
 - `mine.interviewer` skill — structured interview skill that extracts full intent from a vague idea and produces a `spec.md` for the design pipeline; supports optional HTML wireframe generation for user-facing products (#63)
