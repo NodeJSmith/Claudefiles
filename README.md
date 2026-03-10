@@ -43,7 +43,7 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `mine.audit` | Systematic codebase health audit -- surfaces aging code, brittle designs, missing tests, ranked by impact |
 | `mine.backend-patterns` | Backend architecture patterns, API design, database optimization for Python/FastAPI |
 | `mine.brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas ranked by user-chosen criteria, with handoff to research, ADRs, or planning |
-| `mine.build` | Single entry point — routes between direct implementation and the full caliper workflow (design → plan → orchestrate → ship), with optional sophia CR tracking |
+| `mine.build` | Single entry point — routes between direct implementation and the full caliper workflow (design → draft-plan → plan-review → orchestrate → implementation-review → ship), with optional sophia CR tracking |
 | `mine.challenge` | Adversarial design critique using three parallel critics — assumes the design is wrong, finds out why, argues for better |
 | `mine.commit-push` | Commit and push changes to the current branch |
 | `mine.create-pr` | Review branch changes and create a PR on GitHub or Azure DevOps |

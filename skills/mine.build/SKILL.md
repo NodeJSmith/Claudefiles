@@ -24,7 +24,7 @@ Paraphrase the request back in one or two sentences to confirm understanding bef
 
 ## Phase 2: Check Sophia + Route
 
-Make two separate Bash calls to check sophia readiness:
+Make two separate tool calls to check sophia readiness:
 
 ```bash
 command -v sophia && echo "installed" || echo "missing"
@@ -123,7 +123,7 @@ Then chain the following skills in sequence. Do not duplicate their logic — fo
 
 4. **Follow `/mine.orchestrate` phases** using the approved plan path. mine.orchestrate handles per-task execution, deviation classification, and its own post-execution handoff.
 
-5. mine.orchestrate's Phase 4 post-execution handoff offers `/mine.implementation-review` inline. Follow that flow.
+5. mine.orchestrate's Phase 4 post-execution handoff offers `/mine.implementation-review` inline. Follow that flow. If the user declines the implementation-review handoff, offer the ship gate directly with a note that implementation-review was skipped.
 
 6. After implementation review completes:
    - If **APPROVE**: proceed to the ship gate below.
@@ -259,6 +259,8 @@ sophia cr status --json
 Surface the CR state to the user (phase, tasks completed, any outstanding items).
 
 Then offer:
+
+> Note: If `merge.mode: pr_gate` is set in SOPHIA.yaml, the CR will be closed automatically when the PR is merged — this step is optional in that case.
 
 ```
 AskUserQuestion:

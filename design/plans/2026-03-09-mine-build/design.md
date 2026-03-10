@@ -1,11 +1,11 @@
 # Design: mine.build — Single Entry Point Skill
 
 **Date:** 2026-03-09
-**Status:** draft
+**Status:** implemented
 
 ## Problem
 
-The caliper workflow has five skills that must be invoked in sequence (design → draft-plan → plan-review → orchestrate → ship), and sophia CR tracking is an optional layer on top. There's no single entry point — the user must know which skill to start, pass arguments between steps, and remember which step comes next. This creates friction for common use cases and makes the workflow harder to discover.
+The caliper workflow has six skills that must be invoked in sequence (design → draft-plan → plan-review → orchestrate → implementation-review → ship), and sophia CR tracking is an optional layer on top. There's no single entry point — the user must know which skill to start, pass arguments between steps, and remember which step comes next. This creates friction for common use cases and makes the workflow harder to discover.
 
 The simple case (1-3 file change, clear approach) is over-engineered by the full caliper chain, but the user has to decide that themselves before picking a skill.
 
