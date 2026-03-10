@@ -12,7 +12,7 @@ Thin user-facing wrapper around `spec-helper` for work package (WP) lane managem
 
 $ARGUMENTS — subcommand and arguments:
 - `move <wp-id> <lane>` — move a WP to a new lane
-- `status` — show terminal kanban for all features (or just the current one)
+- `status [feature]` — show terminal kanban for all features, or just the specified feature
 - `list` — list all WPs for the current feature with their lane
 
 If $ARGUMENTS is empty, show usage.

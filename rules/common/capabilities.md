@@ -438,7 +438,7 @@ Takes a design doc and generates Work Package (WP) files in `design/specs/NNN-<s
 
 ### /mine.plan-review
 
-Reviews a caliper plan with an Opus subagent against a 6-point checklist (dependency sequencing, artifact naming, design alignment, test structure, task completeness, context independence). Gates on approve / request revisions / abandon.
+Reviews a design doc and its Work Packages with an Opus subagent against a 6-point checklist. Gates on approve / request revisions / abandon.
 
 ### /mine.orchestrate
 

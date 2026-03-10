@@ -34,7 +34,7 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 
 ## Contents
 
-### Skills (33)
+### Skills (31)
 
 | Skill | Description |
 |-------|-------------|

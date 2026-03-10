@@ -18,7 +18,7 @@ $ARGUMENTS — path to a `design.md` file or a feature directory (`design/specs/
 
 If $ARGUMENTS points to a feature directory (`design/specs/NNN-*/`), read `design.md` from that directory.
 
-If $ARGUMENTS is a direct path to a `design.md`, use it directly.
+If $ARGUMENTS is a direct path to a `design.md`, use it directly. In this case, `<feature_dir>` is the parent directory of the file (e.g., `design/specs/NNN-feature/` when the path is `design/specs/NNN-feature/design.md`).
 
 If $ARGUMENTS is empty:
 
