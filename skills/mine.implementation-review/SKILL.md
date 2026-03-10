@@ -67,13 +67,9 @@ Read each changed file. If the list is large (more than 15 files), prioritize fi
 
 ## Phase 2: Dispatch Opus Reviewer Subagent
 
-### Prepare temp file
+### Review output path
 
-```bash
-get-tmp-filename
-```
-
-Use the path printed exactly — do not construct it manually.
+Use `/tmp/mine-impl-review-$CLAUDE_SESSION_ID.md` for the review output.
 
 ### Read reviewer prompt
 

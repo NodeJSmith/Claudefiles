@@ -17,7 +17,7 @@ $ARGUMENTS — a GitHub URL or `owner/repo` identifier. Examples:
 
 ## Phase 1: Gather Data
 
-Clone the repo to `${CLAUDE_CODE_TMPDIR:-/tmp}/<repo-name>-eval` and launch **parallel subagents** to collect data. All subagents work from the cloned repo.
+Clone the repo to `/tmp/<repo-name>-eval-$CLAUDE_SESSION_ID` and launch **parallel subagents** to collect data. All subagents work from the cloned repo.
 
 Before launching subagents, fetch repo metadata with `gh`:
 
@@ -189,7 +189,7 @@ If the user wants to **look for alternatives**, use `WebSearch` to find competin
 After the evaluation is complete, remove the cloned repo:
 
 ```bash
-rm -rf "${CLAUDE_CODE_TMPDIR:-/tmp}/<repo-name>-eval"
+rm -rf "/tmp/<repo-name>-eval-$CLAUDE_SESSION_ID"
 ```
 
 Note: `rm -rf` is intentionally not pre-approved — the user will see a permission prompt for this cleanup step.

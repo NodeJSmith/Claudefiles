@@ -6,7 +6,7 @@ Track non-trivial errors during multi-step work so failed approaches survive con
 
 ## Error File
 
-**Path:** `${CLAUDE_CODE_TMPDIR:-/tmp}/claude-errors-$CLAUDE_SESSION_ID.md`
+**Path:** `/tmp/claude-errors-$CLAUDE_SESSION_ID.md`
 
 - Per-session, append-only
 - Auto-cleaned by OS
@@ -48,4 +48,4 @@ Append to the error file using Write tool:
 
 ## Reading the Error File
 
-Before retrying approaches on a complex problem, read `${CLAUDE_CODE_TMPDIR:-/tmp}/claude-errors-$CLAUDE_SESSION_ID.md` to avoid repeating failed strategies. Reference it in `/status` output.
+Before retrying approaches on a complex problem, read `/tmp/claude-errors-$CLAUDE_SESSION_ID.md` to avoid repeating failed strategies. Reference it in `/status` output.

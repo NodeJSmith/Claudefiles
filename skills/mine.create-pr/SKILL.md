@@ -50,7 +50,7 @@ Based on the above changes:
      - Fix typo in README
      ```
 8. Create the PR as a **draft**:
-   - Use the Write tool to write the PR body to a unique temp file — run `get-tmp-filename` as a **bare command** (not inside `$()`) to get a unique path, then use the printed path in subsequent commands
+   - Use the Write tool to write the PR body to `/tmp/mine-pr-body-$CLAUDE_SESSION_ID.md`, then use that path in subsequent commands
    - **GitHub**:
      ```bash
      gh-pr-create --draft --title "..." --body-file <tmpfile>
