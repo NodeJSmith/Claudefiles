@@ -35,14 +35,16 @@ Skills and commands exist for common workflows. **Use these instead of ad-hoc to
 | "evaluate this repo", "should I use this library" | `/mine.eval-repo` |
 | "mutation test", "do my tests actually catch bugs", "verify test quality" | `/mine.mutation-test` |
 | "find tool gaps", "what am I scripting by hand", "session archaeology", "missing cli features" | `/mine.tool-gaps` |
-| "interview this idea", "spec this out", "capture my idea", "help me define what I want to build", "what do I want to build" | `/mine.interviewer` |
+| "interview this idea", "spec this out", "capture my idea", "help me define what I want to build", "what do I want to build" | `/mine.specify` (or `/mine.interviewer` — same skill) |
+| "specify this feature", "write a spec", "define requirements" | `/mine.specify` |
 | "build this", "implement this", "make this change", "start a feature", "what workflow should I use" | `/mine.build` |
 | "design this change", "write a design doc", "investigate before planning" | `/mine.design` |
-| "draft a plan", "create implementation plan", "caliper plan" | `/mine.draft-plan` |
+| "draft a plan", "create work packages", "generate WPs" | `/mine.draft-plan` |
 | "review this plan", "check the plan", "plan review" | `/mine.plan-review` |
 | "execute the plan", "run the caliper plan", "orchestrate implementation", "start executing" | `/mine.orchestrate` |
 | "review the implementation", "post-implementation review", "did we build what we planned" | `/mine.implementation-review` |
-| "start a CR", "sophia create", "change request", "track this change" | `/mine.sophia` |
+| "move WP to doing", "advance this work package", "WP status", "kanban" | `/mine.wp` |
+| "create a constitution", "project constraints", "architecture rules" | `/mine.constitution` |
 | "evaluate skill", "compare skill variants", "skill A/B test", "grade this skill" | `/mine.skill-eval` |
 | "merge settings", "apply settings", "update claude settings" | `claude-merge-settings` |
 | "what did I work on yesterday", "find that session where...", "show me the logs" | `claude-log` |
@@ -402,9 +404,17 @@ Mutation testing — intentionally break code to verify tests catch real bugs. C
 
 Mine session history for workarounds — pipes to python/jq, inline scripts, repeated manual sequences — that reveal missing CLI functionality or unscripted patterns worth automating.
 
-### /mine.sophia
+### /mine.specify
 
-Sophia intent-tracking CLI — CR lifecycle, contracts, checkpoints, and validation for structured change management. Manages Change Requests with required contract fields, task breakdowns, trust checks, and merge workflows.
+Proportional discovery interview — extracts full intent from a vague idea and produces a `spec.md` in `design/specs/NNN-<slug>/`. Calls `spec-helper init` to create the feature directory. Runs 12-item spec quality validation before sign-off. Answers "what exactly are we building?" before the pipeline answers "how do we build it?"
+
+### /mine.constitution
+
+Guided interview that produces `.claude/constitution.md` in the project root. Captures architecture principles, testing standards, performance targets, security requirements, and other project-level constraints. `mine.design` validates new designs against this file automatically.
+
+### /mine.wp
+
+User-facing WP lane management. Thin wrapper around `spec-helper`. Commands: `move <wp-id> <lane>`, `status`, `list`. Valid lanes: planned, doing, for_review, done.
 
 ### /mine.skill-eval
 
@@ -412,31 +422,31 @@ Evaluate and compare skill variants using structured grading, blind comparison, 
 
 ### /mine.interviewer
 
-Structured interview skill — extracts full intent from a vague idea and produces a `spec.md` in `design/specs/YYYY-MM-DD-<topic>/` as input to `mine.design` or `mine.draft-plan`. Upstream of `mine.design` — answers "what exactly are we building?" before the pipeline answers "how do we build it?"
+Alias for `mine.specify`. Both names invoke identical behavior. Extracts full intent from a vague idea and produces a `spec.md` in `design/specs/NNN-<slug>/`. Answers "what exactly are we building?" before the pipeline answers "how do we build it?"
 
 ### /mine.build
 
-Single entry point for implementing changes. Assesses complexity, checks for sophia, and routes to: direct implementation + code review + ship (simple), or the full caliper chain design → draft-plan → plan-review → orchestrate → implementation-review → ship (complex). Optionally integrates sophia CR tracking throughout.
+Single entry point for implementing changes. Assesses complexity and routes to: direct implementation + code review + ship (simple), or the full caliper v2 chain specify → design → draft-plan → plan-review → orchestrate → implementation-review → ship (complex).
 
 ### /mine.design
 
-Scopes a change via AskUserQuestion, dispatches mine.research for investigation, writes design doc to `design/plans/YYYY-MM-DD-<topic>/design.md`, then gates on user sign-off before handoff to mine.draft-plan.
+Scopes a change via AskUserQuestion, checks `.claude/constitution.md` for constraint validation, dispatches mine.research for investigation, writes design doc to `design/specs/NNN-<slug>/design.md`, then gates on user sign-off before handoff to mine.draft-plan.
 
 ### /mine.draft-plan
 
-Takes a design doc and produces a strict caliper-format plan. Every task requires 5 fields: files, steps, verification, done-when, avoid+why. Writes to `design/plans/YYYY-MM-DD-<topic>/plan.md`. Prompts to run `/mine.plan-review` for review.
+Takes a design doc and generates Work Package (WP) files in `design/specs/NNN-<slug>/tasks/WP*.md`. Each WP has frontmatter (`work_package_id`, `title`, `lane`, `plan_section`, `depends_on`) and sections: Objectives & Success Criteria, Subtasks, Test Strategy, Review Guidance, Activity Log. Commits all WP files after generation.
 
 ### /mine.plan-review
 
-Reviews a caliper plan with an Opus subagent against a 6-point checklist (dependency sequencing, artifact naming, design alignment, test structure, task completeness, context independence). Gates on approve / request revisions / abandon.
+Reviews a design doc and its Work Packages with an Opus subagent against a 6-point checklist. Gates on approve / request revisions / abandon.
 
 ### /mine.orchestrate
 
-Executes an approved caliper plan task-by-task. For each task: launches an executor subagent (implements with TDD), a spec reviewer subagent (verifies against the plan — reads actual code, not the executor's self-report), and a quality reviewer subagent (DRY, error handling, tests, architecture, security). Classifies deviations automatically (bug fixes and security gaps auto-allowed; architectural changes blocked). Integrates with sophia CR tracking if active. Offers handoff to `/mine.implementation-review` after all tasks complete.
+Executes Work Packages one-by-one. For each WP: moves it to `doing`, launches an executor subagent (implements with TDD), a spec reviewer subagent (verifies against the WP and design.md), and a quality reviewer subagent. Classifies deviations (bug fixes auto-allowed; architectural changes blocked). Updates WP lane via `spec-helper wp-move` after each WP. Offers handoff to `/mine.implementation-review` after all WPs complete.
 
 ### /mine.implementation-review
 
-Post-execution quality gate for a completed caliper plan. Uses an Opus subagent to review all changed files against the original plan and design doc across 7 categories: cross-task boundaries, duplication, dead code, documentation, error handling, integration gaps, and test coverage. Gates on approve (updates plan status to `implemented`) / request fixes / abandon.
+Post-execution quality gate. Uses an Opus subagent to review all changed files against the original design doc across 7 categories: cross-WP boundaries, duplication, dead code, documentation, error handling, integration gaps, and test coverage. Gates on approve / request fixes / abandon.
 
 ---
 

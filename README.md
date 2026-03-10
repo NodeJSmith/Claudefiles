@@ -34,7 +34,7 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 
 ## Contents
 
-### Skills (29)
+### Skills (31)
 
 | Skill | Description |
 |-------|-------------|
@@ -43,20 +43,21 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `mine.audit` | Systematic codebase health audit -- surfaces aging code, brittle designs, missing tests, ranked by impact |
 | `mine.backend-patterns` | Backend architecture patterns, API design, database optimization for Python/FastAPI |
 | `mine.brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas ranked by user-chosen criteria, with handoff to research, ADRs, or planning |
-| `mine.build` | Single entry point — routes between direct implementation and the full caliper workflow (design → draft-plan → plan-review → orchestrate → implementation-review → ship), with optional sophia CR tracking |
+| `mine.build` | Single entry point — routes between direct implementation and the full caliper v2 workflow (specify → design → draft-plan → plan-review → orchestrate → implementation-review → ship) |
 | `mine.challenge` | Adversarial design critique using three parallel critics — assumes the design is wrong, finds out why, argues for better |
 | `mine.commit-push` | Commit and push changes to the current branch |
+| `mine.constitution` | Guided interview that produces `.claude/constitution.md` — project-level constraints that mine.design validates against |
 | `mine.create-pr` | Review branch changes and create a PR on GitHub or Azure DevOps |
-| `mine.design` | Scope + research + design doc + sign-off gate — raw idea to approved design |
-| `mine.draft-plan` | Design doc → strict 5-field caliper implementation plan |
+| `mine.design` | Scope + constitution check + planning interrogation + research + design doc + sign-off gate |
+| `mine.draft-plan` | Design doc → Work Package (WP) files with objectives, subtasks, test strategy, and lane tracking |
 | `mine.eval-repo` | Evaluate a third-party GitHub repo before adopting it -- test coverage, code quality, maintenance health, bus factor |
 | `mine.human-centered-design` | Human-centered frontend design -- empathy, accessibility, progressive enhancement |
-| `mine.implementation-review` | Post-execution quality gate — 7-category Opus review of a completed plan against design doc and changed files |
+| `mine.implementation-review` | Post-execution quality gate — 7-category Opus review of all changed files against design doc and Work Package (WP) files |
 | `mine.interface-design` | Craft and consistency for interface design -- dashboards, admin panels, apps, tools |
-| `mine.interviewer` | Structured interview skill — extracts full intent from a vague idea and produces a spec.md for the design pipeline |
+| `mine.interviewer` | Alias for mine.specify — structured discovery interview that produces spec.md |
 | `mine.mutation-test` | Mutation testing -- intentionally break code to verify tests catch real bugs |
-| `mine.orchestrate` | Execute a caliper plan task-by-task with implementer + spec reviewer + quality reviewer subagent loop |
-| `mine.plan-review` | Opus checklist review (6 points) + approve/revise/abandon gate |
+| `mine.orchestrate` | Execute work packages task-by-task with executor + spec reviewer + quality reviewer subagent loop; tracks WP lane state |
+| `mine.plan-review` | Opus checklist review (6 points) of design doc + work packages + approve/revise/abandon gate |
 | `mine.python-patterns` | Pythonic idioms, PEP 8, type hints, and best practices |
 | `mine.python-testing` | Python testing strategies using pytest, TDD, fixtures, mocking, parametrization |
 | `mine.refactor` | Interactive refactoring with strategy selection and incremental verification |
@@ -64,9 +65,10 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `mine.security-review` | Security checklist for auth, user input, secrets, API endpoints |
 | `mine.ship` | Commit, push, and create a PR in one step |
 | `mine.skill-eval` | Evaluate and compare skill variants — setup, execution, grading, comparison, and reporting |
-| `mine.sophia` | Sophia intent-tracking CLI — CR lifecycle, contracts, checkpoints, and validation |
+| `mine.specify` | Proportional discovery interview — extracts full intent and produces spec.md with 12-item quality validation |
 | `mine.tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |
 | `mine.ux-antipatterns` | Detect UX anti-patterns -- layout shifts, missing feedback, broken forms, a11y gaps |
+| `mine.wp` | WP lane management — move work packages between lanes, view kanban, list WPs |
 
 ### Commands (11)
 
@@ -107,7 +109,7 @@ Coding guidelines organized by language. These load automatically and shape how 
 
 **Python** (5): coding-style, hooks, patterns, security, testing
 
-### Helper Scripts (19)
+### Helper Scripts (20)
 
 CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
@@ -132,7 +134,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `git-default-branch` | Print the default branch name for the current repo |
 | `skill-eval-aggregate` | Aggregate graded skill evaluation results with pass rates and score statistics |
 | `skill-eval-run` | Run skill evaluation iterations — invoke skill variants and save outputs |
-| `sophia-install` | Download and install the sophia binary for the current platform |
+| `spec-helper` | Work Package and spec directory management — `init`, `wp-move`, `status`, `next-number` |
 
 ## Requirements
 

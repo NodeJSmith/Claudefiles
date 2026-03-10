@@ -28,7 +28,23 @@ scripts/
   hooks/         → Hook scripts (PreToolUse)
 bin/             → Helper scripts symlinked into ~/.local/bin
 install.sh       → Symlink installer
+design/
+  specs/         → Feature specifications and work packages (caliper v2)
+    NNN-slug/    → One directory per feature (NNN = zero-padded sequence)
+      spec.md    → What to build (mine.specify)
+      design.md  → How to build it (mine.design)
+      tasks/
+        WP01.md  → Work packages with lane state (mine.draft-plan)
+        WP02.md
 ```
+
+### `design/specs/` artifact convention
+
+- `spec.md` — what to build. User-facing, technology-agnostic. Never contains tasks.
+- `design.md` — how to build it. Architecture, decisions, API contracts. Never contains tasks.
+- `WP*.md` — executable work packages. The **only** place tasks live. Lane state tracked in YAML frontmatter (`planned | doing | for_review | done`), updated by `spec-helper wp-move`.
+
+Freeze gate: WPs are generated from `design.md` by `/mine.draft-plan` before `/mine.plan-review`. `/mine.plan-review` reviews `design.md` plus the existing WPs; once that review is approved, `design.md` is frozen — substantive changes require regenerating WPs via `/mine.draft-plan`.
 
 ## How the Pieces Connect
 

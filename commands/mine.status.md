@@ -33,6 +33,16 @@ Call `TaskList` to get current tasks.
 
 Read `${CLAUDE_CODE_TMPDIR:-/tmp}/claude-errors-$CLAUDE_SESSION_ID.md`. If the file doesn't exist or is empty, skip.
 
+### Work Packages (Bash + Read)
+
+Check for WP files:
+
+```bash
+spec-helper status 2>/dev/null
+```
+
+If the command is not found or exits non-zero, skip this section silently. If it returns output, include it in the status block.
+
 ## Output Format
 
 Print a compact status block. Use exactly this structure, omitting sections that have no data:
@@ -51,6 +61,8 @@ Errors (<N> this session):
   - <short description> — Attempt N, <Next value>
 
 Last commit: <subject> (<relative time>)
+
+<spec-helper status output, if any WP files found>
 ```
 
 ### Rules
@@ -59,4 +71,5 @@ Last commit: <subject> (<relative time>)
 - Show at most 8 tasks. If more exist, append `  ... and N more`
 - For errors, show only unresolved entries (no "Resolved:" in Next). If all resolved, show `Errors: all resolved`
 - If no tasks, no errors, and no git — just print `No active context.`
+- If `spec-helper status` produces no output (no WP files), omit the WP section entirely
 - Do NOT use subagents, code blocks, or headers. Plain text only.
