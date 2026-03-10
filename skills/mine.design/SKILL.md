@@ -65,13 +65,7 @@ If prior work exists and covers the same scope, skip to Phase 2 (investigate) us
 
 Dispatch mine.research as a subagent to investigate the codebase. Pass the scoping answers as context.
 
-Define the output path before launching:
-
-```bash
-get-tmp-filename
-```
-
-Use the path printed as the research brief destination.
+Use `/tmp/mine-design-research-$CLAUDE_SESSION_ID.md` as the research brief destination.
 
 Launch a general-purpose subagent with this prompt:
 

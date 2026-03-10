@@ -437,13 +437,13 @@ Check every fenced bash block in changed `.md` files. Flag any `$(` occurrence.
 [CRITICAL] $() substitution in bash code block
 File: skills/mine.foo/SKILL.md:42
 Issue: `--body "$(cat <<'EOF'...)"` will silently fail or error when Claude executes it
-Fix: Write body with the Write tool to ${CLAUDE_CODE_TMPDIR:-/tmp}/file.md, then use --body-file ${CLAUDE_CODE_TMPDIR:-/tmp}/file.md
+Fix: Write body with the Write tool to /tmp/file-$CLAUDE_SESSION_ID.md, then use --body-file /tmp/file-$CLAUDE_SESSION_ID.md
 ```
 
 Correct alternatives (show in the fix):
 - Sequential calls: run inner command first, use the result in the next call
 - `xargs -I {}` piping: `git-default-branch | xargs -I {} git log "origin/{}..HEAD"`
-- `--body-file ${CLAUDE_CODE_TMPDIR:-/tmp}/file.md` instead of `--body "$(cat ...)"`
+- `--body-file /tmp/file-$CLAUDE_SESSION_ID.md` instead of `--body "$(cat ...)"`
 
 ### Frontmatter Completeness (HIGH)
 
@@ -520,7 +520,7 @@ agnix .
 Each Bash invocation triggers a permission prompt. To minimize friction:
 
 1. **Batch shell checks into a single script file.** Instead of running N one-off commands to test logic, write all checks to a single temporary script and run it once.
-2. **Use `${CLAUDE_CODE_TMPDIR:-/tmp}/review-checks-*.sh`** as the script path. Write the file, make it executable, run it, done — one permission prompt instead of many.
+2. **Use `/tmp/review-checks-$CLAUDE_SESSION_ID.sh`** as the script path. Write the file, make it executable, run it, done — one permission prompt instead of many.
 
 Example — instead of running these separately:
 ```bash
@@ -534,7 +534,7 @@ diff <(sort file1) <(sort file2)
 Do this:
 ```bash
 # GOOD: 1 script file = 1 permission prompt
-# Write all checks to ${CLAUDE_CODE_TMPDIR:-/tmp}/review-checks-<hash>.sh, then run it
+# Write all checks to /tmp/review-checks-$CLAUDE_SESSION_ID.sh, then run it
 #!/usr/bin/env bash
 set -euo pipefail
 

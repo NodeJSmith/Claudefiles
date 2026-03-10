@@ -49,15 +49,9 @@ If no WP files exist yet, proceed with a design-only review and note in the summ
 
 ## Phase 2: Dispatch Reviewer Subagent
 
-### Prepare temp file
+### Review output path
 
-Get a temp file path for the review output:
-
-```bash
-get-tmp-filename
-```
-
-Use this exact path — do not construct it manually.
+Use `/tmp/mine-plan-review-$CLAUDE_SESSION_ID.md` for the review output.
 
 ### Read reviewer prompt
 

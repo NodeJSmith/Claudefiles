@@ -101,12 +101,12 @@ spec-helper wp-move <feature_dir_name> <wp_id> doing
 
 Where `<feature_dir_name>` is the directory name (e.g., `001-user-auth`), not the full path.
 
-### Step 2: Get temp files
+### Step 2: Note temp file paths
 
-Make three separate Bash tool calls, each a bare `get-tmp-filename` invocation. Record the path printed by each call:
-- First call → executor output path
-- Second call → spec reviewer output path
-- Third call → quality reviewer output path
+Use these session-scoped paths for subagent outputs:
+- Executor output: `/tmp/mine-orchestrate-executor-$CLAUDE_SESSION_ID.md`
+- Spec reviewer output: `/tmp/mine-orchestrate-spec-reviewer-$CLAUDE_SESSION_ID.md`
+- Quality reviewer output: `/tmp/mine-orchestrate-quality-reviewer-$CLAUDE_SESSION_ID.md`
 
 ### Step 3: Launch executor subagent
 
