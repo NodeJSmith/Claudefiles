@@ -51,7 +51,9 @@ _CONCAT_KEYS: set[str] = {"allow", "deny", "allowedTools", "ask"}
 _SKIP_PROMOTE_KEYS: set[str] = {"model"}
 
 
-def _list_strategy(config: Merger, path: list[str], base: list[Any], nxt: list[Any]) -> list[Any]:
+def _list_strategy(
+    config: Merger, path: list[str], base: list[Any], nxt: list[Any]
+) -> list[Any]:
     """Custom list merge strategy based on JSON path."""
     key = path[-1] if path else None
     parent = path[0] if path else None
@@ -88,7 +90,9 @@ def _print_additions_summary(additions: dict[str, Any], indent: int = 4) -> None
         if isinstance(val, list):
             print(f"{prefix}+ {key}: {len(val)} new item(s)")
             for item in val:
-                print(f"{prefix}  - {json.dumps(item) if isinstance(item, dict) else item}")
+                print(
+                    f"{prefix}  - {json.dumps(item) if isinstance(item, dict) else item}"
+                )
         elif isinstance(val, dict):
             print(f"{prefix}+ {key}:")
             _print_additions_summary(val, indent + 2)
@@ -118,8 +122,7 @@ def compute_additions(
                 for x in (expected_val if isinstance(expected_val, list) else [])
             }
             new_items = [
-                x for x in runtime_val
-                if (k := _serialize_item(x)) not in expected_set
+                x for x in runtime_val if (k := _serialize_item(x)) not in expected_set
             ]
             if new_items:
                 additions[key] = new_items
@@ -146,7 +149,10 @@ def load_json(path: Path) -> dict[str, Any] | None:
             return None
         data = json.loads(content)
         if not isinstance(data, dict):
-            print(f"ERROR: {path} must contain a JSON object, got {type(data).__name__}", file=sys.stderr)
+            print(
+                f"ERROR: {path} must contain a JSON object, got {type(data).__name__}",
+                file=sys.stderr,
+            )
             sys.exit(1)
         return data
     except json.JSONDecodeError as e:
@@ -154,19 +160,81 @@ def load_json(path: Path) -> dict[str, Any] | None:
         sys.exit(1)
 
 
+def _cmd_inspect(output_file: Path) -> int:
+    """Read ~/.claude/settings.json and print a human-readable summary."""
+    data = load_json(output_file)
+    if data is None:
+        print(
+            f"ERROR: {output_file} not found — run claude-merge-settings first",
+            file=sys.stderr,
+        )
+        return 1
+
+    perms = data.get("permissions", {})
+    allow = sorted(perms.get("allow", []))
+    deny = sorted(perms.get("deny", []))
+    hooks = data.get("hooks", {})
+    allowed_tools = sorted(data.get("allowedTools", []))
+
+    if allow:
+        print("=== permissions.allow ===")
+        for p in allow:
+            print(f"  {p}")
+
+    if deny:
+        print("\n=== permissions.deny ===")
+        for p in deny:
+            print(f"  {p}")
+
+    if allowed_tools:
+        print("\n=== allowedTools ===")
+        for t in allowed_tools:
+            print(f"  {t}")
+
+    if hooks:
+        print("\n=== hooks ===")
+        for hook_type, entries in hooks.items():
+            print(f"  {hook_type}:")
+            for entry in entries:
+                matcher = entry.get("matcher", "*")
+                cmds = entry.get("hooks", [])
+                for cmd in cmds:
+                    print(f"    [{matcher}] {cmd.get('command', '')[:80]}")
+
+    return 0
+
+
 def main() -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Merge Claude Code settings layers")
+    parser.add_argument(
+        "--inspect",
+        action="store_true",
+        help="Read ~/.claude/settings.json and print permissions/hooks summary (no merge)",
+    )
+    args, _ = parser.parse_known_args()
+
     home = Path.home()
+    output_file = home / ".claude" / "settings.json"
+
+    if args.inspect:
+        return _cmd_inspect(output_file)
 
     machine_path = home / ".claude" / "settings.machine.json"
     layers: list[tuple[str, Path]] = [
         ("Claudefiles", home / "Claudefiles" / "settings.json"),
-        ("Dotfiles", Path(os.environ.get(
-            "CLAUDE_DOTFILES_SETTINGS",
-            str(home / "Dotfiles" / "config" / "claude" / "settings.json"),
-        ))),
+        (
+            "Dotfiles",
+            Path(
+                os.environ.get(
+                    "CLAUDE_DOTFILES_SETTINGS",
+                    str(home / "Dotfiles" / "config" / "claude" / "settings.json"),
+                )
+            ),
+        ),
         ("Machine", machine_path),
     ]
-    output_file = home / ".claude" / "settings.json"
 
     merged: dict[str, Any] = {}
     active: list[str] = []
@@ -197,7 +265,9 @@ def main() -> int:
             if not sys.stdin.isatty():
                 print("  Non-interactive — skipping promotion.")
             else:
-                answer = input("\n  Promote these to machine.json? [y/N] ").strip().lower()
+                answer = (
+                    input("\n  Promote these to machine.json? [y/N] ").strip().lower()
+                )
                 if answer == "y":
                     merger.merge(machine_data, additions)
                     _write_json(machine_path, machine_data)
