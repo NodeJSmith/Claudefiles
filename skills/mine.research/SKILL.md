@@ -341,7 +341,7 @@ AskUserQuestion:
     - label: "Record the decision (/mine.adrs)"
       description: "Create an ADR in design/adrs/ to formalize the architectural choice"
     - label: "Build it (/mine.build)"
-      description: "Spec → design → implement — routes to direct implementation or full caliper workflow based on complexity"
+      description: "Direct implementation or full caliper workflow, depending on complexity"
     - label: "Prototype first"
       description: "Build a small proof-of-concept before committing to the full approach"
     - label: "I need to think about it"

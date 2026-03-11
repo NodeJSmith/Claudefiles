@@ -252,7 +252,7 @@ AskUserQuestion:
     - label: "Record the direction as an ADR"
       description: "/mine.adrs — capture the decision with context and alternatives"
     - label: "Build it (/mine.build)"
-      description: "Spec → design → implement — routes to direct implementation or full caliper workflow based on complexity"
+      description: "Direct implementation or full caliper workflow, depending on complexity"
     - label: "Save the session"
       description: "Write to design/brainstorms/YYYY-MM-DD-<topic>/brainstorm.md"
     - label: "Create issues / save to backlog"

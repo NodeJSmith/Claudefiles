@@ -151,7 +151,7 @@ AskUserQuestion:
     - label: "Refactor first"
       description: "Clean up the structure now, write tests against the new shape"
     - label: "Build the fix (/mine.build)"
-      description: "Spec → design → implement via the full caliper workflow — for complex fixes that need planning"
+      description: "Direct implementation or full caliper workflow, depending on complexity"
     - label: "Create an issue"
       description: "File a GitHub issue capturing this finding — deal with it later"
     - label: "Skip"
@@ -164,7 +164,7 @@ Based on the user's choice per finding:
 
 - **Structural problems** (long files, god classes, tangled modules) → run `/mine.refactor`
 - **Architectural problems** (wrong abstractions, missing layers, circular dependencies) → create an ADR with `/mine.adrs`, then plan the rearchitecture
-- **Complex fixes needing planning** → run `/mine.build` — assesses complexity and routes to direct implementation or the full specify → design → plan → orchestrate pipeline
+- **Complex fixes needing planning** → run `/mine.build` — assesses complexity and routes to direct implementation or the full caliper workflow
 - **Test coverage gaps** → write tests using the mine.python-testing skill
 - **Security concerns** → hand off to the mine.security-review skill
 - **Create an issue** → file a GitHub issue (see below)

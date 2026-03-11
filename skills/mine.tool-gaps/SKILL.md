@@ -201,7 +201,7 @@ For each selected gap, confirm the action:
 Based on user decisions:
 
 **Implement now:**
-Hand off to `/mine.build` with the gap description. Do not draft code in this skill — `/mine.build` assesses complexity and routes to direct implementation or the full specify → design → plan → orchestrate pipeline. Say:
+Hand off to `/mine.build` with the gap description. Do not draft code in this skill — `/mine.build` assesses complexity and routes to direct implementation or the full caliper workflow. Say:
 > "Handing off to `/mine.build` for `<gap name>`. This will assess complexity and route to the right implementation workflow."
 
 **Create issue:**

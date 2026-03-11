@@ -30,7 +30,7 @@ Paraphrase the request back in one or two sentences to confirm understanding bef
 
 ### Detect prior analysis
 
-Before routing, check whether the conversation already contains findings from an analysis skill (`/mine.challenge`, `/mine.audit`, `/mine.brainstorm`, `/mine.research`, `/mine.5whys`). Signals:
+Before routing, check whether the conversation already contains findings from an analysis skill or command (`/mine.challenge`, `/mine.audit`, `/mine.brainstorm`, `/mine.research`, `/mine.5whys`). Signals:
 
 - Structured findings with severity labels (CRITICAL / HIGH / MEDIUM)
 - A phased implementation plan produced by a planner agent

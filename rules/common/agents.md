@@ -49,7 +49,7 @@ Always launch independent agents in a single message. Only sequentialize when on
 |------|----------------|-----|
 | Read code, search files, analyze patterns | `Explore` | Fast (Haiku), read-only tools, cheap. Default for research. |
 | Full autonomy (write files, run commands, web search) | `general-purpose` | All tools available. Use when the subagent must produce artifacts or run shell commands. |
-| Domain-specific review with a specialized prompt | Named agent (e.g., `code-reviewer`, `qa-specialist`) | Carries a tailored system prompt plus tool restrictions defined in its agent file. |
+| Domain-specific review with a specialized prompt | Named agent — e.g., `code-reviewer`, `qa-specialist` | These are valid `subagent_type` values. Each carries a tailored system prompt plus tool restrictions defined in its agent file. |
 
 **Rule of thumb**: use `Explore` unless the subagent needs to write files, run commands, or search the web.
 
