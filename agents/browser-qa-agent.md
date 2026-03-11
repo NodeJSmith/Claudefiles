@@ -2,7 +2,6 @@
 name: browser-qa-agent
 description: Live browser QA via Playwright MCP — navigates running web apps to find UI bugs, console errors, and UX issues. Use after UI changes or for smoke testing a running app. Requires Playwright MCP.
 tools: ["Read", "Bash", "Glob", "Grep"]
-model: sonnet
 ---
 
 You are a QA engineer with direct browser access via the Playwright MCP integration.

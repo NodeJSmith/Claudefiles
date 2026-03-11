@@ -53,6 +53,12 @@ Always launch independent agents in a single message. Only sequentialize when on
 
 **Rule of thumb**: use `Explore` unless the subagent needs to write files, run commands, or search the web.
 
+### Model inheritance
+
+All agent definitions inherit the parent session's model by default — no `model` frontmatter is set. This means if you're running on Opus, your subagents run on Opus too. `Explore` is the exception: it always uses Haiku for speed.
+
+To override for a specific agent call, pass `model: "sonnet"` (or `"opus"`, `"haiku"`) in the Agent tool call. This is useful for cost control on high-volume subagent patterns (e.g., running 10+ parallel graders on Haiku instead of Opus).
+
 ### Collecting results: inline vs temp files
 
 **Inline returns** (default) — the subagent's final message comes back to your context:
