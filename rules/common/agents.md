@@ -43,6 +43,8 @@ Message 3: Agent(description="Check API types", ...)
 
 Always launch independent agents in a single message. Only sequentialize when one agent's output feeds another's input.
 
+> **Note:** Some older SKILL.md files may still refer to parallelism as "Task calls". These map to the same underlying `Agent` subagent mechanism described here — there is no separate "Task" tool.
+
 ### Choosing a subagent type
 
 | Need | `subagent_type` | Why |

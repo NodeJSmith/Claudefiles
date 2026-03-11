@@ -64,7 +64,7 @@ If **prior analysis detected** (findings, plan, or critique already in context):
 
 ```
 AskUserQuestion:
-  question: "Prior analysis detected — findings and a plan already exist. How should we proceed? (Complexity signal: <Simple|Complex>)"
+  question: "Prior analysis detected — findings and/or a plan already exist. How should we proceed? (Complexity signal: <Simple|Complex>)"
   header: "Workflow"
   multiSelect: false
   options:
@@ -194,7 +194,7 @@ Then chain the following steps:
 
 6. After implementation review completes:
    - If **APPROVE**: proceed to the ship gate below.
-   - If **REQUEST_FIXES**: surface the blocking issues. Stop here.
+   - If **REQUEST_FIXES**: surface the blocking issues. Tell the user to address them and re-run `/mine.orchestrate`, then `/mine.implementation-review`. Stop here.
    - If **ABANDON**: confirm abandonment and stop.
 
    Ship gate (on APPROVE):
