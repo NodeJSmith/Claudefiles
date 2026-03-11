@@ -21,7 +21,7 @@ Located in `~/.claude/agents/`:
 
 No user prompt needed:
 1. Complex feature requests - Use **planner** agent
-2. Code just written/modified - **MUST** use **code-reviewer** agent before committing (see `rules/common/git-workflow.md`)
+2. Code just written/modified - **MUST** use **code-reviewer** agent before committing; exceptions: documentation-only changes or explicit user skip (see `rules/common/git-workflow.md`)
 
 ## Parallel Task Execution
 

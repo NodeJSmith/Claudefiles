@@ -17,7 +17,7 @@ $ARGUMENTS — a GitHub URL or `owner/repo` identifier. Examples:
 
 ## Phase 1: Gather Data
 
-Run `get-skill-tmpdir <repo-name>-eval` to create a unique directory, then clone the repo into it. Launch **parallel subagents** to collect data. All subagents work from the cloned repo.
+Run `get-skill-tmpdir <repo-name>-eval` to create a unique directory (use the repository name only — no owner prefix or `/`; e.g., `flask` for `pallets/flask`), then clone the repo into it. Launch **parallel subagents** to collect data. All subagents work from the cloned repo.
 
 Before launching subagents, fetch repo metadata with `gh`:
 
