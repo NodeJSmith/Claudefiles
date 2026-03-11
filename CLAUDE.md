@@ -76,6 +76,21 @@ The Bash tool wraps commands in `eval '...' < /dev/null`, which breaks certain s
 
 This applies to all skills, commands, rules, and agent prompts in this repo.
 
+## Temp File Convention
+
+Skills that write temp files use `get-skill-tmpdir` (in `bin/`) to create a unique directory per run:
+
+1. Run `get-skill-tmpdir <skill-name>` — prints a unique directory path (e.g., `/tmp/claude-mine-challenge-a8Kx3Q`)
+2. Use fixed filenames inside that directory (e.g., `<dir>/senior.md`, `<dir>/message.md`)
+
+This replaces the old `$CLAUDE_SESSION_ID` pattern, which failed in subagents and concurrent sessions. The helper:
+- Uses `mktemp -d` for OS-guaranteed uniqueness
+- Prefixes all paths with `claude-` (matches `Write(/tmp/claude-**)` allowlist)
+- Respects `$CLAUDE_CODE_TMPDIR` for sandbox environments
+- Is pre-allowed via `Bash(get-skill-tmpdir:*)` in settings.json
+
+**Do NOT use `$CLAUDE_SESSION_ID` in temp file paths.** It's a SKILL.md string substitution that doesn't propagate to subagents or Bash tool calls.
+
 ## Making Changes
 
 When editing skills or commands:

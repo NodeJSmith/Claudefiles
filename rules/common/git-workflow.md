@@ -4,6 +4,12 @@
 
 Prefer `git -C <path>` over `cd <path> && git` — compound commands with `cd` require a separate permission approval. Using `git -C` avoids unnecessary prompts and reduces bare repository attack surface.
 
+## Mandatory Code Review Before Commit
+
+**ALWAYS run the `code-reviewer` agent before committing changes.** This applies to all changes — features, bug fixes, refactors, one-off edits. The only exceptions are documentation-only changes (pure markdown, no code) and changes where the user explicitly skips review.
+
+Do not wait for the user to ask. If you wrote or modified code and are about to commit, run code-reviewer first.
+
 ## Commit Message Format
 
 ```

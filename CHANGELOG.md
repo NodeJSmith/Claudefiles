@@ -2,6 +2,15 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-03-11
+
+### Changed
+- Replaced `$CLAUDE_SESSION_ID` temp file paths with `get-skill-tmpdir` helper across all 13 skills — fixes collisions in concurrent sessions
+- Code-reviewer agent is now mandatory before all commits, not just feature workflows
+
+### Added
+- `bin/get-skill-tmpdir` — create unique `claude-`-prefixed temp directories for skill runs via `mktemp -d`
+
 ## 2026-03-10
 
 ### Added

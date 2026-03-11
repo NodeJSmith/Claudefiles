@@ -101,12 +101,14 @@ spec-helper wp-move <feature_dir_name> <wp_id> doing
 
 Where `<feature_dir_name>` is the directory name (e.g., `001-user-auth`), not the full path.
 
-### Step 2: Note temp file paths
+### Step 2: Create temp directory
 
-Use these session-scoped paths for subagent outputs:
-- Executor output: `/tmp/mine-orchestrate-executor-$CLAUDE_SESSION_ID.md`
-- Spec reviewer output: `/tmp/mine-orchestrate-spec-reviewer-$CLAUDE_SESSION_ID.md`
-- Quality reviewer output: `/tmp/mine-orchestrate-quality-reviewer-$CLAUDE_SESSION_ID.md`
+Run `get-skill-tmpdir mine-orchestrate` and note the directory path.
+
+Use these paths for subagent outputs:
+- Executor output: `<dir>/executor.md`
+- Spec reviewer output: `<dir>/spec-reviewer.md`
+- Quality reviewer output: `<dir>/quality-reviewer.md`
 
 These paths are **reused each WP iteration** — each WP's executor output overwrites the previous. This is safe because the files are read immediately within the same iteration before the loop advances. Per-WP output is not retained on disk after the next WP begins.
 

@@ -109,7 +109,7 @@ Coding guidelines organized by language. These load automatically and shape how 
 
 **Python** (5): coding-style, hooks, patterns, security, testing
 
-### Helper Scripts (20)
+### Helper Scripts (21)
 
 CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
@@ -123,6 +123,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `claude-log` | Query Claude Code JSONL session logs — search, stats, skill/agent usage, permission auditing |
 | `claude-merge-settings` | Three-layer settings merge tool for `~/.claude/settings.json` |
 | `claude-tmux` | Tmux session helper -- rename, list, create, capture, kill sessions |
+| `get-skill-tmpdir` | Create unique temp directories for skill runs |
 | `get-tmp-filename` | Create temp files for command output capture |
 | `gh-issue` | Run `gh issue` subcommands using bot token if available, personal token otherwise |
 | `gh-pr-create` | Create a GitHub PR using bot token if available, personal token otherwise |

@@ -165,7 +165,7 @@ Offer to enter plan mode. Do not draft code in this skill — that's plan mode's
 **Create issue:**
 Draft and file immediately. Use the Write tool to save the body first, then create the issue:
 
-1. Write the body with the Write tool to `/tmp/mine-tool-gaps-issue-$CLAUDE_SESSION_ID.md`:
+1. Run `get-skill-tmpdir mine-tool-gaps-issue` to create a temp directory, then write the body to `<dir>/body.md`:
    ```markdown
    ## Gap
 
@@ -188,7 +188,7 @@ Draft and file immediately. Use the Write tool to save the body first, then crea
 
 2. Create the issue:
    ```bash
-   gh-issue create --title "<concise gap description>" --body-file "/tmp/mine-tool-gaps-issue-$CLAUDE_SESSION_ID.md"
+   gh-issue create --title "<concise gap description>" --body-file "<dir>/body.md"
    ```
 
 **Update capabilities.md:**
