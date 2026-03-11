@@ -59,13 +59,15 @@ AskUserQuestion:
 
 ## Phase 2: Launch Three Parallel Critics
 
-Before launching, generate a temp file path for each critic's report using these paths (substitute `$CLAUDE_SESSION_ID`):
+Before launching, create a unique temp directory for this run:
 
-```
-/tmp/mine-challenge-senior-$CLAUDE_SESSION_ID.md
-/tmp/mine-challenge-architect-$CLAUDE_SESSION_ID.md
-/tmp/mine-challenge-adversarial-$CLAUDE_SESSION_ID.md
-```
+1. Run: `get-skill-tmpdir mine-challenge`
+2. Note the directory path printed (e.g., `/tmp/claude-mine-challenge-a8Kx3Q`)
+
+Subagents write their reports inside this directory:
+- `<dir>/senior.md`
+- `<dir>/architect.md`
+- `<dir>/adversarial.md`
 
 Launch all three as parallel Task calls with `subagent_type: general-purpose`. Each critic receives:
 - The code under review (file paths + key excerpts)
@@ -230,9 +232,9 @@ Include an appendix in the saved report with the three temp file paths for refer
 
 These files contain each critic's unfiltered findings and are available for the duration of this session:
 
-- Senior Engineer: /tmp/mine-challenge-senior-<session-id>.md
-- Systems Architect: /tmp/mine-challenge-architect-<session-id>.md
-- Adversarial Reviewer: /tmp/mine-challenge-adversarial-<session-id>.md
+- Senior Engineer: <dir>/senior.md
+- Systems Architect: <dir>/architect.md
+- Adversarial Reviewer: <dir>/adversarial.md
 ```
 
 ## Principles

@@ -31,7 +31,7 @@ Call `TaskList` to get current tasks.
 
 ### Errors (Read)
 
-Read `/tmp/claude-errors-$CLAUDE_SESSION_ID.md`. If the file doesn't exist or is empty, skip.
+Look for error files in `/tmp/claude-errors-*/errors.md` (glob for directories created by `get-skill-tmpdir claude-errors`). Read the most recently modified match. If no match exists or the file is empty, skip.
 
 ### Work Packages (Bash + Read)
 

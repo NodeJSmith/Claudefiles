@@ -51,7 +51,7 @@ If no WP files exist yet, proceed with a design-only review and note in the summ
 
 ### Review output path
 
-Use `/tmp/mine-plan-review-$CLAUDE_SESSION_ID.md` for the review output.
+Run `get-skill-tmpdir mine-plan-review` and use `<dir>/review.md` for the review output.
 
 ### Read reviewer prompt
 

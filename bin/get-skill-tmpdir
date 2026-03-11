@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Create a unique temp directory for a skill run.
+# Prints the directory path to stdout.
+#
+# Usage (two-call pattern — do NOT wrap in $() in Bash tool calls):
+#   get-skill-tmpdir mine-challenge
+#   # prints: /tmp/claude-mine-challenge-a8Kx3Q
+#   # then pass this path to subagents or use fixed filenames inside it
+#
+# All paths start with claude- for consistent allowlisting.
+# Permission: add Bash(get-skill-tmpdir:*) to allowedTools for auto-approve.
+set -euo pipefail
+prefix="${1:?usage: get-skill-tmpdir <skill-name>}"
+mktemp -d "${CLAUDE_CODE_TMPDIR:-/tmp}/claude-${prefix}-XXXXXX"

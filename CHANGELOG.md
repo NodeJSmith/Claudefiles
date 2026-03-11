@@ -4,12 +4,16 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-03-11
 
+### Changed
+- Replaced `$CLAUDE_SESSION_ID` temp file paths with `get-skill-tmpdir` helper across all 13 skills — fixes collisions in concurrent sessions (#70)
+- Code-reviewer agent is now mandatory before all commits, not just feature workflows (#70)
+
 ### Added
+- `bin/get-skill-tmpdir` — create unique `claude-`-prefixed temp directories for skill runs via `mktemp -d` (#70)
 - `claude-log grep <pattern>` — search bash commands across all sessions by regex with session/timestamp context; eliminates for-loops over `claude-log extract` (#69)
 - `claude-log extract --bash --grep <pattern>` — filter extracted bash commands by regex within a single session (#69)
 - `claude-merge-settings --inspect` — read-only summary of `permissions.allow`, `permissions.deny`, `allowedTools`, and `hooks` from the merged settings; no merge performed (#69)
 - `mine.tool-gaps` Phase 2.5 — permission friction signal that classifies for-loop artifacts and multi-call batching as batch mode gaps rather than allow-list gaps (#69)
-
 ## 2026-03-10
 
 ### Added

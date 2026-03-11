@@ -25,6 +25,8 @@ Remember the path printed by step 1 and substitute it directly into step 2.
 
 **Do NOT** wrap step 1 in a variable assignment like `_f=$(get-tmp-filename)`. The bare command is pre-allowed; any wrapper breaks the permission match and triggers a prompt.
 
+For skill-specific temp files (subagent output, commit messages, PR bodies), use `get-skill-tmpdir` instead — see CLAUDE.md "Temp File Convention".
+
 ## Setup
 
 Add to `allowedTools` in `~/.claude/settings.json` for auto-approve:

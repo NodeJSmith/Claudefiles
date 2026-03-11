@@ -16,6 +16,7 @@
       "Edit(/tmp/**)",
       "Bash(claude-log:*)",
       "Bash(get-tmp-filename)",
+      "Bash(get-skill-tmpdir:*)",
       "Bash(git-default-branch)",
       "Bash(git-branch-log)",
       "Bash(git-branch-diff-stat)",

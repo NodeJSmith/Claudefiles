@@ -69,7 +69,7 @@ Read each changed file. If the list is large (more than 15 files), prioritize fi
 
 ### Review output path
 
-Use `/tmp/mine-impl-review-$CLAUDE_SESSION_ID.md` for the review output.
+Run `get-skill-tmpdir mine-impl-review` and use `<dir>/review.md` for the review output.
 
 ### Read reviewer prompt
 

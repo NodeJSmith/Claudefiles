@@ -52,14 +52,16 @@ If reading code: use Glob, Grep, and Read to find files relevant to the topic be
 
 ## Phase 2: Launch Four Parallel Thinkers
 
-Before launching, construct temp file paths (substitute the actual session ID for `$CLAUDE_SESSION_ID`):
+Before launching, create a unique temp directory for this run:
 
-```
-/tmp/mine-brainstorm-pragmatist-$CLAUDE_SESSION_ID.md
-/tmp/mine-brainstorm-advocate-$CLAUDE_SESSION_ID.md
-/tmp/mine-brainstorm-moonshot-$CLAUDE_SESSION_ID.md
-/tmp/mine-brainstorm-wildcard-$CLAUDE_SESSION_ID.md
-```
+1. Run: `get-skill-tmpdir mine-brainstorm`
+2. Note the directory path printed (e.g., `/tmp/claude-mine-brainstorm-Kx3a8Q`)
+
+Each thinker writes to a fixed filename inside this directory:
+- `<dir>/pragmatist.md`
+- `<dir>/advocate.md`
+- `<dir>/moonshot.md`
+- `<dir>/wildcard.md`
 
 Launch all four as parallel Task calls with `subagent_type: general-purpose`. Each thinker:
 - Receives the topic, constraints, prior attempts, and any codebase context
@@ -286,10 +288,10 @@ Include an appendix with the four temp file paths so individual thinker output i
 
 These files contain each thinker's unfiltered output and are available for the duration of this session:
 
-- Pragmatist: /tmp/mine-brainstorm-pragmatist-<session-id>.md
-- User Advocate: /tmp/mine-brainstorm-advocate-<session-id>.md
-- Moonshot Thinker: /tmp/mine-brainstorm-moonshot-<session-id>.md
-- Wildly Imaginative: /tmp/mine-brainstorm-wildcard-<session-id>.md
+- Pragmatist: <dir>/pragmatist.md
+- User Advocate: <dir>/advocate.md
+- Moonshot Thinker: <dir>/moonshot.md
+- Wildly Imaginative: <dir>/wildcard.md
 ```
 
 ## Principles

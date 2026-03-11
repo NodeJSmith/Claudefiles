@@ -65,7 +65,7 @@ If prior work exists and covers the same scope, skip to Phase 2 (investigate) us
 
 Dispatch mine.research as a subagent to investigate the codebase. Pass the scoping answers as context.
 
-Use `/tmp/mine-design-research-$CLAUDE_SESSION_ID.md` as the research brief destination.
+Run `get-skill-tmpdir mine-design-research` and use `<dir>/brief.md` as the research brief destination.
 
 Launch a general-purpose subagent with this prompt:
 
