@@ -192,7 +192,7 @@ AskUserQuestion:
 ```
 
 For each selected gap, confirm the action:
-- **Implement now** → hand off to plan mode
+- **Implement now** → hand off to `/mine.build`
 - **Create an issue** → `gh-issue create` with the gap description
 - **Note it** → acknowledged, no action
 
@@ -201,8 +201,8 @@ For each selected gap, confirm the action:
 Based on user decisions:
 
 **Implement now:**
-Offer to enter plan mode. Do not draft code in this skill — that's plan mode's job. Say:
-> "Ready to enter plan mode for `<gap name>`. This will plan the implementation as a flag/subcommand addition to `<tool>`. Should I proceed?"
+Hand off to `/mine.build` with the gap description. Do not draft code in this skill — `/mine.build` assesses complexity and routes to direct implementation or the full specify → design → plan → orchestrate pipeline. Say:
+> "Handing off to `/mine.build` for `<gap name>`. This will assess complexity and route to the right implementation workflow."
 
 **Create issue:**
 Draft and file immediately. Use the Write tool to save the body first, then create the issue:

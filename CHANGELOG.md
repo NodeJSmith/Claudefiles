@@ -8,6 +8,8 @@ All notable changes to this Claudefiles repository are documented here.
 - Replaced `$CLAUDE_SESSION_ID` temp file paths with `get-skill-tmpdir` helper across all 13 skills — fixes collisions in concurrent sessions (#70)
 - Code-reviewer agent is now mandatory before all commits, not just feature workflows (#70)
 - Expanded `rules/common/agents.md` parallel execution guidance — subagent type selection, inline vs temp file output, foreground vs background, context passing, and standard phrasing for skills (#71)
+- Added worktree safety rules to `rules/common/worktrees.md` — edit only worktree files, never run install.sh, use `git -C` (#71)
+- Updated analysis skill handoffs to offer `/mine.build` caliper workflow: `mine.challenge`, `mine.audit`, `mine.brainstorm`, `mine.research`, `mine.tool-gaps` (#71)
 
 ### Added
 - `bin/get-skill-tmpdir` — create unique `claude-`-prefixed temp directories for skill runs via `mktemp -d` (#70)

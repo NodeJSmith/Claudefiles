@@ -178,6 +178,8 @@ AskUserQuestion:
       description: "Go deeper on one concern — understand the tradeoffs"
     - label: "Hand off to /mine.refactor"
       description: "Structural fixes — rearrange the code within the current design"
+    - label: "Build the fix (/mine.build)"
+      description: "Spec → design → implement via the full caliper workflow"
     - label: "Record an architectural decision (/mine.adrs)"
       description: "Capture a significant design direction change"
     - label: "Create issues for tracked concerns"
@@ -193,6 +195,8 @@ When offering "Read a specific critic's full report", list the three temp file p
 ## Phase 5: Handoffs
 
 **Structural fixes** → `/mine.refactor`
+
+**Build the fix** → `/mine.build` — routes to direct implementation or the full specify → design → plan → orchestrate pipeline based on complexity. Use when the finding needs new code, not just rearrangement.
 
 **Architectural decisions** → `/mine.adrs`
 
