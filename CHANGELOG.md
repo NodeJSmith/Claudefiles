@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-03-11
+
+### Added
+- `claude-log extract --bash --grep <pattern>` — filter extracted bash commands by regex; eliminates repeated `python3 -c` post-processing to search command content (#69)
+- `claude-merge-settings --inspect` — read-only summary of `permissions.allow`, `permissions.deny`, `allowedTools`, and `hooks` from the merged settings; no merge performed (#69)
+
 ## 2026-03-10
 
 ### Added
