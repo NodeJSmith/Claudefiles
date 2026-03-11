@@ -75,6 +75,8 @@ Skip WPs that are already in `lane: done`.
 
 ## Phase 2: Per-WP Execution Loop
 
+Initialize a consecutive WARN counter at 0.
+
 For each WP from the start point to the last WP:
 
 ### Step 1: Announce the WP
@@ -218,7 +220,21 @@ Quality review: PASS|NEEDS_ATTENTION
 
 Then gate based on verdict:
 
-**PASS or WARN** — auto-continue to the next WP. Display the summary but do not ask for confirmation. Move this WP to `done` and proceed to Step 3 for the next WP.
+**PASS or WARN** — auto-continue to the next WP. Display the summary but do not ask for confirmation. Move this WP to `done` and proceed to Step 3 for the next WP. If WARN, increment the consecutive WARN counter; if PASS, reset it to 0.
+
+**WARN accumulation checkpoint:** If the consecutive WARN counter reaches 3, pause and ask:
+```
+AskUserQuestion:
+  question: "3 consecutive WPs received WARN verdicts. This may indicate a systemic issue. Continue or investigate?"
+  header: "WARN accumulation"
+  multiSelect: false
+  options:
+    - label: "Continue — warnings are acceptable"
+      description: "Reset the counter and keep going"
+    - label: "Stop and investigate"
+      description: "Pause execution to review the pattern"
+```
+A PASS verdict resets the consecutive WARN counter to zero.
 
 **FAIL or non-architectural BLOCKED** — ask the user:
 ```
