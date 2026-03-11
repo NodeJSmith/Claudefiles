@@ -33,7 +33,8 @@
       "Bash(uv:*)",
       "Skill(mine.commit-push)",
       "Bash(claude-tmux:*)",
-      "Bash(which:*)"
+      "Bash(which:*)",
+      "Bash(gog:*)"
     ],
     "ask": [
       "Bash(uv run python:*)"
