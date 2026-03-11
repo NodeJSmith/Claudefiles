@@ -28,11 +28,25 @@ Paraphrase the request back in one or two sentences to confirm understanding bef
 
 ## Phase 2: Route
 
-Provide a brief complexity signal based on the request:
+### Detect prior analysis
+
+Before routing, check whether the conversation already contains findings from an analysis skill (`/mine.challenge`, `/mine.audit`, `/mine.brainstorm`, `/mine.research`, `/mine.5whys`). Signals:
+
+- Structured findings with severity labels (CRITICAL / HIGH / MEDIUM)
+- A phased implementation plan produced by a planner agent
+- Backlog items already saved to `.claude/backlog.md` or filed as issues
+- Temp file reports from critic/thinker subagents
+
+If prior analysis exists, the specify and research steps are already done — the findings are the spec, and the critique/audit is the research. Offer the **accelerated** path alongside the others.
+
+### Complexity signal
+
 - **Simple** — touches 1–3 files, clear approach, no design uncertainty, no cross-system impact
 - **Complex** — touches multiple modules, has design uncertainty, crosses system boundaries, or has unclear implementation approach
 
-Present routing options:
+### Present routing options
+
+If **no prior analysis** detected:
 
 ```
 AskUserQuestion:
@@ -44,6 +58,22 @@ AskUserQuestion:
       description: "Explore, implement, code-review, then offer to ship"
     - label: "Complex — full caliper workflow"
       description: "specify → design → draft-plan → plan-review → orchestrate → implementation-review"
+```
+
+If **prior analysis detected** (findings, plan, or critique already in context):
+
+```
+AskUserQuestion:
+  question: "Prior analysis detected — findings and a plan already exist. How should we proceed? (Complexity signal: <Simple|Complex>)"
+  header: "Workflow"
+  multiSelect: false
+  options:
+    - label: "Simple — implement directly"
+      description: "Explore, implement, code-review, then offer to ship"
+    - label: "Accelerated — skip specify, lightweight design"
+      description: "Formalize findings into design.md (skip research — already done) → draft-plan → plan-review → orchestrate"
+    - label: "Full caliper workflow"
+      description: "specify → design → draft-plan → plan-review → orchestrate — start from scratch"
 ```
 
 ---
@@ -114,6 +144,57 @@ Then chain the following skills in sequence. Do not duplicate their logic — fo
 7. After implementation review completes:
    - If **APPROVE**: proceed to the ship gate below.
    - If **REQUEST_FIXES**: surface the blocking issues. Tell the user to address them and re-run `/mine.orchestrate`, then `/mine.implementation-review`. Stop here.
+   - If **ABANDON**: confirm abandonment and stop.
+
+   Ship gate (on APPROVE):
+
+```
+AskUserQuestion:
+  question: "Implementation reviewed and approved. Ship it?"
+  header: "Ship?"
+  multiSelect: false
+  options:
+    - label: "Yes — ship via /mine.ship"
+      description: "Commit, push, and open a PR"
+    - label: "No — I'll ship manually"
+      description: "Stop here; changes are committed but not pushed"
+```
+
+If "Yes": invoke `/mine.ship`.
+
+---
+
+### Path C — Accelerated: Post-Analysis Caliper
+
+Use this path when prior analysis (challenge, audit, brainstorm, research, 5whys) has already produced findings and/or a plan. The analysis serves as the spec and research — no need to redo that work.
+
+Tell the user:
+
+> Starting accelerated caliper workflow — skipping specify (findings are the spec) and using a lightweight design phase (skipping research — the critique already mapped the codebase).
+
+Then chain the following steps:
+
+1. **Lightweight `/mine.design`** — Follow mine.design's phases with these modifications:
+   - **Phase 1 (Understand the Ask)**: Use the analysis findings as the problem statement. Skip scoping questions — the findings already define what's wrong, why it matters, and what the better approach is.
+   - **Phase 2 (Investigate)**: **Skip entirely.** The analysis skill already explored the codebase. Do not dispatch mine.research as a subagent.
+   - **Phase 3 (Planning Interrogation)**: Run normally — ask proportional architecture questions to fill gaps the analysis didn't cover. Focus on approach alignment and interface contracts.
+   - **Phase 4 (Write Design Doc)**: Run normally — write design.md using the analysis findings as the research brief. Populate the Problem section from the findings, Architecture from the recommended approaches, and Alternatives from any TENSION findings where critics disagreed.
+   - **Phase 5 (Sign-Off Gate)**: Run normally — gate on user approval.
+
+2. **Follow `/mine.draft-plan` phases** using the feature directory from step 1.
+
+3. **Follow `/mine.plan-review` phases** for the design doc.
+   - If APPROVE: continue to step 4.
+   - If REQUEST_REVISIONS: return to step 2 with the reviewer's notes. Repeat until APPROVE or ABANDON.
+   - If ABANDON: stop.
+
+4. **Follow `/mine.orchestrate` phases** using the feature directory.
+
+5. mine.orchestrate's Phase 3 post-execution handoff offers `/mine.implementation-review` inline. Follow that flow. If the user declines, offer the ship gate directly.
+
+6. After implementation review completes:
+   - If **APPROVE**: proceed to the ship gate below.
+   - If **REQUEST_FIXES**: surface the blocking issues. Stop here.
    - If **ABANDON**: confirm abandonment and stop.
 
    Ship gate (on APPROVE):
