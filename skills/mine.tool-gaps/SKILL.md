@@ -42,6 +42,8 @@ Determine mode and scope from `$ARGUMENTS`.
 - Repeated `curl <url> | jq/python` — raw unwrapped API calls
 - `docker exec ... python manage.py ...` — manual container commands
 - Any pattern that appears across 3+ sessions
+- Same tool called N times (3+) in one Bash block using `&` backgrounding — suggests missing batch/multi-arg mode
+- `for X in ...; do <tool> ...; done` — for-loop iterating the same tool — same signal as above
 
 ### Noise to skip
 
@@ -82,11 +84,41 @@ claude-log search "| jq" --since <date> --limit 60 --type tool_use 2>/dev/null |
 
 # Find sessions with raw curl (unwrapped API calls)
 claude-log search "curl" --since <date> --limit 60 --type tool_use 2>/dev/null | head -40
+
+# Find multi-call batching patterns (batch mode gap signal)
+claude-log search " & " --since <date> --limit 60 --type tool_use 2>/dev/null | head -40
 ```
 
 Then extract bash from the identified sessions and collect the raw patterns.
 
 **Important:** Always run `claude-log search` or `claude-log list` first to get session IDs, then extract from specific IDs in subsequent calls. Do NOT use `$()` substitution or variable-based loops in Bash tool calls.
+
+## Phase 2.5: Permission Friction Signal
+
+**Goal:** Identify tools causing permission prompts due to batching patterns — not to recommend allow-list entries (that's `mine.permissions-audit`'s job), but to find tools that need a batch/multi-arg mode because the multi-call workaround breaks allow-list matching.
+
+Run in parallel with or after the archaeology phase:
+
+```bash
+# Scan debug logs for for-loop artifacts and batched tool calls
+ls -t ~/.claude/debug/*.txt 2>/dev/null | head -20 | xargs grep -h "ruleContent" 2>/dev/null | grep -oP '"ruleContent": "\K[^"]+' | sort | uniq -c | sort -rn | head -40
+```
+
+### Classify permission findings as tool gaps only if:
+
+1. **For-loop artifact**: the pattern is `for <var> in ...; do <tool>; done` or just `do <tool>` / `done` — this means the tool is being iterated and needs a multi-input mode
+2. **Newline-broken batching**: the tool name appears with high frequency AND the archaeology phase shows the same tool called multiple times in one block with `&` or newlines separating calls — the multi-call structure broke allow-list matching
+3. **High-frequency same tool, single session**: a tool appears 5+ times in one session's permission prompts — suggests the session was calling it in a loop or batch rather than once
+
+### Do NOT flag as tool gaps:
+
+- A tool simply missing from the allow-list (no batching pattern in archaeology) → that's a permissions-audit finding, not a tool gap
+- One-off commands that just haven't been allow-listed yet
+- File access patterns (Read, Write, Edit paths) — those are never tool gaps
+
+### Cross-reference with archaeology
+
+If a tool appears in BOTH archaeology workarounds AND the permission friction list, rank it higher in Phase 3. Dual-signal findings are more reliable than single-source ones.
 
 ## Phase 3: Synthesize
 
@@ -104,11 +136,12 @@ Cluster raw findings into named gaps.
 
 **Ranking criteria:**
 1. **Frequency** — appears in N distinct sessions (not just repeated in one session)
-2. **Effort** — multi-line inline Python > single-line `| jq` > simple pipe
-3. **Recency** — more recent occurrences weighted higher
-4. **Consistency** — same pattern with minor variation = high-value candidate
+2. **Dual signal** — corroborated by both archaeology AND permission friction → bump priority
+3. **Effort** — multi-line inline Python > single-line `| jq` > simple pipe
+4. **Recency** — more recent occurrences weighted higher
+5. **Consistency** — same pattern with minor variation = high-value candidate
 
-Minimum threshold for a finding: appears in 2+ sessions OR involves >1 line of inline code.
+Minimum threshold for a finding: appears in 2+ sessions OR involves >1 line of inline code OR is corroborated by permission friction.
 
 ## Phase 4: Present & Decide
 
@@ -131,7 +164,16 @@ Present findings ranked by priority, then use AskUserQuestion to get decisions.
 3. **New script: `<tool>-bulk`** (2 sessions)
    Both sessions ran the same 3-command sequence to do a bulk update. A thin wrapper would save
    the pattern.
+
+### Permission friction → batch mode gap
+4. **`<tool> <id>...` multi-arg support** (permission friction signal)
+   `<tool>` was called 6 times in one block using `&` backgrounding, causing permission prompts
+   because multi-line commands don't match `Bash(<tool>:*)` allow-list patterns. The fix is a
+   native `<tool> <id1> <id2> ...` form — one call, no newlines, no friction.
+   (Note: if you just want to stop the prompts without changing the tool, use `mine.permissions-audit`.)
 ```
+
+Permission friction findings should only appear here when there is a clear batch/multi-call pattern in the archaeology. If the permission prompt has no corresponding workaround pattern, omit it — it belongs in `mine.permissions-audit`, not here.
 
 Then ask which gaps to address and how:
 

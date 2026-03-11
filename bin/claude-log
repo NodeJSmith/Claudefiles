@@ -971,11 +971,12 @@ def cmd_agents(args: argparse.Namespace) -> None:
 def cmd_extract(args: argparse.Namespace) -> None:
     """Extract structured data as JSON."""
     path = resolve_session(args.session_id)
+    grep = getattr(args, "grep", None)
 
     if args.tools:
-        _extract_tools(path, tool_filter=None)
+        _extract_tools(path, tool_filter=None, grep=grep)
     elif args.bash:
-        _extract_tools(path, tool_filter="Bash")
+        _extract_tools(path, tool_filter="Bash", grep=grep)
     elif args.usage:
         _extract_usage(path)
     elif args.messages:
@@ -985,8 +986,11 @@ def cmd_extract(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
-def _extract_tools(path: Path, *, tool_filter: str | None) -> None:
+def _extract_tools(
+    path: Path, *, tool_filter: str | None, grep: str | None = None
+) -> None:
     """Extract tool_use blocks as JSON."""
+    grep_re = re.compile(grep, re.IGNORECASE) if grep else None
     results: list[dict[str, Any]] = []
     for entry in iter_entries(path, type_filter="assistant"):
         message = entry.get("message", {})
@@ -995,11 +999,17 @@ def _extract_tools(path: Path, *, tool_filter: str | None) -> None:
             name = tool.get("name", "?")
             if tool_filter and name != tool_filter:
                 continue
+            inp = tool.get("input", {})
+            if grep_re:
+                # For Bash, match against command; for others, match against full input JSON
+                haystack = inp.get("command", "") if name == "Bash" else json.dumps(inp)
+                if not grep_re.search(haystack):
+                    continue
             results.append(
                 {
                     "timestamp": ts,
                     "name": name,
-                    "input": tool.get("input", {}),
+                    "input": inp,
                 }
             )
     print(json.dumps(results, indent=2))
@@ -1044,6 +1054,50 @@ def _extract_messages(path: Path) -> None:
             }
         )
     print(json.dumps(results, indent=2))
+
+
+def cmd_grep(args: argparse.Namespace) -> None:
+    """Search bash commands across sessions by regex pattern."""
+    grep_re = re.compile(args.pattern, re.IGNORECASE)
+    results: list[dict[str, Any]] = []
+
+    for proj_name, session_id, jsonl_file in iter_session_files(
+        project_filter=args.project,
+        since=args.since,
+    ):
+        for entry in iter_entries(jsonl_file, type_filter="assistant"):
+            message = entry.get("message", {})
+            ts = entry.get("timestamp", "")
+            for tool in extract_tool_uses(message):
+                if tool.get("name") != "Bash":
+                    continue
+                cmd = tool.get("input", {}).get("command", "")
+                if not grep_re.search(cmd):
+                    continue
+                results.append(
+                    {
+                        "session_id": session_id[:8],
+                        "project": proj_name,
+                        "timestamp": ts,
+                        "command": cmd,
+                    }
+                )
+
+    if args.limit:
+        results = results[: args.limit]
+
+    if args.json:
+        print(json.dumps(results, indent=2))
+        return
+
+    prev_sid = None
+    for r in results:
+        sid = r["session_id"]
+        ts = r["timestamp"][11:19] if len(r["timestamp"]) >= 19 else r["timestamp"]
+        cmd_preview = r["command"].replace("\n", " ↵ ")[:100]
+        sid_display = c(CYAN, sid) if sid != prev_sid else " " * 8
+        prev_sid = sid
+        print(f"{sid_display}  {c(DIM, ts)}  {cmd_preview}")
 
 
 def cmd_permissions(args: argparse.Namespace) -> None:
@@ -1261,7 +1315,29 @@ def build_parser() -> argparse.ArgumentParser:
     grp.add_argument("--bash", "-b", action="store_true", help="Bash tool inputs only")
     grp.add_argument("--usage", "-u", action="store_true", help="Token usage array")
     grp.add_argument("--messages", "-m", action="store_true", help="Messages as JSON")
+    p_extract.add_argument(
+        "--grep",
+        metavar="PATTERN",
+        help="Filter bash commands by regex (only with --bash)",
+    )
     _add_global_opts(p_extract)
+
+    # grep
+    p_grep = subs.add_parser(
+        "grep",
+        help="Search bash commands across sessions by regex",
+        description="Search bash commands across multiple sessions. Like 'extract --bash --grep' but cross-session.",
+    )
+    p_grep.add_argument("pattern", help="Regex pattern to search for in bash commands")
+    p_grep.add_argument("--project", "-p", help="Filter by project name substring")
+    p_grep.add_argument("--since", "-s", help="Filter by date (YYYY-MM-DD)")
+    p_grep.add_argument(
+        "--limit",
+        "-l",
+        type=_positive_int,
+        help="Max results to return",
+    )
+    _add_global_opts(p_grep)
 
     # permissions
     p_perms = subs.add_parser(
@@ -1299,6 +1375,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         "skills": cmd_skills,
         "agents": cmd_agents,
         "extract": cmd_extract,
+        "grep": cmd_grep,
         "permissions": cmd_permissions,
     }
 
