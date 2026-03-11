@@ -23,26 +23,96 @@ No user prompt needed:
 1. Complex feature requests - Use **planner** agent
 2. Code just written/modified - **MUST** use **code-reviewer** agent before committing; exceptions: documentation-only changes or explicit user skip (see `rules/common/git-workflow.md`)
 
-## Parallel Task Execution
+## Parallel Agent Execution
 
-ALWAYS use parallel Task execution for independent operations:
+### How it works
+
+Multiple `Agent` tool calls in a **single message** = parallel execution. Claude Code launches them concurrently and returns all results before you continue.
 
 ```markdown
-# GOOD: Parallel execution
-Launch 3 agents in parallel:
-1. Agent 1: Security analysis of auth module
-2. Agent 2: Performance review of cache system
-3. Agent 3: Type checking of utilities
+# GOOD: Three Agent calls in one message → parallel
+Agent(description="Audit auth module", prompt="...")
+Agent(description="Review cache layer", prompt="...")
+Agent(description="Check API types", prompt="...")
 
-# BAD: Sequential when unnecessary
-First agent 1, then agent 2, then agent 3
+# BAD: Three separate messages → sequential
+Message 1: Agent(description="Audit auth module", ...)
+Message 2: Agent(description="Review cache layer", ...)
+Message 3: Agent(description="Check API types", ...)
+```
+
+Always launch independent agents in a single message. Only sequentialize when one agent's output feeds another's input.
+
+### Choosing a subagent type
+
+| Need | `subagent_type` | Why |
+|------|----------------|-----|
+| Read code, search files, analyze patterns | `Explore` | Fast (Haiku), read-only tools, cheap. Default for research. |
+| Full autonomy (write files, run commands, web search) | `general-purpose` | All tools available. Use when the subagent must produce artifacts or run shell commands. |
+| Domain-specific review with a specialized prompt | Named agent (e.g., `code-reviewer`, `qa-specialist`) | Carries a tailored system prompt plus tool restrictions defined in its agent file. |
+
+**Rule of thumb**: use `Explore` unless the subagent needs to write files, run commands, or search the web.
+
+### Collecting results: inline vs temp files
+
+**Inline returns** (default) — the subagent's final message comes back to your context:
+- Use when each subagent returns a focused summary (< ~2K tokens)
+- Use when you need results to synthesize immediately
+- Examples: `mine.research` subagents, `mine.audit` per-directory scouts
+
+**Temp file output** — subagent writes to a file, main instance reads it:
+- Use when subagents produce large or structured output you'll reference later
+- Use when multiple subagents share a persona pattern (brainstorm thinkers, challenge critics)
+- Create the temp dir first with `get-skill-tmpdir <skill-name>`, then pass fixed filenames to each subagent
+- Examples: `mine.brainstorm` thinkers, `mine.challenge` critics, `mine.orchestrate` executor/reviewer
+
+### Foreground vs background
+
+**Foreground** (default) — blocks until the subagent completes:
+- Use when you need the result before continuing (most cases)
+- Use when the subagent might need permission prompts
+- Parallel foreground agents all run concurrently and all return before you continue
+
+**Background** (`run_in_background: true`) — runs while you keep working:
+- Use for long-running tasks where you have genuinely independent work to do in parallel
+- Background agents **cannot** ask the user questions (auto-denied)
+- Background agents **cannot** get new permission approvals (only pre-approved tools work)
+- You'll be notified on completion — don't poll or sleep
+
+**Most parallel agent patterns use foreground.** Background is for fire-and-forget tasks like running a test suite while you edit another file.
+
+### Passing context to subagents
+
+Subagents start with a **fresh context** — they don't inherit your conversation. Everything they need must be in the prompt.
+
+| Context type | How to pass |
+|-------------|-------------|
+| Small code excerpts (< 200 lines) | Embed directly in the prompt |
+| Larger files or multiple files | Pass file paths — subagent reads them with Read/Grep |
+| Agent behavior instructions | Read the agent definition file first, embed its content in the prompt |
+| Shared constraints (topic, persona, rules) | Embed directly in the prompt |
+| Output destination (temp files) | Pass the exact file path as a literal string |
+
+**Never assume a subagent knows what you're working on.** Be explicit about: what to investigate, what to produce, and where to write it.
+
+### Standard phrasing for skills
+
+When writing SKILL.md files that launch parallel agents, use this pattern:
+
+```markdown
+Launch **parallel subagents** (`subagent_type: <type>`). Each receives:
+- [what context is passed]
+- [what output is expected]
+- [where to write results, if temp files]
 ```
 
 ## Multi-Perspective Analysis
 
-For complex problems, use split role sub-agents:
+For complex problems, use split-role subagents. Each receives the same context but a different persona and focus lens:
 - Factual reviewer
 - Senior engineer
 - Security expert
 - Consistency reviewer
 - Redundancy checker
+
+Give each persona **specific instructions** — not just a role title. Include: what to look for, what to ignore, what format to return, and any shared rules all personas must follow.
