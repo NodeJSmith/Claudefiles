@@ -67,16 +67,7 @@ WP02  planned  Implement service layer
 WP03  done     Write integration tests
 ```
 
-```
-AskUserQuestion:
-  question: "Which WP should we start from?"
-  header: "Resume point"
-  multiSelect: false
-  options:
-    - label: "WP01 — start from the beginning"
-    - label: "Resume from a specific WP"
-      description: "Tell me the WP ID and I'll start there"
-```
+**Auto-select the start point.** Find the first WP in `lane: planned` (or `lane: doing` if one was left in progress) and start there. Only ask the user if the state is genuinely ambiguous — e.g., a mix of `done`, `doing`, and `planned` WPs in unexpected order, or all WPs already `done`.
 
 Skip WPs that are already in `lane: done`.
 
@@ -225,17 +216,17 @@ Quality review: PASS|NEEDS_ATTENTION
 [Any WARN or FAIL details]
 ```
 
-Then gate. Show different options depending on verdict:
+Then gate based on verdict:
 
-**Normal verdict (PASS, WARN, FAIL, or non-architectural BLOCKED):**
+**PASS or WARN** — auto-continue to the next WP. Display the summary but do not ask for confirmation. Move this WP to `done` and proceed to Step 3 for the next WP.
+
+**FAIL or non-architectural BLOCKED** — ask the user:
 ```
 AskUserQuestion:
-  question: "WP<NN> complete. What next?"
+  question: "WP<NN> failed. What next?"
   header: "WP<NN> gate"
   multiSelect: false
   options:
-    - label: "Continue to WP<NN+1>"
-      description: "Move on — only offer this if verdict is PASS or WARN"
     - label: "Fix and retry this WP"
       description: "Re-run the executor with the reviewer's notes"
     - label: "Mark as blocked and skip"

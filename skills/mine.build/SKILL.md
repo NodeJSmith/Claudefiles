@@ -122,15 +122,17 @@ If "Ship via /mine.ship": invoke `/mine.ship`.
 
 Tell the user:
 
-> Starting the full caliper workflow — each step has its own sign-off gate.
+> Starting the full caliper workflow.
 
-Then chain the following skills in sequence. Do not duplicate their logic — follow each skill's own phases as documented:
+**Auto-continue between steps.** Execute each skill's phases inline — do not stop and tell the user to run the next command. The user should only be interrupted for decisions that genuinely require their input (spec approval, design sign-off, plan-review verdict). Between those gates, continue automatically.
 
-1. **Follow `/mine.specify` phases** for this request. Pass the change description as the argument. Wait for the user to approve the spec before proceeding. If the user saves and stops, stop here.
+Chain the following skills in sequence. Do not duplicate their logic — follow each skill's own phases as documented:
 
-2. **Follow `/mine.design` phases** using the feature directory produced by mine.specify. Wait for the user to approve the design doc before proceeding. If the user abandons, stop.
+1. **Follow `/mine.specify` phases** for this request. Pass the change description as the argument. Wait for the user to approve the spec, then continue.
 
-3. **Follow `/mine.draft-plan` phases** using the feature directory from step 2. Wait for the WPs to be generated. If the user abandons, stop.
+2. **Follow `/mine.design` phases** using the feature directory produced by mine.specify. Wait for the user to approve the design doc, then continue.
+
+3. **Follow `/mine.draft-plan` phases** using the feature directory from step 2.
 
 4. **Follow `/mine.plan-review` phases** for the design doc.
    - If APPROVE: continue to step 5.
@@ -171,6 +173,8 @@ Use this path when prior analysis (challenge, audit, brainstorm, research, 5whys
 Tell the user:
 
 > Starting accelerated caliper workflow — skipping specify (findings are the spec) and using a lightweight design phase (skipping research — the critique already mapped the codebase).
+
+**Auto-continue between steps** — same principle as Path B. Execute inline, only interrupt for decisions that genuinely need user input.
 
 Then chain the following steps:
 

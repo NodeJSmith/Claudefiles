@@ -12,6 +12,7 @@ All notable changes to this Claudefiles repository are documented here.
 - Updated analysis skill handoffs to offer `/mine.build` caliper workflow: `mine.challenge`, `mine.audit`, `mine.brainstorm`, `mine.research`, `mine.tool-gaps` (#71)
 - Added Path C (accelerated post-analysis caliper) to `mine.build` — detects prior analysis findings and offers shortened pipeline: skip specify, lightweight design (no research), then draft-plan → plan-review → orchestrate (#71)
 - Removed `model: sonnet` pin from all 10 agent definitions — subagents now inherit the parent session's model instead of always running Sonnet (#71)
+- Reduced interactive gates in caliper workflow: `mine.build` auto-continues between skill phases, `mine.orchestrate` auto-starts from first planned WP and auto-continues on PASS/WARN verdicts — only interrupts on failures or genuine ambiguity (#71)
 
 ### Added
 - `bin/get-skill-tmpdir` — create unique `claude-`-prefixed temp directories for skill runs via `mktemp -d` (#70)
