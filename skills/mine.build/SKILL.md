@@ -71,9 +71,9 @@ AskUserQuestion:
     - label: "Simple — implement directly"
       description: "Explore, implement, code-review, then offer to ship"
     - label: "Accelerated — skip specify, lightweight design phase"
-      description: "Formalize findings into design.md (skip research — already done) → draft-plan → plan-review → orchestrate"
+      description: "Formalize findings into design.md (skip research — already done) → draft-plan → plan-review → orchestrate → implementation-review"
     - label: "Full caliper workflow"
-      description: "specify → design → draft-plan → plan-review → orchestrate — start from scratch"
+      description: "specify → design → draft-plan → plan-review → orchestrate → implementation-review — start from scratch"
 ```
 
 ---

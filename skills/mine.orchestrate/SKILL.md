@@ -220,7 +220,7 @@ Quality review: PASS|NEEDS_ATTENTION
 
 Then gate based on verdict:
 
-**PASS or WARN** — auto-continue to the next WP. Display the summary but do not ask for confirmation. Move this WP to `done` and proceed to Step 3 for the next WP. If WARN, increment the consecutive WARN counter; if PASS, reset it to 0.
+**PASS or WARN** — auto-continue to the next WP. Display the summary but do not ask for confirmation. Move this WP to `done` and continue the loop with the next WP (starting from Step 1 — announce, set up temp dir, then execute). If WARN, increment the consecutive WARN counter; if PASS, reset it to 0.
 
 **WARN accumulation checkpoint:** If the consecutive WARN counter reaches 3, pause and ask:
 ```
@@ -234,6 +234,10 @@ AskUserQuestion:
     - label: "Stop and investigate"
       description: "Pause execution to review the pattern"
 ```
+Post-choice behavior:
+- **"Continue — warnings are acceptable"**: Reset the consecutive WARN counter to 0 and continue the loop with the next WP (the current WP is already moved to `done` before the checkpoint triggers).
+- **"Stop and investigate"**: Pause the execution loop. The current WP remains in `done` (it passed, just with warnings). Return control to the user with a summary of the WARN pattern across the last 3 WPs so they can decide how to proceed (e.g., fix issues and re-run, adjust the plan, or resume as-is).
+
 A PASS verdict resets the consecutive WARN counter to zero.
 
 **FAIL or non-architectural BLOCKED** — ask the user:
