@@ -67,7 +67,7 @@ WP02  planned  Implement service layer
 WP03  done     Write integration tests
 ```
 
-**Auto-select the start point.** Find the first WP in `lane: planned` (or `lane: doing` if one was left in progress) and start there. Only ask the user if the state is genuinely ambiguous — e.g., a mix of `done`, `doing`, and `planned` WPs in unexpected order, or all WPs already `done`.
+**Auto-select the start point.** If any WP is in `lane: doing`, resume that WP first (it was left in progress); otherwise start from the first WP in `lane: planned`. Only ask the user if the state is genuinely ambiguous — e.g., multiple WPs in `doing`, a mix of `done` and `planned` WPs in unexpected order, or all WPs already `done`.
 
 Skip WPs that are already in `lane: done`.
 

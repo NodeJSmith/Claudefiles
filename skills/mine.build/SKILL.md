@@ -34,10 +34,10 @@ Before routing, check whether the conversation already contains findings from an
 
 - Structured findings with severity labels (CRITICAL / HIGH / MEDIUM)
 - A phased implementation plan produced by a planner agent
-- Backlog items already saved to `.claude/backlog.md` or filed as issues
+- Backlog items or issues that explicitly reference findings from one of these skills (not just a title — the body must cite specific analysis results)
 - Temp file reports from critic/thinker subagents
 
-If prior analysis exists, the specify and research steps are already done — the findings are the spec, and the critique/audit is the research. Offer the **accelerated** path alongside the others.
+If prior analysis exists, the specify and research steps are likely already covered — the findings serve as the spec, and the critique/audit serves as the research. Offer the **accelerated** path alongside the others.
 
 ### Complexity signal
 
@@ -180,7 +180,7 @@ Then chain the following steps:
 
 1. **Lightweight `/mine.design`** — Follow mine.design's phases with these modifications:
    - **Phase 1 (Understand the Ask)**: Use the analysis findings as the problem statement. Skip scoping questions — the findings already define what's wrong, why it matters, and what the better approach is.
-   - **Phase 2 (Investigate)**: **Skip entirely.** The analysis skill already explored the codebase. Do not dispatch mine.research as a subagent. Use the analysis findings as the research input for the design doc — no additional investigation needed.
+   - **Phase 2 (Investigate)**: **Skip unless the analysis findings don't cover the interfaces or constraints needed for the design doc** — in that case, run targeted investigation only for the gaps (e.g., a single focused mine.research query, not the full multi-agent sweep). Use the analysis findings as the primary research input.
    - **Phase 3 (Planning Interrogation)**: Run normally — ask proportional architecture questions to fill gaps the analysis didn't cover. Focus on approach alignment and interface contracts.
    - **Phase 4 (Write Design Doc)**: Run normally — write design.md using the analysis findings as the research brief. Populate the Problem section from the findings, Architecture from the recommended approaches, and Alternatives from any TENSION findings where critics disagreed.
    - **Phase 5 (Sign-Off Gate)**: Run normally — gate on user approval.

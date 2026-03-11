@@ -57,7 +57,7 @@ Always launch independent agents in a single message. Only sequentialize when on
 
 ### Model inheritance
 
-All agent definitions inherit the parent session's model by default — no `model` frontmatter is set. This means if you're running on Opus, your subagents run on Opus too. `Explore` is the exception: it always uses Haiku for speed.
+Top-level agent definitions in `agents/` inherit the parent session's model by default — no `model` frontmatter is set. This means if you're running on Opus, your subagents run on Opus too. `Explore` is the exception: it always uses Haiku for speed. Note: skill-specific agents (e.g., under `skills/mine.*/agents/`) may pin a model for cost control — that's intentional and doesn't contradict the default inheritance rule.
 
 To override for a specific agent call, pass `model: "sonnet"` (or `"opus"`, `"haiku"`) in the Agent tool call. This is useful for cost control on high-volume subagent patterns (e.g., running 10+ parallel graders on Haiku instead of Opus).
 
