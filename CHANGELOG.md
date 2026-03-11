@@ -7,6 +7,13 @@ All notable changes to this Claudefiles repository are documented here.
 ### Changed
 - Replaced `$CLAUDE_SESSION_ID` temp file paths with `get-skill-tmpdir` helper across all 13 skills — fixes collisions in concurrent sessions (#70)
 - Code-reviewer agent is now mandatory before all commits, not just feature workflows (#70)
+- Expanded `rules/common/agents.md` parallel execution guidance — subagent type selection, inline vs temp file output, foreground vs background, context passing, and standard phrasing for skills (#71)
+- Added worktree safety rules to `rules/common/worktrees.md` — edit only worktree files, never run install.sh, use `git -C` (#71)
+- Updated analysis skill handoffs to offer `/mine.build` caliper workflow: `mine.challenge`, `mine.audit`, `mine.brainstorm`, `mine.research`, `mine.tool-gaps` (#71)
+- Added Path C (accelerated post-analysis caliper) to `mine.build` — detects prior analysis findings and offers shortened pipeline: skip specify, lightweight design (no research), then draft-plan → plan-review → orchestrate (#71)
+- Removed `model: sonnet` pin from all 10 agent definitions — subagents now inherit the parent session's model instead of always running Sonnet (#71)
+- Reduced interactive gates in caliper workflow: `mine.build` auto-continues between skill phases, `mine.orchestrate` auto-starts from first planned WP and auto-continues on PASS/WARN verdicts — only interrupts on failures or genuine ambiguity (#71)
+- Added WARN accumulation checkpoint to `mine.orchestrate` — pauses after 3+ consecutive WARN verdicts to surface potential systemic issues (#71)
 
 ### Added
 - `bin/get-skill-tmpdir` — create unique `claude-`-prefixed temp directories for skill runs via `mktemp -d` (#70)

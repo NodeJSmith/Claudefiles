@@ -67,22 +67,15 @@ WP02  planned  Implement service layer
 WP03  done     Write integration tests
 ```
 
-```
-AskUserQuestion:
-  question: "Which WP should we start from?"
-  header: "Resume point"
-  multiSelect: false
-  options:
-    - label: "WP01 — start from the beginning"
-    - label: "Resume from a specific WP"
-      description: "Tell me the WP ID and I'll start there"
-```
+**Auto-select the start point.** If any WP is in `lane: doing`, resume that WP first (it was left in progress); otherwise start from the first WP in `lane: planned`. Only ask the user if the state is genuinely ambiguous — e.g., multiple WPs in `doing`, a mix of `done` and `planned` WPs in unexpected order, or all WPs already `done`.
 
 Skip WPs that are already in `lane: done`.
 
 ---
 
 ## Phase 2: Per-WP Execution Loop
+
+Initialize a consecutive WARN counter at 0.
 
 For each WP from the start point to the last WP:
 
@@ -225,17 +218,35 @@ Quality review: PASS|NEEDS_ATTENTION
 [Any WARN or FAIL details]
 ```
 
-Then gate. Show different options depending on verdict:
+Then gate based on verdict:
 
-**Normal verdict (PASS, WARN, FAIL, or non-architectural BLOCKED):**
+**PASS or WARN** — auto-continue to the next WP. Display the summary but do not ask for confirmation. Move this WP to `done` and continue the loop with the next WP (starting from Step 1 — announce, set up temp dir, then execute). If WARN, increment the consecutive WARN counter; if PASS, reset it to 0.
+
+**WARN accumulation checkpoint:** If the consecutive WARN counter reaches 3, pause and ask:
 ```
 AskUserQuestion:
-  question: "WP<NN> complete. What next?"
+  question: "3 consecutive WPs received WARN verdicts. This may indicate a systemic issue. Continue or investigate?"
+  header: "WARN accumulation"
+  multiSelect: false
+  options:
+    - label: "Continue — warnings are acceptable"
+      description: "Reset the counter and keep going"
+    - label: "Stop and investigate"
+      description: "Pause execution to review the pattern"
+```
+Post-choice behavior:
+- **"Continue — warnings are acceptable"**: Reset the consecutive WARN counter to 0 and continue the loop with the next WP (the current WP is already moved to `done` before the checkpoint triggers).
+- **"Stop and investigate"**: Pause the execution loop. The current WP remains in `done` (it passed, just with warnings). Return control to the user with a summary of the WARN pattern across the last 3 WPs so they can decide how to proceed (e.g., fix issues and re-run, adjust the plan, or resume as-is).
+
+A PASS verdict resets the consecutive WARN counter to zero.
+
+**FAIL or non-architectural BLOCKED** — ask the user:
+```
+AskUserQuestion:
+  question: "WP<NN> failed. What next?"
   header: "WP<NN> gate"
   multiSelect: false
   options:
-    - label: "Continue to WP<NN+1>"
-      description: "Move on — only offer this if verdict is PASS or WARN"
     - label: "Fix and retry this WP"
       description: "Re-run the executor with the reviewer's notes"
     - label: "Mark as blocked and skip"

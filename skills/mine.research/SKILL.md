@@ -340,8 +340,8 @@ AskUserQuestion:
   options:
     - label: "Record the decision (/mine.adrs)"
       description: "Create an ADR in design/adrs/ to formalize the architectural choice"
-    - label: "Plan the implementation (plan mode)"
-      description: "Jump into implementation planning for the chosen approach"
+    - label: "Build it (/mine.build)"
+      description: "Direct implementation or full caliper workflow, depending on complexity"
     - label: "Prototype first"
       description: "Build a small proof-of-concept before committing to the full approach"
     - label: "I need to think about it"
@@ -360,7 +360,7 @@ AskUserQuestion:
 ## What This Skill Does NOT Do
 
 - **Make decisions** — it informs them. Use `/mine.adrs` to record decisions.
-- **Plan implementations** — it assesses feasibility. Use plan mode for step-by-step plans.
+- **Plan implementations** — it assesses feasibility. Use `/mine.build` to route to the right implementation workflow.
 - **Write code** — it's pure investigation. No prototypes, no scaffolding, no "let me just try it."
 - **Audit health** — it evaluates a specific proposal against the codebase. Use `/mine.audit` for general health assessment.
 - **Benchmark or profile** — it can identify likely performance concerns from code reading, but won't run benchmarks.

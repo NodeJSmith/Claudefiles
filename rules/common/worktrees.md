@@ -43,3 +43,11 @@ git rev-parse --git-dir
 # In a worktree:    /path/to/repo/.git/worktrees/branch-name
 # In main clone:   /path/to/repo/.git
 ```
+
+## Worktree Safety Rules
+
+When running inside a worktree:
+
+1. **Edit only worktree files.** All file paths must resolve within the worktree directory. Never edit files in the original repository root — changes there won't be on this branch and can corrupt the main working tree.
+2. **Never run `install.sh`** (or any installer/setup script that symlinks or copies files to system paths). Worktrees are isolated branches for development — installing from a worktree would overwrite symlinks/configs with the worktree's potentially in-progress state.
+3. **Use `git -C <worktree-path>`** for all git commands to stay unambiguous about which working tree you're operating on.

@@ -2,7 +2,6 @@
 name: db-auditor
 description: Database query and schema auditor — finds N+1 queries, missing indexes, ORM misuse, and connection issues. Use on database-heavy PRs and performance investigations.
 tools: ["Read", "Grep", "Glob", "Bash"]
-model: sonnet
 ---
 
 # Database Audit
