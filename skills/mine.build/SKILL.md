@@ -70,7 +70,7 @@ AskUserQuestion:
   options:
     - label: "Simple — implement directly"
       description: "Explore, implement, code-review, then offer to ship"
-    - label: "Accelerated — skip specify, lightweight design"
+    - label: "Accelerated — skip specify, lightweight design phase"
       description: "Formalize findings into design.md (skip research — already done) → draft-plan → plan-review → orchestrate"
     - label: "Full caliper workflow"
       description: "specify → design → draft-plan → plan-review → orchestrate — start from scratch"
@@ -176,7 +176,7 @@ Then chain the following steps:
 
 1. **Lightweight `/mine.design`** — Follow mine.design's phases with these modifications:
    - **Phase 1 (Understand the Ask)**: Use the analysis findings as the problem statement. Skip scoping questions — the findings already define what's wrong, why it matters, and what the better approach is.
-   - **Phase 2 (Investigate)**: **Skip entirely.** The analysis skill already explored the codebase. Do not dispatch mine.research as a subagent.
+   - **Phase 2 (Investigate)**: **Skip entirely.** The analysis skill already explored the codebase. Do not dispatch mine.research as a subagent. Use the analysis findings as the research input for the design doc — no additional investigation needed.
    - **Phase 3 (Planning Interrogation)**: Run normally — ask proportional architecture questions to fill gaps the analysis didn't cover. Focus on approach alignment and interface contracts.
    - **Phase 4 (Write Design Doc)**: Run normally — write design.md using the analysis findings as the research brief. Populate the Problem section from the findings, Architecture from the recommended approaches, and Alternatives from any TENSION findings where critics disagreed.
    - **Phase 5 (Sign-Off Gate)**: Run normally — gate on user approval.
