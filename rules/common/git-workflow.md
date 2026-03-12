@@ -23,14 +23,28 @@ Before your first commit in a repo during a session, check for a pre-commit conf
 
    Collect all distinct hook types referenced. Common types: `pre-commit`, `commit-msg`, `pre-push`, `pre-merge-commit`, `prepare-commit-msg`.
 
-4. **Check if hooks are installed** — hooks live in the main repo's shared hooks dir, so this works correctly in worktrees. Check for each hook type you identified:
+4. **Check if hooks are installed** — use a two-phase sequential approach to locate the hooks directory:
+
+   **Phase 1:** Check for a custom hooks path:
    ```bash
-   git rev-parse --git-common-dir | xargs -I {} ls {}/hooks/pre-commit
-   git rev-parse --git-common-dir | xargs -I {} ls {}/hooks/commit-msg
+   git config --get core.hooksPath
+   ```
+   If this prints a non-empty path, that is the hooks directory. Use it directly.
+
+   **Phase 2:** If `core.hooksPath` is not set (empty output or exit code 1), fall back to the shared git-common-dir:
+   ```bash
+   git rev-parse --git-common-dir
+   ```
+   Append `/hooks` to that output to get the hooks directory.
+
+   Once you have the hooks directory path, check for each hook type you identified — using the captured path directly (no `xargs`):
+   ```bash
+   ls <hooks-dir>/pre-commit
+   ls <hooks-dir>/commit-msg
    ```
    A missing file means that hook type is not installed. Note: a present `hooks/pre-commit` file does **not** imply other hook types are installed.
 
-   **Worktree note:** All worktrees share the same `.git/hooks/` directory, so `pre-commit install` only needs to run once per repo — it applies to all worktrees automatically.
+   **Worktree note:** When `core.hooksPath` is **not** set, all worktrees share the same `.git/hooks/` directory (via `git-common-dir`), so `pre-commit install` only needs to run once per repo. When `core.hooksPath` **is** set, each worktree uses that configured path — verify it is accessible from the current worktree context.
 
 5. **Install any missing hook types**:
 

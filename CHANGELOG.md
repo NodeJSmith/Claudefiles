@@ -4,6 +4,9 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-03-12
 
+### Fixed
+- Pre-commit hook check now respects `core.hooksPath` (checked first) before falling back to `git-common-dir`; path used directly instead of via `xargs` to avoid space-breakage
+
 ### Added
 - Pre-commit hook validation rule — before the first commit in a repo, Claude now checks for `.pre-commit-config.yaml`, verifies `pre-commit` is installed, and installs any missing hook types (handles multi-type configs correctly) (#72)
 
