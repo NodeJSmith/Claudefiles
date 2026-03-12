@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-12
 
 ### Added
-- `mine.worktree-rebase` skill — detects when a worktree was created while the parent repo was on a feature branch and rebases onto it after confirmation
+- `mine.worktree-rebase` skill — detects when a worktree was created while the parent repo was on a feature branch and rebases onto it after confirmation (#74)
 
 
 
