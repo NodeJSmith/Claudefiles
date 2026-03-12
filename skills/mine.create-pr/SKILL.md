@@ -49,6 +49,19 @@ Based on the above changes:
      - Bump dependency X to v2
      - Fix typo in README
      ```
+   - **Closing issues** (GitHub only): Detect any issue this PR resolves and append a closing keyword on its own line at the end of the body. Check two sources in order:
+     1. **Branch name** — look for a leading or embedded issue number in the current branch. Common patterns (extract `N`):
+        - `N-description` (e.g., `123-fix-null`)
+        - `issue-N` or `issue/N`
+        - `fix/N-description`, `feat/N-description`, `chore/N-description`, etc.
+        - `worktrees/N-description` (worktree convention)
+     2. **Commit messages** — scan `git log` output for `#N` references (e.g., `Fixes #123`, `Closes #123`, `refs #123`)
+     - If an issue number is found from either source, append to the PR body:
+       ```
+       Closes #N
+       ```
+     - If multiple distinct issue numbers are found, append one `Closes #N` line per issue.
+     - Skip this step entirely for Azure DevOps (ADO uses a different work-item linking syntax).
 8. Create the PR as a **draft**:
    - Run `get-skill-tmpdir mine-pr` to create a temp directory, then write the PR body to `<dir>/body.md` and use that path in subsequent commands
    - **GitHub**:
