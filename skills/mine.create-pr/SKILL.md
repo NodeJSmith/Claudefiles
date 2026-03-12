@@ -54,8 +54,7 @@ Based on the above changes:
         - `N-description` (e.g., `123-fix-null`)
         - `issue-N` or `issue/N`
         - `fix/N-description`, `feat/N-description`, `chore/N-description`, etc.
-        - `worktrees/N-description` (worktree convention)
-     2. **Commit messages** — scan `git log` output for `#N` references (e.g., `Fixes #123`, `Closes #123`, `refs #123`)
+     2. **Commit messages** — scan `git log` output for GitHub closing keywords followed by an issue number (e.g., `Fixes #123`, `Closes #123`, `Resolves #123`). Do NOT match generic references like `refs #123` — those do not close issues.
      - If an issue number is found from either source, append to the PR body:
        ```
        Closes #N
