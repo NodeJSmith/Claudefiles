@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-12
 
 ### Added
-- Pre-commit hook validation rule — before the first commit in a repo, Claude now checks for `.pre-commit-config.yaml`, verifies `pre-commit` is installed, and installs any missing hook types (handles multi-type configs correctly)
+- Pre-commit hook validation rule — before the first commit in a repo, Claude now checks for `.pre-commit-config.yaml`, verifies `pre-commit` is installed, and installs any missing hook types (handles multi-type configs correctly) (#72)
 
 ## 2026-03-11
 
