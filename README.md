@@ -34,7 +34,7 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 
 ## Contents
 
-### Skills (31)
+### Skills (32)
 
 | Skill | Description |
 |-------|-------------|
@@ -69,6 +69,7 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `mine.tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |
 | `mine.ux-antipatterns` | Detect UX anti-patterns -- layout shifts, missing feedback, broken forms, a11y gaps |
 | `mine.wp` | WP lane management — move work packages between lanes, view kanban, list WPs |
+| `mine.worktree-rebase` | Detect when parent repo was on a feature branch at worktree creation and rebase this worktree branch onto it |
 
 ### Commands (11)
 

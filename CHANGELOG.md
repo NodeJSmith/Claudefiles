@@ -4,6 +4,11 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-03-12
 
+### Added
+- `mine.worktree-rebase` skill — detects when a worktree was created while the parent repo was on a feature branch and rebases onto it after confirmation
+
+
+
 ### Changed
 - `mine.create-pr` now detects the related issue from the branch name and commit messages and appends `Closes #N` to the PR body automatically (GitHub only) (#73)
 - `mine.issues` now reminds the user to include the issue number in their branch name when starting implementation, so `mine.create-pr` can link the issue automatically (#73)

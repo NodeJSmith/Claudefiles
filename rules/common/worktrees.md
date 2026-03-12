@@ -55,3 +55,13 @@ When running inside a worktree:
    **Common trap:** If context gives you a path like `~/Claudefiles/rules/foo.md` and you're in a worktree at `~/Claudefiles/.claude/worktrees/my-branch/`, the correct edit path is `~/Claudefiles/.claude/worktrees/my-branch/rules/foo.md`. When in doubt, run `git rev-parse --show-toplevel` and verify your path starts with that prefix.
 2. **Never run `install.sh`** (or any installer/setup script that symlinks or copies files to system paths). Worktrees are isolated branches for development — installing from a worktree would overwrite symlinks/configs with the worktree's potentially in-progress state.
 3. **Use `git -C <worktree-path>`** for all git commands to stay unambiguous about which working tree you're operating on.
+
+## Rebasing a Worktree onto a Feature Branch
+
+If `claude --worktree` was invoked while the parent repo was on a feature branch (not `main`/`master`), the worktree will be based on `origin/<default>` instead of that feature branch. To fix this, run:
+
+```
+/mine.worktree-rebase
+```
+
+This detects the original branch, shows you what it will do, and performs `git rebase --onto <orig-branch> origin/<default>` after confirmation.
