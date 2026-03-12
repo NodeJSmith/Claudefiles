@@ -4,6 +4,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-03-12
 
+### Changed
+- `mine.create-pr` now detects the related issue from the branch name and commit messages and appends `Closes #N` to the PR body automatically (GitHub only) (#73)
+- `mine.issues` now reminds the user to include the issue number in their branch name when starting implementation, so `mine.create-pr` can link the issue automatically (#73)
+
 ### Fixed
 - Pre-commit hook check now respects `core.hooksPath` (checked first) before falling back to `git-common-dir`; path used directly instead of via `xargs` to avoid space-breakage (#72)
 
