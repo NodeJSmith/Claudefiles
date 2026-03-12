@@ -359,7 +359,7 @@ Use `git rev-parse --git-dir` to check if you're already in a worktree (output c
 
 ### /mine.worktree-rebase
 
-Detect when the parent repo was on a feature branch at worktree creation time and offer to rebase the worktree branch onto it. No-op if the parent was already on the default branch.
+Detect when the parent repo is currently on a feature branch and offer to rebase the worktree branch onto it. No-op if the parent is already on the default branch.
 
 ### /mine.issues
 

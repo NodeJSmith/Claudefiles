@@ -1,6 +1,6 @@
 ---
 name: mine.worktree-rebase
-description: Detect when the parent repo was on a feature branch at worktree creation and offer to rebase this worktree branch onto it.
+description: Detect when the parent repo is currently on a feature branch and offer to rebase this worktree branch onto it.
 user-invokable: true
 ---
 
@@ -12,7 +12,7 @@ user-invokable: true
 
 ## Your task
 
-Detect whether this worktree was created while the parent repo was on a non-default branch, and offer to rebase accordingly.
+Detect whether the parent repo is currently on a non-default branch, and offer to rebase this worktree onto it. For best results, run this immediately after entering a new worktree.
 
 ### Phase 1 — Verify you are inside a worktree
 
@@ -30,15 +30,15 @@ git rev-parse --git-common-dir
 ```
 Note the output — call it `<common-git-dir>`.
 
-**Step 2** — Derive the original repo root (the parent of the `.git` dir):
+**Step 2** — Derive the original repo root. Use the exact path from Step 1 — substitute it directly (no pipes, no xargs — handles spaces in paths correctly):
 ```bash
-git rev-parse --git-common-dir | xargs dirname
+dirname <common-git-dir>
 ```
-Note the output — call it `<orig-root>`.
+For example, if Step 1 returned `/home/jessica/Claudefiles/.git`, run `dirname /home/jessica/Claudefiles/.git`. Note the output — call it `<orig-root>`.
 
-**Step 3** — Read the current branch of the original repo:
+**Step 3** — Read the current branch of the original repo. Use the exact path from Step 2:
 ```bash
-git rev-parse --git-common-dir | xargs -I {} git -C {}/../ symbolic-ref --short HEAD 2>/dev/null
+git -C <orig-root> symbolic-ref --short HEAD 2>/dev/null
 ```
 - If this exits 0 and prints a branch name → that is `<orig-branch>`.
 - If this exits non-zero (detached HEAD or error) → treat `<orig-branch>` as the default branch (no rebase needed).
@@ -49,7 +49,7 @@ Compare `<orig-branch>` to the default branch from Context.
 
 If they are the same → stop with a friendly message:
 
-> The parent repo was already on `<default-branch>` when this worktree was created. No rebase needed.
+> The parent repo is currently on `<default-branch>`. No rebase needed.
 
 ### Phase 4 — Show the situation and confirm
 
@@ -65,7 +65,7 @@ Rebasing will move this worktree's commits on top of `<orig-branch>`.
 ```
 
 Ask the user to confirm using AskUserQuestion:
-- question: `Rebase \`<current-branch>\` onto \`<orig-branch>\`?`
+- question: "Rebase `<current-branch>` onto `<orig-branch>`?"
 - header: `Worktree rebase`
 - options:
   - `Yes — rebase onto <orig-branch>` (description: `git rebase --onto <orig-branch> origin/<default-branch>`)

@@ -64,4 +64,4 @@ If `claude --worktree` was invoked while the parent repo was on a feature branch
 /mine.worktree-rebase
 ```
 
-This detects the original branch, shows you what it will do, and performs `git rebase --onto <orig-branch> origin/<default>` after confirmation.
+This detects the parent repo's current branch, shows you what it will do, and performs `git rebase --onto <orig-branch> origin/<default>` after confirmation. Run it immediately after entering the new worktree, before the parent repo's branch changes.
