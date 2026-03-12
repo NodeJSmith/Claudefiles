@@ -48,6 +48,7 @@ Skills and commands exist for common workflows. **Use these instead of ad-hoc to
 | "evaluate skill", "compare skill variants", "skill A/B test", "grade this skill" | `/mine.skill-eval` |
 | "merge settings", "apply settings", "update claude settings" | `claude-merge-settings` |
 | "what did I work on yesterday", "find that session where...", "show me the logs" | `claude-log` |
+| "rebase this worktree", "sync worktree to parent branch", "worktree is on wrong base", "rebase onto feature branch" | `/mine.worktree-rebase` |
 | "cancel builds", "cancel pipeline runs", "list ADO builds", "cancel-by-tag" | `ado-builds` |
 | "build logs", "CI logs", "why did the build fail", "show build errors" | `ado-logs` |
 | "create ADO PR", "list ADO PRs", "show ADO PR", "update ADO PR" | `ado-pr` |
@@ -355,6 +356,10 @@ claude --resume <session-id>        # return to a previous session
 ```
 
 Use `git rev-parse --git-dir` to check if you're already in a worktree (output contains `worktrees/`).
+
+### /mine.worktree-rebase
+
+Detect when the parent repo is currently on a feature branch and offer to rebase the worktree branch onto it. No-op if the parent is already on the default branch.
 
 ### /mine.issues
 
