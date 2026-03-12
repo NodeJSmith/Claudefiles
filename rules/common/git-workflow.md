@@ -8,7 +8,7 @@ Prefer `git -C <path>` over `cd <path> && git` — compound commands with `cd` r
 
 Before your first commit in a repo during a session, check for a pre-commit config:
 
-1. **Detect config** — attempt `Read(.pre-commit-config.yaml)` and `Read(.pre-commit-config.yml)`. If neither exists, skip the rest.
+1. **Detect config** — first run `git rev-parse --show-toplevel` to get the repo root, then attempt `Read(<root>/.pre-commit-config.yaml)` and `Read(<root>/.pre-commit-config.yml)`. If neither exists, skip the rest.
 
 2. **Check if pre-commit is installed**:
    ```bash
@@ -39,10 +39,10 @@ Before your first commit in a repo during a session, check for a pre-commit conf
 
    Once you have the hooks directory path, check for each hook type you identified — using the captured path directly (no `xargs`):
    ```bash
-   ls <hooks-dir>/pre-commit
-   ls <hooks-dir>/commit-msg
+   test -f "<hooks-dir>/pre-commit"
+   test -f "<hooks-dir>/commit-msg"
    ```
-   A missing file means that hook type is not installed. Note: a present `hooks/pre-commit` file does **not** imply other hook types are installed.
+   A non-zero exit means that hook type is not installed. Note: a present `hooks/pre-commit` file does **not** imply other hook types are installed.
 
    **Worktree note:** When `core.hooksPath` is **not** set, all worktrees share the same `.git/hooks/` directory (via `git-common-dir`), so `pre-commit install` only needs to run once per repo. When `core.hooksPath` **is** set, each worktree uses that configured path — verify it is accessible from the current worktree context.
 
