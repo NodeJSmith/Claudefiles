@@ -87,7 +87,7 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `mine.status` | Quick orientation -- branch, tasks, errors, last commit |
 | `mine.ux-review` | Scan frontend code for UX anti-patterns |
 
-### Agents (32)
+### Agents (33)
 
 **Core Development (10)**
 
