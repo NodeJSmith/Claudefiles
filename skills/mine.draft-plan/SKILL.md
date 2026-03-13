@@ -51,17 +51,34 @@ Read the doc fully. Extract:
 - **Impact / affected files** — modules and files named in the design
 - **Open questions** — if any remain non-empty, warn before proceeding
 
-If open questions exist:
+If open questions exist, walk through each one interactively before proceeding. For each open question:
+
+1. **Analyze the question** — read the surrounding context in the design doc to infer the most reasonable answer. Identify 2–4 concrete options and pick the one you'd recommend.
+
+2. **Prompt the user** using AskUserQuestion, one question at a time:
 
 ```
 AskUserQuestion:
-  question: "The design doc has unresolved open questions. Proceed anyway or resolve first?"
-  header: "Open questions"
+  question: "<Quote the open question verbatim, then add a one-sentence summary of what's at stake>"
+  header: "Open question N of M: <short title>"
   multiSelect: false
   options:
-    - label: "Proceed — treat open questions as accepted uncertainty"
+    - label: "<Option A — your recommendation>"
+      description: "RECOMMENDED — <one sentence why>"
+    - label: "<Option B>"
+      description: "<tradeoff or implication>"
+    - label: "<Option C if applicable>"
+      description: "<tradeoff or implication>"
+    - label: "Skip — treat as accepted uncertainty"
+      description: "Leave this unresolved and proceed; the WPs will note the ambiguity"
     - label: "Stop — I'll update the design doc first"
+      description: "Exit now so you can revise the doc before generating WPs"
 ```
+
+3. **Record the decision** — after the user answers, note it (e.g., "Q2 resolved: will use Option B"). If the user selects "Stop", exit immediately.
+
+4. After all questions are answered (or skipped), briefly summarize the resolutions before continuing to Phase 2:
+   > Resolved open questions: Q1 → Option A, Q2 → Option B, Q3 → skipped. Proceeding to generate work packages.
 
 ### Identify the feature directory
 
