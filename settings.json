@@ -36,9 +36,7 @@
       "Bash(claude-tmux:*)",
       "Bash(which:*)"
     ],
-    "ask": [
-      "Bash(uv run python:*)"
-    ],
+    "ask": [],
     "defaultMode": "default"
   },
   "includeGitInstructions": false,
