@@ -87,9 +87,9 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `mine.status` | Quick orientation -- branch, tasks, errors, last commit |
 | `mine.ux-review` | Scan frontend code for UX anti-patterns |
 
-### Agents (33)
+### Agents (34)
 
-**Core Development (10)**
+**Core Development (11)**
 
 | Agent | Description |
 |-------|-------------|
@@ -98,6 +98,7 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `code-reviewer` | Expert code reviewer -- PEP 8, type hints, security, performance |
 | `db-auditor` | Database query and schema audit -- N+1 queries, missing indexes, ORM misuse |
 | `dep-auditor` | Dependency vulnerability audit -- CVEs, outdated packages, license issues, unused deps |
+| `integration-reviewer` | Codebase integration reviewer -- duplication, misplacement, convention drift, orphaned code, design violations |
 | `issue-refiner` | Enrich GitHub issues with acceptance criteria, edge cases, technical considerations, and NFRs |
 | `planner` | Implementation planning for complex features and refactoring |
 | `qa-specialist` | Adversarial QA -- systematic and exploratory testing to find defects before they ship |
