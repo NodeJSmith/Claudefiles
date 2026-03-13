@@ -4,6 +4,7 @@
 
 Located in `~/.claude/agents/`:
 
+### Core Development
 | Agent | Purpose | When to Use |
 |-------|---------|-------------|
 | planner | Implementation planning | Complex features, refactoring |
@@ -16,6 +17,48 @@ Located in `~/.claude/agents/`:
 | ui-auditor | Accessibility/UX audit | Before shipping any UI; a11y reviews |
 | browser-qa-agent | Live browser QA via Playwright | After UI changes; smoke testing running app (requires Playwright MCP) |
 | visual-diff | Visual regression screenshots | Before/after UI changes to catch unintended regressions (requires Playwright MCP) |
+
+### Engineering Specialists
+| Agent | Purpose | When to Use |
+|-------|---------|-------------|
+| engineering-security-engineer | Threat modeling, secure code review, vulnerability assessment | Before PRs touching auth/secrets/user input; security architecture design |
+| engineering-sre | SLOs, error budgets, observability, on-call design | Designing for production reliability; defining SLAs; post-incident review |
+| engineering-devops-automator | CI/CD pipelines, infrastructure automation, cloud ops | Building deployment pipelines; automating infra; cloud configuration |
+| engineering-ai-engineer | ML model development, AI integration, data pipelines | Building AI features; integrating ML models; designing data pipelines |
+| engineering-frontend-developer | React/Vue/Angular, performance optimization, accessibility | Building frontend features; performance debugging; UI implementation |
+| engineering-rapid-prototyper | Ultra-fast POC and MVP development | Validating ideas quickly; exploring feasibility before committing |
+| engineering-technical-writer | Developer docs, API references, READMEs, tutorials | Writing developer documentation; API docs; onboarding guides |
+| engineering-incident-response-commander | Incident management, post-mortems, on-call processes | Active incidents; designing on-call runbooks; post-mortem facilitation |
+
+### Testing & Quality
+| Agent | Purpose | When to Use |
+|-------|---------|-------------|
+| testing-reality-checker | Adversarial pre-ship visual gate via Playwright | Before shipping a web app; final gate after qa-specialist; when skeptical review is needed (requires Playwright MCP) |
+| testing-api-tester | API validation, contract testing, security + performance | After building API endpoints; before releasing API changes |
+| testing-performance-benchmarker | Load testing, Core Web Vitals, capacity planning | Performance investigations; before scaling; new feature perf validation |
+| testing-tool-evaluator | Technology assessment, tool comparison, ROI analysis | Evaluating new tools; build-vs-buy decisions; technology selection |
+| testing-workflow-optimizer | Process improvement, automation, bottleneck removal | When workflows feel inefficient; identifying and removing process friction |
+
+### Specialized
+| Agent | Purpose | When to Use |
+|-------|---------|-------------|
+| specialized-mcp-builder | MCP server design and development | Building or extending MCP tools and servers |
+| agents-orchestrator | Multi-agent pipeline management and coordination | Designing complex multi-agent workflows; coordinating parallel agent work |
+| specialized-model-qa | ML model auditing, calibration testing, data drift | Auditing ML models; validating model outputs; pre-production model review |
+| specialized-developer-advocate | DX improvement, developer community, API experience | Improving developer experience; documentation strategy; community engagement |
+
+### Design
+| Agent | Purpose | When to Use |
+|-------|---------|-------------|
+| design-ux-researcher | User behavior research, usability testing, design validation | Before major UX decisions; validating design assumptions with user data |
+| design-ux-architect | CSS systems, layout foundations, implementation-ready UX | Creating technical UX foundations; CSS architecture; layout systems |
+| design-ui-designer | Visual design systems, component libraries, pixel-perfect UI | Designing UI components; building design systems; visual consistency review |
+
+### Product
+| Agent | Purpose | When to Use |
+|-------|---------|-------------|
+| product-sprint-prioritizer | Sprint planning, feature prioritization, velocity optimization | Sprint planning; backlog grooming; prioritization frameworks |
+| product-feedback-synthesizer | User feedback analysis, insight extraction, product recommendations | Synthesizing user feedback; deciding what to build next |
 
 ## Immediate Agent Usage
 

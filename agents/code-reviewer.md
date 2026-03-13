@@ -436,7 +436,7 @@ Check every fenced bash block in changed `.md` files. Flag any `$(` occurrence.
 [CRITICAL] $() substitution in bash code block
 File: skills/mine.foo/SKILL.md:42
 Issue: `--body "$(cat <<'EOF'...)"` will silently fail or error when Claude executes it
-Fix: Write body with the Write tool to /tmp/file-$CLAUDE_SESSION_ID.md, then use --body-file /tmp/file-$CLAUDE_SESSION_ID.md
+Fix: Run `get-skill-tmpdir code-review` to get a temp dir, write body to `<dir>/body.md`, then use --body-file <dir>/body.md
 ```
 
 Correct alternatives (show in the fix):
@@ -519,7 +519,7 @@ agnix .
 Each Bash invocation triggers a permission prompt. To minimize friction:
 
 1. **Batch shell checks into a single script file.** Instead of running N one-off commands to test logic, write all checks to a single temporary script and run it once.
-2. **Use `/tmp/review-checks-$CLAUDE_SESSION_ID.sh`** as the script path. Write the file, make it executable, run it, done — one permission prompt instead of many.
+2. **Use `get-skill-tmpdir code-review`** to get a temp dir, then use `<dir>/checks.sh` as the script path. Write the file, make it executable, run it, done — one permission prompt instead of many.
 
 Example — instead of running these separately:
 ```bash
@@ -533,7 +533,7 @@ diff <(sort file1) <(sort file2)
 Do this:
 ```bash
 # GOOD: 1 script file = 1 permission prompt
-# Write all checks to /tmp/review-checks-$CLAUDE_SESSION_ID.sh, then run it
+# Write all checks to <dir>/checks.sh (from get-skill-tmpdir code-review), then run it
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -551,6 +551,13 @@ diff <(sort file1) <(sort file2) || true
 ```
 
 This applies to **all ad-hoc verification** — shell logic tests, regex checks, file inspections, format validations. The only commands that should run as individual Bash calls are the standard diagnostic tools above (ruff, pyright, bandit, pip-audit, safety, pytest, agnix) which have their own permission allow-list entries.
+
+## Critical Rules
+
+- **Every finding must include a fix** — never just flag an issue. Show the corrected code, not just the problem. A review that says "use parameterized queries" without showing the fixed query is incomplete.
+- **MEDIUM severity in test code is lower priority than MEDIUM in production code** — flag it, but don't block on it.
+- **Don't review whitespace-only changes, renames, or auto-generated files** — skip them silently and note it in the summary.
+- **Pre-existing issues found during review:** flag them separately as "Pre-existing (not introduced by this PR)" — document and move on, don't block the PR for them.
 
 ## Approval Criteria
 
