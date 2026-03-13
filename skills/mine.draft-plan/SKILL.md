@@ -62,7 +62,7 @@ For each open question:
 ```
 AskUserQuestion:
   question: "<Quote the open question verbatim, then add a one-sentence summary of what's at stake>"
-  header: "Open question N of M: <short title>"
+  header: "Q{N} of {M}"
   multiSelect: false
   options:
     - label: "<Option A — your recommendation>"
