@@ -77,8 +77,8 @@ AskUserQuestion:
 
 3. **Record the decision** — after the user answers, note it (e.g., "Q2 resolved: will use Option B"). If the user selects "Stop", exit immediately.
 
-4. After all questions are answered (or skipped), briefly summarize the resolutions before continuing to Phase 2:
-   > Resolved open questions: Q1 → Option A, Q2 → Option B, Q3 → skipped. Proceeding to generate work packages.
+After all questions are answered (or skipped), briefly summarize the resolutions before continuing to Phase 2:
+> Resolved open questions: Q1 → Option A, Q2 → Option B, Q3 → skipped. Proceeding to generate work packages.
 
 ### Identify the feature directory
 
