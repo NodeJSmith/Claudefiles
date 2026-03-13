@@ -49,11 +49,13 @@ Read the doc fully. Extract:
 - **Architecture / Proposed approach** — the recommended direction and design decisions
 - **Non-goals** — explicit exclusions (WPs must NOT implement these)
 - **Impact / affected files** — modules and files named in the design
-- **Open questions** — if any remain non-empty, walk through each one interactively before proceeding
+- **Open questions** — collect any that are non-empty
 
-If open questions exist, walk through each one interactively before proceeding. For each open question:
+If open questions exist, walk through each one interactively before proceeding. First, count all open questions and record the total as M — you need this before asking the first one.
 
-1. **Analyze the question** — read the surrounding context in the design doc to infer the most reasonable answer. Identify 2–4 substantive resolution options and pick the one you'd recommend. (The "Skip" and "Stop" choices are always appended automatically — don't count them toward the 2–4.)
+For each open question:
+
+1. **Analyze the question** — read the surrounding context in the design doc to infer the most reasonable answer. Identify exactly 2 substantive resolution options and pick the one you'd recommend.
 
 2. **Prompt the user** using AskUserQuestion, one question at a time:
 
@@ -66,8 +68,6 @@ AskUserQuestion:
     - label: "<Option A — your recommendation>"
       description: "RECOMMENDED — <one sentence why>"
     - label: "<Option B>"
-      description: "<tradeoff or implication>"
-    - label: "<Option C if applicable>"
       description: "<tradeoff or implication>"
     - label: "Skip — treat as accepted uncertainty"
       description: "Leave this unresolved and proceed; the WPs will note the ambiguity"
