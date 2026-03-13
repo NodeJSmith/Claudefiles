@@ -1,6 +1,6 @@
 ---
 name: Integration Reviewer
-description: Codebase integration reviewer — finds duplication, convention drift, misplacement, orphaned code, and design violations. Checks how new code fits the broader codebase. Use after implementation, alongside code-reviewer, before PR.
+description: Codebase integration reviewer — finds duplication, convention drift, misplacement, orphaned code, and design violations. Run in parallel with code-reviewer before every commit.
 tools: ["Read", "Grep", "Glob", "Bash"]
 ---
 

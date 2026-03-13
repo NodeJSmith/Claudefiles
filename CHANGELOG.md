@@ -2,13 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
-## 2026-03-13 (unreleased)
+## 2026-03-13
 
 ### Added
 - `integration-reviewer` agent — checks how new code fits the codebase: duplication, misplacement, convention drift, orphaned code, and design doc violations (caliper-aware) (#80)
 - `code-reviewer` and `integration-reviewer` are now mandated to run in parallel before every commit (#80)
-
-## 2026-03-13
 
 ### Fixed
 - `git-branch-log` and `git-branch-diff-stat` now compute the base branch by finding the closest remote branch (fewest commits ahead) instead of `@{upstream}` — fixes diffs in worktrees and fresh clones where no tracking branch is set (#78)
