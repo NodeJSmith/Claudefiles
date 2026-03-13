@@ -5,8 +5,8 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-13 (unreleased)
 
 ### Added
-- `integration-reviewer` agent — checks how new code fits the codebase: duplication, misplacement, convention drift, orphaned code, and design doc violations (caliper-aware)
-- `code-reviewer` and `integration-reviewer` are now mandated to run in parallel before every commit
+- `integration-reviewer` agent — checks how new code fits the codebase: duplication, misplacement, convention drift, orphaned code, and design doc violations (caliper-aware) (#80)
+- `code-reviewer` and `integration-reviewer` are now mandated to run in parallel before every commit (#80)
 
 ## 2026-03-13
 
