@@ -11,6 +11,7 @@ Located in `~/.claude/agents/`:
 | code-reviewer | Code review | After writing or modifying code |
 | qa-specialist | Adversarial QA testing | After implementation, before PR; when test coverage is thin |
 | architect | Architecture documentation | Onboarding to new codebase; before major refactor; after significant changes |
+| integration-reviewer | Codebase fit review — duplication, misplacement, convention drift, design violations | After writing or modifying code; run in parallel with code-reviewer before every commit |
 | issue-refiner | Enrich GitHub issues | Before assigning work; when issue lacks AC or technical detail |
 | db-auditor | Database query audit | Database-heavy PRs; performance investigations |
 | dep-auditor | Dependency vulnerability audit | Before releases; after adding dependencies |
@@ -65,7 +66,7 @@ Located in `~/.claude/agents/`:
 
 No user prompt needed:
 1. Complex feature requests - Use **planner** agent
-2. Code just written/modified - **MUST** use **code-reviewer** agent before committing; exceptions: documentation-only changes or explicit user skip (see `rules/common/git-workflow.md`)
+2. Code just written/modified - **MUST** run **code-reviewer** AND **integration-reviewer** in parallel before committing; exceptions: documentation-only changes or explicit user skip (see `rules/common/git-workflow.md`)
 
 ## Parallel Agent Execution
 
