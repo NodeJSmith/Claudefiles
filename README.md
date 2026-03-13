@@ -87,7 +87,7 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `mine.status` | Quick orientation -- branch, tasks, errors, last commit |
 | `mine.ux-review` | Scan frontend code for UX anti-patterns |
 
-### Agents (32)
+### Agents (33)
 
 **Core Development (10)**
 
@@ -136,13 +136,14 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `specialized-mcp-builder` | MCP server design and development -- tools, resources, prompts, TypeScript/Zod patterns |
 | `specialized-model-qa` | ML model auditing -- calibration testing, data drift, interpretability, fairness analysis |
 
-**Design (3)**
+**Design (4)**
 
 | Agent | Description |
 |-------|-------------|
 | `design-ui-designer` | Visual design systems, component libraries, pixel-perfect accessible interfaces |
 | `design-ux-architect` | CSS systems, layout foundations, implementation-ready UX structure |
 | `design-ux-researcher` | User behavior research, usability testing, data-driven design validation |
+| `design-visual-storyteller` | Visual narratives, multimedia content, brand storytelling, data visualization |
 
 **Product (2)**
 

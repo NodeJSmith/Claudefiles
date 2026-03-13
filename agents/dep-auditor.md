@@ -1,5 +1,5 @@
 ---
-name: dep-auditor
+name: Dep Auditor
 description: Dependency vulnerability and maintenance auditor — checks CVEs, outdated packages, license issues, and unused dependencies. Use before releases or after adding new dependencies.
 tools: ["Read", "Grep", "Glob", "Bash"]
 ---

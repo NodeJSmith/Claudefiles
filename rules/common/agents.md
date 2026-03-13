@@ -53,6 +53,7 @@ Located in `~/.claude/agents/`:
 | design-ux-researcher | User behavior research, usability testing, design validation | Before major UX decisions; validating design assumptions with user data |
 | design-ux-architect | CSS systems, layout foundations, implementation-ready UX | Creating technical UX foundations; CSS architecture; layout systems |
 | design-ui-designer | Visual design systems, component libraries, pixel-perfect UI | Designing UI components; building design systems; visual consistency review |
+| design-visual-storyteller | Visual narratives, multimedia content, brand storytelling, data visualization | Creating visual campaigns; transforming complex data into engaging stories; cross-platform content strategy |
 
 ### Product
 | Agent | Purpose | When to Use |

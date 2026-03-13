@@ -1,5 +1,5 @@
 ---
-name: issue-refiner
+name: Issue Refiner
 description: Enriches GitHub issues with acceptance criteria, edge cases, technical considerations, and NFRs. Use before assigning work or when an issue lacks sufficient detail.
 tools: ["Read", "Grep", "Glob", "Bash"]
 ---
