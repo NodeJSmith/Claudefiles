@@ -179,7 +179,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `get-tmp-filename` | Create temp files for command output capture |
 | `gh-issue` | Run `gh issue` subcommands using bot token if available, personal token otherwise |
 | `gh-pr-create` | Create a GitHub PR using bot token if available, personal token otherwise |
-| `gh-pr-reply` | Reply to a PR review comment thread |
+| `gh-pr-reply` | Reply to a PR review comment thread; optionally resolve it with `--resolve <PRRT_...>` |
 | `gh-pr-resolve-thread` | Resolve one or more PR review threads by GraphQL ID |
 | `gh-pr-threads` | List unresolved PR review threads with summary |
 | `git-branch-diff-stat` | Print `git diff --stat` for current branch vs default branch (with remote/local fallback) |
