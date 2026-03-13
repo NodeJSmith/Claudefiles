@@ -40,8 +40,8 @@ Ship the current changes: commit, push, and open a PR. Follow each phase in orde
 9. Check if a PR already exists for this branch:
    - **GitHub**: `gh pr list --head <branch-name>`
    - **Azure DevOps**: `az repos pr list --source-branch <branch-name> --status active`
-10. Analyze ALL commits in the branch (not just the latest) using `git log origin/<default-branch>..HEAD`
-11. Use `git diff <default-branch>...HEAD` to see all code changes
+10. Analyze ALL commits in the branch (not just the latest): use `git log @{upstream}..HEAD` (respects PRs targeting non-default branches); if that fails (no upstream set), fall back to `git log origin/<default-branch>..HEAD`
+11. Use `git diff @{upstream}...HEAD` to see all code changes; if no upstream, fall back to `git diff <default-branch>...HEAD`
 12. Read key modified files if needed for additional context
 13. Draft a comprehensive PR:
     - Title: < 70 characters, summarize the change
@@ -66,7 +66,7 @@ Ship the current changes: commit, push, and open a PR. Follow each phase in orde
     - Use the platform-appropriate prefix for the PR reference:
       - **GitHub**: `#` (e.g., `(#123)`) — links to the PR
       - **Azure DevOps**: **!** prefix (e.g., `(!123)`) — links to the PR (`#` would link to a work item instead)
-    - Use `git diff <default-branch>...HEAD -- CHANGELOG.md` to identify lines added in this branch
+    - Use `git diff @{upstream}...HEAD -- CHANGELOG.md` to identify lines added in this branch (fall back to `git diff <default-branch>...HEAD -- CHANGELOG.md` if no upstream)
     - For each newly added changelog entry line (lines starting with `- `) that does not already contain a PR reference (`(#...)` or `(!...)`), append ` (#<PR_NUMBER>)` for GitHub or ` (!<PR_NUMBER>)` for Azure DevOps to the end of the line
     - Commit with message: e.g., `changelog: add PR #<NUMBER>` for GitHub or `changelog: add PR !<NUMBER>` for Azure DevOps
     - Push

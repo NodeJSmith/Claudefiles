@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Print git diff --stat for current branch vs default branch.
+# Print git diff --stat for current branch vs its base.
 #
-# Tries origin/<default>...HEAD first (branch pushed to remote), then
-# falls back to <default>...HEAD (local only).
+# Prefers the tracking branch (@{upstream}) so PRs targeting non-default
+# branches (e.g., develop) show only the feature's diff, not everything
+# since main. Falls back to origin/<default>...HEAD, then <default>...HEAD.
 #
 # Usage: git-branch-diff-stat
 #
@@ -11,6 +12,14 @@
 
 set -uo pipefail
 
+# Prefer tracking branch — correctly handles PRs targeting non-default branches
+# Single-quote '@{upstream}' so shellcheck doesn't interpret the braces as shell syntax.
+if upstream=$(git rev-parse --abbrev-ref '@{upstream}' 2> /dev/null); then
+  git diff --stat "${upstream}...HEAD" 2> /dev/null || true
+  exit 0
+fi
+
+# Fallback: use default branch
 default=$(git-default-branch 2> /dev/null) || exit 0
 
 if git diff --stat "origin/${default}...HEAD" 2> /dev/null | grep -q .; then

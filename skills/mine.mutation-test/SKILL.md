@@ -53,7 +53,7 @@ If the user chose stash, run `git stash` and remember to `git stash pop` at the 
 ### If $ARGUMENTS is empty
 
 1. Check `git diff --name-only HEAD~3` for recently changed source files (exclude test files)
-2. If no recent changes, run `git-default-branch` to get the base branch, then run `git diff --name-only <base-branch>` (branch changes)
+2. If no recent changes, run `git diff --name-only @{upstream}...HEAD 2>/dev/null` to get branch changes (respects non-default PR targets); if that fails (no upstream), fall back to `git-default-branch | xargs -I {} git diff --name-only {}`
 3. If multiple candidates, present them:
 
 ```

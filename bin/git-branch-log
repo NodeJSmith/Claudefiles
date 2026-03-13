@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Print one-line git log for commits in current branch vs default branch.
+# Print one-line git log for commits in current branch vs its base.
 #
-# Tries origin/<default>..HEAD first (branch pushed to remote), then
-# falls back to <default>..HEAD (local only), then prints "No commits found".
+# Prefers the tracking branch (@{upstream}) so PRs targeting non-default
+# branches (e.g., develop) show only the feature's commits, not everything
+# since main. Falls back to origin/<default>..HEAD, then <default>..HEAD.
 #
 # Usage: git-branch-log
 #
@@ -11,6 +12,19 @@
 
 set -uo pipefail
 
+# Prefer tracking branch — correctly handles PRs targeting non-default branches
+# Single-quote '@{upstream}' so shellcheck doesn't interpret the braces as shell syntax.
+if upstream=$(git rev-parse --abbrev-ref '@{upstream}' 2> /dev/null); then
+  out=$(git log --oneline "${upstream}..HEAD" 2> /dev/null)
+  if [[ -n "$out" ]]; then
+    printf '%s\n' "$out"
+  else
+    echo "No commits found"
+  fi
+  exit 0
+fi
+
+# Fallback: use default branch
 default=$(git-default-branch 2> /dev/null) || {
   echo "No commits found"
   exit 0

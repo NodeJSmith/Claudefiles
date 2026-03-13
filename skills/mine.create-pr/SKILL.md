@@ -76,7 +76,7 @@ Based on the above changes:
    - Use the platform-appropriate prefix for the PR reference:
      - **GitHub**: `#` (e.g., `(#123)`) — links to the PR
      - **Azure DevOps**: **!** prefix (e.g., `(!123)`) — links to the PR (`#` would link to a work item instead)
-   - Use `git diff <base-branch>...HEAD -- <changelog-path>` to identify lines added in this branch
+   - Use `git diff @{upstream}...HEAD -- <changelog-path>` to identify lines added in this branch (fall back to `git diff <default-branch>...HEAD -- <changelog-path>` if no upstream)
    - For each newly added changelog entry line (lines starting with `- `) that does not already contain a PR reference (`(#...)` or `(!...)`), append ` (#<PR_NUMBER>)` for GitHub or ` (!<PR_NUMBER>)` for Azure DevOps to the end of the line
    - Commit with message: e.g., `changelog: add PR #<NUMBER>` for GitHub or `changelog: add PR !<NUMBER>` for Azure DevOps
    - Push
