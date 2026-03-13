@@ -58,7 +58,7 @@ git diff --name-only @{upstream}...HEAD 2>/dev/null
 If that fails or returns empty (no tracking branch set), fall back to the default branch:
 
 ```bash
-git-default-branch | xargs -I {} git diff --name-only {}
+git-default-branch | xargs -I {} git diff --name-only "origin/{}...HEAD" 2>/dev/null || git-default-branch | xargs -I {} git diff --name-only "{}...HEAD"
 ```
 
 If still empty, fall back to:
