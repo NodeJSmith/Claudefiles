@@ -10,7 +10,7 @@ Turn an approved design doc into a set of Work Package (WP) files. Each WP is an
 
 ## Arguments
 
-$ARGUMENTS — path to a `design.md` or the feature directory (`design/specs/NNN-feature/`). If empty, find the most recently modified `design/specs/*/design.md` and confirm with the user before proceeding.
+$ARGUMENTS — path to a `design.md` or the feature directory (`design/specs/NNN-<slug>/`). If empty, find the most recently modified `design/specs/*/design.md` and confirm with the user before proceeding.
 
 ---
 
@@ -49,11 +49,11 @@ Read the doc fully. Extract:
 - **Architecture / Proposed approach** — the recommended direction and design decisions
 - **Non-goals** — explicit exclusions (WPs must NOT implement these)
 - **Impact / affected files** — modules and files named in the design
-- **Open questions** — if any remain non-empty, warn before proceeding
+- **Open questions** — if any remain non-empty, walk through each one interactively before proceeding
 
 If open questions exist, walk through each one interactively before proceeding. For each open question:
 
-1. **Analyze the question** — read the surrounding context in the design doc to infer the most reasonable answer. Identify 2–4 concrete options and pick the one you'd recommend.
+1. **Analyze the question** — read the surrounding context in the design doc to infer the most reasonable answer. Identify 2–4 substantive resolution options and pick the one you'd recommend. (The "Skip" and "Stop" choices are always appended automatically — don't count them toward the 2–4.)
 
 2. **Prompt the user** using AskUserQuestion, one question at a time:
 
@@ -82,7 +82,7 @@ AskUserQuestion:
 
 ### Identify the feature directory
 
-The feature directory is `design/specs/NNN-feature/` containing the design.md. All WP files will be written to `<feature_dir>/tasks/`. Create the `tasks/` subdirectory if it doesn't exist.
+The feature directory is `design/specs/NNN-<slug>/` containing the design.md. All WP files will be written to `<feature_dir>/tasks/`. Create the `tasks/` subdirectory if it doesn't exist.
 
 ---
 
