@@ -78,24 +78,26 @@ Target: **WCAG AA compliance**. All CRITICAL and HIGH findings block release.
 
 ## Grep
 
+Substitute `<src-dir>` and `<ext-pattern>` from the Stack Detection table above (e.g. `src/components`, `*.tsx`).
+
 ```bash
-# Hardcoded colors (adjust file pattern to detected stack)
-grep -rn "#[0-9a-fA-F]\{3,6\}" src/components --include="*.tsx" | head -20
+# Hardcoded colors
+grep -rn "#[0-9a-fA-F]\{3,6\}" <src-dir> --include="<ext-pattern>" | head -20
 
 # Missing alt text on images
-grep -rn "<img\|<Image" src --include="*.tsx" | grep -v "alt="
+grep -rn "<img\|<Image" <src-dir> --include="<ext-pattern>" | grep -v "alt="
 
 # Div buttons (accessibility anti-pattern)
-grep -rn "<div.*onClick" src --include="*.tsx" | head -10
+grep -rn "<div.*onClick" <src-dir> --include="<ext-pattern>" | head -10
 
 # Inline styles (consistency concern)
-grep -rn "style={{" src --include="*.tsx" | wc -l
+grep -rn "style={{" <src-dir> --include="<ext-pattern>" | wc -l
 
 # Missing ARIA labels on interactive elements
-grep -rn "<button\|<input\|<select\|<textarea" src --include="*.tsx" | grep -v "aria-label\|aria-labelledby\|title=" | head -20
+grep -rn "<button\|<input\|<select\|<textarea" <src-dir> --include="<ext-pattern>" | grep -v "aria-label\|aria-labelledby\|title=" | head -20
 
 # Form inputs missing labels
-grep -rn "<input" src --include="*.tsx" | grep -v "type=\"hidden\"\|aria-label\|<label" | head -20
+grep -rn "<input" <src-dir> --include="<ext-pattern>" | grep -v "type=\"hidden\"\|aria-label\|<label" | head -20
 ```
 
 ## Output

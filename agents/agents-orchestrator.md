@@ -79,8 +79,8 @@ ls -la css/ project-docs/*-architecture.md
 ### Phase 3: Development-QA Continuous Loop
 ```bash
 # Read task list to understand scope
-TASK_COUNT=$(grep -c "^### \[ \]" project-tasks/*-tasklist.md)
-echo "Pipeline: $TASK_COUNT tasks to implement and validate"
+grep -c "^### \[ \]" project-tasks/*-tasklist.md
+echo "Pipeline: see task count above — tasks to implement and validate"
 
 # For each task, run Dev-QA loop until PASS
 # Task 1 implementation
