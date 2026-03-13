@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-03-13
+
+### Added
+- 22 new agents imported from msitarzewski/agency-agents (MIT): engineering specialists (security, SRE, DevOps, AI, frontend, prototyper, technical writer, incident response), testing (API tester, performance benchmarker, reality checker, tool evaluator, workflow optimizer), specialized (MCP builder, agents orchestrator, model QA, developer advocate), design (UI designer, UX architect, UX researcher), and product (sprint prioritizer, feedback synthesizer)
+- `testing-reality-checker` adapted to use Playwright MCP instead of the upstream `qa-playwright-capture.sh` script
+
 ## 2026-03-12
 
 ### Added
