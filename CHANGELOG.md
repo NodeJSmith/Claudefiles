@@ -4,6 +4,9 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-03-13
 
+### Fixed
+- `git-branch-log` and `git-branch-diff-stat` now compute the base branch by finding the closest remote branch (fewest commits ahead) instead of `@{upstream}` — fixes diffs in worktrees and fresh clones where no tracking branch is set (#78)
+
 ### Added
 - Improved 7 existing agents with critical rules, severity calibration, success gates, and scope boundaries: `code-reviewer`, `ui-auditor`, `db-auditor`, `browser-qa-agent`, `visual-diff`, `planner`, `qa-specialist` (#76)
 - 22 new agents imported from msitarzewski/agency-agents (MIT): engineering specialists (security, SRE, DevOps, AI, frontend, prototyper, technical writer, incident response), testing (API tester, performance benchmarker, reality checker, tool evaluator, workflow optimizer), specialized (MCP builder, agents orchestrator, model QA, developer advocate), design (UI designer, UX architect, UX researcher), and product (sprint prioritizer, feedback synthesizer) (#76)

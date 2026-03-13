@@ -49,13 +49,19 @@ Read all `<feature_dir>/tasks/WP*.md` files in order. If no WP files exist, proc
 
 ### Collect changed files
 
-Run the git diff to find which files were changed since the branch diverged from the default branch:
+Run the git diff to find which files were changed since the branch diverged from its base. Prefer the tracking branch so this works correctly for PRs targeting non-default branches:
 
 ```bash
-git-default-branch | xargs -I {} git diff --name-only {}
+git diff --name-only @{upstream}...HEAD 2>/dev/null
 ```
 
-If the output is empty, fall back to:
+If that fails or returns empty (no tracking branch set), fall back to the default branch:
+
+```bash
+git-default-branch | xargs -I {} git diff --name-only "origin/{}...HEAD" 2>/dev/null || git-default-branch | xargs -I {} git diff --name-only "{}...HEAD"
+```
+
+If still empty, fall back to:
 
 ```bash
 git diff --name-only HEAD~1
