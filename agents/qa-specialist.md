@@ -1,5 +1,5 @@
 ---
-name: qa-specialist
+name: QA Specialist
 description: Adversarial QA engineer — finds defects via systematic and exploratory testing. Use after implementation, before PR, or when test coverage is thin.
 tools: ["Read", "Grep", "Glob", "Bash"]
 ---
