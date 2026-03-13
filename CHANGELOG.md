@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-13
 
 ### Changed
-- `gh-pr-reply` now accepts `--resolve <PRRT_...>` to reply and resolve a thread in one call
+- `gh-pr-reply` now accepts `--resolve <PRRT_...>` to reply and resolve a thread in one call (#81)
 
 ### Added
 - `integration-reviewer` agent — checks how new code fits the codebase: duplication, misplacement, convention drift, orphaned code, and design doc violations (caliper-aware) (#80)
