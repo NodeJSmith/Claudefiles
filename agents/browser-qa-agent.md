@@ -56,13 +56,34 @@ For each user flow:
 **MEDIUM** — Visual bugs, inconsistent behavior
 **LOW** — Minor polish issues, edge cases
 
+## Console Error Classification
+
+Not all console output is equal. Treat them differently:
+
+| Type | Severity | Action |
+|------|----------|--------|
+| `console.error` / uncaught exceptions | HIGH | Always report — these indicate broken behavior |
+| Failed network requests (4xx/5xx) | HIGH | Report with URL and status code |
+| `console.warn` affecting UX (e.g., deprecated APIs the app relies on) | MEDIUM | Report with context |
+| React/Vue dev-mode warnings | LOW | Note, don't block |
+| Expected errors (e.g., 401 on logout page, 404 for optional resources) | Skip | Ignore if clearly intentional |
+
+Check console both at page load and after each interaction.
+
+## Scope — What NOT to Test
+
+- Third-party scripts (analytics, chat widgets, ad scripts) — they generate their own console noise
+- Browser extensions interfering with the page
+- Browser-native UI (file pickers, date inputs, scrollbars)
+- Features explicitly out of scope for the current change
+
 ## Testing Priorities
 
 1. **Happy Path** — Core user flows work end to end
 2. **Error States** — Forms show validation, 404s handled gracefully
 3. **Edge Cases** — Empty states, long content, special characters
 4. **Responsiveness** — If applicable, resize viewport and retest (375px, 768px, 1280px)
-5. **Console Health** — No errors during normal operation
+5. **Console Health** — No HIGH-severity console errors during normal operation
 
 ## Output Format
 
@@ -94,3 +115,9 @@ Create `.claude/audits/AUDIT_BROWSER_QA.md` with:
 ```
 
 Write all findings to `AUDIT_BROWSER_QA.md` before completing.
+
+## Success Gate
+
+- **Pass**: Zero CRITICAL findings, zero HIGH console errors, all happy-path flows complete without error
+- **Pass with warnings**: MEDIUM/LOW findings only — document and proceed
+- **Block**: Any CRITICAL finding or HIGH console error on a core user flow

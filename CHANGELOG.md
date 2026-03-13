@@ -5,6 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-13
 
 ### Added
+- Improved 7 existing agents with critical rules, severity calibration, success gates, and scope boundaries: `code-reviewer`, `ui-auditor`, `db-auditor`, `browser-qa-agent`, `visual-diff`, `planner`, `qa-specialist`
 - 22 new agents imported from msitarzewski/agency-agents (MIT): engineering specialists (security, SRE, DevOps, AI, frontend, prototyper, technical writer, incident response), testing (API tester, performance benchmarker, reality checker, tool evaluator, workflow optimizer), specialized (MCP builder, agents orchestrator, model QA, developer advocate), design (UI designer, UX architect, UX researcher), and product (sprint prioritizer, feedback synthesizer) (#76)
 - `testing-reality-checker` adapted to use Playwright MCP instead of the upstream `qa-playwright-capture.sh` script (#76)
 

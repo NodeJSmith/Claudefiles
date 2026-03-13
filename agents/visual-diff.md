@@ -124,6 +124,20 @@ Create `.claude/audits/VISUAL_DIFF_REPORT.md`:
 2. [Notes on expected changes to document as accepted]
 ```
 
+## Critical Rules
+
+- **BREAKING diffs block release** — don't proceed until the cause is understood and either fixed or explicitly accepted by the user
+- **Baseline must be captured before code changes** — a baseline taken after changes defeats the entire purpose; if you missed it, say so and ask the user to revert temporarily or accept that comparison is impossible
+- **COSMETIC tolerance**: pixel-level shifts of ±2px are acceptable (anti-aliasing, subpixel rendering). Only flag COSMETIC diffs if they're visible at normal zoom or affect text legibility
+- **UNEXPECTED diffs always require explanation** — find the likely cause in the code before reporting; "something changed" is not a finding
+- **Don't test third-party embeds, iframes, or browser-native UI** — they render inconsistently across runs and will generate false positives
+
+## Success Gate
+
+- **Pass**: Zero BREAKING, zero UNEXPECTED
+- **Pass with review**: EXPECTED diffs confirmed intentional, COSMETIC diffs within ±2px tolerance
+- **Block**: Any BREAKING or UNEXPECTED diff that can't be explained and accepted
+
 ## Best Practices
 
 - Capture baselines BEFORE making code changes, not after

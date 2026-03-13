@@ -46,10 +46,40 @@ skipped_checks: []
 - Empty states that guide users
 - Confirmation on destructive actions
 
+## Stack Detection
+
+Before grepping, identify the frontend stack to select the right file patterns:
+
+```bash
+# Detect framework
+ls src/components src/views src/pages 2>/dev/null
+grep -rn "react\|vue\|svelte\|angular" package.json 2>/dev/null | head -5
+ls *.html index.html 2>/dev/null
+```
+
+| Stack | File patterns for grep |
+|-------|----------------------|
+| React / Next.js | `--include="*.tsx" --include="*.jsx"` |
+| Vue | `--include="*.vue"` |
+| Svelte | `--include="*.svelte"` |
+| Plain HTML | `--include="*.html"` |
+| Angular | `--include="*.ts" --include="*.html"` |
+
+## WCAG Severity Mapping
+
+| Severity | What it covers |
+|----------|---------------|
+| **CRITICAL** | WCAG A violations (must fix — fails basic accessibility) |
+| **HIGH** | WCAG AA violations (required for legal compliance in most contexts) |
+| **MEDIUM** | Consistency and UX issues that affect usability |
+| **LOW** | WCAG AAA recommendations and minor polish |
+
+Target: **WCAG AA compliance**. All CRITICAL and HIGH findings block release.
+
 ## Grep
 
 ```bash
-# Hardcoded colors
+# Hardcoded colors (adjust file pattern to detected stack)
 grep -rn "#[0-9a-fA-F]\{3,6\}" src/components --include="*.tsx" | head -20
 
 # Missing alt text on images
@@ -127,4 +157,10 @@ Before completing:
 2. Verify file has content beyond headers
 3. If no issues found, write "No UI/UX issues detected" (not an empty file)
 
-Prioritize accessibility blockers (WCAG A and AA violations) before consistency and UX issues.
+## Success Gate
+
+- **Pass**: Zero CRITICAL (WCAG A) and zero HIGH (WCAG AA) findings
+- **Pass with warnings**: MEDIUM/LOW findings only — document and proceed
+- **Block**: Any CRITICAL or HIGH finding must be fixed before shipping
+
+Prioritize accessibility blockers (WCAG A and AA violations) before consistency and UX issues. Do not audit third-party widgets, embedded iframes, or browser-native UI elements — note them as out-of-scope.

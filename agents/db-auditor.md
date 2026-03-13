@@ -168,4 +168,18 @@ grep -rn "pool_size\|max_overflow\|CONN_MAX_AGE\|connect_timeout" . --include="*
 5. **Use transactions** for multi-table writes
 ```
 
+## Critical Rules
+
+- **Always quantify impact** — never report an N+1 without saying "X rows = X+1 queries." Never flag a missing index without estimating the table size or query frequency. Unquantified findings are low-signal.
+- **N+1 threshold**: N+1 is acceptable when N is provably bounded and small (e.g., a fixed config table with <10 rows). Flag it when N is user-driven or unbounded.
+- **SQL injection in raw queries is CRITICAL regardless of other findings** — flag it first, don't bury it.
+- **Recommend index changes with caution**: indexes cost write performance and storage. Note the trade-off. Don't recommend indexing every column.
+- **Don't audit what you can't see**: if the ORM generates queries at runtime (e.g., dynamic filters), note it as "requires runtime profiling" rather than guessing.
+
+## Success Gate
+
+- **Block**: Any CRITICAL finding (SQL injection, data-loss migration)
+- **High priority**: HIGH findings should be fixed before the next release
+- **Pass**: No CRITICAL or HIGH findings; MEDIUM/LOW documented with acceptance rationale
+
 Focus on queries that will cause production problems at scale. Include file:line for every finding.
