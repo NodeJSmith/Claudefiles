@@ -10,7 +10,7 @@ Turn an approved design doc into a set of Work Package (WP) files. Each WP is an
 
 ## Arguments
 
-$ARGUMENTS — path to a `design.md` or the feature directory (`design/specs/NNN-feature/`). If empty, find the most recently modified `design/specs/*/design.md` and confirm with the user before proceeding.
+$ARGUMENTS — path to a `design.md` or the feature directory (`design/specs/NNN-<slug>/`). If empty, find the most recently modified `design/specs/*/design.md` and confirm with the user before proceeding.
 
 ---
 
@@ -49,23 +49,40 @@ Read the doc fully. Extract:
 - **Architecture / Proposed approach** — the recommended direction and design decisions
 - **Non-goals** — explicit exclusions (WPs must NOT implement these)
 - **Impact / affected files** — modules and files named in the design
-- **Open questions** — if any remain non-empty, warn before proceeding
+- **Open questions** — collect any that are non-empty
 
-If open questions exist:
+If open questions exist, walk through each one interactively before proceeding. First, count all open questions and record the total as M — you need this before asking the first one.
+
+For each open question:
+
+1. **Analyze the question** — read the surrounding context in the design doc to infer the most reasonable answer. Identify exactly 2 substantive resolution options and pick the one you'd recommend.
+
+2. **Prompt the user** using AskUserQuestion, one question at a time:
 
 ```
 AskUserQuestion:
-  question: "The design doc has unresolved open questions. Proceed anyway or resolve first?"
-  header: "Open questions"
+  question: "<Quote the open question verbatim, then add a one-sentence summary of what's at stake>"
+  header: "Q{N} of {M}"
   multiSelect: false
   options:
-    - label: "Proceed — treat open questions as accepted uncertainty"
+    - label: "<Option A — your recommendation>"
+      description: "RECOMMENDED — <one sentence why>"
+    - label: "<Option B>"
+      description: "<tradeoff or implication>"
+    - label: "Skip — treat as accepted uncertainty"
+      description: "Leave this unresolved and proceed; the WPs will note the ambiguity"
     - label: "Stop — I'll update the design doc first"
+      description: "Exit now so you can revise the doc before generating WPs"
 ```
+
+3. **Record the decision** — after the user answers, note it (e.g., "Q2 resolved: will use Option B"). If the user selects "Stop", exit immediately.
+
+After all questions are answered (or skipped), briefly summarize the resolutions before continuing to Phase 2:
+> Resolved open questions: Q1 → Option A, Q2 → Option B, Q3 → skipped. Proceeding to generate work packages.
 
 ### Identify the feature directory
 
-The feature directory is `design/specs/NNN-feature/` containing the design.md. All WP files will be written to `<feature_dir>/tasks/`. Create the `tasks/` subdirectory if it doesn't exist.
+The feature directory is `design/specs/NNN-<slug>/` containing the design.md. All WP files will be written to `<feature_dir>/tasks/`. Create the `tasks/` subdirectory if it doesn't exist.
 
 ---
 
