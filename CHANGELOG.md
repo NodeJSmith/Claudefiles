@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-13
 
 ### Fixed
-- `git-branch-log`, `git-branch-diff-stat`, and related skills now use the tracking branch (`@{upstream}`) instead of the default branch when computing diffs and commit logs — fixes incorrect output on PRs targeting non-default branches (e.g., `develop`)
+- `git-branch-log`, `git-branch-diff-stat`, and related skills now use the tracking branch (`@{upstream}`) instead of the default branch when computing diffs and commit logs — fixes incorrect output on PRs targeting non-default branches (e.g., `develop`) (#78)
 
 ### Added
 - Improved 7 existing agents with critical rules, severity calibration, success gates, and scope boundaries: `code-reviewer`, `ui-auditor`, `db-auditor`, `browser-qa-agent`, `visual-diff`, `planner`, `qa-specialist` (#76)
