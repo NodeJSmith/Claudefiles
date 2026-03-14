@@ -79,10 +79,9 @@ After the initial `code-reviewer` run, **loop until the code is clean**:
 2. After making fixes, re-run `code-reviewer`
 3. **Stop** when:
    - No CRITICAL or HIGH issues remain, or
-   - Only LOW/noise findings are left, or
-   - The same findings are surfacing again that appeared in the previous round
+   - Only LOW/noise findings are left
 
-Use judgment on when to stop — don't loop on issues that won't resolve without user input.
+If the same CRITICAL or HIGH findings surface again and cannot be auto-fixed, defer to the user and do not proceed to commit.
 
 After the loop concludes, run `integration-reviewer` once on the final diff before staging.
 
@@ -120,9 +119,9 @@ When creating PRs:
    - Verify 80%+ coverage
 
 3. **Code Review**
-   - Run **code-reviewer** and **integration-reviewer** agents in parallel immediately after writing code
-   - Address CRITICAL and HIGH issues from both
-   - Fix MEDIUM issues when possible
+   - Run the **code-reviewer** loop (auto-fix unambiguous issues, repeat until clean)
+   - Then run **integration-reviewer** once on the final result
+   - Address CRITICAL and HIGH issues from both; fix MEDIUM issues when possible
 
 4. **Commit & Push**
    - Detailed commit messages
