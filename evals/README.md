@@ -4,6 +4,8 @@ Promptfoo-based instruction compliance tests. These verify that Claude follows t
 
 ## Setup
 
+Requires Node >= 20.
+
 ```bash
 npm install
 ```
@@ -16,12 +18,10 @@ Always run from the repo root:
 
 ```bash
 # Run a single compliance test
-npx promptfoo eval -c evals/compliance/memory/shodh-context-summary.yaml
 npx promptfoo eval -c evals/compliance/tools/gh-pr-reply.yaml
 npx promptfoo eval -c evals/compliance/rules/dedicated-tools.yaml
 
 # Run a category
-npx promptfoo eval -c evals/compliance/memory/
 npx promptfoo eval -c evals/compliance/tools/
 npx promptfoo eval -c evals/compliance/rules/
 
@@ -40,7 +40,7 @@ evals/
     rules/                    General rule compliance (Grep over Bash, git -C, etc.)
 ```
 
-## What These Tests
+## What the Tests Cover
 
 | File | Rule | Assertion |
 |------|------|-----------|

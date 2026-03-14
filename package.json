@@ -2,7 +2,7 @@
   "name": "claudefiles-evals",
   "description": "Promptfoo compliance evals for Claudefiles instruction following",
   "private": true,
-  "engines": { "node": ">=18.0.0" },
+  "engines": { "node": ">=20.0.0" },
   "devDependencies": {
     "promptfoo": "^0.121.2"
   },

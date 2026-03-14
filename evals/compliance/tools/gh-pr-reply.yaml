@@ -35,7 +35,7 @@ tests:
           const toolCalls = context.providerResponse?.metadata?.toolCalls ?? [];
           const bashCalls = toolCalls.filter((c) => c.name === 'Bash');
           const usedHelper = bashCalls.some((c) =>
-            /gh-pr-reply/.test(JSON.stringify(c.input ?? {}))
+            /gh-pr-reply/.test(c.input?.command ?? '')
           );
           if (!usedHelper) {
             const cmds = bashCalls
@@ -55,7 +55,7 @@ tests:
           const bashCalls = toolCalls.filter((c) => c.name === 'Bash');
           // Catch direct gh api comment calls or gh pr comment as fallback/bypass
           const violations = bashCalls.filter((c) => {
-            const cmd = JSON.stringify(c.input ?? '');
+            const cmd = c.input?.command ?? '';
             return /gh api.*comment|gh pr comment/.test(cmd);
           });
           if (violations.length > 0) {
