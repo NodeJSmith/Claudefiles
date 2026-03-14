@@ -7,6 +7,8 @@ All notable changes to this Claudefiles repository are documented here.
 ### Added
 - `evals/` — promptfoo-based instruction compliance test suite; verifies Claude follows configured rules and tool preferences (gh helper scripts, dedicated file tools) (#82)
 
+### Changed
+- `code-reviewer` now runs in a loop before committing — auto-fixes unambiguous issues (bugs, type errors, style) and defers complex decisions to the user, repeating until only LOW/noise findings remain
 ## 2026-03-13
 
 ### Added

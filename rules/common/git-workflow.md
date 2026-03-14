@@ -60,7 +60,7 @@ Before your first commit in a repo during a session, check for a pre-commit conf
 
 ## Mandatory Code Review Before Commit
 
-**ALWAYS run `code-reviewer` AND `integration-reviewer` before committing changes.** Run them in parallel — they check different things and neither depends on the other's output.
+**ALWAYS run `code-reviewer` before committing code changes.** Also run `integration-reviewer` in parallel — they check different things and neither depends on the other's output.
 
 - `code-reviewer` — correctness: types, security, performance, style
 - `integration-reviewer` — fit: duplication, misplacement, convention drift, design violations
@@ -68,6 +68,21 @@ Before your first commit in a repo during a session, check for a pre-commit conf
 The only exceptions are documentation-only changes (pure markdown, no code) and changes where the user explicitly skips review.
 
 Do not wait for the user to ask. If you wrote or modified code and are about to commit, run both agents first.
+
+### Code Reviewer Loop
+
+After the initial `code-reviewer` run, **loop until the code is clean**:
+
+1. For each finding in the review output:
+   - **Auto-fix** when the correct solution is unambiguous: clear bugs, logic errors, missing type annotations, unambiguous style violations, simple security issues with a well-known fix
+   - **Defer to the user** when the fix requires business logic decisions, architectural judgment, or context you don't have — present the finding and ask before proceeding
+2. After making fixes, re-run `code-reviewer`
+3. **Stop** when:
+   - No CRITICAL or HIGH issues remain, or
+   - Only LOW/noise findings are left, or
+   - The same findings are surfacing again that appeared in the previous round
+
+Use judgment on when to stop — don't loop on issues that won't resolve without user input.
 
 ## Commit Message Format
 

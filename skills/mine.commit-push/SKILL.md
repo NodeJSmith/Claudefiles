@@ -21,8 +21,12 @@ Based on the above changes:
    - **Skip silently** for: fixing tests, lint/format cleanup, internal refactoring with no behavior change, code comments/docstrings, typo fixes in code.
    - **Ask the user** if you're unsure — e.g., a mix of internal and user-facing changes, or changes that could be described either way.
    - If updating, **match the existing changelog structure**: read the file to determine whether it uses `## [Unreleased]` sections or date-based sections (`## YYYY-MM-DD`). Add entries under the appropriate heading — either the existing `[Unreleased]` section or today's date section (creating it if needed). Keep them **high-level and terse** — one bullet per change, two at most. These are **user-facing** entries; describe what changed for the user, not implementation details.
-   - If you need to ask, do so **before** proceeding to steps 4–6.
-4. Stage all relevant files (including CHANGELOG.md if updated).
-5. For multi-line commit messages, run `get-skill-tmpdir mine-commit` to create a temp directory, then write the message to `<dir>/message.md` and run `git commit -F <dir>/message.md`. For simple one-line messages, `git commit -m "..."` is fine. Do NOT use `git commit -m "$(cat <<'EOF'...)"` — command substitution triggers extra permission prompts.
-6. Push the branch to origin (use `-u` flag only if you just created a new branch).
-7. You MUST do steps 4–6 in a single message. Include the Write call for the commit message file (if needed) in that same message. Do not use any other tools or do anything else besides these tool calls.
+   - If you need to ask, do so **before** proceeding to step 4.
+4. **CODE REVIEW LOOP:** Run the `code-reviewer` agent on the current changes. For each finding:
+   - **Auto-fix** when the correct solution is unambiguous: clear bugs, logic errors, missing type annotations, unambiguous style violations, simple security issues with a well-known fix
+   - **Defer to the user** when the fix requires business logic decisions, architectural judgment, or context you don't have — present the finding and ask before proceeding
+   Re-run `code-reviewer` after each fix round. Stop when no CRITICAL or HIGH issues remain, only LOW/noise is left, or the reviewer is surfacing the same findings as the previous round. Use judgment — don't loop on issues that require user input to resolve.
+5. Stage all relevant files (including CHANGELOG.md if updated).
+6. For multi-line commit messages, run `get-skill-tmpdir mine-commit` to create a temp directory, then write the message to `<dir>/message.md` and run `git commit -F <dir>/message.md`. For simple one-line messages, `git commit -m "..."` is fine. Do NOT use `git commit -m "$(cat <<'EOF'...)"` — command substitution triggers extra permission prompts.
+7. Push the branch to origin (use `-u` flag only if you just created a new branch).
+8. You MUST do steps 5–7 in a single message. Include the Write call for the commit message file (if needed) in that same message. Do not use any other tools or do anything else besides these tool calls.
