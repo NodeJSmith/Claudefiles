@@ -76,7 +76,7 @@ Output per thread: file path, line number, GraphQL thread ID (`PRRT_...`), comme
 Reply to a PR review comment thread, optionally resolving it in the same call.
 
 ```bash
-gh-pr-reply <pr-number> <comment-id> <body>
+gh-pr-reply <pr-number> <comment-id> <body> [--resolve <thread-id>]
 gh-pr-reply 42 1234567 "Fixed in abc1234 — moved the check earlier."
 
 # Reply and resolve in one step (preferred)
