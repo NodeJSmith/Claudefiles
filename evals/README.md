@@ -36,7 +36,6 @@ evals/
   lib/
     assert-tool-called.js     Reusable assertion helpers for tool call checks
   compliance/
-    memory/                   Shodh memory MCP utilization
     tools/                    gh helper script preference (gh-pr-reply, gh-pr-threads, etc.)
     rules/                    General rule compliance (Grep over Bash, git -C, etc.)
 ```
@@ -45,7 +44,6 @@ evals/
 
 | File | Rule | Assertion |
 |------|------|-----------|
-| `memory/shodh-context-summary.yaml` | Call `context_summary` at session start | `mcp__shodh-memory__context_summary` in toolCalls |
 | `tools/gh-pr-reply.yaml` | Use `gh-pr-reply` for PR comment replies | `gh-pr-reply` in Bash call; no raw `gh api` |
 | `rules/dedicated-tools.yaml` | Use Grep/Glob/Read not Bash cat/grep/find | Dedicated tools present; no Bash file-op violations |
 
