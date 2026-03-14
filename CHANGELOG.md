@@ -18,6 +18,7 @@ All notable changes to this Claudefiles repository are documented here.
 - `testing-reality-checker` adapted to use Playwright MCP instead of the upstream `qa-playwright-capture.sh` script (#76)
 
 ### Changed
+- `gh-pr-reply` now accepts `--resolve <PRRT_...>` to reply and resolve a thread in one call (#81)
 - `mine.draft-plan` now walks through each open question in the design doc interactively — presents options with a recommendation for each one, rather than a single "proceed or stop" prompt (#75)
 
 

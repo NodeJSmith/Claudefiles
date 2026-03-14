@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# Reply to a PR review comment thread and print the new comment's ID
-# Usage: gh-pr-reply <pr-number> <comment-id> <body>
+# Reply to a PR review comment thread and optionally resolve it
+# Usage: gh-pr-reply <pr-number> <comment-id> <body> [--resolve <thread-id>]
 # Auto-detects owner/repo from current git remote
+#
+# --resolve <thread-id>  GraphQL thread node ID (PRRT_...) to resolve after replying
 
 set -euo pipefail
 
@@ -16,16 +18,56 @@ if command -v gh-app-token &> /dev/null && [[ -n "${GITHUB_APP_ID:-}" ]]; then
 fi
 
 if [[ $# -lt 3 ]]; then
-  echo "Usage: gh-pr-reply <pr-number> <comment-id> <body>" >&2
+  echo "Usage: gh-pr-reply <pr-number> <comment-id> <body> [--resolve <thread-id>]" >&2
   exit 1
 fi
 
 pr_number="$1"
 comment_id="$2"
 body="$3"
+resolve_thread_id=""
+
+# Parse optional --resolve flag (may appear after the first 3 positional args)
+shift 3
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --resolve)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: --resolve requires a thread ID (PRRT_...)" >&2
+        exit 1
+      fi
+      if [[ "$2" != PRRT_* ]]; then
+        echo "Error: --resolve expects a GraphQL thread node ID starting with PRRT_" >&2
+        exit 1
+      fi
+      resolve_thread_id="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      exit 1
+      ;;
+  esac
+done
 
 id=$(gh api "repos/{owner}/{repo}/pulls/${pr_number}/comments/${comment_id}/replies" \
   -f body="$body" \
   --jq '.id')
 
 echo "Reply posted: $id"
+
+if [[ -n "$resolve_thread_id" ]]; then
+  resolved=$(gh api graphql \
+    -f query='mutation($id: ID!) {
+            resolveReviewThread(input: {threadId: $id}) {
+                thread { isResolved }
+            }
+        }' \
+    -f id="$resolve_thread_id" \
+    --jq '.data.resolveReviewThread.thread.isResolved')
+  if [[ "$resolved" != "true" ]]; then
+    echo "FAILED to resolve $resolve_thread_id (got: $resolved)" >&2
+    exit 1
+  fi
+  echo "Resolved $resolve_thread_id"
+fi

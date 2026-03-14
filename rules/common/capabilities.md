@@ -73,14 +73,18 @@ Output per thread: file path, line number, GraphQL thread ID (`PRRT_...`), comme
 
 ### gh-pr-reply
 
-Reply to a PR review comment thread. Returns the new comment's ID.
+Reply to a PR review comment thread, optionally resolving it in the same call.
 
 ```bash
-gh-pr-reply <pr-number> <comment-id> <body>
+gh-pr-reply <pr-number> <comment-id> <body> [--resolve <thread-id>]
 gh-pr-reply 42 1234567 "Fixed in abc1234 — moved the check earlier."
+
+# Reply and resolve in one step (preferred)
+gh-pr-reply 42 1234567 "Fixed." --resolve PRRT_abc123
 ```
 
 - `comment-id` is the **database ID** from `gh-pr-threads` output
+- `--resolve <thread-id>` takes the `PRRT_...` GraphQL node ID from `gh-pr-threads` output; resolves the thread immediately after posting
 - Body supports markdown
 - Auto-uses bot token if `gh-app-token` is installed and `GITHUB_APP_ID` is set; otherwise falls back to your personal `GH_TOKEN`
 
