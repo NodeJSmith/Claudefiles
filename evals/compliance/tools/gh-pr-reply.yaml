@@ -1,6 +1,6 @@
 # Compliance: gh-pr-reply used instead of raw gh api for PR comment replies
 #
-# Rule source: rules/personal/capabilities.md (intent routing table)
+# Rule source: rules/common/capabilities.md (intent routing table)
 #   "reply to PR comment", "respond to review" → gh-pr-reply
 #
 # gh-pr-reply usage:

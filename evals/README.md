@@ -41,7 +41,7 @@ evals/
     rules/                    General rule compliance (Grep over Bash, git -C, etc.)
 ```
 
-## What These Test
+## What These Tests
 
 | File | Rule | Assertion |
 |------|------|-----------|

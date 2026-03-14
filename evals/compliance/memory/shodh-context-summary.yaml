@@ -1,6 +1,6 @@
 # Compliance: Shodh memory context_summary called at conversation start
 #
-# Rule source: rules/personal/mcp-tools.md
+# Rule source: ~/Dotfiles/config/claude/rules/personal/mcp-tools.md (in Dotfiles repo, not Claudefiles)
 #   "At the beginning of each conversation, call mcp__shodh-memory__context_summary
 #    to surface recent learnings, decisions, and project context from past sessions."
 #
@@ -43,3 +43,31 @@ tests:
             };
           }
           return { pass: true, score: 1, reason: '✓ context_summary called at session start' };
+
+      - type: javascript
+        value: |
+          const toolCalls = context.providerResponse?.metadata?.toolCalls ?? [];
+          const substantiveTools = ['Read', 'Grep', 'Glob', 'Bash', 'Write', 'Edit'];
+          const contextSummaryIndex = toolCalls.findIndex(
+            (c) =>
+              c.name === 'mcp__shodh-memory__context_summary' ||
+              c.name === 'context_summary'
+          );
+          const firstSubstantiveIndex = toolCalls.findIndex((c) =>
+            substantiveTools.includes(c.name)
+          );
+          if (contextSummaryIndex === -1) {
+            return {
+              pass: false,
+              score: 0,
+              reason: `context_summary never called. All tool calls: [${toolCalls.map((c) => c.name).join(', ') || 'none'}]`,
+            };
+          }
+          if (firstSubstantiveIndex !== -1 && contextSummaryIndex > firstSubstantiveIndex) {
+            return {
+              pass: false,
+              score: 0,
+              reason: `context_summary called too late (index ${contextSummaryIndex}) — after first substantive tool call '${toolCalls[firstSubstantiveIndex].name}' (index ${firstSubstantiveIndex})`,
+            };
+          }
+          return { pass: true, score: 1, reason: `✓ context_summary called before any substantive tool (index ${contextSummaryIndex})` };
