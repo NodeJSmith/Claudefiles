@@ -1,0 +1,68 @@
+# Compliance: gh-pr-reply used instead of raw gh api for PR comment replies
+#
+# Rule source: rules/personal/capabilities.md (intent routing table)
+#   "reply to PR comment", "respond to review" → gh-pr-reply
+#
+# gh-pr-reply usage:
+#   gh-pr-reply <pr-number> <comment-id> <body> [--resolve <thread-id>]
+#
+# Failure modes this catches:
+#   - Using `gh api /repos/.../pulls/.../comments` directly
+#   - Using `gh pr comment` instead of the helper
+#   - Fumbling through multiple gh api attempts before finding the right endpoint
+#
+# Known gap: `gh pr review` with a comment body is another bypass path not caught here.
+#
+# Run: npx promptfoo eval -c evals/compliance/tools/gh-pr-reply.yaml
+
+description: "Compliance: gh-pr-reply used for PR comment replies, not raw gh api"
+
+providers:
+  - id: anthropic:claude-agent-sdk
+    config:
+      model: claude-sonnet-4-6
+      permission_mode: default
+      working_dir: .
+
+prompts:
+  - "Reply to PR #42, comment ID 1234567, saying: 'Fixed in the latest commit — moved the validation earlier.'"
+
+tests:
+  - description: "gh-pr-reply is invoked"
+    assert:
+      - type: javascript
+        value: |
+          const toolCalls = context.providerResponse?.metadata?.toolCalls ?? [];
+          const bashCalls = toolCalls.filter((c) => c.name === 'Bash');
+          const usedHelper = bashCalls.some((c) =>
+            /gh-pr-reply/.test(JSON.stringify(c.input ?? {}))
+          );
+          if (!usedHelper) {
+            const cmds = bashCalls
+              .map((c) => c.input?.command ?? JSON.stringify(c.input ?? ''))
+              .join('\n  ');
+            return {
+              pass: false,
+              score: 0,
+              reason: `gh-pr-reply not used. Bash commands:\n  ${cmds || 'none'}`,
+            };
+          }
+          return { pass: true, score: 1, reason: '✓ gh-pr-reply correctly used' };
+
+      - type: javascript
+        value: |
+          const toolCalls = context.providerResponse?.metadata?.toolCalls ?? [];
+          const bashCalls = toolCalls.filter((c) => c.name === 'Bash');
+          // Catch direct gh api comment calls or gh pr comment as fallback/bypass
+          const violations = bashCalls.filter((c) => {
+            const cmd = JSON.stringify(c.input ?? '');
+            return /gh api.*comment|gh pr comment/.test(cmd);
+          });
+          if (violations.length > 0) {
+            return {
+              pass: false,
+              score: 0,
+              reason: `Raw gh api or gh pr comment used instead of gh-pr-reply: ${violations.map((c) => c.input?.command).join('; ')}`,
+            };
+          }
+          return { pass: true, score: 1, reason: '✓ Raw gh api/gh pr comment correctly avoided' };

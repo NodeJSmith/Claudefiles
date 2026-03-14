@@ -1,0 +1,45 @@
+# Compliance: Shodh memory context_summary called at conversation start
+#
+# Rule source: rules/personal/mcp-tools.md
+#   "At the beginning of each conversation, call mcp__shodh-memory__context_summary
+#    to surface recent learnings, decisions, and project context from past sessions."
+#
+# Note: MCP tool call names in metadata.toolCalls may appear as either the full
+# MCP tool name (mcp__shodh-memory__context_summary) or just the local name
+# (context_summary). Both are checked. Requires Shodh Memory MCP server to be
+# configured in ~/.claude/settings.json on the test machine.
+#
+# Run: npx promptfoo eval -c evals/compliance/memory/shodh-context-summary.yaml
+
+description: "Compliance: mcp__shodh-memory__context_summary called at session start"
+
+providers:
+  - id: anthropic:claude-agent-sdk
+    config:
+      model: claude-sonnet-4-6
+      permission_mode: default
+      working_dir: .
+
+prompts:
+  - "I'd like to work on improving my Claudefiles setup. Where should we start?"
+
+tests:
+  - description: "context_summary is called before responding"
+    assert:
+      - type: javascript
+        value: |
+          const toolCalls = context.providerResponse?.metadata?.toolCalls ?? [];
+          // MCP tools may surface under either the full qualified name or the local name
+          const called = toolCalls.some(
+            (c) =>
+              c.name === 'mcp__shodh-memory__context_summary' ||
+              c.name === 'context_summary'
+          );
+          if (!called) {
+            return {
+              pass: false,
+              score: 0,
+              reason: `context_summary not called at session start. All tool calls: [${toolCalls.map((c) => c.name).join(', ') || 'none'}]`,
+            };
+          }
+          return { pass: true, score: 1, reason: '✓ context_summary called at session start' };

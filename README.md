@@ -189,6 +189,26 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `skill-eval-run` | Run skill evaluation iterations — invoke skill variants and save outputs |
 | `spec-helper` | Work Package and spec directory management — `init`, `wp-move`, `status`, `next-number` |
 
+## Evals
+
+Promptfoo-based instruction compliance tests that verify Claude follows the rules, conventions, and tool preferences configured in this repo. Two failing tests ship with this repo: `gh-pr-reply` (Claude reaches for `gh api` instead of the helper script) and `shodh-context-summary` (Claude skips the memory lookup at session start) — the evals exist precisely to track these.
+
+```bash
+# Install deps (one-time)
+npm install
+
+# Run a single eval
+npx promptfoo eval -c evals/compliance/rules/dedicated-tools.yaml
+
+# Run a category
+npx promptfoo eval -c evals/compliance/tools/
+
+# View results in browser
+npx promptfoo view
+```
+
+Requires `ANTHROPIC_API_KEY` in your environment. See `evals/README.md` for full documentation.
+
 ## Requirements
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
