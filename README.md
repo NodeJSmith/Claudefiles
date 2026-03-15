@@ -194,7 +194,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 Promptfoo-based instruction compliance tests that verify Claude follows the rules, conventions, and tool preferences configured in this repo. One failing test ships with this repo: `gh-pr-reply` (Claude reaches for `gh api` instead of the helper script) — the eval exists precisely to track this.
 
 ```bash
-# Install deps (one-time, requires Node >= 20)
+# Install deps (one-time, requires Node >= 20.20)
 npm install
 
 # Run a single eval

@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-14
 
 ### Added
-- `evals/` — promptfoo-based instruction compliance test suite; verifies Claude follows configured rules and tool preferences (gh helper scripts, Shodh memory, dedicated file tools) (#82)
+- `evals/` — promptfoo-based instruction compliance test suite; verifies Claude follows configured rules and tool preferences (gh helper scripts, dedicated file tools) (#82)
 
 ## 2026-03-13
 

@@ -4,7 +4,7 @@ Promptfoo-based instruction compliance tests. These verify that Claude follows t
 
 ## Setup
 
-Requires Node >= 20.
+Requires Node >= 20.20.
 
 ```bash
 npm install
@@ -44,8 +44,8 @@ evals/
 
 | File | Rule | Assertion |
 |------|------|-----------|
-| `tools/gh-pr-reply.yaml` | Use `gh-pr-reply` for PR comment replies | `gh-pr-reply` in Bash call; no raw `gh api` |
-| `rules/dedicated-tools.yaml` | Use Grep/Glob/Read not Bash cat/grep/find | Dedicated tools present; no Bash file-op violations |
+| `evals/compliance/tools/gh-pr-reply.yaml` | Use `gh-pr-reply` for PR comment replies | `gh-pr-reply` in Bash call; no raw `gh api` |
+| `evals/compliance/rules/dedicated-tools.yaml` | Use Grep/Glob/Read not Bash cat/grep/find | Dedicated tools present; no Bash file-op violations |
 
 ## Interpreting Results
 
