@@ -1,0 +1,69 @@
+# Compliance: Grep/Glob/Read used instead of Bash cat/grep/find/ls
+#
+# Rule source: rules/common/bash-tools.md
+#   "Instead of cat/head/tail → Read"
+#   "Instead of grep/rg → Grep"
+#   "Instead of find/ls → Glob"
+#   "Reserve Bash exclusively for system commands and terminal operations"
+#
+# Failure modes this catches:
+#   - Bash(grep "pattern" file) instead of Grep tool
+#   - Bash(find . -name "*.md") instead of Glob tool
+#   - Bash(cat file.txt) instead of Read tool
+#   - Bash(ls dir/) instead of Glob tool
+#
+# Run: npx promptfoo eval -c evals/compliance/rules/dedicated-tools.yaml
+
+description: "Compliance: Grep/Glob/Read used for file operations, not Bash cat/grep/find/ls"
+
+providers:
+  - id: anthropic:claude-agent-sdk
+    config:
+      model: claude-sonnet-4-6
+      permission_mode: default
+      working_dir: .
+
+prompts:
+  - "Find all places in this repo that reference 'mine.ship' and show me a summary of what they say."
+
+tests:
+  - description: "at least one dedicated tool (Grep/Glob/Read) is used"
+    assert:
+      - type: javascript
+        value: |
+          const toolCalls = context.providerResponse?.metadata?.toolCalls ?? [];
+          const usedDedicatedTool = toolCalls.some((c) =>
+            ['Grep', 'Glob', 'Read'].includes(c.name)
+          );
+          if (!usedDedicatedTool) {
+            return {
+              pass: false,
+              score: 0,
+              reason: `No Grep/Glob/Read used. All tool calls: [${toolCalls.map((c) => c.name).join(', ') || 'none'}]`,
+            };
+          }
+          return {
+            pass: true,
+            score: 1,
+            reason: `✓ Dedicated file tool used. Calls: [${toolCalls.map((c) => c.name).join(', ')}]`,
+          };
+
+      - type: javascript
+        value: |
+          const toolCalls = context.providerResponse?.metadata?.toolCalls ?? [];
+          const bashCalls = toolCalls.filter((c) => c.name === 'Bash');
+          // Flag Bash calls where the command *starts with* a file-op tool (or is piped into one).
+          // Checks c.input.command directly (not JSON.stringify) to avoid false positives from
+          // filenames or flags that happen to contain these words (e.g. --find-renames, catalog.md).
+          const violations = bashCalls.filter((c) => {
+            const cmd = (c.input?.command ?? '').trim();
+            return /(?:^|[|;&]\s*)(grep|find|cat|ls|head|tail|rg)\s/.test(cmd);
+          });
+          if (violations.length > 0) {
+            return {
+              pass: false,
+              score: 0,
+              reason: `Bash used for file ops (use Grep/Glob/Read instead):\n  ${violations.map((c) => c.input?.command ?? c.input).join('\n  ')}`,
+            };
+          }
+          return { pass: true, score: 1, reason: '✓ No Bash file-op violations detected' };
