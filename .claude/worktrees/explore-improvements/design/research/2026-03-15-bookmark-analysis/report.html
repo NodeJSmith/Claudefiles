@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claudefiles Research Report — Bookmark Analysis &amp; Recommendations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=Fragment+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --font-body: 'Crimson Pro', 'Georgia', serif;
+    --font-mono: 'Fragment Mono', 'SF Mono', Consolas, monospace;
+    --font-sans: system-ui, -apple-system, sans-serif;
+    --bg: #faf8f5;
+    --surface: #ffffff;
+    --surface2: #f5f0eb;
+    --surface-elevated: #fff;
+    --surface-recessed: #f0ebe5;
+    --border: rgba(0, 0, 0, 0.08);
+    --border-bright: rgba(0, 0, 0, 0.15);
+    --text: #1a1815;
+    --text-dim: #7a7168;
+    --accent: #1e3a5f;
+    --accent-dim: rgba(30, 58, 95, 0.06);
+    --gold: #d4a73a;
+    --gold-dim: rgba(212, 167, 58, 0.08);
+    --green: #2d6a4f;
+    --green-dim: rgba(45, 106, 79, 0.08);
+    --red: #9b2226;
+    --red-dim: rgba(155, 34, 38, 0.08);
+    --orange: #bc6c25;
+    --orange-dim: rgba(188, 108, 37, 0.08);
+    --blue: #1e3a5f;
+    --blue-dim: rgba(30, 58, 95, 0.06);
+    --purple: #5f3a7a;
+    --purple-dim: rgba(95, 58, 122, 0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141210;
+      --surface: #1e1b18;
+      --surface2: #282420;
+      --surface-elevated: #302b26;
+      --surface-recessed: #18150f;
+      --border: rgba(255, 255, 255, 0.06);
+      --border-bright: rgba(255, 255, 255, 0.12);
+      --text: #e8e0d4;
+      --text-dim: #9a8e80;
+      --accent: #6da3d4;
+      --accent-dim: rgba(109, 163, 212, 0.1);
+      --gold: #e8c055;
+      --gold-dim: rgba(232, 192, 85, 0.1);
+      --green: #52b788;
+      --green-dim: rgba(82, 183, 136, 0.1);
+      --red: #e76f6f;
+      --red-dim: rgba(231, 111, 111, 0.1);
+      --orange: #dda15e;
+      --orange-dim: rgba(221, 161, 94, 0.1);
+      --blue: #6da3d4;
+      --blue-dim: rgba(109, 163, 212, 0.1);
+      --purple: #b388d9;
+      --purple-dim: rgba(179, 136, 217, 0.1);
+    }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    background-image:
+      radial-gradient(ellipse at 20% 0%, var(--gold-dim) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 100%, var(--accent-dim) 0%, transparent 40%);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 40px;
+    min-height: 100vh;
+  }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeScale { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+  .animate { animation: fadeUp 0.35s ease-out both; animation-delay: calc(var(--i, 0) * 0.04s); }
+  .animate-scale { animation: fadeScale 0.3s ease-out both; animation-delay: calc(var(--i, 0) * 0.04s); }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; } }
+
+  .wrap { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: 180px 1fr; gap: 0 40px; }
+  .main { min-width: 0; }
+
+  /* TOC */
+  .toc { position: sticky; top: 24px; align-self: start; padding: 14px 0; grid-row: 1 / -1; max-height: calc(100dvh - 48px); overflow-y: auto; }
+  .toc::-webkit-scrollbar { width: 3px; }
+  .toc::-webkit-scrollbar-thumb { background: var(--surface-elevated); border-radius: 2px; }
+  .toc-title { font-family: var(--font-mono); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: var(--text-dim); padding: 0 0 10px; margin-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .toc a { display: block; font-size: 11px; color: var(--text-dim); text-decoration: none; padding: 4px 8px; border-radius: 5px; border-left: 2px solid transparent; transition: all 0.15s; line-height: 1.4; margin-bottom: 1px; }
+  .toc a:hover { color: var(--text); background: var(--surface2); }
+  .toc a.active { color: var(--text); border-left-color: var(--gold); }
+
+  @media (max-width: 1000px) {
+    .wrap { grid-template-columns: 1fr; padding-top: 0; }
+    body { padding: 16px; padding-top: 0; }
+    .toc { position: sticky; top: 0; z-index: 200; max-height: none; display: flex; gap: 4px; align-items: center; overflow-x: auto; -webkit-overflow-scrolling: touch; background: var(--bg); border-bottom: 1px solid var(--border); padding: 10px 0; margin: 0 -16px; padding-left: 16px; padding-right: 16px; grid-row: auto; }
+    .toc::-webkit-scrollbar { display: none; }
+    .toc-title { display: none; }
+    .toc a { white-space: nowrap; flex-shrink: 0; border-left: none; border-bottom: 2px solid transparent; border-radius: 4px 4px 0 0; padding: 6px 10px; font-size: 10px; }
+    .toc a.active { border-left: none; border-bottom-color: var(--gold); background: var(--surface); }
+    .main { padding-top: 20px; }
+    .sec-head { scroll-margin-top: 52px; }
+  }
+
+  /* Header */
+  h1 { font-family: var(--font-body); font-size: 36px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 6px; color: var(--text); }
+  .subtitle { color: var(--text-dim); font-family: var(--font-mono); font-size: 12px; margin-bottom: 8px; }
+  .lead { font-family: var(--font-body); font-size: 18px; line-height: 1.5; color: var(--text-dim); margin-bottom: 32px; max-width: 700px; }
+
+  /* Section Headers */
+  .sec-head { font-family: var(--font-mono); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--gold); padding: 32px 0 16px; border-bottom: 1px solid var(--border); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+  .sec-head::before { content: ''; width: 8px; height: 8px; border-radius: 2px; background: var(--gold); }
+
+  /* KPI row */
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 14px; margin-bottom: 28px; }
+  .kpi-card { background: var(--surface-elevated); border: 1px solid var(--border); border-radius: 10px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+  .kpi-card__value { font-family: var(--font-body); font-size: 32px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .kpi-card__label { font-family: var(--font-mono); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-top: 6px; }
+  .kpi-green { color: var(--green); }
+  .kpi-red { color: var(--red); }
+  .kpi-orange { color: var(--orange); }
+  .kpi-gold { color: var(--gold); }
+  .kpi-blue { color: var(--accent); }
+
+  /* Tables */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 24px; }
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; line-height: 1.55; }
+  .data-table thead { position: sticky; top: 0; z-index: 2; }
+  .data-table th { background: var(--surface2); font-family: var(--font-mono); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); text-align: left; padding: 12px 14px; border-bottom: 2px solid var(--border-bright); white-space: nowrap; cursor: pointer; user-select: none; position: relative; }
+  .data-table th:hover { color: var(--text); }
+  .data-table th::after { content: '\2195'; margin-left: 4px; font-size: 9px; opacity: 0.4; }
+  .data-table th.sort-asc::after { content: '\2191'; opacity: 1; color: var(--gold); }
+  .data-table th.sort-desc::after { content: '\2193'; opacity: 1; color: var(--gold); }
+  .data-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+  .data-table tbody tr:nth-child(even) { background: var(--accent-dim); }
+  .data-table tbody tr { transition: background 0.15s ease; animation: fadeUp 0.35s ease-out both; animation-delay: calc(var(--i, 0) * 0.04s); }
+  .data-table tbody tr:hover { background: var(--border); }
+  .data-table code { font-family: var(--font-mono); font-size: 11px; background: var(--accent-dim); color: var(--accent); padding: 1px 5px; border-radius: 3px; }
+  .data-table small { display: block; color: var(--text-dim); font-size: 11px; margin-top: 3px; }
+  .data-table .wide { min-width: 180px; max-width: 360px; }
+  .data-table .narrow { max-width: 100px; }
+  .data-table tfoot td { background: var(--surface2); font-weight: 600; font-family: var(--font-mono); font-size: 12px; border-top: 2px solid var(--border-bright); border-bottom: none; }
+  .data-table a { color: var(--accent); text-decoration: none; }
+  .data-table a:hover { text-decoration: underline; }
+
+  /* Status badges */
+  .status { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 6px; white-space: nowrap; letter-spacing: 0.3px; }
+  .status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .status--high { background: var(--green-dim); color: var(--green); }
+  .status--medium { background: var(--orange-dim); color: var(--orange); }
+  .status--low { background: var(--blue-dim); color: var(--accent); }
+  .status--none { background: var(--surface2); color: var(--text-dim); }
+  .status--done { background: var(--purple-dim); color: var(--purple); }
+
+  /* Theme cards */
+  .theme-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .theme-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; transition: box-shadow 0.15s; }
+  .theme-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+  .theme-card--hero { border-left: 3px solid var(--gold); background: var(--surface-elevated); box-shadow: 0 2px 12px rgba(0,0,0,0.05); }
+  .theme-card__title { font-family: var(--font-body); font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .theme-card__sources { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); margin-bottom: 10px; letter-spacing: 0.5px; }
+  .theme-card__body { font-size: 13px; line-height: 1.6; color: var(--text-dim); }
+  .theme-card__body strong { color: var(--text); }
+
+  /* Recommendation cards */
+  .rec-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; margin-bottom: 16px; }
+  .rec-card--top { border-left: 3px solid var(--gold); background: var(--surface-elevated); }
+  .rec-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .rec-num { font-family: var(--font-mono); font-size: 11px; font-weight: 700; background: var(--gold-dim); color: var(--gold); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .rec-title { font-family: var(--font-body); font-size: 20px; font-weight: 700; }
+  .rec-meta { display: flex; gap: 8px; margin-left: auto; flex-shrink: 0; }
+  .rec-badge { font-family: var(--font-mono); font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 6px; white-space: nowrap; }
+  .effort-low { background: var(--green-dim); color: var(--green); }
+  .effort-med { background: var(--orange-dim); color: var(--orange); }
+  .effort-high { background: var(--red-dim); color: var(--red); }
+  .impact-high { background: var(--gold-dim); color: var(--gold); }
+  .impact-med { background: var(--blue-dim); color: var(--accent); }
+  .rec-body { font-size: 13px; line-height: 1.7; color: var(--text-dim); }
+  .rec-body strong { color: var(--text); }
+  .rec-body ul { margin: 8px 0; padding-left: 20px; }
+  .rec-body li { margin-bottom: 4px; }
+  .rec-source { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+
+  /* Cross-cutting patterns */
+  .pattern-item { display: flex; gap: 14px; margin-bottom: 16px; align-items: flex-start; }
+  .pattern-num { font-family: var(--font-mono); font-size: 11px; font-weight: 700; background: var(--accent-dim); color: var(--accent); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+  .pattern-content { font-size: 13px; line-height: 1.6; }
+  .pattern-content strong { color: var(--text); }
+
+  /* Skip list */
+  .skip-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .skip-card { background: var(--surface-recessed); border: 1px solid var(--border); border-radius: 8px; padding: 14px; font-size: 12px; }
+  .skip-card__name { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--text-dim); margin-bottom: 4px; }
+  .skip-card__reason { color: var(--text-dim); line-height: 1.5; }
+
+  /* Collapsible */
+  details.collapsible { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 16px; }
+  details.collapsible summary { padding: 14px 20px; background: var(--surface); font-family: var(--font-mono); font-size: 12px; font-weight: 700; cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; color: var(--text); transition: background 0.15s ease; }
+  details.collapsible summary:hover { background: var(--surface-elevated); }
+  details.collapsible summary::-webkit-details-marker { display: none; }
+  details.collapsible summary::before { content: '\25B8'; font-size: 11px; color: var(--text-dim); transition: transform 0.15s ease; }
+  details.collapsible[open] summary::before { transform: rotate(90deg); }
+  details.collapsible .collapsible__body { padding: 16px 20px; border-top: 1px solid var(--border); font-size: 13px; line-height: 1.6; color: var(--text-dim); }
+  details.collapsible .collapsible__body strong { color: var(--text); }
+  details.collapsible .collapsible__body code { font-family: var(--font-mono); font-size: 11px; background: var(--accent-dim); color: var(--accent); padding: 1px 5px; border-radius: 3px; }
+  details.collapsible .collapsible__body ul { padding-left: 20px; margin: 8px 0; }
+  details.collapsible .collapsible__body li { margin-bottom: 4px; }
+
+  @media (max-width: 768px) {
+    h1 { font-size: 26px; }
+    .theme-grid { grid-template-columns: 1fr; }
+    .rec-header { flex-direction: column; align-items: flex-start; }
+    .rec-meta { margin-left: 0; }
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="toc" id="toc">
+  <div class="toc-title">Report</div>
+  <a href="#s0">Overview</a>
+  <a href="#s1">Bookmark Inventory</a>
+  <a href="#s2">Context &amp; Compaction</a>
+  <a href="#s3">Review Quality</a>
+  <a href="#s4">TDD Enforcement</a>
+  <a href="#s5">Context Bloat</a>
+  <a href="#s6">New Patterns</a>
+  <a href="#s7">Recommendations</a>
+  <a href="#s8">Skip List</a>
+  <a href="#s9">Cross-Cutting</a>
+</nav>
+
+<div class="main">
+
+  <h1 class="animate" style="--i:0">Claudefiles Research Report</h1>
+  <p class="subtitle animate" style="--i:1">Analysis of 26 Karakeep bookmarks &mdash; 2026-03-15</p>
+  <p class="lead animate" style="--i:2">Deep-dive into Claude Code skills, memory systems, context engineering, and best practices. Synthesized into prioritized recommendations for your existing Claudefiles setup.</p>
+
+  <div class="kpi-row animate-scale" style="--i:3">
+    <div class="kpi-card"><div class="kpi-card__value">26</div><div class="kpi-card__label">Bookmarks</div></div>
+    <div class="kpi-card"><div class="kpi-card__value kpi-green">4</div><div class="kpi-card__label">High Relevance</div></div>
+    <div class="kpi-card"><div class="kpi-card__value kpi-orange">8</div><div class="kpi-card__label">Medium</div></div>
+    <div class="kpi-card"><div class="kpi-card__value kpi-blue">12</div><div class="kpi-card__label">Low / None</div></div>
+    <div class="kpi-card"><div class="kpi-card__value kpi-gold">8</div><div class="kpi-card__label">Recommendations</div></div>
+    <div class="kpi-card"><div class="kpi-card__value" style="color:var(--purple)">1</div><div class="kpi-card__label">Already Adopted</div></div>
+  </div>
+
+  <!-- ===== SECTION 0: OVERVIEW ===== -->
+  <div id="s0" class="sec-head animate" style="--i:5">Overview</div>
+  <p class="animate" style="--i:6;font-size:13px;color:var(--text-dim);margin-bottom:24px;">
+    Your setup is already sophisticated &mdash; 32 skills, 36 agents, 16 rules files, worktree workflow, shodh-memory, auto-memory, and a full caliper v2 pipeline. Most bookmarks validate what you have rather than introducing fundamentally new ideas. The highest-impact improvements center on <strong>context preservation before compaction</strong>, <strong>stricter TDD enforcement</strong>, and <strong>enhanced plan review rigor</strong>. A secondary theme is <strong>context bloat reduction</strong> &mdash; your ~1,700 lines of always-loaded rules could benefit from selective loading.
+  </p>
+
+  <!-- ===== SECTION 1: BOOKMARK INVENTORY ===== -->
+  <div id="s1" class="sec-head animate" style="--i:7">1 &mdash; Bookmark Inventory</div>
+
+  <div class="table-wrap animate" style="--i:8">
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Bookmark</th>
+            <th class="wide">What It Discusses</th>
+            <th>Relevance</th>
+            <th class="wide">Recommendation</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="--i:9"><td>1</td><td><a href="https://github.com/maxritter/pilot-shell">pilot-shell</a></td><td class="wide">Production dev environment: context preservation before compaction, smart model routing, <code>/learn</code> command, TDD hooks</td><td><span class="status status--high">HIGH</span></td><td class="wide">Adopt PreCompact hook pattern; consider <code>/learn</code>-style auto-capture</td></tr>
+          <tr style="--i:10"><td>2</td><td><a href="https://x.com/arscontexta/status/2023957499183829467">Skill Graphs</a><small>X &middot; Heinrich</small></td><td class="wide">Skills as graph nodes with wikilinks, progressive disclosure via index&rarr;descriptions&rarr;links&rarr;content</td><td><span class="status status--medium">MEDIUM</span></td><td class="wide">Premature at 32 skills; revisit at 50+. Progressive disclosure pattern already validated.</td></tr>
+          <tr style="--i:11"><td>3</td><td><a href="https://github.com/agenticnotetaking/arscontexta">arscontexta</a></td><td class="wide">Knowledge vault from conversation; 6-Rs pipeline; Stop hook for session capture; queue-based orchestration</td><td><span class="status status--medium">MEDIUM</span></td><td class="wide">Stop hook for session capture is novel; "Reweave" pattern (backward-updating artifacts) worth noting</td></tr>
+          <tr style="--i:12"><td>4</td><td><a href="https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering">Context Engineering Skills</a></td><td class="wide">13 skills teaching attention mechanics, BDI modeling; lost-in-the-middle effect; U-shaped attention curves</td><td><span class="status status--medium">MEDIUM</span></td><td class="wide">Attention positioning insight: critical instructions at top/bottom of files, not middle</td></tr>
+          <tr style="--i:13"><td>5</td><td><a href="https://x.com/koylanai/status/2005827257458131321">Context Skills 10x'd</a><small>X &middot; Koylan</small></td><td class="wide">Promotional post for repo #4; "Personal OS" folder architecture</td><td><span class="status status--low">LOW</span></td><td class="wide">Skip &mdash; marketing fluff</td></tr>
+          <tr style="--i:14"><td>6</td><td><a href="https://github.com/NevaMind-AI/memU">memU</a></td><td class="wide">Event-driven memory with decay/consolidation for proactive agents</td><td><span class="status status--low">LOW</span></td><td class="wide">Less capable than shodh-memory; skip</td></tr>
+          <tr style="--i:15"><td>7</td><td><a href="https://www.aihero.dev/skill-test-driven-development-claude-code">TDD Skill</a></td><td class="wide">One-test-at-a-time vertical slicing; 6-file skill directory; anti-horizontal-slice enforcement</td><td><span class="status status--high">HIGH</span></td><td class="wide">Adopt one-test-at-a-time constraint in orchestrate's tdd.md</td></tr>
+          <tr style="--i:16"><td>8</td><td><a href="https://x.com/d4m1n/status/2026032801322356903">Ralph Loop</a><small>X &middot; Dan</small></td><td class="wide">Fresh context per iteration; STEERING.md for mid-run redirection; Docker sandbox</td><td><span class="status status--low">LOW</span></td><td class="wide">STEERING.md pattern transferable; rest covered by your orchestrate</td></tr>
+          <tr style="--i:17"><td>9</td><td><a href="https://gist.github.com/garrytan/120bdbbd17e1b3abd5332391d77963e7">Garry Tan mega-plan</a></td><td class="wide">3 scope modes, 10 review sections, Error &amp; Rescue Registry, zero silent failures, mandatory diagrams</td><td><span class="status status--high">HIGH</span></td><td class="wide">Enhance plan-review with scope modes + Error &amp; Rescue Registry table format</td></tr>
+          <tr style="--i:18"><td>10</td><td><a href="https://gist.github.com/garrytan/001f9074cab1a8f545ebecbc73a813df">Garry plan-exit-review</a></td><td class="wide">Scope challenge step, anti-scope-drift instruction, interactive halting, "NOT in scope" tracking</td><td><span class="status status--high">HIGH</span></td><td class="wide">Add scope challenge to implementation-review; adopt anti-scope-drift instruction</td></tr>
+          <tr style="--i:19"><td>11</td><td><a href="https://arxiv.org/abs/2512.05470">Everything is Context</a><small>arxiv</small></td><td class="wide">File-system abstraction for context; Constructor/Loader/Evaluator pipeline; token budgeting with priority metadata</td><td><span class="status status--low">LOW</span></td><td class="wide">Theoretical validation; priority-based token budgeting concept applicable to rules loading</td></tr>
+          <tr style="--i:20"><td>12</td><td><a href="https://arxiv.org/abs/2602.20478">Codified Context</a><small>arxiv</small></td><td class="wide">Hot/cold memory, 19 agents, immutable decision logs, checkpoint validation, conflict detection; 283 sessions</td><td><span class="status status--medium">MEDIUM</span></td><td class="wide">Validates your architecture; immutable decision logs and checkpoint validation are novel</td></tr>
+          <tr style="--i:21"><td>13</td><td><a href="https://x.com/trq212/status/2027463795355095314">Seeing like an Agent</a><small>X &middot; Thariq (Anthropic)</small></td><td class="wide">Claude Code team lessons: AskUserQuestion evolution, Tasks replacing Todos, progressive disclosure, subagents over tools</td><td><span class="status status--medium">MEDIUM</span></td><td class="wide">"Revisit tool assumptions as models improve" &mdash; applicable to your agents</td></tr>
+          <tr style="--i:22"><td>14</td><td><a href="https://x.com/agrimsingh/status/2010412150918189210">ralph for idiots</a><small>X &middot; agrim</small></td><td class="wide">Context pollution as certainty; guardrails.md (append-only learned constraints); gutter detection (repeated failure detection)</td><td><span class="status status--medium">MEDIUM</span></td><td class="wide">Guardrails.md pattern and gutter detection are novel; complement your error-tracking rule</td></tr>
+          <tr style="--i:23"><td>15</td><td><a href="https://github.com/ArabelaTso/Skills-4-SE">Skills-4-SE</a></td><td class="wide">180+ skills in 8 packs; metamorphic testing, bug origin tracing, CVE reachability analysis, requirement ambiguity detection</td><td><span class="status status--medium">MEDIUM</span></td><td class="wide">Cherry-pick: requirement ambiguity for specify, bug origin tracing for 5whys, CVE reachability for security-review</td></tr>
+          <tr style="--i:24"><td>16</td><td><a href="https://github.com/nicobailon/visual-explainer">visual-explainer</a></td><td class="wide">HTML diagram generation skill</td><td><span class="status status--done">DONE</span></td><td class="wide">Already adopted (commit 6632e10)</td></tr>
+          <tr style="--i:25"><td>17</td><td><a href="https://x.com/systematicls/status/2028814227004395561">Agentic Engineer</a><small>X &middot; sysls</small></td><td class="wide">Less is more; CLAUDE.md as routing table; adversarial multi-agent (bug-finder + adversary + referee); task contracts; context bloat warning</td><td><span class="status status--medium">MEDIUM</span></td><td class="wide">Adversarial multi-agent pattern is novel; CLAUDE.md-as-routing-table validates your approach</td></tr>
+          <tr style="--i:26"><td>18</td><td><a href="https://github.com/shanraisshan/claude-code-best-practice">Best Practices</a></td><td class="wide">Commands vs subagents vs skills vs hooks; CLAUDE.md under 200 lines; feature-specific agents over role-based</td><td><span class="status status--medium">MEDIUM</span></td><td class="wide">Validation; "feature-specific agents" challenges your broad role-based agents</td></tr>
+          <tr style="--i:27"><td>19</td><td><a href="https://github.com/googleworkspace/cli">Google Workspace CLI</a></td><td class="wide">Auto-generated from Discovery Service; 40+ AI agent skills; schema introspection</td><td><span class="status status--medium">MEDIUM</span></td><td class="wide">Evaluate with <code>/mine.eval-repo</code> vs your existing gog</td></tr>
+          <tr style="--i:28"><td>20</td><td><a href="https://x.com/JackCulpan/status/2029478582352003150">Culpan workflow</a><small>X</small></td><td class="wide">Plan mode for 3+ steps; self-improvement loop; verification before done</td><td><span class="status status--low">LOW</span></td><td class="wide">Already covered by your setup</td></tr>
+          <tr style="--i:29"><td>21</td><td><a href="https://github.com/steveyegge/beads">Beads</a></td><td class="wide">Git-native graph tracker; hash-based IDs; <code>bd ready</code> (no-blocker filter); memory decay for closed tasks</td><td><span class="status status--medium">MEDIUM</span></td><td class="wide">Major arch change; hash-based IDs and <code>ready</code> filter concepts could enhance orchestrate</td></tr>
+          <tr style="--i:30"><td>22</td><td><a href="https://www.agenstskills.com/docs">SkillKit</a></td><td class="wide">Universal skill translator (44 agents); security scanning</td><td><span class="status status--low">LOW</span></td><td class="wide">Skip &mdash; Claude-Code-only</td></tr>
+          <tr style="--i:31"><td>23</td><td><a href="https://github.com/andrewyng/context-hub">context-hub</a></td><td class="wide">Curated API docs with learning loop</td><td><span class="status status--low">LOW</span></td><td class="wide">Skip &mdash; Context7 MCP covers this</td></tr>
+          <tr style="--i:32"><td>24</td><td><a href="https://x.com/arvidkahl/status/2031457304328229184">Arvid Kahl tips</a><small>X</small></td><td class="wide">Plan mode advice; claude-context-mode MCP (FTS5 indexed sessions, PreCompact XML snapshots); /documents/ folder pattern</td><td><span class="status status--low">LOW</span></td><td class="wide">claude-context-mode's PreCompact architecture is the most sophisticated compaction pattern found</td></tr>
+          <tr style="--i:33"><td>25</td><td><a href="https://fmhy.net/">FMHY</a></td><td class="wide">Collection of free internet resources</td><td><span class="status status--none">NONE</span></td><td class="wide">Not Claude-related</td></tr>
+          <tr style="--i:34"><td>26</td><td><a href="https://clusteryield.app/blog/1/blog-post-1.html">PySpark linting</a></td><td class="wide">Static analysis of 5,046 PySpark projects</td><td><span class="status status--none">NONE</span></td><td class="wide">Not Claude-related</td></tr>
+        </tbody>
+        <tfoot>
+          <tr><td colspan="2">26 bookmarks</td><td>4 HIGH &middot; 8 MEDIUM &middot; 12 LOW/NONE &middot; 1 DONE</td><td></td><td></td></tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== SECTION 2: CONTEXT & COMPACTION ===== -->
+  <div id="s2" class="sec-head animate" style="--i:35">2 &mdash; Context &amp; Compaction</div>
+
+  <div class="theme-grid">
+    <div class="theme-card theme-card--hero animate" style="--i:36">
+      <div class="theme-card__title">PreCompact Hook Pattern</div>
+      <div class="theme-card__sources">pilot-shell &middot; claude-context-mode &middot; arscontexta</div>
+      <div class="theme-card__body">
+        Three independent sources converge on the same idea: <strong>automate context preservation before compaction fires</strong>, don't rely on users to run it manually. Pilot-shell uses a <code>pre_compact.py</code> hook that captures active plans, task state, and decisions to persistent memory. Claude-context-mode builds priority-tiered XML snapshots (&le;2KB) and indexes session events into SQLite FTS5 for on-demand retrieval. Arscontexta uses a Stop hook for session capture. Your <code>/mine.pre-compact</code> requires manual invocation &mdash; this is the single biggest gap.
+      </div>
+    </div>
+    <div class="theme-card animate" style="--i:37">
+      <div class="theme-card__title">Session Continuity Hooks</div>
+      <div class="theme-card__sources">claude-context-mode &middot; pilot-shell</div>
+      <div class="theme-card__body">
+        Claude-context-mode uses four hooks working together: <strong>PostToolUse</strong> (captures edits, git ops, errors), <strong>UserPromptSubmit</strong> (records decisions), <strong>PreCompact</strong> (builds snapshot), <strong>SessionStart</strong> (restores state). Events indexed into FTS5 and retrieved via BM25 search &mdash; <strong>not dumped back into context</strong>. This is more sophisticated than your current approach.
+      </div>
+    </div>
+    <div class="theme-card animate" style="--i:38">
+      <div class="theme-card__title">Fresh Context per Iteration</div>
+      <div class="theme-card__sources">ralph loop &middot; ralph for idiots &middot; sysls</div>
+      <div class="theme-card__body">
+        Ralph's core insight: <strong>"Progress persists. Failures evaporate."</strong> Each iteration starts clean; state lives in files + git, not context. Your orchestrate skill already does this (subagents get fresh context), but the explicit framing of "context pollution as certainty, not accident" is useful. <strong>STEERING.md</strong> for mid-run redirection is a transferable pattern.
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION 3: REVIEW QUALITY ===== -->
+  <div id="s3" class="sec-head animate" style="--i:39">3 &mdash; Review Quality</div>
+
+  <div class="theme-grid">
+    <div class="theme-card theme-card--hero animate" style="--i:40">
+      <div class="theme-card__title">10-Section Plan Review</div>
+      <div class="theme-card__sources">Garry Tan mega-plan (765 lines)</div>
+      <div class="theme-card__body">
+        Your plan-review has 6 checkpoints. Garry's adds: <strong>Error &amp; Rescue Registry</strong> (METHOD | WHAT CAN GO WRONG | EXCEPTION CLASS | RESCUED? | USER SEES table), <strong>Failure Modes Registry</strong> (unrescued + untested + silent = CRITICAL GAP), observability strategy, deployment safety, long-term trajectory. Three scope modes (EXPANSION / HOLD SCOPE / REDUCTION) change review expectations. The <strong>"zero silent failures"</strong> principle: every <code>rescue StandardError</code> is a smell.
+      </div>
+    </div>
+    <div class="theme-card animate" style="--i:41">
+      <div class="theme-card__title">Scope Challenge &amp; Anti-Drift</div>
+      <div class="theme-card__sources">Garry Tan plan-exit-review (151 lines)</div>
+      <div class="theme-card__body">
+        Three mandatory questions before analysis: <strong>1)</strong> What existing code already solves this? <strong>2)</strong> What's the minimum viable change? <strong>3)</strong> If touching &gt;8 files or introducing &gt;2 new classes, treat as smell. Then the anti-scope-drift instruction: <em>"Once I've chosen scope, commit fully. Do not silently reduce scope, skip components, or re-argue for less work."</em> This addresses a real Claude behavior.
+      </div>
+    </div>
+    <div class="theme-card animate" style="--i:42">
+      <div class="theme-card__title">Immutable Decision Logs</div>
+      <div class="theme-card__sources">Codified Context (arxiv)</div>
+      <div class="theme-card__body">
+        Once an agent records a choice, subsequent agents read it before proposing alternatives. <strong>Conflict detection</strong>: new recommendations contradicting prior entries trigger resolution protocol. <strong>Checkpoint validation</strong>: at session boundaries, verify inherited context matches actual codebase state. Your design docs freeze after plan-review, but mid-session decisions aren't logged immutably.
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION 4: TDD ENFORCEMENT ===== -->
+  <div id="s4" class="sec-head animate" style="--i:43">4 &mdash; TDD Enforcement</div>
+
+  <div class="theme-grid">
+    <div class="theme-card theme-card--hero animate" style="--i:44">
+      <div class="theme-card__title">One-Test-At-A-Time Vertical Slicing</div>
+      <div class="theme-card__sources">TDD Skill (aihero.dev) &middot; pilot-shell</div>
+      <div class="theme-card__body">
+        <strong>Anti-pattern:</strong> Write 5 tests, then implement all 5 (horizontal). This allows "dishonest" tests that verify imagined behavior.<br><br>
+        <strong>Required:</strong> RED&rarr;GREEN for test1&rarr;impl1, then RED&rarr;GREEN for test2&rarr;impl2. One test at a time. Only enough code to pass current test. Don't anticipate future tests.<br><br>
+        The TDD skill is a <strong>6-file directory</strong> (SKILL.md + tests.md + deep-modules.md + interface-design.md + mocking.md + refactoring.md). Enforcement is purely instructional &mdash; no hook. Pilot-shell adds a <strong>PostToolUse hook</strong> that checks if implementation files were modified without a failing test first.
+      </div>
+    </div>
+    <div class="theme-card animate" style="--i:45">
+      <div class="theme-card__title">Interface Design for Testability</div>
+      <div class="theme-card__sources">TDD Skill (aihero.dev)</div>
+      <div class="theme-card__body">
+        Three rules: <strong>1)</strong> Accept dependencies, don't create them (DI). <strong>2)</strong> Return results, don't produce side effects. <strong>3)</strong> Small surface area (fewer methods = fewer tests). Mock only at <strong>system boundaries</strong>: external APIs, databases, time/randomness, file system. <strong>Never mock your own classes.</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION 5: CONTEXT BLOAT ===== -->
+  <div id="s5" class="sec-head animate" style="--i:46">5 &mdash; Context Bloat Reduction</div>
+
+  <div class="theme-grid">
+    <div class="theme-card theme-card--hero animate" style="--i:47">
+      <div class="theme-card__title">CLAUDE.md as Routing Table</div>
+      <div class="theme-card__sources">sysls &middot; best-practice repo &middot; context engineering skills</div>
+      <div class="theme-card__body">
+        Multiple sources converge: <strong>"CLAUDE.md should be as barebones as possible, only containing IF-ELSE of where to find context."</strong> Best-practice repo recommends under 200 lines. Your CLAUDE.md is 114 lines (good), but your rules files total ~1,700 lines loaded into every conversation. The <strong>attention degradation</strong> research (lost-in-the-middle effect, U-shaped curves) suggests information in the middle of long context gets less attention. <strong>Critical instructions should be at top or bottom.</strong>
+      </div>
+    </div>
+    <div class="theme-card animate" style="--i:48">
+      <div class="theme-card__title">On-Demand vs Always-Loaded</div>
+      <div class="theme-card__sources">Everything is Context (arxiv) &middot; sysls &middot; Seeing like an Agent</div>
+      <div class="theme-card__body">
+        The arxiv paper proposes <strong>lazy materialization</strong>: don't load context until agent requests it. The Anthropic team confirms: progressive disclosure &gt; stuffing the system prompt. Your <code>frontend-workflow.md</code> (~50 lines) loads for every conversation but only matters for UI work. <strong>Candidates for on-demand loading:</strong> frontend-workflow, backlog convention, tmux naming, command-output preservation.
+      </div>
+    </div>
+    <div class="theme-card animate" style="--i:49">
+      <div class="theme-card__title">Rules/Skills Consolidation</div>
+      <div class="theme-card__sources">sysls &middot; best-practice repo</div>
+      <div class="theme-card__body">
+        <em>"As you add more rules and skills, they start to contradict each other. Tell your agents to go for a spa day and consolidate."</em> Periodic audit to remove contradictions, merge overlapping rules, and compress verbose examples. Your <code>/mine.audit</code> does this for code but not for your own rules/skills.
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION 6: NEW PATTERNS ===== -->
+  <div id="s6" class="sec-head animate" style="--i:50">6 &mdash; Novel Patterns</div>
+
+  <div class="theme-grid">
+    <div class="theme-card animate" style="--i:51">
+      <div class="theme-card__title">Adversarial Multi-Agent</div>
+      <div class="theme-card__sources">sysls</div>
+      <div class="theme-card__body">
+        <strong>Bug-finder</strong> (scored +1/+5/+10 by severity) &rarr; reports superset of all possible bugs.<br>
+        <strong>Adversarial agent</strong> (gets bug-score for disproved bugs, -2x penalty for wrong) &rarr; aggressively disproves.<br>
+        <strong>Referee</strong> (told "I have ground truth, +1/-1") &rarr; scores both. "Frighteningly high fidelity." Exploits sycophancy by design.
+      </div>
+    </div>
+    <div class="theme-card animate" style="--i:52">
+      <div class="theme-card__title">Guardrails.md (Append-Only)</div>
+      <div class="theme-card__sources">ralph for idiots</div>
+      <div class="theme-card__body">
+        <strong>Same mistake never happens twice.</strong> When something breaks, agent appends a "sign" with trigger, instruction, and context. Guardrails are append-only, read at start of each iteration. More disciplined than your error-tracking rule (which is per-session and ephemeral). Gutter detection: automated signal when same failure repeats.
+      </div>
+    </div>
+    <div class="theme-card animate" style="--i:53">
+      <div class="theme-card__title">Task Completion Contracts</div>
+      <div class="theme-card__sources">sysls</div>
+      <div class="theme-card__body">
+        Formalize "done" as a contract: tests pass, screenshot verification, specific criteria met. <strong>Stop hook prevents session termination until contract is fulfilled.</strong> Your WP system has success criteria but no stop-hook enforcement. New session per contract &gt; long-running sessions.
+      </div>
+    </div>
+    <div class="theme-card animate" style="--i:54">
+      <div class="theme-card__title">Skill Graphs</div>
+      <div class="theme-card__sources">arscontexta (Heinrich)</div>
+      <div class="theme-card__body">
+        Skills as interconnected graph nodes with wikilinks. Progressive disclosure: index&rarr;YAML frontmatter&rarr;links&rarr;full content. Most decisions happen before reading a full file. <strong>Premature at 32 skills</strong> but worth revisiting at 50+. Your capabilities.md intent-routing table already implements the index pattern.
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION 7: RECOMMENDATIONS ===== -->
+  <div id="s7" class="sec-head animate" style="--i:55">7 &mdash; Prioritized Recommendations</div>
+
+  <div class="rec-card rec-card--top animate" style="--i:56">
+    <div class="rec-header">
+      <div class="rec-num">1</div>
+      <div class="rec-title">Context Preservation Before Compaction</div>
+      <div class="rec-meta"><span class="rec-badge effort-med">EFFORT: MED</span><span class="rec-badge impact-high">IMPACT: HIGH</span></div>
+    </div>
+    <div class="rec-body">
+      <strong>Problem:</strong> <code>/mine.pre-compact</code> requires manual invocation. Three independent sources (pilot-shell, claude-context-mode, arscontexta) all automate this.<br><br>
+      <strong>What to do:</strong>
+      <ul>
+        <li>Add a <strong>PreCompact hook</strong> that captures: active plan state, current WP lanes, error file contents, recent decisions</li>
+        <li>Write structured snapshot to known location (not back into context)</li>
+        <li>Add <strong>SessionStart</strong> rule that references this snapshot for context recovery</li>
+        <li>Consider FTS5-indexed session events (claude-context-mode's approach) for richer retrieval</li>
+      </ul>
+    </div>
+    <div class="rec-source">Sources: pilot-shell (#1), claude-context-mode (via #24), arscontexta (#3)</div>
+  </div>
+
+  <div class="rec-card rec-card--top animate" style="--i:57">
+    <div class="rec-header">
+      <div class="rec-num">2</div>
+      <div class="rec-title">One-Test-At-A-Time TDD</div>
+      <div class="rec-meta"><span class="rec-badge effort-low">EFFORT: LOW</span><span class="rec-badge impact-high">IMPACT: HIGH</span></div>
+    </div>
+    <div class="rec-body">
+      <strong>Problem:</strong> Orchestrate's TDD reads <code>tdd.md</code> but doesn't prevent bulk test-writing.<br><br>
+      <strong>What to do:</strong>
+      <ul>
+        <li>Update/create <code>tdd.md</code> with strict one-test-at-a-time vertical slicing rules</li>
+        <li>Add anti-pattern diagram (WRONG: horizontal, RIGHT: vertical) to executor prompt</li>
+        <li>Per-cycle checklist: test describes behavior, uses public interface, survives refactor, code is minimal</li>
+        <li>Guardrail in spec-reviewer: "If more than one test was written before implementation, FAIL"</li>
+      </ul>
+    </div>
+    <div class="rec-source">Sources: TDD Skill (#7), pilot-shell (#1)</div>
+  </div>
+
+  <div class="rec-card rec-card--top animate" style="--i:58">
+    <div class="rec-header">
+      <div class="rec-num">3</div>
+      <div class="rec-title">Enhanced Plan Review</div>
+      <div class="rec-meta"><span class="rec-badge effort-med">EFFORT: MED</span><span class="rec-badge impact-high">IMPACT: HIGH</span></div>
+    </div>
+    <div class="rec-body">
+      <strong>Problem:</strong> Plan-review has 6 checkpoints. Garry Tan's has 10 sections with mandatory interactive stops.<br><br>
+      <strong>What to do:</strong>
+      <ul>
+        <li>Add <strong>scope mode selection</strong> (EXPANSION / HOLD SCOPE / REDUCTION) with different expectations per mode</li>
+        <li>Add <strong>Error &amp; Rescue Registry</strong> table format to findings (METHOD | EXCEPTION | RESCUED? | USER SEES)</li>
+        <li>Add <strong>"zero silent failures"</strong> check: every <code>rescue StandardError</code> flagged</li>
+        <li>Add observability, deployment safety, and trajectory review sections</li>
+        <li>Mandatory AskUserQuestion stop between sections</li>
+      </ul>
+    </div>
+    <div class="rec-source">Sources: Garry Tan mega-plan (#9), Garry plan-exit-review (#10)</div>
+  </div>
+
+  <div class="rec-card animate" style="--i:59">
+    <div class="rec-header">
+      <div class="rec-num">4</div>
+      <div class="rec-title">Scope Challenge + Anti-Drift</div>
+      <div class="rec-meta"><span class="rec-badge effort-low">EFFORT: LOW</span><span class="rec-badge impact-med">IMPACT: MED</span></div>
+    </div>
+    <div class="rec-body">
+      Add "Phase 0: Scope Challenge" to implementation-review. Three questions: Does existing code solve this? What's the minimum change? Is &gt;8 files a smell? Then: <strong>"Once scope is chosen, commit fully. Do not silently reduce."</strong> Track "NOT in scope" items. Require deferred work as issues/backlog.
+    </div>
+    <div class="rec-source">Sources: Garry plan-exit-review (#10)</div>
+  </div>
+
+  <div class="rec-card animate" style="--i:60">
+    <div class="rec-header">
+      <div class="rec-num">5</div>
+      <div class="rec-title">Rules Audit &amp; Context Diet</div>
+      <div class="rec-meta"><span class="rec-badge effort-med">EFFORT: MED</span><span class="rec-badge impact-med">IMPACT: MED</span></div>
+    </div>
+    <div class="rec-body">
+      ~1,700 lines always loaded. Audit for: content that could be on-demand (frontend-workflow, backlog, tmux, command-output), redundancy with CLAUDE.md, verbose examples that can compress, attention positioning (critical rules at top/bottom). Split into core (always) vs specialized (on-demand).
+    </div>
+    <div class="rec-source">Sources: Context Engineering Skills (#4), sysls (#17), best-practice (#18), Everything is Context (#11)</div>
+  </div>
+
+  <div class="rec-card animate" style="--i:61">
+    <div class="rec-header">
+      <div class="rec-num">6</div>
+      <div class="rec-title">Adversarial Review Agent</div>
+      <div class="rec-meta"><span class="rec-badge effort-med">EFFORT: MED</span><span class="rec-badge impact-med">IMPACT: MED</span></div>
+    </div>
+    <div class="rec-body">
+      Add sysls's three-agent pattern as an optional mode for code-reviewer or qa-specialist: enthusiastic bug-finder (+scoring), adversarial disprover (-2x penalty), referee (ground truth claim). Could replace or complement the current single-pass review for critical code.
+    </div>
+    <div class="rec-source">Sources: sysls (#17)</div>
+  </div>
+
+  <div class="rec-card animate" style="--i:62">
+    <div class="rec-header">
+      <div class="rec-num">7</div>
+      <div class="rec-title">Append-Only Guardrails</div>
+      <div class="rec-meta"><span class="rec-badge effort-low">EFFORT: LOW</span><span class="rec-badge impact-med">IMPACT: MED</span></div>
+    </div>
+    <div class="rec-body">
+      Evolve error-tracking from per-session ephemeral to persistent append-only guardrails. When a non-trivial error resolves, capture as a "sign" (trigger + instruction + context) in a durable file. Read at session/iteration start. Mistakes evaporate; lessons accumulate across sessions.
+    </div>
+    <div class="rec-source">Sources: ralph for idiots (#14)</div>
+  </div>
+
+  <div class="rec-card animate" style="--i:63">
+    <div class="rec-header">
+      <div class="rec-num">8</div>
+      <div class="rec-title">Google Workspace CLI Eval</div>
+      <div class="rec-meta"><span class="rec-badge effort-low">EFFORT: LOW</span><span class="rec-badge impact-med">IMPACT: TBD</span></div>
+    </div>
+    <div class="rec-body">
+      Run <code>/mine.eval-repo</code> on <code>googleworkspace/cli</code>. It auto-generates from Discovery Service (new endpoints appear automatically), has schema introspection, and 40+ built-in agent skills. Worth comparing to your hand-maintained <code>gog</code> wrapper.
+    </div>
+    <div class="rec-source">Sources: Google Workspace CLI (#19)</div>
+  </div>
+
+  <!-- ===== SECTION 8: SKIP LIST ===== -->
+  <div id="s8" class="sec-head animate" style="--i:64">8 &mdash; Not Recommended</div>
+
+  <div class="skip-grid animate" style="--i:65">
+    <div class="skip-card"><div class="skip-card__name">Beads (task graph)</div><div class="skip-card__reason">Major architectural change to replace WP system. Hash-based IDs and <code>ready</code> filter are nice but low ROI vs. current spec-helper.</div></div>
+    <div class="skip-card"><div class="skip-card__name">SkillKit</div><div class="skip-card__reason">Cross-platform skill translator. You're Claude-Code-only; adds complexity for no benefit.</div></div>
+    <div class="skip-card"><div class="skip-card__name">arscontexta 6-Rs pipeline</div><div class="skip-card__reason">Conceptually interesting but shodh-memory + auto-memory already covers the functional need.</div></div>
+    <div class="skip-card"><div class="skip-card__name">Skill Graphs</div><div class="skip-card__reason">Premature optimization at 32 skills. Revisit at 50+.</div></div>
+    <div class="skip-card"><div class="skip-card__name">memU memory system</div><div class="skip-card__reason">Less capable than what you have.</div></div>
+    <div class="skip-card"><div class="skip-card__name">context-hub</div><div class="skip-card__reason">Context7 MCP already solves this; learning loop is nice but low ROI.</div></div>
+  </div>
+
+  <!-- ===== SECTION 9: CROSS-CUTTING ===== -->
+  <div id="s9" class="sec-head animate" style="--i:66">9 &mdash; Cross-Cutting Patterns</div>
+  <p style="font-size:13px;color:var(--text-dim);margin-bottom:20px;">Themes that appeared across 3+ independent sources, suggesting strong consensus.</p>
+
+  <div class="pattern-item animate" style="--i:67">
+    <div class="pattern-num">1</div>
+    <div class="pattern-content"><strong>Context pollution is inevitable, not accidental.</strong> Ralph, sysls, pilot-shell, and both arxiv papers all frame context degradation as a certainty to engineer around, not a bug to fix. Design for fresh context (subagents, iteration boundaries) rather than trying to maintain a single long-lived session.</div>
+  </div>
+  <div class="pattern-item animate" style="--i:68">
+    <div class="pattern-num">2</div>
+    <div class="pattern-content"><strong>Progressive disclosure beats upfront loading.</strong> The Anthropic team (Seeing like an Agent), context engineering skills, skill graphs, and best-practice repo all validate: load skill names initially, full content on relevance. Your capabilities.md routing table already implements this &mdash; extend to rules files.</div>
+  </div>
+  <div class="pattern-item animate" style="--i:69">
+    <div class="pattern-num">3</div>
+    <div class="pattern-content"><strong>Separate research from implementation.</strong> sysls, TDD skill, Garry Tan, and pilot-shell all emphasize: research pollutes implementation context. Use a fresh agent (or subagent) for implementation after research concludes. Your mine.research &rarr; mine.design &rarr; mine.orchestrate pipeline already does this well.</div>
+  </div>
+  <div class="pattern-item animate" style="--i:70">
+    <div class="pattern-num">4</div>
+    <div class="pattern-content"><strong>State lives in files and git, not in context.</strong> Ralph, pilot-shell, Codified Context paper, and beads all converge: persistent state (plans, decisions, task status) must be externalized to files. Context-resident state is volatile and unreliable. Your WP lane state in YAML frontmatter and design docs already follow this principle.</div>
+  </div>
+  <div class="pattern-item animate" style="--i:71">
+    <div class="pattern-num">5</div>
+    <div class="pattern-content"><strong>Revisit tool assumptions as models improve.</strong> The Anthropic team explicitly: "Tools that models once needed might now be constraining them." sysls: frontier companies will incorporate anything truly useful. Implication: periodically audit whether your rules and agents are still necessary &mdash; models may have internalized the behavior.</div>
+  </div>
+  <div class="pattern-item animate" style="--i:72">
+    <div class="pattern-num">6</div>
+    <div class="pattern-content"><strong>Exploit sycophancy, don't fight it.</strong> sysls's adversarial pattern, Garry Tan's anti-scope-drift instruction, and the TDD skill's "one test prevents dishonest testing" all work <em>with</em> model tendencies rather than against them. Design agent interactions that channel the desire to please into productive outcomes.</div>
+  </div>
+
+  <details class="collapsible animate" style="--i:73">
+    <summary>Suggested Execution Order</summary>
+    <div class="collapsible__body">
+      <strong>Start with lowest effort, highest impact:</strong>
+      <ul>
+        <li><strong>1.</strong> TDD enforcement (Rec #2) &mdash; update/create tdd.md, low effort</li>
+        <li><strong>2.</strong> Scope challenge (Rec #4) &mdash; add Phase 0 to implementation-review, low effort</li>
+        <li><strong>3.</strong> Guardrails (Rec #7) &mdash; evolve error-tracking to persistent, low effort</li>
+        <li><strong>4.</strong> Enhanced plan review (Rec #3) &mdash; add scope modes + Error Registry, medium effort</li>
+        <li><strong>5.</strong> Context preservation (Rec #1) &mdash; PreCompact hook, medium effort but highest long-term value</li>
+        <li><strong>6.</strong> Rules audit (Rec #5) &mdash; compress and split rules files, medium effort</li>
+        <li><strong>7.</strong> Adversarial review (Rec #6) &mdash; optional, for critical code paths</li>
+        <li><strong>8.</strong> Google CLI eval (Rec #8) &mdash; opportunistic</li>
+      </ul>
+    </div>
+  </details>
+
+</div><!-- /main -->
+</div><!-- /wrap -->
+
+<script>
+(function() {
+  const toc = document.getElementById('toc');
+  const links = toc.querySelectorAll('a');
+  const sections = [];
+  links.forEach(link => {
+    const id = link.getAttribute('href').slice(1);
+    const el = document.getElementById(id);
+    if (el) sections.push({ id, el, link });
+  });
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const match = sections.find(s => s.el === entry.target);
+        if (match) {
+          match.link.classList.add('active');
+          if (window.innerWidth <= 1000) {
+            match.link.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }
+        }
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px' });
+  sections.forEach(s => observer.observe(s.el));
+  links.forEach(link => {
+    link.addEventListener('click', e => {
+      e.preventDefault();
+      const id = link.getAttribute('href').slice(1);
+      const el = document.getElementById(id);
+      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); history.replaceState(null, '', '#' + id); }
+    });
+  });
+})();
+
+// Table sorting
+(function() {
+  const relevanceOrder = { 'HIGH': 0, 'DONE': 1, 'MEDIUM': 2, 'LOW': 3, 'NONE': 4 };
+
+  function getCellValue(row, idx) {
+    const cell = row.children[idx];
+    const badge = cell.querySelector('.status');
+    if (badge) {
+      const text = badge.textContent.trim();
+      return { sort: relevanceOrder[text] !== undefined ? relevanceOrder[text] : 99, raw: text };
+    }
+    return { sort: cell.textContent.trim().toLowerCase(), raw: cell.textContent.trim() };
+  }
+
+  function compare(a, b, idx, asc) {
+    const va = getCellValue(a, idx);
+    const vb = getCellValue(b, idx);
+    let sa = va.sort, sb = vb.sort;
+    if (typeof sa === 'number' && typeof sb === 'number') {
+      return asc ? sa - sb : sb - sa;
+    }
+    // try numeric
+    const na = parseFloat(sa), nb = parseFloat(sb);
+    if (!isNaN(na) && !isNaN(nb)) return asc ? na - nb : nb - na;
+    // string
+    if (sa < sb) return asc ? -1 : 1;
+    if (sa > sb) return asc ? 1 : -1;
+    return 0;
+  }
+
+  document.querySelectorAll('.data-table').forEach(table => {
+    const headers = table.querySelectorAll('th');
+    headers.forEach((th, idx) => {
+      th.addEventListener('click', () => {
+        const tbody = table.querySelector('tbody');
+        if (!tbody) return;
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        const wasAsc = th.classList.contains('sort-asc');
+        const asc = !wasAsc;
+
+        headers.forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+        th.classList.add(asc ? 'sort-asc' : 'sort-desc');
+
+        rows.sort((a, b) => compare(a, b, idx, asc));
+        rows.forEach((row, i) => {
+          row.style.setProperty('--i', i + 4);
+          tbody.appendChild(row);
+        });
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>
