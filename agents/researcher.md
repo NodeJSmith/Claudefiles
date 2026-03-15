@@ -32,11 +32,11 @@ The only commands to execute during analysis are:
 
 Everything else — architecture mapping, pattern identification, dependency tracing, feasibility assessment — comes from reading the files.
 
-## Phase 1: Investigate
+## Phase 1: Explore the Codebase
 
-Launch all investigation work in **parallel** — subagents and web research in the same message.
+Launch **parallel Explore subagents** to map the codebase through the lens of the proposal.
 
-### Codebase exploration — 4 parallel Explore subagents
+### 4 parallel Explore subagents
 
 Adapt subagent count and focus to the proposal. Not every proposal needs all 4. If the codebase is small (< 20 files), combine subagents 1-3 into 2.
 
@@ -77,18 +77,18 @@ Adapt subagent count and focus to the proposal. Not every proposal needs all 4. 
 - Search git history for prior attempts or related work (`git log --all --oneline` for relevant keywords)
 - Look for configuration files, migration scripts, or schema definitions that signal prior data layer decisions
 
-### Web research (conditional)
+## Phase 2: Web Research (conditional)
 
 If the proposal involves technology choices or patterns the codebase hasn't used before, perform web research using `WebSearch`.
 
-Keep it **focused** — 2-3 targeted searches, not a survey of everything. Use what you know from the codebase exploration to narrow queries:
+Keep it **focused** — 2-3 targeted searches, not a survey of everything. Use what you learned from the codebase exploration to narrow queries:
 - BAD: "SQLite best practices"
 - GOOD: "SQLite with Python asyncio connection pooling patterns"
 - GOOD: "command pattern Python dataclass implementation undo redo"
 
 **Skip web research** if the proposal is purely structural (refactoring, pattern adoption within known tech).
 
-## Phase 2: Synthesize & Write Brief
+## Phase 3: Synthesize & Write Brief
 
 Combine all findings into a structured research brief. Write it to the output path provided in the prompt.
 
