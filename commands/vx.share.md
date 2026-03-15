@@ -13,7 +13,7 @@ Share a visual explainer HTML file instantly via Vercel. Returns a live URL with
 
 **Examples:**
 ```
-/share ~/.agent/diagrams/my-diagram.html
+/share ~/.claude/diagrams/my-diagram.html
 /share /tmp/visual-explainer-output.html
 ```
 
@@ -25,14 +25,14 @@ Share a visual explainer HTML file instantly via Vercel. Returns a live URL with
 
 ## Requirements
 
-- **vercel-deploy skill** - Should be pre-installed. If not: `pi install npm:vercel-deploy`
+- **vercel-deploy skill** - Should be pre-installed. If not: `npm install -g vercel`
 
 No Vercel account, Cloudflare account, or API keys needed. The deployment is "claimable" — you can transfer it to your Vercel account later if you want.
 
 ## Script Location
 
 ```bash
-bash {{skill_dir}}/scripts/share.sh <file>
+bash ~/.claude/skills/vx.visual-explainer/scripts/share.sh <file>
 ```
 
 ## Output

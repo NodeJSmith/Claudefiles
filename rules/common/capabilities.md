@@ -24,6 +24,7 @@ Skills and commands exist for common workflows. **Use these instead of ad-hoc to
 | "five whys", "root cause analysis", "why does this keep failing" | `/mine.5whys` |
 | "security review", "check for vulnerabilities" | `/mine.security-review` |
 | "record this decision", "create an ADR" | `/mine.adrs` |
+| "generate a diagram", "visualize this", "architecture diagram", "diff review", "visual plan", "slide deck", "project recap", "fact check a doc" | `/vx.visual-explainer` (subcommands: `/vx.generate-web-diagram`, `/vx.diff-review`, `/vx.generate-visual-plan`, `/vx.plan-review`, `/vx.project-recap`, `/vx.generate-slides`, `/vx.fact-check`, `/vx.share`) |
 | "design this UI", "build this dashboard" | `/mine.interface-design` |
 | "accessible design", "inclusive patterns" | `/mine.human-centered-design` |
 | "UX review", "check for anti-patterns" | `/mine.ux-review` / `/mine.ux-antipatterns` |

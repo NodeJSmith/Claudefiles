@@ -48,7 +48,7 @@ Freeze gate: WPs are generated from `design.md` by `/mine.draft-plan` before `/m
 
 ## How the Pieces Connect
 
-- **Skills** (`skills/mine.*/SKILL.md`) are invoked via `/mine.<name>`. Each SKILL.md is a self-contained prompt with instructions, phases, and output format. Skills can reference other skills (e.g., `/mine.ship` chains `/mine.commit-push` + `/mine.create-pr`).
+- **Skills** (`skills/<prefix>.<name>/SKILL.md`) are invoked via `/<prefix>.<name>`. Each SKILL.md is a self-contained prompt with instructions, phases, and output format. Skills can reference other skills (e.g., `/mine.ship` chains `/mine.commit-push` + `/mine.create-pr`). First-party skills use `mine.*`; imported skill packs use their own prefix (e.g., `vx.*` for visual-explainer).
 - **Commands** (`commands/*.md`) are simpler slash commands — single-file prompts without the SKILL.md directory structure.
 - **Agents** (`agents/*.md`) define subagent behavior for the `Task` tool. They specify model, tools, and detailed system prompts. Currently: `code-reviewer` (runs ruff/pyright/bandit/pytest) and `planner` (implementation planning).
 - **Rules** (`rules/`) auto-load into Claude Code context. Python rules explicitly extend common rules (each file notes this). Rules govern coding style, testing, security, git workflow, error tracking, and agent orchestration.
@@ -56,7 +56,7 @@ Freeze gate: WPs are generated from `design.md` by `/mine.draft-plan` before `/m
 
 ## Naming Convention
 
-All skills and commands use the `mine.` prefix to namespace them and avoid collisions with other skill packs.
+First-party skills and commands use the `mine.` prefix. Imported skill packs use their own prefix (e.g., `vx.` for visual-explainer). See "About skill prefixes" in README.md.
 
 ## Bash Tool Restrictions
 
