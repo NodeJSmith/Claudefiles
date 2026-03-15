@@ -60,14 +60,30 @@ Before your first commit in a repo during a session, check for a pre-commit conf
 
 ## Mandatory Code Review Before Commit
 
-**ALWAYS run `code-reviewer` AND `integration-reviewer` before committing changes.** Run them in parallel — they check different things and neither depends on the other's output.
+**ALWAYS run `code-reviewer` before committing code changes**, then run `integration-reviewer` once after the loop completes on the final diff.
 
-- `code-reviewer` — correctness: types, security, performance, style
-- `integration-reviewer` — fit: duplication, misplacement, convention drift, design violations
+- `code-reviewer` — correctness: types, security, performance, style (run in a loop — see below)
+- `integration-reviewer` — fit: duplication, misplacement, convention drift, design violations (run once, after the loop)
 
 The only exceptions are documentation-only changes (pure markdown, no code) and changes where the user explicitly skips review.
 
-Do not wait for the user to ask. If you wrote or modified code and are about to commit, run both agents first.
+Do not wait for the user to ask. If you wrote or modified code and are about to commit, run the code-reviewer loop first, then integration-reviewer once on the result.
+
+### Code Reviewer Loop
+
+After the initial `code-reviewer` run, **loop until no CRITICAL/HIGH issues remain**:
+
+1. For each finding in the review output:
+   - **Auto-fix** when the correct solution is unambiguous: clear bugs, logic errors, missing type annotations, unambiguous style violations, simple security issues with a well-known fix
+   - **Defer to the user** when the fix requires business logic decisions, architectural judgment, or context you don't have — present the finding and ask before proceeding
+2. After making fixes, re-run `code-reviewer`
+3. **Stop** when:
+   - No CRITICAL or HIGH issues remain, or
+   - Only LOW/noise findings are left
+
+If the same CRITICAL or HIGH findings surface again and cannot be auto-fixed, defer to the user and do not proceed to commit.
+
+After the loop concludes, run `integration-reviewer` once on the final diff before staging.
 
 ## Commit Message Format
 
@@ -103,9 +119,9 @@ When creating PRs:
    - Verify 80%+ coverage
 
 3. **Code Review**
-   - Run **code-reviewer** and **integration-reviewer** agents in parallel immediately after writing code
-   - Address CRITICAL and HIGH issues from both
-   - Fix MEDIUM issues when possible
+   - Run the **code-reviewer** loop (auto-fix unambiguous issues, repeat until no CRITICAL/HIGH issues remain)
+   - Then run **integration-reviewer** once on the final result
+   - Address CRITICAL and HIGH issues from both; fix MEDIUM issues when possible
 
 4. **Commit & Push**
    - Detailed commit messages
