@@ -61,7 +61,7 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `mine.python-patterns` | Pythonic idioms, PEP 8, type hints, and best practices |
 | `mine.python-testing` | Python testing strategies using pytest, TDD, fixtures, mocking, parametrization |
 | `mine.refactor` | Interactive refactoring with strategy selection and incremental verification |
-| `mine.research` | Deep codebase research and feasibility analysis with parallel subagents |
+| `mine.research` | Interactive research workflow — gathers user intent, dispatches the researcher agent, presents the brief |
 | `mine.security-review` | Security checklist for auth, user input, secrets, API endpoints |
 | `mine.ship` | Commit, push, and create a PR in one step |
 | `mine.skill-eval` | Evaluate and compare skill variants — setup, execution, grading, comparison, and reporting |
@@ -87,9 +87,9 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `mine.status` | Quick orientation -- branch, tasks, errors, last commit |
 | `mine.ux-review` | Scan frontend code for UX anti-patterns |
 
-### Agents (34)
+### Agents (35)
 
-**Core Development (11)**
+**Core Development (12)**
 
 | Agent | Description |
 |-------|-------------|
@@ -102,6 +102,7 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `issue-refiner` | Enrich GitHub issues with acceptance criteria, edge cases, technical considerations, and NFRs |
 | `planner` | Implementation planning for complex features and refactoring |
 | `qa-specialist` | Adversarial QA -- systematic and exploratory testing to find defects before they ship |
+| `researcher` | Autonomous codebase research and feasibility analysis with parallel subagents and web research |
 | `ui-auditor` | Accessibility and UX audit -- WCAG violations, missing ARIA, hardcoded styles, UX anti-patterns |
 | `visual-diff` | Visual regression testing via Playwright MCP -- before/after screenshots to catch unintended UI changes |
 

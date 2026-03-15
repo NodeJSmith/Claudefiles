@@ -1,6 +1,6 @@
 ---
 name: mine.design
-description: Scope a change, investigate it with mine.research, write a design doc, and gate on user sign-off before planning.
+description: Scope a change, investigate it with the researcher agent, write a design doc, and gate on user sign-off before planning.
 user-invokable: true
 ---
 
@@ -63,41 +63,27 @@ If prior work exists and covers the same scope, skip to Phase 2 (investigate) us
 
 ## Phase 2: Investigate
 
-Dispatch mine.research as a subagent to investigate the codebase. Pass the scoping answers as context.
+Dispatch the `researcher` agent to investigate the codebase. Pass the scoping answers as context.
 
 Run `get-skill-tmpdir mine-design-research` and use `<dir>/brief.md` as the research brief destination.
 
-Launch a general-purpose subagent with this prompt:
+Launch `Agent(subagent_type: "researcher")` with this prompt:
 
 ```
-You are running mine.research to investigate a proposed change.
+Investigate a proposed change for a design document.
 
 ## Context from design scoping
-Problem: <problem statement>
+Proposal: <what was scoped>
+Motivation: <why this change is being considered>
 Desired outcome: <success criteria>
 Constraints: <known constraints>
 Non-goals: <explicit exclusions>
+Flexibility: decided (the user has already scoped this)
 
-## Your task
-Follow the mine.research phases:
-1. Understand the ask (already done — use the context above, skip user questions)
-2. Explore the codebase using Read, Grep, and Glob (no bash for exploration)
-3. Map the current architecture relevant to this change
-4. Evaluate the proposed approach for feasibility
-5. Surface risks, gotchas, and unknowns
-6. Produce a structured research brief
-
-Write your complete research brief to: <temp file path>
-
-The brief must include:
-- Architecture summary (what's relevant to this change)
-- Feasibility assessment
-- Key risks and unknowns
-- Recommended approach (or options if unclear)
-- Files/modules that will be affected
+Write your research brief to: <temp file path>
 ```
 
-After the subagent completes, read the temp file to get the research brief.
+After the agent completes, read the temp file to get the research brief.
 
 ---
 
