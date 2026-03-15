@@ -71,7 +71,7 @@ Do not wait for the user to ask. If you wrote or modified code and are about to 
 
 ### Code Reviewer Loop
 
-After the initial `code-reviewer` run, **loop until the code is clean**:
+After the initial `code-reviewer` run, **loop until no CRITICAL/HIGH issues remain**:
 
 1. For each finding in the review output:
    - **Auto-fix** when the correct solution is unambiguous: clear bugs, logic errors, missing type annotations, unambiguous style violations, simple security issues with a well-known fix
@@ -119,7 +119,7 @@ When creating PRs:
    - Verify 80%+ coverage
 
 3. **Code Review**
-   - Run the **code-reviewer** loop (auto-fix unambiguous issues, repeat until clean)
+   - Run the **code-reviewer** loop (auto-fix unambiguous issues, repeat until no CRITICAL/HIGH issues remain)
    - Then run **integration-reviewer** once on the final result
    - Address CRITICAL and HIGH issues from both; fix MEDIUM issues when possible
 
