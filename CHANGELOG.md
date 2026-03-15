@@ -5,6 +5,11 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-14
 
 ### Added
+- `visual-explainer` skill — generates self-contained HTML pages for diagrams, diff reviews, plan audits, data tables, and slide decks instead of ASCII art; commands: `generate-web-diagram`, `diff-review`, `plan-review`, `project-recap`, `generate-slides`, and more
+
+## 2026-03-14
+
+### Added
 - `evals/` — promptfoo-based instruction compliance test suite; verifies Claude follows configured rules and tool preferences (gh helper scripts, dedicated file tools) (#82)
 
 ### Changed
