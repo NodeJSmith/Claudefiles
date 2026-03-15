@@ -30,15 +30,12 @@ Keep the preamble instruction: "If a user request matches a trigger phrase, invo
 
 #### 2. Move CLI tool docs to on-demand skills
 
-Create `skills/mine.cli-tools/SKILL.md` (or one skill per tool group) containing the full documentation currently in the "CLI Tools" section of `capabilities.md`. These load only when Claude needs them.
+Create grouped on-demand skills by platform, since you rarely need GitHub + ADO + tmux docs in the same conversation:
 
-Tool groups:
-- **GitHub PR tools:** `gh-pr-threads`, `gh-pr-reply`, `gh-pr-resolve-thread`, `gh-bot`, `gh-app-token`
-- **Tmux:** `claude-tmux`
-- **Session logs:** `claude-log`
-- **Settings:** `claude-merge-settings`
-- **Git:** `git-default-branch`, `git-rebase-onto`
-- **ADO:** `ado-builds`, `ado-logs`, `ado-pr`, `ado-pr-threads`
+- `skills/mine.gh-tools/SKILL.md` — `gh-pr-threads`, `gh-pr-reply`, `gh-pr-resolve-thread`, `gh-bot`, `gh-app-token`
+- `skills/mine.ado-tools/SKILL.md` — `ado-builds`, `ado-logs`, `ado-pr`, `ado-pr-threads`
+- `skills/mine.session-tools/SKILL.md` — `claude-tmux`, `claude-log`, `claude-merge-settings`
+- `skills/mine.git-tools/SKILL.md` — `git-default-branch`, `git-rebase-onto`
 
 The routing table retains one-line entries so Claude knows these tools exist:
 ```
