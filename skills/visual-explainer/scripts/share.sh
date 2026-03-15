@@ -4,14 +4,14 @@
 # Usage: ./share.sh <html-file>
 # Returns: Live URL instantly (no auth required)
 
-set -e
+set -euo pipefail
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-HTML_FILE="${1}"
+HTML_FILE="${1:-}"
 
 if [ -z "$HTML_FILE" ]; then
   echo -e "${RED}Error: Please provide an HTML file to share${NC}" >&2
@@ -40,7 +40,7 @@ if [ -z "$VERCEL_SCRIPT" ]; then
 fi
 
 # Create temp directory with index.html
-TEMP_DIR=$(mktemp -d)
+TEMP_DIR=$(mktemp -d "${CLAUDE_CODE_TMPDIR:-/tmp}/claude-visual-explainer-XXXXXX")
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
 # Copy file as index.html (Vercel serves index.html at root)
