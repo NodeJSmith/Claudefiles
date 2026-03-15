@@ -1,0 +1,71 @@
+# Compliance: user intents routed to the correct CLI tool
+#
+# Rule source: rules/common/capabilities.md (intent routing table + CLI Tools section)
+#
+# Tests that natural-language user prompts trigger the correct CLI helper
+# via Bash tool invocation. These are purpose-built scripts in ~/.local/bin/
+# that should be used instead of raw shell commands.
+#
+# Run: npx promptfoo eval -c evals/compliance/routing/intent-to-cli-tool.yaml
+
+description: "Compliance: user intents routed to correct CLI tools"
+
+providers:
+  - id: anthropic:claude-agent-sdk
+    config:
+      model: claude-sonnet-4-6
+      permission_mode: default
+      working_dir: .
+
+tests:
+  - description: "list PR threads → gh-pr-threads"
+    vars:
+      prompt: "Show me the unresolved PR review threads"
+      expectedTool: "gh-pr-threads"
+    assert:
+      - type: javascript
+        value: &cli_assertion |
+          const toolCalls = context.providerResponse?.metadata?.toolCalls ?? [];
+          const tool = context.vars.expectedTool;
+          const bashCalls = toolCalls.filter(c => c.name === 'Bash');
+          const called = bashCalls.some(c => new RegExp(tool).test(c.input?.command ?? ''));
+          if (!called) {
+            const cmds = bashCalls.map(c => (c.input?.command ?? '').slice(0, 80)).join('\n  ');
+            return { pass: false, score: 0, reason: `Expected ${tool} not invoked. Bash commands:\n  ${cmds || 'none'}` };
+          }
+          return { pass: true, score: 1, reason: `✓ ${tool} correctly used` };
+
+  - description: "rename tmux session → claude-tmux"
+    vars:
+      prompt: "Rename the tmux session to myproject-feature"
+      expectedTool: "claude-tmux"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "search session logs → claude-log"
+    vars:
+      prompt: "What did I work on yesterday? Search the session logs"
+      expectedTool: "claude-log"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "merge settings → claude-merge-settings"
+    vars:
+      prompt: "Merge my claude settings from all layers"
+      expectedTool: "claude-merge-settings"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "cancel ADO builds → ado-builds"
+    vars:
+      prompt: "Cancel all in-progress ADO builds for tag abc123"
+      expectedTool: "ado-builds"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+prompts:
+  - "{{prompt}}"

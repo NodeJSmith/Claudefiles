@@ -1,0 +1,128 @@
+# Compliance: user intents routed to the correct skill
+#
+# Rule source: rules/common/capabilities.md (intent routing table)
+#
+# Tests that natural-language user prompts trigger the correct skill
+# via the Skill tool. Each test case represents a common way users
+# phrase the intent.
+#
+# Run: npx promptfoo eval -c evals/compliance/routing/intent-to-skill.yaml
+
+description: "Compliance: user intents routed to correct skills"
+
+providers:
+  - id: anthropic:claude-agent-sdk
+    config:
+      model: claude-sonnet-4-6
+      permission_mode: default
+      working_dir: .
+
+tests:
+  - description: "ship it → /mine.ship"
+    vars:
+      prompt: "ship it"
+      expectedSkill: "mine.ship"
+    assert:
+      - type: javascript
+        value: &skill_assertion |
+          const toolCalls = context.providerResponse?.metadata?.toolCalls ?? [];
+          const skillName = context.vars.expectedSkill;
+          const called = toolCalls.some(c =>
+            c.name === 'Skill' && new RegExp(skillName).test(JSON.stringify(c.input ?? {}))
+          );
+          if (!called) {
+            const names = toolCalls.map(c => `${c.name}(${JSON.stringify(c.input?.skill || c.input?.command || '').slice(0,60)})`).join(', ');
+            return { pass: false, score: 0, reason: `Expected skill ${skillName} not invoked. Tool calls: [${names || 'none'}]` };
+          }
+          return { pass: true, score: 1, reason: `✓ ${skillName} correctly routed` };
+
+  - description: "commit and push → /mine.commit-push"
+    vars:
+      prompt: "commit and push"
+      expectedSkill: "mine.commit-push"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "create a PR → /mine.create-pr"
+    vars:
+      prompt: "create a PR for this branch"
+      expectedSkill: "mine.create-pr"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "brainstorm → /mine.brainstorm"
+    vars:
+      prompt: "brainstorm some options for how to approach this"
+      expectedSkill: "mine.brainstorm"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "research → /mine.research"
+    vars:
+      prompt: "research how we could add caching to the API layer"
+      expectedSkill: "mine.research"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "refactor → /mine.refactor"
+    vars:
+      prompt: "refactor this module, it's getting too big"
+      expectedSkill: "mine.refactor"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "audit → /mine.audit"
+    vars:
+      prompt: "audit the codebase for tech debt"
+      expectedSkill: "mine.audit"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "build → /mine.build"
+    vars:
+      prompt: "build a new endpoint for user preferences"
+      expectedSkill: "mine.build"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "security review → /mine.security-review"
+    vars:
+      prompt: "do a security review of the auth module"
+      expectedSkill: "mine.security-review"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "specify → /mine.specify"
+    vars:
+      prompt: "help me spec out what I want to build for the notification system"
+      expectedSkill: "mine.specify"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "address PR issues → /mine.address-pr-issues"
+    vars:
+      prompt: "address the PR comments and fix failing CI"
+      expectedSkill: "mine.address-pr-issues"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "design → /mine.design"
+    vars:
+      prompt: "design how we should implement the new payment flow"
+      expectedSkill: "mine.design"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+prompts:
+  - "{{prompt}}"

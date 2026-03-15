@@ -1,0 +1,86 @@
+# Compliance: user intents routed to the correct agent
+#
+# Rule source: rules/common/agents.md (agent routing table)
+#
+# Tests that natural-language user prompts trigger the correct subagent
+# via the Agent tool with the right subagent_type.
+#
+# Note: some agent routing is implicit (code-reviewer fires automatically
+# after code changes, not from user intent). Those cases are harder to
+# test with a single prompt and are excluded here.
+#
+# Run: npx promptfoo eval -c evals/compliance/routing/intent-to-agent.yaml
+
+description: "Compliance: user intents routed to correct agents"
+
+providers:
+  - id: anthropic:claude-agent-sdk
+    config:
+      model: claude-sonnet-4-6
+      permission_mode: default
+      working_dir: .
+
+tests:
+  - description: "plan a complex feature → planner agent"
+    vars:
+      prompt: "I need to plan out how to implement a new authentication system with OAuth2 and JWT tokens"
+      expectedAgent: "planner|Planner|Plan"
+    assert:
+      - type: javascript
+        value: &agent_assertion |
+          const toolCalls = context.providerResponse?.metadata?.toolCalls ?? [];
+          const agentPattern = new RegExp(context.vars.expectedAgent, 'i');
+          const called = toolCalls.some(c => {
+            if (c.name !== 'Agent') return false;
+            const input = JSON.stringify(c.input ?? {});
+            return agentPattern.test(input);
+          });
+          if (!called) {
+            const agentCalls = toolCalls.filter(c => c.name === 'Agent').map(c => JSON.stringify(c.input?.subagent_type || c.input?.description || '').slice(0,80));
+            const otherCalls = toolCalls.filter(c => c.name !== 'Agent').map(c => c.name).slice(0, 5);
+            return { pass: false, score: 0, reason: `Expected agent matching /${context.vars.expectedAgent}/ not invoked. Agent calls: [${agentCalls.join(', ') || 'none'}]. Other tools: [${otherCalls.join(', ')}]` };
+          }
+          return { pass: true, score: 1, reason: `✓ Agent matching /${context.vars.expectedAgent}/ correctly routed` };
+
+  - description: "security threat model → security-engineer agent"
+    vars:
+      prompt: "Do a threat model for our API endpoints that handle user data"
+      expectedAgent: "security"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "architecture documentation → architect agent"
+    vars:
+      prompt: "Generate architecture documentation for this codebase, I'm onboarding a new team member"
+      expectedAgent: "architect"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "QA testing → qa-specialist agent"
+    vars:
+      prompt: "Run adversarial QA testing on the checkout flow, test coverage is thin there"
+      expectedAgent: "qa"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "database audit → db-auditor agent"
+    vars:
+      prompt: "Audit the database queries in the user service for N+1 issues and missing indexes"
+      expectedAgent: "db-auditor"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "dependency audit → dep-auditor agent"
+    vars:
+      prompt: "Check our dependencies for known vulnerabilities before this release"
+      expectedAgent: "dep-auditor"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+prompts:
+  - "{{prompt}}"
