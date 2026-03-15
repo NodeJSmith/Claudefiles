@@ -2,7 +2,7 @@
 
 CSS patterns, JS engine, slide type layouts, transitions, navigation chrome, and curated presets for self-contained HTML slide presentations. All slides are viewport-fit (100dvh), single-file, same philosophy as scrollable pages.
 
-**When to use slides:** Only when the user explicitly requests them — `/generate-slides`, `--slides` flag on an existing prompt, or natural language like "as a slide deck." Never auto-select slide format.
+**When to use slides:** Only when the user explicitly requests them — `/vx.generate-slides`, `--slides` flag on an existing prompt, or natural language like "as a slide deck." Never auto-select slide format.
 
 **Before generating**, also read `./css-patterns.md` for shared patterns (Mermaid zoom controls, overflow protection, depth tiers, status badges) and `./libraries.md` for Mermaid theming, Chart.js, and font pairings. Those patterns apply to slides too — this file adds slide-specific patterns on top.
 
@@ -1135,15 +1135,15 @@ which surf
 # Generate (one per target slide)
 surf gemini "descriptive prompt matching deck palette" --generate-image /tmp/ve-slide-title.png --aspect-ratio 16:9
 
-# Base64 encode for self-containment (macOS)
-TITLE_IMG=$(base64 -i /tmp/ve-slide-title.png)
-# Linux: TITLE_IMG=$(base64 -w 0 /tmp/ve-slide-title.png)
+# Base64 encode to a file (macOS)
+base64 -i /tmp/ve-slide-title.png > /tmp/ve-slide-title-b64.txt
+# Linux: base64 -w 0 /tmp/ve-slide-title.png > /tmp/ve-slide-title-b64.txt
 
-# Embed in the slide
-# <div class="slide__bg" style="background-image:url('data:image/png;base64,${TITLE_IMG}')"></div>
+# Read /tmp/ve-slide-title-b64.txt and embed as the background value:
+# <div class="slide__bg" style="background-image:url('data:image/png;base64,CONTENTS_OF_VE_SLIDE_TITLE_B64_TXT')"></div>
 
 # Clean up
-rm /tmp/ve-slide-title.png
+rm /tmp/ve-slide-title.png /tmp/ve-slide-title-b64.txt
 ```
 
 **Prompt craft for slides:** Be specific about style, dominant colors, and mood. Pull colors from the preset's CSS variables. Examples:

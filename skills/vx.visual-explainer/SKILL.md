@@ -1,5 +1,6 @@
 ---
-name: visual-explainer
+name: vx.visual-explainer
+user-invokable: true
 description: Generate beautiful, self-contained HTML pages that visually explain systems, code changes, plans, and data. Use when the user asks for a diagram, architecture overview, diff review, plan review, project recap, comparison table, or any visual explanation of technical concepts. Also use proactively when you are about to render a complex ASCII table (4+ rows or 3+ columns) — present it as a styled HTML page instead.
 license: MIT
 compatibility: Requires a browser to view generated HTML files. Optional surf-cli for AI image generation.
@@ -16,18 +17,18 @@ Generate self-contained HTML files for technical diagrams, visualizations, and d
 
 ## Available Commands
 
-Detailed prompt templates in `./commands/`. In Pi, these are slash commands (`/diff-review`). In Claude Code, namespaced (`/visual-explainer:diff-review`). In Codex, use `/prompts:diff-review` (if installed to `~/.codex/prompts/`) or invoke `$visual-explainer` and describe the workflow.
+Detailed prompt templates in `./commands/`. Invoke subcommands via `/vx.diff-review`, `/vx.generate-web-diagram`, etc.
 
 | Command | What it does |
 |---------|-------------|
-| `generate-web-diagram` | Generate an HTML diagram for any topic |
-| `generate-visual-plan` | Generate a visual implementation plan for a feature |
-| `generate-slides` | Generate a magazine-quality slide deck |
-| `diff-review` | Visual diff review with architecture comparison and code review |
-| `plan-review` | Compare a plan against the codebase with risk assessment |
-| `project-recap` | Mental model snapshot for context-switching back to a project |
-| `fact-check` | Verify accuracy of a document against actual code |
-| `share` | Deploy an HTML page to Vercel and get a live URL |
+| `/vx.generate-web-diagram` | Generate an HTML diagram for any topic |
+| `/vx.generate-visual-plan` | Generate a visual implementation plan for a feature |
+| `/vx.generate-slides` | Generate a magazine-quality slide deck |
+| `/vx.diff-review` | Visual diff review with architecture comparison and code review |
+| `/vx.plan-review` | Compare a plan against the codebase with risk assessment |
+| `/vx.project-recap` | Mental model snapshot for context-switching back to a project |
+| `/vx.fact-check` | Verify accuracy of a document against actual code |
+| `/vx.share` | Deploy an HTML page to Vercel and get a live URL |
 
 ## Workflow
 
@@ -70,7 +71,7 @@ Vary the choice each time. If the last diagram was dark and technical, make the 
 - For text-heavy architecture overviews (card content matters more than topology): read `./templates/architecture.html`
 - For flowcharts, sequence diagrams, ER, state machines, mind maps, class diagrams, C4: read `./templates/mermaid-flowchart.html`
 - For data tables, comparisons, audits, feature matrices: read `./templates/data-table.html`
-- For slide deck presentations (when `--slides` flag is present or `/generate-slides` is invoked): read `./templates/slide-deck.html` and `./references/slide-patterns.md`
+- For slide deck presentations (when `--slides` flag is present or `/vx.generate-slides` is invoked): read `./templates/slide-deck.html` and `./references/slide-patterns.md`
 - For prose-heavy publishable pages (READMEs, articles, blog posts, essays): read the "Prose Page Elements" section in `./references/css-patterns.md` and "Typography by Content Voice" in `./references/libraries.md`
 
 **For CSS/layout patterns and SVG connectors**, read `./references/css-patterns.md`.
@@ -117,13 +118,15 @@ Vary the choice each time. If the last diagram was dark and technical, make the 
 # Generate to a temp file (use --aspect-ratio for control)
 surf gemini "descriptive prompt" --generate-image /tmp/ve-img.png --aspect-ratio 16:9
 
-# Base64 encode for self-containment (macOS)
-IMG=$(base64 -i /tmp/ve-img.png)
-# Linux: IMG=$(base64 -w 0 /tmp/ve-img.png)
+# Base64 encode to a file (macOS)
+base64 -i /tmp/ve-img.png > /tmp/ve-img-b64.txt
+# Linux: base64 -w 0 /tmp/ve-img.png > /tmp/ve-img-b64.txt
 
-# Embed in HTML and clean up
-# <img src="data:image/png;base64,${IMG}" alt="descriptive alt text">
-rm /tmp/ve-img.png
+# Read /tmp/ve-img-b64.txt and embed as the src value:
+# <img src="data:image/png;base64,CONTENTS_OF_VE_IMG_B64_TXT" alt="descriptive alt text">
+
+# Clean up
+rm /tmp/ve-img.png /tmp/ve-img-b64.txt
 ```
 
 See `./references/css-patterns.md` for image container styles (hero banners, inline illustrations, captions).
@@ -193,11 +196,11 @@ Keep animations purposeful: entrance reveals, hover feedback, and user-initiated
 
 ### 4. Deliver
 
-**Output location:** Write to `~/.agent/diagrams/`. Use a descriptive filename based on content: `modem-architecture.html`, `pipeline-flow.html`, `schema-overview.html`. The directory persists across sessions.
+**Output location:** Write to `~/.claude/diagrams/`. Use a descriptive filename based on content: `modem-architecture.html`, `pipeline-flow.html`, `schema-overview.html`. The directory persists across sessions.
 
 **Open in browser:**
-- macOS: `open ~/.agent/diagrams/filename.html`
-- Linux: `xdg-open ~/.agent/diagrams/filename.html`
+- macOS: `open ~/.claude/diagrams/filename.html`
+- Linux: `xdg-open ~/.claude/diagrams/filename.html`
 
 **Tell the user** the file path so they can re-open or share it.
 
@@ -319,7 +322,7 @@ Use these sparingly within visual pages to highlight key points or provide breat
 
 ## Slide Deck Mode
 
-An alternative output format for presenting content as a magazine-quality slide presentation instead of a scrollable page. **Opt-in only** — the agent generates slides when the user invokes `/generate-slides`, passes `--slides` to an existing prompt (e.g., `/diff-review --slides`), or explicitly asks for a slide deck. Never auto-select slide format.
+An alternative output format for presenting content as a magazine-quality slide presentation instead of a scrollable page. **Opt-in only** — the agent generates slides when the user invokes `/vx.generate-slides`, passes `--slides` to an existing prompt (e.g., `/vx.diff-review --slides`), or explicitly asks for a slide deck. Never auto-select slide format.
 
 **Before generating slides**, read `./references/slide-patterns.md` (engine CSS, slide types, transitions, nav chrome, presets) and `./templates/slide-deck.html` (reference template showing all 10 types). Also read `./references/css-patterns.md` for shared patterns and `./references/libraries.md` for Mermaid/Chart.js theming.
 
@@ -335,7 +338,7 @@ An alternative output format for presenting content as a magazine-quality slide 
 
 **Curated presets:** Four slide-specific presets as starting points (Midnight Editorial, Warm Signal, Terminal Mono, Swiss Clean) plus the existing 8 aesthetic directions adapted for slides. Pick one and commit. See `slide-patterns.md` for preset CSS values.
 
-**`--slides` flag on existing prompts:** When a user passes `--slides` to `/diff-review`, `/plan-review`, `/project-recap`, or other prompts, the agent gathers data using the prompt's normal data-gathering instructions, then presents the content as a slide deck instead of a scrollable page. The slide version tells the same story with different structure and pacing — but the same breadth of coverage. Don't use the slide format as an excuse to summarize or skip sections that the scrollable version would have included.
+**`--slides` flag on existing prompts:** When a user passes `--slides` to `/vx.diff-review`, `/vx.plan-review`, `/vx.project-recap`, or other prompts, the agent gathers data using the prompt's normal data-gathering instructions, then presents the content as a slide deck instead of a scrollable page. The slide version tells the same story with different structure and pacing — but the same breadth of coverage. Don't use the slide format as an excuse to summarize or skip sections that the scrollable version would have included.
 
 ## File Structure
 
@@ -367,12 +370,12 @@ Share visual explainer pages instantly via Vercel. No account or authentication 
 
 **Usage:**
 ```bash
-bash {{skill_dir}}/scripts/share.sh <html-file>
+bash ~/.claude/skills/vx.visual-explainer/scripts/share.sh <html-file>
 ```
 
 **Example:**
 ```bash
-bash {{skill_dir}}/scripts/share.sh ~/.agent/diagrams/my-diagram.html
+bash ~/.claude/skills/vx.visual-explainer/scripts/share.sh ~/.claude/diagrams/my-diagram.html
 
 # Output:
 # ✓ Shared successfully!
@@ -386,14 +389,14 @@ bash {{skill_dir}}/scripts/share.sh ~/.agent/diagrams/my-diagram.html
 3. URL is live immediately — works in any browser
 
 **Requirements:**
-- vercel-deploy skill (should be pre-installed; if not: `pi install npm:vercel-deploy`)
+- vercel-deploy skill (should be pre-installed; if not: `npm install -g vercel`)
 
 **Notes:**
 - Deployments are public — anyone with the URL can view
 - Preview deployments have configurable retention (default: 30 days)
 - Claim URL lets you transfer the deployment to your Vercel account
 
-See `./commands/share.md` for the `/share` command template.
+See `./commands/share.md` for the `/vx.share` command template.
 
 ## Quality Checks
 

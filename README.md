@@ -28,13 +28,13 @@ This symlinks everything into `~/.claude/`. Running it again safely updates syml
 
 To uninstall, just delete the symlinks (they point back to this repo) and remove the clone.
 
-## About the `mine.` prefix
+## About skill prefixes
 
-All skills and commands use a `mine.` prefix to avoid collisions with other sources. If you install plugins or other skill packs alongside these, the prefix keeps things namespaced. You can rename them if you prefer.
+Skills and commands use a namespace prefix to avoid collisions. First-party skills in this repo use the `mine.` prefix. Third-party or imported skill packs use their own prefix — for example, `vx.` for the visual-explainer pack. You can rename any of them if you prefer.
 
 ## Contents
 
-### Skills (32)
+### Skills (33)
 
 | Skill | Description |
 |-------|-------------|
@@ -70,8 +70,9 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `mine.ux-antipatterns` | Detect UX anti-patterns -- layout shifts, missing feedback, broken forms, a11y gaps |
 | `mine.wp` | WP lane management — move work packages between lanes, view kanban, list WPs |
 | `mine.worktree-rebase` | Detect when the parent repo is currently on a feature branch and rebase this worktree branch onto it (run immediately after creating the worktree) |
+| `vx.visual-explainer` | Generate self-contained HTML pages that visually explain systems, code changes, plans, and data — diagrams, diff reviews, plan reviews, slide decks, project recaps, and more. Subcommands: `vx.diff-review`, `vx.fact-check`, `vx.generate-slides`, `vx.generate-visual-plan`, `vx.generate-web-diagram`, `vx.plan-review`, `vx.project-recap`, `vx.share` |
 
-### Commands (11)
+### Commands (19)
 
 | Command | Description |
 |---------|-------------|
@@ -86,6 +87,14 @@ All skills and commands use a `mine.` prefix to avoid collisions with other sour
 | `mine.session_reflect` | End-of-session reflection grounded in git evidence |
 | `mine.status` | Quick orientation -- branch, tasks, errors, last commit |
 | `mine.ux-review` | Scan frontend code for UX anti-patterns |
+| `vx.diff-review` | Visual diff review with architecture comparison and code review analysis |
+| `vx.fact-check` | Verify factual accuracy of a document against the actual codebase |
+| `vx.generate-slides` | Generate a magazine-quality slide deck as a self-contained HTML page |
+| `vx.generate-visual-plan` | Visual implementation plan with state machines, code snippets, and edge cases |
+| `vx.generate-web-diagram` | Generate a standalone HTML diagram and open it in the browser |
+| `vx.plan-review` | Compare a plan against the codebase with risk assessment |
+| `vx.project-recap` | Mental model snapshot — current state, recent decisions, cognitive debt hotspots |
+| `vx.share` | Deploy a visual explainer HTML page to Vercel and get a live URL |
 
 ### Agents (35)
 
