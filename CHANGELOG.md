@@ -2,6 +2,15 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-03-15
+
+### Added
+- `researcher` agent — autonomous codebase research and feasibility analysis; launched by `mine.research` and `mine.design` instead of inline investigation phases
+
+### Changed
+- `mine.research` refactored to thin interactive wrapper — gathers user intent (Phase 1), dispatches `researcher` agent (Phase 2), presents brief and asks next steps (Phase 3)
+- `mine.design` Phase 2 now dispatches `researcher` agent instead of an inline general-purpose subagent prompt
+
 ## 2026-03-14
 
 ### Added

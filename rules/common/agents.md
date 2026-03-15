@@ -10,6 +10,7 @@ Located in `~/.claude/agents/`:
 | planner | Implementation planning | Complex features, refactoring |
 | code-reviewer | Code review | After writing or modifying code |
 | qa-specialist | Adversarial QA testing | After implementation, before PR; when test coverage is thin |
+| researcher | Autonomous codebase research and feasibility analysis | Dispatched by mine.research and mine.design; also usable directly for investigation |
 | architect | Architecture documentation | Onboarding to new codebase; before major refactor; after significant changes |
 | integration-reviewer | Codebase fit review — duplication, misplacement, convention drift, design violations | After writing or modifying code; run in parallel with code-reviewer before every commit |
 | issue-refiner | Enrich GitHub issues | Before assigning work; when issue lacks AC or technical detail |

@@ -383,7 +383,7 @@ Systematic codebase health audit. Surfaces aging code, brittle designs, missing 
 
 ### /mine.research
 
-Deep codebase research and feasibility analysis. Maps architecture, evaluates proposals with parallel agents, produces a structured research brief.
+Interactive research workflow — gathers user intent, dispatches the researcher agent for codebase investigation, and presents the structured brief.
 
 ### /mine.refactor
 
@@ -439,7 +439,7 @@ Single entry point for implementing changes. Assesses complexity and routes to: 
 
 ### /mine.design
 
-Scopes a change via AskUserQuestion, checks `.claude/constitution.md` for constraint validation, dispatches mine.research for investigation, writes design doc to `design/specs/NNN-<slug>/design.md`, then gates on user sign-off before handoff to mine.draft-plan.
+Scopes a change via AskUserQuestion, checks `.claude/constitution.md` for constraint validation, dispatches the researcher agent for investigation, writes design doc to `design/specs/NNN-<slug>/design.md`, then gates on user sign-off before handoff to mine.draft-plan.
 
 ### /mine.draft-plan
 
