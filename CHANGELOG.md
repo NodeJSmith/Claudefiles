@@ -10,7 +10,7 @@ All notable changes to this Claudefiles repository are documented here.
 - `evals/compliance/rules/test-discovery.yaml` — eval for test execution discovery rule (#89)
 
 ### Changed
-- `mine.challenge` and `vx.visual-explainer` skill descriptions updated with "Use when the user says:" trigger phrases; `mine.challenge` added to routing table
+- `mine.challenge` and `vx.visual-explainer` skill descriptions updated with "Use when the user says:" trigger phrases; `mine.challenge` added to routing table (#90)
 - Routing table (`capabilities.md`) restored to imperative markdown table format with "BLOCKING REQUIREMENT" preamble and quoted trigger phrases — fixes under-triggering from compressed comment format (#89)
 - Agent routing table (`agents.md`) similarly restored with imperative framing (#89)
 - 21 skill descriptions updated with trigger phrases ("Use when the user says: ...") to improve `<available_skills>` routing signal (#89)
