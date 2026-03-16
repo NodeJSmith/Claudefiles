@@ -1,7 +1,7 @@
 ---
 name: mine.tool-gaps
 description: "Use when the user says: \"find tool gaps\", \"session archaeology\", or \"missing cli features\". Mines session history for recurring patterns that should be scripts or CLI tools."
-user-invokable: true
+user-invocable: true
 ---
 
 # Tool Gap Analysis

@@ -1,7 +1,7 @@
 ---
 name: mine.commit-push
 description: "Use when the user says: \"commit and push\". Commits and pushes changes to the current branch."
-user-invokable: true
+user-invocable: true
 ---
 
 ## Context

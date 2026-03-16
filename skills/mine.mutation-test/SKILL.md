@@ -1,7 +1,7 @@
 ---
 name: mine.mutation-test
 description: "Use when the user says: \"mutation test\", \"do my tests actually catch bugs\", or wants to verify test quality. Intentionally breaks code to check if tests catch real bugs. No framework needed."
-user-invokable: true
+user-invocable: true
 ---
 
 # Mutation Testing

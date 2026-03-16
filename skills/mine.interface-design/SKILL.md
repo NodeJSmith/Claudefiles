@@ -1,7 +1,7 @@
 ---
 name: mine.interface-design
 description: "Use when the user says: \"design this UI\", \"design this dashboard\", or \"craft the interface\". Interface design for dashboards, admin panels, apps, and tools. Not for marketing sites."
-user-invokable: true
+user-invocable: true
 ---
 
 # Interface Design

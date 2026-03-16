@@ -1,7 +1,7 @@
 ---
 name: mine.session-tools
 description: Session management CLI tools — claude-tmux, claude-log, claude-merge-settings. Tmux helper, session log queries, settings merge.
-user-invokable: false
+user-invocable: false
 ---
 
 # Session Management Tools

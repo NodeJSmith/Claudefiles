@@ -1,7 +1,7 @@
 ---
 name: mine.interviewer
 description: Alias for mine.specify — structured discovery interview that produces spec.md.
-user-invokable: true
+user-invocable: true
 ---
 
 # mine.interviewer

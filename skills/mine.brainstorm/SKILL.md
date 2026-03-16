@@ -1,7 +1,7 @@
 ---
 name: mine.brainstorm
 description: "Use when the user says: \"brainstorm options\", \"generate ideas\", \"explore ideas\", \"what are our options\", or wants divergent thinking before committing to an approach. Four parallel thinkers generate ideas, rank by user-chosen criteria."
-user-invokable: true
+user-invocable: true
 ---
 
 # Brainstorm

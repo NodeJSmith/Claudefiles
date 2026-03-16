@@ -1,7 +1,7 @@
 ---
 name: mine.build
 description: "Use when the user says: \"build this\", \"implement this\", \"make this change\", or \"start a feature\". Smart entry point that routes to direct implementation or the full caliper v2 workflow based on complexity."
-user-invokable: true
+user-invocable: true
 ---
 
 # Build

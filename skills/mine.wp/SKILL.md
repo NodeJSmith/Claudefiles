@@ -1,7 +1,7 @@
 ---
 name: mine.wp
 description: "Use when the user says: \"move WP to doing\", \"WP status\", or \"kanban\". Manages work package lanes — move between lanes, view status, list WPs for the current feature."
-user-invokable: true
+user-invocable: true
 ---
 
 # mine.wp

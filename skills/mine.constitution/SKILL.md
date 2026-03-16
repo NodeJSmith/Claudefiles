@@ -1,7 +1,7 @@
 ---
 name: mine.constitution
 description: "Use when the user says: \"create a constitution\", \"project constraints\", or \"architecture rules\". Guided interview that produces .claude/constitution.md with constraints that mine.design validates against."
-user-invokable: true
+user-invocable: true
 ---
 
 # mine.constitution

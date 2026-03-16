@@ -1,7 +1,7 @@
 ---
 name: mine.design
 description: "Use when the user says: \"design this change\", \"write a design doc\", \"investigate before planning\", or asks HOW to build something. Scopes a change, investigates with the researcher agent, writes a design doc, and gates on user sign-off."
-user-invokable: true
+user-invocable: true
 ---
 
 # Design

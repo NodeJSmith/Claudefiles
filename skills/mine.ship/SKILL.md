@@ -1,7 +1,7 @@
 ---
 name: mine.ship
 description: "Use when the user says: \"ship it\" or \"commit push and PR\". Commits, pushes, and creates a PR in one step."
-user-invokable: true
+user-invocable: true
 ---
 
 ## Context
