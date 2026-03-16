@@ -27,7 +27,8 @@ tests:
         value: &skill_assertion |
           const toolCalls = context.providerResponse?.metadata?.toolCalls ?? [];
           const skillName = context.vars.expectedSkill;
-          const skillRegex = new RegExp(skillName);
+          const escaped = skillName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const skillRegex = new RegExp(escaped);
           // Check 1: Skill tool called with matching name
           const calledViaSkill = toolCalls.some(c =>
             c.name === 'Skill' && skillRegex.test(JSON.stringify(c.input ?? {}))

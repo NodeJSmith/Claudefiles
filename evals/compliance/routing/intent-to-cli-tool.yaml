@@ -27,7 +27,8 @@ tests:
         value: &cli_assertion |
           const toolCalls = context.providerResponse?.metadata?.toolCalls ?? [];
           const tool = context.vars.expectedTool;
-          const toolRegex = new RegExp(tool);
+          const escaped = tool.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const toolRegex = new RegExp(escaped);
           // Check 1: tool appears in actual Bash calls (executed or attempted)
           const bashCalls = toolCalls.filter(c => c.name === 'Bash');
           const calledViaBash = bashCalls.some(c => toolRegex.test(c.input?.command ?? ''));

@@ -26,7 +26,8 @@ record this decision, create an ADR | /mine.adrs
 generate a diagram, visualize this, architecture diagram, diff review, visual plan, slide deck, project recap, fact check a doc | /vx.visual-explainer
 design this UI, build this dashboard | /mine.interface-design
 accessible design, inclusive patterns | /mine.human-centered-design
-UX review, check for anti-patterns | /mine.ux-review / /mine.ux-antipatterns
+UX review, check for anti-patterns | /mine.ux-review
+UX anti-patterns scan | /mine.ux-antipatterns
 audit permissions, reduce permission prompts | /mine.permissions-audit
 status, where am I, quick summary | /mine.status
 prepare to compact, running low on context | /mine.pre-compact
@@ -35,7 +36,8 @@ capture this pattern, save this lesson | /mine.capture_lesson
 evaluate this repo, should I use this library | /mine.eval-repo
 mutation test, do my tests actually catch bugs | /mine.mutation-test
 find tool gaps, session archaeology, missing cli features | /mine.tool-gaps
-interview this idea, spec this out, help me define what I want to build | /mine.specify (or /mine.interviewer)
+interview this idea, spec this out, help me define what I want to build | /mine.specify
+interviewer, interview me about this idea | /mine.interviewer
 specify this feature, write a spec, define requirements | /mine.specify
 build this, implement this, make this change, start a feature | /mine.build
 design this change, write a design doc, investigate before planning | /mine.design
@@ -53,20 +55,6 @@ cancel builds, cancel pipeline runs, list ADO builds | ado-builds
 build logs, CI logs, why did the build fail, show build errors | ado-logs
 create ADO PR, list ADO PRs, show ADO PR, update ADO PR | ado-pr
 list ADO PR threads, reply to ADO PR comment, resolve ADO PR thread | ado-pr-threads
-check monarch money, categorize transactions, uncategorized transactions | monarch-api
-triage finances, fix uncategorized, monarch money triage | /mine.monarch-money
-karakeep bookmarks, tag bookmarks, triage bookmarks | karakeep-api
-check paperless, tag documents, untagged docs | paperless-api
-check email, what's in my inbox, send an email | gog gmail
-what's on my calendar, schedule a meeting, am I free | gog calendar
-find file in Drive, upload to Drive | gog drive
-container memory usage, which container is heaviest | container-metrics
-monday items, monday board, check monday | monday-api
-house status, are any lights on, home context | ha-api summary
-turn on/off lights, set thermostat, control home assistant | ha-api call
-check otf classes, book an otf class | otf-api
-shopping list, grocery list, add to my list | listonic-api
-check kimai, audit time tracking, did I leave a timer running | kimai audit
 
 ## CLI Tools
 
