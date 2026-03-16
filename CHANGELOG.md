@@ -5,8 +5,8 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-16
 
 ### Changed
-- `mine.plan-review` Phase 4 gate expanded from 3 to 4 options — adds "Approve with suggestions" for applying non-blocking reviewer suggestions without a full revision cycle; "Request revisions" renamed to "Revise the plan", "Approve — begin execution" renamed to "Approve as-is"
-- `mine.build` plan-review gate references updated to match the new option labels
+- `mine.plan-review` Phase 4 gate expanded from 3 to 4 options — adds "Approve with suggestions" for applying non-blocking reviewer suggestions without a full revision cycle; "Request revisions" renamed to "Revise the plan", "Approve — begin execution" renamed to "Approve as-is" (#93)
+- `mine.build` plan-review gate references updated to match the new option labels (#93)
 
 ### Added
 - `bin/git-branch-base` — extracts shared base-detection logic used by `git-branch-log`, `git-branch-diff-stat`, and the new `git-branch-diff-files` (#91)
