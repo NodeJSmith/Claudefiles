@@ -1,6 +1,6 @@
 ---
 name: mine.skill-eval
-description: Evaluate and compare skill variants — setup, execution, grading, comparison, and reporting.
+description: "Use when the user says: \"evaluate skill\", \"compare skill variants\", or \"skill A/B test\". Evaluates and compares skill variants with setup, execution, grading, and reporting."
 user-invokable: true
 ---
 

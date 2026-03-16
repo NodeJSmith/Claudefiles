@@ -1,0 +1,216 @@
+# Compliance: specialized agent routing
+#
+# Rule source: rules/common/agents.md (agent routing table)
+#
+# Tests specialized agents: mcp-builder, agents-orchestrator, model-qa,
+# developer-advocate, incident-response-commander, plus product agents
+# (sprint-prioritizer, feedback-synthesizer) and remaining agents
+# (researcher, integration-reviewer, issue-refiner, ui-auditor,
+# browser-qa-agent, visual-diff).
+#
+# Run: npx promptfoo eval -c evals/compliance/routing/intent-to-agent-specialized.yaml
+
+description: "Compliance: specialized agents routing"
+
+providers:
+  - id: anthropic:claude-agent-sdk
+    config:
+      model: claude-sonnet-4-6
+      permission_mode: default
+      setting_sources: ['user']
+      working_dir: .
+
+tests:
+  # --- specialized-mcp-builder ---
+  - description: "MCP server development → mcp-builder agent (direct)"
+    vars:
+      prompt: "build an MCP server that exposes our database as tools"
+      expectedAgent: "mcp-builder|MCP Builder"
+    assert:
+      - type: javascript
+        value: &agent_assertion |
+          const toolCalls = context.providerResponse?.metadata?.toolCalls ?? [];
+          const agentPattern = new RegExp(context.vars.expectedAgent, 'i');
+          const calledViaAgent = toolCalls.some(c => {
+            if (c.name !== 'Agent') return false;
+            const input = JSON.stringify(c.input ?? {});
+            return agentPattern.test(input);
+          });
+          const responseText = output || '';
+          const mentionedInResponse = agentPattern.test(responseText);
+          if (!calledViaAgent && !mentionedInResponse) {
+            const agentCalls = toolCalls.filter(c => c.name === 'Agent').map(c => JSON.stringify(c.input?.subagent_type || c.input?.description || '').slice(0,80));
+            const otherCalls = toolCalls.filter(c => c.name !== 'Agent').map(c => c.name).slice(0, 5);
+            return { pass: false, score: 0, reason: `Expected agent matching /${context.vars.expectedAgent}/ not found in tool calls or response. Agent calls: [${agentCalls.join(', ') || 'none'}]. Other tools: [${otherCalls.join(', ')}]` };
+          }
+          const how = calledViaAgent ? 'tool call' : 'response mention';
+          return { pass: true, score: 1, reason: `✓ Agent matching /${context.vars.expectedAgent}/ correctly routed (${how})` };
+
+  - description: "MCP tools → mcp-builder agent (natural)"
+    vars:
+      prompt: "design and implement an MCP server with custom tools for querying our analytics"
+      expectedAgent: "mcp-builder|MCP Builder"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "extend agent capabilities → mcp-builder agent (indirect)"
+    vars:
+      prompt: "I want Claude to be able to query our Jira board directly — build an MCP server for it"
+      expectedAgent: "mcp-builder|MCP Builder"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  # --- researcher ---
+  - description: "codebase research → researcher agent (direct)"
+    vars:
+      prompt: "do a deep codebase research to understand how authentication works across all services"
+      expectedAgent: "researcher|Researcher"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "feasibility analysis → researcher agent (natural)"
+    vars:
+      prompt: "conduct a feasibility analysis on migrating our ORM from SQLAlchemy to Prisma"
+      expectedAgent: "researcher|Researcher"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "deep investigation → researcher agent (indirect)"
+    vars:
+      prompt: "before we plan anything, I need a thorough investigation of how the event system is wired up"
+      expectedAgent: "researcher|Researcher"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  # --- integration-reviewer ---
+  - description: "codebase fit review → integration-reviewer agent (direct)"
+    vars:
+      prompt: "review this code for duplication and convention drift"
+      expectedAgent: "integration-reviewer|Integration Reviewer"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "convention drift → integration-reviewer agent (natural)"
+    vars:
+      prompt: "check if the new module follows the same patterns as the rest of the codebase"
+      expectedAgent: "integration-reviewer|Integration Reviewer"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "design violations → integration-reviewer agent (indirect)"
+    vars:
+      prompt: "I want to make sure this PR doesn't duplicate existing utilities or violate our architecture"
+      expectedAgent: "integration-reviewer|Integration Reviewer"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  # --- issue-refiner ---
+  - description: "enrich GitHub issues → issue-refiner agent (direct)"
+    vars:
+      prompt: "enrich this GitHub issue with acceptance criteria and edge cases"
+      expectedAgent: "issue-refiner|Issue Refiner"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "missing acceptance criteria → issue-refiner agent (natural)"
+    vars:
+      prompt: "issue #34 is too vague — add acceptance criteria, edge cases, and technical considerations"
+      expectedAgent: "issue-refiner|Issue Refiner"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "issue detail → issue-refiner agent (indirect)"
+    vars:
+      prompt: "before assigning this issue to the team, flesh it out with proper AC and NFRs"
+      expectedAgent: "issue-refiner|Issue Refiner"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  # --- engineering-incident-response-commander ---
+  - description: "incident management → incident-response-commander agent (direct)"
+    vars:
+      prompt: "run incident management for the production outage"
+      expectedAgent: "incident|Incident"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "post-mortem → incident-response-commander agent (natural)"
+    vars:
+      prompt: "facilitate a post-mortem for the database failure that happened last night"
+      expectedAgent: "incident|Incident"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "on-call process → incident-response-commander agent (indirect)"
+    vars:
+      prompt: "our on-call rotation is chaotic — help us design a structured incident response process"
+      expectedAgent: "incident|Incident"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  # --- product-sprint-prioritizer ---
+  - description: "sprint planning → sprint-prioritizer agent (direct)"
+    vars:
+      prompt: "help with sprint planning and feature prioritization for next sprint"
+      expectedAgent: "sprint-prioritizer|Sprint Prioritizer"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "feature prioritization → sprint-prioritizer agent (natural)"
+    vars:
+      prompt: "we have 20 features in the backlog — prioritize them for maximum business value"
+      expectedAgent: "sprint-prioritizer|Sprint Prioritizer"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "resource allocation → sprint-prioritizer agent (indirect)"
+    vars:
+      prompt: "the team has capacity for 3 features next sprint — which ones should we pick and why?"
+      expectedAgent: "sprint-prioritizer|Sprint Prioritizer"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  # --- product-feedback-synthesizer ---
+  - description: "user feedback analysis → feedback-synthesizer agent (direct)"
+    vars:
+      prompt: "analyze and synthesize the user feedback from the last release"
+      expectedAgent: "feedback-synthesizer|Feedback Synthesizer"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "insight extraction → feedback-synthesizer agent (natural)"
+    vars:
+      prompt: "extract actionable insights from the customer support tickets and NPS survey results"
+      expectedAgent: "feedback-synthesizer|Feedback Synthesizer"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "feedback priorities → feedback-synthesizer agent (indirect)"
+    vars:
+      prompt: "customers have been complaining in multiple channels — synthesize the feedback and tell me what to fix first"
+      expectedAgent: "feedback-synthesizer|Feedback Synthesizer"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+prompts:
+  - "{{prompt}}"

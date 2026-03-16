@@ -1,6 +1,6 @@
 ---
 name: mine.orchestrate
-description: Execute a work package plan task-by-task with implementer + reviewer subagent loop. Handles TDD, deviation classification, and WP lane tracking.
+description: "Use when the user says: \"execute the plan\", \"orchestrate implementation\", or \"start executing\". Runs work packages task-by-task with implementer + reviewer subagent loop."
 user-invokable: true
 ---
 

@@ -6,6 +6,11 @@
 # via the Skill tool. Each test case represents a common way users
 # phrase the intent.
 #
+# Each skill has 3 prompt variations:
+#   1. Direct match — uses exact trigger phrases from routing table
+#   2. Natural language — how a real user would phrase it
+#   3. Contextual/indirect — embedded in broader context
+#
 # Run: npx promptfoo eval -c evals/compliance/routing/intent-to-skill.yaml
 
 description: "Compliance: user intents routed to correct skills"
@@ -15,10 +20,14 @@ providers:
     config:
       model: claude-sonnet-4-6
       permission_mode: default
-      working_dir: .
+      working_dir: ../../../evals/fixtures/python-api
+      setting_sources: ['user']
+      append_allowed_tools: ['Skill']
+      skip_git_repo_check: true
 
 tests:
-  - description: "ship it → /mine.ship"
+  # --- mine.ship ---
+  - description: "ship it → /mine.ship (direct)"
     vars:
       prompt: "ship it"
       expectedSkill: "mine.ship"
@@ -43,7 +52,24 @@ tests:
           const how = calledViaSkill ? 'tool call' : 'response mention';
           return { pass: true, score: 1, reason: `✓ ${skillName} correctly routed (${how})` };
 
-  - description: "commit and push → /mine.commit-push"
+  - description: "commit push and PR → /mine.ship (natural)"
+    vars:
+      prompt: "commit everything, push it up, and open a PR"
+      expectedSkill: "mine.ship"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "ready to merge → /mine.ship (indirect)"
+    vars:
+      prompt: "I'm done with this feature, let's get it shipped to the repo"
+      expectedSkill: "mine.ship"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- mine.commit-push ---
+  - description: "commit and push → /mine.commit-push (direct)"
     vars:
       prompt: "commit and push"
       expectedSkill: "mine.commit-push"
@@ -51,7 +77,24 @@ tests:
       - type: javascript
         value: *skill_assertion
 
-  - description: "create a PR → /mine.create-pr"
+  - description: "save and push changes → /mine.commit-push (natural)"
+    vars:
+      prompt: "save my changes and push them to the remote"
+      expectedSkill: "mine.commit-push"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "push what I have → /mine.commit-push (indirect)"
+    vars:
+      prompt: "I've finished the fix, go ahead and commit and push it up"
+      expectedSkill: "mine.commit-push"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- mine.create-pr ---
+  - description: "create a PR → /mine.create-pr (direct)"
     vars:
       prompt: "create a PR for this branch"
       expectedSkill: "mine.create-pr"
@@ -59,7 +102,24 @@ tests:
       - type: javascript
         value: *skill_assertion
 
-  - description: "brainstorm → /mine.brainstorm"
+  - description: "open pull request → /mine.create-pr (natural)"
+    vars:
+      prompt: "open a pull request against main with a good description"
+      expectedSkill: "mine.create-pr"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "PR for review → /mine.create-pr (indirect)"
+    vars:
+      prompt: "the branch is ready, can you put up a PR so the team can review?"
+      expectedSkill: "mine.create-pr"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- mine.brainstorm ---
+  - description: "brainstorm → /mine.brainstorm (direct)"
     vars:
       prompt: "brainstorm some options for how to approach this"
       expectedSkill: "mine.brainstorm"
@@ -67,7 +127,24 @@ tests:
       - type: javascript
         value: *skill_assertion
 
-  - description: "research → /mine.research"
+  - description: "explore ideas → /mine.brainstorm (natural)"
+    vars:
+      prompt: "what are our options for handling rate limiting? give me a bunch of ideas"
+      expectedSkill: "mine.brainstorm"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "generate ideas → /mine.brainstorm (indirect)"
+    vars:
+      prompt: "I'm stuck on how to approach caching — can you help me think through different approaches?"
+      expectedSkill: "mine.brainstorm"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- mine.research ---
+  - description: "research → /mine.research (direct)"
     vars:
       prompt: "research how we could add caching to the API layer"
       expectedSkill: "mine.research"
@@ -75,7 +152,24 @@ tests:
       - type: javascript
         value: *skill_assertion
 
-  - description: "refactor → /mine.refactor"
+  - description: "feasibility study → /mine.research (natural)"
+    vars:
+      prompt: "can you investigate whether it's feasible to add WebSocket support to this project?"
+      expectedSkill: "mine.research"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "evaluate approach → /mine.research (indirect)"
+    vars:
+      prompt: "before we commit to Redis, research adding a caching layer and see what the codebase supports"
+      expectedSkill: "mine.research"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- mine.refactor ---
+  - description: "refactor → /mine.refactor (direct)"
     vars:
       prompt: "refactor this module, it's getting too big"
       expectedSkill: "mine.refactor"
@@ -83,7 +177,24 @@ tests:
       - type: javascript
         value: *skill_assertion
 
-  - description: "audit → /mine.audit"
+  - description: "extract function → /mine.refactor (natural)"
+    vars:
+      prompt: "this file is 900 lines, can you split it into smaller modules?"
+      expectedSkill: "mine.refactor"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "split file → /mine.refactor (indirect)"
+    vars:
+      prompt: "the user service has gotten unwieldy — extract the validation logic into its own module"
+      expectedSkill: "mine.refactor"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- mine.audit ---
+  - description: "audit → /mine.audit (direct)"
     vars:
       prompt: "audit the codebase for tech debt"
       expectedSkill: "mine.audit"
@@ -91,7 +202,24 @@ tests:
       - type: javascript
         value: *skill_assertion
 
-  - description: "build → /mine.build"
+  - description: "health check → /mine.audit (natural)"
+    vars:
+      prompt: "do a health check on this project and tell me what's most broken"
+      expectedSkill: "mine.audit"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "find problems → /mine.audit (indirect)"
+    vars:
+      prompt: "we're about to onboard two new devs — what are the biggest problems lurking in this codebase?"
+      expectedSkill: "mine.audit"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- mine.build ---
+  - description: "build → /mine.build (direct)"
     vars:
       prompt: "build a new endpoint for user preferences"
       expectedSkill: "mine.build"
@@ -99,7 +227,24 @@ tests:
       - type: javascript
         value: *skill_assertion
 
-  - description: "security review → /mine.security-review"
+  - description: "implement this → /mine.build (natural)"
+    vars:
+      prompt: "implement a password reset flow for the auth module"
+      expectedSkill: "mine.build"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "start a feature → /mine.build (indirect)"
+    vars:
+      prompt: "we need a webhook listener that processes Stripe events — can you start building that?"
+      expectedSkill: "mine.build"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- mine.security-review ---
+  - description: "security review → /mine.security-review (direct)"
     vars:
       prompt: "do a security review of the auth module"
       expectedSkill: "mine.security-review"
@@ -107,7 +252,24 @@ tests:
       - type: javascript
         value: *skill_assertion
 
-  - description: "specify → /mine.specify"
+  - description: "check for vulnerabilities → /mine.security-review (natural)"
+    vars:
+      prompt: "check this code for security vulnerabilities before we deploy"
+      expectedSkill: "mine.security-review"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "security concerns → /mine.security-review (indirect)"
+    vars:
+      prompt: "I'm worried about the input handling in the API — can you review it from a security perspective?"
+      expectedSkill: "mine.security-review"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- mine.specify ---
+  - description: "specify → /mine.specify (direct)"
     vars:
       prompt: "help me spec out what I want to build for the notification system"
       expectedSkill: "mine.specify"
@@ -115,7 +277,24 @@ tests:
       - type: javascript
         value: *skill_assertion
 
-  - description: "address PR issues → /mine.address-pr-issues"
+  - description: "interview me → /mine.specify (natural)"
+    vars:
+      prompt: "I have a vague idea for a dashboard — can you interview me about it to nail down the requirements?"
+      expectedSkill: "mine.specify"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "define requirements → /mine.specify (indirect)"
+    vars:
+      prompt: "I know I want some kind of notification system but I haven't thought through the details yet"
+      expectedSkill: "mine.specify"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- mine.address-pr-issues ---
+  - description: "address PR issues → /mine.address-pr-issues (direct)"
     vars:
       prompt: "address the PR comments and fix failing CI"
       expectedSkill: "mine.address-pr-issues"
@@ -123,9 +302,42 @@ tests:
       - type: javascript
         value: *skill_assertion
 
-  - description: "design → /mine.design"
+  - description: "fix review feedback → /mine.address-pr-issues (natural)"
+    vars:
+      prompt: "the reviewers left some feedback on PR #42, can you fix those issues?"
+      expectedSkill: "mine.address-pr-issues"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "resolve merge conflicts → /mine.address-pr-issues (indirect)"
+    vars:
+      prompt: "CI is failing and there are merge conflicts on my PR — help me sort it all out"
+      expectedSkill: "mine.address-pr-issues"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- mine.design ---
+  - description: "design → /mine.design (direct)"
     vars:
       prompt: "design how we should implement the new payment flow"
+      expectedSkill: "mine.design"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "write a design doc → /mine.design (natural)"
+    vars:
+      prompt: "write a design doc for migrating from REST to GraphQL"
+      expectedSkill: "mine.design"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "investigate before planning → /mine.design (indirect)"
+    vars:
+      prompt: "before we start coding the search feature, let's investigate the architecture and write up how it should work"
       expectedSkill: "mine.design"
     assert:
       - type: javascript

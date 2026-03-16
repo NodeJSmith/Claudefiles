@@ -1,6 +1,6 @@
 ---
 name: mine.tool-gaps
-description: Surface missing CLI tool functionality and unscripted recurring patterns by mining session history for workarounds.
+description: "Use when the user says: \"find tool gaps\", \"session archaeology\", or \"missing cli features\". Mines session history for recurring patterns that should be scripts or CLI tools."
 user-invokable: true
 ---
 

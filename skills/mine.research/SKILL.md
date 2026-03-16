@@ -1,6 +1,6 @@
 ---
 name: mine.research
-description: Interactive research workflow — gathers user intent, dispatches the researcher agent for codebase investigation, and presents the structured brief. Feeds into /mine.adrs and plan mode.
+description: "Use when the user says: \"research adding X\", \"feasibility study\", \"evaluate approach\", or wants a focused investigation before committing. Dispatches the researcher agent for codebase investigation and presents a structured brief."
 user-invokable: true
 ---
 

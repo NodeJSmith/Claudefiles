@@ -1,6 +1,6 @@
 ---
 name: mine.constitution
-description: Guided interview that produces .claude/constitution.md — project-level architecture and quality constraints that mine.design validates against.
+description: "Use when the user says: \"create a constitution\", \"project constraints\", or \"architecture rules\". Guided interview that produces .claude/constitution.md with constraints that mine.design validates against."
 user-invokable: true
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: mine.implementation-review
-description: Post-execution quality gate for a completed caliper v2 feature. Reviews all changed files against the design doc and WPs using an Opus subagent. 7-category checklist with approve/fix/abandon verdict.
+description: "Use when the user says: \"review the implementation\" or \"post-implementation review\". Quality gate that reviews changed files against design doc and WPs using an Opus subagent."
 user-invokable: true
 ---
 

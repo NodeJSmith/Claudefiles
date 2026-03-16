@@ -1,0 +1,119 @@
+# Compliance: negative routing tests — prompts that should NOT trigger skills
+#
+# Rule source: rules/common/capabilities.md (intent routing table)
+#
+# Tests prompts that use skill-adjacent keywords but in a context where
+# invoking the skill would be incorrect. These verify Claude doesn't
+# over-trigger on keyword matches.
+#
+# Run: npx promptfoo eval -c evals/compliance/routing/negative-routing.yaml
+
+description: "Compliance: negative routing — should NOT trigger skills"
+
+providers:
+  - id: anthropic:claude-agent-sdk
+    config:
+      model: claude-sonnet-4-6
+      permission_mode: default
+      working_dir: ../../../evals/fixtures/python-api
+      setting_sources: ['user']
+      append_allowed_tools: ['Skill']
+      skip_git_repo_check: true
+
+tests:
+  - description: "'brainstorm' as concept → should NOT trigger /mine.brainstorm"
+    vars:
+      prompt: "What is a brainstorm? Explain the concept of brainstorming in product management."
+      forbiddenSkill: "mine.brainstorm"
+    assert:
+      - type: javascript
+        value: &negative_skill_assertion |
+          const toolCalls = context.providerResponse?.metadata?.toolCalls ?? [];
+          const skillName = context.vars.forbiddenSkill;
+          const escaped = skillName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const skillRegex = new RegExp(escaped);
+          const calledViaSkill = toolCalls.some(c =>
+            c.name === 'Skill' && skillRegex.test(JSON.stringify(c.input ?? {}))
+          );
+          const calledViaAgent = toolCalls.some(c =>
+            c.name === 'Agent' && skillRegex.test(JSON.stringify(c.input ?? {}))
+          );
+          if (calledViaSkill || calledViaAgent) {
+            return { pass: false, score: 0, reason: `${skillName} was incorrectly invoked. This prompt should NOT trigger it.` };
+          }
+          return { pass: true, score: 1, reason: `✓ ${skillName} correctly NOT triggered` };
+
+  - description: "'ship' in kubernetes context → should NOT trigger /mine.ship"
+    vars:
+      prompt: "Tell me about the ship command in Kubernetes — how does kubectl ship work?"
+      forbiddenSkill: "mine.ship"
+    assert:
+      - type: javascript
+        value: *negative_skill_assertion
+
+  - description: "'status code' → should NOT trigger /mine.status"
+    vars:
+      prompt: "What's the HTTP status code for a 404 Not Found response?"
+      forbiddenSkill: "mine.status"
+    assert:
+      - type: javascript
+        value: *negative_skill_assertion
+
+  - description: "'build' a docker image → should NOT trigger /mine.build"
+    vars:
+      prompt: "How do I build a Docker image from this Dockerfile?"
+      forbiddenSkill: "mine.build"
+    assert:
+      - type: javascript
+        value: *negative_skill_assertion
+
+  - description: "'design patterns' question → should NOT trigger /mine.design"
+    vars:
+      prompt: "What design patterns does this codebase use? I see some factories and observers."
+      forbiddenSkill: "mine.design"
+    assert:
+      - type: javascript
+        value: *negative_skill_assertion
+
+  - description: "'specify' a return type → should NOT trigger /mine.specify"
+    vars:
+      prompt: "Can you specify the return type of this function? It's currently untyped."
+      forbiddenSkill: "mine.specify"
+    assert:
+      - type: javascript
+        value: *negative_skill_assertion
+
+  - description: "'research shows' → should NOT trigger /mine.research"
+    vars:
+      prompt: "Research shows that REST is more widely adopted than GraphQL for simple CRUD APIs. Do you agree?"
+      forbiddenSkill: "mine.research"
+    assert:
+      - type: javascript
+        value: *negative_skill_assertion
+
+  - description: "'audit' personal finances → should NOT trigger /mine.audit"
+    vars:
+      prompt: "I want to audit my personal finances — any tips for budgeting?"
+      forbiddenSkill: "mine.audit"
+    assert:
+      - type: javascript
+        value: *negative_skill_assertion
+
+  - description: "'compact' JSON → should NOT trigger /mine.pre-compact"
+    vars:
+      prompt: "Compact this JSON by removing all whitespace and newlines."
+      forbiddenSkill: "mine.pre-compact"
+    assert:
+      - type: javascript
+        value: *negative_skill_assertion
+
+  - description: "'review' a code snippet → should NOT trigger code-reviewer agent"
+    vars:
+      prompt: "Review this code snippet I found online and explain what it does."
+      forbiddenSkill: "code-reviewer"
+    assert:
+      - type: javascript
+        value: *negative_skill_assertion
+
+prompts:
+  - "{{prompt}}"

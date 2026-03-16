@@ -1,6 +1,7 @@
 ---
 name: mine.interface-design
-description: Craft and consistency for interface design — dashboards, admin panels, apps, tools. Not for marketing sites or landing pages.
+description: "Use when the user says: \"design this UI\" or \"build this dashboard\". Interface design for dashboards, admin panels, apps, and tools. Not for marketing sites."
+user-invokable: true
 ---
 
 # Interface Design

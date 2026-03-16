@@ -5,9 +5,10 @@
 # Tests that natural-language user prompts trigger the correct subagent
 # via the Agent tool with the right subagent_type.
 #
-# Note: some agent routing is implicit (code-reviewer fires automatically
-# after code changes, not from user intent). Those cases are harder to
-# test with a single prompt and are excluded here.
+# Each agent has 3 prompt variations:
+#   1. Direct match — uses exact trigger phrases from routing table
+#   2. Natural language — how a real user would phrase it
+#   3. Contextual/indirect — embedded in broader context
 #
 # Run: npx promptfoo eval -c evals/compliance/routing/intent-to-agent.yaml
 
@@ -18,10 +19,12 @@ providers:
     config:
       model: claude-sonnet-4-6
       permission_mode: default
+      setting_sources: ['user']
       working_dir: .
 
 tests:
-  - description: "plan a complex feature → planner agent"
+  # --- planner ---
+  - description: "plan a complex feature → planner agent (direct)"
     vars:
       prompt: "I need to plan out how to implement a new authentication system with OAuth2 and JWT tokens"
       expectedAgent: "planner|Planner|Plan"
@@ -47,7 +50,24 @@ tests:
           const how = calledViaAgent ? 'tool call' : 'response mention';
           return { pass: true, score: 1, reason: `✓ Agent matching /${context.vars.expectedAgent}/ correctly routed (${how})` };
 
-  - description: "security threat model → security-engineer agent"
+  - description: "plan implementation → planner agent (natural)"
+    vars:
+      prompt: "help me plan the implementation strategy for adding multi-tenancy support"
+      expectedAgent: "planner|Planner|Plan"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "complex feature planning → planner agent (indirect)"
+    vars:
+      prompt: "this is going to be a big change — we need to add real-time notifications with WebSocket support, can you break it down?"
+      expectedAgent: "planner|Planner|Plan"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  # --- security-engineer ---
+  - description: "threat model → security-engineer agent (direct)"
     vars:
       prompt: "Do a threat model for our API endpoints that handle user data"
       expectedAgent: "security"
@@ -55,7 +75,24 @@ tests:
       - type: javascript
         value: *agent_assertion
 
-  - description: "architecture documentation → architect agent"
+  - description: "secure code review → security-engineer agent (natural)"
+    vars:
+      prompt: "review the authentication middleware for security issues and potential exploits"
+      expectedAgent: "security"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "security analysis → security-engineer agent (indirect)"
+    vars:
+      prompt: "we're about to handle PII in this service — I need someone to model the threats before we go live"
+      expectedAgent: "security"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  # --- architect ---
+  - description: "architecture documentation → architect agent (direct)"
     vars:
       prompt: "Generate architecture documentation for this codebase, I'm onboarding a new team member"
       expectedAgent: "architect"
@@ -63,7 +100,24 @@ tests:
       - type: javascript
         value: *agent_assertion
 
-  - description: "QA testing → qa-specialist agent"
+  - description: "architecture overview → architect agent (natural)"
+    vars:
+      prompt: "create a Mermaid diagram showing how the main services connect to each other"
+      expectedAgent: "architect"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "onboarding docs → architect agent (indirect)"
+    vars:
+      prompt: "a new engineer starts Monday — can you generate an architectural overview so they can ramp up faster?"
+      expectedAgent: "architect"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  # --- qa-specialist ---
+  - description: "QA testing → qa-specialist agent (direct)"
     vars:
       prompt: "Run adversarial QA testing on the checkout flow, test coverage is thin there"
       expectedAgent: "qa"
@@ -71,7 +125,24 @@ tests:
       - type: javascript
         value: *agent_assertion
 
-  - description: "database audit → db-auditor agent"
+  - description: "find bugs → qa-specialist agent (natural)"
+    vars:
+      prompt: "try to break the form validation — I think there are edge cases we're missing"
+      expectedAgent: "qa"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "exploratory testing → qa-specialist agent (indirect)"
+    vars:
+      prompt: "the payment flow only has 20% test coverage, can you do exploratory testing to find defects?"
+      expectedAgent: "qa"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  # --- db-auditor ---
+  - description: "database audit → db-auditor agent (direct)"
     vars:
       prompt: "Audit the database queries in the user service for N+1 issues and missing indexes"
       expectedAgent: "db-auditor"
@@ -79,9 +150,42 @@ tests:
       - type: javascript
         value: *agent_assertion
 
-  - description: "dependency audit → dep-auditor agent"
+  - description: "query performance → db-auditor agent (natural)"
+    vars:
+      prompt: "the user list page is slow — check if there are N+1 query problems in the ORM"
+      expectedAgent: "db-auditor"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "database optimization → db-auditor agent (indirect)"
+    vars:
+      prompt: "our database response times are creeping up, can you look at the queries and indexes for problems?"
+      expectedAgent: "db-auditor"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  # --- dep-auditor ---
+  - description: "dependency audit → dep-auditor agent (direct)"
     vars:
       prompt: "Check our dependencies for known vulnerabilities before this release"
+      expectedAgent: "dep-auditor"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "CVE scan → dep-auditor agent (natural)"
+    vars:
+      prompt: "scan all our npm packages for CVEs and outdated versions"
+      expectedAgent: "dep-auditor"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "pre-release dependency check → dep-auditor agent (indirect)"
+    vars:
+      prompt: "we're cutting a release tomorrow — make sure none of our dependencies have known security issues"
       expectedAgent: "dep-auditor"
     assert:
       - type: javascript

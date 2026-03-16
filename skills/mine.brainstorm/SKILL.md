@@ -1,6 +1,6 @@
 ---
 name: mine.brainstorm
-description: Open-ended idea generation using four parallel thinkers. Generates divergent ideas, collects them, ranks by user-chosen criteria, and hands off to the right next step.
+description: "Use when the user says: \"brainstorm options\", \"generate ideas\", \"explore ideas\", \"what are our options\", or wants divergent thinking before committing to an approach. Four parallel thinkers generate ideas, rank by user-chosen criteria."
 user-invokable: true
 ---
 

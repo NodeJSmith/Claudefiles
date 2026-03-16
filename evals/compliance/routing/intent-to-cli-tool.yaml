@@ -6,6 +6,11 @@
 # via Bash tool invocation. These are purpose-built scripts in ~/.local/bin/
 # that should be used instead of raw shell commands.
 #
+# Each tool has 3 prompt variations:
+#   1. Direct match — uses exact trigger phrases from routing table
+#   2. Natural language — how a real user would phrase it
+#   3. Contextual/indirect — embedded in broader context
+#
 # Run: npx promptfoo eval -c evals/compliance/routing/intent-to-cli-tool.yaml
 
 description: "Compliance: user intents routed to correct CLI tools"
@@ -15,10 +20,12 @@ providers:
     config:
       model: claude-sonnet-4-6
       permission_mode: default
+      setting_sources: ['user']
       working_dir: .
 
 tests:
-  - description: "list PR threads → gh-pr-threads"
+  # --- gh-pr-threads ---
+  - description: "list PR threads → gh-pr-threads (direct)"
     vars:
       prompt: "Show me the unresolved PR review threads"
       expectedTool: "gh-pr-threads"
@@ -43,7 +50,24 @@ tests:
           const how = calledViaBash ? 'tool call' : 'response mention';
           return { pass: true, score: 1, reason: `✓ ${tool} correctly routed (${how})` };
 
-  - description: "rename tmux session → claude-tmux"
+  - description: "unresolved comments → gh-pr-threads (natural)"
+    vars:
+      prompt: "what comments are still open on the current PR?"
+      expectedTool: "gh-pr-threads"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "PR review status → gh-pr-threads (indirect)"
+    vars:
+      prompt: "before I push more changes, show me what the reviewers are still waiting on"
+      expectedTool: "gh-pr-threads"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  # --- claude-tmux ---
+  - description: "rename tmux session → claude-tmux (direct)"
     vars:
       prompt: "Rename the tmux session to myproject-feature"
       expectedTool: "claude-tmux"
@@ -51,7 +75,24 @@ tests:
       - type: javascript
         value: *cli_assertion
 
-  - description: "search session logs → claude-log"
+  - description: "new tmux session → claude-tmux (natural)"
+    vars:
+      prompt: "set up a new tmux session for this feature work"
+      expectedTool: "claude-tmux"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "tmux name → claude-tmux (indirect)"
+    vars:
+      prompt: "what's the current tmux session called?"
+      expectedTool: "claude-tmux"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  # --- claude-log ---
+  - description: "search session logs → claude-log (direct)"
     vars:
       prompt: "What did I work on yesterday? Search the session logs"
       expectedTool: "claude-log"
@@ -59,7 +100,24 @@ tests:
       - type: javascript
         value: *cli_assertion
 
-  - description: "merge settings → claude-merge-settings"
+  - description: "find session → claude-log (natural)"
+    vars:
+      prompt: "find the session where I was working on the auth refactor last week"
+      expectedTool: "claude-log"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "session history → claude-log (indirect)"
+    vars:
+      prompt: "I need to remember what approach we took for the caching fix — can you check the logs?"
+      expectedTool: "claude-log"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  # --- claude-merge-settings ---
+  - description: "merge settings → claude-merge-settings (direct)"
     vars:
       prompt: "Merge my claude settings from all layers"
       expectedTool: "claude-merge-settings"
@@ -67,9 +125,42 @@ tests:
       - type: javascript
         value: *cli_assertion
 
-  - description: "cancel ADO builds → ado-builds"
+  - description: "apply settings → claude-merge-settings (natural)"
+    vars:
+      prompt: "apply the updated settings configuration"
+      expectedTool: "claude-merge-settings"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "settings sync → claude-merge-settings (indirect)"
+    vars:
+      prompt: "I just edited settings.json in the repo — make sure the merged output is up to date"
+      expectedTool: "claude-merge-settings"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  # --- ado-builds ---
+  - description: "cancel ADO builds → ado-builds (direct)"
     vars:
       prompt: "Cancel all in-progress ADO builds for tag abc123"
+      expectedTool: "ado-builds"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "list pipeline runs → ado-builds (natural)"
+    vars:
+      prompt: "list the recent Azure DevOps build runs for this repo"
+      expectedTool: "ado-builds"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "stop builds → ado-builds (indirect)"
+    vars:
+      prompt: "there are stale pipeline runs clogging the queue — cancel them"
       expectedTool: "ado-builds"
     assert:
       - type: javascript

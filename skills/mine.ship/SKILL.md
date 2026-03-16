@@ -1,6 +1,6 @@
 ---
 name: mine.ship
-description: Commit, push, and create a PR in one step. Combines mine.commit-push and mine.create-pr.
+description: "Use when the user says: \"ship it\" or \"commit push and PR\". Commits, pushes, and creates a PR in one step."
 user-invokable: true
 ---
 

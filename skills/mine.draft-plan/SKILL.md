@@ -1,6 +1,6 @@
 ---
 name: mine.draft-plan
-description: Turn a design doc into Work Package (WP) files. Offers to run /mine.plan-review on completion.
+description: "Use when the user says: \"draft a plan\", \"create work packages\", or \"generate WPs\". Turns a design doc into Work Package files. Offers /mine.plan-review on completion."
 user-invokable: true
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: mine.worktree-rebase
-description: Detect when the parent repo is currently on a feature branch and offer to rebase this worktree branch onto it.
+description: "Use when the user says: \"rebase this worktree\" or \"sync worktree to parent branch\". Detects the parent repo's current branch and rebases this worktree onto it."
 user-invokable: true
 ---
 
