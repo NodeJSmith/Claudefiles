@@ -5,23 +5,23 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-16
 
 ### Added
-- `bin/git-branch-base` — extracts shared base-detection logic used by `git-branch-log`, `git-branch-diff-stat`, and the new `git-branch-diff-files`
-- `bin/git-branch-diff-files` — print changed file names for the current branch vs its base; replaces hand-rolled fallback chains in skills
+- `bin/git-branch-base` — extracts shared base-detection logic used by `git-branch-log`, `git-branch-diff-stat`, and the new `git-branch-diff-files` (#91)
+- `bin/git-branch-diff-files` — print changed file names for the current branch vs its base; replaces hand-rolled fallback chains in skills (#91)
 - 266 routing eval tests across 14 files — skills, agents, CLI tools, confusion pairs, and negative tests with 3 prompt variations each (direct/natural/indirect) (#89)
 - `evals/fixtures/python-api/` — minimal FastAPI fixture repo for realistic eval contexts (#89)
 - `evals/compliance/rules/test-discovery.yaml` — eval for test execution discovery rule (#89)
 
 ### Changed
-- All `gh issue` commands in skills, commands, and agents replaced with `gh-issue` wrapper (bot token support) — `mine.5whys`, `mine.issues`, `mine.issues-scan`, `mine.refactor`, `issue-refiner`
-- `mine.gh-tools` skill docs now cover `gh-issue` and `gh-pr-create` in addition to PR tools
-- `mine.git-tools` skill docs now cover `git-branch-base`, `git-branch-log`, `git-branch-diff-stat`, and `git-branch-diff-files`
-- `mine.implementation-review` and `mine.mutation-test` simplified — replaced multi-step git diff fallback chains with `git-branch-diff-files`
-- `git-branch-log` and `git-branch-diff-stat` refactored to use `git-branch-base` instead of inline base-detection logic
-- `capabilities.md` CLI Tools table now includes `gh-issue`, `gh-pr-create`, `git-branch-log`, `git-branch-diff-stat`, `git-branch-diff-files`, `git-branch-base`
-- `settings.json` allowlist updated with `gh-issue`, `gh-pr-create`, and all git-branch-* scripts
+- All `gh issue` commands in skills, commands, and agents replaced with `gh-issue` wrapper (bot token support) — `mine.5whys`, `mine.issues`, `mine.issues-scan`, `mine.refactor`, `issue-refiner` (#91)
+- `mine.gh-tools` skill docs now cover `gh-issue` and `gh-pr-create` in addition to PR tools (#91)
+- `mine.git-tools` skill docs now cover `git-branch-base`, `git-branch-log`, `git-branch-diff-stat`, and `git-branch-diff-files` (#91)
+- `mine.implementation-review` and `mine.mutation-test` simplified — replaced multi-step git diff fallback chains with `git-branch-diff-files` (#91)
+- `git-branch-log` and `git-branch-diff-stat` refactored to use `git-branch-base` instead of inline base-detection logic (#91)
+- `capabilities.md` CLI Tools table now includes `gh-issue`, `gh-pr-create`, `git-branch-log`, `git-branch-diff-stat`, `git-branch-diff-files`, `git-branch-base` (#91)
+- `settings.json` allowlist updated with `gh-issue`, `gh-pr-create`, and all git-branch-* scripts (#91)
 
 ### Fixed
-- `issue-refiner` agent replaced deprecated `$CLAUDE_SESSION_ID` temp file paths with `get-skill-tmpdir` pattern
+- `issue-refiner` agent replaced deprecated `$CLAUDE_SESSION_ID` temp file paths with `get-skill-tmpdir` pattern (#91)
 - `mine.challenge` and `vx.visual-explainer` skill descriptions updated with "Use when the user says:" trigger phrases; `mine.challenge` added to routing table (#90)
 - Routing table (`capabilities.md`) restored to imperative markdown table format with "BLOCKING REQUIREMENT" preamble and quoted trigger phrases — fixes under-triggering from compressed comment format (#89)
 - Agent routing table (`agents.md`) similarly restored with imperative framing (#89)
