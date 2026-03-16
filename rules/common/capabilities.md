@@ -26,7 +26,7 @@
 | "security review", "check for vulnerabilities" | `/mine.security-review` |
 | "record this decision", "create an ADR" | `/mine.adrs` |
 | "generate a diagram", "visualize this", "architecture diagram", "diff review", "visual plan", "slide deck", "project recap", "fact check a doc" | `/vx.visual-explainer` |
-| "design this UI", "build this dashboard" | `/mine.interface-design` |
+| "design this UI", "design this dashboard", "craft the interface" | `/mine.interface-design` |
 | "accessible design", "inclusive patterns" | `/mine.human-centered-design` |
 | "UX review", "check for anti-patterns" | `/mine.ux-review` |
 | "UX anti-patterns scan" | `/mine.ux-antipatterns` |
