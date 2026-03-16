@@ -1,4 +1,5 @@
 ---
+name: mine.git-tools
 description: Git helper scripts — git-default-branch, git-rebase-onto. Branch detection and clean rebasing.
 user-invocable: false
 ---

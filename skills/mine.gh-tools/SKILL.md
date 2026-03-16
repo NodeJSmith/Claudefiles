@@ -1,4 +1,5 @@
 ---
+name: mine.gh-tools
 description: GitHub PR helper scripts — gh-pr-threads, gh-pr-reply, gh-pr-resolve-thread, gh-bot, gh-app-token. Usage, flags, and examples.
 user-invocable: false
 ---
