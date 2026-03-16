@@ -1,7 +1,7 @@
 ---
 name: mine.refactor
 description: "Use when the user says: \"refactor this\", \"extract function\", \"split this file\", or wants to restructure code. Interactive refactoring with strategy selection, dependency analysis, and incremental verification."
-user-invokable: true
+user-invocable: true
 ---
 
 # Refactor

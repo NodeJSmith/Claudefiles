@@ -1,7 +1,7 @@
 ---
 name: mine.specify
 description: "Use when the user says: \"spec this out\", \"help me define what I want to build\", \"interview me about this idea\", or needs to define WHAT to build. Proportional discovery interview that produces spec.md."
-user-invokable: true
+user-invocable: true
 ---
 
 # mine.specify

@@ -1,7 +1,7 @@
 ---
 name: mine.address-pr-issues
 description: "Use when the user says: \"address PR comments\", \"fix review feedback\", \"fix failing CI\", or \"resolve merge conflicts\". Triages and resolves PR blockers on GitHub or Azure DevOps."
-user-invokable: true
+user-invocable: true
 ---
 
 # Address PR Issues

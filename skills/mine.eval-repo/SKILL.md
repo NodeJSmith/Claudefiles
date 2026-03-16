@@ -1,7 +1,7 @@
 ---
 name: mine.eval-repo
 description: "Use when the user says: \"evaluate this repo\", \"should I use this library\", or wants to assess a third-party dependency. Checks test coverage, code quality, maintenance health, bus factor, and maturity."
-user-invokable: true
+user-invocable: true
 ---
 
 # Evaluate Repository

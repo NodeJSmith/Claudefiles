@@ -1,7 +1,7 @@
 ---
 name: mine.human-centered-design
 description: "Use when the user says: \"accessible design\" or \"inclusive patterns\". Human-centered frontend design — empathy, accessibility, progressive enhancement. Use when building or reviewing user-facing interfaces."
-user-invokable: true
+user-invocable: true
 ---
 
 # Human-Centered Design

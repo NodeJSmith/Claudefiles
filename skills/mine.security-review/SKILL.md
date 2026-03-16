@@ -1,7 +1,7 @@
 ---
 name: mine.security-review
 description: "Use when the user says: \"security review\", \"check for vulnerabilities\", or is adding authentication, handling user input, working with secrets, or creating API endpoints. Comprehensive security checklist and patterns."
-user-invokable: true
+user-invocable: true
 ---
 
 # Security Review Skill

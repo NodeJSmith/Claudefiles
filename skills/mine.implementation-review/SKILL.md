@@ -1,7 +1,7 @@
 ---
 name: mine.implementation-review
 description: "Use when the user says: \"review the implementation\" or \"post-implementation review\". Quality gate that reviews changed files against design doc and WPs using an Opus subagent."
-user-invokable: true
+user-invocable: true
 ---
 
 # Implementation Review

@@ -1,7 +1,7 @@
 ---
 name: mine.gh-tools
 description: GitHub helper scripts — gh-issue, gh-pr-create, gh-pr-threads, gh-pr-reply, gh-pr-resolve-thread, gh-bot, gh-app-token. Usage, flags, and examples.
-user-invokable: false
+user-invocable: false
 ---
 
 # GitHub Tools

@@ -1,7 +1,7 @@
 ---
 name: mine.plan-review
 description: "Use when the user says: \"review this plan\", \"check the plan\", or \"plan review\". Reviews design doc and work packages with an Opus subagent against a 6-point checklist."
-user-invokable: true
+user-invocable: true
 ---
 
 # Plan Review

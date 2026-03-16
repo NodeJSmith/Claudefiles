@@ -1,7 +1,7 @@
 ---
 name: mine.worktree-rebase
 description: "Use when the user says: \"rebase this worktree\" or \"sync worktree to parent branch\". Detects the parent repo's current branch and rebases this worktree onto it."
-user-invokable: true
+user-invocable: true
 ---
 
 ## Context

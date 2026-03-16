@@ -9,7 +9,7 @@ disabled_rules = [
   #          <default-branch>, etc.) are intentional, not broken XML tags.
   "XML-001",
 
-  # CC-SK-006: mine.commit-push and mine.ship are user-invokable skills, not
+  # CC-SK-006: mine.commit-push and mine.ship are user-invocable skills, not
   #            autonomous agents — the "dangerous skill" guard doesn't apply.
   "CC-SK-006",
 

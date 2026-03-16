@@ -1,7 +1,7 @@
 ---
 name: mine.research
 description: "Use when the user says: \"research adding X\", \"feasibility study\", \"evaluate approach\", or wants a focused investigation before committing. Dispatches the researcher agent for codebase investigation and presents a structured brief."
-user-invokable: true
+user-invocable: true
 ---
 
 # Research

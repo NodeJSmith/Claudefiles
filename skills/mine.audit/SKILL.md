@@ -1,7 +1,7 @@
 ---
 name: mine.audit
 description: "Use when the user says: \"audit the codebase\", \"find tech debt\", or \"health check\". Systematic codebase health audit — surfaces aging code, brittle designs, missing tests, and accumulated debt, ranked by impact."
-user-invokable: true
+user-invocable: true
 ---
 
 # Codebase Audit

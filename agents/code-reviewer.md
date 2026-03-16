@@ -447,7 +447,7 @@ Correct alternatives (show in the fix):
 ### Frontmatter Completeness (HIGH)
 
 For `SKILL.md` files:
-- `name`, `description`, and `user-invokable` fields must all be present
+- `name`, `description`, and `user-invocable` fields must all be present
 - `name` must match the directory: `skills/mine.foo/SKILL.md` → `name: mine.foo`
 
 ### Skill Scope: Diagnose, Don't Implement (HIGH)

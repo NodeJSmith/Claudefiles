@@ -1,7 +1,7 @@
 ---
 name: mine.draft-plan
 description: "Use when the user says: \"draft a plan\", \"create work packages\", or \"generate WPs\". Turns a design doc into Work Package files. Offers /mine.plan-review on completion."
-user-invokable: true
+user-invocable: true
 ---
 
 # Draft Plan

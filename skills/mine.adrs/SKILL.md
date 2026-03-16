@@ -1,7 +1,7 @@
 ---
 name: mine.adrs
 description: "Use when the user says: \"record this decision\", \"create an ADR\", or wants to document an architecture decision. Creates and maintains ADRs with context, choices, and consequences."
-user-invokable: true
+user-invocable: true
 ---
 
 # Architecture Decision Records

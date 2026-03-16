@@ -1,7 +1,7 @@
 ---
 name: mine.orchestrate
 description: "Use when the user says: \"execute the plan\", \"orchestrate implementation\", or \"start executing\". Runs work packages task-by-task with implementer + reviewer subagent loop."
-user-invokable: true
+user-invocable: true
 ---
 
 # Orchestrate
