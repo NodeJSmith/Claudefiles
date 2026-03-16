@@ -22,7 +22,7 @@ Read `$ISSUE_TRACKER`.
 Launch a **Task subagent** (`subagent_type: general-purpose`, `model: haiku`) with this prompt:
 
 > **If `$ISSUE_TRACKER` is `gh`:**
-> Run `gh issue list --state open --limit <N> --sort created --order asc --json number,title,labels,assignees,createdAt` where N is a random number between 30 and 75. Pass through any user-provided filters: $ARGUMENTS
+> Run `gh-issue list --state open --limit <N> --sort created --order asc --json number,title,labels,assignees,createdAt` where N is a random number between 30 and 75. Pass through any user-provided filters: $ARGUMENTS
 >
 > **If `$ISSUE_TRACKER` is `jira`:**
 > Run `jira issue list --plain --no-truncate` with any user-provided filters passed through: $ARGUMENTS

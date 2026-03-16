@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Print changed file names for current branch vs its base.
+#
+# Uses git-branch-base to find the base ref, then runs git diff --name-only.
+# Use this instead of hand-rolling base-detection fallback chains in skills.
+#
+# Usage: git-branch-diff-files
+#
+# Exit codes:
+#   0  always (best-effort output)
+
+set -uo pipefail
+
+base=$(git-branch-base 2> /dev/null) || {
+  # Last resort: recent commits
+  git diff --name-only HEAD~3 2> /dev/null || true
+  exit 0
+}
+
+git diff --name-only "${base}...HEAD" 2> /dev/null || git diff --name-only "${base}..HEAD" 2> /dev/null || true

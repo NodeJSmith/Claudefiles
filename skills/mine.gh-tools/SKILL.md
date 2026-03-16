@@ -1,12 +1,34 @@
 ---
 name: mine.gh-tools
-description: GitHub PR helper scripts — gh-pr-threads, gh-pr-reply, gh-pr-resolve-thread, gh-bot, gh-app-token. Usage, flags, and examples.
+description: GitHub helper scripts — gh-issue, gh-pr-create, gh-pr-threads, gh-pr-reply, gh-pr-resolve-thread, gh-bot, gh-app-token. Usage, flags, and examples.
 user-invokable: false
 ---
 
-# GitHub PR Tools
+# GitHub Tools
 
-Purpose-built scripts in `~/.local/bin/`. Use these instead of raw `gh api` or `gh pr comment`.
+Purpose-built scripts in `~/.local/bin/`. Use these instead of raw `gh` commands.
+
+**IMPORTANT**: Always use `gh-issue` instead of `gh issue` and `gh-pr-create` instead of `gh pr create`. These wrappers automatically use the bot token when available.
+
+## gh-issue
+
+Wraps `gh issue` with bot token support. Pass any `gh issue` subcommand and flags — they're forwarded directly.
+
+```bash
+gh-issue view 56 --json title,body,labels
+gh-issue list --state open --limit 20 --json number,title,labels
+gh-issue create --title "Bug" --body "Description"
+gh-issue edit 56 --body-file /tmp/body.md
+```
+
+## gh-pr-create
+
+Wraps `gh pr create` with bot token support. Pass any `gh pr create` flags directly.
+
+```bash
+gh-pr-create --title "Fix null pointer" --body "Details..."
+gh-pr-create --title "Feature" --body-file /tmp/pr-body.md
+```
 
 ## gh-pr-threads
 

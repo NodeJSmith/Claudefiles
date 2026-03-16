@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Print one-line git log for commits in current branch vs its base.
 #
-# Finds the closest remote branch (fewest commits ahead of HEAD) as the base.
+# Uses git-branch-base to find the base ref.
 # This works correctly for worktrees and fresh clones that don't have a
-# tracking branch set. Falls back to origin/<default>..HEAD, then <default>..HEAD.
+# tracking branch set.
 #
 # Usage: git-branch-log
 #
@@ -12,40 +12,14 @@
 
 set -uo pipefail
 
-current=$(git branch --show-current 2> /dev/null) || current=""
-
-# Find the remote branch with the fewest commits ahead of HEAD (closest ancestor)
-best_base=""
-if [[ -n "$current" ]]; then
-  best_base=$(git for-each-ref --sort=-committerdate --format='%(refname:short)' 'refs/remotes/origin/*' 2> /dev/null |
-    grep -v "^origin/${current}$" |
-    head -20 |
-    while IFS= read -r ref; do
-      count=$(git rev-list --count "${ref}..HEAD" 2> /dev/null) || continue
-      printf '%d\t%s\n' "$count" "$ref"
-    done | sort -n | head -1 | cut -f2)
-fi
-
-if [[ -n "$best_base" ]]; then
-  out=$(git log --oneline "${best_base}..HEAD" 2> /dev/null)
-  if [[ -n "$out" ]]; then
-    printf '%s\n' "$out"
-  else
-    echo "No commits found"
-  fi
-  exit 0
-fi
-
-# Fallback: use default branch
-default=$(git-default-branch 2> /dev/null) || {
+base=$(git-branch-base 2> /dev/null) || {
   echo "No commits found"
   exit 0
 }
 
-if git log --oneline "origin/${default}..HEAD" 2> /dev/null | grep -q .; then
-  git log --oneline "origin/${default}..HEAD"
-elif git log --oneline "${default}..HEAD" 2> /dev/null | grep -q .; then
-  git log --oneline "${default}..HEAD"
+out=$(git log --oneline "${base}..HEAD" 2> /dev/null)
+if [[ -n "$out" ]]; then
+  printf '%s\n' "$out"
 else
   echo "No commits found"
 fi

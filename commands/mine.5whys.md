@@ -12,7 +12,7 @@ $ARGUMENTS — describe the problem, paste an error, or provide a GitHub issue n
 
 ## Phase 1: Problem Statement (Main Context)
 
-If $ARGUMENTS is a GitHub issue number, run `gh issue view <N> --json title,body,labels` to pull context.
+If $ARGUMENTS is a GitHub issue number, run `gh-issue view <N> --json title,body,labels` to pull context.
 
 Restate the problem in a single clear sentence and present it to the user for confirmation via `AskUserQuestion`:
 
@@ -87,6 +87,6 @@ Use `AskUserQuestion` to ask what the user wants to do:
 
 If **Create a plan**: use `EnterPlanMode`. The root cause summary gives the planner clear context.
 
-If **Create an issue**: run `gh issue create` with the root cause summary as the body, and the problem statement as the title. Confirm the created issue URL with the user.
+If **Create an issue**: run `gh-issue create` with the root cause summary as the body, and the problem statement as the title. Confirm the created issue URL with the user.
 
 If **Just the analysis**: end the command.

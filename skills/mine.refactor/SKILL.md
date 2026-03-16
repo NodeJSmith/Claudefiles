@@ -103,7 +103,7 @@ AskUserQuestion:
       description: "File a GitHub issue capturing the architectural concern — come back to it later."
 ```
 
-If the user chooses **Rearchitect**, hand off to `/mine.adrs` to record the decision and then plan the larger change — that's outside this skill's scope. If they choose **Refactor now, plan rearchitecture**, complete the refactoring first, then create the ADR at the end as a follow-up artifact. If they choose **Create an issue**, file it with `gh issue create` (include the analysis as the body), confirm the URL, and continue with a structural refactor within the current design.
+If the user chooses **Rearchitect**, hand off to `/mine.adrs` to record the decision and then plan the larger change — that's outside this skill's scope. If they choose **Refactor now, plan rearchitecture**, complete the refactoring first, then create the ADR at the end as a follow-up artifact. If they choose **Create an issue**, file it with `gh-issue create` (include the analysis as the body), confirm the URL, and continue with a structural refactor within the current design.
 
 If no architectural concerns exist, skip this question and go straight to strategy.
 

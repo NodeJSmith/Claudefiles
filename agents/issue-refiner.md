@@ -19,7 +19,7 @@ You receive an issue number or URL. Your job is to:
 ### 1. Read the Issue
 
 ```bash
-gh issue view <number> --json title,body,labels,comments
+gh-issue view <number> --json title,body,labels,comments
 ```
 
 Parse the output to understand:
@@ -92,9 +92,11 @@ Omit any section that would just be empty boilerplate. Only add sections that ge
 Always use `--body-file` to avoid shell escaping issues with the issue body:
 
 ```bash
-gh-issue view <number> --json body --jq '.body' > "/tmp/issue-refiner-body-$CLAUDE_SESSION_ID.md"
-# append enriched sections to /tmp/issue-refiner-body-$CLAUDE_SESSION_ID.md
-gh-issue edit <number> --body-file "/tmp/issue-refiner-body-$CLAUDE_SESSION_ID.md"
+get-skill-tmpdir issue-refiner
+# Use <dir>/body.md for the temp file path
+gh-issue view <number> --json body --jq '.body' > "<dir>/body.md"
+# append enriched sections to <dir>/body.md
+gh-issue edit <number> --body-file "<dir>/body.md"
 ```
 
 ### 6. Report Back

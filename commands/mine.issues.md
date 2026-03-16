@@ -27,7 +27,7 @@ Read `$ISSUE_TRACKER`.
 For **each** issue key in the arguments, launch a **Task subagent** (`subagent_type: Explore`, `model: haiku`) with this prompt:
 
 > **If `$ISSUE_TRACKER` is `gh`:**
-> Run `gh issue view <N> --json title,body,comments,labels,assignees,milestone` to get the full issue.
+> Run `gh-issue view <N> --json title,body,comments,labels,assignees,milestone` to get the full issue.
 >
 > **If `$ISSUE_TRACKER` is `jira`:**
 > Run `jira issue view <KEY> --comments 5 --plain` to get the full issue.
