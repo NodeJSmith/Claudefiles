@@ -95,7 +95,7 @@ If the reviewer's output includes non-blocking suggestions, present all four opt
 ```
 AskUserQuestion:
   question: "Review complete. What would you like to do?"
-  header: "Plan review verdict"
+  header: "Plan verdict"
   multiSelect: false
   options:
     - label: "Approve as-is"
@@ -105,7 +105,7 @@ AskUserQuestion:
     - label: "Revise the plan"
       description: "Blocking issues found — return to mine.draft-plan with reviewer notes"
     - label: "Abandon"
-      description: "Save the plan as abandoned and stop"
+      description: "Mark the design as abandoned and stop"
 ```
 
 ### On "Approve as-is"
