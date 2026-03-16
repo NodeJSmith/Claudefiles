@@ -57,6 +57,8 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 
 | User says something like... | Run | Docs |
 |---|---|---|
+| "view issue", "create issue", "list issues", "edit issue" | `gh-issue` | `mine.gh-tools` |
+| "run gh-pr-create", "create PR with bot token" | `gh-pr-create` | `mine.gh-tools` |
 | "list PR threads", "unresolved comments" | `gh-pr-threads` | `mine.gh-tools` |
 | "reply to PR comment", "respond to review" | `gh-pr-reply` | `mine.gh-tools` |
 | "resolve PR thread", "mark thread resolved" | `gh-pr-resolve-thread` | `mine.gh-tools` |
@@ -66,6 +68,10 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "what did I work on yesterday", "find that session" | `claude-log` | `mine.session-tools` |
 | "merge settings", "apply settings" | `claude-merge-settings` | `mine.session-tools` |
 | "default branch name" | `git-default-branch` | `mine.git-tools` |
+| "branch commit history" | `git-branch-log` | `mine.git-tools` |
+| "branch diff stats", "what changed on this branch" | `git-branch-diff-stat` | `mine.git-tools` |
+| "changed files on this branch", "branch diff file names" | `git-branch-diff-files` | `mine.git-tools` |
+| "base branch", "what branch did this come from" | `git-branch-base` | `mine.git-tools` |
 | "rebase dropping old base", "clean rebase" | `git-rebase-onto` | `mine.git-tools` |
 | "cancel builds", "cancel pipeline runs", "list ADO builds" | `ado-builds` | `mine.ado-tools` |
 | "build logs", "CI logs", "why did the build fail" | `ado-logs` | `mine.ado-tools` |

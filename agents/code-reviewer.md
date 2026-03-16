@@ -442,7 +442,7 @@ Fix: Run `get-skill-tmpdir code-review` to get a temp dir, write body to `<dir>/
 Correct alternatives (show in the fix):
 - Sequential calls: run inner command first, use the result in the next call
 - `xargs -I {}` piping: `git-default-branch | xargs -I {} git log "origin/{}..HEAD"`
-- `--body-file /tmp/file-$CLAUDE_SESSION_ID.md` instead of `--body "$(cat ...)"`
+- `--body-file <dir>/message.md` (via `get-skill-tmpdir`) instead of `--body "$(cat ...)"`
 
 ### Frontmatter Completeness (HIGH)
 

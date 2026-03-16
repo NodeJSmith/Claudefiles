@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Print git diff --stat for current branch vs its base.
 #
-# Finds the closest remote branch (fewest commits ahead of HEAD) as the base.
+# Uses git-branch-base to find the base ref.
 # This works correctly for worktrees and fresh clones that don't have a
-# tracking branch set. Falls back to origin/<default>...HEAD, then <default>...HEAD.
+# tracking branch set.
 #
 # Usage: git-branch-diff-stat
 #
@@ -12,30 +12,6 @@
 
 set -uo pipefail
 
-current=$(git branch --show-current 2> /dev/null) || current=""
+base=$(git-branch-base 2> /dev/null) || exit 0
 
-# Find the remote branch with the fewest commits ahead of HEAD (closest ancestor)
-best_base=""
-if [[ -n "$current" ]]; then
-  best_base=$(git for-each-ref --sort=-committerdate --format='%(refname:short)' 'refs/remotes/origin/*' 2> /dev/null |
-    grep -v "^origin/${current}$" |
-    head -20 |
-    while IFS= read -r ref; do
-      count=$(git rev-list --count "${ref}..HEAD" 2> /dev/null) || continue
-      printf '%d\t%s\n' "$count" "$ref"
-    done | sort -n | head -1 | cut -f2)
-fi
-
-if [[ -n "$best_base" ]]; then
-  git diff --stat "${best_base}...HEAD" 2> /dev/null || true
-  exit 0
-fi
-
-# Fallback: use default branch
-default=$(git-default-branch 2> /dev/null) || exit 0
-
-if git diff --stat "origin/${default}...HEAD" 2> /dev/null | grep -q .; then
-  git diff --stat "origin/${default}...HEAD"
-else
-  git diff --stat "${default}...HEAD" 2> /dev/null || true
-fi
+git diff --stat "${base}...HEAD" 2> /dev/null || git diff --stat "${base}..HEAD" 2> /dev/null || true

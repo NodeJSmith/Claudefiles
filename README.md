@@ -53,8 +53,8 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 | `mine.design` | Scope + constitution check + planning interrogation + research + design doc + sign-off gate |
 | `mine.draft-plan` | Design doc → Work Package (WP) files with objectives, subtasks, test strategy, and lane tracking |
 | `mine.eval-repo` | Evaluate a third-party GitHub repo before adopting it -- test coverage, code quality, maintenance health, bus factor |
-| `mine.gh-tools` | GitHub PR helper scripts -- gh-pr-threads, gh-pr-reply, gh-pr-resolve-thread, gh-bot, gh-app-token |
-| `mine.git-tools` | Git helper scripts -- git-default-branch, git-rebase-onto |
+| `mine.gh-tools` | GitHub helper scripts -- gh-issue, gh-pr-create, gh-pr-threads, gh-pr-reply, gh-pr-resolve-thread, gh-bot, gh-app-token |
+| `mine.git-tools` | Git helper scripts -- git-default-branch, git-branch-base, git-branch-log, git-branch-diff-stat, git-branch-diff-files, git-rebase-onto |
 | `mine.human-centered-design` | Human-centered frontend design -- empathy, accessibility, progressive enhancement |
 | `mine.implementation-review` | Post-execution quality gate — 7-category Opus review of all changed files against design doc and Work Package (WP) files |
 | `mine.interface-design` | Craft and consistency for interface design -- dashboards, admin panels, apps, tools |
@@ -176,7 +176,7 @@ Coding guidelines organized by language. These load automatically and shape how 
 
 **Python** (5): coding-style, hooks, patterns, security, testing
 
-### Helper Scripts (21)
+### Helper Scripts (23)
 
 CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
@@ -197,8 +197,10 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `gh-pr-reply` | Reply to a PR review comment thread; optionally resolve it with `--resolve <PRRT_...>` |
 | `gh-pr-resolve-thread` | Resolve one or more PR review threads by GraphQL ID |
 | `gh-pr-threads` | List unresolved PR review threads with summary |
-| `git-branch-diff-stat` | Print `git diff --stat` for current branch vs default branch (with remote/local fallback) |
-| `git-branch-log` | Print `git log --oneline` for current branch vs default branch (with remote/local fallback) |
+| `git-branch-base` | Print the base ref for the current branch — closest remote branch, with default branch fallback |
+| `git-branch-diff-files` | Print changed file names for current branch vs its base (uses git-branch-base) |
+| `git-branch-diff-stat` | Print `git diff --stat` for current branch vs its base (uses git-branch-base) |
+| `git-branch-log` | Print `git log --oneline` for current branch vs its base (uses git-branch-base) |
 | `git-default-branch` | Print the default branch name for the current repo |
 | `skill-eval-aggregate` | Aggregate graded skill evaluation results with pass rates and score statistics |
 | `skill-eval-run` | Run skill evaluation iterations — invoke skill variants and save outputs |
