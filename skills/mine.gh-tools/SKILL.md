@@ -67,12 +67,3 @@ gh-app-token           # get token (cached)
 gh-app-token --json    # JSON output with expiry
 gh-app-token --sync-key  # re-fetch private key from 1Password
 ```
-
-## gh-copilot-review
-
-Request Copilot review on a PR.
-
-```bash
-gh-copilot-review       # current branch PR
-gh-copilot-review 123   # specific PR
-```
