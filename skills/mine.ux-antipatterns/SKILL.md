@@ -1,6 +1,7 @@
 ---
 name: mine.ux-antipatterns
 description: "Use when the user says: \"UX anti-patterns scan\". Detects UX anti-patterns in frontend code — layout shifts, missing feedback, broken forms, race conditions, accessibility gaps."
+user-invokable: true
 ---
 
 # UX Anti-Pattern Detection
