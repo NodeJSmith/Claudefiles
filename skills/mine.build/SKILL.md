@@ -135,9 +135,9 @@ Chain the following skills in sequence. Do not duplicate their logic — follow 
 3. **Follow `/mine.draft-plan` phases** using the feature directory from step 2.
 
 4. **Follow `/mine.plan-review` phases** for the design doc.
-   - If APPROVE: continue to step 5.
-   - If REQUEST_REVISIONS: return to step 3 (`/mine.draft-plan`) with the reviewer's notes. Repeat until APPROVE or ABANDON.
-   - If ABANDON: stop.
+   - If "Approve as-is" or "Approve with suggestions": continue to step 5.
+   - If "Revise the plan": return to step 3 (`/mine.draft-plan`) with the reviewer's notes. Repeat until approved or abandoned.
+   - If "Abandon": stop.
 
 5. **Follow `/mine.orchestrate` phases** using the feature directory. mine.orchestrate handles per-WP execution, deviation classification, lane updates, and its own post-execution handoff.
 
@@ -188,9 +188,9 @@ Then chain the following steps:
 2. **Follow `/mine.draft-plan` phases** using the feature directory from step 1.
 
 3. **Follow `/mine.plan-review` phases** for the design doc.
-   - If APPROVE: continue to step 4.
-   - If REQUEST_REVISIONS: return to step 2 with the reviewer's notes. Repeat until APPROVE or ABANDON.
-   - If ABANDON: stop.
+   - If "Approve as-is" or "Approve with suggestions": continue to step 4.
+   - If "Revise the plan": return to step 2 with the reviewer's notes. Repeat until approved or abandoned.
+   - If "Abandon": stop.
 
 4. **Follow `/mine.orchestrate` phases** using the feature directory.
 

@@ -90,28 +90,39 @@ Read the temp file. Format the results clearly:
 
 ## Phase 4: Gate
 
+If the reviewer's output includes non-blocking suggestions, present all four options. If there are no suggestions (clean APPROVE), omit "Approve with suggestions" — it would have nothing to apply.
+
 ```
 AskUserQuestion:
   question: "Review complete. What would you like to do?"
-  header: "Plan review verdict"
+  header: "Plan verdict"
   multiSelect: false
   options:
-    - label: "Approve — begin execution"
-      description: "Hand off to /mine.orchestrate to begin implementation"
-    - label: "Request revisions"
-      description: "Return to mine.draft-plan with the reviewer's notes"
+    - label: "Approve as-is"
+      description: "Plan is good; proceed to execution"
+    - label: "Approve with suggestions"
+      description: "Apply the reviewer's non-blocking suggestions, then proceed"
+    - label: "Revise the plan"
+      description: "Blocking issues found — return to mine.draft-plan with reviewer notes"
     - label: "Abandon"
-      description: "Save the plan as draft and stop"
+      description: "Mark the design as abandoned and stop"
 ```
 
-### On "Approve"
+### On "Approve as-is"
 
 Update the `design.md` `**Status:**` field from `draft` to `approved`.
 
 Tell the user:
 > Design approved. Run `/mine.orchestrate <feature_dir>` to begin implementation.
 
-### On "Request revisions"
+### On "Approve with suggestions"
+
+Apply the reviewer's non-blocking suggestions to `design.md` and/or `WP*.md` files. Restrict WP edits to cosmetic changes (wording, clarifications, review guidance) — substantive WP changes require re-running `/mine.draft-plan`. Show the user a brief summary of what was changed (file name + one-line description per change). Update the `design.md` `**Status:**` field from `draft` to `approved`.
+
+Tell the user:
+> Suggestions applied and design approved. Run `/mine.orchestrate <feature_dir>` to begin implementation.
+
+### On "Revise the plan"
 
 Surface the reviewer's blocking issues as a numbered list. Write them to the conversation so the user can copy them, then tell the user:
 > Run `/mine.draft-plan <feature_dir>` and paste the following reviewer notes so the skill can incorporate them:
