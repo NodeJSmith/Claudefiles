@@ -18,6 +18,7 @@
 | "scan issues", "what issues are open" | `/mine.issues-scan` |
 | "refactor this", "extract function", "split this file" | `/mine.refactor` |
 | "brainstorm options", "generate ideas", "explore ideas", "what are our options" | `/mine.brainstorm` |
+| "challenge this design", "poke holes in this", "what's wrong with this approach" | `/mine.challenge` |
 | "audit the codebase", "find tech debt", "health check" | `/mine.audit` |
 | "lint agents", "validate skills", "check agent format", "run agnix" | `/mine.agnix` |
 | "research adding X", "feasibility study", "evaluate approach" | `/mine.research` |
@@ -25,7 +26,7 @@
 | "security review", "check for vulnerabilities" | `/mine.security-review` |
 | "record this decision", "create an ADR" | `/mine.adrs` |
 | "generate a diagram", "visualize this", "architecture diagram", "diff review", "visual plan", "slide deck", "project recap", "fact check a doc" | `/vx.visual-explainer` |
-| "design this UI", "build this dashboard" | `/mine.interface-design` |
+| "design this UI", "design this dashboard", "craft the interface" | `/mine.interface-design` |
 | "accessible design", "inclusive patterns" | `/mine.human-centered-design` |
 | "UX review", "check for anti-patterns" | `/mine.ux-review` |
 | "UX anti-patterns scan" | `/mine.ux-antipatterns` |

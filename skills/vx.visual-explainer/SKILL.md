@@ -1,7 +1,7 @@
 ---
 name: vx.visual-explainer
 user-invokable: true
-description: Generate beautiful, self-contained HTML pages that visually explain systems, code changes, plans, and data. Use when the user asks for a diagram, architecture overview, diff review, plan review, project recap, comparison table, or any visual explanation of technical concepts. Also use proactively when you are about to render a complex ASCII table (4+ rows or 3+ columns) — present it as a styled HTML page instead.
+description: "Use when the user says: \"generate a diagram\", \"visualize this\", \"architecture diagram\", \"diff review\", \"visual plan\", \"slide deck\", \"project recap\", or \"fact check a doc\". Generate beautiful, self-contained HTML pages that visually explain systems, code changes, plans, and data. Also use proactively when you are about to render a complex ASCII table (4+ rows or 3+ columns) — present it as a styled HTML page instead."
 license: MIT
 compatibility: Requires a browser to view generated HTML files. Optional surf-cli for AI image generation.
 metadata:
