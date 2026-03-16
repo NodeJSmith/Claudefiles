@@ -58,7 +58,7 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | User says something like... | Run | Docs |
 |---|---|---|
 | "view issue", "create issue", "list issues", "edit issue" | `gh-issue` | `mine.gh-tools` |
-| "create a PR" | `gh-pr-create` | `mine.gh-tools` |
+| "run gh-pr-create", "create PR with bot token" | `gh-pr-create` | `mine.gh-tools` |
 | "list PR threads", "unresolved comments" | `gh-pr-threads` | `mine.gh-tools` |
 | "reply to PR comment", "respond to review" | `gh-pr-reply` | `mine.gh-tools` |
 | "resolve PR thread", "mark thread resolved" | `gh-pr-resolve-thread` | `mine.gh-tools` |

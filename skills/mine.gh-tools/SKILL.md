@@ -18,7 +18,7 @@ Wraps `gh issue` with bot token support. Pass any `gh issue` subcommand and flag
 gh-issue view 56 --json title,body,labels
 gh-issue list --state open --limit 20 --json number,title,labels
 gh-issue create --title "Bug" --body "Description"
-gh-issue edit 56 --body-file /tmp/body.md
+gh-issue edit 56 --body-file <dir>/body.md  # <dir> from get-skill-tmpdir
 ```
 
 ## gh-pr-create
@@ -27,7 +27,7 @@ Wraps `gh pr create` with bot token support. Pass any `gh pr create` flags direc
 
 ```bash
 gh-pr-create --title "Fix null pointer" --body "Details..."
-gh-pr-create --title "Feature" --body-file /tmp/pr-body.md
+gh-pr-create --title "Feature" --body-file <dir>/body.md  # <dir> from get-skill-tmpdir
 ```
 
 ## gh-pr-threads
