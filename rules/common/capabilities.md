@@ -66,6 +66,7 @@ gh-pr-reply | reply to PR comment thread, optionally resolve | mine.gh-tools
 gh-pr-resolve-thread | resolve PR threads by GraphQL ID | mine.gh-tools
 gh-bot | run any gh command as bot identity | mine.gh-tools
 gh-app-token | generate GitHub App installation tokens | mine.gh-tools
+gh-copilot-review | request Copilot review on a PR | mine.gh-tools
 claude-tmux | tmux session helper (rename, list, capture, kill) | mine.session-tools
 claude-log | query session logs (list, show, search, stats) | mine.session-tools
 claude-merge-settings | merge settings from 3 layers | mine.session-tools
