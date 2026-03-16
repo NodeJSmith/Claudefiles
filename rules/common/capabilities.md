@@ -18,6 +18,7 @@
 | "scan issues", "what issues are open" | `/mine.issues-scan` |
 | "refactor this", "extract function", "split this file" | `/mine.refactor` |
 | "brainstorm options", "generate ideas", "explore ideas", "what are our options" | `/mine.brainstorm` |
+| "challenge this design", "poke holes in this", "what's wrong with this approach" | `/mine.challenge` |
 | "audit the codebase", "find tech debt", "health check" | `/mine.audit` |
 | "lint agents", "validate skills", "check agent format", "run agnix" | `/mine.agnix` |
 | "research adding X", "feasibility study", "evaluate approach" | `/mine.research` |

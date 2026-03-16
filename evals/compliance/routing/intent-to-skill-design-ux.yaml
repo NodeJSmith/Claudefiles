@@ -44,9 +44,9 @@ tests:
           const how = calledViaSkill ? 'tool call' : 'response mention';
           return { pass: true, score: 1, reason: `✓ ${skillName} correctly routed (${how})` };
 
-  - description: "build dashboard → /mine.interface-design (natural)"
+  - description: "dashboard layout → /mine.interface-design (natural)"
     vars:
-      prompt: "build a dashboard for monitoring API health metrics"
+      prompt: "design the dashboard layout for monitoring API health metrics — what panels and widgets should it have?"
       expectedSkill: "mine.interface-design"
     assert:
       - type: javascript

@@ -1,6 +1,6 @@
 ---
 name: mine.challenge
-description: Adversarial design critique using three parallel critics. Assumes the design is wrong, finds out why, and argues for a better approach.
+description: "Use when the user says: \"challenge this design\", \"poke holes in this\", or \"what's wrong with this approach\". Adversarial design critique using three parallel critics. Assumes the design is wrong, finds out why, and argues for a better approach."
 user-invokable: true
 ---
 
