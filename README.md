@@ -34,12 +34,14 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 
 ## Contents
 
-### Skills (33)
+### Skills (38)
 
 | Skill | Description |
 |-------|-------------|
 | `mine.address-pr-issues` | Triage and resolve PR blockers — review comments, merge conflicts, and failing CI |
+| `mine.ado-tools` | Azure DevOps CLI tools -- ado-builds, ado-logs, ado-pr, ado-pr-threads |
 | `mine.adrs` | Create and maintain Architecture Decision Records for project decisions |
+| `mine.agent-patterns` | Agent orchestration patterns -- parallel execution, model selection, context passing, multi-perspective analysis |
 | `mine.audit` | Systematic codebase health audit -- surfaces aging code, brittle designs, missing tests, ranked by impact |
 | `mine.backend-patterns` | Backend architecture patterns, API design, database optimization for Python/FastAPI |
 | `mine.brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas ranked by user-chosen criteria, with handoff to research, ADRs, or planning |
@@ -51,6 +53,8 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 | `mine.design` | Scope + constitution check + planning interrogation + research + design doc + sign-off gate |
 | `mine.draft-plan` | Design doc → Work Package (WP) files with objectives, subtasks, test strategy, and lane tracking |
 | `mine.eval-repo` | Evaluate a third-party GitHub repo before adopting it -- test coverage, code quality, maintenance health, bus factor |
+| `mine.gh-tools` | GitHub PR helper scripts -- gh-pr-threads, gh-pr-reply, gh-pr-resolve-thread, gh-bot, gh-app-token |
+| `mine.git-tools` | Git helper scripts -- git-default-branch, git-rebase-onto |
 | `mine.human-centered-design` | Human-centered frontend design -- empathy, accessibility, progressive enhancement |
 | `mine.implementation-review` | Post-execution quality gate — 7-category Opus review of all changed files against design doc and Work Package (WP) files |
 | `mine.interface-design` | Craft and consistency for interface design -- dashboards, admin panels, apps, tools |
@@ -63,6 +67,7 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 | `mine.refactor` | Interactive refactoring with strategy selection and incremental verification |
 | `mine.research` | Interactive research workflow — gathers user intent, dispatches the researcher agent, presents the brief |
 | `mine.security-review` | Security checklist for auth, user input, secrets, API endpoints |
+| `mine.session-tools` | Session management CLI tools -- claude-tmux, claude-log, claude-merge-settings |
 | `mine.ship` | Commit, push, and create a PR in one step |
 | `mine.skill-eval` | Evaluate and compare skill variants — setup, execution, grading, comparison, and reporting |
 | `mine.specify` | Proportional discovery interview — extracts full intent and produces spec.md with 12-item quality validation |

@@ -5,9 +5,17 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-15
 
 ### Added
+- `mine.gh-tools` skill — on-demand GitHub PR helper docs (gh-pr-threads, gh-pr-reply, gh-pr-resolve-thread, gh-bot, gh-app-token) (#88)
+- `mine.ado-tools` skill — on-demand Azure DevOps CLI docs (ado-builds, ado-logs, ado-pr, ado-pr-threads) (#88)
+- `mine.session-tools` skill — on-demand session management docs (claude-tmux, claude-log, claude-merge-settings) (#88)
+- `mine.git-tools` skill — on-demand git helper docs (git-default-branch, git-rebase-onto) (#88)
+- `mine.agent-patterns` skill — on-demand agent orchestration patterns (parallel execution, model selection, context passing) (#88)
+- `evals/compliance/routing/` — 23 promptfoo routing eval tests (12 skill, 6 agent, 5 CLI tool) (#88)
 - `researcher` agent — autonomous codebase research and feasibility analysis; launched by `mine.research` and `mine.design` instead of inline investigation phases (#85)
 
 ### Changed
+- `capabilities.md` compressed from 23,256 to 6,042 chars (-74%) — pipe-delimited routing format, CLI docs moved to on-demand skills (#88)
+- `agents.md` compressed from 11,483 to 2,786 chars (-76%) — pipe-delimited routing, agent patterns moved to on-demand skill (#88)
 - `mine.research` refactored to thin interactive wrapper — gathers user intent (Phase 1), dispatches `researcher` agent (Phase 2), presents brief and asks next steps (Phase 3) (#85)
 - `mine.design` Phase 2 now dispatches `researcher` agent instead of an inline general-purpose subagent prompt (#85)
 
