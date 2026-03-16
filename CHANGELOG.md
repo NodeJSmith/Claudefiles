@@ -21,7 +21,7 @@ All notable changes to this Claudefiles repository are documented here.
 - `settings.json` allowlist updated with `gh-issue`, `gh-pr-create`, and all git-branch-* scripts (#91)
 
 ### Fixed
-- `user-invokable` typo corrected to `user-invocable` across all 35 SKILL.md files, `agents/code-reviewer.md`, and `.agnix.toml` — the CLI silently ignored the misspelled field, so `user-invocable: false` skills were never actually hidden
+- `user-invokable` typo corrected to `user-invocable` across all 35 SKILL.md files, `agents/code-reviewer.md`, and `.agnix.toml` — the CLI silently ignored the misspelled field, so `user-invocable: false` skills were never actually hidden (#92)
 - `issue-refiner` agent replaced deprecated `$CLAUDE_SESSION_ID` temp file paths with `get-skill-tmpdir` pattern (#91)
 - `mine.challenge` and `vx.visual-explainer` skill descriptions updated with "Use when the user says:" trigger phrases; `mine.challenge` added to routing table (#90)
 - Routing table (`capabilities.md`) restored to imperative markdown table format with "BLOCKING REQUIREMENT" preamble and quoted trigger phrases — fixes under-triggering from compressed comment format (#89)
