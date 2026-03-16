@@ -8,6 +8,8 @@ user-invokable: false
 
 Detailed guidance for writing skills and commands that launch subagents.
 
+> **Note:** Some older SKILL.md files may still refer to parallelism as "Task calls". These map to the same underlying `Agent` subagent mechanism described here — there is no separate "Task" tool.
+
 ## Parallel Agent Execution
 
 Multiple `Agent` tool calls in a **single message** = parallel execution. Claude Code launches them concurrently and returns all results before you continue.
