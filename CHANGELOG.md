@@ -2,6 +2,19 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-03-16
+
+### Added
+- 266 routing eval tests across 14 files — skills, agents, CLI tools, confusion pairs, and negative tests with 3 prompt variations each (direct/natural/indirect)
+- `evals/fixtures/python-api/` — minimal FastAPI fixture repo for realistic eval contexts
+- `evals/compliance/rules/test-discovery.yaml` — eval for test execution discovery rule
+
+### Changed
+- Routing table (`capabilities.md`) restored to imperative markdown table format with "BLOCKING REQUIREMENT" preamble and quoted trigger phrases — fixes under-triggering from compressed comment format
+- Agent routing table (`agents.md`) similarly restored with imperative framing
+- 21 skill descriptions updated with trigger phrases ("Use when the user says: ...") to improve `<available_skills>` routing signal
+- All eval provider configs now include `setting_sources: ['user']` and `append_allowed_tools: ['Skill']` — previously skills were invisible to eval sessions
+
 ## 2026-03-15
 
 ### Added

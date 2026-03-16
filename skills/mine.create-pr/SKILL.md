@@ -1,6 +1,6 @@
 ---
 name: mine.create-pr
-description: Review branch changes and create a PR on GitHub or Azure DevOps
+description: "Use when the user says: \"create PR\" or \"open pull request\". Reviews branch changes and creates a PR on GitHub or Azure DevOps."
 user-invokable: true
 ---
 

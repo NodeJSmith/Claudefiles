@@ -1,0 +1,265 @@
+# Compliance: planning pipeline skill routing
+#
+# Rule source: rules/common/capabilities.md (intent routing table)
+#
+# Tests the caliper v2 workflow skills: specify → design → draft-plan →
+# plan-review → orchestrate → implementation-review, plus wp and constitution.
+# If any step breaks, the whole planning pipeline is unusable.
+#
+# Run: npx promptfoo eval -c evals/compliance/routing/intent-to-skill-planning.yaml
+
+description: "Compliance: planning pipeline skills routing"
+
+providers:
+  - id: anthropic:claude-agent-sdk
+    config:
+      model: claude-sonnet-4-6
+      permission_mode: default
+      working_dir: ../../../evals/fixtures/python-api
+      setting_sources: ['user']
+      append_allowed_tools: ['Skill']
+      skip_git_repo_check: true
+
+tests:
+  # --- mine.specify ---
+  - description: "spec this out → /mine.specify (direct)"
+    vars:
+      prompt: "spec this out for me"
+      expectedSkill: "mine.specify"
+    assert:
+      - type: javascript
+        value: &skill_assertion |
+          const toolCalls = context.providerResponse?.metadata?.toolCalls ?? [];
+          const skillName = context.vars.expectedSkill;
+          const escaped = skillName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const skillRegex = new RegExp(escaped);
+          const calledViaSkill = toolCalls.some(c =>
+            c.name === 'Skill' && skillRegex.test(JSON.stringify(c.input ?? {}))
+          );
+          const responseText = output || '';
+          const mentionedInResponse = skillRegex.test(responseText);
+          if (!calledViaSkill && !mentionedInResponse) {
+            const names = toolCalls.map(c => `${c.name}(${JSON.stringify(c.input?.skill || c.input?.command || '').slice(0,60)})`).join(', ');
+            return { pass: false, score: 0, reason: `Expected skill ${skillName} not found in tool calls or response. Tool calls: [${names || 'none'}]` };
+          }
+          const how = calledViaSkill ? 'tool call' : 'response mention';
+          return { pass: true, score: 1, reason: `✓ ${skillName} correctly routed (${how})` };
+
+  - description: "define requirements → /mine.specify (natural)"
+    vars:
+      prompt: "help me define the requirements for a new user onboarding flow"
+      expectedSkill: "mine.specify"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "interview about idea → /mine.specify (indirect)"
+    vars:
+      prompt: "I have a rough idea for a CLI tool — can you interview me to nail down what it should do?"
+      expectedSkill: "mine.specify"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- mine.design ---
+  - description: "design this change → /mine.design (direct)"
+    vars:
+      prompt: "design this change for the notification system"
+      expectedSkill: "mine.design"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "architecture for feature → /mine.design (natural)"
+    vars:
+      prompt: "write up the architecture and design decisions for adding event sourcing"
+      expectedSkill: "mine.design"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "how to build → /mine.design (indirect)"
+    vars:
+      prompt: "the spec is done — now let's figure out the technical approach and write a design doc"
+      expectedSkill: "mine.design"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- mine.build ---
+  - description: "build this → /mine.build (direct)"
+    vars:
+      prompt: "build this feature for email templating"
+      expectedSkill: "mine.build"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "implement the change → /mine.build (natural)"
+    vars:
+      prompt: "go ahead and implement the user preferences API we designed"
+      expectedSkill: "mine.build"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "make this change → /mine.build (indirect)"
+    vars:
+      prompt: "we have the design doc, let's start coding — make the changes to add rate limiting"
+      expectedSkill: "mine.build"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- mine.draft-plan ---
+  - description: "draft a plan → /mine.draft-plan (direct)"
+    vars:
+      prompt: "draft a plan from the design doc"
+      expectedSkill: "mine.draft-plan"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "create work packages → /mine.draft-plan (natural)"
+    vars:
+      prompt: "break the design doc into work packages I can execute one at a time"
+      expectedSkill: "mine.draft-plan"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "generate WPs → /mine.draft-plan (indirect)"
+    vars:
+      prompt: "the design is approved — generate the WP files so we can start executing"
+      expectedSkill: "mine.draft-plan"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- mine.plan-review ---
+  - description: "review this plan → /mine.plan-review (direct)"
+    vars:
+      prompt: "review this plan before we start implementing"
+      expectedSkill: "mine.plan-review"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "check the plan → /mine.plan-review (natural)"
+    vars:
+      prompt: "check the plan and work packages for gaps or missing edge cases"
+      expectedSkill: "mine.plan-review"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "plan review gate → /mine.plan-review (indirect)"
+    vars:
+      prompt: "before we freeze the design, run the plan review to make sure nothing is missing"
+      expectedSkill: "mine.plan-review"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- mine.orchestrate ---
+  - description: "execute the plan → /mine.orchestrate (direct)"
+    vars:
+      prompt: "execute the plan starting from WP01"
+      expectedSkill: "mine.orchestrate"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "start implementing WPs → /mine.orchestrate (natural)"
+    vars:
+      prompt: "start executing the work packages task by task"
+      expectedSkill: "mine.orchestrate"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "orchestrate implementation → /mine.orchestrate (indirect)"
+    vars:
+      prompt: "the plan is reviewed and approved — time to orchestrate the implementation"
+      expectedSkill: "mine.orchestrate"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- mine.implementation-review ---
+  - description: "post-implementation review → /mine.implementation-review (direct)"
+    vars:
+      prompt: "review the implementation against the design doc"
+      expectedSkill: "mine.implementation-review"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "check implementation quality → /mine.implementation-review (natural)"
+    vars:
+      prompt: "we finished all the WPs — do a post-implementation review to check quality"
+      expectedSkill: "mine.implementation-review"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "verify against design → /mine.implementation-review (indirect)"
+    vars:
+      prompt: "the feature is done — verify that what we built matches the design doc and WP specs"
+      expectedSkill: "mine.implementation-review"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- mine.wp ---
+  - description: "WP status → /mine.wp (direct)"
+    vars:
+      prompt: "show me the WP status"
+      expectedSkill: "mine.wp"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "move WP to doing → /mine.wp (natural)"
+    vars:
+      prompt: "move WP02 to the doing lane"
+      expectedSkill: "mine.wp"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "kanban update → /mine.wp (indirect)"
+    vars:
+      prompt: "I just finished WP01 — update the kanban and show me what's next"
+      expectedSkill: "mine.wp"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- mine.constitution ---
+  - description: "create a constitution → /mine.constitution (direct)"
+    vars:
+      prompt: "create a constitution for this project"
+      expectedSkill: "mine.constitution"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "architecture rules → /mine.constitution (natural)"
+    vars:
+      prompt: "set up architecture constraints and quality rules for this repo"
+      expectedSkill: "mine.constitution"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "project constraints → /mine.constitution (indirect)"
+    vars:
+      prompt: "before the team starts contributing, let's define the project constraints so designs can be validated against them"
+      expectedSkill: "mine.constitution"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+prompts:
+  - "{{prompt}}"

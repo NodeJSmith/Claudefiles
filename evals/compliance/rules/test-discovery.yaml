@@ -1,0 +1,138 @@
+# Compliance: test execution discovery — check CI/task runners before running tests
+#
+# Rule source: rules/common/testing.md, rules/python/testing.md
+#   "NEVER run tests without understanding how the project expects them to run"
+#   Discovery order: CLAUDE.md → CI config → task runners → docs → ask user → fallback
+#
+# Failure modes this catches:
+#   - Running `pytest` or `uv run pytest` without checking for noxfile.py, tox.ini, Makefile
+#   - Ignoring CI configuration (.github/workflows/*.yml)
+#   - Jumping straight to a package manager command when a task runner exists
+#
+# The test uses a fixture project (evals/fixtures/python-api) that has both
+# pyproject.toml AND noxfile.py present. The correct behavior is to check
+# noxfile.py (or CI) first and use nox, not bare `pytest`.
+#
+# Run: ANTHROPIC_API_KEY="$(printenv MY_ANTHROPIC_API_KEY)" node_modules/.bin/promptfoo eval \
+#        -c evals/compliance/rules/test-discovery.yaml
+
+description: "Compliance: test execution discovery — CI/task runners checked before running tests"
+
+providers:
+  - id: anthropic:claude-agent-sdk
+    config:
+      model: claude-sonnet-4-6
+      permission_mode: default
+      working_dir: ../../fixtures/python-api
+      setting_sources: ['user']
+      skip_git_repo_check: true
+
+prompts:
+  - "Run the tests for this project and tell me if anything fails."
+
+tests:
+  - description: "checks for CI config or task runners before running tests"
+    assert:
+      # Claude should read CI config files or task runner configs before executing tests
+      - type: javascript
+        value: |
+          const toolCalls = context.providerResponse?.metadata?.toolCalls ?? [];
+
+          // Find the first test execution (pytest, nox, tox, make test, etc.)
+          const testRunIdx = toolCalls.findIndex(c => {
+            if (c.name !== 'Bash') return false;
+            const cmd = c.input?.command ?? '';
+            return /\b(pytest|nox|tox|make\s+test)\b/.test(cmd);
+          });
+
+          // Discovery signals: reading CI files, task runner configs, or CLAUDE.md
+          const discoveryPatterns = [
+            // Reading CI config
+            /\.github\/workflows/,
+            /\.gitlab-ci/,
+            /azure-pipelines/,
+            // Reading task runner configs
+            /noxfile/,
+            /tox\.ini/,
+            /Makefile/,
+            // Reading project config for test settings
+            /pyproject\.toml/,
+            /CLAUDE\.md/i,
+          ];
+
+          const discoveryTools = ['Read', 'Glob', 'Grep', 'Bash'];
+          const discoveryIdx = toolCalls.findIndex(c => {
+            if (!discoveryTools.includes(c.name)) return false;
+            const input = JSON.stringify(c.input ?? {});
+            return discoveryPatterns.some(p => p.test(input));
+          });
+
+          // Case 1: No test run at all (maybe couldn't find tests) — pass with note
+          if (testRunIdx === -1) {
+            return {
+              pass: true,
+              score: 0.5,
+              reason: 'No test execution found — may not have found tests to run. Not a discovery violation.'
+            };
+          }
+
+          // Case 2: Discovery happened before test run — correct behavior
+          if (discoveryIdx !== -1 && discoveryIdx < testRunIdx) {
+            const discoverCall = toolCalls[discoveryIdx];
+            return {
+              pass: true,
+              score: 1,
+              reason: `✓ Discovery (${discoverCall.name}) happened before test execution at index ${testRunIdx}`
+            };
+          }
+
+          // Case 3: Test run without prior discovery — violation
+          const testCmd = toolCalls[testRunIdx].input?.command ?? '';
+          return {
+            pass: false,
+            score: 0,
+            reason: `Tests run without discovery: "${testCmd.slice(0, 100)}" at index ${testRunIdx}. No CI/task-runner check found before it.`
+          };
+
+      # Should NOT run bare `pytest` or `uv run pytest` as the first test command
+      # when task runners might exist
+      - type: javascript
+        value: |
+          const toolCalls = context.providerResponse?.metadata?.toolCalls ?? [];
+          const bashCalls = toolCalls.filter(c => c.name === 'Bash');
+
+          // Find the first pytest-like command
+          const firstTestRun = bashCalls.find(c => {
+            const cmd = c.input?.command ?? '';
+            return /\b(pytest|uv run pytest|poetry run pytest)\b/.test(cmd)
+              && !/nox|tox|make/.test(cmd);
+          });
+
+          if (!firstTestRun) {
+            return {
+              pass: true,
+              score: 1,
+              reason: '✓ No bare pytest command found (may have used task runner or no tests run)'
+            };
+          }
+
+          // Check if noxfile/tox/Makefile was examined before running bare pytest
+          const firstTestIdx = toolCalls.indexOf(firstTestRun);
+          const checkedRunners = toolCalls.slice(0, firstTestIdx).some(c => {
+            const input = JSON.stringify(c.input ?? {});
+            return /noxfile|tox\.ini|Makefile/.test(input);
+          });
+
+          if (checkedRunners) {
+            return {
+              pass: true,
+              score: 1,
+              reason: '✓ Task runner configs checked before falling back to bare pytest'
+            };
+          }
+
+          return {
+            pass: false,
+            score: 0,
+            reason: `Bare pytest run without checking for task runners: "${(firstTestRun.input?.command ?? '').slice(0, 100)}"`
+          };

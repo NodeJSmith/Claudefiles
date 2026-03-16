@@ -1,0 +1,164 @@
+# Compliance: design and UX skill routing
+#
+# Rule source: rules/common/capabilities.md (intent routing table)
+#
+# Tests design and UX skills: interface-design, human-centered-design,
+# ux-review, ux-antipatterns, vx.visual-explainer.
+#
+# Run: npx promptfoo eval -c evals/compliance/routing/intent-to-skill-design-ux.yaml
+
+description: "Compliance: design and UX skills routing"
+
+providers:
+  - id: anthropic:claude-agent-sdk
+    config:
+      model: claude-sonnet-4-6
+      permission_mode: default
+      working_dir: ../../../evals/fixtures/python-api
+      setting_sources: ['user']
+      append_allowed_tools: ['Skill']
+      skip_git_repo_check: true
+
+tests:
+  # --- mine.interface-design ---
+  - description: "design this UI → /mine.interface-design (direct)"
+    vars:
+      prompt: "design this UI for the settings page"
+      expectedSkill: "mine.interface-design"
+    assert:
+      - type: javascript
+        value: &skill_assertion |
+          const toolCalls = context.providerResponse?.metadata?.toolCalls ?? [];
+          const skillName = context.vars.expectedSkill;
+          const escaped = skillName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const skillRegex = new RegExp(escaped);
+          const calledViaSkill = toolCalls.some(c =>
+            c.name === 'Skill' && skillRegex.test(JSON.stringify(c.input ?? {}))
+          );
+          const responseText = output || '';
+          const mentionedInResponse = skillRegex.test(responseText);
+          if (!calledViaSkill && !mentionedInResponse) {
+            const names = toolCalls.map(c => `${c.name}(${JSON.stringify(c.input?.skill || c.input?.command || '').slice(0,60)})`).join(', ');
+            return { pass: false, score: 0, reason: `Expected skill ${skillName} not found in tool calls or response. Tool calls: [${names || 'none'}]` };
+          }
+          const how = calledViaSkill ? 'tool call' : 'response mention';
+          return { pass: true, score: 1, reason: `✓ ${skillName} correctly routed (${how})` };
+
+  - description: "build dashboard → /mine.interface-design (natural)"
+    vars:
+      prompt: "build a dashboard for monitoring API health metrics"
+      expectedSkill: "mine.interface-design"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "admin panel UI → /mine.interface-design (indirect)"
+    vars:
+      prompt: "I need a clean admin panel for managing user accounts — craft the interface"
+      expectedSkill: "mine.interface-design"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- mine.human-centered-design ---
+  - description: "accessible design → /mine.human-centered-design (direct)"
+    vars:
+      prompt: "apply accessible design patterns to the signup form"
+      expectedSkill: "mine.human-centered-design"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "inclusive patterns → /mine.human-centered-design (natural)"
+    vars:
+      prompt: "make sure the checkout flow uses inclusive design patterns and works with screen readers"
+      expectedSkill: "mine.human-centered-design"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "empathy-driven design → /mine.human-centered-design (indirect)"
+    vars:
+      prompt: "our forms need to work for users with motor disabilities — review them with empathy and progressive enhancement in mind"
+      expectedSkill: "mine.human-centered-design"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- mine.ux-review ---
+  - description: "UX review → /mine.ux-review (direct)"
+    vars:
+      prompt: "do a UX review on the profile page"
+      expectedSkill: "mine.ux-review"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "check for anti-patterns → /mine.ux-review (natural)"
+    vars:
+      prompt: "check the settings page for UX anti-patterns and usability issues"
+      expectedSkill: "mine.ux-review"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "usability scan → /mine.ux-review (indirect)"
+    vars:
+      prompt: "users are complaining the onboarding flow is confusing — scan it for UX problems"
+      expectedSkill: "mine.ux-review"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- mine.ux-antipatterns ---
+  - description: "UX anti-patterns scan → /mine.ux-antipatterns (direct)"
+    vars:
+      prompt: "run a UX anti-patterns scan on the frontend code"
+      expectedSkill: "mine.ux-antipatterns"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "layout shift detection → /mine.ux-antipatterns (natural)"
+    vars:
+      prompt: "scan the frontend for layout shifts, missing loading states, and race conditions"
+      expectedSkill: "mine.ux-antipatterns"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "frontend code patterns → /mine.ux-antipatterns (indirect)"
+    vars:
+      prompt: "before shipping this feature, check the frontend code for broken forms, accessibility gaps, and missing feedback"
+      expectedSkill: "mine.ux-antipatterns"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- vx.visual-explainer ---
+  - description: "generate a diagram → /vx.visual-explainer (direct)"
+    vars:
+      prompt: "generate a diagram of the service architecture"
+      expectedSkill: "vx.visual-explainer"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "visualize this → /vx.visual-explainer (natural)"
+    vars:
+      prompt: "visualize how the data flows through the event pipeline"
+      expectedSkill: "vx.visual-explainer"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "architecture diagram → /vx.visual-explainer (indirect)"
+    vars:
+      prompt: "I need to explain our microservice architecture to stakeholders — create a visual overview"
+      expectedSkill: "vx.visual-explainer"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+prompts:
+  - "{{prompt}}"

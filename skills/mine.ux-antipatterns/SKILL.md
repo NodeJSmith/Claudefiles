@@ -1,6 +1,6 @@
 ---
 name: mine.ux-antipatterns
-description: Detect UX anti-patterns in frontend code — layout shifts, missing feedback, broken forms, race conditions, accessibility gaps. Use when reviewing, building, or refactoring user-facing interfaces.
+description: "Use when the user says: \"UX anti-patterns scan\". Detects UX anti-patterns in frontend code — layout shifts, missing feedback, broken forms, race conditions, accessibility gaps."
 ---
 
 # UX Anti-Pattern Detection

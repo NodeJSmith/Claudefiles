@@ -1,6 +1,6 @@
 ---
 name: mine.audit
-description: Systematic codebase health audit. Surfaces the biggest problems — aging code, brittle designs, over-exposed internals, missing tests, and accumulated debt — ranked by impact. Feeds into /mine.refactor and /mine.adrs.
+description: "Use when the user says: \"audit the codebase\", \"find tech debt\", or \"health check\". Systematic codebase health audit — surfaces aging code, brittle designs, missing tests, and accumulated debt, ranked by impact."
 user-invokable: true
 ---
 

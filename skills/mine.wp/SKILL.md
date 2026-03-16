@@ -1,6 +1,6 @@
 ---
 name: mine.wp
-description: WP lane management — move work packages between lanes, view status, list WPs for the current feature.
+description: "Use when the user says: \"move WP to doing\", \"WP status\", or \"kanban\". Manages work package lanes — move between lanes, view status, list WPs for the current feature."
 user-invokable: true
 ---
 

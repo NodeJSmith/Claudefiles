@@ -1,6 +1,6 @@
 ---
 name: mine.design
-description: Scope a change, investigate it with the researcher agent, write a design doc, and gate on user sign-off before planning.
+description: "Use when the user says: \"design this change\", \"write a design doc\", \"investigate before planning\", or asks HOW to build something. Scopes a change, investigates with the researcher agent, writes a design doc, and gates on user sign-off."
 user-invokable: true
 ---
 

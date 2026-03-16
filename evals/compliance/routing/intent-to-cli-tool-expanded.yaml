@@ -1,0 +1,237 @@
+# Compliance: expanded CLI tool routing
+#
+# Rule source: rules/common/capabilities.md (intent routing table + CLI Tools section)
+#
+# Tests CLI tools not covered in the base file: gh-pr-reply,
+# gh-pr-resolve-thread, gh-bot, gh-app-token, git-default-branch,
+# git-rebase-onto, ado-logs, ado-pr, ado-pr-threads.
+#
+# Run: npx promptfoo eval -c evals/compliance/routing/intent-to-cli-tool-expanded.yaml
+
+description: "Compliance: expanded CLI tool routing"
+
+providers:
+  - id: anthropic:claude-agent-sdk
+    config:
+      model: claude-sonnet-4-6
+      permission_mode: default
+      setting_sources: ['user']
+      working_dir: .
+
+tests:
+  # --- gh-pr-reply ---
+  - description: "reply to PR comment → gh-pr-reply (direct)"
+    vars:
+      prompt: "reply to the PR comment asking about the error handling"
+      expectedTool: "gh-pr-reply"
+    assert:
+      - type: javascript
+        value: &cli_assertion |
+          const toolCalls = context.providerResponse?.metadata?.toolCalls ?? [];
+          const tool = context.vars.expectedTool;
+          const escaped = tool.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const toolRegex = new RegExp(escaped);
+          const bashCalls = toolCalls.filter(c => c.name === 'Bash');
+          const calledViaBash = bashCalls.some(c => toolRegex.test(c.input?.command ?? ''));
+          const responseText = output || '';
+          const mentionedInResponse = toolRegex.test(responseText);
+          if (!calledViaBash && !mentionedInResponse) {
+            const cmds = bashCalls.map(c => (c.input?.command ?? '').slice(0, 80)).join('\n  ');
+            return { pass: false, score: 0, reason: `Expected ${tool} not found in tool calls or response. Bash commands:\n  ${cmds || 'none'}` };
+          }
+          const how = calledViaBash ? 'tool call' : 'response mention';
+          return { pass: true, score: 1, reason: `✓ ${tool} correctly routed (${how})` };
+
+  - description: "respond to review → gh-pr-reply (natural)"
+    vars:
+      prompt: "respond to the reviewer's question about the caching approach"
+      expectedTool: "gh-pr-reply"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "answer PR feedback → gh-pr-reply (indirect)"
+    vars:
+      prompt: "the reviewer wants to know why I chose this approach — post a reply explaining the trade-offs"
+      expectedTool: "gh-pr-reply"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  # --- gh-pr-resolve-thread ---
+  - description: "resolve PR thread → gh-pr-resolve-thread (direct)"
+    vars:
+      prompt: "resolve the PR thread about the naming convention"
+      expectedTool: "gh-pr-resolve-thread"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "mark thread resolved → gh-pr-resolve-thread (natural)"
+    vars:
+      prompt: "mark all the addressed review threads as resolved"
+      expectedTool: "gh-pr-resolve-thread"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "close review comments → gh-pr-resolve-thread (indirect)"
+    vars:
+      prompt: "I've fixed everything the reviewer asked for — resolve those threads"
+      expectedTool: "gh-pr-resolve-thread"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  # --- gh-bot ---
+  - description: "run gh as bot → gh-bot (direct)"
+    vars:
+      prompt: "run this gh command as the bot identity"
+      expectedTool: "gh-bot"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "bot comment → gh-bot (natural)"
+    vars:
+      prompt: "comment on issue #15 as the bot saying the fix is deployed"
+      expectedTool: "gh-bot"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "bot identity → gh-bot (indirect)"
+    vars:
+      prompt: "create an issue for the regression but make it come from the bot account, not me"
+      expectedTool: "gh-bot"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  # --- git-default-branch ---
+  - description: "default branch name → git-default-branch (direct)"
+    vars:
+      prompt: "what's the default branch name for this repo?"
+      expectedTool: "git-default-branch"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "main or master → git-default-branch (natural)"
+    vars:
+      prompt: "is this repo using main or master as the default branch?"
+      expectedTool: "git-default-branch"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "print default branch → git-default-branch (indirect)"
+    vars:
+      prompt: "I need to know the default branch so I can set up the rebase target"
+      expectedTool: "git-default-branch"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  # --- git-rebase-onto ---
+  - description: "rebase dropping old base → git-rebase-onto (direct)"
+    vars:
+      prompt: "rebase my branch onto develop, dropping the commits from the old feature branch"
+      expectedTool: "git-rebase-onto"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "clean rebase → git-rebase-onto (natural)"
+    vars:
+      prompt: "I branched off feature/auth but now need to rebase onto main without carrying auth's commits"
+      expectedTool: "git-rebase-onto"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "drop old base commits → git-rebase-onto (indirect)"
+    vars:
+      prompt: "this branch has commits from the old base — do a clean rebase dropping those"
+      expectedTool: "git-rebase-onto"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  # --- ado-logs ---
+  - description: "build logs → ado-logs (direct)"
+    vars:
+      prompt: "show me the build logs for the failed CI run"
+      expectedTool: "ado-logs"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "why did CI fail → ado-logs (natural)"
+    vars:
+      prompt: "why did the Azure DevOps build fail? show me the errors"
+      expectedTool: "ado-logs"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "CI errors → ado-logs (indirect)"
+    vars:
+      prompt: "the pipeline is red — pull the logs and tell me what went wrong"
+      expectedTool: "ado-logs"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  # --- ado-pr ---
+  - description: "create ADO PR → ado-pr (direct)"
+    vars:
+      prompt: "create an ADO PR for this branch"
+      expectedTool: "ado-pr"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "list ADO PRs → ado-pr (natural)"
+    vars:
+      prompt: "show me all open pull requests in Azure DevOps"
+      expectedTool: "ado-pr"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "ADO PR details → ado-pr (indirect)"
+    vars:
+      prompt: "I need to check the status of my ADO pull request and update the description"
+      expectedTool: "ado-pr"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  # --- ado-pr-threads ---
+  - description: "list ADO PR threads → ado-pr-threads (direct)"
+    vars:
+      prompt: "list the ADO PR review threads"
+      expectedTool: "ado-pr-threads"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "reply to ADO PR comment → ado-pr-threads (natural)"
+    vars:
+      prompt: "reply to the ADO PR comment about the missing unit test"
+      expectedTool: "ado-pr-threads"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+  - description: "resolve ADO PR thread → ado-pr-threads (indirect)"
+    vars:
+      prompt: "I addressed the ADO reviewer's feedback — resolve those threads"
+      expectedTool: "ado-pr-threads"
+    assert:
+      - type: javascript
+        value: *cli_assertion
+
+prompts:
+  - "{{prompt}}"
