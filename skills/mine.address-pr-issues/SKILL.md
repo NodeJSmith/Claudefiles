@@ -368,32 +368,8 @@ Keep replies professional and direct. Don't be dismissive of reviewer feedback e
 
 **IMPORTANT**: Use these helper scripts instead of inline commands. They are in PATH (`bin/` in this repo, symlinked by `install.sh`) and avoid unnecessary permission prompts.
 
-### GitHub
-
-| Script | Purpose |
-|--------|---------|
-| `gh-pr-threads [pr-number]` | List unresolved review threads with summary |
-| `gh-pr-reply <pr> <comment-id> <body>` | Post reply comment on a thread |
-| `gh-pr-resolve-thread <thread-id> [...]` | Resolve one or more threads by GraphQL ID |
-
-### ADO
-
-| Script | Purpose |
-|--------|---------|
-| `ado-pr show [pr-id]` | PR metadata (auto-detects from branch) |
-| `ado-pr-threads list [pr-id] [--json]` | List active threads |
-| `ado-pr-threads reply <pr> <thread-id> <body>` | Post reply comment on a thread |
-| `ado-pr-threads resolve <thread-id> [...] [--pr PR_ID] [--status STATUS]` | Resolve threads. Status: fixed (default), closed, byDesign, wontFix, pending |
-
-### Getting comment IDs
-
-**GitHub:** The `databaseId` field is included in `gh-pr-threads` output. If needed separately:
-```bash
-gh api repos/{owner}/{repo}/pulls/{PR}/comments --jq '.[] | {id, path, body}'
-```
-Or add `databaseId` to the GraphQL comments query in Phase 1.
-
-**ADO:** Thread and comment IDs come from `ado-pr-threads list --json`.
+- **GitHub**: See skill: `mine.gh-tools` for `gh-pr-threads`, `gh-pr-reply`, `gh-pr-resolve-thread` usage, flags, and examples.
+- **ADO**: See skill: `mine.ado-tools` for `ado-pr`, `ado-pr-threads` usage, flags, and examples.
 
 ---
 
