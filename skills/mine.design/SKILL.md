@@ -224,6 +224,8 @@ AskUserQuestion:
   header: "Design sign-off"
   multiSelect: false
   options:
+    - label: "Challenge this design"
+      description: "Run /mine.challenge to find architectural issues before approving"
     - label: "Approve — proceed to mine.draft-plan"
       description: "The design looks good; move to implementation planning"
     - label: "Revise — I have feedback"
@@ -231,6 +233,10 @@ AskUserQuestion:
     - label: "Save and stop"
       description: "Keep the design doc, but don't proceed to planning yet"
 ```
+
+### On "Challenge this design"
+
+Invoke `/mine.challenge` with the design doc path as context. After the challenge completes and the user has addressed any findings (or chosen to proceed despite them), loop back to the sign-off gate above.
 
 ### On "Approve"
 

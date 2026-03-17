@@ -47,6 +47,16 @@
   "hooks": {
     "PreToolUse": [],
     "PreCompact": [],
-    "SessionStart": []
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/scripts/hooks/tmux-remind.sh"
+          }
+        ]
+      }
+    ]
   }
 }
