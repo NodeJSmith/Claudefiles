@@ -19,7 +19,7 @@
 # from other evals that use bare prompts or vars.prompt — here the skill
 # content must vary between tests while the user message stays the same.
 #
-# Run: npx promptfoo eval -c evals/compliance/tools/skill-cross-reference.yaml
+# Run: node_modules/.bin/promptfoo eval -c evals/compliance/tools/skill-cross-reference.yaml
 
 description: "Compliance: skill cross-references provide sufficient context for correct tool usage"
 

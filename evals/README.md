@@ -81,12 +81,12 @@ Tests that natural-language user prompts trigger the correct skill, agent, or CL
 ```bash
 ANTHROPIC_API_KEY=$(printenv MY_ANTHROPIC_API_KEY) node_modules/.bin/promptfoo eval \
   -c evals/compliance/tools/gh-pr-reply.yaml --no-cache \
-  --output /tmp/eval-results.json
+  --output ${CLAUDE_CODE_TMPDIR:-/tmp}/eval-results.json
 
 # Check assertion results per variant
 python3 -c "
 import json
-with open('/tmp/eval-results.json') as f:
+with open('${CLAUDE_CODE_TMPDIR:-/tmp}/eval-results.json') as f:
     data = json.load(f)
 for result in data['results']['results']:
     desc = result['testCase'].get('description', '?')
