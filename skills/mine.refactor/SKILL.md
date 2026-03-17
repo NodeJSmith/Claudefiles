@@ -145,7 +145,7 @@ Names are one of the hardest parts of refactoring and the user knows their domai
 
 ## Phase 3: Plan
 
-Launch the Agent tool with `subagent_type: "Planner"`, passing the chosen strategy, target code, and dependency analysis from Phase 2 as context.
+Launch the Agent tool with `subagent_type: "planner"`, passing the chosen strategy, target code, and dependency analysis from Phase 2 as context.
 
 ### Build the plan
 

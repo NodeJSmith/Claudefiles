@@ -1,5 +1,5 @@
 ---
-name: Integration Reviewer
+name: integration-reviewer
 description: Codebase integration reviewer — finds duplication, convention drift, misplacement, orphaned code, and design violations. Run in parallel with code-reviewer before every commit.
 tools: ["Read", "Grep", "Glob", "Bash"]
 ---

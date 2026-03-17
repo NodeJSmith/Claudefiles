@@ -1,5 +1,5 @@
 ---
-name: DevOps Automator
+name: engineering-devops-automator
 description: Expert DevOps engineer specializing in infrastructure automation, CI/CD pipeline development, and cloud operations
 color: orange
 emoji: ⚙️

@@ -1,5 +1,5 @@
 ---
-name: Visual Diff
+name: visual-diff
 description: Visual regression testing via Playwright MCP — captures before/after screenshots to detect unintended UI changes. Use before and after UI changes to catch regressions. Requires Playwright MCP.
 tools: ["Read", "Bash", "Glob", "Grep"]
 ---

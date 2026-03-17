@@ -1,5 +1,5 @@
 ---
-name: Reality Checker
+name: testing-reality-checker
 description: Adversarial pre-ship gate — defaults to "NEEDS WORK", requires overwhelming visual evidence for production readiness. Uses Playwright MCP for screenshot capture across devices.
 color: red
 emoji: 🧐

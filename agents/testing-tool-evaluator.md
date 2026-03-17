@@ -1,5 +1,5 @@
 ---
-name: Tool Evaluator
+name: testing-tool-evaluator
 description: Expert technology assessment specialist focused on evaluating, testing, and recommending tools, software, and platforms for business use and productivity optimization
 color: teal
 emoji: 🔧
