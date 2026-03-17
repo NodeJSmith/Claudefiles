@@ -5,6 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-17
 
 ### Added
+- `rules/common/interaction.md` — clarify-don't-plan rule: prefer `AskUserQuestion` over `EnterPlanMode` for ambiguous tasks; only enter plan mode when explicitly requested
 - `rules/common/web-search.md` — search-before-retry rule: triggers on recurring errors (2+), unfamiliar APIs, version/deprecation messages; routes to Context7 or WebSearch by situation (#94)
 - Local test/lint verification step in `mine.ship` and `mine.commit-push` — runs test suite and linter before committing, with 3-retry limit (#94)
 
