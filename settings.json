@@ -47,6 +47,15 @@
   "hooks": {
     "PreToolUse": [],
     "PreCompact": [],
-    "SessionStart": []
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/tmux-remind.sh"
+          }
+        ]
+      }
+    ]
   }
 }
