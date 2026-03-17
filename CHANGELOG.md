@@ -6,6 +6,13 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Added
 - `rules/common/interaction.md` — ban `EnterPlanMode` unless explicitly requested; use `planner` subagent + `AskUserQuestion` instead (#95)
+- `commands/mine.review` — run code-reviewer and integration-reviewer in parallel on the current branch diff
+
+### Removed
+- `mine.constitution` skill and all references — redundant with global rules; per-project overrides belong in CLAUDE.md
+
+### Fixed
+- `mine.design` and `mine.specify` interview questions now use one `AskUserQuestion` per question instead of batching multiple questions into a single call with mismatched options
 
 ### Changed
 - `mine.refactor`, `mine.address-pr-issues`, `mine.5whys`, `mine.issues` — replaced `EnterPlanMode`/`ExitPlanMode` with `planner` subagent + `AskUserQuestion` approval flow (#95)

@@ -3,7 +3,7 @@
 # Rule source: rules/common/capabilities.md (intent routing table)
 #
 # Tests the caliper v2 workflow skills: specify → design → draft-plan →
-# plan-review → orchestrate → implementation-review, plus wp and constitution.
+# plan-review → orchestrate → implementation-review, plus wp.
 # If any step breaks, the whole planning pipeline is unusable.
 #
 # Run: npx promptfoo eval -c evals/compliance/routing/intent-to-skill-planning.yaml
@@ -232,31 +232,6 @@ tests:
     vars:
       prompt: "I just finished WP01 — update the kanban and show me what's next"
       expectedSkill: "mine.wp"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  # --- mine.constitution ---
-  - description: "create a constitution → /mine.constitution (direct)"
-    vars:
-      prompt: "create a constitution for this project"
-      expectedSkill: "mine.constitution"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  - description: "architecture rules → /mine.constitution (natural)"
-    vars:
-      prompt: "set up architecture constraints and quality rules for this repo"
-      expectedSkill: "mine.constitution"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  - description: "project constraints → /mine.constitution (indirect)"
-    vars:
-      prompt: "before the team starts contributing, let's define the project constraints so designs can be validated against them"
-      expectedSkill: "mine.constitution"
     assert:
       - type: javascript
         value: *skill_assertion

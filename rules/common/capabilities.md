@@ -47,7 +47,7 @@
 | "execute the plan", "orchestrate implementation", "start executing" | `/mine.orchestrate` |
 | "review the implementation", "post-implementation review" | `/mine.implementation-review` |
 | "move WP to doing", "WP status", "kanban" | `/mine.wp` |
-| "create a constitution", "project constraints", "architecture rules" | `/mine.constitution` |
+| "review my changes", "run the reviewers", "code and integration review" | `/mine.review` |
 | "evaluate skill", "compare skill variants", "skill A/B test" | `/mine.skill-eval` |
 | "rebase this worktree", "sync worktree to parent branch" | `/mine.worktree-rebase` |
 
