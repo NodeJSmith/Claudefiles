@@ -32,24 +32,29 @@ Ship the current changes: commit, push, and open a PR. Follow each phase in orde
 
    After applying fixes, re-run `code-reviewer` and repeat until no CRITICAL or HIGH issues remain or only LOW/noise is left. If the same CRITICAL or HIGH findings appear again and cannot be auto-fixed, defer to the user — do not proceed to commit.
 5. **INTEGRATION REVIEW (skip for documentation-only changes):** Run `integration-reviewer` once on the final state of the changes (after the code-reviewer loop). Address any CRITICAL or HIGH findings; defer ambiguous ones to the user.
-6. Stage all relevant files (including CHANGELOG.md if updated).
-7. For multi-line commit messages, run `get-skill-tmpdir mine-commit` to create a temp directory, then write the message to `<dir>/message.md` and run `git commit -F <dir>/message.md`. For simple one-line messages, `git commit -m "..."` is fine. Do NOT use `git commit -m "$(cat <<'EOF'...)"` — command substitution triggers extra permission prompts.
-8. Push the branch to origin (use `-u` flag if the branch has no upstream yet).
-9. You MUST do steps 6–8 in a single message. Include the Write call for the commit message file (if needed) in that same message. Do not use any other tools or do anything else besides these tool calls.
+6. **LOCAL VERIFICATION (skip for documentation-only changes):**
+   1. Determine the project's test command using the test execution discovery order from `rules/common/testing.md`
+   2. Run the test suite locally. If tests fail, fix the issues and re-run (max 3 iterations). If still failing after 3 attempts, stop and present the failures to the user.
+   3. Run the project's linter if configured (e.g., `ruff check` for Python, `eslint` for JS). Fix any issues.
+   4. Only proceed to staging once both pass.
+7. Stage all relevant files (including CHANGELOG.md if updated).
+8. For multi-line commit messages, run `get-skill-tmpdir mine-commit` to create a temp directory, then write the message to `<dir>/message.md` and run `git commit -F <dir>/message.md`. For simple one-line messages, `git commit -m "..."` is fine. Do NOT use `git commit -m "$(cat <<'EOF'...)"` — command substitution triggers extra permission prompts.
+9. Push the branch to origin (use `-u` flag if the branch has no upstream yet).
+10. You MUST do steps 7–9 in a single message. Include the Write call for the commit message file (if needed) in that same message. Do not use any other tools or do anything else besides these tool calls.
 
 ### Phase 2 — Create PR
 
-8. **Detect platform** from the remote URL:
-   - Contains `github.com` → **GitHub** (use `gh` CLI)
-   - Contains `dev.azure.com` or `visualstudio.com` → **Azure DevOps** (use `az` CLI)
-   - Otherwise → inform the user the platform is unsupported and stop
-9. Check if a PR already exists for this branch:
-   - **GitHub**: `gh pr list --head <branch-name>`
-   - **Azure DevOps**: `az repos pr list --source-branch <branch-name> --status active`
-10. Analyze ALL commits in the branch (not just the latest): run `git-branch-log` (uses closest remote branch as base)
-11. Run `git-branch-diff-stat` to see all code changes summary
-12. Read key modified files if needed for additional context
-13. Draft a comprehensive PR:
+11. **Detect platform** from the remote URL:
+    - Contains `github.com` → **GitHub** (use `gh` CLI)
+    - Contains `dev.azure.com` or `visualstudio.com` → **Azure DevOps** (use `az` CLI)
+    - Otherwise → inform the user the platform is unsupported and stop
+12. Check if a PR already exists for this branch:
+    - **GitHub**: `gh pr list --head <branch-name>`
+    - **Azure DevOps**: `az repos pr list --source-branch <branch-name> --status active`
+13. Analyze ALL commits in the branch (not just the latest): run `git-branch-log` (uses closest remote branch as base)
+14. Run `git-branch-diff-stat` to see all code changes summary
+15. Read key modified files if needed for additional context
+16. Draft a comprehensive PR:
     - Title: < 70 characters, summarize the change
     - Body format:
       ```markdown
@@ -57,7 +62,7 @@ Ship the current changes: commit, push, and open a PR. Follow each phase in orde
       <1-3 bullet points explaining what changed and why>
 
       ```
-14. Create the PR as a **draft**:
+17. Create the PR as a **draft**:
     - Run `get-skill-tmpdir mine-pr` to create a temp directory, then write the PR body to `<dir>/body.md` and use that path in subsequent commands
     - **GitHub**:
       ```bash
@@ -67,7 +72,7 @@ Ship the current changes: commit, push, and open a PR. Follow each phase in orde
       ```bash
       az repos pr create --draft true --title "..." --description "$(cat <tmpfile>)" --source-branch <branch> --target-branch <default-branch>
       ```
-15. **Update CHANGELOG with PR number**: If a `CHANGELOG.md` exists (use the one closest to the current working directory if multiple exist — not necessarily the repo root):
+18. **Update CHANGELOG with PR number**: If a `CHANGELOG.md` exists (use the one closest to the current working directory if multiple exist — not necessarily the repo root):
     - Extract the PR number from the PR URL
     - Use the platform-appropriate prefix for the PR reference:
       - **GitHub**: `#` (e.g., `(#123)`) — links to the PR
@@ -80,10 +85,10 @@ Ship the current changes: commit, push, and open a PR. Follow each phase in orde
     - Commit with message: e.g., `changelog: add PR #<NUMBER>` for GitHub or `changelog: add PR !<NUMBER>` for Azure DevOps
     - Push
     - If no `CHANGELOG.md` exists, suggest to the user that they add one to track notable changes per release
-16. **Mark PR as ready** (reviewers see the final state with changelog PR numbers already in place):
+19. **Mark PR as ready** (reviewers see the final state with changelog PR numbers already in place):
     - **GitHub**: `gh pr ready`
     - **Azure DevOps**: `az repos pr update --id <PR_ID> --draft false`
-17. Return the PR URL
+20. Return the PR URL
 
 **Important:**
 - If a PR already exists, show the PR URL and do not create a duplicate

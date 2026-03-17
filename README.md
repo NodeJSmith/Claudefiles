@@ -60,7 +60,7 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 | `mine.interface-design` | Craft and consistency for interface design -- dashboards, admin panels, apps, tools |
 | `mine.interviewer` | Alias for mine.specify — structured discovery interview that produces spec.md |
 | `mine.mutation-test` | Mutation testing -- intentionally break code to verify tests catch real bugs |
-| `mine.orchestrate` | Execute work packages task-by-task with executor + spec reviewer + quality reviewer subagent loop; tracks WP lane state |
+| `mine.orchestrate` | Execute work packages task-by-task with executor → spec reviewer → code reviewer → integration reviewer loop; tracks WP lane state |
 | `mine.plan-review` | Opus checklist review (6 points) of design doc + work packages + approve/revise/abandon gate |
 | `mine.python-patterns` | Pythonic idioms, PEP 8, type hints, and best practices |
 | `mine.python-testing` | Python testing strategies using pytest, TDD, fixtures, mocking, parametrization |
@@ -168,11 +168,11 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 | `product-feedback-synthesizer` | Synthesizes user feedback from multiple channels into actionable product insights |
 | `product-sprint-prioritizer` | Sprint planning, feature prioritization, velocity optimization using RICE/MoSCoW |
 
-### Rules (21)
+### Rules (22)
 
 Coding guidelines organized by language. These load automatically and shape how Claude writes code.
 
-**Common** (16): agents, backlog, bash-tools, capabilities, coding-style, command-output, error-tracking, frontend-workflow, git-workflow, hooks, patterns, performance, security, testing, tmux, worktrees
+**Common** (17): agents, backlog, bash-tools, capabilities, coding-style, command-output, error-tracking, frontend-workflow, git-workflow, hooks, patterns, performance, security, testing, tmux, web-search, worktrees
 
 **Python** (5): coding-style, hooks, patterns, security, testing
 

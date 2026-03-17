@@ -161,7 +161,7 @@ depends_on: []
 
 ## Review Guidance
 
-<What the spec reviewer and quality reviewer should check. Name the design constraints they must verify. Call out any areas where deviation from the design would be a blocker vs. a warning.>
+<What the spec reviewer, code reviewer, and integration reviewer should check. Name the design constraints they must verify. Call out any areas where deviation from the design would be a blocker vs. a warning.>
 
 ## Activity Log
 
@@ -213,7 +213,9 @@ WP02  Implement service layer
 ...
 ```
 
-Then ask:
+**If invoked inline by `mine.build`** (the user chose "Full caliper workflow" or "Accelerated"), skip the gate below and invoke `/mine.plan-review <feature_dir>` directly — `mine.build` handles the flow.
+
+**Otherwise**, ask:
 
 ```
 AskUserQuestion:
@@ -221,14 +223,12 @@ AskUserQuestion:
   header: "Review gate"
   multiSelect: false
   options:
-    - label: "Yes — show me the command"
-      description: "Display the /mine.plan-review command to run next"
+    - label: "Yes — run plan review"
+      description: "Invoke /mine.plan-review for this feature"
     - label: "No — I'll review manually first"
-      description: "Stop here; run /mine.plan-review when ready"
+      description: "Stop here"
 ```
 
-On "Yes": tell the user to run `/mine.plan-review <feature_dir>/design.md`.
+On "Yes": invoke `/mine.plan-review <feature_dir>` directly.
 
 On "No": confirm the WP paths and stop.
-
-**Do NOT call mine.plan-review automatically** — always wait for user confirmation.
