@@ -210,9 +210,7 @@ If "Show details first" → display the full categorized breakdown, then ask aga
 
 Omit categories with zero issues from the summary (e.g., if no merge conflicts, don't mention them).
 
-## Phase 4: Plan Mode — Analyze & Plan Solutions
-
-Enter plan mode with `EnterPlanMode`.
+## Phase 4: Analyze & Plan Solutions
 
 ### Review comments
 
@@ -277,11 +275,7 @@ Write a structured plan covering **every** item with the proposed action. The us
    Action: Wrap line.
 ```
 
-Use `ExitPlanMode` to present the plan for user approval.
-
-### Handle plan feedback
-
-If the user has concerns about specific items, use `AskUserQuestion` to clarify before proceeding.
+Present the plan to the user via `AskUserQuestion` for approval before executing. If the user has concerns about specific items, use `AskUserQuestion` to clarify before proceeding.
 
 ## Phase 5: Execute
 
@@ -403,4 +397,4 @@ Or add `databaseId` to the GraphQL comments query in Phase 1.
 
 ---
 
-**Remember**: Always get user approval via plan mode before applying code changes. Use AskUserQuestion for decisions throughout. Resolve threads as you go — don't leave resolution as a manual step.
+**Remember**: Always get user approval via `AskUserQuestion` before applying code changes. Resolve threads as you go — don't leave resolution as a manual step.

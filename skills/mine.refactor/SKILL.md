@@ -145,7 +145,7 @@ Names are one of the hardest parts of refactoring and the user knows their domai
 
 ## Phase 3: Plan
 
-**Enter plan mode** using the `EnterPlanMode` tool.
+Launch the Agent tool with `subagent_type: "Planner"`, passing the chosen strategy, target code, and dependency analysis from Phase 2 as context.
 
 ### Build the plan
 
@@ -187,7 +187,7 @@ For the chosen strategy, write a step-by-step plan where each step is:
 - [ ] No new linting warnings
 ```
 
-Use `ExitPlanMode` to present for user approval.
+Present the plan to the user via `AskUserQuestion` for approval before executing.
 
 ### Handle scope change
 

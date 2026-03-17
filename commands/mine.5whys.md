@@ -81,11 +81,11 @@ Present the full analysis chain:
 
 Use `AskUserQuestion` to ask what the user wants to do:
 
-- **Create a plan** — Enter plan mode to fix the root cause
+- **Create a plan** — Launch the planner to fix the root cause
 - **Create an issue** — File a GitHub issue capturing the analysis
 - **Just the analysis** — Done for now, I have what I need
 
-If **Create a plan**: use `EnterPlanMode`. The root cause summary gives the planner clear context.
+If **Create a plan**: launch the Agent tool with `subagent_type: "Planner"`, passing the root cause summary as context. Present the plan to the user via `AskUserQuestion` for approval.
 
 If **Create an issue**: run `gh-issue create` with the root cause summary as the body, and the problem statement as the title. Confirm the created issue URL with the user.
 
