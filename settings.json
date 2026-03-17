@@ -49,7 +49,6 @@
     "PreCompact": [],
     "SessionStart": [
       {
-        "matcher": "",
         "hooks": [
           {
             "type": "command",
