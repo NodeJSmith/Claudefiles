@@ -12,6 +12,6 @@ unclear. Ask focused, minimal questions — only what's needed to proceed
 confidently. Then start implementing immediately after getting answers.
 
 When a task needs structured planning, launch the Agent tool with
-`subagent_type: "Planner"` instead of entering plan mode. Present the
+`subagent_type: "planner"` instead of entering plan mode. Present the
 planner's output to the user via `AskUserQuestion` for approval before
 executing.

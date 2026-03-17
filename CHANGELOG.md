@@ -6,6 +6,17 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Added
 - `rules/common/interaction.md` — ban `EnterPlanMode` unless explicitly requested; use `planner` subagent + `AskUserQuestion` instead (#95)
+- `/mine.review` command — run code-reviewer and integration-reviewer in parallel on the current branch diff (#96)
+
+### Removed
+- `mine.constitution` skill and all references — redundant with global rules; per-project overrides belong in CLAUDE.md (#96)
+
+### Changed
+- `mine.orchestrate` executor subagent now selects a specialized agent type based on WP content instead of always using general-purpose (#96)
+
+### Fixed
+- Agent frontmatter `name` fields now match filenames (kebab-case) so `subagent_type` references resolve correctly — previously Title Case names like `Code Reviewer` didn't match kebab-case references like `code-reviewer` (#96)
+- `mine.design` and `mine.specify` interview questions now use one `AskUserQuestion` per question instead of batching multiple questions into a single call with mismatched options (#96)
 
 ### Changed
 - `mine.refactor`, `mine.address-pr-issues`, `mine.5whys`, `mine.issues` — replaced `EnterPlanMode`/`ExitPlanMode` with `planner` subagent + `AskUserQuestion` approval flow (#95)

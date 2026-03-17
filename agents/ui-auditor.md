@@ -1,5 +1,5 @@
 ---
-name: UI Auditor
+name: ui-auditor
 description: UI/UX accessibility and consistency auditor — finds WCAG violations, missing ARIA labels, hardcoded styles, and UX anti-patterns. Use before shipping any UI or during a11y reviews.
 tools: ["Read", "Grep", "Glob", "Bash"]
 ---

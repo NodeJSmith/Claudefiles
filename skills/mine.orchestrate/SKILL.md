@@ -106,14 +106,31 @@ Use these paths for subagent outputs:
 
 These paths are **reused each WP iteration** — each WP's executor output overwrites the previous. This is safe because the files are read immediately within the same iteration before the loop advances. Per-WP output is not retained on disk after the next WP begins.
 
-### Step 3: Launch executor subagent
+### Step 3: Select executor agent type
+
+Before launching the executor, read the WP's objective and tasks to determine if a specialized agent is a better fit than `general-purpose`. Match the WP content against this table:
+
+| WP content signals | Use `subagent_type` |
+|---|---|
+| React, Vue, Angular, CSS, frontend components, UI implementation | `engineering-frontend-developer` |
+| ML model, training pipeline, embeddings, AI integration | `engineering-ai-engineer` |
+| CI/CD, Docker, Terraform, infrastructure, deployment pipeline | `engineering-devops-automator` |
+| MCP server, MCP tools, Model Context Protocol | `specialized-mcp-builder` |
+| API docs, README, tutorials, developer documentation | `engineering-technical-writer` |
+| Security hardening, auth implementation, encryption, threat mitigation | `engineering-security-engineer` |
+| Database schema, migrations, query optimization, ORM setup | `general-purpose` |
+| Rapid prototype, proof of concept, MVP | `engineering-rapid-prototyper` |
+
+If the WP doesn't clearly match any row, use `general-purpose` (the default). When in doubt, prefer `general-purpose` — a wrong specialist is worse than a capable generalist.
+
+### Step 4: Launch executor subagent
 
 Read these files:
 - `~/.claude/skills/mine.orchestrate/phase-executor-prompt.md`
 - `~/.claude/skills/mine.orchestrate/implementer-prompt.md`
 - `~/.claude/skills/mine.orchestrate/tdd.md`
 
-Launch a general-purpose subagent with this prompt (fill in bracketed values):
+Launch a subagent of the type selected in Step 3 with this prompt (fill in bracketed values):
 
 ```
 You are executing a single Work Package from an implementation plan.
@@ -138,7 +155,7 @@ Write your structured result to: <executor temp file path>
 
 Wait for the subagent to complete. Read the executor temp file.
 
-### Step 4: Launch spec reviewer subagent
+### Step 5: Launch spec reviewer subagent
 
 Read `~/.claude/skills/mine.orchestrate/spec-reviewer-prompt.md`.
 
@@ -164,7 +181,7 @@ Write your structured review to: <spec reviewer temp file path>
 
 Wait for the subagent to complete. Read the spec reviewer temp file.
 
-### Step 5: Classify deviations
+### Step 6: Classify deviations
 
 Compare executor result and spec reviewer verdict:
 
@@ -173,11 +190,11 @@ Compare executor result and spec reviewer verdict:
 | Executor PASS + Spec reviewer PASS | Proceed to code review |
 | Executor auto-fix deviation noted | Log it, proceed to code review |
 | Spec reviewer WARN | Proceed to code review; surface warning to user after reviews |
-| Spec reviewer FAIL | Mark WP FAIL; surface to user (gate at Step 8) |
-| Executor BLOCKED (any reason) | Mark WP BLOCKED; surface to user (gate at Step 8) |
+| Spec reviewer FAIL | Mark WP FAIL; surface to user (gate at Step 9) |
+| Executor BLOCKED (any reason) | Mark WP BLOCKED; surface to user (gate at Step 9) |
 | Executor BLOCKED (architectural) | Mark WP BLOCKED with architectural flag; do not retry without plan change |
 
-### Step 6: Code reviewer loop
+### Step 7: Code reviewer loop
 
 (Run this even if spec reviewer has WARNs — still useful to catch code issues early.)
 
@@ -195,7 +212,7 @@ Write the final code-reviewer output to `<dir>/code-review.md`.
 
 **Verdict impact:** If CRITICAL or HIGH issues remain after 3 iterations that could not be auto-fixed, the WP verdict becomes FAIL regardless of the spec reviewer result.
 
-### Step 7: Integration reviewer
+### Step 8: Integration reviewer
 
 Launch an `integration-reviewer` subagent (`Agent(subagent_type: "integration-reviewer")`) once on the same changed files. The integration-reviewer checks for duplication, convention drift, misplacement, orphaned code, and design violations.
 
@@ -203,7 +220,7 @@ Write the output to `<dir>/integration-review.md`.
 
 Read the integration-reviewer output. If it returns BLOCK verdict, the WP verdict becomes FAIL.
 
-### Step 8: Present results and gate
+### Step 9: Present results and gate
 
 Present a summary:
 
@@ -270,7 +287,7 @@ AskUserQuestion:
 
 Do not offer "Fix and retry" or "skip" for architectural blocks — retrying without a plan change will produce the same result.
 
-### Step 9: Update WP lane
+### Step 10: Update WP lane
 
 After the gate decision:
 

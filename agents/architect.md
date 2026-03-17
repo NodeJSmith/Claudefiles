@@ -1,5 +1,5 @@
 ---
-name: Architect
+name: architect
 description: Architecture documentation specialist — generates Mermaid diagrams and architectural overviews. May write or update documentation but does not modify application code. Use when onboarding to a new codebase, before major refactors, or after significant changes.
 tools: ["Read", "Grep", "Glob", "Write", "Edit"]
 ---

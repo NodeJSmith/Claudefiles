@@ -6,7 +6,7 @@ user-invocable: true
 
 # Design
 
-Take a raw idea or approved spec to a signed-off design document. Investigates the codebase, validates against the project constitution, asks proportional architecture questions, writes a structured design doc, and gates on user approval.
+Take a raw idea or approved spec to a signed-off design document. Investigates the codebase, asks proportional architecture questions, writes a structured design doc, and gates on user approval.
 
 Do NOT implement anything. Do NOT write a plan. Do NOT call mine.draft-plan automatically.
 
@@ -27,30 +27,35 @@ $ARGUMENTS — the change to design. Can be:
 
 If $ARGUMENTS points to a `design/specs/NNN-*/` directory or contains a path to a `spec.md`, read that spec and use it as the problem statement and success criteria. Skip the scoping questions for anything already answered by the spec.
 
-### Check for constitution
-
-Look for `.claude/constitution.md` in the project root:
-
-```
-Glob: .claude/constitution.md
-```
-
-If it exists, read it and keep it in context — you will validate the emerging design against it in Phase 3.
-
 ### Scoping questions
 
-Use a single `AskUserQuestion` call with 2–3 scoping questions. Skip any questions already answered by the spec:
+Ask each scoping question individually with its own `AskUserQuestion` call. Skip any questions already answered by the spec or $ARGUMENTS.
+
+**Question 1 — Problem & success criteria** (skip if already clear from spec or request):
 
 ```
 AskUserQuestion:
-  question: |
-    Before I investigate, I need to understand the goal:
-
-    1. What problem does this solve, and what does success look like?
-    2. Are there known constraints or non-goals (things this change should NOT do)?
-    3. Is there prior investigation I should build on? (e.g., a spec.md, ADR, or research brief)
-  header: "Scope the design"
+  question: "What problem does this solve, and what does success look like?"
+  header: "Problem"
 ```
+
+**Question 2 — Constraints & non-goals:**
+
+```
+AskUserQuestion:
+  question: "Are there known constraints or non-goals — things this change should NOT do?"
+  header: "Constraints"
+```
+
+**Question 3 — Prior work** (skip if spec already provided):
+
+```
+AskUserQuestion:
+  question: "Is there prior investigation I should build on? (e.g., a spec.md, ADR, or research brief)"
+  header: "Prior work"
+```
+
+Wait for each answer before asking the next question. Each question uses free-text input (no options needed — the user types their answer directly).
 
 Capture:
 - The problem and desired outcome
@@ -89,7 +94,7 @@ After the agent completes, read the temp file to get the research brief.
 
 ## Phase 3: Planning Interrogation
 
-Before writing the design doc, conduct a proportional architecture Q&A. One question at a time. Wait for each answer.
+Before writing the design doc, conduct a proportional architecture Q&A. **Ask one question per `AskUserQuestion` call. Wait for each answer before asking the next.** Do NOT batch multiple questions into a single call.
 
 Classify the change complexity (same scale as mine.specify):
 - **Trivial** — 1–2 architecture questions
@@ -100,27 +105,57 @@ Do NOT share the classification. Use it to calibrate how many questions to ask.
 
 ### Always ask
 
-1. **Approach alignment** — "The research points to [recommended approach]. Does this match your expectation, or do you have a different direction in mind?"
+1. **Approach alignment:**
+
+```
+AskUserQuestion:
+  question: "The research points to [recommended approach]. Does this match your expectation, or do you have a different direction in mind?"
+  header: "Approach"
+```
 
 ### Ask for moderate and complex changes
 
-2. **Data model** — "How should data be stored or structured? Any constraints on the schema or persistence layer?"
-3. **Interface contracts** — "What are the inputs and outputs at the boundaries? Who calls this, and what do they expect back?"
+2. **Data model:**
+
+```
+AskUserQuestion:
+  question: "How should data be stored or structured? Any constraints on the schema or persistence layer?"
+  header: "Data model"
+```
+
+3. **Interface contracts:**
+
+```
+AskUserQuestion:
+  question: "What are the inputs and outputs at the boundaries? Who calls this, and what do they expect back?"
+  header: "Interfaces"
+```
 
 ### Ask for complex changes only
 
-4. **Migration / rollout** — "How should this be deployed or rolled out? Any backwards-compatibility requirements?"
-5. **Failure modes** — "What happens when this fails? What's the recovery path?"
-6. **Cross-cutting concerns** — "Any observability, rate limiting, caching, or auth requirements that affect the design?"
-7. **Constitution conflicts** — If constitution.md was loaded: "The constitution requires [constraint]. Does your approach satisfy this, or does it need adjustment?"
+4. **Migration / rollout:**
 
-### Constitution validation
+```
+AskUserQuestion:
+  question: "How should this be deployed or rolled out? Any backwards-compatibility requirements?"
+  header: "Rollout"
+```
 
-If `.claude/constitution.md` was loaded, review the emerging design against each constitution constraint. Surface any conflicts before writing:
+5. **Failure modes:**
 
-> The constitution requires [constraint]. The proposed approach [does/does not] satisfy this because [reason]. [Proposed resolution.]
+```
+AskUserQuestion:
+  question: "What happens when this fails? What's the recovery path?"
+  header: "Failures"
+```
 
-Ask the user to resolve each conflict before proceeding.
+6. **Cross-cutting concerns:**
+
+```
+AskUserQuestion:
+  question: "Any observability, rate limiting, caching, or auth requirements that affect the design?"
+  header: "Cross-cut"
+```
 
 ---
 
@@ -173,9 +208,6 @@ Write the design doc to: `<feature_dir>/design.md`
 
 [Files and modules affected. Blast radius. Dependencies that will need updates.]
 
-## Constitution Compliance
-
-[If constitution.md exists: how this design satisfies each relevant constraint. If no constitution: omit this section.]
 ```
 
 Populate each section from the research brief, scoping answers, and planning interrogation. Be specific — reference actual file paths, class names, and patterns found during investigation.

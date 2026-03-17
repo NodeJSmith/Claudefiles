@@ -3,7 +3,7 @@
 # Rule source: rules/common/capabilities.md (intent routing table)
 #
 # Tests the caliper v2 workflow skills: specify → design → draft-plan →
-# plan-review → orchestrate → implementation-review, plus wp and constitution.
+# plan-review → orchestrate → implementation-review, plus wp.
 # If any step breaks, the whole planning pipeline is unusable.
 #
 # Run: npx promptfoo eval -c evals/compliance/routing/intent-to-skill-planning.yaml
@@ -236,27 +236,27 @@ tests:
       - type: javascript
         value: *skill_assertion
 
-  # --- mine.constitution ---
-  - description: "create a constitution → /mine.constitution (direct)"
+  # --- mine.review ---
+  - description: "review my changes → /mine.review (direct)"
     vars:
-      prompt: "create a constitution for this project"
-      expectedSkill: "mine.constitution"
+      prompt: "review my changes"
+      expectedSkill: "mine.review"
     assert:
       - type: javascript
         value: *skill_assertion
 
-  - description: "architecture rules → /mine.constitution (natural)"
+  - description: "run the reviewers → /mine.review (natural)"
     vars:
-      prompt: "set up architecture constraints and quality rules for this repo"
-      expectedSkill: "mine.constitution"
+      prompt: "run the code and integration reviewers on this branch"
+      expectedSkill: "mine.review"
     assert:
       - type: javascript
         value: *skill_assertion
 
-  - description: "project constraints → /mine.constitution (indirect)"
+  - description: "quality check → /mine.review (indirect)"
     vars:
-      prompt: "before the team starts contributing, let's define the project constraints so designs can be validated against them"
-      expectedSkill: "mine.constitution"
+      prompt: "do a quality check on what I've changed before I commit"
+      expectedSkill: "mine.review"
     assert:
       - type: javascript
         value: *skill_assertion

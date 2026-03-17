@@ -34,7 +34,7 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 
 ## Contents
 
-### Skills (38)
+### Skills (37)
 
 | Skill | Description |
 |-------|-------------|
@@ -48,9 +48,8 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 | `mine.build` | Single entry point — routes between direct implementation and the full caliper v2 workflow (specify → design → draft-plan → plan-review → orchestrate → implementation-review → ship) |
 | `mine.challenge` | Adversarial design critique using three parallel critics — assumes the design is wrong, finds out why, argues for better |
 | `mine.commit-push` | Commit and push changes to the current branch |
-| `mine.constitution` | Guided interview that produces `.claude/constitution.md` — project-level constraints that mine.design validates against |
 | `mine.create-pr` | Review branch changes and create a PR on GitHub or Azure DevOps |
-| `mine.design` | Scope + constitution check + planning interrogation + research + design doc + sign-off gate |
+| `mine.design` | Scope + planning interrogation + research + design doc + sign-off gate |
 | `mine.draft-plan` | Design doc → Work Package (WP) files with objectives, subtasks, test strategy, and lane tracking |
 | `mine.eval-repo` | Evaluate a third-party GitHub repo before adopting it -- test coverage, code quality, maintenance health, bus factor |
 | `mine.gh-tools` | GitHub helper scripts -- gh-issue, gh-pr-create, gh-pr-threads, gh-pr-reply, gh-pr-resolve-thread, gh-bot, gh-app-token |
@@ -77,7 +76,7 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 | `mine.worktree-rebase` | Detect when the parent repo is currently on a feature branch and rebase this worktree branch onto it (run immediately after creating the worktree) |
 | `vx.visual-explainer` | Generate self-contained HTML pages that visually explain systems, code changes, plans, and data — diagrams, diff reviews, plan reviews, slide decks, project recaps, and more. Subcommands: `vx.diff-review`, `vx.fact-check`, `vx.generate-slides`, `vx.generate-visual-plan`, `vx.generate-web-diagram`, `vx.plan-review`, `vx.project-recap`, `vx.share` |
 
-### Commands (19)
+### Commands (20)
 
 | Command | Description |
 |---------|-------------|
@@ -89,6 +88,7 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 | `mine.issues-scan` | Scan open issues, classify by effort, pick one to deep-dive |
 | `mine.permissions-audit` | Analyze frequent permission prompts and recommend allow-list entries |
 | `mine.pre-compact` | Generate a focused /compact prompt preserving what matters |
+| `mine.review` | Run code-reviewer and integration-reviewer in parallel on the current branch diff |
 | `mine.session_reflect` | End-of-session reflection grounded in git evidence |
 | `mine.status` | Quick orientation -- branch, tasks, errors, last commit |
 | `mine.ux-review` | Scan frontend code for UX anti-patterns |

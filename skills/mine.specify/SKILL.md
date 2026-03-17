@@ -43,25 +43,85 @@ Derive a preliminary `<slug>`: a kebab-case identifier from the request (e.g. `u
 
 ## Phase 2: Proportional Discovery
 
-Ask questions one at a time. Wait for each answer before asking the next. Do not batch questions.
+**Ask one question per `AskUserQuestion` call. Wait for each answer before asking the next.** Do NOT batch multiple questions into a single call. Each question uses free-text input (no options needed — the user types their answer directly).
 
 ### Always ask (all complexity levels)
 
-1. **Problem grounding** — "What problem does this solve? Who experiences it?" (Skip if already clear from the request.)
-2. **Success definition** — "How will you know this is working correctly? What does done look like?"
+1. **Problem grounding** (skip if already clear from the request):
+
+```
+AskUserQuestion:
+  question: "What problem does this solve? Who experiences it?"
+  header: "Problem"
+```
+
+2. **Success definition:**
+
+```
+AskUserQuestion:
+  question: "How will you know this is working correctly? What does done look like?"
+  header: "Success"
+```
 
 ### Ask for moderate and complex features
 
-3. **Scope boundary** — "What is explicitly out of scope for this feature?"
-4. **Primary user flow** — "Walk me through the main scenario: who does what, step by step."
+3. **Scope boundary:**
+
+```
+AskUserQuestion:
+  question: "What is explicitly out of scope for this feature?"
+  header: "Non-goals"
+```
+
+4. **Primary user flow:**
+
+```
+AskUserQuestion:
+  question: "Walk me through the main scenario: who does what, step by step."
+  header: "User flow"
+```
 
 ### Ask for complex features only
 
-5. **Edge cases** — "What are the important edge cases or failure modes?"
-6. **Dependencies** — "What external systems, services, or teams does this touch?"
-7. **Security / access** — "Who should and shouldn't have access? Any data sensitivity concerns?"
-8. **Performance** — "Any scale, latency, or throughput requirements?"
-9. **Rollback / reversibility** — "If this goes wrong, what does rollback or recovery look like?"
+5. **Edge cases:**
+
+```
+AskUserQuestion:
+  question: "What are the important edge cases or failure modes?"
+  header: "Edge cases"
+```
+
+6. **Dependencies:**
+
+```
+AskUserQuestion:
+  question: "What external systems, services, or teams does this touch?"
+  header: "Dependencies"
+```
+
+7. **Security / access:**
+
+```
+AskUserQuestion:
+  question: "Who should and shouldn't have access? Any data sensitivity concerns?"
+  header: "Security"
+```
+
+8. **Performance:**
+
+```
+AskUserQuestion:
+  question: "Any scale, latency, or throughput requirements?"
+  header: "Performance"
+```
+
+9. **Rollback / reversibility:**
+
+```
+AskUserQuestion:
+  question: "If this goes wrong, what does rollback or recovery look like?"
+  header: "Rollback"
+```
 
 Stop when you have enough to write an unambiguous spec. Do not ask more questions than the complexity warrants.
 

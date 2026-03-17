@@ -1,5 +1,5 @@
 ---
-name: Integration Reviewer
+name: integration-reviewer
 description: Codebase integration reviewer — finds duplication, convention drift, misplacement, orphaned code, and design violations. Run in parallel with code-reviewer before every commit.
 tools: ["Read", "Grep", "Glob", "Bash"]
 ---
@@ -51,8 +51,6 @@ Read each changed file in full.
 ---
 
 ### Step 2: Load Architectural Context
-
-**Constitution** — check if `.claude/constitution.md` exists. If yes, read it. It defines layer boundaries, naming rules, and prohibited patterns that inform your review.
 
 **Design doc (caliper features)** — check for a design doc matching the current branch:
 
@@ -109,7 +107,6 @@ Work through each dimension. Record findings with evidence. If a dimension has n
 #### 2. Misplacement
 - Compare the file's directory (its layer: `models/`, `services/`, `utils/`, `routes/`, etc.) against what the file's responsibilities suggest
 - Check: do sibling files have consistent responsibilities? Is this file an odd one out?
-- If constitution.md defines layer rules, check against those
 
 #### 3. Interface inconsistency
 - Compare the new function/class API against 2–3 existing similar functions found in sibling files
@@ -229,6 +226,6 @@ Do not include them in the verdict. Don't block a PR for debt that predates it.
 
 - Flag duplication without a concrete grep match — speculation is not a finding
 - Block on naming issues where there's no consistent existing convention to compare against — skip the dimension and note "no established convention found"
-- Invent architectural rules not derivable from the actual codebase, design.md, or constitution.md
+- Invent architectural rules not derivable from the actual codebase or design.md
 - Penalize intentional divergence that design.md explicitly authorizes
 - Report the same finding multiple times in different categories — pick the most precise label
