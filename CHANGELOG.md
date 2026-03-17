@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-17
 
 ### Changed
-- `mine.address-pr-issues` helper scripts section replaced with "See skill:" cross-references to `mine.gh-tools` and `mine.ado-tools`
+- `mine.address-pr-issues` helper scripts section replaced with "See skill:" cross-references to `mine.gh-tools` and `mine.ado-tools` (#98)
 
 ### Added
 - `rules/common/interaction.md` — ban `EnterPlanMode` unless explicitly requested; use `planner` subagent + `AskUserQuestion` instead (#95)
