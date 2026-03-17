@@ -58,6 +58,6 @@ Use `AskUserQuestion` to ask the user what they'd like to do next:
 If the user picks "Create a plan":
 1. **Branch naming reminder**: Check `git branch --show-current`. If the current branch name does not contain the issue number, remind the user:
    > "When you create your working branch, include the issue number so the PR links back automatically — e.g., `git checkout -b 123-short-description` or `claude --worktree 123-short-description`."
-2. Use `EnterPlanMode` to start planning.
+2. Launch the **planner** subagent with the issue context, then present the plan to the user via `AskUserQuestion` for approval.
 
 Otherwise, follow their choice.

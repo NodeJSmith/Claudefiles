@@ -85,7 +85,7 @@ Use `AskUserQuestion` to ask what the user wants to do:
 - **Create an issue** — File a GitHub issue capturing the analysis
 - **Just the analysis** — Done for now, I have what I need
 
-If **Create a plan**: use `EnterPlanMode`. The root cause summary gives the planner clear context.
+If **Create a plan**: launch the **planner** subagent with the root cause summary as context, then present the plan to the user via `AskUserQuestion` for approval.
 
 If **Create an issue**: run `gh-issue create` with the root cause summary as the body, and the problem statement as the title. Confirm the created issue URL with the user.
 
