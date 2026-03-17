@@ -397,4 +397,4 @@ Or add `databaseId` to the GraphQL comments query in Phase 1.
 
 ---
 
-**Remember**: Always get user approval via plan mode before applying code changes. Use AskUserQuestion for decisions throughout. Resolve threads as you go — don't leave resolution as a manual step.
+**Remember**: Always get user approval via `AskUserQuestion` before applying code changes. Resolve threads as you go — don't leave resolution as a manual step.
