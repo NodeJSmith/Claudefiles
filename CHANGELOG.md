@@ -6,7 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Added
 - `rules/common/interaction.md` — ban `EnterPlanMode` unless explicitly requested; use `planner` subagent + `AskUserQuestion` instead (#95)
-- `commands/mine.review` — run code-reviewer and integration-reviewer in parallel on the current branch diff (#96)
+- `/mine.review` command — run code-reviewer and integration-reviewer in parallel on the current branch diff (#96)
 
 ### Removed
 - `mine.constitution` skill and all references — redundant with global rules; per-project overrides belong in CLAUDE.md (#96)

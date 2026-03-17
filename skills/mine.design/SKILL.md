@@ -55,7 +55,7 @@ AskUserQuestion:
   header: "Prior work"
 ```
 
-Wait for each answer before asking the next question. Each question uses free-text input (no options — the user types their answer or selects "Other").
+Wait for each answer before asking the next question. Each question uses free-text input (no options needed — the user types their answer directly).
 
 Capture:
 - The problem and desired outcome

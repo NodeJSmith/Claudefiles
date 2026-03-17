@@ -43,7 +43,7 @@ Derive a preliminary `<slug>`: a kebab-case identifier from the request (e.g. `u
 
 ## Phase 2: Proportional Discovery
 
-**Ask one question per `AskUserQuestion` call. Wait for each answer before asking the next.** Do NOT batch multiple questions into a single call. Each question uses free-text input (no options — the user types their answer or selects "Other").
+**Ask one question per `AskUserQuestion` call. Wait for each answer before asking the next.** Do NOT batch multiple questions into a single call. Each question uses free-text input (no options needed — the user types their answer directly).
 
 ### Always ask (all complexity levels)
 

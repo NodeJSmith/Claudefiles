@@ -236,5 +236,30 @@ tests:
       - type: javascript
         value: *skill_assertion
 
+  # --- mine.review ---
+  - description: "review my changes → /mine.review (direct)"
+    vars:
+      prompt: "review my changes"
+      expectedSkill: "mine.review"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "run the reviewers → /mine.review (natural)"
+    vars:
+      prompt: "run the code and integration reviewers on this branch"
+      expectedSkill: "mine.review"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "quality check → /mine.review (indirect)"
+    vars:
+      prompt: "do a quality check on what I've changed before I commit"
+      expectedSkill: "mine.review"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
 prompts:
   - "{{prompt}}"
