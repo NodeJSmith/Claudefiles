@@ -16,8 +16,6 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Fixed
 - Agent frontmatter `name` fields now match filenames (kebab-case) so `subagent_type` references resolve correctly — previously Title Case names like `Code Reviewer` didn't match kebab-case references like `code-reviewer` (#96)
-
-### Fixed
 - `mine.design` and `mine.specify` interview questions now use one `AskUserQuestion` per question instead of batching multiple questions into a single call with mismatched options (#96)
 
 ### Changed
