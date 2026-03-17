@@ -11,6 +11,9 @@ All notable changes to this Claudefiles repository are documented here.
 ### Removed
 - `mine.constitution` skill and all references — redundant with global rules; per-project overrides belong in CLAUDE.md (#96)
 
+### Changed
+- `mine.orchestrate` executor subagent now selects a specialized agent type (Frontend Developer, AI Engineer, etc.) based on WP content instead of always using general-purpose (#96)
+
 ### Fixed
 - `mine.design` and `mine.specify` interview questions now use one `AskUserQuestion` per question instead of batching multiple questions into a single call with mismatched options (#96)
 
