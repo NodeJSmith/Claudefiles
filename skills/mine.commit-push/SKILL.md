@@ -28,7 +28,12 @@ Based on the above changes:
 
    After applying fixes, re-run `code-reviewer` and repeat until no CRITICAL or HIGH issues remain or only LOW/noise is left. If the same CRITICAL or HIGH findings appear again and cannot be auto-fixed, defer to the user — do not proceed to commit.
 5. **INTEGRATION REVIEW (skip for documentation-only changes):** Run `integration-reviewer` once on the final state of the changes (after the code-reviewer loop). Address any CRITICAL or HIGH findings; defer ambiguous ones to the user.
-6. Stage all relevant files (including CHANGELOG.md if updated).
-7. For multi-line commit messages, run `get-skill-tmpdir mine-commit` to create a temp directory, then write the message to `<dir>/message.md` and run `git commit -F <dir>/message.md`. For simple one-line messages, `git commit -m "..."` is fine. Do NOT use `git commit -m "$(cat <<'EOF'...)"` — command substitution triggers extra permission prompts.
-8. Push the branch to origin (use `-u` flag only if you just created a new branch).
-9. You MUST do steps 6–8 in a single message. Include the Write call for the commit message file (if needed) in that same message. Do not use any other tools or do anything else besides these tool calls.
+6. **LOCAL VERIFICATION (skip for documentation-only changes):**
+   1. Determine the project's test command using the test execution discovery order from `rules/common/testing.md`
+   2. Run the test suite locally. If tests fail, fix the issues and re-run (max 3 iterations). If still failing after 3 attempts, stop and present the failures to the user.
+   3. Run the project's linter if configured (e.g., `ruff check` for Python, `eslint` for JS). Fix any issues.
+   4. Only proceed to staging once both pass.
+7. Stage all relevant files (including CHANGELOG.md if updated).
+8. For multi-line commit messages, run `get-skill-tmpdir mine-commit` to create a temp directory, then write the message to `<dir>/message.md` and run `git commit -F <dir>/message.md`. For simple one-line messages, `git commit -m "..."` is fine. Do NOT use `git commit -m "$(cat <<'EOF'...)"` — command substitution triggers extra permission prompts.
+9. Push the branch to origin (use `-u` flag only if you just created a new branch).
+10. You MUST do steps 7–9 in a single message. Include the Write call for the commit message file (if needed) in that same message. Do not use any other tools or do anything else besides these tool calls.

@@ -12,7 +12,7 @@ A caliper v2 Work Package has these sections:
 | **Objectives & Success Criteria** | What this WP achieves and how to verify it |
 | **Subtasks** | Numbered list of concrete actions to take |
 | **Test Strategy** | What tests to write, what they verify, which files/functions |
-| **Review Guidance** | What the spec reviewer and quality reviewer will check |
+| **Review Guidance** | What the spec reviewer, code reviewer, and integration reviewer will check |
 
 Read all sections before starting. Do not begin implementing until you understand all of them.
 

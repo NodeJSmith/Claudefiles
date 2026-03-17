@@ -204,8 +204,23 @@ AskUserQuestion:
 
 Update `**Status:**` from `draft` to `approved`.
 
-Tell the user:
-> Design approved. Run `/mine.draft-plan <feature_dir>` to generate work packages.
+**If invoked inline by `mine.build`** (the user chose "Full caliper workflow" or "Accelerated"), skip the gate below and invoke `/mine.draft-plan <feature_dir>` directly — `mine.build` handles the flow.
+
+**Otherwise**, ask:
+
+```
+AskUserQuestion:
+  question: "Design approved. Proceed to generate work packages?"
+  header: "Next step"
+  multiSelect: false
+  options:
+    - label: "Yes — generate work packages"
+      description: "Invoke /mine.draft-plan for this feature"
+    - label: "No — I'll do it later"
+      description: "Stop here; the design doc is saved"
+```
+
+If "Yes": invoke `/mine.draft-plan <feature_dir>` directly.
 
 ### On "Revise"
 

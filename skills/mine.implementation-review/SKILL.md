@@ -138,11 +138,25 @@ Confirm:
 
 ### On "Request fixes"
 
-Surface the reviewer's blocking issues as a numbered list. Tell the user:
-> Address these issues and re-run `/mine.orchestrate <feature_dir>` to retry the affected WPs, then run `/mine.implementation-review <feature_dir>` again.
->
-> **Blocking issues:**
-> [numbered list]
+Surface the reviewer's blocking issues as a numbered list.
+
+**If invoked inline by `mine.build`** (the user chose "Full caliper workflow" or "Accelerated"), invoke `/mine.orchestrate <feature_dir>` directly to re-execute affected WPs — `mine.build` handles the flow. Note: after orchestration completes, `/mine.orchestrate` will offer to run implementation-review via its post-execution gate.
+
+**Otherwise**, ask:
+
+```
+AskUserQuestion:
+  question: "Blocking issues found. Fix and re-run execution?"
+  header: "Fix"
+  multiSelect: false
+  options:
+    - label: "Yes — re-run execution"
+      description: "Invoke /mine.orchestrate to retry affected WPs, then re-review"
+    - label: "No — I'll fix manually"
+      description: "Stop here; address the issues and re-run when ready"
+```
+
+If "Yes": invoke `/mine.orchestrate <feature_dir>` directly. Note: after orchestration completes, `/mine.orchestrate` will offer to run implementation-review via its post-execution gate.
 
 ### On "Abandon"
 

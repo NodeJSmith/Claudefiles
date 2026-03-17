@@ -85,6 +85,14 @@ If the same CRITICAL or HIGH findings surface again and cannot be auto-fixed, de
 
 After the loop concludes, run `integration-reviewer` once on the final diff before staging.
 
+## Local Verification Before Commit
+
+After code review passes and before staging files, run the project's test suite and linter locally. Follow the test execution discovery order from `rules/common/testing.md` to determine the correct commands. Fix any failures before proceeding to commit. Do not push code that fails local tests or linting.
+
+**When to skip:** Documentation-only changes (pure markdown, no code). Changes where the project has no test suite or linter configured (note this in the commit message).
+
+**Retry limit:** If local tests fail 3 times after fixes, stop and present the failures to the user rather than continuing to iterate.
+
 ## Commit Message Format
 
 ```

@@ -6,7 +6,7 @@ user-invocable: true
 
 # Orchestrate
 
-Execute an approved set of Work Packages. Runs each WP through a three-subagent loop: executor implements, spec reviewer verifies, quality reviewer grades. Gates on deviations. Updates WP lane state via `spec-helper` after each WP completes.
+Execute an approved set of Work Packages. Runs each WP through an executor → spec reviewer → code reviewer → integration reviewer loop. Gates on deviations. Updates WP lane state via `spec-helper` after each WP completes.
 
 ## Arguments
 
@@ -101,7 +101,8 @@ Run `get-skill-tmpdir mine-orchestrate` and note the directory path.
 Use these paths for subagent outputs:
 - Executor output: `<dir>/executor.md`
 - Spec reviewer output: `<dir>/spec-reviewer.md`
-- Quality reviewer output: `<dir>/quality-reviewer.md`
+- Code reviewer output: `<dir>/code-review.md`
+- Integration reviewer output: `<dir>/integration-review.md`
 
 These paths are **reused each WP iteration** — each WP's executor output overwrites the previous. This is safe because the files are read immediately within the same iteration before the loop advances. Per-WP output is not retained on disk after the next WP begins.
 
@@ -169,42 +170,40 @@ Compare executor result and spec reviewer verdict:
 
 | Condition | Action |
 |-----------|--------|
-| Executor PASS + Spec reviewer PASS | Proceed to quality review |
-| Executor auto-fix deviation noted | Log it, proceed to quality review |
-| Spec reviewer WARN | Proceed to quality review; surface warning to user after quality review |
-| Spec reviewer FAIL | Mark WP FAIL; surface to user (gate at Step 7) |
-| Executor BLOCKED (any reason) | Mark WP BLOCKED; surface to user (gate at Step 7) |
+| Executor PASS + Spec reviewer PASS | Proceed to code review |
+| Executor auto-fix deviation noted | Log it, proceed to code review |
+| Spec reviewer WARN | Proceed to code review; surface warning to user after reviews |
+| Spec reviewer FAIL | Mark WP FAIL; surface to user (gate at Step 8) |
+| Executor BLOCKED (any reason) | Mark WP BLOCKED; surface to user (gate at Step 8) |
 | Executor BLOCKED (architectural) | Mark WP BLOCKED with architectural flag; do not retry without plan change |
 
-### Step 6: Launch quality reviewer subagent
+### Step 6: Code reviewer loop
 
-(Run this even if spec reviewer has WARNs — still useful to have the quality pass.)
+(Run this even if spec reviewer has WARNs — still useful to catch code issues early.)
 
-Read `~/.claude/skills/mine.orchestrate/code-quality-reviewer-prompt.md`.
+Launch a `code-reviewer` subagent (`Agent(subagent_type: "code-reviewer")`) to review the files changed by the executor. The code-reviewer agent uses `git diff --name-only` to find changed files and runs static analysis tools (ruff, pyright, etc.) as appropriate.
 
-Launch a general-purpose subagent:
+**Loop until clean:**
+1. Run the code-reviewer subagent. Read its output.
+2. For each CRITICAL or HIGH finding:
+   - **Auto-fix** when the correct solution is unambiguous (clear bugs, missing type annotations, style violations, simple security issues)
+   - **Defer** when the fix requires architectural judgment or business context
+3. If any auto-fixes were applied, re-run the code-reviewer (max 3 iterations total)
+4. Stop when: no CRITICAL/HIGH issues remain, only deferred findings are left, or 3 iterations reached
 
-```
-You are performing a post-WP code quality review.
+Write the final code-reviewer output to `<dir>/code-review.md`.
 
-## Work Package spec
-<full WP*.md content>
+**Verdict impact:** If CRITICAL or HIGH issues remain after 3 iterations that could not be auto-fixed, the WP verdict becomes FAIL regardless of the spec reviewer result.
 
-## Design doc (architecture reference)
-<full design.md content>
+### Step 7: Integration reviewer
 
-## Executor result
-<full executor temp file content>
+Launch an `integration-reviewer` subagent (`Agent(subagent_type: "integration-reviewer")`) once on the same changed files. The integration-reviewer checks for duplication, convention drift, misplacement, orphaned code, and design violations.
 
-## Quality reviewer instructions
-<full code-quality-reviewer-prompt.md content>
+Write the output to `<dir>/integration-review.md`.
 
-Write your quality review to: <quality reviewer temp file path>
-```
+Read the integration-reviewer output. If it returns BLOCK verdict, the WP verdict becomes FAIL.
 
-Wait for the subagent to complete. Read the quality reviewer temp file.
-
-### Step 7: Present results and gate
+### Step 8: Present results and gate
 
 Present a summary:
 
@@ -212,7 +211,8 @@ Present a summary:
 **WP<NN>: <title> — <overall verdict>**
 
 Spec review: PASS|WARN|FAIL
-Quality review: PASS|NEEDS_ATTENTION
+Code review: PASS|WARN|FAIL (N iterations)
+Integration review: APPROVE|WARN|BLOCK
 
 [Any deviations noted]
 [Any WARN or FAIL details]
@@ -270,7 +270,7 @@ AskUserQuestion:
 
 Do not offer "Fix and retry" or "skip" for architectural blocks — retrying without a plan change will produce the same result.
 
-### Step 8: Update WP lane
+### Step 9: Update WP lane
 
 After the gate decision:
 

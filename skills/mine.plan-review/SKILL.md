@@ -112,22 +112,36 @@ AskUserQuestion:
 
 Update the `design.md` `**Status:**` field from `draft` to `approved`.
 
-Tell the user:
-> Design approved. Run `/mine.orchestrate <feature_dir>` to begin implementation.
+**If invoked inline by `mine.build`** (the user chose "Full caliper workflow" or "Accelerated"), skip the gate below and invoke `/mine.orchestrate <feature_dir>` directly — `mine.build` handles the flow.
+
+**Otherwise**, ask:
+
+```
+AskUserQuestion:
+  question: "Plan approved. Begin implementation?"
+  header: "Next step"
+  multiSelect: false
+  options:
+    - label: "Yes — start execution"
+      description: "Invoke /mine.orchestrate for this feature"
+    - label: "No — I'll start later"
+      description: "Stop here; the plan is approved and saved"
+```
+
+If "Yes": invoke `/mine.orchestrate <feature_dir>` directly.
 
 ### On "Approve with suggestions"
 
 Apply the reviewer's non-blocking suggestions to `design.md` and/or `WP*.md` files. Restrict WP edits to cosmetic changes (wording, clarifications, review guidance) — substantive WP changes require re-running `/mine.draft-plan`. Show the user a brief summary of what was changed (file name + one-line description per change). Update the `design.md` `**Status:**` field from `draft` to `approved`.
 
-Tell the user:
-> Suggestions applied and design approved. Run `/mine.orchestrate <feature_dir>` to begin implementation.
+Then follow the same gate as "Approve as-is" above (invoke `/mine.orchestrate` on approval).
 
 ### On "Revise the plan"
 
-Surface the reviewer's blocking issues as a numbered list. Write them to the conversation so the user can copy them, then tell the user:
-> Run `/mine.draft-plan <feature_dir>` and paste the following reviewer notes so the skill can incorporate them:
->
-> [blocking issues list]
+Surface the reviewer's blocking issues as a numbered list.
+
+Invoke `/mine.draft-plan <feature_dir>` directly, passing the blocking issues as context. Tell the user:
+> Returning to draft-plan with the reviewer's notes to regenerate work packages.
 
 ### On "Abandon"
 

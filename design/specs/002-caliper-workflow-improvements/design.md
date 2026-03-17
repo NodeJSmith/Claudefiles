@@ -1,7 +1,7 @@
 # Design: Caliper v2 Workflow Improvements
 
 **Date:** 2026-03-16
-**Status:** approved
+**Status:** implemented
 
 ## Problem
 
@@ -18,7 +18,7 @@ The caliper v2 workflow has four friction points that reduce quality, waste cycl
 ## Non-Goals
 
 - Changing the executor, spec reviewer, or overall orchestrate flow beyond swapping quality reviewer for standard agents
-- Adding new skills or commands — all changes are to existing files
+- Adding new skills or commands (a new rule file in `rules/common/` is fine — it's auto-loaded, not a skill or command)
 - Changing how `mine.build` chains skills (it already auto-continues; the issue is the individual skills' handoff text)
 - Modifying CI pipeline configuration or adding CI-specific tooling
 
