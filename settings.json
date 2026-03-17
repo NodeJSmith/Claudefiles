@@ -52,7 +52,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/scripts/hooks/tmux-remind.sh"
+            "command": "${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/tmux-remind.sh"
           }
         ]
       }
