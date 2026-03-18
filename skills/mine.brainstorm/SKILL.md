@@ -245,6 +245,7 @@ If two or more thinkers converged on an idea, note it explicitly — convergence
 ```
 AskUserQuestion:
   question: "What's the primary next step for the top idea?"
+  header: "Next step"
   multiSelect: false
   options:
     - label: "Challenge the top idea first"
@@ -260,6 +261,7 @@ AskUserQuestion:
 ```
 AskUserQuestion:
   question: "Any housekeeping before we proceed?"
+  header: "Housekeeping"
   multiSelect: true
   options:
     - label: "Save the session"

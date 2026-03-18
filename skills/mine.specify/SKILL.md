@@ -286,7 +286,7 @@ Present the spec content followed by the checklist results, then:
 ```
 AskUserQuestion:
   question: "Spec complete and validated. What next?"
-  header: "Spec sign-off"
+  header: "Sign-off"
   multiSelect: false
   options:
     - label: "Challenge this spec first"
