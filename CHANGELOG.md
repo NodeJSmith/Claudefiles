@@ -10,6 +10,19 @@ All notable changes to this Claudefiles repository are documented here.
 ### Removed
 - `mine.ux-review` command — replaced by `mine.visual-qa` which does live screenshot review instead of static code scanning (#99)
 
+### Added
+- `mine.grill` — pre-pipeline multi-angle interrogation (product, design, engineering, scope, adversarial lenses); produces `brief.md` that `/mine.specify` can ingest
+- `mine.write-skill` — guided skill creation with quality checklist and auto-wiring of routing in `capabilities.md` + README
+- TDD vertical-slice methodology and mocking rules to `rules/common/testing.md`
+- Codebase reconnaissance (Phase 1.5) and adaptive follow-up branches in `mine.specify`
+- 9-point plan review checklist (spec coverage, design coverage, scope containment) in `mine.plan-review`
+- `/mine.challenge` gate option in `mine.specify`, `mine.grill`, `mine.brainstorm`, and `mine.research` sign-off gates
+
+### Changed
+- `mine.build`, `mine.design`, `mine.specify`, `mine.grill` — scoping summaries now start with "**Understood pain point:**" to reinforce pain-point-first thinking
+- `rules/common/interaction.md` — one-line nudge to suggest `/mine.challenge` before committing to non-trivial designs or workflow changes
+- `rules/common/worktrees.md` — removed proactive worktree prompt; worktree decisions are user-driven
+
 ## 2026-03-17
 
 ### Changed

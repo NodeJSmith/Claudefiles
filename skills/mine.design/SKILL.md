@@ -57,6 +57,12 @@ AskUserQuestion:
 
 Wait for each answer before asking the next question. Each question uses free-text input (no options needed — the user types their answer directly).
 
+After gathering answers, if the user described a solution ("add X", "change Y to Z") but not the underlying problem, ask: "What's not working well?" before writing the pain-point summary.
+
+Present a structured summary before proceeding:
+
+> **Understood pain point:** <the underlying problem or frustration driving this design>
+
 Capture:
 - The problem and desired outcome
 - Constraints and explicit non-goals

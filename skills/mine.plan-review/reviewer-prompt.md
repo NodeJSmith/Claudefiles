@@ -13,9 +13,9 @@ Look for: tasks that reference files not yet created, tests for code not yet wri
 Are file names, variable names, and module names consistent throughout the plan?
 Look for: tasks that create `foo.py` but later steps reference `foos.py`; inconsistent class names; renamed entities mid-plan.
 
-### 3. Design alignment
-Does every task trace back to the design doc? Are there tasks for things not in the design? Are design goals left unaddressed?
-Look for: scope creep (extra tasks), missing implementation of stated design goals, tasks that contradict the Non-goals section.
+### 3. Forward traceability
+Does every task trace back to a section of the design doc?
+Look for: tasks with no clear design origin, tasks that appear to be invented by the planner rather than derived from the design. (For reverse coverage — design → task — see items 7-8. For scope containment and non-goal violations, see item 9.)
 
 ### 4. Test structure
 Are tests specified alongside or immediately after the implementation they verify?
@@ -28,6 +28,18 @@ Look for: missing fields, vague steps ("update the handler"), placeholder file p
 ### 6. Context independence
 Could each task be handed to a fresh Claude instance with only the plan and referenced files?
 Look for: tasks that assume knowledge from earlier conversation, steps that say "as discussed" or "per the previous task", implicit dependencies not stated in the task.
+
+### 7. Spec coverage
+Does every functional requirement in spec.md map to at least one WP?
+Look for: requirements with no corresponding task, acceptance criteria with no verification step in any WP.
+
+### 8. Design coverage
+Does every architecture section in design.md have corresponding WPs?
+Look for: design sections (API contracts, data models, integrations) with no WP that implements them, design decisions referenced but never acted on.
+
+### 9. Scope containment
+Do any WPs implement things not in the design or explicitly listed as non-goals?
+Look for: WPs that add features, endpoints, or components not traceable to the design doc; scope creep disguised as "nice to have" additions.
 
 ## Output format
 

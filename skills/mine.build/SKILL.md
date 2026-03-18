@@ -22,7 +22,13 @@ If $ARGUMENTS is non-empty, use it as the change description. If empty, ask the 
 
 Wait for their reply and treat it as the change description.
 
-Paraphrase the request back in one or two sentences to confirm understanding before proceeding.
+Paraphrase the request back, starting with a structured pain point line:
+
+> **Understood pain point:** <the underlying problem or frustration driving this request>
+>
+> <1-2 sentence paraphrase of the proposed change>
+
+If the user's request is solution-shaped ("add X", "change Y to Z") but the underlying problem isn't stated, infer it from context or ask: "What's not working well?" before paraphrasing. If the user already described the problem, extract it directly.
 
 ---
 

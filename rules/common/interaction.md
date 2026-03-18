@@ -15,3 +15,9 @@ When a task needs structured planning, launch the Agent tool with
 `subagent_type: "planner"` instead of entering plan mode. Present the
 planner's output to the user via `AskUserQuestion` for approval before
 executing.
+
+## Suggest /mine.challenge
+
+Before committing to non-trivial designs, new skills, rule changes, or
+workflow modifications, suggest running `/mine.challenge` if the user hasn't
+already. One-line mention, not a gate — the user decides whether to run it.

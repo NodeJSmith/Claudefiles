@@ -9,13 +9,45 @@ Test Types (ALL required):
 
 ## Test-Driven Development
 
-MANDATORY workflow:
-1. Write test first (RED)
-2. Run test - it should FAIL
-3. Write minimal implementation (GREEN)
-4. Run test - it should PASS
-5. Refactor (IMPROVE)
-6. Verify coverage (80%+)
+### Anti-Pattern: Horizontal Slicing
+
+DO NOT write all tests first, then all implementation. This is "horizontal slicing" and produces bad tests that verify imagined behavior instead of actual behavior.
+
+```
+WRONG (horizontal):
+  RED:   test1, test2, test3, test4, test5
+  GREEN: impl1, impl2, impl3, impl4, impl5
+
+RIGHT (vertical):
+  RED→GREEN: test1→impl1
+  RED→GREEN: test2→impl2
+  RED→GREEN: test3→impl3
+```
+
+### Workflow
+
+1. **Plan** — Confirm which behaviors to test with the user. You can't test everything. Identify the behaviors that matter most.
+2. **Tracer bullet** — Write ONE test for ONE behavior. Run it (RED). Write minimal code to pass (GREEN). This proves the path works.
+3. **Incremental loop** — For each remaining behavior: write one test (RED), implement just enough to pass (GREEN). One test at a time. Only enough code to pass the current test. Do not anticipate future tests.
+4. **Refactor** — Only after all tests pass. Never refactor while RED.
+5. **Verify coverage** (80%+)
+
+### Per-Cycle Checklist
+
+After each RED→GREEN cycle, verify:
+- [ ] Test describes behavior, not implementation
+- [ ] Test uses public interface only
+- [ ] Test would survive an internal refactor
+- [ ] Code is minimal for this test
+- [ ] No speculative features added
+
+### Mocking
+
+Mock only at system boundaries:
+- External APIs, databases, time, filesystem — mock these
+- Your own classes and internal collaborators — prefer real instances. Mock only when they wrap a system boundary (e.g., an email sender, a file writer) or require expensive setup
+- Use dependency injection for testability
+- Prefer SDK-style interfaces over generic fetchers
 
 ## Test Execution
 

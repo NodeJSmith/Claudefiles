@@ -247,6 +247,8 @@ AskUserQuestion:
   question: "What would you like to do with these ideas?"
   multiSelect: true
   options:
+    - label: "Challenge the top idea first"
+      description: "Run /mine.challenge on the top-ranked idea before committing to it"
     - label: "Go deeper on the top idea"
       description: "Hand off to /mine.research for feasibility analysis"
     - label: "Record the direction as an ADR"
@@ -260,6 +262,8 @@ AskUserQuestion:
     - label: "Keep exploring"
       description: "Run another round with a different framing or constraint"
 ```
+
+If "Challenge the top idea first" is selected: if the session has been saved (i.e., "Save the session" was also selected), invoke `/mine.challenge <brainstorm-file-path>`. If not saved, construct the argument from the top idea's name and description block and pass it as text. After challenge completes and findings are addressed (or accepted), loop back to this gate.
 
 ### Creating issues / saving to backlog
 
