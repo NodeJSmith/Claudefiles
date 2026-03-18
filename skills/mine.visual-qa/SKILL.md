@@ -127,11 +127,11 @@ Visit every page listed below and capture screenshots. Save to <dir>/screenshots
 
 ### Naming Convention
 
-Name files with a zero-padded sequence number and page name:
+Name files with a zero-padded sequence number, page name, and any active mode suffix (e.g., `-mobile`, `-dark`, `-mobile-dark`):
 
 <NAMING_EXAMPLES>
 
-For interactive element states, add an `interact-` prefix:
+For interactive element states, include `-interact-` after the page name:
 
 ```
 20-items-list-interact-dropdown-category-open.png
@@ -225,7 +225,7 @@ Read every screenshot first, then write your findings:
 2. **Terminology**: Does the same concept have the same name everywhere? Are labels consistent?
 3. **Navigation patterns**: Is the sidebar/header/nav the same on every page? Any pages that break the pattern?
 4. **Page structure**: Do similar pages follow the same layout? (Do all list pages look alike? All detail pages?)
-5. **Interactive element consistency**: Screenshots prefixed with `interact-` show triggered states (open dropdowns, modals, tooltips, form errors). Do all modals share the same visual language? Do all dropdowns look alike? Are form validation styles consistent?
+5. **Interactive element consistency**: Screenshots with `-interact-` in the filename show triggered states (open dropdowns, modals, tooltips, form errors). Do all modals share the same visual language? Do all dropdowns look alike? Are form validation styles consistent?
 
 You are looking for DRIFT — things that are inconsistent between pages that should be consistent.
 
