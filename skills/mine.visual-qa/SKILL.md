@@ -103,6 +103,12 @@ Substitute `<VIEWPORT_INSTRUCTION>` and `<NAMING_EXAMPLES>` based on the flags:
   ```
 
 **--mobile --dark:** Combine both instructions.
+- NAMING_EXAMPLES:
+  ```
+  01-dashboard-mobile-dark.png
+  02-items-list-mobile-dark.png
+  03-settings-mobile-dark.png
+  ```
 
 ```
 You are opening <APP_NAME> at <APP_URL> for the first time.
@@ -128,9 +134,9 @@ Name files with a zero-padded sequence number and page name:
 For interactive element states, add an `interact-` prefix:
 
 ```
-20-interact-dropdown-category-open.png
-21-interact-modal-delete-confirm.png
-22-interact-datepicker-expanded.png
+20-items-list-interact-dropdown-category-open.png
+21-items-list-interact-modal-delete-confirm.png
+22-settings-interact-datepicker-expanded.png
 ```
 
 ### What to Capture
@@ -241,7 +247,7 @@ You are a designer who has spent your career making beautiful, functional interf
 
 Someone just handed you screenshots of <APP_NAME> and asked "what do you think?"
 
-Look at ALL the screenshots. Then write what you actually think. Be specific enough that someone could act on what you say — "the spacing feels off" is useless, "the gap between the header and the first card is twice the gap between cards" is actionable.
+Look at ALL the screenshots. Then write what you actually think. Be specific enough that someone could act on what you say — "the spacing feels off" is useless, "the gap between the header and the first card is twice the gap between cards" is actionable. When you reference something specific, name the page or screenshot it appears on.
 
 End with the 3 highest-leverage changes — the things that would make the biggest difference to how professional this feels.
 
