@@ -7,7 +7,7 @@ Bash output truncates at 30k chars. Preserve full output in a tmp file.
 ```bash
 # Step 1: create capture file (pre-allowed)
 get-tmp-filename
-# → /tmp/claude-cmd-abc123.txt
+# → /tmp/claude-cmd-abc123.txt  (or $CLAUDE_CODE_TMPDIR/... under sandbox)
 ```
 
 ```bash

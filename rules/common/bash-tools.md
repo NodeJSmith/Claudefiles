@@ -12,7 +12,7 @@
 
 ## Scripting Opportunities
 
-- **Same command written twice** — flag it, offer to wrap in a script (`~/bin/mine/`)
+- **Same command written twice** — flag it, offer to wrap in a script (repo `bin/`, symlinked to `~/.local/bin/`)
 - **Same tool called 3+ times in one block** — suggest batch mode
 - **3+ pipe stages** — suggests a missing flag on the upstream tool
 

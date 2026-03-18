@@ -8,7 +8,7 @@ Prefer `git -C <path>` over `cd <path> && git`.
 
 Before your first commit in a repo during a session, check for a pre-commit config:
 
-1. **Detect config** — `Read(<repo-root>/.pre-commit-config.yaml)`. If absent, skip.
+1. **Detect config** — `Read(<repo-root>/.pre-commit-config.yaml)` (also check `.yml`). If neither exists, skip.
 2. **Check if pre-commit is installed** — `pre-commit --version`. If missing, prompt user to install.
 3. **Determine hook types** — scan config for `default_install_hook_types:`, `stages:`, `default_stages:`.
 4. **Check if hooks are installed** — first check `git config --get core.hooksPath`; if unset, use `git rev-parse --git-common-dir` + `/hooks`. Test for each hook type file.
