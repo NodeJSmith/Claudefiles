@@ -1,12 +1,12 @@
 ---
 name: mine.visual-qa
-description: "Use when the user says: \"visual QA\", \"screenshot review\", \"review the UI visually\", or \"take screenshots and find issues\". Screenshots a live app via Playwright, walks task flows, then two agents analyze the captured screenshots for visual and consistency issues."
+description: "Use when the user says: \"visual QA\", \"screenshot review\", \"review the UI visually\", or \"take screenshots and find issues\". Screenshots a live app via Playwright, then two agents analyze the captures — one sees each screenshot in isolation, the other sees all of them at once."
 user-invocable: true
 ---
 
 # Visual QA
 
-Screenshot-based review of a live UI in two phases: a Flow Walker navigates the app via Playwright (capturing screenshots and testing task flows), then two analysis agents review the saved screenshots from distinct angles — first impressions and cross-page consistency.
+Screenshot-based review of a live UI. A screenshotter navigates the app via Playwright and captures every page, then two analysis agents review the screenshots with structurally different access — one sees each screenshot in isolation (forced first impressions), the other sees all screenshots simultaneously (cross-page consistency). The structural constraint on what each agent can see produces genuinely different findings.
 
 ## How This Differs From Other Skills
 
@@ -15,7 +15,7 @@ Screenshot-based review of a live UI in two phases: a Flow Walker navigates the 
 | `mine.ux-antipatterns` | Static code scan for UX anti-patterns — no live app, no screenshots |
 | `ui-auditor` agent | Code-level a11y and consistency grep — no visual verification |
 | `visual-diff` agent | Before/after regression screenshots — compares two states |
-| **`mine.visual-qa`** | **Live app screenshots + task walkthrough + parallel visual analysis** |
+| **`mine.visual-qa`** | **Live app screenshots + structurally separated visual analysis** |
 
 ## Arguments
 
@@ -24,184 +24,190 @@ $ARGUMENTS — optional:
 - URL + pages: `/mine.visual-qa http://localhost:3000 /dashboard /settings /users`
 - Empty: attempt to detect a running dev server, then ask
 
-## Phase 1: Detect Target
+## Phase 1: Detect Target & Pages
 
-### If URL provided in $ARGUMENTS
+### If URL and pages provided in $ARGUMENTS
 
-Use it directly. If specific pages were listed, note them for the Flow Walker.
+Use them directly.
 
-### If no URL provided
+### If only URL provided
+
+Navigate to the URL with Playwright, take a snapshot, identify main pages/views from navigation links. Auto-include all discovered pages. Only ask the user if more than 10 pages are found — in that case, present the list and ask which to include.
+
+### If nothing provided
 
 1. Check for a running dev server:
    ```bash
    ss -tlnp 2>/dev/null | grep -E ':(3000|3001|4200|5000|5173|8000|8080|8888) ' | head -5
    ```
-2. If a server is found, confirm the URL with the user
-3. If nothing found, ask the user for the URL
+2. If found, confirm the URL with the user
+3. If not found, ask the user for the URL
+4. Then discover pages as above
 
-## Phase 2: Discover Pages
+## Phase 2: Screenshotter (Playwright Capture)
 
-If no specific pages were listed in $ARGUMENTS:
-
-1. Use Playwright to navigate to the base URL
-2. Take a snapshot of the page to find navigation links
-3. Identify the main pages/views (look for nav menus, sidebars, route links)
-4. Present the discovered pages and ask the user which to review:
-
-```
-AskUserQuestion:
-  question: "I found these pages. Which should I review?"
-  header: "Pages"
-  multiSelect: true
-  options:
-    - label: "All pages"
-      description: "Review everything I found"
-    - label: "<page 1>"
-      description: "<url path>"
-    - label: "<page 2>"
-      description: "<url path>"
-    - label: "<page 3>"
-      description: "<url path>"
-```
-
-## Phase 3: Flow Walker (Screenshot Capture + Task Walkthrough)
-
-Before launching, create a unique temp directory:
+Create a unique temp directory:
 
 1. Run: `get-skill-tmpdir mine-visual-qa`
 2. Note the directory path (e.g., `/tmp/claude-mine-visual-qa-a8Kx3Q`)
 
-Launch a single `general-purpose` agent with Playwright access. This agent does two things at once: captures a complete screenshot library AND tests task flows by actually using the app.
+Launch a single `general-purpose` agent with Playwright access. Its primary job is capturing a complete screenshot library — both static page views AND interactive element states (dropdowns, modals, tooltips, etc.). Page coverage comes first, then it goes back to trigger interactive elements.
 
 **Agent type**: `general-purpose`
-**Output file**: `<dir>/flow-walkthrough.md`
+**Output file**: `<dir>/walkthrough.md`
 **Screenshot directory**: `<dir>/screenshots/`
 **Run in background**: `true`
 
 ```
-You are a first-time user opening <APP_NAME> at <APP_URL>. The app has real data in it.
+You are opening <APP_NAME> at <APP_URL> for the first time.
 
-You have two jobs:
-1. CAPTURE SCREENSHOTS of every page for other reviewers to analyze later
-2. TEST TASK FLOWS by actually trying to use the app
+Your PRIMARY job is capturing screenshots of every page for other reviewers to analyze. Your secondary job is narrating your experience as you go.
 
 DO NOT look at source code. Just use the app as a human would.
 
-## Screenshot Capture
+## Screenshot Capture (do this first)
 
-For every page you visit, save screenshots to <dir>/screenshots/ using Playwright MCP tools:
-- Desktop viewport: take a screenshot of each page
-- Mobile viewport: resize to 375px width and screenshot each page again
-- Dark/light mode: if the app has a theme toggle, switch modes and screenshot each page in both
-- Scrolled content: if a page scrolls, scroll down and capture additional screenshots
+Visit every page listed below and capture screenshots. Save to <dir>/screenshots/ using Playwright MCP tools.
 
-Name files descriptively: `dashboard-desktop.png`, `dashboard-mobile.png`, `settings-dark.png`, etc.
+### Naming Convention
 
-## Task Walkthrough
+Name files with a zero-padded sequence number, page name, viewport, and theme:
 
-Navigate through the app and try to complete real tasks. Narrate moment-by-moment:
-1. "I want to [goal]. I look at the screen. I see [what's visible]. I think I should click [element]."
-2. "I clicked it. Now I see [result]. I expected [what you expected]. This is [clear/confusing/wrong]."
-3. "The next step should be [X]. I can/can't find how to do it."
-4. Continue until the task is complete or you get stuck.
+```
+01-dashboard-desktop-light.png
+02-dashboard-desktop-dark.png
+03-dashboard-mobile-light.png
+04-items-list-desktop-light.png
+05-items-list-desktop-dark.png
+06-items-list-mobile-light.png
+```
 
-Tasks to attempt:
-- Find and view an existing item from a list
-- Create a new item (fill out the form, submit it)
-- Edit an existing item
-- Delete something — is there confirmation? Can you undo it?
-- Use search or filter to find something specific
-- Navigate from any page back to the starting page
-<Add any app-specific tasks based on what the PAGES suggest>
+For interactive element states, use an `interact-` prefix with the element type:
 
-Screenshot each step as you go.
+```
+20-interact-dropdown-category-open.png
+21-interact-datepicker-expanded.png
+22-interact-modal-delete-confirm.png
+23-interact-tooltip-status-hover.png
+24-interact-accordion-details-open.png
+```
 
-After completing all tasks, also check:
-- Do you always know where you are in the app?
-- After each action, is there clear feedback that it worked?
-- Are there dead ends — pages where you can't figure out what to do next?
-- Does the browser back button work sensibly?
+The leading number gives global ordering. The `interact-` prefix tells reviewers this is a triggered state, not a default page view.
+
+### What to Capture
+
+**Step 1 — Page screenshots (do this first for every page):**
+- Desktop viewport screenshot
+- Mobile viewport (resize to 375px width) screenshot
+- If the app has a dark/light toggle: screenshot in both modes
+- If the page scrolls: scroll down and capture additional screenshots
+
+**Finish capturing ALL pages before interacting with elements.** Page coverage is your most important deliverable.
+
+**Step 2 — Interactive element states (after all pages are captured):**
+
+Go back through the pages and trigger every interactive element you can find. The goal is to reveal visual states that are invisible in a static screenshot:
+- **Dropdowns / selects**: click to open, screenshot the expanded state
+- **Modals / dialogs**: trigger any modal (delete confirmation, create form, etc.), screenshot it
+- **Tooltips**: hover over elements with tooltips, screenshot
+- **Accordions / collapsibles**: expand them, screenshot
+- **Radio buttons / checkboxes / toggles**: click them to show selected state
+- **Date pickers / color pickers**: open them, screenshot
+- **Form validation**: submit an empty form or enter invalid data, screenshot error states
+- **Loading / empty states**: if you can trigger them (clear a filter to show "no results"), screenshot
+
+Narrate briefly what you triggered and what appeared. The screenshots are the main deliverable.
 
 ## Pages to Visit
 <PAGES>
 
 ## Output
 
-Write your walkthrough findings to: <dir>/flow-walkthrough.md
+Write a brief walkthrough log to: <dir>/walkthrough.md
 
-Prioritize by severity of getting stuck — "I literally could not figure out how to delete an item" ranks above "the success message disappeared too quickly."
+Include:
+1. A manifest section listing every screenshot captured and which page/viewport/theme/interaction it covers
+2. Brief narration of what you observed — especially interactive elements that revealed unexpected visual states
+3. Any elements you couldn't trigger or pages you couldn't reach
 ```
 
-## Phase 4: Launch Two Analysis Agents
+## Phase 3: Launch Two Analysis Agents
 
-After the Flow Walker completes, read its output file to confirm screenshots were captured. Then launch two `general-purpose` agents in parallel with `run_in_background: true`.
+After the Screenshotter completes, read its output file and confirm screenshots were captured. Glob for `<dir>/screenshots/*.png` to get the actual file list.
 
-These agents receive the screenshot file paths — they do NOT use Playwright. They analyze the saved images from two distinct tasks.
+Launch two `general-purpose` agents with `run_in_background: true`. The key design: **Agent 1 sees one screenshot at a time. Agent 2 sees all of them at once.** This structural constraint — not prompt instructions — is what produces different findings.
 
-### Agent 1: First-Impression Reactor
+### Agent 1: Isolated Page Reviewer
 
 **Agent type**: `general-purpose`
-**Output file**: `<dir>/first-impressions.md`
-**Task**: Go through each screenshot one at a time and give an honest gut reaction.
+**Output file**: `<dir>/page-reactions.md`
+**Structure**: Invoked ONCE, but instructed to read and react to each screenshot individually, writing its reaction before moving to the next. It must not reference other screenshots in its reactions.
 
 ```
-You are looking at screenshots of <APP_NAME>, captured from a live app.
+You are reviewing screenshots of <APP_NAME>, captured from a live app. Each screenshot shows one page or one step of a task flow.
 
-Your job: go through each screenshot one at a time and react honestly. For each one, answer:
-1. What's your gut reaction? Does it look polished or rough?
-2. What draws your eye — is it the right thing?
-3. Does the visual hierarchy make sense? Can you tell what's important?
-4. Is anything misaligned, too cramped, too sparse, or visually "off"?
-5. Is the purpose of this page immediately clear?
-6. Would anything confuse a regular person?
+Your job: read each screenshot ONE AT A TIME. After reading each one, immediately write your reaction BEFORE looking at the next screenshot. Do not go back and revise earlier reactions. Do not compare to other screenshots — react only to what's in front of you right now.
 
-Be brutally honest. "This looks like a prototype" or "I have no idea what this page is for" — that kind of candor. Be specific about location — "the spacing between the header and the first card is 2x the spacing between cards" is better than "spacing issues."
+For each screenshot, write:
 
-Screenshots are at: <dir>/screenshots/
-Read each screenshot file and react to it.
+### [filename]
+- **Gut reaction**: Does this look polished or rough?
+- **Eye draw**: What draws your eye first — is that the right thing?
+- **Clarity**: Is the purpose of this page immediately obvious?
+- **Issues**: Anything misaligned, cramped, sparse, confusing, or ugly? Be specific about location.
+- **Labels/copy**: Do the words on screen make sense? Any jargon or unclear terms?
 
-Write your findings to: <dir>/first-impressions.md
+Be brutally honest. "This looks like a prototype" or "I have no idea what this page is for" — that kind of candor. Be specific — "the spacing between the header and the first card is 2x the spacing between cards" is better than "spacing issues."
 
-Prioritize by what hurts the most — put the worst things at the top.
+Screenshots to review (in this order):
+<list each screenshot file path, one per line>
+
+Write your findings to: <dir>/page-reactions.md
+
+After reviewing all screenshots, add a summary section at the end: your top 5 issues across all pages, ranked by how much they'd bother a real user.
 ```
 
 ### Agent 2: Cross-Page Consistency Auditor
 
 **Agent type**: `general-purpose`
 **Output file**: `<dir>/consistency-audit.md`
-**Task**: Compare ALL screenshots against each other — find inconsistencies across the app.
+**Structure**: Reads ALL screenshots at once, then compares across the full set.
 
 ```
-You are looking at screenshots of <APP_NAME>, captured from a live app.
+You are reviewing screenshots of <APP_NAME>, captured from a live app. You have the COMPLETE set of screenshots — every page, in desktop and mobile viewports, in light and dark modes.
 
-Your job: look at ALL the screenshots together and compare across pages. You are checking whether this app feels like ONE app or a collection of unrelated pages.
+Your job: look at ALL the screenshots together and evaluate the app as a SYSTEM. You are checking whether this feels like one cohesive app or a collection of unrelated pages.
 
-For each concern, answer:
-1. Do elements that should look the same actually look the same? (buttons, cards, headers, tables, spacing, icons)
-2. Is terminology consistent? (Does the same concept have the same name on every page?)
-3. Do navigation patterns match across pages? (Is the sidebar/header the same everywhere?)
-4. Are similar pages structured the same way? (Do all list pages look alike? Do all detail pages?)
-5. Do mobile screenshots maintain the same relative quality as desktop, or do some pages break?
-6. If dark/light mode screenshots exist — do both modes look intentional, or is one clearly an afterthought?
+Read every screenshot first, then write your findings:
 
-You are specifically looking for DRIFT — things that are inconsistent between pages that should be consistent. A single page looking bad is someone else's job. You care about whether page A and page B agree.
+1. **Element consistency**: Do elements that should look the same actually match across pages? (buttons, cards, headers, tables, spacing, icons, border radii)
+2. **Terminology**: Does the same concept have the same name everywhere? Are labels consistent?
+3. **Navigation patterns**: Is the sidebar/header/nav the same on every page? Any pages that break the pattern?
+4. **Page structure**: Do similar pages follow the same layout? (Do all list pages look alike? All detail pages?)
+5. **Mobile quality**: Do mobile screenshots maintain the same relative quality as desktop, or do some pages break?
+6. **Dark/light mode**: If both modes were captured — do both look intentional, or is one clearly an afterthought?
+7. **Flow coherence**: For task flow screenshots — do the steps feel like a smooth progression, or do screens feel disconnected?
 
-Screenshots are at: <dir>/screenshots/
-Read all screenshots and compare them.
+You are looking for DRIFT — things that are inconsistent between pages that should be consistent.
+
+Screenshots:
+<list all screenshot file paths>
 
 Write your findings to: <dir>/consistency-audit.md
 
-Prioritize by visibility — inconsistencies on primary pages matter more than edge cases.
+Prioritize by visibility — inconsistencies on primary pages matter more than edge cases. If the app is genuinely consistent, say so. Don't manufacture findings.
 ```
 
-## Phase 5: Synthesize & Present
+## Phase 4: Synthesize & Present
 
 Read all three report files:
-- `<dir>/flow-walkthrough.md` — task flow issues
-- `<dir>/first-impressions.md` — per-page visual/UX reactions
+- `<dir>/walkthrough.md` — screenshotter's manifest and narration of interactive element states
+- `<dir>/page-reactions.md` — isolated per-page reactions
 - `<dir>/consistency-audit.md` — cross-page consistency issues
 
-Merge and deduplicate findings. Prioritize by user impact — "users can't complete the primary task" ranks above "button border radius varies."
+Merge and deduplicate findings. Prioritize by user impact.
+
+If the combined findings total fewer than 3 issues, say so plainly: "The UI is in good shape. Here's what was checked and the few minor notes." Skip the backlog flow.
 
 ### Per-finding format
 
@@ -210,7 +216,7 @@ Merge and deduplicate findings. Prioritize by user impact — "users can't compl
 
 **Page**: <page name or "cross-page">
 **What's wrong**: <direct, specific description — reference what's visible on screen>
-**Found by**: <Flow Walker / First Impressions / Consistency Audit — or combination>
+**Found by**: <Screenshotter / Page Review / Consistency Audit — or combination>
 **Suggested fix**: <concrete recommendation>
 ```
 
@@ -228,7 +234,7 @@ AskUserQuestion:
     - label: "Fix issues now (/mine.build)"
       description: "Start implementing fixes for selected findings"
     - label: "Read a specific agent's full report"
-      description: "See unfiltered findings from the flow walker, first impressions, or consistency audit"
+      description: "See unfiltered findings from the screenshotter, page reviewer, or consistency auditor"
     - label: "Create issues for later"
       description: "File findings as tracked issues"
 ```
@@ -244,7 +250,7 @@ When offering to read agent reports, list the three temp file paths.
 ## Principles
 
 1. **Screenshots are evidence** — every finding must reference what the reviewer saw on screen, not what they inferred from code
-2. **One browser, no contention** — a single Flow Walker captures all screenshots serially; analysis agents work from saved images only
-3. **Task-based differentiation** — agents do different *activities* (react to each page vs. compare across pages), not different *lenses* on the same activity. No IGNORE instructions needed.
-4. **Don't manufacture** — if the UI looks good, say so. Padding out findings wastes everyone's time
-5. **Actionable fixes** — every finding includes a concrete recommendation, not just a complaint
+2. **One browser, no contention** — a single screenshotter captures everything; analysis agents work from saved images only
+3. **Structural separation** — Agent 1 sees one screenshot at a time (forced isolation), Agent 2 sees all of them (forced comparison). The constraint is on what the agent can *see*, not what it's told to focus on.
+4. **Screenshots first** — the screenshotter prioritizes complete page coverage over deep task exploration. Incomplete screenshots mean incomplete analysis.
+5. **Don't manufacture** — if the UI looks good, say so. Padding out findings wastes everyone's time.

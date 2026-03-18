@@ -72,7 +72,7 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 | `mine.specify` | Proportional discovery interview — extracts full intent and produces spec.md with 12-item quality validation |
 | `mine.tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |
 | `mine.ux-antipatterns` | Detect UX anti-patterns -- layout shifts, missing feedback, broken forms, a11y gaps |
-| `mine.visual-qa` | Live visual QA -- Playwright flow walkthrough captures screenshots, then two agents analyze them (first impressions + cross-page consistency) |
+| `mine.visual-qa` | Live visual QA -- Playwright captures screenshots, then two agents analyze them with structural separation (one sees each page in isolation, the other sees all pages at once) |
 | `mine.wp` | WP lane management — move work packages between lanes, view kanban, list WPs |
 | `mine.worktree-rebase` | Detect when the parent repo is currently on a feature branch and rebase this worktree branch onto it (run immediately after creating the worktree) |
 | `vx.visual-explainer` | Generate self-contained HTML pages that visually explain systems, code changes, plans, and data — diagrams, diff reviews, plan reviews, slide decks, project recaps, and more. Subcommands: `vx.diff-review`, `vx.fact-check`, `vx.generate-slides`, `vx.generate-visual-plan`, `vx.generate-web-diagram`, `vx.plan-review`, `vx.project-recap`, `vx.share` |
