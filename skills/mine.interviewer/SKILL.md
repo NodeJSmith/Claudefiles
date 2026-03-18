@@ -1,6 +1,6 @@
 ---
 name: mine.interviewer
-description: Alias for mine.specify — structured discovery interview that produces spec.md.
+description: "Use when the user asks to be interviewed or wants a structured discovery session. Alias for mine.specify — structured discovery interview that produces spec.md."
 user-invocable: true
 ---
 

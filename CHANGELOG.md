@@ -6,9 +6,17 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Added
 - `mine.visual-qa` skill — Playwright screenshotter captures pages + interactive element states, then two agents analyze under separated viewing conditions (sequential first impressions + all-at-once consistency audit) (#99)
+- `mine.grill` — pre-pipeline multi-angle interrogation (product, design, engineering, scope, adversarial lenses); produces `brief.md` that `/mine.specify` can ingest (#100)
+- `mine.write-skill` — guided skill creation with quality checklist and auto-wiring of routing in `capabilities.md` + README (#100)
+- TDD vertical-slice methodology and mocking rules to `rules/common/testing.md` (#100)
+- Codebase reconnaissance (Phase 1.5) and adaptive follow-up branches in `mine.specify` (#100)
+- 9-point plan review checklist (spec coverage, design coverage, scope containment) in `mine.plan-review` (#100)
+- `/mine.challenge` gate option in `mine.specify`, `mine.grill`, `mine.brainstorm`, and `mine.research` sign-off gates (#100)
 
-### Removed
-- `mine.ux-review` command — replaced by `mine.visual-qa` which does live screenshot review instead of static code scanning (#99)
+### Changed
+- `mine.build`, `mine.design`, `mine.specify`, `mine.grill` — scoping summaries now start with "**Understood pain point:**" to reinforce pain-point-first thinking (#100)
+- `rules/common/interaction.md` — one-line nudge to suggest `/mine.challenge` before committing to non-trivial designs or workflow changes (#100)
+- `rules/common/worktrees.md` — removed proactive worktree prompt; worktree decisions are user-driven (#100)
 
 ## 2026-03-17
 

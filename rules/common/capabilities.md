@@ -38,6 +38,7 @@
 | "evaluate this repo", "should I use this library" | `/mine.eval-repo` |
 | "mutation test", "do my tests actually catch bugs" | `/mine.mutation-test` |
 | "find tool gaps", "session archaeology", "missing cli features" | `/mine.tool-gaps` |
+| "grill me on this", "poke holes in my idea", "help me think this through", "what am I not thinking about" | `/mine.grill` |
 | "interview this idea", "spec this out", "help me define what I want to build", "interviewer" | `/mine.specify` |
 | "specify this feature", "write a spec", "define requirements" | `/mine.specify` |
 | "build this", "implement this", "make this change", "start a feature" | `/mine.build` |
@@ -49,6 +50,7 @@
 | "move WP to doing", "WP status", "kanban" | `/mine.wp` |
 | "review my changes", "run the reviewers", "code and integration review" | `/mine.review` |
 | "evaluate skill", "compare skill variants", "skill A/B test" | `/mine.skill-eval` |
+| "create a skill", "write a skill", "new skill" | `/mine.write-skill` |
 | "rebase this worktree", "sync worktree to parent branch" | `/mine.worktree-rebase` |
 
 ## CLI Tools

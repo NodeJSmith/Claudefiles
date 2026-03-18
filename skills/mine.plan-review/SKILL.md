@@ -1,12 +1,12 @@
 ---
 name: mine.plan-review
-description: "Use when the user says: \"review this plan\", \"check the plan\", or \"plan review\". Reviews design doc and work packages with an Opus subagent against a 6-point checklist."
+description: "Use when the user says: \"review this plan\", \"check the plan\", or \"plan review\". Reviews design doc and work packages with an Opus subagent against a 9-point checklist."
 user-invocable: true
 ---
 
 # Plan Review
 
-Review a design doc and its Work Packages for correctness, completeness, and design alignment before execution begins. Uses a subagent reviewer against a 6-point checklist.
+Review a design doc and its Work Packages for correctness, completeness, and design alignment before execution begins. Uses a subagent reviewer against a 9-point checklist.
 
 ## Arguments
 

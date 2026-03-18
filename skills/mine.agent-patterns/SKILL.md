@@ -1,6 +1,6 @@
 ---
 name: mine.agent-patterns
-description: Agent orchestration patterns — parallel execution, model selection, context passing, subagent types, temp files, foreground/background, multi-perspective analysis.
+description: "Use when designing multi-agent workflows or choosing a subagent type. Covers parallel execution, model selection, context passing, temp files, foreground/background dispatch, and multi-perspective analysis."
 user-invocable: false
 ---
 

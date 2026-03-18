@@ -1,6 +1,7 @@
 ---
 name: mine.python-patterns
-description: Pythonic idioms, PEP 8 standards, type hints, and best practices for building robust, efficient, and maintainable Python applications.
+description: "Use when writing or reviewing Python code. Pythonic idioms, PEP 8 standards, type hints, and best practices for building robust, efficient, and maintainable Python applications."
+user-invocable: false
 ---
 
 # Python Development Patterns

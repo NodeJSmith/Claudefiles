@@ -3,10 +3,10 @@ name: Lint AI Config Files
 on:
   push:
     branches: [main]
-    paths: ['agents/**', 'skills/**', 'commands/**', 'CLAUDE.md']
+    paths: ['agents/**', 'skills/**', 'commands/**', 'rules/**', 'bin/**', 'CLAUDE.md', '.agnix.toml']
   pull_request:
     branches: [main]
-    paths: ['agents/**', 'skills/**', 'commands/**', 'CLAUDE.md']
+    paths: ['agents/**', 'skills/**', 'commands/**', 'rules/**', 'bin/**', 'CLAUDE.md', '.agnix.toml']
 
 jobs:
   agnix:
@@ -17,4 +17,4 @@ jobs:
       - name: Install agnix
         run: npm install -g agnix@0.14.0
       - name: Lint AI config files
-        run: agnix .
+        run: python3 bin/agnix-check .

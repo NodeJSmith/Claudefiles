@@ -1,6 +1,7 @@
 ---
 name: mine.backend-patterns
-description: Backend architecture patterns, API design, database optimization, and server-side best practices for Python and FastAPI.
+description: "Use when building or reviewing backend services. Backend architecture patterns, API design, database optimization, and server-side best practices for Python and FastAPI."
+user-invocable: false
 ---
 
 # Backend Development Patterns

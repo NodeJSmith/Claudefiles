@@ -1,6 +1,7 @@
 ---
 name: mine.python-testing
-description: Python testing strategies using pytest, TDD methodology, fixtures, mocking, parametrization, and coverage requirements.
+description: "Use when writing or reviewing Python tests. Testing strategies using pytest, TDD methodology, fixtures, mocking, parametrization, and coverage requirements."
+user-invocable: false
 ---
 
 # Python Testing Patterns

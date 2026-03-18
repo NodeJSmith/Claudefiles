@@ -32,7 +32,7 @@ No Vercel account, Cloudflare account, or API keys needed. The deployment is "cl
 ## Script Location
 
 ```bash
-bash ~/.claude/skills/vx.visual-explainer/scripts/share.sh <file>
+bash ${CLAUDE_HOME:-$HOME/.claude}/skills/vx.visual-explainer/scripts/share.sh <file>
 ```
 
 ## Output

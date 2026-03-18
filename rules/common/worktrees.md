@@ -1,29 +1,6 @@
 # Worktree Workflow
 
-## Before Starting Large Tasks
-
-Before beginning any large, multi-file task — new features, refactors, issue implementations — check whether you are already running in a git worktree:
-
-```bash
-git rev-parse --git-dir
-```
-
-If the output contains `worktrees/`, you are already in one. Proceed normally.
-
-If the output does **not** contain `worktrees/`, pause and ask the user before continuing:
-
-> This looks like a substantial task. Would you like to:
->
-> **Option 1 — New worktree session** (recommended for large work):
-> ```
-> claude --worktree <suggested-branch-name>
-> ```
-> Starts a fresh Claude session in an isolated branch. Use `--resume <session-id>` in a future session to return to this conversation.
->
-> **Option 2 — Continue here**:
-> Proceed in the current session on the current branch.
-
-Derive the suggested branch name from the task: kebab-case, descriptive, max ~40 chars (e.g., `feat/add-auth`, `fix/123-null-pointer`, `refactor/extract-service`).
+Worktrees are created by the user via `claude --worktree <branch>`. These rules govern behavior when already inside a worktree.
 
 ## What Counts as a Large Task
 

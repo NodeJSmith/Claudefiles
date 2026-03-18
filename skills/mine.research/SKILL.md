@@ -127,7 +127,7 @@ AskUserQuestion:
 
 Create the `design/research/` directory if it doesn't exist. If the project already has research in `docs/`, follow the existing convention.
 
-Copy/move the brief from the temp file to the user's chosen location (or display it inline if they chose "Just show me").
+Copy/move the brief from the temp file to the user's chosen location (or display it inline if they chose "Just show me"). Record the saved path as `<research_brief_path>` if a file was written.
 
 Present the key findings conversationally and ask what the user wants to do next.
 
@@ -137,15 +137,17 @@ AskUserQuestion:
   header: "Next step"
   multiSelect: false
   options:
+    - label: "Challenge these findings first"
+      description: "Run /mine.challenge on the research brief before committing to a direction"
     - label: "Record the decision (/mine.adrs)"
       description: "Create an ADR in design/adrs/ to formalize the architectural choice"
     - label: "Build it (/mine.build)"
       description: "Direct implementation or full caliper workflow, depending on complexity"
-    - label: "Prototype first"
-      description: "Build a small proof-of-concept before committing to the full approach"
     - label: "I need to think about it"
       description: "The brief has what I need — I'll come back when I'm ready"
 ```
+
+If "Challenge these findings first" is selected: if the brief was saved to a file, invoke `/mine.challenge <research_brief_path>`. If the user chose "Just show me" (no file), pass the displayed brief content as the argument text. After challenge completes and findings are addressed (or accepted), loop back to this gate.
 
 ## Principles
 
