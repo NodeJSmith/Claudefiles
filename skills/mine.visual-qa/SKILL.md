@@ -143,7 +143,7 @@ For interactive element states, add an `interact-` prefix:
 
 **Step 2 — Interactive element states (after all pages are captured):**
 
-Go back through the pages and trigger interactive elements to reveal visual states invisible in a static screenshot. **Budget: up to 15 interactive screenshots total**, prioritizing the most visually significant elements.
+Go back through the pages and trigger interactive elements to reveal visual states invisible in a static screenshot. **Budget: up to 3 interactive screenshots per page, maximum 20 total.** Prioritize the most visually significant elements.
 
 Priority order:
 1. Modals / dialogs
@@ -155,9 +155,7 @@ Priority order:
 7. Radio buttons / checkboxes / toggles — show selected state
 8. Loading / empty states — clear a filter to show "no results"
 
-After exhausting this list, use `browser_snapshot` to inspect the accessibility tree of each page. Any element with `role=button`, `role=tab`, `role=menu`, `role=dialog`, or `aria-haspopup` that you haven't already triggered — trigger it and screenshot the result (still within the 15-screenshot budget).
-
-Narrate briefly what you triggered and what appeared.
+Stop when you're reaching for low-value interactions. Narrate briefly what you triggered and what appeared.
 
 ## Pages to Visit
 <PAGES>
@@ -175,36 +173,34 @@ Include:
 
 ## Phase 3: Launch Analysis Agents
 
-After the Screenshotter completes, read its output file and confirm screenshots were captured. Glob for `<dir>/screenshots/*.png` to get the actual file list.
+After the Screenshotter completes, read its output file and glob for `<dir>/screenshots/*.png` to get the actual file list.
+
+**Zero-screenshot gate**: If no `.png` files exist, stop. Report the failure to the user — do not launch analysis agents on nothing. Common causes: Playwright MCP disconnected, the app requires authentication, or the dev server went down. If `walkthrough.md` exists, read it for clues about what went wrong.
 
 Launch the following `general-purpose` agents with `run_in_background: true`. Each sees the same screenshots through a different lens.
 
-### Agent 1: Isolated Page Reviewer
+### Agent 1: First-Impressions Reviewer
 
 **Output file**: `<dir>/page-reactions.md`
-**Lens**: Sequential, isolated — reacts to each screenshot before seeing the next. No cross-referencing.
+**Lens**: Per-page, gut-reaction focused. Prioritizes immediate impressions over cross-page analysis.
 
 ```
 You are reviewing screenshots of <APP_NAME>, captured from a live app. Each screenshot shows one page or one interactive state.
 
-Your job: read each screenshot ONE AT A TIME. After reading each one, immediately write your reaction BEFORE looking at the next screenshot. Do not go back and revise earlier reactions. Do not compare to other screenshots — react only to what's in front of you right now.
+Your job: write a reaction to each screenshot, one at a time. Focus on your immediate impression of each page — don't cross-reference or compare across pages. Write your reaction to each screenshot before moving to the next.
 
-For each screenshot, write:
+For each screenshot, write a `### [filename]` heading and your honest reaction. Write what actually strikes you — if the dominant impression is "this is beautiful and I have nothing to critique," say that. If it's "I can't tell what this page is for," say that. Don't force observations that aren't there.
 
-### [filename]
-- **Gut reaction**: Does this look polished or rough?
-- **Eye draw**: What draws your eye first — is that the right thing?
-- **Clarity**: Is the purpose of this page immediately obvious?
-- **What's wrong**: Anything misaligned, cramped, sparse, confusing, or ugly? Be specific about location.
+If you're stuck on a screenshot, consider: Does it look polished or rough? What draws your eye first — is that the right thing? Is the purpose obvious? Is anything misaligned, cramped, sparse, or confusing?
 
-Be brutally honest. "This looks like a prototype" or "I have no idea what this page is for" — that kind of candor. Be specific — "the spacing between the header and the first card is 2x the spacing between cards" is better than "spacing issues."
+Be brutally honest and specific — "the spacing between the header and the first card is 2x the spacing between cards" is better than "spacing issues."
 
 Screenshots to review (in this order):
 <list each screenshot file path, one per line>
 
 Write your findings to: <dir>/page-reactions.md
 
-After reviewing all screenshots, add a summary section at the end: your top 5 issues across all pages, ranked by how much they'd bother a real user.
+After reviewing all screenshots, add a summary section: your top 5 issues, ranked by how much they'd bother a real user.
 ```
 
 ### Agent 2: Cross-Page Consistency Auditor
@@ -245,17 +241,9 @@ You are a designer who has spent your career making beautiful, functional interf
 
 Someone just handed you screenshots of <APP_NAME> and asked "what do you think?"
 
-Look at ALL the screenshots. Then write what you actually think.
+Look at ALL the screenshots. Then write what you actually think. Be specific enough that someone could act on what you say — "the spacing feels off" is useless, "the gap between the header and the first card is twice the gap between cards" is actionable.
 
-No template. No sections. No checklist. Just talk — the way you'd talk to a colleague over coffee. Stream of consciousness is fine. Jump between observations. Circle back. Contradict yourself if your opinion changes as you look more carefully.
-
-What strikes you first? What bothers you the more you look? What's actually good? Where did someone clearly care, and where did they phone it in? Does this feel like a real product or a tutorial project? What would you change first if this landed on your desk tomorrow?
-
-Compare it to the apps you use every day. Not abstractly — specifically. "This reminds me of early-stage [X] before they figured out [Y]" is more useful than "the spacing could be improved."
-
-If something is genuinely well done, say so with the same specificity you'd use for criticism. "The card elevation system is doing real work here — surface hierarchy is clear without being heavy" is better than "looks nice."
-
-The one thing you MUST do: end with the 3 things that would make the biggest difference to how professional this feels. Not the 3 worst things — the 3 highest-leverage changes.
+End with the 3 highest-leverage changes — the things that would make the biggest difference to how professional this feels.
 
 Screenshots:
 <list all screenshot file paths>
@@ -321,6 +309,6 @@ When offering to read agent reports, list the temp file paths.
 
 1. **Screenshots are evidence** — every finding must reference what the reviewer saw on screen, not what they inferred from code
 2. **One browser, no contention** — a single screenshotter captures everything; analysis agents work from saved images only
-3. **Cognitive diversity over checklist depth** — each agent uses a genuinely different viewing mode (sequential vs simultaneous, structured vs unstructured). Adding a checklist item is almost never the right response to a missed finding — add a different kind of agent instead.
+3. **Cognitive diversity over checklist depth** — each agent uses a genuinely different mode: per-page gut reactions, systematic cross-page comparison, and freeform narrative. Adding a checklist item is almost never the right response to a missed finding — add a different kind of agent instead.
 4. **Focused runs** — one viewport, one theme per run. Fewer screenshots means deeper attention per screenshot. Re-run with different flags for broader coverage.
 5. **Don't manufacture** — if the UI looks good, say so. Padding out findings wastes everyone's time.
