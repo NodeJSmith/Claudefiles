@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-18
 
 ### Added
-- `mine.visual-qa` skill — Playwright screenshotter captures pages + interactive element states, then three agents analyze under separated viewing conditions (first impressions, consistency audit, unstructured design narrative); supports `--mobile` and `--dark` flags for focused per-viewport runs (#99)
+- `mine.visual-qa` skill — Playwright screenshotter captures pages + interactive element states, then three agents analyze under separated viewing conditions (first impressions, consistency audit, unstructured design narrative); supports `--mobile` and `--dark` flags for focused per-viewport runs (#99, #101)
 - `mine.grill` — pre-pipeline multi-angle interrogation (product, design, engineering, scope, adversarial lenses); produces `brief.md` that `/mine.specify` can ingest (#100)
 - `mine.write-skill` — guided skill creation with quality checklist and auto-wiring of routing in `capabilities.md` + README (#100)
 - TDD vertical-slice methodology and mocking rules to `rules/common/testing.md` (#100)
