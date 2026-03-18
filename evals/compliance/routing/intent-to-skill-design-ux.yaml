@@ -85,27 +85,27 @@ tests:
       - type: javascript
         value: *skill_assertion
 
-  # --- mine.ux-review ---
-  - description: "UX review → /mine.ux-review (direct)"
+  # --- mine.visual-qa (replaces mine.ux-review) ---
+  - description: "UX review → /mine.visual-qa (direct)"
     vars:
       prompt: "do a UX review on the profile page"
-      expectedSkill: "mine.ux-review"
+      expectedSkill: "mine.visual-qa"
     assert:
       - type: javascript
         value: *skill_assertion
 
-  - description: "check for anti-patterns → /mine.ux-review (natural)"
+  - description: "screenshot review → /mine.visual-qa (natural)"
     vars:
-      prompt: "check the settings page for UX anti-patterns and usability issues"
-      expectedSkill: "mine.ux-review"
+      prompt: "take screenshots of the app and tell me what's wrong"
+      expectedSkill: "mine.visual-qa"
     assert:
       - type: javascript
         value: *skill_assertion
 
-  - description: "usability scan → /mine.ux-review (indirect)"
+  - description: "visual QA → /mine.visual-qa (indirect)"
     vars:
-      prompt: "users are complaining the onboarding flow is confusing — scan it for UX problems"
-      expectedSkill: "mine.ux-review"
+      prompt: "users are complaining the onboarding flow is confusing — do a visual QA on it"
+      expectedSkill: "mine.visual-qa"
     assert:
       - type: javascript
         value: *skill_assertion
