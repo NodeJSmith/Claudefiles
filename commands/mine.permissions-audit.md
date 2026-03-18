@@ -100,7 +100,7 @@ Scanned: N sessions | Matched: N | Unmatched: N
 
 USES  SESSIONS  PATTERN
 ────  ────────  ───────
-  12       4    Read(/home/user/myproject/*)
+  12       4    Read($HOME/myproject/*)
    8       3    Task(Explore)
    ...
 
@@ -116,7 +116,7 @@ USES  SESSIONS  PATTERN                     NOTE
 Entries in settings.local.json not yet in portable settings — these survived at least one session approval and may be worth promoting:
 
   Bash(claude-log extract:*)          [project: Claudefiles]
-  Read(//home/jessica/.claude/**)     [project: Claudefiles]
+  Read(~/.claude/**)     [project: Claudefiles]
   ...
 
 ### Debug log findings
@@ -125,7 +125,7 @@ Top prompted patterns from recent debug logs (ground truth):
 
 COUNT  PATTERN
 ─────  ───────
-    7  Read(//home/jessica/.claude/**)
+    7  Read(~/.claude/**)
     3  for sid in ...              ← for loop artifact; use sequential calls
     ...
 

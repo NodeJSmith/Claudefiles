@@ -102,6 +102,6 @@ Verify each against the code. If something cannot be verified, mark it as uncert
 - Never use `display: flex` on `<li>` for markers — use absolute positioning
 - Test tables with wide content don't overflow their container
 
-Write to `~/.claude/diagrams/` with a descriptive filename (e.g., `feature-name-plan.html`). Open the result in the browser. Tell the user the file path.
+Write to `${CLAUDE_HOME:-~/.claude}/diagrams/` with a descriptive filename (e.g., `feature-name-plan.html`). Open the result in the browser. Tell the user the file path.
 
 Ultrathink.

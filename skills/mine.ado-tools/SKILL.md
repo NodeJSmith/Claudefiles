@@ -1,6 +1,6 @@
 ---
 name: mine.ado-tools
-description: Azure DevOps CLI tools — ado-builds, ado-logs, ado-pr, ado-pr-threads. Build management, CI logs, PR operations.
+description: "Use when working with Azure DevOps builds, CI logs, or PRs. Wraps ado-builds, ado-logs, ado-pr, ado-pr-threads — usage, flags, and examples."
 user-invocable: false
 ---
 

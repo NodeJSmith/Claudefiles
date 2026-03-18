@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""agnix-check: agnix wrapper that escalates specific rules to errors.
+
+Rules escalated from warning to error:
+  AS-010 — Description must include a 'Use when...' trigger phrase
+  XP-003 — Hard-coded OS-specific absolute path with a real username
+            (e.g. /home/jessica/) — NOT tilde paths (~/.claude/) or
+            generic placeholders (/home/user/)
+
+Usage:
+  agnix-check [PATH]     # defaults to .
+"""
+
+import json
+import re
+import subprocess
+import sys
+
+# Matches /home/<realname>/ where <realname> is not the generic "user"
+_ABSOLUTE_USERNAME_PATH = re.compile(r"/home/(?!user(?:/|$))[a-z][a-z0-9_-]+/")
+
+
+def should_escalate(diag: dict) -> bool:
+    rule = diag.get("rule", "")
+    if rule == "AS-010":
+        return True
+    if rule == "XP-003":
+        msg = diag.get("message", "")
+        return bool(_ABSOLUTE_USERNAME_PATH.search(msg))
+    return False
+
+
+path = sys.argv[1] if len(sys.argv) > 1 else "."
+
+result = subprocess.run(
+    ["agnix", path, "--format", "json"],
+    capture_output=True,
+    text=True,
+)
+
+raw = (result.stdout or result.stderr or "").strip()
+if not raw:
+    print("agnix-check: no output from agnix")
+    sys.exit(result.returncode)
+
+try:
+    data = json.loads(raw)
+except Exception as e:
+    print(f"agnix-check: failed to parse agnix JSON output: {e}")
+    print(raw)
+    sys.exit(1)
+
+diags = data.get("diagnostics", [])
+errors = [d for d in diags if d.get("level") == "error"]
+warnings = [d for d in diags if d.get("level") == "warning"]
+escalated = [d for d in warnings if should_escalate(d)]
+other_warnings = [d for d in warnings if not should_escalate(d)]
+
+for d in errors:
+    rule = d.get("rule", "")
+    print(
+        f"{d['file']}:{d.get('line', '?')}:{d.get('column', '?')}: error [{rule}]: {d['message']}"
+    )
+
+for d in other_warnings:
+    rule = d.get("rule", "")
+    print(
+        f"{d['file']}:{d.get('line', '?')}:{d.get('column', '?')}: warning [{rule}]: {d['message']}"
+    )
+
+for d in escalated:
+    rule = d.get("rule", "")
+    print(
+        f"{d['file']}:{d.get('line', '?')}:{d.get('column', '?')}: error (escalated) [{rule}]: {d['message']}"
+    )
+
+total_native = len(errors)
+total_escalated = len(escalated)
+total_warnings = len(other_warnings)
+print(
+    f"\n{total_native} error(s), {total_warnings} warning(s), "
+    f"{total_escalated} warning(s) escalated to error"
+)
+
+sys.exit(1 if (total_native + total_escalated) > 0 else 0)

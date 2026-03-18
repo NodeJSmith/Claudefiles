@@ -1,6 +1,6 @@
 ---
 name: mine.git-tools
-description: Git helper scripts — git-default-branch, git-branch-base, git-branch-log, git-branch-diff-stat, git-branch-diff-files, git-rebase-onto. Branch detection, history, diffs, and clean rebasing.
+description: "Use when you need git branch operations, history, or diffs. Documents git-default-branch, git-branch-base, git-branch-log, git-branch-diff-stat, git-branch-diff-files, git-rebase-onto."
 user-invocable: false
 ---
 
