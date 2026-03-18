@@ -121,7 +121,7 @@ Write to `<feature_dir>/brief.md`:
 ```
 AskUserQuestion:
   question: "Brief saved. What next?"
-  header: "Grill complete"
+  header: "Handoff"
   multiSelect: false
   options:
     - label: "Challenge this brief first"

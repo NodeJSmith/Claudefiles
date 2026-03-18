@@ -244,32 +244,41 @@ If two or more thinkers converged on an idea, note it explicitly — convergence
 
 ```
 AskUserQuestion:
-  question: "What would you like to do with these ideas?"
-  multiSelect: true
+  question: "What's the primary next step for the top idea?"
+  multiSelect: false
   options:
     - label: "Challenge the top idea first"
-      description: "Run /mine.challenge on the top-ranked idea before committing to it"
+      description: "Run /mine.challenge before committing to this direction"
     - label: "Go deeper on the top idea"
       description: "Hand off to /mine.research for feasibility analysis"
-    - label: "Record the direction as an ADR"
-      description: "/mine.adrs — capture the decision with context and alternatives"
     - label: "Build it (/mine.build)"
       description: "Direct implementation or full caliper workflow, depending on complexity"
-    - label: "Save the session"
-      description: "Write to design/brainstorms/YYYY-MM-DD-<topic>/brainstorm.md"
-    - label: "Create issues / save to backlog"
-      description: "File ideas as tracked issues or save to .claude/backlog.md — follows the backlog save convention"
     - label: "Keep exploring"
       description: "Run another round with a different framing or constraint"
 ```
 
-If "Challenge the top idea first" is selected: if the session has been saved (i.e., "Save the session" was also selected), invoke `/mine.challenge <brainstorm-file-path>`. If not saved, construct the argument from the top idea's name and description block and pass it as text. After challenge completes and findings are addressed (or accepted), loop back to this gate.
+```
+AskUserQuestion:
+  question: "Any housekeeping before we proceed?"
+  multiSelect: true
+  options:
+    - label: "Save the session"
+      description: "Write to design/brainstorms/YYYY-MM-DD-<topic>/brainstorm.md"
+    - label: "Record an ADR"
+      description: "/mine.adrs — capture the decision with context and alternatives"
+    - label: "Create issues / save to backlog"
+      description: "File ideas as tracked issues or save to .claude/backlog.md"
+    - label: "Nothing — proceed"
+      description: "Skip housekeeping and go straight to the next step"
+```
+
+If "Challenge the top idea first" is selected: if the session was saved (housekeeping), invoke `/mine.challenge <brainstorm-file-path>`. If not saved, construct the argument from the top idea's name and description block and pass it as text. After challenge completes and findings are addressed (or accepted), loop back to this gate.
 
 ### Creating issues / saving to backlog
 
 If selected: invoke the backlog save flow from `rules/common/backlog.md`. Treat the ranked ideas as the item list. Use the idea's ranking tier (e.g. "Top 3", score) as the label. The 3-item threshold does not apply here — the user explicitly selected this action.
 
-**When multiple Phase 6 options are selected**, execute in this order: (1) create issues / save to backlog first, (2) record an ADR, (3) save the session, (4) proceed to research, planning, or further exploration.
+**Execution order for housekeeping**: (1) create issues / save to backlog, (2) record an ADR, (3) save the session, then proceed to the primary next step.
 
 For GitHub issue creation, use this template:
 

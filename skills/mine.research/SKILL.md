@@ -143,13 +143,11 @@ AskUserQuestion:
       description: "Create an ADR in design/adrs/ to formalize the architectural choice"
     - label: "Build it (/mine.build)"
       description: "Direct implementation or full caliper workflow, depending on complexity"
-    - label: "Prototype first"
-      description: "Build a small proof-of-concept before committing to the full approach"
     - label: "I need to think about it"
       description: "The brief has what I need — I'll come back when I'm ready"
 ```
 
-If "Challenge these findings first" is selected: invoke `/mine.challenge <research_brief_path>`. After challenge completes and findings are addressed (or accepted), loop back to this gate.
+If "Challenge these findings first" is selected: if the brief was saved to a file, invoke `/mine.challenge <research_brief_path>`. If the user chose "Just show me" (no file), pass the displayed brief content as the argument text. After challenge completes and findings are addressed (or accepted), loop back to this gate.
 
 ## Principles
 

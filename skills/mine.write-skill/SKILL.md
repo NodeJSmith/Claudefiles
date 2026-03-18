@@ -21,13 +21,13 @@ Ask these one at a time. Skip any already answered by $ARGUMENTS.
 ```
 AskUserQuestion:
   question: "What task should this skill handle? Describe the problem it solves."
-  header: "Skill purpose"
+  header: "Purpose"
 ```
 
 ```
 AskUserQuestion:
   question: "What trigger phrases should invoke it? (e.g., when the user says 'audit the codebase')"
-  header: "Trigger phrases"
+  header: "Triggers"
 ```
 
 ```
@@ -60,59 +60,22 @@ Derive from the purpose: `mine.<kebab-case-name>`. Max 30 chars total. Check tha
 
 ### Write SKILL.md
 
-Write to `skills/mine.<name>/SKILL.md`. Follow this structure:
-
-```markdown
----
-name: mine.<name>
-description: "Use when the user says: '<trigger 1>', '<trigger 2>', or <broader description>."
-user-invocable: true|false
----
-
-# mine.<name>
-
-<One-paragraph summary: what it does, when to use it, what it produces.>
-
-## Arguments
-
-$ARGUMENTS — <what arguments it accepts, or "none">
-
----
-
-## Phase 1: <First phase name>
-...
-
-## Phase N: <Last phase name>
-...
-```
-
-**Conventions:**
-- `mine.*` prefix for first-party skills
-- Frontmatter: `name`, `description`, `user-invocable`
-- Description: starts with "Use when..." trigger phrases, ends with a summary of what it produces
-- Phases are numbered with descriptive names
-- Use `AskUserQuestion` for user interaction points with explicit header and options
-- Use `spec-helper`, `get-skill-tmpdir`, and other `bin/` helpers where appropriate — don't reinvent
-- If the skill needs scripts, add them to `bin/` (shared), not inside the skill directory
-
-**Size target:** Keep SKILL.md under ~100 lines. If the skill needs detailed reference material (examples, templates, extended guidance), split into:
-- `SKILL.md` — workflow and phases (the "what to do")
-- `REFERENCE.md` — detailed guidance, templates, examples (the "how to do it well")
+Write to `skills/mine.<name>/SKILL.md` using the template in REFERENCE.md. See REFERENCE.md for conventions, AskUserQuestion constraints (`header` ≤12 chars, max 4 options), and size guidance.
 
 ---
 
 ## Phase 3: Quality Checklist
 
-Validate the drafted skill against this checklist:
+Validate the drafted skill against the quality checklist in REFERENCE.md (full criteria there). Quick list:
 
-1. **Description includes trigger phrases** — "Use when..." with specific user phrases
-2. **SKILL.md under ~100 lines** — or split with REFERENCE.md if longer
-3. **No time-sensitive info** — no dates, versions, or ephemeral references
-4. **Consistent terminology** — same term used throughout, no synonyms for the same concept
-5. **Concrete examples** — at least one example of expected behavior or output
-6. **References at most one level deep** — SKILL.md can reference REFERENCE.md, but REFERENCE.md should not reference further files
-7. **No duplication with existing skills** — check that this doesn't overlap significantly with an existing skill
-8. **User interaction points are explicit** — every place the user must respond uses AskUserQuestion
+1. Description includes "Use when..." trigger phrases
+2. SKILL.md under ~100 lines (or split with REFERENCE.md)
+3. No time-sensitive info (dates, versions)
+4. Consistent terminology throughout
+5. At least one concrete example of output
+6. References at most one level deep
+7. No significant duplication with existing skills
+8. All user interaction points use AskUserQuestion
 
 Report results. Fix any failures before presenting to the user.
 
