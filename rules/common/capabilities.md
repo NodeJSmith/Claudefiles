@@ -28,7 +28,7 @@
 | "generate a diagram", "visualize this", "architecture diagram", "diff review", "visual plan", "slide deck", "project recap", "fact check a doc" | `/vx.visual-explainer` |
 | "design this UI", "design this dashboard", "craft the interface" | `/mine.interface-design` |
 | "accessible design", "inclusive patterns" | `/mine.human-centered-design` |
-| "UX anti-patterns scan" | `/mine.ux-antipatterns` |
+| "UX anti-patterns scan", "check for anti-patterns", "check for UX anti-patterns" | `/mine.ux-antipatterns` |
 | "visual QA", "screenshot review", "review the UI visually", "take screenshots and find issues", "UX review" | `/mine.visual-qa` |
 | "audit permissions", "reduce permission prompts" | `/mine.permissions-audit` |
 | "status", "where am I", "quick summary" | `/mine.status` |

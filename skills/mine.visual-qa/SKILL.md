@@ -1,6 +1,6 @@
 ---
 name: mine.visual-qa
-description: "Use when the user says: \"visual QA\", \"screenshot review\", \"review the UI visually\", or \"take screenshots and find issues\". Screenshots a live app via Playwright, then two agents analyze the captures — one sees each screenshot in isolation, the other sees all of them at once."
+description: "Use when the user says: \"visual QA\", \"screenshot review\", \"review the UI visually\", \"take screenshots and find issues\", or \"UX review\". Screenshots a live app via Playwright, then two agents analyze the captures — one sees each screenshot in isolation, the other sees all of them at once."
 user-invocable: true
 ---
 
@@ -38,7 +38,10 @@ Navigate to the URL with Playwright, take a snapshot, identify main pages/views 
 
 1. Check for a running dev server:
    ```bash
+   # Linux
    ss -tlnp 2>/dev/null | grep -E ':(3000|3001|4200|5000|5173|8000|8080|8888) ' | head -5
+   # macOS fallback (if ss is unavailable)
+   lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null | grep -E ':(3000|3001|4200|5000|5173|8000|8080|8888) ' | head -5
    ```
 2. If found, confirm the URL with the user
 3. If not found, ask the user for the URL
