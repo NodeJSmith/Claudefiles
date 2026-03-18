@@ -6,7 +6,7 @@ user-invocable: true
 
 # Visual QA
 
-Screenshot-based review of a live UI. A screenshotter navigates the app via Playwright and captures every page, then two analysis agents review the screenshots with structurally different access — one sees each screenshot in isolation (forced first impressions), the other sees all screenshots simultaneously (cross-page consistency). The structural constraint on what each agent can see produces genuinely different findings.
+Screenshot-based review of a live UI. A screenshotter navigates the app via Playwright and captures every page, then two analysis agents review the screenshots under different viewing conditions — one processes each screenshot sequentially without cross-referencing (first impressions), the other sees all screenshots simultaneously (cross-page consistency).
 
 ## How This Differs From Other Skills
 
@@ -15,7 +15,7 @@ Screenshot-based review of a live UI. A screenshotter navigates the app via Play
 | `mine.ux-antipatterns` | Static code scan for UX anti-patterns — no live app, no screenshots |
 | `ui-auditor` agent | Code-level a11y and consistency grep — no visual verification |
 | `visual-diff` agent | Before/after regression screenshots — compares two states |
-| **`mine.visual-qa`** | **Live app screenshots + structurally separated visual analysis** |
+| **`mine.visual-qa`** | **Live app screenshots + two agents with separated viewing conditions** |
 
 ## Arguments
 
@@ -82,41 +82,44 @@ Name files with a zero-padded sequence number, page name, viewport, and theme:
 06-items-list-mobile-light.png
 ```
 
-For interactive element states, use an `interact-` prefix with the element type:
+For interactive element states, include the page name and use an `interact-` prefix:
 
 ```
-20-interact-dropdown-category-open.png
-21-interact-datepicker-expanded.png
-22-interact-modal-delete-confirm.png
-23-interact-tooltip-status-hover.png
-24-interact-accordion-details-open.png
+20-items-list-interact-dropdown-category-open.png
+21-items-list-interact-modal-delete-confirm.png
+22-settings-interact-datepicker-expanded.png
+23-dashboard-interact-tooltip-status-hover.png
 ```
 
-The leading number gives global ordering. The `interact-` prefix tells reviewers this is a triggered state, not a default page view.
+The leading number gives global ordering. The page name provides context. The `interact-` prefix tells reviewers this is a triggered state, not a default page view.
 
 ### What to Capture
 
 **Step 1 — Page screenshots (do this first for every page):**
 - Desktop viewport screenshot
 - Mobile viewport (resize to 375px width) screenshot
-- If the app has a dark/light toggle: screenshot in both modes
-- If the page scrolls: scroll down and capture additional screenshots
+- If the app has a dark/light toggle: check on the first page only. If a toggle exists, screenshot all pages in both modes. If not, skip dark mode for the rest.
+- If the page scrolls: scroll down one viewport height at a time and capture each fold. Name them with a `-fold2`, `-fold3` suffix (e.g., `04-dashboard-desktop-light-fold2.png`). Wait briefly for lazy-loaded content before scrolling further.
 
 **Finish capturing ALL pages before interacting with elements.** Page coverage is your most important deliverable.
 
 **Step 2 — Interactive element states (after all pages are captured):**
 
-Go back through the pages and trigger every interactive element you can find. The goal is to reveal visual states that are invisible in a static screenshot:
-- **Dropdowns / selects**: click to open, screenshot the expanded state
-- **Modals / dialogs**: trigger any modal (delete confirmation, create form, etc.), screenshot it
-- **Tooltips**: hover over elements with tooltips, screenshot
-- **Accordions / collapsibles**: expand them, screenshot
-- **Radio buttons / checkboxes / toggles**: click them to show selected state
-- **Date pickers / color pickers**: open them, screenshot
-- **Form validation**: submit an empty form or enter invalid data, screenshot error states
-- **Loading / empty states**: if you can trigger them (clear a filter to show "no results"), screenshot
+Go back through the pages and trigger interactive elements to reveal visual states invisible in a static screenshot. **Budget: capture up to 20 interactive screenshots total**, prioritizing the most visually significant elements.
 
-Narrate briefly what you triggered and what appeared. The screenshots are the main deliverable.
+Priority order (capture these first):
+1. **Modals / dialogs**: trigger any modal (delete confirmation, create form, etc.)
+2. **Dropdowns / selects**: click to open and show the expanded state
+3. **Form validation**: submit an empty form or enter invalid data to show error states
+4. **Tooltips**: hover over elements with tooltips
+5. **Accordions / collapsibles**: expand them
+6. **Date pickers / color pickers**: open them
+7. **Radio buttons / checkboxes / toggles**: click to show selected state
+8. **Loading / empty states**: if you can trigger them (clear a filter to show "no results")
+
+After exhausting this list, use `browser_snapshot` to inspect the accessibility tree of each page. Any element with `role=button`, `role=tab`, `role=menu`, `role=dialog`, or `aria-haspopup` that you haven't already triggered — trigger it and screenshot the result (still within the 20-screenshot budget).
+
+Narrate briefly what you triggered and what appeared.
 
 ## Pages to Visit
 <PAGES>
@@ -126,16 +129,16 @@ Narrate briefly what you triggered and what appeared. The screenshots are the ma
 Write a brief walkthrough log to: <dir>/walkthrough.md
 
 Include:
-1. A manifest section listing every screenshot captured and which page/viewport/theme/interaction it covers
-2. Brief narration of what you observed — especially interactive elements that revealed unexpected visual states
-3. Any elements you couldn't trigger or pages you couldn't reach
+1. What you observed on each page — especially interactive elements that revealed unexpected visual states
+2. Any elements you couldn't trigger or pages you couldn't reach
+3. Any places where you got confused or something looked broken
 ```
 
 ## Phase 3: Launch Two Analysis Agents
 
 After the Screenshotter completes, read its output file and confirm screenshots were captured. Glob for `<dir>/screenshots/*.png` to get the actual file list.
 
-Launch two `general-purpose` agents with `run_in_background: true`. The key design: **Agent 1 sees one screenshot at a time. Agent 2 sees all of them at once.** This structural constraint — not prompt instructions — is what produces different findings.
+Launch two `general-purpose` agents with `run_in_background: true`. The key design: **Agent 1 processes screenshots sequentially without cross-referencing. Agent 2 sees all of them at once.** The different viewing conditions push each agent toward different observations.
 
 ### Agent 1: Isolated Page Reviewer
 
@@ -186,7 +189,7 @@ Read every screenshot first, then write your findings:
 4. **Page structure**: Do similar pages follow the same layout? (Do all list pages look alike? All detail pages?)
 5. **Mobile quality**: Do mobile screenshots maintain the same relative quality as desktop, or do some pages break?
 6. **Dark/light mode**: If both modes were captured — do both look intentional, or is one clearly an afterthought?
-7. **Flow coherence**: For task flow screenshots — do the steps feel like a smooth progression, or do screens feel disconnected?
+7. **Interactive element consistency**: Screenshots prefixed with `interact-` show triggered states (open dropdowns, modals, tooltips, form errors). Do all modals share the same visual language? Do all dropdowns look alike? Are form validation styles consistent?
 
 You are looking for DRIFT — things that are inconsistent between pages that should be consistent.
 
@@ -201,7 +204,7 @@ Prioritize by visibility — inconsistencies on primary pages matter more than e
 ## Phase 4: Synthesize & Present
 
 Read all three report files:
-- `<dir>/walkthrough.md` — screenshotter's manifest and narration of interactive element states
+- `<dir>/walkthrough.md` — screenshotter's observations and any issues encountered during capture
 - `<dir>/page-reactions.md` — isolated per-page reactions
 - `<dir>/consistency-audit.md` — cross-page consistency issues
 
@@ -251,6 +254,6 @@ When offering to read agent reports, list the three temp file paths.
 
 1. **Screenshots are evidence** — every finding must reference what the reviewer saw on screen, not what they inferred from code
 2. **One browser, no contention** — a single screenshotter captures everything; analysis agents work from saved images only
-3. **Structural separation** — Agent 1 sees one screenshot at a time (forced isolation), Agent 2 sees all of them (forced comparison). The constraint is on what the agent can *see*, not what it's told to focus on.
+3. **Separated viewing conditions** — Agent 1 processes screenshots sequentially, reacting before moving on. Agent 2 sees all screenshots at once for comparison. Same content, different conditions — produces different findings.
 4. **Screenshots first** — the screenshotter prioritizes complete page coverage over deep task exploration. Incomplete screenshots mean incomplete analysis.
 5. **Don't manufacture** — if the UI looks good, say so. Padding out findings wastes everyone's time.

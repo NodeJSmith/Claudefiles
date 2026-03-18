@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-18
 
 ### Added
-- `mine.visual-qa` skill — Playwright flow walkthrough captures screenshots, then two agents analyze them (first impressions + cross-page consistency)
+- `mine.visual-qa` skill — Playwright screenshotter captures pages + interactive element states, then two agents analyze under separated viewing conditions (sequential first impressions + all-at-once consistency audit)
 
 ### Removed
 - `mine.ux-review` command — replaced by `mine.visual-qa` which does live screenshot review instead of static code scanning
