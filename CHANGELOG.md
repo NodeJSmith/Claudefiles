@@ -11,8 +11,8 @@ All notable changes to this Claudefiles repository are documented here.
 - `mine.ux-review` command — replaced by `mine.visual-qa` which does live screenshot review instead of static code scanning (#99)
 
 ### Added
-- `mine.grill` — pre-pipeline multi-angle interrogation (product, design, engineering, scope, adversarial lenses); produces `brief.md` that `/mine.specify` can ingest
-- `mine.write-skill` — guided skill creation with quality checklist and auto-wiring of routing in `capabilities.md` + README
+- `mine.grill` — pre-pipeline multi-angle interrogation (product, design, engineering, scope, adversarial lenses); produces `brief.md` that `/mine.specify` can ingest (#100)
+- `mine.write-skill` — guided skill creation with quality checklist and auto-wiring of routing in `capabilities.md` + README (#100)
 - TDD vertical-slice methodology and mocking rules to `rules/common/testing.md`
 - Codebase reconnaissance (Phase 1.5) and adaptive follow-up branches in `mine.specify`
 - 9-point plan review checklist (spec coverage, design coverage, scope containment) in `mine.plan-review`
