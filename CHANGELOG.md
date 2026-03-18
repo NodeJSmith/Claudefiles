@@ -4,6 +4,16 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-03-18
 
+### Removed
+- `rules/python/` — all 5 Python-specific rules files; Claude already knows Python conventions
+- `rules/common/patterns.md`, `rules/common/security.md`, `rules/common/hooks.md` — restated Claude's default behavior
+- `mine.agent-patterns`, `mine.python-patterns`, `mine.python-testing`, `mine.backend-patterns` — non-invocable reference skills (2,052 lines of tutorials Claude doesn't need); agent patterns inlined into `agents.md`
+
+### Changed
+- Compressed all remaining rules files from 1,010 to 561 lines (44% reduction) — removed textbook definitions, "Why This Matters" sections, CLI flag documentation, and redundant examples
+- Inlined agent patterns (parallel execution, subagent types, context passing) into `rules/common/agents.md`
+- Moved TodoWrite and permissions content from deleted `hooks.md` into `interaction.md`
+
 ### Added
 - `mine.visual-qa` skill — Playwright screenshotter captures pages + interactive element states, then three agents analyze under separated viewing conditions (first impressions, consistency audit, unstructured design narrative); supports `--mobile` and `--dark` flags for focused per-viewport runs (#99, #101)
 - `mine.grill` — pre-pipeline multi-angle interrogation (product, design, engineering, scope, adversarial lenses); produces `brief.md` that `/mine.specify` can ingest (#100)

@@ -21,3 +21,12 @@ executing.
 Before committing to non-trivial designs, new skills, rule changes, or
 workflow modifications, suggest running `/mine.challenge` if the user hasn't
 already. One-line mention, not a gate — the user decides whether to run it.
+
+## Progress Tracking
+
+Use TodoWrite to track multi-step tasks. The todo list reveals out-of-order
+steps, missing items, wrong granularity, and misinterpreted requirements.
+
+## Permissions
+
+Never use `dangerously-skip-permissions`. Configure `allowedTools` in settings instead.

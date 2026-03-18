@@ -80,8 +80,3 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "create ADO PR", "list ADO PRs", "show ADO PR" | `ado-pr` | `mine.ado-tools` |
 | "list ADO PR threads", "reply to ADO PR comment" | `ado-pr-threads` | `mine.ado-tools` |
 
-## Reference Skills (not directly invoked)
-
-- **mine.python-patterns** — Pythonic idioms, decorators, concurrency, package organization
-- **mine.python-testing** — pytest fixtures, mocking, parametrization, coverage strategies
-- **mine.backend-patterns** — FastAPI, SQLAlchemy, caching, API design, database optimization

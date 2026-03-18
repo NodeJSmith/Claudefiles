@@ -1,35 +1,16 @@
 # Error Tracking
 
-## Purpose
-
-Track non-trivial errors during multi-step work so failed approaches survive context compaction and aren't repeated.
+Track non-trivial errors so failed approaches survive context compaction.
 
 ## Error File
 
-**Path:** Create once per session with `get-skill-tmpdir claude-errors`, then use `<dir>/errors.md`.
-
-- Per-session, append-only
-- Auto-cleaned by OS
-- No gitignore needed
+Create once per session: `get-skill-tmpdir claude-errors`, then use `<dir>/errors.md`. Append-only, per-session.
 
 ## When to Track
 
-**Track these** (errors that cost real effort):
-- Wrong API usage discovered after building against it
-- Architectural dead-ends that required backtracking
-- Dependency conflicts that needed investigation
-- Configuration mysteries that took multiple attempts
-- Approaches that silently produced wrong results
-
-**Do NOT track** (noise):
-- Typos, lint errors, missing imports
-- Expected test failures during TDD red phase
-- First-attempt errors that are immediately obvious
-- Permission or path errors fixed in one try
+Only errors that cost real effort: wrong API usage, architectural dead-ends, dependency conflicts, configuration mysteries, silently wrong results. Skip typos, lint errors, obvious first-attempt failures.
 
 ## Entry Format
-
-Append to the error file using Write tool:
 
 ```markdown
 ### [short description] — Attempt N
@@ -38,14 +19,4 @@ Append to the error file using Write tool:
 - **Next:** what to try differently (or "Resolved: [how]")
 ```
 
-## Workflow
-
-1. Hit a non-trivial error during multi-step work
-2. Append an entry to the error file
-3. On subsequent attempts, increment the attempt number
-4. When resolved, update the last entry's **Next** line to "Resolved: [how]"
-5. Before retrying a failed approach, read the error file to check what's already been tried
-
-## Reading the Error File
-
-Before retrying approaches on a complex problem, read the error file (`<dir>/errors.md` from the `get-skill-tmpdir claude-errors` directory) to avoid repeating failed strategies. Reference it in `/status` output.
+Before retrying a failed approach, read the error file first.

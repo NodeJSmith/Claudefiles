@@ -165,7 +165,7 @@ Based on the user's choice per finding:
 - **Structural problems** (long files, god classes, tangled modules) → run `/mine.refactor`
 - **Architectural problems** (wrong abstractions, missing layers, circular dependencies) → create an ADR with `/mine.adrs`, then plan the rearchitecture
 - **Complex fixes needing planning** → run `/mine.build` — assesses complexity and routes to direct implementation or the full caliper workflow
-- **Test coverage gaps** → write tests using the mine.python-testing skill
+- **Test coverage gaps** → write tests following TDD (see `rules/common/testing.md`)
 - **Security concerns** → hand off to the mine.security-review skill
 - **Create an issue** → file a GitHub issue (see below)
 - **Multiple findings selected** → ask per finding, then suggest an order of attack for the ones being addressed now (highest impact first, dependency-aware — e.g., fix the circular deps before trying to refactor the modules caught in the cycle)
