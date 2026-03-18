@@ -26,7 +26,7 @@ AskUserQuestion:
 
 ```
 AskUserQuestion:
-  question: "What trigger phrases should invoke it? (e.g., \"when the user says 'audit the codebase'\")"
+  question: "What trigger phrases should invoke it? (e.g., when the user says 'audit the codebase')"
   header: "Trigger phrases"
 ```
 
@@ -65,7 +65,7 @@ Write to `skills/mine.<name>/SKILL.md`. Follow this structure:
 ```markdown
 ---
 name: mine.<name>
-description: "Use when the user says: \"<trigger 1>\", \"<trigger 2>\", or <broader description>."
+description: "Use when the user says: '<trigger 1>', '<trigger 2>', or <broader description>."
 user-invocable: true|false
 ---
 
