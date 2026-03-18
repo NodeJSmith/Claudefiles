@@ -50,4 +50,27 @@ No user prompt needed:
 
 ## Agent Patterns
 
-For detailed guidance on parallel execution, model selection, context passing, subagent types, temp files, foreground/background, and multi-perspective analysis — invoke the `mine.agent-patterns` skill.
+### Parallel Execution
+
+Multiple `Agent` tool calls in a **single message** = parallel execution. Only sequentialize when one agent's output feeds another's input.
+
+### Subagent Types
+
+| Need | `subagent_type` |
+|------|----------------|
+| Read code, search, analyze | `Explore` (fast, Haiku, read-only) |
+| Full autonomy (write, run, search) | `general-purpose` |
+| Domain-specific review | Named agent (e.g., `code-reviewer`) |
+
+Default to `Explore` unless the subagent needs to write files, run commands, or search the web.
+
+### Context & Output
+
+- Subagents start with a **fresh context** — pass file paths or embed excerpts explicitly
+- Small results (<2K tokens): return inline (default)
+- Large/structured results: write to temp file via `get-skill-tmpdir <skill-name>`
+
+### Foreground vs Background
+
+- **Foreground** (default): blocks until complete; parallel foreground agents run concurrently
+- **Background** (`run_in_background: true`): cannot ask user questions or get new permissions; use for fire-and-forget tasks

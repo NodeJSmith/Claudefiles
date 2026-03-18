@@ -34,16 +34,14 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 
 ## Contents
 
-### Skills (40)
+### Skills (36)
 
 | Skill | Description |
 |-------|-------------|
 | `mine.address-pr-issues` | Triage and resolve PR blockers — review comments, merge conflicts, and failing CI |
 | `mine.ado-tools` | Azure DevOps CLI tools -- ado-builds, ado-logs, ado-pr, ado-pr-threads |
 | `mine.adrs` | Create and maintain Architecture Decision Records for project decisions |
-| `mine.agent-patterns` | Agent orchestration patterns -- parallel execution, model selection, context passing, multi-perspective analysis |
 | `mine.audit` | Systematic codebase health audit -- surfaces aging code, brittle designs, missing tests, ranked by impact |
-| `mine.backend-patterns` | Backend architecture patterns, API design, database optimization for Python/FastAPI |
 | `mine.brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas ranked by user-chosen criteria, with handoff to research, ADRs, or planning |
 | `mine.build` | Single entry point — routes between direct implementation and the full caliper v2 workflow (specify → design → draft-plan → plan-review → orchestrate → implementation-review → ship) |
 | `mine.challenge` | Adversarial design critique using three parallel critics — assumes the design is wrong, finds out why, argues for better |
@@ -62,8 +60,6 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 | `mine.mutation-test` | Mutation testing -- intentionally break code to verify tests catch real bugs |
 | `mine.orchestrate` | Execute work packages task-by-task with executor → spec reviewer → code reviewer → integration reviewer loop; tracks WP lane state |
 | `mine.plan-review` | Opus checklist review (9 points) of design doc + work packages — includes spec/design coverage and scope containment + approve/revise/abandon gate |
-| `mine.python-patterns` | Pythonic idioms, PEP 8, type hints, and best practices |
-| `mine.python-testing` | Python testing strategies using pytest, TDD, fixtures, mocking, parametrization |
 | `mine.refactor` | Interactive refactoring with strategy selection and incremental verification |
 | `mine.research` | Interactive research workflow — gathers user intent, dispatches the researcher agent, presents the brief |
 | `mine.security-review` | Security checklist for auth, user input, secrets, API endpoints |

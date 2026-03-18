@@ -2,26 +2,7 @@
 
 Worktrees are created by the user via `claude --worktree <branch>`. These rules govern behavior when already inside a worktree.
 
-## What Counts as a Large Task
-
-Use this heuristic — if any of these are true, it qualifies:
-
-- Touches more than 2–3 files
-- Implements a new feature or capability
-- Refactors a module or changes architecture
-- Works on a specific issue or ticket
-
-Single-file fixes, documentation edits, and quick lookups do not qualify.
-
-## Detecting Worktree Status
-
-```bash
-git rev-parse --git-dir
-# In a worktree:    /path/to/repo/.git/worktrees/branch-name
-# In main clone:   /path/to/repo/.git
-```
-
-## Worktree Safety Rules
+## Safety Rules
 
 When running inside a worktree:
 
