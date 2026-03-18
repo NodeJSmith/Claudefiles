@@ -6,11 +6,6 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Added
 - `mine.visual-qa` skill — Playwright screenshotter captures pages + interactive element states, then two agents analyze under separated viewing conditions (sequential first impressions + all-at-once consistency audit) (#99)
-
-### Removed
-- `mine.ux-review` command — replaced by `mine.visual-qa` which does live screenshot review instead of static code scanning (#99)
-
-### Added
 - `mine.grill` — pre-pipeline multi-angle interrogation (product, design, engineering, scope, adversarial lenses); produces `brief.md` that `/mine.specify` can ingest (#100)
 - `mine.write-skill` — guided skill creation with quality checklist and auto-wiring of routing in `capabilities.md` + README (#100)
 - TDD vertical-slice methodology and mocking rules to `rules/common/testing.md` (#100)

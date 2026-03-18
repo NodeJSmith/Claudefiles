@@ -13,7 +13,7 @@ Share a visual explainer HTML file instantly via Vercel. Returns a live URL with
 
 **Examples:**
 ```
-/share ${CLAUDE_HOME:-~/.claude}/diagrams/my-diagram.html
+/share ~/.claude/diagrams/my-diagram.html
 /share /tmp/visual-explainer-output.html
 ```
 
@@ -32,7 +32,7 @@ No Vercel account, Cloudflare account, or API keys needed. The deployment is "cl
 ## Script Location
 
 ```bash
-bash ${CLAUDE_HOME:-~/.claude}/skills/vx.visual-explainer/scripts/share.sh <file>
+bash ${CLAUDE_HOME:-$HOME/.claude}/skills/vx.visual-explainer/scripts/share.sh <file>
 ```
 
 ## Output

@@ -127,7 +127,7 @@ AskUserQuestion:
 
 Create the `design/research/` directory if it doesn't exist. If the project already has research in `docs/`, follow the existing convention.
 
-Copy/move the brief from the temp file to the user's chosen location (or display it inline if they chose "Just show me"). Record the saved path as `<research_brief_path>`. If the user chose "Just show me", skip the "Challenge these findings first" option — there is no file to pass.
+Copy/move the brief from the temp file to the user's chosen location (or display it inline if they chose "Just show me"). Record the saved path as `<research_brief_path>` if a file was written.
 
 Present the key findings conversationally and ask what the user wants to do next.
 
