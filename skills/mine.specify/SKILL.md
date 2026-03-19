@@ -91,7 +91,7 @@ AskUserQuestion:
 
 ```
 AskUserQuestion:
-  question: "What is explicitly out of scope for this feature?"
+  question: "Anything I should NOT include? (e.g., 'no admin UI', 'skip migration for now')"
   header: "Non-goals"
 ```
 

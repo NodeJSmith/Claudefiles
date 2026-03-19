@@ -4,6 +4,11 @@ description: "Use when the user says: \"rebase this worktree\" or \"sync worktre
 user-invocable: true
 ---
 
+## Arguments
+
+$ARGUMENTS — optional flags:
+- `--yes` or `-y`: skip the confirmation prompt and rebase immediately
+
 ## Context
 
 - Git dir: !`git rev-parse --git-dir`
@@ -64,7 +69,9 @@ This worktree's base is assumed to be `origin/<default-branch>`, but the parent 
 Rebasing will move this worktree's commits on top of `<orig-branch>`.
 ```
 
-Ask the user to confirm using AskUserQuestion:
+If `$ARGUMENTS` contains `--yes` or `-y`, skip the confirmation and proceed directly to Phase 5.
+
+Otherwise, ask the user to confirm using AskUserQuestion:
 - question: "Rebase `<current-branch>` onto `<orig-branch>`?"
 - header: `Worktree rebase`
 - options:
