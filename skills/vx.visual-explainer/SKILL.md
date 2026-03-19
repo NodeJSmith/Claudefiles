@@ -338,7 +338,7 @@ An alternative output format for presenting content as a magazine-quality slide 
 
 **Curated presets:** Four slide-specific presets as starting points (Midnight Editorial, Warm Signal, Terminal Mono, Swiss Clean) plus the existing 8 aesthetic directions adapted for slides. Pick one and commit. See `slide-patterns.md` for preset CSS values.
 
-**`--slides` flag on existing prompts:** When a user passes `--slides` to `/vx.diff-review`, `/vx.plan-review`, `/vx.project-recap`, or other prompts, the agent gathers data using the prompt's normal data-gathering instructions, then presents the content as a slide deck instead of a scrollable page. The slide version tells the same story with different structure and pacing — but the same breadth of coverage. Don't use the slide format as an excuse to summarize or skip sections that the scrollable version would have included.
+**`--slides` flag:** When the user passes `--slides` (e.g., "diff review --slides", "project recap --slides"), gather data using the matching template's normal data-gathering instructions, then present the content as a slide deck instead of a scrollable page. The slide version tells the same story with different structure and pacing — but the same breadth of coverage. Don't use the slide format as an excuse to summarize or skip sections that the scrollable version would have included.
 
 ## File Structure
 
