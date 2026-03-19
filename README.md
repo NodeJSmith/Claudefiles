@@ -144,21 +144,20 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 | `product-feedback-synthesizer` | Synthesizes user feedback from multiple channels into actionable product insights |
 | `product-sprint-prioritizer` | Sprint planning, feature prioritization, velocity optimization using RICE/MoSCoW |
 
-### Rules (22)
+### Rules (15)
 
-Coding guidelines organized by language. These load automatically and shape how Claude writes code.
+Coding guidelines that load automatically and shape how Claude writes code.
 
-**Common** (17): agents, backlog, bash-tools, capabilities, coding-style, command-output, error-tracking, frontend-workflow, git-workflow, hooks, patterns, performance, security, testing, tmux, web-search, worktrees
+**Common** (15): agents, backlog, bash-tools, capabilities, coding-style, command-output, error-tracking, frontend-workflow, git-workflow, interaction, performance, testing, tmux, web-search, worktrees
 
-**Python** (5): coding-style, hooks, patterns, security, testing
-
-### Helper Scripts (21)
+### Helper Scripts (22)
 
 CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
 | Script | Description |
 |--------|-------------|
 | `ado-builds` | Azure DevOps build management -- list, cancel, or bulk-cancel pipeline builds |
+| `agnix-check` | Validate agent, skill, and command files against agnix schema |
 | `ado-common.sh` | Shared Azure DevOps utilities -- PAT auth, config, API calls, PR detection (sourced by ADO scripts) |
 | `ado-logs` | Azure DevOps CI log viewer -- inspect build timelines, errors, and log content |
 | `ado-pr` | Azure DevOps PR helper -- simplified wrapper around az repos pr with smart defaults |

@@ -135,6 +135,5 @@ tests:
       - type: javascript
         value: *skill_assertion
 
-
 prompts:
   - "{{prompt}}"

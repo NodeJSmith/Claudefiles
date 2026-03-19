@@ -6,7 +6,6 @@
 
 <!-- NOTE: "specify" = define WHAT to build; "design" = define HOW to build it; "build" = implement it -->
 <!-- NOTE: "brainstorm" = divergent idea generation; "research" = focused investigation -->
-<!-- NOTE: "audit" = general codebase health; "security-review" = security-specific review -->
 
 | User says something like... | Invoke |
 |---|---|

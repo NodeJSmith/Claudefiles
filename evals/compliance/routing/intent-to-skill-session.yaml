@@ -3,7 +3,7 @@
 # Rule source: rules/common/capabilities.md (intent routing table)
 #
 # Tests session management and workflow skills: status, pre-compact,
-# session_reflect, capture_lesson, worktree-rebase, adrs, issues, issues-scan.
+# worktree-rebase, issues, issues-scan.
 #
 # Run: npx promptfoo eval -c evals/compliance/routing/intent-to-skill-session.yaml
 
@@ -81,56 +81,6 @@ tests:
     vars:
       prompt: "this conversation is getting long — generate a summary I can use for /compact"
       expectedSkill: "mine.pre-compact"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  # --- mine.session_reflect ---
-  - description: "session retrospective → /mine.session_reflect (direct)"
-    vars:
-      prompt: "do a session retrospective"
-      expectedSkill: "mine.session_reflect"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  - description: "what did we learn → /mine.session_reflect (natural)"
-    vars:
-      prompt: "what did we learn in this session? capture the decisions and patterns"
-      expectedSkill: "mine.session_reflect"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  - description: "end of session → /mine.session_reflect (indirect)"
-    vars:
-      prompt: "I'm about to wrap up — let's reflect on what we accomplished and any lessons learned"
-      expectedSkill: "mine.session_reflect"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  # --- mine.capture_lesson ---
-  - description: "capture this pattern → /mine.capture_lesson (direct)"
-    vars:
-      prompt: "capture this pattern as a lesson"
-      expectedSkill: "mine.capture_lesson"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  - description: "save this lesson → /mine.capture_lesson (natural)"
-    vars:
-      prompt: "that workaround was non-trivial — save it as a reusable lesson before we move on"
-      expectedSkill: "mine.capture_lesson"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  - description: "reusable insight → /mine.capture_lesson (indirect)"
-    vars:
-      prompt: "we just figured out a tricky pattern for handling concurrent writes — grab that as a skill file"
-      expectedSkill: "mine.capture_lesson"
     assert:
       - type: javascript
         value: *skill_assertion

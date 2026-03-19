@@ -5,7 +5,24 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-19
 
 ### Added
+- `claude-log skills --audit` flag — cross-references session usage against skills/commands on disk, showing active, never-used, and ghost entries
 - Visual verification for frontend work packages — `mine.draft-plan` generates scenario tables (Page/Setup/Verify), executor captures before/after screenshots, dedicated visual reviewer judges against criteria; per-WP temp subdirectories preserve evidence across orchestration runs (#103)
+- `mine.worktree-rebase` accepts explicit branch name and natural-language skip (`just rebase`, `force`)
+
+### Removed
+- 3 unused docs-only skills: `mine.ado-tools`, `mine.git-tools`, `mine.session-tools` — routing table in `capabilities.md` already covers these; scripts have `--help`
+- 8 unused `vx.*` command shortcuts — identical copies of templates already inside `vx.visual-explainer/commands/`
+- 4 unused commands: `mine.5whys`, `mine.agnix`, `mine.capture_lesson`, `mine.session_reflect`
+- `mine.skill-eval` skill + `skill-eval-run`/`skill-eval-aggregate` bin scripts — redundant with promptfoo evals
+- `mine.human-centered-design` (1,128 lines, 1 use), `mine.security-review` (891 lines, 0 uses), `mine.refactor` (320 lines, 1 use)
+- `mine.interviewer` (alias for specify), `mine.ux-antipatterns` (overlaps with reviewers + challenge)
+- `mine.adrs` — research → design → WP pipeline already captures decisions in context
+
+### Fixed
+- `rules/common/interaction.md` referenced nonexistent `TodoWrite` tool (now `TaskCreate`)
+- `bin/ado-common.sh` lacked `set -euo pipefail` — shared library now defensive
+- `mine.specify` scope question ("What is explicitly out of scope?") reworded to avoid ambiguous double-negative options
+- Removed "Docs" column from CLI tools routing table — scripts have `--help`
 
 ## 2026-03-18
 

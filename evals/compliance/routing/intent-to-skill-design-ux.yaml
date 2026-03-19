@@ -3,7 +3,7 @@
 # Rule source: rules/common/capabilities.md (intent routing table)
 #
 # Tests design and UX skills: interface-design, visual-qa,
-# ux-antipatterns, vx.visual-explainer.
+# vx.visual-explainer.
 #
 # Run: npx promptfoo eval -c evals/compliance/routing/intent-to-skill-design-ux.yaml
 

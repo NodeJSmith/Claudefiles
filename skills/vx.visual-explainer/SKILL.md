@@ -17,18 +17,18 @@ Generate self-contained HTML files for technical diagrams, visualizations, and d
 
 ## Available Commands
 
-Detailed prompt templates in `./commands/`. Invoke subcommands via `/vx.diff-review`, `/vx.generate-web-diagram`, etc.
+Detailed prompt templates in `./commands/`. Access all features via `/vx.visual-explainer` — describe what you want (diagram, diff review, slide deck, etc.) and the skill reads the matching template.
 
-| Command | What it does |
+| Template | What it does |
 |---------|-------------|
-| `/vx.generate-web-diagram` | Generate an HTML diagram for any topic |
-| `/vx.generate-visual-plan` | Generate a visual implementation plan for a feature |
-| `/vx.generate-slides` | Generate a magazine-quality slide deck |
-| `/vx.diff-review` | Visual diff review with architecture comparison and code review |
-| `/vx.plan-review` | Compare a plan against the codebase with risk assessment |
-| `/vx.project-recap` | Mental model snapshot for context-switching back to a project |
-| `/vx.fact-check` | Verify accuracy of a document against actual code |
-| `/vx.share` | Deploy an HTML page to Vercel and get a live URL |
+| `generate-web-diagram` | Generate an HTML diagram for any topic |
+| `generate-visual-plan` | Generate a visual implementation plan for a feature |
+| `generate-slides` | Generate a magazine-quality slide deck |
+| `diff-review` | Visual diff review with architecture comparison and code review |
+| `plan-review` | Compare a plan against the codebase with risk assessment |
+| `project-recap` | Mental model snapshot for context-switching back to a project |
+| `fact-check` | Verify accuracy of a document against actual code |
+| `share` | Deploy an HTML page to Vercel and get a live URL |
 
 ## Workflow
 
@@ -71,7 +71,7 @@ Vary the choice each time. If the last diagram was dark and technical, make the 
 - For text-heavy architecture overviews (card content matters more than topology): read `./templates/architecture.html`
 - For flowcharts, sequence diagrams, ER, state machines, mind maps, class diagrams, C4: read `./templates/mermaid-flowchart.html`
 - For data tables, comparisons, audits, feature matrices: read `./templates/data-table.html`
-- For slide deck presentations (when `--slides` flag is present or `/vx.generate-slides` is invoked): read `./templates/slide-deck.html` and `./references/slide-patterns.md`
+- For slide deck presentations (when `--slides` flag is present or user asks for slides): read `./templates/slide-deck.html` and `./references/slide-patterns.md`
 - For prose-heavy publishable pages (READMEs, articles, blog posts, essays): read the "Prose Page Elements" section in `./references/css-patterns.md` and "Typography by Content Voice" in `./references/libraries.md`
 
 **For CSS/layout patterns and SVG connectors**, read `./references/css-patterns.md`.
@@ -322,7 +322,7 @@ Use these sparingly within visual pages to highlight key points or provide breat
 
 ## Slide Deck Mode
 
-An alternative output format for presenting content as a magazine-quality slide presentation instead of a scrollable page. **Opt-in only** — the agent generates slides when the user invokes `/vx.generate-slides`, passes `--slides` to an existing prompt (e.g., `/vx.diff-review --slides`), or explicitly asks for a slide deck. Never auto-select slide format.
+An alternative output format for presenting content as a magazine-quality slide presentation instead of a scrollable page. **Opt-in only** — the agent generates slides when the user passes `--slides` or explicitly asks for a slide deck. Never auto-select slide format.
 
 **Before generating slides**, read `./references/slide-patterns.md` (engine CSS, slide types, transitions, nav chrome, presets) and `./templates/slide-deck.html` (reference template showing all 10 types). Also read `./references/css-patterns.md` for shared patterns and `./references/libraries.md` for Mermaid/Chart.js theming.
 
@@ -396,7 +396,7 @@ bash ~/.claude/skills/vx.visual-explainer/scripts/share.sh ~/.claude/diagrams/my
 - Preview deployments have configurable retention (default: 30 days)
 - Claim URL lets you transfer the deployment to your Vercel account
 
-See `./commands/share.md` for the `/vx.share` command template.
+See `./commands/share.md` for the share command template.
 
 ## Quality Checks
 

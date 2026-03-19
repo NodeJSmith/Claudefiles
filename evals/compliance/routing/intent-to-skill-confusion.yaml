@@ -95,10 +95,8 @@ tests:
       - type: javascript
         value: *skill_assertion
 
-  # --- audit vs security-review ---
-  # "audit" = general codebase health (tech debt, code quality)
-  # "security-review" = security-specific review (vulnerabilities, auth)
-  - description: "audit vs security-review: 'tech debt' → /mine.audit (not security-review)"
+  # --- audit routing ---
+  - description: "audit: 'tech debt' → /mine.audit"
     vars:
       prompt: "find the biggest areas of tech debt in this project"
       expectedSkill: "mine.audit"
