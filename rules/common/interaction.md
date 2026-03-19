@@ -27,6 +27,26 @@ already. One-line mention, not a gate — the user decides whether to run it.
 Use TaskCreate to track multi-step tasks. The todo list reveals out-of-order
 steps, missing items, wrong granularity, and misinterpreted requirements.
 
+## AskUserQuestion Blocks in Skills (CRITICAL)
+
+When a SKILL.md contains an `AskUserQuestion:` YAML block (inside a code
+fence or otherwise), it is an instruction to **call the `AskUserQuestion`
+tool** — not a template to paraphrase as markdown.
+
+Rules:
+1. **Call the tool.** Do not render options as bullet points, numbered lists,
+   or any other text format. The user must see the interactive prompt.
+2. **Use the exact labels and descriptions.** Do not rewrite, merge, or
+   improvise option text. The skill author chose those words deliberately.
+3. **Respect the option count.** Do not add or remove options beyond what the
+   skill defines (max 4 options per question when options are provided).
+4. **Respect `multiSelect`.** If the skill says `multiSelect: true`, pass it
+   through. Do not downgrade to single-select.
+
+If you need to adapt the question text to include dynamic context (e.g.,
+filling in a finding name), change only the `question` string — leave `label`
+and `description` values verbatim.
+
 ## Permissions
 
 Never use `dangerously-skip-permissions`. Configure `allowedTools` in settings instead.

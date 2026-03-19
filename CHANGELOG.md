@@ -4,6 +4,9 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-03-19
 
+### Fixed
+- `AskUserQuestion` blocks in skills rendered as plain markdown bullets instead of interactive selectors — added CRITICAL rule to `interaction.md` enforcing tool calls with exact labels (#106)
+
 ### Added
 - `claude-log skills --audit` flag — cross-references session usage against skills/commands on disk, showing active, never-used, and ghost entries (#105)
 - Visual verification for frontend work packages — `mine.draft-plan` generates scenario tables (Page/Setup/Verify), executor captures before/after screenshots, dedicated visual reviewer judges against criteria; per-WP temp subdirectories preserve evidence across orchestration runs (#103)
