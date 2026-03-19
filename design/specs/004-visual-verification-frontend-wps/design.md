@@ -81,7 +81,7 @@ When a WP's subtasks modify UI components, pages, styles, or layouts, `mine.draf
 - Scenarios should exercise the specific behavior the WP changes, not just "page loads"
 - If the design doc describes specific visual requirements, pull them into verify criteria
 
-**When to omit:** Backend-only WPs, pure refactoring with no visual impact, test-only WPs. If unsure, omit — the executor and spec reviewer will still follow `frontend-workflow.md` guidance for any WP that touches frontend files.
+**When to omit:** Backend-only WPs, pure refactoring with no visual impact, test-only WPs. If unsure, omit — no structured visual verification will run for this WP. Note: `frontend-workflow.md` is a separate, general rule that applies to all frontend work regardless of whether structured scenarios exist; this section adds orchestrator-enforced verification on top of that baseline.
 
 #### 2. Executor prompt addition (`implementer-prompt.md`)
 

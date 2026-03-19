@@ -230,7 +230,10 @@ Before launching the visual reviewer, discover screenshots by Globbing the per-W
 Glob: <dir>/<wp_id>/*.png
 ```
 
-This is more reliable than parsing screenshot paths from the executor's text output. If no `.png` files are found, skip the visual reviewer and set Visual to SKIPPED with note "no screenshots captured."
+This is more reliable than parsing screenshot paths from the executor's text output. If no `.png` files are found, distinguish the cause:
+- If `visual_skip` is set → Visual = SKIPPED "no dev server (orchestrator)" (should not reach here — Step 5.5 short-circuits above, but defensive)
+- If the executor reported all scenarios as SKIPPED → Visual = SKIPPED with the executor's reasons
+- Otherwise (dev server was available, scenarios existed, but no screenshots) → Visual = WARN "executor did not capture screenshots — check executor output for errors"
 
 Launch a `general-purpose` subagent:
 
