@@ -67,7 +67,7 @@ If the WP contains a `## Visual Verification` section with scenarios:
 
 1. **Coverage check**: Cross-reference the Visual Verification table against the executor's visual verification output. Did the executor address every scenario from the WP spec? Note any missing scenarios.
 2. **Added scenarios**: Did the executor add scenarios beyond the WP spec? If so, are the additions justified (e.g., discovered a visual change not anticipated by the planner)? Justified additions are fine — note them. Unjustified additions or removals of spec scenarios are a WARN.
-3. **SKIPPED justification**: If the executor reported SKIPPED for any scenario, is the reason valid (no dev server, page unreachable, new page with no baseline)? SKIPPED without explanation is a WARN.
+3. **SKIPPED justification**: If the executor reported SKIPPED for any scenario, is the reason valid (no dev server, page unreachable, setup failed)? SKIPPED without explanation is a WARN. Note: a new page with no *before*-screenshot is expected (the executor captures after only) — this is not a SKIPPED scenario.
 4. **Unexpected omission**: If the WP has no Visual Verification section but its subtasks clearly modify UI components (`.tsx`, `.vue`, `.css`, `.html`, template files), note this as a WARN — the planning phase may have missed visual scenarios.
 
 You do NOT examine the screenshots for visual correctness or assess state quality — the visual reviewer handles both. Your job is ensuring the executor followed the verification plan and that scenario coverage is complete.

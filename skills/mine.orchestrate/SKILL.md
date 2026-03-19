@@ -60,16 +60,19 @@ Check WP statuses — warn if any WPs with `lane: done` or `lane: doing` appear 
 If any WP contains a `## Visual Verification` section, check for a running dev server:
 
 ```bash
+# Linux
 ss -tlnp 2>/dev/null | grep -E ':(3000|3001|4200|5000|5173|8000|8080|8888) ' | head -5
+# macOS fallback (if ss is unavailable)
+lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null | grep -E ':(3000|3001|4200|5000|5173|8000|8080|8888) ' | head -5
 ```
 
-If a server is found, note the URL for use during execution.
+If a server is found, derive the URL from the matched port (e.g., `http://localhost:3000`). If multiple ports match, prefer the first one and note the others.
 
 If no server is found:
 ```
 AskUserQuestion:
   question: "<N> WPs have visual verification scenarios but no dev server was detected. Visual checks require a running app."
-  header: "Dev server needed"
+  header: "Dev server"
   multiSelect: false
   options:
     - label: "I'll start the server now"
@@ -217,6 +220,8 @@ Wait for the subagent to complete. Read the spec reviewer temp file.
 
 **Only run this step if the WP contains a `## Visual Verification` section with scenarios.** If the WP has no visual verification section, skip to Step 6 (the Visual line in Step 9 will show N/A).
 
+**If `visual_skip` is set** (no dev server, decided in Phase 0), skip the Glob and visual reviewer entirely. Set Visual to SKIPPED with note "no dev server (orchestrator)" and proceed to Step 6. Do not launch the visual reviewer — there are no screenshots to review.
+
 Read `~/.claude/skills/mine.orchestrate/visual-reviewer-prompt.md`.
 
 Before launching the visual reviewer, discover screenshots by Globbing the per-WP temp directory:
@@ -268,7 +273,7 @@ Compare executor result, spec reviewer verdict, and visual reviewer verdict (if 
 |-----------|--------|
 | Executor PASS + Spec reviewer PASS (+ Visual VERIFIED or N/A) | Proceed to code review |
 | Executor auto-fix deviation noted | Log it, proceed to code review |
-| Spec reviewer WARN or Visual WARN | Proceed to code review; surface warning to user after reviews |
+| Spec reviewer WARN or Visual WARN or Visual SKIPPED | Proceed to code review; surface warning to user after reviews |
 | Spec reviewer FAIL or Visual FAIL | Mark WP FAIL; surface to user (gate at Step 9) |
 | Executor BLOCKED (any reason) | Mark WP BLOCKED; surface to user (gate at Step 9) |
 | Executor BLOCKED (architectural) | Mark WP BLOCKED with architectural flag; do not retry without plan change |
