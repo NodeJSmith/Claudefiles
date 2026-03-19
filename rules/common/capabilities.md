@@ -20,9 +20,7 @@
 | "brainstorm options", "generate ideas", "explore ideas", "what are our options" | `/mine.brainstorm` |
 | "challenge this design", "poke holes in this", "what's wrong with this approach" | `/mine.challenge` |
 | "audit the codebase", "find tech debt", "health check" | `/mine.audit` |
-| "lint agents", "validate skills", "check agent format", "run agnix" | `/mine.agnix` |
 | "research adding X", "feasibility study", "evaluate approach" | `/mine.research` |
-| "five whys", "root cause analysis", "why does this keep failing" | `/mine.5whys` |
 | "security review", "check for vulnerabilities" | `/mine.security-review` |
 | "record this decision", "create an ADR" | `/mine.adrs` |
 | "generate a diagram", "visualize this", "architecture diagram", "diff review", "visual plan", "slide deck", "project recap", "fact check a doc" | `/vx.visual-explainer` |
@@ -33,8 +31,6 @@
 | "audit permissions", "reduce permission prompts" | `/mine.permissions-audit` |
 | "status", "where am I", "quick summary" | `/mine.status` |
 | "prepare to compact", "running low on context" | `/mine.pre-compact` |
-| "session retrospective", "what did we learn" | `/mine.session_reflect` |
-| "capture this pattern", "save this lesson" | `/mine.capture_lesson` |
 | "evaluate this repo", "should I use this library" | `/mine.eval-repo` |
 | "mutation test", "do my tests actually catch bugs" | `/mine.mutation-test` |
 | "find tool gaps", "session archaeology", "missing cli features" | `/mine.tool-gaps` |

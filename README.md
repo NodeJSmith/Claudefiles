@@ -72,20 +72,16 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 | `mine.write-skill` | Guided skill creation — gathers requirements, drafts SKILL.md, validates quality checklist, auto-wires routing |
 | `vx.visual-explainer` | Generate self-contained HTML pages that visually explain systems, code changes, plans, and data — diagrams, diff reviews, plan reviews, slide decks, project recaps, and more |
 
-### Commands (11)
+### Commands (7)
 
 | Command | Description |
 |---------|-------------|
-| `mine.agnix` | Validate agent, skill, command, and CLAUDE.md files with agnix |
-| `mine.5whys` | Root cause analysis using Five Whys, grounded in codebase evidence |
-| `mine.capture_lesson` | Quick mid-session pattern capture as a reusable skill file |
 | `mine.interface-design` | Build UI with craft and consistency |
 | `mine.issues` | Deep-dive issues by key, or scan and pick |
 | `mine.issues-scan` | Scan open issues, classify by effort, pick one to deep-dive |
 | `mine.permissions-audit` | Analyze frequent permission prompts and recommend allow-list entries |
 | `mine.pre-compact` | Generate a focused /compact prompt preserving what matters |
 | `mine.review` | Run code-reviewer and integration-reviewer in parallel on the current branch diff |
-| `mine.session_reflect` | End-of-session reflection grounded in git evidence |
 | `mine.status` | Quick orientation -- branch, tasks, errors, last commit |
 
 ### Agents (35)
