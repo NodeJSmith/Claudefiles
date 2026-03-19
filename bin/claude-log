@@ -835,6 +835,115 @@ _BUILTIN_COMMANDS = frozenset(
 )
 
 
+def _discover_on_disk() -> set[str]:
+    """Find all skill and command names installed under ~/.claude/.
+
+    Discovers:
+      - Skills: ~/.claude/skills/<name>/SKILL.md  -> <name>
+      - Commands: ~/.claude/commands/<name>.md     -> <name>
+
+    Respects $CLAUDE_HOME if set.
+    """
+    import os
+
+    claude_dir = Path(os.environ.get("CLAUDE_HOME", Path.home() / ".claude"))
+    names: set[str] = set()
+
+    skills_dir = claude_dir / "skills"
+    if skills_dir.is_dir():
+        for child in skills_dir.iterdir():
+            if child.is_dir() and (child / "SKILL.md").exists():
+                names.add(child.name)
+
+    commands_dir = claude_dir / "commands"
+    if commands_dir.is_dir():
+        for child in commands_dir.iterdir():
+            if child.suffix == ".md" and child.is_file():
+                names.add(child.stem)
+
+    return names
+
+
+def _skills_audit(
+    usage: dict[str, int],
+    sessions: dict[str, set[str]],
+    *,
+    json_output: bool = False,
+) -> None:
+    """Cross-reference skill usage with what's installed on disk."""
+    on_disk = _discover_on_disk()
+    used_names = set(usage.keys())
+
+    never_used = sorted(on_disk - used_names)
+    ghost = sorted(used_names - on_disk - _BUILTIN_COMMANDS)
+    active = sorted(on_disk & used_names, key=lambda n: -usage.get(n, 0))
+
+    if json_output:
+        result = {
+            "on_disk": sorted(on_disk),
+            "active": [
+                {
+                    "skill": name,
+                    "invocations": usage[name],
+                    "sessions": len(sessions.get(name, set())),
+                }
+                for name in active
+            ],
+            "never_used": never_used,
+            "ghost": [
+                {
+                    "skill": name,
+                    "invocations": usage[name],
+                    "sessions": len(sessions.get(name, set())),
+                }
+                for name in ghost
+            ],
+        }
+        print(json.dumps(result, indent=2))
+        return
+
+    print(c(BOLD, "Active skills/commands (on disk + used)"))
+    print()
+    rows: list[list[str]] = []
+    for name in active:
+        count = usage[name]
+        sess = len(sessions.get(name, set()))
+        rows.append([str(count), str(sess), name])
+    print(format_table(rows, ["USES", "SESSIONS", "SKILL"]))
+
+    print()
+    print(c(BOLD, f"Never used ({len(never_used)} on disk, 0 invocations)"))
+    print()
+    for name in never_used:
+        print(f"  {c(YELLOW, name)}")
+
+    if ghost:
+        print()
+        print(c(BOLD, f"Ghost invocations ({len(ghost)} used but not on disk)"))
+        print()
+        ghost_rows: list[list[str]] = []
+        for name in sorted(ghost, key=lambda n: -usage.get(n, 0)):
+            count = usage[name]
+            sess = len(sessions.get(name, set()))
+            ghost_rows.append([str(count), str(sess), name])
+        print(format_table(ghost_rows, ["USES", "SESSIONS", "SKILL"]))
+
+    total_on_disk = len(on_disk)
+    total_active = len(active)
+    total_never = len(never_used)
+    pct_unused = (total_never / total_on_disk * 100) if total_on_disk else 0
+    print()
+    print(
+        c(
+            DIM,
+            f"Summary: {total_on_disk} on disk, {total_active} active, "
+            f"{total_never} never used ({pct_unused:.0f}%)",
+        )
+    )
+    if ghost:
+        print(c(DIM, f"         {len(ghost)} ghost (invoked but no longer on disk)"))
+
+
 def cmd_skills(args: argparse.Namespace) -> None:
     """Show skill/command usage across sessions."""
     skill_pattern = re.compile(r"<command-name>/([^<]+)</command-name>")
@@ -890,6 +999,10 @@ def cmd_skills(args: argparse.Namespace) -> None:
         )
 
     sorted_skills = sorted(normalized.items(), key=lambda x: -x[1])
+
+    if args.audit:
+        _skills_audit(normalized, normalized_sessions, json_output=args.json)
+        return
 
     if args.json:
         result = [
@@ -1299,6 +1412,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_skills = subs.add_parser("skills", help="Skill/command usage across sessions")
     p_skills.add_argument("--project", "-p", help="Filter by project name substring")
     p_skills.add_argument("--since", "-s", help="Filter by date (YYYY-MM-DD)")
+    p_skills.add_argument(
+        "--audit",
+        action="store_true",
+        help="Cross-reference usage with skills/commands on disk — shows unused and ghost entries",
+    )
     _add_global_opts(p_skills)
 
     # agents

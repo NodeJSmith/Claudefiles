@@ -55,28 +55,28 @@
 
 ## CLI Tools
 
-Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell commands.** For full usage docs, invoke the skill in the "docs" column.
+Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell commands.** Run `<tool> --help` for full usage.
 
-| User says something like... | Run | Docs |
-|---|---|---|
-| "view issue", "create issue", "list issues", "edit issue" | `gh-issue` | `mine.gh-tools` |
-| "run gh-pr-create", "create PR with bot token" | `gh-pr-create` | `mine.gh-tools` |
-| "list PR threads", "unresolved comments" | `gh-pr-threads` | `mine.gh-tools` |
-| "reply to PR comment", "respond to review" | `gh-pr-reply` | `mine.gh-tools` |
-| "resolve PR thread", "mark thread resolved" | `gh-pr-resolve-thread` | `mine.gh-tools` |
-| "run gh as bot", "comment as bot" | `gh-bot` | `mine.gh-tools` |
-| "generate app token" | `gh-app-token` | `mine.gh-tools` |
-| "rename tmux session", "new tmux session" | `claude-tmux` | `mine.session-tools` |
-| "what did I work on yesterday", "find that session" | `claude-log` | `mine.session-tools` |
-| "merge settings", "apply settings" | `claude-merge-settings` | `mine.session-tools` |
-| "default branch name" | `git-default-branch` | `mine.git-tools` |
-| "branch commit history" | `git-branch-log` | `mine.git-tools` |
-| "branch diff stats", "what changed on this branch" | `git-branch-diff-stat` | `mine.git-tools` |
-| "changed files on this branch", "branch diff file names" | `git-branch-diff-files` | `mine.git-tools` |
-| "base branch", "what branch did this come from" | `git-branch-base` | `mine.git-tools` |
-| "rebase dropping old base", "clean rebase" | `git-rebase-onto` | `mine.git-tools` |
-| "cancel builds", "cancel pipeline runs", "list ADO builds" | `ado-builds` | `mine.ado-tools` |
-| "build logs", "CI logs", "why did the build fail" | `ado-logs` | `mine.ado-tools` |
-| "create ADO PR", "list ADO PRs", "show ADO PR" | `ado-pr` | `mine.ado-tools` |
-| "list ADO PR threads", "reply to ADO PR comment" | `ado-pr-threads` | `mine.ado-tools` |
+| User says something like... | Run |
+|---|---|
+| "view issue", "create issue", "list issues", "edit issue" | `gh-issue` |
+| "run gh-pr-create", "create PR with bot token" | `gh-pr-create` |
+| "list PR threads", "unresolved comments" | `gh-pr-threads` |
+| "reply to PR comment", "respond to review" | `gh-pr-reply` |
+| "resolve PR thread", "mark thread resolved" | `gh-pr-resolve-thread` |
+| "run gh as bot", "comment as bot" | `gh-bot` |
+| "generate app token" | `gh-app-token` |
+| "rename tmux session", "new tmux session" | `claude-tmux` |
+| "what did I work on yesterday", "find that session" | `claude-log` |
+| "merge settings", "apply settings" | `claude-merge-settings` |
+| "default branch name" | `git-default-branch` |
+| "branch commit history" | `git-branch-log` |
+| "branch diff stats", "what changed on this branch" | `git-branch-diff-stat` |
+| "changed files on this branch", "branch diff file names" | `git-branch-diff-files` |
+| "base branch", "what branch did this come from" | `git-branch-base` |
+| "rebase dropping old base", "clean rebase" | `git-rebase-onto` |
+| "cancel builds", "cancel pipeline runs", "list ADO builds" | `ado-builds` |
+| "build logs", "CI logs", "why did the build fail" | `ado-logs` |
+| "create ADO PR", "list ADO PRs", "show ADO PR" | `ado-pr` |
+| "list ADO PR threads", "reply to ADO PR comment" | `ado-pr-threads` |
 
