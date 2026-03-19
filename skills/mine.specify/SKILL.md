@@ -247,11 +247,11 @@ created: "<ISO timestamp>"
 2. **[Next action]**
    - Sees: ...
 
-<Repeat for each actor. Typical features have 1-3 actors. For trivial features with one obvious actor and a straightforward flow, a short narrative is sufficient:>
+<Repeat for each actor. Typical features have 1-3 actors. For trivial features with one obvious actor and a straightforward flow, a short narrative is explicitly OK instead of numbered steps:>
 
 > A developer runs the CLI command, sees the output table, and copies the row they need.
 
-<The structured format is for moderate+ features where UI design will consume these flows directly.>
+<The structured numbered format is for moderate+ features where UI design will consume these flows directly. These steps must always describe user actions and system responses — never an engineering task list or implementation plan.>
 
 ## Functional Requirements
 
@@ -272,7 +272,7 @@ created: "<ISO timestamp>"
 
 **Rules for spec content:**
 - No implementation details (no tech stack, no database names, no API paths)
-- No task lists or step-by-step instructions — those belong in WP files
+- No implementation task lists or step-by-step engineering instructions — those belong in WP files (user task flows in User Scenarios are fine)
 - Written for non-technical stakeholders where possible
 - Every requirement must be testable and unambiguous
 - No `[NEEDS CLARIFICATION]` markers — if you don't know, ask before writing
