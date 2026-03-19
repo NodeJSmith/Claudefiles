@@ -25,7 +25,7 @@ This skill forces intentional decisions and captures them in `.interface-design/
 
 # Intent First
 
-Before touching code, answer these concretely — not in your head, out loud to the user. For deep empathy work — persona spectrums, environment mapping, inclusion analysis — see `mine.human-centered-design`.
+Before touching code, answer these concretely — not in your head, out loud to the user.
 
 **Who is this human?** Not "users." The actual person. A teacher at 7am with coffee is not a developer debugging at midnight. Their world shapes the interface.
 
@@ -285,6 +285,4 @@ If system.md exists, verify: spacing on the defined grid, depth using the declar
 
 # Related
 
-- `mine.human-centered-design` skill — Upstream: empathy, accessibility, progressive enhancement, inclusive patterns
 - `references/principles.md` — Code examples, specific values, dark mode patterns
-- `mine.ux-antipatterns` skill — After building, review for interaction correctness (layout stability, missing feedback, race conditions, accessibility)

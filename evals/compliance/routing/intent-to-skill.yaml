@@ -168,31 +168,6 @@ tests:
       - type: javascript
         value: *skill_assertion
 
-  # --- mine.refactor ---
-  - description: "refactor → /mine.refactor (direct)"
-    vars:
-      prompt: "refactor this module, it's getting too big"
-      expectedSkill: "mine.refactor"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  - description: "extract function → /mine.refactor (natural)"
-    vars:
-      prompt: "this file is 900 lines, can you split it into smaller modules?"
-      expectedSkill: "mine.refactor"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  - description: "split file → /mine.refactor (indirect)"
-    vars:
-      prompt: "the user service has gotten unwieldy — extract the validation logic into its own module"
-      expectedSkill: "mine.refactor"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
   # --- mine.audit ---
   - description: "audit → /mine.audit (direct)"
     vars:
@@ -239,31 +214,6 @@ tests:
     vars:
       prompt: "we need a webhook listener that processes Stripe events — can you start building that?"
       expectedSkill: "mine.build"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  # --- mine.security-review ---
-  - description: "security review → /mine.security-review (direct)"
-    vars:
-      prompt: "do a security review of the auth module"
-      expectedSkill: "mine.security-review"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  - description: "check for vulnerabilities → /mine.security-review (natural)"
-    vars:
-      prompt: "check this code for security vulnerabilities before we deploy"
-      expectedSkill: "mine.security-review"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  - description: "security concerns → /mine.security-review (indirect)"
-    vars:
-      prompt: "I'm worried about the input handling in the API — can you review it from a security perspective?"
-      expectedSkill: "mine.security-review"
     assert:
       - type: javascript
         value: *skill_assertion

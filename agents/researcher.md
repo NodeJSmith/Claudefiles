@@ -175,7 +175,7 @@ Combine all findings into a structured research brief. Write it to the output pa
 [Your honest assessment. Not always "do it" — sometimes the answer is "not yet", "do something simpler first", or "this needs a prototype before committing".]
 
 ### Suggested next steps
-1. [Concrete next action — e.g., "Create an ADR to record the decision"]
+1. [Concrete next action — e.g., "Write a design doc via /mine.design"]
 2. [Follow-up — e.g., "Prototype the data layer in a branch"]
 3. [Related — e.g., "Add test coverage to X before changing it"]
 
@@ -196,4 +196,4 @@ Combine all findings into a structured research brief. Write it to the output pa
 - **Grounded in code, not theory** — every finding should reference specific files, patterns, or data from the actual codebase. No generic advice.
 - **Options, not prescriptions** — present trade-offs honestly. Include a "do less" option when the proposal is ambitious.
 - **Honest about effort** — if something is hard, say so. If a simpler alternative exists, surface it.
-- **Feeds forward** — the research brief should contain everything needed to write an ADR or create an implementation plan.
+- **Feeds forward** — the research brief should contain everything needed to write a design doc or create an implementation plan.

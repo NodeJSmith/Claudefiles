@@ -2,8 +2,8 @@
 #
 # Rule source: rules/common/capabilities.md (intent routing table)
 #
-# Tests analysis and investigation skills: 5whys, eval-repo, mutation-test,
-# tool-gaps, challenge, skill-eval, permissions-audit, agnix.
+# Tests analysis and investigation skills: eval-repo, mutation-test,
+# tool-gaps, challenge, permissions-audit.
 #
 # Run: npx promptfoo eval -c evals/compliance/routing/intent-to-skill-analysis.yaml
 
@@ -20,11 +20,11 @@ providers:
       skip_git_repo_check: true
 
 tests:
-  # --- mine.5whys ---
-  - description: "five whys → /mine.5whys (direct)"
+  # --- mine.eval-repo ---
+  - description: "evaluate this repo → /mine.eval-repo (direct)"
     vars:
-      prompt: "run a five whys analysis on the recurring auth failures"
-      expectedSkill: "mine.5whys"
+      prompt: "evaluate this repo before we adopt it"
+      expectedSkill: "mine.eval-repo"
     assert:
       - type: javascript
         value: &skill_assertion |
@@ -43,31 +43,6 @@ tests:
           }
           const how = calledViaSkill ? 'tool call' : 'response mention';
           return { pass: true, score: 1, reason: `✓ ${skillName} correctly routed (${how})` };
-
-  - description: "root cause analysis → /mine.5whys (natural)"
-    vars:
-      prompt: "this bug keeps coming back — help me do a root cause analysis"
-      expectedSkill: "mine.5whys"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  - description: "why does this keep failing → /mine.5whys (indirect)"
-    vars:
-      prompt: "the deploy has failed 3 times this week for different reasons — why does this keep happening?"
-      expectedSkill: "mine.5whys"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  # --- mine.eval-repo ---
-  - description: "evaluate this repo → /mine.eval-repo (direct)"
-    vars:
-      prompt: "evaluate this repo before we adopt it"
-      expectedSkill: "mine.eval-repo"
-    assert:
-      - type: javascript
-        value: *skill_assertion
 
   - description: "should I use this library → /mine.eval-repo (natural)"
     vars:
@@ -135,31 +110,6 @@ tests:
       - type: javascript
         value: *skill_assertion
 
-  # --- mine.skill-eval ---
-  - description: "evaluate skill → /mine.skill-eval (direct)"
-    vars:
-      prompt: "evaluate the skill variants for the commit workflow"
-      expectedSkill: "mine.skill-eval"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  - description: "compare skill variants → /mine.skill-eval (natural)"
-    vars:
-      prompt: "compare the two versions of the brainstorm skill and tell me which performs better"
-      expectedSkill: "mine.skill-eval"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  - description: "skill A/B test → /mine.skill-eval (indirect)"
-    vars:
-      prompt: "I rewrote the audit skill — can you A/B test the old vs new version?"
-      expectedSkill: "mine.skill-eval"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
   # --- mine.permissions-audit ---
   - description: "audit permissions → /mine.permissions-audit (direct)"
     vars:
@@ -181,31 +131,6 @@ tests:
     vars:
       prompt: "every other command needs approval, it's slowing me down — can you optimize my allowedTools?"
       expectedSkill: "mine.permissions-audit"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  # --- mine.agnix ---
-  - description: "lint agents → /mine.agnix (direct)"
-    vars:
-      prompt: "lint the agents and skills"
-      expectedSkill: "mine.agnix"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  - description: "validate skills → /mine.agnix (natural)"
-    vars:
-      prompt: "validate all the skill and agent files for formatting issues"
-      expectedSkill: "mine.agnix"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  - description: "check agent format → /mine.agnix (indirect)"
-    vars:
-      prompt: "I just added a new agent — run agnix to make sure everything passes"
-      expectedSkill: "mine.agnix"
     assert:
       - type: javascript
         value: *skill_assertion

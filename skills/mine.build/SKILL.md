@@ -36,7 +36,7 @@ If the user's request is solution-shaped ("add X", "change Y to Z") but the unde
 
 ### Detect prior analysis
 
-Before routing, check whether the conversation already contains findings from an analysis skill or command (`/mine.challenge`, `/mine.audit`, `/mine.brainstorm`, `/mine.research`, `/mine.5whys`). Signals:
+Before routing, check whether the conversation already contains findings from an analysis skill or command (`/mine.challenge`, `/mine.audit`, `/mine.brainstorm`, `/mine.research`). Signals:
 
 - Structured findings with severity labels (CRITICAL / HIGH / MEDIUM)
 - A phased implementation plan produced by a planner agent

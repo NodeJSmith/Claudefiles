@@ -266,8 +266,6 @@ AskUserQuestion:
   options:
     - label: "Save the session"
       description: "Write to design/brainstorms/YYYY-MM-DD-<topic>/brainstorm.md"
-    - label: "Record an ADR"
-      description: "/mine.adrs — capture the decision with context and alternatives"
     - label: "Create issues / save to backlog"
       description: "File ideas as tracked issues or save to .claude/backlog.md"
     - label: "Nothing — proceed"
@@ -280,7 +278,7 @@ If "Challenge the top idea first" is selected: if the session was saved (houseke
 
 If selected: invoke the backlog save flow from `rules/common/backlog.md`. Treat the ranked ideas as the item list. Use the idea's ranking tier (e.g. "Top 3", score) as the label. The 3-item threshold does not apply here — the user explicitly selected this action.
 
-**Execution order for housekeeping**: (1) create issues / save to backlog, (2) record an ADR, (3) save the session, then proceed to the primary next step.
+**Execution order for housekeeping**: (1) create issues / save to backlog, (2) save the session, then proceed to the primary next step.
 
 For GitHub issue creation, use this template:
 

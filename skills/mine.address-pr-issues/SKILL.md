@@ -369,7 +369,7 @@ Keep replies professional and direct. Don't be dismissive of reviewer feedback e
 **IMPORTANT**: Use these helper scripts instead of inline commands. They are in PATH (`bin/` in this repo, symlinked by `install.sh`) and avoid unnecessary permission prompts.
 
 - **GitHub**: See skill: `mine.gh-tools` for `gh-pr-threads`, `gh-pr-reply`, `gh-pr-resolve-thread` usage, flags, and examples.
-- **ADO**: See skill: `mine.ado-tools` for `ado-pr`, `ado-pr-threads` usage, flags, and examples.
+- **ADO**: Run `ado-pr --help` and `ado-pr-threads --help` for usage, flags, and examples.
 
 ---
 

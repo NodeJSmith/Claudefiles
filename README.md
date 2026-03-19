@@ -12,9 +12,9 @@ My personal [Claude Code](https://docs.anthropic.com/en/docs/claude-code) config
 
 ## Things I find most useful
 
-- **`/mine.research`** and **`/mine.audit`** -- the research skill maps architecture and evaluates feasibility before you commit to a direction. The audit skill finds the biggest problems in a codebase ranked by impact. Both feed into planning and ADRs.
+- **`/mine.research`** and **`/mine.audit`** -- the research skill maps architecture and evaluates feasibility before you commit to a direction. The audit skill finds the biggest problems in a codebase ranked by impact. Both feed into design docs and planning.
 - **`claude --worktree <branch>`** -- start a fresh Claude session in an isolated branch. Use `--resume <session-id>` to return to any previous session. Use `/mine.issues` in plan mode to research an issue before starting.
-- **`/mine.refactor`** -- interactive refactoring that asks you questions about naming, scope, and approach instead of guessing.
+- **`/mine.challenge`** -- adversarial design critique that assumes your approach is wrong and argues for better. Three parallel critics, then synthesis.
 
 ## Install
 
@@ -34,15 +34,13 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 
 ## Contents
 
-### Skills (36)
+### Skills (26)
 
 | Skill | Description |
 |-------|-------------|
 | `mine.address-pr-issues` | Triage and resolve PR blockers — review comments, merge conflicts, and failing CI |
-| `mine.ado-tools` | Azure DevOps CLI tools -- ado-builds, ado-logs, ado-pr, ado-pr-threads |
-| `mine.adrs` | Create and maintain Architecture Decision Records for project decisions |
 | `mine.audit` | Systematic codebase health audit -- surfaces aging code, brittle designs, missing tests, ranked by impact |
-| `mine.brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas ranked by user-chosen criteria, with handoff to research, ADRs, or planning |
+| `mine.brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas ranked by user-chosen criteria, with handoff to research or planning |
 | `mine.build` | Single entry point — routes between direct implementation and the full caliper v2 workflow (specify → design → draft-plan → plan-review → orchestrate → implementation-review → ship) |
 | `mine.challenge` | Adversarial design critique using three parallel critics — assumes the design is wrong, finds out why, argues for better |
 | `mine.commit-push` | Commit and push changes to the current branch |
@@ -51,53 +49,33 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 | `mine.draft-plan` | Design doc → Work Package (WP) files with objectives, subtasks, test strategy, and lane tracking |
 | `mine.eval-repo` | Evaluate a third-party GitHub repo before adopting it -- test coverage, code quality, maintenance health, bus factor |
 | `mine.gh-tools` | GitHub helper scripts -- gh-issue, gh-pr-create, gh-pr-threads, gh-pr-reply, gh-pr-resolve-thread, gh-bot, gh-app-token |
-| `mine.git-tools` | Git helper scripts -- git-default-branch, git-branch-base, git-branch-log, git-branch-diff-stat, git-branch-diff-files, git-rebase-onto |
 | `mine.grill` | Multi-angle interrogation of a raw idea — product, design, engineering, scope, and adversarial lenses. Produces a brief.md that feeds into /mine.specify |
-| `mine.human-centered-design` | Human-centered frontend design -- empathy, accessibility, progressive enhancement |
 | `mine.implementation-review` | Post-execution quality gate — 7-category Opus review of all changed files against design doc and Work Package (WP) files |
 | `mine.interface-design` | Craft and consistency for interface design -- dashboards, admin panels, apps, tools |
-| `mine.interviewer` | Alias for mine.specify — structured discovery interview that produces spec.md |
 | `mine.mutation-test` | Mutation testing -- intentionally break code to verify tests catch real bugs |
 | `mine.orchestrate` | Execute work packages task-by-task with executor → spec reviewer → code reviewer → integration reviewer loop; tracks WP lane state |
 | `mine.plan-review` | Opus checklist review (9 points) of design doc + work packages — includes spec/design coverage and scope containment + approve/revise/abandon gate |
-| `mine.refactor` | Interactive refactoring with strategy selection and incremental verification |
 | `mine.research` | Interactive research workflow — gathers user intent, dispatches the researcher agent, presents the brief |
-| `mine.security-review` | Security checklist for auth, user input, secrets, API endpoints |
-| `mine.session-tools` | Session management CLI tools -- claude-tmux, claude-log, claude-merge-settings |
 | `mine.ship` | Commit, push, and create a PR in one step |
-| `mine.skill-eval` | Evaluate and compare skill variants — setup, execution, grading, comparison, and reporting |
 | `mine.specify` | Proportional discovery interview — extracts full intent and produces spec.md with 12-item quality validation |
 | `mine.tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |
-| `mine.ux-antipatterns` | Detect UX anti-patterns -- layout shifts, missing feedback, broken forms, a11y gaps |
 | `mine.visual-qa` | Live visual QA -- Playwright captures screenshots, then two agents analyze them with structural separation (one sees each page in isolation, the other sees all pages at once) |
 | `mine.worktree-rebase` | Detect when the parent repo is currently on a feature branch and rebase this worktree branch onto it (run immediately after creating the worktree) |
 | `mine.wp` | WP lane management — move work packages between lanes, view kanban, list WPs |
 | `mine.write-skill` | Guided skill creation — gathers requirements, drafts SKILL.md, validates quality checklist, auto-wires routing |
-| `vx.visual-explainer` | Generate self-contained HTML pages that visually explain systems, code changes, plans, and data — diagrams, diff reviews, plan reviews, slide decks, project recaps, and more. Subcommands: `vx.diff-review`, `vx.fact-check`, `vx.generate-slides`, `vx.generate-visual-plan`, `vx.generate-web-diagram`, `vx.plan-review`, `vx.project-recap`, `vx.share` |
+| `vx.visual-explainer` | Generate self-contained HTML pages that visually explain systems, code changes, plans, and data — diagrams, diff reviews, plan reviews, slide decks, project recaps, and more |
 
-### Commands (19)
+### Commands (7)
 
 | Command | Description |
 |---------|-------------|
-| `mine.agnix` | Validate agent, skill, command, and CLAUDE.md files with agnix |
-| `mine.5whys` | Root cause analysis using Five Whys, grounded in codebase evidence |
-| `mine.capture_lesson` | Quick mid-session pattern capture as a reusable skill file |
 | `mine.interface-design` | Build UI with craft and consistency |
 | `mine.issues` | Deep-dive issues by key, or scan and pick |
 | `mine.issues-scan` | Scan open issues, classify by effort, pick one to deep-dive |
 | `mine.permissions-audit` | Analyze frequent permission prompts and recommend allow-list entries |
 | `mine.pre-compact` | Generate a focused /compact prompt preserving what matters |
 | `mine.review` | Run code-reviewer and integration-reviewer in parallel on the current branch diff |
-| `mine.session_reflect` | End-of-session reflection grounded in git evidence |
 | `mine.status` | Quick orientation -- branch, tasks, errors, last commit |
-| `vx.diff-review` | Visual diff review with architecture comparison and code review analysis |
-| `vx.fact-check` | Verify factual accuracy of a document against the actual codebase |
-| `vx.generate-slides` | Generate a magazine-quality slide deck as a self-contained HTML page |
-| `vx.generate-visual-plan` | Visual implementation plan with state machines, code snippets, and edge cases |
-| `vx.generate-web-diagram` | Generate a standalone HTML diagram and open it in the browser |
-| `vx.plan-review` | Compare a plan against the codebase with risk assessment |
-| `vx.project-recap` | Mental model snapshot — current state, recent decisions, cognitive debt hotspots |
-| `vx.share` | Deploy a visual explainer HTML page to Vercel and get a live URL |
 
 ### Agents (35)
 
@@ -166,21 +144,20 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 | `product-feedback-synthesizer` | Synthesizes user feedback from multiple channels into actionable product insights |
 | `product-sprint-prioritizer` | Sprint planning, feature prioritization, velocity optimization using RICE/MoSCoW |
 
-### Rules (22)
+### Rules (15)
 
-Coding guidelines organized by language. These load automatically and shape how Claude writes code.
+Coding guidelines that load automatically and shape how Claude writes code.
 
-**Common** (17): agents, backlog, bash-tools, capabilities, coding-style, command-output, error-tracking, frontend-workflow, git-workflow, hooks, patterns, performance, security, testing, tmux, web-search, worktrees
+**Common** (15): agents, backlog, bash-tools, capabilities, coding-style, command-output, error-tracking, frontend-workflow, git-workflow, interaction, performance, testing, tmux, web-search, worktrees
 
-**Python** (5): coding-style, hooks, patterns, security, testing
-
-### Helper Scripts (23)
+### Helper Scripts (22)
 
 CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
 | Script | Description |
 |--------|-------------|
 | `ado-builds` | Azure DevOps build management -- list, cancel, or bulk-cancel pipeline builds |
+| `agnix-check` | Validate agent, skill, and command files against agnix schema |
 | `ado-common.sh` | Shared Azure DevOps utilities -- PAT auth, config, API calls, PR detection (sourced by ADO scripts) |
 | `ado-logs` | Azure DevOps CI log viewer -- inspect build timelines, errors, and log content |
 | `ado-pr` | Azure DevOps PR helper -- simplified wrapper around az repos pr with smart defaults |
@@ -200,8 +177,6 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `git-branch-diff-stat` | Print `git diff --stat` for current branch vs its base (uses git-branch-base) |
 | `git-branch-log` | Print `git log --oneline` for current branch vs its base (uses git-branch-base) |
 | `git-default-branch` | Print the default branch name for the current repo |
-| `skill-eval-aggregate` | Aggregate graded skill evaluation results with pass rates and score statistics |
-| `skill-eval-run` | Run skill evaluation iterations — invoke skill variants and save outputs |
 | `spec-helper` | Work Package and spec directory management — `init`, `wp-move`, `status`, `next-number` |
 
 ## Evals

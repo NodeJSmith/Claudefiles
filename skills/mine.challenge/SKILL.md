@@ -14,7 +14,6 @@ Adversarial design critique. This skill assumes the code under review is poorly 
 |-------|-------------------|
 | `mine.audit` | "What health problems does this codebase have?" |
 | **`mine.challenge`** | **"Is this design actually correct?"** |
-| `mine.refactor` | "How do I improve the structure of this code?" |
 | `code-reviewer` | "Is this diff correct and safe to merge?" |
 
 ## Arguments
@@ -176,12 +175,8 @@ AskUserQuestion:
   options:
     - label: "Discuss a specific finding"
       description: "Go deeper on one concern — understand the tradeoffs"
-    - label: "Hand off to /mine.refactor"
-      description: "Structural fixes — rearrange the code within the current design"
     - label: "Build the fix (/mine.build)"
       description: "Direct implementation or full caliper workflow, depending on complexity"
-    - label: "Record an architectural decision (/mine.adrs)"
-      description: "Capture a significant design direction change"
     - label: "Create issues for tracked concerns"
       description: "File findings as issues to address later"
     - label: "Save the critique report"
@@ -194,11 +189,8 @@ When offering "Read a specific critic's full report", list the three temp file p
 
 ## Phase 5: Handoffs
 
-**Structural fixes** → `/mine.refactor`
+**Build the fix** → `/mine.build` — routes to direct implementation or the full caliper workflow based on complexity.
 
-**Build the fix** → `/mine.build` — routes to direct implementation or the full caliper workflow based on complexity. Use when the finding needs new code, not just rearrangement.
-
-**Architectural decisions** → `/mine.adrs`
 
 **Track without acting** → create an issue in the project's issue tracker. Write the finding as the issue body:
 

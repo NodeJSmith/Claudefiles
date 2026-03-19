@@ -5,6 +5,10 @@
 # Sourcing scripts should set ADO_API_VERSION before sourcing if they
 # need a version other than the default (7.1).
 
+# Fail on errors, undefined vars, and pipe failures.
+# Callers already set this, but a shared library should be defensive.
+set -euo pipefail
+
 # Default API version — sourcing script can override before sourcing
 : "${ADO_API_VERSION:=7.1}"
 

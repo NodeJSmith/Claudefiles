@@ -240,7 +240,6 @@ If the tool is missing from `rules/common/capabilities.md` or has a thin entry, 
 
 - **Fix anything** — this is diagnosis, not treatment. It ends when the user knows what gaps exist and has decided what to do about each one
 - **Audit code quality** — use `/mine.audit` for that
-- **Review security** — use `/mine.security-review` for that
 - **Mine for bugs** — this is about missing features and recurring patterns, not defects
 
 ## Principles

@@ -14,10 +14,9 @@ Deep investigation of a codebase to evaluate a proposed change, new pattern, or 
 |-------|-------------------|
 | `/mine.audit` | "What's wrong with this codebase?" |
 | **`/mine.research`** | **"What would it take to do X in this codebase?"** |
-| `/mine.adrs` | "Let's record our decision about X" |
-| Plan mode | "Let's plan the implementation of X" |
+| `/mine.design` | "How should we build X?" |
 
-Research comes **before** decisions and plans. It's the investigation that makes those possible.
+Research comes **before** design docs and plans. It's the investigation that makes those possible.
 
 ## Arguments
 
@@ -99,7 +98,7 @@ Dispatch the research to a `researcher` agent. This runs the heavy codebase expl
 
 ### Ask where to save
 
-Research briefs are forward-looking — they evaluate a proposed change before committing to an approach. They may feed into an ADR (when a decision is reached) or be abandoned (if the approach is rejected).
+Research briefs are forward-looking — they evaluate a proposed change before committing to an approach. They may feed into a design doc (when a direction is chosen) or be abandoned (if the approach is rejected).
 
 The recommended convention is a date-stamped topic directory under `design/research/`:
 
@@ -139,8 +138,6 @@ AskUserQuestion:
   options:
     - label: "Challenge these findings first"
       description: "Run /mine.challenge on the research brief before committing to a direction"
-    - label: "Record the decision (/mine.adrs)"
-      description: "Create an ADR in design/adrs/ to formalize the architectural choice"
     - label: "Build it (/mine.build)"
       description: "Direct implementation or full caliper workflow, depending on complexity"
     - label: "I need to think about it"
@@ -153,11 +150,11 @@ If "Challenge these findings first" is selected: if the brief was saved to a fil
 
 1. **Questions before code** — understand motivation and constraints before exploring the codebase. The user's first description of what they want is almost never the full picture.
 2. **Options, not prescriptions** — present trade-offs honestly. Include a "do less" option when the proposal is ambitious. The user decides, you inform.
-3. **Feeds forward** — the research brief should contain everything needed to write an ADR or create an implementation plan. No redundant investigation later.
+3. **Feeds forward** — the research brief should contain everything needed to write a design doc or create an implementation plan. No redundant investigation later.
 
 ## What This Skill Does NOT Do
 
-- **Make decisions** — it informs them. Use `/mine.adrs` to record decisions.
+- **Make decisions** — it informs them. Use `/mine.design` to formalize decisions.
 - **Plan implementations** — it assesses feasibility. Use `/mine.build` to route to the right implementation workflow.
 - **Write code** — it's pure investigation. No prototypes, no scaffolding, no "let me just try it."
 - **Audit health** — it evaluates a specific proposal against the codebase. Use `/mine.audit` for general health assessment.
