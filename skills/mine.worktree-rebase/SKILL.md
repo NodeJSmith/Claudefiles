@@ -6,8 +6,18 @@ user-invocable: true
 
 ## Arguments
 
-$ARGUMENTS — optional flags:
-- `--yes` or `-y`: skip the confirmation prompt and rebase immediately
+$ARGUMENTS — optional, natural language. Parse for two things:
+
+1. **Target branch** — anything that looks like a branch name (e.g., `feature/jsmith/foo`, `main`). If provided, skip auto-detection and rebase onto this branch.
+2. **Skip confirmation** — any intent to skip the prompt: `force`, `just rebase`, `no prompt`, `skip prompt`, `yes`, `-y`. If present, skip Phase 4 confirmation.
+
+Both are independent and can be combined.
+
+Examples:
+- `/mine.worktree-rebase` — auto-detect, confirm before rebasing
+- `/mine.worktree-rebase just rebase` — auto-detect, no confirmation
+- `/mine.worktree-rebase feature/jsmith/foo` — explicit branch, confirm
+- `/mine.worktree-rebase feature/jsmith/foo force` — explicit branch, no confirmation
 
 ## Context
 
@@ -25,9 +35,11 @@ Check the Context above. If the Git dir value does **not** contain `worktrees/`,
 
 > This skill only works from inside a git worktree. The current git dir is not a worktree path. Nothing to do.
 
-### Phase 2 — Discover the original repo's branch
+### Phase 2 — Discover the target branch
 
-Run these commands sequentially. Do NOT use `$(...)` command substitution (see CLAUDE.md bash restrictions).
+If `$ARGUMENTS` contains a target branch (see Arguments), use that as `<orig-branch>` and skip to Phase 3.
+
+Otherwise, auto-detect from the parent repo. Run these commands sequentially. Do NOT use `$(...)` command substitution (see CLAUDE.md bash restrictions).
 
 **Step 1** — Get the shared git directory:
 ```bash
@@ -69,7 +81,7 @@ This worktree's base is assumed to be `origin/<default-branch>`, but the parent 
 Rebasing will move this worktree's commits on top of `<orig-branch>`.
 ```
 
-If `$ARGUMENTS` contains `--yes` or `-y`, skip the confirmation and proceed directly to Phase 5.
+If `$ARGUMENTS` indicates skipping confirmation (see Arguments), proceed directly to Phase 5.
 
 Otherwise, ask the user to confirm using AskUserQuestion:
 - question: "Rebase `<current-branch>` onto `<orig-branch>`?"
