@@ -20,6 +20,7 @@ Look for `design/direction*.md` in the project.
 AskUserQuestion:
   question: "A design direction already exists. What would you like to do?"
   header: "Direction"
+  multiSelect: false
   options:
     - label: "Update it"
       description: "Revise the existing direction with new decisions"
@@ -58,12 +59,9 @@ Use AskUserQuestion for each, one at a time. If any answer is vague ("users", "c
 
 Ask for visual references — apps or sites whose *feel* (not features) matches the stated intent.
 
-```
-AskUserQuestion:
-  question: "Name 2-3 apps or sites whose feel matches what you described. Not to copy — to articulate direction."
-  header: "References"
-  useTextArea: true
-```
+Ask the user directly:
+
+> Name 2-3 apps or sites whose *feel* matches what you described. Not to copy — to articulate direction.
 
 If the user cannot name any, suggest 3 options based on the domain and intent. For each reference, identify what to take from it (e.g., "the density and monospace feel" or "the warm paper texture and generous spacing").
 
@@ -116,7 +114,7 @@ Ask the user to confirm or revise before saving.
 
 After user confirmation, write `design/direction.md` (or the scoped variant).
 
-Read `references/direction-template.md` for the exact format. Include `completeness: full` in frontmatter. Every section must be populated with rationale — no placeholder text.
+Read `references/direction-template.md` for the exact format. Include `**Completeness:** full` in the metadata header. Every section must be populated with rationale — no placeholder text.
 
 Create the `design/` directory if it does not exist.
 

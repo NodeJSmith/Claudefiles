@@ -171,7 +171,7 @@ Before delivering, verify:
 
 After delivering the mockup, offer: "Save this direction to `design/direction.md` so future mockups and builds use it?"
 
-If yes, write a lightweight direction.md from the inline choices with `completeness: lightweight` in the frontmatter. Use this format:
+If yes, write a lightweight direction.md from the inline choices with `**Completeness:** lightweight` in the metadata header. Use this format:
 
 ```markdown
 # Design Direction: [Product/Feature Name]
