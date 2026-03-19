@@ -10,7 +10,15 @@ Generate self-contained HTML files for UI mockups, technical diagrams, visualiza
 
 ## Workflow
 
-### 1. Check for Direction Files
+### 1. Check for Spec and Direction Files
+
+Look for `design/specs/*/spec.md`.
+
+- **If none found**, proceed without a spec — rely on the user's description and direction.md (if present).
+- **If exactly one exists**, read it.
+- **If multiple exist**, list the discovered feature directories and ask the user which feature this mockup targets.
+
+For the chosen spec (if any), read the **User Scenarios** section — use the actor task flows and information needs to inform layout, information hierarchy, and navigation. The spec's structured scenarios tell you what data goes where and in what order.
 
 Look for `design/direction*.md` in the project.
 

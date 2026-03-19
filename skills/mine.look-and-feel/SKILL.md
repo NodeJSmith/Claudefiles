@@ -10,7 +10,19 @@ Plan UI design direction before writing code. Produce a `design/direction.md` th
 
 ---
 
-## Phase 1: Check for Existing Direction
+## Phase 1: Check for Spec and Existing Direction
+
+### Read the spec (if it exists)
+
+Look for `design/specs/*/spec.md`.
+
+- **If none found**, proceed without a spec and ask all Phase 2 questions normally.
+- **If exactly one exists**, read it.
+- **If multiple exist**, list the discovered feature directories and ask the user which feature this UI work targets.
+
+For the chosen spec (if any), read the **User Scenarios** section — it contains structured actor/goal/context data and step-by-step task flows with information needs. Use this to pre-populate answers for Phase 2: if the spec already names actors, goals, and context, skip Questions 1 and 2 and only ask Question 3 (aesthetic feel). This prevents re-asking what the user already described during specify.
+
+### Check for existing direction
 
 Look for `design/direction*.md` in the project.
 
