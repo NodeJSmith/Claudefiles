@@ -510,8 +510,6 @@ mermaid.initialize({
 
 Add zoom controls to every `.mermaid-wrap` container for complex diagrams.
 
-**Small diagrams in slides.** If a diagram has fewer than ~7 nodes with no branching, it will render tiny in a full-viewport slide container. For simple linear flows (A → B → C → D), use CSS pipeline cards instead of Mermaid — see `slide-patterns.md` "CSS Pipeline Slide." Reserve Mermaid for complex graphs where automatic edge routing is actually needed.
-
 ### Full Pattern
 
 ```css

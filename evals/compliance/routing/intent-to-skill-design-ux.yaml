@@ -2,8 +2,7 @@
 #
 # Rule source: rules/common/capabilities.md (intent routing table)
 #
-# Tests design and UX skills: interface-design, visual-qa,
-# vx.visual-explainer.
+# Tests design and UX skills: look-and-feel, visual-qa, mockup.
 #
 # Run: npx promptfoo eval -c evals/compliance/routing/intent-to-skill-design-ux.yaml
 
@@ -20,11 +19,11 @@ providers:
       skip_git_repo_check: true
 
 tests:
-  # --- mine.interface-design ---
-  - description: "design this UI → /mine.interface-design (direct)"
+  # --- mine.look-and-feel ---
+  - description: "design this UI → /mine.look-and-feel (direct)"
     vars:
       prompt: "design this UI for the settings page"
-      expectedSkill: "mine.interface-design"
+      expectedSkill: "mine.look-and-feel"
     assert:
       - type: javascript
         value: &skill_assertion |
@@ -44,23 +43,23 @@ tests:
           const how = calledViaSkill ? 'tool call' : 'response mention';
           return { pass: true, score: 1, reason: `✓ ${skillName} correctly routed (${how})` };
 
-  - description: "dashboard layout → /mine.interface-design (natural)"
+  - description: "dashboard look and feel → /mine.look-and-feel (natural)"
     vars:
-      prompt: "design the dashboard layout for monitoring API health metrics — what panels and widgets should it have?"
-      expectedSkill: "mine.interface-design"
+      prompt: "plan the look and feel for the monitoring dashboard — what colors, fonts, and spacing should we use?"
+      expectedSkill: "mine.look-and-feel"
     assert:
       - type: javascript
         value: *skill_assertion
 
-  - description: "admin panel UI → /mine.interface-design (indirect)"
+  - description: "design tokens for admin panel → /mine.look-and-feel (indirect)"
     vars:
-      prompt: "I need a clean admin panel for managing user accounts — craft the interface"
-      expectedSkill: "mine.interface-design"
+      prompt: "I need a clean admin panel for managing user accounts — establish design tokens and a visual direction"
+      expectedSkill: "mine.look-and-feel"
     assert:
       - type: javascript
         value: *skill_assertion
 
-  # --- mine.visual-qa (replaces mine.ux-review) ---
+  # --- mine.visual-qa ---
   - description: "UX review → /mine.visual-qa (direct)"
     vars:
       prompt: "do a UX review on the profile page"
@@ -85,30 +84,109 @@ tests:
       - type: javascript
         value: *skill_assertion
 
-  # --- vx.visual-explainer ---
-  - description: "generate a diagram → /vx.visual-explainer (direct)"
+  # --- mine.mockup ---
+  - description: "generate a mockup → /mine.mockup (direct)"
     vars:
-      prompt: "generate a diagram of the service architecture"
-      expectedSkill: "vx.visual-explainer"
+      prompt: "generate an HTML mockup of the new onboarding flow"
+      expectedSkill: "mine.mockup"
     assert:
       - type: javascript
         value: *skill_assertion
 
-  - description: "visualize this → /vx.visual-explainer (natural)"
+  - description: "show me what it looks like → /mine.mockup (natural)"
     vars:
-      prompt: "visualize how the data flows through the event pipeline"
-      expectedSkill: "vx.visual-explainer"
+      prompt: "show me what the settings page would look like as a self-contained HTML preview"
+      expectedSkill: "mine.mockup"
     assert:
       - type: javascript
         value: *skill_assertion
 
-  - description: "architecture diagram → /vx.visual-explainer (indirect)"
+  - description: "UI preview → /mine.mockup (indirect)"
     vars:
-      prompt: "I need to explain our microservice architecture to stakeholders — create a visual overview"
-      expectedSkill: "vx.visual-explainer"
+      prompt: "I want to see a visual preview of the admin dashboard before we start coding — mockup this UI"
+      expectedSkill: "mine.mockup"
     assert:
       - type: javascript
         value: *skill_assertion
+
+  # --- Boundary tests: mine.design vs mine.look-and-feel ---
+  - description: "design this change → /mine.design (NOT mine.look-and-feel)"
+    vars:
+      prompt: "design this change to the authentication system"
+      expectedSkill: "mine.design"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "plan the look and feel → /mine.look-and-feel (NOT mine.design)"
+    vars:
+      prompt: "plan the look and feel for this dashboard"
+      expectedSkill: "mine.look-and-feel"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "design this UI → /mine.look-and-feel (visual, NOT architecture)"
+    vars:
+      prompt: "design this UI"
+      expectedSkill: "mine.look-and-feel"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "write a design doc → /mine.design (architecture)"
+    vars:
+      prompt: "write a design doc for the auth feature"
+      expectedSkill: "mine.design"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "design the dashboard → /mine.look-and-feel (visual direction)"
+    vars:
+      prompt: "design the dashboard"
+      expectedSkill: "mine.look-and-feel"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  - description: "what should this app look like → /mine.look-and-feel"
+    vars:
+      prompt: "what should this app look like"
+      expectedSkill: "mine.look-and-feel"
+    assert:
+      - type: javascript
+        value: *skill_assertion
+
+  # --- Negative tests: dropped diagram routing ---
+  - description: "architecture diagram must NOT route to /mine.mockup"
+    vars:
+      prompt: "generate an architecture diagram of this service"
+      forbiddenSkill: "mine.mockup"
+    assert:
+      - type: javascript
+        value: &negative_skill_assertion |
+          const toolCalls = context.providerResponse?.metadata?.toolCalls ?? [];
+          const skillName = context.vars.forbiddenSkill;
+          const escaped = skillName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const skillRegex = new RegExp(escaped);
+          const calledViaSkill = toolCalls.some(c =>
+            c.name === 'Skill' && skillRegex.test(JSON.stringify(c.input ?? {}))
+          );
+          const responseText = output || '';
+          const mentionedInResponse = skillRegex.test(responseText);
+          if (calledViaSkill || mentionedInResponse) {
+            return { pass: false, score: 0, reason: `${skillName} should NOT be routed — diagram routing was intentionally dropped` };
+          }
+          return { pass: true, score: 1, reason: `✓ ${skillName} correctly NOT routed` };
+
+  - description: "visualize data flow must NOT route to /mine.mockup"
+    vars:
+      prompt: "visualize how the data flows through this pipeline"
+      forbiddenSkill: "mine.mockup"
+    assert:
+      - type: javascript
+        value: *negative_skill_assertion
 
 prompts:
   - "{{prompt}}"

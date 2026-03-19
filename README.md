@@ -30,7 +30,7 @@ To uninstall, just delete the symlinks (they point back to this repo) and remove
 
 ## About skill prefixes
 
-Skills and commands use a namespace prefix to avoid collisions. First-party skills in this repo use the `mine.` prefix. Third-party or imported skill packs use their own prefix — for example, `vx.` for the visual-explainer pack. You can rename any of them if you prefer.
+All skills and commands use the `mine.*` prefix. You can rename any of them if you prefer.
 
 ## Contents
 
@@ -51,7 +51,8 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 | `mine.gh-tools` | GitHub helper scripts -- gh-issue, gh-pr-create, gh-pr-threads, gh-pr-reply, gh-pr-resolve-thread, gh-bot, gh-app-token |
 | `mine.grill` | Multi-angle interrogation of a raw idea — product, design, engineering, scope, and adversarial lenses. Produces a brief.md that feeds into /mine.specify |
 | `mine.implementation-review` | Post-execution quality gate — 7-category Opus review of all changed files against design doc and Work Package (WP) files |
-| `mine.interface-design` | Craft and consistency for interface design -- dashboards, admin panels, apps, tools |
+| `mine.look-and-feel` | Plan UI design direction — design tokens, color palettes, typography, spacing, and visual identity persisted to `design/direction.md` |
+| `mine.mockup` | Generate self-contained HTML mockup files — reads `design/direction.md` for consistent styling, delivers to `~/.claude/diagrams/` |
 | `mine.mutation-test` | Mutation testing -- intentionally break code to verify tests catch real bugs |
 | `mine.orchestrate` | Execute work packages task-by-task with executor → spec reviewer → code reviewer → integration reviewer loop; tracks WP lane state |
 | `mine.plan-review` | Opus checklist review (9 points) of design doc + work packages — includes spec/design coverage and scope containment + approve/revise/abandon gate |
@@ -63,15 +64,15 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 | `mine.worktree-rebase` | Detect when the parent repo is currently on a feature branch and rebase this worktree branch onto it (run immediately after creating the worktree) |
 | `mine.wp` | WP lane management — move work packages between lanes, view kanban, list WPs |
 | `mine.write-skill` | Guided skill creation — gathers requirements, drafts SKILL.md, validates quality checklist, auto-wires routing |
-| `vx.visual-explainer` | Generate self-contained HTML pages that visually explain systems, code changes, plans, and data — diagrams, diff reviews, plan reviews, slide decks, project recaps, and more |
 
-### Commands (7)
+### Commands (8)
 
 | Command | Description |
 |---------|-------------|
-| `mine.interface-design` | Build UI with craft and consistency |
 | `mine.issues` | Deep-dive issues by key, or scan and pick |
 | `mine.issues-scan` | Scan open issues, classify by effort, pick one to deep-dive |
+| `mine.look-and-feel` | Plan UI design direction and establish design tokens |
+| `mine.mockup` | Generate a self-contained HTML mockup |
 | `mine.permissions-audit` | Analyze frequent permission prompts and recommend allow-list entries |
 | `mine.pre-compact` | Generate a focused /compact prompt preserving what matters |
 | `mine.review` | Run code-reviewer and integration-reviewer in parallel on the current branch diff |

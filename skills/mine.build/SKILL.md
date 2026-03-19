@@ -30,6 +30,17 @@ Paraphrase the request back, starting with a structured pain point line:
 
 If the user's request is solution-shaped ("add X", "change Y to Z") but the underlying problem isn't stated, infer it from context or ask: "What's not working well?" before paraphrasing. If the user already described the problem, extract it directly.
 
+### Design direction check
+
+If the work touches frontend (CSS, components, layouts, styles), check for `design/direction*.md` in the project:
+
+- **One found:** Read it. State which tokens and decisions apply to this change. Apply the closed token layer — every CSS value must reference a token from the direction file (no raw hex, no magic spacing numbers).
+- **Multiple found:** Ask the user which applies, then read and apply it as above.
+- **None found** and the work involves non-trivial UI (new pages, new components, visual redesign): suggest "No design direction found. Consider running `/mine.look-and-feel` first for consistent results."
+- **`completeness: lightweight` in frontmatter:** Note that running `/mine.look-and-feel` would produce a fuller direction with domain exploration and rationale.
+
+**Token compliance (code-reviewer guidance):** When direction.md exists and the diff touches CSS/styles, the code-reviewer should flag raw hex values (`#[0-9a-f]{3,8}`), raw px values not matching the spacing scale, and font names not listed in direction.md. Surface violations as HIGH findings referencing the specific direction.md token that should be used.
+
 ---
 
 ## Phase 2: Route
