@@ -160,31 +160,6 @@ tests:
       - type: javascript
         value: *skill_assertion
 
-  # --- mine.adrs ---
-  - description: "create an ADR → /mine.adrs (direct)"
-    vars:
-      prompt: "record this decision as an ADR"
-      expectedSkill: "mine.adrs"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  - description: "architecture decision → /mine.adrs (natural)"
-    vars:
-      prompt: "we just decided to use PostgreSQL over MongoDB — let's document that decision"
-      expectedSkill: "mine.adrs"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  - description: "record decision → /mine.adrs (indirect)"
-    vars:
-      prompt: "create an architecture decision record for why we chose event sourcing over CRUD"
-      expectedSkill: "mine.adrs"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
   # --- mine.issues ---
   - description: "show issue → /mine.issues (direct)"
     vars:

@@ -20,7 +20,6 @@
 | "challenge this design", "poke holes in this", "what's wrong with this approach" | `/mine.challenge` |
 | "audit the codebase", "find tech debt", "health check" | `/mine.audit` |
 | "research adding X", "feasibility study", "evaluate approach" | `/mine.research` |
-| "record this decision", "create an ADR" | `/mine.adrs` |
 | "generate a diagram", "visualize this", "architecture diagram", "diff review", "visual plan", "slide deck", "project recap", "fact check a doc" | `/vx.visual-explainer` |
 | "design this UI", "design this dashboard", "craft the interface" | `/mine.interface-design` |
 | "visual QA", "screenshot review", "review the UI visually", "take screenshots and find issues", "UX review" | `/mine.visual-qa` |

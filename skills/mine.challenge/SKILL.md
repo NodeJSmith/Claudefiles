@@ -177,8 +177,6 @@ AskUserQuestion:
       description: "Go deeper on one concern — understand the tradeoffs"
     - label: "Build the fix (/mine.build)"
       description: "Direct implementation or full caliper workflow, depending on complexity"
-    - label: "Record an architectural decision (/mine.adrs)"
-      description: "Capture a significant design direction change"
     - label: "Create issues for tracked concerns"
       description: "File findings as issues to address later"
     - label: "Save the critique report"
@@ -193,7 +191,6 @@ When offering "Read a specific critic's full report", list the three temp file p
 
 **Build the fix** → `/mine.build` — routes to direct implementation or the full caliper workflow based on complexity.
 
-**Architectural decisions** → `/mine.adrs`
 
 **Track without acting** → create an issue in the project's issue tracker. Write the finding as the issue body:
 

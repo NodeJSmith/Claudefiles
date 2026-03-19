@@ -163,7 +163,7 @@ AskUserQuestion:
 Based on the user's choice per finding:
 
 - **Structural problems** (long files, god classes, tangled modules) → run `/mine.build`
-- **Architectural problems** (wrong abstractions, missing layers, circular dependencies) → create an ADR with `/mine.adrs`, then plan the rearchitecture
+- **Architectural problems** (wrong abstractions, missing layers, circular dependencies) → run `/mine.design` to investigate and plan the rearchitecture
 - **Complex fixes needing planning** → run `/mine.build` — assesses complexity and routes to direct implementation or the full caliper workflow
 - **Test coverage gaps** → write tests following TDD (see `rules/common/testing.md`)
 - **Create an issue** → file a GitHub issue (see below)
@@ -186,7 +186,7 @@ When the user chooses "Create an issue" for a finding, create it immediately:
 
    ## Suggested approach
 
-   <brief recommendation — e.g., "Add test coverage first, then refactor" or "Needs architectural decision — consider an ADR">
+   <brief recommendation — e.g., "Add test coverage first, then refactor" or "Needs a design doc — run /mine.design">
 
    ## Source
 
@@ -205,7 +205,7 @@ If the user picks "Skip" for all findings, that's fine — the conversation itse
 
 If the user wants to keep the audit results:
 
-Audits are backward-looking — they assess the current state of the codebase and produce prioritized work items. They feed into multiple future efforts (refactors, test coverage, ADRs) rather than a single decision.
+Audits are backward-looking — they assess the current state of the codebase and produce prioritized work items. They feed into multiple future efforts (design docs, test coverage, refactors) rather than a single decision.
 
 The recommended convention is a date-stamped topic directory under `design/audits/`:
 
@@ -234,7 +234,7 @@ Create the `design/audits/` directory if it doesn't exist. If the project alread
 
 ## What This Skill Does NOT Do
 
-- **Fix anything** — this is diagnosis, not treatment. It feeds into `/mine.build` and `/mine.adrs`
+- **Fix anything** — this is diagnosis, not treatment. It feeds into `/mine.build` and `/mine.design`
 - **Rewrite scores or letter grades** — subjective ratings create false precision. Instead: specific problems ranked by impact
 - **Profile performance** — runtime performance requires execution and profiling tools, not static analysis
 

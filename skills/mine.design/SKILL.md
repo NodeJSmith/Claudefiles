@@ -51,7 +51,7 @@ AskUserQuestion:
 
 ```
 AskUserQuestion:
-  question: "Is there prior investigation I should build on? (e.g., a spec.md, ADR, or research brief)"
+  question: "Is there prior investigation I should build on? (e.g., a spec.md or research brief)"
   header: "Prior work"
 ```
 

@@ -12,7 +12,7 @@ My personal [Claude Code](https://docs.anthropic.com/en/docs/claude-code) config
 
 ## Things I find most useful
 
-- **`/mine.research`** and **`/mine.audit`** -- the research skill maps architecture and evaluates feasibility before you commit to a direction. The audit skill finds the biggest problems in a codebase ranked by impact. Both feed into planning and ADRs.
+- **`/mine.research`** and **`/mine.audit`** -- the research skill maps architecture and evaluates feasibility before you commit to a direction. The audit skill finds the biggest problems in a codebase ranked by impact. Both feed into design docs and planning.
 - **`claude --worktree <branch>`** -- start a fresh Claude session in an isolated branch. Use `--resume <session-id>` to return to any previous session. Use `/mine.issues` in plan mode to research an issue before starting.
 - **`/mine.challenge`** -- adversarial design critique that assumes your approach is wrong and argues for better. Three parallel critics, then synthesis.
 
@@ -34,14 +34,13 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 
 ## Contents
 
-### Skills (27)
+### Skills (26)
 
 | Skill | Description |
 |-------|-------------|
 | `mine.address-pr-issues` | Triage and resolve PR blockers — review comments, merge conflicts, and failing CI |
-| `mine.adrs` | Create and maintain Architecture Decision Records for project decisions |
 | `mine.audit` | Systematic codebase health audit -- surfaces aging code, brittle designs, missing tests, ranked by impact |
-| `mine.brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas ranked by user-chosen criteria, with handoff to research, ADRs, or planning |
+| `mine.brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas ranked by user-chosen criteria, with handoff to research or planning |
 | `mine.build` | Single entry point — routes between direct implementation and the full caliper v2 workflow (specify → design → draft-plan → plan-review → orchestrate → implementation-review → ship) |
 | `mine.challenge` | Adversarial design critique using three parallel critics — assumes the design is wrong, finds out why, argues for better |
 | `mine.commit-push` | Commit and push changes to the current branch |
