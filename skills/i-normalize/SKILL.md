@@ -1,18 +1,14 @@
 ---
 name: i-normalize
-description: Normalize design to match your design system and ensure consistency
+description: 'Use when the user says: "normalize the design", "make it consistent", "align with design system". Normalize design consistency across the interface.'
 user-invocable: true
-args:
-  - name: feature
-    description: The page, route, or feature to normalize (optional)
-    required: false
 ---
 
 Analyze and redesign the feature to perfectly match our design system standards, aesthetics, and established patterns.
 
 ## MANDATORY PREPARATION
 
-Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run teach-impeccable first.
+Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
 
 ---
 

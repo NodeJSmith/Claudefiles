@@ -1,18 +1,14 @@
 ---
 name: i-quieter
-description: Tone down overly bold or visually aggressive designs. Reduces intensity while maintaining design quality and impact.
+description: 'Use when the user says: "too busy", "too noisy", "reduce visual clutter". Reduce visual noise and clutter in interfaces.'
 user-invocable: true
-args:
-  - name: target
-    description: The feature or component to make quieter (optional)
-    required: false
 ---
 
 Reduce visual intensity in designs that are too bold, aggressive, or overstimulating, creating a more refined and approachable aesthetic without losing effectiveness.
 
 ## MANDATORY PREPARATION
 
-Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run teach-impeccable first.
+Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
 
 ---
 

@@ -1,16 +1,12 @@
 ---
 name: i-polish
-description: Final quality pass before shipping. Fixes alignment, spacing, consistency, and detail issues that separate good from great.
+description: 'Use when the user says: "polish this UI", "final pass", "pixel-perfect". Final quality pass for alignment, spacing, and consistency details.'
 user-invocable: true
-args:
-  - name: target
-    description: The feature or area to polish (optional)
-    required: false
 ---
 
 ## MANDATORY PREPARATION
 
-Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run teach-impeccable first. Additionally gather: quality bar (MVP vs flagship).
+Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: quality bar (MVP vs flagship).
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: i-teach-impeccable
-description: One-time setup that gathers design context for your project and saves it to your AI config file. Run once to establish persistent design guidelines.
+description: 'Use when the user says: "setup impeccable", "design context setup", "teach impeccable". One-time setup that gathers design context and saves to .impeccable.md.'
 user-invocable: true
 ---
 

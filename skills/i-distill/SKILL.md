@@ -1,18 +1,14 @@
 ---
 name: i-distill
-description: Strip designs to their essence by removing unnecessary complexity. Great design is simple, powerful, and clean.
+description: 'Use when the user says: "too complex", "simplify this UI", "strip it down". Simplify complex interfaces without losing function.'
 user-invocable: true
-args:
-  - name: target
-    description: The feature or component to distill (optional)
-    required: false
 ---
 
 Remove unnecessary complexity from designs, revealing the essential elements and creating clarity through ruthless simplification.
 
 ## MANDATORY PREPARATION
 
-Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run teach-impeccable first.
+Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
 
 ---
 

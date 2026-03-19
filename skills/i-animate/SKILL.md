@@ -1,18 +1,14 @@
 ---
 name: i-animate
-description: Review a feature and enhance it with purposeful animations, micro-interactions, and motion effects that improve usability and delight.
+description: 'Use when the user says: "add animations", "motion design", "transitions". Add meaningful animations and transitions to interfaces.'
 user-invocable: true
-args:
-  - name: target
-    description: The feature or component to animate (optional)
-    required: false
 ---
 
 Analyze a feature and strategically add animations and micro-interactions that enhance understanding, provide feedback, and create delight.
 
 ## MANDATORY PREPARATION
 
-Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run teach-impeccable first. Additionally gather: performance constraints.
+Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: performance constraints.
 
 ---
 

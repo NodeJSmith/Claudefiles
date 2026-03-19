@@ -42,7 +42,6 @@
 | "review my changes", "run the reviewers", "code and integration review" | `/mine.review` |
 | "create a skill", "write a skill", "new skill" | `/mine.write-skill` |
 | "rebase this worktree", "sync worktree to parent branch" | `/mine.worktree-rebase` |
-<!-- NOTE: i-* skills are the Impeccable frontend design bundle. Route UI-specific intents here. -->
 | "audit this UI", "frontend quality", "full UI audit", "design audit" | `/i-audit` |
 | "critique this UI", "design critique", "review this interface", "does this look AI-generated" | `/i-critique` |
 | "fix the typography", "improve the type", "font choices" | `/i-typeset` |

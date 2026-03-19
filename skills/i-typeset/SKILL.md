@@ -1,18 +1,14 @@
 ---
 name: i-typeset
-description: Improve typography by fixing font choices, hierarchy, sizing, weight consistency, and readability. Makes text feel intentional and polished.
+description: 'Use when the user says: "fix the typography", "improve the type", "font choices". Improve typography, font choices, hierarchy, sizing, and readability.'
 user-invocable: true
-args:
-  - name: target
-    description: The feature or component to improve typography for (optional)
-    required: false
 ---
 
 Assess and improve typography that feels generic, inconsistent, or poorly structured — turning default-looking text into intentional, well-crafted type.
 
 ## MANDATORY PREPARATION
 
-Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run teach-impeccable first.
+Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
 
 ---
 
@@ -49,7 +45,7 @@ Analyze what's weak or generic about the current type:
 
 ## Plan Typography Improvements
 
-Consult the [typography reference](reference/typography.md) from the i-frontend-design skill for detailed guidance on scales, pairing, and loading strategies.
+Consult the [typography reference](../i-frontend-design/reference/typography.md) from the i-frontend-design skill for detailed guidance on scales, pairing, and loading strategies.
 
 Create a systematic plan:
 

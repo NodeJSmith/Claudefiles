@@ -1,16 +1,12 @@
 ---
 name: i-critique
-description: Evaluate design effectiveness from a UX perspective. Assesses visual hierarchy, information architecture, emotional resonance, and overall design quality with actionable feedback.
+description: 'Use when the user says: "critique this UI", "design critique", "review this interface", "does this look AI-generated". Evaluate design effectiveness with actionable feedback.'
 user-invocable: true
-args:
-  - name: area
-    description: The feature or area to critique (optional)
-    required: false
 ---
 
 ## MANDATORY PREPARATION
 
-Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run teach-impeccable first. Additionally gather: what the interface is trying to accomplish.
+Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: what the interface is trying to accomplish.
 
 ---
 

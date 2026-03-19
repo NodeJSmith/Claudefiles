@@ -1,18 +1,14 @@
 ---
 name: i-arrange
-description: Improve layout, spacing, and visual rhythm. Fixes monotonous grids, inconsistent spacing, and weak visual hierarchy to create intentional compositions.
+description: 'Use when the user says: "fix the layout", "arrange this", "visual hierarchy". Improve layout, spatial design, structure, and alignment.'
 user-invocable: true
-args:
-  - name: target
-    description: The feature or component to improve layout for (optional)
-    required: false
 ---
 
 Assess and improve layout and spacing that feels monotonous, crowded, or structurally weak — turning generic arrangements into intentional, rhythmic compositions.
 
 ## MANDATORY PREPARATION
 
-Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run teach-impeccable first.
+Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
 
 ---
 
@@ -49,7 +45,7 @@ Analyze what's weak about the current spatial design:
 
 ## Plan Layout Improvements
 
-Consult the [spatial design reference](reference/spatial-design.md) from the i-frontend-design skill for detailed guidance on grids, rhythm, and container queries.
+Consult the [spatial design reference](../i-frontend-design/reference/spatial-design.md) from the i-frontend-design skill for detailed guidance on grids, rhythm, and container queries.
 
 Create a systematic plan:
 

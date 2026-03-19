@@ -1,11 +1,7 @@
 ---
 name: i-extract
-description: Extract and consolidate reusable components, design tokens, and patterns into your design system. Identifies opportunities for systematic reuse and enriches your component library.
+description: 'Use when the user says: "extract components", "consolidate patterns", "build a design system". Extract reusable components from existing UI.'
 user-invocable: true
-args:
-  - name: target
-    description: The feature, component, or area to extract from (optional)
-    required: false
 ---
 
 Identify reusable patterns, components, and design tokens, then extract and consolidate them into the design system for systematic reuse.

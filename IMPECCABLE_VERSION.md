@@ -8,6 +8,11 @@
   - Added `user-invocable: false` to `i-frontend-design` (library skill, not directly invoked)
   - Added `design/direction.md` fallback to `i-frontend-design` Context Gathering Protocol
   - Fixed sentence fragment in `i-teach-impeccable` line 69
+  - Added "Use when..." trigger phrases to all descriptions (agnix AS-010 compliance)
+  - Removed `args` frontmatter field from all skills (not a Claude Code field)
+  - Fixed "run teach-impeccable" → "run /i-teach-impeccable" across all MANDATORY PREPARATION sections
+  - Removed broken `NOTICE.md` reference from `i-frontend-design` license field
+  - Fixed broken `reference/` paths in `i-arrange` and `i-typeset` to use `../i-frontend-design/reference/`
 
 ## Bridging modifications to mine.* skills
 

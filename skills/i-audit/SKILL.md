@@ -1,11 +1,7 @@
 ---
 name: i-audit
-description: Perform comprehensive audit of interface quality across accessibility, performance, theming, and responsive design. Generates detailed report of issues with severity ratings and recommendations.
+description: 'Use when the user says: "audit this UI", "frontend quality", "full UI audit", "design audit". Comprehensive audit of interface quality across accessibility, performance, theming, and responsive design.'
 user-invocable: true
-args:
-  - name: area
-    description: The feature or area to audit (optional)
-    required: false
 ---
 
 Run systematic quality checks and generate a comprehensive audit report with prioritized issues and actionable recommendations. Don't fix issues - document them for other commands to address.

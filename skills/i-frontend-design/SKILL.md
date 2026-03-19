@@ -1,8 +1,8 @@
 ---
 name: i-frontend-design
-description: Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks to build web components, pages, artifacts, posters, or applications. Generates creative, polished code that avoids generic AI aesthetics.
+description: 'Use when building frontend components or pages. Core design skill for creating distinctive, production-grade interfaces that avoid generic AI aesthetics.'
 user-invocable: false
-license: Apache 2.0. Based on Anthropic's frontend-design skill. See NOTICE.md for attribution.
+license: Apache 2.0. Based on Anthropic's frontend-design skill.
 ---
 
 This skill guides creation of distinctive, production-grade frontend interfaces that avoid generic "AI slop" aesthetics. Implement real working code with exceptional attention to aesthetic details and creative choices.
@@ -24,7 +24,7 @@ Individual skills may require additional context — check the skill's preparati
 1. **Check current instructions (instant)**: If your loaded instructions already contain a **Design Context** section, proceed immediately.
 2. **Check .impeccable.md (fast)**: If not in instructions, read `.impeccable.md` from the project root. If it exists and contains the required context, proceed.
 3. **Check design/direction.md (fallback)**: If `.impeccable.md` doesn't exist, check for `design/direction*.md`. If found, read it — it contains design tokens and brand context from `/mine.look-and-feel`. Extract the target audience, intent, and aesthetic direction from its sections and proceed.
-4. **Run teach-impeccable (REQUIRED)**: If none of the above sources have context, you MUST run the i-teach-impeccable skill NOW before doing anything else. Do NOT skip this step. Do NOT attempt to infer context from the codebase instead.
+4. **Run /i-teach-impeccable (REQUIRED)**: If none of the above sources have context, you MUST run the i-teach-impeccable skill NOW before doing anything else. Do NOT skip this step. Do NOT attempt to infer context from the codebase instead.
 
 ---
 

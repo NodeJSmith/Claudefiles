@@ -1,18 +1,14 @@
 ---
 name: i-colorize
-description: Add strategic color to features that are too monochromatic or lack visual interest. Makes interfaces more engaging and expressive.
+description: 'Use when the user says: "fix the colors", "color system", "palette needs work". Improve color palettes, contrast, and theming.'
 user-invocable: true
-args:
-  - name: target
-    description: The feature or component to colorize (optional)
-    required: false
 ---
 
 Strategically introduce color to designs that are too monochromatic, gray, or lacking in visual warmth and personality.
 
 ## MANDATORY PREPARATION
 
-Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run teach-impeccable first. Additionally gather: existing brand colors.
+Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: existing brand colors.
 
 ---
 

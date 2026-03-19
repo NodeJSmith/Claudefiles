@@ -1,11 +1,7 @@
 ---
 name: i-harden
-description: Improve interface resilience through better error handling, i18n support, text overflow handling, and edge case management. Makes interfaces robust and production-ready.
+description: 'Use when the user says: "production hardening", "handle edge cases in UI", "make it resilient". Improve interface resilience, error states, and edge cases.'
 user-invocable: true
-args:
-  - name: target
-    description: The feature or area to harden (optional)
-    required: false
 ---
 
 Strengthen interfaces against edge cases, errors, internationalization issues, and real-world usage scenarios that break idealized designs.
