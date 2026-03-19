@@ -61,6 +61,17 @@ If an unauthorized architectural change was made, that is a FAIL regardless of w
 - Was any functionality added beyond the WP spec?
 - If yes: is it a valid deviation (bug fix, security gap) or unauthorized scope expansion?
 
+### 7. Visual verification plan audit
+
+If the WP contains a `## Visual Verification` section with scenarios:
+
+1. **Coverage check**: Cross-reference the Visual Verification table against the executor's visual verification output. Did the executor address every scenario from the WP spec? Note any missing scenarios.
+2. **Added scenarios**: Did the executor add scenarios beyond the WP spec? If so, are the additions justified (e.g., discovered a visual change not anticipated by the planner)? Justified additions are fine — note them. Unjustified additions or removals of spec scenarios are a WARN.
+3. **SKIPPED justification**: If the executor reported SKIPPED for any scenario, is the reason valid (no dev server, page unreachable, new page with no baseline)? SKIPPED without explanation is a WARN.
+4. **Unexpected omission**: If the WP has no Visual Verification section but its subtasks clearly modify UI components (`.tsx`, `.vue`, `.css`, `.html`, template files), note this as a WARN — the planning phase may have missed visual scenarios.
+
+You do NOT examine the screenshots for visual correctness or assess state quality — the visual reviewer handles both. Your job is ensuring the executor followed the verification plan and that scenario coverage is complete.
+
 ## Output Format
 
 Write your verdict to the temp file path provided:
@@ -85,6 +96,10 @@ Write your verdict to the temp file path provided:
 
 **Scope check:** clean | deviation noted
 - [description if deviation found]
+
+**Visual plan audit:** PASS | WARN | FAIL | N/A
+- [coverage gaps, SKIPPED scenarios, or "all scenarios covered"]
+- FAIL if executor removed spec scenarios without justification or missed >50% of scenarios
 
 **Summary:**
 [1-2 sentences: what was verified, any gaps found]

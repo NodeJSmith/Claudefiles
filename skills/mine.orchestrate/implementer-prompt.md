@@ -55,6 +55,63 @@ Check each item before writing the result to the output file:
 - [ ] No avoid rules were violated
 - [ ] No scope was added beyond the task spec
 
+## Visual Verification
+
+If the WP spec contains a `## Visual Verification` section with a scenario table, you must capture before/after screenshots as part of your implementation. If the WP has no Visual Verification section, skip this entire section and write `**Visual verification:** N/A — no visual scenarios specified` in your output.
+
+Follow `rules/common/frontend-workflow.md` for general screenshot protocol. The instructions below extend that protocol with structured scenario execution.
+
+### Dev server requirement
+
+The orchestrator checks for a running dev server before execution begins and communicates the result in your prompt's "Visual verification status" section. If visual verification is SKIPPED for this run, skip all visual capture and write `**Visual verification:** SKIPPED — no dev server (orchestrator)` in your output. If a dev server URL is provided, use it for all screenshot captures.
+
+### Before implementation
+
+For each row in the Visual Verification table:
+
+1. **Resolve the page to a URL** — use the codebase (route definitions, page components) to find the actual URL path
+2. **Check if the page exists yet** — if this WP creates a new page/route that doesn't exist before implementation, skip the before-screenshot for that scenario. Note "new page — no baseline" in the capture plan. Only capture the after-screenshot.
+3. **Set up the specified state** — navigate to the page and achieve the setup conditions (load data, apply filters, interact with elements). If a setup step requires seed data or specific application state you cannot achieve, note what you could and couldn't set up. If setup fails after one attempt (element not found, page won't load), mark the scenario as SKIPPED with reason and move on — do not burn retries.
+4. **Write a capture plan entry** — record the exact URL, viewport dimensions (default 1280x800 unless the scenario specifies otherwise), and the setup steps you performed. This plan is your contract for reproducing the same capture after implementation.
+5. **Capture the baseline screenshot** — save to the screenshot directory provided in your prompt as `before-<scenario-number>-<page-slug>.png`
+
+### After implementation
+
+Replay your capture plan:
+
+1. For each scenario, navigate to the same URL, repeat the same setup steps, use the same viewport
+2. Capture after-screenshots: `after-<scenario-number>-<page-slug>.png`
+3. Compare before/after yourself — note what changed and whether it matches the WP objectives
+4. If you notice unintended visual changes beyond what the WP describes, investigate before reporting
+
+Note: the application was modified between before and after captures. Some state drift is expected (hot reload, changed data). Focus on whether changes are consistent with the WP's objectives vs. clearly unintended regressions.
+
+### Adding scenarios
+
+You may **add** visual scenarios beyond what the WP spec lists — but you may not remove or weaken existing ones. If during implementation you discover visual changes not covered by the spec's scenarios (e.g., a new dropdown, a layout shift on a related page), add a scenario for it. Document added scenarios separately in your output so the spec reviewer can audit them as justified additions.
+
+### Visual verification output
+
+Include this section in your structured output (after Notes):
+
+```
+**Visual verification:**
+
+Scenario 1: <page> — <setup summary>
+  Status: VERIFIED | WARN | FAIL | SKIPPED
+  Capture plan: <URL>, <viewport>, <setup steps taken>
+  Before: <screenshot path>
+  After: <screenshot path>
+  Changes observed: <what's different>
+  Regressions: [none] OR [description]
+
+Scenario 2: ...
+
+Visual summary: <N> scenarios checked, <N> verified, <N> warned, <N> skipped
+```
+
+If you could not achieve the specified setup state for a scenario, explain what you did instead and mark it WARN (not VERIFIED).
+
 ## Output Format
 
 Write structured result to the temp file path provided:
@@ -79,4 +136,8 @@ Write structured result to the temp file path provided:
 
 **Notes:**
 - [any relevant context for the reviewer]
+
+**Visual verification:**
+- [see Visual Verification section above for format]
+- OR: N/A — no visual scenarios specified
 ```

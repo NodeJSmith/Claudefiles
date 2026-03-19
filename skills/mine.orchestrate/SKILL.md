@@ -55,6 +55,31 @@ Read all `<feature_dir>/tasks/WP*.md` files in order. For each WP, extract:
 
 Check WP statuses — warn if any WPs with `lane: done` or `lane: doing` appear ahead of `lane: planned` WPs (unexpected ordering).
 
+### Dev server check (visual verification)
+
+If any WP contains a `## Visual Verification` section, check for a running dev server:
+
+```bash
+ss -tlnp 2>/dev/null | grep -E ':(3000|3001|4200|5000|5173|8000|8080|8888) ' | head -5
+```
+
+If a server is found, note the URL for use during execution.
+
+If no server is found:
+```
+AskUserQuestion:
+  question: "<N> WPs have visual verification scenarios but no dev server was detected. Visual checks require a running app."
+  header: "Dev server needed"
+  multiSelect: false
+  options:
+    - label: "I'll start the server now"
+      description: "Pause while I start the dev server, then re-check"
+    - label: "Skip visual verification for this run"
+      description: "Execute WPs without visual checks — Visual line will show SKIPPED"
+```
+
+If the user starts the server, re-probe and confirm. If skipping, set a `visual_skip` flag for the run — executors will skip all visual capture and report SKIPPED.
+
 ---
 
 ## Phase 1: Parse WPs and Select Start Point
@@ -98,13 +123,15 @@ Where `<feature_dir_name>` is the directory name (e.g., `001-user-auth`), not th
 
 Run `get-skill-tmpdir mine-orchestrate` and note the directory path.
 
-Use these paths for subagent outputs:
-- Executor output: `<dir>/executor.md`
-- Spec reviewer output: `<dir>/spec-reviewer.md`
-- Code reviewer output: `<dir>/code-review.md`
-- Integration reviewer output: `<dir>/integration-review.md`
+Create a per-WP subdirectory: `<dir>/<wp_id>/` (e.g., `<dir>/wp01/`). Use these paths for subagent outputs within the subdirectory:
+- Executor output: `<dir>/<wp_id>/executor.md`
+- Spec reviewer output: `<dir>/<wp_id>/spec-reviewer.md`
+- Visual reviewer output: `<dir>/<wp_id>/visual-review.md`
+- Code reviewer output: `<dir>/<wp_id>/code-review.md`
+- Integration reviewer output: `<dir>/<wp_id>/integration-review.md`
+- Screenshots: `<dir>/<wp_id>/before-*.png`, `<dir>/<wp_id>/after-*.png`
 
-These paths are **reused each WP iteration** — each WP's executor output overwrites the previous. This is safe because the files are read immediately within the same iteration before the loop advances. Per-WP output is not retained on disk after the next WP begins.
+Per-WP subdirectories preserve evidence across the full orchestration run. This allows post-hoc review, retry debugging, and screenshot comparison across WPs.
 
 ### Step 3: Select executor agent type
 
@@ -150,7 +177,12 @@ You are executing a single Work Package from an implementation plan.
 ## TDD reference
 <full tdd.md content>
 
+## Visual verification status
+<If visual_skip is set>: Visual verification is SKIPPED for this run (no dev server). Do not attempt screenshot capture. Report "SKIPPED — no dev server (orchestrator)" in your visual verification output.
+<Otherwise>: Dev server detected at <URL>. Proceed with visual verification if the WP specifies scenarios.
+
 Write your structured result to: <executor temp file path>
+Save screenshots to: <dir>/<wp_id>/
 ```
 
 Wait for the subagent to complete. Read the executor temp file.
@@ -181,16 +213,63 @@ Write your structured review to: <spec reviewer temp file path>
 
 Wait for the subagent to complete. Read the spec reviewer temp file.
 
+### Step 5.5: Visual reviewer (conditional)
+
+**Only run this step if the WP contains a `## Visual Verification` section with scenarios.** If the WP has no visual verification section, skip to Step 6 (the Visual line in Step 9 will show N/A).
+
+Read `~/.claude/skills/mine.orchestrate/visual-reviewer-prompt.md`.
+
+Before launching the visual reviewer, discover screenshots by Globbing the per-WP temp directory:
+
+```
+Glob: <dir>/<wp_id>/*.png
+```
+
+This is more reliable than parsing screenshot paths from the executor's text output. If no `.png` files are found, skip the visual reviewer and set Visual to SKIPPED with note "no screenshots captured."
+
+Launch a `general-purpose` subagent:
+
+```
+You are reviewing screenshots from a frontend Work Package implementation.
+
+## Work Package spec
+<full WP*.md content — especially the Visual Verification table>
+
+## Executor visual output
+<the Visual verification section from the executor's result>
+
+## Screenshot files to examine
+<list each .png file path discovered by Glob>
+
+## Visual reviewer instructions
+<full visual-reviewer-prompt.md content>
+
+Write your review to: <dir>/<wp_id>/visual-review.md
+```
+
+Wait for the subagent to complete. Read the visual reviewer output file.
+
+**Fallback:** If the visual reviewer output file is empty or unparseable after the subagent completes, treat as WARN with note "visual verification inconclusive — reviewer produced no output."
+
+**Visual verdict mapping:**
+
+| Visual reviewer result | Impact on WP |
+|------------------------|-------------|
+| VERIFIED | No impact — proceed to code review |
+| WARN | WP gets WARN; surface in Step 9 summary |
+| FAIL | WP gets FAIL; surface to user at Step 9 gate |
+| All scenarios SKIPPED (no dev server) | WP gets WARN (visual verification was unavailable) |
+
 ### Step 6: Classify deviations
 
-Compare executor result and spec reviewer verdict:
+Compare executor result, spec reviewer verdict, and visual reviewer verdict (if applicable):
 
 | Condition | Action |
 |-----------|--------|
-| Executor PASS + Spec reviewer PASS | Proceed to code review |
+| Executor PASS + Spec reviewer PASS (+ Visual VERIFIED or N/A) | Proceed to code review |
 | Executor auto-fix deviation noted | Log it, proceed to code review |
-| Spec reviewer WARN | Proceed to code review; surface warning to user after reviews |
-| Spec reviewer FAIL | Mark WP FAIL; surface to user (gate at Step 9) |
+| Spec reviewer WARN or Visual WARN | Proceed to code review; surface warning to user after reviews |
+| Spec reviewer FAIL or Visual FAIL | Mark WP FAIL; surface to user (gate at Step 9) |
 | Executor BLOCKED (any reason) | Mark WP BLOCKED; surface to user (gate at Step 9) |
 | Executor BLOCKED (architectural) | Mark WP BLOCKED with architectural flag; do not retry without plan change |
 
@@ -208,7 +287,7 @@ Launch a `code-reviewer` subagent (`Agent(subagent_type: "code-reviewer")`) to r
 3. If any auto-fixes were applied, re-run the code-reviewer (max 3 iterations total)
 4. Stop when: no CRITICAL/HIGH issues remain, only deferred findings are left, or 3 iterations reached
 
-Write the final code-reviewer output to `<dir>/code-review.md`.
+Write the final code-reviewer output to `<dir>/<wp_id>/code-review.md`.
 
 **Verdict impact:** If CRITICAL or HIGH issues remain after 3 iterations that could not be auto-fixed, the WP verdict becomes FAIL regardless of the spec reviewer result.
 
@@ -216,7 +295,7 @@ Write the final code-reviewer output to `<dir>/code-review.md`.
 
 Launch an `integration-reviewer` subagent (`Agent(subagent_type: "integration-reviewer")`) once on the same changed files. The integration-reviewer checks for duplication, convention drift, misplacement, orphaned code, and design violations.
 
-Write the output to `<dir>/integration-review.md`.
+Write the output to `<dir>/<wp_id>/integration-review.md`.
 
 Read the integration-reviewer output. If it returns BLOCK verdict, the WP verdict becomes FAIL.
 
@@ -228,6 +307,7 @@ Present a summary:
 **WP<NN>: <title> — <overall verdict>**
 
 Spec review: PASS|WARN|FAIL
+Visual: VERIFIED (N scenarios)|WARN|FAIL|SKIPPED|N/A
 Code review: PASS|WARN|FAIL (N iterations)
 Integration review: APPROVE|WARN|BLOCK
 
