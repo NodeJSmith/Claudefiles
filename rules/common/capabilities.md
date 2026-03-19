@@ -45,7 +45,6 @@
 | "review the implementation", "post-implementation review" | `/mine.implementation-review` |
 | "move WP to doing", "WP status", "kanban" | `/mine.wp` |
 | "review my changes", "run the reviewers", "code and integration review" | `/mine.review` |
-| "evaluate skill", "compare skill variants", "skill A/B test" | `/mine.skill-eval` |
 | "create a skill", "write a skill", "new skill" | `/mine.write-skill` |
 | "rebase this worktree", "sync worktree to parent branch" | `/mine.worktree-rebase` |
 

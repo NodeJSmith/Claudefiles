@@ -34,7 +34,7 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 
 ## Contents
 
-### Skills (33)
+### Skills (32)
 
 | Skill | Description |
 |-------|-------------|
@@ -62,7 +62,6 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 | `mine.research` | Interactive research workflow — gathers user intent, dispatches the researcher agent, presents the brief |
 | `mine.security-review` | Security checklist for auth, user input, secrets, API endpoints |
 | `mine.ship` | Commit, push, and create a PR in one step |
-| `mine.skill-eval` | Evaluate and compare skill variants — setup, execution, grading, comparison, and reporting |
 | `mine.specify` | Proportional discovery interview — extracts full intent and produces spec.md with 12-item quality validation |
 | `mine.tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |
 | `mine.ux-antipatterns` | Detect UX anti-patterns -- layout shifts, missing feedback, broken forms, a11y gaps |
@@ -159,7 +158,7 @@ Coding guidelines organized by language. These load automatically and shape how 
 
 **Python** (5): coding-style, hooks, patterns, security, testing
 
-### Helper Scripts (23)
+### Helper Scripts (21)
 
 CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
@@ -185,8 +184,6 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `git-branch-diff-stat` | Print `git diff --stat` for current branch vs its base (uses git-branch-base) |
 | `git-branch-log` | Print `git log --oneline` for current branch vs its base (uses git-branch-base) |
 | `git-default-branch` | Print the default branch name for the current repo |
-| `skill-eval-aggregate` | Aggregate graded skill evaluation results with pass rates and score statistics |
-| `skill-eval-run` | Run skill evaluation iterations — invoke skill variants and save outputs |
 | `spec-helper` | Work Package and spec directory management — `init`, `wp-move`, `status`, `next-number` |
 
 ## Evals
