@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-19
 
 ### Changed
-- `mine.specify` now produces structured User Scenarios with per-actor task flows (Sees/Decides/Then steps) — downstream UI skills (`mine.look-and-feel`, `mine.mockup`, `mine.design`) consume spec.md directly instead of re-asking actor/goal questions
+- `mine.specify` now produces structured User Scenarios with per-actor task flows (Sees/Decides/Then steps) — downstream UI skills (`mine.look-and-feel`, `mine.mockup`, `mine.design`) consume spec.md directly instead of re-asking actor/goal questions (#108)
 
 ### Fixed
 - `AskUserQuestion` blocks in skills rendered as plain markdown bullets instead of interactive selectors — added CRITICAL rule to `interaction.md` enforcing tool calls with exact labels (#106)
