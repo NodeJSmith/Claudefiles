@@ -230,7 +230,7 @@ At the end of Phase 1, after paraphrasing the request, add a direction.md detect
 >
 > If not found and the work involves non-trivial UI (new pages, new components, visual redesign), suggest: "No design direction found. Consider running `/mine.look-and-feel` first for consistent results."
 
-**Token compliance via code-reviewer:** When direction.md exists and the diff touches CSS/styles, the code-reviewer agent should check for raw hex values (`#[0-9a-f]{3,8}`), raw px values not matching the spacing scale, and font names not listed in direction.md. Surface violations as HIGH findings: "Found raw value `#333` in component.css:42 — should this reference a direction.md token?" This leverages the existing review loop (code-reviewer runs after implementation, fixes are applied, re-review until clean) rather than adding a separate enforcement step.
+**Token compliance via code-reviewer:** When direction.md exists and the diff touches CSS/styles, the code-reviewer agent should check for raw hex values (`#[0-9a-f]{3,8}`), raw px values not matching the spacing scale, and font names not listed in direction.md. Surface violations as HIGH findings: "Found raw value `#333` in component.css:42 — should this reference a direction.md token?" This leverages the existing review loop (code-reviewer runs after implementation, fixes are applied, re-review until clean) rather than adding a separate enforcement step. **Note:** This is implemented as guidance in mine.build's SKILL.md, not as a change to `agents/code-reviewer.md`. The code-reviewer already reads project context and flags style inconsistencies; the mine.build note makes it aware of direction.md as a reference. If this proves insufficient in practice, a dedicated code-reviewer update can follow.
 
 This is additive — mine.build's existing workflow is unchanged for non-UI work.
 
@@ -317,11 +317,12 @@ Create mine.look-and-feel and mine.mockup, but don't touch mine.build.
 
 ## Impact
 
-### Files created (5)
+### Files created (6)
 - `skills/mine.look-and-feel/SKILL.md` (~150-200 lines)
 - `skills/mine.look-and-feel/references/direction-template.md` (~100 lines)
 - `commands/mine.look-and-feel.md` (~30-40 lines)
 - `skills/mine.mockup/SKILL.md` (~250-300 lines)
+- `commands/mine.mockup.md` (~30-40 lines)
 - `design/specs/005-replace-skills/design.md` (this file)
 
 ### Files moved (6)
