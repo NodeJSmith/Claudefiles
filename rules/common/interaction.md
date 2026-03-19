@@ -35,11 +35,11 @@ tool** — not a template to paraphrase as markdown.
 
 Rules:
 1. **Call the tool.** Do not render options as bullet points, numbered lists,
-   or any other text format. The user must see the interactive selector.
+   or any other text format. The user must see the interactive prompt.
 2. **Use the exact labels and descriptions.** Do not rewrite, merge, or
    improvise option text. The skill author chose those words deliberately.
 3. **Respect the option count.** Do not add or remove options beyond what the
-   skill defines (the tool enforces 2–4 options per question).
+   skill defines (max 4 options per question when options are provided).
 4. **Respect `multiSelect`.** If the skill says `multiSelect: true`, pass it
    through. Do not downgrade to single-select.
 
