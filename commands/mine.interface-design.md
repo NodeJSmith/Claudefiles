@@ -85,5 +85,3 @@ Use AskUserQuestion: "Does that direction feel right?"
 ## After Every Task
 
 Offer to save: "Want me to save these patterns to `.interface-design/system.md`?"
-
-Consider suggesting a UX anti-pattern review on the result (mine.ux-antipatterns skill).
