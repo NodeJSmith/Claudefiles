@@ -163,6 +163,14 @@ depends_on: []
 
 <What the spec reviewer, code reviewer, and integration reviewer should check. Name the design constraints they must verify. Call out any areas where deviation from the design would be a blocker vs. a warning.>
 
+## Visual Verification
+
+<Only include this section if the WP's subtasks modify UI components, pages, styles, or layouts. Omit entirely for backend-only, refactoring-with-no-visual-impact, or test-only WPs.>
+
+| Page | Setup | Verify |
+|------|-------|--------|
+| <Describe the page, not the URL — the executor resolves URLs at runtime> | <What state to put the page in before screenshotting — data to load, filters to apply, interactions to perform> | <What to check visually — layout correctness, element visibility, responsive behavior, absence of regressions> |
+
 ## Activity Log
 
 - <ISO timestamp> — system — lane=planned — WP created
@@ -174,6 +182,7 @@ depends_on: []
 - **Subtasks**: Use imperative, specific language. "Add `validate_email()` to `src/validators.py`" not "add validation". Reference actual file paths.
 - **Test Strategy**: At least one test per WP. Name the file and function. Follow TDD: test first.
 - **Review Guidance**: Explicitly name the design constraints being verified. What would a FAIL look like?
+- **Visual Verification**: Only for WPs with frontend visual impact. Describe scenarios, not URLs — the executor resolves URLs at runtime from the codebase. Each scenario must specify: what page (by description), what state to achieve (specific data, filters, interactions), and what to visually verify (layout, elements, behavior). Scenarios should exercise the specific behavior the WP changes. If the design doc describes specific visual requirements, pull them into Verify criteria.
 - **plan_section**: Must match an actual section header in design.md.
 - **depends_on**: List WP IDs this WP must wait for (e.g., `["WP01"]`). Empty array if none.
 

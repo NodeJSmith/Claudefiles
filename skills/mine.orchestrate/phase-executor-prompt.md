@@ -13,6 +13,7 @@ A caliper v2 Work Package has these sections:
 | **Subtasks** | Numbered list of concrete actions to take |
 | **Test Strategy** | What tests to write, what they verify, which files/functions |
 | **Review Guidance** | What the spec reviewer, code reviewer, and integration reviewer will check |
+| **Visual Verification** (conditional) | Scenarios for before/after screenshot capture — see Implementer Instructions |
 
 Read all sections before starting. Do not begin implementing until you understand all of them.
 
