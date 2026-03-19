@@ -58,7 +58,7 @@ All skills and commands use the `mine.*` prefix. You can rename any of them if y
 | `mine.plan-review` | Opus checklist review (9 points) of design doc + work packages — includes spec/design coverage and scope containment + approve/revise/abandon gate |
 | `mine.research` | Interactive research workflow — gathers user intent, dispatches the researcher agent, presents the brief |
 | `mine.ship` | Commit, push, and create a PR in one step |
-| `mine.specify` | Proportional discovery interview — extracts full intent and produces spec.md with 12-item quality validation |
+| `mine.specify` | Proportional discovery interview — extracts full intent and produces spec.md with structured task flows and 12-item quality validation |
 | `mine.tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |
 | `mine.visual-qa` | Live visual QA -- Playwright captures screenshots, then two agents analyze them with structural separation (one sees each page in isolation, the other sees all pages at once) |
 | `mine.worktree-rebase` | Detect when the parent repo is currently on a feature branch and rebase this worktree branch onto it (run immediately after creating the worktree) |

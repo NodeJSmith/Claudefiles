@@ -99,7 +99,7 @@ AskUserQuestion:
 
 ```
 AskUserQuestion:
-  question: "Walk me through the main scenario: who does what, step by step."
+  question: "Walk me through the main scenario: who is this person, what's their situation, and what do they do step by step?"
   header: "User flow"
 ```
 
@@ -153,6 +153,13 @@ Examples of unresolved branches:
 - User said "admins can manage items" → Who is an admin? How do they become one? Can admin access be revoked?
 - User said "it should sync with the calendar" → Which calendar? What happens on conflict? How often?
 - User said "notify the user" → Via what channel? What if they have notifications disabled?
+
+**Task flow probing (moderate+ features with UI):** For each step in the user's described flow, probe for what's needed to design screens:
+- "At this step, what information does the user need to see to act?" — surfaces data requirements per screen
+- "Does the user make a choice here? What do they need to know to decide?" — surfaces decision points
+- "What happens right after?" — surfaces system responses and transitions
+
+These answers feed directly into the User Scenarios section's structured format, which downstream UI skills consume. Don't over-probe on trivial features — 1-2 info-need questions is enough when the flow is straightforward.
 
 For each decision branch, check whether the codebase already constrains the answer (from Phase 1.5 findings or a quick targeted search). Ask only about branches where the code doesn't decide for you.
 
@@ -224,7 +231,27 @@ created: "<ISO timestamp>"
 
 ## User Scenarios
 
-<Primary flows: who does what, and what happens. Written for non-technical stakeholders.>
+<Structured per-actor task flows. For each actor who interacts with the system:>
+
+### [Actor name]: [Role]
+- **Goal:** <verb phrase — what they're trying to accomplish>
+- **Context:** <when and where — e.g., "morning, scanning quickly on a laptop between meetings">
+
+#### [Scenario name]
+
+1. **[Action — verb phrase]**
+   - Sees: <what information must be visible>
+   - Decides: <choice they make here, if any — and what info they need to decide>
+   - Then: <system response or next trigger>
+
+2. **[Next action]**
+   - Sees: ...
+
+<Repeat for each actor. Typical features have 1-3 actors. For trivial features with one obvious actor and a straightforward flow, a short narrative is sufficient:>
+
+> A developer runs the CLI command, sees the output table, and copies the row they need.
+
+<The structured format is for moderate+ features where UI design will consume these flows directly.>
 
 ## Functional Requirements
 
@@ -265,7 +292,7 @@ After writing the spec, validate it against this checklist. Check each item by r
 7. Acceptance scenarios are defined
 8. Dependencies and assumptions are identified
 9. All mandatory sections are completed (none empty)
-10. User scenarios cover the primary flow
+10. User scenarios cover the primary flow with named actors and step-by-step task flows (for moderate+ features)
 11. Functional requirements have clear acceptance criteria
 12. Written for non-technical stakeholders (no internal jargon)
 

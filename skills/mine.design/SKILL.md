@@ -27,6 +27,8 @@ $ARGUMENTS — the change to design. Can be:
 
 If $ARGUMENTS points to a `design/specs/NNN-*/` directory or contains a path to a `spec.md`, read that spec and use it as the problem statement and success criteria. Skip the scoping questions for anything already answered by the spec.
 
+If the spec contains structured User Scenarios (per-actor task flows with Sees/Decides/Then steps), use them to inform architecture decisions: what data each screen needs (data model), what endpoints serve each step (API surface), and how screens connect (component boundaries and navigation).
+
 ### Scoping questions
 
 Ask each scoping question individually with its own `AskUserQuestion` call. Skip any questions already answered by the spec or $ARGUMENTS.
