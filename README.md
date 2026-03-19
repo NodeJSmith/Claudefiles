@@ -14,7 +14,7 @@ My personal [Claude Code](https://docs.anthropic.com/en/docs/claude-code) config
 
 - **`/mine.research`** and **`/mine.audit`** -- the research skill maps architecture and evaluates feasibility before you commit to a direction. The audit skill finds the biggest problems in a codebase ranked by impact. Both feed into planning and ADRs.
 - **`claude --worktree <branch>`** -- start a fresh Claude session in an isolated branch. Use `--resume <session-id>` to return to any previous session. Use `/mine.issues` in plan mode to research an issue before starting.
-- **`/mine.refactor`** -- interactive refactoring that asks you questions about naming, scope, and approach instead of guessing.
+- **`/mine.challenge`** -- adversarial design critique that assumes your approach is wrong and argues for better. Three parallel critics, then synthesis.
 
 ## Install
 
@@ -34,7 +34,7 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 
 ## Contents
 
-### Skills (32)
+### Skills (29)
 
 | Skill | Description |
 |-------|-------------|
@@ -51,16 +51,13 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 | `mine.eval-repo` | Evaluate a third-party GitHub repo before adopting it -- test coverage, code quality, maintenance health, bus factor |
 | `mine.gh-tools` | GitHub helper scripts -- gh-issue, gh-pr-create, gh-pr-threads, gh-pr-reply, gh-pr-resolve-thread, gh-bot, gh-app-token |
 | `mine.grill` | Multi-angle interrogation of a raw idea — product, design, engineering, scope, and adversarial lenses. Produces a brief.md that feeds into /mine.specify |
-| `mine.human-centered-design` | Human-centered frontend design -- empathy, accessibility, progressive enhancement |
 | `mine.implementation-review` | Post-execution quality gate — 7-category Opus review of all changed files against design doc and Work Package (WP) files |
 | `mine.interface-design` | Craft and consistency for interface design -- dashboards, admin panels, apps, tools |
 | `mine.interviewer` | Alias for mine.specify — structured discovery interview that produces spec.md |
 | `mine.mutation-test` | Mutation testing -- intentionally break code to verify tests catch real bugs |
 | `mine.orchestrate` | Execute work packages task-by-task with executor → spec reviewer → code reviewer → integration reviewer loop; tracks WP lane state |
 | `mine.plan-review` | Opus checklist review (9 points) of design doc + work packages — includes spec/design coverage and scope containment + approve/revise/abandon gate |
-| `mine.refactor` | Interactive refactoring with strategy selection and incremental verification |
 | `mine.research` | Interactive research workflow — gathers user intent, dispatches the researcher agent, presents the brief |
-| `mine.security-review` | Security checklist for auth, user input, secrets, API endpoints |
 | `mine.ship` | Commit, push, and create a PR in one step |
 | `mine.specify` | Proportional discovery interview — extracts full intent and produces spec.md with 12-item quality validation |
 | `mine.tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |

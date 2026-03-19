@@ -106,14 +106,6 @@ tests:
       - type: javascript
         value: *skill_assertion
 
-  - description: "audit vs security-review: 'check for vulns' → /mine.security-review (not audit)"
-    vars:
-      prompt: "check the input handling for injection vulnerabilities"
-      expectedSkill: "mine.security-review"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
   # --- brainstorm vs research ---
   # "brainstorm" = divergent idea generation (many options)
   # "research" = focused investigation (one question, deep analysis)

@@ -2,8 +2,8 @@
 #
 # Rule source: rules/common/capabilities.md (intent routing table)
 #
-# Tests design and UX skills: interface-design, human-centered-design,
-# ux-review, ux-antipatterns, vx.visual-explainer.
+# Tests design and UX skills: interface-design, visual-qa,
+# ux-antipatterns, vx.visual-explainer.
 #
 # Run: npx promptfoo eval -c evals/compliance/routing/intent-to-skill-design-ux.yaml
 
@@ -56,31 +56,6 @@ tests:
     vars:
       prompt: "I need a clean admin panel for managing user accounts — craft the interface"
       expectedSkill: "mine.interface-design"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  # --- mine.human-centered-design ---
-  - description: "accessible design → /mine.human-centered-design (direct)"
-    vars:
-      prompt: "apply accessible design patterns to the signup form"
-      expectedSkill: "mine.human-centered-design"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  - description: "inclusive patterns → /mine.human-centered-design (natural)"
-    vars:
-      prompt: "make sure the checkout flow uses inclusive design patterns and works with screen readers"
-      expectedSkill: "mine.human-centered-design"
-    assert:
-      - type: javascript
-        value: *skill_assertion
-
-  - description: "empathy-driven design → /mine.human-centered-design (indirect)"
-    vars:
-      prompt: "our forms need to work for users with motor disabilities — review them with empathy and progressive enhancement in mind"
-      expectedSkill: "mine.human-centered-design"
     assert:
       - type: javascript
         value: *skill_assertion

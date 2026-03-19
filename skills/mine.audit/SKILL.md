@@ -162,11 +162,10 @@ AskUserQuestion:
 
 Based on the user's choice per finding:
 
-- **Structural problems** (long files, god classes, tangled modules) → run `/mine.refactor`
+- **Structural problems** (long files, god classes, tangled modules) → run `/mine.build`
 - **Architectural problems** (wrong abstractions, missing layers, circular dependencies) → create an ADR with `/mine.adrs`, then plan the rearchitecture
 - **Complex fixes needing planning** → run `/mine.build` — assesses complexity and routes to direct implementation or the full caliper workflow
 - **Test coverage gaps** → write tests following TDD (see `rules/common/testing.md`)
-- **Security concerns** → hand off to the mine.security-review skill
 - **Create an issue** → file a GitHub issue (see below)
 - **Multiple findings selected** → ask per finding, then suggest an order of attack for the ones being addressed now (highest impact first, dependency-aware — e.g., fix the circular deps before trying to refactor the modules caught in the cycle)
 
@@ -235,9 +234,8 @@ Create the `design/audits/` directory if it doesn't exist. If the project alread
 
 ## What This Skill Does NOT Do
 
-- **Fix anything** — this is diagnosis, not treatment. It feeds into `/mine.refactor` and `/mine.adrs`
+- **Fix anything** — this is diagnosis, not treatment. It feeds into `/mine.build` and `/mine.adrs`
 - **Rewrite scores or letter grades** — subjective ratings create false precision. Instead: specific problems ranked by impact
-- **Audit security** — use the mine.security-review skill for that. This skill may flag obvious security smells (broad catches, no input validation) but won't do a thorough security review
 - **Profile performance** — runtime performance requires execution and profiling tools, not static analysis
 
 ## Principles
