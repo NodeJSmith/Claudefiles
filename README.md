@@ -30,11 +30,11 @@ To uninstall, just delete the symlinks (they point back to this repo) and remove
 
 ## About skill prefixes
 
-All skills and commands use the `mine.*` prefix. You can rename any of them if you prefer.
+Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by the [Impeccable](https://impeccable.style/) frontend design skills. You can rename any of them if you prefer.
 
 ## Contents
 
-### Skills (26)
+### Skills (47)
 
 | Skill | Description |
 |-------|-------------|
@@ -64,6 +64,32 @@ All skills and commands use the `mine.*` prefix. You can rename any of them if y
 | `mine.worktree-rebase` | Detect when the parent repo is currently on a feature branch and rebase this worktree branch onto it (run immediately after creating the worktree) |
 | `mine.wp` | WP lane management — move work packages between lanes, view kanban, list WPs |
 | `mine.write-skill` | Guided skill creation — gathers requirements, drafts SKILL.md, validates quality checklist, auto-wires routing |
+
+**[Impeccable](https://impeccable.style/) Frontend Design Skills (21)**
+
+| Skill | Description |
+|-------|-------------|
+| `i-adapt` | Responsive design — make interfaces work across screen sizes |
+| `i-animate` | Motion design — meaningful animations and transitions |
+| `i-arrange` | Layout and spatial design — structure, alignment, visual flow |
+| `i-audit` | Comprehensive UI quality audit — a11y, performance, theming, responsive |
+| `i-bolder` | Make designs more distinctive and visually striking |
+| `i-clarify` | UX clarity — reduce confusion, improve information hierarchy |
+| `i-colorize` | Color system — palettes, contrast, theming |
+| `i-critique` | Design critique and review with actionable feedback |
+| `i-delight` | Micro-interactions and moments of delight |
+| `i-distill` | Simplify complex interfaces — reduce without losing function |
+| `i-extract` | Extract reusable components from existing UI |
+| `i-frontend-design` | Core design skill — creative direction, production-grade interfaces (includes reference docs) |
+| `i-harden` | Production hardening — edge cases, error states, resilience |
+| `i-normalize` | Consistency normalization across the interface |
+| `i-onboard` | Onboarding flow design and first-run experience |
+| `i-optimize` | Frontend performance optimization |
+| `i-overdrive` | Full interface redesign/overhaul |
+| `i-polish` | Final quality pass — alignment, spacing, consistency details |
+| `i-quieter` | Reduce visual noise and clutter |
+| `i-teach-impeccable` | One-time setup — gathers design context and saves to `.impeccable.md` |
+| `i-typeset` | Typography — font choices, hierarchy, sizing, readability |
 
 ### Commands (8)
 

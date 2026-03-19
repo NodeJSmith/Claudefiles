@@ -24,7 +24,8 @@ Look for `design/direction*.md` in the project.
 
 - **If one found**: Read it, use its tokens and direction for styling. Skip to step 3.
 - **If multiple found**: Ask which applies to this mockup. Read the selected one. Skip to step 3.
-- **If none found**: Ask the user: "No design direction found. Run a quick inline direction phase, or run `/mine.look-and-feel` first?"
+- **If none found**: Check for `.impeccable.md` in the project root. If it exists, read it — use its brand personality, aesthetic direction, and design principles to inform styling. Skip to step 3.
+- **If neither found**: Ask the user: "No design direction found. Run a quick inline direction phase, or run `/mine.look-and-feel` first?"
   - If inline: proceed to step 2.
   - If redirect: tell the user to run `/mine.look-and-feel` and stop.
 

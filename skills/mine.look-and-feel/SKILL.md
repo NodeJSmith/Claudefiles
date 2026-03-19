@@ -130,6 +130,26 @@ Read `references/direction-template.md` for the exact format. Include `**Complet
 
 Create the `design/` directory if it does not exist.
 
+**Also write `.impeccable.md`** in the project root with the brand context gathered in Phases 2-3. This bridges to the Impeccable (`i-*`) design skills so they don't re-ask these questions:
+
+```markdown
+## Design Context
+
+### Users
+[From Phase 2, Question 1 — who the person is, their context]
+
+### Brand Personality
+[From Phase 2 — emotional feel, aesthetic tone the user wants]
+
+### Aesthetic Direction
+[From Phase 3 — visual references and what to take from them; from Phase 4 — signature element and aesthetics to avoid]
+
+### Design Principles
+[3-5 principles derived from the direction decisions]
+```
+
+If `.impeccable.md` already exists, update the Design Context section in place.
+
 ---
 
 ## Phase 8: Hand Off to Mockup
