@@ -70,9 +70,9 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 | `mine.worktree-rebase` | Detect when the parent repo is currently on a feature branch and rebase this worktree branch onto it (run immediately after creating the worktree) |
 | `mine.wp` | WP lane management — move work packages between lanes, view kanban, list WPs |
 | `mine.write-skill` | Guided skill creation — gathers requirements, drafts SKILL.md, validates quality checklist, auto-wires routing |
-| `vx.visual-explainer` | Generate self-contained HTML pages that visually explain systems, code changes, plans, and data — diagrams, diff reviews, plan reviews, slide decks, project recaps, and more. Subcommands: `vx.diff-review`, `vx.fact-check`, `vx.generate-slides`, `vx.generate-visual-plan`, `vx.generate-web-diagram`, `vx.plan-review`, `vx.project-recap`, `vx.share` |
+| `vx.visual-explainer` | Generate self-contained HTML pages that visually explain systems, code changes, plans, and data — diagrams, diff reviews, plan reviews, slide decks, project recaps, and more |
 
-### Commands (19)
+### Commands (11)
 
 | Command | Description |
 |---------|-------------|
@@ -87,14 +87,6 @@ Skills and commands use a namespace prefix to avoid collisions. First-party skil
 | `mine.review` | Run code-reviewer and integration-reviewer in parallel on the current branch diff |
 | `mine.session_reflect` | End-of-session reflection grounded in git evidence |
 | `mine.status` | Quick orientation -- branch, tasks, errors, last commit |
-| `vx.diff-review` | Visual diff review with architecture comparison and code review analysis |
-| `vx.fact-check` | Verify factual accuracy of a document against the actual codebase |
-| `vx.generate-slides` | Generate a magazine-quality slide deck as a self-contained HTML page |
-| `vx.generate-visual-plan` | Visual implementation plan with state machines, code snippets, and edge cases |
-| `vx.generate-web-diagram` | Generate a standalone HTML diagram and open it in the browser |
-| `vx.plan-review` | Compare a plan against the codebase with risk assessment |
-| `vx.project-recap` | Mental model snapshot — current state, recent decisions, cognitive debt hotspots |
-| `vx.share` | Deploy a visual explainer HTML page to Vercel and get a live URL |
 
 ### Agents (35)
 
