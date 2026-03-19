@@ -8,6 +8,24 @@ All notable changes to this Claudefiles repository are documented here.
 - `AskUserQuestion` blocks in skills rendered as plain markdown bullets instead of interactive selectors — added CRITICAL rule to `interaction.md` enforcing tool calls with exact labels (#106)
 
 ### Added
+- `mine.look-and-feel` skill — plan UI design direction (tokens, palette, typography, spacing) and persist to `design/direction.md`; replaces `mine.interface-design` (#104)
+- `mine.mockup` skill — generate self-contained HTML mockup files, reads `design/direction.md` for consistent styling; replaces `vx.visual-explainer` (#104)
+- `mine.look-and-feel` and `mine.mockup` commands (#104)
+- Boundary eval tests for mine.design vs mine.look-and-feel disambiguation and negative tests for dropped diagram routing (#104)
+- `mine.build` direction.md detection — reads `design/direction*.md` before UI work and applies closed token layer (#104)
+
+### Changed
+- Routing table: `mine.interface-design` → `mine.look-and-feel`, `vx.visual-explainer` → `mine.mockup`; diagram routing intentionally dropped (#104)
+- All skills now use `mine.*` prefix — removed `vx.*` multi-prefix convention (#104)
+- Eval file `intent-to-skill-design-ux.yaml` rewritten: 3 look-and-feel + 3 mockup + 6 boundary + 2 negative tests (#104)
+
+### Removed
+- `mine.interface-design` skill and command — replaced by `mine.look-and-feel` (#104)
+- `vx.visual-explainer` skill — replaced by `mine.mockup`; dead subcommands (diff-review, fact-check, slides, share, project-recap) not migrated (#104)
+
+---
+
+### Added (PR #105, #103)
 - `claude-log skills --audit` flag — cross-references session usage against skills/commands on disk, showing active, never-used, and ghost entries (#105)
 - Visual verification for frontend work packages — `mine.draft-plan` generates scenario tables (Page/Setup/Verify), executor captures before/after screenshots, dedicated visual reviewer judges against criteria; per-WP temp subdirectories preserve evidence across orchestration runs (#103)
 - `mine.worktree-rebase` accepts explicit branch name and natural-language skip (`just rebase`, `force`) (#105)
