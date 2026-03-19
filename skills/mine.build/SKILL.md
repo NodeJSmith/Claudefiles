@@ -36,7 +36,8 @@ If the work touches frontend (CSS, components, layouts, styles), check for `desi
 
 - **One found:** Read it. State which tokens and decisions apply to this change. Apply the closed token layer — every CSS value must reference a token from the direction file (no raw hex, no magic spacing numbers).
 - **Multiple found:** Ask the user which applies, then read and apply it as above.
-- **None found** and the work involves non-trivial UI (new pages, new components, visual redesign): suggest "No design direction found. Consider running `/mine.look-and-feel` first for consistent results."
+- **None found:** Check for `.impeccable.md` in the project root. If it exists, read it — use its brand personality and aesthetic direction for general decisions (tone, color palette intent, typography preferences), but note there are no concrete design tokens. For non-trivial UI work, suggest running `/mine.look-and-feel` to generate a full token set — `.impeccable.md` context will be reused automatically.
+- **Neither found** and the work involves non-trivial UI (new pages, new components, visual redesign): suggest "No design direction found. Consider running `/mine.look-and-feel` first for consistent results."
 - **`Completeness: lightweight` in metadata header:** Note that running `/mine.look-and-feel` would produce a fuller direction with domain exploration and rationale.
 
 **Token compliance (code-reviewer guidance):** When direction.md exists and the diff touches CSS/styles, the code-reviewer should flag raw hex values (`#[0-9a-f]{3,8}`), raw px values not matching the spacing scale, and font names not listed in direction.md. Surface violations as HIGH findings referencing the specific direction.md token that should be used.

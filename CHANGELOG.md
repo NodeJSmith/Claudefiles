@@ -4,6 +4,12 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-03-19
 
+### Added
+- [Impeccable](https://impeccable.style/) frontend design skill bundle — 21 `i-*` skills for typography, color, layout, animation, accessibility, and UI quality
+- Intent routing for all 20 user-invocable `i-*` skills in `capabilities.md`
+- Design context bridging — `mine.look-and-feel` now writes `.impeccable.md`, and `i-frontend-design` reads `design/direction.md` as fallback
+- `IMPECCABLE_VERSION.md` for upstream version tracking and upgrade policy
+
 ### Fixed
 - `AskUserQuestion` blocks in skills rendered as plain markdown bullets instead of interactive selectors — added CRITICAL rule to `interaction.md` enforcing tool calls with exact labels (#106)
 

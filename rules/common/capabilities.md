@@ -42,6 +42,27 @@
 | "review my changes", "run the reviewers", "code and integration review" | `/mine.review` |
 | "create a skill", "write a skill", "new skill" | `/mine.write-skill` |
 | "rebase this worktree", "sync worktree to parent branch" | `/mine.worktree-rebase` |
+<!-- NOTE: i-* skills are the Impeccable frontend design bundle. Route UI-specific intents here. -->
+| "audit this UI", "frontend quality", "full UI audit", "design audit" | `/i-audit` |
+| "critique this UI", "design critique", "review this interface", "does this look AI-generated" | `/i-critique` |
+| "fix the typography", "improve the type", "font choices" | `/i-typeset` |
+| "fix the colors", "color system", "palette needs work" | `/i-colorize` |
+| "fix the layout", "arrange this", "visual hierarchy" | `/i-arrange` |
+| "too busy", "too noisy", "reduce visual clutter" | `/i-quieter` |
+| "make it bolder", "more distinctive", "too generic" | `/i-bolder` |
+| "polish this UI", "final pass", "pixel-perfect" | `/i-polish` |
+| "add animations", "motion design", "transitions" | `/i-animate` |
+| "responsive design", "make it mobile-friendly", "adapt for mobile" | `/i-adapt` |
+| "improve the copy", "error messages are confusing", "UX writing" | `/i-clarify` |
+| "add delight", "make it more fun", "moments of joy" | `/i-delight` |
+| "too complex", "simplify this UI", "strip it down" | `/i-distill` |
+| "extract components", "consolidate patterns", "build a design system" | `/i-extract` |
+| "production hardening", "handle edge cases in UI", "make it resilient" | `/i-harden` |
+| "normalize the design", "make it consistent", "align with design system" | `/i-normalize` |
+| "improve onboarding", "empty states", "first-run experience" | `/i-onboard` |
+| "optimize frontend performance", "improve load time", "fix rendering" | `/i-optimize` |
+| "push it further", "technically ambitious", "full redesign" | `/i-overdrive` |
+| "setup impeccable", "design context setup", "teach impeccable" | `/i-teach-impeccable` |
 
 ## CLI Tools
 

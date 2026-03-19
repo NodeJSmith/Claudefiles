@@ -47,7 +47,7 @@ Freeze gate: WPs are generated from `design.md` by `/mine.draft-plan` before `/m
 
 ## How the Pieces Connect
 
-- **Skills** (`skills/mine.<name>/SKILL.md`) are invoked via `/mine.<name>`. Each SKILL.md is a self-contained prompt with instructions, phases, and output format. Skills can reference other skills (e.g., `/mine.ship` chains `/mine.commit-push` + `/mine.create-pr`). All skills use the `mine.*` prefix.
+- **Skills** (`skills/<name>/SKILL.md`) are invoked via `/<name>`. Each SKILL.md is a self-contained prompt with instructions, phases, and output format. Skills can reference other skills (e.g., `/mine.ship` chains `/mine.commit-push` + `/mine.create-pr`). Most use the `mine.*` prefix; the `i-*` prefix is used by the Impeccable frontend design bundle.
 - **Commands** (`commands/*.md`) are simpler slash commands — single-file prompts without the SKILL.md directory structure.
 - **Agents** (`agents/*.md`) define subagent behavior for the `Agent` tool. They specify model, tools, and detailed system prompts. Currently: `code-reviewer` (runs ruff/pyright/bandit/pytest) and `planner` (implementation planning).
 - **Rules** (`rules/`) auto-load into Claude Code context. Rules govern coding style, testing, git workflow, error tracking, and agent orchestration.
@@ -55,7 +55,13 @@ Freeze gate: WPs are generated from `design.md` by `/mine.draft-plan` before `/m
 
 ## Naming Convention
 
-All skills and commands use the `mine.*` prefix.
+Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by the [Impeccable](https://impeccable.style/) frontend design skills (e.g., `i-audit`, `i-typeset`, `i-polish`).
+
+### Impeccable (`i-*`) framework dependency
+
+The `i-*` skills are a single framework, not independent skills. Every `i-*` skill (except `i-teach-impeccable` and `i-frontend-design` itself) begins by loading `i-frontend-design` as its MANDATORY PREPARATION step — this is how the context gathering protocol and anti-pattern guidance propagate to every skill in the bundle. On a new project, run `/i-teach-impeccable` once to create `.impeccable.md` with brand context — all other `i-*` skills depend on it.
+
+If `/mine.look-and-feel` was already run, the `i-*` skills will read `design/direction.md` as a fallback, so you don't need to re-answer context questions.
 
 ## Bash Tool Restrictions
 
