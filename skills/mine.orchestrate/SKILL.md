@@ -309,7 +309,7 @@ Write the output to `<dir>/<wp_id>/integration-review.md`.
 
 Read the integration-reviewer output. If it returns BLOCK verdict, the WP verdict becomes FAIL.
 
-### Step 8.5: Review gate (CRITICAL)
+### Step 8.5: Review gate (GATE)
 
 Before proceeding to Step 9, verify that both review output files exist:
 
