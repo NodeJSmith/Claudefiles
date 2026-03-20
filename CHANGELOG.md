@@ -21,6 +21,7 @@ All notable changes to this Claudefiles repository are documented here.
 - `mine.build` direction.md detection — reads `design/direction*.md` before UI work and applies closed token layer (#104)
 
 ### Changed
+- `mine.orchestrate` now enforces code reviewer and integration reviewer as mandatory steps — MANDATORY headers, file-existence gate (Step 8.5), and FAIL override prevent review skipping (#110)
 - `mine.specify` now produces structured User Scenarios with per-actor task flows (Sees/Decides/Then steps) — downstream UI skills (`mine.look-and-feel`, `mine.mockup`, `mine.design`) consume spec.md directly instead of re-asking actor/goal questions (#108)
 - Routing table: `mine.interface-design` → `mine.look-and-feel`, `vx.visual-explainer` → `mine.mockup`; diagram routing intentionally dropped (#104)
 - All skills now use `mine.*` prefix — removed `vx.*` multi-prefix convention (#104)

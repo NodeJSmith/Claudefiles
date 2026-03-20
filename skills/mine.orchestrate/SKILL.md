@@ -281,9 +281,9 @@ Compare executor result, spec reviewer verdict, and visual reviewer verdict (if 
 | Executor BLOCKED (any reason) | Mark WP BLOCKED; surface to user (gate at Step 9) |
 | Executor BLOCKED (architectural) | Mark WP BLOCKED with architectural flag; do not retry without plan change |
 
-### Step 7: Code reviewer loop
+### Step 7: Code reviewer loop (MANDATORY)
 
-(Run this even if spec reviewer has WARNs — still useful to catch code issues early.)
+**This step is MANDATORY. Do NOT skip it.** Run the code reviewer for every WP that reaches this point, regardless of how clean the executor or spec reviewer results look. A WP that skips code review cannot proceed to Step 9.
 
 Launch a `code-reviewer` subagent (`Agent(subagent_type: "code-reviewer")`) to review the files changed by the executor. The code-reviewer agent uses `git diff --name-only` to find changed files and runs static analysis tools (ruff, pyright, etc.) as appropriate.
 
@@ -299,13 +299,26 @@ Write the final code-reviewer output to `<dir>/<wp_id>/code-review.md`.
 
 **Verdict impact:** If CRITICAL or HIGH issues remain after 3 iterations that could not be auto-fixed, the WP verdict becomes FAIL regardless of the spec reviewer result.
 
-### Step 8: Integration reviewer
+### Step 8: Integration reviewer (MANDATORY)
+
+**This step is MANDATORY. Do NOT skip it.** Run the integration reviewer for every WP that reaches this point, regardless of how clean prior results look. A WP that skips integration review cannot proceed to Step 9.
 
 Launch an `integration-reviewer` subagent (`Agent(subagent_type: "integration-reviewer")`) once on the same changed files. The integration-reviewer checks for duplication, convention drift, misplacement, orphaned code, and design violations.
 
 Write the output to `<dir>/<wp_id>/integration-review.md`.
 
 Read the integration-reviewer output. If it returns BLOCK verdict, the WP verdict becomes FAIL.
+
+### Step 8.5: Review gate (GATE)
+
+Before proceeding to Step 9, verify that both review output files exist:
+
+```
+Read: <dir>/<wp_id>/code-review.md
+Read: <dir>/<wp_id>/integration-review.md
+```
+
+If either file is missing or empty, **do NOT proceed to Step 9**. Go back and run the missing reviewer. A WP summary without both reviews is invalid — the verdict will be overridden to FAIL with note "review step skipped."
 
 ### Step 9: Present results and gate
 
@@ -316,8 +329,8 @@ Present a summary:
 
 Spec review: PASS|WARN|FAIL
 Visual: VERIFIED (N scenarios)|WARN|FAIL|SKIPPED|N/A
-Code review: PASS|WARN|FAIL (N iterations)
-Integration review: APPROVE|WARN|BLOCK
+Code review: PASS|WARN|FAIL (N iterations) — NEVER "N/A" or "skipped"
+Integration review: APPROVE|WARN|BLOCK — NEVER "N/A" or "skipped"
 
 [Any deviations noted]
 [Any WARN or FAIL details]
