@@ -11,7 +11,7 @@ All notable changes to this Claudefiles repository are documented here.
 - `IMPECCABLE_VERSION.md` for upstream version tracking and upgrade policy (#109)
 
 ### Changed
-- `mine.orchestrate` now enforces code reviewer and integration reviewer as mandatory steps — MANDATORY headers, file-existence gate (Step 8.5), and FAIL override prevent review skipping
+- `mine.orchestrate` now enforces code reviewer and integration reviewer as mandatory steps — MANDATORY headers, file-existence gate (Step 8.5), and FAIL override prevent review skipping (#110)
 
 ### Fixed
 - `AskUserQuestion` blocks in skills rendered as plain markdown bullets instead of interactive selectors — added CRITICAL rule to `interaction.md` enforcing tool calls with exact labels (#106)
