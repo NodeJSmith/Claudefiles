@@ -53,6 +53,8 @@ class TestProjectNameFromDir:
 
 
 class TestProjectPathFromDir:
+    """Lossy fallback — use extract_cwd() for accurate paths."""
+
     def test_simple_path(self) -> None:
         assert (
             claude_log.project_path_from_dir("-home-jessica-Dotfiles")
@@ -69,6 +71,175 @@ class TestProjectPathFromDir:
         # Documented bug: hyphens in dir names get treated as separators
         result = claude_log.project_path_from_dir("-home-jessica-my-project")
         assert result == "/home/jessica/my/project"  # known lossy behavior
+
+
+# ===================================================================
+# extract_cwd
+# ===================================================================
+
+
+def _write_jsonl(path: Path, entries: list[dict[str, Any]]) -> None:
+    """Write a list of dicts as JSONL."""
+    import json as _json
+
+    path.write_text("\n".join(_json.dumps(e) for e in entries) + "\n")
+
+
+class TestExtractCwd:
+    def test_cwd_in_first_entry(self, tmp_path: Path) -> None:
+        jsonl = tmp_path / "session.jsonl"
+        _write_jsonl(
+            jsonl,
+            [
+                {"type": "user", "cwd": "/home/jessica/my-project", "message": {}},
+                {"type": "assistant", "message": {}},
+            ],
+        )
+        assert claude_log.extract_cwd(jsonl) == "/home/jessica/my-project"
+
+    def test_cwd_in_15th_entry(self, tmp_path: Path) -> None:
+        jsonl = tmp_path / "session.jsonl"
+        entries: list[dict[str, Any]] = [
+            {"type": "user", "message": {}} for _ in range(14)
+        ]
+        entries.append(
+            {"type": "user", "cwd": "/home/jessica/deep-project", "message": {}}
+        )
+        _write_jsonl(jsonl, entries)
+        assert claude_log.extract_cwd(jsonl) == "/home/jessica/deep-project"
+
+    def test_no_cwd_at_all(self, tmp_path: Path) -> None:
+        jsonl = tmp_path / "session.jsonl"
+        entries: list[dict[str, Any]] = [
+            {"type": "user", "message": {}} for _ in range(5)
+        ]
+        _write_jsonl(jsonl, entries)
+        assert claude_log.extract_cwd(jsonl) is None
+
+    def test_cwd_beyond_20_entries_not_found(self, tmp_path: Path) -> None:
+        jsonl = tmp_path / "session.jsonl"
+        entries: list[dict[str, Any]] = [
+            {"type": "user", "message": {}} for _ in range(25)
+        ]
+        entries.append({"type": "user", "cwd": "/home/jessica/late-cwd", "message": {}})
+        _write_jsonl(jsonl, entries)
+        assert claude_log.extract_cwd(jsonl) is None
+
+    def test_skips_non_user_assistant_entries(self, tmp_path: Path) -> None:
+        jsonl = tmp_path / "session.jsonl"
+        _write_jsonl(
+            jsonl,
+            [
+                {"type": "progress", "cwd": "/should/be/skipped"},
+                {"type": "user", "cwd": "/home/jessica/real-cwd", "message": {}},
+            ],
+        )
+        assert claude_log.extract_cwd(jsonl) == "/home/jessica/real-cwd"
+
+    def test_missing_file_returns_none(self, tmp_path: Path) -> None:
+        assert claude_log.extract_cwd(tmp_path / "nonexistent.jsonl") is None
+
+    def test_empty_file_returns_none(self, tmp_path: Path) -> None:
+        jsonl = tmp_path / "session.jsonl"
+        jsonl.write_text("")
+        assert claude_log.extract_cwd(jsonl) is None
+
+    def test_cwd_on_assistant_entry(self, tmp_path: Path) -> None:
+        jsonl = tmp_path / "session.jsonl"
+        _write_jsonl(
+            jsonl,
+            [
+                {
+                    "type": "assistant",
+                    "cwd": "/home/jessica/from-assistant",
+                    "message": {},
+                },
+            ],
+        )
+        assert claude_log.extract_cwd(jsonl) == "/home/jessica/from-assistant"
+
+
+# ===================================================================
+# find_sessions — optimization and cwd correctness
+# ===================================================================
+
+
+class TestFindSessionsOptimization:
+    """Tests that find_sessions uses extract_cwd and estimates msg_count."""
+
+    def _create_session(
+        self,
+        tmp_path: Path,
+        dirname: str,
+        entries: list[dict[str, Any]],
+        session_id: str = "abc123",
+    ) -> Path:
+        """Create a fake session JSONL under a project dir."""
+        proj_dir = tmp_path / dirname
+        proj_dir.mkdir(parents=True, exist_ok=True)
+        jsonl = proj_dir / f"{session_id}.jsonl"
+        _write_jsonl(jsonl, entries)
+        return jsonl
+
+    def test_project_path_from_cwd(self, tmp_path: Path, monkeypatch: Any) -> None:
+        """find_sessions returns the real cwd, not the lossy dir-decoded path."""
+        monkeypatch.setattr(claude_log, "PROJECTS_DIR", tmp_path)
+        self._create_session(
+            tmp_path,
+            "-home-jessica-my-project",
+            [
+                {
+                    "type": "user",
+                    "cwd": "/home/jessica/my-project",
+                    "timestamp": "2026-03-21T10:00:00Z",
+                    "message": {"content": "hello"},
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2026-03-21T10:00:01Z",
+                    "message": {},
+                },
+            ],
+        )
+        sessions = claude_log.find_sessions()
+        assert len(sessions) == 1
+        assert sessions[0]["project_path"] == "/home/jessica/my-project"
+
+    def test_fallback_to_dir_decode_when_no_cwd(
+        self, tmp_path: Path, monkeypatch: Any
+    ) -> None:
+        """Falls back to project_path_from_dir when no cwd is in JSONL."""
+        monkeypatch.setattr(claude_log, "PROJECTS_DIR", tmp_path)
+        self._create_session(
+            tmp_path,
+            "-home-jessica-Dotfiles",
+            [
+                {
+                    "type": "user",
+                    "timestamp": "2026-03-21T10:00:00Z",
+                    "message": {"content": "hello"},
+                },
+            ],
+        )
+        sessions = claude_log.find_sessions()
+        assert len(sessions) == 1
+        assert sessions[0]["project_path"] == "/home/jessica/Dotfiles"
+
+    def test_msg_count_is_total_lines(self, tmp_path: Path, monkeypatch: Any) -> None:
+        """msg_count should be total line count (head + tail), not just parsed entries."""
+        monkeypatch.setattr(claude_log, "PROJECTS_DIR", tmp_path)
+        entries: list[dict[str, Any]] = [
+            {
+                "type": "user",
+                "timestamp": "2026-03-21T10:00:00Z",
+                "message": {"content": f"msg {i}"},
+            }
+            for i in range(50)
+        ]
+        self._create_session(tmp_path, "-home-jessica-test", entries)
+        sessions = claude_log.find_sessions()
+        assert len(sessions) == 1
+        assert sessions[0]["messages"] == 50
 
 
 # ===================================================================

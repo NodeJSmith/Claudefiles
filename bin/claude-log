@@ -77,17 +77,18 @@ def iter_session_files(
         if project_filter and project_filter.lower() not in proj_name.lower():
             continue
 
-        if cwd_filter:
-            proj_path = project_path_from_dir(project_dir.name)
-            if cwd_filter.lower() not in proj_path.lower():
-                continue
-
         for jsonl_file in sorted(project_dir.glob("*.jsonl")):
             if since_dt:
                 mod_time = datetime.fromtimestamp(
                     jsonl_file.stat().st_mtime, tz=timezone.utc
                 )
                 if mod_time < since_dt:
+                    continue
+
+            if cwd_filter:
+                real_cwd = extract_cwd(jsonl_file)
+                effective_path = real_cwd or project_path_from_dir(project_dir.name)
+                if cwd_filter.lower() not in effective_path.lower():
                     continue
 
             yield proj_name, jsonl_file.stem, jsonl_file
@@ -107,10 +108,35 @@ def project_path_from_dir(dirname: str) -> str:
 
     e.g. '-home-jessica-Dotfiles' -> '/home/jessica/Dotfiles'
 
-    Note: Best-effort reconstruction. Directory names containing hyphens
-    will not round-trip correctly (e.g., 'my-project' becomes 'my/project').
+    Note: Lossy fallback — directory names containing hyphens will not
+    round-trip correctly (e.g., 'my-project' becomes 'my/project').
+    Prefer ``extract_cwd()`` for accurate paths when JSONL contains cwd.
     """
     return "/" + dirname.lstrip("-").replace("-", "/")
+
+
+def extract_cwd(path: Path) -> str | None:
+    """Extract the working directory from a session JSONL file.
+
+    Scans the first 20 lines for a ``user`` or ``assistant`` entry with a
+    ``cwd`` field and returns the first one found, or ``None``.
+    """
+    try:
+        with open(path) as f:
+            for i, line in enumerate(f):
+                if i >= 20:
+                    break
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if entry.get("type", "") in ("user", "assistant"):
+                    cwd = entry.get("cwd")
+                    if cwd:
+                        return cwd
+    except OSError:
+        pass
+    return None
 
 
 def find_sessions(
@@ -120,7 +146,12 @@ def find_sessions(
     since: str | None = None,
     limit: int = 20,
 ) -> list[dict[str, Any]]:
-    """Find sessions across all projects."""
+    """Find sessions across all projects.
+
+    Optimized to parse only the first ~20 lines of each JSONL file for
+    metadata (timestamp, branch, cwd) and count remaining lines without
+    JSON parsing for the message estimate.
+    """
     sessions: list[dict[str, Any]] = []
 
     for proj_name, session_id, jsonl_file in iter_session_files(
@@ -128,31 +159,51 @@ def find_sessions(
     ):
         mod_time = datetime.fromtimestamp(jsonl_file.stat().st_mtime, tz=timezone.utc)
         branch = ""
-        msg_count = 0
         first_ts = ""
+        cwd: str | None = None
+        head_lines = 0
 
         try:
             with open(jsonl_file) as f:
-                for line in f:
-                    entry = json.loads(line)
+                # Phase 1: parse first ~20 lines for metadata via readline()
+                # (avoid 'for line in f' which uses an internal read-ahead
+                # buffer that would skip lines in Phase 2)
+                while head_lines < 20:
+                    line = f.readline()
+                    if not line:
+                        break
+                    head_lines += 1
+                    try:
+                        entry = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
                     entry_type = entry.get("type", "")
-                    if entry_type in ("user", "assistant"):
-                        msg_count += 1
                     if not branch and entry.get("gitBranch"):
                         branch = entry["gitBranch"]
                     if not first_ts and entry.get("timestamp"):
                         first_ts = entry["timestamp"]
-        except (json.JSONDecodeError, OSError):
+                    if cwd is None and entry_type in ("user", "assistant"):
+                        entry_cwd = entry.get("cwd")
+                        if entry_cwd:
+                            cwd = entry_cwd
+
+                # Phase 2: count remaining lines without JSON parsing
+                tail_lines = sum(1 for _ in f)
+        except OSError:
             continue
 
+        msg_count = head_lines + tail_lines
         if msg_count == 0:
             continue
+
+        # Prefer real cwd; fall back to lossy dir-name reconstruction
+        project_path = cwd or project_path_from_dir(jsonl_file.parent.name)
 
         sessions.append(
             {
                 "session_id": session_id,
                 "project": proj_name,
-                "project_path": project_path_from_dir(jsonl_file.parent.name),
+                "project_path": project_path,
                 "date": first_ts[:10] if first_ts else mod_time.strftime("%Y-%m-%d"),
                 "timestamp": first_ts or mod_time.isoformat(),
                 "messages": msg_count,
