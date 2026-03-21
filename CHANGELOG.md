@@ -7,8 +7,8 @@ All notable changes to this Claudefiles repository are documented here.
 ### Added
 - `claude-log` subagent tool extraction — all commands now surface tool calls from subagent progress messages by default (#111)
 - `claude-log search` and `grep` now support `--fixed`/`-F` for literal matching; both are regex by default (#118)
-- `claude-log show` and `extract` gain `--limit` flag to cap output entries
-- JSONL corruption warnings — stderr warning when >1 corrupt line is skipped per file
+- `claude-log show` and `extract` gain `--limit` flag to cap output entries (#122)
+- JSONL corruption warnings — stderr warning when >1 corrupt line is skipped per file (#122)
 - `extract_cwd` reads real working directory from JSONL entries, fixing lossy path decoding for hyphenated project names (#114)
 
 ### Changed
@@ -16,7 +16,7 @@ All notable changes to this Claudefiles repository are documented here.
 - `find_sessions` optimized to read first ~20 lines per file instead of every line (#115)
 - Skill detection deduplicated per-turn with early colon normalization; JSON output includes `via` field (#120)
 - `cmd_show` unified into single-pass JSON builder, removing `_filter_entries_for_show` duplication (#119)
-- `cmd_agents` now detects both `Agent` and `Task` tool names for backward compatibility
+- `cmd_agents` now detects both `Agent` and `Task` tool names for backward compatibility (#122)
 
 ### Removed
 - `claude-log permissions` subcommand and all supporting code (~160 lines) — replaced by `mine.permissions-audit` which reads debug logs directly (#117)
