@@ -972,3 +972,155 @@ class TestFilterEntriesForShow:
         )
         subagent_items = [r for r in result if r.get("type") == "subagent_tool"]
         assert len(subagent_items) == 0
+
+
+# ===================================================================
+# _compile_pattern
+# ===================================================================
+
+
+class TestCompilePattern:
+    def test_regex_mode(self) -> None:
+        """Default mode compiles a regex pattern."""
+        pat = claude_log._compile_pattern(r"error.*timeout")
+        assert pat.search("error: connection timeout")
+        assert not pat.search("all good")
+
+    def test_fixed_mode_escapes_metacharacters(self) -> None:
+        """--fixed escapes regex metacharacters so they match literally."""
+        pat = claude_log._compile_pattern("| jq", fixed=True)
+        assert pat.search("cat file | jq .foo")
+        # Without fixed mode, "|" is alternation — would match "jq" alone
+        raw_pat = claude_log._compile_pattern("| jq", fixed=False)
+        assert raw_pat.search("jq")  # regex alternation matches bare "jq"
+
+    def test_fixed_mode_pipe_and_ampersand(self) -> None:
+        """Literal pipe and ampersand match exactly in fixed mode."""
+        pat = claude_log._compile_pattern(" & ", fixed=True)
+        assert pat.search("cmd1 & cmd2")
+        assert not pat.search("cmd1 && cmd2")  # " & " not present as substring
+
+    def test_case_insensitive(self) -> None:
+        """Pattern is case-insensitive."""
+        pat = claude_log._compile_pattern("Error")
+        assert pat.search("error")
+        assert pat.search("ERROR")
+
+    def test_invalid_regex_exits(self) -> None:
+        """Invalid regex prints error to stderr and exits with code 1."""
+        with pytest.raises(SystemExit) as exc_info:
+            claude_log._compile_pattern("[invalid")
+        assert exc_info.value.code == 1
+
+    def test_invalid_regex_message(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """Invalid regex produces a user-friendly error message."""
+        with pytest.raises(SystemExit):
+            claude_log._compile_pattern("[invalid")
+        captured = capsys.readouterr()
+        assert "invalid regex" in captured.err.lower()
+        assert "[invalid" in captured.err
+
+
+# ===================================================================
+# iter_all_tool_calls with grep_re
+# ===================================================================
+
+
+class TestIterAllToolCallsGrepRe:
+    def test_grep_re_parameter(self, tmp_path: Path) -> None:
+        """Pre-compiled grep_re works the same as string grep."""
+        jsonl = _make_test_jsonl(tmp_path)
+        compiled = re.compile("git", re.IGNORECASE)
+        results = list(
+            claude_log.iter_all_tool_calls(
+                jsonl, tool_filter="Bash", grep_re=compiled, include_subagents=True
+            )
+        )
+        assert len(results) == 1
+        assert results[0]["input"]["command"] == "git status"
+
+    def test_grep_re_overrides_grep_string(self, tmp_path: Path) -> None:
+        """When both grep and grep_re are provided, grep_re takes precedence."""
+        jsonl = _make_test_jsonl(tmp_path)
+        # grep string would match "echo", but grep_re looks for "git"
+        compiled = re.compile("git", re.IGNORECASE)
+        results = list(
+            claude_log.iter_all_tool_calls(
+                jsonl,
+                tool_filter="Bash",
+                grep="echo",
+                grep_re=compiled,
+                include_subagents=True,
+            )
+        )
+        # Should use grep_re (git), not grep string (echo)
+        assert len(results) == 1
+        assert "git" in results[0]["input"]["command"]
+
+    def test_fixed_grep_with_metacharacters(self, tmp_path: Path) -> None:
+        """Fixed-string pattern with metacharacters matches literally."""
+        import json
+
+        entries = [
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "name": "Bash",
+                            "input": {"command": "cat file | jq .foo"},
+                        },
+                        {
+                            "type": "tool_use",
+                            "name": "Bash",
+                            "input": {"command": "echo hello"},
+                        },
+                    ]
+                },
+            },
+        ]
+        jsonl = tmp_path / "metachar.jsonl"
+        jsonl.write_text("\n".join(json.dumps(e) for e in entries))
+
+        # Fixed mode: "| jq" matches literally
+        fixed_pat = claude_log._compile_pattern("| jq", fixed=True)
+        results = list(
+            claude_log.iter_all_tool_calls(jsonl, tool_filter="Bash", grep_re=fixed_pat)
+        )
+        assert len(results) == 1
+        assert "jq" in results[0]["input"]["command"]
+
+
+# ===================================================================
+# search and grep argparse --fixed flag
+# ===================================================================
+
+
+class TestArgparseFixedFlag:
+    def test_search_accepts_fixed_flag(self) -> None:
+        """search subcommand accepts --fixed / -F."""
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["search", "-F", "| jq"])
+        assert args.fixed is True
+        assert args.query == "| jq"
+
+    def test_search_default_no_fixed(self) -> None:
+        """search defaults to regex mode (fixed=False)."""
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["search", "error.*timeout"])
+        assert args.fixed is False
+
+    def test_grep_accepts_fixed_flag(self) -> None:
+        """grep subcommand accepts --fixed / -F."""
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["grep", "-F", " & "])
+        assert args.fixed is True
+        assert args.pattern == " & "
+
+    def test_grep_default_no_fixed(self) -> None:
+        """grep defaults to regex mode (fixed=False)."""
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["grep", "git (push|pull)"])
+        assert args.fixed is False

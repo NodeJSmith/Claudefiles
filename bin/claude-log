@@ -35,6 +35,22 @@ PROJECTS_DIR = Path.home() / ".claude" / "projects"
 # ---------------------------------------------------------------------------
 
 
+def _compile_pattern(pattern: str, *, fixed: bool = False) -> re.Pattern[str]:
+    """Compile a regex pattern, with optional fixed-string (literal) mode.
+
+    When *fixed* is True, metacharacters in *pattern* are escaped so the
+    string is matched literally.  Invalid regex produces a user-friendly
+    error on stderr and exits with code 1.
+    """
+    if fixed:
+        pattern = re.escape(pattern)
+    try:
+        return re.compile(pattern, re.IGNORECASE)
+    except re.error as exc:
+        print(f"Error: invalid regex {pattern!r}: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+
 def _parse_since(since: str | None) -> datetime | None:
     """Parse a YYYY-MM-DD date string into a timezone-aware datetime.
 
@@ -492,7 +508,7 @@ def _match_entry(
 
 def cmd_search(args: argparse.Namespace) -> None:
     """Search across sessions."""
-    pattern = re.compile(re.escape(args.query), re.IGNORECASE)
+    pattern = _compile_pattern(args.query, fixed=args.fixed)
     include_subagents = not getattr(args, "no_subagents", False)
 
     results: list[dict[str, Any]] = []
@@ -870,6 +886,7 @@ def iter_all_tool_calls(
     include_subagents: bool = False,
     tool_filter: str | None = None,
     grep: str | None = None,
+    grep_re: re.Pattern[str] | None = None,
 ) -> Generator[dict[str, Any], None, None]:
     """Yield normalized tool call dicts from a session in chronological order.
 
@@ -879,8 +896,12 @@ def iter_all_tool_calls(
 
     Each yielded dict has keys: timestamp, name, input.
     When *include_subagents* is True, also: source (str).
+
+    The *grep_re* parameter accepts a pre-compiled pattern (preferred).
+    The *grep* parameter accepts a raw regex string for backward compat.
     """
-    grep_re = re.compile(grep, re.IGNORECASE) if grep else None
+    if grep_re is None and grep:
+        grep_re = re.compile(grep, re.IGNORECASE)
     agent_index: dict[str, str] = {}
 
     for entry in iter_entries(path):
@@ -998,6 +1019,9 @@ def _extract_messages(path: Path) -> None:
 
 def cmd_grep(args: argparse.Namespace) -> None:
     """Search bash commands across sessions by regex pattern."""
+    fixed = getattr(args, "fixed", False)
+    # Validate/escape early so the user sees a clean error before any I/O
+    grep_pattern = _compile_pattern(args.pattern, fixed=fixed)
     include_subagents = not getattr(args, "no_subagents", False)
     results: list[dict[str, Any]] = []
 
@@ -1009,7 +1033,7 @@ def cmd_grep(args: argparse.Namespace) -> None:
             jsonl_file,
             include_subagents=include_subagents,
             tool_filter="Bash",
-            grep=args.pattern,
+            grep_re=grep_pattern,
         ):
             result: dict[str, Any] = {
                 "session_id": session_id[:8],
@@ -1111,8 +1135,17 @@ def build_parser() -> argparse.ArgumentParser:
     _add_global_opts(p_show)
 
     # search
-    p_search = subs.add_parser("search", help="Search across sessions")
-    p_search.add_argument("query", help="Search query")
+    p_search = subs.add_parser(
+        "search",
+        help="Search across sessions (regex by default)",
+    )
+    p_search.add_argument("query", help="Search pattern (regex by default)")
+    p_search.add_argument(
+        "--fixed",
+        "-F",
+        action="store_true",
+        help="Treat pattern as a fixed string, not a regex",
+    )
     p_search.add_argument("--project", "-p", help="Filter by project name substring")
     p_search.add_argument(
         "--type", choices=["user", "assistant", "tool_use"], help="Filter by type"
@@ -1167,10 +1200,16 @@ def build_parser() -> argparse.ArgumentParser:
     # grep
     p_grep = subs.add_parser(
         "grep",
-        help="Search bash commands across sessions by regex",
+        help="Search bash commands across sessions (regex by default)",
         description="Search bash commands across multiple sessions. Like 'extract --bash --grep' but cross-session.",
     )
-    p_grep.add_argument("pattern", help="Regex pattern to search for in bash commands")
+    p_grep.add_argument("pattern", help="Search pattern (regex by default)")
+    p_grep.add_argument(
+        "--fixed",
+        "-F",
+        action="store_true",
+        help="Treat pattern as a fixed string, not a regex",
+    )
     p_grep.add_argument("--project", "-p", help="Filter by project name substring")
     p_grep.add_argument("--since", "-s", help="Filter by date (YYYY-MM-DD)")
     p_grep.add_argument(
