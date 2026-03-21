@@ -958,7 +958,6 @@ class TestCmdShow:
         monkeypatch.setattr(claude_log, "resolve_session", lambda _sid: jsonl)
         args = argparse.Namespace(
             session_id="fake",
-            no_subagents=False,
             messages=False,
             tools=True,
             user=False,
@@ -974,30 +973,6 @@ class TestCmdShow:
         assert subagent_items[0]["source"] == "Deep-dive (Explore)"
         assert subagent_items[0]["name"] == "Bash"
 
-    def test_excludes_subagent_tools_when_no_subagents(
-        self,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-        capsys: pytest.CaptureFixture[str],
-    ) -> None:
-        jsonl = self._write_entries(tmp_path)
-        monkeypatch.setattr(claude_log, "resolve_session", lambda _sid: jsonl)
-        args = argparse.Namespace(
-            session_id="fake",
-            no_subagents=True,
-            messages=False,
-            tools=True,
-            user=False,
-            assistant=False,
-            thinking=False,
-            usage=False,
-            limit=None,
-        )
-        claude_log.cmd_show(args)
-        result = json.loads(capsys.readouterr().out)
-        subagent_items = [r for r in result if r.get("type") == "subagent_tool"]
-        assert len(subagent_items) == 0
-
     def test_show_all_includes_everything(
         self,
         tmp_path: Path,
@@ -1009,7 +984,6 @@ class TestCmdShow:
         monkeypatch.setattr(claude_log, "resolve_session", lambda _sid: jsonl)
         args = argparse.Namespace(
             session_id="fake",
-            no_subagents=False,
             messages=False,
             tools=False,
             user=False,
@@ -1315,7 +1289,9 @@ class TestCmdSkillsDedup:
         parser = claude_log.build_parser()
         args = parser.parse_args(["skills"])
         captured: list[str] = []
-        monkeypatch.setattr("builtins.print", lambda s: captured.append(s))
+        monkeypatch.setattr(
+            "builtins.print", lambda *a, **kw: captured.append(str(a[0]) if a else "")
+        )
         claude_log.cmd_skills(args)
         assert len(captured) == 1, f"Expected one print call, got {len(captured)}"
         return _json.loads(captured[0])
@@ -1549,7 +1525,9 @@ class TestCmdSkillsDedup:
             ]
         )
         captured: list[str] = []
-        monkeypatch.setattr("builtins.print", lambda s: captured.append(s))
+        monkeypatch.setattr(
+            "builtins.print", lambda *a, **kw: captured.append(str(a[0]) if a else "")
+        )
 
         jsonl = tmp_path / "session.jsonl"
         _write_jsonl(jsonl, entries)
@@ -1707,7 +1685,6 @@ class TestLimitFlag:
 
         args = argparse.Namespace(
             session_id="fake",
-            no_subagents=True,
             messages=False,
             tools=True,
             user=False,
@@ -1733,7 +1710,6 @@ class TestLimitFlag:
 
         args = argparse.Namespace(
             session_id="fake",
-            no_subagents=True,
             messages=False,
             tools=True,
             user=False,
@@ -1759,7 +1735,6 @@ class TestLimitFlag:
 
         args = argparse.Namespace(
             session_id="fake",
-            no_subagents=True,
             tools=True,
             bash=False,
             usage=False,
@@ -1792,7 +1767,6 @@ class TestLimitFlag:
 
         args = argparse.Namespace(
             session_id="fake",
-            no_subagents=True,
             tools=False,
             bash=False,
             usage=False,
@@ -1817,7 +1791,6 @@ class TestLimitFlag:
 
         args = argparse.Namespace(
             session_id="fake",
-            no_subagents=True,
             tools=False,
             bash=False,
             usage=True,

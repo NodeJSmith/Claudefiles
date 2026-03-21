@@ -394,7 +394,7 @@ def cmd_show(args: argparse.Namespace) -> None:
     applies filters, and emits a JSON array.
     """
     path = resolve_session(args.session_id)
-    include_subagents = not getattr(args, "no_subagents", False)
+    include_subagents = True
 
     # When no filter flags are set, include everything
     show_all = not any(
@@ -526,7 +526,7 @@ def _match_entry(
 def cmd_search(args: argparse.Namespace) -> None:
     """Search across sessions."""
     pattern = _compile_pattern(args.query, fixed=args.fixed)
-    include_subagents = not getattr(args, "no_subagents", False)
+    include_subagents = True
 
     results: list[dict[str, Any]] = []
     max_results = args.limit
@@ -590,7 +590,7 @@ def cmd_stats(args: argparse.Namespace) -> None:
     """Show session statistics."""
     path = resolve_session(args.session_id)
     proj_name = project_name_from_dir(path.parent.name)
-    include_subagents = not getattr(args, "no_subagents", False)
+    include_subagents = True
 
     type_counts: dict[str, int] = {}
     tool_counts: dict[str, int] = {}
@@ -843,7 +843,7 @@ def cmd_skills(args: argparse.Namespace) -> None:
             skill_sessions.setdefault(name, set()).add(sid)
 
     if not skill_counts:
-        print("No skill invocations found.")
+        print("No skill invocations found.", file=sys.stderr)
         return
 
     # Names are already normalized (colon→dot) at detection time via
@@ -918,7 +918,7 @@ def cmd_extract(args: argparse.Namespace) -> None:
         _compile_pattern(grep)  # validate early — exits on bad regex
     limit = args.limit
 
-    include_subagents = not getattr(args, "no_subagents", False)
+    include_subagents = True
 
     if args.tools:
         _extract_tools(
@@ -1103,7 +1103,7 @@ def cmd_grep(args: argparse.Namespace) -> None:
     fixed = getattr(args, "fixed", False)
     # Validate/escape early so the user sees a clean error before any I/O
     grep_pattern = _compile_pattern(args.pattern, fixed=fixed)
-    include_subagents = not getattr(args, "no_subagents", False)
+    include_subagents = True
     results: list[dict[str, Any]] = []
 
     for proj_name, session_id, jsonl_file in iter_session_files(
@@ -1133,6 +1133,7 @@ def cmd_grep(args: argparse.Namespace) -> None:
 
     if not results:
         print("No matches found.", file=sys.stderr)
+        return
 
     print(json.dumps(results, indent=2))
 
