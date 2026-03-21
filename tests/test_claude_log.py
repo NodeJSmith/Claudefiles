@@ -296,143 +296,53 @@ class TestExtractSubagentToolUses:
 
 
 # ===================================================================
-# truncate
+# _tool_input_summary
 # ===================================================================
 
 
-class TestTruncate:
-    def test_short_text_unchanged(self) -> None:
-        assert claude_log.truncate("hello", 80) == "hello"
-
-    def test_exact_length(self) -> None:
-        text = "a" * 80
-        assert claude_log.truncate(text, 80) == text
-
-    def test_long_text_truncated(self) -> None:
-        text = "a" * 100
-        result = claude_log.truncate(text, 80)
-        assert len(result) == 80
-        assert result.endswith("…")
-
-    def test_newlines_replaced(self) -> None:
-        assert claude_log.truncate("hello\nworld", 80) == "hello world"
-
-    def test_whitespace_stripped(self) -> None:
-        assert claude_log.truncate("  hello  ", 80) == "hello"
-
-    def test_default_max_len(self) -> None:
-        text = "a" * 100
-        result = claude_log.truncate(text)
-        assert len(result) == 80
-
-
-# ===================================================================
-# format_table
-# ===================================================================
-
-
-class TestFormatTable:
-    def test_basic_table(self) -> None:
-        # Disable color for predictable output
-        original = claude_log.USE_COLOR
-        claude_log.USE_COLOR = False
-        try:
-            rows = [["a", "1"], ["bb", "22"]]
-            result = claude_log.format_table(rows, ["NAME", "VAL"])
-            lines = result.split("\n")
-            assert len(lines) == 4  # header + separator + 2 data rows
-            assert "NAME" in lines[0]
-            assert "VAL" in lines[0]
-            assert "─" in lines[1]
-            assert "a" in lines[2]
-            assert "bb" in lines[3]
-        finally:
-            claude_log.USE_COLOR = original
-
-    def test_empty_rows(self) -> None:
-        original = claude_log.USE_COLOR
-        claude_log.USE_COLOR = False
-        try:
-            result = claude_log.format_table([], ["A", "B"])
-            lines = result.split("\n")
-            assert len(lines) == 2  # header + separator only
-        finally:
-            claude_log.USE_COLOR = original
-
-
-# ===================================================================
-# c (color wrapper)
-# ===================================================================
-
-
-class TestColorWrapper:
-    def test_color_enabled(self) -> None:
-        original = claude_log.USE_COLOR
-        claude_log.USE_COLOR = True
-        try:
-            result = claude_log.c("\033[31m", "hello")
-            assert result == "\033[31mhello\033[0m"
-        finally:
-            claude_log.USE_COLOR = original
-
-    def test_color_disabled(self) -> None:
-        original = claude_log.USE_COLOR
-        claude_log.USE_COLOR = False
-        try:
-            result = claude_log.c("\033[31m", "hello")
-            assert result == "hello"
-        finally:
-            claude_log.USE_COLOR = original
-
-
-# ===================================================================
-# _summarize_tool_input
-# ===================================================================
-
-
-class TestSummarizeToolInput:
+class TestToolInputSummary:
     def test_bash(self) -> None:
-        result = claude_log._summarize_tool_input("Bash", {"command": "git status"})
+        result = claude_log._tool_input_summary("Bash", {"command": "git status"})
         assert result == "git status"
 
     def test_read(self) -> None:
-        result = claude_log._summarize_tool_input("Read", {"file_path": "/tmp/a.py"})
+        result = claude_log._tool_input_summary("Read", {"file_path": "/tmp/a.py"})
         assert result == "/tmp/a.py"
 
     def test_grep_with_path(self) -> None:
-        result = claude_log._summarize_tool_input(
+        result = claude_log._tool_input_summary(
             "Grep", {"pattern": "TODO", "path": "/src"}
         )
         assert result == '"TODO" in /src'
 
     def test_grep_without_path(self) -> None:
-        result = claude_log._summarize_tool_input("Grep", {"pattern": "TODO"})
+        result = claude_log._tool_input_summary("Grep", {"pattern": "TODO"})
         assert result == '"TODO"'
 
     def test_glob(self) -> None:
-        result = claude_log._summarize_tool_input("Glob", {"pattern": "*.py"})
+        result = claude_log._tool_input_summary("Glob", {"pattern": "*.py"})
         assert result == "*.py"
 
     def test_task_with_agent(self) -> None:
-        result = claude_log._summarize_tool_input(
+        result = claude_log._tool_input_summary(
             "Task", {"description": "search code", "subagent_type": "Explore"}
         )
         assert result == "[Explore] search code"
 
     def test_webfetch(self) -> None:
-        result = claude_log._summarize_tool_input(
+        result = claude_log._tool_input_summary(
             "WebFetch", {"url": "https://example.com"}
         )
         assert result == "https://example.com"
 
     def test_websearch(self) -> None:
-        result = claude_log._summarize_tool_input(
+        result = claude_log._tool_input_summary(
             "WebSearch", {"query": "python asyncio"}
         )
         assert result == "python asyncio"
 
     def test_unknown_tool(self) -> None:
-        result = claude_log._summarize_tool_input(
+        result = claude_log._tool_input_summary(
             "Custom", {"key": "value", "other": "data"}
         )
         assert "key=value" in result
