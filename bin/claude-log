@@ -374,11 +374,15 @@ def cmd_list(args: argparse.Namespace) -> None:
 
 
 def cmd_show(args: argparse.Namespace) -> None:
-    """Show session content."""
+    """Show session content as JSON.
+
+    Single-pass: iterates entries once, builds the agent index incrementally,
+    applies filters, and emits a JSON array.
+    """
     path = resolve_session(args.session_id)
     include_subagents = not getattr(args, "no_subagents", False)
 
-    # Determine which filter(s) apply
+    # When no filter flags are set, include everything
     show_all = not any(
         [
             args.messages,
@@ -390,22 +394,15 @@ def cmd_show(args: argparse.Namespace) -> None:
         ]
     )
 
-    entries = list(iter_entries(path))
-    filtered = _filter_entries_for_show(entries, args, show_all, include_subagents)
-    print(json.dumps(filtered, indent=2))
-
-
-def _filter_entries_for_show(
-    entries: list[dict[str, Any]],
-    args: argparse.Namespace,
-    show_all: bool,
-    include_subagents: bool,
-) -> list[dict[str, Any]]:
-    """Filter entries for JSON output in show command."""
     result: list[dict[str, Any]] = []
+    # Agent index built incrementally — same pattern as iter_all_tool_calls.
+    # Cannot reuse iter_all_tool_calls here because cmd_show handles all entry
+    # types (text, thinking, usage), not just tool calls.
     agent_index: dict[str, str] = {}
-    for entry in entries:
+
+    for entry in iter_entries(path):
         entry_type = entry.get("type", "")
+
         is_user = entry_type == "user" and (show_all or args.messages or args.user)
         is_assistant = entry_type == "assistant" and (
             show_all
@@ -415,6 +412,7 @@ def _filter_entries_for_show(
             or args.thinking
             or args.usage
         )
+
         if is_user or is_assistant:
             result.append(entry)
             # Build agent index incrementally for subagent label resolution
@@ -440,7 +438,8 @@ def _filter_entries_for_show(
                         "agent_id": tool["agent_id"],
                     }
                 )
-    return result
+
+    print(json.dumps(result, indent=2))
 
 
 def _tool_input_summary(name: str, inp: dict[str, Any]) -> str:

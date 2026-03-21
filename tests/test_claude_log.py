@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import importlib.machinery
 import importlib.util
+import json
 import re
 import sys
 from pathlib import Path
@@ -890,14 +891,17 @@ class TestIterAllToolCalls:
 
 
 # ===================================================================
-# _filter_entries_for_show
+# cmd_show
 # ===================================================================
 
 
-class TestFilterEntriesForShow:
-    def _make_entries(self) -> list[dict[str, Any]]:
-        """Return a list of entries matching the _make_test_jsonl structure."""
-        return [
+class TestCmdShow:
+    """Tests for cmd_show — the unified single-pass JSON builder."""
+
+    @staticmethod
+    def _write_entries(tmp_path: Path) -> Path:
+        """Write test entries to a JSONL file and return its path."""
+        entries = [
             {
                 "type": "assistant",
                 "timestamp": "2026-01-01T00:00:01Z",
@@ -940,9 +944,21 @@ class TestFilterEntriesForShow:
                 },
             },
         ]
+        jsonl = tmp_path / "test-session.jsonl"
+        jsonl.write_text("\n".join(json.dumps(e) for e in entries) + "\n")
+        return jsonl
 
-    def test_includes_subagent_tools(self) -> None:
+    def test_includes_subagent_tools(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        jsonl = self._write_entries(tmp_path)
+        monkeypatch.setattr(claude_log, "resolve_session", lambda _sid: jsonl)
         args = argparse.Namespace(
+            session_id="fake",
+            no_subagents=False,
             messages=False,
             tools=True,
             user=False,
@@ -950,16 +966,24 @@ class TestFilterEntriesForShow:
             thinking=False,
             usage=False,
         )
-        result = claude_log._filter_entries_for_show(
-            self._make_entries(), args, show_all=False, include_subagents=True
-        )
+        claude_log.cmd_show(args)
+        result = json.loads(capsys.readouterr().out)
         subagent_items = [r for r in result if r.get("type") == "subagent_tool"]
         assert len(subagent_items) == 1
         assert subagent_items[0]["source"] == "Deep-dive (Explore)"
         assert subagent_items[0]["name"] == "Bash"
 
-    def test_excludes_subagent_tools_by_default(self) -> None:
+    def test_excludes_subagent_tools_when_no_subagents(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        jsonl = self._write_entries(tmp_path)
+        monkeypatch.setattr(claude_log, "resolve_session", lambda _sid: jsonl)
         args = argparse.Namespace(
+            session_id="fake",
+            no_subagents=True,
             messages=False,
             tools=True,
             user=False,
@@ -967,11 +991,36 @@ class TestFilterEntriesForShow:
             thinking=False,
             usage=False,
         )
-        result = claude_log._filter_entries_for_show(
-            self._make_entries(), args, show_all=False, include_subagents=False
-        )
+        claude_log.cmd_show(args)
+        result = json.loads(capsys.readouterr().out)
         subagent_items = [r for r in result if r.get("type") == "subagent_tool"]
         assert len(subagent_items) == 0
+
+    def test_show_all_includes_everything(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """When no filter flags are set, all entry types are included."""
+        jsonl = self._write_entries(tmp_path)
+        monkeypatch.setattr(claude_log, "resolve_session", lambda _sid: jsonl)
+        args = argparse.Namespace(
+            session_id="fake",
+            no_subagents=False,
+            messages=False,
+            tools=False,
+            user=False,
+            assistant=False,
+            thinking=False,
+            usage=False,
+        )
+        claude_log.cmd_show(args)
+        result = json.loads(capsys.readouterr().out)
+        # Should include the assistant entry and the subagent tool
+        types = [r.get("type") for r in result]
+        assert "assistant" in types
+        assert "subagent_tool" in types
 
 
 # ===================================================================
