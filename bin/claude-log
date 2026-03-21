@@ -1162,15 +1162,6 @@ def _positive_int(value: str) -> int:
     return n
 
 
-def _add_global_opts(parser: argparse.ArgumentParser) -> None:
-    """Add backward-compatible flags (accepted but ignored — output is always JSON)."""
-    parser.add_argument(
-        "--json", action="store_true", default=True, help=argparse.SUPPRESS
-    )
-    parser.add_argument("--no-color", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("--no-subagents", action="store_true", help=argparse.SUPPRESS)
-
-
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser."""
     parser = argparse.ArgumentParser(
@@ -1199,7 +1190,6 @@ def build_parser() -> argparse.ArgumentParser:
         default=20,
         help="Max results (default: 20)",
     )
-    _add_global_opts(p_list)
 
     # show
     p_show = subs.add_parser("show", help="Show session content")
@@ -1223,7 +1213,6 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Max entries to return (default: unlimited)",
     )
-    _add_global_opts(p_show)
 
     # search
     p_search = subs.add_parser(
@@ -1249,12 +1238,10 @@ def build_parser() -> argparse.ArgumentParser:
         default=50,
         help="Max results (default: 50)",
     )
-    _add_global_opts(p_search)
 
     # stats
     p_stats = subs.add_parser("stats", help="Session statistics")
     p_stats.add_argument("session_id", help="Session ID or prefix")
-    _add_global_opts(p_stats)
 
     # skills
     p_skills = subs.add_parser("skills", help="Skill/command usage across sessions")
@@ -1265,13 +1252,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Cross-reference usage with skills/commands on disk — shows unused and ghost entries",
     )
-    _add_global_opts(p_skills)
 
     # agents
     p_agents = subs.add_parser("agents", help="Agent usage across sessions")
     p_agents.add_argument("--project", "-p", help="Filter by project name substring")
     p_agents.add_argument("--since", "-s", help="Filter by date (YYYY-MM-DD)")
-    _add_global_opts(p_agents)
 
     # extract
     p_extract = subs.add_parser("extract", help="Extract structured data as JSON")
@@ -1293,7 +1278,6 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Max entries to return (default: unlimited)",
     )
-    _add_global_opts(p_extract)
 
     # grep
     p_grep = subs.add_parser(
@@ -1316,14 +1300,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=_positive_int,
         help="Max results to return",
     )
-    _add_global_opts(p_grep)
 
-    # permissions (deprecated stub — accepts any args, prints warning, exits 0)
-    p_perms = subs.add_parser(
+    # permissions (deprecated stub — prints warning, exits 0)
+    subs.add_parser(
         "permissions",
         help="(deprecated) Use /mine.permissions-audit instead",
     )
-    _add_global_opts(p_perms)
 
     return parser
 
