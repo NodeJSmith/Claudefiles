@@ -271,6 +271,29 @@ class TestExtractSubagentToolUses:
         assert len(result) == 1
         assert result[0]["name"] == "Grep"
 
+    def test_preserves_tool_use_id(self) -> None:
+        """Tool_use id is preserved for nested Agent indexing."""
+        entry = self._make_progress_entry(
+            [
+                {
+                    "type": "tool_use",
+                    "id": "toolu_nested",
+                    "name": "Agent",
+                    "input": {"description": "Inner agent"},
+                },
+            ],
+        )
+        result = claude_log.extract_subagent_tool_uses(entry)
+        assert result[0]["id"] == "toolu_nested"
+
+    def test_no_id_when_absent(self) -> None:
+        """No id field when tool_use block lacks one."""
+        entry = self._make_progress_entry(
+            [{"type": "tool_use", "name": "Bash", "input": {"command": "ls"}}],
+        )
+        result = claude_log.extract_subagent_tool_uses(entry)
+        assert "id" not in result[0]
+
 
 # ===================================================================
 # truncate
@@ -682,7 +705,7 @@ class TestMatchEntry:
 
 
 # ===================================================================
-# _build_agent_name_index
+# _agent_label
 # ===================================================================
 
 
@@ -709,7 +732,7 @@ class TestAgentLabel:
 
 
 # ===================================================================
-# _collect_tools
+# iter_all_tool_calls
 # ===================================================================
 
 
@@ -845,6 +868,93 @@ class TestIterAllToolCalls:
         # progress entry at t=00:00:02 with parentToolUseID=toolu_parent1
         # should resolve to "Deep-dive (Explore)"
         assert all(t["source"] == "Deep-dive (Explore)" for t in subagent_tools)
+
+    def test_nested_agent_indexing(self, tmp_path: Path) -> None:
+        """Agent calls inside progress entries are indexed for nested subagents."""
+        import json
+
+        entries = [
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "toolu_outer",
+                            "name": "Agent",
+                            "input": {
+                                "description": "Orchestrator",
+                                "subagent_type": "general-purpose",
+                            },
+                        },
+                    ]
+                },
+            },
+            # Outer agent spawns an inner agent
+            {
+                "type": "progress",
+                "timestamp": "2026-01-01T00:00:02Z",
+                "parentToolUseID": "toolu_outer",
+                "data": {
+                    "type": "agent_progress",
+                    "agentId": "agent_outer",
+                    "prompt": "",
+                    "message": {
+                        "type": "assistant",
+                        "timestamp": "2026-01-01T00:00:02Z",
+                        "message": {
+                            "role": "assistant",
+                            "content": [
+                                {
+                                    "type": "tool_use",
+                                    "id": "toolu_inner",
+                                    "name": "Agent",
+                                    "input": {
+                                        "description": "Code review",
+                                        "subagent_type": "code-reviewer",
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                },
+            },
+            # Inner agent runs a Bash command
+            {
+                "type": "progress",
+                "timestamp": "2026-01-01T00:00:03Z",
+                "parentToolUseID": "toolu_inner",
+                "data": {
+                    "type": "agent_progress",
+                    "agentId": "agent_inner",
+                    "prompt": "",
+                    "message": {
+                        "type": "assistant",
+                        "timestamp": "2026-01-01T00:00:03Z",
+                        "message": {
+                            "role": "assistant",
+                            "content": [
+                                {
+                                    "type": "tool_use",
+                                    "name": "Bash",
+                                    "input": {"command": "ruff check ."},
+                                },
+                            ],
+                        },
+                    },
+                },
+            },
+        ]
+        jsonl = tmp_path / "nested.jsonl"
+        jsonl.write_text("\n".join(json.dumps(e) for e in entries))
+
+        results = list(claude_log.iter_all_tool_calls(jsonl, include_subagents=True))
+        # Should have: parent Agent, subagent Agent (from outer), subagent Bash (from inner)
+        assert len(results) == 3
+        # The inner Bash should resolve to "Code review (code-reviewer)"
+        bash_result = [r for r in results if r["name"] == "Bash"][0]
+        assert bash_result["source"] == "Code review (code-reviewer)"
 
 
 # ===================================================================
