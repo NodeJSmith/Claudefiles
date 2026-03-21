@@ -266,6 +266,42 @@ def extract_tool_uses(message: dict[str, Any]) -> list[dict[str, Any]]:
     return [b for b in content if isinstance(b, dict) and b.get("type") == "tool_use"]
 
 
+def extract_subagent_tool_uses(entry: dict[str, Any]) -> list[dict[str, Any]]:
+    """Extract tool_use blocks from an agent_progress entry.
+
+    Returns a list of dicts with keys: name, input, timestamp, agent_id,
+    parent_tool_use_id.  Returns [] for non-progress entries, hook progress,
+    user messages, or malformed data.
+    """
+    if entry.get("type") != "progress":
+        return []
+    data = entry.get("data")
+    if not isinstance(data, dict) or data.get("type") != "agent_progress":
+        return []
+    outer_msg = data.get("message")
+    if not isinstance(outer_msg, dict) or outer_msg.get("type") != "assistant":
+        return []
+    inner_msg = outer_msg.get("message")
+    if not isinstance(inner_msg, dict):
+        return []
+    tools = extract_tool_uses(inner_msg)
+    if not tools:
+        return []
+    agent_id = data.get("agentId", "")
+    parent_tool_use_id = entry.get("parentToolUseID", "")
+    ts = entry.get("timestamp", "")
+    return [
+        {
+            "name": t.get("name", "?"),
+            "input": t.get("input", {}),
+            "timestamp": ts,
+            "agent_id": agent_id,
+            "parent_tool_use_id": parent_tool_use_id,
+        }
+        for t in tools
+    ]
+
+
 def format_table(rows: list[list[str]], headers: list[str]) -> str:
     """Format rows as an aligned text table."""
     all_rows = [headers, *rows]
@@ -496,6 +532,7 @@ def cmd_list(args: argparse.Namespace) -> None:
 def cmd_show(args: argparse.Namespace) -> None:
     """Show session content."""
     path = resolve_session(args.session_id)
+    include_subagents = getattr(args, "include_subagents", False)
 
     # Determine which filter(s) apply
     show_all = not any(
@@ -516,18 +553,24 @@ def cmd_show(args: argparse.Namespace) -> None:
         print(json.dumps(filtered, indent=2))
         return
 
+    agent_index: dict[str, str] = {}
+    if include_subagents:
+        agent_index = _build_agent_name_index(path)
+
     for entry in entries:
         entry_type = entry.get("type", "")
-        message = entry.get("message", {})
         ts = entry.get("timestamp", "")
         ts_short = ts[11:19] if len(ts) >= 19 else ts
 
-        if entry_type == "user" and (show_all or args.messages or args.user):
-            text = extract_text(message)
-            if text.strip():
-                print(f"{c(DIM, ts_short)} {c(GREEN, 'USER')}  {text}")
+        if entry_type == "user":
+            message = entry.get("message", {})
+            if show_all or args.messages or args.user:
+                text = extract_text(message)
+                if text.strip():
+                    print(f"{c(DIM, ts_short)} {c(GREEN, 'USER')}  {text}")
 
         elif entry_type == "assistant":
+            message = entry.get("message", {})
             content = message.get("content", [])
             if not isinstance(content, list):
                 continue
@@ -569,6 +612,19 @@ def cmd_show(args: argparse.Namespace) -> None:
                         f"{c(DIM, ts_short)} {c(CYAN, 'USAGE')} "
                         f"in={inp_tokens} out={out_tokens} cache_read={cache_read} cache_create={cache_create}"
                     )
+
+        elif (
+            entry_type == "progress" and include_subagents and (show_all or args.tools)
+        ):
+            for tool in extract_subagent_tool_uses(entry):
+                name = tool["name"]
+                inp = tool["input"]
+                source = agent_index.get(tool["parent_tool_use_id"], "subagent")
+                summary = _summarize_tool_input(name, inp)
+                print(
+                    f"{c(DIM, ts_short)} {c(CYAN, 'SUBTOOL')} "
+                    f"{c(BOLD, name)}  {summary}  {c(DIM, f'[{source}]')}"
+                )
 
 
 def _filter_entries_for_show(
@@ -712,9 +768,11 @@ def cmd_stats(args: argparse.Namespace) -> None:
     """Show session statistics."""
     path = resolve_session(args.session_id)
     proj_name = project_name_from_dir(path.parent.name)
+    include_subagents = getattr(args, "include_subagents", False)
 
     type_counts: dict[str, int] = {}
     tool_counts: dict[str, int] = {}
+    subagent_tool_counts: dict[str, int] = {}
     total_input = 0
     total_output = 0
     total_cache_read = 0
@@ -751,6 +809,11 @@ def cmd_stats(args: argparse.Namespace) -> None:
                 name = tool.get("name", "?")
                 tool_counts[name] = tool_counts.get(name, 0) + 1
 
+        elif entry_type == "progress" and include_subagents:
+            for tool in extract_subagent_tool_uses(entry):
+                name = tool["name"]
+                subagent_tool_counts[name] = subagent_tool_counts.get(name, 0) + 1
+
     # Calculate duration
     duration_str = ""
     if first_ts and last_ts:
@@ -770,28 +833,26 @@ def cmd_stats(args: argparse.Namespace) -> None:
             pass
 
     if args.json:
-        print(
-            json.dumps(
-                {
-                    "session_id": path.stem,
-                    "project": proj_name,
-                    "branch": branch,
-                    "model": model,
-                    "duration": duration_str,
-                    "first_timestamp": first_ts,
-                    "last_timestamp": last_ts,
-                    "type_counts": type_counts,
-                    "tool_counts": tool_counts,
-                    "tokens": {
-                        "input": total_input,
-                        "output": total_output,
-                        "cache_read": total_cache_read,
-                        "cache_create": total_cache_create,
-                    },
-                },
-                indent=2,
-            )
-        )
+        stats_dict: dict[str, Any] = {
+            "session_id": path.stem,
+            "project": proj_name,
+            "branch": branch,
+            "model": model,
+            "duration": duration_str,
+            "first_timestamp": first_ts,
+            "last_timestamp": last_ts,
+            "type_counts": type_counts,
+            "tool_counts": tool_counts,
+            "tokens": {
+                "input": total_input,
+                "output": total_output,
+                "cache_read": total_cache_read,
+                "cache_create": total_cache_create,
+            },
+        }
+        if include_subagents:
+            stats_dict["subagent_tool_counts"] = subagent_tool_counts
+        print(json.dumps(stats_dict, indent=2))
         return
 
     print(f"{c(BOLD, 'Session')}   {path.stem}")
@@ -810,6 +871,14 @@ def cmd_stats(args: argparse.Namespace) -> None:
     if tool_counts:
         print(c(BOLD, "Tool Usage"))
         for tool_name, count in sorted(tool_counts.items(), key=lambda x: -x[1]):
+            print(f"  {tool_name:<25} {count}")
+        print()
+
+    if subagent_tool_counts:
+        print(c(BOLD, "Subagent Tool Usage"))
+        for tool_name, count in sorted(
+            subagent_tool_counts.items(), key=lambda x: -x[1]
+        ):
             print(f"  {tool_name:<25} {count}")
         print()
 
@@ -1086,10 +1155,16 @@ def cmd_extract(args: argparse.Namespace) -> None:
     path = resolve_session(args.session_id)
     grep = getattr(args, "grep", None)
 
+    include_subagents = getattr(args, "include_subagents", False)
+
     if args.tools:
-        _extract_tools(path, tool_filter=None, grep=grep)
+        _extract_tools(
+            path, tool_filter=None, grep=grep, include_subagents=include_subagents
+        )
     elif args.bash:
-        _extract_tools(path, tool_filter="Bash", grep=grep)
+        _extract_tools(
+            path, tool_filter="Bash", grep=grep, include_subagents=include_subagents
+        )
     elif args.usage:
         _extract_usage(path)
     elif args.messages:
@@ -1099,12 +1174,50 @@ def cmd_extract(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
-def _extract_tools(
-    path: Path, *, tool_filter: str | None, grep: str | None = None
-) -> None:
-    """Extract tool_use blocks as JSON."""
+def _build_agent_name_index(path: Path) -> dict[str, str]:
+    """Build a mapping from Agent tool_use block ID to a human-readable label.
+
+    Scans assistant entries for Agent tool calls and returns
+    ``{tool_use_id: "description (subagent_type)"}``.
+    """
+    index: dict[str, str] = {}
+    for entry in iter_entries(path, type_filter="assistant"):
+        message = entry.get("message", {})
+        for tool in extract_tool_uses(message):
+            if tool.get("name") != "Agent":
+                continue
+            tid = tool.get("id", "")
+            if not tid:
+                continue
+            inp = tool.get("input", {})
+            desc = inp.get("description", "")
+            stype = inp.get("subagent_type", "")
+            label = (
+                f"{desc} ({stype})" if desc and stype else desc or stype or "subagent"
+            )
+            index[tid] = label
+    return index
+
+
+def _collect_tools(
+    path: Path,
+    *,
+    tool_filter: str | None,
+    grep: str | None = None,
+    include_subagents: bool = False,
+) -> list[dict[str, Any]]:
+    """Collect tool_use blocks from a session, optionally including subagents.
+
+    Returns a list of dicts with keys: timestamp, name, input, and when
+    *include_subagents* is True, also: source.
+    """
     grep_re = re.compile(grep, re.IGNORECASE) if grep else None
     results: list[dict[str, Any]] = []
+
+    agent_index: dict[str, str] = {}
+    if include_subagents:
+        agent_index = _build_agent_name_index(path)
+
     for entry in iter_entries(path, type_filter="assistant"):
         message = entry.get("message", {})
         ts = entry.get("timestamp", "")
@@ -1114,17 +1227,59 @@ def _extract_tools(
                 continue
             inp = tool.get("input", {})
             if grep_re:
-                # For Bash, match against command; for others, match against full input JSON
                 haystack = inp.get("command", "") if name == "Bash" else json.dumps(inp)
                 if not grep_re.search(haystack):
                     continue
-            results.append(
-                {
-                    "timestamp": ts,
-                    "name": name,
-                    "input": inp,
-                }
-            )
+            result: dict[str, Any] = {
+                "timestamp": ts,
+                "name": name,
+                "input": inp,
+            }
+            if include_subagents:
+                result["source"] = "parent"
+            results.append(result)
+
+    if include_subagents:
+        for entry in iter_entries(path, type_filter="progress"):
+            for tool in extract_subagent_tool_uses(entry):
+                name = tool["name"]
+                if tool_filter and name != tool_filter:
+                    continue
+                inp = tool["input"]
+                if grep_re:
+                    haystack = (
+                        inp.get("command", "") if name == "Bash" else json.dumps(inp)
+                    )
+                    if not grep_re.search(haystack):
+                        continue
+                source = agent_index.get(tool["parent_tool_use_id"], "subagent")
+                results.append(
+                    {
+                        "timestamp": tool["timestamp"],
+                        "name": name,
+                        "input": inp,
+                        "source": source,
+                    }
+                )
+
+    results.sort(key=lambda r: r.get("timestamp", ""))
+    return results
+
+
+def _extract_tools(
+    path: Path,
+    *,
+    tool_filter: str | None,
+    grep: str | None = None,
+    include_subagents: bool = False,
+) -> None:
+    """Extract tool_use blocks as JSON."""
+    results = _collect_tools(
+        path,
+        tool_filter=tool_filter,
+        grep=grep,
+        include_subagents=include_subagents,
+    )
     print(json.dumps(results, indent=2))
 
 
@@ -1172,6 +1327,7 @@ def _extract_messages(path: Path) -> None:
 def cmd_grep(args: argparse.Namespace) -> None:
     """Search bash commands across sessions by regex pattern."""
     grep_re = re.compile(args.pattern, re.IGNORECASE)
+    include_subagents = getattr(args, "include_subagents", False)
     results: list[dict[str, Any]] = []
 
     for proj_name, session_id, jsonl_file in iter_session_files(
@@ -1187,14 +1343,37 @@ def cmd_grep(args: argparse.Namespace) -> None:
                 cmd = tool.get("input", {}).get("command", "")
                 if not grep_re.search(cmd):
                     continue
-                results.append(
-                    {
-                        "session_id": session_id[:8],
-                        "project": proj_name,
-                        "timestamp": ts,
-                        "command": cmd,
-                    }
-                )
+                result: dict[str, Any] = {
+                    "session_id": session_id[:8],
+                    "project": proj_name,
+                    "timestamp": ts,
+                    "command": cmd,
+                }
+                if include_subagents:
+                    result["source"] = "parent"
+                results.append(result)
+
+        if include_subagents:
+            agent_index = _build_agent_name_index(jsonl_file)
+            for entry in iter_entries(jsonl_file, type_filter="progress"):
+                for tool in extract_subagent_tool_uses(entry):
+                    if tool["name"] != "Bash":
+                        continue
+                    cmd = tool["input"].get("command", "")
+                    if not grep_re.search(cmd):
+                        continue
+                    source = agent_index.get(tool["parent_tool_use_id"], "subagent")
+                    results.append(
+                        {
+                            "session_id": session_id[:8],
+                            "project": proj_name,
+                            "timestamp": tool["timestamp"],
+                            "command": cmd,
+                            "source": source,
+                        }
+                    )
+
+    results.sort(key=lambda r: r.get("timestamp", ""))
 
     if args.limit:
         results = results[: args.limit]
@@ -1210,7 +1389,11 @@ def cmd_grep(args: argparse.Namespace) -> None:
         cmd_preview = r["command"].replace("\n", " ↵ ")[:100]
         sid_display = c(CYAN, sid) if sid != prev_sid else " " * 8
         prev_sid = sid
-        print(f"{sid_display}  {c(DIM, ts)}  {cmd_preview}")
+        source = r.get("source")
+        source_tag = (
+            f" {c(DIM, f'[{source}]')}" if source and source != "parent" else ""
+        )
+        print(f"{sid_display}  {c(DIM, ts)}  {cmd_preview}{source_tag}")
 
 
 def cmd_permissions(args: argparse.Namespace) -> None:
@@ -1384,6 +1567,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_show.add_argument("--thinking", action="store_true", help="Thinking blocks only")
     p_show.add_argument("--usage", action="store_true", help="Token usage per turn")
+    p_show.add_argument(
+        "--include-subagents",
+        action="store_true",
+        default=False,
+        help="Include tool calls from subagent progress messages (with --tools)",
+    )
     _add_global_opts(p_show)
 
     # search
@@ -1406,6 +1595,12 @@ def build_parser() -> argparse.ArgumentParser:
     # stats
     p_stats = subs.add_parser("stats", help="Session statistics")
     p_stats.add_argument("session_id", help="Session ID or prefix")
+    p_stats.add_argument(
+        "--include-subagents",
+        action="store_true",
+        default=False,
+        help="Include tool calls from subagent progress messages",
+    )
     _add_global_opts(p_stats)
 
     # skills
@@ -1438,6 +1633,12 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="PATTERN",
         help="Filter bash commands by regex (only with --bash)",
     )
+    p_extract.add_argument(
+        "--include-subagents",
+        action="store_true",
+        default=False,
+        help="Include tool calls from subagent progress messages",
+    )
     _add_global_opts(p_extract)
 
     # grep
@@ -1454,6 +1655,12 @@ def build_parser() -> argparse.ArgumentParser:
         "-l",
         type=_positive_int,
         help="Max results to return",
+    )
+    p_grep.add_argument(
+        "--include-subagents",
+        action="store_true",
+        default=False,
+        help="Include bash commands from subagent progress messages",
     )
     _add_global_opts(p_grep)
 

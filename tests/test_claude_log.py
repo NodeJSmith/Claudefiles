@@ -156,6 +156,123 @@ class TestExtractToolUses:
 
 
 # ===================================================================
+# extract_subagent_tool_uses
+# ===================================================================
+
+
+class TestExtractSubagentToolUses:
+    """Tests for extracting tool_use blocks from progress entries."""
+
+    def _make_progress_entry(
+        self,
+        tools: list[dict[str, Any]],
+        *,
+        agent_id: str = "abc123",
+        timestamp: str = "2026-03-21T05:31:55.000Z",
+    ) -> dict[str, Any]:
+        """Build a realistic agent_progress entry with tool_use blocks."""
+        return {
+            "type": "progress",
+            "timestamp": timestamp,
+            "parentToolUseID": "toolu_parent1",
+            "data": {
+                "type": "agent_progress",
+                "agentId": agent_id,
+                "prompt": "",
+                "message": {
+                    "type": "assistant",
+                    "timestamp": timestamp,
+                    "message": {
+                        "role": "assistant",
+                        "content": tools,
+                    },
+                },
+            },
+        }
+
+    def test_extracts_tool_use_blocks(self) -> None:
+        entry = self._make_progress_entry(
+            [
+                {"type": "tool_use", "name": "Bash", "input": {"command": "ls"}},
+                {"type": "tool_use", "name": "Read", "input": {"file_path": "/tmp/a"}},
+            ],
+            agent_id="agent1",
+        )
+        result = claude_log.extract_subagent_tool_uses(entry)
+        assert len(result) == 2
+        assert result[0]["name"] == "Bash"
+        assert result[1]["name"] == "Read"
+        assert all(r["agent_id"] == "agent1" for r in result)
+        assert all(r["parent_tool_use_id"] == "toolu_parent1" for r in result)
+
+    def test_skips_non_progress_entry(self) -> None:
+        entry: dict[str, Any] = {
+            "type": "assistant",
+            "message": {"content": [{"type": "tool_use", "name": "Bash", "input": {}}]},
+        }
+        assert claude_log.extract_subagent_tool_uses(entry) == []
+
+    def test_skips_hook_progress(self) -> None:
+        entry: dict[str, Any] = {
+            "type": "progress",
+            "data": {
+                "type": "hook_progress",
+                "hookEvent": "SessionStart",
+            },
+        }
+        assert claude_log.extract_subagent_tool_uses(entry) == []
+
+    def test_handles_missing_nested_message(self) -> None:
+        entry: dict[str, Any] = {
+            "type": "progress",
+            "data": {"type": "agent_progress", "agentId": "x", "message": {}},
+        }
+        assert claude_log.extract_subagent_tool_uses(entry) == []
+
+    def test_handles_missing_data(self) -> None:
+        entry: dict[str, Any] = {"type": "progress"}
+        assert claude_log.extract_subagent_tool_uses(entry) == []
+
+    def test_handles_user_message_in_progress(self) -> None:
+        """Progress entries can contain user messages too — skip those."""
+        entry: dict[str, Any] = {
+            "type": "progress",
+            "data": {
+                "type": "agent_progress",
+                "agentId": "x",
+                "message": {
+                    "type": "user",
+                    "message": {
+                        "role": "user",
+                        "content": [{"type": "text", "text": "hi"}],
+                    },
+                },
+            },
+        }
+        assert claude_log.extract_subagent_tool_uses(entry) == []
+
+    def test_preserves_timestamp(self) -> None:
+        entry = self._make_progress_entry(
+            [{"type": "tool_use", "name": "Bash", "input": {"command": "ls"}}],
+            timestamp="2026-03-21T10:00:00.000Z",
+        )
+        result = claude_log.extract_subagent_tool_uses(entry)
+        assert result[0]["timestamp"] == "2026-03-21T10:00:00.000Z"
+
+    def test_mixed_content_blocks(self) -> None:
+        """Only tool_use blocks are extracted, text blocks are skipped."""
+        entry = self._make_progress_entry(
+            [
+                {"type": "text", "text": "thinking about it..."},
+                {"type": "tool_use", "name": "Grep", "input": {"pattern": "foo"}},
+            ],
+        )
+        result = claude_log.extract_subagent_tool_uses(entry)
+        assert len(result) == 1
+        assert result[0]["name"] == "Grep"
+
+
+# ===================================================================
 # truncate
 # ===================================================================
 
@@ -562,3 +679,219 @@ class TestMatchEntry:
         pattern = re.compile(re.escape("whatever"), re.IGNORECASE)
         result = claude_log._match_entry("system", msg, pattern, None)
         assert result == ""
+
+
+# ===================================================================
+# _build_agent_name_index
+# ===================================================================
+
+
+class TestBuildAgentNameIndex:
+    def test_builds_index_from_agent_calls(self, tmp_path: Path) -> None:
+        jsonl = tmp_path / "test.jsonl"
+        import json
+
+        entries = [
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:00Z",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "toolu_abc",
+                            "name": "Agent",
+                            "input": {
+                                "description": "Research issue",
+                                "subagent_type": "Explore",
+                            },
+                        }
+                    ]
+                },
+            },
+        ]
+        jsonl.write_text("\n".join(json.dumps(e) for e in entries))
+        index = claude_log._build_agent_name_index(jsonl)
+        assert index == {"toolu_abc": "Research issue (Explore)"}
+
+    def test_description_only(self, tmp_path: Path) -> None:
+        jsonl = tmp_path / "test.jsonl"
+        import json
+
+        entries = [
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:00Z",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "toolu_abc",
+                            "name": "Agent",
+                            "input": {"description": "Research issue"},
+                        }
+                    ]
+                },
+            },
+        ]
+        jsonl.write_text("\n".join(json.dumps(e) for e in entries))
+        index = claude_log._build_agent_name_index(jsonl)
+        assert index == {"toolu_abc": "Research issue"}
+
+    def test_missing_id_skipped(self, tmp_path: Path) -> None:
+        jsonl = tmp_path / "test.jsonl"
+        import json
+
+        entries = [
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:00Z",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "name": "Agent",
+                            "input": {"description": "No ID"},
+                        }
+                    ]
+                },
+            },
+        ]
+        jsonl.write_text("\n".join(json.dumps(e) for e in entries))
+        assert claude_log._build_agent_name_index(jsonl) == {}
+
+    def test_empty_session(self, tmp_path: Path) -> None:
+        jsonl = tmp_path / "test.jsonl"
+        jsonl.write_text("")
+        assert claude_log._build_agent_name_index(jsonl) == {}
+
+
+# ===================================================================
+# _collect_tools
+# ===================================================================
+
+
+def _make_test_jsonl(tmp_path: Path) -> Path:
+    """Create a JSONL file with both parent and subagent tool calls."""
+    import json
+
+    entries = [
+        {
+            "type": "assistant",
+            "timestamp": "2026-01-01T00:00:01Z",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "toolu_parent1",
+                        "name": "Agent",
+                        "input": {
+                            "description": "Deep-dive",
+                            "subagent_type": "Explore",
+                        },
+                    },
+                    {
+                        "type": "tool_use",
+                        "id": "toolu_bash1",
+                        "name": "Bash",
+                        "input": {"command": "echo hello"},
+                    },
+                ]
+            },
+        },
+        {
+            "type": "progress",
+            "timestamp": "2026-01-01T00:00:02Z",
+            "parentToolUseID": "toolu_parent1",
+            "data": {
+                "type": "agent_progress",
+                "agentId": "agent1",
+                "prompt": "",
+                "message": {
+                    "type": "assistant",
+                    "timestamp": "2026-01-01T00:00:02Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "name": "Bash",
+                                "input": {"command": "git status"},
+                            },
+                            {
+                                "type": "tool_use",
+                                "name": "Read",
+                                "input": {"file_path": "/tmp/x"},
+                            },
+                        ],
+                    },
+                },
+            },
+        },
+        {
+            "type": "progress",
+            "timestamp": "2026-01-01T00:00:03Z",
+            "parentToolUseID": "toolu_parent1",
+            "data": {
+                "type": "hook_progress",
+                "hookEvent": "PreToolUse",
+            },
+        },
+    ]
+    jsonl = tmp_path / "test-session.jsonl"
+    jsonl.write_text("\n".join(json.dumps(e) for e in entries))
+    return jsonl
+
+
+class TestCollectTools:
+    def test_without_subagents(self, tmp_path: Path) -> None:
+        jsonl = _make_test_jsonl(tmp_path)
+        results = claude_log._collect_tools(jsonl, tool_filter=None)
+        assert len(results) == 2
+        assert results[0]["name"] == "Agent"
+        assert results[1]["name"] == "Bash"
+        assert "source" not in results[0]
+
+    def test_with_subagents(self, tmp_path: Path) -> None:
+        jsonl = _make_test_jsonl(tmp_path)
+        results = claude_log._collect_tools(
+            jsonl, tool_filter=None, include_subagents=True
+        )
+        assert len(results) == 4
+        parent_tools = [r for r in results if r.get("source") == "parent"]
+        subagent_tools = [r for r in results if r.get("source") != "parent"]
+        assert len(parent_tools) == 2
+        assert len(subagent_tools) == 2
+        assert subagent_tools[0]["source"] == "Deep-dive (Explore)"
+
+    def test_tool_filter(self, tmp_path: Path) -> None:
+        jsonl = _make_test_jsonl(tmp_path)
+        results = claude_log._collect_tools(
+            jsonl, tool_filter="Bash", include_subagents=True
+        )
+        assert all(r["name"] == "Bash" for r in results)
+        assert len(results) == 2  # 1 parent Bash + 1 subagent Bash
+
+    def test_grep_filter(self, tmp_path: Path) -> None:
+        jsonl = _make_test_jsonl(tmp_path)
+        results = claude_log._collect_tools(
+            jsonl, tool_filter="Bash", grep="git", include_subagents=True
+        )
+        assert len(results) == 1
+        assert results[0]["input"]["command"] == "git status"
+        assert results[0]["source"] == "Deep-dive (Explore)"
+
+    def test_sorted_by_timestamp(self, tmp_path: Path) -> None:
+        jsonl = _make_test_jsonl(tmp_path)
+        results = claude_log._collect_tools(
+            jsonl, tool_filter=None, include_subagents=True
+        )
+        timestamps = [r["timestamp"] for r in results]
+        assert timestamps == sorted(timestamps)
+
+    def test_no_source_without_flag(self, tmp_path: Path) -> None:
+        jsonl = _make_test_jsonl(tmp_path)
+        results = claude_log._collect_tools(
+            jsonl, tool_filter=None, include_subagents=False
+        )
+        assert all("source" not in r for r in results)
