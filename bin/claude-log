@@ -738,10 +738,39 @@ def _skills_audit(
     print(json.dumps(result, indent=2))
 
 
+def _normalize_skill_name(name: str) -> str:
+    """Canonicalize skill name: ``mine:ship`` → ``mine.ship``."""
+    return name.replace(":", ".", 1) if ":" in name else name
+
+
+def _flush_skill_turn(
+    xml_skills: set[str],
+    tool_use_skills: set[str],
+    skill_counts: dict[str, int],
+    skill_via: dict[str, dict[str, int]],
+    seen_in_session: set[str],
+) -> None:
+    """Flush one turn's skill detections, deduplicating by canonical name.
+
+    Each unique skill in the turn is counted once.  When both an XML tag and a
+    Skill tool_use were seen for the same skill, prefer tool_use.
+    Names are normalized (colon → dot) before dedup so ``mine:ship`` and
+    ``mine.ship`` are treated as the same skill within a turn.
+    """
+    all_skills = xml_skills | tool_use_skills
+    for name in all_skills:
+        via = "tool_use" if name in tool_use_skills else "xml_tag"
+        skill_counts[name] = skill_counts.get(name, 0) + 1
+        via_counts = skill_via.setdefault(name, {})
+        via_counts[via] = via_counts.get(via, 0) + 1
+        seen_in_session.add(name)
+
+
 def cmd_skills(args: argparse.Namespace) -> None:
     """Show skill/command usage across sessions."""
     skill_pattern = re.compile(r"<command-name>/([^<]+)</command-name>")
     skill_counts: dict[str, int] = {}
+    skill_via: dict[str, dict[str, int]] = {}
     skill_sessions: dict[str, set[str]] = {}
 
     for _proj_name, session_id, jsonl_file in iter_session_files(
@@ -750,30 +779,48 @@ def cmd_skills(args: argparse.Namespace) -> None:
         sid = session_id[:8]
         seen_in_session: set[str] = set()
 
+        # Per-turn dedup sets — a "turn" spans from one user entry to the next
+        turn_xml: set[str] = set()
+        turn_tool_use: set[str] = set()
+
         for entry in iter_entries(jsonl_file):
             entry_type = entry.get("type", "")
             message = entry.get("message", {})
 
-            # User messages: look for <command-name>/skill</command-name>
             if entry_type == "user":
+                # Flush previous turn before starting a new one
+                _flush_skill_turn(
+                    turn_xml,
+                    turn_tool_use,
+                    skill_counts,
+                    skill_via,
+                    seen_in_session,
+                )
+                turn_xml = set()
+                turn_tool_use = set()
+
+                # Scan this user message for XML command-name tags
                 text = extract_text(message)
                 for match in skill_pattern.finditer(text):
-                    name = match.group(1)
-                    if name in _BUILTIN_COMMANDS:
-                        continue
-                    skill_counts[name] = skill_counts.get(name, 0) + 1
-                    seen_in_session.add(name)
+                    name = _normalize_skill_name(match.group(1))
+                    if name not in _BUILTIN_COMMANDS:
+                        turn_xml.add(name)
 
-            # Assistant messages: look for Skill tool_use blocks
             elif entry_type == "assistant":
                 for tool in extract_tool_uses(message):
                     if tool.get("name") == "Skill":
                         skill_name = tool.get("input", {}).get("skill", "")
                         if skill_name:
-                            skill_counts[skill_name] = (
-                                skill_counts.get(skill_name, 0) + 1
-                            )
-                            seen_in_session.add(skill_name)
+                            turn_tool_use.add(_normalize_skill_name(skill_name))
+
+        # Flush the final turn
+        _flush_skill_turn(
+            turn_xml,
+            turn_tool_use,
+            skill_counts,
+            skill_via,
+            seen_in_session,
+        )
 
         for name in seen_in_session:
             skill_sessions.setdefault(name, set()).add(sid)
@@ -784,10 +831,14 @@ def cmd_skills(args: argparse.Namespace) -> None:
 
     # Normalize colon variants (mine:commit-push -> mine.commit-push)
     normalized: dict[str, int] = {}
+    normalized_via: dict[str, dict[str, int]] = {}
     normalized_sessions: dict[str, set[str]] = {}
     for name, count in skill_counts.items():
         canonical = name.replace(":", ".", 1) if ":" in name else name
         normalized[canonical] = normalized.get(canonical, 0) + count
+        merged_via = normalized_via.setdefault(canonical, {})
+        for method, n in skill_via.get(name, {}).items():
+            merged_via[method] = merged_via.get(method, 0) + n
         normalized_sessions.setdefault(canonical, set()).update(
             skill_sessions.get(name, set())
         )
@@ -798,14 +849,18 @@ def cmd_skills(args: argparse.Namespace) -> None:
         _skills_audit(normalized, normalized_sessions)
         return
 
-    result = [
-        {
-            "skill": name,
-            "invocations": count,
-            "sessions": len(normalized_sessions.get(name, set())),
-        }
-        for name, count in sorted_skills
-    ]
+    result = []
+    for name, count in sorted_skills:
+        via_counts = normalized_via.get(name, {})
+        dominant_via = max(via_counts, key=via_counts.get, default="tool_use")  # type: ignore[arg-type]
+        result.append(
+            {
+                "skill": name,
+                "invocations": count,
+                "sessions": len(normalized_sessions.get(name, set())),
+                "via": dominant_via,
+            }
+        )
     print(json.dumps(result, indent=2))
 
 

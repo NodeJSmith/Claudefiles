@@ -1124,3 +1124,389 @@ class TestArgparseFixedFlag:
         parser = claude_log.build_parser()
         args = parser.parse_args(["grep", "git (push|pull)"])
         assert args.fixed is False
+
+
+# ===================================================================
+# _flush_skill_turn — per-turn deduplication
+# ===================================================================
+
+
+class TestFlushSkillTurn:
+    def test_deduplicates_when_both_xml_and_tool_use(self) -> None:
+        """Same skill seen via XML tag and Skill tool_use → counted once, via=tool_use."""
+        counts: dict[str, int] = {}
+        via: dict[str, dict[str, int]] = {}
+        seen: set[str] = set()
+        claude_log._flush_skill_turn(
+            xml_skills={"mine.ship"},
+            tool_use_skills={"mine.ship"},
+            skill_counts=counts,
+            skill_via=via,
+            seen_in_session=seen,
+        )
+        assert counts == {"mine.ship": 1}
+        assert via == {"mine.ship": {"tool_use": 1}}
+        assert seen == {"mine.ship"}
+
+    def test_xml_only(self) -> None:
+        """Skill seen only via XML tag → counted once, via=xml_tag."""
+        counts: dict[str, int] = {}
+        via: dict[str, dict[str, int]] = {}
+        seen: set[str] = set()
+        claude_log._flush_skill_turn(
+            xml_skills={"mine.commit-push"},
+            tool_use_skills=set(),
+            skill_counts=counts,
+            skill_via=via,
+            seen_in_session=seen,
+        )
+        assert counts == {"mine.commit-push": 1}
+        assert via == {"mine.commit-push": {"xml_tag": 1}}
+
+    def test_tool_use_only(self) -> None:
+        """Skill seen only via Skill tool_use → counted once, via=tool_use."""
+        counts: dict[str, int] = {}
+        via: dict[str, dict[str, int]] = {}
+        seen: set[str] = set()
+        claude_log._flush_skill_turn(
+            xml_skills=set(),
+            tool_use_skills={"mine.build"},
+            skill_counts=counts,
+            skill_via=via,
+            seen_in_session=seen,
+        )
+        assert counts == {"mine.build": 1}
+        assert via == {"mine.build": {"tool_use": 1}}
+
+    def test_two_different_skills_in_same_turn(self) -> None:
+        """Two different skills in one turn → both counted."""
+        counts: dict[str, int] = {}
+        via: dict[str, dict[str, int]] = {}
+        seen: set[str] = set()
+        claude_log._flush_skill_turn(
+            xml_skills={"mine.ship"},
+            tool_use_skills={"mine.build"},
+            skill_counts=counts,
+            skill_via=via,
+            seen_in_session=seen,
+        )
+        assert counts == {"mine.ship": 1, "mine.build": 1}
+        assert via["mine.ship"] == {"xml_tag": 1}
+        assert via["mine.build"] == {"tool_use": 1}
+
+    def test_empty_turn_adds_nothing(self) -> None:
+        """Empty sets → no changes to accumulators."""
+        counts: dict[str, int] = {}
+        via: dict[str, dict[str, int]] = {}
+        seen: set[str] = set()
+        claude_log._flush_skill_turn(set(), set(), counts, via, seen)
+        assert counts == {}
+        assert via == {}
+        assert seen == set()
+
+    def test_accumulates_across_turns(self) -> None:
+        """Same skill in two turns → counted twice (dedup is per-turn only)."""
+        counts: dict[str, int] = {}
+        via: dict[str, dict[str, int]] = {}
+        seen: set[str] = set()
+        claude_log._flush_skill_turn(
+            {"mine.ship"},
+            {"mine.ship"},
+            counts,
+            via,
+            seen,
+        )
+        claude_log._flush_skill_turn(
+            {"mine.ship"},
+            set(),
+            counts,
+            via,
+            seen,
+        )
+        assert counts == {"mine.ship": 2}
+        assert via == {"mine.ship": {"tool_use": 1, "xml_tag": 1}}
+
+
+# ===================================================================
+# cmd_skills — end-to-end with JSONL fixtures
+# ===================================================================
+
+
+def _skill_session_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Wrap entries with timestamps for a skill session."""
+    result: list[dict[str, Any]] = []
+    for i, entry in enumerate(entries):
+        e = {**entry, "timestamp": f"2026-01-01T00:00:{i:02d}Z"}
+        if "message" not in e:
+            e["message"] = {"content": ""}
+        result.append(e)
+    return result
+
+
+class TestCmdSkillsDedup:
+    """End-to-end tests for skill deduplication in cmd_skills."""
+
+    def _run_cmd_skills(
+        self, tmp_path: Path, monkeypatch: Any, entries: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Write JSONL, monkeypatch iter_session_files, run cmd_skills, return parsed JSON."""
+        import json as _json
+
+        jsonl = tmp_path / "session.jsonl"
+        _write_jsonl(jsonl, entries)
+
+        def fake_iter(project_filter: Any = None, since: Any = None) -> Any:
+            yield ("test-project", "abc12345", jsonl)
+
+        monkeypatch.setattr(claude_log, "iter_session_files", fake_iter)
+
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["skills"])
+        captured: list[str] = []
+        monkeypatch.setattr("builtins.print", lambda s: captured.append(s))
+        claude_log.cmd_skills(args)
+        assert len(captured) == 1, f"Expected one print call, got {len(captured)}"
+        return _json.loads(captured[0])
+
+    def test_both_xml_and_tool_use_counted_once(
+        self, tmp_path: Path, monkeypatch: Any
+    ) -> None:
+        """Turn with XML tag + Skill tool_use for same skill → 1 invocation, via=tool_use."""
+        entries = _skill_session_entries(
+            [
+                {
+                    "type": "user",
+                    "message": {
+                        "content": "<command-name>/mine.ship</command-name>",
+                    },
+                },
+                {
+                    "type": "assistant",
+                    "message": {
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_1",
+                                "name": "Skill",
+                                "input": {"skill": "mine.ship"},
+                            },
+                        ],
+                    },
+                },
+            ]
+        )
+        result = self._run_cmd_skills(tmp_path, monkeypatch, entries)
+        assert len(result) == 1
+        assert result[0]["skill"] == "mine.ship"
+        assert result[0]["invocations"] == 1
+        assert result[0]["via"] == "tool_use"
+
+    def test_xml_only_detection(self, tmp_path: Path, monkeypatch: Any) -> None:
+        """Turn with only XML tag → 1 invocation, via=xml_tag."""
+        entries = _skill_session_entries(
+            [
+                {
+                    "type": "user",
+                    "message": {
+                        "content": "<command-name>/mine.status</command-name>",
+                    },
+                },
+                {
+                    "type": "assistant",
+                    "message": {"content": "Here is your status."},
+                },
+            ]
+        )
+        result = self._run_cmd_skills(tmp_path, monkeypatch, entries)
+        assert len(result) == 1
+        assert result[0]["skill"] == "mine.status"
+        assert result[0]["invocations"] == 1
+        assert result[0]["via"] == "xml_tag"
+
+    def test_tool_use_only_detection(self, tmp_path: Path, monkeypatch: Any) -> None:
+        """Turn with only Skill tool_use → 1 invocation, via=tool_use."""
+        entries = _skill_session_entries(
+            [
+                {
+                    "type": "user",
+                    "message": {"content": "build this feature"},
+                },
+                {
+                    "type": "assistant",
+                    "message": {
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_2",
+                                "name": "Skill",
+                                "input": {"skill": "mine.build"},
+                            },
+                        ],
+                    },
+                },
+            ]
+        )
+        result = self._run_cmd_skills(tmp_path, monkeypatch, entries)
+        assert len(result) == 1
+        assert result[0]["skill"] == "mine.build"
+        assert result[0]["invocations"] == 1
+        assert result[0]["via"] == "tool_use"
+
+    def test_two_different_skills_same_turn(
+        self, tmp_path: Path, monkeypatch: Any
+    ) -> None:
+        """Two different skills in one turn → both counted once each."""
+        entries = _skill_session_entries(
+            [
+                {
+                    "type": "user",
+                    "message": {
+                        "content": "<command-name>/mine.ship</command-name>",
+                    },
+                },
+                {
+                    "type": "assistant",
+                    "message": {
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_3",
+                                "name": "Skill",
+                                "input": {"skill": "mine.ship"},
+                            },
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_4",
+                                "name": "Skill",
+                                "input": {"skill": "mine.build"},
+                            },
+                        ],
+                    },
+                },
+            ]
+        )
+        result = self._run_cmd_skills(tmp_path, monkeypatch, entries)
+        skills = {r["skill"]: r for r in result}
+        assert len(skills) == 2
+        assert skills["mine.ship"]["invocations"] == 1
+        assert skills["mine.ship"]["via"] == "tool_use"
+        assert skills["mine.build"]["invocations"] == 1
+        assert skills["mine.build"]["via"] == "tool_use"
+
+    def test_same_skill_two_turns_counted_twice(
+        self, tmp_path: Path, monkeypatch: Any
+    ) -> None:
+        """Same skill in two separate turns → 2 invocations (dedup is per-turn)."""
+        entries = _skill_session_entries(
+            [
+                {
+                    "type": "user",
+                    "message": {
+                        "content": "<command-name>/mine.ship</command-name>",
+                    },
+                },
+                {
+                    "type": "assistant",
+                    "message": {
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_5",
+                                "name": "Skill",
+                                "input": {"skill": "mine.ship"},
+                            },
+                        ],
+                    },
+                },
+                {
+                    "type": "user",
+                    "message": {
+                        "content": "<command-name>/mine.ship</command-name>",
+                    },
+                },
+                {
+                    "type": "assistant",
+                    "message": {
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_6",
+                                "name": "Skill",
+                                "input": {"skill": "mine.ship"},
+                            },
+                        ],
+                    },
+                },
+            ]
+        )
+        result = self._run_cmd_skills(tmp_path, monkeypatch, entries)
+        assert len(result) == 1
+        assert result[0]["skill"] == "mine.ship"
+        assert result[0]["invocations"] == 2
+
+    def test_colon_normalization_with_dedup(
+        self, tmp_path: Path, monkeypatch: Any
+    ) -> None:
+        """Colon variant (mine:ship) normalizes to mine.ship and deduplicates."""
+        entries = _skill_session_entries(
+            [
+                {
+                    "type": "user",
+                    "message": {
+                        "content": "<command-name>/mine:ship</command-name>",
+                    },
+                },
+                {
+                    "type": "assistant",
+                    "message": {
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_7",
+                                "name": "Skill",
+                                "input": {"skill": "mine.ship"},
+                            },
+                        ],
+                    },
+                },
+            ]
+        )
+        result = self._run_cmd_skills(tmp_path, monkeypatch, entries)
+        # mine:ship (xml) and mine.ship (tool_use) are the same skill in the
+        # same turn — normalization happens before per-turn dedup, so they
+        # collapse to one invocation.
+        skills = {r["skill"]: r for r in result}
+        assert "mine.ship" in skills
+        assert skills["mine.ship"]["invocations"] == 1
+        assert skills["mine.ship"]["via"] == "tool_use"
+
+    def test_builtin_commands_excluded(self, tmp_path: Path, monkeypatch: Any) -> None:
+        """Built-in commands (help, clear, etc.) are still filtered out."""
+        entries = _skill_session_entries(
+            [
+                {
+                    "type": "user",
+                    "message": {
+                        "content": "<command-name>/help</command-name>",
+                    },
+                },
+                {
+                    "type": "assistant",
+                    "message": {"content": "Here is help."},
+                },
+            ]
+        )
+        captured: list[str] = []
+        monkeypatch.setattr("builtins.print", lambda s: captured.append(s))
+
+        jsonl = tmp_path / "session.jsonl"
+        _write_jsonl(jsonl, entries)
+
+        def fake_iter(project_filter: Any = None, since: Any = None) -> Any:
+            yield ("test-project", "abc12345", jsonl)
+
+        monkeypatch.setattr(claude_log, "iter_session_files", fake_iter)
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["skills"])
+        claude_log.cmd_skills(args)
+        assert any("No skill invocations found" in s for s in captured)
