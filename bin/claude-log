@@ -846,35 +846,24 @@ def cmd_skills(args: argparse.Namespace) -> None:
         print("No skill invocations found.")
         return
 
-    # Normalize colon variants (mine:commit-push -> mine.commit-push)
-    normalized: dict[str, int] = {}
-    normalized_via: dict[str, dict[str, int]] = {}
-    normalized_sessions: dict[str, set[str]] = {}
-    for name, count in skill_counts.items():
-        canonical = name.replace(":", ".", 1) if ":" in name else name
-        normalized[canonical] = normalized.get(canonical, 0) + count
-        merged_via = normalized_via.setdefault(canonical, {})
-        for method, n in skill_via.get(name, {}).items():
-            merged_via[method] = merged_via.get(method, 0) + n
-        normalized_sessions.setdefault(canonical, set()).update(
-            skill_sessions.get(name, set())
-        )
+    # Names are already normalized (colon→dot) at detection time via
+    # _normalize_skill_name, so no post-loop normalization pass needed.
 
-    sorted_skills = sorted(normalized.items(), key=lambda x: -x[1])
+    sorted_skills = sorted(skill_counts.items(), key=lambda x: -x[1])
 
     if args.audit:
-        _skills_audit(normalized, normalized_sessions)
+        _skills_audit(skill_counts, skill_sessions)
         return
 
     result = []
     for name, count in sorted_skills:
-        via_counts = normalized_via.get(name, {})
+        via_counts = skill_via.get(name, {})
         dominant_via = max(via_counts, key=via_counts.get, default="tool_use")  # type: ignore[arg-type]
         result.append(
             {
                 "skill": name,
                 "invocations": count,
-                "sessions": len(normalized_sessions.get(name, set())),
+                "sessions": len(skill_sessions.get(name, set())),
                 "via": dominant_via,
             }
         )
@@ -895,7 +884,7 @@ def cmd_agents(args: argparse.Namespace) -> None:
         for entry in iter_entries(jsonl_file, type_filter="assistant"):
             message = entry.get("message", {})
             for tool in extract_tool_uses(message):
-                if tool.get("name") == "Task":
+                if tool.get("name") in ("Agent", "Task"):
                     agent_name = tool.get("input", {}).get("subagent_type", "")
                     if agent_name:
                         agent_counts[agent_name] = agent_counts.get(agent_name, 0) + 1
@@ -925,6 +914,8 @@ def cmd_extract(args: argparse.Namespace) -> None:
     """Extract structured data as JSON."""
     path = resolve_session(args.session_id)
     grep = getattr(args, "grep", None)
+    if grep:
+        _compile_pattern(grep)  # validate early — exits on bad regex
     limit = args.limit
 
     include_subagents = not getattr(args, "no_subagents", False)
@@ -1047,16 +1038,18 @@ def _extract_tools(
     limit: int | None = None,
 ) -> None:
     """Extract tool_use blocks as JSON."""
-    results = list(
-        iter_all_tool_calls(
-            path,
-            include_subagents=include_subagents,
-            tool_filter=tool_filter,
-            grep=grep,
-        )
+    gen = iter_all_tool_calls(
+        path,
+        include_subagents=include_subagents,
+        tool_filter=tool_filter,
+        grep=grep,
     )
     if limit is not None:
-        results = results[:limit]
+        from itertools import islice
+
+        results = list(islice(gen, limit))
+    else:
+        results = list(gen)
     print(json.dumps(results, indent=2))
 
 
@@ -1137,6 +1130,9 @@ def cmd_grep(args: argparse.Namespace) -> None:
 
     if args.limit:
         results = results[: args.limit]
+
+    if not results:
+        print("No matches found.", file=sys.stderr)
 
     print(json.dumps(results, indent=2))
 
@@ -1288,7 +1284,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_extract.add_argument(
         "--grep",
         metavar="PATTERN",
-        help="Filter bash commands by regex (only with --bash)",
+        help="Filter tool inputs by regex (with --tools or --bash)",
     )
     p_extract.add_argument(
         "--limit",
