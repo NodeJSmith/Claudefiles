@@ -965,6 +965,7 @@ class TestCmdShow:
             assistant=False,
             thinking=False,
             usage=False,
+            limit=None,
         )
         claude_log.cmd_show(args)
         result = json.loads(capsys.readouterr().out)
@@ -990,6 +991,7 @@ class TestCmdShow:
             assistant=False,
             thinking=False,
             usage=False,
+            limit=None,
         )
         claude_log.cmd_show(args)
         result = json.loads(capsys.readouterr().out)
@@ -1014,6 +1016,7 @@ class TestCmdShow:
             assistant=False,
             thinking=False,
             usage=False,
+            limit=None,
         )
         claude_log.cmd_show(args)
         result = json.loads(capsys.readouterr().out)
@@ -1559,3 +1562,293 @@ class TestCmdSkillsDedup:
         args = parser.parse_args(["skills"])
         claude_log.cmd_skills(args)
         assert any("No skill invocations found" in s for s in captured)
+
+
+# ===================================================================
+# iter_entries — JSONL corruption warnings
+# ===================================================================
+
+
+class TestIterEntriesCorruptionWarning:
+    """Tests for corrupt-line warning behavior in iter_entries."""
+
+    def test_warns_on_multiple_corrupt_lines(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """More than 1 corrupt line triggers a stderr warning."""
+        jsonl = tmp_path / "session.jsonl"
+        lines = [
+            json.dumps({"type": "user", "message": {"role": "user", "content": "hi"}}),
+            "NOT VALID JSON 1",
+            "NOT VALID JSON 2",
+            json.dumps(
+                {
+                    "type": "assistant",
+                    "message": {"role": "assistant", "content": "hey"},
+                }
+            ),
+            "NOT VALID JSON 3",
+        ]
+        jsonl.write_text("\n".join(lines) + "\n")
+
+        results = list(claude_log.iter_entries(jsonl))
+        assert len(results) == 2
+        err = capsys.readouterr().err
+        assert "Warning: skipped 3 corrupt lines" in err
+        assert str(jsonl) in err
+
+    def test_no_warning_on_single_corrupt_last_line(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """A single corrupt line (common for active sessions) should NOT warn."""
+        jsonl = tmp_path / "session.jsonl"
+        lines = [
+            json.dumps({"type": "user", "message": {"role": "user", "content": "hi"}}),
+            json.dumps(
+                {
+                    "type": "assistant",
+                    "message": {"role": "assistant", "content": "hey"},
+                }
+            ),
+            "TRUNCATED LINE",
+        ]
+        jsonl.write_text("\n".join(lines) + "\n")
+
+        results = list(claude_log.iter_entries(jsonl))
+        assert len(results) == 2
+        err = capsys.readouterr().err
+        assert err == ""
+
+    def test_no_warning_on_clean_file(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """A fully valid JSONL file produces no warning."""
+        jsonl = tmp_path / "session.jsonl"
+        _write_jsonl(
+            jsonl,
+            [
+                {"type": "user", "message": {"role": "user", "content": "hi"}},
+                {
+                    "type": "assistant",
+                    "message": {"role": "assistant", "content": "hey"},
+                },
+            ],
+        )
+
+        results = list(claude_log.iter_entries(jsonl))
+        assert len(results) == 2
+        err = capsys.readouterr().err
+        assert err == ""
+
+    def test_type_filter_applied(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """type_filter still works with corruption tracking."""
+        jsonl = tmp_path / "session.jsonl"
+        _write_jsonl(
+            jsonl,
+            [
+                {"type": "user", "message": {"role": "user", "content": "hi"}},
+                {
+                    "type": "assistant",
+                    "message": {"role": "assistant", "content": "hey"},
+                },
+            ],
+        )
+
+        results = list(claude_log.iter_entries(jsonl, type_filter="user"))
+        assert len(results) == 1
+        assert results[0]["type"] == "user"
+
+
+# ===================================================================
+# --limit flag for show and extract
+# ===================================================================
+
+
+class TestLimitFlag:
+    """Tests for --limit on show and extract commands."""
+
+    @staticmethod
+    def _make_entries(n: int) -> list[dict[str, Any]]:
+        """Create n assistant entries with tool_use blocks."""
+        return [
+            {
+                "type": "assistant",
+                "timestamp": f"2026-01-01T00:00:{i:02d}Z",
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "name": "Bash",
+                            "input": {"command": f"echo {i}"},
+                        },
+                    ],
+                    "usage": {
+                        "input_tokens": 100,
+                        "output_tokens": 50,
+                    },
+                },
+            }
+            for i in range(n)
+        ]
+
+    def test_show_limit_caps_results(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """show --limit 3 returns at most 3 entries."""
+        jsonl = tmp_path / "session.jsonl"
+        _write_jsonl(jsonl, self._make_entries(10))
+        monkeypatch.setattr(claude_log, "resolve_session", lambda _sid: jsonl)
+
+        args = argparse.Namespace(
+            session_id="fake",
+            no_subagents=True,
+            messages=False,
+            tools=True,
+            user=False,
+            assistant=False,
+            thinking=False,
+            usage=False,
+            limit=3,
+        )
+        claude_log.cmd_show(args)
+        result = json.loads(capsys.readouterr().out)
+        assert len(result) == 3
+
+    def test_show_no_limit_returns_all(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """show without --limit returns all entries."""
+        jsonl = tmp_path / "session.jsonl"
+        _write_jsonl(jsonl, self._make_entries(10))
+        monkeypatch.setattr(claude_log, "resolve_session", lambda _sid: jsonl)
+
+        args = argparse.Namespace(
+            session_id="fake",
+            no_subagents=True,
+            messages=False,
+            tools=True,
+            user=False,
+            assistant=False,
+            thinking=False,
+            usage=False,
+            limit=None,
+        )
+        claude_log.cmd_show(args)
+        result = json.loads(capsys.readouterr().out)
+        assert len(result) == 10
+
+    def test_extract_tools_limit(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """extract --tools --limit 2 returns at most 2 tool calls."""
+        jsonl = tmp_path / "session.jsonl"
+        _write_jsonl(jsonl, self._make_entries(8))
+        monkeypatch.setattr(claude_log, "resolve_session", lambda _sid: jsonl)
+
+        args = argparse.Namespace(
+            session_id="fake",
+            no_subagents=True,
+            tools=True,
+            bash=False,
+            usage=False,
+            messages=False,
+            grep=None,
+            limit=2,
+        )
+        claude_log.cmd_extract(args)
+        result = json.loads(capsys.readouterr().out)
+        assert len(result) == 2
+
+    def test_extract_messages_limit(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """extract --messages --limit 3 returns at most 3 messages."""
+        entries = [
+            {
+                "type": "user",
+                "timestamp": f"2026-01-01T00:00:{i:02d}Z",
+                "message": {"role": "user", "content": f"msg {i}"},
+            }
+            for i in range(7)
+        ]
+        jsonl = tmp_path / "session.jsonl"
+        _write_jsonl(jsonl, entries)
+        monkeypatch.setattr(claude_log, "resolve_session", lambda _sid: jsonl)
+
+        args = argparse.Namespace(
+            session_id="fake",
+            no_subagents=True,
+            tools=False,
+            bash=False,
+            usage=False,
+            messages=True,
+            grep=None,
+            limit=3,
+        )
+        claude_log.cmd_extract(args)
+        result = json.loads(capsys.readouterr().out)
+        assert len(result) == 3
+
+    def test_extract_usage_limit(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """extract --usage --limit 2 returns at most 2 usage entries."""
+        jsonl = tmp_path / "session.jsonl"
+        _write_jsonl(jsonl, self._make_entries(6))
+        monkeypatch.setattr(claude_log, "resolve_session", lambda _sid: jsonl)
+
+        args = argparse.Namespace(
+            session_id="fake",
+            no_subagents=True,
+            tools=False,
+            bash=False,
+            usage=True,
+            messages=False,
+            grep=None,
+            limit=2,
+        )
+        claude_log.cmd_extract(args)
+        result = json.loads(capsys.readouterr().out)
+        assert len(result) == 2
+
+    def test_limit_argparse_show(self) -> None:
+        """--limit is accepted by the show subcommand."""
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["show", "abc123", "--limit", "5"])
+        assert args.limit == 5
+
+    def test_limit_argparse_extract(self) -> None:
+        """--limit is accepted by the extract subcommand."""
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["extract", "abc123", "--tools", "--limit", "10"])
+        assert args.limit == 10
+
+    def test_limit_default_none_show(self) -> None:
+        """--limit defaults to None for show."""
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["show", "abc123"])
+        assert args.limit is None
+
+    def test_limit_default_none_extract(self) -> None:
+        """--limit defaults to None for extract."""
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["extract", "abc123", "--tools"])
+        assert args.limit is None

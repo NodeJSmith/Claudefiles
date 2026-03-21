@@ -274,16 +274,30 @@ def iter_entries(
     *,
     type_filter: str | None = None,
 ) -> Generator[dict[str, Any], None, None]:
-    """Iterate JSONL entries, optionally filtered by type."""
-    with open(path) as f:
-        for line in f:
-            try:
-                entry = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if type_filter and entry.get("type") != type_filter:
-                continue
-            yield entry
+    """Iterate JSONL entries, optionally filtered by type.
+
+    Tracks corrupt lines and emits a stderr warning when the generator is
+    exhausted if >1 line was skipped.  A single corrupt line (common for
+    active sessions being written to) is silently tolerated.
+    """
+    skipped = 0
+    try:
+        with open(path) as f:
+            for line in f:
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    skipped += 1
+                    continue
+                if type_filter and entry.get("type") != type_filter:
+                    continue
+                yield entry
+    finally:
+        if skipped > 1:
+            print(
+                f"Warning: skipped {skipped} corrupt lines in {path}",
+                file=sys.stderr,
+            )
 
 
 def extract_text(message: dict[str, Any]) -> str:
@@ -438,6 +452,10 @@ def cmd_show(args: argparse.Namespace) -> None:
                         "agent_id": tool["agent_id"],
                     }
                 )
+
+    limit = args.limit
+    if limit is not None:
+        result = result[:limit]
 
     print(json.dumps(result, indent=2))
 
@@ -907,21 +925,30 @@ def cmd_extract(args: argparse.Namespace) -> None:
     """Extract structured data as JSON."""
     path = resolve_session(args.session_id)
     grep = getattr(args, "grep", None)
+    limit = args.limit
 
     include_subagents = not getattr(args, "no_subagents", False)
 
     if args.tools:
         _extract_tools(
-            path, tool_filter=None, grep=grep, include_subagents=include_subagents
+            path,
+            tool_filter=None,
+            grep=grep,
+            include_subagents=include_subagents,
+            limit=limit,
         )
     elif args.bash:
         _extract_tools(
-            path, tool_filter="Bash", grep=grep, include_subagents=include_subagents
+            path,
+            tool_filter="Bash",
+            grep=grep,
+            include_subagents=include_subagents,
+            limit=limit,
         )
     elif args.usage:
-        _extract_usage(path)
+        _extract_usage(path, limit=limit)
     elif args.messages:
-        _extract_messages(path)
+        _extract_messages(path, limit=limit)
     else:
         print("Error: specify --tools, --bash, --usage, or --messages", file=sys.stderr)
         sys.exit(1)
@@ -1017,6 +1044,7 @@ def _extract_tools(
     tool_filter: str | None,
     grep: str | None = None,
     include_subagents: bool = False,
+    limit: int | None = None,
 ) -> None:
     """Extract tool_use blocks as JSON."""
     results = list(
@@ -1027,10 +1055,12 @@ def _extract_tools(
             grep=grep,
         )
     )
+    if limit is not None:
+        results = results[:limit]
     print(json.dumps(results, indent=2))
 
 
-def _extract_usage(path: Path) -> None:
+def _extract_usage(path: Path, *, limit: int | None = None) -> None:
     """Extract token usage per turn as JSON."""
     results: list[dict[str, Any]] = []
     for entry in iter_entries(path, type_filter="assistant"):
@@ -1049,10 +1079,12 @@ def _extract_usage(path: Path) -> None:
                     ),
                 }
             )
+    if limit is not None:
+        results = results[:limit]
     print(json.dumps(results, indent=2))
 
 
-def _extract_messages(path: Path) -> None:
+def _extract_messages(path: Path, *, limit: int | None = None) -> None:
     """Extract messages as JSON."""
     results: list[dict[str, Any]] = []
     for entry in iter_entries(path):
@@ -1068,6 +1100,8 @@ def _extract_messages(path: Path) -> None:
                 "text": extract_text(message),
             }
         )
+    if limit is not None:
+        results = results[:limit]
     print(json.dumps(results, indent=2))
 
 
@@ -1186,6 +1220,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_show.add_argument("--thinking", action="store_true", help="Thinking blocks only")
     p_show.add_argument("--usage", action="store_true", help="Token usage per turn")
+    p_show.add_argument(
+        "--limit",
+        "-l",
+        type=_positive_int,
+        default=None,
+        help="Max entries to return (default: unlimited)",
+    )
     _add_global_opts(p_show)
 
     # search
@@ -1248,6 +1289,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--grep",
         metavar="PATTERN",
         help="Filter bash commands by regex (only with --bash)",
+    )
+    p_extract.add_argument(
+        "--limit",
+        "-l",
+        type=_positive_int,
+        default=None,
+        help="Max entries to return (default: unlimited)",
     )
     _add_global_opts(p_extract)
 
