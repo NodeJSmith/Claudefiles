@@ -17,7 +17,6 @@ All JSONL files live under ~/.claude/projects/*/.
 from __future__ import annotations
 
 import argparse
-import fnmatch
 import json
 import re
 import sys
@@ -30,30 +29,26 @@ if TYPE_CHECKING:
 
 PROJECTS_DIR = Path.home() / ".claude" / "projects"
 
-# ANSI color codes
-BOLD = "\033[1m"
-DIM = "\033[2m"
-RED = "\033[31m"
-GREEN = "\033[32m"
-YELLOW = "\033[33m"
-BLUE = "\033[34m"
-MAGENTA = "\033[35m"
-CYAN = "\033[36m"
-RESET = "\033[0m"
-
-USE_COLOR = True
-
-
-def c(code: str, text: str) -> str:
-    """Wrap text in ANSI color code if color is enabled."""
-    if not USE_COLOR:
-        return text
-    return f"{code}{text}{RESET}"
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _compile_pattern(pattern: str, *, fixed: bool = False) -> re.Pattern[str]:
+    """Compile a regex pattern, with optional fixed-string (literal) mode.
+
+    When *fixed* is True, metacharacters in *pattern* are escaped so the
+    string is matched literally.  Invalid regex produces a user-friendly
+    error on stderr and exits with code 1.
+    """
+    if fixed:
+        pattern = re.escape(pattern)
+    try:
+        return re.compile(pattern, re.IGNORECASE)
+    except re.error as exc:
+        print(f"Error: invalid regex {pattern!r}: {exc}", file=sys.stderr)
+        sys.exit(1)
 
 
 def _parse_since(since: str | None) -> datetime | None:
@@ -98,17 +93,18 @@ def iter_session_files(
         if project_filter and project_filter.lower() not in proj_name.lower():
             continue
 
-        if cwd_filter:
-            proj_path = project_path_from_dir(project_dir.name)
-            if cwd_filter.lower() not in proj_path.lower():
-                continue
-
         for jsonl_file in sorted(project_dir.glob("*.jsonl")):
             if since_dt:
                 mod_time = datetime.fromtimestamp(
                     jsonl_file.stat().st_mtime, tz=timezone.utc
                 )
                 if mod_time < since_dt:
+                    continue
+
+            if cwd_filter:
+                real_cwd = extract_cwd(jsonl_file)
+                effective_path = real_cwd or project_path_from_dir(project_dir.name)
+                if cwd_filter.lower() not in effective_path.lower():
                     continue
 
             yield proj_name, jsonl_file.stem, jsonl_file
@@ -128,10 +124,35 @@ def project_path_from_dir(dirname: str) -> str:
 
     e.g. '-home-jessica-Dotfiles' -> '/home/jessica/Dotfiles'
 
-    Note: Best-effort reconstruction. Directory names containing hyphens
-    will not round-trip correctly (e.g., 'my-project' becomes 'my/project').
+    Note: Lossy fallback — directory names containing hyphens will not
+    round-trip correctly (e.g., 'my-project' becomes 'my/project').
+    Prefer ``extract_cwd()`` for accurate paths when JSONL contains cwd.
     """
     return "/" + dirname.lstrip("-").replace("-", "/")
+
+
+def extract_cwd(path: Path) -> str | None:
+    """Extract the working directory from a session JSONL file.
+
+    Scans the first 20 lines for a ``user`` or ``assistant`` entry with a
+    ``cwd`` field and returns the first one found, or ``None``.
+    """
+    try:
+        with open(path) as f:
+            for i, line in enumerate(f):
+                if i >= 20:
+                    break
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if entry.get("type", "") in ("user", "assistant"):
+                    cwd = entry.get("cwd")
+                    if cwd:
+                        return cwd
+    except OSError:
+        pass
+    return None
 
 
 def find_sessions(
@@ -141,7 +162,12 @@ def find_sessions(
     since: str | None = None,
     limit: int = 20,
 ) -> list[dict[str, Any]]:
-    """Find sessions across all projects."""
+    """Find sessions across all projects.
+
+    Optimized to parse only the first ~20 lines of each JSONL file for
+    metadata (timestamp, branch, cwd) and count remaining lines without
+    JSON parsing for the message estimate.
+    """
     sessions: list[dict[str, Any]] = []
 
     for proj_name, session_id, jsonl_file in iter_session_files(
@@ -149,31 +175,51 @@ def find_sessions(
     ):
         mod_time = datetime.fromtimestamp(jsonl_file.stat().st_mtime, tz=timezone.utc)
         branch = ""
-        msg_count = 0
         first_ts = ""
+        cwd: str | None = None
+        head_lines = 0
 
         try:
             with open(jsonl_file) as f:
-                for line in f:
-                    entry = json.loads(line)
+                # Phase 1: parse first ~20 lines for metadata via readline()
+                # (avoid 'for line in f' which uses an internal read-ahead
+                # buffer that would skip lines in Phase 2)
+                while head_lines < 20:
+                    line = f.readline()
+                    if not line:
+                        break
+                    head_lines += 1
+                    try:
+                        entry = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
                     entry_type = entry.get("type", "")
-                    if entry_type in ("user", "assistant"):
-                        msg_count += 1
                     if not branch and entry.get("gitBranch"):
                         branch = entry["gitBranch"]
                     if not first_ts and entry.get("timestamp"):
                         first_ts = entry["timestamp"]
-        except (json.JSONDecodeError, OSError):
+                    if cwd is None and entry_type in ("user", "assistant"):
+                        entry_cwd = entry.get("cwd")
+                        if entry_cwd:
+                            cwd = entry_cwd
+
+                # Phase 2: count remaining lines without JSON parsing
+                tail_lines = sum(1 for _ in f)
+        except OSError:
             continue
 
+        msg_count = head_lines + tail_lines
         if msg_count == 0:
             continue
+
+        # Prefer real cwd; fall back to lossy dir-name reconstruction
+        project_path = cwd or project_path_from_dir(jsonl_file.parent.name)
 
         sessions.append(
             {
                 "session_id": session_id,
                 "project": proj_name,
-                "project_path": project_path_from_dir(jsonl_file.parent.name),
+                "project_path": project_path,
                 "date": first_ts[:10] if first_ts else mod_time.strftime("%Y-%m-%d"),
                 "timestamp": first_ts or mod_time.isoformat(),
                 "messages": msg_count,
@@ -228,16 +274,30 @@ def iter_entries(
     *,
     type_filter: str | None = None,
 ) -> Generator[dict[str, Any], None, None]:
-    """Iterate JSONL entries, optionally filtered by type."""
-    with open(path) as f:
-        for line in f:
-            try:
-                entry = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if type_filter and entry.get("type") != type_filter:
-                continue
-            yield entry
+    """Iterate JSONL entries, optionally filtered by type.
+
+    Tracks corrupt lines and emits a stderr warning when the generator is
+    exhausted if >1 line was skipped.  A single corrupt line (common for
+    active sessions being written to) is silently tolerated.
+    """
+    skipped = 0
+    try:
+        with open(path) as f:
+            for line in f:
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    skipped += 1
+                    continue
+                if type_filter and entry.get("type") != type_filter:
+                    continue
+                yield entry
+    finally:
+        if skipped > 1:
+            print(
+                f"Warning: skipped {skipped} corrupt lines in {path}",
+                file=sys.stderr,
+            )
 
 
 def extract_text(message: dict[str, Any]) -> str:
@@ -266,194 +326,44 @@ def extract_tool_uses(message: dict[str, Any]) -> list[dict[str, Any]]:
     return [b for b in content if isinstance(b, dict) and b.get("type") == "tool_use"]
 
 
-def format_table(rows: list[list[str]], headers: list[str]) -> str:
-    """Format rows as an aligned text table."""
-    all_rows = [headers, *rows]
-    col_widths = [
-        max(len(str(row[i])) for row in all_rows) for i in range(len(headers))
-    ]
+def extract_subagent_tool_uses(entry: dict[str, Any]) -> list[dict[str, Any]]:
+    """Extract tool_use blocks from an agent_progress entry.
 
-    lines: list[str] = []
-    header_line = "  ".join(h.ljust(w) for h, w in zip(headers, col_widths))
-    lines.append(c(BOLD, header_line))
-    lines.append("  ".join("─" * w for w in col_widths))
-
-    for row in rows:
-        cells = [str(row[i]).ljust(col_widths[i]) for i in range(len(headers))]
-        lines.append("  ".join(cells))
-
-    return "\n".join(lines)
-
-
-def truncate(text: str, max_len: int = 80) -> str:
-    """Truncate text to max_len, adding ellipsis if needed."""
-    text = text.replace("\n", " ").strip()
-    if len(text) <= max_len:
-        return text
-    return text[: max_len - 1] + "…"
-
-
-# ---------------------------------------------------------------------------
-# Permission helpers
-# ---------------------------------------------------------------------------
-
-SETTINGS_PATH = Path.home() / ".claude" / "settings.json"
-
-
-def load_allowed_patterns() -> list[str]:
-    """Load permission patterns from settings.
-
-    Merges ``permissions.allow`` and ``allowedTools`` into a single list.
+    Returns a list of dicts with keys: name, input, timestamp, agent_id,
+    parent_tool_use_id.  Returns [] for non-progress entries, hook progress,
+    user messages, or malformed data.
     """
-    if not SETTINGS_PATH.exists():
+    if entry.get("type") != "progress":
         return []
-    try:
-        settings = json.loads(SETTINGS_PATH.read_text())
-    except (json.JSONDecodeError, OSError):
+    data = entry.get("data")
+    if not isinstance(data, dict) or data.get("type") != "agent_progress":
         return []
-    perms: list[str] = list(settings.get("permissions", {}).get("allow", []))
-    perms.extend(settings.get("allowedTools", []))
-    return perms
-
-
-def tool_signature(name: str, inp: dict[str, Any]) -> str:
-    """Build a canonical tool signature from a tool_use block.
-
-    Returns strings like ``Bash(git status)``, ``Read(/home/jessica/file.py)``,
-    ``Edit(/home/jessica/file.py)``, ``Grep(pattern)``, etc.
-    """
-    if name == "Bash":
-        cmd = inp.get("command", "")
-        return f"Bash({cmd})"
-    if name in ("Read", "Write", "Edit"):
-        return f"{name}({inp.get('file_path', '')})"
-    if name == "Grep":
-        return (
-            f"Grep({inp.get('path', '')})"
-            if inp.get("path")
-            else f"Grep({inp.get('pattern', '')})"
-        )
-    if name == "Glob":
-        return (
-            f"Glob({inp.get('path', '')})"
-            if inp.get("path")
-            else f"Glob({inp.get('pattern', '')})"
-        )
-    if name == "WebFetch":
-        return f"WebFetch({inp.get('url', '')})"
-    if name == "Task":
-        return f"Task({inp.get('subagent_type', '')})"
-    # Generic fallback
-    first_val = next(iter(inp.values()), "") if inp else ""
-    return f"{name}({first_val})"
-
-
-def is_allowed(signature: str, patterns: list[str]) -> bool:
-    """Check whether *signature* matches any allowed pattern.
-
-    Supports the Claude Code permission syntax:
-    - Exact match: ``Bash(git status)``
-    - Prefix wildcard: ``Bash(git:*)`` matches ``Bash(git status)``, ``Bash(git diff)``, etc.
-    - Path glob: ``Read(/tmp/*)`` matches ``Read(/tmp/foo.txt)``
-    """
-    for pat in patterns:
-        if pat == signature:
-            return True
-        # Handle Tool(prefix:*) syntax — e.g. Bash(gh:*) matches Bash(gh pr view ...)
-        if pat.endswith(":*)") and "(" in pat:
-            # Extract tool name and prefix from pattern
-            paren_open = pat.index("(")
-            pat_tool = pat[:paren_open]
-            pat_prefix = pat[paren_open + 1 : -3]  # strip trailing :*)
-            # Extract tool name and arg from signature
-            if "(" in signature and signature.endswith(")"):
-                sig_tool = signature[: signature.index("(")]
-                sig_arg = signature[signature.index("(") + 1 : -1]
-                if pat_tool == sig_tool and sig_arg.startswith(pat_prefix):
-                    return True
-        # Handle glob-style path matching — e.g. Read(/tmp/*) matches Read(/tmp/foo.txt)
-        elif "*" in pat:
-            if fnmatch.fnmatch(signature, pat):
-                return True
-    return False
-
-
-def _find_project_root(file_path: str) -> str:
-    """Walk up from *file_path* looking for a project root marker.
-
-    Markers: ``.git``, ``pyproject.toml``, ``package.json``, ``Cargo.toml``,
-    ``go.mod``, ``setup.py``, ``setup.cfg``, ``dbt_project.yml``.
-
-    Returns the project root directory as a string.  Falls back to the first
-    directory under ``$HOME`` when no marker is found, or to the immediate
-    parent for paths outside ``$HOME``.
-    """
-    markers = (
-        ".git",
-        "pyproject.toml",
-        "package.json",
-        "Cargo.toml",
-        "go.mod",
-        "setup.py",
-        "setup.cfg",
-        "dbt_project.yml",
-    )
-    home = Path.home()
-    path = Path(file_path)
-
-    for parent in path.parents:
-        # Don't walk above home
-        if parent == home or not str(parent).startswith(str(home)):
-            break
-        if any((parent / m).exists() for m in markers):
-            return str(parent)
-
-    # Fallback: first directory under home (e.g. ~/Dotfiles)
-    try:
-        rel = path.relative_to(home)
-        first_part = rel.parts[0] if rel.parts else None
-        if first_part:
-            return str(home / first_part)
-    except ValueError:
-        pass
-
-    # Path is outside home — fall back to immediate parent
-    return str(path.parent)
-
-
-def suggest_pattern(signature: str) -> str:
-    """Suggest a permission pattern for a tool signature.
-
-    Collapses specific invocations into wildcard patterns:
-    - ``Bash(git status)`` → ``Bash(git:*)``
-    - ``Read(/home/jessica/analytics/packages/pkg/src/foo.py)``
-      → ``Read(/home/jessica/analytics/*)`` (collapses to project root)
-    """
-    if not ("(" in signature and signature.endswith(")")):
-        return signature
-
-    tool = signature[: signature.index("(")]
-    arg = signature[signature.index("(") + 1 : -1]
-
-    if not arg:
-        return signature
-
-    if tool == "Bash":
-        # Use first word/token as prefix: "git status" → "git:*"
-        parts = arg.split()
-        first_token = parts[0] if parts else arg
-        # Strip path prefix for absolute paths to commands
-        if "/" in first_token:
-            first_token = first_token.rsplit("/", 1)[-1]
-        return f"Bash({first_token}:*)"
-
-    if tool in ("Read", "Write", "Edit", "Grep", "Glob"):
-        # Collapse to project root directory
-        if "/" in arg:
-            root = _find_project_root(arg)
-            return f"{tool}({root}/*)"
-
-    return signature
+    outer_msg = data.get("message")
+    if not isinstance(outer_msg, dict) or outer_msg.get("type") != "assistant":
+        return []
+    inner_msg = outer_msg.get("message")
+    if not isinstance(inner_msg, dict):
+        return []
+    tools = extract_tool_uses(inner_msg)
+    if not tools:
+        return []
+    agent_id = data.get("agentId", "")
+    parent_tool_use_id = entry.get("parentToolUseID", "")
+    ts = entry.get("timestamp", "")
+    results = []
+    for t in tools:
+        record: dict[str, Any] = {
+            "name": t.get("name", "?"),
+            "input": t.get("input", {}),
+            "timestamp": ts,
+            "agent_id": agent_id,
+            "parent_tool_use_id": parent_tool_use_id,
+        }
+        # Preserve tool_use id for nested Agent indexing
+        if t.get("id"):
+            record["id"] = t["id"]
+        results.append(record)
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -471,33 +381,22 @@ def cmd_list(args: argparse.Namespace) -> None:
     )
 
     if not sessions:
-        print("No sessions found.")
+        print("No sessions found.", file=sys.stderr)
         return
 
-    if args.json:
-        print(json.dumps(sessions, indent=2))
-        return
-
-    rows: list[list[str]] = []
-    for s in sessions:
-        rows.append(
-            [
-                s["session_id"][:8],
-                s["project"],
-                s["date"],
-                str(s["messages"]),
-                s["branch"],
-            ]
-        )
-
-    print(format_table(rows, ["ID", "PROJECT", "DATE", "MSGS", "BRANCH"]))
+    print(json.dumps(sessions, indent=2))
 
 
 def cmd_show(args: argparse.Namespace) -> None:
-    """Show session content."""
-    path = resolve_session(args.session_id)
+    """Show session content as JSON.
 
-    # Determine which filter(s) apply
+    Single-pass: iterates entries once, builds the agent index incrementally,
+    applies filters, and emits a JSON array.
+    """
+    path = resolve_session(args.session_id)
+    include_subagents = True
+
+    # When no filter flags are set, include everything
     show_all = not any(
         [
             args.messages,
@@ -509,77 +408,15 @@ def cmd_show(args: argparse.Namespace) -> None:
         ]
     )
 
-    entries = list(iter_entries(path))
-
-    if args.json:
-        filtered = _filter_entries_for_show(entries, args, show_all)
-        print(json.dumps(filtered, indent=2))
-        return
-
-    for entry in entries:
-        entry_type = entry.get("type", "")
-        message = entry.get("message", {})
-        ts = entry.get("timestamp", "")
-        ts_short = ts[11:19] if len(ts) >= 19 else ts
-
-        if entry_type == "user" and (show_all or args.messages or args.user):
-            text = extract_text(message)
-            if text.strip():
-                print(f"{c(DIM, ts_short)} {c(GREEN, 'USER')}  {text}")
-
-        elif entry_type == "assistant":
-            content = message.get("content", [])
-            if not isinstance(content, list):
-                continue
-
-            for block in content:
-                if not isinstance(block, dict):
-                    continue
-
-                btype = block.get("type", "")
-
-                if btype == "text" and (show_all or args.messages or args.assistant):
-                    text = block.get("text", "").strip()
-                    if text:
-                        print(f"{c(DIM, ts_short)} {c(BLUE, 'ASST')}  {text}")
-
-                elif btype == "tool_use" and (show_all or args.tools):
-                    name = block.get("name", "?")
-                    inp = block.get("input", {})
-                    summary = _summarize_tool_input(name, inp)
-                    print(
-                        f"{c(DIM, ts_short)} {c(YELLOW, 'TOOL')}  {c(BOLD, name)}  {summary}"
-                    )
-
-                elif btype == "thinking" and (show_all or args.thinking):
-                    text = block.get("thinking", "").strip()
-                    if text:
-                        print(
-                            f"{c(DIM, ts_short)} {c(MAGENTA, 'THINK')} {truncate(text, 120)}"
-                        )
-
-            if args.usage:
-                usage = message.get("usage", {})
-                if usage:
-                    inp_tokens = usage.get("input_tokens", 0)
-                    out_tokens = usage.get("output_tokens", 0)
-                    cache_read = usage.get("cache_read_input_tokens", 0)
-                    cache_create = usage.get("cache_creation_input_tokens", 0)
-                    print(
-                        f"{c(DIM, ts_short)} {c(CYAN, 'USAGE')} "
-                        f"in={inp_tokens} out={out_tokens} cache_read={cache_read} cache_create={cache_create}"
-                    )
-
-
-def _filter_entries_for_show(
-    entries: list[dict[str, Any]],
-    args: argparse.Namespace,
-    show_all: bool,
-) -> list[dict[str, Any]]:
-    """Filter entries for JSON output in show command."""
     result: list[dict[str, Any]] = []
-    for entry in entries:
+    # Agent index built incrementally — same pattern as iter_all_tool_calls.
+    # Cannot reuse iter_all_tool_calls here because cmd_show handles all entry
+    # types (text, thinking, usage), not just tool calls.
+    agent_index: dict[str, str] = {}
+
+    for entry in iter_entries(path):
         entry_type = entry.get("type", "")
+
         is_user = entry_type == "user" and (show_all or args.messages or args.user)
         is_assistant = entry_type == "assistant" and (
             show_all
@@ -589,16 +426,45 @@ def _filter_entries_for_show(
             or args.thinking
             or args.usage
         )
+
         if is_user or is_assistant:
             result.append(entry)
-    return result
+            # Build agent index incrementally for subagent label resolution
+            if include_subagents and is_assistant:
+                for tool in extract_tool_uses(entry.get("message", {})):
+                    if tool.get("name") == "Agent" and tool.get("id"):
+                        agent_index[tool["id"]] = _agent_label(tool.get("input", {}))
+        elif (
+            entry_type == "progress" and include_subagents and (show_all or args.tools)
+        ):
+            for tool in extract_subagent_tool_uses(entry):
+                # Index nested Agent calls for sub-subagent label resolution
+                if tool["name"] == "Agent" and tool.get("id"):
+                    agent_index[tool["id"]] = _agent_label(tool.get("input", {}))
+                source = agent_index.get(tool["parent_tool_use_id"], "subagent")
+                result.append(
+                    {
+                        "type": "subagent_tool",
+                        "timestamp": tool["timestamp"],
+                        "name": tool["name"],
+                        "input": tool["input"],
+                        "source": source,
+                        "agent_id": tool["agent_id"],
+                    }
+                )
+
+    limit = args.limit
+    if limit is not None:
+        result = result[:limit]
+
+    print(json.dumps(result, indent=2))
 
 
-def _summarize_tool_input(name: str, inp: dict[str, Any]) -> str:
-    """Create a short summary of tool input."""
+def _tool_input_summary(name: str, inp: dict[str, Any]) -> str:
+    """Create a short summary of tool input for search result text."""
     if name == "Bash":
         cmd = inp.get("command", "")
-        return truncate(cmd, 100)
+        return cmd[:100]
     if name in ("Read", "Write", "Edit"):
         return inp.get("file_path", "")
     if name == "Grep":
@@ -616,7 +482,7 @@ def _summarize_tool_input(name: str, inp: dict[str, Any]) -> str:
     if name == "WebSearch":
         return inp.get("query", "")
     # Fallback: show first key=value pairs
-    parts = [f"{k}={truncate(str(v), 40)}" for k, v in list(inp.items())[:3]]
+    parts = [f"{k}={str(v)[:40]}" for k, v in list(inp.items())[:3]]
     return ", ".join(parts)
 
 
@@ -650,14 +516,17 @@ def _match_entry(
                 inp_str = json.dumps(block.get("input", {}))
                 if pattern.search(inp_str):
                     name = block.get("name", "?")
-                    return f"[{name}] {_summarize_tool_input(name, block.get('input', {}))}"
+                    return (
+                        f"[{name}] {_tool_input_summary(name, block.get('input', {}))}"
+                    )
 
     return ""
 
 
 def cmd_search(args: argparse.Namespace) -> None:
     """Search across sessions."""
-    pattern = re.compile(re.escape(args.query), re.IGNORECASE)
+    pattern = _compile_pattern(args.query, fixed=args.fixed)
+    include_subagents = True
 
     results: list[dict[str, Any]] = []
     max_results = args.limit
@@ -679,9 +548,31 @@ def cmd_search(args: argparse.Namespace) -> None:
                         "project": proj_name,
                         "timestamp": ts,
                         "type": entry_type,
-                        "text": truncate(matched_text, 120),
+                        "text": matched_text[:120],
                     }
                 )
+                if len(results) >= max_results:
+                    break
+
+            elif entry_type == "progress" and include_subagents:
+                for tool in extract_subagent_tool_uses(entry):
+                    if args.type and args.type != "tool_use":
+                        continue
+                    inp_str = json.dumps(tool["input"])
+                    if pattern.search(inp_str):
+                        name = tool["name"]
+                        summary = _tool_input_summary(name, tool["input"])
+                        results.append(
+                            {
+                                "session_id": session_id[:8],
+                                "project": proj_name,
+                                "timestamp": tool["timestamp"],
+                                "type": "subagent_tool",
+                                "text": f"[{name}] {summary}"[:120],
+                            }
+                        )
+                        if len(results) >= max_results:
+                            break
                 if len(results) >= max_results:
                     break
 
@@ -689,32 +580,21 @@ def cmd_search(args: argparse.Namespace) -> None:
             break
 
     if not results:
-        print("No matches found.")
+        print("No matches found.", file=sys.stderr)
         return
 
-    if args.json:
-        print(json.dumps(results, indent=2))
-        return
-
-    for r in results:
-        ts_short = (
-            r["timestamp"][11:19] if len(r["timestamp"]) >= 19 else r["timestamp"]
-        )
-        type_color = GREEN if r["type"] == "user" else BLUE
-        print(
-            f"{c(DIM, r['session_id'])} {c(DIM, ts_short)} "
-            f"{c(CYAN, r['project'])} {c(type_color, r['type'].upper()[:4])}  "
-            f"{r['text']}"
-        )
+    print(json.dumps(results, indent=2))
 
 
 def cmd_stats(args: argparse.Namespace) -> None:
     """Show session statistics."""
     path = resolve_session(args.session_id)
     proj_name = project_name_from_dir(path.parent.name)
+    include_subagents = True
 
     type_counts: dict[str, int] = {}
     tool_counts: dict[str, int] = {}
+    subagent_tool_counts: dict[str, int] = {}
     total_input = 0
     total_output = 0
     total_cache_read = 0
@@ -751,6 +631,11 @@ def cmd_stats(args: argparse.Namespace) -> None:
                 name = tool.get("name", "?")
                 tool_counts[name] = tool_counts.get(name, 0) + 1
 
+        elif entry_type == "progress" and include_subagents:
+            for tool in extract_subagent_tool_uses(entry):
+                name = tool["name"]
+                subagent_tool_counts[name] = subagent_tool_counts.get(name, 0) + 1
+
     # Calculate duration
     duration_str = ""
     if first_ts and last_ts:
@@ -769,55 +654,26 @@ def cmd_stats(args: argparse.Namespace) -> None:
         except ValueError:
             pass
 
-    if args.json:
-        print(
-            json.dumps(
-                {
-                    "session_id": path.stem,
-                    "project": proj_name,
-                    "branch": branch,
-                    "model": model,
-                    "duration": duration_str,
-                    "first_timestamp": first_ts,
-                    "last_timestamp": last_ts,
-                    "type_counts": type_counts,
-                    "tool_counts": tool_counts,
-                    "tokens": {
-                        "input": total_input,
-                        "output": total_output,
-                        "cache_read": total_cache_read,
-                        "cache_create": total_cache_create,
-                    },
-                },
-                indent=2,
-            )
-        )
-        return
-
-    print(f"{c(BOLD, 'Session')}   {path.stem}")
-    print(f"{c(BOLD, 'Project')}   {proj_name}")
-    print(f"{c(BOLD, 'Branch')}    {branch}")
-    print(f"{c(BOLD, 'Model')}     {model}")
-    print(f"{c(BOLD, 'Duration')}  {duration_str}")
-    print(f"{c(BOLD, 'Period')}    {first_ts[:19]} → {last_ts[:19]}")
-    print()
-
-    print(c(BOLD, "Message Counts"))
-    for msg_type, count in sorted(type_counts.items()):
-        print(f"  {msg_type:<25} {count}")
-    print()
-
-    if tool_counts:
-        print(c(BOLD, "Tool Usage"))
-        for tool_name, count in sorted(tool_counts.items(), key=lambda x: -x[1]):
-            print(f"  {tool_name:<25} {count}")
-        print()
-
-    print(c(BOLD, "Token Usage"))
-    print(f"  {'Input':<25} {total_input:,}")
-    print(f"  {'Output':<25} {total_output:,}")
-    print(f"  {'Cache read':<25} {total_cache_read:,}")
-    print(f"  {'Cache create':<25} {total_cache_create:,}")
+    stats_dict: dict[str, Any] = {
+        "session_id": path.stem,
+        "project": proj_name,
+        "branch": branch,
+        "model": model,
+        "duration": duration_str,
+        "first_timestamp": first_ts,
+        "last_timestamp": last_ts,
+        "type_counts": type_counts,
+        "tool_counts": tool_counts,
+        "tokens": {
+            "input": total_input,
+            "output": total_output,
+            "cache_read": total_cache_read,
+            "cache_create": total_cache_create,
+        },
+    }
+    if include_subagents:
+        stats_dict["subagent_tool_counts"] = subagent_tool_counts
+    print(json.dumps(stats_dict, indent=2))
 
 
 _BUILTIN_COMMANDS = frozenset(
@@ -867,8 +723,6 @@ def _discover_on_disk() -> set[str]:
 def _skills_audit(
     usage: dict[str, int],
     sessions: dict[str, set[str]],
-    *,
-    json_output: bool = False,
 ) -> None:
     """Cross-reference skill usage with what's installed on disk."""
     on_disk = _discover_on_disk()
@@ -878,76 +732,62 @@ def _skills_audit(
     ghost = sorted(used_names - on_disk - _BUILTIN_COMMANDS)
     active = sorted(on_disk & used_names, key=lambda n: -usage.get(n, 0))
 
-    if json_output:
-        result = {
-            "on_disk": sorted(on_disk),
-            "active": [
-                {
-                    "skill": name,
-                    "invocations": usage[name],
-                    "sessions": len(sessions.get(name, set())),
-                }
-                for name in active
-            ],
-            "never_used": never_used,
-            "ghost": [
-                {
-                    "skill": name,
-                    "invocations": usage[name],
-                    "sessions": len(sessions.get(name, set())),
-                }
-                for name in ghost
-            ],
-        }
-        print(json.dumps(result, indent=2))
-        return
+    result = {
+        "on_disk": sorted(on_disk),
+        "active": [
+            {
+                "skill": name,
+                "invocations": usage[name],
+                "sessions": len(sessions.get(name, set())),
+            }
+            for name in active
+        ],
+        "never_used": never_used,
+        "ghost": [
+            {
+                "skill": name,
+                "invocations": usage[name],
+                "sessions": len(sessions.get(name, set())),
+            }
+            for name in ghost
+        ],
+    }
+    print(json.dumps(result, indent=2))
 
-    print(c(BOLD, "Active skills/commands (on disk + used)"))
-    print()
-    rows: list[list[str]] = []
-    for name in active:
-        count = usage[name]
-        sess = len(sessions.get(name, set()))
-        rows.append([str(count), str(sess), name])
-    print(format_table(rows, ["USES", "SESSIONS", "SKILL"]))
 
-    print()
-    print(c(BOLD, f"Never used ({len(never_used)} on disk, 0 invocations)"))
-    print()
-    for name in never_used:
-        print(f"  {c(YELLOW, name)}")
+def _normalize_skill_name(name: str) -> str:
+    """Canonicalize skill name: ``mine:ship`` → ``mine.ship``."""
+    return name.replace(":", ".", 1) if ":" in name else name
 
-    if ghost:
-        print()
-        print(c(BOLD, f"Ghost invocations ({len(ghost)} used but not on disk)"))
-        print()
-        ghost_rows: list[list[str]] = []
-        for name in sorted(ghost, key=lambda n: -usage.get(n, 0)):
-            count = usage[name]
-            sess = len(sessions.get(name, set()))
-            ghost_rows.append([str(count), str(sess), name])
-        print(format_table(ghost_rows, ["USES", "SESSIONS", "SKILL"]))
 
-    total_on_disk = len(on_disk)
-    total_active = len(active)
-    total_never = len(never_used)
-    pct_unused = (total_never / total_on_disk * 100) if total_on_disk else 0
-    print()
-    print(
-        c(
-            DIM,
-            f"Summary: {total_on_disk} on disk, {total_active} active, "
-            f"{total_never} never used ({pct_unused:.0f}%)",
-        )
-    )
-    if ghost:
-        print(c(DIM, f"         {len(ghost)} ghost (invoked but no longer on disk)"))
+def _flush_skill_turn(
+    xml_skills: set[str],
+    tool_use_skills: set[str],
+    skill_counts: dict[str, int],
+    skill_via: dict[str, dict[str, int]],
+    seen_in_session: set[str],
+) -> None:
+    """Flush one turn's skill detections, deduplicating by canonical name.
+
+    Each unique skill in the turn is counted once.  When both an XML tag and a
+    Skill tool_use were seen for the same skill, prefer tool_use.
+    Names are normalized (colon → dot) before dedup so ``mine:ship`` and
+    ``mine.ship`` are treated as the same skill within a turn.
+    """
+    all_skills = xml_skills | tool_use_skills
+    for name in all_skills:
+        via = "tool_use" if name in tool_use_skills else "xml_tag"
+        skill_counts[name] = skill_counts.get(name, 0) + 1
+        via_counts = skill_via.setdefault(name, {})
+        via_counts[via] = via_counts.get(via, 0) + 1
+        seen_in_session.add(name)
 
 
 def cmd_skills(args: argparse.Namespace) -> None:
     """Show skill/command usage across sessions."""
     skill_pattern = re.compile(r"<command-name>/([^<]+)</command-name>")
     skill_counts: dict[str, int] = {}
+    skill_via: dict[str, dict[str, int]] = {}
     skill_sessions: dict[str, set[str]] = {}
 
     for _proj_name, session_id, jsonl_file in iter_session_files(
@@ -956,76 +796,78 @@ def cmd_skills(args: argparse.Namespace) -> None:
         sid = session_id[:8]
         seen_in_session: set[str] = set()
 
+        # Per-turn dedup sets — a "turn" spans from one user entry to the next
+        turn_xml: set[str] = set()
+        turn_tool_use: set[str] = set()
+
         for entry in iter_entries(jsonl_file):
             entry_type = entry.get("type", "")
             message = entry.get("message", {})
 
-            # User messages: look for <command-name>/skill</command-name>
             if entry_type == "user":
+                # Flush previous turn before starting a new one
+                _flush_skill_turn(
+                    turn_xml,
+                    turn_tool_use,
+                    skill_counts,
+                    skill_via,
+                    seen_in_session,
+                )
+                turn_xml = set()
+                turn_tool_use = set()
+
+                # Scan this user message for XML command-name tags
                 text = extract_text(message)
                 for match in skill_pattern.finditer(text):
-                    name = match.group(1)
-                    if name in _BUILTIN_COMMANDS:
-                        continue
-                    skill_counts[name] = skill_counts.get(name, 0) + 1
-                    seen_in_session.add(name)
+                    name = _normalize_skill_name(match.group(1))
+                    if name not in _BUILTIN_COMMANDS:
+                        turn_xml.add(name)
 
-            # Assistant messages: look for Skill tool_use blocks
             elif entry_type == "assistant":
                 for tool in extract_tool_uses(message):
                     if tool.get("name") == "Skill":
                         skill_name = tool.get("input", {}).get("skill", "")
                         if skill_name:
-                            skill_counts[skill_name] = (
-                                skill_counts.get(skill_name, 0) + 1
-                            )
-                            seen_in_session.add(skill_name)
+                            turn_tool_use.add(_normalize_skill_name(skill_name))
+
+        # Flush the final turn
+        _flush_skill_turn(
+            turn_xml,
+            turn_tool_use,
+            skill_counts,
+            skill_via,
+            seen_in_session,
+        )
 
         for name in seen_in_session:
             skill_sessions.setdefault(name, set()).add(sid)
 
     if not skill_counts:
-        print("No skill invocations found.")
+        print("No skill invocations found.", file=sys.stderr)
         return
 
-    # Normalize colon variants (mine:commit-push -> mine.commit-push)
-    normalized: dict[str, int] = {}
-    normalized_sessions: dict[str, set[str]] = {}
-    for name, count in skill_counts.items():
-        canonical = name.replace(":", ".", 1) if ":" in name else name
-        normalized[canonical] = normalized.get(canonical, 0) + count
-        normalized_sessions.setdefault(canonical, set()).update(
-            skill_sessions.get(name, set())
-        )
+    # Names are already normalized (colon→dot) at detection time via
+    # _normalize_skill_name, so no post-loop normalization pass needed.
 
-    sorted_skills = sorted(normalized.items(), key=lambda x: -x[1])
+    sorted_skills = sorted(skill_counts.items(), key=lambda x: -x[1])
 
     if args.audit:
-        _skills_audit(normalized, normalized_sessions, json_output=args.json)
+        _skills_audit(skill_counts, skill_sessions)
         return
 
-    if args.json:
-        result = [
+    result = []
+    for name, count in sorted_skills:
+        via_counts = skill_via.get(name, {})
+        dominant_via = max(via_counts, key=via_counts.get, default="tool_use")  # type: ignore[arg-type]
+        result.append(
             {
                 "skill": name,
                 "invocations": count,
-                "sessions": len(normalized_sessions.get(name, set())),
+                "sessions": len(skill_sessions.get(name, set())),
+                "via": dominant_via,
             }
-            for name, count in sorted_skills
-        ]
-        print(json.dumps(result, indent=2))
-        return
-
-    rows: list[list[str]] = []
-    for name, count in sorted_skills:
-        sessions_count = len(normalized_sessions.get(name, set()))
-        rows.append([str(count), str(sessions_count), name])
-
-    print(format_table(rows, ["USES", "SESSIONS", "SKILL"]))
-    print()
-    print(
-        f"{c(DIM, f'Total: {sum(normalized.values())} invocations across {len(normalized)} skills')}"
-    )
+        )
+    print(json.dumps(result, indent=2))
 
 
 def cmd_agents(args: argparse.Namespace) -> None:
@@ -1042,7 +884,7 @@ def cmd_agents(args: argparse.Namespace) -> None:
         for entry in iter_entries(jsonl_file, type_filter="assistant"):
             message = entry.get("message", {})
             for tool in extract_tool_uses(message):
-                if tool.get("name") == "Task":
+                if tool.get("name") in ("Agent", "Task"):
                     agent_name = tool.get("input", {}).get("subagent_type", "")
                     if agent_name:
                         agent_counts[agent_name] = agent_counts.get(agent_name, 0) + 1
@@ -1052,83 +894,166 @@ def cmd_agents(args: argparse.Namespace) -> None:
             agent_sessions.setdefault(name, set()).add(sid)
 
     if not agent_counts:
-        print("No agent invocations found.")
+        print("No agent invocations found.", file=sys.stderr)
         return
 
     sorted_agents = sorted(agent_counts.items(), key=lambda x: -x[1])
 
-    if args.json:
-        result = [
-            {
-                "agent": name,
-                "invocations": count,
-                "sessions": len(agent_sessions.get(name, set())),
-            }
-            for name, count in sorted_agents
-        ]
-        print(json.dumps(result, indent=2))
-        return
-
-    rows: list[list[str]] = []
-    for name, count in sorted_agents:
-        sessions_count = len(agent_sessions.get(name, set()))
-        rows.append([str(count), str(sessions_count), name])
-
-    print(format_table(rows, ["USES", "SESSIONS", "AGENT"]))
-    print()
-    print(
-        f"{c(DIM, f'Total: {sum(agent_counts.values())} invocations across {len(agent_counts)} agents')}"
-    )
+    result = [
+        {
+            "agent": name,
+            "invocations": count,
+            "sessions": len(agent_sessions.get(name, set())),
+        }
+        for name, count in sorted_agents
+    ]
+    print(json.dumps(result, indent=2))
 
 
 def cmd_extract(args: argparse.Namespace) -> None:
     """Extract structured data as JSON."""
     path = resolve_session(args.session_id)
     grep = getattr(args, "grep", None)
+    if grep:
+        _compile_pattern(grep)  # validate early — exits on bad regex
+    limit = args.limit
+
+    include_subagents = True
 
     if args.tools:
-        _extract_tools(path, tool_filter=None, grep=grep)
+        _extract_tools(
+            path,
+            tool_filter=None,
+            grep=grep,
+            include_subagents=include_subagents,
+            limit=limit,
+        )
     elif args.bash:
-        _extract_tools(path, tool_filter="Bash", grep=grep)
+        _extract_tools(
+            path,
+            tool_filter="Bash",
+            grep=grep,
+            include_subagents=include_subagents,
+            limit=limit,
+        )
     elif args.usage:
-        _extract_usage(path)
+        _extract_usage(path, limit=limit)
     elif args.messages:
-        _extract_messages(path)
+        _extract_messages(path, limit=limit)
     else:
         print("Error: specify --tools, --bash, --usage, or --messages", file=sys.stderr)
         sys.exit(1)
 
 
-def _extract_tools(
-    path: Path, *, tool_filter: str | None, grep: str | None = None
-) -> None:
-    """Extract tool_use blocks as JSON."""
-    grep_re = re.compile(grep, re.IGNORECASE) if grep else None
-    results: list[dict[str, Any]] = []
-    for entry in iter_entries(path, type_filter="assistant"):
-        message = entry.get("message", {})
-        ts = entry.get("timestamp", "")
-        for tool in extract_tool_uses(message):
-            name = tool.get("name", "?")
-            if tool_filter and name != tool_filter:
-                continue
-            inp = tool.get("input", {})
-            if grep_re:
-                # For Bash, match against command; for others, match against full input JSON
-                haystack = inp.get("command", "") if name == "Bash" else json.dumps(inp)
-                if not grep_re.search(haystack):
+def _agent_label(inp: dict[str, Any]) -> str:
+    """Build a human-readable label from Agent tool_use input."""
+    desc = inp.get("description", "")
+    stype = inp.get("subagent_type", "")
+    return f"{desc} ({stype})" if desc and stype else desc or stype or "subagent"
+
+
+def iter_all_tool_calls(
+    path: Path,
+    *,
+    include_subagents: bool = False,
+    tool_filter: str | None = None,
+    grep: str | None = None,
+    grep_re: re.Pattern[str] | None = None,
+) -> Generator[dict[str, Any], None, None]:
+    """Yield normalized tool call dicts from a session in chronological order.
+
+    Single-pass: reads the file once, builds the agent name index
+    incrementally as Agent tool_use blocks are encountered (they always
+    precede their progress entries in the log).
+
+    Each yielded dict has keys: timestamp, name, input.
+    When *include_subagents* is True, also: source (str).
+
+    The *grep_re* parameter accepts a pre-compiled pattern (preferred).
+    The *grep* parameter accepts a raw regex string for backward compat.
+    """
+    if grep_re is None and grep:
+        grep_re = re.compile(grep, re.IGNORECASE)
+    agent_index: dict[str, str] = {}
+
+    for entry in iter_entries(path):
+        entry_type = entry.get("type", "")
+
+        if entry_type == "assistant":
+            message = entry.get("message", {})
+            ts = entry.get("timestamp", "")
+            for tool in extract_tool_uses(message):
+                name = tool.get("name", "?")
+                # Build agent index incrementally
+                if include_subagents and name == "Agent" and tool.get("id"):
+                    agent_index[tool["id"]] = _agent_label(tool.get("input", {}))
+                if tool_filter and name != tool_filter:
                     continue
-            results.append(
-                {
+                inp = tool.get("input", {})
+                if grep_re:
+                    haystack = (
+                        inp.get("command", "") if name == "Bash" else json.dumps(inp)
+                    )
+                    if not grep_re.search(haystack):
+                        continue
+                result: dict[str, Any] = {
                     "timestamp": ts,
                     "name": name,
                     "input": inp,
                 }
-            )
+                if include_subagents:
+                    result["source"] = "parent"
+                yield result
+
+        elif entry_type == "progress" and include_subagents:
+            for tool in extract_subagent_tool_uses(entry):
+                name = tool["name"]
+                # Index nested Agent calls for sub-subagent label resolution
+                if name == "Agent" and tool.get("id"):
+                    agent_index[tool["id"]] = _agent_label(tool.get("input", {}))
+                if tool_filter and name != tool_filter:
+                    continue
+                inp = tool["input"]
+                if grep_re:
+                    haystack = (
+                        inp.get("command", "") if name == "Bash" else json.dumps(inp)
+                    )
+                    if not grep_re.search(haystack):
+                        continue
+                source = agent_index.get(tool["parent_tool_use_id"], "subagent")
+                yield {
+                    "timestamp": tool["timestamp"],
+                    "name": name,
+                    "input": inp,
+                    "source": source,
+                }
+
+
+def _extract_tools(
+    path: Path,
+    *,
+    tool_filter: str | None,
+    grep: str | None = None,
+    include_subagents: bool = False,
+    limit: int | None = None,
+) -> None:
+    """Extract tool_use blocks as JSON."""
+    gen = iter_all_tool_calls(
+        path,
+        include_subagents=include_subagents,
+        tool_filter=tool_filter,
+        grep=grep,
+    )
+    if limit is not None:
+        from itertools import islice
+
+        results = list(islice(gen, limit))
+    else:
+        results = list(gen)
     print(json.dumps(results, indent=2))
 
 
-def _extract_usage(path: Path) -> None:
+def _extract_usage(path: Path, *, limit: int | None = None) -> None:
     """Extract token usage per turn as JSON."""
     results: list[dict[str, Any]] = []
     for entry in iter_entries(path, type_filter="assistant"):
@@ -1147,10 +1072,12 @@ def _extract_usage(path: Path) -> None:
                     ),
                 }
             )
+    if limit is not None:
+        results = results[:limit]
     print(json.dumps(results, indent=2))
 
 
-def _extract_messages(path: Path) -> None:
+def _extract_messages(path: Path, *, limit: int | None = None) -> None:
     """Extract messages as JSON."""
     results: list[dict[str, Any]] = []
     for entry in iter_entries(path):
@@ -1166,155 +1093,58 @@ def _extract_messages(path: Path) -> None:
                 "text": extract_text(message),
             }
         )
+    if limit is not None:
+        results = results[:limit]
     print(json.dumps(results, indent=2))
 
 
 def cmd_grep(args: argparse.Namespace) -> None:
     """Search bash commands across sessions by regex pattern."""
-    grep_re = re.compile(args.pattern, re.IGNORECASE)
+    fixed = getattr(args, "fixed", False)
+    # Validate/escape early so the user sees a clean error before any I/O
+    grep_pattern = _compile_pattern(args.pattern, fixed=fixed)
+    include_subagents = True
     results: list[dict[str, Any]] = []
 
     for proj_name, session_id, jsonl_file in iter_session_files(
         project_filter=args.project,
         since=args.since,
     ):
-        for entry in iter_entries(jsonl_file, type_filter="assistant"):
-            message = entry.get("message", {})
-            ts = entry.get("timestamp", "")
-            for tool in extract_tool_uses(message):
-                if tool.get("name") != "Bash":
-                    continue
-                cmd = tool.get("input", {}).get("command", "")
-                if not grep_re.search(cmd):
-                    continue
-                results.append(
-                    {
-                        "session_id": session_id[:8],
-                        "project": proj_name,
-                        "timestamp": ts,
-                        "command": cmd,
-                    }
-                )
+        for tool_call in iter_all_tool_calls(
+            jsonl_file,
+            include_subagents=include_subagents,
+            tool_filter="Bash",
+            grep_re=grep_pattern,
+        ):
+            result: dict[str, Any] = {
+                "session_id": session_id[:8],
+                "project": proj_name,
+                "timestamp": tool_call["timestamp"],
+                "command": tool_call["input"].get("command", ""),
+            }
+            if include_subagents:
+                result["source"] = tool_call.get("source", "parent")
+            results.append(result)
+
+    results.sort(key=lambda r: r.get("timestamp", ""))
 
     if args.limit:
         results = results[: args.limit]
 
-    if args.json:
-        print(json.dumps(results, indent=2))
+    if not results:
+        print("No matches found.", file=sys.stderr)
         return
 
-    prev_sid = None
-    for r in results:
-        sid = r["session_id"]
-        ts = r["timestamp"][11:19] if len(r["timestamp"]) >= 19 else r["timestamp"]
-        cmd_preview = r["command"].replace("\n", " ↵ ")[:100]
-        sid_display = c(CYAN, sid) if sid != prev_sid else " " * 8
-        prev_sid = sid
-        print(f"{sid_display}  {c(DIM, ts)}  {cmd_preview}")
+    print(json.dumps(results, indent=2))
 
 
 def cmd_permissions(args: argparse.Namespace) -> None:
-    """Analyse tool usage and suggest new permission allow entries."""
-    allowed_patterns = load_allowed_patterns()
-
-    sessions = find_sessions(
-        project_filter=args.project,
-        since=args.since,
-        limit=args.limit,
+    """Deprecated — prints a message and exits."""
+    print(
+        "claude-log permissions has been removed. "
+        "Use /mine.permissions-audit instead, which reads debug logs directly.",
+        file=sys.stderr,
     )
-
-    if not sessions:
-        print("No sessions found.")
-        return
-
-    # Count every tool invocation that is NOT already allowed
-    unmatched_counts: dict[str, int] = {}
-    unmatched_sessions: dict[str, set[str]] = {}
-    matched_counts: dict[str, int] = {}
-
-    for sess in sessions:
-        path = Path(sess["path"])
-        sid = sess["session_id"][:8]
-
-        for entry in iter_entries(path, type_filter="assistant"):
-            message = entry.get("message", {})
-            for tool in extract_tool_uses(message):
-                name = tool.get("name", "?")
-                inp = tool.get("input", {})
-                sig = tool_signature(name, inp)
-
-                if is_allowed(sig, allowed_patterns):
-                    matched_counts[sig] = matched_counts.get(sig, 0) + 1
-                else:
-                    unmatched_counts[sig] = unmatched_counts.get(sig, 0) + 1
-                    unmatched_sessions.setdefault(sig, set()).add(sid)
-
-    # Group unmatched signatures by their suggested pattern
-    suggestion_sigs: dict[str, list[str]] = {}
-    suggestion_counts: dict[str, int] = {}
-    suggestion_sessions: dict[str, set[str]] = {}
-
-    for sig, count in unmatched_counts.items():
-        pattern = suggest_pattern(sig)
-        suggestion_sigs.setdefault(pattern, []).append(sig)
-        suggestion_counts[pattern] = suggestion_counts.get(pattern, 0) + count
-        suggestion_sessions.setdefault(pattern, set()).update(
-            unmatched_sessions.get(sig, set())
-        )
-
-    if args.json:
-        result = {
-            "allowed_patterns": allowed_patterns,
-            "matched_invocations": sum(matched_counts.values()),
-            "unmatched_invocations": sum(unmatched_counts.values()),
-            "suggestions": sorted(
-                [
-                    {
-                        "pattern": pat,
-                        "invocations": suggestion_counts[pat],
-                        "sessions": len(suggestion_sessions.get(pat, set())),
-                        "examples": [
-                            truncate(s, 120) for s in sorted(suggestion_sigs[pat])[:5]
-                        ],
-                    }
-                    for pat in suggestion_counts
-                ],
-                key=lambda x: -x["invocations"],
-            ),
-        }
-        print(json.dumps(result, indent=2))
-        return
-
-    total_matched = sum(matched_counts.values())
-    total_unmatched = sum(unmatched_counts.values())
-
-    print(c(BOLD, "Permission Analysis"))
-    print(f"  Allowed patterns loaded:  {len(allowed_patterns)}")
-    print(f"  Tool invocations matched: {c(GREEN, str(total_matched))}")
-    print(f"  Tool invocations missed:  {c(YELLOW, str(total_unmatched))}")
-    print(f"  Sessions scanned:         {len(sessions)}")
-    print()
-
-    if not suggestion_counts:
-        print(c(GREEN, "All tool invocations are covered by existing permissions."))
-        return
-
-    sorted_suggestions = sorted(suggestion_counts.items(), key=lambda x: -x[1])
-
-    rows: list[list[str]] = []
-    for pat, count in sorted_suggestions:
-        sess_count = len(suggestion_sessions.get(pat, set()))
-        rows.append([str(count), str(sess_count), truncate(pat, 70)])
-
-    print(c(BOLD, "Suggested Allow Entries"))
-    print()
-    print(format_table(rows, ["USES", "SESSIONS", "PATTERN"]))
-    print()
-
-    # Print a copy-pasteable JSON snippet
-    patterns_list = [pat for pat, _ in sorted_suggestions]
-    print(c(BOLD, "Add to permissions.allow:"))
-    print(c(DIM, json.dumps(patterns_list, indent=2)))
 
 
 # ---------------------------------------------------------------------------
@@ -1331,12 +1161,6 @@ def _positive_int(value: str) -> int:
     if n <= 0:
         raise argparse.ArgumentTypeError(f"must be a positive integer, got {n}")
     return n
-
-
-def _add_global_opts(parser: argparse.ArgumentParser) -> None:
-    """Add --json and --no-color to a subparser."""
-    parser.add_argument("--json", action="store_true", help="Output as JSON")
-    parser.add_argument("--no-color", action="store_true", help="Disable color output")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1367,7 +1191,6 @@ def build_parser() -> argparse.ArgumentParser:
         default=20,
         help="Max results (default: 20)",
     )
-    _add_global_opts(p_list)
 
     # show
     p_show = subs.add_parser("show", help="Show session content")
@@ -1384,11 +1207,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_show.add_argument("--thinking", action="store_true", help="Thinking blocks only")
     p_show.add_argument("--usage", action="store_true", help="Token usage per turn")
-    _add_global_opts(p_show)
+    p_show.add_argument(
+        "--limit",
+        "-l",
+        type=_positive_int,
+        default=None,
+        help="Max entries to return (default: unlimited)",
+    )
 
     # search
-    p_search = subs.add_parser("search", help="Search across sessions")
-    p_search.add_argument("query", help="Search query")
+    p_search = subs.add_parser(
+        "search",
+        help="Search across sessions (regex by default)",
+    )
+    p_search.add_argument("query", help="Search pattern (regex by default)")
+    p_search.add_argument(
+        "--fixed",
+        "-F",
+        action="store_true",
+        help="Treat pattern as a fixed string, not a regex",
+    )
     p_search.add_argument("--project", "-p", help="Filter by project name substring")
     p_search.add_argument(
         "--type", choices=["user", "assistant", "tool_use"], help="Filter by type"
@@ -1401,12 +1239,10 @@ def build_parser() -> argparse.ArgumentParser:
         default=50,
         help="Max results (default: 50)",
     )
-    _add_global_opts(p_search)
 
     # stats
     p_stats = subs.add_parser("stats", help="Session statistics")
     p_stats.add_argument("session_id", help="Session ID or prefix")
-    _add_global_opts(p_stats)
 
     # skills
     p_skills = subs.add_parser("skills", help="Skill/command usage across sessions")
@@ -1417,13 +1253,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Cross-reference usage with skills/commands on disk — shows unused and ghost entries",
     )
-    _add_global_opts(p_skills)
 
     # agents
     p_agents = subs.add_parser("agents", help="Agent usage across sessions")
     p_agents.add_argument("--project", "-p", help="Filter by project name substring")
     p_agents.add_argument("--since", "-s", help="Filter by date (YYYY-MM-DD)")
-    _add_global_opts(p_agents)
 
     # extract
     p_extract = subs.add_parser("extract", help="Extract structured data as JSON")
@@ -1436,17 +1270,29 @@ def build_parser() -> argparse.ArgumentParser:
     p_extract.add_argument(
         "--grep",
         metavar="PATTERN",
-        help="Filter bash commands by regex (only with --bash)",
+        help="Filter tool inputs by regex (with --tools or --bash)",
     )
-    _add_global_opts(p_extract)
+    p_extract.add_argument(
+        "--limit",
+        "-l",
+        type=_positive_int,
+        default=None,
+        help="Max entries to return (default: unlimited)",
+    )
 
     # grep
     p_grep = subs.add_parser(
         "grep",
-        help="Search bash commands across sessions by regex",
+        help="Search bash commands across sessions (regex by default)",
         description="Search bash commands across multiple sessions. Like 'extract --bash --grep' but cross-session.",
     )
-    p_grep.add_argument("pattern", help="Regex pattern to search for in bash commands")
+    p_grep.add_argument("pattern", help="Search pattern (regex by default)")
+    p_grep.add_argument(
+        "--fixed",
+        "-F",
+        action="store_true",
+        help="Treat pattern as a fixed string, not a regex",
+    )
     p_grep.add_argument("--project", "-p", help="Filter by project name substring")
     p_grep.add_argument("--since", "-s", help="Filter by date (YYYY-MM-DD)")
     p_grep.add_argument(
@@ -1455,35 +1301,20 @@ def build_parser() -> argparse.ArgumentParser:
         type=_positive_int,
         help="Max results to return",
     )
-    _add_global_opts(p_grep)
 
-    # permissions
-    p_perms = subs.add_parser(
-        "permissions", help="Suggest new permission allow entries"
+    # permissions (deprecated stub — prints warning, exits 0)
+    subs.add_parser(
+        "permissions",
+        help="(deprecated) Use /mine.permissions-audit instead",
     )
-    p_perms.add_argument("--project", "-p", help="Filter by project name substring")
-    p_perms.add_argument("--since", "-s", help="Filter by date (YYYY-MM-DD)")
-    p_perms.add_argument(
-        "--limit",
-        "-l",
-        type=_positive_int,
-        default=20,
-        help="Max sessions to scan (default: 20)",
-    )
-    _add_global_opts(p_perms)
 
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> None:
     """Entry point."""
-    global USE_COLOR
-
     parser = build_parser()
     args = parser.parse_args(argv)
-
-    if args.no_color or not sys.stdout.isatty():
-        USE_COLOR = False
 
     handlers = {
         "list": cmd_list,

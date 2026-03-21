@@ -77,16 +77,16 @@ Use targeted searches across sessions instead of blind extraction:
 
 ```bash
 # Find sessions with inline Python (strong signal)
-claude-log search "python3 -c" --since <date> --limit 60 --type tool_use 2>/dev/null | head -40
+claude-log search -F "python3 -c" --since <date> --limit 60 --type tool_use 2>/dev/null | head -40
 
 # Find sessions with complex jq (moderate signal)
-claude-log search "| jq" --since <date> --limit 60 --type tool_use 2>/dev/null | head -40
+claude-log search -F "| jq" --since <date> --limit 60 --type tool_use 2>/dev/null | head -40
 
 # Find sessions with raw curl (unwrapped API calls)
-claude-log search "curl" --since <date> --limit 60 --type tool_use 2>/dev/null | head -40
+claude-log search -F "curl" --since <date> --limit 60 --type tool_use 2>/dev/null | head -40
 
 # Find multi-call batching patterns (batch mode gap signal)
-claude-log search " & " --since <date> --limit 60 --type tool_use 2>/dev/null | head -40
+claude-log search -F " & " --since <date> --limit 60 --type tool_use 2>/dev/null | head -40
 ```
 
 Then extract bash from the identified sessions and collect the raw patterns.

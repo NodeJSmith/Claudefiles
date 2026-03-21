@@ -8,27 +8,19 @@ Analyze recent session permission data to surface patterns worth auto-allowing. 
 
 ## Arguments
 
-$ARGUMENTS — optional flags passed through to `claude-log permissions` (e.g., `--since 2026-02-01 --limit 50`). Defaults to `--limit 20` if empty.
+$ARGUMENTS — optional; currently unused (reserved for future filtering). Ignored if provided.
 
 ## Step 1: Gather Data
 
-Run all four sources in parallel:
-
-### Permission data (Bash)
-
-```bash
-claude-log permissions --json $ARGUMENTS
-```
-
-If `$ARGUMENTS` is empty, use `claude-log permissions --json --limit 20`.
+Run all three sources in parallel:
 
 ### Current settings
 
-Read `~/Claudefiles/settings.json` if it exists (it may not yet — that's fine). This is for context only — `claude-log permissions` already filters out patterns that match existing `permissions.allow` entries, so its suggestions won't include already-allowed patterns.
+Read `~/Claudefiles/settings.json` if it exists (it may not yet — that's fine). This is the baseline for filtering out already-allowed patterns.
 
 ### Debug log scan (Bash)
 
-Scan recent Claude Code debug logs for actual permission prompts. These capture what Claude Code itself prompted for — ground truth that bypasses any counting heuristics in `claude-log permissions`.
+Scan recent Claude Code debug logs for actual permission prompts. These capture what Claude Code itself prompted for — ground truth.
 
 ```bash
 ls -t ~/.claude/debug/*.txt 2>/dev/null | head -20 | xargs grep -h "ruleContent" 2>/dev/null | grep -oP '"ruleContent": "\K[^"]+' | sort | uniq -c | sort -rn | head -40
@@ -51,7 +43,7 @@ Then read each found file. Cross-reference its `permissions.allow` entries again
 
 ## Step 2: Filter and Categorize
 
-Parse the JSON `suggestions` array. Apply these filters:
+Analyze all patterns found from debug logs and local settings drift. Apply these filters:
 
 ### Always skip (should never be auto-allowed)
 
@@ -68,7 +60,7 @@ Parse the JSON `suggestions` array. Apply these filters:
 
 ### Recommend: high-signal patterns
 
-Categorize remaining suggestions into:
+Categorize remaining patterns into:
 
 **File access** — Read, Edit, Write, Glob, Grep with project paths. Look for patterns that generalize:
 - Multiple paths under the same project root → suggest per-tool patterns: `Read(/path/to/project/*)`, `Edit(/path/to/project/*)`, `Write(/path/to/project/*)`, `Grep(/path/to/project/*)`, `Glob(/path/to/project/*)`
@@ -83,32 +75,30 @@ Categorize remaining suggestions into:
 
 ### Prioritize by signal strength
 
-- **2+ sessions** = strong signal (routine pattern)
-- **1 session, 3+ invocations** = moderate signal (intensive but maybe one-off)
-- **1 session, 1-2 invocations** = weak signal (probably skip)
+- **High count in debug logs** = strong signal (routine pattern)
+- **Present in local settings across multiple projects** = strong signal
+- **Low count, single appearance** = weak signal (probably skip)
 
 ## Step 3: Present Recommendations
 
-Output a compact report with three sections:
+Output a compact report:
 
 ```
 ## Permissions Audit
 
-Scanned: N sessions | Matched: N | Unmatched: N
-
 ### Recommend adding (high confidence)
 
-USES  SESSIONS  PATTERN
-────  ────────  ───────
-  12       4    Read($HOME/myproject/*)
-   8       3    Task(Explore)
+COUNT  PATTERN
+─────  ───────
+    7  Read(~/.claude/**)
+    5  Bash(git:*)
    ...
 
 ### Consider adding (moderate confidence)
 
-USES  SESSIONS  PATTERN                     NOTE
-────  ────────  ───────                     ────
-   5       1    Bash(python3:*)             Can execute arbitrary code
+COUNT  PATTERN                         NOTE
+─────  ───────                         ────
+    3  Bash(python3:*)                 Can execute arbitrary code
    ...
 
 ### Local settings drift
@@ -116,33 +106,22 @@ USES  SESSIONS  PATTERN                     NOTE
 Entries in settings.local.json not yet in portable settings — these survived at least one session approval and may be worth promoting:
 
   Bash(claude-log extract:*)          [project: Claudefiles]
-  Read(~/.claude/**)     [project: Claudefiles]
+  Read(~/.claude/**)                  [project: Claudefiles]
   ...
-
-### Debug log findings
-
-Top prompted patterns from recent debug logs (ground truth):
-
-COUNT  PATTERN
-─────  ───────
-    7  Read(~/.claude/**)
-    3  for sid in ...              ← for loop artifact; use sequential calls
-    ...
 
 ### Skipped
 
 - AskUserQuestion, EnterPlanMode, ExitPlanMode (always prompt)
 - TaskCreate/TaskUpdate with specific content (not generalizable)
 - For loop artifacts (for/do/done lines) — fix call sites, not permissions
-- N one-off patterns (1 use, 1 session)
+- N one-off patterns (1 occurrence)
 ```
 
 ### Rules
 
-- Sort each group by sessions (descending), then invocations (descending)
+- Sort each group by count (descending)
 - Show at most 15 entries in "Recommend", 10 in "Consider", 10 in "Local settings drift"
 - Don't show the full raw pattern for truncated entries — summarize
-- Do NOT show the "Add to permissions.allow" JSON from the raw output — that's what the next step is for
 - For debug log findings: use the `//path/**` format as-is (that's what Claude Code 2.x generates and matches)
 
 ## Step 4: Offer to Apply
