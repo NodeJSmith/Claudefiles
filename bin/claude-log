@@ -17,7 +17,6 @@ All JSONL files live under ~/.claude/projects/*/.
 from __future__ import annotations
 
 import argparse
-import fnmatch
 import json
 import re
 import sys
@@ -331,169 +330,6 @@ def truncate(text: str, max_len: int = 80) -> str:
     if len(text) <= max_len:
         return text
     return text[: max_len - 1] + "…"
-
-
-# ---------------------------------------------------------------------------
-# Permission helpers
-# ---------------------------------------------------------------------------
-
-SETTINGS_PATH = Path.home() / ".claude" / "settings.json"
-
-
-def load_allowed_patterns() -> list[str]:
-    """Load permission patterns from settings.
-
-    Merges ``permissions.allow`` and ``allowedTools`` into a single list.
-    """
-    if not SETTINGS_PATH.exists():
-        return []
-    try:
-        settings = json.loads(SETTINGS_PATH.read_text())
-    except (json.JSONDecodeError, OSError):
-        return []
-    perms: list[str] = list(settings.get("permissions", {}).get("allow", []))
-    perms.extend(settings.get("allowedTools", []))
-    return perms
-
-
-def tool_signature(name: str, inp: dict[str, Any]) -> str:
-    """Build a canonical tool signature from a tool_use block.
-
-    Returns strings like ``Bash(git status)``, ``Read(/home/jessica/file.py)``,
-    ``Edit(/home/jessica/file.py)``, ``Grep(pattern)``, etc.
-    """
-    if name == "Bash":
-        cmd = inp.get("command", "")
-        return f"Bash({cmd})"
-    if name in ("Read", "Write", "Edit"):
-        return f"{name}({inp.get('file_path', '')})"
-    if name == "Grep":
-        return (
-            f"Grep({inp.get('path', '')})"
-            if inp.get("path")
-            else f"Grep({inp.get('pattern', '')})"
-        )
-    if name == "Glob":
-        return (
-            f"Glob({inp.get('path', '')})"
-            if inp.get("path")
-            else f"Glob({inp.get('pattern', '')})"
-        )
-    if name == "WebFetch":
-        return f"WebFetch({inp.get('url', '')})"
-    if name == "Task":
-        return f"Task({inp.get('subagent_type', '')})"
-    # Generic fallback
-    first_val = next(iter(inp.values()), "") if inp else ""
-    return f"{name}({first_val})"
-
-
-def is_allowed(signature: str, patterns: list[str]) -> bool:
-    """Check whether *signature* matches any allowed pattern.
-
-    Supports the Claude Code permission syntax:
-    - Exact match: ``Bash(git status)``
-    - Prefix wildcard: ``Bash(git:*)`` matches ``Bash(git status)``, ``Bash(git diff)``, etc.
-    - Path glob: ``Read(/tmp/*)`` matches ``Read(/tmp/foo.txt)``
-    """
-    for pat in patterns:
-        if pat == signature:
-            return True
-        # Handle Tool(prefix:*) syntax — e.g. Bash(gh:*) matches Bash(gh pr view ...)
-        if pat.endswith(":*)") and "(" in pat:
-            # Extract tool name and prefix from pattern
-            paren_open = pat.index("(")
-            pat_tool = pat[:paren_open]
-            pat_prefix = pat[paren_open + 1 : -3]  # strip trailing :*)
-            # Extract tool name and arg from signature
-            if "(" in signature and signature.endswith(")"):
-                sig_tool = signature[: signature.index("(")]
-                sig_arg = signature[signature.index("(") + 1 : -1]
-                if pat_tool == sig_tool and sig_arg.startswith(pat_prefix):
-                    return True
-        # Handle glob-style path matching — e.g. Read(/tmp/*) matches Read(/tmp/foo.txt)
-        elif "*" in pat:
-            if fnmatch.fnmatch(signature, pat):
-                return True
-    return False
-
-
-def _find_project_root(file_path: str) -> str:
-    """Walk up from *file_path* looking for a project root marker.
-
-    Markers: ``.git``, ``pyproject.toml``, ``package.json``, ``Cargo.toml``,
-    ``go.mod``, ``setup.py``, ``setup.cfg``, ``dbt_project.yml``.
-
-    Returns the project root directory as a string.  Falls back to the first
-    directory under ``$HOME`` when no marker is found, or to the immediate
-    parent for paths outside ``$HOME``.
-    """
-    markers = (
-        ".git",
-        "pyproject.toml",
-        "package.json",
-        "Cargo.toml",
-        "go.mod",
-        "setup.py",
-        "setup.cfg",
-        "dbt_project.yml",
-    )
-    home = Path.home()
-    path = Path(file_path)
-
-    for parent in path.parents:
-        # Don't walk above home
-        if parent == home or not str(parent).startswith(str(home)):
-            break
-        if any((parent / m).exists() for m in markers):
-            return str(parent)
-
-    # Fallback: first directory under home (e.g. ~/Dotfiles)
-    try:
-        rel = path.relative_to(home)
-        first_part = rel.parts[0] if rel.parts else None
-        if first_part:
-            return str(home / first_part)
-    except ValueError:
-        pass
-
-    # Path is outside home — fall back to immediate parent
-    return str(path.parent)
-
-
-def suggest_pattern(signature: str) -> str:
-    """Suggest a permission pattern for a tool signature.
-
-    Collapses specific invocations into wildcard patterns:
-    - ``Bash(git status)`` → ``Bash(git:*)``
-    - ``Read(/home/jessica/analytics/packages/pkg/src/foo.py)``
-      → ``Read(/home/jessica/analytics/*)`` (collapses to project root)
-    """
-    if not ("(" in signature and signature.endswith(")")):
-        return signature
-
-    tool = signature[: signature.index("(")]
-    arg = signature[signature.index("(") + 1 : -1]
-
-    if not arg:
-        return signature
-
-    if tool == "Bash":
-        # Use first word/token as prefix: "git status" → "git:*"
-        parts = arg.split()
-        first_token = parts[0] if parts else arg
-        # Strip path prefix for absolute paths to commands
-        if "/" in first_token:
-            first_token = first_token.rsplit("/", 1)[-1]
-        return f"Bash({first_token}:*)"
-
-    if tool in ("Read", "Write", "Edit", "Grep", "Glob"):
-        # Collapse to project root directory
-        if "/" in arg:
-            root = _find_project_root(arg)
-            return f"{tool}({root}/*)"
-
-    return signature
 
 
 # ---------------------------------------------------------------------------
@@ -1428,107 +1264,12 @@ def cmd_grep(args: argparse.Namespace) -> None:
 
 
 def cmd_permissions(args: argparse.Namespace) -> None:
-    """Analyse tool usage and suggest new permission allow entries."""
-    allowed_patterns = load_allowed_patterns()
-
-    sessions = find_sessions(
-        project_filter=args.project,
-        since=args.since,
-        limit=args.limit,
+    """Deprecated — prints a message and exits."""
+    print(
+        "claude-log permissions has been removed. "
+        "Use /mine.permissions-audit instead, which reads debug logs directly.",
+        file=sys.stderr,
     )
-
-    if not sessions:
-        print("No sessions found.")
-        return
-
-    # Count every tool invocation that is NOT already allowed
-    unmatched_counts: dict[str, int] = {}
-    unmatched_sessions: dict[str, set[str]] = {}
-    matched_counts: dict[str, int] = {}
-
-    for sess in sessions:
-        path = Path(sess["path"])
-        sid = sess["session_id"][:8]
-
-        for entry in iter_entries(path, type_filter="assistant"):
-            message = entry.get("message", {})
-            for tool in extract_tool_uses(message):
-                name = tool.get("name", "?")
-                inp = tool.get("input", {})
-                sig = tool_signature(name, inp)
-
-                if is_allowed(sig, allowed_patterns):
-                    matched_counts[sig] = matched_counts.get(sig, 0) + 1
-                else:
-                    unmatched_counts[sig] = unmatched_counts.get(sig, 0) + 1
-                    unmatched_sessions.setdefault(sig, set()).add(sid)
-
-    # Group unmatched signatures by their suggested pattern
-    suggestion_sigs: dict[str, list[str]] = {}
-    suggestion_counts: dict[str, int] = {}
-    suggestion_sessions: dict[str, set[str]] = {}
-
-    for sig, count in unmatched_counts.items():
-        pattern = suggest_pattern(sig)
-        suggestion_sigs.setdefault(pattern, []).append(sig)
-        suggestion_counts[pattern] = suggestion_counts.get(pattern, 0) + count
-        suggestion_sessions.setdefault(pattern, set()).update(
-            unmatched_sessions.get(sig, set())
-        )
-
-    if args.json:
-        result = {
-            "allowed_patterns": allowed_patterns,
-            "matched_invocations": sum(matched_counts.values()),
-            "unmatched_invocations": sum(unmatched_counts.values()),
-            "suggestions": sorted(
-                [
-                    {
-                        "pattern": pat,
-                        "invocations": suggestion_counts[pat],
-                        "sessions": len(suggestion_sessions.get(pat, set())),
-                        "examples": [
-                            truncate(s, 120) for s in sorted(suggestion_sigs[pat])[:5]
-                        ],
-                    }
-                    for pat in suggestion_counts
-                ],
-                key=lambda x: -x["invocations"],
-            ),
-        }
-        print(json.dumps(result, indent=2))
-        return
-
-    total_matched = sum(matched_counts.values())
-    total_unmatched = sum(unmatched_counts.values())
-
-    print(c(BOLD, "Permission Analysis"))
-    print(f"  Allowed patterns loaded:  {len(allowed_patterns)}")
-    print(f"  Tool invocations matched: {c(GREEN, str(total_matched))}")
-    print(f"  Tool invocations missed:  {c(YELLOW, str(total_unmatched))}")
-    print(f"  Sessions scanned:         {len(sessions)}")
-    print()
-
-    if not suggestion_counts:
-        print(c(GREEN, "All tool invocations are covered by existing permissions."))
-        return
-
-    sorted_suggestions = sorted(suggestion_counts.items(), key=lambda x: -x[1])
-
-    rows: list[list[str]] = []
-    for pat, count in sorted_suggestions:
-        sess_count = len(suggestion_sessions.get(pat, set()))
-        rows.append([str(count), str(sess_count), truncate(pat, 70)])
-
-    print(c(BOLD, "Suggested Allow Entries"))
-    print()
-    print(format_table(rows, ["USES", "SESSIONS", "PATTERN"]))
-    print()
-
-    # Print a copy-pasteable JSON snippet
-    patterns_list = [pat for pat, _ in sorted_suggestions]
-    print(c(BOLD, "Add to permissions.allow:"))
-    print(c(DIM, json.dumps(patterns_list, indent=2)))
 
 
 # ---------------------------------------------------------------------------
@@ -1701,18 +1442,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_global_opts(p_grep)
 
-    # permissions
+    # permissions (deprecated stub — accepts any args, prints warning, exits 0)
     p_perms = subs.add_parser(
-        "permissions", help="Suggest new permission allow entries"
-    )
-    p_perms.add_argument("--project", "-p", help="Filter by project name substring")
-    p_perms.add_argument("--since", "-s", help="Filter by date (YYYY-MM-DD)")
-    p_perms.add_argument(
-        "--limit",
-        "-l",
-        type=_positive_int,
-        default=20,
-        help="Max sessions to scan (default: 20)",
+        "permissions",
+        help="(deprecated) Use /mine.permissions-audit instead",
     )
     _add_global_opts(p_perms)
 
