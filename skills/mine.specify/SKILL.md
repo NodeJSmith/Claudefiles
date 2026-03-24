@@ -328,7 +328,81 @@ AskUserQuestion:
 
 ### On "Challenge this spec first"
 
-Invoke `/mine.challenge <spec_path>` (passing the spec file path so the challenge targets this specific spec). After the challenge completes and the user has addressed any findings (or chosen to proceed despite them), loop back to the sign-off gate above.
+Before invoking challenge, create a known output path for the findings file:
+
+```bash
+get-skill-tmpdir mine-specify-challenge
+```
+
+Then invoke: `/mine.challenge <spec_path> --findings-out=<dir>/findings.md`
+
+After the challenge completes (the user selects "Done" from challenge's action prompt), generate a **revision plan** from the challenge findings.
+
+<!-- SYNC: Shared with mine.design — the AskUserQuestion options (Apply all / Let me cherry-pick / Skip revisions), the Apply all / Cherry-pick / Skip handling logic, and the findings file reading pattern must stay in sync. This handler adds spec-specific routing (design-level:Yes → spec vs design doc) and deferred findings persistence — those are intentional divergences from mine.design. -->
+
+#### Read findings
+
+Read the structured findings file at `<dir>/findings.md` — the path you passed to challenge via `--findings-out`. Verify the `Target:` field in the file matches `<spec_path>` before proceeding.
+
+1. Re-read the spec to get current state
+2. For each finding where `design-level: Yes`, determine whether it belongs in the spec or should be deferred to the design phase. Use this heuristic:
+   - **Routes to spec**: finding would require changing Functional Requirements, Non-Goals, User Scenarios, or Acceptance Criteria sections
+   - **Routes to design phase**: finding would require changing architecture, data model, API contracts, or module boundaries
+   - **Ask the user**: finding implicates both (e.g., "scope is too broad" touches requirements AND architecture) and the heuristic doesn't resolve it
+
+   For spec-relevant findings:
+   - **Auto-apply**: state the change directly
+   - **User-directed**: state the options and the recommendation from the findings file
+3. For findings where `design-level: No`, list them as "Not a spec change — flag for design phase"
+4. For `design-level: Yes` findings that belong in the design doc rather than the spec, list them as "Architecture concern — defer to design phase"
+
+Present the revision plan:
+
+> **Proposed revisions to spec.md based on challenge findings:**
+> - **Section (name)**: [what changes and why] *(from finding #N — Auto-apply/User-directed)*
+> - ...
+> **Defer to design phase:**
+> - Finding #N: [summary] — architecture concern, address in design.md
+> **Not a spec change:**
+> - Finding #N: [summary] — implementation-level, address during coding
+
+Then ask:
+
+```
+AskUserQuestion:
+  question: "How would you like to handle these revisions?"
+  header: "Spec revisions"
+  multiSelect: false
+  options:
+    - label: "Apply all"
+      description: "Apply auto-apply changes directly; prompt me for each user-directed decision"
+    - label: "Let me cherry-pick"
+      description: "I'll say which revisions to apply"
+    - label: "Skip revisions"
+      description: "I've seen the findings — loop back to sign-off without changing the spec"
+```
+
+On **"Apply all"**: apply Auto-apply changes directly. For each User-directed change, present the options and ask the user to pick. If the user says "skip" or "defer" for a specific finding, record it as unresolved and continue to the next. After all findings are processed, list any skipped findings and ask whether to revisit or leave them. Show a summary of what changed when done.
+
+On **"Let me cherry-pick"**: ask which revision numbers to apply, then follow the same flow.
+
+On **"Skip revisions"**: no changes applied.
+
+#### Persist deferred findings
+
+After revisions are handled (or skipped), if any findings were routed to "Defer to design phase," append them to `<feature_dir>/design.md` under an `## Open Questions` section:
+- If `design.md` doesn't exist yet, create a stub containing only the Open Questions section.
+- If `design.md` exists but has no `## Open Questions` section, append the section at the end of the file.
+- If the section already exists, append the new findings to it.
+
+This ensures mine.design picks up these findings when it reads the design doc in Phase 2.
+
+Format for each deferred finding:
+```markdown
+- **[Finding name]** (from spec challenge, <date>): [one-sentence summary] — [Severity]
+```
+
+Then re-run the 12-item quality validation on the updated spec and loop back to the sign-off gate above.
 
 ### On "Approve"
 
