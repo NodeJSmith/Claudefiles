@@ -2,6 +2,18 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-03-24
+
+### Changed
+- `mine.challenge` rewritten as pure adversarial critique — produces findings only, no longer generates revision plans or manages caliper workflow (#123)
+- Finding taxonomy: four types (Structural / Approach / Fragility / Gap), `design-level` tag, `Auto-apply` vs `User-directed` resolution, structured `findings.md` handoff (#123)
+- Revision plan logic moved to `mine.design` and `mine.specify` — each generates plans from challenge's `findings.md` after challenge completes (#123)
+- `mine.specify` routes `design-level: Yes` findings to spec or design phase with concrete heuristic; deferred findings persisted to `design.md` Open Questions (#123)
+
+### Added
+- `--findings-out` argument for `mine.challenge` — callers pass a known output path for deterministic handoff (#123)
+- Output contract section in `mine.challenge` documenting breaking-change tag names, values, and known callers (#123)
+
 ## 2026-03-21
 
 ### Added

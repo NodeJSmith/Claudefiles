@@ -29,6 +29,8 @@ If $ARGUMENTS points to a `design/specs/NNN-*/` directory or contains a path to 
 
 If the spec contains structured User Scenarios (per-actor task flows with Sees/Decides/Then steps), use them to inform architecture decisions: what data each screen needs (data model), what endpoints serve each step (API surface), and how screens connect (component boundaries and navigation).
 
+Also check for an existing `design.md` in the feature directory. If it contains an `## Open Questions` section with deferred findings from a spec challenge, read and preserve those entries — they must appear in the final design doc's Open Questions section, merged with any new open questions from Phase 3.
+
 ### Scoping questions
 
 Ask each scoping question individually with its own `AskUserQuestion` call. Skip any questions already answered by the spec or $ARGUMENTS.
@@ -210,7 +212,7 @@ Write the design doc to: `<feature_dir>/design.md`
 
 ## Open Questions
 
-[Unresolved items that need answers before or during implementation. Must be empty before plan approval.]
+[Unresolved items that need answers before or during implementation. Include any deferred findings from spec challenge (preserved from the existing design.md stub). Must be empty before plan approval.]
 
 ## Impact
 
@@ -244,7 +246,59 @@ AskUserQuestion:
 
 ### On "Challenge this design"
 
-Invoke `/mine.challenge <design-doc-path>` (passing the design doc path as the argument so the challenge targets this specific design). After the challenge completes and the user has addressed any findings (or chosen to proceed despite them), loop back to the sign-off gate above.
+Before invoking challenge, create a known output path for the findings file:
+
+```bash
+get-skill-tmpdir mine-design-challenge
+```
+
+Then invoke: `/mine.challenge <design-doc-path> --findings-out=<dir>/findings.md`
+
+After the challenge completes (the user selects "Done" from challenge's action prompt), generate a **revision plan** from the challenge findings.
+
+<!-- SYNC: Shared with mine.specify — the AskUserQuestion options (Apply all / Let me cherry-pick / Skip revisions), the Apply all / Cherry-pick / Skip handling logic, and the findings file reading pattern must stay in sync. mine.specify adds spec-specific routing (design-level:Yes → spec vs design doc) and deferred findings persistence — those are intentional divergences. -->
+
+#### Read findings
+
+Read the structured findings file at `<dir>/findings.md` — the path you passed to challenge via `--findings-out`. Verify the `Target:` field in the file matches `<design-doc-path>` before proceeding.
+
+1. Re-read the design doc to get current state
+2. For each finding where `design-level: Yes`, determine what would change in the design doc:
+   - **Auto-apply findings**: state the specific change (section, what changes, why)
+   - **User-directed findings**: state the options and the recommendation from the findings file
+3. For findings where `design-level: No`, list them as "Flag for implementation — no design doc change needed"
+
+Present the revision plan:
+
+> **Proposed revisions to design.md based on challenge findings:**
+> - **Section (name)**: [what changes and why] *(from finding #N — Auto-apply/User-directed)*
+> - ...
+> **No design doc change:**
+> - Finding #N: [summary] — implementation-phase concern
+
+Then ask:
+
+```
+AskUserQuestion:
+  question: "How would you like to handle these revisions?"
+  header: "Design revisions"
+  multiSelect: false
+  options:
+    - label: "Apply all"
+      description: "Apply auto-apply changes directly; prompt me for each user-directed decision"
+    - label: "Let me cherry-pick"
+      description: "I'll say which revisions to apply"
+    - label: "Skip revisions"
+      description: "I've seen the findings — loop back to sign-off without changing the doc"
+```
+
+On **"Apply all"**: apply Auto-apply changes directly. For each User-directed change, present the options and ask the user to pick. If the user says "skip" or "defer" for a specific finding, record it as unresolved and continue to the next. After all findings are processed, list any skipped findings and ask whether to revisit or leave them. Show a summary of what changed when done.
+
+On **"Let me cherry-pick"**: ask which revision numbers to apply, then follow the same flow.
+
+On **"Skip revisions"**: no changes applied.
+
+After revisions are handled (or skipped), loop back to the sign-off gate above.
 
 ### On "Approve"
 
