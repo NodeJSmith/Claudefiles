@@ -82,7 +82,8 @@ Whether this finding is architectural/structural in nature — meaning it would 
 
 The following tag names and values are consumed by calling skills (mine.design, mine.specify) to generate revision plans. Changing these is a **breaking change** — update all callers.
 
-- **Tag names**: `severity`, `design-level`, `resolution`
+- **Contract tag names**: `severity`, `design-level`, `resolution`
+- **Non-contract tags**: `type`, `raised-by` — included in findings for human readability but not consumed by callers. Do not depend on their presence or values.
 - **Severity values**: `CRITICAL`, `HIGH`, `MEDIUM`, `TENSION`
 - **design-level values**: `Yes`, `No`
 - **Resolution values**: `Auto-apply`, `User-directed`
@@ -327,6 +328,10 @@ AskUserQuestion:
 ```
 
 Route accordingly: backlog file → invoke `rules/common/backlog.md` flow. Issue tracker → use the project's issue tracker (`gh-issue create` for GitHub, or whatever the project uses). Critique report → write to `design/critiques/`.
+
+When the user selects **"Discuss a specific finding"**, ask which finding number they want to discuss. Present the full finding details (all evidence, critic reasoning, options) and engage in discussion. When the discussion concludes, return to the action prompt.
+
+When the user selects **"Read a specific critic's full report"**, ask which critic (Senior, Architect, or Adversarial). Read the corresponding temp file and present its contents. Then return to the action prompt.
 
 When the user selects **"Done"**, end the challenge skill. If a calling skill (mine.design, mine.specify) invoked challenge, it will resume and generate a revision plan from the findings file.
 

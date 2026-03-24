@@ -390,16 +390,17 @@ On **"Skip revisions"**: no changes applied.
 
 #### Persist deferred findings
 
-After revisions are handled (or skipped), if any findings were routed to "Defer to design phase," append them to `<feature_dir>/design.md` under an `## Open Questions` section:
+After revisions are handled (or skipped), if any findings were routed to "Defer to design phase," persist them to `<feature_dir>/design.md` under an `## Open Questions` section. Avoid creating duplicate bullets when the spec challenge is re-run:
 - If `design.md` doesn't exist yet, create a stub containing only the Open Questions section.
 - If `design.md` exists but has no `## Open Questions` section, append the section at the end of the file.
 - If the section already exists, append the new findings to it.
+- Before appending each finding, check if an identical bullet line already exists in the Open Questions section. Skip if present.
 
 This ensures mine.design picks up these findings when it reads the design doc in Phase 2.
 
 Format for each deferred finding:
 ```markdown
-- **[Finding name]** (from spec challenge, <date>): [one-sentence summary] — [Severity]
+- **[Finding name]** (from spec challenge on <date>, target: `<spec_path>`): [one-sentence summary] — [Severity]
 ```
 
 Then re-run the 12-item quality validation on the updated spec and loop back to the sign-off gate above.
