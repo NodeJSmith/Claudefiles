@@ -143,7 +143,7 @@ Subagents write their reports inside this directory:
 - `<dir>/architect.md`
 - `<dir>/adversarial.md`
 
-Launch all three as parallel Task calls with `subagent_type: general-purpose`. Each critic receives:
+Launch all three critics in parallel as separate `Agent` tool calls in a single message, each with `subagent_type: general-purpose`. Each critic receives:
 - The code under review (file paths to read — pass full file paths, not excerpts)
 - Their persona and focus lens (described below)
 - The path to write their report to
@@ -242,15 +242,15 @@ Target: <file or scope>
 Temp dir: <tmpdir>
 
 ## Finding 1: <name>
-- **Severity**: CRITICAL / HIGH / MEDIUM / TENSION
-- **Type**: Structural / Approach-now / Approach-later / Approach-now/later / Fragility / Gap
-- **Design-level**: Yes / No
-- **Resolution**: Auto-apply / User-directed
-- **Raised by**: Senior + Architect / etc.
-- **Summary**: <one-sentence description>
-- **Better approach** (Auto-apply only): <the fix>
-- **Options** (User-directed only, mutually exclusive with Better approach): <Option A: [approach] / Option B: [approach]>
-- **Recommendation** (User-directed only): <which option and why. For TENSION: deciding factor>
+- severity: CRITICAL / HIGH / MEDIUM / TENSION
+- type: Structural / Approach-now / Approach-later / Approach-now/later / Fragility / Gap
+- design-level: Yes / No
+- resolution: Auto-apply / User-directed
+- raised-by: Senior + Architect / etc.
+- summary: <one-sentence description>
+- better-approach (Auto-apply only): <the fix>
+- options (User-directed only, mutually exclusive with better-approach): <Option A: [approach] / Option B: [approach]>
+- recommendation (User-directed only): <which option and why. For TENSION: deciding factor>
 
 ## Finding 2: <name>
 ...
@@ -372,7 +372,7 @@ These files contain each critic's unfiltered findings and are available for the 
 - Senior Engineer: <dir>/senior.md
 - Systems Architect: <dir>/architect.md
 - Adversarial Reviewer: <dir>/adversarial.md
-- Structured findings: <dir>/findings.md
+- Structured findings: <actual findings output path — default <dir>/findings.md, or the --findings-out path if provided>
 ```
 
 ## Principles

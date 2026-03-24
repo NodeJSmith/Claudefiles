@@ -353,7 +353,7 @@ Read the structured findings file at `<dir>/findings.md` — the path you passed
    For spec-relevant findings:
    - **Auto-apply**: state the change directly
    - **User-directed**: state the options and the recommendation from the findings file
-3. For findings where `design-level: No`, list them as "Not a spec change — flag for design phase"
+3. For findings where `design-level: No`, list them as "Not a spec change — flag for implementation phase"
 4. For `design-level: Yes` findings that belong in the design doc rather than the spec, list them as "Architecture concern — defer to design phase"
 
 Present the revision plan:
