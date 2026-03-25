@@ -328,21 +328,21 @@ AskUserQuestion:
 
 ### On "Challenge this spec first"
 
-Before invoking challenge, create a known output path for the findings file:
+Create a known output path for the findings file:
 
 ```bash
 get-skill-tmpdir mine-specify-challenge
 ```
 
-Then invoke: `/mine.challenge <spec_path> --findings-out=<dir>/findings.md`
+Then invoke: `/mine.challenge --findings-out=<dir>/findings.md --target-type=spec <spec_path>`
 
-After the challenge completes (challenge auto-completes after presenting findings), generate a **revision plan** from the challenge findings.
+After challenge completes (it auto-completes after presenting findings), generate a **revision plan** from the findings file.
 
 <!-- SYNC: Shared with mine.design — the AskUserQuestion options (Apply all / Let me cherry-pick / Skip revisions), the Apply all / Cherry-pick / Skip handling logic, and the findings file reading pattern must stay in sync. This handler adds spec-specific routing (design-level:Yes → spec vs design doc) and deferred findings persistence — those are intentional divergences from mine.design. -->
 
 #### Read findings
 
-Read the structured findings file at `<dir>/findings.md` — the path you passed to challenge via `--findings-out`. Verify the `Target:` field in the file matches `<spec_path>` before proceeding.
+Read the structured findings file at `<dir>/findings.md`. Verify the `Target:` field matches `<spec_path>` before proceeding.
 
 1. Re-read the spec to get current state
 2. For each finding where `design-level: Yes`, determine whether it belongs in the spec or should be deferred to the design phase. Use this heuristic:
@@ -353,6 +353,7 @@ Read the structured findings file at `<dir>/findings.md` — the path you passed
    For spec-relevant findings:
    - **Auto-apply**: state the change directly
    - **User-directed**: state the options and the recommendation from the findings file
+   - **TENSION**: add to the spec's "Open Questions" section — the critics genuinely disagree, so this needs a user decision
 3. For findings where `design-level: No`, list them as "Not a spec change — flag for implementation phase"
 4. For `design-level: Yes` findings that belong in the design doc rather than the spec, list them as "Architecture concern — defer to design phase"
 
@@ -361,6 +362,8 @@ Present the revision plan:
 > **Proposed revisions to spec.md based on challenge findings:**
 > - **Section (name)**: [what changes and why] *(from finding #N — Auto-apply/User-directed)*
 > - ...
+> **Add to Open Questions:**
+> - Finding #N: [summary] — critics disagree on direction (TENSION)
 > **Defer to design phase:**
 > - Finding #N: [summary] — architecture concern, address in design.md
 > **Not a spec change:**
