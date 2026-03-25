@@ -356,20 +356,23 @@ class TestListFeaturesAnyDigitWidth:
 
 class TestFindFeatureDirAuto:
     def test_auto_returns_most_recent(self, tmp_path):
-        import time
+        import os
 
         sd = tmp_path / "design" / "specs"
         sd.mkdir(parents=True)
 
         old = sd / "001-old-feature"
         old.mkdir()
-        (old / "spec.md").write_text("old")
-
-        time.sleep(0.05)
+        old_file = old / "spec.md"
+        old_file.write_text("old")
+        # Set old mtime explicitly (1 hour ago)
+        os.utime(old_file, (1000, 1000))
 
         new = sd / "002-new-feature"
         new.mkdir()
-        (new / "spec.md").write_text("new")
+        new_file = new / "spec.md"
+        new_file.write_text("new")
+        # Set new mtime explicitly (now-ish, default)
 
         result = find_feature_dir_auto(tmp_path)
         assert result == new

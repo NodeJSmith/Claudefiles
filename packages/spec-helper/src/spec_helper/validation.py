@@ -35,7 +35,7 @@ def validate_wp_metadata(meta: dict, filename: str) -> list[str]:
             f"Invalid lane: '{lane}' (expected one of: {', '.join(sorted(VALID_LANES))})"
         )
 
-    for dep in meta.get("depends_on", []):
+    for dep in meta.get("depends_on") or []:
         if not WP_ID_PATTERN.match(dep):
             errors.append(f"Invalid dependency: '{dep}'")
 

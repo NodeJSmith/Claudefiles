@@ -52,7 +52,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Feature identifier (NNN, NNN-slug, or full dir name); optional with --auto",
     )
     p_move.add_argument("wp_id", help="Work package ID (e.g. WP01, 01, 1)")
-    p_move.add_argument("lane", help=f"Target lane: {', '.join(VALID_LANES)}")
+    p_move.add_argument("lane", help=f"Target lane: {', '.join(sorted(VALID_LANES))}")
     _add_json_flag(p_move)
     _add_auto_flag(p_move)
 
