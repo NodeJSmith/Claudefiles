@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-25
 
 ### Changed
-- `mine.research` overhauled — multi-domain Phase 1 examples (breaks persistence anchoring bias), depth parameter (quick/normal/deep) inferred from flexibility, failure handling after researcher dispatch, `/mine.design` added to next-step gate, challenge passthrough always uses tmpdir path with `--target-type=research` (#127)
+- `mine.research` overhauled — multi-domain Phase 1 examples (breaks persistence anchoring bias), depth parameter (quick/normal/deep) inferred from Phase 1 flexibility and scope, failure handling after researcher dispatch, `/mine.design` added to next-step gate, challenge passthrough always uses tmpdir path with `--target-type=research` (#127)
 - `researcher` agent formalized — caller prompt checklist, YAML frontmatter in brief output, flexibility-based Options scaling (Decided=single deep-dive, Exploring=full multi-option), depth-based subagent count (#127)
 - `mine.design` auto-detects existing research briefs before dispatching researcher agent (prevents duplicate investigation), `**Research:**` field added to design doc template (#127)
 - `mine.build` prior-analysis detection now recognizes research briefs (YAML frontmatter and header-based) (#127)

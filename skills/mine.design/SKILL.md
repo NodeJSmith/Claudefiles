@@ -14,6 +14,7 @@ Do NOT implement anything. Do NOT write a plan. Do NOT call mine.draft-plan auto
 
 $ARGUMENTS — the change to design. Can be:
 - A feature directory path from `mine.specify`: `/mine.design design/specs/001-user-auth/`
+- A research brief path from `/mine.research`: `/mine.design design/research/2026-03-25-persistent-state/research.md`
 - A feature idea: `/mine.design "add rate limiting to the API"`
 - Empty: ask the user what they want to design
 

@@ -41,7 +41,7 @@ The goal is to distinguish between:
 - "I want specifically SQLite" vs. "I need persistence and SQLite is one option"
 - "This is urgent and I want to ship it this week" vs. "This is exploratory"
 
-Example opening questions — **adapt the Motivation options to match the proposal's domain**. The examples below show how the structure varies across different types of proposals:
+Example opening questions — **adapt the Motivation options to match the proposal's domain**. The snippets below are items within the `AskUserQuestion: questions:` array. They show how the structure varies across different types of proposals:
 
 **Persistence/data layer proposal** (e.g., "add a database"):
 ```
@@ -120,7 +120,7 @@ Dispatch the research to a `researcher` agent. This runs the heavy codebase expl
 3. Launch `Agent(subagent_type: "researcher")` with a prompt containing:
    - The proposal (from $ARGUMENTS or user input)
    - The user's answers from Phase 1 (motivation, flexibility, constraints) — use the caller prompt checklist format from `researcher.md`
-   - Research depth: `<quick|normal|deep>`
+   - Depth: `<quick|normal|deep>`
    - Output file path: `<tmpdir>/brief.md`
 4. After the agent completes, **verify the output**: read `<tmpdir>/brief.md` and check that it exists and contains the `# Research Brief:` header. If the file is missing, empty, or lacks the expected header, inform the user that the research agent failed to produce a complete brief and offer:
    - Retry the researcher agent
