@@ -51,6 +51,7 @@ If the work touches frontend (CSS, components, layouts, styles), check for `desi
 Before routing, check whether the conversation already contains findings from an analysis skill or command (`/mine.challenge`, `/mine.audit`, `/mine.brainstorm`, `/mine.research`). Signals:
 
 - Structured findings with severity labels (CRITICAL / HIGH / MEDIUM)
+- A research brief (contains "Research Brief:", "Options Evaluated", "Feasibility Analysis" headers, or YAML frontmatter with `proposal:` and `flexibility:` fields)
 - A phased implementation plan produced by a planner agent
 - Backlog items or issues that explicitly reference findings from one of these skills (not just a title — the body must cite specific analysis results)
 - Temp file reports from critic/thinker subagents

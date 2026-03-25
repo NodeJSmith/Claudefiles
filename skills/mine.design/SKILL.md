@@ -14,6 +14,7 @@ Do NOT implement anything. Do NOT write a plan. Do NOT call mine.draft-plan auto
 
 $ARGUMENTS — the change to design. Can be:
 - A feature directory path from `mine.specify`: `/mine.design design/specs/001-user-auth/`
+- A research brief path from `/mine.research`: `/mine.design design/research/2026-03-25-persistent-state/research.md`
 - A feature idea: `/mine.design "add rate limiting to the API"`
 - Empty: ask the user what they want to design
 
@@ -78,27 +79,49 @@ If prior work exists and covers the same scope, skip to Phase 2 (investigate) us
 
 ## Phase 2: Investigate
 
-Dispatch the `researcher` agent to investigate the codebase. Pass the scoping answers as context.
+### Check for an existing research brief
+
+Before dispatching the researcher agent, check whether a research brief already exists for this topic:
+
+1. If the user passed a research brief path (e.g., from `/mine.research` handoff), read it directly.
+2. If a `design/specs/NNN-*/` directory exists for this feature, check for `research.md` inside it.
+3. Glob `design/research/*/research.md` and scan for potential matches — look for YAML frontmatter `proposal:` fields (new format) or `**Proposal**:` bold-text headers (old format).
+
+If a potential match is found, **always confirm with the user before reusing**. Show both proposals side-by-side so the user can judge relevance:
+
+> Found an existing research brief at `<path>`:
+> - **Brief's proposal**: "<proposal text from the brief>"
+> - **Current topic**: "<what the user is designing now>"
+>
+> Use this as prior work and skip investigation?
+
+When in doubt, prefer dispatching the researcher over reusing a potentially unrelated brief. If the user confirms, skip the researcher dispatch. Use the brief's frontmatter to extract structured context (flexibility, motivation, constraints) and skip any Phase 3 questions already answered.
+
+### Dispatch researcher (if no existing brief)
 
 Run `get-skill-tmpdir mine-design-research` and use `<dir>/brief.md` as the research brief destination.
 
-Launch `Agent(subagent_type: "researcher")` with this prompt:
+Launch `Agent(subagent_type: "researcher")` with this prompt, using the caller prompt checklist format:
 
 ```
 Investigate a proposed change for a design document.
 
-## Context from design scoping
+## Research Context
 Proposal: <what was scoped>
 Motivation: <why this change is being considered>
-Desired outcome: <success criteria>
+Flexibility: Decided
 Constraints: <known constraints>
-Non-goals: <explicit exclusions>
-Flexibility: decided (the user has already scoped this)
+Desired outcome: <success criteria from Phase 1 Question 1 — omit if unknown>
+Non-goals: <explicit exclusions from Phase 1 Question 2 — omit if unknown>
+Prior work: <path to spec.md if one exists — omit if none>
+Depth: <quick for Trivial changes, normal for Moderate/Complex>
 
 Write your research brief to: <temp file path>
 ```
 
-After the agent completes, read the temp file to get the research brief.
+After the agent completes, **verify the output**: read the temp file and check that it exists and contains the `# Research Brief:` header. If missing or malformed, inform the user and offer to retry or proceed with manual investigation.
+
+Read the verified brief to get the research findings.
 
 ---
 
@@ -193,6 +216,7 @@ Write the design doc to: `<feature_dir>/design.md`
 **Date:** YYYY-MM-DD
 **Status:** draft
 **Spec:** <path to spec.md, if one exists>
+**Research:** <path to research brief, if one was used — omit if no prior research>
 
 ## Problem
 
