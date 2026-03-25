@@ -16,7 +16,13 @@ from spec_helper.filesystem import (
     list_features,
 )
 from spec_helper.errors import die
-from spec_helper.commands import cmd_init, cmd_wp_move, cmd_wp_validate, cmd_wp_list, cmd_status
+from spec_helper.commands import (
+    cmd_init,
+    cmd_wp_move,
+    cmd_wp_validate,
+    cmd_wp_list,
+    cmd_status,
+)
 from spec_helper.cli import build_parser
 
 
@@ -152,7 +158,12 @@ class TestValidateWpMetadataInvalidLane:
 
 class TestValidateWpMetadataInvalidDependency:
     def test_bad_dependency_format(self):
-        meta = {"work_package_id": "WP01", "title": "Test", "lane": "planned", "depends_on": ["bad"]}
+        meta = {
+            "work_package_id": "WP01",
+            "title": "Test",
+            "lane": "planned",
+            "depends_on": ["bad"],
+        }
         errors = validate_wp_metadata(meta, "WP01.md")
         assert any("dependency" in e.lower() for e in errors)
 
@@ -215,7 +226,12 @@ class TestNormalizeMissingWpId:
 
 class TestNormalizePreservesUnknownFields:
     def test_unknown_field_preserved(self):
-        raw = {"work_package_id": "WP01", "title": "Test", "lane": "planned", "issue": "#117"}
+        raw = {
+            "work_package_id": "WP01",
+            "title": "Test",
+            "lane": "planned",
+            "issue": "#117",
+        }
         result = normalize_wp_metadata(raw, "WP01.md")
         assert result["issue"] == "#117"
 
@@ -230,7 +246,12 @@ class TestNormalizeDoesNotShareReferences:
     """Shallow copy must not share mutable list values with the original."""
 
     def test_list_not_shared(self):
-        original = {"depends_on": ["WP01"], "lane": "planned", "work_package_id": "WP02", "title": "Test"}
+        original = {
+            "depends_on": ["WP01"],
+            "lane": "planned",
+            "work_package_id": "WP02",
+            "title": "Test",
+        }
         result = normalize_wp_metadata(original, "WP02.md")
         result["depends_on"].append("WP03")
         assert original["depends_on"] == ["WP01"]
@@ -513,8 +534,11 @@ depends_on: []
         monkeypatch.chdir(root)
 
         args = argparse.Namespace(
-            feature="001-test", wp_id="WP01", lane="doing",
-            auto=False, json=False,
+            feature="001-test",
+            wp_id="WP01",
+            lane="doing",
+            auto=False,
+            json=False,
         )
         cmd_wp_move(args)
 
@@ -542,8 +566,11 @@ custom_field: some_value
         monkeypatch.chdir(root)
 
         args = argparse.Namespace(
-            feature="001-test", wp_id="WP01", lane="doing",
-            auto=False, json=False,
+            feature="001-test",
+            wp_id="WP01",
+            lane="doing",
+            auto=False,
+            json=False,
         )
         cmd_wp_move(args)
 
@@ -571,6 +598,7 @@ depends_on: []
         monkeypatch.chdir(root)
 
         import tempfile as _tempfile
+
         captured_dirs = []
         _original_ntf = _tempfile.NamedTemporaryFile
 
@@ -581,8 +609,11 @@ depends_on: []
         monkeypatch.setattr(_tempfile, "NamedTemporaryFile", _tracking_ntf)
 
         args = argparse.Namespace(
-            feature="001-test", wp_id="WP01", lane="doing",
-            auto=False, json=False,
+            feature="001-test",
+            wp_id="WP01",
+            lane="doing",
+            auto=False,
+            json=False,
         )
         cmd_wp_move(args)
 
@@ -612,8 +643,11 @@ depends_on: []
         monkeypatch.chdir(root)
 
         args = argparse.Namespace(
-            feature="001-test", wp_id="WP01", lane="doing",
-            auto=False, json=False,
+            feature="001-test",
+            wp_id="WP01",
+            lane="doing",
+            auto=False,
+            json=False,
         )
         cmd_wp_move(args)
 
@@ -646,8 +680,11 @@ depends_on: []
         monkeypatch.chdir(root)
 
         args = argparse.Namespace(
-            feature="001-test", wp_id="WP01", lane="doing",
-            auto=False, json=False,
+            feature="001-test",
+            wp_id="WP01",
+            lane="doing",
+            auto=False,
+            json=False,
         )
         cmd_wp_move(args)
 
@@ -675,8 +712,11 @@ depends_on: []
         monkeypatch.chdir(root)
 
         args = argparse.Namespace(
-            feature="001-test", wp_id="WP01", lane="doing",
-            auto=False, json=False,
+            feature="001-test",
+            wp_id="WP01",
+            lane="doing",
+            auto=False,
+            json=False,
         )
         cmd_wp_move(args)
 
@@ -706,8 +746,11 @@ depends_on: []
         monkeypatch.chdir(root)
 
         args = argparse.Namespace(
-            feature="001-test", wp_id="WP01", lane="doing",
-            auto=False, json=False,
+            feature="001-test",
+            wp_id="WP01",
+            lane="doing",
+            auto=False,
+            json=False,
         )
         cmd_wp_move(args)
 
@@ -737,8 +780,11 @@ depends_on: []
         monkeypatch.chdir(root)
 
         args = argparse.Namespace(
-            feature="001-test", wp_id="WP01", lane="doing",
-            auto=False, json=False,
+            feature="001-test",
+            wp_id="WP01",
+            lane="doing",
+            auto=False,
+            json=False,
         )
         cmd_wp_move(args)
 
@@ -784,14 +830,20 @@ depends_on: []
 
 class TestWpValidateAllValid:
     def test_wp_validate_all_valid(self, tmp_path, monkeypatch, capsys):
-        root = _make_feature(tmp_path, {
-            "WP01.md": VALID_WP.format(wp_id="WP01"),
-            "WP02.md": VALID_WP.format(wp_id="WP02"),
-        })
+        root = _make_feature(
+            tmp_path,
+            {
+                "WP01.md": VALID_WP.format(wp_id="WP01"),
+                "WP02.md": VALID_WP.format(wp_id="WP02"),
+            },
+        )
         monkeypatch.chdir(root)
 
         args = argparse.Namespace(
-            feature="001-test", auto=False, json=False, fix=False,
+            feature="001-test",
+            auto=False,
+            json=False,
+            fix=False,
         )
         cmd_wp_validate(args)
 
@@ -800,14 +852,20 @@ class TestWpValidateAllValid:
         assert "0 errors" in captured.out
 
     def test_wp_validate_all_valid_json(self, tmp_path, monkeypatch, capsys):
-        root = _make_feature(tmp_path, {
-            "WP01.md": VALID_WP.format(wp_id="WP01"),
-            "WP02.md": VALID_WP.format(wp_id="WP02"),
-        })
+        root = _make_feature(
+            tmp_path,
+            {
+                "WP01.md": VALID_WP.format(wp_id="WP01"),
+                "WP02.md": VALID_WP.format(wp_id="WP02"),
+            },
+        )
         monkeypatch.chdir(root)
 
         args = argparse.Namespace(
-            feature="001-test", auto=False, json=True, fix=False,
+            feature="001-test",
+            auto=False,
+            json=True,
+            fix=False,
         )
         cmd_wp_validate(args)
 
@@ -820,13 +878,19 @@ class TestWpValidateAllValid:
 
 class TestWpValidateMissingField:
     def test_wp_validate_missing_title(self, tmp_path, monkeypatch, capsys):
-        root = _make_feature(tmp_path, {
-            "WP01.md": "---\nwork_package_id: WP01\nlane: planned\n---\n",
-        })
+        root = _make_feature(
+            tmp_path,
+            {
+                "WP01.md": "---\nwork_package_id: WP01\nlane: planned\n---\n",
+            },
+        )
         monkeypatch.chdir(root)
 
         args = argparse.Namespace(
-            feature="001-test", auto=False, json=True, fix=False,
+            feature="001-test",
+            auto=False,
+            json=True,
+            fix=False,
         )
         with pytest.raises(SystemExit):
             cmd_wp_validate(args)
@@ -851,7 +915,10 @@ depends_on: ["WP99"]
         monkeypatch.chdir(root)
 
         args = argparse.Namespace(
-            feature="001-test", auto=False, json=True, fix=False,
+            feature="001-test",
+            auto=False,
+            json=True,
+            fix=False,
         )
         with pytest.raises(SystemExit):
             cmd_wp_validate(args)
@@ -877,7 +944,10 @@ depends_on: []
         monkeypatch.chdir(root)
 
         args = argparse.Namespace(
-            feature="001-test", auto=False, json=True, fix=False,
+            feature="001-test",
+            auto=False,
+            json=True,
+            fix=False,
         )
         cmd_wp_validate(args)
 
@@ -901,7 +971,10 @@ issue: '#117'
         monkeypatch.chdir(root)
 
         args = argparse.Namespace(
-            feature="001-test", auto=False, json=True, fix=False,
+            feature="001-test",
+            auto=False,
+            json=True,
+            fix=False,
         )
         cmd_wp_validate(args)
 
@@ -923,7 +996,10 @@ depends: WP02
         monkeypatch.chdir(root)
 
         args = argparse.Namespace(
-            feature="001-test", auto=False, json=False, fix=True,
+            feature="001-test",
+            auto=False,
+            json=False,
+            fix=True,
         )
         try:
             cmd_wp_validate(args)
@@ -950,7 +1026,10 @@ issue: '#117'
         monkeypatch.chdir(root)
 
         args = argparse.Namespace(
-            feature="001-test", auto=False, json=False, fix=True,
+            feature="001-test",
+            auto=False,
+            json=False,
+            fix=True,
         )
         try:
             cmd_wp_validate(args)
@@ -969,9 +1048,12 @@ issue: '#117'
 
 class TestWpListJsonOutput:
     def test_wp_list_json_output(self, tmp_path, monkeypatch, capsys):
-        root = _make_feature(tmp_path, {
-            "WP01.md": VALID_WP.format(wp_id="WP01"),
-        })
+        root = _make_feature(
+            tmp_path,
+            {
+                "WP01.md": VALID_WP.format(wp_id="WP01"),
+            },
+        )
         monkeypatch.chdir(root)
 
         args = argparse.Namespace(feature="001-test", auto=False, json=False)
@@ -986,11 +1068,14 @@ class TestWpListJsonOutput:
 
 class TestWpListIncludesAllWps:
     def test_wp_list_includes_all_wps(self, tmp_path, monkeypatch, capsys):
-        root = _make_feature(tmp_path, {
-            "WP01.md": VALID_WP.format(wp_id="WP01"),
-            "WP02.md": VALID_WP.format(wp_id="WP02"),
-            "WP03.md": VALID_WP.format(wp_id="WP03"),
-        })
+        root = _make_feature(
+            tmp_path,
+            {
+                "WP01.md": VALID_WP.format(wp_id="WP01"),
+                "WP02.md": VALID_WP.format(wp_id="WP02"),
+                "WP03.md": VALID_WP.format(wp_id="WP03"),
+            },
+        )
         monkeypatch.chdir(root)
 
         args = argparse.Namespace(feature="001-test", auto=False, json=False)

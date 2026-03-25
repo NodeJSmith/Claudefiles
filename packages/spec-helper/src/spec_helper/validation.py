@@ -31,7 +31,9 @@ def validate_wp_metadata(meta: dict, filename: str) -> list[str]:
 
     lane = meta.get("lane", "planned")
     if lane not in VALID_LANES:
-        errors.append(f"Invalid lane: '{lane}' (expected one of: {', '.join(sorted(VALID_LANES))})")
+        errors.append(
+            f"Invalid lane: '{lane}' (expected one of: {', '.join(sorted(VALID_LANES))})"
+        )
 
     for dep in meta.get("depends_on", []):
         if not WP_ID_PATTERN.match(dep):
@@ -46,9 +48,7 @@ def normalize_wp_metadata(raw: dict, filename: str) -> dict:
     Creates a new dict — does not mutate the input.
     """
     # Deep-copy list values to avoid shared references (challenge finding #4)
-    normalized = {
-        k: (list(v) if isinstance(v, list) else v) for k, v in raw.items()
-    }
+    normalized = {k: (list(v) if isinstance(v, list) else v) for k, v in raw.items()}
 
     # depends -> depends_on (handle string, list, or empty)
     if "depends" in normalized and "depends_on" not in normalized:

@@ -35,7 +35,6 @@ from spec_helper.validation import (
 )
 
 
-
 def cmd_next_number(args: argparse.Namespace) -> None:
     root = find_repo_root()
     n = next_feature_number(root)
@@ -52,7 +51,10 @@ def cmd_init(args: argparse.Namespace) -> None:
     slug = re.sub(r"-+", "-", slug).strip("-")
 
     if not slug or slug.isdigit():
-        die(f"Slug must be a non-empty, non-numeric string (got: '{slug}')", json_mode=args.json)
+        die(
+            f"Slug must be a non-empty, non-numeric string (got: '{slug}')",
+            json_mode=args.json,
+        )
 
     number = next_feature_number(root)
     padded = f"{number:03d}"
@@ -78,7 +80,10 @@ def cmd_init(args: argparse.Namespace) -> None:
 def cmd_wp_move(args: argparse.Namespace) -> None:
     lane = args.lane.lower()
     if lane not in VALID_LANES:
-        die(f"Invalid lane '{lane}'. Must be one of: {', '.join(sorted(VALID_LANES))}", json_mode=args.json)
+        die(
+            f"Invalid lane '{lane}'. Must be one of: {', '.join(sorted(VALID_LANES))}",
+            json_mode=args.json,
+        )
 
     root = find_repo_root()
     feature_dir = resolve_feature(root, feature=args.feature, auto=args.auto)
@@ -96,14 +101,18 @@ def cmd_wp_move(args: argparse.Namespace) -> None:
     if old_lane == lane:
         if args.json:
             print(
-                json.dumps({
-                    "status": "no_change",
-                    "lane": lane,
-                    "file": str(wp_file.relative_to(root)),
-                })
+                json.dumps(
+                    {
+                        "status": "no_change",
+                        "lane": lane,
+                        "file": str(wp_file.relative_to(root)),
+                    }
+                )
             )
         else:
-            print(f"{wp_file.name}: already in lane '{lane}' — no change", file=sys.stderr)
+            print(
+                f"{wp_file.name}: already in lane '{lane}' — no change", file=sys.stderr
+            )
         return
 
     # Direct mutation — preserves all other fields including unknown ones
@@ -131,7 +140,9 @@ def cmd_wp_move(args: argparse.Namespace) -> None:
 
 def cmd_wp_validate(args: argparse.Namespace) -> None:
     root = find_repo_root()
-    feature_dirs = resolve_feature_list(root, feature=args.feature, auto=getattr(args, "auto", False))
+    feature_dirs = resolve_feature_list(
+        root, feature=args.feature, auto=getattr(args, "auto", False)
+    )
 
     all_errors: list[dict[str, str]] = []
     all_warnings: list[dict[str, str]] = []
@@ -159,10 +170,12 @@ def cmd_wp_validate(args: argparse.Namespace) -> None:
 
             for old_field in OLD_SCHEMA_FIELDS:
                 if old_field in raw:
-                    all_warnings.append({
-                        "file": file_label,
-                        "message": f"Old-schema field '{old_field}' present (use --fix to normalize)",
-                    })
+                    all_warnings.append(
+                        {
+                            "file": file_label,
+                            "message": f"Old-schema field '{old_field}' present (use --fix to normalize)",
+                        }
+                    )
 
             normalized = normalize_wp_metadata(raw, f.name)
 
@@ -172,25 +185,31 @@ def cmd_wp_validate(args: argparse.Namespace) -> None:
 
             for dep in normalized.get("depends_on", []):
                 if WP_ID_PATTERN.match(dep) and dep not in existing_wp_ids:
-                    all_errors.append({
-                        "file": file_label,
-                        "message": f"Broken dependency: '{dep}' does not exist as a WP file",
-                    })
+                    all_errors.append(
+                        {
+                            "file": file_label,
+                            "message": f"Broken dependency: '{dep}' does not exist as a WP file",
+                        }
+                    )
 
             plan_section = normalized.get("plan_section")
             if plan_section and design_headings is not None:
                 if plan_section not in design_headings:
-                    all_warnings.append({
-                        "file": file_label,
-                        "message": f"plan_section '{plan_section}' not found in design.md headings",
-                    })
+                    all_warnings.append(
+                        {
+                            "file": file_label,
+                            "message": f"plan_section '{plan_section}' not found in design.md headings",
+                        }
+                    )
 
             unknown = set(normalized.keys()) - CANONICAL_FIELDS
             for field_name in sorted(unknown):
-                all_warnings.append({
-                    "file": file_label,
-                    "message": f"Unknown field: '{field_name}'",
-                })
+                all_warnings.append(
+                    {
+                        "file": file_label,
+                        "message": f"Unknown field: '{field_name}'",
+                    }
+                )
 
             # --fix: rewrite only if normalization changed something
             if args.fix:
@@ -203,18 +222,24 @@ def cmd_wp_validate(args: argparse.Namespace) -> None:
     is_valid = len(all_errors) == 0
 
     if args.json:
-        print(json.dumps({
-            "valid": is_valid,
-            "files": total_files,
-            "errors": all_errors,
-            "warnings": all_warnings,
-        }))
+        print(
+            json.dumps(
+                {
+                    "valid": is_valid,
+                    "files": total_files,
+                    "errors": all_errors,
+                    "warnings": all_warnings,
+                }
+            )
+        )
     else:
         for err in all_errors:
             print(f"  ERROR {err['file']}: {err['message']}", file=sys.stderr)
         for warn in all_warnings:
             print(f"  WARN  {warn['file']}: {warn['message']}", file=sys.stderr)
-        print(f"{total_files} files validated, {len(all_errors)} errors, {len(all_warnings)} warnings")
+        print(
+            f"{total_files} files validated, {len(all_errors)} errors, {len(all_warnings)} warnings"
+        )
 
     if not is_valid:
         sys.exit(1)
@@ -222,25 +247,31 @@ def cmd_wp_validate(args: argparse.Namespace) -> None:
 
 def cmd_wp_list(args: argparse.Namespace) -> None:
     root = find_repo_root()
-    feature_dir = resolve_feature(root, feature=args.feature, auto=getattr(args, "auto", False))
+    feature_dir = resolve_feature(
+        root, feature=args.feature, auto=getattr(args, "auto", False)
+    )
     wps = read_wp_files(feature_dir)
 
     result = []
     for wp in wps:
-        result.append({
-            "wp_id": wp.get("work_package_id", Path(wp["filename"]).stem),
-            "title": wp.get("title", ""),
-            "lane": wp.get("lane", "planned"),
-            "depends_on": wp.get("depends_on", []),
-            "path": str(feature_dir / "tasks" / wp["filename"]),
-        })
+        result.append(
+            {
+                "wp_id": wp.get("work_package_id", Path(wp["filename"]).stem),
+                "title": wp.get("title", ""),
+                "lane": wp.get("lane", "planned"),
+                "depends_on": wp.get("depends_on", []),
+                "path": str(feature_dir / "tasks" / wp["filename"]),
+            }
+        )
 
     print(json.dumps(result, indent=2))
 
 
 def cmd_status(args: argparse.Namespace) -> None:
     root = find_repo_root()
-    feature_dirs = resolve_feature_list(root, feature=args.feature, auto=getattr(args, "auto", False))
+    feature_dirs = resolve_feature_list(
+        root, feature=args.feature, auto=getattr(args, "auto", False)
+    )
 
     if not feature_dirs:
         if args.json:

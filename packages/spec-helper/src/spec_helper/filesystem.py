@@ -96,7 +96,9 @@ def find_feature_dir_auto(root: Path) -> Path:
     return max(features, key=_feature_mtime)
 
 
-def resolve_feature(root: Path, *, feature: str | None = None, auto: bool = False) -> Path:
+def resolve_feature(
+    root: Path, *, feature: str | None = None, auto: bool = False
+) -> Path:
     """Resolve a single feature directory from feature identifier or --auto flag."""
     if auto:
         return find_feature_dir_auto(root)
@@ -105,7 +107,9 @@ def resolve_feature(root: Path, *, feature: str | None = None, auto: bool = Fals
     return find_feature_dir(root, feature)
 
 
-def resolve_feature_list(root: Path, *, feature: str | None = None, auto: bool = False) -> list[Path]:
+def resolve_feature_list(
+    root: Path, *, feature: str | None = None, auto: bool = False
+) -> list[Path]:
     """Resolve to a list of feature directories — one specific, or all."""
     if auto:
         return [find_feature_dir_auto(root)]

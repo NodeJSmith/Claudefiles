@@ -24,8 +24,9 @@ def _add_json_flag(parser: argparse.ArgumentParser) -> None:
 def _add_auto_flag(parser: argparse.ArgumentParser) -> None:
     """Add --auto flag to a parser."""
     parser.add_argument(
-        "--auto", action="store_true",
-        help="Resolve to most recently modified feature directory"
+        "--auto",
+        action="store_true",
+        help="Resolve to most recently modified feature directory",
     )
 
 
@@ -45,8 +46,10 @@ def build_parser() -> argparse.ArgumentParser:
     # wp-move
     p_move = sub.add_parser("wp-move", help="Move a WP to a new lane")
     p_move.add_argument(
-        "feature", nargs="?", default=None,
-        help="Feature identifier (NNN, NNN-slug, or full dir name); optional with --auto"
+        "feature",
+        nargs="?",
+        default=None,
+        help="Feature identifier (NNN, NNN-slug, or full dir name); optional with --auto",
     )
     p_move.add_argument("wp_id", help="Work package ID (e.g. WP01, 01, 1)")
     p_move.add_argument("lane", help=f"Target lane: {', '.join(VALID_LANES)}")
@@ -54,29 +57,41 @@ def build_parser() -> argparse.ArgumentParser:
     _add_auto_flag(p_move)
 
     # status
-    p_status = sub.add_parser("status", help="Print terminal kanban for one or all features")
+    p_status = sub.add_parser(
+        "status", help="Print terminal kanban for one or all features"
+    )
     p_status.add_argument(
-        "feature", nargs="?", default=None,
+        "feature",
+        nargs="?",
+        default=None,
         help="Feature identifier (optional; all if omitted)",
     )
     _add_json_flag(p_status)
     _add_auto_flag(p_status)
 
     # wp-validate
-    p_validate = sub.add_parser("wp-validate", help="Validate WP files against canonical schema")
-    p_validate.add_argument(
-        "feature", nargs="?", default=None,
-        help="Feature identifier (optional; all if omitted)"
+    p_validate = sub.add_parser(
+        "wp-validate", help="Validate WP files against canonical schema"
     )
-    p_validate.add_argument("--fix", action="store_true", help="Rewrite files with normalized metadata")
+    p_validate.add_argument(
+        "feature",
+        nargs="?",
+        default=None,
+        help="Feature identifier (optional; all if omitted)",
+    )
+    p_validate.add_argument(
+        "--fix", action="store_true", help="Rewrite files with normalized metadata"
+    )
     _add_json_flag(p_validate)
     _add_auto_flag(p_validate)
 
     # wp-list
     p_list = sub.add_parser("wp-list", help="List WP files with frontmatter as JSON")
     p_list.add_argument(
-        "feature", nargs="?", default=None,
-        help="Feature identifier (NNN, NNN-slug, or full dir name); optional with --auto"
+        "feature",
+        nargs="?",
+        default=None,
+        help="Feature identifier (NNN, NNN-slug, or full dir name); optional with --auto",
     )
     _add_auto_flag(p_list)
 

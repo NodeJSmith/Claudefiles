@@ -22,7 +22,9 @@ def insert_activity_log_entry(body: str, entry: str) -> str:
         next_heading = next_heading_re.search(body, search_start)
         if next_heading:
             insert_pos = next_heading.start()
-            return body[:insert_pos].rstrip() + "\n" + entry + "\n\n" + body[insert_pos:]
+            return (
+                body[:insert_pos].rstrip() + "\n" + entry + "\n\n" + body[insert_pos:]
+            )
         else:
             return body.rstrip() + "\n" + entry + "\n"
     else:
