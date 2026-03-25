@@ -18,10 +18,10 @@ from spec_helper.filesystem import (
     find_git_root,
     find_repo_root,
     find_wp_file,
-    list_features,
     next_feature_number,
     read_wp_files,
     resolve_feature,
+    resolve_feature_list,
     specs_dir,
 )
 from spec_helper.validation import (
@@ -68,14 +68,14 @@ def cmd_init(args: argparse.Namespace) -> None:
     slug = re.sub(r"-+", "-", slug).strip("-")
 
     if not slug or slug.isdigit():
-        die(f"Slug must be a non-empty, non-numeric string (got: '{slug}')")
+        die(f"Slug must be a non-empty, non-numeric string (got: '{slug}')", json_mode=args.json)
 
     number = next_feature_number(root)
     padded = f"{number:03d}"
     feature_dir = specs_dir(root) / f"{padded}-{slug}"
 
     if feature_dir.exists():
-        die(f"Feature directory already exists: {feature_dir}")
+        die(f"Feature directory already exists: {feature_dir}", json_mode=args.json)
 
     feature_dir.mkdir(parents=True)
 
@@ -94,10 +94,10 @@ def cmd_init(args: argparse.Namespace) -> None:
 def cmd_wp_move(args: argparse.Namespace) -> None:
     lane = args.lane.lower()
     if lane not in VALID_LANES:
-        die(f"Invalid lane '{lane}'. Must be one of: {', '.join(sorted(VALID_LANES))}")
+        die(f"Invalid lane '{lane}'. Must be one of: {', '.join(sorted(VALID_LANES))}", json_mode=args.json)
 
     root = find_repo_root()
-    feature_dir = resolve_feature(root, args)
+    feature_dir = resolve_feature(root, feature=args.feature, auto=args.auto)
     wp_file = find_wp_file(feature_dir, args.wp_id)
 
     post = frontmatter.load(str(wp_file))
@@ -147,15 +147,7 @@ def cmd_wp_move(args: argparse.Namespace) -> None:
 
 def cmd_wp_validate(args: argparse.Namespace) -> None:
     root = find_repo_root()
-
-    if getattr(args, "auto", False):
-        feature_dirs = [resolve_feature(root, args)]
-    elif args.feature:
-        from spec_helper.filesystem import find_feature_dir
-
-        feature_dirs = [find_feature_dir(root, args.feature)]
-    else:
-        feature_dirs = list_features(root)
+    feature_dirs = resolve_feature_list(root, feature=args.feature, auto=getattr(args, "auto", False))
 
     all_errors: list[dict[str, str]] = []
     all_warnings: list[dict[str, str]] = []
@@ -246,7 +238,7 @@ def cmd_wp_validate(args: argparse.Namespace) -> None:
 
 def cmd_wp_list(args: argparse.Namespace) -> None:
     root = find_repo_root()
-    feature_dir = resolve_feature(root, args)
+    feature_dir = resolve_feature(root, feature=args.feature, auto=getattr(args, "auto", False))
     wps = read_wp_files(feature_dir)
 
     result = []
@@ -264,15 +256,7 @@ def cmd_wp_list(args: argparse.Namespace) -> None:
 
 def cmd_status(args: argparse.Namespace) -> None:
     root = find_repo_root()
-
-    if getattr(args, "auto", False):
-        feature_dirs = [resolve_feature(root, args)]
-    elif args.feature:
-        from spec_helper.filesystem import find_feature_dir
-
-        feature_dirs = [find_feature_dir(root, args.feature)]
-    else:
-        feature_dirs = list_features(root)
+    feature_dirs = resolve_feature_list(root, feature=args.feature, auto=getattr(args, "auto", False))
 
     if not feature_dirs:
         if args.json:

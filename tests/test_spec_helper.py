@@ -94,6 +94,17 @@ class TestCLIParsing:
         args = parser.parse_args(["next-number"])
         assert args.command == "next-number"
 
+    def test_next_number_with_json(self):
+        parser = build_parser()
+        args = parser.parse_args(["next-number", "--json"])
+        assert args.json is True
+
+    def test_json_before_subcommand_is_accepted(self):
+        """--json before subcommand parses without error."""
+        parser = build_parser()
+        args = parser.parse_args(["--json", "status"])
+        assert args.command == "status"
+
 
 # ===================================================================
 # validate_wp_metadata

@@ -1,6 +1,5 @@
 """Filesystem operations — repo root, feature resolution, WP file discovery."""
 
-import argparse
 import re
 from pathlib import Path
 from typing import Any
@@ -66,22 +65,38 @@ def next_feature_number(root: Path) -> int:
     return max(valid) + 1 if valid else 1
 
 
+def _feature_mtime(d: Path) -> float:
+    """Get the most recent mtime across all files in a feature directory."""
+    files = [f for f in d.rglob("*") if f.is_file()]
+    if files:
+        return max(f.stat().st_mtime for f in files)
+    return d.stat().st_mtime
+
+
 def find_feature_dir_auto(root: Path) -> Path:
-    """Resolve to the most recently modified feature directory."""
+    """Resolve to the most recently modified feature directory (by file content, not dir mtime)."""
     features = list_features(root)
     if not features:
         die("No feature directories found in design/specs/")
-    return max(features, key=lambda d: d.stat().st_mtime)
+    return max(features, key=_feature_mtime)
 
 
-def resolve_feature(root: Path, args: argparse.Namespace) -> Path:
-    """Resolve feature from args: --auto or positional feature identifier."""
-    if getattr(args, "auto", False):
+def resolve_feature(root: Path, *, feature: str | None = None, auto: bool = False) -> Path:
+    """Resolve a single feature directory from feature identifier or --auto flag."""
+    if auto:
         return find_feature_dir_auto(root)
-    feature = getattr(args, "feature", None)
     if not feature:
         die("Either <feature> or --auto is required")
     return find_feature_dir(root, feature)
+
+
+def resolve_feature_list(root: Path, *, feature: str | None = None, auto: bool = False) -> list[Path]:
+    """Resolve to a list of feature directories — one specific, or all."""
+    if auto:
+        return [find_feature_dir_auto(root)]
+    if feature:
+        return [find_feature_dir(root, feature)]
+    return list_features(root)
 
 
 def find_feature_dir(root: Path, feature: str) -> Path:

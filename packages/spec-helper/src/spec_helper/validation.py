@@ -3,9 +3,16 @@
 import re
 from pathlib import Path
 
-VALID_LANES = {"planned", "doing", "for_review", "done"}
-LANE_HEADERS = ["Planned", "Doing", "For Review", "Done"]
-LANE_KEYS = ["planned", "doing", "for_review", "done"]
+# Single source of truth for lane definitions — add new lanes here only
+LANES = [
+    ("planned", "Planned"),
+    ("doing", "Doing"),
+    ("for_review", "For Review"),
+    ("done", "Done"),
+]
+LANE_KEYS = [key for key, _ in LANES]
+LANE_HEADERS = [header for _, header in LANES]
+VALID_LANES = set(LANE_KEYS)
 WP_ID_PATTERN = re.compile(r"^WP\d{2,}$")
 CANONICAL_FIELDS = {"work_package_id", "title", "lane", "depends_on", "plan_section"}
 OLD_SCHEMA_FIELDS = {"depends"}

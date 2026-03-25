@@ -81,8 +81,8 @@ def build_parser() -> argparse.ArgumentParser:
     _add_auto_flag(p_list)
 
     # next-number
-    sub.add_parser("next-number", help="Print next available feature number")
-    # next-number supports --json via the parent parser
+    p_next = sub.add_parser("next-number", help="Print next available feature number")
+    _add_json_flag(p_next)
 
     return parser
 
@@ -90,6 +90,11 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
+
+    # Merge --json from parent parser position (spec-helper --json status)
+    # argparse subparser defaults override parent values, so check sys.argv
+    if not args.json and "--json" in sys.argv:
+        args.json = True
 
     dispatch = {
         "init": cmd_init,
