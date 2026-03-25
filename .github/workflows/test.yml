@@ -15,13 +15,15 @@ jobs:
       - uses: astral-sh/setup-uv@v5
 
       - name: Run tests
-        run: uv run --with pytest pytest tests/ -v
+        run: uv run --with pytest --with python-frontmatter --find-links packages/spec-helper pytest tests/ -v
+        env:
+          PYTHONPATH: packages/spec-helper/src
 
       - name: Lint
-        run: uv run --with ruff ruff check bin/ tests/
+        run: uv run --with ruff ruff check packages/ tests/
 
       - name: Format check
-        run: uv run --with ruff ruff format --check bin/ tests/
+        run: uv run --with ruff ruff format --check packages/ tests/
 
   shell-check:
     runs-on: ubuntu-latest

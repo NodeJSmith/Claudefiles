@@ -201,11 +201,11 @@ Run:
 spec-helper init <slug> --json
 ```
 
-Use the preliminary slug from Phase 1 (refine it if the user's answers suggest a better name). Record the returned `feature_dir` and `spec_path` — you will write the spec there.
+Use the preliminary slug from Phase 1 (refine it if the user's answers suggest a better name). Record the returned `feature_dir`. The spec path is `<feature_dir>/spec.md`.
 
 ### Write the spec
 
-Write the spec to `<spec_path>`. Use this structure exactly:
+Write the spec to `<feature_dir>/spec.md`. Use this structure exactly:
 
 ```markdown
 ---

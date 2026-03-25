@@ -25,43 +25,40 @@ If $ARGUMENTS is empty, show usage.
 
 Moves a work package to a new lane. Valid lanes: `planned`, `doing`, `for_review`, `done`.
 
-Identify the current feature from context (recent `spec-helper init` output, or the most recently modified feature directory under `design/specs/`):
+Use `--auto` to resolve the most recently modified feature, or pass an explicit feature if the user specified one:
 
 ```bash
+spec-helper wp-move --auto <wp-id> <lane>
 spec-helper wp-move <feature> <wp-id> <lane>
 ```
 
 Examples:
 ```bash
-spec-helper wp-move 001-user-auth WP02 doing
-spec-helper wp-move 001 WP02 for_review
+spec-helper wp-move --auto WP02 doing
+spec-helper wp-move 001-user-auth WP02 for_review
 ```
 
 Print the result. If the WP was already in the target lane, note that no change was made.
 
 ### status
 
-Print the terminal kanban for all features in the current repo:
+Print the terminal kanban. If no feature is specified, show all features; if one is provided, scope to it:
 
 ```bash
 spec-helper status
-```
-
-If a feature argument is provided after `status`, scope to that feature:
-```bash
 spec-helper status <feature>
 ```
 
 ### list
 
-List all WPs for the current feature with their lane and title. Identify the current feature the same way as `move`.
+List all WPs for the current feature with their lane and title.
 
 Run:
 ```bash
-spec-helper status <feature> --json
+spec-helper wp-list --auto
 ```
 
-Parse the JSON and print a human-readable table:
+Parse the JSON output and print a human-readable table:
 
 ```
 WP01  planned  Set up database schema
