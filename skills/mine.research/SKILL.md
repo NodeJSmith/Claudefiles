@@ -116,6 +116,7 @@ Dispatch the research to a `researcher` agent. This runs the heavy codebase expl
    - **Quick** — user said "Decided" + narrow scope (single module or specific technology question). Use 2 Explore subagents, focus on feasibility of the chosen approach.
    - **Normal** (default) — user said "Leaning" or moderate scope. Use 3-4 Explore subagents.
    - **Deep** — user said "Exploring" + broad scope (architecture, migration, multiple systems). Use 4 Explore subagents + web research.
+   - **If scope is unclear** from Phase 1 answers, default to **Normal** regardless of Flexibility.
 3. Launch `Agent(subagent_type: "researcher")` with a prompt containing:
    - The proposal (from $ARGUMENTS or user input)
    - The user's answers from Phase 1 (motivation, flexibility, constraints) — use the caller prompt checklist format from `researcher.md`
@@ -157,7 +158,11 @@ AskUserQuestion:
 
 Create the `design/research/` directory if it doesn't exist. If the project already has research in `docs/`, follow the existing convention.
 
-Copy/move the brief from the temp file to the user's chosen location (or display it inline if they chose "Just show me"). Record the saved path as `<research_brief_path>` if a file was written.
+**Copy** (never move) the brief from the temp file to the user's chosen location, or display it inline if they chose "Just show me". The tmpdir copy must always remain intact — downstream challenge and design handoffs reference it.
+
+After the save step, set `<research_brief_path>`:
+- If saved to a permanent location: `<research_brief_path>` = the saved file path
+- If "Just show me": `<research_brief_path>` = `<tmpdir>/brief.md`
 
 Present the key findings conversationally and ask what the user wants to do next.
 
@@ -177,9 +182,11 @@ AskUserQuestion:
       description: "The brief has what I need — I'll come back when I'm ready"
 ```
 
-If "Challenge these findings first" is selected: invoke `/mine.challenge --target-type=research <tmpdir>/brief.md`. The tmpdir file always exists regardless of the save choice. After challenge completes, loop back to this gate.
+If "Challenge these findings first" is selected: invoke `/mine.challenge --target-type=research <research_brief_path>`. After challenge completes, loop back to this gate.
 
-If "Design it (/mine.design)" is selected: invoke `/mine.design` and pass the research brief path (`<research_brief_path>` if saved to a permanent location, otherwise `<tmpdir>/brief.md`) so mine.design can use it as prior work and skip its own researcher dispatch.
+If "Design it (/mine.design)" is selected: invoke `/mine.design` and pass `<research_brief_path>` so mine.design can use it as prior work and skip its own researcher dispatch.
+
+If "Build it (/mine.build)" is selected: invoke `/mine.build` with context: "Prior research brief available at `<research_brief_path>`." This ensures mine.build's prior-analysis detection fires reliably.
 
 ## Principles
 

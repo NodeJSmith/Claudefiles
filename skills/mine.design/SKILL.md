@@ -84,9 +84,17 @@ Before dispatching the researcher agent, check whether a research brief already 
 
 1. If the user passed a research brief path (e.g., from `/mine.research` handoff), read it directly.
 2. If a `design/specs/NNN-*/` directory exists for this feature, check for `research.md` inside it.
-3. Glob `design/research/*/research.md` and check for a topic match — look for YAML frontmatter `proposal:` fields (new format) or `**Proposal**:` bold-text headers (old format).
+3. Glob `design/research/*/research.md` and scan for potential matches — look for YAML frontmatter `proposal:` fields (new format) or `**Proposal**:` bold-text headers (old format).
 
-If a matching brief is found, read it, confirm with the user ("Found an existing research brief at `<path>` — using it as prior work. Skip investigation?"), and skip the researcher dispatch if confirmed. Use the brief's frontmatter to extract structured context (flexibility, motivation, constraints) and skip any Phase 3 questions already answered.
+If a potential match is found, **always confirm with the user before reusing**. Show both proposals side-by-side so the user can judge relevance:
+
+> Found an existing research brief at `<path>`:
+> - **Brief's proposal**: "<proposal text from the brief>"
+> - **Current topic**: "<what the user is designing now>"
+>
+> Use this as prior work and skip investigation?
+
+When in doubt, prefer dispatching the researcher over reusing a potentially unrelated brief. If the user confirms, skip the researcher dispatch. Use the brief's frontmatter to extract structured context (flexibility, motivation, constraints) and skip any Phase 3 questions already answered.
 
 ### Dispatch researcher (if no existing brief)
 
@@ -102,10 +110,10 @@ Proposal: <what was scoped>
 Motivation: <why this change is being considered>
 Flexibility: Decided
 Constraints: <known constraints>
-Desired outcome: <success criteria>
-Non-goals: <explicit exclusions>
+Desired outcome: <success criteria from Phase 1 Question 1 — omit if unknown>
+Non-goals: <explicit exclusions from Phase 1 Question 2 — omit if unknown>
 Prior work: <path to spec.md if one exists — omit if none>
-Depth: quick
+Depth: <quick for Trivial changes, normal for Moderate/Complex>
 
 Write your research brief to: <temp file path>
 ```
