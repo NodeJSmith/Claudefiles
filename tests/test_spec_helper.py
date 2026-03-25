@@ -278,6 +278,35 @@ class TestFindRepoRootWithGitAndSpecs:
         assert find_repo_root() == tmp_path
 
 
+class TestFindRepoRootMonorepo:
+    """Monorepo: design/specs/ nested inside a subdirectory, not at git root."""
+
+    def test_finds_nested_specs_from_app_dir(self, tmp_path, monkeypatch):
+        (tmp_path / ".git").mkdir()
+        app = tmp_path / "apps" / "my-app"
+        (app / "design" / "specs").mkdir(parents=True)
+        monkeypatch.chdir(app)
+        assert find_repo_root() == app
+
+    def test_finds_nested_specs_from_deeper_subdir(self, tmp_path, monkeypatch):
+        (tmp_path / ".git").mkdir()
+        app = tmp_path / "apps" / "my-app"
+        (app / "design" / "specs").mkdir(parents=True)
+        deep = app / "src" / "components"
+        deep.mkdir(parents=True)
+        monkeypatch.chdir(deep)
+        assert find_repo_root() == app
+
+    def test_prefers_nearest_specs_over_root(self, tmp_path, monkeypatch):
+        """When both git root and a subdirectory have design/specs/, use the nearest."""
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "design" / "specs").mkdir(parents=True)
+        app = tmp_path / "apps" / "my-app"
+        (app / "design" / "specs").mkdir(parents=True)
+        monkeypatch.chdir(app)
+        assert find_repo_root() == app
+
+
 class TestFindRepoRootNoGitDies:
     def test_no_git_dies(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)

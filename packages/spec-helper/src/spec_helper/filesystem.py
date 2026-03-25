@@ -41,15 +41,21 @@ def find_git_root() -> Path:
 
 
 def find_repo_root() -> Path:
-    """Walk up from cwd to find a git repo containing design/specs/.
+    """Walk up from cwd to find the nearest directory containing design/specs/.
 
+    Searches from cwd upward, stopping at the git root. This handles monorepos
+    where design/specs/ lives in a subdirectory (e.g., apps/my-app/design/specs/).
     Requires .git in ancestry — never falls back to cwd.
     """
-    root = find_git_root()
-    if (root / "design" / "specs").exists():
-        return root
+    git_root = find_git_root()
+    cwd = Path.cwd()
+    for parent in [cwd, *cwd.parents]:
+        if (parent / "design" / "specs").exists():
+            return parent
+        if parent == git_root:
+            break
     die(
-        f"Git repository at {root} has no design/specs/ directory. "
+        f"No design/specs/ directory found between cwd and git root ({git_root}). "
         f"Run 'spec-helper init <slug>' to create a feature."
     )
 
