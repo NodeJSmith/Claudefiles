@@ -78,27 +78,41 @@ If prior work exists and covers the same scope, skip to Phase 2 (investigate) us
 
 ## Phase 2: Investigate
 
-Dispatch the `researcher` agent to investigate the codebase. Pass the scoping answers as context.
+### Check for an existing research brief
+
+Before dispatching the researcher agent, check whether a research brief already exists for this topic:
+
+1. If the user passed a research brief path (e.g., from `/mine.research` handoff), read it directly.
+2. If a `design/specs/NNN-*/` directory exists for this feature, check for `research.md` inside it.
+3. Glob `design/research/*/research.md` and check for a topic match — look for YAML frontmatter `proposal:` fields (new format) or `**Proposal**:` bold-text headers (old format).
+
+If a matching brief is found, read it, confirm with the user ("Found an existing research brief at `<path>` — using it as prior work. Skip investigation?"), and skip the researcher dispatch if confirmed. Use the brief's frontmatter to extract structured context (flexibility, motivation, constraints) and skip any Phase 3 questions already answered.
+
+### Dispatch researcher (if no existing brief)
 
 Run `get-skill-tmpdir mine-design-research` and use `<dir>/brief.md` as the research brief destination.
 
-Launch `Agent(subagent_type: "researcher")` with this prompt:
+Launch `Agent(subagent_type: "researcher")` with this prompt, using the caller prompt checklist format:
 
 ```
 Investigate a proposed change for a design document.
 
-## Context from design scoping
+## Research Context
 Proposal: <what was scoped>
 Motivation: <why this change is being considered>
-Desired outcome: <success criteria>
+Flexibility: Decided
 Constraints: <known constraints>
+Desired outcome: <success criteria>
 Non-goals: <explicit exclusions>
-Flexibility: decided (the user has already scoped this)
+Prior work: <path to spec.md if one exists — omit if none>
+Depth: quick
 
 Write your research brief to: <temp file path>
 ```
 
-After the agent completes, read the temp file to get the research brief.
+After the agent completes, **verify the output**: read the temp file and check that it exists and contains the `# Research Brief:` header. If missing or malformed, inform the user and offer to retry or proceed with manual investigation.
+
+Read the verified brief to get the research findings.
 
 ---
 
@@ -193,6 +207,7 @@ Write the design doc to: `<feature_dir>/design.md`
 **Date:** YYYY-MM-DD
 **Status:** draft
 **Spec:** <path to spec.md, if one exists>
+**Research:** <path to research brief, if one was used — omit if no prior research>
 
 ## Problem
 

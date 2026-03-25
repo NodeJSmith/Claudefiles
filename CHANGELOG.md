@@ -5,6 +5,10 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-25
 
 ### Changed
+- `mine.research` overhauled — multi-domain Phase 1 examples (breaks persistence anchoring bias), depth parameter (quick/normal/deep) inferred from flexibility, failure handling after researcher dispatch, `/mine.design` added to next-step gate, challenge passthrough always uses tmpdir path with `--target-type=research`
+- `researcher` agent formalized — caller prompt checklist, YAML frontmatter in brief output, flexibility-based Options scaling (Decided=single deep-dive, Exploring=full multi-option), depth-based subagent count
+- `mine.design` auto-detects existing research briefs before dispatching researcher agent (prevents duplicate investigation), `**Research:**` field added to design doc template
+- `mine.build` prior-analysis detection now recognizes research briefs (YAML frontmatter and header-based)
 - `mine.challenge` overhauled — rebranded to "adversarial review" (any artifact, not just designs), impact-based severity with confidence annotations, target-type classification (7 types + `--target-type` override), simplified 3-step synthesis, sharpened personas (security, ops, user-need), new `--focus` argument, TENSION clarified, positional-first argument parsing (#126)
 - `mine.challenge` no longer prompts after presenting findings — auto-completes and lists file paths; callers handle persistence (#125)
 - `spec-helper` rewritten as an installable Python package (`packages/spec-helper/`) — replaces fragile hand-rolled YAML parser with `python-frontmatter`, adds `wp-validate` and `wp-list` commands, fixes silent `cwd` fallback, atomic writes, section-aware activity log insertion (#124)
