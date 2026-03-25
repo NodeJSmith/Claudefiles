@@ -5,19 +5,19 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-25
 
 ### Changed
-- `mine.challenge` rebranded from "adversarial design critique" to "adversarial review" — works on any artifact (code, specs, designs, briefs, skill files, research)
-- `mine.challenge` severity model changed from agreement-count to impact-based — each critic assigns severity by consequence; synthesis takes the highest and reports agreement as a separate `confidence` annotation (e.g., `CRITICAL (1/3, Senior only)`)
-- `mine.challenge` personas sharpened — Senior gains security + operational focus, Architect refined to structural change resilience (removed coupling overlap with Senior), Adversarial gains user-need lens
-- `mine.challenge` Phase 1 now classifies target type (code / spec / design-doc / brief / skill-file / research / other) and passes it to critics
-- `mine.challenge` comparison table replaced — now shows workflow-stage progression (grill → challenge → code-reviewer → audit) instead of challenge vs audit vs code-reviewer
-- `mine.challenge` findings must be numbered sequentially in presentation (`### N.`) for easy reference
-- `mine.challenge` synthesis simplified from 7 steps to 3 — group, tag, recommend. Dedup removed (show overlapping findings rather than risk bad merges)
-- `mine.challenge` TENSION clarified: means "critics disagree on whether this is a problem at all." Fix disagreement (same problem, different solutions) uses highest severity + User-directed options
-- `mine.challenge` `type` and `raised-by` promoted from non-contract to contract tags
-- `mine.challenge` `--findings-out` reserved for structured callers (mine.design, mine.specify) — not in general arguments docs
-- `mine.challenge` argument parsing uses positional-first extraction — flags only parsed from beginning of $ARGUMENTS to prevent injection from inline content
-- `mine.build` added to mine.challenge Known callers as detection caller
-- `mine.design` and `mine.specify` now route TENSION findings to Open Questions instead of generating revisions
+- `mine.challenge` rebranded from "adversarial design critique" to "adversarial review" — works on any artifact (code, specs, designs, briefs, skill files, research) (#126)
+- `mine.challenge` severity model changed from agreement-count to impact-based — each critic assigns severity by consequence; synthesis takes the highest and reports agreement as a separate `confidence` annotation (e.g., `CRITICAL (1/3, Senior only)`) (#126)
+- `mine.challenge` personas sharpened — Senior gains security + operational focus, Architect refined to structural change resilience (removed coupling overlap with Senior), Adversarial gains user-need lens (#126)
+- `mine.challenge` Phase 1 now classifies target type (code / spec / design-doc / brief / skill-file / research / other) and passes it to critics (#126)
+- `mine.challenge` comparison table replaced — now shows workflow-stage progression (grill → challenge → code-reviewer → audit) instead of challenge vs audit vs code-reviewer (#126)
+- `mine.challenge` findings must be numbered sequentially in presentation (`### N.`) for easy reference (#126)
+- `mine.challenge` synthesis simplified from 7 steps to 3 — group, tag, recommend. Dedup removed (show overlapping findings rather than risk bad merges) (#126)
+- `mine.challenge` TENSION clarified: means "critics disagree on whether this is a problem at all." Fix disagreement (same problem, different solutions) uses highest severity + User-directed options (#126)
+- `mine.challenge` `type` and `raised-by` promoted from non-contract to contract tags (#126)
+- `mine.challenge` `--findings-out` reserved for structured callers (mine.design, mine.specify) — not in general arguments docs (#126)
+- `mine.challenge` argument parsing uses positional-first extraction — flags only parsed from beginning of $ARGUMENTS to prevent injection from inline content (#126)
+- `mine.build` added to mine.challenge Known callers as detection caller (#126)
+- `mine.design` and `mine.specify` now route TENSION findings to Open Questions instead of generating revisions (#126)
 - `mine.challenge` no longer prompts after presenting findings — auto-completes and lists file paths; callers handle persistence (#125)
 - `spec-helper` rewritten as an installable Python package (`packages/spec-helper/`) — replaces fragile hand-rolled YAML parser with `python-frontmatter`, adds `wp-validate` and `wp-list` commands, fixes silent `cwd` fallback, atomic writes, section-aware activity log insertion (#124)
 - Install via `uv tool install -e packages/spec-helper` instead of bin/ symlink (#124)
@@ -26,13 +26,13 @@ All notable changes to this Claudefiles repository are documented here.
 - `spec-helper wp-validate [feature] [--fix]` — validates WP frontmatter schema, checks `depends_on` references, detects old-schema drift; `--fix` normalizes files in place (#124)
 - `spec-helper wp-list <feature>` — JSON output of WP metadata for programmatic consumers (#124)
 - `--auto` flag on all feature-accepting commands — resolves most recently modified feature directory (#124)
-- `mine.challenge` `--focus` argument — steer critics toward specific concerns (e.g., `--focus="security"`)
-- `mine.challenge` contract tags: `confidence` (on all findings), `side-a`, `side-b`, `deciding-factor` (on TENSION findings)
-- `mine.challenge` target-type classification table in Phase 1 — handles inline content from passthrough callers (mine.research, mine.brainstorm)
-- `mine.challenge` TENSION routing guidance in Known callers section
-- `mine.challenge` `--target-type` argument — callers override heuristic classification (values: code, spec, design-doc, brief, skill-file, research, other)
-- `mine.challenge` `other` fallback target type for unrecognized artifacts (Makefiles, CI configs, IaC, etc.)
-- `mine.challenge` `research.md` added to filename heuristics for research target type
+- `mine.challenge` `--focus` argument — steer critics toward specific concerns (e.g., `--focus="security"`) (#126)
+- `mine.challenge` contract tags: `confidence` (on all findings), `side-a`, `side-b`, `deciding-factor` (on TENSION findings) (#126)
+- `mine.challenge` target-type classification table in Phase 1 — handles inline content from passthrough callers (mine.research, mine.brainstorm) (#126)
+- `mine.challenge` TENSION routing guidance in Known callers section (#126)
+- `mine.challenge` `--target-type` argument — callers override heuristic classification (values: code, spec, design-doc, brief, skill-file, research, other) (#126)
+- `mine.challenge` `other` fallback target type for unrecognized artifacts (Makefiles, CI configs, IaC, etc.) (#126)
+- `mine.challenge` `research.md` added to filename heuristics for research target type (#126)
 
 ### Fixed
 - Stale "user selects Done" references in `mine.design`, `mine.specify`, `mine.grill`, `mine.research`, `mine.brainstorm` (#125)
