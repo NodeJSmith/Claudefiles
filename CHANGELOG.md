@@ -5,16 +5,16 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-25
 
 ### Changed
-- `spec-helper` rewritten as an installable Python package (`packages/spec-helper/`) — replaces fragile hand-rolled YAML parser with `python-frontmatter`, adds `wp-validate` and `wp-list` commands, fixes silent `cwd` fallback, atomic writes, section-aware activity log insertion
-- Install via `uv tool install -e packages/spec-helper` instead of bin/ symlink
+- `spec-helper` rewritten as an installable Python package (`packages/spec-helper/`) — replaces fragile hand-rolled YAML parser with `python-frontmatter`, adds `wp-validate` and `wp-list` commands, fixes silent `cwd` fallback, atomic writes, section-aware activity log insertion (#124)
+- Install via `uv tool install -e packages/spec-helper` instead of bin/ symlink (#124)
 
 ### Added
-- `spec-helper wp-validate [feature] [--fix]` — validates WP frontmatter schema, checks `depends_on` references, detects old-schema drift; `--fix` normalizes files in place
-- `spec-helper wp-list <feature>` — JSON output of WP metadata for programmatic consumers
-- `--auto` flag on all feature-accepting commands — resolves most recently modified feature directory
+- `spec-helper wp-validate [feature] [--fix]` — validates WP frontmatter schema, checks `depends_on` references, detects old-schema drift; `--fix` normalizes files in place (#124)
+- `spec-helper wp-list <feature>` — JSON output of WP metadata for programmatic consumers (#124)
+- `--auto` flag on all feature-accepting commands — resolves most recently modified feature directory (#124)
 
 ### Removed
-- `bin/spec-helper` single-file script — replaced by the `packages/spec-helper/` package
+- `bin/spec-helper` single-file script — replaced by the `packages/spec-helper/` package (#124)
 
 ## 2026-03-24
 
