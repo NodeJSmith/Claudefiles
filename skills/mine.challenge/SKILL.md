@@ -54,7 +54,7 @@ Each critic assigns severity based on consequence — how bad is this if left un
 
 **TENSION vs. fix disagreement**: TENSION means critics disagree on whether something is a problem at all (one says "this is broken," another says "this is fine"). If critics agree it's a problem but propose different fixes, that's NOT TENSION — use the highest severity and present the differing fixes as options in a User-directed finding.
 
-During synthesis, the **highest severity any critic assigned** is used. Agreement count is reported separately as a **confidence annotation** (e.g., `CRITICAL (2/3)` or `HIGH (1/3, Senior only)`). This prevents novel findings from being deprioritized just because only one specialist spotted them.
+During synthesis, the **highest severity any critic assigned** is used. Agreement count is reported separately as a **confidence annotation** (e.g., `CRITICAL (2/3)` or `HIGH (1/3, Senior only)`). This prevents novel findings from being deprioritized just because only one specialist spotted them. The parenthetical notation is for human-readable presentation only — in the structured findings file, `severity:` must be exactly one of `CRITICAL`, `HIGH`, `MEDIUM`, or `TENSION`, and confidence is a separate tag.
 
 ### Type (what kind of problem)
 
@@ -204,7 +204,8 @@ Launch all three critics in parallel as separate `Agent` tool calls in a single 
      ```
   4. **Tag each finding** with severity (CRITICAL / HIGH / MEDIUM), type (Structural / Approach-now / Approach-later / Fragility / Gap), and design-level (Yes / No). Assign severity based on impact — how bad is this if left unfixed?
   5. **Add one design question** — a question that forces the author to justify or reconsider
-  6. **Read beyond the provided files** — you have Read, Grep, and Glob access. Before writing your report, grep for call sites of the primary module/function under review and read at least two of them. Include a **Files examined** section at the top of your report listing every file you read. Don't limit your critique to what was handed to you.
+  6. **Include a "Pushback" section** at the end of your report. For each finding raised by other critics (you won't see their reports, but anticipate likely concerns from the other two personas), note any you would disagree with and why. If you think something another critic is likely to flag is actually fine, say so explicitly — e.g., "The coupling here is intentional because X." This gives synthesis the raw material to produce TENSION findings.
+  7. **Read beyond the provided files** — you have Read, Grep, and Glob access. Before writing your report, grep for call sites of the primary module/function under review and read at least two of them. Include a **Files examined** section at the top of your report listing every file you read. Don't limit your critique to what was handed to you.
 
 Each critic writes their full, unfiltered findings to their temp file. These files persist for the session so the user can read any individual critic's reasoning after the skill completes.
 
@@ -309,7 +310,7 @@ Findings MUST be numbered sequentially (`### 1.`, `### 2.`, etc.) for easy refer
 
 ```
 ### N. [Issue name] — SEVERITY (confidence)
-**Type**: [Structural / Approach-now / Approach-later / Fragility / Gap] | **Design-level**: [Yes / No] | **Resolution**: [Auto-apply / User-directed]
+**Type**: [Structural / Approach-now / Approach-later / Approach-now/later / Fragility / Gap] | **Design-level**: [Yes / No] | **Resolution**: [Auto-apply / User-directed]
 
 **What's wrong**: [Direct statement — no softening]
 **Why it matters**: [Consequence if left as-is]

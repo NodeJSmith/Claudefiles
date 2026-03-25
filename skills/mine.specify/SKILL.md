@@ -268,6 +268,10 @@ created: "<ISO timestamp>"
 ## Acceptance Criteria
 
 <Measurable, technology-agnostic criteria. Each criterion is independently verifiable.>
+
+## Open Questions
+
+<Questions or trade-offs that surfaced during specification but couldn't be resolved yet. TENSION findings from /mine.challenge are added here. Remove items as they're resolved during design.>
 ```
 
 **Rules for spec content:**
