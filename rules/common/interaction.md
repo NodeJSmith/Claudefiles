@@ -18,9 +18,10 @@ executing.
 
 ## Suggest /mine.challenge
 
-Before committing to non-trivial designs, new skills, rule changes, or
+Before committing to non-trivial designs, specs, new skills, rule changes, or
 workflow modifications, suggest running `/mine.challenge` if the user hasn't
-already. One-line mention, not a gate — the user decides whether to run it.
+already. Works on any artifact — code, specs, designs, briefs, skill files.
+One-line mention, not a gate — the user decides whether to run it.
 
 ## Progress Tracking
 

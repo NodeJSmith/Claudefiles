@@ -246,26 +246,27 @@ AskUserQuestion:
 
 ### On "Challenge this design"
 
-Before invoking challenge, create a known output path for the findings file:
+Create a known output path for the findings file:
 
 ```bash
 get-skill-tmpdir mine-design-challenge
 ```
 
-Then invoke: `/mine.challenge <design-doc-path> --findings-out=<dir>/findings.md`
+Then invoke: `/mine.challenge --findings-out=<dir>/findings.md --target-type=design-doc <design-doc-path>`
 
-After the challenge completes (challenge auto-completes after presenting findings), generate a **revision plan** from the challenge findings.
+After challenge completes (it auto-completes after presenting findings), generate a **revision plan** from the findings file.
 
 <!-- SYNC: Shared with mine.specify — the AskUserQuestion options (Apply all / Let me cherry-pick / Skip revisions), the Apply all / Cherry-pick / Skip handling logic, and the findings file reading pattern must stay in sync. mine.specify adds spec-specific routing (design-level:Yes → spec vs design doc) and deferred findings persistence — those are intentional divergences. -->
 
 #### Read findings
 
-Read the structured findings file at `<dir>/findings.md` — the path you passed to challenge via `--findings-out`. Verify the `Target:` field in the file matches `<design-doc-path>` before proceeding.
+Read the structured findings file at `<dir>/findings.md`. Verify the `Target:` field matches `<design-doc-path>` before proceeding.
 
 1. Re-read the design doc to get current state
 2. For each finding where `design-level: Yes`, determine what would change in the design doc:
    - **Auto-apply findings**: state the specific change (section, what changes, why)
    - **User-directed findings**: state the options and the recommendation from the findings file
+   - **TENSION findings**: add to the design doc's "Open Questions" section rather than revising — the critics genuinely disagree, so this needs a user decision
 3. For findings where `design-level: No`, list them as "Flag for implementation — no design doc change needed"
 
 Present the revision plan:
@@ -273,6 +274,8 @@ Present the revision plan:
 > **Proposed revisions to design.md based on challenge findings:**
 > - **Section (name)**: [what changes and why] *(from finding #N — Auto-apply/User-directed)*
 > - ...
+> **Add to Open Questions:**
+> - Finding #N: [summary] — critics disagree on direction (TENSION)
 > **No design doc change:**
 > - Finding #N: [summary] — implementation-phase concern
 

@@ -1,22 +1,23 @@
 ---
 name: mine.challenge
-description: "Use when the user says: \"challenge this design\", \"poke holes in this\", or \"what's wrong with this approach\". Adversarial design critique using three parallel critics. Assumes the design is wrong, finds out why, and argues for a better approach."
+description: "Use when the user says: \"challenge this\", \"poke holes in this\", or \"what's wrong with this approach\". Adversarial review using three parallel critics. Assumes the target is wrong, finds out why, and argues for a better approach."
 user-invocable: true
 ---
 
 # Challenge
 
-Adversarial design critique. This skill assumes the target under review is poorly designed and sets out to prove it. Three independent critics analyze from different angles, findings are cross-referenced for confidence, and every claim must cite evidence.
+Adversarial review of any artifact — code, specs, designs, briefs, skill files. Assumes the target is wrong and sets out to prove it. Three independent critics analyze from different angles, findings are cross-referenced for confidence, and every claim must cite evidence.
 
 This skill produces **findings only**. It does not revise documents or apply fixes — that's the caller's job. When invoked from caliper workflow skills (mine.specify, mine.design), those skills handle revision planning after challenge completes.
 
 ## How This Differs From Other Skills
 
-| Skill | Question it answers |
-|-------|-------------------|
-| `mine.audit` | "What health problems does this codebase have?" |
-| **`mine.challenge`** | **"Is this design actually correct?"** |
-| `code-reviewer` | "Is this diff correct and safe to merge?" |
+| Skill | Stage | Question it answers |
+|-------|-------|-------------------|
+| `mine.grill` | Idea | "Have I thought this through?" |
+| **`mine.challenge`** | **Artifact** | **"Is this approach actually right?"** |
+| `code-reviewer` | Diff | "Is this diff safe to merge?" |
+| `mine.audit` | Codebase | "What health problems does this codebase have?" |
 
 ## Arguments
 
@@ -25,26 +26,35 @@ $ARGUMENTS — optional scope:
 - Module/concept: `/mine.challenge "the auth module"`
 - Empty: brief recon to find the most suspect design areas, then confirm scope before critiquing
 
-**Caller-provided argument**: `--findings-out=<path>` — when a calling skill (mine.design, mine.specify) invokes challenge, it passes a known output path for the findings file. Challenge writes `findings.md` to this path instead of to its own tmpdir. This lets the caller control the location without parsing output. When not provided, challenge creates its own tmpdir as usual.
+**Optional arguments**:
+- `--focus="<area>"` — steer critics toward specific concerns (e.g., `--focus="security, error handling"`). Passed to all critics as a priority signal: "Pay special attention to X." Critics still review broadly but weight output toward the user's concern.
+- `--target-type=<type>` — override heuristic target-type classification. Callers that know their artifact type should pass this. Values: `code`, `spec`, `design-doc`, `brief`, `skill-file`, `research`, `other`.
+- `--findings-out=<path>` — (structured callers only) deterministic output path for the findings file. Used by mine.design and mine.specify for reliable handoff. Not needed for standalone or passthrough invocations.
 
-## How to Analyze Code
+## How to Analyze
 
 Do NOT run tests, execute builds, install packages, run linters, or write throwaway analysis scripts.
 
-DO read code directly (Read, Grep, Glob, `git log` / `git diff`). Use WebSearch to look up canonical descriptions of design patterns you recommend, or to cite documented failure modes — a "better approach" backed by a reference is stronger than one asserted without it.
+DO read directly (Read, Grep, Glob, `git log` / `git diff`). Use WebSearch to look up canonical descriptions of design patterns you recommend, or to cite documented failure modes — a "better approach" backed by a reference is stronger than one asserted without it.
 
 ## Finding Taxonomy
 
-Every finding gets four tags: **severity**, **type**, **design-level**, and **resolution**.
+Every finding gets five tags: **severity**, **confidence**, **type**, **design-level**, and **resolution**. TENSION findings add three more: **side-a**, **side-b**, **deciding-factor**.
 
-### Severity (confidence-based)
+### Severity (impact-based)
 
-| Agreement | Severity | Meaning |
-|-----------|----------|---------|
-| All 3 flagged it | CRITICAL | High-confidence fundamental flaw |
-| 2 flagged it | HIGH | Serious concern, well-evidenced |
-| 1 flagged it | MEDIUM | Valid concern, one perspective |
-| Critics disagree on direction | TENSION | Surface both views — worth discussing |
+Each critic assigns severity based on consequence — how bad is this if left unfixed?
+
+| Severity | Meaning |
+|----------|---------|
+| **CRITICAL** | Fundamental flaw — the target cannot succeed as designed |
+| **HIGH** | Serious problem — will cause real damage but the target isn't doomed |
+| **MEDIUM** | Valid concern — worth fixing but won't cause failure |
+| **TENSION** | Critics disagree on whether this is even a problem — surface both views for the user to decide |
+
+**TENSION vs. fix disagreement**: TENSION means critics disagree on whether something is a problem at all (one says "this is broken," another says "this is fine"). If critics agree it's a problem but propose different fixes, that's NOT TENSION — use the highest severity and present the differing fixes as options in a User-directed finding.
+
+During synthesis, the **highest severity any critic assigned** is used. Agreement count is reported separately as a **confidence annotation** (e.g., `CRITICAL (2/3)` or `HIGH (1/3, Senior only)`). This prevents novel findings from being deprioritized just because only one specialist spotted them. The parenthetical notation is for human-readable presentation only — in the structured findings file, `severity:` must be exactly one of `CRITICAL`, `HIGH`, `MEDIUM`, or `TENSION`, and confidence is a separate tag.
 
 ### Type (what kind of problem)
 
@@ -82,36 +92,66 @@ Whether this finding is architectural/structural in nature — meaning it would 
 
 The following tag names and values are consumed by calling skills (mine.design, mine.specify) to generate revision plans. Changing these is a **breaking change** — update all callers.
 
-- **Contract tag names**: `severity`, `design-level`, `resolution`
-- **Non-contract tags**: `type`, `raised-by` — included in findings for human readability but not consumed by callers. Do not depend on their presence or values.
+- **Contract tag names**: `severity`, `confidence`, `type`, `design-level`, `resolution`, `raised-by`
+- **Contract tag names (TENSION only)**: `side-a`, `side-b`, `deciding-factor`
 - **Severity values**: `CRITICAL`, `HIGH`, `MEDIUM`, `TENSION`
+- **Confidence format**: `N/3 (<critic names>)` — e.g., `2/3 (Senior + Architect)`
 - **design-level values**: `Yes`, `No`
 - **Resolution values**: `Auto-apply`, `User-directed`
-- **Findings file**: `<tmpdir>/findings.md` or caller-specified path via `--findings-out` (structured summary, always written)
+- **Findings file**: `<tmpdir>/findings.md`, or `--findings-out` path when provided by structured callers (always written)
 
 **Known callers** (update all when contract changes):
 
-Structured callers (consume `--findings-out` and generate revision plans):
+Structured callers (read findings file and generate revision plans):
 - `skills/mine.design/SKILL.md` — "On 'Challenge this design'" section
 - `skills/mine.specify/SKILL.md` — "On 'Challenge this spec first'" section
 
-Passthrough callers (invoke challenge standalone, don't consume findings file programmatically):
+Detection callers (scan for severity labels to detect prior analysis, don't read findings file):
+- `skills/mine.build/SKILL.md` — accelerated path detection
+
+Passthrough callers (invoke challenge standalone, don't consume findings file):
 - `skills/mine.grill/SKILL.md`
 - `skills/mine.research/SKILL.md`
 - `skills/mine.brainstorm/SKILL.md`
+
+**Caller guidance for TENSION findings**: Structured callers should route TENSION findings to the document's "Open Questions" section rather than generating revisions — TENSION means the critics genuinely disagree, so the user needs to decide.
 
 ## Phase 1: Gather Context
 
 ### Parse arguments
 
-If `$ARGUMENTS` contains `--findings-out=<path>`, extract and store that path separately. The remainder of `$ARGUMENTS` is the target scope. If `--findings-out` is not present, challenge creates its own tmpdir for the findings file.
+Extract optional flags from the **beginning** of `$ARGUMENTS` only. Once a non-flag token is encountered (no `--` prefix), treat all remaining text as the target scope — do not extract flags from within target content. This prevents passthrough callers' inline content from being misinterpreted as flags.
 
-### If $ARGUMENTS given (after extracting --findings-out)
+Recognized flags:
+- `--findings-out=<path>` — deterministic output path (structured callers only)
+- `--focus="<area>"` — critic focus steering
+- `--target-type=<type>` — override heuristic classification
 
-1. Read the targeted file(s) fully
-2. If the target is a code file: grep for call sites and dependencies — understand what uses this code and what it uses
-3. If the target is a document (spec.md, design.md, or other markdown): read related codebase files the document references, and any adjacent design artifacts in the same feature directory
-4. Note what problem this code/design ostensibly solves
+The remainder of `$ARGUMENTS` is the target scope. If `--findings-out` is not present, challenge creates its own tmpdir for the findings file.
+
+### If $ARGUMENTS given (after extracting flags)
+
+1. Determine the **input shape**:
+   - **File path or module name**: read the targeted file(s) fully
+   - **Inline content** (multiple sentences or structured markdown): treat the argument text as the target to analyze directly — do not attempt to read it as a file. This happens when passthrough callers (mine.research, mine.brainstorm) pass content instead of a path.
+
+2. **Classify the target type** — if `--target-type` was provided, use it directly. Otherwise, use heuristics. This classification is passed to critics in Phase 2:
+
+   | Target type | Detected by | What critics focus on |
+   |-------------|-------------|----------------------|
+   | `code` | `.py`, `.ts`, `.js`, `.go`, etc. | Runtime failures, coupling, security, error handling |
+   | `spec` | `spec.md` or content with requirements/acceptance criteria | Completeness, testability, internal consistency, scope gaps |
+   | `design-doc` | `design.md` or content with architecture/API contracts | Feasibility, missing alternatives, boundary correctness |
+   | `brief` | `brief.md` or content from grill/brainstorm | Framing validity, assumption quality, scope coherence |
+   | `skill-file` | `SKILL.md` or content with phases/persona definitions | LLM behavior assumptions, prompt ambiguity, contract fragility, caller compatibility |
+   | `research` | `research.md` or research artifacts/investigation output | Conclusion validity, exploration completeness, confirmation bias |
+   | `other` | No type matches above | Correctness, assumption validity, internal consistency — critics use their general focus without type-specific narrowing |
+
+3. **Gather context** based on target type:
+   - **Code**: grep for call sites and dependencies — understand what uses this code and what it uses
+   - **Document** (spec, design-doc, brief, research): read related codebase files the document references, and any adjacent artifacts in the same feature directory
+   - **Skill file**: read all callers listed in the file, grep for additional references across the codebase
+4. Note what problem the target ostensibly solves
 
 ### If empty
 
@@ -145,8 +185,10 @@ Subagents write their reports inside this directory:
 - `<tmpdir>/adversarial.md`
 
 Launch all three critics in parallel as separate `Agent` tool calls in a single message, each with `subagent_type: general-purpose`. Each critic receives:
-- The code under review (file paths to read — pass full file paths, not excerpts)
+- The target under review (file paths to read — pass full file paths, not excerpts; or inline content if the target was passed as text)
+- The **target type** from Phase 1 classification (e.g., "This is a `spec` target — focus on requirement completeness, testability, and internal consistency")
 - Their persona and focus lens (described below)
+- If `--focus` was provided: "The user is specifically concerned about: <focus area>. Weight your analysis toward this concern."
 - The path to write their report to
 - These six rules:
   1. **Cite evidence for every claim** — no vague assertions:
@@ -160,9 +202,10 @@ Launch all three critics in parallel as separate `Agent` tool calls in a single 
      - If Auto-apply: [one-sentence description of the specific change]
      - If User-directed: [Option A — Option B — key tradeoff between them]
      ```
-  4. **Tag each finding** with type (Structural / Approach-now / Approach-later / Fragility / Gap) and design-level (Yes / No)
-  5. **Add one design question** — a question that forces the author to justify or reconsider the design
-  6. **Read beyond the provided files** — you have Read, Grep, and Glob access. Before writing your report, grep for call sites of the primary module/function under review and read at least two of them. Include a **Files examined** section at the top of your report listing every file you read. Don't limit your critique to what was handed to you.
+  4. **Tag each finding** with severity (CRITICAL / HIGH / MEDIUM), type (Structural / Approach-now / Approach-later / Fragility / Gap), and design-level (Yes / No). Assign severity based on impact — how bad is this if left unfixed?
+  5. **Add one design question** — a question that forces the author to justify or reconsider
+  6. **Include a "Pushback" section** at the end of your report. For each finding raised by other critics (you won't see their reports, but anticipate likely concerns from the other two personas), note any you would disagree with and why. If you think something another critic is likely to flag is actually fine, say so explicitly — e.g., "The coupling here is intentional because X." This gives synthesis the raw material to produce TENSION findings.
+  7. **Read beyond the provided files** — you have Read, Grep, and Glob access. Before writing your report, grep for call sites of the primary module/function under review and read at least two of them. Include a **Files examined** section at the top of your report listing every file you read. Don't limit your critique to what was handed to you.
 
 Each critic writes their full, unfiltered findings to their temp file. These files persist for the session so the user can read any individual critic's reasoning after the skill completes.
 
@@ -174,39 +217,37 @@ Each critic writes their full, unfiltered findings to their temp file. These fil
 
 **Focus**:
 - Runtime risks and edge cases that aren't handled
-- Assumptions baked into the design that will eventually be wrong
+- Assumptions that will eventually be wrong
 - "This worked until it didn't" failure modes
+- Security: auth bypass, injection, privilege escalation, data exposure — "what can an attacker do with this?"
 - Hidden state, shared mutable data, things that break under load or concurrency
-- Coupling the original author didn't notice because it hasn't bitten them yet
+- Operational blindness: can you debug this at 2am? Observability, logging, alerting gaps
 
 ### Critic 2: Systems Architect
 
-**Persona**: Thinks in systems. Cares about coupling, change surfaces, and what breaks when requirements shift.
+**Persona**: Thinks in systems. Cares about change surfaces and what breaks when requirements shift.
 
 **Characteristic question**: *"When requirements change — and they will — what has to change with them?"*
 
 **Focus**:
-- Design boundaries where responsibilities have leaked across them
 - Abstraction violations — things that know too much about their collaborators
-- Hidden coupling (things that look independent but share a fate)
 - Wrong layer — logic that lives at the wrong level of the system
-- What breaks when a likely future requirement arrives
+- Change amplification — a small requirement change forces edits across many locations
+- Missing extensibility points that future requirements will demand
+- Data model problems — schema that can't evolve, missing constraints, inconsistent state
 
 ### Critic 3: Adversarial Reviewer
 
-**Persona**: Hired to find the fatal flaw. Assumes the design is wrong until proven otherwise.
+**Persona**: Hired to find the fatal flaw. Assumes the target is wrong until proven otherwise.
 
-**Characteristic question**: *"Should this design exist at all — and if so, is this the right solution?"*
+**Characteristic question**: *"Should this exist at all — and if so, does it solve what the user actually needs?"*
 
 **Focus**:
 - Wrong solution entirely — the problem statement is wrong, or the solution doesn't solve the actual user need
-- Wrong pattern entirely — there's a well-known design that fits this use case and this isn't it
-- The design fighting against the user instead of with them (friction, workarounds, awkward call sites)
+- Wrong pattern entirely — there's a well-known approach that fits this use case and this isn't it
+- User experience: what does the user experience when this goes wrong? Error states, degraded modes, confusing behavior
+- The target fighting against its consumers (friction, workarounds, awkward call sites)
 - Cases where the whole thing should be scrapped and replaced with something fundamentally different
-
-### Note on document targets
-
-When the target is a spec.md or design.md rather than source code, critics analyze internal consistency, completeness, and design soundness rather than production failure modes. The "I've seen this fail" grounding comes from experience with designs that led to production problems, not from the code itself.
 
 ## Phase 3: Synthesize
 
@@ -214,19 +255,17 @@ Read all three temp report files and merge findings.
 
 ### Synthesis procedure
 
-Follow this order strictly:
+Three steps. Prioritize trustworthy output over compact output — showing an extra finding is far cheaper than a bad merge or wrong tag.
 
-1. **Group by problem area** — cluster findings that address the same part of the system or the same concern
-2. **Deduplicate within groups** — merge findings where the core issue is the same problem framed differently. Two findings are "the same problem" when they identify the same root cause in the same location, even if they emphasize different consequences. Preserve the sharpest phrasing. For document targets, "same location" means the same section AND the same design concern — two findings in the "Architecture" section that address different subsystems are not the same problem even if they share a section header.
-3. **Assign severity** by post-merge contributor count (how many critics flagged the merged finding)
-4. **Assign type** — compare across critics. When critics tagged differently, use the type that best describes the merged finding's root cause. For Approach timing conflicts (one critic says `now`, another says `later`), surface both: tag as `Approach-now/later` and add a **Timing disagreement** note in the finding body.
-5. **Assign design-level** — when critics disagree, Yes wins (architectural concerns should surface, not be silently shelved)
-6. **Assign resolution** — compare the structured `**Proposed fix**` sections across critics:
-   - If fixes match (same action, same target, anchored to the same problem name): **Auto-apply** if the change is localized and additive; **User-directed** if it's large or structural
-   - If fixes differ: **User-directed** — present the distinct options
-   - If a critic's Proposed fix block is absent or malformed: treat as no fix proposal → **User-directed**
-   - If ambiguous: **User-directed**
-7. **Write a recommendation** for each User-directed finding — which option you'd pick and a one-sentence reason. **Exception**: for TENSION findings, replace the recommendation with a **Deciding factor** — one question or data point that would resolve the disagreement. Don't pretend to have a preference when the critics genuinely disagree on direction.
+1. **Group by problem area** — cluster findings that address the same part of the system or the same concern. List all critic perspectives for each group. Do NOT merge or deduplicate — if two critics flagged similar-but-distinct issues, keep both as separate findings. The user can mentally merge; they can't un-apply a wrong auto-apply.
+
+2. **Assign tags per finding**:
+   - **Severity**: take the highest severity any contributing critic assigned. Record agreement count as a confidence annotation (e.g., `(3/3)` or `(1/3, Senior only)`).
+   - **Type**: use the type that best describes the root cause. For Approach timing conflicts (`now` vs `later`), tag as `Approach-now/later`.
+   - **Design-level**: when critics disagree, Yes wins (architectural concerns should surface).
+   - **Resolution**: default to **User-directed** unless ALL critics proposed the same fix AND it's localized and additive — only then use **Auto-apply**. When in doubt, User-directed.
+
+3. **Write a recommendation** for each User-directed finding — which option you'd pick and a one-sentence reason. **Exception**: for TENSION findings, replace the recommendation with a **Deciding factor** — one question or data point that would resolve the disagreement.
 
 **What to exclude**: Style, naming, formatting nits. Not design critiques — skip them.
 
@@ -244,6 +283,7 @@ Temp dir: <tmpdir>
 
 ## Finding 1: <name>
 - severity: CRITICAL / HIGH / MEDIUM / TENSION
+- confidence: N/3 (<which critics>) — e.g., "2/3 (Senior + Architect)" or "1/3 (Adversarial only)"
 - type: Structural / Approach-now / Approach-later / Approach-now/later / Fragility / Gap
 - design-level: Yes / No
 - resolution: Auto-apply / User-directed
@@ -252,6 +292,9 @@ Temp dir: <tmpdir>
 - better-approach (Auto-apply only): <the fix>
 - options (User-directed only, mutually exclusive with better-approach): <Option A: [approach] / Option B: [approach]>
 - recommendation (User-directed only): <which option and why. For TENSION: deciding factor>
+- side-a (TENSION only): <Critic A argues X because Y>
+- side-b (TENSION only): <Critic B argues Z because W>
+- deciding-factor (TENSION only): <question or data point that would resolve the disagreement>
 
 ## Finding 2: <name>
 ...
@@ -263,9 +306,11 @@ This file is written before Phase 4 presentation.
 
 ### Per-finding format
 
+Findings MUST be numbered sequentially (`### 1.`, `### 2.`, etc.) for easy reference in conversation.
+
 ```
-### [Issue name] — SEVERITY
-**Type**: [Structural / Approach-now / Approach-later / Fragility / Gap] | **Design-level**: [Yes / No] | **Resolution**: [Auto-apply / User-directed]
+### N. [Issue name] — SEVERITY (confidence)
+**Type**: [Structural / Approach-now / Approach-later / Approach-now/later / Fragility / Gap] | **Design-level**: [Yes / No] | **Resolution**: [Auto-apply / User-directed]
 
 **What's wrong**: [Direct statement — no softening]
 **Why it matters**: [Consequence if left as-is]
@@ -309,7 +354,7 @@ Challenge is done. If a calling skill (mine.design, mine.specify) invoked challe
 2. **Direct** — name the problem, explain the consequence, move on. No hedging.
 3. **The better way** — a critique without a direction isn't actionable. Every finding must name a pattern, approach, or structural alternative.
 4. **Questions challenge, not embarrass** — the design question is there to surface assumptions, not score points.
-5. **Ensemble = confidence** — findings backed by multiple critics carry more weight. Make that visible.
+5. **Impact over consensus** — severity reflects consequence, not vote count. Agreement is reported as confidence, not importance. A CRITICAL finding from one specialist outranks a MEDIUM finding all three noticed.
 6. **Not a style guide** — naming, formatting, and style nits are not design critiques. Skip them.
 7. **Recommend, don't just present** — for User-directed findings, state which option you'd pick and why. The user overrides if they disagree. Exception: TENSION findings get a deciding factor instead, because honest uncertainty is more useful than a fabricated preference.
 8. **Err toward user input** — when resolution classification is ambiguous, default to User-directed. The cost of asking is low; the cost of a wrong auto-apply is high.

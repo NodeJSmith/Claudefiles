@@ -14,7 +14,7 @@ Open-ended idea generation. Use this skill when you have a topic — a feature t
 |-------|-------------------|
 | **`mine.brainstorm`** | **"What are our options here?"** |
 | `mine.research` | "Is this specific proposal feasible?" |
-| `mine.challenge` | "Is this existing design actually correct?" |
+| `mine.challenge` | "Is this approach actually right?" |
 | Plan mode | "How do we execute this chosen direction?" |
 
 ## Arguments

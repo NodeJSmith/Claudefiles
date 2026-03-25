@@ -5,6 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-25
 
 ### Changed
+- `mine.challenge` overhauled — rebranded to "adversarial review" (any artifact, not just designs), impact-based severity with confidence annotations, target-type classification (7 types + `--target-type` override), simplified 3-step synthesis, sharpened personas (security, ops, user-need), new `--focus` argument, TENSION clarified, positional-first argument parsing (#126)
 - `mine.challenge` no longer prompts after presenting findings — auto-completes and lists file paths; callers handle persistence (#125)
 - `spec-helper` rewritten as an installable Python package (`packages/spec-helper/`) — replaces fragile hand-rolled YAML parser with `python-frontmatter`, adds `wp-validate` and `wp-list` commands, fixes silent `cwd` fallback, atomic writes, section-aware activity log insertion (#124)
 - Install via `uv tool install -e packages/spec-helper` instead of bin/ symlink (#124)
@@ -19,6 +20,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Removed
 - `bin/spec-helper` single-file script — replaced by the `packages/spec-helper/` package (#124)
+
 ## 2026-03-24
 
 ### Changed
