@@ -1,0 +1,165 @@
+"""Filesystem operations — repo root, feature resolution, WP file discovery."""
+
+import argparse
+import re
+from pathlib import Path
+from typing import Any
+
+import frontmatter
+
+from spec_helper.errors import die
+from spec_helper.validation import (
+    WP_ID_PATTERN,
+    normalize_wp_metadata,
+)
+
+
+def find_git_root() -> Path:
+    """Walk up from cwd to find a directory containing .git."""
+    cwd = Path.cwd()
+    for parent in [cwd, *cwd.parents]:
+        if (parent / ".git").exists():
+            return parent
+    die("No git repository found between cwd and filesystem root")
+
+
+def find_repo_root() -> Path:
+    """Walk up from cwd to find a git repo containing design/specs/.
+
+    Requires .git in ancestry — never falls back to cwd.
+    """
+    root = find_git_root()
+    if (root / "design" / "specs").exists():
+        return root
+    die(
+        f"Git repository at {root} has no design/specs/ directory. "
+        f"Run 'spec-helper init <slug>' to create a feature."
+    )
+
+
+def specs_dir(root: Path) -> Path:
+    return root / "design" / "specs"
+
+
+def list_features(root: Path) -> list[Path]:
+    """Return sorted list of feature directories under design/specs/."""
+    sd = specs_dir(root)
+    if not sd.exists():
+        return []
+    return sorted(
+        [d for d in sd.iterdir() if d.is_dir() and re.match(r"^\d+-", d.name)],
+        key=lambda d: d.name,
+    )
+
+
+def parse_feature_number(name: str) -> int | None:
+    m = re.match(r"^(\d+)-", name)
+    return int(m.group(1)) if m else None
+
+
+def next_feature_number(root: Path) -> int:
+    features = list_features(root)
+    if not features:
+        return 1
+    nums = [parse_feature_number(d.name) for d in features]
+    valid = [n for n in nums if n is not None]
+    return max(valid) + 1 if valid else 1
+
+
+def find_feature_dir_auto(root: Path) -> Path:
+    """Resolve to the most recently modified feature directory."""
+    features = list_features(root)
+    if not features:
+        die("No feature directories found in design/specs/")
+    return max(features, key=lambda d: d.stat().st_mtime)
+
+
+def resolve_feature(root: Path, args: argparse.Namespace) -> Path:
+    """Resolve feature from args: --auto or positional feature identifier."""
+    if getattr(args, "auto", False):
+        return find_feature_dir_auto(root)
+    feature = getattr(args, "feature", None)
+    if not feature:
+        die("Either <feature> or --auto is required")
+    return find_feature_dir(root, feature)
+
+
+def find_feature_dir(root: Path, feature: str) -> Path:
+    """Resolve a feature identifier (NNN, NNN-slug, or full dir name) to a Path."""
+    sd = specs_dir(root)
+    if not sd.exists():
+        die(f"No design/specs/ directory found at {root}")
+
+    # Exact match first
+    exact = sd / feature
+    if exact.is_dir():
+        return exact
+
+    # Match by number prefix
+    if re.match(r"^\d+$", feature):
+        num = int(feature)
+        for d in list_features(root):
+            if parse_feature_number(d.name) == num:
+                return d
+
+    # Match by number prefix with slug
+    for d in list_features(root):
+        if d.name.startswith(feature):
+            return d
+
+    die(f"Feature '{feature}' not found in {sd}")
+
+
+def find_wp_file(feature_dir: Path, wp_id: str) -> Path:
+    """Find a WP file by ID within a feature directory."""
+    tasks_dir = feature_dir / "tasks"
+    if not tasks_dir.exists():
+        die(f"No tasks/ directory in {feature_dir}")
+
+    # Normalize: WP01, wp01, 01, 1 all work
+    normalized = wp_id.upper()
+    if not normalized.startswith("WP"):
+        try:
+            normalized = f"WP{int(normalized):02d}"
+        except ValueError:
+            die(f"Invalid WP ID: '{wp_id}' (expected WP01, 01, 1, etc.)")
+
+    target = tasks_dir / f"{normalized}.md"
+    if target.exists():
+        return target
+
+    # Fuzzy: find any file whose stem starts with the normalized ID
+    for f in sorted(tasks_dir.glob("WP*.md")):
+        if f.stem.upper().startswith(normalized):
+            return f
+
+    die(f"WP file '{normalized}.md' not found in {tasks_dir}")
+
+
+def read_wp_files(feature_dir: Path) -> list[dict[str, Any]]:
+    """Read all WP*.md files in tasks/, return list of dicts with filename + frontmatter."""
+    tasks_dir = feature_dir / "tasks"
+    if not tasks_dir.exists():
+        return []
+    results = []
+    for f in sorted(tasks_dir.glob("WP*.md")):
+        post = frontmatter.load(str(f))
+        normalized = normalize_wp_metadata(dict(post.metadata), f.name)
+        results.append({"filename": f.name, **normalized})
+    return results
+
+
+def extract_design_headings(feature_dir: Path) -> set[str] | None:
+    """Extract headings from design.md in feature_dir. Returns None if no design.md.
+
+    Matches ## and ### headings (challenge finding #8 — WPs reference ### headings).
+    """
+    design_path = feature_dir / "design.md"
+    if not design_path.exists():
+        return None
+    headings: set[str] = set()
+    for line in design_path.read_text().splitlines():
+        m = re.match(r"^#{2,3} (.+)$", line)
+        if m:
+            headings.add(m.group(1).strip())
+    return headings
