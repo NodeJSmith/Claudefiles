@@ -140,9 +140,9 @@ Before launching, create a unique temp directory for this run:
 2. Note the directory path printed (e.g., `/tmp/claude-mine-challenge-a8Kx3Q`)
 
 Subagents write their reports inside this directory:
-- `<dir>/senior.md`
-- `<dir>/architect.md`
-- `<dir>/adversarial.md`
+- `<tmpdir>/senior.md`
+- `<tmpdir>/architect.md`
+- `<tmpdir>/adversarial.md`
 
 Launch all three critics in parallel as separate `Agent` tool calls in a single message, each with `subagent_type: general-purpose`. Each critic receives:
 - The code under review (file paths to read — pass full file paths, not excerpts)
@@ -294,91 +294,14 @@ For **User-directed** findings (non-TENSION), replace "Better approach" with:
 
 ### After presenting findings
 
-Always show all options. The action prompt is the same every time — no conditional hiding.
+List the file paths so the user knows where reports are:
 
-```
-AskUserQuestion:
-  question: "How would you like to proceed?"
-  multiSelect: true
-  options:
-    - label: "Discuss a specific finding"
-      description: "Go deeper on one concern — understand the tradeoffs"
-    - label: "Save findings"
-      description: "Save to .claude/backlog.md, create issues in your tracker, or write to design/critiques/"
-    - label: "Read a specific critic's full report"
-      description: "See the unfiltered reasoning from one critic"
-    - label: "Done"
-      description: "Challenge complete. findings.md is written. Continue your design/spec workflow, or handle findings directly."
-```
+- Senior Engineer: `<tmpdir>/senior.md`
+- Systems Architect: `<tmpdir>/architect.md`
+- Adversarial Reviewer: `<tmpdir>/adversarial.md`
+- Structured findings: `<tmpdir>/findings.md` (or the path provided via `--findings-out`, if specified)
 
-When the user selects **"Save findings"**:
-
-```
-AskUserQuestion:
-  question: "Where should findings be saved?"
-  header: "Save to"
-  multiSelect: false
-  options:
-    - label: "Backlog file"
-      description: "Append to .claude/backlog.md"
-    - label: "Issue tracker"
-      description: "Create one issue per finding in the project's tracker"
-    - label: "Critique report"
-      description: "Write to design/critiques/YYYY-MM-DD-<topic>/"
-```
-
-Route accordingly: backlog file → invoke `rules/common/backlog.md` flow. Issue tracker → use the project's issue tracker (`gh-issue create` for GitHub, or whatever the project uses). Critique report → write to `design/critiques/`.
-
-When the user selects **"Discuss a specific finding"**, ask which finding number they want to discuss. Present the full finding details (all evidence, critic reasoning, options) and engage in discussion. When the discussion concludes, return to the action prompt.
-
-When the user selects **"Read a specific critic's full report"**, ask which critic (Senior, Architect, or Adversarial). Read the corresponding temp file and present its contents. Then return to the action prompt.
-
-When the user selects **"Done"**, end the challenge skill. If a calling skill (mine.design, mine.specify) invoked challenge, it will resume and generate a revision plan from the findings file.
-
-List the three temp file paths and the findings.md path so the user knows where reports are.
-
-## Phase 5: Handoffs
-
-**Save findings** — route based on user's choice:
-
-**Backlog file** → invoke the backlog save flow from `rules/common/backlog.md`. Use the findings from the findings file as the source.
-
-**Issue tracker** → create one issue per finding. Use the project's issue tracker (`gh-issue create` for GitHub, or whatever the project uses). Issue body format:
-
-```markdown
-## Design Concern
-**Type**: [type] | **Design-level**: [Yes/No] | **Resolution**: [Auto-apply/User-directed]
-
-<Summary from findings file>
-
-## Evidence
-
-<Evidence citations from the finding>
-
-## Suggested approach
-
-<For Auto-apply: the fix. For User-directed: options with tradeoffs and recommendation.>
-
-## Source
-
-Identified during design critique on <date>.
-Raised by: <which critics>
-```
-
-**Critique report** → `design/critiques/YYYY-MM-DD-<topic>/critique.md`
-
-Include an appendix in the saved report with the temp file paths for reference:
-
-```markdown
-## Appendix: Individual Critic Reports
-
-These files contain each critic's unfiltered findings and are available for the duration of this session:
-
-- Senior Engineer: <dir>/senior.md
-- Systems Architect: <dir>/architect.md
-- Adversarial Reviewer: <dir>/adversarial.md
-- Structured findings: <actual findings output path — default <dir>/findings.md, or the --findings-out path if provided>
-```
+Challenge is done. If a calling skill (mine.design, mine.specify) invoked challenge, it will resume and generate a revision plan from the findings file.
 
 ## Principles
 

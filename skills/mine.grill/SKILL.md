@@ -136,7 +136,7 @@ AskUserQuestion:
 
 ### On "Challenge this brief first"
 
-Invoke `/mine.challenge <feature_dir>/brief.md`. After challenge completes and findings are addressed (or accepted), loop back to this handoff gate.
+Invoke `/mine.challenge <feature_dir>/brief.md`. After challenge completes, loop back to this handoff gate.
 
 ### On "Specify"
 

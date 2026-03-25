@@ -144,7 +144,7 @@ AskUserQuestion:
       description: "The brief has what I need — I'll come back when I'm ready"
 ```
 
-If "Challenge these findings first" is selected: if the brief was saved to a file, invoke `/mine.challenge <research_brief_path>`. If the user chose "Just show me" (no file), pass the displayed brief content as the argument text. After challenge completes and findings are addressed (or accepted), loop back to this gate.
+If "Challenge these findings first" is selected: if the brief was saved to a file, invoke `/mine.challenge <research_brief_path>`. If the user chose "Just show me" (no file), pass the displayed brief content as the argument text. After challenge completes, loop back to this gate.
 
 ## Principles
 
