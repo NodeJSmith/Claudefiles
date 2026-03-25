@@ -5,10 +5,10 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-25
 
 ### Changed
-- `mine.challenge` no longer prompts after presenting findings — auto-completes and lists file paths; callers handle persistence
+- `mine.challenge` no longer prompts after presenting findings — auto-completes and lists file paths; callers handle persistence (#125)
 
 ### Fixed
-- Stale "user selects Done" references in `mine.design`, `mine.specify`, `mine.grill`, `mine.research`, `mine.brainstorm`
+- Stale "user selects Done" references in `mine.design`, `mine.specify`, `mine.grill`, `mine.research`, `mine.brainstorm` (#125)
 
 ## 2026-03-24
 
