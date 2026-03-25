@@ -1,7 +1,7 @@
 # Design: spec-helper v2
 
 **Date:** 2026-03-24
-**Status:** approved
+**Status:** implemented
 **Spec:** N/A (clean-sheet redesign driven by challenge findings)
 **Challenge findings:** `/tmp/claude-mine-challenge-8qB2il/findings.md`
 **Research brief:** `design/research/2026-03-24-spec-helper-prior-art/research.md`
