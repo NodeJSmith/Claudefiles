@@ -14,6 +14,16 @@ A personal Claude Code configuration repository — skills, commands, agents, ru
 
 Symlinks key configuration directories (`agents/`, `skills/`, `commands/`, `scripts/hooks/`, `rules/`) into `~/.claude/`, and helper scripts from `bin/` into `~/.local/bin/`. Safe to re-run (updates existing symlinks, skips non-symlink conflicts). Respects `$CLAUDE_HOME` if set.
 
+### Runtime Dependencies
+
+`spec-helper` requires **python-frontmatter** for YAML frontmatter parsing in WP files:
+
+```bash
+pip install python-frontmatter
+```
+
+If the import is missing, `spec-helper` prints a one-line install instruction and exits.
+
 ## Repository Structure
 
 ```
@@ -41,7 +51,7 @@ design/
 
 - `spec.md` — what to build. User-facing, technology-agnostic. Never contains tasks.
 - `design.md` — how to build it. Architecture, decisions, API contracts. Never contains tasks.
-- `WP*.md` — executable work packages. The **only** place tasks live. Lane state tracked in YAML frontmatter (`planned | doing | for_review | done`), updated by `spec-helper wp-move`.
+- `WP*.md` — executable work packages. The **only** place tasks live. Lane state tracked in YAML frontmatter (`planned | doing | for_review | done`), updated by `spec-helper wp-move`. After creation, `spec-helper wp-validate` checks schema consistency and broken `depends_on` references. `spec-helper wp-list` returns WP metadata as JSON for programmatic consumption.
 
 Freeze gate: WPs are generated from `design.md` by `/mine.draft-plan` before `/mine.plan-review`. `/mine.plan-review` reviews `design.md` plus the existing WPs; once that review is approved, `design.md` is frozen — substantive changes require regenerating WPs via `/mine.draft-plan`.
 

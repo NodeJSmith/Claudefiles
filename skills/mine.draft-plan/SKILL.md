@@ -192,6 +192,16 @@ depends_on: []
 - Do NOT include tasks for Non-goals
 - Do NOT include cleanup or "nice to have" work not in the design
 
+### Validate WP files
+
+After writing all WP files, run validation to catch schema drift or broken references:
+
+```bash
+spec-helper wp-validate <feature>
+```
+
+Where `<feature>` is the feature directory name (e.g., `007-user-auth`). If validation reports errors, fix the WP files before proceeding to commit. Warnings (e.g., unknown fields) are informational — do not block on them.
+
 ---
 
 ## Phase 4: Commit WP Files
