@@ -140,9 +140,9 @@ Before launching, create a unique temp directory for this run:
 2. Note the directory path printed (e.g., `/tmp/claude-mine-challenge-a8Kx3Q`)
 
 Subagents write their reports inside this directory:
-- `<dir>/senior.md`
-- `<dir>/architect.md`
-- `<dir>/adversarial.md`
+- `<tmpdir>/senior.md`
+- `<tmpdir>/architect.md`
+- `<tmpdir>/adversarial.md`
 
 Launch all three critics in parallel as separate `Agent` tool calls in a single message, each with `subagent_type: general-purpose`. Each critic receives:
 - The code under review (file paths to read — pass full file paths, not excerpts)
@@ -296,10 +296,10 @@ For **User-directed** findings (non-TENSION), replace "Better approach" with:
 
 List the file paths so the user knows where reports are:
 
-- Senior Engineer: `<dir>/senior.md`
-- Systems Architect: `<dir>/architect.md`
-- Adversarial Reviewer: `<dir>/adversarial.md`
-- Structured findings: `<actual findings output path>`
+- Senior Engineer: `<tmpdir>/senior.md`
+- Systems Architect: `<tmpdir>/architect.md`
+- Adversarial Reviewer: `<tmpdir>/adversarial.md`
+- Structured findings: `<tmpdir>/findings.md` (or the path provided via `--findings-out`, if specified)
 
 Challenge is done. If a calling skill (mine.design, mine.specify) invoked challenge, it will resume and generate a revision plan from the findings file.
 
