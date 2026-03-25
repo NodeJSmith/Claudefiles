@@ -204,7 +204,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `git-branch-diff-stat` | Print `git diff --stat` for current branch vs its base (uses git-branch-base) |
 | `git-branch-log` | Print `git log --oneline` for current branch vs its base (uses git-branch-base) |
 | `git-default-branch` | Print the default branch name for the current repo |
-| `spec-helper` | Work Package and spec directory management — `init`, `wp-move`, `wp-validate`, `wp-list`, `status`, `next-number` (requires `python-frontmatter`) |
+| `spec-helper` | Work Package and spec directory management — `init`, `wp-move`, `wp-validate`, `wp-list`, `status`, `next-number`. Installable package: `uv tool install -e packages/spec-helper` |
 
 ## Evals
 

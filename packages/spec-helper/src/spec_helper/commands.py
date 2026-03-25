@@ -7,10 +7,13 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-import frontmatter
-
 from spec_helper.activity_log import insert_activity_log_entry
 from spec_helper.errors import die
+
+try:
+    import frontmatter
+except ImportError:
+    die("spec-helper requires python-frontmatter: pip install python-frontmatter")
 from spec_helper.filesystem import (
     atomic_write,
     extract_design_headings,
@@ -260,7 +263,7 @@ def cmd_wp_list(args: argparse.Namespace) -> None:
                 "title": wp.get("title", ""),
                 "lane": wp.get("lane", "planned"),
                 "depends_on": wp.get("depends_on", []),
-                "path": str(feature_dir / "tasks" / wp["filename"]),
+                "path": str((feature_dir / "tasks" / wp["filename"]).relative_to(root)),
             }
         )
 

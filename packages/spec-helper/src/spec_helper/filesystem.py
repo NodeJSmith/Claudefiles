@@ -6,9 +6,12 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-import frontmatter
-
 from spec_helper.errors import die
+
+try:
+    import frontmatter
+except ImportError:
+    die("spec-helper requires python-frontmatter: pip install python-frontmatter")
 from spec_helper.validation import normalize_wp_metadata
 
 
