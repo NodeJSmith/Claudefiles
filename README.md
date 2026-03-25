@@ -204,7 +204,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `git-branch-diff-stat` | Print `git diff --stat` for current branch vs its base (uses git-branch-base) |
 | `git-branch-log` | Print `git log --oneline` for current branch vs its base (uses git-branch-base) |
 | `git-default-branch` | Print the default branch name for the current repo |
-| `spec-helper` | Work Package and spec directory management — `init`, `wp-move`, `status`, `next-number` |
+| `spec-helper` | Work Package and spec directory management — `init`, `wp-move`, `wp-validate`, `wp-list`, `status`, `next-number`. Installable package: `uv tool install -e packages/spec-helper` |
 
 ## Evals
 
@@ -230,6 +230,7 @@ Requires `ANTHROPIC_API_KEY` in your environment. See `evals/README.md` for full
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
 - The skills reference tools like `gh` (GitHub CLI), `git`, `pytest`, `ruff`, `pyright` -- install what's relevant to your workflow
+- `spec-helper` requires `python-frontmatter`: `pip install python-frontmatter`
 
 ### Local Development
 
