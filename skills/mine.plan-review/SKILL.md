@@ -90,7 +90,27 @@ Read the temp file. Format the results clearly:
 
 ## Phase 4: Gate
 
-If the reviewer's output includes non-blocking suggestions, present all four options. If there are no suggestions (clean APPROVE), omit "Approve with suggestions" — it would have nothing to apply.
+If the reviewer's output includes non-blocking suggestions, present "Approve with suggestions" as the first (recommended) option. If there are no suggestions (clean APPROVE), omit it and show "Approve as-is" first.
+
+**When suggestions exist:**
+
+```
+AskUserQuestion:
+  question: "Review complete. What would you like to do?"
+  header: "Plan verdict"
+  multiSelect: false
+  options:
+    - label: "Approve with suggestions (Recommended)"
+      description: "Apply the reviewer's non-blocking suggestions, then proceed"
+    - label: "Approve as-is"
+      description: "Skip suggestions; proceed to execution"
+    - label: "Revise the plan"
+      description: "Blocking issues found — return to mine.draft-plan with reviewer notes"
+    - label: "Abandon"
+      description: "Mark the design as abandoned and stop"
+```
+
+**When no suggestions exist:**
 
 ```
 AskUserQuestion:
@@ -100,8 +120,6 @@ AskUserQuestion:
   options:
     - label: "Approve as-is"
       description: "Plan is good; proceed to execution"
-    - label: "Approve with suggestions"
-      description: "Apply the reviewer's non-blocking suggestions, then proceed"
     - label: "Revise the plan"
       description: "Blocking issues found — return to mine.draft-plan with reviewer notes"
     - label: "Abandon"
