@@ -336,7 +336,7 @@ get-skill-tmpdir mine-specify-challenge
 
 Then invoke: `/mine.challenge <spec_path> --findings-out=<dir>/findings.md`
 
-After the challenge completes (the user selects "Done" from challenge's action prompt), generate a **revision plan** from the challenge findings.
+After the challenge completes (challenge auto-completes after presenting findings), generate a **revision plan** from the challenge findings.
 
 <!-- SYNC: Shared with mine.design — the AskUserQuestion options (Apply all / Let me cherry-pick / Skip revisions), the Apply all / Cherry-pick / Skip handling logic, and the findings file reading pattern must stay in sync. This handler adds spec-specific routing (design-level:Yes → spec vs design doc) and deferred findings persistence — those are intentional divergences from mine.design. -->
 

@@ -272,7 +272,7 @@ AskUserQuestion:
       description: "Skip housekeeping and go straight to the next step"
 ```
 
-If "Challenge the top idea first" is selected: if the session was saved (housekeeping), invoke `/mine.challenge <brainstorm-file-path>`. If not saved, construct the argument from the top idea's name and description block and pass it as text. After challenge completes and findings are addressed (or accepted), loop back to this gate.
+If "Challenge the top idea first" is selected: if the session was saved (housekeeping), invoke `/mine.challenge <brainstorm-file-path>`. If not saved, construct the argument from the top idea's name and description block and pass it as text. After challenge completes, loop back to this gate.
 
 ### Creating issues / saving to backlog
 
