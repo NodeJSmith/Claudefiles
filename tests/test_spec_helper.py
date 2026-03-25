@@ -3,13 +3,11 @@
 import argparse
 import json
 import sys
-from pathlib import Path
 
 import frontmatter
 import pytest
 
 from spec_helper.validation import validate_wp_metadata, normalize_wp_metadata
-from spec_helper.activity_log import insert_activity_log_entry
 from spec_helper.filesystem import (
     find_feature_dir,
     find_feature_dir_auto,

@@ -9,10 +9,7 @@ from typing import Any
 import frontmatter
 
 from spec_helper.errors import die
-from spec_helper.validation import (
-    WP_ID_PATTERN,
-    normalize_wp_metadata,
-)
+from spec_helper.validation import normalize_wp_metadata
 
 
 def atomic_write(post: frontmatter.Post, target: Path) -> None:
