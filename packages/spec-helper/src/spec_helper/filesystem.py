@@ -1,6 +1,8 @@
 """Filesystem operations — repo root, feature resolution, WP file discovery."""
 
+import os
 import re
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +13,22 @@ from spec_helper.validation import (
     WP_ID_PATTERN,
     normalize_wp_metadata,
 )
+
+
+def atomic_write(post: frontmatter.Post, target: Path) -> None:
+    """Write a frontmatter Post atomically via temp file + os.replace."""
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb", dir=target.parent, delete=False, suffix=".md"
+        ) as tmp:
+            frontmatter.dump(post, tmp)
+            tmp_path = tmp.name
+        os.replace(tmp_path, target)
+    except Exception:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise
 
 
 def find_git_root() -> Path:

@@ -2,10 +2,8 @@
 
 import argparse
 import json
-import os
 import re
 import sys
-import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -14,6 +12,7 @@ import frontmatter
 from spec_helper.activity_log import insert_activity_log_entry
 from spec_helper.errors import die
 from spec_helper.filesystem import (
+    atomic_write,
     extract_design_headings,
     find_git_root,
     find_repo_root,
@@ -35,21 +34,6 @@ from spec_helper.validation import (
     validate_wp_metadata,
 )
 
-
-def _atomic_write(post: frontmatter.Post, target: Path) -> None:
-    """Write a frontmatter Post atomically via temp file + os.replace."""
-    tmp_path = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="wb", dir=target.parent, delete=False, suffix=".md"
-        ) as tmp:
-            frontmatter.dump(post, tmp)
-            tmp_path = tmp.name
-        os.replace(tmp_path, target)
-    except Exception:
-        if tmp_path and os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-        raise
 
 
 def cmd_next_number(args: argparse.Namespace) -> None:
@@ -102,7 +86,7 @@ def cmd_wp_move(args: argparse.Namespace) -> None:
 
     post = frontmatter.load(str(wp_file))
     raw = normalize_wp_metadata(dict(post.metadata), wp_file.name)
-    old_lane = raw.get("lane", "unknown")
+    old_lane = raw.get("lane", "planned")
 
     # Warn on validation errors (does not block the move)
     errors = validate_wp_metadata(raw, wp_file.name)
@@ -130,7 +114,7 @@ def cmd_wp_move(args: argparse.Namespace) -> None:
     log_entry = f"- {date} — system — lane={lane} — moved from {old_lane}"
     post.content = insert_activity_log_entry(post.content, log_entry)
 
-    _atomic_write(post, wp_file)
+    atomic_write(post, wp_file)
 
     result = {
         "file": str(wp_file.relative_to(root)),
@@ -214,7 +198,7 @@ def cmd_wp_validate(args: argparse.Namespace) -> None:
                     post.metadata.update(normalized)
                     for old_field in OLD_SCHEMA_FIELDS:
                         post.metadata.pop(old_field, None)
-                    _atomic_write(post, f)
+                    atomic_write(post, f)
 
     is_valid = len(all_errors) == 0
 
