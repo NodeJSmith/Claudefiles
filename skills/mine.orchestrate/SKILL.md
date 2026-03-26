@@ -18,15 +18,15 @@ $ARGUMENTS — path to a feature directory (`design/specs/NNN-feature/`) or a sp
 
 ### Check for existing checkpoint (resume detection)
 
-Before anything else, determine the feature directory from `$ARGUMENTS` (using the same logic as "Find the feature directory" below — directory, WP file, or most-recently-modified glob). Do **not** present the confirmation AskUserQuestion at this point — just resolve the path silently. Then check for an existing checkpoint file:
+Before anything else, determine the feature directory from `$ARGUMENTS` (using the same logic as "Find the feature directory" below — directory, WP file, or most-recently-modified glob). Do **not** present the confirmation AskUserQuestion at this point — just resolve the path silently. Then check for an existing checkpoint:
 
+```bash
+spec-helper checkpoint-read <feature_dir_name> --json
 ```
-Read: <feature_dir>/tasks/.orchestrate-state.md
-```
 
-**If the file does not exist** — proceed to "Find the feature directory" and continue the normal fresh-start flow.
+**If it returns `{"exists": false}`** — proceed to "Find the feature directory" and continue the normal fresh-start flow.
 
-**If the file exists** — read it and extract all key-value fields from the header and the verdicts section. Then determine staleness: parse `started_at` and compare to the current time. If `started_at` is older than 24 hours, note that in the prompt and default to "Restart fresh".
+**If it returns checkpoint data** — extract all fields from the JSON. Then determine staleness: parse `started_at` and compare to the current time. If `started_at` is older than 24 hours, note that in the prompt and default to "Restart fresh".
 
 Count the completed WPs from the verdicts section and the total WPs from the feature directory.
 
@@ -52,10 +52,14 @@ If `started_at` is older than 24 hours, append " (checkpoint is over 24 hours ol
 - Verify `tmpdir` exists. If it does not, run `get-skill-tmpdir mine-orchestrate` to create a new one and note that subagent outputs from prior WPs are gone (code changes are in git; verdicts are in the checkpoint)
 - Re-read `<feature_dir>/design.md` and all `<feature_dir>/tasks/WP*.md` files (they may have been edited between sessions)
 - Skip the rest of Phase 0 (feature directory discovery, design doc read, WP file read, dev server check are all handled by the restore)
-- Jump directly to Phase 2 (skip Phase 1 entirely). If `current_wp` is set in the checkpoint (meaning a WP was in progress when the session ended), resume from that WP. Otherwise, skip all WPs up to and including `last_completed_wp` and start from the next WP. Clear `current_wp` and `current_wp_status` from the checkpoint header after resuming.
+- Jump directly to Phase 2 (skip Phase 1 entirely). If `current_wp` is set in the checkpoint (meaning a WP was in progress when the session ended), resume from that WP. Otherwise, skip all WPs up to and including `last_completed_wp` and start from the next WP.
+- Clear the in-progress WP marker after resuming:
+  ```bash
+  spec-helper checkpoint-update <feature_dir_name> --current-wp "" --current-wp-status "" --json
+  ```
 
 **On restart:**
-- Delete the checkpoint file: `<feature_dir>/tasks/.orchestrate-state.md`
+- Delete the checkpoint: `spec-helper checkpoint-delete <feature_dir_name> --json`
 - Proceed with the normal Phase 0 flow below
 
 ### Find the feature directory
@@ -127,7 +131,7 @@ If the user starts the server, re-probe and confirm. If skipping, set a `visual_
 
 ### Write initial checkpoint
 
-After Phase 0 completes (feature directory found, design doc and WP files read, dev server check done), record the base commit and write the initial checkpoint file at `<feature_dir>/tasks/.orchestrate-state.md`.
+After Phase 0 completes (feature directory found, design doc and WP files read, dev server check done), record the base commit and create the checkpoint via `spec-helper`.
 
 **Timing: capture `base_commit` BEFORE any WP execution begins.** This is the snapshot of HEAD before the orchestrator modifies any files, so that `git diff --name-only <base_commit> HEAD` after execution shows exactly what changed.
 
@@ -137,24 +141,13 @@ First, get the base commit:
 git rev-parse --short HEAD
 ```
 
-Then write the checkpoint file with this exact format:
+Then create the checkpoint:
 
-```markdown
-# Orchestration State
-
-feature_dir: <feature_dir relative path, e.g. design/specs/008-orchestrate-resilience>
-tmpdir: <tmpdir path from get-skill-tmpdir>
-visual_skip: <true|false>
-dev_server_url: <URL or "none">
-warn_counter: 0
-last_completed_wp: none
-started_at: <current ISO 8601 timestamp, e.g. 2026-03-25T14:30:00>
-base_commit: <short SHA from above>
-
-## Verdicts
+```bash
+spec-helper checkpoint-init <feature_dir_name> --tmpdir <tmpdir> --base-commit <sha> [--visual-skip] [--dev-server-url <url>] --json
 ```
 
-The `## Verdicts` section starts empty — verdict blocks will be appended after each WP completes.
+The checkpoint is written to `<feature_dir>/tasks/.orchestrate-state.md` with validated schema.
 
 **Gitignore the checkpoint:** Ensure `tasks/.orchestrate-state.md` is excluded from git. Check if `<feature_dir>/tasks/.gitignore` or `<feature_dir>/.gitignore` already contains this entry. If not, append `.orchestrate-state.md` to `<feature_dir>/tasks/.gitignore` (create the file if needed). This prevents `git add -A` in WIP commits from staging the checkpoint file.
 
@@ -452,7 +445,13 @@ AskUserQuestion:
       description: "Pause execution; resume later with /mine.orchestrate"
 ```
 
-For FAIL/BLOCKED gate outcomes, **write a partial checkpoint update** before taking the gate action. Update the checkpoint header to set `current_wp: <WP_ID>` and `current_wp_status: retry_pending|blocked|stopped` (matching the gate choice). This ensures resume correctly returns to this WP instead of skipping it. Then:
+For FAIL/BLOCKED gate outcomes, **write a partial checkpoint update** before taking the gate action:
+
+```bash
+spec-helper checkpoint-update <feature_dir_name> --current-wp <WP_ID> --current-wp-status <retry_pending|blocked|stopped> --json
+```
+
+This ensures resume correctly returns to this WP instead of skipping it. Then:
 
 - **Fix and retry**: lane stays `doing`; set `current_wp_status: retry_pending`. Re-run from Step 3 with the `## Previous review feedback` section added to the executor prompt. For FAIL retries, populate **all three** reviewer sections (spec reviewer, code reviewer, visual reviewer) since all reviewers have completed by this point. Truncate feedback to 50 lines if it exceeds that length. Only include the most recent attempt's feedback.
 - **Mark as blocked and skip**: set `current_wp_status: blocked`. Move to `for_review` (signals needs human attention)
@@ -507,22 +506,21 @@ Store this SHA — it goes into the checkpoint verdict block below.
 
 #### 10b: Update checkpoint file
 
-Update the checkpoint file at `<feature_dir>/tasks/.orchestrate-state.md`.
+Update the checkpoint via `spec-helper` commands. The WIP commit (Step 10a) MUST complete before this step — the commit SHA goes into the verdict.
 
-**Header rewrite:** Rewrite the entire key-value header section (everything from `feature_dir:` through `base_commit:`) with current values. Update `last_completed_wp` to this WP's ID. Increment `warn_counter` if the final verdict was WARN (for tracking purposes — this no longer gates behavior).
+**Update header:**
 
-**Verdict append:** Append a new verdict block to the `## Verdicts` section. Never rewrite or modify previous verdict blocks. Use this exact format:
-
-```markdown
-
-### <WP ID> — <WP title>
-verdict: <PASS|WARN|FAIL|BLOCKED>
-commit: <short SHA from Step 10a>
+```bash
+spec-helper checkpoint-update <feature_dir_name> --last-completed-wp <WP_ID> --warn-counter <N> --json
 ```
 
-If the verdict is WARN, add an optional `notes:` line with a brief explanation (e.g., "test coverage low", "code review had unresolved HIGH findings").
+**Append verdict:**
 
-**Ordering guarantee:** The WIP commit (Step 10a) MUST complete before the checkpoint write (Step 10b). The checkpoint's `commit:` field must contain the actual SHA from the WIP commit, never a placeholder like "pending".
+```bash
+spec-helper checkpoint-verdict <feature_dir_name> --wp-id <WP_ID> --title "<WP title>" --verdict <PASS|WARN> --commit <SHA from Step 10a> [--notes "<explanation>"] --json
+```
+
+Add `--notes` if the verdict is WARN (e.g., "test coverage low", "code review had unresolved HIGH findings").
 
 ### Loop to next WP
 
@@ -542,7 +540,7 @@ Print the terminal kanban:
 spec-helper status <feature_dir_name>
 ```
 
-Then present a verdict table. **Reconstruct this table from the verdict blocks in the checkpoint file** — read `<feature_dir>/tasks/.orchestrate-state.md` and build the table from the `## Verdicts` section:
+Then present a verdict table. **Read the checkpoint via `spec-helper checkpoint-read <feature_dir_name> --json`** and build the table from the `verdicts` array:
 
 ```
 | WP   | Title   | Verdict |
@@ -641,10 +639,10 @@ AskUserQuestion:
 
 ### Delete checkpoint
 
-After the user chooses "Accept and ship" (and `/mine.ship` completes) or after the "Address findings" loop results in "Accept and ship", delete the checkpoint file. Do NOT delete the checkpoint if the user chose "Stop here" — it must persist for future resume.
+After the user chooses "Accept and ship" (and `/mine.ship` completes) or after the "Address findings" loop results in "Accept and ship", delete the checkpoint. Do NOT delete the checkpoint if the user chose "Stop here" — it must persist for future resume.
 
 ```bash
-rm -f <feature_dir>/tasks/.orchestrate-state.md
+spec-helper checkpoint-delete <feature_dir_name> --json
 ```
 
 This is the final cleanup step. The checkpoint is runtime state — once the orchestration run completes and the user has passed through the review results gate, it is no longer needed. If the user chose "Stop here" at any earlier gate (during Phase 2 or at the impl-review gate), the checkpoint persists for future resume.

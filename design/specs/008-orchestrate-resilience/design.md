@@ -20,7 +20,7 @@ The orchestrator (`mine.orchestrate`) has four quality gaps:
 
 - **Guardrails file** (Ralph-inspired learned constraints). Deferred — no evidence of cross-WP failure propagation. Revisit after collecting real orchestration failure data.
 - **Per-WP integration sniff test.** Deferred — grep-based function call checking is insufficient for the motivating failure (route registration, config wiring, DI containers are not detectable this way).
-- **spec-helper checkpoint I/O.** Start with SKILL.md Read/Write calls. Upgrade to a helper only if markdown reliability proves insufficient.
+- **spec-helper checkpoint I/O.** ~~Start with SKILL.md Read/Write calls.~~ Implemented in spec-helper after challenge review flagged LLM text parsing as highest-confidence fragility (3/3 critics). See `checkpoint-*` subcommands.
 - **Full Ralph loop architecture.** Not restructuring the orchestrator's execution model.
 
 ## Architecture
@@ -289,7 +289,7 @@ Deferred. The Ralph pattern's guardrails are designed for repeated execution of 
 Deferred. "Grep for functions and check if called" is insufficient for the motivating failure. Route registration, config consumption, DI containers, and event subscriptions are not detectable by function-call grepping. The spec reviewer also has WP-scoped context only — it can't verify cross-WP integration. Strengthening the implementation review (which sees all changed files) is more effective.
 
 ### spec-helper checkpoint I/O
-Deferred. spec-helper is a WP frontmatter tool with a clear abstraction boundary. The checkpoint is orchestration runtime state — different concern, different schema, different lifecycle. Start with SKILL.md Read/Write calls; the checkpoint is ~15 lines of markdown. If reliability proves insufficient, create a dedicated `bin/orchestrate-state` helper rather than stretching spec-helper's abstraction.
+~~Deferred.~~ **Implemented** — challenge review (3/3 critics) flagged LLM-parsed markdown as the highest-confidence fragility. Added `checkpoint-*` subcommands to spec-helper with schema validation, version field, and atomic writes. The abstraction boundary concern was outweighed by the reliability benefit of deterministic I/O.
 
 ### New "challenge gate" mechanism
 Rejected in favor of invoking the existing `/mine.challenge` skill. Defining a new gate mechanism with its own prompt, verdict vocabulary, and failure path would overlap with both `/mine.challenge` and `mine.implementation-review`. Using the existing skill is simpler and well-understood.
