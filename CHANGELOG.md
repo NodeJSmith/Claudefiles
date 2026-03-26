@@ -5,14 +5,14 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-26
 
 ### Changed
-- `mine.orchestrate` resilience overhaul — checkpoint file for resume across sessions, WIP commits per WP, WARN fix loop (1 auto-retry before escalation), streamlined Phase 3 with auto implementation-review + auto challenge + ship gate
-- `mine.implementation-review` made non-user-invocable — now internal to orchestrate Phase 3 pipeline; `--inline` flag and Phase 4 gate removed
-- `mine.build` post-orchestration steps simplified — orchestrate owns the full pipeline including review, challenge, and shipping
+- `mine.orchestrate` resilience overhaul — checkpoint file for resume across sessions, WIP commits per WP, WARN fix loop (1 auto-retry before escalation), streamlined Phase 3 with auto implementation-review + auto challenge + ship gate (#131)
+- `mine.implementation-review` made non-user-invocable — now internal to orchestrate Phase 3 pipeline; `--inline` flag and Phase 4 gate removed (#131)
+- `mine.build` post-orchestration steps simplified — orchestrate owns the full pipeline including review, challenge, and shipping (#131)
 
 ### Added
-- `spec-helper checkpoint-{init,read,update,verdict,delete}` — deterministic checkpoint I/O with schema validation, version field, frozen dataclasses, and atomic writes; replaces LLM text parsing of orchestration state
-- `mine.orchestrate` auto-challenge gate — dispatches `/mine.challenge` as Opus subagent after all WPs complete, scoped to `base_commit..HEAD` diff
-- `mine.implementation-review` item #6 (integration gaps) expanded with verification method, 9 integration patterns, and 3-tier classification (true gap / test-only / wired)
+- `spec-helper checkpoint-{init,read,update,verdict,delete}` — deterministic checkpoint I/O with schema validation, version field, frozen dataclasses, and atomic writes; replaces LLM text parsing of orchestration state (#131)
+- `mine.orchestrate` auto-challenge gate — dispatches `/mine.challenge` as Opus subagent after all WPs complete, scoped to `base_commit..HEAD` diff (#131)
+- `mine.implementation-review` item #6 (integration gaps) expanded with verification method, 9 integration patterns, and 3-tier classification (true gap / test-only / wired) (#131)
 
 ## 2026-03-25
 
