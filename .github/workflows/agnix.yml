@@ -15,6 +15,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install agnix
-        run: npm install -g agnix@0.14.0
+        run: npm install -g agnix@0.16.5
       - name: Lint AI config files
         run: python3 bin/agnix-check .
