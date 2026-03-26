@@ -1,6 +1,6 @@
 ---
 name: mine.implementation-review
-description: "Post-execution quality gate invoked by mine.orchestrate. Reviews changed files against design doc and WPs using an Opus subagent."
+description: "Use when mine.orchestrate Phase 3 runs the post-execution quality gate. Reviews changed files against design doc and WPs using an Opus subagent."
 user-invocable: false
 ---
 
