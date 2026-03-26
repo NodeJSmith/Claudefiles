@@ -6,7 +6,7 @@ user-invocable: true
 
 # Build
 
-One command to go from idea to shipped code. Routes your request to the right workflow: implement directly for small changes, or engage the full pipeline (specify → design → draft-plan → plan-review → orchestrate → implementation-review → ship) for complex ones.
+One command to go from idea to shipped code. Routes your request to the right workflow: implement directly for small changes, or engage the full pipeline (specify → design → draft-plan → plan-review → orchestrate → ship) for complex ones.
 
 ## Arguments
 
@@ -76,7 +76,7 @@ AskUserQuestion:
     - label: "Simple — implement directly"
       description: "Explore, implement, code-review, then offer to ship"
     - label: "Complex — full caliper workflow"
-      description: "specify → design → draft-plan → plan-review → orchestrate → implementation-review"
+      description: "specify → design → draft-plan → plan-review → orchestrate → ship"
 ```
 
 If **prior analysis detected** (findings, plan, or critique already in context):
@@ -90,9 +90,9 @@ AskUserQuestion:
     - label: "Simple — implement directly"
       description: "Explore, implement, code-review, then offer to ship"
     - label: "Accelerated — skip specify, lightweight design phase"
-      description: "Formalize findings into design.md (skip research — already done) → draft-plan → plan-review → orchestrate → implementation-review"
+      description: "Formalize findings into design.md (skip research — already done) → draft-plan → plan-review → orchestrate → ship"
     - label: "Full caliper workflow"
-      description: "specify → design → draft-plan → plan-review → orchestrate → implementation-review — start from scratch"
+      description: "specify → design → draft-plan → plan-review → orchestrate → ship — start from scratch"
 ```
 
 ---
@@ -158,30 +158,7 @@ Chain the following skills in sequence. Do not duplicate their logic — follow 
    - If "Revise the plan": return to step 3 (`/mine.draft-plan`) with the reviewer's notes. Repeat until approved or abandoned.
    - If "Abandon": stop.
 
-5. **Follow `/mine.orchestrate` phases** using the feature directory. mine.orchestrate handles per-WP execution, deviation classification, lane updates, and its own post-execution handoff.
-
-6. mine.orchestrate's Phase 3 post-execution handoff offers `/mine.implementation-review` inline. Follow that flow. If the user declines, offer the ship gate directly with a note that implementation-review was skipped.
-
-7. After implementation review completes:
-   - If **APPROVE**: proceed to the ship gate below.
-   - If **REQUEST_FIXES**: surface the blocking issues. Tell the user to address them and re-run `/mine.orchestrate`, then `/mine.implementation-review`. Stop here.
-   - If **ABANDON**: confirm abandonment and stop.
-
-   Ship gate (on APPROVE):
-
-```
-AskUserQuestion:
-  question: "Implementation reviewed and approved. Ship it?"
-  header: "Ship?"
-  multiSelect: false
-  options:
-    - label: "Yes — ship via /mine.ship"
-      description: "Commit, push, and open a PR"
-    - label: "No — I'll ship manually"
-      description: "Stop here; changes are committed but not pushed"
-```
-
-If "Yes": invoke `/mine.ship`.
+5. **Follow `/mine.orchestrate` phases** using the feature directory. The orchestrator handles per-WP execution, implementation review, challenge, and shipping as part of its Phase 3 pipeline. No further steps needed from mine.build after this point.
 
 ---
 
@@ -211,27 +188,4 @@ Then chain the following steps:
    - If "Revise the plan": return to step 2 with the reviewer's notes. Repeat until approved or abandoned.
    - If "Abandon": stop.
 
-4. **Follow `/mine.orchestrate` phases** using the feature directory.
-
-5. mine.orchestrate's Phase 3 post-execution handoff offers `/mine.implementation-review` inline. Follow that flow. If the user declines, offer the ship gate directly.
-
-6. After implementation review completes:
-   - If **APPROVE**: proceed to the ship gate below.
-   - If **REQUEST_FIXES**: surface the blocking issues. Tell the user to address them and re-run `/mine.orchestrate`, then `/mine.implementation-review`. Stop here.
-   - If **ABANDON**: confirm abandonment and stop.
-
-   Ship gate (on APPROVE):
-
-```
-AskUserQuestion:
-  question: "Implementation reviewed and approved. Ship it?"
-  header: "Ship?"
-  multiSelect: false
-  options:
-    - label: "Yes — ship via /mine.ship"
-      description: "Commit, push, and open a PR"
-    - label: "No — I'll ship manually"
-      description: "Stop here; changes are committed but not pushed"
-```
-
-If "Yes": invoke `/mine.ship`.
+4. **Follow `/mine.orchestrate` phases** using the feature directory. The orchestrator handles per-WP execution, implementation review, challenge, and shipping as part of its Phase 3 pipeline. No further steps needed from mine.build after this point.

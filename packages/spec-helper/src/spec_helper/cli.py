@@ -4,6 +4,11 @@ import argparse
 import sys
 
 from spec_helper.commands import (
+    cmd_checkpoint_delete,
+    cmd_checkpoint_init,
+    cmd_checkpoint_read,
+    cmd_checkpoint_update,
+    cmd_checkpoint_verdict,
     cmd_init,
     cmd_next_number,
     cmd_status,
@@ -99,6 +104,94 @@ def build_parser() -> argparse.ArgumentParser:
     p_next = sub.add_parser("next-number", help="Print next available feature number")
     _add_json_flag(p_next)
 
+    # checkpoint-init
+    p_cp_init = sub.add_parser(
+        "checkpoint-init", help="Create initial orchestration checkpoint"
+    )
+    p_cp_init.add_argument(
+        "feature", nargs="?", default=None, help="Feature identifier"
+    )
+    p_cp_init.add_argument("--tmpdir", required=True, help="Orchestration tmpdir path")
+    p_cp_init.add_argument("--base-commit", required=True, help="Base commit SHA")
+    p_cp_init.add_argument(
+        "--visual-skip", action="store_true", help="Visual verification skipped"
+    )
+    p_cp_init.add_argument("--dev-server-url", default=None, help="Dev server URL")
+    p_cp_init.add_argument(
+        "--started-at", default=None, help="ISO timestamp (default: now)"
+    )
+    p_cp_init.add_argument(
+        "--force", action="store_true", help="Overwrite existing checkpoint"
+    )
+    _add_json_flag(p_cp_init)
+    _add_auto_flag(p_cp_init)
+
+    # checkpoint-read
+    p_cp_read = sub.add_parser(
+        "checkpoint-read", help="Read and validate orchestration checkpoint"
+    )
+    p_cp_read.add_argument(
+        "feature", nargs="?", default=None, help="Feature identifier"
+    )
+    _add_json_flag(p_cp_read)
+    _add_auto_flag(p_cp_read)
+
+    # checkpoint-update
+    p_cp_update = sub.add_parser(
+        "checkpoint-update", help="Update checkpoint header fields"
+    )
+    p_cp_update.add_argument(
+        "feature", nargs="?", default=None, help="Feature identifier"
+    )
+    p_cp_update.add_argument(
+        "--last-completed-wp", default=None, help="Last completed WP ID"
+    )
+    p_cp_update.add_argument(
+        "--warn-counter", type=int, default=None, help="WARN counter value"
+    )
+    p_cp_update.add_argument("--tmpdir", default=None, help="Update tmpdir path")
+    p_cp_update.add_argument(
+        "--current-wp", default=None, help="Currently in-progress WP ID"
+    )
+    p_cp_update.add_argument(
+        "--current-wp-status",
+        default=None,
+        choices=["retry_pending", "blocked", "stopped", ""],
+        help="Status of current WP (empty string to clear)",
+    )
+    _add_json_flag(p_cp_update)
+    _add_auto_flag(p_cp_update)
+
+    # checkpoint-verdict
+    p_cp_verdict = sub.add_parser(
+        "checkpoint-verdict", help="Append a verdict block to checkpoint"
+    )
+    p_cp_verdict.add_argument(
+        "feature", nargs="?", default=None, help="Feature identifier"
+    )
+    p_cp_verdict.add_argument("--wp-id", required=True, help="WP ID (e.g. WP01)")
+    p_cp_verdict.add_argument("--title", required=True, help="WP title")
+    p_cp_verdict.add_argument(
+        "--verdict",
+        required=True,
+        choices=["PASS", "WARN", "FAIL", "BLOCKED"],
+        help="Verdict",
+    )
+    p_cp_verdict.add_argument("--commit", required=True, help="WIP commit SHA")
+    p_cp_verdict.add_argument("--notes", default=None, help="Optional notes")
+    _add_json_flag(p_cp_verdict)
+    _add_auto_flag(p_cp_verdict)
+
+    # checkpoint-delete
+    p_cp_delete = sub.add_parser(
+        "checkpoint-delete", help="Delete orchestration checkpoint"
+    )
+    p_cp_delete.add_argument(
+        "feature", nargs="?", default=None, help="Feature identifier"
+    )
+    _add_json_flag(p_cp_delete)
+    _add_auto_flag(p_cp_delete)
+
     return parser
 
 
@@ -118,6 +211,11 @@ def main() -> None:
         "wp-list": cmd_wp_list,
         "status": cmd_status,
         "next-number": cmd_next_number,
+        "checkpoint-init": cmd_checkpoint_init,
+        "checkpoint-read": cmd_checkpoint_read,
+        "checkpoint-update": cmd_checkpoint_update,
+        "checkpoint-verdict": cmd_checkpoint_verdict,
+        "checkpoint-delete": cmd_checkpoint_delete,
     }
 
     fn = dispatch.get(args.command)

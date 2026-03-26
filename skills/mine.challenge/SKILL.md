@@ -105,6 +105,7 @@ The following tag names and values are consumed by calling skills (mine.design, 
 Structured callers (read findings file and generate revision plans):
 - `skills/mine.design/SKILL.md` — "On 'Challenge this design'" section
 - `skills/mine.specify/SKILL.md` — "On 'Challenge this spec first'" section
+- `skills/mine.orchestrate/SKILL.md` — Phase 3 Step 3 auto-challenge (dispatched as subagent with `--findings-out`)
 
 Detection callers (scan for severity labels to detect prior analysis, don't read findings file):
 - `skills/mine.build/SKILL.md` — accelerated path detection

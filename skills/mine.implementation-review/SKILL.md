@@ -1,7 +1,7 @@
 ---
 name: mine.implementation-review
-description: "Use when the user says: \"review the implementation\" or \"post-implementation review\". Quality gate that reviews changed files against design doc and WPs using an Opus subagent."
-user-invocable: true
+description: "Use when mine.orchestrate Phase 3 runs the post-execution quality gate. Reviews changed files against design doc and WPs using an Opus subagent."
+user-invocable: false
 ---
 
 # Implementation Review
@@ -111,55 +111,6 @@ Read the temp file. Format the results clearly:
 4. **Blocking issues** — if verdict is REQUEST_FIXES or ABANDON
 5. **Suggestions** — non-blocking notes, if any
 
----
 
-## Phase 4: Gate
 
-```
-AskUserQuestion:
-  question: "Implementation review complete. What would you like to do?"
-  header: "Review verdict"
-  multiSelect: false
-  options:
-    - label: "Approve — mark design as implemented"
-      description: "Update design.md Status to 'implemented'"
-    - label: "Request fixes"
-      description: "Surface blocking issues and return to execution"
-    - label: "Abandon"
-      description: "Save design as abandoned and stop"
-```
-
-### On "Approve"
-
-Update the `design.md` `**Status:**` field to `implemented`.
-
-Confirm:
-> Implementation approved. Design status updated to `implemented` at `<path>`.
-
-### On "Request fixes"
-
-Surface the reviewer's blocking issues as a numbered list.
-
-**If invoked inline by `mine.build`** (the user chose "Full caliper workflow" or "Accelerated"), invoke `/mine.orchestrate <feature_dir>` directly to re-execute affected WPs — `mine.build` handles the flow. Note: after orchestration completes, `/mine.orchestrate` will offer to run implementation-review via its post-execution gate.
-
-**Otherwise**, ask:
-
-```
-AskUserQuestion:
-  question: "Blocking issues found. Fix and re-run execution?"
-  header: "Fix"
-  multiSelect: false
-  options:
-    - label: "Yes — re-run execution"
-      description: "Invoke /mine.orchestrate to retry affected WPs, then re-review"
-    - label: "No — I'll fix manually"
-      description: "Stop here; address the issues and re-run when ready"
-```
-
-If "Yes": invoke `/mine.orchestrate <feature_dir>` directly. Note: after orchestration completes, `/mine.orchestrate` will offer to run implementation-review via its post-execution gate.
-
-### On "Abandon"
-
-Update the `design.md` `**Status:**` field to `abandoned`.
-
-Confirm: "Design saved as abandoned at `<path>`."
+Phase 3 is the final output. The caller (`mine.orchestrate`) handles all gate logic, status updates, and next-step decisions. This skill does not prompt the user or update `design.md`.

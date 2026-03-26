@@ -6,8 +6,20 @@ import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from spec_helper.activity_log import insert_activity_log_entry
+from spec_helper.checkpoint import (
+    CheckpointState,
+    Verdict,
+    add_verdict,
+    checkpoint_path,
+    delete_checkpoint,
+    read_checkpoint,
+    state_to_dict,
+    update_header,
+    write_checkpoint,
+)
 from spec_helper.errors import die
 
 try:
@@ -268,6 +280,153 @@ def cmd_wp_list(args: argparse.Namespace) -> None:
         )
 
     print(json.dumps(result, indent=2))
+
+
+def cmd_checkpoint_init(args: argparse.Namespace) -> None:
+    root = find_repo_root()
+    feature_dir = resolve_feature(root, feature=args.feature, auto=args.auto)
+    path = checkpoint_path(feature_dir)
+
+    if path.exists() and not args.force:
+        die(
+            f"Checkpoint already exists at {path.relative_to(root)}. Use --force to overwrite.",
+            json_mode=args.json,
+        )
+
+    state = CheckpointState(
+        feature_dir=str(feature_dir.relative_to(root)),
+        tmpdir=args.tmpdir,
+        visual_skip=args.visual_skip,
+        dev_server_url=args.dev_server_url or "none",
+        warn_counter=0,
+        last_completed_wp="none",
+        started_at=args.started_at
+        or datetime.now(timezone.utc)
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z"),
+        base_commit=args.base_commit,
+    )
+
+    write_checkpoint(state, path)
+
+    result = {"path": str(path.relative_to(root)), "state": state_to_dict(state)}
+    if args.json:
+        print(json.dumps(result))
+    else:
+        print(f"Checkpoint created: {path.relative_to(root)}")
+
+
+def cmd_checkpoint_read(args: argparse.Namespace) -> None:
+    root = find_repo_root()
+    feature_dir = resolve_feature(root, feature=args.feature, auto=args.auto)
+    path = checkpoint_path(feature_dir)
+
+    try:
+        state = read_checkpoint(path)
+    except FileNotFoundError:
+        if args.json:
+            print(json.dumps({"exists": False}))
+            return  # exit 0 — valid query result, not an error
+        else:
+            print("No checkpoint found", file=sys.stderr)
+            sys.exit(1)
+    except ValueError as e:
+        die(f"Checkpoint corrupt: {e}", json_mode=args.json)
+
+    result = {
+        "exists": True,
+        "path": str(path.relative_to(root)),
+        **state_to_dict(state),
+    }
+    if args.json:
+        print(json.dumps(result))
+    else:
+        d = state_to_dict(state)
+        for k, v in d.items():
+            if k != "verdicts":
+                print(f"{k}: {v}")
+        print(f"\nVerdicts: {len(d['verdicts'])}")
+        for v in d["verdicts"]:
+            notes = f" ({v['notes']})" if v["notes"] else ""
+            print(f"  {v['wp_id']}: {v['verdict']} [{v['commit']}]{notes}")
+
+
+def cmd_checkpoint_update(args: argparse.Namespace) -> None:
+    root = find_repo_root()
+    feature_dir = resolve_feature(root, feature=args.feature, auto=args.auto)
+    path = checkpoint_path(feature_dir)
+
+    updates: dict[str, Any] = {}
+    if args.last_completed_wp is not None:
+        updates["last_completed_wp"] = args.last_completed_wp
+    if args.warn_counter is not None:
+        updates["warn_counter"] = args.warn_counter
+    if args.tmpdir is not None:
+        updates["tmpdir"] = args.tmpdir
+    if args.current_wp is not None:
+        updates["current_wp"] = args.current_wp
+    if args.current_wp_status is not None:
+        updates["current_wp_status"] = args.current_wp_status
+
+    if not updates:
+        die(
+            "No fields to update. Use --last-completed-wp, --warn-counter, etc.",
+            json_mode=args.json,
+        )
+
+    try:
+        update_header(path, **updates)
+    except FileNotFoundError:
+        die("No checkpoint found", json_mode=args.json)
+    except ValueError as e:
+        die(str(e), json_mode=args.json)
+
+    if args.json:
+        print(json.dumps({"updated": list(updates.keys())}))
+    else:
+        print(f"Updated: {', '.join(updates.keys())}")
+
+
+def cmd_checkpoint_verdict(args: argparse.Namespace) -> None:
+    root = find_repo_root()
+    feature_dir = resolve_feature(root, feature=args.feature, auto=args.auto)
+    path = checkpoint_path(feature_dir)
+
+    verdict = Verdict(
+        wp_id=args.wp_id.upper(),
+        title=args.title,
+        verdict=args.verdict.upper(),
+        commit=args.commit,
+        notes=args.notes or "",
+    )
+
+    try:
+        add_verdict(path, verdict)
+    except FileNotFoundError:
+        die("No checkpoint found", json_mode=args.json)
+    except ValueError as e:
+        die(str(e), json_mode=args.json)
+
+    if args.json:
+        print(json.dumps({"appended": verdict.wp_id, "verdict": verdict.verdict}))
+    else:
+        print(f"Verdict appended: {verdict.wp_id} — {verdict.verdict}")
+
+
+def cmd_checkpoint_delete(args: argparse.Namespace) -> None:
+    root = find_repo_root()
+    feature_dir = resolve_feature(root, feature=args.feature, auto=args.auto)
+    path = checkpoint_path(feature_dir)
+
+    deleted = delete_checkpoint(path)
+
+    if args.json:
+        print(json.dumps({"deleted": deleted}))
+    else:
+        if deleted:
+            print(f"Deleted: {path.relative_to(root)}")
+        else:
+            print("No checkpoint to delete", file=sys.stderr)
 
 
 def cmd_status(args: argparse.Namespace) -> None:

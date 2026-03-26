@@ -112,6 +112,41 @@ Visual summary: <N> scenarios checked, <N> verified, <N> warned, <N> skipped
 
 If you could not achieve the specified setup state for a scenario, explain what you did instead and mark it WARN (not VERIFIED).
 
+## Previous Review Feedback
+
+On retry attempts (WARN fix loop or FAIL retry), the orchestrator adds a `## Previous review feedback` section to your prompt. This section contains the reviewers' findings from the prior attempt so you can address them directly.
+
+**On first attempt:** This section reads "N/A -- first attempt." Ignore it and proceed normally.
+
+**On WARN retries** (spec reviewer loop at Step 5): Only the **Spec reviewer** section is populated — code reviewer and visual reviewer have not run yet.
+
+**On FAIL retries** (after Step 9 gate): All three reviewer sections are populated (spec reviewer, code reviewer, visual reviewer) since all reviewers completed before the FAIL verdict.
+
+**Rules:**
+- Only the most recent attempt's feedback is included (not accumulated from all prior attempts)
+- Feedback is truncated to 50 lines if it exceeds that length
+- Fix the issues described. Do not repeat the same approach that caused them
+- If the feedback identifies a blocker you cannot resolve (architectural issue, missing dependency), write BLOCKED rather than producing the same broken output
+
+**Template** (populated by the orchestrator):
+
+```markdown
+## Previous review feedback
+
+### Attempt N — <WARN|FAIL>
+
+**Spec reviewer:**
+<full spec reviewer verdict and details>
+
+**Code reviewer** (FAIL retries only — "N/A" for WARN retries):
+<unresolved CRITICAL/HIGH findings>
+
+**Visual reviewer** (FAIL retries only — "N/A" for WARN retries):
+<FAIL/WARN details>
+
+Fix these issues before proceeding. Do not repeat the same approach that caused them.
+```
+
 ## Output Format
 
 Write structured result to the temp file path provided:

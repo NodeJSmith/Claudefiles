@@ -16,6 +16,52 @@ $ARGUMENTS — path to a feature directory (`design/specs/NNN-feature/`) or a sp
 
 ## Phase 0: Locate the Work Packages
 
+### Check for existing checkpoint (resume detection)
+
+Before anything else, determine the feature directory from `$ARGUMENTS` (using the same logic as "Find the feature directory" below — directory, WP file, or most-recently-modified glob). Do **not** present the confirmation AskUserQuestion at this point — just resolve the path silently. Then check for an existing checkpoint:
+
+```bash
+spec-helper checkpoint-read <feature_dir_name> --json
+```
+
+**If it returns `{"exists": false}`** — proceed to "Find the feature directory" and continue the normal fresh-start flow.
+
+**If it returns checkpoint data** — extract all fields from the JSON. Then determine staleness: parse `started_at` and compare to the current time. If `started_at` is older than 24 hours, note that in the prompt and default to "Restart fresh".
+
+Count the completed WPs from the verdicts section and the total WPs from the feature directory.
+
+Present the resume prompt:
+
+```
+AskUserQuestion:
+  question: "Found orchestration state from <started_at>. <N> of <M> WPs completed (<comma-separated list of verdict WP IDs and their verdicts, e.g. 'WP01: PASS, WP02: WARN'>). Resume or restart?"
+  header: "Resume"
+  multiSelect: false
+  options:
+    - label: "Resume from <next WP ID after last_completed_wp>"
+      description: "Continue where we left off — tmpdir: <tmpdir>, visual_skip: <visual_skip>"
+    - label: "Restart fresh"
+      description: "Delete the checkpoint and start from the beginning"
+```
+
+If `started_at` is older than 24 hours, append " (checkpoint is over 24 hours old)" to the "Restart fresh" label.
+
+**On resume:**
+- Restore all key-value fields from the checkpoint: `feature_dir`, `tmpdir`, `visual_skip`, `dev_server_url`, `base_commit`, `started_at`
+- Reset `warn_counter` to 0 (consecutive counter loses meaning across sessions)
+- Verify `tmpdir` exists. If it does not, run `get-skill-tmpdir mine-orchestrate` to create a new one and note that subagent outputs from prior WPs are gone (code changes are in git; verdicts are in the checkpoint)
+- Re-read `<feature_dir>/design.md` and all `<feature_dir>/tasks/WP*.md` files (they may have been edited between sessions)
+- Skip the rest of Phase 0 (feature directory discovery, design doc read, WP file read, dev server check are all handled by the restore)
+- Jump directly to Phase 2 (skip Phase 1 entirely). If `current_wp` is set in the checkpoint (meaning a WP was in progress when the session ended), resume from that WP. Otherwise, skip all WPs up to and including `last_completed_wp` and start from the next WP.
+- Clear the in-progress WP marker after resuming:
+  ```bash
+  spec-helper checkpoint-update <feature_dir_name> --current-wp "" --current-wp-status "" --json
+  ```
+
+**On restart:**
+- Delete the checkpoint: `spec-helper checkpoint-delete <feature_dir_name> --json`
+- Proceed with the normal Phase 0 flow below
+
 ### Find the feature directory
 
 If $ARGUMENTS points to a `design/specs/NNN-*/` directory, use it directly.
@@ -83,6 +129,28 @@ AskUserQuestion:
 
 If the user starts the server, re-probe and confirm. If skipping, set a `visual_skip` flag for the run — executors will skip all visual capture and report SKIPPED.
 
+### Write initial checkpoint
+
+After Phase 0 completes (feature directory found, design doc and WP files read, dev server check done), record the base commit and create the checkpoint via `spec-helper`.
+
+**Timing: capture `base_commit` BEFORE any WP execution begins.** This is the snapshot of HEAD before the orchestrator modifies any files, so that `git diff --name-only <base_commit> HEAD` after execution shows exactly what changed.
+
+First, get the base commit:
+
+```bash
+git rev-parse --short HEAD
+```
+
+Then create the checkpoint:
+
+```bash
+spec-helper checkpoint-init <feature_dir_name> --tmpdir <tmpdir> --base-commit <sha> [--visual-skip] [--dev-server-url <url>] --json
+```
+
+The checkpoint is written to `<feature_dir>/tasks/.orchestrate-state.md` with validated schema.
+
+**Gitignore the checkpoint:** Ensure `tasks/.orchestrate-state.md` is excluded from git. Check if `<feature_dir>/tasks/.gitignore` or `<feature_dir>/.gitignore` already contains this entry. If not, append `.orchestrate-state.md` to `<feature_dir>/tasks/.gitignore` (create the file if needed). This prevents `git add -A` in WIP commits from staging the checkpoint file.
+
 ---
 
 ## Phase 1: Parse WPs and Select Start Point
@@ -102,8 +170,6 @@ Skip WPs that are already in `lane: done`.
 ---
 
 ## Phase 2: Per-WP Execution Loop
-
-Initialize a consecutive WARN counter at 0.
 
 For each WP from the start point to the last WP:
 
@@ -216,7 +282,23 @@ Write your structured review to: <spec reviewer temp file path>
 
 Wait for the subagent to complete. Read the spec reviewer temp file.
 
-### Step 5.5: Visual reviewer (conditional)
+### Step 5.5: WARN fix loop (if spec reviewer returned WARN)
+
+**If the spec reviewer returned WARN**, do NOT proceed to the visual reviewer or code review yet. Instead, attempt one automatic fix:
+
+1. **Read the spec reviewer's WARN details** from the spec reviewer temp file
+2. **Re-run the executor (Step 4)** with the `## Previous review feedback` section added to the executor prompt. Populate only the **Spec reviewer** section (code reviewer and visual reviewer have not run yet). Truncate feedback to 50 lines if it exceeds that length. Only include the most recent attempt's feedback (not accumulated from prior attempts).
+3. **Re-run the spec reviewer (Step 5)** on the executor's updated output
+4. **If PASS after retry** → continue to Step 5.7 (visual reviewer) and then Step 7 (code reviewer) as normal. The WARN retry replaces only Steps 4 and 5.
+5. **If still WARN after 1 retry** → escalate to the user using the FAIL gate at Step 9.5 (same options as FAIL). One retry that can't fix a minor gap means either the gap isn't executor-fixable or the spec reviewer's bar is miscalibrated — either way, escalate.
+
+The WARN retry happens within a single WP's execution. The checkpoint is not updated during retries — it only updates after the final verdict.
+
+**If the spec reviewer returned PASS** — continue to Step 5.7 (visual reviewer).
+
+**If the spec reviewer returned FAIL** — skip to Step 9 to present the FAIL verdict.
+
+### Step 5.7: Visual reviewer (conditional)
 
 **Only run this step if the WP contains a `## Visual Verification` section with scenarios.** If the WP has no visual verification section, skip to Step 6 (the Visual line in Step 9 will show N/A).
 
@@ -231,7 +313,7 @@ Glob: <dir>/<wp_id>/*.png
 ```
 
 This is more reliable than parsing screenshot paths from the executor's text output. If no `.png` files are found, distinguish the cause:
-- If `visual_skip` is set → Visual = SKIPPED "no dev server (orchestrator)" (should not reach here — Step 5.5 short-circuits above, but defensive)
+- If `visual_skip` is set → Visual = SKIPPED "no dev server (orchestrator)" (should not reach here — Step 5.7 short-circuits above, but defensive)
 - If the executor reported all scenarios as SKIPPED → Visual = SKIPPED with the executor's reasons
 - Otherwise (dev server was available, scenarios existed, but no screenshots) → Visual = WARN "executor did not capture screenshots — check executor output for errors"
 
@@ -276,7 +358,7 @@ Compare executor result, spec reviewer verdict, and visual reviewer verdict (if 
 |-----------|--------|
 | Executor PASS + Spec reviewer PASS (+ Visual VERIFIED or N/A) | Proceed to code review |
 | Executor auto-fix deviation noted | Log it, proceed to code review |
-| Spec reviewer WARN or Visual WARN or Visual SKIPPED | Proceed to code review; surface warning to user after reviews |
+| Visual WARN or Visual SKIPPED | Proceed to code review; surface warning to user after reviews |
 | Spec reviewer FAIL or Visual FAIL | Mark WP FAIL; surface to user (gate at Step 9) |
 | Executor BLOCKED (any reason) | Mark WP BLOCKED; surface to user (gate at Step 9) |
 | Executor BLOCKED (architectural) | Mark WP BLOCKED with architectural flag; do not retry without plan change |
@@ -336,27 +418,17 @@ Integration review: APPROVE|WARN|BLOCK — NEVER "N/A" or "skipped"
 [Any WARN or FAIL details]
 ```
 
-Then gate based on verdict:
+### Step 9.5: Gate decision and WP lane update
 
-**PASS or WARN** — auto-continue to the next WP. Display the summary but do not ask for confirmation. Move this WP to `done` and continue the loop with the next WP (starting from Step 1 — announce, set up temp dir, then execute). If WARN, increment the consecutive WARN counter; if PASS, reset it to 0.
+Gate based on verdict:
 
-**WARN accumulation checkpoint:** If the consecutive WARN counter reaches 3, pause and ask:
+**PASS or WARN** — auto-continue to the next WP. Display the summary but do not ask for confirmation. Move this WP to `done`:
+
+```bash
+spec-helper wp-move <feature_dir_name> <wp_id> done
 ```
-AskUserQuestion:
-  question: "3 consecutive WPs received WARN verdicts. This may indicate a systemic issue. Continue or investigate?"
-  header: "WARN accumulation"
-  multiSelect: false
-  options:
-    - label: "Continue — warnings are acceptable"
-      description: "Reset the counter and keep going"
-    - label: "Stop and investigate"
-      description: "Pause execution to review the pattern"
-```
-Post-choice behavior:
-- **"Continue — warnings are acceptable"**: Reset the consecutive WARN counter to 0 and continue the loop with the next WP (the current WP is already moved to `done` before the checkpoint triggers).
-- **"Stop and investigate"**: Pause the execution loop. The current WP remains in `done` (it passed, just with warnings). Return control to the user with a summary of the WARN pattern across the last 3 WPs so they can decide how to proceed (e.g., fix issues and re-run, adjust the plan, or resume as-is).
 
-A PASS verdict resets the consecutive WARN counter to zero.
+Note: by this point, any WARN from the spec reviewer has already been addressed by the fix loop at Step 5.5. A WARN verdict here means the fix loop succeeded (spec reviewer passed after retry) but other reviewers (code, integration, visual) raised minor concerns.
 
 **FAIL or non-architectural BLOCKED** — ask the user:
 ```
@@ -373,6 +445,21 @@ AskUserQuestion:
       description: "Pause execution; resume later with /mine.orchestrate"
 ```
 
+For FAIL/BLOCKED gate outcomes, **write a partial checkpoint update** before taking the gate action:
+
+```bash
+spec-helper checkpoint-update <feature_dir_name> --current-wp <WP_ID> --current-wp-status <retry_pending|blocked|stopped> --json
+```
+
+This ensures resume correctly returns to this WP instead of skipping it. Then:
+
+- **Fix and retry**: lane stays `doing`; set `current_wp_status: retry_pending`. Re-run from Step 3 with the `## Previous review feedback` section added to the executor prompt. For FAIL retries, populate **all three** reviewer sections (spec reviewer, code reviewer, visual reviewer) since all reviewers have completed by this point. Truncate feedback to 50 lines if it exceeds that length. Only include the most recent attempt's feedback.
+- **Mark as blocked and skip**: set `current_wp_status: blocked`. Move to `for_review` (signals needs human attention)
+  ```bash
+  spec-helper wp-move <feature_dir_name> <wp_id> for_review
+  ```
+- **Stop here**: set `current_wp_status: stopped`. Leave lane as `doing`.
+
 **Architectural BLOCKED verdict only:**
 ```
 AskUserQuestion:
@@ -388,20 +475,52 @@ AskUserQuestion:
 
 Do not offer "Fix and retry" or "skip" for architectural blocks — retrying without a plan change will produce the same result.
 
-### Step 10: Update WP lane
+### Step 10: WIP commit and checkpoint update
 
-After the gate decision:
+**This step runs only for PASS or WARN verdicts** (i.e., when the WP was moved to `done` in Step 9.5). For FAIL, BLOCKED, or user-chosen "Stop here" / "Fix and retry" outcomes, skip this step entirely — the checkpoint is not updated and no WIP commit is created.
 
-- **Continue / PASS / WARN**: move to `done`
-  ```bash
-  spec-helper wp-move <feature_dir_name> <wp_id> done
-  ```
-- **Fix and retry**: lane stays `doing`; re-run from Step 3
-- **Mark as blocked and skip**: move to `for_review` (signals needs human attention)
-  ```bash
-  spec-helper wp-move <feature_dir_name> <wp_id> for_review
-  ```
-- **Stop here**: leave lane as `doing`
+#### 10a: Create WIP commit
+
+Stage changes and create a WIP commit. **Before committing, verify the staging area:**
+
+```bash
+git add -A
+git status --short
+```
+
+Review the `git status` output. If any files appear that are clearly unrelated to this WP (scratch files, editor backups, files from other features), unstage them with `git reset HEAD <file>` before committing. When in doubt, keep the file staged — the WIP commits will be squashed before merge.
+
+```bash
+git commit -m "WIP: <WP_ID> -- <WP title>"
+```
+
+If the commit succeeds, capture the new HEAD SHA:
+
+```bash
+git rev-parse --short HEAD
+```
+
+Store this SHA — it goes into the checkpoint verdict block below.
+
+**If `git commit` fails** (e.g., nothing to commit because the WP made no file changes), note the failure and use `no-changes` as the commit value in the verdict block. This is not an error — some WPs may be documentation-only or configuration changes that were already committed by a subprocess.
+
+#### 10b: Update checkpoint file
+
+Update the checkpoint via `spec-helper` commands. The WIP commit (Step 10a) MUST complete before this step — the commit SHA goes into the verdict.
+
+**Update header:**
+
+```bash
+spec-helper checkpoint-update <feature_dir_name> --last-completed-wp <WP_ID> --json
+```
+
+**Append verdict:**
+
+```bash
+spec-helper checkpoint-verdict <feature_dir_name> --wp-id <WP_ID> --title "<WP title>" --verdict <PASS|WARN> --commit <SHA from Step 10a> [--notes "<explanation>"] --json
+```
+
+Add `--notes` if the verdict is WARN (e.g., "test coverage low", "code review had unresolved HIGH findings").
 
 ### Loop to next WP
 
@@ -409,15 +528,19 @@ After the gate, continue with the next WP in sequence. Track: done (PASS), warne
 
 ---
 
-## Phase 3: Post-Execution Handoff
+## Phase 3: Post-Execution Review Pipeline
 
-After all WPs are processed (or user chose "Stop here"), print the terminal kanban:
+After all WPs are processed (or user chose "Stop here"), run a three-step review pipeline. Steps 1-2 are automatic (no user prompts unless blocking issues are found). The user is only prompted at the impl-review gate (if blocking) or at the final challenge results gate.
+
+### Step 1: Summary (automatic)
+
+Print the terminal kanban:
 
 ```bash
 spec-helper status <feature_dir_name>
 ```
 
-Then present a summary table:
+Then present a verdict table. **Read the checkpoint via `spec-helper checkpoint-read <feature_dir_name> --json`** and build the table from the `verdicts` array:
 
 ```
 | WP   | Title   | Verdict |
@@ -427,18 +550,99 @@ Then present a summary table:
 ...
 ```
 
-Then offer:
+### Step 2: Implementation review (automatic, gates on blocking issues)
+
+Invoke `/mine.implementation-review <feature_dir>` automatically. The skill presents findings and returns — no user gate (the orchestrator handles all gate logic).
+
+Read the review output. Extract the verdict (APPROVE, REQUEST_FIXES, or ABANDON) and any suggestions or blocking issues.
+
+**If impl-review returns APPROVE** — note any non-blocking suggestions to surface later. Continue to Step 3 automatically.
+
+**If impl-review returns REQUEST_FIXES or ABANDON** — prompt the user immediately:
 
 ```
 AskUserQuestion:
-  question: "Execution complete. Run implementation review?"
-  header: "Next step"
+  question: "Implementation review found blocking issues: <summary of blocking issues>. What next?"
+  header: "Impl-review gate"
   multiSelect: false
   options:
-    - label: "Yes — run /mine.implementation-review"
-      description: "Post-execution quality gate across all changed files"
-    - label: "No — I'll review manually"
-      description: "Stop here"
+    - label: "Address fixes"
+      description: "Dispatch a fresh executor subagent with the findings, then re-run reviewers"
+    - label: "Stop here"
+      description: "Pause; I'll address findings manually"
 ```
 
-If "Yes": invoke `/mine.implementation-review <feature_dir>` directly.
+**On "Address fixes":**
+1. Dispatch a fresh `general-purpose` subagent with: the impl-review findings, the relevant file paths, `<feature_dir>/design.md` content, and `implementer-prompt.md` content. Instruct: "Fix only the listed blocking issues. Do not expand scope beyond these findings."
+2. After the subagent completes, re-run `code-reviewer` and `integration-reviewer` on the fix diff
+3. Re-run `/mine.implementation-review <feature_dir>`
+4. If it now returns APPROVE, continue to Step 3
+5. If it still returns REQUEST_FIXES/ABANDON after 2 fix attempts, remove "Address fixes" from the gate — only offer "Stop here"
+
+**On "Stop here":** Leave the checkpoint in place. The user can resume later. Do not delete the checkpoint.
+
+### Step 3: Auto-challenge (automatic, always presents findings)
+
+Determine the changed file list by diffing against `base_commit` (from the checkpoint):
+
+```bash
+git diff --name-only <base_commit> HEAD
+```
+
+If no files changed (all WPs were no-ops), skip the challenge and go directly to the final gate with a note that no files were changed.
+
+**Dispatch the challenge as a single `general-purpose` subagent using the Opus model (`model: "opus"`).** The orchestrator passes the following to the subagent, which runs `/mine.challenge` internally (the challenge skill spawns its own three nested critic subagents):
+
+- `base_commit` from the checkpoint
+- The changed file list from `git diff --name-only`
+- Path to `<feature_dir>/design.md`
+- Output path for findings (use `<tmpdir>/challenge-findings.md`)
+
+The subagent prompt:
+
+```
+Run /mine.challenge --findings-out=<tmpdir>/challenge-findings.md --target-type=code <list of changed file paths as space-separated arguments>
+
+The challenge will write structured findings to the specified path. The files were changed between commit <base_commit> and HEAD as part of executing work packages in <feature_dir>. The design doc is at <feature_dir>/design.md.
+```
+
+After the subagent completes, read `<tmpdir>/challenge-findings.md`.
+
+### Final gate: Combined review results
+
+Present the combined findings from implementation review and challenge:
+
+```
+AskUserQuestion:
+  question: "Challenge complete: <N findings, highest severity>. Implementation review: <APPROVE + any non-blocking suggestions summary>. What next?"
+  header: "Review results"
+  multiSelect: false
+  options:
+    - label: "Address findings"
+      description: "Dispatch a fresh executor subagent with the findings, then re-review"
+    - label: "Accept and ship"
+      description: "Findings noted — proceed to /mine.ship"
+    - label: "Stop here"
+      description: "Pause; I'll address findings manually"
+```
+
+**On "Address findings":**
+1. Dispatch a fresh `general-purpose` subagent with: the challenge findings and any impl-review suggestions, the relevant file paths, `<feature_dir>/design.md` content, and `implementer-prompt.md` content. Instruct: "Fix only the listed findings. Do not expand scope beyond these findings."
+2. After the subagent completes, re-run `code-reviewer` and `integration-reviewer` on the fix diff
+3. Re-run the challenge (same dispatch pattern as Step 3)
+4. Present the final gate again with updated findings
+5. After 2 "Address findings" iterations, remove the "Address findings" option — only offer "Accept and ship" or "Stop here"
+
+**On "Accept and ship":** Invoke `/mine.ship`.
+
+**On "Stop here":** Leave the checkpoint in place. The user can resume later.
+
+### Delete checkpoint
+
+After the user chooses "Accept and ship" (and `/mine.ship` completes) or after the "Address findings" loop results in "Accept and ship", delete the checkpoint. Do NOT delete the checkpoint if the user chose "Stop here" — it must persist for future resume.
+
+```bash
+spec-helper checkpoint-delete <feature_dir_name> --json
+```
+
+This is the final cleanup step. The checkpoint is runtime state — once the orchestration run completes and the user has passed through the review results gate, it is no longer needed. If the user chose "Stop here" at any earlier gate (during Phase 2 or at the impl-review gate), the checkpoint persists for future resume.
