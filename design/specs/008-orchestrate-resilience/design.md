@@ -69,7 +69,7 @@ commit: f0a1b2c
 
 **Write points:**
 1. After Phase 0 completes — initial state (feature_dir, tmpdir, visual_skip, dev_server_url, base_commit, started_at)
-2. After each WP verdict — update last_completed_wp, verdicts table (including commit SHA), warn_counter, warn_total
+2. After each WP verdict — update last_completed_wp, verdicts table (including commit SHA), warn_counter
 3. After user gate decisions — if user chose "stop here", record the reason
 
 **Per-WP commit stamping:** After a WP passes all review gates, the WIP commit (Section 3) is created first, then the commit SHA is recorded in the verdict block. The commit column always captures a unique SHA per WP thanks to the WIP commit.
@@ -104,7 +104,7 @@ AskUserQuestion:
 On resume:
 - Restore all key-value fields from the checkpoint
 - Verify tmpdir exists. If not, create a new one and note the old one is lost (subagent outputs from prior WPs are gone, but code changes are in git and verdicts are in the checkpoint)
-- Reset `warn_counter` to 0 (consecutive counter loses meaning across sessions), keep `warn_total` as-is
+- Reset `warn_counter` to 0 (consecutive counter loses meaning across sessions)
 - Skip to the next WP after `last_completed_wp`
 - Re-read the design doc and all WP files (they may have been edited between sessions)
 

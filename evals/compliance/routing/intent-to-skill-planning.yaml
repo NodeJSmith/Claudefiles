@@ -3,7 +3,7 @@
 # Rule source: rules/common/capabilities.md (intent routing table)
 #
 # Tests the caliper v2 workflow skills: specify → design → draft-plan →
-# plan-review → orchestrate → implementation-review, plus wp.
+# plan-review → orchestrate (includes implementation-review + challenge + ship), plus wp.
 # If any step breaks, the whole planning pipeline is unusable.
 #
 # Run: npx promptfoo eval -c evals/compliance/routing/intent-to-skill-planning.yaml
@@ -186,27 +186,27 @@ tests:
       - type: javascript
         value: *skill_assertion
 
-  # --- mine.implementation-review ---
-  - description: "post-implementation review → /mine.implementation-review (direct)"
+  # --- mine.implementation-review (now internal to mine.orchestrate Phase 3) ---
+  - description: "post-implementation review → /mine.orchestrate (routes through orchestrate)"
     vars:
       prompt: "review the implementation against the design doc"
-      expectedSkill: "mine.implementation-review"
+      expectedSkill: "mine.orchestrate"
     assert:
       - type: javascript
         value: *skill_assertion
 
-  - description: "check implementation quality → /mine.implementation-review (natural)"
+  - description: "check implementation quality → /mine.orchestrate (routes through orchestrate)"
     vars:
       prompt: "we finished all the WPs — do a post-implementation review to check quality"
-      expectedSkill: "mine.implementation-review"
+      expectedSkill: "mine.orchestrate"
     assert:
       - type: javascript
         value: *skill_assertion
 
-  - description: "verify against design → /mine.implementation-review (indirect)"
+  - description: "verify against design → /mine.orchestrate (routes through orchestrate)"
     vars:
       prompt: "the feature is done — verify that what we built matches the design doc and WP specs"
-      expectedSkill: "mine.implementation-review"
+      expectedSkill: "mine.orchestrate"
     assert:
       - type: javascript
         value: *skill_assertion

@@ -41,7 +41,7 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `mine.address-pr-issues` | Triage and resolve PR blockers — review comments, merge conflicts, and failing CI |
 | `mine.audit` | Systematic codebase health audit -- surfaces aging code, brittle designs, missing tests, ranked by impact |
 | `mine.brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas ranked by user-chosen criteria, with handoff to research or planning |
-| `mine.build` | Single entry point — routes between direct implementation and the full caliper v2 workflow (specify → design → draft-plan → plan-review → orchestrate → implementation-review → ship) |
+| `mine.build` | Single entry point — routes between direct implementation and the full caliper v2 workflow (specify → design → draft-plan → plan-review → orchestrate → ship) |
 | `mine.challenge` | Adversarial review using three parallel critics — assumes the target is wrong, finds out why, argues for better. Works on code, specs, designs, briefs, skill files |
 | `mine.commit-push` | Commit and push changes to the current branch |
 | `mine.create-pr` | Review branch changes and create a PR on GitHub or Azure DevOps |
@@ -50,7 +50,7 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `mine.eval-repo` | Evaluate a third-party GitHub repo before adopting it -- test coverage, code quality, maintenance health, bus factor |
 | `mine.gh-tools` | GitHub helper scripts -- gh-issue, gh-pr-create, gh-pr-threads, gh-pr-reply, gh-pr-resolve-thread, gh-bot, gh-app-token |
 | `mine.grill` | Multi-angle interrogation of a raw idea — product, design, engineering, scope, and adversarial lenses. Produces a brief.md that feeds into /mine.specify |
-| `mine.implementation-review` | Post-execution quality gate — 7-category Opus review of all changed files against design doc and Work Package (WP) files |
+| `mine.implementation-review` | Post-execution quality gate (internal, invoked by orchestrate Phase 3) — 7-category Opus review of all changed files against design doc and WP files |
 | `mine.look-and-feel` | Plan UI design direction — design tokens, color palettes, typography, spacing, and visual identity persisted to `design/direction.md` |
 | `mine.mockup` | Generate self-contained HTML mockup files — reads `design/direction.md` for consistent styling, delivers to `~/.claude/diagrams/` |
 | `mine.mutation-test` | Mutation testing -- intentionally break code to verify tests catch real bugs |

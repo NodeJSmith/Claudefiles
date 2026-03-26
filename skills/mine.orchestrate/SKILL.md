@@ -52,7 +52,7 @@ If `started_at` is older than 24 hours, append " (checkpoint is over 24 hours ol
 - Verify `tmpdir` exists. If it does not, run `get-skill-tmpdir mine-orchestrate` to create a new one and note that subagent outputs from prior WPs are gone (code changes are in git; verdicts are in the checkpoint)
 - Re-read `<feature_dir>/design.md` and all `<feature_dir>/tasks/WP*.md` files (they may have been edited between sessions)
 - Skip the rest of Phase 0 (feature directory discovery, design doc read, WP file read, dev server check are all handled by the restore)
-- Jump directly to Phase 2 (skip Phase 1 entirely). The resume flow's `last_completed_wp` overrides Phase 1's frontmatter-based auto-select — skip all WPs up to and including `last_completed_wp`, then start from the next WP. This takes precedence over Phase 1's `lane: doing` detection, which may disagree if a prior session crashed between steps.
+- Jump directly to Phase 2 (skip Phase 1 entirely). If `current_wp` is set in the checkpoint (meaning a WP was in progress when the session ended), resume from that WP. Otherwise, skip all WPs up to and including `last_completed_wp` and start from the next WP. Clear `current_wp` and `current_wp_status` from the checkpoint header after resuming.
 
 **On restart:**
 - Delete the checkpoint file: `<feature_dir>/tasks/.orchestrate-state.md`
@@ -452,13 +452,14 @@ AskUserQuestion:
       description: "Pause execution; resume later with /mine.orchestrate"
 ```
 
-For FAIL/BLOCKED gate outcomes:
-- **Fix and retry**: lane stays `doing`; re-run from Step 3 with the `## Previous review feedback` section added to the executor prompt. For FAIL retries, populate **all three** reviewer sections (spec reviewer, code reviewer, visual reviewer) since all reviewers have completed by this point. Truncate feedback to 50 lines if it exceeds that length. Only include the most recent attempt's feedback.
-- **Mark as blocked and skip**: move to `for_review` (signals needs human attention)
+For FAIL/BLOCKED gate outcomes, **write a partial checkpoint update** before taking the gate action. Update the checkpoint header to set `current_wp: <WP_ID>` and `current_wp_status: retry_pending|blocked|stopped` (matching the gate choice). This ensures resume correctly returns to this WP instead of skipping it. Then:
+
+- **Fix and retry**: lane stays `doing`; set `current_wp_status: retry_pending`. Re-run from Step 3 with the `## Previous review feedback` section added to the executor prompt. For FAIL retries, populate **all three** reviewer sections (spec reviewer, code reviewer, visual reviewer) since all reviewers have completed by this point. Truncate feedback to 50 lines if it exceeds that length. Only include the most recent attempt's feedback.
+- **Mark as blocked and skip**: set `current_wp_status: blocked`. Move to `for_review` (signals needs human attention)
   ```bash
   spec-helper wp-move <feature_dir_name> <wp_id> for_review
   ```
-- **Stop here**: leave lane as `doing`
+- **Stop here**: set `current_wp_status: stopped`. Leave lane as `doing`.
 
 **Architectural BLOCKED verdict only:**
 ```
@@ -481,10 +482,17 @@ Do not offer "Fix and retry" or "skip" for architectural blocks — retrying wit
 
 #### 10a: Create WIP commit
 
-Stage all changes and create a WIP commit:
+Stage changes and create a WIP commit. **Before committing, verify the staging area:**
 
 ```bash
-git add -A && git commit -m "WIP: <WP_ID> -- <WP title>"
+git add -A
+git status --short
+```
+
+Review the `git status` output. If any files appear that are clearly unrelated to this WP (scratch files, editor backups, files from other features), unstage them with `git reset HEAD <file>` before committing. When in doubt, keep the file staged — the WIP commits will be squashed before merge.
+
+```bash
+git commit -m "WIP: <WP_ID> -- <WP title>"
 ```
 
 If the commit succeeds, capture the new HEAD SHA:
@@ -546,7 +554,7 @@ Then present a verdict table. **Reconstruct this table from the verdict blocks i
 
 ### Step 2: Implementation review (automatic, gates on blocking issues)
 
-Invoke `/mine.implementation-review --inline <feature_dir>` automatically — do NOT ask "Run it?". The `--inline` flag tells the implementation-review skill to skip its own Phase 4 gate and return the review results directly.
+Invoke `/mine.implementation-review <feature_dir>` automatically. The skill presents findings and returns — no user gate (the orchestrator handles all gate logic).
 
 Read the review output. Extract the verdict (APPROVE, REQUEST_FIXES, or ABANDON) and any suggestions or blocking issues.
 
@@ -567,11 +575,11 @@ AskUserQuestion:
 ```
 
 **On "Address fixes":**
-1. Dispatch a fresh `general-purpose` subagent with the impl-review findings, the relevant file paths, and instruction to fix the blocking issues
+1. Dispatch a fresh `general-purpose` subagent with: the impl-review findings, the relevant file paths, `<feature_dir>/design.md` content, and `implementer-prompt.md` content. Instruct: "Fix only the listed blocking issues. Do not expand scope beyond these findings."
 2. After the subagent completes, re-run `code-reviewer` and `integration-reviewer` on the fix diff
-3. Re-run `/mine.implementation-review --inline <feature_dir>`
+3. Re-run `/mine.implementation-review <feature_dir>`
 4. If it now returns APPROVE, continue to Step 3
-5. If it still returns REQUEST_FIXES/ABANDON, re-prompt the user with the same gate
+5. If it still returns REQUEST_FIXES/ABANDON after 2 fix attempts, remove "Address fixes" from the gate — only offer "Stop here"
 
 **On "Stop here":** Leave the checkpoint in place. The user can resume later. Do not delete the checkpoint.
 
@@ -621,11 +629,11 @@ AskUserQuestion:
 ```
 
 **On "Address findings":**
-1. Dispatch a fresh `general-purpose` subagent with the challenge findings and any impl-review suggestions, the relevant file paths, and instruction to address the issues
+1. Dispatch a fresh `general-purpose` subagent with: the challenge findings and any impl-review suggestions, the relevant file paths, `<feature_dir>/design.md` content, and `implementer-prompt.md` content. Instruct: "Fix only the listed findings. Do not expand scope beyond these findings."
 2. After the subagent completes, re-run `code-reviewer` and `integration-reviewer` on the fix diff
 3. Re-run the challenge (same dispatch pattern as Step 3)
 4. Present the final gate again with updated findings
-5. Loop until the user chooses "Accept and ship" or "Stop here"
+5. After 2 "Address findings" iterations, remove the "Address findings" option — only offer "Accept and ship" or "Stop here"
 
 **On "Accept and ship":** Invoke `/mine.ship`.
 

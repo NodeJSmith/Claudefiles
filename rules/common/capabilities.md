@@ -37,7 +37,7 @@
 | "draft a plan", "create work packages", "generate WPs" | `/mine.draft-plan` |
 | "review this plan", "check the plan", "plan review" | `/mine.plan-review` |
 | "execute the plan", "orchestrate implementation", "start executing" | `/mine.orchestrate` |
-| "review the implementation", "post-implementation review" | `/mine.implementation-review` |
+| "review the implementation", "post-implementation review" | `/mine.orchestrate` (impl-review runs automatically in Phase 3) |
 | "move WP to doing", "WP status", "kanban" | `/mine.wp` |
 | "review my changes", "run the reviewers", "code and integration review" | `/mine.review` |
 | "create a skill", "write a skill", "new skill" | `/mine.write-skill` |
