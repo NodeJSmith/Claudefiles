@@ -301,7 +301,9 @@ def cmd_checkpoint_init(args: argparse.Namespace) -> None:
         warn_counter=0,
         last_completed_wp="none",
         started_at=args.started_at
-        or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
+        or datetime.now(timezone.utc)
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z"),
         base_commit=args.base_commit,
     )
 

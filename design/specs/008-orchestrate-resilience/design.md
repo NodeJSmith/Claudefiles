@@ -308,8 +308,10 @@ Rejected in favor of invoking the existing `/mine.challenge` skill. Defining a n
 | `skills/mine.orchestrate/SKILL.md` | Checkpoint writes/reads, resume flow, base_commit stamping, WIP commits, WARN fix loop, streamlined post-orchestration flow (auto impl-review + auto challenge), previous review feedback on retry | Medium — adds ~80-100 lines of instructions to a 444-line file |
 | `skills/mine.orchestrate/implementer-prompt.md` | Add `## Previous review feedback` section placeholder | Low — additive |
 | `skills/mine.implementation-review/reviewer-prompt.md` | Expand item #6 with specific integration heuristics | Low — prompt improvement |
-| `skills/mine.implementation-review/SKILL.md` | Remove the "Run implementation-review?" prompt — orchestrator invokes it automatically | Low — removes a gate |
+| `skills/mine.implementation-review/SKILL.md` | Made non-user-invocable; removed Phase 4 gate — orchestrator owns all post-execution UX | Low — simplification |
+| `packages/spec-helper/src/spec_helper/checkpoint.py` | New module for checkpoint read/write with schema validation, atomic writes, frozen dataclasses | Medium — new module scoped to checkpoint I/O |
+| `packages/spec-helper/src/spec_helper/{cli,commands}.py` | Wire `checkpoint-{init,read,update,verdict,delete}` subcommands | Low — additive CLI surface |
 
-**Blast radius:** Changes are confined to the orchestrator and implementation-review skills. No changes to spec-helper, the caliper v2 file format, or other skills in the pipeline. The checkpoint file is a new artifact in the feature directory but is gitignored and deleted on completion.
+**Blast radius:** Changes affect the orchestrator, implementation-review, and spec-helper (new checkpoint subcommands). No changes to the caliper v2 file format or other skills in the pipeline. The checkpoint file is a new artifact in the feature directory but is gitignored and deleted on completion.
 
-**Dependencies:** None. All changes use existing tools (Read, Write, `/mine.challenge`).
+**Dependencies:** None beyond existing tools. Checkpoint I/O moved from LLM text manipulation to `spec-helper` CLI after challenge review flagged parsing fragility.

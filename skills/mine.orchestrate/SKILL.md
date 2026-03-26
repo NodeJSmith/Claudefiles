@@ -511,7 +511,7 @@ Update the checkpoint via `spec-helper` commands. The WIP commit (Step 10a) MUST
 **Update header:**
 
 ```bash
-spec-helper checkpoint-update <feature_dir_name> --last-completed-wp <WP_ID> --warn-counter <N> --json
+spec-helper checkpoint-update <feature_dir_name> --last-completed-wp <WP_ID> --json
 ```
 
 **Append verdict:**

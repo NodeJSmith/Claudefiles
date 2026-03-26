@@ -249,12 +249,26 @@ def _parse_checkpoint(text: str) -> tuple[dict[str, str], list[Verdict]]:
             if kv:
                 fields[kv.group(1)] = kv.group(2).strip()
 
+        verdict_val = fields.get("verdict", "")
+        commit_val = fields.get("commit", "")
+
+        if not verdict_val or verdict_val not in VALID_VERDICTS:
+            raise ValueError(
+                f"Malformed verdict block for {wp_id}: "
+                f"invalid verdict '{verdict_val}' "
+                f"(expected one of: {', '.join(sorted(VALID_VERDICTS))})"
+            )
+        if not commit_val:
+            raise ValueError(
+                f"Malformed verdict block for {wp_id}: missing commit field"
+            )
+
         verdicts.append(
             Verdict(
                 wp_id=wp_id,
                 title=title,
-                verdict=fields.get("verdict", ""),
-                commit=fields.get("commit", ""),
+                verdict=verdict_val,
+                commit=commit_val,
                 notes=fields.get("notes", ""),
             )
         )
