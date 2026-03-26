@@ -115,6 +115,10 @@ Read the temp file. Format the results clearly:
 
 ## Phase 4: Gate
 
+**If `--inline` flag is present in $ARGUMENTS:** Skip the gate below entirely. Present the Phase 3 findings (checklist, verdict, summary, blocking issues, suggestions) and return — the caller (typically `mine.orchestrate`) handles its own gate logic. Do not ask the user any questions or update `design.md` status. Strip `--inline` from $ARGUMENTS before parsing the feature directory path.
+
+**Otherwise** (standalone invocation):
+
 ```
 AskUserQuestion:
   question: "Implementation review complete. What would you like to do?"
@@ -140,7 +144,7 @@ Confirm:
 
 Surface the reviewer's blocking issues as a numbered list.
 
-**If invoked inline by `mine.build`** (the user chose "Full caliper workflow" or "Accelerated"), invoke `/mine.orchestrate <feature_dir>` directly to re-execute affected WPs — `mine.build` handles the flow. Note: after orchestration completes, `/mine.orchestrate` will offer to run implementation-review via its post-execution gate.
+**If invoked inline by `mine.build`** (the user chose "Full caliper workflow" or "Accelerated"), invoke `/mine.orchestrate <feature_dir>` directly to re-execute affected WPs — `mine.build` handles the flow. After orchestration completes, the orchestrator automatically runs implementation-review as part of its post-execution pipeline.
 
 **Otherwise**, ask:
 
@@ -156,7 +160,7 @@ AskUserQuestion:
       description: "Stop here; address the issues and re-run when ready"
 ```
 
-If "Yes": invoke `/mine.orchestrate <feature_dir>` directly. Note: after orchestration completes, `/mine.orchestrate` will offer to run implementation-review via its post-execution gate.
+If "Yes": invoke `/mine.orchestrate <feature_dir>` directly. After orchestration completes, the orchestrator automatically runs implementation-review as part of its post-execution pipeline.
 
 ### On "Abandon"
 

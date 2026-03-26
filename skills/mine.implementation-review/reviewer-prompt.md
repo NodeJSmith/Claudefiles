@@ -40,7 +40,25 @@ Look for: functions that can raise but callers don't handle; API responses that 
 
 Do the tasks wire together correctly? Are there missing glue pieces?
 
-Look for: a function defined in task 2 that task 3 was supposed to call, but the call isn't present; config values that task 1 added but task 4 never reads; module-level registration (adding to `__all__`, registering a handler) that was deferred and forgotten.
+**Verification method:** For each new public function, class, component, route handler, or
+config key introduced by any WP, grep the codebase for at least one consumer (import, call,
+reference, or registration). A definition with zero consumers is a gap.
+
+Look for:
+- Functions or classes defined but never imported or called outside their own module
+- API route handlers defined but never registered in the router/URL configuration
+- Config keys or environment variables defined but never read by the consuming code
+- Components or templates created but never mounted, imported, or included by a parent
+- Event handlers written but never subscribed to an event bus or dispatcher
+- Database models or migrations created but no corresponding repository/service integration
+- DI/service registrations missing for newly defined services
+- Frontend components created but not referenced in any route, page, or layout
+- Shared types or interfaces defined but not imported by the modules that should use them
+
+When checking, distinguish between:
+- **True gap** (defined, zero consumers anywhere) → FAIL
+- **Test-only consumer** (only used in test files, never in production code) → WARN
+- **Properly wired** (at least one production consumer) → PASS
 
 ### 7. Test coverage
 
