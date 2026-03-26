@@ -347,7 +347,17 @@ List the file paths so the user knows where reports are:
 - Adversarial Reviewer: `<tmpdir>/adversarial.md`
 - Structured findings: `<tmpdir>/findings.md` (or the path provided via `--findings-out`, if specified)
 
-Challenge is done. If a calling skill (mine.design, mine.specify) invoked challenge, it will resume and generate a revision plan from the findings file.
+### Wrap-up: structured callers vs standalone
+
+**If `--findings-out` was passed** (structured caller mode — used by mine.design, mine.specify, mine.orchestrate, or any caller requesting deterministic output): challenge is done. The caller resumes and generates a revision plan from the findings file.
+
+**If challenge was invoked standalone** (user ran `/mine.challenge` directly): provide a wrap-up before stopping.
+
+1. **Summary** — one paragraph: total finding count, breakdown by severity, the single most important takeaway across all findings.
+
+2. **Next step** — ask which finding to address in this session (or whether the user wants to stop here).
+
+**If a passthrough caller dispatched challenge** (mine.grill, mine.brainstorm, mine.research — no `--findings-out`): provide the summary (step 1) but skip the next-step prompt — the calling skill handles its own routing after challenge completes.
 
 ## Principles
 
@@ -359,4 +369,4 @@ Challenge is done. If a calling skill (mine.design, mine.specify) invoked challe
 6. **Not a style guide** — naming, formatting, and style nits are not design critiques. Skip them.
 7. **Recommend, don't just present** — for User-directed findings, state which option you'd pick and why. The user overrides if they disagree. Exception: TENSION findings get a deciding factor instead, because honest uncertainty is more useful than a fabricated preference.
 8. **Err toward user input** — when resolution classification is ambiguous, default to User-directed. The cost of asking is low; the cost of a wrong auto-apply is high.
-9. **Findings only** — this skill produces findings. It does not revise documents, apply fixes, or manage workflow. The caller decides what to do with the output.
+9. **Findings only** — this skill produces findings. It does not revise documents or apply fixes. When invoked standalone, challenge provides a summary and asks which finding to address, but does not apply changes itself.
