@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-26
 
 ### Fixed
-- `mine.challenge` standalone wrap-up — now provides summary and next-step prompt after presenting findings instead of silently stopping; passthrough callers (grill, brainstorm, research) get summary only to avoid double-prompting with their own gates (#132)
+- `mine.challenge` standalone wrap-up — now provides summary and next-step prompt after presenting findings instead of silently stopping; passthrough callers (`mine.grill`, `mine.brainstorm`, `mine.research`) get summary only to avoid double-prompting with their own gates (#132)
 
 ### Changed
 - `mine.orchestrate` resilience overhaul — checkpoint file for resume across sessions, WIP commits per WP, WARN fix loop (1 auto-retry before escalation), streamlined Phase 3 with auto implementation-review + auto challenge + ship gate (#131)

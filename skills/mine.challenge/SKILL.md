@@ -349,7 +349,7 @@ List the file paths so the user knows where reports are:
 
 ### Wrap-up: structured callers vs standalone
 
-**If a calling skill invoked challenge** (mine.design, mine.specify, mine.orchestrate — detectable by `--findings-out` being passed): challenge is done. The calling skill resumes and generates a revision plan from the findings file.
+**If `--findings-out` was passed** (structured caller mode — used by mine.design, mine.specify, mine.orchestrate, or any caller requesting deterministic output): challenge is done. The caller resumes and generates a revision plan from the findings file.
 
 **If challenge was invoked standalone** (user ran `/mine.challenge` directly): provide a wrap-up before stopping.
 
