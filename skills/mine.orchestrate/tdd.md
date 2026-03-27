@@ -14,6 +14,10 @@ Before running any test, find the correct command. Never guess.
 
 The presence of `uv.lock` does NOT mean skip discovery. A project can use uv for deps and nox for tests.
 
+## Test Co-location
+
+**Unit tests must ship in the same WP as the code they test.** Do not defer unit tests to a later WP. If the WP's Test Strategy names specific tests, those tests must exist when the WP is complete. Integration tests may follow in a subsequent WP.
+
 ## TDD Cycle
 
 For every function, class, or behavior change, complete this cycle before moving to the next:

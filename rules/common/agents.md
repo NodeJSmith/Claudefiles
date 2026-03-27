@@ -74,3 +74,7 @@ Default to `Explore` unless the subagent needs to write files, run commands, or 
 
 - **Foreground** (default): blocks until complete; parallel foreground agents run concurrently
 - **Background** (`run_in_background: true`): cannot ask user questions or get new permissions; use for fire-and-forget tasks
+
+### Parallel Reviewer / Critic Pattern
+
+When launching 2+ independent reviewer or critic agents (e.g., code-reviewer + integration-reviewer, or the three challenge critics), issue multiple Agent tool calls in a **single message** so they run in parallel. Only set `run_in_background: true` if you're sure the agents won't need to ask the user questions or request additional file/command permissions.
