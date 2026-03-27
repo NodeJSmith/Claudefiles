@@ -177,7 +177,7 @@ Coding guidelines that load automatically and shape how Claude writes code.
 
 **Common** (15): agents, backlog, bash-tools, capabilities, coding-style, command-output, error-tracking, frontend-workflow, git-workflow, interaction, performance, testing, tmux, web-search, worktrees
 
-### Helper Scripts (22)
+### Helper Scripts (23)
 
 CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
@@ -204,6 +204,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `git-branch-diff-stat` | Print `git diff --stat` for current branch vs its base (uses git-branch-base) |
 | `git-branch-log` | Print `git log --oneline` for current branch vs its base (uses git-branch-base) |
 | `git-default-branch` | Print the default branch name for the current repo |
+| `git-platform` | Detect git hosting platform (`github`, `ado`, or `unknown`) from remote URL |
 | `spec-helper` | Work Package and spec directory management — `init`, `wp-move`, `wp-validate`, `wp-list`, `status`, `next-number`. Installable package: `uv tool install -e packages/spec-helper` |
 
 ## Evals
