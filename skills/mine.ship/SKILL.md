@@ -47,10 +47,7 @@ Ship the current changes: commit, push, and open a PR. Follow each phase in orde
 
 ### Phase 2 — Create PR
 
-11. **Detect platform** from the remote URL:
-    - Contains `github.com` → **GitHub** (use `gh` CLI)
-    - Contains `dev.azure.com` or `visualstudio.com` → **Azure DevOps** (use `az` CLI)
-    - Otherwise → inform the user the platform is unsupported and stop
+11. **Detect platform** by running `git-platform`. If output is `unknown`, inform the user the platform is unsupported and stop. If `github`, use `gh` CLI. If `ado`, use `az` CLI.
 12. Check if a PR already exists for this branch:
     - **GitHub**: `gh pr list --head <branch-name>`
     - **Azure DevOps**: `az repos pr list --source-branch <branch-name> --status active`
