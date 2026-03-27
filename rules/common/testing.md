@@ -4,6 +4,12 @@
 
 Unit, integration, and E2E tests all required.
 
+## Test Co-location
+
+Code and its unit tests ship together. In any repo with test infrastructure, every change that introduces or modifies functional code must include corresponding unit tests in the same commit (or the same WP in the caliper workflow). Integration tests may follow in a subsequent WP, but unit tests may not be deferred.
+
+Exemptions: generated code, pure type definitions, configuration files, constants, `__init__.py` / module init files, documentation-only changes, migrations with no business logic.
+
 ## Test-Driven Development
 
 ### Anti-Pattern: Horizontal Slicing
