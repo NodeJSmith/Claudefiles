@@ -45,7 +45,7 @@ gh-pr-threads --all        # human-readable, all threads (resolved tagged [RESOL
 
 **Default output** (no flags): human-readable, unresolved threads only. Shows file path, line number, GraphQL thread ID (`PRRT_...`), comment database ID, author, and body preview.
 
-**`--json`**: Emits thread nodes as a JSON array. Includes all fields: `isResolved`, `isOutdated`, `path`, `line`, `startLine`, `diffSide`, `comments` with `databaseId`, `body`, `author.login`, `author.__typename`. Handles pagination internally — returns all threads even for PRs with >100 review threads.
+**`--json`**: Emits thread nodes as a JSON array (unresolved only by default; combine with `--all` for all threads including resolved). Includes all fields: `isResolved`, `isOutdated`, `path`, `line`, `startLine`, `diffSide`, `comments` with `databaseId`, `body`, `author.login`, `author.__typename`. Handles pagination internally — returns all threads even for PRs with >100 review threads.
 
 **`--all`**: Include resolved threads in output. Works with both `--json` and default modes.
 

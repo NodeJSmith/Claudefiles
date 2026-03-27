@@ -24,6 +24,7 @@
       "Bash(git-branch-log)",
       "Bash(git-branch-diff-stat)",
       "Bash(git-branch-diff-files)",
+      "Bash(git-platform)",
       "Bash(git:*)",
       "Grep(/tmp/*)",
       "Grep(/tmp/**)",

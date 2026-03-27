@@ -84,6 +84,12 @@ while true; do
     -f repo="$repo_name" \
     -F pr="$pr_number")
 
+  # Check for GraphQL-level errors (gh api graphql does NOT exit non-zero on these)
+  if printf '%s' "$response" | jq -e '.errors' > /dev/null 2>&1; then
+    printf '%s' "$response" | jq -r '.errors[0].message // "unknown GraphQL error"' >&2
+    exit 1
+  fi
+
   # Extract page nodes and metadata
   page_nodes=$(printf '%s' "$response" | jq '.data.repository.pullRequest.reviewThreads.nodes')
   has_next=$(printf '%s' "$response" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage')
