@@ -342,6 +342,7 @@ N/A — no test infrastructure in this repo. The skill is a prompt file (`SKILL.
 - `skills/mine.ship/SKILL.md` — replace detection block with `git-platform` (3-line edit)
 - `skills/mine.gh-tools/SKILL.md` — document new `--json`/`--all` flags on `gh-pr-threads`
 - `README.md` — update bin/ inventory (new script)
+- `CHANGELOG.md` — entry for the address-pr-issues redesign
 
 **Files created:**
 - `bin/git-platform` — new helper (~15 lines)
