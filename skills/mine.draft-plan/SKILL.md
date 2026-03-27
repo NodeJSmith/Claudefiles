@@ -126,7 +126,8 @@ Decompose the design into 3–8 Work Packages. Each WP represents a distinct, in
 **WP ordering rules:**
 - WPs that create foundational types/interfaces come first
 - WPs that implement against those interfaces come later
-- WPs that write integration tests come after the units they test
+- Unit tests must live in the same WP as the code they test — never in a separate WP
+- Integration tests may live in a subsequent WP, but that WP must come after all WPs containing the units under test
 - No WP may depend on outputs from a WP with a higher ID unless explicitly noted in `depends_on`
 
 ### WP file location
@@ -181,7 +182,7 @@ depends_on: []
 
 - **Objectives**: Must be observable without reading the code. "The `UserRepository.find_by_email()` method returns `None` for unknown users and raises `UserError` for database failures" not "the method works".
 - **Subtasks**: Use imperative, specific language. "Add `validate_email()` to `src/validators.py`" not "add validation". Reference actual file paths.
-- **Test Strategy**: At least one test per WP. Name the file and function. Follow TDD: test first.
+- **Test Strategy**: Required for every WP that introduces or modifies functional code. Must name specific test files and test functions. Follow TDD: write the test first. If the WP's subtasks include code changes, the Test Strategy must include at least one unit test in a named test file. "Tests deferred to a later WP" is only acceptable for integration tests, never for unit tests. WPs that are exempt per the Test Co-location rule in `testing.md` (generated code, pure type definitions, configuration files, constants, `__init__.py` / module init files, documentation-only changes, migrations with no business logic) may state "N/A — no testable code changes." If the design doc includes a `## Test Strategy` section, use it as high-level context — per-WP Test Strategies are authoritative once WPs are written.
 - **Review Guidance**: Explicitly name the design constraints being verified. What would a FAIL look like?
 - **Visual Verification**: Only for WPs with frontend visual impact. Describe scenarios, not URLs — the executor resolves URLs at runtime from the codebase. Each scenario must specify: what page (by description), what state to achieve (specific data, filters, interactions), and what to visually verify (layout, elements, behavior). Scenarios should exercise the specific behavior the WP changes. If the design doc describes specific visual requirements, pull them into Verify criteria.
 - **plan_section**: Must match an actual section header in design.md.
