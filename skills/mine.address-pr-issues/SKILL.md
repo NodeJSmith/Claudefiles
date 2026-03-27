@@ -147,7 +147,7 @@ Show a numbered plan with:
 AskUserQuestion:
   question: "Here's my plan for PR #{N}. Review and skip any items you don't want me to address."
   header: "PR Plan"
-  multiSelect: true
+  multiSelect: false
   options:
     - label: "Looks good — address all"
       description: "Proceed with the full plan as shown"
