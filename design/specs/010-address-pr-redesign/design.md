@@ -140,7 +140,9 @@ Research confirmed: no major tool resolves human reviewer threads automatically.
 | Human reviewer | Reply only — reviewer resolves after verifying |
 | PR author (self-review) | Reply + resolve |
 
-Bot detection: use the `__typename` field from the GraphQL `author` fragment. If `__typename == "Bot"`, treat as bot. Fall back to `[bot]` suffix check for edge cases where `__typename` is unavailable. For ADO: check `author.isContainer` or `author.isAadIdentity` (ADO's equivalent signals for service accounts). No hardcoded name list — structural API signals only.
+Bot detection (platform-specific):
+- **GitHub**: Use the `__typename` field from the GraphQL `author` fragment. If `__typename == "Bot"`, treat as bot. Fall back to `[bot]` suffix check for edge cases where `__typename` is unavailable. No hardcoded name list.
+- **ADO**: The thread comment `author` object does not include bot-detection fields (`isContainer`/`isAadIdentity` are on the Identity API, not the PR thread API). Fall back to `[bot]` suffix check on `author.uniqueName`. For ADO-specific service accounts, the LLM should check if `author.uniqueName` matches known service patterns (e.g., no `@` domain, or matches the project's build service identity). This is less reliable than GitHub's `__typename` but is the best available signal without additional API calls.
 
 The Phase 2 plan presentation shows the resolution policy for each thread so the user knows what will happen. If the user wants to override (auto-resolve all), they can say so.
 
@@ -186,6 +188,12 @@ elif ado:
 ```
 
 CI log fetching stays platform-specific (4-6 lines per platform) — the GitHub/ADO CI models are too different to normalize without a leaky abstraction.
+
+**ADO-specific notes for the SKILL.md:**
+- `ado-pr show --json` returns `status` (not `mergeStatus`). `mergeStatus` is optional and only present after a merge attempt. URL must be constructed: `repository.webUrl + "/pullrequest/" + pullRequestId`.
+- `ado-pr-threads list --json` already has `--json` and `--all` flags and returns all threads in a single call (no pagination needed).
+- ADO threads have no `isOutdated` concept — the outdated thread triage logic (D8) applies only to GitHub. For ADO, all active threads are treated as current.
+- ADO thread `author` has `displayName`, `uniqueName`, and `id` — no `__typename` equivalent (see D3 bot detection notes).
 
 #### D6: Idempotency for re-runs (addresses research finding)
 
