@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Detect the git hosting platform from the origin remote URL.
+#
+# Prints one of: github, ado, unknown
+# Always exits 0 — consuming scripts check for "unknown" and handle it.
+#
+# Usage: git-platform
+
+set -euo pipefail
+
+url=$(git remote get-url origin 2> /dev/null || true)
+
+if [[ "$url" == *github.com* ]]; then
+  echo "github"
+elif [[ "$url" == *dev.azure.com* || "$url" == *visualstudio.com* ]]; then
+  echo "ado"
+else
+  echo "unknown"
+fi
