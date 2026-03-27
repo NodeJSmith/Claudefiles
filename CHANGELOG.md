@@ -5,9 +5,9 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-27
 
 ### Added
-- Redesigned `mine.address-pr-issues` — inverted opt-out flow, investigate-before-fix subagents with depth tiers, test-before-push mandate, bot-vs-human thread resolution policy, idempotent reply markers, per-group commits, cite-or-escalate outdated thread triage
-- `bin/git-platform` — detect git hosting platform (`github`/`ado`/`unknown`) from remote URL; replaces duplicated detection logic in 3 skills
-- `gh-pr-threads --json` and `--all` flags — structured JSON output with pagination and `__typename` for bot detection
+- Redesigned `mine.address-pr-issues` — inverted opt-out flow, investigate-before-fix subagents with depth tiers, test-before-push mandate, bot-vs-human thread resolution policy, idempotent reply markers, per-group commits, cite-or-escalate outdated thread triage (#137)
+- `bin/git-platform` — detect git hosting platform (`github`/`ado`/`unknown`) from remote URL; replaces duplicated detection logic in 3 skills (#137)
+- `gh-pr-threads --json` and `--all` flags — structured JSON output with pagination and `__typename` for bot detection (#137)
 - Test Co-location principle in `rules/common/testing.md` — canonical rule that unit tests ship with code, with predicate for repos with test infrastructure and unified exemption list (#136)
 - `## Test Strategy` section in `mine.design` design doc template — forces test thinking at architecture time, consumed by `mine.draft-plan` Phase 1 (#136)
 - Test-presence check in `mine.ship` LOCAL VERIFICATION — advisory "zero test files in diff" heuristic for ad-hoc work (#136)
