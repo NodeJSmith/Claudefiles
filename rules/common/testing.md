@@ -35,6 +35,10 @@ RIGHT:  RED→GREEN: test1→impl1 → RED→GREEN: test2→impl2
 
 Mock only at system boundaries (external APIs, databases, time, filesystem). Prefer real instances for internal collaborators. Use dependency injection.
 
+### Avoid Log Capture Tests
+
+Do not write tests that assert on log output (e.g., `caplog`, `capfd`, checking `logger.warning` was called). These tests are brittle — they break when log messages are reworded, reformatted, or when log levels change. Test the *behavior* that produces the log, not the log itself.
+
 ## Test Execution
 
 **NEVER run tests without understanding how the project expects them to run.**
