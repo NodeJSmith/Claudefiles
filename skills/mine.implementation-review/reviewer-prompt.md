@@ -60,11 +60,22 @@ When checking, distinguish between:
 - **Test-only consumer** (only used in test files, never in production code) → WARN
 - **Properly wired** (at least one production consumer) → PASS
 
-### 7. Test coverage
+### 7. Test coverage (CRITICAL)
 
-Does the test suite actually cover the implementation? Are critical paths tested?
+Does the test suite actually cover the implementation? This is a high-severity check — missing tests for new code should be treated as a CRITICAL finding.
 
-Look for: new modules with no corresponding test file; happy-path-only tests with no edge cases; tests that import code but never assert meaningful state; coverage gaps on error paths or branching logic.
+**FAIL-level findings (these MUST be FAIL, not WARN — they are blocking):**
+- New module (`.py`, `.ts`, `.js`, etc.) containing public functions or classes with no corresponding test file (excluding items exempt per the Test Co-location rule in `testing.md`: generated code, pure type definitions, configuration files, constants, `__init__.py` / module init files, documentation-only changes, migrations with no business logic)
+- WP Test Strategy names specific tests that don't exist in the codebase
+- Core business logic paths with zero test coverage
+
+**WARN-level findings:**
+- Happy-path-only tests with no edge cases
+- Tests that import code but never assert meaningful state
+- Coverage gaps on error paths or branching logic
+- Generated code or pure type definitions without tests (acceptable but worth noting)
+
+**Verdict rule:** A FAIL on item 7 (test coverage) always produces REQUEST_FIXES, never APPROVE, regardless of whether the reviewer considers the gap minor.
 
 ## Output Format
 
