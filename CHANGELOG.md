@@ -2,6 +2,23 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-03-27
+
+### Added
+- Test Co-location principle in `testing.md` — canonical rule that unit tests ship with code, with predicate for repos with test infrastructure and unified exemption list
+- `## Test Strategy` section in `mine.design` design doc template — forces test thinking at architecture time, consumed by `mine.draft-plan` Phase 1
+- Test-presence check in `mine.ship` LOCAL VERIFICATION — advisory "zero test files in diff" heuristic for ad-hoc work
+- Python rules file (`rules/common/python.md`) — bans `from __future__ import annotations`
+- Parallel reviewer/critic launch pattern in `agents.md` — use `run_in_background: true` for independent agents
+
+### Changed
+- `mine.draft-plan` WP ordering rules — unit tests must live in same WP as code; integration tests may follow in subsequent WP
+- `mine.draft-plan` Test Strategy field rule — strengthened from advisory to structural with numbered sub-list
+- `mine.implementation-review` item 7 upgraded to CRITICAL severity with explicit FAIL/WARN categories and verdict rule
+- `mine.orchestrate` `tdd.md` — added Test Co-location section so executor subagents see the principle directly
+- `mine.challenge` critic launch now specifies `run_in_background: true`
+- Log capture tests discouraged in `testing.md` — test behavior, not log output
+
 ## 2026-03-26
 
 ### Fixed
