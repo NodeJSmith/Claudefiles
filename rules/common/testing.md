@@ -10,6 +10,8 @@ Code and its unit tests ship together. In any repo with test infrastructure, eve
 
 Exemptions: generated code, pure type definitions, configuration files, constants, `__init__.py` / module init files, documentation-only changes, migrations with no business logic.
 
+<!-- SYNC: This exemption list is inlined in skills/mine.implementation-review/reviewer-prompt.md (item 7 FAIL criteria). Update both when changing. skills/mine.draft-plan/SKILL.md and skills/mine.ship/SKILL.md reference this list by name. -->
+
 ## Test-Driven Development
 
 ### Anti-Pattern: Horizontal Slicing
