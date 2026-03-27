@@ -77,4 +77,4 @@ Default to `Explore` unless the subagent needs to write files, run commands, or 
 
 ### Parallel Reviewer / Critic Pattern
 
-When launching 2+ independent reviewer or critic agents (e.g., code-reviewer + integration-reviewer, or the three challenge critics), use `run_in_background: true` on each Agent call in a single message. This launches all agents concurrently in the background — you'll be notified as each completes. Do not block on one before launching the others.
+When launching 2+ independent reviewer or critic agents (e.g., code-reviewer + integration-reviewer, or the three challenge critics), issue multiple Agent tool calls in a **single message** so they run in parallel. Only set `run_in_background: true` if you're sure the agents won't need to ask the user questions or request additional file/command permissions.

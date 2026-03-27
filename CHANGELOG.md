@@ -5,19 +5,19 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-27
 
 ### Added
-- Test Co-location principle in `testing.md` — canonical rule that unit tests ship with code, with predicate for repos with test infrastructure and unified exemption list (#136)
+- Test Co-location principle in `rules/common/testing.md` — canonical rule that unit tests ship with code, with predicate for repos with test infrastructure and unified exemption list (#136)
 - `## Test Strategy` section in `mine.design` design doc template — forces test thinking at architecture time, consumed by `mine.draft-plan` Phase 1 (#136)
 - Test-presence check in `mine.ship` LOCAL VERIFICATION — advisory "zero test files in diff" heuristic for ad-hoc work (#136)
 - Python rules file (`rules/common/python.md`) — bans `from __future__ import annotations` (#136)
-- Parallel reviewer/critic launch pattern in `agents.md` — use `run_in_background: true` for independent agents (#136)
+- Parallel reviewer/critic launch pattern in `rules/common/agents.md` — parallel foreground execution for independent agents (#136)
 
 ### Changed
 - `mine.draft-plan` WP ordering rules — unit tests must live in same WP as code; integration tests may follow in subsequent WP (#136)
 - `mine.draft-plan` Test Strategy field rule — strengthened from advisory to structural with numbered sub-list (#136)
 - `mine.implementation-review` item 7 upgraded to CRITICAL severity with explicit FAIL/WARN categories and verdict rule (#136)
 - `mine.orchestrate` `tdd.md` — added Test Co-location section so executor subagents see the principle directly (#136)
-- `mine.challenge` critic launch now specifies `run_in_background: true` (#136)
-- Log capture tests discouraged in `testing.md` — test behavior, not log output (#136)
+- `mine.challenge` critic launch now specifies parallel foreground execution (#136)
+- Log capture tests discouraged in `rules/common/testing.md` — test behavior, not log output (#136)
 
 ## 2026-03-26
 

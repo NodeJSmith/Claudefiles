@@ -574,7 +574,7 @@ AskUserQuestion:
 
 **On "Address fixes":**
 1. Dispatch a fresh `general-purpose` subagent with: the impl-review findings, the relevant file paths, `<feature_dir>/design.md` content, and `implementer-prompt.md` content. Instruct: "Fix only the listed blocking issues. Do not expand scope beyond these findings."
-2. After the subagent completes, re-run `code-reviewer` and `integration-reviewer` on the fix diff in parallel (both with `run_in_background: true` in a single message)
+2. After the subagent completes, re-run `code-reviewer` and `integration-reviewer` on the fix diff in parallel (both in a single message)
 3. Re-run `/mine.implementation-review <feature_dir>`
 4. If it now returns APPROVE, continue to Step 3
 5. If it still returns REQUEST_FIXES/ABANDON after 2 fix attempts, remove "Address fixes" from the gate — only offer "Stop here"
@@ -628,7 +628,7 @@ AskUserQuestion:
 
 **On "Address findings":**
 1. Dispatch a fresh `general-purpose` subagent with: the challenge findings and any impl-review suggestions, the relevant file paths, `<feature_dir>/design.md` content, and `implementer-prompt.md` content. Instruct: "Fix only the listed findings. Do not expand scope beyond these findings."
-2. After the subagent completes, re-run `code-reviewer` and `integration-reviewer` on the fix diff in parallel (both with `run_in_background: true` in a single message)
+2. After the subagent completes, re-run `code-reviewer` and `integration-reviewer` on the fix diff in parallel (both in a single message)
 3. Re-run the challenge (same dispatch pattern as Step 3)
 4. Present the final gate again with updated findings
 5. After 2 "Address findings" iterations, remove the "Address findings" option — only offer "Accept and ship" or "Stop here"

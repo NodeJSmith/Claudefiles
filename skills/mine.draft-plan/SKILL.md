@@ -50,7 +50,7 @@ Read the doc fully. Extract:
 - **Non-goals** — explicit exclusions (WPs must NOT implement these)
 - **Impact / affected files** — modules and files named in the design
 - **Open questions** — collect any that are non-empty
-- **Test Strategy** — high-level testing approach and infrastructure needs. If the design doc's Test Strategy states N/A (no test infrastructure), WPs should use "N/A — no testable code changes" for their Test Strategy sections rather than inventing test requirements.
+- **Test Strategy** — high-level testing approach and infrastructure needs. If the design doc's Test Strategy states N/A (no test infrastructure), WPs should use "N/A — no test infrastructure in this repo" for their Test Strategy sections rather than inventing test requirements.
 
 If open questions exist, walk through each one interactively before proceeding. First, count all open questions and record the total as M — you need this before asking the first one.
 
