@@ -50,6 +50,7 @@ Read the doc fully. Extract:
 - **Non-goals** — explicit exclusions (WPs must NOT implement these)
 - **Impact / affected files** — modules and files named in the design
 - **Open questions** — collect any that are non-empty
+- **Test Strategy** — high-level testing approach and infrastructure needs
 
 If open questions exist, walk through each one interactively before proceeding. First, count all open questions and record the total as M — you need this before asking the first one.
 
