@@ -185,7 +185,7 @@ Subagents write their reports inside this directory:
 - `<tmpdir>/architect.md`
 - `<tmpdir>/adversarial.md`
 
-Launch all three critics in parallel as separate `Agent` tool calls in a single message, each with `subagent_type: general-purpose`. Each critic receives:
+Launch all three critics in parallel as separate `Agent` tool calls in a single message, each with `subagent_type: general-purpose` and `run_in_background: true`. Each critic receives:
 - The target under review (file paths to read — pass full file paths, not excerpts; or inline content if the target was passed as text)
 - The **target type** from Phase 1 classification (e.g., "This is a `spec` target — focus on requirement completeness, testability, and internal consistency")
 - Their persona and focus lens (described below)
