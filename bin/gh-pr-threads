@@ -1,13 +1,26 @@
 #!/usr/bin/env bash
-# List unresolved PR review threads with summary
-# Usage: gh-pr-threads [pr-number]
+# List PR review threads with summary
+# Usage: gh-pr-threads [--json] [--all] [pr-number]
+#   --json  Emit raw thread nodes as a JSON array (skip human-readable formatting)
+#   --all   Include resolved threads (default: unresolved only)
 # If no PR number given, auto-detects from current branch
 
 set -euo pipefail
 
-if [[ $# -ge 1 ]]; then
-  pr_number="$1"
-else
+# --- Argument parsing ---
+output_json=false
+show_all=false
+pr_number=""
+
+for arg in "$@"; do
+  case "$arg" in
+    --json) output_json=true ;;
+    --all) show_all=true ;;
+    *) pr_number="$arg" ;;
+  esac
+done
+
+if [[ -z "$pr_number" ]]; then
   pr_number=$(gh pr view --json number -q '.number')
 fi
 
@@ -15,13 +28,23 @@ nwo=$(gh repo view --json nameWithOwner -q '.nameWithOwner')
 repo_owner="${nwo%%/*}"
 repo_name="${nwo#*/}"
 
-gh api graphql -f query='
-query($owner: String!, $repo: String!, $pr: Int!) {
-  repository(owner: $owner, name: $repo) {
-    pullRequest(number: $pr) {
+# --- GraphQL query (parameterized for pagination) ---
+build_query() {
+  local after_clause=""
+  if [[ -n "${1:-}" ]]; then
+    after_clause=", after: \"$1\""
+  fi
+  cat << GRAPHQL
+query(\$owner: String!, \$repo: String!, \$pr: Int!) {
+  repository(owner: \$owner, name: \$repo) {
+    pullRequest(number: \$pr) {
       title
       url
-      reviewThreads(first: 100) {
+      reviewThreads(first: 100${after_clause}) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
         nodes {
           id
           isResolved
@@ -35,7 +58,7 @@ query($owner: String!, $repo: String!, $pr: Int!) {
               id
               databaseId
               body
-              author { login }
+              author { login __typename }
               createdAt
               updatedAt
             }
@@ -44,19 +67,89 @@ query($owner: String!, $repo: String!, $pr: Int!) {
       }
     }
   }
-}' -f owner="$repo_owner" -f repo="$repo_name" -F pr="$pr_number" \
-  --jq '
-    .data.repository.pullRequest as $pr |
-    ($pr.reviewThreads.nodes | length) as $total |
-    [$pr.reviewThreads.nodes[] | select(.isResolved | not)] as $unresolved |
-    "PR: \($pr.title)",
-    "URL: \($pr.url)",
-    "Total threads: \($total), Unresolved: \($unresolved | length)",
-    "",
-    ($unresolved[] |
-        "\(.path):\(.line // "?") [\(.id)] (comment: \(.comments.nodes[0].databaseId))" +
-        (if .isOutdated then " [OUTDATED]" else "" end),
-        "  @\(.comments.nodes[0].author.login): \(.comments.nodes[0].body[0:150] | gsub("\n"; " "))",
-        ""
-    )
-'
+}
+GRAPHQL
+}
+
+# --- Pagination loop: accumulate all thread nodes ---
+all_nodes="[]"
+cursor=""
+
+while true; do
+  query=$(build_query "$cursor")
+
+  response=$(gh api graphql \
+    -f query="$query" \
+    -f owner="$repo_owner" \
+    -f repo="$repo_name" \
+    -F pr="$pr_number")
+
+  # Extract page nodes and metadata
+  page_nodes=$(printf '%s' "$response" | jq '.data.repository.pullRequest.reviewThreads.nodes')
+  has_next=$(printf '%s' "$response" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage')
+  end_cursor=$(printf '%s' "$response" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor')
+
+  # Accumulate nodes
+  all_nodes=$(printf '%s\n%s' "$all_nodes" "$page_nodes" | jq -s 'add')
+
+  # Stop conditions
+  if [[ "$has_next" != "true" ]]; then
+    break
+  fi
+  # Safety: prevent infinite loop if endCursor is null/empty
+  if [[ -z "$end_cursor" || "$end_cursor" == "null" ]]; then
+    break
+  fi
+  cursor="$end_cursor"
+done
+
+# Extract title and url from the last response (same across pages)
+pr_title=$(printf '%s' "$response" | jq -r '.data.repository.pullRequest.title')
+pr_url=$(printf '%s' "$response" | jq -r '.data.repository.pullRequest.url')
+
+# --- Output ---
+if [[ "$output_json" == true ]]; then
+  # JSON mode: emit thread nodes as a JSON array
+  if [[ "$show_all" == true ]]; then
+    printf '%s' "$all_nodes" | jq '.'
+  else
+    printf '%s' "$all_nodes" | jq '[.[] | select(.isResolved | not)]'
+  fi
+else
+  # Human-readable mode (original --jq behavior)
+  if [[ "$show_all" == true ]]; then
+    # Show all threads — no isResolved filter
+    printf '%s' "$all_nodes" | jq -r --arg title "$pr_title" --arg url "$pr_url" '
+      length as $total |
+      [.[] | select(.isResolved | not)] | length as $unresolved |
+      "PR: \($title)",
+      "URL: \($url)",
+      "Total threads: \($total), Unresolved: \($unresolved)",
+      "",
+      (to_entries[] | .value |
+          "\(.path):\(.line // "?") [\(.id)]" +
+          (if .isResolved then " [RESOLVED]" else "" end) +
+          (if .isOutdated then " [OUTDATED]" else "" end) +
+          " (comment: \(.comments.nodes[0].databaseId))",
+          "  @\(.comments.nodes[0].author.login): \(.comments.nodes[0].body[0:150] | gsub("\n"; " "))",
+          ""
+      )
+    '
+  else
+    # Default: unresolved only (matches original behavior)
+    printf '%s' "$all_nodes" | jq -r --arg title "$pr_title" --arg url "$pr_url" '
+      length as $total |
+      [.[] | select(.isResolved | not)] as $unresolved |
+      "PR: \($title)",
+      "URL: \($url)",
+      "Total threads: \($total), Unresolved: \($unresolved | length)",
+      "",
+      ($unresolved[] |
+          "\(.path):\(.line // "?") [\(.id)] (comment: \(.comments.nodes[0].databaseId))" +
+          (if .isOutdated then " [OUTDATED]" else "" end),
+          "  @\(.comments.nodes[0].author.login): \(.comments.nodes[0].body[0:150] | gsub("\n"; " "))",
+          ""
+      )
+    '
+  fi
+fi
