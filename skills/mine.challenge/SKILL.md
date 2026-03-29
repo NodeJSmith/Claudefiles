@@ -30,6 +30,7 @@ $ARGUMENTS — optional scope:
 - `--focus="<area>"` — steer critics toward specific concerns (e.g., `--focus="security, error handling"`). Passed to all critics as a priority signal: "Pay special attention to X." Critics still review broadly but weight output toward the user's concern.
 - `--target-type=<type>` — override heuristic target-type classification. Callers that know their artifact type should pass this. Values: `code`, `spec`, `design-doc`, `brief`, `skill-file`, `research`, `other`.
 - `--findings-out=<path>` — (structured callers only) deterministic output path for the findings file. Used by mine.design and mine.specify for reliable handoff. Not needed for standalone or passthrough invocations.
+- `--no-specialists` — skip specialist selection, run only the three generic critics.
 
 ## How to Analyze
 
@@ -95,7 +96,7 @@ The following tag names and values are consumed by calling skills (mine.design, 
 - **Contract tag names**: `severity`, `type`, `design-level`, `resolution`, `raised-by`
 - **Contract tag names (TENSION only)**: `side-a`, `side-b`, `deciding-factor`
 - **Severity values**: `CRITICAL`, `HIGH`, `MEDIUM`, `TENSION`
-- **Confidence format** (presentation-only, not a contract field): `N/<total> (<critic names>)` — e.g., `3/5 (Senior + Architect + Data Integrity)`. Total is the number of critics launched (3-5).
+- **Confidence format** (presentation-only, not a contract field): `N/<total> (<critic names>)` — e.g., `3/5 (Senior + Architect + Data Integrity)`. Total is the number of critics that successfully produced reports. If a critic fails to report, note the missing critic and reduce the denominator.
 - **design-level values**: `Yes`, `No`
 - **Resolution values**: `Auto-apply`, `User-directed`
 - **Findings file**: `<tmpdir>/findings.md`, or `--findings-out` path when provided by structured callers (always written)
@@ -194,7 +195,7 @@ After classifying the target type, select specialist personas to augment the thr
 | `research` | _(none — generics only)_ |
 | `other` | _(none — generics only)_ |
 
-**`--focus` override**: If `--focus` was provided, match its value against specialist filenames in `~/.claude/skills/mine.challenge/personas/specialist/` using case-insensitive substring matching on the filename slug (e.g., `--focus="data-integrity"` matches `data-integrity.md`). If a match is found and not already in the preset selection, add it. Capped at 2 specialists total (5 total critics is the practical limit for synthesis quality). If the cap is already full from the preset, the focus specialist replaces the second preset default.
+**`--focus` override**: If `--focus` was provided, match its value against specialist filenames in `~/.claude/skills/mine.challenge/personas/specialist/` using case-insensitive prefix matching on the filename slug (e.g., `--focus="data-integrity"` or `--focus="data"` matches `data-integrity.md`, but `--focus="integrity"` does not). If a match is found and not already in the preset selection, add it. Capped at 2 specialists total (5 total critics is the practical limit for synthesis quality). If the cap is already full from the preset, the focus specialist replaces the second preset default.
 
 ## Phase 2: Launch Critics
 
@@ -212,7 +213,7 @@ Read all 3 generic persona files from `~/.claude/skills/mine.challenge/personas/
 
 If specialists were selected, read the corresponding files from `~/.claude/skills/mine.challenge/personas/specialist/` (e.g., `data-integrity.md`, `contract-caller.md`).
 
-**Validate**: After reading each persona file, verify it has `name` and `type` in its YAML frontmatter. If a file is missing or malformed, warn the user and exclude it from the run.
+**Validate**: After reading each persona file, verify it has `name` and `type` in its YAML frontmatter, and the body contains at least one of "Persona", "Characteristic question", or "Focus". If a file is missing, has malformed frontmatter, or has an empty body, warn the user and exclude it from the run.
 
 ### Launch all critics in parallel
 
@@ -226,7 +227,7 @@ Launch all critics (3-5) in parallel as separate `Agent` tool calls in a single 
 - Their persona and focus lens (from the persona file read above — include the full body text: Persona, Characteristic question, and Focus bullets)
 - If `--focus` was provided: "The user is specifically concerned about: <focus area>. Weight your analysis toward this concern."
 - The path to write their report to
-- These six rules:
+- These rules:
   1. **Cite evidence for every claim** — no vague assertions:
      - For claims about this codebase, cite `file:line` for each point.
      - For external best practices, patterns, or failure modes, cite a canonical URL (via WebSearch).
@@ -271,7 +272,7 @@ Three steps. Prioritize trustworthy output over compact output — showing an ex
 1. **Group by problem area** — cluster findings that address the same part of the system or the same concern. List all critic perspectives for each group. Do NOT merge or deduplicate — if two critics flagged similar-but-distinct issues, keep both as separate findings. The user can mentally merge; they can't un-apply a wrong auto-apply.
 
 2. **Assign tags per finding**:
-   - **Severity**: take the highest severity any contributing critic assigned. Record agreement count as a confidence annotation (e.g., `(3/5)` or `(1/4, Senior only)`).
+   - **Severity**: take the highest severity any contributing critic assigned. Append confidence as a parenthetical on the severity line (e.g., `HIGH (3/5, Senior + Architect + Data Integrity)` or `MEDIUM (1/4, Senior only)`).
    - **Type**: use the type that best describes the root cause. For Approach timing conflicts (`now` vs `later`), tag as `Approach-now/later`.
    - **Design-level**: when critics disagree, Yes wins (architectural concerns should surface).
    - **Resolution**: default to **User-directed** unless ALL critics proposed the same fix AND it's localized and additive — only then use **Auto-apply**. When in doubt, User-directed.
@@ -293,8 +294,7 @@ Target: <file or scope>
 Temp dir: <tmpdir>
 
 ## Finding 1: <name>
-- severity: CRITICAL / HIGH / MEDIUM / TENSION
-- confidence: N/<total> (<which critics>) — e.g., "3/5 (Senior + Architect + Data Integrity)" or "1/4 (Adversarial only)"
+- severity: CRITICAL / HIGH / MEDIUM / TENSION (N/<total>, <which critics>) — e.g., "HIGH (3/5, Senior + Architect + Data Integrity)"
 - type: Structural / Approach-now / Approach-later / Approach-now/later / Fragility / Gap
 - design-level: Yes / No
 - resolution: Auto-apply / User-directed
@@ -349,6 +349,8 @@ For **User-directed** findings (non-TENSION), replace "Better approach" with:
 ```
 
 ### After presenting findings
+
+If specialists ran, announce the selection before listing reports: "Specialists selected: [names] (target-type: [type])". If `--focus` caused a replacement, note it: "Note: [focus specialist] replaced [dropped preset] due to 2-specialist cap."
 
 List all critic report file paths so the user knows where reports are. Always list the three generics, then any specialists that ran:
 
