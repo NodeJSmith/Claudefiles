@@ -5,11 +5,11 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-29
 
 ### Added
-- `mine.challenge` specialist personas — domain-specific critics (Contract & Caller, Data Integrity, Operational Resilience, Workflow & UX) selected by target type to augment the 3 generic critics; `--no-specialists` flag to opt out; `--focus` prefix matching to override defaults
+- `mine.challenge` specialist personas — domain-specific critics (Contract & Caller, Data Integrity, Operational Resilience, Workflow & UX) selected by target type to augment the 3 generic critics; `--no-specialists` flag to opt out; `--focus` prefix matching to override defaults (#142)
 
 ### Changed
-- `mine.challenge` critic subagents now use Sonnet model (experiment showed comparable finding quality at lower cost)
-- `mine.challenge` confidence moved from standalone findings field to severity parenthetical; removed from output contract tags (presentation-only)
+- `mine.challenge` critic subagents now use Sonnet model (experiment showed comparable finding quality at lower cost) (#142)
+- `mine.challenge` confidence moved from standalone findings field to severity parenthetical; removed from output contract tags (presentation-only) (#142)
 
 ## 2026-03-26
 
