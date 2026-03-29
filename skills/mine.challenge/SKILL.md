@@ -1,12 +1,12 @@
 ---
 name: mine.challenge
-description: "Use when the user says: \"challenge this\", \"poke holes in this\", or \"what's wrong with this approach\". Adversarial review using three parallel critics. Assumes the target is wrong, finds out why, and argues for a better approach."
+description: "Use when the user says: \"challenge this\", \"poke holes in this\", or \"what's wrong with this approach\". Adversarial review using parallel critics (3 generics + 0-2 domain specialists). Assumes the target is wrong, finds out why, and argues for a better approach."
 user-invocable: true
 ---
 
 # Challenge
 
-Adversarial review of any artifact — code, specs, designs, briefs, skill files. Assumes the target is wrong and sets out to prove it. Three independent critics analyze from different angles, findings are cross-referenced for confidence, and every claim must cite evidence.
+Adversarial review of any artifact — code, specs, designs, briefs, skill files. Assumes the target is wrong and sets out to prove it. Three generic critics always run; up to two domain-specialist critics are added based on target type. Findings are cross-referenced for confidence, and every claim must cite evidence.
 
 This skill produces **findings only**. It does not revise documents or apply fixes — that's the caller's job. When invoked from caliper workflow skills (mine.specify, mine.design), those skills handle revision planning after challenge completes.
 
@@ -39,7 +39,7 @@ DO read directly (Read, Grep, Glob, `git log` / `git diff`). Use WebSearch to lo
 
 ## Finding Taxonomy
 
-Every finding gets five tags: **severity**, **confidence**, **type**, **design-level**, and **resolution**. TENSION findings add three more: **side-a**, **side-b**, **deciding-factor**.
+Every finding gets four contract tags: **severity**, **type**, **design-level**, and **resolution**, plus a **confidence** annotation (presentation-only). TENSION findings add three more: **side-a**, **side-b**, **deciding-factor**.
 
 ### Severity (impact-based)
 
@@ -92,13 +92,15 @@ Whether this finding is architectural/structural in nature — meaning it would 
 
 The following tag names and values are consumed by calling skills (mine.design, mine.specify) to generate revision plans. Changing these is a **breaking change** — update all callers.
 
-- **Contract tag names**: `severity`, `confidence`, `type`, `design-level`, `resolution`, `raised-by`
+- **Contract tag names**: `severity`, `type`, `design-level`, `resolution`, `raised-by`
 - **Contract tag names (TENSION only)**: `side-a`, `side-b`, `deciding-factor`
 - **Severity values**: `CRITICAL`, `HIGH`, `MEDIUM`, `TENSION`
-- **Confidence format**: `N/3 (<critic names>)` — e.g., `2/3 (Senior + Architect)`
+- **Confidence format** (presentation-only, not a contract field): `N/<total> (<critic names>)` — e.g., `3/5 (Senior + Architect + Data Integrity)`. Total is the number of critics launched (3-5).
 - **design-level values**: `Yes`, `No`
 - **Resolution values**: `Auto-apply`, `User-directed`
 - **Findings file**: `<tmpdir>/findings.md`, or `--findings-out` path when provided by structured callers (always written)
+
+**Note**: Specialist critic names (e.g., Data Integrity, Contract & Caller) may appear in `raised-by` when specialists contributed to a finding.
 
 **Known callers** (update all when contract changes):
 
@@ -127,6 +129,7 @@ Recognized flags:
 - `--findings-out=<path>` — deterministic output path (structured callers only)
 - `--focus="<area>"` — critic focus steering
 - `--target-type=<type>` — override heuristic classification
+- `--no-specialists` — skip specialist selection, run generics only
 
 The remainder of `$ARGUMENTS` is the target scope. If `--findings-out` is not present, challenge creates its own tmpdir for the findings file.
 
@@ -173,22 +176,54 @@ AskUserQuestion:
       description: "I'll tell you exactly what to look at"
 ```
 
-## Phase 2: Launch Three Parallel Critics
+### Specialist Selection
+
+After classifying the target type, select specialist personas to augment the three generic critics. Specialists provide domain-specific focus that generics are blind to.
+
+**If `--no-specialists` was passed**, skip this section entirely — only generics run.
+
+**Target-type → specialist mapping**:
+
+| Target type | Specialist personas |
+|-------------|-------------------|
+| `code` | Data Integrity + Operational Resilience |
+| `skill-file` | Contract & Caller + Workflow & UX |
+| `design-doc` | Contract & Caller + Operational Resilience |
+| `spec` | Workflow & UX |
+| `brief` | Workflow & UX |
+| `research` | _(none — generics only)_ |
+| `other` | _(none — generics only)_ |
+
+**`--focus` override**: If `--focus` was provided, match its value against specialist filenames in `~/.claude/skills/mine.challenge/personas/specialist/` using case-insensitive substring matching on the filename slug (e.g., `--focus="data-integrity"` matches `data-integrity.md`). If a match is found and not already in the preset selection, add it. Capped at 2 specialists total (5 total critics is the practical limit for synthesis quality). If the cap is already full from the preset, the focus specialist replaces the second preset default.
+
+## Phase 2: Launch Critics
 
 Before launching, create a unique temp directory for this run:
 
 1. Run: `get-skill-tmpdir mine-challenge`
 2. Note the directory path printed (e.g., `/tmp/claude-mine-challenge-a8Kx3Q`)
 
-Subagents write their reports inside this directory:
-- `<tmpdir>/senior.md`
-- `<tmpdir>/architect.md`
-- `<tmpdir>/adversarial.md`
+### Read persona files
 
-Launch all three critics in parallel as separate `Agent` tool calls in a single message, each with `subagent_type: general-purpose` and `model: sonnet`. Each critic receives:
+Read all 3 generic persona files from `~/.claude/skills/mine.challenge/personas/generic/`:
+- `senior-engineer.md`
+- `systems-architect.md`
+- `adversarial-reviewer.md`
+
+If specialists were selected, read the corresponding files from `~/.claude/skills/mine.challenge/personas/specialist/` (e.g., `data-integrity.md`, `contract-caller.md`).
+
+**Validate**: After reading each persona file, verify it has `name` and `type` in its YAML frontmatter. If a file is missing or malformed, warn the user and exclude it from the run.
+
+### Launch all critics in parallel
+
+Subagents write their reports inside this directory:
+- Generic critics: `<tmpdir>/senior.md`, `<tmpdir>/architect.md`, `<tmpdir>/adversarial.md`
+- Specialist critics: `<tmpdir>/<slug>.md` matching the persona filename (e.g., `<tmpdir>/data-integrity.md`, `<tmpdir>/contract-caller.md`)
+
+Launch all critics (3-5) in parallel as separate `Agent` tool calls in a single message, each with `subagent_type: general-purpose` and `model: sonnet`. Do **not** set `run_in_background` — critics need to request WebSearch and Read/Grep/Glob permissions as needed. Each critic receives:
 - The target under review (file paths to read — pass full file paths, not excerpts; or inline content if the target was passed as text)
 - The **target type** from Phase 1 classification (e.g., "This is a `spec` target — focus on requirement completeness, testability, and internal consistency")
-- Their persona and focus lens (described below)
+- Their persona and focus lens (from the persona file read above — include the full body text: Persona, Characteristic question, and Focus bullets)
 - If `--focus` was provided: "The user is specifically concerned about: <focus area>. Weight your analysis toward this concern."
 - The path to write their report to
 - These six rules:
@@ -205,54 +240,29 @@ Launch all three critics in parallel as separate `Agent` tool calls in a single 
      ```
   4. **Tag each finding** with severity (CRITICAL / HIGH / MEDIUM), type (Structural / Approach-now / Approach-later / Fragility / Gap), and design-level (Yes / No). Assign severity based on impact — how bad is this if left unfixed?
   5. **Add one design question** — a question that forces the author to justify or reconsider
-  6. **Include a "Pushback" section** at the end of your report. For each finding raised by other critics (you won't see their reports, but anticipate likely concerns from the other two personas), note any you would disagree with and why. If you think something another critic is likely to flag is actually fine, say so explicitly — e.g., "The coupling here is intentional because X." This gives synthesis the raw material to produce TENSION findings.
+  6. **Include a "Pushback" section** at the end of your report. For each finding raised by other critics (you won't see their reports, but anticipate likely concerns from the other critics), note any you would disagree with and why. If you think something another critic is likely to flag is actually fine, say so explicitly — e.g., "The coupling here is intentional because X." This gives synthesis the raw material to produce TENSION findings.
   7. **Read beyond the provided files** — you have Read, Grep, and Glob access. Before writing your report, grep for call sites of the primary module/function under review and read at least two of them. Include a **Files examined** section at the top of your report listing every file you read. Don't limit your critique to what was handed to you.
 
 Each critic writes their full, unfiltered findings to their temp file. These files persist for the session so the user can read any individual critic's reasoning after the skill completes.
 
-### Critic 1: Skeptical Senior Engineer
+### Persona assignment
 
-**Persona**: Has seen this pattern fail in production. Not theorizing — remembering.
+Each critic's identity and focus lens comes from the persona file read above. Pass the full body text (Persona, Characteristic question, Focus bullets) as part of the subagent prompt. The generic critics are:
 
-**Characteristic question**: *"What happens when this assumption is wrong?"*
+- **senior-engineer.md** → writes to `<tmpdir>/senior.md`
+- **systems-architect.md** → writes to `<tmpdir>/architect.md`
+- **adversarial-reviewer.md** → writes to `<tmpdir>/adversarial.md`
 
-**Focus**:
-- Runtime risks and edge cases that aren't handled
-- Assumptions that will eventually be wrong
-- "This worked until it didn't" failure modes
-- Security: auth bypass, injection, privilege escalation, data exposure — "what can an attacker do with this?"
-- Hidden state, shared mutable data, things that break under load or concurrency
-- Operational blindness: can you debug this at 2am? Observability, logging, alerting gaps
+Specialist critics (when selected) use their filename slug as the output name:
 
-### Critic 2: Systems Architect
-
-**Persona**: Thinks in systems. Cares about change surfaces and what breaks when requirements shift.
-
-**Characteristic question**: *"When requirements change — and they will — what has to change with them?"*
-
-**Focus**:
-- Abstraction violations — things that know too much about their collaborators
-- Wrong layer — logic that lives at the wrong level of the system
-- Change amplification — a small requirement change forces edits across many locations
-- Missing extensibility points that future requirements will demand
-- Data model problems — schema that can't evolve, missing constraints, inconsistent state
-
-### Critic 3: Adversarial Reviewer
-
-**Persona**: Hired to find the fatal flaw. Assumes the target is wrong until proven otherwise.
-
-**Characteristic question**: *"Should this exist at all — and if so, does it solve what the user actually needs?"*
-
-**Focus**:
-- Wrong solution entirely — the problem statement is wrong, or the solution doesn't solve the actual user need
-- Wrong pattern entirely — there's a well-known approach that fits this use case and this isn't it
-- User experience: what does the user experience when this goes wrong? Error states, degraded modes, confusing behavior
-- The target fighting against its consumers (friction, workarounds, awkward call sites)
-- Cases where the whole thing should be scrapped and replaced with something fundamentally different
+- **contract-caller.md** → writes to `<tmpdir>/contract-caller.md`
+- **data-integrity.md** → writes to `<tmpdir>/data-integrity.md`
+- **operational-resilience.md** → writes to `<tmpdir>/operational-resilience.md`
+- **workflow-ux.md** → writes to `<tmpdir>/workflow-ux.md`
 
 ## Phase 3: Synthesize
 
-Read all three temp report files and merge findings.
+Read all critic report files by expected name: `senior.md`, `architect.md`, `adversarial.md`, plus any specialist slugs selected in Phase 2 (e.g., `data-integrity.md`, `contract-caller.md`). Do NOT glob `*.md` — the tmpdir also contains `findings.md`. If an expected file is missing, note the missing critic in synthesis output and adjust the confidence denominator.
 
 ### Synthesis procedure
 
@@ -261,7 +271,7 @@ Three steps. Prioritize trustworthy output over compact output — showing an ex
 1. **Group by problem area** — cluster findings that address the same part of the system or the same concern. List all critic perspectives for each group. Do NOT merge or deduplicate — if two critics flagged similar-but-distinct issues, keep both as separate findings. The user can mentally merge; they can't un-apply a wrong auto-apply.
 
 2. **Assign tags per finding**:
-   - **Severity**: take the highest severity any contributing critic assigned. Record agreement count as a confidence annotation (e.g., `(3/3)` or `(1/3, Senior only)`).
+   - **Severity**: take the highest severity any contributing critic assigned. Record agreement count as a confidence annotation (e.g., `(3/5)` or `(1/4, Senior only)`).
    - **Type**: use the type that best describes the root cause. For Approach timing conflicts (`now` vs `later`), tag as `Approach-now/later`.
    - **Design-level**: when critics disagree, Yes wins (architectural concerns should surface).
    - **Resolution**: default to **User-directed** unless ALL critics proposed the same fix AND it's localized and additive — only then use **Auto-apply**. When in doubt, User-directed.
@@ -284,7 +294,7 @@ Temp dir: <tmpdir>
 
 ## Finding 1: <name>
 - severity: CRITICAL / HIGH / MEDIUM / TENSION
-- confidence: N/3 (<which critics>) — e.g., "2/3 (Senior + Architect)" or "1/3 (Adversarial only)"
+- confidence: N/<total> (<which critics>) — e.g., "3/5 (Senior + Architect + Data Integrity)" or "1/4 (Adversarial only)"
 - type: Structural / Approach-now / Approach-later / Approach-now/later / Fragility / Gap
 - design-level: Yes / No
 - resolution: Auto-apply / User-directed
@@ -340,11 +350,12 @@ For **User-directed** findings (non-TENSION), replace "Better approach" with:
 
 ### After presenting findings
 
-List the file paths so the user knows where reports are:
+List all critic report file paths so the user knows where reports are. Always list the three generics, then any specialists that ran:
 
 - Senior Engineer: `<tmpdir>/senior.md`
 - Systems Architect: `<tmpdir>/architect.md`
 - Adversarial Reviewer: `<tmpdir>/adversarial.md`
+- _(if specialists ran)_ `<tmpdir>/<slug>.md` for each specialist (e.g., `data-integrity.md`, `contract-caller.md`)
 - Structured findings: `<tmpdir>/findings.md` (or the path provided via `--findings-out`, if specified)
 
 ### Wrap-up: structured callers vs standalone
