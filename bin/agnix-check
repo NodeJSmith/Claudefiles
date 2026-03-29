@@ -11,6 +11,7 @@ Usage:
   agnix-check [PATH]     # defaults to .
 """
 
+import argparse
 import json
 import re
 import subprocess
@@ -30,7 +31,24 @@ def should_escalate(diag: dict) -> bool:
     return False
 
 
-path = sys.argv[1] if len(sys.argv) > 1 else "."
+parser = argparse.ArgumentParser(
+    prog="agnix-check",
+    description="agnix wrapper that escalates specific rules to errors.",
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    epilog="""\
+Escalated rules:
+  AS-010  Description must include a 'Use when...' trigger phrase
+  XP-003  Hard-coded OS-specific absolute path with a real username
+
+Examples:
+  agnix-check                            # check current directory
+  agnix-check skills/                    # check a specific path
+  agnix-check /path/to/repo              # check an absolute path
+""",
+)
+parser.add_argument("path", nargs="?", default=".", help="Path to check (default: .)")
+_args = parser.parse_args()
+path = _args.path
 
 result = subprocess.run(
     ["agnix", path, "--format", "json"],

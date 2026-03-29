@@ -5,6 +5,31 @@
 
 set -euo pipefail
 
+# --- Help guard (before bot-token preamble to avoid triggering token fetch) ---
+for arg in "$@"; do
+  case "$arg" in
+    -h | --help)
+      cat << 'EOF'
+Usage: gh-issue <subcommand> [flags...]
+
+Run gh issue subcommands using bot token if available, personal token otherwise.
+Passes all arguments through to `gh issue`.
+
+Options:
+  -h, --help  Show this help message and exit
+
+Examples:
+  gh-issue list                          # list open issues
+  gh-issue create --title "Bug" --body "Details"
+  gh-issue view 42                       # view issue #42
+  gh-issue edit 42 --add-label "bug"     # add label to issue
+  gh-issue close 42                      # close issue #42
+EOF
+      exit 0
+      ;;
+  esac
+done
+
 # Use GitHub App bot token if gh-app-token is installed and configured.
 # This is optional — if gh-app-token doesn't exist or GITHUB_APP_ID is unset,
 # the script falls back to the default GH_TOKEN (your personal token).
