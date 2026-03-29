@@ -1,0 +1,22 @@
+name: Stale newsletter triage
+on:
+  schedule:
+    - cron: '0 15 * * 1'  # Weekly, Monday 15:00 UTC (10am CT during CDT, 9am CT during CST)
+  workflow_dispatch:
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          stale-issue-label: 'stale'
+          stale-issue-message: >
+            This newsletter finding has been open for 30 days without activity.
+            It will be closed in 14 days if no action is taken. Reopen if still relevant.
+          close-issue-message: >
+            Closing as stale. Reopen if you'd like to revisit this.
+          days-before-issue-stale: 30
+          days-before-issue-close: 14
+          only-labels: 'newsletter-triage'
+          exempt-issue-labels: 'pinned'
