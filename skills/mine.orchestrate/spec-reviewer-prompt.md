@@ -28,9 +28,11 @@ If a criterion is not met, that is a FAIL.
 
 ### 3. Check the Test Strategy
 
-Read the WP's "Test Strategy" section. For each test described:
-- Does the test file exist?
-- Does the test function exist?
+The Test Strategy is a **coverage inventory** — it lists what behaviors must be tested and where the tests live. Test function names are advisory; the executor may use different names if the intent is covered.
+
+Read the WP's "Test Strategy" section. For each behavior described:
+- Does a test exist that verifies this behavior? (name match is not required — check intent)
+- Does the test file exist in the expected location?
 - Does the test actually verify what the strategy describes?
 
 Run any verification commands the executor attempted. Check:
@@ -38,7 +40,7 @@ Run any verification commands the executor attempted. Check:
 - Does the output show passing tests?
 - Are the right tests actually being run (not skipped, not vacuously passing)?
 
-If the test strategy says "write a test for X" and no such test exists, that is a FAIL.
+FAIL only if a listed behavior has no corresponding test at all. A name mismatch (e.g., `test_validate_email_format` vs `test_validate_email`) is not a FAIL if the behavior is covered.
 
 ### 4. Check Review Guidance
 

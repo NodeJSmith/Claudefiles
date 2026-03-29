@@ -157,9 +157,11 @@ depends_on: []
 2. <Next action>
 ...
 
+List behavioral subtasks ordered by dependency (foundational types first, consumers second). Do not prescribe TDD micro-cycle ordering — the executor applies RED-GREEN-REFACTOR per-subtask at runtime via its TDD reference.
+
 ## Test Strategy
 
-<What tests are written, what they verify, and which test file they go in. TDD: write the test first. Name the test functions.>
+<Test inventory: what tests are written, what they verify, which test file they go in. Name the test functions. Do NOT prescribe execution order — the executor determines test-first sequencing at runtime.>
 
 ## Review Guidance
 
@@ -181,11 +183,11 @@ depends_on: []
 ### Field rules
 
 - **Objectives**: Must be observable without reading the code. "The `UserRepository.find_by_email()` method returns `None` for unknown users and raises `UserError` for database failures" not "the method works".
-- **Subtasks**: Use imperative, specific language. "Add `validate_email()` to `src/validators.py`" not "add validation". Reference actual file paths.
+- **Subtasks**: Use imperative, specific language. "Add `validate_email()` to `src/validators.py`" not "add validation". Reference actual file paths. List behavioral subtasks ordered by dependency — do not prescribe TDD micro-cycle ordering (the executor handles test-first sequencing at runtime).
 - **Test Strategy**:
   1. Required for every WP that introduces or modifies functional code
   2. Must name specific test files and test functions
-  3. Follow TDD: write the test first
+  3. This section is a test inventory (what/where/why) — do NOT prescribe execution order. The executor determines test-first sequencing at runtime via its TDD reference
   4. Unit tests must be in the same WP as the code they test — never deferred to a later WP
   5. "Tests deferred to a later WP" is only acceptable for integration tests
   6. WPs that are exempt per the Test Co-location rule in `testing.md` may state "N/A — no testable code changes"
