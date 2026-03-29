@@ -48,7 +48,7 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `mine.design` | Scope + planning interrogation + research + design doc + sign-off gate |
 | `mine.draft-plan` | Design doc → Work Package (WP) files with objectives, subtasks, test strategy, and lane tracking |
 | `mine.eval-repo` | Evaluate a third-party GitHub repo before adopting it -- test coverage, code quality, maintenance health, bus factor |
-| `mine.gh-tools` | GitHub helper scripts -- gh-issue, gh-pr-create, gh-pr-threads, gh-pr-reply, gh-pr-resolve-thread, gh-bot, gh-app-token |
+| `mine.gh-tools` | GitHub helper scripts -- gh-issue, gh-pr-create, gh-pr-threads, gh-pr-reply, gh-pr-resolve-thread |
 | `mine.grill` | Multi-angle interrogation of a raw idea — product, design, engineering, scope, and adversarial lenses. Produces a brief.md that feeds into /mine.specify |
 | `mine.implementation-review` | Post-execution quality gate (internal, invoked by orchestrate Phase 3) — 7-category Opus review of all changed files against design doc and WP files |
 | `mine.look-and-feel` | Plan UI design direction — design tokens, color palettes, typography, spacing, and visual identity persisted to `design/direction.md` |
@@ -177,7 +177,7 @@ Coding guidelines that load automatically and shape how Claude writes code.
 
 **Common** (15): agents, backlog, bash-tools, capabilities, coding-style, command-output, error-tracking, frontend-workflow, git-workflow, interaction, performance, testing, tmux, web-search, worktrees
 
-### Helper Scripts (23)
+### Helper Scripts (21 + 1 library)
 
 CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
@@ -185,7 +185,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 |--------|-------------|
 | `ado-builds` | Azure DevOps build management -- list, cancel, or bulk-cancel pipeline builds |
 | `agnix-check` | Validate agent, skill, and command files against agnix schema |
-| `ado-common.sh` | Shared Azure DevOps utilities -- PAT auth, config, API calls, PR detection (sourced by ADO scripts) |
+| `ado-common.sh` | Shared Azure DevOps utilities -- PAT auth, config, API calls, PR detection (sourced library, not user-facing) |
 | `ado-logs` | Azure DevOps CI log viewer -- inspect build timelines, errors, and log content |
 | `ado-pr` | Azure DevOps PR helper -- simplified wrapper around az repos pr with smart defaults |
 | `ado-pr-threads` | Azure DevOps PR thread operations -- list, reply, resolve threads |
@@ -205,7 +205,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `git-branch-log` | Print `git log --oneline` for current branch vs its base (uses git-branch-base) |
 | `git-default-branch` | Print the default branch name for the current repo |
 | `git-platform` | Detect git hosting platform (`github`, `ado`, or `unknown`) from remote URL |
-| `spec-helper` | Work Package and spec directory management — `init`, `wp-move`, `wp-validate`, `wp-list`, `status`, `next-number`. Installable package: `uv tool install -e packages/spec-helper` |
+| `spec-helper` | Work Package and spec directory management — `wp-*`, `checkpoint-*`, `status`, `next-number`, `init`. Installable package: `uv tool install -e packages/spec-helper` (not in `bin/`) |
 
 ## Evals
 

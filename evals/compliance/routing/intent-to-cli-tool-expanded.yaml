@@ -3,8 +3,8 @@
 # Rule source: rules/common/capabilities.md (intent routing table + CLI Tools section)
 #
 # Tests CLI tools not covered in the base file: gh-pr-reply,
-# gh-pr-resolve-thread, gh-bot, gh-app-token, git-default-branch,
-# git-rebase-onto, ado-logs, ado-pr, ado-pr-threads.
+# gh-pr-resolve-thread, git-default-branch, ado-logs, ado-pr,
+# ado-pr-threads.
 #
 # Run: npx promptfoo eval -c evals/compliance/routing/intent-to-cli-tool-expanded.yaml
 
@@ -83,31 +83,6 @@ tests:
       - type: javascript
         value: *cli_assertion
 
-  # --- gh-bot ---
-  - description: "run gh as bot → gh-bot (direct)"
-    vars:
-      prompt: "run this gh command as the bot identity"
-      expectedTool: "gh-bot"
-    assert:
-      - type: javascript
-        value: *cli_assertion
-
-  - description: "bot comment → gh-bot (natural)"
-    vars:
-      prompt: "comment on issue #15 as the bot saying the fix is deployed"
-      expectedTool: "gh-bot"
-    assert:
-      - type: javascript
-        value: *cli_assertion
-
-  - description: "bot identity → gh-bot (indirect)"
-    vars:
-      prompt: "create an issue for the regression but make it come from the bot account, not me"
-      expectedTool: "gh-bot"
-    assert:
-      - type: javascript
-        value: *cli_assertion
-
   # --- git-default-branch ---
   - description: "default branch name → git-default-branch (direct)"
     vars:
@@ -129,31 +104,6 @@ tests:
     vars:
       prompt: "I need to know the default branch so I can set up the rebase target"
       expectedTool: "git-default-branch"
-    assert:
-      - type: javascript
-        value: *cli_assertion
-
-  # --- git-rebase-onto ---
-  - description: "rebase dropping old base → git-rebase-onto (direct)"
-    vars:
-      prompt: "rebase my branch onto develop, dropping the commits from the old feature branch"
-      expectedTool: "git-rebase-onto"
-    assert:
-      - type: javascript
-        value: *cli_assertion
-
-  - description: "clean rebase → git-rebase-onto (natural)"
-    vars:
-      prompt: "I branched off feature/auth but now need to rebase onto main without carrying auth's commits"
-      expectedTool: "git-rebase-onto"
-    assert:
-      - type: javascript
-        value: *cli_assertion
-
-  - description: "drop old base commits → git-rebase-onto (indirect)"
-    vars:
-      prompt: "this branch has commits from the old base — do a clean rebase dropping those"
-      expectedTool: "git-rebase-onto"
     assert:
       - type: javascript
         value: *cli_assertion

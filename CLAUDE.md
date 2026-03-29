@@ -16,13 +16,15 @@ Symlinks key configuration directories (`agents/`, `skills/`, `commands/`, `scri
 
 ### Runtime Dependencies
 
-`spec-helper` requires **python-frontmatter** for YAML frontmatter parsing in WP files:
+`spec-helper` manages work packages and spec directories. Subcommand groups: `wp-*` (move, validate, list), `checkpoint-*` (init, read, update, verdict, delete), `status`, `next-number`, `init`. Run `spec-helper --help` for full subcommand reference.
+
+Install as a standalone tool:
 
 ```bash
-pip install python-frontmatter
+uv tool install -e packages/spec-helper
 ```
 
-If the import is missing, `spec-helper` prints a one-line install instruction and exits.
+It requires **python-frontmatter** for YAML frontmatter parsing in WP files (included as a dependency).
 
 ## Repository Structure
 
