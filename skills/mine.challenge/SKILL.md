@@ -55,7 +55,7 @@ Each critic assigns severity based on consequence — how bad is this if left un
 
 **TENSION vs. fix disagreement**: TENSION means critics disagree on whether something is a problem at all (one says "this is broken," another says "this is fine"). If critics agree it's a problem but propose different fixes, that's NOT TENSION — use the highest severity and present the differing fixes as options in a User-directed finding.
 
-During synthesis, the **highest severity any critic assigned** is used. Agreement count is reported separately as a **confidence annotation** (e.g., `CRITICAL (2/3)` or `HIGH (1/3, Senior only)`). This prevents novel findings from being deprioritized just because only one specialist spotted them. The parenthetical notation is for human-readable presentation only — in the structured findings file, `severity:` must be exactly one of `CRITICAL`, `HIGH`, `MEDIUM`, or `TENSION`, and confidence is a separate tag.
+During synthesis, the **highest severity any critic assigned** is used. Agreement count is appended as a **confidence parenthetical** on the severity line (e.g., `HIGH (3/5, Senior + Architect + Data Integrity)` or `MEDIUM (1/4, Senior only)`). This prevents novel findings from being deprioritized just because only one specialist spotted them. In the structured findings file, the severity line includes the confidence parenthetical — there is no separate confidence field.
 
 ### Type (what kind of problem)
 
