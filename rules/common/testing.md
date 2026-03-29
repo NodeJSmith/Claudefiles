@@ -4,6 +4,14 @@
 
 Unit, integration, and E2E tests all required.
 
+## Test Co-location
+
+Code and its unit tests ship together. In any repo with test infrastructure, every change that introduces or modifies functional code must include corresponding unit tests in the same commit (or the same WP in the caliper workflow). Integration tests may follow in a subsequent WP, but unit tests may not be deferred.
+
+Exemptions: generated code, pure type definitions, configuration files, constants, `__init__.py` / module init files, documentation-only changes, migrations with no business logic.
+
+<!-- SYNC: This exemption list is inlined in skills/mine.implementation-review/reviewer-prompt.md (item 7 FAIL criteria). Update both when changing. skills/mine.draft-plan/SKILL.md and skills/mine.ship/SKILL.md reference this list by name. -->
+
 ## Test-Driven Development
 
 ### Anti-Pattern: Horizontal Slicing
@@ -26,6 +34,10 @@ RIGHT:  RED→GREEN: test1→impl1 → RED→GREEN: test2→impl2
 ### Mocking
 
 Mock only at system boundaries (external APIs, databases, time, filesystem). Prefer real instances for internal collaborators. Use dependency injection.
+
+### Avoid Log Capture Tests
+
+Do not write tests that assert on log output (e.g., `caplog`, `capfd`, checking `logger.warning` was called). These tests are brittle — they break when log messages are reworded, reformatted, or when log levels change. Test the *behavior* that produces the log, not the log itself.
 
 ## Test Execution
 

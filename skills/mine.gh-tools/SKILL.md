@@ -32,14 +32,22 @@ gh-pr-create --title "Feature" --body-file <dir>/body.md  # <dir> from get-skill
 
 ## gh-pr-threads
 
-List unresolved PR review threads with summary. Auto-detects PR from current branch.
+List PR review threads with summary. Auto-detects PR from current branch.
 
 ```bash
-gh-pr-threads              # auto-detect PR from branch
+gh-pr-threads              # auto-detect PR from branch, unresolved only
 gh-pr-threads 42           # specific PR number
+gh-pr-threads --json       # JSON output, unresolved only
+gh-pr-threads --json --all # JSON output, all threads (including resolved)
+gh-pr-threads 42 --json    # specific PR, JSON output
+gh-pr-threads --all        # human-readable, all threads (resolved tagged [RESOLVED])
 ```
 
-Output per thread: file path, line number, GraphQL thread ID (`PRRT_...`), comment database ID, author, and body preview.
+**Default output** (no flags): human-readable, unresolved threads only. Shows file path, line number, GraphQL thread ID (`PRRT_...`), comment database ID, author, and body preview.
+
+**`--json`**: Emits thread nodes as a JSON array (unresolved only by default; combine with `--all` for all threads including resolved). Includes all fields: `isResolved`, `isOutdated`, `path`, `line`, `startLine`, `diffSide`, `comments` with `databaseId`, `body`, `author.login`, `author.__typename`. Handles pagination internally — returns all threads even for PRs with >100 review threads.
+
+**`--all`**: Include resolved threads in output. Works with both `--json` and default modes.
 
 ## gh-pr-reply
 

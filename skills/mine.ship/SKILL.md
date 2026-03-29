@@ -34,9 +34,12 @@ Ship the current changes: commit, push, and open a PR. Follow each phase in orde
 5. **INTEGRATION REVIEW (skip for documentation-only changes):** Run `integration-reviewer` once on the final state of the changes (after the code-reviewer loop). Address any CRITICAL or HIGH findings; defer ambiguous ones to the user.
 6. **LOCAL VERIFICATION (skip for documentation-only changes):**
    1. Determine the project's test command using the test execution discovery order from `rules/common/testing.md`
-   2. Run the test suite locally. If tests fail, fix the issues and re-run (max 3 iterations). If still failing after 3 attempts, stop and present the failures to the user.
-   3. Run the project's linter if configured (e.g., `ruff check` for Python, `eslint` for JS). Fix any issues.
-   4. Only proceed to staging once both pass.
+   2. **TEST PRESENCE CHECK (skip if sub-step 1 found no test command — this signals the repo has no test infrastructure. Also skip for changes exempt per the Test Co-location rule in `testing.md`):**
+      Review the branch diff (`git diff --name-only` against the default branch). If the diff contains new or changed source files but zero changes in test files (no files matching common test patterns like `test_*`, `*_test.*`, `*_spec.*`, `__tests__/`), mention this to the user and ask whether to proceed or stop to write tests.
+      This is advisory, not a hard block — the user decides.
+   3. Run the test suite locally. If tests fail, fix the issues and re-run (max 3 iterations). If still failing after 3 attempts, stop and present the failures to the user.
+   4. Run the project's linter if configured (e.g., `ruff check` for Python, `eslint` for JS). Fix any issues.
+   5. Only proceed to staging once both pass.
 7. Stage all relevant files (including CHANGELOG.md if updated).
 8. For multi-line commit messages, run `get-skill-tmpdir mine-commit` to create a temp directory, then write the message to `<dir>/message.md` and run `git commit -F <dir>/message.md`. For simple one-line messages, `git commit -m "..."` is fine. Do NOT use `git commit -m "$(cat <<'EOF'...)"` — command substitution triggers extra permission prompts.
 9. Push the branch to origin (use `-u` flag if the branch has no upstream yet).
@@ -44,10 +47,7 @@ Ship the current changes: commit, push, and open a PR. Follow each phase in orde
 
 ### Phase 2 — Create PR
 
-11. **Detect platform** from the remote URL:
-    - Contains `github.com` → **GitHub** (use `gh` CLI)
-    - Contains `dev.azure.com` or `visualstudio.com` → **Azure DevOps** (use `az` CLI)
-    - Otherwise → inform the user the platform is unsupported and stop
+11. **Detect platform** by running `git-platform`. If output is `unknown`, inform the user the platform is unsupported and stop. If `github`, use `gh` CLI. If `ado`, use `az` CLI.
 12. Check if a PR already exists for this branch:
     - **GitHub**: `gh pr list --head <branch-name>`
     - **Azure DevOps**: `az repos pr list --source-branch <branch-name> --status active`

@@ -16,10 +16,7 @@ user-invocable: true
 
 Based on the above changes:
 
-1. **Detect platform** from the remote URL:
-   - Contains `github.com` → **GitHub** (use `gh` CLI)
-   - Contains `dev.azure.com` or `visualstudio.com` → **Azure DevOps** (use `az` CLI)
-   - Otherwise → inform the user the platform is unsupported and stop
+1. **Detect platform** by running `git-platform`. If output is `unknown`, inform the user the platform is unsupported and stop. If `github`, use `gh` CLI. If `ado`, use `az` CLI.
 2. Verify the branch is pushed to remote (check `git status` to ensure no "Your branch is ahead" or "not yet pushed" messages)
 3. Check if a PR already exists for this branch:
    - **GitHub**: `gh pr list --head <branch-name>`

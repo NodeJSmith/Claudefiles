@@ -234,6 +234,10 @@ Write the design doc to: `<feature_dir>/design.md`
 
 [What else was evaluated and why rejected. At least one alternative.]
 
+## Test Strategy
+
+[High-level approach to testing this change. Which layers need tests (unit, integration, E2E)? Are there test infrastructure changes needed (new fixtures, test utilities, mock services)? What are the key behaviors that must be verified? For repos with no test infrastructure (e.g., prompt/config repos), state "N/A — no test infrastructure in this repo."]
+
 ## Open Questions
 
 [Unresolved items that need answers before or during implementation. Include any deferred findings from spec challenge (preserved from the existing design.md stub). Must be empty before plan approval.]
