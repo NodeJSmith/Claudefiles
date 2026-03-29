@@ -149,7 +149,7 @@ spec-helper checkpoint-init <feature_dir_name> --tmpdir <tmpdir> --base-commit <
 
 The checkpoint is written to `<feature_dir>/tasks/.orchestrate-state.md` with validated schema.
 
-**Gitignore the checkpoint:** Ensure `tasks/.orchestrate-state.md` is excluded from git. Check if `<feature_dir>/tasks/.gitignore` or `<feature_dir>/.gitignore` already contains this entry. If not, append `.orchestrate-state.md` to `<feature_dir>/tasks/.gitignore` (create the file if needed). This prevents `git add -A` in WIP commits from staging the checkpoint file.
+**Gitignore the checkpoint:** Ensure `tasks/.orchestrate-state.md` is excluded from git. Check if `<feature_dir>/tasks/.gitignore` or `<feature_dir>/.gitignore` already contains this entry. If not, append `.orchestrate-state.md` to `<feature_dir>/tasks/.gitignore` (create the file if needed). This prevents the checkpoint file from being accidentally staged in WIP commits.
 
 ---
 
@@ -256,6 +256,17 @@ Save screenshots to: <dir>/<wp_id>/
 
 Wait for the subagent to complete. Read the executor temp file.
 
+### Step 4.5: Capture changed files
+
+After the executor completes, capture the list of files it changed. This list is used by the reviewers (Steps 7-8) and the commit step (Step 10).
+
+```bash
+git diff --name-only HEAD
+git ls-files --others --exclude-standard
+```
+
+Always run both commands — the first catches modified/deleted tracked files, the second catches newly created untracked files. Combine both lists (deduped) and write to `<dir>/<wp_id>/changed-files.txt` (one path per line). This file is used by the reviewers (Steps 7-8) and the commit step (Step 10a). If both commands return empty, the executor may not have made any file changes — proceed to the spec reviewer, which will catch this if unexpected.
+
 ### Step 5: Launch spec reviewer subagent
 
 Read `~/.claude/skills/mine.orchestrate/spec-reviewer-prompt.md`.
@@ -288,9 +299,10 @@ Wait for the subagent to complete. Read the spec reviewer temp file.
 
 1. **Read the spec reviewer's WARN details** from the spec reviewer temp file
 2. **Re-run the executor (Step 4)** with the `## Previous review feedback` section added to the executor prompt. Populate only the **Spec reviewer** section (code reviewer and visual reviewer have not run yet). Truncate feedback to 50 lines if it exceeds that length. Only include the most recent attempt's feedback (not accumulated from prior attempts).
-3. **Re-run the spec reviewer (Step 5)** on the executor's updated output
-4. **If PASS after retry** → continue to Step 5.7 (visual reviewer) and then Step 7 (code reviewer) as normal. The WARN retry replaces only Steps 4 and 5.
-5. **If still WARN after 1 retry** → escalate to the user using the FAIL gate at Step 9.5 (same options as FAIL). One retry that can't fix a minor gap means either the gap isn't executor-fixable or the spec reviewer's bar is miscalibrated — either way, escalate.
+3. **Re-capture changed files (Step 4.5)** — the retry executor may have modified different files than the original run.
+4. **Re-run the spec reviewer (Step 5)** on the executor's updated output
+5. **If PASS after retry** → continue to Step 5.7 (visual reviewer) and then Step 7 (code reviewer) as normal. The WARN retry replaces only Steps 4, 4.5, and 5.
+6. **If still WARN after 1 retry** → escalate to the user using the FAIL gate at Step 9.5 (same options as FAIL). One retry that can't fix a minor gap means either the gap isn't executor-fixable or the spec reviewer's bar is miscalibrated — either way, escalate.
 
 The WARN retry happens within a single WP's execution. The checkpoint is not updated during retries — it only updates after the final verdict.
 
@@ -367,7 +379,11 @@ Compare executor result, spec reviewer verdict, and visual reviewer verdict (if 
 
 **This step is MANDATORY. Do NOT skip it.** Run the code reviewer for every WP that reaches this point, regardless of how clean the executor or spec reviewer results look. A WP that skips code review cannot proceed to Step 9.
 
-Launch a `code-reviewer` subagent (`Agent(subagent_type: "code-reviewer")`) to review the files changed by the executor. The code-reviewer agent uses `git diff --name-only` to find changed files and runs static analysis tools (ruff, pyright, etc.) as appropriate.
+Launch a `code-reviewer` subagent (`Agent(subagent_type: "code-reviewer")`). Pass the changed file list from Step 4.5 in the prompt so the reviewer doesn't need to discover files itself:
+
+```
+Review these changed files: <changed file list from Step 4.5>
+```
 
 **Loop until clean:**
 1. Run the code-reviewer subagent. Read its output.
@@ -379,13 +395,28 @@ Launch a `code-reviewer` subagent (`Agent(subagent_type: "code-reviewer")`) to r
 
 Write the final code-reviewer output to `<dir>/<wp_id>/code-review.md`.
 
+**After the code-reviewer loop completes** (whether after 1 or 3 iterations), re-capture the changed file list — auto-fixes may have modified additional files:
+
+```bash
+git diff --name-only HEAD
+git ls-files --others --exclude-standard
+```
+
+Update the WP's changed file list with the refreshed result. This updated list is used by Step 8 (integration reviewer) and Step 10a (commit).
+
 **Verdict impact:** If CRITICAL or HIGH issues remain after 3 iterations that could not be auto-fixed, the WP verdict becomes FAIL regardless of the spec reviewer result.
 
 ### Step 8: Integration reviewer (MANDATORY)
 
 **This step is MANDATORY. Do NOT skip it.** Run the integration reviewer for every WP that reaches this point, regardless of how clean prior results look. A WP that skips integration review cannot proceed to Step 9.
 
-Launch an `integration-reviewer` subagent (`Agent(subagent_type: "integration-reviewer")`) once on the same changed files. The integration-reviewer checks for duplication, convention drift, misplacement, orphaned code, and design violations.
+Launch an `integration-reviewer` subagent (`Agent(subagent_type: "integration-reviewer")`) once on the same changed files. Pass the refreshed changed file list (updated after the code-reviewer loop in Step 7) in the prompt:
+
+```
+Review these changed files: <refreshed changed file list>
+```
+
+The integration-reviewer checks for duplication, convention drift, misplacement, orphaned code, and design violations.
 
 Write the output to `<dir>/<wp_id>/integration-review.md`.
 
@@ -453,7 +484,7 @@ spec-helper checkpoint-update <feature_dir_name> --current-wp <WP_ID> --current-
 
 This ensures resume correctly returns to this WP instead of skipping it. Then:
 
-- **Fix and retry**: lane stays `doing`; set `current_wp_status: retry_pending`. Re-run from Step 3 with the `## Previous review feedback` section added to the executor prompt. For FAIL retries, populate **all three** reviewer sections (spec reviewer, code reviewer, visual reviewer) since all reviewers have completed by this point. Truncate feedback to 50 lines if it exceeds that length. Only include the most recent attempt's feedback.
+- **Fix and retry**: lane stays `doing`; set `current_wp_status: retry_pending`. Re-run from Step 3 (which includes Step 4 executor + Step 4.5 file capture) with the `## Previous review feedback` section added to the executor prompt. For FAIL retries, populate **all three** reviewer sections (spec reviewer, code reviewer, visual reviewer) since all reviewers have completed by this point. Truncate feedback to 50 lines if it exceeds that length. Only include the most recent attempt's feedback.
 - **Mark as blocked and skip**: set `current_wp_status: blocked`. Move to `for_review` (signals needs human attention)
   ```bash
   spec-helper wp-move <feature_dir_name> <wp_id> for_review
@@ -481,14 +512,18 @@ Do not offer "Fix and retry" or "skip" for architectural blocks — retrying wit
 
 #### 10a: Create WIP commit
 
-Stage changes and create a WIP commit. **Before committing, verify the staging area:**
+Stage only the files from the changed file list (refreshed after the code-reviewer loop). Do **not** use `git add -A` — it stages unrelated files (scratch files, editor backups, files from other features).
+
+Write the changed file list (one path per line) to `<dir>/<wp_id>/changed-files.txt`, then stage using `--pathspec-from-file` to avoid shell argument limits:
 
 ```bash
-git add -A
+git add --all --pathspec-from-file=<dir>/<wp_id>/changed-files.txt
 git status --short
 ```
 
-Review the `git status` output. If any files appear that are clearly unrelated to this WP (scratch files, editor backups, files from other features), unstage them with `git reset HEAD <file>` before committing. When in doubt, keep the file staged — the WIP commits will be squashed before merge.
+The `--all` flag ensures deletions and renames in the file list are staged correctly (without it, deleted paths would error). The `--pathspec-from-file` scopes the operation to only the listed paths, so `--all` does not stage unrelated files.
+
+Review the `git status` output to confirm only expected files are staged.
 
 ```bash
 git commit -m "WIP: <WP_ID> -- <WP title>"
@@ -591,7 +626,7 @@ git diff --name-only <base_commit> HEAD
 
 If no files changed (all WPs were no-ops), skip the challenge and go directly to the final gate with a note that no files were changed.
 
-**Dispatch the challenge as a single `general-purpose` subagent using the Opus model (`model: "opus"`).** The orchestrator passes the following to the subagent, which runs `/mine.challenge` internally (the challenge skill spawns its own three nested critic subagents):
+**Dispatch the challenge as a single `general-purpose` subagent.** The orchestrator passes the following to the subagent, which runs `/mine.challenge` internally (the challenge skill spawns its own three nested critic subagents):
 
 - `base_commit` from the checkpoint
 - The changed file list from `git diff --name-only`
