@@ -15,6 +15,36 @@
 
 set -euo pipefail
 
+# Help works even outside tmux
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  cat << 'EOF'
+claude-tmux — tmux helper for Claude Code
+
+Usage: claude-tmux <command> [args...]
+
+Commands:
+  rename <name>         Rename current tmux session
+  current               Print current session name
+  new <name> <path>     Create detached session at path, switch to it
+  list                  List sessions with metadata (pipe-delimited)
+  panes                 List all panes with metadata (pipe-delimited)
+  capture <session> [N] Capture last N lines (default 20) of a session's active pane
+  kill <session>...     Kill one or more sessions
+
+Examples:
+  claude-tmux rename "myapp-feature-auth"
+  claude-tmux current
+  claude-tmux new dev-server ~/projects/myapp
+  claude-tmux list
+  claude-tmux panes
+  claude-tmux capture my-session 50
+  claude-tmux kill old-session stale-session
+
+All commands (except --help) require running inside tmux.
+EOF
+  exit 0
+fi
+
 # Not in tmux — report and exit
 if [[ -z "${TMUX:-}" ]]; then
   echo "Not in tmux"
@@ -43,6 +73,19 @@ shift
 
 case "$cmd" in
   rename)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+      cat << 'EOF'
+claude-tmux rename — rename current tmux session
+
+Usage: claude-tmux rename <name>
+
+Examples:
+  claude-tmux rename "myapp-feature-auth"
+  claude-tmux rename "dotfiles-main"
+EOF
+      exit 0
+    fi
+
     if [[ $# -lt 1 ]]; then
       echo "Usage: claude-tmux rename <name>" >&2
       exit 1
@@ -53,6 +96,21 @@ case "$cmd" in
     tmux display-message -p '#S'
     ;;
   new)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+      cat << 'EOF'
+claude-tmux new — create a new tmux session
+
+Usage: claude-tmux new <name> <path>
+
+Creates a detached session at the given path, then switches to it.
+
+Examples:
+  claude-tmux new dev-server ~/projects/myapp
+  claude-tmux new test-runner /tmp/test-workspace
+EOF
+      exit 0
+    fi
+
     if [[ $# -lt 2 ]]; then
       echo "Usage: claude-tmux new <name> <path>" >&2
       exit 1
@@ -73,6 +131,21 @@ case "$cmd" in
     tmux list-panes -a -F '#{session_name}|#{window_index}|#{pane_current_command}|#{pane_current_path}|#{pane_pid}'
     ;;
   capture)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+      cat << 'EOF'
+claude-tmux capture — capture pane output
+
+Usage: claude-tmux capture <session> [N]
+
+Captures the last N lines (default: 20) from a session's active pane.
+
+Examples:
+  claude-tmux capture my-session
+  claude-tmux capture my-session 200
+EOF
+      exit 0
+    fi
+
     if [[ $# -lt 1 ]]; then
       echo "Usage: claude-tmux capture <session> [N]" >&2
       exit 1
@@ -81,6 +154,19 @@ case "$cmd" in
     tmux capture-pane -t "$1" -p -S -"$lines" | tail -"$lines"
     ;;
   kill)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+      cat << 'EOF'
+claude-tmux kill — kill tmux sessions
+
+Usage: claude-tmux kill <session> [session...]
+
+Examples:
+  claude-tmux kill old-session
+  claude-tmux kill session-1 session-2 session-3
+EOF
+      exit 0
+    fi
+
     if [[ $# -lt 1 ]]; then
       echo "Usage: claude-tmux kill <session> [session...]" >&2
       exit 1
