@@ -27,7 +27,7 @@ $ARGUMENTS — optional scope:
 - Empty: brief recon to find the most suspect design areas, then confirm scope before critiquing
 
 **Optional arguments**:
-- `--focus="<area>"` — steer critics toward specific concerns (e.g., `--focus="security, error handling"`). Passed to all critics as a priority signal: "Pay special attention to X." Critics still review broadly but weight output toward the user's concern.
+- `--focus="<area>"` — steer critics toward specific concerns (e.g., `--focus="security, error handling"`). Passed to all critics as a priority signal: "Pay special attention to X." Critics still review broadly but weight output toward the user's concern. **Note:** specialist override only applies when `--focus` is a single slug/prefix that matches a specialist name (e.g., `--focus="data-integrity"`), not when multiple comma-separated areas are provided.
 - `--target-type=<type>` — override heuristic target-type classification. Callers that know their artifact type should pass this. Values: `code`, `spec`, `design-doc`, `brief`, `skill-file`, `research`, `other`.
 - `--findings-out=<path>` — (structured callers only) deterministic output path for the findings file. Used by mine.design and mine.specify for reliable handoff. Not needed for standalone or passthrough invocations.
 - `--no-specialists` — skip specialist selection, run only the three generic critics.
@@ -55,7 +55,7 @@ Each critic assigns severity based on consequence — how bad is this if left un
 
 **TENSION vs. fix disagreement**: TENSION means critics disagree on whether something is a problem at all (one says "this is broken," another says "this is fine"). If critics agree it's a problem but propose different fixes, that's NOT TENSION — use the highest severity and present the differing fixes as options in a User-directed finding.
 
-During synthesis, the **highest severity any critic assigned** is used. Agreement count is appended as a **confidence parenthetical** on the severity line (e.g., `HIGH (3/5, Senior + Architect + Data Integrity)` or `MEDIUM (1/4, Senior only)`). This prevents novel findings from being deprioritized just because only one specialist spotted them. In the structured findings file, the severity line includes the confidence parenthetical — there is no separate confidence field.
+During synthesis, the **highest severity any critic assigned** is used. Agreement count is recorded on a separate **confidence** line (e.g., `3/5 (Senior + Architect + Data Integrity)` or `1/4 (Senior only)`). This prevents novel findings from being deprioritized just because only one specialist spotted them. The `severity` field must be exactly one of `CRITICAL`, `HIGH`, `MEDIUM`, or `TENSION` — a single token with no parenthetical. Confidence is a separate, non-contract field.
 
 ### Type (what kind of problem)
 
@@ -263,7 +263,7 @@ Specialist critics (when selected) use their filename slug as the output name:
 
 ## Phase 3: Synthesize
 
-Read all critic report files by expected name: `senior.md`, `architect.md`, `adversarial.md`, plus any specialist slugs selected in Phase 2 (e.g., `data-integrity.md`, `contract-caller.md`). Do NOT glob `*.md` — the tmpdir also contains `findings.md`. If an expected file is missing, note the missing critic in synthesis output and adjust the confidence denominator.
+Read all critic report files by expected name: `senior.md`, `architect.md`, `adversarial.md`, plus any specialist critics that were successfully launched in Phase 2 after validation (e.g., `data-integrity.md`, `contract-caller.md`). Do NOT glob `*.md` — the tmpdir also contains `findings.md`. If an expected file from this launched-critic set is missing, note the missing critic in synthesis output and adjust the confidence denominator.
 
 ### Synthesis procedure
 
@@ -272,7 +272,7 @@ Three steps. Prioritize trustworthy output over compact output — showing an ex
 1. **Group by problem area** — cluster findings that address the same part of the system or the same concern. List all critic perspectives for each group. Do NOT merge or deduplicate — if two critics flagged similar-but-distinct issues, keep both as separate findings. The user can mentally merge; they can't un-apply a wrong auto-apply.
 
 2. **Assign tags per finding**:
-   - **Severity**: take the highest severity any contributing critic assigned. Append confidence as a parenthetical on the severity line (e.g., `HIGH (3/5, Senior + Architect + Data Integrity)` or `MEDIUM (1/4, Senior only)`).
+   - **Severity**: take the highest severity any contributing critic assigned. Record agreement count on the separate confidence line (e.g., `3/5 (Senior + Architect + Data Integrity)` or `1/4 (Senior only)`).
    - **Type**: use the type that best describes the root cause. For Approach timing conflicts (`now` vs `later`), tag as `Approach-now/later`.
    - **Design-level**: when critics disagree, Yes wins (architectural concerns should surface).
    - **Resolution**: default to **User-directed** unless ALL critics proposed the same fix AND it's localized and additive — only then use **Auto-apply**. When in doubt, User-directed.
@@ -294,7 +294,8 @@ Target: <file or scope>
 Temp dir: <tmpdir>
 
 ## Finding 1: <name>
-- severity: CRITICAL / HIGH / MEDIUM / TENSION (N/<total>, <which critics>) — e.g., "HIGH (3/5, Senior + Architect + Data Integrity)"
+- severity: CRITICAL / HIGH / MEDIUM / TENSION
+- confidence (non-contract): N/<total> (<which critics>) — e.g., "3/5 (Senior + Architect + Data Integrity)" or "1/4 (Adversarial only)"
 - type: Structural / Approach-now / Approach-later / Approach-now/later / Fragility / Gap
 - design-level: Yes / No
 - resolution: Auto-apply / User-directed
