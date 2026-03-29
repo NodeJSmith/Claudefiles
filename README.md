@@ -14,7 +14,7 @@ My personal [Claude Code](https://docs.anthropic.com/en/docs/claude-code) config
 
 - **`/mine.research`** and **`/mine.audit`** -- the research skill maps architecture and evaluates feasibility before you commit to a direction. The audit skill finds the biggest problems in a codebase ranked by impact. Both feed into design docs and planning.
 - **`claude --worktree <branch>`** -- start a fresh Claude session in an isolated branch. Use `--resume <session-id>` to return to any previous session. Use `/mine.issues` in plan mode to research an issue before starting.
-- **`/mine.challenge`** -- adversarial review that assumes your approach is wrong and argues for better. Three parallel critics, then synthesis. Works on any artifact — code, specs, designs, briefs, skill files.
+- **`/mine.challenge`** -- adversarial review that assumes your approach is wrong and argues for better. Three generic critics always run; up to two domain specialists are added by target type. Works on any artifact — code, specs, designs, briefs, skill files.
 
 ## Install
 
@@ -42,7 +42,7 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `mine.audit` | Systematic codebase health audit -- surfaces aging code, brittle designs, missing tests, ranked by impact |
 | `mine.brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas ranked by user-chosen criteria, with handoff to research or planning |
 | `mine.build` | Single entry point — routes between direct implementation and the full caliper v2 workflow (specify → design → draft-plan → plan-review → orchestrate → ship) |
-| `mine.challenge` | Adversarial review using three parallel critics — assumes the target is wrong, finds out why, argues for better. Works on code, specs, designs, briefs, skill files |
+| `mine.challenge` | Adversarial review using 3 generic + up to 2 domain-specialist critics — assumes the target is wrong, finds out why, argues for better. Works on code, specs, designs, briefs, skill files |
 | `mine.commit-push` | Commit and push changes to the current branch |
 | `mine.create-pr` | Review branch changes and create a PR on GitHub or Azure DevOps |
 | `mine.design` | Scope + planning interrogation + research + design doc + sign-off gate |

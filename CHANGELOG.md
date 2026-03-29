@@ -4,7 +4,12 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-03-29
 
+### Added
+- `mine.challenge` specialist personas — domain-specific critics (Contract & Caller, Data Integrity, Operational Resilience, Workflow & UX) selected by target type to augment the 3 generic critics; `--no-specialists` flag to opt out; `--focus` prefix matching to override defaults (#142)
+
 ### Changed
+- `mine.challenge` critic subagents now use Sonnet model (experiment showed comparable finding quality at lower cost) (#142)
+- `mine.challenge` confidence moved from standalone findings field to severity parenthetical; removed from output contract tags (presentation-only) (#142)
 - `mine.orchestrate` git state management — added Step 4.5 (capture changed files after executor), pass explicit file lists to reviewers, re-capture after auto-fix loops, use `--pathspec-from-file` instead of `git add -A` for targeted staging (#140)
 - `mine.draft-plan` TDD ordering — subtasks are now behavioral units ordered by dependency; Test Strategy is a coverage inventory; executor determines test-first sequencing at runtime (aligns with Kent Beck's canonical TDD) (#140)
 - `code-reviewer` and `integration-reviewer` file discovery — accept explicit file lists from orchestrate, fall back to `git diff --name-only HEAD` for uncommitted changes, documented dual invocation patterns (#140)
@@ -29,7 +34,6 @@ All notable changes to this Claudefiles repository are documented here.
 - `mine.orchestrate` `tdd.md` — added Test Co-location section so executor subagents see the principle directly (#136)
 - `mine.challenge` critic launch now specifies parallel foreground execution (#136)
 - Log capture tests discouraged in `rules/common/testing.md` — test behavior, not log output (#136)
-
 ## 2026-03-26
 
 ### Fixed

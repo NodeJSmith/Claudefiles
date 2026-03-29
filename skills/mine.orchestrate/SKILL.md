@@ -626,7 +626,7 @@ git diff --name-only <base_commit> HEAD
 
 If no files changed (all WPs were no-ops), skip the challenge and go directly to the final gate with a note that no files were changed.
 
-**Dispatch the challenge as a single `general-purpose` subagent.** The orchestrator passes the following to the subagent, which runs `/mine.challenge` internally (the challenge skill spawns its own three nested critic subagents):
+**Dispatch the challenge as a single `general-purpose` subagent.** The orchestrator passes the following to the subagent, which runs `/mine.challenge` internally (the challenge skill spawns 3-5 nested critic subagents — 3 generics plus domain specialists based on target type):
 
 - `base_commit` from the checkpoint
 - The changed file list from `git diff --name-only`

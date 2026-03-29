@@ -62,6 +62,7 @@ Freeze gate: WPs are generated from `design.md` by `/mine.draft-plan` before `/m
 - **Agents** (`agents/*.md`) define subagent behavior for the `Agent` tool. They specify model, tools, and detailed system prompts. Currently: `code-reviewer` (runs ruff/pyright/bandit/pytest) and `planner` (implementation planning).
 - **Rules** (`rules/`) auto-load into Claude Code context. Rules govern coding style, testing, git workflow, error tracking, and agent orchestration.
 - **Hooks** (`scripts/hooks/`) are shell scripts for hook events. Hook scripts require wiring in your `settings.json` — see [Claude Code hook configuration docs](https://docs.anthropic.com/en/docs/claude-code/hooks) for setup.
+- **Personas** (`skills/mine.challenge/personas/`) are focus-lens files that define critic identities for adversarial review. Generic personas always run; specialist personas are selected by target type. Following the same companion-file pattern as mine.orchestrate's prompt files.
 
 ## Naming Convention
 
