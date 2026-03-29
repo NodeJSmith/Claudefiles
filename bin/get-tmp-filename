@@ -9,6 +9,22 @@
 # See rules/common/command-output.md for the correct pattern.
 #
 # Permission: add Bash(get-tmp-filename) to allowedTools for auto-approve.
+[[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && {
+  cat << 'EOF'
+Usage: get-tmp-filename
+
+Create a temp file for capturing command output. Prints the path to stdout.
+
+Do NOT wrap this command in $() in Bash tool calls — run it bare, then use
+the printed path in the next command with tee.
+
+Examples:
+  get-tmp-filename                   # /tmp/claude-cmd-abc123.txt
+  pytest -v 2>&1 | tee /path/from/above | tail -80
+EOF
+  exit 0
+}
+
 set -euo pipefail
 
 mktemp "${CLAUDE_CODE_TMPDIR:-/tmp}/claude-cmd-XXXXXX.txt"

@@ -10,6 +10,23 @@
 # Exit codes:
 #   0  always (best-effort output)
 
+[[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && {
+  cat << 'EOF'
+Usage: git-branch-log
+
+Print one-line git log for commits on the current branch vs its base.
+
+Uses git-branch-base to find the base ref, then shows commits between
+the base and HEAD.
+
+Examples:
+  git-branch-log                     # list branch commits
+  git-branch-log | wc -l             # count branch commits
+  git-branch-log | head -5           # last 5 commits
+EOF
+  exit 0
+}
+
 set -uo pipefail
 
 base=$(git-branch-base 2> /dev/null) || {

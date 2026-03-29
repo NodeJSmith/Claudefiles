@@ -12,6 +12,23 @@
 #   0  success — branch name printed to stdout
 #   1  not a git repo or no remote named "origin"
 
+[[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && {
+  cat << 'EOF'
+Usage: git-default-branch
+
+Print the default branch name for the current repository (e.g. "main").
+
+Tries local symbolic ref first, then queries the remote, then falls back
+to the first remote tracking branch.
+
+Examples:
+  git-default-branch                         # prints e.g. "main"
+  git log "origin/$(git-default-branch)..HEAD"  # commits since default
+  git diff "$(git-default-branch)"           # diff against default branch
+EOF
+  exit 0
+}
+
 set -euo pipefail
 
 # 1. Local symbolic ref (fastest — no network round-trip)

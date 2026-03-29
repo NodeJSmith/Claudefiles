@@ -6,6 +6,21 @@
 #
 # Usage: git-platform
 
+[[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && {
+  cat << 'EOF'
+Usage: git-platform
+
+Detect the git hosting platform from the origin remote URL.
+
+Prints one of: github, ado, unknown. Always exits 0.
+
+Examples:
+  git-platform                       # prints "github" or "ado"
+  if [ "$(git-platform)" = "github" ]; then gh pr list; fi
+EOF
+  exit 0
+}
+
 set -euo pipefail
 
 url=$(git remote get-url origin 2> /dev/null || true)

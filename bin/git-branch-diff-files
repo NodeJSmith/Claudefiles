@@ -9,6 +9,22 @@
 # Exit codes:
 #   0  always (best-effort output)
 
+[[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && {
+  cat << 'EOF'
+Usage: git-branch-diff-files
+
+Print changed file names for the current branch vs its base.
+
+Uses git-branch-base to find the base ref, then runs git diff --name-only.
+
+Examples:
+  git-branch-diff-files              # list changed files
+  git-branch-diff-files | wc -l      # count changed files
+  git-branch-diff-files | xargs rg 'TODO'  # search changed files
+EOF
+  exit 0
+}
+
 set -uo pipefail
 
 base=$(git-branch-base 2> /dev/null) || {
