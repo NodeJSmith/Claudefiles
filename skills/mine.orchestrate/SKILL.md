@@ -262,15 +262,10 @@ After the executor completes, capture the list of files it changed. This list is
 
 ```bash
 git diff --name-only HEAD
-```
-
-Store this file list for the remainder of this WP's pipeline. If the output is empty, also check for untracked files:
-
-```bash
 git ls-files --others --exclude-standard
 ```
 
-Combine both lists (deduped) and write to `<dir>/<wp_id>/changed-files.txt` (one path per line). This file is used by the reviewers (Steps 7-8) and the commit step (Step 10a). If both commands return empty, the executor may not have made any file changes — proceed to the spec reviewer, which will catch this if unexpected.
+Always run both commands — the first catches modified/deleted tracked files, the second catches newly created untracked files. Combine both lists (deduped) and write to `<dir>/<wp_id>/changed-files.txt` (one path per line). This file is used by the reviewers (Steps 7-8) and the commit step (Step 10a). If both commands return empty, the executor may not have made any file changes — proceed to the spec reviewer, which will catch this if unexpected.
 
 ### Step 5: Launch spec reviewer subagent
 
@@ -307,7 +302,7 @@ Wait for the subagent to complete. Read the spec reviewer temp file.
 3. **Re-capture changed files (Step 4.5)** — the retry executor may have modified different files than the original run.
 4. **Re-run the spec reviewer (Step 5)** on the executor's updated output
 5. **If PASS after retry** → continue to Step 5.7 (visual reviewer) and then Step 7 (code reviewer) as normal. The WARN retry replaces only Steps 4, 4.5, and 5.
-5. **If still WARN after 1 retry** → escalate to the user using the FAIL gate at Step 9.5 (same options as FAIL). One retry that can't fix a minor gap means either the gap isn't executor-fixable or the spec reviewer's bar is miscalibrated — either way, escalate.
+6. **If still WARN after 1 retry** → escalate to the user using the FAIL gate at Step 9.5 (same options as FAIL). One retry that can't fix a minor gap means either the gap isn't executor-fixable or the spec reviewer's bar is miscalibrated — either way, escalate.
 
 The WARN retry happens within a single WP's execution. The checkpoint is not updated during retries — it only updates after the final verdict.
 
@@ -415,10 +410,10 @@ Update the WP's changed file list with the refreshed result. This updated list i
 
 **This step is MANDATORY. Do NOT skip it.** Run the integration reviewer for every WP that reaches this point, regardless of how clean prior results look. A WP that skips integration review cannot proceed to Step 9.
 
-Launch an `integration-reviewer` subagent (`Agent(subagent_type: "integration-reviewer")`) once on the same changed files. Pass the changed file list from Step 4.5 in the prompt:
+Launch an `integration-reviewer` subagent (`Agent(subagent_type: "integration-reviewer")`) once on the same changed files. Pass the refreshed changed file list (updated after the code-reviewer loop in Step 7) in the prompt:
 
 ```
-Review these changed files: <changed file list from Step 4.5>
+Review these changed files: <refreshed changed file list>
 ```
 
 The integration-reviewer checks for duplication, convention drift, misplacement, orphaned code, and design violations.
@@ -522,9 +517,11 @@ Stage only the files from the changed file list (refreshed after the code-review
 Write the changed file list (one path per line) to `<dir>/<wp_id>/changed-files.txt`, then stage using `--pathspec-from-file` to avoid shell argument limits:
 
 ```bash
-git add --pathspec-from-file=<dir>/<wp_id>/changed-files.txt
+git add --all --pathspec-from-file=<dir>/<wp_id>/changed-files.txt
 git status --short
 ```
+
+The `--all` flag ensures deletions and renames in the file list are staged correctly (without it, deleted paths would error). The `--pathspec-from-file` scopes the operation to only the listed paths, so `--all` does not stage unrelated files.
 
 Review the `git status` output to confirm only expected files are staged.
 

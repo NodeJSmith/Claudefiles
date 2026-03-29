@@ -18,9 +18,20 @@ When invoked:
    # Also check for new untracked files
    git ls-files --others --exclude-standard
    ```
-   If both are empty, fall back to the branch diff:
+   If both are empty, fall back to committed branch diffs:
    ```bash
-   git-default-branch | xargs -I {} git diff --name-only "origin/{}...HEAD"
+   # Branch diff vs upstream
+   git diff --name-only @{upstream}...HEAD 2>/dev/null
+   ```
+   If empty or fails:
+   ```bash
+   # Branch diff vs default branch
+   git-default-branch | xargs -I {} git diff --name-only "origin/{}...HEAD" 2>/dev/null || git-default-branch | xargs -I {} git diff --name-only "{}...HEAD"
+   ```
+   If still empty:
+   ```bash
+   # Last commit
+   git diff --name-only HEAD~1
    ```
    - If `.py` files changed: apply the Python review sections below and run static analysis tools
    - If `.md` files changed (in `skills/`, `commands/`, `agents/`, or `rules/`): apply the Markdown & Skill File Review section below
