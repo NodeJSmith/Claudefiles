@@ -6,7 +6,6 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Changed
 - `mine.orchestrate` git state management — added Step 4.5 (capture changed files after executor), pass explicit file lists to reviewers, re-capture after auto-fix loops, use `--pathspec-from-file` instead of `git add -A` for targeted staging (#140)
-- `mine.orchestrate` Phase 3 auto-challenge now uses Sonnet model instead of Opus (#140)
 - `mine.draft-plan` TDD ordering — subtasks are now behavioral units ordered by dependency; Test Strategy is a coverage inventory; executor determines test-first sequencing at runtime (aligns with Kent Beck's canonical TDD) (#140)
 - `code-reviewer` and `integration-reviewer` file discovery — accept explicit file lists from orchestrate, fall back to `git diff --name-only HEAD` for uncommitted changes, documented dual invocation patterns (#140)
 - `spec-reviewer-prompt` — Test Strategy treated as coverage inventory; test function names are advisory, not strict contracts (#140)
