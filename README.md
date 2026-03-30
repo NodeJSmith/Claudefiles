@@ -205,7 +205,12 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `git-default-branch` | Print the default branch name for the current repo |
 | `git-platform` | Detect git hosting platform (`github`, `ado`, or `unknown`) from remote URL |
 | `lint-cli-conventions` | Drift prevention lint — verifies `--help` handling in bin/ scripts and capabilities.md sync |
-| `spec-helper` | Work Package and spec directory management — `wp-*`, `checkpoint-*`, `status`, `next-number`, `init`. Installable package: `uv tool install -e packages/spec-helper` (not in `bin/`) |
+
+### Packages
+
+| Name | Description |
+|------|-------------|
+| `spec-helper` | Work Package and spec directory management — `wp-*`, `checkpoint-*`, `status`, `next-number`, `init`. Install: `uv tool install -e packages/spec-helper` |
 
 ## Evals
 

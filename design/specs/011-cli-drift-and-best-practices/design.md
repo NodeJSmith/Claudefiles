@@ -108,7 +108,7 @@ EOF
 
 ### 5. Fix README count
 
-bin/ contains 21 executables + 1 sourced library (`ado-common.sh`). `spec-helper` is a separate package (`packages/spec-helper/`), not a bin/ script — keep it in a separate section of the README table. Note `ado-common.sh` as "(sourced library, not user-facing)" in the table. Use disambiguating format: "Helper Scripts (21 + 1 library)".
+bin/ contains 22 executables + 1 sourced library (`ado-common.sh`). `spec-helper` is a separate package (`packages/spec-helper/`), not a bin/ script — keep it in a separate section of the README table. Note `ado-common.sh` as "(sourced library, not user-facing)" in the table. Use disambiguating format: "Helper Scripts (22 + 1 library)".
 
 ### 6. Update CLAUDE.md for spec-helper
 
