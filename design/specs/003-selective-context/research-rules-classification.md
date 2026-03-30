@@ -151,7 +151,7 @@ These are rows/sections from larger files, not whole files.
 
 | Group | Lines | % | Source files |
 |-------|-------|---|---|
-| Always Hot | 420 | 30% | `common/coding-style.md`, `common/interaction.md`, `common/hooks.md`, `common/bash-tools.md`, `common/performance.md`, `common/research-escalation.md`, `common/error-tracking.md`, `common/command-output.md`, `common/patterns.md`, `common/security.md` |
+| Always Hot | 416 | 30% | `common/coding-style.md`, `common/interaction.md`, `common/hooks.md`, `common/bash-tools.md`, `common/performance.md`, `common/research-escalation.md`, `common/error-tracking.md`, `common/command-output.md`, `common/patterns.md`, `common/security.md` |
 | Detectable: git | 205 | 15% | `common/git-workflow.md` (136), `common/backlog.md` (69) |
 | Detectable: python | 245 | 18% | `python/coding-style.md` (38), `python/hooks.md` (14), `python/patterns.md` (34), `python/security.md` (22), `python/testing.md` (134), + 3 rows from `common/capabilities.md` |
 | Detectable: worktree | 44 | 3% | `common/worktrees.md` |
