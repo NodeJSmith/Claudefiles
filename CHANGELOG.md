@@ -2,6 +2,22 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-03-30
+
+### Added
+- `bin/lint-cli-conventions` — pre-commit hook that verifies `--help` presence in bin/ scripts and capabilities.md CLI table sync with bin/ contents; prevents drift recurrence
+- `rules/common/lsp.md` — LSP tool guidance for Python symbol navigation (definitions, references, call hierarchy) via pyright
+- `--help` with usage examples on all 21 executable scripts in `bin/` — agents can now discover tool capabilities at runtime
+
+### Changed
+- `skills/mine.gh-tools/SKILL.md` — rewritten to hybrid format (curated examples + `--help` discovery pointer); removed `gh-bot`/`gh-app-token` sections (personal tools, now documented in Dotfiles only)
+- `rules/common/capabilities.md` — removed `gh-bot`, `gh-app-token`, `git-rebase-onto` (external tools); added `agnix-check`, `git-platform`
+- `bin/claude-log` — removed `from __future__ import annotations`, moved lazy imports to top-level, added argparse epilog examples
+- `bin/claude-merge-settings` — moved lazy `import argparse` to top-level, added epilog examples
+
+### Fixed
+- `rules/common/backlog.md` — removed explicit `gh-app-token` tool name reference (auto-loaded rule shouldn't name tools outside this repo's contract)
+
 ## 2026-03-29
 
 ### Added
