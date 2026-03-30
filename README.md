@@ -210,7 +210,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
 | Name | Description |
 |------|-------------|
-| `spec-helper` | Work Package and spec directory management — `wp-*`, `checkpoint-*`, `status`, `next-number`, `init`. Install: `uv tool install -e packages/spec-helper` |
+| `spec-helper` | Work Package and spec directory management — `wp-*`, `checkpoint-*`, `status`, `next-number`, `init`, `archive`. Install: `uv tool install -e packages/spec-helper` |
 
 ## Evals
 

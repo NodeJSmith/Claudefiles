@@ -57,6 +57,22 @@ design/
 
 Freeze gate: WPs are generated from `design.md` by `/mine.draft-plan` before `/mine.plan-review`. `/mine.plan-review` reviews `design.md` plus the existing WPs; once that review is approved, `design.md` is frozen — substantive changes require regenerating WPs via `/mine.draft-plan`.
 
+### Artifact lifecycle
+
+Design artifacts have different lifespans:
+
+| Artifact | Lifespan | Notes |
+|----------|----------|-------|
+| `design.md` | **Permanent** | Captures rationale, alternatives, architecture decisions |
+| `spec.md` | **Permanent** | User-facing requirements |
+| `design/research/` | **Permanent** | Investigation briefs, prior art — referenced by design.md provenance headers |
+| `design/critiques/` | **Permanent** | Review reports — referenced by design.md provenance headers |
+| `tasks/WP*.md` | **Development-only** | Archived after feature ships via `spec-helper archive` |
+
+**Status values** for `design.md` (inline `**Status:**` field): `draft` | `approved` | `abandoned` | `implemented` | `archived`
+
+**Archival convention**: Before merging a caliper feature PR, run `spec-helper archive <NNN-slug>` to delete the `tasks/` directory and set `**Status:** archived`. This keeps WP files available during development and code review, then removes them before merge. Git history preserves the full WP content.
+
 ## How the Pieces Connect
 
 - **Skills** (`skills/<name>/SKILL.md`) are invoked via `/<name>`. Each SKILL.md is a self-contained prompt with instructions, phases, and output format. Skills can reference other skills (e.g., `/mine.ship` chains `/mine.commit-push` + `/mine.create-pr`). Most use the `mine.*` prefix; the `i-*` prefix is used by the Impeccable frontend design bundle.

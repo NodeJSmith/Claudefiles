@@ -1,5 +1,7 @@
 # Design: claude-log Targeted Fixes (v3)
 
+**Status:** archived
+
 ## Problem
 
 `bin/claude-log` (1748 lines) has accumulated dead code, correctness bugs, and performance issues. A 3-critic design challenge (2026-03-21) identified 17 issues. The tool is only ever called by Claude Code (never by humans), yet carries a full ANSI color system, table formatter, and dual human/JSON output paths.

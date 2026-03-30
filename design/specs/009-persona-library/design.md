@@ -1,7 +1,7 @@
 # Design: Extractable Persona Library for Subagent-Launching Skills
 
 **Date:** 2026-03-29
-**Status:** approved
+**Status:** archived
 **Research:** design/research/2026-03-29-persona-library/research.md
 **Experiment data:** design/research/2026-03-29-persona-library/experiment-results.md
 
