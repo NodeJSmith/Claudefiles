@@ -34,7 +34,7 @@ rules/
     hooks.md
     bash-tools.md
     performance.md
-    web-search.md
+    research-escalation.md
     error-tracking.md
     command-output.md
     patterns.md
