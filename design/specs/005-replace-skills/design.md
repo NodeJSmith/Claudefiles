@@ -1,7 +1,7 @@
 # Design: Replace interface-design + visual-explainer with look-and-feel, mockup, and build update
 
 **Date:** 2026-03-19
-**Status:** approved
+**Status:** archived
 **Issue:** #104
 **Prior research:** `design/research/2026-03-19-replace-skills/research.md`, `design/research/2026-03-19-replace-skills/design-direction-research.md`
 **Critique:** `design/critiques/2026-03-19-replace-skills/critique.md`, `design/critiques/2026-03-19-replace-skills/design-doc-critique.md`

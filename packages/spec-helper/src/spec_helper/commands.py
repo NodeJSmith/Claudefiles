@@ -2,8 +2,12 @@
 
 import argparse
 import json
+import os
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -427,6 +431,225 @@ def cmd_checkpoint_delete(args: argparse.Namespace) -> None:
             print(f"Deleted: {path.relative_to(root)}")
         else:
             print("No checkpoint to delete", file=sys.stderr)
+
+
+def cmd_archive(args: argparse.Namespace) -> None:
+    if not args.feature and not getattr(args, "all", False):
+        die(
+            "Specify a feature identifier or use --all to archive all completed specs",
+            json_mode=args.json,
+        )
+
+    # Guard: bare-number resolution ambiguity (before resolution)
+    if args.feature and re.match(r"^\d+$", args.feature):
+        die(
+            "Bare numbers are ambiguous. Use the full identifier "
+            "(e.g., '009-persona-library')",
+            json_mode=args.json,
+        )
+
+    root = find_repo_root()
+    git_root = find_git_root()
+    feature_dirs = resolve_feature_list(root, feature=args.feature, auto=False)
+
+    results: list[dict[str, Any]] = []
+
+    for feature_dir in feature_dirs:
+        name = feature_dir.name
+        tasks_dir = feature_dir / "tasks"
+
+        # Guard: tasks/ must exist
+        if not tasks_dir.exists():
+            results.append(
+                {"feature": name, "status": "skipped", "reason": "no tasks/ directory"}
+            )
+            if not args.all:
+                die(f"No tasks/ directory in {name}", json_mode=args.json)
+            continue
+
+        # Guard: must have WP files (no vacuous pass on empty dir)
+        wps = read_wp_files(feature_dir)
+        if not wps:
+            results.append(
+                {
+                    "feature": name,
+                    "status": "skipped",
+                    "reason": "no WP files in tasks/",
+                }
+            )
+            if not args.all:
+                die(f"No WP files found in {name}/tasks/", json_mode=args.json)
+            continue
+
+        # Guard: all WPs must be in lane "done"
+        non_done = [
+            {
+                "wp_id": wp.get("work_package_id", wp["filename"]),
+                "lane": wp.get("lane", "planned"),
+            }
+            for wp in wps
+            if wp.get("lane", "planned") != "done"
+        ]
+        if non_done:
+            labels = ", ".join(f"{nd['wp_id']} ({nd['lane']})" for nd in non_done)
+            results.append(
+                {
+                    "feature": name,
+                    "status": "skipped",
+                    "reason": f"non-done WPs: {labels}",
+                }
+            )
+            if not args.all:
+                die(f"Not all WPs are done in {name}: {labels}", json_mode=args.json)
+            continue
+
+        # Guard: no active orchestration checkpoint
+        cp_path = checkpoint_path(feature_dir)
+        if cp_path.exists():
+            results.append(
+                {
+                    "feature": name,
+                    "status": "skipped",
+                    "reason": "active orchestration checkpoint",
+                }
+            )
+            if not args.all:
+                die(
+                    f"Active orchestration checkpoint in {name}. "
+                    f"Run 'spec-helper checkpoint-delete {name}' first.",
+                    json_mode=args.json,
+                )
+            continue
+
+        # All checks passed
+        wp_count = len(wps)
+
+        if args.dry_run:
+            results.append(
+                {"feature": name, "status": "would_archive", "wp_count": wp_count}
+            )
+            continue
+
+        # Per-spec exception isolation for --all mode
+        try:
+            _archive_feature(feature_dir, tasks_dir, git_root)
+        except Exception as exc:
+            if args.all:
+                results.append({"feature": name, "status": "error", "reason": str(exc)})
+                continue
+            raise
+
+        results.append({"feature": name, "status": "archived", "wp_count": wp_count})
+
+    # Print results
+    if args.json:
+        print(json.dumps(results, indent=2))
+    else:
+        for r in results:
+            feat_status = r["status"]
+            feat_name = r["feature"]
+            if feat_status == "archived":
+                print(f"  {feat_name}: archived ({r['wp_count']} WPs removed)")
+            elif feat_status == "would_archive":
+                print(f"  {feat_name}: would archive ({r['wp_count']} WPs)")
+            elif feat_status == "error":
+                print(f"  {feat_name}: ERROR — {r['reason']}")
+            elif feat_status == "skipped":
+                print(f"  {feat_name}: skipped — {r['reason']}")
+
+        archived_count = sum(
+            1 for r in results if r["status"] in ("archived", "would_archive")
+        )
+        skipped_count = sum(1 for r in results if r["status"] == "skipped")
+        verb = "Would archive" if args.dry_run else "Archived"
+        print(f"\n{verb}: {archived_count}, Skipped: {skipped_count}")
+
+
+def _archive_feature(feature_dir: Path, tasks_dir: Path, git_root: Path) -> None:
+    """Delete tasks/ and update design.md status for a single feature."""
+    # Delete tasks/ via git rm -r (atomic, traceable)
+    tasks_rel = str(tasks_dir.relative_to(git_root))
+    proc = subprocess.run(
+        ["git", "-C", str(git_root), "rm", "-r", "-q", tasks_rel],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if proc.returncode != 0:
+        # Only fall back to shutil if git says files are untracked
+        stderr = proc.stderr.strip()
+        if "not under version control" in stderr or "did not match" in stderr:
+            print(
+                "  warning: git rm failed (untracked files), removing directly",
+                file=sys.stderr,
+            )
+            shutil.rmtree(tasks_dir)
+        else:
+            raise RuntimeError(f"git rm failed for {tasks_rel}: {stderr}")
+
+    # Update **Status:** in design.md (last, after confirmed deletion)
+    if not _update_design_status(feature_dir, "archived"):
+        print(
+            f"  warning: no design.md in {feature_dir.name} — status not updated",
+            file=sys.stderr,
+        )
+
+
+def _update_design_status(feature_dir: Path, new_status: str) -> bool:
+    """Update **Status:** line in design.md. Appends if missing.
+
+    Only matches **Status:** in the first 15 lines to avoid rewriting
+    occurrences in tables, code blocks, or examples deeper in the file.
+
+    Returns True if design.md was updated, False if it doesn't exist.
+    """
+    design_path = feature_dir / "design.md"
+    if not design_path.exists():
+        return False
+
+    text = design_path.read_text()
+    original_lines = text.splitlines(keepends=True)
+    status_pattern = re.compile(r"^\*\*Status:\*\*\s+.+$")
+
+    # Build new lines list — only match in the first 15 lines (header area)
+    new_lines: list[str] = []
+    found = False
+    for i, line in enumerate(original_lines):
+        if not found and i < 15 and status_pattern.match(line.strip()):
+            new_lines.append(f"**Status:** {new_status}\n")
+            found = True
+        else:
+            new_lines.append(line)
+
+    if not found:
+        # Insert after the first heading line
+        result: list[str] = []
+        inserted = False
+        for line in new_lines:
+            result.append(line)
+            if line.startswith("# ") and not inserted:
+                result.append(f"\n**Status:** {new_status}\n")
+                inserted = True
+        new_lines = (
+            result if inserted else [*new_lines, f"\n**Status:** {new_status}\n"]
+        )
+
+    # Atomic write — temp file + os.replace to avoid truncation on crash
+    new_text = "".join(new_lines)
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", dir=design_path.parent, delete=False, suffix=".md"
+        ) as tmp:
+            tmp.write(new_text)
+            tmp_path = tmp.name
+        os.replace(tmp_path, design_path)
+    except Exception:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise
+
+    return True
 
 
 def cmd_status(args: argparse.Namespace) -> None:

@@ -1,6 +1,6 @@
 # Design: Context Diet — Compress Routing Tables
 
-**Status:** implemented
+**Status:** archived
 **Problem:** `capabilities.md` (23,256 chars) and `agents.md` (11,483 chars) account for 48% of always-loaded rules context (~34K of 73K total chars). Most of this is verbose documentation that Claude doesn't need in every conversation — it only needs enough to route intents to the right skill/agent/tool.
 
 **Prior research:** `design/research/2026-03-15-bookmark-analysis/`

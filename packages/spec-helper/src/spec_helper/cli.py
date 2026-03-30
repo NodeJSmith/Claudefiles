@@ -4,6 +4,7 @@ import argparse
 import sys
 
 from spec_helper.commands import (
+    cmd_archive,
     cmd_checkpoint_delete,
     cmd_checkpoint_init,
     cmd_checkpoint_read,
@@ -99,6 +100,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="Feature identifier (NNN, NNN-slug, or full dir name); optional with --auto",
     )
     _add_auto_flag(p_list)
+
+    # archive
+    p_archive = sub.add_parser(
+        "archive",
+        help="Archive completed specs by removing tasks/ and updating Status",
+    )
+    p_archive.add_argument(
+        "feature",
+        nargs="?",
+        default=None,
+        help="Feature identifier (NNN-slug or full dir name); optional with --all",
+    )
+    p_archive.add_argument(
+        "--all",
+        action="store_true",
+        dest="all",
+        help="Archive all specs where every WP is done",
+    )
+    p_archive.add_argument(
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        help="Show what would be archived without making changes",
+    )
+    _add_json_flag(p_archive)
 
     # next-number
     p_next = sub.add_parser("next-number", help="Print next available feature number")
@@ -205,6 +231,7 @@ def main() -> None:
         args.json = True
 
     dispatch = {
+        "archive": cmd_archive,
         "init": cmd_init,
         "wp-move": cmd_wp_move,
         "wp-validate": cmd_wp_validate,

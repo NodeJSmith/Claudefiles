@@ -1,7 +1,7 @@
 # Design: Orchestrate Resilience
 
 **Date:** 2026-03-25
-**Status:** approved
+**Status:** archived
 **Research:** design/research/2026-03-25-orchestrate-checkpoint/research.md
 
 ## Problem

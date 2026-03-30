@@ -1,7 +1,7 @@
 # Design: CLI Drift Fix and Agent-Friendly Best Practices
 
 **Date:** 2026-03-29
-**Status:** approved
+**Status:** archived
 **Research:** /tmp/claude-cli-audit-Ey5ovh/findings.md (researcher agent output from this session)
 
 ## Problem

@@ -39,6 +39,7 @@
 | "execute the plan", "orchestrate implementation", "start executing" | `/mine.orchestrate` |
 | "review the implementation", "post-implementation review" | `/mine.orchestrate` (impl-review runs automatically in Phase 3) |
 | "move WP to doing", "WP status", "kanban" | `/mine.wp` |
+| "archive completed specs", "clean up old WPs", "remove working documents", "one-time cleanup of design files" | `spec-helper archive --all` |
 | "review my changes", "run the reviewers", "code and integration review" | `/mine.review` |
 | "create a skill", "write a skill", "new skill" | `/mine.write-skill` |
 | "rebase this worktree", "sync worktree to parent branch" | `/mine.worktree-rebase` |

@@ -1,7 +1,7 @@
 # Design: Caliper v2 Workflow Improvements
 
 **Date:** 2026-03-16
-**Status:** implemented
+**Status:** archived
 
 ## Problem
 

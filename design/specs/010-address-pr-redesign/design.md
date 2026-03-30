@@ -1,7 +1,7 @@
 # Design: Redesign mine.address-pr-issues
 
 **Date:** 2026-03-27
-**Status:** approved
+**Status:** archived
 **Research:** /tmp/claude-mine-challenge-sy7NbQ/ (findings.md, research.md, platform-research.md)
 
 ## Problem

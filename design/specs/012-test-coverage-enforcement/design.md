@@ -1,7 +1,7 @@
 # Design: Test Coverage Enforcement in the Caliper v2 Workflow
 
 **Date:** 2026-03-27
-**Status:** approved
+**Status:** archived
 **Research:** /tmp/claude-mine-design-research-test-coverage/brief.md
 
 ## Problem
