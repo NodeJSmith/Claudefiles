@@ -175,7 +175,7 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 
 Coding guidelines that load automatically and shape how Claude writes code.
 
-**Common** (15): agents, backlog, bash-tools, capabilities, coding-style, command-output, error-tracking, frontend-workflow, git-workflow, interaction, performance, testing, tmux, web-search, worktrees
+**Common** (16): agents, backlog, bash-tools, capabilities, coding-style, command-output, error-tracking, frontend-workflow, git-workflow, interaction, lsp, performance, testing, tmux, web-search, worktrees
 
 ### Helper Scripts (22 + 1 library)
 
