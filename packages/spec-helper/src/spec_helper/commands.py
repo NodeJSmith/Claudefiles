@@ -588,18 +588,24 @@ def _archive_feature(feature_dir: Path, tasks_dir: Path, git_root: Path) -> None
             raise RuntimeError(f"git rm failed for {tasks_rel}: {stderr}")
 
     # Update **Status:** in design.md (last, after confirmed deletion)
-    _update_design_status(feature_dir, "archived")
+    if not _update_design_status(feature_dir, "archived"):
+        print(
+            f"  warning: no design.md in {feature_dir.name} — status not updated",
+            file=sys.stderr,
+        )
 
 
-def _update_design_status(feature_dir: Path, new_status: str) -> None:
+def _update_design_status(feature_dir: Path, new_status: str) -> bool:
     """Update **Status:** line in design.md. Appends if missing.
 
     Only matches **Status:** in the first 15 lines to avoid rewriting
     occurrences in tables, code blocks, or examples deeper in the file.
+
+    Returns True if design.md was updated, False if it doesn't exist.
     """
     design_path = feature_dir / "design.md"
     if not design_path.exists():
-        return
+        return False
 
     text = design_path.read_text()
     original_lines = text.splitlines(keepends=True)
@@ -642,6 +648,8 @@ def _update_design_status(feature_dir: Path, new_status: str) -> None:
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
         raise
+
+    return True
 
 
 def cmd_status(args: argparse.Namespace) -> None:
