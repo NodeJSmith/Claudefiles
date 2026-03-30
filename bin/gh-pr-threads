@@ -14,6 +14,28 @@ pr_number=""
 
 for arg in "$@"; do
   case "$arg" in
+    -h | --help)
+      cat << 'EOF'
+Usage: gh-pr-threads [--json] [--all] [pr-number]
+
+List PR review threads with summary.
+
+Options:
+  --json   Emit raw thread nodes as a JSON array (skip human-readable formatting)
+  --all    Include resolved threads (default: unresolved only)
+  -h, --help  Show this help message and exit
+
+If no PR number given, auto-detects from current branch.
+
+Examples:
+  gh-pr-threads                  # unresolved threads on current branch's PR
+  gh-pr-threads 42               # unresolved threads on PR #42
+  gh-pr-threads --all 42         # all threads (including resolved) on PR #42
+  gh-pr-threads --json 42        # raw JSON output for scripting
+  gh-pr-threads 42 --json --all  # combine flags in any order
+EOF
+      exit 0
+      ;;
     --json) output_json=true ;;
     --all) show_all=true ;;
     *) pr_number="$arg" ;;

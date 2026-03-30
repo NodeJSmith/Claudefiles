@@ -14,18 +14,16 @@ Subcommands:
 All JSONL files live under ~/.claude/projects/*/.
 """
 
-from __future__ import annotations
-
 import argparse
 import json
+import os
 import re
 import sys
+from collections.abc import Generator, Sequence
 from datetime import datetime, timezone
+from itertools import islice
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from collections.abc import Generator, Sequence
+from typing import Any
 
 PROJECTS_DIR = Path.home() / ".claude" / "projects"
 
@@ -700,7 +698,6 @@ def _discover_on_disk() -> set[str]:
 
     Respects $CLAUDE_HOME if set.
     """
-    import os
 
     claude_dir = Path(os.environ.get("CLAUDE_HOME", Path.home() / ".claude"))
     names: set[str] = set()
@@ -1045,8 +1042,6 @@ def _extract_tools(
         grep=grep,
     )
     if limit is not None:
-        from itertools import islice
-
         results = list(islice(gen, limit))
     else:
         results = list(gen)
@@ -1168,6 +1163,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="claude-log",
         description="Query Claude Code JSONL session logs.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+Examples:
+  claude-log list                        # list recent sessions
+  claude-log list -p Dotfiles            # filter by project name
+  claude-log show <session-id>           # show full session content
+  claude-log search "error" --since 2024-01-01
+  claude-log stats <session-id>          # token usage and tool stats
+  claude-log grep "pytest"               # search bash commands across sessions
+""",
     )
 
     subs = parser.add_subparsers(dest="command", required=True)
@@ -1176,10 +1181,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_list = subs.add_parser(
         "list",
         help="List sessions",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         description=(
             "List sessions. JSON output fields: session_id, project, project_path, "
             "date, timestamp, messages, branch, path."
         ),
+        epilog="""\
+Examples:
+  claude-log list                        # 20 most recent sessions
+  claude-log list -l 50                  # last 50 sessions
+  claude-log list -p Dotfiles            # filter by project name
+  claude-log list --since 2024-03-01     # sessions after a date
+  claude-log list --cwd /home/user/repo  # filter by working directory
+""",
     )
     p_list.add_argument("--project", "-p", help="Filter by project name substring")
     p_list.add_argument("--cwd", help="Filter by working directory path substring")
@@ -1193,7 +1207,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # show
-    p_show = subs.add_parser("show", help="Show session content")
+    p_show = subs.add_parser(
+        "show",
+        help="Show session content",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+Examples:
+  claude-log show abc123                 # show full session
+  claude-log show abc123 --messages      # user + assistant text only
+  claude-log show abc123 --tools         # tool use blocks only
+  claude-log show abc123 --user          # user messages only
+  claude-log show abc123 --usage         # token usage per turn
+  claude-log show abc123 -l 10           # first 10 entries only
+""",
+    )
     p_show.add_argument("session_id", help="Session ID or prefix")
     p_show.add_argument(
         "--messages", "-m", action="store_true", help="User + assistant text only"
@@ -1219,6 +1246,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_search = subs.add_parser(
         "search",
         help="Search across sessions (regex by default)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+Examples:
+  claude-log search "error"              # regex search across all sessions
+  claude-log search "exact phrase" -F    # fixed string (literal) search
+  claude-log search "bug" -p Dotfiles    # search within a project
+  claude-log search "fix" --type user    # search only user messages
+  claude-log search "TODO" --since 2024-01-01 -l 10
+""",
     )
     p_search.add_argument("query", help="Search pattern (regex by default)")
     p_search.add_argument(
@@ -1241,7 +1277,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # stats
-    p_stats = subs.add_parser("stats", help="Session statistics")
+    p_stats = subs.add_parser(
+        "stats",
+        help="Session statistics",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+Examples:
+  claude-log stats abc123                # full stats for a session
+  claude-log stats abc1                  # prefix match works too
+""",
+    )
     p_stats.add_argument("session_id", help="Session ID or prefix")
 
     # skills
@@ -1284,7 +1329,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_grep = subs.add_parser(
         "grep",
         help="Search bash commands across sessions (regex by default)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         description="Search bash commands across multiple sessions. Like 'extract --bash --grep' but cross-session.",
+        epilog="""\
+Examples:
+  claude-log grep "pytest"               # find pytest runs across sessions
+  claude-log grep "docker" -p myapp      # docker commands in a project
+  claude-log grep "pip install" -F       # literal string search
+  claude-log grep "git push" --since 2024-03-01
+""",
     )
     p_grep.add_argument("pattern", help="Search pattern (regex by default)")
     p_grep.add_argument(

@@ -10,6 +10,22 @@
 # Exit codes:
 #   0  always (best-effort output)
 
+[[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && {
+  cat << 'EOF'
+Usage: git-branch-diff-stat
+
+Print git diff --stat for the current branch vs its base.
+
+Uses git-branch-base to find the base ref, then shows insertions/deletions
+per file.
+
+Examples:
+  git-branch-diff-stat               # show diff stats
+  git-branch-diff-stat | tail -1     # just the summary line
+EOF
+  exit 0
+}
+
 set -uo pipefail
 
 base=$(git-branch-base 2> /dev/null) || exit 0

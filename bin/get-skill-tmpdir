@@ -9,6 +9,23 @@
 #
 # All paths start with claude- for consistent allowlisting.
 # Permission: add Bash(get-skill-tmpdir:*) to allowedTools for auto-approve.
+[[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && {
+  cat << 'EOF'
+Usage: get-skill-tmpdir <skill-name>
+
+Create a unique temp directory for a skill run. Prints the path to stdout.
+
+All paths start with "claude-" for consistent allowlisting. Do NOT wrap
+this command in $() in Bash tool calls — run it bare, then use the printed
+path in the next command.
+
+Examples:
+  get-skill-tmpdir mine-challenge    # /tmp/claude-mine-challenge-a8Kx3Q
+  get-skill-tmpdir mine-audit        # /tmp/claude-mine-audit-x9Zk2P
+EOF
+  exit 0
+}
+
 set -euo pipefail
 prefix="${1:?usage: get-skill-tmpdir <skill-name>}"
 mktemp -d "${CLAUDE_CODE_TMPDIR:-/tmp}/claude-${prefix}-XXXXXX"

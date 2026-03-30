@@ -12,6 +12,23 @@
 #   0  found a base ref (printed to stdout)
 #   1  could not determine a base ref
 
+[[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && {
+  cat << 'EOF'
+Usage: git-branch-base
+
+Print the base ref for the current branch (closest remote ancestor).
+
+Finds the remote branch with the fewest commits ahead of HEAD. Falls back
+to origin/<default-branch> or <default-branch> if no closer match exists.
+
+Examples:
+  git-branch-base                    # prints e.g. "origin/main"
+  git diff "$(git-branch-base)"      # diff against base branch
+  git log "$(git-branch-base)..HEAD" # commits on this branch
+EOF
+  exit 0
+}
+
 set -uo pipefail
 
 current=$(git branch --show-current 2> /dev/null) || current=""

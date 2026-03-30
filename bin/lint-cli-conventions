@@ -1,0 +1,167 @@
+#!/usr/bin/env bash
+# Drift prevention lint for CLI conventions in this repo.
+# Wired as a repo:local pre-commit hook (always_run: true).
+#
+# Two checks:
+#   1. Every executable in bin/ has --help handling (bash: case/conditional; Python: argparse)
+#   2. Every tool in the capabilities.md CLI Tools table exists in bin/ (or is EXTERNAL)
+set -euo pipefail
+
+# --- help ----------------------------------------------------------------
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  cat << 'EOF'
+Usage: lint-cli-conventions
+
+Verify CLI conventions across the Claudefiles repo:
+
+  1. --help check: every executable in bin/ handles --help
+     (bash via case/conditional, Python via argparse import).
+  2. capabilities.md sync: every tool listed in the CLI Tools table
+     has a matching executable in bin/ (or an # EXTERNAL: exemption).
+
+Exit 0 if all checks pass, exit 1 with details on failures.
+
+Options:
+  -h, --help    Show this help message and exit
+
+Exemptions:
+  - Plumbing scripts (ado-common.sh) are exempt from the --help check.
+  - Tools marked with "# EXTERNAL: tool-name" in capabilities.md are
+    exempt from the bin/ existence check.
+EOF
+  exit 0
+fi
+
+# --- locate repo root ----------------------------------------------------
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+BIN_DIR="${REPO_ROOT}/bin"
+CAPABILITIES="${REPO_ROOT}/rules/common/capabilities.md"
+
+failures=0
+
+# --- plumbing exemptions (no --help required) ----------------------------
+# Exempt: sourced libraries not directly invoked
+HELP_EXEMPT="ado-common.sh"
+
+# --- check 1: --help presence --------------------------------------------
+echo "=== Check 1: --help handling ==="
+
+for script in "${BIN_DIR}"/*; do
+  [[ -f "$script" ]] || continue
+  [[ -x "$script" ]] || continue
+
+  name="$(basename "$script")"
+
+  # skip exempted plumbing scripts
+  if echo "$HELP_EXEMPT" | grep -qw "$name"; then
+    continue
+  fi
+
+  shebang="$(head -1 "$script")"
+
+  if echo "$shebang" | grep -qE 'python|uv run'; then
+    # Python script: must import argparse
+    if ! grep -q 'import argparse' "$script"; then
+      echo "FAIL: $name — Python script missing 'import argparse'"
+      failures=$((failures + 1))
+    fi
+  else
+    # Bash/shell script: must reference --help in a case or conditional
+    if ! grep -qE '"\$\{1:-\}"[[:space:]]*==[[:space:]]*"--help"|--help\)?|-h[[:space:]]*\|[[:space:]]*--help' "$script"; then
+      echo "FAIL: $name — shell script missing --help handler"
+      failures=$((failures + 1))
+    fi
+  fi
+done
+
+if [[ $failures -eq 0 ]]; then
+  echo "OK: all executables have --help handling"
+fi
+
+# --- check 2: capabilities.md sync --------------------------------------
+echo ""
+echo "=== Check 2: capabilities.md CLI Tools table sync ==="
+
+if [[ ! -f "$CAPABILITIES" ]]; then
+  echo "FAIL: capabilities.md not found at $CAPABILITIES"
+  exit 1
+fi
+
+if ! grep -q '^## CLI Tools' "$CAPABILITIES"; then
+  echo "FAIL: capabilities.md has no '## CLI Tools' heading — the lint check cannot validate the CLI table"
+  exit 1
+fi
+
+# Collect # EXTERNAL: exemptions
+EXTERNAL_EXEMPT=""
+while IFS= read -r line; do
+  tool="$(echo "$line" | sed -n 's/.*# EXTERNAL: *\([^ ]*\).*/\1/p')"
+  if [[ -n "$tool" ]]; then
+    EXTERNAL_EXEMPT="$EXTERNAL_EXEMPT $tool"
+  fi
+done < "$CAPABILITIES"
+
+# Parse CLI Tools table: find rows matching | ... | `tool-name` |
+in_cli_table=0
+sync_failures=0
+
+while IFS= read -r line; do
+  # Detect start of CLI Tools table (header row after ## CLI Tools)
+  if [[ "$line" =~ ^##[[:space:]]+CLI[[:space:]]+Tools ]]; then
+    in_cli_table=1
+    continue
+  fi
+
+  # Stop at next heading
+  if [[ $in_cli_table -eq 1 && "$line" =~ ^## ]]; then
+    break
+  fi
+
+  # Skip non-table lines and header separator
+  if [[ $in_cli_table -eq 0 ]]; then
+    continue
+  fi
+  if [[ ! "$line" =~ ^\| ]]; then
+    continue
+  fi
+  # Skip separator row (|---|---|) and header row
+  if [[ "$line" =~ ^\|[[:space:]]*-+ ]]; then
+    continue
+  fi
+  if [[ "$line" =~ "User says" ]]; then
+    continue
+  fi
+
+  # Extract tool name from second column: | ... | `tool-name` |
+  tool="$(echo "$line" | sed -n 's/.*| *`\([^`]*\)` *|.*/\1/p')"
+  if [[ -z "$tool" ]]; then
+    continue
+  fi
+
+  # Check exemption
+  if echo "$EXTERNAL_EXEMPT" | grep -qw "$tool"; then
+    continue
+  fi
+
+  # Check existence in bin/
+  if [[ ! -f "${BIN_DIR}/${tool}" ]]; then
+    echo "FAIL: capabilities.md lists '$tool' but bin/$tool does not exist"
+    sync_failures=$((sync_failures + 1))
+  fi
+done < "$CAPABILITIES"
+
+failures=$((failures + sync_failures))
+
+if [[ $sync_failures -eq 0 ]]; then
+  echo "OK: all CLI Tools table entries have matching bin/ executables"
+fi
+
+# --- summary -------------------------------------------------------------
+echo ""
+if [[ $failures -gt 0 ]]; then
+  echo "FAILED: $failures issue(s) found"
+  exit 1
+else
+  echo "All checks passed"
+  exit 0
+fi

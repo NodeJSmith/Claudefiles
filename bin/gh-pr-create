@@ -5,6 +5,30 @@
 
 set -euo pipefail
 
+# --- Help guard (before bot-token preamble to avoid triggering token fetch) ---
+for arg in "$@"; do
+  case "$arg" in
+    -h | --help)
+      cat << 'EOF'
+Usage: gh-pr-create [gh pr create flags...]
+
+Create a GitHub PR using bot token if available, personal token otherwise.
+Passes all arguments through to `gh pr create`.
+
+Options:
+  -h, --help  Show this help message and exit
+
+Examples:
+  gh-pr-create --title "Add feature" --body "Description"
+  gh-pr-create --fill                    # auto-fill title and body from commits
+  gh-pr-create --draft --fill            # create as draft PR
+  gh-pr-create --base main --fill        # target specific base branch
+EOF
+      exit 0
+      ;;
+  esac
+done
+
 # Use GitHub App bot token if gh-app-token is installed and configured.
 # This is optional — if gh-app-token doesn't exist or GITHUB_APP_ID is unset,
 # the script falls back to the default GH_TOKEN (your personal token).

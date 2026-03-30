@@ -38,7 +38,53 @@ cmd="$1"
 shift
 
 case "$cmd" in
+  --help | -h)
+    cat << 'EOF'
+ado-builds — Azure DevOps build management
+
+Usage: ado-builds <command> [args...]
+
+Commands:
+  list [--tags TAG] [--branch BRANCH] [--status STATUS] [--top N] [--json]
+      List builds with optional filters. Defaults: --top 50.
+
+  cancel <build-id> [build-id...]
+      Cancel one or more builds by ID. Skips already completed/cancelled builds.
+
+  cancel-by-tag <tag> [--branch BRANCH]
+      Cancel all in-progress builds matching a tag.
+
+Examples:
+  ado-builds list --status inProgress
+  ado-builds list --tags deploy --branch main --top 10
+  ado-builds cancel 12345 12346
+  ado-builds cancel-by-tag deploy --branch release/2.0
+
+Use "ado-builds <command> --help" for subcommand details.
+EOF
+    exit 0
+    ;;
   list)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+      cat << 'EOF'
+ado-builds list — list pipeline builds
+
+Usage: ado-builds list [--tags TAG] [--branch BRANCH] [--status STATUS] [--top N] [--json]
+
+Options:
+  --tags TAG       Filter by build tag
+  --branch BRANCH  Filter by source branch
+  --status STATUS  Filter by status (inProgress, completed, cancelling, etc.)
+  --top N          Max results (default: 50)
+  --json           Output raw JSON
+
+Examples:
+  ado-builds list --status inProgress
+  ado-builds list --tags deploy --branch main --json
+EOF
+      exit 0
+    fi
+
     tags=""
     branch=""
     status=""
@@ -95,6 +141,21 @@ case "$cmd" in
     ;;
 
   cancel)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+      cat << 'EOF'
+ado-builds cancel — cancel builds by ID
+
+Usage: ado-builds cancel <build-id> [build-id...]
+
+Cancels one or more builds. Skips builds that are already completed or cancelling.
+
+Examples:
+  ado-builds cancel 12345
+  ado-builds cancel 12345 12346 12347
+EOF
+      exit 0
+    fi
+
     if [[ $# -lt 1 ]]; then
       echo "Usage: ado-builds cancel <build-id> [build-id...]" >&2
       exit 1
@@ -115,6 +176,24 @@ case "$cmd" in
     ;;
 
   cancel-by-tag)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+      cat << 'EOF'
+ado-builds cancel-by-tag — cancel builds by tag
+
+Usage: ado-builds cancel-by-tag <tag> [--branch BRANCH]
+
+Cancels all in-progress builds matching a tag. Defaults to the branch from git-default-branch.
+
+Options:
+  --branch BRANCH  Filter by source branch (default: from git-default-branch)
+
+Examples:
+  ado-builds cancel-by-tag deploy
+  ado-builds cancel-by-tag nightly --branch release/2.0
+EOF
+      exit 0
+    fi
+
     if [[ $# -lt 1 ]]; then
       echo "Usage: ado-builds cancel-by-tag <tag> [--branch BRANCH]" >&2
       exit 1

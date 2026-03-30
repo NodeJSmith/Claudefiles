@@ -75,7 +75,61 @@ cmd="$1"
 shift
 
 case "$cmd" in
+  --help | -h)
+    cat << 'EOF'
+ado-pr — Azure DevOps PR helper
+
+Usage: ado-pr <command> [args...]
+
+Commands:
+  list [--status STATUS] [--author AUTHOR] [--target BRANCH] [--top N] [--json]
+      List PRs. Defaults: --status active, --top 50.
+
+  show [PR_ID] [--json]
+      Show PR details. Auto-detects from current branch if PR_ID omitted.
+
+  current [--json]
+      Show PR for current branch (errors if no PR found).
+
+  create [--title TITLE] [--description DESC] [--target BRANCH] [--draft] [--json]
+      Create PR from current branch. Default target: from git-default-branch.
+
+  update PR_ID [--title TITLE] [--description DESC] [--status STATUS]
+      Update PR fields. Status: active, abandoned, completed.
+
+Examples:
+  ado-pr list --author @me
+  ado-pr show 42 --json
+  ado-pr current
+  ado-pr create --title "Add feature" --draft
+  ado-pr update 42 --status completed
+
+Use "ado-pr <command> --help" for subcommand details.
+EOF
+    exit 0
+    ;;
   list)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+      cat << 'EOF'
+ado-pr list — list pull requests
+
+Usage: ado-pr list [--status STATUS] [--author AUTHOR] [--target BRANCH] [--top N] [--json]
+
+Options:
+  --status STATUS   Filter by status (default: active)
+  --author AUTHOR   Filter by author (@me expands to current user)
+  --target BRANCH   Filter by target branch
+  --top N           Max results (default: 50)
+  --json            Output raw JSON
+
+Examples:
+  ado-pr list --author @me
+  ado-pr list --status completed --top 10
+  ado-pr list --target main --json
+EOF
+      exit 0
+    fi
+
     status="active"
     author=""
     target=""
@@ -132,6 +186,24 @@ case "$cmd" in
     ;;
 
   show)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+      cat << 'EOF'
+ado-pr show — show PR details
+
+Usage: ado-pr show [PR_ID] [--json]
+
+Auto-detects PR from current branch if PR_ID is omitted.
+
+Options:
+  --json  Output raw JSON
+
+Examples:
+  ado-pr show 42
+  ado-pr show --json
+EOF
+      exit 0
+    fi
+
     pr_id=""
     output_json=false
 
@@ -167,6 +239,24 @@ case "$cmd" in
     ;;
 
   current)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+      cat << 'EOF'
+ado-pr current — show PR for current branch
+
+Usage: ado-pr current [--json]
+
+Errors if no PR is found for the current branch.
+
+Options:
+  --json  Output raw JSON
+
+Examples:
+  ado-pr current
+  ado-pr current --json
+EOF
+      exit 0
+    fi
+
     output_json=false
 
     while [[ $# -gt 0 ]]; do
@@ -194,6 +284,28 @@ case "$cmd" in
     ;;
 
   create)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+      cat << 'EOF'
+ado-pr create — create a pull request
+
+Usage: ado-pr create [--title TITLE] [--description DESC] [--target BRANCH] [--draft] [--json]
+
+Creates a PR from the current branch. Default target: from git-default-branch.
+
+Options:
+  --title TITLE        PR title
+  --description DESC   PR description
+  --target BRANCH      Target branch (default: from git-default-branch)
+  --draft              Create as draft PR
+  --json               Output raw JSON
+
+Examples:
+  ado-pr create --title "Add feature" --draft
+  ado-pr create --title "Fix bug" --target release/2.0
+EOF
+      exit 0
+    fi
+
     title=""
     description=""
     target=$(git-default-branch 2> /dev/null || echo "master")
@@ -253,6 +365,23 @@ case "$cmd" in
     ;;
 
   update)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+      cat << 'EOF'
+ado-pr update — update PR fields
+
+Usage: ado-pr update PR_ID [--title TITLE] [--description DESC] [--status STATUS]
+
+At least one of --title, --description, or --status is required.
+Status values: active, abandoned, completed.
+
+Examples:
+  ado-pr update 42 --title "New title"
+  ado-pr update 42 --status completed
+  ado-pr update 42 --description "Updated description" --title "Better title"
+EOF
+      exit 0
+    fi
+
     if [[ $# -lt 1 ]]; then
       echo "Usage: ado-pr update PR_ID [--title TITLE] [--description DESC] [--status STATUS]" >&2
       exit 1

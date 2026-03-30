@@ -71,7 +71,6 @@ Tests that natural-language user prompts trigger the correct skill, agent, or CL
 | File | Rule | Assertion |
 |------|------|-----------|
 | `tools/gh-pr-reply.yaml` | Use `gh-pr-reply` for PR comment replies | `gh-pr-reply` in Bash call; no raw `gh api` |
-| `tools/skill-cross-reference.yaml` | "See skill:" cross-references teach correct tool usage | `gh-pr-reply` with correct flags; cross-ref loads skill; no-docs baseline fumbles |
 | `rules/dedicated-tools.yaml` | Use Grep/Glob/Read not Bash cat/grep/find | Dedicated tools present; no Bash file-op violations |
 
 ## Interpreting Results

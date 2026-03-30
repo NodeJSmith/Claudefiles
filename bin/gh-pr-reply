@@ -7,6 +7,28 @@
 
 set -euo pipefail
 
+# --- Help guard (before bot-token preamble to avoid triggering token fetch) ---
+for arg in "$@"; do
+  case "$arg" in
+    -h | --help)
+      cat << 'EOF'
+Usage: gh-pr-reply <pr-number> <comment-id> <body> [--resolve <thread-id>]
+
+Reply to a PR review comment thread and optionally resolve it.
+
+Options:
+  --resolve <thread-id>  GraphQL thread node ID (PRRT_...) to resolve after replying
+  -h, --help             Show this help message and exit
+
+Examples:
+  gh-pr-reply 42 12345 "Fixed in latest commit"
+  gh-pr-reply 42 12345 "Done" --resolve PRRT_abc123
+EOF
+      exit 0
+      ;;
+  esac
+done
+
 # Use GitHub App bot token if gh-app-token is installed and configured.
 # This is optional — if gh-app-token doesn't exist or GITHUB_APP_ID is unset,
 # the script falls back to the default GH_TOKEN (your personal token).

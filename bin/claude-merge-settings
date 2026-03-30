@@ -18,6 +18,7 @@ Merge strategy:
   - Everything else: deep merge, last wins
 """
 
+import argparse
 import json
 import os
 import sys
@@ -205,9 +206,15 @@ def _cmd_inspect(output_file: Path) -> int:
 
 
 def main() -> int:
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Merge Claude Code settings layers")
+    parser = argparse.ArgumentParser(
+        description="Merge Claude Code settings layers",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+Examples:
+  claude-merge-settings              # merge all layers into ~/.claude/settings.json
+  claude-merge-settings --inspect    # print current permissions/hooks summary
+""",
+    )
     parser.add_argument(
         "--inspect",
         action="store_true",

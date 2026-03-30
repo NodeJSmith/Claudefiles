@@ -83,7 +83,55 @@ cmd="$1"
 shift
 
 case "$cmd" in
+  --help | -h)
+    cat << 'EOF'
+ado-logs — Azure DevOps CI log viewer
+
+Usage: ado-logs <command> [args...]
+
+Commands:
+  list <build-id> [--failed] [--type TYPE] [--json]
+      Show timeline steps: order, type, name, result, log ID, issues, duration.
+
+  get <build-id> <log-id> [--tail N] [--head N]
+      Fetch raw log content for a specific log ID.
+
+  errors <build-id> [--with-log [N]] [--json]
+      Show failed steps with error/warning messages from timeline issues.
+
+  search <build-id> <pattern> [--step NAME] [--context N]
+      Grep for a pattern across build logs.
+
+Examples:
+  ado-logs list 12345 --failed
+  ado-logs get 12345 42 --tail 100
+  ado-logs errors 12345 --with-log 80
+  ado-logs search 12345 "error CS" --step "Build" --context 5
+
+Use "ado-logs <command> --help" for subcommand details.
+EOF
+    exit 0
+    ;;
   list)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+      cat << 'EOF'
+ado-logs list — show build timeline steps
+
+Usage: ado-logs list <build-id> [--failed] [--type TYPE] [--json]
+
+Options:
+  --failed       Only show failed/succeededWithIssues records
+  --type TYPE    Filter by record type (Task, Job, Stage)
+  --json         Output raw JSON
+
+Examples:
+  ado-logs list 12345
+  ado-logs list 12345 --failed
+  ado-logs list 12345 --type Task --failed
+EOF
+      exit 0
+    fi
+
     if [[ $# -lt 1 ]]; then
       echo "Usage: ado-logs list <build-id> [--failed] [--type TYPE] [--json]" >&2
       exit 1
@@ -161,6 +209,24 @@ case "$cmd" in
     ;;
 
   get)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+      cat << 'EOF'
+ado-logs get — fetch raw log content
+
+Usage: ado-logs get <build-id> <log-id> [--tail N] [--head N]
+
+Options:
+  --head N  First N lines (uses API startLine/endLine)
+  --tail N  Last N lines (downloads full log, pipes through tail)
+
+Examples:
+  ado-logs get 12345 42
+  ado-logs get 12345 42 --tail 100
+  ado-logs get 12345 42 --head 20
+EOF
+      exit 0
+    fi
+
     if [[ $# -lt 2 ]]; then
       echo "Usage: ado-logs get <build-id> <log-id> [--tail N] [--head N]" >&2
       exit 1
@@ -213,6 +279,24 @@ case "$cmd" in
     ;;
 
   errors)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+      cat << 'EOF'
+ado-logs errors — show failed steps with error messages
+
+Usage: ado-logs errors <build-id> [--with-log [N]] [--json]
+
+Options:
+  --with-log [N]  Append last N lines of each failed step's log (default: 50)
+  --json          Output raw JSON
+
+Examples:
+  ado-logs errors 12345
+  ado-logs errors 12345 --with-log
+  ado-logs errors 12345 --with-log 100 --json
+EOF
+      exit 0
+    fi
+
     if [[ $# -lt 1 ]]; then
       echo "Usage: ado-logs errors <build-id> [--with-log [N]] [--json]" >&2
       exit 1
@@ -294,6 +378,23 @@ case "$cmd" in
     ;;
 
   search)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+      cat << 'EOF'
+ado-logs search — grep for a pattern across build logs
+
+Usage: ado-logs search <build-id> <pattern> [--step NAME] [--context N]
+
+Options:
+  --step NAME    Only search steps matching NAME (substring, reduces API calls)
+  --context N    Lines of context around matches (default: 3)
+
+Examples:
+  ado-logs search 12345 "error CS"
+  ado-logs search 12345 "OutOfMemory" --step "Build" --context 5
+EOF
+      exit 0
+    fi
+
     if [[ $# -lt 2 ]]; then
       echo "Usage: ado-logs search <build-id> <pattern> [--step NAME] [--context N]" >&2
       exit 1

@@ -22,6 +22,7 @@
 set -euo pipefail
 
 # Source shared ADO utilities (resolve symlink to find real bin/ dir)
+# Pin to 7.0 — thread API status field values and resolvedBy field changed in 7.1. Upgrade requires testing resolve/reply round-trips against a real ADO instance.
 ADO_API_VERSION="7.0"
 _self="$(readlink -f "$0")"
 source "$(dirname "$_self")/ado-common.sh"
@@ -103,7 +104,57 @@ cmd="$1"
 shift
 
 case "$cmd" in
+  --help | -h)
+    cat << 'EOF'
+ado-pr-threads — Azure DevOps PR thread operations
+
+Usage: ado-pr-threads <command> [args...]
+
+Commands:
+  list [PR_ID] [--all] [--json]
+      List PR threads. Default: active threads only. Auto-detects PR if omitted.
+
+  reply PR_ID THREAD_ID BODY
+      Reply to a thread. Prints new comment ID on success.
+
+  resolve THREAD_ID [THREAD_ID...] [--pr PR_ID] [--status STATUS]
+      Resolve one or more threads. Auto-detects PR if --pr omitted.
+
+  resolve-pattern PR_ID PATTERN [--status STATUS] [--dry-run]
+      Resolve all active threads matching PATTERN (substring match).
+
+Examples:
+  ado-pr-threads list --all
+  ado-pr-threads reply 42 15 "Done — fixed in latest push"
+  ado-pr-threads resolve 15 16 --pr 42 --status fixed
+  ado-pr-threads resolve-pattern 42 "nit" --dry-run
+
+Use "ado-pr-threads <command> --help" for subcommand details.
+EOF
+    exit 0
+    ;;
   list)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+      cat << 'EOF'
+ado-pr-threads list — list PR threads
+
+Usage: ado-pr-threads list [PR_ID] [--all] [--json]
+
+Auto-detects PR from current branch if PR_ID is omitted.
+Default: shows only active threads.
+
+Options:
+  --all   Show all threads (including resolved)
+  --json  Output raw JSON
+
+Examples:
+  ado-pr-threads list
+  ado-pr-threads list 42 --all
+  ado-pr-threads list --json
+EOF
+      exit 0
+    fi
+
     pr_id=""
     show_all=false
     output_json=false
@@ -166,6 +217,21 @@ case "$cmd" in
     ;;
 
   reply)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+      cat << 'EOF'
+ado-pr-threads reply — reply to a thread
+
+Usage: ado-pr-threads reply PR_ID THREAD_ID BODY
+
+Replies to an existing thread. Prints the new comment ID on success.
+
+Examples:
+  ado-pr-threads reply 42 15 "Done — fixed in latest push"
+  ado-pr-threads reply 42 15 "Won't fix — see design doc"
+EOF
+      exit 0
+    fi
+
     if [[ $# -lt 3 ]]; then
       echo "Usage: ado-pr-threads reply PR_ID THREAD_ID BODY" >&2
       exit 1
@@ -212,6 +278,27 @@ case "$cmd" in
     ;;
 
   resolve)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+      cat << 'EOF'
+ado-pr-threads resolve — resolve threads
+
+Usage: ado-pr-threads resolve THREAD_ID [THREAD_ID...] [--pr PR_ID] [--status STATUS]
+
+Auto-detects PR from current branch if --pr is omitted.
+Valid statuses: active, byDesign, closed, fixed, pending, wontFix.
+
+Options:
+  --pr PR_ID       PR ID (default: auto-detect from branch)
+  --status STATUS  Resolution status (default: fixed)
+
+Examples:
+  ado-pr-threads resolve 15
+  ado-pr-threads resolve 15 16 17 --pr 42
+  ado-pr-threads resolve 15 --status wontFix
+EOF
+      exit 0
+    fi
+
     if [[ $# -lt 1 ]]; then
       echo "Usage: ado-pr-threads resolve THREAD_ID [THREAD_ID...] [--pr PR_ID] [--status STATUS]" >&2
       exit 1
@@ -268,6 +355,25 @@ case "$cmd" in
     ;;
 
   resolve-pattern)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+      cat << 'EOF'
+ado-pr-threads resolve-pattern — resolve threads by pattern
+
+Usage: ado-pr-threads resolve-pattern PR_ID PATTERN [--status STATUS] [--dry-run]
+
+Resolves all active threads whose comments match PATTERN (case-insensitive substring).
+
+Options:
+  --status STATUS  Resolution status (default: closed)
+  --dry-run        Show what would be resolved without making changes
+
+Examples:
+  ado-pr-threads resolve-pattern 42 "nit" --dry-run
+  ado-pr-threads resolve-pattern 42 "style" --status byDesign
+EOF
+      exit 0
+    fi
+
     if [[ $# -lt 2 ]]; then
       echo "Usage: ado-pr-threads resolve-pattern PR_ID PATTERN [--status STATUS] [--dry-run]" >&2
       exit 1

@@ -4,6 +4,27 @@
 
 set -euo pipefail
 
+# --- Help guard (before bot-token preamble to avoid triggering token fetch) ---
+for arg in "$@"; do
+  case "$arg" in
+    -h | --help)
+      cat << 'EOF'
+Usage: gh-pr-resolve-thread <thread-id> [thread-id...]
+
+Resolve one or more PR review threads by their GraphQL node IDs (PRRT_...).
+
+Options:
+  -h, --help  Show this help message and exit
+
+Examples:
+  gh-pr-resolve-thread PRRT_abc123              # resolve a single thread
+  gh-pr-resolve-thread PRRT_abc123 PRRT_def456  # resolve multiple threads
+EOF
+      exit 0
+      ;;
+  esac
+done
+
 # Use GitHub App bot token if gh-app-token is installed and configured.
 # This is optional — if gh-app-token doesn't exist or GITHUB_APP_ID is unset,
 # the script falls back to the default GH_TOKEN (your personal token).

@@ -74,8 +74,6 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "list PR threads", "unresolved comments" | `gh-pr-threads` |
 | "reply to PR comment", "respond to review" | `gh-pr-reply` |
 | "resolve PR thread", "mark thread resolved" | `gh-pr-resolve-thread` |
-| "run gh as bot", "comment as bot" | `gh-bot` |
-| "generate app token" | `gh-app-token` |
 | "rename tmux session", "new tmux session" | `claude-tmux` |
 | "what did I work on yesterday", "find that session" | `claude-log` |
 | "merge settings", "apply settings" | `claude-merge-settings` |
@@ -84,9 +82,17 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "branch diff stats", "what changed on this branch" | `git-branch-diff-stat` |
 | "changed files on this branch", "branch diff file names" | `git-branch-diff-files` |
 | "base branch", "what branch did this come from" | `git-branch-base` |
-| "rebase dropping old base", "clean rebase" | `git-rebase-onto` |
+| "detect git platform", "github or ado" | `git-platform` |
+| "validate agent files", "check skill schema" | `agnix-check` |
 | "cancel builds", "cancel pipeline runs", "list ADO builds" | `ado-builds` |
 | "build logs", "CI logs", "why did the build fail" | `ado-logs` |
 | "create ADO PR", "list ADO PRs", "show ADO PR" | `ado-pr` |
 | "list ADO PR threads", "reply to ADO PR comment" | `ado-pr-threads` |
+
+### GitHub tool notes
+
+- **Bot-token auth**: All five `gh-*` tools silently upgrade to bot identity when `gh-app-token` is installed and `GITHUB_APP_ID` is set. Falls back to your personal token otherwise.
+- **Thread workflow**: Run `gh-pr-threads --json <pr>` → extract `.id` fields (`PRRT_...` values) → pass to `gh-pr-reply --resolve` or `gh-pr-resolve-thread`.
+- **gh-pr-threads**: Auto-detects PR from current branch when no number given. Handles 100+ threads with internal pagination.
+- **gh-pr-reply --resolve**: Combines reply and resolve in one call — preferred over separate steps.
 
