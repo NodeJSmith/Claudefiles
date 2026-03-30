@@ -2,10 +2,12 @@
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -528,26 +530,14 @@ def cmd_archive(args: argparse.Namespace) -> None:
             )
             continue
 
-        # Delete tasks/ via git rm -r (atomic, traceable)
-        tasks_rel = str(tasks_dir.relative_to(git_root))
-        proc = subprocess.run(
-            ["git", "-C", str(git_root), "rm", "-r", "-q", tasks_rel],
-            capture_output=True,
-            text=True,
-        )
-        if proc.returncode != 0:
-            # Fallback: files may not be tracked (e.g., .gitignore'd files)
-            print(
-                f"  warning: git rm failed for {tasks_rel}, removing directly",
-                file=sys.stderr,
-            )
-            try:
-                shutil.rmtree(tasks_dir)
-            except OSError as e:
-                die(f"Failed to remove {tasks_dir}: {e}", json_mode=args.json)
-
-        # Update **Status:** in design.md (last, after confirmed deletion)
-        _update_design_status(feature_dir, "archived")
+        # Per-spec exception isolation for --all mode
+        try:
+            _archive_feature(feature_dir, tasks_dir, git_root)
+        except Exception as exc:
+            if args.all:
+                results.append({"feature": name, "status": "error", "reason": str(exc)})
+                continue
+            raise
 
         results.append({"feature": name, "status": "archived", "wp_count": wp_count})
 
@@ -562,6 +552,8 @@ def cmd_archive(args: argparse.Namespace) -> None:
                 print(f"  {feat_name}: archived ({r['wp_count']} WPs removed)")
             elif feat_status == "would_archive":
                 print(f"  {feat_name}: would archive ({r['wp_count']} WPs)")
+            elif feat_status == "error":
+                print(f"  {feat_name}: ERROR — {r['reason']}")
             elif feat_status == "skipped":
                 print(f"  {feat_name}: skipped — {r['reason']}")
 
@@ -573,8 +565,38 @@ def cmd_archive(args: argparse.Namespace) -> None:
         print(f"\n{verb}: {archived_count}, Skipped: {skipped_count}")
 
 
+def _archive_feature(feature_dir: Path, tasks_dir: Path, git_root: Path) -> None:
+    """Delete tasks/ and update design.md status for a single feature."""
+    # Delete tasks/ via git rm -r (atomic, traceable)
+    tasks_rel = str(tasks_dir.relative_to(git_root))
+    proc = subprocess.run(
+        ["git", "-C", str(git_root), "rm", "-r", "-q", tasks_rel],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if proc.returncode != 0:
+        # Only fall back to shutil if git says files are untracked
+        stderr = proc.stderr.strip()
+        if "not under version control" in stderr or "did not match" in stderr:
+            print(
+                "  warning: git rm failed (untracked files), removing directly",
+                file=sys.stderr,
+            )
+            shutil.rmtree(tasks_dir)
+        else:
+            raise RuntimeError(f"git rm failed for {tasks_rel}: {stderr}")
+
+    # Update **Status:** in design.md (last, after confirmed deletion)
+    _update_design_status(feature_dir, "archived")
+
+
 def _update_design_status(feature_dir: Path, new_status: str) -> None:
-    """Update **Status:** line in design.md. Appends if missing."""
+    """Update **Status:** line in design.md. Appends if missing.
+
+    Only matches **Status:** in the first 15 lines to avoid rewriting
+    occurrences in tables, code blocks, or examples deeper in the file.
+    """
     design_path = feature_dir / "design.md"
     if not design_path.exists():
         return
@@ -583,11 +605,11 @@ def _update_design_status(feature_dir: Path, new_status: str) -> None:
     original_lines = text.splitlines(keepends=True)
     status_pattern = re.compile(r"^\*\*Status:\*\*\s+.+$")
 
-    # Build new lines list (immutable approach)
+    # Build new lines list — only match in the first 15 lines (header area)
     new_lines: list[str] = []
     found = False
-    for line in original_lines:
-        if not found and status_pattern.match(line.strip()):
+    for i, line in enumerate(original_lines):
+        if not found and i < 15 and status_pattern.match(line.strip()):
             new_lines.append(f"**Status:** {new_status}\n")
             found = True
         else:
@@ -606,7 +628,20 @@ def _update_design_status(feature_dir: Path, new_status: str) -> None:
             result if inserted else [*new_lines, f"\n**Status:** {new_status}\n"]
         )
 
-    design_path.write_text("".join(new_lines))
+    # Atomic write — temp file + os.replace to avoid truncation on crash
+    new_text = "".join(new_lines)
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", dir=design_path.parent, delete=False, suffix=".md"
+        ) as tmp:
+            tmp.write(new_text)
+            tmp_path = tmp.name
+        os.replace(tmp_path, design_path)
+    except Exception:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise
 
 
 def cmd_status(args: argparse.Namespace) -> None:
