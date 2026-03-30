@@ -89,3 +89,10 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "create ADO PR", "list ADO PRs", "show ADO PR" | `ado-pr` |
 | "list ADO PR threads", "reply to ADO PR comment" | `ado-pr-threads` |
 
+### GitHub tool notes
+
+- **Bot-token auth**: All five `gh-*` tools silently upgrade to bot identity when `gh-app-token` is installed and `GITHUB_APP_ID` is set. Falls back to your personal token otherwise.
+- **Thread workflow**: Run `gh-pr-threads --json <pr>` → extract `.id` fields (`PRRT_...` values) → pass to `gh-pr-reply --resolve` or `gh-pr-resolve-thread`.
+- **gh-pr-threads**: Auto-detects PR from current branch when no number given. Handles 100+ threads with internal pagination.
+- **gh-pr-reply --resolve**: Combines reply and resolve in one call — preferred over separate steps.
+

@@ -10,8 +10,11 @@ All notable changes to this Claudefiles repository are documented here.
 - `--help` with usage examples on all 21 executable scripts in `bin/` — agents can now discover tool capabilities at runtime (#144)
 
 ### Changed
-- `skills/mine.gh-tools/SKILL.md` — rewritten to hybrid format (curated examples + `--help` discovery pointer); removed `gh-bot`/`gh-app-token` sections (personal tools, now documented in Dotfiles only) (#144)
-- `rules/common/capabilities.md` — removed `gh-bot`, `gh-app-token`, `git-rebase-onto` (external tools); added `agnix-check`, `git-platform` (#144)
+- `rules/common/capabilities.md` — removed `gh-bot`, `gh-app-token`, `git-rebase-onto` (external tools); added `agnix-check`, `git-platform`; inlined GitHub tool notes (auth, workflow, gotchas) from deleted `mine.gh-tools` skill (#144)
+
+### Removed
+- `skills/mine.gh-tools/` — non-user-invocable skill files aren't reliably loaded by Claude; tool details now live in `capabilities.md` (auto-loaded) + `--help` (runtime discovery) (#144)
+- `evals/compliance/tools/skill-cross-reference.yaml` — tested the "See skill:" cross-reference pattern which is no longer used (#144)
 - `bin/claude-log` — removed `from __future__ import annotations`, moved lazy imports to top-level, added argparse epilog examples (#144)
 - `bin/claude-merge-settings` — moved lazy `import argparse` to top-level, added epilog examples (#144)
 
