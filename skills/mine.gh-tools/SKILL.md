@@ -64,4 +64,5 @@ Run `<tool> --help` for full flag reference and additional examples.
 - **gh-pr-threads pagination**: Handles PRs with 100+ review threads internally — returns all threads without caller-side pagination.
 - **gh-pr-reply --resolve**: Combines reply and resolve in one call. Takes the `PRRT_...` GraphQL thread ID from `gh-pr-threads` output. Preferred over separate reply + resolve steps.
 - **Thread IDs**: `gh-pr-threads` output includes both the database comment ID (for `gh-pr-reply`) and the GraphQL thread ID `PRRT_...` (for `--resolve` and `gh-pr-resolve-thread`).
+- **gh-pr-threads two-step workflow**: Typical workflow: run `gh-pr-threads --json <pr>` → extract `.id` fields (PRRT_... values) → pass to `--resolve` or `gh-pr-resolve-thread`.
 - **gh-issue passthrough**: Wraps `gh issue` — any `gh issue` subcommand and flags are forwarded directly.

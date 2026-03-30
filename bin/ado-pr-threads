@@ -22,7 +22,7 @@
 set -euo pipefail
 
 # Source shared ADO utilities (resolve symlink to find real bin/ dir)
-# Pin to 7.0 — thread API behavior differs in 7.1; not yet verified compatible
+# Pin to 7.0 — thread API status field values and resolvedBy field changed in 7.1. Upgrade requires testing resolve/reply round-trips against a real ADO instance.
 ADO_API_VERSION="7.0"
 _self="$(readlink -f "$0")"
 source "$(dirname "$_self")/ado-common.sh"

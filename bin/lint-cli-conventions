@@ -25,8 +25,7 @@ Options:
   -h, --help    Show this help message and exit
 
 Exemptions:
-  - Plumbing scripts (ado-common.sh, get-skill-tmpdir, get-tmp-filename)
-    are exempt from the --help check.
+  - Plumbing scripts (ado-common.sh) are exempt from the --help check.
   - Tools marked with "# EXTERNAL: tool-name" in capabilities.md are
     exempt from the bin/ existence check.
 EOF
@@ -41,7 +40,8 @@ CAPABILITIES="${REPO_ROOT}/rules/common/capabilities.md"
 failures=0
 
 # --- plumbing exemptions (no --help required) ----------------------------
-HELP_EXEMPT="ado-common.sh get-skill-tmpdir get-tmp-filename"
+# Exempt: sourced libraries not directly invoked
+HELP_EXEMPT="ado-common.sh"
 
 # --- check 1: --help presence --------------------------------------------
 echo "=== Check 1: --help handling ==="
@@ -84,6 +84,11 @@ echo "=== Check 2: capabilities.md CLI Tools table sync ==="
 
 if [[ ! -f "$CAPABILITIES" ]]; then
   echo "FAIL: capabilities.md not found at $CAPABILITIES"
+  exit 1
+fi
+
+if ! grep -q '^## CLI Tools' "$CAPABILITIES"; then
+  echo "FAIL: capabilities.md has no '## CLI Tools' heading — the lint check cannot validate the CLI table"
   exit 1
 fi
 
