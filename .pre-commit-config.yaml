@@ -17,3 +17,12 @@ repos:
     hooks:
       - id: shfmt
         args: [-i, "2", -ci, -sr, -d]
+
+  - repo: local
+    hooks:
+      - id: lint-cli-conventions
+        name: CLI convention lint
+        entry: bin/lint-cli-conventions
+        language: system
+        pass_filenames: false
+        always_run: true
