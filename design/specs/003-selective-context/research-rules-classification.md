@@ -37,7 +37,7 @@ These files are universally needed regardless of project type or environment.
 | `rules/common/hooks.md` | 30 | TodoWrite best practices and hook type overview. Lightweight, always relevant. | Use TodoWrite to track multi-step progress; PostToolUse for auto-format/checks |
 | `rules/common/bash-tools.md` | 42 | Tool routing (Read vs cat, Grep vs grep, etc). Active every session. | Use Read not cat; Use Grep not grep; Use Glob not find; Use Edit not sed; Flag repeated commands for script extraction |
 | `rules/common/performance.md` | 55 | Model selection strategy and context window management. Governs agent dispatch cost. | Haiku for lightweight agents; Sonnet for main work; Opus for deep reasoning; avoid last 20% of context for large refactors |
-| `rules/common/web-search.md` | 46 | When to search externally vs read code. Universal heuristic. | Search after 2+ recurrences; use Context7 for library docs; WebSearch for errors; don't search for project-internal knowledge |
+| `rules/common/research-escalation.md` | 42 | When to stop guessing and escalate through search → subagent → user. Universal heuristic. | Search before retrying (Context7 for docs, WebSearch for errors); dispatch researcher subagent if search doesn't resolve; present to user if subagent inconclusive |
 | `rules/common/error-tracking.md` | 51 | Session error file convention. Applies whenever multi-step work hits errors. | Track non-trivial errors in tmp file; append-only; include Tried/Result/Next; read before retrying |
 | `rules/common/command-output.md` | 66 | Output preservation pattern for truncated bash output. Universal. | Use get-tmp-filename before verbose commands; tee to file then tail; Read the file instead of re-running |
 | `rules/common/patterns.md` | 31 | Repository pattern and API response format. Lightweight, universal. | Repository pattern for data access; consistent API envelope format |
@@ -151,7 +151,7 @@ These are rows/sections from larger files, not whole files.
 
 | Group | Lines | % | Source files |
 |-------|-------|---|---|
-| Always Hot | 420 | 30% | `common/coding-style.md`, `common/interaction.md`, `common/hooks.md`, `common/bash-tools.md`, `common/performance.md`, `common/web-search.md`, `common/error-tracking.md`, `common/command-output.md`, `common/patterns.md`, `common/security.md` |
+| Always Hot | 416 | 30% | `common/coding-style.md`, `common/interaction.md`, `common/hooks.md`, `common/bash-tools.md`, `common/performance.md`, `common/research-escalation.md`, `common/error-tracking.md`, `common/command-output.md`, `common/patterns.md`, `common/security.md` |
 | Detectable: git | 205 | 15% | `common/git-workflow.md` (136), `common/backlog.md` (69) |
 | Detectable: python | 245 | 18% | `python/coding-style.md` (38), `python/hooks.md` (14), `python/patterns.md` (34), `python/security.md` (22), `python/testing.md` (134), + 3 rows from `common/capabilities.md` |
 | Detectable: worktree | 44 | 3% | `common/worktrees.md` |

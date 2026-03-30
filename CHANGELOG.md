@@ -8,11 +8,13 @@ All notable changes to this Claudefiles repository are documented here.
 - `bin/lint-cli-conventions` — pre-commit hook that verifies `--help` presence in bin/ scripts and capabilities.md CLI table sync with bin/ contents; prevents drift recurrence (#144)
 - `rules/common/lsp.md` — LSP tool guidance for Python symbol navigation (definitions, references, call hierarchy) via pyright (#144)
 - `--help` with usage examples on all 21 executable scripts in `bin/` — agents can now discover tool capabilities at runtime (#144)
+- `rules/common/research-escalation.md` — escalation ladder for when Claude is stuck: search first (Context7/WebSearch), then dispatch a research subagent, then present to user; replaces `web-search.md` with broader coverage including subagent dispatch, error file integration, and exit protocol (#145)
 
 ### Changed
 - `rules/common/capabilities.md` — removed `gh-bot`, `gh-app-token`, `git-rebase-onto` (external tools); added `agnix-check`, `git-platform`; inlined GitHub tool notes (auth, workflow, gotchas) from deleted `mine.gh-tools` skill (#144)
 
 ### Removed
+- `rules/common/web-search.md` — content absorbed into `research-escalation.md`; the standalone rule wasn't triggering proactive search behavior (#145)
 - `skills/mine.gh-tools/` — non-user-invocable skill files aren't reliably loaded by Claude; tool details now live in `capabilities.md` (auto-loaded) + `--help` (runtime discovery) (#144)
 - `evals/compliance/tools/skill-cross-reference.yaml` — tested the "See skill:" cross-reference pattern which is no longer used (#144)
 - `bin/claude-log` — removed `from __future__ import annotations`, moved lazy imports to top-level, added argparse epilog examples (#144)

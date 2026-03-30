@@ -34,7 +34,7 @@ rules/
     hooks.md
     bash-tools.md
     performance.md
-    web-search.md
+    research-escalation.md
     error-tracking.md
     command-output.md
     patterns.md
@@ -61,7 +61,7 @@ scripts/hooks/
 
 ### What stays in rules/ (always hot)
 
-The 10 files classified as "Always Hot" in the research. These are universally needed regardless of session type: coding style, interaction mode, bash tool routing, performance model selection, web search heuristics, error tracking, command output preservation, common patterns, and security checklist.
+The 10 files classified as "Always Hot" in the research. These are universally needed regardless of session type: coding style, interaction mode, bash tool routing, performance model selection, research escalation heuristics, error tracking, command output preservation, common patterns, and security checklist.
 
 ### What moves to context/
 
