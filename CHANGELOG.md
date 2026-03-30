@@ -5,6 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-03-30
 
 ### Added
+- `mine.prior-art` skill — web-first survey of best practices, reference implementations, and established patterns for mid-design architectural questions (#151)
 - `spec-helper archive` subcommand — archives completed specs by removing `tasks/` and setting `**Status:** archived` in design.md; supports `--all`, `--dry-run`, `--json` (#143)
 - Artifact lifecycle convention in CLAUDE.md — documents which design artifacts are permanent vs development-only (#143)
 - `bin/lint-cli-conventions` — pre-commit hook that verifies `--help` presence in bin/ scripts and capabilities.md CLI table sync with bin/ contents; prevents drift recurrence (#144)
