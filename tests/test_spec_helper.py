@@ -12,6 +12,7 @@ from spec_helper.filesystem import (
     find_feature_dir,
     find_feature_dir_auto,
     find_repo_root,
+    find_repo_root_or_cwd,
     find_wp_file,
     list_features,
 )
@@ -305,6 +306,122 @@ class TestFindRepoRootMonorepo:
         (app / "design" / "specs").mkdir(parents=True)
         monkeypatch.chdir(app)
         assert find_repo_root() == app
+
+
+# ===================================================================
+# find_repo_root_or_cwd — bootstrap-safe monorepo resolution
+# ===================================================================
+
+
+class TestFindRepoRootOrCwd:
+    """find_repo_root_or_cwd: returns nearest design/specs/ ancestor, or cwd if none."""
+
+    def test_returns_existing_specs_dir(self, tmp_path, monkeypatch):
+        """When design/specs/ exists, behaves like find_repo_root."""
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "design" / "specs").mkdir(parents=True)
+        monkeypatch.chdir(tmp_path)
+        assert find_repo_root_or_cwd() == tmp_path
+
+    def test_falls_back_to_cwd_when_no_specs(self, tmp_path, monkeypatch):
+        """When no design/specs/ exists, returns cwd instead of dying."""
+        (tmp_path / ".git").mkdir()
+        monkeypatch.chdir(tmp_path)
+        assert find_repo_root_or_cwd() == tmp_path
+
+    def test_monorepo_finds_nested_specs(self, tmp_path, monkeypatch):
+        """In a monorepo subdir with its own design/specs/, finds the subdir."""
+        (tmp_path / ".git").mkdir()
+        app = tmp_path / "apps" / "my-app"
+        (app / "design" / "specs").mkdir(parents=True)
+        monkeypatch.chdir(app)
+        assert find_repo_root_or_cwd() == app
+
+    def test_monorepo_no_specs_falls_back_to_cwd(self, tmp_path, monkeypatch):
+        """In a monorepo subdir without design/specs/, returns cwd for bootstrap."""
+        (tmp_path / ".git").mkdir()
+        app = tmp_path / "apps" / "new-app"
+        app.mkdir(parents=True)
+        monkeypatch.chdir(app)
+        assert find_repo_root_or_cwd() == app
+
+    def test_no_git_dies(self, tmp_path, monkeypatch):
+        """Still requires a git repo — not a total free-for-all."""
+        monkeypatch.chdir(tmp_path)
+        with pytest.raises(SystemExit):
+            find_repo_root_or_cwd()
+
+
+# ===================================================================
+# cmd_init monorepo tests
+# ===================================================================
+
+
+class TestInitMonorepo:
+    """init creates features in the nearest design/specs/, not at git root."""
+
+    def test_init_creates_in_subproject_specs(self, tmp_path, monkeypatch):
+        """When cwd is a monorepo subproject with design/specs/, init uses it."""
+        (tmp_path / ".git").mkdir()
+        app = tmp_path / "apps" / "my-app"
+        (app / "design" / "specs").mkdir(parents=True)
+        monkeypatch.chdir(app)
+
+        args = argparse.Namespace(slug="new-feature", json=False)
+        cmd_init(args)
+
+        dirs = list((app / "design" / "specs").iterdir())
+        assert len(dirs) == 1
+        assert "new-feature" in dirs[0].name
+
+        # Should NOT create at git root
+        root_specs = tmp_path / "design" / "specs"
+        assert not root_specs.exists()
+
+    def test_init_bootstraps_in_subproject_without_specs(self, tmp_path, monkeypatch):
+        """When cwd is a monorepo subproject without design/specs/, init creates it here."""
+        (tmp_path / ".git").mkdir()
+        app = tmp_path / "apps" / "new-app"
+        app.mkdir(parents=True)
+        monkeypatch.chdir(app)
+
+        args = argparse.Namespace(slug="first-feature", json=False)
+        cmd_init(args)
+
+        dirs = list((app / "design" / "specs").iterdir())
+        assert len(dirs) == 1
+        assert "first-feature" in dirs[0].name
+
+    def test_init_prefers_nearest_specs_over_root(self, tmp_path, monkeypatch):
+        """When both root and subproject have design/specs/, init uses the nearest."""
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "design" / "specs").mkdir(parents=True)
+        app = tmp_path / "apps" / "my-app"
+        (app / "design" / "specs").mkdir(parents=True)
+        monkeypatch.chdir(app)
+
+        args = argparse.Namespace(slug="app-feature", json=False)
+        cmd_init(args)
+
+        app_dirs = list((app / "design" / "specs").iterdir())
+        root_dirs = list((tmp_path / "design" / "specs").iterdir())
+        assert len(app_dirs) == 1
+        assert "app-feature" in app_dirs[0].name
+        assert len(root_dirs) == 0
+
+    def test_init_json_output_uses_relative_path(self, tmp_path, monkeypatch, capsys):
+        """JSON output path is relative to the resolved root, not git root."""
+        (tmp_path / ".git").mkdir()
+        app = tmp_path / "apps" / "my-app"
+        (app / "design" / "specs").mkdir(parents=True)
+        monkeypatch.chdir(app)
+
+        args = argparse.Namespace(slug="test-feature", json=True)
+        cmd_init(args)
+
+        captured = capsys.readouterr()
+        result = json.loads(captured.out)
+        assert result["feature_dir"].startswith("design/specs/")
 
 
 class TestFindRepoRootNoGitDies:

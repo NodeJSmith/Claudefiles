@@ -164,7 +164,7 @@ Session IDs continue to accept prefix matches (8-char minimum). Ambiguous prefix
 
 ## Edge Cases
 
-- **Corrupt JSONL lines**: Continue processing valid lines, emit a stderr warning if more than one line is skipped (current behavior, preserved).
+- **Corrupt JSONL lines**: Continue processing valid lines, emit a stderr warning whenever any line is skipped (warns about possible active writes).
 - **Empty sessions**: `show` on a session with no messages outputs a one-line notice rather than an empty result.
 - **Default show is orientation mode**: `show <id>` without `--grep` or `--limit` displays a compact session overview: session metadata (project, branch, date, model, duration), the first user message (the opening prompt — establishes what the session was about), total entry count, and the last 3-5 entries. This avoids flooding the agent's context with 20k+ chars while giving enough to decide whether to drill deeper with `--grep` or `--limit`. Use `--limit N` (or `--all`) to override and see more entries.
 - **Ambiguous session prefix**: Print candidates and exit with non-zero status (current behavior, preserved).
