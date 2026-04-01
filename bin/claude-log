@@ -6,24 +6,19 @@ Subcommands:
     show        Show session content (messages, tools, thinking, usage)
     search      Search across sessions
     stats       Session statistics
-    skills      Skill/command usage across sessions
-    agents      Agent usage across sessions
-    extract     Extract structured data as JSON
-    permissions Suggest new permission allow entries from tool usage
 
 All JSONL files live under ~/.claude/projects/*/.
 """
 
 import argparse
 import json
-import os
 import re
 import sys
-from collections.abc import Generator, Sequence
+from collections import deque
+from collections.abc import Callable, Generator, Sequence
 from datetime import datetime, timezone
-from itertools import islice
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 PROJECTS_DIR = Path.home() / ".claude" / "projects"
 
@@ -72,16 +67,23 @@ def iter_session_files(
     project_filter: str | None = None,
     cwd_filter: str | None = None,
     since: str | None = None,
+    sort_by_mtime: bool = False,
 ) -> Generator[tuple[str, str, Path], None, None]:
     """Yield ``(project_name, session_id, jsonl_path)`` for matching sessions.
 
     Handles project name filtering and mtime-based date filtering so callers
     don't have to.
+
+    When *sort_by_mtime* is True, collects all matching files, stats each for
+    mtime, sorts descending (most recent first), then yields.  This is used by
+    ``cmd_search`` to ensure recent sessions are searched first.
     """
     if not PROJECTS_DIR.is_dir():
         return
 
     since_dt = _parse_since(since)
+
+    collected: list[tuple[str, str, Path, float]] = []
 
     for project_dir in sorted(PROJECTS_DIR.iterdir()):
         if not project_dir.is_dir():
@@ -92,10 +94,9 @@ def iter_session_files(
             continue
 
         for jsonl_file in sorted(project_dir.glob("*.jsonl")):
+            stat = jsonl_file.stat()
             if since_dt:
-                mod_time = datetime.fromtimestamp(
-                    jsonl_file.stat().st_mtime, tz=timezone.utc
-                )
+                mod_time = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
                 if mod_time < since_dt:
                     continue
 
@@ -105,7 +106,17 @@ def iter_session_files(
                 if cwd_filter.lower() not in effective_path.lower():
                     continue
 
-            yield proj_name, jsonl_file.stem, jsonl_file
+            if sort_by_mtime:
+                collected.append(
+                    (proj_name, jsonl_file.stem, jsonl_file, stat.st_mtime)
+                )
+            else:
+                yield proj_name, jsonl_file.stem, jsonl_file
+
+    if sort_by_mtime:
+        collected.sort(key=lambda t: t[3], reverse=True)
+        for proj_name, session_id, path, _mtime in collected:
+            yield proj_name, session_id, path
 
 
 def project_name_from_dir(dirname: str) -> str:
@@ -165,6 +176,10 @@ def find_sessions(
     Optimized to parse only the first ~20 lines of each JSONL file for
     metadata (timestamp, branch, cwd) and count remaining lines without
     JSON parsing for the message estimate.
+
+    Note: the ``messages`` field is a JSONL line count (all entry types),
+    not a count of user/assistant conversation turns.  A session with
+    200 lines may have only 20 actual conversation exchanges.
     """
     sessions: list[dict[str, Any]] = []
 
@@ -291,9 +306,10 @@ def iter_entries(
                     continue
                 yield entry
     finally:
-        if skipped > 1:
+        if skipped:
             print(
-                f"Warning: skipped {skipped} corrupt lines in {path}",
+                f"Warning: skipped {skipped} corrupt line(s) in {path}"
+                " — session may be actively written to",
                 file=sys.stderr,
             )
 
@@ -364,6 +380,488 @@ def extract_subagent_tool_uses(entry: dict[str, Any]) -> list[dict[str, Any]]:
     return results
 
 
+def _is_system_entry(entry: dict[str, Any]) -> bool:
+    """Return True for system-injected entries that should be skipped in orientation.
+
+    Identifies:
+    - Content starting with ``<`` (XML system tags like ``<local-command-caveat>``,
+      ``<env>``, ``<system-reminder>``)
+    - Entries with type ``tool_result``
+    - Content starting with ``/`` (slash commands)
+    """
+    entry_type = entry.get("type", "")
+
+    # tool_result entries are always system
+    if entry_type == "tool_result":
+        return True
+
+    # Only user entries can be system-injected user messages
+    if entry_type != "user":
+        return False
+
+    message = entry.get("message", {})
+    content = message.get("content", "")
+
+    # Extract the first text to check
+    first_text = ""
+    if isinstance(content, str):
+        first_text = content
+    elif isinstance(content, list):
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                first_text = block.get("text", "")
+                break
+
+    if not first_text:
+        return False
+
+    # XML-prefixed content or slash commands
+    return first_text.startswith("<") or first_text.startswith("/")
+
+
+# ---------------------------------------------------------------------------
+# Turn model
+# ---------------------------------------------------------------------------
+
+
+class Turn(TypedDict):
+    role: str  # "user" | "assistant" | "tool" | "subagent"
+    text: str  # pre-extracted readable text (via extract_text)
+    tool_calls: list[dict]  # pre-extracted, pre-summarized (via _tool_input_summary)
+    timestamp: str
+    request_id: str | None
+    source: str  # "parent" | agent label
+
+
+def to_turn(entry: dict[str, Any], agent_index: dict[str, str]) -> Turn:
+    """Convert a raw JSONL entry dict into a Turn domain object.
+
+    For progress (subagent) entries, extracts the inner assistant message
+    and resolves the agent label from *agent_index*.
+    """
+    entry_type = entry.get("type", "")
+    ts = entry.get("timestamp", "")
+    request_id = entry.get("requestId")
+
+    if entry_type == "progress":
+        # Subagent progress entry
+        data = entry.get("data", {})
+        outer_msg = data.get("message", {})
+        inner_msg = outer_msg.get("message", {})
+        text = extract_text(inner_msg)
+        tool_uses = extract_tool_uses(inner_msg)
+        parent_id = entry.get("parentToolUseID", "")
+        source = agent_index.get(parent_id, "subagent")
+        tool_calls = [
+            {
+                "name": t.get("name", "?"),
+                "input": t.get("input", {}),
+                "summary": _tool_input_summary(t.get("name", "?"), t.get("input", {})),
+            }
+            for t in tool_uses
+        ]
+        return Turn(
+            role="subagent",
+            text=text,
+            tool_calls=tool_calls,
+            timestamp=ts,
+            request_id=request_id,
+            source=source,
+        )
+
+    # User or assistant entry
+    message = entry.get("message", {})
+    text = extract_text(message)
+    tool_uses = extract_tool_uses(message)
+    tool_calls = [
+        {
+            "name": t.get("name", "?"),
+            "input": t.get("input", {}),
+            "summary": _tool_input_summary(t.get("name", "?"), t.get("input", {})),
+        }
+        for t in tool_uses
+    ]
+    return Turn(
+        role=entry_type,
+        text=text,
+        tool_calls=tool_calls,
+        timestamp=ts,
+        request_id=request_id,
+        source="parent",
+    )
+
+
+def to_turns(entries: list[dict[str, Any]], agent_index: dict[str, str]) -> list[Turn]:
+    """Convert a list of raw JSONL entries into collapsed Turn objects.
+
+    Entries sharing the same ``requestId`` are merged into a single Turn:
+    text parts are joined with newlines, tool_calls are concatenated.
+    Entries without a ``requestId`` each become their own Turn.
+
+    Returns Turns in order of first appearance.
+    """
+    # Ordered mapping: requestId -> list of entries to collapse
+    # Entries without requestId get a unique sentinel key
+    groups: dict[str, list[dict[str, Any]]] = {}
+    order: list[str] = []
+    sentinel_counter = 0
+
+    for entry in entries:
+        req_id = entry.get("requestId")
+        if req_id:
+            key = req_id
+        else:
+            key = f"__no_req_{sentinel_counter}"
+            sentinel_counter += 1
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(entry)
+
+    result: list[Turn] = []
+    for key in order:
+        group = groups[key]
+        if len(group) == 1:
+            result.append(to_turn(group[0], agent_index))
+        else:
+            # Collapse multiple entries into one Turn
+            first = group[0]
+            texts: list[str] = []
+            all_tool_calls: list[dict] = []
+            for entry in group:
+                turn = to_turn(entry, agent_index)
+                if turn["text"]:
+                    texts.append(turn["text"])
+                all_tool_calls.extend(turn["tool_calls"])
+            result.append(
+                Turn(
+                    role=first.get("type", "assistant"),
+                    text="\n".join(texts),
+                    tool_calls=all_tool_calls,
+                    timestamp=first.get("timestamp", ""),
+                    request_id=first.get("requestId"),
+                    source=to_turn(first, agent_index)["source"],
+                )
+            )
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Output dispatch
+# ---------------------------------------------------------------------------
+
+
+def _output(
+    data: Any, *, args: argparse.Namespace, formatter: Callable[[Any], str]
+) -> None:
+    """Route output to JSON or text based on args.json flag."""
+    if args.json:
+        print(json.dumps(data, indent=2))
+    else:
+        print(formatter(data))
+
+
+# ---------------------------------------------------------------------------
+# Text Formatters
+# ---------------------------------------------------------------------------
+
+
+def _format_list(sessions: list[dict[str, Any]]) -> str:
+    """Format session list as a columnar text table.
+
+    Columns: ID (first 8 chars), Date, Project, Branch, Msgs.
+    Duration is omitted because find_sessions() only reads the first ~20 lines
+    per file (performance optimization) and doesn't have last-entry timestamps.
+    """
+    if not sessions:
+        return ""
+
+    headers = ["ID", "Date", "Project", "Branch", "Msgs"]
+    rows: list[list[str]] = []
+    for s in sessions:
+        sid = s.get("session_id", "")[:8]
+        date = s.get("date", "")
+        project = s.get("project", "")
+        branch = s.get("branch", "")
+        msgs = str(s.get("messages", ""))
+        rows.append([sid, date, project, branch, msgs])
+
+    # Calculate column widths
+    widths = [len(h) for h in headers]
+    for row in rows:
+        for i, cell in enumerate(row):
+            widths[i] = max(widths[i], len(cell))
+
+    def _fmt_row(cells: list[str]) -> str:
+        parts = []
+        for i, cell in enumerate(cells):
+            if i == len(cells) - 1:
+                # Right-align the numeric Msgs column
+                parts.append(cell.rjust(widths[i]))
+            else:
+                parts.append(cell.ljust(widths[i]))
+        return "  ".join(parts)
+
+    lines = [_fmt_row(headers)]
+    for row in rows:
+        lines.append(_fmt_row(row))
+    return "\n".join(lines)
+
+
+def _render_turn_line(turn: Turn, *, indent: str = "") -> str:
+    """Render a single Turn as one or more text lines.
+
+    Returns a multi-line string with role prefix and optional tool call lines.
+    """
+    lines: list[str] = []
+    role = turn["role"]
+
+    if role == "subagent":
+        label = turn["source"]
+        if turn["text"]:
+            lines.append(f"{indent}  [{label}] {turn['text']}")
+        for tc in turn["tool_calls"]:
+            lines.append(f"{indent}  [{tc['name']}] {tc.get('summary', '')}")
+    else:
+        prefix = f"[{role}]"
+        if turn["text"]:
+            lines.append(f"{indent}{prefix} {turn['text']}")
+        for tc in turn["tool_calls"]:
+            lines.append(f"{indent}[{tc['name']}] {tc.get('summary', '')}")
+
+    return "\n".join(lines)
+
+
+def _format_show_orientation(data: dict[str, Any]) -> str:
+    """Format orientation mode output: metadata header, first message, last entries.
+
+    Input dict keys:
+    - session_id, project, date, duration, model, branch, total_count
+    - first_message (str | None)
+    - last_entries (list[Turn])
+    """
+    lines: list[str] = []
+
+    # Metadata header line
+    parts = [
+        f"Session {data['session_id'][:8]}",
+        data.get("project", ""),
+        data.get("date", ""),
+    ]
+    if data.get("duration"):
+        parts.append(data["duration"])
+    if data.get("model"):
+        parts.append(data["model"])
+    lines.append(" | ".join(p for p in parts if p))
+
+    # Branch + entry count
+    meta_parts: list[str] = []
+    if data.get("branch"):
+        meta_parts.append(f"Branch: {data['branch']}")
+    total = data.get("total_count", 0)
+    meta_parts.append(f"~{total} entries")
+    lines.append(" | ".join(meta_parts))
+
+    lines.append("")
+
+    # First user message
+    first_msg = data.get("first_message")
+    if first_msg:
+        lines.append(f"[user] {first_msg}")
+    else:
+        lines.append("(no user message found)")
+
+    # Omitted count
+    last_entries: list[Turn] = data.get("last_entries", [])
+    # 1 for first message + number of last entries = accounted for
+    accounted = (1 if first_msg else 0) + len(last_entries)
+    omitted = max(0, total - accounted)
+    if omitted > 0:
+        lines.append("")
+        lines.append(f"--- ~{omitted} entries omitted ---")
+
+    # Last entries
+    if last_entries:
+        lines.append("")
+        for turn in last_entries:
+            rendered = _render_turn_line(turn)
+            if rendered:
+                lines.append(rendered)
+
+    return "\n".join(lines)
+
+
+def _format_show_entries(turns: list[Turn]) -> str:
+    """Format a chronological conversation from Turn objects.
+
+    Renders [user], [assistant], [ToolName] prefixed lines.
+    Subagent entries are indented.
+    """
+    if not turns:
+        return ""
+
+    lines: list[str] = []
+    for turn in turns:
+        rendered = _render_turn_line(turn)
+        if rendered:
+            lines.append(rendered)
+
+    return "\n".join(lines)
+
+
+def _format_show_grep(matched_turns: list[dict[str, Any]]) -> str:
+    """Format grep results: matched sections separated by --- dividers.
+
+    Each item in *matched_turns* has keys:
+    - matched: Turn
+    - preceding: Turn | None
+    """
+    if not matched_turns:
+        return ""
+
+    sections: list[str] = []
+    for item in matched_turns:
+        lines: list[str] = []
+        preceding = item.get("preceding")
+        if preceding is not None:
+            rendered = _render_turn_line(preceding)
+            if rendered:
+                lines.append(rendered)
+        matched = item["matched"]
+        rendered = _render_turn_line(matched)
+        if rendered:
+            lines.append(rendered)
+        if lines:
+            sections.append("\n".join(lines))
+
+    return "\n---\n".join(sections)
+
+
+_SEARCH_TRUNCATE = 500
+
+
+def _truncate(text: str, max_chars: int = _SEARCH_TRUNCATE) -> str:
+    """Truncate text to at most *max_chars* characters."""
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars] + "..."
+
+
+def _format_search(grouped_results: list[dict[str, Any]]) -> str:
+    """Format search results grouped by session.
+
+    Each item in *grouped_results* has keys:
+    - session_id: str
+    - project: str
+    - date: str
+    - results: list[dict] with 'matched' (Turn) and 'preceding' (Turn | None)
+
+    Output:
+    ```
+    --- abc12345 | Claudefiles | 2026-03-28 ---
+      [user] we should also remove anything shodh related...
+      [assistant] I'll check for any shodh references...
+    ```
+    """
+    if not grouped_results:
+        return ""
+
+    sections: list[str] = []
+    for group in grouped_results:
+        lines: list[str] = []
+        sid = group.get("session_id", "")[:8]
+        project = group.get("project", "")
+        date = group.get("date", "")
+        lines.append(f"--- {sid} | {project} | {date} ---")
+
+        for item in group.get("results", []):
+            preceding = item.get("preceding")
+            if preceding is not None:
+                text = _truncate(preceding["text"]) if preceding["text"] else ""
+                if text:
+                    rendered = _render_turn_line(
+                        Turn(
+                            role=preceding["role"],
+                            text=text,
+                            tool_calls=preceding.get("tool_calls", []),
+                            timestamp=preceding.get("timestamp", ""),
+                            request_id=preceding.get("request_id"),
+                            source=preceding.get("source", "parent"),
+                        ),
+                        indent="  ",
+                    )
+                    if rendered:
+                        lines.append(rendered)
+
+            matched = item["matched"]
+            text = _truncate(matched["text"]) if matched["text"] else ""
+            rendered = _render_turn_line(
+                Turn(
+                    role=matched["role"],
+                    text=text,
+                    tool_calls=matched.get("tool_calls", []),
+                    timestamp=matched.get("timestamp", ""),
+                    request_id=matched.get("request_id"),
+                    source=matched.get("source", "parent"),
+                ),
+                indent="  ",
+            )
+            if rendered:
+                lines.append(rendered)
+
+        sections.append("\n".join(lines))
+
+    return "\n".join(sections)
+
+
+def _format_stats(stats: dict[str, Any]) -> str:
+    """Format session statistics as a key-value text summary."""
+    lines: list[str] = []
+    lines.append(f"Session:  {stats.get('session_id', '')}")
+    lines.append(f"Project:  {stats.get('project', '')}")
+    if stats.get("branch"):
+        lines.append(f"Branch:   {stats['branch']}")
+    if stats.get("model"):
+        lines.append(f"Model:    {stats['model']}")
+    if stats.get("duration"):
+        lines.append(f"Duration: {stats['duration']}")
+
+    tokens = stats.get("tokens", {})
+    if any(tokens.values()):
+        lines.append("")
+        lines.append("Tokens:")
+        lines.append(f"  Input:        {tokens.get('input', 0)}")
+        lines.append(f"  Output:       {tokens.get('output', 0)}")
+        if tokens.get("cache_read"):
+            lines.append(f"  Cache read:   {tokens['cache_read']}")
+        if tokens.get("cache_create"):
+            lines.append(f"  Cache create: {tokens['cache_create']}")
+
+    type_counts = stats.get("type_counts", {})
+    if type_counts:
+        lines.append("")
+        lines.append("Entry types:")
+        for etype, count in sorted(type_counts.items(), key=lambda x: -x[1]):
+            lines.append(f"  {etype}: {count}")
+
+    tool_counts = stats.get("tool_counts", {})
+    if tool_counts:
+        lines.append("")
+        lines.append("Tools:")
+        for tool, count in sorted(tool_counts.items(), key=lambda x: -x[1]):
+            lines.append(f"  {tool}: {count}")
+
+    subagent_tool_counts = stats.get("subagent_tool_counts", {})
+    if subagent_tool_counts:
+        lines.append("")
+        lines.append("Subagent tools:")
+        for tool, count in sorted(subagent_tool_counts.items(), key=lambda x: -x[1]):
+            lines.append(f"  {tool}: {count}")
+
+    return "\n".join(lines)
+
+
 # ---------------------------------------------------------------------------
 # Subcommand handlers
 # ---------------------------------------------------------------------------
@@ -382,20 +880,59 @@ def cmd_list(args: argparse.Namespace) -> None:
         print("No sessions found.", file=sys.stderr)
         return
 
-    print(json.dumps(sessions, indent=2))
+    _output(sessions, args=args, formatter=_format_list)
+
+
+_ENTRY_TRIM_BYTES = 10 * 1024  # 10KB max per ring buffer entry
+
+
+def _format_duration(first_ts: str, last_ts: str) -> str:
+    """Compute a human-readable duration string from two ISO timestamps."""
+    try:
+        t1 = datetime.fromisoformat(first_ts.replace("Z", "+00:00"))
+        t2 = datetime.fromisoformat(last_ts.replace("Z", "+00:00"))
+        delta = t2 - t1
+        minutes = int(delta.total_seconds() // 60)
+        seconds = int(delta.total_seconds() % 60)
+        if minutes >= 60:
+            hours = minutes // 60
+            minutes = minutes % 60
+            return f"{hours}h {minutes}m"
+        return f"{minutes}m {seconds}s"
+    except ValueError:
+        return ""
+
+
+def _trim_text(text: str, max_bytes: int = _ENTRY_TRIM_BYTES) -> str:
+    """Trim text to at most *max_bytes* bytes (UTF-8)."""
+    encoded = text.encode("utf-8")
+    if len(encoded) <= max_bytes:
+        return text
+    return encoded[:max_bytes].decode("utf-8", errors="ignore") + "..."
 
 
 def cmd_show(args: argparse.Namespace) -> None:
-    """Show session content as JSON.
+    """Show session content.
 
-    Single-pass: iterates entries once, builds the agent index incrementally,
-    applies filters, and emits a JSON array.
+    Default (no flags): orientation mode — metadata, first user message,
+    entry count, last 3 entries.
+
+    With filter flags or --all/--limit/--tail: full/filtered output.
+    With --json: raw JSON (backward compatible).
+    With --grep: within-session search.
     """
-    path = resolve_session(args.session_id)
-    include_subagents = True
+    # Mutual exclusivity: --grep and --tail cannot be used together
+    if getattr(args, "grep", None) and getattr(args, "tail", None):
+        print(
+            "Error: --grep and --tail are mutually exclusive",
+            file=sys.stderr,
+        )
+        sys.exit(2)
 
-    # When no filter flags are set, include everything
-    show_all = not any(
+    path = resolve_session(args.session_id)
+
+    # Determine which mode we're in
+    has_filter = any(
         [
             args.messages,
             args.tools,
@@ -405,11 +942,45 @@ def cmd_show(args: argparse.Namespace) -> None:
             args.usage,
         ]
     )
+    has_grep = bool(getattr(args, "grep", None))
+    has_all = getattr(args, "all", False)
+    has_limit = args.limit is not None
+    has_tail = getattr(args, "tail", None) is not None
+    bypass_orientation = has_filter or has_grep or has_all or has_limit or has_tail
+
+    # --- JSON mode: preserve current behavior exactly ---
+    if args.json:
+        if has_grep:
+            print(
+                "Error: --grep and --json cannot be used together. "
+                "Use --json without --grep for full JSON output, "
+                "or --grep without --json for filtered text output.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        _cmd_show_json(args, path, has_filter)
+        return
+
+    # --- Grep mode ---
+    if has_grep:
+        _cmd_show_grep(args, path)
+        return
+
+    # --- Orientation mode (default) ---
+    if not bypass_orientation:
+        _cmd_show_orientation(args, path)
+        return
+
+    # --- Full/filtered mode ---
+    _cmd_show_filtered(args, path)
+
+
+def _cmd_show_json(args: argparse.Namespace, path: Path, has_filter: bool) -> None:
+    """JSON output path — preserves current cmd_show behavior."""
+    include_subagents = True
+    show_all = not has_filter
 
     result: list[dict[str, Any]] = []
-    # Agent index built incrementally — same pattern as iter_all_tool_calls.
-    # Cannot reuse iter_all_tool_calls here because cmd_show handles all entry
-    # types (text, thinking, usage), not just tool calls.
     agent_index: dict[str, str] = {}
 
     for entry in iter_entries(path):
@@ -427,7 +998,6 @@ def cmd_show(args: argparse.Namespace) -> None:
 
         if is_user or is_assistant:
             result.append(entry)
-            # Build agent index incrementally for subagent label resolution
             if include_subagents and is_assistant:
                 for tool in extract_tool_uses(entry.get("message", {})):
                     if tool.get("name") == "Agent" and tool.get("id"):
@@ -436,7 +1006,6 @@ def cmd_show(args: argparse.Namespace) -> None:
             entry_type == "progress" and include_subagents and (show_all or args.tools)
         ):
             for tool in extract_subagent_tool_uses(entry):
-                # Index nested Agent calls for sub-subagent label resolution
                 if tool["name"] == "Agent" and tool.get("id"):
                     agent_index[tool["id"]] = _agent_label(tool.get("input", {}))
                 source = agent_index.get(tool["parent_tool_use_id"], "subagent")
@@ -456,6 +1025,235 @@ def cmd_show(args: argparse.Namespace) -> None:
         result = result[:limit]
 
     print(json.dumps(result, indent=2))
+
+
+def _cmd_show_orientation(args: argparse.Namespace, path: Path) -> None:
+    """Orientation mode: single-pass producing metadata + first message + last 3."""
+    proj_name = project_name_from_dir(path.parent.name)
+    agent_index: dict[str, str] = {}
+
+    first_message: str | None = None
+    ring: deque[Turn] = deque(maxlen=3)
+    total_count = 0
+    first_ts = ""
+    last_ts = ""
+    branch = ""
+    model = ""
+
+    for entry in iter_entries(path):
+        total_count += 1
+        entry_type = entry.get("type", "")
+        ts = entry.get("timestamp", "")
+
+        if ts:
+            if not first_ts:
+                first_ts = ts
+            last_ts = ts
+
+        if not branch and entry.get("gitBranch"):
+            branch = entry["gitBranch"]
+
+        if not model and entry_type == "assistant":
+            m = entry.get("message", {}).get("model", "")
+            if m:
+                model = m
+
+        # Build agent index for subagent label resolution
+        if entry_type == "assistant":
+            for tool in extract_tool_uses(entry.get("message", {})):
+                if tool.get("name") == "Agent" and tool.get("id"):
+                    agent_index[tool["id"]] = _agent_label(tool.get("input", {}))
+        elif entry_type == "progress":
+            for tool in extract_subagent_tool_uses(entry):
+                if tool["name"] == "Agent" and tool.get("id"):
+                    agent_index[tool["id"]] = _agent_label(tool.get("input", {}))
+
+        # Capture first non-system user message
+        if (
+            first_message is None
+            and entry_type == "user"
+            and not _is_system_entry(entry)
+        ):
+            first_message = extract_text(entry.get("message", {}))
+
+        # Ring buffer — only user/assistant entries (not subagent progress noise)
+        if entry_type in ("user", "assistant"):
+            turn = to_turn(entry, agent_index)
+            trimmed_turn = Turn(
+                role=turn["role"],
+                text=_trim_text(turn["text"]),
+                tool_calls=turn["tool_calls"],
+                timestamp=turn["timestamp"],
+                request_id=turn["request_id"],
+                source=turn["source"],
+            )
+            ring.append(trimmed_turn)
+
+    # Compute duration
+    duration_str = _format_duration(first_ts, last_ts) if first_ts and last_ts else ""
+
+    date_str = first_ts[:10] if first_ts else ""
+
+    data: dict[str, Any] = {
+        "session_id": path.stem,
+        "project": proj_name,
+        "date": date_str,
+        "duration": duration_str,
+        "model": model,
+        "branch": branch,
+        "total_count": total_count,
+        "first_message": first_message,
+        "last_entries": list(ring),
+    }
+
+    _output(data, args=args, formatter=_format_show_orientation)
+
+
+def _cmd_show_filtered(args: argparse.Namespace, path: Path) -> None:
+    """Full/filtered mode: show entries as text conversation."""
+    agent_index: dict[str, str] = {}
+    entries: list[dict[str, Any]] = []
+
+    show_all_types = not any(
+        [
+            args.messages,
+            args.tools,
+            args.user,
+            args.assistant,
+            args.thinking,
+            args.usage,
+        ]
+    )
+
+    for entry in iter_entries(path):
+        entry_type = entry.get("type", "")
+
+        # Build agent index
+        if entry_type == "assistant":
+            for tool in extract_tool_uses(entry.get("message", {})):
+                if tool.get("name") == "Agent" and tool.get("id"):
+                    agent_index[tool["id"]] = _agent_label(tool.get("input", {}))
+        elif entry_type == "progress":
+            for tool in extract_subagent_tool_uses(entry):
+                if tool["name"] == "Agent" and tool.get("id"):
+                    agent_index[tool["id"]] = _agent_label(tool.get("input", {}))
+
+        # Filter logic
+        include = False
+        if show_all_types:
+            include = True
+        elif entry_type == "user" and (args.messages or args.user):
+            include = True
+        elif entry_type == "assistant" and (
+            args.messages or args.assistant or args.tools or args.thinking or args.usage
+        ):
+            include = True
+        elif entry_type == "progress" and args.tools:
+            include = True
+
+        if include:
+            entries.append(entry)
+
+    # Apply tail
+    tail = getattr(args, "tail", None)
+    if tail is not None:
+        entries = entries[-tail:]
+
+    # Apply limit
+    if args.limit is not None:
+        entries = entries[: args.limit]
+
+    turns = to_turns(entries, agent_index)
+    _output(turns, args=args, formatter=_format_show_entries)
+
+
+def _cmd_show_grep(args: argparse.Namespace, path: Path) -> None:
+    """Within-session search: find entries matching pattern, with preceding context.
+
+    Tracks last_user_entry and last_assistant_entry to provide conversation
+    context. For assistant/progress matches, preceding is the last user entry.
+    For user matches, preceding is the last assistant entry.
+    """
+    pattern = _compile_pattern(args.grep)
+    agent_index: dict[str, str] = {}
+
+    # Determine if type filters narrow which entries to search
+    has_filter = any(
+        [
+            getattr(args, "messages", False),
+            getattr(args, "tools", False),
+            getattr(args, "user", False),
+            getattr(args, "assistant", False),
+            getattr(args, "thinking", False),
+            getattr(args, "usage", False),
+        ]
+    )
+
+    last_user_turn: Turn | None = None
+    last_assistant_turn: Turn | None = None
+    matched_turns: list[dict[str, Any]] = []
+
+    for entry in iter_entries(path):
+        entry_type = entry.get("type", "")
+
+        # Build agent index
+        if entry_type == "assistant":
+            for tool in extract_tool_uses(entry.get("message", {})):
+                if tool.get("name") == "Agent" and tool.get("id"):
+                    agent_index[tool["id"]] = _agent_label(tool.get("input", {}))
+        elif entry_type == "progress":
+            for tool in extract_subagent_tool_uses(entry):
+                if tool["name"] == "Agent" and tool.get("id"):
+                    agent_index[tool["id"]] = _agent_label(tool.get("input", {}))
+
+        turn = to_turn(entry, agent_index)
+
+        # Track context entries
+        if entry_type == "user":
+            last_user_turn = turn
+        elif entry_type == "assistant":
+            last_assistant_turn = turn
+
+        # Apply type filter if present
+        if has_filter:
+            include = False
+            if entry_type == "user" and (args.user or args.messages):
+                include = True
+            elif entry_type == "assistant":
+                if args.assistant or args.messages or args.thinking:
+                    include = True
+                elif args.tools:
+                    # Only match tool calls, not text
+                    include = bool(turn["tool_calls"])
+            elif entry_type == "progress" and args.tools:
+                include = True
+            if not include:
+                continue
+
+        # Search in turn text and tool call summaries
+        searchable = turn["text"]
+        for tc in turn["tool_calls"]:
+            searchable += f"\n{tc.get('name', '')} {tc.get('summary', '')}"
+            searchable += f"\n{json.dumps(tc.get('input', {}))}"
+
+        if pattern.search(searchable):
+            # Determine preceding context
+            if entry_type in ("assistant", "progress"):
+                preceding = last_user_turn
+            else:
+                preceding = last_assistant_turn
+            matched_turns.append(
+                {
+                    "matched": turn,
+                    "preceding": preceding,
+                }
+            )
+
+    if not matched_turns:
+        print("No matches found.", file=sys.stderr)
+        sys.exit(1)
+
+    _output(matched_turns, args=args, formatter=_format_show_grep)
 
 
 def _tool_input_summary(name: str, inp: dict[str, Any]) -> str:
@@ -522,66 +1320,145 @@ def _match_entry(
 
 
 def cmd_search(args: argparse.Namespace) -> None:
-    """Search across sessions."""
-    pattern = _compile_pattern(args.query, fixed=args.fixed)
-    include_subagents = True
+    """Search across sessions with conversation-turn context.
 
-    results: list[dict[str, Any]] = []
+    Results include the matched entry and the preceding conversational entry
+    (user question before an assistant answer, or vice versa).  Results are
+    grouped by session, and sessions are searched in recency order (most
+    recent first via mtime sort).
+    """
+    pattern = _compile_pattern(args.query, fixed=args.fixed)
     max_results = args.limit
+    hit_limit = False
+
+    # Flat list of result dicts; grouped later
+    flat_results: list[dict[str, Any]] = []
+    total_matches = 0
 
     for proj_name, session_id, jsonl_file in iter_session_files(
-        project_filter=args.project, since=args.since
+        project_filter=args.project, since=args.since, sort_by_mtime=True
     ):
+        agent_index: dict[str, str] = {}
+        last_user_turn: Turn | None = None
+        last_assistant_turn: Turn | None = None
+        first_ts = ""
+
         for entry in iter_entries(jsonl_file):
             entry_type = entry.get("type", "")
-            message = entry.get("message", {})
             ts = entry.get("timestamp", "")
+            if ts and not first_ts:
+                first_ts = ts
 
+            # Build agent index
+            if entry_type == "assistant":
+                for tool in extract_tool_uses(entry.get("message", {})):
+                    if tool.get("name") == "Agent" and tool.get("id"):
+                        agent_index[tool["id"]] = _agent_label(tool.get("input", {}))
+            elif entry_type == "progress":
+                for tool in extract_subagent_tool_uses(entry):
+                    if tool["name"] == "Agent" and tool.get("id"):
+                        agent_index[tool["id"]] = _agent_label(tool.get("input", {}))
+
+            # Convert to Turn for context tracking
+            turn = to_turn(entry, agent_index)
+
+            # Track last user/assistant for preceding context
+            if entry_type == "user":
+                last_user_turn = turn
+            elif entry_type == "assistant":
+                last_assistant_turn = turn
+
+            # Check for match using existing _match_entry
+            message = entry.get("message", {})
             matched_text = _match_entry(entry_type, message, pattern, args.type)
 
             if matched_text:
-                results.append(
+                # Determine preceding context
+                if entry_type in ("assistant", "progress"):
+                    preceding = last_user_turn
+                else:
+                    preceding = last_assistant_turn
+
+                flat_results.append(
                     {
                         "session_id": session_id[:8],
                         "project": proj_name,
                         "timestamp": ts,
-                        "type": entry_type,
-                        "text": matched_text[:120],
+                        "date": first_ts[:10] if first_ts else "",
+                        "matched": turn,
+                        "preceding": preceding,
                     }
                 )
-                if len(results) >= max_results:
+                total_matches += 1
+                if total_matches >= max_results:
+                    hit_limit = True
                     break
 
-            elif entry_type == "progress" and include_subagents:
+            elif entry_type == "progress":
+                # Check subagent tool calls
                 for tool in extract_subagent_tool_uses(entry):
                     if args.type and args.type != "tool_use":
                         continue
                     inp_str = json.dumps(tool["input"])
                     if pattern.search(inp_str):
-                        name = tool["name"]
-                        summary = _tool_input_summary(name, tool["input"])
-                        results.append(
+                        # Subagent matches use last_user_entry as preceding
+                        flat_results.append(
                             {
                                 "session_id": session_id[:8],
                                 "project": proj_name,
                                 "timestamp": tool["timestamp"],
-                                "type": "subagent_tool",
-                                "text": f"[{name}] {summary}"[:120],
+                                "date": first_ts[:10] if first_ts else "",
+                                "matched": turn,
+                                "preceding": last_user_turn,
                             }
                         )
-                        if len(results) >= max_results:
+                        total_matches += 1
+                        if total_matches >= max_results:
+                            hit_limit = True
                             break
-                if len(results) >= max_results:
+                if hit_limit:
                     break
 
-        if len(results) >= max_results:
+        if hit_limit:
             break
 
-    if not results:
+    if not flat_results:
         print("No matches found.", file=sys.stderr)
-        return
+        sys.exit(1)
 
-    print(json.dumps(results, indent=2))
+    if hit_limit:
+        print(
+            f"Showing first {max_results} results"
+            " — use --limit to increase or --since to narrow.",
+            file=sys.stderr,
+        )
+
+    # Group results by session
+    grouped: list[dict[str, Any]] = []
+    session_order: list[str] = []
+    session_map: dict[str, dict[str, Any]] = {}
+
+    for item in flat_results:
+        sid = item["session_id"]
+        if sid not in session_map:
+            session_map[sid] = {
+                "session_id": sid,
+                "project": item["project"],
+                "date": item.get("date", ""),
+                "results": [],
+            }
+            session_order.append(sid)
+        session_map[sid]["results"].append(
+            {
+                "matched": item["matched"],
+                "preceding": item["preceding"],
+            }
+        )
+
+    for sid in session_order:
+        grouped.append(session_map[sid])
+
+    _output(grouped, args=args, formatter=_format_search)
 
 
 def cmd_stats(args: argparse.Namespace) -> None:
@@ -635,22 +1512,7 @@ def cmd_stats(args: argparse.Namespace) -> None:
                 subagent_tool_counts[name] = subagent_tool_counts.get(name, 0) + 1
 
     # Calculate duration
-    duration_str = ""
-    if first_ts and last_ts:
-        try:
-            t1 = datetime.fromisoformat(first_ts.replace("Z", "+00:00"))
-            t2 = datetime.fromisoformat(last_ts.replace("Z", "+00:00"))
-            delta = t2 - t1
-            minutes = int(delta.total_seconds() // 60)
-            seconds = int(delta.total_seconds() % 60)
-            if minutes > 60:
-                hours = minutes // 60
-                minutes = minutes % 60
-                duration_str = f"{hours}h {minutes}m"
-            else:
-                duration_str = f"{minutes}m {seconds}s"
-        except ValueError:
-            pass
+    duration_str = _format_duration(first_ts, last_ts) if first_ts and last_ts else ""
 
     stats_dict: dict[str, Any] = {
         "session_id": path.stem,
@@ -671,275 +1533,7 @@ def cmd_stats(args: argparse.Namespace) -> None:
     }
     if include_subagents:
         stats_dict["subagent_tool_counts"] = subagent_tool_counts
-    print(json.dumps(stats_dict, indent=2))
-
-
-_BUILTIN_COMMANDS = frozenset(
-    (
-        "help",
-        "clear",
-        "compact",
-        "resume",
-        "rename",
-        "init",
-        "login",
-        "permissions",
-        "plan",
-    )
-)
-
-
-def _discover_on_disk() -> set[str]:
-    """Find all skill and command names installed under ~/.claude/.
-
-    Discovers:
-      - Skills: ~/.claude/skills/<name>/SKILL.md  -> <name>
-      - Commands: ~/.claude/commands/<name>.md     -> <name>
-
-    Respects $CLAUDE_HOME if set.
-    """
-
-    claude_dir = Path(os.environ.get("CLAUDE_HOME", Path.home() / ".claude"))
-    names: set[str] = set()
-
-    skills_dir = claude_dir / "skills"
-    if skills_dir.is_dir():
-        for child in skills_dir.iterdir():
-            if child.is_dir() and (child / "SKILL.md").exists():
-                names.add(child.name)
-
-    commands_dir = claude_dir / "commands"
-    if commands_dir.is_dir():
-        for child in commands_dir.iterdir():
-            if child.suffix == ".md" and child.is_file():
-                names.add(child.stem)
-
-    return names
-
-
-def _skills_audit(
-    usage: dict[str, int],
-    sessions: dict[str, set[str]],
-) -> None:
-    """Cross-reference skill usage with what's installed on disk."""
-    on_disk = _discover_on_disk()
-    used_names = set(usage.keys())
-
-    never_used = sorted(on_disk - used_names)
-    ghost = sorted(used_names - on_disk - _BUILTIN_COMMANDS)
-    active = sorted(on_disk & used_names, key=lambda n: -usage.get(n, 0))
-
-    result = {
-        "on_disk": sorted(on_disk),
-        "active": [
-            {
-                "skill": name,
-                "invocations": usage[name],
-                "sessions": len(sessions.get(name, set())),
-            }
-            for name in active
-        ],
-        "never_used": never_used,
-        "ghost": [
-            {
-                "skill": name,
-                "invocations": usage[name],
-                "sessions": len(sessions.get(name, set())),
-            }
-            for name in ghost
-        ],
-    }
-    print(json.dumps(result, indent=2))
-
-
-def _normalize_skill_name(name: str) -> str:
-    """Canonicalize skill name: ``mine:ship`` → ``mine.ship``."""
-    return name.replace(":", ".", 1) if ":" in name else name
-
-
-def _flush_skill_turn(
-    xml_skills: set[str],
-    tool_use_skills: set[str],
-    skill_counts: dict[str, int],
-    skill_via: dict[str, dict[str, int]],
-    seen_in_session: set[str],
-) -> None:
-    """Flush one turn's skill detections, deduplicating by canonical name.
-
-    Each unique skill in the turn is counted once.  When both an XML tag and a
-    Skill tool_use were seen for the same skill, prefer tool_use.
-    Names are normalized (colon → dot) before dedup so ``mine:ship`` and
-    ``mine.ship`` are treated as the same skill within a turn.
-    """
-    all_skills = xml_skills | tool_use_skills
-    for name in all_skills:
-        via = "tool_use" if name in tool_use_skills else "xml_tag"
-        skill_counts[name] = skill_counts.get(name, 0) + 1
-        via_counts = skill_via.setdefault(name, {})
-        via_counts[via] = via_counts.get(via, 0) + 1
-        seen_in_session.add(name)
-
-
-def cmd_skills(args: argparse.Namespace) -> None:
-    """Show skill/command usage across sessions."""
-    skill_pattern = re.compile(r"<command-name>/([^<]+)</command-name>")
-    skill_counts: dict[str, int] = {}
-    skill_via: dict[str, dict[str, int]] = {}
-    skill_sessions: dict[str, set[str]] = {}
-
-    for _proj_name, session_id, jsonl_file in iter_session_files(
-        project_filter=args.project, since=args.since
-    ):
-        sid = session_id[:8]
-        seen_in_session: set[str] = set()
-
-        # Per-turn dedup sets — a "turn" spans from one user entry to the next
-        turn_xml: set[str] = set()
-        turn_tool_use: set[str] = set()
-
-        for entry in iter_entries(jsonl_file):
-            entry_type = entry.get("type", "")
-            message = entry.get("message", {})
-
-            if entry_type == "user":
-                # Flush previous turn before starting a new one
-                _flush_skill_turn(
-                    turn_xml,
-                    turn_tool_use,
-                    skill_counts,
-                    skill_via,
-                    seen_in_session,
-                )
-                turn_xml = set()
-                turn_tool_use = set()
-
-                # Scan this user message for XML command-name tags
-                text = extract_text(message)
-                for match in skill_pattern.finditer(text):
-                    name = _normalize_skill_name(match.group(1))
-                    if name not in _BUILTIN_COMMANDS:
-                        turn_xml.add(name)
-
-            elif entry_type == "assistant":
-                for tool in extract_tool_uses(message):
-                    if tool.get("name") == "Skill":
-                        skill_name = tool.get("input", {}).get("skill", "")
-                        if skill_name:
-                            turn_tool_use.add(_normalize_skill_name(skill_name))
-
-        # Flush the final turn
-        _flush_skill_turn(
-            turn_xml,
-            turn_tool_use,
-            skill_counts,
-            skill_via,
-            seen_in_session,
-        )
-
-        for name in seen_in_session:
-            skill_sessions.setdefault(name, set()).add(sid)
-
-    if not skill_counts:
-        print("No skill invocations found.", file=sys.stderr)
-        return
-
-    # Names are already normalized (colon→dot) at detection time via
-    # _normalize_skill_name, so no post-loop normalization pass needed.
-
-    sorted_skills = sorted(skill_counts.items(), key=lambda x: -x[1])
-
-    if args.audit:
-        _skills_audit(skill_counts, skill_sessions)
-        return
-
-    result = []
-    for name, count in sorted_skills:
-        via_counts = skill_via.get(name, {})
-        dominant_via = max(via_counts, key=via_counts.get, default="tool_use")  # type: ignore[arg-type]
-        result.append(
-            {
-                "skill": name,
-                "invocations": count,
-                "sessions": len(skill_sessions.get(name, set())),
-                "via": dominant_via,
-            }
-        )
-    print(json.dumps(result, indent=2))
-
-
-def cmd_agents(args: argparse.Namespace) -> None:
-    """Show agent usage across sessions."""
-    agent_counts: dict[str, int] = {}
-    agent_sessions: dict[str, set[str]] = {}
-
-    for _proj_name, session_id, jsonl_file in iter_session_files(
-        project_filter=args.project, since=args.since
-    ):
-        sid = session_id[:8]
-        seen_in_session: set[str] = set()
-
-        for entry in iter_entries(jsonl_file, type_filter="assistant"):
-            message = entry.get("message", {})
-            for tool in extract_tool_uses(message):
-                if tool.get("name") in ("Agent", "Task"):
-                    agent_name = tool.get("input", {}).get("subagent_type", "")
-                    if agent_name:
-                        agent_counts[agent_name] = agent_counts.get(agent_name, 0) + 1
-                        seen_in_session.add(agent_name)
-
-        for name in seen_in_session:
-            agent_sessions.setdefault(name, set()).add(sid)
-
-    if not agent_counts:
-        print("No agent invocations found.", file=sys.stderr)
-        return
-
-    sorted_agents = sorted(agent_counts.items(), key=lambda x: -x[1])
-
-    result = [
-        {
-            "agent": name,
-            "invocations": count,
-            "sessions": len(agent_sessions.get(name, set())),
-        }
-        for name, count in sorted_agents
-    ]
-    print(json.dumps(result, indent=2))
-
-
-def cmd_extract(args: argparse.Namespace) -> None:
-    """Extract structured data as JSON."""
-    path = resolve_session(args.session_id)
-    grep = getattr(args, "grep", None)
-    if grep:
-        _compile_pattern(grep)  # validate early — exits on bad regex
-    limit = args.limit
-
-    include_subagents = True
-
-    if args.tools:
-        _extract_tools(
-            path,
-            tool_filter=None,
-            grep=grep,
-            include_subagents=include_subagents,
-            limit=limit,
-        )
-    elif args.bash:
-        _extract_tools(
-            path,
-            tool_filter="Bash",
-            grep=grep,
-            include_subagents=include_subagents,
-            limit=limit,
-        )
-    elif args.usage:
-        _extract_usage(path, limit=limit)
-    elif args.messages:
-        _extract_messages(path, limit=limit)
-    else:
-        print("Error: specify --tools, --bash, --usage, or --messages", file=sys.stderr)
-        sys.exit(1)
+    _output(stats_dict, args=args, formatter=_format_stats)
 
 
 def _agent_label(inp: dict[str, Any]) -> str:
@@ -1026,122 +1620,6 @@ def iter_all_tool_calls(
                 }
 
 
-def _extract_tools(
-    path: Path,
-    *,
-    tool_filter: str | None,
-    grep: str | None = None,
-    include_subagents: bool = False,
-    limit: int | None = None,
-) -> None:
-    """Extract tool_use blocks as JSON."""
-    gen = iter_all_tool_calls(
-        path,
-        include_subagents=include_subagents,
-        tool_filter=tool_filter,
-        grep=grep,
-    )
-    if limit is not None:
-        results = list(islice(gen, limit))
-    else:
-        results = list(gen)
-    print(json.dumps(results, indent=2))
-
-
-def _extract_usage(path: Path, *, limit: int | None = None) -> None:
-    """Extract token usage per turn as JSON."""
-    results: list[dict[str, Any]] = []
-    for entry in iter_entries(path, type_filter="assistant"):
-        message = entry.get("message", {})
-        usage = message.get("usage")
-        if usage:
-            results.append(
-                {
-                    "timestamp": entry.get("timestamp", ""),
-                    "model": message.get("model", ""),
-                    "input_tokens": usage.get("input_tokens", 0),
-                    "output_tokens": usage.get("output_tokens", 0),
-                    "cache_read_input_tokens": usage.get("cache_read_input_tokens", 0),
-                    "cache_creation_input_tokens": usage.get(
-                        "cache_creation_input_tokens", 0
-                    ),
-                }
-            )
-    if limit is not None:
-        results = results[:limit]
-    print(json.dumps(results, indent=2))
-
-
-def _extract_messages(path: Path, *, limit: int | None = None) -> None:
-    """Extract messages as JSON."""
-    results: list[dict[str, Any]] = []
-    for entry in iter_entries(path):
-        entry_type = entry.get("type", "")
-        if entry_type not in ("user", "assistant"):
-            continue
-        message = entry.get("message", {})
-        results.append(
-            {
-                "timestamp": entry.get("timestamp", ""),
-                "type": entry_type,
-                "role": message.get("role", ""),
-                "text": extract_text(message),
-            }
-        )
-    if limit is not None:
-        results = results[:limit]
-    print(json.dumps(results, indent=2))
-
-
-def cmd_grep(args: argparse.Namespace) -> None:
-    """Search bash commands across sessions by regex pattern."""
-    fixed = getattr(args, "fixed", False)
-    # Validate/escape early so the user sees a clean error before any I/O
-    grep_pattern = _compile_pattern(args.pattern, fixed=fixed)
-    include_subagents = True
-    results: list[dict[str, Any]] = []
-
-    for proj_name, session_id, jsonl_file in iter_session_files(
-        project_filter=args.project,
-        since=args.since,
-    ):
-        for tool_call in iter_all_tool_calls(
-            jsonl_file,
-            include_subagents=include_subagents,
-            tool_filter="Bash",
-            grep_re=grep_pattern,
-        ):
-            result: dict[str, Any] = {
-                "session_id": session_id[:8],
-                "project": proj_name,
-                "timestamp": tool_call["timestamp"],
-                "command": tool_call["input"].get("command", ""),
-            }
-            if include_subagents:
-                result["source"] = tool_call.get("source", "parent")
-            results.append(result)
-
-    results.sort(key=lambda r: r.get("timestamp", ""))
-
-    if args.limit:
-        results = results[: args.limit]
-
-    if not results:
-        print("No matches found.", file=sys.stderr)
-        return
-
-    print(json.dumps(results, indent=2))
-
-
-def cmd_permissions(args: argparse.Namespace) -> None:
-    """Deprecated — prints a message and exits."""
-    print(
-        "claude-log permissions has been removed. "
-        "Use /mine.permissions-audit instead, which reads debug logs directly.",
-        file=sys.stderr,
-    )
-
-
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -1171,7 +1649,6 @@ Examples:
   claude-log show <session-id>           # show full session content
   claude-log search "error" --since 2024-01-01
   claude-log stats <session-id>          # token usage and tool stats
-  claude-log grep "pytest"               # search bash commands across sessions
 """,
     )
 
@@ -1194,6 +1671,9 @@ Examples:
   claude-log list --since 2024-03-01     # sessions after a date
   claude-log list --cwd /home/user/repo  # filter by working directory
 """,
+    )
+    p_list.add_argument(
+        "--json", action="store_true", default=False, help="Output as JSON"
     )
     p_list.add_argument("--project", "-p", help="Filter by project name substring")
     p_list.add_argument("--cwd", help="Filter by working directory path substring")
@@ -1223,6 +1703,9 @@ Examples:
     )
     p_show.add_argument("session_id", help="Session ID or prefix")
     p_show.add_argument(
+        "--json", action="store_true", default=False, help="Output as JSON"
+    )
+    p_show.add_argument(
         "--messages", "-m", action="store_true", help="User + assistant text only"
     )
     p_show.add_argument(
@@ -1234,6 +1717,25 @@ Examples:
     )
     p_show.add_argument("--thinking", action="store_true", help="Thinking blocks only")
     p_show.add_argument("--usage", action="store_true", help="Token usage per turn")
+    p_show.add_argument(
+        "--grep",
+        "-g",
+        metavar="PATTERN",
+        default=None,
+        help="Search within session (regex by default)",
+    )
+    p_show.add_argument(
+        "--all",
+        action="store_true",
+        default=False,
+        help="Show all entries (bypass orientation mode)",
+    )
+    p_show.add_argument(
+        "--tail",
+        type=_positive_int,
+        default=None,
+        help="Show last N entries",
+    )
     p_show.add_argument(
         "--limit",
         "-l",
@@ -1258,6 +1760,9 @@ Examples:
     )
     p_search.add_argument("query", help="Search pattern (regex by default)")
     p_search.add_argument(
+        "--json", action="store_true", default=False, help="Output as JSON"
+    )
+    p_search.add_argument(
         "--fixed",
         "-F",
         action="store_true",
@@ -1265,7 +1770,9 @@ Examples:
     )
     p_search.add_argument("--project", "-p", help="Filter by project name substring")
     p_search.add_argument(
-        "--type", choices=["user", "assistant", "tool_use"], help="Filter by type"
+        "--type",
+        choices=["user", "assistant", "tool_use"],
+        help="Filter by entry type: user=user messages, assistant=assistant text, tool_use=tool calls (includes subagent tool calls)",
     )
     p_search.add_argument("--since", "-s", help="Filter by date (YYYY-MM-DD)")
     p_search.add_argument(
@@ -1288,77 +1795,8 @@ Examples:
 """,
     )
     p_stats.add_argument("session_id", help="Session ID or prefix")
-
-    # skills
-    p_skills = subs.add_parser("skills", help="Skill/command usage across sessions")
-    p_skills.add_argument("--project", "-p", help="Filter by project name substring")
-    p_skills.add_argument("--since", "-s", help="Filter by date (YYYY-MM-DD)")
-    p_skills.add_argument(
-        "--audit",
-        action="store_true",
-        help="Cross-reference usage with skills/commands on disk — shows unused and ghost entries",
-    )
-
-    # agents
-    p_agents = subs.add_parser("agents", help="Agent usage across sessions")
-    p_agents.add_argument("--project", "-p", help="Filter by project name substring")
-    p_agents.add_argument("--since", "-s", help="Filter by date (YYYY-MM-DD)")
-
-    # extract
-    p_extract = subs.add_parser("extract", help="Extract structured data as JSON")
-    p_extract.add_argument("session_id", help="Session ID or prefix")
-    grp = p_extract.add_mutually_exclusive_group(required=True)
-    grp.add_argument("--tools", "-t", action="store_true", help="All tool_use blocks")
-    grp.add_argument("--bash", "-b", action="store_true", help="Bash tool inputs only")
-    grp.add_argument("--usage", "-u", action="store_true", help="Token usage array")
-    grp.add_argument("--messages", "-m", action="store_true", help="Messages as JSON")
-    p_extract.add_argument(
-        "--grep",
-        metavar="PATTERN",
-        help="Filter tool inputs by regex (with --tools or --bash)",
-    )
-    p_extract.add_argument(
-        "--limit",
-        "-l",
-        type=_positive_int,
-        default=None,
-        help="Max entries to return (default: unlimited)",
-    )
-
-    # grep
-    p_grep = subs.add_parser(
-        "grep",
-        help="Search bash commands across sessions (regex by default)",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        description="Search bash commands across multiple sessions. Like 'extract --bash --grep' but cross-session.",
-        epilog="""\
-Examples:
-  claude-log grep "pytest"               # find pytest runs across sessions
-  claude-log grep "docker" -p myapp      # docker commands in a project
-  claude-log grep "pip install" -F       # literal string search
-  claude-log grep "git push" --since 2024-03-01
-""",
-    )
-    p_grep.add_argument("pattern", help="Search pattern (regex by default)")
-    p_grep.add_argument(
-        "--fixed",
-        "-F",
-        action="store_true",
-        help="Treat pattern as a fixed string, not a regex",
-    )
-    p_grep.add_argument("--project", "-p", help="Filter by project name substring")
-    p_grep.add_argument("--since", "-s", help="Filter by date (YYYY-MM-DD)")
-    p_grep.add_argument(
-        "--limit",
-        "-l",
-        type=_positive_int,
-        help="Max results to return",
-    )
-
-    # permissions (deprecated stub — prints warning, exits 0)
-    subs.add_parser(
-        "permissions",
-        help="(deprecated) Use /mine.permissions-audit instead",
+    p_stats.add_argument(
+        "--json", action="store_true", default=False, help="Output as JSON"
     )
 
     return parser
@@ -1374,11 +1812,6 @@ def main(argv: Sequence[str] | None = None) -> None:
         "show": cmd_show,
         "search": cmd_search,
         "stats": cmd_stats,
-        "skills": cmd_skills,
-        "agents": cmd_agents,
-        "extract": cmd_extract,
-        "grep": cmd_grep,
-        "permissions": cmd_permissions,
     }
 
     handlers[args.command](args)

@@ -5,12 +5,16 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-04-01
 
 ### Changed
+- `bin/claude-log` — redesigned from JSON-only output with 9 commands to text-first output with 4 commands (list, search, show, stats); orientation mode for show, `--grep` for within-session search, conversation-turn context in search results, `--json` flag for structured output (#153)
+- `skills/mine.tool-gaps/SKILL.md` — updated `claude-log extract --bash` references to `claude-log show --tools --grep` (#153)
 - `mine.draft-plan` no longer caps Work Packages at 8 — design complexity determines the count (#152)
 - Removed `rules/common/lsp.md` and LSP references — pyright-lsp plugin being disabled due to stale diagnostic noise; linter/type checker discovery added to `git-workflow.md` (#152)
 
+### Removed
+- `bin/claude-log` — removed `extract`, `grep`, `skills`, `agents`, `permissions` subcommands (functionality absorbed into remaining 4 commands) (#153)
+
 ### Fixed
 - `spec-helper init` now respects monorepo structure — creates features in the nearest `design/specs/` relative to cwd, not at the git root (#152)
-
 ## 2026-03-30
 
 ### Added

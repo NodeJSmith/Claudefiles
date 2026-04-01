@@ -66,7 +66,7 @@ claude-log search "<tool>" --limit 80 --type tool_use 2>/dev/null | head -40
 From the session IDs returned, for each relevant session:
 ```bash
 # Step 2: Extract bash commands and filter for the tool
-claude-log extract <session-id> --bash 2>/dev/null | grep -i "<tool>"
+claude-log show <session-id> --tools --grep -F "<tool>"
 ```
 
 Collect the raw command lines that involve the tool. Look for signal patterns.
