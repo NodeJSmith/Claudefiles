@@ -19,6 +19,7 @@ import json
 import os
 import re
 import sys
+from collections import deque
 from collections.abc import Callable, Generator, Sequence
 from datetime import datetime, timezone
 from itertools import islice
@@ -364,6 +365,45 @@ def extract_subagent_tool_uses(entry: dict[str, Any]) -> list[dict[str, Any]]:
     return results
 
 
+def _is_system_entry(entry: dict[str, Any]) -> bool:
+    """Return True for system-injected entries that should be skipped in orientation.
+
+    Identifies:
+    - Content starting with ``<`` (XML system tags like ``<local-command-caveat>``,
+      ``<env>``, ``<system-reminder>``)
+    - Entries with type ``tool_result``
+    - Content starting with ``/`` (slash commands)
+    """
+    entry_type = entry.get("type", "")
+
+    # tool_result entries are always system
+    if entry_type == "tool_result":
+        return True
+
+    # Only user entries can be system-injected user messages
+    if entry_type != "user":
+        return False
+
+    message = entry.get("message", {})
+    content = message.get("content", "")
+
+    # Extract the first text to check
+    first_text = ""
+    if isinstance(content, str):
+        first_text = content
+    elif isinstance(content, list):
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                first_text = block.get("text", "")
+                break
+
+    if not first_text:
+        return False
+
+    # XML-prefixed content or slash commands
+    return first_text.startswith("<") or first_text.startswith("/")
+
+
 # ---------------------------------------------------------------------------
 # Turn model
 # ---------------------------------------------------------------------------
@@ -554,6 +594,135 @@ def _format_list(sessions: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+def _render_turn_line(turn: Turn, *, indent: str = "") -> str:
+    """Render a single Turn as one or more text lines.
+
+    Returns a multi-line string with role prefix and optional tool call lines.
+    """
+    lines: list[str] = []
+    role = turn["role"]
+
+    if role == "subagent":
+        label = turn["source"]
+        if turn["text"]:
+            lines.append(f"{indent}  [{label}] {turn['text']}")
+        for tc in turn["tool_calls"]:
+            lines.append(f"{indent}  [{tc['name']}] {tc.get('summary', '')}")
+    else:
+        prefix = f"[{role}]"
+        if turn["text"]:
+            lines.append(f"{indent}{prefix} {turn['text']}")
+        for tc in turn["tool_calls"]:
+            lines.append(f"{indent}[{tc['name']}] {tc.get('summary', '')}")
+
+    return "\n".join(lines)
+
+
+def _format_show_orientation(data: dict[str, Any]) -> str:
+    """Format orientation mode output: metadata header, first message, last entries.
+
+    Input dict keys:
+    - session_id, project, date, duration, model, branch, total_count
+    - first_message (str | None)
+    - last_entries (list[Turn])
+    """
+    lines: list[str] = []
+
+    # Metadata header line
+    parts = [
+        f"Session {data['session_id'][:8]}",
+        data.get("project", ""),
+        data.get("date", ""),
+    ]
+    if data.get("duration"):
+        parts.append(data["duration"])
+    if data.get("model"):
+        parts.append(data["model"])
+    lines.append(" | ".join(p for p in parts if p))
+
+    # Branch + entry count
+    meta_parts: list[str] = []
+    if data.get("branch"):
+        meta_parts.append(f"Branch: {data['branch']}")
+    total = data.get("total_count", 0)
+    meta_parts.append(f"~{total} entries")
+    lines.append(" | ".join(meta_parts))
+
+    lines.append("")
+
+    # First user message
+    first_msg = data.get("first_message")
+    if first_msg:
+        lines.append(f"[user] {first_msg}")
+    else:
+        lines.append("(no user message found)")
+
+    # Omitted count
+    last_entries: list[Turn] = data.get("last_entries", [])
+    # 1 for first message + number of last entries = accounted for
+    accounted = (1 if first_msg else 0) + len(last_entries)
+    omitted = max(0, total - accounted)
+    if omitted > 0:
+        lines.append("")
+        lines.append(f"--- ~{omitted} entries omitted ---")
+
+    # Last entries
+    if last_entries:
+        lines.append("")
+        for turn in last_entries:
+            rendered = _render_turn_line(turn)
+            if rendered:
+                lines.append(rendered)
+
+    return "\n".join(lines)
+
+
+def _format_show_entries(turns: list[Turn]) -> str:
+    """Format a chronological conversation from Turn objects.
+
+    Renders [user], [assistant], [ToolName] prefixed lines.
+    Subagent entries are indented.
+    """
+    if not turns:
+        return ""
+
+    lines: list[str] = []
+    for turn in turns:
+        rendered = _render_turn_line(turn)
+        if rendered:
+            lines.append(rendered)
+
+    return "\n".join(lines)
+
+
+def _format_show_grep(matched_turns: list[dict[str, Any]]) -> str:
+    """Format grep results: matched sections separated by --- dividers.
+
+    Each item in *matched_turns* has keys:
+    - matched: Turn
+    - preceding: Turn | None
+    """
+    if not matched_turns:
+        return ""
+
+    sections: list[str] = []
+    for item in matched_turns:
+        lines: list[str] = []
+        preceding = item.get("preceding")
+        if preceding is not None:
+            rendered = _render_turn_line(preceding)
+            if rendered:
+                lines.append(rendered)
+        matched = item["matched"]
+        rendered = _render_turn_line(matched)
+        if rendered:
+            lines.append(rendered)
+        if lines:
+            sections.append("\n".join(lines))
+
+    return "\n---\n".join(sections)
+
+
 def _format_stats(stats: dict[str, Any]) -> str:
     """Format session statistics as a key-value text summary."""
     lines: list[str] = []
@@ -622,17 +791,39 @@ def cmd_list(args: argparse.Namespace) -> None:
     _output(sessions, args=args, formatter=_format_list)
 
 
+_ENTRY_TRIM_BYTES = 10 * 1024  # 10KB max per ring buffer entry
+
+
+def _trim_text(text: str, max_bytes: int = _ENTRY_TRIM_BYTES) -> str:
+    """Trim text to at most *max_bytes* bytes (UTF-8)."""
+    encoded = text.encode("utf-8")
+    if len(encoded) <= max_bytes:
+        return text
+    return encoded[:max_bytes].decode("utf-8", errors="ignore") + "..."
+
+
 def cmd_show(args: argparse.Namespace) -> None:
-    """Show session content as JSON.
+    """Show session content.
 
-    Single-pass: iterates entries once, builds the agent index incrementally,
-    applies filters, and emits a JSON array.
+    Default (no flags): orientation mode — metadata, first user message,
+    entry count, last 3 entries.
+
+    With filter flags or --all/--limit/--tail: full/filtered output.
+    With --json: raw JSON (backward compatible).
+    With --grep: within-session search.
     """
-    path = resolve_session(args.session_id)
-    include_subagents = True
+    # Mutual exclusivity: --grep and --tail cannot be used together
+    if getattr(args, "grep", None) and getattr(args, "tail", None):
+        print(
+            "Error: --grep and --tail are mutually exclusive",
+            file=sys.stderr,
+        )
+        sys.exit(2)
 
-    # When no filter flags are set, include everything
-    show_all = not any(
+    path = resolve_session(args.session_id)
+
+    # Determine which mode we're in
+    has_filter = any(
         [
             args.messages,
             args.tools,
@@ -642,11 +833,37 @@ def cmd_show(args: argparse.Namespace) -> None:
             args.usage,
         ]
     )
+    has_grep = bool(getattr(args, "grep", None))
+    has_all = getattr(args, "all", False)
+    has_limit = args.limit is not None
+    has_tail = getattr(args, "tail", None) is not None
+    bypass_orientation = has_filter or has_grep or has_all or has_limit or has_tail
+
+    # --- JSON mode: preserve current behavior exactly ---
+    if args.json:
+        _cmd_show_json(args, path, has_filter)
+        return
+
+    # --- Grep mode (subtask 7 — stub for now, will be wired later) ---
+    if has_grep:
+        _cmd_show_grep(args, path)
+        return
+
+    # --- Orientation mode (default) ---
+    if not bypass_orientation:
+        _cmd_show_orientation(args, path)
+        return
+
+    # --- Full/filtered mode ---
+    _cmd_show_filtered(args, path)
+
+
+def _cmd_show_json(args: argparse.Namespace, path: Path, has_filter: bool) -> None:
+    """JSON output path — preserves current cmd_show behavior."""
+    include_subagents = True
+    show_all = not has_filter
 
     result: list[dict[str, Any]] = []
-    # Agent index built incrementally — same pattern as iter_all_tool_calls.
-    # Cannot reuse iter_all_tool_calls here because cmd_show handles all entry
-    # types (text, thinking, usage), not just tool calls.
     agent_index: dict[str, str] = {}
 
     for entry in iter_entries(path):
@@ -664,7 +881,6 @@ def cmd_show(args: argparse.Namespace) -> None:
 
         if is_user or is_assistant:
             result.append(entry)
-            # Build agent index incrementally for subagent label resolution
             if include_subagents and is_assistant:
                 for tool in extract_tool_uses(entry.get("message", {})):
                     if tool.get("name") == "Agent" and tool.get("id"):
@@ -673,7 +889,6 @@ def cmd_show(args: argparse.Namespace) -> None:
             entry_type == "progress" and include_subagents and (show_all or args.tools)
         ):
             for tool in extract_subagent_tool_uses(entry):
-                # Index nested Agent calls for sub-subagent label resolution
                 if tool["name"] == "Agent" and tool.get("id"):
                     agent_index[tool["id"]] = _agent_label(tool.get("input", {}))
                 source = agent_index.get(tool["parent_tool_use_id"], "subagent")
@@ -693,6 +908,249 @@ def cmd_show(args: argparse.Namespace) -> None:
         result = result[:limit]
 
     print(json.dumps(result, indent=2))
+
+
+def _cmd_show_orientation(args: argparse.Namespace, path: Path) -> None:
+    """Orientation mode: single-pass producing metadata + first message + last 3."""
+    proj_name = project_name_from_dir(path.parent.name)
+    agent_index: dict[str, str] = {}
+
+    first_message: str | None = None
+    ring: deque[Turn] = deque(maxlen=3)
+    total_count = 0
+    first_ts = ""
+    last_ts = ""
+    branch = ""
+    model = ""
+
+    for entry in iter_entries(path):
+        total_count += 1
+        entry_type = entry.get("type", "")
+        ts = entry.get("timestamp", "")
+
+        if ts:
+            if not first_ts:
+                first_ts = ts
+            last_ts = ts
+
+        if not branch and entry.get("gitBranch"):
+            branch = entry["gitBranch"]
+
+        if not model and entry_type == "assistant":
+            m = entry.get("message", {}).get("model", "")
+            if m:
+                model = m
+
+        # Build agent index for subagent label resolution
+        if entry_type == "assistant":
+            for tool in extract_tool_uses(entry.get("message", {})):
+                if tool.get("name") == "Agent" and tool.get("id"):
+                    agent_index[tool["id"]] = _agent_label(tool.get("input", {}))
+        elif entry_type == "progress":
+            for tool in extract_subagent_tool_uses(entry):
+                if tool["name"] == "Agent" and tool.get("id"):
+                    agent_index[tool["id"]] = _agent_label(tool.get("input", {}))
+
+        # Capture first non-system user message
+        if (
+            first_message is None
+            and entry_type == "user"
+            and not _is_system_entry(entry)
+        ):
+            first_message = extract_text(entry.get("message", {}))
+
+        # Ring buffer — add all entries as Turns, trimmed
+        turn = to_turn(entry, agent_index)
+        trimmed_turn = Turn(
+            role=turn["role"],
+            text=_trim_text(turn["text"]),
+            tool_calls=turn["tool_calls"],
+            timestamp=turn["timestamp"],
+            request_id=turn["request_id"],
+            source=turn["source"],
+        )
+        ring.append(trimmed_turn)
+
+    # Compute duration
+    duration_str = ""
+    if first_ts and last_ts:
+        try:
+            t1 = datetime.fromisoformat(first_ts.replace("Z", "+00:00"))
+            t2 = datetime.fromisoformat(last_ts.replace("Z", "+00:00"))
+            delta = t2 - t1
+            minutes = int(delta.total_seconds() // 60)
+            seconds = int(delta.total_seconds() % 60)
+            if minutes > 60:
+                hours = minutes // 60
+                minutes = minutes % 60
+                duration_str = f"{hours}h {minutes}m"
+            else:
+                duration_str = f"{minutes}m {seconds}s"
+        except ValueError:
+            pass
+
+    date_str = first_ts[:10] if first_ts else ""
+
+    data: dict[str, Any] = {
+        "session_id": path.stem,
+        "project": proj_name,
+        "date": date_str,
+        "duration": duration_str,
+        "model": model,
+        "branch": branch,
+        "total_count": total_count,
+        "first_message": first_message,
+        "last_entries": list(ring),
+    }
+
+    _output(data, args=args, formatter=_format_show_orientation)
+
+
+def _cmd_show_filtered(args: argparse.Namespace, path: Path) -> None:
+    """Full/filtered mode: show entries as text conversation."""
+    agent_index: dict[str, str] = {}
+    entries: list[dict[str, Any]] = []
+
+    show_all_types = not any(
+        [
+            args.messages,
+            args.tools,
+            args.user,
+            args.assistant,
+            args.thinking,
+            args.usage,
+        ]
+    )
+
+    for entry in iter_entries(path):
+        entry_type = entry.get("type", "")
+
+        # Build agent index
+        if entry_type == "assistant":
+            for tool in extract_tool_uses(entry.get("message", {})):
+                if tool.get("name") == "Agent" and tool.get("id"):
+                    agent_index[tool["id"]] = _agent_label(tool.get("input", {}))
+        elif entry_type == "progress":
+            for tool in extract_subagent_tool_uses(entry):
+                if tool["name"] == "Agent" and tool.get("id"):
+                    agent_index[tool["id"]] = _agent_label(tool.get("input", {}))
+
+        # Filter logic
+        include = False
+        if show_all_types:
+            include = True
+        elif entry_type == "user" and (args.messages or args.user):
+            include = True
+        elif entry_type == "assistant" and (
+            args.messages or args.assistant or args.tools or args.thinking or args.usage
+        ):
+            include = True
+        elif entry_type == "progress" and args.tools:
+            include = True
+
+        if include:
+            entries.append(entry)
+
+    # Apply tail
+    tail = getattr(args, "tail", None)
+    if tail is not None:
+        entries = entries[-tail:]
+
+    # Apply limit
+    if args.limit is not None:
+        entries = entries[: args.limit]
+
+    turns = to_turns(entries, agent_index)
+    _output(turns, args=args, formatter=_format_show_entries)
+
+
+def _cmd_show_grep(args: argparse.Namespace, path: Path) -> None:
+    """Within-session search: find entries matching pattern, with preceding context.
+
+    Tracks last_user_entry and last_assistant_entry to provide conversation
+    context. For assistant/progress matches, preceding is the last user entry.
+    For user matches, preceding is the last assistant entry.
+    """
+    pattern = _compile_pattern(args.grep)
+    agent_index: dict[str, str] = {}
+
+    # Determine if type filters narrow which entries to search
+    has_filter = any(
+        [
+            getattr(args, "messages", False),
+            getattr(args, "tools", False),
+            getattr(args, "user", False),
+            getattr(args, "assistant", False),
+            getattr(args, "thinking", False),
+            getattr(args, "usage", False),
+        ]
+    )
+
+    last_user_turn: Turn | None = None
+    last_assistant_turn: Turn | None = None
+    matched_turns: list[dict[str, Any]] = []
+
+    for entry in iter_entries(path):
+        entry_type = entry.get("type", "")
+
+        # Build agent index
+        if entry_type == "assistant":
+            for tool in extract_tool_uses(entry.get("message", {})):
+                if tool.get("name") == "Agent" and tool.get("id"):
+                    agent_index[tool["id"]] = _agent_label(tool.get("input", {}))
+        elif entry_type == "progress":
+            for tool in extract_subagent_tool_uses(entry):
+                if tool["name"] == "Agent" and tool.get("id"):
+                    agent_index[tool["id"]] = _agent_label(tool.get("input", {}))
+
+        turn = to_turn(entry, agent_index)
+
+        # Track context entries
+        if entry_type == "user":
+            last_user_turn = turn
+        elif entry_type == "assistant":
+            last_assistant_turn = turn
+
+        # Apply type filter if present
+        if has_filter:
+            include = False
+            if entry_type == "user" and (args.user or args.messages):
+                include = True
+            elif entry_type == "assistant":
+                if args.assistant or args.messages or args.thinking:
+                    include = True
+                elif args.tools:
+                    # Only match tool calls, not text
+                    include = bool(turn["tool_calls"])
+            elif entry_type == "progress" and args.tools:
+                include = True
+            if not include:
+                continue
+
+        # Search in turn text and tool call summaries
+        searchable = turn["text"]
+        for tc in turn["tool_calls"]:
+            searchable += f"\n{tc.get('name', '')} {tc.get('summary', '')}"
+            searchable += f"\n{json.dumps(tc.get('input', {}))}"
+
+        if pattern.search(searchable):
+            # Determine preceding context
+            if entry_type in ("assistant", "progress"):
+                preceding = last_user_turn
+            else:
+                preceding = last_assistant_turn
+            matched_turns.append(
+                {
+                    "matched": turn,
+                    "preceding": preceding,
+                }
+            )
+
+    if not matched_turns:
+        print("No matches found.", file=sys.stderr)
+        sys.exit(1)
+
+    _output(matched_turns, args=args, formatter=_format_show_grep)
 
 
 def _tool_input_summary(name: str, inp: dict[str, Any]) -> str:
@@ -1477,6 +1935,25 @@ Examples:
     )
     p_show.add_argument("--thinking", action="store_true", help="Thinking blocks only")
     p_show.add_argument("--usage", action="store_true", help="Token usage per turn")
+    p_show.add_argument(
+        "--grep",
+        "-g",
+        metavar="PATTERN",
+        default=None,
+        help="Search within session (regex by default)",
+    )
+    p_show.add_argument(
+        "--all",
+        action="store_true",
+        default=False,
+        help="Show all entries (bypass orientation mode)",
+    )
+    p_show.add_argument(
+        "--tail",
+        type=_positive_int,
+        default=None,
+        help="Show last N entries",
+    )
     p_show.add_argument(
         "--limit",
         "-l",

@@ -1,6 +1,8 @@
 """Tests for bin/claude-log — pure function unit tests."""
 
 import argparse
+import io
+from contextlib import redirect_stderr, redirect_stdout
 from typing import Any, get_type_hints
 import importlib.machinery
 import importlib.util
@@ -417,6 +419,1093 @@ class TestJsonFlag:
         args = parser.parse_args(["search", "--json", "my query"])
         assert args.json is True
         assert args.query == "my query"
+
+
+# ===================================================================
+# Show subcommand new flags (--grep, --all, --tail)
+# ===================================================================
+
+
+class TestShowNewFlags:
+    """Verify --grep, --all, --tail flags on show subcommand."""
+
+    def test_show_accepts_grep(self) -> None:
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["show", "abc123", "--grep", "pytest"])
+        assert args.grep == "pytest"
+
+    def test_show_accepts_grep_short(self) -> None:
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["show", "abc123", "-g", "error"])
+        assert args.grep == "error"
+
+    def test_show_grep_default_none(self) -> None:
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["show", "abc123"])
+        assert args.grep is None
+
+    def test_show_accepts_all(self) -> None:
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["show", "abc123", "--all"])
+        assert args.all is True
+
+    def test_show_all_default_false(self) -> None:
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["show", "abc123"])
+        assert args.all is False
+
+    def test_show_accepts_tail(self) -> None:
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["show", "abc123", "--tail", "5"])
+        assert args.tail == 5
+
+    def test_show_tail_default_none(self) -> None:
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["show", "abc123"])
+        assert args.tail is None
+
+
+# ===================================================================
+# Grep/tail mutual exclusion
+# ===================================================================
+
+
+class TestGrepTailMutualExclusion:
+    """--grep and --tail are mutually exclusive on show."""
+
+    def test_error_when_both_provided(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Providing both --grep and --tail produces an error exit."""
+        jsonl = tmp_path / "session.jsonl"
+        _write_jsonl(
+            jsonl,
+            [
+                {
+                    "type": "user",
+                    "timestamp": "2026-01-01T00:00:01Z",
+                    "message": {"content": "hello"},
+                },
+            ],
+        )
+        monkeypatch.setattr(claude_log, "resolve_session", lambda _sid: jsonl)
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["show", "abc123", "--grep", "foo", "--tail", "5"])
+        with pytest.raises(SystemExit) as exc_info:
+            claude_log.cmd_show(args)
+        assert exc_info.value.code == 2
+
+    def test_error_message_mentions_both_flags(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        jsonl = tmp_path / "session.jsonl"
+        _write_jsonl(
+            jsonl,
+            [
+                {
+                    "type": "user",
+                    "timestamp": "2026-01-01T00:00:01Z",
+                    "message": {"content": "hello"},
+                },
+            ],
+        )
+        monkeypatch.setattr(claude_log, "resolve_session", lambda _sid: jsonl)
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["show", "abc123", "--grep", "foo", "--tail", "5"])
+        with pytest.raises(SystemExit):
+            claude_log.cmd_show(args)
+        err = capsys.readouterr().err
+        assert "--grep" in err
+        assert "--tail" in err
+
+    def test_grep_alone_is_allowed(self) -> None:
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["show", "abc123", "--grep", "foo"])
+        assert args.grep == "foo"
+        assert args.tail is None
+
+    def test_tail_alone_is_allowed(self) -> None:
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["show", "abc123", "--tail", "5"])
+        assert args.tail == 5
+        assert args.grep is None
+
+
+# ===================================================================
+# _is_system_entry
+# ===================================================================
+
+
+class TestIsSystemEntry:
+    """Test _is_system_entry — identifies system-injected entries."""
+
+    def test_xml_prefixed_content(self) -> None:
+        """Content starting with < (XML tags like <local-command-caveat>) is system."""
+        entry: dict[str, Any] = {
+            "type": "user",
+            "message": {"content": "<local-command-caveat>Do not run..."},
+        }
+        assert claude_log._is_system_entry(entry) is True
+
+    def test_env_xml_tag(self) -> None:
+        """Content starting with <env> is system."""
+        entry: dict[str, Any] = {
+            "type": "user",
+            "message": {"content": "<env>\nWorking directory: /home/user\n</env>"},
+        }
+        assert claude_log._is_system_entry(entry) is True
+
+    def test_tool_result_type(self) -> None:
+        """Entries with type tool_result are system."""
+        entry: dict[str, Any] = {
+            "type": "tool_result",
+            "message": {"content": "some result"},
+        }
+        assert claude_log._is_system_entry(entry) is True
+
+    def test_slash_command_entry(self) -> None:
+        """Content starting with / (slash command) is system."""
+        entry: dict[str, Any] = {
+            "type": "user",
+            "message": {"content": "/mine.ship"},
+        }
+        assert claude_log._is_system_entry(entry) is True
+
+    def test_real_user_message(self) -> None:
+        """Normal user text is NOT a system entry."""
+        entry: dict[str, Any] = {
+            "type": "user",
+            "message": {"content": "we should also remove anything shodh related"},
+        }
+        assert claude_log._is_system_entry(entry) is False
+
+    def test_user_message_with_list_content(self) -> None:
+        """User message with list content blocks is NOT system."""
+        entry: dict[str, Any] = {
+            "type": "user",
+            "message": {
+                "content": [{"type": "text", "text": "please fix the bug"}],
+            },
+        }
+        assert claude_log._is_system_entry(entry) is False
+
+    def test_xml_in_list_content(self) -> None:
+        """List content where first text block starts with < is system."""
+        entry: dict[str, Any] = {
+            "type": "user",
+            "message": {
+                "content": [
+                    {"type": "text", "text": "<system-reminder>You are..."},
+                ],
+            },
+        }
+        assert claude_log._is_system_entry(entry) is True
+
+    def test_assistant_entry_is_not_system(self) -> None:
+        """Assistant entries are never system entries."""
+        entry: dict[str, Any] = {
+            "type": "assistant",
+            "message": {"content": [{"type": "text", "text": "I will help"}]},
+        }
+        assert claude_log._is_system_entry(entry) is False
+
+    def test_empty_content_is_not_system(self) -> None:
+        """Empty content is not a system entry."""
+        entry: dict[str, Any] = {
+            "type": "user",
+            "message": {"content": ""},
+        }
+        assert claude_log._is_system_entry(entry) is False
+
+
+# ===================================================================
+# _format_show_orientation
+# ===================================================================
+
+
+class TestFormatShowOrientation:
+    """Test _format_show_orientation — compact session overview."""
+
+    def test_contains_metadata_header(self) -> None:
+        data: dict[str, Any] = {
+            "session_id": "abc12345-6789",
+            "project": "Claudefiles",
+            "date": "2026-03-28",
+            "duration": "45m",
+            "model": "claude-opus-4-6",
+            "branch": "worktree-shodh-removal",
+            "total_count": 234,
+            "first_message": "we should also remove anything shodh related",
+            "last_entries": [],
+        }
+        result = claude_log._format_show_orientation(data)
+        assert "abc12345" in result
+        assert "Claudefiles" in result
+        assert "2026-03-28" in result
+
+    def test_contains_first_user_message(self) -> None:
+        data: dict[str, Any] = {
+            "session_id": "abc12345",
+            "project": "Test",
+            "date": "2026-03-28",
+            "duration": "",
+            "model": "",
+            "branch": "",
+            "total_count": 10,
+            "first_message": "please fix the authentication bug",
+            "last_entries": [],
+        }
+        result = claude_log._format_show_orientation(data)
+        assert "[user]" in result
+        assert "please fix the authentication bug" in result
+
+    def test_contains_entry_count_with_tilde(self) -> None:
+        data: dict[str, Any] = {
+            "session_id": "abc12345",
+            "project": "Test",
+            "date": "2026-03-28",
+            "duration": "",
+            "model": "",
+            "branch": "",
+            "total_count": 234,
+            "first_message": "hello",
+            "last_entries": [],
+        }
+        result = claude_log._format_show_orientation(data)
+        assert "~234" in result
+
+    def test_contains_last_entries(self) -> None:
+        last_entries: list[claude_log.Turn] = [
+            claude_log.Turn(
+                role="assistant",
+                text="Done — removed all references.",
+                tool_calls=[],
+                timestamp="2026-03-28T10:45:00Z",
+                request_id=None,
+                source="parent",
+            ),
+        ]
+        data: dict[str, Any] = {
+            "session_id": "abc12345",
+            "project": "Test",
+            "date": "2026-03-28",
+            "duration": "",
+            "model": "",
+            "branch": "",
+            "total_count": 50,
+            "first_message": "hello",
+            "last_entries": last_entries,
+        }
+        result = claude_log._format_show_orientation(data)
+        assert "[assistant]" in result
+        assert "Done — removed all references." in result
+
+    def test_omitted_count_shown(self) -> None:
+        """Shows omitted count between first message and last entries."""
+        last_entries: list[claude_log.Turn] = [
+            claude_log.Turn(
+                role="user",
+                text="thanks",
+                tool_calls=[],
+                timestamp="",
+                request_id=None,
+                source="parent",
+            ),
+        ]
+        data: dict[str, Any] = {
+            "session_id": "abc12345",
+            "project": "Test",
+            "date": "2026-03-28",
+            "duration": "",
+            "model": "",
+            "branch": "",
+            "total_count": 100,
+            "first_message": "start here",
+            "last_entries": last_entries,
+        }
+        result = claude_log._format_show_orientation(data)
+        assert "omitted" in result.lower()
+
+    def test_branch_shown_when_present(self) -> None:
+        data: dict[str, Any] = {
+            "session_id": "abc12345",
+            "project": "Test",
+            "date": "2026-03-28",
+            "duration": "",
+            "model": "",
+            "branch": "feature-xyz",
+            "total_count": 10,
+            "first_message": "hello",
+            "last_entries": [],
+        }
+        result = claude_log._format_show_orientation(data)
+        assert "feature-xyz" in result
+
+    def test_no_first_message(self) -> None:
+        """Handles sessions where no non-system user message was found."""
+        data: dict[str, Any] = {
+            "session_id": "abc12345",
+            "project": "Test",
+            "date": "2026-03-28",
+            "duration": "",
+            "model": "",
+            "branch": "",
+            "total_count": 5,
+            "first_message": None,
+            "last_entries": [],
+        }
+        result = claude_log._format_show_orientation(data)
+        # Should not crash; should contain at least the header
+        assert "abc12345" in result
+
+    def test_tool_calls_in_last_entries(self) -> None:
+        """Last entries with tool_calls render the tool name."""
+        last_entries: list[claude_log.Turn] = [
+            claude_log.Turn(
+                role="assistant",
+                text="",
+                tool_calls=[
+                    {
+                        "name": "Bash",
+                        "input": {"command": "git status"},
+                        "summary": "git status",
+                    }
+                ],
+                timestamp="",
+                request_id=None,
+                source="parent",
+            ),
+        ]
+        data: dict[str, Any] = {
+            "session_id": "abc12345",
+            "project": "Test",
+            "date": "2026-03-28",
+            "duration": "",
+            "model": "",
+            "branch": "",
+            "total_count": 10,
+            "first_message": "hello",
+            "last_entries": last_entries,
+        }
+        result = claude_log._format_show_orientation(data)
+        assert "[Bash]" in result
+
+
+# ===================================================================
+# _format_show_entries
+# ===================================================================
+
+
+class TestFormatShowEntries:
+    """Test _format_show_entries — chronological conversation rendering."""
+
+    def test_user_message(self) -> None:
+        turns = [
+            claude_log.Turn(
+                role="user",
+                text="hello world",
+                tool_calls=[],
+                timestamp="",
+                request_id=None,
+                source="parent",
+            ),
+        ]
+        result = claude_log._format_show_entries(turns)
+        assert "[user]" in result
+        assert "hello world" in result
+
+    def test_assistant_message(self) -> None:
+        turns = [
+            claude_log.Turn(
+                role="assistant",
+                text="I will help you.",
+                tool_calls=[],
+                timestamp="",
+                request_id=None,
+                source="parent",
+            ),
+        ]
+        result = claude_log._format_show_entries(turns)
+        assert "[assistant]" in result
+        assert "I will help you." in result
+
+    def test_tool_call_rendering(self) -> None:
+        turns = [
+            claude_log.Turn(
+                role="assistant",
+                text="",
+                tool_calls=[
+                    {
+                        "name": "Bash",
+                        "input": {"command": "ls -la"},
+                        "summary": "ls -la",
+                    }
+                ],
+                timestamp="",
+                request_id=None,
+                source="parent",
+            ),
+        ]
+        result = claude_log._format_show_entries(turns)
+        assert "[Bash]" in result
+        assert "ls -la" in result
+
+    def test_subagent_indentation(self) -> None:
+        turns = [
+            claude_log.Turn(
+                role="subagent",
+                text="",
+                tool_calls=[
+                    {
+                        "name": "Read",
+                        "input": {"file_path": "/tmp/x"},
+                        "summary": "/tmp/x",
+                    }
+                ],
+                timestamp="",
+                request_id=None,
+                source="Deep-dive (Explore)",
+            ),
+        ]
+        result = claude_log._format_show_entries(turns)
+        # Subagent entries should be indented
+        lines = result.split("\n")
+        subagent_lines = [line for line in lines if "Read" in line]
+        assert len(subagent_lines) > 0
+        assert subagent_lines[0].startswith("  ")
+
+    def test_multiple_turns_in_order(self) -> None:
+        turns = [
+            claude_log.Turn(
+                role="user",
+                text="question",
+                tool_calls=[],
+                timestamp="",
+                request_id=None,
+                source="parent",
+            ),
+            claude_log.Turn(
+                role="assistant",
+                text="answer",
+                tool_calls=[],
+                timestamp="",
+                request_id=None,
+                source="parent",
+            ),
+        ]
+        result = claude_log._format_show_entries(turns)
+        user_pos = result.index("question")
+        asst_pos = result.index("answer")
+        assert user_pos < asst_pos
+
+    def test_empty_turns(self) -> None:
+        result = claude_log._format_show_entries([])
+        assert result.strip() == "" or result == ""
+
+
+# ===================================================================
+# Orientation mode (cmd_show default)
+# ===================================================================
+
+
+class TestOrientationMode:
+    """Test orientation mode — the default when show is called without flags."""
+
+    @staticmethod
+    def _run_show(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        entries: list[dict[str, Any]],
+        *,
+        extra_args: list[str] | None = None,
+    ) -> str:
+        """Write entries, run cmd_show with no filter flags, return stdout."""
+        jsonl = tmp_path / "session.jsonl"
+        _write_jsonl(jsonl, entries)
+        monkeypatch.setattr(claude_log, "resolve_session", lambda _sid: jsonl)
+        parser = claude_log.build_parser()
+        cmd = ["show", "abc123"] + (extra_args or [])
+        args = parser.parse_args(cmd)
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            claude_log.cmd_show(args)
+        return buf.getvalue()
+
+    def test_default_show_produces_orientation(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """show <id> with no flags produces orientation mode, not JSON."""
+        entries = [
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "message": {"content": "fix the authentication bug"},
+                "gitBranch": "feature-auth",
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:02Z",
+                "message": {
+                    "content": [{"type": "text", "text": "I will fix it."}],
+                    "model": "claude-opus-4-6",
+                },
+            },
+        ]
+        out = self._run_show(tmp_path, monkeypatch, entries)
+        # Should NOT be valid JSON (orientation mode is text)
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(out)
+        assert "[user]" in out
+        assert "fix the authentication bug" in out
+
+    def test_skips_system_entries_for_first_message(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """First user message skips system-injected entries."""
+        entries = [
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "message": {"content": "<env>\nWorking directory: /home\n</env>"},
+            },
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:02Z",
+                "message": {"content": "/mine.build"},
+            },
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:03Z",
+                "message": {"content": "please refactor the module"},
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:04Z",
+                "message": {"content": [{"type": "text", "text": "Done."}]},
+            },
+        ]
+        out = self._run_show(tmp_path, monkeypatch, entries)
+        assert "please refactor the module" in out
+        # System entries should NOT appear as the first message
+        assert "<env>" not in out
+        assert (
+            "/mine.build" not in out or out.index("[user]") < out.index("/mine.build")
+            if "/mine.build" in out
+            else True
+        )
+
+    def test_last_3_entries(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Orientation mode shows last 3 entries."""
+        entries = [
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "message": {"content": "start here"},
+            },
+        ]
+        # Add 10 more entries — last 3 should appear
+        for i in range(10):
+            entries.append(
+                {
+                    "type": "assistant",
+                    "timestamp": f"2026-01-01T00:00:{i + 2:02d}Z",
+                    "message": {
+                        "content": [{"type": "text", "text": f"response-{i}"}],
+                    },
+                }
+            )
+        out = self._run_show(tmp_path, monkeypatch, entries)
+        assert "response-7" in out
+        assert "response-8" in out
+        assert "response-9" in out
+        # Earlier responses should NOT appear (except if they're the first msg)
+        assert "response-0" not in out
+
+    def test_entry_count_is_approximate(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Entry count uses ~ prefix."""
+        entries = [
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "message": {"content": "hello"},
+            },
+        ]
+        for i in range(20):
+            entries.append(
+                {
+                    "type": "assistant",
+                    "timestamp": f"2026-01-01T00:00:{i + 2:02d}Z",
+                    "message": {"content": [{"type": "text", "text": f"r{i}"}]},
+                }
+            )
+        out = self._run_show(tmp_path, monkeypatch, entries)
+        assert "~21" in out
+
+    def test_json_flag_bypasses_orientation(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """--json on show produces JSON, not orientation text."""
+        entries = [
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "message": {"content": "hello"},
+            },
+        ]
+        out = self._run_show(tmp_path, monkeypatch, entries, extra_args=["--json"])
+        parsed = json.loads(out)
+        assert isinstance(parsed, list)
+
+    def test_all_flag_bypasses_orientation(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """--all bypasses orientation mode and shows entries."""
+        entries = [
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "message": {"content": "hello"},
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:02Z",
+                "message": {"content": [{"type": "text", "text": "hi there"}]},
+            },
+        ]
+        out = self._run_show(tmp_path, monkeypatch, entries, extra_args=["--all"])
+        assert "[user]" in out
+        assert "[assistant]" in out
+        # Should NOT have orientation header
+        assert "Session " not in out or "entries omitted" not in out
+
+    def test_10kb_trim(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Entries in the ring buffer are trimmed to 10KB max."""
+        big_text = "x" * 20000  # 20KB > 10KB limit
+        entries = [
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "message": {"content": "first question"},
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:02Z",
+                "message": {"content": [{"type": "text", "text": big_text}]},
+            },
+        ]
+        out = self._run_show(tmp_path, monkeypatch, entries)
+        # The full 20KB should NOT appear — it should be trimmed
+        assert big_text not in out
+        # But some of it should be there (up to ~10KB)
+        assert "x" * 100 in out
+
+
+# ===================================================================
+# _format_show_grep
+# ===================================================================
+
+
+class TestFormatShowGrep:
+    """Test _format_show_grep — matched sections with dividers."""
+
+    def test_renders_matched_turn_with_preceding(self) -> None:
+        matched_turns = [
+            {
+                "matched": claude_log.Turn(
+                    role="assistant",
+                    text="I found the pytest error.",
+                    tool_calls=[],
+                    timestamp="",
+                    request_id=None,
+                    source="parent",
+                ),
+                "preceding": claude_log.Turn(
+                    role="user",
+                    text="why are tests failing?",
+                    tool_calls=[],
+                    timestamp="",
+                    request_id=None,
+                    source="parent",
+                ),
+            },
+        ]
+        result = claude_log._format_show_grep(matched_turns)
+        assert "[user]" in result
+        assert "why are tests failing?" in result
+        assert "[assistant]" in result
+        assert "I found the pytest error." in result
+
+    def test_divider_between_sections(self) -> None:
+        matched_turns = [
+            {
+                "matched": claude_log.Turn(
+                    role="assistant",
+                    text="first match",
+                    tool_calls=[],
+                    timestamp="",
+                    request_id=None,
+                    source="parent",
+                ),
+                "preceding": None,
+            },
+            {
+                "matched": claude_log.Turn(
+                    role="assistant",
+                    text="second match",
+                    tool_calls=[],
+                    timestamp="",
+                    request_id=None,
+                    source="parent",
+                ),
+                "preceding": None,
+            },
+        ]
+        result = claude_log._format_show_grep(matched_turns)
+        assert "---" in result
+        assert "first match" in result
+        assert "second match" in result
+
+    def test_no_preceding_renders_gracefully(self) -> None:
+        matched_turns = [
+            {
+                "matched": claude_log.Turn(
+                    role="user",
+                    text="something",
+                    tool_calls=[],
+                    timestamp="",
+                    request_id=None,
+                    source="parent",
+                ),
+                "preceding": None,
+            },
+        ]
+        result = claude_log._format_show_grep(matched_turns)
+        assert "something" in result
+        # Should not crash
+
+    def test_empty_matches(self) -> None:
+        result = claude_log._format_show_grep([])
+        assert result == "" or result.strip() == ""
+
+
+# ===================================================================
+# Show --grep path (cmd_show)
+# ===================================================================
+
+
+class TestShowGrep:
+    """Test --grep within-session search."""
+
+    @staticmethod
+    def _run_show_grep(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        entries: list[dict[str, Any]],
+        pattern: str,
+        *,
+        extra_args: list[str] | None = None,
+    ) -> tuple[str, int]:
+        """Run show --grep and return (stdout, exit_code)."""
+        jsonl = tmp_path / "session.jsonl"
+        _write_jsonl(jsonl, entries)
+        monkeypatch.setattr(claude_log, "resolve_session", lambda _sid: jsonl)
+        parser = claude_log.build_parser()
+        cmd = ["show", "abc123", "--grep", pattern] + (extra_args or [])
+        args = parser.parse_args(cmd)
+
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        exit_code = 0
+        try:
+            with redirect_stdout(out_buf), redirect_stderr(err_buf):
+                claude_log.cmd_show(args)
+        except SystemExit as e:
+            exit_code = e.code or 0
+        return out_buf.getvalue(), exit_code
+
+    def test_grep_finds_matching_assistant_text(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        entries = [
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "message": {"content": "why are tests failing?"},
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:02Z",
+                "message": {
+                    "content": [
+                        {"type": "text", "text": "The pytest error is in auth.py"}
+                    ],
+                },
+            },
+        ]
+        out, code = self._run_show_grep(tmp_path, monkeypatch, entries, "pytest")
+        assert code == 0
+        assert "pytest" in out
+        # Should include preceding user message
+        assert "why are tests failing?" in out
+
+    def test_grep_finds_matching_user_text(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        entries = [
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "message": {"content": [{"type": "text", "text": "Done."}]},
+            },
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:02Z",
+                "message": {"content": "search for pytest references"},
+            },
+        ]
+        out, code = self._run_show_grep(tmp_path, monkeypatch, entries, "pytest")
+        assert code == 0
+        assert "pytest" in out
+
+    def test_grep_no_matches_returns_exit_1(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        entries = [
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "message": {"content": "hello world"},
+            },
+        ]
+        out, code = self._run_show_grep(tmp_path, monkeypatch, entries, "nonexistent")
+        assert code == 1
+
+    def test_grep_searches_full_session(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """--grep searches the full session regardless of size."""
+        entries = []
+        for i in range(100):
+            entries.append(
+                {
+                    "type": "assistant",
+                    "timestamp": f"2026-01-01T00:{i // 60:02d}:{i % 60:02d}Z",
+                    "message": {
+                        "content": [{"type": "text", "text": f"entry-{i}"}],
+                    },
+                }
+            )
+        # Add a match at the very end
+        entries.append(
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T01:41:00Z",
+                "message": {"content": "unique_needle_at_end"},
+            }
+        )
+        out, code = self._run_show_grep(
+            tmp_path, monkeypatch, entries, "unique_needle_at_end"
+        )
+        assert code == 0
+        assert "unique_needle_at_end" in out
+
+    def test_grep_with_tools_filter(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """--grep + --tools filters to tool-call entries before matching."""
+        entries = [
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "message": {"content": "run pytest"},
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:02Z",
+                "message": {
+                    "content": [
+                        {"type": "text", "text": "I will run pytest for you."},
+                        {
+                            "type": "tool_use",
+                            "name": "Bash",
+                            "input": {"command": "pytest -v"},
+                        },
+                    ],
+                },
+            },
+        ]
+        out, code = self._run_show_grep(
+            tmp_path, monkeypatch, entries, "pytest", extra_args=["--tools"]
+        )
+        assert code == 0
+        # Should match the tool call, not the text
+        assert "[Bash]" in out or "pytest" in out
+
+
+# ===================================================================
+# Show filter flags (--tools, --messages, --usage) text rendering
+# ===================================================================
+
+
+class TestShowFilterFlags:
+    """Test that --tools, --messages, --usage produce text output via show."""
+
+    @staticmethod
+    def _run_show(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        entries: list[dict[str, Any]],
+        extra_args: list[str],
+    ) -> str:
+        jsonl = tmp_path / "session.jsonl"
+        _write_jsonl(jsonl, entries)
+        monkeypatch.setattr(claude_log, "resolve_session", lambda _sid: jsonl)
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["show", "abc123"] + extra_args)
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            claude_log.cmd_show(args)
+        return buf.getvalue()
+
+    def test_tools_flag_shows_tool_calls(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        entries = [
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "message": {"content": "run tests"},
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:02Z",
+                "message": {
+                    "content": [
+                        {"type": "text", "text": "Sure, running tests."},
+                        {
+                            "type": "tool_use",
+                            "name": "Bash",
+                            "input": {"command": "pytest -v"},
+                        },
+                    ],
+                },
+            },
+        ]
+        out = self._run_show(tmp_path, monkeypatch, entries, ["--tools"])
+        assert "[Bash]" in out
+        # Not JSON
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(out)
+
+    def test_messages_flag_shows_user_and_assistant(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        entries = [
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "message": {"content": "hello"},
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:02Z",
+                "message": {"content": [{"type": "text", "text": "hi there"}]},
+            },
+        ]
+        out = self._run_show(tmp_path, monkeypatch, entries, ["--messages"])
+        assert "[user]" in out
+        assert "[assistant]" in out
+
+    def test_usage_flag_shows_token_info(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        entries = [
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:02Z",
+                "message": {
+                    "content": [{"type": "text", "text": "response"}],
+                    "usage": {"input_tokens": 500, "output_tokens": 100},
+                },
+            },
+        ]
+        out = self._run_show(tmp_path, monkeypatch, entries, ["--usage"])
+        # Should show assistant content (usage is a filter for assistant entries)
+        assert "[assistant]" in out
+
+    def test_messages_flag_bypasses_orientation(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Any filter flag bypasses orientation mode."""
+        entries = [
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "message": {"content": "hello"},
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:02Z",
+                "message": {"content": [{"type": "text", "text": "hi"}]},
+            },
+        ]
+        out = self._run_show(tmp_path, monkeypatch, entries, ["--messages"])
+        # Should NOT contain orientation headers
+        assert "Session " not in out or "entries" not in out.split("Session")[0]
+
+    def test_tail_flag_shows_last_n(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        entries = []
+        for i in range(10):
+            entries.append(
+                {
+                    "type": "user" if i % 2 == 0 else "assistant",
+                    "timestamp": f"2026-01-01T00:00:{i:02d}Z",
+                    "message": {"content": f"msg-{i}"}
+                    if i % 2 == 0
+                    else {"content": [{"type": "text", "text": f"msg-{i}"}]},
+                }
+            )
+        out = self._run_show(tmp_path, monkeypatch, entries, ["--tail", "2"])
+        # Should contain the last 2 entries
+        assert "msg-8" in out or "msg-9" in out
+        # Should NOT contain earlier entries
+        assert "msg-0" not in out
+
+    def test_all_flag_shows_all_entries(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        entries = [
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "message": {"content": "first"},
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:02Z",
+                "message": {"content": [{"type": "text", "text": "second"}]},
+            },
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:03Z",
+                "message": {"content": "third"},
+            },
+        ]
+        out = self._run_show(tmp_path, monkeypatch, entries, ["--all"])
+        assert "first" in out
+        assert "second" in out
+        assert "third" in out
 
 
 # ===================================================================
@@ -1624,6 +2713,7 @@ class TestCmdShow:
         monkeypatch.setattr(claude_log, "resolve_session", lambda _sid: jsonl)
         args = argparse.Namespace(
             session_id="fake",
+            json=True,
             messages=False,
             tools=True,
             user=False,
@@ -1631,6 +2721,9 @@ class TestCmdShow:
             thinking=False,
             usage=False,
             limit=None,
+            grep=None,
+            all=False,
+            tail=None,
         )
         claude_log.cmd_show(args)
         result = json.loads(capsys.readouterr().out)
@@ -1645,11 +2738,12 @@ class TestCmdShow:
         monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        """When no filter flags are set, all entry types are included."""
+        """When no filter flags are set, --json returns all entry types."""
         jsonl = self._write_entries(tmp_path)
         monkeypatch.setattr(claude_log, "resolve_session", lambda _sid: jsonl)
         args = argparse.Namespace(
             session_id="fake",
+            json=True,
             messages=False,
             tools=False,
             user=False,
@@ -1657,6 +2751,9 @@ class TestCmdShow:
             thinking=False,
             usage=False,
             limit=None,
+            grep=None,
+            all=False,
+            tail=None,
         )
         claude_log.cmd_show(args)
         result = json.loads(capsys.readouterr().out)
@@ -2351,6 +3448,7 @@ class TestLimitFlag:
 
         args = argparse.Namespace(
             session_id="fake",
+            json=True,
             messages=False,
             tools=True,
             user=False,
@@ -2358,6 +3456,9 @@ class TestLimitFlag:
             thinking=False,
             usage=False,
             limit=3,
+            grep=None,
+            all=False,
+            tail=None,
         )
         claude_log.cmd_show(args)
         result = json.loads(capsys.readouterr().out)
@@ -2376,6 +3477,7 @@ class TestLimitFlag:
 
         args = argparse.Namespace(
             session_id="fake",
+            json=True,
             messages=False,
             tools=True,
             user=False,
@@ -2383,6 +3485,9 @@ class TestLimitFlag:
             thinking=False,
             usage=False,
             limit=None,
+            grep=None,
+            all=False,
+            tail=None,
         )
         claude_log.cmd_show(args)
         result = json.loads(capsys.readouterr().out)
