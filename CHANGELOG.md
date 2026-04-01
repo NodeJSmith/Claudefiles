@@ -5,11 +5,11 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-04-01
 
 ### Changed
-- `bin/claude-log` — redesigned from JSON-only output with 9 commands to text-first output with 4 commands (list, search, show, stats); orientation mode for show, `--grep` for within-session search, conversation-turn context in search results, `--json` flag for structured output
-- `skills/mine.tool-gaps/SKILL.md` — updated `claude-log extract --bash` references to `claude-log show --tools --grep`
+- `bin/claude-log` — redesigned from JSON-only output with 9 commands to text-first output with 4 commands (list, search, show, stats); orientation mode for show, `--grep` for within-session search, conversation-turn context in search results, `--json` flag for structured output (#153)
+- `skills/mine.tool-gaps/SKILL.md` — updated `claude-log extract --bash` references to `claude-log show --tools --grep` (#153)
 
 ### Removed
-- `bin/claude-log` — removed `extract`, `grep`, `skills`, `agents`, `permissions` subcommands (functionality absorbed into remaining 4 commands)
+- `bin/claude-log` — removed `extract`, `grep`, `skills`, `agents`, `permissions` subcommands (functionality absorbed into remaining 4 commands) (#153)
 
 ## 2026-03-30
 
