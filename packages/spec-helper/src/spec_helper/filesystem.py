@@ -60,6 +60,23 @@ def find_repo_root() -> Path:
     )
 
 
+def find_repo_root_or_cwd() -> Path:
+    """Like find_repo_root(), but falls back to cwd when design/specs/ doesn't exist.
+
+    Used by ``init`` to bootstrap the first feature in a monorepo subproject
+    where design/specs/ hasn't been created yet.  Still requires a git repo in
+    ancestry — only the design/specs/ requirement is relaxed.
+    """
+    git_root = find_git_root()
+    cwd = Path.cwd()
+    for parent in [cwd, *cwd.parents]:
+        if (parent / "design" / "specs").exists():
+            return parent
+        if parent == git_root:
+            break
+    return cwd
+
+
 def specs_dir(root: Path) -> Path:
     return root / "design" / "specs"
 

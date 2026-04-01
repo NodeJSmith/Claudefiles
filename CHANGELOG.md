@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-04-01
+
+### Fixed
+- `spec-helper init` now respects monorepo structure — creates features in the nearest `design/specs/` relative to cwd, not at the git root
+
 ## 2026-03-30
 
 ### Added
