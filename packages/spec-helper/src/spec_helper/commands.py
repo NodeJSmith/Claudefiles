@@ -35,6 +35,7 @@ from spec_helper.filesystem import (
     extract_design_headings,
     find_git_root,
     find_repo_root,
+    find_repo_root_or_cwd,
     find_wp_file,
     next_feature_number,
     read_wp_files,
@@ -64,7 +65,7 @@ def cmd_next_number(args: argparse.Namespace) -> None:
 
 
 def cmd_init(args: argparse.Namespace) -> None:
-    root = find_git_root()
+    root = find_repo_root_or_cwd()
     slug = args.slug.lower().replace(" ", "-").replace("_", "-")
     slug = re.sub(r"^\d+-", "", slug)
     slug = re.sub(r"-+", "-", slug).strip("-")
