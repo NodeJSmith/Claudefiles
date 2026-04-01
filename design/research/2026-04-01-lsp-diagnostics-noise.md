@@ -36,7 +36,7 @@ The user already has a `lsp-settle.sh` PostToolUse hook (sleeping 1s after Edit/
 - `PreToolUse` matcher `LSP` -> `lsp-pre-read.sh` (logging only)
 - `PostToolUse` matcher `Edit|Write` -> `lsp-settle.sh` (1s sleep for LSP-managed file types)
 
-**LSP tool usage**: The user's `rules/common/lsp.md` instructs Claude to use LSP for symbol navigation (goToDefinition, findReferences, hover, documentSymbol, incomingCalls, outgoingCalls). These navigation features are valuable and should be preserved.
+**LSP tool usage**: The user's LSP rules (since removed) instructs Claude to use LSP for symbol navigation (goToDefinition, findReferences, hover, documentSymbol, incomingCalls, outgoingCalls). These navigation features are valuable and should be preserved.
 
 **Manual pyright**: `Bash(pyright:*)` and `Bash(uv run pyright:*)` are pre-allowed in settings. The user wants to rely on these for real type checking, not the ambient LSP diagnostics.
 
@@ -86,7 +86,7 @@ This is a known, acknowledged bug: [anthropics/claude-code#26634](https://github
 **Pros**:
 - Eliminates all false-positive diagnostic noise immediately
 - Zero maintenance -- no custom config, no forks, no hooks to manage
-- The user's `rules/common/lsp.md` already documents Grep as a fallback for non-LSP cases
+- The user's LSP rules (since removed) already documents Grep as a fallback for non-LSP cases
 - Manual `pyright` runs give accurate, environment-aware results
 - Can be re-enabled trivially if Claude Code fixes the upstream issue
 
@@ -161,7 +161,7 @@ LSP diagnostic output.
 
 ### Technical risks
 - **Option B's uncertain effectiveness**: The pyright LSP `Unnecessary` tag behavior is documented as separate from `diagnosticSeverityOverrides`. Testing is needed to confirm whether suppressing rules actually prevents Claude Code from seeing the hints.
-- **TypeScript LSP may have the same problem**: [anthropics/claude-code#28562](https://github.com/anthropics/claude-code/issues/26634) reports similar false positives from the TypeScript LSP plugin. Disabling pyright-lsp only addresses half the problem if TypeScript projects are also affected.
+- **TypeScript LSP may have the same problem**: [anthropics/claude-code#26634](https://github.com/anthropics/claude-code/issues/26634) reports similar false positives from the TypeScript LSP plugin. Disabling pyright-lsp only addresses half the problem if TypeScript projects are also affected.
 
 ### Complexity risks
 - Options B and C add per-project configuration that needs to be maintained and may interact unpredictably with future Claude Code updates that fix the upstream issue.
