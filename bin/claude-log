@@ -6,23 +6,17 @@ Subcommands:
     show        Show session content (messages, tools, thinking, usage)
     search      Search across sessions
     stats       Session statistics
-    skills      Skill/command usage across sessions
-    agents      Agent usage across sessions
-    extract     Extract structured data as JSON
-    permissions Suggest new permission allow entries from tool usage
 
 All JSONL files live under ~/.claude/projects/*/.
 """
 
 import argparse
 import json
-import os
 import re
 import sys
 from collections import deque
 from collections.abc import Callable, Generator, Sequence
 from datetime import datetime, timezone
-from itertools import islice
 from pathlib import Path
 from typing import Any, TypedDict
 
@@ -1541,274 +1535,6 @@ def cmd_stats(args: argparse.Namespace) -> None:
     _output(stats_dict, args=args, formatter=_format_stats)
 
 
-_BUILTIN_COMMANDS = frozenset(
-    (
-        "help",
-        "clear",
-        "compact",
-        "resume",
-        "rename",
-        "init",
-        "login",
-        "permissions",
-        "plan",
-    )
-)
-
-
-def _discover_on_disk() -> set[str]:
-    """Find all skill and command names installed under ~/.claude/.
-
-    Discovers:
-      - Skills: ~/.claude/skills/<name>/SKILL.md  -> <name>
-      - Commands: ~/.claude/commands/<name>.md     -> <name>
-
-    Respects $CLAUDE_HOME if set.
-    """
-
-    claude_dir = Path(os.environ.get("CLAUDE_HOME", Path.home() / ".claude"))
-    names: set[str] = set()
-
-    skills_dir = claude_dir / "skills"
-    if skills_dir.is_dir():
-        for child in skills_dir.iterdir():
-            if child.is_dir() and (child / "SKILL.md").exists():
-                names.add(child.name)
-
-    commands_dir = claude_dir / "commands"
-    if commands_dir.is_dir():
-        for child in commands_dir.iterdir():
-            if child.suffix == ".md" and child.is_file():
-                names.add(child.stem)
-
-    return names
-
-
-def _skills_audit(
-    usage: dict[str, int],
-    sessions: dict[str, set[str]],
-) -> None:
-    """Cross-reference skill usage with what's installed on disk."""
-    on_disk = _discover_on_disk()
-    used_names = set(usage.keys())
-
-    never_used = sorted(on_disk - used_names)
-    ghost = sorted(used_names - on_disk - _BUILTIN_COMMANDS)
-    active = sorted(on_disk & used_names, key=lambda n: -usage.get(n, 0))
-
-    result = {
-        "on_disk": sorted(on_disk),
-        "active": [
-            {
-                "skill": name,
-                "invocations": usage[name],
-                "sessions": len(sessions.get(name, set())),
-            }
-            for name in active
-        ],
-        "never_used": never_used,
-        "ghost": [
-            {
-                "skill": name,
-                "invocations": usage[name],
-                "sessions": len(sessions.get(name, set())),
-            }
-            for name in ghost
-        ],
-    }
-    print(json.dumps(result, indent=2))
-
-
-def _normalize_skill_name(name: str) -> str:
-    """Canonicalize skill name: ``mine:ship`` → ``mine.ship``."""
-    return name.replace(":", ".", 1) if ":" in name else name
-
-
-def _flush_skill_turn(
-    xml_skills: set[str],
-    tool_use_skills: set[str],
-    skill_counts: dict[str, int],
-    skill_via: dict[str, dict[str, int]],
-    seen_in_session: set[str],
-) -> None:
-    """Flush one turn's skill detections, deduplicating by canonical name.
-
-    Each unique skill in the turn is counted once.  When both an XML tag and a
-    Skill tool_use were seen for the same skill, prefer tool_use.
-    Names are normalized (colon → dot) before dedup so ``mine:ship`` and
-    ``mine.ship`` are treated as the same skill within a turn.
-    """
-    all_skills = xml_skills | tool_use_skills
-    for name in all_skills:
-        via = "tool_use" if name in tool_use_skills else "xml_tag"
-        skill_counts[name] = skill_counts.get(name, 0) + 1
-        via_counts = skill_via.setdefault(name, {})
-        via_counts[via] = via_counts.get(via, 0) + 1
-        seen_in_session.add(name)
-
-
-def cmd_skills(args: argparse.Namespace) -> None:
-    """Show skill/command usage across sessions."""
-    skill_pattern = re.compile(r"<command-name>/([^<]+)</command-name>")
-    skill_counts: dict[str, int] = {}
-    skill_via: dict[str, dict[str, int]] = {}
-    skill_sessions: dict[str, set[str]] = {}
-
-    for _proj_name, session_id, jsonl_file in iter_session_files(
-        project_filter=args.project, since=args.since
-    ):
-        sid = session_id[:8]
-        seen_in_session: set[str] = set()
-
-        # Per-turn dedup sets — a "turn" spans from one user entry to the next
-        turn_xml: set[str] = set()
-        turn_tool_use: set[str] = set()
-
-        for entry in iter_entries(jsonl_file):
-            entry_type = entry.get("type", "")
-            message = entry.get("message", {})
-
-            if entry_type == "user":
-                # Flush previous turn before starting a new one
-                _flush_skill_turn(
-                    turn_xml,
-                    turn_tool_use,
-                    skill_counts,
-                    skill_via,
-                    seen_in_session,
-                )
-                turn_xml = set()
-                turn_tool_use = set()
-
-                # Scan this user message for XML command-name tags
-                text = extract_text(message)
-                for match in skill_pattern.finditer(text):
-                    name = _normalize_skill_name(match.group(1))
-                    if name not in _BUILTIN_COMMANDS:
-                        turn_xml.add(name)
-
-            elif entry_type == "assistant":
-                for tool in extract_tool_uses(message):
-                    if tool.get("name") == "Skill":
-                        skill_name = tool.get("input", {}).get("skill", "")
-                        if skill_name:
-                            turn_tool_use.add(_normalize_skill_name(skill_name))
-
-        # Flush the final turn
-        _flush_skill_turn(
-            turn_xml,
-            turn_tool_use,
-            skill_counts,
-            skill_via,
-            seen_in_session,
-        )
-
-        for name in seen_in_session:
-            skill_sessions.setdefault(name, set()).add(sid)
-
-    if not skill_counts:
-        print("No skill invocations found.", file=sys.stderr)
-        return
-
-    # Names are already normalized (colon→dot) at detection time via
-    # _normalize_skill_name, so no post-loop normalization pass needed.
-
-    sorted_skills = sorted(skill_counts.items(), key=lambda x: -x[1])
-
-    if args.audit:
-        _skills_audit(skill_counts, skill_sessions)
-        return
-
-    result = []
-    for name, count in sorted_skills:
-        via_counts = skill_via.get(name, {})
-        dominant_via = max(via_counts, key=via_counts.get, default="tool_use")  # type: ignore[arg-type]
-        result.append(
-            {
-                "skill": name,
-                "invocations": count,
-                "sessions": len(skill_sessions.get(name, set())),
-                "via": dominant_via,
-            }
-        )
-    print(json.dumps(result, indent=2))
-
-
-def cmd_agents(args: argparse.Namespace) -> None:
-    """Show agent usage across sessions."""
-    agent_counts: dict[str, int] = {}
-    agent_sessions: dict[str, set[str]] = {}
-
-    for _proj_name, session_id, jsonl_file in iter_session_files(
-        project_filter=args.project, since=args.since
-    ):
-        sid = session_id[:8]
-        seen_in_session: set[str] = set()
-
-        for entry in iter_entries(jsonl_file, type_filter="assistant"):
-            message = entry.get("message", {})
-            for tool in extract_tool_uses(message):
-                if tool.get("name") in ("Agent", "Task"):
-                    agent_name = tool.get("input", {}).get("subagent_type", "")
-                    if agent_name:
-                        agent_counts[agent_name] = agent_counts.get(agent_name, 0) + 1
-                        seen_in_session.add(agent_name)
-
-        for name in seen_in_session:
-            agent_sessions.setdefault(name, set()).add(sid)
-
-    if not agent_counts:
-        print("No agent invocations found.", file=sys.stderr)
-        return
-
-    sorted_agents = sorted(agent_counts.items(), key=lambda x: -x[1])
-
-    result = [
-        {
-            "agent": name,
-            "invocations": count,
-            "sessions": len(agent_sessions.get(name, set())),
-        }
-        for name, count in sorted_agents
-    ]
-    print(json.dumps(result, indent=2))
-
-
-def cmd_extract(args: argparse.Namespace) -> None:
-    """Extract structured data as JSON."""
-    path = resolve_session(args.session_id)
-    grep = getattr(args, "grep", None)
-    if grep:
-        _compile_pattern(grep)  # validate early — exits on bad regex
-    limit = args.limit
-
-    include_subagents = True
-
-    if args.tools:
-        _extract_tools(
-            path,
-            tool_filter=None,
-            grep=grep,
-            include_subagents=include_subagents,
-            limit=limit,
-        )
-    elif args.bash:
-        _extract_tools(
-            path,
-            tool_filter="Bash",
-            grep=grep,
-            include_subagents=include_subagents,
-            limit=limit,
-        )
-    elif args.usage:
-        _extract_usage(path, limit=limit)
-    elif args.messages:
-        _extract_messages(path, limit=limit)
-    else:
-        print("Error: specify --tools, --bash, --usage, or --messages", file=sys.stderr)
-        sys.exit(1)
-
-
 def _agent_label(inp: dict[str, Any]) -> str:
     """Build a human-readable label from Agent tool_use input."""
     desc = inp.get("description", "")
@@ -1893,122 +1619,6 @@ def iter_all_tool_calls(
                 }
 
 
-def _extract_tools(
-    path: Path,
-    *,
-    tool_filter: str | None,
-    grep: str | None = None,
-    include_subagents: bool = False,
-    limit: int | None = None,
-) -> None:
-    """Extract tool_use blocks as JSON."""
-    gen = iter_all_tool_calls(
-        path,
-        include_subagents=include_subagents,
-        tool_filter=tool_filter,
-        grep=grep,
-    )
-    if limit is not None:
-        results = list(islice(gen, limit))
-    else:
-        results = list(gen)
-    print(json.dumps(results, indent=2))
-
-
-def _extract_usage(path: Path, *, limit: int | None = None) -> None:
-    """Extract token usage per turn as JSON."""
-    results: list[dict[str, Any]] = []
-    for entry in iter_entries(path, type_filter="assistant"):
-        message = entry.get("message", {})
-        usage = message.get("usage")
-        if usage:
-            results.append(
-                {
-                    "timestamp": entry.get("timestamp", ""),
-                    "model": message.get("model", ""),
-                    "input_tokens": usage.get("input_tokens", 0),
-                    "output_tokens": usage.get("output_tokens", 0),
-                    "cache_read_input_tokens": usage.get("cache_read_input_tokens", 0),
-                    "cache_creation_input_tokens": usage.get(
-                        "cache_creation_input_tokens", 0
-                    ),
-                }
-            )
-    if limit is not None:
-        results = results[:limit]
-    print(json.dumps(results, indent=2))
-
-
-def _extract_messages(path: Path, *, limit: int | None = None) -> None:
-    """Extract messages as JSON."""
-    results: list[dict[str, Any]] = []
-    for entry in iter_entries(path):
-        entry_type = entry.get("type", "")
-        if entry_type not in ("user", "assistant"):
-            continue
-        message = entry.get("message", {})
-        results.append(
-            {
-                "timestamp": entry.get("timestamp", ""),
-                "type": entry_type,
-                "role": message.get("role", ""),
-                "text": extract_text(message),
-            }
-        )
-    if limit is not None:
-        results = results[:limit]
-    print(json.dumps(results, indent=2))
-
-
-def cmd_grep(args: argparse.Namespace) -> None:
-    """Search bash commands across sessions by regex pattern."""
-    fixed = getattr(args, "fixed", False)
-    # Validate/escape early so the user sees a clean error before any I/O
-    grep_pattern = _compile_pattern(args.pattern, fixed=fixed)
-    include_subagents = True
-    results: list[dict[str, Any]] = []
-
-    for proj_name, session_id, jsonl_file in iter_session_files(
-        project_filter=args.project,
-        since=args.since,
-    ):
-        for tool_call in iter_all_tool_calls(
-            jsonl_file,
-            include_subagents=include_subagents,
-            tool_filter="Bash",
-            grep_re=grep_pattern,
-        ):
-            result: dict[str, Any] = {
-                "session_id": session_id[:8],
-                "project": proj_name,
-                "timestamp": tool_call["timestamp"],
-                "command": tool_call["input"].get("command", ""),
-            }
-            if include_subagents:
-                result["source"] = tool_call.get("source", "parent")
-            results.append(result)
-
-    results.sort(key=lambda r: r.get("timestamp", ""))
-
-    if args.limit:
-        results = results[: args.limit]
-
-    if not results:
-        print("No matches found.", file=sys.stderr)
-        return
-
-    print(json.dumps(results, indent=2))
-
-
-def cmd_permissions(args: argparse.Namespace) -> None:
-    """Deprecated — prints a message and exits."""
-    print(
-        "claude-log permissions has been removed. "
-        "Use /mine.permissions-audit instead, which reads debug logs directly.",
-        file=sys.stderr,
-    )
-
-
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -2038,7 +1648,6 @@ Examples:
   claude-log show <session-id>           # show full session content
   claude-log search "error" --since 2024-01-01
   claude-log stats <session-id>          # token usage and tool stats
-  claude-log grep "pytest"               # search bash commands across sessions
 """,
     )
 
@@ -2187,78 +1796,6 @@ Examples:
         "--json", action="store_true", default=False, help="Output as JSON"
     )
 
-    # skills
-    p_skills = subs.add_parser("skills", help="Skill/command usage across sessions")
-    p_skills.add_argument("--project", "-p", help="Filter by project name substring")
-    p_skills.add_argument("--since", "-s", help="Filter by date (YYYY-MM-DD)")
-    p_skills.add_argument(
-        "--audit",
-        action="store_true",
-        help="Cross-reference usage with skills/commands on disk — shows unused and ghost entries",
-    )
-
-    # agents
-    p_agents = subs.add_parser("agents", help="Agent usage across sessions")
-    p_agents.add_argument("--project", "-p", help="Filter by project name substring")
-    p_agents.add_argument("--since", "-s", help="Filter by date (YYYY-MM-DD)")
-
-    # extract
-    p_extract = subs.add_parser("extract", help="Extract structured data as JSON")
-    p_extract.add_argument("session_id", help="Session ID or prefix")
-    grp = p_extract.add_mutually_exclusive_group(required=True)
-    grp.add_argument("--tools", "-t", action="store_true", help="All tool_use blocks")
-    grp.add_argument("--bash", "-b", action="store_true", help="Bash tool inputs only")
-    grp.add_argument("--usage", "-u", action="store_true", help="Token usage array")
-    grp.add_argument("--messages", "-m", action="store_true", help="Messages as JSON")
-    p_extract.add_argument(
-        "--grep",
-        metavar="PATTERN",
-        help="Filter tool inputs by regex (with --tools or --bash)",
-    )
-    p_extract.add_argument(
-        "--limit",
-        "-l",
-        type=_positive_int,
-        default=None,
-        help="Max entries to return (default: unlimited)",
-    )
-
-    # grep
-    p_grep = subs.add_parser(
-        "grep",
-        help="Search bash commands across sessions (regex by default)",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        description="Search bash commands across multiple sessions. Like 'extract --bash --grep' but cross-session.",
-        epilog="""\
-Examples:
-  claude-log grep "pytest"               # find pytest runs across sessions
-  claude-log grep "docker" -p myapp      # docker commands in a project
-  claude-log grep "pip install" -F       # literal string search
-  claude-log grep "git push" --since 2024-03-01
-""",
-    )
-    p_grep.add_argument("pattern", help="Search pattern (regex by default)")
-    p_grep.add_argument(
-        "--fixed",
-        "-F",
-        action="store_true",
-        help="Treat pattern as a fixed string, not a regex",
-    )
-    p_grep.add_argument("--project", "-p", help="Filter by project name substring")
-    p_grep.add_argument("--since", "-s", help="Filter by date (YYYY-MM-DD)")
-    p_grep.add_argument(
-        "--limit",
-        "-l",
-        type=_positive_int,
-        help="Max results to return",
-    )
-
-    # permissions (deprecated stub — prints warning, exits 0)
-    subs.add_parser(
-        "permissions",
-        help="(deprecated) Use /mine.permissions-audit instead",
-    )
-
     return parser
 
 
@@ -2272,11 +1809,6 @@ def main(argv: Sequence[str] | None = None) -> None:
         "show": cmd_show,
         "search": cmd_search,
         "stats": cmd_stats,
-        "skills": cmd_skills,
-        "agents": cmd_agents,
-        "extract": cmd_extract,
-        "grep": cmd_grep,
-        "permissions": cmd_permissions,
     }
 
     handlers[args.command](args)

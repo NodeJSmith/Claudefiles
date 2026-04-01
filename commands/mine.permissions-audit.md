@@ -105,7 +105,7 @@ COUNT  PATTERN                         NOTE
 
 Entries in settings.local.json not yet in portable settings — these survived at least one session approval and may be worth promoting:
 
-  Bash(claude-log extract:*)          [project: Claudefiles]
+  Bash(claude-log show:*)          [project: Claudefiles]
   Read(~/.claude/**)                  [project: Claudefiles]
   ...
 
