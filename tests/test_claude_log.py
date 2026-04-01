@@ -534,6 +534,128 @@ class TestGrepTailMutualExclusion:
         assert args.tail == 5
         assert args.grep is None
 
+    def test_grep_json_mutual_exclusion(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """--grep and --json cannot be used together."""
+        jsonl = tmp_path / "session.jsonl"
+        _write_jsonl(
+            jsonl,
+            [
+                {
+                    "type": "user",
+                    "timestamp": "2026-01-01T00:00:01Z",
+                    "message": {"content": "hello"},
+                },
+            ],
+        )
+        monkeypatch.setattr(claude_log, "resolve_session", lambda _sid: jsonl)
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["show", "abc123", "--grep", "foo", "--json"])
+        with pytest.raises(SystemExit) as exc_info:
+            claude_log.cmd_show(args)
+        assert exc_info.value.code == 2
+        err = capsys.readouterr().err
+        assert "--grep" in err
+        assert "--json" in err
+
+
+# ===================================================================
+# Orientation mode ring buffer filtering
+# ===================================================================
+
+
+class TestOrientationRingBufferFiltering:
+    """Orientation mode ring buffer only includes user/assistant entries."""
+
+    def test_subagent_entries_excluded_from_ring_buffer(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Progress entries should not appear in the last 3 entries."""
+        entries = [
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "message": {"role": "user", "content": "do something"},
+                "gitBranch": "main",
+                "cwd": "/home/test",
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:02Z",
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": "I'll handle that."}],
+                },
+            },
+            {
+                "type": "progress",
+                "timestamp": "2026-01-01T00:00:03Z",
+                "data": {
+                    "type": "agent_progress",
+                    "message": {
+                        "type": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "name": "Bash",
+                                "id": "t1",
+                                "input": {"command": "echo subagent"},
+                            }
+                        ],
+                    },
+                },
+                "parentToolUseID": "agent1",
+            },
+            {
+                "type": "progress",
+                "timestamp": "2026-01-01T00:00:04Z",
+                "data": {
+                    "type": "agent_progress",
+                    "message": {
+                        "type": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "name": "Read",
+                                "id": "t2",
+                                "input": {"file_path": "/tmp/test.txt"},
+                            }
+                        ],
+                    },
+                },
+                "parentToolUseID": "agent1",
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:05Z",
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": "Done with the task."}],
+                },
+            },
+        ]
+        jsonl = tmp_path / "session.jsonl"
+        _write_jsonl(jsonl, entries)
+        monkeypatch.setattr(claude_log, "resolve_session", lambda _sid: jsonl)
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["show", "abc123"])
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            claude_log.cmd_show(args)
+        out = buf.getvalue()
+
+        # The last entries should be conversation turns, not subagent progress
+        assert "subagent" not in out.lower() or "echo subagent" not in out
+        assert "Done with the task" in out
+        assert "I'll handle that" in out
+
 
 # ===================================================================
 # _is_system_entry

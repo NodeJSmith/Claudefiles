@@ -928,10 +928,18 @@ def cmd_show(args: argparse.Namespace) -> None:
 
     # --- JSON mode: preserve current behavior exactly ---
     if args.json:
+        if has_grep:
+            print(
+                "Error: --grep and --json cannot be used together. "
+                "Use --json without --grep for full JSON output, "
+                "or --grep without --json for filtered text output.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
         _cmd_show_json(args, path, has_filter)
         return
 
-    # --- Grep mode (subtask 7 — stub for now, will be wired later) ---
+    # --- Grep mode ---
     if has_grep:
         _cmd_show_grep(args, path)
         return
@@ -1046,17 +1054,18 @@ def _cmd_show_orientation(args: argparse.Namespace, path: Path) -> None:
         ):
             first_message = extract_text(entry.get("message", {}))
 
-        # Ring buffer — add all entries as Turns, trimmed
-        turn = to_turn(entry, agent_index)
-        trimmed_turn = Turn(
-            role=turn["role"],
-            text=_trim_text(turn["text"]),
-            tool_calls=turn["tool_calls"],
-            timestamp=turn["timestamp"],
-            request_id=turn["request_id"],
-            source=turn["source"],
-        )
-        ring.append(trimmed_turn)
+        # Ring buffer — only user/assistant entries (not subagent progress noise)
+        if entry_type in ("user", "assistant"):
+            turn = to_turn(entry, agent_index)
+            trimmed_turn = Turn(
+                role=turn["role"],
+                text=_trim_text(turn["text"]),
+                tool_calls=turn["tool_calls"],
+                timestamp=turn["timestamp"],
+                request_id=turn["request_id"],
+                source=turn["source"],
+            )
+            ring.append(trimmed_turn)
 
     # Compute duration
     duration_str = ""
