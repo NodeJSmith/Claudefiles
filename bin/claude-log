@@ -176,6 +176,10 @@ def find_sessions(
     Optimized to parse only the first ~20 lines of each JSONL file for
     metadata (timestamp, branch, cwd) and count remaining lines without
     JSON parsing for the message estimate.
+
+    Note: the ``messages`` field is a JSONL line count (all entry types),
+    not a count of user/assistant conversation turns.  A session with
+    200 lines may have only 20 actual conversation exchanges.
     """
     sessions: list[dict[str, Any]] = []
 
@@ -302,9 +306,10 @@ def iter_entries(
                     continue
                 yield entry
     finally:
-        if skipped > 1:
+        if skipped:
             print(
-                f"Warning: skipped {skipped} corrupt lines in {path}",
+                f"Warning: skipped {skipped} corrupt line(s) in {path}"
+                " — session may be actively written to",
                 file=sys.stderr,
             )
 
@@ -881,6 +886,23 @@ def cmd_list(args: argparse.Namespace) -> None:
 _ENTRY_TRIM_BYTES = 10 * 1024  # 10KB max per ring buffer entry
 
 
+def _format_duration(first_ts: str, last_ts: str) -> str:
+    """Compute a human-readable duration string from two ISO timestamps."""
+    try:
+        t1 = datetime.fromisoformat(first_ts.replace("Z", "+00:00"))
+        t2 = datetime.fromisoformat(last_ts.replace("Z", "+00:00"))
+        delta = t2 - t1
+        minutes = int(delta.total_seconds() // 60)
+        seconds = int(delta.total_seconds() % 60)
+        if minutes >= 60:
+            hours = minutes // 60
+            minutes = minutes % 60
+            return f"{hours}h {minutes}m"
+        return f"{minutes}m {seconds}s"
+    except ValueError:
+        return ""
+
+
 def _trim_text(text: str, max_bytes: int = _ENTRY_TRIM_BYTES) -> str:
     """Trim text to at most *max_bytes* bytes (UTF-8)."""
     encoded = text.encode("utf-8")
@@ -1068,22 +1090,7 @@ def _cmd_show_orientation(args: argparse.Namespace, path: Path) -> None:
             ring.append(trimmed_turn)
 
     # Compute duration
-    duration_str = ""
-    if first_ts and last_ts:
-        try:
-            t1 = datetime.fromisoformat(first_ts.replace("Z", "+00:00"))
-            t2 = datetime.fromisoformat(last_ts.replace("Z", "+00:00"))
-            delta = t2 - t1
-            minutes = int(delta.total_seconds() // 60)
-            seconds = int(delta.total_seconds() % 60)
-            if minutes > 60:
-                hours = minutes // 60
-                minutes = minutes % 60
-                duration_str = f"{hours}h {minutes}m"
-            else:
-                duration_str = f"{minutes}m {seconds}s"
-        except ValueError:
-            pass
+    duration_str = _format_duration(first_ts, last_ts) if first_ts and last_ts else ""
 
     date_str = first_ts[:10] if first_ts else ""
 
@@ -1505,22 +1512,7 @@ def cmd_stats(args: argparse.Namespace) -> None:
                 subagent_tool_counts[name] = subagent_tool_counts.get(name, 0) + 1
 
     # Calculate duration
-    duration_str = ""
-    if first_ts and last_ts:
-        try:
-            t1 = datetime.fromisoformat(first_ts.replace("Z", "+00:00"))
-            t2 = datetime.fromisoformat(last_ts.replace("Z", "+00:00"))
-            delta = t2 - t1
-            minutes = int(delta.total_seconds() // 60)
-            seconds = int(delta.total_seconds() % 60)
-            if minutes > 60:
-                hours = minutes // 60
-                minutes = minutes % 60
-                duration_str = f"{hours}h {minutes}m"
-            else:
-                duration_str = f"{minutes}m {seconds}s"
-        except ValueError:
-            pass
+    duration_str = _format_duration(first_ts, last_ts) if first_ts and last_ts else ""
 
     stats_dict: dict[str, Any] = {
         "session_id": path.stem,
@@ -1778,7 +1770,9 @@ Examples:
     )
     p_search.add_argument("--project", "-p", help="Filter by project name substring")
     p_search.add_argument(
-        "--type", choices=["user", "assistant", "tool_use"], help="Filter by type"
+        "--type",
+        choices=["user", "assistant", "tool_use"],
+        help="Filter by entry type: user=user messages, assistant=assistant text, tool_use=tool calls (includes subagent tool calls)",
     )
     p_search.add_argument("--since", "-s", help="Filter by date (YYYY-MM-DD)")
     p_search.add_argument(

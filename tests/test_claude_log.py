@@ -3117,7 +3117,7 @@ class TestIterEntriesCorruptionWarning:
     def test_warns_on_multiple_corrupt_lines(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        """More than 1 corrupt line triggers a stderr warning."""
+        """Multiple corrupt lines trigger a stderr warning."""
         jsonl = tmp_path / "session.jsonl"
         lines = [
             json.dumps({"type": "user", "message": {"role": "user", "content": "hi"}}),
@@ -3136,13 +3136,14 @@ class TestIterEntriesCorruptionWarning:
         results = list(claude_log.iter_entries(jsonl))
         assert len(results) == 2
         err = capsys.readouterr().err
-        assert "Warning: skipped 3 corrupt lines" in err
+        assert "skipped 3 corrupt line(s)" in err
+        assert "actively written to" in err
         assert str(jsonl) in err
 
-    def test_no_warning_on_single_corrupt_last_line(
+    def test_warns_on_single_corrupt_line(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        """A single corrupt line (common for active sessions) should NOT warn."""
+        """A single corrupt line now also warns (may be active session)."""
         jsonl = tmp_path / "session.jsonl"
         lines = [
             json.dumps({"type": "user", "message": {"role": "user", "content": "hi"}}),
@@ -3159,7 +3160,8 @@ class TestIterEntriesCorruptionWarning:
         results = list(claude_log.iter_entries(jsonl))
         assert len(results) == 2
         err = capsys.readouterr().err
-        assert err == ""
+        assert "skipped 1 corrupt line(s)" in err
+        assert "actively written to" in err
 
     def test_no_warning_on_clean_file(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
@@ -3513,12 +3515,19 @@ class TestSearchGrouping:
         }
         out, _err, code = _run_cmd_search(tmp_path, monkeypatch, sessions, "needle")
         assert code == 0
-        # Session headers should appear
+        # Session headers with pipe-separated format
+        assert "---" in out
+        assert "|" in out
+        # Session IDs in headers
         assert "sess-aaa" in out or "ProjA" in out
         assert "sess-bbb" in out or "ProjB" in out
         # Both matches should be present
         assert "needle in project A" in out
         assert "needle in project B" in out
+        # Preceding entries should be indented
+        lines = out.strip().split("\n")
+        content_lines = [ln for ln in lines if not ln.startswith("---") and ln.strip()]
+        assert any(ln.startswith("  ") for ln in content_lines)
 
 
 class TestSearchRecencySort:
