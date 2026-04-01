@@ -1,15 +1,13 @@
 """Tests for bin/claude-log — pure function unit tests."""
 
-from __future__ import annotations
-
 import argparse
+from typing import Any, get_type_hints
 import importlib.machinery
 import importlib.util
 import json
 import re
 import sys
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -24,6 +22,674 @@ assert _spec and _spec.loader
 claude_log = importlib.util.module_from_spec(_spec)
 sys.modules["claude_log"] = claude_log
 _spec.loader.exec_module(claude_log)
+
+
+# ===================================================================
+# Turn TypedDict
+# ===================================================================
+
+
+class TestTurnTypedDict:
+    """Verify Turn TypedDict has the correct fields and types."""
+
+    def test_turn_exists(self) -> None:
+        assert hasattr(claude_log, "Turn")
+
+    def test_turn_has_required_fields(self) -> None:
+        hints = get_type_hints(claude_log.Turn)
+        expected_fields = {
+            "role",
+            "text",
+            "tool_calls",
+            "timestamp",
+            "request_id",
+            "source",
+        }
+        assert set(hints.keys()) == expected_fields
+
+    def test_turn_role_is_str(self) -> None:
+        hints = get_type_hints(claude_log.Turn)
+        assert hints["role"] is str
+
+    def test_turn_text_is_str(self) -> None:
+        hints = get_type_hints(claude_log.Turn)
+        assert hints["text"] is str
+
+    def test_turn_tool_calls_is_list(self) -> None:
+        hints = get_type_hints(claude_log.Turn)
+        assert hints["tool_calls"] == list[dict]
+
+    def test_turn_timestamp_is_str(self) -> None:
+        hints = get_type_hints(claude_log.Turn)
+        assert hints["timestamp"] is str
+
+    def test_turn_request_id_is_optional_str(self) -> None:
+        hints = get_type_hints(claude_log.Turn)
+        assert hints["request_id"] == str | None
+
+    def test_turn_source_is_str(self) -> None:
+        hints = get_type_hints(claude_log.Turn)
+        assert hints["source"] is str
+
+
+# ===================================================================
+# to_turn
+# ===================================================================
+
+
+class TestToTurn:
+    """Tests for to_turn() — converting raw JSONL entries to Turn objects."""
+
+    def test_user_entry(self) -> None:
+        entry: dict[str, Any] = {
+            "type": "user",
+            "timestamp": "2026-01-01T00:00:01Z",
+            "requestId": "req-1",
+            "message": {"role": "user", "content": "hello world"},
+        }
+        turn = claude_log.to_turn(entry, {})
+        assert turn["role"] == "user"
+        assert turn["text"] == "hello world"
+        assert turn["tool_calls"] == []
+        assert turn["timestamp"] == "2026-01-01T00:00:01Z"
+        assert turn["request_id"] == "req-1"
+        assert turn["source"] == "parent"
+
+    def test_assistant_entry_with_text(self) -> None:
+        entry: dict[str, Any] = {
+            "type": "assistant",
+            "timestamp": "2026-01-01T00:00:02Z",
+            "requestId": "req-2",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "I will help you."}],
+            },
+        }
+        turn = claude_log.to_turn(entry, {})
+        assert turn["role"] == "assistant"
+        assert turn["text"] == "I will help you."
+        assert turn["tool_calls"] == []
+        assert turn["request_id"] == "req-2"
+
+    def test_assistant_entry_with_tool_use(self) -> None:
+        entry: dict[str, Any] = {
+            "type": "assistant",
+            "timestamp": "2026-01-01T00:00:03Z",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "name": "Bash",
+                        "input": {"command": "git status"},
+                    },
+                ],
+            },
+        }
+        turn = claude_log.to_turn(entry, {})
+        assert turn["role"] == "assistant"
+        assert len(turn["tool_calls"]) == 1
+        assert turn["tool_calls"][0]["name"] == "Bash"
+        assert turn["tool_calls"][0]["summary"] == "git status"
+
+    def test_subagent_progress_entry(self) -> None:
+        agent_index = {"toolu_parent1": "Deep-dive (Explore)"}
+        entry: dict[str, Any] = {
+            "type": "progress",
+            "timestamp": "2026-01-01T00:00:04Z",
+            "parentToolUseID": "toolu_parent1",
+            "data": {
+                "type": "agent_progress",
+                "agentId": "agent1",
+                "prompt": "",
+                "message": {
+                    "type": "assistant",
+                    "timestamp": "2026-01-01T00:00:04Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "name": "Read",
+                                "input": {"file_path": "/tmp/x"},
+                            },
+                        ],
+                    },
+                },
+            },
+        }
+        turn = claude_log.to_turn(entry, agent_index)
+        assert turn["role"] == "subagent"
+        assert turn["source"] == "Deep-dive (Explore)"
+        assert len(turn["tool_calls"]) == 1
+        assert turn["tool_calls"][0]["name"] == "Read"
+
+    def test_entry_without_request_id(self) -> None:
+        entry: dict[str, Any] = {
+            "type": "user",
+            "timestamp": "2026-01-01T00:00:01Z",
+            "message": {"role": "user", "content": "no request id"},
+        }
+        turn = claude_log.to_turn(entry, {})
+        assert turn["request_id"] is None
+
+    def test_tool_call_summary_in_turn(self) -> None:
+        """Tool calls include a summary field from _tool_input_summary."""
+        entry: dict[str, Any] = {
+            "type": "assistant",
+            "timestamp": "2026-01-01T00:00:03Z",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "name": "Read",
+                        "input": {"file_path": "/tmp/foo.py"},
+                    },
+                ],
+            },
+        }
+        turn = claude_log.to_turn(entry, {})
+        assert turn["tool_calls"][0]["summary"] == "/tmp/foo.py"
+
+
+# ===================================================================
+# to_turns
+# ===================================================================
+
+
+class TestToTurns:
+    """Tests for to_turns() — collapsing entries by requestId."""
+
+    def test_collapses_same_request_id(self) -> None:
+        """Entries with the same requestId collapse into a single Turn."""
+        entries = [
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "requestId": "req-1",
+                "message": {
+                    "content": [{"type": "thinking", "thinking": "let me think"}],
+                },
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:02Z",
+                "requestId": "req-1",
+                "message": {
+                    "content": [{"type": "text", "text": "Here is the answer."}],
+                },
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:03Z",
+                "requestId": "req-1",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "name": "Bash",
+                            "input": {"command": "ls"},
+                        },
+                    ],
+                },
+            },
+        ]
+        turns = claude_log.to_turns(entries, {})
+        assert len(turns) == 1
+        assert "[thinking]" in turns[0]["text"]
+        assert "Here is the answer." in turns[0]["text"]
+        assert len(turns[0]["tool_calls"]) == 1
+        assert turns[0]["timestamp"] == "2026-01-01T00:00:01Z"
+
+    def test_single_entry_passes_through(self) -> None:
+        """An entry with a unique requestId becomes a single Turn."""
+        entries = [
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "requestId": "req-1",
+                "message": {"content": "hello"},
+            },
+        ]
+        turns = claude_log.to_turns(entries, {})
+        assert len(turns) == 1
+        assert turns[0]["text"] == "hello"
+
+    def test_entries_without_request_id_stay_separate(self) -> None:
+        """Entries with no requestId are not collapsed."""
+        entries = [
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "message": {"content": [{"type": "text", "text": "first"}]},
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:02Z",
+                "message": {"content": [{"type": "text", "text": "second"}]},
+            },
+        ]
+        turns = claude_log.to_turns(entries, {})
+        assert len(turns) == 2
+        assert turns[0]["text"] == "first"
+        assert turns[1]["text"] == "second"
+
+    def test_mixed_request_ids(self) -> None:
+        """Entries with different requestIds produce separate Turns."""
+        entries = [
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "requestId": "req-1",
+                "message": {"content": "question"},
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:02Z",
+                "requestId": "req-2",
+                "message": {"content": [{"type": "text", "text": "answer"}]},
+            },
+        ]
+        turns = claude_log.to_turns(entries, {})
+        assert len(turns) == 2
+
+    def test_preserves_order(self) -> None:
+        """Turns are output in order of first appearance."""
+        entries = [
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "requestId": "req-1",
+                "message": {"content": "first"},
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:02Z",
+                "requestId": "req-2",
+                "message": {"content": [{"type": "text", "text": "second"}]},
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:03Z",
+                "requestId": "req-2",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "name": "Bash",
+                            "input": {"command": "echo hi"},
+                        },
+                    ],
+                },
+            },
+        ]
+        turns = claude_log.to_turns(entries, {})
+        assert len(turns) == 2
+        assert turns[0]["text"] == "first"
+        assert "second" in turns[1]["text"]
+        assert len(turns[1]["tool_calls"]) == 1
+
+
+# ===================================================================
+# _output dispatch
+# ===================================================================
+
+
+class TestOutputDispatch:
+    """Tests for _output() dispatch — JSON vs text routing."""
+
+    def test_json_mode_produces_json_dumps(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """args.json=True produces json.dumps output."""
+        args = argparse.Namespace(json=True)
+        data = [{"key": "value"}]
+        claude_log._output(data, args=args, formatter=lambda d: "TEXT")
+        out = capsys.readouterr().out
+        parsed = json.loads(out)
+        assert parsed == [{"key": "value"}]
+
+    def test_text_mode_calls_formatter(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """args.json=False produces formatter output."""
+        args = argparse.Namespace(json=False)
+        data = {"name": "test"}
+        claude_log._output(
+            data, args=args, formatter=lambda d: f"Formatted: {d['name']}"
+        )
+        out = capsys.readouterr().out.strip()
+        assert out == "Formatted: test"
+
+    def test_json_mode_ignores_formatter(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """In JSON mode, the formatter is never called."""
+        call_count = 0
+
+        def bad_formatter(d: Any) -> str:
+            nonlocal call_count
+            call_count += 1
+            return "should not appear"
+
+        args = argparse.Namespace(json=True)
+        claude_log._output({"x": 1}, args=args, formatter=bad_formatter)
+        assert call_count == 0
+
+
+# ===================================================================
+# --json flag on subcommands
+# ===================================================================
+
+
+class TestJsonFlag:
+    """Verify --json is available on each subcommand."""
+
+    def test_list_accepts_json(self) -> None:
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["list", "--json"])
+        assert args.json is True
+
+    def test_list_default_no_json(self) -> None:
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["list"])
+        assert args.json is False
+
+    def test_show_accepts_json(self) -> None:
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["show", "abc123", "--json"])
+        assert args.json is True
+
+    def test_search_accepts_json(self) -> None:
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["search", "--json", "pattern"])
+        assert args.json is True
+
+    def test_stats_accepts_json(self) -> None:
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["stats", "abc123", "--json"])
+        assert args.json is True
+
+    def test_json_works_before_positional(self) -> None:
+        """--json works before the positional argument."""
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["search", "--json", "my query"])
+        assert args.json is True
+        assert args.query == "my query"
+
+
+# ===================================================================
+# _format_list
+# ===================================================================
+
+
+class TestFormatList:
+    """Tests for _format_list() — columnar table formatter."""
+
+    def test_produces_table_with_headers(self) -> None:
+        sessions = [
+            {
+                "session_id": "abc12345-6789",
+                "project": "Dotfiles",
+                "date": "2026-03-28",
+                "messages": 42,
+                "branch": "main",
+            },
+        ]
+        result = claude_log._format_list(sessions)
+        lines = result.strip().split("\n")
+        # Header line should contain column names
+        header = lines[0].lower()
+        assert "id" in header or "session" in header
+        assert "project" in header
+        assert "date" in header
+        assert "msgs" in header or "messages" in header
+
+    def test_contains_session_data(self) -> None:
+        sessions = [
+            {
+                "session_id": "abc12345-6789",
+                "project": "Dotfiles",
+                "date": "2026-03-28",
+                "messages": 42,
+                "branch": "main",
+            },
+        ]
+        result = claude_log._format_list(sessions)
+        assert "abc12345" in result
+        assert "Dotfiles" in result
+        assert "2026-03-28" in result
+        assert "main" in result
+
+    def test_multiple_sessions(self) -> None:
+        sessions = [
+            {
+                "session_id": "abc12345",
+                "project": "Dotfiles",
+                "date": "2026-03-28",
+                "messages": 42,
+                "branch": "main",
+            },
+            {
+                "session_id": "def67890",
+                "project": "Claudefiles",
+                "date": "2026-03-29",
+                "messages": 10,
+                "branch": "feature-x",
+            },
+        ]
+        result = claude_log._format_list(sessions)
+        lines = result.strip().split("\n")
+        # Header + 2 data rows
+        assert len(lines) >= 3
+        assert "abc12345" in result
+        assert "def67890" in result
+
+    def test_empty_sessions(self) -> None:
+        result = claude_log._format_list([])
+        assert result.strip() == "" or "no sessions" in result.lower()
+
+
+# ===================================================================
+# _format_stats
+# ===================================================================
+
+
+class TestFormatStats:
+    """Tests for _format_stats() — key-value summary."""
+
+    def test_produces_key_value_output(self) -> None:
+        stats = {
+            "session_id": "abc12345-6789",
+            "project": "Dotfiles",
+            "branch": "main",
+            "model": "claude-opus-4-6",
+            "duration": "45m 12s",
+            "type_counts": {"user": 10, "assistant": 15},
+            "tool_counts": {"Bash": 5, "Read": 3},
+            "tokens": {"input": 50000, "output": 10000},
+        }
+        result = claude_log._format_stats(stats)
+        assert "abc12345" in result
+        assert "Dotfiles" in result
+        assert "main" in result
+        assert "45m 12s" in result
+
+    def test_includes_token_counts(self) -> None:
+        stats = {
+            "session_id": "abc12345",
+            "project": "Test",
+            "branch": "",
+            "model": "",
+            "duration": "",
+            "type_counts": {},
+            "tool_counts": {},
+            "tokens": {"input": 50000, "output": 10000},
+        }
+        result = claude_log._format_stats(stats)
+        assert "50000" in result or "50,000" in result
+        assert "10000" in result or "10,000" in result
+
+    def test_includes_tool_counts(self) -> None:
+        stats = {
+            "session_id": "abc12345",
+            "project": "Test",
+            "branch": "",
+            "model": "",
+            "duration": "",
+            "type_counts": {},
+            "tool_counts": {"Bash": 5, "Read": 3},
+            "tokens": {"input": 0, "output": 0},
+        }
+        result = claude_log._format_stats(stats)
+        assert "Bash" in result
+        assert "Read" in result
+
+
+# ===================================================================
+# cmd_list with _output dispatch
+# ===================================================================
+
+
+class TestCmdListOutput:
+    """Verify cmd_list routes through _output correctly."""
+
+    def _create_session(
+        self,
+        tmp_path: Path,
+        dirname: str,
+        entries: list[dict[str, Any]],
+        session_id: str = "abc123",
+    ) -> Path:
+        proj_dir = tmp_path / dirname
+        proj_dir.mkdir(parents=True, exist_ok=True)
+        jsonl = proj_dir / f"{session_id}.jsonl"
+        _write_jsonl(jsonl, entries)
+        return jsonl
+
+    def test_json_mode_produces_json(
+        self, tmp_path: Path, monkeypatch: Any, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.setattr(claude_log, "PROJECTS_DIR", tmp_path)
+        self._create_session(
+            tmp_path,
+            "-home-jessica-Test",
+            [
+                {
+                    "type": "user",
+                    "timestamp": "2026-03-21T10:00:00Z",
+                    "message": {"content": "hello"},
+                },
+            ],
+        )
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["list", "--json"])
+        claude_log.cmd_list(args)
+        out = capsys.readouterr().out
+        parsed = json.loads(out)
+        assert isinstance(parsed, list)
+        assert len(parsed) == 1
+
+    def test_text_mode_produces_table(
+        self, tmp_path: Path, monkeypatch: Any, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.setattr(claude_log, "PROJECTS_DIR", tmp_path)
+        self._create_session(
+            tmp_path,
+            "-home-jessica-Test",
+            [
+                {
+                    "type": "user",
+                    "timestamp": "2026-03-21T10:00:00Z",
+                    "message": {"content": "hello"},
+                },
+            ],
+        )
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["list"])
+        claude_log.cmd_list(args)
+        out = capsys.readouterr().out
+        # Text mode should NOT be valid JSON
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(out)
+        # Should contain table headers
+        assert "ID" in out or "Project" in out
+
+
+# ===================================================================
+# cmd_stats with _output dispatch
+# ===================================================================
+
+
+class TestCmdStatsOutput:
+    """Verify cmd_stats routes through _output correctly."""
+
+    def test_json_mode_produces_json(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        entries = [
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "message": {"content": "hello"},
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:02Z",
+                "message": {
+                    "content": [{"type": "text", "text": "hi"}],
+                    "model": "claude-opus-4-6",
+                    "usage": {"input_tokens": 100, "output_tokens": 50},
+                },
+            },
+        ]
+        jsonl = tmp_path / "session.jsonl"
+        _write_jsonl(jsonl, entries)
+        monkeypatch.setattr(claude_log, "resolve_session", lambda _sid: jsonl)
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["stats", "abc123", "--json"])
+        claude_log.cmd_stats(args)
+        out = capsys.readouterr().out
+        parsed = json.loads(out)
+        assert "session_id" in parsed
+
+    def test_text_mode_produces_summary(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        entries = [
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00:01Z",
+                "message": {"content": "hello"},
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:00:02Z",
+                "message": {
+                    "content": [{"type": "text", "text": "hi"}],
+                    "model": "claude-opus-4-6",
+                    "usage": {"input_tokens": 100, "output_tokens": 50},
+                },
+            },
+        ]
+        jsonl = tmp_path / "session.jsonl"
+        _write_jsonl(jsonl, entries)
+        monkeypatch.setattr(claude_log, "resolve_session", lambda _sid: jsonl)
+        parser = claude_log.build_parser()
+        args = parser.parse_args(["stats", "abc123"])
+        claude_log.cmd_stats(args)
+        out = capsys.readouterr().out
+        # Text mode should NOT be valid JSON
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(out)
+        assert "Session:" in out
 
 
 # ===================================================================

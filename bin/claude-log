@@ -19,11 +19,11 @@ import json
 import os
 import re
 import sys
-from collections.abc import Generator, Sequence
+from collections.abc import Callable, Generator, Sequence
 from datetime import datetime, timezone
 from itertools import islice
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 PROJECTS_DIR = Path.home() / ".claude" / "projects"
 
@@ -365,6 +365,243 @@ def extract_subagent_tool_uses(entry: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# Turn model
+# ---------------------------------------------------------------------------
+
+
+class Turn(TypedDict):
+    role: str  # "user" | "assistant" | "tool" | "subagent"
+    text: str  # pre-extracted readable text (via extract_text)
+    tool_calls: list[dict]  # pre-extracted, pre-summarized (via _tool_input_summary)
+    timestamp: str
+    request_id: str | None
+    source: str  # "parent" | agent label
+
+
+def to_turn(entry: dict[str, Any], agent_index: dict[str, str]) -> Turn:
+    """Convert a raw JSONL entry dict into a Turn domain object.
+
+    For progress (subagent) entries, extracts the inner assistant message
+    and resolves the agent label from *agent_index*.
+    """
+    entry_type = entry.get("type", "")
+    ts = entry.get("timestamp", "")
+    request_id = entry.get("requestId")
+
+    if entry_type == "progress":
+        # Subagent progress entry
+        data = entry.get("data", {})
+        outer_msg = data.get("message", {})
+        inner_msg = outer_msg.get("message", {})
+        text = extract_text(inner_msg)
+        tool_uses = extract_tool_uses(inner_msg)
+        parent_id = entry.get("parentToolUseID", "")
+        source = agent_index.get(parent_id, "subagent")
+        tool_calls = [
+            {
+                "name": t.get("name", "?"),
+                "input": t.get("input", {}),
+                "summary": _tool_input_summary(t.get("name", "?"), t.get("input", {})),
+            }
+            for t in tool_uses
+        ]
+        return Turn(
+            role="subagent",
+            text=text,
+            tool_calls=tool_calls,
+            timestamp=ts,
+            request_id=request_id,
+            source=source,
+        )
+
+    # User or assistant entry
+    message = entry.get("message", {})
+    text = extract_text(message)
+    tool_uses = extract_tool_uses(message)
+    tool_calls = [
+        {
+            "name": t.get("name", "?"),
+            "input": t.get("input", {}),
+            "summary": _tool_input_summary(t.get("name", "?"), t.get("input", {})),
+        }
+        for t in tool_uses
+    ]
+    return Turn(
+        role=entry_type,
+        text=text,
+        tool_calls=tool_calls,
+        timestamp=ts,
+        request_id=request_id,
+        source="parent",
+    )
+
+
+def to_turns(entries: list[dict[str, Any]], agent_index: dict[str, str]) -> list[Turn]:
+    """Convert a list of raw JSONL entries into collapsed Turn objects.
+
+    Entries sharing the same ``requestId`` are merged into a single Turn:
+    text parts are joined with newlines, tool_calls are concatenated.
+    Entries without a ``requestId`` each become their own Turn.
+
+    Returns Turns in order of first appearance.
+    """
+    # Ordered mapping: requestId -> list of entries to collapse
+    # Entries without requestId get a unique sentinel key
+    groups: dict[str, list[dict[str, Any]]] = {}
+    order: list[str] = []
+    sentinel_counter = 0
+
+    for entry in entries:
+        req_id = entry.get("requestId")
+        if req_id:
+            key = req_id
+        else:
+            key = f"__no_req_{sentinel_counter}"
+            sentinel_counter += 1
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(entry)
+
+    result: list[Turn] = []
+    for key in order:
+        group = groups[key]
+        if len(group) == 1:
+            result.append(to_turn(group[0], agent_index))
+        else:
+            # Collapse multiple entries into one Turn
+            first = group[0]
+            texts: list[str] = []
+            all_tool_calls: list[dict] = []
+            for entry in group:
+                turn = to_turn(entry, agent_index)
+                if turn["text"]:
+                    texts.append(turn["text"])
+                all_tool_calls.extend(turn["tool_calls"])
+            result.append(
+                Turn(
+                    role=first.get("type", "assistant"),
+                    text="\n".join(texts),
+                    tool_calls=all_tool_calls,
+                    timestamp=first.get("timestamp", ""),
+                    request_id=first.get("requestId"),
+                    source=to_turn(first, agent_index)["source"],
+                )
+            )
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Output dispatch
+# ---------------------------------------------------------------------------
+
+
+def _output(
+    data: Any, *, args: argparse.Namespace, formatter: Callable[[Any], str]
+) -> None:
+    """Route output to JSON or text based on args.json flag."""
+    if args.json:
+        print(json.dumps(data, indent=2))
+    else:
+        print(formatter(data))
+
+
+# ---------------------------------------------------------------------------
+# Text Formatters
+# ---------------------------------------------------------------------------
+
+
+def _format_list(sessions: list[dict[str, Any]]) -> str:
+    """Format session list as a columnar text table.
+
+    Columns: ID (first 8 chars), Date, Project, Branch, Msgs.
+    Duration is omitted because find_sessions() only reads the first ~20 lines
+    per file (performance optimization) and doesn't have last-entry timestamps.
+    """
+    if not sessions:
+        return ""
+
+    headers = ["ID", "Date", "Project", "Branch", "Msgs"]
+    rows: list[list[str]] = []
+    for s in sessions:
+        sid = s.get("session_id", "")[:8]
+        date = s.get("date", "")
+        project = s.get("project", "")
+        branch = s.get("branch", "")
+        msgs = str(s.get("messages", ""))
+        rows.append([sid, date, project, branch, msgs])
+
+    # Calculate column widths
+    widths = [len(h) for h in headers]
+    for row in rows:
+        for i, cell in enumerate(row):
+            widths[i] = max(widths[i], len(cell))
+
+    def _fmt_row(cells: list[str]) -> str:
+        parts = []
+        for i, cell in enumerate(cells):
+            if i == len(cells) - 1:
+                # Right-align the numeric Msgs column
+                parts.append(cell.rjust(widths[i]))
+            else:
+                parts.append(cell.ljust(widths[i]))
+        return "  ".join(parts)
+
+    lines = [_fmt_row(headers)]
+    for row in rows:
+        lines.append(_fmt_row(row))
+    return "\n".join(lines)
+
+
+def _format_stats(stats: dict[str, Any]) -> str:
+    """Format session statistics as a key-value text summary."""
+    lines: list[str] = []
+    lines.append(f"Session:  {stats.get('session_id', '')}")
+    lines.append(f"Project:  {stats.get('project', '')}")
+    if stats.get("branch"):
+        lines.append(f"Branch:   {stats['branch']}")
+    if stats.get("model"):
+        lines.append(f"Model:    {stats['model']}")
+    if stats.get("duration"):
+        lines.append(f"Duration: {stats['duration']}")
+
+    tokens = stats.get("tokens", {})
+    if any(tokens.values()):
+        lines.append("")
+        lines.append("Tokens:")
+        lines.append(f"  Input:        {tokens.get('input', 0)}")
+        lines.append(f"  Output:       {tokens.get('output', 0)}")
+        if tokens.get("cache_read"):
+            lines.append(f"  Cache read:   {tokens['cache_read']}")
+        if tokens.get("cache_create"):
+            lines.append(f"  Cache create: {tokens['cache_create']}")
+
+    type_counts = stats.get("type_counts", {})
+    if type_counts:
+        lines.append("")
+        lines.append("Entry types:")
+        for etype, count in sorted(type_counts.items(), key=lambda x: -x[1]):
+            lines.append(f"  {etype}: {count}")
+
+    tool_counts = stats.get("tool_counts", {})
+    if tool_counts:
+        lines.append("")
+        lines.append("Tools:")
+        for tool, count in sorted(tool_counts.items(), key=lambda x: -x[1]):
+            lines.append(f"  {tool}: {count}")
+
+    subagent_tool_counts = stats.get("subagent_tool_counts", {})
+    if subagent_tool_counts:
+        lines.append("")
+        lines.append("Subagent tools:")
+        for tool, count in sorted(subagent_tool_counts.items(), key=lambda x: -x[1]):
+            lines.append(f"  {tool}: {count}")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
 # Subcommand handlers
 # ---------------------------------------------------------------------------
 
@@ -382,7 +619,7 @@ def cmd_list(args: argparse.Namespace) -> None:
         print("No sessions found.", file=sys.stderr)
         return
 
-    print(json.dumps(sessions, indent=2))
+    _output(sessions, args=args, formatter=_format_list)
 
 
 def cmd_show(args: argparse.Namespace) -> None:
@@ -671,7 +908,7 @@ def cmd_stats(args: argparse.Namespace) -> None:
     }
     if include_subagents:
         stats_dict["subagent_tool_counts"] = subagent_tool_counts
-    print(json.dumps(stats_dict, indent=2))
+    _output(stats_dict, args=args, formatter=_format_stats)
 
 
 _BUILTIN_COMMANDS = frozenset(
@@ -1195,6 +1432,9 @@ Examples:
   claude-log list --cwd /home/user/repo  # filter by working directory
 """,
     )
+    p_list.add_argument(
+        "--json", action="store_true", default=False, help="Output as JSON"
+    )
     p_list.add_argument("--project", "-p", help="Filter by project name substring")
     p_list.add_argument("--cwd", help="Filter by working directory path substring")
     p_list.add_argument("--since", "-s", help="Filter by date (YYYY-MM-DD)")
@@ -1222,6 +1462,9 @@ Examples:
 """,
     )
     p_show.add_argument("session_id", help="Session ID or prefix")
+    p_show.add_argument(
+        "--json", action="store_true", default=False, help="Output as JSON"
+    )
     p_show.add_argument(
         "--messages", "-m", action="store_true", help="User + assistant text only"
     )
@@ -1258,6 +1501,9 @@ Examples:
     )
     p_search.add_argument("query", help="Search pattern (regex by default)")
     p_search.add_argument(
+        "--json", action="store_true", default=False, help="Output as JSON"
+    )
+    p_search.add_argument(
         "--fixed",
         "-F",
         action="store_true",
@@ -1288,6 +1534,9 @@ Examples:
 """,
     )
     p_stats.add_argument("session_id", help="Session ID or prefix")
+    p_stats.add_argument(
+        "--json", action="store_true", default=False, help="Output as JSON"
+    )
 
     # skills
     p_skills = subs.add_parser("skills", help="Skill/command usage across sessions")
