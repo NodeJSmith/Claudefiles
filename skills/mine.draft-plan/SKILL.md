@@ -6,7 +6,7 @@ user-invocable: true
 
 # Draft Plan
 
-Turn an approved design doc into a set of Work Package (WP) files. Each WP is an independently executable unit of work with its own objectives, subtasks, test strategy, and review guidance. Generates up to ~8 WPs per feature. Commits all WP files after generation.
+Turn an approved design doc into a set of Work Package (WP) files. Each WP is an independently executable unit of work with its own objectives, subtasks, test strategy, and review guidance. Commits all WP files after generation.
 
 ## Arguments
 
@@ -116,7 +116,7 @@ Do NOT guess file paths. If Glob returns no match, note it explicitly.
 
 ## Phase 3: Write WP Files
 
-Decompose the design into 3–8 Work Packages. Each WP represents a distinct, independently reviewable unit of work that a single executor subagent can complete in one session.
+Decompose the design into Work Packages (minimum 3). Each WP represents a distinct, independently reviewable unit of work that a single executor subagent can complete in one session. Let the design's complexity determine the count — don't artificially constrain it.
 
 **WP sizing rules:**
 - Too small: a single file edit with no design decisions → merge with adjacent WP

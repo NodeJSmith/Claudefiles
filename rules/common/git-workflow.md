@@ -33,7 +33,16 @@ Then run `integration-reviewer` once on the final diff.
 
 ## Local Verification Before Commit
 
-Run tests + linter after code review passes. Follow test execution discovery from `testing.md`. Fix failures before committing.
+Run tests + linter/type checker after code review passes. Fix failures before committing.
+
+**Test discovery:** Follow the order in `testing.md`.
+
+**Linter/type checker discovery** (same pattern):
+
+1. **CI configuration** — use whatever CI runs (e.g., `ruff check`, `pyright`, `tsc --noEmit`, `eslint`)
+2. **Task runners** — `pyproject.toml` scripts, `Makefile`, `package.json` scripts
+3. **Conventions** — Python: `ruff check` + `pyright`. TypeScript: `tsc --noEmit` + `eslint`
+4. **Ask the user** if unclear
 
 **Retry limit:** 3 attempts, then present failures to the user.
 

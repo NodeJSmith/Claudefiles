@@ -4,6 +4,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-04-01
 
+### Changed
+- `mine.draft-plan` no longer caps Work Packages at 8 — design complexity determines the count
+- Removed `rules/common/lsp.md` and LSP references — pyright-lsp plugin disabled due to stale diagnostic noise; linter/type checker discovery added to `git-workflow.md`
+
 ### Fixed
 - `spec-helper init` now respects monorepo structure — creates features in the nearest `design/specs/` relative to cwd, not at the git root
 
