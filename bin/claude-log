@@ -73,16 +73,23 @@ def iter_session_files(
     project_filter: str | None = None,
     cwd_filter: str | None = None,
     since: str | None = None,
+    sort_by_mtime: bool = False,
 ) -> Generator[tuple[str, str, Path], None, None]:
     """Yield ``(project_name, session_id, jsonl_path)`` for matching sessions.
 
     Handles project name filtering and mtime-based date filtering so callers
     don't have to.
+
+    When *sort_by_mtime* is True, collects all matching files, stats each for
+    mtime, sorts descending (most recent first), then yields.  This is used by
+    ``cmd_search`` to ensure recent sessions are searched first.
     """
     if not PROJECTS_DIR.is_dir():
         return
 
     since_dt = _parse_since(since)
+
+    collected: list[tuple[str, str, Path, float]] = []
 
     for project_dir in sorted(PROJECTS_DIR.iterdir()):
         if not project_dir.is_dir():
@@ -93,10 +100,9 @@ def iter_session_files(
             continue
 
         for jsonl_file in sorted(project_dir.glob("*.jsonl")):
+            stat = jsonl_file.stat()
             if since_dt:
-                mod_time = datetime.fromtimestamp(
-                    jsonl_file.stat().st_mtime, tz=timezone.utc
-                )
+                mod_time = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
                 if mod_time < since_dt:
                     continue
 
@@ -106,7 +112,17 @@ def iter_session_files(
                 if cwd_filter.lower() not in effective_path.lower():
                     continue
 
-            yield proj_name, jsonl_file.stem, jsonl_file
+            if sort_by_mtime:
+                collected.append(
+                    (proj_name, jsonl_file.stem, jsonl_file, stat.st_mtime)
+                )
+            else:
+                yield proj_name, jsonl_file.stem, jsonl_file
+
+    if sort_by_mtime:
+        collected.sort(key=lambda t: t[3], reverse=True)
+        for proj_name, session_id, path, _mtime in collected:
+            yield proj_name, session_id, path
 
 
 def project_name_from_dir(dirname: str) -> str:
@@ -723,6 +739,83 @@ def _format_show_grep(matched_turns: list[dict[str, Any]]) -> str:
     return "\n---\n".join(sections)
 
 
+_SEARCH_TRUNCATE = 500
+
+
+def _truncate(text: str, max_chars: int = _SEARCH_TRUNCATE) -> str:
+    """Truncate text to at most *max_chars* characters."""
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars] + "..."
+
+
+def _format_search(grouped_results: list[dict[str, Any]]) -> str:
+    """Format search results grouped by session.
+
+    Each item in *grouped_results* has keys:
+    - session_id: str
+    - project: str
+    - date: str
+    - results: list[dict] with 'matched' (Turn) and 'preceding' (Turn | None)
+
+    Output:
+    ```
+    --- abc12345 | Claudefiles | 2026-03-28 ---
+      [user] we should also remove anything shodh related...
+      [assistant] I'll check for any shodh references...
+    ```
+    """
+    if not grouped_results:
+        return ""
+
+    sections: list[str] = []
+    for group in grouped_results:
+        lines: list[str] = []
+        sid = group.get("session_id", "")[:8]
+        project = group.get("project", "")
+        date = group.get("date", "")
+        lines.append(f"--- {sid} | {project} | {date} ---")
+
+        for item in group.get("results", []):
+            preceding = item.get("preceding")
+            if preceding is not None:
+                text = _truncate(preceding["text"]) if preceding["text"] else ""
+                if text:
+                    rendered = _render_turn_line(
+                        Turn(
+                            role=preceding["role"],
+                            text=text,
+                            tool_calls=preceding.get("tool_calls", []),
+                            timestamp=preceding.get("timestamp", ""),
+                            request_id=preceding.get("request_id"),
+                            source=preceding.get("source", "parent"),
+                        ),
+                        indent="  ",
+                    )
+                    if rendered:
+                        lines.append(rendered)
+
+            matched = item["matched"]
+            text = _truncate(matched["text"]) if matched["text"] else ""
+            rendered = _render_turn_line(
+                Turn(
+                    role=matched["role"],
+                    text=text,
+                    tool_calls=matched.get("tool_calls", []),
+                    timestamp=matched.get("timestamp", ""),
+                    request_id=matched.get("request_id"),
+                    source=matched.get("source", "parent"),
+                ),
+                indent="  ",
+            )
+            if rendered:
+                lines.append(rendered)
+
+        sections.append("\n".join(lines))
+
+    return "\n".join(sections)
+
+
 def _format_stats(stats: dict[str, Any]) -> str:
     """Format session statistics as a key-value text summary."""
     lines: list[str] = []
@@ -1217,66 +1310,145 @@ def _match_entry(
 
 
 def cmd_search(args: argparse.Namespace) -> None:
-    """Search across sessions."""
-    pattern = _compile_pattern(args.query, fixed=args.fixed)
-    include_subagents = True
+    """Search across sessions with conversation-turn context.
 
-    results: list[dict[str, Any]] = []
+    Results include the matched entry and the preceding conversational entry
+    (user question before an assistant answer, or vice versa).  Results are
+    grouped by session, and sessions are searched in recency order (most
+    recent first via mtime sort).
+    """
+    pattern = _compile_pattern(args.query, fixed=args.fixed)
     max_results = args.limit
+    hit_limit = False
+
+    # Flat list of result dicts; grouped later
+    flat_results: list[dict[str, Any]] = []
+    total_matches = 0
 
     for proj_name, session_id, jsonl_file in iter_session_files(
-        project_filter=args.project, since=args.since
+        project_filter=args.project, since=args.since, sort_by_mtime=True
     ):
+        agent_index: dict[str, str] = {}
+        last_user_turn: Turn | None = None
+        last_assistant_turn: Turn | None = None
+        first_ts = ""
+
         for entry in iter_entries(jsonl_file):
             entry_type = entry.get("type", "")
-            message = entry.get("message", {})
             ts = entry.get("timestamp", "")
+            if ts and not first_ts:
+                first_ts = ts
 
+            # Build agent index
+            if entry_type == "assistant":
+                for tool in extract_tool_uses(entry.get("message", {})):
+                    if tool.get("name") == "Agent" and tool.get("id"):
+                        agent_index[tool["id"]] = _agent_label(tool.get("input", {}))
+            elif entry_type == "progress":
+                for tool in extract_subagent_tool_uses(entry):
+                    if tool["name"] == "Agent" and tool.get("id"):
+                        agent_index[tool["id"]] = _agent_label(tool.get("input", {}))
+
+            # Convert to Turn for context tracking
+            turn = to_turn(entry, agent_index)
+
+            # Track last user/assistant for preceding context
+            if entry_type == "user":
+                last_user_turn = turn
+            elif entry_type == "assistant":
+                last_assistant_turn = turn
+
+            # Check for match using existing _match_entry
+            message = entry.get("message", {})
             matched_text = _match_entry(entry_type, message, pattern, args.type)
 
             if matched_text:
-                results.append(
+                # Determine preceding context
+                if entry_type in ("assistant", "progress"):
+                    preceding = last_user_turn
+                else:
+                    preceding = last_assistant_turn
+
+                flat_results.append(
                     {
                         "session_id": session_id[:8],
                         "project": proj_name,
                         "timestamp": ts,
-                        "type": entry_type,
-                        "text": matched_text[:120],
+                        "date": first_ts[:10] if first_ts else "",
+                        "matched": turn,
+                        "preceding": preceding,
                     }
                 )
-                if len(results) >= max_results:
+                total_matches += 1
+                if total_matches >= max_results:
+                    hit_limit = True
                     break
 
-            elif entry_type == "progress" and include_subagents:
+            elif entry_type == "progress":
+                # Check subagent tool calls
                 for tool in extract_subagent_tool_uses(entry):
                     if args.type and args.type != "tool_use":
                         continue
                     inp_str = json.dumps(tool["input"])
                     if pattern.search(inp_str):
-                        name = tool["name"]
-                        summary = _tool_input_summary(name, tool["input"])
-                        results.append(
+                        # Subagent matches use last_user_entry as preceding
+                        flat_results.append(
                             {
                                 "session_id": session_id[:8],
                                 "project": proj_name,
                                 "timestamp": tool["timestamp"],
-                                "type": "subagent_tool",
-                                "text": f"[{name}] {summary}"[:120],
+                                "date": first_ts[:10] if first_ts else "",
+                                "matched": turn,
+                                "preceding": last_user_turn,
                             }
                         )
-                        if len(results) >= max_results:
+                        total_matches += 1
+                        if total_matches >= max_results:
+                            hit_limit = True
                             break
-                if len(results) >= max_results:
+                if hit_limit:
                     break
 
-        if len(results) >= max_results:
+        if hit_limit:
             break
 
-    if not results:
+    if not flat_results:
         print("No matches found.", file=sys.stderr)
-        return
+        sys.exit(1)
 
-    print(json.dumps(results, indent=2))
+    if hit_limit:
+        print(
+            f"Showing first {max_results} results"
+            " — use --limit to increase or --since to narrow.",
+            file=sys.stderr,
+        )
+
+    # Group results by session
+    grouped: list[dict[str, Any]] = []
+    session_order: list[str] = []
+    session_map: dict[str, dict[str, Any]] = {}
+
+    for item in flat_results:
+        sid = item["session_id"]
+        if sid not in session_map:
+            session_map[sid] = {
+                "session_id": sid,
+                "project": item["project"],
+                "date": item.get("date", ""),
+                "results": [],
+            }
+            session_order.append(sid)
+        session_map[sid]["results"].append(
+            {
+                "matched": item["matched"],
+                "preceding": item["preceding"],
+            }
+        )
+
+    for sid in session_order:
+        grouped.append(session_map[sid])
+
+    _output(grouped, args=args, formatter=_format_search)
 
 
 def cmd_stats(args: argparse.Namespace) -> None:

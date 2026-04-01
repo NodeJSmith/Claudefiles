@@ -2,6 +2,7 @@
 
 import argparse
 import io
+import os
 from contextlib import redirect_stderr, redirect_stdout
 from typing import Any, get_type_hints
 import importlib.machinery
@@ -1999,6 +2000,73 @@ class TestFindSessionsOptimization:
 
 
 # ===================================================================
+# iter_session_files sort_by_mtime
+# ===================================================================
+
+
+class TestIterSessionFilesMtimeSort:
+    """Test that iter_session_files can sort by mtime descending."""
+
+    def _create_sessions(
+        self, tmp_path: Path, sessions: list[tuple[str, str, float]]
+    ) -> None:
+        """Create session files with controlled mtimes.
+
+        Each tuple is (dirname, session_id, mtime_offset_seconds).
+        """
+
+        for dirname, session_id, mtime_offset in sessions:
+            proj_dir = tmp_path / dirname
+            proj_dir.mkdir(parents=True, exist_ok=True)
+            jsonl = proj_dir / f"{session_id}.jsonl"
+            _write_jsonl(
+                jsonl,
+                [
+                    {
+                        "type": "user",
+                        "timestamp": "2026-01-01T00:00:01Z",
+                        "message": {"content": "hello"},
+                    },
+                ],
+            )
+            # Set mtime to a controlled value
+            os.utime(jsonl, (mtime_offset, mtime_offset))
+
+    def test_default_is_alphabetical(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Without sort_by_mtime, sessions are yielded in directory sort order."""
+        monkeypatch.setattr(claude_log, "PROJECTS_DIR", tmp_path)
+        self._create_sessions(
+            tmp_path,
+            [
+                ("-home-jessica-AAA", "sess-aaa", 1000.0),
+                ("-home-jessica-ZZZ", "sess-zzz", 2000.0),
+            ],
+        )
+        results = list(claude_log.iter_session_files())
+        session_ids = [r[1] for r in results]
+        assert session_ids == ["sess-aaa", "sess-zzz"]
+
+    def test_sort_by_mtime_descending(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """With sort_by_mtime=True, most recent files come first."""
+        monkeypatch.setattr(claude_log, "PROJECTS_DIR", tmp_path)
+        self._create_sessions(
+            tmp_path,
+            [
+                ("-home-jessica-AAA", "sess-old", 1000.0),
+                ("-home-jessica-ZZZ", "sess-new", 2000.0),
+                ("-home-jessica-MMM", "sess-mid", 1500.0),
+            ],
+        )
+        results = list(claude_log.iter_session_files(sort_by_mtime=True))
+        session_ids = [r[1] for r in results]
+        assert session_ids == ["sess-new", "sess-mid", "sess-old"]
+
+
+# ===================================================================
 # extract_text
 # ===================================================================
 
@@ -3596,3 +3664,680 @@ class TestLimitFlag:
         parser = claude_log.build_parser()
         args = parser.parse_args(["extract", "abc123", "--tools"])
         assert args.limit is None
+
+
+# ===================================================================
+# WP03: Search conversation-turn context and recency sort
+# ===================================================================
+
+
+def _run_cmd_search(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    sessions: dict[str, list[dict[str, Any]]],
+    query: str,
+    *,
+    extra_args: list[str] | None = None,
+    mtimes: dict[str, float] | None = None,
+) -> tuple[str, str, int]:
+    """Set up sessions and run cmd_search, returning (stdout, stderr, exit_code).
+
+    *sessions* maps "dirname/session_id" to entries list.
+    *mtimes* maps "dirname/session_id" to mtime float (optional).
+    """
+    monkeypatch.setattr(claude_log, "PROJECTS_DIR", tmp_path)
+    for key, entries in sessions.items():
+        dirname, session_id = key.rsplit("/", 1)
+        proj_dir = tmp_path / dirname
+        proj_dir.mkdir(parents=True, exist_ok=True)
+        jsonl = proj_dir / f"{session_id}.jsonl"
+        _write_jsonl(jsonl, entries)
+        if mtimes and key in mtimes:
+            os.utime(jsonl, (mtimes[key], mtimes[key]))
+
+    parser = claude_log.build_parser()
+    cmd = ["search", query] + (extra_args or [])
+    args = parser.parse_args(cmd)
+
+    out_buf = io.StringIO()
+    err_buf = io.StringIO()
+    exit_code = 0
+    try:
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            claude_log.cmd_search(args)
+    except SystemExit as e:
+        exit_code = e.code or 0
+    return out_buf.getvalue(), err_buf.getvalue(), exit_code
+
+
+class TestSearchConversationTurns:
+    """Test that search results include preceding entry context."""
+
+    def test_assistant_match_has_user_preceding(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When assistant text matches, preceding is the user's question."""
+        sessions = {
+            "-home-jessica-Test/sess1": [
+                {
+                    "type": "user",
+                    "timestamp": "2026-01-01T00:00:01Z",
+                    "message": {"content": "why are tests failing?"},
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2026-01-01T00:00:02Z",
+                    "message": {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "The pytest error is in auth.py",
+                            }
+                        ],
+                    },
+                },
+            ],
+        }
+        out, _err, code = _run_cmd_search(tmp_path, monkeypatch, sessions, "pytest")
+        assert code == 0
+        # Text mode: should contain both the match and the preceding user msg
+        assert "pytest" in out
+        assert "why are tests failing?" in out
+
+    def test_user_match_has_assistant_preceding(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When user text matches, preceding is the prior assistant response."""
+        sessions = {
+            "-home-jessica-Test/sess1": [
+                {
+                    "type": "assistant",
+                    "timestamp": "2026-01-01T00:00:01Z",
+                    "message": {
+                        "content": [
+                            {"type": "text", "text": "Done with the refactor."}
+                        ],
+                    },
+                },
+                {
+                    "type": "user",
+                    "timestamp": "2026-01-01T00:00:02Z",
+                    "message": {"content": "now run pytest please"},
+                },
+            ],
+        }
+        out, _err, code = _run_cmd_search(tmp_path, monkeypatch, sessions, "pytest")
+        assert code == 0
+        assert "pytest" in out
+        assert "Done with the refactor." in out
+
+    def test_preceding_none_when_no_prior_entry(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When there's no prior entry, preceding is None — no crash."""
+        sessions = {
+            "-home-jessica-Test/sess1": [
+                {
+                    "type": "user",
+                    "timestamp": "2026-01-01T00:00:01Z",
+                    "message": {"content": "search for pytest references"},
+                },
+            ],
+        }
+        out, _err, code = _run_cmd_search(tmp_path, monkeypatch, sessions, "pytest")
+        assert code == 0
+        assert "pytest" in out
+
+    def test_subagent_match_has_user_preceding(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Subagent (progress) match uses last_user_entry as preceding."""
+        sessions = {
+            "-home-jessica-Test/sess1": [
+                {
+                    "type": "user",
+                    "timestamp": "2026-01-01T00:00:01Z",
+                    "message": {"content": "investigate the auth bug"},
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2026-01-01T00:00:02Z",
+                    "message": {
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_parent1",
+                                "name": "Agent",
+                                "input": {
+                                    "description": "Research",
+                                    "subagent_type": "Explore",
+                                },
+                            },
+                        ],
+                    },
+                },
+                {
+                    "type": "progress",
+                    "timestamp": "2026-01-01T00:00:03Z",
+                    "parentToolUseID": "toolu_parent1",
+                    "data": {
+                        "type": "agent_progress",
+                        "agentId": "agent1",
+                        "prompt": "",
+                        "message": {
+                            "type": "assistant",
+                            "timestamp": "2026-01-01T00:00:03Z",
+                            "message": {
+                                "role": "assistant",
+                                "content": [
+                                    {
+                                        "type": "tool_use",
+                                        "name": "Bash",
+                                        "input": {"command": "pytest -v auth/"},
+                                    },
+                                ],
+                            },
+                        },
+                    },
+                },
+            ],
+        }
+        out, _err, code = _run_cmd_search(tmp_path, monkeypatch, sessions, "pytest")
+        assert code == 0
+        assert "pytest" in out
+        assert "investigate the auth bug" in out
+
+
+class TestSearchGrouping:
+    """Test that search results are grouped by session with headers."""
+
+    def test_results_grouped_with_session_headers(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sessions = {
+            "-home-jessica-ProjA/sess-aaa": [
+                {
+                    "type": "user",
+                    "timestamp": "2026-01-01T00:00:01Z",
+                    "message": {"content": "needle in project A"},
+                },
+            ],
+            "-home-jessica-ProjB/sess-bbb": [
+                {
+                    "type": "user",
+                    "timestamp": "2026-01-02T00:00:01Z",
+                    "message": {"content": "needle in project B"},
+                },
+            ],
+        }
+        out, _err, code = _run_cmd_search(tmp_path, monkeypatch, sessions, "needle")
+        assert code == 0
+        # Session headers should appear
+        assert "sess-aaa" in out or "ProjA" in out
+        assert "sess-bbb" in out or "ProjB" in out
+        # Both matches should be present
+        assert "needle in project A" in out
+        assert "needle in project B" in out
+
+
+class TestSearchRecencySort:
+    """Test that sessions are searched most-recent-first."""
+
+    def test_recent_sessions_first(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """With --limit 1, the match from the most recent session wins."""
+        sessions = {
+            "-home-jessica-Old/sess-old": [
+                {
+                    "type": "user",
+                    "timestamp": "2026-01-01T00:00:01Z",
+                    "message": {"content": "needle in old session"},
+                },
+            ],
+            "-home-jessica-New/sess-new": [
+                {
+                    "type": "user",
+                    "timestamp": "2026-01-02T00:00:01Z",
+                    "message": {"content": "needle in new session"},
+                },
+            ],
+        }
+        mtimes = {
+            "-home-jessica-Old/sess-old": 1000.0,
+            "-home-jessica-New/sess-new": 2000.0,
+        }
+        out, _err, code = _run_cmd_search(
+            tmp_path,
+            monkeypatch,
+            sessions,
+            "needle",
+            extra_args=["--limit", "1"],
+            mtimes=mtimes,
+        )
+        assert code == 0
+        assert "needle in new session" in out
+        # Old session should NOT be in results (limit=1, and new comes first)
+        assert "needle in old session" not in out
+
+
+class TestSearchLimit:
+    """Test --limit and stderr notice."""
+
+    def test_limit_stops_at_n_results(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        entries: list[dict[str, Any]] = []
+        for i in range(10):
+            entries.append(
+                {
+                    "type": "user",
+                    "timestamp": f"2026-01-01T00:00:{i:02d}Z",
+                    "message": {"content": f"needle-{i}"},
+                }
+            )
+        sessions = {"-home-jessica-Test/sess1": entries}
+        out, _err, code = _run_cmd_search(
+            tmp_path,
+            monkeypatch,
+            sessions,
+            "needle",
+            extra_args=["--limit", "3"],
+        )
+        assert code == 0
+        # Should have at most 3 results
+        assert out.count("needle-") <= 3
+
+    def test_stderr_notice_when_limit_hit(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        entries: list[dict[str, Any]] = []
+        for i in range(10):
+            entries.append(
+                {
+                    "type": "user",
+                    "timestamp": f"2026-01-01T00:00:{i:02d}Z",
+                    "message": {"content": f"needle-{i}"},
+                }
+            )
+        sessions = {"-home-jessica-Test/sess1": entries}
+        _out, err, code = _run_cmd_search(
+            tmp_path,
+            monkeypatch,
+            sessions,
+            "needle",
+            extra_args=["--limit", "3"],
+        )
+        assert code == 0
+        assert "Showing first 3 results" in err
+
+
+class TestSearchExitCodes:
+    """Test exit code contract for search."""
+
+    def test_exit_1_on_no_matches(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sessions = {
+            "-home-jessica-Test/sess1": [
+                {
+                    "type": "user",
+                    "timestamp": "2026-01-01T00:00:01Z",
+                    "message": {"content": "nothing relevant here"},
+                },
+            ],
+        }
+        _out, _err, code = _run_cmd_search(
+            tmp_path, monkeypatch, sessions, "unicorn_that_never_appears"
+        )
+        assert code == 1
+
+    def test_exit_0_on_matches(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sessions = {
+            "-home-jessica-Test/sess1": [
+                {
+                    "type": "user",
+                    "timestamp": "2026-01-01T00:00:01Z",
+                    "message": {"content": "hello world"},
+                },
+            ],
+        }
+        _out, _err, code = _run_cmd_search(tmp_path, monkeypatch, sessions, "hello")
+        assert code == 0
+
+
+class TestFormatSearch:
+    """Test _format_search — session headers, truncation, grouping."""
+
+    def test_session_header_format(self) -> None:
+        grouped = [
+            {
+                "session_id": "abc12345",
+                "project": "Claudefiles",
+                "date": "2026-03-28",
+                "results": [
+                    {
+                        "matched": claude_log.Turn(
+                            role="user",
+                            text="hello world",
+                            tool_calls=[],
+                            timestamp="2026-03-28T10:00:00Z",
+                            request_id=None,
+                            source="parent",
+                        ),
+                        "preceding": None,
+                    },
+                ],
+            },
+        ]
+        result = claude_log._format_search(grouped)
+        assert "abc12345" in result
+        assert "Claudefiles" in result
+        assert "2026-03-28" in result
+
+    def test_truncation_at_500_chars(self) -> None:
+        long_text = "x" * 800
+        grouped = [
+            {
+                "session_id": "abc12345",
+                "project": "Test",
+                "date": "2026-03-28",
+                "results": [
+                    {
+                        "matched": claude_log.Turn(
+                            role="assistant",
+                            text=long_text,
+                            tool_calls=[],
+                            timestamp="",
+                            request_id=None,
+                            source="parent",
+                        ),
+                        "preceding": None,
+                    },
+                ],
+            },
+        ]
+        result = claude_log._format_search(grouped)
+        # Should NOT contain the full 800-char text
+        assert long_text not in result
+        # But should contain truncated version (up to ~500 chars)
+        assert "x" * 100 in result
+
+    def test_multi_session_grouping(self) -> None:
+        grouped = [
+            {
+                "session_id": "sess-aaa",
+                "project": "ProjA",
+                "date": "2026-03-28",
+                "results": [
+                    {
+                        "matched": claude_log.Turn(
+                            role="user",
+                            text="match in A",
+                            tool_calls=[],
+                            timestamp="",
+                            request_id=None,
+                            source="parent",
+                        ),
+                        "preceding": None,
+                    },
+                ],
+            },
+            {
+                "session_id": "sess-bbb",
+                "project": "ProjB",
+                "date": "2026-03-29",
+                "results": [
+                    {
+                        "matched": claude_log.Turn(
+                            role="user",
+                            text="match in B",
+                            tool_calls=[],
+                            timestamp="",
+                            request_id=None,
+                            source="parent",
+                        ),
+                        "preceding": None,
+                    },
+                ],
+            },
+        ]
+        result = claude_log._format_search(grouped)
+        assert "ProjA" in result
+        assert "ProjB" in result
+        assert "match in A" in result
+        assert "match in B" in result
+
+    def test_preceding_shown_before_matched(self) -> None:
+        grouped = [
+            {
+                "session_id": "abc12345",
+                "project": "Test",
+                "date": "2026-03-28",
+                "results": [
+                    {
+                        "matched": claude_log.Turn(
+                            role="assistant",
+                            text="The answer is 42.",
+                            tool_calls=[],
+                            timestamp="",
+                            request_id=None,
+                            source="parent",
+                        ),
+                        "preceding": claude_log.Turn(
+                            role="user",
+                            text="What is the answer?",
+                            tool_calls=[],
+                            timestamp="",
+                            request_id=None,
+                            source="parent",
+                        ),
+                    },
+                ],
+            },
+        ]
+        result = claude_log._format_search(grouped)
+        user_pos = result.index("What is the answer?")
+        asst_pos = result.index("The answer is 42.")
+        assert user_pos < asst_pos
+
+    def test_empty_results(self) -> None:
+        result = claude_log._format_search([])
+        assert result == "" or result.strip() == ""
+
+
+class TestSearchFlagsPreserved:
+    """Test that existing search flags still work."""
+
+    def test_type_tool_use_filter(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """--type tool_use still works (mine.tool-gaps dependency)."""
+        sessions = {
+            "-home-jessica-Test/sess1": [
+                {
+                    "type": "user",
+                    "timestamp": "2026-01-01T00:00:01Z",
+                    "message": {"content": "run pytest"},
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2026-01-01T00:00:02Z",
+                    "message": {
+                        "content": [
+                            {"type": "text", "text": "Running pytest now."},
+                            {
+                                "type": "tool_use",
+                                "name": "Bash",
+                                "input": {"command": "pytest -v"},
+                            },
+                        ],
+                    },
+                },
+            ],
+        }
+        out, _err, code = _run_cmd_search(
+            tmp_path,
+            monkeypatch,
+            sessions,
+            "pytest",
+            extra_args=["--type", "tool_use"],
+        )
+        assert code == 0
+        assert "pytest" in out
+
+    def test_since_filter(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sessions = {
+            "-home-jessica-Test/sess1": [
+                {
+                    "type": "user",
+                    "timestamp": "2026-01-01T00:00:01Z",
+                    "message": {"content": "needle"},
+                },
+            ],
+        }
+        _out, _err, code = _run_cmd_search(
+            tmp_path,
+            monkeypatch,
+            sessions,
+            "needle",
+            extra_args=["--since", "2099-01-01"],
+        )
+        # File mtime is before 2099, so no sessions match the since filter
+        assert code == 1
+
+    def test_fixed_string_flag(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The -F flag for fixed (literal) string matching still works."""
+        sessions = {
+            "-home-jessica-Test/sess1": [
+                {
+                    "type": "user",
+                    "timestamp": "2026-01-01T00:00:01Z",
+                    "message": {"content": "match the regex chars .* here"},
+                },
+            ],
+        }
+        out, _err, code = _run_cmd_search(
+            tmp_path,
+            monkeypatch,
+            sessions,
+            ".*",
+            extra_args=["-F"],
+        )
+        assert code == 0
+        assert "regex chars" in out
+
+    def test_project_filter(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sessions = {
+            "-home-jessica-Dotfiles/sess1": [
+                {
+                    "type": "user",
+                    "timestamp": "2026-01-01T00:00:01Z",
+                    "message": {"content": "needle in Dotfiles"},
+                },
+            ],
+            "-home-jessica-Other/sess2": [
+                {
+                    "type": "user",
+                    "timestamp": "2026-01-01T00:00:01Z",
+                    "message": {"content": "needle in Other"},
+                },
+            ],
+        }
+        out, _err, code = _run_cmd_search(
+            tmp_path,
+            monkeypatch,
+            sessions,
+            "needle",
+            extra_args=["-p", "Dotfiles"],
+        )
+        assert code == 0
+        assert "needle in Dotfiles" in out
+        assert "needle in Other" not in out
+
+    def test_json_flag_produces_json(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sessions = {
+            "-home-jessica-Test/sess1": [
+                {
+                    "type": "user",
+                    "timestamp": "2026-01-01T00:00:01Z",
+                    "message": {"content": "needle"},
+                },
+            ],
+        }
+        out, _err, code = _run_cmd_search(
+            tmp_path,
+            monkeypatch,
+            sessions,
+            "needle",
+            extra_args=["--json"],
+        )
+        assert code == 0
+        parsed = json.loads(out)
+        assert isinstance(parsed, list)
+        assert len(parsed) > 0
+        # JSON output is grouped by session with results array
+        group = parsed[0]
+        assert "session_id" in group
+        assert "results" in group
+        assert len(group["results"]) > 0
+        # Each result has matched and preceding
+        result = group["results"][0]
+        assert "matched" in result
+        assert "preceding" in result
+
+    def test_json_output_has_preceding_field(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """JSON output includes preceding field and 500-char text."""
+        sessions = {
+            "-home-jessica-Test/sess1": [
+                {
+                    "type": "user",
+                    "timestamp": "2026-01-01T00:00:01Z",
+                    "message": {"content": "question about pytest"},
+                },
+                {
+                    "type": "assistant",
+                    "timestamp": "2026-01-01T00:00:02Z",
+                    "message": {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "The pytest error is a long explanation "
+                                + "x" * 200,
+                            }
+                        ],
+                    },
+                },
+            ],
+        }
+        out, _err, code = _run_cmd_search(
+            tmp_path,
+            monkeypatch,
+            sessions,
+            "pytest",
+            extra_args=["--json"],
+        )
+        assert code == 0
+        parsed = json.loads(out)
+        # Should be grouped by session
+        assert isinstance(parsed, list)
+        # Each session group should have results with matched+preceding
+        for group in parsed:
+            for result in group.get("results", [group]):
+                if "matched" in result:
+                    assert "text" in result["matched"]
+                    # Text should be longer than old 120-char limit
+                    if len(result["matched"]["text"]) > 120:
+                        assert len(result["matched"]["text"]) <= 500
