@@ -261,9 +261,36 @@ Specialist critics (when selected) use their filename slug as the output name:
 - **operational-resilience.md** → writes to `<tmpdir>/operational-resilience.md`
 - **workflow-ux.md** → writes to `<tmpdir>/workflow-ux.md`
 
+### Write manifest
+
+After issuing all Agent tool calls, write `<tmpdir>/manifest.md` listing the expected critic report filenames — one per line. List only the critics actually launched (generic critics always appear; specialist entries depend on Phase 1 selection). Example:
+
+```
+senior.md
+architect.md
+adversarial.md
+contract-caller.md
+workflow-ux.md
+```
+
+This decouples "which files to read in Phase 3" from LLM context memory. The synthesis subagent reads the manifest instead of relying on recall of which critics were launched.
+
 ## Phase 3: Synthesize
 
-Read all critic report files by expected name: `senior.md`, `architect.md`, `adversarial.md`, plus any specialist critics that were successfully launched in Phase 2 after validation (e.g., `data-integrity.md`, `contract-caller.md`). Do NOT glob `*.md` — the tmpdir also contains `findings.md`. If an expected file from this launched-critic set is missing, note the missing critic in synthesis output and adjust the confidence denominator.
+**Dispatch synthesis as a separate `general-purpose` subagent (`model: sonnet`)** to give it fresh context. The orchestrating context has already consumed the full SKILL.md, persona files, target content, and subagent launch — synthesis quality degrades if it runs in that loaded context. The synthesis subagent receives clean context and better reasoning for cross-critic conflict detection, TENSION identification, and severity escalation.
+
+The synthesis subagent receives:
+- The `<tmpdir>` path
+- The `<tmpdir>/manifest.md` file (lists which critic reports to read)
+- The findings output path: `--findings-out` path if provided, otherwise `<tmpdir>/findings.md`
+- The target name/scope (for the findings file header)
+- The full synthesis procedure and findings file format below
+
+The subagent prompt must include all of the following instructions:
+
+### Reading critic reports
+
+Read `<tmpdir>/manifest.md` to get the list of expected critic report filenames. Then **read every listed file in full** (no `limit` or `offset`). Do NOT glob `*.md` — the tmpdir also contains `findings.md` and `manifest.md`. If a file listed in the manifest is missing, note the missing critic in synthesis output and adjust the confidence denominator. Skipping a file or reading only part of one means that critic's findings are silently dropped from synthesis.
 
 ### Synthesis procedure
 
@@ -283,7 +310,7 @@ Three steps. Prioritize trustworthy output over compact output — showing an ex
 
 ### Write findings file
 
-After synthesis, **always** write the findings file. If `--findings-out=<path>` was provided, write to that path. Otherwise, write to `<tmpdir>/findings.md`. This file is the handoff contract for calling skills that generate revision plans.
+After synthesis, **always** write the findings file to the output path provided. This file is the handoff contract for calling skills that generate revision plans.
 
 Format:
 
@@ -312,7 +339,9 @@ Temp dir: <tmpdir>
 ...
 ```
 
-This file is written before Phase 4 presentation.
+### After synthesis subagent completes
+
+Read the findings file written by the subagent. This is the input for Phase 4 presentation.
 
 ## Phase 4: Present Findings
 
