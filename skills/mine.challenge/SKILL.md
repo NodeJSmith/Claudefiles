@@ -221,7 +221,7 @@ Subagents write their reports inside this directory:
 - Generic critics: `<tmpdir>/senior.md`, `<tmpdir>/architect.md`, `<tmpdir>/adversarial.md`
 - Specialist critics: `<tmpdir>/<slug>.md` matching the persona filename (e.g., `<tmpdir>/data-integrity.md`, `<tmpdir>/contract-caller.md`)
 
-Launch all critics (3-5) in parallel as separate `Agent` tool calls in a single message, each with `subagent_type: general-purpose` and `model: sonnet`. Do **not** set `run_in_background` — critics need to request WebSearch and Read/Grep/Glob permissions as needed. Each critic receives:
+**CRITICAL: Issue ALL Agent tool calls (3-5 critics) in a single response message. Each call must use `subagent_type: general-purpose`, `model: sonnet`, and must NOT set `run_in_background`.** Foreground agents in the same message run concurrently. Background agents cannot request permissions and cannot spawn their own subagents — both are required here. Each critic receives:
 - The target under review (file paths to read — pass full file paths, not excerpts; or inline content if the target was passed as text)
 - The **target type** from Phase 1 classification (e.g., "This is a `spec` target — focus on requirement completeness, testability, and internal consistency")
 - Their persona and focus lens (from the persona file read above — include the full body text: Persona, Characteristic question, and Focus bullets)
