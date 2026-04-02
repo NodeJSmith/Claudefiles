@@ -567,6 +567,8 @@ After the gate, continue with the next WP in sequence. Track: done (PASS), warne
 
 After all WPs are processed (or user chose "Stop here"), run a three-step review pipeline. Steps 1-2 are automatic (no user prompts unless blocking issues are found). The user is only prompted at the impl-review gate (if blocking) or at the final challenge results gate.
 
+**All subagents in Phase 3 MUST run in foreground** (never set `run_in_background: true`). Several steps spawn their own parallel child subagents internally, which only works in foreground execution.
+
 ### Step 1: Summary (automatic)
 
 Print the terminal kanban:
@@ -626,7 +628,7 @@ git diff --name-only <base_commit> HEAD
 
 If no files changed (all WPs were no-ops), skip the challenge and go directly to the final gate with a note that no files were changed.
 
-**Dispatch the challenge as a single `general-purpose` subagent.** The orchestrator passes the following to the subagent, which runs `/mine.challenge` internally (the challenge skill spawns 3-5 nested critic subagents — 3 generics plus domain specialists based on target type):
+**Dispatch the challenge as a single `general-purpose` subagent.** The orchestrator passes the following to the subagent, which runs `/mine.challenge` internally (the challenge skill spawns 3-5 parallel critic subagents):
 
 - `base_commit` from the checkpoint
 - The changed file list from `git diff --name-only`
