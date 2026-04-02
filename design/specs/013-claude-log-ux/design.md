@@ -85,7 +85,7 @@ Branch: worktree-shodh-removal | ~234 entries
 --- ~229 entries omitted ---
 
 [assistant] Done — removed all shodh references. The changes are ready to commit.
-[Bash] git -C /home/jessica/Claudefiles add -A && git diff --cached --stat
+[Bash] git -C ~/Claudefiles add -A && git diff --cached --stat
 [assistant] Here's what changed: 4 files modified, 12 insertions, 47 deletions...
 ```
 
@@ -175,7 +175,7 @@ Already first-class in `cmd_search` (lines 555-575). The `iter_all_tool_calls()`
   [assistant] Let me search for that.
   [Agent] Research prior sessions (researcher)
     [Bash] claude-log search "shodh" --limit 10
-    [Read] /home/jessica/Claudefiles/settings.json
+    [Read] ~/Claudefiles/settings.json
 ```
 
 ### Argparse changes
