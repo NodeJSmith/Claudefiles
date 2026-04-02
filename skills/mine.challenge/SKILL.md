@@ -263,7 +263,7 @@ Specialist critics (when selected) use their filename slug as the output name:
 
 ## Phase 3: Synthesize
 
-Read all critic report files by expected name: `senior.md`, `architect.md`, `adversarial.md`, plus any specialist critics that were successfully launched in Phase 2 after validation (e.g., `data-integrity.md`, `contract-caller.md`). Do NOT glob `*.md` — the tmpdir also contains `findings.md`. If an expected file from this launched-critic set is missing, note the missing critic in synthesis output and adjust the confidence denominator.
+**Read every critic report file in full** — `senior.md`, `architect.md`, `adversarial.md`, plus any specialist critics that were successfully launched in Phase 2 after validation (e.g., `data-integrity.md`, `contract-caller.md`). Do NOT glob `*.md` — the tmpdir also contains `findings.md`. Read each file completely (no `limit` or `offset` — the full file). If an expected file from this launched-critic set is missing, note the missing critic in synthesis output and adjust the confidence denominator. Skipping a file or reading only part of one means that critic's findings are silently dropped from synthesis.
 
 ### Synthesis procedure
 
