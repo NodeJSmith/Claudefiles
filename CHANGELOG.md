@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-04-01
 
 ### Added
-- `mine.ship` now reminds about WP archival after PR creation — runs `spec-helper archive --dry-run` and surfaces specs ready to archive (#155)
+- `mine.ship` now reminds about WP archival after PR creation — runs `spec-helper archive --dry-run --json` and surfaces specs ready to archive (#155)
 
 ### Changed
 - `bin/claude-log` — redesigned from JSON-only output with 9 commands to text-first output with 4 commands (list, search, show, stats); orientation mode for show, `--grep` for within-session search, conversation-turn context in search results, `--json` flag for structured output (#153)
