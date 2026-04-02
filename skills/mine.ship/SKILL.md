@@ -89,6 +89,7 @@ Ship the current changes: commit, push, and open a PR. Follow each phase in orde
     - **GitHub**: `gh pr ready`
     - **Azure DevOps**: `az repos pr update --id <PR_ID> --draft false`
 20. Return the PR URL
+21. **WP ARCHIVAL REMINDER:** If `design/specs/` exists in the repo and `spec-helper` is available (`command -v spec-helper`), run `spec-helper archive --dry-run --json`. If any entries have `status: "would_archive"`, tell the user: "These specs are ready to archive: [list]. Run `spec-helper archive --all` to clean up tasks/ directories before merging." If none qualify, `design/specs/` doesn't exist, or `spec-helper` isn't installed, skip silently.
 
 **Important:**
 - If a PR already exists, show the PR URL and do not create a duplicate
