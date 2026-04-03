@@ -104,7 +104,7 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `mine.review` | Run code-reviewer and integration-reviewer in parallel on the current branch diff |
 | `mine.status` | Quick orientation -- branch, tasks, errors, last commit |
 
-### Agents (35)
+### Agents (37)
 
 **Core Development (12)**
 
@@ -123,11 +123,13 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `ui-auditor` | Accessibility and UX audit -- WCAG violations, missing ARIA, hardcoded styles, UX anti-patterns |
 | `visual-diff` | Visual regression testing via Playwright MCP -- before/after screenshots to catch unintended UI changes |
 
-**Engineering Specialists (8)**
+**Engineering Specialists (10)**
 
 | Agent | Description |
 |-------|-------------|
 | `engineering-ai-engineer` | ML model development, AI integration, data pipelines, production AI systems |
+| `engineering-backend-developer` | FastAPI, Pydantic, async patterns, production-grade Python API services |
+| `engineering-data-engineer` | PySpark pipelines, Delta Lake, Databricks, medallion lakehouse architectures, dbt |
 | `engineering-devops-automator` | CI/CD pipelines, infrastructure automation, cloud operations |
 | `engineering-frontend-developer` | React/Vue/Angular, performance optimization, accessible UI implementation |
 | `engineering-incident-response-commander` | Production incident management, post-mortems, on-call process design |

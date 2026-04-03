@@ -204,11 +204,15 @@ Per-WP subdirectories preserve evidence across the full orchestration run. This 
 
 ### Step 3: Select executor agent type
 
-Before launching the executor, read the WP's objective and tasks to determine if a specialized agent is a better fit than `general-purpose`. Match the WP content against this table:
+Before launching the executor, read the WP's objective and tasks to determine if a specialized agent is a better fit than `general-purpose`. Match the WP content against this table (more-specific rows are listed first and take priority):
 
+<!-- PARALLEL: rules/common/agents.md also routes to these agents by user intent (not WP content) — add new agents to both, but signal wording differs intentionally -->
 | WP content signals | Use `subagent_type` |
 |---|---|
+| FastAPI endpoint reading from Databricks via `databricks-sql-connector` | `engineering-backend-developer` |
 | React, Vue, Angular, CSS, frontend components, UI implementation | `engineering-frontend-developer` |
+| PySpark, Delta Lake, DeltaTable, cloudFiles/Auto Loader, medallion layers (raw/bronze/silver/gold), dbt models, Databricks workflows | `engineering-data-engineer` |
+| FastAPI, REST API endpoints, Pydantic request/response models, async backend service | `engineering-backend-developer` |
 | ML model, training pipeline, embeddings, AI integration | `engineering-ai-engineer` |
 | CI/CD, Docker, Terraform, infrastructure, deployment pipeline | `engineering-devops-automator` |
 | MCP server, MCP tools, Model Context Protocol | `specialized-mcp-builder` |

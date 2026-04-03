@@ -4,6 +4,7 @@
 
 When the user's request matches a row below, launch the Agent tool with the corresponding `subagent_type`. Do NOT do the work inline — dispatch to the agent.
 
+<!-- PARALLEL: skills/mine.orchestrate/SKILL.md Step 3 also routes to these agents by WP content (not user intent) — add new agents to both, but signal wording differs intentionally -->
 | User needs... | Use `subagent_type` |
 |---|---|
 | "plan this feature", implementation planning | `planner` |
@@ -23,6 +24,8 @@ When the user's request matches a row below, launch the Agent tool with the corr
 | "CI/CD pipeline", "infrastructure automation" | `engineering-devops-automator` |
 | "ML model", "AI integration" | `engineering-ai-engineer` |
 | "React/Vue/Angular", "frontend performance" | `engineering-frontend-developer` |
+| "PySpark pipeline", "Delta Lake", "medallion architecture", "dbt models" | `engineering-data-engineer` |
+| "FastAPI", "REST API", "backend service", "API endpoints" | `engineering-backend-developer` |
 | "quick POC", "MVP", "prototype fast" | `engineering-rapid-prototyper` |
 | "developer docs", "API reference", "tutorial" | `engineering-technical-writer` |
 | "incident management", "post-mortem", "on-call" | `engineering-incident-response-commander` |
