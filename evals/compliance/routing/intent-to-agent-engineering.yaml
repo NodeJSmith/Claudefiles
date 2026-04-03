@@ -3,7 +3,8 @@
 # Rule source: rules/common/agents.md (agent routing table)
 #
 # Tests engineering-focused agents: sre, devops-automator, ai-engineer,
-# frontend-developer, rapid-prototyper, technical-writer.
+# frontend-developer, data-engineer, backend-developer, rapid-prototyper,
+# technical-writer.
 #
 # Run: npx promptfoo eval -c evals/compliance/routing/intent-to-agent-engineering.yaml
 
@@ -22,7 +23,7 @@ tests:
   - description: "SLOs and error budgets → sre agent (direct)"
     vars:
       prompt: "set up SLOs and error budgets for our API service"
-      expectedAgent: "sre|SRE"
+      expectedAgent: "engineering-sre|SRE"
     assert:
       - type: javascript
         value: &agent_assertion |
@@ -46,7 +47,7 @@ tests:
   - description: "observability setup → sre agent (natural)"
     vars:
       prompt: "help me set up observability with structured logging and metrics for the payment service"
-      expectedAgent: "sre|SRE"
+      expectedAgent: "engineering-sre|SRE"
     assert:
       - type: javascript
         value: *agent_assertion
@@ -54,7 +55,7 @@ tests:
   - description: "error budget policy → sre agent (indirect)"
     vars:
       prompt: "we keep getting paged for non-critical issues — define proper SLOs so we can set error budgets"
-      expectedAgent: "sre|SRE"
+      expectedAgent: "engineering-sre|SRE"
     assert:
       - type: javascript
         value: *agent_assertion
@@ -63,7 +64,7 @@ tests:
   - description: "CI/CD pipeline → devops-automator agent (direct)"
     vars:
       prompt: "set up a CI/CD pipeline for this project"
-      expectedAgent: "devops|DevOps"
+      expectedAgent: "engineering-devops-automator|DevOps"
     assert:
       - type: javascript
         value: *agent_assertion
@@ -71,7 +72,7 @@ tests:
   - description: "infrastructure automation → devops-automator agent (natural)"
     vars:
       prompt: "automate the deployment process with GitHub Actions and Docker"
-      expectedAgent: "devops|DevOps"
+      expectedAgent: "engineering-devops-automator|DevOps"
     assert:
       - type: javascript
         value: *agent_assertion
@@ -79,7 +80,7 @@ tests:
   - description: "pipeline development → devops-automator agent (indirect)"
     vars:
       prompt: "we're still deploying manually — build us a proper CI/CD pipeline with staging and production"
-      expectedAgent: "devops|DevOps"
+      expectedAgent: "engineering-devops-automator|DevOps"
     assert:
       - type: javascript
         value: *agent_assertion
@@ -88,7 +89,7 @@ tests:
   - description: "ML model development → ai-engineer agent (direct)"
     vars:
       prompt: "develop a classification model for categorizing support tickets"
-      expectedAgent: "ai-engineer|AI Engineer"
+      expectedAgent: "engineering-ai-engineer|AI Engineer"
     assert:
       - type: javascript
         value: *agent_assertion
@@ -96,7 +97,7 @@ tests:
   - description: "AI integration → ai-engineer agent (natural)"
     vars:
       prompt: "integrate an LLM-powered summarization feature into the dashboard"
-      expectedAgent: "ai-engineer|AI Engineer"
+      expectedAgent: "engineering-ai-engineer|AI Engineer"
     assert:
       - type: javascript
         value: *agent_assertion
@@ -104,7 +105,7 @@ tests:
   - description: "ML pipeline → ai-engineer agent (indirect)"
     vars:
       prompt: "we want to add smart recommendations to the product — build the ML pipeline for it"
-      expectedAgent: "ai-engineer|AI Engineer"
+      expectedAgent: "engineering-ai-engineer|AI Engineer"
     assert:
       - type: javascript
         value: *agent_assertion
@@ -113,7 +114,7 @@ tests:
   - description: "React component → frontend-developer agent (direct)"
     vars:
       prompt: "build a React data table component with sorting and filtering"
-      expectedAgent: "frontend|Frontend"
+      expectedAgent: "engineering-frontend-developer|Frontend"
     assert:
       - type: javascript
         value: *agent_assertion
@@ -121,7 +122,7 @@ tests:
   - description: "frontend performance → frontend-developer agent (natural)"
     vars:
       prompt: "optimize the dashboard page — it's slow on initial load with too many re-renders"
-      expectedAgent: "frontend|Frontend"
+      expectedAgent: "engineering-frontend-developer|Frontend"
     assert:
       - type: javascript
         value: *agent_assertion
@@ -129,7 +130,81 @@ tests:
   - description: "UI implementation → frontend-developer agent (indirect)"
     vars:
       prompt: "the design team sent mockups for a new settings page — implement it in React with proper state management"
-      expectedAgent: "frontend|Frontend"
+      expectedAgent: "engineering-frontend-developer|Frontend"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "Vue component → frontend-developer agent (framework variant)"
+    vars:
+      prompt: "build a Vue 3 composable for managing form validation with TypeScript"
+      expectedAgent: "engineering-frontend-developer|Frontend"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "CSS/design system → frontend-developer agent (styling focus)"
+    vars:
+      prompt: "implement the design system's spacing and color tokens as CSS custom properties with Tailwind integration"
+      expectedAgent: "engineering-frontend-developer|Frontend"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "Svelte component → frontend-developer agent (framework variant)"
+    vars:
+      prompt: "build a SvelteKit page with server-side data loading and a reactive filter component"
+      expectedAgent: "engineering-frontend-developer|Frontend"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  # --- engineering-data-engineer ---
+  - description: "PySpark pipeline → data-engineer agent (direct)"
+    vars:
+      prompt: "build a PySpark pipeline to ingest events into the bronze layer"
+      expectedAgent: "engineering-data-engineer|Data Engineer"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "Delta Lake merge → data-engineer agent (natural)"
+    vars:
+      prompt: "implement a Delta Lake merge for the silver orders table with deduplication"
+      expectedAgent: "engineering-data-engineer|Data Engineer"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "medallion architecture → data-engineer agent (indirect)"
+    vars:
+      prompt: "we need to add a new data source to the lakehouse — raw ingest through gold aggregation"
+      expectedAgent: "engineering-data-engineer|Data Engineer"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  # --- engineering-backend-developer ---
+  - description: "FastAPI service → backend-developer agent (direct)"
+    vars:
+      prompt: "build a FastAPI service with user CRUD endpoints"
+      expectedAgent: "engineering-backend-developer|Backend Developer"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "REST API endpoints → backend-developer agent (natural)"
+    vars:
+      prompt: "add REST API endpoints for the order processing workflow with proper validation"
+      expectedAgent: "engineering-backend-developer|Backend Developer"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "API service → backend-developer agent (indirect)"
+    vars:
+      prompt: "the frontend team needs an API for the new dashboard — set up the backend service with auth and pagination"
+      expectedAgent: "engineering-backend-developer|Backend Developer"
     assert:
       - type: javascript
         value: *agent_assertion
@@ -138,7 +213,7 @@ tests:
   - description: "ultra-fast POC → rapid-prototyper agent (direct)"
     vars:
       prompt: "build a quick proof of concept for the webhook handler"
-      expectedAgent: "rapid-prototyper|Rapid Prototyper"
+      expectedAgent: "engineering-rapid-prototyper|Rapid Prototyper"
     assert:
       - type: javascript
         value: *agent_assertion
@@ -146,7 +221,7 @@ tests:
   - description: "MVP development → rapid-prototyper agent (natural)"
     vars:
       prompt: "I need an MVP of this feature by end of day — just get the core working fast"
-      expectedAgent: "rapid-prototyper|Rapid Prototyper"
+      expectedAgent: "engineering-rapid-prototyper|Rapid Prototyper"
     assert:
       - type: javascript
         value: *agent_assertion
@@ -154,7 +229,7 @@ tests:
   - description: "quick prototype → rapid-prototyper agent (indirect)"
     vars:
       prompt: "we're demoing to the CEO tomorrow — throw together a working prototype of the notification center"
-      expectedAgent: "rapid-prototyper|Rapid Prototyper"
+      expectedAgent: "engineering-rapid-prototyper|Rapid Prototyper"
     assert:
       - type: javascript
         value: *agent_assertion
@@ -163,7 +238,7 @@ tests:
   - description: "developer docs → technical-writer agent (direct)"
     vars:
       prompt: "write developer documentation for the REST API"
-      expectedAgent: "technical-writer|Technical Writer"
+      expectedAgent: "engineering-technical-writer|Technical Writer"
     assert:
       - type: javascript
         value: *agent_assertion
@@ -171,7 +246,7 @@ tests:
   - description: "API reference → technical-writer agent (natural)"
     vars:
       prompt: "create an API reference document with usage examples for each endpoint"
-      expectedAgent: "technical-writer|Technical Writer"
+      expectedAgent: "engineering-technical-writer|Technical Writer"
     assert:
       - type: javascript
         value: *agent_assertion
@@ -179,7 +254,7 @@ tests:
   - description: "tutorials → technical-writer agent (indirect)"
     vars:
       prompt: "new developers keep struggling with our SDK — write a getting-started tutorial"
-      expectedAgent: "technical-writer|Technical Writer"
+      expectedAgent: "engineering-technical-writer|Technical Writer"
     assert:
       - type: javascript
         value: *agent_assertion
