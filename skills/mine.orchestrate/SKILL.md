@@ -213,10 +213,7 @@ Before launching the executor, read the WP's objective and tasks to determine if
 | React, Vue, Angular, CSS, frontend components, UI implementation | `engineering-frontend-developer` |
 | PySpark, Delta Lake, DeltaTable, cloudFiles/Auto Loader, medallion layers (raw/bronze/silver/gold), dbt models, Databricks workflows | `engineering-data-engineer` |
 | FastAPI, REST API endpoints, Pydantic request/response models, async backend service | `engineering-backend-developer` |
-| ML model, training pipeline, embeddings, AI integration | `engineering-ai-engineer` |
-| CI/CD, Docker, Terraform, infrastructure, deployment pipeline | `engineering-devops-automator` |
 | API docs, README, tutorials, developer documentation | `engineering-technical-writer` |
-| Security hardening, auth implementation, encryption, threat mitigation | `engineering-security-engineer` |
 | Database schema, migrations, query optimization, ORM setup | `general-purpose` |
 
 If the WP doesn't clearly match any row, use `general-purpose` (the default). When in doubt, prefer `general-purpose` — a wrong specialist is worse than a capable generalist.

@@ -19,19 +19,12 @@ When the user's request matches a row below, launch the Agent tool with the corr
 | "accessibility audit", "a11y review" | `ui-auditor` |
 | "live browser QA", test via Playwright | `browser-qa-agent` |
 | "visual regression", before/after screenshots | `visual-diff` |
-| "threat model", "secure code review" | `engineering-security-engineer` |
 | "SLOs", "error budgets", "observability" | `engineering-sre` |
-| "CI/CD pipeline", "infrastructure automation" | `engineering-devops-automator` |
-| "ML model", "AI integration" | `engineering-ai-engineer` |
 | "React/Vue/Angular", "frontend performance" | `engineering-frontend-developer` |
 | "PySpark pipeline", "Delta Lake", "medallion architecture", "dbt models" | `engineering-data-engineer` |
 | "FastAPI", "REST API", "backend service", "API endpoints" | `engineering-backend-developer` |
 | "developer docs", "API reference", "tutorial" | `engineering-technical-writer` |
-| "incident management", "post-mortem", "on-call" | `engineering-incident-response-commander` |
 | "pre-ship gate", "visual verification before deploy" | `testing-reality-checker` |
-| "API validation", "contract testing" | `testing-api-tester` |
-| "audit this ML model", "calibration testing" | `specialized-model-qa` |
-| "design system", "component library" | `design-ui-designer` |
 
 ## Immediate Agent Usage
 
