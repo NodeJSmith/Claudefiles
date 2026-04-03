@@ -116,6 +116,14 @@ Create `.claude/audits/AUDIT_BROWSER_QA.md` with:
 
 Write all findings to `AUDIT_BROWSER_QA.md` before completing.
 
+## Anti-Patterns — Never Do These
+
+- Report React/Vue dev-mode warnings as HIGH — they're framework noise, not app bugs
+- Flag expected 401/404 responses as errors — check whether they're intentional before reporting
+- Skip console error checks after interactions — runtime errors only surface during use
+- Test features explicitly out of scope for the current change
+- Report "no issues found" without having actually navigated and interacted with the app
+
 ## Success Gate
 
 - **Pass**: Zero CRITICAL findings, zero HIGH console errors, all happy-path flows complete without error

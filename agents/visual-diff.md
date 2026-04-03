@@ -138,11 +138,10 @@ Create `.claude/audits/VISUAL_DIFF_REPORT.md`:
 - **Pass with review**: EXPECTED diffs confirmed intentional, COSMETIC diffs within ±2px tolerance
 - **Block**: Any BREAKING or UNEXPECTED diff that can't be explained and accepted
 
-## Best Practices
+## Anti-Patterns — Never Do These
 
-- Capture baselines BEFORE making code changes, not after
-- Wait for all async content to load before capturing (use `mcp__plugin_playwright_playwright__browser_wait_for`)
-- Use consistent viewport sizes across baseline and current captures
-- Clear cache/cookies if testing auth-dependent pages
-- Document which detected changes are intentional vs unexpected
-- Test all breakpoints for any change that touches layout, spacing, or responsive behavior
+- Capture baselines after code changes — this defeats the entire purpose of visual diffing
+- Report pixel-level anti-aliasing differences as regressions — ±2px is rendering noise
+- Flag diffs in third-party embeds or iframes — they render inconsistently across runs
+- Say "something changed" without identifying the likely code change that caused it
+- Skip a breakpoint because "it probably looks fine" — responsive bugs only appear at specific widths

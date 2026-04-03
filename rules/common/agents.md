@@ -19,31 +19,13 @@ When the user's request matches a row below, launch the Agent tool with the corr
 | "accessibility audit", "a11y review" | `ui-auditor` |
 | "live browser QA", test via Playwright | `browser-qa-agent` |
 | "visual regression", before/after screenshots | `visual-diff` |
-| "threat model", "secure code review" | `engineering-security-engineer` |
+| "secure code review", "security audit", "check for vulnerabilities" | `code-reviewer` |
 | "SLOs", "error budgets", "observability" | `engineering-sre` |
-| "CI/CD pipeline", "infrastructure automation" | `engineering-devops-automator` |
-| "ML model", "AI integration" | `engineering-ai-engineer` |
 | "React/Vue/Angular", "frontend performance" | `engineering-frontend-developer` |
 | "PySpark pipeline", "Delta Lake", "medallion architecture", "dbt models" | `engineering-data-engineer` |
 | "FastAPI", "REST API", "backend service", "API endpoints" | `engineering-backend-developer` |
-| "quick POC", "MVP", "prototype fast" | `engineering-rapid-prototyper` |
 | "developer docs", "API reference", "tutorial" | `engineering-technical-writer` |
-| "incident management", "post-mortem", "on-call" | `engineering-incident-response-commander` |
 | "pre-ship gate", "visual verification before deploy" | `testing-reality-checker` |
-| "API validation", "contract testing" | `testing-api-tester` |
-| "load testing", "Core Web Vitals", "capacity" | `testing-performance-benchmarker` |
-| "evaluate this tool", "compare Redis vs Memcached" | `testing-tool-evaluator` |
-| "optimize our workflow", "find bottlenecks" | `testing-workflow-optimizer` |
-| "build an MCP server" | `specialized-mcp-builder` |
-| "orchestrate agents", multi-agent pipeline | `agents-orchestrator` |
-| "audit this ML model", "calibration testing" | `specialized-model-qa` |
-| "developer advocacy", "DX improvement" | `specialized-developer-advocate` |
-| "user research", "usability testing" | `design-ux-researcher` |
-| "CSS system", "layout foundations" | `design-ux-architect` |
-| "design system", "component library" | `design-ui-designer` |
-| "visual narrative", "data visualization" | `design-visual-storyteller` |
-| "sprint planning", "feature prioritization" | `product-sprint-prioritizer` |
-| "synthesize user feedback", "extract insights" | `product-feedback-synthesizer` |
 
 ## Immediate Agent Usage
 
