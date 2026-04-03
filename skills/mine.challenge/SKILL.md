@@ -27,8 +27,8 @@ $ARGUMENTS — optional scope:
 - Empty: brief recon to find the most suspect design areas, then confirm scope before critiquing
 
 **Optional arguments**:
-- `--focus="<area>"` — steer critics toward specific concerns (e.g., `--focus="security, error handling"`). Passed to all critics as a priority signal: "Pay special attention to X." Critics still review broadly but weight output toward the user's concern. **Note:** specialist override only applies when `--focus` is a single slug/prefix that matches a specialist name (e.g., `--focus="data-integrity"`), not when multiple comma-separated areas are provided.
-- `--target-type=<type>` — override heuristic target-type classification. Callers that know their artifact type should pass this. Values: `code`, `spec`, `design-doc`, `brief`, `skill-file`, `research`, `other`.
+- `--focus="<area>"` — steer critics toward specific concerns (e.g., `--focus="security, error handling"`). Passed to all critics as a priority signal: "Pay special attention to X." Critics still review broadly but weight output toward the user's concern. **Note:** specialist override only applies when `--focus` is a single slug/prefix (minimum 6 characters) that matches a specialist name (e.g., `--focus="data-integrity"` or `--focus="end-user"`), not when multiple comma-separated areas are provided.
+- `--target-type=<type>` — override heuristic target-type classification. Callers that know their artifact type should pass this. Values: `code`, `spec`, `design-doc`, `brief`, `skill-file`, `docs`, `research`, `other`.
 - `--findings-out=<path>` — (structured callers only) deterministic output path for the findings file. Used by mine.design and mine.specify for reliable handoff. Not needed for standalone or passthrough invocations.
 - `--no-specialists` — skip specialist selection, run only the three generic critics.
 
@@ -118,6 +118,9 @@ Passthrough callers (invoke challenge standalone, don't consume findings file):
 - `skills/mine.research/SKILL.md`
 - `skills/mine.brainstorm/SKILL.md`
 
+Standalone-only target types (no structured caller — findings are presented to the user for manual action):
+- `docs` — no revision skill exists yet. A future `mine.docs-review` caller would consume `--findings-out` like mine.design does for `design-doc` targets.
+
 **Caller guidance for TENSION findings**: Structured callers should route TENSION findings to the document's "Open Questions" section rather than generating revisions — TENSION means the critics genuinely disagree, so the user needs to decide.
 
 ## Phase 1: Gather Context
@@ -149,12 +152,14 @@ The remainder of `$ARGUMENTS` is the target scope. If `--findings-out` is not pr
    | `design-doc` | `design.md` or content with architecture/API contracts | Feasibility, missing alternatives, boundary correctness |
    | `brief` | `brief.md` or content from grill/brainstorm | Framing validity, assumption quality, scope coherence |
    | `skill-file` | `SKILL.md` or content with phases/persona definitions | LLM behavior assumptions, prompt ambiguity, contract fragility, caller compatibility |
+   | `docs` | `README.md` or `.md` files in a `docs/` directory | Technical accuracy of code samples and commands, API reference validity, version currency, consistency between docs and codebase |
    | `research` | `research.md` or research artifacts/investigation output | Conclusion validity, exploration completeness, confirmation bias |
    | `other` | No type matches above | Correctness, assumption validity, internal consistency — critics use their general focus without type-specific narrowing |
 
 3. **Gather context** based on target type:
    - **Code**: grep for call sites and dependencies — understand what uses this code and what it uses
    - **Document** (spec, design-doc, brief, research): read related codebase files the document references, and any adjacent artifacts in the same feature directory
+   - **Docs**: read sibling docs in the same directory or docs/ tree to understand the documentation set as a whole. If the doc references code, commands, or config, verify those exist and read the referenced sections to check for interface drift — confirm the current behavior matches what the doc describes.
    - **Skill file**: read all callers listed in the file, grep for additional references across the codebase
 4. Note what problem the target ostensibly solves
 
@@ -191,11 +196,12 @@ After classifying the target type, select specialist personas to augment the thr
 | `skill-file` | Contract & Caller + Workflow & UX |
 | `design-doc` | Contract & Caller + Operational Resilience |
 | `spec` | Workflow & UX |
+| `docs` | End-User Reader + Documentation Architect |
 | `brief` | Workflow & UX |
 | `research` | _(none — generics only)_ |
 | `other` | _(none — generics only)_ |
 
-**`--focus` override**: If `--focus` was provided, match its value against specialist filenames in `~/.claude/skills/mine.challenge/personas/specialist/` using case-insensitive prefix matching on the filename slug (e.g., `--focus="data-integrity"` or `--focus="data"` matches `data-integrity.md`, but `--focus="integrity"` does not). If a match is found and not already in the preset selection, add it. Capped at 2 specialists total (5 total critics is the practical limit for synthesis quality). If the cap is already full from the preset, the focus specialist replaces the second preset default.
+**`--focus` override**: If `--focus` was provided, match its value against specialist filenames in `~/.claude/skills/mine.challenge/personas/specialist/` using case-insensitive prefix matching on the filename slug with a **minimum 6-character prefix** (e.g., `--focus="data-integrity"` or `--focus="data-i"` matches `data-integrity.md`, but `--focus="data"` does not — too short; `--focus="end-user"` or `--focus="end-user-reader"` to force a docs specialist on non-docs targets; `--focus="documentation"` or `--focus="documentation-architect"` for the other). If a match is found and not already in the preset selection, add it. Capped at 2 specialists total (5 total critics is the practical limit for synthesis quality). If the cap is already full from the preset, the focus specialist replaces the second preset default — announce the substitution in Phase 4: "Note: [focus specialist] ran in place of [dropped preset] due to --focus override."
 
 ## Phase 2: Launch Critics
 
@@ -222,7 +228,7 @@ Subagents write their reports inside this directory:
 - Specialist critics: `<tmpdir>/<slug>.md` matching the persona filename (e.g., `<tmpdir>/data-integrity.md`, `<tmpdir>/contract-caller.md`)
 
 **CRITICAL: Issue ALL Agent tool calls (3-5 critics) in a single response message. Each call must use `subagent_type: general-purpose`, `model: sonnet`, and must NOT set `run_in_background`.** Foreground agents in the same message run concurrently. Background agents cannot request permissions and cannot spawn their own subagents — both are required here. Each critic receives:
-- The target under review (file paths to read — pass full file paths, not excerpts; or inline content if the target was passed as text)
+- The target under review (file paths to read — pass full file paths, not excerpts; or inline content if the target was passed as text). For `docs` targets: also pass all sibling doc paths discovered in Phase 1 to the Documentation Architect specialist, so it can evaluate the documentation set as a whole. If no siblings were found, explicitly state: "No sibling docs were found — apply the single-file scope note from your persona."
 - The **target type** from Phase 1 classification (e.g., "This is a `spec` target — focus on requirement completeness, testability, and internal consistency")
 - Their persona and focus lens (from the persona file read above — include the full body text: Persona, Characteristic question, and Focus bullets)
 - If `--focus` was provided: "The user is specifically concerned about: <focus area>. Weight your analysis toward this concern."
@@ -260,6 +266,8 @@ Specialist critics (when selected) use their filename slug as the output name:
 - **data-integrity.md** → writes to `<tmpdir>/data-integrity.md`
 - **operational-resilience.md** → writes to `<tmpdir>/operational-resilience.md`
 - **workflow-ux.md** → writes to `<tmpdir>/workflow-ux.md`
+- **end-user-reader.md** → writes to `<tmpdir>/end-user-reader.md`
+- **documentation-architect.md** → writes to `<tmpdir>/documentation-architect.md`
 
 ### Write manifest
 
@@ -345,6 +353,10 @@ Read the findings file written by the subagent. This is the input for Phase 4 pr
 
 ## Phase 4: Present Findings
 
+### Specialist announcement
+
+If specialists ran, announce the selection before listing findings: "Specialists selected: [names] (target-type: [type])". If `--focus` caused a replacement, note it: "Note: [focus specialist] ran in place of [dropped preset] due to --focus override (2-specialist cap)."
+
 ### Per-finding format
 
 Findings MUST be numbered sequentially (`### 1.`, `### 2.`, etc.) for easy reference in conversation.
@@ -379,8 +391,6 @@ For **User-directed** findings (non-TENSION), replace "Better approach" with:
 ```
 
 ### After presenting findings
-
-If specialists ran, announce the selection before listing reports: "Specialists selected: [names] (target-type: [type])". If `--focus` caused a replacement, note it: "Note: [focus specialist] replaced [dropped preset] due to 2-specialist cap."
 
 List all critic report file paths so the user knows where reports are. Always list the three generics, then any specialists that ran:
 
