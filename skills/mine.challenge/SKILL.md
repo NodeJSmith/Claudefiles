@@ -93,15 +93,14 @@ Whether this finding is architectural/structural in nature — meaning it would 
 
 The following tag names and values are consumed by calling skills (mine.design, mine.specify) to generate revision plans. Changing these is a **breaking change** — update all callers.
 
-- **Contract tag names**: `severity`, `type`, `design-level`, `resolution`, `raised-by`
+- **Contract tag names**: `severity`, `type`, `design-level`, `resolution`
 - **Contract tag names (TENSION only)**: `side-a`, `side-b`, `deciding-factor`
 - **Severity values**: `CRITICAL`, `HIGH`, `MEDIUM`, `TENSION`
-- **Confidence format** (presentation-only, not a contract field): `N/<total> (<critic names>)` — e.g., `3/5 (Senior + Architect + Data Integrity)`. Total is the number of critics that successfully produced reports. If a critic fails to report, note the missing critic and reduce the denominator.
+- **Presentation-only fields** (not contract — safe to evolve without updating callers): `raised-by`, `confidence`. `raised-by` values are display names from persona file `name:` frontmatter. `confidence` format: `N/<total> (<critic names>)` — e.g., `3/5 (Senior + Architect + Data Integrity)`. Total is the number of critics that successfully produced reports. If a critic fails to report, note the missing critic and reduce the denominator. If a future caller begins pattern-matching on `raised-by` values, treat persona name changes as a contract change at that point.
 - **design-level values**: `Yes`, `No`
 - **Resolution values**: `Auto-apply`, `User-directed`
 - **Findings file**: `<tmpdir>/findings.md`, or `--findings-out` path when provided by structured callers (always written)
-
-**Note**: Specialist critic names (e.g., Data Integrity, Contract & Caller) may appear in `raised-by` when specialists contributed to a finding.
+- **Validation warnings**: `<tmpdir>/validation-warnings.md` — written only when validation issues or orphan warnings were detected; absence means a clean run. Structured callers may read this via `Temp dir:` in the findings header to diagnose unexpected confidence denominators.
 
 **Known callers** (update all when contract changes):
 
@@ -135,7 +134,9 @@ Recognized flags:
 - `--target-type=<type>` — override heuristic classification
 - `--no-specialists` — skip specialist selection, run generics only
 
-The remainder of `$ARGUMENTS` is the target scope. If `--findings-out` is not present, challenge creates its own tmpdir for the findings file.
+The remainder of `$ARGUMENTS` is the target scope.
+
+**Create temp directory**: Run `get-skill-tmpdir mine-challenge` and note the directory path (e.g., `/tmp/claude-mine-challenge-a8Kx3Q`). This tmpdir is used for critic reports, manifest, validation warnings, and (if `--findings-out` is not present) the findings file.
 
 ### If $ARGUMENTS given (after extracting flags)
 
@@ -191,29 +192,34 @@ After classifying the target type, select specialist personas to augment the thr
 
 **If `--no-specialists` was passed**, skip this section entirely — only generics run.
 
+**Enumerate specialists**: Run `Glob ~/.claude/skills/mine.challenge/personas/specialist/*.md` to discover all specialist persona files on disk. This Glob runs unconditionally (regardless of target type or `--focus`) and its results are used for orphan detection, `--focus` matching, and cross-referencing the mapping table. If the Glob returns zero results (e.g., symlink not yet installed), record a warning to `<tmpdir>/validation-warnings.md`: "`specialist directory not found or empty at ~/.claude/skills/mine.challenge/personas/specialist/`" and proceed with generics only.
+
+**Orphan detection**: Compare the Glob results against the specialist filenames referenced in the mapping table below. If any specialist file exists on disk but is not referenced by any row in the table, record a warning: "Specialist [filename] exists but is not mapped to any target type in the specialist selection table — it will never auto-activate. Add it to the table or use `--focus` to force it."
+
 **Target-type → specialist mapping**:
 
-| Target type | Specialist personas |
+| Target type | Specialist personas (display name → filename) |
 |-------------|-------------------|
-| `code` | Data Integrity + Operational Resilience |
-| `frontend-code` | Web Platform + Operational Resilience |
-| `skill-file` | Contract & Caller + Workflow & UX |
-| `agent-file` | Agent Definition |
-| `design-doc` | Contract & Caller + Operational Resilience |
-| `spec` | Workflow & UX |
-| `docs` | End-User Reader + Documentation Architect |
-| `brief` | Workflow & UX |
+| `code` | Data Integrity (`data-integrity.md`) + Operational Resilience (`operational-resilience.md`) |
+| `frontend-code` | Web Platform (`web-platform.md`) + Operational Resilience (`operational-resilience.md`) |
+| `skill-file` | Contract & Caller (`contract-caller.md`) + Workflow & UX (`workflow-ux.md`) |
+| `agent-file` | Agent Definition (`agent-definition.md`) |
+| `design-doc` | Contract & Caller (`contract-caller.md`) + Operational Resilience (`operational-resilience.md`) |
+| `spec` | Workflow & UX (`workflow-ux.md`) |
+| `docs` | End-User Reader (`end-user-reader.md`) + Documentation Architect (`documentation-architect.md`) |
+| `brief` | Workflow & UX (`workflow-ux.md`) |
 | `research` | _(none — generics only)_ |
 | `other` | _(none — generics only)_ |
 
-**`--focus` override**: If `--focus` was provided, match its value against specialist filenames in `~/.claude/skills/mine.challenge/personas/specialist/` using case-insensitive prefix matching on the filename slug with a **minimum 6-character prefix** (e.g., `--focus="data-integrity"` or `--focus="data-i"` matches `data-integrity.md`, but `--focus="data"` does not — too short; `--focus="end-user"` or `--focus="end-user-reader"` to force a docs specialist on non-docs targets; `--focus="documentation"` or `--focus="documentation-architect"` for the other). If a match is found and not already in the preset selection, add it. Capped at 2 specialists total (5 total critics is the practical limit for synthesis quality). If the cap is already full from the preset, the focus specialist replaces the second preset default — announce the substitution in Phase 4: "Note: [focus specialist] ran in place of [dropped preset] due to --focus override."
+**`--focus` override**: If `--focus` was provided:
+
+1. If `--focus` contains a comma (multiple areas), skip specialist matching entirely — treat `--focus` as a priority signal only and proceed with preset selection from the table.
+2. Match the `--focus` value against the Glob results (from the enumerate step above) using case-insensitive prefix matching on the filename slug (without `.md`) with a **minimum 6-character prefix** (e.g., `--focus="operat"` matches `operational-resilience.md`, but `--focus="data"` does not — too short). Any specialist file in the directory can be forced this way.
+3. Record the initial specialist selection from the mapping table as `[initial-specialists]`.
+4. If a match is found and not already in the preset selection, add it. Capped at 2 specialists total (5 total critics is the practical limit for synthesis quality). If the cap is already full from the preset, the focus specialist replaces the second preset default. Record the final selection as `[final-specialists]`.
+5. **Only if a substitution occurred** (a preset specialist was replaced): Write `<tmpdir>/focus-substitution.md` with a single line: "Note: [focus specialist] ran in place of [dropped specialist] due to --focus override (2-specialist cap)." The dropped specialist is the set difference: `[initial-specialists]` minus `[final-specialists]`. Phase 4 reads this file for the announcement (see Phase 4 Specialist announcement section). If no substitution occurred (focus specialist was simply added, or no match was found), do not write this file.
 
 ## Phase 2: Launch Critics
-
-Before launching, create a unique temp directory for this run:
-
-1. Run: `get-skill-tmpdir mine-challenge`
-2. Note the directory path printed (e.g., `/tmp/claude-mine-challenge-a8Kx3Q`)
 
 ### Read persona files
 
@@ -224,7 +230,9 @@ Read all 3 generic persona files from `~/.claude/skills/mine.challenge/personas/
 
 If specialists were selected, read the corresponding files from `~/.claude/skills/mine.challenge/personas/specialist/` (e.g., `data-integrity.md`, `contract-caller.md`).
 
-**Validate**: After reading each persona file, verify it has `name` and `type` in its YAML frontmatter, and the body contains at least one of "Persona", "Characteristic question", or "Focus". If a file is missing, has malformed frontmatter, or has an empty body, warn the user and exclude it from the run.
+**Validate**: After reading each persona file, verify it has `name` and `type` in its YAML frontmatter, and the body contains at least one of "Persona", "Characteristic question", or "Focus". If a file is missing, has malformed frontmatter, or has an empty body, record the issue to `<tmpdir>/validation-warnings.md` and exclude it from the run.
+
+**Warning persistence**: Write all validation issues and orphan warnings (from Phase 1 and this step) to `<tmpdir>/validation-warnings.md` (create the file only if there are warnings). This ensures warnings survive as a persistent artifact regardless of whether mine.challenge is running standalone or as a subagent.
 
 ### Launch all critics in parallel
 
@@ -278,17 +286,20 @@ Specialist critics (when selected) use their filename slug as the output name:
 
 ### Write manifest
 
-After issuing all Agent tool calls, write `<tmpdir>/manifest.md` listing the expected critic report filenames — one per line. List only the critics actually launched (generic critics always appear; specialist entries depend on Phase 1 selection). Example:
+After issuing all Agent tool calls, write `<tmpdir>/manifest.md` listing the expected critic report filenames and metadata — one entry per line, with a `# target-type:` comment at the top. List generics first, then specialists. Example:
 
 ```
+# target-type: skill-file
 senior.md
 architect.md
 adversarial.md
-contract-caller.md
-workflow-ux.md
+<specialist-slug>.md
+<specialist-slug>.md
 ```
 
-This decouples "which files to read in Phase 3" from LLM context memory. The synthesis subagent reads the manifest instead of relying on recall of which critics were launched.
+List only the critics actually launched; specialist entries use the filename slugs selected in Phase 1.
+
+This decouples "which files to read in Phase 3" from LLM context memory. The synthesis subagent reads the manifest instead of relying on recall of which critics were launched. Specialists are identified as entries not in the known-generic set (`senior.md`, `architect.md`, `adversarial.md`).
 
 ## Phase 3: Synthesize
 
@@ -297,6 +308,7 @@ This decouples "which files to read in Phase 3" from LLM context memory. The syn
 The synthesis subagent receives:
 - The `<tmpdir>` path
 - The `<tmpdir>/manifest.md` file (lists which critic reports to read)
+- Whether `<tmpdir>/validation-warnings.md` exists (and its contents if it does) — for the `Warnings:` header field
 - The findings output path: `--findings-out` path if provided, otherwise `<tmpdir>/findings.md`
 - The target name/scope (for the findings file header)
 - The full synthesis procedure and findings file format below
@@ -325,7 +337,7 @@ Three steps. Prioritize trustworthy output over compact output — showing an ex
 
 ### Write findings file
 
-After synthesis, **always** write the findings file to the output path provided. This file is the handoff contract for calling skills that generate revision plans.
+After synthesis, **always** write the findings file to the output path provided. This file is the handoff contract for calling skills that generate revision plans. For the `Warnings:` header field: if `<tmpdir>/validation-warnings.md` was provided, write a one-sentence summary of its contents; otherwise write `none`.
 
 Format:
 
@@ -334,6 +346,7 @@ Format:
 Date: YYYY-MM-DD
 Target: <file or scope>
 Temp dir: <tmpdir>
+Warnings: none | <one-sentence summary of validation/orphan warnings>
 
 ## Finding 1: <name>
 - severity: CRITICAL / HIGH / MEDIUM / TENSION
@@ -362,7 +375,13 @@ Read the findings file written by the subagent. This is the input for Phase 4 pr
 
 ### Specialist announcement
 
-If specialists ran, announce the selection before listing findings: "Specialists selected: [names] (target-type: [type])". If `--focus` caused a replacement, note it: "Note: [focus specialist] ran in place of [dropped preset] due to --focus override (2-specialist cap)."
+Before announcing, read `<tmpdir>/manifest.md` and derive the specialist list and target type from its contents (reading from manifest rather than recall provides reliable recovery if context was compacted between Phase 2 and Phase 4 in long-running or subagent invocations). Specialists are entries whose filename is **not** in the known-generic set (`senior.md`, `architect.md`, `adversarial.md`). The `# target-type:` comment line provides the classified target type.
+
+If `<tmpdir>/focus-substitution.md` exists, read it for the substitution announcement text.
+
+If specialists ran, announce the selection before listing findings: "Specialists selected: [names] (target-type: [type])". If `--focus` caused a replacement, include the substitution note from `focus-substitution.md`: "Note: [focus specialist] ran in place of [dropped preset] due to --focus override (2-specialist cap)."
+
+If `<tmpdir>/validation-warnings.md` exists and is non-empty, read it. For any critic exclusions recorded there (malformed frontmatter, missing file), announce each inline before findings: "Warning: [critic name] was excluded due to [reason] — confidence denominators are reduced accordingly." Then include a general note: "Additional validation warnings were recorded — see `<tmpdir>/validation-warnings.md`."
 
 ### Per-finding format
 
