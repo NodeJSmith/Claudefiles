@@ -7,15 +7,15 @@ All notable changes to this Claudefiles repository are documented here.
 ### Added
 - `engineering-data-engineer` agent — PySpark/Delta Lake/Databricks specialist with lakehouse conventions, dedup patterns, and gold-layer-as-dbt-schemas architecture (#164)
 - `engineering-backend-developer` agent — FastAPI specialist with async patterns, DI examples, SQLAlchemy session management, and test patterns (#164)
-- `mine.challenge` — Agent Definition specialist persona for reviewing agent files: identity bloat, missing conventions, executor compatibility, scope overlap
-- `mine.challenge` — `agent-file` target type with heuristic detection and gold-standard comparison context gathering
+- `mine.challenge` — Agent Definition specialist persona for reviewing agent files: identity bloat, missing conventions, executor compatibility, scope overlap (#165)
+- `mine.challenge` — `agent-file` target type with heuristic detection and gold-standard comparison context gathering (#165)
 - `mine.challenge` — two new documentation specialist personas: End-User Reader (page-level prerequisite audit) and Documentation Architect (set-level structure and Diataxis mode review) (#162)
 - `mine.challenge` — new `docs` target type with path-based heuristic detection (`README.md`, `docs/` directory) and specialist mapping (#162)
 - `scripts/hooks/sudo-poll.sh` — PreToolUse hook that enables sudo in Claude Code sessions via deny-then-poll with credential cache (requires `Defaults timestamp_type=global` in sudoers) (#163)
 - `rules/common/sudo.md` — rule for sudo operations: hook-first workflow with script-generation fallback for complex cases (#163)
 
 ### Changed
-- `engineering-technical-writer` agent — complete rewrite to gold standard: executor note, codebase conventions, MkDocs patterns, anti-patterns, test execution discovery, enforced tooling
+- `engineering-technical-writer` agent — complete rewrite to gold standard: executor note, codebase conventions, MkDocs patterns, anti-patterns, test execution discovery, enforced tooling (#165)
 - `engineering-frontend-developer` agent — complete rewrite: added `tools` frontmatter, executor note, codebase conventions, anti-patterns with SYNC markers, test execution discovery, enforced tooling; removed competing deliverable template, editor extension contamination, false memory claims, and inaccessible code example (#164)
 - `rules/common/python.md` — explicitly bans `Optional[X]` (was only implicitly discouraged via `X | Y` preference) (#164)
 - `rules/common/coding-style.md` — adds PySpark DataFrame reassignment carve-out to the immutability rule (#164)
@@ -24,11 +24,11 @@ All notable changes to this Claudefiles repository are documented here.
 - `mine.challenge` — `--focus` prefix matching now requires 6-character minimum to prevent short-prefix misfires (#162)
 - `mine.challenge` — `--focus` specialist replacement is announced post-run instead of blocking with an interactive gate (unblocks subagent callers) (#162)
 - `mine.challenge` — specialist selection announced before findings in Phase 4, not after (#162)
-- Anti-patterns sections added to 7 agents: db-auditor, dep-auditor, ui-auditor, browser-qa-agent, visual-diff, testing-reality-checker, engineering-sre
+- Anti-patterns sections added to 7 agents: db-auditor, dep-auditor, ui-auditor, browser-qa-agent, visual-diff, testing-reality-checker, engineering-sre (#165)
 
 ### Removed
-- 19 agents removed (37 → 18): agents-orchestrator, design-ui-designer, design-ux-architect, design-ux-researcher, design-visual-storyteller, engineering-ai-engineer, engineering-devops-automator, engineering-incident-response-commander, engineering-rapid-prototyper, engineering-security-engineer, product-feedback-synthesizer, product-sprint-prioritizer, specialized-developer-advocate, specialized-mcp-builder, specialized-model-qa, testing-api-tester, testing-performance-benchmarker, testing-tool-evaluator, testing-workflow-optimizer
-- `evals/` directory — promptfoo compliance tests removed entirely
+- 19 agents removed (37 → 18): agents-orchestrator, design-ui-designer, design-ux-architect, design-ux-researcher, design-visual-storyteller, engineering-ai-engineer, engineering-devops-automator, engineering-incident-response-commander, engineering-rapid-prototyper, engineering-security-engineer, product-feedback-synthesizer, product-sprint-prioritizer, specialized-developer-advocate, specialized-mcp-builder, specialized-model-qa, testing-api-tester, testing-performance-benchmarker, testing-tool-evaluator, testing-workflow-optimizer (#165)
+- `evals/` directory — promptfoo compliance tests removed entirely (#165)
 
 ## 2026-04-01
 
