@@ -24,10 +24,23 @@
 
 set -euo pipefail
 
-TIMEOUT="${CLAUDE_SUDO_POLL_TIMEOUT:-30}"
+# Validate timeout is a non-negative integer
+RAW_TIMEOUT="${CLAUDE_SUDO_POLL_TIMEOUT:-30}"
+case "$RAW_TIMEOUT" in
+  '' | *[!0-9]*) TIMEOUT=30 ;;
+  *) TIMEOUT="$RAW_TIMEOUT" ;;
+esac
 
 # Read hook input from stdin
 INPUT=$(cat)
+
+# jq is required to parse hook input — fail clearly, not cryptically
+if ! command -v jq > /dev/null 2>&1; then
+  printf 'ERROR: jq is required by scripts/hooks/sudo-poll.sh. Install jq or remove this hook.\n' >&2
+  printf '%s\n' '{"hookSpecificOutput":{"permissionDecision":"deny","permissionDecisionReason":"jq is required by scripts/hooks/sudo-poll.sh. Install jq or remove this hook."}}'
+  exit 0
+fi
+
 COMMAND=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty')
 
 # Not a sudo command — no opinion, pass through
@@ -46,6 +59,11 @@ deny() {
     '{"hookSpecificOutput":{"permissionDecision":"deny","permissionDecisionReason":$reason}}'
   exit 0
 }
+
+# sudo must be installed for any of this to work
+if ! command -v sudo > /dev/null 2>&1; then
+  deny "sudo is not installed on this system."
+fi
 
 # Creds already cached — allow immediately
 if sudo -n true 2> /dev/null; then

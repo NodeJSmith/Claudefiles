@@ -14,6 +14,7 @@ All notable changes to this Claudefiles repository are documented here.
 - `mine.challenge` — `--focus` prefix matching now requires 6-character minimum to prevent short-prefix misfires (#162)
 - `mine.challenge` — `--focus` specialist replacement is announced post-run instead of blocking with an interactive gate (unblocks subagent callers) (#162)
 - `mine.challenge` — specialist selection announced before findings in Phase 4, not after (#162)
+
 ## 2026-04-01
 
 ### Added

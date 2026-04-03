@@ -171,11 +171,11 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `product-feedback-synthesizer` | Synthesizes user feedback from multiple channels into actionable product insights |
 | `product-sprint-prioritizer` | Sprint planning, feature prioritization, velocity optimization using RICE/MoSCoW |
 
-### Rules (18)
+### Rules (17)
 
 Coding guidelines that load automatically and shape how Claude writes code.
 
-**Common** (18): agents, backlog, bash-tools, capabilities, coding-style, command-output, error-tracking, frontend-workflow, git-workflow, interaction, lsp, performance, python, research-escalation, sudo, testing, tmux, worktrees
+**Common** (17): agents, backlog, bash-tools, capabilities, coding-style, command-output, error-tracking, frontend-workflow, git-workflow, interaction, performance, python, research-escalation, sudo, testing, tmux, worktrees
 
 ### Hooks (2)
 

@@ -33,10 +33,10 @@ With the hook active, write `sudo` commands directly in Bash tool calls — no s
 ```bash
 sudo apt install -y ripgrep
 sudo systemctl restart nginx
-sudo chown jessica:jessica /etc/myapp/config.toml
+sudo chown $USER:$USER /etc/myapp/config.toml
 ```
 
-This also applies to other privilege escalation mechanisms that prompt for passwords (`pkexec`, `su -c`), though the hook only detects the `sudo` keyword.
+The hook only detects the `sudo` keyword. Other privilege escalation mechanisms (`pkexec`, `su -c`) are not detected — use the fallback script-generation workflow for those.
 
 ## Fallback: Script Generation
 
