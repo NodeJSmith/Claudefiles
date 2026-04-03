@@ -19,7 +19,7 @@ If the hook denies after 30s despite the user running `sudo -v`, the most likely
 2. **Explain**: By default, sudo caches credentials per-TTY. Claude runs in a different TTY than the user's terminal, so `sudo -v` in another pane doesn't help unless the cache is global.
 3. **Guide the user** to add the setting:
    ```
-   sudo env EDITOR=/usr/bin/vim visudo
+   sudo visudo
    ```
    Then add: `Defaults timestamp_type=global`
 4. **After the change**: The user runs `sudo -v` in any terminal, then retries the failed command.
