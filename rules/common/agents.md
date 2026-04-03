@@ -19,6 +19,7 @@ When the user's request matches a row below, launch the Agent tool with the corr
 | "accessibility audit", "a11y review" | `ui-auditor` |
 | "live browser QA", test via Playwright | `browser-qa-agent` |
 | "visual regression", before/after screenshots | `visual-diff` |
+| "secure code review", "security audit", "check for vulnerabilities" | `code-reviewer` |
 | "SLOs", "error budgets", "observability" | `engineering-sre` |
 | "React/Vue/Angular", "frontend performance" | `engineering-frontend-developer` |
 | "PySpark pipeline", "Delta Lake", "medallion architecture", "dbt models" | `engineering-data-engineer` |
