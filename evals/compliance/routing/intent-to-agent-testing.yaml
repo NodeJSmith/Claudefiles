@@ -2,8 +2,7 @@
 #
 # Rule source: rules/common/agents.md (agent routing table)
 #
-# Tests testing-focused agents: reality-checker, api-tester,
-# performance-benchmarker, tool-evaluator, workflow-optimizer.
+# Tests testing-focused agents: reality-checker, api-tester.
 #
 # Run: npx promptfoo eval -c evals/compliance/routing/intent-to-agent-testing.yaml
 
@@ -80,81 +79,6 @@ tests:
     vars:
       prompt: "the frontend team says our API responses changed — run contract tests to verify"
       expectedAgent: "api-tester|API Tester"
-    assert:
-      - type: javascript
-        value: *agent_assertion
-
-  # --- testing-performance-benchmarker ---
-  - description: "load testing → performance-benchmarker agent (direct)"
-    vars:
-      prompt: "run load testing on the API to find our throughput limits"
-      expectedAgent: "performance|Performance"
-    assert:
-      - type: javascript
-        value: *agent_assertion
-
-  - description: "Core Web Vitals → performance-benchmarker agent (natural)"
-    vars:
-      prompt: "measure the Core Web Vitals for our main pages and identify what's slow"
-      expectedAgent: "performance|Performance"
-    assert:
-      - type: javascript
-        value: *agent_assertion
-
-  - description: "capacity planning → performance-benchmarker agent (indirect)"
-    vars:
-      prompt: "we're expecting 10x traffic next month — benchmark our current capacity and tell me where we'll hit limits"
-      expectedAgent: "performance|Performance"
-    assert:
-      - type: javascript
-        value: *agent_assertion
-
-  # --- testing-tool-evaluator ---
-  - description: "technology assessment → tool-evaluator agent (direct)"
-    vars:
-      prompt: "evaluate Redis vs Memcached for our caching needs"
-      expectedAgent: "tool-evaluator|Tool Evaluator"
-    assert:
-      - type: javascript
-        value: *agent_assertion
-
-  - description: "tool comparison → tool-evaluator agent (natural)"
-    vars:
-      prompt: "compare Celery, Dramatiq, and Huey for background task processing"
-      expectedAgent: "tool-evaluator|Tool Evaluator"
-    assert:
-      - type: javascript
-        value: *agent_assertion
-
-  - description: "platform recommendation → tool-evaluator agent (indirect)"
-    vars:
-      prompt: "we need a message queue — assess RabbitMQ, Kafka, and SQS for our use case and recommend one"
-      expectedAgent: "tool-evaluator|Tool Evaluator"
-    assert:
-      - type: javascript
-        value: *agent_assertion
-
-  # --- testing-workflow-optimizer ---
-  - description: "process improvement → workflow-optimizer agent (direct)"
-    vars:
-      prompt: "find bottlenecks in our development workflow and suggest improvements"
-      expectedAgent: "workflow-optimizer|Workflow Optimizer"
-    assert:
-      - type: javascript
-        value: *agent_assertion
-
-  - description: "automation opportunities → workflow-optimizer agent (natural)"
-    vars:
-      prompt: "analyze our release process and identify what can be automated"
-      expectedAgent: "workflow-optimizer|Workflow Optimizer"
-    assert:
-      - type: javascript
-        value: *agent_assertion
-
-  - description: "bottleneck removal → workflow-optimizer agent (indirect)"
-    vars:
-      prompt: "our deploys take 45 minutes and require 3 manual steps — optimize this process"
-      expectedAgent: "workflow-optimizer|Workflow Optimizer"
     assert:
       - type: javascript
         value: *agent_assertion

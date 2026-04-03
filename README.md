@@ -104,7 +104,7 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `mine.review` | Run code-reviewer and integration-reviewer in parallel on the current branch diff |
 | `mine.status` | Quick orientation -- branch, tasks, errors, last commit |
 
-### Agents (37)
+### Agents (25)
 
 **Core Development (12)**
 
@@ -123,7 +123,7 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `ui-auditor` | Accessibility and UX audit -- WCAG violations, missing ARIA, hardcoded styles, UX anti-patterns |
 | `visual-diff` | Visual regression testing via Playwright MCP -- before/after screenshots to catch unintended UI changes |
 
-**Engineering Specialists (10)**
+**Engineering Specialists (9)**
 
 | Agent | Description |
 |-------|-------------|
@@ -133,45 +133,28 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `engineering-devops-automator` | CI/CD pipelines, infrastructure automation, cloud operations |
 | `engineering-frontend-developer` | React/Vue/Angular, performance optimization, accessible UI implementation |
 | `engineering-incident-response-commander` | Production incident management, post-mortems, on-call process design |
-| `engineering-rapid-prototyper` | Ultra-fast POC and MVP development; idea validation before committing |
 | `engineering-security-engineer` | Threat modeling, secure code review, vulnerability assessment, security architecture |
 | `engineering-sre` | SLOs, error budgets, observability, chaos engineering, toil reduction |
 | `engineering-technical-writer` | Developer docs, API references, READMEs, tutorials that developers actually read |
 
-**Testing & Quality (5)**
+**Testing & Quality (2)**
 
 | Agent | Description |
 |-------|-------------|
 | `testing-api-tester` | Comprehensive API validation -- functional, performance, security, contract testing |
-| `testing-performance-benchmarker` | Load testing, Core Web Vitals, capacity planning, performance optimization |
 | `testing-reality-checker` | Adversarial pre-ship gate via Playwright MCP -- defaults to "NEEDS WORK", requires visual evidence |
-| `testing-tool-evaluator` | Technology assessment, tool comparison, ROI analysis, adoption recommendations |
-| `testing-workflow-optimizer` | Process improvement, automation, bottleneck identification and removal |
 
-**Specialized (4)**
+**Specialized (1)**
 
 | Agent | Description |
 |-------|-------------|
-| `agents-orchestrator` | Multi-agent pipeline management -- coordinates complex parallel agent workflows |
-| `specialized-developer-advocate` | DX improvement, developer community, API experience, technical content |
-| `specialized-mcp-builder` | MCP server design and development -- tools, resources, prompts, TypeScript/Zod patterns |
 | `specialized-model-qa` | ML model auditing -- calibration testing, data drift, interpretability, fairness analysis |
 
-**Design (4)**
+**Design (1)**
 
 | Agent | Description |
 |-------|-------------|
 | `design-ui-designer` | Visual design systems, component libraries, pixel-perfect accessible interfaces |
-| `design-ux-architect` | CSS systems, layout foundations, implementation-ready UX structure |
-| `design-ux-researcher` | User behavior research, usability testing, data-driven design validation |
-| `design-visual-storyteller` | Visual narratives, multimedia content, brand storytelling, data visualization |
-
-**Product (2)**
-
-| Agent | Description |
-|-------|-------------|
-| `product-feedback-synthesizer` | Synthesizes user feedback from multiple channels into actionable product insights |
-| `product-sprint-prioritizer` | Sprint planning, feature prioritization, velocity optimization using RICE/MoSCoW |
 
 ### Rules (17)
 

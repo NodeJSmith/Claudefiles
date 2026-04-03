@@ -215,11 +215,9 @@ Before launching the executor, read the WP's objective and tasks to determine if
 | FastAPI, REST API endpoints, Pydantic request/response models, async backend service | `engineering-backend-developer` |
 | ML model, training pipeline, embeddings, AI integration | `engineering-ai-engineer` |
 | CI/CD, Docker, Terraform, infrastructure, deployment pipeline | `engineering-devops-automator` |
-| MCP server, MCP tools, Model Context Protocol | `specialized-mcp-builder` |
 | API docs, README, tutorials, developer documentation | `engineering-technical-writer` |
 | Security hardening, auth implementation, encryption, threat mitigation | `engineering-security-engineer` |
 | Database schema, migrations, query optimization, ORM setup | `general-purpose` |
-| Rapid prototype, proof of concept, MVP | `engineering-rapid-prototyper` |
 
 If the WP doesn't clearly match any row, use `general-purpose` (the default). When in doubt, prefer `general-purpose` — a wrong specialist is worse than a capable generalist.
 

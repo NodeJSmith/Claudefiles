@@ -170,4 +170,24 @@ cat pyproject.toml requirements*.txt 2>/dev/null
 1. [Specific recommendations]
 ```
 
+## Critical Rules
+
+- **CVEs are always CRITICAL** — report them first, don't bury them in a table
+- **Include the fix command** for every finding — "outdated" without an upgrade path is not actionable
+- **Distinguish direct vs transitive** — a CVE in a transitive dep you don't control needs a different fix than one in your direct dependency
+- **Don't flag dev-only deps as production risks** — a vulnerable test library is lower severity than a vulnerable runtime library
+
+## Anti-Patterns — Never Do These
+
+- Report "outdated" without checking if the update has breaking changes
+- Flag every major version bump as urgent — some are years old and stable
+- Run `npm audit` and report its raw output without filtering false positives
+- Recommend removing a dependency without checking if it's actually imported
+
+## Success Gate
+
+- **Block**: Any CRITICAL CVE in a direct production dependency
+- **High priority**: HIGH CVEs or dependencies with no maintenance (>2 years stale)
+- **Pass**: No CRITICAL or HIGH findings; outdated/unused documented with fix commands
+
 Focus on actionable findings. Include specific commands to fix issues.

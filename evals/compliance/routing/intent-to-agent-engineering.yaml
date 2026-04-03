@@ -3,7 +3,7 @@
 # Rule source: rules/common/agents.md (agent routing table)
 #
 # Tests engineering-focused agents: sre, devops-automator, ai-engineer,
-# frontend-developer, data-engineer, backend-developer, rapid-prototyper,
+# frontend-developer, data-engineer, backend-developer,
 # technical-writer.
 #
 # Run: npx promptfoo eval -c evals/compliance/routing/intent-to-agent-engineering.yaml
@@ -205,31 +205,6 @@ tests:
     vars:
       prompt: "the frontend team needs an API for the new dashboard — set up the backend service with auth and pagination"
       expectedAgent: "engineering-backend-developer|Backend Developer"
-    assert:
-      - type: javascript
-        value: *agent_assertion
-
-  # --- engineering-rapid-prototyper ---
-  - description: "ultra-fast POC → rapid-prototyper agent (direct)"
-    vars:
-      prompt: "build a quick proof of concept for the webhook handler"
-      expectedAgent: "engineering-rapid-prototyper|Rapid Prototyper"
-    assert:
-      - type: javascript
-        value: *agent_assertion
-
-  - description: "MVP development → rapid-prototyper agent (natural)"
-    vars:
-      prompt: "I need an MVP of this feature by end of day — just get the core working fast"
-      expectedAgent: "engineering-rapid-prototyper|Rapid Prototyper"
-    assert:
-      - type: javascript
-        value: *agent_assertion
-
-  - description: "quick prototype → rapid-prototyper agent (indirect)"
-    vars:
-      prompt: "we're demoing to the CEO tomorrow — throw together a working prototype of the notification center"
-      expectedAgent: "engineering-rapid-prototyper|Rapid Prototyper"
     assert:
       - type: javascript
         value: *agent_assertion

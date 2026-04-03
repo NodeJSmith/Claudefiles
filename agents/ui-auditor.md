@@ -165,4 +165,11 @@ Before completing:
 - **Pass with warnings**: MEDIUM/LOW findings only — document and proceed
 - **Block**: Any CRITICAL or HIGH finding must be fixed before shipping
 
-Prioritize accessibility blockers (WCAG A and AA violations) before consistency and UX issues. Do not audit third-party widgets, embedded iframes, or browser-native UI elements — note them as out-of-scope.
+## Anti-Patterns — Never Do These
+
+- Flag missing `aria-label` on elements that already have visible text labels — redundant ARIA is a code smell, not a fix
+- Report hardcoded colors without checking whether they're in a design token file or Tailwind config — false positives waste time
+- Audit third-party widgets, embedded iframes, or browser-native UI elements — note them as out-of-scope
+- Report `<div onClick>` as an accessibility issue when it's wrapped in a `<button>` — read the full component tree
+
+Prioritize accessibility blockers (WCAG A and AA violations) before consistency and UX issues.

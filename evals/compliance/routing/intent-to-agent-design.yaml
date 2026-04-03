@@ -2,8 +2,7 @@
 #
 # Rule source: rules/common/agents.md (agent routing table)
 #
-# Tests design-focused agents: ux-researcher, ux-architect,
-# ui-designer, visual-storyteller.
+# Tests design-focused agents: ui-designer.
 #
 # Run: npx promptfoo eval -c evals/compliance/routing/intent-to-agent-design.yaml
 
@@ -18,11 +17,11 @@ providers:
       working_dir: .
 
 tests:
-  # --- design-ux-researcher ---
-  - description: "user behavior research → ux-researcher agent (direct)"
+  # --- design-ui-designer ---
+  - description: "visual design system → ui-designer agent (direct)"
     vars:
-      prompt: "conduct user behavior research on how people use the settings page"
-      expectedAgent: "ux-researcher|UX Researcher"
+      prompt: "create a visual design system with a component library"
+      expectedAgent: "ui-designer|UI Designer"
     assert:
       - type: javascript
         value: &agent_assertion |
@@ -43,56 +42,6 @@ tests:
           const how = calledViaAgent ? 'tool call' : 'response mention';
           return { pass: true, score: 1, reason: `✓ Agent matching /${context.vars.expectedAgent}/ correctly routed (${how})` };
 
-  - description: "usability testing → ux-researcher agent (natural)"
-    vars:
-      prompt: "plan and execute usability testing for the new checkout flow"
-      expectedAgent: "ux-researcher|UX Researcher"
-    assert:
-      - type: javascript
-        value: *agent_assertion
-
-  - description: "user research → ux-researcher agent (indirect)"
-    vars:
-      prompt: "users are dropping off at step 3 of onboarding — research why and give me actionable insights"
-      expectedAgent: "ux-researcher|UX Researcher"
-    assert:
-      - type: javascript
-        value: *agent_assertion
-
-  # --- design-ux-architect ---
-  - description: "CSS systems → ux-architect agent (direct)"
-    vars:
-      prompt: "set up a CSS design system with tokens and utility classes"
-      expectedAgent: "ux-architect|UX Architect"
-    assert:
-      - type: javascript
-        value: *agent_assertion
-
-  - description: "layout foundations → ux-architect agent (natural)"
-    vars:
-      prompt: "create the layout foundation — grid system, spacing scale, and responsive breakpoints"
-      expectedAgent: "ux-architect|UX Architect"
-    assert:
-      - type: javascript
-        value: *agent_assertion
-
-  - description: "design system architecture → ux-architect agent (indirect)"
-    vars:
-      prompt: "we need a solid CSS architecture before the team starts building components — set up the foundation"
-      expectedAgent: "ux-architect|UX Architect"
-    assert:
-      - type: javascript
-        value: *agent_assertion
-
-  # --- design-ui-designer ---
-  - description: "visual design system → ui-designer agent (direct)"
-    vars:
-      prompt: "create a visual design system with a component library"
-      expectedAgent: "ui-designer|UI Designer"
-    assert:
-      - type: javascript
-        value: *agent_assertion
-
   - description: "component library → ui-designer agent (natural)"
     vars:
       prompt: "design a consistent component library — buttons, forms, cards, modals, and typography"
@@ -105,31 +54,6 @@ tests:
     vars:
       prompt: "the dashboard looks inconsistent — redesign the visual language so all components feel cohesive"
       expectedAgent: "ui-designer|UI Designer"
-    assert:
-      - type: javascript
-        value: *agent_assertion
-
-  # --- design-visual-storyteller ---
-  - description: "visual narratives → visual-storyteller agent (direct)"
-    vars:
-      prompt: "create a visual narrative explaining our quarterly metrics"
-      expectedAgent: "visual-storyteller|Visual Storyteller"
-    assert:
-      - type: javascript
-        value: *agent_assertion
-
-  - description: "data visualization → visual-storyteller agent (natural)"
-    vars:
-      prompt: "turn this performance data into a compelling visual story for the executive presentation"
-      expectedAgent: "visual-storyteller|Visual Storyteller"
-    assert:
-      - type: javascript
-        value: *agent_assertion
-
-  - description: "infographic → visual-storyteller agent (indirect)"
-    vars:
-      prompt: "we need to explain our infrastructure migration to non-technical stakeholders — create a visual story"
-      expectedAgent: "visual-storyteller|Visual Storyteller"
     assert:
       - type: javascript
         value: *agent_assertion

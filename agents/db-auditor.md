@@ -182,4 +182,12 @@ grep -rn "pool_size\|max_overflow\|CONN_MAX_AGE\|connect_timeout" . --include="*
 - **High priority**: HIGH findings should be fixed before the next release
 - **Pass**: No CRITICAL or HIGH findings; MEDIUM/LOW documented with acceptance rationale
 
+## Anti-Patterns — Never Do These
+
+- Flag an N+1 without saying how many queries it produces — unquantified findings are noise
+- Recommend indexing every column — indexes cost write performance; note the trade-off
+- Report raw SQL as a vulnerability when it uses parameterized queries correctly
+- Audit ORM-generated runtime queries by guessing — note "requires runtime profiling" instead
+- Skip the stack detection step and grep with wrong file patterns
+
 Focus on queries that will cause production problems at scale. Include file:line for every finding.
