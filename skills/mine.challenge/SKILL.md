@@ -28,7 +28,7 @@ $ARGUMENTS — optional scope:
 
 **Optional arguments**:
 - `--focus="<area>"` — steer critics toward specific concerns (e.g., `--focus="security, error handling"`). Passed to all critics as a priority signal: "Pay special attention to X." Critics still review broadly but weight output toward the user's concern. **Note:** specialist override only applies when `--focus` is a single slug/prefix (minimum 6 characters) that matches a specialist name (e.g., `--focus="data-integrity"` or `--focus="end-user"`), not when multiple comma-separated areas are provided.
-- `--target-type=<type>` — override heuristic target-type classification. Callers that know their artifact type should pass this. Values: `code`, `spec`, `design-doc`, `brief`, `skill-file`, `agent-file`, `docs`, `research`, `other`.
+- `--target-type=<type>` — override heuristic target-type classification. Callers that know their artifact type should pass this. Values: `code`, `frontend-code`, `spec`, `design-doc`, `brief`, `skill-file`, `agent-file`, `docs`, `research`, `other`.
 - `--findings-out=<path>` — (structured callers only) deterministic output path for the findings file. Used by mine.design and mine.specify for reliable handoff. Not needed for standalone or passthrough invocations.
 - `--no-specialists` — skip specialist selection, run only the three generic critics.
 
@@ -147,7 +147,8 @@ The remainder of `$ARGUMENTS` is the target scope. If `--findings-out` is not pr
 
    | Target type | Detected by | What critics focus on |
    |-------------|-------------|----------------------|
-   | `code` | `.py`, `.ts`, `.js`, `.go`, etc. | Runtime failures, coupling, security, error handling |
+   | `code` | `.py`, `.go`, `.rs`, `.java`, `.ts`, `.js`, or other implementation files; use this for backend/server-side TypeScript or JavaScript, and for repo-wide or mixed frontend+backend scopes. For ambiguous `.ts`/`.js`, default to `code` unless frontend-specific signals are present. | Runtime failures, coupling, security, error handling |
+   | `frontend-code` | `.tsx`, `.jsx`, `.vue`, `.svelte`, `.astro`, or directories named `components/`, `pages/`, `hooks/` — frontend-specific code. For ambiguous extensions (`.ts`, `.js`), classify as `frontend-code` only when UI framework imports (React, Vue, Svelte, Solid, Qwik, Lit, Angular, etc.), DOM APIs (`document`, `window`), or `package.json` frontend framework dependencies are present. In full-stack apps, targets scoped to clearly frontend directories such as `frontend/` or `src/components/` classify as `frontend-code`; targeting the whole repo or any mixed frontend+backend scope classifies as `code`. | Client-side performance, component architecture, data fetching, accessibility, CSS architecture (in addition to generic concerns) |
    | `spec` | `spec.md` or content with requirements/acceptance criteria | Completeness, testability, internal consistency, scope gaps |
    | `design-doc` | `design.md` or content with architecture/API contracts | Feasibility, missing alternatives, boundary correctness |
    | `brief` | `brief.md` or content from grill/brainstorm | Framing validity, assumption quality, scope coherence |
@@ -158,7 +159,7 @@ The remainder of `$ARGUMENTS` is the target scope. If `--findings-out` is not pr
    | `other` | No type matches above | Correctness, assumption validity, internal consistency — critics use their general focus without type-specific narrowing |
 
 3. **Gather context** based on target type:
-   - **Code**: grep for call sites and dependencies — understand what uses this code and what it uses
+   - **Code** / **Frontend-code**: grep for call sites and dependencies — understand what uses this code and what it uses. For `frontend-code`, also read `package.json` (framework, dependencies), and if present, the design tokens file (varies by project: `tailwind.config.*`, `theme.ts`, `tokens.*`, `variables.css`) and the API client/fetch layer to understand the data contract with the backend.
    - **Document** (spec, design-doc, brief, research): read related codebase files the document references, and any adjacent artifacts in the same feature directory
    - **Docs**: read sibling docs in the same directory or docs/ tree to understand the documentation set as a whole. If the doc references code, commands, or config, verify those exist and read the referenced sections to check for interface drift — confirm the current behavior matches what the doc describes.
    - **Skill file**: read all callers listed in the file, grep for additional references across the codebase
@@ -195,6 +196,7 @@ After classifying the target type, select specialist personas to augment the thr
 | Target type | Specialist personas |
 |-------------|-------------------|
 | `code` | Data Integrity + Operational Resilience |
+| `frontend-code` | Web Platform + Operational Resilience |
 | `skill-file` | Contract & Caller + Workflow & UX |
 | `agent-file` | Agent Definition |
 | `design-doc` | Contract & Caller + Operational Resilience |
@@ -272,6 +274,7 @@ Specialist critics (when selected) use their filename slug as the output name:
 - **end-user-reader.md** → writes to `<tmpdir>/end-user-reader.md`
 - **agent-definition.md** → writes to `<tmpdir>/agent-definition.md`
 - **documentation-architect.md** → writes to `<tmpdir>/documentation-architect.md`
+- **web-platform.md** → writes to `<tmpdir>/web-platform.md`
 
 ### Write manifest
 

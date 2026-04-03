@@ -9,6 +9,8 @@ All notable changes to this Claudefiles repository are documented here.
 - `engineering-backend-developer` agent — FastAPI specialist with async patterns, DI examples, SQLAlchemy session management, and test patterns (#164)
 - `mine.challenge` — Agent Definition specialist persona for reviewing agent files: identity bloat, missing conventions, executor compatibility, scope overlap (#165)
 - `mine.challenge` — `agent-file` target type with heuristic detection and gold-standard comparison context gathering (#165)
+- `mine.challenge` — Web Platform specialist persona for reviewing frontend code: client-side performance, component performance patterns, data fetching, source-detectable accessibility, client-side security, CSS architecture (#167)
+- `mine.challenge` — `frontend-code` target type with heuristic detection (`.tsx`, `.jsx`, `.vue`, `.svelte`, `.astro`, component directories) and specialist mapping (Web Platform + Operational Resilience) (#167)
 - `mine.challenge` — two new documentation specialist personas: End-User Reader (page-level prerequisite audit) and Documentation Architect (set-level structure and Diataxis mode review) (#162)
 - `mine.challenge` — new `docs` target type with path-based heuristic detection (`README.md`, `docs/` directory) and specialist mapping (#162)
 - `scripts/hooks/sudo-poll.sh` — PreToolUse hook that enables sudo in Claude Code sessions via deny-then-poll with credential cache (requires `Defaults timestamp_type=global` in sudoers) (#163)
