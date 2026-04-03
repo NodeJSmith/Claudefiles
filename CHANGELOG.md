@@ -7,6 +7,8 @@ All notable changes to this Claudefiles repository are documented here.
 ### Added
 - `mine.challenge` — two new documentation specialist personas: End-User Reader (page-level prerequisite audit) and Documentation Architect (set-level structure and Diataxis mode review) (#162)
 - `mine.challenge` — new `docs` target type with path-based heuristic detection (`README.md`, `docs/` directory) and specialist mapping (#162)
+- `scripts/hooks/sudo-poll.sh` — PreToolUse hook that enables sudo in Claude Code sessions via deny-then-poll with credential cache (requires `Defaults timestamp_type=global` in sudoers) (#163)
+- `rules/common/sudo.md` — rule for sudo operations: hook-first workflow with script-generation fallback for complex cases (#163)
 
 ### Changed
 - `mine.challenge` — `--focus` prefix matching now requires 6-character minimum to prevent short-prefix misfires (#162)

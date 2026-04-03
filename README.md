@@ -175,7 +175,16 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 
 Coding guidelines that load automatically and shape how Claude writes code.
 
-**Common** (17): agents, backlog, bash-tools, capabilities, coding-style, command-output, error-tracking, frontend-workflow, git-workflow, interaction, lsp, performance, python, research-escalation, testing, tmux, worktrees
+**Common** (17): agents, backlog, bash-tools, capabilities, coding-style, command-output, error-tracking, frontend-workflow, git-workflow, interaction, performance, python, research-escalation, sudo, testing, tmux, worktrees
+
+### Hooks (2)
+
+Event-driven scripts that run before/after tool calls.
+
+| Hook | Event | Description |
+|------|-------|-------------|
+| `tmux-remind.sh` | SessionStart | Reminds Claude to rename the tmux session |
+| `sudo-poll.sh` | PreToolUse (Bash) | Deny-then-poll for sudo — detects cached credentials or waits 30s for user to `sudo -v` in another pane |
 
 ### Helper Scripts (22 + 1 library)
 
