@@ -171,11 +171,20 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `product-feedback-synthesizer` | Synthesizes user feedback from multiple channels into actionable product insights |
 | `product-sprint-prioritizer` | Sprint planning, feature prioritization, velocity optimization using RICE/MoSCoW |
 
-### Rules (17)
+### Rules (18)
 
 Coding guidelines that load automatically and shape how Claude writes code.
 
-**Common** (17): agents, backlog, bash-tools, capabilities, coding-style, command-output, error-tracking, frontend-workflow, git-workflow, interaction, lsp, performance, python, research-escalation, testing, tmux, worktrees
+**Common** (18): agents, backlog, bash-tools, capabilities, coding-style, command-output, error-tracking, frontend-workflow, git-workflow, interaction, lsp, performance, python, research-escalation, sudo, testing, tmux, worktrees
+
+### Hooks (2)
+
+Event-driven scripts that run before/after tool calls.
+
+| Hook | Event | Description |
+|------|-------|-------------|
+| `tmux-remind.sh` | SessionStart | Reminds Claude to rename the tmux session |
+| `sudo-poll.sh` | PreToolUse (Bash) | Deny-then-poll for sudo — detects cached credentials or waits 30s for user to `sudo -v` in another pane |
 
 ### Helper Scripts (22 + 1 library)
 

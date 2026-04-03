@@ -46,7 +46,18 @@
   },
   "includeGitInstructions": false,
   "hooks": {
-    "PreToolUse": [],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/sudo-poll.sh",
+            "timeout": 35000
+          }
+        ]
+      }
+    ],
     "PreCompact": [],
     "SessionStart": [
       {
