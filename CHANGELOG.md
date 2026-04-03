@@ -13,6 +13,7 @@ All notable changes to this Claudefiles repository are documented here.
 - `rules/common/sudo.md` — rule for sudo operations: hook-first workflow with script-generation fallback for complex cases (#163)
 
 ### Changed
+- `engineering-frontend-developer` agent — complete rewrite: added `tools` frontmatter, executor note, codebase conventions, anti-patterns with SYNC markers, test execution discovery, enforced tooling; removed competing deliverable template, editor extension contamination, false memory claims, and inaccessible code example (#164)
 - `rules/common/python.md` — explicitly bans `Optional[X]` (was only implicitly discouraged via `X | Y` preference) (#164)
 - `rules/common/coding-style.md` — adds PySpark DataFrame reassignment carve-out to the immutability rule (#164)
 - `mine.orchestrate` — routing table now dispatches PySpark/dbt and FastAPI WPs to specialized agents (#164)

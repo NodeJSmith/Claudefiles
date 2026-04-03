@@ -135,6 +135,30 @@ tests:
       - type: javascript
         value: *agent_assertion
 
+  - description: "Vue component → frontend-developer agent (framework variant)"
+    vars:
+      prompt: "build a Vue 3 composable for managing form validation with TypeScript"
+      expectedAgent: "engineering-frontend-developer|Frontend"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "CSS/design system → frontend-developer agent (styling focus)"
+    vars:
+      prompt: "implement the design system's spacing and color tokens as CSS custom properties with Tailwind integration"
+      expectedAgent: "engineering-frontend-developer|Frontend"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
+  - description: "Svelte component → frontend-developer agent (framework variant)"
+    vars:
+      prompt: "build a SvelteKit page with server-side data loading and a reactive filter component"
+      expectedAgent: "engineering-frontend-developer|Frontend"
+    assert:
+      - type: javascript
+        value: *agent_assertion
+
   # --- engineering-data-engineer ---
   - description: "PySpark pipeline → data-engineer agent (direct)"
     vars:
