@@ -28,7 +28,7 @@ $ARGUMENTS — optional scope:
 
 **Optional arguments**:
 - `--focus="<area>"` — steer critics toward specific concerns (e.g., `--focus="security, error handling"`). Passed to all critics as a priority signal: "Pay special attention to X." Critics still review broadly but weight output toward the user's concern. **Note:** specialist override only applies when `--focus` is a single slug/prefix (minimum 6 characters) that matches a specialist name (e.g., `--focus="data-integrity"` or `--focus="end-user"`), not when multiple comma-separated areas are provided.
-- `--target-type=<type>` — override heuristic target-type classification. Callers that know their artifact type should pass this. Values: `code`, `spec`, `design-doc`, `brief`, `skill-file`, `docs`, `research`, `other`.
+- `--target-type=<type>` — override heuristic target-type classification. Callers that know their artifact type should pass this. Values: `code`, `spec`, `design-doc`, `brief`, `skill-file`, `agent-file`, `docs`, `research`, `other`.
 - `--findings-out=<path>` — (structured callers only) deterministic output path for the findings file. Used by mine.design and mine.specify for reliable handoff. Not needed for standalone or passthrough invocations.
 - `--no-specialists` — skip specialist selection, run only the three generic critics.
 
@@ -152,6 +152,7 @@ The remainder of `$ARGUMENTS` is the target scope. If `--findings-out` is not pr
    | `design-doc` | `design.md` or content with architecture/API contracts | Feasibility, missing alternatives, boundary correctness |
    | `brief` | `brief.md` or content from grill/brainstorm | Framing validity, assumption quality, scope coherence |
    | `skill-file` | `SKILL.md` or content with phases/persona definitions | LLM behavior assumptions, prompt ambiguity, contract fragility, caller compatibility |
+   | `agent-file` | Files in `agents/` directory or `.md` with agent frontmatter (name, description, tools) | Identity bloat, missing conventions, filler sections, scope overlap, executor compatibility |
    | `docs` | `README.md` or `.md` files in a `docs/` directory | Technical accuracy of code samples and commands, API reference validity, version currency, consistency between docs and codebase |
    | `research` | `research.md` or research artifacts/investigation output | Conclusion validity, exploration completeness, confirmation bias |
    | `other` | No type matches above | Correctness, assumption validity, internal consistency — critics use their general focus without type-specific narrowing |
@@ -161,6 +162,7 @@ The remainder of `$ARGUMENTS` is the target scope. If `--findings-out` is not pr
    - **Document** (spec, design-doc, brief, research): read related codebase files the document references, and any adjacent artifacts in the same feature directory
    - **Docs**: read sibling docs in the same directory or docs/ tree to understand the documentation set as a whole. If the doc references code, commands, or config, verify those exist and read the referenced sections to check for interface drift — confirm the current behavior matches what the doc describes.
    - **Skill file**: read all callers listed in the file, grep for additional references across the codebase
+   - **Agent file**: read 2-3 gold-standard agents for structural comparison (`engineering-backend-developer.md`, `engineering-data-engineer.md`, `engineering-frontend-developer.md`), check routing tables (`rules/common/agents.md`, `skills/mine.orchestrate/SKILL.md`) for how the agent is dispatched, and grep for the agent name across skills/rules to find all references
 4. Note what problem the target ostensibly solves
 
 ### If empty
@@ -194,6 +196,7 @@ After classifying the target type, select specialist personas to augment the thr
 |-------------|-------------------|
 | `code` | Data Integrity + Operational Resilience |
 | `skill-file` | Contract & Caller + Workflow & UX |
+| `agent-file` | Agent Definition |
 | `design-doc` | Contract & Caller + Operational Resilience |
 | `spec` | Workflow & UX |
 | `docs` | End-User Reader + Documentation Architect |
@@ -267,6 +270,7 @@ Specialist critics (when selected) use their filename slug as the output name:
 - **operational-resilience.md** → writes to `<tmpdir>/operational-resilience.md`
 - **workflow-ux.md** → writes to `<tmpdir>/workflow-ux.md`
 - **end-user-reader.md** → writes to `<tmpdir>/end-user-reader.md`
+- **agent-definition.md** → writes to `<tmpdir>/agent-definition.md`
 - **documentation-architect.md** → writes to `<tmpdir>/documentation-architect.md`
 
 ### Write manifest

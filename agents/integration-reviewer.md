@@ -240,7 +240,7 @@ Do not include them in the verdict. Don't block a PR for debt that predates it.
 
 - Run static analysis (ruff, pyright, bandit) — that's `code-reviewer`'s job
 - Write or suggest test cases — that's `qa-specialist`'s job
-- Evaluate security posture — that's `engineering-security-engineer`'s job
+- Evaluate security posture — that's `code-reviewer`'s job (security checks section)
 - Check if the implementation is *correct* — that's `code-reviewer`'s job
 - Implement fixes — surface findings and let the human or a follow-up agent act on them
 
