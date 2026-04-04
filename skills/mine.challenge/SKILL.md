@@ -375,7 +375,7 @@ Read the findings file written by the subagent. This is the input for Phase 4 pr
 
 ### Specialist announcement
 
-Before announcing, read `<tmpdir>/manifest.md` and derive the specialist list and target type from its contents (reading from manifest rather than recall provides reliable recovery if context was compacted between Phase 2 and Phase 4 in long-running or subagent invocations). Specialists are entries whose filename is **not** in the known-generic set (`senior.md`, `architect.md`, `adversarial.md`). The `# target-type:` comment line provides the classified target type.
+Before announcing, read `<tmpdir>/manifest.md` and derive the specialist list and target type from its contents (reading from manifest rather than recall provides reliable recovery if context was compacted between Phase 2 and Phase 4 in long-running or subagent invocations). Specialists are entries whose filename is **not** in the known-generic set (`senior.md`, `architect.md`, `adversarial.md`). The `# target-type:` comment line provides the classified target type. To recover display names from manifest slugs, look up each specialist slug in the mapping table (e.g., `contract-caller.md` → "Contract & Caller") — the table includes both display names and filenames.
 
 If `<tmpdir>/focus-substitution.md` exists, read it for the substitution announcement text.
 

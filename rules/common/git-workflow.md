@@ -80,6 +80,6 @@ Attribution disabled globally via ~/.claude/settings.json.
 
 ## Work Package Cleanup
 
-Before pushing changes (whether via `/mine.ship`, `/mine.commit-push`, or a manual `git push`), check for completed work package files in `design/specs/*/tasks/WP*.md`. If the branch's work is complete and WP files exist, run `spec-helper archive --dry-run` to check for archivable specs and offer to archive them. This removes `tasks/` directories and sets `**Status:** archived` in `design.md` — git history preserves the full WP content.
+Before pushing changes (whether via `/mine.ship`, `/mine.commit-push`, or a manual `git push`), check for completed work package files in `design/specs/*/tasks/WP*.md`. If the branch's work is complete and WP files exist, run `spec-helper archive --all --dry-run` to check for archivable specs and offer to archive them. This removes `tasks/` directories and sets `**Status:** archived` in `design.md` — git history preserves the full WP content.
 
 This applies whenever the work is done, not only when `/mine.ship` is invoked.
