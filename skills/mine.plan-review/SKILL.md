@@ -1,12 +1,12 @@
 ---
 name: mine.plan-review
-description: "Use when the user says: \"review this plan\", \"check the plan\", or \"plan review\". Reviews design doc and work packages with an Opus subagent against a 9-point checklist."
+description: "Use when the user says: \"review this plan\", \"check the plan\", or \"plan review\". Reviews design doc and work packages against a 9-point checklist."
 user-invocable: true
 ---
 
 # Plan Review
 
-Review a design doc and its Work Packages for correctness, completeness, and design alignment before execution begins. Uses a subagent reviewer against a 9-point checklist.
+Review a design doc and its Work Packages for correctness, completeness, and design alignment before execution begins. Uses a Sonnet subagent reviewer against a 9-point checklist.
 
 ## Arguments
 
@@ -59,7 +59,7 @@ Read `~/.claude/skills/mine.plan-review/reviewer-prompt.md` to get the checklist
 
 ### Launch subagent
 
-Launch a general-purpose subagent using the Opus model (claude-opus-4-6) for highest-quality review judgment. Pass this prompt (fill in the bracketed values from the files you read):
+Launch a general-purpose subagent with `model: sonnet`. Pass this prompt (fill in the bracketed values from the files you read):
 
 ```
 You are reviewing an implementation design and its work packages.

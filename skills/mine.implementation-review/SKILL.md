@@ -1,12 +1,12 @@
 ---
 name: mine.implementation-review
-description: "Use when mine.orchestrate Phase 3 runs the post-execution quality gate. Reviews changed files against design doc and WPs using an Opus subagent."
+description: "Use when mine.orchestrate Phase 3 runs the post-execution quality gate. Reviews changed files against design doc and WPs using a Sonnet subagent."
 user-invocable: false
 ---
 
 # Implementation Review
 
-Post-execution quality gate. After `/mine.orchestrate` finishes, this reviews the full implementation against the original design doc and Work Packages. Uses an Opus subagent for highest-quality judgment across 7 categories.
+Post-execution quality gate. After `/mine.orchestrate` finishes, this reviews the full implementation against the original design doc and Work Packages. Uses a Sonnet subagent for structured review across 7 categories.
 
 ## Arguments
 
@@ -75,9 +75,9 @@ Run `get-skill-tmpdir mine-impl-review` and use `<dir>/review.md` for the review
 
 Read `~/.claude/skills/mine.implementation-review/reviewer-prompt.md`.
 
-### Launch Opus subagent
+### Launch review subagent
 
-Launch a general-purpose subagent using the Opus model (claude-opus-4-6). Pass this prompt (fill in bracketed values):
+Launch a general-purpose subagent with `model: sonnet`. Pass this prompt (fill in bracketed values):
 
 ```
 You are reviewing a completed caliper v2 feature implementation.
