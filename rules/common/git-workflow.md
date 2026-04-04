@@ -51,10 +51,12 @@ Run tests + linter/type checker after code review passes. Fix failures before co
 Follow [Conventional Commits](https://www.conventionalcommits.org/). Every commit message must use this format:
 
 ```
-<type>: <description>
+<type>[optional scope][!]: <description>
 ```
 
 **Types**: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`
+
+**Breaking changes**: Append `!` after the type/scope to flag breaking changes: `feat!: remove legacy auth endpoint`, `fix(api)!: change response format`. Optionally include a `BREAKING CHANGE:` footer in the commit body with details.
 
 **Rules**:
 - Type is **mandatory** — never commit without a type prefix
