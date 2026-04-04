@@ -17,6 +17,10 @@ All notable changes to this Claudefiles repository are documented here.
 - `rules/common/sudo.md` — rule for sudo operations: hook-first workflow with script-generation fallback for complex cases (#163)
 
 ### Changed
+- `mine.challenge` — orphan detection warns when specialist persona files exist but aren't in the mapping table; runs unconditionally for all target types (#168)
+- `mine.challenge` — specialist selection hardened: manifest-derived Phase 4 announcements, persistent validation warnings, identity-based manifest parsing, `Warnings:` field in findings header (#168)
+- `rules/common/command-output.md` — reinforces capturing long-running command output to tmp files instead of re-running with larger tail arguments (#168)
+- `rules/common/git-workflow.md` — WP archival check now applies to all push flows, not just `/mine.ship` (#168)
 - `engineering-technical-writer` agent — complete rewrite to gold standard: executor note, codebase conventions, MkDocs patterns, anti-patterns, test execution discovery, enforced tooling (#165)
 - `engineering-frontend-developer` agent — complete rewrite: added `tools` frontmatter, executor note, codebase conventions, anti-patterns with SYNC markers, test execution discovery, enforced tooling; removed competing deliverable template, editor extension contamination, false memory claims, and inaccessible code example (#164)
 - `rules/common/python.md` — explicitly bans `Optional[X]` (was only implicitly discouraged via `X | Y` preference) (#164)
