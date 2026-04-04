@@ -6,6 +6,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Fixed
 - `mine.address-pr-issues` — add mandatory markers for review thread fetching so Claude doesn't skip `gh-pr-threads` and falsely report "no review comments" (#172)
+- `install.sh` — add `-n` flag to `ln -sf` calls so re-runs replace symlinks-to-directories instead of creating self-referencing links inside them (#173)
+
+### Changed
+- `mine.plan-review`, `mine.implementation-review` — switch review subagents from Opus to Sonnet; structured checklist evaluation doesn't need Opus-tier reasoning (#173)
 
 ## 2026-04-03
 

@@ -24,7 +24,7 @@ for dir in agents skills commands scripts/hooks; do
     [ -e "$item" ] || continue
     target="$dest/$(basename "$item")"
     if [ -L "$target" ]; then
-      ln -sf "$item" "$target" # replace existing
+      ln -sfn "$item" "$target" # replace existing (-n: don't follow symlink-to-dir)
       continue
     elif [ -e "$target" ]; then
       shadowed["$target"]="$item"
@@ -54,7 +54,7 @@ if [ -d "$REPO_DIR/rules" ]; then
       [ -e "$item" ] || continue
       target="$dest/$(basename "$item")"
       if [ -L "$target" ]; then
-        ln -sf "$item" "$target"
+        ln -sfn "$item" "$target"
         continue
       elif [ -e "$target" ]; then
         shadowed["$target"]="$item"
@@ -83,7 +83,7 @@ if [ -d "$REPO_DIR/learned" ]; then
       [ -e "$item" ] || continue
       target="$dest/$(basename "$item")"
       if [ -L "$target" ]; then
-        ln -sf "$item" "$target"
+        ln -sfn "$item" "$target"
         continue
       elif [ -e "$target" ]; then
         shadowed["$target"]="$item"
@@ -101,7 +101,7 @@ if [ -d "$REPO_DIR/bin" ]; then
     [ -e "$item" ] || continue
     target="$BIN_DIR/$(basename "$item")"
     if [ -L "$target" ]; then
-      ln -sf "$item" "$target"
+      ln -sfn "$item" "$target"
       continue
     elif [ -e "$target" ]; then
       shadowed["$target"]="$item"
