@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-04-04
+
+### Fixed
+- `mine.address-pr-issues` — add mandatory markers for review thread fetching so Claude doesn't skip `gh-pr-threads` and falsely report "no review comments"
+
 ## 2026-04-03
 
 ### Added

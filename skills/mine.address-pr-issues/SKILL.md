@@ -50,7 +50,9 @@ ado-pr show {PR} --json
 
 Returns `pullRequestId`, `title`, `status`, `sourceRefName`, `targetRefName`, `repository.webUrl`. URL: `repository.webUrl + "/pullrequest/" + pullRequestId`. Note: `mergeStatus` is optional and only present after a merge attempt.
 
-### Review threads
+### Review threads (MANDATORY — separate from metadata)
+
+**CRITICAL**: `gh pr view --json` does NOT return review threads (inline comments from reviewers or Copilot). You MUST run the thread-fetching command below. Do not conclude "no review comments" based on PR metadata alone — that field doesn't exist in the metadata response.
 
 **GitHub:**
 ```bash
@@ -94,6 +96,8 @@ Check and display as informational warnings (NOT blockers):
 Categorize all issues into three groups: **review comments**, **merge conflicts**, **CI failures**.
 
 ### Review comments
+
+**Prerequisite**: This section requires the `gh-pr-threads` / `ado-pr-threads` output from Phase 1. If you skipped that step, go back and run it now before triaging.
 
 **Exclude resolved threads:** GitHub `isResolved: true`, ADO `status != "active"`.
 
