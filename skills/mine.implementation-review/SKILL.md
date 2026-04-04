@@ -65,7 +65,7 @@ Read each changed file. If the list is large (more than 15 files), prioritize fi
 
 ---
 
-## Phase 2: Dispatch Opus Reviewer Subagent
+## Phase 2: Dispatch Reviewer Subagent
 
 ### Review output path
 
