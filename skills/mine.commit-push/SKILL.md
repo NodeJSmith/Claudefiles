@@ -12,7 +12,7 @@ user-invocable: true
 
 ## About this skill
 
-This is a lighter-weight commit workflow for direct-push repos (no PR). Compared to `mine.ship`, it deliberately omits the PR creation phase. It includes the same code quality gates (code review, integration review, tests, linting) and the same pre-commit checks (test presence, WP archival).
+This skill handles the shared "commit & push with quality gates" phase. It can be used standalone (when the user asks to commit and push) and is also used as Phase 1 of `mine.ship`. Compared to `mine.ship`, it omits the PR creation phase but includes the same code quality gates (code review, integration review, tests, linting) and pre-commit checks (test presence, WP archival).
 
 ## Your task
 
