@@ -24,7 +24,8 @@ for dir in agents skills commands scripts/hooks; do
     [ -e "$item" ] || continue
     target="$dest/$(basename "$item")"
     if [ -L "$target" ]; then
-      rm "$target" # replace existing symlink
+      ln -sf "$item" "$target" # replace existing
+      continue
     elif [ -e "$target" ]; then
       shadowed["$target"]="$item"
       continue
@@ -53,7 +54,8 @@ if [ -d "$REPO_DIR/rules" ]; then
       [ -e "$item" ] || continue
       target="$dest/$(basename "$item")"
       if [ -L "$target" ]; then
-        rm "$target"
+        ln -sf "$item" "$target"
+        continue
       elif [ -e "$target" ]; then
         shadowed["$target"]="$item"
         continue
@@ -81,7 +83,8 @@ if [ -d "$REPO_DIR/learned" ]; then
       [ -e "$item" ] || continue
       target="$dest/$(basename "$item")"
       if [ -L "$target" ]; then
-        rm "$target"
+        ln -sf "$item" "$target"
+        continue
       elif [ -e "$target" ]; then
         shadowed["$target"]="$item"
         continue
@@ -98,7 +101,8 @@ if [ -d "$REPO_DIR/bin" ]; then
     [ -e "$item" ] || continue
     target="$BIN_DIR/$(basename "$item")"
     if [ -L "$target" ]; then
-      rm "$target"
+      ln -sf "$item" "$target"
+      continue
     elif [ -e "$target" ]; then
       shadowed["$target"]="$item"
       continue
@@ -155,6 +159,14 @@ if [ "$_shadowed_total" -gt 0 ]; then
   done
 
   if [ "$interactive" = true ]; then
+    echo "" >&2
+    echo "  The following will be removed and re-linked:" >&2
+    for tgt in "${!shadowed[@]}"; do
+      echo "    rm -rf $tgt" >&2
+    done
+    for tgt in "${!shadowed_containers[@]}"; do
+      echo "    rm -rf $tgt" >&2
+    done
     echo "  (these are real files, not symlinks — remove only if you don't need them)" >&2
     printf "  Remove and re-link? [y/N] " > /dev/tty
     answer=""

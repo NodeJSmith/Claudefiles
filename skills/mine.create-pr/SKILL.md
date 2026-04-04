@@ -64,10 +64,11 @@ Based on the above changes:
      ```bash
      gh-pr-create --draft --title "..." --body-file <tmpfile>
      ```
-   - **Azure DevOps**:
+   - **Azure DevOps**: Read the body file content using the Read tool, then pass it as a literal string argument:
      ```bash
-     az repos pr create --draft true --title "..." --description "$(cat <tmpfile>)" --source-branch <branch> --target-branch <default-branch>
+     az repos pr create --draft true --title "..." --description "<body content>" --source-branch <branch> --target-branch <default-branch>
      ```
+     Do NOT use `--description "$(cat <tmpfile>)"` — command substitution is broken in the Bash tool eval wrapper.
 9. **Update CHANGELOG with PR number**: Locate the nearest `CHANGELOG.md` using the ancestor-walk algorithm: walk upward from the current working directory one level at a time toward the repo root, checking each directory for `CHANGELOG.md` — the first one found is the nearest. If none found by walking up, run `git ls-files '*CHANGELOG.md'` and pick the result with the shortest relative path from CWD. If no `CHANGELOG.md` exists anywhere, suggest the user add one. Once located:
    - Extract the PR number from the PR URL
    - Use the platform-appropriate prefix for the PR reference:
@@ -84,7 +85,8 @@ Based on the above changes:
 10. **Mark PR as ready** (reviewers see the final state with changelog PR numbers already in place):
     - **GitHub**: `gh pr ready`
     - **Azure DevOps**: `az repos pr update --id <PR_ID> --draft false`
-11. Return the PR URL
+11. Return the PR URL. If step 12 produced archival guidance, include it in the same response after the URL.
+12. **WP ARCHIVAL REMINDER:** If `design/specs/` exists in the repo and `spec-helper` is available (`command -v spec-helper`), run `spec-helper archive --dry-run --json`. If any entries have `status: "would_archive"`, tell the user: "These specs are ready to archive: [list]. Run `spec-helper archive --all` to clean up tasks/ directories before merging." If none qualify, `design/specs/` doesn't exist, or `spec-helper` isn't installed, skip silently. Run this check before composing the final response in step 11.
 
 You have the capability to call multiple tools in a single response. You should gather all necessary context first (steps 1-6), then create the PR in a single action. Do not create multiple PRs.
 

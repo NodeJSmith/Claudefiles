@@ -18,8 +18,8 @@ AskUserQuestion:
   options:
     - label: "Save all to .claude/backlog.md"
       description: "Append all findings to a local backlog file in this repo"
-    - label: "Create all as GitHub issues"
-      description: "File each finding as a tracked issue (requires gh)"
+    - label: "Create all as issues"
+      description: "File each finding as a tracked issue (GitHub via gh-issue; ADO: not yet automated)"
     - label: "Let me split — I'll say which go to issues"
       description: "You name which items to file as issues; the rest go to .claude/backlog.md"
 ```
@@ -28,15 +28,19 @@ AskUserQuestion:
 
 Ensure the `.claude/` directory exists (create it if needed), then append to `.claude/backlog.md` (create the file if it doesn't exist). Do not overwrite previous entries — each session appends a new dated section.
 
-### If "Create all as GitHub issues"
+### If "Create all as issues"
 
-Create one issue per finding using `gh-issue create`. This wrapper uses bot-token authentication when available, otherwise falls back to your personal token. Use the issue body format defined by the originating skill (each skill documents its own issue format).
+Run `git-platform` to detect the hosting platform.
+
+- **GitHub**: Create one issue per finding using `gh-issue create`. This wrapper uses bot-token authentication when available, otherwise falls back to your personal token. Use the issue body format defined by the originating skill (each skill documents its own issue format).
+- **Azure DevOps**: Automated work item creation is not yet supported. Tell the user: "ADO work item creation isn't automated yet — saving to `.claude/backlog.md` instead." Fall back to the backlog file flow.
 
 ### If "Let me split"
 
-Ask the user to specify which items go to issues (e.g. "items 1 and 3 as issues, the rest to backlog"). Then:
-- Create issues for the specified items
-- Append remaining items to `.claude/backlog.md`
+Ask the user to specify which items go to issues (e.g. "items 1 and 3 as issues, the rest to backlog"). Then run `git-platform`:
+
+- **GitHub**: Create issues for the specified items using `gh-issue create`. Append remaining items to `.claude/backlog.md`.
+- **Azure DevOps**: Tell the user ADO work item creation isn't automated yet. Append all items to `.claude/backlog.md`.
 
 ## After Saving
 

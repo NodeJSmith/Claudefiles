@@ -11,7 +11,6 @@ Format:
     tmpdir: /tmp/claude-mine-orchestrate-abc123
     visual_skip: false
     dev_server_url: http://localhost:3000
-    warn_counter: 0
     last_completed_wp: WP02
     started_at: 2026-03-25T14:30:00
     base_commit: a1b2c3d
@@ -28,10 +27,9 @@ Format:
     notes: test coverage low
 """
 
-from __future__ import annotations
-
 import os
 import re
+import sys
 import tempfile
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -46,7 +44,6 @@ REQUIRED_HEADER_FIELDS = frozenset(
         "tmpdir",
         "visual_skip",
         "dev_server_url",
-        "warn_counter",
         "last_completed_wp",
         "started_at",
         "base_commit",
@@ -84,7 +81,6 @@ class CheckpointState:
     tmpdir: str
     visual_skip: bool
     dev_server_url: str
-    warn_counter: int
     last_completed_wp: str
     started_at: str
     base_commit: str
@@ -113,7 +109,6 @@ def read_checkpoint(path: Path) -> CheckpointState:
         tmpdir=header["tmpdir"],
         visual_skip=_parse_bool(header["visual_skip"]),
         dev_server_url=header["dev_server_url"],
-        warn_counter=_parse_int(header["warn_counter"], "warn_counter"),
         last_completed_wp=header["last_completed_wp"],
         started_at=header["started_at"],
         base_commit=header["base_commit"],
@@ -135,12 +130,19 @@ def add_verdict(path: Path, verdict: Verdict) -> None:
 
     Reads the full checkpoint, adds the verdict, and rewrites atomically.
     This avoids format drift from mixed append/rewrite strategies.
+    Raises ValueError if a verdict for the same WP ID already exists.
     """
     _validate_verdict(verdict)
     if not path.exists():
         raise FileNotFoundError(f"Checkpoint not found: {path}")
 
     state = read_checkpoint(path)
+    existing_ids = {v.wp_id for v in state.verdicts}
+    if verdict.wp_id in existing_ids:
+        raise ValueError(
+            f"Verdict for {verdict.wp_id} already exists. "
+            f"Delete and re-add if overwrite is intended."
+        )
     state = replace(state, verdicts=(*state.verdicts, verdict))
     write_checkpoint(state, path)
 
@@ -186,7 +188,6 @@ def state_to_dict(state: CheckpointState) -> dict[str, Any]:
         "tmpdir": state.tmpdir,
         "visual_skip": state.visual_skip,
         "dev_server_url": state.dev_server_url,
-        "warn_counter": state.warn_counter,
         "last_completed_wp": state.last_completed_wp,
         "started_at": state.started_at,
         "base_commit": state.base_commit,
@@ -286,8 +287,6 @@ def _validate_header(header: dict[str, str]) -> None:
 
     unknown = set(header.keys()) - ALL_HEADER_FIELDS
     if unknown:
-        import sys
-
         print(
             f"warning: checkpoint has unknown fields: {', '.join(sorted(unknown))} "
             f"(may be from a newer version — ignoring)",
@@ -342,7 +341,6 @@ def _render_checkpoint(state: CheckpointState) -> str:
         f"tmpdir: {state.tmpdir}",
         f"visual_skip: {'true' if state.visual_skip else 'false'}",
         f"dev_server_url: {state.dev_server_url}",
-        f"warn_counter: {state.warn_counter}",
         f"last_completed_wp: {state.last_completed_wp}",
         f"started_at: {state.started_at}",
         f"base_commit: {state.base_commit}",

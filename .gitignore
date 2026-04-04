@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .ruff_cache/
+.venv/
 .claude-plan
 .claude/backlog.md
 node_modules/

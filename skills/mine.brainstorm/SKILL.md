@@ -280,7 +280,7 @@ If selected: invoke the backlog save flow from `rules/common/backlog.md`. Treat 
 
 **Execution order for housekeeping**: (1) create issues / save to backlog, (2) save the session, then proceed to the primary next step.
 
-For GitHub issue creation, use this template:
+For issue creation (GitHub via `gh-issue create`; on ADO, the backlog rule's platform fallback applies), use this template:
 
 - **Title:** `[Brainstorm] <topic>: <concise idea name>`
 - **Body:**

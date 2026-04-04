@@ -10,6 +10,8 @@
       "Bash(gh-pr-threads:*)",
       "Bash(ado-builds:*)",
       "Bash(ado-logs:*)",
+      "Bash(ado-pr:*)",
+      "Bash(ado-pr-threads:*)",
       "Read(/tmp/*)",
       "Read(/tmp/**)",
       "Write(/tmp/*)",

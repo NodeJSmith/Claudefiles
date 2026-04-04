@@ -16,6 +16,9 @@ All notable changes to this Claudefiles repository are documented here.
 - `scripts/hooks/sudo-poll.sh` — PreToolUse hook that enables sudo in Claude Code sessions via deny-then-poll with credential cache (requires `Defaults timestamp_type=global` in sudoers) (#163)
 - `rules/common/sudo.md` — rule for sudo operations: hook-first workflow with script-generation fallback for complex cases (#163)
 
+### Fixed
+- Codebase health fixes from `/mine.challenge` adversarial review: atomic writes, rule/enforcement consistency, dead schema removal, platform-aware issue creation, and safety improvements across 31 files (#170)
+
 ### Changed
 - `mine.challenge` — orphan detection warns when specialist persona files exist but aren't in the mapping table; runs unconditionally for all target types (#168)
 - `mine.challenge` — specialist selection hardened: manifest-derived Phase 4 announcements, persistent validation warnings, identity-based manifest parsing, `Warnings:` field in findings header (#168)

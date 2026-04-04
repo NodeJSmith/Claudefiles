@@ -193,7 +193,7 @@ AskUserQuestion:
 
 For each selected gap, confirm the action:
 - **Implement now** → hand off to `/mine.build`
-- **Create an issue** → `gh-issue create` with the gap description
+- **Create an issue** → file a tracked issue with the gap description (see below)
 - **Note it** → acknowledged, no action
 
 ## Phase 5: Act
@@ -205,7 +205,7 @@ Hand off to `/mine.build` with the gap description. Do not draft code in this sk
 > "Handing off to `/mine.build` for `<gap name>`. This will assess complexity and route to the right implementation workflow."
 
 **Create issue:**
-Draft and file immediately. Use the Write tool to save the body first, then create the issue:
+Run `git-platform` to detect the hosting platform. Draft and file immediately on GitHub. On ADO, tell the user automated work item creation isn't supported yet and save to `.claude/backlog.md` instead.
 
 1. Run `get-skill-tmpdir mine-tool-gaps-issue` to create a temp directory, then write the body to `<dir>/body.md`:
    ```markdown

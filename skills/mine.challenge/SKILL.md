@@ -223,6 +223,8 @@ After classifying the target type, select specialist personas to augment the thr
 
 ### Read persona files
 
+**Pre-flight check**: Before reading persona files, verify the generic persona directory exists at `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/personas/generic/`. If the directory is missing or empty, stop with: "Cannot launch critics — persona files not found at `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/personas/generic/`. Run `install.sh` to symlink skills into your Claude config directory."
+
 Read all 3 generic persona files from `~/.claude/skills/mine.challenge/personas/generic/`:
 - `senior-engineer.md`
 - `systems-architect.md`
