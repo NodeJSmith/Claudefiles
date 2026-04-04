@@ -48,7 +48,31 @@ Run tests + linter/type checker after code review passes. Fix failures before co
 
 ## Commit Message Format
 
-`<type>: <description>` — types: feat, fix, refactor, docs, test, chore, perf, ci
+Follow [Conventional Commits](https://www.conventionalcommits.org/). Every commit message must use this format:
+
+```
+<type>: <description>
+```
+
+**Types**: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`
+
+**Rules**:
+- Type is **mandatory** — never commit without a type prefix
+- Description is lowercase, imperative mood ("add feature" not "added feature" or "adds feature")
+- No period at the end
+- Keep the first line under 72 characters
+- Optional body separated by a blank line for multi-line messages
+- Scope is optional: `feat(challenge): add orphan detection`
+
+**Choosing the right type**:
+- `feat` — new functionality visible to the user
+- `fix` — bug fix (something was broken, now it works)
+- `refactor` — code change that neither fixes a bug nor adds a feature
+- `docs` — documentation, comments, README, CHANGELOG, rules, SKILL.md prompt changes
+- `test` — adding or modifying tests only
+- `chore` — maintenance (deps, config, CI tweaks, tooling)
+- `perf` — performance improvement
+- `ci` — CI/CD pipeline changes
 
 Attribution disabled globally via ~/.claude/settings.json.
 
