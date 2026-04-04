@@ -17,7 +17,7 @@ All notable changes to this Claudefiles repository are documented here.
 - `rules/common/sudo.md` — rule for sudo operations: hook-first workflow with script-generation fallback for complex cases (#163)
 
 ### Fixed
-- Codebase health fixes from `/mine.challenge` adversarial review: atomic writes, rule/enforcement consistency, dead schema removal, platform-aware issue creation, and safety improvements across 31 files
+- Codebase health fixes from `/mine.challenge` adversarial review: atomic writes, rule/enforcement consistency, dead schema removal, platform-aware issue creation, and safety improvements across 31 files (#170)
 
 ### Changed
 - `mine.challenge` — orphan detection warns when specialist persona files exist but aren't in the mapping table; runs unconditionally for all target types (#168)
