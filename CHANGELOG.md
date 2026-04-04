@@ -6,6 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Fixed
 - `mine.address-pr-issues` — add mandatory markers for review thread fetching so Claude doesn't skip `gh-pr-threads` and falsely report "no review comments" (#172)
+- `install.sh` — add `-n` flag to `ln -sf` calls so re-runs replace symlinks-to-directories instead of creating self-referencing links inside them
 
 ## 2026-04-03
 
