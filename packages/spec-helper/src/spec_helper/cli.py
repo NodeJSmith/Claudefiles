@@ -172,9 +172,6 @@ def build_parser() -> argparse.ArgumentParser:
     p_cp_update.add_argument(
         "--last-completed-wp", default=None, help="Last completed WP ID"
     )
-    p_cp_update.add_argument(
-        "--warn-counter", type=int, default=None, help="WARN counter value"
-    )
     p_cp_update.add_argument("--tmpdir", default=None, help="Update tmpdir path")
     p_cp_update.add_argument(
         "--current-wp", default=None, help="Currently in-progress WP ID"

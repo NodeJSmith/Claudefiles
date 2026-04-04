@@ -34,7 +34,7 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 
 ## Contents
 
-### Skills (47)
+### Skills (46)
 
 | Skill | Description |
 |-------|-------------|
@@ -49,7 +49,6 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `mine.draft-plan` | Design doc → Work Package (WP) files with objectives, subtasks, test strategy, and lane tracking |
 | `mine.eval-repo` | Evaluate a third-party GitHub repo before adopting it -- test coverage, code quality, maintenance health, bus factor |
 | `mine.grill` | Multi-angle interrogation of a raw idea — product, design, engineering, scope, and adversarial lenses. Produces a brief.md that feeds into /mine.specify |
-| `mine.implementation-review` | Post-execution quality gate (internal, invoked by orchestrate Phase 3) — 7-category Opus review of all changed files against design doc and WP files |
 | `mine.look-and-feel` | Plan UI design direction — design tokens, color palettes, typography, spacing, and visual identity persisted to `design/direction.md` |
 | `mine.mockup` | Generate self-contained HTML mockup files — reads `design/direction.md` for consistent styling, delivers to `~/.claude/diagrams/` |
 | `mine.mutation-test` | Mutation testing -- intentionally break code to verify tests catch real bugs |
@@ -91,14 +90,12 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `i-teach-impeccable` | One-time setup — gathers design context and saves to `.impeccable.md` |
 | `i-typeset` | Typography — font choices, hierarchy, sizing, readability |
 
-### Commands (8)
+### Commands (6)
 
 | Command | Description |
 |---------|-------------|
 | `mine.issues` | Deep-dive issues by key, or scan and pick |
 | `mine.issues-scan` | Scan open issues, classify by effort, pick one to deep-dive |
-| `mine.look-and-feel` | Plan UI design direction and establish design tokens |
-| `mine.mockup` | Generate a self-contained HTML mockup |
 | `mine.permissions-audit` | Analyze frequent permission prompts and recommend allow-list entries |
 | `mine.pre-compact` | Generate a focused /compact prompt preserving what matters |
 | `mine.review` | Run code-reviewer and integration-reviewer in parallel on the current branch diff |

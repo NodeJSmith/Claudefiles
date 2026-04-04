@@ -24,12 +24,17 @@
 
 set -euo pipefail
 
-# Validate timeout is a non-negative integer
+# Validate timeout is a non-negative integer, capped at 30s
+# (harness timeout is 35000ms — hook must finish before SIGKILL)
 RAW_TIMEOUT="${CLAUDE_SUDO_POLL_TIMEOUT:-30}"
 case "$RAW_TIMEOUT" in
   '' | *[!0-9]*) TIMEOUT=30 ;;
   *) TIMEOUT="$RAW_TIMEOUT" ;;
 esac
+if [ "$TIMEOUT" -gt 30 ]; then
+  printf 'warning: CLAUDE_SUDO_POLL_TIMEOUT=%s exceeds 30s harness limit, capping to 30\n' "$TIMEOUT" >&2
+  TIMEOUT=30
+fi
 
 # Read hook input from stdin
 INPUT=$(cat)

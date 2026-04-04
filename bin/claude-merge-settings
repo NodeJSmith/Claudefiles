@@ -22,6 +22,7 @@ import argparse
 import json
 import os
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -80,9 +81,17 @@ merger = Merger(
 
 def _write_json(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2)
-        f.write("\n")
+    tmp_fd, tmp_path = tempfile.mkstemp(
+        dir=path.parent, suffix=".json", prefix=".tmp-"
+    )
+    try:
+        with os.fdopen(tmp_fd, "w") as f:
+            json.dump(data, f, indent=2)
+            f.write("\n")
+        os.replace(tmp_path, path)
+    except Exception:
+        os.unlink(tmp_path)
+        raise
 
 
 def _print_additions_summary(additions: dict[str, Any], indent: int = 4) -> None:
@@ -229,8 +238,11 @@ Examples:
         return _cmd_inspect(output_file)
 
     machine_path = home / ".claude" / "settings.machine.json"
+    claudefiles_dir = Path(
+        os.environ.get("CLAUDE_HOME", str(home / "Claudefiles"))
+    )
     layers: list[tuple[str, Path]] = [
-        ("Claudefiles", home / "Claudefiles" / "settings.json"),
+        ("Claudefiles", claudefiles_dir / "settings.json"),
         (
             "Dotfiles",
             Path(

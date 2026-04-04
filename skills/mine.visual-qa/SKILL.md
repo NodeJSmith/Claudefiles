@@ -306,7 +306,7 @@ When offering to read agent reports, list the temp file paths.
 
 **Fix issues** → `/mine.build`
 
-**Track without acting** → create issues via `gh-issue create`
+**Track without acting** → run `git-platform` first. On GitHub, create issues via `gh-issue create`. On ADO, save to `.claude/backlog.md` (automated work items not yet supported).
 
 **Different viewport** → re-run this skill with `--mobile` and/or `--dark`
 

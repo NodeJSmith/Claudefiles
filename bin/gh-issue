@@ -36,8 +36,13 @@ done
 # Any user can wire this up by creating a gh-app-token helper that prints
 # a valid GitHub App installation token.
 if command -v gh-app-token &> /dev/null && [[ -n "${GITHUB_APP_ID:-}" ]]; then
-  GH_TOKEN="$(gh-app-token)"
-  export GH_TOKEN
+  _token="$(gh-app-token 2> /dev/null)" || _token=""
+  if [[ -n "$_token" ]]; then
+    GH_TOKEN="$_token"
+    export GH_TOKEN
+  else
+    echo "warning: gh-app-token returned empty — falling back to personal token" >&2
+  fi
 fi
 
 exec gh issue "$@"

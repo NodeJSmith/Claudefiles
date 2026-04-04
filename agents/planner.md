@@ -1,6 +1,6 @@
 ---
 name: planner
-description: Expert planning specialist for complex features and refactoring. Use PROACTIVELY when users request feature implementation, architectural changes, or complex refactoring. Automatically activated for planning tasks.
+description: Lightweight planning specialist for quick feature planning within a single conversation. Use when the user explicitly asks to plan a feature without implementing it. Not for full implementation requests — those go to mine.build and the caliper workflow.
 tools: ["Read", "Grep", "Glob"]
 ---
 

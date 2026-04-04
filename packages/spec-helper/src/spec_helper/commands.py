@@ -4,7 +4,6 @@ import argparse
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -80,10 +79,10 @@ def cmd_init(args: argparse.Namespace) -> None:
     padded = f"{number:03d}"
     feature_dir = specs_dir(root) / f"{padded}-{slug}"
 
-    if feature_dir.exists():
+    try:
+        feature_dir.mkdir(parents=True, exist_ok=False)
+    except FileExistsError:
         die(f"Feature directory already exists: {feature_dir}", json_mode=args.json)
-
-    feature_dir.mkdir(parents=True)
 
     result = {
         "feature_number": padded,
@@ -303,7 +302,6 @@ def cmd_checkpoint_init(args: argparse.Namespace) -> None:
         tmpdir=args.tmpdir,
         visual_skip=args.visual_skip,
         dev_server_url=args.dev_server_url or "none",
-        warn_counter=0,
         last_completed_wp="none",
         started_at=args.started_at
         or datetime.now(timezone.utc)
@@ -364,8 +362,6 @@ def cmd_checkpoint_update(args: argparse.Namespace) -> None:
     updates: dict[str, Any] = {}
     if args.last_completed_wp is not None:
         updates["last_completed_wp"] = args.last_completed_wp
-    if args.warn_counter is not None:
-        updates["warn_counter"] = args.warn_counter
     if args.tmpdir is not None:
         updates["tmpdir"] = args.tmpdir
     if args.current_wp is not None:
@@ -375,7 +371,7 @@ def cmd_checkpoint_update(args: argparse.Namespace) -> None:
 
     if not updates:
         die(
-            "No fields to update. Use --last-completed-wp, --warn-counter, etc.",
+            "No fields to update. Use --last-completed-wp, --tmpdir, etc.",
             json_mode=args.json,
         )
 
@@ -567,8 +563,13 @@ def cmd_archive(args: argparse.Namespace) -> None:
 
 
 def _archive_feature(feature_dir: Path, tasks_dir: Path, git_root: Path) -> None:
-    """Delete tasks/ and update design.md status for a single feature."""
-    # Delete tasks/ via git rm -r (atomic, traceable)
+    """Delete tasks/ and update design.md status for a single feature.
+
+    Order: delete first, stamp second. If deletion fails, design.md is
+    untouched and re-running archive retries cleanly. The reverse order
+    would leave design.md stamped "archived" with tasks/ still present.
+    """
+    # Delete tasks/ via git rm -r (traceable)
     tasks_rel = str(tasks_dir.relative_to(git_root))
     proc = subprocess.run(
         ["git", "-C", str(git_root), "rm", "-r", "-q", tasks_rel],
@@ -577,18 +578,16 @@ def _archive_feature(feature_dir: Path, tasks_dir: Path, git_root: Path) -> None
         timeout=30,
     )
     if proc.returncode != 0:
-        # Only fall back to shutil if git says files are untracked
         stderr = proc.stderr.strip()
         if "not under version control" in stderr or "did not match" in stderr:
-            print(
-                "  warning: git rm failed (untracked files), removing directly",
-                file=sys.stderr,
+            raise RuntimeError(
+                f"Cannot archive {tasks_rel}: contains untracked files. "
+                f"Commit them first so git history preserves WP content, "
+                f"then re-run archive."
             )
-            shutil.rmtree(tasks_dir)
-        else:
-            raise RuntimeError(f"git rm failed for {tasks_rel}: {stderr}")
+        raise RuntimeError(f"git rm failed for {tasks_rel}: {stderr}")
 
-    # Update **Status:** in design.md (last, after confirmed deletion)
+    # Update **Status:** in design.md (after confirmed deletion)
     if not _update_design_status(feature_dir, "archived"):
         print(
             f"  warning: no design.md in {feature_dir.name} — status not updated",

@@ -129,9 +129,7 @@ Do not trust the implementer's self-reported status. When reviewing code changes
       return get_user(user_id)
 
   # Good
-  from typing import Optional
-
-  def process_user(user_id: str) -> Optional[User]:
+  def process_user(user_id: str) -> User | None:
       return get_user(user_id)
   ```
 
@@ -153,7 +151,7 @@ Do not trust the implementer's self-reported status. When reviewing code changes
   ```
 
 - **Incorrect Return Types**: Mismatched annotations
-- **Optional Not Used**: Nullable parameters not marked as Optional
+- **Nullable Types Not Using `X | None`**: Nullable parameters using `Optional[X]` instead of `X | None`
 
 ## Pythonic Code (HIGH)
 

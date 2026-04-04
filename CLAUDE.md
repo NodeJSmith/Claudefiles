@@ -125,6 +125,12 @@ This replaces the old `$CLAUDE_SESSION_ID` pattern, which failed in subagents an
 
 **Do NOT use `$CLAUDE_SESSION_ID` in temp file paths.** It's a SKILL.md string substitution that doesn't propagate to subagents or Bash tool calls.
 
+**Cleanup**: Temp directories accumulate across sessions. To remove stale ones older than 7 days:
+
+```bash
+find "${CLAUDE_CODE_TMPDIR:-/tmp}" -maxdepth 1 -name 'claude-*' -type d -mtime +7 -exec rm -rf {} +
+```
+
 ## Making Changes
 
 When editing skills or commands:

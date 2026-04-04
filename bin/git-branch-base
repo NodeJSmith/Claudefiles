@@ -40,7 +40,7 @@ if [[ -n "$current" ]]; then
     grep -v -e "^origin/${current}$" -e "^origin$" |
     head -20 |
     while IFS= read -r ref; do
-      count=$(git rev-list --count "${ref}..HEAD" 2> /dev/null) || continue
+      count=$(git rev-list --count --max-count=100 "${ref}..HEAD" 2> /dev/null) || continue
       printf '%d\t%s\n' "$count" "$ref"
     done | sort -n | head -1 | cut -f2)
 fi

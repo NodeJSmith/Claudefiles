@@ -153,7 +153,7 @@ AskUserQuestion:
     - label: "Build the fix (/mine.build)"
       description: "Direct implementation or full caliper workflow, depending on complexity"
     - label: "Create an issue"
-      description: "File a GitHub issue capturing this finding — deal with it later"
+      description: "File a tracked issue capturing this finding — deal with it later"
     - label: "Skip"
       description: "Noted, but no action needed right now"
 ```
@@ -166,12 +166,14 @@ Based on the user's choice per finding:
 - **Architectural problems** (wrong abstractions, missing layers, circular dependencies) → run `/mine.design` to investigate and plan the rearchitecture
 - **Complex fixes needing planning** → run `/mine.build` — assesses complexity and routes to direct implementation or the full caliper workflow
 - **Test coverage gaps** → write tests following TDD (see `rules/common/testing.md`)
-- **Create an issue** → file a GitHub issue (see below)
+- **Create an issue** → file an issue (see below)
 - **Multiple findings selected** → ask per finding, then suggest an order of attack for the ones being addressed now (highest impact first, dependency-aware — e.g., fix the circular deps before trying to refactor the modules caught in the cycle)
 
 ### Filing issues
 
-When the user chooses "Create an issue" for a finding, create it immediately:
+When the user chooses "Create an issue" for a finding, detect the platform first with `git-platform`.
+
+**GitHub**: Create it immediately:
 
 1. Run `get-skill-tmpdir mine-audit-issue` to create a temp directory, then write the issue body to `<dir>/body.md`:
    ```markdown
@@ -196,6 +198,8 @@ When the user chooses "Create an issue" for a finding, create it immediately:
    ```bash
    gh-issue create --title "<concise problem statement>" --body-file "<dir>/body.md"
    ```
+
+**Azure DevOps**: Automated work item creation is not yet supported. Tell the user and fall back to saving the finding to `.claude/backlog.md`.
 
 After creating the issue, confirm the URL and move on to the next finding. The user can batch multiple findings as issues — ask once per finding, don't force them to address everything in this session.
 

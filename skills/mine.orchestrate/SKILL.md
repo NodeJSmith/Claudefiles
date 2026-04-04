@@ -14,6 +14,18 @@ $ARGUMENTS — path to a feature directory (`design/specs/NNN-feature/`) or a sp
 
 ---
 
+## Resuming after context compaction
+
+If context compaction occurs mid-orchestration (new session, context window reset), resume by:
+
+1. Run `/mine.status` for quick orientation (branch, last commit, errors)
+2. Run `spec-helper checkpoint-read <feature_dir_name> --json` to recover full orchestration state (completed WPs, current WP, tmpdir, base commit)
+3. Re-invoke `/mine.orchestrate <feature_dir>` — the checkpoint detection in Phase 0 will pick up where you left off
+
+The checkpoint file (`tasks/.orchestrate-state.md`) persists across sessions. Per-WP temp artifacts (executor output, review files, screenshots) may be lost if `/tmp` was cleared between sessions — the resume path handles this gracefully by skipping review-file checks for already-completed WPs.
+
+---
+
 ## Phase 0: Locate the Work Packages
 
 ### Check for existing checkpoint (resume detection)
@@ -48,7 +60,6 @@ If `started_at` is older than 24 hours, append " (checkpoint is over 24 hours ol
 
 **On resume:**
 - Restore all key-value fields from the checkpoint: `feature_dir`, `tmpdir`, `visual_skip`, `dev_server_url`, `base_commit`, `started_at`
-- Reset `warn_counter` to 0 (consecutive counter loses meaning across sessions)
 - Verify `tmpdir` exists. If it does not, run `get-skill-tmpdir mine-orchestrate` to create a new one and note that subagent outputs from prior WPs are gone (code changes are in git; verdicts are in the checkpoint)
 - Re-read `<feature_dir>/design.md` and all `<feature_dir>/tasks/WP*.md` files (they may have been edited between sessions)
 - Skip the rest of Phase 0 (feature directory discovery, design doc read, WP file read, dev server check are all handled by the restore)
@@ -188,9 +199,9 @@ spec-helper wp-move <feature_dir_name> <wp_id> doing
 
 Where `<feature_dir_name>` is the directory name (e.g., `001-user-auth`), not the full path.
 
-### Step 2: Create temp directory
+### Step 2: Create per-WP subdirectory
 
-Run `get-skill-tmpdir mine-orchestrate` and note the directory path.
+Use the run-level tmpdir from the checkpoint (`tmpdir` field from Phase 0's `checkpoint-init`). Do NOT call `get-skill-tmpdir` here — it creates a new directory each time, orphaning previous WP evidence.
 
 Create a per-WP subdirectory: `<dir>/<wp_id>/` (e.g., `<dir>/wp01/`). Use these paths for subagent outputs within the subdirectory:
 - Executor output: `<dir>/<wp_id>/executor.md`

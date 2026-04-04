@@ -78,7 +78,8 @@ call_ado_api() {
   local auth_header
   auth_header=$(build_auth_header)
 
-  curl -s -X "$method" "$url" \
+  curl -s --fail-with-body --connect-timeout 10 --max-time 30 \
+    -X "$method" "$url" \
     -H "$auth_header" \
     -H "Content-Type: application/json" \
     "$@"
