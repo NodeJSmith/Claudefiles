@@ -96,7 +96,7 @@ The following tag names and values are consumed by calling skills (mine.design, 
 - **Contract tag names**: `severity`, `type`, `design-level`, `resolution`
 - **Contract tag names (TENSION only)**: `side-a`, `side-b`, `deciding-factor`
 - **Severity values**: `CRITICAL`, `HIGH`, `MEDIUM`, `TENSION`
-- **Presentation-only fields** (not contract — safe to evolve without updating callers): `raised-by`, `confidence`. `raised-by` values are display names from persona file `name:` frontmatter. `confidence` format: `N/<total> (<critic names>)` — e.g., `3/5 (Senior + Architect + Data Integrity)`. Total is the number of critics that successfully produced reports. If a critic fails to report, note the missing critic and reduce the denominator. If a future caller begins pattern-matching on `raised-by` values, treat persona name changes as a contract change at that point.
+- **Presentation-only fields** (not contract — safe to evolve without updating callers): `raised-by`, `confidence`. `raised-by` values use shortened display names derived from persona file `name:` frontmatter (e.g., "Skeptical Senior Engineer" → "Senior", "Data Integrity Critic" → "Data Integrity"). The mapping table's display names are the canonical short forms. `confidence` format: `N/<total> (<critic names>)` — e.g., `3/5 (Senior + Architect + Data Integrity)`. Total is the number of critics that successfully produced reports. If a critic fails to report, note the missing critic and reduce the denominator. If a future caller begins pattern-matching on `raised-by` values, treat persona name changes as a contract change at that point.
 - **design-level values**: `Yes`, `No`
 - **Resolution values**: `Auto-apply`, `User-directed`
 - **Findings file**: `<tmpdir>/findings.md`, or `--findings-out` path when provided by structured callers (always written)
@@ -317,7 +317,7 @@ The subagent prompt must include all of the following instructions:
 
 ### Reading critic reports
 
-Read `<tmpdir>/manifest.md` to get the list of expected critic report filenames. Then **read every listed file in full** (no `limit` or `offset`). Do NOT glob `*.md` — the tmpdir also contains `findings.md` and `manifest.md`. If a file listed in the manifest is missing, note the missing critic in synthesis output and adjust the confidence denominator. Skipping a file or reading only part of one means that critic's findings are silently dropped from synthesis.
+Read `<tmpdir>/manifest.md` to get the list of expected critic report filenames. Skip lines starting with `#` (comments, e.g., `# target-type:`) and empty lines — only non-comment, non-empty lines are filenames. Then **read every listed file in full** (no `limit` or `offset`). Do NOT glob `*.md` — the tmpdir also contains `findings.md` and `manifest.md`. If a file listed in the manifest is missing, note the missing critic in synthesis output and adjust the confidence denominator. Skipping a file or reading only part of one means that critic's findings are silently dropped from synthesis.
 
 ### Synthesis procedure
 
@@ -337,7 +337,7 @@ Three steps. Prioritize trustworthy output over compact output — showing an ex
 
 ### Write findings file
 
-After synthesis, **always** write the findings file to the output path provided. This file is the handoff contract for calling skills that generate revision plans. For the `Warnings:` header field: if `<tmpdir>/validation-warnings.md` was provided, write a one-sentence summary of its contents; otherwise write `none`.
+After synthesis, **always** write the findings file to the output path provided. This file is the handoff contract for calling skills that generate revision plans. For the `Warnings:` header field: if `<tmpdir>/validation-warnings.md` exists and is non-empty, write a one-sentence summary of its contents; otherwise write `none`.
 
 Format:
 
