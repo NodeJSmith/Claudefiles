@@ -4,16 +4,8 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-04-05
 
-### Added
-- `rules/common/findings.md` — new findings convention: fix-all default, auto-apply unambiguous fixes, collect user-directed answers before code changes, per-finding "file as issue" option (#176)
-
-### Removed
-- `rules/common/backlog.md` — replaced by findings convention (#176)
-- `skills/mine.audit` — use `/mine.challenge` instead (#176)
-
 ### Changed
-- `mine.challenge` — standalone invocations now resolve findings via findings.md instead of asking "which finding to address" (#176)
-- `mine.visual-qa`, `mine.brainstorm`, `mine.tool-gaps` — updated to use findings convention (or inline logic for brainstorm) (#176)
+- Replace backlog convention with findings convention — default is now fix-all with auto-apply for unambiguous fixes, user-directed answers collected before code changes, and per-finding "file as issue" option; remove `mine.audit` (use `/mine.challenge` instead) (#176)
 
 ## 2026-04-04
 
