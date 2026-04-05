@@ -205,7 +205,7 @@ Note: `rm -rf` is intentionally not pre-approved — the user will see a permiss
 
 ## What This Skill Does NOT Do
 
-- **Audit your own codebase** — use `/mine.audit` for that
+- **Audit your own codebase** — use `/mine.challenge` for that
 - **Research feasibility of adopting it** — use `/mine.research` if you need to evaluate how this would integrate into your specific project
 - **Security audit** — this checks for basic security hygiene (audit in CI, no secrets in code) but won't do a thorough vulnerability assessment
 - **Performance benchmarking** — can flag likely performance concerns from code reading but won't run benchmarks

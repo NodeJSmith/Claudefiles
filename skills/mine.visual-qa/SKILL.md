@@ -266,7 +266,7 @@ Read all report files from `<dir>/`:
 
 Merge and deduplicate findings. Prioritize by user impact. When agents disagree about the same element, present both assessments with attribution — don't silently pick one.
 
-If the combined findings total fewer than 3 issues, say so plainly: "The UI is in good shape. Here's what was checked and the few minor notes." Skip the backlog flow.
+If the combined findings total fewer than 3 issues, say so plainly: "The UI is in good shape. Here's what was checked and the few minor notes."
 
 ### Per-finding format
 
@@ -279,34 +279,30 @@ If the combined findings total fewer than 3 issues, say so plainly: "The UI is i
 **Suggested fix**: <concrete recommendation>
 ```
 
-### Save the backlog first
-
-If there are 3 or more actionable findings, invoke the backlog save flow from `rules/common/backlog.md` before presenting action options.
-
 ### After presenting findings
+
+This skill uses a skill-specific gate (per `rules/common/findings.md` Skill-Specific Overrides) because resolution paths include non-fix actions.
 
 ```
 AskUserQuestion:
   question: "What would you like to do with these findings?"
   multiSelect: true
   options:
-    - label: "Fix issues now (/mine.build)"
-      description: "Start implementing fixes for selected findings"
+    - label: "Fix issues now (Recommended)"
+      description: "Auto-apply unambiguous fixes; ask per-finding for judgment calls"
     - label: "Read a specific agent's full report"
       description: "See unfiltered findings from one of the analysis agents"
     - label: "Re-run with different viewport/theme"
       description: "Run again with --mobile, --dark, or --mobile --dark"
-    - label: "Create issues for later"
-      description: "File findings as tracked issues"
+    - label: "File as issues"
+      description: "File findings as tracked issues for later"
 ```
 
-When offering to read agent reports, list the temp file paths.
+When offering to read agent reports, list the temp file paths. If "Fix issues now" is selected, follow `rules/common/findings.md` for the resolve flow (collect all user-directed answers first, then execute fixes).
 
 ## Handoffs
 
-**Fix issues** → `/mine.build`
-
-**Track without acting** → run `git-platform` first. On GitHub, create issues via `gh-issue create`. On ADO, save to `.claude/backlog.md` (automated work items not yet supported).
+**Fix issues** → follow `rules/common/findings.md` resolve flow
 
 **Different viewport** → re-run this skill with `--mobile` and/or `--dark`
 

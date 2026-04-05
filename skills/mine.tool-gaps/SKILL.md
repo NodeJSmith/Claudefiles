@@ -175,7 +175,7 @@ Present findings ranked by priority, then use AskUserQuestion to get decisions.
 
 Permission friction findings should only appear here when there is a clear batch/multi-call pattern in the archaeology. If the permission prompt has no corresponding workaround pattern, omit it — it belongs in `mine.permissions-audit`, not here.
 
-Then ask which gaps to address and how:
+Then ask which gaps to address and how (skill-specific gate per `rules/common/findings.md` Skill-Specific Overrides — tool gaps have implement/issue/skip paths that don't fit the standard Proceed Gate):
 
 ```
 AskUserQuestion:
@@ -205,7 +205,7 @@ Hand off to `/mine.build` with the gap description. Do not draft code in this sk
 > "Handing off to `/mine.build` for `<gap name>`. This will assess complexity and route to the right implementation workflow."
 
 **Create issue:**
-Run `git-platform` to detect the hosting platform. Draft and file immediately on GitHub. On ADO, tell the user automated work item creation isn't supported yet and save to `.claude/backlog.md` instead.
+Draft and file immediately using `gh-issue create`.
 
 1. Run `get-skill-tmpdir mine-tool-gaps-issue` to create a temp directory, then write the body to `<dir>/body.md`:
    ```markdown
@@ -239,7 +239,7 @@ If the tool is missing from `rules/common/capabilities.md` or has a thin entry, 
 ## What This Skill Does NOT Do
 
 - **Fix anything** — this is diagnosis, not treatment. It ends when the user knows what gaps exist and has decided what to do about each one
-- **Audit code quality** — use `/mine.audit` for that
+- **Audit code quality** — use `/mine.challenge` for that
 - **Mine for bugs** — this is about missing features and recurring patterns, not defects
 
 ## Principles

@@ -266,21 +266,21 @@ AskUserQuestion:
   options:
     - label: "Save the session"
       description: "Write to design/brainstorms/YYYY-MM-DD-<topic>/brainstorm.md"
-    - label: "Create issues / save to backlog"
-      description: "File ideas as tracked issues or save to .claude/backlog.md"
+    - label: "Create issues"
+      description: "File ideas as tracked issues"
     - label: "Nothing — proceed"
       description: "Skip housekeeping and go straight to the next step"
 ```
 
 If "Challenge the top idea first" is selected: if the session was saved (housekeeping), invoke `/mine.challenge <brainstorm-file-path>`. If not saved, construct the argument from the top idea's name and description block and pass it as text. After challenge completes, loop back to this gate.
 
-### Creating issues / saving to backlog
+### Creating issues
 
-If selected: invoke the backlog save flow from `rules/common/backlog.md`. Treat the ranked ideas as the item list. Use the idea's ranking tier (e.g. "Top 3", score) as the label. The 3-item threshold does not apply here — the user explicitly selected this action.
+If selected, create one issue per idea using `gh-issue create`.
 
-**Execution order for housekeeping**: (1) create issues / save to backlog, (2) save the session, then proceed to the primary next step.
+**Execution order for housekeeping**: (1) create issues, (2) save the session, then proceed to the primary next step.
 
-For issue creation (GitHub via `gh-issue create`; on ADO, the backlog rule's platform fallback applies), use this template:
+Issue template:
 
 - **Title:** `[Brainstorm] <topic>: <concise idea name>`
 - **Body:**
