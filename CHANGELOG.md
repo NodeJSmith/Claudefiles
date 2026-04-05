@@ -2,6 +2,28 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-04-05
+
+### Changed
+- Impeccable i-* bundle remediation — 4 rounds of `/mine.challenge` adversarial review, 30 files changed
+- All modification skills (16) now propose changes and confirm before implementing — no skill writes code without user approval
+- `i-teach-impeccable` absorbs `mine.look-and-feel` — single writer for design context at `design/context.md`
+- Context Gathering Protocol rewritten — `design/context.md` is canonical, with migration fallbacks for `.impeccable.md` and `design/direction.md`
+- All MANDATORY PREPARATION blocks now use explicit `Read` instruction instead of prose "use the skill"
+
+### Removed
+- `i-overdrive` — WebGL/WASM/scroll-driven animations skill not in use
+- `mine.look-and-feel` — absorbed into `i-teach-impeccable`
+- `IMPECCABLE_VERSION.md` — git history preserves same info
+
+### Fixed
+- i-extract, i-harden, i-optimize missing MANDATORY PREPARATION blocks
+- i-clarify vs i-delight error copy contradiction (humor now scoped to non-blocking errors on playful brands)
+- i-animate vs i-delight spring physics contradiction (spring without overshoot is permitted)
+- i-harden out-of-scope server-side validation and test-writing sections removed
+- Hardcoded 19-skill suggestion lists in i-audit/i-critique replaced with dynamic instruction
+- Reference file paths switched from broken relative to absolute `~/.claude/skills/` paths
+
 ## 2026-04-04
 
 ### Fixed

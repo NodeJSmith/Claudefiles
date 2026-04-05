@@ -20,8 +20,7 @@
 | "audit the codebase", "find tech debt", "health check" | `/mine.audit` |
 | "research adding X", "feasibility study", "evaluate approach" | `/mine.research` |
 | "prior art", "how do others do this", "what patterns exist", "industry standards for X" | `/mine.prior-art` |
-<!-- NOTE: "design this UI" = visual direction (look-and-feel); "design this change" = architecture doc (design) -->
-| "design this UI", "design this dashboard", "look and feel", "establish design tokens", "plan the look and feel", "UI planning", "design system for this project", "craft the interface" | `/mine.look-and-feel` |
+<!-- NOTE: "design this UI" = visual direction (i-teach-impeccable); "design this change" = architecture doc (design) -->
 | "mockup this UI", "show me what it looks like", "HTML mockup", "UI preview", "generate a mockup" | `/mine.mockup` |
 | "visual QA", "screenshot review", "review the UI visually", "take screenshots and find issues", "UX review" | `/mine.visual-qa` |
 | "audit permissions", "reduce permission prompts" | `/mine.permissions-audit` |
@@ -62,7 +61,7 @@
 | "normalize the design", "make it consistent", "align with design system" | `/i-normalize` |
 | "improve onboarding", "empty states", "first-run experience" | `/i-onboard` |
 | "optimize frontend performance", "improve load time", "fix rendering" | `/i-optimize` |
-| "push it further", "technically ambitious", "full redesign" | `/i-overdrive` |
+| "design this UI", "design this dashboard", "look and feel", "establish design tokens", "plan the look and feel", "UI planning", "design system for this project", "craft the interface" | `/i-teach-impeccable` |
 | "setup impeccable", "design context setup", "teach impeccable" | `/i-teach-impeccable` |
 
 ## CLI Tools

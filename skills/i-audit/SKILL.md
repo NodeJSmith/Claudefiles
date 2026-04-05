@@ -6,7 +6,11 @@ user-invocable: true
 
 Run systematic quality checks and generate a comprehensive audit report with prioritized issues and actionable recommendations. Don't fix issues - document them for other commands to address.
 
-**First**: Use the i-frontend-design skill for design principles and anti-patterns.
+## MANDATORY PREPARATION
+
+Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
+
+---
 
 ## Diagnostic Scan
 
@@ -67,7 +71,7 @@ For each issue, document:
 - **Impact**: How it affects users
 - **WCAG/Standard**: Which standard it violates (if applicable)
 - **Recommendation**: How to fix it
-- **Suggested command**: Which command to use (prefer: /i-normalize, /i-onboard, /i-polish, /i-animate, /i-clarify, /i-audit, /i-quieter, /i-typeset, /i-harden, /i-overdrive, /i-delight, /i-arrange, /i-critique, /i-colorize, /i-bolder, /i-optimize, /i-adapt, /i-distill, /i-extract — or other installed skills you're sure exist)
+- **Suggested command**: Which modification skill to use for the fix. Do not suggest diagnostic skills (/i-audit, /i-critique) as fixes — they analyze, they don't fix. Only suggest skills you know are installed.
 
 #### Critical Issues
 [Issues that block core functionality or violate WCAG A]
@@ -104,7 +108,7 @@ Create actionable plan:
 
 ### Suggested Commands for Fixes
 
-Map issues to available commands. Prefer these: /i-normalize, /i-onboard, /i-polish, /i-animate, /i-clarify, /i-audit, /i-quieter, /i-typeset, /i-harden, /i-overdrive, /i-delight, /i-arrange, /i-critique, /i-colorize, /i-bolder, /i-optimize, /i-adapt, /i-distill, /i-extract. You may also suggest other installed skills you're sure exist, but never invent commands.
+Map issues to the most relevant modification skill. Do not suggest diagnostic skills (/i-audit, /i-critique) as fixes. Only suggest skills you know are installed.
 
 Examples:
 - "Use `/i-normalize` to align with design system (addresses N theming issues)"

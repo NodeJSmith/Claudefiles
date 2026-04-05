@@ -6,7 +6,7 @@ user-invocable: true
 
 ## MANDATORY PREPARATION
 
-Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: what the interface is trying to accomplish.
+Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: what the interface is trying to accomplish.
 
 ---
 
@@ -98,7 +98,7 @@ For each issue:
 - **What**: Name the problem clearly
 - **Why it matters**: How this hurts users or undermines goals
 - **Fix**: What to do about it (be concrete)
-- **Command**: Which command to use (prefer: /i-normalize, /i-onboard, /i-polish, /i-animate, /i-clarify, /i-audit, /i-quieter, /i-typeset, /i-harden, /i-overdrive, /i-delight, /i-arrange, /i-critique, /i-colorize, /i-bolder, /i-optimize, /i-adapt, /i-distill, /i-extract — or other installed skills you're sure exist)
+- **Command**: Which modification skill to use for the fix. Do not suggest diagnostic skills (/i-audit, /i-critique) as fixes. Only suggest skills you know are installed.
 
 ### Minor Observations
 Quick notes on smaller issues worth addressing.

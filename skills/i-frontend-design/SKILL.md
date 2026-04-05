@@ -22,9 +22,12 @@ Individual skills may require additional context — check the skill's preparati
 
 **Gathering order:**
 1. **Check current instructions (instant)**: If your loaded instructions already contain a **Design Context** section, proceed immediately.
-2. **Check .impeccable.md (fast)**: If not in instructions, read `.impeccable.md` from the project root. If it exists and contains the required context, proceed.
-3. **Check design/direction.md (fallback)**: If `.impeccable.md` doesn't exist, check for `design/direction*.md`. If found, read it — it contains design tokens and brand context from `/mine.look-and-feel`. Extract the target audience, intent, and aesthetic direction from its sections and proceed.
-4. **Run /i-teach-impeccable (REQUIRED)**: If none of the above sources have context, you MUST run the i-teach-impeccable skill NOW before doing anything else. Do NOT skip this step. Do NOT attempt to infer context from the codebase instead.
+2. **Check design/context.md (canonical)**: Read `design/context.md` from the project root. If it exists and contains the required prose sections (Users & Purpose, Brand Personality, Aesthetic Direction), proceed. The Design Tokens section may be empty — that's valid.
+3. **Check .impeccable.md (migration fallback)**: If `design/context.md` doesn't exist, check `.impeccable.md` in the project root. If found and it contains the required context, proceed.
+4. **Check design/direction.md (migration fallback)**: If neither of the above exist, check for `design/direction.md` (exact filename). If found, read it and extract audience, intent, and aesthetic direction from its sections.
+5. **Run /i-teach-impeccable (REQUIRED)**: If none of the above sources have context, you MUST run /i-teach-impeccable NOW before doing anything else. Do NOT skip this step. Do NOT attempt to infer context from the codebase instead.
+
+**Hard gate**: If a context file exists (any of steps 2-4) but is missing required prose sections (Users & Purpose / Users, Brand Personality, Aesthetic Direction), redirect to /i-teach-impeccable with a message identifying what's missing. Do not proceed with incomplete context — a partial file is more dangerous than no file.
 
 ---
 
@@ -47,7 +50,7 @@ Then implement working code that is:
 ## Frontend Aesthetics Guidelines
 
 ### Typography
-→ *Consult [typography reference](reference/typography.md) for scales, pairing, and loading strategies.*
+→ *Consult [typography reference](~/.claude/skills/i-frontend-design/reference/typography.md) for scales, pairing, and loading strategies.*
 
 Choose fonts that are beautiful, unique, and interesting. Pair a distinctive display font with a refined body font.
 
@@ -58,7 +61,7 @@ Choose fonts that are beautiful, unique, and interesting. Pair a distinctive dis
 **DON'T**: Put large icons with rounded corners above every heading—they rarely add value and make sites look templated
 
 ### Color & Theme
-→ *Consult [color reference](reference/color-and-contrast.md) for OKLCH, palettes, and dark mode.*
+→ *Consult [color reference](~/.claude/skills/i-frontend-design/reference/color-and-contrast.md) for OKLCH, palettes, and dark mode.*
 
 Commit to a cohesive palette. Dominant colors with sharp accents outperform timid, evenly-distributed palettes.
 
@@ -71,7 +74,7 @@ Commit to a cohesive palette. Dominant colors with sharp accents outperform timi
 **DON'T**: Default to dark mode with glowing accents—it looks "cool" without requiring actual design decisions
 
 ### Layout & Space
-→ *Consult [spatial reference](reference/spatial-design.md) for grids, rhythm, and container queries.*
+→ *Consult [spatial reference](~/.claude/skills/i-frontend-design/reference/spatial-design.md) for grids, rhythm, and container queries.*
 
 Create visual rhythm through varied spacing—not the same padding everywhere. Embrace asymmetry and unexpected compositions. Break the grid intentionally for emphasis.
 
@@ -94,7 +97,7 @@ Create visual rhythm through varied spacing—not the same padding everywhere. E
 **DON'T**: Use modals unless there's truly no better alternative—modals are lazy
 
 ### Motion
-→ *Consult [motion reference](reference/motion-design.md) for timing, easing, and reduced motion.*
+→ *Consult [motion reference](~/.claude/skills/i-frontend-design/reference/motion-design.md) for timing, easing, and reduced motion.*
 
 Focus on high-impact moments: one well-orchestrated page load with staggered reveals creates more delight than scattered micro-interactions.
 
@@ -102,10 +105,10 @@ Focus on high-impact moments: one well-orchestrated page load with staggered rev
 **DO**: Use exponential easing (ease-out-quart/quint/expo) for natural deceleration
 **DO**: For height animations, use grid-template-rows transitions instead of animating height directly
 **DON'T**: Animate layout properties (width, height, padding, margin)—use transform and opacity only
-**DON'T**: Use bounce or elastic easing—they feel dated and tacky; real objects decelerate smoothly
+**DON'T**: Use bounce or elastic easing—they feel dated and tacky. Spring physics without visible overshoot is acceptable (high tension, high friction); real objects decelerate smoothly, they don't bounce.
 
 ### Interaction
-→ *Consult [interaction reference](reference/interaction-design.md) for forms, focus, and loading patterns.*
+→ *Consult [interaction reference](~/.claude/skills/i-frontend-design/reference/interaction-design.md) for forms, focus, and loading patterns.*
 
 Make interactions feel fast. Use optimistic UI—update immediately, sync later.
 
@@ -116,14 +119,14 @@ Make interactions feel fast. Use optimistic UI—update immediately, sync later.
 **DON'T**: Make every button primary—use ghost buttons, text links, secondary styles; hierarchy matters
 
 ### Responsive
-→ *Consult [responsive reference](reference/responsive-design.md) for mobile-first, fluid design, and container queries.*
+→ *Consult [responsive reference](~/.claude/skills/i-frontend-design/reference/responsive-design.md) for mobile-first, fluid design, and container queries.*
 
 **DO**: Use container queries (@container) for component-level responsiveness
 **DO**: Adapt the interface for different contexts—don't just shrink it
 **DON'T**: Hide critical functionality on mobile—adapt the interface, don't amputate it
 
 ### UX Writing
-→ *Consult [ux-writing reference](reference/ux-writing.md) for labels, errors, and empty states.*
+→ *Consult [ux-writing reference](~/.claude/skills/i-frontend-design/reference/ux-writing.md) for labels, errors, and empty states.*
 
 **DO**: Make every word earn its place
 **DON'T**: Repeat information users can already see
