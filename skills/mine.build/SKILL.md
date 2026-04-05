@@ -47,7 +47,7 @@ If the work touches frontend (CSS, components, layouts, styles), check for desig
 
 ### Detect prior analysis
 
-Before routing, check whether the conversation already contains findings from an analysis skill or command (`/mine.challenge`, `/mine.audit`, `/mine.brainstorm`, `/mine.research`). Signals:
+Before routing, check whether the conversation already contains findings from an analysis skill or command (`/mine.challenge`, `/mine.brainstorm`, `/mine.research`). Signals:
 
 - Structured findings with severity labels (CRITICAL / HIGH / MEDIUM)
 - A research brief (contains "Research Brief:", "Options Evaluated", "Feasibility Analysis" headers, or YAML frontmatter with `proposal:` and `flexibility:` fields)
