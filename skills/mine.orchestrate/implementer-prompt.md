@@ -25,7 +25,7 @@ Pause and answer these before touching any file:
 2. **Missing context** — do you need to read any file not mentioned in the WP's Subtasks to understand the existing code? (e.g., a base class, a config schema, a test fixture) If yes, read it now.
 3. **Test command** — can you determine the correct test command from the WP's Test Strategy section and the TDD Reference? Follow the test discovery order in the TDD Reference. If the test command is unclear or unrunnable after discovery, treat it as a BLOCKED condition: write `BLOCKED: test command is unrunnable — <reason>` to the output file and stop.
 
-Document your answers briefly before starting. If a blocker exists that prevents the WP from proceeding, write `BLOCKED: <reason>` to the output file and stop.
+Document your answers briefly before starting — these appear in the `Pre-implementation decisions` section of your output. If a blocker exists that prevents the WP from proceeding, write `BLOCKED: <reason>` to the output file and stop. Unresolved ambiguity with no reasonable inference from the design doc should be treated as BLOCKED.
 
 ## Step Execution
 
@@ -79,6 +79,7 @@ Check each item before writing the result to the output file:
 - [ ] No files were changed outside what the WP's Subtasks describe (unless bug fix — note it)
 - [ ] No Review Guidance constraints were violated
 - [ ] No scope was added beyond the WP spec
+- [ ] On retry: all findings from reviewer files are addressed (re-read reviewer files before checking this item)
 
 ## Visual Verification
 
@@ -175,6 +176,9 @@ Write structured result to the temp file path provided:
 ## Task N result
 
 **Verdict:** PASS | FAIL | BLOCKED
+
+**Pre-implementation decisions:**
+- [none] OR [ambiguity resolutions from pre-implementation questions, e.g. "Q1: 'update the handler' resolved as UserHandler.update() based on design doc"]
 
 **Files changed:**
 - path/to/file.py — what changed

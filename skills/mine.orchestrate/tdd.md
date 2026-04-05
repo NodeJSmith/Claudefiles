@@ -69,7 +69,7 @@ None of these are acceptable permanent states. Fix them.
 
 ## Parallel Execution
 
-Before using `-n auto`, verify `pytest-xdist` is installed: check `pip list | grep xdist` (or `uv pip list`, `poetry show`, etc. depending on the project's package manager). If not installed, use serial execution and note it in the output.
+Before using `-n auto`, verify `pytest-xdist` is installed: run `pip show pytest-xdist` (or `uv pip show pytest-xdist`, `poetry show pytest-xdist`, etc. depending on the project's package manager) — a zero exit code means installed. If not installed, use serial execution and note it in the output.
 
 Use `-n auto` for test suites with 50+ tests. Only run serially when:
 - `pytest-xdist` is not installed

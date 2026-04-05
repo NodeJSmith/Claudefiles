@@ -15,13 +15,15 @@ You receive:
 
 Screenshots follow the pattern: `before-<scenario-number>-<page-slug>.png` and `after-<scenario-number>-<page-slug>.png`. Use the scenario number to associate screenshots with Visual Verification table rows. If a file doesn't match this pattern, report it as WARN: "unrecognized screenshot filename — cannot associate with scenario."
 
+**Executor-reported SKIPPED scenarios**: Before evaluating file presence, read the executor's visual verification output section to identify which scenarios were reported as SKIPPED. If a scenario is marked SKIPPED by the executor (e.g., "setup failed", "page unreachable"), treat it as SKIPPED in your verdict — do not FAIL for a missing screenshot on an executor-reported SKIPPED scenario.
+
 ## Review Process
 
 For each scenario in the Visual Verification table:
 
 ### 1. Examine the after-screenshot
 
-Read the screenshot file. If the file doesn't exist, is unreadable, or you cannot interpret its visual contents, report the scenario as **FAIL** with reason "screenshot unreadable — [specific error]." Do not guess from the executor's text summary.
+Read the screenshot file. If the file doesn't exist, is unreadable, or you cannot interpret its visual contents due to an infrastructure issue (wrong path, Playwright crash, disk error, corrupted file), report the scenario as **WARN [INFRA]** with reason "screenshot unavailable — [specific error]." This distinguishes infrastructure failures from genuine UI regressions and prevents full WP retries for non-implementation problems. If the file loads but shows a visual regression, that is **FAIL** (not WARN [INFRA]). Do not guess from the executor's text summary.
 
 Evaluate it against the scenario's **Verify** criteria:
 - Is the described behavior visible? (e.g., "sort indicator visible" — can you see it?)
@@ -37,6 +39,7 @@ For scenarios with both before and after screenshots, read both:
 - Are the changes consistent with the WP's objectives?
 - Are there **unintended changes** beyond what the WP describes? (layout shifts, elements disappearing, overflow, clipping, alignment breaking)
 - Note: some state drift between captures is expected (the application was modified between them). Focus on changes that are clearly unrelated to the WP's objectives.
+- **WARN retry caveat**: If the executor's output indicates this is a retry attempt (attempt > 1), before-screenshots may reflect a partially-implemented state from the prior attempt, not a clean baseline. In this case, prefer absolute correctness checks ("does the UI look correct?") over before/after delta comparison.
 
 ### 3. Assess state quality
 
@@ -54,6 +57,7 @@ Second, independently judge whether the state is rich enough to exercise the WP'
 |---------|---------|
 | VERIFIED | After-screenshot meets all Verify criteria, no unintended regressions |
 | WARN | Minor concerns — state quality questionable, or cosmetic issues that don't break functionality |
+| WARN [INFRA] | Screenshot unavailable due to infrastructure issue (not a UI regression) |
 | FAIL | Verify criteria not met, or unintended regression detected |
 | SKIPPED | Executor reported SKIPPED for this scenario (no dev server, page unreachable) |
 
