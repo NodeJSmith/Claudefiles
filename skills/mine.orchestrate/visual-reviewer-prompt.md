@@ -11,6 +11,10 @@ You receive:
 - The executor's **before/after screenshots** (file paths discovered by the orchestrator)
 - The executor's **visual verification output** (structured per-scenario results)
 
+## Screenshot Naming Convention
+
+Screenshots follow the pattern: `before-<scenario-number>-<page-slug>.png` and `after-<scenario-number>-<page-slug>.png`. Use the scenario number to associate screenshots with Visual Verification table rows. If a file doesn't match this pattern, report it as WARN: "unrecognized screenshot filename — cannot associate with scenario."
+
 ## Review Process
 
 For each scenario in the Visual Verification table:

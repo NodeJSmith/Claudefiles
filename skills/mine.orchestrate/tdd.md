@@ -1,18 +1,19 @@
 # TDD Reference
 
-Reference for the phase-executor subagent. Follow this during every task that involves code changes.
+Reference for the executor subagent. Follow this during every task that involves code changes.
 
 ## Test Discovery
 
-Before running any test, find the correct command. Never guess.
+Before running any test, find the correct command. Never guess. Follow this discovery order (from `rules/common/testing.md`):
 
 1. **CLAUDE.md** — look for a "Test Execution" or "Testing" section; if present, use that command
 2. **CI config** — `.github/workflows/*.yml`, `.gitlab-ci.yml` — use the exact command CI uses
-3. **Task runners** — `noxfile.py` → `nox -s test`; `tox.ini` → `tox -e py311`; `Makefile` → `make test`
-4. **Package manager** — `uv.lock` → `uv run pytest`; `poetry.lock` → `poetry run pytest`
+3. **Task runners** — `noxfile.py`, `tox.ini`, `Makefile`, `pyproject.toml` scripts
+4. **Documentation** — README, CONTRIBUTING
 5. **Ask** — if nothing found, use AskUserQuestion before running anything
+6. **Fallback** — `pytest` (or equivalent) as last resort
 
-The presence of `uv.lock` does NOT mean skip discovery. A project can use uv for deps and nox for tests.
+Never run `pytest` directly without first completing the full discovery cascade.
 
 ## Test Co-location
 
@@ -43,6 +44,8 @@ If the test passes vacuously, fix the test before proceeding.
 
 ## Boundary Patterns
 
+When no project test layout is established, follow this default structure:
+
 | What you're testing | Test type | Where it lives |
 |---------------------|-----------|----------------|
 | Pure function, no I/O | Unit | `tests/unit/` |
@@ -50,6 +53,8 @@ If the test passes vacuously, fix the test before proceeding.
 | Database reads/writes | Integration | `tests/integration/` |
 | HTTP API calls | Integration | `tests/integration/` |
 | User-visible flows end-to-end | E2E | `tests/e2e/` |
+
+If the project already has a test directory structure, follow existing conventions instead of these defaults.
 
 When in doubt: if the test needs a real database, real HTTP, or real filesystem → integration. Otherwise → unit.
 
@@ -64,7 +69,10 @@ None of these are acceptable permanent states. Fix them.
 
 ## Parallel Execution
 
+Before using `-n auto`, verify `pytest-xdist` is installed: check `pip list | grep xdist` (or `uv pip list`, `poetry show`, etc. depending on the project's package manager). If not installed, use serial execution and note it in the output.
+
 Use `-n auto` for test suites with 50+ tests. Only run serially when:
+- `pytest-xdist` is not installed
 - Debugging a specific failure
 - The suite has fewer than 50 tests
 - A known isolation issue is actively being fixed

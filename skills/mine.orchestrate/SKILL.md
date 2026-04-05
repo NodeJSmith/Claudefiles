@@ -62,6 +62,7 @@ If `started_at` is older than 24 hours, append " (checkpoint is over 24 hours ol
 - Restore all key-value fields from the checkpoint: `feature_dir`, `tmpdir`, `visual_skip`, `dev_server_url`, `base_commit`, `started_at`
 - Verify `tmpdir` exists. If it does not, run `get-skill-tmpdir mine-orchestrate` to create a new one and note that subagent outputs from prior WPs are gone (code changes are in git; verdicts are in the checkpoint)
 - Re-read `<feature_dir>/design.md` and all `<feature_dir>/tasks/WP*.md` files (they may have been edited between sessions)
+- **Stale verdict check**: For each completed WP (those with verdicts in the checkpoint), check whether the WP file was modified after the checkpoint's `started_at` timestamp: `git log --since="<started_at>" --oneline -- <feature_dir>/tasks/<WP_ID>.md`. If the file was modified, surface a warning: "WP<NN> was edited since the orchestration started — its prior PASS verdict may no longer be valid." This does not require a hard stop, just visibility before proceeding.
 - Skip the rest of Phase 0 (feature directory discovery, design doc read, WP file read, dev server check are all handled by the restore)
 - Jump directly to Phase 2 (skip Phase 1 entirely). If `current_wp` is set in the checkpoint (meaning a WP was in progress when the session ended), resume from that WP. Otherwise, skip all WPs up to and including `last_completed_wp` and start from the next WP.
 - Clear the in-progress WP marker after resuming:
@@ -118,9 +119,9 @@ If any WP contains a `## Visual Verification` section, check for a running dev s
 
 ```bash
 # Linux
-ss -tlnp 2>/dev/null | grep -E ':(3000|3001|4200|5000|5173|8000|8080|8888) ' | head -5
+ss -tlnp 2>/dev/null | grep -E ':(3000|3001|3002|3003|4173|4200|4321|5000|5001|5173|5174|8000|8001|8080|8443|8888|9000) ' | head -5
 # macOS fallback (if ss is unavailable)
-lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null | grep -E ':(3000|3001|4200|5000|5173|8000|8080|8888) ' | head -5
+lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null | grep -E ':(3000|3001|3002|3003|4173|4200|4321|5000|5001|5173|5174|8000|8001|8080|8443|8888|9000) ' | head -5
 ```
 
 If a server is found, derive the URL from the matched port (e.g., `http://localhost:3000`). If multiple ports match, prefer the first one and note the others.
@@ -232,7 +233,6 @@ If the WP doesn't clearly match any row, use `general-purpose` (the default). Wh
 ### Step 4: Launch executor subagent
 
 Read these files:
-- `~/.claude/skills/mine.orchestrate/phase-executor-prompt.md`
 - `~/.claude/skills/mine.orchestrate/implementer-prompt.md`
 - `~/.claude/skills/mine.orchestrate/tdd.md`
 
@@ -246,9 +246,6 @@ You are executing a single Work Package from an implementation plan.
 
 ## Design doc (architecture reference)
 <full design.md content>
-
-## Phase executor instructions
-<full phase-executor-prompt.md content>
 
 ## Implementer instructions
 <full implementer-prompt.md content>
@@ -289,8 +286,11 @@ You are independently verifying a completed Work Package.
 ## Work Package spec
 <full WP*.md content>
 
-## Design doc (architecture reference)
+## Design doc (supplemental architecture reference)
 <full design.md content>
+
+## Changed files
+<contents of changed-files.txt from Step 4.5>
 
 ## Executor result
 <full executor temp file content>
@@ -303,16 +303,44 @@ Write your structured review to: <spec reviewer temp file path>
 
 Wait for the subagent to complete. Read the spec reviewer temp file.
 
+### Step 5.3: Test gate (independent test re-run)
+
+After the spec reviewer completes (regardless of verdict), re-run the project's test suite independently. This separates test execution from the spec reviewer's code-inspection role.
+
+1. **Discover the test command** using the discovery order from `rules/common/testing.md` (CLAUDE.md → CI config → task runners → documentation → ask user → fallback). Run from the repository root. If the executor's output includes the test command it used, prefer that command to avoid discovery drift between the executor and the test gate.
+2. **Run the test command** and capture output.
+3. **If tests fail**: note the failures. This does not override the spec reviewer's verdict — if the spec reviewer returned PASS but tests fail, record the test failure for the Step 9 summary. If the spec reviewer returned FAIL, the test failure reinforces the FAIL.
+4. **Record the test result** in the per-WP temp directory: `<dir>/<wp_id>/test-gate.md` with the command used and output summary.
+
+This step is informational — it provides independent test evidence for the Step 9 summary. The spec reviewer's verdict remains the primary gate for Step 5.5.
+
 ### Step 5.5: WARN fix loop (if spec reviewer returned WARN)
 
 **If the spec reviewer returned WARN**, do NOT proceed to the visual reviewer or code review yet. Instead, attempt one automatic fix:
 
 1. **Read the spec reviewer's WARN details** from the spec reviewer temp file
-2. **Re-run the executor (Step 4)** with the `## Previous review feedback` section added to the executor prompt. Populate only the **Spec reviewer** section (code reviewer and visual reviewer have not run yet). Truncate feedback to 50 lines if it exceeds that length. Only include the most recent attempt's feedback (not accumulated from prior attempts).
+2. **Re-run the executor (Step 4)** with the `## Previous review feedback` section added to the executor prompt. Provide the **spec reviewer file path only** (code reviewer and visual reviewer have not run yet). Instruct the executor: "Fix only the gap identified by the spec reviewer. Read the spec reviewer file at the path below. Do not re-implement passing subtasks — read the existing code before making changes." If the WP has visual scenarios, add: "Re-capture baseline before-screenshots as if starting fresh — do not re-use before-screenshots from the prior attempt."
 3. **Re-capture changed files (Step 4.5)** — the retry executor may have modified different files than the original run.
 4. **Re-run the spec reviewer (Step 5)** on the executor's updated output
-5. **If PASS after retry** → continue to Step 5.7 (visual reviewer) and then Step 7 (code reviewer) as normal. The WARN retry replaces only Steps 4, 4.5, and 5.
-6. **If still WARN after 1 retry** → escalate to the user using the FAIL gate at Step 9.5 (same options as FAIL). One retry that can't fix a minor gap means either the gap isn't executor-fixable or the spec reviewer's bar is miscalibrated — either way, escalate.
+5. **Re-run the test gate (Step 5.3)** on the updated code
+6. **If PASS after retry** → continue to Step 5.7 (visual reviewer) and then Step 7 (code reviewer) as normal. The WARN retry replaces only Steps 4, 4.5, 5, and 5.3.
+7. **If still WARN after 1 retry** → escalate to the user with a distinct prompt that signals this is a persistent minor gap, not a hard failure:
+
+```
+AskUserQuestion:
+  question: "WP<NN> has a minor gap that couldn't be resolved automatically: <WARN summary from spec reviewer>. The spec reviewer returned WARN on both the original and retry run."
+  header: "WARN persist"
+  multiSelect: false
+  options:
+    - label: "Fix and retry this WP"
+      description: "Re-run the executor with the reviewer's notes (final attempt — if WARN persists, only 'Mark as blocked' or 'Stop here' will be offered)"
+    - label: "Mark as blocked and skip"
+      description: "Record the gap and move to the next WP"
+    - label: "Stop here"
+      description: "Pause execution; resume later with /mine.orchestrate"
+```
+
+If the user chose "Fix and retry" from the WARN persistence prompt, run one more executor cycle (Steps 4, 4.5, 5, 5.3). If the spec reviewer returns WARN again, present only "Mark as blocked and skip" and "Stop here" — do not offer another retry.
 
 The WARN retry happens within a single WP's execution. The checkpoint is not updated during retries — it only updates after the final verdict.
 
@@ -334,10 +362,14 @@ Before launching the visual reviewer, discover screenshots by Globbing the per-W
 Glob: <dir>/<wp_id>/*.png
 ```
 
-This is more reliable than parsing screenshot paths from the executor's text output. If no `.png` files are found, distinguish the cause:
+This is more reliable than parsing screenshot paths from the executor's text output.
+
+**Pre-launch vision check**: Before launching the visual reviewer subagent, read one of the discovered PNG files in the orchestrator's own context using the Read tool. If the image renders (you can describe its contents), vision is available — proceed. If the Read fails or returns uninterpretable binary data, set Visual to SKIPPED with note "no vision-capable model available" and proceed to Step 6.
+
+If no `.png` files are found, distinguish the cause:
 - If `visual_skip` is set → Visual = SKIPPED "no dev server (orchestrator)" (should not reach here — Step 5.7 short-circuits above, but defensive)
 - If the executor reported all scenarios as SKIPPED → Visual = SKIPPED with the executor's reasons
-- Otherwise (dev server was available, scenarios existed, but no screenshots) → Visual = WARN "executor did not capture screenshots — check executor output for errors"
+- Otherwise (dev server was available, scenarios existed, but no screenshots) → Visual = FAIL "executor did not capture screenshots despite dev server being available — check executor output for errors"
 
 Launch a `general-purpose` subagent:
 
@@ -361,7 +393,7 @@ Write your review to: <dir>/<wp_id>/visual-review.md
 
 Wait for the subagent to complete. Read the visual reviewer output file.
 
-**Fallback:** If the visual reviewer output file is empty or unparseable after the subagent completes, treat as WARN with note "visual verification inconclusive — reviewer produced no output."
+**Fallback:** If the visual reviewer output file is empty or unparseable after the subagent completes: if the dev server was available and screenshots exist on disk, treat as FAIL with note "visual reviewer failed to produce output despite available screenshots." If no screenshots exist (executor reported SKIPPED), treat as WARN with note "visual verification inconclusive — no screenshots and no reviewer output."
 
 **Visual verdict mapping:**
 
@@ -430,7 +462,7 @@ The integration-reviewer checks for duplication, convention drift, misplacement,
 
 Write the output to `<dir>/<wp_id>/integration-review.md`.
 
-Read the integration-reviewer output. If it returns BLOCK verdict, the WP verdict becomes FAIL.
+Read the integration-reviewer output. Verdict routing: APPROVE and WARN both allow the WP to proceed (WARN is surfaced in the Step 9 summary as a note); only BLOCK triggers a WP FAIL verdict.
 
 ### Step 8.5: Review gate (GATE)
 
@@ -494,7 +526,7 @@ spec-helper checkpoint-update <feature_dir_name> --current-wp <WP_ID> --current-
 
 This ensures resume correctly returns to this WP instead of skipping it. Then:
 
-- **Fix and retry**: lane stays `doing`; set `current_wp_status: retry_pending`. Re-run from Step 3 (which includes Step 4 executor + Step 4.5 file capture) with the `## Previous review feedback` section added to the executor prompt. For FAIL retries, populate **all three** reviewer sections (spec reviewer, code reviewer, visual reviewer) since all reviewers have completed by this point. Truncate feedback to 50 lines if it exceeds that length. Only include the most recent attempt's feedback.
+- **Fix and retry**: lane stays `doing`; set `current_wp_status: retry_pending`. Re-run from Step 3 (which includes Step 4 executor + Step 4.5 file capture) with the `## Previous review feedback` section added to the executor prompt. For FAIL retries, provide **all three** reviewer file paths (spec reviewer, code reviewer, visual reviewer) since all reviewers have completed by this point. The executor reads these files directly — do not inline or truncate the reviewer output. Only provide the most recent attempt's reviewer file paths.
 - **Mark as blocked and skip**: set `current_wp_status: blocked`. Move to `for_review` (signals needs human attention)
   ```bash
   spec-helper wp-move <feature_dir_name> <wp_id> for_review
@@ -522,9 +554,16 @@ Do not offer "Fix and retry" or "skip" for architectural blocks — retrying wit
 
 #### 10a: Create WIP commit
 
-Stage only the files from the changed file list (refreshed after the code-reviewer loop). Do **not** use `git add -A` — it stages unrelated files (scratch files, editor backups, files from other features).
+Re-capture the changed file list immediately before staging to ensure it includes any files modified by the code-reviewer auto-fix loop or integration-reviewer feedback:
 
-Write the changed file list (one path per line) to `<dir>/<wp_id>/changed-files.txt`, then stage using `--pathspec-from-file` to avoid shell argument limits:
+```bash
+git diff --name-only HEAD
+git ls-files --others --exclude-standard
+```
+
+Combine both lists (deduped) and write to `<dir>/<wp_id>/changed-files.txt` (overwriting the previous version). Do **not** use `git add -A` — it stages unrelated files (scratch files, editor backups, files from other features).
+
+Stage using `--pathspec-from-file` to avoid shell argument limits:
 
 ```bash
 git add --all --pathspec-from-file=<dir>/<wp_id>/changed-files.txt
@@ -620,7 +659,7 @@ AskUserQuestion:
 ```
 
 **On "Address fixes":**
-1. Dispatch a fresh `general-purpose` subagent with: the impl-review findings, the relevant file paths, `<feature_dir>/design.md` content, and `implementer-prompt.md` content. Instruct: "Fix only the listed blocking issues. Do not expand scope beyond these findings."
+1. Dispatch a fresh `general-purpose` subagent with: the impl-review findings, the relevant file paths, `<feature_dir>/design.md` content, `implementer-prompt.md` content, and `tdd.md` content. Instruct: "Fix only the listed blocking issues. Do not expand scope beyond these findings."
 2. After the subagent completes, re-run `code-reviewer` and `integration-reviewer` on the fix diff in parallel (both in a single message)
 3. Re-run `/mine.implementation-review <feature_dir>`
 4. If it now returns APPROVE, continue to Step 3
@@ -657,7 +696,9 @@ After the subagent completes, read `<tmpdir>/challenge-findings.md`.
 
 ### Final gate: Combined review results
 
-Present the combined findings from implementation review and challenge:
+Present the combined findings from implementation review and challenge. **The options presented depend on finding severity:**
+
+**If challenge findings include CRITICAL or HIGH severity:** suppress "Accept and ship" — only offer "Address findings" and "Stop here" until no CRITICAL/HIGH remain.
 
 ```
 AskUserQuestion:
@@ -668,17 +709,17 @@ AskUserQuestion:
     - label: "Address findings"
       description: "Dispatch a fresh executor subagent with the findings, then re-review"
     - label: "Accept and ship"
-      description: "Findings noted — proceed to /mine.ship"
+      description: "Findings noted — proceed to /mine.ship (only shown when no CRITICAL/HIGH findings remain)"
     - label: "Stop here"
       description: "Pause; I'll address findings manually"
 ```
 
 **On "Address findings":**
-1. Dispatch a fresh `general-purpose` subagent with: the challenge findings and any impl-review suggestions, the relevant file paths, `<feature_dir>/design.md` content, and `implementer-prompt.md` content. Instruct: "Fix only the listed findings. Do not expand scope beyond these findings."
+1. Dispatch a fresh `general-purpose` subagent with: the challenge findings and any impl-review suggestions, the relevant file paths, `<feature_dir>/design.md` content, `implementer-prompt.md` content, and `tdd.md` content. Instruct: "Fix only the listed findings. Do not expand scope beyond these findings."
 2. After the subagent completes, re-run `code-reviewer` and `integration-reviewer` on the fix diff in parallel (both in a single message)
 3. Re-run the challenge (same dispatch pattern as Step 3)
-4. Present the final gate again with updated findings
-5. After 2 "Address findings" iterations, remove the "Address findings" option — only offer "Accept and ship" or "Stop here"
+4. Present the final gate again with updated findings (re-evaluate severity for option suppression)
+5. After 2 "Address findings" iterations, remove the "Address findings" option — only offer "Accept and ship" (if no CRITICAL/HIGH) or "Stop here"
 
 **On "Accept and ship":** Invoke `/mine.ship`.
 

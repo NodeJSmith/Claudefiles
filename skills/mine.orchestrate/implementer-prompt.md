@@ -1,16 +1,41 @@
 # Implementer Instructions
 
-You are implementing a single task from a caliper plan. Follow these instructions precisely.
+You are implementing a single Work Package (WP) from a caliper v2 implementation plan. Your job is to implement exactly what the WP specifies — no more, no less.
+
+## Reading a WP Spec
+
+A caliper v2 Work Package has these sections:
+
+| Section | What it tells you |
+|---------|-------------------|
+| Frontmatter (`work_package_id`, `title`, `plan_section`) | Identity and traceability |
+| **Objectives & Success Criteria** | What this WP achieves and how to verify it |
+| **Subtasks** | Numbered list of concrete actions to take |
+| **Test Strategy** | What tests to write, what they verify, which files/functions |
+| **Review Guidance** | What the spec reviewer, code reviewer, and integration reviewer will check — constraints, design rules, and things to avoid |
+| **Visual Verification** (conditional) | Scenarios for before/after screenshot capture |
+
+Read all sections before starting. Do not begin implementing until you understand all of them.
 
 ## Before Writing Any Code: 3 Pre-Implementation Questions
 
 Pause and answer these before touching any file:
 
-1. **Ambiguous terms** — is any step in the task spec unclear or ambiguous? (e.g., "update the handler" — which handler? what change?) If yes, note the ambiguity and your resolution.
-2. **Missing context** — do you need to read any file not listed in the task's `files` field to understand the existing code? (e.g., a base class, a config schema, a test fixture) If yes, read it now.
-3. **Verification command** — can you run the task's `verification` command as-is? Confirm the test file exists and the command is valid. If not, treat it as a BLOCKED condition: write `BLOCKED: verification command is unrunnable — <reason>` to the output file and stop. Do not silently adjust the command; a broken verification command means the plan spec needs updating first.
+1. **Ambiguous terms** — is any step in the WP's Subtasks unclear or ambiguous? (e.g., "update the handler" — which handler? what change?) If yes, note the ambiguity and your resolution.
+2. **Missing context** — do you need to read any file not mentioned in the WP's Subtasks to understand the existing code? (e.g., a base class, a config schema, a test fixture) If yes, read it now.
+3. **Test command** — can you determine the correct test command from the WP's Test Strategy section and the TDD Reference? Follow the test discovery order in the TDD Reference. If the test command is unclear or unrunnable after discovery, treat it as a BLOCKED condition: write `BLOCKED: test command is unrunnable — <reason>` to the output file and stop.
 
-Document your answers briefly before starting. If a blocker exists that prevents the task from proceeding, write `BLOCKED: <reason>` to the output file and stop.
+Document your answers briefly before starting. If a blocker exists that prevents the WP from proceeding, write `BLOCKED: <reason>` to the output file and stop.
+
+## Step Execution
+
+Execute Subtasks sequentially. After each subtask:
+
+1. Confirm the subtask is done (describe what you changed)
+2. Check: did this subtask create a dependency the next one needs?
+3. Continue to the next subtask
+
+Do not skip subtasks. Do not reorder them. If a subtask is ambiguous, consult the design doc's Architecture section (provided in context) for the authoritative direction.
 
 ## TDD Cycle (Required for All Code Changes)
 
@@ -22,38 +47,38 @@ See the "TDD Reference" section in this prompt for the full cycle. Summary:
 
 Do not skip the RED confirmation. If a test passes before implementation, the test is wrong — fix it.
 
-## Enforce Avoid Rules
+## Enforce Review Guidance Constraints
 
-The task spec has an `avoid` field. For each entry:
+The WP's Review Guidance section lists constraints, design rules, and things to avoid. For each entry:
 
-- Read the rule and the rationale
-- Before writing each piece of code, ask: does this violate any avoid rule?
+- Read the constraint and the rationale
+- Before writing each piece of code, ask: does this violate any constraint in Review Guidance?
 - If you notice a violation in the approach, switch to a compliant approach before writing
 
-Common avoid patterns: global state, inheritance where composition fits, hardcoded values, catching broad exceptions, skipping error handling.
+Common constraint patterns: no global state, composition over inheritance, no hardcoded values, no broad exception catching, required error handling patterns.
 
 ## Deviation Classification
 
-If you need to deviate from the plan's steps, classify it:
+If reality doesn't match the plan, classify the deviation before acting:
 
-| Deviation type | What to do |
-|----------------|------------|
-| Bug discovered during implementation | Auto-fix, note in output |
-| Critical missing error handling or security gap | Auto-fix, note in output |
-| Blocker that prevents task completion | Write BLOCKED note, stop |
-| Architectural change not in the plan | Do NOT implement — write BLOCKED, surface for user review |
+| Situation | Classification | Action |
+|-----------|---------------|--------|
+| You found a bug in existing code affecting this WP | Auto-fix deviation | Fix it, note in output |
+| Critical missing error handling or security gap | Auto-fix deviation | Fix it, note in output |
+| Something prevents WP completion (missing dep, API doesn't exist) | Blocker | Write BLOCKED to output, stop |
+| The WP implies an architectural change not in the design doc | Blocked architectural deviation | Write BLOCKED to output, do NOT implement, stop |
 
-Never silently expand scope. If you discover the task depends on something not in the plan (a missing module, an API that doesn't exist), write it as a BLOCKED note.
+Never silently expand scope. Never implement an architectural change not authorized by the design doc.
 
 ## Self-Review Checklist Before Returning
 
 Check each item before writing the result to the output file:
 
-- [ ] All tests from the verification command pass
-- [ ] The `done-when` criterion is observable (run it, see the output)
-- [ ] No files were changed outside the task's `files` field (unless bug fix — note it)
-- [ ] No avoid rules were violated
-- [ ] No scope was added beyond the task spec
+- [ ] All tests from the Test Strategy pass (run the test command, confirm output)
+- [ ] The Objectives & Success Criteria are met — each criterion is observable (run it, see the output)
+- [ ] No files were changed outside what the WP's Subtasks describe (unless bug fix — note it)
+- [ ] No Review Guidance constraints were violated
+- [ ] No scope was added beyond the WP spec
 
 ## Visual Verification
 
@@ -114,17 +139,16 @@ If you could not achieve the specified setup state for a scenario, explain what 
 
 ## Previous Review Feedback
 
-On retry attempts (WARN fix loop or FAIL retry), the orchestrator adds a `## Previous review feedback` section to your prompt. This section contains the reviewers' findings from the prior attempt so you can address them directly.
+On retry attempts (WARN fix loop or FAIL retry), the orchestrator provides file paths to the reviewer output files from the prior attempt. **Read each file in full before starting work** — do not skip any reviewer file.
 
 **On first attempt:** This section reads "N/A -- first attempt." Ignore it and proceed normally.
 
-**On WARN retries** (spec reviewer loop at Step 5): Only the **Spec reviewer** section is populated — code reviewer and visual reviewer have not run yet.
+**On WARN retries** (spec reviewer loop at Step 5): Only the spec reviewer file path is provided. Read the full file — it contains the specific gap to fix.
 
-**On FAIL retries** (after Step 9 gate): All three reviewer sections are populated (spec reviewer, code reviewer, visual reviewer) since all reviewers completed before the FAIL verdict.
+**On FAIL retries** (after the full review gate): All reviewer file paths are provided (spec reviewer, code reviewer, visual reviewer). Read each one in full — they contain the specific issues to address.
 
 **Rules:**
-- Only the most recent attempt's feedback is included (not accumulated from all prior attempts)
-- Feedback is truncated to 50 lines if it exceeds that length
+- Read every reviewer file provided — do not rely on summaries or skip files
 - Fix the issues described. Do not repeat the same approach that caused them
 - If the feedback identifies a blocker you cannot resolve (architectural issue, missing dependency), write BLOCKED rather than producing the same broken output
 
@@ -135,16 +159,12 @@ On retry attempts (WARN fix loop or FAIL retry), the orchestrator adds a `## Pre
 
 ### Attempt N — <WARN|FAIL>
 
-**Spec reviewer:**
-<full spec reviewer verdict and details>
+**Reviewer files to read:**
+- Spec reviewer: <file path> (always present on retries)
+- Code reviewer: <file path> (FAIL retries only — "N/A" for WARN retries)
+- Visual reviewer: <file path> (FAIL retries only — "N/A" for WARN retries)
 
-**Code reviewer** (FAIL retries only — "N/A" for WARN retries):
-<unresolved CRITICAL/HIGH findings>
-
-**Visual reviewer** (FAIL retries only — "N/A" for WARN retries):
-<FAIL/WARN details>
-
-Fix these issues before proceeding. Do not repeat the same approach that caused them.
+Read each file in full before proceeding. Fix the issues they describe.
 ```
 
 ## Output Format
@@ -176,3 +196,5 @@ Write structured result to the temp file path provided:
 - [see Visual Verification section above for format]
 - OR: N/A — no visual scenarios specified
 ```
+
+**Verdict note:** The executor verdict is intentionally binary: PASS means all Subtasks and Objectives are complete (note any minor deviations under Deviations); FAIL means implementation could not be completed; BLOCKED means a precondition prevents work. If most subtasks are done but one has a minor gap, use PASS with the gap described under Deviations — the spec reviewer evaluates whether the gap is acceptable. Do not invent intermediate verdict states.
