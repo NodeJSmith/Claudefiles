@@ -100,7 +100,8 @@ Write your verdict to the temp file path provided:
 
 **Visual plan audit:** PASS | WARN | FAIL | N/A
 - [coverage gaps, SKIPPED scenarios, or "all scenarios covered"]
-- FAIL if executor removed spec scenarios without justification or missed >50% of scenarios
+- FAIL if any spec scenario was removed or skipped without a valid justification (regardless of count)
+- FAIL if >50% of all scenarios are absent (missing coverage even if not explicitly removed)
 
 **Summary:**
 [1-2 sentences: what was verified, any gaps found]

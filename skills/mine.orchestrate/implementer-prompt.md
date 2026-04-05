@@ -162,8 +162,9 @@ On retry attempts (WARN fix loop or FAIL retry), the orchestrator provides file 
 
 **Reviewer files to read:**
 - Spec reviewer: <file path> (always present on retries)
-- Code reviewer: <file path> (FAIL retries only — "N/A" for WARN retries)
-- Visual reviewer: <file path> (FAIL retries only — "N/A" for WARN retries)
+- Code reviewer: <file path> (FAIL retries only, if Step 7 was reached — "N/A" otherwise)
+- Integration reviewer: <file path> (FAIL retries only, if Step 8 was reached — "N/A" otherwise)
+- Visual reviewer: <file path> (FAIL retries only, if visual verification ran — "N/A" otherwise)
 
 Read each file in full before proceeding. Fix the issues they describe.
 ```
