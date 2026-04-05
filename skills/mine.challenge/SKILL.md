@@ -17,7 +17,6 @@ This skill produces **findings only**. It does not revise documents or apply fix
 | `mine.grill` | Idea | "Have I thought this through?" |
 | **`mine.challenge`** | **Artifact** | **"Is this approach actually right?"** |
 | `code-reviewer` | Diff | "Is this diff safe to merge?" |
-| `mine.audit` | Codebase | "What health problems does this codebase have?" |
 
 ## Arguments
 
@@ -432,11 +431,11 @@ List all critic report file paths so the user knows where reports are. Always li
 
 **If `--findings-out` was passed** (structured caller mode — used by mine.design, mine.specify, mine.orchestrate, or any caller requesting deterministic output): challenge is done. The caller resumes and generates a revision plan from the findings file.
 
-**If challenge was invoked standalone** (user ran `/mine.challenge` directly): provide a wrap-up before stopping.
+**If challenge was invoked standalone** (user ran `/mine.challenge` directly): provide a wrap-up, then resolve findings.
 
 1. **Summary** — one paragraph: total finding count, breakdown by severity, the single most important takeaway across all findings.
 
-2. **Next step** — ask which finding to address in this session (or whether the user wants to stop here).
+2. **Resolve findings** — follow the findings convention in `rules/common/findings.md`: present the Proceed Gate, collect all user-directed answers, then execute fixes.
 
 **If a passthrough caller dispatched challenge** (mine.grill, mine.brainstorm, mine.research — no `--findings-out`): provide the summary (step 1) but skip the next-step prompt — the calling skill handles its own routing after challenge completes.
 
@@ -450,4 +449,4 @@ List all critic report file paths so the user knows where reports are. Always li
 6. **Not a style guide** — naming, formatting, and style nits are not design critiques. Skip them.
 7. **Recommend, don't just present** — for User-directed findings, state which option you'd pick and why. The user overrides if they disagree. Exception: TENSION findings get a deciding factor instead, because honest uncertainty is more useful than a fabricated preference.
 8. **Err toward user input** — when resolution classification is ambiguous, default to User-directed. The cost of asking is low; the cost of a wrong auto-apply is high.
-9. **Findings only** — this skill produces findings. It does not revise documents or apply fixes. When invoked standalone, challenge provides a summary and asks which finding to address, but does not apply changes itself.
+9. **Findings then fixes** — this skill produces findings. When invoked by structured callers, the caller handles resolution. When invoked standalone, challenge resolves findings via `rules/common/findings.md`.

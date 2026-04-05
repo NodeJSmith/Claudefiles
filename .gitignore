@@ -4,7 +4,6 @@ __pycache__/
 .ruff_cache/
 .venv/
 .claude-plan
-.claude/backlog.md
 node_modules/
 
 # Orchestration checkpoint files (ephemeral runtime state)

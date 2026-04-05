@@ -17,7 +17,6 @@
 | "scan issues", "what issues are open" | `/mine.issues-scan` |
 | "brainstorm options", "generate ideas", "explore ideas", "what are our options" | `/mine.brainstorm` |
 | "challenge this", "challenge this design", "challenge this code", "poke holes in this", "what's wrong with this approach", "ask the critics", "see what the critics say", "run it by the critics" | `/mine.challenge` |
-| "audit the codebase", "find tech debt", "health check" | `/mine.audit` |
 | "research adding X", "feasibility study", "evaluate approach" | `/mine.research` |
 | "prior art", "how do others do this", "what patterns exist", "industry standards for X" | `/mine.prior-art` |
 <!-- NOTE: "design this UI" = visual direction (look-and-feel); "design this change" = architecture doc (design) -->

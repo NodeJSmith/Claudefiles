@@ -12,7 +12,6 @@ Deep investigation of a codebase to evaluate a proposed change, new pattern, or 
 
 | Skill | Question it answers |
 |-------|-------------------|
-| `/mine.audit` | "What's wrong with this codebase?" |
 | **`/mine.research`** | **"What would it take to do X in this codebase?"** |
 | `/mine.design` | "How should we build X?" |
 
@@ -199,5 +198,5 @@ If "Build it (/mine.build)" is selected: invoke `/mine.build` with context: "Pri
 - **Make decisions** — it informs them. Use `/mine.design` to formalize decisions.
 - **Plan implementations** — it assesses feasibility. Use `/mine.build` to route to the right implementation workflow.
 - **Write code** — it's pure investigation. No prototypes, no scaffolding, no "let me just try it."
-- **Audit health** — it evaluates a specific proposal against the codebase. Use `/mine.audit` for general health assessment.
+- **Audit health** — it evaluates a specific proposal against the codebase. Use `/mine.challenge` for general health assessment.
 - **Benchmark or profile** — it can identify likely performance concerns from code reading, but won't run benchmarks.
