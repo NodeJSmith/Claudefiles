@@ -96,7 +96,7 @@ Work through these dimensions methodically:
 
 ### Color & Contrast
 
-> Also check the [anti-patterns reference](~/.claude/skills/i-frontend-design/reference/anti-patterns.md) for color-related anti-patterns (AI palette, gradient text, gray on color, pure black/white).
+> Also check the [anti-patterns reference](../i-frontend-design/reference/anti-patterns.md) for color-related anti-patterns (AI palette, gradient text, gray on color, pure black/white).
 
 - **Contrast ratios**: All text meets WCAG standards
 - **Consistent token usage**: No hard-coded colors, all use design tokens

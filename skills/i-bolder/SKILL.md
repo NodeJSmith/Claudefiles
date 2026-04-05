@@ -34,7 +34,7 @@ If any of these are not answered by design context (`design/context.md`, `.impec
 
 **CRITICAL**: "Bolder" doesn't mean chaotic or garish. It means distinctive, memorable, and confident. Think intentional drama, not random chaos.
 
-**WARNING - AI SLOP TRAP**: When making things "bolder," AI defaults to the same tired tricks. These are the OPPOSITE of bold—they're generic. Review the [anti-patterns reference](~/.claude/skills/i-frontend-design/reference/anti-patterns.md) before proceeding. Bold means distinctive, not "more effects."
+**WARNING - AI SLOP TRAP**: When making things "bolder," AI defaults to the same tired tricks. These are the OPPOSITE of bold—they're generic. Review the [anti-patterns reference](../i-frontend-design/reference/anti-patterns.md) before proceeding. Bold means distinctive, not "more effects."
 
 ## Plan Amplification
 

@@ -3,10 +3,11 @@ name: i-frontend-design
 description: 'Use when building frontend components or pages. Core design skill for creating distinctive, production-grade interfaces that avoid generic AI aesthetics.'
 user-invocable: false
 license: Apache 2.0. Based on Anthropic's frontend-design skill.
-last-reviewed: 2026-04-05
 ---
 
 This skill guides creation of distinctive, production-grade frontend interfaces that avoid generic "AI slop" aesthetics. Implement real working code with exceptional attention to aesthetic details and creative choices.
+
+*Last reviewed: 2026-04-05*
 
 ## Context Gathering Protocol
 
@@ -74,27 +75,27 @@ Then implement working code that is:
 ## Frontend Aesthetics Guidelines
 
 ### Typography
-→ *Consult [typography reference](~/.claude/skills/i-frontend-design/reference/typography.md) for scales, pairing, and loading strategies.*
+→ *Consult [typography reference](reference/typography.md) for scales, pairing, and loading strategies.*
 
 Choose fonts that are beautiful, unique, and interesting. Pair a distinctive display font with a refined body font.
 
 **DO**: Use a modular type scale with fluid sizing (clamp)
 **DO**: Vary font weights and sizes to create clear visual hierarchy
 
-→ *See [anti-patterns reference](~/.claude/skills/i-frontend-design/reference/anti-patterns.md) § Typography for what to avoid.*
+→ *See [anti-patterns reference](reference/anti-patterns.md) § Typography for what to avoid.*
 
 ### Color & Theme
-→ *Consult [color reference](~/.claude/skills/i-frontend-design/reference/color-and-contrast.md) for OKLCH, palettes, and dark mode.*
+→ *Consult [color reference](reference/color-and-contrast.md) for OKLCH, palettes, and dark mode.*
 
 Commit to a cohesive palette. Dominant colors with sharp accents outperform timid, evenly-distributed palettes.
 
 **DO**: Use modern CSS color functions (oklch, color-mix, light-dark) for perceptually uniform, maintainable palettes
 **DO**: Tint your neutrals toward your brand hue—even a subtle hint creates subconscious cohesion
 
-→ *See [anti-patterns reference](~/.claude/skills/i-frontend-design/reference/anti-patterns.md) § Color & Theme for what to avoid.*
+→ *See [anti-patterns reference](reference/anti-patterns.md) § Color & Theme for what to avoid.*
 
 ### Layout & Space
-→ *Consult [spatial reference](~/.claude/skills/i-frontend-design/reference/spatial-design.md) for grids, rhythm, and container queries.*
+→ *Consult [spatial reference](reference/spatial-design.md) for grids, rhythm, and container queries.*
 
 Create visual rhythm through varied spacing—not the same padding everywhere. Embrace asymmetry and unexpected compositions. Break the grid intentionally for emphasis.
 
@@ -102,15 +103,15 @@ Create visual rhythm through varied spacing—not the same padding everywhere. E
 **DO**: Use fluid spacing with clamp() that breathes on larger screens
 **DO**: Use asymmetry and unexpected compositions; break the grid intentionally for emphasis
 
-→ *See [anti-patterns reference](~/.claude/skills/i-frontend-design/reference/anti-patterns.md) § Layout & Space for what to avoid.*
+→ *See [anti-patterns reference](reference/anti-patterns.md) § Layout & Space for what to avoid.*
 
 ### Visual Details
 **DO**: Use intentional, purposeful decorative elements that reinforce brand
 
-→ *See [anti-patterns reference](~/.claude/skills/i-frontend-design/reference/anti-patterns.md) § Visual Details for what to avoid.*
+→ *See [anti-patterns reference](reference/anti-patterns.md) § Visual Details for what to avoid.*
 
 ### Motion
-→ *Consult [motion reference](~/.claude/skills/i-frontend-design/reference/motion-design.md) for timing, easing, and reduced motion.*
+→ *Consult [motion reference](reference/motion-design.md) for timing, easing, and reduced motion.*
 
 Focus on high-impact moments: one well-orchestrated page load with staggered reveals creates more delight than scattered micro-interactions.
 
@@ -118,10 +119,10 @@ Focus on high-impact moments: one well-orchestrated page load with staggered rev
 **DO**: Use exponential easing (ease-out-quart/quint/expo) for natural deceleration
 **DO**: For height animations, use grid-template-rows transitions instead of animating height directly
 
-→ *See [anti-patterns reference](~/.claude/skills/i-frontend-design/reference/anti-patterns.md) § Motion for what to avoid.*
+→ *See [anti-patterns reference](reference/anti-patterns.md) § Motion for what to avoid.*
 
 ### Interaction
-→ *Consult [interaction reference](~/.claude/skills/i-frontend-design/reference/interaction-design.md) for forms, focus, and loading patterns.*
+→ *Consult [interaction reference](reference/interaction-design.md) for forms, focus, and loading patterns.*
 
 Make interactions feel fast. Use optimistic UI—update immediately, sync later.
 
@@ -129,18 +130,18 @@ Make interactions feel fast. Use optimistic UI—update immediately, sync later.
 **DO**: Design empty states that teach the interface, not just say "nothing here"
 **DO**: Make every interactive surface feel intentional and responsive
 
-→ *See [anti-patterns reference](~/.claude/skills/i-frontend-design/reference/anti-patterns.md) § Interaction & Copy for what to avoid.*
+→ *See [anti-patterns reference](reference/anti-patterns.md) § Interaction & Copy for what to avoid.*
 
 ### Responsive
-→ *Consult [responsive reference](~/.claude/skills/i-frontend-design/reference/responsive-design.md) for mobile-first, fluid design, and container queries.*
+→ *Consult [responsive reference](reference/responsive-design.md) for mobile-first, fluid design, and container queries.*
 
 **DO**: Use container queries (@container) for component-level responsiveness
 **DO**: Adapt the interface for different contexts—don't just shrink it
 
-→ *See [anti-patterns reference](~/.claude/skills/i-frontend-design/reference/anti-patterns.md) § Interaction & Copy for responsive anti-patterns.*
+→ *See [anti-patterns reference](reference/anti-patterns.md) § Interaction & Copy for responsive anti-patterns.*
 
 ### UX Writing
-→ *Consult [ux-writing reference](~/.claude/skills/i-frontend-design/reference/ux-writing.md) for labels, errors, and empty states.*
+→ *Consult [ux-writing reference](reference/ux-writing.md) for labels, errors, and empty states.*
 
 **DO**: Make every word earn its place
 
@@ -148,7 +149,7 @@ Make interactions feel fast. Use optimistic UI—update immediately, sync later.
 
 ## The AI Slop Test
 
-→ *Consult [anti-patterns reference](~/.claude/skills/i-frontend-design/reference/anti-patterns.md) for the full AI Slop Test and all DON'T guidelines.*
+→ *Consult [anti-patterns reference](reference/anti-patterns.md) for the full AI Slop Test and all DON'T guidelines.*
 
 **Critical quality check**: If you showed this interface to someone and said "AI made this," would they believe you immediately? If yes, that's the problem. A distinctive interface should make someone ask "how was this made?" not "which AI made this?"
 

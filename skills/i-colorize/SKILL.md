@@ -160,7 +160,7 @@ Ensure color addition improves rather than overwhelms:
 - Violate WCAG contrast requirements
 - Use color as the only indicator (accessibility issue)
 - Make everything colorful (defeats the purpose)
-- Use any pattern listed in the [anti-patterns reference](~/.claude/skills/i-frontend-design/reference/anti-patterns.md) — especially the AI color palette (cyan-on-dark, purple-to-blue gradients, gradient text)
+- Use any pattern listed in the [anti-patterns reference](../i-frontend-design/reference/anti-patterns.md) — especially the AI color palette (cyan-on-dark, purple-to-blue gradients, gradient text)
 
 ## Verify Color Addition
 

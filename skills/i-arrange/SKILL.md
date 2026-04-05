@@ -45,7 +45,7 @@ Analyze what's weak about the current spatial design:
 
 ## Plan Layout Improvements
 
-Consult the [spatial design reference](~/.claude/skills/i-frontend-design/reference/spatial-design.md) for detailed guidance on grids, rhythm, and container queries.
+Consult the [spatial design reference](../i-frontend-design/reference/spatial-design.md) for detailed guidance on grids, rhythm, and container queries.
 
 Create a systematic plan:
 
@@ -140,7 +140,7 @@ If "Stop here" → end the skill.
 - Default to CSS Grid when Flexbox would be simpler — use the simplest tool for the job
 - Use arbitrary z-index values (999, 9999) — build a semantic scale
 
-Also avoid all layout anti-patterns in the [anti-patterns reference](~/.claude/skills/i-frontend-design/reference/anti-patterns.md) (card wrapping, nested cards, identical card grids, centering everything, hero metric template).
+Also avoid all layout anti-patterns in the [anti-patterns reference](../i-frontend-design/reference/anti-patterns.md) (card wrapping, nested cards, identical card grids, centering everything, hero metric template).
 
 ## Verify Layout Improvements
 

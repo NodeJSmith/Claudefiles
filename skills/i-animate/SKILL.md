@@ -193,7 +193,7 @@ Use appropriate techniques for each animation:
 - Animate everything—animation fatigue makes interfaces feel exhausting
 - Block interaction during animations unless intentional
 
-Also review the [anti-patterns reference](~/.claude/skills/i-frontend-design/reference/anti-patterns.md) for general visual anti-patterns to avoid when styling animated elements.
+Also review the [anti-patterns reference](../i-frontend-design/reference/anti-patterns.md) for general visual anti-patterns to avoid when styling animated elements.
 
 ## Verify Quality
 

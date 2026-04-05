@@ -46,7 +46,7 @@ Run comprehensive checks across multiple dimensions:
    - **Text scaling**: Layouts that break when text size increases
    - **Missing breakpoints**: No mobile/tablet variants
 
-5. **Anti-Patterns (CRITICAL)** - Check against the [anti-patterns reference](~/.claude/skills/i-frontend-design/reference/anti-patterns.md). Look for AI slop tells and general design anti-patterns documented there.
+5. **Anti-Patterns (CRITICAL)** - Check against the [anti-patterns reference](../i-frontend-design/reference/anti-patterns.md). Look for AI slop tells and general design anti-patterns documented there.
 
 **CRITICAL**: This is an audit, not a fix. Document issues thoroughly with clear explanations of impact. Use other commands (normalize, optimize, harden, etc.) to fix issues after audit.
 
@@ -55,7 +55,7 @@ Run comprehensive checks across multiple dimensions:
 Create a detailed audit report with the following structure:
 
 ### Anti-Patterns Verdict
-**Start here.** Pass/fail: Does this look AI-generated? List specific tells from the [anti-patterns reference](~/.claude/skills/i-frontend-design/reference/anti-patterns.md). Be brutally honest.
+**Start here.** Pass/fail: Does this look AI-generated? List specific tells from the [anti-patterns reference](../i-frontend-design/reference/anti-patterns.md). Be brutally honest.
 
 ### Executive Summary
 - Total issues found (count by severity)

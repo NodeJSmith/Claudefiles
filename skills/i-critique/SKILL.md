@@ -22,7 +22,7 @@ Evaluate the interface across these dimensions:
 
 **This is the most important check.** Does this look like every other AI-generated interface from 2024-2025?
 
-Review the design against all the anti-patterns in [`~/.claude/skills/i-frontend-design/reference/anti-patterns.md`](~/.claude/skills/i-frontend-design/reference/anti-patterns.md) — they are the fingerprints of AI-generated work.
+Review the design against all the anti-patterns in [`../i-frontend-design/reference/anti-patterns.md`](../i-frontend-design/reference/anti-patterns.md) — they are the fingerprints of AI-generated work.
 
 **The test**: If you showed this to someone and said "AI made this," would they believe you immediately? If yes, that's the problem.
 
@@ -85,7 +85,7 @@ Review the design against all the anti-patterns in [`~/.claude/skills/i-frontend
 Structure your feedback as a design director would:
 
 ### Anti-Patterns Verdict
-**Start here.** Pass/fail: Does this look AI-generated? List specific tells from the [anti-patterns reference](~/.claude/skills/i-frontend-design/reference/anti-patterns.md). Be brutally honest.
+**Start here.** Pass/fail: Does this look AI-generated? List specific tells from the [anti-patterns reference](../i-frontend-design/reference/anti-patterns.md). Be brutally honest.
 
 ### Overall Impression
 A brief gut reaction—what works, what doesn't, and the single biggest opportunity.

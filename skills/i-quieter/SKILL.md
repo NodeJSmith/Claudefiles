@@ -123,7 +123,7 @@ Systematically reduce intensity across these dimensions:
 - Sacrifice usability for aesthetics (functional elements still need clear affordances)
 - Make everything small and light (some anchors needed)
 
-Also review the [anti-patterns reference](~/.claude/skills/i-frontend-design/reference/anti-patterns.md) — many anti-patterns describe over-designed AI defaults that quieter work should move away from.
+Also review the [anti-patterns reference](../i-frontend-design/reference/anti-patterns.md) — many anti-patterns describe over-designed AI defaults that quieter work should move away from.
 
 ## Verify Quality
 
