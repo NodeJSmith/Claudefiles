@@ -202,4 +202,4 @@ Write structured result to the temp file path provided:
 - OR: N/A — no visual scenarios specified
 ```
 
-**Verdict note:** The executor verdict is intentionally binary: PASS means all Subtasks and Objectives are complete (note any minor deviations under Deviations); FAIL means implementation could not be completed; BLOCKED means a precondition prevents work. If most subtasks are done but one has a minor gap, use PASS with the gap described under Deviations — the spec reviewer evaluates whether the gap is acceptable. Do not invent intermediate verdict states.
+**Verdict note:** The executor verdict is intentionally binary: PASS means all Subtasks and Objectives are complete; FAIL means implementation could not be completed in full, including any case where one or more Subtasks or Objectives remain incomplete; BLOCKED means a precondition prevents work. Use **Deviations** under PASS only for minor differences that do not make any Subtask or Objective incomplete (e.g., a slightly different function name, an alternative approach that achieves the same result). If there is any incomplete Subtask or Objective, use FAIL. Do not invent intermediate verdict states.

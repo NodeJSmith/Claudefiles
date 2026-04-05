@@ -217,7 +217,7 @@ On the first WP of this orchestration run (no baseline exists yet), capture the 
 1. **Discover the test command** using the discovery order from `rules/common/testing.md`. Record the discovered command as `<dir>/test-command.txt` — this canonical command is passed to all executors and test gates to prevent discovery drift.
 2. **Run the test suite** and record the result as `<dir>/test-baseline.md` (at the run level, not per-WP). Note which tests pass and which fail.
 
-On subsequent WPs and retries, skip — the baseline from the first WP applies to the entire run (it reflects the pre-orchestration state). If the project has no test suite (no test command discoverable after the full discovery cascade), record `SKIPPED: no test suite` and skip this step for all WPs.
+On subsequent WPs and retries, skip — the baseline from the first WP applies to the entire run (it reflects the pre-orchestration state). If the project has no test suite (no test command discoverable after the full discovery cascade), write the sentinel value `no test suite` to `<dir>/test-command.txt`, record `SKIPPED: no test suite` in `<dir>/test-baseline.md`, and skip the test-baseline run for all WPs.
 
 ### Step 2: Create per-WP subdirectory
 
@@ -279,11 +279,10 @@ After the executor completes, capture the list of files it changed. This list is
 
 ```bash
 git diff --name-only HEAD
-git diff --name-only --cached HEAD
 git ls-files --others --exclude-standard
 ```
 
-Always run all three commands — the first catches unstaged modified/deleted tracked files, the second catches already-staged files, the third catches newly created untracked files. Combine all lists (deduped) and write to `<dir>/<wp_id>/changed-files.txt` (one path per line). This file is used by the reviewers (Steps 7-8) and the commit step (Step 10a). If all three commands return empty, the executor may not have made any file changes — proceed to the spec reviewer, which will catch this if unexpected.
+Always run both commands — the first catches all modified/deleted tracked files (staged and unstaged) relative to HEAD, the second catches newly created untracked files. Combine both lists (deduped) and write to `<dir>/<wp_id>/changed-files.txt` (one path per line). This file is used by the reviewers (Steps 7-8) and the commit step (Step 10a). If both commands return empty, the executor may not have made any file changes — proceed to the spec reviewer, which will catch this if unexpected.
 
 ### Step 5: Launch spec reviewer subagent
 
@@ -318,13 +317,15 @@ Wait for the subagent to complete. Read the spec reviewer temp file.
 
 After the spec reviewer completes (regardless of verdict), re-run the project's test suite independently. This separates test execution from the spec reviewer's code-inspection role and catches regressions the executor may have introduced.
 
-1. **Use the test baseline** from Step 1.5 (captured before the first executor ran). If the baseline is `SKIPPED: no test suite`, skip this step and record `SKIPPED` in `test-gate.md`.
-2. **Discover the test command** using the discovery order from `rules/common/testing.md` (CLAUDE.md → CI config → task runners → documentation → ask user → fallback). Run from the repository root. If the executor's output includes the test command it used, prefer that command to avoid discovery drift between the executor and the test gate.
+1. **Use the test baseline** from Step 1.5 (captured before the first executor ran).
+   - If the baseline is `SKIPPED: no test suite`, skip this step and record `SKIPPED` in `test-gate.md`.
+   - If `<dir>/test-baseline.md` is missing or unreadable (e.g., tmpdir was cleared before resume), do **not** treat this as a regression signal. Continue with the test re-run, but record `NO BASELINE — cannot detect regressions` in `test-gate.md`.
+2. **Load the canonical test command** from `<dir>/test-command.txt` (created in Step 1.5 to prevent discovery drift). Treat that file as the primary source of truth. Run from the repository root. Only fall back to the discovery order from `rules/common/testing.md` if `test-command.txt` is missing, empty, or contains `no test suite`.
 3. **Run the test command** and capture output.
-4. **Compare against baseline**: if any test that passed in the baseline now fails, this is a **regression**. Record regressions explicitly in `<dir>/<wp_id>/test-gate.md`.
-5. **Record the test result** in the per-WP temp directory: `<dir>/<wp_id>/test-gate.md` with the command used, output summary, and regression list.
+4. **Compare against baseline when available**: if a valid baseline exists and any test that passed in the baseline now fails, this is a **regression**. Record regressions explicitly in `<dir>/<wp_id>/test-gate.md`. If no baseline is available, record that regression detection could not be performed and list current failures as informational only — do not classify them as regressions.
+5. **Record the test result** in the per-WP temp directory: `<dir>/<wp_id>/test-gate.md` with the command used, whether it came from `test-command.txt` or fallback discovery, output summary, baseline status, and regression list.
 
-**Verdict impact**: If regressions are detected (previously-passing tests now fail), the test gate overrides the WP verdict to FAIL regardless of the spec reviewer's result — regressions must be fixed before proceeding. Pre-existing test failures (tests that also failed in the baseline) are informational and do not block.
+**Verdict impact**: If regressions are detected from a valid baseline comparison (previously-passing tests now fail), the test gate overrides the WP verdict to FAIL regardless of the spec reviewer's result — regressions must be fixed before proceeding. Pre-existing test failures (tests that also failed in the baseline) are informational and do not block. If no baseline is available, do not fail the WP on regression grounds alone.
 
 ### Step 5.5: WARN fix loop (if spec reviewer returned WARN)
 
@@ -454,7 +455,6 @@ Write the final code-reviewer output to `<dir>/<wp_id>/code-review.md`.
 
 ```bash
 git diff --name-only HEAD
-git diff --name-only --cached HEAD
 git ls-files --others --exclude-standard
 ```
 
@@ -501,7 +501,8 @@ Derive the canonical WP verdict from all reviewer outputs. This is the single au
 - Test gate detected regressions (previously-passing tests now fail)
 
 **WARN** if not FAIL and any of the following:
-- Visual reviewer returned WARN, WARN [INFRA], or SKIPPED (for non-visual-skip WPs)
+- Visual reviewer returned WARN or WARN [INFRA]
+- Visual reviewer returned SKIPPED when `visual_mode` is `enabled` (visual review was expected but the reviewer/executor reported a per-WP or per-scenario skip). Do not count SKIPPED toward WARN when `visual_mode` is not `enabled` — visual review was intentionally not requested.
 - Integration reviewer returned WARN
 - Code reviewer resolved issues in <3 iterations (auto-fixes applied)
 - Test gate has pre-existing failures (no regressions)
@@ -592,11 +593,10 @@ Re-capture the changed file list immediately before staging to ensure it include
 
 ```bash
 git diff --name-only HEAD
-git diff --name-only --cached HEAD
 git ls-files --others --exclude-standard
 ```
 
-Combine all three lists (deduped) and write to `<dir>/<wp_id>/committed-files.txt` — a separate artifact from `changed-files.txt` (which reflects the files reviewers saw). Do **not** use `git add -A` — it stages unrelated files (scratch files, editor backups, files from other features).
+Combine both lists (deduped) and write to `<dir>/<wp_id>/committed-files.txt` — a separate artifact from `changed-files.txt` (which reflects the files reviewers saw). Do **not** use `git add -A` — it stages unrelated files (scratch files, editor backups, files from other features).
 
 Stage using `--pathspec-from-file` to avoid shell argument limits. Use `git -C` to ensure repo-root working directory (paths in the file are repo-relative):
 
