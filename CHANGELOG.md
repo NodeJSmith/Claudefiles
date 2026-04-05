@@ -5,24 +5,24 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-04-05
 
 ### Changed
-- Impeccable i-* bundle remediation — 4 rounds of `/mine.challenge` adversarial review, 30 files changed
-- All modification skills (16) now propose changes and confirm before implementing — no skill writes code without user approval
-- `i-teach-impeccable` absorbs `mine.look-and-feel` — single writer for design context at `design/context.md`
-- Context Gathering Protocol rewritten — `design/context.md` is canonical, with migration fallbacks for `.impeccable.md` and `design/direction.md`
-- All MANDATORY PREPARATION blocks now use explicit `Read` instruction instead of prose "use the skill"
+- Impeccable i-* bundle remediation — 4 rounds of `/mine.challenge` adversarial review, 30 files changed (#175)
+- All modification skills (16) now propose changes and confirm before implementing — no skill writes code without user approval (#175)
+- `i-teach-impeccable` absorbs `mine.look-and-feel` — single writer for design context at `design/context.md` (#175)
+- Context Gathering Protocol rewritten — `design/context.md` is canonical, with migration fallbacks for `.impeccable.md` and `design/direction.md` (#175)
+- All MANDATORY PREPARATION blocks now use explicit `Read` instruction instead of prose "use the skill" (#175)
 
 ### Removed
-- `i-overdrive` — WebGL/WASM/scroll-driven animations skill not in use
-- `mine.look-and-feel` — absorbed into `i-teach-impeccable`
-- `IMPECCABLE_VERSION.md` — git history preserves same info
+- `i-overdrive` — WebGL/WASM/scroll-driven animations skill not in use (#175)
+- `mine.look-and-feel` — absorbed into `i-teach-impeccable` (#175)
+- `IMPECCABLE_VERSION.md` — git history preserves same info (#175)
 
 ### Fixed
-- i-extract, i-harden, i-optimize missing MANDATORY PREPARATION blocks
-- i-clarify vs i-delight error copy contradiction (humor now scoped to non-blocking errors on playful brands)
-- i-animate vs i-delight spring physics contradiction (spring without overshoot is permitted)
-- i-harden out-of-scope server-side validation and test-writing sections removed
-- Hardcoded 19-skill suggestion lists in i-audit/i-critique replaced with dynamic instruction
-- Reference file paths switched from broken relative to absolute `~/.claude/skills/` paths
+- i-extract, i-harden, i-optimize missing MANDATORY PREPARATION blocks (#175)
+- i-clarify vs i-delight error copy contradiction (humor now scoped to non-blocking errors on playful brands) (#175)
+- i-animate vs i-delight spring physics contradiction (spring without overshoot is permitted) (#175)
+- i-harden out-of-scope server-side validation and test-writing sections removed (#175)
+- Hardcoded 19-skill suggestion lists in i-audit/i-critique replaced with dynamic instruction (#175)
+- Reference file paths switched from broken relative to absolute `~/.claude/skills/` paths (#175)
 
 ## 2026-04-04
 
