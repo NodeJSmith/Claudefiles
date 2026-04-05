@@ -2,6 +2,18 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-04-05
+
+### Fixed
+- `mine.orchestrate` — align all prompt files with caliper v2 WP schema; merge `phase-executor-prompt.md` into `implementer-prompt.md`; fix 72 findings across 3 challenge rounds covering ghost schema fields, verdict assembly, test gate regression detection, checkpoint resilience, Phase 3 fix context, and visual verification contracts
+
+### Changed
+- `mine.orchestrate` — replace `visual_skip` boolean with `visual_mode` enum (`enabled`/`skipped_no_server`/`skipped_no_vision`); move vision check to Phase 0; replace 24h staleness heuristic with git-state check; extract agent routing table to `agent-routing.md`
+- `mine.orchestrate` — add explicit verdict assembly step (Step 8.7), independent test gate (Step 5.3) with regression detection, and ABANDON handling for impl-review
+
+### Removed
+- `skills/mine.orchestrate/phase-executor-prompt.md` — content absorbed into `implementer-prompt.md`
+
 ## 2026-04-04
 
 ### Fixed
