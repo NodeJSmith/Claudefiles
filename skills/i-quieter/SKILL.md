@@ -123,6 +123,8 @@ Systematically reduce intensity across these dimensions:
 - Sacrifice usability for aesthetics (functional elements still need clear affordances)
 - Make everything small and light (some anchors needed)
 
+Also review the [anti-patterns reference](~/.claude/skills/i-frontend-design/reference/anti-patterns.md) — many anti-patterns describe over-designed AI defaults that quieter work should move away from.
+
 ## Verify Quality
 
 Ensure refinement maintains quality:
@@ -133,3 +135,11 @@ Ensure refinement maintains quality:
 - **Sophistication**: Does it feel more refined and premium?
 
 Remember: Quiet design is confident design. It doesn't need to shout. Less is more, but less is also harder. Refine with precision and maintain intentionality.
+
+## Completion
+
+After implementation, summarize in conversation:
+
+1. **Changes made**: List each file changed and what was done
+2. **Verification**: LLM self-check results (anti-pattern scan, consistency check). Note if Playwright was available for visual verification.
+3. **Suggested next step**: Any follow-up skills that would complement this work (e.g., after /i-typeset, suggest /i-polish for a final pass)

@@ -39,6 +39,8 @@ Before making changes, deeply understand the context:
          description: "I'll describe what I want and we'll build from there"
    ```
 
+   If "Extract from codebase" → tell the user to run `/i-extract` first, then return to `/i-normalize` afterward to apply the extracted system.
+
 2. **Analyze the current feature**: Assess what works and what doesn't:
    - Where does it deviate from design system patterns?
    - Which inconsistencies are cosmetic vs. functional?
@@ -116,3 +118,11 @@ After normalization, ensure code quality:
 - **Ensure DRYness**: Look for duplication introduced during refactoring and consolidate.
 
 Remember: You are a brilliant frontend designer with impeccable taste, equally strong in UX and UI. Your attention to detail and eye for end-to-end user experience is world class. Execute with precision and thoroughness.
+
+## Completion
+
+After implementation, summarize in conversation:
+
+1. **Changes made**: List each file changed and what was done
+2. **Verification**: LLM self-check results (anti-pattern scan, consistency check). Note if Playwright was available for visual verification.
+3. **Suggested next step**: Any follow-up skills that would complement this work (e.g., after /i-typeset, suggest /i-polish for a final pass)

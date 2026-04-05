@@ -83,7 +83,12 @@ AskUserQuestion:
   header: "References"
 ```
 
-If the user cannot name any, suggest 3 options based on the domain and intent. For each reference, identify what to take from it (e.g., "the density and monospace feel" or "the warm paper texture and generous spacing").
+If the user cannot name any, suggest 3 options based on the domain and intent. For each reference, identify:
+- What to **take** from it (e.g., "the density and monospace feel")
+- What to **leave** (e.g., "the cold corporate blue — wrong for our brand")
+- The specific **visual movement** it represents (e.g., "editorial minimalism", "data-dense utility", "organic warmth")
+
+Naming the visual movement constrains downstream decisions more precisely than vague feel descriptors.
 
 ## Step 4: Domain Exploration
 
@@ -91,8 +96,13 @@ Run the four-part exploration. Present all four before proposing any direction.
 
 1. **Domain concepts** — Concepts, metaphors, vocabulary from this product's world. Not features — territory. Minimum 5.
 2. **Color world** — What colors exist naturally in this domain? If this product were a physical space, what would you see? List 5+.
-3. **Signature element** — One element — visual, structural, or interaction — that could only exist for THIS product.
+3. **Signature element** — One element — visual, structural, or interaction — that could only exist for THIS product. Be specific: "a timeline scrubber that mimics a vinyl record arm" not "a unique navigation pattern."
 4. **Defaults to reject** — 3 obvious choices for this interface type. Name them so you can reject them consciously. For each: the default, why it's wrong for this product, and a better alternative.
+5. **Concrete constraints** — Specific aesthetic rules derived from the exploration above. These are hard constraints, not suggestions. Examples:
+   - "No rounded corners above 4px — the product is technical, not friendly"
+   - "Body text must be a serif — the editorial feel requires it"
+   - "Maximum 2 colors beyond neutrals — density demands restraint"
+   - "No drop shadows — use border-only depth strategy"
 
 Present exploration results to the user. Remove the product name — could someone still identify what it's for? If not, explore deeper.
 
@@ -141,8 +151,11 @@ updated_at: YYYY-MM-DD
 [From Step 2, Question 3 — emotional feel, aesthetic tone]
 
 ## Aesthetic Direction
-[From Step 3 — visual references and what to take from them]
+[From Step 3 — visual references, what to take/leave, visual movement name]
 [From Step 4 — domain concepts, signature element, defaults rejected]
+
+## Concrete Constraints
+[From Step 4 — hard aesthetic rules, e.g., "no rounded corners above 4px", "body text must be serif"]
 
 ## Design Principles
 [3-5 principles derived from the conversation]

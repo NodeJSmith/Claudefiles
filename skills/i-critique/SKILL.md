@@ -6,7 +6,9 @@ user-invocable: true
 
 ## MANDATORY PREPARATION
 
-Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: what the interface is trying to accomplish.
+Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles and anti-patterns. Check for design context (`design/context.md`, `.impeccable.md`, or `design/direction.md`) — if found, use it to inform brand-specific judgments. If no context exists, **proceed anyway** but note: "No design context found — critique uses universal design principles only. Run `/i-teach-impeccable` to establish brand context." Additionally gather: what the interface is trying to accomplish.
+
+Critiques are read-only diagnostics — they should never be blocked by missing context.
 
 ---
 
@@ -20,7 +22,7 @@ Evaluate the interface across these dimensions:
 
 **This is the most important check.** Does this look like every other AI-generated interface from 2024-2025?
 
-Review the design against ALL the **DON'T** guidelines in the i-frontend-design skill—they are the fingerprints of AI-generated work. Check for the AI color palette, gradient text, dark mode with glowing accents, glassmorphism, hero metric layouts, identical card grids, generic fonts, and all other tells.
+Review the design against all the anti-patterns in [`~/.claude/skills/i-frontend-design/reference/anti-patterns.md`](~/.claude/skills/i-frontend-design/reference/anti-patterns.md) — they are the fingerprints of AI-generated work.
 
 **The test**: If you showed this to someone and said "AI made this," would they believe you immediately? If yes, that's the problem.
 
@@ -83,7 +85,7 @@ Review the design against ALL the **DON'T** guidelines in the i-frontend-design 
 Structure your feedback as a design director would:
 
 ### Anti-Patterns Verdict
-**Start here.** Pass/fail: Does this look AI-generated? List specific tells from the skill's Anti-Patterns section. Be brutally honest.
+**Start here.** Pass/fail: Does this look AI-generated? List specific tells from the [anti-patterns reference](~/.claude/skills/i-frontend-design/reference/anti-patterns.md). Be brutally honest.
 
 ### Overall Impression
 A brief gut reaction—what works, what doesn't, and the single biggest opportunity.
@@ -98,7 +100,7 @@ For each issue:
 - **What**: Name the problem clearly
 - **Why it matters**: How this hurts users or undermines goals
 - **Fix**: What to do about it (be concrete)
-- **Command**: Which modification skill to use for the fix. Do not suggest diagnostic skills (/i-audit, /i-critique) as fixes. Only suggest skills you know are installed.
+- **Command**: Route to the most relevant modification skill (e.g., color → `/i-colorize`, layout → `/i-arrange`, typography → `/i-typeset`, performance → `/i-optimize`, responsive → `/i-adapt`, consistency → `/i-normalize`). Do not suggest diagnostic skills.
 
 ### Minor Observations
 Quick notes on smaller issues worth addressing.
@@ -116,3 +118,11 @@ Provocative questions that might unlock better solutions:
 - Give concrete suggestions, not just "consider exploring..."
 - Prioritize ruthlessly—if everything is important, nothing is
 - Don't soften criticism—developers need honest feedback to ship great design
+
+## Completion
+
+Write the audit report to `.claude/audits/critique-YYYY-MM-DD.md` (create the `.claude/audits/` directory if needed). Then summarize in conversation:
+
+1. **Verdict**: One-line overall assessment
+2. **Top findings**: The 3-5 most important issues
+3. **Suggested next step**: Which modification skill to run first

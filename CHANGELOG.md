@@ -10,6 +10,12 @@ All notable changes to this Claudefiles repository are documented here.
 - `i-teach-impeccable` absorbs `mine.look-and-feel` — single writer for design context at `design/context.md` (#175)
 - Context Gathering Protocol rewritten — `design/context.md` is canonical, with migration fallbacks for `.impeccable.md` and `design/direction.md` (#175)
 - All MANDATORY PREPARATION blocks now use explicit `Read` instruction instead of prose "use the skill" (#175)
+- Anti-pattern DON'T list extracted to single-source reference file; inline duplications replaced with pointers (#175)
+- Per-finding skill routing in i-audit/i-critique — category-to-skill mapping instead of generic suggestion (#175)
+- Default scoping rule added to i-frontend-design — all skills ask for scope when ambiguous (#175)
+- Per-skill completion contracts — diagnostics write report files, modification skills summarize in conversation (#175)
+- Richer aesthetic capture in i-teach-impeccable — visual movements, concrete constraints, take/leave analysis (#175)
+- Diagnostic skills (i-audit, i-critique) no longer block on missing design context — warn and proceed (#175)
 
 ### Removed
 - `i-overdrive` — WebGL/WASM/scroll-driven animations skill not in use (#175)

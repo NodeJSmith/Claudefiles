@@ -193,6 +193,8 @@ Use appropriate techniques for each animation:
 - Animate everything—animation fatigue makes interfaces feel exhausting
 - Block interaction during animations unless intentional
 
+Also review the [anti-patterns reference](~/.claude/skills/i-frontend-design/reference/anti-patterns.md) for general visual anti-patterns to avoid when styling animated elements.
+
 ## Verify Quality
 
 Test animations thoroughly:
@@ -205,3 +207,11 @@ Test animations thoroughly:
 - **Adds value**: Makes interface clearer or more delightful
 
 Remember: Motion should enhance understanding and provide feedback, not just add decoration. Animate with purpose, respect performance constraints, and always consider accessibility. Great animation is invisible - it just makes everything feel right.
+
+## Completion
+
+After implementation, summarize in conversation:
+
+1. **Changes made**: List each file changed and what was done
+2. **Verification**: LLM self-check results (anti-pattern scan, consistency check). Note if Playwright was available for visual verification.
+3. **Suggested next step**: Any follow-up skills that would complement this work (e.g., after /i-typeset, suggest /i-polish for a final pass)

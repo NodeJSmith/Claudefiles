@@ -160,7 +160,7 @@ Ensure color addition improves rather than overwhelms:
 - Violate WCAG contrast requirements
 - Use color as the only indicator (accessibility issue)
 - Make everything colorful (defeats the purpose)
-- Default to purple-blue gradients (AI slop aesthetic)
+- Use any pattern listed in the [anti-patterns reference](~/.claude/skills/i-frontend-design/reference/anti-patterns.md) — especially the AI color palette (cyan-on-dark, purple-to-blue gradients, gradient text)
 
 ## Verify Color Addition
 
@@ -173,3 +173,11 @@ Test that colorization improves the experience:
 - **Not overwhelming**: Is color balanced and purposeful?
 
 Remember: Color is emotional and powerful. Use it to create warmth, guide attention, communicate meaning, and express personality. But restraint and strategy matter more than saturation and variety. Be colorful, but be intentional.
+
+## Completion
+
+After implementation, summarize in conversation:
+
+1. **Changes made**: List each file changed and what was done
+2. **Verification**: LLM self-check results (anti-pattern scan, consistency check). Note if Playwright was available for visual verification.
+3. **Suggested next step**: Any follow-up skills that would complement this work (e.g., after /i-typeset, suggest /i-polish for a final pass)

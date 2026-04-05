@@ -96,6 +96,8 @@ Work through these dimensions methodically:
 
 ### Color & Contrast
 
+> Also check the [anti-patterns reference](~/.claude/skills/i-frontend-design/reference/anti-patterns.md) for color-related anti-patterns (AI palette, gradient text, gray on color, pure black/white).
+
 - **Contrast ratios**: All text meets WCAG standards
 - **Consistent token usage**: No hard-coded colors, all use design tokens
 - **Theme consistency**: Works in all theme variants
@@ -233,3 +235,11 @@ Before marking as done:
 - **Check all states**: Don't just test happy path
 
 Remember: You have impeccable attention to detail and exquisite taste. Polish until it feels effortless, looks intentional, and works flawlessly. Sweat the details - they matter.
+
+## Completion
+
+After implementation, summarize in conversation:
+
+1. **Changes made**: List each file changed and what was done
+2. **Verification**: LLM self-check results (anti-pattern scan, consistency check). Note if Playwright was available for visual verification.
+3. **Suggested next step**: Any follow-up skills that would complement this work (e.g., after /i-typeset, suggest /i-polish for a final pass)

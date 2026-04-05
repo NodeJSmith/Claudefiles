@@ -34,7 +34,7 @@ If any of these are not answered by design context (`design/context.md`, `.impec
 
 **CRITICAL**: "Bolder" doesn't mean chaotic or garish. It means distinctive, memorable, and confident. Think intentional drama, not random chaos.
 
-**WARNING - AI SLOP TRAP**: When making things "bolder," AI defaults to the same tired tricks: cyan/purple gradients, glassmorphism, neon accents on dark backgrounds, gradient text on metrics. These are the OPPOSITE of bold—they're generic. Review ALL the DON'T guidelines in the i-frontend-design skill before proceeding. Bold means distinctive, not "more effects."
+**WARNING - AI SLOP TRAP**: When making things "bolder," AI defaults to the same tired tricks. These are the OPPOSITE of bold—they're generic. Review the [anti-patterns reference](~/.claude/skills/i-frontend-design/reference/anti-patterns.md) before proceeding. Bold means distinctive, not "more effects."
 
 ## Plan Amplification
 
@@ -147,3 +147,11 @@ Ensure amplification maintains usability and coherence:
 **The test**: If you showed this to someone and said "AI made this bolder," would they believe you immediately? If yes, you've failed. Bold means distinctive, not "more AI effects."
 
 Remember: Bold design is confident design. It takes risks, makes statements, and creates memorable experiences. But bold without strategy is just loud. Be intentional, be dramatic, be unforgettable.
+
+## Completion
+
+After implementation, summarize in conversation:
+
+1. **Changes made**: List each file changed and what was done
+2. **Verification**: LLM self-check results (anti-pattern scan, consistency check). Note if Playwright was available for visual verification.
+3. **Suggested next step**: Any follow-up skills that would complement this work (e.g., after /i-typeset, suggest /i-polish for a final pass)
