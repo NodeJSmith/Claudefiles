@@ -294,6 +294,8 @@ AskUserQuestion:
       description: "See unfiltered findings from one of the analysis agents"
     - label: "Re-run with different viewport/theme"
       description: "Run again with --mobile, --dark, or --mobile --dark"
+    - label: "File as issues"
+      description: "File findings as tracked issues for later"
 ```
 
 When offering to read agent reports, list the temp file paths. If "Fix issues now" is selected, follow `rules/common/findings.md` for the resolve flow (collect all user-directed answers first, then execute fixes).

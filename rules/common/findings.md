@@ -4,7 +4,7 @@ When analysis skills produce findings, follow this convention for presenting and
 
 ## Principle: All Findings Must Be Resolved
 
-Every finding must be addressed: fixed in this session, or filed as an issue for tracking. Do not guide the user toward shipping code with known unresolved findings. "File as issue" is not skipping — it's proper tracking for work that can't happen now. Explicit user deferral ("Skip") is valid — the principle prevents silent abandonment, not informed decisions.
+Every finding must be resolved — meaning fixed, filed as an issue, or explicitly deferred by the user. Do not guide the user toward shipping code with known unresolved findings. "File as issue" is not skipping — it's proper tracking for work that can't happen now. Explicit user deferral ("Skip") is valid — the principle prevents silent abandonment, not informed decisions.
 
 ## Presenting Findings
 

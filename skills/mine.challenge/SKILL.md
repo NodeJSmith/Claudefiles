@@ -8,7 +8,7 @@ user-invocable: true
 
 Adversarial review of any artifact — code, specs, designs, briefs, skill files. Assumes the target is wrong and sets out to prove it. Three generic critics always run; up to two domain-specialist critics are added based on target type. Findings are cross-referenced for confidence, and every claim must cite evidence.
 
-This skill produces **findings only**. It does not revise documents or apply fixes — that's the caller's job. When invoked from caliper workflow skills (mine.specify, mine.design), those skills handle revision planning after challenge completes.
+When invoked by caliper workflow skills (mine.specify, mine.design), those callers handle revision planning after challenge completes. When invoked standalone, challenge resolves findings via `rules/common/findings.md`.
 
 ## How This Differs From Other Skills
 
@@ -27,7 +27,7 @@ $ARGUMENTS — optional scope:
 
 **Optional arguments**:
 - `--focus="<area>"` — steer critics toward specific concerns (e.g., `--focus="security, error handling"`). Passed to all critics as a priority signal: "Pay special attention to X." Critics still review broadly but weight output toward the user's concern. **Note:** specialist override only applies when `--focus` is a single slug/prefix (minimum 6 characters) that matches a specialist name (e.g., `--focus="data-integrity"` or `--focus="end-user"`), not when multiple comma-separated areas are provided.
-- `--target-type=<type>` — override heuristic target-type classification. Callers that know their artifact type should pass this. Values: `code`, `frontend-code`, `spec`, `design-doc`, `brief`, `skill-file`, `agent-file`, `docs`, `research`, `other`.
+- `--target-type=<type>` — override heuristic target-type classification. Callers that know their artifact type should pass this. Values: `code`, `frontend-code`, `spec`, `design-doc`, `brief`, `skill-file`, `agent-file`, `rule`, `docs`, `research`, `other`.
 - `--findings-out=<path>` — (structured callers only) deterministic output path for the findings file. Used by mine.design and mine.specify for reliable handoff. Not needed for standalone or passthrough invocations.
 - `--no-specialists` — skip specialist selection, run only the three generic critics.
 
@@ -156,6 +156,7 @@ The remainder of `$ARGUMENTS` is the target scope.
    | `agent-file` | Files in `agents/` directory or `.md` with agent frontmatter (name, description, tools) | Identity bloat, missing conventions, filler sections, scope overlap, executor compatibility |
    | `docs` | `README.md` or `.md` files in a `docs/` directory | Technical accuracy of code samples and commands, API reference validity, version currency, consistency between docs and codebase |
    | `research` | `research.md` or research artifacts/investigation output | Conclusion validity, exploration completeness, confirmation bias |
+   | `rule` | Files in `rules/` directory or `.md` files defining conventions, guidelines, or behavioral contracts (coding style, git workflow, testing policy, agent orchestration, etc.) | Rule clarity and enforceability, interaction with other rules, downstream impact on skills/agents that consume the rule, ambiguity that leads to inconsistent compliance |
    | `other` | No type matches above | Correctness, assumption validity, internal consistency — critics use their general focus without type-specific narrowing |
 
 3. **Gather context** based on target type:
@@ -164,6 +165,7 @@ The remainder of `$ARGUMENTS` is the target scope.
    - **Docs**: read sibling docs in the same directory or docs/ tree to understand the documentation set as a whole. If the doc references code, commands, or config, verify those exist and read the referenced sections to check for interface drift — confirm the current behavior matches what the doc describes.
    - **Skill file**: read all callers listed in the file, grep for additional references across the codebase
    - **Agent file**: read 2-3 gold-standard agents for structural comparison (`engineering-backend-developer.md`, `engineering-data-engineer.md`, `engineering-frontend-developer.md`), check routing tables (`rules/common/agents.md`, `skills/mine.orchestrate/SKILL.md`) for how the agent is dispatched, and grep for the agent name across skills/rules to find all references
+   - **Rule**: read sibling rules in the same directory to check for overlaps, contradictions, or gaps. Grep for the rule's key terms across skills, agents, and other rules to find all consumers. If the rule references specific tools, commands, or patterns, verify they exist.
 4. Note what problem the target ostensibly solves
 
 ### If empty
@@ -206,6 +208,7 @@ After classifying the target type, select specialist personas to augment the thr
 | `design-doc` | Contract & Caller (`contract-caller.md`) + Operational Resilience (`operational-resilience.md`) |
 | `spec` | Workflow & UX (`workflow-ux.md`) |
 | `docs` | End-User Reader (`end-user-reader.md`) + Documentation Architect (`documentation-architect.md`) |
+| `rule` | Contract & Caller (`contract-caller.md`) + Workflow & UX (`workflow-ux.md`) |
 | `brief` | Workflow & UX (`workflow-ux.md`) |
 | `research` | _(none — generics only)_ |
 | `other` | _(none — generics only)_ |
