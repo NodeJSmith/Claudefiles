@@ -8,7 +8,7 @@ Reduce visual intensity in designs that are too bold, aggressive, or overstimula
 
 ## MANDATORY PREPARATION
 
-Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
+Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
 
 ---
 
@@ -30,7 +30,7 @@ Analyze what makes the design feel too intense:
    - What's working? (Don't throw away good ideas)
    - What's the core message? (Preserve what matters)
 
-If any of these are unclear from the codebase, STOP and call the AskUserQuestion tool to clarify.
+If any of these are not answered by design context (`design/context.md`, `.impeccable.md`, or `design/direction.md`), STOP and call the AskUserQuestion tool to clarify. Use the answer to inform your refinement strategy. If the answer is unclear or deferred, proceed by reducing color count, not content.
 
 **CRITICAL**: "Quieter" doesn't mean boring or generic. It means refined, sophisticated, and easier on the eyes. Think luxury, not laziness.
 
@@ -44,6 +44,40 @@ Create a strategy to reduce intensity while maintaining impact:
 - **Sophistication approach**: How can we signal quality through restraint?
 
 **IMPORTANT**: Great quiet design is harder than great bold design. Subtlety requires precision.
+
+---
+
+## Propose Changes
+
+After analyzing the current state, present your proposed changes to the user:
+
+1. **Assessment**: What's wrong and why (your domain analysis above)
+2. **Proposed changes**: Specific changes ranked by impact, with rationale
+3. **Verification plan**: What to check after implementation (LLM self-check items + Playwright verification if available)
+
+Then STOP and confirm before implementing:
+
+```
+AskUserQuestion:
+  question: "Here's what I propose. How would you like to proceed?"
+  header: "Confirm"
+  options:
+    - label: "Implement"
+      description: "Looks good — go ahead and make these changes."
+    - label: "Refine scope"
+      description: "I want to adjust what's included before you start."
+    - label: "Challenge this first"
+      description: "I'll run /mine.challenge against your proposal before we proceed."
+    - label: "Stop here"
+      description: "Don't implement anything. The proposal is in this conversation only."
+```
+
+If "Implement" → proceed to implementation below.
+If "Refine scope" → ask what to change, update proposal, re-confirm.
+If "Challenge this first" → invoke `/mine.challenge` inline against the proposal, read findings, revise proposal, re-present this gate.
+If "Stop here" → end the skill.
+
+---
 
 ## Refine the Design
 
@@ -89,6 +123,8 @@ Systematically reduce intensity across these dimensions:
 - Sacrifice usability for aesthetics (functional elements still need clear affordances)
 - Make everything small and light (some anchors needed)
 
+Also review the [anti-patterns reference](../i-frontend-design/reference/anti-patterns.md) — many anti-patterns describe over-designed AI defaults that quieter work should move away from.
+
 ## Verify Quality
 
 Ensure refinement maintains quality:
@@ -99,3 +135,11 @@ Ensure refinement maintains quality:
 - **Sophistication**: Does it feel more refined and premium?
 
 Remember: Quiet design is confident design. It doesn't need to shout. Less is more, but less is also harder. Refine with precision and maintain intentionality.
+
+## Completion
+
+After implementation, summarize in conversation:
+
+1. **Changes made**: List each file changed and what was done
+2. **Verification**: LLM self-check results (anti-pattern scan, consistency check). Note if Playwright was available for visual verification.
+3. **Suggested next step**: Any follow-up skills that would complement this work (e.g., after /i-typeset, suggest /i-polish for a final pass)

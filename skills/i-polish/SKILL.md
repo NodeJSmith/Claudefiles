@@ -6,7 +6,7 @@ user-invocable: true
 
 ## MANDATORY PREPARATION
 
-Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: quality bar (MVP vs flagship).
+Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: quality bar (MVP vs flagship).
 
 ---
 
@@ -31,6 +31,40 @@ Understand the current state and goals:
    - Loading and transition smoothness
 
 **CRITICAL**: Polish is the last step, not the first. Don't polish work that's not functionally complete.
+
+---
+
+## Propose Changes
+
+After analyzing the current state, present your proposed changes to the user:
+
+1. **Assessment**: What's wrong and why (your domain analysis above)
+2. **Proposed changes**: Specific changes ranked by impact, with rationale
+3. **Verification plan**: What to check after implementation (LLM self-check items + Playwright verification if available)
+
+Then STOP and confirm before implementing:
+
+```
+AskUserQuestion:
+  question: "Here's what I'll check and fix in this polish pass. Proceed?"
+  header: "Confirm"
+  options:
+    - label: "Implement"
+      description: "Looks good — go ahead and make these changes."
+    - label: "Refine scope"
+      description: "I want to adjust what's included before you start."
+    - label: "Challenge this first"
+      description: "I'll run /mine.challenge against your proposal before we proceed."
+    - label: "Stop here"
+      description: "Don't implement anything. The proposal is in this conversation only."
+```
+
+If "Implement" → proceed to implementation below.
+If "Refine scope" → ask what to change, update proposal, re-confirm.
+If "Challenge this first" → invoke `/mine.challenge` inline against the proposal, read findings, revise proposal, re-present this gate.
+If "Stop here" → end the skill.
+
+---
 
 ## Polish Systematically
 
@@ -61,6 +95,8 @@ Work through these dimensions methodically:
 - **Font loading**: No FOUT/FOIT flashes
 
 ### Color & Contrast
+
+> Also check the [anti-patterns reference](../i-frontend-design/reference/anti-patterns.md) for color-related anti-patterns (AI palette, gradient text, gray on color, pure black/white).
 
 - **Contrast ratios**: All text meets WCAG standards
 - **Consistent token usage**: No hard-coded colors, all use design tokens
@@ -199,3 +235,11 @@ Before marking as done:
 - **Check all states**: Don't just test happy path
 
 Remember: You have impeccable attention to detail and exquisite taste. Polish until it feels effortless, looks intentional, and works flawlessly. Sweat the details - they matter.
+
+## Completion
+
+After implementation, summarize in conversation:
+
+1. **Changes made**: List each file changed and what was done
+2. **Verification**: LLM self-check results (anti-pattern scan, consistency check). Note if Playwright was available for visual verification.
+3. **Suggested next step**: Any follow-up skills that would complement this work (e.g., after /i-typeset, suggest /i-polish for a final pass)

@@ -8,7 +8,7 @@ Identify opportunities to add moments of joy, personality, and unexpected polish
 
 ## MANDATORY PREPARATION
 
-Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: what's appropriate for the domain (playful vs professional vs quirky vs elegant).
+Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: what's appropriate for the domain (playful vs professional vs quirky vs elegant).
 
 ---
 
@@ -37,7 +37,7 @@ Identify where delight would enhance (not distract from) the experience:
    - **Helpful surprises**: Anticipating needs before users ask (productivity tools)
    - **Sensory richness**: Satisfying sounds, smooth animations (creative tools)
 
-If any of these are unclear from the codebase, STOP and call the AskUserQuestion tool to clarify.
+If any of these are not answered by design context (`design/context.md`, `.impeccable.md`, or `design/direction.md`), STOP and call the AskUserQuestion tool to clarify. Use the answer to inform your delight strategy. If the answer is unclear or deferred, proceed with micro-feedback only as the safe default — no personality changes.
 
 **CRITICAL**: Delight should enhance usability, never obscure it. If users notice the delight more than accomplishing their goal, you've gone too far.
 
@@ -68,6 +68,40 @@ Follow these guidelines:
 - Vary responses (not same animation every time)
 - Reveal deeper layers with continued use
 - Build anticipation through patterns
+
+---
+
+## Propose Changes
+
+After analyzing the current state, present your proposed changes to the user:
+
+1. **Assessment**: What's wrong and why (your domain analysis above)
+2. **Proposed changes**: Specific changes ranked by impact, with rationale
+3. **Verification plan**: What to check after implementation (LLM self-check items + Playwright verification if available)
+
+Then STOP and confirm before implementing:
+
+```
+AskUserQuestion:
+  question: "Here's what I propose. How would you like to proceed?"
+  header: "Confirm"
+  options:
+    - label: "Implement"
+      description: "Looks good — go ahead and make these changes."
+    - label: "Refine scope"
+      description: "I want to adjust what's included before you start."
+    - label: "Challenge this first"
+      description: "I'll run /mine.challenge against your proposal before we proceed."
+    - label: "Stop here"
+      description: "Don't implement anything. The proposal is in this conversation only."
+```
+
+If "Implement" → proceed to implementation below.
+If "Refine scope" → ask what to change, update proposal, re-confirm.
+If "Challenge this first" → invoke `/mine.challenge` inline against the proposal, read findings, revise proposal, re-present this gate.
+If "Stop here" → end the skill.
+
+---
 
 ## Delight Techniques
 
@@ -114,7 +148,9 @@ Add personality and joy through these methods:
 
 ### Personality in Copy
 
-**Playful error messages**:
+**Note**: Playful error copy is appropriate only for non-blocking, easily recoverable errors (404s, empty search results) on playful brands. For serious errors (data loss, permission failures, blocking errors), empathy overrides personality — see /i-clarify.
+
+**Playful error messages** (non-blocking errors only):
 ```
 "Error 404"
 "This page is playing hide and seek. (And winning)"
@@ -173,7 +209,7 @@ Add personality and joy through these methods:
 - Undo toast ("Dropped in wrong place? [Undo]")
 
 **Toggle switches**:
-- Smooth slide with spring physics
+- Smooth slide with spring physics (zero or near-zero overshoot — e.g., React Spring with high tension, high friction. Visible overshoot/bounce is not permitted.)
 - Color transition
 - Haptic feedback on mobile
 - Optional sound effect
@@ -300,3 +336,11 @@ Test that delight actually delights:
 - **Accessible**: Works with reduced motion, screen readers
 
 Remember: Delight is the difference between a tool and an experience. Add personality, surprise users positively, and create moments worth sharing. But always respect usability - delight should enhance, never obstruct.
+
+## Completion
+
+After implementation, summarize in conversation:
+
+1. **Changes made**: List each file changed and what was done
+2. **Verification**: LLM self-check results (anti-pattern scan, consistency check). Note if Playwright was available for visual verification.
+3. **Suggested next step**: Any follow-up skills that would complement this work (e.g., after /i-typeset, suggest /i-polish for a final pass)

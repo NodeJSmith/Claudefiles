@@ -6,7 +6,13 @@ user-invocable: true
 
 Run systematic quality checks and generate a comprehensive audit report with prioritized issues and actionable recommendations. Don't fix issues - document them for other commands to address.
 
-**First**: Use the i-frontend-design skill for design principles and anti-patterns.
+## MANDATORY PREPARATION
+
+Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles and anti-patterns. Check for design context (`design/context.md`, `.impeccable.md`, or `design/direction.md`) — if found, use it to inform brand-specific judgments. If no context exists, **proceed anyway** but note in the report: "No design context found — anti-pattern checks are universal only; brand-specific judgments may not apply. Run `/i-teach-impeccable` to establish context."
+
+Audits are read-only diagnostics — they should never be blocked by missing context.
+
+---
 
 ## Diagnostic Scan
 
@@ -40,7 +46,7 @@ Run comprehensive checks across multiple dimensions:
    - **Text scaling**: Layouts that break when text size increases
    - **Missing breakpoints**: No mobile/tablet variants
 
-5. **Anti-Patterns (CRITICAL)** - Check against ALL the **DON'T** guidelines in the i-frontend-design skill. Look for AI slop tells (AI color palette, gradient text, glassmorphism, hero metrics, card grids, generic fonts) and general design anti-patterns (gray on color, nested cards, bounce easing, redundant copy).
+5. **Anti-Patterns (CRITICAL)** - Check against the [anti-patterns reference](../i-frontend-design/reference/anti-patterns.md). Look for AI slop tells and general design anti-patterns documented there.
 
 **CRITICAL**: This is an audit, not a fix. Document issues thoroughly with clear explanations of impact. Use other commands (normalize, optimize, harden, etc.) to fix issues after audit.
 
@@ -49,7 +55,7 @@ Run comprehensive checks across multiple dimensions:
 Create a detailed audit report with the following structure:
 
 ### Anti-Patterns Verdict
-**Start here.** Pass/fail: Does this look AI-generated? List specific tells from the skill's Anti-Patterns section. Be brutally honest.
+**Start here.** Pass/fail: Does this look AI-generated? List specific tells from the [anti-patterns reference](../i-frontend-design/reference/anti-patterns.md). Be brutally honest.
 
 ### Executive Summary
 - Total issues found (count by severity)
@@ -67,7 +73,21 @@ For each issue, document:
 - **Impact**: How it affects users
 - **WCAG/Standard**: Which standard it violates (if applicable)
 - **Recommendation**: How to fix it
-- **Suggested command**: Which command to use (prefer: /i-normalize, /i-onboard, /i-polish, /i-animate, /i-clarify, /i-audit, /i-quieter, /i-typeset, /i-harden, /i-overdrive, /i-delight, /i-arrange, /i-critique, /i-colorize, /i-bolder, /i-optimize, /i-adapt, /i-distill, /i-extract — or other installed skills you're sure exist)
+- **Suggested command**: Route to the most relevant modification skill:
+  - Contrast, color system, palette issues → `/i-colorize`
+  - Layout, spacing, alignment, hierarchy → `/i-arrange`
+  - Typography, font choices, type scale → `/i-typeset`
+  - Animation, motion, transition issues → `/i-animate`
+  - Performance, load time, rendering → `/i-optimize`
+  - Responsive, mobile, touch targets → `/i-adapt`
+  - Hard-coded values, design system drift → `/i-normalize`
+  - Missing states, error handling, i18n → `/i-harden`
+  - Onboarding, empty states, first-run → `/i-onboard`
+  - Copy, labels, error messages → `/i-clarify`
+  - Overall too busy/noisy → `/i-quieter`
+  - Overall too generic/bland → `/i-bolder`
+  - Component extraction needed → `/i-extract`
+  - Final polish pass → `/i-polish`
 
 #### Critical Issues
 [Issues that block core functionality or violate WCAG A]
@@ -104,11 +124,10 @@ Create actionable plan:
 
 ### Suggested Commands for Fixes
 
-Map issues to available commands. Prefer these: /i-normalize, /i-onboard, /i-polish, /i-animate, /i-clarify, /i-audit, /i-quieter, /i-typeset, /i-harden, /i-overdrive, /i-delight, /i-arrange, /i-critique, /i-colorize, /i-bolder, /i-optimize, /i-adapt, /i-distill, /i-extract. You may also suggest other installed skills you're sure exist, but never invent commands.
+Group findings by the skill that would fix them, using the routing from the per-finding "Suggested command" field. Example:
 
-Examples:
 - "Use `/i-normalize` to align with design system (addresses N theming issues)"
-- "Use `/i-optimize` to improve performance (addresses N performance issues)"
+- "Use `/i-adapt` to fix responsive problems (addresses N mobile/touch issues)"
 - "Use `/i-harden` to improve resilience (addresses N edge cases)"
 
 **IMPORTANT**: Be thorough but actionable. Too many low-priority issues creates noise. Focus on what actually matters.
@@ -122,3 +141,11 @@ Examples:
 - Report false positives without verification
 
 Remember: You're a quality auditor with exceptional attention to detail. Document systematically, prioritize ruthlessly, and provide clear paths to improvement. A good audit makes fixing easy.
+
+## Completion
+
+Write the audit report to `.claude/audits/audit-YYYY-MM-DD.md` (create the `.claude/audits/` directory if needed). Then summarize in conversation:
+
+1. **Verdict**: One-line overall assessment
+2. **Top findings**: The 3-5 most important issues
+3. **Suggested next step**: Which modification skill to run first

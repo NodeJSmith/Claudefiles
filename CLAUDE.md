@@ -88,9 +88,13 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 
 ### Impeccable (`i-*`) framework dependency
 
-The `i-*` skills are a single framework, not independent skills. Every `i-*` skill (except `i-teach-impeccable` and `i-frontend-design` itself) begins by loading `i-frontend-design` as its MANDATORY PREPARATION step — this is how the context gathering protocol and anti-pattern guidance propagate to every skill in the bundle. On a new project, run `/i-teach-impeccable` once to create `.impeccable.md` with brand context — all other `i-*` skills depend on it.
+The `i-*` skills are a single framework, not independent skills. Every `i-*` skill (except `i-teach-impeccable` and `i-frontend-design` itself) begins by reading `i-frontend-design` as its MANDATORY PREPARATION step — this is how the context gathering protocol and anti-pattern guidance propagate to every skill in the bundle.
 
-If `/mine.look-and-feel` was already run, the `i-*` skills will read `design/direction.md` as a fallback, so you don't need to re-answer context questions.
+On a new project, run `/i-teach-impeccable` to create `design/context.md` with brand context and design tokens — all other `i-*` skills depend on it. The context gathering protocol also checks `.impeccable.md` and `design/direction.md` as migration fallbacks.
+
+**Modification skills** (i-arrange, i-colorize, i-typeset, etc.) analyze the codebase and propose changes, then present a confirmation gate before implementing. The user can approve, refine, or challenge the proposal before any code is written.
+
+**Diagnostic skills** (i-audit, i-critique) analyze and report without modifying code.
 
 ## Bash Tool Restrictions
 

@@ -8,7 +8,7 @@ Assess and improve layout and spacing that feels monotonous, crowded, or structu
 
 ## MANDATORY PREPARATION
 
-Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
+Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
 
 ---
 
@@ -45,7 +45,7 @@ Analyze what's weak about the current spatial design:
 
 ## Plan Layout Improvements
 
-Consult the [spatial design reference](../i-frontend-design/reference/spatial-design.md) from the i-frontend-design skill for detailed guidance on grids, rhythm, and container queries.
+Consult the [spatial design reference](../i-frontend-design/reference/spatial-design.md) for detailed guidance on grids, rhythm, and container queries.
 
 Create a systematic plan:
 
@@ -53,6 +53,40 @@ Create a systematic plan:
 - **Hierarchy strategy**: How will space communicate importance?
 - **Layout approach**: What structure fits the content? Flex for 1D, Grid for 2D, named areas for complex page layouts.
 - **Rhythm**: Where should spacing be tight vs generous?
+
+---
+
+## Propose Changes
+
+After analyzing the current state, present your proposed changes to the user:
+
+1. **Assessment**: What's wrong and why (your domain analysis above)
+2. **Proposed changes**: Specific changes ranked by impact, with rationale
+3. **Verification plan**: What to check after implementation (LLM self-check items + Playwright verification if available)
+
+Then STOP and confirm before implementing:
+
+```
+AskUserQuestion:
+  question: "Here's what I propose. How would you like to proceed?"
+  header: "Confirm"
+  options:
+    - label: "Implement"
+      description: "Looks good — go ahead and make these changes."
+    - label: "Refine scope"
+      description: "I want to adjust what's included before you start."
+    - label: "Challenge this first"
+      description: "I'll run /mine.challenge against your proposal before we proceed."
+    - label: "Stop here"
+      description: "Don't implement anything. The proposal is in this conversation only."
+```
+
+If "Implement" → proceed to implementation below.
+If "Refine scope" → ask what to change, update proposal, re-confirm.
+If "Challenge this first" → invoke `/mine.challenge` inline against the proposal, read findings, revise proposal, re-present this gate.
+If "Stop here" → end the skill.
+
+---
 
 ## Improve Layout Systematically
 
@@ -103,13 +137,10 @@ Create a systematic plan:
 **NEVER**:
 - Use arbitrary spacing values outside your scale
 - Make all spacing equal — variety creates hierarchy
-- Wrap everything in cards — not everything needs a container
-- Nest cards inside cards — use spacing and dividers for hierarchy within
-- Use identical card grids everywhere (icon + heading + text, repeated)
-- Center everything — left-aligned with asymmetry feels more designed
-- Default to the hero metric layout (big number, small label, stats, gradient) as a template. If showing real user data, a prominent metric can work — but it should display actual data, not decorative numbers.
 - Default to CSS Grid when Flexbox would be simpler — use the simplest tool for the job
 - Use arbitrary z-index values (999, 9999) — build a semantic scale
+
+Also avoid all layout anti-patterns in the [anti-patterns reference](../i-frontend-design/reference/anti-patterns.md) (card wrapping, nested cards, identical card grids, centering everything, hero metric template).
 
 ## Verify Layout Improvements
 
@@ -121,3 +152,11 @@ Create a systematic plan:
 - **Responsiveness**: Does the layout adapt gracefully across screen sizes?
 
 Remember: Space is the most underused design tool. A layout with the right rhythm and hierarchy can make even simple content feel polished and intentional.
+
+## Completion
+
+After implementation, summarize in conversation:
+
+1. **Changes made**: List each file changed and what was done
+2. **Verification**: LLM self-check results (anti-pattern scan, consistency check). Note if Playwright was available for visual verification.
+3. **Suggested next step**: Any follow-up skills that would complement this work (e.g., after /i-typeset, suggest /i-polish for a final pass)

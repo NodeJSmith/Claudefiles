@@ -4,16 +4,37 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-04-05
 
-### Fixed
-- `mine.orchestrate` — align all prompt files with caliper v2 WP schema; merge `phase-executor-prompt.md` into `implementer-prompt.md`; fix 72 findings across 3 challenge rounds covering ghost schema fields, verdict assembly, test gate regression detection, checkpoint resilience, Phase 3 fix context, and visual verification contracts (#174)
-
 ### Changed
+- Impeccable i-* bundle remediation — 4 rounds of `/mine.challenge` adversarial review, 30 files changed (#175)
+- All modification skills (16) now propose changes and confirm before implementing — no skill writes code without user approval (#175)
+- `i-teach-impeccable` absorbs `mine.look-and-feel` — single writer for design context at `design/context.md` (#175)
+- Context Gathering Protocol rewritten — `design/context.md` is canonical, with migration fallbacks for `.impeccable.md` and `design/direction.md` (#175)
+- All MANDATORY PREPARATION blocks now use explicit `Read` instruction instead of prose "use the skill" (#175)
+- Anti-pattern DON'T list extracted to single-source reference file; inline duplications replaced with pointers (#175)
+- Per-finding skill routing in i-audit/i-critique — category-to-skill mapping instead of generic suggestion (#175)
+- Default scoping rule added to i-frontend-design — all skills ask for scope when ambiguous (#175)
+- Per-skill completion contracts — diagnostics write report files, modification skills summarize in conversation (#175)
+- Richer aesthetic capture in i-teach-impeccable — visual movements, concrete constraints, take/leave analysis (#175)
+- Diagnostic skills (i-audit, i-critique) no longer block on missing design context — warn and proceed (#175)
 - Replace backlog convention with findings convention — default is now fix-all with auto-apply for unambiguous fixes, user-directed answers collected before code changes, and per-finding "file as issue" option; remove `mine.audit` (use `/mine.challenge` instead) (#176)
 - `mine.orchestrate` — replace `visual_skip` boolean with `visual_mode` enum (`enabled`/`skipped_no_server`/`skipped_no_vision`); move vision check to Phase 0; replace 24h staleness heuristic with git-state check; extract agent routing table to `agent-routing.md` (#174)
 - `mine.orchestrate` — add explicit verdict assembly step (Step 8.7), independent test gate (Step 5.3) with regression detection, and ABANDON handling for impl-review (#174)
 
 ### Removed
+- `i-overdrive` — WebGL/WASM/scroll-driven animations skill not in use (#175)
+- `mine.look-and-feel` — absorbed into `i-teach-impeccable` (#175)
+- `IMPECCABLE_VERSION.md` — git history preserves same info (#175)
 - `skills/mine.orchestrate/phase-executor-prompt.md` — content absorbed into `implementer-prompt.md` (#174)
+
+### Fixed
+- i-extract, i-harden, i-optimize missing MANDATORY PREPARATION blocks (#175)
+- i-clarify vs i-delight error copy contradiction (humor now scoped to non-blocking errors on playful brands) (#175)
+- i-animate vs i-delight spring physics contradiction (spring without overshoot is permitted) (#175)
+- i-harden out-of-scope server-side validation and test-writing sections removed (#175)
+- Hardcoded 19-skill suggestion lists in i-audit/i-critique replaced with dynamic instruction (#175)
+- Reference file paths switched from broken relative to absolute `~/.claude/skills/` paths (#175)
+- `mine.orchestrate` — align all prompt files with caliper v2 WP schema; merge `phase-executor-prompt.md` into `implementer-prompt.md`; fix 72 findings across 3 challenge rounds covering ghost schema fields, verdict assembly, test gate regression detection, checkpoint resilience, Phase 3 fix context, and visual verification contracts (#174)
+
 ## 2026-04-04
 
 ### Fixed

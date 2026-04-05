@@ -6,6 +6,12 @@ user-invocable: true
 
 Strengthen interfaces against edge cases, errors, internationalization issues, and real-world usage scenarios that break idealized designs.
 
+## MANDATORY PREPARATION
+
+Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
+
+---
+
 ## Assess Hardening Needs
 
 Identify weaknesses and edge cases:
@@ -35,6 +41,40 @@ Identify weaknesses and edge cases:
    - Currency symbols
 
 **CRITICAL**: Designs that only work with perfect data aren't production-ready. Harden against reality.
+
+---
+
+## Propose Changes
+
+After analyzing the current state, present your proposed changes to the user:
+
+1. **Assessment**: What's wrong and why (your domain analysis above)
+2. **Proposed changes**: Specific changes ranked by impact, with rationale
+3. **Verification plan**: What to check after implementation (LLM self-check items + Playwright verification if available)
+
+Then STOP and confirm before implementing:
+
+```
+AskUserQuestion:
+  question: "Here's what I propose. How would you like to proceed?"
+  header: "Confirm"
+  options:
+    - label: "Implement"
+      description: "Looks good — go ahead and make these changes."
+    - label: "Refine scope"
+      description: "I want to adjust what's included before you start."
+    - label: "Challenge this first"
+      description: "I'll run /mine.challenge against your proposal before we proceed."
+    - label: "Stop here"
+      description: "Don't implement anything. The proposal is in this conversation only."
+```
+
+If "Implement" → proceed to implementation below.
+If "Refine scope" → ask what to change, update proposal, re-confirm.
+If "Challenge this first" → invoke `/mine.challenge` inline against the proposal, read findings, revise proposal, re-present this gate.
+If "Stop here" → end the skill.
+
+---
 
 ## Hardening Dimensions
 
@@ -232,11 +272,7 @@ t('items', { count }) // Handles complex plural rules
 - Pattern matching
 - Custom validation rules
 
-**Server-side validation** (always):
-- Never trust client-side only
-- Validate and sanitize all inputs
-- Protect against injection attacks
-- Rate limiting
+**Server-side validation**: Out of scope for UI hardening. Ensure your backend validates all inputs independently — never rely on client-side validation alone.
 
 **Constraint handling**:
 ```html
@@ -317,12 +353,7 @@ const throttledScroll = throttle(handleScroll, 100);
 - Test keyboard-only navigation
 - Test on old browsers
 
-**Automated testing**:
-- Unit tests for edge cases
-- Integration tests for error scenarios
-- E2E tests for critical paths
-- Visual regression tests
-- Accessibility tests (axe, WAVE)
+**Automated testing**: Out of scope for UI hardening. For automated test coverage, consult your project's testing framework and conventions.
 
 **IMPORTANT**: Hardening is about expecting the unexpected. Real users will do things you never imagined.
 
@@ -351,3 +382,11 @@ Test thoroughly with edge cases:
 - **Empty**: Remove all data, test empty states
 
 Remember: You're hardening for production reality, not demo perfection. Expect users to input weird data, lose connection mid-flow, and use your product in unexpected ways. Build resilience into every component.
+
+## Completion
+
+After implementation, summarize in conversation:
+
+1. **Changes made**: List each file changed and what was done
+2. **Verification**: LLM self-check results (anti-pattern scan, consistency check). Note if Playwright was available for visual verification.
+3. **Suggested next step**: Any follow-up skills that would complement this work (e.g., after /i-typeset, suggest /i-polish for a final pass)

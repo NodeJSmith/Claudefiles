@@ -8,7 +8,7 @@ Identify and improve unclear, confusing, or poorly written interface text to mak
 
 ## MANDATORY PREPARATION
 
-Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: audience technical level and users' mental state in context.
+Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: audience technical level and users' mental state in context.
 
 ---
 
@@ -43,6 +43,40 @@ Create a strategy for clearer communication:
 - **Constraints**: Length limits, brand voice, localization considerations
 
 **IMPORTANT**: Good UX writing is invisible. Users should understand immediately without noticing the words.
+
+---
+
+## Propose Changes
+
+After analyzing the current state, present your proposed changes to the user:
+
+1. **Assessment**: What's wrong and why (your domain analysis above)
+2. **Proposed changes**: Specific changes ranked by impact, with rationale
+3. **Verification plan**: What to check after implementation (LLM self-check items + Playwright verification if available)
+
+Then STOP and confirm before implementing:
+
+```
+AskUserQuestion:
+  question: "Here's what I propose. How would you like to proceed?"
+  header: "Confirm"
+  options:
+    - label: "Implement"
+      description: "Looks good — go ahead and make these changes."
+    - label: "Refine scope"
+      description: "I want to adjust what's included before you start."
+    - label: "Challenge this first"
+      description: "I'll run /mine.challenge against your proposal before we proceed."
+    - label: "Stop here"
+      description: "Don't implement anything. The proposal is in this conversation only."
+```
+
+If "Implement" → proceed to implementation below.
+If "Refine scope" → ask what to change, update proposal, re-confirm.
+If "Challenge this first" → invoke `/mine.challenge` inline against the proposal, read findings, revise proposal, re-present this gate.
+If "Stop here" → end the skill.
+
+---
 
 ## Improve Copy Systematically
 
@@ -162,7 +196,7 @@ Every piece of copy should follow these rules:
 - Be vague ("Something went wrong" without explanation)
 - Use passive voice unnecessarily
 - Write overly long explanations (be concise)
-- Use humor for errors (be empathetic instead)
+- Use humor for serious or high-stakes errors — data loss, permission errors, blocking failures require empathy, not jokes. For playful brands, humor may be appropriate for 404s and minor recoverable errors, but empathy should be the default. **If brand personality is not established in design context, use empathy-first default for all errors.**
 - Assume technical knowledge
 - Vary terminology (pick one term and stick with it)
 - Repeat information (headers restating intros, redundant explanations)
@@ -179,3 +213,11 @@ Test that copy improvements work:
 - **Tone**: Is it appropriate for the situation?
 
 Remember: You're a clarity expert with excellent communication skills. Write like you're explaining to a smart friend who's unfamiliar with the product. Be clear, be helpful, be human.
+
+## Completion
+
+After implementation, summarize in conversation:
+
+1. **Changes made**: List each file changed and what was done
+2. **Verification**: LLM self-check results (anti-pattern scan, consistency check). Note if Playwright was available for visual verification.
+3. **Suggested next step**: Any follow-up skills that would complement this work (e.g., after /i-typeset, suggest /i-polish for a final pass)

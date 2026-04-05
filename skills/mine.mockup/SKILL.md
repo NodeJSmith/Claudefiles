@@ -1,7 +1,7 @@
 ---
 name: mine.mockup
 user-invocable: true
-description: "Use when the user says: \"mockup this UI\", \"show me what it looks like\", \"HTML mockup\", \"UI preview\", or \"generate a mockup\". Generate self-contained HTML mockup files. Reads design/direction.md if present for consistent styling."
+description: "Use when the user says: \"mockup this UI\", \"show me what it looks like\", \"HTML mockup\", \"UI preview\", or \"generate a mockup\". Generate self-contained HTML mockup files. Reads design/context.md if present for consistent styling."
 ---
 
 # Mockup
@@ -10,28 +10,28 @@ Generate self-contained HTML files for UI mockups, technical diagrams, visualiza
 
 ## Workflow
 
-### 1. Check for Spec and Direction Files
+### 1. Check for Spec and Design Context
 
 Look for `design/specs/*/spec.md`.
 
-- **If none found**, proceed without a spec — rely on the user's description and direction.md (if present).
+- **If none found**, proceed without a spec — rely on the user's description and design context (if present).
 - **If exactly one exists**, read it.
 - **If multiple exist**, list the discovered feature directories and ask the user which feature this mockup targets.
 
 For the chosen spec (if any), read the **User Scenarios** section — use the actor task flows and information needs to inform layout, information hierarchy, and navigation. The spec's structured scenarios tell you what data goes where and in what order.
 
-Look for `design/direction*.md` in the project.
+Look for design context in order:
 
-- **If one found**: Read it, use its tokens and direction for styling. Skip to step 3.
-- **If multiple found**: Ask which applies to this mockup. Read the selected one. Skip to step 3.
-- **If none found**: Check for `.impeccable.md` in the project root. If it exists, read it — use its brand personality, aesthetic direction, and design principles to inform styling. Skip to step 3.
-- **If neither found**: Ask the user: "No design direction found. Run a quick inline direction phase, or run `/mine.look-and-feel` first?"
+- **`design/context.md`**: If found, read it — use its tokens and direction for styling. Skip to step 3.
+- **`.impeccable.md`** (migration fallback): If found, read it — use its brand personality, aesthetic direction, and design principles. Skip to step 3.
+- **`design/direction.md`** (migration fallback): If found, read it — use its tokens and direction. Skip to step 3.
+- **None found**: Ask the user: "No design context found. Run a quick inline direction phase, or run `/i-teach-impeccable` first?"
   - If inline: proceed to step 2.
-  - If redirect: tell the user to run `/mine.look-and-feel` and stop.
+  - If redirect: tell the user to run `/i-teach-impeccable` and stop.
 
-### 2. Quick Direction (only if no direction.md and user chose inline)
+### 2. Quick Direction (only if no design context and user chose inline)
 
-Lightweight direction — ~30 seconds, not the full look-and-feel workflow.
+Lightweight direction — ~30 seconds, not the full /i-teach-impeccable workflow.
 
 **Who is looking?** A developer understanding a system? A PM seeing the big picture? A team reviewing a proposal? This shapes information density and visual complexity.
 
@@ -102,7 +102,7 @@ Pick font pairing, color palette, depth strategy. Vary the choice each time. The
 
 ### 4. Style
 
-Apply direction.md tokens (or inline direction) to the HTML. If a direction.md exists, every CSS value must reference a token from that document — no raw hex values, no magic numbers.
+Apply design context tokens (or inline direction) to the HTML. If design/context.md exists with a Design Tokens section, every CSS value must reference a token from that document — no raw hex values, no magic numbers.
 
 **Typography is the diagram.** Pick a distinctive font pairing from the list in `./references/libraries.md`. Every page should use a different pairing from recent generations.
 
@@ -176,37 +176,9 @@ Before delivering, verify:
 
 **Tell the user** the file path so they can re-open or share it.
 
-### 7. Offer to Persist (only if step 2 was used)
+### 7. Offer Next Steps (only if step 2 was used)
 
-After delivering the mockup, offer: "Save this direction to `design/direction.md` so future mockups and builds use it?"
-
-If yes, write a lightweight direction.md from the inline choices with `**Completeness:** lightweight` in the metadata header. Use this format:
-
-```markdown
-# Design Direction: [Product/Feature Name]
-
-**Date:** YYYY-MM-DD
-**Completeness:** lightweight
-
-## Intent
-- **Who**: [audience from step 2]
-- **Task**: [what they're doing]
-- **Feel**: [aesthetic chosen]
-
-## Tokens
-
-### Color
-| Token | Value | Role |
-|-------|-------|------|
-| `--bg` | #... | Page background |
-| ... | ... | ... |
-
-### Typography
-- **Primary**: [font name]
-- **Mono**: [font name]
-```
-
-This lets mine.build distinguish full vs. lightweight directions and suggest running `/mine.look-and-feel` for the full treatment when appropriate.
+After delivering the mockup, if the user liked the direction and no `design/context.md` exists, suggest: "Want to formalize this direction? Run `/i-teach-impeccable` — it can use this mockup as input for token extraction."
 
 ## Diagram Types
 

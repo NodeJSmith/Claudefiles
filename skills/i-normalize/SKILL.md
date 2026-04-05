@@ -8,7 +8,7 @@ Analyze and redesign the feature to perfectly match our design system standards,
 
 ## MANDATORY PREPARATION
 
-Use the i-frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
+Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
 
 ---
 
@@ -24,6 +24,23 @@ Before making changes, deeply understand the context:
    
    **CRITICAL**: If something isn't clear, ask. Don't guess at design system principles.
 
+   **If no design system is found** after searching, STOP and ask:
+
+   ```
+   AskUserQuestion:
+     question: "No design system found. How should we establish consistency?"
+     header: "No system"
+     options:
+       - label: "Extract from codebase"
+         description: "Use /i-extract to identify and systematize the patterns already in the code"
+       - label: "Normalize to existing patterns"
+         description: "Use the most common patterns already in the codebase as the standard"
+       - label: "Define principles now"
+         description: "I'll describe what I want and we'll build from there"
+   ```
+
+   If "Extract from codebase" → tell the user to run `/i-extract` first, then return to `/i-normalize` afterward to apply the extracted system.
+
 2. **Analyze the current feature**: Assess what works and what doesn't:
    - Where does it deviate from design system patterns?
    - Which inconsistencies are cosmetic vs. functional?
@@ -35,6 +52,40 @@ Before making changes, deeply understand the context:
    - How can UX patterns match established user flows?
    
    **IMPORTANT**: Great design is effective design. Prioritize UX consistency and usability over visual polish alone. Think through the best possible experience for your use case and personas first.
+
+---
+
+## Propose Changes
+
+After analyzing the current state, present your proposed changes to the user:
+
+1. **Assessment**: What's wrong and why (your domain analysis above)
+2. **Proposed changes**: Specific changes ranked by impact, with rationale
+3. **Verification plan**: What to check after implementation (LLM self-check items + Playwright verification if available)
+
+Then STOP and confirm before implementing:
+
+```
+AskUserQuestion:
+  question: "Here's what I propose. How would you like to proceed?"
+  header: "Confirm"
+  options:
+    - label: "Implement"
+      description: "Looks good — go ahead and make these changes."
+    - label: "Refine scope"
+      description: "I want to adjust what's included before you start."
+    - label: "Challenge this first"
+      description: "I'll run /mine.challenge against your proposal before we proceed."
+    - label: "Stop here"
+      description: "Don't implement anything. The proposal is in this conversation only."
+```
+
+If "Implement" → proceed to implementation below.
+If "Refine scope" → ask what to change, update proposal, re-confirm.
+If "Challenge this first" → invoke `/mine.challenge` inline against the proposal, read findings, revise proposal, re-present this gate.
+If "Stop here" → end the skill.
+
+---
 
 ## Execute
 
@@ -67,3 +118,11 @@ After normalization, ensure code quality:
 - **Ensure DRYness**: Look for duplication introduced during refactoring and consolidate.
 
 Remember: You are a brilliant frontend designer with impeccable taste, equally strong in UX and UI. Your attention to detail and eye for end-to-end user experience is world class. Execute with precision and thoroughness.
+
+## Completion
+
+After implementation, summarize in conversation:
+
+1. **Changes made**: List each file changed and what was done
+2. **Verification**: LLM self-check results (anti-pattern scan, consistency check). Note if Playwright was available for visual verification.
+3. **Suggested next step**: Any follow-up skills that would complement this work (e.g., after /i-typeset, suggest /i-polish for a final pass)
