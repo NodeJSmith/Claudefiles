@@ -14,15 +14,24 @@
 #            awk -F'\t' '!seen[$2]++'          # unique paths, first-seen order
 #          Timestamps are preserved for consumers needing temporal ordering.
 #
-# Consumed by: (planned — see issue tracking consumer work)
+# Consumed by: (planned — see #189)
 #
 # Wiring (settings.json):
 #   "PostToolUse": [{ "matcher": "Write|Edit|NotebookEdit", ... }]
 #
-# CLAUDE_SESSION_ID note: The CLAUDE.md warning about this variable applies to
-# SKILL.md template substitution (which doesn't propagate to subagents or Bash
-# tool calls). Hooks run as subprocesses of the Claude Code process, which sets
-# CLAUDE_SESSION_ID as an environment variable — it is reliably available here.
+# CLAUDE_SESSION_ID: Available as an env var in hook subprocesses (unlike
+# SKILL.md template substitution, which doesn't propagate). The guard below
+# handles the case where it is absent — hook silently no-ops.
+#
+# Worktree note: In a git worktree, the slug is derived from the worktree
+# directory name (not the main repo), so the same logical project may appear
+# under different slugs depending on which working tree is active.
+#
+# Known limitations:
+# - Records paths even when the tool call failed at OS level (e.g., permission
+#   denied). Consumers should cross-reference against actual file mtimes.
+# - If jq is not installed, tracking silently no-ops with no diagnostic.
+#   Verify: command -v jq
 #
 # No set -euo pipefail — this is a tracking hook; failure must not block edits.
 
@@ -50,7 +59,7 @@ case "$FILE_PATH" in
   /*) ;;
   *)
     FILE_DIR="$(dirname "$FILE_PATH")"
-    if [ -d "$FILE_DIR" ]; then
+    if [ -d "$FILE_DIR" ] && [ "$FILE_DIR" != "." ]; then
       ABS_DIR="$(cd "$FILE_DIR" 2> /dev/null && pwd)"
       [ -n "$ABS_DIR" ] && FILE_PATH="${ABS_DIR}/$(basename "$FILE_PATH")"
     fi
@@ -59,7 +68,8 @@ esac
 
 # Derive project root from the file being edited, not from hook cwd
 PROJECT_ROOT="$(git -C "$(dirname "$FILE_PATH")" rev-parse --show-toplevel 2> /dev/null || dirname "$FILE_PATH")"
-PROJECT_SLUG="$(basename "$PROJECT_ROOT")"
+# Slug is human-readable basename + short hash for collision resistance
+PROJECT_SLUG="$(basename "$PROJECT_ROOT")-$(printf '%s' "$PROJECT_ROOT" | md5sum | cut -c1-8)"
 
 # Store tracking data centrally under CLAUDE_HOME
 CLAUDE_HOME="${CLAUDE_HOME:-$HOME/.claude}"
@@ -70,6 +80,9 @@ mkdir -p "$SESSION_DIR" 2> /dev/null || {
 }
 
 TRACKING_FILE="${SESSION_DIR}/files-touched.txt"
+
+# Cap path length to stay within PIPE_BUF for atomic appends
+FILE_PATH="${FILE_PATH:0:3800}"
 
 # Append timestamp + path
 printf '%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$FILE_PATH" >> "$TRACKING_FILE" 2> /dev/null || true
