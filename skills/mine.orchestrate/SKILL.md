@@ -766,7 +766,7 @@ AskUserQuestion:
 ```
 
 **On "Address findings":**
-1. Dispatch a fresh `general-purpose` subagent with: the challenge findings and any impl-review suggestions, the relevant file paths, `<feature_dir>/design.md` content, all WP files from `<feature_dir>/tasks/` (for per-WP constraints and Review Guidance), `implementer-prompt.md` content, and `tdd.md` content. Instruct: "Fix only the listed findings. Do not expand scope beyond these findings. Respect the Review Guidance constraints from each WP."
+1. Dispatch a fresh `general-purpose` subagent with: the challenge findings and any impl-review suggestions, the relevant file paths, `<feature_dir>/design.md` content, all WP files from `<feature_dir>/tasks/` (for per-WP constraints and Review Guidance), `implementer-prompt.md` content, and `tdd.md` content. Instruct: "Fix all listed findings regardless of severity — CRITICAL, HIGH, and MEDIUM. Do not skip MEDIUM findings or treat them as informational. Do not expand scope beyond these findings. Respect the Review Guidance constraints from each WP."
 2. After the subagent completes, re-run the project test suite (using `<dir>/test-command.txt`). If tests fail: surface the failure prominently in the next gate prompt, suppress "Accept and ship", and only offer "Address findings" (if iterations remain) or "Stop here" with a note identifying the test failures.
 3. Re-run `code-reviewer` and `integration-reviewer` on the fix diff in parallel (both in a single message)
 4. Re-run the challenge (same dispatch pattern as Step 3)
