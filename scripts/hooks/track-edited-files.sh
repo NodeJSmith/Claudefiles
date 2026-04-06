@@ -26,11 +26,8 @@
 #
 # No set -euo pipefail — this is a tracking hook; failure must not block edits.
 
-# Require jq for JSON parsing
-command -v jq > /dev/null 2>&1 || {
-  printf 'track-edited-files.sh: jq not found — file tracking disabled\n' >&2
-  exit 0
-}
+# Require jq for JSON parsing — silently exit to avoid noisy warnings on every hook run
+command -v jq > /dev/null 2>&1 || exit 0
 
 # Require session ID for isolation
 SESSION_ID="${CLAUDE_SESSION_ID:-}"
@@ -46,10 +43,18 @@ INPUT=$(cat)
 FILE_PATH="$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2> /dev/null)"
 [ -z "$FILE_PATH" ] && exit 0
 
-# Normalize to absolute path
+# Normalize to absolute path when the parent directory exists.
+# If it does not exist yet (e.g., Write to a new nested path), keep the
+# original path rather than fabricating a bogus absolute path like "/<basename>".
 case "$FILE_PATH" in
   /*) ;;
-  *) FILE_PATH="$(cd "$(dirname "$FILE_PATH")" 2> /dev/null && pwd)/$(basename "$FILE_PATH")" || true ;;
+  *)
+    FILE_DIR="$(dirname "$FILE_PATH")"
+    if [ -d "$FILE_DIR" ]; then
+      ABS_DIR="$(cd "$FILE_DIR" 2> /dev/null && pwd)"
+      [ -n "$ABS_DIR" ] && FILE_PATH="${ABS_DIR}/$(basename "$FILE_PATH")"
+    fi
+    ;;
 esac
 
 # Derive project root from the file being edited, not from hook cwd
