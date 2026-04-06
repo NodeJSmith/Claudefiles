@@ -6,8 +6,15 @@
 # know which files it modified, even when multiple instances share the same
 # project directory.
 #
-# Storage: .claude/sessions/<session-id>/files-touched.txt (gitignored)
+# Storage: $CLAUDE_HOME/file-tracking/<project-slug>/<session-id>/files-touched.txt
 # Format:  <ISO-8601 timestamp>\t<absolute-path>
+# Dedup:   The same path may appear multiple times (one entry per tool invocation).
+#          Consumers that want unique files should deduplicate on read:
+#            cut -f2 | sort -u                 # unique paths only
+#            awk -F'\t' '!seen[$2]++'          # unique paths, first-seen order
+#          Timestamps are preserved for consumers needing temporal ordering.
+#
+# Consumed by: (planned — see issue tracking consumer work)
 #
 # Wiring (settings.json):
 #   "PostToolUse": [{ "matcher": "Write|Edit|NotebookEdit", ... }]
@@ -19,23 +26,43 @@
 #
 # No set -euo pipefail — this is a tracking hook; failure must not block edits.
 
+# Require jq for JSON parsing
+command -v jq > /dev/null 2>&1 || {
+  printf 'track-edited-files.sh: jq not found — file tracking disabled\n' >&2
+  exit 0
+}
+
 # Require session ID for isolation
 SESSION_ID="${CLAUDE_SESSION_ID:-}"
 [ -z "$SESSION_ID" ] && exit 0
 
+# Sanitize session ID — only allow alphanumeric, hyphens, underscores
+SESSION_ID="${SESSION_ID//[^a-zA-Z0-9_-]/_}"
+
 # Read tool input from stdin (JSON with tool_name, tool_input, etc.)
 INPUT=$(cat)
 
-# Extract file path from tool input
-FILE_PATH="$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // empty' 2> /dev/null)"
+# Extract file path from tool input (file_path for Write/Edit, notebook_path for NotebookEdit)
+FILE_PATH="$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2> /dev/null)"
 [ -z "$FILE_PATH" ] && exit 0
 
-# Find project root (git root or cwd)
-PROJECT_ROOT="$(git rev-parse --show-toplevel 2> /dev/null || pwd)"
+# Normalize to absolute path
+case "$FILE_PATH" in
+  /*) ;;
+  *) FILE_PATH="$(cd "$(dirname "$FILE_PATH")" 2> /dev/null && pwd)/$(basename "$FILE_PATH")" || true ;;
+esac
 
-# Ensure session directory exists
-SESSION_DIR="${PROJECT_ROOT}/.claude/sessions/${SESSION_ID}"
-mkdir -p "$SESSION_DIR" 2> /dev/null || exit 0
+# Derive project root from the file being edited, not from hook cwd
+PROJECT_ROOT="$(git -C "$(dirname "$FILE_PATH")" rev-parse --show-toplevel 2> /dev/null || dirname "$FILE_PATH")"
+PROJECT_SLUG="$(basename "$PROJECT_ROOT")"
+
+# Store tracking data centrally under CLAUDE_HOME
+CLAUDE_HOME="${CLAUDE_HOME:-$HOME/.claude}"
+SESSION_DIR="${CLAUDE_HOME}/file-tracking/${PROJECT_SLUG}/${SESSION_ID}"
+mkdir -p "$SESSION_DIR" 2> /dev/null || {
+  printf 'track-edited-files: warning: could not create %s — tracking disabled for this session\n' "$SESSION_DIR" >&2
+  exit 0
+}
 
 TRACKING_FILE="${SESSION_DIR}/files-touched.txt"
 

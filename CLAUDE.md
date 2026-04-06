@@ -127,12 +127,18 @@ This replaces the old `$CLAUDE_SESSION_ID` pattern, which failed in subagents an
 - Respects `$CLAUDE_CODE_TMPDIR` for sandbox environments
 - Is pre-allowed via `Bash(get-skill-tmpdir:*)` in settings.json
 
-**Do NOT use `$CLAUDE_SESSION_ID` in temp file paths.** It's a SKILL.md string substitution that doesn't propagate to subagents or Bash tool calls.
+**Do NOT use `$CLAUDE_SESSION_ID` in SKILL.md template substitution or Bash tool calls** — it doesn't propagate to subagents or Bash tool calls invoked by Claude. In hook scripts (which run as direct subprocesses of the Claude Code process), it is available as a normal environment variable.
 
 **Cleanup**: Temp directories accumulate across sessions. To remove stale ones older than 7 days:
 
 ```bash
 find "${CLAUDE_CODE_TMPDIR:-/tmp}" -maxdepth 1 -name 'claude-*' -type d -mtime +7 -exec rm -rf {} +
+```
+
+**File tracking cleanup**: Session tracking directories also accumulate. To remove stale ones older than 30 days:
+
+```bash
+find "${CLAUDE_HOME:-$HOME/.claude}/file-tracking" -mindepth 2 -maxdepth 2 -type d -mtime +30 -exec rm -rf {} +
 ```
 
 ## Making Changes

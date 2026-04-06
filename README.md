@@ -145,7 +145,7 @@ Event-driven scripts that run before/after tool calls.
 |------|-------|-------------|
 | `tmux-remind.sh` | SessionStart | Reminds Claude to rename the tmux session |
 | `sudo-poll.sh` | PreToolUse (Bash) | Deny-then-poll for sudo — detects cached credentials or waits 30s for user to `sudo -v` in another pane |
-| `track-edited-files.sh` | PostToolUse (Write, Edit, NotebookEdit) | Tracks files edited per session in `.claude/sessions/<id>/files-touched.txt` |
+| `track-edited-files.sh` | PostToolUse (Write, Edit, NotebookEdit) | Tracks files edited per session in `$CLAUDE_HOME/file-tracking/<project-slug>/<session-id>/files-touched.txt` |
 
 ### Helper Scripts (22 + 1 library)
 

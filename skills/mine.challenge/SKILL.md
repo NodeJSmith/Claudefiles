@@ -179,12 +179,12 @@ AskUserQuestion:
   header: "Focus area"
   multiSelect: false
   options:
-    - label: "Let me specify"
-      description: "I'll tell you exactly what to look at"
     - label: "<area 1>"
       description: "<what changed recently and why it might be worth reviewing>"
     - label: "<area 2>"
       description: "<what changed recently>"
+    - label: "Let me specify"
+      description: "I'll tell you exactly what to look at"
 ```
 
 ### Specialist Selection
