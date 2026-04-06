@@ -11,3 +11,8 @@ dependencies = ["python-frontmatter"]
 
 [project.scripts]
 spec-helper = "spec_helper.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]

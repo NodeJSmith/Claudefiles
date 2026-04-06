@@ -9,7 +9,7 @@ Format:
 
     feature_dir: design/specs/008-foo
     tmpdir: /tmp/claude-mine-orchestrate-abc123
-    visual_skip: false
+    visual_mode: enabled
     dev_server_url: http://localhost:3000
     last_completed_wp: WP02
     started_at: 2026-03-25T14:30:00
@@ -36,13 +36,13 @@ from pathlib import Path
 from typing import Any
 
 CHECKPOINT_FILENAME = ".orchestrate-state.md"
-CHECKPOINT_VERSION = 1
+CHECKPOINT_VERSION = 2
 
 REQUIRED_HEADER_FIELDS = frozenset(
     {
         "feature_dir",
         "tmpdir",
-        "visual_skip",
+        "visual_mode",
         "dev_server_url",
         "last_completed_wp",
         "started_at",
@@ -60,10 +60,15 @@ OPTIONAL_HEADER_FIELDS = frozenset(
 
 ALL_HEADER_FIELDS = REQUIRED_HEADER_FIELDS | OPTIONAL_HEADER_FIELDS
 
-VALID_VERDICTS = frozenset({"PASS", "WARN", "FAIL", "BLOCKED"})
-VALID_CURRENT_WP_STATUSES = frozenset({"retry_pending", "blocked", "stopped"})
+IMMUTABLE_HEADER_FIELDS = frozenset(
+    {"version", "feature_dir", "base_commit", "started_at"}
+)
 
-BOOL_MAP = {"true": True, "false": False}
+VALID_VERDICTS = frozenset({"PASS", "WARN", "FAIL", "BLOCKED"})
+VALID_CURRENT_WP_STATUSES = frozenset(
+    {"executing", "warn_retry", "retry_pending", "blocked", "stopped"}
+)
+VALID_VISUAL_MODES = frozenset({"enabled", "skipped_no_server", "skipped_no_vision"})
 
 
 @dataclass(frozen=True)
@@ -79,7 +84,7 @@ class Verdict:
 class CheckpointState:
     feature_dir: str
     tmpdir: str
-    visual_skip: bool
+    visual_mode: str
     dev_server_url: str
     last_completed_wp: str
     started_at: str
@@ -100,6 +105,12 @@ def read_checkpoint(path: Path) -> CheckpointState:
     if not path.exists():
         raise FileNotFoundError(f"Checkpoint not found: {path}")
 
+    size = path.stat().st_size
+    if size > 1024 * 1024:
+        raise ValueError(
+            f"Checkpoint file is unexpectedly large ({size} bytes); "
+            f"expected <1 MiB. File may be corrupt or overwritten."
+        )
     text = path.read_text()
     header, verdicts = _parse_checkpoint(text)
     _validate_header(header)
@@ -107,7 +118,7 @@ def read_checkpoint(path: Path) -> CheckpointState:
     return CheckpointState(
         feature_dir=header["feature_dir"],
         tmpdir=header["tmpdir"],
-        visual_skip=_parse_bool(header["visual_skip"]),
+        visual_mode=header["visual_mode"],
         dev_server_url=header["dev_server_url"],
         last_completed_wp=header["last_completed_wp"],
         started_at=header["started_at"],
@@ -121,6 +132,7 @@ def read_checkpoint(path: Path) -> CheckpointState:
 
 def write_checkpoint(state: CheckpointState, path: Path) -> None:
     """Write a full checkpoint file atomically."""
+    _validate_state(state)
     text = _render_checkpoint(state)
     _atomic_write_text(text, path)
 
@@ -131,6 +143,9 @@ def add_verdict(path: Path, verdict: Verdict) -> None:
     Reads the full checkpoint, adds the verdict, and rewrites atomically.
     This avoids format drift from mixed append/rewrite strategies.
     Raises ValueError if a verdict for the same WP ID already exists.
+
+    Not safe for concurrent callers — spec-helper is a single-orchestrator
+    CLI tool. The read-modify-write cycle has no file lock.
     """
     _validate_verdict(verdict)
     if not path.exists():
@@ -139,9 +154,11 @@ def add_verdict(path: Path, verdict: Verdict) -> None:
     state = read_checkpoint(path)
     existing_ids = {v.wp_id for v in state.verdicts}
     if verdict.wp_id in existing_ids:
+        existing = next(v for v in state.verdicts if v.wp_id == verdict.wp_id)
         raise ValueError(
-            f"Verdict for {verdict.wp_id} already exists. "
-            f"Delete and re-add if overwrite is intended."
+            f"Verdict for {verdict.wp_id} already exists "
+            f"({existing.verdict}, commit {existing.commit}). "
+            f"If this is a retry after partial failure, the prior write succeeded."
         )
     state = replace(state, verdicts=(*state.verdicts, verdict))
     write_checkpoint(state, path)
@@ -162,9 +179,17 @@ def update_header(path: Path, **updates: Any) -> None:
         if key not in ALL_HEADER_FIELDS:
             raise ValueError(
                 f"Cannot update field '{key}' via update_header. "
-                f"Updatable fields: {', '.join(sorted(ALL_HEADER_FIELDS))}"
+                f"Updatable fields: {', '.join(sorted(ALL_HEADER_FIELDS - IMMUTABLE_HEADER_FIELDS))}"
+            )
+        if key in IMMUTABLE_HEADER_FIELDS:
+            raise ValueError(
+                f"Field '{key}' is immutable and cannot be updated via update_header"
             )
         replacements[key] = value
+
+    # Auto-clear current_wp_status when current_wp is being cleared
+    if replacements.get("current_wp") == "" and "current_wp_status" not in replacements:
+        replacements["current_wp_status"] = ""
 
     state = replace(state, **replacements)
 
@@ -186,7 +211,7 @@ def state_to_dict(state: CheckpointState) -> dict[str, Any]:
         "version": state.version,
         "feature_dir": state.feature_dir,
         "tmpdir": state.tmpdir,
-        "visual_skip": state.visual_skip,
+        "visual_mode": state.visual_mode,
         "dev_server_url": state.dev_server_url,
         "last_completed_wp": state.last_completed_wp,
         "started_at": state.started_at,
@@ -204,6 +229,30 @@ def state_to_dict(state: CheckpointState) -> dict[str, Any]:
             for v in state.verdicts
         ],
     }
+
+
+# --- Validation ---
+
+
+def _validate_state(state: CheckpointState) -> None:
+    """Validate a CheckpointState before writing to disk."""
+    if state.visual_mode not in VALID_VISUAL_MODES:
+        raise ValueError(
+            f"Invalid visual_mode: '{state.visual_mode}'. "
+            f"Must be one of: {', '.join(sorted(VALID_VISUAL_MODES))}"
+        )
+    if (
+        state.current_wp_status
+        and state.current_wp_status not in VALID_CURRENT_WP_STATUSES
+    ):
+        raise ValueError(
+            f"Invalid current_wp_status: '{state.current_wp_status}'. "
+            f"Must be one of: {', '.join(sorted(VALID_CURRENT_WP_STATUSES))}"
+        )
+    if state.current_wp_status and not state.current_wp:
+        raise ValueError("current_wp_status requires current_wp to be set")
+    if state.current_wp and not state.current_wp_status:
+        raise ValueError("current_wp requires current_wp_status to be set")
 
 
 # --- Internal helpers ---
@@ -239,7 +288,9 @@ def _parse_checkpoint(text: str) -> tuple[dict[str, str], list[Verdict]]:
         lines = block.splitlines()
         title_match = re.match(r"^(WP\d+)\s*[—–-]\s*(.+)$", lines[0])
         if not title_match:
-            continue
+            raise ValueError(
+                f"Malformed verdict block header (expected 'WPnn — title'): {lines[0]!r}"
+            )
 
         wp_id = title_match.group(1)
         title = title_match.group(2).strip()
@@ -293,12 +344,25 @@ def _validate_header(header: dict[str, str]) -> None:
             file=sys.stderr,
         )
 
+    visual_mode = header.get("visual_mode", "")
+    if visual_mode not in VALID_VISUAL_MODES:
+        raise ValueError(
+            f"Invalid visual_mode: '{visual_mode}'. "
+            f"Must be one of: {', '.join(sorted(VALID_VISUAL_MODES))}"
+        )
+
     status = header.get("current_wp_status", "")
     if status and status not in VALID_CURRENT_WP_STATUSES:
         raise ValueError(
             f"Invalid current_wp_status: '{status}'. "
             f"Must be one of: {', '.join(sorted(VALID_CURRENT_WP_STATUSES))}"
         )
+
+    wp = header.get("current_wp", "")
+    if wp and not status:
+        raise ValueError("current_wp requires current_wp_status to be set")
+    if status and not wp:
+        raise ValueError("current_wp_status requires current_wp to be set")
 
     version = header.get("version")
     if version and _parse_int(version, "version") > CHECKPOINT_VERSION:
@@ -315,13 +379,8 @@ def _validate_verdict(verdict: Verdict) -> None:
         )
     if not re.match(r"^WP\d+$", verdict.wp_id):
         raise ValueError(f"Invalid WP ID: '{verdict.wp_id}'")
-
-
-def _parse_bool(value: str) -> bool:
-    lower = value.lower()
-    if lower not in BOOL_MAP:
-        raise ValueError(f"Invalid boolean value: '{value}' (expected true/false)")
-    return BOOL_MAP[lower]
+    if not verdict.commit:
+        raise ValueError(f"Verdict for {verdict.wp_id}: commit field is required")
 
 
 def _parse_int(value: str, field_name: str) -> int:
@@ -339,7 +398,7 @@ def _render_checkpoint(state: CheckpointState) -> str:
         f"version: {state.version}",
         f"feature_dir: {state.feature_dir}",
         f"tmpdir: {state.tmpdir}",
-        f"visual_skip: {'true' if state.visual_skip else 'false'}",
+        f"visual_mode: {state.visual_mode}",
         f"dev_server_url: {state.dev_server_url}",
         f"last_completed_wp: {state.last_completed_wp}",
         f"started_at: {state.started_at}",
@@ -385,6 +444,8 @@ def _atomic_write_text(text: str, target: Path) -> None:
             mode="w", dir=target.parent, delete=False, suffix=".md"
         ) as tmp:
             tmp.write(text)
+            tmp.flush()
+            os.fsync(tmp.fileno())
             tmp_path = tmp.name
         os.replace(tmp_path, target)
     except Exception:

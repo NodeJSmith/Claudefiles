@@ -300,7 +300,7 @@ def cmd_checkpoint_init(args: argparse.Namespace) -> None:
     state = CheckpointState(
         feature_dir=str(feature_dir.relative_to(root)),
         tmpdir=args.tmpdir,
-        visual_skip=args.visual_skip,
+        visual_mode=args.visual_mode,
         dev_server_url=args.dev_server_url or "none",
         last_completed_wp="none",
         started_at=args.started_at
@@ -368,6 +368,8 @@ def cmd_checkpoint_update(args: argparse.Namespace) -> None:
         updates["current_wp"] = args.current_wp
     if args.current_wp_status is not None:
         updates["current_wp_status"] = args.current_wp_status
+    if args.visual_mode is not None:
+        updates["visual_mode"] = args.visual_mode
 
     if not updates:
         die(
@@ -393,8 +395,12 @@ def cmd_checkpoint_verdict(args: argparse.Namespace) -> None:
     feature_dir = resolve_feature(root, feature=args.feature, auto=args.auto)
     path = checkpoint_path(feature_dir)
 
+    wp_id = args.wp_id.upper()
+    if re.match(r"^\d+$", wp_id):
+        wp_id = f"WP{int(wp_id):02d}"
+
     verdict = Verdict(
-        wp_id=args.wp_id.upper(),
+        wp_id=wp_id,
         title=args.title,
         verdict=args.verdict.upper(),
         commit=args.commit,
@@ -419,7 +425,10 @@ def cmd_checkpoint_delete(args: argparse.Namespace) -> None:
     feature_dir = resolve_feature(root, feature=args.feature, auto=args.auto)
     path = checkpoint_path(feature_dir)
 
-    deleted = delete_checkpoint(path)
+    try:
+        deleted = delete_checkpoint(path)
+    except OSError as exc:
+        die(f"Could not delete checkpoint: {exc}", json_mode=args.json)
 
     if args.json:
         print(json.dumps({"deleted": deleted}))
@@ -571,12 +580,19 @@ def _archive_feature(feature_dir: Path, tasks_dir: Path, git_root: Path) -> None
     """
     # Delete tasks/ via git rm -r (traceable)
     tasks_rel = str(tasks_dir.relative_to(git_root))
-    proc = subprocess.run(
-        ["git", "-C", str(git_root), "rm", "-r", "-q", tasks_rel],
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(git_root), "rm", "-r", "-q", tasks_rel],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(
+            f"git rm timed out after 30s for {tasks_rel}. "
+            f"Check for a stale .git/index.lock. Run 'git status' to confirm "
+            f"nothing was partially staged; if clean, re-running archive is safe."
+        ) from None
     if proc.returncode != 0:
         stderr = proc.stderr.strip()
         if "not under version control" in stderr or "did not match" in stderr:
@@ -642,6 +658,8 @@ def _update_design_status(feature_dir: Path, new_status: str) -> bool:
             mode="w", dir=design_path.parent, delete=False, suffix=".md"
         ) as tmp:
             tmp.write(new_text)
+            tmp.flush()
+            os.fsync(tmp.fileno())
             tmp_path = tmp.name
         os.replace(tmp_path, design_path)
     except Exception:

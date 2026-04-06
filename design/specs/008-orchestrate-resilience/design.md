@@ -8,7 +8,7 @@
 
 The orchestrator (`mine.orchestrate`) has four quality gaps:
 
-1. **No persistent state.** If context compacts or a session ends mid-run, the orchestrator loses its loop index, WARN counter, visual_skip flag, verdict history, tmpdir path, and dev server URL. WP lane state in frontmatter survives, but everything else is gone. A resumed run can't recover the full picture.
+1. **No persistent state.** If context compacts or a session ends mid-run, the orchestrator loses its loop index, WARN counter, visual_mode flag, verdict history, tmpdir path, and dev server URL. WP lane state in frontmatter survives, but everything else is gone. A resumed run can't recover the full picture.
 
 2. **Shallow integration gap detection.** The implementation review's checklist item #6 ("Do the tasks wire together correctly?") is too vague to catch real-world failures like "all WPs done but nothing wired up to the frontend." The reviewer needs more specific heuristics.
 
@@ -29,7 +29,7 @@ The orchestrator (`mine.orchestrate`) has four quality gaps:
 
 **Location:** `<feature_dir>/tasks/.orchestrate-state.md`
 
-**Role:** Volatile cache. WP frontmatter (`lane` field) is the authoritative source of truth. If the checkpoint is missing or stale, the orchestrator degrades gracefully — it can reconstruct partial state from WP frontmatter (done = completed, for_review = BLOCKED, doing = interrupted) but loses verdict granularity (PASS vs WARN), the WARN counter, tmpdir path, and visual_skip flag.
+**Role:** Volatile cache. WP frontmatter (`lane` field) is the authoritative source of truth. If the checkpoint is missing or stale, the orchestrator degrades gracefully — it can reconstruct partial state from WP frontmatter (done = completed, for_review = BLOCKED, doing = interrupted) but loses verdict granularity (PASS vs WARN), the WARN counter, tmpdir path, and visual_mode flag.
 
 **Format:**
 
@@ -38,7 +38,7 @@ The orchestrator (`mine.orchestrate`) has four quality gaps:
 
 feature_dir: design/specs/008-orchestrate-resilience
 tmpdir: /tmp/claude-mine-orchestrate-a8Kx3Q
-visual_skip: false
+visual_mode: enabled
 dev_server_url: http://localhost:3000
 warn_counter: 1
 last_completed_wp: WP03
@@ -68,7 +68,7 @@ commit: f0a1b2c
 - Verdicts section — append-only blocks, one per completed WP. Each block has `verdict`, `commit` (WIP commit SHA), and optional `notes`. The orchestrator only appends new blocks — it never rewrites previous verdicts. This eliminates formatting drift over 4-8 iterations. A display table is reconstructed from these blocks for the Phase 3 summary.
 
 **Write points:**
-1. After Phase 0 completes — initial state (feature_dir, tmpdir, visual_skip, dev_server_url, base_commit, started_at)
+1. After Phase 0 completes — initial state (feature_dir, tmpdir, visual_mode, dev_server_url, base_commit, started_at)
 2. After each WP verdict — update last_completed_wp, verdicts table (including commit SHA), warn_counter
 3. After user gate decisions — if user chose "stop here", record the reason
 
@@ -96,7 +96,7 @@ AskUserQuestion:
   header: "Resume"
   options:
     - label: "Resume from <next WP>"
-      description: "Continue where we left off — tmpdir: <path>, visual_skip: <value>"
+      description: "Continue where we left off — tmpdir: <path>, visual_mode: <value>"
     - label: "Restart fresh"
       description: "Delete the checkpoint and start from the beginning"
 ```

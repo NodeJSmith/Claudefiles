@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-04-06
+
+### Changed
+- `spec-helper` — replace `visual_skip` boolean with `visual_mode` tri-state string (`enabled`/`skipped_no_server`/`skipped_no_vision`), add `executing`/`warn_retry` to checkpoint status values, bump `CHECKPOINT_VERSION` to 2, add write-time validation and checkpoint hardening (immutable fields, symmetric pairing guards, malformed verdict detection, fsync)
+
 ## 2026-04-05
 
 ### Changed
