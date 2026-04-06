@@ -60,6 +60,18 @@
         ]
       }
     ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/track-edited-files.sh",
+            "timeout": 3000
+          }
+        ]
+      }
+    ],
     "PreCompact": [],
     "SessionStart": [
       {

@@ -175,16 +175,16 @@ The remainder of `$ARGUMENTS` is the target scope.
 
 ```
 AskUserQuestion:
-  question: "I've scanned the codebase. These areas look most suspect. Which should I critique?"
+  question: "What should I critique? Here are some recently changed areas for context."
   header: "Focus area"
   multiSelect: false
   options:
-    - label: "<area 1>"
-      description: "<brief observation about why it looks suspect>"
-    - label: "<area 2>"
-      description: "<brief observation>"
     - label: "Let me specify"
       description: "I'll tell you exactly what to look at"
+    - label: "<area 1>"
+      description: "<what changed recently and why it might be worth reviewing>"
+    - label: "<area 2>"
+      description: "<what changed recently>"
 ```
 
 ### Specialist Selection

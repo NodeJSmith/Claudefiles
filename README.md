@@ -98,9 +98,9 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `mine.review` | Run code-reviewer and integration-reviewer in parallel on the current branch diff |
 | `mine.status` | Quick orientation -- branch, tasks, errors, last commit |
 
-### Agents (18)
+### Agents (16)
 
-**Core Development (12)**
+**Core Development (11)**
 
 | Agent | Description |
 |-------|-------------|
@@ -110,21 +110,19 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `db-auditor` | Database query and schema audit -- N+1 queries, missing indexes, ORM misuse |
 | `dep-auditor` | Dependency vulnerability audit -- CVEs, outdated packages, license issues, unused deps |
 | `integration-reviewer` | Codebase integration reviewer -- duplication, misplacement, convention drift, orphaned code, design violations |
-| `issue-refiner` | Enrich GitHub issues with acceptance criteria, edge cases, technical considerations, and NFRs |
 | `planner` | Implementation planning for complex features and refactoring |
 | `qa-specialist` | Adversarial QA -- systematic and exploratory testing to find defects before they ship |
 | `researcher` | Autonomous codebase research and feasibility analysis with parallel subagents and web research |
 | `ui-auditor` | Accessibility and UX audit -- WCAG violations, missing ARIA, hardcoded styles, UX anti-patterns |
 | `visual-diff` | Visual regression testing via Playwright MCP -- before/after screenshots to catch unintended UI changes |
 
-**Engineering Specialists (5)**
+**Engineering Specialists (4)**
 
 | Agent | Description |
 |-------|-------------|
 | `engineering-backend-developer` | FastAPI, Pydantic, async patterns, production-grade Python API services |
 | `engineering-data-engineer` | PySpark pipelines, Delta Lake, Databricks, medallion lakehouse architectures, dbt |
 | `engineering-frontend-developer` | React/Vue/Angular, performance optimization, accessible UI implementation |
-| `engineering-sre` | SLOs, error budgets, observability, chaos engineering, toil reduction |
 | `engineering-technical-writer` | Developer docs, API references, READMEs, tutorials that developers actually read |
 
 **Testing & Quality (1)**
@@ -139,7 +137,7 @@ Coding guidelines that load automatically and shape how Claude writes code.
 
 **Common** (17): agents, bash-tools, capabilities, coding-style, command-output, error-tracking, findings, frontend-workflow, git-workflow, interaction, performance, python, research-escalation, sudo, testing, tmux, worktrees
 
-### Hooks (2)
+### Hooks (3)
 
 Event-driven scripts that run before/after tool calls.
 
@@ -147,6 +145,7 @@ Event-driven scripts that run before/after tool calls.
 |------|-------|-------------|
 | `tmux-remind.sh` | SessionStart | Reminds Claude to rename the tmux session |
 | `sudo-poll.sh` | PreToolUse (Bash) | Deny-then-poll for sudo — detects cached credentials or waits 30s for user to `sudo -v` in another pane |
+| `track-edited-files.sh` | PostToolUse (Write, Edit, NotebookEdit) | Tracks files edited per session in `.claude/sessions/<id>/files-touched.txt` |
 
 ### Helper Scripts (22 + 1 library)
 
