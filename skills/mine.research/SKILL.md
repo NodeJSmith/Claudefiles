@@ -193,6 +193,15 @@ If "Build it (/mine.build)" is selected: invoke `/mine.build` with context: "Pri
 2. **Options, not prescriptions** — present trade-offs honestly. Include a "do less" option when the proposal is ambitious. The user decides, you inform.
 3. **Feeds forward** — the research brief should contain everything needed to write a design doc or create an implementation plan. No redundant investigation later.
 
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "I have extensive prior analysis — skip research" | Prior analysis covers the problem space. Research covers the solution space — competing approaches, existing patterns in the codebase, API constraints. They answer different questions. Skipping research has led to shipping with suboptimal designs that a brief investigation would have caught. |
+| "The approach is obvious, no need to investigate" | The "obviously correct" approach is by definition the least-investigated one. Research has repeatedly surfaced better designs — method-based vs persona-based splits, orthogonal dimensions the intuitive approach didn't consider. Research is cheap relative to a design revision after challenge finds gaps. |
+| "Research will slow us down" | A 2-minute research dispatch is cheaper than a design revision after challenge finds holes that research would have prevented. The brief feeds forward into design — skipping it means the design phase compensates with ad-hoc investigation anyway. |
+| "This question implies we should design/file/ship" | A scoped question ("can X be done?") is not a workflow trigger. Answer the question by completing the brief and presenting the Phase 3 next-step gate — that gate is the escalation offer. Don't silently launch issue filing, design, or shipping from a scoped question. |
+
 ## What This Skill Does NOT Do
 
 - **Make decisions** — it informs them. Use `/mine.design` to formalize decisions.

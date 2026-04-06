@@ -4,6 +4,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-04-06
 
+### Added
+- Anti-rationalization tables in mine.build, mine.challenge, mine.research, and research-escalation.md — derived from session archaeology of 73 transcripts; 19 rationalizations covering workflow phase skipping, research escalation failure, gate conflation, and scope drift (#187)
+- Canonical "Code Review vs Challenge" section in git-workflow.md — extracted from per-skill duplications (#187)
+
 ### Changed
 - Add explicit model declarations to all 18 agents — 16 sonnet, 1 opus (researcher), 1 haiku (ui-auditor); previously all inherited Opus (#186)
 - Expand `performance.md` with Haiku disqualifiers, agent model cross-reference, and inline skill model tracking (#186)

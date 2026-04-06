@@ -90,7 +90,7 @@ Whether this finding is architectural/structural in nature — meaning it would 
 
 ## Output Contract
 
-The following tag names and values are consumed by calling skills (mine.design, mine.specify) to generate revision plans. Changing these is a **breaking change** — update all callers.
+The following tag names and values are consumed by calling skills (mine.design, mine.specify) to generate revision plans. Changing these is a **breaking change** — update all callers. The rationalization table (bottom of file) is also a breaking-change surface when rows redefine how severity, type, design-level, or resolution are assigned during synthesis — changes to those rows require the same caller update pass.
 
 - **Contract tag names**: `severity`, `type`, `design-level`, `resolution`
 - **Contract tag names (TENSION only)**: `side-a`, `side-b`, `deciding-factor`
@@ -453,3 +453,12 @@ List all critic report file paths so the user knows where reports are. Always li
 7. **Recommend, don't just present** — for User-directed findings, state which option you'd pick and why. The user overrides if they disagree. Exception: TENSION findings get a deciding factor instead, because honest uncertainty is more useful than a fabricated preference.
 8. **Err toward user input** — when resolution classification is ambiguous, default to User-directed. The cost of asking is low; the cost of a wrong auto-apply is high.
 9. **Findings then fixes** — this skill produces findings. When invoked by structured callers, the caller handles resolution. When invoked standalone, challenge resolves findings via `rules/common/findings.md`.
+
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "We already challenged and fixed — no need to re-challenge" | Fixes can introduce new problems or incompletely address the original finding. A re-challenge after fixes verifies the fixes actually resolved the issues and didn't create new ones. If the user asks "did we only challenge once?", the answer should have been no. |
+| "Code review already covered this" | Code review and challenge are orthogonal gates — see `rules/common/git-workflow.md`. One does not substitute for the other. |
+| "The findings are minor, not worth re-running" | Severity is about consequence, not complexity. A "minor" finding in a migration or API contract can cause production incidents. Re-challenge is cheap; a missed regression is not. |
+| "This feels like a MEDIUM — the consequence is moderate" | Severity is consequence-based, not feel-based. Three critics agreeing on MEDIUM produces MEDIUM with 3/3 confidence — not an automatic CRITICAL. Ask: what happens in production if this is never fixed? Use that answer to set severity. High agreement is a signal to look harder at consequence, not an override of the formula. |
