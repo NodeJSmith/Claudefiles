@@ -1,5 +1,6 @@
 ---
 name: browser-qa-agent
+model: sonnet  # claude-sonnet-4-6 as of 2026-04-06 — interactive Playwright judgment calls
 description: Live browser QA via Playwright MCP — navigates running web apps to find UI bugs, console errors, and UX issues. Use after UI changes or for smoke testing a running app. Requires Playwright MCP.
 tools: ["Read", "Bash", "Glob", "Grep"]
 ---
