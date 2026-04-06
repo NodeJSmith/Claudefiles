@@ -22,6 +22,17 @@ Dispatch a research subagent when **any** of the following apply:
 
 Don't wait for a specific attempt count — if you recognize you're guessing, escalate immediately.
 
+**Important distinction**: "Research subagent" in this rule means `Agent(subagent_type: 'researcher')` — a lightweight diagnostic dispatch to resolve an implementation error. This is distinct from `/mine.research`, which is a full feasibility investigation invoked before design decisions. Do not invoke `/mine.research` in response to a debugging impasse.
+
+### Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "Let me try one more variation" | Two attempts without a clear hypothesis means you're sampling from the same broken model — you need new information, not another variation. Stop varying and start investigating. |
+| "I know how this works, no need to search" | If your mental model predicted the current approach would work and it didn't, your model is wrong. Search to update it rather than proposing another fix from the same broken model. |
+| "I'll check the logs/code first" | Re-reading the same files without new insight is not investigation — it's stalling. If two reads of the same area without a new hypothesis didn't reveal the issue, escalate to search or a research subagent. Post-fix verification re-reads are fine — the guard is against hypothesis-free looping. |
+| "I found something relevant — let me dispatch a subagent" | A search result that partially addresses the problem is not a trigger for subagent dispatch. Read the result, apply the hypothesis, and only escalate if that fix fails too. Premature escalation wastes context and handoff cost. |
+
 ## How to Dispatch
 
 Note in your response what you're stuck on and that you're dispatching a research subagent — then dispatch immediately. Don't wait for acknowledgment.

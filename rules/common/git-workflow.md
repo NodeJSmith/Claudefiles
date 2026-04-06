@@ -31,6 +31,15 @@ Loop until no CRITICAL/HIGH issues remain:
 
 Then run `integration-reviewer` once on the final diff.
 
+## Code Review vs Challenge
+
+Code review and challenge are **orthogonal quality gates** with different scopes. One does not substitute for the other.
+
+- **Code review** catches: correctness, style, obvious bugs, regressions
+- **Challenge** catches: design coherence, fragility, anti-patterns, cross-cutting concerns, missing edge cases
+
+A green code review does not mean challenge is unnecessary. A green test suite is necessary but not sufficient — tests verify expected behavior, not unexpected behavior.
+
 ## Local Verification Before Commit
 
 Run tests + linter/type checker after code review passes. Fix failures before committing.
