@@ -17,6 +17,11 @@ from spec_helper.commands import (
     cmd_wp_move,
     cmd_wp_validate,
 )
+from spec_helper.checkpoint import (
+    VALID_CURRENT_WP_STATUSES,
+    VALID_VERDICTS,
+    VALID_VISUAL_MODES,
+)
 from spec_helper.validation import VALID_LANES
 
 
@@ -140,7 +145,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_cp_init.add_argument("--tmpdir", required=True, help="Orchestration tmpdir path")
     p_cp_init.add_argument("--base-commit", required=True, help="Base commit SHA")
     p_cp_init.add_argument(
-        "--visual-skip", action="store_true", help="Visual verification skipped"
+        "--visual-mode",
+        default="enabled",
+        choices=sorted(VALID_VISUAL_MODES),
+        help="Visual verification mode (default: enabled)",
     )
     p_cp_init.add_argument("--dev-server-url", default=None, help="Dev server URL")
     p_cp_init.add_argument(
@@ -179,8 +187,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_cp_update.add_argument(
         "--current-wp-status",
         default=None,
-        choices=["retry_pending", "blocked", "stopped", ""],
+        choices=[*sorted(VALID_CURRENT_WP_STATUSES), ""],
         help="Status of current WP (empty string to clear)",
+    )
+    p_cp_update.add_argument(
+        "--visual-mode",
+        default=None,
+        choices=sorted(VALID_VISUAL_MODES),
+        help="Update visual verification mode",
     )
     _add_json_flag(p_cp_update)
     _add_auto_flag(p_cp_update)
@@ -197,7 +211,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_cp_verdict.add_argument(
         "--verdict",
         required=True,
-        choices=["PASS", "WARN", "FAIL", "BLOCKED"],
+        choices=sorted(VALID_VERDICTS),
         help="Verdict",
     )
     p_cp_verdict.add_argument("--commit", required=True, help="WIP commit SHA")
