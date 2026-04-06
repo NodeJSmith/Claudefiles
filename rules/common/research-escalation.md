@@ -22,7 +22,7 @@ Dispatch a research subagent when **any** of the following apply:
 
 Don't wait for a specific attempt count — if you recognize you're guessing, escalate immediately.
 
-**Important distinction**: "Research subagent" in this rule means `Agent(subagent_type: 'researcher')` — a lightweight diagnostic dispatch to resolve an implementation error. This is distinct from `/mine.research`, which is a full feasibility investigation invoked before design decisions. Do not invoke `/mine.research` in response to a debugging impasse.
+**Important distinction**: "Research subagent" in this rule means `Agent(subagent_type: "researcher")` — a lightweight diagnostic dispatch to resolve an implementation error. This is distinct from `/mine.research`, which is a full feasibility investigation invoked before design decisions. Do not invoke `/mine.research` in response to a debugging impasse.
 
 ### Common Rationalizations
 
