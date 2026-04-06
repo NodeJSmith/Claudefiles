@@ -1,5 +1,6 @@
 ---
 name: ui-auditor
+model: haiku  # claude-haiku-4-5 as of 2026-04-06
 description: UI/UX accessibility and consistency auditor — finds WCAG violations, missing ARIA labels, hardcoded styles, and UX anti-patterns. Use before shipping any UI or during a11y reviews.
 tools: ["Read", "Grep", "Glob", "Bash"]
 ---
@@ -171,5 +172,6 @@ Before completing:
 - Report hardcoded colors without checking whether they're in a design token file or Tailwind config — false positives waste time
 - Audit third-party widgets, embedded iframes, or browser-native UI elements — note them as out-of-scope
 - Report `<div onClick>` as an accessibility issue when it's wrapped in a `<button>` — read the full component tree
+- Classify a WCAG violation from grep output alone — always read the surrounding component tree before escalating to CRITICAL or HIGH. Grep finds candidates; only component-tree context confirms violations.
 
 Prioritize accessibility blockers (WCAG A and AA violations) before consistency and UX issues.

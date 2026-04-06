@@ -1,5 +1,6 @@
 ---
 name: researcher
+model: opus  # claude-opus-4-6 as of 2026-04-06
 description: Autonomous codebase research and feasibility analysis. Explores code with parallel subagents, conducts web research, and writes a structured research brief.
 tools: ["Read", "Grep", "Glob", "Bash", "Write", "WebSearch", "WebFetch", "Task"]
 ---

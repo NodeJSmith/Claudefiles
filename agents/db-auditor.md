@@ -1,5 +1,6 @@
 ---
 name: db-auditor
+model: sonnet  # claude-sonnet-4-6 as of 2026-04-06 — bounded-N analysis requires reasoning
 description: Database query and schema auditor — finds N+1 queries, missing indexes, ORM misuse, and connection issues. Use on database-heavy PRs and performance investigations.
 tools: ["Read", "Grep", "Glob", "Bash"]
 ---

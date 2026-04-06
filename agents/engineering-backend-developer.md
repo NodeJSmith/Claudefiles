@@ -1,5 +1,6 @@
 ---
 name: engineering-backend-developer
+model: sonnet  # claude-sonnet-4-6 as of 2026-04-06
 description: Expert Python backend developer specializing in FastAPI, Pydantic, async patterns, and production-grade API services. Builds well-structured, testable, performant Python web services.
 color: green
 emoji: ⚡

@@ -5,6 +5,8 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-04-06
 
 ### Changed
+- Add explicit model declarations to all 18 agents — 16 sonnet, 1 opus (researcher), 1 haiku (ui-auditor); previously all inherited Opus
+- Expand `performance.md` with Haiku disqualifiers, agent model cross-reference, and inline skill model tracking
 - `spec-helper` — replace `visual_skip` boolean with `visual_mode` tri-state string (`enabled`/`skipped_no_server`/`skipped_no_vision`), add `executing`/`warn_retry` to checkpoint status values, bump `CHECKPOINT_VERSION` to 2, add write-time validation and checkpoint hardening (immutable fields, symmetric pairing guards, malformed verdict detection, fsync) (#181)
 
 ## 2026-04-05
