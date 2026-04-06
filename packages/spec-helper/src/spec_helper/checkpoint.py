@@ -187,9 +187,11 @@ def update_header(path: Path, **updates: Any) -> None:
             )
         replacements[key] = value
 
-    # Auto-clear current_wp_status when current_wp is being cleared
+    # Auto-clear the paired field when one side is being cleared
     if replacements.get("current_wp") == "" and "current_wp_status" not in replacements:
         replacements["current_wp_status"] = ""
+    if replacements.get("current_wp_status") == "" and "current_wp" not in replacements:
+        replacements["current_wp"] = ""
 
     state = replace(state, **replacements)
 

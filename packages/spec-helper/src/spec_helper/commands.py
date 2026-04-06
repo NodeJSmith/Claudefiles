@@ -398,6 +398,8 @@ def cmd_checkpoint_verdict(args: argparse.Namespace) -> None:
     wp_id = args.wp_id.upper()
     if re.match(r"^\d+$", wp_id):
         wp_id = f"WP{int(wp_id):02d}"
+    elif m := re.match(r"^WP(\d+)$", wp_id):
+        wp_id = f"WP{int(m.group(1)):02d}"
 
     verdict = Verdict(
         wp_id=wp_id,
