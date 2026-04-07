@@ -121,8 +121,15 @@ EOF
       echo "Error: directory does not exist: $path" >&2
       exit 1
     fi
+    if tmux has-session -t "=$name" 2> /dev/null; then
+      echo "Session '$name' already exists; switching" >&2
+      tmux switch-client -t "=$name"
+      exit 0
+    fi
     tmux new-session -d -s "$name" -c "$path"
-    tmux switch-client -t "$name"
+    if ! tmux switch-client -t "=$name" 2> /dev/null; then
+      echo "Session '$name' created at $path (no client to switch — attach with: tmux attach-session -t '$name')" >&2
+    fi
     ;;
   list)
     tmux list-sessions -F '#{session_name}|#{session_attached}|#{session_windows}|#{session_activity}'
@@ -151,7 +158,11 @@ EOF
       exit 1
     fi
     lines="${2:-20}"
-    tmux capture-pane -t "$1" -p -S -"$lines" | tail -"$lines"
+    if ! [[ "$lines" =~ ^[1-9][0-9]*$ ]] || ((lines > 10000)); then
+      echo "Error: line count must be a positive integer (max 10000), got: $lines" >&2
+      exit 1
+    fi
+    tmux capture-pane -t "=$1" -p -S -"$lines" | tail -"$lines"
     ;;
   kill)
     if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
@@ -171,10 +182,16 @@ EOF
       echo "Usage: claude-tmux kill <session> [session...]" >&2
       exit 1
     fi
+    failed=0
     for session in "$@"; do
-      tmux kill-session -t "$session"
-      echo "Killed $session"
+      if tmux kill-session -t "=$session" 2> /dev/null; then
+        echo "Killed $session"
+      else
+        echo "Warning: could not kill '$session' (already gone?)" >&2
+        failed=1
+      fi
     done
+    exit $failed
     ;;
   *)
     echo "Unknown command: $cmd" >&2
