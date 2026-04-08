@@ -288,14 +288,16 @@ After challenge completes (it auto-completes after presenting findings), generat
 
 #### Read findings
 
-Read the structured findings file at `<dir>/findings.md`. Verify the `Target:` field matches `<design-doc-path>` before proceeding.
+<!-- CHALLENGE-CALLER -->
+Read the structured findings file at `<dir>/findings.md`. If `Format-version:` is absent or less than 2, warn the user: "This findings file was produced by an older version of mine.challenge — presentation fields (why-it-matters, evidence, references, design-challenge) may be absent. Re-run challenge to enrich." Verify the `Target:` field matches `<design-doc-path>` (match is satisfied if the Target value ends with the basename or a path suffix of `<design-doc-path>` — do not require exact string equality). Then scan each `## Finding N:` block and verify that `severity:`, `type:`, `design-level:`, and `resolution:` fields are present. If any finding is missing required tags, warn the user: "Finding N is missing required contract tags — manual review needed" and exclude it from the revision plan.
 
 1. Re-read the design doc to get current state
-2. For each finding where `design-level: Yes`, determine what would change in the design doc:
+2. Before generating the revision plan, scan `design.md`'s `## Open Questions` for bullets containing `(from spec challenge on` — these are findings deferred from a prior spec challenge. If any challenge finding overlaps with a deferred entry, note the match in the revision plan rather than creating a duplicate open question.
+3. For each finding where `design-level: Yes`, determine what would change in the design doc:
    - **Auto-apply findings**: state the specific change (section, what changes, why)
    - **User-directed findings**: state the options and the recommendation from the findings file
    - **TENSION findings**: add to the design doc's "Open Questions" section rather than revising — the critics genuinely disagree, so this needs a user decision
-3. For findings where `design-level: No`, list them as "Flag for implementation — no design doc change needed"
+4. For findings where `design-level: No`, list them as "Flag for implementation — no design doc change needed"
 
 Present the revision plan:
 

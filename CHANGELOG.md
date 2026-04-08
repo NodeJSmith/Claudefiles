@@ -5,6 +5,13 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-04-07
 
 ### Changed
+- Challenge findings.md enriched with four presentation fields (`why-it-matters`, `evidence`, `references`, `design-challenge`) — critics produce structured sections, synthesis copies them, Phase 4 renders mechanically from file instead of generating (#195)
+- Phase 4 template restructured as mutually exclusive blocks (Auto-apply / User-directed / TENSION) with explicit suppress rules for backward compatibility (#195)
+- Synthesis now validates severity values against the contract taxonomy — non-contract values (e.g., `LOW`) are reclassified as `MEDIUM` with a validation warning (#195)
+- Added `Format-version: 2` header to findings files for format detection (#195)
+- Session manifest replaces context-dependent mode detection — `mode`, `findings-out`, `focus`, and `target` persisted as compaction-safe artifacts (#195)
+- Added `--mode=passthrough` flag — passthrough detection is now deterministic, not inferred from LLM context; mine.brainstorm and mine.research updated (#195)
+- Structured callers (mine.design, mine.specify) now assert `Format-version: 2` and validate contract tags before consuming findings (#195)
 - WP format noise reduction — remove `Activity Log` (never read by any consumer) and `plan_section` (decorative) from WP schema; replace full `design.md` injection with targeted section extracts via new `spec-helper design-extract` subcommand (~19% executor prompt token reduction) (#191)
 
 ## 2026-04-06

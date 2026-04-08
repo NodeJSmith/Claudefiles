@@ -181,7 +181,7 @@ AskUserQuestion:
       description: "The brief has what I need — I'll come back when I'm ready"
 ```
 
-If "Challenge these findings first" is selected: invoke `/mine.challenge --target-type=research <research_brief_path>`. After challenge completes, loop back to this gate.
+If "Challenge these findings first" is selected: invoke `/mine.challenge --mode=passthrough --target-type=research <research_brief_path>`. After challenge completes, loop back to this gate.
 
 If "Design it (/mine.design)" is selected: invoke `/mine.design` and pass `<research_brief_path>` so mine.design can use it as prior work and skip its own researcher dispatch.
 
