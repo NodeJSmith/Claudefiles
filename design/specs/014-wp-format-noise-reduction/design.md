@@ -1,7 +1,7 @@
 # Design: WP Format Noise Reduction
 
 **Date:** 2026-04-07
-**Status:** approved
+**Status:** archived
 **Research:** design/research/2026-04-07-wp-format-audit/research.md
 
 ## Problem
