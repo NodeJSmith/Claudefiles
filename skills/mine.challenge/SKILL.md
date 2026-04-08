@@ -303,12 +303,18 @@ Specialist critics (when selected) use their filename slug as the output name:
 - **documentation-architect.md** → writes to `<tmpdir>/documentation-architect.md`
 - **web-platform.md** → writes to `<tmpdir>/web-platform.md`
 
-### Write manifest
+### Write session manifest
 
-After issuing all Agent tool calls, write `<tmpdir>/manifest.md` listing the expected critic report filenames and metadata — one entry per line, with a `# target-type:` comment at the top. List generics first, then specialists. Example:
+**Write `<tmpdir>/manifest.md` before issuing Agent tool calls** — pre-populate it with the planned critic list and all session state that later phases need. This ensures crash recovery if the orchestrator fails between critic dispatch and Phase 3, and makes all phase transitions compaction-safe.
+
+Format — comment lines are session metadata, non-comment lines are critic report filenames:
 
 ```
 # target-type: skill-file
+# mode: structured | standalone | passthrough
+# findings-out: <path> | default
+# focus: <area> | none
+# target: <absolute path or scope description>
 senior.md
 architect.md
 adversarial.md
@@ -316,9 +322,15 @@ adversarial.md
 <specialist-slug>.md
 ```
 
-List only the critics actually launched; specialist entries use the filename slugs selected in Phase 1.
+**Field definitions**:
+- `mode`: `structured` when `--findings-out` is present; `passthrough` when invoked by a passthrough caller (mine.grill, mine.brainstorm, mine.research — currently detected by LLM context, future: `--mode=passthrough` flag); `standalone` otherwise.
+- `findings-out`: the `--findings-out` path if provided, or `default` (meaning `<tmpdir>/findings.md`).
+- `focus`: the `--focus` value if provided, or `none`.
+- `target`: the target scope — use the absolute path when the target is a file; use the scope description when inline content.
 
-This decouples "which files to read in Phase 3" from LLM context memory. The synthesis subagent reads the manifest instead of relying on recall of which critics were launched. Specialists are identified as entries not in the known-generic set (`senior.md`, `architect.md`, `adversarial.md`).
+List generics first, then specialists. List only the critics that will be launched; specialist entries use the filename slugs selected in Phase 1.
+
+This decouples all session state from LLM context memory. Phase 3 reads the manifest for the critic list; Phase 4 reads it for target type, specialist list, and mode. Specialists are identified as entries not in the known-generic set (`senior.md`, `architect.md`, `adversarial.md`).
 
 ## Phase 3: Synthesize
 
@@ -401,13 +413,15 @@ Format-version: 2
 
 ### After synthesis subagent completes
 
-Read the findings file written by the subagent. This is the input for Phase 4 presentation.
+**Verify the findings file exists** at the expected output path (read `# findings-out:` from `<tmpdir>/manifest.md` to determine the path — use `<tmpdir>/findings.md` when the value is `default`). If the file is missing, stop with: "Error: findings file was not written to `<path>` — synthesis may have failed or written to the wrong location." Do not proceed to Phase 4 with a missing file.
+
+Read the findings file. This is the input for Phase 4 presentation.
 
 ## Phase 4: Present Findings
 
 ### Specialist announcement
 
-Before announcing, read `<tmpdir>/manifest.md` and derive the specialist list and target type from its contents (reading from manifest rather than recall provides reliable recovery if context was compacted between Phase 2 and Phase 4 in long-running or subagent invocations). Specialists are entries whose filename is **not** in the known-generic set (`senior.md`, `architect.md`, `adversarial.md`). The `# target-type:` comment line provides the classified target type. To recover display names from manifest slugs, look up each specialist slug in the mapping table (e.g., `contract-caller.md` → "Contract & Caller") — the table includes both display names and filenames.
+Before announcing, read `<tmpdir>/manifest.md` and derive session state from its comment lines: specialist list, target type, mode, findings-out path, focus, and target scope. This is the compaction-safe recovery path — all session state lives in this file, not in LLM context recall. Specialists are entries whose filename is **not** in the known-generic set (`senior.md`, `architect.md`, `adversarial.md`). The `# target-type:` comment line provides the classified target type. To recover display names from manifest slugs, look up each specialist slug in the mapping table (e.g., `contract-caller.md` → "Contract & Caller") — the table includes both display names and filenames.
 
 If `<tmpdir>/focus-substitution.md` exists, read it for the substitution announcement text.
 
@@ -474,15 +488,17 @@ List all critic report file paths so the user knows where reports are. Always li
 
 ### Wrap-up: structured callers vs standalone
 
-**If `--findings-out` was passed** (structured caller mode — used by mine.design, mine.specify, mine.orchestrate, or any caller requesting deterministic output): challenge is done. The caller resumes and generates a revision plan from the findings file.
+Read `# mode:` from `<tmpdir>/manifest.md` to determine the wrap-up behavior. Do not rely on context recall of `--findings-out` or the calling skill — the manifest is the authoritative source after potential compaction.
 
-**If challenge was invoked standalone** (user ran `/mine.challenge` directly): provide a wrap-up, then resolve findings.
+**If mode is `structured`**: challenge is done. Do NOT begin fixing anything. Write a single line: "Challenge complete — findings written to `<findings-out path from manifest>`. Returning to caller." Then stop. The caller resumes and generates a revision plan from the findings file.
+
+**If mode is `standalone`** (user ran `/mine.challenge` directly): provide a wrap-up, then resolve findings.
 
 1. **Summary** — one paragraph: total finding count, breakdown by severity, the single most important takeaway across all findings.
 
 2. **Resolve findings** — follow the findings convention in `rules/common/findings.md`: present the Proceed Gate, collect all user-directed answers, then execute fixes.
 
-**If a passthrough caller dispatched challenge** (mine.grill, mine.brainstorm, mine.research — no `--findings-out`): provide the summary (step 1) but skip the next-step prompt — the calling skill handles its own routing after challenge completes.
+**If mode is `passthrough`** (mine.grill, mine.brainstorm, mine.research): provide the summary (step 1) but skip the next-step prompt — the calling skill handles its own routing after challenge completes.
 
 ## Principles
 
