@@ -110,7 +110,7 @@ The following tag names and values are consumed by calling skills (mine.design, 
 - **Findings file**: `<tmpdir>/findings.md`, or `--findings-out` path when provided by structured callers (always written)
 - **Validation warnings**: `<tmpdir>/validation-warnings.md` — written only when validation issues or orphan warnings were detected; absence means a clean run. Structured callers may read this via `Temp dir:` in the findings header to diagnose unexpected confidence denominators.
 
-**Known callers** (update all when contract changes). New structured callers must add a `<!-- CHALLENGE-CALLER -->` comment at their invocation site. To verify this list is complete: `grep -r 'CHALLENGE-CALLER' ~/.claude/skills/ --include='*.md' -l`.
+**Known callers** (update all when contract changes). New structured callers must add a `<!-- CHALLENGE-CALLER -->` comment at their invocation site. To verify this list is complete: `grep -r 'CHALLENGE-CALLER' ${CLAUDE_HOME:-~/.claude}/skills/ --include='*.md' -l`.
 
 Structured callers (read findings file and generate revision plans):
 - `skills/mine.design/SKILL.md` — "On 'Challenge this design'" section
@@ -153,7 +153,7 @@ The remainder of `$ARGUMENTS` is the target scope.
 
 1. Determine the **input shape**:
    - **File path or module name**: read the targeted file(s) fully
-   - **List file** (`.txt` or `.list` extension): read its contents as a newline-separated list of absolute file paths. Skip blank lines and lines starting with `#`. If a listed file does not exist, record a warning to `<tmpdir>/validation-warnings.md` and skip it — do not halt.
+   - **List file** (`.txt` or `.list` extension): read its contents as a newline-separated list of file paths (absolute or relative — resolve relative paths from the current working directory). Skip blank lines and lines starting with `#`. If a listed file does not exist, record a warning to `<tmpdir>/validation-warnings.md` and skip it — do not halt.
    - **Inline content** (multiple sentences or structured markdown): treat the argument text as the target to analyze directly — do not attempt to read it as a file. This happens when passthrough callers (mine.research, mine.brainstorm) pass content instead of a path.
 
 2. **Classify the target type** — if `--target-type` was provided, use it directly. Otherwise, use heuristics. This classification is passed to critics in Phase 2:
@@ -509,7 +509,7 @@ Read `# mode:` from `<tmpdir>/manifest.md` to determine the wrap-up behavior. Do
 
 2. **Resolve findings** — follow the findings convention in `rules/common/findings.md`: present the Proceed Gate, collect all user-directed answers, then execute fixes.
 
-**If mode is `passthrough`** (mine.grill, mine.brainstorm, mine.research): provide the summary (step 1) but skip the next-step prompt — the calling skill handles its own routing after challenge completes.
+**If mode is `passthrough`** (mine.brainstorm, mine.research): provide the summary (step 1) but skip the next-step prompt — the calling skill handles its own routing after challenge completes.
 
 ## Principles
 
