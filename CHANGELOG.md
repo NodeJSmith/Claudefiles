@@ -9,6 +9,9 @@ All notable changes to this Claudefiles repository are documented here.
 - Phase 4 template restructured as mutually exclusive blocks (Auto-apply / User-directed / TENSION) with explicit suppress rules for backward compatibility (#195)
 - Synthesis now validates severity values against the contract taxonomy — non-contract values (e.g., `LOW`) are reclassified as `MEDIUM` with a validation warning (#195)
 - Added `Format-version: 2` header to findings files for format detection (#195)
+- Session manifest replaces context-dependent mode detection — `mode`, `findings-out`, `focus`, and `target` persisted as compaction-safe artifacts (#195)
+- Added `--mode=passthrough` flag — passthrough detection is now deterministic, not inferred from LLM context; mine.brainstorm and mine.research updated (#195)
+- Structured callers (mine.design, mine.specify) now assert `Format-version: 2` and validate contract tags before consuming findings (#195)
 
 ## 2026-04-06
 
