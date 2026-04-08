@@ -5,10 +5,10 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-04-07
 
 ### Changed
-- Challenge findings.md enriched with four presentation fields (`why-it-matters`, `evidence`, `references`, `design-challenge`) — critics produce structured sections, synthesis copies them, Phase 4 renders mechanically from file instead of generating
-- Phase 4 template restructured as mutually exclusive blocks (Auto-apply / User-directed / TENSION) with explicit suppress rules for backward compatibility
-- Synthesis now validates severity values against the contract taxonomy — non-contract values (e.g., `LOW`) are reclassified as `MEDIUM` with a validation warning
-- Added `Format-version: 2` header to findings files for format detection
+- Challenge findings.md enriched with four presentation fields (`why-it-matters`, `evidence`, `references`, `design-challenge`) — critics produce structured sections, synthesis copies them, Phase 4 renders mechanically from file instead of generating (#195)
+- Phase 4 template restructured as mutually exclusive blocks (Auto-apply / User-directed / TENSION) with explicit suppress rules for backward compatibility (#195)
+- Synthesis now validates severity values against the contract taxonomy — non-contract values (e.g., `LOW`) are reclassified as `MEDIUM` with a validation warning (#195)
+- Added `Format-version: 2` header to findings files for format detection (#195)
 
 ## 2026-04-06
 
