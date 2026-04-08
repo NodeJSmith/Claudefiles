@@ -119,8 +119,10 @@ Structured callers (read findings file and generate revision plans):
 Detection callers (scan for severity labels to detect prior analysis, don't read findings file):
 - `skills/mine.build/SKILL.md` — accelerated path detection
 
-Passthrough callers (invoke challenge standalone, don't consume findings file):
-- `skills/mine.grill/SKILL.md`
+Standalone callers (invoke challenge without `--findings-out`; challenge runs full standalone flow including Proceed Gate, then returns control to the caller):
+- `skills/mine.grill/SKILL.md` — loops back to its handoff gate after challenge completes
+
+Passthrough callers (invoke challenge standalone, don't consume findings file; challenge provides summary only, no Proceed Gate):
 - `skills/mine.research/SKILL.md`
 - `skills/mine.brainstorm/SKILL.md`
 
@@ -326,7 +328,7 @@ adversarial.md
 ```
 
 **Field definitions**:
-- `mode`: `structured` when `--findings-out` is present; `passthrough` when invoked by a passthrough caller (mine.grill, mine.brainstorm, mine.research — currently detected by LLM context, future: `--mode=passthrough` flag); `standalone` otherwise.
+- `mode`: `structured` when `--findings-out` is present; `passthrough` when invoked by a passthrough caller (mine.brainstorm, mine.research — currently detected by LLM context, future: `--mode=passthrough` flag); `standalone` otherwise (includes direct user invocations and standalone callers like mine.grill that want the full Proceed Gate flow).
 - `findings-out`: the `--findings-out` path if provided, or `default` (meaning `<tmpdir>/findings.md`).
 - `focus`: the `--focus` value if provided, or `none`.
 - `target`: the target scope — use the absolute path when the target is a file; use the scope description when inline content.
