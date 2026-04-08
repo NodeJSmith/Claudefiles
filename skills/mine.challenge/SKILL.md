@@ -95,7 +95,13 @@ The following tag names and values are consumed by calling skills (mine.design, 
 - **Contract tag names**: `severity`, `type`, `design-level`, `resolution`
 - **Contract tag names (TENSION only)**: `side-a`, `side-b`, `deciding-factor`
 - **Severity values**: `CRITICAL`, `HIGH`, `MEDIUM`, `TENSION`
-- **Presentation-only fields** (not contract — safe to evolve without updating callers): `raised-by`, `confidence`. `raised-by` values use shortened display names derived from persona file `name:` frontmatter (e.g., "Skeptical Senior Engineer" → "Senior", "Data Integrity Critic" → "Data Integrity"). The mapping table's display names are the canonical short forms. `confidence` format: `N/<total> (<critic names>)` — e.g., `3/5 (Senior + Architect + Data Integrity)`. Total is the number of critics that successfully produced reports. If a critic fails to report, note the missing critic and reduce the denominator. If a future caller begins pattern-matching on `raised-by` values, treat persona name changes as a contract change at that point.
+- **Presentation-only fields** (not contract — safe to evolve without updating callers): `raised-by`, `confidence`, `why-it-matters`, `evidence`, `references`, `design-challenge`. These fields are absent in findings.md files produced before this format version; Phase 4 must render gracefully when they are missing — omit the section rather than rendering an empty block.
+  - `raised-by` values use shortened display names derived from persona file `name:` frontmatter (e.g., "Skeptical Senior Engineer" → "Senior", "Data Integrity Critic" → "Data Integrity"). The mapping table's display names are the canonical short forms.
+  - `confidence` format: `N/<total> (<critic names>)` — e.g., `3/5 (Senior + Architect + Data Integrity)`. Total is the number of critics that successfully produced reports. If a critic fails to report, note the missing critic and reduce the denominator. If a future caller begins pattern-matching on `raised-by` values, treat persona name changes as a contract change at that point.
+  - `why-it-matters`: one sentence describing the consequence if left unfixed. Copied verbatim by synthesis from the contributing critic with the most concrete consequence statement.
+  - `evidence`: comma-separated list of `file:line` citations or section references. For non-code targets (`other`, `spec`, `design-doc`, `rule`, `brief`), may contain section references instead of file:line. Written as `not cited` when no critic provided structured evidence — Phase 4 suppresses the Evidence section when the value is `not cited` or the field is absent.
+  - `references`: list of external URLs cited by critics. Omitted entirely when no external references were cited.
+  - `design-challenge`: one question that forces the author to justify or rethink the finding.
 - **design-level values**: `Yes`, `No`
 - **Resolution values**: `Auto-apply`, `User-directed`
 - **Findings file**: `<tmpdir>/findings.md`, or `--findings-out` path when provided by structured callers (always written)
@@ -263,7 +269,15 @@ Subagents write their reports inside this directory:
      - If User-directed: [Option A — Option B — key tradeoff between them]
      ```
   4. **Tag each finding** with severity (CRITICAL / HIGH / MEDIUM), type (Structural / Approach-now / Approach-later / Fragility / Gap), and design-level (Yes / No). Assign severity based on impact — how bad is this if left unfixed?
-  5. **Add one design question** — a question that forces the author to justify or reconsider
+  5. **Structure each finding with these required sections** (synthesis copies these directly — produce them as discrete, labeled sections, not embedded in prose):
+     ```
+     **Why it matters**: [One sentence — the concrete consequence if this is left unfixed]
+     **Evidence**:
+     - [file:line — one bullet per citation. For non-code targets, use section references instead]
+     **References** (include only if you found external sources):
+     - [URL — canonical doc, RFC, or pattern description that supports this critique]
+     **Design challenge**: [One question that forces the author to justify or reconsider]
+     ```
   6. **Include a "Pushback" section** at the end of your report. For each finding raised by other critics (you won't see their reports, but anticipate likely concerns from the other critics), note any you would disagree with and why. If you think something another critic is likely to flag is actually fine, say so explicitly — e.g., "The coupling here is intentional because X." This gives synthesis the raw material to produce TENSION findings.
   7. **Read beyond the provided files** — you have Read, Grep, and Glob access. Before writing your report, grep for call sites of the primary module/function under review and read at least two of them. Include a **Files examined** section at the top of your report listing every file you read. Don't limit your critique to what was handed to you.
 
@@ -337,6 +351,12 @@ Three steps. Prioritize trustworthy output over compact output — showing an ex
 
 3. **Write a recommendation** for each User-directed finding — which option you'd pick and a one-sentence reason. **Exception**: for TENSION findings, replace the recommendation with a **Deciding factor** — one question or data point that would resolve the disagreement.
 
+4. **Copy presentation fields** from critic reports into each finding. These are structured sections that critics produce (rule 5 in the critic prompt) — copy them, do not generate from scratch:
+   - `why-it-matters`: Copy verbatim from one critic — do not merge or rephrase. When multiple critics wrote **Why it matters** sections, pick the one with the most concrete consequence.
+   - `evidence`: Collect all `file:line` citations (or section references for non-code targets) from all contributing critics' **Evidence** sections. Deduplicate identical citations. Write as a comma-separated list (e.g., `src/auth.py:42, src/auth.py:88, models/user.py:15`). If no critic provided structured evidence for a finding, write `not cited`.
+   - `references`: Collect all external URLs from contributing critics' **References** sections. Omit this field entirely if no references were cited.
+   - `design-challenge`: Copy the strongest design question from the contributing critics' **Design challenge** sections. One question per finding.
+
 **What to exclude**: Style, naming, formatting nits. Not design critiques — skip them.
 
 ### Write findings file
@@ -360,6 +380,10 @@ Warnings: none | <one-sentence summary of validation/orphan warnings>
 - resolution: Auto-apply / User-directed
 - raised-by: Senior + Architect / etc.
 - summary: <one-sentence description>
+- why-it-matters: <one sentence — consequence if left unfixed>
+- evidence: <comma-separated file:line citations or section references; "not cited" when none available>
+- references: <external URLs — omit this field entirely if none>
+- design-challenge: <one question that forces the author to justify or rethink>
 - better-approach (Auto-apply only): <the fix>
 - options (User-directed only, mutually exclusive with better-approach): <Option A: [approach] / Option B: [approach]>
 - recommendation (User-directed only): <which option and why. For TENSION: deciding factor>
@@ -389,36 +413,50 @@ If `<tmpdir>/validation-warnings.md` exists and is non-empty, read it. For any c
 
 ### Per-finding format
 
+**Read each finding from findings.md and render it using the template below.** Fill each slot from the corresponding field in findings.md — do not rephrase, generate, or embellish. If a presentation-only field (`why-it-matters`, `evidence`, `references`, `design-challenge`) is missing from a finding (e.g., in pre-enrichment findings.md files), omit that section entirely rather than generating it or rendering an empty block.
+
 Findings MUST be numbered sequentially (`### 1.`, `### 2.`, etc.) for easy reference in conversation.
 
-```
-### N. [Issue name] — SEVERITY (confidence)
-**Type**: [Structural / Approach-now / Approach-later / Approach-now/later / Fragility / Gap] | **Design-level**: [Yes / No] | **Resolution**: [Auto-apply / User-directed]
+All findings share this header:
 
-**What's wrong**: [Direct statement — no softening]
-**Why it matters**: [Consequence if left as-is]
-**Evidence (code)**:
-- [file:line — one bullet per distinct assertion in What's wrong / Why it matters]
-**References (external)** (optional):
-- [Spec / RFC / canonical doc URL that supports this critique]
-**Raised by**: [which critics — e.g. "Senior + Architect"]
-**Better approach**: [Design pattern by name, concrete structural alternative, or "move X to Y"]
-**Design challenge**: [One question that forces the author to justify or rethink this]
 ```
+### N. [Finding name from ## heading] — SEVERITY (confidence)
+**Type**: [type value] | **Design-level**: [design-level value] | **Resolution**: [resolution value]
 
-For TENSION findings, add:
-```
-**The disagreement**: [Critic A argues X because Y. Critic B argues Z because W.]
-**Deciding factor**: [One question or data point that would resolve the disagreement]
+**What's wrong**: [summary field]
+**Why it matters**: [why-it-matters field]
+**Evidence**:
+- [each comma-separated item from evidence field as a bullet]
+**References** (optional):
+- [each item from references field as a bullet]
+**Raised by**: [raised-by field]
 ```
 
-For **User-directed** findings (non-TENSION), replace "Better approach" with:
+Then render the resolution-specific block — these are **mutually exclusive**, not additive:
+
+**Auto-apply findings:**
+```
+**Better approach**: [better-approach field]
+**Design challenge**: [design-challenge field]
+```
+
+**User-directed findings (non-TENSION):**
 ```
 **Options**:
-- **Option A**: [approach] — *tradeoff: [what you gain / what you lose]*
-- **Option B**: [approach] — *tradeoff: [what you gain / what you lose]*
-**Recommendation**: [Option X] — [one-sentence reason]
+- **Option A**: [from options field] — *tradeoff: [from options field]*
+- **Option B**: [from options field] — *tradeoff: [from options field]*
+**Recommendation**: [recommendation field]
+**Design challenge**: [design-challenge field]
 ```
+
+**TENSION findings:**
+```
+**The disagreement**: [side-a field. side-b field.]
+**Deciding factor**: [deciding-factor field]
+**Design challenge**: [design-challenge field]
+```
+
+**Suppress rules**: Omit `**Evidence**` when evidence is `not cited` or absent. Omit `**References**` when the field is absent. Omit `**Why it matters**` and `**Design challenge**` when those fields are absent.
 
 ### After presenting findings
 
