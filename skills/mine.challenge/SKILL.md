@@ -97,11 +97,11 @@ The following tag names and values are consumed by calling skills (mine.design, 
 - **Contract tag names (TENSION only)**: `side-a`, `side-b`, `deciding-factor`
 - **Severity values**: `CRITICAL`, `HIGH`, `MEDIUM`, `TENSION`
 - **Presentation-only fields** (not contract — safe to evolve without updating callers): `raised-by`, `confidence`, `why-it-matters`, `evidence`, `references`, `design-challenge`. These fields are absent in findings.md files produced before this format version; Phase 4 must render gracefully when they are missing — omit the section rather than rendering an empty block.
-  - `raised-by` values use shortened display names derived from persona file `name:` frontmatter (e.g., "Skeptical Senior Engineer" → "Senior", "Data Integrity Critic" → "Data Integrity"). The mapping table's display names are the canonical short forms.
-  - `confidence` format: `N/<total> (<critic names>)` — e.g., `3/5 (Senior + Architect + Data Integrity)`. Total is the number of critics that successfully produced reports. If a critic fails to report, note the missing critic and reduce the denominator. If a future caller begins pattern-matching on `raised-by` values, treat persona name changes as a contract change at that point.
+  - `raised-by` values use shortened display names derived from persona file `name:` frontmatter (e.g., "Skeptical Senior Engineer" → "Senior", "Data Integrity Critic" → "Data Integrity"). The mapping table's display names are the canonical short forms. If a future caller begins pattern-matching on `raised-by` values, treat persona name changes as a contract change at that point.
+  - `confidence` format: `N/<total> (<critic names>)` — e.g., `3/5 (Senior + Architect + Data Integrity)`. Total is the number of critics that successfully produced reports. If a critic fails to report, note the missing critic and reduce the denominator.
   - `why-it-matters`: one sentence describing the consequence if left unfixed. Copied verbatim by synthesis from the contributing critic with the most concrete consequence statement.
   - `evidence`: comma-separated list of `file:line` citations or section references. For non-code targets (`other`, `spec`, `design-doc`, `rule`, `brief`), may contain section references instead of file:line. Written as `not cited` when no critic provided structured evidence — Phase 4 suppresses the Evidence section when the value is `not cited` or the field is absent.
-  - `references`: list of external URLs cited by critics. Omitted entirely when no external references were cited.
+  - `references`: comma-separated list of external URLs cited by critics. Phase 4 splits on commas and renders each URL as a bullet. Omitted entirely when no external references were cited.
   - `design-challenge`: one question that forces the author to justify or rethink the finding.
 - **design-level values**: `Yes`, `No`
 - **Resolution values**: `Auto-apply`, `User-directed`
@@ -409,7 +409,7 @@ Format-version: 2
 - summary: <one-sentence description>
 - why-it-matters: <one sentence — consequence if left unfixed; omit for TENSION findings>
 - evidence: <comma-separated file:line citations or section references; "not cited" when none available>
-- references: <external URLs — omit this field entirely if none>
+- references: <comma-separated external URLs — omit this field entirely if none>
 - design-challenge: <one question that forces the author to justify or rethink>
 - better-approach: <the fix — Auto-apply findings only; mutually exclusive with options>
 - options (User-directed only, mutually exclusive with better-approach): <Option A: [approach] / Option B: [approach]>
@@ -457,7 +457,7 @@ All findings share this header:
 **Evidence**:
 - [each comma-separated item from evidence field as a bullet]
 **References**:
-- [each item from references field as a bullet]
+- [each comma-separated URL from references field as a bullet]
 **Raised by**: [raised-by field]
 ```
 
