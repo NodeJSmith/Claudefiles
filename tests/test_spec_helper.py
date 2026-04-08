@@ -1369,7 +1369,7 @@ def _make_feature_with_design(tmp_path, design_md, *, feature="001-test"):
 class TestDesignExtractArchitecture:
     def test_design_extract_architecture(self, tmp_path):
         """Extracts ## Architecture content including ### subsections."""
-        root, feature_dir = _make_feature_with_design(tmp_path, DESIGN_MD_FULL)
+        _root, feature_dir = _make_feature_with_design(tmp_path, DESIGN_MD_FULL)
         result = extract_design_sections(feature_dir, ["Architecture"])
         assert "## Architecture" in result
         assert "This is the architecture section." in result
@@ -1385,7 +1385,7 @@ class TestDesignExtractArchitecture:
 class TestDesignExtractProposedApproachAlias:
     def test_design_extract_proposed_approach_alias(self, tmp_path):
         """## Proposed Approach matches the Architecture alias."""
-        root, feature_dir = _make_feature_with_design(
+        _root, feature_dir = _make_feature_with_design(
             tmp_path, DESIGN_MD_PROPOSED_APPROACH
         )
         result = extract_design_sections(feature_dir, ["Architecture"])
@@ -1397,7 +1397,7 @@ class TestDesignExtractProposedApproachAlias:
 class TestDesignExtractTechnicalApproachAlias:
     def test_design_extract_technical_approach_alias(self, tmp_path):
         """## Technical Approach also matches the Architecture alias."""
-        root, feature_dir = _make_feature_with_design(
+        _root, feature_dir = _make_feature_with_design(
             tmp_path, DESIGN_MD_TECHNICAL_APPROACH
         )
         result = extract_design_sections(feature_dir, ["Architecture"])
@@ -1408,7 +1408,7 @@ class TestDesignExtractTechnicalApproachAlias:
 class TestDesignExtractNonGoals:
     def test_design_extract_non_goals(self, tmp_path):
         """Extracts ## Non-Goals content."""
-        root, feature_dir = _make_feature_with_design(tmp_path, DESIGN_MD_FULL)
+        _root, feature_dir = _make_feature_with_design(tmp_path, DESIGN_MD_FULL)
         result = extract_design_sections(feature_dir, ["Non-Goals"])
         assert "## Non-Goals" in result
         assert "No goals here" in result
@@ -1485,7 +1485,7 @@ class TestDesignExtractReviewerFlag:
 class TestDesignExtractNestedSubsections:
     def test_design_extract_nested_subsections(self, tmp_path):
         """### headings under ## Architecture are included in the extract."""
-        root, feature_dir = _make_feature_with_design(tmp_path, DESIGN_MD_FULL)
+        _root, feature_dir = _make_feature_with_design(tmp_path, DESIGN_MD_FULL)
         result = extract_design_sections(feature_dir, ["Architecture"])
         assert "### Subsection A" in result
         assert "### Subsection B" in result

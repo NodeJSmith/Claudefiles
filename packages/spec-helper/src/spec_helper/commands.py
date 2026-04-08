@@ -212,9 +212,10 @@ def cmd_wp_validate(args: argparse.Namespace) -> None:
                     }
                 )
 
-            # --fix: rewrite only if normalization changed something
+            # --fix: rewrite if normalization changed something OR old-schema fields are present
             if args.fix:
-                if normalized != raw:
+                has_old_fields = any(f in raw for f in OLD_SCHEMA_FIELDS)
+                if normalized != raw or has_old_fields:
                     post.metadata.update(normalized)
                     for old_field in OLD_SCHEMA_FIELDS:
                         post.metadata.pop(old_field, None)
@@ -666,6 +667,10 @@ def cmd_design_extract(args: argparse.Namespace) -> None:
     """
     root = find_repo_root()
     feature_dir = resolve_feature(root, feature=args.feature)
+
+    design_path = feature_dir / "design.md"
+    if not design_path.exists():
+        die(f"No design.md found in {feature_dir}")
 
     sections = _REVIEWER_SECTIONS if getattr(args, "reviewer", False) else args.sections
 
