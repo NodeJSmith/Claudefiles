@@ -273,7 +273,7 @@ Subagents write their reports inside this directory:
      ```
      **Why it matters**: [One sentence — the concrete consequence if this is left unfixed]
      **Evidence**:
-     - [file:line — one bullet per citation. For non-code targets, use section references instead]
+     - [file:line only — no prose annotations. For non-code targets, use section references instead]
      **References** (include only if you found external sources):
      - [URL — canonical doc, RFC, or pattern description that supports this critique]
      **Design challenge**: [One question that forces the author to justify or reconsider]
@@ -352,8 +352,8 @@ Three steps. Prioritize trustworthy output over compact output — showing an ex
 3. **Write a recommendation** for each User-directed finding — which option you'd pick and a one-sentence reason. **Exception**: for TENSION findings, replace the recommendation with a **Deciding factor** — one question or data point that would resolve the disagreement.
 
 4. **Copy presentation fields** from critic reports into each finding. These are structured sections that critics produce (rule 5 in the critic prompt) — copy them, do not generate from scratch:
-   - `why-it-matters`: Copy verbatim from one critic — do not merge or rephrase. When multiple critics wrote **Why it matters** sections, pick the one with the most concrete consequence.
-   - `evidence`: Collect all `file:line` citations (or section references for non-code targets) from all contributing critics' **Evidence** sections. Deduplicate identical citations. Write as a comma-separated list (e.g., `src/auth.py:42, src/auth.py:88, models/user.py:15`). If no critic provided structured evidence for a finding, write `not cited`.
+   - `why-it-matters`: Copy verbatim from one critic — do not merge or rephrase. When multiple critics wrote **Why it matters** sections, pick the one with the most concrete consequence. For TENSION findings, omit this field — TENSION findings present both sides via side-a/side-b, and a one-sided consequence statement is misleading.
+   - `evidence`: Collect all `file:line` citations (or section references for non-code targets) from all contributing critics' **Evidence** sections. Deduplicate identical citations. Write as a comma-separated list (e.g., `src/auth.py:42, src/auth.py:88, models/user.py:15`). For TENSION findings, collect citations from both sides. If no critic provided structured evidence for a finding, write `not cited`.
    - `references`: Collect all external URLs from contributing critics' **References** sections. Omit this field entirely if no references were cited.
    - `design-challenge`: Copy the strongest design question from the contributing critics' **Design challenge** sections. One question per finding.
 
@@ -427,7 +427,7 @@ All findings share this header:
 **Why it matters**: [why-it-matters field]
 **Evidence**:
 - [each comma-separated item from evidence field as a bullet]
-**References** (optional):
+**References**:
 - [each item from references field as a bullet]
 **Raised by**: [raised-by field]
 ```
@@ -456,7 +456,7 @@ Then render the resolution-specific block — these are **mutually exclusive**, 
 **Design challenge**: [design-challenge field]
 ```
 
-**Suppress rules**: Omit `**Evidence**` when evidence is `not cited` or absent. Omit `**References**` when the field is absent. Omit `**Why it matters**` and `**Design challenge**` when those fields are absent.
+**Suppress rules** (apply to all resolution types, including TENSION): Omit `**Evidence**` when evidence is `not cited` or absent. Omit `**References**` when the field is absent. Omit `**Why it matters**` and `**Design challenge**` when those fields are absent.
 
 ### After presenting findings
 
