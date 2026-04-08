@@ -345,7 +345,7 @@ Three steps. Prioritize trustworthy output over compact output — showing an ex
 1. **Group by problem area** — cluster findings that address the same part of the system or the same concern. List all critic perspectives for each group. Do NOT merge or deduplicate — if two critics flagged similar-but-distinct issues, keep both as separate findings. The user can mentally merge; they can't un-apply a wrong auto-apply.
 
 2. **Assign tags per finding**:
-   - **Severity**: take the highest severity any contributing critic assigned. Record agreement count on the separate confidence line (e.g., `3/5 (Senior + Architect + Data Integrity)` or `1/4 (Senior only)`).
+   - **Severity**: take the highest severity any contributing critic assigned. The final value **must** be one of `CRITICAL`, `HIGH`, `MEDIUM`, or `TENSION` — no other values are valid. If a critic used a non-contract value (e.g., `LOW`, `INFO`), reclassify as `MEDIUM` and record a validation warning to `<tmpdir>/validation-warnings.md`. Record agreement count on the separate confidence line (e.g., `3/5 (Senior + Architect + Data Integrity)` or `1/4 (Senior only)`).
    - **Type**: use the type that best describes the root cause. For Approach timing conflicts (`now` vs `later`), tag as `Approach-now/later`.
    - **Design-level**: when critics disagree, Yes wins (architectural concerns should surface).
    - **Resolution**: default to **User-directed** unless ALL critics proposed the same fix AND it's localized and additive — only then use **Auto-apply**. When in doubt, User-directed.
