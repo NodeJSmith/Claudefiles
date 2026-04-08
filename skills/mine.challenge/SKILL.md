@@ -104,6 +104,7 @@ The following tag names and values are consumed by calling skills (mine.design, 
   - `design-challenge`: one question that forces the author to justify or rethink the finding.
 - **design-level values**: `Yes`, `No`
 - **Resolution values**: `Auto-apply`, `User-directed`
+- **Format-version**: `2` — written in the findings file header. Callers may assert this value to detect format mismatches. Absent in pre-enrichment files (version 1). Increment when contract fields change.
 - **Findings file**: `<tmpdir>/findings.md`, or `--findings-out` path when provided by structured callers (always written)
 - **Validation warnings**: `<tmpdir>/validation-warnings.md` — written only when validation issues or orphan warnings were detected; absence means a clean run. Structured callers may read this via `Temp dir:` in the findings header to diagnose unexpected confidence denominators.
 
@@ -352,10 +353,12 @@ Three steps. Prioritize trustworthy output over compact output — showing an ex
 3. **Write a recommendation** for each User-directed finding — which option you'd pick and a one-sentence reason. **Exception**: for TENSION findings, replace the recommendation with a **Deciding factor** — one question or data point that would resolve the disagreement.
 
 4. **Copy presentation fields** from critic reports into each finding. These are structured sections that critics produce (rule 5 in the critic prompt) — copy them, do not generate from scratch:
-   - `why-it-matters`: Copy verbatim from one critic — do not merge or rephrase. When multiple critics wrote **Why it matters** sections, pick the one with the most concrete consequence. For TENSION findings, omit this field — TENSION findings present both sides via side-a/side-b, and a one-sided consequence statement is misleading.
-   - `evidence`: Collect all `file:line` citations (or section references for non-code targets) from all contributing critics' **Evidence** sections. Deduplicate identical citations. Write as a comma-separated list (e.g., `src/auth.py:42, src/auth.py:88, models/user.py:15`). For TENSION findings, collect citations from both sides. If no critic provided structured evidence for a finding, write `not cited`.
+   - `why-it-matters`: Copy verbatim from one critic — do not merge or rephrase. When multiple critics wrote **Why it matters** sections, pick the one with the most concrete consequence; if equally concrete, prefer the critic who assigned the highest severity for this finding. For TENSION findings, omit this field — TENSION findings present both sides via side-a/side-b, and a one-sided consequence statement is misleading.
+   - `evidence`: Collect all `file:line` citations (or section references for non-code targets) from all contributing critics' **Evidence** sections. Deduplicate only identical citations (same file and same line); different line numbers in the same file are distinct citations — keep both. Write as a comma-separated list (e.g., `src/auth.py:42, src/auth.py:88, models/user.py:15`). For TENSION findings, collect citations from both sides. If no critic provided structured evidence for a finding, write `not cited`.
    - `references`: Collect all external URLs from contributing critics' **References** sections. Omit this field entirely if no references were cited.
    - `design-challenge`: Copy the strongest design question from the contributing critics' **Design challenge** sections. One question per finding.
+
+   **Missing sections**: If a contributing critic's report is missing one of these structured sections (no `**Evidence**` bullets, no `**Why it matters**` line, etc.), do not generate a replacement. Write `not cited` for evidence; omit the other missing fields entirely. Do not synthesize content for absent sections.
 
 **What to exclude**: Style, naming, formatting nits. Not design critiques — skip them.
 
@@ -371,6 +374,7 @@ Date: YYYY-MM-DD
 Target: <file or scope>
 Temp dir: <tmpdir>
 Warnings: none | <one-sentence summary of validation/orphan warnings>
+Format-version: 2
 
 ## Finding 1: <name>
 - severity: CRITICAL / HIGH / MEDIUM / TENSION
@@ -380,11 +384,11 @@ Warnings: none | <one-sentence summary of validation/orphan warnings>
 - resolution: Auto-apply / User-directed
 - raised-by: Senior + Architect / etc.
 - summary: <one-sentence description>
-- why-it-matters: <one sentence — consequence if left unfixed>
+- why-it-matters: <one sentence — consequence if left unfixed; omit for TENSION findings>
 - evidence: <comma-separated file:line citations or section references; "not cited" when none available>
 - references: <external URLs — omit this field entirely if none>
 - design-challenge: <one question that forces the author to justify or rethink>
-- better-approach (Auto-apply only): <the fix>
+- better-approach: <the fix — Auto-apply findings only; mutually exclusive with options>
 - options (User-directed only, mutually exclusive with better-approach): <Option A: [approach] / Option B: [approach]>
 - recommendation (User-directed only): <which option and why. For TENSION: deciding factor>
 - side-a (TENSION only): <Critic A argues X because Y>
