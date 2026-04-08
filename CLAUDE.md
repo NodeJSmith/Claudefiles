@@ -16,7 +16,7 @@ Symlinks key configuration directories (`agents/`, `skills/`, `commands/`, `scri
 
 ### Runtime Dependencies
 
-`spec-helper` manages work packages and spec directories. Subcommand groups: `wp-*` (move, validate, list), `checkpoint-*` (init, read, update, verdict, delete), `status`, `next-number`, `init`. Run `spec-helper --help` for full subcommand reference.
+`spec-helper` manages work packages and spec directories. Subcommand groups: `wp-*` (move, validate, list), `checkpoint-*` (init, read, update, verdict, delete), `status`, `next-number`, `init`, `design-extract` (extracts Architecture/Non-Goals sections for executor and reviewer prompts). Run `spec-helper --help` for full subcommand reference.
 
 Install as a standalone tool:
 
@@ -53,7 +53,7 @@ design/
 
 - `spec.md` — what to build. User-facing, technology-agnostic. Never contains tasks.
 - `design.md` — how to build it. Architecture, decisions, API contracts. Never contains tasks.
-- `WP*.md` — executable work packages. The **only** place tasks live. Lane state tracked in YAML frontmatter (`planned | doing | for_review | done`), updated by `spec-helper wp-move`. After creation, `spec-helper wp-validate` checks schema consistency and broken `depends_on` references. `spec-helper wp-list` returns WP metadata as JSON for programmatic consumption.
+- `WP*.md` — executable work packages. The **only** place tasks live. Lane state tracked in YAML frontmatter (`planned | doing | for_review | done`), updated by `spec-helper wp-move`. After creation, `spec-helper wp-validate` checks schema consistency and broken `depends_on` references. `spec-helper wp-list` returns WP metadata as JSON for programmatic consumption. WP frontmatter fields: `work_package_id`, `title`, `lane`, `depends_on` — note that `plan_section` has been removed and WPs no longer contain an `## Activity Log` section.
 
 Freeze gate: WPs are generated from `design.md` by `/mine.draft-plan` before `/mine.plan-review`. `/mine.plan-review` reviews `design.md` plus the existing WPs; once that review is approved, `design.md` is frozen — substantive changes require regenerating WPs via `/mine.draft-plan`.
 

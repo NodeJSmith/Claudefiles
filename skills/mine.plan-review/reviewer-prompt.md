@@ -36,6 +36,7 @@ Look for: requirements with no corresponding task, acceptance criteria with no v
 ### 8. Design coverage
 Does every architecture section in design.md have corresponding WPs?
 Look for: design sections (API contracts, data models, integrations) with no WP that implements them, design decisions referenced but never acted on.
+Note: WPs no longer carry a `plan_section` frontmatter field — verify design coverage semantically by reading WP Subtasks and Objectives against design.md sections, not by matching a metadata field.
 
 ### 9. Scope containment
 Do any WPs implement things not in the design or explicitly listed as non-goals?

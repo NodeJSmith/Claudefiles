@@ -18,6 +18,7 @@ from spec_helper.filesystem import (
 )
 from spec_helper.errors import die
 from spec_helper.commands import (
+    cmd_design_extract,
     cmd_init,
     cmd_wp_move,
     cmd_wp_validate,
@@ -25,6 +26,7 @@ from spec_helper.commands import (
     cmd_status,
 )
 from spec_helper.cli import build_parser
+from spec_helper.filesystem import extract_design_sections
 
 
 # ===================================================================
@@ -595,9 +597,9 @@ depends_on: []
 issue: '#117'
 ---
 
-## Activity Log
+## Content
 
-- 2026-01-01T00:00:00Z — system — lane=planned — WP created
+Some content here.
 """
         wp_file = tmp_path / "WP01.md"
         wp_file.write_text(wp_content)
@@ -613,7 +615,7 @@ issue: '#117'
         assert reloaded["lane"] == "for_review"
         assert reloaded["issue"] == "#117"
         assert reloaded["title"] == "Delete permissions subsystem"
-        assert "Activity Log" in reloaded.content
+        assert "Content" in reloaded.content
 
     def test_roundtrip_real_006_format(self, tmp_path):
         wp_content = """\
@@ -674,10 +676,6 @@ depends_on: []
 ## Subtasks
 
 - Do something
-
-## Activity Log
-
-- 2026-01-01T00:00:00Z — system — lane=planned — WP created
 """
         root, wp_file = _make_wp_file(tmp_path, content)
         monkeypatch.chdir(root)
@@ -693,6 +691,7 @@ depends_on: []
 
         reloaded = frontmatter.load(str(wp_file))
         assert reloaded.metadata["lane"] == "doing"
+        assert "## Activity Log" not in wp_file.read_text()
 
 
 class TestWpMovePreservesUnknownFields:
@@ -707,9 +706,9 @@ issue: '#117'
 custom_field: some_value
 ---
 
-## Activity Log
+## Content
 
-- 2026-01-01T00:00:00Z — system — lane=planned — WP created
+Some content here.
 """
         root, wp_file = _make_wp_file(tmp_path, content)
         monkeypatch.chdir(root)
@@ -739,9 +738,9 @@ lane: planned
 depends_on: []
 ---
 
-## Activity Log
+## Content
 
-- 2026-01-01T00:00:00Z — system — lane=planned — WP created
+Some content here.
 """
         root, wp_file = _make_wp_file(tmp_path, content)
         monkeypatch.chdir(root)
@@ -770,113 +769,6 @@ depends_on: []
         assert captured_dirs[0] == wp_file.parent
 
 
-class TestActivityLogInsertBeforeNextHeading:
-    def test_activity_log_insert_before_next_heading(self, tmp_path, monkeypatch):
-        content = """\
----
-work_package_id: WP01
-title: Test task
-lane: planned
-depends_on: []
----
-
-## Activity Log
-
-- 2026-01-01T00:00:00Z — system — lane=planned — WP created
-
-## Review Guidance
-
-- Check things
-"""
-        root, wp_file = _make_wp_file(tmp_path, content)
-        monkeypatch.chdir(root)
-
-        args = argparse.Namespace(
-            feature="001-test",
-            wp_id="WP01",
-            lane="doing",
-            auto=False,
-            json=False,
-        )
-        cmd_wp_move(args)
-
-        text = wp_file.read_text()
-        log_idx = text.index("lane=doing — moved from planned")
-        review_idx = text.index("## Review Guidance")
-        assert log_idx < review_idx
-        assert "- Check things" in text
-
-
-class TestActivityLogInsertAtEof:
-    def test_activity_log_insert_at_eof(self, tmp_path, monkeypatch):
-        content = """\
----
-work_package_id: WP01
-title: Test task
-lane: planned
-depends_on: []
----
-
-## Subtasks
-
-- Do something
-
-## Activity Log
-
-- 2026-01-01T00:00:00Z — system — lane=planned — WP created
-"""
-        root, wp_file = _make_wp_file(tmp_path, content)
-        monkeypatch.chdir(root)
-
-        args = argparse.Namespace(
-            feature="001-test",
-            wp_id="WP01",
-            lane="doing",
-            auto=False,
-            json=False,
-        )
-        cmd_wp_move(args)
-
-        text = wp_file.read_text()
-        assert "lane=doing — moved from planned" in text
-        lines = text.strip().splitlines()
-        assert "lane=doing — moved from planned" in lines[-1]
-
-
-class TestActivityLogCreatedWhenMissing:
-    def test_activity_log_created_when_missing(self, tmp_path, monkeypatch):
-        content = """\
----
-work_package_id: WP01
-title: Test task
-lane: planned
-depends_on: []
----
-
-## Subtasks
-
-- Do something
-"""
-        root, wp_file = _make_wp_file(tmp_path, content)
-        monkeypatch.chdir(root)
-
-        args = argparse.Namespace(
-            feature="001-test",
-            wp_id="WP01",
-            lane="doing",
-            auto=False,
-            json=False,
-        )
-        cmd_wp_move(args)
-
-        text = wp_file.read_text()
-        assert "## Activity Log" in text
-        assert "lane=doing — moved from planned" in text
-        subtasks_idx = text.index("## Subtasks")
-        activity_idx = text.index("## Activity Log")
-        assert activity_idx > subtasks_idx
-
-
 class TestWpMoveNoopWarns:
     def test_wp_move_noop_warns(self, tmp_path, monkeypatch, capsys):
         content = """\
@@ -887,9 +779,9 @@ lane: doing
 depends_on: []
 ---
 
-## Activity Log
+## Content
 
-- 2026-01-01T00:00:00Z — system — lane=doing — WP created
+Some content here.
 """
         root, wp_file = _make_wp_file(tmp_path, content)
         monkeypatch.chdir(root)
@@ -907,8 +799,9 @@ depends_on: []
         assert "already in lane" in captured.err
         assert "no change" in captured.err
 
+        # File should be unchanged — no write occurred
         text = wp_file.read_text()
-        assert text.count("lane=doing") == 1
+        assert text == content
 
 
 class TestWpMoveInvalidMetadataWarns:
@@ -921,9 +814,9 @@ lane: planned
 depends_on: []
 ---
 
-## Activity Log
+## Content
 
-- 2026-01-01T00:00:00Z — system — lane=planned — WP created
+Some content here.
 """
         root, wp_file = _make_wp_file(tmp_path, content)
         monkeypatch.chdir(root)
@@ -969,7 +862,6 @@ VALID_WP = """\
 work_package_id: "{wp_id}"
 title: "Test task"
 lane: "planned"
-plan_section: ""
 depends_on: []
 ---
 
@@ -1077,19 +969,19 @@ depends_on: ["WP99"]
         assert any("WP99" in e["message"] for e in result["errors"])
 
 
-class TestWpValidatePlanSectionMismatch:
-    def test_wp_validate_plan_section_mismatch(self, tmp_path, monkeypatch, capsys):
+class TestWpValidatePlanSectionOldSchema:
+    def test_wp_validate_plan_section_old_schema(self, tmp_path, monkeypatch, capsys):
+        """plan_section in frontmatter triggers an Old-schema field warning, not 'unknown field'."""
         wp = """\
 ---
 work_package_id: WP01
 title: Test
 lane: planned
-plan_section: "Nonexistent Section"
+plan_section: "Some Section"
 depends_on: []
 ---
 """
-        design = "# Design\n\n## Architecture\n\nContent\n"
-        root = _make_feature(tmp_path, {"WP01.md": wp}, design_md=design)
+        root = _make_feature(tmp_path, {"WP01.md": wp})
         monkeypatch.chdir(root)
 
         args = argparse.Namespace(
@@ -1102,7 +994,15 @@ depends_on: []
 
         captured = capsys.readouterr()
         result = json.loads(captured.out)
-        assert any("plan_section" in w["message"] for w in result["warnings"])
+        assert any(
+            "Old-schema field" in w["message"] and "plan_section" in w["message"]
+            for w in result["warnings"]
+        )
+        # Must NOT appear as an unknown field
+        assert not any(
+            "Unknown field" in w["message"] and "plan_section" in w["message"]
+            for w in result["warnings"]
+        )
 
 
 class TestWpValidateUnknownFieldWarning:
@@ -1211,8 +1111,11 @@ class TestWpListJsonOutput:
         captured = capsys.readouterr()
         result = json.loads(captured.out)
         assert len(result) == 1
-        assert result[0]["wp_id"] == "WP01"
-        assert "path" in result[0]
+        wp = result[0]
+        # Schema contract: wp-list JSON must always include these keys
+        for key in ("wp_id", "title", "lane", "depends_on", "path"):
+            assert key in wp, f"Missing required key '{key}' in wp-list output"
+        assert wp["wp_id"] == "WP01"
 
 
 class TestWpListIncludesAllWps:
@@ -1341,3 +1244,275 @@ depends_on: []
 
         result = json.loads(captured.out)
         assert "WP01" in result[0]["lanes"]["planned"]
+
+
+# ===================================================================
+# design-extract — WP02 tests
+# ===================================================================
+
+DESIGN_MD_FULL = """\
+# Design: Test Feature
+
+**Status:** draft
+
+## Problem
+
+Some problem description here.
+
+## Non-Goals
+
+- No goals here
+- Second non-goal
+
+## Architecture
+
+This is the architecture section.
+
+Key points:
+
+### Subsection A
+
+Details about subsection A.
+
+### Subsection B
+
+Details about subsection B.
+
+## Alternatives Considered
+
+### Option 1
+
+First alternative.
+
+### Option 2
+
+Second alternative.
+
+## Impact
+
+Some impact description.
+"""
+
+DESIGN_MD_PROPOSED_APPROACH = """\
+# Design: Test Feature
+
+**Status:** draft
+
+## Problem
+
+Some problem description.
+
+## Non-Goals
+
+- Not in scope
+
+## Proposed Approach
+
+This is the proposed approach (alias for Architecture).
+
+### Detail
+
+Some detail under proposed approach.
+
+## Impact
+
+Impact section.
+"""
+
+DESIGN_MD_TECHNICAL_APPROACH = """\
+# Design: Test Feature
+
+## Technical Approach
+
+The technical approach content here.
+
+## Non-Goals
+
+- Out of scope
+"""
+
+DESIGN_MD_NO_ARCHITECTURE = """\
+# Design: Test Feature
+
+## Problem
+
+Just a problem, no architecture heading.
+
+## Non-Goals
+
+- Still no arch
+"""
+
+DESIGN_MD_NO_NON_GOALS = """\
+# Design: Test Feature
+
+## Architecture
+
+Architecture content here.
+
+## Impact
+
+Impact here.
+"""
+
+
+def _make_feature_with_design(tmp_path, design_md, *, feature="001-test"):
+    """Helper: create a feature dir with design.md but no WP files."""
+    root = tmp_path / "repo"
+    (root / ".git").mkdir(parents=True)
+    feature_dir = root / "design" / "specs" / feature
+    feature_dir.mkdir(parents=True)
+    (feature_dir / "design.md").write_text(design_md)
+    return root, feature_dir
+
+
+class TestDesignExtractArchitecture:
+    def test_design_extract_architecture(self, tmp_path):
+        """Extracts ## Architecture content including ### subsections."""
+        _root, feature_dir = _make_feature_with_design(tmp_path, DESIGN_MD_FULL)
+        result = extract_design_sections(feature_dir, ["Architecture"])
+        assert "## Architecture" in result
+        assert "This is the architecture section." in result
+        assert "### Subsection A" in result
+        assert "### Subsection B" in result
+        assert "Details about subsection A." in result
+        # Should NOT include content from other sections
+        assert "## Alternatives Considered" not in result
+        assert "## Non-Goals" not in result
+        assert "## Impact" not in result
+
+
+class TestDesignExtractProposedApproachAlias:
+    def test_design_extract_proposed_approach_alias(self, tmp_path):
+        """## Proposed Approach matches the Architecture alias."""
+        _root, feature_dir = _make_feature_with_design(
+            tmp_path, DESIGN_MD_PROPOSED_APPROACH
+        )
+        result = extract_design_sections(feature_dir, ["Architecture"])
+        assert "## Proposed Approach" in result
+        assert "This is the proposed approach (alias for Architecture)." in result
+        assert "### Detail" in result
+
+
+class TestDesignExtractTechnicalApproachAlias:
+    def test_design_extract_technical_approach_alias(self, tmp_path):
+        """## Technical Approach also matches the Architecture alias."""
+        _root, feature_dir = _make_feature_with_design(
+            tmp_path, DESIGN_MD_TECHNICAL_APPROACH
+        )
+        result = extract_design_sections(feature_dir, ["Architecture"])
+        assert "## Technical Approach" in result
+        assert "The technical approach content here." in result
+
+
+class TestDesignExtractNonGoals:
+    def test_design_extract_non_goals(self, tmp_path):
+        """Extracts ## Non-Goals content."""
+        _root, feature_dir = _make_feature_with_design(tmp_path, DESIGN_MD_FULL)
+        result = extract_design_sections(feature_dir, ["Non-Goals"])
+        assert "## Non-Goals" in result
+        assert "No goals here" in result
+        assert "Second non-goal" in result
+        # Should NOT include other sections
+        assert "## Architecture" not in result
+        assert "## Problem" not in result
+
+
+class TestDesignExtractMissingArchitectureExitsNonzero:
+    def test_design_extract_missing_architecture_exits_nonzero(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        """design.md with no Architecture/alias heading causes non-zero exit."""
+        root, feature_dir = _make_feature_with_design(
+            tmp_path, DESIGN_MD_NO_ARCHITECTURE
+        )
+        monkeypatch.chdir(root)
+
+        args = argparse.Namespace(
+            feature="001-test",
+            sections=["Architecture", "Non-Goals"],
+            reviewer=False,
+        )
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_design_extract(args)
+        assert exc_info.value.code != 0
+
+
+class TestDesignExtractMissingNonGoalsWarns:
+    def test_design_extract_missing_non_goals_warns(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        """design.md with Architecture but no Non-Goals: extract has Architecture only + stderr warning."""
+        root, feature_dir = _make_feature_with_design(tmp_path, DESIGN_MD_NO_NON_GOALS)
+        monkeypatch.chdir(root)
+
+        args = argparse.Namespace(
+            feature="001-test",
+            sections=["Architecture", "Non-Goals"],
+            reviewer=False,
+        )
+        cmd_design_extract(args)
+
+        captured = capsys.readouterr()
+        # Architecture content in stdout
+        assert "Architecture content here." in captured.out
+        # Warning on stderr
+        assert "Non-Goals" in captured.err
+        # Non-Goals content NOT in stdout
+        assert "## Non-Goals" not in captured.out
+
+
+class TestDesignExtractReviewerFlag:
+    def test_design_extract_reviewer_flag(self, tmp_path, monkeypatch, capsys):
+        """--reviewer flag adds Alternatives Considered to the extract."""
+        root, feature_dir = _make_feature_with_design(tmp_path, DESIGN_MD_FULL)
+        monkeypatch.chdir(root)
+
+        args = argparse.Namespace(
+            feature="001-test",
+            sections=["Architecture", "Non-Goals"],
+            reviewer=True,
+        )
+        cmd_design_extract(args)
+
+        captured = capsys.readouterr()
+        assert "## Architecture" in captured.out
+        assert "## Non-Goals" in captured.out
+        assert "## Alternatives Considered" in captured.out
+        assert "First alternative." in captured.out
+
+
+class TestDesignExtractNestedSubsections:
+    def test_design_extract_nested_subsections(self, tmp_path):
+        """### headings under ## Architecture are included in the extract."""
+        _root, feature_dir = _make_feature_with_design(tmp_path, DESIGN_MD_FULL)
+        result = extract_design_sections(feature_dir, ["Architecture"])
+        assert "### Subsection A" in result
+        assert "### Subsection B" in result
+        assert "Details about subsection A." in result
+        assert "Details about subsection B." in result
+
+
+class TestDesignExtractCLIParsing:
+    def test_design_extract_subparser_parses(self):
+        """design-extract subparser wires feature positional and --sections."""
+        parser = build_parser()
+        args = parser.parse_args(["design-extract", "001-test"])
+        assert args.command == "design-extract"
+        assert args.feature == "001-test"
+        assert "Architecture" in args.sections
+        assert "Non-Goals" in args.sections
+
+    def test_design_extract_custom_sections(self):
+        """--sections flag overrides the default section list."""
+        parser = build_parser()
+        args = parser.parse_args(
+            ["design-extract", "001-test", "--sections", "Architecture"]
+        )
+        assert args.sections == ["Architecture"]
+
+    def test_design_extract_reviewer_flag_sets_preset(self):
+        """--reviewer flag is accepted by the subparser."""
+        parser = build_parser()
+        args = parser.parse_args(["design-extract", "001-test", "--reviewer"])
+        assert args.reviewer is True
