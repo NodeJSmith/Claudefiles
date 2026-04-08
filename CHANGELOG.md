@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-04-07
 
 ### Changed
-- WP format noise reduction — remove `Activity Log` (never read by any consumer) and `plan_section` (decorative) from WP schema; replace full `design.md` injection with targeted section extracts via new `spec-helper design-extract` subcommand (~19% executor prompt token reduction)
+- WP format noise reduction — remove `Activity Log` (never read by any consumer) and `plan_section` (decorative) from WP schema; replace full `design.md` injection with targeted section extracts via new `spec-helper design-extract` subcommand (~19% executor prompt token reduction) (#191)
 
 ## 2026-04-06
 
