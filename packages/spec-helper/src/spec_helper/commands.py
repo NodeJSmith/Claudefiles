@@ -11,7 +11,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from spec_helper.activity_log import insert_activity_log_entry
 from spec_helper.checkpoint import (
     CheckpointState,
     Verdict,
@@ -31,7 +30,7 @@ except ImportError:
     die("spec-helper requires python-frontmatter: pip install python-frontmatter")
 from spec_helper.filesystem import (
     atomic_write,
-    extract_design_headings,
+    extract_design_sections,
     find_git_root,
     find_repo_root,
     find_repo_root_or_cwd,
@@ -137,11 +136,6 @@ def cmd_wp_move(args: argparse.Namespace) -> None:
     # Direct mutation — preserves all other fields including unknown ones
     post.metadata["lane"] = lane
 
-    # Append activity log entry
-    date = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    log_entry = f"- {date} — system — lane={lane} — moved from {old_lane}"
-    post.content = insert_activity_log_entry(post.content, log_entry)
-
     atomic_write(post, wp_file)
 
     result = {
@@ -179,8 +173,6 @@ def cmd_wp_validate(args: argparse.Namespace) -> None:
             if re.match(r"^WP\d+$", stem):
                 existing_wp_ids.add(stem)
 
-        design_headings = extract_design_headings(feature_dir)
-
         for f in wp_files:
             total_files += 1
             post = frontmatter.load(str(f))
@@ -211,17 +203,7 @@ def cmd_wp_validate(args: argparse.Namespace) -> None:
                         }
                     )
 
-            plan_section = normalized.get("plan_section")
-            if plan_section and design_headings is not None:
-                if plan_section not in design_headings:
-                    all_warnings.append(
-                        {
-                            "file": file_label,
-                            "message": f"plan_section '{plan_section}' not found in design.md headings",
-                        }
-                    )
-
-            unknown = set(normalized.keys()) - CANONICAL_FIELDS
+            unknown = set(normalized.keys()) - CANONICAL_FIELDS - OLD_SCHEMA_FIELDS
             for field_name in sorted(unknown):
                 all_warnings.append(
                     {
@@ -670,6 +652,53 @@ def _update_design_status(feature_dir: Path, new_status: str) -> bool:
         raise
 
     return True
+
+
+_REVIEWER_SECTIONS = ["Architecture", "Non-Goals", "Alternatives Considered"]
+_PRIMARY_SECTION = "Architecture"
+
+
+def cmd_design_extract(args: argparse.Namespace) -> None:
+    """Extract sections from design.md and print to stdout.
+
+    Exits non-zero if the primary section (Architecture) is not found.
+    Prints a warning to stderr when an optional section is missing.
+    """
+    root = find_repo_root()
+    feature_dir = resolve_feature(root, feature=args.feature)
+
+    sections = _REVIEWER_SECTIONS if getattr(args, "reviewer", False) else args.sections
+
+    # Determine which sections were actually found by extracting each individually
+    found_sections: list[str] = []
+    missing_sections: list[str] = []
+    for section in sections:
+        extracted = extract_design_sections(feature_dir, [section])
+        if extracted.strip():
+            found_sections.append(section)
+        else:
+            missing_sections.append(section)
+
+    # Non-zero exit if the primary section (Architecture) is not found
+    # extract_design_sections handles alias resolution, so checking _PRIMARY_SECTION
+    # in missing_sections is sufficient — no need to duplicate the alias list here
+    if _PRIMARY_SECTION in sections and _PRIMARY_SECTION in missing_sections:
+        die(
+            f"Required section not found: '## {_PRIMARY_SECTION}' (and aliases) "
+            f"in {feature_dir / 'design.md'}"
+        )
+
+    # Warn about missing optional sections
+    for missing in missing_sections:
+        if missing != _PRIMARY_SECTION:
+            print(
+                f"warning: section '## {missing}' not found in design.md",
+                file=sys.stderr,
+            )
+
+    # Extract and print all found sections in requested order
+    output = extract_design_sections(feature_dir, found_sections)
+    print(output, end="")
 
 
 def cmd_status(args: argparse.Namespace) -> None:

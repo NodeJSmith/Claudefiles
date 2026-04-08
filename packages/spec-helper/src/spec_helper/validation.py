@@ -14,8 +14,8 @@ LANE_KEYS = [key for key, _ in LANES]
 LANE_HEADERS = [header for _, header in LANES]
 VALID_LANES = set(LANE_KEYS)
 WP_ID_PATTERN = re.compile(r"^WP\d{2,}$")
-CANONICAL_FIELDS = {"work_package_id", "title", "lane", "depends_on", "plan_section"}
-OLD_SCHEMA_FIELDS = {"depends"}
+CANONICAL_FIELDS = {"work_package_id", "title", "lane", "depends_on"}
+OLD_SCHEMA_FIELDS = {"depends", "plan_section"}
 
 
 def validate_wp_metadata(meta: dict, filename: str) -> list[str]:

@@ -106,6 +106,25 @@ AskUserQuestion:
 
 Read `<feature_dir>/design.md` to understand the overall architecture and constraints. This is the spec reviewer's reference document.
 
+### Generate design extracts
+
+After reading design.md, generate two extract files from it for use in executor and reviewer prompts. Run both commands, saving stdout to the tmpdir:
+
+```bash
+spec-helper design-extract <feature_dir_name> > <tmpdir>/design-extract-executor.txt
+spec-helper design-extract <feature_dir_name> --reviewer > <tmpdir>/design-extract-reviewer.txt
+```
+
+Where `<feature_dir_name>` is the directory name (e.g., `014-wp-format-noise-reduction`) and `<tmpdir>` is the orchestration tmpdir (from `get-skill-tmpdir mine.orchestrate`, obtained earlier in Phase 0 before writing the checkpoint).
+
+If either command exits non-zero, stop the orchestration run immediately and present the error to the user:
+
+> **Design extract failed**: `spec-helper design-extract` exited with an error for `<feature_dir_name>`. The most common cause is a missing `## Architecture` (or `## Proposed Approach`) heading in design.md. Fix the design doc and re-run `/mine.orchestrate`.
+
+Do not proceed to WP execution without valid extract files — executors would receive no architecture context.
+
+**Ordering note**: The tmpdir must exist before running these commands. Obtain it via `get-skill-tmpdir mine.orchestrate` before the checkpoint-init call, then use it in both the extract commands and the checkpoint-init `--tmpdir` argument.
+
 ### Read all WP files
 
 Read all `<feature_dir>/tasks/WP*.md` files in order. For each WP, extract:
@@ -198,8 +217,6 @@ For each WP from the start point to the last WP:
 
 Tell the user:
 > **WP<NN>: <title>**
-> Plan section: `<plan_section>` *(decorative — may reference a renamed section if design.md was refactored after WP generation)*
-> Depends on: `<depends_on or "none">`
 
 Move this WP to `doing` and record it in the checkpoint (so resume after compaction returns to this WP):
 
@@ -252,7 +269,7 @@ You are executing a single Work Package from an implementation plan.
 <full WP*.md content>
 
 ## Design doc (architecture reference)
-<full design.md content>
+<contents of <tmpdir>/design-extract-executor.txt>
 
 ## Implementer instructions
 <full implementer-prompt.md content>
@@ -297,7 +314,7 @@ You are independently verifying a completed Work Package.
 <full WP*.md content>
 
 ## Design doc (supplemental architecture reference)
-<full design.md content>
+<contents of <tmpdir>/design-extract-reviewer.txt>
 
 ## Changed files
 <contents of changed-files.txt from Step 4.5>

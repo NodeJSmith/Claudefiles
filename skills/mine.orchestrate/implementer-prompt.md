@@ -8,7 +8,7 @@ A caliper v2 Work Package has these sections:
 
 | Section | What it tells you |
 |---------|-------------------|
-| Frontmatter (`work_package_id`, `title`, `plan_section`) | Identity and traceability |
+| Frontmatter (`work_package_id`, `title`) | Identity |
 | **Objectives & Success Criteria** | What this WP achieves and how to verify it |
 | **Subtasks** | Numbered list of concrete actions to take |
 | **Test Strategy** | What tests to write, what they verify, which files/functions |

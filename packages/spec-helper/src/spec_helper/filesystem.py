@@ -196,6 +196,62 @@ def find_wp_file(feature_dir: Path, wp_id: str) -> Path:
     die(f"WP file '{normalized}.md' not found in {tasks_dir}")
 
 
+_SECTION_ALIASES: dict[str, list[str]] = {
+    "Architecture": ["Proposed Approach", "Technical Approach"],
+}
+
+
+def extract_design_sections(feature_dir: Path, sections: list[str]) -> str:
+    """Extract named ## sections from design.md, including nested ### subsections.
+
+    For each requested section name, finds the ## heading (with alias matching),
+    extracts all content until the next ## heading or EOF (including ### subsections).
+    Returns the concatenated extracted sections as a string.
+
+    Raises FileNotFoundError if design.md does not exist.
+    Returns empty string for a section that is not found (caller handles the warning/error).
+    """
+    design_path = feature_dir / "design.md"
+    if not design_path.exists():
+        raise FileNotFoundError(f"design.md not found in {feature_dir}")
+
+    lines = design_path.read_text().splitlines(keepends=True)
+
+    def _candidate_headings(section_name: str) -> list[str]:
+        """Return all headings that match this section name (canonical + aliases)."""
+        aliases = _SECTION_ALIASES.get(section_name, [])
+        return [section_name, *aliases]
+
+    def _find_section(candidates: list[str]) -> tuple[int, int] | None:
+        """Find start/end line indices for any of the candidate headings.
+
+        Start index points to the ## heading line itself.
+        End index is exclusive (the next ## heading or end of file).
+        """
+        for i, line in enumerate(lines):
+            stripped = line.rstrip()
+            for candidate in candidates:
+                if stripped == f"## {candidate}":
+                    # Found the section — find the end
+                    end = len(lines)
+                    for j in range(i + 1, len(lines)):
+                        if lines[j].startswith("## "):
+                            end = j
+                            break
+                    return (i, end)
+        return None
+
+    parts: list[str] = []
+    for section in sections:
+        candidates = _candidate_headings(section)
+        span = _find_section(candidates)
+        if span is not None:
+            start, end = span
+            parts.append("".join(lines[start:end]))
+
+    return "".join(parts)
+
+
 def read_wp_files(feature_dir: Path) -> list[dict[str, Any]]:
     """Read all WP*.md files in tasks/, return list of dicts with filename + frontmatter."""
     tasks_dir = feature_dir / "tasks"
@@ -207,19 +263,3 @@ def read_wp_files(feature_dir: Path) -> list[dict[str, Any]]:
         normalized = normalize_wp_metadata(dict(post.metadata), f.name)
         results.append({"filename": f.name, **normalized})
     return results
-
-
-def extract_design_headings(feature_dir: Path) -> set[str] | None:
-    """Extract headings from design.md in feature_dir. Returns None if no design.md.
-
-    Matches ## and ### headings (challenge finding #8 — WPs reference ### headings).
-    """
-    design_path = feature_dir / "design.md"
-    if not design_path.exists():
-        return None
-    headings: set[str] = set()
-    for line in design_path.read_text().splitlines():
-        m = re.match(r"^#{2,3} (.+)$", line)
-        if m:
-            headings.add(m.group(1).strip())
-    return headings
