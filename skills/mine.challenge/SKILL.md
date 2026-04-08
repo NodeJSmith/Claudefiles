@@ -26,9 +26,9 @@ $ARGUMENTS — optional scope:
 - Empty: brief recon to find the most suspect design areas, then confirm scope before critiquing
 
 **Optional arguments**:
-- `--focus="<area>"` — steer critics toward specific concerns (e.g., `--focus="security, error handling"`). Passed to all critics as a priority signal: "Pay special attention to X." Critics still review broadly but weight output toward the user's concern. **Note:** specialist override only applies when `--focus` is a single slug/prefix (minimum 6 characters) that matches a specialist name (e.g., `--focus="data-integrity"` or `--focus="end-user"`), not when multiple comma-separated areas are provided.
+- `--focus="<area>"` — steer critics toward specific concerns (e.g., `--focus="security, error handling"`). Passed to all critics as a priority signal: "Pay special attention to X." Critics still review broadly but weight output toward the user's concern. **Specialist forcing**: to force a specific specialist persona, `--focus` must be a single term (no commas, no spaces) of at least 6 characters that case-insensitively prefix-matches a specialist filename slug (e.g., `--focus="contract"` forces `contract-caller.md`). Multi-word values (e.g., `"design conformance"`) and comma-separated values bypass specialist matching and act as priority signals only.
 - `--target-type=<type>` — override heuristic target-type classification. Callers that know their artifact type should pass this. Values: `code`, `frontend-code`, `spec`, `design-doc`, `brief`, `skill-file`, `agent-file`, `rule`, `docs`, `research`, `other`.
-- `--findings-out=<path>` — (structured callers only) deterministic output path for the findings file. Used by mine.design and mine.specify for reliable handoff. Not needed for standalone or passthrough invocations.
+- `--findings-out=<path>` — (structured callers only) deterministic output path for the findings file. Used by mine.design and mine.specify for reliable handoff. Not needed for standalone or passthrough invocations. **Overwrites** any existing file at the path without warning — callers that re-run challenge (e.g., mine.orchestrate's "Address findings" loop) should use iteration-suffixed paths to preserve prior findings.
 - `--no-specialists` — skip specialist selection, run only the three generic critics.
 
 ## How to Analyze
@@ -105,10 +105,11 @@ The following tag names and values are consumed by calling skills (mine.design, 
 - **design-level values**: `Yes`, `No`
 - **Resolution values**: `Auto-apply`, `User-directed`
 - **Format-version**: `2` — written in the findings file header. Callers may assert this value to detect format mismatches. Absent in pre-enrichment files (version 1). Increment when contract fields change.
+- **Temp dir**: `<tmpdir>` — written in the findings file header. Contract field — used by structured callers to locate `validation-warnings.md` and individual critic reports. Callers that use this path must handle the case where the directory no longer exists (cleaned after 7 days) — treat a missing tmpdir as equivalent to `Warnings: none` and skip the `validation-warnings.md` read.
 - **Findings file**: `<tmpdir>/findings.md`, or `--findings-out` path when provided by structured callers (always written)
 - **Validation warnings**: `<tmpdir>/validation-warnings.md` — written only when validation issues or orphan warnings were detected; absence means a clean run. Structured callers may read this via `Temp dir:` in the findings header to diagnose unexpected confidence denominators.
 
-**Known callers** (update all when contract changes):
+**Known callers** (update all when contract changes). New structured callers must add a `<!-- CHALLENGE-CALLER -->` comment at their invocation site. To verify this list is complete: `grep -r 'mine.challenge' ~/.claude/skills/ --include='*.md' -l`.
 
 Structured callers (read findings file and generate revision plans):
 - `skills/mine.design/SKILL.md` — "On 'Challenge this design'" section
@@ -148,6 +149,7 @@ The remainder of `$ARGUMENTS` is the target scope.
 
 1. Determine the **input shape**:
    - **File path or module name**: read the targeted file(s) fully
+   - **List file** (`.txt` or `.list` extension): read its contents as a newline-separated list of file paths and treat each line as a separate target file. This is the indirect-list pattern used by mine.orchestrate when the target set is large (50+ files).
    - **Inline content** (multiple sentences or structured markdown): treat the argument text as the target to analyze directly — do not attempt to read it as a file. This happens when passthrough callers (mine.research, mine.brainstorm) pass content instead of a path.
 
 2. **Classify the target type** — if `--target-type` was provided, use it directly. Otherwise, use heuristics. This classification is passed to critics in Phase 2:
@@ -227,6 +229,7 @@ After classifying the target type, select specialist personas to augment the thr
 3. Record the initial specialist selection from the mapping table as `[initial-specialists]`.
 4. If a match is found and not already in the preset selection, add it. Capped at 2 specialists total (5 total critics is the practical limit for synthesis quality). If the cap is already full from the preset, the focus specialist replaces the second preset default. Record the final selection as `[final-specialists]`.
 5. **Only if a substitution occurred** (a preset specialist was replaced): Write `<tmpdir>/focus-substitution.md` with a single line: "Note: [focus specialist] ran in place of [dropped specialist] due to --focus override (2-specialist cap)." The dropped specialist is the set difference: `[initial-specialists]` minus `[final-specialists]`. Phase 4 reads this file for the announcement (see Phase 4 Specialist announcement section). If no substitution occurred (focus specialist was simply added, or no match was found), do not write this file.
+6. **If `--focus` was provided and no specialist match occurred** (value was multi-word, comma-separated, below 6-char minimum, or matched no slug) and `--no-specialists` was not passed: record a warning to `<tmpdir>/validation-warnings.md`: "Focus value `<value>` did not match any specialist — proceeding with preset specialists only."
 
 ## Phase 2: Launch Critics
 
@@ -331,6 +334,10 @@ adversarial.md
 List generics first, then specialists. List only the critics that will be launched; specialist entries use the filename slugs selected in Phase 1.
 
 This decouples all session state from LLM context memory. Phase 3 reads the manifest for the critic list; Phase 4 reads it for target type, specialist list, and mode. Specialists are identified as entries not in the known-generic set (`senior.md`, `architect.md`, `adversarial.md`).
+
+### Validate critic reports
+
+After all critic subagents complete, verify each file listed in the manifest exists and has substantive content (at least 500 bytes). For missing or undersized files, record a warning to `<tmpdir>/validation-warnings.md`: "Critic [name] report is missing or suspiciously small ([N] bytes) — findings from this critic may be incomplete." Missing files reduce the confidence denominator; undersized-but-present files are warned but still counted.
 
 ## Phase 3: Synthesize
 
