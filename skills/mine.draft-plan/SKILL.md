@@ -143,7 +143,6 @@ Where NN is zero-padded: WP01.md, WP02.md, etc.
 work_package_id: "WPNN"
 title: "<Short imperative title>"
 lane: "planned"
-plan_section: "<Section title from design.md this WP implements>"
 depends_on: []
 ---
 
@@ -175,9 +174,6 @@ List behavioral subtasks ordered by dependency (foundational types first, consum
 |------|-------|--------|
 | <Describe the page, not the URL — the executor resolves URLs at runtime> | <What state to put the page in before screenshotting — data to load, filters to apply, interactions to perform> | <What to check visually — layout correctness, element visibility, responsive behavior, absence of regressions> |
 
-## Activity Log
-
-- <ISO timestamp> — system — lane=planned — WP created
 ```
 
 ### Field rules
@@ -194,7 +190,6 @@ List behavioral subtasks ordered by dependency (foundational types first, consum
   7. If the design doc includes a `## Test Strategy` section, use it as high-level context — per-WP Test Strategies are authoritative once WPs are written
 - **Review Guidance**: Explicitly name the design constraints being verified. What would a FAIL look like?
 - **Visual Verification**: Only for WPs with frontend visual impact. Describe scenarios, not URLs — the executor resolves URLs at runtime from the codebase. Each scenario must specify: what page (by description), what state to achieve (specific data, filters, interactions), and what to visually verify (layout, elements, behavior). Scenarios should exercise the specific behavior the WP changes. If the design doc describes specific visual requirements, pull them into Verify criteria.
-- **plan_section**: Must match an actual section header in design.md.
 - **depends_on**: List WP IDs this WP must wait for (e.g., `["WP01"]`). Empty array if none.
 
 ### Scope rules

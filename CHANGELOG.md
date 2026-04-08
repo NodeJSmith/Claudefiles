@@ -12,6 +12,7 @@ All notable changes to this Claudefiles repository are documented here.
 - Session manifest replaces context-dependent mode detection — `mode`, `findings-out`, `focus`, and `target` persisted as compaction-safe artifacts (#195)
 - Added `--mode=passthrough` flag — passthrough detection is now deterministic, not inferred from LLM context; mine.brainstorm and mine.research updated (#195)
 - Structured callers (mine.design, mine.specify) now assert `Format-version: 2` and validate contract tags before consuming findings (#195)
+- WP format noise reduction — remove `Activity Log` (never read by any consumer) and `plan_section` (decorative) from WP schema; replace full `design.md` injection with targeted section extracts via new `spec-helper design-extract` subcommand (~19% executor prompt token reduction) (#191)
 
 ## 2026-04-06
 

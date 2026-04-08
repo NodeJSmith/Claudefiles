@@ -10,6 +10,7 @@ from spec_helper.commands import (
     cmd_checkpoint_read,
     cmd_checkpoint_update,
     cmd_checkpoint_verdict,
+    cmd_design_extract,
     cmd_init,
     cmd_next_number,
     cmd_status,
@@ -131,6 +132,27 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_json_flag(p_archive)
 
+    # design-extract
+    p_extract = sub.add_parser(
+        "design-extract",
+        help="Extract sections from design.md and print to stdout",
+    )
+    p_extract.add_argument(
+        "feature",
+        help="Feature identifier (NNN, NNN-slug, or full dir name)",
+    )
+    p_extract.add_argument(
+        "--sections",
+        nargs="+",
+        default=["Architecture", "Non-Goals"],
+        help="Sections to extract (default: Architecture Non-Goals)",
+    )
+    p_extract.add_argument(
+        "--reviewer",
+        action="store_true",
+        help="Preset for spec reviewer: extracts Architecture, Non-Goals, Alternatives Considered",
+    )
+
     # next-number
     p_next = sub.add_parser("next-number", help="Print next available feature number")
     _add_json_flag(p_next)
@@ -243,6 +265,7 @@ def main() -> None:
 
     dispatch = {
         "archive": cmd_archive,
+        "design-extract": cmd_design_extract,
         "init": cmd_init,
         "wp-move": cmd_wp_move,
         "wp-validate": cmd_wp_validate,
