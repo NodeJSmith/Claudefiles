@@ -739,9 +739,12 @@ Invoke:
 /mine.challenge --findings-out=<tmpdir>/challenge-findings.md --focus="design conformance" --target-type=code <contents of <tmpdir>/challenge-files.txt, one path per argument>
 ```
 
+<!-- CHALLENGE-CALLER -->
 The `--focus="design conformance"` flag steers critics to also evaluate whether the implementation matches the design doc's stated architecture and decisions.
 
-Note: if the file list is large (50+ paths), pass the file path instead of inline arguments to avoid shell argument limits.
+Note: if the file list is large (50+ paths), pass the `.txt` file path instead of inline arguments to avoid shell argument limits — challenge treats `.txt`/`.list` files as indirect lists of absolute file paths.
+
+**Re-challenge iterations**: When re-running challenge in the "Address findings" loop (step 4 below), use iteration-suffixed paths (e.g., `challenge-findings-2.md`) to preserve prior findings for severity comparison. challenge overwrites unconditionally — the caller is responsible for path uniqueness.
 
 After `/mine.challenge` returns, read `<tmpdir>/challenge-findings.md`.
 
