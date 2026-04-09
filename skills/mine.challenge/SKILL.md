@@ -507,7 +507,17 @@ Read `# mode:` from `<tmpdir>/manifest.md` to determine the wrap-up behavior. Do
 
 1. **Summary** — one paragraph: total finding count, breakdown by severity, the single most important takeaway across all findings.
 
-2. **Resolve findings** — follow the Resolution Manifest flow defined in `rules/common/findings.md`. Generate the manifest from findings.md, present the Consent Gate, invoke `edit-manifest <tmpdir>/resolutions.md`, run the detection logic, present the Commit Gate, and execute. All mechanics live in the rule file — mine.challenge just delegates.
+2. **Resolve findings** — follow the Resolution Manifest flow defined in `rules/common/findings.md`. Generate the manifest from findings.md, present the Consent Gate, invoke `edit-manifest <tmpdir>/resolutions.md`, run the detection logic, present the Commit Gate, and execute. The rule file provides format, verb vocabulary, execution semantics, and detection logic — mine.challenge delegates those mechanics. The async/compaction rules below are mine.challenge-specific.
+
+### Async Completion
+
+The Bash tool may auto-background long-running calls and return a task ID rather than blocking synchronously. Handle both sync-return and async-via-task-notification:
+
+1. **Set `timeout: 600000`** on the edit-manifest Bash call as a defense-in-depth safety belt, even though auto-backgrounding usually fires first.
+2. **Acknowledge async completion**: Phase 4 prose says "when the editor session completes" rather than "when the bash call returns" — this signals the completion may arrive via task-notification, not synchronous return.
+3. **Pre-hash persistence in the manifest**: Before launching the editor, embed `<!-- pre-hash: <sha256> -->` as a comment in the manifest file. This makes the pre-hash recoverable from disk if context is compacted between task-start and task-notification receipt.
+4. **Re-read state on notification receipt**: When a task-notification arrives for an editor command, re-read `<tmpdir>/manifest.md` (session state), `<tmpdir>/findings.md` (source findings), `<tmpdir>/resolutions.md` (manifest with user's edits), and `<tmpdir>/resolutions.md.shadow` (safety-net state). Do not assume any of these are in LLM context.
+5. **Compute hashes at notification time**: The pre-hash comes from the in-manifest comment; compute post-hash and shadow hash fresh at notification receipt — do not rely on values from editor-log.md or context.
 
 **If mode is `passthrough`** (mine.brainstorm, mine.research): provide the summary (step 1) but skip the next-step prompt — the calling skill handles its own routing after challenge completes.
 

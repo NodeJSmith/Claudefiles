@@ -11,6 +11,10 @@
 # event and at VimLeave, so the caller can detect whether any editing happened
 # even when the user discards with :q!
 #
+# Outer script is bash for portability; inner ZSH_SCRIPT is zsh because zsh -l is
+# required for login-shell PATH resolution (mise, asdf, direnv). Do not collapse to
+# a single shell — the -l flag and login-shell semantics are the reason for the split.
+#
 # Exit codes:
 #   0 — edit session completed (or tertiary fallback used)
 #   1 — invocation error (missing args, file not found) or unrecoverable error
@@ -88,6 +92,9 @@ log_event() {
 }
 
 # ── tmux detection ─────────────────────────────────────────────────────────────
+# TODO (secondary fallback): IDE integration via /ide primitive was scoped as TBD in
+# design 015 (design.md:446). If Claude Code exposes a file-open primitive, add
+# detection here before the tertiary path.
 if [[ -z "${TMUX:-}" ]]; then
   log_event "tmux_absent" "manifest=${MANIFEST_PATH}"
   echo "No tmux detected. The manifest is at ${MANIFEST_PATH}."
@@ -137,18 +144,12 @@ log_event "invocation" "manifest=${MANIFEST_PATH} editor=${EDITOR_CMD} tmux=yes"
 # ── primary tmux path ─────────────────────────────────────────────────────────
 PRE_HASH="$(sha256sum "$MANIFEST_PATH" | cut -d' ' -f1)"
 
-START_MS="$(date +%s%3N)"
+START_S="$(date +%s)"
 
-# Use a PID-unique lock name to prevent concurrent invocations from deadlocking
-# each other. Two simultaneous edit-manifest calls with the same lock name would
-# serialise: the second -L would block until the first -U fires.
+# PID-unique signal name ensures each invocation gets its own signal channel.
+# Two simultaneous edit-manifest calls with the same name would cross-signal
+# each other — using $$-suffix gives each instance its own channel.
 LOCK_NAME="edit-done-$$"
-
-# Acquire wait-for lock BEFORE launching the window to eliminate the
-# signal-before-listener race. The lock is released when the child fires
-# `tmux wait-for -S $LOCK_NAME`.
-tmux wait-for -L "$LOCK_NAME" &
-LOCK_PID=$!
 
 # Build the tmux new-window command. The inner zsh -l -c script:
 #   1. Traps EXIT/HUP/TERM to signal LOCK_NAME so the parent always unblocks
@@ -178,13 +179,14 @@ nvim \
 
 tmux new-window -n manifest "zsh -l -c '$ZSH_SCRIPT'"
 
-# Block until the child signals LOCK_NAME (lock released by -S)
-wait "$LOCK_PID" 2> /dev/null || true
+# Block until the child's EXIT trap fires `tmux wait-for -S $LOCK_NAME`.
+# The parent calls wait-for immediately after new-window; zsh login-shell startup
+# (sourcing profile, launching nvim) takes hundreds of ms, making the signal-
+# before-listener race negligible in practice.
+tmux wait-for "$LOCK_NAME" 2> /dev/null || true
 
-# Release the lock slot so the lock name can be re-used (no-op if already gone)
-tmux wait-for -U "$LOCK_NAME" 2> /dev/null || true
-
-ELAPSED_MS=$(($(date +%s%3N) - START_MS))
+ELAPSED_S=$(($(date +%s) - START_S))
+ELAPSED_MS=$((ELAPSED_S * 1000))
 
 # ── post-edit diagnostics ─────────────────────────────────────────────────────
 POST_HASH=""
@@ -200,6 +202,9 @@ log_event "exit" "elapsed_ms=${ELAPSED_MS} pre_hash=${PRE_HASH} post_hash=${POST
 if ((ELAPSED_MS < 1000)); then
   if [[ "$PRE_HASH" == "$POST_HASH" || "$BLOCKING_WARNING" -eq 1 ]]; then
     log_event "non_blocking_editor_detected" "elapsed=${ELAPSED_MS}ms editor=${EDITOR_CMD}"
+    echo "Warning: \$EDITOR='${EDITOR_CMD}' returned in ${ELAPSED_MS}ms without saving." >&2
+    echo "  Either it's non-blocking (try: EDITOR='${EDITOR_CMD} --wait' edit-manifest ${MANIFEST_PATH})" >&2
+    echo "  or you quit without changes. Re-open the manifest, type verb changes in chat, or say 'abandon'." >&2
   fi
 fi
 

@@ -43,7 +43,9 @@ Pre-populate manifest verbs based on the finding's `recommendation:` field:
 
 ## Resolution Manifest
 
-The manifest is a markdown file at `<tmpdir>/resolutions.md`. Each finding gets a block:
+The F<N> IDs correspond 1:1 to `## Finding N:` headings — Finding 1 → F1, Finding 2 → F2, etc. The "source findings list" is the ordered set of all `## Finding N:` blocks in the findings file.
+
+The manifest is a markdown file at `<tmpdir>/resolutions.md`. The skill reuses the same `<tmpdir>` that holds the findings file — typically obtained via `get-skill-tmpdir` at the start of the skill. Place `resolutions.md` in the same directory as `findings.md`. Each finding gets a block:
 
 ```markdown
 ## F1: Finding title here
@@ -62,9 +64,41 @@ The manifest is a markdown file at `<tmpdir>/resolutions.md`. Each finding gets 
 **Verb:** A
 ```
 
-TENSION findings substitute `**The disagreement:**` + `**Deciding factor:**` for the Options/Why block. Auto-apply findings use `**Better approach:**` instead of Options. The `**Verb:**` line is the only field the user edits.
+The above is the **User-directed finding template**. Two additional templates apply for other finding types. The `**Verb:**` line is the only field the user edits in all templates.
 
-The manifest header includes: brief usage instructions, the verb legend, a compaction-recovery pre-hash comment (`<!-- pre-hash: <sha256> -->`), and a safety note (`<!-- Your edits are captured via autosave shadow file — abandoning the editor is safe -->`).
+**Auto-apply finding template:**
+```markdown
+## F1: Finding title here
+**Severity:** HIGH | **Type:** Fragility | **Raised by:** Critic Name (1/5)
+
+**Problem:** What's wrong.
+
+**Why it matters:** Consequence if left unfixed.
+
+**Better approach:** The specific change to apply.
+
+**Verb:** fix
+```
+
+**TENSION finding template:**
+```markdown
+## F1: Finding title here
+**Severity:** TENSION | **Type:** Structural | **Raised by:** Critic Name (1/5)
+
+**Problem:** What's wrong.
+
+**The disagreement:** Side A argues X because Y. Side B argues Z because W.
+
+**Deciding factor:** Question or data point that would resolve the disagreement.
+
+**Verb:** defer
+```
+
+The manifest header includes: brief usage instructions, the verb legend, a compaction-recovery pre-hash comment (`<!-- pre-hash: <sha256> -->`), and a mechanism-conditional safety note. For interactive editor sessions with shadow-file autosave support, include a visible blockquote:
+
+> **:q! is safe** — your edits are autosaved to a shadow file every 2 seconds. Save normally or quit — your changes will be recovered.
+
+Omit this safety note for inline display sessions (tertiary fallback).
 
 ## Consent Gate
 
@@ -85,9 +119,17 @@ Do not begin generating or opening the manifest before this prompt.
 
 ## Editor Session
 
-The skill calls `bin/edit-manifest <path>` and waits for it to return. That tool handles all editor mechanics — do not embed editor commands, shell invocations, or pane management here. The rule is mechanism-agnostic.
+Before invoking edit-manifest, emit: "Generating the resolution manifest — your editor will open momentarily. Edit the **Verb:** lines and save. Return here when done."
+
+The skill calls `edit-manifest <path>` (the bin/ script, installed to PATH via install.sh) and waits for it to return. That tool handles all editor mechanics — do not embed editor commands, shell invocations, or pane management here. The rule is mechanism-agnostic.
+
+### Tertiary Fallback — No Editor Available
+
+If `edit-manifest` returns in under 2 seconds (indicating tertiary fallback — no interactive editor environment), do not run Detection Logic immediately. Instead, emit the manifest path with instructions to the user and wait for them to signal completion via chat (e.g., "done", "ready", "finished editing"). When the signal arrives, re-read the manifest and proceed to Detection Logic.
 
 ## Detection Logic
+
+The invoking skill runs this logic at notification receipt (or on synchronous return); findings.md defines the cases and actions.
 
 After the editor session ends, determine what happened:
 
@@ -97,6 +139,8 @@ post_hash = sha256(manifest) captured after edit session
 shadow_exists = whether <manifest>.shadow exists
 shadow_hash = sha256(<manifest>.shadow) if exists else post_hash
 ```
+
+The pre-hash is recoverable from the `<!-- pre-hash: ... -->` comment embedded in the manifest before the editor launched. Compute post_hash and shadow_hash fresh at execution time via sha256sum — do not rely on values from editor-log.md or context.
 
 | Condition | Meaning | Action |
 |---|---|---|
@@ -121,7 +165,7 @@ AskUserQuestion:
     - label: "Revise"
       description: "Re-open the editor for more changes"
     - label: "No"
-      description: "Abandon resolution — findings will not be resolved this session"
+      description: "Defer for now — findings will remain unresolved until you return to this session."
 ```
 
 ## Execution
@@ -160,107 +204,7 @@ Run before execution. On any failure, route back to the "Revise" path — never 
 
 > "You've revised the manifest 5 times. I'll display it inline here for final review instead of re-opening the editor. If you still need changes after that, tell me in chat."
 
-## Named Anti-Pattern Catalog (CRITICAL)
-
-These are failure modes that recur across skill implementations. Each is named so it can be cited. Do not repeat any of them.
-
-1. **Bundling N findings into one `Accept all?` AskUserQuestion** — Do not bundle multiple findings into a single AskUserQuestion. Emit one AskUserQuestion per `ask` row during manifest execution, with `(N/M)` position in the header.
-
-   **Looks like this:**
-   ```
-   AskUserQuestion:
-     question: "I found 9 findings. How would you like to handle them?"
-     options:
-       - label: "Yes — accept all recommendations"
-       - label: "No — I want to discuss some"
-   ```
-   **Instead:** Write the manifest, present the Consent Gate, open the editor. The user sets verbs in the editor, not in one bundled AskUserQuestion.
-
-2. **Multi-select as verb selector** — Do not use `multiSelect: true` to mean "fix some, file others." Multi-select is for "which items match this single decision," not "which verb applies to which item." Verbs belong to the manifest's Verb column.
-
-   **Looks like this:**
-   ```
-   AskUserQuestion:
-     question: "Which findings should be filed as issues?"
-     multiSelect: true
-     options:
-       - label: "F1: Missing timeout"
-       - label: "F3: No retry logic"
-   ```
-   **Instead:** The user sets `file` in the Verb column of each finding's manifest section. No AskUserQuestion needed for this decision.
-
-3. **Double-gate after 'Yes'** — Do not re-prompt "Which findings?" after the commit gate. The commit gate's contract is "execute the manifest as written."
-
-   **Looks like this:**
-   ```
-   # User clicks "Yes" at commit gate
-   AskUserQuestion:
-     question: "Which issues should I address first?"
-     options:
-       - label: "CRITICAL findings first"
-       - label: "Quick wins first"
-   ```
-   **Instead:** After "Yes" at the commit gate, iterate the manifest in order. No additional triage gates.
-
-4. **Meta-gates with relabeled Proceed Gate** — Do not rename the consent/commit gates and re-implement their logic under new labels.
-
-   **Looks like this:**
-   ```
-   AskUserQuestion:
-     question: "How would you like to handle these findings?"
-     options:
-       - label: "Full review — go through each finding"
-       - label: "Auto-accept — apply all recommendations"
-       - label: "Skip revisions — continue without changes"
-   ```
-   **Instead:** Use the Consent Gate (before editor) and Commit Gate (after editor) exactly as defined. No additional meta-gates.
-
-5. **Option labels showing actions instead of findings** — In execution-phase `ask` prompts, labels describe the finding's alternative fixes, not generic verbs.
-
-   **Looks like this:**
-   ```
-   AskUserQuestion:
-     question: "How should I handle F3?"
-     options:
-       - label: "Fix it"
-       - label: "File it"
-       - label: "Skip it"
-   ```
-   **Instead:** Labels are the finding's actual option text: "Add exponential backoff (Option A)", "Use circuit breaker pattern (Option B)", "File as issue", "Skip".
-
-6. **Auto-apply mixed with judgment calls in one prompt** — Auto-apply findings MUST execute silently during manifest iteration. They do not appear as options in `ask` prompts.
-
-   **Looks like this:**
-   ```
-   AskUserQuestion:
-     question: "Ready to fix these findings?"
-     options:
-       - label: "Fix F1 (auto) and decide on F2, F3"
-       - label: "Review each one manually"
-   ```
-   **Instead:** `fix` verbs execute silently. `ask` verbs emit their own individual AskUserQuestion. They do not share a prompt.
-
-7. **Permissive defaults that collapse to 'accept all'** — Default verbs must reflect the finding's actual classification. User-directed findings without a clear recommendation default to `ask`, not `fix`.
-
-   **Looks like this:**
-   ```
-   # Manifest generated with all verbs defaulted to "fix" regardless of finding type
-   **Verb:** fix  ← (applied to a finding with no recommendation field and two valid options)
-   ```
-   **Instead:** Follow the Default Verb Selection table. `User-directed` + no recommendation → `ask`. `Auto-apply` only → `fix`.
-
-8. **Bail-out options violating 'all findings must be resolved'** — Do not offer `Skip revisions` / `Enough — approve as-is` options at any gate. Explicit deferral is valid, but it must be recorded per finding via `defer` or `skip` verbs in the manifest.
-
-   **Looks like this:**
-   ```
-   AskUserQuestion:
-     question: "What would you like to do with these findings?"
-     options:
-       - label: "Fix issues now"
-       - label: "Skip revisions"
-       - label: "Enough challenges — approve as-is"
-   ```
-   **Instead:** Every finding must be resolved. Use `defer` or `skip` verbs in the manifest for findings the user wants to punt. Do not offer session-level bail-outs.
+See `rules/common/findings-anti-patterns.md` for the full Named Anti-Pattern Catalog — eight failure modes with verbatim examples. This file auto-loads alongside `findings.md` — no explicit reference needed in skills.
 
 ## Skill-Specific Overrides
 

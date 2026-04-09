@@ -221,7 +221,7 @@ AskUserQuestion:
       description: "I'll review findings and come back later"
 ```
 
-This is NOT the old "Proceed to fix all findings?" binary gate. This gate's only purpose is to get explicit consent before the editor window opens — respecting the existing `findings.md` contract that says "Do not begin fixing anything before this prompt." The manifest is still written either way (generating the manifest is cheap and side-effect-free), but the editor only launches after user consent.
+This is NOT the old "Proceed to fix all findings?" binary gate. This gate's only purpose is to get explicit consent before the editor window opens — respecting the existing `findings.md` contract that says "Do not begin fixing anything before this prompt." The editor only launches after user consent.
 
 **The term "Proceed Gate" is preserved as an alias** in the new `findings.md` for the consent gate, so existing references in `mine.challenge/SKILL.md` lines 32, 123, 126 and `mine.tool-gaps/SKILL.md` line 178 remain semantically valid without requiring updates to those files.
 
