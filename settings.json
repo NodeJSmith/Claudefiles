@@ -41,6 +41,7 @@
       "Bash(uv:*)",
       "Skill(mine.commit-push)",
       "Bash(claude-tmux:*)",
+      "Bash(edit-manifest:*)",
       "Bash(which:*)"
     ],
     "ask": [],
