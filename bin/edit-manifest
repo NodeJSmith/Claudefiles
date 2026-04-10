@@ -5,7 +5,7 @@
 # Usage: edit-manifest <manifest-path>
 #
 # Tmux is required for the primary path. When $TMUX is unset, prints the file
-# path with manual-edit instructions and exits 0 (tertiary fallback).
+# path with manual-edit instructions and exits 2 (tertiary fallback).
 #
 # The shadow file is written to <manifest-path>.shadow on every buffer hold
 # event and at VimLeave, so the caller can detect whether any editing happened
@@ -16,8 +16,10 @@
 # a single shell — the -l flag and login-shell semantics are the reason for the split.
 #
 # Exit codes:
-#   0 — edit session completed (or tertiary fallback used)
+#   0 — edit session completed (editor launched and returned)
 #   1 — invocation error (missing args, file not found) or unrecoverable error
+#   2 — tertiary fallback used (no interactive editor available; manifest
+#       path was printed with instructions for manual editing)
 
 set -euo pipefail
 
@@ -29,23 +31,24 @@ edit-manifest — open a manifest file for interactive editing in nvim
 Usage: edit-manifest <manifest-path>
 
 Opens the manifest in nvim inside a new tmux window. A shadow file
-(<manifest-path>.shadow) is written on every CursorHold event and at
-VimLeave, capturing in-memory buffer state even if the user discards
-with :q!
+(<manifest-path>.shadow) is written on every CursorHold and CursorHoldI
+event (normal and insert mode) and at VimLeave, capturing in-memory
+buffer state even if the user discards with :q!
 
 When tmux is not available ($TMUX unset), prints the file path with
-manual-edit instructions and exits 0.
+manual-edit instructions and exits 2 (tertiary fallback).
 
 Options:
   -h, --help    Show this help and exit
 
 Exit codes:
-  0   Edit session completed (or tertiary fallback used)
+  0   Edit session completed (editor launched and returned)
   1   Invocation error or unrecoverable script error
+  2   Tertiary fallback used (no interactive editor available)
 
 Examples:
-  edit-manifest /tmp/resolution.md
-  EDITOR=vim edit-manifest /tmp/resolution.md
+  edit-manifest /tmp/resolutions.md
+  EDITOR=vim edit-manifest /tmp/resolutions.md
 EOF
   exit 0
 fi
@@ -76,6 +79,9 @@ MANIFEST_PATH="$(cd "$(dirname "$MANIFEST_PATH")" && pwd)/$(basename "$MANIFEST_
 # ── derived paths ──────────────────────────────────────────────────────────────
 SHADOW="${MANIFEST_PATH}.shadow"
 MANIFEST_DIR="$(dirname "$MANIFEST_PATH")"
+# The log is intentionally placed alongside the manifest (in the tmpdir).
+# Callers must place the manifest in a tmpdir to keep observability artifacts
+# within the 7-day cleanup window.
 LOG="${MANIFEST_DIR}/editor-log.md"
 
 # Remove stale shadow file from a previous run
@@ -99,7 +105,8 @@ if [[ -z "${TMUX:-}" ]]; then
   log_event "tmux_absent" "manifest=${MANIFEST_PATH}"
   echo "No tmux detected. The manifest is at ${MANIFEST_PATH}."
   echo "Open it in your editor, edit the **Verb:** lines, save, and return here to continue."
-  exit 0
+  echo "When finished, say one of: 'done', 'ready', 'finished editing', or 'abandon'."
+  exit 2
 fi
 
 # Check tmux version >= 2.4 (wait-for was introduced before 2.4 but this is a safety check)
@@ -109,9 +116,10 @@ TMUX_MINOR_RAW="${TMUX_VERSION_RAW#*.}"
 TMUX_MINOR="${TMUX_MINOR_RAW%%[^0-9]*}"
 if [[ -n "$TMUX_MAJOR" ]] && ((TMUX_MAJOR < 2 || (TMUX_MAJOR == 2 && TMUX_MINOR < 4))); then
   log_event "tmux_too_old" "version=${TMUX_VERSION_RAW} manifest=${MANIFEST_PATH}"
-  echo "tmux version ${TMUX_VERSION_RAW} is too old (need >= 2.4). The manifest is at ${MANIFEST_PATH}." >&2
+  echo "tmux version ${TMUX_VERSION_RAW} is too old (need >= 2.4). The manifest is at ${MANIFEST_PATH}."
   echo "Open it in your editor, edit the **Verb:** lines, save, and return here to continue."
-  exit 0
+  echo "When finished, say one of: 'done', 'ready', 'finished editing', or 'abandon'."
+  exit 2
 fi
 
 # ── resolve editor ─────────────────────────────────────────────────────────────
@@ -149,23 +157,29 @@ START_S="$(date +%s)"
 # PID-unique signal name ensures each invocation gets its own signal channel.
 # Two simultaneous edit-manifest calls with the same name would cross-signal
 # each other — using $$-suffix gives each instance its own channel.
+# Because each channel name is unique per-PID, no -L lock mode is needed:
+# cross-invocation interference is structurally impossible, not just unlikely.
 LOCK_NAME="edit-done-$$"
 
 # Build the tmux new-window command. The inner zsh -l -c script:
 #   1. Traps EXIT/HUP/TERM to signal LOCK_NAME so the parent always unblocks
 #   2. Launches nvim with CursorHold and VimLeave autocmds for shadow autosave
 #
-# Quoting strategy:
-# - EDIT_MANIFEST_PATH / EDIT_SHADOW_PATH / LOCK_NAME are exported env vars.
-# - ZSH_SCRIPT is bash-single-quoted: $VAR text is literal in bash but expands
-#   in the child zsh from the exported environment.
-# - EDIT_SHADOW_PATH in the nvim -c autocmds uses \$ (backslash-dollar) so
-#   that zsh passes the literal "$EDIT_SHADOW_PATH" text to nvim, which then
-#   expands it from its own environment — this is required so vim handles
-#   paths with spaces correctly via its internal filename parser.
-export EDIT_MANIFEST_PATH="$MANIFEST_PATH"
-export EDIT_SHADOW_PATH="$SHADOW"
-export LOCK_NAME
+# Environment strategy: tmux new-window does NOT reliably inherit the parent
+# shell's newly-exported env vars into the child window — and `zsh -l` may
+# wipe them via login profile scripts. Use `tmux new-window -e KEY=VAL` to
+# explicitly pass each variable into the child window's environment. zsh then
+# expands $EDIT_MANIFEST_PATH / $EDIT_SHADOW_PATH / $LOCK_NAME from its own
+# environment at script-execution time. This is the only approach that works
+# across tmux versions and zsh configurations without relying on
+# update-environment settings or export-timing semantics.
+#
+# Quoting: ZSH_SCRIPT is bash-single-quoted so `$VAR` text is literal. When
+# bash interpolates it into the tmux command, the `$VAR` references remain
+# literal until zsh executes the script and expands them from the -e-passed
+# environment. nvim's -c autocmds use `\$EDIT_SHADOW_PATH` so zsh passes the
+# literal "$EDIT_SHADOW_PATH" text to vim, which then expands it internally
+# via vim's filename parser — this is required for paths with spaces.
 
 # shellcheck disable=SC2016  # \$ intentional: zsh passes literal, vim expands
 ZSH_SCRIPT='
@@ -177,7 +191,11 @@ nvim \
   "$EDIT_MANIFEST_PATH"
 '
 
-tmux new-window -n manifest "zsh -l -c '$ZSH_SCRIPT'"
+tmux new-window -n manifest \
+  -e "EDIT_MANIFEST_PATH=$MANIFEST_PATH" \
+  -e "EDIT_SHADOW_PATH=$SHADOW" \
+  -e "LOCK_NAME=$LOCK_NAME" \
+  "zsh -l -c '$ZSH_SCRIPT'"
 
 # Block until the child's EXIT trap fires `tmux wait-for -S $LOCK_NAME`.
 # The parent calls wait-for immediately after new-window; zsh login-shell startup

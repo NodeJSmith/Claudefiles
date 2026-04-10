@@ -57,7 +57,7 @@ The manifest header includes:
 - Brief usage instructions (how to edit, save, exit)
 - A legend of valid verbs and their meanings
 - A compaction-recovery pre-hash comment: `<!-- pre-hash: <sha256> -->`
-- A prominent safety note: `<!-- Your edits are captured via autosave shadow file — :q! is safe -->`
+- A visible blockquote safety note: `> **:q! is safe** — your edits are autosaved to a shadow file every 2 seconds. Save normally or quit — your changes will be recovered.`
 
 **In nvim**, users can use `/Verb:` to jump between verb lines for quick scanning.
 
@@ -121,32 +121,42 @@ bin/edit-manifest <manifest-path>
 6. Signal the parent's `wait-for` channel on exit (any exit kind, via `trap`)
 7. Write diagnostic events to `<tmpdir>/editor-log.md`
 
-**The tmux new-window + wait-for invocation** (inside the script):
+**The tmux new-window + wait-for invocation** (inside the script), using PID-unique channel naming:
 
 ```bash
-# Acquire lock FIRST to eliminate wait-for signal race
-tmux wait-for -L edit-done &
+# PID-unique signal channel — each invocation gets an exclusive channel,
+# so no -L lock mode is needed. Cross-invocation interference is
+# structurally impossible because each channel name embeds $$.
+LOCK_NAME="edit-done-$$"
 
-tmux new-window -n manifest "zsh -l -c '
-  trap \"tmux wait-for -S edit-done\" EXIT HUP TERM
-  rm -f ${MANIFEST}.shadow
-  nvim \
-    -c \"set updatetime=2000\" \
-    -c \"autocmd CursorHold,CursorHoldI <buffer> silent write! ${MANIFEST}.shadow\" \
-    -c \"autocmd VimLeave * silent write! ${MANIFEST}.shadow\" \
-    \"${MANIFEST}\"
-'"
+tmux new-window -n manifest \
+  -e "EDIT_MANIFEST_PATH=${MANIFEST}" \
+  -e "EDIT_SHADOW_PATH=${MANIFEST}.shadow" \
+  -e "LOCK_NAME=${LOCK_NAME}" \
+  "zsh -l -c '
+    trap \"tmux wait-for -S \$LOCK_NAME\" EXIT HUP TERM
+    nvim \
+      -c \"set updatetime=2000\" \
+      -c \"autocmd CursorHold,CursorHoldI <buffer> silent write! \$EDIT_SHADOW_PATH\" \
+      -c \"autocmd VimLeave * silent write! \$EDIT_SHADOW_PATH\" \
+      \"\$EDIT_MANIFEST_PATH\"
+  '"
 
-# Wait for the signal (parent already locked)
-wait
-tmux wait-for -U edit-done  # release lock
+# Block until the child's EXIT trap fires `tmux wait-for -S $LOCK_NAME`.
+# The parent calls wait-for immediately after new-window; zsh login-shell
+# startup (sourcing profile, launching nvim) takes hundreds of ms, making
+# the signal-before-listener race negligible in practice.
+tmux wait-for "$LOCK_NAME" 2>/dev/null || true
 ```
 
+**Open Questions resolution**: The original design proposed `tmux wait-for -L` (lock mode) acquired by the parent before `new-window` to eliminate a signal-before-listener race. During implementation we chose a simpler approach: a PID-unique channel name (`edit-done-$$`) gives each invocation its own signal channel, making cross-invocation interference structurally impossible. The race window between `new-window` returning and the parent calling `wait-for` is negligible because zsh login-shell startup (sourcing profile, launching nvim) takes hundreds of milliseconds — far longer than the round-trip to reach the `wait-for` call. See the "Alternatives Considered" section below for the rejected lock-mode approach.
+
 Key mechanisms:
-- **`tmux wait-for -L`** (lock mode) acquired by parent *before* `new-window` — eliminates the race where the child's `-S` signal could fire before the parent was listening. See N2 below.
-- **`trap ... EXIT HUP TERM`** in the child shell — signals `edit-done` even if the tmux window is forcibly closed, the shell is HUPed, or the editor crashes. Without this, closing the tmux window directly would leave the parent hanging. See N3 below.
+- **PID-unique channel name (`edit-done-$$`)** — each invocation gets its own signal channel; two simultaneous edit-manifest calls cannot cross-signal each other.
+- **`trap ... EXIT HUP TERM`** in the child shell — signals the channel even if the tmux window is forcibly closed, the shell is HUPed, or the editor crashes. Without this, closing the tmux window directly would leave the parent hanging. See N3 below.
 - **`zsh -l -c`** wraps the editor invocation to get the user's login PATH (handles mise, asdf, direnv, nix tool managers that only export from login shells).
 - **Shadow file via autocmd** captures in-memory buffer state to `<manifest>.shadow` on inactivity (`CursorHold`) and on any exit (`VimLeave`). See N4 below. This means `:q!` is safe — the shadow file has the user's work regardless of save intent.
+- **`tmux new-window -e KEY=VAL`** passes env vars explicitly into the child window rather than relying on tmux env inheritance — `zsh -l` can wipe inherited env via profile scripts, and `tmux new-window` does not reliably inherit newly-exported parent env vars across tmux versions.
 
 ### Fallback tiers when tmux is absent
 
@@ -317,7 +327,7 @@ Each entry includes a verbatim example from the session logs compiled at the sta
 
 ### File layout changes
 
-**NEW: `bin/edit-manifest`** (~80 lines of zsh)
+**NEW: `bin/edit-manifest`** (~210 lines of bash (with an embedded zsh heredoc for login-shell invocation))
 - Helper script implementing the editor-launching mechanism
 - Detects tmux availability, blocking editor, fallback tier
 - Invokes `tmux new-window + wait-for` with shadow-autosave autocmds
@@ -349,6 +359,26 @@ Each entry includes a verbatim example from the session logs compiled at the sta
 **NO CHANGE**: `skills/mine.design/SKILL.md`, `skills/mine.specify/SKILL.md`, `skills/mine.orchestrate/SKILL.md` (structured callers, bypass the resolve flow). `skills/mine.tool-gaps/SKILL.md` (has its own skill-specific override gate). `skills/mine.grill/SKILL.md` (inherits improved standalone behavior). All other callers unchanged.
 
 ## Alternatives Considered
+
+### tmux wait-for lock mode (-L) — rejected
+
+An earlier version of this design used `tmux wait-for -L edit-done` (lock mode) acquired by the parent *before* `new-window` to eliminate the race where the child's `-S` signal could fire before the parent was listening:
+
+```bash
+# Acquire lock FIRST to eliminate wait-for signal race
+tmux wait-for -L edit-done &
+
+tmux new-window -n manifest "zsh -l -c '
+  trap \"tmux wait-for -S edit-done\" EXIT HUP TERM
+  ...
+'"
+
+# Wait for the signal (parent already locked)
+wait
+tmux wait-for -U edit-done  # release lock
+```
+
+**Rejected during implementation** in favor of the PID-unique channel-name approach (`edit-done-$$`). PID uniqueness makes cross-invocation interference structurally impossible rather than relying on a tmux-level mutex, and the race window between `new-window` returning and the parent calling `wait-for` is negligible in practice because zsh login-shell startup takes hundreds of milliseconds. Lock mode added complexity (parent-side `-L` / `-U` bookkeeping, requirement for `wait`) without buying correctness beyond what the PID-unique name already provides.
 
 ### tmux display-popup (original proposal — rejected)
 
@@ -444,7 +474,7 @@ No unit tests possible. Validation is session-level and observational — we com
 ## Open Questions
 
 - **Claude Code `/ide` integration for the secondary fallback**: Time-boxed investigation during implementation. May produce a working primitive, may not — don't block on perfection. Falls through to tertiary if not available.
-- **wait-for lock mode correctness**: The design specifies `tmux wait-for -L` acquired by the parent before `new-window` to eliminate the race where `-S` could fire before the listener is ready. This needs validation during implementation — tmux's `wait-for` documentation is sparse on the lock-vs-signal interaction.
+- **wait-for lock mode correctness**: Resolved during implementation — see the Architecture section's Open Questions resolution note and the "tmux wait-for lock mode (-L) — rejected" entry under Alternatives Considered.
 - **`bin/edit-manifest` script installation**: Confirm `install.sh` picks up the new script automatically (it globs `bin/*`) or requires an update. Verify during implementation.
 - **TENSION (F21) — non-vim user validation**: The popup-vs-mental-model tension was partially resolved by this dogfood session for the CLI-user profile (the user engaged substantively with the manifest). A non-vim user test remains outstanding but is lower priority given the new-window mechanism works with any `$EDITOR`. Tracked as a follow-up validation.
 - **Follow-up design: visual-qa migration**. This design ships the enabling infrastructure (`bin/edit-manifest`, manifest format, rule structure). A follow-up design doc will cover migrating visual-qa to produce manifest-compatible findings and use the Resolution Manifest flow via the same script. Expected scope: extending visual-qa synthesis to emit `severity:`, `resolution:`, `recommendation:` fields; updating visual-qa Phase 4 to call `edit-manifest`; possibly extending tool-gaps similarly.
@@ -455,7 +485,7 @@ No unit tests possible. Validation is session-level and observational — we com
 
 | File | Change type | Lines | Description |
 |---|---|---|---|
-| `bin/edit-manifest` | **NEW** | ~80 | Helper script — all editor-launching mechanics (tmux detection, shell wrapping, shadow autocmds, fallback tiers) |
+| `bin/edit-manifest` | **NEW** | ~210 | Helper script — all editor-launching mechanics (tmux detection, shell wrapping, shadow autocmds, fallback tiers) |
 | `rules/common/findings.md` | **MAJOR REWRITE** | ~54 → ~150 | Add Resolution Manifest section, Verb vocabulary, Consent/Commit Gates, Anti-Pattern Catalog, validation spec. Remove any mechanism-specific language. Preserve Proceed Gate as alias. |
 | `skills/mine.challenge/SKILL.md` | Minor edit | ~5 lines | Lines 508–512: insert manifest-generation and `edit-manifest` invocation step. No other changes. |
 | `skills/mine.visual-qa/SKILL.md` | Cosmetic | 2 lines | Lines 301 and 305: prose updates referencing the new flow name. Follow-up note about planned migration. |

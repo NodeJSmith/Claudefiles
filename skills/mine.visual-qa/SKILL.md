@@ -298,11 +298,11 @@ AskUserQuestion:
       description: "File findings as tracked issues for later"
 ```
 
-When offering to read agent reports, list the temp file paths. If "Fix issues now" is selected, collect all user-directed answers upfront, then auto-apply unambiguous fixes and apply user-directed fixes using the collected answers. (Full Resolution Manifest migration is planned for a follow-up design.)
+When offering to read agent reports, list the temp file paths. If "Fix issues now" is selected, follow the legacy resolve flow in `rules/common/findings.md`'s Skill-Specific Overrides section. (A follow-up design will migrate visual-qa to the Resolution Manifest flow; that work is explicit scope for the next design iteration and is NOT in scope here.)
 
 ## Handoffs
 
-**Fix issues** → collect all user-directed answers upfront, then auto-apply unambiguous fixes and apply user-directed fixes using collected answers. (Full Resolution Manifest migration is planned for a follow-up design.)
+**Fix issues** → follow the legacy Skill-Specific Override path in `rules/common/findings.md` (Resolution Manifest migration deferred to follow-up design)
 
 **Different viewport** → re-run this skill with `--mobile` and/or `--dark`
 

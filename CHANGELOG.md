@@ -2,6 +2,24 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-04-10
+
+### Added
+- `bin/edit-manifest` helper script — opens a resolution manifest in nvim inside a new tmux window with shadow-file autosave; `:q!` is safe (in-memory buffer captured via CursorHold/CursorHoldI/VimLeave autocmds); exit code 2 signals tertiary fallback (no interactive editor)
+- Per-finding Resolution Manifest flow in `rules/common/findings.md` — replaces the old interactive Proceed Gate pattern that routinely bundled 7-11 findings into one "Accept all?" prompt. Findings become a `resolutions.md` file the user edits directly (git rebase -i analog); structural prevention of bundling failures
+- Six-verb manifest vocabulary: `fix`, `file`, `defer`, `skip`, `ask`, `A`/`B`/`C` with Default Verb Selection table
+- Named Anti-Pattern Catalog in `rules/common/findings.md` — 8 enumerated failure modes with verbatim examples from session logs
+- `manifest-protocol-version: 1` declaration for `rules/common/findings.md` — protocol changes are now detectable rather than silent breaking changes
+- GitHub issue #205 tracking visual-qa migration (per-finding format must emit `severity`/`resolution`/`recommendation` fields for Default Verb Selection to work)
+
+### Changed
+- `mine.challenge` Phase 4 delegates the resolve flow entirely to `rules/common/findings.md` — no more bundled "Accept all recommendations?" prompts; executes per-finding verbs from the user's edited manifest
+- Consent Gate (formerly Proceed Gate) is now a single binary "ready to review the manifest?" prompt — explicit consent before the editor opens, no per-finding decisions
+- Commit Gate presents the edited manifest for execution — single binary "Execute?" with Yes/Revise/No
+- `rules/common/interaction.md` — documented the AskUserQuestion `preview` field (previously undocumented tool parameter)
+- All 16 `i-*` skills that invoke `/mine.challenge` inline now carry `<!-- CHALLENGE-CALLER -->` markers for grep-based caller audits
+- `design/specs/015-per-finding-resolution-manifest/design.md` Architecture section — shows actual PID-unique tmux signal channel implementation with the rejected `tmux wait-for -L` approach moved to Alternatives Considered
+
 ## 2026-04-07
 
 ### Changed
