@@ -158,6 +158,7 @@ AskUserQuestion:
 
 If "Implement" → proceed to implementation below.
 If "Refine scope" → ask what to change, update proposal, re-confirm.
+<!-- CHALLENGE-CALLER -->
 If "Challenge this first" → invoke `/mine.challenge` inline against the proposal, read findings, revise proposal, re-present this gate.
 If "Stop here" → end the skill.
 

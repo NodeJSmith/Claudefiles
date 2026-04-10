@@ -29,7 +29,7 @@ $ARGUMENTS — optional scope:
 - `--focus="<area>"` — steer critics toward specific concerns (e.g., `--focus="security, error handling"`). Passed to all critics as a priority signal: "Pay special attention to X." Critics still review broadly but weight output toward the user's concern. **Specialist forcing**: to force a specific specialist persona, `--focus` must be a single term (no commas, no spaces) of at least 6 characters that case-insensitively prefix-matches a specialist filename slug (e.g., `--focus="contract"` forces `contract-caller.md`). Multi-word values (e.g., `"design conformance"`) and comma-separated values bypass specialist matching and act as priority signals only.
 - `--target-type=<type>` — override heuristic target-type classification. Callers that know their artifact type should pass this. Values: `code`, `frontend-code`, `spec`, `design-doc`, `brief`, `skill-file`, `agent-file`, `rule`, `docs`, `research`, `other`.
 - `--findings-out=<path>` — (structured callers only) deterministic output path for the findings file. Used by mine.design and mine.specify for reliable handoff. Not needed for standalone or passthrough invocations. **Overwrites** any existing file at the path without warning — callers that re-run challenge (e.g., mine.orchestrate's "Address findings" loop) should use iteration-suffixed paths to preserve prior findings.
-- `--mode=passthrough` — (passthrough callers only) signals that the calling skill handles post-challenge routing. Challenge provides a summary but skips the Proceed Gate. Required for mine.brainstorm and mine.research invocations.
+- `--mode=passthrough` — (passthrough callers only) signals that the calling skill handles post-challenge routing. Challenge provides a summary but skips the Consent Gate. Required for mine.brainstorm and mine.research invocations.
 - `--no-specialists` — skip specialist selection, run only the three generic critics.
 
 ## How to Analyze
@@ -120,12 +120,30 @@ Structured callers (read findings file and generate revision plans):
 Detection callers (scan for severity labels to detect prior analysis, don't read findings file):
 - `skills/mine.build/SKILL.md` — accelerated path detection
 
-Standalone callers (invoke challenge without `--findings-out`; challenge runs full standalone flow including Proceed Gate, then returns control to the caller):
+Standalone callers (invoke challenge without `--findings-out`; challenge runs full standalone flow including Consent Gate, then returns control to the caller):
 - `skills/mine.grill/SKILL.md` — loops back to its handoff gate after challenge completes
 
-Passthrough callers (invoke challenge standalone, don't consume findings file; challenge provides summary only, no Proceed Gate):
+Passthrough callers (invoke challenge standalone, don't consume findings file; challenge provides summary only, no Consent Gate):
 - `skills/mine.research/SKILL.md`
 - `skills/mine.brainstorm/SKILL.md`
+
+Inline-revision callers (invoke `/mine.challenge` inline during a gate, read findings, and revise their own proposal before proceeding — they do not pass `--findings-out`, do not use `--mode=passthrough`, and do not read the findings file programmatically; the LLM reads findings in-context and revises the proposal):
+- `skills/i-adapt/SKILL.md`
+- `skills/i-animate/SKILL.md`
+- `skills/i-arrange/SKILL.md`
+- `skills/i-bolder/SKILL.md`
+- `skills/i-clarify/SKILL.md`
+- `skills/i-colorize/SKILL.md`
+- `skills/i-delight/SKILL.md`
+- `skills/i-distill/SKILL.md`
+- `skills/i-extract/SKILL.md`
+- `skills/i-harden/SKILL.md`
+- `skills/i-normalize/SKILL.md`
+- `skills/i-onboard/SKILL.md`
+- `skills/i-optimize/SKILL.md`
+- `skills/i-polish/SKILL.md`
+- `skills/i-quieter/SKILL.md`
+- `skills/i-typeset/SKILL.md`
 
 Standalone-only target types (no structured caller — findings are presented to the user for manual action):
 - `docs` — no revision skill exists yet. A future `mine.docs-review` caller would consume `--findings-out` like mine.design does for `design-doc` targets.
@@ -330,7 +348,7 @@ adversarial.md
 ```
 
 **Field definitions**:
-- `mode`: `structured` when `--findings-out` is present; `passthrough` when `--mode=passthrough` is passed; `standalone` otherwise (includes direct user invocations and standalone callers like mine.grill that want the full Proceed Gate flow).
+- `mode`: `structured` when `--findings-out` is present; `passthrough` when `--mode=passthrough` is passed; `standalone` otherwise (includes direct user invocations and standalone callers like mine.grill that want the full Consent Gate flow).
 - `findings-out`: the `--findings-out` path if provided, or `default` (meaning `<tmpdir>/findings.md`).
 - `focus`: the `--focus` value if provided, or `none`.
 - `target`: the target scope — use the absolute path when the target is a file; use the scope description when inline content.
@@ -507,7 +525,14 @@ Read `# mode:` from `<tmpdir>/manifest.md` to determine the wrap-up behavior. Do
 
 1. **Summary** — one paragraph: total finding count, breakdown by severity, the single most important takeaway across all findings.
 
-2. **Resolve findings** — follow the findings convention in `rules/common/findings.md`: present the Proceed Gate, collect all user-directed answers, then execute fixes.
+2. **Resolve findings** — follow the Resolution Manifest flow defined in `rules/common/findings.md`. Generate the manifest from findings.md, present the Consent Gate, invoke `edit-manifest <tmpdir>/resolutions.md`, run the detection logic, present the Commit Gate, and execute. The rule file provides format, verb vocabulary, execution semantics, and detection logic — mine.challenge delegates those mechanics. The async/compaction rules below are mine.challenge-specific.
+
+### Async Completion
+
+Async mechanics are mine.challenge-specific (task-notification handling, 600s timeout); all other detection mechanics are in `rules/common/findings.md`.
+
+1. **Set `timeout: 600000`** on the edit-manifest Bash call as a defense-in-depth safety belt, even though auto-backgrounding usually fires first.
+2. **Acknowledge async completion**: Phase 4 prose says "when the editor session completes" rather than "when the bash call returns" — this signals the completion may arrive via task-notification, not synchronous return.
 
 **If mode is `passthrough`** (mine.brainstorm, mine.research): provide the summary (step 1) but skip the next-step prompt — the calling skill handles its own routing after challenge completes.
 
