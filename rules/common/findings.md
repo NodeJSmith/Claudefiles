@@ -43,16 +43,16 @@ Note: `fix` on an Auto-apply finding applies the `better-approach` field; `fix` 
 
 ## Default Verb Selection
 
-Pre-populate manifest verbs based on the finding's `recommendation:` field.
+Pre-populate manifest verbs based on the finding's `severity:`, `resolution:`, and `recommendation:` fields.
 
 **Evaluation order**: Evaluate rows in this order: (1) check severity for TENSION; (2) check resolution for Auto-apply; (3) check recommendation content for User-directed. First matching row wins. This prevents TENSION findings — whose recommendation field carries a deciding factor rather than an option letter — from being incorrectly classified as `ask`.
 
-| Finding `resolution:` | `recommendation:` field | Default verb |
-|---|---|---|
-| `Auto-apply` | (n/a) | `fix` |
-| `User-directed` | Contains specific option letter (e.g., "Option A") | That letter (`A`) |
-| `User-directed` | Absent or says "user must decide" / no clear letter | `ask` |
-| `TENSION` | (n/a) | `defer` |
+| Finding `severity:` | Finding `resolution:` | `recommendation:` field | Default verb |
+|---|---|---|---|
+| `TENSION` | (any) | (n/a) | `defer` |
+| (any) | `Auto-apply` | (n/a) | `fix` |
+| (any) | `User-directed` | Contains specific option letter (e.g., "Option A") | That letter (`A`) |
+| (any) | `User-directed` | Absent or says "user must decide" / no clear letter | `ask` |
 
 **Format-version 1 fallback**: If a finding lacks a `recommendation:` field entirely, default to `ask`. Write a header comment in the manifest: `<!-- Format-version 1 source — some findings defaulted to 'ask' due to missing recommendation field -->`.
 
