@@ -24,10 +24,10 @@ Exceptions: documentation-only changes or explicit user skip.
 
 ### Code Reviewer Loop
 
-Loop until no CRITICAL/HIGH issues remain:
+Loop until no CRITICAL/HIGH issues remain, **maximum 3 iterations**:
 1. Auto-fix unambiguous issues; defer to user for judgment calls
 2. Re-run `code-reviewer`
-3. Stop when no CRITICAL/HIGH remain
+3. Stop when no CRITICAL/HIGH remain, or after 3 iterations — present remaining issues to the user if the cap is reached
 
 Then run `integration-reviewer` once on the final diff.
 

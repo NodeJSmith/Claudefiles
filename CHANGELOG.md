@@ -2,6 +2,15 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-04-10
+
+### Changed
+- Expanded `code-reviewer` agent from Python-only to polyglot: added TypeScript/JS, Shell Script, CSS-JS Coupling, and Dockerfile anti-pattern catalogs; split exploration budget into separate Semantic Checks and language-specific pools; added integration-reviewer boundary section, executor note, and semantic check coverage status line requirement
+- `mine.review` now pre-resolves the changed file list and passes it explicitly to both reviewers (code-reviewer and integration-reviewer) instead of letting agents re-run discovery
+- `git-workflow.md` code reviewer loop now enforces a 3-iteration cap
+- `python.md` global rules extended with `datetime.now()` timezone, `pathlib.Path` over `os.path`, and `uv` over `pip`
+- `mine.plan-review` checklist updated to current WP section schema (Objectives & Success Criteria, Subtasks, Test Strategy, Review Guidance)
+
 ## 2026-04-07
 
 ### Changed

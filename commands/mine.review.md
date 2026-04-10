@@ -27,12 +27,22 @@ Launch both agents **in parallel** using a single message with two Agent tool ca
 
 ### Code Reviewer
 
+Resolve the changed file list before launching:
+
+```bash
+# If base was found:
+git diff <base>...HEAD --name-only
+# If base not found:
+git diff HEAD --name-only
+```
+
 ```
 Agent(subagent_type: "code-reviewer"):
   prompt: |
     Review all changes on this branch.
 
-    Run: <diff command from above>
+    Changed files (explicit list — use this, do not re-run discovery):
+    <newline-separated list from the git diff --name-only above>
 
     This repo may or may not have tests/linters — check before running them.
     Focus on correctness, types, security, performance, and style.
@@ -40,12 +50,15 @@ Agent(subagent_type: "code-reviewer"):
 
 ### Integration Reviewer
 
+Use the same file list resolved in the Code Reviewer step above.
+
 ```
 Agent(subagent_type: "integration-reviewer"):
   prompt: |
     Review all changes on this branch for integration issues.
 
-    Run: <diff command from above>
+    Changed files (explicit list — use this, do not re-run discovery):
+    <newline-separated list from the git diff --name-only above>
 
     Check for duplication, convention drift, misplacement, orphaned code,
     and design violations.

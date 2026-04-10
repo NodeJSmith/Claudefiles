@@ -3,6 +3,8 @@
 You are reviewing a caliper implementation plan against a design document.
 For each checklist item, output: PASS, WARN (minor issue), or FAIL (blocking issue) followed by a one-line note.
 
+**WP format note**: WPs no longer carry a `plan_section` frontmatter field. Verify design and spec coverage semantically — read WP Subtasks and Objectives against design.md and spec.md sections, do not attempt to match a metadata field.
+
 ## Checklist
 
 ### 1. Dependency sequencing
@@ -22,8 +24,8 @@ Are tests specified alongside or immediately after the implementation they verif
 Look for: tests deferred to "a later task" without being explicitly paired; tasks with no verification step; done-when criteria that can't be observed without running tests.
 
 ### 5. Task completeness
-Does every task have all 5 caliper fields (files, steps, verification, done-when, avoid)?
-Look for: missing fields, vague steps ("update the handler"), placeholder file paths ("path/to/file"), non-runnable verification commands.
+Does every WP have all required sections: Objectives & Success Criteria, Subtasks, Test Strategy, and Review Guidance?
+Look for: missing sections, vague subtasks ("update the handler"), placeholder file paths ("path/to/file"), Objectives that aren't observable without reading code, Test Strategy that omits test function names or defers unit tests to a later WP without justification.
 
 ### 6. Context independence
 Could each task be handed to a fresh Claude instance with only the plan and referenced files?
