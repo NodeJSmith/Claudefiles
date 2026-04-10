@@ -83,11 +83,10 @@ If feedback identifies a blocker you cannot resolve (architectural issue, missin
 
 ### Attempt N — <WARN|FAIL>
 
-**Reviewer files to read:**
-- Spec reviewer: <file path> (always present on retries)
-- Code reviewer: <file path> (FAIL retries only — "N/A" if Step 7 not reached)
-- Integration reviewer: <file path> (FAIL retries only — "N/A" if Step 8 not reached)
-- Visual reviewer: <file path> (FAIL retries only — "N/A" if visual verification didn't run)
+**Findings files to read:**
+- <label>: <file path>
+  (one line per file — e.g., "Spec reviewer", "Code reviewer", "Integration reviewer",
+   "Test gate", "Impl-review", "Challenge critics"; add only files that are present)
 
 Read each file in full before proceeding.
 ```

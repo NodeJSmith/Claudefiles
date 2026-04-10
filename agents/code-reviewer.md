@@ -85,7 +85,7 @@ ruff check .
 ruff format .
 bandit -r .
 pip-audit
-pytest --cov=app --cov-report=term-missing
+pytest
 agnix .   # when reviewing agents/, skills/, or commands/ changes
 ```
 
