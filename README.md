@@ -34,7 +34,7 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 
 ## Contents
 
-### Skills (43)
+### Skills
 
 | Skill | Description |
 |-------|-------------|
@@ -62,7 +62,7 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `mine.wp` | WP lane management — move work packages between lanes, view kanban, list WPs |
 | `mine.write-skill` | Guided skill creation — gathers requirements, drafts SKILL.md, validates quality checklist, auto-wires routing |
 
-**[Impeccable](https://impeccable.style/) Frontend Design Skills (20)**
+**[Impeccable](https://impeccable.style/) Frontend Design Skills**
 
 | Skill | Description |
 |-------|-------------|
@@ -87,7 +87,7 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `i-teach-impeccable` | Design context setup — gathers brand context and concrete design tokens, saves to `design/context.md` |
 | `i-typeset` | Typography — font choices, hierarchy, sizing, readability |
 
-### Commands (6)
+### Commands
 
 | Command | Description |
 |---------|-------------|
@@ -98,9 +98,9 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `mine.review` | Run code-reviewer and integration-reviewer in parallel on the current branch diff |
 | `mine.status` | Quick orientation -- branch, tasks, errors, last commit |
 
-### Agents (18)
+### Agents
 
-**Core Development (12)**
+**Core Development**
 
 | Agent | Description |
 |-------|-------------|
@@ -117,7 +117,7 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `ui-auditor` | Accessibility and UX audit -- WCAG violations, missing ARIA, hardcoded styles, UX anti-patterns |
 | `visual-diff` | Visual regression testing via Playwright MCP -- before/after screenshots to catch unintended UI changes |
 
-**Engineering Specialists (5)**
+**Engineering Specialists**
 
 | Agent | Description |
 |-------|-------------|
@@ -127,19 +127,19 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `engineering-sre` | SLOs, error budgets, observability, chaos engineering, toil reduction |
 | `engineering-technical-writer` | Developer docs, API references, READMEs, tutorials that developers actually read |
 
-**Testing & Quality (1)**
+**Testing & Quality**
 
 | Agent | Description |
 |-------|-------------|
 | `testing-reality-checker` | Adversarial pre-ship gate via Playwright MCP -- defaults to "NEEDS WORK", requires visual evidence |
 
-### Rules (17)
+### Rules
 
 Coding guidelines that load automatically and shape how Claude writes code.
 
-**Common** (17): agents, bash-tools, capabilities, coding-style, command-output, error-tracking, findings, frontend-workflow, git-workflow, interaction, performance, python, research-escalation, sudo, testing, tmux, worktrees
+**Common**: agents, bash-tools, capabilities, coding-style, command-output, error-tracking, findings, frontend-workflow, git-workflow, interaction, performance, python, receiving-code-review, research-escalation, sudo, testing, tmux, worktrees
 
-### Hooks (2)
+### Hooks
 
 Event-driven scripts that run before/after tool calls.
 

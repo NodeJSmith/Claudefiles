@@ -141,7 +141,7 @@ When editing skills or commands:
 - Skills live in `skills/mine.<name>/SKILL.md` — the directory name must match the skill reference
 - Commands are flat markdown files in `commands/`
 - After adding new directories under `agents/`, `skills/`, `commands/`, or `scripts/hooks/`, re-run `./install.sh` to create the symlink
-- **Always update `README.md`** when adding, removing, or renaming skills, commands, agents, rules, or bin/ scripts — the README has inventory tables with counts that must stay in sync
+- **Always update `README.md`** when adding, removing, or renaming skills, commands, agents, rules, or bin/ scripts — keep the inventory tables accurate
 - **CLI tools referenced in skills/commands/agents** must be one of: a script in `bin/` (symlinked to `~/.local/bin/` by the installer), a standard system tool (`git`, `gh`, `az`, `jq`, etc.), or a well-known dev tool (`ruff`, `pyright`, `pytest`, etc.). Do not reference private tools that live outside this repo.
 
 
@@ -152,3 +152,64 @@ When changing settings or permissions:
   1. `~/Claudefiles/settings.json` (shared, portable)
   2. `~/Dotfiles/config/claude/settings.json` (private — override with `$CLAUDE_DOTFILES_SETTINGS`)
   3. `~/.claude/settings.machine.json` (machine-specific)
+
+## Code Review: Skill & Markdown File Checks
+
+When `code-reviewer` runs in this repo and `.md` files in `skills/`, `commands/`, `agents/`, or `rules/` appear in the diff, apply these additional checks. Use Read and Grep tools — no static analysis tools apply here.
+
+### Bash Code Block Safety (CRITICAL)
+
+Bash examples in skill files execute via the Bash tool, which wraps commands in `eval '...' < /dev/null`. These patterns **silently fail or error**:
+
+- `$(...)` command substitution
+- Backtick substitution `` `cmd` ``
+- Variable assignments used across tool calls
+
+Check every fenced bash block in changed `.md` files. Flag any `$(` occurrence.
+
+```text
+[CRITICAL] $() substitution in bash code block
+File: skills/mine.foo/SKILL.md:42
+Issue: `--body "$(cat <<'EOF'...)"` will silently fail when Claude executes it
+Fix: write body to `<dir>/body.md` via get-skill-tmpdir, then use --body-file
+```
+
+Correct alternatives:
+- Sequential calls: run inner command first, use result in next call
+- `xargs -I {}` piping: `git-default-branch | xargs -I {} git log "origin/{}..HEAD"`
+- `--body-file <dir>/message.md` instead of `--body "$(cat ...)"`
+
+### Frontmatter Completeness (HIGH)
+
+For `SKILL.md` files: `name`, `description`, and `user-invocable` must all be present. `name` must match the directory: `skills/mine.foo/SKILL.md` → `name: mine.foo`.
+
+### Skill Scope: Diagnose, Don't Implement (HIGH)
+
+Diagnostic/analytical skills (audit, research, gap analysis, review, triage) must **not implement inline**. Flag any skill that:
+- Writes code or files directly as its primary output
+- Skips AskUserQuestion and proceeds straight to implementation
+- Has a Phase that says "implement X" rather than "hand off to plan mode"
+
+### AskUserQuestion Usage (MEDIUM)
+
+- Must be used for **decisions**, not just presenting information
+- Options must be mutually exclusive unless `multiSelect: true`
+- Maximum 4 options per question
+- `header` field ≤12 characters
+
+### Cross-Reference Integrity (MEDIUM)
+
+Any `/mine.X` reference in a changed skill must correspond to a real skill directory:
+```
+Glob: skills/mine.<name>/  → must exist
+```
+
+### Supporting File Sync (HIGH)
+
+When a skill directory is added or removed:
+- New skill row present and alphabetically inserted in the Skills table in `README.md`
+- `rules/common/capabilities.md` intent routing table has an entry
+
+### "What This Skill Does NOT Do" (LOW)
+
+Diagnostic/analysis skills should include this section. Flag its absence.

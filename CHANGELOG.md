@@ -5,8 +5,15 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-04-10
 
 ### Changed
+- `code-reviewer` agent rewritten: slimmed from 619 → 133 lines, now language-neutral; Claudefiles-specific skill/markdown checks moved to `CLAUDE.md` where they auto-load only in this repo (#207)
+- `spec-reviewer-prompt` strengthened with adversarial DO/DON'T framing — explicit "do not trust the executor's self-report" stance (#207)
+- Phase 3 fix executors (impl-review and challenge loops) now use `retry-prompt.md` instead of `implementer-prompt.md` (#207)
+- README section counts removed — one less thing to keep in sync (#207)
 - `mine.challenge` resolve flow replaced with a per-finding Resolution Manifest — findings become an editable `resolutions.md` file opened in `$EDITOR` via new `bin/edit-manifest` helper, replacing the "Accept all?" bundled prompt that routinely collapsed 7-11 findings into a single binary choice (#206)
 
+### Added
+- `retry-prompt.md`: new executor prompt for retry/fix passes — verify-before-implement, YAGNI check, push-back protocol; replaces mechanical "read and fix" with an evaluative stance (#207)
+- `rules/common/receiving-code-review.md`: new always-loaded rule encoding the same posture for the main agent in conversational/manual review contexts (#207)
 ## 2026-04-07
 
 ### Changed
