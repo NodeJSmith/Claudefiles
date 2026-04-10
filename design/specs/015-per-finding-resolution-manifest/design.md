@@ -1,7 +1,7 @@
 # Design: Per-Finding Resolution Manifest for mine.challenge
 
 **Date:** 2026-04-09
-**Status:** approved
+**Status:** archived
 **Research:** design/research/2026-04-09-per-item-resolution-loops/research.md (prior art), design/research/2026-04-09-per-item-resolution-loops/codebase-research.md (feasibility)
 **Challenge:** Findings at /tmp/claude-mine-design-challenge-4FEDDV/findings.md; 22 original + 4 dogfood-discovered. All resolved via the dogfood manifest flow that is the topic of this design (meta-testing).
 
