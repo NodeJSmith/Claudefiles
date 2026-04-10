@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-04-10
+
+### Changed
+- `mine.challenge` resolve flow replaced with a per-finding Resolution Manifest — findings become an editable `resolutions.md` file opened in `$EDITOR` via new `bin/edit-manifest` helper, replacing the "Accept all?" bundled prompt that routinely collapsed 7-11 findings into a single binary choice (#206)
+
 ## 2026-04-07
 
 ### Changed

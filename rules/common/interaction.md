@@ -44,6 +44,8 @@ Rules:
 4. **Respect `multiSelect`.** If the skill says `multiSelect: true`, pass it
    through. Do not downgrade to single-select.
 
+5. **Use previews for concrete format comparisons.** The `preview` field on options renders multi-line markdown in a side-by-side layout next to the option list. Use previews for format comparisons (code snippets, ASCII mockups, diagram variations, manifest samples) where the user needs to *see* the option before choosing. Previews only work on single-select questions (`multiSelect: false`). Do not use previews for simple preference questions — labels and descriptions suffice there.
+
 If you need to adapt the question text to include dynamic context (e.g.,
 filling in a finding name), change only the `question` string — leave `label`
 and `description` values verbatim.

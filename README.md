@@ -148,7 +148,7 @@ Event-driven scripts that run before/after tool calls.
 | `tmux-remind.sh` | SessionStart | Reminds Claude to rename the tmux session |
 | `sudo-poll.sh` | PreToolUse (Bash) | Deny-then-poll for sudo — detects cached credentials or waits 30s for user to `sudo -v` in another pane |
 
-### Helper Scripts (22 + 1 library)
+### Helper Scripts (23 + 1 library)
 
 CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
@@ -161,6 +161,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `ado-pr` | Azure DevOps PR helper -- simplified wrapper around az repos pr with smart defaults |
 | `ado-pr-threads` | Azure DevOps PR thread operations -- list, reply, resolve threads |
 | `claude-log` | Query Claude Code JSONL session logs — search, stats, skill/agent usage, permission auditing |
+| `edit-manifest` | Open a manifest file in nvim via a new tmux window with shadow-file autosave and blocking wait |
 | `claude-merge-settings` | Three-layer settings merge tool for `~/.claude/settings.json` |
 | `claude-tmux` | Tmux session helper -- rename, list, create, capture, kill sessions |
 | `get-skill-tmpdir` | Create unique temp directories for skill runs |
