@@ -138,37 +138,6 @@ Visual summary: <N> scenarios checked, <N> verified, <N> warned, <N> skipped
 
 If you could not achieve the specified setup state for a scenario, explain what you did instead and mark it WARN (not VERIFIED).
 
-## Previous Review Feedback
-
-On retry attempts (WARN fix loop or FAIL retry), the orchestrator provides file paths to the reviewer output files from the prior attempt. **Read each file in full before starting work** — do not skip any reviewer file.
-
-**On first attempt:** This section reads "N/A -- first attempt." Ignore it and proceed normally.
-
-**On WARN retries** (spec reviewer loop at Step 5): Only the spec reviewer file path is provided. Read the full file — it contains the specific gap to fix.
-
-**On FAIL retries** (after the full review gate): All reviewer file paths are provided (spec reviewer, code reviewer, visual reviewer). Read each one in full — they contain the specific issues to address.
-
-**Rules:**
-- Read every reviewer file provided — do not rely on summaries or skip files
-- Fix the issues described. Do not repeat the same approach that caused them
-- If the feedback identifies a blocker you cannot resolve (architectural issue, missing dependency), write BLOCKED rather than producing the same broken output
-
-**Template** (populated by the orchestrator):
-
-```markdown
-## Previous review feedback
-
-### Attempt N — <WARN|FAIL>
-
-**Reviewer files to read:**
-- Spec reviewer: <file path> (always present on retries)
-- Code reviewer: <file path> (FAIL retries only, if Step 7 was reached — "N/A" otherwise)
-- Integration reviewer: <file path> (FAIL retries only, if Step 8 was reached — "N/A" otherwise)
-- Visual reviewer: <file path> (FAIL retries only, if visual verification ran — "N/A" otherwise)
-
-Read each file in full before proceeding. Fix the issues they describe.
-```
-
 ## Output Format
 
 Write structured result to the temp file path provided:

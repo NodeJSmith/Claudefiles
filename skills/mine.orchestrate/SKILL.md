@@ -257,8 +257,10 @@ Before launching the executor, read the WP's objective and tasks to determine if
 ### Step 4: Launch executor subagent
 
 Read these files:
-- `~/.claude/skills/mine.orchestrate/implementer-prompt.md`
+- `~/.claude/skills/mine.orchestrate/implementer-prompt.md` (first-pass) **or** `~/.claude/skills/mine.orchestrate/retry-prompt.md` (retries — WARN fix loop and FAIL retry)
 - `~/.claude/skills/mine.orchestrate/tdd.md`
+
+Use `implementer-prompt.md` for first-pass execution. Use `retry-prompt.md` when re-running the executor after a WARN or FAIL verdict — it contains the receiving-code-review posture and the `## Previous review feedback` template.
 
 Launch a subagent of the type selected in Step 3 with this prompt (fill in bracketed values):
 
@@ -350,7 +352,7 @@ After the spec reviewer completes (regardless of verdict), re-run the project's 
 
 1. **Read the spec reviewer's WARN details** from the spec reviewer temp file
 2. **Update checkpoint**: `spec-helper checkpoint-update <feature_dir_name> --current-wp-status warn_retry --json`
-3. **Re-run the executor (Step 4)** with the `## Previous review feedback` section added to the executor prompt. Provide the **spec reviewer file path** (code reviewer and visual reviewer have not run yet). Also include the **test-gate file path** if the test gate detected regressions (non-PASS result). Instruct the executor: "Fix only the gap identified by the spec reviewer. Read the spec reviewer file at the path below. Do not re-implement passing subtasks — read the existing code before making changes." If the WP has visual scenarios, add: "Re-capture baseline before-screenshots as if starting fresh — do not re-use before-screenshots from the prior attempt."
+3. **Re-run the executor (Step 4)** using `retry-prompt.md` as the base prompt (instead of `implementer-prompt.md`). Populate the `## Previous review feedback` template in `retry-prompt.md` with the **spec reviewer file path** (code reviewer and visual reviewer have not run yet). Also include the **test-gate file path** if the test gate detected regressions (non-PASS result). Instruct the executor: "Fix only the gap identified by the spec reviewer. Read the spec reviewer file at the path below. Do not re-implement passing subtasks — read the existing code before making changes." If the WP has visual scenarios, add: "Re-capture baseline before-screenshots as if starting fresh — do not re-use before-screenshots from the prior attempt."
 4. **Re-capture changed files (Step 4.5)** — the retry executor may have modified different files than the original run. **Union** the retry's changed-files with the original run's changed-files (deduplicated) before writing to `changed-files.txt` — reviewers must see all touched files, not just what the retry modified.
 5. **Re-run the spec reviewer (Step 5)** on the executor's updated output
 6. **Re-run the test gate (Step 5.3)** on the updated code
@@ -578,7 +580,7 @@ spec-helper checkpoint-update <feature_dir_name> --current-wp <WP_ID> --current-
 
 This ensures resume correctly returns to this WP instead of skipping it. Then:
 
-- **Fix and retry**: lane stays `doing`; set `current_wp_status: retry_pending`. Re-run from Step 3 (which includes Step 4 executor + Step 4.5 file capture) with the `## Previous review feedback` section added to the executor prompt. For FAIL retries, provide reviewer file paths based on which steps were reached: spec reviewer always; code reviewer if Step 7 was reached; integration reviewer if Step 8 was reached; visual reviewer if it ran. Pass N/A for any reviewer that didn't reach its step. The executor reads these files directly — do not inline or truncate the reviewer output. Only provide the most recent attempt's reviewer file paths.
+- **Fix and retry**: lane stays `doing`; set `current_wp_status: retry_pending`. Re-run from Step 3 (which includes Step 4 executor + Step 4.5 file capture) using `retry-prompt.md` as the base prompt (instead of `implementer-prompt.md`). Populate the `## Previous review feedback` template in `retry-prompt.md` with reviewer file paths based on which steps were reached: spec reviewer always; code reviewer if Step 7 was reached; integration reviewer if Step 8 was reached; visual reviewer if it ran. Pass N/A for any reviewer that didn't reach its step. The executor reads these files directly — do not inline or truncate the reviewer output. Only provide the most recent attempt's reviewer file paths.
 - **Mark as blocked and skip**: set `current_wp_status: blocked`. Move to `for_review` (signals needs human attention)
   ```bash
   spec-helper wp-move <feature_dir_name> <wp_id> for_review
@@ -726,7 +728,7 @@ AskUserQuestion:
 ```
 
 **On "Address fixes":**
-1. Dispatch a fresh `general-purpose` subagent with: the impl-review findings, the relevant file paths, `<feature_dir>/design.md` content, all WP files from `<feature_dir>/tasks/` (for per-WP constraints and Review Guidance), accumulated spec-reviewer outputs, `implementer-prompt.md` content, and `tdd.md` content. Instruct: "Fix only the listed blocking issues. Do not expand scope beyond these findings. Respect the Review Guidance constraints from each WP."
+1. Dispatch a fresh `general-purpose` subagent with: the impl-review findings, the relevant file paths, `<feature_dir>/design.md` content, all WP files from `<feature_dir>/tasks/` (for per-WP constraints and Review Guidance), accumulated spec-reviewer outputs, `retry-prompt.md` content (use `## Retry instructions` as the section heading — not `## Implementer instructions`), and `tdd.md` content. Populate the `## Previous review feedback` template in `retry-prompt.md` with the impl-review findings file path. Instruct: "Fix only the listed blocking issues. Do not expand scope beyond these findings. Respect the Review Guidance constraints from each WP."
 2. After the subagent completes, re-run the project test suite (using `<dir>/test-command.txt`). If tests fail: surface the failure prominently in the next gate prompt, suppress "Accept and ship", and only offer "Address fixes" (if iterations remain) or "Stop here" with a note identifying the test failures.
 3. Re-run `code-reviewer` and `integration-reviewer` on the fix diff in parallel (both in a single message)
 4. Re-run `/mine.implementation-review <feature_dir>`
@@ -786,7 +788,7 @@ AskUserQuestion:
 ```
 
 **On "Address findings":**
-1. Dispatch a fresh `general-purpose` subagent with: the challenge findings and any impl-review suggestions, the relevant file paths, `<feature_dir>/design.md` content, all WP files from `<feature_dir>/tasks/` (for per-WP constraints and Review Guidance), `implementer-prompt.md` content, and `tdd.md` content. Instruct: "Fix only the listed findings. Do not expand scope beyond these findings. Respect the Review Guidance constraints from each WP."
+1. Dispatch a fresh `general-purpose` subagent with: the challenge findings and any impl-review suggestions, the relevant file paths, `<feature_dir>/design.md` content, all WP files from `<feature_dir>/tasks/` (for per-WP constraints and Review Guidance), `retry-prompt.md` content (use `## Retry instructions` as the section heading — not `## Implementer instructions`), and `tdd.md` content. Populate the `## Previous review feedback` template in `retry-prompt.md` with the challenge findings file path. Instruct: "Fix only the listed findings. Do not expand scope beyond these findings. Respect the Review Guidance constraints from each WP."
 2. After the subagent completes, re-run the project test suite (using `<dir>/test-command.txt`). If tests fail: surface the failure prominently in the next gate prompt, suppress "Accept and ship", and only offer "Address findings" (if iterations remain) or "Stop here" with a note identifying the test failures.
 3. Re-run `code-reviewer` and `integration-reviewer` on the fix diff in parallel (both in a single message)
 4. Re-run the challenge (same dispatch pattern as Step 3)
