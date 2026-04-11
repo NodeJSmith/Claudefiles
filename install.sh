@@ -224,11 +224,3 @@ if [ ${#stale_links[@]} -gt 0 ]; then
 fi
 
 echo "Claudefiles installed to $CLAUDE_DIR"
-
-# Prerequisite checks
-if ! command -v pyright &> /dev/null; then
-  echo "" >&2
-  echo "note: pyright not found — LSP features (go-to-definition, find-references, hover)" >&2
-  echo "      will not work until you install it:" >&2
-  echo "        npm install -g pyright" >&2
-fi
