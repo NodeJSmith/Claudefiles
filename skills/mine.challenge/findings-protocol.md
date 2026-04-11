@@ -1,7 +1,7 @@
 <!-- manifest-protocol-version: 1 -->
 <!-- Increment the protocol version above on any change to verb vocabulary,
-     execution semantics, or manifest format. Consuming skills should check
-     this value to detect protocol drift. -->
+     execution semantics, or manifest format. This is a maintainer changelog
+     marker — not a runtime contract; no skill checks this value at runtime. -->
 
 # Findings
 
