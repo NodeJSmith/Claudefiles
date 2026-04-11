@@ -175,7 +175,7 @@ Present findings ranked by priority, then use AskUserQuestion to get decisions.
 
 Permission friction findings should only appear here when there is a clear batch/multi-call pattern in the archaeology. If the permission prompt has no corresponding workaround pattern, omit it — it belongs in `mine.permissions-audit`, not here.
 
-Then ask which gaps to address and how (skill-specific gate per `rules/common/findings.md` Skill-Specific Overrides — tool gaps have implement/issue/skip paths that don't fit the standard Resolution Manifest flow):
+Then ask which gaps to address and how (skill-specific gate per `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md` Skill-Specific Overrides — tool gaps have implement/issue/skip paths that don't fit the standard Resolution Manifest flow):
 
 ```
 AskUserQuestion:

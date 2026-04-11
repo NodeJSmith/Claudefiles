@@ -8,7 +8,7 @@ user-invocable: true
 
 Adversarial review of any artifact — code, specs, designs, briefs, skill files. Assumes the target is wrong and sets out to prove it. Three generic critics always run; up to two domain-specialist critics are added based on target type. Findings are cross-referenced for confidence, and every claim must cite evidence.
 
-When invoked by caliper workflow skills (mine.specify, mine.design), those callers handle revision planning after challenge completes. When invoked standalone, challenge resolves findings via `rules/common/findings.md`.
+When invoked by caliper workflow skills (mine.specify, mine.design), those callers handle revision planning after challenge completes. When invoked standalone, challenge resolves findings via `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`.
 
 ## How This Differs From Other Skills
 
@@ -525,11 +525,11 @@ Read `# mode:` from `<tmpdir>/manifest.md` to determine the wrap-up behavior. Do
 
 1. **Summary** — one paragraph: total finding count, breakdown by severity, the single most important takeaway across all findings.
 
-2. **Resolve findings** — follow the Resolution Manifest flow defined in `rules/common/findings.md`. Generate the manifest from findings.md, present the Consent Gate, invoke `edit-manifest <tmpdir>/resolutions.md`, run the detection logic, present the Commit Gate, and execute. The rule file provides format, verb vocabulary, execution semantics, and detection logic — mine.challenge delegates those mechanics. The async/compaction rules below are mine.challenge-specific.
+2. **Resolve findings** — Read `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md` and follow the Resolution Manifest flow defined there. Generate the manifest from findings.md, present the Consent Gate, invoke `edit-manifest <tmpdir>/resolutions.md`, run the detection logic, present the Commit Gate, and execute. The protocol file provides format, verb vocabulary, execution semantics, and detection logic — mine.challenge delegates those mechanics. The async/compaction rules below are mine.challenge-specific.
 
 ### Async Completion
 
-Async mechanics are mine.challenge-specific (task-notification handling, 600s timeout); all other detection mechanics are in `rules/common/findings.md`.
+Async mechanics are mine.challenge-specific (task-notification handling, 600s timeout); all other detection mechanics are in `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`.
 
 1. **Set `timeout: 600000`** on the edit-manifest Bash call as a defense-in-depth safety belt, even though auto-backgrounding usually fires first.
 2. **Acknowledge async completion**: Phase 4 prose says "when the editor session completes" rather than "when the bash call returns" — this signals the completion may arrive via task-notification, not synchronous return.
@@ -546,7 +546,7 @@ Async mechanics are mine.challenge-specific (task-notification handling, 600s ti
 6. **Not a style guide** — naming, formatting, and style nits are not design critiques. Skip them.
 7. **Recommend, don't just present** — for User-directed findings, state which option you'd pick and why. The user overrides if they disagree. Exception: TENSION findings get a deciding factor instead, because honest uncertainty is more useful than a fabricated preference.
 8. **Err toward user input** — when resolution classification is ambiguous, default to User-directed. The cost of asking is low; the cost of a wrong auto-apply is high.
-9. **Findings then fixes** — this skill produces findings. When invoked by structured callers, the caller handles resolution. When invoked standalone, challenge resolves findings via `rules/common/findings.md`.
+9. **Findings then fixes** — this skill produces findings. When invoked by structured callers, the caller handles resolution. When invoked standalone, challenge resolves findings via `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`.
 
 ## Common Rationalizations
 

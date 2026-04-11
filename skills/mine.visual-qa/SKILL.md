@@ -281,7 +281,7 @@ If the combined findings total fewer than 3 issues, say so plainly: "The UI is i
 
 ### After presenting findings
 
-This skill uses a skill-specific gate (per `rules/common/findings.md` Skill-Specific Overrides) because resolution paths include non-fix actions.
+This skill uses a skill-specific gate (per `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md` Skill-Specific Overrides) because resolution paths include non-fix actions.
 
 ```
 AskUserQuestion:
@@ -298,11 +298,11 @@ AskUserQuestion:
       description: "File findings as tracked issues for later"
 ```
 
-When offering to read agent reports, list the temp file paths. If "Fix issues now" is selected, follow the legacy resolve flow in `rules/common/findings.md`'s Skill-Specific Overrides section. (A follow-up design will migrate visual-qa to the Resolution Manifest flow; that work is explicit scope for the next design iteration and is NOT in scope here.)
+When offering to read agent reports, list the temp file paths. If "Fix issues now" is selected, follow the legacy resolve flow in `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`'s Skill-Specific Overrides section. (A follow-up design will migrate visual-qa to the Resolution Manifest flow; that work is explicit scope for the next design iteration and is NOT in scope here.)
 
 ## Handoffs
 
-**Fix issues** → follow the legacy Skill-Specific Override path in `rules/common/findings.md` (Resolution Manifest migration deferred to follow-up design)
+**Fix issues** → follow the legacy Skill-Specific Override path in `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md` (Resolution Manifest migration deferred to follow-up design)
 
 **Different viewport** → re-run this skill with `--mobile` and/or `--dark`
 
