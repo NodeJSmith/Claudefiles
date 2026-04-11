@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-04-11
+
+### Removed
+- Pyright prerequisite check from `install.sh` — LSP plugin is disabled and the warning caused confusion (#211)
+
 ## 2026-04-10
 
 ### Changed
