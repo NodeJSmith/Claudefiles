@@ -32,7 +32,7 @@ When invoked:
    ```
    Fall back in order: `@{upstream}...HEAD` → default branch diff → `HEAD~1`
    - `.py` files → apply code review sections + run static analysis
-   - `.md` files → apply any repo-specific markdown checks from project CLAUDE.md if present
+   - `.md` files in `skills/`, `commands/`, `agents/`, or `rules/` → apply Skill & Markdown File Checks below
 2. Run static analysis for Python files if available
 3. Begin review
 
@@ -131,3 +131,51 @@ End with an **Assessment**:
 - **APPROVE**: No CRITICAL or HIGH issues
 - **WARN**: MEDIUM issues only — can proceed with caution
 - **BLOCK**: Any CRITICAL or HIGH issue found
+
+## Skill & Markdown File Checks
+
+Apply when `.md` files in `skills/`, `commands/`, `agents/`, or `rules/` appear in the diff. Use Read and Grep — no static analysis tools apply here.
+
+### Bash Code Block Safety (CRITICAL)
+
+Bash examples in skill files execute via the Bash tool, which wraps in `eval '...' < /dev/null`. These patterns silently fail or error:
+
+- `$(...)` command substitution
+- Backtick substitution `` `cmd` ``
+- Variable assignments used across tool calls
+
+Check every fenced bash block in changed `.md` files. Flag any `$(` occurrence:
+
+```text
+[CRITICAL] $() substitution in bash code block
+File: skills/mine.foo/SKILL.md:42
+Issue: `--body "$(cat <<'EOF'...)"` will silently fail when Claude executes it
+Fix: write body to <dir>/body.md via get-skill-tmpdir, then use --body-file
+```
+
+Correct alternatives: sequential calls, `xargs -I {}`, `--body-file <dir>/message.md`.
+
+### Frontmatter Completeness (HIGH)
+
+For `SKILL.md` files: `name`, `description`, and `user-invocable` must all be present. `name` must match the directory: `skills/mine.foo/SKILL.md` → `name: mine.foo`.
+
+### Skill Scope: Diagnose, Don't Implement (HIGH)
+
+Diagnostic/analytical skills (audit, research, gap analysis, review, triage) must not implement inline. Flag any skill that writes code or files directly as its primary output, skips AskUserQuestion and proceeds straight to implementation, or has a phase that says "implement X" rather than "hand off to plan mode".
+
+### AskUserQuestion Usage (MEDIUM)
+
+- Must be used for decisions, not just presenting information
+- Options must be mutually exclusive unless `multiSelect: true`
+- Maximum 4 options per question
+- `header` field ≤12 characters
+
+### Cross-Reference Integrity (MEDIUM)
+
+Any `/mine.X` reference in a changed skill must correspond to a real skill directory (`skills/mine.<name>/` must exist).
+
+### Supporting File Sync (HIGH)
+
+When a skill directory is added or removed:
+- New skill row present and alphabetically inserted in the Skills table in `README.md`
+- `rules/common/capabilities.md` intent routing table has an entry
