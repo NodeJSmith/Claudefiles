@@ -1,5 +1,5 @@
 """
-memory_lib — shared utilities for the claude-memory plugin.
+claude_memory — conversation memory package for Claude Code.
 
 Submodules:
   db         — Database connection, schema, settings, logging

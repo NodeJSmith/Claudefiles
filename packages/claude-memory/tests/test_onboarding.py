@@ -1,4 +1,4 @@
-"""Tests for plugins/claude-memory/hooks/onboarding.py.
+"""Tests for claude_memory.hooks.onboarding.
 
 onboarding.py is a SessionStart hook: it must either inject onboarding
 instructions (first-run / version upgrade) or exit silently (already
