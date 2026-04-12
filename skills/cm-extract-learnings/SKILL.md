@@ -2,9 +2,8 @@
 name: cm-extract-learnings
 user-invocable: true
 description: >
-  Persist learnings to memory or maintain existing memories. Triggers on
-  "extract learnings", "save this for next time", "remember this pattern",
-  "consolidate memories", "dream", "clean up memories".
+  Use when the user says: "extract learnings", "save this for next time",
+  "remember this pattern", "consolidate memories", "dream", "clean up memories".
 ---
 
 ## Value Context
@@ -41,7 +40,7 @@ If the user said "remember X" with explicit content already in context — and t
 
 1. Resolve memory path using Bash (Glob does not expand `~`):
    `Bash: find $HOME/.claude/projects -name MEMORY.md -path "*<repo-dir-name>*" 2>/dev/null | head -1`
-   The result is the full path to MEMORY.md (a file). The memory directory is its parent: `$(dirname <find-result>)`.
+   The result is the full path to MEMORY.md (a file). Run a second Bash call — `dirname <find-result>` — to print the memory directory path. Use that printed path in subsequent steps.
    If no result, construct the project key by replacing `/` with `-` in the current working directory path (e.g., `/home/user/myrepo` → `-home-user-myrepo`), then use `$HOME/.claude/projects/<project-key>/memory/MEMORY.md`.
    - If MEMORY.md does not exist, create it with `# Project Memory` header. Note that the Memory Auditor has nothing to audit — in Phase 2, spawn only the Signal Discoverer.
 

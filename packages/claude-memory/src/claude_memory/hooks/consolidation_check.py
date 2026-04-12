@@ -179,14 +179,14 @@ def main():
         nudge = (
             f"Memory consolidation recommended — {session_count} sessions found "
             f"and consolidation has never been run for this project. "
-            f"Suggest running /extract-learnings in consolidation mode to review "
+            f"Suggest running /cm-extract-learnings in consolidation mode to review "
             f"and organize accumulated knowledge."
         )
     else:
         nudge = (
             f"Memory consolidation recommended — {session_count} sessions over "
             f"{days_str} since last consolidation. Suggest running "
-            f"/extract-learnings in consolidation mode to detect stale memories, "
+            f"/cm-extract-learnings in consolidation mode to detect stale memories, "
             f"capture uncaptured learnings, and prune the memory index."
         )
 

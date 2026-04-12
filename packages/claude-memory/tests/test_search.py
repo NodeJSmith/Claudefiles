@@ -224,12 +224,14 @@ class TestSearchSessionsLIKE:
         assert "sess-beta-1" in uuids
 
     def test_like_multiple_terms_and_logic(self, search_db):
-        # LIKE fallback uses AND between terms
+        # LIKE fallback uses AND between terms — only sess-alpha-1 contains both
         results = search_sessions(
             search_db, "pytest fixtures", fts_level=None, max_results=10
         )
-        assert len(results) >= 1
-        assert all("pytest" in r["uuid"] or True for r in results)
+        uuids = {r["uuid"] for r in results}
+        assert "sess-alpha-1" in uuids  # has both "pytest" and "fixtures"
+        assert "sess-alpha-2" not in uuids  # has neither
+        assert "sess-beta-1" not in uuids  # has "pytest" but not "fixtures"
 
     def test_like_project_filter(self, search_db):
         results = search_sessions(

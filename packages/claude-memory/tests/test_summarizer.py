@@ -219,7 +219,7 @@ class TestRenderContextSummary:
         assert "### Conversation" in result
         assert "### First Exchanges" not in result
         assert "### Where We Left Off" not in result
-        assert "/recall-conversations" in result
+        assert "/cm-recall-conversations" in result
 
     def test_long_session_has_first_and_last(self):
         summary = {
@@ -268,7 +268,7 @@ class TestRenderContextSummary:
         assert "feat/x" in result
         assert "Modified:" in result
         assert "Tools:" in result
-        assert "/recall-conversations" in result
+        assert "/cm-recall-conversations" in result
 
     def test_mid_truncation_in_render(self):
         long_response = "Start " + "x" * 1000 + " End"
@@ -406,7 +406,7 @@ class TestComputeContextSummary:
         assert md
         assert json_str
         assert "### Session:" in md
-        assert "/recall-conversations" in md
+        assert "/cm-recall-conversations" in md
 
         parsed = json.loads(json_str)
         assert parsed["version"] == 2

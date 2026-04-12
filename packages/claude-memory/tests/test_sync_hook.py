@@ -108,7 +108,7 @@ class TestSyncSessionCreatesBranches:
             assert summary, "Active branch should have context_summary"
             assert version == 2, "summary_version should be 2 after sync"
             assert "### Session:" in summary
-            assert "/recall-conversations" in summary
+            assert "/cm-recall-conversations" in summary
 
 
 class TestSyncSessionUpdatesExisting:

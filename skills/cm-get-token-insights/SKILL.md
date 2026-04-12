@@ -1,7 +1,10 @@
 ---
 name: cm-get-token-insights
 user-invocable: true
-description: To analyze Claude token usage, see how you are spending on Claude, understand cache hit rates, review Claude Code workflow patterns, or get cost optimization recommendations.
+description: >
+  Use when the user asks about Claude token usage, wants to see how much they are
+  spending on Claude, understand cache hit rates, review Claude Code workflow
+  patterns, or get cost optimization recommendations.
 ---
 
 # Get Token Insights

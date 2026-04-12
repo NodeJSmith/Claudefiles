@@ -22,8 +22,8 @@ injection, consolidation reminders) are paused until setup completes.
 Address the user's message first — complete their task normally. At the end \
 of your response, append a one-time notice in natural prose (not AskUserQuestion) \
 mentioning that claude-memory is installed and offering setup. Mention three \
-capabilities briefly: session context recall, /recall-conversations for searching \
-past work, and /extract-learnings reminders. Offer two choices: (1) walk through \
+capabilities briefly: session context recall, /cm-recall-conversations for searching \
+past work, and /cm-extract-learnings reminders. Offer two choices: (1) walk through \
 settings, or (2) enable recommended defaults. Note they can change settings later \
 in ~/.claude-memory/config.json.
 

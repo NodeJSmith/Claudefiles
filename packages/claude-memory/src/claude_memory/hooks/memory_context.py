@@ -185,7 +185,12 @@ def _find_cleared_from_session_uuid(db_path: Path, cwd: str) -> str | None:
                     pass
                 return None
         except Exception:
-            pass
+            # Unparseable timestamp — treat as invalid; delete and reject
+            try:
+                handoff_path.unlink()
+            except OSError:
+                pass
+            return None
 
     # Consume the file only after validation passes
     try:
@@ -402,7 +407,7 @@ def _build_fallback_context(session: dict) -> str:
         footer_parts.append(f"({', '.join(short_files)})")
     footer = " ".join(footer_parts)
     lines.append(
-        f"[{footer} — proactively use /recall-conversations "
+        f"[{footer} — proactively use /cm-recall-conversations "
         "to retrieve relevant context from past conversations when the user references "
         "prior work, asks about decisions made earlier, or when you sense useful context "
         "from previous sessions would improve your response.]"

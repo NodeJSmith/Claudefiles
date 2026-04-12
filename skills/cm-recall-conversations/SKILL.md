@@ -2,12 +2,12 @@
 name: cm-recall-conversations
 user-invocable: true
 description: >
-  This skill should be used when the user asks to recall, search, or continue
-  past conversations. Triggers on "what did we discuss", "continue where we
-  left off", "remember when", "as I mentioned", "you suggested", "we decided",
-  "search my conversations", "find the conversation where", "what did we work on".
-  Also triggers on implicit signals like past-tense references ("the bug we fixed"),
-  possessives without context ("my project"), or assumptive questions ("do you remember").
+  Use when the user asks to recall, search, or continue past conversations.
+  Triggers on "what did we discuss", "continue where we left off", "remember when",
+  "as I mentioned", "you suggested", "we decided", "search my conversations",
+  "find the conversation where", "what did we work on". Also triggers on implicit
+  signals like past-tense references ("the bug we fixed"), possessives without
+  context ("my project"), or assumptive questions ("do you remember").
 ---
 
 ## Value Context
@@ -53,8 +53,8 @@ cm-search-conversations --query "keyword"
    Load `references/lenses.md` for per-lens parameters, core questions, and supplementary search patterns.
 
 2. **Gather context** using lens-appropriate tools:
-   - For recent context: `recent_chats.py --n N`
-   - For keyword search: `search_conversations.py --query "keywords"`
+   - For recent context: `cm-recent-chats --n N`
+   - For keyword search: `cm-search-conversations --query "keywords"`
 
 3. **Apply lens questions** to analyze the retrieved conversations.
 

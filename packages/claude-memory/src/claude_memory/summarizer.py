@@ -342,7 +342,7 @@ def render_context_summary(summary_json: dict) -> str:
         footer_parts.append(f"({', '.join(short_files)})")
     footer = " ".join(footer_parts)
     lines.append(
-        f"[{footer} — proactively use /recall-conversations "
+        f"[{footer} — proactively use /cm-recall-conversations "
         "to retrieve relevant context from past conversations when the user references "
         "prior work, asks about decisions made earlier, or when you sense useful context "
         "from previous sessions would improve your response.]"
