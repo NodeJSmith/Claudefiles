@@ -12,14 +12,22 @@ def sanitize_fts_term(term: str) -> str:
 
     Strips characters that are FTS operators or special syntax:
     quotes, parentheses, asterisks, and FTS keywords.
-    Keeps alphanumeric, spaces, and basic punctuation.
+    Hyphens are replaced with spaces so hyphenated identifiers
+    (e.g. 'pytest-mock') match their FTS tokens correctly — the
+    unicode61 tokenizer splits on hyphens, so 'pytest-mock' indexes
+    as two tokens ('pytest', 'mock'). Stripping hyphens entirely
+    would produce 'pytestmock', which matches nothing.
+    Leading hyphens (FTS NOT shorthand) become harmless whitespace.
     """
-    # Remove quotes, parentheses, asterisks, and word boundaries
-    sanitized = re.sub(r'["\(\)*\-^]', "", term)
+    # Replace hyphens with spaces (handles both identifier separators
+    # and leading NOT-operator hyphens)
+    sanitized = term.replace("-", " ")
+    # Remove remaining FTS operators: quotes, parens, asterisk, caret
+    sanitized = re.sub(r'["\(\)*^]', "", sanitized)
     # Remove FTS keywords: NEAR, AND, OR, NOT (case-insensitive)
     sanitized = re.sub(r"\b(NEAR|AND|OR|NOT)\b", "", sanitized, flags=re.IGNORECASE)
-    # Strip whitespace
-    sanitized = sanitized.strip()
+    # Collapse whitespace and strip
+    sanitized = re.sub(r"\s+", " ", sanitized).strip()
     return sanitized
 
 

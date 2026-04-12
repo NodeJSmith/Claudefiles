@@ -65,9 +65,16 @@ class TestSanitizeFtsTerm:
         assert "*" not in result
 
     def test_removes_dash_operator(self):
-        # FTS5 uses -term as NOT shorthand
+        # FTS5 uses -term as NOT shorthand; leading hyphen becomes whitespace
         assert sanitize_fts_term("-excluded") == "excluded"
         assert sanitize_fts_term("hello -world") == "hello world"
+
+    def test_hyphenated_identifiers_split_to_tokens(self):
+        # Internal hyphens are replaced with spaces so 'pytest-mock' searches
+        # as 'pytest mock' — matching the unicode61 FTS tokenization
+        assert sanitize_fts_term("pytest-mock") == "pytest mock"
+        assert sanitize_fts_term("pre-commit") == "pre commit"
+        assert sanitize_fts_term("my-package-name") == "my package name"
 
     def test_removes_caret_operator(self):
         # FTS5 uses ^term for initial token match

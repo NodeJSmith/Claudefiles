@@ -1,7 +1,7 @@
 ---
 description: Manage conversation memory database
 allowed-tools: [Bash, Read]
-argument-hint: "<subcommand: sync|search|stats|import>"
+argument-hint: "<subcommand: search|stats|import>"
 ---
 
 # Memory Management Command
@@ -12,25 +12,15 @@ You are handling the `/cm-manage-memory` command for managing the conversation m
 
 | Subcommand | Description |
 |------------|-------------|
-| `sync` | Force sync current session to database |
 | `search <query>` | Quick FTS search, return snippets |
 | `stats` | Show DB size, project/session/message counts |
 | `import` | Re-import all conversations from ~/.claude/projects |
 
+Session syncing is handled automatically by the Stop hook (`cm-memory-sync`) — no manual sync subcommand is needed or possible, since the session ID is only available to hook machinery, not Bash tool calls.
+
 ## Implementation
 
 Based on the user's subcommand, execute the appropriate action:
-
-### sync
-
-Force sync the current session to the database immediately:
-
-```bash
-# Get session ID from environment and sync
-cm-sync-current <<< '{"session_id": "'"$CLAUDE_SESSION_ID"'"}'
-```
-
-Then report the result to the user.
 
 ### search <query>
 
