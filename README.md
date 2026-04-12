@@ -38,6 +38,9 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 
 | Skill | Description |
 |-------|-------------|
+| `cm-extract-learnings` | Persist insights from the current session to the MEMORY.md system — corrections, architectural decisions, behavioral preferences |
+| `cm-get-token-insights` | Analyze Claude token usage — cost breakdown, cache hit rates, model mix, workflow patterns, interactive dashboard |
+| `cm-recall-conversations` | Recall or search past conversation sessions — "what did we discuss", "continue where we left off", keyword search |
 | `mine.address-pr-issues` | Triage and resolve PR blockers — review comments, merge conflicts, and failing CI |
 | `mine.brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas ranked by user-chosen criteria, with handoff to research or planning |
 | `mine.build` | Single entry point — routes between direct implementation and the full caliper v2 workflow (specify → design → draft-plan → plan-review → orchestrate → ship) |
@@ -91,6 +94,7 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 
 | Command | Description |
 |---------|-------------|
+| `cm-manage-memory` | Memory database management — sync current session, search conversations, show stats, re-import all |
 | `mine.issues` | Deep-dive issues by key, or scan and pick |
 | `mine.issues-scan` | Scan open issues, classify by effort, pick one to deep-dive |
 | `mine.permissions-audit` | Analyze frequent permission prompts and recommend allow-list entries |
@@ -99,6 +103,13 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `mine.status` | Quick orientation -- branch, tasks, errors, last commit |
 
 ### Agents
+
+**Claude Memory**
+
+| Agent | Description |
+|-------|-------------|
+| `cm-memory-auditor` | Audit existing memory entries — detect stale, vague, or conflicting entries before consolidation |
+| `cm-signal-discoverer` | Mine recent sessions for uncaptured knowledge — corrections, architectural decisions, recurring patterns |
 
 **Core Development**
 
@@ -147,6 +158,12 @@ Event-driven scripts that run before/after tool calls.
 |------|-------|-------------|
 | `tmux-remind.sh` | SessionStart | Reminds Claude to rename the tmux session |
 | `sudo-poll.sh` | PreToolUse (Bash) | Deny-then-poll for sudo — detects cached credentials or waits 30s for user to `sudo -v` in another pane |
+| `cm-memory-setup` (package) | SessionStart | Initialize memory DB, trigger background import if needed |
+| `cm-onboarding` (package) | SessionStart (startup) | Inject MEMORY.md context and greet the user with persistent memory |
+| `cm-memory-context` (package) | SessionStart (startup\|clear) | Load memory context into the session |
+| `cm-consolidation-check` (package) | SessionStart (startup\|clear) | Check if memory consolidation is needed |
+| `cm-clear-handoff` (package) | SessionEnd (clear) | Write a handoff note before `/clear` |
+| `cm-memory-sync` (package) | Stop | Sync current session to the conversation database |
 
 ### Helper Scripts (23 + 1 library)
 
@@ -183,6 +200,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
 | Name | Description |
 |------|-------------|
+| `claude-memory` | Conversation memory system — session DB, hooks, `cm-*` CLI entry points. Install: `uv tool install -e packages/claude-memory` |
 | `spec-helper` | Work Package and spec directory management — `wp-*`, `checkpoint-*`, `status`, `next-number`, `init`, `archive`. Install: `uv tool install -e packages/spec-helper` |
 
 ## Requirements

@@ -3,6 +3,9 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .venv/
+*.egg-info/
+.hypothesis/
+CLAUDE.bak
 .claude-plan
 node_modules/
 

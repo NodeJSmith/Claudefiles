@@ -1,0 +1,1537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Claude Code — Token Insights</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg:        #08080e;
+      --bg2:       #0f1018;
+      --bg3:       #141520;
+      --grid:      rgba(255,255,255,0.04);
+      --border:    rgba(255,255,255,0.07);
+      --text:      #8a8f9e;
+      --text-dim:  #4a4e5c;
+      --text-head: #c8cdd8;
+
+      --cyan:   #00e5ff;
+      --green:  #39ff85;
+      --purple: #b44dff;
+      --amber:  #ffab2e;
+      --red:    #ff4d6a;
+      --orange: #ff6b35;
+      --yellow: #ffe14d;
+      --blue:   #4d9fff;
+
+      --glow-cyan:   0 0 20px rgba(0,229,255,0.15), 0 0 4px rgba(0,229,255,0.3);
+      --glow-green:  0 0 20px rgba(57,255,133,0.12);
+      --glow-purple: 0 0 20px rgba(180,77,255,0.12);
+      --glow-amber:  0 0 20px rgba(255,171,46,0.12);
+      --glow-red:    0 0 20px rgba(255,77,106,0.12);
+      --glow-blue:   0 0 20px rgba(77,159,255,0.12);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 14px; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Subtle scanline overlay */
+    body::after {
+      content: ''; position: fixed; inset: 0; z-index: 9998; pointer-events: none;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    }
+
+    /* ── LOAD ERROR ────────────────────────────────────── */
+    #load-error {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      background: rgba(8,8,14,0.95);
+      align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+    }
+    .error-box {
+      border: 1px solid rgba(255,171,46,0.3); border-radius: 8px;
+      background: rgba(255,171,46,0.04); padding: 32px 40px;
+      text-align: center; box-shadow: var(--glow-amber); max-width: 500px;
+    }
+    .error-title { font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 600; color: var(--amber); margin-bottom: 12px; }
+    .error-msg { font-size: 0.85rem; color: var(--text); line-height: 1.7; }
+    .error-msg code { color: var(--cyan); background: rgba(0,229,255,0.08); padding: 2px 8px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; }
+
+    /* ── TICKER ─────────────────────────────────────────── */
+    .ticker-wrap {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 999; height: 28px;
+      background: linear-gradient(90deg, var(--bg) 0%, rgba(0,229,255,0.03) 50%, var(--bg) 100%);
+      border-bottom: 1px solid rgba(0,229,255,0.12);
+      overflow: hidden; display: flex; align-items: center;
+    }
+    .ticker-track { display: flex; white-space: nowrap; gap: 0; animation: tickerScroll 40s linear infinite; }
+    .ticker-item { font-size: 0.64rem; font-weight: 500; letter-spacing: 0.08em; color: rgba(0,229,255,0.5); padding: 0 1.4rem; text-transform: uppercase; }
+    .ticker-sep { color: rgba(0,229,255,0.15); font-size: 0.64rem; padding: 0 0.3rem; }
+    @keyframes tickerScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+    /* ── PAGE ───────────────────────────────────────────── */
+    .page { padding: 52px 32px 48px; max-width: 1400px; margin: 0 auto; }
+
+    /* ── HEADER ─────────────────────────────────────────── */
+    .page-header { padding: 28px 0 24px; border-bottom: 1px solid var(--border); margin-bottom: 32px; }
+    .page-header .label { font-size: 0.64rem; letter-spacing: 0.12em; color: var(--text-dim); margin-bottom: 6px; font-weight: 500; text-transform: uppercase; }
+    .page-header h1 { font-family: 'Outfit', sans-serif; font-size: clamp(1.6rem, 3vw, 2.4rem); font-weight: 700; color: var(--text-head); letter-spacing: -0.02em; line-height: 1.15; }
+    .page-header h1 span.accent { color: var(--cyan); text-shadow: 0 0 20px rgba(0,229,255,0.3); }
+    .page-header .subtitle { margin-top: 8px; font-size: 0.76rem; color: var(--text-dim); letter-spacing: 0.02em; }
+
+    /* ── STAT CARDS ─────────────────────────────────────── */
+    .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+    @media (max-width: 900px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
+    .stat-card {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 20px 16px; position: relative; overflow: hidden;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease; cursor: default;
+    }
+    .stat-card::before { display: none; }
+    .stat-card.cyan:hover   { border-color: rgba(0,229,255,0.25); box-shadow: var(--glow-cyan); }
+    .stat-card.green:hover  { border-color: rgba(57,255,133,0.25); box-shadow: var(--glow-green); }
+    .stat-card.purple:hover { border-color: rgba(180,77,255,0.25); box-shadow: var(--glow-purple); }
+    .stat-card.amber:hover  { border-color: rgba(255,171,46,0.25); box-shadow: var(--glow-amber); }
+    .stat-card.red:hover    { border-color: rgba(255,77,106,0.25); box-shadow: var(--glow-red); }
+    .stat-card.blue:hover   { border-color: rgba(77,159,255,0.25); box-shadow: var(--glow-blue); }
+    .stat-label { font-size: 0.62rem; letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 8px; font-weight: 500; text-transform: uppercase; }
+    .stat-value { font-family: 'Outfit', sans-serif; font-size: 1.8rem; font-weight: 700; line-height: 1; }
+    .stat-sub { font-size: 0.64rem; color: var(--text-dim); margin-top: 8px; letter-spacing: 0.02em; }
+    .stat-card.cyan .stat-value   { color: var(--cyan); }
+    .stat-card.green .stat-value  { color: var(--green); }
+    .stat-card.purple .stat-value { color: var(--purple); }
+    .stat-card.amber .stat-value  { color: var(--amber); }
+    .stat-card.red .stat-value    { color: var(--red); }
+    .stat-card.blue .stat-value   { color: var(--blue); }
+
+    /* ── SECTION HEADERS ───────────────────────────────── */
+    .section-header {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.82rem; font-weight: 600; letter-spacing: 0.04em;
+      color: var(--text-head); border-bottom: 1px solid var(--border);
+      padding: 0 0 10px; margin: 40px 0 20px; cursor: pointer;
+      display: flex; justify-content: space-between; align-items: center;
+      text-transform: uppercase;
+    }
+    .section-header:hover { color: var(--cyan); }
+    .section-header .toggle { font-size: 0.8rem; transition: transform 0.25s ease; color: var(--text-dim); }
+    .section-header.collapsed .toggle { transform: rotate(-90deg); }
+    .section-body { max-height: 99999px; overflow: hidden; transition: max-height 0.3s ease; }
+    .section-body.collapsed { max-height: 0 !important; }
+
+    /* ── CHART PANELS ──────────────────────────────────── */
+    .chart-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .chart-grid-1 { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 12px; }
+    @media (max-width: 900px) { .chart-grid-2 { grid-template-columns: 1fr; } }
+    .chart-panel {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 20px 14px;
+    }
+    .chart-title { font-family: 'Outfit', sans-serif; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.03em; color: var(--text-head); margin-bottom: 4px; }
+    .chart-desc { font-size: 0.66rem; color: var(--text-dim); letter-spacing: 0.02em; margin-bottom: 14px; }
+    .chart-wrap { position: relative; }
+    .legend-row { display: flex; gap: 16px; margin-bottom: 10px; flex-wrap: wrap; }
+    .legend-chip { font-size: 0.66rem; color: var(--text-dim); display: flex; align-items: center; gap: 5px; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+    /* ── FINDINGS / RECOMMENDATIONS ────────────────────── */
+    .findings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    @media (max-width: 900px) { .findings-grid { grid-template-columns: 1fr; } }
+    .finding-card {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 20px; position: relative;
+    }
+    .finding-card::before { display: none; }
+    .finding-card.critical { border-left: 2px solid rgba(255,77,106,0.4); }
+    .finding-card.warning  { border-left: 2px solid rgba(255,171,46,0.4); }
+    .finding-card.info     { border-left: 2px solid rgba(77,159,255,0.4); }
+    .finding-severity { font-family: 'Outfit', sans-serif; font-size: 0.62rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
+    .finding-card.critical .finding-severity { color: var(--red); }
+    .finding-card.warning .finding-severity  { color: var(--amber); }
+    .finding-card.info .finding-severity     { color: var(--blue); }
+    .finding-title { font-family: 'Outfit', sans-serif; font-size: 0.82rem; font-weight: 600; color: var(--text-head); margin-bottom: 6px; }
+    .finding-text { font-size: 0.72rem; color: var(--text); line-height: 1.7; }
+
+    .rec-card {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+      padding: 16px 20px; margin-bottom: 10px; display: flex; align-items: flex-start; gap: 12px;
+    }
+    .rec-priority {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.62rem; font-weight: 600; letter-spacing: 0.06em;
+      padding: 3px 10px; border-radius: 4px; white-space: nowrap; flex-shrink: 0;
+    }
+    .rec-priority.p0 { background: rgba(255,77,106,0.1); color: var(--red); border: 1px solid rgba(255,77,106,0.2); }
+    .rec-priority.p1 { background: rgba(255,171,46,0.08); color: var(--amber); border: 1px solid rgba(255,171,46,0.18); }
+    .rec-priority.p2 { background: rgba(0,229,255,0.06); color: var(--cyan); border: 1px solid rgba(0,229,255,0.15); }
+    .rec-text { font-size: 0.72rem; color: var(--text); line-height: 1.7; }
+
+    .no-data { font-size: 0.72rem; color: var(--text-dim); text-align: center; padding: 40px 0; }
+
+    /* ── TREND BADGES ──────────────────────────────────── */
+    .trend-badge {
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 0.62rem; font-weight: 600; letter-spacing: 0.03em;
+      padding: 2px 8px; border-radius: 4px; margin-left: 6px;
+      vertical-align: middle;
+    }
+    .trend-badge.improved { background: rgba(57,255,133,0.08); color: var(--green); }
+    .trend-badge.regressed { background: rgba(255,77,106,0.08); color: var(--red); }
+    .trend-badge.neutral { background: rgba(255,255,255,0.04); color: var(--text-dim); }
+    .trend-badge .arrow { font-size: 0.68rem; }
+
+    /* ── TRENDS SECTION ────────────────────────────────── */
+    .trends-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    @media (max-width: 900px) { .trends-grid { grid-template-columns: 1fr; } }
+    .trend-card {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 20px;
+    }
+    .trend-card-title { font-family: 'Outfit', sans-serif; font-size: 0.78rem; font-weight: 600; color: var(--text-head); margin-bottom: 12px; }
+    .trend-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 0; border-bottom: 1px solid var(--grid);
+    }
+    .trend-row:last-child { border-bottom: none; }
+    .trend-label { font-size: 0.72rem; color: var(--text); }
+    .trend-values { display: flex; align-items: center; gap: 10px; font-size: 0.72rem; }
+    .trend-prior { color: var(--text-dim); }
+    .trend-current { font-weight: 600; color: var(--text-head); }
+    .trend-list { list-style: none; padding: 0; }
+    .trend-list li {
+      font-size: 0.72rem; color: var(--text); padding: 4px 0;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .trend-list li .dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+    .trend-list li .dot.green { background: var(--green); box-shadow: 0 0 6px rgba(57,255,133,0.4); }
+    .trend-list li .dot.red { background: var(--red); box-shadow: 0 0 6px rgba(255,77,106,0.4); }
+    .trend-list li .dot.blue { background: var(--blue); box-shadow: 0 0 6px rgba(77,159,255,0.4); }
+    .trend-list li .dot.dim { background: var(--text-dim); }
+
+    /* Context Segmentation summary */
+    .ctx-seg-summary {
+      display: flex; gap: 24px; padding: 12px 0 8px; flex-wrap: wrap;
+    }
+    .ctx-seg-stat {
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .ctx-seg-stat .seg-label {
+      font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .ctx-seg-stat .seg-value {
+      font-family: 'Outfit', sans-serif; font-size: 1.3rem; font-weight: 700;
+    }
+    .ctx-seg-stat .seg-value.cyan { color: var(--cyan); }
+    .ctx-seg-stat .seg-value.amber { color: var(--amber); }
+    .ctx-seg-stat .seg-value.purple { color: var(--purple); }
+    .ctx-seg-stat .seg-sub {
+      font-size: 0.65rem; color: var(--text-dim);
+    }
+  </style>
+</head>
+<body>
+
+<!-- Load Error -->
+<div id="load-error">
+  <div class="error-box">
+    <div class="error-title">Data not loaded</div>
+    <div class="error-msg">Run <code>/get-token-insights</code> to generate the dashboard.</div>
+  </div>
+</div>
+
+<!-- Ticker -->
+<div class="ticker-wrap">
+  <div class="ticker-track" id="ticker-track"></div>
+</div>
+
+<!-- Page -->
+<div class="page">
+
+  <header class="page-header">
+    <div class="label" id="header-label">Token Insights</div>
+    <h1>Claude Code <span class="accent">&mdash;</span> Token Insights</h1>
+    <div class="subtitle" id="header-subtitle">loading...</div>
+  </header>
+
+  <!-- KPI Cards Row 1 -->
+  <div class="stat-grid">
+    <div class="stat-card cyan">
+      <div class="stat-label">Total Sessions</div>
+      <div class="stat-value" id="kpi-sessions">--</div>
+      <div class="stat-sub" id="kpi-sessions-sub"></div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label">Total Turns</div>
+      <div class="stat-value" id="kpi-turns">--</div>
+      <div class="stat-sub" id="kpi-turns-sub"></div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-label">Output Tokens</div>
+      <div class="stat-value" id="kpi-output">--</div>
+      <div class="stat-sub" id="kpi-output-sub"></div>
+    </div>
+    <div class="stat-card blue">
+      <div class="stat-label">Cache Reuse Ratio</div>
+      <div class="stat-value" id="kpi-cache">--</div>
+      <div class="stat-sub" id="kpi-cache-sub"></div>
+    </div>
+  </div>
+  <!-- KPI Cards Row 2 -->
+  <div class="stat-grid">
+    <div class="stat-card red">
+      <div class="stat-label">Cache Cliffs</div>
+      <div class="stat-value" id="kpi-cliffs">--</div>
+      <div class="stat-sub">cache_read dropped &gt;50% after idle</div>
+    </div>
+    <div class="stat-card amber">
+      <div class="stat-label">Max-Token Stops</div>
+      <div class="stat-value" id="kpi-maxtoken">--</div>
+      <div class="stat-sub">model cut off mid-response</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label">Total Spend</div>
+      <div class="stat-value" id="kpi-cost">--</div>
+      <div class="stat-sub" id="kpi-cost-sub">estimated API cost</div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-label">Tool Error Rate</div>
+      <div class="stat-value" id="kpi-errors">--</div>
+      <div class="stat-sub">errors / total tool calls</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SECTION 0: WEEK-ON-WEEK ═══════════ -->
+  <div class="section-header" onclick="toggleSection(this)" id="trends-header" style="display:none">
+    Week-on-Week Trends <span class="toggle">&#9660;</span>
+  </div>
+  <div class="section-body" id="sec-trends" style="display:none">
+    <div class="trends-grid">
+      <div class="trend-card">
+        <div class="trend-card-title">Key Metrics</div>
+        <div id="trend-metrics"></div>
+      </div>
+      <div class="trend-card">
+        <div class="trend-card-title">What Changed</div>
+        <div id="trend-changes"></div>
+      </div>
+    </div>
+    <div class="trends-grid">
+      <div class="trend-card">
+        <div class="trend-card-title">Window Summary</div>
+        <div id="trend-summary"></div>
+      </div>
+      <div class="trend-card">
+        <div class="trend-card-title">Hook Performance Deltas</div>
+        <div id="trend-hooks"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SECTION 1: OVERVIEW ═══════════ -->
+  <div class="section-header" onclick="toggleSection(this)">
+    Overview <span class="toggle">&#9660;</span>
+  </div>
+  <div class="section-body" id="sec-overview">
+    <div class="chart-grid-1">
+      <div class="chart-panel">
+        <div class="chart-title">Sessions by Day</div>
+        <div class="chart-desc">daily session count with token overlay</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chart01"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-grid-2">
+      <div class="chart-panel">
+        <div class="chart-title">Token Composition by Day</div>
+        <div class="chart-desc">input + output + cache_read + cache_creation (log scale)</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chart02"></canvas></div>
+      </div>
+      <div class="chart-panel">
+        <div class="chart-title">Top Tools</div>
+        <div class="chart-desc">tool call counts across all sessions</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chart03"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-grid-2">
+      <div class="chart-panel">
+        <div class="chart-title">Model Cost Split</div>
+        <div class="chart-desc">token consumption by model with dollar cost overlay</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chart04"></canvas></div>
+      </div>
+      <div class="chart-panel">
+        <div class="chart-title">Cost by Day</div>
+        <div class="chart-desc">estimated API spend per day (USD)</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chart04b"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SECTION 2: CONTEXT MANAGEMENT ═══════════ -->
+  <div class="section-header" onclick="toggleSection(this)">
+    Context Management <span class="toggle">&#9660;</span>
+  </div>
+  <div class="section-body" id="sec-context">
+    <div class="chart-grid-2">
+      <div class="chart-panel">
+        <div class="chart-title">Cache Trajectory</div>
+        <div class="chart-desc">cache_read_ratio per turn for top 5 cache-intensive sessions</div>
+        <div class="chart-wrap" style="height:300px"><canvas id="chart05"></canvas></div>
+      </div>
+      <div class="chart-panel">
+        <div class="chart-title">Ephemeral Cache Tiers</div>
+        <div class="chart-desc">5-minute vs 1-hour cache tier usage by project</div>
+        <div class="chart-wrap" style="height:300px"><canvas id="chart06"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-grid-1">
+      <div class="chart-panel">
+        <div class="chart-title">Context Segmentation</div>
+        <div class="chart-desc">average context composition by turn — filled = all-time, dashed = last 7 days</div>
+        <div class="ctx-seg-summary" id="ctx-seg-summary"></div>
+        <div class="chart-wrap" style="height:340px"><canvas id="chart05b"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-grid-1">
+      <div class="chart-panel">
+        <div class="chart-title">Tool Context Footprint</div>
+        <div class="chart-desc">avg tokens each tool adds to context per call — measured from single-tool turns</div>
+        <div class="chart-wrap" style="height:300px"><canvas id="chart05c"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SECTION 3: TOOL EFFICIENCY ═══════════ -->
+  <div class="section-header" onclick="toggleSection(this)">
+    Tool Efficiency <span class="toggle">&#9660;</span>
+  </div>
+  <div class="section-body" id="sec-tools">
+    <div class="chart-grid-2">
+      <div class="chart-panel">
+        <div class="chart-title">Bash Antipatterns</div>
+        <div class="chart-desc">cat/grep/find/ls usage by project (should use dedicated tools)</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chart07"></canvas></div>
+      </div>
+      <div class="chart-panel">
+        <div class="chart-title">Tool Error Rate</div>
+        <div class="chart-desc">error rate by tool type</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chart08"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-grid-2">
+      <div class="chart-panel">
+        <div class="chart-title">Redundant Read Hotspots</div>
+        <div class="chart-desc">files read 3+ times in same session</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chart09"></canvas></div>
+      </div>
+      <div class="chart-panel">
+        <div class="chart-title">Edit Retry Chains</div>
+        <div class="chart-desc">failed edit followed by retry to same file, by project</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chart10"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-grid-1">
+      <div class="chart-panel">
+        <div class="chart-title">Agent Cost Attribution</div>
+        <div class="chart-desc">billed tokens: parent session vs agent sub-sessions (top projects)</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chart11"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SECTION 4: BEHAVIORAL PATTERNS ═══════════ -->
+  <div class="section-header" onclick="toggleSection(this)">
+    Behavioral Patterns <span class="toggle">&#9660;</span>
+  </div>
+  <div class="section-body" id="sec-behavior">
+    <div class="chart-grid-2">
+      <div class="chart-panel">
+        <div class="chart-title">Turn Complexity</div>
+        <div class="chart-desc">output tokens per turn (with thinking overlay)</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chart12"></canvas></div>
+      </div>
+      <div class="chart-panel">
+        <div class="chart-title">User Response Times</div>
+        <div class="chart-desc">time between assistant response and next user message</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chart13"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-grid-1">
+      <div class="chart-panel">
+        <div class="chart-title">Hook Overhead</div>
+        <div class="chart-desc">total hook execution time by project</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chart14"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SECTION 5: PROJECT INTELLIGENCE ═══════════ -->
+  <div class="section-header" onclick="toggleSection(this)">
+    Project Intelligence <span class="toggle">&#9660;</span>
+  </div>
+  <div class="section-body" id="sec-projects">
+    <div class="chart-grid-1">
+      <div class="chart-panel">
+        <div class="chart-title">Cost by Project</div>
+        <div class="chart-desc">estimated API spend per project (USD)</div>
+        <div class="chart-wrap" style="height:300px"><canvas id="chart15b"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-grid-2">
+      <div class="chart-panel">
+        <div class="chart-title">Per-Project Token Spend</div>
+        <div class="chart-desc">billed tokens (input + cache_creation) by project</div>
+        <div class="chart-wrap" style="height:300px"><canvas id="chart15"></canvas></div>
+      </div>
+      <div class="chart-panel">
+        <div class="chart-title">Project Tool Profiles</div>
+        <div class="chart-desc">tool usage breakdown for top 5 projects</div>
+        <div class="chart-wrap" style="height:300px"><canvas id="chart16"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ CLAUDE CODE ECOSYSTEM ═══════════ -->
+  <div class="section-header" onclick="toggleSection(this)">
+    Claude Code Ecosystem <span class="toggle">&#9660;</span>
+  </div>
+  <div class="section-body" id="sec-ecosystem">
+    <div class="chart-grid-1">
+      <div class="chart-panel">
+        <div class="chart-title">Skill Usage</div>
+        <div class="chart-desc">invocations per skill (via Skill tool) — normalized across plugin namespaces</div>
+        <div class="chart-wrap" id="chart17-wrap"></div>
+      </div>
+    </div>
+    <div class="chart-grid-1">
+      <div class="chart-panel">
+        <div class="chart-title">Skills to Consider Disabling</div>
+        <div class="chart-desc">low-usage skills — candidates to turn off to reduce context load</div>
+        <div id="skill-disable-table"></div>
+      </div>
+    </div>
+    <div class="chart-grid-2">
+      <div class="chart-panel">
+        <div class="chart-title">Agent Delegation</div>
+        <div class="chart-desc">subagent spawns by type</div>
+        <div class="chart-wrap" style="height:300px"><canvas id="chart18"></canvas></div>
+      </div>
+      <div class="chart-panel">
+        <div class="chart-title">Hook Performance</div>
+        <div class="chart-desc">total runtime (ms) per hook command</div>
+        <div class="chart-wrap" style="height:300px"><canvas id="chart19"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ FINDINGS ═══════════ -->
+  <div class="section-header" onclick="toggleSection(this)">
+    Findings <span class="toggle">&#9660;</span>
+  </div>
+  <div class="section-body" id="sec-findings">
+    <div class="findings-grid" id="findings-grid"></div>
+  </div>
+
+  <!-- ═══════════ RECOMMENDATIONS ═══════════ -->
+  <div class="section-header" onclick="toggleSection(this)">
+    Recommendations <span class="toggle">&#9660;</span>
+  </div>
+  <div class="section-body" id="sec-recs">
+    <div id="recs-list"></div>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+/* __INLINE_DATA_PLACEHOLDER__ */
+
+// ── Helpers ─────────────────────────────────────────────
+function fmt(n) {
+  if (n == null) return '--';
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  return String(n);
+}
+function pct(n) { return n == null ? '--' : (n * 100).toFixed(1) + '%'; }
+
+const COLORS = ['#00e5ff', '#ffab2e', '#b44dff', '#4d9fff', '#ff4d6a', '#ff6b35', '#39ff85', '#ffe14d', '#8a8f9e', '#c8cdd8'];
+const chartDefaults = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { display: false } },
+  scales: {
+    x: { ticks: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+    y: { ticks: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+  }
+};
+
+function toggleSection(header) {
+  header.classList.toggle('collapsed');
+  const body = header.nextElementSibling;
+  body.classList.toggle('collapsed');
+}
+
+// ── Init ────────────────────────────────────────────────
+function initDashboard(D) {
+  // Header
+  const dr = D.date_range || {};
+  document.getElementById('header-label').textContent = `${dr.earliest || '?'} to ${dr.latest || '?'}`;
+  document.getElementById('header-subtitle').textContent = `${D.total_sessions} sessions analyzed · generated ${(D.generated_at || '').slice(0, 10)}`;
+
+  // KPIs
+  const k = D.kpis || {};
+  document.getElementById('kpi-sessions').textContent = fmt(k.total_sessions);
+  document.getElementById('kpi-sessions-sub').textContent = `${dr.earliest || '?'} → ${dr.latest || '?'}`;
+  document.getElementById('kpi-turns').textContent = fmt(k.total_turns);
+  document.getElementById('kpi-turns-sub').textContent = `${(k.total_turns / (k.total_sessions || 1)).toFixed(1)} avg/session`;
+  document.getElementById('kpi-output').textContent = fmt(k.total_output_tokens);
+  document.getElementById('kpi-output-sub').textContent = `${fmt(Math.round(k.total_output_tokens / (k.total_turns || 1)))} avg/turn`;
+  document.getElementById('kpi-cache').textContent = pct(k.global_cache_ratio);
+  document.getElementById('kpi-cache-sub').textContent = 'cache_read_tokens / (read + creation)';
+  document.getElementById('kpi-cliffs').textContent = k.cache_cliffs || 0;
+  document.getElementById('kpi-maxtoken').textContent = k.max_token_stops || 0;
+  document.getElementById('kpi-cost').textContent = '$' + (k.total_cost_usd || 0).toFixed(2);
+  document.getElementById('kpi-cost-sub').textContent = `$${((k.total_cost_usd || 0) / (k.total_sessions || 1)).toFixed(2)} avg/session`;
+  document.getElementById('kpi-errors').textContent = pct(k.tool_error_rate);
+
+  // Ticker
+  const items = [
+    `SESSIONS: ${k.total_sessions}`, `TURNS: ${fmt(k.total_turns)}`,
+    `SPEND: $${(k.total_cost_usd || 0).toFixed(2)}`, `CACHE REUSE: ${pct(k.global_cache_ratio)}`,
+    `CLIFFS: ${k.cache_cliffs}`, `ANTIPATTERNS: ${k.bash_antipatterns}`,
+    `ERR RATE: ${pct(k.tool_error_rate)}`,
+  ];
+  const track = document.getElementById('ticker-track');
+  const html = items.map(t => `<span class="ticker-item">${t}</span><span class="ticker-sep">|</span>`).join('');
+  track.innerHTML = html + html;
+
+  // Charts
+  initChart01(D); initChart02(D); initChart03(D); initChart04(D); initChart04b(D);
+  initChart05(D); initChart05b(D); initChart05c(D); initChart06(D);
+  initChart07(D); initChart08(D); initChart09(D); initChart10(D); initChart11(D);
+  initChart12(D); initChart13(D); initChart14(D);
+  initChart15(D); initChart15b(D); initChart16(D);
+  initChart17(D); initSkillDisableTable(D); initChart18(D); initChart19(D);
+  buildFindings(D); buildRecommendations(D);
+  initTrends(D);
+}
+
+// ── Chart 01: Sessions by Day ───────────────────────────
+function initChart01(D) {
+  const days = D.sessions_by_day || [];
+  if (!days.length) return;
+  new Chart(document.getElementById('chart01'), {
+    type: 'bar',
+    data: {
+      labels: days.map(d => d.date.slice(5)),
+      datasets: [{
+        label: 'Sessions', data: days.map(d => d.session_count),
+        backgroundColor: 'rgba(0,229,255,0.2)', borderColor: '#00e5ff', borderWidth: 1, borderRadius: 4,
+      }]
+    },
+    options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, tooltip: { mode: 'index' } } }
+  });
+}
+
+// ── Chart 02: Token Composition by Day ──────────────────
+function initChart02(D) {
+  const days = D.sessions_by_day || [];
+  if (!days.length) return;
+  new Chart(document.getElementById('chart02'), {
+    type: 'bar',
+    data: {
+      labels: days.map(d => d.date.slice(5)),
+      datasets: [
+        { label: 'Output', data: days.map(d => d.output_tokens), backgroundColor: 'rgba(57,255,133,0.3)', stack: 's', borderRadius: 3 },
+        { label: 'Input', data: days.map(d => d.input_tokens), backgroundColor: 'rgba(0,229,255,0.25)', stack: 's', borderRadius: 3 },
+        { label: 'Cache Read', data: days.map(d => d.cache_read), backgroundColor: 'rgba(180,77,255,0.3)', stack: 's', borderRadius: 3 },
+        { label: 'Cache Creation', data: days.map(d => d.cache_creation), backgroundColor: 'rgba(255,171,46,0.3)', stack: 's', borderRadius: 3 },
+      ]
+    },
+    options: {
+      ...chartDefaults,
+      scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, type: 'logarithmic' } },
+      plugins: { legend: { display: true, labels: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } } } }
+    }
+  });
+}
+
+// ── Chart 03: Top Tools ─────────────────────────────────
+function initChart03(D) {
+  const tools = (D.top_tools || []).slice(0, 10);
+  if (!tools.length) return;
+  new Chart(document.getElementById('chart03'), {
+    type: 'bar',
+    data: {
+      labels: tools.map(t => t.tool),
+      datasets: [{ data: tools.map(t => t.count), backgroundColor: COLORS.slice(0, tools.length) }]
+    },
+    options: { ...chartDefaults, indexAxis: 'y' }
+  });
+}
+
+// ── Chart 04: Model Cost Split ──────────────────────────
+function initChart04(D) {
+  const models = D.model_split || [];
+  if (!models.length) return;
+  const cleanLabel = m => m.replace('claude-', '').replace(/-2025\d{4}/, '');
+  new Chart(document.getElementById('chart04'), {
+    type: 'bar',
+    data: {
+      labels: models.map(m => cleanLabel(m.model)),
+      datasets: [
+        { label: 'Input', data: models.map(m => m.input_tokens), backgroundColor: 'rgba(0,229,255,0.3)', stack: 's', borderRadius: 3 },
+        { label: 'Output (visible)', data: models.map(m => Math.max(0, m.output_tokens - m.thinking_tokens)), backgroundColor: 'rgba(57,255,133,0.35)', stack: 's', borderRadius: 3 },
+        { label: 'Thinking', data: models.map(m => m.thinking_tokens), backgroundColor: 'rgba(180,77,255,0.35)', stack: 's', borderRadius: 3 },
+      ]
+    },
+    options: {
+      ...chartDefaults,
+      plugins: {
+        legend: { display: true, labels: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } } },
+        tooltip: {
+          callbacks: {
+            afterTitle: (items) => {
+              const idx = items[0].dataIndex;
+              return `Cost: $${(models[idx].cost_usd || 0).toFixed(2)}`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ── Chart 04b: Cost by Day ─────────────────────────────
+function initChart04b(D) {
+  const days = D.cost_by_day || [];
+  if (!days.length) return;
+  new Chart(document.getElementById('chart04b'), {
+    type: 'line',
+    data: {
+      labels: days.map(d => d.date.slice(5)),
+      datasets: [{
+        label: 'Daily Spend (USD)',
+        data: days.map(d => d.cost_usd),
+        borderColor: '#39ff85', backgroundColor: 'rgba(57,255,133,0.06)',
+        fill: true, tension: 0.4, pointRadius: 4, borderWidth: 2, pointBackgroundColor: '#39ff85',
+      }]
+    },
+    options: {
+      ...chartDefaults,
+      scales: {
+        ...chartDefaults.scales,
+        y: { ...chartDefaults.scales.y, title: { display: true, text: 'USD', color: '#4a4e5c' },
+             ticks: { ...chartDefaults.scales.y.ticks, callback: v => '$' + v.toFixed(2) } },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => '$' + ctx.parsed.y.toFixed(2) } }
+      }
+    }
+  });
+}
+
+// ── Chart 15b: Cost by Project ─────────────────────────
+function initChart15b(D) {
+  const data = D.cost_by_project || [];
+  if (!data.length) return;
+  new Chart(document.getElementById('chart15b'), {
+    type: 'bar',
+    data: {
+      labels: data.map(d => d.project),
+      datasets: [{
+        data: data.map(d => d.cost_usd),
+        backgroundColor: COLORS.slice(0, data.length),
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => '$' + ctx.parsed.x.toFixed(2) } }
+      },
+      scales: {
+        x: { ticks: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 }, callback: v => '$' + v.toFixed(0) }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { ticks: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+      }
+    }
+  });
+}
+
+// ── Chart 05: Cache Trajectory ──────────────────────────
+function initChart05(D) {
+  const traj = D.cache_trajectory || [];
+  if (!traj.length) { document.getElementById('chart05').parentElement.innerHTML = '<div class="no-data">no cache data available</div>'; return; }
+  const datasets = traj.map((s, i) => ({
+    label: `${s.project} (${s.session_id})`,
+    data: s.turns.map(t => ({ x: t.turn, y: t.ratio != null ? t.ratio * 100 : null })),
+    borderColor: COLORS[i], backgroundColor: 'transparent',
+    tension: 0.3, pointRadius: 3, borderWidth: 2,
+  }));
+  new Chart(document.getElementById('chart05'), {
+    type: 'line',
+    data: { datasets },
+    options: {
+      ...chartDefaults,
+      scales: {
+        x: { ...chartDefaults.scales.x, type: 'linear', title: { display: true, text: 'Turn', color: '#4a4e5c' } },
+        y: { ...chartDefaults.scales.y, min: 0, max: 100, title: { display: true, text: 'Cache Hit %', color: '#4a4e5c' } },
+      },
+      plugins: { legend: { display: true, labels: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } } } }
+    }
+  });
+}
+
+// ── Chart 05b: Context Segmentation ───────────────────────
+function initChart05b(D) {
+  const segs = D.context_segments || [];
+  const recent = D.context_segments_recent || [];
+  const summary = D.context_seg_summary || {};
+
+  // Render summary stats
+  const sumEl = document.getElementById('ctx-seg-summary');
+  if (sumEl && summary.sessions_analyzed) {
+    const recentSessions = summary.recent_sessions_count || 0;
+    sumEl.innerHTML = `
+      <div class="ctx-seg-stat">
+        <span class="seg-label">Base Overhead</span>
+        <span class="seg-value cyan">${summary.base_overhead_pct}%</span>
+        <span class="seg-sub">of all tokens paid</span>
+      </div>
+      <div class="ctx-seg-stat">
+        <span class="seg-label">Avg Base Context</span>
+        <span class="seg-value amber">${fmt(summary.avg_base_ctx)}</span>
+        <span class="seg-sub">tokens/session turn 1</span>
+      </div>
+      <div class="ctx-seg-stat">
+        <span class="seg-label">Sessions Analyzed</span>
+        <span class="seg-value purple">${summary.sessions_analyzed}</span>
+        <span class="seg-sub">all-time (8+ turns)</span>
+      </div>
+      <div class="ctx-seg-stat">
+        <span class="seg-label">Last 7 Days</span>
+        <span class="seg-value" style="color:var(--green)">${recentSessions}</span>
+        <span class="seg-sub">sessions in recent window</span>
+      </div>
+    `;
+  }
+
+  if (!segs.length) {
+    document.getElementById('chart05b').parentElement.innerHTML = '<div class="no-data">not enough multi-turn sessions</div>';
+    return;
+  }
+
+  // Build recent lookup by turn index for aligned data
+  const recentByTurn = {};
+  recent.forEach(d => { recentByTurn[d.turn] = d; });
+  const hasRecent = recent.length >= 3;
+
+  // Pre-compute cumulative values for all-time (for stacked area)
+  // and recent (for dashed boundary lines)
+  const allCumBase = segs.map(d => d.base_pct);
+  const allCumHist = segs.map(d => d.base_pct + d.history_pct);
+  const allCumAll  = segs.map(d => d.base_pct + d.history_pct + d.tool_user_pct);
+
+  // Datasets: cumulative line fills for all-time, dashed for recent
+  const datasets = [
+    {
+      label: 'Base Overhead (all-time)',
+      data: allCumBase,
+      backgroundColor: 'rgba(0,229,255,0.2)',
+      borderColor: 'rgba(0,229,255,0.5)',
+      borderWidth: 1.5, fill: 'origin', tension: 0.3, pointRadius: 0,
+    },
+    {
+      label: 'History (all-time)',
+      data: allCumHist,
+      backgroundColor: 'rgba(255,171,46,0.2)',
+      borderColor: 'rgba(255,171,46,0.5)',
+      borderWidth: 1.5, fill: '-1', tension: 0.3, pointRadius: 0,
+    },
+    {
+      label: 'Tool + User (all-time)',
+      data: allCumAll,
+      backgroundColor: 'rgba(180,77,255,0.2)',
+      borderColor: 'rgba(180,77,255,0.5)',
+      borderWidth: 1.5, fill: '-1', tension: 0.3, pointRadius: 0,
+    },
+  ];
+
+  // Add recent overlay as dashed boundary lines (not stacked, already cumulative)
+  if (hasRecent) {
+    datasets.push(
+      {
+        label: 'Base (last 7d)',
+        data: segs.map(d => { const r = recentByTurn[d.turn]; return r ? r.base_pct : null; }),
+        borderColor: '#00e5ff',
+        borderWidth: 2.5, borderDash: [6, 3],
+        fill: false, tension: 0.3, pointRadius: 0, spanGaps: true,
+      },
+      {
+        label: 'History (last 7d)',
+        data: segs.map(d => { const r = recentByTurn[d.turn]; return r ? r.base_pct + r.history_pct : null; }),
+        borderColor: '#ffab2e',
+        borderWidth: 2.5, borderDash: [6, 3],
+        fill: false, tension: 0.3, pointRadius: 0, spanGaps: true,
+      },
+    );
+  }
+
+  new Chart(document.getElementById('chart05b'), {
+    type: 'line',
+    data: { labels: segs.map(d => d.turn), datasets },
+    options: {
+      ...chartDefaults,
+      scales: {
+        x: {
+          ...chartDefaults.scales.x,
+          title: { display: true, text: 'Turn Number', color: '#4a4e5c' },
+        },
+        y: {
+          ...chartDefaults.scales.y,
+          min: 0, max: 100,
+          title: { display: true, text: 'Cumulative % of Context', color: '#4a4e5c' },
+        },
+      },
+      plugins: {
+        legend: { display: true, labels: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const d = segs[ctx.dataIndex];
+              const r = recentByTurn[d ? d.turn : -1];
+              const isRecent = ctx.dataset.label.includes('7d');
+              const sessions = isRecent ? (r ? r.sessions : '?') : (d ? d.sessions : '?');
+              // Compute per-segment value from the source data (not cumulative y)
+              const src = isRecent ? r : d;
+              let segVal;
+              if (!src) { segVal = ctx.parsed.y; }
+              else if (ctx.dataset.label.includes('Base')) { segVal = src.base_pct; }
+              else if (ctx.dataset.label.includes('History')) { segVal = src.history_pct; }
+              else if (ctx.dataset.label.includes('Tool')) { segVal = src.tool_user_pct; }
+              else { segVal = ctx.parsed.y; }
+              return `${ctx.dataset.label}: ${segVal.toFixed(1)}% (${sessions} sessions)`;
+            },
+          }
+        },
+      },
+    },
+  });
+}
+
+// ── Chart 05c: Tool Context Footprint ─────────────────────
+function initChart05c(D) {
+  const data = D.tool_footprint || [];
+  if (!data.length) {
+    document.getElementById('chart05c').parentElement.innerHTML = '<div class="no-data">not enough single-tool turns</div>';
+    return;
+  }
+
+  // Color-code by tool category
+  const systemTools = new Set(['Read', 'Edit', 'Write', 'Bash', 'Grep', 'Glob', 'ToolSearch']);
+  const agentTools = new Set(['Agent', 'Skill']);
+  const colors = data.map(d => {
+    if (systemTools.has(d.tool)) return 'rgba(0,229,255,0.45)';
+    if (agentTools.has(d.tool)) return 'rgba(180,77,255,0.45)';
+    return 'rgba(255,171,46,0.45)';
+  });
+  const borderColors = data.map(d => {
+    if (systemTools.has(d.tool)) return 'rgba(0,229,255,0.8)';
+    if (agentTools.has(d.tool)) return 'rgba(180,77,255,0.8)';
+    return 'rgba(255,171,46,0.8)';
+  });
+
+  new Chart(document.getElementById('chart05c'), {
+    type: 'bar',
+    data: {
+      labels: data.map(d => d.tool),
+      datasets: [{
+        data: data.map(d => d.avg_tokens),
+        backgroundColor: colors,
+        borderColor: borderColors,
+        borderWidth: 1,
+        borderRadius: 3,
+      }],
+    },
+    options: {
+      ...chartDefaults,
+      indexAxis: 'y',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const d = data[ctx.dataIndex];
+              return `${d.avg_tokens.toLocaleString()} tokens/call · ${d.calls} calls`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          ...chartDefaults.scales.x,
+          title: { display: true, text: 'Avg Tokens Added to Context', color: '#4a4e5c' },
+        },
+        y: { ...chartDefaults.scales.y },
+      },
+    },
+  });
+}
+
+// ── Chart 06: Ephemeral Cache Tiers ─────────────────────
+function initChart06(D) {
+  const data = D.ephem_split || [];
+  if (!data.length) { document.getElementById('chart06').parentElement.innerHTML = '<div class="no-data">no ephemeral cache data</div>'; return; }
+  new Chart(document.getElementById('chart06'), {
+    type: 'bar',
+    data: {
+      labels: data.map(d => d.project),
+      datasets: [
+        { label: '5min tier', data: data.map(d => d.ephem_5m), backgroundColor: 'rgba(255,171,46,0.35)', stack: 's', borderRadius: 3 },
+        { label: '1hr tier', data: data.map(d => d.ephem_1h), backgroundColor: 'rgba(0,229,255,0.3)', stack: 's', borderRadius: 3 },
+      ]
+    },
+    options: {
+      ...chartDefaults, indexAxis: 'y',
+      plugins: { legend: { display: true, labels: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } } } }
+    }
+  });
+}
+
+// ── Chart 07: Bash Antipatterns ──────────────────────────
+function initChart07(D) {
+  const data = D.bash_antipatterns || [];
+  if (!data.length) { document.getElementById('chart07').parentElement.innerHTML = '<div class="no-data">no bash antipatterns detected</div>'; return; }
+  new Chart(document.getElementById('chart07'), {
+    type: 'bar',
+    data: {
+      labels: data.map(d => d.project),
+      datasets: [
+        { label: 'Antipatterns', data: data.map(d => d.antipatterns), backgroundColor: 'rgba(255,77,106,0.35)', borderRadius: 3 },
+        { label: 'Total Bash', data: data.map(d => d.total_bash), backgroundColor: 'rgba(0,229,255,0.1)', borderRadius: 3 },
+      ]
+    },
+    options: {
+      ...chartDefaults, indexAxis: 'y',
+      plugins: { legend: { display: true, labels: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } } } }
+    }
+  });
+}
+
+// ── Chart 08: Tool Error Rate ───────────────────────────
+function initChart08(D) {
+  const data = D.tool_errors_by_tool || [];
+  if (!data.length) return;
+  new Chart(document.getElementById('chart08'), {
+    type: 'bar',
+    data: {
+      labels: data.map(d => d.tool),
+      datasets: [
+        { label: 'Errors', data: data.map(d => d.errors), backgroundColor: 'rgba(255,77,106,0.35)', borderRadius: 3 },
+        { label: 'Total Calls', data: data.map(d => d.total), backgroundColor: 'rgba(0,229,255,0.1)', borderRadius: 3 },
+      ]
+    },
+    options: {
+      ...chartDefaults, indexAxis: 'y',
+      plugins: { legend: { display: true, labels: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } } } }
+    }
+  });
+}
+
+// ── Chart 09: Redundant Reads ───────────────────────────
+function initChart09(D) {
+  const data = D.redundant_reads || [];
+  if (!data.length) { document.getElementById('chart09').parentElement.innerHTML = '<div class="no-data">no redundant reads detected</div>'; return; }
+  new Chart(document.getElementById('chart09'), {
+    type: 'bar',
+    data: {
+      labels: data.slice(0, 12).map(d => d.file),
+      datasets: [{
+        data: data.slice(0, 12).map(d => d.count),
+        backgroundColor: 'rgba(255,171,46,0.25)', borderColor: '#ffab2e', borderWidth: 1, borderRadius: 4,
+      }]
+    },
+    options: { ...chartDefaults, indexAxis: 'y' }
+  });
+}
+
+// ── Chart 10: Edit Retries ──────────────────────────────
+function initChart10(D) {
+  const data = D.edit_retries || [];
+  if (!data.length) { document.getElementById('chart10').parentElement.innerHTML = '<div class="no-data">no edit retry chains detected</div>'; return; }
+  new Chart(document.getElementById('chart10'), {
+    type: 'bar',
+    data: {
+      labels: data.map(d => d.project),
+      datasets: [{ data: data.map(d => d.retries), backgroundColor: 'rgba(255,107,53,0.3)', borderColor: '#ff6b35', borderWidth: 1, borderRadius: 4 }]
+    },
+    options: { ...chartDefaults, indexAxis: 'y' }
+  });
+}
+
+// ── Chart 11: Agent Cost Attribution ────────────────────
+function initChart11(D) {
+  const data = D.agent_cost || [];
+  if (!data.length) { document.getElementById('chart11').parentElement.innerHTML = '<div class="no-data">no agent sessions found</div>'; return; }
+  new Chart(document.getElementById('chart11'), {
+    type: 'bar',
+    data: {
+      labels: data.map(d => d.project),
+      datasets: [
+        { label: 'Parent Session', data: data.map(d => d.parent_cost), backgroundColor: 'rgba(0,229,255,0.25)', stack: 's', borderRadius: 3 },
+        { label: 'Agent Sub-sessions', data: data.map(d => d.agent_cost), backgroundColor: 'rgba(180,77,255,0.3)', stack: 's', borderRadius: 3 },
+      ]
+    },
+    options: {
+      ...chartDefaults, indexAxis: 'y',
+      plugins: { legend: { display: true, labels: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } } } }
+    }
+  });
+}
+
+// ── Chart 12: Turn Complexity ───────────────────────────
+function initChart12(D) {
+  const tc = D.turn_complexity || {};
+  const th = D.thinking_in_complexity || {};
+  const labels = ['minimal\n<100', 'light\n100-500', 'medium\n500-2K', 'heavy\n2K-8K', 'runaway\n8K+'];
+  const keys = ['minimal', 'light', 'medium', 'heavy', 'runaway'];
+  new Chart(document.getElementById('chart12'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Turns', data: keys.map(k => tc[k] || 0), backgroundColor: 'rgba(0,229,255,0.2)', borderRadius: 4 },
+        { label: 'Avg Thinking/Turn', data: keys.map(k => th[k] || 0), backgroundColor: 'rgba(180,77,255,0.25)', borderRadius: 4 },
+      ]
+    },
+    options: {
+      ...chartDefaults,
+      plugins: { legend: { display: true, labels: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } } } }
+    }
+  });
+}
+
+// ── Chart 13: User Response Times ───────────────────────
+function initChart13(D) {
+  const rt = D.response_time_dist || {};
+  const labels = ['<30s', '30s-2m', '2-5m', '5-15m', '15m-1h', '1h+'];
+  const keys = ['under_30s', '30s_2m', '2m_5m', '5m_15m', '15m_1h', 'over_1h'];
+  const colors = ['#39ff85', '#00e5ff', '#ffab2e', '#ff6b35', '#ff4d6a', '#d63384'];
+  new Chart(document.getElementById('chart13'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data: keys.map(k => rt[k] || 0), backgroundColor: colors }]
+    },
+    options: chartDefaults
+  });
+}
+
+// ── Chart 14: Hook Overhead ─────────────────────────────
+function initChart14(D) {
+  const data = D.hook_overhead || [];
+  if (!data.length) { document.getElementById('chart14').parentElement.innerHTML = '<div class="no-data">no hook data available</div>'; return; }
+  new Chart(document.getElementById('chart14'), {
+    type: 'bar',
+    data: {
+      labels: data.map(d => d.project),
+      datasets: [{
+        data: data.map(d => Math.round(d.hook_ms / 1000)),
+        backgroundColor: 'rgba(255,225,77,0.2)', borderColor: '#ffe14d', borderWidth: 1, borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' }, title: { display: true, text: 'seconds', color: '#4a4e5c' } },
+        y: { ticks: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+      }
+    }
+  });
+}
+
+// ── Chart 15: Project Token Spend ───────────────────────
+function initChart15(D) {
+  const data = D.project_spend || [];
+  if (!data.length) return;
+  new Chart(document.getElementById('chart15'), {
+    type: 'bar',
+    data: {
+      labels: data.map(d => d.project),
+      datasets: [
+        { label: 'Input', data: data.map(d => d.input_tokens), backgroundColor: 'rgba(0,229,255,0.25)', stack: 's', borderRadius: 3 },
+        { label: 'Cache Creation', data: data.map(d => d.cache_creation), backgroundColor: 'rgba(255,171,46,0.3)', stack: 's', borderRadius: 3 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+      plugins: { legend: { display: true, labels: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } } } },
+      scales: {
+        x: { ticks: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' }, stacked: true },
+        y: { ticks: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' }, stacked: true },
+      }
+    }
+  });
+}
+
+// ── Chart 16: Project Tool Profiles ─────────────────────
+function initChart16(D) {
+  const data = D.project_tool_profile || [];
+  if (!data.length) return;
+  // Collect all unique tools across projects
+  const allTools = new Set();
+  data.forEach(p => Object.keys(p.tools).forEach(t => allTools.add(t)));
+  const tools = [...allTools].slice(0, 8);
+  const datasets = tools.map((tool, i) => ({
+    label: tool,
+    data: data.map(p => p.tools[tool] || 0),
+    backgroundColor: COLORS[i % COLORS.length] + '99',
+  }));
+  new Chart(document.getElementById('chart16'), {
+    type: 'bar',
+    data: { labels: data.map(p => p.project), datasets },
+    options: {
+      ...chartDefaults,
+      plugins: { legend: { display: true, position: 'bottom', labels: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } } } }
+    }
+  });
+}
+
+// ── Chart 17: Skill Usage (SVG) ────────────────────────
+function initChart17(D) {
+  const data = D.skill_usage || [];
+  const wrap = document.getElementById('chart17-wrap');
+  if (!data.length) { wrap.innerHTML = '<div class="no-data">no skill invocations recorded</div>'; return; }
+  const ROW = 22, LABEL_W = 200, BAR_W = 360, PAD_TOP = 24, PAD_BOT = 8;
+  const maxVal = Math.max(...data.map(d => d.count));
+  const H = data.length * ROW + PAD_TOP + PAD_BOT;
+  const W = LABEL_W + BAR_W + 60;
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="${H}" viewBox="0 0 ${W} ${H}" style="font-family:'JetBrains Mono',monospace;font-size:10px">`;
+  // legend
+  svg += `<rect x="${LABEL_W}" y="4" width="10" height="10" rx="3" fill="rgba(0,229,255,0.4)"/>`;
+  svg += `<text x="${LABEL_W+14}" y="13" fill="#4a4e5c">Invocations</text>`;
+  svg += `<rect x="${LABEL_W+100}" y="4" width="10" height="10" rx="3" fill="rgba(255,77,106,0.4)"/>`;
+  svg += `<text x="${LABEL_W+114}" y="13" fill="#4a4e5c">Errors</text>`;
+  data.forEach((d, i) => {
+    const y = PAD_TOP + i * ROW;
+    const bw = maxVal > 0 ? (d.count / maxVal) * BAR_W : 0;
+    const ew = maxVal > 0 ? (d.errors / maxVal) * BAR_W : 0;
+    // alternating row bg
+    if (i % 2 === 0) svg += `<rect x="0" y="${y}" width="${W}" height="${ROW}" fill="rgba(255,255,255,0.02)"/>`;
+    // label
+    svg += `<text x="${LABEL_W - 6}" y="${y + ROW*0.65}" fill="#8a8f9e" text-anchor="end">${d.skill}</text>`;
+    // invocation bar
+    svg += `<rect x="${LABEL_W}" y="${y+3}" width="${bw}" height="${ROW-6}" rx="3" fill="rgba(0,229,255,0.35)"/>`;
+    // error bar overlay
+    if (d.errors > 0) svg += `<rect x="${LABEL_W}" y="${y+3}" width="${ew}" height="${ROW-6}" rx="3" fill="rgba(255,77,106,0.4)"/>`;
+
+    // count label
+    svg += `<text x="${LABEL_W + bw + 4}" y="${y + ROW*0.65}" fill="#4a4e5c">${d.count}</text>`;
+  });
+  svg += '</svg>';
+  wrap.style.height = 'auto';
+  wrap.innerHTML = svg;
+}
+
+// ── Chart 17b: Skills to Disable table ────────────────
+function initSkillDisableTable(D) {
+  const data = (D.skill_usage || []).filter(d => d.count <= 2);
+  const el = document.getElementById('skill-disable-table');
+  if (!el) return;
+  if (!data.length) { el.innerHTML = '<div class="no-data">all skills used 3+ times — no candidates</div>'; return; }
+  const rows = data.map(d => `<tr>
+    <td style="padding:6px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#8a8f9e">${d.skill}</td>
+    <td style="padding:6px 12px;text-align:right;color:#4a4e5c;font-size:11px">${d.count}x</td>
+    <td style="padding:6px 12px;text-align:right;color:${d.errors > 0 ? '#ff4d6a' : '#4a4e5c'};font-size:11px">${d.errors} err</td>
+    <td style="padding:6px 12px;color:#4a4e5c;font-size:11px">${d.errors > 0 ? 'errors on every run — likely broken' : d.count === 0 ? 'never used' : 'low frequency — reduce context load'}</td>
+  </tr>`).join('');
+  el.innerHTML = `<table style="width:100%;border-collapse:collapse">
+    <thead><tr>
+      <th style="padding:6px 12px;text-align:left;color:#4a4e5c;font-size:10px;border-bottom:1px solid rgba(255,255,255,0.07);font-weight:500;text-transform:uppercase;letter-spacing:0.08em">skill</th>
+      <th style="padding:6px 12px;text-align:right;color:#4a4e5c;font-size:10px;border-bottom:1px solid rgba(255,255,255,0.07);font-weight:500;text-transform:uppercase;letter-spacing:0.08em">uses</th>
+      <th style="padding:6px 12px;text-align:right;color:#4a4e5c;font-size:10px;border-bottom:1px solid rgba(255,255,255,0.07);font-weight:500;text-transform:uppercase;letter-spacing:0.08em">errors</th>
+      <th style="padding:6px 12px;color:#4a4e5c;font-size:10px;border-bottom:1px solid rgba(255,255,255,0.07);font-weight:500;text-transform:uppercase;letter-spacing:0.08em">reason</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+// ── Chart 18: Agent Delegation ─────────────────────────
+function initChart18(D) {
+  const data = D.agent_delegation || [];
+  if (!data.length) { document.getElementById('chart18').parentElement.innerHTML = '<div class="no-data">no agent delegations recorded</div>'; return; }
+  new Chart(document.getElementById('chart18'), {
+    type: 'bar',
+    data: {
+      labels: data.map(d => d.subagent_type),
+      datasets: [
+        { label: 'Spawns', data: data.map(d => d.count), backgroundColor: 'rgba(180,77,255,0.3)', borderColor: '#b44dff', borderWidth: 1, borderRadius: 3 },
+        { label: 'Errors', data: data.map(d => d.errors), backgroundColor: 'rgba(255,77,106,0.3)', borderColor: '#ff4d6a', borderWidth: 1, borderRadius: 3 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+      plugins: { legend: { display: true, labels: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } } } },
+      scales: {
+        x: { stacked: true, ticks: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { stacked: true, ticks: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+      }
+    }
+  });
+}
+
+// ── Chart 19: Hook Performance ─────────────────────────
+function initChart19(D) {
+  const data = D.hook_performance || [];
+  if (!data.length) { document.getElementById('chart19').parentElement.innerHTML = '<div class="no-data">no hook execution data</div>'; return; }
+  const labels = data.map(d => {
+    const cmd = d.hook_command || '';
+    const parts = cmd.split('/');
+    return parts[parts.length - 1] || cmd.slice(0, 40);
+  });
+  new Chart(document.getElementById('chart19'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Total ms', data: data.map(d => d.total_ms),
+        backgroundColor: 'rgba(255,171,46,0.25)', borderColor: '#ffab2e', borderWidth: 1, borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            afterLabel: function(ctx) {
+              const d = data[ctx.dataIndex];
+              return 'Runs: ' + d.runs + ' | Avg: ' + d.avg_ms + 'ms | Errors: ' + d.errors;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { ticks: { color: '#4a4e5c', font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+      }
+    }
+  });
+}
+
+// ── Findings ────────────────────────────────────────────
+function buildFindings(D) {
+  const grid = document.getElementById('findings-grid');
+  const findings = D.findings || [];
+  if (!findings.length) { grid.innerHTML = '<div class="no-data">no notable findings</div>'; return; }
+  grid.innerHTML = findings.map(f => `
+    <div class="finding-card ${f.severity.toLowerCase()}">
+      <div class="finding-severity">${f.severity}</div>
+      <div class="finding-title">${f.title}</div>
+      <div class="finding-text">${f.text}</div>
+    </div>
+  `).join('');
+}
+
+// ── Recommendations ─────────────────────────────────────
+function buildRecommendations(D) {
+  const list = document.getElementById('recs-list');
+  const recs = D.recommendations || [];
+  if (!recs.length) { list.innerHTML = '<div class="no-data">no recommendations</div>'; return; }
+  list.innerHTML = recs.map(r => `
+    <div class="rec-card">
+      <span class="rec-priority ${r.priority.toLowerCase()}">${r.priority}</span>
+      <span class="rec-text">${r.text}</span>
+    </div>
+  `).join('');
+}
+
+// ── Trends ─────────────────────────────────────────────
+function initTrends(D) {
+  const T = D.trends;
+  if (!T || !T.current_window) return;
+
+  // Show the section
+  document.getElementById('trends-header').style.display = '';
+  document.getElementById('sec-trends').style.display = '';
+
+  // Helper: build trend badge HTML
+  function badge(changePct, lowerIsBetter) {
+    if (changePct == null) return '<span class="trend-badge neutral">new</span>';
+    if (Math.abs(changePct) < 5) return '<span class="trend-badge neutral">~0%</span>';
+    const gotBetter = lowerIsBetter ? changePct < 0 : changePct > 0;
+    const cls = gotBetter ? 'improved' : 'regressed';
+    // For "lower is better" metrics, down arrow = good. For "higher is better", up = good.
+    const displayArrow = changePct < 0 ? '&#9660;' : '&#9650;';
+    return `<span class="trend-badge ${cls}"><span class="arrow">${displayArrow}</span>${Math.abs(changePct).toFixed(1)}%</span>`;
+  }
+
+  // Key metrics table
+  const metricsMeta = {
+    cost_per_session: { fmt: v => '$' + (v || 0).toFixed(2), lower: true },
+    cache_ratio: { fmt: v => (v * 100).toFixed(1) + '%', lower: false },
+    cliffs_per_session: { fmt: v => v.toFixed(2), lower: true },
+    antipatterns_per_session: { fmt: v => v.toFixed(2), lower: true },
+    tool_error_rate: { fmt: v => (v * 100).toFixed(2) + '%', lower: true },
+    hook_avg_ms: { fmt: v => Math.round(v) + 'ms', lower: true },
+  };
+  const metricsEl = document.getElementById('trend-metrics');
+  let metricsHTML = '';
+  for (const [key, meta] of Object.entries(metricsMeta)) {
+    const m = (T.metrics || {})[key];
+    if (!m) continue;
+    metricsHTML += `<div class="trend-row">
+      <span class="trend-label">${m.label}</span>
+      <span class="trend-values">
+        <span class="trend-prior">${m.prior != null ? meta.fmt(m.prior) : '—'}</span>
+        <span>→</span>
+        <span class="trend-current">${meta.fmt(m.current)}</span>
+        ${badge(m.change_pct, meta.lower)}
+      </span>
+    </div>`;
+  }
+  metricsEl.innerHTML = metricsHTML || '<div class="no-data">no comparison data</div>';
+
+  // What Changed lists
+  const changesEl = document.getElementById('trend-changes');
+  let changesHTML = '';
+  if (T.improved && T.improved.length) {
+    changesHTML += '<div style="margin-bottom:10px;font-size:0.72rem;font-weight:600;color:var(--green)">Improved</div>';
+    changesHTML += '<ul class="trend-list">' + T.improved.map(i => `<li><span class="dot green"></span>${i}</li>`).join('') + '</ul>';
+  }
+  if (T.regressed && T.regressed.length) {
+    changesHTML += '<div style="margin-bottom:10px;margin-top:12px;font-size:0.72rem;font-weight:600;color:var(--red)">Regressed</div>';
+    changesHTML += '<ul class="trend-list">' + T.regressed.map(i => `<li><span class="dot red"></span>${i}</li>`).join('') + '</ul>';
+  }
+  if (T.new_skills && T.new_skills.length) {
+    changesHTML += '<div style="margin-bottom:10px;margin-top:12px;font-size:0.72rem;font-weight:600;color:var(--blue)">New Skills</div>';
+    changesHTML += '<ul class="trend-list">' + T.new_skills.map(s => `<li><span class="dot blue"></span>${s}</li>`).join('') + '</ul>';
+  }
+  if (T.retired_skills && T.retired_skills.length) {
+    changesHTML += '<div style="margin-bottom:10px;margin-top:12px;font-size:0.72rem;font-weight:600;color:var(--text-dim)">Retired Skills</div>';
+    changesHTML += '<ul class="trend-list">' + T.retired_skills.map(s => `<li><span class="dot dim"></span>${s}</li>`).join('') + '</ul>';
+  }
+  if (!changesHTML) changesHTML = '<div class="no-data">no changes detected</div>';
+  changesEl.innerHTML = changesHTML;
+
+  // Window summary
+  const summaryEl = document.getElementById('trend-summary');
+  const cw = T.current_window;
+  const pw = T.prior_window;
+  summaryEl.innerHTML = `
+    <div class="trend-row">
+      <span class="trend-label">Sessions</span>
+      <span class="trend-values">
+        <span class="trend-prior">${pw ? pw.sessions : '—'}</span>
+        <span>→</span>
+        <span class="trend-current">${cw.sessions}</span>
+      </span>
+    </div>
+    <div class="trend-row">
+      <span class="trend-label">Total Cost</span>
+      <span class="trend-values">
+        <span class="trend-prior">${pw ? '$' + pw.cost_usd.toFixed(2) : '—'}</span>
+        <span>→</span>
+        <span class="trend-current">$${cw.cost_usd.toFixed(2)}</span>
+      </span>
+    </div>
+    <div class="trend-row">
+      <span class="trend-label">Turns</span>
+      <span class="trend-values">
+        <span class="trend-prior">${pw ? pw.turns : '—'}</span>
+        <span>→</span>
+        <span class="trend-current">${cw.turns}</span>
+      </span>
+    </div>
+  `;
+
+  // Hook performance deltas
+  const hooksEl = document.getElementById('trend-hooks');
+  const hookData = (T.hook_trends || []).filter(h => h.current_ms != null || h.prior_ms != null);
+  if (!hookData.length) {
+    hooksEl.innerHTML = '<div class="no-data">no hook data</div>';
+  } else {
+    // Show top 6 by absolute change
+    const sorted = hookData
+      .filter(h => h.current_ms != null && h.prior_ms != null)
+      .sort((a, b) => Math.abs(b.change_pct || 0) - Math.abs(a.change_pct || 0))
+      .slice(0, 6);
+    const newHooks = hookData.filter(h => h.prior_ms == null && h.current_ms != null).slice(0, 3);
+    const retiredHooks = hookData.filter(h => h.current_ms == null && h.prior_ms != null).slice(0, 3);
+
+    let hHTML = '';
+    for (const h of sorted) {
+      const label = h.hook.split('/').pop() || h.hook.slice(0, 40);
+      hHTML += `<div class="trend-row">
+        <span class="trend-label" title="${h.hook}">${label}</span>
+        <span class="trend-values">
+          <span class="trend-prior">${h.prior_ms}ms</span>
+          <span>→</span>
+          <span class="trend-current">${h.current_ms}ms</span>
+          ${badge(h.change_pct, true)}
+        </span>
+      </div>`;
+    }
+    for (const h of newHooks) {
+      const label = h.hook.split('/').pop() || h.hook.slice(0, 40);
+      hHTML += `<div class="trend-row"><span class="trend-label" title="${h.hook}">${label}</span><span class="trend-values"><span class="trend-badge neutral">new — ${h.current_ms}ms</span></span></div>`;
+    }
+    for (const h of retiredHooks) {
+      const label = h.hook.split('/').pop() || h.hook.slice(0, 40);
+      hHTML += `<div class="trend-row"><span class="trend-label" title="${h.hook}">${label}</span><span class="trend-values"><span class="trend-badge neutral">retired</span></span></div>`;
+    }
+    hooksEl.innerHTML = hHTML || '<div class="no-data">no hook changes</div>';
+  }
+
+  // Inject trend badges into KPI cards
+  injectKpiBadges(T);
+}
+
+function injectKpiBadges(T) {
+  if (!T || !T.metrics) return;
+  const kpiMap = {
+    'kpi-cache': { key: 'cache_ratio', lower: false },
+    'kpi-cliffs': { key: 'cliffs_per_session', lower: true },
+    'kpi-errors': { key: 'tool_error_rate', lower: true },
+  };
+  for (const [elId, cfg] of Object.entries(kpiMap)) {
+    const m = T.metrics[cfg.key];
+    if (!m || m.change_pct == null) continue;
+    const el = document.getElementById(elId);
+    if (!el) continue;
+    const abs = Math.abs(m.change_pct);
+    if (abs < 5) continue;
+    const gotBetter = cfg.lower ? m.change_pct < 0 : m.change_pct > 0;
+    const cls = gotBetter ? 'improved' : 'regressed';
+    const arrow = m.change_pct < 0 ? '&#9660;' : '&#9650;';
+    el.insertAdjacentHTML('afterend', `<span class="trend-badge ${cls}" style="margin-left:0;margin-top:6px;display:inline-flex"><span class="arrow">${arrow}</span>${abs.toFixed(1)}% vs last week</span>`);
+  }
+}
+
+// ── Boot ────────────────────────────────────────────────
+(function() {
+  try {
+    const D = (typeof _INLINE_DATA !== 'undefined') ? _INLINE_DATA : null;
+    if (!D) {
+      document.getElementById('load-error').style.display = 'flex';
+      return;
+    }
+    initDashboard(D);
+  } catch (e) {
+    console.error('Dashboard init error:', e);
+    document.getElementById('header-subtitle').textContent = 'error: ' + e.message;
+  }
+})();
+</script>
+</body>
+</html>
