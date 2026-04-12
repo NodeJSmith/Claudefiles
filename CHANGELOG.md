@@ -5,8 +5,8 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-04-12
 
 ### Added
-- `cm-*` memory skills from Claudest: `cm-recall-conversations`, `cm-extract-learnings`, `cm-get-token-insights`, `cm-memory-auditor`, `cm-signal-discoverer`, `cm-manage-memory`
-- Memory session hooks wired into `settings.json`: `memory-setup`, `onboarding`, `memory-context`, `consolidation-check`, `clear-handoff`, `memory-sync`
+- `cm-*` memory skills from Claudest: `cm-recall-conversations`, `cm-extract-learnings`, `cm-get-token-insights`, `cm-memory-auditor`, `cm-signal-discoverer`, `cm-manage-memory` (#212)
+- Memory session hooks wired into `settings.json`: `memory-setup`, `onboarding`, `memory-context`, `consolidation-check`, `clear-handoff`, `memory-sync` (#212)
 
 ## 2026-04-11
 
