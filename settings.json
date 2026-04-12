@@ -74,22 +74,12 @@
             "type": "command",
             "command": "bash -c 'command -v cm-memory-setup >/dev/null 2>&1 && cm-memory-setup || true'",
             "timeout": 10000
-          }
-        ]
-      },
-      {
-        "matcher": "startup",
-        "hooks": [
+          },
           {
             "type": "command",
             "command": "bash -c 'command -v cm-onboarding >/dev/null 2>&1 && cm-onboarding || true'",
             "timeout": 10000
-          }
-        ]
-      },
-      {
-        "matcher": "startup|clear",
-        "hooks": [
+          },
           {
             "type": "command",
             "command": "bash -c 'command -v cm-memory-context >/dev/null 2>&1 && cm-memory-context || true'",
@@ -105,7 +95,6 @@
     ],
     "SessionEnd": [
       {
-        "matcher": "clear",
         "hooks": [
           {
             "type": "command",

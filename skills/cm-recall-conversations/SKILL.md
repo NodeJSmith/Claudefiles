@@ -8,12 +8,6 @@ description: >
   "search my conversations", "find the conversation where", "what did we work on".
   Also triggers on implicit signals like past-tense references ("the bug we fixed"),
   possessives without context ("my project"), or assumptive questions ("do you remember").
-allowed-tools:
-  - Read
-  - Grep
-  - Glob
-  - Bash(python3:*)
-  - AskUserQuestion
 ---
 
 ## Value Context

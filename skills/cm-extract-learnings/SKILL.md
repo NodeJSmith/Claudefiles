@@ -5,18 +5,6 @@ description: >
   Persist learnings to memory or maintain existing memories. Triggers on
   "extract learnings", "save this for next time", "remember this pattern",
   "consolidate memories", "dream", "clean up memories".
-allowed-tools:
-  - Read
-  - Write
-  - Edit
-  - Glob
-  - Grep
-  - Bash(python3:*)
-  - Bash(git:*)
-  - Bash(find:*)
-  - Bash(date:*)
-  - AskUserQuestion
-  - Agent
 ---
 
 ## Value Context

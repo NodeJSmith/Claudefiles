@@ -2,10 +2,6 @@
 name: cm-get-token-insights
 user-invocable: true
 description: To analyze Claude token usage, see how you are spending on Claude, understand cache hit rates, review Claude Code workflow patterns, or get cost optimization recommendations.
-allowed-tools:
-  - Bash(python3:*)
-  - Agent
-  - AskUserQuestion
 ---
 
 # Get Token Insights
