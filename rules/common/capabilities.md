@@ -9,6 +9,9 @@
 
 | User says something like... | Invoke |
 |---|---|
+| "what did we discuss", "continue where we left off", "remember when", "search my conversations", "what did we work on", "find the conversation where" | `/cm-recall-conversations` |
+| "extract learnings", "save this for next time", "remember this pattern", "consolidate memories", "dream", "clean up memories" | `/cm-extract-learnings` |
+| "analyze Claude token usage", "how much am I spending on Claude", "token insights", "cache hit rates", "cost optimization" | `/cm-get-token-insights` |
 | "ship it", "commit push and PR" | `/mine.ship` |
 | "commit and push" | `/mine.commit-push` |
 | "create PR", "open pull request" | `/mine.create-pr` |

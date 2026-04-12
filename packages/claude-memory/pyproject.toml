@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=80", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "claude-memory"
+version = "0.9.0"
+description = "Persistent conversation memory for Claude Code"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+# Hook entry points (wired in settings.json)
+cm-memory-setup          = "claude_memory.hooks.memory_setup:main"
+cm-memory-sync           = "claude_memory.hooks.memory_sync:main"
+cm-memory-context        = "claude_memory.hooks.memory_context:main"
+cm-onboarding            = "claude_memory.hooks.onboarding:main"
+cm-consolidation-check   = "claude_memory.hooks.consolidation_check:main"
+cm-clear-handoff         = "claude_memory.hooks.clear_handoff:main"
+# Internal helpers (called as subprocesses by hooks above)
+cm-sync-current          = "claude_memory.hooks.sync_current:main"
+cm-backfill-summaries    = "claude_memory.hooks.backfill_summaries:main"
+cm-import-conversations  = "claude_memory.hooks.import_conversations:main"
+cm-write-config          = "claude_memory.hooks.write_config:main"
+# Skill CLI tools (called from SKILL.md files)
+cm-recent-chats          = "claude_memory.recent_chats:main"
+cm-search-conversations  = "claude_memory.search_conversations:main"
+cm-ingest-token-data     = "claude_memory.ingest_token_data:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

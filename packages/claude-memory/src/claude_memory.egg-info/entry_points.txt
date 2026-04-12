@@ -1,0 +1,14 @@
+[console_scripts]
+cm-backfill-summaries = claude_memory.hooks.backfill_summaries:main
+cm-clear-handoff = claude_memory.hooks.clear_handoff:main
+cm-consolidation-check = claude_memory.hooks.consolidation_check:main
+cm-import-conversations = claude_memory.hooks.import_conversations:main
+cm-ingest-token-data = claude_memory.ingest_token_data:main
+cm-memory-context = claude_memory.hooks.memory_context:main
+cm-memory-setup = claude_memory.hooks.memory_setup:main
+cm-memory-sync = claude_memory.hooks.memory_sync:main
+cm-onboarding = claude_memory.hooks.onboarding:main
+cm-recent-chats = claude_memory.recent_chats:main
+cm-search-conversations = claude_memory.search_conversations:main
+cm-sync-current = claude_memory.hooks.sync_current:main
+cm-write-config = claude_memory.hooks.write_config:main

@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""Stop hook - background sync for current session."""
+
+import json
+import os
+import subprocess
+import sys
+import tempfile
+
+
+def main():
+    try:
+        # Read hook input from stdin
+        hook_input = sys.stdin.read()
+
+        # Write to temp file (cross-platform stdin piping to detached process is unreliable)
+        # Use os.fdopen on the fd directly to avoid TOCTOU race; mkstemp already sets 0o600
+        fd, tmp_path = tempfile.mkstemp(prefix="claude-memory-sync-", suffix=".json")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(hook_input)
+        except Exception:
+            # fd is closed by os.fdopen even on error; clean up the file
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
+
+        # Background the sync
+        kwargs = {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+        if sys.platform == "win32":
+            kwargs["creationflags"] = (
+                subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+            )
+        else:
+            kwargs["start_new_session"] = True
+        subprocess.Popen(
+            ["cm-sync-current", "--input-file", tmp_path],
+            **kwargs,
+        )
+    except Exception:
+        pass
+
+    print(json.dumps({"continue": True}))
+
+
+if __name__ == "__main__":
+    main()
