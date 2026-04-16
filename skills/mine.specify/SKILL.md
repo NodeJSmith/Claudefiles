@@ -225,9 +225,7 @@ created: "<ISO timestamp>"
 
 <What success looks like. Measurable outcomes. No implementation details.>
 
-## Non-Goals
-
-<Only include this section if the user explicitly named exclusions in Q3. List only what the user said. Do not infer non-goals from the problem statement, research, or your own judgment about scope. Omit this section entirely if the user stated no non-goals.>
+<Optional "## Non-Goals" section — only insert this heading and content if the user explicitly named exclusions in Q3. When present, list only what the user said; do not infer non-goals from the problem statement, research, or your own judgment about scope. Omit entirely (heading and all) if the user stated no non-goals.>
 
 ## User Scenarios
 

@@ -222,9 +222,7 @@ Write the design doc to: `<feature_dir>/design.md`
 
 [What is broken, missing, or suboptimal — and why it matters now]
 
-## Non-Goals
-
-[Only include this section if the user explicitly stated exclusions in Phase 1 Q2. List only what the user said, in their own terms. Do not infer non-goals from the research brief or your own judgment about scope. Omit this section entirely if the user stated no non-goals.]
+[Optional "## Non-Goals" section — only insert this heading and content if the user explicitly stated exclusions in Phase 1 Q2. When present, list only what the user said, in their own terms; do not infer non-goals from the research brief or your own judgment about scope. Omit entirely (heading and all) if the user stated no non-goals.]
 
 ## Architecture
 
