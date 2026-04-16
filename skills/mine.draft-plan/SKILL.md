@@ -47,7 +47,7 @@ Read the doc fully. Extract:
 
 - **Problem** — what is being solved
 - **Architecture / Proposed approach** — the recommended direction and design decisions
-- **Non-goals** — explicit exclusions (WPs must NOT implement these)
+- **Non-goals** — explicit exclusions (WPs must NOT implement these). This section is optional in design docs — if absent, the user stated no explicit exclusions; proceed without scope constraints from this field.
 - **Impact / affected files** — modules and files named in the design
 - **Open questions** — collect any that are non-empty
 - **Test Strategy** — high-level testing approach and infrastructure needs. If the design doc's Test Strategy states N/A (no test infrastructure), WPs should use "N/A — no test infrastructure in this repo" for their Test Strategy sections rather than inventing test requirements.
