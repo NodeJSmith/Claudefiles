@@ -9,5 +9,8 @@ CLAUDE.bak
 .claude-plan
 node_modules/
 
+# Local Claude runtime state — worktrees, agent-memory, per-repo settings
+.claude/
+
 # Orchestration checkpoint files (ephemeral runtime state)
 design/specs/*/tasks/.orchestrate-state.md
