@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-04-16
+
+### Changed
+- `mine.orchestrate` "Address fixes" (impl-review loop) and "Address findings" (challenge loop) no longer hard-stop after 2 iterations. Starting at the 3rd round, a soft warning is prepended to the gate prompt: "Multiple rounds have not resolved …". The user retains control over when to stop. Other gate logic is preserved — "Accept and ship" remains suppressed while CRITICAL/HIGH findings exist or impl-review returns REQUEST_FIXES
+- `mine.design` and `mine.specify` `## Non-Goals` section is now opt-in: present only when the user explicitly named exclusions, omitted entirely when they stated none. Claude is prohibited from inferring non-goals from the research brief or its own judgment. Prevents invented exclusions from creating false scope-violation findings in downstream critics. `mine.draft-plan` and `mine.specify` revision routing updated to tolerate an absent Non-Goals section
+
 ## 2026-04-12
 
 ### Added

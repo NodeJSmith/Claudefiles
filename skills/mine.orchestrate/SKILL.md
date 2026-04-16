@@ -735,11 +735,11 @@ AskUserQuestion:
 
 **On "Address fixes":**
 1. Dispatch a fresh `general-purpose` subagent with: the impl-review findings, the relevant file paths, `<feature_dir>/design.md` content, all WP files from `<feature_dir>/tasks/` (for per-WP constraints and Review Guidance), accumulated spec-reviewer outputs, `implementer-prompt.md` content (as `## Implementer instructions`), `retry-prompt.md` content (as `## Retry instructions`), and `tdd.md` content. Populate the `## Previous review feedback` template with: "Impl-review: <impl-review findings file path>". Instruct: "Fix only the listed blocking issues. Do not expand scope beyond these findings. Respect the Review Guidance constraints from each WP."
-2. After the subagent completes, re-run the project test suite (using `<dir>/test-command.txt`). If tests fail: surface the failure prominently in the next gate prompt, suppress "Accept and ship", and only offer "Address fixes" (if iterations remain) or "Stop here" with a note identifying the test failures.
+2. After the subagent completes, re-run the project test suite (using `<dir>/test-command.txt`). If tests fail: surface the failure prominently in the next gate prompt (which offers "Address fixes" or "Stop here" — there is no "Accept and ship" option at this gate) with a note identifying the test failures.
 3. Re-run `code-reviewer` and `integration-reviewer` on the fix diff in parallel (both in a single message)
 4. Re-run `/mine.implementation-review <feature_dir>`
 5. If it now returns APPROVE, continue to Step 3
-6. If it still returns REQUEST_FIXES after 2 fix attempts, remove "Address fixes" from the gate — only offer "Stop here"
+6. "Address fixes" remains available across iterations — the user decides when to stop. Starting with the 3rd round, prepend a warning to the gate question: "Multiple rounds have not resolved the blocking issues — consider stopping to investigate the root cause before continuing." Do not remove the option; the user may have context (e.g., knowing the next iteration targets a different layer) that justifies continuing.
 
 **On "Stop here":** Leave the checkpoint in place. The user can resume later. Do not delete the checkpoint.
 
@@ -795,11 +795,11 @@ AskUserQuestion:
 
 **On "Address findings":**
 1. Dispatch a fresh `general-purpose` subagent with: the challenge findings and any impl-review suggestions, the relevant file paths, `<feature_dir>/design.md` content, all WP files from `<feature_dir>/tasks/` (for per-WP constraints and Review Guidance), `implementer-prompt.md` content (as `## Implementer instructions`), `retry-prompt.md` content (as `## Retry instructions`), and `tdd.md` content. Populate the `## Previous review feedback` template with labeled entries: "Challenge critics: <challenge findings file path>" and, if present, "Impl-review: <impl-review suggestions file path>". Instruct: "Fix only the listed findings. Do not expand scope beyond these findings. Respect the Review Guidance constraints from each WP."
-2. After the subagent completes, re-run the project test suite (using `<dir>/test-command.txt`). If tests fail: surface the failure prominently in the next gate prompt, suppress "Accept and ship", and only offer "Address findings" (if iterations remain) or "Stop here" with a note identifying the test failures.
+2. After the subagent completes, re-run the project test suite (using `<dir>/test-command.txt`). If tests fail: surface the failure prominently in the next gate prompt, suppress "Accept and ship", and offer "Address findings" or "Stop here" with a note identifying the test failures.
 3. Re-run `code-reviewer` and `integration-reviewer` on the fix diff in parallel (both in a single message)
 4. Re-run the challenge (same dispatch pattern as Step 3)
 5. Present the final gate again with updated findings (re-evaluate severity for option suppression)
-6. After 2 "Address findings" iterations, remove the "Address findings" option. Only offer "Accept and ship" if: no CRITICAL/HIGH challenge findings remain, tests pass, AND impl-review's last verdict was APPROVE. If impl-review still returns REQUEST_FIXES, suppress "Accept and ship" and only offer "Stop here" with: "Impl-review still has blocking issues. Address them manually before shipping."
+6. "Address findings" remains available across iterations — the user decides when to stop. Starting with the 3rd round, prepend a warning to the gate question: "Multiple rounds have not resolved these findings — consider stopping to investigate the root cause before continuing." Do not remove the option. "Accept and ship" is only offered when no CRITICAL/HIGH challenge findings remain, tests pass, AND impl-review's last verdict was APPROVE. If impl-review still returns REQUEST_FIXES, keep "Accept and ship" suppressed regardless of challenge state and include in the gate prompt: "Impl-review still has blocking issues — resolve them before shipping."
 
 **On "Accept and ship":** Invoke `/mine.ship`.
 

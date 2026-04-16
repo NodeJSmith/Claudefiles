@@ -91,7 +91,7 @@ AskUserQuestion:
 
 ```
 AskUserQuestion:
-  question: "Anything I should NOT include? (e.g., 'no admin UI', 'skip migration for now')"
+  question: "Anything I should explicitly NOT include? (e.g., 'no admin UI', 'skip migration for now'). 'None' is a perfectly good answer."
   header: "Non-goals"
 ```
 
@@ -225,9 +225,7 @@ created: "<ISO timestamp>"
 
 <What success looks like. Measurable outcomes. No implementation details.>
 
-## Non-Goals
-
-<What is explicitly out of scope.>
+<Optional "## Non-Goals" section — only insert this heading and content if the user explicitly named exclusions in Q3. When present, list only what the user said; do not infer non-goals from the problem statement, research, or your own judgment about scope. Omit entirely (heading and all) if the user stated no non-goals.>
 
 ## User Scenarios
 
@@ -292,10 +290,10 @@ After writing the spec, validate it against this checklist. Check each item by r
 3. Success criteria are measurable and technology-agnostic
 4. No `[NEEDS CLARIFICATION]` markers remain
 5. Edge cases are identified (at least one)
-6. Scope is clearly bounded (non-goals present)
+6. Scope is clearly bounded — either through explicit non-goals the user stated, or through well-scoped Goals and Problem Statement sections. If the user stated no non-goals, this item passes as long as the scope boundary is inferable from the other sections; the Non-Goals section should be absent, not empty.
 7. Acceptance scenarios are defined
 8. Dependencies and assumptions are identified
-9. All mandatory sections are completed (none empty)
+9. All mandatory sections are completed (none empty). Non-Goals is optional — if the user stated no non-goals, the section is absent, which is correct and passes this check.
 10. User scenarios cover the primary flow with named actors and step-by-step task flows (for moderate+ features)
 11. Functional requirements have clear acceptance criteria
 12. Written for non-technical stakeholders (no internal jargon)
@@ -351,7 +349,7 @@ Read the structured findings file at `<dir>/findings.md`. If `Format-version:` i
 
 1. Re-read the spec to get current state
 2. For each finding where `design-level: Yes`, determine whether it belongs in the spec or should be deferred to the design phase. Use this heuristic:
-   - **Routes to spec**: finding would require changing Functional Requirements, Non-Goals, User Scenarios, or Acceptance Criteria sections
+   - **Routes to spec**: finding would require changing Functional Requirements, Goals, User Scenarios, or Acceptance Criteria sections — or Non-Goals, if that section is present (it is optional and may be absent when the user stated no exclusions)
    - **Routes to design phase**: finding would require changing architecture, data model, API contracts, or module boundaries
    - **Ask the user**: finding implicates both (e.g., "scope is too broad" touches requirements AND architecture) and the heuristic doesn't resolve it
 

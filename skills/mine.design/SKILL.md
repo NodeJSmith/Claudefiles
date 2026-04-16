@@ -48,7 +48,7 @@ AskUserQuestion:
 
 ```
 AskUserQuestion:
-  question: "Are there known constraints or non-goals — things this change should NOT do?"
+  question: "Any known constraints, or explicit non-goals — things this change should NOT do? 'None' is a perfectly good answer."
   header: "Constraints"
 ```
 
@@ -70,7 +70,7 @@ Present a structured summary before proceeding:
 
 Capture:
 - The problem and desired outcome
-- Constraints and explicit non-goals
+- Constraints and explicit non-goals (if the user stated any — "none" is a valid capture and means no Non-Goals section will be written)
 - Whether prior work exists
 
 If prior work exists and covers the same scope, skip to Phase 2 (investigate) using that material as context.
@@ -222,9 +222,7 @@ Write the design doc to: `<feature_dir>/design.md`
 
 [What is broken, missing, or suboptimal — and why it matters now]
 
-## Non-Goals
-
-[Explicit exclusions — what this change will NOT do]
+[Optional "## Non-Goals" section — only insert this heading and content if the user explicitly stated exclusions in Phase 1 Q2. When present, list only what the user said, in their own terms; do not infer non-goals from the research brief or your own judgment about scope. Omit entirely (heading and all) if the user stated no non-goals.]
 
 ## Architecture
 
@@ -249,6 +247,8 @@ Write the design doc to: `<feature_dir>/design.md`
 ```
 
 Populate each section from the research brief, scoping answers, and planning interrogation. Be specific — reference actual file paths, class names, and patterns found during investigation.
+
+**Exception for Non-Goals:** only populate this section with items the user explicitly stated in Phase 1 Q2. Do not infer non-goals from the research brief, the scoping interrogation, or your own judgment about scope — invented non-goals create false scope boundaries that downstream critics may flag as violations. If the user stated no non-goals, omit the section entirely (not an empty section, not "None stated" — leave the section out of the doc).
 
 ---
 
