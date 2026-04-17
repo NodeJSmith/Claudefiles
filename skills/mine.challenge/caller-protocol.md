@@ -92,7 +92,7 @@ One-line string. Three forms:
 |---|---|---|
 | Doc-edit | `<doc-name> SS <section-name>` | `spec.md SS Acceptance Criteria` |
 | Code-fix | `(code)` | `(code)` |
-| Non-edit | `(none -- flag for implementation)` | `(none -- flag for implementation)` |
+| Non-edit | `(none -- <reason>)` | `(none -- flag for implementation)` |
 
 The `SS` delimiter is a human-readable section separator.
 
@@ -110,10 +110,11 @@ The user can correct Doc targets in the manifest editor before execution. The ma
 
 ## 5. Pre-Execution Validation Pass
 
-Before executing any verb, scan all manifest rows whose verb is `fix`, `A`, `B`, or `C` and whose Doc target uses the `<doc-name> SS <section-name>` format. For each:
+Before executing any verb, scan all manifest rows whose verb is `fix`, `A`, `B`, or `C`. For each:
 
-1. Verify the target file exists
-2. Verify the named section resolves via the matching algorithm (section 4)
+1. Verify the Doc target is present and well-formed (matches `<doc-name> SS <section-name>`, `(code)`, or `(none -- <reason>)`). If the Doc target is blank, malformed, or missing on an edit verb, treat as a validation failure — route to "Revise manifest" rather than proceeding with an unresolvable target.
+2. For Doc targets using the `<doc-name> SS <section-name>` format: verify the target file exists
+3. Verify the named section resolves via the matching algorithm (section 4)
 
 If **any** section is unresolvable, surface **all** failures before applying a single edit:
 
@@ -215,7 +216,7 @@ AskUserQuestion:
 
 ## 9. Post-Execute Hook Protocol
 
-Post-execute hooks are caller-specific extension points that run after all verb execution completes. They are triggered by the combination of Doc target content and verb value — not by verb semantics alone.
+Post-execute hooks are caller-specific extension points that run after all verb execution completes. They are triggered by the combination of Doc target content and the finding's execution outcome as recorded in the execution log (`editor-log.md`) — not directly by the manifest verb field.
 
 ### Trigger Condition
 

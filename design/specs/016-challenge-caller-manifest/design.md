@@ -221,7 +221,7 @@ If context compacts between Consent Gate and verb execution, callers MUST NOT re
 
 1. Before generating a new manifest, check for an existing `<tmpdir>/resolutions.md`
 2. If the file exists and is non-empty, skip manifest generation and the Consent Gate
-3. Re-read the existing manifest and proceed directly to Detection Logic
+3. Re-read the existing manifest and proceed directly to the Commit Gate, skipping Detection Logic because hash comparison is not meaningful after compaction
 4. Each caller's SKILL.md references this section
 
 This mirrors orchestrate's checkpoint-read detection pattern (`skills/mine.orchestrate/SKILL.md` "Resuming after context compaction" section).
@@ -293,7 +293,7 @@ Session-level manual validation (same category as spec 015 — no unit tests for
 
 4. **Negative**: Anti-patterns #1, #4, #8 are absent from all three callers
 
-5. **Compaction recovery**: Simulate compaction mid-flow by manually resuming from a pre-existing `resolutions.md` — verify caller detects the orphaned manifest, skips regeneration, and proceeds to Detection Logic
+5. **Compaction recovery**: Simulate compaction mid-flow by manually resuming from a pre-existing `resolutions.md` — verify caller detects the orphaned manifest, skips regeneration, and proceeds directly to the Commit Gate
 
 6. **Regression**: standalone `/mine.challenge` flow unchanged
 
