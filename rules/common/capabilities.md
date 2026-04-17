@@ -33,12 +33,12 @@
 | "mutation test", "do my tests actually catch bugs" | `/mine.mutation-test` |
 | "find tool gaps", "session archaeology", "missing cli features" | `/mine.tool-gaps` |
 | "grill me on this", "poke holes in my idea", "help me think this through", "what am I not thinking about" | `/mine.grill` |
-| "interview this idea", "spec this out", "help me define what I want to build", "interviewer" | `/mine.specify` |
-| "specify this feature", "write a spec", "define requirements" | `/mine.specify` |
+| "interview this idea", "spec this out", "help me define what I want to build", "interviewer" | `/mine.define` |
+| "specify this feature", "write a spec", "define requirements" | `/mine.define` |
 | "build this", "implement this", "make this change", "start a feature" | `/mine.build` |
-| "design this change", "write a design doc", "investigate before planning" | `/mine.design` |
-| "draft a plan", "create work packages", "generate WPs" | `/mine.draft-plan` |
-| "review this plan", "check the plan", "plan review" | `/mine.plan-review` |
+| "design this change", "write a design doc", "investigate before planning" | `/mine.define` |
+| "draft a plan", "create work packages", "generate WPs" | `/mine.plan` |
+| "review this plan", "check the plan", "plan review" | `/mine.plan` |
 | "execute the plan", "orchestrate implementation", "start executing" | `/mine.orchestrate` |
 | "review the implementation", "post-implementation review" | `/mine.orchestrate` (impl-review runs automatically in Phase 3) |
 | "move WP to doing", "WP status", "kanban" | `/mine.wp` |

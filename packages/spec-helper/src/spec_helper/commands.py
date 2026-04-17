@@ -514,10 +514,16 @@ def cmd_archive(args: argparse.Namespace) -> None:
 
         # All checks passed
         wp_count = len(wps)
+        has_spec = (feature_dir / "spec.md").exists()
 
         if args.dry_run:
             results.append(
-                {"feature": name, "status": "would_archive", "wp_count": wp_count}
+                {
+                    "feature": name,
+                    "status": "would_archive",
+                    "wp_count": wp_count,
+                    "has_spec": has_spec,
+                }
             )
             continue
 
@@ -530,7 +536,14 @@ def cmd_archive(args: argparse.Namespace) -> None:
                 continue
             raise
 
-        results.append({"feature": name, "status": "archived", "wp_count": wp_count})
+        results.append(
+            {
+                "feature": name,
+                "status": "archived",
+                "wp_count": wp_count,
+                "has_spec": has_spec,
+            }
+        )
 
     # Print results
     if args.json:
@@ -540,9 +553,13 @@ def cmd_archive(args: argparse.Namespace) -> None:
             feat_status = r["status"]
             feat_name = r["feature"]
             if feat_status == "archived":
-                print(f"  {feat_name}: archived ({r['wp_count']} WPs removed)")
+                spec_note = " + spec.md" if r["has_spec"] else ""
+                print(
+                    f"  {feat_name}: archived ({r['wp_count']} WPs{spec_note} removed)"
+                )
             elif feat_status == "would_archive":
-                print(f"  {feat_name}: would archive ({r['wp_count']} WPs)")
+                spec_note = " + spec.md" if r["has_spec"] else ""
+                print(f"  {feat_name}: would archive ({r['wp_count']} WPs{spec_note})")
             elif feat_status == "error":
                 print(f"  {feat_name}: ERROR — {r['reason']}")
             elif feat_status == "skipped":
@@ -556,37 +573,74 @@ def cmd_archive(args: argparse.Namespace) -> None:
         print(f"\n{verb}: {archived_count}, Skipped: {skipped_count}")
 
 
-def _archive_feature(feature_dir: Path, tasks_dir: Path, git_root: Path) -> None:
-    """Delete tasks/ and update design.md status for a single feature.
+def _is_tracked(git_root: Path, rel_path: str) -> bool:
+    """Check if a path is tracked by git."""
+    proc = subprocess.run(
+        ["git", "-C", str(git_root), "ls-files", "--error-unmatch", rel_path],
+        capture_output=True,
+        timeout=10,
+    )
+    return proc.returncode == 0
 
-    Order: delete first, stamp second. If deletion fails, design.md is
-    untouched and re-running archive retries cleanly. The reverse order
-    would leave design.md stamped "archived" with tasks/ still present.
-    """
-    # Delete tasks/ via git rm -r (traceable)
-    tasks_rel = str(tasks_dir.relative_to(git_root))
+
+def _git_rm(git_root: Path, rel_path: str, *, recursive: bool = False) -> None:
+    """Remove a file or directory via git rm. Raises RuntimeError on failure."""
+    cmd = ["git", "-C", str(git_root), "rm", "-q"]
+    if recursive:
+        cmd.append("-r")
+    cmd.append(rel_path)
     try:
-        proc = subprocess.run(
-            ["git", "-C", str(git_root), "rm", "-r", "-q", tasks_rel],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
     except subprocess.TimeoutExpired:
         raise RuntimeError(
-            f"git rm timed out after 30s for {tasks_rel}. "
+            f"git rm timed out after 30s for {rel_path}. "
             f"Check for a stale .git/index.lock. Run 'git status' to confirm "
             f"nothing was partially staged; if clean, re-running archive is safe."
         ) from None
     if proc.returncode != 0:
         stderr = proc.stderr.strip()
         if "not under version control" in stderr or "did not match" in stderr:
+            if recursive:
+                raise RuntimeError(
+                    f"Cannot archive {rel_path}: contains untracked files. "
+                    f"Commit them first so git history preserves content, "
+                    f"then re-run archive."
+                )
             raise RuntimeError(
-                f"Cannot archive {tasks_rel}: contains untracked files. "
-                f"Commit them first so git history preserves WP content, "
+                f"Cannot archive {rel_path}: file is not tracked by git. "
+                f"Commit it first so git history preserves content, "
                 f"then re-run archive."
             )
-        raise RuntimeError(f"git rm failed for {tasks_rel}: {stderr}")
+        raise RuntimeError(f"git rm failed for {rel_path}: {stderr}")
+
+
+def _archive_feature(feature_dir: Path, tasks_dir: Path, git_root: Path) -> None:
+    """Delete tasks/, spec.md, and update design.md status for a single feature.
+
+    Order: delete first, stamp second. If deletion fails, design.md is
+    untouched and re-running archive retries cleanly. The reverse order
+    would leave design.md stamped "archived" with tasks/ still present.
+    """
+    # Resolve spec.md before any deletions — if it exists but is untracked,
+    # fail early so tasks/ isn't deleted in an un-retryable partial state.
+    spec_path = feature_dir / "spec.md"
+    spec_rel: str | None = None
+    if spec_path.exists():
+        spec_rel = str(spec_path.relative_to(git_root))
+        if not _is_tracked(git_root, spec_rel):
+            raise RuntimeError(
+                f"Cannot archive {spec_rel}: file is not tracked by git. "
+                f"Commit it first so git history preserves content, "
+                f"then re-run archive."
+            )
+
+    # Delete tasks/ via git rm -r (traceable)
+    tasks_rel = str(tasks_dir.relative_to(git_root))
+    _git_rm(git_root, tasks_rel, recursive=True)
+
+    # Delete spec.md (already validated as tracked above)
+    if spec_rel:
+        _git_rm(git_root, spec_rel)
 
     # Update **Status:** in design.md (after confirmed deletion)
     if not _update_design_status(feature_dir, "archived"):

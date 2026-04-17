@@ -8,7 +8,7 @@ user-invocable: true
 
 Adversarial review of any artifact — code, specs, designs, briefs, skill files. Assumes the target is wrong and sets out to prove it. Three generic critics always run; up to two domain-specialist critics are added based on target type. Findings are cross-referenced for confidence, and every claim must cite evidence.
 
-When invoked by caliper workflow skills (mine.specify, mine.design), those callers handle revision planning after challenge completes. When invoked standalone, challenge resolves findings via `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`.
+When invoked by caliper workflow skills (mine.define), the caller handles revision planning after challenge completes. When invoked standalone, challenge resolves findings via `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`.
 
 ## How This Differs From Other Skills
 
@@ -28,7 +28,7 @@ $ARGUMENTS — optional scope:
 **Optional arguments**:
 - `--focus="<area>"` — steer critics toward specific concerns (e.g., `--focus="security, error handling"`). Passed to all critics as a priority signal: "Pay special attention to X." Critics still review broadly but weight output toward the user's concern. **Specialist forcing**: to force a specific specialist persona, `--focus` must be a single term (no commas, no spaces) of at least 6 characters that case-insensitively prefix-matches a specialist filename slug (e.g., `--focus="contract"` forces `contract-caller.md`). Multi-word values (e.g., `"design conformance"`) and comma-separated values bypass specialist matching and act as priority signals only.
 - `--target-type=<type>` — override heuristic target-type classification. Callers that know their artifact type should pass this. Values: `code`, `frontend-code`, `spec`, `design-doc`, `brief`, `skill-file`, `agent-file`, `rule`, `docs`, `research`, `other`.
-- `--findings-out=<path>` — (structured callers only) deterministic output path for the findings file. Used by mine.design and mine.specify for reliable handoff. Not needed for standalone or passthrough invocations. **Overwrites** any existing file at the path without warning — callers that re-run challenge (e.g., mine.orchestrate's "Address findings" loop) should use iteration-suffixed paths to preserve prior findings.
+- `--findings-out=<path>` — (structured callers only) deterministic output path for the findings file. Used by mine.define for reliable handoff. Not needed for standalone or passthrough invocations. **Overwrites** any existing file at the path without warning.
 - `--mode=passthrough` — (passthrough callers only) signals that the calling skill handles post-challenge routing. Challenge provides a summary but skips the Consent Gate. Required for mine.brainstorm and mine.research invocations.
 - `--no-specialists` — skip specialist selection, run only the three generic critics.
 
@@ -91,7 +91,7 @@ Whether this finding is architectural/structural in nature — meaning it would 
 
 ## Output Contract
 
-The following tag names and values are consumed by calling skills (mine.design, mine.specify) to generate revision plans. Changing these is a **breaking change** — update all callers. The rationalization table (bottom of file) is also a breaking-change surface when rows redefine how severity, type, design-level, or resolution are assigned during synthesis — changes to those rows require the same caller update pass.
+The following tag names and values are consumed by calling skills (mine.define) to generate revision plans. Changing these is a **breaking change** — update all callers. The rationalization table (bottom of file) is also a breaking-change surface when rows redefine how severity, type, design-level, or resolution are assigned during synthesis — changes to those rows require the same caller update pass.
 
 - **Contract tag names**: `severity`, `type`, `design-level`, `resolution`
 - **Contract tag names (TENSION only)**: `side-a`, `side-b`, `deciding-factor`
@@ -103,7 +103,7 @@ The following tag names and values are consumed by calling skills (mine.design, 
   - `evidence`: comma-separated list of `file:line` citations or section references. For non-code targets (`other`, `spec`, `design-doc`, `rule`, `brief`), may contain section references instead of file:line. Written as `not cited` when no critic provided structured evidence — Phase 4 suppresses the Evidence section when the value is `not cited` or the field is absent.
   - `references`: comma-separated list of external URLs cited by critics. Phase 4 splits on commas and renders each URL as a bullet. Omitted entirely when no external references were cited.
   - `design-challenge`: one question that forces the author to justify or rethink the finding.
-- **design-level values**: `Yes`, `No`
+- **design-level values**: `Yes` (fix requires editing a design artifact — spec, design doc, requirements, ACs), `No` (fix is implementation-only — no document changes needed)
 - **Resolution values**: `Auto-apply`, `User-directed`
 - **Format-version**: `2` — written in the findings file header. Callers should assert this value to detect format mismatches. Absent in pre-enrichment files (version 1). Increment when the findings file format changes in a way that requires callers to adapt or makes pre-existing files unreadable by Phase 4.
 - **Temp dir**: `<tmpdir>` — written in the findings file header. Contract field — used by structured callers to locate `validation-warnings.md` and individual critic reports. Callers that use this path must handle the case where the directory no longer exists (cleaned after 7 days) — treat a missing tmpdir as equivalent to `Warnings: none` and skip the `validation-warnings.md` read.
@@ -113,9 +113,7 @@ The following tag names and values are consumed by calling skills (mine.design, 
 **Known callers** (update all when contract changes). New structured callers must add a `<!-- CHALLENGE-CALLER -->` comment at their invocation site. To verify this list is complete: `grep -r 'CHALLENGE-CALLER' ${CLAUDE_HOME:-~/.claude}/skills/ --include='*.md' -l`.
 
 Structured callers (read findings file, use manifest flow via `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md`):
-- `skills/mine.design/SKILL.md` — "On 'Challenge this design'" section; uses doc-edit manifest flow
-- `skills/mine.specify/SKILL.md` — "On 'Challenge this spec first'" section; uses doc-edit manifest flow
-- `skills/mine.orchestrate/SKILL.md` — Phase 3 Step 3 auto-challenge; uses code-fix manifest flow with split dispatch
+- `skills/mine.define/SKILL.md` — "On 'Challenge first'" section; uses doc-edit manifest flow
 
 Detection callers (scan for severity labels to detect prior analysis, don't read findings file):
 - `skills/mine.build/SKILL.md` — accelerated path detection
@@ -146,9 +144,9 @@ Inline-revision callers (invoke `/mine.challenge` inline during a gate, read fin
 - `skills/i-typeset/SKILL.md`
 
 Standalone-only target types (no structured caller — findings are presented to the user for manual action):
-- `docs` — no revision skill exists yet. A future `mine.docs-review` caller would consume `--findings-out` like mine.design does for `design-doc` targets.
+- `docs` — no revision skill exists yet. A future `mine.docs-review` caller would consume `--findings-out` like mine.define does for `design-doc` targets.
 
-**Caller guidance for TENSION findings**: Doc-edit callers (mine.specify, mine.design) route TENSION findings to the document's "Open Questions" section via the post-execute hook in `caller-protocol.md` — the Doc target field makes this routing visible and editable in the manifest. Code-fix callers (mine.orchestrate) default TENSION findings to `file` (create a tracking issue). See `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md` for the full post-execute hook specification.
+**Caller guidance for TENSION findings**: Doc-edit callers (mine.define) route TENSION findings to the document's "Open Questions" section via the post-execute hook in `caller-protocol.md` — the Doc target field makes this routing visible and editable in the manifest. See `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md` for the full post-execute hook specification.
 
 ## Phase 1: Gather Context
 
@@ -294,7 +292,7 @@ Subagents write their reports inside this directory:
      - If Auto-apply: [one-sentence description of the specific change]
      - If User-directed: [Option A — Option B — key tradeoff between them]
      ```
-  4. **Tag each finding** with severity (CRITICAL / HIGH / MEDIUM), type (Structural / Approach-now / Approach-later / Fragility / Gap), and design-level (Yes / No). Assign severity based on impact — how bad is this if left unfixed?
+  4. **Tag each finding** with severity (CRITICAL / HIGH / MEDIUM), type (Structural / Approach-now / Approach-later / Fragility / Gap), and design-level (Yes / No). Assign severity based on impact — how bad is this if left unfixed? **design-level** means "requires a change to a design artifact (spec, design doc) rather than only to implementation code." If the fix is editing spec text, acceptance criteria, requirements, architecture descriptions, or any other document content — that's `Yes`. If the fix is purely about how code is written and doesn't change any document — that's `No`.
   5. **Structure each finding with these required sections** (synthesis copies these directly — produce them as discrete, labeled sections, not embedded in prose):
      ```
      **Why it matters**: [One sentence — the concrete consequence if this is left unfixed]
@@ -388,7 +386,7 @@ Three steps. Prioritize trustworthy output over compact output — showing an ex
 2. **Assign tags per finding**:
    - **Severity**: take the highest severity any contributing critic assigned. The final value **must** be one of `CRITICAL`, `HIGH`, `MEDIUM`, or `TENSION` — no other values are valid. If a critic used a non-contract value (e.g., `LOW`, `INFO`), reclassify as `MEDIUM` and append a validation warning to `<tmpdir>/validation-warnings.md` (read existing content first if the file exists — Phase 1 may have already written warnings). Record agreement count on the separate confidence line (e.g., `3/5 (Senior + Architect + Data Integrity)` or `1/4 (Senior only)`).
    - **Type**: use the type that best describes the root cause. For Approach timing conflicts (`now` vs `later`), tag as `Approach-now/later`.
-   - **Design-level**: when critics disagree, Yes wins (architectural concerns should surface).
+   - **Design-level**: Yes = requires editing a design artifact (spec, design doc); No = implementation-only fix. When critics disagree, Yes wins.
    - **Resolution**: default to **User-directed** unless ALL critics proposed the same fix AND it's localized and additive — only then use **Auto-apply**. When in doubt, User-directed.
 
 3. **Write a recommendation** for each User-directed finding — which option you'd pick and a one-sentence reason. **Exception**: for TENSION findings, replace the recommendation with a **Deciding factor** — one question or data point that would resolve the disagreement.

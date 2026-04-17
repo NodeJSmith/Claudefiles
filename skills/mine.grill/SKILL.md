@@ -6,7 +6,7 @@ user-invocable: true
 
 # Grill
 
-Multi-angle interrogation of a raw idea. Attacks the idea from product, design, engineering, and adversarial perspectives to surface what you haven't thought about. Produces a structured brief that `/mine.specify` can ingest.
+Multi-angle interrogation of a raw idea. Attacks the idea from product, design, engineering, and adversarial perspectives to surface what you haven't thought about. Produces a structured brief that `/mine.define` can ingest.
 
 Not a spec. Not a design doc. A thinking tool.
 
@@ -67,7 +67,7 @@ Work through these lenses one at a time. For each lens, ask 1-3 questions — on
 
 **You do not need to ask every question.** Skip any that are obvious, already answered, or where the codebase provides the answer. The goal is to find the 5-8 questions the user hasn't thought about, not to run a checklist.
 
-After each answer, walk down any decision branches it opens — same pattern as adaptive follow-up in `/mine.specify`. If an answer reveals something the codebase can inform, check the code before asking the next question.
+After each answer, walk down any decision branches it opens — same pattern as adaptive follow-up in `/mine.define`. If an answer reveals something the codebase can inform, check the code before asking the next question.
 
 ---
 
@@ -99,7 +99,7 @@ Write to `<feature_dir>/brief.md`:
 
 ## Open Questions
 
-<Anything that came up but couldn't be resolved — these feed directly into /mine.specify>
+<Anything that came up but couldn't be resolved — these feed directly into /mine.define>
 
 ## Scope Boundaries
 
@@ -127,7 +127,7 @@ AskUserQuestion:
     - label: "Challenge this brief first"
       description: "Run /mine.challenge — the brief shapes everything downstream, catch issues now"
     - label: "Specify this feature"
-      description: "Run /mine.specify with this brief as input"
+      description: "Run /mine.define with this brief as input"
     - label: "Build it directly"
       description: "Run /mine.build — routes based on complexity"
     - label: "Done for now"
@@ -140,7 +140,7 @@ Invoke `/mine.challenge --target-type=brief <feature_dir>/brief.md`. After chall
 
 ### On "Specify"
 
-Invoke `/mine.specify <feature_dir>`
+Invoke `/mine.define <feature_dir>`
 
 ### On "Build it directly"
 
@@ -148,4 +148,4 @@ Invoke `/mine.build <feature_dir>`
 
 ### On "Done for now"
 
-Confirm: "Brief saved at `<feature_dir>/brief.md`. Resume with `/mine.specify <feature_dir>` later."
+Confirm: "Brief saved at `<feature_dir>/brief.md`. Resume with `/mine.define <feature_dir>` later."

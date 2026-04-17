@@ -43,22 +43,20 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `cm-recall-conversations` | Recall or search past conversation sessions — "what did we discuss", "continue where we left off", keyword search |
 | `mine.address-pr-issues` | Triage and resolve PR blockers — review comments, merge conflicts, and failing CI |
 | `mine.brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas ranked by user-chosen criteria, with handoff to research or planning |
-| `mine.build` | Single entry point — routes between direct implementation and the full caliper v2 workflow (specify → design → draft-plan → plan-review → orchestrate → ship) |
+| `mine.build` | Single entry point — routes between direct implementation and the full caliper v2 workflow (define → plan → orchestrate → ship) |
 | `mine.challenge` | Adversarial review using 3 generic + up to 2 domain-specialist critics — assumes the target is wrong, finds out why, argues for better. Works on code, specs, designs, briefs, skill files, docs |
 | `mine.commit-push` | Commit and push changes to the current branch |
 | `mine.create-pr` | Review branch changes and create a PR on GitHub or Azure DevOps |
-| `mine.design` | Scope + planning interrogation + research + design doc + sign-off gate |
-| `mine.draft-plan` | Design doc → Work Package (WP) files with objectives, subtasks, test strategy, and lane tracking |
+| `mine.define` | Proportional discovery + codebase investigation + architecture interrogation → spec.md + design.md with one sign-off gate |
 | `mine.eval-repo` | Evaluate a third-party GitHub repo before adopting it -- test coverage, code quality, maintenance health, bus factor |
-| `mine.grill` | Multi-angle interrogation of a raw idea — product, design, engineering, scope, and adversarial lenses. Produces a brief.md that feeds into /mine.specify |
+| `mine.grill` | Multi-angle interrogation of a raw idea — product, design, engineering, scope, and adversarial lenses. Produces a brief.md that feeds into /mine.define |
 | `mine.mockup` | Generate self-contained HTML mockup files — reads `design/context.md` for consistent styling, delivers to a session temp directory |
 | `mine.mutation-test` | Mutation testing -- intentionally break code to verify tests catch real bugs |
-| `mine.orchestrate` | Execute work packages task-by-task with executor → spec reviewer → code reviewer → integration reviewer loop; tracks WP lane state |
-| `mine.plan-review` | Opus checklist review (9 points) of design doc + work packages — includes spec/design coverage and scope containment + approve/revise/abandon gate |
+| `mine.orchestrate` | Execute work packages task-by-task with parallel spec/code/integration reviewer pass; tracks WP lane state |
+| `mine.plan` | Design doc → Work Package files with objectives, subtasks, test strategy, and 9-point checklist review + approve/revise/abandon gate |
 | `mine.prior-art` | Survey how others solve a problem — web-first research for mid-design architectural questions |
 | `mine.research` | Interactive research workflow — gathers user intent, dispatches the researcher agent, presents the brief |
 | `mine.ship` | Commit, push, and create a PR in one step |
-| `mine.specify` | Proportional discovery interview — extracts full intent and produces spec.md with structured task flows and 12-item quality validation |
 | `mine.tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |
 | `mine.visual-qa` | Live visual QA -- Playwright captures screenshots, then two agents analyze them with structural separation (one sees each page in isolation, the other sees all pages at once) |
 | `mine.worktree-rebase` | Detect when the parent repo is currently on a feature branch and rebase this worktree branch onto it (run immediately after creating the worktree) |

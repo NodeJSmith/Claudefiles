@@ -86,7 +86,7 @@ Based on the above changes:
     - **GitHub**: `gh pr ready`
     - **Azure DevOps**: `az repos pr update --id <PR_ID> --draft false`
 11. Return the PR URL. If step 12 produced archival guidance, include it in the same response after the URL.
-12. **WP ARCHIVAL REMINDER:** If `design/specs/` exists in the repo and `spec-helper` is available (`command -v spec-helper`), run `spec-helper archive --dry-run --json`. If any entries have `status: "would_archive"`, tell the user: "These specs are ready to archive: [list]. Run `spec-helper archive --all` to clean up tasks/ directories before merging." If none qualify, `design/specs/` doesn't exist, or `spec-helper` isn't installed, skip silently. Run this check before composing the final response in step 11.
+12. **WP ARCHIVAL REMINDER:** If `design/specs/` exists in the repo and `spec-helper` is available (`command -v spec-helper`), run `spec-helper archive --dry-run --json`. If any entries have `status: "would_archive"`, tell the user: "These specs are ready to archive: [list]. Run `spec-helper archive --all` to clean up tasks/ and spec.md before merging." If none qualify, `design/specs/` doesn't exist, or `spec-helper` isn't installed, skip silently. Run this check before composing the final response in step 11.
 
 You have the capability to call multiple tools in a single response. You should gather all necessary context first (steps 1-6), then create the PR in a single action. Do not create multiple PRs.
 

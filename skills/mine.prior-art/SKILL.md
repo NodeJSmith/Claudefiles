@@ -16,7 +16,7 @@ Typically invoked mid-design or mid-conversation when you hit an architectural q
 |-------|-------------------|
 | **`/mine.prior-art`** | **"How do others solve X? What patterns exist?"** |
 | `/mine.research` | "What would it take to do X in this codebase?" |
-| `/mine.design` | "How should we build X?" |
+| `/mine.define` | "How should we build X?" |
 | `/mine.eval-repo` | "Is this specific library/repo worth adopting?" |
 
 ## Arguments

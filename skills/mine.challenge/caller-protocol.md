@@ -4,24 +4,21 @@
      changelog marker — not a runtime contract; no skill checks this value
      at runtime. -->
 
-# Caller Protocol — Doc-Edit and Code-Fix Callers
+# Caller Protocol — Doc-Edit Callers
 
-Extension protocol for skills that consume challenge findings and execute resolutions against structured targets. Peer to `findings-protocol.md`, which defines the core manifest format, verb vocabulary, Consent Gate, editor session, Detection Logic, Manifest Validation, Commit Gate, and Re-edit Loop Cap — all reused here without modification.
+Extension protocol for skills that consume challenge findings and execute resolutions against structured documents. Peer to `findings-protocol.md`, which defines the core manifest format, verb vocabulary, Consent Gate, editor session, Detection Logic, Manifest Validation, Commit Gate, and Re-edit Loop Cap — all reused here without modification.
 
 > **Cap at two protocol files.** If a third variant is needed, restructure into core + overlays first.
 
 ## 1. Scope
 
-This protocol covers two caller families:
-
-- **Doc-edit callers** (mine.specify, mine.design) — findings target sections of a structured document (spec.md, design.md). Verb execution applies text edits to the named section.
-- **Code-fix callers** (mine.orchestrate) — findings target code locations. Verb execution dispatches a focused fix brief to a subagent.
+This protocol covers **doc-edit callers** (mine.define) — findings target sections of a structured document (spec.md, design.md). Verb execution applies text edits to the named section.
 
 **Out of scope**: Inline-revision callers (`i-*` family) do not generate manifests and do not use `--findings-out`. See `SKILL.md` Known Callers section for the full caller taxonomy.
 
 ## 2. Unified Caller Flow
 
-All three callers follow the same structural sequence. Caller-specific logic is confined to the pre-routing pass and verb execution phase.
+This caller follows a fixed structural sequence. Caller-specific logic is confined to the pre-routing pass and verb execution phase.
 
 ```
 Challenge returns findings.md (unchanged contract)
@@ -86,13 +83,12 @@ Each manifest section includes a `**Doc target:**` field immediately after the s
 
 ### Format
 
-One-line string. Three forms:
+One-line string. Two forms:
 
 | Caller type | Format | Example |
 |---|---|---|
 | Doc-edit | `<doc-name> SS <section-name>` | `spec.md SS Acceptance Criteria` |
-| Code-fix | `(code)` | `(code)` |
-| Non-edit | `(none -- <reason>)` | `(none -- flag for implementation)`, `(none -- TENSION, files as issue)` |
+| Non-edit | `(none -- <reason>)` | `(none -- flag for implementation)` |
 
 The `SS` delimiter is a human-readable section separator.
 
@@ -112,7 +108,7 @@ The user can correct Doc targets in the manifest editor before execution. The ma
 
 Before executing any verb, scan all manifest rows whose verb is `fix`, `A`, `B`, or `C`. For each:
 
-1. Verify the Doc target is present and well-formed (matches `<doc-name> SS <section-name>`, `(code)`, or `(none -- <reason>)`). If the Doc target is blank, malformed, or missing on an edit verb, treat as a validation failure — route to "Revise manifest" rather than proceeding with an unresolvable target.
+1. Verify the Doc target is present and well-formed (matches `<doc-name> SS <section-name>` or `(none -- <reason>)`). If the Doc target is blank, malformed, or missing on an edit verb, treat as a validation failure — route to "Revise manifest" rather than proceeding with an unresolvable target.
 2. For Doc targets using the `<doc-name> SS <section-name>` format: verify the target file exists
 3. Verify the named section resolves via the matching algorithm (section 4)
 
@@ -128,11 +124,11 @@ Revise the manifest to fix these Doc targets, or change their verbs to skip/defe
 
 This converts mid-execution corruption into a pre-execution abort. After validation passes, verb execution proceeds in manifest order.
 
-`ask` verbs are excluded from pre-validation — for doc-edit callers, their Doc target is resolved after the user responds; for the code-fix caller, `ask` verbs carry `(code)` as the Doc target and are resolved before subagent dispatch per section 7. For doc-edit callers, `ask`-verb findings with a blank Doc target must be caught at execution time per §6's routing ambiguity case — the executor must not attempt an edit without a resolved Doc target. `file`, `defer`, and `skip` verbs do not reference Doc targets for edits.
+`ask` verbs are excluded from pre-validation — their Doc target is resolved after the user responds. `ask`-verb findings with a blank Doc target must be caught at execution time per §6's routing ambiguity case — the executor must not attempt an edit without a resolved Doc target. `file`, `defer`, and `skip` verbs do not reference Doc targets for edits.
 
 ## 6. Doc-Edit Verb Execution Table
 
-For doc-edit callers (mine.specify, mine.design). Each verb applies an edit to the Doc target location via the Edit tool.
+For doc-edit callers (mine.define). Each verb applies an edit to the Doc target location via the Edit tool.
 
 | Verb | Action |
 |---|---|
@@ -147,40 +143,7 @@ For doc-edit callers (mine.specify, mine.design). Each verb applies an edit to t
 
 **TENSION + fix**: When a user explicitly changes a TENSION finding's default verb from `defer` to `fix`, the executor treats it as an interactive resolution. Read `side-a` and `side-b` from the findings file (path from manifest header or Base dir) before presenting AskUserQuestion — do not attempt to parse them from the manifest's `**The disagreement:**` prose. Present the tension's sides for the user to choose. After the user chooses, re-compute the Doc target at execution time: scan the chosen side's text for the section under debate, then emit an AskUserQuestion asking where to apply the chosen approach (since the pre-routing Doc target of "Open Questions" is incorrect for a fix action). This matches the standalone execution semantics defined in `findings-protocol.md`.
 
-## 7. Code-Fix Verb Execution Table
-
-For the code-fix caller (mine.orchestrate). Verb execution uses a split-dispatch pattern.
-
-| Verb | Handled by |
-|---|---|
-| `fix` / `A` / `B` / `C` | Collected into a focused fix brief; dispatched to fresh subagent |
-| `ask` | Resolved via AskUserQuestion **before** dispatch; result feeds subagent (if fix) or file/defer/skip |
-| `file` | Orchestrator batches `gh-issue create` |
-| `defer` / `skip` | Orchestrator records in session summary |
-
-### `ask` Resolution Before Dispatch
-
-All `ask` verbs MUST be resolved before dispatching the subagent. The manifest contract says `ask` emits one AskUserQuestion at execution time — the orchestrator is the executor, not the subagent. After the user responds, the result determines whether the finding enters the fix brief (`fix`/letter) or is handled by the orchestrator (`file`/`defer`/`skip`).
-
-### Fix Brief Format
-
-The fix brief is a filtered copy of `<tmpdir>/challenge-findings.md` containing only the `## Finding N:` blocks whose manifest entry has verb `fix`, `A`, `B`, `C`, or a resolved `ask` that mapped to a fix action.
-
-- **Write to**: `<tmpdir>/challenge-fix-brief.md` (first iteration) or `<tmpdir>/challenge-fix-brief-<N>.md` (subsequent iterations, matching findings/manifest suffix — e.g., `challenge-fix-brief-2.md` alongside `challenge-findings-2.md`)
-- **Format**: Same `findings.md` format (preserves `## Finding N:` blocks verbatim) — subagent parsing is trivial
-- **Pass to subagent**: Via the `**Findings files to read:**` field in the retry-prompt template
-
-The subagent receives ONLY the fix-verb findings — not the full findings file. Findings with `file`, `defer`, or `skip` verbs never reach the subagent.
-
-### Subagent Context
-
-The subagent's existing context is preserved alongside the fix brief: design.md, WP files, `implementer-prompt.md`, `retry-prompt.md`, `tdd.md`. The fix brief replaces the current unfiltered challenge findings handoff. Impl-review suggestions remain separate — they are not structured as challenge findings and do not enter the manifest.
-
-### Re-Challenge Cycle
-
-After the subagent completes, the existing re-test / re-review / re-challenge loop continues unchanged. Each re-challenge produces a new findings file and a new manifest. Manifest files MUST use iteration-suffixed paths matching their findings file (`resolutions-2.md` alongside `challenge-findings-2.md`). The prior manifest is complete.
-
-## 8. Per-Verb Execution Logging
+## 7. Per-Verb Execution Logging
 
 Same format as standalone (defined in `findings-protocol.md`). Before any verbs run, write a sentinel entry to verify the log is writable:
 
@@ -214,7 +177,7 @@ AskUserQuestion:
       description: "Inspect <tmpdir>/editor-log.md; do not continue this session"
 ```
 
-## 9. Post-Execute Hook Protocol
+## 8. Post-Execute Hook Protocol
 
 Post-execute hooks are caller-specific extension points that run after all verb execution completes. They are triggered by the combination of Doc target content and the finding's execution outcome as recorded in the execution log (`editor-log.md`) — not directly by the manifest verb field.
 
@@ -228,15 +191,9 @@ A hook fires when **both** conditions are met:
 
 Before appending each finding, check if an identical bullet line already exists in the target section — skip if present (dedup for re-runs).
 
-**mine.specify:**
-1. Sweep findings matching the trigger condition — append bullets to the document and section named in the Doc target (e.g., `spec.md SS Open Questions` appends to `spec.md`'s `## Open Questions` section)
-2. Re-run the quality validation defined in `skills/mine.specify/SKILL.md` on the updated spec
-
-**mine.design:**
-1. Sweep findings matching the trigger condition — append bullets to `design.md`'s `## Open Questions` section (per the Doc target)
-
-**mine.orchestrate:**
-No post-execute hooks. Code-fix findings do not target document sections.
+**mine.define:**
+1. Sweep findings matching the trigger condition — append bullets to the document and section named in the Doc target (e.g., `spec.md SS Open Questions` appends to `spec.md`'s `## Open Questions` section; `design.md SS Open Questions` appends to `design.md`'s `## Open Questions` section)
+2. If any spec.md sections were modified, re-run the quality validation defined in `skills/mine.define/SKILL.md` on the updated spec
 
 ### Worked Example — OQ-Append Hook
 
@@ -271,7 +228,7 @@ After each hook action, append to `<tmpdir>/editor-log.md` using the same format
 
 On `section_not_found` or `error`, include the hook result in the session summary so the user sees the failure (e.g., "Post-execute OQ-append: 1 finding appended, 1 failed (F3: section not found in design.md)").
 
-## 10. Compaction Recovery
+## 9. Compaction Recovery
 
 If context compacts between the Consent Gate and verb execution, the manifest must not be regenerated — doing so loses all user verb edits.
 
@@ -279,10 +236,10 @@ If context compacts between the Consent Gate and verb execution, the manifest mu
 
 ### Recovery Procedure
 
-Before generating a new manifest, check for an existing `<tmpdir>/resolutions.md`. For iteration-suffixed orchestrate manifests, also check `resolutions-N.md` — use the highest-numbered file as the authoritative manifest:
+Before generating a new manifest, check for an existing `<tmpdir>/resolutions.md`:
 
 1. If the file exists and is non-empty, this is an orphaned manifest from a compacted session
-2. **Verify the paired findings file exists.** Check `<tmpdir>/challenge-findings.md` (or `challenge-findings-N.md` matching the manifest's iteration suffix). If the findings file is missing, surface a named error: "Orphaned manifest found at `<path>` but source findings are unavailable — cannot verify finding context." Offer the user a choice:
+2. **Verify the paired findings file exists.** Check `<tmpdir>/challenge-findings.md`. If the findings file is missing, surface a named error: "Orphaned manifest found at `<path>` but source findings are unavailable — cannot verify finding context." Offer the user a choice:
    ```
    AskUserQuestion:
      question: "Found manifest but findings file is missing. Re-run challenge to regenerate findings, or proceed with manifest only (finding context will be unavailable)?"
@@ -294,16 +251,16 @@ Before generating a new manifest, check for an existing `<tmpdir>/resolutions.md
        - label: "Proceed with manifest only"
          description: "Execute verbs from the manifest; finding details will be unavailable for TENSION resolution"
    ```
-   If the user chooses "Re-run challenge", treat as full compaction — regenerate both findings and manifest. If the findings file for the highest-numbered manifest is missing but a lower-numbered findings file exists, fall back to regenerating (treat as full compaction) rather than using a mismatched pair.
+   If the user chooses "Re-run challenge", treat as full compaction — regenerate both findings and manifest.
 3. **Skip** manifest generation and the Consent Gate entirely
 4. Re-read the existing manifest
 5. Proceed directly to Commit Gate — skip Detection Logic. The manifest was reviewed in a prior session; hash comparison is not meaningful for orphaned manifests.
 
 This mirrors orchestrate's checkpoint-read detection pattern. Each caller's SKILL.md must reference this section.
 
-## 11. Worked Examples
+## 10. Worked Examples
 
-### Doc-Edit Manifest (mine.specify)
+### Doc-Edit Manifest (mine.define)
 
 A challenge run on `spec.md` produces 4 findings. The pre-routing pass generates:
 
@@ -384,61 +341,9 @@ A challenge run on `spec.md` produces 4 findings. The pre-routing pass generates
 - F3 (`defer`): Recorded in session summary; post-execute hook appends to `spec.md` `## Open Questions`
 - F4 (`skip`): Recorded in session summary; no edit (Doc target is `(none)`)
 
-### Code-Fix Manifest (mine.orchestrate)
-
-A challenge run on WP03 implementation produces 3 findings. The resolved manifest contains (header omitted for brevity; includes `**Base dir:**` per §3):
-
-```markdown
-## F1: Missing retry logic on external API call
-**Severity:** HIGH | **Type:** Fragility | **Raised by:** Adversarial Reviewer (1/5)
-**Doc target:** (code)
-
-**Problem:** user_service.py:47 calls the auth API with no retry.
-
-**Why it matters:** Transient failures propagate to callers.
-
-**Better approach:** Add exponential backoff with 3 retries in user_service.py:47.
-
-**Verb:** fix
-
-## F2: Race condition in cache invalidation
-**Severity:** HIGH | **Type:** Correctness | **Raised by:** Senior (2/5)
-**Doc target:** (code)
-
-**Problem:** cache.py:112 deletes then re-fetches without a lock.
-
-**Why it matters:** Concurrent requests see stale data during the gap.
-
-**Options:**
-- **A** *(recommended)*: Use atomic compare-and-swap via Redis WATCH/MULTI
-- **B**: Add a distributed lock with TTL
-
-**Why A:** Avoids lock contention; leverages Redis's built-in atomic ops.
-
-**Verb:** A
-
-## F3: TENSION — Sync vs async event dispatch
-**Severity:** TENSION | **Type:** Structural | **Raised by:** Senior (3/5)
-**Doc target:** (none -- TENSION, files as issue)
-
-**Problem:** events.py:30 dispatches synchronously, blocking the request.
-
-**The disagreement:** Side A argues async dispatch improves latency. Side B argues sync dispatch guarantees delivery order.
-
-**Deciding factor:** Whether event ordering is a business requirement.
-
-**Verb:** file
-```
-
-**Execution trace:**
-1. F1 (`fix`) and F2 (`A`) are collected into the fix brief
-2. F3 (`file`) is handled by the orchestrator — batched `gh-issue create`
-3. Fix brief written to `<tmpdir>/challenge-fix-brief.md` containing only F1 and F2 blocks
-4. Fresh subagent dispatched with fix brief path via `**Findings files to read:**`
-
 ## Routing Heuristic Precision
 
-The pre-routing pass computes Doc targets based on finding contract tags and caller-specific heuristics (e.g., mine.specify's spec-vs-design routing). When the heuristic **cannot unambiguously classify a finding**, default the verb to `ask`. This converts routing ambiguity into a user prompt at execution time rather than a silent wrong-document edit.
+The pre-routing pass computes Doc targets based on finding contract tags and caller-specific heuristics (e.g., mine.define's spec-vs-design routing). When the heuristic **cannot unambiguously classify a finding**, default the verb to `ask`. This converts routing ambiguity into a user prompt at execution time rather than a silent wrong-document edit.
 
 The manifest editor serves as a secondary safety valve — users can correct wrong Doc targets before execution.
 
@@ -446,30 +351,14 @@ The manifest editor serves as a secondary safety valve — users can correct wro
 
 Callers populate default verbs and Doc targets using these tables. See `findings-protocol.md` Default Verb Selection for the evaluation order (TENSION first, then Auto-apply, then recommendation content).
 
-### mine.specify
+### mine.define
 
-| Finding property | Default verb | Doc target |
-|---|---|---|
-| `severity: TENSION` | `defer` | `spec.md SS Open Questions` |
-| `design-level: Yes` + routes to spec (functional reqs, goals, user scenarios, ACs, non-goals) | `fix` / letter / `ask` (per Default Verb Selection) | `spec.md SS <section>` |
-| `design-level: Yes` + routes to design (architecture, data model, API) | `defer` | `design.md SS Open Questions` |
-| `design-level: No` | `skip` | `(none -- flag for implementation)` |
-
-### mine.design
+mine.define targets both spec.md and design.md. Route each finding to the appropriate document based on its content:
 
 | Finding property | Default verb | Doc target |
 |---|---|---|
 | `severity: TENSION` | `defer` | `design.md SS Open Questions` |
-| `design-level: Yes` | `fix` / letter / `ask` (per Default Verb Selection) | `design.md SS <section>` |
+| `design-level: Yes` + routes to spec (functional reqs, goals, user scenarios, ACs, non-goals) | `fix` / letter / `ask` (per Default Verb Selection) | `spec.md SS <section>` |
+| `design-level: Yes` + routes to design (architecture, data model, API, alternatives, test strategy, impact) | `fix` / letter / `ask` (per Default Verb Selection) | `design.md SS <section>` |
 | `design-level: No` | `skip` | `(none -- flag for implementation)` |
 
-### mine.orchestrate
-
-Note: `design-level` is not used in code-fix routing — all code findings route identically regardless of design-level. If a finding is `design-level: Yes` (structural architecture issue), the manifest editor is the appropriate place to override its verb to `ask` or `defer`.
-
-| Finding property | Default verb | Doc target |
-|---|---|---|
-| `severity: TENSION` | `file` | `(none -- TENSION, files as issue)` |
-| `resolution: Auto-apply` | `fix` | `(code)` |
-| `resolution: User-directed` + recommendation present | option letter | `(code)` |
-| `resolution: User-directed` + no recommendation | `ask` | `(code)` |
