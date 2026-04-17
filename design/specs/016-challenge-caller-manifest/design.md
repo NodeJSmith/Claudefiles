@@ -1,7 +1,7 @@
 # Design: Challenge Caller Manifest Migration
 
 **Date:** 2026-04-16
-**Status:** approved
+**Status:** archived
 **Research:** design/research/2026-04-16-challenge-caller-manifest/research.md
 
 ## Problem
