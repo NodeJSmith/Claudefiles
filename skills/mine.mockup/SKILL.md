@@ -168,13 +168,13 @@ Before delivering, verify:
 
 ### 6. Deliver
 
-**Output location:** Write to `~/.claude/diagrams/`. Use a descriptive filename based on content: `dashboard-mockup.html`, `pipeline-flow.html`, `schema-overview.html`. The directory persists across sessions.
+**Output location:** Run `get-skill-tmpdir mine.mockup` and write to `<tmpdir>/`. Use a descriptive filename based on content: `dashboard-mockup.html`, `pipeline-flow.html`, `schema-overview.html`.
 
 **Open in browser:**
-- macOS: `open ~/.claude/diagrams/filename.html`
-- Linux: `xdg-open ~/.claude/diagrams/filename.html`
+- macOS: `open <tmpdir>/filename.html`
+- Linux: `xdg-open <tmpdir>/filename.html`
 
-**Tell the user** the file path so they can re-open or share it.
+**Tell the user** the file path so they can open it.
 
 ### 7. Offer Next Steps (only if step 2 was used)
 

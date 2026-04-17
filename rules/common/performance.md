@@ -17,7 +17,7 @@ Use Sonnet instead of Haiku when any of these apply:
 
 Each agent file in `agents/` declares its model in YAML frontmatter. When updating model policy, check all locations:
 
-**Agent files** (18 total):
+**Agent files:**
 - `agents/code-reviewer.md` — sonnet (pre-commit safety gate; do not downgrade)
 - `agents/integration-reviewer.md` — sonnet (pre-commit safety gate; do not downgrade)
 - `agents/testing-reality-checker.md` — sonnet (pre-ship safety gate; do not downgrade)
@@ -26,11 +26,7 @@ Each agent file in `agents/` declares its model in YAML frontmatter. When updati
 - `agents/architect.md` — sonnet
 - `agents/qa-specialist.md` — sonnet
 - `agents/issue-refiner.md` — sonnet
-- `agents/dep-auditor.md` — sonnet
-- `agents/db-auditor.md` — sonnet
-- `agents/ui-auditor.md` — haiku
 - `agents/visual-diff.md` — sonnet
-- `agents/browser-qa-agent.md` — sonnet
 - `agents/engineering-frontend-developer.md` — sonnet
 - `agents/engineering-backend-developer.md` — sonnet
 - `agents/engineering-data-engineer.md` — sonnet

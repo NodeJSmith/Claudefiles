@@ -51,7 +51,7 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `mine.draft-plan` | Design doc → Work Package (WP) files with objectives, subtasks, test strategy, and lane tracking |
 | `mine.eval-repo` | Evaluate a third-party GitHub repo before adopting it -- test coverage, code quality, maintenance health, bus factor |
 | `mine.grill` | Multi-angle interrogation of a raw idea — product, design, engineering, scope, and adversarial lenses. Produces a brief.md that feeds into /mine.specify |
-| `mine.mockup` | Generate self-contained HTML mockup files — reads `design/context.md` for consistent styling, delivers to `~/.claude/diagrams/` |
+| `mine.mockup` | Generate self-contained HTML mockup files — reads `design/context.md` for consistent styling, delivers to a session temp directory |
 | `mine.mutation-test` | Mutation testing -- intentionally break code to verify tests catch real bugs |
 | `mine.orchestrate` | Execute work packages task-by-task with executor → spec reviewer → code reviewer → integration reviewer loop; tracks WP lane state |
 | `mine.plan-review` | Opus checklist review (9 points) of design doc + work packages — includes spec/design coverage and scope containment + approve/revise/abandon gate |
@@ -116,16 +116,12 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | Agent | Description |
 |-------|-------------|
 | `architect` | Read-only architecture documentation -- Mermaid diagrams and high-level overviews, no code changes |
-| `browser-qa-agent` | Live browser QA via Playwright MCP -- UI bugs, console errors, UX issues on running apps |
 | `code-reviewer` | Expert code reviewer -- PEP 8, type hints, security, performance |
-| `db-auditor` | Database query and schema audit -- N+1 queries, missing indexes, ORM misuse |
-| `dep-auditor` | Dependency vulnerability audit -- CVEs, outdated packages, license issues, unused deps |
 | `integration-reviewer` | Codebase integration reviewer -- duplication, misplacement, convention drift, orphaned code, design violations |
 | `issue-refiner` | Enrich GitHub issues with acceptance criteria, edge cases, technical considerations, and NFRs |
 | `planner` | Implementation planning for complex features and refactoring |
 | `qa-specialist` | Adversarial QA -- systematic and exploratory testing to find defects before they ship |
 | `researcher` | Autonomous codebase research and feasibility analysis with parallel subagents and web research |
-| `ui-auditor` | Accessibility and UX audit -- WCAG violations, missing ARIA, hardcoded styles, UX anti-patterns |
 | `visual-diff` | Visual regression testing via Playwright MCP -- before/after screenshots to catch unintended UI changes |
 
 **Engineering Specialists**

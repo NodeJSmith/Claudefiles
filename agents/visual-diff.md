@@ -23,6 +23,8 @@ Capture screenshots before and after changes to detect unintended visual regress
 
 ## Standard Visual Diff Flow
 
+**Setup:** Run `get-skill-tmpdir visual-diff` to get a temp directory (`<tmpdir>`). All output goes under this path.
+
 ### 1. Baseline Capture (Before Changes)
 
 ```
@@ -30,7 +32,7 @@ Navigate to [URL]
 Wait for page fully loaded (mcp__plugin_playwright_playwright__browser_wait_for)
 Resize to target viewport if needed
 Capture full-page screenshot as baseline
-Save to .claude/audits/screenshots/baseline/[page-name].png
+Save to <tmpdir>/screenshots/baseline/[page-name].png
 Repeat for each page and breakpoint
 ```
 
@@ -43,7 +45,7 @@ Navigate to same URL
 Wait for page fully loaded
 Resize to same viewport as baseline
 Capture comparison screenshot
-Save to .claude/audits/screenshots/current/[page-name].png
+Save to <tmpdir>/screenshots/current/[page-name].png
 ```
 
 ### 3. Comparison
@@ -74,23 +76,27 @@ Test at these standard viewports:
 
 ## Directory Structure
 
+All output goes under `<tmpdir>` (obtained in Setup above):
+
 ```
-.claude/audits/screenshots/
-├── baseline/
-│   ├── homepage-desktop.png
-│   ├── homepage-mobile.png
-│   └── dashboard-desktop.png
-├── current/
-│   ├── homepage-desktop.png
-│   ├── homepage-mobile.png
-│   └── dashboard-desktop.png
-└── diffs/
-    └── [manual notes or tool output]
+<tmpdir>/
+├── screenshots/
+│   ├── baseline/
+│   │   ├── homepage-desktop.png
+│   │   ├── homepage-mobile.png
+│   │   └── dashboard-desktop.png
+│   ├── current/
+│   │   ├── homepage-desktop.png
+│   │   ├── homepage-mobile.png
+│   │   └── dashboard-desktop.png
+│   └── diffs/
+│       └── [manual notes or tool output]
+└── report.md
 ```
 
 ## Output Format
 
-Create `.claude/audits/VISUAL_DIFF_REPORT.md`:
+Create `<tmpdir>/report.md`:
 
 ```markdown
 # Visual Regression Report
@@ -113,8 +119,8 @@ Create `.claude/audits/VISUAL_DIFF_REPORT.md`:
 ### [Page] — [Breakpoint] — [Category]
 
 **Severity**: High / Medium / Low
-**Baseline**: `.claude/audits/screenshots/baseline/[file].png`
-**Current**: `.claude/audits/screenshots/current/[file].png`
+**Baseline**: `<tmpdir>/screenshots/baseline/[file].png`
+**Current**: `<tmpdir>/screenshots/current/[file].png`
 **Description**: What changed and where
 **Likely Cause**: What code change probably caused this
 **Action Required**: Fix / Accept / Investigate

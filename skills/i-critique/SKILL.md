@@ -121,7 +121,7 @@ Provocative questions that might unlock better solutions:
 
 ## Completion
 
-Write the audit report to `.claude/audits/critique-YYYY-MM-DD.md` (create the `.claude/audits/` directory if needed). Then summarize in conversation:
+Run `get-skill-tmpdir i-critique` and write the audit report to `<tmpdir>/critique-YYYY-MM-DD.md`. Then summarize in conversation:
 
 1. **Verdict**: One-line overall assessment
 2. **Top findings**: The 3-5 most important issues

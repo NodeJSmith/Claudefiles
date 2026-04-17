@@ -12,7 +12,6 @@ Screenshot-based review of a live UI. A screenshotter navigates the app via Play
 
 | Skill | What it does |
 |-------|-------------|
-| `ui-auditor` agent | Code-level a11y and consistency grep — no visual verification |
 | `visual-diff` agent | Before/after regression screenshots — compares two states |
 | **`mine.visual-qa`** | **Live app screenshots + analysis agents with separated viewing conditions** |
 

@@ -14,10 +14,6 @@ When the user's request matches a row below, launch the Agent tool with the corr
 | "architecture docs", "onboarding overview" | `architect` |
 | "check for duplication", "convention drift" | `integration-reviewer` |
 | "enrich this issue", "missing acceptance criteria" | `issue-refiner` |
-| "database query audit", "N+1 queries", "missing indexes" | `db-auditor` |
-| "dependency audit", "check for CVEs", before release | `dep-auditor` |
-| "accessibility audit", "a11y review" | `ui-auditor` |
-| "live browser QA", test via Playwright | `browser-qa-agent` |
 | "visual regression", before/after screenshots | `visual-diff` |
 | "secure code review", "security audit", "check for vulnerabilities" | `code-reviewer` |
 | "SLOs", "error budgets", "observability" | `engineering-sre` |
