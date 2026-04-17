@@ -6,26 +6,14 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Changed
 - All `.claude/` write targets (audits, screenshots, mockups) moved to `/tmp/` via `get-skill-tmpdir` — eliminates forced permission prompts on Claude Code 2.1.77+ (#218)
+- Caliper pipeline simplified: `mine.specify` + `mine.design` → `mine.define`; `mine.draft-plan` + `mine.plan-review` → `mine.plan` (6 skills → 4, fewer user checkpoints) (#219)
+- `mine.orchestrate` per-WP reviewers run in parallel; auto-challenge removed from Phase 3 (now opt-in) (#219)
+- `caller-protocol.md` — shared manifest flow for challenge callers (#217); code-fix caller removed (#219)
+- `spec-helper archive` now also removes `spec.md` alongside `tasks/`
+- Per-finding resolution manifest for challenge findings (#217); `**Doc target:**` field added (#217)
 
 ### Removed
 - 4 unused agents: `dep-auditor`, `ui-auditor`, `db-auditor`, `browser-qa-agent` (#218)
-
-### Added
-- `mine.define` — merged `mine.specify` + `mine.design` into one skill producing both spec.md and design.md with a single sign-off gate
-- `mine.plan` — merged `mine.draft-plan` + `mine.plan-review` into one skill with inline 9-point checklist review
-- `caller-protocol.md` — shared manifest flow protocol for challenge callers (mine.specify, mine.design, mine.orchestrate), eliminating the bundled "Apply all / Cherry-pick / Skip revisions" and "Address findings" gates that reproduced anti-patterns #1, #4, #8 from findings-protocol.md (#217)
-
-### Changed
-- `mine.orchestrate` per-WP reviewers (spec, code, integration) now run in parallel instead of serially
-- `mine.orchestrate` auto-challenge removed from Phase 3 — challenge is now opt-in via the shipping gate
-- `mine.build` pipeline simplified from 6 skills (specify → design → draft-plan → plan-review → orchestrate → ship) to 4 (define → plan → orchestrate → ship)
-- `caller-protocol.md` simplified to doc-edit callers only (mine.define); code-fix caller protocol removed
-- `spec-helper archive` now also removes `spec.md` (if present and tracked) alongside `tasks/` when archiving completed specs; pre-validates spec.md is tracked before deleting tasks/ to prevent partial-failure states
-- `mine.specify`, `mine.design`, `mine.orchestrate` now use the per-finding resolution manifest for challenge findings instead of bundled gates — user edits verbs per-finding in their editor, same as standalone `/mine.challenge` (#217)
-- `findings-protocol.md` manifest templates gain an optional `**Doc target:**` field; protocol version bumped to 2 (#217)
-
-### Removed
-- `mine.specify`, `mine.design`, `mine.draft-plan`, `mine.plan-review` — replaced by `mine.define` and `mine.plan`
 
 ## 2026-04-16
 
