@@ -363,22 +363,15 @@ After pre-routing, generate the manifest (`<dir>/resolutions.md`) per caller-pro
 
 #### mine.specify post-execute hooks
 
-After all verb execution completes, run these hooks:
+Run the post-execute hooks for mine.specify as specified in `caller-protocol.md §9`. The protocol defines the trigger condition, OQ-append behavior, and dedup rules. mine.specify-specific extensions:
 
-1. **Open Questions sweep**: Sweep all findings where the Doc target contains "Open Questions" AND the execution outcome is `deferred` (check `editor-log.md` for `result=deferred`, not the manifest verb — this correctly handles `ask`-resolved-to-defer cases). For each matching finding, append a bullet to the document and section named in its Doc target (e.g., `spec.md SS Open Questions` appends to `spec.md`'s `## Open Questions` section; `design.md SS Open Questions` appends to `design.md`'s `## Open Questions` section).
+- **Deferred findings persistence to design.md**: When the Doc target names `design.md`, persist findings with these rules to ensure mine.design picks them up in Phase 2:
+  - If `<feature_dir>/design.md` doesn't exist yet, create a stub containing only the `## Open Questions` section
+  - If `design.md` exists but has no `## Open Questions` section, append the section at the end of the file
+  - If the section already exists, append the new findings to it
+  - Before appending each finding, check if an identical bullet line already exists — skip if present (deduplication for re-runs)
 
-   Format for each appended bullet:
-   ```markdown
-   - **[Finding name]** (from spec challenge on <date>, target: `<spec_path>`): [one-sentence summary] — [Severity]
-   ```
-
-   **Deferred findings persistence to design.md**: When the Doc target names `design.md`, persist findings with these rules to ensure mine.design picks them up in Phase 2:
-   - If `<feature_dir>/design.md` doesn't exist yet, create a stub containing only the `## Open Questions` section
-   - If `design.md` exists but has no `## Open Questions` section, append the section at the end of the file
-   - If the section already exists, append the new findings to it
-   - Before appending each finding, check if an identical bullet line already exists in the Open Questions section — skip if present (deduplication for re-runs)
-
-2. **Quality re-validation**: Re-run the 12-item quality validation on the updated spec.
+- **Quality re-validation**: Re-run the quality validation defined in this SKILL.md on the updated spec.
 
 After post-execute hooks complete, loop back to the sign-off gate above.
 

@@ -85,8 +85,9 @@ If feedback identifies a blocker you cannot resolve (architectural issue, missin
 
 **Findings files to read:**
 - <label>: <file path>
-  (one line per file — e.g., "Spec reviewer", "Code reviewer", "Integration reviewer",
-   "Test gate", "Impl-review", "Challenge critics (filtered)"; add only files that are present)
+  (one line per file; add only files that are present)
+  Known labels: "Spec reviewer", "Code reviewer", "Integration reviewer",
+  "Test gate", "Impl-review", "Challenge critics (filtered)" (challenge fix brief per caller-protocol.md §7)
 
 Read each file in full before proceeding.
 ```

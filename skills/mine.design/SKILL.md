@@ -305,16 +305,9 @@ After pre-routing, generate the manifest (`<dir>/resolutions.md`) per caller-pro
 
 #### mine.design post-execute hooks
 
-After all verb execution completes, run this hook:
+Run the post-execute hooks for mine.design as specified in `caller-protocol.md §9`. The protocol defines the trigger condition, OQ-append behavior, and dedup rules. mine.design-specific extension:
 
-1. **Open Questions sweep**: Sweep all findings where the Doc target contains "Open Questions" AND the execution outcome is `deferred` (check `editor-log.md` for `result=deferred`, not the manifest verb — this correctly handles `ask`-resolved-to-defer cases). For each matching finding, append a bullet to `design.md`'s `## Open Questions` section (per the Doc target).
-
-   Format for each appended bullet:
-   ```markdown
-   - **[Finding name]** (from design challenge on <date>, target: `<design-doc-path>`): [one-sentence summary] — [Severity]
-   ```
-
-   Before appending each finding, check if an identical bullet line already exists in the Open Questions section — skip if present (deduplication for re-runs). Also skip if the finding overlaps with a `(from spec challenge on` or `(from design challenge on` entry detected during pre-routing or from a prior design challenge run.
+- **Prior-challenge dedup**: Also skip if the finding overlaps with a `(from spec challenge on` or `(from design challenge on` entry detected during pre-routing or from a prior challenge run.
 
 After post-execute hooks complete, loop back to the sign-off gate above.
 

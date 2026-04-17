@@ -92,7 +92,7 @@ One-line string. Three forms:
 |---|---|---|
 | Doc-edit | `<doc-name> SS <section-name>` | `spec.md SS Acceptance Criteria` |
 | Code-fix | `(code)` | `(code)` |
-| Non-edit | `(none -- <reason>)` | `(none -- flag for implementation)` |
+| Non-edit | `(none -- <reason>)` | `(none -- flag for implementation)`, `(none -- TENSION, files as issue)` |
 
 The `SS` delimiter is a human-readable section separator.
 
@@ -128,7 +128,7 @@ Revise the manifest to fix these Doc targets, or change their verbs to skip/defe
 
 This converts mid-execution corruption into a pre-execution abort. After validation passes, verb execution proceeds in manifest order.
 
-`ask` verbs are excluded from pre-validation — for doc-edit callers, their Doc target is resolved after the user responds; for the code-fix caller, `ask` verbs carry `(code)` as the Doc target and are resolved before subagent dispatch per section 7. `file`, `defer`, and `skip` verbs do not reference Doc targets for edits.
+`ask` verbs are excluded from pre-validation — for doc-edit callers, their Doc target is resolved after the user responds; for the code-fix caller, `ask` verbs carry `(code)` as the Doc target and are resolved before subagent dispatch per section 7. For doc-edit callers, `ask`-verb findings with a blank Doc target must be caught at execution time per §6's routing ambiguity case — the executor must not attempt an edit without a resolved Doc target. `file`, `defer`, and `skip` verbs do not reference Doc targets for edits.
 
 ## 6. Doc-Edit Verb Execution Table
 
@@ -366,7 +366,7 @@ A challenge run on `spec.md` produces 4 findings. The pre-routing pass generates
 **Verb:** defer
 
 ## F4: Implementation detail in spec
-**Severity:** LOW | **Type:** Scope | **Raised by:** Adversarial Reviewer (4/5)
+**Severity:** MEDIUM | **Type:** Scope | **Raised by:** Adversarial Reviewer (4/5)
 **Doc target:** (none -- flag for implementation)
 
 **Problem:** Section 3.2 specifies "use Redis for caching" -- this is a design decision, not a requirement.
