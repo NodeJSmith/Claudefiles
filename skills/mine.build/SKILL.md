@@ -98,7 +98,7 @@ AskUserQuestion:
 
 | Rationalization | Reality |
 |---|---|
-| "The findings are the spec — skip specify" | Findings identify problems; specs define success criteria, scope boundaries, and non-goals. Don't silently skip specify — use the routing gate to offer the accelerated path. If the user selects the accelerated path, that's the legitimate workflow. |
+| "The findings are the spec — skip define" | Findings identify problems; specs define success criteria, scope boundaries, and non-goals. Don't silently skip the define phase — use the routing gate to offer the accelerated path. If the user selects the accelerated path, that's the legitimate workflow. |
 | "This is small enough to skip the caliper workflow" | The routing gate exists for this judgment. If you chose "Complex" or the user chose caliper, every phase runs. Don't downgrade mid-flight because individual WPs look simple. |
 | "Prior analysis already covers research" | Prior analysis covers the *problem space*. Design-phase research covers the *solution space* — interfaces, constraints, existing patterns. Skip only when the accelerated path was explicitly selected and the analysis genuinely mapped the codebase. |
 | "Just do the simple version — user said so" | Agreeing to narrow scope without reading the affected backend code is how architectural blockers surface during challenge instead of during planning. Before confirming a narrowed scope, verify the simple version is feasible in the implementation layer. If it isn't, return to the routing gate and present the complexity finding to the user before proceeding. |

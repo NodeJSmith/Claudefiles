@@ -115,7 +115,7 @@ spec-helper design-extract <feature_dir_name> > <tmpdir>/design-extract-executor
 spec-helper design-extract <feature_dir_name> --reviewer > <tmpdir>/design-extract-reviewer.txt
 ```
 
-Where `<feature_dir_name>` is the directory name (e.g., `014-wp-format-noise-reduction`) and `<tmpdir>` is the orchestration tmpdir (from `get-skill-tmpdir mine.orchestrate`, obtained earlier in Phase 0 before writing the checkpoint).
+Where `<feature_dir_name>` is the directory name (e.g., `014-wp-format-noise-reduction`) and `<tmpdir>` is the orchestration tmpdir (from `get-skill-tmpdir mine-orchestrate`, obtained earlier in Phase 0 before writing the checkpoint).
 
 If either command exits non-zero, stop the orchestration run immediately and present the error to the user:
 
@@ -123,7 +123,7 @@ If either command exits non-zero, stop the orchestration run immediately and pre
 
 Do not proceed to WP execution without valid extract files — executors would receive no architecture context.
 
-**Ordering note**: The tmpdir must exist before running these commands. Obtain it via `get-skill-tmpdir mine.orchestrate` before the checkpoint-init call, then use it in both the extract commands and the checkpoint-init `--tmpdir` argument.
+**Ordering note**: The tmpdir must exist before running these commands. Obtain it via `get-skill-tmpdir mine-orchestrate` before the checkpoint-init call, then use it in both the extract commands and the checkpoint-init `--tmpdir` argument.
 
 ### Read all WP files
 
@@ -773,7 +773,7 @@ AskUserQuestion:
 
 ### Delete checkpoint
 
-After the user chooses "Accept and ship" (and `/mine.ship` completes) or after the "Address remaining" loop results in "Accept and ship", delete the checkpoint. Do NOT delete the checkpoint if the user chose "Stop here" — it must persist for future resume.
+After the user chooses "Ship via /mine.ship" (and `/mine.ship` completes), delete the checkpoint. Do NOT delete the checkpoint if the user chose "Stop here" — it must persist for future resume.
 
 ```bash
 spec-helper checkpoint-delete <feature_dir_name> --json
