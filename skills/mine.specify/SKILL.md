@@ -338,78 +338,42 @@ get-skill-tmpdir mine-specify-challenge
 
 Then invoke: `/mine.challenge --findings-out=<dir>/findings.md --target-type=spec <spec_path>`
 
-After challenge completes (it auto-completes after presenting findings), generate a **revision plan** from the findings file.
-
-<!-- SYNC: Shared with mine.design — the AskUserQuestion options (Apply all / Let me cherry-pick / Skip revisions), the Apply all / Cherry-pick / Skip handling logic, and the findings file reading pattern must stay in sync. This handler adds spec-specific routing (design-level:Yes → spec vs design doc) and deferred findings persistence — those are intentional divergences from mine.design. -->
+After challenge completes (it auto-completes after presenting findings), proceed to the manifest flow.
 
 #### Read findings
 
 <!-- CHALLENGE-CALLER -->
-Read the structured findings file at `<dir>/findings.md`. If `Format-version:` is absent or less than 2, warn the user: "This findings file was produced by an older version of mine.challenge — presentation fields (why-it-matters, evidence, references, design-challenge) may be absent. Re-run challenge to enrich." Verify the `Target:` field matches `<spec_path>` (match is satisfied if the Target value ends with the basename or a path suffix of `<spec_path>` — do not require exact string equality). Then scan each `## Finding N:` block and verify that `severity:`, `type:`, `design-level:`, and `resolution:` fields are present. If any finding is missing required tags, warn the user: "Finding N is missing required contract tags — manual review needed" and exclude it from the revision plan.
+Read the structured findings file at `<dir>/findings.md`. If `Format-version:` is absent or less than 2, warn the user: "This findings file was produced by an older version of mine.challenge — presentation fields (why-it-matters, evidence, references, design-challenge) may be absent. Re-run challenge to enrich." Verify the `Target:` field matches `<spec_path>` (match is satisfied if the Target value ends with the basename or a path suffix of `<spec_path>` — do not require exact string equality). Then scan each `## Finding N:` block and verify that `severity:`, `type:`, `design-level:`, and `resolution:` fields are present. If any finding is missing required tags, warn the user: "Finding N is missing required contract tags — manual review needed. Re-run /mine.challenge to regenerate a valid findings file if possible." Include the finding in the manifest with a default verb of `ask` and mark it as needing manual review — do not exclude it, per the "All Findings Must Be Resolved" principle.
 
-1. Re-read the spec to get current state
-2. For each finding where `design-level: Yes`, determine whether it belongs in the spec or should be deferred to the design phase. Use this heuristic:
-   - **Routes to spec**: finding would require changing Functional Requirements, Goals, User Scenarios, or Acceptance Criteria sections — or Non-Goals, if that section is present (it is optional and may be absent when the user stated no exclusions)
-   - **Routes to design phase**: finding would require changing architecture, data model, API contracts, or module boundaries
-   - **Ask the user**: finding implicates both (e.g., "scope is too broad" touches requirements AND architecture) and the heuristic doesn't resolve it
+#### Manifest flow
 
-   For spec-relevant findings:
-   - **Auto-apply**: state the change directly
-   - **User-directed**: state the options and the recommendation from the findings file
-   - **TENSION**: add to the spec's "Open Questions" section — the critics genuinely disagree, so this needs a user decision
-3. For findings where `design-level: No`, list them as "Not a spec change — flag for implementation phase"
-4. For `design-level: Yes` findings that belong in the design doc rather than the spec, list them as "Architecture concern — defer to design phase"
+**Compaction recovery check (early-exit):** Before generating a new manifest, check for an existing `<dir>/resolutions.md`. If present and non-empty, this is an orphaned manifest from a compacted session — skip manifest generation and proceed directly to the Commit Gate per `caller-protocol.md §10`. Do not regenerate the manifest — doing so loses all user verb edits from the prior session.
 
-Present the revision plan:
+Read `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md` before proceeding with the manifest flow. Follow the unified caller flow defined there (Compaction Recovery (§10), pre-routing pass, manifest generation, Consent Gate, editor session, Detection + Validation + Commit Gate, verb execution, post-execute hooks).
 
-> **Proposed revisions to spec.md based on challenge findings:**
-> - **Section (name)**: [what changes and why] *(from finding #N — Auto-apply/User-directed)*
-> - ...
-> **Add to Open Questions:**
-> - Finding #N: [summary] — critics disagree on direction (TENSION)
-> **Defer to design phase:**
-> - Finding #N: [summary] — architecture concern, address in design.md
-> **Not a spec change:**
-> - Finding #N: [summary] — implementation-level, address during coding
+#### mine.specify pre-routing pass
 
-Then ask:
+Re-read the spec to get current state. For each finding, determine whether it belongs in the spec or should be deferred to the design phase. Use this heuristic:
+- **Routes to spec**: finding would require changing Functional Requirements, Goals, User Scenarios, or Acceptance Criteria sections — or Non-Goals, if that section is present (it is optional and may be absent when the user stated no exclusions)
+- **Routes to design phase**: finding would require changing architecture, data model, API contracts, or module boundaries
 
-```
-AskUserQuestion:
-  question: "How would you like to handle these revisions?"
-  header: "Spec revisions"
-  multiSelect: false
-  options:
-    - label: "Apply all"
-      description: "Apply auto-apply changes directly; prompt me for each user-directed decision"
-    - label: "Let me cherry-pick"
-      description: "I'll say which revisions to apply"
-    - label: "Skip revisions"
-      description: "I've seen the findings — loop back to sign-off without changing the spec"
-```
+Apply the routing table for this caller from `caller-protocol.md §Pre-Routing Tables → mine.specify`. The table is read from the protocol file (already loaded above) — do not duplicate it here.
 
-On **"Apply all"**: apply Auto-apply changes directly. For each User-directed change, present the options and ask the user to pick. If the user says "skip" or "defer" for a specific finding, record it as unresolved and continue to the next. After all findings are processed, list any skipped findings and ask whether to revisit or leave them. Show a summary of what changed when done.
+After pre-routing, generate the manifest (`<dir>/resolutions.md`) per caller-protocol.md and proceed through the shared flow (Consent Gate, editor, Detection + Validation + Commit Gate, verb execution).
 
-On **"Let me cherry-pick"**: ask which revision numbers to apply, then follow the same flow.
+#### mine.specify post-execute hooks
 
-On **"Skip revisions"**: no changes applied.
+Run the post-execute hooks for mine.specify as specified in `caller-protocol.md §9`. The protocol defines the trigger condition, OQ-append behavior, and dedup rules. mine.specify-specific extensions:
 
-#### Persist deferred findings
+- **Deferred findings persistence to design.md**: When the Doc target names `design.md`, persist findings with these rules to ensure mine.design picks them up in Phase 2:
+  - If `<feature_dir>/design.md` doesn't exist yet, create a stub containing only the `## Open Questions` section
+  - If `design.md` exists but has no `## Open Questions` section, append the section at the end of the file
+  - If the section already exists, append the new findings to it
+  - Before appending each finding, check if an identical bullet line already exists — skip if present (deduplication for re-runs)
 
-After revisions are handled (or skipped), if any findings were routed to "Defer to design phase," persist them to `<feature_dir>/design.md` under an `## Open Questions` section. Avoid creating duplicate bullets when the spec challenge is re-run:
-- If `design.md` doesn't exist yet, create a stub containing only the Open Questions section.
-- If `design.md` exists but has no `## Open Questions` section, append the section at the end of the file.
-- If the section already exists, append the new findings to it.
-- Before appending each finding, check if an identical bullet line already exists in the Open Questions section. Skip if present.
+- **Quality re-validation**: Re-run the quality validation defined in this SKILL.md on the updated spec.
 
-This ensures mine.design picks up these findings when it reads the design doc in Phase 2.
-
-Format for each deferred finding:
-```markdown
-- **[Finding name]** (from spec challenge on <date>, target: `<spec_path>`): [one-sentence summary] — [Severity]
-```
-
-Then re-run the 12-item quality validation on the updated spec and loop back to the sign-off gate above.
+After post-execute hooks complete, loop back to the sign-off gate above.
 
 ### On "Approve"
 

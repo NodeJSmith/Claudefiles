@@ -112,10 +112,10 @@ The following tag names and values are consumed by calling skills (mine.design, 
 
 **Known callers** (update all when contract changes). New structured callers must add a `<!-- CHALLENGE-CALLER -->` comment at their invocation site. To verify this list is complete: `grep -r 'CHALLENGE-CALLER' ${CLAUDE_HOME:-~/.claude}/skills/ --include='*.md' -l`.
 
-Structured callers (read findings file and generate revision plans):
-- `skills/mine.design/SKILL.md` — "On 'Challenge this design'" section
-- `skills/mine.specify/SKILL.md` — "On 'Challenge this spec first'" section
-- `skills/mine.orchestrate/SKILL.md` — Phase 3 Step 3 auto-challenge (dispatched as subagent with `--findings-out`)
+Structured callers (read findings file, use manifest flow via `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md`):
+- `skills/mine.design/SKILL.md` — "On 'Challenge this design'" section; uses doc-edit manifest flow
+- `skills/mine.specify/SKILL.md` — "On 'Challenge this spec first'" section; uses doc-edit manifest flow
+- `skills/mine.orchestrate/SKILL.md` — Phase 3 Step 3 auto-challenge; uses code-fix manifest flow with split dispatch
 
 Detection callers (scan for severity labels to detect prior analysis, don't read findings file):
 - `skills/mine.build/SKILL.md` — accelerated path detection
@@ -148,7 +148,7 @@ Inline-revision callers (invoke `/mine.challenge` inline during a gate, read fin
 Standalone-only target types (no structured caller — findings are presented to the user for manual action):
 - `docs` — no revision skill exists yet. A future `mine.docs-review` caller would consume `--findings-out` like mine.design does for `design-doc` targets.
 
-**Caller guidance for TENSION findings**: Structured callers should route TENSION findings to the document's "Open Questions" section rather than generating revisions — TENSION means the critics genuinely disagree, so the user needs to decide.
+**Caller guidance for TENSION findings**: Doc-edit callers (mine.specify, mine.design) route TENSION findings to the document's "Open Questions" section via the post-execute hook in `caller-protocol.md` — the Doc target field makes this routing visible and editable in the manifest. Code-fix callers (mine.orchestrate) default TENSION findings to `file` (create a tracking issue). See `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md` for the full post-execute hook specification.
 
 ## Phase 1: Gather Context
 

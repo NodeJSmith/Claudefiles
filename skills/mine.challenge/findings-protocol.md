@@ -1,7 +1,9 @@
-<!-- manifest-protocol-version: 1 -->
+<!-- manifest-protocol-version: 2 -->
 <!-- Increment the protocol version above on any change to verb vocabulary,
      execution semantics, or manifest format. This is a maintainer changelog
-     marker — not a runtime contract; no skill checks this value at runtime. -->
+     marker — not a runtime contract; no skill checks this value at runtime.
+     Note: The findings file Format-version (currently 2, checked by callers)
+     is independent of manifest-protocol-version. They track different things. -->
 
 # Findings
 
@@ -65,6 +67,7 @@ The manifest is a markdown file at `<tmpdir>/resolutions.md`. The skill reuses t
 ```markdown
 ## F1: Finding title here
 **Severity:** HIGH | **Type:** Fragility | **Raised by:** Critic Name (1/5)
+**Doc target:** _optional, caller-populated_
 
 **Problem:** What's wrong.
 
@@ -85,6 +88,7 @@ The above is the **User-directed finding template**. Two additional templates ap
 ```markdown
 ## F1: Finding title here
 **Severity:** HIGH | **Type:** Fragility | **Raised by:** Critic Name (1/5)
+**Doc target:** _optional, caller-populated_
 
 **Problem:** What's wrong.
 
@@ -99,6 +103,7 @@ The above is the **User-directed finding template**. Two additional templates ap
 ```markdown
 ## F1: Finding title here
 **Severity:** TENSION | **Type:** Structural | **Raised by:** Critic Name (1/5)
+**Doc target:** _optional, caller-populated_
 
 **Problem:** What's wrong.
 
@@ -286,6 +291,8 @@ Report: `"Executed: X fix, Y file, Z ask resolutions. Deferred/skipped: W."`
 Note: this cap is enforced by the LLM's in-context count and is not compaction-safe. If context is compacted between re-edit iterations, the count resets. The inline fallback at iteration 6 is harmless, and 5 re-edits is well beyond normal usage — treat this as behavioral guidance, not a hard guarantee.
 
 ## Skill-Specific Overrides
+
+For doc-edit and code-fix callers (mine.specify, mine.design, mine.orchestrate), see `skills/mine.challenge/caller-protocol.md`.
 
 Some skills have post-finding interactions beyond fix/file (e.g., visual-qa offers "re-run with different viewport" and "read agent report"; tool-gaps has implement/issue/skip paths that don't fit the standard flow). These skills may present their own post-finding gate in place of — not in addition to — the Consent Gate (Proceed Gate). The skill's gate should still include fix and file-as-issue paths. Skills using the legacy Proceed Gate pattern should migrate to the Resolution Manifest flow on next revision. Track migration work for mine.visual-qa and mine.tool-gaps via GitHub issues before merging.
 

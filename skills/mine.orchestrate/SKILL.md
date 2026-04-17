@@ -743,6 +743,26 @@ AskUserQuestion:
 
 **On "Stop here":** Leave the checkpoint in place. The user can resume later. Do not delete the checkpoint.
 
+### Step 2.5: Cross-file consistency review (automatic)
+
+After impl-review passes, run an `integration-reviewer` subagent on the **full branch diff** (not per-WP). This catches cross-file consistency issues that per-WP reviews miss because they only see one WP's changes at a time.
+
+```bash
+git diff --name-only <base_commit> HEAD
+```
+
+Launch `Agent(subagent_type: "integration-reviewer")` with all changed files. Add this focus instruction to the prompt:
+
+> In addition to your standard checklist (duplication, convention drift, misplacement, orphaned code, design violations), pay special attention to **cross-file consistency** across the full diff:
+> - **Terminology drift**: same concept described with different words across files (e.g., "verb" vs "execution outcome" for the same trigger condition)
+> - **Stale cross-references**: section numbers, file paths, or artifact names that point to the wrong target after edits
+> - **Format/schema coverage**: tables, enumerations, or format specs that don't cover all variants actually used in other files
+> - **Stated principles violated by implementation details**: rules declared in one file but contradicted by logic in another
+> - **Hard-coded values that should be parameterized**: artifact names or paths that appear as literals but should vary by context (e.g., iteration suffixes)
+> - **Worked examples using invalid contract values**: examples that show values not in the canonical vocabulary
+
+If the integration-reviewer returns BLOCK, surface the blocking issues to the user with an "Address" / "Stop here" gate (same pattern as the impl-review gate). If APPROVE or WARN, note any suggestions and continue to Step 3.
+
 ### Step 3: Auto-challenge (automatic, always presents findings)
 
 Determine the changed file list by diffing against `base_commit` (from the checkpoint):
@@ -769,37 +789,72 @@ The `--focus="design conformance"` flag steers critics to also evaluate whether 
 
 Note: if the file list is large (50+ paths), pass the `.txt` file path instead of inline arguments to avoid shell argument limits — challenge treats `.txt`/`.list` files as indirect lists of absolute file paths.
 
-**Re-challenge iterations**: When re-running challenge in the "Address findings" loop (step 4 below), use iteration-suffixed paths (e.g., `challenge-findings-2.md`) to preserve prior findings for severity comparison. challenge overwrites unconditionally — the caller is responsible for path uniqueness.
+**Re-challenge iterations**: When re-running challenge in the manifest flow loop (see "Re-challenge cycle" below), use iteration-suffixed paths for findings, manifests, AND fix briefs (e.g., `challenge-findings-2.md`, `resolutions-2.md`, and `challenge-fix-brief-2.md` for the second iteration) to preserve prior artifacts for severity comparison and debugging. challenge overwrites unconditionally — the caller is responsible for path uniqueness.
 
 After `/mine.challenge` returns, read `<tmpdir>/challenge-findings.md`.
 
-### Final gate: Combined review results
+### Final gate: Manifest flow
 
-Present the combined findings from implementation review and challenge. **The options presented depend on finding severity:**
+**Compaction recovery check (early-exit):** Before generating a new manifest, scan `<tmpdir>` for any existing `resolutions*.md` files. If multiple manifests exist, prefer the highest-numbered `<tmpdir>/resolutions-<N>.md` as authoritative per `caller-protocol.md §10` (otherwise use `<tmpdir>/resolutions.md` when it is the only match). If the authoritative manifest is present and non-empty, this is an orphaned manifest from a compacted session — skip manifest generation and proceed directly to the Commit Gate. Do not regenerate the manifest — doing so loses all user verb edits from the prior session.
 
-**If challenge findings include CRITICAL or HIGH severity:** suppress "Accept and ship" — only offer "Address findings" and "Stop here" until no CRITICAL/HIGH remain.
+Read `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md` before proceeding with the manifest flow. Follow the unified caller flow defined there (Compaction Recovery (§10), pre-routing pass, manifest generation, Consent Gate, editor session, Detection + Validation + Commit Gate, verb execution).
+
+#### mine.orchestrate pre-routing pass
+
+For each finding in `<tmpdir>/challenge-findings.md`, apply the routing table for this caller from `caller-protocol.md §Pre-Routing Tables → mine.orchestrate`. The table is read from the protocol file (already loaded above) — do not duplicate it here.
+
+After pre-routing, generate the manifest (`<tmpdir>/resolutions.md` for the first challenge iteration, or `<tmpdir>/resolutions-<N>.md` for subsequent iterations matching the findings file suffix) per caller-protocol.md and proceed through the shared flow (Consent Gate, editor, Detection + Validation + Commit Gate).
+
+#### mine.orchestrate verb execution (split dispatch)
+
+After the manifest is committed, execute verbs using the split-dispatch pattern from caller-protocol.md §7:
+
+**1. Resolve `ask` verbs first.** Before dispatching any subagent, resolve ALL findings with verb `ask` via AskUserQuestion (one question per finding, presenting the finding's options). After the user responds, each resolved `ask` finding either enters the fix brief (if the user chose a fix/letter action) or is handled directly by the orchestrator (if the user chose file/defer/skip).
+
+**2. Build the filtered fix brief.** Collect all findings whose resolved verb is `fix`, `A`, `B`, `C`, or a resolved `ask` that mapped to a fix action. Write only those `## Finding N:` blocks (verbatim, same findings.md format) to `<tmpdir>/challenge-fix-brief.md` (first iteration) or `<tmpdir>/challenge-fix-brief-<N>.md` (subsequent iterations, matching the findings/manifest suffix).
+
+**3. Handle non-fix verbs directly:**
+- `file` — batch into `gh-issue create` calls (including TENSION findings that defaulted to `file`)
+- `defer` / `skip` — record in the session summary; these findings never reach the subagent
+
+**4. Dispatch subagent with the fix brief.** If the fix brief contains any findings, dispatch a fresh `general-purpose` subagent with: the fix brief path, any impl-review suggestions (as unstructured context — these are not structured as challenge findings and do not enter the manifest), the relevant file paths, `<feature_dir>/design.md` content, all WP files from `<feature_dir>/tasks/` (for per-WP constraints and Review Guidance), `implementer-prompt.md` content (as `## Implementer instructions`), `retry-prompt.md` content (as `## Retry instructions`), and `tdd.md` content. Populate the `## Previous review feedback` template with labeled entries using the same fix-brief path written for the current iteration (e.g., `<tmpdir>/challenge-fix-brief.md` for the first iteration, or `<tmpdir>/challenge-fix-brief-<N>.md` for subsequent iterations): "Challenge critics (filtered): `<current iteration fix brief path>`" and, if present, "Impl-review: `<impl-review suggestions file path>`". Instruct: "Fix only the listed findings. Do not expand scope beyond these findings. Respect the Review Guidance constraints from each WP."
+
+If the fix brief is empty (all findings were filed/deferred/skipped), skip subagent dispatch and proceed directly to the severity gate.
+
+#### Re-challenge cycle
+
+After the subagent completes:
+1. Re-run the project test suite (using `<dir>/test-command.txt`). If tests fail: surface the failure prominently in the next gate prompt, suppress "Accept and ship", and offer "Address remaining" or "Stop here" with a note identifying the test failures.
+2. Re-run `code-reviewer` and `integration-reviewer` on the fix diff in parallel (both in a single message)
+3. Re-run the challenge (same dispatch pattern as Step 3) with iteration-suffixed paths — e.g., `challenge-findings-2.md` and `resolutions-2.md` for the second iteration
+4. Run the manifest flow again on the new findings (pre-routing, manifest generation, editor, verb execution) — the full sequence repeats per iteration. If the fix brief from this iteration is empty (all new findings filed/deferred/skipped), skip subagent dispatch and proceed directly to the severity gate — do not re-enter the re-challenge cycle.
+
+#### Severity-based gate
+
+After verb execution completes (or after re-challenge cycle), present the gate. **The options presented depend on finding severity:**
+
+**"Accept and ship" is only offered when ALL of:**
+- No unresolved CRITICAL/HIGH challenge findings remain in the most recent findings file (findings with verb `file`, `defer`, or `skip` are considered resolved)
+- Tests pass
+- Impl-review's last verdict was APPROVE
+
+If impl-review still returns REQUEST_FIXES, keep "Accept and ship" suppressed regardless of challenge state and include in the gate prompt: "Impl-review still has blocking issues — resolve them before shipping."
 
 ```
 AskUserQuestion:
-  question: "Challenge complete: <N findings, highest severity>. Implementation review: <APPROVE + any non-blocking suggestions summary>. What next?"
+  question: "Challenge complete: <N findings, highest severity>. Manifest resolved: <fix/file/defer/skip counts>. Implementation review: <APPROVE + any non-blocking suggestions summary>. What next?"
   header: "Review results"
   multiSelect: false
   options:
-    - label: "Address findings"
-      description: "Dispatch a fresh executor subagent with the findings, then re-review"
+    - label: "Address remaining"
+      description: "Re-run challenge with iteration-suffixed paths, then manifest flow again"
     - label: "Accept and ship"
-      description: "Findings noted — proceed to /mine.ship (only shown when no CRITICAL/HIGH findings remain)"
+      description: "Findings noted — proceed to /mine.ship (only shown when gate conditions met)"
     - label: "Stop here"
       description: "Pause; I'll address findings manually"
 ```
 
-**On "Address findings":**
-1. Dispatch a fresh `general-purpose` subagent with: the challenge findings and any impl-review suggestions, the relevant file paths, `<feature_dir>/design.md` content, all WP files from `<feature_dir>/tasks/` (for per-WP constraints and Review Guidance), `implementer-prompt.md` content (as `## Implementer instructions`), `retry-prompt.md` content (as `## Retry instructions`), and `tdd.md` content. Populate the `## Previous review feedback` template with labeled entries: "Challenge critics: <challenge findings file path>" and, if present, "Impl-review: <impl-review suggestions file path>". Instruct: "Fix only the listed findings. Do not expand scope beyond these findings. Respect the Review Guidance constraints from each WP."
-2. After the subagent completes, re-run the project test suite (using `<dir>/test-command.txt`). If tests fail: surface the failure prominently in the next gate prompt, suppress "Accept and ship", and offer "Address findings" or "Stop here" with a note identifying the test failures.
-3. Re-run `code-reviewer` and `integration-reviewer` on the fix diff in parallel (both in a single message)
-4. Re-run the challenge (same dispatch pattern as Step 3)
-5. Present the final gate again with updated findings (re-evaluate severity for option suppression)
-6. "Address findings" remains available across iterations — the user decides when to stop. Starting with the 3rd round, prepend a warning to the gate question: "Multiple rounds have not resolved these findings — consider stopping to investigate the root cause before continuing." Do not remove the option. "Accept and ship" is only offered when no CRITICAL/HIGH challenge findings remain, tests pass, AND impl-review's last verdict was APPROVE. If impl-review still returns REQUEST_FIXES, keep "Accept and ship" suppressed regardless of challenge state and include in the gate prompt: "Impl-review still has blocking issues — resolve them before shipping."
+"Address remaining" remains available across iterations — the user decides when to stop. Starting with the 3rd round, prepend a warning to the gate question: "Multiple rounds have not resolved these findings — consider stopping to investigate the root cause before continuing." Do not remove the option.
 
 **On "Accept and ship":** Invoke `/mine.ship`.
 
@@ -807,7 +862,7 @@ AskUserQuestion:
 
 ### Delete checkpoint
 
-After the user chooses "Accept and ship" (and `/mine.ship` completes) or after the "Address findings" loop results in "Accept and ship", delete the checkpoint. Do NOT delete the checkpoint if the user chose "Stop here" — it must persist for future resume.
+After the user chooses "Accept and ship" (and `/mine.ship` completes) or after the "Address remaining" loop results in "Accept and ship", delete the checkpoint. Do NOT delete the checkpoint if the user chose "Stop here" — it must persist for future resume.
 
 ```bash
 spec-helper checkpoint-delete <feature_dir_name> --json
