@@ -342,12 +342,16 @@ Write your structured review to: <dir>/<wp_id>/spec-review.md
 
 ```
 Review these changed files: <changed file list from Step 4.5>
+
+Write your review to: <dir>/<wp_id>/code-review.md
 ```
 
 **Subagent 3 — Integration reviewer** (`subagent_type: "integration-reviewer"`):
 
 ```
 Review these changed files: <changed file list from Step 4.5>
+
+Write your review to: <dir>/<wp_id>/integration-review.md
 ```
 
 Wait for all three to complete. Read all output files.
@@ -480,7 +484,7 @@ git ls-files --others --exclude-standard
 
 Update the WP's changed file list with the refreshed result (deduped). This updated list is used by Step 9a (commit).
 
-Write the integration-reviewer output to `<dir>/<wp_id>/integration-review.md`.
+**After auto-fixes**, if any changes were applied, re-run the integration-reviewer on the updated changed file list to ensure auto-fixes didn't introduce integration issues. Write the updated output to `<dir>/<wp_id>/integration-review.md`.
 
 **Verdict impact:** If CRITICAL or HIGH code-review issues remain after 3 iterations that could not be auto-fixed, the WP verdict becomes FAIL. If integration reviewer returned BLOCK, the WP verdict becomes FAIL.
 

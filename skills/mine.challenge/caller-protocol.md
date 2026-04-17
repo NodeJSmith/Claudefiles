@@ -18,7 +18,7 @@ This protocol covers **doc-edit callers** (mine.define) — findings target sect
 
 ## 2. Unified Caller Flow
 
-Both callers follow the same structural sequence. Caller-specific logic is confined to the pre-routing pass and verb execution phase.
+This caller follows a fixed structural sequence. Caller-specific logic is confined to the pre-routing pass and verb execution phase.
 
 ```
 Challenge returns findings.md (unchanged contract)
@@ -236,10 +236,10 @@ If context compacts between the Consent Gate and verb execution, the manifest mu
 
 ### Recovery Procedure
 
-Before generating a new manifest, check for an existing `<tmpdir>/resolutions.md`. For iteration-suffixed orchestrate manifests, also check `resolutions-N.md` — use the highest-numbered file as the authoritative manifest:
+Before generating a new manifest, check for an existing `<tmpdir>/resolutions.md`:
 
 1. If the file exists and is non-empty, this is an orphaned manifest from a compacted session
-2. **Verify the paired findings file exists.** Check `<tmpdir>/challenge-findings.md` (or `challenge-findings-N.md` matching the manifest's iteration suffix). If the findings file is missing, surface a named error: "Orphaned manifest found at `<path>` but source findings are unavailable — cannot verify finding context." Offer the user a choice:
+2. **Verify the paired findings file exists.** Check `<tmpdir>/challenge-findings.md`. If the findings file is missing, surface a named error: "Orphaned manifest found at `<path>` but source findings are unavailable — cannot verify finding context." Offer the user a choice:
    ```
    AskUserQuestion:
      question: "Found manifest but findings file is missing. Re-run challenge to regenerate findings, or proceed with manifest only (finding context will be unavailable)?"
@@ -251,7 +251,7 @@ Before generating a new manifest, check for an existing `<tmpdir>/resolutions.md
        - label: "Proceed with manifest only"
          description: "Execute verbs from the manifest; finding details will be unavailable for TENSION resolution"
    ```
-   If the user chooses "Re-run challenge", treat as full compaction — regenerate both findings and manifest. If the findings file for the highest-numbered manifest is missing but a lower-numbered findings file exists, fall back to regenerating (treat as full compaction) rather than using a mismatched pair.
+   If the user chooses "Re-run challenge", treat as full compaction — regenerate both findings and manifest.
 3. **Skip** manifest generation and the Consent Gate entirely
 4. Re-read the existing manifest
 5. Proceed directly to Commit Gate — skip Detection Logic. The manifest was reviewed in a prior session; hash comparison is not meaningful for orphaned manifests.

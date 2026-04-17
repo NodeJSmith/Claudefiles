@@ -10,9 +10,9 @@ status: Draft
 
 AI coding agents need structure to handle multi-file features reliably — without it, they suffer "coherence collapse" where locally reasonable decisions prove globally incompatible. But too much structure adds latency, cost, and failure modes. The question is: what orchestration complexity is actually load-bearing, and what's ceremony?
 
-## How We Do It Today
+## How We Did It Before This Refactor
 
-Our pipeline has 7 discrete skills forming a linear sequence: **build** (router) → **specify** (interview) → **design** (research + architecture) → **draft-plan** (work packages) → **plan-review** (9-point checklist) → **orchestrate** (per-WP executor with nested reviewer loops) → **implementation-review** (final gate). This produces 15–25 user checkpoints depending on complexity. The challenge skill adds a parallel-critic system that can be invoked at 3 points. Orchestrate alone has checkpoint state machines, dev server detection, test baselines, per-WP screenshot preservation, and nested retry loops. The challenge integration adds ~200 lines per caller plus a 500-line shared protocol.
+Our pipeline had 7 discrete skills forming a linear sequence: **build** (router) → **specify** (interview) → **design** (research + architecture) → **draft-plan** (work packages) → **plan-review** (9-point checklist) → **orchestrate** (per-WP executor with nested reviewer loops) → **implementation-review** (final gate). This produced 15–25 user checkpoints depending on complexity. The challenge skill added a parallel-critic system invoked at 3 points. Orchestrate alone had checkpoint state machines, dev server detection, test baselines, per-WP screenshot preservation, and nested retry loops. The challenge integration added ~200 lines per caller plus a 500-line shared protocol. This PR replaced the pipeline with **define** → **plan** → **orchestrate**.
 
 ## Patterns Found
 

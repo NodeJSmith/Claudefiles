@@ -394,7 +394,7 @@ AskUserQuestion:
   multiSelect: false
   options:
     - label: "Challenge first"
-      description: "Run /mine.challenge on the spec and/or design to find issues"
+      description: "Run /mine.challenge on the design doc to find issues"
     - label: "Approve — proceed to planning"
       description: "Hand off to /mine.plan to generate work packages"
     - label: "Revise — I have changes"
