@@ -23,6 +23,8 @@ Capture screenshots before and after changes to detect unintended visual regress
 
 ## Standard Visual Diff Flow
 
+**Setup:** Run `get-skill-tmpdir visual-diff` to get a temp directory (`<tmpdir>`). All output goes under this path.
+
 ### 1. Baseline Capture (Before Changes)
 
 ```
@@ -74,7 +76,7 @@ Test at these standard viewports:
 
 ## Directory Structure
 
-On startup, run `get-skill-tmpdir visual-diff` to get a temp directory. All output goes under this `<tmpdir>`:
+All output goes under `<tmpdir>` (obtained in Setup above):
 
 ```
 <tmpdir>/
