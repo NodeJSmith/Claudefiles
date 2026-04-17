@@ -466,14 +466,12 @@ Wait for the subagent to complete. Read the visual reviewer output file.
 After the parallel review pass, check the code-reviewer output for CRITICAL or HIGH findings.
 
 **Loop until clean:**
-1. Read the code-reviewer output from Step 5.
+1. Read the code-reviewer output from `<dir>/<wp_id>/code-review.md` (written by Step 5).
 2. For each CRITICAL or HIGH finding:
    - **Auto-fix** when the correct solution is unambiguous (clear bugs, missing type annotations, style violations, simple security issues)
    - **Defer** when the fix requires architectural judgment or business context
-3. If any auto-fixes were applied, re-run the code-reviewer only (max 3 iterations total including the initial parallel run)
+3. If any auto-fixes were applied, re-run the code-reviewer — launch `Agent(subagent_type: "code-reviewer")` with the refreshed changed file list and instruct it to write to `<dir>/<wp_id>/code-review.md` (overwriting the previous output). Max 3 iterations total including the initial parallel run.
 4. Stop when: no CRITICAL/HIGH issues remain, only deferred findings are left, or 3 iterations reached
-
-Write the final code-reviewer output to `<dir>/<wp_id>/code-review.md`.
 
 **After the auto-fix loop completes** (whether after 0 or 2 additional iterations), re-capture the changed file list — auto-fixes may have modified additional files:
 
@@ -484,7 +482,7 @@ git ls-files --others --exclude-standard
 
 Update the WP's changed file list with the refreshed result (deduped). This updated list is used by Step 9a (commit).
 
-**After auto-fixes**, if any changes were applied, re-run the integration-reviewer on the updated changed file list to ensure auto-fixes didn't introduce integration issues. Write the updated output to `<dir>/<wp_id>/integration-review.md`.
+**After auto-fixes**, if any changes were applied, re-run the integration-reviewer — launch `Agent(subagent_type: "integration-reviewer")` with the refreshed changed file list and instruct it to write to `<dir>/<wp_id>/integration-review.md` (overwriting the previous output).
 
 **Verdict impact:** If CRITICAL or HIGH code-review issues remain after 3 iterations that could not be auto-fixed, the WP verdict becomes FAIL. If integration reviewer returned BLOCK, the WP verdict becomes FAIL.
 

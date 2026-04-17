@@ -238,7 +238,9 @@ After the agent completes, **verify the output**: read the temp file and check t
 
 ### Initialize the feature directory
 
-Run:
+If `$ARGUMENTS` pointed to an existing `design/specs/NNN-*/` directory (checked in Phase 1), reuse that as `feature_dir` — do not create a new one.
+
+Otherwise, run:
 ```bash
 spec-helper init <slug> --json
 ```
