@@ -743,6 +743,26 @@ AskUserQuestion:
 
 **On "Stop here":** Leave the checkpoint in place. The user can resume later. Do not delete the checkpoint.
 
+### Step 2.5: Cross-file consistency review (automatic)
+
+After impl-review passes, run an `integration-reviewer` subagent on the **full branch diff** (not per-WP). This catches cross-file consistency issues that per-WP reviews miss because they only see one WP's changes at a time.
+
+```bash
+git diff --name-only <base_commit> HEAD
+```
+
+Launch `Agent(subagent_type: "integration-reviewer")` with all changed files. Add this focus instruction to the prompt:
+
+> In addition to your standard checklist (duplication, convention drift, misplacement, orphaned code, design violations), pay special attention to **cross-file consistency** across the full diff:
+> - **Terminology drift**: same concept described with different words across files (e.g., "verb" vs "execution outcome" for the same trigger condition)
+> - **Stale cross-references**: section numbers, file paths, or artifact names that point to the wrong target after edits
+> - **Format/schema coverage**: tables, enumerations, or format specs that don't cover all variants actually used in other files
+> - **Stated principles violated by implementation details**: rules declared in one file but contradicted by logic in another
+> - **Hard-coded values that should be parameterized**: artifact names or paths that appear as literals but should vary by context (e.g., iteration suffixes)
+> - **Worked examples using invalid contract values**: examples that show values not in the canonical vocabulary
+
+If the integration-reviewer returns BLOCK, surface the blocking issues to the user with an "Address" / "Stop here" gate (same pattern as the impl-review gate). If APPROVE or WARN, note any suggestions and continue to Step 3.
+
 ### Step 3: Auto-challenge (automatic, always presents findings)
 
 Determine the changed file list by diffing against `base_commit` (from the checkpoint):
