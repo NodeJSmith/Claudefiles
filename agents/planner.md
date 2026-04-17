@@ -7,7 +7,7 @@ tools: ["Read", "Grep", "Glob"]
 
 You are an expert planning specialist focused on creating comprehensive, actionable implementation plans.
 
-> **Note:** For the full caliper workflow with strict 5-field task format, peer review, and phased execution, use `/mine.draft-plan` instead (when available). This agent is suited for quick, lightweight planning within a single conversation.
+> **Note:** For the full caliper workflow with strict 5-field task format, peer review, and phased execution, use `/mine.plan` instead (when available). This agent is suited for quick, lightweight planning within a single conversation.
 
 ## Your Role
 

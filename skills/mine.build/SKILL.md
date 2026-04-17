@@ -6,7 +6,7 @@ user-invocable: true
 
 # Build
 
-One command to go from idea to shipped code. Routes your request to the right workflow: implement directly for small changes, or engage the full pipeline (specify → design → draft-plan → plan-review → orchestrate → ship) for complex ones.
+One command to go from idea to shipped code. Routes your request to the right workflow: implement directly for small changes, or engage the full pipeline (define → plan → orchestrate → ship) for complex ones.
 
 ## Arguments
 
@@ -75,7 +75,7 @@ AskUserQuestion:
     - label: "Simple — implement directly"
       description: "Explore, implement, code-review, then offer to ship"
     - label: "Complex — full caliper workflow"
-      description: "specify → design → draft-plan → plan-review → orchestrate → ship"
+      description: "define → plan → orchestrate → ship"
 ```
 
 If **prior analysis detected** (findings, plan, or critique already in context):
@@ -88,10 +88,10 @@ AskUserQuestion:
   options:
     - label: "Simple — implement directly"
       description: "Explore, implement, code-review, then offer to ship"
-    - label: "Accelerated — skip specify, lightweight design phase"
-      description: "Formalize findings into design.md (skip research — already done) → draft-plan → plan-review → orchestrate → ship"
+    - label: "Accelerated — lightweight define phase"
+      description: "Formalize findings into spec.md + design.md (skip research — already done) → plan → orchestrate → ship"
     - label: "Full caliper workflow"
-      description: "specify → design → draft-plan → plan-review → orchestrate → ship — start from scratch"
+      description: "define → plan → orchestrate → ship — start from scratch"
 ```
 
 ### Routing Rationalizations
@@ -151,22 +151,18 @@ Tell the user:
 
 > Starting the full caliper workflow.
 
-**Auto-continue between steps.** Execute each skill's phases inline — do not stop and tell the user to run the next command. The user should only be interrupted for decisions that genuinely require their input (spec approval, design sign-off, plan-review verdict). Between those gates, continue automatically.
+**Auto-continue between steps.** Execute each skill's phases inline — do not stop and tell the user to run the next command. The user should only be interrupted for decisions that genuinely require their input (define sign-off, plan verdict). Between those gates, continue automatically.
 
 Chain the following skills in sequence. Do not duplicate their logic — follow each skill's own phases as documented:
 
-1. **Follow `/mine.specify` phases** for this request. Pass the change description as the argument. Wait for the user to approve the spec, then continue.
+1. **Follow `/mine.define` phases** for this request. Pass the change description as the argument. Wait for the user to approve the spec and design, then continue.
 
-2. **Follow `/mine.design` phases** using the feature directory produced by mine.specify. Wait for the user to approve the design doc, then continue.
-
-3. **Follow `/mine.draft-plan` phases** using the feature directory from step 2.
-
-4. **Follow `/mine.plan-review` phases** for the design doc.
-   - If "Approve as-is" or "Approve with suggestions": continue to step 5.
-   - If "Revise the plan": return to step 3 (`/mine.draft-plan`) with the reviewer's notes. Repeat until approved or abandoned.
+2. **Follow `/mine.plan` phases** using the feature directory produced by mine.define.
+   - If "Approve as-is" or "Approve with suggestions": continue to step 3.
+   - If "Revise the plan": mine.plan loops internally. Repeat until approved or abandoned.
    - If "Abandon": stop.
 
-5. **Follow `/mine.orchestrate` phases** using the feature directory. The orchestrator handles per-WP execution, implementation review, challenge, and shipping as part of its Phase 3 pipeline. No further steps needed from mine.build after this point.
+3. **Follow `/mine.orchestrate` phases** using the feature directory. The orchestrator handles per-WP execution, implementation review, and shipping as part of its Phase 3 pipeline. No further steps needed from mine.build after this point.
 
 ---
 
@@ -176,27 +172,25 @@ Use this path when prior analysis (challenge, audit, brainstorm, research, 5whys
 
 Tell the user:
 
-> Starting accelerated caliper workflow — skipping specify (findings are the spec) and using a lightweight design phase (skipping research — the critique already mapped the codebase).
+> Starting accelerated caliper workflow — using analysis findings as discovery input, skipping research.
 
 **Auto-continue between steps** — same principle as Path B. Execute inline, only interrupt for decisions that genuinely need user input.
 
 Then chain the following steps:
 
-1. **Lightweight `/mine.design`** — Follow mine.design's phases with these modifications:
-   - **Phase 1 (Understand the Ask)**: Use the analysis findings as the problem statement. Skip scoping questions — the findings already define what's wrong, why it matters, and what the better approach is.
-   - **Phase 2 (Investigate)**: **Skip unless the analysis findings don't cover the interfaces or constraints needed for the design doc** — in that case, run targeted investigation only for the gaps (e.g., a single focused mine.research query, not the full multi-agent sweep). Use the analysis findings as the primary research input.
-   - **Phase 3 (Planning Interrogation)**: Run normally — ask proportional architecture questions to fill gaps the analysis didn't cover. Focus on approach alignment and interface contracts.
-   - **Phase 4 (Write Design Doc)**: Run normally — write design.md using the analysis findings as the research brief. Populate the Problem section from the findings, Architecture from the recommended approaches, and Alternatives from any TENSION findings where critics disagreed.
-   - **Phase 5 (Sign-Off Gate)**: Run normally — gate on user approval.
+1. **Lightweight `/mine.define`** — Follow mine.define's phases with these modifications:
+   - **Phase 1 (Scope and Classify)**: Use the analysis findings as the problem statement.
+   - **Phase 2 (Proportional Discovery)**: Skip questions already answered by the findings. Focus on gaps the analysis didn't cover.
+   - **Phase 3 (Investigate)**: **Skip unless the analysis findings don't cover the interfaces or constraints needed for the design doc.** Use the analysis findings as the primary research input.
+   - **Phase 4 (Write spec.md and design.md)**: Run normally — populate the Problem section from the findings, Architecture from the recommended approaches, and Alternatives from any TENSION findings where critics disagreed.
+   - **Phase 5-6 (Quality Validation and Sign-Off Gate)**: Run normally — gate on user approval.
 
-2. **Follow `/mine.draft-plan` phases** using the feature directory from step 1.
-
-3. **Follow `/mine.plan-review` phases** for the design doc.
-   - If "Approve as-is" or "Approve with suggestions": continue to step 4.
-   - If "Revise the plan": return to step 2 with the reviewer's notes. Repeat until approved or abandoned.
+2. **Follow `/mine.plan` phases** using the feature directory from step 1.
+   - If "Approve as-is" or "Approve with suggestions": continue to step 3.
+   - If "Revise the plan": mine.plan loops internally. Repeat until approved or abandoned.
    - If "Abandon": stop.
 
-4. **Follow `/mine.orchestrate` phases** using the feature directory. The orchestrator handles per-WP execution, implementation review, challenge, and shipping as part of its Phase 3 pipeline. No further steps needed from mine.build after this point.
+3. **Follow `/mine.orchestrate` phases** using the feature directory. The orchestrator handles per-WP execution, implementation review, and shipping as part of its Phase 3 pipeline. No further steps needed from mine.build after this point.
 
 ---
 

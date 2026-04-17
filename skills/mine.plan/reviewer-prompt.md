@@ -22,8 +22,8 @@ Are tests specified alongside or immediately after the implementation they verif
 Look for: tests deferred to "a later task" without being explicitly paired; tasks with no verification step; done-when criteria that can't be observed without running tests.
 
 ### 5. Task completeness
-Does every task have all 5 caliper fields (files, steps, verification, done-when, avoid)?
-Look for: missing fields, vague steps ("update the handler"), placeholder file paths ("path/to/file"), non-runnable verification commands.
+Does every WP have all required sections (Objectives & Success Criteria, Subtasks, Test Strategy, Review Guidance)?
+Look for: missing sections, vague subtasks ("update the handler"), placeholder file paths ("path/to/file"), done-criteria that can't be observed without reading code.
 
 ### 6. Context independence
 Could each task be handed to a fresh Claude instance with only the plan and referenced files?

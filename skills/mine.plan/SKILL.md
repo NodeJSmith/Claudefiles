@@ -1,12 +1,12 @@
 ---
-name: mine.draft-plan
-description: "Use when the user says: \"draft a plan\", \"create work packages\", or \"generate WPs\". Turns a design doc into Work Package files. Offers /mine.plan-review on completion."
+name: mine.plan
+description: "Use when the user says: \"draft a plan\", \"create work packages\", \"generate WPs\", \"review this plan\", or \"check the plan\". Turns a design doc into Work Package files and validates them against a 9-point checklist."
 user-invocable: true
 ---
 
-# Draft Plan
+# Plan
 
-Turn an approved design doc into a set of Work Package (WP) files. Each WP is an independently executable unit of work with its own objectives, subtasks, test strategy, and review guidance. Commits all WP files after generation.
+Turn an approved design doc into a set of Work Package (WP) files, validate them against a 9-point checklist, and gate on user approval. Combines WP generation with plan review in a single flow.
 
 ## Arguments
 
@@ -223,37 +223,118 @@ If git operations fail (not a repo, nothing to commit), note it and continue.
 
 ---
 
-## Phase 5: Gate and Dispatch
+## Phase 5: Review
 
-Announce based on git outcome:
-- If commit succeeded:
-  > Work packages written: WP01–WPNN in `<feature_dir>/tasks/`. All files committed.
-- If commit failed or was skipped:
-  > Work packages written: WP01–WPNN in `<feature_dir>/tasks/`. Git commit was not completed — please commit these files manually if needed.
+### Dispatch reviewer subagent
 
-List each WP with its title:
+Run `get-skill-tmpdir mine-plan` and use `<dir>/review.md` for the review output.
+
+Read `~/.claude/skills/mine.plan/reviewer-prompt.md` to get the checklist content.
+
+Launch a general-purpose subagent with `model: sonnet`. Pass this prompt (fill in the bracketed values from the files you read):
+
 ```
-WP01  Set up data model
-WP02  Implement service layer
-...
+You are reviewing an implementation design and its work packages.
+
+## Design doc content
+<full design.md content>
+
+## Work package files
+<full content of each WP*.md, in order, separated by file headers>
+
+## Your instructions
+<full reviewer-prompt.md content>
+
+Write your complete structured review to: <temp file path>
 ```
 
-**If invoked inline by `mine.build`** (the user chose "Full caliper workflow" or "Accelerated"), skip the gate below and invoke `/mine.plan-review <feature_dir>` directly — `mine.build` handles the flow.
+The subagent will write the review to the temp file.
+
+### Present findings
+
+Read the temp file. Format the results clearly:
+
+1. **Checklist results** — one line per item: `N. <name>: PASS|WARN|FAIL — note`
+2. **Verdict** — APPROVE, REQUEST_REVISIONS, or ABANDON (bold, prominent)
+3. **Summary** — 2-3 sentences from the subagent
+4. **Blocking issues** — if verdict is REQUEST_REVISIONS or ABANDON
+5. **Suggestions** — non-blocking notes, if any
+
+---
+
+## Phase 6: Gate
+
+If the reviewer's output includes non-blocking suggestions, present "Approve with suggestions" as the first (recommended) option. If there are no suggestions (clean APPROVE), omit it and show "Approve as-is" first.
+
+**When suggestions exist:**
+
+```
+AskUserQuestion:
+  question: "Review complete. What would you like to do?"
+  header: "Plan verdict"
+  multiSelect: false
+  options:
+    - label: "Approve with suggestions (Recommended)"
+      description: "Apply the reviewer's non-blocking suggestions, then proceed"
+    - label: "Approve as-is"
+      description: "Skip suggestions; proceed to execution"
+    - label: "Revise the plan"
+      description: "Blocking issues found — regenerate work packages with reviewer notes"
+    - label: "Abandon"
+      description: "Mark the design as abandoned and stop"
+```
+
+**When no suggestions exist:**
+
+```
+AskUserQuestion:
+  question: "Review complete. What would you like to do?"
+  header: "Plan verdict"
+  multiSelect: false
+  options:
+    - label: "Approve as-is"
+      description: "Plan is good; proceed to execution"
+    - label: "Revise the plan"
+      description: "Blocking issues found — regenerate work packages with reviewer notes"
+    - label: "Abandon"
+      description: "Mark the design as abandoned and stop"
+```
+
+### On "Approve as-is"
+
+Update the `design.md` `**Status:**` field from `draft` to `approved`.
+
+**If invoked inline by `mine.build`** (the user chose "Full caliper workflow" or "Accelerated"), skip the gate below and invoke `/mine.orchestrate <feature_dir>` directly — `mine.build` handles the flow.
 
 **Otherwise**, ask:
 
 ```
 AskUserQuestion:
-  question: "Work packages ready. Proceed to plan review?"
-  header: "Review gate"
+  question: "Plan approved. Begin implementation?"
+  header: "Next step"
   multiSelect: false
   options:
-    - label: "Yes — run plan review"
-      description: "Invoke /mine.plan-review for this feature"
-    - label: "No — I'll review manually first"
-      description: "Stop here"
+    - label: "Yes — start execution"
+      description: "Invoke /mine.orchestrate for this feature"
+    - label: "No — I'll start later"
+      description: "Stop here; the plan is approved and saved"
 ```
 
-On "Yes": invoke `/mine.plan-review <feature_dir>` directly.
+If "Yes": invoke `/mine.orchestrate <feature_dir>` directly.
 
-On "No": confirm the WP paths and stop.
+### On "Approve with suggestions"
+
+Apply the reviewer's non-blocking suggestions to `design.md` and/or `WP*.md` files. Restrict WP edits to cosmetic changes (wording, clarifications, review guidance) — substantive WP changes require re-running the WP generation phases. Show the user a brief summary of what was changed (file name + one-line description per change). Update the `design.md` `**Status:**` field from `draft` to `approved`.
+
+Then follow the same gate as "Approve as-is" above (invoke `/mine.orchestrate` on approval).
+
+### On "Revise the plan"
+
+Surface the reviewer's blocking issues as a numbered list. Loop back to Phase 2 — re-explore the codebase and regenerate work packages with the reviewer's notes as context. Tell the user:
+> Regenerating work packages with the reviewer's notes.
+
+### On "Abandon"
+
+Update the `design.md` `**Status:**` field from `draft` to `abandoned`.
+
+Confirm: "Design saved as abandoned at `<path>`."

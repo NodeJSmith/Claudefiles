@@ -292,7 +292,7 @@ Note: this cap is enforced by the LLM's in-context count and is not compaction-s
 
 ## Skill-Specific Overrides
 
-For doc-edit and code-fix callers (mine.specify, mine.design, mine.orchestrate), see `skills/mine.challenge/caller-protocol.md`.
+For doc-edit callers (mine.define), see `skills/mine.challenge/caller-protocol.md`.
 
 Some skills have post-finding interactions beyond fix/file (e.g., visual-qa offers "re-run with different viewport" and "read agent report"; tool-gaps has implement/issue/skip paths that don't fit the standard flow). These skills may present their own post-finding gate in place of — not in addition to — the Consent Gate (Proceed Gate). The skill's gate should still include fix and file-as-issue paths. Skills using the legacy Proceed Gate pattern should migrate to the Resolution Manifest flow on next revision. Track migration work for mine.visual-qa and mine.tool-gaps via GitHub issues before merging.
 

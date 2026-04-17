@@ -13,7 +13,7 @@ Deep investigation of a codebase to evaluate a proposed change, new pattern, or 
 | Skill | Question it answers |
 |-------|-------------------|
 | **`/mine.research`** | **"What would it take to do X in this codebase?"** |
-| `/mine.design` | "How should we build X?" |
+| `/mine.define` | "How should we build X?" |
 
 Research comes **before** design docs and plans. It's the investigation that makes those possible.
 
@@ -173,7 +173,7 @@ AskUserQuestion:
   options:
     - label: "Challenge these findings first"
       description: "Run /mine.challenge on the research brief before committing to a direction"
-    - label: "Design it (/mine.design)"
+    - label: "Design it (/mine.define)"
       description: "Formalize findings into a design doc — the research brief will be passed as prior work"
     - label: "Build it (/mine.build)"
       description: "Skip design — route straight to implementation"
@@ -183,7 +183,7 @@ AskUserQuestion:
 
 If "Challenge these findings first" is selected: invoke `/mine.challenge --mode=passthrough --target-type=research <research_brief_path>`. After challenge completes, loop back to this gate.
 
-If "Design it (/mine.design)" is selected: invoke `/mine.design` and pass `<research_brief_path>` so mine.design can use it as prior work and skip its own researcher dispatch.
+If "Design it (/mine.define)" is selected: invoke `/mine.define` and pass `<research_brief_path>` so mine.define can use it as prior work and skip its own researcher dispatch.
 
 If "Build it (/mine.build)" is selected: invoke `/mine.build` with context: "Prior research brief available at `<research_brief_path>`." This ensures mine.build's prior-analysis detection fires reliably.
 
@@ -204,7 +204,7 @@ If "Build it (/mine.build)" is selected: invoke `/mine.build` with context: "Pri
 
 ## What This Skill Does NOT Do
 
-- **Make decisions** — it informs them. Use `/mine.design` to formalize decisions.
+- **Make decisions** — it informs them. Use `/mine.define` to formalize decisions.
 - **Plan implementations** — it assesses feasibility. Use `/mine.build` to route to the right implementation workflow.
 - **Write code** — it's pure investigation. No prototypes, no scaffolding, no "let me just try it."
 - **Audit health** — it evaluates a specific proposal against the codebase. Use `/mine.challenge` for general health assessment.

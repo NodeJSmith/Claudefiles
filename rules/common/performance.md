@@ -36,5 +36,5 @@ Each agent file in `agents/` declares its model in YAML frontmatter. When updati
 **Skill files with inline model declarations** (not governed by agent frontmatter):
 - `skills/mine.challenge/SKILL.md` — `model: sonnet` for critic and synthesis subagents
 - `skills/mine.orchestrate/SKILL.md` — `model: sonnet` for executor and reviewer subagents
-- `skills/mine.plan-review/SKILL.md` — `model: sonnet` for review subagent
+- `skills/mine.plan/SKILL.md` — `model: sonnet` for review subagent
 - `skills/mine.implementation-review/SKILL.md` — `model: sonnet` for review subagent
