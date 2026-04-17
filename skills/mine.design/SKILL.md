@@ -291,21 +291,15 @@ Read the structured findings file at `<dir>/findings.md`. If `Format-version:` i
 
 #### Manifest flow
 
-Read `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md` before proceeding with the manifest flow. Follow the unified caller flow defined there (Compaction Recovery (§9), pre-routing pass, manifest generation, Consent Gate, editor session, Detection + Validation + Commit Gate, verb execution, post-execute hooks).
+**Compaction recovery check (early-exit):** Before generating a new manifest, check for an existing `<dir>/resolutions.md`. If present and non-empty, this is an orphaned manifest from a compacted session — skip manifest generation and proceed directly to the Commit Gate per `caller-protocol.md §10`. Do not regenerate the manifest — doing so loses all user verb edits from the prior session.
+
+Read `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md` before proceeding with the manifest flow. Follow the unified caller flow defined there (Compaction Recovery (§10), pre-routing pass, manifest generation, Consent Gate, editor session, Detection + Validation + Commit Gate, verb execution, post-execute hooks).
 
 #### mine.design pre-routing pass
 
 Re-read the design doc to get current state. Before computing routes, scan `design.md`'s `## Open Questions` for bullets containing `(from spec challenge on` or `(from design challenge on` — these are findings deferred from a prior spec or design challenge. If any challenge finding overlaps with a deferred entry, note the match rather than creating a duplicate open question.
 
-Apply this table to compute the default verb and Doc target for each finding:
-
-| Finding property | Default verb | Doc target |
-|---|---|---|
-| `severity: TENSION` | `defer` | `design.md SS Open Questions` |
-| `design-level: Yes` | `fix` / letter / `ask` (per Default Verb Selection in `findings-protocol.md`) | `design.md SS <section>` |
-| `design-level: No` | `skip` | `(none -- flag for implementation)` |
-
-When the routing heuristic cannot unambiguously classify a finding, default the verb to `ask`. This converts routing ambiguity into a user prompt at execution time rather than a silent wrong-document edit.
+Apply the routing table for this caller from `caller-protocol.md §Pre-Routing Tables → mine.design`. The table is read from the protocol file (already loaded above) — do not duplicate it here.
 
 After pre-routing, generate the manifest (`<dir>/resolutions.md`) per caller-protocol.md and proceed through the shared flow (Consent Gate, editor, Detection + Validation + Commit Gate, verb execution).
 
@@ -313,7 +307,7 @@ After pre-routing, generate the manifest (`<dir>/resolutions.md`) per caller-pro
 
 After all verb execution completes, run this hook:
 
-1. **Open Questions sweep**: Sweep all findings where the Doc target contains "Open Questions" AND the verb is `defer`. For each matching finding, append a bullet to `design.md`'s `## Open Questions` section (per the Doc target).
+1. **Open Questions sweep**: Sweep all findings where the Doc target contains "Open Questions" AND the execution outcome is `deferred` (check `editor-log.md` for `result=deferred`, not the manifest verb — this correctly handles `ask`-resolved-to-defer cases). For each matching finding, append a bullet to `design.md`'s `## Open Questions` section (per the Doc target).
 
    Format for each appended bullet:
    ```markdown

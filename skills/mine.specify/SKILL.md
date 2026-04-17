@@ -347,7 +347,9 @@ Read the structured findings file at `<dir>/findings.md`. If `Format-version:` i
 
 #### Manifest flow
 
-Read `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md` before proceeding with the manifest flow. Follow the unified caller flow defined there (Compaction Recovery (§9), pre-routing pass, manifest generation, Consent Gate, editor session, Detection + Validation + Commit Gate, verb execution, post-execute hooks).
+**Compaction recovery check (early-exit):** Before generating a new manifest, check for an existing `<dir>/resolutions.md`. If present and non-empty, this is an orphaned manifest from a compacted session — skip manifest generation and proceed directly to the Commit Gate per `caller-protocol.md §10`. Do not regenerate the manifest — doing so loses all user verb edits from the prior session.
+
+Read `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md` before proceeding with the manifest flow. Follow the unified caller flow defined there (Compaction Recovery (§10), pre-routing pass, manifest generation, Consent Gate, editor session, Detection + Validation + Commit Gate, verb execution, post-execute hooks).
 
 #### mine.specify pre-routing pass
 
@@ -355,16 +357,7 @@ Re-read the spec to get current state. For each finding, determine whether it be
 - **Routes to spec**: finding would require changing Functional Requirements, Goals, User Scenarios, or Acceptance Criteria sections — or Non-Goals, if that section is present (it is optional and may be absent when the user stated no exclusions)
 - **Routes to design phase**: finding would require changing architecture, data model, API contracts, or module boundaries
 
-Apply this table to compute the default verb and Doc target for each finding:
-
-| Finding property | Default verb | Doc target |
-|---|---|---|
-| `severity: TENSION` | `defer` | `spec.md SS Open Questions` |
-| `design-level: Yes` + routes to spec (functional reqs, goals, user scenarios, ACs, non-goals) | `fix` / letter / `ask` (per Default Verb Selection in `findings-protocol.md`) | `spec.md SS <section>` |
-| `design-level: Yes` + routes to design (architecture, data model, API) | `defer` | `design.md SS Open Questions` |
-| `design-level: No` | `skip` | `(none -- flag for implementation)` |
-
-When the routing heuristic cannot unambiguously classify a finding (e.g., "scope is too broad" touches requirements AND architecture), default the verb to `ask`. This converts routing ambiguity into a user prompt at execution time rather than a silent wrong-document edit.
+Apply the routing table for this caller from `caller-protocol.md §Pre-Routing Tables → mine.specify`. The table is read from the protocol file (already loaded above) — do not duplicate it here.
 
 After pre-routing, generate the manifest (`<dir>/resolutions.md`) per caller-protocol.md and proceed through the shared flow (Consent Gate, editor, Detection + Validation + Commit Gate, verb execution).
 
@@ -372,7 +365,7 @@ After pre-routing, generate the manifest (`<dir>/resolutions.md`) per caller-pro
 
 After all verb execution completes, run these hooks:
 
-1. **Open Questions sweep**: Sweep all findings where the Doc target contains "Open Questions" AND the verb is `defer`. For each matching finding, append a bullet to the document and section named in its Doc target (e.g., `spec.md SS Open Questions` appends to `spec.md`'s `## Open Questions` section; `design.md SS Open Questions` appends to `design.md`'s `## Open Questions` section).
+1. **Open Questions sweep**: Sweep all findings where the Doc target contains "Open Questions" AND the execution outcome is `deferred` (check `editor-log.md` for `result=deferred`, not the manifest verb — this correctly handles `ask`-resolved-to-defer cases). For each matching finding, append a bullet to the document and section named in its Doc target (e.g., `spec.md SS Open Questions` appends to `spec.md`'s `## Open Questions` section; `design.md SS Open Questions` appends to `design.md`'s `## Open Questions` section).
 
    Format for each appended bullet:
    ```markdown

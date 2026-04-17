@@ -769,34 +769,29 @@ The `--focus="design conformance"` flag steers critics to also evaluate whether 
 
 Note: if the file list is large (50+ paths), pass the `.txt` file path instead of inline arguments to avoid shell argument limits — challenge treats `.txt`/`.list` files as indirect lists of absolute file paths.
 
-**Re-challenge iterations**: When re-running challenge in the manifest flow loop (see "Re-challenge cycle" below), use iteration-suffixed paths for BOTH findings and manifests (e.g., `challenge-findings-2.md` alongside `resolutions-2.md`) to preserve prior findings for severity comparison. challenge overwrites unconditionally — the caller is responsible for path uniqueness.
+**Re-challenge iterations**: When re-running challenge in the manifest flow loop (see "Re-challenge cycle" below), use iteration-suffixed paths for findings, manifests, AND fix briefs (e.g., `challenge-findings-2.md`, `resolutions-2.md`, and `challenge-fix-brief-2.md` for the second iteration) to preserve prior artifacts for severity comparison and debugging. challenge overwrites unconditionally — the caller is responsible for path uniqueness.
 
 After `/mine.challenge` returns, read `<tmpdir>/challenge-findings.md`.
 
 ### Final gate: Manifest flow
 
-Read `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md` before proceeding with the manifest flow. Follow the unified caller flow defined there (Compaction Recovery (§9), pre-routing pass, manifest generation, Consent Gate, editor session, Detection + Validation + Commit Gate, verb execution, post-execute hooks).
+**Compaction recovery check (early-exit):** Before generating a new manifest, check for an existing `<tmpdir>/resolutions.md` (or `<tmpdir>/resolutions-<N>.md` for the current iteration). If present and non-empty, this is an orphaned manifest from a compacted session — skip manifest generation and proceed directly to the Commit Gate per `caller-protocol.md §10`. Do not regenerate the manifest — doing so loses all user verb edits from the prior session.
+
+Read `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md` before proceeding with the manifest flow. Follow the unified caller flow defined there (Compaction Recovery (§10), pre-routing pass, manifest generation, Consent Gate, editor session, Detection + Validation + Commit Gate, verb execution).
 
 #### mine.orchestrate pre-routing pass
 
-For each finding in `<tmpdir>/challenge-findings.md`, compute the default verb and Doc target:
-
-| Finding property | Default verb | Doc target |
-|---|---|---|
-| `severity: TENSION` | `file` | `(none -- TENSION, files as issue)` |
-| `resolution: Auto-apply` | `fix` | `(code)` |
-| `resolution: User-directed` + recommendation present | option letter | `(code)` |
-| `resolution: User-directed` + no recommendation | `ask` | `(code)` |
+For each finding in `<tmpdir>/challenge-findings.md`, apply the routing table for this caller from `caller-protocol.md §Pre-Routing Tables → mine.orchestrate`. The table is read from the protocol file (already loaded above) — do not duplicate it here.
 
 After pre-routing, generate the manifest (`<tmpdir>/resolutions.md` for the first challenge iteration, or `<tmpdir>/resolutions-<N>.md` for subsequent iterations matching the findings file suffix) per caller-protocol.md and proceed through the shared flow (Consent Gate, editor, Detection + Validation + Commit Gate).
 
 #### mine.orchestrate verb execution (split dispatch)
 
-After the manifest is committed, execute verbs using the split-dispatch pattern from caller-protocol.md §6:
+After the manifest is committed, execute verbs using the split-dispatch pattern from caller-protocol.md §7:
 
 **1. Resolve `ask` verbs first.** Before dispatching any subagent, resolve ALL findings with verb `ask` via AskUserQuestion (one question per finding, presenting the finding's options). After the user responds, each resolved `ask` finding either enters the fix brief (if the user chose a fix/letter action) or is handled directly by the orchestrator (if the user chose file/defer/skip).
 
-**2. Build the filtered fix brief.** Collect all findings whose resolved verb is `fix`, `A`, `B`, `C`, or a resolved `ask` that mapped to a fix action. Write only those `## Finding N:` blocks (verbatim, same findings.md format) to `<tmpdir>/challenge-fix-brief.md`.
+**2. Build the filtered fix brief.** Collect all findings whose resolved verb is `fix`, `A`, `B`, `C`, or a resolved `ask` that mapped to a fix action. Write only those `## Finding N:` blocks (verbatim, same findings.md format) to `<tmpdir>/challenge-fix-brief.md` (first iteration) or `<tmpdir>/challenge-fix-brief-<N>.md` (subsequent iterations, matching the findings/manifest suffix).
 
 **3. Handle non-fix verbs directly:**
 - `file` — batch into `gh-issue create` calls (including TENSION findings that defaulted to `file`)
