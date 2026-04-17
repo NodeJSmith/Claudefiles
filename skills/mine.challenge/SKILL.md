@@ -103,7 +103,7 @@ The following tag names and values are consumed by calling skills (mine.define) 
   - `evidence`: comma-separated list of `file:line` citations or section references. For non-code targets (`other`, `spec`, `design-doc`, `rule`, `brief`), may contain section references instead of file:line. Written as `not cited` when no critic provided structured evidence — Phase 4 suppresses the Evidence section when the value is `not cited` or the field is absent.
   - `references`: comma-separated list of external URLs cited by critics. Phase 4 splits on commas and renders each URL as a bullet. Omitted entirely when no external references were cited.
   - `design-challenge`: one question that forces the author to justify or rethink the finding.
-- **design-level values**: `Yes`, `No`
+- **design-level values**: `Yes` (fix requires editing a design artifact — spec, design doc, requirements, ACs), `No` (fix is implementation-only — no document changes needed)
 - **Resolution values**: `Auto-apply`, `User-directed`
 - **Format-version**: `2` — written in the findings file header. Callers should assert this value to detect format mismatches. Absent in pre-enrichment files (version 1). Increment when the findings file format changes in a way that requires callers to adapt or makes pre-existing files unreadable by Phase 4.
 - **Temp dir**: `<tmpdir>` — written in the findings file header. Contract field — used by structured callers to locate `validation-warnings.md` and individual critic reports. Callers that use this path must handle the case where the directory no longer exists (cleaned after 7 days) — treat a missing tmpdir as equivalent to `Warnings: none` and skip the `validation-warnings.md` read.
@@ -292,7 +292,7 @@ Subagents write their reports inside this directory:
      - If Auto-apply: [one-sentence description of the specific change]
      - If User-directed: [Option A — Option B — key tradeoff between them]
      ```
-  4. **Tag each finding** with severity (CRITICAL / HIGH / MEDIUM), type (Structural / Approach-now / Approach-later / Fragility / Gap), and design-level (Yes / No). Assign severity based on impact — how bad is this if left unfixed?
+  4. **Tag each finding** with severity (CRITICAL / HIGH / MEDIUM), type (Structural / Approach-now / Approach-later / Fragility / Gap), and design-level (Yes / No). Assign severity based on impact — how bad is this if left unfixed? **design-level** means "requires a change to a design artifact (spec, design doc) rather than only to implementation code." If the fix is editing spec text, acceptance criteria, requirements, architecture descriptions, or any other document content — that's `Yes`. If the fix is purely about how code is written and doesn't change any document — that's `No`.
   5. **Structure each finding with these required sections** (synthesis copies these directly — produce them as discrete, labeled sections, not embedded in prose):
      ```
      **Why it matters**: [One sentence — the concrete consequence if this is left unfixed]
@@ -386,7 +386,7 @@ Three steps. Prioritize trustworthy output over compact output — showing an ex
 2. **Assign tags per finding**:
    - **Severity**: take the highest severity any contributing critic assigned. The final value **must** be one of `CRITICAL`, `HIGH`, `MEDIUM`, or `TENSION` — no other values are valid. If a critic used a non-contract value (e.g., `LOW`, `INFO`), reclassify as `MEDIUM` and append a validation warning to `<tmpdir>/validation-warnings.md` (read existing content first if the file exists — Phase 1 may have already written warnings). Record agreement count on the separate confidence line (e.g., `3/5 (Senior + Architect + Data Integrity)` or `1/4 (Senior only)`).
    - **Type**: use the type that best describes the root cause. For Approach timing conflicts (`now` vs `later`), tag as `Approach-now/later`.
-   - **Design-level**: when critics disagree, Yes wins (architectural concerns should surface).
+   - **Design-level**: Yes = requires editing a design artifact (spec, design doc); No = implementation-only fix. When critics disagree, Yes wins.
    - **Resolution**: default to **User-directed** unless ALL critics proposed the same fix AND it's localized and additive — only then use **Auto-apply**. When in doubt, User-directed.
 
 3. **Write a recommendation** for each User-directed finding — which option you'd pick and a one-sentence reason. **Exception**: for TENSION findings, replace the recommendation with a **Deciding factor** — one question or data point that would resolve the disagreement.
