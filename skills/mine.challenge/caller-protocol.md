@@ -254,11 +254,11 @@ Given a resolved manifest containing:
 ```
 
 After verb execution records F4 as deferred, the post-execute hook:
-1. Detects Doc target contains "Open Questions" AND verb is `defer`
+1. Detects Doc target contains "Open Questions" AND execution result is `deferred` (the manifest verb may have been `defer` or `ask`)
 2. Opens `spec.md`, locates `## Open Questions` via the matching algorithm
 3. Appends: `- **No migration rollback strategy** (from spec challenge on <date>, target: \`<spec_path>\`): NFR-1 says "sub-100ms p99" but AC-7 implies complex aggregation that cannot meet this — TENSION`
 
-The user sees the Doc target routing in the manifest editor and can override it — setting `verb: skip` prevents the OQ-append, and changing the Doc target redirects it.
+The user sees the Doc target routing in the manifest editor and can override it — for example, setting `verb: skip` means execution will not record a deferred result, which prevents the OQ-append, and changing the Doc target redirects it.
 
 ### Hook Execution Logging
 
