@@ -14,6 +14,7 @@ All notable changes to this Claudefiles repository are documented here.
 - `caller-protocol.md` — shared manifest flow protocol for challenge callers (mine.specify, mine.design, mine.orchestrate), eliminating the bundled "Apply all / Cherry-pick / Skip revisions" and "Address findings" gates that reproduced anti-patterns #1, #4, #8 from findings-protocol.md (#217)
 
 ### Changed
+- `spec-helper archive` now also removes `spec.md` (if present and tracked) alongside `tasks/` when archiving completed specs; pre-validates spec.md is tracked before deleting tasks/ to prevent partial-failure states
 - `mine.specify`, `mine.design`, `mine.orchestrate` now use the per-finding resolution manifest for challenge findings instead of bundled gates — user edits verbs per-finding in their editor, same as standalone `/mine.challenge` (#217)
 - `findings-protocol.md` manifest templates gain an optional `**Doc target:**` field; protocol version bumped to 2 (#217)
 

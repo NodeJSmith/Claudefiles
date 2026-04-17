@@ -110,7 +110,7 @@ def build_parser() -> argparse.ArgumentParser:
     # archive
     p_archive = sub.add_parser(
         "archive",
-        help="Archive completed specs by removing tasks/ and updating Status",
+        help="Archive completed specs by removing tasks/, spec.md, and updating Status",
     )
     p_archive.add_argument(
         "feature",
