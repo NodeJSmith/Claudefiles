@@ -144,7 +144,7 @@ Remember: You're a quality auditor with exceptional attention to detail. Documen
 
 ## Completion
 
-Write the audit report to `.claude/audits/audit-YYYY-MM-DD.md` (create the `.claude/audits/` directory if needed). Then summarize in conversation:
+Run `get-skill-tmpdir i-audit` and write the audit report to `<tmpdir>/audit-YYYY-MM-DD.md`. Then summarize in conversation:
 
 1. **Verdict**: One-line overall assessment
 2. **Top findings**: The 3-5 most important issues

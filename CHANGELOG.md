@@ -4,6 +4,12 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-04-17
 
+### Changed
+- All `.claude/` write targets (audits, screenshots, mockups) moved to `/tmp/` via `get-skill-tmpdir` — eliminates forced permission prompts on Claude Code 2.1.77+
+
+### Removed
+- 4 unused agents: `dep-auditor`, `ui-auditor`, `db-auditor`, `browser-qa-agent`
+
 ### Added
 - `caller-protocol.md` — shared manifest flow protocol for challenge callers (mine.specify, mine.design, mine.orchestrate), eliminating the bundled "Apply all / Cherry-pick / Skip revisions" and "Address findings" gates that reproduced anti-patterns #1, #4, #8 from findings-protocol.md (#217)
 
