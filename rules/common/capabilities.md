@@ -50,22 +50,21 @@
 | "critique this UI", "design critique", "review this interface", "does this look AI-generated" | `/i-critique` |
 | "fix the typography", "improve the type", "font choices" | `/i-typeset` |
 | "fix the colors", "color system", "palette needs work" | `/i-colorize` |
-| "fix the layout", "arrange this", "visual hierarchy" | `/i-arrange` |
+| "fix the layout", "arrange this", "visual hierarchy", "spacing issues", "crowded UI" | `/i-layout` |
 | "too busy", "too noisy", "reduce visual clutter" | `/i-quieter` |
 | "make it bolder", "more distinctive", "too generic" | `/i-bolder` |
-| "polish this UI", "final pass", "pixel-perfect" | `/i-polish` |
+| "polish this UI", "final pass", "pixel-perfect", "normalize the design", "make it consistent", "align with design system" | `/i-polish` |
 | "add animations", "motion design", "transitions" | `/i-animate` |
 | "responsive design", "make it mobile-friendly", "adapt for mobile" | `/i-adapt` |
 | "improve the copy", "error messages are confusing", "UX writing" | `/i-clarify` |
 | "add delight", "make it more fun", "moments of joy" | `/i-delight` |
 | "too complex", "simplify this UI", "strip it down" | `/i-distill` |
-| "extract components", "consolidate patterns", "build a design system" | `/i-extract` |
-| "production hardening", "handle edge cases in UI", "make it resilient" | `/i-harden` |
-| "normalize the design", "make it consistent", "align with design system" | `/i-normalize` |
-| "improve onboarding", "empty states", "first-run experience" | `/i-onboard` |
+| "production hardening", "handle edge cases in UI", "make it resilient", "improve onboarding", "empty states", "first-run experience" | `/i-harden` |
 | "optimize frontend performance", "improve load time", "fix rendering" | `/i-optimize` |
 | "design this UI", "design this dashboard", "look and feel", "establish design tokens", "plan the look and feel", "UI planning", "design system for this project", "craft the interface" | `/i-teach-impeccable` |
 | "setup impeccable", "design context setup", "teach impeccable" | `/i-teach-impeccable` |
+| "shape this feature", "plan the UX", "design brief", "UX planning" | `/i-shape` |
+| "go all out", "make it extraordinary", "overdrive", "wow factor", "push the limits" | `/i-overdrive` |
 
 ## CLI Tools
 

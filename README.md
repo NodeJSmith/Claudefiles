@@ -69,7 +69,6 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 |-------|-------------|
 | `i-adapt` | Responsive design — make interfaces work across screen sizes |
 | `i-animate` | Motion design — meaningful animations and transitions |
-| `i-arrange` | Layout and spatial design — structure, alignment, visual flow |
 | `i-audit` | Comprehensive UI quality audit — a11y, performance, theming, responsive |
 | `i-bolder` | Make designs more distinctive and visually striking |
 | `i-clarify` | UX clarity — reduce confusion, improve information hierarchy |
@@ -77,14 +76,14 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `i-critique` | Design critique and review with actionable feedback |
 | `i-delight` | Micro-interactions and moments of delight |
 | `i-distill` | Simplify complex interfaces — reduce without losing function |
-| `i-extract` | Extract reusable components from existing UI |
 | `i-frontend-design` | Core design skill — creative direction, production-grade interfaces (includes reference docs) |
-| `i-harden` | Production hardening — edge cases, error states, resilience |
-| `i-normalize` | Consistency normalization across the interface |
-| `i-onboard` | Onboarding flow design and first-run experience |
+| `i-harden` | Production hardening — edge cases, error states, onboarding, resilience |
+| `i-layout` | Layout and spatial design — structure, alignment, visual rhythm |
 | `i-optimize` | Frontend performance optimization |
-| `i-polish` | Final quality pass — alignment, spacing, consistency details |
+| `i-overdrive` | Push interfaces past conventional limits — shaders, spring physics, View Transitions |
+| `i-polish` | Final quality pass — alignment, spacing, design system alignment, consistency |
 | `i-quieter` | Reduce visual noise and clutter |
+| `i-shape` | UX/UI planning — structured discovery interview producing a design brief |
 | `i-teach-impeccable` | Design context setup — gathers brand context and concrete design tokens, saves to `design/context.md` |
 | `i-typeset` | Typography — font choices, hierarchy, sizing, readability |
 

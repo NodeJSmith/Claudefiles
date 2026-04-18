@@ -5,6 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-04-17
 
 ### Changed
+- Sync `i-*` Impeccable skills with upstream v2.1.1: add `i-shape`, `i-overdrive`, `i-layout`; merge deprecated `i-arrange`/`i-extract`/`i-normalize`/`i-onboard` into surviving skills; enrich `i-frontend-design` with inline principles and bans (#220)
 - All `.claude/` write targets (audits, screenshots, mockups) moved to `/tmp/` via `get-skill-tmpdir` — eliminates forced permission prompts on Claude Code 2.1.77+ (#218)
 - Caliper pipeline simplified: `mine.specify` + `mine.design` → `mine.define`; `mine.draft-plan` + `mine.plan-review` → `mine.plan` (6 skills → 4, fewer user checkpoints) (#219)
 - `mine.orchestrate` per-WP reviewers run in parallel; auto-challenge removed from Phase 3 (now opt-in) (#219)

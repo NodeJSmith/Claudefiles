@@ -100,7 +100,7 @@ For each issue:
 - **What**: Name the problem clearly
 - **Why it matters**: How this hurts users or undermines goals
 - **Fix**: What to do about it (be concrete)
-- **Command**: Route to the most relevant modification skill (e.g., color → `/i-colorize`, layout → `/i-arrange`, typography → `/i-typeset`, performance → `/i-optimize`, responsive → `/i-adapt`, consistency → `/i-normalize`). Do not suggest diagnostic skills.
+- **Command**: Route to the most relevant modification skill (e.g., color → `/i-colorize`, layout → `/i-layout`, typography → `/i-typeset`, performance → `/i-optimize`, responsive → `/i-adapt`, consistency → `/i-polish`). Do not suggest diagnostic skills.
 
 ### Minor Observations
 Quick notes on smaller issues worth addressing.

@@ -128,16 +128,14 @@ Passthrough callers (invoke challenge standalone, don't consume findings file; c
 Inline-revision callers (invoke `/mine.challenge` inline during a gate, read findings, and revise their own proposal before proceeding — they do not pass `--findings-out`, do not use `--mode=passthrough`, and do not read the findings file programmatically; the LLM reads findings in-context and revises the proposal):
 - `skills/i-adapt/SKILL.md`
 - `skills/i-animate/SKILL.md`
-- `skills/i-arrange/SKILL.md`
 - `skills/i-bolder/SKILL.md`
 - `skills/i-clarify/SKILL.md`
 - `skills/i-colorize/SKILL.md`
 - `skills/i-delight/SKILL.md`
 - `skills/i-distill/SKILL.md`
-- `skills/i-extract/SKILL.md`
 - `skills/i-harden/SKILL.md`
-- `skills/i-normalize/SKILL.md`
-- `skills/i-onboard/SKILL.md`
+- `skills/i-layout/SKILL.md`
+- `skills/i-overdrive/SKILL.md`
 - `skills/i-optimize/SKILL.md`
 - `skills/i-polish/SKILL.md`
 - `skills/i-quieter/SKILL.md`
