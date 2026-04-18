@@ -2,7 +2,6 @@
 
 **Date:** 2026-03-31
 **Status:** archived
-**Spec:** design/specs/013-claude-log-ux/spec.md
 **Research:** /tmp/claude-mine-design-research-aNk4CI/brief.md
 
 ## Problem

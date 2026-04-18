@@ -18,7 +18,7 @@ Before asking questions, scan the project to discover what you can:
 - **Mockup files**: If HTML mockups exist (from /mine.mockup), read them for aesthetic direction to reference when gathering tokens
 - **Any style guides or brand documentation**
 
-Also check for a spec: look for `design/specs/*/spec.md`. If found, read the **User Scenarios** section — it contains structured actor/goal/context data that pre-answers Step 2 questions.
+Also check for a design doc: look for `design/specs/*/design.md`. If found, read the **User Scenarios** section — it contains structured actor/goal/context data that pre-answers Step 2 questions.
 
 Note what you've learned and what remains unclear.
 

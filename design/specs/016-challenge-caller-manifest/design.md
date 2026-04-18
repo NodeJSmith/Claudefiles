@@ -1,5 +1,7 @@
 # Design: Challenge Caller Manifest Migration
 
+> **Note:** This design doc reflects the two-artifact model (spec.md + design.md) that was superseded on 2026-04-18. The current implementation targets design.md only.
+
 **Date:** 2026-04-16
 **Status:** archived
 **Research:** design/research/2026-04-16-challenge-caller-manifest/research.md

@@ -1,12 +1,12 @@
 ---
 name: mine.define
-description: "Use when the user says: \"spec this out\", \"help me define what I want to build\", \"interview me about this idea\", \"design this change\", \"write a design doc\", or needs to define WHAT and HOW to build something. Proportional discovery interview + codebase investigation → spec.md + design.md."
+description: "Use when the user says: \"spec this out\", \"help me define what I want to build\", \"interview me about this idea\", \"design this change\", \"write a design doc\", or needs to define WHAT and HOW to build something. Proportional discovery interview + codebase investigation → design.md."
 user-invocable: true
 ---
 
 # Define
 
-Structured discovery and design skill. Turns a vague idea into a precise spec.md and a signed-off design.md through proportional questioning, codebase investigation, and architecture interrogation. Callable standalone or from `mine.build`.
+Structured discovery and design skill. Turns a vague idea into a signed-off design.md through proportional questioning, codebase investigation, and architecture interrogation. Callable standalone or from `mine.build`.
 
 ## Arguments
 
@@ -22,7 +22,7 @@ $ARGUMENTS — optional initial description or path. Can be:
 
 ### Understand the initial request
 
-If $ARGUMENTS points to a `design/specs/NNN-*/` directory, check for existing `spec.md` and/or `design.md`. If a `brief.md` from a prior `/mine.grill` session exists, read it and use its Key Decisions, Scope Boundaries, and Open Questions as starting context — skip any discovery questions the brief already answers.
+If $ARGUMENTS points to a `design/specs/NNN-*/` directory, check for existing `design.md`. If a `brief.md` from a prior `/mine.grill` session exists, read it and use its Key Decisions, Scope Boundaries, and Open Questions as starting context — skip any discovery questions the brief already answers.
 
 If $ARGUMENTS is provided (text or path), paraphrase it back in one sentence to confirm understanding. If empty, ask:
 
@@ -234,7 +234,7 @@ After the agent completes, **verify the output**: read the temp file and check t
 
 ---
 
-## Phase 4: Write spec.md and design.md
+## Phase 4: Write design.md
 
 ### Initialize the feature directory
 
@@ -255,72 +255,6 @@ If the work touches frontend (CSS, components, layouts, styles), check for desig
 - **`.impeccable.md` found** (migration fallback): Read it — use its brand personality and aesthetic direction for general decisions, but note there are no concrete design tokens. For non-trivial UI work, suggest running `/i-teach-impeccable` to generate a full token set.
 - **None found** and the work involves non-trivial UI: suggest "No design context found. Consider running `/i-teach-impeccable` first for consistent results."
 
-### Write spec.md
-
-Write the spec to `<feature_dir>/spec.md`:
-
-```markdown
----
-feature_number: "<NNN>"
-feature_slug: "<slug>"
-status: "draft"
-created: "<ISO timestamp>"
----
-
-# Spec: <Title>
-
-## Problem Statement
-
-<Clear description of the problem and who experiences it. Technology-agnostic.>
-
-## Goals
-
-<What success looks like. Measurable outcomes. No implementation details.>
-
-<Optional "## Non-Goals" section — only insert this heading and content if the user explicitly named exclusions. Omit entirely if the user stated no non-goals.>
-
-## User Scenarios
-
-<Structured per-actor task flows. For each actor:>
-
-### [Actor name]: [Role]
-- **Goal:** <verb phrase>
-- **Context:** <when and where>
-
-#### [Scenario name]
-
-1. **[Action — verb phrase]**
-   - Sees: <what information must be visible>
-   - Decides: <choice they make here, if any>
-   - Then: <system response or next trigger>
-
-## Functional Requirements
-
-<Numbered, testable, unambiguous requirements with clear acceptance criteria.>
-
-## Edge Cases
-
-<Boundary conditions, error states, unusual inputs.>
-
-## Dependencies and Assumptions
-
-<External systems, teams, data sources this depends on.>
-
-## Acceptance Criteria
-
-<Measurable, technology-agnostic criteria. Each independently verifiable.>
-
-## Open Questions
-
-<Questions or trade-offs that surfaced but couldn't be resolved yet.>
-```
-
-**Rules for spec content:**
-- No implementation details (no tech stack, no database names, no API paths)
-- Written for non-technical stakeholders where possible
-- Every requirement must be testable and unambiguous
-- No `[NEEDS CLARIFICATION]` markers — if you don't know, ask before writing
-
 ### Write design.md
 
 Write the design doc to `<feature_dir>/design.md`:
@@ -330,14 +264,48 @@ Write the design doc to `<feature_dir>/design.md`:
 
 **Date:** YYYY-MM-DD
 **Status:** draft
-**Spec:** <path to spec.md>
 **Research:** <path to research brief, if one was used — omit if no prior research>
 
 ## Problem
 
-[What is broken, missing, or suboptimal — and why it matters now]
+[What is broken, missing, or suboptimal — and why it matters now. Technology-agnostic.]
 
-[Optional "## Non-Goals" section — only if the user explicitly stated exclusions. Omit entirely otherwise.]
+## Goals
+
+[What success looks like. Measurable outcomes.]
+
+[Optional "## Non-Goals" section — only insert this heading and content if the user explicitly named exclusions. Omit entirely if the user stated no non-goals.]
+
+## User Scenarios
+
+[Structured per-actor task flows. For each actor:]
+
+### [Actor name]: [Role]
+- **Goal:** [verb phrase]
+- **Context:** [when and where]
+
+#### [Scenario name]
+
+1. **[Action — verb phrase]**
+   - Sees: [what information must be visible]
+   - Decides: [choice they make here, if any]
+   - Then: [system response or next trigger]
+
+## Functional Requirements
+
+[Numbered, testable, unambiguous requirements with clear acceptance criteria.]
+
+## Edge Cases
+
+[Boundary conditions, error states, unusual inputs.]
+
+## Acceptance Criteria
+
+[Measurable, technology-agnostic criteria. Each independently verifiable.]
+
+## Dependencies and Assumptions
+
+[External systems, teams, data sources this depends on.]
 
 ## Architecture
 
@@ -351,14 +319,24 @@ Write the design doc to `<feature_dir>/design.md`:
 
 [High-level approach to testing this change. Which layers need tests? Key behaviors to verify? For repos with no test infrastructure, state "N/A — no test infrastructure in this repo."]
 
-## Open Questions
+## Documentation Updates
 
-[Unresolved items that need answers before or during implementation. Must be empty before plan approval.]
+[Documentation or rules that need updating alongside this change. Omit if none.]
 
 ## Impact
 
 [Files and modules affected. Blast radius. Dependencies that will need updates.]
+
+## Open Questions
+
+[Unresolved items that need answers before or during implementation. Must be empty before plan approval.]
 ```
+
+**Rules for content:**
+- Problem, Goals, User Scenarios, Functional Requirements, Edge Cases, and Acceptance Criteria must be technology-agnostic — no technology names, database engines, library names, framework names, or API endpoint paths. Written for non-technical stakeholders
+- Architecture, Alternatives, Test Strategy, Documentation Updates, and Impact contain implementation details
+- Every requirement must be testable and unambiguous
+- No `[NEEDS CLARIFICATION]` markers — if you don't know, ask before writing
 
 Populate each section from the research brief, discovery answers, and codebase reconnaissance. Be specific — reference actual file paths, class names, and patterns found during investigation.
 
@@ -366,9 +344,9 @@ Populate each section from the research brief, discovery answers, and codebase r
 
 ## Phase 5: Quality Validation
 
-Validate the spec against this 12-item checklist:
+Validate the design doc against this 12-item checklist:
 
-1. No implementation details in spec (no tech names, framework choices, SQL, API paths)
+1. No implementation details in Problem, Goals, User Scenarios, Functional Requirements, Edge Cases, or Acceptance Criteria sections — any technology name, database engine, library, framework, or API path in these sections is a FAIL
 2. All requirements are testable and unambiguous
 3. Success criteria are measurable and technology-agnostic
 4. No `[NEEDS CLARIFICATION]` markers remain
@@ -379,7 +357,7 @@ Validate the spec against this 12-item checklist:
 9. All mandatory sections are completed (none empty)
 10. User scenarios cover the primary flow with named actors and step-by-step task flows (for moderate+ features)
 11. Functional requirements have clear acceptance criteria
-12. Written for non-technical stakeholders (no internal jargon)
+12. Problem-space sections written for non-technical stakeholders (no internal jargon)
 
 For any item that fails: **FAIL** — block and revise before proceeding. Report results as a compact list.
 
@@ -387,11 +365,11 @@ For any item that fails: **FAIL** — block and revise before proceeding. Report
 
 ## Phase 6: Sign-Off Gate
 
-Present the spec and design doc paths followed by the quality checklist results, then:
+Present the design doc path followed by the quality checklist results, then:
 
 ```
 AskUserQuestion:
-  question: "Spec and design complete. What next?"
+  question: "Design doc complete. What next?"
   header: "Sign-off"
   multiSelect: false
   options:
@@ -402,7 +380,7 @@ AskUserQuestion:
     - label: "Revise — I have changes"
       description: "Tell me what to change and I'll update"
     - label: "Save and stop"
-      description: "Both docs saved as draft; pick it up later"
+      description: "Design doc saved as draft; pick it up later"
 ```
 
 ### On "Challenge first"
@@ -430,13 +408,11 @@ Read `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md` before
 
 #### mine.define pre-routing pass
 
-Re-read both spec.md and design.md to get current state. For each finding, determine whether it belongs in the spec or the design. Use this heuristic:
-- **Routes to spec**: finding would require changing Functional Requirements, Goals, User Scenarios, Acceptance Criteria, or Non-Goals (if present)
-- **Routes to design**: finding would require changing Architecture, Alternatives, Test Strategy, Impact, or Open Questions
+Re-read design.md to get current state. For each finding, determine the appropriate section to target.
 
 Before computing routes, scan `design.md`'s `## Open Questions` for bullets containing `(from challenge on` — these are findings deferred from a prior challenge. If any new finding overlaps with a deferred entry, note the match rather than creating a duplicate open question.
 
-Apply the routing table from `caller-protocol.md §Pre-Routing Tables → mine.define`, using the spec-vs-design heuristic above to determine the Doc target (spec.md or design.md).
+Apply the routing table from `caller-protocol.md §Pre-Routing Tables → mine.define`.
 
 After pre-routing, generate the manifest (`<dir>/resolutions.md`) per caller-protocol.md and proceed through the shared flow (Consent Gate, editor, Detection + Validation + Commit Gate, verb execution).
 
@@ -444,16 +420,14 @@ After pre-routing, generate the manifest (`<dir>/resolutions.md`) per caller-pro
 
 Run the post-execute hooks as specified in `caller-protocol.md §8`. The protocol defines the trigger condition, OQ-append behavior, and dedup rules. mine.define-specific extensions:
 
-- **Deferred findings persistence**: When the Doc target names `design.md SS Open Questions`, append bullets to design.md's Open Questions section (dedup before appending). When the Doc target names `spec.md SS Open Questions`, append to spec.md's Open Questions section.
-- **Quality re-validation**: Re-run the 12-item quality validation on the updated spec.
+- **Deferred findings persistence**: When the Doc target names `design.md SS Open Questions`, append bullets to design.md's Open Questions section (dedup before appending).
+- **Quality re-validation**: Re-run the 12-item quality validation on the updated design doc.
 
 After post-execute hooks complete, loop back to the sign-off gate above.
 
 ### On "Approve"
 
-Update both files:
-- spec.md frontmatter `status` from `draft` to `approved`
-- design.md `**Status:**` from `draft` to `approved`
+Update design.md `**Status:**` from `draft` to `approved`.
 
 **If invoked inline by `mine.build`** (the user chose "Full caliper workflow" or "Accelerated"), skip the gate below and invoke `/mine.plan <feature_dir>` directly — `mine.build` handles the flow.
 
@@ -461,22 +435,22 @@ Update both files:
 
 ```
 AskUserQuestion:
-  question: "Spec and design approved. Proceed to generate work packages?"
+  question: "Design doc approved. Proceed to generate work packages?"
   header: "Next step"
   multiSelect: false
   options:
     - label: "Yes — generate work packages"
       description: "Invoke /mine.plan for this feature"
     - label: "No — I'll do it later"
-      description: "Stop here; both docs are saved"
+      description: "Stop here; design doc is saved"
 ```
 
 If "Yes": invoke `/mine.plan <feature_dir>` directly.
 
 ### On "Revise"
 
-Ask what to change. Apply the edits to the appropriate doc. Re-run the quality validation if spec was changed. Present for sign-off again.
+Ask what to change. Apply the edits to the design doc. Re-run the quality validation. Present for sign-off again.
 
 ### On "Save and stop"
 
-Confirm: "Spec and design saved as drafts at `<feature_dir>`. Resume with `/mine.define` later."
+Confirm: "Design doc saved as draft at `<feature_dir>`. Resume with `/mine.define` later."

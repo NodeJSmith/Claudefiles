@@ -12,7 +12,7 @@ Extension protocol for skills that consume challenge findings and execute resolu
 
 ## 1. Scope
 
-This protocol covers **doc-edit callers** (mine.define) — findings target sections of a structured document (spec.md, design.md). Verb execution applies text edits to the named section.
+This protocol covers **doc-edit callers** (mine.define) — findings target sections of design.md. Verb execution applies text edits to the named section.
 
 **Out of scope**: Inline-revision callers (`i-*` family) do not generate manifests and do not use `--findings-out`. See `SKILL.md` Known Callers section for the full caller taxonomy.
 
@@ -75,7 +75,7 @@ In addition to the standard manifest header fields from `findings-protocol.md`, 
 **Base dir:** <absolute-path-to-feature-dir>
 ```
 
-Placed after the `<!-- Valid verbs: ... -->` comment and before the first `## F` section. The pre-routing pass populates this with the absolute path to the feature directory (e.g., `/home/user/project/design/specs/001-user-auth/`). The verb executor uses this to resolve bare filenames in Doc targets (e.g., `spec.md` resolves to `<Base dir>/spec.md`). This field survives compaction — the executor does not need in-context memory to locate the target files.
+Placed after the `<!-- Valid verbs: ... -->` comment and before the first `## F` section. The pre-routing pass populates this with the absolute path to the feature directory (e.g., `/home/user/project/design/specs/001-user-auth/`). The verb executor uses this to resolve bare filenames in Doc targets (e.g., `design.md` resolves to `<Base dir>/design.md`). This field survives compaction — the executor does not need in-context memory to locate the target files.
 
 ## 4. Doc Target Field
 
@@ -87,7 +87,7 @@ One-line string. Two forms:
 
 | Caller type | Format | Example |
 |---|---|---|
-| Doc-edit | `<doc-name> SS <section-name>` | `spec.md SS Acceptance Criteria` |
+| Doc-edit | `<doc-name> SS <section-name>` | `design.md SS Acceptance Criteria` |
 | Non-edit | `(none -- <reason>)` | `(none -- flag for implementation)` |
 
 The `SS` delimiter is a human-readable section separator.
@@ -116,8 +116,8 @@ If **any** section is unresolvable, surface **all** failures before applying a s
 
 ```
 Unresolvable Doc targets:
-  - F2: spec.md SS Acceptance Critiera  -> no matching section (typo?)
-  - F5: design.md SS Data Modle         -> no matching section (typo?)
+  - F2: design.md SS Acceptance Critiera  -> no matching section (typo?)
+  - F5: design.md SS Data Modle           -> no matching section (typo?)
 
 Revise the manifest to fix these Doc targets, or change their verbs to skip/defer.
 ```
@@ -192,8 +192,8 @@ A hook fires when **both** conditions are met:
 Before appending each finding, check if an identical bullet line already exists in the target section — skip if present (dedup for re-runs).
 
 **mine.define:**
-1. Sweep findings matching the trigger condition — append bullets to the document and section named in the Doc target (e.g., `spec.md SS Open Questions` appends to `spec.md`'s `## Open Questions` section; `design.md SS Open Questions` appends to `design.md`'s `## Open Questions` section)
-2. If any spec.md sections were modified, re-run the quality validation defined in `skills/mine.define/SKILL.md` on the updated spec
+1. Sweep findings matching the trigger condition — append bullets to the document and section named in the Doc target (e.g., `design.md SS Open Questions` appends to `design.md`'s `## Open Questions` section)
+2. If any design.md sections were modified, re-run the quality validation defined in `skills/mine.define/SKILL.md` on the updated design doc
 
 ### Worked Example — OQ-Append Hook
 
@@ -202,7 +202,7 @@ Given a resolved manifest containing:
 ```markdown
 ## F4: No migration rollback strategy
 **Severity:** TENSION | **Type:** Structural | **Raised by:** Senior (3/5)
-**Doc target:** spec.md SS Open Questions
+**Doc target:** design.md SS Open Questions
 
 **Problem:** ...
 **The disagreement:** ...
@@ -213,8 +213,8 @@ Given a resolved manifest containing:
 
 After verb execution records F4 as deferred, the post-execute hook:
 1. Detects Doc target contains "Open Questions" AND execution result is `deferred` (the manifest verb may have been `defer` or `ask`)
-2. Opens `spec.md`, locates `## Open Questions` via the matching algorithm
-3. Appends: `- **No migration rollback strategy** (from spec challenge on <date>, target: \`<spec_path>\`): NFR-1 says "sub-100ms p99" but AC-7 implies complex aggregation that cannot meet this — TENSION`
+2. Opens `design.md`, locates `## Open Questions` via the matching algorithm
+3. Appends: `- **No migration rollback strategy** (from challenge on <date>, target: \`<design_path>\`): NFR-1 says "sub-100ms p99" but AC-7 implies complex aggregation that cannot meet this — TENSION`
 
 The user sees the Doc target routing in the manifest editor and can override it — for example, setting `verb: skip` means execution will not record a deferred result, which prevents the OQ-append, and changing the Doc target redirects it.
 
@@ -262,7 +262,7 @@ This mirrors orchestrate's checkpoint-read detection pattern. Each caller's SKIL
 
 ### Doc-Edit Manifest (mine.define)
 
-A challenge run on `spec.md` produces 4 findings. The pre-routing pass generates:
+A challenge run on `design.md` produces 4 findings. The pre-routing pass generates:
 
 ```markdown
 <!-- pre-hash: a1b2c3... -->
@@ -284,7 +284,7 @@ A challenge run on `spec.md` produces 4 findings. The pre-routing pass generates
 
 ## F1: Acceptance criterion is untestable
 **Severity:** HIGH | **Type:** Gap | **Raised by:** Senior (1/5)
-**Doc target:** spec.md SS Acceptance Criteria
+**Doc target:** design.md SS Acceptance Criteria
 
 **Problem:** AC-4 says "respond quickly" with no measurable threshold.
 
@@ -296,7 +296,7 @@ A challenge run on `spec.md` produces 4 findings. The pre-routing pass generates
 
 ## F2: Missing error handling requirement
 **Severity:** MEDIUM | **Type:** Gap | **Raised by:** Adversarial Reviewer (2/5)
-**Doc target:** spec.md SS Error Handling
+**Doc target:** design.md SS Functional Requirements
 
 **Problem:** No requirement specifies behavior on upstream timeout.
 
@@ -312,7 +312,7 @@ A challenge run on `spec.md` produces 4 findings. The pre-routing pass generates
 
 ## F3: Conflicting performance targets
 **Severity:** TENSION | **Type:** Structural | **Raised by:** Senior (3/5)
-**Doc target:** spec.md SS Open Questions
+**Doc target:** design.md SS Open Questions
 
 **Problem:** NFR-1 says "sub-100ms p99" but AC-7 implies complex aggregation that cannot meet this.
 
@@ -322,28 +322,28 @@ A challenge run on `spec.md` produces 4 findings. The pre-routing pass generates
 
 **Verb:** defer
 
-## F4: Implementation detail in spec
+## F4: Implementation detail in requirements
 **Severity:** MEDIUM | **Type:** Scope | **Raised by:** Adversarial Reviewer (4/5)
-**Doc target:** (none -- flag for implementation)
+**Doc target:** design.md SS Functional Requirements
 
-**Problem:** Section 3.2 specifies "use Redis for caching" -- this is a design decision, not a requirement.
+**Problem:** FR-3 specifies "use Redis for caching" -- this is an architecture decision, not a requirement.
 
-**Why it matters:** Locks implementation to a specific technology.
+**Why it matters:** Locks implementation to a specific technology in the requirements section.
 
-**Better approach:** Replace "use Redis" with "use a distributed cache" and defer technology choice to design.
+**Better approach:** Replace "use Redis" with "use a distributed cache" in Functional Requirements and move the Redis decision to Architecture.
 
-**Verb:** skip
+**Verb:** fix
 ```
 
 **Execution trace:**
-- F1 (`fix`, Auto-apply): Edit tool applies the AC-4 change to `spec.md` at `## Acceptance Criteria`
-- F2 (`A`): Edit tool applies Option A to `spec.md` at `## Error Handling`
-- F3 (`defer`): Recorded in session summary; post-execute hook appends to `spec.md` `## Open Questions`
-- F4 (`skip`): Recorded in session summary; no edit (Doc target is `(none)`)
+- F1 (`fix`, Auto-apply): Edit tool applies the AC-4 change to `design.md` at `## Acceptance Criteria`
+- F2 (`A`): Edit tool applies Option A to `design.md` at `## Functional Requirements`
+- F3 (`defer`): Recorded in session summary; post-execute hook appends to `design.md` `## Open Questions`
+- F4 (`fix`): Edit tool moves Redis detail from Functional Requirements to Architecture in `design.md`
 
 ## Routing Heuristic Precision
 
-The pre-routing pass computes Doc targets based on finding contract tags and caller-specific heuristics (e.g., mine.define's spec-vs-design routing). When the heuristic **cannot unambiguously classify a finding**, default the verb to `ask`. This converts routing ambiguity into a user prompt at execution time rather than a silent wrong-document edit.
+The pre-routing pass computes Doc targets based on finding contract tags and caller-specific heuristics (e.g., mine.define's section-disambiguation routing). When the heuristic **cannot unambiguously classify a finding**, default the verb to `ask`. This converts routing ambiguity into a user prompt at execution time rather than a silent wrong-section edit.
 
 The manifest editor serves as a secondary safety valve — users can correct wrong Doc targets before execution.
 
@@ -353,12 +353,11 @@ Callers populate default verbs and Doc targets using these tables. See `findings
 
 ### mine.define
 
-mine.define targets both spec.md and design.md. Route each finding to the appropriate document based on its content:
+mine.define targets design.md. Route each finding to the appropriate section:
 
 | Finding property | Default verb | Doc target |
 |---|---|---|
 | `severity: TENSION` | `defer` | `design.md SS Open Questions` |
-| `design-level: Yes` + routes to spec (functional reqs, goals, user scenarios, ACs, non-goals) | `fix` / letter / `ask` (per Default Verb Selection) | `spec.md SS <section>` |
-| `design-level: Yes` + routes to design (architecture, data model, API, alternatives, test strategy, impact) | `fix` / letter / `ask` (per Default Verb Selection) | `design.md SS <section>` |
+| `design-level: Yes` | `fix` / letter / `ask` (per Default Verb Selection) | `design.md SS <section>` |
 | `design-level: No` | `skip` | `(none -- flag for implementation)` |
 

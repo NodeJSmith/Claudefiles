@@ -2,6 +2,14 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-04-18
+
+### Changed
+- `mine.define` now produces a single `design.md` instead of separate `spec.md` + `design.md` — spec content (Goals, User Scenarios, Functional Requirements, Edge Cases, Acceptance Criteria) merged into design.md
+- `spec-helper archive` no longer deletes `spec.md` (only `tasks/` + status update)
+- All caliper skills updated to reference `design.md` only: `mine.plan`, `mine.challenge`, `mine.build`, `mine.mockup`, `mine.commit-push`, `mine.create-pr`, `i-teach-impeccable`
+- `caller-protocol.md` routing simplified — single-document targeting replaces spec-vs-design heuristic
+
 ## 2026-04-17
 
 ### Changed
@@ -10,7 +18,7 @@ All notable changes to this Claudefiles repository are documented here.
 - Caliper pipeline simplified: `mine.specify` + `mine.design` → `mine.define`; `mine.draft-plan` + `mine.plan-review` → `mine.plan` (6 skills → 4, fewer user checkpoints) (#219)
 - `mine.orchestrate` per-WP reviewers run in parallel; auto-challenge removed from Phase 3 (now opt-in) (#219)
 - `caller-protocol.md` — shared manifest flow for challenge callers (#217); code-fix caller removed (#219)
-- `spec-helper archive` now also removes `spec.md` alongside `tasks/`
+- `spec-helper archive` removes `tasks/` and stamps design.md status
 - Per-finding resolution manifest for challenge findings (#217); `**Doc target:**` field added (#217)
 
 ### Removed

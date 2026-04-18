@@ -29,13 +29,13 @@ Look for: missing sections, vague subtasks ("update the handler"), placeholder f
 Could each task be handed to a fresh Claude instance with only the plan and referenced files?
 Look for: tasks that assume knowledge from earlier conversation, steps that say "as discussed" or "per the previous task", implicit dependencies not stated in the task.
 
-### 7. Spec coverage
-Does every functional requirement in spec.md map to at least one WP?
+### 7. Requirements coverage
+Does every functional requirement in design.md (Goals, Functional Requirements, and Acceptance Criteria sections) map to at least one WP?
 Look for: requirements with no corresponding task, acceptance criteria with no verification step in any WP.
 
 ### 8. Design coverage
-Does every architecture section in design.md have corresponding WPs?
-Look for: design sections (API contracts, data models, integrations) with no WP that implements them, design decisions referenced but never acted on.
+Does every architecture decision in design.md (Architecture, Alternatives Considered, and Impact sections) have corresponding WPs?
+Look for: architecture sections with no WP that implements them, design decisions referenced but never acted on.
 Note: WPs no longer carry a `plan_section` frontmatter field — verify design coverage semantically by reading WP Subtasks and Objectives against design.md sections, not by matching a metadata field.
 
 ### 9. Scope containment

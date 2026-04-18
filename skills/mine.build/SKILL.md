@@ -89,7 +89,7 @@ AskUserQuestion:
     - label: "Simple — implement directly"
       description: "Explore, implement, code-review, then offer to ship"
     - label: "Accelerated — lightweight define phase"
-      description: "Formalize findings into spec.md + design.md (skip research — already done) → plan → orchestrate → ship"
+      description: "Formalize findings into design.md (skip research — already done) → plan → orchestrate → ship"
     - label: "Full caliper workflow"
       description: "define → plan → orchestrate → ship — start from scratch"
 ```
@@ -155,7 +155,7 @@ Tell the user:
 
 Chain the following skills in sequence. Do not duplicate their logic — follow each skill's own phases as documented:
 
-1. **Follow `/mine.define` phases** for this request. Pass the change description as the argument. Wait for the user to approve the spec and design, then continue.
+1. **Follow `/mine.define` phases** for this request. Pass the change description as the argument. Wait for the user to approve the design doc, then continue.
 
 2. **Follow `/mine.plan` phases** using the feature directory produced by mine.define.
    - If "Approve as-is" or "Approve with suggestions": continue to step 3.
@@ -182,7 +182,7 @@ Then chain the following steps:
    - **Phase 1 (Scope and Classify)**: Use the analysis findings as the problem statement.
    - **Phase 2 (Proportional Discovery)**: Skip questions already answered by the findings. Focus on gaps the analysis didn't cover.
    - **Phase 3 (Investigate)**: **Skip unless the analysis findings don't cover the interfaces or constraints needed for the design doc.** Use the analysis findings as the primary research input.
-   - **Phase 4 (Write spec.md and design.md)**: Run normally — populate the Problem section from the findings, Architecture from the recommended approaches, and Alternatives from any TENSION findings where critics disagreed.
+   - **Phase 4 (Write design.md)**: Run normally — populate the Problem section from the findings, Architecture from the recommended approaches, and Alternatives from any TENSION findings where critics disagreed.
    - **Phase 5-6 (Quality Validation and Sign-Off Gate)**: Run normally — gate on user approval.
 
 2. **Follow `/mine.plan` phases** using the feature directory from step 1.
