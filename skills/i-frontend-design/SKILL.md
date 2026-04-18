@@ -253,8 +253,8 @@ Focus on high-impact moments: one well-orchestrated page load with staggered rev
 
 **DO**: Use motion to convey state changes: entrances, exits, feedback
 **DO**: Use exponential easing (ease-out-quart/quint/expo) for natural deceleration
-**DO**: For height animations, use grid-template-rows transitions instead of animating height directly
-**DON'T**: Animate layout properties (width, height, padding, margin). Use transform and opacity only
+**DO**: For accordion/content-reveal height animations, use grid-template-rows transitions instead of animating height directly
+**DON'T**: Animate layout properties (width, height, padding, margin) as a default. Prefer transform and opacity, except for intentional layout-driven reveal patterns like grid-template-rows accordions
 **DON'T**: Use bounce or elastic easing. They feel dated and tacky; real objects decelerate smoothly
 
 → *See [anti-patterns reference](reference/anti-patterns.md) § Motion for additional anti-patterns.*
