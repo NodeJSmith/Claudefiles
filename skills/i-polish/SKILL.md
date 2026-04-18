@@ -1,6 +1,6 @@
 ---
 name: i-polish
-description: 'Use when the user says: "polish this UI", "final pass", "pixel-perfect". Final quality pass for alignment, spacing, and consistency details.'
+description: 'Use when the user says: "polish this UI", "final pass", "pixel-perfect", "normalize the design", "make it consistent", "align with design system". Final quality pass for alignment, spacing, consistency, and design system alignment.'
 user-invocable: true
 ---
 
@@ -11,6 +11,16 @@ Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles, anti-p
 ---
 
 Perform a meticulous final pass to catch all the small details that separate good work from great work. The difference between shipped and polished.
+
+## Design System Discovery
+
+Before polishing, understand the system you are polishing toward:
+
+1. **Find the design system**: Search for design system documentation, component libraries, style guides, or token definitions. Study the core patterns: color tokens, spacing scale, typography styles, component API.
+2. **Note the conventions**: How are shared components imported? What spacing scale is used? Which colors come from tokens vs hard-coded values? What motion and interaction patterns are established?
+3. **Identify drift**: Where does the target feature deviate from the system? Hard-coded values that should be tokens, custom components that duplicate shared ones, spacing that doesn't match the scale.
+
+If a design system exists, polish should align the feature with it. If none exists, polish against the conventions visible in the codebase.
 
 ## Pre-Polish Assessment
 
@@ -224,6 +234,8 @@ Go through systematically:
 - Introduce bugs while polishing (test thoroughly)
 - Ignore systematic issues (if spacing is off everywhere, fix the system)
 - Perfect one thing while leaving others rough (consistent quality level)
+- Create new one-off components when design system equivalents exist
+- Hard-code values that should use design tokens
 
 ## Final Verification
 
@@ -236,6 +248,15 @@ Before marking as done:
 - **Check all states**: Don't just test happy path
 
 Remember: You have impeccable attention to detail and exquisite taste. Polish until it feels effortless, looks intentional, and works flawlessly. Sweat the details - they matter.
+
+## Clean Up
+
+After polishing, ensure code quality:
+
+- **Replace custom implementations**: If the design system provides a component you reimplemented, switch to the shared version.
+- **Remove orphaned code**: Delete unused styles, components, or files made obsolete by polish.
+- **Consolidate tokens**: If you introduced new values, check whether they should be tokens.
+- **Verify DRYness**: Look for duplication introduced during polishing and consolidate.
 
 ## Completion
 

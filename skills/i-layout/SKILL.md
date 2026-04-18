@@ -1,7 +1,8 @@
 ---
-name: i-arrange
-description: 'Use when the user says: "fix the layout", "arrange this", "visual hierarchy". Improve layout, spatial design, structure, and alignment.'
+name: i-layout
+description: 'Use when the user says: "fix the layout", "arrange this", "visual hierarchy", "spacing issues", "crowded UI". Improve layout, spacing, and visual rhythm.'
 user-invocable: true
+argument-hint: "[target]"
 ---
 
 Assess and improve layout and spacing that feels monotonous, crowded, or structurally weak — turning generic arrangements into intentional, rhythmic compositions.
@@ -138,10 +139,13 @@ If "Stop here" → end the skill.
 **NEVER**:
 - Use arbitrary spacing values outside your scale
 - Make all spacing equal — variety creates hierarchy
+- Wrap everything in cards — not everything needs a container
+- Nest cards inside cards — use spacing and dividers for hierarchy within
+- Use identical card grids everywhere (icon + heading + text, repeated)
+- Center everything — left-aligned with asymmetry feels more designed
+- Default to the hero metric layout (big number, small label, stats, gradient) as a template. If showing real user data, a prominent metric can work — but it should display actual data, not decorative numbers.
 - Default to CSS Grid when Flexbox would be simpler — use the simplest tool for the job
 - Use arbitrary z-index values (999, 9999) — build a semantic scale
-
-Also avoid all layout anti-patterns in the [anti-patterns reference](../i-frontend-design/reference/anti-patterns.md) (card wrapping, nested cards, identical card grids, centering everything, hero metric template).
 
 ## Verify Layout Improvements
 
@@ -160,4 +164,4 @@ After implementation, summarize in conversation:
 
 1. **Changes made**: List each file changed and what was done
 2. **Verification**: LLM self-check results (anti-pattern scan, consistency check). Note if Playwright was available for visual verification.
-3. **Suggested next step**: Any follow-up skills that would complement this work (e.g., after /i-typeset, suggest /i-polish for a final pass)
+3. **Suggested next step**: Any follow-up skills that would complement this work (e.g., after /i-layout, suggest /i-polish for a final pass)

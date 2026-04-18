@@ -48,7 +48,7 @@ Run comprehensive checks across multiple dimensions:
 
 5. **Anti-Patterns (CRITICAL)** - Check against the [anti-patterns reference](../i-frontend-design/reference/anti-patterns.md). Look for AI slop tells and general design anti-patterns documented there.
 
-**CRITICAL**: This is an audit, not a fix. Document issues thoroughly with clear explanations of impact. Use other commands (normalize, optimize, harden, etc.) to fix issues after audit.
+**CRITICAL**: This is an audit, not a fix. Document issues thoroughly with clear explanations of impact. Use other commands (polish, optimize, harden, etc.) to fix issues after audit.
 
 ## Generate Comprehensive Report
 
@@ -75,18 +75,16 @@ For each issue, document:
 - **Recommendation**: How to fix it
 - **Suggested command**: Route to the most relevant modification skill:
   - Contrast, color system, palette issues → `/i-colorize`
-  - Layout, spacing, alignment, hierarchy → `/i-arrange`
+  - Layout, spacing, alignment, hierarchy → `/i-layout`
   - Typography, font choices, type scale → `/i-typeset`
   - Animation, motion, transition issues → `/i-animate`
   - Performance, load time, rendering → `/i-optimize`
   - Responsive, mobile, touch targets → `/i-adapt`
-  - Hard-coded values, design system drift → `/i-normalize`
-  - Missing states, error handling, i18n → `/i-harden`
-  - Onboarding, empty states, first-run → `/i-onboard`
+  - Hard-coded values, design system drift, consistency → `/i-polish`
+  - Missing states, error handling, i18n, onboarding → `/i-harden`
   - Copy, labels, error messages → `/i-clarify`
   - Overall too busy/noisy → `/i-quieter`
   - Overall too generic/bland → `/i-bolder`
-  - Component extraction needed → `/i-extract`
   - Final polish pass → `/i-polish`
 
 #### Critical Issues
@@ -126,7 +124,7 @@ Create actionable plan:
 
 Group findings by the skill that would fix them, using the routing from the per-finding "Suggested command" field. Example:
 
-- "Use `/i-normalize` to align with design system (addresses N theming issues)"
+- "Use `/i-polish` to align with design system (addresses N theming issues)"
 - "Use `/i-adapt` to fix responsive problems (addresses N mobile/touch issues)"
 - "Use `/i-harden` to improve resilience (addresses N edge cases)"
 
