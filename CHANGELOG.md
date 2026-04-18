@@ -5,10 +5,10 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-04-18
 
 ### Changed
-- `mine.define` now produces a single `design.md` instead of separate `spec.md` + `design.md` — spec content (Goals, User Scenarios, Functional Requirements, Edge Cases, Acceptance Criteria) merged into design.md
-- `spec-helper archive` no longer deletes `spec.md` (only `tasks/` + status update)
-- All caliper skills updated to reference `design.md` only: `mine.plan`, `mine.challenge`, `mine.build`, `mine.mockup`, `mine.commit-push`, `mine.create-pr`, `i-teach-impeccable`
-- `caller-protocol.md` routing simplified — single-document targeting replaces spec-vs-design heuristic
+- `mine.define` now produces a single `design.md` instead of separate `spec.md` + `design.md` — spec content (Goals, User Scenarios, Functional Requirements, Edge Cases, Acceptance Criteria) merged into design.md (#223)
+- `spec-helper archive` no longer deletes `spec.md` (only `tasks/` + status update) (#223)
+- All caliper skills updated to reference `design.md` only: `mine.plan`, `mine.challenge`, `mine.build`, `mine.mockup`, `mine.commit-push`, `mine.create-pr`, `i-teach-impeccable` (#223)
+- `caller-protocol.md` routing simplified — single-document targeting replaces spec-vs-design heuristic (#223)
 
 ## 2026-04-17
 
