@@ -87,6 +87,16 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/). Every commi
 
 Attribution disabled globally via ~/.claude/settings.json.
 
+## Issue Creation Conventions
+
+When creating issues with `gh-issue create`, match the conventions already in use in the repo:
+
+1. **Run `gh-issue overview`** — shows milestones, labels, and usage patterns in one command. Run once per session or when switching repos; no need to re-run for each issue in a batch.
+2. **Assign a milestone** if >50% of recent issues have milestones — pick the milestone that fits the work's scope or timeline. Use `--milestone "name"` on create.
+3. **Apply labels** if >50% of recent issues have labels — use existing labels consistent with the repo's patterns. Don't invent new labels without asking.
+
+When in doubt about which milestone or labels to use, ask the user.
+
 ## Work Package Cleanup
 
 Before pushing changes (whether via `/mine.ship`, `/mine.commit-push`, or a manual `git push`), check for completed work package files in `design/specs/*/tasks/WP*.md`. If the branch's work is complete and WP files exist, run `spec-helper archive --all --dry-run` to check for archivable specs and offer to archive them. This removes `tasks/` directories and sets `**Status:** archived` in `design.md` — git history preserves the full content.

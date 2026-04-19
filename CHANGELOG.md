@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-04-19
+
+### Added
+- `gh-issue overview` subcommand — shows repo milestones, labels (with descriptions), and usage patterns; new "Issue Creation Conventions" rule in `git-workflow.md` with >50% threshold for auto-applying milestones/labels
+
 ## 2026-04-18
 
 ### Changed
