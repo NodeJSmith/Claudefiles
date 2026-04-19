@@ -4,6 +4,9 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-04-19
 
+### Fixed
+- `mine.challenge` synthesis subagent silently dropping findings file under heavy context — front-loaded file-write instruction + orchestrator fallback write with header injection
+
 ### Added
 - `mine.plan` Phase 2 reverse-dependency gap check — extracts identifiers from the Architecture section, greps the full codebase for unlisted dependencies, includes them as WP subtasks with gap-to-WP attribution in design.md (#230)
 - Reviewer checklist item 10 (gap coverage verification) (#230)
