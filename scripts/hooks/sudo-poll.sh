@@ -42,7 +42,7 @@ INPUT=$(cat)
 # jq is required to parse hook input — fail clearly, not cryptically
 if ! command -v jq > /dev/null 2>&1; then
   printf 'ERROR: jq is required by scripts/hooks/sudo-poll.sh. Install jq or remove this hook.\n' >&2
-  printf '%s\n' '{"hookSpecificOutput":{"permissionDecision":"deny","permissionDecisionReason":"jq is required by scripts/hooks/sudo-poll.sh. Install jq or remove this hook."}}'
+  printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"jq is required by scripts/hooks/sudo-poll.sh. Install jq or remove this hook."}}'
   exit 0
 fi
 
@@ -55,13 +55,13 @@ fi
 
 allow() {
   jq -cn --arg reason "$1" \
-    '{"hookSpecificOutput":{"permissionDecision":"allow","permissionDecisionReason":$reason}}'
+    '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":$reason}}'
   exit 0
 }
 
 deny() {
   jq -cn --arg reason "$1" \
-    '{"hookSpecificOutput":{"permissionDecision":"deny","permissionDecisionReason":$reason}}'
+    '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":$reason}}'
   exit 0
 }
 
