@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "manifest-review": {
+      "type": "stdio",
+      "command": "manifest-review"
+    }
+  }
+}

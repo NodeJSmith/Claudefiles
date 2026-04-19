@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "manifest-review"
+version = "0.1.0"
+description = "MCP server for interactive finding review via elicitation"
+requires-python = ">=3.11"
+dependencies = ["mcp>=1.9.0,<2.0.0"]
+
+[project.scripts]
+manifest-review = "manifest_review.server:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
