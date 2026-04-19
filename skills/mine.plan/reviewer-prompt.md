@@ -41,11 +41,11 @@ Note: WPs no longer carry a `plan_section` frontmatter field — verify design c
 ### 9. Scope containment
 Do any WPs implement things not in the design or explicitly listed as non-goals?
 Look for: WPs that add features, endpoints, or components not traceable to the design doc; scope creep disguised as "nice to have" additions.
-Note: WPs may include subtasks from the Phase 2 gap check that address unlisted reverse dependencies — these are expected and not scope violations, but verify they don't push the WP past sizing thresholds (> ~500 lines or multiple architectural boundaries).
+Note: WPs may include subtasks from the Phase 2 gap check that address unlisted reverse dependencies — these are expected and not scope violations.
 
 ### 10. Gap coverage
-If WPs include gap-check-derived subtasks, does at least one WP address each accepted gap? Check design.md for a `<!-- Gap check -->` comment — if it says gaps were excluded from scope, verify no WP silently includes them anyway.
-Look for: accepted gaps with no corresponding subtask; excluded gaps that leaked into WPs; gap subtasks that inflate a WP past sizing limits.
+If design.md contains a `<!-- Gap check -->` comment, verify that every gap listed has a corresponding WP subtask.
+Look for: gaps listed in the comment with no corresponding subtask in any WP.
 
 ## Output format
 

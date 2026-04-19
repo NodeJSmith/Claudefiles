@@ -112,7 +112,7 @@ Ground the work packages in reality before writing:
 
 5. **Reverse-dependency gap check** — search the full codebase for files that depend on what's changing but aren't listed in the design doc's Impact section. This catches dependencies the design doc missed entirely. Skip this step if the design doc has neither an Impact section nor an Architecture / Proposed Approach section.
 
-   **Identify what's changing**: Read the design doc's Architecture section (or Proposed Approach — whichever heading is used). For each sentence that describes adding, modifying, removing, or renaming something, extract the specific identifier — function name, class name, type name, API endpoint, database table, config key, or component name. List each identifier with a one-line rationale for why it is changing. Cap at 20 identifiers; prioritize the most specific names (>= 6 characters, not common words like `handler` or `config`).
+   **Identify what's changing**: Read the design doc's Architecture section (or Proposed Approach — whichever heading is used). For each sentence that describes adding, modifying, removing, or renaming something, extract the specific identifier — function name, class name, type name, API endpoint, database table, config key, or component name.
 
    **Search**: Grep the codebase for each identifier. Filter out files already listed in the Impact section — those are known. For each match outside the Impact list, assess whether it represents a genuine dependency that would break or need updating. Classify each gap:
    - **Tests** — test files that assert on changed behavior, UI structure, or API responses
@@ -132,31 +132,11 @@ Ground the work packages in reality before writing:
 
 ### Present gap-check results
 
-After step 5, if gaps were found, present them grouped by category. When gap count is 3 or fewer, recommend "Include in WPs". When gap count exceeds 3, recommend "Review individually". Then call `AskUserQuestion`:
+After step 5, if gaps were found, present them grouped by category. Include all gaps in WPs by default — add subtasks to address each one (update the test, fix the caller, regenerate the types, etc.). After Phase 3, update the design.md Impact section with a gap-check comment listing each gap and which WP subtask addresses it: `<!-- Gap check [date]: N gaps included — gap1 (file:line) → WP02 subtask 3, gap2 → WP03 subtask 5, ... -->`.
 
-```
-AskUserQuestion:
-  question: "The gap check found <N> unlisted dependencies. How should we handle them?"
-  header: "Gap check"
-  multiSelect: false
-  options:
-    - label: "Include in WPs"
-      description: "Factor all gaps into the work packages as additional subtasks"
-    - label: "Review individually"
-      description: "Accept or reject each gap before proceeding"
-    - label: "Skip — not in scope"
-      description: "These dependencies exist but won't be addressed in this plan"
-```
+Then briefly summarize what was included so the user can push back on any false positives before committing.
 
-Mark the recommended option per the gap-count rule above by appending "(Recommended)" to its label.
-
-If "Include in WPs": note the full gap list for Phase 3. When writing WPs, include subtasks that address these gaps. After Phase 3, update the design.md Impact section with a gap-check comment listing each gap and which WP subtask addresses it: `<!-- Gap check [date]: N gaps included — gap1 (file:line) → WP02 subtask 3, gap2 → WP03 subtask 5, ... -->`.
-
-If "Review individually": present each gap with a "Gap N of M" header via `AskUserQuestion` with "Include" / "Skip" options. After all gaps are reviewed, show a summary table of accepted/skipped gaps before proceeding. Carry only accepted gaps forward to Phase 3. After Phase 3, update design.md as above for accepted gaps, and note excluded gaps: `<!-- Gap check [date]: M of N included — [included gap→WP mappings]; excluded: [list] -->`.
-
-If "Skip — not in scope": append to design.md's Impact section: `<!-- Gap check [date]: N dependencies found, excluded from scope: [list] -->`. Proceed to Phase 3.
-
-If no gaps were found, report: "Gap check clean — grepped <N> identifiers across the codebase, no unlisted dependencies found." Proceed to Phase 3.
+If no gaps were found, report: "Gap check clean — no unlisted dependencies found." Proceed to Phase 3.
 
 Do NOT guess file paths. If Glob returns no match, note it explicitly.
 
