@@ -38,6 +38,13 @@ The Bash tool wraps commands in `eval '...' < /dev/null`. **Never use:**
 **Wrong:** `git diff --name-only "$(git-default-branch)"`
 **Right:** `git-default-branch | xargs -I {} git diff --name-only {}`
 
+## Path References in Skills
+
+When referencing installed skill, agent, or persona files from within a SKILL.md or agent file, always use `${CLAUDE_HOME:-~/.claude}` — never hardcode `~/.claude`. This ensures paths resolve correctly when `$CLAUDE_HOME` is set to a non-default location.
+
+**Right:** `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`
+**Wrong:** `~/.claude/skills/mine.challenge/findings-protocol.md`
+
 ## Temp File Convention
 
 Skills that write temp files use `get-skill-tmpdir <skill-name>` — prints a unique `/tmp/claude-*` directory. Use fixed filenames inside it (e.g., `<dir>/message.md`).
