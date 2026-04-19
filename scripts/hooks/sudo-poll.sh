@@ -49,7 +49,7 @@ fi
 COMMAND=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty')
 
 # Not a sudo command — no opinion, pass through
-if ! printf '%s' "$COMMAND" | grep -qw 'sudo'; then
+if ! printf '%s' "$COMMAND" | grep -q 'sudo '; then
   exit 0
 fi
 
