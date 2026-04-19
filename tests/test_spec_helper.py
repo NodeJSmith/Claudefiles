@@ -18,6 +18,7 @@ from spec_helper.filesystem import (
 )
 from spec_helper.errors import die
 from spec_helper.commands import (
+    cmd_archive,
     cmd_design_extract,
     cmd_init,
     cmd_wp_move,
@@ -511,14 +512,14 @@ class TestFindFeatureDirAuto:
 
         old = sd / "001-old-feature"
         old.mkdir()
-        old_file = old / "spec.md"
+        old_file = old / "design.md"
         old_file.write_text("old")
         # Set old mtime explicitly (1 hour ago)
         os.utime(old_file, (1000, 1000))
 
         new = sd / "002-new-feature"
         new.mkdir()
-        new_file = new / "spec.md"
+        new_file = new / "design.md"
         new_file.write_text("new")
         # Set new mtime explicitly (now-ish, default)
 
@@ -1516,3 +1517,49 @@ class TestDesignExtractCLIParsing:
         parser = build_parser()
         args = parser.parse_args(["design-extract", "001-test", "--reviewer"])
         assert args.reviewer is True
+
+
+# ===================================================================
+# archive — JSON output schema
+# ===================================================================
+
+
+class TestArchiveDryRunJsonSchema:
+    def _setup_archivable_feature(self, tmp_path, with_design=True):
+        (tmp_path / ".git").mkdir()
+        sd = tmp_path / "design" / "specs"
+        fd = sd / "001-test-feature"
+        tasks = fd / "tasks"
+        tasks.mkdir(parents=True)
+        wp = tasks / "WP01.md"
+        wp.write_text(
+            "---\nwork_package_id: WP01\ntitle: Test\nlane: done\n---\nContent\n"
+        )
+        if with_design:
+            (fd / "design.md").write_text("# Design: Test\n\n**Status:** approved\n")
+        return fd
+
+    def test_dry_run_json_has_design_field(self, tmp_path, monkeypatch, capsys):
+        self._setup_archivable_feature(tmp_path)
+        monkeypatch.chdir(tmp_path)
+        args = argparse.Namespace(
+            feature="001-test-feature", all=False, dry_run=True, json=True
+        )
+        cmd_archive(args)
+        results = json.loads(capsys.readouterr().out)
+        assert len(results) == 1
+        assert results[0]["status"] == "would_archive"
+        assert results[0]["has_design"] is True
+        assert "has_spec" not in results[0]
+
+    def test_dry_run_json_has_design_false_when_missing(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        self._setup_archivable_feature(tmp_path, with_design=False)
+        monkeypatch.chdir(tmp_path)
+        args = argparse.Namespace(
+            feature="001-test-feature", all=False, dry_run=True, json=True
+        )
+        cmd_archive(args)
+        results = json.loads(capsys.readouterr().out)
+        assert results[0]["has_design"] is False

@@ -180,7 +180,7 @@ DO tint your neutrals toward your brand hue. Even a subtle hint creates subconsc
 DO NOT use gray text on colored backgrounds; it looks washed out. Use a shade of the background color instead.
 DO NOT use pure black (#000) or pure white (#fff). Always tint; pure black/white never appears in nature.
 DO NOT use the AI color palette: cyan-on-dark, purple-to-blue gradients, neon accents on dark backgrounds.
-DO NOT use gradient text for impact — see <absolute_bans> below for the strict definition. Solid colors only for text.
+DO NOT use gradient text for impact — see absolute_bans section below for the strict definition. Solid colors only for text.
 DO NOT default to dark mode with glowing accents. It looks "cool" without requiring actual design decisions.
 DO NOT default to light mode "to be safe" either. The point is to choose, not to retreat to a safe option.
 </color_rules>
@@ -238,7 +238,7 @@ BAN 2: Gradient text
 </absolute_bans>
 
 DO: Use intentional, purposeful decorative elements that reinforce brand.
-DO NOT: Use border-left or border-right greater than 1px as a colored accent stripe on cards, list items, callouts, or alerts. See <absolute_bans> above for the strict CSS pattern.
+DO NOT: Use border-left or border-right greater than 1px as a colored accent stripe on cards, list items, callouts, or alerts. See absolute_bans section above for the strict CSS pattern.
 DO NOT: Use glassmorphism everywhere (blur effects, glass cards, glow borders used decoratively rather than purposefully).
 DO NOT: Use sparklines as decoration. Tiny charts that look sophisticated but convey nothing meaningful.
 DO NOT: Use rounded rectangles with generic drop shadows. Safe, forgettable, could be any AI output.

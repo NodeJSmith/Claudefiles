@@ -514,7 +514,7 @@ def cmd_archive(args: argparse.Namespace) -> None:
 
         # All checks passed
         wp_count = len(wps)
-        has_spec = (feature_dir / "spec.md").exists()
+        has_design = (feature_dir / "design.md").exists()
 
         if args.dry_run:
             results.append(
@@ -522,7 +522,7 @@ def cmd_archive(args: argparse.Namespace) -> None:
                     "feature": name,
                     "status": "would_archive",
                     "wp_count": wp_count,
-                    "has_spec": has_spec,
+                    "has_design": has_design,
                 }
             )
             continue
@@ -541,7 +541,7 @@ def cmd_archive(args: argparse.Namespace) -> None:
                 "feature": name,
                 "status": "archived",
                 "wp_count": wp_count,
-                "has_spec": has_spec,
+                "has_design": has_design,
             }
         )
 
@@ -553,13 +553,9 @@ def cmd_archive(args: argparse.Namespace) -> None:
             feat_status = r["status"]
             feat_name = r["feature"]
             if feat_status == "archived":
-                spec_note = " + spec.md" if r["has_spec"] else ""
-                print(
-                    f"  {feat_name}: archived ({r['wp_count']} WPs{spec_note} removed)"
-                )
+                print(f"  {feat_name}: archived ({r['wp_count']} WPs removed)")
             elif feat_status == "would_archive":
-                spec_note = " + spec.md" if r["has_spec"] else ""
-                print(f"  {feat_name}: would archive ({r['wp_count']} WPs{spec_note})")
+                print(f"  {feat_name}: would archive ({r['wp_count']} WPs)")
             elif feat_status == "error":
                 print(f"  {feat_name}: ERROR — {r['reason']}")
             elif feat_status == "skipped":
@@ -615,32 +611,15 @@ def _git_rm(git_root: Path, rel_path: str, *, recursive: bool = False) -> None:
 
 
 def _archive_feature(feature_dir: Path, tasks_dir: Path, git_root: Path) -> None:
-    """Delete tasks/, spec.md, and update design.md status for a single feature.
+    """Delete tasks/ and update design.md status for a single feature.
 
     Order: delete first, stamp second. If deletion fails, design.md is
     untouched and re-running archive retries cleanly. The reverse order
     would leave design.md stamped "archived" with tasks/ still present.
     """
-    # Resolve spec.md before any deletions — if it exists but is untracked,
-    # fail early so tasks/ isn't deleted in an un-retryable partial state.
-    spec_path = feature_dir / "spec.md"
-    spec_rel: str | None = None
-    if spec_path.exists():
-        spec_rel = str(spec_path.relative_to(git_root))
-        if not _is_tracked(git_root, spec_rel):
-            raise RuntimeError(
-                f"Cannot archive {spec_rel}: file is not tracked by git. "
-                f"Commit it first so git history preserves content, "
-                f"then re-run archive."
-            )
-
     # Delete tasks/ via git rm -r (traceable)
     tasks_rel = str(tasks_dir.relative_to(git_root))
     _git_rm(git_root, tasks_rel, recursive=True)
-
-    # Delete spec.md (already validated as tracked above)
-    if spec_rel:
-        _git_rm(git_root, spec_rel)
 
     # Update **Status:** in design.md (after confirmed deletion)
     if not _update_design_status(feature_dir, "archived"):

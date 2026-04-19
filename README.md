@@ -47,7 +47,7 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `mine.challenge` | Adversarial review using 3 generic + up to 2 domain-specialist critics — assumes the target is wrong, finds out why, argues for better. Works on code, specs, designs, briefs, skill files, docs |
 | `mine.commit-push` | Commit and push changes to the current branch |
 | `mine.create-pr` | Review branch changes and create a PR on GitHub or Azure DevOps |
-| `mine.define` | Proportional discovery + codebase investigation + architecture interrogation → spec.md + design.md with one sign-off gate |
+| `mine.define` | Proportional discovery + codebase investigation + architecture interrogation → design.md with one sign-off gate |
 | `mine.eval-repo` | Evaluate a third-party GitHub repo before adopting it -- test coverage, code quality, maintenance health, bus factor |
 | `mine.grill` | Multi-angle interrogation of a raw idea — product, design, engineering, scope, and adversarial lenses. Produces a brief.md that feeds into /mine.define |
 | `mine.mockup` | Generate self-contained HTML mockup files — reads `design/context.md` for consistent styling, delivers to a session temp directory |

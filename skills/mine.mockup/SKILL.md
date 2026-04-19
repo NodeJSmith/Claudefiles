@@ -10,15 +10,15 @@ Generate self-contained HTML files for UI mockups, technical diagrams, visualiza
 
 ## Workflow
 
-### 1. Check for Spec and Design Context
+### 1. Check for Design Context
 
-Look for `design/specs/*/spec.md`.
+Look for `design/specs/*/design.md`.
 
-- **If none found**, proceed without a spec — rely on the user's description and design context (if present).
+- **If none found**, proceed without a design doc — rely on the user's description and design context (if present).
 - **If exactly one exists**, read it.
 - **If multiple exist**, list the discovered feature directories and ask the user which feature this mockup targets.
 
-For the chosen spec (if any), read the **User Scenarios** section — use the actor task flows and information needs to inform layout, information hierarchy, and navigation. The spec's structured scenarios tell you what data goes where and in what order.
+For the chosen design doc (if any), read the **User Scenarios** section — use the actor task flows and information needs to inform layout, information hierarchy, and navigation. The structured scenarios tell you what data goes where and in what order.
 
 Look for design context in order:
 
