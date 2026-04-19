@@ -369,7 +369,11 @@ The synthesis subagent receives:
 - The target name/scope (for the findings file header)
 - The full synthesis procedure and findings file format below
 
-The subagent prompt must include all of the following instructions:
+The subagent prompt must include all of the following instructions, **in this order**:
+
+### PRIMARY OBJECTIVE — include as the opening paragraph of the prompt
+
+"You MUST write a findings file to `<output path>` using the Write tool before you finish. This is a file-write task — your synthesis is only useful if it ends up on disk. If you do nothing else, write that file."
 
 ### Reading critic reports
 
@@ -438,7 +442,7 @@ Format-version: 2
 
 ### After synthesis subagent completes
 
-**Verify the findings file exists** at the expected output path (read `# findings-out:` from `<tmpdir>/manifest.md` to determine the path — use `<tmpdir>/findings.md` when the value is `default`). If the file is missing, stop with: "Error: findings file was not written to `<path>` — synthesis may have failed or written to the wrong location." Do not proceed to Phase 4 with a missing file.
+**Verify the findings file exists** at the expected output path (read `# findings-out:` from `<tmpdir>/manifest.md` to determine the path — use `<tmpdir>/findings.md` when the value is `default`). If the file is missing, the synthesis subagent returned its analysis as text instead of writing it to disk — a known failure mode under heavy context. **Fallback**: extract the findings from the subagent's returned text (the Agent tool's return value) and write the file yourself. If the returned text contains `## Finding` headings, inject the header block (you have all required values: target from manifest `# target:`, tmpdir, today's date, `Format-version: 2`, and `Warnings:` derived from whether `<tmpdir>/validation-warnings.md` exists) followed by the findings body, and write to the expected path. If the returned text does not contain `## Finding` headings, stop with: "Error: synthesis subagent did not produce findings in a writable format — re-run `/mine.challenge`."
 
 Read the findings file. This is the input for Phase 4 presentation.
 
