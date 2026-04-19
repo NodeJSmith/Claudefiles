@@ -78,7 +78,6 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "reply to PR comment", "respond to review" | `gh-pr-reply` |
 | "resolve PR thread", "mark thread resolved" | `gh-pr-resolve-thread` |
 | "rename tmux session", "new tmux session" | `claude-tmux` |
-| "what did I work on yesterday", "find that session" | `claude-log` |
 | "merge settings", "apply settings" | `claude-merge-settings` |
 | "default branch name" | `git-default-branch` |
 | "branch commit history" | `git-branch-log` |
