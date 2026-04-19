@@ -5,26 +5,227 @@
 
 set -euo pipefail
 
-# --- Help guard (before bot-token preamble to avoid triggering token fetch) ---
-for arg in "$@"; do
-  case "$arg" in
-    -h | --help)
-      cat << 'EOF'
+# =============================================================================
+# Help
+# =============================================================================
+
+usage() {
+  cat << 'EOF'
 Usage: gh-issue <subcommand> [flags...]
 
 Run gh issue subcommands using bot token if available, personal token otherwise.
 Passes all arguments through to `gh issue`.
 
+Subcommands:
+  overview               Show repo issue conventions (milestones, labels, patterns)
+  list, create, view...  Passed through to `gh issue`
+
 Options:
   -h, --help  Show this help message and exit
 
 Examples:
+  gh-issue overview                      # repo issue conventions
   gh-issue list                          # list open issues
+  gh-issue list --milestone "v1.0"       # filter by milestone
   gh-issue create --title "Bug" --body "Details"
+  gh-issue create --title "Bug" --body "Details" --milestone "v1.0"
   gh-issue view 42                       # view issue #42
   gh-issue edit 42 --add-label "bug"     # add label to issue
   gh-issue close 42                      # close issue #42
 EOF
+}
+
+# =============================================================================
+# Overview subcommand
+# =============================================================================
+
+_overview_had_errors=false
+
+show_milestones() {
+  local milestones
+  if ! milestones="$(gh api "repos/{owner}/{repo}/milestones?state=all" \
+    --jq '.[] | "\(.title)\t\(.open_issues)\t\(.closed_issues)\t\(.state)\t\(.due_on // "")"' 2>&1)"; then
+    echo "  (unavailable)"
+    echo "  Error: $milestones" >&2
+    _overview_had_errors=true
+    return
+  fi
+
+  if [[ -z "$milestones" ]]; then
+    echo "  (none)"
+    return
+  fi
+
+  printf "  %s\n" "NAME"
+  while IFS=$'\t' read -r title open closed state due; do
+    local due_str=""
+    if [[ -n "$due" ]]; then
+      due_str="  due ${due%%T*}"
+    fi
+    printf "  %s\n    %s open  %s closed  %s%s\n" "$title" "$open" "$closed" "$state" "$due_str"
+  done <<< "$milestones"
+}
+
+show_labels() {
+  local raw_labels total_count
+  if ! raw_labels="$(gh api "repos/{owner}/{repo}/labels?per_page=100" \
+    --jq '.[] | "\(.name)\t\(.description // "")"' 2>&1)"; then
+    echo "  (unavailable)"
+    echo "  Error: $raw_labels" >&2
+    _overview_had_errors=true
+    return
+  fi
+
+  if [[ -z "$raw_labels" ]]; then
+    echo "  (none)"
+    return
+  fi
+
+  total_count="$(echo "$raw_labels" | wc -l)"
+
+  local prefixed_names=()
+  local prefixed_display=()
+  local bare_display=()
+  local label_count=0
+  local max_labels=30
+
+  while IFS=$'\t' read -r name desc; do
+    label_count=$((label_count + 1))
+    if [[ $label_count -gt $max_labels ]]; then
+      continue
+    fi
+    local display="$name"
+    if [[ -n "$desc" ]]; then
+      display="$name — $desc"
+    fi
+    if [[ "$name" == *:* ]] || [[ "$name" == */* ]]; then
+      prefixed_names+=("$name")
+      prefixed_display+=("$display")
+    else
+      bare_display+=("$display")
+    fi
+  done <<< "$raw_labels"
+
+  # Group prefixed labels by their prefix
+  # Sort guarantees prefix adjacency; labels with both : and / classify by first match
+  if [[ ${#prefixed_names[@]} -gt 0 ]]; then
+    local current_prefix=""
+    local indices
+    indices="$(for i in "${!prefixed_names[@]}"; do printf '%s\t%s\n' "$i" "${prefixed_names[$i]}"; done | sort -t$'\t' -k2 | cut -f1)"
+    while read -r idx; do
+      local name="${prefixed_names[$idx]}"
+      local prefix
+      if [[ "$name" == *:* ]]; then
+        prefix="${name%%:*}:"
+      else
+        prefix="${name%%/*}/"
+      fi
+
+      if [[ "$prefix" != "$current_prefix" ]]; then
+        current_prefix="$prefix"
+        echo ""
+        printf "  %s\n" "${prefix}"
+      fi
+      printf "    %s\n" "${prefixed_display[$idx]}"
+    done <<< "$indices"
+  fi
+
+  if [[ ${#bare_display[@]} -gt 0 ]]; then
+    if [[ ${#prefixed_names[@]} -gt 0 ]]; then
+      echo ""
+      echo "  other:"
+      printf '    %s\n' "${bare_display[@]}" | sort
+    else
+      printf '  %s\n' "${bare_display[@]}" | sort
+    fi
+  fi
+
+  if [[ $total_count -gt $max_labels ]]; then
+    local remaining=$((total_count - max_labels))
+    echo ""
+    printf "  ... and %d more (run 'gh label list' to see all %d labels)\n" "$remaining" "$total_count"
+  fi
+}
+
+show_patterns() {
+  local stats
+  if ! stats="$(gh issue list --state all --limit 30 \
+    --json labels,milestone,assignees \
+    --jq '{
+      total: length,
+      with_labels:    [.[] | select((.labels | length) > 0)] | length,
+      with_milestone: [.[] | select(.milestone != null)] | length,
+      with_assignee:  [.[] | select((.assignees | length) > 0)] | length
+    } | "\(.total)\t\(.with_labels)\t\(.with_milestone)\t\(.with_assignee)"' 2>&1)"; then
+    echo "  (unavailable)"
+    echo "  Error: $stats" >&2
+    _overview_had_errors=true
+    return
+  fi
+
+  if [[ -z "$stats" ]]; then
+    echo "  (no recent issues found)"
+    return
+  fi
+
+  local total with_labels with_milestone with_assignee
+  IFS=$'\t' read -r total with_labels with_milestone with_assignee <<< "$stats"
+
+  if [[ "$total" -eq 0 ]]; then
+    echo "  (no recent issues found)"
+    return
+  fi
+
+  local pct_labels=$((with_labels * 100 / total))
+  local pct_milestone=$((with_milestone * 100 / total))
+  local pct_assignee=$((with_assignee * 100 / total))
+
+  if [[ "$total" -lt 10 ]]; then
+    printf "  Based on last %d issues (small sample — patterns may not be representative):\n" "$total"
+  else
+    printf "  Based on last %d issues:\n" "$total"
+  fi
+  printf "    Labels:     %3d%% (%d/%d)\n" "$pct_labels" "$with_labels" "$total"
+  printf "    Milestones: %3d%% (%d/%d)\n" "$pct_milestone" "$with_milestone" "$total"
+  printf "    Assignees:  %3d%% (%d/%d)\n" "$pct_assignee" "$with_assignee" "$total"
+}
+
+cmd_overview() {
+  if [[ $# -gt 0 ]]; then
+    echo "Error: 'overview' takes no arguments (got: $*)" >&2
+    echo "Usage: gh-issue overview" >&2
+    exit 1
+  fi
+
+  if ! gh repo view --json nameWithOwner -q '.nameWithOwner' > /dev/null 2>&1; then
+    echo "Error: not inside a GitHub repository (or gh is not authenticated)" >&2
+    exit 1
+  fi
+
+  echo "=== Milestones ==="
+  show_milestones
+  echo ""
+  echo "=== Labels ==="
+  show_labels
+  echo ""
+  echo "=== Usage Patterns ==="
+  show_patterns
+
+  if [[ "$_overview_had_errors" == true ]]; then
+    echo "" >&2
+    echo "Warning: some sections above may be incomplete due to API errors." >&2
+  fi
+}
+
+# =============================================================================
+# Main
+# =============================================================================
+
+# --- Help guard (before bot-token preamble to avoid triggering token fetch) ---
+for arg in "$@"; do
+  case "$arg" in
+    -h | --help)
+      usage
       exit 0
       ;;
   esac
@@ -44,5 +245,14 @@ if command -v gh-app-token &> /dev/null && [[ -n "${GITHUB_APP_ID:-}" ]]; then
     echo "warning: gh-app-token returned empty — falling back to personal token" >&2
   fi
 fi
+
+# --- Intercept custom subcommands ---
+case "${1:-}" in
+  overview)
+    shift
+    cmd_overview "$@"
+    exit 0
+    ;;
+esac
 
 exec gh issue "$@"
