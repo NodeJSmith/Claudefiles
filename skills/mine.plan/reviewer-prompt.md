@@ -44,8 +44,8 @@ Look for: WPs that add features, endpoints, or components not traceable to the d
 Note: WPs may include subtasks from the Phase 2 gap check that address unlisted reverse dependencies — these are expected and not scope violations.
 
 ### 10. Gap coverage
-If design.md contains a `<!-- Gap check -->` comment, verify that every gap listed has a corresponding WP subtask.
-Look for: gaps listed in the comment with no corresponding subtask in any WP.
+If design.md contains a comment starting with `<!-- Gap check` (e.g., `<!-- Gap check [date]: ... -->`), verify that every gap listed has a corresponding WP subtask.
+Look for: gap-check comments whose listed gaps have no corresponding subtask in any WP.
 
 ## Output format
 

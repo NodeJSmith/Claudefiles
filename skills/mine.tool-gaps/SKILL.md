@@ -67,13 +67,13 @@ cm-search-conversations --query "<tool>" --max-results 10 --format json
 ```bash
 # Step 2: Search session JSONL files for bash commands involving the tool
 # Filter for Bash tool_use entries (not hook_progress records which also have "command")
-grep -rh "<tool>" ~/.claude/projects/*/*.jsonl 2>/dev/null | grep '"name":"Bash"' | grep -o '"command":"[^"]*' | head -40
+grep -rh "<tool>" ~/.claude/projects/*/*.jsonl 2>/dev/null | grep '"name":"Bash"' | grep -o '"command":"[^"]*"' | head -40
 ```
 
 For deeper extraction from a specific session (UUID from Step 1; the glob resolves the project slug):
 ```bash
 # Step 3: Extract bash commands from a specific session
-grep '"name":"Bash"' ~/.claude/projects/*/<session-uuid>.jsonl 2>/dev/null | grep -o '"command":"[^"]*' | head -40
+grep '"name":"Bash"' ~/.claude/projects/*/<session-uuid>.jsonl 2>/dev/null | grep -o '"command":"[^"]*"' | head -40
 ```
 
 Collect the raw command lines that involve the tool. Look for signal patterns.
@@ -106,7 +106,7 @@ xargs grep -l ' & ' < /tmp/claude-sessions-list.txt 2>/dev/null | head -20
 Then extract bash commands from the identified session files:
 ```bash
 # Extract bash command lines from a session file
-grep '"name":"Bash"' <session-file> | grep -o '"command":"[^"]*' | head -40
+grep '"name":"Bash"' <session-file> | grep -o '"command":"[^"]*"' | head -40
 ```
 
 Collect the raw patterns across sessions.
