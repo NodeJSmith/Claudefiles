@@ -110,19 +110,21 @@ Ground the work packages in reality before writing:
    - Circular import risks
    - Files imported by many modules (high blast radius)
 
-5. **Reverse-dependency gap check** — for each file discovered in step 1, search for dependencies NOT listed in the design doc's Impact section. This catches files that will break or need updating but were missed. Skip this step if the design doc has no Impact section.
+5. **Reverse-dependency gap check** — search the full codebase for files that depend on what's changing but aren't listed in the design doc's Impact section. This catches dependencies the design doc missed entirely, not just reverse-deps of known files. Skip this step if the design doc has no Impact section.
 
-   For each affected file, grep for:
-   - **Tests** — test files that import the module or assert on its behavior
+   Extract the key identifiers from the design doc's Architecture section — function names, class names, type names, API endpoints, database tables, config keys, component names — anything whose signature, behavior, or contract is changing. Then grep the entire codebase for references to these identifiers, filtering out files already listed in the Impact section.
+
+   For each match found outside the Impact list, classify it:
+   - **Tests** — test files that assert on changed behavior, UI structure, or API responses
    - **Callers** — code that calls functions/methods whose signatures are changing
    - **Validators/guards** — validation logic or type guards referencing changed values
    - **CSS/layout** — stylesheets that assume the affected component's DOM structure
    - **Documentation** — docs or docstrings describing the behavior being changed
-   - **Real-time paths** — WebSocket handlers, event listeners, or polling loops that reference the module
-   - **Generated code** — TypeScript types, OpenAPI schemas, or codegen artifacts derived from the affected files
-   - **Type aliases** — discriminated unions, re-exports, or barrel files referencing affected types
+   - **Real-time paths** — WebSocket handlers, event listeners, or polling loops that reference changed modules
+   - **Generated code** — TypeScript types, OpenAPI schemas, or codegen artifacts derived from changed files
+   - **Type aliases** — discriminated unions, re-exports, or barrel files referencing changed types
    - **SQL views/indexes** — views or indexes on columns being changed
-   - **Data structures** — code assuming the shape of data the module produces
+   - **Data structures** — code assuming the shape of data produced by changed modules
 
    Skip categories that don't apply to the project (e.g., SQL for a frontend-only repo, CSS for a backend service).
 
