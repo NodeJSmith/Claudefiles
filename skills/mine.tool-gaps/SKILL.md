@@ -11,7 +11,7 @@ Mine Claude Code session history for workarounds — pipes to `python3 -c`, comp
 ## Arguments
 
 `$ARGUMENTS` — optional tool name. Can be:
-- A tool name: `/mine.tool-gaps claude-log`
+- A tool name: `/mine.tool-gaps claude-tmux`
 - Empty: broad scan for any recurring manual patterns across all tools
 
 ## Phase 1: Orient
@@ -50,48 +50,66 @@ Determine mode and scope from `$ARGUMENTS`.
 - Standard git workflow (`git status`, `git log`, `git add`, `git commit`, etc.)
 - Navigation (`cd`, `ls`, `pwd`, `find`)
 - Simple output (`echo`, `printf`, `cat`)
-- Single-invocation health checks (`claude-log list`, `ado-builds list`)
+- Single-invocation health checks (`ado-builds list`)
 - Test/lint runners (`pytest`, `nox`, `ruff`, `pyright`)
 - One-time setup commands (installs, migrations)
 
 ### Targeted mode archaeology
 
-Run these as sequential Bash calls (never use `$()` substitution — see CLAUDE.md):
+Use two data sources in sequence. First, `cm-search-conversations` for session discovery, then direct `grep` on session JSONL files for raw bash commands.
 
 ```bash
-# Step 1: Find sessions that used the tool
-claude-log search "<tool>" --limit 80 --type tool_use 2>/dev/null | head -40
+# Step 1: Find sessions that mentioned the tool
+cm-search-conversations --query "<tool>" --max-results 10 --format json
+# Note: max-results caps at 10. Step 2 grep is a broader cross-check.
 ```
 
-From the session IDs returned, for each relevant session:
 ```bash
-# Step 2: Extract bash commands and filter for the tool
-claude-log show <session-id> --tools --grep -F "<tool>"
+# Step 2: Search session JSONL files for bash commands involving the tool
+# Filter for Bash tool_use entries (not hook_progress records which also have "command")
+grep -rh "<tool>" ~/.claude/projects/*/*.jsonl 2>/dev/null | grep '"name":"Bash"' | grep -o '"command":"[^"]*"' | head -40
+```
+
+For deeper extraction from a specific session (UUID from Step 1; the glob resolves the project slug):
+```bash
+# Step 3: Extract bash commands from a specific session
+grep '"name":"Bash"' ~/.claude/projects/*/<session-uuid>.jsonl 2>/dev/null | grep -o '"command":"[^"]*"' | head -40
 ```
 
 Collect the raw command lines that involve the tool. Look for signal patterns.
 
 ### Exploratory mode archaeology
 
-Use targeted searches across sessions instead of blind extraction:
+Search session JSONL files directly for signal patterns. If the user selected a date range in Phase 1, filter session files by modification time using `find -mtime`:
+
+```bash
+# Find session files modified within the date range (e.g., -90 for 90 days)
+find ~/.claude/projects -name "*.jsonl" -not -path "*/subagents/*" -mtime -90 2>/dev/null > /tmp/claude-sessions-list.txt
+```
+
+Then search those files for signal patterns:
 
 ```bash
 # Find sessions with inline Python (strong signal)
-claude-log search -F "python3 -c" --since <date> --limit 60 --type tool_use 2>/dev/null | head -40
+xargs grep -l "python3 -c" < /tmp/claude-sessions-list.txt 2>/dev/null | head -20
 
 # Find sessions with complex jq (moderate signal)
-claude-log search -F "| jq" --since <date> --limit 60 --type tool_use 2>/dev/null | head -40
+xargs grep -l "| jq" < /tmp/claude-sessions-list.txt 2>/dev/null | head -20
 
 # Find sessions with raw curl (unwrapped API calls)
-claude-log search -F "curl" --since <date> --limit 60 --type tool_use 2>/dev/null | head -40
+xargs grep -l '"curl ' < /tmp/claude-sessions-list.txt 2>/dev/null | head -20
 
 # Find multi-call batching patterns (batch mode gap signal)
-claude-log search -F " & " --since <date> --limit 60 --type tool_use 2>/dev/null | head -40
+xargs grep -l ' & ' < /tmp/claude-sessions-list.txt 2>/dev/null | head -20
 ```
 
-Then extract bash from the identified sessions and collect the raw patterns.
+Then extract bash commands from the identified session files:
+```bash
+# Extract bash command lines from a session file
+grep '"name":"Bash"' <session-file> | grep -o '"command":"[^"]*"' | head -40
+```
 
-**Important:** Always run `claude-log search` or `claude-log list` first to get session IDs, then extract from specific IDs in subsequent calls. Do NOT use `$()` substitution or variable-based loops in Bash tool calls.
+Collect the raw patterns across sessions.
 
 ## Phase 2.5: Permission Friction Signal
 

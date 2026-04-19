@@ -53,7 +53,7 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `mine.mockup` | Generate self-contained HTML mockup files — reads `design/context.md` for consistent styling, delivers to a session temp directory |
 | `mine.mutation-test` | Mutation testing -- intentionally break code to verify tests catch real bugs |
 | `mine.orchestrate` | Execute work packages task-by-task with parallel spec/code/integration reviewer pass; tracks WP lane state |
-| `mine.plan` | Design doc → Work Package files with objectives, subtasks, test strategy, and 9-point checklist review + approve/revise/abandon gate |
+| `mine.plan` | Design doc → Work Package files with objectives, subtasks, test strategy, and 10-point checklist review + approve/revise/abandon gate |
 | `mine.prior-art` | Survey how others solve a problem — web-first research for mid-design architectural questions |
 | `mine.research` | Interactive research workflow — gathers user intent, dispatches the researcher agent, presents the brief |
 | `mine.ship` | Commit, push, and create a PR in one step |
@@ -170,7 +170,6 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `ado-logs` | Azure DevOps CI log viewer -- inspect build timelines, errors, and log content |
 | `ado-pr` | Azure DevOps PR helper -- simplified wrapper around az repos pr with smart defaults |
 | `ado-pr-threads` | Azure DevOps PR thread operations -- list, reply, resolve threads |
-| `claude-log` | Query Claude Code JSONL session logs — search, stats, skill/agent usage, permission auditing |
 | `edit-manifest` | Open a manifest file in nvim via a new tmux window with shadow-file autosave and blocking wait |
 | `claude-merge-settings` | Three-layer settings merge tool for `~/.claude/settings.json` |
 | `claude-tmux` | Tmux session helper -- rename, list, create, capture, kill sessions |

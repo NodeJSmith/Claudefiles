@@ -5,8 +5,12 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-04-19
 
 ### Added
+- `mine.plan` Phase 2 reverse-dependency gap check — extracts identifiers from the Architecture section, greps the full codebase for unlisted dependencies, includes them as WP subtasks with gap-to-WP attribution in design.md (#230)
+- Reviewer checklist item 10 (gap coverage verification) (#230)
 - `gh-issue overview` subcommand — shows repo milestones, labels (with descriptions), and usage patterns; new "Issue Creation Conventions" rule in `git-workflow.md` with >50% threshold for auto-applying milestones/labels (#229)
 
+### Removed
+- `claude-log` CLI tool — retired in favor of `cm-search-conversations` (#230)
 ## 2026-04-18
 
 ### Changed
