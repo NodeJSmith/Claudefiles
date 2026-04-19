@@ -1,12 +1,12 @@
 ---
 name: mine.plan
-description: "Use when the user says: \"draft a plan\", \"create work packages\", \"generate WPs\", \"review this plan\", or \"check the plan\". Turns a design doc into Work Package files and validates them against a 9-point checklist."
+description: "Use when the user says: \"draft a plan\", \"create work packages\", \"generate WPs\", \"review this plan\", or \"check the plan\". Turns a design doc into Work Package files and validates them against a 10-point checklist."
 user-invocable: true
 ---
 
 # Plan
 
-Turn an approved design doc into a set of Work Package (WP) files, validate them against a 9-point checklist, and gate on user approval. Combines WP generation with plan review in a single flow.
+Turn an approved design doc into a set of Work Package (WP) files, validate them against a 10-point checklist, and gate on user approval. Combines WP generation with plan review in a single flow.
 
 ## Arguments
 
@@ -109,6 +109,50 @@ Ground the work packages in reality before writing:
    - Shared state or global singletons
    - Circular import risks
    - Files imported by many modules (high blast radius)
+
+5. **Reverse-dependency gap check** — for each file discovered in step 1, search for dependencies NOT listed in the design doc's Impact section. This catches files that will break or need updating but were missed. Skip this step if the design doc has no Impact section.
+
+   For each affected file, grep for:
+   - **Tests** — test files that import the module or assert on its behavior
+   - **Callers** — code that calls functions/methods whose signatures are changing
+   - **Validators/guards** — validation logic or type guards referencing changed values
+   - **CSS/layout** — stylesheets that assume the affected component's DOM structure
+   - **Documentation** — docs or docstrings describing the behavior being changed
+   - **Real-time paths** — WebSocket handlers, event listeners, or polling loops that reference the module
+   - **Generated code** — TypeScript types, OpenAPI schemas, or codegen artifacts derived from the affected files
+   - **Type aliases** — discriminated unions, re-exports, or barrel files referencing affected types
+   - **SQL views/indexes** — views or indexes on columns being changed
+   - **Data structures** — code assuming the shape of data the module produces
+
+   Skip categories that don't apply to the project (e.g., SQL for a frontend-only repo, CSS for a backend service).
+
+   Record each gap found with: the category, the file path and line, what it depends on, and what would break.
+
+### Present gap-check results
+
+After step 5, if gaps were found, present them grouped by category. Then call `AskUserQuestion`:
+
+```
+AskUserQuestion:
+  question: "The gap check found <N> unlisted dependencies. How should we handle them?"
+  header: "Gap check"
+  multiSelect: false
+  options:
+    - label: "Include in WPs (Recommended)"
+      description: "I'll factor these into the work packages so they're addressed during implementation"
+    - label: "Review individually"
+      description: "Let me accept or reject each gap before proceeding"
+    - label: "Skip — not in scope"
+      description: "These dependencies exist but won't be addressed in this plan"
+```
+
+If "Include in WPs": note the full gap list. Append to design.md's Impact section: `<!-- Gap check [date]: N dependencies found, included in WPs: [list] -->`. When writing WPs in Phase 3, include subtasks that address these gaps. After Phase 3, briefly list which WP absorbed each gap so the user can verify.
+
+If "Review individually": present each gap one at a time via `AskUserQuestion` with "Include" / "Skip" options. Carry only accepted gaps forward to Phase 3. After review, append to design.md's Impact section: `<!-- Gap check [date]: N found, M included, K excluded: [excluded list] -->`.
+
+If "Skip — not in scope": append to design.md's Impact section: `<!-- Gap check [date]: N dependencies found, excluded from scope: [list] -->`. Proceed to Phase 3.
+
+If no gaps were found, report: "Gap check clean — searched N files across the dependency categories, no unlisted dependencies found." Proceed to Phase 3.
 
 Do NOT guess file paths. If Glob returns no match, note it explicitly.
 
