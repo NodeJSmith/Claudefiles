@@ -89,7 +89,7 @@ Rank findings by **impact** — how much this problem is likely to cause bugs, s
 - **CRITICAL** — high churn + low coverage on the critical path, or circular dependencies blocking all development
 - **HIGH** — significant structural problems, test gaps on high-value code, active architectural debt
 - **MEDIUM** — accumulating risk that isn't urgent but will compound
-- **LOW** — worth noting; low urgency
+- **TENSION** — worth noting; low urgency
 
 ## Phase 3: Present the Report
 
@@ -158,7 +158,7 @@ Follow `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md` fo
 Audit findings use the User-directed model with explicit option letters (A/B/C). During manifest execution, option verbs execute as follows:
 - **`A`** (or `fix`) — invoke `/mine.build` with the finding's description as the argument. For structural/architectural problems, `/mine.build` will assess complexity and route to direct implementation or the full caliper workflow.
 - **`B`** — create a GitHub issue via `gh-issue create` for this finding
-- **`C`** (or `skip` / `defer`) — noted in session summary, no action
+- **`C`** (or `skip`) — noted in session summary, no action
 
 Since the resolution model is User-directed with option letters, "File as issue" and "Skip" are explicit options in the findings template — the findings protocol does not append them again during `ask` execution (the `ask` verb is not used for these findings).
 
