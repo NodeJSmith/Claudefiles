@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-04-20
+
+### Added
+- `mine.audit` skill restored — systematic codebase health audit with parallel directory recon, cross-scope synthesis, and findings-protocol.md resolution flow; routing fixed from `/mine.challenge` to `/mine.audit` (#233)
+
 ## 2026-04-19
 
 ### Fixed
