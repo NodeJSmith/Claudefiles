@@ -5,6 +5,12 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-04-21
 
 ### Added
+- `ado-api` Python package — Azure DevOps CLI for builds, logs, PR management, work items, and approvals; replaces bash `ado-*` scripts with typed Pydantic-settings CLI
+
+### Removed
+- `bin/ado-builds`, `bin/ado-logs`, `bin/ado-pr`, `bin/ado-pr-threads`, `bin/ado-common.sh` — replaced by `packages/ado-api`
+
+### Changed
 - `ado-pr-threads create` subcommand — create new comment threads on ADO pull requests with inline body or `--file` for longer comments (#238)
 
 ## 2026-04-20

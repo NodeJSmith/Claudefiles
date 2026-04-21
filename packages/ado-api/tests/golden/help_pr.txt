@@ -1,0 +1,23 @@
+usage: ado-api pr [-h]
+                  {list,show,create,update,threads,thread-add,reply,resolve,resolve-pattern,work-item-list,work-item-add,work-item-remove,work-item-create} ...
+
+Pull request operations.
+
+options:
+  -h, --help            show this help message and exit
+
+subcommands:
+  {list,show,create,update,threads,thread-add,reply,resolve,resolve-pattern,work-item-list,work-item-add,work-item-remove,work-item-create}
+    list                List pull requests
+    show                Show PR details
+    create              Create a pull request
+    update              Update a pull request
+    threads             List PR threads
+    thread-add          Add a new comment thread
+    reply               Reply to a PR thread
+    resolve             Resolve PR threads
+    resolve-pattern     Resolve threads matching a pattern
+    work-item-list      List work items linked to a PR
+    work-item-add       Link work items to a PR
+    work-item-remove    Unlink work items from a PR
+    work-item-create    Create a work item and link to PR

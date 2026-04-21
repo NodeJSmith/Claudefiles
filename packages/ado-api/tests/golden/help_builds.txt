@@ -1,0 +1,13 @@
+usage: ado-api builds [-h] {list,cancel,cancel-by-tag,approve} ...
+
+Build operations.
+
+options:
+  -h, --help            show this help message and exit
+
+subcommands:
+  {list,cancel,cancel-by-tag,approve}
+    list                List builds
+    cancel              Cancel builds by ID
+    cancel-by-tag       Cancel builds by tag
+    approve             List or approve pending approvals

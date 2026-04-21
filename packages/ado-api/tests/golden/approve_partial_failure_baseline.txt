@@ -1,0 +1,8 @@
+STDOUT:
+Approved: Build 1001 — deploy-prod
+
+Approved: 1, Failed: 1
+
+STDERR:
+Fetching pending approvals...
+Failed: Build 1002 — deploy-stage: 403 Forbidden: Not authorized

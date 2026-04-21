@@ -86,10 +86,12 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "base branch", "what branch did this come from" | `git-branch-base` |
 | "detect git platform", "github or ado" | `git-platform` |
 | "validate agent files", "check skill schema" | `agnix-check` |
-| "cancel builds", "cancel pipeline runs", "list ADO builds" | `ado-builds` |
-| "build logs", "CI logs", "why did the build fail" | `ado-logs` |
-| "create ADO PR", "list ADO PRs", "show ADO PR" | `ado-pr` |
-| "list ADO PR threads", "create ADO PR thread", "reply to ADO PR comment" | `ado-pr-threads` |
+| "cancel builds", "cancel pipeline runs", "list ADO builds" | `ado-api builds` |
+| "build logs", "CI logs", "why did the build fail" | `ado-api logs` |
+| "create ADO PR", "list ADO PRs", "show ADO PR" | `ado-api pr` |
+| "list ADO PR threads", "create ADO PR thread", "reply to ADO PR comment" | `ado-api pr threads` |
+| "approve ADO builds", "list pending approvals" | `ado-api builds approve` |
+| "create ADO work item", "link work item to PR" | `ado-api work-item` |
 
 ### GitHub tool notes
 
