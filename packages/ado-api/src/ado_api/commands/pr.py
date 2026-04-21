@@ -19,6 +19,11 @@ _LIST_HEADERS = ("ID", "TITLE", "SOURCE", "TARGET", "STATUS", "AUTHOR")
 
 def _pr_base_url(ctx: AdoContext) -> str:
     """Build the base URL for PR REST API calls."""
+    if ctx.repo is None:
+        raise AdoApiError(
+            "Pull request commands require a detected repository. "
+            "Run this command from within a git repository or specify a repository context."
+        )
     return f"{ctx.config.organization}/{ctx.config.project_encoded}/_apis/git/repositories/{ctx.repo}/pullrequests"
 
 
@@ -42,7 +47,14 @@ def detect_pr_id(ctx: AdoContext) -> int:
     Raises:
         SystemExit: If zero or multiple PRs are found.
     """
-    branch = get_current_branch()
+    try:
+        branch = get_current_branch()
+    except GitError as exc:
+        print(
+            f"Cannot detect current branch: {exc}. Specify a PR ID explicitly.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     url = (
         f"{_pr_base_url(ctx)}"
         f"?searchCriteria.sourceRefName=refs/heads/{quote(branch, safe='/')}"
@@ -648,8 +660,8 @@ def _unlink_work_item_from_pr(
     Fetches the work item to find the relation index, then PATCHes to remove it.
 
     Raises:
-        AdoApiError: If the work item cannot be fetched or the PATCH fails.
-        ValueError: If no matching relation is found on the work item.
+        AdoApiError: If the work item cannot be fetched, the PATCH fails,
+            or no matching relation is found on the work item.
     """
     # Fetch work item with relations expanded
     wi_url = (
@@ -841,9 +853,9 @@ def cmd_pr_work_item_create(
     If *pr_id* is ``None``, auto-detects from the current branch.
 
     Workflow:
-      1. Pre-flight: verify PR exists and user has permissions
-      2. Create work item via az CLI
-      3. Link work item to PR via az CLI
+      1. Pre-flight: verify PR exists and user has permissions via the PR REST API
+      2. Create the work item via ``_create_work_item()``
+      3. Link the work item to the PR via ``_run_az_pr_work_item()``
 
     On link failure, prints recovery command. Exit code is 1 on any failure.
     """

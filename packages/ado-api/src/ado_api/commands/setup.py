@@ -30,8 +30,10 @@ def _has_defaults() -> bool:
     has_project = False
     for line in output.splitlines():
         stripped = line.strip()
-        if stripped.startswith("organization") and "dev.azure.com" in stripped:
-            has_org = True
+        if stripped.startswith("organization"):
+            value = stripped.split(None, 1)[-1].strip("= ")
+            if value and value != "(not set)":
+                has_org = True
         elif stripped.startswith("project"):
             value = stripped.split(None, 1)[-1].strip("= ")
             if value and value != "(not set)":

@@ -228,7 +228,7 @@ def cmd_logs_search(
         if context > 0:
             # Collect ranges and merge overlapping
             printed: set[int] = set()
-            for match_idx in matches:
+            for j, match_idx in enumerate(matches):
                 start = max(0, match_idx - context)
                 end = min(len(lines), match_idx + context + 1)
                 for i in range(start, end):
@@ -237,8 +237,8 @@ def cmd_logs_search(
                         marker = ">>>" if i == match_idx else "   "
                         print(f"  {marker} {lines[i]}")
                 # Separator between disjoint ranges
-                if match_idx != matches[-1]:
-                    next_start = max(0, matches[matches.index(match_idx) + 1] - context)
+                if j < len(matches) - 1:
+                    next_start = max(0, matches[j + 1] - context)
                     if end < next_start:
                         print("  ...")
         else:
