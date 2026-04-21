@@ -172,8 +172,7 @@ def cmd_builds_approve_list(
             }
         )
 
-    # Sort by waiting time — longest first (oldest lastChangedDate)
-    rows.sort(key=lambda r: r["last_changed"])
+    rows.sort(key=lambda r: (r["last_changed"] == "-", r["last_changed"]))
 
     if as_json:
         json_output(rows)

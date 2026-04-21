@@ -123,8 +123,7 @@ def cmd_builds_cancel_by_tag(
 
     builds = _list_builds(ctx, tags=tag, branch=resolved_branch)
 
-    # Filter to non-completed builds
-    in_progress = [b for b in builds if b.get("status") != "completed"]
+    in_progress = [b for b in builds if b.get("status", "") not in _SKIP_STATUSES]
 
     if not in_progress:
         print(
