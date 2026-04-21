@@ -3,10 +3,9 @@
 import re
 import sys
 from typing import Any
-from urllib.parse import quote
 
-from ado_api.az_client import ADO_API_VERSION, AdoApiError, AdoContext, call_ado_api
-from ado_api.commands.work_item import _create_work_item
+from ado_api.az_client import AdoApiError, AdoContext, call_ado_api
+from ado_api.commands.work_item import _WIT_PATH, _create_work_item
 from ado_api.formatting import json_output, tsv_table
 from ado_api.git import GitError, get_current_branch
 
@@ -17,19 +16,24 @@ VALID_THREAD_STATUSES = frozenset(
 _LIST_HEADERS = ("ID", "TITLE", "SOURCE", "TARGET", "STATUS", "AUTHOR")
 
 
-def _pr_base_url(ctx: AdoContext) -> str:
-    """Build the base URL for PR REST API calls."""
+def _pr_path(ctx: AdoContext) -> tuple[str, ...]:
+    """Return path segments for PR REST API calls."""
     if ctx.repo is None:
         raise AdoApiError(
             "Pull request commands require a detected repository. "
             "Run this command from within a git repository or specify a repository context."
         )
-    return f"{ctx.config.organization}/{ctx.config.project_encoded}/_apis/git/repositories/{ctx.repo}/pullrequests"
+    return ("_apis", "git", "repositories", ctx.repo, "pullrequests")
+
+
+def _pr_base_url(ctx: AdoContext) -> str:
+    """Build the base URL for PR REST API calls."""
+    return ctx.config.api_url(*_pr_path(ctx))
 
 
 def _pr_url(ctx: AdoContext, pr_id: int) -> str:
     """Build the URL for a specific PR."""
-    return f"{_pr_base_url(ctx)}/{pr_id}"
+    return ctx.config.api_url(*_pr_path(ctx), str(pr_id))
 
 
 def detect_pr_id(ctx: AdoContext) -> int:
@@ -55,11 +59,12 @@ def detect_pr_id(ctx: AdoContext) -> int:
             file=sys.stderr,
         )
         sys.exit(1)
-    url = (
-        f"{_pr_base_url(ctx)}"
-        f"?searchCriteria.sourceRefName=refs/heads/{quote(branch, safe='/')}"
-        f"&searchCriteria.status=active"
-        f"&api-version={ADO_API_VERSION}"
+    url = ctx.config.api_url(
+        *_pr_path(ctx),
+        **{
+            "searchCriteria.sourceRefName": f"refs/heads/{branch}",
+            "searchCriteria.status": "active",
+        },
     )
     data = call_ado_api("GET", url, pat=ctx.pat)
     prs: list[dict[str, Any]] = data.get("value", [])
@@ -138,9 +143,13 @@ def cmd_pr_list(
     as_json: bool = False,
 ) -> None:
     """List pull requests for the repository."""
-    url = f"{_pr_base_url(ctx)}?searchCriteria.status={quote(status)}&$top={top}&api-version={ADO_API_VERSION}"
+    query: dict[str, str] = {
+        "searchCriteria.status": status,
+        "$top": str(top),
+    }
     if author is not None:
-        url += f"&searchCriteria.creatorId={quote(author)}"
+        query["searchCriteria.creatorId"] = author
+    url = ctx.config.api_url(*_pr_path(ctx), **query)
 
     data = call_ado_api("GET", url, pat=ctx.pat)
     prs: list[dict[str, Any]] = data.get("value", [])
@@ -165,7 +174,7 @@ def cmd_pr_show(
     if pr_id is None:
         pr_id = detect_pr_id(ctx)
 
-    url = f"{_pr_url(ctx, pr_id)}?api-version={ADO_API_VERSION}"
+    url = _pr_url(ctx, pr_id)
     pr = call_ado_api("GET", url, pat=ctx.pat)
 
     if as_json:
@@ -218,7 +227,7 @@ def cmd_pr_create(
     if description is not None:
         body["description"] = description
 
-    url = f"{_pr_base_url(ctx)}?api-version={ADO_API_VERSION}"
+    url = _pr_base_url(ctx)
     pr = call_ado_api("POST", url, pat=ctx.pat, data=body)
 
     if as_json:
@@ -257,7 +266,7 @@ def cmd_pr_update(
         print("Nothing to update — provide at least one field.", file=sys.stderr)
         sys.exit(1)
 
-    url = f"{_pr_url(ctx, pr_id)}?api-version={ADO_API_VERSION}"
+    url = _pr_url(ctx, pr_id)
     pr = call_ado_api("PATCH", url, pat=ctx.pat, data=body)
 
     if as_json:
@@ -272,12 +281,12 @@ def cmd_pr_update(
 
 def _threads_url(ctx: AdoContext, pr_id: int) -> str:
     """Build the URL for listing/creating PR threads."""
-    return f"{_pr_url(ctx, pr_id)}/threads"
+    return ctx.config.api_url(*_pr_path(ctx), str(pr_id), "threads")
 
 
 def _thread_url(ctx: AdoContext, pr_id: int, thread_id: int) -> str:
     """Build the URL for a specific PR thread."""
-    return f"{_threads_url(ctx, pr_id)}/{thread_id}"
+    return ctx.config.api_url(*_pr_path(ctx), str(pr_id), "threads", str(thread_id))
 
 
 def _validate_thread_status(status: str) -> None:
@@ -352,7 +361,7 @@ def cmd_pr_threads(
     if pr_id is None:
         pr_id = detect_pr_id(ctx)
 
-    url = f"{_threads_url(ctx, pr_id)}?api-version={ADO_API_VERSION}"
+    url = _threads_url(ctx, pr_id)
     data = call_ado_api("GET", url, pat=ctx.pat)
     threads: list[dict[str, Any]] = data.get("value", [])
 
@@ -382,7 +391,7 @@ def cmd_pr_thread_add(
     if pr_id is None:
         pr_id = detect_pr_id(ctx)
 
-    url = f"{_threads_url(ctx, pr_id)}?api-version={ADO_API_VERSION}"
+    url = _threads_url(ctx, pr_id)
     payload: dict[str, Any] = {
         "comments": [{"content": body, "commentType": 1}],
         "status": "active",
@@ -412,9 +421,7 @@ def cmd_pr_reply(
     """
     if parent_id is None:
         # Fetch thread to get last comment ID
-        thread_url = (
-            f"{_thread_url(ctx, pr_id, thread_id)}?api-version={ADO_API_VERSION}"
-        )
+        thread_url = _thread_url(ctx, pr_id, thread_id)
         thread = call_ado_api("GET", thread_url, pat=ctx.pat)
         comments = thread.get("comments", [])
         if not comments:
@@ -422,7 +429,9 @@ def cmd_pr_reply(
             sys.exit(1)
         parent_id = comments[-1]["id"]
 
-    url = f"{_thread_url(ctx, pr_id, thread_id)}/comments?api-version={ADO_API_VERSION}"
+    url = ctx.config.api_url(
+        *_pr_path(ctx), str(pr_id), "threads", str(thread_id), "comments"
+    )
     payload: dict[str, Any] = {
         "content": body,
         "parentCommentId": parent_id,
@@ -467,7 +476,7 @@ def cmd_pr_resolve(
     for tid in thread_ids:
         try:
             # Fetch thread to check current status
-            thread_url = f"{_thread_url(ctx, pr_id, tid)}?api-version={ADO_API_VERSION}"
+            thread_url = _thread_url(ctx, pr_id, tid)
             thread = call_ado_api("GET", thread_url, pat=ctx.pat)
             current_status = thread.get("status")
 
@@ -479,7 +488,7 @@ def cmd_pr_resolve(
                 skipped += 1
                 continue
 
-            patch_url = f"{_thread_url(ctx, pr_id, tid)}?api-version={ADO_API_VERSION}"
+            patch_url = _thread_url(ctx, pr_id, tid)
             call_ado_api("PATCH", patch_url, pat=ctx.pat, data={"status": status})
             print(f"Thread #{tid}: resolved as '{status}'")
             resolved += 1
@@ -519,7 +528,7 @@ def cmd_pr_resolve_pattern(
     """
     _validate_thread_status(status)
 
-    url = f"{_threads_url(ctx, pr_id)}?api-version={ADO_API_VERSION}"
+    url = _threads_url(ctx, pr_id)
     data = call_ado_api("GET", url, pat=ctx.pat)
     threads: list[dict[str, Any]] = data.get("value", [])
 
@@ -553,9 +562,7 @@ def cmd_pr_resolve_pattern(
 
         if execute:
             try:
-                patch_url = (
-                    f"{_thread_url(ctx, pr_id, tid)}?api-version={ADO_API_VERSION}"
-                )
+                patch_url = _thread_url(ctx, pr_id, tid)
                 call_ado_api("PATCH", patch_url, pat=ctx.pat, data={"status": status})
                 print(f"    -> resolved as '{status}'")
             except AdoApiError as exc:
@@ -595,7 +602,7 @@ def _get_pr_artifact_id(ctx: AdoContext, pr_id: int) -> str:
     Raises:
         AdoApiError: If the PR cannot be fetched.
     """
-    url = f"{_pr_url(ctx, pr_id)}?api-version={ADO_API_VERSION}"
+    url = _pr_url(ctx, pr_id)
     pr = call_ado_api("GET", url, pat=ctx.pat)
     artifact_id = pr.get("artifactId")
     if not artifact_id:
@@ -632,10 +639,7 @@ def _link_work_item_to_pr(
             },
         }
     ]
-    url = (
-        f"{ctx.config.organization}/{ctx.config.project_encoded}"
-        f"/_apis/wit/workitems/{work_item_id}?api-version={ADO_API_VERSION}"
-    )
+    url = ctx.config.api_url(*_WIT_PATH, str(work_item_id))
     try:
         call_ado_api(
             "PATCH",
@@ -664,9 +668,8 @@ def _unlink_work_item_from_pr(
             or no matching relation is found on the work item.
     """
     # Fetch work item with relations expanded
-    wi_url = (
-        f"{ctx.config.organization}/{ctx.config.project_encoded}"
-        f"/_apis/wit/workitems/{work_item_id}?$expand=relations&api-version={ADO_API_VERSION}"
+    wi_url = ctx.config.api_url(
+        *_WIT_PATH, str(work_item_id), **{"$expand": "relations"}
     )
     wi = call_ado_api("GET", wi_url, pat=ctx.pat)
     relations = wi.get("relations") or []
@@ -693,10 +696,7 @@ def _unlink_work_item_from_pr(
             "path": f"/relations/{relation_index}",
         }
     ]
-    patch_url = (
-        f"{ctx.config.organization}/{ctx.config.project_encoded}"
-        f"/_apis/wit/workitems/{work_item_id}?api-version={ADO_API_VERSION}"
-    )
+    patch_url = ctx.config.api_url(*_WIT_PATH, str(work_item_id))
     call_ado_api(
         "PATCH",
         patch_url,
@@ -738,7 +738,7 @@ def _run_az_pr_work_item(
             _unlink_work_item_from_pr(ctx, wid, artifact_url)
 
     # Return the current work item list after mutations
-    list_url = f"{_pr_url(ctx, pr_id)}/workitems?api-version={ADO_API_VERSION}"
+    list_url = ctx.config.api_url(*_pr_path(ctx), str(pr_id), "workitems")
     data = call_ado_api("GET", list_url, pat=ctx.pat)
     return data.get("value", [])
 
@@ -756,7 +756,7 @@ def cmd_pr_work_item_list(
     if pr_id is None:
         pr_id = detect_pr_id(ctx)
 
-    url = f"{_pr_url(ctx, pr_id)}/workitems?api-version={ADO_API_VERSION}"
+    url = ctx.config.api_url(*_pr_path(ctx), str(pr_id), "workitems")
     data = call_ado_api("GET", url, pat=ctx.pat)
     refs: list[dict[str, Any]] = data.get("value", [])
 
@@ -864,7 +864,7 @@ def cmd_pr_work_item_create(
 
     # Pre-flight PR check
     try:
-        url = f"{_pr_url(ctx, pr_id)}?api-version={ADO_API_VERSION}"
+        url = _pr_url(ctx, pr_id)
         call_ado_api("GET", url, pat=ctx.pat)
     except AdoApiError:
         print(f"PR #{pr_id} not found or insufficient permissions", file=sys.stderr)

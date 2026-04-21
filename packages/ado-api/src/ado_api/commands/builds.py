@@ -2,9 +2,8 @@
 
 import subprocess
 import sys
-from urllib.parse import quote
 
-from ado_api.az_client import ADO_API_VERSION, AdoApiError, AdoContext, call_ado_api
+from ado_api.az_client import AdoApiError, AdoContext, call_ado_api
 from ado_api.formatting import json_output, tsv_table
 
 _SKIP_STATUSES = frozenset({"completed", "cancelling"})
@@ -31,9 +30,7 @@ def _get_default_branch() -> str:
 _DEFAULT_TOP = 50
 
 
-def _builds_url(ctx: AdoContext) -> str:
-    """Build the base URL for the builds REST API."""
-    return f"{ctx.config.organization}/{ctx.config.project_encoded}/_apis/build/builds"
+_BUILDS_PATH = ("_apis", "build", "builds")
 
 
 def _build_to_row(build: dict[str, object]) -> tuple[str, ...]:
@@ -57,21 +54,22 @@ def _list_builds(
     top: int = _DEFAULT_TOP,
 ) -> list[dict[str, object]]:
     """Fetch builds from the REST API with optional filters."""
-    url = f"{_builds_url(ctx)}?api-version={ADO_API_VERSION}&$top={top}"
+    query: dict[str, str] = {"$top": str(top)}
     if tags:
-        url += f"&tagFilters={quote(tags)}"
+        query["tagFilters"] = tags
     if branch:
-        url += f"&branchName=refs/heads/{quote(branch, safe='/')}"
+        query["branchName"] = f"refs/heads/{branch}"
     if status:
-        url += f"&statusFilter={quote(status)}"
+        query["statusFilter"] = status
 
+    url = ctx.config.api_url(*_BUILDS_PATH, **query)
     data = call_ado_api("GET", url, pat=ctx.pat)
     return data.get("value", [])
 
 
 def _cancel_build(ctx: AdoContext, build_id: int) -> None:
     """Cancel a single build via PATCH."""
-    url = f"{_builds_url(ctx)}/{build_id}?api-version={ADO_API_VERSION}"
+    url = ctx.config.api_url(*_BUILDS_PATH, str(build_id))
     call_ado_api("PATCH", url, pat=ctx.pat, data={"status": "cancelling"})
 
 
@@ -102,7 +100,7 @@ def cmd_builds_cancel(
 ) -> None:
     """Cancel one or more builds by ID, skipping completed/cancelling."""
     for build_id in build_ids:
-        url = f"{_builds_url(ctx)}/{build_id}?api-version={ADO_API_VERSION}"
+        url = ctx.config.api_url(*_BUILDS_PATH, str(build_id))
         build_data = call_ado_api("GET", url, pat=ctx.pat)
         current_status = build_data.get("status", "")
 

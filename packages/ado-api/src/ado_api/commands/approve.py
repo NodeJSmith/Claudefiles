@@ -14,31 +14,31 @@ import tempfile
 from datetime import UTC, datetime
 from typing import Any
 
-from ado_api.az_client import ADO_API_VERSION, AdoApiError, AdoContext, call_ado_api
-from ado_api.commands.builds import _get_default_branch
+from ado_api.az_client import AdoApiError, AdoContext, call_ado_api
+from ado_api.commands.builds import _BUILDS_PATH, _get_default_branch
 from ado_api.formatting import json_output
 
 
-def _approvals_url(ctx: AdoContext) -> str:
-    base = f"{ctx.config.organization}/{ctx.config.project_encoded}"
-    return f"{base}/_apis/pipelines/approvals?api-version={ADO_API_VERSION}"
+_APPROVALS_PATH = ("_apis", "pipelines", "approvals")
+
+
+def _approvals_url(ctx: AdoContext, **extra_query: str) -> str:
+    return ctx.config.api_url(*_APPROVALS_PATH, **extra_query)
 
 
 def _builds_url(ctx: AdoContext) -> str:
     branch = _get_default_branch()
-    base = f"{ctx.config.organization}/{ctx.config.project_encoded}"
-    return (
-        f"{base}/_apis/build/builds"
-        f"?api-version={ADO_API_VERSION}"
-        f"&statusFilter=inProgress"
-        f"&branchName=refs/heads/{branch}"
-        f"&queryOrder=queueTimeDescending"
+    return ctx.config.api_url(
+        *_BUILDS_PATH,
+        statusFilter="inProgress",
+        branchName=f"refs/heads/{branch}",
+        queryOrder="queueTimeDescending",
     )
 
 
 def _get_pending_approvals(ctx: AdoContext) -> list[dict[str, Any]]:
     """Fetch all pending pipeline approvals."""
-    url = _approvals_url(ctx) + "&state=pending&$expand=steps"
+    url = _approvals_url(ctx, state="pending", **{"$expand": "steps"})
     data = call_ado_api("GET", url, pat=ctx.pat)
     return data.get("value", [])
 
@@ -89,7 +89,7 @@ def _format_waiting(iso_timestamp: str | None) -> str:
 
 def _check_approval_state(ctx: AdoContext, approval_id: str) -> str | None:
     """GET the approval to check its current state. Returns status or None on error."""
-    url = _approvals_url(ctx) + f"&approvalIds={approval_id}"
+    url = _approvals_url(ctx, approvalIds=approval_id)
     try:
         data = call_ado_api("GET", url, pat=ctx.pat)
         approvals = data.get("value", [])

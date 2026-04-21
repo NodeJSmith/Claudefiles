@@ -4,11 +4,11 @@ import sys
 from typing import Any
 
 from ado_api.az_client import (
-    ADO_API_VERSION,
     AdoContext,
     call_ado_api,
     call_ado_api_text,
 )
+from ado_api.commands.builds import _BUILDS_PATH
 from ado_api.formatting import format_duration, json_output, tsv_table
 
 _FAILED_RESULTS = frozenset({"failed", "succeededWithIssues"})
@@ -17,18 +17,12 @@ _LIST_HEADERS = ("ORDER", "TYPE", "NAME", "RESULT", "LOG_ID", "ISSUES", "DURATIO
 
 
 def _timeline_url(ctx: AdoContext, build_id: int) -> str:
-    return (
-        f"{ctx.config.organization}/{ctx.config.project_encoded}"
-        f"/_apis/build/builds/{build_id}/timeline"
-        f"?api-version={ADO_API_VERSION}"
-    )
+    return ctx.config.api_url(*_BUILDS_PATH, str(build_id), "timeline")
 
 
-def _log_url(ctx: AdoContext, build_id: int, log_id: int) -> str:
-    return (
-        f"{ctx.config.organization}/{ctx.config.project_encoded}"
-        f"/_apis/build/builds/{build_id}/logs/{log_id}"
-        f"?api-version={ADO_API_VERSION}"
+def _log_url(ctx: AdoContext, build_id: int, log_id: int, **query: str) -> str:
+    return ctx.config.api_url(
+        *_BUILDS_PATH, str(build_id), "logs", str(log_id), **query
     )
 
 
@@ -124,10 +118,10 @@ def cmd_logs_get(
     head: int | None = None,
 ) -> None:
     """Fetch raw log content for a specific log ID."""
-    url = _log_url(ctx, build_id, log_id)
-
+    extra: dict[str, str] = {}
     if head is not None:
-        url += f"&startLine=1&endLine={head}"
+        extra = {"startLine": "1", "endLine": str(head)}
+    url = _log_url(ctx, build_id, log_id, **extra)
 
     content = call_ado_api_text("GET", url, pat=ctx.pat)
 

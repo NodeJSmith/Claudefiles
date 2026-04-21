@@ -99,24 +99,46 @@ class TestBuildAuthHeader:
 
 
 class TestAdoConfig:
-    """AdoConfig frozen dataclass and URL encoding."""
-
-    def test_project_encoded_no_spaces(self) -> None:
-        config = AdoConfig(
-            organization="https://dev.azure.com/org", project="MyProject"
-        )
-        assert config.project_encoded == "MyProject"
-
-    def test_project_encoded_with_spaces(self) -> None:
-        config = AdoConfig(
-            organization="https://dev.azure.com/org", project="My Project Name"
-        )
-        assert config.project_encoded == "My%20Project%20Name"
+    """AdoConfig frozen dataclass and api_url() builder."""
 
     def test_frozen(self) -> None:
         config = AdoConfig(organization="https://dev.azure.com/org", project="Proj")
         with pytest.raises(AttributeError):
             config.organization = "new"  # type: ignore[misc]
+
+    def test_api_url_basic(self) -> None:
+        config = AdoConfig(
+            organization="https://dev.azure.com/org", project="MyProject"
+        )
+        url = config.api_url("_apis", "build", "builds")
+        assert url == (
+            "https://dev.azure.com/org/MyProject/_apis/build/builds?api-version=7.1"
+        )
+
+    def test_api_url_spaces_in_project(self) -> None:
+        config = AdoConfig(
+            organization="https://dev.azure.com/org", project="My Project"
+        )
+        url = config.api_url("_apis", "build", "builds")
+        assert "My%20Project" in url
+        assert "?api-version=7.1" in url
+
+    def test_api_url_with_query_params(self) -> None:
+        config = AdoConfig(organization="https://dev.azure.com/org", project="Proj")
+        url = config.api_url("_apis", "build", "builds", **{"$top": "50"})
+        assert "api-version=7.1" in url
+        assert "$top=50" in url
+
+    def test_api_url_query_overrides_do_not_clobber_version(self) -> None:
+        config = AdoConfig(organization="https://dev.azure.com/org", project="Proj")
+        url = config.api_url("_apis", "build", "builds", statusFilter="inProgress")
+        assert "api-version=7.1" in url
+        assert "statusFilter=inProgress" in url
+
+    def test_api_url_special_chars_in_segment(self) -> None:
+        config = AdoConfig(organization="https://dev.azure.com/org", project="Proj")
+        url = config.api_url("_apis", "wit", "workitems", "$User Story")
+        assert "/$User%20Story" in url
 
 
 class TestGetAdoConfig:

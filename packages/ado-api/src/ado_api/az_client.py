@@ -18,6 +18,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from yarl import URL
+
 ADO_API_VERSION = "7.1"
 
 _PAT_FILE = Path.home() / ".azure" / "azuredevops" / "personalAccessTokens"
@@ -42,10 +44,19 @@ class AdoConfig:
     organization: str
     project: str
 
-    @property
-    def project_encoded(self) -> str:
-        """URL-encoded project name (spaces become %20)."""
-        return self.project.replace(" ", "%20")
+    def api_url(self, *segments: str, **query: str) -> str:
+        """Build an ADO REST API URL with proper encoding.
+
+        Segments are appended as path components after ``{org}/{project}``.
+        The ``api-version`` query parameter is always included.
+
+        Returns the URL as a string for use with :func:`call_ado_api`.
+        """
+        base = URL(self.organization) / self.project
+        for seg in segments:
+            base = base / seg
+        all_query = {"api-version": ADO_API_VERSION, **query}
+        return str(base.with_query(all_query))
 
 
 @dataclass(frozen=True)
