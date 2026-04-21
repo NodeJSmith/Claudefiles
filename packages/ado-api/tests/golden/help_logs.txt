@@ -1,0 +1,13 @@
+usage: ado-api logs [-h] {list,get,errors,search} ...
+
+Build log operations.
+
+options:
+  -h, --help            show this help message and exit
+
+subcommands:
+  {list,get,errors,search}
+    list                List timeline steps
+    get                 Fetch raw log content
+    errors              Show errors from failed steps
+    search              Search across build logs

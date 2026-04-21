@@ -159,18 +159,13 @@ Event-driven scripts that run before/after tool calls.
 | `cm-clear-handoff` (package) | SessionEnd (clear) | Write a handoff note before `/clear` |
 | `cm-memory-sync` (package) | Stop | Sync current session to the conversation database |
 
-### Helper Scripts (23 + 1 library)
+### Helper Scripts (18)
 
 CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
 | Script | Description |
 |--------|-------------|
-| `ado-builds` | Azure DevOps build management -- list, cancel, or bulk-cancel pipeline builds |
 | `agnix-check` | Validate agent, skill, and command files against agnix schema |
-| `ado-common.sh` | Shared Azure DevOps utilities -- PAT auth, config, API calls, PR detection (sourced library, not user-facing) |
-| `ado-logs` | Azure DevOps CI log viewer -- inspect build timelines, errors, and log content |
-| `ado-pr` | Azure DevOps PR helper -- simplified wrapper around az repos pr with smart defaults |
-| `ado-pr-threads` | Azure DevOps PR thread operations -- list, create, reply, resolve threads |
 | `edit-manifest` | Open a manifest file in nvim via a new tmux window with shadow-file autosave and blocking wait |
 | `claude-merge-settings` | Three-layer settings merge tool for `~/.claude/settings.json` |
 | `claude-tmux` | Tmux session helper -- rename, list, create, capture, kill sessions |
@@ -193,6 +188,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
 | Name | Description |
 |------|-------------|
+| `ado-api` | Azure DevOps CLI — builds, logs, PR management, work items, approvals. Install: `uv tool install -e packages/ado-api` |
 | `claude-memory` | Conversation memory system — session DB, hooks, `cm-*` CLI entry points. Install: `uv tool install -e packages/claude-memory` |
 | `spec-helper` | Work Package and spec directory management — `wp-*`, `checkpoint-*`, `status`, `next-number`, `init`, `archive`. Install: `uv tool install -e packages/spec-helper` |
 

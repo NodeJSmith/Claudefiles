@@ -57,7 +57,7 @@ Follow **all steps in `mine.commit-push`** exactly (read `skills/mine.commit-pus
       - **Azure DevOps**: **!** prefix (e.g., `(!123)`) — links to the PR (`#` would link to a work item instead)
     - Determine the PR base branch from the platform API:
       - **GitHub**: `gh pr view --json baseRefName --jq '.baseRefName'`
-      - **Azure DevOps**: `ado-pr show --json | jq -r '.targetRefName' | sed 's|refs/heads/||'`
+      - **Azure DevOps**: `ado-api pr show --json | jq -r '.targetRefName' | sed 's|refs/heads/||'`
     - Use `git diff origin/<base>...HEAD -- <changelog-path>` to identify lines added in this branch (use the path discovered in step 18, not a hardcoded `CHANGELOG.md`)
     - For each newly added changelog entry line (lines starting with `- `) that does not already contain a PR reference (`(#...)` or `(!...)`), append ` (#<PR_NUMBER>)` for GitHub or ` (!<PR_NUMBER>)` for Azure DevOps to the end of the line
     - Commit with message: e.g., `changelog: add PR #<NUMBER>` for GitHub or `changelog: add PR !<NUMBER>` for Azure DevOps

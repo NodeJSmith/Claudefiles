@@ -1,0 +1,10 @@
+usage: ado-api work-item [-h] {create} ...
+
+Work item operations.
+
+options:
+  -h, --help  show this help message and exit
+
+subcommands:
+  {create}
+    create    Create a work item

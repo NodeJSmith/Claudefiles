@@ -1,0 +1,7 @@
+STDOUT:
+Thread #400: resolved as 'fixed'
+
+Resolved: 1, Failed: 1
+
+STDERR:
+Thread #300: failed — 403 Forbidden: Not authorized

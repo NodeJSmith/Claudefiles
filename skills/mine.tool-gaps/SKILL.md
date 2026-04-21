@@ -50,7 +50,7 @@ Determine mode and scope from `$ARGUMENTS`.
 - Standard git workflow (`git status`, `git log`, `git add`, `git commit`, etc.)
 - Navigation (`cd`, `ls`, `pwd`, `find`)
 - Simple output (`echo`, `printf`, `cat`)
-- Single-invocation health checks (`ado-builds list`)
+- Single-invocation health checks (`ado-api builds list`)
 - Test/lint runners (`pytest`, `nox`, `ruff`, `pyright`)
 - One-time setup commands (installs, migrations)
 

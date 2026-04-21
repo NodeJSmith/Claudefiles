@@ -25,7 +25,6 @@ Options:
   -h, --help    Show this help message and exit
 
 Exemptions:
-  - Plumbing scripts (ado-common.sh) are exempt from the --help check.
   - Tools marked with "# EXTERNAL: tool-name" in capabilities.md are
     exempt from the bin/ existence check.
 EOF
@@ -40,8 +39,7 @@ CAPABILITIES="${REPO_ROOT}/rules/common/capabilities.md"
 failures=0
 
 # --- plumbing exemptions (no --help required) ----------------------------
-# Exempt: sourced libraries not directly invoked
-HELP_EXEMPT="ado-common.sh"
+HELP_EXEMPT=""
 
 # --- check 1: --help presence --------------------------------------------
 echo "=== Check 1: --help handling ==="

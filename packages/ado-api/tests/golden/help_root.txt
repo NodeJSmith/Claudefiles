@@ -1,0 +1,16 @@
+usage: ado-api [-h] [--project {str,null}]
+               {builds,logs,pr,work-item,setup} ...
+
+Azure DevOps CLI — builds, logs, and PR management.
+
+options:
+  -h, --help            show this help message and exit
+  --project {str,null}  Override ADO project (default: null)
+
+subcommands:
+  {builds,logs,pr,work-item,setup}
+    builds              Build operations
+    logs                Build log operations
+    pr                  Pull request operations
+    work-item           Work item operations
+    setup               Check and install az CLI prerequisites

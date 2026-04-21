@@ -45,7 +45,7 @@ If `mergeable` is `UNKNOWN`, retry up to 3 times with backoff (3s, 6s, 12s) — 
 
 **ADO:**
 ```bash
-ado-pr show {PR} --json
+ado-api pr show {PR} --json
 ```
 
 Returns `pullRequestId`, `title`, `status`, `sourceRefName`, `targetRefName`, `repository.webUrl`. URL: `repository.webUrl + "/pullrequest/" + pullRequestId`. Note: `mergeStatus` is optional and only present after a merge attempt.
@@ -63,7 +63,7 @@ Returns all threads (resolved + unresolved) as JSON with `id`, `isResolved`, `is
 
 **ADO:**
 ```bash
-ado-pr-threads list {PR} --json
+ado-api pr threads {PR} --json --all
 ```
 
 Returns all threads as JSON. Threads with `threadContext` are inline comments; threads without are general conversation. ADO has no `isOutdated` concept.
@@ -97,7 +97,7 @@ Categorize all issues into three groups: **review comments**, **merge conflicts*
 
 ### Review comments
 
-**Prerequisite**: This section requires the `gh-pr-threads` / `ado-pr-threads` output from Phase 1. If you skipped that step, go back and run it now before triaging.
+**Prerequisite**: This section requires the `gh-pr-threads` / `ado-api pr threads` output from Phase 1. If you skipped that step, go back and run it now before triaging.
 
 **Exclude resolved threads:** GitHub `isResolved: true`, ADO `status != "active"`.
 
@@ -138,7 +138,7 @@ Group related comments for efficient execution — e.g., all error-handling comm
 Fetch failure logs and categorize: test failures, lint/type errors, build errors, other.
 
 **GitHub:** `gh run view <run-id> --log-failed`
-**ADO:** `ado-logs errors --build-id <build-id>` — fetches and filters failure logs. Run `ado-logs --help` for full usage.
+**ADO:** `ado-api logs errors <build-id>` — fetches and filters failure logs. Run `ado-api logs --help` for full usage.
 
 ### Present the plan
 
@@ -259,7 +259,7 @@ After push is confirmed, reply to threads. For each addressed thread:
 
 **GitHub resolution:** Use `gh-pr-reply {PR} {comment-database-id} "{body}" --resolve {thread-id}` for combined reply+resolve.
 
-**ADO resolution:** Two calls: `ado-pr-threads reply {PR} {thread-id} "{body}"` then `ado-pr-threads resolve {thread-id} --pr {PR}`.
+**ADO resolution:** Two calls: `ado-api pr reply {PR} {thread-id} "{body}"` then `ado-api pr resolve {PR} {thread-id}`.
 
 **Rate limiting:** 1-second delay between mutative API calls.
 
@@ -295,7 +295,7 @@ Present a structured summary:
 **IMPORTANT**: Use these helper scripts instead of inline commands. They handle authentication, pagination, and output formatting.
 
 - **GitHub**: `gh-pr-threads`, `gh-pr-reply` (with `--resolve`), `git-platform` — run `--help` on each for usage
-- **ADO**: `ado-pr`, `ado-pr-threads` (list/create/reply/resolve/resolve-pattern), `ado-logs` (CI failure logs) — run `--help` on each for usage
+- **ADO**: `ado-api pr` (show/list/create/update/threads/reply/resolve/resolve-pattern), `ado-api logs` (CI failure logs), `ado-api work-item` — run `ado-api --help` for usage
 - **Platform**: `git-platform` — prints `github`, `ado`, or `unknown`
 
 ### Error handling
