@@ -11,12 +11,19 @@ class WorkItemCreate(BaseModel):
     """Create a work item."""
 
     title: str = Field(description="Work item title")
-    type_name: str = Field(alias="type", description="Work item type (Task, Bug, User Story, Epic, Feature)")
-    assigned_to: str | None = Field(None, alias="assigned-to", description="Email of assignee")
+    type_name: str = Field(
+        alias="type",
+        description="Work item type (Task, Bug, User Story, Epic, Feature)",
+    )
+    assigned_to: str | None = Field(
+        None, alias="assigned-to", description="Email of assignee"
+    )
     area: str | None = Field(None, description="Area path")
     iteration: str | None = Field(None, description="Iteration path")
     description: str | None = Field(None, description="Work item description")
-    fields: list[str] | None = Field(None, description='Custom fields as "Key=Value" pairs')
+    fields: list[str] | None = Field(
+        None, description='Custom fields as "Key=Value" pairs'
+    )
     json_output: bool = Field(False, alias="json", description="Output as JSON")
 
     def cli_cmd(self) -> None:

@@ -58,7 +58,9 @@ def cmd_setup() -> None:
         all_ok = False
         print("  [missing] az CLI not found")
         print()
-        print("  Install: https://learn.microsoft.com/en-us/cli/azure/install-azure-cli")
+        print(
+            "  Install: https://learn.microsoft.com/en-us/cli/azure/install-azure-cli"
+        )
         print()
 
     # Step 2: azure-devops extension
@@ -78,7 +80,9 @@ def cmd_setup() -> None:
         else:
             all_ok = False
             print("  [missing] az devops defaults not configured")
-            print("    Run: az devops configure --defaults organization=<org-url> project='<project-name>'")
+            print(
+                "    Run: az devops configure --defaults organization=<org-url> project='<project-name>'"
+            )
             print()
 
     # Step 4: login check

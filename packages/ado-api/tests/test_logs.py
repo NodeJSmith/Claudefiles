@@ -16,7 +16,9 @@ from ado_api.formatting import format_duration
 
 # ── Fixtures ──────────────────────────────────────────────────────────
 
-FAKE_CONFIG = AdoConfig(organization="https://dev.azure.com/myorg", project="My Project")
+FAKE_CONFIG = AdoConfig(
+    organization="https://dev.azure.com/myorg", project="My Project"
+)
 FAKE_PAT = "fake-pat-token"
 FAKE_CTX = AdoContext(config=FAKE_CONFIG, pat=FAKE_PAT)
 
@@ -69,7 +71,9 @@ class TestLogsListBasic:
     ) -> None:
         mock_api.return_value = _timeline_response(
             _make_timeline_record(order=1, name="Build", result="succeeded", log_id=10),
-            _make_timeline_record(order=2, name="Test", result="failed", log_id=11, error_count=2),
+            _make_timeline_record(
+                order=2, name="Test", result="failed", log_id=11, error_count=2
+            ),
         )
 
         cmd_logs_list(FAKE_CTX, 100)

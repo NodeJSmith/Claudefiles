@@ -30,7 +30,9 @@ from ado_api.git import GitError
 
 # ── Fixtures ──────────────────────────────────────────────────────────
 
-FAKE_CONFIG = AdoConfig(organization="https://dev.azure.com/myorg", project="My Project")
+FAKE_CONFIG = AdoConfig(
+    organization="https://dev.azure.com/myorg", project="My Project"
+)
 FAKE_PAT = "fake-pat-token"
 FAKE_CTX = AdoContext(config=FAKE_CONFIG, pat=FAKE_PAT, repo="my-repo")
 
@@ -362,7 +364,9 @@ class TestPrCreate:
         data = json.loads(captured.out)
         assert data["id"] == 50
 
-    @patch("ado_api.commands.pr.get_current_branch", side_effect=GitError("detached HEAD"))
+    @patch(
+        "ado_api.commands.pr.get_current_branch", side_effect=GitError("detached HEAD")
+    )
     def test_pr_create_detached_head(
         self,
         _mock_branch: MagicMock,
@@ -575,9 +579,16 @@ class TestPrThreads:
                 status="active",
                 comments=[
                     _make_comment(comment_id=1, content="Please fix this."),
-                    _make_comment(comment_id=2, content="I agree, this needs work.", author="other@example.com"),
                     _make_comment(
-                        comment_id=3, content="Fixed in latest push.", author="dev@example.com", parent_comment_id=1
+                        comment_id=2,
+                        content="I agree, this needs work.",
+                        author="other@example.com",
+                    ),
+                    _make_comment(
+                        comment_id=3,
+                        content="Fixed in latest push.",
+                        author="dev@example.com",
+                        parent_comment_id=1,
                     ),
                 ],
             ),
@@ -1263,8 +1274,12 @@ class TestRunAzPrWorkItem:
     @patch("ado_api.commands.pr._link_work_item_to_pr")
     @patch("ado_api.commands.pr._get_pr_artifact_id", return_value=FAKE_ARTIFACT_ID)
     @patch("ado_api.commands.pr.call_ado_api")
-    def test_add_success(self, mock_api: MagicMock, _mock_artifact: MagicMock, mock_link: MagicMock) -> None:
-        mock_api.return_value = {"value": [{"id": "12345", "url": "https://dev.azure.com/..."}]}
+    def test_add_success(
+        self, mock_api: MagicMock, _mock_artifact: MagicMock, mock_link: MagicMock
+    ) -> None:
+        mock_api.return_value = {
+            "value": [{"id": "12345", "url": "https://dev.azure.com/..."}]
+        }
 
         result = _run_az_pr_work_item("add", 42, FAKE_CTX, [12345])
 
@@ -1275,7 +1290,9 @@ class TestRunAzPrWorkItem:
     @patch("ado_api.commands.pr._unlink_work_item_from_pr")
     @patch("ado_api.commands.pr._get_pr_artifact_id", return_value=FAKE_ARTIFACT_ID)
     @patch("ado_api.commands.pr.call_ado_api")
-    def test_remove_calls_unlink(self, mock_api: MagicMock, _mock_artifact: MagicMock, mock_unlink: MagicMock) -> None:
+    def test_remove_calls_unlink(
+        self, mock_api: MagicMock, _mock_artifact: MagicMock, mock_unlink: MagicMock
+    ) -> None:
         mock_api.return_value = {"value": []}
 
         _run_az_pr_work_item("remove", 42, FAKE_CTX, [12345])
@@ -1291,7 +1308,9 @@ class TestRunAzPrWorkItem:
     @patch("ado_api.commands.pr._link_work_item_to_pr")
     @patch("ado_api.commands.pr._get_pr_artifact_id", return_value=FAKE_ARTIFACT_ID)
     @patch("ado_api.commands.pr.call_ado_api")
-    def test_multiple_work_items(self, mock_api: MagicMock, _mock_artifact: MagicMock, mock_link: MagicMock) -> None:
+    def test_multiple_work_items(
+        self, mock_api: MagicMock, _mock_artifact: MagicMock, mock_link: MagicMock
+    ) -> None:
         mock_api.return_value = {"value": [{"id": "12345"}, {"id": "12346"}]}
 
         result = _run_az_pr_work_item("add", 42, FAKE_CTX, [12345, 12346])

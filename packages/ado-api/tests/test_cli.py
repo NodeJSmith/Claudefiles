@@ -8,14 +8,23 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from ado_api.az_client import AdoAuthError, AdoConfig, AdoConfigError
-from ado_api.cli import _EXIT_CODE_AUTH, _EXIT_CODE_CONFIG, _EXIT_CODE_INTERNAL, _EXIT_CODE_USAGE, AdoCli, main
+from ado_api.cli import (
+    _EXIT_CODE_AUTH,
+    _EXIT_CODE_CONFIG,
+    _EXIT_CODE_INTERNAL,
+    _EXIT_CODE_USAGE,
+    AdoCli,
+    main,
+)
 from ado_api.cli_context import _current_project
 from pydantic import ValidationError
 from pydantic_settings import CliApp
 
 _GOLDEN_DIR = Path(__file__).parent / "golden"
 
-_FAKE_CONFIG = AdoConfig(organization="https://dev.azure.com/testorg", project="TestProject")
+_FAKE_CONFIG = AdoConfig(
+    organization="https://dev.azure.com/testorg", project="TestProject"
+)
 
 
 @pytest.fixture(autouse=True)
@@ -106,14 +115,18 @@ class TestCliHelp:
         captured = capsys.readouterr()
         assert "create" in captured.out
 
-    def test_cli_pr_work_item_list_help(self, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_cli_pr_work_item_list_help(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         with pytest.raises(SystemExit) as exc_info:
             main(["pr", "work-item-list", "--help"])
         assert exc_info.value.code == 0
         captured = capsys.readouterr()
         assert "--json" in captured.out
 
-    def test_cli_pr_work_item_add_help(self, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_cli_pr_work_item_add_help(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         with pytest.raises(SystemExit) as exc_info:
             main(["pr", "work-item-add", "--help"])
         assert exc_info.value.code == 0
@@ -121,7 +134,9 @@ class TestCliHelp:
         assert "--work-items" in captured.out
         assert "--json" in captured.out
 
-    def test_cli_work_item_create_help(self, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_cli_work_item_create_help(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         with pytest.raises(SystemExit) as exc_info:
             main(["work-item", "create", "--help"])
         assert exc_info.value.code == 0
@@ -176,10 +191,14 @@ class TestProjectFlag:
             patch("ado_api.az_client.get_pat", return_value="fake-pat"),
             patch(
                 "ado_api.az_client.get_ado_config",
-                return_value=AdoConfig(organization="https://dev.azure.com/org", project="Default"),
+                return_value=AdoConfig(
+                    organization="https://dev.azure.com/org", project="Default"
+                ),
             ),
         ):
-            CliApp.run(AdoCli, cli_args=["--project", "Other Project", "builds", "list"])
+            CliApp.run(
+                AdoCli, cli_args=["--project", "Other Project", "builds", "list"]
+            )
             mock.assert_called_once()
             # First positional arg is the AdoContext
             ctx = mock.call_args[0][0]
@@ -202,7 +221,9 @@ class TestProjectFlag:
     def test_builds_approve_routes_with_ids(self) -> None:
         """builds approve 1001 1002 -y --json routes to approve handler."""
         with patch("ado_api.cli_models.builds.cmd_builds_approve") as mock:
-            CliApp.run(AdoCli, cli_args=["builds", "approve", "1001", "1002", "-y", "--json"])
+            CliApp.run(
+                AdoCli, cli_args=["builds", "approve", "1001", "1002", "-y", "--json"]
+            )
             mock.assert_called_once()
             call_args = mock.call_args
             assert call_args[0][1] == [1001, 1002]
@@ -239,7 +260,9 @@ class TestErrorHandling:
         mock_pat: MagicMock,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        mock_config.return_value = AdoConfig(organization="https://dev.azure.com/org", project="Proj")
+        mock_config.return_value = AdoConfig(
+            organization="https://dev.azure.com/org", project="Proj"
+        )
         mock_pat.side_effect = AdoAuthError("Missing Azure DevOps PAT")
         with pytest.raises(SystemExit) as exc_info:
             main(["logs", "list", "12345"])
@@ -258,7 +281,9 @@ class TestErrorHandling:
 class TestValidationErrors:
     """Verify user-friendly error messages for type coercion failures."""
 
-    def test_validation_error_logs_with_log_nonnumeric(self, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_validation_error_logs_with_log_nonnumeric(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """logs errors 123 --with-log abc -> friendly error, exit code 1."""
         with pytest.raises(SystemExit) as exc_info:
             main(["logs", "errors", "123", "--with-log", "abc"])
@@ -266,7 +291,9 @@ class TestValidationErrors:
         captured = capsys.readouterr()
         assert "Invalid command arguments" in captured.err
 
-    def test_validation_error_pr_show_nonnumeric(self, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_validation_error_pr_show_nonnumeric(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """pr show abc -> friendly error, exit code 1."""
         with pytest.raises(SystemExit) as exc_info:
             main(["pr", "show", "abc"])
@@ -274,7 +301,9 @@ class TestValidationErrors:
         captured = capsys.readouterr()
         assert "Invalid command arguments" in captured.err
 
-    def test_validation_error_builds_list_top_nonnumeric(self, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_validation_error_builds_list_top_nonnumeric(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """builds list --top abc -> friendly error, exit code 1."""
         with pytest.raises(SystemExit) as exc_info:
             main(["builds", "list", "--top", "abc"])
@@ -305,7 +334,10 @@ class TestContextVarResetOnException:
     def test_contextvar_reset_after_handler_exception(self) -> None:
         """ContextVar must not leak project value when handler raises."""
         with (
-            patch("ado_api.cli_models.builds.cmd_builds_list", side_effect=RuntimeError("boom")),
+            patch(
+                "ado_api.cli_models.builds.cmd_builds_list",
+                side_effect=RuntimeError("boom"),
+            ),
             pytest.raises(SystemExit),
         ):
             main(["--project", "LeakyProject", "builds", "list"])
@@ -368,9 +400,14 @@ class TestVariadicArgsLimit:
 class TestUnexpectedError:
     """Verify catch-all handler for unexpected exceptions."""
 
-    def test_unexpected_error_exit_code_4(self, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_unexpected_error_exit_code_4(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """Unexpected exception produces exit code 4."""
-        with patch("ado_api.cli_models.builds.cmd_builds_list", side_effect=RuntimeError("kaboom")):
+        with patch(
+            "ado_api.cli_models.builds.cmd_builds_list",
+            side_effect=RuntimeError("kaboom"),
+        ):
             with pytest.raises(SystemExit) as exc_info:
                 main(["builds", "list"])
             assert exc_info.value.code == _EXIT_CODE_INTERNAL
@@ -427,7 +464,11 @@ class TestProjectFlagReachesApi:
 
         # The API URL should contain the override project
         call_args = mock_api.call_args
-        url = call_args[0][1] if len(call_args[0]) > 1 else call_args.kwargs.get("url", "")
+        url = (
+            call_args[0][1]
+            if len(call_args[0]) > 1
+            else call_args.kwargs.get("url", "")
+        )
         assert "Override" in url
 
 
@@ -485,14 +526,18 @@ class TestOptionalPositional:
         with patch("ado_api.cli_models.pr.cmd_pr_show") as mock:
             CliApp.run(AdoCli, cli_args=["pr", "show", "123"])
             mock.assert_called_once()
-            assert mock.call_args[0][1] == 123  # verifies parsed value, not just dispatch
+            assert (
+                mock.call_args[0][1] == 123
+            )  # verifies parsed value, not just dispatch
 
     def test_pr_show_without_id(self) -> None:
         """pr show (no arg) parses pr_id=None."""
         with patch("ado_api.cli_models.pr.cmd_pr_show") as mock:
             CliApp.run(AdoCli, cli_args=["pr", "show"])
             mock.assert_called_once()
-            assert mock.call_args[0][1] is None  # verifies None default, not just dispatch
+            assert (
+                mock.call_args[0][1] is None
+            )  # verifies None default, not just dispatch
 
 
 class TestVariadicArgs:
@@ -527,17 +572,31 @@ class TestHyphenatedAliasRouting:
 
     def test_work_item_add(self) -> None:
         with patch("ado_api.cli_models.pr.cmd_pr_work_item_add") as mock:
-            CliApp.run(AdoCli, cli_args=["pr", "work-item-add", "--work-items", "100,200"])
+            CliApp.run(
+                AdoCli, cli_args=["pr", "work-item-add", "--work-items", "100,200"]
+            )
             mock.assert_called_once()
 
     def test_work_item_remove(self) -> None:
         with patch("ado_api.cli_models.pr.cmd_pr_work_item_remove") as mock:
-            CliApp.run(AdoCli, cli_args=["pr", "work-item-remove", "--work-items", "100"])
+            CliApp.run(
+                AdoCli, cli_args=["pr", "work-item-remove", "--work-items", "100"]
+            )
             mock.assert_called_once()
 
     def test_work_item_create(self) -> None:
         with patch("ado_api.cli_models.pr.cmd_pr_work_item_create") as mock:
-            CliApp.run(AdoCli, cli_args=["pr", "work-item-create", "--title", "Fix bug", "--type", "Task"])
+            CliApp.run(
+                AdoCli,
+                cli_args=[
+                    "pr",
+                    "work-item-create",
+                    "--title",
+                    "Fix bug",
+                    "--type",
+                    "Task",
+                ],
+            )
             mock.assert_called_once()
 
 
@@ -550,7 +609,11 @@ class TestStartupLatency:
         for _ in range(10):
             start = time.perf_counter()
             result = subprocess.run(
-                [sys.executable, "-c", "from ado_api.cli import main; main(['--help'])"],
+                [
+                    sys.executable,
+                    "-c",
+                    "from ado_api.cli import main; main(['--help'])",
+                ],
                 capture_output=True,
                 text=True,
             )
@@ -562,7 +625,9 @@ class TestStartupLatency:
         p95 = times[9]  # 10 samples, p95 = max
         # pydantic-settings import overhead is ~500-700ms in subprocess.
         # Threshold is generous to avoid flaky CI failures.
-        assert p95 < 5.0, f"p95 startup latency {p95:.3f}s exceeds 5.0s threshold. All times: {times}"
+        assert p95 < 5.0, (
+            f"p95 startup latency {p95:.3f}s exceeds 5.0s threshold. All times: {times}"
+        )
 
 
 class TestOptimizedPython:
@@ -585,6 +650,8 @@ class TestOptimizedPython:
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"
         # Descriptions should be present (from Field(..., description=), not docstrings)
-        assert "PR ID" in result.stdout or "pr_id" in result.stdout or "auto-detect" in result.stdout.lower(), (
-            f"Help descriptions missing under -OO:\n{result.stdout}"
-        )
+        assert (
+            "PR ID" in result.stdout
+            or "pr_id" in result.stdout
+            or "auto-detect" in result.stdout.lower()
+        ), f"Help descriptions missing under -OO:\n{result.stdout}"

@@ -3,7 +3,12 @@
 import sys
 from typing import Any
 
-from ado_api.az_client import ADO_API_VERSION, AdoContext, call_ado_api, call_ado_api_text
+from ado_api.az_client import (
+    ADO_API_VERSION,
+    AdoContext,
+    call_ado_api,
+    call_ado_api_text,
+)
 from ado_api.formatting import format_duration, json_output, tsv_table
 
 _FAILED_RESULTS = frozenset({"failed", "succeededWithIssues"})
@@ -146,11 +151,14 @@ def cmd_logs_errors(
     failed = [
         r
         for r in records
-        if r.get("result") in _FAILED_RESULTS and (r.get("errorCount", 0) > 0 or r.get("warningCount", 0) > 0)
+        if r.get("result") in _FAILED_RESULTS
+        and (r.get("errorCount", 0) > 0 or r.get("warningCount", 0) > 0)
     ]
 
     if as_json:
-        json_output([_record_to_dict(r) | {"issues": r.get("issues", [])} for r in failed])
+        json_output(
+            [_record_to_dict(r) | {"issues": r.get("issues", [])} for r in failed]
+        )
         return
 
     for record in failed:

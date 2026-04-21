@@ -14,7 +14,9 @@ from ado_api.commands.work_item import (
 
 # ── Fixtures ──────────────────────────────────────────────────────────
 
-FAKE_CONFIG = AdoConfig(organization="https://dev.azure.com/myorg", project="My Project")
+FAKE_CONFIG = AdoConfig(
+    organization="https://dev.azure.com/myorg", project="My Project"
+)
 FAKE_PAT = "fake-pat-token"
 FAKE_CTX = AdoContext(config=FAKE_CONFIG, pat=FAKE_PAT)
 
@@ -210,7 +212,9 @@ class TestCmdWorkItemCreate:
     """cmd_work_item_create — command handler with TSV/JSON output."""
 
     @patch("ado_api.commands.work_item._create_work_item")
-    def test_tsv_output(self, mock_create: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_tsv_output(
+        self, mock_create: MagicMock, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         mock_create.return_value = {
             "id": 12345,
             "rev": 1,
@@ -241,10 +245,14 @@ class TestCmdWorkItemCreate:
         # Verify title truncation (60 chars)
         title_col = lines[1].split("\t")[2]
         assert len(title_col) == 60
-        assert title_col == "This is a really long title that should be truncated to s..."
+        assert (
+            title_col == "This is a really long title that should be truncated to s..."
+        )
 
     @patch("ado_api.commands.work_item._create_work_item")
-    def test_tsv_output_unassigned(self, mock_create: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_tsv_output_unassigned(
+        self, mock_create: MagicMock, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         mock_create.return_value = {
             "id": 12345,
             "rev": 1,
@@ -272,7 +280,9 @@ class TestCmdWorkItemCreate:
         assert "(unassigned)" in lines[1]
 
     @patch("ado_api.commands.work_item._create_work_item")
-    def test_json_output(self, mock_create: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_json_output(
+        self, mock_create: MagicMock, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         mock_create.return_value = {
             "id": 12345,
             "rev": 1,

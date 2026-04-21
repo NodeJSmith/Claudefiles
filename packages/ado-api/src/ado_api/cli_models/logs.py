@@ -4,7 +4,12 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic_settings import CliApp, CliPositionalArg, CliSubCommand
 
 from ado_api.cli_context import _make_ctx
-from ado_api.commands.logs import cmd_logs_errors, cmd_logs_get, cmd_logs_list, cmd_logs_search
+from ado_api.commands.logs import (
+    cmd_logs_errors,
+    cmd_logs_get,
+    cmd_logs_list,
+    cmd_logs_search,
+)
 
 
 class LogsList(BaseModel):
@@ -12,12 +17,20 @@ class LogsList(BaseModel):
 
     build_id: CliPositionalArg[int] = Field(description="Build ID")
     failed: bool = Field(False, description="Only show failed steps")
-    record_type: str | None = Field(None, alias="type", description="Filter by record type")
+    record_type: str | None = Field(
+        None, alias="type", description="Filter by record type"
+    )
     json_output: bool = Field(False, alias="json", description="Output as JSON")
 
     def cli_cmd(self) -> None:
         ctx = _make_ctx()
-        cmd_logs_list(ctx, self.build_id, failed=self.failed, record_type=self.record_type, as_json=self.json_output)
+        cmd_logs_list(
+            ctx,
+            self.build_id,
+            failed=self.failed,
+            record_type=self.record_type,
+            as_json=self.json_output,
+        )
 
 
 class LogsGet(BaseModel):
@@ -39,7 +52,11 @@ class LogsErrors(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     build_id: CliPositionalArg[int] = Field(description="Build ID")
-    with_log: int | None = Field(None, alias="with-log", description="Include last N lines of each log (default: 50)")
+    with_log: int | None = Field(
+        None,
+        alias="with-log",
+        description="Include last N lines of each log (default: 50)",
+    )
     json_output: bool = Field(False, alias="json", description="Output as JSON")
 
     @field_validator("with_log", mode="before")
@@ -56,7 +73,9 @@ class LogsErrors(BaseModel):
 
     def cli_cmd(self) -> None:
         ctx = _make_ctx()
-        cmd_logs_errors(ctx, self.build_id, with_log=self.with_log, as_json=self.json_output)
+        cmd_logs_errors(
+            ctx, self.build_id, with_log=self.with_log, as_json=self.json_output
+        )
 
 
 class LogsSearch(BaseModel):
@@ -69,7 +88,9 @@ class LogsSearch(BaseModel):
 
     def cli_cmd(self) -> None:
         ctx = _make_ctx()
-        cmd_logs_search(ctx, self.build_id, self.pattern, step=self.step, context=self.context)
+        cmd_logs_search(
+            ctx, self.build_id, self.pattern, step=self.step, context=self.context
+        )
 
 
 class Logs(BaseModel):
@@ -77,7 +98,9 @@ class Logs(BaseModel):
 
     list: CliSubCommand[LogsList] = Field(description="List timeline steps")
     get: CliSubCommand[LogsGet] = Field(description="Fetch raw log content")
-    errors: CliSubCommand[LogsErrors] = Field(description="Show errors from failed steps")
+    errors: CliSubCommand[LogsErrors] = Field(
+        description="Show errors from failed steps"
+    )
     search: CliSubCommand[LogsSearch] = Field(description="Search across build logs")
 
     def cli_cmd(self) -> None:

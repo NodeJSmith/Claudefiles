@@ -31,14 +31,18 @@ class TestFormatWaiting:
     def test_recent_timestamp_shows_minutes(self) -> None:
         from datetime import UTC, datetime, timedelta
 
-        recent = (datetime.now(UTC) - timedelta(minutes=15)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        recent = (datetime.now(UTC) - timedelta(minutes=15)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
         result = _format_waiting(recent)
         assert "m" in result
 
     def test_old_timestamp_shows_hours(self) -> None:
         from datetime import UTC, datetime, timedelta
 
-        old = (datetime.now(UTC) - timedelta(hours=2, minutes=15)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        old = (datetime.now(UTC) - timedelta(hours=2, minutes=15)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
         result = _format_waiting(old)
         assert "h" in result
 
@@ -52,7 +56,13 @@ class TestBuildApprovalMap:
                 "id": "approval-abc",
                 "pipeline": {
                     "name": "deploy-prod",
-                    "owner": {"_links": {"self": {"href": "https://dev.azure.com/org/proj/_apis/build/builds/1001"}}},
+                    "owner": {
+                        "_links": {
+                            "self": {
+                                "href": "https://dev.azure.com/org/proj/_apis/build/builds/1001"
+                            }
+                        }
+                    },
                 },
             }
         ]
@@ -64,7 +74,11 @@ class TestBuildApprovalMap:
         approvals = [
             {
                 "id": "approval-abc",
-                "pipeline": {"owner": {"_links": {"self": {"href": "https://example.com/not-a-number"}}}},
+                "pipeline": {
+                    "owner": {
+                        "_links": {"self": {"href": "https://example.com/not-a-number"}}
+                    }
+                },
             }
         ]
         result = _build_approval_map(approvals)
@@ -87,16 +101,24 @@ class TestApproveOne:
 
     @patch("ado_api.commands.approve._check_approval_state", return_value="approved")
     @patch("ado_api.commands.approve.call_ado_api")
-    def test_approve_500_verified_as_already_approved(self, mock_api: MagicMock, _mock_check: MagicMock) -> None:
-        mock_api.side_effect = AdoApiError("ADO API PATCH ... failed (500): Internal Server Error")
+    def test_approve_500_verified_as_already_approved(
+        self, mock_api: MagicMock, _mock_check: MagicMock
+    ) -> None:
+        mock_api.side_effect = AdoApiError(
+            "ADO API PATCH ... failed (500): Internal Server Error"
+        )
         ctx = _make_ctx()
         result = _approve_one(ctx, "approval-123")
         assert result == "already_approved"
 
     @patch("ado_api.commands.approve._check_approval_state", return_value="pending")
     @patch("ado_api.commands.approve.call_ado_api")
-    def test_approve_500_not_actually_approved_raises(self, mock_api: MagicMock, _mock_check: MagicMock) -> None:
-        mock_api.side_effect = AdoApiError("ADO API PATCH ... failed (500): Internal Server Error")
+    def test_approve_500_not_actually_approved_raises(
+        self, mock_api: MagicMock, _mock_check: MagicMock
+    ) -> None:
+        mock_api.side_effect = AdoApiError(
+            "ADO API PATCH ... failed (500): Internal Server Error"
+        )
         ctx = _make_ctx()
         with pytest.raises(AdoApiError, match="500"):
             _approve_one(ctx, "approval-123")
@@ -139,7 +161,13 @@ class TestCmdBuildsApproveList:
                 "id": "approval-abc",
                 "pipeline": {
                     "name": "deploy-prod",
-                    "owner": {"_links": {"self": {"href": "https://dev.azure.com/org/proj/_apis/build/builds/1001"}}},
+                    "owner": {
+                        "_links": {
+                            "self": {
+                                "href": "https://dev.azure.com/org/proj/_apis/build/builds/1001"
+                            }
+                        }
+                    },
                 },
             }
         ]
@@ -172,7 +200,13 @@ class TestCmdBuildsApproveList:
                 "id": "approval-abc",
                 "pipeline": {
                     "name": "deploy-prod",
-                    "owner": {"_links": {"self": {"href": "https://dev.azure.com/org/proj/_apis/build/builds/1001"}}},
+                    "owner": {
+                        "_links": {
+                            "self": {
+                                "href": "https://dev.azure.com/org/proj/_apis/build/builds/1001"
+                            }
+                        }
+                    },
                 },
             }
         ]
@@ -211,7 +245,13 @@ class TestCmdBuildsApprove:
                 "id": "approval-abc",
                 "pipeline": {
                     "name": "deploy-prod",
-                    "owner": {"_links": {"self": {"href": "https://dev.azure.com/org/proj/_apis/build/builds/1001"}}},
+                    "owner": {
+                        "_links": {
+                            "self": {
+                                "href": "https://dev.azure.com/org/proj/_apis/build/builds/1001"
+                            }
+                        }
+                    },
                 },
             }
         ]
@@ -250,14 +290,26 @@ class TestCmdBuildsApprove:
                 "id": "approval-1",
                 "pipeline": {
                     "name": "pipeline-a",
-                    "owner": {"_links": {"self": {"href": "https://dev.azure.com/org/proj/_apis/build/builds/1001"}}},
+                    "owner": {
+                        "_links": {
+                            "self": {
+                                "href": "https://dev.azure.com/org/proj/_apis/build/builds/1001"
+                            }
+                        }
+                    },
                 },
             },
             {
                 "id": "approval-2",
                 "pipeline": {
                     "name": "pipeline-b",
-                    "owner": {"_links": {"self": {"href": "https://dev.azure.com/org/proj/_apis/build/builds/1002"}}},
+                    "owner": {
+                        "_links": {
+                            "self": {
+                                "href": "https://dev.azure.com/org/proj/_apis/build/builds/1002"
+                            }
+                        }
+                    },
                 },
             },
         ]
@@ -286,7 +338,13 @@ class TestCmdBuildsApprove:
                 "id": "approval-1",
                 "pipeline": {
                     "name": "pipeline-a",
-                    "owner": {"_links": {"self": {"href": "https://dev.azure.com/org/proj/_apis/build/builds/1001"}}},
+                    "owner": {
+                        "_links": {
+                            "self": {
+                                "href": "https://dev.azure.com/org/proj/_apis/build/builds/1001"
+                            }
+                        }
+                    },
                 },
             },
         ]

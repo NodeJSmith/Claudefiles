@@ -66,18 +66,28 @@ def _create_work_item(
     ]
 
     if assigned_to is not None:
-        patch_body.append({"op": "add", "path": "/fields/System.AssignedTo", "value": assigned_to})
+        patch_body.append(
+            {"op": "add", "path": "/fields/System.AssignedTo", "value": assigned_to}
+        )
     if area is not None:
-        patch_body.append({"op": "add", "path": "/fields/System.AreaPath", "value": area})
+        patch_body.append(
+            {"op": "add", "path": "/fields/System.AreaPath", "value": area}
+        )
     if iteration is not None:
-        patch_body.append({"op": "add", "path": "/fields/System.IterationPath", "value": iteration})
+        patch_body.append(
+            {"op": "add", "path": "/fields/System.IterationPath", "value": iteration}
+        )
     if description is not None:
-        patch_body.append({"op": "add", "path": "/fields/System.Description", "value": description})
+        patch_body.append(
+            {"op": "add", "path": "/fields/System.Description", "value": description}
+        )
     if fields is not None:
         for field_str in fields:
             key, _, value = field_str.partition("=")
             if key:
-                patch_body.append({"op": "add", "path": f"/fields/{key}", "value": value})
+                patch_body.append(
+                    {"op": "add", "path": f"/fields/{key}", "value": value}
+                )
 
     # URL-encode the type name (e.g., "User Story" -> "User%20Story")
     type_encoded = type_name.replace(" ", "%20")

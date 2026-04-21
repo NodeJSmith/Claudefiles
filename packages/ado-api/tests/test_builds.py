@@ -5,7 +5,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from ado_api.az_client import AdoConfig, AdoContext
-from ado_api.commands.builds import cmd_builds_cancel, cmd_builds_cancel_by_tag, cmd_builds_list
+from ado_api.commands.builds import (
+    cmd_builds_cancel,
+    cmd_builds_cancel_by_tag,
+    cmd_builds_list,
+)
 
 # ── Sample data ──────────────────────────────────────────────────────────
 
@@ -35,7 +39,9 @@ class TestBuildsListBasic:
     """builds list — basic TSV formatting."""
 
     @patch("ado_api.commands.builds.call_ado_api")
-    def test_builds_list_basic(self, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_builds_list_basic(
+        self, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         mock_api.return_value = {"value": _SAMPLE_BUILDS}
 
         cmd_builds_list(FAKE_CTX, as_json=False)
@@ -70,7 +76,9 @@ class TestBuildsListBasic:
         assert "statusFilter=inProgress" in url
 
     @patch("ado_api.commands.builds.call_ado_api")
-    def test_builds_list_json(self, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_builds_list_json(
+        self, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         mock_api.return_value = {"value": _SAMPLE_BUILDS}
 
         cmd_builds_list(FAKE_CTX, as_json=True)
@@ -85,7 +93,9 @@ class TestBuildsCancel:
     """builds cancel — cancel one or more builds by ID."""
 
     @patch("ado_api.commands.builds.call_ado_api")
-    def test_builds_cancel_single(self, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_builds_cancel_single(
+        self, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         # First call: GET (returns inProgress), second call: PATCH (cancel)
         mock_api.side_effect = [
             {"id": 1002, "status": "inProgress", "result": None},
@@ -99,8 +109,14 @@ class TestBuildsCancel:
         assert mock_api.call_count == 2
 
     @patch("ado_api.commands.builds.call_ado_api")
-    def test_builds_cancel_skip_completed(self, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
-        mock_api.return_value = {"id": 1001, "status": "completed", "result": "succeeded"}
+    def test_builds_cancel_skip_completed(
+        self, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        mock_api.return_value = {
+            "id": 1001,
+            "status": "completed",
+            "result": "succeeded",
+        }
 
         cmd_builds_cancel(FAKE_CTX, build_ids=[1001])
 
@@ -111,7 +127,9 @@ class TestBuildsCancel:
         assert mock_api.call_count == 1
 
     @patch("ado_api.commands.builds.call_ado_api")
-    def test_builds_cancel_skip_cancelling(self, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_builds_cancel_skip_cancelling(
+        self, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         mock_api.return_value = {"id": 1003, "status": "cancelling", "result": None}
 
         cmd_builds_cancel(FAKE_CTX, build_ids=[1003])
@@ -121,7 +139,9 @@ class TestBuildsCancel:
         assert "cancelling" in captured.out
 
     @patch("ado_api.commands.builds.call_ado_api")
-    def test_builds_cancel_multiple(self, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_builds_cancel_multiple(
+        self, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         mock_api.side_effect = [
             # Build 1001: completed -> skip
             {"id": 1001, "status": "completed", "result": "succeeded"},
@@ -142,11 +162,31 @@ class TestBuildsCancelByTag:
     """builds cancel-by-tag — cancel all in-progress builds matching a tag."""
 
     @patch("ado_api.commands.builds.call_ado_api")
-    def test_builds_cancel_by_tag(self, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_builds_cancel_by_tag(
+        self, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         builds = [
-            {"id": 2001, "status": "completed", "result": "succeeded", "definition": {"name": "P1"}, "tags": []},
-            {"id": 2002, "status": "inProgress", "result": None, "definition": {"name": "P2"}, "tags": []},
-            {"id": 2003, "status": "notStarted", "result": None, "definition": {"name": "P3"}, "tags": []},
+            {
+                "id": 2001,
+                "status": "completed",
+                "result": "succeeded",
+                "definition": {"name": "P1"},
+                "tags": [],
+            },
+            {
+                "id": 2002,
+                "status": "inProgress",
+                "result": None,
+                "definition": {"name": "P2"},
+                "tags": [],
+            },
+            {
+                "id": 2003,
+                "status": "notStarted",
+                "result": None,
+                "definition": {"name": "P3"},
+                "tags": [],
+            },
         ]
         mock_api.side_effect = [
             {"value": builds},  # list
@@ -178,7 +218,9 @@ class TestBuildsCancelByTag:
         assert "branchName=refs/heads/develop" in url
 
     @patch("ado_api.commands.builds.call_ado_api")
-    def test_builds_cancel_by_tag_no_builds(self, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_builds_cancel_by_tag_no_builds(
+        self, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         mock_api.return_value = {"value": []}
 
         cmd_builds_cancel_by_tag(FAKE_CTX, tag="no-match", branch="master")

@@ -48,7 +48,9 @@ class TestPrListRepoDetection:
 
         mock_repo.assert_called_once()
         mock_ctx.assert_called_once_with(repo=None)
-        mock_cmd.assert_called_once_with(fake_ctx, status="active", author=None, top=50, as_json=False)
+        mock_cmd.assert_called_once_with(
+            fake_ctx, status="active", author=None, top=50, as_json=False
+        )
 
 
 class TestPrShowPositiveIdValidation:

@@ -186,7 +186,9 @@ def cmd_builds_approve_list(
     headers = ("BUILD", "PIPELINE", "BRANCH", "REQUESTED_BY", "WAITING")
     col_widths = [
         max(len(headers[i]), *(len(str(r[k])) for r in rows))
-        for i, k in enumerate(["build_id", "pipeline_name", "source_branch", "requested_for", "waiting"])
+        for i, k in enumerate(
+            ["build_id", "pipeline_name", "source_branch", "requested_for", "waiting"]
+        )
     ]
 
     header_line = "  ".join(h.ljust(w) for h, w in zip(headers, col_widths))
@@ -222,7 +224,9 @@ def cmd_builds_approve(
     for bid in build_ids:
         approval = approval_map.get(bid)
         if not approval:
-            print(f"Warning: No pending approval found for build {bid}", file=sys.stderr)
+            print(
+                f"Warning: No pending approval found for build {bid}", file=sys.stderr
+            )
             continue
         to_approve.append(
             {
@@ -287,7 +291,9 @@ def cmd_builds_approve(
 
     if failed_ids:
         # Write failed IDs to temp file for deterministic retry
-        with tempfile.NamedTemporaryFile(mode="w", prefix="ado-approve-failed-", suffix=".txt", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", prefix="ado-approve-failed-", suffix=".txt", delete=False
+        ) as f:
             for fid in failed_ids:
                 f.write(f"{fid}\n")
             print(f"\nFailed build IDs written to: {f.name}", file=sys.stderr)

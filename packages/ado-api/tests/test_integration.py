@@ -42,10 +42,16 @@ class TestBuildsListIntegration:
     @patch("ado_api.az_client.get_pat", return_value="fake-pat")
     @patch(
         "ado_api.az_client.get_ado_config",
-        return_value=AdoConfig(organization="https://dev.azure.com/org", project="Proj"),
+        return_value=AdoConfig(
+            organization="https://dev.azure.com/org", project="Proj"
+        ),
     )
     def test_builds_list_tsv(
-        self, _mock_config: MagicMock, _mock_pat: MagicMock, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]
+        self,
+        _mock_config: MagicMock,
+        _mock_pat: MagicMock,
+        mock_api: MagicMock,
+        capsys: pytest.CaptureFixture[str],
     ) -> None:
         mock_api.return_value = {"value": _BUILDS_LIST_DATA}
         main(["builds", "list"])
@@ -59,10 +65,16 @@ class TestBuildsListIntegration:
     @patch("ado_api.az_client.get_pat", return_value="fake-pat")
     @patch(
         "ado_api.az_client.get_ado_config",
-        return_value=AdoConfig(organization="https://dev.azure.com/org", project="Proj"),
+        return_value=AdoConfig(
+            organization="https://dev.azure.com/org", project="Proj"
+        ),
     )
     def test_builds_list_json(
-        self, _mock_config: MagicMock, _mock_pat: MagicMock, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]
+        self,
+        _mock_config: MagicMock,
+        _mock_pat: MagicMock,
+        mock_api: MagicMock,
+        capsys: pytest.CaptureFixture[str],
     ) -> None:
         mock_api.return_value = {"value": _BUILDS_LIST_DATA}
         main(["builds", "list", "--json", "--tags", "abc1234"])
@@ -75,7 +87,9 @@ class TestBuildsListIntegration:
     @patch("ado_api.az_client.get_pat", return_value="fake-pat")
     @patch(
         "ado_api.az_client.get_ado_config",
-        return_value=AdoConfig(organization="https://dev.azure.com/org", project="Proj"),
+        return_value=AdoConfig(
+            organization="https://dev.azure.com/org", project="Proj"
+        ),
     )
     def test_builds_list_with_tags_passes_flag(
         self, _mock_config: MagicMock, _mock_pat: MagicMock, mock_api: MagicMock
@@ -94,10 +108,16 @@ class TestBuildsCancelIntegration:
     @patch("ado_api.az_client.get_pat", return_value="fake-pat")
     @patch(
         "ado_api.az_client.get_ado_config",
-        return_value=AdoConfig(organization="https://dev.azure.com/org", project="Proj"),
+        return_value=AdoConfig(
+            organization="https://dev.azure.com/org", project="Proj"
+        ),
     )
     def test_builds_cancel_full_cli(
-        self, _mock_config: MagicMock, _mock_pat: MagicMock, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]
+        self,
+        _mock_config: MagicMock,
+        _mock_pat: MagicMock,
+        mock_api: MagicMock,
+        capsys: pytest.CaptureFixture[str],
     ) -> None:
         mock_api.side_effect = [
             {"id": 1002, "status": "inProgress"},  # GET show
@@ -122,7 +142,9 @@ class TestLogsListIntegration:
         mock_api: MagicMock,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        mock_config.return_value = AdoConfig(organization="https://dev.azure.com/org", project="Proj")
+        mock_config.return_value = AdoConfig(
+            organization="https://dev.azure.com/org", project="Proj"
+        )
         mock_pat.return_value = "fake-pat"
         mock_api.return_value = {
             "records": [
@@ -159,7 +181,9 @@ class TestLogsErrorsIntegration:
         mock_api: MagicMock,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        mock_config.return_value = AdoConfig(organization="https://dev.azure.com/org", project="Proj")
+        mock_config.return_value = AdoConfig(
+            organization="https://dev.azure.com/org", project="Proj"
+        )
         mock_pat.return_value = "fake-pat"
         mock_api.return_value = {
             "records": [
@@ -197,7 +221,9 @@ class TestPrThreadsIntegration:
         mock_api: MagicMock,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        mock_config.return_value = AdoConfig(organization="https://dev.azure.com/org", project="Proj")
+        mock_config.return_value = AdoConfig(
+            organization="https://dev.azure.com/org", project="Proj"
+        )
         mock_pat.return_value = "fake-pat"
         mock_repo.return_value = "my-repo"
         mock_api.return_value = {
@@ -257,7 +283,9 @@ class TestPrThreadsIntegration:
         mock_api: MagicMock,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        mock_config.return_value = AdoConfig(organization="https://dev.azure.com/org", project="Proj")
+        mock_config.return_value = AdoConfig(
+            organization="https://dev.azure.com/org", project="Proj"
+        )
         mock_pat.return_value = "fake-pat"
         mock_repo.return_value = "my-repo"
         mock_api.return_value = {
@@ -265,12 +293,24 @@ class TestPrThreadsIntegration:
                 {
                     "id": 1,
                     "status": "active",
-                    "comments": [{"id": 1, "content": "Active thread", "author": {"uniqueName": "a@b.com"}}],
+                    "comments": [
+                        {
+                            "id": 1,
+                            "content": "Active thread",
+                            "author": {"uniqueName": "a@b.com"},
+                        }
+                    ],
                 },
                 {
                     "id": 2,
                     "status": "fixed",
-                    "comments": [{"id": 1, "content": "Resolved thread", "author": {"uniqueName": "c@d.com"}}],
+                    "comments": [
+                        {
+                            "id": 1,
+                            "content": "Resolved thread",
+                            "author": {"uniqueName": "c@d.com"},
+                        }
+                    ],
                 },
             ],
         }
@@ -335,7 +375,11 @@ class TestApprovePartialFailure:
                     "pipeline": {
                         "name": "deploy-prod",
                         "owner": {
-                            "_links": {"self": {"href": "https://dev.azure.com/org/Proj/_apis/build/builds/1001"}}
+                            "_links": {
+                                "self": {
+                                    "href": "https://dev.azure.com/org/Proj/_apis/build/builds/1001"
+                                }
+                            }
                         },
                     },
                 },
@@ -345,7 +389,11 @@ class TestApprovePartialFailure:
                     "pipeline": {
                         "name": "deploy-stage",
                         "owner": {
-                            "_links": {"self": {"href": "https://dev.azure.com/org/Proj/_apis/build/builds/1002"}}
+                            "_links": {
+                                "self": {
+                                    "href": "https://dev.azure.com/org/Proj/_apis/build/builds/1002"
+                                }
+                            }
                         },
                     },
                 },
@@ -397,11 +445,16 @@ class TestApprovePartialFailure:
         stderr_deterministic = "\n".join(
             line
             for line in captured.err.splitlines()
-            if not line.startswith("Failed build IDs written to:") and not line.startswith("Retry with:")
+            if not line.startswith("Failed build IDs written to:")
+            and not line.startswith("Retry with:")
         ).strip()
-        actual_combined = f"STDOUT:\n{captured.out.strip()}\n\nSTDERR:\n{stderr_deterministic}\n"
+        actual_combined = (
+            f"STDOUT:\n{captured.out.strip()}\n\nSTDERR:\n{stderr_deterministic}\n"
+        )
         expected = golden_path.read_text()
-        assert _normalize_whitespace(actual_combined) == _normalize_whitespace(expected), (
+        assert _normalize_whitespace(actual_combined) == _normalize_whitespace(
+            expected
+        ), (
             f"Output does not match golden file {golden_path.name}.\nActual:\n{actual_combined}"
         )
 
@@ -491,12 +544,18 @@ class TestResolvePartialFailure:
         captured = capsys.readouterr()
 
         # Compare against golden baseline
-        golden_path = Path(__file__).parent / "golden" / "resolve_partial_failure_baseline.txt"
+        golden_path = (
+            Path(__file__).parent / "golden" / "resolve_partial_failure_baseline.txt"
+        )
         assert golden_path.exists(), f"Golden file missing: {golden_path}"
 
-        actual_combined = f"STDOUT:\n{captured.out.strip()}\n\nSTDERR:\n{captured.err.strip()}\n"
+        actual_combined = (
+            f"STDOUT:\n{captured.out.strip()}\n\nSTDERR:\n{captured.err.strip()}\n"
+        )
         expected = golden_path.read_text()
-        assert _normalize_whitespace(actual_combined) == _normalize_whitespace(expected), (
+        assert _normalize_whitespace(actual_combined) == _normalize_whitespace(
+            expected
+        ), (
             f"Output does not match golden file {golden_path.name}.\nActual:\n{actual_combined}"
         )
 
@@ -528,7 +587,9 @@ class TestWorkItemAddPartialFailure:
         """When one work item link fails and another succeeds, both are reported and exit is 1."""
         mock_config.return_value = _fake_ado_config()
 
-        def run_side_effect(_action: str, _pr_id: int, _ctx: object, work_item_ids: list[int]) -> None:
+        def run_side_effect(
+            _action: str, _pr_id: int, _ctx: object, work_item_ids: list[int]
+        ) -> None:
             wid = work_item_ids[0]
             if wid == 100:
                 return  # success

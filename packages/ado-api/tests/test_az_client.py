@@ -22,7 +22,9 @@ from ado_api.az_client import (
 class TestGetPat:
     """PAT resolution follows the priority order: SYSTEM_ACCESSTOKEN > ADO_PAT > file."""
 
-    def test_get_pat_from_env_system_accesstoken(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_get_pat_from_env_system_accesstoken(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setenv("SYSTEM_ACCESSTOKEN", "system-token-123")
         monkeypatch.delenv("ADO_PAT", raising=False)
         assert get_pat() == "system-token-123"
@@ -32,12 +34,16 @@ class TestGetPat:
         monkeypatch.setenv("ADO_PAT", "ado-pat-456")
         assert get_pat() == "ado-pat-456"
 
-    def test_system_accesstoken_takes_priority_over_ado_pat(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_system_accesstoken_takes_priority_over_ado_pat(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setenv("SYSTEM_ACCESSTOKEN", "system-token")
         monkeypatch.setenv("ADO_PAT", "ado-pat")
         assert get_pat() == "system-token"
 
-    def test_get_pat_from_file(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def test_get_pat_from_file(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         monkeypatch.delenv("SYSTEM_ACCESSTOKEN", raising=False)
         monkeypatch.delenv("ADO_PAT", raising=False)
 
@@ -47,7 +53,9 @@ class TestGetPat:
         with patch("ado_api.az_client._PAT_FILE", pat_file):
             assert get_pat() == "file-pat-789"
 
-    def test_get_pat_missing_raises_error(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def test_get_pat_missing_raises_error(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         monkeypatch.delenv("SYSTEM_ACCESSTOKEN", raising=False)
         monkeypatch.delenv("ADO_PAT", raising=False)
 
@@ -58,7 +66,9 @@ class TestGetPat:
         ):
             get_pat()
 
-    def test_get_pat_file_empty_data_raises_error(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def test_get_pat_file_empty_data_raises_error(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         monkeypatch.delenv("SYSTEM_ACCESSTOKEN", raising=False)
         monkeypatch.delenv("ADO_PAT", raising=False)
 
@@ -92,11 +102,15 @@ class TestAdoConfig:
     """AdoConfig frozen dataclass and URL encoding."""
 
     def test_project_encoded_no_spaces(self) -> None:
-        config = AdoConfig(organization="https://dev.azure.com/org", project="MyProject")
+        config = AdoConfig(
+            organization="https://dev.azure.com/org", project="MyProject"
+        )
         assert config.project_encoded == "MyProject"
 
     def test_project_encoded_with_spaces(self) -> None:
-        config = AdoConfig(organization="https://dev.azure.com/org", project="My Project Name")
+        config = AdoConfig(
+            organization="https://dev.azure.com/org", project="My Project Name"
+        )
         assert config.project_encoded == "My%20Project%20Name"
 
     def test_frozen(self) -> None:
@@ -188,8 +202,12 @@ class TestAdoContextFromEnv:
 
     @patch("ado_api.az_client.get_pat", return_value="env-pat")
     @patch("ado_api.az_client.get_ado_config")
-    def test_from_env_no_overrides(self, mock_config: MagicMock, _mock_pat: MagicMock) -> None:
-        mock_config.return_value = AdoConfig(organization="https://dev.azure.com/org", project="Default Project")
+    def test_from_env_no_overrides(
+        self, mock_config: MagicMock, _mock_pat: MagicMock
+    ) -> None:
+        mock_config.return_value = AdoConfig(
+            organization="https://dev.azure.com/org", project="Default Project"
+        )
         ctx = AdoContext.from_env()
         assert ctx.config.project == "Default Project"
         assert ctx.config.organization == "https://dev.azure.com/org"
@@ -198,31 +216,47 @@ class TestAdoContextFromEnv:
 
     @patch("ado_api.az_client.get_pat", return_value="env-pat")
     @patch("ado_api.az_client.get_ado_config")
-    def test_from_env_project_override(self, mock_config: MagicMock, _mock_pat: MagicMock) -> None:
-        mock_config.return_value = AdoConfig(organization="https://dev.azure.com/org", project="Default Project")
+    def test_from_env_project_override(
+        self, mock_config: MagicMock, _mock_pat: MagicMock
+    ) -> None:
+        mock_config.return_value = AdoConfig(
+            organization="https://dev.azure.com/org", project="Default Project"
+        )
         ctx = AdoContext.from_env(project="Other Project")
         assert ctx.config.project == "Other Project"
         assert ctx.config.organization == "https://dev.azure.com/org"
 
     @patch("ado_api.az_client.get_pat", return_value="env-pat")
     @patch("ado_api.az_client.get_ado_config")
-    def test_from_env_org_override(self, mock_config: MagicMock, _mock_pat: MagicMock) -> None:
-        mock_config.return_value = AdoConfig(organization="https://dev.azure.com/org", project="Proj")
+    def test_from_env_org_override(
+        self, mock_config: MagicMock, _mock_pat: MagicMock
+    ) -> None:
+        mock_config.return_value = AdoConfig(
+            organization="https://dev.azure.com/org", project="Proj"
+        )
         ctx = AdoContext.from_env(org="https://dev.azure.com/other-org")
         assert ctx.config.organization == "https://dev.azure.com/other-org"
         assert ctx.config.project == "Proj"
 
     @patch("ado_api.az_client.get_pat", return_value="env-pat")
     @patch("ado_api.az_client.get_ado_config")
-    def test_from_env_with_repo(self, mock_config: MagicMock, _mock_pat: MagicMock) -> None:
-        mock_config.return_value = AdoConfig(organization="https://dev.azure.com/org", project="Proj")
+    def test_from_env_with_repo(
+        self, mock_config: MagicMock, _mock_pat: MagicMock
+    ) -> None:
+        mock_config.return_value = AdoConfig(
+            organization="https://dev.azure.com/org", project="Proj"
+        )
         ctx = AdoContext.from_env(repo="my-repo")
         assert ctx.repo == "my-repo"
 
     @patch("ado_api.az_client.get_pat", return_value="env-pat")
     @patch("ado_api.az_client.get_ado_config")
-    def test_from_env_both_overrides(self, mock_config: MagicMock, _mock_pat: MagicMock) -> None:
-        mock_config.return_value = AdoConfig(organization="https://dev.azure.com/org", project="Proj")
+    def test_from_env_both_overrides(
+        self, mock_config: MagicMock, _mock_pat: MagicMock
+    ) -> None:
+        mock_config.return_value = AdoConfig(
+            organization="https://dev.azure.com/org", project="Proj"
+        )
         ctx = AdoContext.from_env(
             project="New Project",
             org="https://dev.azure.com/new-org",
@@ -247,12 +281,22 @@ class TestCallAdoApiTimeout:
         _, kwargs = mock_urlopen.call_args
         assert kwargs.get("timeout") == 30
 
-    @patch("ado_api.az_client.urllib.request.urlopen", side_effect=TimeoutError("timed out"))
-    def test_socket_timeout_raises_ado_api_error(self, _mock_urlopen: MagicMock) -> None:
+    @patch(
+        "ado_api.az_client.urllib.request.urlopen",
+        side_effect=TimeoutError("timed out"),
+    )
+    def test_socket_timeout_raises_ado_api_error(
+        self, _mock_urlopen: MagicMock
+    ) -> None:
         with pytest.raises(AdoApiError, match="timed out"):
             call_ado_api("GET", "https://example.com/api", pat="fake")
 
-    @patch("ado_api.az_client.urllib.request.urlopen", side_effect=TimeoutError("timed out"))
-    def test_socket_timeout_text_raises_ado_api_error(self, _mock_urlopen: MagicMock) -> None:
+    @patch(
+        "ado_api.az_client.urllib.request.urlopen",
+        side_effect=TimeoutError("timed out"),
+    )
+    def test_socket_timeout_text_raises_ado_api_error(
+        self, _mock_urlopen: MagicMock
+    ) -> None:
         with pytest.raises(AdoApiError, match="timed out"):
             call_ado_api_text("GET", "https://example.com/api", pat="fake")

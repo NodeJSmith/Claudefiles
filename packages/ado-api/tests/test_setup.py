@@ -4,7 +4,12 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-from ado_api.commands.setup import _has_az, _has_defaults, _has_devops_extension, cmd_setup
+from ado_api.commands.setup import (
+    _has_az,
+    _has_defaults,
+    _has_devops_extension,
+    cmd_setup,
+)
 
 
 def _completed(stdout: str = "", returncode: int = 0) -> MagicMock:
@@ -71,7 +76,9 @@ _NOT_SET_DEFAULTS = (
 
 class TestHasDefaults:
     @patch("ado_api.commands.setup.shutil.which", return_value="/usr/bin/az")
-    @patch("ado_api.commands.setup._run", return_value=_completed(stdout=_GOOD_DEFAULTS))
+    @patch(
+        "ado_api.commands.setup._run", return_value=_completed(stdout=_GOOD_DEFAULTS)
+    )
     def test_configured(self, _mock_run: MagicMock, _mock_which: MagicMock) -> None:
         assert _has_defaults() is True
 
@@ -84,7 +91,9 @@ class TestHasDefaults:
         assert _has_defaults() is False
 
     @patch("ado_api.commands.setup.shutil.which", return_value="/usr/bin/az")
-    @patch("ado_api.commands.setup._run", return_value=_completed(stdout=_NOT_SET_DEFAULTS))
+    @patch(
+        "ado_api.commands.setup._run", return_value=_completed(stdout=_NOT_SET_DEFAULTS)
+    )
     def test_not_set_values(self, _mock_run: MagicMock, _mock_which: MagicMock) -> None:
         assert _has_defaults() is False
 

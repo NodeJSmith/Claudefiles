@@ -9,7 +9,13 @@ from argparse import ArgumentParser
 from typing import Any
 
 from pydantic import Field, ValidationError
-from pydantic_settings import BaseSettings, CliApp, CliSettingsSource, CliSubCommand, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    CliApp,
+    CliSettingsSource,
+    CliSubCommand,
+    SettingsConfigDict,
+)
 from pydantic_settings.exceptions import SettingsError
 
 from ado_api.az_client import AdoAuthError, AdoConfigError
@@ -58,8 +64,12 @@ class AdoCli(BaseSettings):
     builds: CliSubCommand[Builds] = Field(description="Build operations")
     logs: CliSubCommand[Logs] = Field(description="Build log operations")
     pr: CliSubCommand[Pr] = Field(description="Pull request operations")
-    work_item: CliSubCommand[WorkItem] = Field(alias="work-item", description="Work item operations")
-    setup: CliSubCommand[Setup] = Field(description="Check and install az CLI prerequisites")
+    work_item: CliSubCommand[WorkItem] = Field(
+        alias="work-item", description="Work item operations"
+    )
+    setup: CliSubCommand[Setup] = Field(
+        description="Check and install az CLI prerequisites"
+    )
 
     def cli_cmd(self) -> None:
         _current_project.set(self.project)
@@ -71,7 +81,11 @@ def main(argv: list[str] | None = None) -> None:
     token = _current_project.set(None)
     cli_source = CliSettingsSource(AdoCli, add_argument_method=_custom_add_argument)
     try:
-        CliApp.run(AdoCli, cli_args=argv if argv is not None else sys.argv[1:], cli_settings_source=cli_source)
+        CliApp.run(
+            AdoCli,
+            cli_args=argv if argv is not None else sys.argv[1:],
+            cli_settings_source=cli_source,
+        )
     except ValidationError as exc:
         print("Error: Invalid command arguments", file=sys.stderr)
         for error in exc.errors():

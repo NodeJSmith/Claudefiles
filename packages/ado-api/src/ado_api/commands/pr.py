@@ -10,7 +10,9 @@ from ado_api.commands.work_item import _create_work_item
 from ado_api.formatting import json_output, tsv_table
 from ado_api.git import GitError, get_current_branch
 
-VALID_THREAD_STATUSES = frozenset({"active", "byDesign", "closed", "fixed", "pending", "wontFix"})
+VALID_THREAD_STATUSES = frozenset(
+    {"active", "byDesign", "closed", "fixed", "pending", "wontFix"}
+)
 
 _LIST_HEADERS = ("ID", "TITLE", "SOURCE", "TARGET", "STATUS", "AUTHOR")
 
@@ -51,7 +53,10 @@ def detect_pr_id(ctx: AdoContext) -> int:
     prs: list[dict[str, Any]] = data.get("value", [])
 
     if len(prs) == 0:
-        print(f"No active PR found for branch '{branch}' in repo '{ctx.repo}'.", file=sys.stderr)
+        print(
+            f"No active PR found for branch '{branch}' in repo '{ctx.repo}'.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     if len(prs) == 1:
@@ -185,7 +190,10 @@ def cmd_pr_create(
         try:
             source = get_current_branch()
         except GitError as exc:
-            print(f"Cannot detect source branch: {exc}. Use --source to specify explicitly.", file=sys.stderr)
+            print(
+                f"Cannot detect source branch: {exc}. Use --source to specify explicitly.",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
     body: dict[str, Any] = {
@@ -392,7 +400,9 @@ def cmd_pr_reply(
     """
     if parent_id is None:
         # Fetch thread to get last comment ID
-        thread_url = f"{_thread_url(ctx, pr_id, thread_id)}?api-version={ADO_API_VERSION}"
+        thread_url = (
+            f"{_thread_url(ctx, pr_id, thread_id)}?api-version={ADO_API_VERSION}"
+        )
         thread = call_ado_api("GET", thread_url, pat=ctx.pat)
         comments = thread.get("comments", [])
         if not comments:
@@ -419,7 +429,9 @@ def cmd_pr_reply(
             }
         )
     else:
-        print(f"Replied to thread #{thread_id} on PR #{pr_id} (comment #{comment.get('id')})")
+        print(
+            f"Replied to thread #{thread_id} on PR #{pr_id} (comment #{comment.get('id')})"
+        )
 
 
 def cmd_pr_resolve(
@@ -448,7 +460,10 @@ def cmd_pr_resolve(
             current_status = thread.get("status")
 
             if current_status != "active":
-                print(f"Thread #{tid}: already '{current_status}' — skipped", file=sys.stderr)
+                print(
+                    f"Thread #{tid}: already '{current_status}' — skipped",
+                    file=sys.stderr,
+                )
                 skipped += 1
                 continue
 
@@ -526,7 +541,9 @@ def cmd_pr_resolve_pattern(
 
         if execute:
             try:
-                patch_url = f"{_thread_url(ctx, pr_id, tid)}?api-version={ADO_API_VERSION}"
+                patch_url = (
+                    f"{_thread_url(ctx, pr_id, tid)}?api-version={ADO_API_VERSION}"
+                )
                 call_ado_api("PATCH", patch_url, pat=ctx.pat, data={"status": status})
                 print(f"    -> resolved as '{status}'")
             except AdoApiError as exc:
@@ -608,7 +625,13 @@ def _link_work_item_to_pr(
         f"/_apis/wit/workitems/{work_item_id}?api-version={ADO_API_VERSION}"
     )
     try:
-        call_ado_api("PATCH", url, pat=ctx.pat, data=patch_body, content_type="application/json-patch+json")
+        call_ado_api(
+            "PATCH",
+            url,
+            pat=ctx.pat,
+            data=patch_body,
+            content_type="application/json-patch+json",
+        )
     except AdoApiError as exc:
         if "Relation already exists" in str(exc):
             return
@@ -639,12 +662,17 @@ def _unlink_work_item_from_pr(
     # Find the relation index matching this PR artifact URL
     relation_index: int | None = None
     for i, rel in enumerate(relations):
-        if rel.get("rel") == "ArtifactLink" and rel.get("url", "").lower() == artifact_url.lower():
+        if (
+            rel.get("rel") == "ArtifactLink"
+            and rel.get("url", "").lower() == artifact_url.lower()
+        ):
             relation_index = i
             break
 
     if relation_index is None:
-        msg = f"Work item {work_item_id} has no ArtifactLink relation for {artifact_url}"
+        msg = (
+            f"Work item {work_item_id} has no ArtifactLink relation for {artifact_url}"
+        )
         raise AdoApiError(msg)
 
     patch_body = [
@@ -657,7 +685,13 @@ def _unlink_work_item_from_pr(
         f"{ctx.config.organization}/{ctx.config.project_encoded}"
         f"/_apis/wit/workitems/{work_item_id}?api-version={ADO_API_VERSION}"
     )
-    call_ado_api("PATCH", patch_url, pat=ctx.pat, data=patch_body, content_type="application/json-patch+json")
+    call_ado_api(
+        "PATCH",
+        patch_url,
+        pat=ctx.pat,
+        data=patch_body,
+        content_type="application/json-patch+json",
+    )
 
 
 def _run_az_pr_work_item(

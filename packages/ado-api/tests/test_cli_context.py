@@ -3,7 +3,12 @@
 from unittest.mock import patch
 
 import pytest
-from ado_api.cli_context import _current_project, _get_repo_or_exit, _get_repo_or_none, _make_ctx
+from ado_api.cli_context import (
+    _current_project,
+    _get_repo_or_exit,
+    _get_repo_or_none,
+    _make_ctx,
+)
 from ado_api.git import GitError
 
 

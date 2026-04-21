@@ -129,11 +129,16 @@ def cmd_builds_cancel_by_tag(
     in_progress = [b for b in builds if b.get("status") != "completed"]
 
     if not in_progress:
-        print(f"No in-progress builds found for tag '{tag}' on branch '{resolved_branch}'")
+        print(
+            f"No in-progress builds found for tag '{tag}' on branch '{resolved_branch}'"
+        )
         return
 
     count = len(in_progress)
-    print(f"Found {count} build(s) to cancel for tag '{tag}' on branch '{resolved_branch}':", file=sys.stderr)
+    print(
+        f"Found {count} build(s) to cancel for tag '{tag}' on branch '{resolved_branch}':",
+        file=sys.stderr,
+    )
 
     any_failed = False
     for build in in_progress:
