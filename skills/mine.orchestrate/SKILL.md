@@ -265,7 +265,7 @@ For **first-pass execution**, include only `implementer-prompt.md` in the `## Im
 
 For **retries** (WARN fix loop and FAIL retry), include **both** files: `implementer-prompt.md` in `## Implementer instructions` (WP execution contract — subtask sequencing, deviation classification, visual verification) and `retry-prompt.md` as an additional `## Retry instructions` section below it (verify-before-implement posture, YAGNI check, push-back protocol, and previous review feedback).
 
-Launch a subagent of the type selected in Step 3 with this prompt (fill in bracketed values):
+Launch a subagent of the type selected in Step 3 with `model: sonnet` and this prompt (fill in bracketed values):
 
 ```
 You are executing a single Work Package from an implementation plan.
@@ -315,7 +315,7 @@ Read `~/.claude/skills/mine.orchestrate/spec-reviewer-prompt.md`.
 
 Launch **all three reviewers in parallel** (three Agent tool calls in a single message):
 
-**Subagent 1 — Spec reviewer** (`subagent_type: "general-purpose"`):
+**Subagent 1 — Spec reviewer** (`subagent_type: "general-purpose"`, `model: sonnet`):
 
 ```
 You are independently verifying a completed Work Package.
@@ -718,7 +718,7 @@ AskUserQuestion:
 ```
 
 **On "Address fixes":**
-1. Dispatch a fresh `general-purpose` subagent with: the impl-review findings, the relevant file paths, `<feature_dir>/design.md` content, all WP files from `<feature_dir>/tasks/` (for per-WP constraints and Review Guidance), accumulated spec-reviewer outputs, `implementer-prompt.md` content (as `## Implementer instructions`), `retry-prompt.md` content (as `## Retry instructions`), and `tdd.md` content. Populate the `## Previous review feedback` template with: "Impl-review: <impl-review findings file path>". Instruct: "Fix only the listed blocking issues. Do not expand scope beyond these findings. Respect the Review Guidance constraints from each WP."
+1. Dispatch a fresh `general-purpose` subagent with `model: sonnet` and: the impl-review findings, the relevant file paths, `<feature_dir>/design.md` content, all WP files from `<feature_dir>/tasks/` (for per-WP constraints and Review Guidance), accumulated spec-reviewer outputs, `implementer-prompt.md` content (as `## Implementer instructions`), `retry-prompt.md` content (as `## Retry instructions`), and `tdd.md` content. Populate the `## Previous review feedback` template with: "Impl-review: <impl-review findings file path>". Instruct: "Fix only the listed blocking issues. Do not expand scope beyond these findings. Respect the Review Guidance constraints from each WP."
 2. After the subagent completes, re-run the project test suite (using `<dir>/test-command.txt`). If tests fail: surface the failure prominently in the next gate prompt (which offers "Address fixes" or "Stop here" — there is no "Accept and ship" option at this gate) with a note identifying the test failures.
 3. Re-run `code-reviewer` and `integration-reviewer` on the fix diff in parallel (both in a single message)
 4. Re-run `/mine.implementation-review <feature_dir>`

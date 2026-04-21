@@ -4,6 +4,9 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-04-21
 
+### Fixed
+- `mine.orchestrate` executor, spec reviewer, and Phase 3 fix executor subagents now declare `model: sonnet` — previously inherited the parent conversation's model (Opus), wasting tokens on implementation work (#241)
+
 ### Added
 - `ado-api` Python package — Azure DevOps CLI for builds, logs, PR management, work items, and approvals; replaces bash `ado-*` scripts with typed Pydantic-settings CLI (#240)
 
