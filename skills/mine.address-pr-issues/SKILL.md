@@ -295,7 +295,7 @@ Present a structured summary:
 **IMPORTANT**: Use these helper scripts instead of inline commands. They handle authentication, pagination, and output formatting.
 
 - **GitHub**: `gh-pr-threads`, `gh-pr-reply` (with `--resolve`), `git-platform` — run `--help` on each for usage
-- **ADO**: `ado-pr`, `ado-pr-threads` (list/reply/resolve), `ado-logs` (CI failure logs) — run `--help` on each for usage
+- **ADO**: `ado-pr`, `ado-pr-threads` (list/create/reply/resolve/resolve-pattern), `ado-logs` (CI failure logs) — run `--help` on each for usage
 - **Platform**: `git-platform` — prints `github`, `ado`, or `unknown`
 
 ### Error handling

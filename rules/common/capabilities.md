@@ -89,7 +89,7 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "cancel builds", "cancel pipeline runs", "list ADO builds" | `ado-builds` |
 | "build logs", "CI logs", "why did the build fail" | `ado-logs` |
 | "create ADO PR", "list ADO PRs", "show ADO PR" | `ado-pr` |
-| "list ADO PR threads", "reply to ADO PR comment" | `ado-pr-threads` |
+| "list ADO PR threads", "create ADO PR thread", "reply to ADO PR comment" | `ado-pr-threads` |
 
 ### GitHub tool notes
 

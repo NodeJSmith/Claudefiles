@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Azure DevOps PR thread operations — list, reply, resolve threads.
+# Azure DevOps PR thread operations — list, create, reply, resolve threads.
 # Uses ADO REST API with PAT authentication.
 #
 # Usage: ado-pr-threads <command> [args...]
@@ -7,6 +7,9 @@
 # Commands:
 #   list [PR_ID] [--all] [--json]
 #       List PR threads. Default: active threads only. Auto-detects PR if omitted.
+#
+#   create [PR_ID] BODY [--file PATH]
+#       Create a new comment thread. Auto-detects PR if omitted.
 #
 #   reply PR_ID THREAD_ID BODY
 #       Reply to a thread. Prints new comment ID on success.
@@ -32,6 +35,8 @@ usage() {
   echo "Commands:" >&2
   echo "  list [PR_ID] [--all] [--json]" >&2
   echo "      List threads. Default: active only. Auto-detects PR if omitted." >&2
+  echo "  create [PR_ID] BODY [--file PATH]" >&2
+  echo "      Create a new thread. Auto-detects PR if omitted." >&2
   echo "  reply PR_ID THREAD_ID BODY" >&2
   echo "      Reply to a thread. Prints new comment ID." >&2
   echo "  resolve THREAD_ID [THREAD_ID...] [--pr PR_ID] [--status STATUS]" >&2
@@ -114,6 +119,9 @@ Commands:
   list [PR_ID] [--all] [--json]
       List PR threads. Default: active threads only. Auto-detects PR if omitted.
 
+  create [PR_ID] BODY [--file PATH]
+      Create a new comment thread. Auto-detects PR if omitted.
+
   reply PR_ID THREAD_ID BODY
       Reply to a thread. Prints new comment ID on success.
 
@@ -125,6 +133,8 @@ Commands:
 
 Examples:
   ado-pr-threads list --all
+  ado-pr-threads create "This default looks too sparse"
+  ado-pr-threads create 42 --file /tmp/comment.md
   ado-pr-threads reply 42 15 "Done — fixed in latest push"
   ado-pr-threads resolve 15 16 --pr 42 --status fixed
   ado-pr-threads resolve-pattern 42 "nit" --dry-run
@@ -213,6 +223,111 @@ EOF
                     (.comments[0].author.displayName // \"unknown\"),
                     (.comments[0].content // \"\" | gsub(\"\\n\"; \" \") | .[0:80])
                 ] | @tsv" | column -t -s $'\t'
+    fi
+    ;;
+
+  create)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+      cat << 'EOF'
+ado-pr-threads create — create a new comment thread
+
+Usage: ado-pr-threads create [PR_ID] BODY
+       ado-pr-threads create [PR_ID] --file PATH
+
+Creates a new general comment thread on a PR. Auto-detects PR from current
+branch if PR_ID is omitted.
+
+Options:
+  --file PATH  Read comment body from file instead of argument
+
+Examples:
+  ado-pr-threads create "This default looks too sparse"
+  ado-pr-threads create 139729 "This default looks too sparse"
+  ado-pr-threads create 139729 --file /tmp/comment.md
+  ado-pr-threads create --file /tmp/comment.md
+EOF
+      exit 0
+    fi
+
+    pr_id=""
+    body=""
+    file_path=""
+    positionals=()
+
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --file)
+          file_path="$2"
+          shift 2
+          ;;
+        *)
+          positionals+=("$1")
+          shift
+          ;;
+      esac
+    done
+
+    if [[ -n "$file_path" ]]; then
+      if [[ ! -f "$file_path" ]]; then
+        echo "Error: file not found: $file_path" >&2
+        exit 1
+      fi
+      body=$(< "$file_path")
+      case ${#positionals[@]} in
+        0) ;;
+        1) pr_id="${positionals[0]}" ;;
+        *)
+          echo "Error: too many arguments with --file" >&2
+          exit 1
+          ;;
+      esac
+    else
+      case ${#positionals[@]} in
+        0)
+          echo "Error: comment body required (positional argument or --file)" >&2
+          exit 1
+          ;;
+        1) body="${positionals[0]}" ;;
+        2)
+          pr_id="${positionals[0]}"
+          body="${positionals[1]}"
+          ;;
+        *)
+          echo "Error: too many arguments" >&2
+          exit 1
+          ;;
+      esac
+    fi
+
+    if [[ -z "$body" ]]; then
+      echo "Error: comment body is empty" >&2
+      exit 1
+    fi
+
+    mapfile -t context < <(setup_ado_context)
+    org="${context[0]}"
+    repo="${context[2]}"
+    project_encoded="${context[3]}"
+
+    if [[ -z "$pr_id" ]]; then
+      pr_id=$(get_pr_from_env_or_branch)
+    fi
+
+    url="$org/$project_encoded/_apis/git/repositories/$repo/pullRequests/$pr_id/threads?api-version=$ADO_API_VERSION"
+    payload=$(jq -n --arg content "$body" '{
+      comments: [{content: $content, commentType: 1}],
+      status: "active"
+    }')
+
+    result=$(call_ado_api POST "$url" -d "$payload")
+
+    thread_id=$(echo "$result" | jq -r '.id')
+    if [[ -n "$thread_id" && "$thread_id" != "null" ]]; then
+      echo "Thread created: $thread_id"
+    else
+      echo "Error: failed to create thread" >&2
+      echo "$result" >&2
+      exit 1
     fi
     ;;
 
