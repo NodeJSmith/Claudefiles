@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-04-21
 
 ### Added
-- `ado-pr-threads create` subcommand — create new comment threads on ADO pull requests with inline body or `--file` for longer comments
+- `ado-pr-threads create` subcommand — create new comment threads on ADO pull requests with inline body or `--file` for longer comments (#238)
 
 ## 2026-04-20
 
