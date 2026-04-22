@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-04-22
 
 ### Added
-- `pytest-guard.sh` PreToolUse hook — denies bare pytest without `timeout` wrapper to prevent orphaned processes; supports per-repo `.claude/pytest-guard.json` for deny_flags and custom timeouts
+- `pytest-guard.sh` PreToolUse hook — denies bare pytest without `timeout` wrapper to prevent orphaned processes; supports per-repo `.claude/pytest-guard.json` for deny_flags and custom timeouts (#242)
 
 ## 2026-04-21
 
