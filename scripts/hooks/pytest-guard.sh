@@ -53,15 +53,15 @@ CWD=$(printf '%s' "$INPUT" | jq -r '.cwd // empty')
 # Prefix pattern: optional env vars, optional runner (uv run, poetry run, etc.)
 # Anchors at command boundaries (^, &&, ;, |) to find each pytest invocation.
 # Each pytest segment in a chained command needs its own timeout wrapper.
-PREFIX='(^|&&|;|\|)\s*([A-Z_][A-Z_0-9]*=[^ ]*\s+)*((uv|poetry|pipenv|hatch)\s+run\s+)?'
+PREFIX='(^|&&|;|\|)[[:space:]]*([A-Z_][A-Z_0-9]*=[^ ]*[[:space:]]+)*((uv|poetry|pipenv|hatch)[[:space:]]+run[[:space:]]+)?'
 
 is_pytest_invocation() {
   local cmd="$1"
 
-  if printf '%s' "$cmd" | grep -qE "${PREFIX}(timeout\s+[^ ]+\s+)?pytest(\s|$)"; then
+  if printf '%s' "$cmd" | grep -qE "${PREFIX}(timeout[[:space:]]+[^ ]+[[:space:]]+)?pytest([[:space:]]|$)"; then
     return 0
   fi
-  if printf '%s' "$cmd" | grep -qE "${PREFIX}(timeout\s+[^ ]+\s+)?python[0-9.]* -m pytest(\s|$)"; then
+  if printf '%s' "$cmd" | grep -qE "${PREFIX}(timeout[[:space:]]+[^ ]+[[:space:]]+)?python[0-9.]* -m pytest([[:space:]]|$)"; then
     return 0
   fi
   return 1
@@ -126,10 +126,10 @@ has_timeout() {
   local cmd="$1"
 
   # timeout must immediately precede pytest (not just appear anywhere)
-  if printf '%s' "$cmd" | grep -qE "${PREFIX}timeout\s+[^ ]+\s+pytest(\s|$)"; then
+  if printf '%s' "$cmd" | grep -qE "${PREFIX}timeout[[:space:]]+[^ ]+[[:space:]]+pytest([[:space:]]|$)"; then
     return 0
   fi
-  if printf '%s' "$cmd" | grep -qE "${PREFIX}timeout\s+[^ ]+\s+python[0-9.]* -m pytest(\s|$)"; then
+  if printf '%s' "$cmd" | grep -qE "${PREFIX}timeout[[:space:]]+[^ ]+[[:space:]]+python[0-9.]* -m pytest([[:space:]]|$)"; then
     return 0
   fi
   return 1
