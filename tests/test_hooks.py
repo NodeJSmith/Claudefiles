@@ -11,8 +11,6 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-import pytest
-
 # Resolve hook paths relative to the repo root
 REPO_ROOT = Path(__file__).parent.parent
 DETECTOR_HOOK = REPO_ROOT / "scripts" / "hooks" / "pytest-loop-detector.sh"
@@ -289,7 +287,7 @@ class TestDetectorNonPytestCommands:
 
     def test_ignores_empty_command(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            uuid = write_session_id(tmpdir)
+            write_session_id(tmpdir)
             inp = json.dumps({"tool_name": "Bash", "tool_input": {}, "cwd": "/tmp"})
             result = run_hook(DETECTOR_HOOK, inp, tmpdir)
 
@@ -367,7 +365,7 @@ class TestResetHookNoOpWhenMissing:
 
     def test_no_op_when_counter_file_missing(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            uuid = write_session_id(tmpdir)
+            write_session_id(tmpdir)
             # No counter file
 
             inp = make_posttooluse_input("Edit")
@@ -412,7 +410,7 @@ class TestBinScriptClearsCounter:
 
     def test_bin_exits_cleanly_when_no_counter(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            uuid = write_session_id(tmpdir)
+            write_session_id(tmpdir)
             # No counter file
 
             result = subprocess.run(

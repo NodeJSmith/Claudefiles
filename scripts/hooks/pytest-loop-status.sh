@@ -55,7 +55,7 @@ fi
 
 STATUS_FILE="${TMPDIR}/claude-pytest-loop-${SESSION_UUID}.status"
 
-RAW=$(printf '%s' "$INPUT" | jq -r '.tool_response.exit_code // 0' 2>/dev/null || echo "0")
+RAW=$(printf '%s' "$INPUT" | jq -r '.tool_response.exit_code // 0' 2> /dev/null || echo "0")
 EXIT_CODE=0
 case "$RAW" in
   '' | *[!0-9]*) EXIT_CODE=0 ;;

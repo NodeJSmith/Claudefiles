@@ -110,7 +110,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'uuidgen > \"${CLAUDE_CODE_TMPDIR:-/tmp}/claude-pytest-loop-session.id\"'",
+            "command": "bash -c '(command -v uuidgen > /dev/null && uuidgen || python3 -c \"import uuid; print(uuid.uuid4())\") > \"${CLAUDE_CODE_TMPDIR:-/tmp}/claude-pytest-loop-session.id\"'",
             "timeout": 2000
           },
           {
