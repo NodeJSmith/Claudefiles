@@ -94,10 +94,9 @@ Examples:
     home = Path.home()
     output_file = home / ".claude" / "settings.json"
 
-    if args.inspect:
-        return _cmd_inspect(output_file)
-
     try:
+        if args.inspect:
+            return _cmd_inspect(output_file)
         return _run_merge(home, output_file)
     except ValueError as e:
         print(f"ERROR: {e}", file=sys.stderr)
@@ -106,9 +105,7 @@ Examples:
 
 def _run_merge(home: Path, output_file: Path) -> int:
     machine_path = home / ".claude" / "settings.machine.json"
-    claudefiles_dir = Path(
-        os.environ.get("CLAUDE_HOME", str(home / "Claudefiles"))
-    )
+    claudefiles_dir = Path(os.environ.get("CLAUDE_HOME", str(home / "Claudefiles")))
     layers: list[tuple[str, Path]] = [
         ("Claudefiles", claudefiles_dir / "settings.json"),
         (

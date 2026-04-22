@@ -34,9 +34,7 @@ class TestMergeHookEntries:
         base = [
             {"matcher": "Bash", "hooks": [{"type": "command", "command": "hook-a"}]}
         ]
-        nxt = [
-            {"matcher": "Edit", "hooks": [{"type": "command", "command": "hook-b"}]}
-        ]
+        nxt = [{"matcher": "Edit", "hooks": [{"type": "command", "command": "hook-b"}]}]
         result = merge_hook_entries(base, nxt)
         assert len(result) == 2
         assert result[0]["matcher"] == "Bash"
@@ -46,9 +44,7 @@ class TestMergeHookEntries:
         base = [
             {"matcher": "Bash", "hooks": [{"type": "command", "command": "hook-a"}]}
         ]
-        nxt = [
-            {"matcher": "Bash", "hooks": [{"type": "command", "command": "hook-b"}]}
-        ]
+        nxt = [{"matcher": "Bash", "hooks": [{"type": "command", "command": "hook-b"}]}]
         result = merge_hook_entries(base, nxt)
         assert len(result) == 1
         assert result[0]["matcher"] == "Bash"
@@ -127,9 +123,7 @@ class TestMergerHooksIntegration:
     def test_merging_two_layers_with_overlapping_session_start(self) -> None:
         layer1 = {
             "hooks": {
-                "SessionStart": [
-                    {"hooks": [{"type": "command", "command": "hook-a"}]}
-                ]
+                "SessionStart": [{"hooks": [{"type": "command", "command": "hook-a"}]}]
             }
         }
         layer2 = {
@@ -161,9 +155,7 @@ class TestMergerHooksIntegration:
                         "hooks": [{"type": "command", "command": "a"}],
                     }
                 ],
-                "SessionStart": [
-                    {"hooks": [{"type": "command", "command": "b"}]}
-                ],
+                "SessionStart": [{"hooks": [{"type": "command", "command": "b"}]}],
             }
         }
         layer2 = {
@@ -209,9 +201,7 @@ class TestMergerHooksIntegration:
         }
         machine = {
             "hooks": {
-                "SessionStart": [
-                    {"hooks": [{"type": "command", "command": "b"}]}
-                ]
+                "SessionStart": [{"hooks": [{"type": "command", "command": "b"}]}]
             }
         }
         merged: dict[str, Any] = {}
@@ -236,12 +226,8 @@ class TestPromotionSnapshot:
         removed_hook = {"type": "command", "command": "removed.sh", "timeout": 5000}
         kept_hook = {"type": "command", "command": "kept.sh", "timeout": 5000}
 
-        last_merge = {
-            "hooks": {"SessionStart": [{"hooks": [removed_hook, kept_hook]}]}
-        }
-        runtime = {
-            "hooks": {"SessionStart": [{"hooks": [removed_hook, kept_hook]}]}
-        }
+        last_merge = {"hooks": {"SessionStart": [{"hooks": [removed_hook, kept_hook]}]}}
+        runtime = {"hooks": {"SessionStart": [{"hooks": [removed_hook, kept_hook]}]}}
         additions = compute_additions(runtime, last_merge)
         assert additions == {}
 

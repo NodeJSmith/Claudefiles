@@ -88,9 +88,7 @@ merger = Merger(
 def write_json(path: Path, data: dict[str, Any]) -> None:
     """Atomically write JSON to a file."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_fd, tmp_path = tempfile.mkstemp(
-        dir=path.parent, suffix=".json", prefix=".tmp-"
-    )
+    tmp_fd, tmp_path = tempfile.mkstemp(dir=path.parent, suffix=".json", prefix=".tmp-")
     try:
         with os.fdopen(tmp_fd, "w") as f:
             json.dump(data, f, indent=2)
