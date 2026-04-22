@@ -49,6 +49,16 @@ The timeout value is resolved in order: `CLAUDE_PYTEST_TIMEOUT` env var → per-
 
 Per-repo config can also deny specific flags (e.g., `-n auto` on resource-constrained machines). See the hook header for config format.
 
+## Pytest Loop Detector
+
+A PreToolUse hook (`pytest-loop-detector.sh`) tracks consecutive pytest runs after a failure without code changes. If pytest is run 3 times after a failure without an Edit/Write/MultiEdit/NotebookEdit in between, the hook denies that third invocation (2 allowed, 3rd blocked).
+
+**Denial message:** The hook interpolates the current count: "DENIED: You've run pytest N times after a failure without making code changes. Use /mine.debug to investigate the root cause systematically. To override: set `CLAUDE_PYTEST_LOOP_BYPASS=1` or run `pytest-loop-reset`."
+
+The counter resets automatically when any code change is made (Edit, Write, MultiEdit, or NotebookEdit). To override manually:
+- `CLAUDE_PYTEST_LOOP_BYPASS=1` env var — allows the next run and resets the counter
+- `pytest-loop-reset` bin script — clears the counter file directly
+
 ## Test Execution
 
 **NEVER run tests without understanding how the project expects them to run.**

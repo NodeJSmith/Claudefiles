@@ -48,6 +48,7 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 | `mine.challenge` | Adversarial review using 3 generic + up to 2 domain-specialist critics — assumes the target is wrong, finds out why, argues for better. Works on code, specs, designs, briefs, skill files, docs |
 | `mine.commit-push` | Commit and push changes to the current branch |
 | `mine.create-pr` | Review branch changes and create a PR on GitHub or Azure DevOps |
+| `mine.debug` | Systematic debugging — 4-phase root-cause investigation with escalation protocol and error tracking |
 | `mine.define` | Proportional discovery + codebase investigation + architecture interrogation → design.md with one sign-off gate |
 | `mine.eval-repo` | Evaluate a third-party GitHub repo before adopting it -- test coverage, code quality, maintenance health, bus factor |
 | `mine.grill` | Multi-angle interrogation of a raw idea — product, design, engineering, scope, and adversarial lenses. Produces a brief.md that feeds into /mine.define |
@@ -142,7 +143,7 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 
 Coding guidelines that load automatically and shape how Claude writes code.
 
-**Common**: agents, bash-tools, capabilities, coding-style, command-output, error-tracking, frontend-workflow, git-workflow, interaction, performance, python, receiving-code-review, research-escalation, sudo, testing, tmux, worktrees
+**Common**: agents, bash-tools, capabilities, coding-style, command-output, frontend-workflow, git-workflow, interaction, performance, python, receiving-code-review, sudo, testing, tmux, worktrees
 
 ### Hooks
 
@@ -153,6 +154,10 @@ Event-driven scripts that run before/after tool calls.
 | `tmux-remind.sh` | SessionStart | Reminds Claude to rename the tmux session |
 | `sudo-poll.sh` | PreToolUse (Bash) | Deny-then-poll for sudo — detects cached credentials or waits 30s for user to `sudo -v` in another pane |
 | `pytest-guard.sh` | PreToolUse (Bash) | Deny bare pytest — requires `timeout` wrapper to prevent orphaned processes; per-repo config via `.claude/pytest-guard.json` |
+| `pytest-loop-detector.sh` | PreToolUse (Bash) | Deny pytest after 3 consecutive post-failure runs without code changes — nudges to `/mine.debug` for root-cause investigation |
+| `pytest-loop-reset.sh` | PostToolUse (Edit/Write/MultiEdit/NotebookEdit) | Reset the pytest loop counter when code changes are made |
+| `pytest-loop-status.sh` | PostToolUse (Bash) | Record pytest exit code for loop detector failure tracking |
+| `pytest-detect.sh` | (sourced) | Shared pytest detection patterns for loop detector and status hooks |
 | `cm-memory-setup` (package) | SessionStart | Initialize memory DB, trigger background import if needed |
 | `cm-onboarding` (package) | SessionStart (startup) | Inject MEMORY.md context and greet the user with persistent memory |
 | `cm-memory-context` (package) | SessionStart (startup\|clear) | Load memory context into the session |
@@ -183,6 +188,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `git-branch-log` | Print `git log --oneline` for current branch vs its base (uses git-branch-base) |
 | `git-default-branch` | Print the default branch name for the current repo |
 | `git-platform` | Detect git hosting platform (`github`, `ado`, or `unknown`) from remote URL |
+| `pytest-loop-reset` | Manually clear the pytest loop detector counter — use when you want to retry without making code changes |
 | `lint-cli-conventions` | Drift prevention lint — verifies `--help` handling in bin/ scripts and capabilities.md sync |
 
 ### Packages

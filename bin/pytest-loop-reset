@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# pytest-loop-reset — manually clear the pytest failure loop counter.
+#
+# Use this when you want to allow pytest to run after being denied by
+# the pytest-loop-detector hook, without setting CLAUDE_PYTEST_LOOP_BYPASS=1.
+# Reads the session UUID from the same path as the detector hook.
+#
+# Usage:
+#   pytest-loop-reset
+
+set -euo pipefail
+
+TMPDIR="${CLAUDE_CODE_TMPDIR:-/tmp}"
+SESSION_FILE="${TMPDIR}/claude-pytest-loop-session.id"
+
+if [ ! -f "$SESSION_FILE" ]; then
+  printf 'pytest-loop-reset: no active session (session ID file not found)\n'
+  exit 0
+fi
+
+SESSION_UUID=$(tr -d '[:space:]' < "$SESSION_FILE")
+
+if [ -z "$SESSION_UUID" ]; then
+  printf 'pytest-loop-reset: session ID file is empty, nothing to reset\n'
+  exit 0
+fi
+
+COUNTER_FILE="${TMPDIR}/claude-pytest-loop-${SESSION_UUID}.count"
+
+if [ ! -f "$COUNTER_FILE" ]; then
+  printf 'pytest-loop-reset: no counter file found (already at 0 or no pytest runs yet)\n'
+  exit 0
+fi
+
+# Reset counter atomically
+printf '%s\n' "0" > "${COUNTER_FILE}.tmp" && mv "${COUNTER_FILE}.tmp" "$COUNTER_FILE"
+printf 'pytest-loop-reset: failure counter cleared (was non-zero)\n'
+
+exit 0

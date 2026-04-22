@@ -52,7 +52,8 @@
       "Skill(mine.commit-push)",
       "Bash(claude-tmux:*)",
       "Bash(edit-manifest:*)",
-      "Bash(which:*)"
+      "Bash(which:*)",
+      "Bash(pytest-loop-reset)"
     ],
     "ask": [],
     "defaultMode": "default"
@@ -72,6 +73,33 @@
             "type": "command",
             "command": "${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/pytest-guard.sh",
             "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/pytest-loop-detector.sh",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/pytest-loop-reset.sh",
+            "timeout": 2000
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/pytest-loop-status.sh",
+            "timeout": 2000
           }
         ]
       }
@@ -80,6 +108,11 @@
     "SessionStart": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'uuidgen > \"${CLAUDE_CODE_TMPDIR:-/tmp}/claude-pytest-loop-session.id\"'",
+            "timeout": 2000
+          },
           {
             "type": "command",
             "command": "${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/tmux-remind.sh",
