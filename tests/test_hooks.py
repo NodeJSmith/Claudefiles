@@ -21,7 +21,9 @@ BIN_RESET = REPO_ROOT / "bin" / "pytest-loop-reset"
 
 def make_pretooluse_input(command: str, cwd: str = "/tmp") -> str:
     """Build a PreToolUse JSON payload for a Bash command."""
-    return json.dumps({"tool_name": "Bash", "tool_input": {"command": command}, "cwd": cwd})
+    return json.dumps(
+        {"tool_name": "Bash", "tool_input": {"command": command}, "cwd": cwd}
+    )
 
 
 def make_posttooluse_input(tool_name: str = "Edit") -> str:
@@ -31,11 +33,13 @@ def make_posttooluse_input(tool_name: str = "Edit") -> str:
 
 def make_posttooluse_bash_input(command: str, exit_code: int = 0) -> str:
     """Build a PostToolUse JSON payload for a Bash command with exit code."""
-    return json.dumps({
-        "tool_name": "Bash",
-        "tool_input": {"command": command},
-        "tool_response": {"exit_code": exit_code},
-    })
+    return json.dumps(
+        {
+            "tool_name": "Bash",
+            "tool_input": {"command": command},
+            "tool_response": {"exit_code": exit_code},
+        }
+    )
 
 
 def run_hook(
@@ -210,7 +214,9 @@ class TestDetectorEnvVarBypass:
             write_counter(tmpdir, uuid, 5)  # would otherwise be denied
 
             inp = make_pretooluse_input("timeout 300 pytest tests/")
-            result = run_hook(DETECTOR_HOOK, inp, tmpdir, extra_env={"CLAUDE_PYTEST_LOOP_BYPASS": "1"})
+            result = run_hook(
+                DETECTOR_HOOK, inp, tmpdir, extra_env={"CLAUDE_PYTEST_LOOP_BYPASS": "1"}
+            )
 
             assert result.returncode == 0
             assert result.stdout.strip() == ""  # no deny
@@ -222,7 +228,9 @@ class TestDetectorEnvVarBypass:
             write_counter(tmpdir, uuid, 5)
 
             inp = make_pretooluse_input("timeout 300 pytest tests/")
-            run_hook(DETECTOR_HOOK, inp, tmpdir, extra_env={"CLAUDE_PYTEST_LOOP_BYPASS": "1"})
+            run_hook(
+                DETECTOR_HOOK, inp, tmpdir, extra_env={"CLAUDE_PYTEST_LOOP_BYPASS": "1"}
+            )
 
             count = read_counter(tmpdir, uuid)
             assert count == 0
@@ -436,6 +444,7 @@ class TestBinScriptClearsCounter:
 
 class TestPostToolUseBashStatusTracking:
     """The PostToolUse hook for Bash records the exit code to the status file."""
+
     # Note: this is an integration test that tests the full flow:
     # detector reads the status file that the PostToolUse Bash hook writes.
     # We test the detector's response to the status file content,
@@ -529,11 +538,13 @@ class TestStatusHook:
     def test_missing_exit_code_defaults_to_zero(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             uuid = write_session_id(tmpdir)
-            inp = json.dumps({
-                "tool_name": "Bash",
-                "tool_input": {"command": "timeout 300 pytest tests/"},
-                "tool_response": {},
-            })
+            inp = json.dumps(
+                {
+                    "tool_name": "Bash",
+                    "tool_input": {"command": "timeout 300 pytest tests/"},
+                    "tool_response": {},
+                }
+            )
             result = run_hook(STATUS_HOOK, inp, tmpdir)
             assert result.returncode == 0
             assert self._read_status(tmpdir, uuid) == "0"
@@ -555,7 +566,9 @@ class TestStatusHook:
     def test_writes_high_exit_code(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             uuid = write_session_id(tmpdir)
-            inp = make_posttooluse_bash_input("timeout 300 pytest tests/", exit_code=137)
+            inp = make_posttooluse_bash_input(
+                "timeout 300 pytest tests/", exit_code=137
+            )
             result = run_hook(STATUS_HOOK, inp, tmpdir)
             assert result.returncode == 0
             assert self._read_status(tmpdir, uuid) == "137"
