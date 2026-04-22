@@ -39,6 +39,16 @@ Mock only at system boundaries (external APIs, databases, time, filesystem). Pre
 
 Do not write tests that assert on log output (e.g., `caplog`, `capfd`, checking `logger.warning` was called). These tests are brittle — they break when log messages are reworded, reformatted, or when log levels change. Test the *behavior* that produces the log, not the log itself.
 
+## Pytest Timeout Guard
+
+A PreToolUse hook (`pytest-guard.sh`) denies any pytest invocation not wrapped with `timeout`. This prevents orphaned pytest processes from accumulating when Claude sessions die unexpectedly.
+
+**Always run pytest as:** `timeout 300 pytest ...` (or `timeout 300 uv run pytest`, `timeout 300 python -m pytest`)
+
+The timeout value is resolved in order: `CLAUDE_PYTEST_TIMEOUT` env var → per-repo `.claude/pytest-guard.json` → default 300s.
+
+Per-repo config can also deny specific flags (e.g., `-n auto` on resource-constrained machines). See the hook header for config format.
+
 ## Test Execution
 
 **NEVER run tests without understanding how the project expects them to run.**
