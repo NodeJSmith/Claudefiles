@@ -152,6 +152,7 @@ Event-driven scripts that run before/after tool calls.
 |------|-------|-------------|
 | `tmux-remind.sh` | SessionStart | Reminds Claude to rename the tmux session |
 | `sudo-poll.sh` | PreToolUse (Bash) | Deny-then-poll for sudo — detects cached credentials or waits 30s for user to `sudo -v` in another pane |
+| `pytest-guard.sh` | PreToolUse (Bash) | Deny bare pytest — requires `timeout` wrapper to prevent orphaned processes; per-repo config via `.claude/pytest-guard.json` |
 | `cm-memory-setup` (package) | SessionStart | Initialize memory DB, trigger background import if needed |
 | `cm-onboarding` (package) | SessionStart (startup) | Inject MEMORY.md context and greet the user with persistent memory |
 | `cm-memory-context` (package) | SessionStart (startup\|clear) | Load memory context into the session |

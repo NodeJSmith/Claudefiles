@@ -45,6 +45,7 @@
       "Bash(pip-audit:*)",
       "Bash(safety:*)",
       "Bash(pytest:*)",
+      "Bash(timeout:*)",
       "Bash(agnix:*)",
       "Bash(ls:*)",
       "Bash(uv:*)",
@@ -66,6 +67,11 @@
             "type": "command",
             "command": "${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/sudo-poll.sh",
             "timeout": 35000
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/pytest-guard.sh",
+            "timeout": 5000
           }
         ]
       }
