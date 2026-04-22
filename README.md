@@ -165,7 +165,7 @@ Event-driven scripts that run before/after tool calls.
 | `cm-clear-handoff` (package) | SessionEnd (clear) | Write a handoff note before `/clear` |
 | `cm-memory-sync` (package) | Stop | Sync current session to the conversation database |
 
-### Helper Scripts (18)
+### Helper Scripts (17)
 
 CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
@@ -173,7 +173,6 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 |--------|-------------|
 | `agnix-check` | Validate agent, skill, and command files against agnix schema |
 | `edit-manifest` | Open a manifest file in nvim via a new tmux window with shadow-file autosave and blocking wait |
-| `claude-merge-settings` | Three-layer settings merge tool for `~/.claude/settings.json` |
 | `claude-tmux` | Tmux session helper -- rename, list, create, capture, kill sessions |
 | `get-skill-tmpdir` | Create unique temp directories for skill runs |
 | `get-tmp-filename` | Create temp files for command output capture |
@@ -197,6 +196,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 |------|-------------|
 | `ado-api` | Azure DevOps CLI — builds, logs, PR management, work items, approvals. Install: `uv tool install -e packages/ado-api` |
 | `claude-memory` | Conversation memory system — session DB, hooks, `cm-*` CLI entry points. Install: `uv tool install -e packages/claude-memory` |
+| `merge-settings` | Three-layer settings merger (`claude-merge-settings` CLI). Install: `uv tool install -e packages/merge-settings` |
 | `spec-helper` | Work Package and spec directory management — `wp-*`, `checkpoint-*`, `status`, `next-number`, `init`, `archive`. Install: `uv tool install -e packages/spec-helper` |
 
 ## Requirements

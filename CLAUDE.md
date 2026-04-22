@@ -13,9 +13,10 @@ Symlinks `agents/`, `skills/`, `commands/`, `scripts/hooks/`, `rules/` into `~/.
 ### Runtime Dependencies
 
 ```bash
-uv tool install -e packages/ado-api        # Azure DevOps CLI
-uv tool install -e packages/spec-helper    # WP and spec directory management
-uv tool install -e packages/claude-memory  # Conversation memory hooks and CLIs
+uv tool install -e packages/ado-api           # Azure DevOps CLI
+uv tool install -e packages/spec-helper       # WP and spec directory management
+uv tool install -e packages/claude-memory     # Conversation memory hooks and CLIs
+uv tool install -e packages/merge-settings    # Settings merger (claude-merge-settings)
 ```
 
 ## Naming Conventions
