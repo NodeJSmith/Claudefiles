@@ -5,7 +5,13 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-04-22
 
 ### Added
+- `/mine.debug` skill — 4-phase systematic debugging methodology (root cause investigation, pattern analysis, hypothesis testing, implementation) with escalation protocol and session-scoped error file; owns the error-tracking contract previously in `error-tracking.md` (#244)
+- `pytest-loop-detector.sh` / `pytest-loop-reset.sh` hooks — deny pytest after 3 consecutive post-failure runs without code changes; counter resets on any Edit/Write/MultiEdit/NotebookEdit; override via `CLAUDE_PYTEST_LOOP_BYPASS=1` or `bin/pytest-loop-reset` (#244)
 - `pytest-guard.sh` PreToolUse hook — denies bare pytest without `timeout` wrapper to prevent orphaned processes; supports per-repo `.claude/pytest-guard.json` for deny_flags and custom timeouts (#242)
+
+### Removed
+- `rules/common/error-tracking.md` — contract moved into `/mine.debug` skill (#244)
+- `rules/common/research-escalation.md` — escalation protocol absorbed into `/mine.debug`'s Phase 4 escalation rules (#244)
 
 ## 2026-04-21
 
