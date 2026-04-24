@@ -314,8 +314,10 @@ class TestFullInstallFlow:
         (repo / "skills" / "mine.build" / "SKILL.md").write_text("skill")
         (repo / "skills-impeccable" / "i-audit").mkdir(parents=True)
         (repo / "skills-impeccable" / "i-audit" / "SKILL.md").write_text("skill")
+        (repo / "skills-impeccable" / "capabilities-impeccable.md").write_text("caps")
         (repo / "skills-memory" / "cm-recall").mkdir(parents=True)
         (repo / "skills-memory" / "cm-recall" / "SKILL.md").write_text("skill")
+        (repo / "skills-memory" / "capabilities-memory.md").write_text("caps")
         (repo / "agents").mkdir()
         (repo / "agents" / "reviewer.md").write_text(
             "---\nname: reviewer\ngroup: core\n---\n"
@@ -348,8 +350,14 @@ class TestFullInstallFlow:
         assert (claude_dir / "skills" / "mine.build").is_symlink()
         # Impeccable skills installed
         assert (claude_dir / "skills" / "i-audit").is_symlink()
+        # Capability fragments go to rules/common, not skills/
+        assert not (claude_dir / "skills" / "capabilities-impeccable.md").exists()
+        assert (
+            claude_dir / "rules" / "common" / "capabilities-impeccable.md"
+        ).is_symlink()
         # Memory skills NOT installed (deselected)
         assert not (claude_dir / "skills" / "cm-recall").exists()
+        assert not (claude_dir / "rules" / "common" / "capabilities-memory.md").exists()
 
         # Agent installed
         assert (claude_dir / "agents" / "reviewer.md").is_symlink()

@@ -294,6 +294,7 @@ def create_symlinks_dir_level(
     *,
     repo_dir: Path | None = None,
     shadowed_out: list[tuple[Path, Path]] | None = None,
+    dirs_only: bool = False,
 ) -> int:
     """Symlink each item in source_dir into dest_dir. Returns count of links created."""
     if not source_dir.is_dir():
@@ -302,6 +303,8 @@ def create_symlinks_dir_level(
     count = 0
     for item in sorted(source_dir.iterdir()):
         if item.name.startswith("."):
+            continue
+        if dirs_only and not item.is_dir():
             continue
         target = dest_dir / item.name
         if target.is_symlink():
@@ -617,7 +620,11 @@ def do_install(
         group_dir = repo_dir / group.source_dir
         if config.get("skills", {}).get(group_key):
             total_links += create_symlinks_dir_level(
-                group_dir, skills_dest, repo_dir=repo_dir, shadowed_out=shadowed
+                group_dir,
+                skills_dest,
+                repo_dir=repo_dir,
+                shadowed_out=shadowed,
+                dirs_only=True,
             )
             for md_file in sorted(group_dir.glob("*.md")):
                 target = rules_common_dest / md_file.name
@@ -626,6 +633,9 @@ def do_install(
                         shadowed.append((target, md_file))
                         continue
                     target.unlink()
+                elif target.exists():
+                    shadowed.append((target, md_file))
+                    continue
                 target.symlink_to(md_file)
                 total_links += 1
         else:
