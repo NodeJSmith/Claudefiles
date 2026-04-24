@@ -7,7 +7,12 @@ as subcommands with hyphenated aliases.
 from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import CliApp, CliPositionalArg, CliSubCommand
 
-from ado_api.cli_context import _get_repo_or_exit, _get_repo_or_none, _make_ctx
+from ado_api.cli_context import (
+    _get_repo_or_exit,
+    _get_repo_or_none,
+    _make_ctx,
+    resolve_file_text,
+)
 from ado_api.commands.pr import (
     cmd_pr_create,
     cmd_pr_list,
@@ -77,6 +82,11 @@ class PrCreate(BaseModel):
 
     title: str = Field(description="PR title")
     description: str | None = Field(None, description="PR description")
+    description_file: str | None = Field(
+        None,
+        alias="description-file",
+        description="Read description from file (- for stdin)",
+    )
     source: str | None = Field(
         None, description="Source branch (default: current branch)"
     )
@@ -89,10 +99,13 @@ class PrCreate(BaseModel):
     def cli_cmd(self) -> None:
         repo = _get_repo_or_exit()
         ctx = _make_ctx(repo=repo)
+        resolved_description = resolve_file_text(
+            self.description, self.description_file, "description"
+        )
         cmd_pr_create(
             ctx,
             self.title,
-            description=self.description,
+            description=resolved_description,
             source=self.source,
             target=self.target,
             draft=self.draft,
@@ -106,6 +119,11 @@ class PrUpdate(BaseModel):
     pr_id: CliPositionalArg[int] = Field(description="PR ID to update")
     title: str | None = Field(None, description="New PR title")
     description: str | None = Field(None, description="New PR description")
+    description_file: str | None = Field(
+        None,
+        alias="description-file",
+        description="Read description from file (- for stdin)",
+    )
     status: str | None = Field(
         None, description="New PR status (active, abandoned, completed)"
     )
@@ -114,11 +132,14 @@ class PrUpdate(BaseModel):
     def cli_cmd(self) -> None:
         repo = _get_repo_or_exit()
         ctx = _make_ctx(repo=repo)
+        resolved_description = resolve_file_text(
+            self.description, self.description_file, "description"
+        )
         cmd_pr_update(
             ctx,
             self.pr_id,
             title=self.title,
-            description=self.description,
+            description=resolved_description,
             status=self.status,
             as_json=self.json_output,
         )
@@ -149,13 +170,20 @@ class PrThreadAdd(BaseModel):
     pr_id: CliPositionalArg[int | None] = Field(
         None, description="PR ID (auto-detects from branch if omitted)"
     )
-    body: str = Field(description="Comment body text")
+    body: str | None = Field(None, description="Comment body text")
+    body_file: str | None = Field(
+        None, alias="body-file", description="Read body from file (- for stdin)"
+    )
     json_output: bool = Field(False, alias="json", description="Output as JSON")
 
     def cli_cmd(self) -> None:
         repo = _get_repo_or_exit()
         ctx = _make_ctx(repo=repo)
-        cmd_pr_thread_add(ctx, self.pr_id, body=self.body, as_json=self.json_output)
+        resolved_body = resolve_file_text(
+            self.body, self.body_file, "body", required=True
+        )
+        assert resolved_body is not None
+        cmd_pr_thread_add(ctx, self.pr_id, body=resolved_body, as_json=self.json_output)
 
 
 class PrReply(BaseModel):
@@ -163,7 +191,10 @@ class PrReply(BaseModel):
 
     pr_id: CliPositionalArg[int] = Field(description="PR ID")
     thread_id: CliPositionalArg[int] = Field(description="Thread ID to reply to")
-    body: CliPositionalArg[str] = Field(description="Reply body text")
+    body: CliPositionalArg[str | None] = Field(None, description="Reply body text")
+    body_file: str | None = Field(
+        None, alias="body-file", description="Read body from file (- for stdin)"
+    )
     parent_id: int | None = Field(
         None, alias="parent", description="Parent comment ID (default: last comment)"
     )
@@ -172,11 +203,15 @@ class PrReply(BaseModel):
     def cli_cmd(self) -> None:
         repo = _get_repo_or_exit()
         ctx = _make_ctx(repo=repo)
+        resolved_body = resolve_file_text(
+            self.body, self.body_file, "body", required=True
+        )
+        assert resolved_body is not None
         cmd_pr_reply(
             ctx,
             self.pr_id,
             self.thread_id,
-            self.body,
+            resolved_body,
             parent_id=self.parent_id,
             as_json=self.json_output,
         )
@@ -313,6 +348,11 @@ class PrWorkItemCreate(BaseModel):
     area: str | None = Field(None, description="Area path")
     iteration: str | None = Field(None, description="Iteration path")
     description: str | None = Field(None, description="Work item description")
+    description_file: str | None = Field(
+        None,
+        alias="description-file",
+        description="Read description from file (- for stdin)",
+    )
     fields: list[str] | None = Field(
         None, description='Custom fields as "Key=Value" pairs'
     )
@@ -321,6 +361,9 @@ class PrWorkItemCreate(BaseModel):
     def cli_cmd(self) -> None:
         repo = _get_repo_or_exit()
         ctx = _make_ctx(repo=repo)
+        resolved_description = resolve_file_text(
+            self.description, self.description_file, "description"
+        )
         cmd_pr_work_item_create(
             ctx,
             self.pr_id,
@@ -330,7 +373,7 @@ class PrWorkItemCreate(BaseModel):
             assigned_to=self.assigned_to,
             area=self.area,
             iteration=self.iteration,
-            description=self.description,
+            description=resolved_description,
             fields=self.fields,
         )
 
