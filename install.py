@@ -835,46 +835,41 @@ def do_uninstall(repo_dir: Path, claude_dir: Path, cfg: dict) -> None:
     console.print("[green]Claudefiles uninstalled.[/green]")
 
 
-def _print_dry_run(config: dict, agent_groups: dict[str, list[str]]) -> None:
-    """Print what would be installed without making changes."""
+def _print_dry_run(
+    config: dict,
+    agent_groups: dict[str, list[str]],
+    prev_config: dict | None = None,
+) -> None:
+    """Print what would be installed/removed without making changes."""
     console = Console()
     console.print("\n[bold]Dry run — no changes will be made[/bold]\n")
 
+    def _status(category: str, key: str) -> str:
+        selected = config.get(category, {}).get(key, False)
+        was_selected = (prev_config or {}).get(category, {}).get(key)
+        if selected and was_selected is False:
+            return "[green]install (new)[/green]"
+        if selected:
+            return "[green]install[/green]"
+        if was_selected:
+            return "[red]remove[/red]"
+        return "[dim]skip[/dim]"
+
     console.print("[bold]Skills:[/bold]")
     for key, group in SKILL_GROUPS.items():
-        status = (
-            "[green]install[/green]"
-            if config.get("skills", {}).get(key)
-            else "[dim]skip[/dim]"
-        )
-        console.print(f"  {group.label}: {status}")
+        console.print(f"  {group.label}: {_status('skills', key)}")
 
     console.print("[bold]Agents:[/bold]")
     for key, files in sorted(agent_groups.items()):
-        status = (
-            "[green]install[/green]"
-            if config.get("agents", {}).get(key)
-            else "[dim]skip[/dim]"
-        )
-        console.print(f"  {key} ({len(files)} agents): {status}")
+        console.print(f"  {key} ({len(files)} agents): {_status('agents', key)}")
 
     console.print("[bold]Hooks:[/bold]")
     for key, group in HOOK_GROUPS.items():
-        status = (
-            "[green]install[/green]"
-            if config.get("hooks", {}).get(key)
-            else "[dim]skip[/dim]"
-        )
-        console.print(f"  {group.label}: {status}")
+        console.print(f"  {group.label}: {_status('hooks', key)}")
 
     console.print("[bold]Packages:[/bold]")
     for key, pkg in PACKAGE_DEFS.items():
-        status = (
-            "[green]install[/green]"
-            if config.get("packages", {}).get(key)
-            else "[dim]skip[/dim]"
-        )
-        console.print(f"  {pkg.label}: {status}")
+        console.print(f"  {pkg.label}: {_status('packages', key)}")
 
     console.print("\n[bold]Always installed:[/bold] rules, learned, bin, commands")
 
@@ -920,6 +915,19 @@ def main() -> int:
     with ConfigLock(cfg_path):
         if args.uninstall:
             cfg = load_config(cfg_path) or {}
+            if args.dry_run:
+                console = Console()
+                console.print("\n[bold]Dry run — would uninstall:[/bold]\n")
+                console.print("  All Claudefiles-owned symlinks from ~/.claude/")
+                for pkg_key in cfg.get("packages", {}):
+                    if cfg["packages"][pkg_key] and pkg_key in PACKAGE_DEFS:
+                        console.print(f"  Package: {pkg_key}")
+                if not cfg.get("packages"):
+                    console.print(
+                        "  [yellow]No config — packages would need manual uninstall[/yellow]"
+                    )
+                console.print(f"  Config file: {cfg_path}")
+                return 0
             do_uninstall(repo_dir, claude_dir, cfg)
             return 0
 
@@ -1035,7 +1043,7 @@ def main() -> int:
             cfg = saved
 
         if args.dry_run:
-            _print_dry_run(cfg, agent_groups)
+            _print_dry_run(cfg, agent_groups, prev_config=saved)
             return 0
 
         # Save config before installing (records intent)
