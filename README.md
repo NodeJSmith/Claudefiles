@@ -18,19 +18,27 @@ My personal [Claude Code](https://docs.anthropic.com/en/docs/claude-code) config
 
 ## Install
 
+Requires [uv](https://docs.astral.sh/uv/getting-started/installation/).
+
 ```bash
 git clone https://github.com/NodeJSmith/Claudefiles.git ~/Claudefiles
 cd ~/Claudefiles
-./install.sh
+uv run install.py
 ```
 
-This symlinks everything into `~/.claude/`. Running it again safely updates symlinks. It also warns about non-symlink files that shadow repo entries (preventing updates) and stale symlinks whose targets no longer exist.
+An interactive wizard guides you through selecting which components to install. Skills, agents, and hooks are organized into groups — choose what's relevant to your workflow. Selections are saved so re-runs only prompt for new items.
 
-To uninstall, just delete the symlinks (they point back to this repo) and remove the clone.
+Use `uv run install.py --reconfigure` to change selections, or `--uninstall` to remove everything.
 
 ## About skill prefixes
 
-Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by the [Impeccable](https://impeccable.style/) frontend design skills. You can rename any of them if you prefer.
+Skills are organized into three directories:
+
+- **`skills/`** — core skills (`mine.*`) for workflow automation, code review, planning
+- **`skills-impeccable/`** — [Impeccable](https://impeccable.style/) frontend design skills (`i-*`)
+- **`skills-memory/`** — Claude Memory skills (`cm-*`) for conversation memory
+
+All three directories symlink into `~/.claude/skills/` at install time — the runtime path is flat.
 
 ## Contents
 
@@ -143,7 +151,7 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 
 Coding guidelines that load automatically and shape how Claude writes code.
 
-**Common**: agents, bash-tools, capabilities, coding-style, command-output, frontend-workflow, git-workflow, interaction, performance, python, receiving-code-review, sudo, testing, tmux, worktrees
+**Common**: agents, bash-tools, capabilities-core, capabilities-impeccable, capabilities-memory, coding-style, command-output, frontend-workflow, git-workflow, interaction, performance, python, receiving-code-review, sudo, testing, tmux, worktrees
 
 ### Hooks
 
@@ -188,22 +196,24 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `git-default-branch` | Print the default branch name for the current repo |
 | `git-platform` | Detect git hosting platform (`github`, `ado`, or `unknown`) from remote URL |
 | `pytest-loop-reset` | Manually clear the pytest loop detector counter — use when you want to retry without making code changes |
-| `lint-cli-conventions` | Drift prevention lint — verifies `--help` handling in bin/ scripts and capabilities.md sync |
+| `lint-cli-conventions` | Drift prevention lint — verifies `--help` handling in bin/ scripts and capabilities-core.md CLI Tools sync |
 
 ### Packages
 
+Installed automatically by the wizard when selected. Can also be installed manually with `uv tool install -e packages/<name>`.
+
 | Name | Description |
 |------|-------------|
-| `ado-api` | Azure DevOps CLI — builds, logs, PR management, work items, approvals. Install: `uv tool install -e packages/ado-api` |
-| `claude-memory` | Conversation memory system — session DB, hooks, `cm-*` CLI entry points. Install: `uv tool install -e packages/claude-memory` |
-| `merge-settings` | Three-layer settings merger (`claude-merge-settings` CLI). Install: `uv tool install -e packages/merge-settings` |
-| `spec-helper` | Work Package and spec directory management — `wp-*`, `checkpoint-*`, `status`, `next-number`, `init`, `archive`. Install: `uv tool install -e packages/spec-helper` |
+| `ado-api` | Azure DevOps CLI — builds, logs, PR management, work items, approvals |
+| `claude-memory` | Conversation memory system — session DB, hooks, `cm-*` CLI entry points |
+| `merge-settings` | Three-layer settings merger (`claude-merge-settings` CLI) |
+| `spec-helper` | Work Package and spec directory management — `wp-*`, `checkpoint-*`, `status`, `next-number`, `init`, `archive` |
 
 ## Requirements
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) -- used by the installer and for package management
 - The skills reference tools like `gh` (GitHub CLI), `git`, `pytest`, `ruff`, `pyright` -- install what's relevant to your workflow
-- `spec-helper` requires `python-frontmatter`: `pip install python-frontmatter`
 
 ### Local Development
 

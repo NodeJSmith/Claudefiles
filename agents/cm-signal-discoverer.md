@@ -1,5 +1,6 @@
 ---
 name: cm-signal-discoverer
+group: memory
 description: >
   Use this agent when the user wants to mine recent conversation sessions for uncaptured
   knowledge — corrections, architectural decisions, recurring patterns, and behavioral

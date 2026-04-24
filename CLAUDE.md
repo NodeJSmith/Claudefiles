@@ -4,20 +4,15 @@ A personal Claude Code configuration repository — skills, commands, agents, ru
 
 ## Installation
 
-```bash
-./install.sh
-```
-
-Symlinks `agents/`, `skills/`, `commands/`, `scripts/hooks/`, `rules/` into `~/.claude/`, and `bin/` scripts into `~/.local/bin/`. Safe to re-run. Respects `$CLAUDE_HOME`.
-
-### Runtime Dependencies
+Requires [uv](https://docs.astral.sh/uv/getting-started/installation/).
 
 ```bash
-uv tool install -e packages/ado-api           # Azure DevOps CLI
-uv tool install -e packages/spec-helper       # WP and spec directory management
-uv tool install -e packages/claude-memory     # Conversation memory hooks and CLIs
-uv tool install -e packages/merge-settings    # Settings merger (claude-merge-settings)
+uv run install.py
 ```
+
+Interactive wizard that symlinks skills, agents, hooks, rules, commands, and bin scripts into `~/.claude/`. Installs selected packages via `uv tool install -e`. Safe to re-run — loads saved config and only prompts for new items. Respects `$CLAUDE_HOME`.
+
+Use `--reconfigure` to change selections, `--uninstall` to remove everything.
 
 ## Naming Conventions
 
@@ -63,7 +58,7 @@ Edit `settings.json` in this repo — **never** write directly to `~/.claude/set
 
 ## Making Changes
 
-- After adding directories under `agents/`, `skills/`, `commands/`, or `scripts/hooks/` — re-run `./install.sh`
+- After adding directories under `agents/`, `skills/`, `skills-impeccable/`, `skills-memory/`, `commands/`, or `scripts/hooks/` — re-run `uv run install.py`
 - **Always update `README.md`** when adding, removing, or renaming skills, commands, agents, or bin/ scripts
-- **Always update `rules/common/capabilities.md`** with trigger phrases for new skills
+- **Always update the appropriate `rules/common/capabilities-*.md`** file with trigger phrases for new skills (`capabilities-core.md` for mine.*, `capabilities-impeccable.md` for i-*, `capabilities-memory.md` for cm-*)
 - CLI tools referenced in skills/commands/agents must exist in `bin/`, be a standard system tool, or be a well-known dev tool. No private tools outside this repo.

@@ -1,5 +1,6 @@
 ---
 name: code-reviewer
+group: core
 model: sonnet  # claude-sonnet-4-6 as of 2026-04-06 — do not downgrade; pre-commit safety gate
 description: Expert code reviewer for correctness, security, and Claude Code skill files (SKILL.md conventions, bash safety, phase structure). Use for all code changes. MUST BE USED for code review.
 tools: ["Read", "Grep", "Glob", "Bash"]
@@ -178,4 +179,4 @@ Any `/mine.X` reference in a changed skill must correspond to a real skill direc
 
 When a skill directory is added or removed:
 - New skill row present and alphabetically inserted in the Skills table in `README.md`
-- `rules/common/capabilities.md` intent routing table has an entry
+- The appropriate `rules/common/capabilities-*.md` file has an intent routing entry
