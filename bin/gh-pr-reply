@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Reply to a PR review comment thread and optionally resolve it
 # Usage: gh-pr-reply <pr-number> <comment-id> <body> [--resolve <thread-id>]
+#        gh-pr-reply <pr-number> <comment-id> --body-file <file> [--resolve <thread-id>]
 # Auto-detects owner/repo from current git remote
 #
+# --body-file <file>     Read reply body from a file (use - for stdin)
 # --resolve <thread-id>  GraphQL thread node ID (PRRT_...) to resolve after replying
 
 set -euo pipefail
@@ -13,15 +15,19 @@ for arg in "$@"; do
     -h | --help)
       cat << 'EOF'
 Usage: gh-pr-reply <pr-number> <comment-id> <body> [--resolve <thread-id>]
+       gh-pr-reply <pr-number> <comment-id> --body-file <file> [--resolve <thread-id>]
 
 Reply to a PR review comment thread and optionally resolve it.
 
 Options:
+  --body-file <file>     Read reply body from a file (use - for stdin)
   --resolve <thread-id>  GraphQL thread node ID (PRRT_...) to resolve after replying
   -h, --help             Show this help message and exit
 
 Examples:
   gh-pr-reply 42 12345 "Fixed in latest commit"
+  gh-pr-reply 42 12345 --body-file /tmp/reply.md
+  gh-pr-reply 42 12345 --body-file - < reply.md
   gh-pr-reply 42 12345 "Done" --resolve PRRT_abc123
 EOF
       exit 0
@@ -44,20 +50,28 @@ if command -v gh-app-token &> /dev/null && [[ -n "${GITHUB_APP_ID:-}" ]]; then
   fi
 fi
 
-if [[ $# -lt 3 ]]; then
-  echo "Usage: gh-pr-reply <pr-number> <comment-id> <body> [--resolve <thread-id>]" >&2
+if [[ $# -lt 2 ]]; then
+  echo "Usage: gh-pr-reply <pr-number> <comment-id> <body|--body-file file> [--resolve <thread-id>]" >&2
   exit 1
 fi
 
 pr_number="$1"
 comment_id="$2"
-body="$3"
+body=""
+body_file=""
 resolve_thread_id=""
 
-# Parse optional --resolve flag (may appear after the first 3 positional args)
-shift 3
+shift 2
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --body-file)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: --body-file requires a file path (use - for stdin)" >&2
+        exit 1
+      fi
+      body_file="$2"
+      shift 2
+      ;;
     --resolve)
       if [[ $# -lt 2 ]]; then
         echo "Error: --resolve requires a thread ID (PRRT_...)" >&2
@@ -70,12 +84,41 @@ while [[ $# -gt 0 ]]; do
       resolve_thread_id="$2"
       shift 2
       ;;
-    *)
-      echo "Unknown argument: $1" >&2
+    -*)
+      echo "Unknown option: $1" >&2
       exit 1
+      ;;
+    *)
+      if [[ -n "$body" ]]; then
+        echo "Error: unexpected argument: $1" >&2
+        exit 1
+      fi
+      body="$1"
+      shift
       ;;
   esac
 done
+
+if [[ -n "$body_file" && -n "$body" ]]; then
+  echo "Error: cannot use both <body> and --body-file" >&2
+  exit 1
+fi
+
+if [[ -n "$body_file" ]]; then
+  if [[ "$body_file" == "-" ]]; then
+    body="$(cat)"
+  elif [[ ! -f "$body_file" ]]; then
+    echo "Error: file not found: $body_file" >&2
+    exit 1
+  else
+    body="$(< "$body_file")"
+  fi
+fi
+
+if [[ -z "$body" ]]; then
+  echo "Error: body is required (provide as argument or use --body-file)" >&2
+  exit 1
+fi
 
 id=$(gh api "repos/{owner}/{repo}/pulls/${pr_number}/comments/${comment_id}/replies" \
   -f body="$body" \

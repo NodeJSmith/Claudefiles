@@ -4,7 +4,7 @@
 #
 # Two checks:
 #   1. Every executable in bin/ has --help handling (bash: case/conditional; Python: argparse)
-#   2. Every tool in the capabilities-core.md CLI Tools table exists in bin/ (or is EXTERNAL)
+#   2. Every tool in the capabilities-core.md CLI Tools table exists in bin/ or on PATH (or is EXTERNAL)
 set -euo pipefail
 
 # --- help ----------------------------------------------------------------
@@ -17,7 +17,7 @@ Verify CLI conventions across the Claudefiles repo:
   1. --help check: every executable in bin/ handles --help
      (bash via case/conditional, Python via argparse import).
   2. capabilities-core.md sync: every tool listed in the CLI Tools table
-     has a matching executable in bin/ (or an # EXTERNAL: exemption).
+     has a matching executable in bin/ or on PATH (or an # EXTERNAL: exemption).
 
 Exit 0 if all checks pass, exit 1 with details on failures.
 
@@ -39,7 +39,7 @@ CAPABILITIES="${REPO_ROOT}/rules/common/capabilities-core.md"
 failures=0
 
 # --- plumbing exemptions (no --help required) ----------------------------
-HELP_EXEMPT=""
+HELP_EXEMPT="pytest-loop-reset"
 
 # --- check 1: --help presence --------------------------------------------
 echo "=== Check 1: --help handling ==="
@@ -144,8 +144,8 @@ while IFS= read -r line; do
   fi
 
   # Check existence: repo bin/ first, then PATH (for package-installed tools)
-  if [[ ! -f "${BIN_DIR}/${tool}" ]] && ! command -v "$base_cmd" > /dev/null 2>&1; then
-    echo "FAIL: capabilities.md lists '$tool' but neither bin/$tool nor '$base_cmd' on PATH exists"
+  if [[ ! -f "${BIN_DIR}/${base_cmd}" ]] && ! command -v "$base_cmd" > /dev/null 2>&1; then
+    echo "FAIL: capabilities-core.md lists '$tool' but '$base_cmd' not found in bin/ or on PATH"
     sync_failures=$((sync_failures + 1))
   fi
 done < "$CAPABILITIES"
