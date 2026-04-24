@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-04-24
 
 ### Added
-- `--body-file` flag on `gh-pr-reply`, `ado-api pr reply`, and `ado-api pr thread-add`; `--description-file` flag on `ado-api pr create`, `pr update`, `work-item create`, and `pr work-item-create` — pass large text via file instead of inline argument; all support `-` for stdin
+- `--body-file` flag on `gh-pr-reply`, `ado-api pr reply`, and `ado-api pr thread-add`; `--description-file` flag on `ado-api pr create`, `pr update`, `work-item create`, and `pr work-item-create` — pass large text via file instead of inline argument; all support `-` for stdin (#251)
 
 ## 2026-04-22
 
