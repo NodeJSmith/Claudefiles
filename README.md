@@ -18,6 +18,8 @@ My personal [Claude Code](https://docs.anthropic.com/en/docs/claude-code) config
 
 ## Install
 
+Requires [uv](https://docs.astral.sh/uv/getting-started/installation/).
+
 ```bash
 git clone https://github.com/NodeJSmith/Claudefiles.git ~/Claudefiles
 cd ~/Claudefiles
@@ -198,18 +200,20 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
 ### Packages
 
+Installed automatically by the wizard when selected. Can also be installed manually with `uv tool install -e packages/<name>`.
+
 | Name | Description |
 |------|-------------|
-| `ado-api` | Azure DevOps CLI — builds, logs, PR management, work items, approvals. Install: `uv tool install -e packages/ado-api` |
-| `claude-memory` | Conversation memory system — session DB, hooks, `cm-*` CLI entry points. Install: `uv tool install -e packages/claude-memory` |
-| `merge-settings` | Three-layer settings merger (`claude-merge-settings` CLI). Install: `uv tool install -e packages/merge-settings` |
-| `spec-helper` | Work Package and spec directory management — `wp-*`, `checkpoint-*`, `status`, `next-number`, `init`, `archive`. Install: `uv tool install -e packages/spec-helper` |
+| `ado-api` | Azure DevOps CLI — builds, logs, PR management, work items, approvals |
+| `claude-memory` | Conversation memory system — session DB, hooks, `cm-*` CLI entry points |
+| `merge-settings` | Three-layer settings merger (`claude-merge-settings` CLI) |
+| `spec-helper` | Work Package and spec directory management — `wp-*`, `checkpoint-*`, `status`, `next-number`, `init`, `archive` |
 
 ## Requirements
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) -- used by the installer and for package management
 - The skills reference tools like `gh` (GitHub CLI), `git`, `pytest`, `ruff`, `pyright` -- install what's relevant to your workflow
-- `spec-helper` requires `python-frontmatter`: `pip install python-frontmatter`
 
 ### Local Development
 

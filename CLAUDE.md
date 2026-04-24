@@ -4,6 +4,8 @@ A personal Claude Code configuration repository — skills, commands, agents, ru
 
 ## Installation
 
+Requires [uv](https://docs.astral.sh/uv/getting-started/installation/).
+
 ```bash
 uv run install.py
 ```
