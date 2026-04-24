@@ -1,5 +1,6 @@
 ---
 name: engineering-sre
+group: engineering
 model: sonnet  # claude-sonnet-4-6 as of 2026-04-06
 description: Expert site reliability engineer specializing in SLOs, error budgets, observability, chaos engineering, and toil reduction for production systems at scale.
 color: "#e63946"

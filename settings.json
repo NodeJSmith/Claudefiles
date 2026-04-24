@@ -66,17 +66,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/sudo-poll.sh",
+            "command": "bash -c 'f=\"${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/sudo-poll.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
             "timeout": 35000
           },
           {
             "type": "command",
-            "command": "${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/pytest-guard.sh",
+            "command": "bash -c 'f=\"${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/pytest-guard.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
             "timeout": 5000
           },
           {
             "type": "command",
-            "command": "${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/pytest-loop-detector.sh",
+            "command": "bash -c 'f=\"${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/pytest-loop-detector.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
             "timeout": 5000
           }
         ]
@@ -88,7 +88,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/pytest-loop-reset.sh",
+            "command": "bash -c 'f=\"${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/pytest-loop-reset.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
             "timeout": 2000
           }
         ]
@@ -98,7 +98,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/pytest-loop-status.sh",
+            "command": "bash -c 'f=\"${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/pytest-loop-status.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
             "timeout": 2000
           }
         ]
@@ -115,7 +115,7 @@
           },
           {
             "type": "command",
-            "command": "${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/tmux-remind.sh",
+            "command": "bash -c 'f=\"${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/tmux-remind.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
             "timeout": 5000
           },
           {
