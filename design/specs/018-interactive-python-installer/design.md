@@ -1,7 +1,7 @@
 # Design: Interactive Python Installer
 
 **Date:** 2026-04-23
-**Status:** approved
+**Status:** archived
 **Research:** /tmp/claude-mine-define-research-ZoY1Vx/brief.md
 
 ## Problem
