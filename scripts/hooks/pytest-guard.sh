@@ -14,6 +14,12 @@
 #     "deny_flags": ["-n auto"],
 #     "deny_reason": "Use -n 2 instead of -n auto"
 #   }
+#
+# To block ALL pytest invocations in a repo (e.g., "use nox instead"):
+#   {
+#     "deny_all": true,
+#     "deny_reason": "Use nox instead of pytest directly"
+#   }
 #   Note: deny_flags uses substring matching — use multi-word values
 #   (e.g., "-n auto") to avoid false matches on short flags.
 #
@@ -101,6 +107,14 @@ if [ -n "$REPO_ROOT" ] && [ -f "$REPO_ROOT/.claude/pytest-guard.json" ]; then
         REPO_TIMEOUT=""
         ;;
     esac
+  fi
+fi
+
+# --- Check 0: deny_all — block ALL pytest invocations for this repo ---
+if [ -n "$REPO_CONFIG" ]; then
+  DENY_ALL=$(jq -r 'if .deny_all == true then "true" else "false" end' "$REPO_CONFIG" 2> /dev/null || echo "false")
+  if [ "$DENY_ALL" = "true" ]; then
+    deny "$(jq -r '.deny_reason // "pytest is not allowed in this repository"' "$REPO_CONFIG" 2> /dev/null)"
   fi
 fi
 
