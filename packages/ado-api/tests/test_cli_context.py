@@ -119,3 +119,13 @@ class TestResolveFileText:
         with pytest.raises(SystemExit) as exc_info:
             resolve_file_text(None, None, "body", required=True)
         assert exc_info.value.code == 1
+
+    def test_inline_name_in_conflict_error(self, capsys):
+        with pytest.raises(SystemExit):
+            resolve_file_text("x", "f", "body", inline_name="<body>")
+        assert "<body> and --body-file" in capsys.readouterr().err
+
+    def test_inline_name_in_required_error(self, capsys):
+        with pytest.raises(SystemExit):
+            resolve_file_text(None, None, "body", required=True, inline_name="<body>")
+        assert "<body> or --body-file" in capsys.readouterr().err

@@ -204,7 +204,7 @@ class PrReply(BaseModel):
         repo = _get_repo_or_exit()
         ctx = _make_ctx(repo=repo)
         resolved_body = resolve_file_text(
-            self.body, self.body_file, "body", required=True
+            self.body, self.body_file, "body", required=True, inline_name="<body>"
         )
         assert resolved_body is not None
         cmd_pr_reply(

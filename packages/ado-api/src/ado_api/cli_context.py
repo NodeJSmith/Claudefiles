@@ -40,15 +40,18 @@ def resolve_file_text(
     field_name: str,
     *,
     required: bool = False,
+    inline_name: str | None = None,
 ) -> str | None:
     """Resolve a text value from an inline argument or a file path.
 
     Returns the resolved text. Raises ``SystemExit`` on conflicts or missing
     required input so callers in ``cli_cmd`` don't need try/except.
     """
+    text_label = inline_name or f"--{field_name}"
+    file_label = f"--{field_name}-file"
     if text is not None and file_path is not None:
         print(
-            f"Error: cannot use both --{field_name} and --{field_name}-file",
+            f"Error: cannot use both {text_label} and {file_label}",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -62,7 +65,7 @@ def resolve_file_text(
         return path.read_text()
     if required and text is None:
         print(
-            f"Error: --{field_name} or --{field_name}-file is required",
+            f"Error: {text_label} or {file_label} is required",
             file=sys.stderr,
         )
         sys.exit(1)
