@@ -1,5 +1,6 @@
 """Tests for cli_context module — ContextVar threading and repo helpers."""
 
+import io
 from unittest.mock import patch
 
 import pytest
@@ -8,6 +9,7 @@ from ado_api.cli_context import (
     _get_repo_or_exit,
     _get_repo_or_none,
     _make_ctx,
+    resolve_file_text,
 )
 from ado_api.git import GitError
 
@@ -83,3 +85,47 @@ class TestGetRepoOrNone:
     def test_get_repo_or_none_failure(self, _mock):
         """Returns None on GitError."""
         assert _get_repo_or_none() is None
+
+
+class TestResolveFileText:
+    """Tests for resolve_file_text() — inline text vs file path resolution."""
+
+    def test_inline_text_returned(self):
+        assert resolve_file_text("hello", None, "body") == "hello"
+
+    def test_both_provided_exits(self):
+        with pytest.raises(SystemExit) as exc_info:
+            resolve_file_text("hello", "some/file", "body")
+        assert exc_info.value.code == 1
+
+    def test_file_read(self, tmp_path):
+        f = tmp_path / "msg.txt"
+        f.write_text("file content")
+        assert resolve_file_text(None, str(f), "body") == "file content"
+
+    def test_file_not_found_exits(self):
+        with pytest.raises(SystemExit) as exc_info:
+            resolve_file_text(None, "/nonexistent/file.txt", "body")
+        assert exc_info.value.code == 1
+
+    def test_stdin_read(self, monkeypatch):
+        monkeypatch.setattr("sys.stdin", io.StringIO("from stdin"))
+        assert resolve_file_text(None, "-", "body") == "from stdin"
+
+    def test_neither_provided_optional(self):
+        assert resolve_file_text(None, None, "description") is None
+
+    def test_neither_provided_required_exits(self):
+        with pytest.raises(SystemExit) as exc_info:
+            resolve_file_text(None, None, "body", required=True)
+        assert exc_info.value.code == 1
+
+    def test_inline_name_in_conflict_error(self, capsys):
+        with pytest.raises(SystemExit):
+            resolve_file_text("x", "f", "body", inline_name="<body>")
+        assert "<body> and --body-file" in capsys.readouterr().err
+
+    def test_inline_name_in_required_error(self, capsys):
+        with pytest.raises(SystemExit):
+            resolve_file_text(None, None, "body", required=True, inline_name="<body>")
+        assert "<body> or --body-file" in capsys.readouterr().err

@@ -3,7 +3,7 @@
 from pydantic import BaseModel, Field
 from pydantic_settings import CliApp, CliSubCommand
 
-from ado_api.cli_context import _make_ctx
+from ado_api.cli_context import _make_ctx, resolve_file_text
 from ado_api.commands.work_item import cmd_work_item_create
 
 
@@ -21,6 +21,11 @@ class WorkItemCreate(BaseModel):
     area: str | None = Field(None, description="Area path")
     iteration: str | None = Field(None, description="Iteration path")
     description: str | None = Field(None, description="Work item description")
+    description_file: str | None = Field(
+        None,
+        alias="description-file",
+        description="Read description from file (- for stdin)",
+    )
     fields: list[str] | None = Field(
         None, description='Custom fields as "Key=Value" pairs'
     )
@@ -28,6 +33,9 @@ class WorkItemCreate(BaseModel):
 
     def cli_cmd(self) -> None:
         ctx = _make_ctx()
+        resolved_description = resolve_file_text(
+            self.description, self.description_file, "description"
+        )
         cmd_work_item_create(
             ctx,
             self.title,
@@ -36,7 +44,7 @@ class WorkItemCreate(BaseModel):
             assigned_to=self.assigned_to,
             area=self.area,
             iteration=self.iteration,
-            description=self.description,
+            description=resolved_description,
             fields=self.fields,
         )
 
