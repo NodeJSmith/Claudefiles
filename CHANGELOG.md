@@ -6,7 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Added
 - `--body-file` flag on `gh-pr-reply`, `ado-api pr reply`, and `ado-api pr thread-add`; `--description-file` flag on `ado-api pr create`, `pr update`, `work-item create`, and `pr work-item-create` — pass large text via file instead of inline argument; all support `-` for stdin (#251)
-- `deny_all` option in `pytest-guard.sh` per-repo config — block all pytest invocations in repos that use nox or other test runners
+- `deny_all` option in `pytest-guard.sh` per-repo config — block all pytest invocations in repos that use nox or other test runners (#252)
 
 ## 2026-04-22
 
