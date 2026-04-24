@@ -579,7 +579,6 @@ def do_install(
     *,
     prev_config: dict | None = None,
     interactive: bool = True,
-    dry_run: bool = False,
 ) -> int:
     """Perform installation based on config. Returns count of errors."""
     console = Console()
@@ -623,6 +622,9 @@ def do_install(
             for md_file in sorted(group_dir.glob("*.md")):
                 target = rules_common_dest / md_file.name
                 if target.is_symlink():
+                    if not is_owned_by(target, repo_dir):
+                        shadowed.append((target, md_file))
+                        continue
                     target.unlink()
                 target.symlink_to(md_file)
                 total_links += 1
@@ -933,6 +935,7 @@ def main() -> int:
 
         agent_groups = discover_agent_groups(repo_dir)
         saved = load_config(cfg_path)
+        original_saved = saved
 
         if args.reconfigure or saved is None:
             if interactive:
@@ -1043,7 +1046,7 @@ def main() -> int:
             cfg = saved
 
         if args.dry_run:
-            _print_dry_run(cfg, agent_groups, prev_config=saved)
+            _print_dry_run(cfg, agent_groups, prev_config=original_saved)
             return 0
 
         # Save config before installing (records intent)
@@ -1055,7 +1058,7 @@ def main() -> int:
             claude_dir,
             cfg,
             agent_groups,
-            prev_config=saved,
+            prev_config=original_saved,
             interactive=interactive,
         )
 
