@@ -10,6 +10,14 @@
 
 set -euo pipefail
 
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  printf 'Usage: pytest-loop-reset\n\n'
+  printf 'Clear the pytest failure loop counter for the current session.\n'
+  printf 'Use when the pytest-loop-detector hook denies a run and you want\n'
+  printf 'to retry without setting CLAUDE_PYTEST_LOOP_BYPASS=1.\n'
+  exit 0
+fi
+
 TMPDIR="${CLAUDE_CODE_TMPDIR:-/tmp}"
 SESSION_FILE="${TMPDIR}/claude-pytest-loop-session.id"
 

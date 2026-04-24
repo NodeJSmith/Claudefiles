@@ -136,14 +136,16 @@ while IFS= read -r line; do
     continue
   fi
 
-  # Check exemption
-  if echo "$EXTERNAL_EXEMPT" | grep -qw "$tool"; then
+  # Check exemption (exact match or base-command match for subcommands)
+  base_cmd="${tool%% *}"
+  if echo "$EXTERNAL_EXEMPT" | grep -qw "$tool" 2> /dev/null ||
+    echo "$EXTERNAL_EXEMPT" | grep -qw "$base_cmd" 2> /dev/null; then
     continue
   fi
 
-  # Check existence in bin/
-  if [[ ! -f "${BIN_DIR}/${tool}" ]]; then
-    echo "FAIL: capabilities.md lists '$tool' but bin/$tool does not exist"
+  # Check existence: repo bin/ first, then PATH (for package-installed tools)
+  if [[ ! -f "${BIN_DIR}/${tool}" ]] && ! command -v "$base_cmd" > /dev/null 2>&1; then
+    echo "FAIL: capabilities.md lists '$tool' but neither bin/$tool nor '$base_cmd' on PATH exists"
     sync_failures=$((sync_failures + 1))
   fi
 done < "$CAPABILITIES"
