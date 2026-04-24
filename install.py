@@ -11,10 +11,10 @@ import argparse
 import fcntl
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -22,7 +22,7 @@ import questionary
 from rich.console import Console
 from rich.panel import Panel
 
-CONFIG_VERSION = 1
+CONFIG_VERSION = 1  # bump = full re-wizard (no migration — schema is additive)
 CONFIG_FILENAME = ".claudefiles-install-config.json"
 
 
@@ -185,6 +185,7 @@ def save_config(path: Path, data: dict) -> None:
     closed = False
     try:
         os.write(fd, content.encode())
+        os.fsync(fd)
         os.close(fd)
         closed = True
         os.replace(tmp, path)
@@ -208,8 +209,21 @@ class ConfigLock:
     def __enter__(self) -> "ConfigLock":
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._fd = os.open(str(self._path) + ".lock", os.O_CREAT | os.O_RDWR)
-        fcntl.flock(self._fd, fcntl.LOCK_EX)
-        return self
+        deadline = time.monotonic() + 10
+        while True:
+            try:
+                fcntl.flock(self._fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                return self
+            except OSError:
+                if time.monotonic() >= deadline:
+                    os.close(self._fd)
+                    self._fd = None
+                    lock_path = str(self._path) + ".lock"
+                    raise RuntimeError(
+                        f"Could not acquire lock after 10s. "
+                        f"If no other installer is running, delete {lock_path}"
+                    )
+                time.sleep(0.2)
 
     def __exit__(self, *_: object) -> None:
         if self._fd is not None:
@@ -250,6 +264,7 @@ def create_symlinks_dir_level(
     source_dir: Path,
     dest_dir: Path,
     *,
+    repo_dir: Path | None = None,
     shadowed_out: list[tuple[Path, Path]] | None = None,
 ) -> int:
     """Symlink each item in source_dir into dest_dir. Returns count of links created."""
@@ -262,6 +277,10 @@ def create_symlinks_dir_level(
             continue
         target = dest_dir / item.name
         if target.is_symlink():
+            if repo_dir and not is_owned_by(target, repo_dir):
+                if shadowed_out is not None:
+                    shadowed_out.append((target, item))
+                continue
             target.unlink()
             target.symlink_to(item)
             count += 1
@@ -278,6 +297,7 @@ def create_symlinks_file_level(
     source_dir: Path,
     dest_dir: Path,
     *,
+    repo_dir: Path | None = None,
     shadowed_out: list[tuple[Path, Path]] | None = None,
 ) -> int:
     """Symlink individual files within subdirectories. Returns count of links created."""
@@ -297,6 +317,10 @@ def create_symlinks_file_level(
                 continue
             target = sub_dest / item.name
             if target.is_symlink():
+                if repo_dir and not is_owned_by(target, repo_dir):
+                    if shadowed_out is not None:
+                        shadowed_out.append((target, item))
+                    continue
                 target.unlink()
                 target.symlink_to(item)
                 count += 1
@@ -343,25 +367,61 @@ def find_new_groups(saved: dict, category: str, current_keys: list[str]) -> list
 # ---------------------------------------------------------------------------
 
 
-def install_package(repo_dir: Path, pkg_name: str) -> bool:
-    """Run uv tool install -e for a package. Returns True on success."""
+def install_package(repo_dir: Path, pkg_name: str) -> tuple[bool, str]:
+    """Run uv tool install -e for a package. Returns (success, error_detail)."""
     pkg_dir = repo_dir / "packages" / PACKAGE_DEFS[pkg_name].dir_name
-    result = subprocess.run(
-        ["uv", "tool", "install", "-e", str(pkg_dir)],
-        capture_output=True,
-        text=True,
-    )
-    return result.returncode == 0
+    try:
+        result = subprocess.run(
+            ["uv", "tool", "install", "-e", str(pkg_dir)],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if result.returncode != 0:
+            return False, (result.stderr or result.stdout).strip()
+        return True, ""
+    except subprocess.TimeoutExpired:
+        return False, "timed out after 120s"
+    except FileNotFoundError:
+        return False, "uv not found — install via https://docs.astral.sh/uv/"
 
 
-def uninstall_package(pkg_name: str) -> bool:
-    """Run uv tool uninstall for a package. Returns True on success."""
-    result = subprocess.run(
-        ["uv", "tool", "uninstall", pkg_name],
-        capture_output=True,
-        text=True,
-    )
-    return result.returncode == 0
+def uninstall_package(pkg_name: str) -> tuple[bool, str]:
+    """Run uv tool uninstall for a package. Returns (success, error_detail)."""
+    try:
+        result = subprocess.run(
+            ["uv", "tool", "uninstall", pkg_name],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode != 0:
+            return False, (result.stderr or result.stdout).strip()
+        return True, ""
+    except subprocess.TimeoutExpired:
+        return False, "timed out after 30s"
+    except FileNotFoundError:
+        return False, "uv not found — install via https://docs.astral.sh/uv/"
+
+
+def _get_installed_packages() -> set[str]:
+    """Return set of currently installed uv tool package names."""
+    try:
+        result = subprocess.run(
+            ["uv", "tool", "list"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            return set()
+        names = set()
+        for line in result.stdout.splitlines():
+            if line and not line.startswith(" "):
+                names.add(line.split()[0].lower())
+        return names
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return set()
 
 
 # ---------------------------------------------------------------------------
@@ -484,7 +544,13 @@ def _all_selected_config(agent_groups: dict[str, list[str]]) -> dict:
 
 
 def do_install(
-    repo_dir: Path, claude_dir: Path, config: dict, *, interactive: bool = True
+    repo_dir: Path,
+    claude_dir: Path,
+    config: dict,
+    agent_groups: dict[str, list[str]],
+    *,
+    prev_config: dict | None = None,
+    interactive: bool = True,
 ) -> int:
     """Perform installation based on config. Returns count of errors."""
     console = Console()
@@ -495,35 +561,55 @@ def do_install(
 
     # Always-installed: rules (file-level), learned (file-level), bin (dir-level), commands (dir-level)
     total_links += create_symlinks_file_level(
-        repo_dir / "rules", claude_dir / "rules", shadowed_out=shadowed
+        repo_dir / "rules",
+        claude_dir / "rules",
+        repo_dir=repo_dir,
+        shadowed_out=shadowed,
     )
     total_links += create_symlinks_file_level(
-        repo_dir / "learned", claude_dir / "learned", shadowed_out=shadowed
+        repo_dir / "learned",
+        claude_dir / "learned",
+        repo_dir=repo_dir,
+        shadowed_out=shadowed,
     )
     total_links += create_symlinks_dir_level(
-        repo_dir / "bin", bin_dir, shadowed_out=shadowed
+        repo_dir / "bin", bin_dir, repo_dir=repo_dir, shadowed_out=shadowed
     )
     total_links += create_symlinks_dir_level(
-        repo_dir / "commands", claude_dir / "commands", shadowed_out=shadowed
+        repo_dir / "commands",
+        claude_dir / "commands",
+        repo_dir=repo_dir,
+        shadowed_out=shadowed,
     )
 
-    # Selective: skills
+    # Selective: skills (+ conditional rule fragments in skill group dirs)
     skills_dest = claude_dir / "skills"
+    rules_common_dest = claude_dir / "rules" / "common"
     for group_key, group in SKILL_GROUPS.items():
+        group_dir = repo_dir / group.source_dir
         if config.get("skills", {}).get(group_key):
             total_links += create_symlinks_dir_level(
-                repo_dir / group.source_dir, skills_dest, shadowed_out=shadowed
+                group_dir, skills_dest, repo_dir=repo_dir, shadowed_out=shadowed
             )
+            for md_file in sorted(group_dir.glob("*.md")):
+                target = rules_common_dest / md_file.name
+                if target.is_symlink():
+                    target.unlink()
+                target.symlink_to(md_file)
+                total_links += 1
         else:
-            removed = remove_owned_symlinks(skills_dest, repo_dir / group.source_dir)
+            removed = remove_owned_symlinks(skills_dest, group_dir)
             if removed:
                 console.print(
                     f"  Removed {removed} symlinks for deselected skill group: {group.label}"
                 )
+            for md_file in sorted(group_dir.glob("*.md")):
+                target = rules_common_dest / md_file.name
+                if target.is_symlink() and is_owned_by(target, repo_dir):
+                    target.unlink()
 
     # Selective: agents
     agents_dest = claude_dir / "agents"
-    agent_groups = discover_agent_groups(repo_dir)
     for group_key, files in agent_groups.items():
         if config.get("agents", {}).get(group_key):
             source_dir = repo_dir / "agents"
@@ -532,6 +618,9 @@ def do_install(
                 source = source_dir / fname
                 target = agents_dest / fname
                 if target.is_symlink():
+                    if not is_owned_by(target, repo_dir):
+                        shadowed.append((target, source))
+                        continue
                     target.unlink()
                 if not target.exists():
                     target.symlink_to(source)
@@ -556,6 +645,9 @@ def do_install(
                     continue
                 target = hooks_dest / fname
                 if target.is_symlink():
+                    if not is_owned_by(target, repo_dir):
+                        shadowed.append((target, source))
+                        continue
                     target.unlink()
                 if not target.exists():
                     target.symlink_to(source)
@@ -576,16 +668,25 @@ def do_install(
         for target, source in shadowed:
             console.print(f"  {target} (shadows {source})")
         if interactive:
-            replace = questionary.confirm("Remove and re-link?", default=False).ask()
-            if replace:
-                for target, source in shadowed:
-                    if target.is_dir():
-                        shutil.rmtree(target)
-                    else:
+            file_shadowed = [(t, s) for t, s in shadowed if not t.is_dir()]
+            dir_shadowed = [(t, s) for t, s in shadowed if t.is_dir()]
+            if file_shadowed:
+                replace = questionary.confirm(
+                    f"Remove and re-link {len(file_shadowed)} shadowed file(s)?",
+                    default=False,
+                ).ask()
+                if replace:
+                    for target, source in file_shadowed:
                         target.unlink()
-                    target.symlink_to(source)
-                    console.print(f"  linked: {target}")
-                    total_links += 1
+                        target.symlink_to(source)
+                        console.print(f"  linked: {target}")
+                        total_links += 1
+            if dir_shadowed:
+                console.print(
+                    f"\n[yellow]{len(dir_shadowed)} shadowed director(ies) require manual removal:[/yellow]"
+                )
+                for target, source in dir_shadowed:
+                    console.print(f"  rm -rf {target}  # then re-run installer")
 
     # Handle stale symlinks
     stale_dirs = [
@@ -619,12 +720,30 @@ def do_install(
                     console.print(f"  removed: {link}")
 
     # Packages
+    installed_pkgs = _get_installed_packages()
     for pkg_key, pkg in PACKAGE_DEFS.items():
         if config.get("packages", {}).get(pkg_key):
+            if pkg_key in installed_pkgs:
+                continue
             console.print(f"  Installing package: {pkg.label}...")
-            if not install_package(repo_dir, pkg_key):
+            ok, detail = install_package(repo_dir, pkg_key)
+            if not ok:
                 console.print(f"  [red]Failed to install {pkg.label}[/red]")
+                if detail:
+                    console.print(f"  [dim]{detail}[/dim]")
                 errors += 1
+
+    # Uninstall deselected packages (F10)
+    if prev_config:
+        for pkg_key in prev_config.get("packages", {}):
+            if prev_config["packages"].get(pkg_key) and not config.get(
+                "packages", {}
+            ).get(pkg_key):
+                if pkg_key in PACKAGE_DEFS:
+                    console.print(f"  Uninstalling deselected package: {pkg_key}...")
+                    ok, detail = uninstall_package(pkg_key)
+                    if not ok and detail:
+                        console.print(f"  [yellow]Warning: {detail}[/yellow]")
 
     console.print(
         f"\n[green]Claudefiles installed to {claude_dir}[/green] ({total_links} symlinks)"
@@ -658,10 +777,21 @@ def do_uninstall(repo_dir: Path, claude_dir: Path, cfg: dict) -> None:
                         console.print(f"  Removed {removed} symlinks from {sub}")
 
     # Uninstall packages from config
+    if not cfg.get("packages"):
+        console.print(
+            "  [yellow]No config file found. Package uninstall skipped. "
+            "Run 'uv tool uninstall <name>' manually if needed.[/yellow]"
+        )
     for pkg_key in cfg.get("packages", {}):
         if cfg["packages"][pkg_key] and pkg_key in PACKAGE_DEFS:
             console.print(f"  Uninstalling package: {pkg_key}...")
-            uninstall_package(pkg_key)
+            ok, detail = uninstall_package(pkg_key)
+            if not ok:
+                console.print(
+                    f"  [yellow]Warning: failed to uninstall {pkg_key}[/yellow]"
+                )
+                if detail:
+                    console.print(f"  [dim]{detail}[/dim]")
 
     # Remove config
     cfg_path = config_path(claude_dir)
@@ -718,6 +848,10 @@ def main() -> int:
                     preselected=saved if args.reconfigure else None,
                 )
             else:
+                if args.reconfigure:
+                    print(
+                        "Warning: --reconfigure has no effect in non-interactive mode."
+                    )
                 if saved is not None:
                     cfg = saved
                     print("Non-interactive mode: applying saved config.")
@@ -746,46 +880,67 @@ def main() -> int:
                     items.append(f"{len(new_packages)} package(s)")
                 print(f"Found new items not in your config: {', '.join(items)}")
 
+                new_selections: dict[str, dict[str, bool]] = {}
                 for key in new_skills:
                     g = SKILL_GROUPS[key]
                     answer = questionary.confirm(
                         f"Install {g.label}?", default=g.default
                     ).ask()
-                    saved.setdefault("skills", {})[key] = (
-                        answer if answer is not None else g.default
-                    )
+                    if answer is None:
+                        print("Aborted.")
+                        sys.exit(1)
+                    new_selections.setdefault("skills", {})[key] = answer
                 for key in new_agents:
                     answer = questionary.confirm(
                         f"Install agent group '{key}'?", default=True
                     ).ask()
-                    saved.setdefault("agents", {})[key] = (
-                        answer if answer is not None else True
-                    )
+                    if answer is None:
+                        print("Aborted.")
+                        sys.exit(1)
+                    new_selections.setdefault("agents", {})[key] = answer
                 for key in new_hooks:
                     g = HOOK_GROUPS[key]
                     answer = questionary.confirm(
                         f"Install {g.label}?", default=g.default
                     ).ask()
-                    saved.setdefault("hooks", {})[key] = (
-                        answer if answer is not None else g.default
-                    )
+                    if answer is None:
+                        print("Aborted.")
+                        sys.exit(1)
+                    new_selections.setdefault("hooks", {})[key] = answer
                 for key in new_packages:
                     p = PACKAGE_DEFS[key]
                     answer = questionary.confirm(
                         f"Install {p.label}?", default=p.default
                     ).ask()
-                    saved.setdefault("packages", {})[key] = (
-                        answer if answer is not None else p.default
-                    )
+                    if answer is None:
+                        print("Aborted.")
+                        sys.exit(1)
+                    new_selections.setdefault("packages", {})[key] = answer
+                saved = {
+                    cat: {**saved.get(cat, {}), **new_selections.get(cat, {})}
+                    for cat in {*saved.keys(), *new_selections.keys()}
+                    if cat != "version"
+                }
             elif has_new:
-                for key in new_skills:
-                    saved.setdefault("skills", {})[key] = SKILL_GROUPS[key].default
-                for key in new_agents:
-                    saved.setdefault("agents", {})[key] = True
-                for key in new_hooks:
-                    saved.setdefault("hooks", {})[key] = HOOK_GROUPS[key].default
-                for key in new_packages:
-                    saved.setdefault("packages", {})[key] = PACKAGE_DEFS[key].default
+                saved = {
+                    **{k: v for k, v in saved.items() if k != "version"},
+                    "skills": {
+                        **saved.get("skills", {}),
+                        **{k: SKILL_GROUPS[k].default for k in new_skills},
+                    },
+                    "agents": {
+                        **saved.get("agents", {}),
+                        **{k: True for k in new_agents},
+                    },
+                    "hooks": {
+                        **saved.get("hooks", {}),
+                        **{k: HOOK_GROUPS[k].default for k in new_hooks},
+                    },
+                    "packages": {
+                        **saved.get("packages", {}),
+                        **{k: PACKAGE_DEFS[k].default for k in new_packages},
+                    },
+                }
             else:
                 print(
                     "Config loaded. No new items detected. Applying saved selections..."
@@ -797,7 +952,14 @@ def main() -> int:
         if interactive or saved is not None:
             save_config(cfg_path, cfg)
 
-        errors = do_install(repo_dir, claude_dir, cfg, interactive=interactive)
+        errors = do_install(
+            repo_dir,
+            claude_dir,
+            cfg,
+            agent_groups,
+            prev_config=saved,
+            interactive=interactive,
+        )
 
     return 1 if errors else 0
 

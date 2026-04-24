@@ -15,7 +15,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
 
       - name: Run tests
-        run: uv run --with pytest --with python-frontmatter --find-links packages/spec-helper pytest tests/ -v
+        run: uv run --with pytest --with python-frontmatter --with rich --with questionary --find-links packages/spec-helper pytest tests/ -v
         env:
           PYTHONPATH: packages/spec-helper/src
 

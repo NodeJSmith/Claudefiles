@@ -334,10 +334,13 @@ class TestFullInstallFlow:
             "packages": {},
         }
 
+        agent_groups = install.discover_agent_groups(repo)
         with patch("install.install_package"):
             with patch.object(Path, "home", return_value=tmp_path / "home"):
                 (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
-                errors = install.do_install(repo, claude_dir, config, interactive=False)
+                errors = install.do_install(
+                    repo, claude_dir, config, agent_groups, interactive=False
+                )
 
         assert errors == 0
 
