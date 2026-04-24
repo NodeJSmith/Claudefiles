@@ -114,7 +114,9 @@ fi
 if [ -n "$REPO_CONFIG" ]; then
   DENY_ALL=$(jq -r 'if .deny_all == true then "true" else "false" end' "$REPO_CONFIG" 2> /dev/null || echo "false")
   if [ "$DENY_ALL" = "true" ]; then
-    deny "$(jq -r '.deny_reason // "pytest is not allowed in this repository"' "$REPO_CONFIG" 2> /dev/null)"
+    DENY_REASON=$(jq -r '.deny_reason // "pytest is not allowed in this repository"' "$REPO_CONFIG" 2> /dev/null || true)
+    [ -z "$DENY_REASON" ] && DENY_REASON="pytest is not allowed in this repository"
+    deny "$DENY_REASON"
   fi
 fi
 
