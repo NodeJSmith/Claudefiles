@@ -20,7 +20,7 @@ Determine mode and scope from `$ARGUMENTS`.
 
 **Targeted mode** (tool name given):
 - Confirm the tool exists: check `~/.local/bin/` for scripts
-- Check if the tool has a `capabilities.md` entry; note if thin or absent
+- Check if the tool has a `capabilities-core.md` CLI Tools entry; note if thin or absent
 - Set the search term to the tool name
 - Default date range: 90 days
 
@@ -251,8 +251,8 @@ Draft and file immediately using `gh-issue create`.
    gh-issue create --title "<concise gap description>" --body-file "<dir>/body.md"
    ```
 
-**Update capabilities.md:**
-If the tool is missing from `rules/common/capabilities.md` or has a thin entry, offer to draft the section. Say what you'd add and ask for confirmation before writing.
+**Update capabilities-core.md:**
+If the tool is missing from `rules/common/capabilities-core.md` CLI Tools table or has a thin entry, offer to draft the section. Say what you'd add and ask for confirmation before writing.
 
 ## What This Skill Does NOT Do
 

@@ -15,10 +15,13 @@ interactive=false
 declare -A shadowed=()            # shadowed[$target]=$source — re-linkable with ln -s
 declare -A shadowed_containers=() # container dirs requiring mkdir+per-file on re-run
 
-for dir in agents skills commands scripts/hooks; do
+for dir in agents skills skills-impeccable skills-memory commands scripts/hooks; do
   src="$REPO_DIR/$dir"
   [ -d "$src" ] || continue
-  dest="$CLAUDE_DIR/$dir"
+  case "$dir" in
+    skills-impeccable | skills-memory) dest="$CLAUDE_DIR/skills" ;;
+    *) dest="$CLAUDE_DIR/$dir" ;;
+  esac
   mkdir -p "$dest"
   for item in "$src"/*; do
     [ -e "$item" ] || continue

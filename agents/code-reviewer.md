@@ -179,4 +179,4 @@ Any `/mine.X` reference in a changed skill must correspond to a real skill direc
 
 When a skill directory is added or removed:
 - New skill row present and alphabetically inserted in the Skills table in `README.md`
-- `rules/common/capabilities.md` intent routing table has an entry
+- The appropriate `rules/common/capabilities-*.md` file has an intent routing entry

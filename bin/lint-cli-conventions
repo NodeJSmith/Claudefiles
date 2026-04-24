@@ -4,7 +4,7 @@
 #
 # Two checks:
 #   1. Every executable in bin/ has --help handling (bash: case/conditional; Python: argparse)
-#   2. Every tool in the capabilities.md CLI Tools table exists in bin/ (or is EXTERNAL)
+#   2. Every tool in the capabilities-core.md CLI Tools table exists in bin/ (or is EXTERNAL)
 set -euo pipefail
 
 # --- help ----------------------------------------------------------------
@@ -16,7 +16,7 @@ Verify CLI conventions across the Claudefiles repo:
 
   1. --help check: every executable in bin/ handles --help
      (bash via case/conditional, Python via argparse import).
-  2. capabilities.md sync: every tool listed in the CLI Tools table
+  2. capabilities-core.md sync: every tool listed in the CLI Tools table
      has a matching executable in bin/ (or an # EXTERNAL: exemption).
 
 Exit 0 if all checks pass, exit 1 with details on failures.
@@ -25,7 +25,7 @@ Options:
   -h, --help    Show this help message and exit
 
 Exemptions:
-  - Tools marked with "# EXTERNAL: tool-name" in capabilities.md are
+  - Tools marked with "# EXTERNAL: tool-name" in capabilities-core.md are
     exempt from the bin/ existence check.
 EOF
   exit 0
@@ -34,7 +34,7 @@ fi
 # --- locate repo root ----------------------------------------------------
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BIN_DIR="${REPO_ROOT}/bin"
-CAPABILITIES="${REPO_ROOT}/rules/common/capabilities.md"
+CAPABILITIES="${REPO_ROOT}/rules/common/capabilities-core.md"
 
 failures=0
 
@@ -78,15 +78,15 @@ fi
 
 # --- check 2: capabilities.md sync --------------------------------------
 echo ""
-echo "=== Check 2: capabilities.md CLI Tools table sync ==="
+echo "=== Check 2: capabilities-core.md CLI Tools table sync ==="
 
 if [[ ! -f "$CAPABILITIES" ]]; then
-  echo "FAIL: capabilities.md not found at $CAPABILITIES"
+  echo "FAIL: capabilities-core.md not found at $CAPABILITIES"
   exit 1
 fi
 
 if ! grep -q '^## CLI Tools' "$CAPABILITIES"; then
-  echo "FAIL: capabilities.md has no '## CLI Tools' heading — the lint check cannot validate the CLI table"
+  echo "FAIL: capabilities-core.md has no '## CLI Tools' heading — the lint check cannot validate the CLI table"
   exit 1
 fi
 

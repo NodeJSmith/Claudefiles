@@ -9,9 +9,6 @@
 
 | User says something like... | Invoke |
 |---|---|
-| "what did we discuss", "continue where we left off", "remember when", "search my conversations", "what did we work on", "find the conversation where" | `/cm-recall-conversations` |
-| "extract learnings", "save this for next time", "remember this pattern", "consolidate memories", "dream", "clean up memories" | `/cm-extract-learnings` |
-| "analyze Claude token usage", "how much am I spending on Claude", "token insights", "cache hit rates", "cost optimization" | `/cm-get-token-insights` |
 | "ship it", "commit push and PR" | `/mine.ship` |
 | "commit and push" | `/mine.commit-push` |
 | "create PR", "open pull request" | `/mine.create-pr` |
@@ -47,25 +44,6 @@
 | "review my changes", "run the reviewers", "code and integration review" | `/mine.review` |
 | "create a skill", "write a skill", "new skill" | `/mine.write-skill` |
 | "rebase this worktree", "sync worktree to parent branch" | `/mine.worktree-rebase` |
-| "audit this UI", "frontend quality", "full UI audit", "design audit" | `/i-audit` |
-| "critique this UI", "design critique", "review this interface", "does this look AI-generated" | `/i-critique` |
-| "fix the typography", "improve the type", "font choices" | `/i-typeset` |
-| "fix the colors", "color system", "palette needs work" | `/i-colorize` |
-| "fix the layout", "arrange this", "visual hierarchy", "spacing issues", "crowded UI" | `/i-layout` |
-| "too busy", "too noisy", "reduce visual clutter" | `/i-quieter` |
-| "make it bolder", "more distinctive", "too generic" | `/i-bolder` |
-| "polish this UI", "final pass", "pixel-perfect", "normalize the design", "make it consistent", "align with design system" | `/i-polish` |
-| "add animations", "motion design", "transitions" | `/i-animate` |
-| "responsive design", "make it mobile-friendly", "adapt for mobile" | `/i-adapt` |
-| "improve the copy", "error messages are confusing", "UX writing" | `/i-clarify` |
-| "add delight", "make it more fun", "moments of joy" | `/i-delight` |
-| "too complex", "simplify this UI", "strip it down" | `/i-distill` |
-| "production hardening", "handle edge cases in UI", "make it resilient", "improve onboarding", "empty states", "first-run experience" | `/i-harden` |
-| "optimize frontend performance", "improve load time", "fix rendering" | `/i-optimize` |
-| "design this UI", "design this dashboard", "look and feel", "establish design tokens", "plan the look and feel", "UI planning", "design system for this project", "craft the interface" | `/i-teach-impeccable` |
-| "setup impeccable", "design context setup", "teach impeccable" | `/i-teach-impeccable` |
-| "shape this feature", "plan the UX", "design brief", "UX planning" | `/i-shape` |
-| "go all out", "make it extraordinary", "overdrive", "wow factor", "push the limits" | `/i-overdrive` |
 
 ## CLI Tools
 
@@ -101,4 +79,3 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 - **gh-pr-threads**: Auto-detects PR from current branch when no number given. Handles 100+ threads with internal pagination.
 - **gh-pr-reply --resolve**: Combines reply and resolve in one call — preferred over separate steps.
 - **gh-issue overview**: Run `gh-issue overview` to see repo milestones, labels, and usage patterns before creating issues. Use `--milestone "name"` on `list` (filter) and `create` (assign).
-

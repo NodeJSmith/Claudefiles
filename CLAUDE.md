@@ -63,7 +63,7 @@ Edit `settings.json` in this repo — **never** write directly to `~/.claude/set
 
 ## Making Changes
 
-- After adding directories under `agents/`, `skills/`, `commands/`, or `scripts/hooks/` — re-run `./install.sh`
+- After adding directories under `agents/`, `skills/`, `skills-impeccable/`, `skills-memory/`, `commands/`, or `scripts/hooks/` — re-run `./install.sh`
 - **Always update `README.md`** when adding, removing, or renaming skills, commands, agents, or bin/ scripts
-- **Always update `rules/common/capabilities.md`** with trigger phrases for new skills
+- **Always update the appropriate `rules/common/capabilities-*.md`** file with trigger phrases for new skills (`capabilities-core.md` for mine.*, `capabilities-impeccable.md` for i-*, `capabilities-memory.md` for cm-*)
 - CLI tools referenced in skills/commands/agents must exist in `bin/`, be a standard system tool, or be a well-known dev tool. No private tools outside this repo.

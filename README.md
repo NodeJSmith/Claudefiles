@@ -143,7 +143,7 @@ Most skills and commands use the `mine.*` prefix. The `i-*` prefix is used by th
 
 Coding guidelines that load automatically and shape how Claude writes code.
 
-**Common**: agents, bash-tools, capabilities, coding-style, command-output, frontend-workflow, git-workflow, interaction, performance, python, receiving-code-review, sudo, testing, tmux, worktrees
+**Common**: agents, bash-tools, capabilities-core, capabilities-impeccable, capabilities-memory, coding-style, command-output, frontend-workflow, git-workflow, interaction, performance, python, receiving-code-review, sudo, testing, tmux, worktrees
 
 ### Hooks
 
@@ -188,7 +188,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `git-default-branch` | Print the default branch name for the current repo |
 | `git-platform` | Detect git hosting platform (`github`, `ado`, or `unknown`) from remote URL |
 | `pytest-loop-reset` | Manually clear the pytest loop detector counter — use when you want to retry without making code changes |
-| `lint-cli-conventions` | Drift prevention lint — verifies `--help` handling in bin/ scripts and capabilities.md sync |
+| `lint-cli-conventions` | Drift prevention lint — verifies `--help` handling in bin/ scripts and capabilities-core.md CLI Tools sync |
 
 ### Packages
 
