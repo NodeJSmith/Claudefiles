@@ -234,6 +234,33 @@ class ConfigLock:
 
 
 # ---------------------------------------------------------------------------
+# Safety checks
+# ---------------------------------------------------------------------------
+
+
+def _is_git_worktree(repo_dir: Path) -> bool:
+    """Detect if repo_dir is a git worktree (not the main working tree)."""
+    try:
+        git_dir = subprocess.run(
+            ["git", "-C", str(repo_dir), "rev-parse", "--git-dir"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        git_common = subprocess.run(
+            ["git", "-C", str(repo_dir), "rev-parse", "--git-common-dir"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if git_dir.returncode != 0 or git_common.returncode != 0:
+            return False
+        return git_dir.stdout.strip() != git_common.stdout.strip()
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+
+
+# ---------------------------------------------------------------------------
 # Symlink operations
 # ---------------------------------------------------------------------------
 
@@ -552,6 +579,7 @@ def do_install(
     *,
     prev_config: dict | None = None,
     interactive: bool = True,
+    dry_run: bool = False,
 ) -> int:
     """Perform installation based on config. Returns count of errors."""
     console = Console()
@@ -807,6 +835,50 @@ def do_uninstall(repo_dir: Path, claude_dir: Path, cfg: dict) -> None:
     console.print("[green]Claudefiles uninstalled.[/green]")
 
 
+def _print_dry_run(config: dict, agent_groups: dict[str, list[str]]) -> None:
+    """Print what would be installed without making changes."""
+    console = Console()
+    console.print("\n[bold]Dry run — no changes will be made[/bold]\n")
+
+    console.print("[bold]Skills:[/bold]")
+    for key, group in SKILL_GROUPS.items():
+        status = (
+            "[green]install[/green]"
+            if config.get("skills", {}).get(key)
+            else "[dim]skip[/dim]"
+        )
+        console.print(f"  {group.label}: {status}")
+
+    console.print("[bold]Agents:[/bold]")
+    for key, files in sorted(agent_groups.items()):
+        status = (
+            "[green]install[/green]"
+            if config.get("agents", {}).get(key)
+            else "[dim]skip[/dim]"
+        )
+        console.print(f"  {key} ({len(files)} agents): {status}")
+
+    console.print("[bold]Hooks:[/bold]")
+    for key, group in HOOK_GROUPS.items():
+        status = (
+            "[green]install[/green]"
+            if config.get("hooks", {}).get(key)
+            else "[dim]skip[/dim]"
+        )
+        console.print(f"  {group.label}: {status}")
+
+    console.print("[bold]Packages:[/bold]")
+    for key, pkg in PACKAGE_DEFS.items():
+        status = (
+            "[green]install[/green]"
+            if config.get("packages", {}).get(key)
+            else "[dim]skip[/dim]"
+        )
+        console.print(f"  {pkg.label}: {status}")
+
+    console.print("\n[bold]Always installed:[/bold] rules, learned, bin, commands")
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -824,9 +896,22 @@ def main() -> int:
         action="store_true",
         help="Remove all Claudefiles-owned symlinks and packages",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be done without making changes",
+    )
     args = parser.parse_args()
 
     repo_dir = Path(__file__).resolve().parent
+    if _is_git_worktree(repo_dir):
+        print(
+            "Error: refusing to install from a git worktree. "
+            "Symlinks would point to the worktree and break when it's cleaned up. "
+            "Run from the main repo instead."
+        )
+        return 1
+
     claude_dir = Path(os.path.expanduser(os.environ.get("CLAUDE_HOME", "~/.claude")))
     interactive = sys.stdin.isatty()
 
@@ -948,6 +1033,10 @@ def main() -> int:
                 )
 
             cfg = saved
+
+        if args.dry_run:
+            _print_dry_run(cfg, agent_groups)
+            return 0
 
         # Save config before installing (records intent)
         if interactive or saved is not None:
