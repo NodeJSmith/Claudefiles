@@ -9,7 +9,7 @@ import json
 import os
 import subprocess
 import tempfile
-import uuid as _uuid
+import uuid
 from pathlib import Path
 
 # Resolve hook paths relative to the repo root
@@ -584,7 +584,7 @@ CONTEXT_TIER_HOOK = REPO_ROOT / "scripts" / "hooks" / "context-tier.sh"
 
 def _context_tier_session_id(test_name: str) -> str:
     """Generate a unique session ID for a context-tier test to avoid cross-talk."""
-    return f"ct-test-{test_name}-{_uuid.uuid4().hex[:8]}"
+    return f"ct-test-{test_name}-{uuid.uuid4().hex[:8]}"
 
 
 def _write_sidecar(session_id: str, percent: str) -> Path:
