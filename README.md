@@ -174,6 +174,13 @@ Event-driven scripts that run before/after tool calls.
 | `context-tier.sh` | PreToolUse (*) | Inject context window tier guidance when usage crosses a threshold — prevents hallucinated context pressure |
 | `cm-memory-sync` (package) | Stop | Sync current session to the conversation database |
 
+> **Context tier setup:** The `context-tier.sh` hook reads a sidecar file written by `claude-context-writer`. To enable it, add `claude-context-writer` to your `statusLine.command` in settings — either by itself or in front of your existing command:
+>
+> ```json
+> "statusLine": { "type": "command", "command": "claude-context-writer" }
+> "statusLine": { "type": "command", "command": "claude-context-writer ~/bin/mine/starship-claude" }
+> ```
+
 ### Helper Scripts
 
 CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
