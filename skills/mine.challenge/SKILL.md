@@ -230,13 +230,16 @@ AskUserQuestion:
       description: "Proceed to critics without fixing — issues will be noted in critic briefing"
 ```
 
-- **"Fix all"**: apply all fixes to the target file, then re-read the modified content.
+For multi-file targets (module scopes or list files), apply the surface scan per-file but present all issues across all files in a single AskUserQuestion. Fixes are applied to each file individually.
+
+- **"Fix all"**: apply all fixes to the target file(s), then re-read the modified content.
 - **"Show me each fix"**: present each fix sequentially. For each fix, show the issue description with before/after text and ask:
 
   ```
   AskUserQuestion:
     question: "Fix <N> of <total>: <issue description>"
     header: "Fix <N>/<total>"
+    multiSelect: false
     options:
       - label: "Accept"
         description: "Apply this fix"
@@ -292,7 +295,7 @@ AskUserQuestion:
 
 #### Stage 3: Critic Briefing Generation
 
-Generate a structured briefing block to inject into every critic prompt in Phase 2. Store this briefing in context — Phase 2 injects it into each critic's prompt after their persona and before the target content.
+Always generate a structured briefing block for Phase 2. At minimum, the briefing contains the `### Review Focus` section (which applies to all target types). The `### Problem Context` section is added only for `design-doc` and `spec` targets. Store the briefing in context — Phase 2 injects it into each critic's prompt after their persona and before the target content.
 
 ```markdown
 ## Critic Briefing
@@ -307,7 +310,7 @@ Decisions already locked: <key architectural decisions stated as decided, not op
 ### Review Focus
 Focus on architectural soundness, design coherence, and implementation feasibility. Do not flag:
 - Document formatting, wording, or style issues
-- Surface-level consistency issues (ambiguity, implicit promises, vague references) — these have already been addressed in a pre-flight pass
+- Surface-level consistency issues (ambiguity, implicit promises, vague references) that were addressed in pre-flight, or that are listed under Known Surface Issues / Pre-Flight Notes below
 - Whether the stated problem is worth solving — that decision is made
 
 <!-- Include this section ONLY if the user chose "Skip fixes" and surface issues remain unfixed. -->
@@ -355,8 +358,8 @@ Determine whether this is a re-challenge run before proceeding to Specialist Sel
 
 **Primary signal — on-disk artifact check** (always check this first):
 
-1. If `--findings-out` was provided: check whether a file already exists at that path. If it does, this is a re-challenge. Absence of a file at `--findings-out` means this is the first run — not a re-challenge.
-2. If `--findings-out` was not provided: check the feature directory — the directory containing the target file. Look for any file matching `findings*.md` or `challenge-findings*.md`. If one or more exist, this is a re-challenge. For inline content targets (passthrough callers), the on-disk check cannot be tied to a specific file — skip the primary signal and fall through to the secondary signal.
+1. If `--findings-out` was provided: check whether a file already exists at that path. If it does, validate it looks like a prior challenge findings file (starts with `# Challenge Findings` and contains `Format-version:`). If valid, this is a re-challenge. If the file is missing or doesn't look like a findings file, treat as first run.
+2. If `--findings-out` was not provided: check the feature directory — the directory containing the target file. Look for any file matching `findings*.md` or `challenge-findings*.md`. If found, validate at least one starts with `# Challenge Findings` and contains `Format-version:`. If valid, this is a re-challenge. For inline content targets (passthrough callers), the on-disk check cannot be tied to a specific file — skip the primary signal and fall through to the secondary signal.
 
 **Secondary signal — conversation context** (use only if the primary signal is inconclusive): if the primary signal found nothing but the current conversation context contains a prior challenge run against the same target, treat this as a re-challenge. Conversation context is secondary because it is lost to compaction — the on-disk check is always more reliable.
 
