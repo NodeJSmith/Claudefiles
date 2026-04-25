@@ -437,6 +437,8 @@ This decouples all session metadata from LLM context memory. Phase 2 appends the
 
 Do NOT read `systems-architect.md` on re-challenges. Do NOT read any specialist files on re-challenges — the specialist list from Phase 1 is ignored entirely.
 
+**Re-challenge briefing (re-challenge runs only)**: Append a `### Re-Challenge Focus` subsection to the `## Critic Briefing` block from Stage 3 (if one was generated), or create a standalone `## Critic Briefing` block containing only this subsection (if Stage 3 produced no briefing). The subsection text: "This is a re-challenge after fixes were applied. Focus on: (1) whether the fixes were thorough and complete, (2) whether fixes introduced new problems, (3) any issues that were missed in the first round."
+
 **Standard roster** (re-challenge is `no`): read all 3 generic persona files from `~/.claude/skills/mine.challenge/personas/generic/`:
 - `senior-engineer.md`
 - `systems-architect.md`
@@ -454,10 +456,11 @@ Subagents write their reports inside this directory:
 - Generic critics: `<tmpdir>/senior.md`, `<tmpdir>/architect.md`, `<tmpdir>/adversarial.md`
 - Specialist critics: `<tmpdir>/<slug>.md` matching the persona filename (e.g., `<tmpdir>/data-integrity.md`, `<tmpdir>/contract-caller.md`)
 
-**CRITICAL: Issue ALL Agent tool calls (3-5 critics) in a single response message. Each call must use `subagent_type: general-purpose`, `model: sonnet`, and must NOT set `run_in_background`.** Foreground agents in the same message run concurrently. Background agents cannot request permissions and cannot spawn their own subagents — both are required here. Each critic receives:
+**CRITICAL: Issue ALL Agent tool calls in a single response message. Each call must use `subagent_type: general-purpose`, `model: sonnet`, and must NOT set `run_in_background`.** On standard runs this is 3-5 critics; on re-challenges this is exactly 2 critics (`senior-engineer.md` and `adversarial-reviewer.md`). Foreground agents in the same message run concurrently. Background agents cannot request permissions and cannot spawn their own subagents — both are required here. Each critic receives:
 - The target under review (file paths to read — pass full file paths, not excerpts; or inline content if the target was passed as text). For `docs` targets: also pass all sibling doc paths discovered in Phase 1 to the Documentation Architect specialist, so it can evaluate the documentation set as a whole. If no siblings were found, explicitly state: "No sibling docs were found — apply the single-file scope note from your persona."
 - The **target type** from Phase 1 classification (e.g., "This is a `spec` target — focus on requirement completeness, testability, and internal consistency")
 - Their persona and focus lens (from the persona file read above — include the full body text: Persona, Characteristic question, and Focus bullets)
+- Critic briefing (if generated): the full `## Critic Briefing` block, including any `### Re-Challenge Focus` subsection appended during roster reduction. Omit this bullet entirely if no briefing was generated and this is not a re-challenge.
 - If `--focus` was provided: "The user is specifically concerned about: <focus area>. Weight your analysis toward this concern."
 - The path to write their report to
 - These rules:
@@ -492,8 +495,10 @@ Each critic writes their full, unfiltered findings to their temp file. These fil
 Each critic's identity and focus lens comes from the persona file read above. Pass the full body text (Persona, Characteristic question, Focus bullets) as part of the subagent prompt. The generic critics are:
 
 - **senior-engineer.md** → writes to `<tmpdir>/senior.md`
-- **systems-architect.md** → writes to `<tmpdir>/architect.md`
+- **systems-architect.md** → writes to `<tmpdir>/architect.md` (standard runs only — not launched on re-challenges)
 - **adversarial-reviewer.md** → writes to `<tmpdir>/adversarial.md`
+
+On re-challenges, only `senior.md` and `adversarial.md` are written. `architect.md` is not created.
 
 Specialist critics (when selected) use their filename slug as the output name:
 
