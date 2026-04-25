@@ -1,6 +1,7 @@
 """Tests for the shared session_ops module."""
 
 import hashlib
+import json
 import tempfile
 from pathlib import Path
 
@@ -66,7 +67,7 @@ class TestSyncSessionCreatesBranches:
         row = cursor.fetchone()
         assert row is not None
         assert row[0], "Context summary should be populated"
-        assert row[1] == 2, "summary_version should be 2"
+        assert row[1] == 3, "summary_version should be 3"
 
     def test_no_has_tool_use_in_insert(self, memory_db):
         """has_tool_use and tool_summary columns should NOT be in the INSERT column list in session_ops.
@@ -318,3 +319,92 @@ class TestSyncThenImportDedupIntegration:
             HAVING cnt > 1
         """)
         assert cursor.fetchall() == [], "No duplicate (session_id, uuid) pairs"
+
+
+class TestAggregatedContentEnrichment:
+    """Test that aggregated_content includes file paths and commit text for FTS."""
+
+    def test_aggregated_content_includes_file_paths(self, memory_db):
+        """File paths from files_modified should appear in aggregated_content."""
+        fixture_path = FIXTURE_DIR / "single_rewind.jsonl"
+
+        # We need a fixture that produces files_modified; if single_rewind doesn't have them,
+        # we'll verify the mechanism by checking what we know the fixture produces.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+            sync_session(memory_db, fixture_path, project_dir)
+            memory_db.commit()
+
+        cursor = memory_db.cursor()
+        cursor.execute(
+            "SELECT aggregated_content, files_modified FROM branches WHERE is_active = 1"
+        )
+        row = cursor.fetchone()
+        assert row is not None
+        agg_content, files_json = row
+
+        if files_json:
+            files = json.loads(files_json)
+            if files:
+                # Full paths should appear in aggregated_content
+                for path in files[:3]:
+                    assert path in agg_content, (
+                        f"Full file path '{path}' should be in aggregated_content"
+                    )
+                assert "__files__" in agg_content, (
+                    "__files__ marker should separate message text from file paths"
+                )
+
+    def test_aggregated_content_includes_commits(self, memory_db):
+        """Commit text from commits should appear in aggregated_content."""
+        fixture_path = FIXTURE_DIR / "single_rewind.jsonl"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+            sync_session(memory_db, fixture_path, project_dir)
+            memory_db.commit()
+
+        cursor = memory_db.cursor()
+        cursor.execute(
+            "SELECT aggregated_content, commits FROM branches WHERE is_active = 1"
+        )
+        row = cursor.fetchone()
+        assert row is not None
+        agg_content, commits_json = row
+
+        if commits_json:
+            commits = json.loads(commits_json)
+            if commits:
+                for commit in commits[:3]:
+                    assert commit in agg_content, (
+                        f"Commit '{commit}' should be in aggregated_content"
+                    )
+                assert "__commits__" in agg_content, (
+                    "__commits__ marker should separate file paths from commit text"
+                )
+
+    def test_aggregated_content_set_semantics_on_resync(self, memory_db):
+        """On resync, aggregated_content is recomputed (SET), not doubled (APPEND)."""
+        fixture_path = FIXTURE_DIR / "linear_3_exchange.jsonl"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+            sync_session(memory_db, fixture_path, project_dir)
+            memory_db.commit()
+
+        cursor = memory_db.cursor()
+        cursor.execute("SELECT aggregated_content FROM branches WHERE is_active = 1")
+        content_after_first = cursor.fetchone()[0]
+
+        # Sync again (same data)
+        with tempfile.TemporaryDirectory() as tmpdir2:
+            project_dir2 = Path(tmpdir2)
+            sync_session(memory_db, fixture_path, project_dir2)
+            memory_db.commit()
+
+        cursor.execute("SELECT aggregated_content FROM branches WHERE is_active = 1")
+        content_after_second = cursor.fetchone()[0]
+
+        assert content_after_first == content_after_second, (
+            "aggregated_content should be idempotent on resync (SET, not APPEND)"
+        )

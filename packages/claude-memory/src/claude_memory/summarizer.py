@@ -39,16 +39,22 @@ def truncate_mid(text: str, front: int = _FRONT_CHARS, back: int = _BACK_CHARS) 
     return text[:front] + "\n[... truncated ...]\n" + text[-back:]
 
 
-def detect_disposition(exchanges: list[dict]) -> str:
-    """Classify session ending as COMPLETED, IN_PROGRESS, or INTERRUPTED.
+def detect_disposition(exchanges: list[dict], commits: list[str] | None = None) -> str:
+    """Classify session ending as COMPLETED, IN_PROGRESS, or ABANDONED.
 
-    Heuristics based on the final exchange pair:
-    - COMPLETED: assistant uses completion language and user confirms briefly
-    - IN_PROGRESS: user gives a new instruction as their last message
-    - INTERRUPTED: default / session ends mid-flow
+    Heuristics based on the final exchange pair and commit metadata:
+    - COMPLETED: non-empty commits list (work shipped), or assistant uses completion
+      language and user confirms briefly
+    - ABANDONED: final exchange has an assistant response but no subsequent user
+      message, AND the session has more than 2 exchanges
+    - IN_PROGRESS: user gives a new instruction as their last message, or default
     """
+    # Non-empty commits list is a strong COMPLETED signal — a commit was made
+    if commits:
+        return "COMPLETED"
+
     if not exchanges:
-        return "INTERRUPTED"
+        return "ABANDONED"
 
     last = exchanges[-1]
     last_user = last.get("user", "").strip()
@@ -69,6 +75,11 @@ def detect_disposition(exchanges: list[dict]) -> str:
     # If user confirmed briefly (likely accepting the work)
     if _SHORT_CONFIRM_RE.match(last_user):
         return "COMPLETED"
+
+    # ABANDONED: assistant responded but no subsequent user message, and session
+    # has more than 2 exchanges (short sessions without a reply are normal)
+    if last_asst and not last_user and len(exchanges) > 2:
+        return "ABANDONED"
 
     return "IN_PROGRESS"
 
@@ -128,7 +139,7 @@ def build_context_summary_json(branch_row: dict, messages: list[dict]) -> dict:
     exchanges = build_exchange_pairs(messages)
     if not exchanges:
         return {
-            "version": 2,
+            "version": 3,
             "topic": "",
             "first_exchanges": [],
             "last_exchanges": [],
@@ -139,36 +150,6 @@ def build_context_summary_json(branch_row: dict, messages: list[dict]) -> dict:
     topic = exchanges[0]["user"]
     if len(topic) > 120:
         topic = topic[:120] + "..."
-
-    disposition = detect_disposition(exchanges)
-
-    # First exchanges (up to 2)
-    first_exchanges = [
-        {"user": ex["user"], "assistant": ex["assistant"], "timestamp": ex["timestamp"]}
-        for ex in exchanges[:2]
-    ]
-
-    # Last exchanges (up to 6)
-    if len(exchanges) <= 8:
-        # Short/medium session: all exchanges go into last_exchanges
-        last_exchanges = [
-            {
-                "user": ex["user"],
-                "assistant": ex["assistant"],
-                "timestamp": ex["timestamp"],
-            }
-            for ex in exchanges
-        ]
-    else:
-        # Take last 6 exchanges
-        last_exchanges = [
-            {
-                "user": ex["user"],
-                "assistant": ex["assistant"],
-                "timestamp": ex["timestamp"],
-            }
-            for ex in exchanges[-6:]
-        ]
 
     # Parse JSON fields from branch_row
     files = branch_row.get("files_modified") or "[]"
@@ -192,8 +173,42 @@ def build_context_summary_json(branch_row: dict, messages: list[dict]) -> dict:
         except (json.JSONDecodeError, TypeError):
             tool_counts = {}
 
+    disposition = detect_disposition(exchanges, commits=commits)
+
+    # First exchanges (up to 2) — truncate exchange text to bound JSON size
+    first_exchanges = [
+        {
+            "user": truncate_mid(ex["user"]),
+            "assistant": truncate_mid(ex["assistant"]),
+            "timestamp": ex["timestamp"],
+        }
+        for ex in exchanges[:2]
+    ]
+
+    # Last exchanges (up to 6) — truncate exchange text to bound JSON size
+    if len(exchanges) <= 8:
+        # Short/medium session: all exchanges go into last_exchanges
+        last_exchanges = [
+            {
+                "user": truncate_mid(ex["user"]),
+                "assistant": truncate_mid(ex["assistant"]),
+                "timestamp": ex["timestamp"],
+            }
+            for ex in exchanges
+        ]
+    else:
+        # Take last 6 exchanges
+        last_exchanges = [
+            {
+                "user": truncate_mid(ex["user"]),
+                "assistant": truncate_mid(ex["assistant"]),
+                "timestamp": ex["timestamp"],
+            }
+            for ex in exchanges[-6:]
+        ]
+
     return {
-        "version": 2,
+        "version": 3,
         "topic": topic,
         "disposition": disposition,
         "first_exchanges": first_exchanges,

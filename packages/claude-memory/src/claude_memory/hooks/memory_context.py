@@ -31,7 +31,6 @@ from claude_memory.db import (
     get_db_connection,
 )
 from claude_memory.formatting import (
-    format_time,
     format_time_full,
     get_project_key,
     normalize_cwd,
@@ -39,7 +38,7 @@ from claude_memory.formatting import (
 from claude_memory.summarizer import (
     build_exchange_pairs,
     detect_disposition,
-    truncate_mid,
+    render_context_summary,
 )
 
 
@@ -294,126 +293,66 @@ def select_sessions(
 def _build_fallback_context(session: dict) -> str:
     """
     Fallback for sessions without cached context_summary.
-    Renders truncated last-3 exchanges in the same format as render_context_summary.
+    Constructs a summary_json dict from raw session data and delegates
+    to render_context_summary() — no duplicated rendering logic here.
     """
-
-    lines = []
-
-    # Session header
-    start = format_time_full(session["started_at"])
-    end = format_time_full(session["ended_at"])
-    header = f"### Session: {start} -> {end}"
-    branch = session.get("git_branch")
-    if branch:
-        header += f" (branch: {branch})"
-    uuid = session.get("uuid", "")
-    if uuid:
-        header += f" [{uuid}]"
-    lines.append(header + "\n")
-
-    # Build exchanges early so we can derive topic/disposition
     messages = session.get("messages", [])
     exchanges = build_exchange_pairs(messages) if messages else []
-
-    # Topic and disposition
-    topic = exchanges[0]["user"][:120] if exchanges else ""
-    disposition = detect_disposition(exchanges) if exchanges else ""
-    if topic or disposition:
-        parts = []
-        if topic:
-            parts.append(f"**Topic:** {topic}")
-        if disposition:
-            parts.append(f"**Status:** {disposition}")
-        lines.append(" | ".join(parts))
-        lines.append("")
-
-    # Files modified (compact)
     files = session.get("files_modified", [])
-    if files:
-        file_strs = [f"`{f}`" for f in files[:6]]
-        line = "Modified: " + ", ".join(file_strs)
-        if len(files) > 6:
-            line += f" +{len(files) - 6} more"
-        lines.append(line)
-
-    # Commits
     commits = session.get("commits", [])
-    if commits:
-        lines.append("Commits: " + "; ".join(commits[:3]))
 
-    lines.append("")
+    # Build topic from first exchange
+    topic = exchanges[0]["user"][:120] if exchanges else ""
 
-    if not exchanges:
-        return "\n".join(lines)
+    # Derive disposition, passing commits for metadata-based detection
+    disposition = detect_disposition(exchanges, commits=commits) if exchanges else ""
 
     exchange_count = session.get("exchange_count", len(exchanges))
 
+    # Build first_exchanges (up to 2)
+    first_exchanges = [
+        {"user": ex["user"], "assistant": ex["assistant"], "timestamp": ex["timestamp"]}
+        for ex in exchanges[:2]
+    ]
+
+    # Build last_exchanges (up to 6 for long sessions, all for short)
     if len(exchanges) <= 8:
-        lines.append("### Conversation\n")
-        for ex in exchanges:
-            t = format_time(ex.get("timestamp"))
-            lines.append(f"**[{t}] User:**")
-            lines.append(ex["user"])
-            lines.append("")
-            if ex["assistant"]:
-                lines.append(f"**[{t}] Assistant:**")
-                lines.append(truncate_mid(ex["assistant"]))
-                lines.append("")
+        last_exchanges = [
+            {
+                "user": ex["user"],
+                "assistant": ex["assistant"],
+                "timestamp": ex["timestamp"],
+            }
+            for ex in exchanges
+        ]
     else:
-        # Last 6 exchanges first — most recent context at top, where attention is highest
-        # and where truncation (if any) will clip from below rather than above.
-        lines.append("### Where We Left Off\n")
-        for ex in exchanges[-6:]:
-            t = format_time(ex.get("timestamp"))
-            lines.append(f"**[{t}] User:**")
-            lines.append(ex["user"])
-            lines.append("")
-            if ex["assistant"]:
-                lines.append(f"**[{t}] Assistant:**")
-                lines.append(truncate_mid(ex["assistant"]))
-                lines.append("")
+        last_exchanges = [
+            {
+                "user": ex["user"],
+                "assistant": ex["assistant"],
+                "timestamp": ex["timestamp"],
+            }
+            for ex in exchanges[-6:]
+        ]
 
-        # Gap with file summary
-        gap = exchange_count - 8
-        if gap > 0:
-            gap_files = [f.rsplit("/", 1)[-1] for f in files[:3]] if files else []
-            if gap_files:
-                lines.append(
-                    f"[... {gap} earlier exchanges covering: {', '.join(gap_files)} ...]\n"
-                )
-            else:
-                lines.append(f"[... {gap} earlier exchanges ...]\n")
+    summary_json = {
+        "version": 3,
+        "topic": topic,
+        "disposition": disposition,
+        "first_exchanges": first_exchanges,
+        "last_exchanges": last_exchanges,
+        "metadata": {
+            "exchange_count": exchange_count,
+            "files_modified": files,
+            "commits": commits,
+            "tool_counts": {},
+            "started_at": session.get("started_at"),
+            "ended_at": session.get("ended_at"),
+            "git_branch": session.get("git_branch"),
+        },
+    }
 
-        # First 2 exchanges — kept for origin context, placed last so it's the
-        # first thing clipped under inline-preview truncation.
-        lines.append("### Earlier in This Session\n")
-        for ex in exchanges[:2]:
-            t = format_time(ex.get("timestamp"))
-            lines.append(f"**[{t}] User:**")
-            lines.append(ex["user"])
-            lines.append("")
-            if ex["assistant"]:
-                lines.append(f"**[{t}] Assistant:**")
-                lines.append(truncate_mid(ex["assistant"]))
-                lines.append("")
-
-    # Contextual recall priming footer
-    footer_parts = [f"{exchange_count} exchanges"]
-    if topic:
-        short_topic = topic[:80] + "..." if len(topic) > 80 else topic
-        footer_parts.append(f'about "{short_topic}"')
-    if files:
-        short_files = [f.rsplit("/", 1)[-1] for f in files[:3]]
-        footer_parts.append(f"({', '.join(short_files)})")
-    footer = " ".join(footer_parts)
-    lines.append(
-        f"[{footer} — proactively use /cm-recall-conversations "
-        "to retrieve relevant context from past conversations when the user references "
-        "prior work, asks about decisions made earlier, or when you sense useful context "
-        "from previous sessions would improve your response.]"
-    )
-
-    return "\n".join(lines)
+    return render_context_summary(summary_json)
 
 
 def _extract_topic(session: dict) -> str:

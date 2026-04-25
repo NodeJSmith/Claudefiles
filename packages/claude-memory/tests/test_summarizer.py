@@ -1,12 +1,15 @@
 """Tests for claude_memory.summarizer — context summary extraction and rendering."""
 
+import inspect
 import json
 import sqlite3
 
 import pytest
 
+from claude_memory.hooks import backfill_summaries, memory_setup
 from claude_memory.summarizer import (
     build_exchange_pairs,
+    detect_disposition,
     truncate_mid,
     build_context_summary_json,
     compute_context_summary,
@@ -127,7 +130,7 @@ class TestBuildContextSummaryJson:
         ]
         result = build_context_summary_json(branch_row, messages)
 
-        assert result["version"] == 2
+        assert result["version"] == 3
         assert result["topic"] == "Fix the bug in main.py"
         assert len(result["first_exchanges"]) == 2
         assert result["first_exchanges"][0]["user"] == "Fix the bug in main.py"
@@ -409,7 +412,7 @@ class TestComputeContextSummary:
         assert "/cm-recall-conversations" in md
 
         parsed = json.loads(json_str)
-        assert parsed["version"] == 2
+        assert parsed["version"] == 3
         assert parsed["topic"] == "How do I fix the parser bug?"
         assert parsed["metadata"]["git_branch"] == "main"
         assert (
@@ -423,3 +426,211 @@ class TestComputeContextSummary:
         md, json_str = compute_context_summary(cursor, 99999)
         assert md == ""
         assert json_str == ""
+
+
+class TestDetectDispositionWithCommits:
+    """Tests for the improved detect_disposition() with commits parameter."""
+
+    def _make_exchanges(self, count: int, last_user: str = "ok") -> list[dict]:
+        exchanges = []
+        for i in range(count - 1):
+            exchanges.append(
+                {"user": f"Q{i}", "assistant": f"A{i}", "timestamp": f"t{i}"}
+            )
+        exchanges.append(
+            {"user": last_user, "assistant": "Done.", "timestamp": "t_last"}
+        )
+        return exchanges
+
+    def test_detect_disposition_completed_with_commits(self):
+        """Non-empty commits list returns COMPLETED regardless of exchange content."""
+        exchanges = [{"user": "start", "assistant": "working...", "timestamp": "t0"}]
+        result = detect_disposition(exchanges, commits=["fix: resolve issue #42"])
+        assert result == "COMPLETED"
+
+    def test_detect_disposition_completed_with_multiple_commits(self):
+        """Multiple commits still return COMPLETED."""
+        exchanges = [{"user": "what now?", "assistant": "no idea", "timestamp": "t0"}]
+        result = detect_disposition(exchanges, commits=["feat: add thing", "fix: bug"])
+        assert result == "COMPLETED"
+
+    def test_detect_disposition_completed_with_text_only(self):
+        """Existing text heuristics still work when commits is None (or empty)."""
+        exchanges = [
+            {
+                "user": "Run the tests",
+                "assistant": "All tests pass.",
+                "timestamp": "t0",
+            },
+            {"user": "ok", "assistant": "", "timestamp": "t1"},
+        ]
+        result = detect_disposition(exchanges, commits=None)
+        assert result == "COMPLETED"
+
+    def test_detect_disposition_completed_with_empty_commits(self):
+        """Empty commits list does not trigger COMPLETED — falls through to text heuristics."""
+        exchanges = [
+            {
+                "user": "What should I do?",
+                "assistant": "Keep going.",
+                "timestamp": "t0",
+            },
+        ]
+        result = detect_disposition(exchanges, commits=[])
+        assert result == "IN_PROGRESS"
+
+    def test_detect_disposition_abandoned_replaces_interrupted(self):
+        """Zero-exchange sessions return ABANDONED (not INTERRUPTED)."""
+        result = detect_disposition([])
+        assert result == "ABANDONED"
+        # Confirm INTERRUPTED is not returned
+        assert result != "INTERRUPTED"
+
+    def test_detect_disposition_abandoned_no_user_followup(self):
+        """Final exchange with no user reply AND >2 exchanges returns ABANDONED."""
+        # Build exchanges where the last user message is empty (assistant replied, no followup)
+        exchanges = [
+            {"user": "Q1", "assistant": "A1", "timestamp": "t0"},
+            {"user": "Q2", "assistant": "A2", "timestamp": "t1"},
+            {"user": "Q3", "assistant": "Final answer here.", "timestamp": "t2"},
+        ]
+        # Simulate: last exchange has assistant content but no user reply after
+        # We can test this by checking disposition of a last exchange where user="" and assistant is non-empty
+        exchanges_with_no_reply = exchanges[:2] + [
+            {"user": "", "assistant": "No followup.", "timestamp": "t3"}
+        ]
+        result = detect_disposition(exchanges_with_no_reply)
+        assert result == "ABANDONED"
+
+    def test_detect_disposition_not_abandoned_for_short_sessions(self):
+        """Sessions with <=2 exchanges are not classified as ABANDONED when no user followup."""
+        # Only 1 exchange — too short for ABANDONED heuristic
+        exchanges = [{"user": "", "assistant": "Some response.", "timestamp": "t0"}]
+        result = detect_disposition(exchanges)
+        # Should not be ABANDONED (<=2 exchanges condition not met)
+        assert result != "ABANDONED"
+
+
+class TestBuildContextSummaryJsonTruncation:
+    """Tests for exchange text truncation in build_context_summary_json."""
+
+    def test_build_context_summary_json_truncates_exchanges(self):
+        """Verify exchange text is truncated in JSON output; JSON size bounded."""
+        # Create a branch with very long exchange content
+        long_user = "U" * 1500  # way over _FRONT_CHARS + _BACK_CHARS
+        long_asst = "A" * 2000
+        branch_row = {
+            "started_at": "2025-01-15T10:00:00Z",
+            "ended_at": "2025-01-15T11:00:00Z",
+            "exchange_count": 1,
+            "files_modified": "[]",
+            "commits": "[]",
+            "tool_counts": "{}",
+            "git_branch": "main",
+        }
+        messages = [
+            {"role": "user", "content": long_user, "timestamp": "2025-01-15T10:00:00Z"},
+            {
+                "role": "assistant",
+                "content": long_asst,
+                "timestamp": "2025-01-15T10:01:00Z",
+            },
+        ]
+        result = build_context_summary_json(branch_row, messages)
+
+        # Exchange text should be truncated
+        ex = result["last_exchanges"][0]
+        assert len(ex["user"]) < len(long_user), "User text should be truncated in JSON"
+        assert len(ex["assistant"]) < len(long_asst), (
+            "Assistant text should be truncated in JSON"
+        )
+        assert "[... truncated ...]" in ex["user"] or len(ex["user"]) <= 920
+        assert "[... truncated ...]" in ex["assistant"] or len(ex["assistant"]) <= 920
+
+        # JSON should be bounded in size
+        json_size = len(json.dumps(result))
+        # With 1 short exchange of truncated text, should be well under 50KB
+        assert json_size < 50_000, f"JSON size {json_size} exceeds 50KB limit"
+
+    def test_version_is_3(self):
+        """build_context_summary_json returns version 3."""
+        branch_row = {}
+        messages = [
+            {"role": "user", "content": "Hello", "timestamp": "t1"},
+            {"role": "assistant", "content": "Hi", "timestamp": "t2"},
+        ]
+        result = build_context_summary_json(branch_row, messages)
+        assert result["version"] == 3
+
+
+class TestNeedsBackfillVersionBump:
+    """Test that the backfill threshold is 3 (not 2) in both backfill_summaries and memory_setup."""
+
+    def _make_db_with_branch(self, summary_version: int) -> sqlite3.Connection:
+        """Create an in-memory DB with one branch at the given summary_version."""
+        conn = sqlite3.connect(":memory:")
+        conn.executescript(SCHEMA)
+        conn.commit()
+        _migrate_columns(conn)
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO projects (path, key, name) VALUES (?, ?, ?)",
+            ("/test/proj", "-test-proj", "proj"),
+        )
+        cursor.execute(
+            "INSERT INTO sessions (uuid, project_id) VALUES (?, ?)",
+            ("sess-1", 1),
+        )
+        cursor.execute(
+            """
+            INSERT INTO branches (session_id, leaf_uuid, is_active, summary_version)
+            VALUES (?, ?, 1, ?)
+            """,
+            (1, "leaf-1", summary_version),
+        )
+        conn.commit()
+        return conn
+
+    def test_needs_backfill_version_bump_query(self):
+        """Branches with summary_version=2 should be picked up by the < 3 backfill query."""
+        conn = self._make_db_with_branch(summary_version=2)
+        cursor = conn.cursor()
+        # This is the query used by both backfill_summaries.py and memory_setup.py
+        cursor.execute(
+            "SELECT COUNT(*) FROM branches WHERE summary_version IS NULL OR summary_version < 3"
+        )
+        count = cursor.fetchone()[0]
+        assert count == 1, (
+            "summary_version=2 branches must be detected by the < 3 backfill query"
+        )
+        conn.close()
+
+    def test_needs_backfill_version_3_not_triggered(self):
+        """Branches with summary_version=3 should NOT be picked up by the < 3 backfill query."""
+        conn = self._make_db_with_branch(summary_version=3)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT COUNT(*) FROM branches WHERE summary_version IS NULL OR summary_version < 3"
+        )
+        count = cursor.fetchone()[0]
+        assert count == 0, (
+            "summary_version=3 branches must NOT be detected by the < 3 backfill query"
+        )
+        conn.close()
+
+    def test_backfill_summaries_uses_version_3_threshold(self):
+        """Verify backfill_summaries.py source contains 'summary_version < 3' (not 2)."""
+        source = inspect.getsource(backfill_summaries)
+        assert "summary_version < 3" in source, (
+            "backfill_summaries.py must query for summary_version < 3"
+        )
+        assert "summary_version = 3" in source, (
+            "backfill_summaries.py must write summary_version = 3"
+        )
+
+    def test_memory_setup_uses_version_3_threshold(self):
+        """Verify memory_setup.py _needs_backfill uses 'summary_version < 3' (not 2)."""
+        source = inspect.getsource(memory_setup._needs_backfill)
+        assert "summary_version < 3" in source, (
+            "_needs_backfill() must check for summary_version < 3"
+        )

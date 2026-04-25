@@ -328,8 +328,17 @@ def sync_session(
                 [(branch_db_id, mid) for mid in to_add],
             )
 
-        # Aggregate branch content for FTS
-        agg_content = aggregate_branch_content(cursor, branch_db_id)
+        # Aggregate branch content for FTS — SET (recompute from scratch, not append)
+        # Includes: message text + deduplicated full file paths + commit text
+        msg_text = aggregate_branch_content(cursor, branch_db_id)
+        parts = [msg_text]
+        if files:
+            # Use full paths (not basenames) for FTS precision under porter stemmer
+            deduped_paths = list(dict.fromkeys(files))  # preserve order, deduplicate
+            parts.append("\n__files__\n" + "\n".join(deduped_paths))
+        if commits:
+            parts.append("\n__commits__\n" + "\n".join(commits))
+        agg_content = "".join(parts)
         cursor.execute(
             "UPDATE branches SET aggregated_content = ? WHERE id = ?",
             (agg_content, branch_db_id),
@@ -340,7 +349,7 @@ def sync_session(
             summary_md, summary_json = compute_context_summary(cursor, branch_db_id)
             cursor.execute(
                 """
-                UPDATE branches SET context_summary = ?, context_summary_json = ?, summary_version = 2
+                UPDATE branches SET context_summary = ?, context_summary_json = ?, summary_version = 3
                 WHERE id = ?
                 """,
                 (summary_md, summary_json, branch_db_id),

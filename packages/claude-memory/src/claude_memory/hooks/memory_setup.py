@@ -59,7 +59,7 @@ def _needs_backfill() -> bool:
             conn.close()
             return False
         cursor.execute(
-            "SELECT COUNT(*) FROM branches WHERE summary_version IS NULL OR summary_version < 2"
+            "SELECT COUNT(*) FROM branches WHERE summary_version IS NULL OR summary_version < 3"
         )
         count = cursor.fetchone()[0]
         conn.close()

@@ -30,7 +30,7 @@ def main():
         cursor.execute(
             """
             SELECT id FROM branches
-            WHERE summary_version IS NULL OR summary_version < 2
+            WHERE summary_version IS NULL OR summary_version < 3
             LIMIT ?
         """,
             (BATCH_SIZE,),
@@ -45,7 +45,7 @@ def main():
                 summary_md, summary_json = compute_context_summary(cursor, branch_id)
                 cursor.execute(
                     """
-                    UPDATE branches SET context_summary = ?, context_summary_json = ?, summary_version = 2
+                    UPDATE branches SET context_summary = ?, context_summary_json = ?, summary_version = 3
                     WHERE id = ?
                 """,
                     (summary_md, summary_json, branch_id),
