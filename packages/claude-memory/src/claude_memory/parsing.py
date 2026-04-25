@@ -258,3 +258,25 @@ def aggregate_branch_content(cursor: sqlite3.Cursor, branch_db_id: int) -> str:
         (branch_db_id,),
     )
     return "\n".join(row[0] for row in cursor.fetchall())
+
+
+def build_aggregated_content(
+    cursor: sqlite3.Cursor,
+    branch_db_id: int,
+    files: list[str] | None,
+    commits: list[str] | None,
+) -> str:
+    """Build aggregated FTS content for a branch using SET semantics.
+
+    Concatenates message text (excluding notifications), deduplicated full file
+    paths, and commit text.  Shared by the live sync/import path and the v5
+    database migration to ensure format consistency.
+    """
+    msg_text = aggregate_branch_content(cursor, branch_db_id)
+    parts = [msg_text]
+    if files:
+        deduped_paths = list(dict.fromkeys(files))
+        parts.append("\n__files__\n" + "\n".join(deduped_paths))
+    if commits:
+        parts.append("\n__commits__\n" + "\n".join(commits))
+    return "".join(parts)

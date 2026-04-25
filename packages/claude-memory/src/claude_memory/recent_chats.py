@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 # Local imports
-from claude_memory.db import DEFAULT_DB_PATH
+from claude_memory.db import DEFAULT_DB_PATH, get_db_connection
 from claude_memory.formatting import format_markdown_session, format_json_sessions
 
 
@@ -208,9 +208,8 @@ def main():
         sys.exit(1)
 
     try:
-        conn = sqlite3.connect(args.db)
-        conn.execute("PRAGMA journal_mode = WAL")
-        conn.execute("PRAGMA busy_timeout = 5000")
+        settings = {"db_path": str(args.db)} if args.db != DEFAULT_DB_PATH else None
+        conn = get_db_connection(settings)
         sessions = get_recent_sessions(
             conn,
             n=n,

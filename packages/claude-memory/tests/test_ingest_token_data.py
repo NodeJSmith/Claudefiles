@@ -10,17 +10,19 @@ from pathlib import Path
 
 import pytest
 
-from claude_memory.ingest_token_data import (
-    JnlFile,
-    ParsedSession,
+from claude_memory.token_schema import (
     SCHEMA_SQL,
     SCHEMA_VERSION,
-    Turn,
     ensure_schema,
-    import_session,
+)
+from claude_memory.token_parser import (
+    JnlFile,
+    ParsedSession,
+    Turn,
     record_import,
     should_skip_file,
 )
+from claude_memory.token_analytics import import_session
 
 
 # ---------------------------------------------------------------------------
@@ -244,14 +246,14 @@ class TestTokenImportLogSchema:
                 (str(f), 2000),
             )
 
-    def test_import_log_not_present(self, token_db):
-        """The legacy import_log table must NOT exist — ensure_schema drops it on v4 init."""
+    def test_import_log_not_created_by_token_schema(self, token_db):
+        """A fresh v4 schema must not contain import_log — that table belongs to the conversation subsystem (db.py)."""
         row = token_db.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='import_log'"
         ).fetchone()
         assert row is None, (
-            "Legacy import_log table must not exist in a v4 schema — "
-            "token_import_log is the authoritative source for ingest state"
+            "import_log must not be created by token schema init — "
+            "it belongs to the conversation subsystem (db.py)"
         )
 
 
@@ -421,7 +423,7 @@ def _v3_token_db() -> sqlite3.Connection:
     conn.executescript(SCHEMA_SQL)
     conn.commit()
 
-    # Legacy table that must be dropped by v4 migration
+    # Conversation import_log table — must survive token schema migration
     conn.execute("""
         CREATE TABLE IF NOT EXISTS import_log (
             id INTEGER PRIMARY KEY,
@@ -450,12 +452,9 @@ class TestV3ToV4Migration:
         assert version == SCHEMA_VERSION
         conn.close()
 
-    def test_migration_drops_legacy_import_log(self):
-        """ensure_schema on a v3 DB must DROP the legacy import_log table."""
-        # Prevents: legacy import_log rows for conversation files interfering with
-        # the token ingest skip-file logic after a schema upgrade.
+    def test_migration_preserves_conversation_import_log(self):
+        """ensure_schema must NOT drop import_log — it belongs to the conversation subsystem."""
         conn = _v3_token_db()
-        # Confirm import_log exists before migration
         assert (
             conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name='import_log'"
@@ -468,9 +467,9 @@ class TestV3ToV4Migration:
         row = conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='import_log'"
         ).fetchone()
-        assert row is None, (
-            "import_log must be dropped during v3→v4 migration — "
-            "token_import_log is the sole ingest-state table post-v4"
+        assert row is not None, (
+            "import_log must survive token schema migration — "
+            "it is used by conversation import tracking (db.py)"
         )
         conn.close()
 

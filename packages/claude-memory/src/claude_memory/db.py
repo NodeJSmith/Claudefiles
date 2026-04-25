@@ -11,6 +11,8 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from claude_memory.content import parse_origin
+from claude_memory.parsing import build_aggregated_content
+from claude_memory.summarizer import truncate_mid
 
 # Default paths
 DEFAULT_DB_PATH = Path.home() / ".claude-memory" / "conversations.db"
@@ -28,7 +30,7 @@ DEFAULT_SETTINGS = {
     "sync_on_stop": True,
     "consolidation_reminder_enabled": True,
     "consolidation_min_hours": 24,
-    "consolidation_min_sessions": 5,
+    "consolidation_min_sessions": 10,
 }
 
 # Keys in config.json that override DEFAULT_SETTINGS
@@ -490,6 +492,19 @@ CREATE INDEX IF NOT EXISTS idx_token_snapshots_start ON token_snapshots(start_ti
         conn.execute("PRAGMA user_version = 4")
         conn.commit()
 
+    if version < 5:
+        # v5: FTS metadata enrichment — recompute aggregated_content (SET semantics)
+        # with file paths and commits for all existing branches.
+        # Also renames INTERRUPTED→ABANDONED in stored summaries.
+        # Gates _migrate_project_paths() as a pre-pass.
+        # Runs a single FTS rebuild after all batch UPDATEs.
+        _migrate_project_paths(conn)
+        _migrate_v5(conn, cursor)
+
+    if version < 6:
+        # v6: Truncate oversized context_summary_json entries (>50KB).
+        _migrate_v6(conn, cursor)
+
 
 def _backup_db_before_migration(db_path: Path, label: str) -> bool:
     """Create a timestamped WAL-safe backup using sqlite3.Connection.backup().
@@ -609,6 +624,16 @@ def _migrate_project_paths(conn: sqlite3.Connection) -> None:
     """
     cursor = conn.cursor()
 
+    # Guard: projects and sessions tables may not exist in minimal test DBs
+    tables = {
+        r[0]
+        for r in cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
+    }
+    if "projects" not in tables or "sessions" not in tables:
+        return
+
     # Find all projects that have at least one session with a non-null cwd
     cursor.execute("""
         SELECT p.id, p.path, p.name,
@@ -665,6 +690,147 @@ def _migrate_project_paths(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+_MIGRATION_BATCH_SIZE = 50
+_MIGRATION_V6_MAX_JSON_BYTES = 51200  # 50 KB
+
+
+def _migrate_v5(conn: sqlite3.Connection, cursor: sqlite3.Cursor) -> None:
+    """v5: Recompute aggregated_content (SET semantics) with file paths and commits.
+
+    For each branch in batches of 50:
+    - Read files_modified and commits from the branches table.
+    - Recompute aggregated_content using the same format as build_aggregated_content()
+      in parsing.py (message text + __files__ section + __commits__ section).
+    - String-replace **Status:** INTERRUPTED with **Status:** ABANDONED in context_summary.
+    - Update disposition field in context_summary_json.
+
+    After all batches, run a single FTS rebuild.  Bumps user_version to 5.
+    """
+    # Fetch all branch IDs in one pass; process in batches of 50
+    cursor.execute(
+        "SELECT id, files_modified, commits, context_summary_json FROM branches ORDER BY id"
+    )
+    all_branches = cursor.fetchall()
+
+    for batch_start in range(0, len(all_branches), _MIGRATION_BATCH_SIZE):
+        batch = all_branches[batch_start : batch_start + _MIGRATION_BATCH_SIZE]
+        for branch_id, files_json_raw, commits_json_raw, csj_raw in batch:
+            # Parse files_modified JSON (may be NULL)
+            files: list[str] | None = None
+            if files_json_raw:
+                try:
+                    parsed = json.loads(files_json_raw)
+                    if isinstance(parsed, list):
+                        files = [str(f) for f in parsed if f]
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+            # Parse commits JSON (may be NULL)
+            commits: list[str] | None = None
+            if commits_json_raw:
+                try:
+                    parsed = json.loads(commits_json_raw)
+                    if isinstance(parsed, list):
+                        commits = [str(c) for c in parsed if c]
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+            # Recompute aggregated_content — SET semantics (replaces existing value)
+            agg_content = build_aggregated_content(cursor, branch_id, files, commits)
+            cursor.execute(
+                "UPDATE branches SET aggregated_content = ? WHERE id = ?",
+                (agg_content, branch_id),
+            )
+
+            # Rename INTERRUPTED → ABANDONED in context_summary (markdown)
+            cursor.execute(
+                "UPDATE branches SET context_summary = REPLACE(context_summary, '**Status:** INTERRUPTED', '**Status:** ABANDONED') WHERE id = ? AND context_summary LIKE '%**Status:** INTERRUPTED%'",
+                (branch_id,),
+            )
+
+            # Update disposition in context_summary_json
+            if csj_raw:
+                try:
+                    summary = json.loads(csj_raw)
+                    if summary.get("disposition") == "INTERRUPTED":
+                        summary["disposition"] = "ABANDONED"
+                        cursor.execute(
+                            "UPDATE branches SET context_summary_json = ? WHERE id = ?",
+                            (json.dumps(summary), branch_id),
+                        )
+                except (json.JSONDecodeError, TypeError, AttributeError):
+                    pass
+
+        conn.commit()
+
+    # Single FTS rebuild after all batches — faster than per-row trigger-driven ops
+    try:
+        conn.execute("INSERT INTO branches_fts(branches_fts) VALUES('rebuild')")
+        conn.commit()
+    except Exception:
+        pass  # FTS table may not exist (e.g., FTS disabled SQLite build)
+
+    conn.execute("PRAGMA user_version = 5")
+    conn.commit()
+
+
+def _migrate_v6(conn: sqlite3.Connection, cursor: sqlite3.Cursor) -> None:
+    """v6: Truncate oversized context_summary_json entries (>50KB).
+
+    Queries branches where len(context_summary_json) > 50KB, parses JSON,
+    applies truncate_mid() to all exchange text fields (user and assistant in
+    first_exchanges and last_exchanges), re-serializes, and UPDATEs the row.
+    Processes in batches with per-batch commits.  Bumps user_version to 6.
+    """
+    cursor.execute(
+        "SELECT id, context_summary_json FROM branches WHERE length(context_summary_json) > ?",
+        (_MIGRATION_V6_MAX_JSON_BYTES,),
+    )
+    oversized = cursor.fetchall()
+
+    for batch_start in range(0, len(oversized), _MIGRATION_BATCH_SIZE):
+        batch = oversized[batch_start : batch_start + _MIGRATION_BATCH_SIZE]
+        for branch_id, csj_raw in batch:
+            if not csj_raw:
+                continue
+            try:
+                summary = json.loads(csj_raw)
+            except (json.JSONDecodeError, TypeError):
+                continue
+
+            changed = False
+            for exchange_list_key in ("first_exchanges", "last_exchanges"):
+                exchanges = summary.get(exchange_list_key)
+                if not isinstance(exchanges, list):
+                    continue
+                for ex in exchanges:
+                    if not isinstance(ex, dict):
+                        continue
+                    for field in ("user", "assistant"):
+                        val = ex.get(field)
+                        if isinstance(val, str):
+                            truncated = truncate_mid(val)
+                            if truncated != val:
+                                ex[field] = truncated
+                                changed = True
+
+            new_json = json.dumps(summary)
+            if len(new_json) > _MIGRATION_V6_MAX_JSON_BYTES:
+                summary["last_exchanges"] = []
+                new_json = json.dumps(summary)
+                changed = True
+            if changed:
+                cursor.execute(
+                    "UPDATE branches SET context_summary_json = ? WHERE id = ?",
+                    (new_json, branch_id),
+                )
+
+        conn.commit()
+
+    conn.execute("PRAGMA user_version = 6")
+    conn.commit()
+
+
 def get_db_connection(settings: dict | None = None) -> sqlite3.Connection:
     """
     Get database connection, initializing schema and running migrations if needed.
@@ -701,14 +867,8 @@ def get_db_connection(settings: dict | None = None) -> sqlite3.Connection:
             conn.executescript(SCHEMA_FTS4)
         conn.commit()
 
-    # Add any missing columns (e.g. tool_summary)
+    # Add any missing columns and run versioned data migrations (v1-v6)
     _migrate_columns(conn)
-
-    # Fix project paths that were incorrectly derived from hyphenated directory keys
-    try:
-        _migrate_project_paths(conn)
-    except Exception:
-        pass  # Never block DB connection on data migration errors
 
     return conn
 

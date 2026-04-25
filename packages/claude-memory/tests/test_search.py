@@ -246,3 +246,104 @@ class TestSearchSessionsLIKE:
     def test_like_max_results(self, search_db):
         results = search_sessions(search_db, "pytest", fts_level=None, max_results=1)
         assert len(results) <= 1
+
+
+class TestFtsSearchFindsFilePath:
+    """Test that FTS search finds sessions by file path in aggregated_content."""
+
+    @pytest.fixture
+    def file_path_db(self):
+        """DB with a branch whose aggregated_content includes file paths via __files__ marker."""
+        conn = sqlite3.connect(":memory:")
+        conn.executescript(SCHEMA)
+        conn.commit()
+        _migrate_columns(conn)
+
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO projects (path, key, name) VALUES (?, ?, ?)",
+            ("/home/user/myproject", "-home-user-myproject", "myproject"),
+        )
+        proj_id = cursor.lastrowid
+
+        # Session where we edited summarizer.py
+        cursor.execute(
+            "INSERT INTO sessions (uuid, project_id) VALUES (?, ?)",
+            ("sess-file-1", proj_id),
+        )
+        s1_id = cursor.lastrowid
+
+        # aggregated_content includes the __files__ marker with full paths
+        agg_content = (
+            "How do I fix the summarizer? Let me look at it.\n"
+            "__files__\n"
+            "/home/user/myproject/src/claude_memory/summarizer.py\n"
+            "/home/user/myproject/src/claude_memory/parsing.py"
+        )
+        cursor.execute(
+            """
+            INSERT INTO branches (session_id, leaf_uuid, is_active, exchange_count,
+                                  aggregated_content, files_modified)
+            VALUES (?, ?, 1, 2, ?, ?)
+            """,
+            (
+                s1_id,
+                "leaf-file-1",
+                agg_content,
+                '["/home/user/myproject/src/claude_memory/summarizer.py",'
+                ' "/home/user/myproject/src/claude_memory/parsing.py"]',
+            ),
+        )
+        b1_id = cursor.lastrowid
+
+        cursor.execute(
+            "INSERT INTO messages (session_id, uuid, role, content, timestamp) VALUES (?, ?, ?, ?, ?)",
+            (
+                s1_id,
+                "msg-f1",
+                "user",
+                "How do I fix the summarizer?",
+                "2025-01-15T14:00:00Z",
+            ),
+        )
+        m1_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO messages (session_id, uuid, role, content, timestamp) VALUES (?, ?, ?, ?, ?)",
+            (
+                s1_id,
+                "msg-f2",
+                "assistant",
+                "Let me look at it.",
+                "2025-01-15T14:01:00Z",
+            ),
+        )
+        m2_id = cursor.lastrowid
+        cursor.execute("INSERT INTO branch_messages VALUES (?, ?)", (b1_id, m1_id))
+        cursor.execute("INSERT INTO branch_messages VALUES (?, ?)", (b1_id, m2_id))
+
+        conn.commit()
+        yield conn
+        conn.close()
+
+    def test_fts_search_finds_file_path(self, file_path_db):
+        """Insert a branch with files_modified containing a path; search for filename finds it."""
+        fts_level = detect_fts_support(file_path_db)
+        if fts_level not in ("fts5", "fts4"):
+            pytest.skip("FTS not available")
+
+        # Search for the filename — should match via aggregated_content's __files__ section
+        results = search_sessions(file_path_db, "summarizer", fts_level, max_results=10)
+        uuids = {r["uuid"] for r in results}
+        assert "sess-file-1" in uuids, (
+            "FTS search for 'summarizer' should find the session that edited summarizer.py"
+        )
+
+    def test_like_search_finds_file_path(self, file_path_db):
+        """LIKE fallback also finds sessions by filename in aggregated_content."""
+        results = search_sessions(
+            file_path_db, "summarizer", fts_level=None, max_results=10
+        )
+        uuids = {r["uuid"] for r in results}
+        assert "sess-file-1" in uuids, (
+            "LIKE search for 'summarizer' should find the session that edited summarizer.py"
+        )

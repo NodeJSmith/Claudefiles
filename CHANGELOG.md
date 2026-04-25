@@ -7,6 +7,9 @@ All notable changes to this Claudefiles repository are documented here.
 ### Added
 - Pre-flight analysis phase for `/mine.challenge` — catches surface issues and validates architecture before launching critics; re-challenge detection reduces to 2 critics (#253)
 
+### Removed
+- `commands/cm-manage-memory.md` — dead command; functionality superseded by automatic session sync hook (#255)
+
 ## 2026-04-24
 
 ### Added

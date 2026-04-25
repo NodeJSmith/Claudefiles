@@ -7,13 +7,31 @@ Processes branches in batches, commits between batches, and marks errors
 with summary_version = -1 to avoid infinite retry.
 """
 
-from claude_memory.db import get_db_connection, load_settings, setup_logging
+from claude_memory.db import (
+    DEFAULT_DB_PATH,
+    get_db_connection,
+    load_settings,
+    setup_logging,
+)
 from claude_memory.summarizer import compute_context_summary
 
 BATCH_SIZE = 50
 
+_PID_FILE = DEFAULT_DB_PATH.parent / ".pid-cm-backfill-summaries"
+
 
 def main():
+    try:
+        _main()
+    finally:
+        # Delete PID file so _spawn_background can spawn again next session
+        try:
+            _PID_FILE.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def _main():
     settings = load_settings()
     logger = setup_logging(settings)
 
@@ -30,7 +48,7 @@ def main():
         cursor.execute(
             """
             SELECT id FROM branches
-            WHERE summary_version IS NULL OR summary_version < 2
+            WHERE summary_version IS NULL OR summary_version < 3
             LIMIT ?
         """,
             (BATCH_SIZE,),
@@ -45,7 +63,7 @@ def main():
                 summary_md, summary_json = compute_context_summary(cursor, branch_id)
                 cursor.execute(
                     """
-                    UPDATE branches SET context_summary = ?, context_summary_json = ?, summary_version = 2
+                    UPDATE branches SET context_summary = ?, context_summary_json = ?, summary_version = 3
                     WHERE id = ?
                 """,
                     (summary_md, summary_json, branch_id),

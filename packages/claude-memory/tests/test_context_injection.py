@@ -8,6 +8,11 @@ from claude_memory.hooks.memory_context import (
     build_context,
     _build_fallback_context,
 )
+from claude_memory.summarizer import (
+    build_exchange_pairs,
+    detect_disposition,
+    render_context_summary,
+)
 
 
 class TestSessionSelection:
@@ -530,7 +535,9 @@ class TestBuildFallbackContext:
             "messages": [],
         }
         result = _build_fallback_context(session)
-        assert "### Session:" in result
+        # Sessions with no messages produce no renderable content —
+        # render_context_summary returns "" when first_exchanges is empty.
+        assert result == ""
         assert "User:**" not in result
 
     def test_files_modified_compact(self):
@@ -675,3 +682,88 @@ class TestBuildFallbackContext:
         }
         result = _build_fallback_context(session)
         assert "/cm-recall-conversations" in result
+
+    def test_fallback_context_matches_render(self):
+        """_build_fallback_context() output is consistent with render_context_summary()."""
+        messages = [
+            {
+                "role": "user",
+                "content": "Fix the bug",
+                "timestamp": "2025-01-15T10:00:00Z",
+            },
+            {
+                "role": "assistant",
+                "content": "Done, I fixed it.",
+                "timestamp": "2025-01-15T10:01:00Z",
+            },
+            {"role": "user", "content": "Thanks", "timestamp": "2025-01-15T10:02:00Z"},
+            {
+                "role": "assistant",
+                "content": "You're welcome.",
+                "timestamp": "2025-01-15T10:03:00Z",
+            },
+        ]
+        files = ["/src/main.py", "/src/utils.py"]
+        commits = ["fix: resolve bug"]
+
+        session = {
+            "started_at": "2025-01-15T10:00:00Z",
+            "ended_at": "2025-01-15T10:03:00Z",
+            "exchange_count": 2,
+            "files_modified": files,
+            "commits": commits,
+            "git_branch": "main",
+            "messages": messages,
+        }
+
+        fallback_result = _build_fallback_context(session)
+
+        # Build the same thing via render_context_summary directly
+        exchanges = build_exchange_pairs(messages)
+        topic = exchanges[0]["user"][:120] if exchanges else ""
+        disposition = detect_disposition(exchanges, commits=commits)
+        summary_json = {
+            "version": 3,
+            "topic": topic,
+            "disposition": disposition,
+            "first_exchanges": [
+                {
+                    "user": ex["user"],
+                    "assistant": ex["assistant"],
+                    "timestamp": ex["timestamp"],
+                }
+                for ex in exchanges[:2]
+            ],
+            "last_exchanges": [
+                {
+                    "user": ex["user"],
+                    "assistant": ex["assistant"],
+                    "timestamp": ex["timestamp"],
+                }
+                for ex in exchanges
+            ],
+            "metadata": {
+                "exchange_count": 2,
+                "files_modified": files,
+                "commits": commits,
+                "tool_counts": {},
+                "started_at": "2025-01-15T10:00:00Z",
+                "ended_at": "2025-01-15T10:03:00Z",
+                "git_branch": "main",
+            },
+        }
+        render_result = render_context_summary(summary_json)
+
+        # Both should contain the same key structural elements
+        assert "### Session:" in fallback_result
+        assert "Fix the bug" in fallback_result
+        assert "Modified:" in fallback_result
+        assert "/src/main.py" in fallback_result or "`/src/main.py`" in fallback_result
+        assert "Commits:" in fallback_result
+        assert "fix: resolve bug" in fallback_result
+        assert "/cm-recall-conversations" in fallback_result
+
+        # The fallback now delegates to render_context_summary — output should match
+        assert fallback_result == render_result, (
+            "_build_fallback_context() should produce identical output to render_context_summary()"
+        )

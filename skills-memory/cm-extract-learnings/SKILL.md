@@ -6,27 +6,6 @@ description: >
   "remember this pattern", "consolidate memories", "dream", "clean up memories".
 ---
 
-## Value Context
-
-Weave these into conversation at natural moments — after results land, when context is relevant, or on first use. One or two per run, not all at once.
-
-- Most users say "remember this" expecting a single note — this skill actually runs two parallel agents (auditor + discoverer) to both capture new knowledge and verify existing memories haven't gone stale.
-- The 5-layer memory hierarchy means the right knowledge loads at the right time — universal preferences in L0, project architecture in L1, working notes in L2 — without polluting every session with everything.
-- Consolidation ("dream") is the maintenance mode: it prunes outdated memories, promotes patterns that keep recurring, and keeps the memory index under 200 lines so it stays useful.
-- For teams: memories captured here carry forward to every future session in this project, making onboarding and context-switching dramatically faster.
-
-## Memory Hierarchy
-
-| Layer | File | Loaded | Purpose |
-|-------|------|--------|---------|
-| 0 | `~/.claude/CLAUDE.md` | Every session, all projects | Universal behavioral preferences |
-| 1 | `<repo>/CLAUDE.md` | Every session, this project | Architecture, conventions, gotchas |
-| 2 | `memory/MEMORY.md` (project dir) | Every session, agent-managed | Evolving notes, working knowledge |
-| 3 | `memory/*.md` topic files | On-demand | Detailed reference too long for L2 |
-| Meta | Suggest new skill/command | N/A | Repeatable workflow → automation |
-
-Placement decision: project-independent preference → L0, project-specific technical → L1, concise working note → L2, detailed reference → L3, repeatable pattern → Meta.
-
 ## Early Exit Guard
 
 If the user said "remember X" with explicit content already in context — and the request is NOT a consolidation trigger ("consolidate", "dream", "extract learnings", "clean up memories", or triggered from the consolidation nudge):
@@ -63,7 +42,7 @@ If Phase 1 noted MEMORY.md was just created (no existing memories), skip the Mem
 
 Both agents require `maxTurns ≥ 30` — verify agent frontmatter at `agents/cm-memory-auditor.md` and `agents/cm-signal-discoverer.md`. Agents with low maxTurns exit early and return truncated output that appears non-empty but contains no findings.
 
-Phase 2 is complete when both agents return reports. If either returns empty or clearly truncated (one line, no structured findings), proceed with the other's results — but if the Signal Discoverer fails, also perform a manual fallback: query the 5 most recent session summaries directly from `~/.claude-memory/conversations.db` using `Bash(python3 -c "import sqlite3; ...")` and apply the signal criteria from the Content Quality Rules section below.
+Phase 2 is complete when both agents return reports. If either returns empty or clearly truncated (one line, no structured findings), proceed with the other's results — but if the Signal Discoverer fails, also perform a manual fallback: run `cm-recent-chats --n 5 --format json` and apply the signal criteria from the Content Quality Rules section below. If `cm-recent-chats` fails, surface the error: "cm-recent-chats not found — run `uv tool install -e packages/claude-memory` to install the claude-memory package."
 
 ### Phase 3: Synthesize & Propose (main session)
 
