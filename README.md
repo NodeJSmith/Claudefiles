@@ -14,7 +14,7 @@ My personal [Claude Code](https://docs.anthropic.com/en/docs/claude-code) config
 
 - **`/mine.research`** -- maps architecture and evaluates feasibility before you commit to a direction. Feeds into design docs and planning.
 - **`claude --worktree <branch>`** -- start a fresh Claude session in an isolated branch. Use `--resume <session-id>` to return to any previous session. Use `/mine.issues` in plan mode to research an issue before starting.
-- **`/mine.challenge`** -- adversarial review that assumes your approach is wrong and argues for better. Three generic critics always run; up to two domain specialists are added by target type. Works on any artifact — code, specs, designs, briefs, skill files, docs.
+- **`/mine.challenge`** -- adversarial review that assumes your approach is wrong and argues for better. Runs pre-flight analysis to catch surface issues and validate architecture before launching critics; reduces to 2 critics on re-challenges. Works on any artifact — code, specs, designs, briefs, skill files, docs.
 
 ## Install
 
@@ -53,7 +53,7 @@ All three directories symlink into `~/.claude/skills/` at install time — the r
 | `mine.audit` | Systematic codebase health audit — surfaces aging code, brittle designs, missing tests, and accumulated debt, ranked by impact |
 | `mine.brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas ranked by user-chosen criteria, with handoff to research or planning |
 | `mine.build` | Single entry point — routes between direct implementation and the full caliper v2 workflow (define → plan → orchestrate → ship) |
-| `mine.challenge` | Adversarial review using 3 generic + up to 2 domain-specialist critics — assumes the target is wrong, finds out why, argues for better. Works on code, specs, designs, briefs, skill files, docs |
+| `mine.challenge` | Adversarial review using 3 generic + up to 2 domain-specialist critics — assumes the target is wrong, finds out why, argues for better. Pre-flight catches surface issues and validates architecture before launching critics; reduces to 2 critics on re-challenges. Works on code, specs, designs, briefs, skill files, docs |
 | `mine.commit-push` | Commit and push changes to the current branch |
 | `mine.create-pr` | Review branch changes and create a PR on GitHub or Azure DevOps |
 | `mine.debug` | Systematic debugging — 4-phase root-cause investigation with escalation protocol and error tracking |
