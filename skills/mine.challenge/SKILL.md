@@ -1,12 +1,12 @@
 ---
 name: mine.challenge
-description: "Use when the user says: \"challenge this\", \"poke holes in this\", or \"what's wrong with this approach\". Adversarial review using parallel critics (3 generics + 0-2 domain specialists). Assumes the target is wrong, finds out why, and argues for a better approach."
+description: "Use when the user says: \"challenge this\", \"poke holes in this\", or \"what's wrong with this approach\". Adversarial review with pre-flight analysis, parallel critics (3 generics + 0-2 specialists; 2 on re-challenges). Assumes the target is wrong, finds out why, and argues for a better approach."
 user-invocable: true
 ---
 
 # Challenge
 
-Adversarial review of any artifact — code, specs, designs, briefs, skill files. Assumes the target is wrong and sets out to prove it. Three generic critics always run; up to two domain-specialist critics are added based on target type. Findings are cross-referenced for confidence, and every claim must cite evidence.
+Adversarial review of any artifact — code, specs, designs, briefs, skill files. Assumes the target is wrong and sets out to prove it. Pre-flight analysis catches surface issues and validates architecture before launching critics. Three generic critics run on first challenge; re-challenges use a reduced 2-critic roster. Up to two domain-specialist critics are added based on target type. Findings are cross-referenced for confidence, and every claim must cite evidence.
 
 When invoked by caliper workflow skills (mine.define), the caller handles revision planning after challenge completes. When invoked standalone, challenge resolves findings via `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`.
 
@@ -691,6 +691,7 @@ List critic report file paths so the user knows where reports are. Read the mani
 
 - `senior.md` → Senior Engineer
 - `architect.md` → Systems Architect
+- `adversarial.md` → Adversarial Reviewer
 - Specialist slugs → look up in the specialist mapping table (e.g., `contract-caller.md` → "Contract & Caller")
 
 On re-challenge runs (`# rechallenge: yes` in manifest), `architect.md` and specialist entries will be absent from the manifest — list only what the manifest contains.
