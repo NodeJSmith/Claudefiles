@@ -1,21 +1,34 @@
 #!/usr/bin/env bash
-# PreToolUse hook: deny pytest after 3 consecutive post-failure runs without code changes.
+# PreToolUse hook: deny pytest after repeated failures.
 #
-# Tracks consecutive pytest runs that follow a failure, without any intervening
-# code edits (Edit/Write/MultiEdit/NotebookEdit). Denies at >= 3 and nudges
-# Claude to use /mine.debug for systematic root-cause investigation.
+# Two independent counters, both session-scoped:
+#
+#   1. No-edit counter (threshold: 3, default)
+#      Tracks consecutive pytest failures without any intervening code edit
+#      (Edit/Write/MultiEdit/NotebookEdit). Resets on edit or success.
+#
+#   2. Total failure counter (threshold: 8, default)
+#      Tracks total pytest failures since the last success. Does NOT reset on
+#      edits — only on pytest success, manual bypass, or pytest-loop-reset.
+#      Catches "edit → run → fail → edit → run → fail" flailing loops.
 #
 # Session scoping:
 #   Session UUID is written to ${CLAUDE_CODE_TMPDIR:-/tmp}/claude-pytest-loop-session.id
 #   by a SessionStart hook. Counter and status files are scoped by UUID.
 #
-# Counter file:  ${CLAUDE_CODE_TMPDIR:-/tmp}/claude-pytest-loop-<uuid>.count
-# Status file:   ${CLAUDE_CODE_TMPDIR:-/tmp}/claude-pytest-loop-<uuid>.status
-#   (status file written by the PostToolUse Bash hook after each invocation)
+# Files:
+#   Counter file:  ${CLAUDE_CODE_TMPDIR:-/tmp}/claude-pytest-loop-<uuid>.count
+#   Total file:    ${CLAUDE_CODE_TMPDIR:-/tmp}/claude-pytest-loop-<uuid>.total
+#   Status file:   ${CLAUDE_CODE_TMPDIR:-/tmp}/claude-pytest-loop-<uuid>.status
+#     (status file written by the PostToolUse Bash hook after each invocation)
 #
 # Override mechanisms:
-#   CLAUDE_PYTEST_LOOP_BYPASS=1 — allow this run and reset the counter
-#   pytest-loop-reset — bin script that clears the counter file
+#   CLAUDE_PYTEST_LOOP_BYPASS=1 — allow this run and reset both counters
+#   pytest-loop-reset — bin script that clears both counter files
+#
+# Env var overrides:
+#   CLAUDE_PYTEST_LOOP_MAX       — no-edit counter threshold (default 3)
+#   CLAUDE_PYTEST_LOOP_TOTAL_MAX — total failure threshold (default 8)
 #
 # Hook wiring (settings.json):
 #   "PreToolUse": [{
@@ -66,7 +79,18 @@ if [ -z "$SESSION_UUID" ]; then
 fi
 
 COUNTER_FILE="${TMPDIR}/claude-pytest-loop-${SESSION_UUID}.count"
+TOTAL_FILE="${TMPDIR}/claude-pytest-loop-${SESSION_UUID}.total"
 STATUS_FILE="${TMPDIR}/claude-pytest-loop-${SESSION_UUID}.status"
+
+# Thresholds (env var overrides, sanitized to positive integers)
+NO_EDIT_MAX="${CLAUDE_PYTEST_LOOP_MAX:-3}"
+case "$NO_EDIT_MAX" in
+  '' | *[!0-9]*) NO_EDIT_MAX=3 ;;
+esac
+TOTAL_MAX="${CLAUDE_PYTEST_LOOP_TOTAL_MAX:-8}"
+case "$TOTAL_MAX" in
+  '' | *[!0-9]*) TOTAL_MAX=8 ;;
+esac
 
 deny() {
   jq -cn --arg reason "$1" \
@@ -78,9 +102,14 @@ reset_counter() {
   printf '%s\n' "0" > "${COUNTER_FILE}.tmp" && mv "${COUNTER_FILE}.tmp" "$COUNTER_FILE"
 }
 
+reset_total() {
+  printf '%s\n' "0" > "${TOTAL_FILE}.tmp" && mv "${TOTAL_FILE}.tmp" "$TOTAL_FILE"
+}
+
 # --- Check env var bypass ---
 if [ "${CLAUDE_PYTEST_LOOP_BYPASS:-}" = "1" ]; then
   reset_counter
+  reset_total
   exit 0
 fi
 
@@ -88,19 +117,19 @@ fi
 PREV_EXIT=0
 if [ -f "$STATUS_FILE" ]; then
   PREV_EXIT=$(tr -d '[:space:]' < "$STATUS_FILE" || echo "0")
-  # Default to 0 if not a number
   case "$PREV_EXIT" in
     '' | *[!0-9]*) PREV_EXIT=0 ;;
   esac
 fi
 
-# --- If previous run was successful (exit 0), reset counter and allow ---
+# --- If previous run was successful (exit 0), reset both counters and allow ---
 if [ "$PREV_EXIT" = "0" ]; then
   reset_counter
+  reset_total
   exit 0
 fi
 
-# --- Previous run failed — read and increment counter ---
+# --- Previous run failed — read and increment both counters ---
 COUNT=0
 if [ -f "$COUNTER_FILE" ]; then
   COUNT=$(tr -d '[:space:]' < "$COUNTER_FILE" || echo "0")
@@ -109,16 +138,31 @@ if [ -f "$COUNTER_FILE" ]; then
   esac
 fi
 
+TOTAL=0
+if [ -f "$TOTAL_FILE" ]; then
+  TOTAL=$(tr -d '[:space:]' < "$TOTAL_FILE" || echo "0")
+  case "$TOTAL" in
+    '' | *[!0-9]*) TOTAL=0 ;;
+  esac
+fi
+
 NEW_COUNT=$((COUNT + 1))
+NEW_TOTAL=$((TOTAL + 1))
 
-# Write new count atomically
-printf '%s\n' "$NEW_COUNT" > "${COUNTER_FILE}.tmp" && mv "${COUNTER_FILE}.tmp" "$COUNTER_FILE"
-printf 'pytest-loop-detector: failure counter = %d\n' "$NEW_COUNT" >&2
+printf 'pytest-loop-detector: no-edit=%d/%s total=%d/%s\n' "$NEW_COUNT" "$NO_EDIT_MAX" "$NEW_TOTAL" "$TOTAL_MAX" >&2
 
-# --- Deny if threshold reached ---
-if [ "$NEW_COUNT" -ge 3 ]; then
+# --- Deny if either threshold reached (before writing, so denied runs don't inflate counters) ---
+if [ "$NEW_COUNT" -ge "$NO_EDIT_MAX" ]; then
   deny "DENIED: You've run pytest ${NEW_COUNT} times after a failure without making code changes. Use /mine.debug to investigate the root cause systematically. To override: set \`CLAUDE_PYTEST_LOOP_BYPASS=1\` or run \`pytest-loop-reset\`."
 fi
+
+if [ "$NEW_TOTAL" -ge "$TOTAL_MAX" ]; then
+  deny "DENIED: pytest has failed ${NEW_TOTAL} times in this session, even with edits between runs. The edits aren't converging on a fix. Use /mine.debug to investigate the root cause systematically. To override: set \`CLAUDE_PYTEST_LOOP_BYPASS=1\` or run \`pytest-loop-reset\`."
+fi
+
+# --- Thresholds not reached — commit the increments ---
+printf '%s\n' "$NEW_COUNT" > "${COUNTER_FILE}.tmp" && mv "${COUNTER_FILE}.tmp" "$COUNTER_FILE"
+printf '%s\n' "$NEW_TOTAL" > "${TOTAL_FILE}.tmp" && mv "${TOTAL_FILE}.tmp" "$TOTAL_FILE"
 
 # All checks passed — no opinion
 exit 0

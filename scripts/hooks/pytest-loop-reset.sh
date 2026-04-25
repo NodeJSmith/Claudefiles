@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
-# PostToolUse hook: reset the pytest failure counter after a code edit.
+# PostToolUse hook: reset the pytest no-edit failure counter after a code edit.
 #
 # Triggered by Edit, Write, MultiEdit, or NotebookEdit tool use.
 # Reads the session UUID from the same path as pytest-loop-detector.sh and
-# resets the counter to 0 atomically. Graceful no-op if session ID file or
-# counter file doesn't exist.
+# resets the no-edit counter (.count) to 0 atomically. Graceful no-op if
+# session ID file or counter file doesn't exist.
+#
+# The total failure counter (.total) is intentionally NOT reset here — it
+# tracks failures since the last success, regardless of edits. Only reset
+# by pytest success, CLAUDE_PYTEST_LOOP_BYPASS=1, or pytest-loop-reset bin.
 #
 # Hook wiring (settings.json):
 #   "PostToolUse": [{

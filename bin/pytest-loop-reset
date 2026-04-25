@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# pytest-loop-reset — manually clear the pytest failure loop counter.
+# pytest-loop-reset — manually clear all pytest failure loop counters.
 #
-# Use this when you want to allow pytest to run after being denied by
-# the pytest-loop-detector hook, without setting CLAUDE_PYTEST_LOOP_BYPASS=1.
+# Clears both the no-edit counter (.count) and the total failure counter
+# (.total). Use when the pytest-loop-detector hook denies a run and you
+# want to retry without setting CLAUDE_PYTEST_LOOP_BYPASS=1.
 # Reads the session UUID from the same path as the detector hook.
 #
 # Usage:
@@ -12,7 +13,8 @@ set -euo pipefail
 
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
   printf 'Usage: pytest-loop-reset\n\n'
-  printf 'Clear the pytest failure loop counter for the current session.\n'
+  printf 'Clear all pytest failure loop counters for the current session.\n'
+  printf 'Clears both the no-edit counter and the total failure counter.\n'
   printf 'Use when the pytest-loop-detector hook denies a run and you want\n'
   printf 'to retry without setting CLAUDE_PYTEST_LOOP_BYPASS=1.\n'
   exit 0
@@ -34,14 +36,24 @@ if [ -z "$SESSION_UUID" ]; then
 fi
 
 COUNTER_FILE="${TMPDIR}/claude-pytest-loop-${SESSION_UUID}.count"
+TOTAL_FILE="${TMPDIR}/claude-pytest-loop-${SESSION_UUID}.total"
 
-if [ ! -f "$COUNTER_FILE" ]; then
-  printf 'pytest-loop-reset: no counter file found (already at 0 or no pytest runs yet)\n'
-  exit 0
+CLEARED=0
+
+if [ -f "$COUNTER_FILE" ]; then
+  printf '%s\n' "0" > "${COUNTER_FILE}.tmp" && mv "${COUNTER_FILE}.tmp" "$COUNTER_FILE"
+  CLEARED=1
 fi
 
-# Reset counter atomically
-printf '%s\n' "0" > "${COUNTER_FILE}.tmp" && mv "${COUNTER_FILE}.tmp" "$COUNTER_FILE"
-printf 'pytest-loop-reset: failure counter cleared (was non-zero)\n'
+if [ -f "$TOTAL_FILE" ]; then
+  printf '%s\n' "0" > "${TOTAL_FILE}.tmp" && mv "${TOTAL_FILE}.tmp" "$TOTAL_FILE"
+  CLEARED=1
+fi
+
+if [ "$CLEARED" -eq 0 ]; then
+  printf 'pytest-loop-reset: no counter files found (already at 0 or no pytest runs yet)\n'
+else
+  printf 'pytest-loop-reset: all failure counters cleared\n'
+fi
 
 exit 0

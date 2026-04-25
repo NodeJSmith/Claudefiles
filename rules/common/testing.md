@@ -51,13 +51,20 @@ Per-repo config can also deny specific flags (e.g., `-n auto` on resource-constr
 
 ## Pytest Loop Detector
 
-A PreToolUse hook (`pytest-loop-detector.sh`) tracks consecutive pytest runs after a failure without code changes. If pytest is run 3 times after a failure without an Edit/Write/MultiEdit/NotebookEdit in between, the hook denies that third invocation (2 allowed, 3rd blocked).
+A PreToolUse hook (`pytest-loop-detector.sh`) catches two failure patterns:
 
-**Denial message:** The hook interpolates the current count: "DENIED: You've run pytest N times after a failure without making code changes. Use /mine.debug to investigate the root cause systematically. To override: set `CLAUDE_PYTEST_LOOP_BYPASS=1` or run `pytest-loop-reset`."
+1. **No-edit counter** (threshold: 3) — consecutive pytest failures without any code change (Edit/Write/MultiEdit/NotebookEdit). Resets on edit or success.
+2. **Total failure counter** (threshold: 8) — total pytest failures since the last success, regardless of edits. Catches "edit → run → fail" flailing loops where the agent makes small changes that never converge.
 
-The counter resets automatically when any code change is made (Edit, Write, MultiEdit, or NotebookEdit). To override manually:
-- `CLAUDE_PYTEST_LOOP_BYPASS=1` env var — allows the next run and resets the counter
-- `pytest-loop-reset` bin script — clears the counter file directly
+Both counters reset on pytest success. The no-edit counter also resets on any code edit. The total counter only resets on success, manual bypass, or `pytest-loop-reset`.
+
+**Env var overrides:**
+- `CLAUDE_PYTEST_LOOP_MAX` — no-edit threshold (default 3)
+- `CLAUDE_PYTEST_LOOP_TOTAL_MAX` — total failure threshold (default 8)
+
+**Manual overrides:**
+- `CLAUDE_PYTEST_LOOP_BYPASS=1` env var — allows the next run and resets both counters
+- `pytest-loop-reset` bin script — clears both counter files directly
 
 ## Test Execution
 

@@ -52,7 +52,9 @@ def run_hook(
     """Run a hook script with given stdin and CLAUDE_CODE_TMPDIR set to tmpdir."""
     env = os.environ.copy()
     env["CLAUDE_CODE_TMPDIR"] = tmpdir
-    env.pop("CLAUDE_PYTEST_LOOP_BYPASS", None)  # remove bypass by default
+    env.pop("CLAUDE_PYTEST_LOOP_BYPASS", None)
+    env.pop("CLAUDE_PYTEST_LOOP_MAX", None)
+    env.pop("CLAUDE_PYTEST_LOOP_TOTAL_MAX", None)
     if extra_env:
         env.update(extra_env)
     return subprocess.run(
@@ -89,6 +91,21 @@ def read_counter(tmpdir: str, uuid: str) -> int | None:
     if not counter_file.exists():
         return None
     content = counter_file.read_text().strip()
+    return int(content) if content else 0
+
+
+def write_total(tmpdir: str, uuid: str, count: int) -> None:
+    """Write a total failure counter file."""
+    total_file = Path(tmpdir) / f"claude-pytest-loop-{uuid}.total"
+    total_file.write_text(str(count) + "\n")
+
+
+def read_total(tmpdir: str, uuid: str) -> int | None:
+    """Read the total failure counter; returns None if file doesn't exist."""
+    total_file = Path(tmpdir) / f"claude-pytest-loop-{uuid}.total"
+    if not total_file.exists():
+        return None
+    content = total_file.read_text().strip()
     return int(content) if content else 0
 
 
@@ -509,6 +526,233 @@ class TestDetectorPytestVariants:
             assert result.returncode == 0
             count = read_counter(tmpdir, uuid)
             assert count == 1
+
+
+class TestTotalCounterIncrements:
+    """Total failure counter increments on each failure, independent of edits."""
+
+    def test_total_increments_on_first_failure(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            uuid = write_session_id(tmpdir)
+            write_status(tmpdir, uuid, 1)
+
+            inp = make_pretooluse_input("timeout 300 pytest tests/")
+            run_hook(DETECTOR_HOOK, inp, tmpdir)
+
+            assert read_total(tmpdir, uuid) == 1
+
+    def test_total_increments_alongside_noedit_counter(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            uuid = write_session_id(tmpdir)
+            write_status(tmpdir, uuid, 1)
+            write_counter(tmpdir, uuid, 1)
+            write_total(tmpdir, uuid, 3)
+
+            inp = make_pretooluse_input("timeout 300 pytest tests/")
+            run_hook(DETECTOR_HOOK, inp, tmpdir)
+
+            assert read_counter(tmpdir, uuid) == 2
+            assert read_total(tmpdir, uuid) == 4
+
+    def test_total_keeps_counting_after_edit_resets_noedit(self):
+        """Simulates: fail→edit(resets .count)→fail. Total should be 6, count should be 1."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            uuid = write_session_id(tmpdir)
+            write_status(tmpdir, uuid, 1)
+            write_counter(tmpdir, uuid, 0)  # reset by edit
+            write_total(tmpdir, uuid, 5)  # accumulated over many failures
+
+            inp = make_pretooluse_input("timeout 300 pytest tests/")
+            run_hook(DETECTOR_HOOK, inp, tmpdir)
+
+            assert read_counter(tmpdir, uuid) == 1
+            assert read_total(tmpdir, uuid) == 6
+
+
+class TestTotalCounterDenies:
+    """Total counter >= 8 causes denial."""
+
+    def test_denies_at_total_8(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            uuid = write_session_id(tmpdir)
+            write_status(tmpdir, uuid, 1)
+            write_counter(tmpdir, uuid, 0)  # below no-edit threshold
+            write_total(tmpdir, uuid, 7)  # will become 8 → deny
+
+            inp = make_pretooluse_input("timeout 300 pytest tests/")
+            result = run_hook(DETECTOR_HOOK, inp, tmpdir)
+
+            output = json.loads(result.stdout)
+            assert output["hookSpecificOutput"]["permissionDecision"] == "deny"
+            reason = output["hookSpecificOutput"]["permissionDecisionReason"]
+            assert "8 times" in reason
+            assert "/mine.debug" in reason
+
+    def test_denies_above_total_8(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            uuid = write_session_id(tmpdir)
+            write_status(tmpdir, uuid, 1)
+            write_counter(tmpdir, uuid, 0)
+            write_total(tmpdir, uuid, 12)
+
+            inp = make_pretooluse_input("timeout 300 pytest tests/")
+            result = run_hook(DETECTOR_HOOK, inp, tmpdir)
+
+            output = json.loads(result.stdout)
+            assert output["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+    def test_total_denial_does_not_inflate_counters(self):
+        """Denied runs must not write counter files (counters stay at pre-deny values)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            uuid = write_session_id(tmpdir)
+            write_status(tmpdir, uuid, 1)
+            write_counter(tmpdir, uuid, 0)
+            write_total(tmpdir, uuid, 7)
+
+            inp = make_pretooluse_input("timeout 300 pytest tests/")
+            run_hook(DETECTOR_HOOK, inp, tmpdir)
+
+            assert read_counter(tmpdir, uuid) == 0
+            assert read_total(tmpdir, uuid) == 7
+
+    def test_noedit_denial_does_not_inflate_total(self):
+        """No-edit denial must not write to the total counter either."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            uuid = write_session_id(tmpdir)
+            write_status(tmpdir, uuid, 1)
+            write_counter(tmpdir, uuid, 2)  # will become 3 → no-edit deny
+            write_total(tmpdir, uuid, 2)
+
+            inp = make_pretooluse_input("timeout 300 pytest tests/")
+            run_hook(DETECTOR_HOOK, inp, tmpdir)
+
+            assert read_counter(tmpdir, uuid) == 2
+            assert read_total(tmpdir, uuid) == 2
+
+
+class TestTotalCounterEnvVarOverride:
+    """CLAUDE_PYTEST_LOOP_TOTAL_MAX overrides the default threshold."""
+
+    def test_custom_total_max(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            uuid = write_session_id(tmpdir)
+            write_status(tmpdir, uuid, 1)
+            write_counter(tmpdir, uuid, 0)
+            write_total(tmpdir, uuid, 4)  # will become 5 → deny at max=5
+
+            inp = make_pretooluse_input("timeout 300 pytest tests/")
+            result = run_hook(
+                DETECTOR_HOOK,
+                inp,
+                tmpdir,
+                extra_env={"CLAUDE_PYTEST_LOOP_TOTAL_MAX": "5"},
+            )
+
+            output = json.loads(result.stdout)
+            assert output["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+    def test_custom_total_max_allows_below_threshold(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            uuid = write_session_id(tmpdir)
+            write_status(tmpdir, uuid, 1)
+            write_counter(tmpdir, uuid, 0)
+            write_total(tmpdir, uuid, 3)  # will become 4, threshold is 5
+
+            inp = make_pretooluse_input("timeout 300 pytest tests/")
+            result = run_hook(
+                DETECTOR_HOOK,
+                inp,
+                tmpdir,
+                extra_env={"CLAUDE_PYTEST_LOOP_TOTAL_MAX": "5"},
+            )
+
+            assert result.stdout.strip() == ""
+            assert read_total(tmpdir, uuid) == 4
+
+
+class TestTotalCounterResetsOnSuccess:
+    """Green run resets both counters."""
+
+    def test_green_run_resets_total(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            uuid = write_session_id(tmpdir)
+            write_status(tmpdir, uuid, 0)  # success
+            write_total(tmpdir, uuid, 5)
+
+            inp = make_pretooluse_input("timeout 300 pytest tests/")
+            run_hook(DETECTOR_HOOK, inp, tmpdir)
+
+            assert read_total(tmpdir, uuid) == 0
+
+    def test_bypass_resets_total(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            uuid = write_session_id(tmpdir)
+            write_status(tmpdir, uuid, 1)
+            write_total(tmpdir, uuid, 10)
+
+            inp = make_pretooluse_input("timeout 300 pytest tests/")
+            run_hook(
+                DETECTOR_HOOK,
+                inp,
+                tmpdir,
+                extra_env={"CLAUDE_PYTEST_LOOP_BYPASS": "1"},
+            )
+
+            assert read_total(tmpdir, uuid) == 0
+
+
+class TestEditHookPreservesTotal:
+    """The PostToolUse edit hook resets .count but not .total."""
+
+    def test_edit_resets_count_not_total(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            uuid = write_session_id(tmpdir)
+            write_counter(tmpdir, uuid, 2)
+            write_total(tmpdir, uuid, 5)
+
+            inp = make_posttooluse_input("Edit")
+            run_hook(RESET_HOOK, inp, tmpdir)
+
+            assert read_counter(tmpdir, uuid) == 0
+            assert read_total(tmpdir, uuid) == 5
+
+
+class TestBinScriptClearsBothCounters:
+    """bin/pytest-loop-reset clears both .count and .total files."""
+
+    def test_bin_clears_both(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            uuid = write_session_id(tmpdir)
+            write_counter(tmpdir, uuid, 3)
+            write_total(tmpdir, uuid, 7)
+
+            result = subprocess.run(
+                [str(BIN_RESET)],
+                capture_output=True,
+                text=True,
+                env={**os.environ, "CLAUDE_CODE_TMPDIR": tmpdir},
+            )
+
+            assert result.returncode == 0
+            assert read_counter(tmpdir, uuid) == 0
+            assert read_total(tmpdir, uuid) == 0
+
+    def test_bin_clears_total_only(self):
+        """When only total file exists (count already cleared), still works."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            uuid = write_session_id(tmpdir)
+            write_total(tmpdir, uuid, 5)
+
+            result = subprocess.run(
+                [str(BIN_RESET)],
+                capture_output=True,
+                text=True,
+                env={**os.environ, "CLAUDE_CODE_TMPDIR": tmpdir},
+            )
+
+            assert result.returncode == 0
+            assert read_total(tmpdir, uuid) == 0
+            assert "cleared" in result.stdout
 
 
 class TestStatusHook:
