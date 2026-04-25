@@ -173,13 +173,14 @@ Event-driven scripts that run before/after tool calls.
 | `cm-clear-handoff` (package) | SessionEnd (clear) | Write a handoff note before `/clear` |
 | `cm-memory-sync` (package) | Stop | Sync current session to the conversation database |
 
-### Helper Scripts (17)
+### Helper Scripts
 
 CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
 | Script | Description |
 |--------|-------------|
 | `agnix-check` | Validate agent, skill, and command files against agnix schema |
+| `claude-context-writer` | statusLine wrapper — writes per-session context % sidecar file for the context-tier hook |
 | `edit-manifest` | Open a manifest file in nvim via a new tmux window with shadow-file autosave and blocking wait |
 | `claude-tmux` | Tmux session helper -- rename, list, create, capture, kill sessions |
 | `get-skill-tmpdir` | Create unique temp directories for skill runs |
