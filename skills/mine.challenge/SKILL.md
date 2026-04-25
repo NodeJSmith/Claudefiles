@@ -1,12 +1,12 @@
 ---
 name: mine.challenge
-description: "Use when the user says: \"challenge this\", \"poke holes in this\", or \"what's wrong with this approach\". Adversarial review using parallel critics (3 generics + 0-2 domain specialists). Assumes the target is wrong, finds out why, and argues for a better approach."
+description: "Use when the user says: \"challenge this\", \"poke holes in this\", or \"what's wrong with this approach\". Adversarial review with pre-flight analysis, parallel critics (3 generics + 0-2 specialists; 2 on re-challenges). Assumes the target is wrong, finds out why, and argues for a better approach."
 user-invocable: true
 ---
 
 # Challenge
 
-Adversarial review of any artifact — code, specs, designs, briefs, skill files. Assumes the target is wrong and sets out to prove it. Three generic critics always run; up to two domain-specialist critics are added based on target type. Findings are cross-referenced for confidence, and every claim must cite evidence.
+Adversarial review of any artifact — code, specs, designs, briefs, skill files. Assumes the target is wrong and sets out to prove it. Pre-flight analysis catches surface issues and validates architecture before launching critics. Three generic critics run on first challenge; re-challenges use a reduced 2-critic roster. Up to two domain-specialist critics are added based on target type. Findings are cross-referenced for confidence, and every claim must cite evidence.
 
 When invoked by caliper workflow skills (mine.define), the caller handles revision planning after challenge completes. When invoked standalone, challenge resolves findings via `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`.
 
@@ -195,6 +195,144 @@ The remainder of `$ARGUMENTS` is the target scope.
    - **Rule**: read sibling rules in the same directory to check for overlaps, contradictions, or gaps. Grep for the rule's key terms across skills, agents, and other rules to find all consumers. If the rule references specific tools, commands, or patterns, verify they exist.
 4. Note what problem the target ostensibly solves
 
+### Pre-Flight Analysis
+
+Run all three stages before proceeding to Specialist Selection. This sub-phase adds zero subagent invocations — all analysis happens in the orchestrator's context using the target content already read above.
+
+#### Stage 1: Surface Issue Scan
+
+Scan the target for surface issues using target-type-aware heuristics:
+
+| Target type | Surface issue heuristics |
+|-------------|--------------------------|
+| `design-doc`, `spec` | Implicit promises contradicted by other sections; vague scope references ("update all of X"); undefined terms used in requirements; acceptance criteria that aren't testable; internal contradictions between sections |
+| `skill-file` | Phase references that don't exist; tool names that don't match available tools; instructions that contradict earlier instructions; undefined variables or placeholders |
+| `code` | Functions contradicting their signatures/docstrings; obvious dead code paths; parameters accepted but never used; return values that don't match declared types |
+| `frontend-code` | Same as `code`, plus: components accepting props they don't render; event handlers that don't match element types |
+| `brief`, `research` | Claims without supporting evidence; conclusions that don't follow from the analysis; scope statements contradicted by content |
+| `rule` | Rules that contradict each other; references to tools or patterns that don't exist; ambiguity in when/where the rule applies |
+| `agent-file`, `docs`, `other` | Internal contradictions; undefined references; vague or unmeasurable criteria |
+
+**If no issues are found**: proceed silently to Stage 2 — do not prompt the user.
+
+**If issues are found**: present them via AskUserQuestion before applying any fixes:
+
+```
+AskUserQuestion:
+  question: "Pre-flight found N surface issues in <target>:\n\n1. <issue description>\n2. <issue description>\n...\n\nFix these before launching critics?"
+  header: "Pre-flight"
+  options:
+    - label: "Fix all"
+      description: "Apply all fixes and proceed to critics"
+    - label: "Show me each fix"
+      description: "Walk through each fix individually before applying"
+    - label: "Skip fixes"
+      description: "Proceed to critics without fixing — issues will be noted in critic briefing"
+```
+
+For multi-file targets (module scopes or list files), apply the surface scan per-file but present all issues across all files in a single AskUserQuestion. Fixes are applied to each file individually.
+
+- **"Fix all"**: apply all fixes to the target file(s), then re-read the modified content.
+- **"Show me each fix"**: present each fix sequentially. For each fix, show the issue description with before/after text and ask:
+
+  ```
+  AskUserQuestion:
+    question: "Fix <N> of <total>: <issue description>"
+    header: "Fix <N>/<total>"
+    multiSelect: false
+    options:
+      - label: "Accept"
+        description: "Apply this fix"
+        preview: |
+          Before:
+          <before text>
+
+          After:
+          <after text>
+      - label: "Skip this one"
+        description: "Leave this issue as-is"
+  ```
+
+  Apply accepted fixes, skip declined ones. After all fixes are presented, re-read the modified content.
+
+- **"Skip fixes"**: proceed without modifying the target. Note unfixed issues in Stage 3 as known issues to deprioritize (see "Known Surface Issues" in the briefing template below).
+
+**Edge case — inline content targets**: When the target was passed as inline text (passthrough callers like mine.research, mine.brainstorm), the orchestrator cannot edit the target. Do not present the Fix all / Show me each fix / Skip options. Instead, note the issues for injection into the Stage 3 briefing as "Pre-Flight Notes" (see briefing template below) and proceed silently.
+
+**After fixes are applied** ("Fix all" or "Show me each fix" with at least one accepted fix), re-read the modified target content before proceeding to Stage 2. Stage 2 must operate on the post-fix version. If no fixes were applied ("Skip fixes", "Show me each fix" with all declined, or no issues found), proceed directly to Stage 2 without re-reading.
+
+#### Stage 2: Architecture Smell Test
+
+Evaluate whether the target's overall approach is sound before spending on critics.
+
+**Guiding question**: "Would critics all point to the same root cause regardless of which individual findings they raise?" If yes, there is a fundamental architectural concern that should be surfaced before critics run.
+
+Check for:
+- Internal inconsistency in the proposed approach
+- Circular dependencies or impossible constraints
+- Disconnect between stated motivation and proposed solution
+- Scope that tries to do too many things at once
+
+**Be over-sensitive, not under-sensitive** — present any concern and let the user decide. It is better to surface a concern the user dismisses than to miss one that wastes a full critic round.
+
+**If no concerns are detected**: proceed silently to Stage 3 — do not prompt the user.
+
+**If a concern is detected**: present it via AskUserQuestion:
+
+```
+AskUserQuestion:
+  question: "Architecture concern: <description of the concern>\n\n<why this matters>\n\nThis may mean critics will produce many findings that all point to the same root cause."
+  header: "Arch check"
+  options:
+    - label: "Proceed anyway"
+      description: "Launch critics — the concern may not be as fundamental as it seems"
+    - label: "Let me rethink"
+      description: "Stop here — I'll revise the approach before challenging"
+```
+
+- **"Let me rethink"**: stop the challenge and return control to the user.
+- **"Proceed anyway"**: note the concern in the Stage 3 briefing and continue.
+
+#### Stage 3: Critic Briefing Generation
+
+Always generate a structured briefing block for Phase 2. At minimum, the briefing contains the `### Review Focus` section (which applies to all target types). The `### Problem Context` section is added only for `design-doc` and `spec` targets. Store the briefing in context — Phase 2 injects it into each critic's prompt after their persona and before the target content.
+
+```markdown
+## Critic Briefing
+
+<!-- Include this Problem Context block ONLY for design-doc and spec targets. Omit entirely for code, skill-file, rule, agent-file, brief, research, docs, and other targets. For non-design-doc/spec targets, critics read the file and infer purpose directly — extracting structured context from targets without Problem/Goals headings risks hallucination. -->
+### Problem Context
+This work exists because: <extracted from the target's Problem/Motivation section>
+What's in scope: <extracted from Goals/Scope>
+What's out of scope: <extracted from Non-Goals, if present>
+Decisions already locked: <key architectural decisions stated as decided, not open>
+
+### Review Focus
+Focus on architectural soundness, design coherence, and implementation feasibility. Do not flag:
+- Document formatting, wording, or style issues
+- Surface-level consistency issues (ambiguity, implicit promises, vague references) that were addressed in pre-flight, or that are listed under Known Surface Issues / Pre-Flight Notes below
+- Whether the stated problem is worth solving — that decision is made
+
+<!-- Include this section ONLY if the user chose "Skip fixes" and surface issues remain unfixed. -->
+### Known Surface Issues (deprioritize)
+The following issues were identified and the user chose not to fix them. Do not re-flag these:
+- <issue 1>
+- <issue 2>
+
+<!-- Include this section ONLY for inline content targets where surface issues were found but could not be fixed. -->
+### Pre-Flight Notes
+The following issues were identified but could not be fixed (inline content target). Weigh them as you would any other concern:
+- <issue 1>
+- <issue 2>
+```
+
+**Briefing construction rules**:
+- The `Problem Context` block is included **only for `design-doc` and `spec` targets**. For all other target types, omit it entirely — the `Review Focus` section alone provides sufficient steering.
+- The `Known Surface Issues` section is included **when any surface issues remain unfixed after Stage 1** — whether because the user chose "Skip fixes" or declined individual fixes in "Show me each fix".
+- The `Pre-Flight Notes` section is included **only for inline content targets** where surface issues were found but could not be fixed.
+- If neither conditional section applies, omit both. The briefing contains only `Problem Context` (if applicable) and `Review Focus`.
+- If Stage 2 detected an architectural concern and the user chose "Proceed anyway", append a brief note to the `Review Focus` section: "Note: a potential architectural concern was identified before critics launched — <one sentence description>. Be attentive to whether this concern materializes in your findings."
+
 ### If empty
 
 1. Quick recon: directory structure, recently changed files (`git log -n 10 --diff-filter=M --name-only --format= | sort -u`), largest files
@@ -214,11 +352,28 @@ AskUserQuestion:
       description: "I'll tell you exactly what to look at"
 ```
 
+### Re-Challenge Detection
+
+Determine whether this is a re-challenge run before proceeding to Specialist Selection. The result is written to the manifest at the end of Phase 1 — this persists the detection result before any compaction window.
+
+**Primary signal — on-disk artifact check** (always check this first):
+
+1. If `--findings-out` was provided: check whether a file already exists at that path. If it does, validate it looks like a prior challenge findings file (starts with `# Challenge Findings` and contains `Format-version:`). If valid, this is a re-challenge. If the file is missing or doesn't look like a findings file, treat as first run.
+2. If `--findings-out` was not provided: check the feature directory — the directory containing the target file. Look for any file matching `findings*.md` or `challenge-findings*.md`. If found, validate at least one starts with `# Challenge Findings` and contains `Format-version:`. If valid, this is a re-challenge. For inline content targets (passthrough callers), the on-disk check cannot be tied to a specific file — skip the primary signal and fall through to the secondary signal.
+
+**Secondary signal — conversation context** (use only if the primary signal is inconclusive): if the primary signal found nothing but the current conversation context contains a prior challenge run against the same target, treat this as a re-challenge. Conversation context is secondary because it is lost to compaction — the on-disk check is always more reliable.
+
+**If re-challenge is detected**: set the re-challenge flag to `yes`. Proceed to Specialist Selection (which will be skipped — see below).
+
+**If no re-challenge is detected**: set the re-challenge flag to `no`. Proceed to Specialist Selection normally.
+
 ### Specialist Selection
 
 After classifying the target type, select specialist personas to augment the three generic critics. Specialists provide domain-specific focus that generics are blind to.
 
 **If `--no-specialists` was passed**, skip this section entirely — only generics run.
+
+**If re-challenge was detected** (re-challenge flag is `yes`): skip this section entirely — the absence of specialist entries in the manifest encodes this state for Phase 4. Only the two generic critics (Senior Engineer + Adversarial Reviewer) will run — see Phase 2 for the reduced roster.
 
 **Enumerate specialists**: Run `Glob ~/.claude/skills/mine.challenge/personas/specialist/*.md` to discover all specialist persona files on disk. This Glob runs unconditionally (regardless of target type or `--focus`) and its results are used for orphan detection, `--focus` matching, and cross-referencing the mapping table. If the Glob returns zero results (e.g., symlink not yet installed), record a warning to `<tmpdir>/validation-warnings.md`: "`specialist directory not found or empty at ~/.claude/skills/mine.challenge/personas/specialist/`" and proceed with generics only.
 
@@ -249,13 +404,45 @@ After classifying the target type, select specialist personas to augment the thr
 5. **Only if a substitution occurred** (a preset specialist was replaced): Write `<tmpdir>/focus-substitution.md` with a single line: "Note: [focus specialist] ran in place of [dropped specialist] due to --focus override (2-specialist cap)." The dropped specialist is the set difference: `[initial-specialists]` minus `[final-specialists]`. Phase 4 reads this file for the announcement (see Phase 4 Specialist announcement section). If no substitution occurred (focus specialist was simply added, or no match was found), do not write this file.
 6. **If `--focus` was provided and no specialist match occurred** (value was multi-word, comma-separated, below 6-char minimum, or matched no slug) and `--no-specialists` was not passed: record a warning to `<tmpdir>/validation-warnings.md`: "Focus value `<value>` did not match any specialist — proceeding with preset specialists only."
 
+### Write session manifest
+
+**Write `<tmpdir>/manifest.md` now**, at the end of Phase 1, before Phase 2 begins. Writing it here persists all session metadata before the critic dispatch window, making all phase transitions compaction-safe. The critic file list is left empty at this stage — Phase 2 appends it after persona files are read and the roster is finalized.
+
+Format — comment lines are session metadata; the critic file list is appended by Phase 2:
+
+```
+# target-type: skill-file
+# mode: structured | standalone | passthrough
+# findings-out: <path> | default
+# focus: <area> | none
+# target: <absolute path or scope description>
+# rechallenge: yes | no
+```
+
+**Field definitions**:
+- `mode`: `structured` when `--findings-out` is present; `passthrough` when `--mode=passthrough` is passed; `standalone` otherwise (includes direct user invocations and standalone callers like mine.grill that want the full Consent Gate flow).
+- `findings-out`: the `--findings-out` path if provided, or `default` (meaning `<tmpdir>/findings.md`).
+- `focus`: the `--focus` value if provided, or `none`.
+- `target`: the target scope — use the absolute path when the target is a file; use the scope description when inline content.
+- `rechallenge`: `yes` if re-challenge was detected in the Re-Challenge Detection step above; `no` otherwise.
+
+This decouples all session metadata from LLM context memory. Phase 2 appends the critic file list once the roster is finalized. Phase 3 reads the manifest for the critic list; Phase 4 reads it for target type, specialist list, mode, and re-challenge status.
+
 ## Phase 2: Launch Critics
 
 ### Read persona files
 
 **Pre-flight check**: Before reading persona files, verify the generic persona directory exists at `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/personas/generic/`. If the directory is missing or empty, stop with: "Cannot launch critics — persona files not found at `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/personas/generic/`. Run `uv run install.py` to symlink skills into your Claude config directory."
 
-Read all 3 generic persona files from `~/.claude/skills/mine.challenge/personas/generic/`:
+**Re-challenge roster reduction**: Read `# rechallenge:` from `<tmpdir>/manifest.md`. If the value is `yes`, use only 2 generic critics:
+- `senior-engineer.md`
+- `adversarial-reviewer.md`
+
+Do NOT read `systems-architect.md` on re-challenges. Do NOT read any specialist files on re-challenges — the specialist list from Phase 1 is ignored entirely.
+
+**Re-challenge briefing (re-challenge runs only)**: When building each critic's prompt, include a `### Re-Challenge Focus` subsection after any `## Critic Briefing` content from Phase 1 Stage 3 (if one was generated), or as a standalone `## Critic Briefing` block (if Stage 3 produced no briefing). The subsection text: "This is a re-challenge after fixes were applied. Focus on: (1) whether the fixes were thorough and complete, (2) whether fixes introduced new problems, (3) any issues that were missed in the first round."
+
+**Standard roster** (re-challenge is `no`): read all 3 generic persona files from `~/.claude/skills/mine.challenge/personas/generic/`:
 - `senior-engineer.md`
 - `systems-architect.md`
 - `adversarial-reviewer.md`
@@ -272,10 +459,11 @@ Subagents write their reports inside this directory:
 - Generic critics: `<tmpdir>/senior.md`, `<tmpdir>/architect.md`, `<tmpdir>/adversarial.md`
 - Specialist critics: `<tmpdir>/<slug>.md` matching the persona filename (e.g., `<tmpdir>/data-integrity.md`, `<tmpdir>/contract-caller.md`)
 
-**CRITICAL: Issue ALL Agent tool calls (3-5 critics) in a single response message. Each call must use `subagent_type: general-purpose`, `model: sonnet`, and must NOT set `run_in_background`.** Foreground agents in the same message run concurrently. Background agents cannot request permissions and cannot spawn their own subagents — both are required here. Each critic receives:
+**CRITICAL: Issue ALL Agent tool calls in a single response message. Each call must use `subagent_type: general-purpose`, `model: sonnet`, and must NOT set `run_in_background`.** On standard runs this is 3-5 critics; on re-challenges this is exactly 2 critics (`senior-engineer.md` and `adversarial-reviewer.md`). Foreground agents in the same message run concurrently. Background agents cannot request permissions and cannot spawn their own subagents — both are required here. Each critic receives:
 - The target under review (file paths to read — pass full file paths, not excerpts; or inline content if the target was passed as text). For `docs` targets: also pass all sibling doc paths discovered in Phase 1 to the Documentation Architect specialist, so it can evaluate the documentation set as a whole. If no siblings were found, explicitly state: "No sibling docs were found — apply the single-file scope note from your persona."
 - The **target type** from Phase 1 classification (e.g., "This is a `spec` target — focus on requirement completeness, testability, and internal consistency")
 - Their persona and focus lens (from the persona file read above — include the full body text: Persona, Characteristic question, and Focus bullets)
+- Critic briefing (if generated): the full `## Critic Briefing` block, including any `### Re-Challenge Focus` subsection appended during roster reduction. Omit this bullet entirely only when no briefing was generated and this is a standard (non-re-challenge) run.
 - If `--focus` was provided: "The user is specifically concerned about: <focus area>. Weight your analysis toward this concern."
 - The path to write their report to
 - These rules:
@@ -310,8 +498,10 @@ Each critic writes their full, unfiltered findings to their temp file. These fil
 Each critic's identity and focus lens comes from the persona file read above. Pass the full body text (Persona, Characteristic question, Focus bullets) as part of the subagent prompt. The generic critics are:
 
 - **senior-engineer.md** → writes to `<tmpdir>/senior.md`
-- **systems-architect.md** → writes to `<tmpdir>/architect.md`
+- **systems-architect.md** → writes to `<tmpdir>/architect.md` (standard runs only — not launched on re-challenges)
 - **adversarial-reviewer.md** → writes to `<tmpdir>/adversarial.md`
+
+On re-challenges, only `senior.md` and `adversarial.md` are written. `architect.md` is not created.
 
 Specialist critics (when selected) use their filename slug as the output name:
 
@@ -324,18 +514,13 @@ Specialist critics (when selected) use their filename slug as the output name:
 - **documentation-architect.md** → writes to `<tmpdir>/documentation-architect.md`
 - **web-platform.md** → writes to `<tmpdir>/web-platform.md`
 
-### Write session manifest
+### Update manifest with critic file list
 
-**Write `<tmpdir>/manifest.md` before issuing Agent tool calls** — pre-populate it with the planned critic list and all session state that later phases need. This ensures crash recovery if the orchestrator fails between critic dispatch and Phase 3, and makes all phase transitions compaction-safe.
+**Append the critic report filenames to `<tmpdir>/manifest.md`** — read the existing manifest (written in Phase 1 with the comment-line metadata), then append the critic file list. The comment-line metadata (`# target-type:`, `# mode:`, `# findings-out:`, `# focus:`, `# target:`, `# rechallenge:`) is already present from Phase 1; do not re-write those lines.
 
-Format — comment lines are session metadata, non-comment lines are critic report filenames:
+Append only the critic filenames (generics first, then specialists). The resulting manifest will have the comment-line metadata from Phase 1 followed by these lines:
 
 ```
-# target-type: skill-file
-# mode: structured | standalone | passthrough
-# findings-out: <path> | default
-# focus: <area> | none
-# target: <absolute path or scope description>
 senior.md
 architect.md
 adversarial.md
@@ -343,19 +528,15 @@ adversarial.md
 <specialist-slug>.md
 ```
 
-**Field definitions**:
-- `mode`: `structured` when `--findings-out` is present; `passthrough` when `--mode=passthrough` is passed; `standalone` otherwise (includes direct user invocations and standalone callers like mine.grill that want the full Consent Gate flow).
-- `findings-out`: the `--findings-out` path if provided, or `default` (meaning `<tmpdir>/findings.md`).
-- `focus`: the `--focus` value if provided, or `none`.
-- `target`: the target scope — use the absolute path when the target is a file; use the scope description when inline content.
+List only the critics that will be launched. On re-challenges (where `# rechallenge: yes`), list only `senior.md` and `adversarial.md` — no `architect.md` and no specialist entries. Specialist entries use the filename slugs selected in Phase 1.
 
-List generics first, then specialists. List only the critics that will be launched; specialist entries use the filename slugs selected in Phase 1.
-
-This decouples all session state from LLM context memory. Phase 3 reads the manifest for the critic list; Phase 4 reads it for target type, specialist list, and mode. Specialists are identified as entries not in the known-generic set (`senior.md`, `architect.md`, `adversarial.md`).
+Specialists are identified by Phase 3 and Phase 4 as entries not in the known-generic set (`senior.md`, `architect.md`, `adversarial.md`).
 
 ### Validate critic reports
 
 After all critic subagents complete, verify each file listed in the manifest exists and has substantive content (at least 500 bytes). For missing or undersized files, record a warning to `<tmpdir>/validation-warnings.md`: "Critic [name] report is missing or suspiciously small ([N] bytes) — findings from this critic may be incomplete." Missing files reduce the confidence denominator; undersized-but-present files are warned but still counted.
+
+**On re-challenges**: the expected critic count is 2 (Senior Engineer + Adversarial Reviewer), so the confidence denominator is 2 — not 3 or higher. Do not flag a denominator of 2 as a warning; it is the expected count for re-challenge runs.
 
 ## Phase 3: Synthesize
 
@@ -450,7 +631,9 @@ Read the findings file. This is the input for Phase 4 presentation.
 
 ### Specialist announcement
 
-Before announcing, read `<tmpdir>/manifest.md` and derive session state from its comment lines: specialist list, target type, mode, findings-out path, focus, and target scope. This is the compaction-safe recovery path — all session state lives in this file, not in LLM context recall. Specialists are entries whose filename is **not** in the known-generic set (`senior.md`, `architect.md`, `adversarial.md`). The `# target-type:` comment line provides the classified target type. To recover display names from manifest slugs, look up each specialist slug in the mapping table (e.g., `contract-caller.md` → "Contract & Caller") — the table includes both display names and filenames.
+Before announcing, read `<tmpdir>/manifest.md` and derive session state from its comment lines: specialist list, target type, mode, findings-out path, focus, target scope, and rechallenge flag. This is the compaction-safe recovery path — all session state lives in this file, not in LLM context recall. Specialists are entries whose filename is **not** in the known-generic set (`senior.md`, `architect.md`, `adversarial.md`). The `# target-type:` comment line provides the classified target type. To recover display names from manifest slugs, look up each specialist slug in the mapping table (e.g., `contract-caller.md` → "Contract & Caller") — the table includes both display names and filenames.
+
+If `# rechallenge: yes` is present in the manifest comments, announce before listing findings: "Re-challenge detected — running 2 generic critics (Senior + Adversarial), no specialists. Confidence denominators reflect the reduced roster (N/2 instead of the standard 3–5)."
 
 If `<tmpdir>/focus-substitution.md` exists, read it for the substitution announcement text.
 
@@ -507,13 +690,16 @@ Then render the resolution-specific block — these are **mutually exclusive**, 
 
 ### After presenting findings
 
-List all critic report file paths so the user knows where reports are. Always list the three generics, then any specialists that ran:
+List critic report file paths so the user knows where reports are. Read the manifest's non-comment lines (same pattern as Phase 3) and list each one with its display name. Use the following display name mappings:
 
-- Senior Engineer: `<tmpdir>/senior.md`
-- Systems Architect: `<tmpdir>/architect.md`
-- Adversarial Reviewer: `<tmpdir>/adversarial.md`
-- _(if specialists ran)_ `<tmpdir>/<slug>.md` for each specialist (e.g., `data-integrity.md`, `contract-caller.md`)
-- Structured findings: `<tmpdir>/findings.md` (or the path provided via `--findings-out`, if specified)
+- `senior.md` → Senior Engineer
+- `architect.md` → Systems Architect
+- `adversarial.md` → Adversarial Reviewer
+- Specialist slugs → look up in the specialist mapping table (e.g., `contract-caller.md` → "Contract & Caller")
+
+On re-challenge runs (`# rechallenge: yes` in manifest), `architect.md` and specialist entries will be absent from the manifest — list only what the manifest contains.
+
+Also list the structured findings path: `<tmpdir>/findings.md` (or the path provided via `--findings-out`, if specified).
 
 ### Wrap-up: structured callers vs standalone
 
