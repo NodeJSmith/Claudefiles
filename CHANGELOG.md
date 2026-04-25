@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-04-25
 
 ### Removed
-- `commands/cm-manage-memory.md` — dead command; functionality superseded by automatic session sync hook
+- `commands/cm-manage-memory.md` — dead command; functionality superseded by automatic session sync hook (#255)
 
 ## 2026-04-24
 
