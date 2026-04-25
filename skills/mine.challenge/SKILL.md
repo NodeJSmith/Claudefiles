@@ -437,7 +437,7 @@ This decouples all session metadata from LLM context memory. Phase 2 appends the
 
 Do NOT read `systems-architect.md` on re-challenges. Do NOT read any specialist files on re-challenges — the specialist list from Phase 1 is ignored entirely.
 
-**Re-challenge briefing (re-challenge runs only)**: Append a `### Re-Challenge Focus` subsection to the `## Critic Briefing` block from Stage 3 (if one was generated), or create a standalone `## Critic Briefing` block containing only this subsection (if Stage 3 produced no briefing). The subsection text: "This is a re-challenge after fixes were applied. Focus on: (1) whether the fixes were thorough and complete, (2) whether fixes introduced new problems, (3) any issues that were missed in the first round."
+**Re-challenge briefing (re-challenge runs only)**: When building each critic's prompt, include a `### Re-Challenge Focus` subsection after any `## Critic Briefing` content from Phase 1 Stage 3 (if one was generated), or as a standalone `## Critic Briefing` block (if Stage 3 produced no briefing). The subsection text: "This is a re-challenge after fixes were applied. Focus on: (1) whether the fixes were thorough and complete, (2) whether fixes introduced new problems, (3) any issues that were missed in the first round."
 
 **Standard roster** (re-challenge is `no`): read all 3 generic persona files from `~/.claude/skills/mine.challenge/personas/generic/`:
 - `senior-engineer.md`
@@ -460,7 +460,7 @@ Subagents write their reports inside this directory:
 - The target under review (file paths to read — pass full file paths, not excerpts; or inline content if the target was passed as text). For `docs` targets: also pass all sibling doc paths discovered in Phase 1 to the Documentation Architect specialist, so it can evaluate the documentation set as a whole. If no siblings were found, explicitly state: "No sibling docs were found — apply the single-file scope note from your persona."
 - The **target type** from Phase 1 classification (e.g., "This is a `spec` target — focus on requirement completeness, testability, and internal consistency")
 - Their persona and focus lens (from the persona file read above — include the full body text: Persona, Characteristic question, and Focus bullets)
-- Critic briefing (if generated): the full `## Critic Briefing` block, including any `### Re-Challenge Focus` subsection appended during roster reduction. Omit this bullet entirely if no briefing was generated and this is not a re-challenge.
+- Critic briefing (if generated): the full `## Critic Briefing` block, including any `### Re-Challenge Focus` subsection appended during roster reduction. Omit this bullet entirely only when no briefing was generated and this is a standard (non-re-challenge) run.
 - If `--focus` was provided: "The user is specifically concerned about: <focus area>. Weight your analysis toward this concern."
 - The path to write their report to
 - These rules:
@@ -628,7 +628,9 @@ Read the findings file. This is the input for Phase 4 presentation.
 
 ### Specialist announcement
 
-Before announcing, read `<tmpdir>/manifest.md` and derive session state from its comment lines: specialist list, target type, mode, findings-out path, focus, and target scope. This is the compaction-safe recovery path — all session state lives in this file, not in LLM context recall. Specialists are entries whose filename is **not** in the known-generic set (`senior.md`, `architect.md`, `adversarial.md`). The `# target-type:` comment line provides the classified target type. To recover display names from manifest slugs, look up each specialist slug in the mapping table (e.g., `contract-caller.md` → "Contract & Caller") — the table includes both display names and filenames.
+Before announcing, read `<tmpdir>/manifest.md` and derive session state from its comment lines: specialist list, target type, mode, findings-out path, focus, target scope, and rechallenge flag. This is the compaction-safe recovery path — all session state lives in this file, not in LLM context recall. Specialists are entries whose filename is **not** in the known-generic set (`senior.md`, `architect.md`, `adversarial.md`). The `# target-type:` comment line provides the classified target type. To recover display names from manifest slugs, look up each specialist slug in the mapping table (e.g., `contract-caller.md` → "Contract & Caller") — the table includes both display names and filenames.
+
+If `# rechallenge: yes` is present in the manifest comments, announce before listing findings: "Re-challenge detected — running 2 generic critics (Senior + Adversarial), no specialists. Confidence denominators reflect the reduced roster (N/2 instead of the standard 3–5)."
 
 If `<tmpdir>/focus-substitution.md` exists, read it for the substitution announcement text.
 
@@ -685,13 +687,15 @@ Then render the resolution-specific block — these are **mutually exclusive**, 
 
 ### After presenting findings
 
-List all critic report file paths so the user knows where reports are. Always list the three generics, then any specialists that ran:
+List critic report file paths so the user knows where reports are. Read the manifest's non-comment lines (same pattern as Phase 3) and list each one with its display name. Use the following display name mappings:
 
-- Senior Engineer: `<tmpdir>/senior.md`
-- Systems Architect: `<tmpdir>/architect.md`
-- Adversarial Reviewer: `<tmpdir>/adversarial.md`
-- _(if specialists ran)_ `<tmpdir>/<slug>.md` for each specialist (e.g., `data-integrity.md`, `contract-caller.md`)
-- Structured findings: `<tmpdir>/findings.md` (or the path provided via `--findings-out`, if specified)
+- `senior.md` → Senior Engineer
+- `architect.md` → Systems Architect
+- Specialist slugs → look up in the specialist mapping table (e.g., `contract-caller.md` → "Contract & Caller")
+
+On re-challenge runs (`# rechallenge: yes` in manifest), `architect.md` and specialist entries will be absent from the manifest — list only what the manifest contains.
+
+Also list the structured findings path: `<tmpdir>/findings.md` (or the path provided via `--findings-out`, if specified).
 
 ### Wrap-up: structured callers vs standalone
 
