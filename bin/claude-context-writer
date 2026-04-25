@@ -52,6 +52,9 @@ if command -v jq > /dev/null 2>&1 && [ -n "$payload" ]; then
     " _sz="  + (safe_num(.context_window.context_window_size) | tostring | @sh)
   ' 2> /dev/null)" 2> /dev/null || true
 
+  # Guard against path traversal — session_id should be a UUID, reject anything with / or .
+  case "${_sid:-}" in '' | *[/.]*) _sid='' ;; esac
+
   if [ -n "${_sid:-}" ] && [ -n "${_sz:-}" ] && [ "${_sz:-0}" -gt 0 ] 2> /dev/null; then
     _tokens=$((${_inp:-0} + ${_cc:-0} + ${_cr:-0}))
     _pct=$((_tokens * 100 / _sz))

@@ -12,15 +12,8 @@
 #   high     (60-79%) — finish current task, delegate exploratory work
 #   critical (80%+)   — compaction imminent, checkpoint or finish
 #
-# Hook wiring (settings.json):
-#   "PreToolUse": [{
-#     "matcher": "Bash",
-#     "hooks": [{
-#       "type": "command",
-#       "command": "bash -c 'f=\"${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/context-tier.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
-#       "timeout": 2000
-#     }]
-#   }]
+# Hook wiring: append to the existing "PreToolUse" > "Bash" hooks array
+# in settings.json (alongside sudo-poll, pytest-guard, pytest-loop-detector).
 #
 # No set -euo pipefail — this hook is a sequence of guard clauses that each
 # exit 0 on failure. Every operation has an explicit failure path; adding -e
@@ -33,7 +26,7 @@ fi
 input="$(cat || true)"
 
 session_id="$(printf '%s' "$input" | jq -r '.session_id // empty' 2> /dev/null)" || true
-[ -z "$session_id" ] && exit 0
+case "$session_id" in '' | *[/.]*) exit 0 ;; esac
 
 # Hardcodes /tmp/ to match claude-context-writer, which runs outside Claude
 # Code's sandbox and cannot use CLAUDE_CODE_TMPDIR.

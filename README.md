@@ -181,8 +181,8 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 |--------|-------------|
 | `agnix-check` | Validate agent, skill, and command files against agnix schema |
 | `claude-context-writer` | statusLine wrapper — writes per-session context % sidecar file for the context-tier hook |
-| `edit-manifest` | Open a manifest file in nvim via a new tmux window with shadow-file autosave and blocking wait |
 | `claude-tmux` | Tmux session helper -- rename, list, create, capture, kill sessions |
+| `edit-manifest` | Open a manifest file in nvim via a new tmux window with shadow-file autosave and blocking wait |
 | `get-skill-tmpdir` | Create unique temp directories for skill runs |
 | `get-tmp-filename` | Create temp files for command output capture |
 | `gh-issue` | Run `gh issue` subcommands using bot token if available, personal token otherwise |
