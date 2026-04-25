@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# claude-context-writer — statusLine wrapper that writes a context sidecar file
+#
+# Reads the JSON payload from Claude Code's statusLine mechanism, extracts
+# session ID and context percentage, writes them to a per-session sidecar
+# file, then passes the payload through to an optional downstream command.
+#
+# The sidecar file is read by the context-tier.sh PreToolUse hook to inject
+# behavioral guidance based on context usage tiers.
+#
+# Usage in settings.json (or settings.local.json / settings.machine.json):
+#   "statusLine": {
+#     "type": "command",
+#     "command": "claude-context-writer ~/bin/mine/starship-claude"
+#   }
+#
+# Without a downstream command, writes the sidecar and echoes the payload:
+#   "command": "claude-context-writer"
+
+case "${1:-}" in
+  -h | --help)
+    echo "Usage: claude-context-writer [downstream-command ...]"
+    echo ""
+    echo "statusLine wrapper that writes a per-session context percentage"
+    echo "sidecar file (/tmp/claude-context-{session}.txt) then passes the"
+    echo "JSON payload through to an optional downstream command."
+    echo ""
+    echo "Designed to be used as the statusLine command in Claude Code settings."
+    exit 0
+    ;;
+esac
+
+# No set -e — this script must always pass stdin through, even on errors.
+set -o nounset -o pipefail
+
+payload="$(cat || true)"
+
+# Best-effort sidecar write — never interfere with downstream rendering.
+# Hardcodes /tmp/ because the statusLine process runs outside Claude Code's
+# sandbox and may not have CLAUDE_CODE_TMPDIR. The hook hardcodes /tmp/ too
+# so both sides always agree on the path.
+if command -v jq > /dev/null 2>&1 && [ -n "$payload" ]; then
+  # All variable refs below use ${var:-default} because eval may not have
+  # set them (jq failure path under nounset).
+  eval "$(printf '%s' "$payload" | jq -r '
+    def safe(f): f // "";
+    def safe_num(f): f // 0;
+    "_sid=" + (safe(.session_id) | @sh) +
+    " _inp=" + (safe_num(.context_window.current_usage.input_tokens) | tostring | @sh) +
+    " _cc="  + (safe_num(.context_window.current_usage.cache_creation_input_tokens) | tostring | @sh) +
+    " _cr="  + (safe_num(.context_window.current_usage.cache_read_input_tokens) | tostring | @sh) +
+    " _sz="  + (safe_num(.context_window.context_window_size) | tostring | @sh)
+  ' 2> /dev/null)" 2> /dev/null || true
+
+  # Guard against path traversal — session_id should be a UUID, reject anything with / or .
+  case "${_sid:-}" in '' | *[/.]*) _sid='' ;; esac
+
+  if [ -n "${_sid:-}" ] && [ -n "${_sz:-}" ] && [ "${_sz:-0}" -gt 0 ] 2> /dev/null; then
+    _tokens=$((${_inp:-0} + ${_cc:-0} + ${_cr:-0}))
+    _pct=$((_tokens * 100 / _sz))
+
+    _target="/tmp/claude-context-${_sid}.txt"
+    _tmp="${_target}.tmp"
+    printf '%d' "$_pct" > "$_tmp" 2> /dev/null && mv -f "$_tmp" "$_target" 2> /dev/null || true
+  fi
+fi
+
+# Always pass payload downstream
+if [ $# -gt 0 ]; then
+  printf '%s' "$payload" | "$@"
+else
+  printf '%s' "$payload"
+fi

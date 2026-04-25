@@ -4,7 +4,11 @@
 **Sonnet 4.6** — Main development work, orchestration, complex coding
 **Opus 4.6** — Deep reasoning, architecture decisions, research
 
-Avoid last 20% of context window for large refactoring or multi-file features.
+## Context Window (CRITICAL)
+
+A PreToolUse hook (`context-tier.sh`) injects context usage tiers when they change. Follow the guidance in those messages. When no tier message is present, do not invent context pressure — any unprompted claim about context usage ("building up," "getting low," suggesting compaction) is a fabrication.
+
+If you think a task should be split across sessions, justify it on *quality* grounds (complexity, focus), never context pressure.
 
 ## Haiku Disqualifiers
 

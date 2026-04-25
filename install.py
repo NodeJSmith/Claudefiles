@@ -94,6 +94,11 @@ HOOK_GROUPS: dict[str, HookGroup] = {
         description="Session naming reminders",
         files=("tmux-remind.sh",),
     ),
+    "context": HookGroup(
+        label="Context awareness",
+        description="Inject context window tier guidance to prevent hallucinated urgency",
+        files=("context-tier.sh",),
+    ),
 }
 
 PACKAGE_DEFS: dict[str, PackageDef] = {

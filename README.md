@@ -171,17 +171,26 @@ Event-driven scripts that run before/after tool calls.
 | `cm-memory-context` (package) | SessionStart (startup\|clear) | Load memory context into the session |
 | `cm-consolidation-check` (package) | SessionStart (startup\|clear) | Check if memory consolidation is needed |
 | `cm-clear-handoff` (package) | SessionEnd (clear) | Write a handoff note before `/clear` |
+| `context-tier.sh` | PreToolUse (*) | Inject context window tier guidance when usage crosses a threshold — prevents hallucinated context pressure |
 | `cm-memory-sync` (package) | Stop | Sync current session to the conversation database |
 
-### Helper Scripts (17)
+> **Context tier setup:** The `context-tier.sh` hook reads a sidecar file written by `claude-context-writer`. To enable it, add `claude-context-writer` to your `statusLine.command` in settings — either by itself or in front of your existing command:
+>
+> ```json
+> "statusLine": { "type": "command", "command": "claude-context-writer" }
+> "statusLine": { "type": "command", "command": "claude-context-writer ~/bin/mine/starship-claude" }
+> ```
+
+### Helper Scripts
 
 CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
 | Script | Description |
 |--------|-------------|
 | `agnix-check` | Validate agent, skill, and command files against agnix schema |
-| `edit-manifest` | Open a manifest file in nvim via a new tmux window with shadow-file autosave and blocking wait |
+| `claude-context-writer` | statusLine wrapper — writes per-session context % sidecar file for the context-tier hook |
 | `claude-tmux` | Tmux session helper -- rename, list, create, capture, kill sessions |
+| `edit-manifest` | Open a manifest file in nvim via a new tmux window with shadow-file autosave and blocking wait |
 | `get-skill-tmpdir` | Create unique temp directories for skill runs |
 | `get-tmp-filename` | Create temp files for command output capture |
 | `gh-issue` | Run `gh issue` subcommands using bot token if available, personal token otherwise |
