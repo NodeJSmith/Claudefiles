@@ -8,7 +8,7 @@ All notable changes to this Claudefiles repository are documented here.
 - Pre-flight analysis phase for `/mine.challenge` — catches surface issues and validates architecture before launching critics; re-challenge detection reduces to 2 critics (#253)
 
 ### Changed
-- `pytest-loop-detector.sh` — add total failure counter (threshold 8) that catches edit-run-fail flailing loops; denied runs no longer inflate counters
+- `pytest-loop-detector.sh` — add total failure counter (threshold 8) that catches edit-run-fail flailing loops; denied runs no longer inflate counters (#264)
 
 ### Removed
 - `commands/cm-manage-memory.md` — dead command; functionality superseded by automatic session sync hook (#255)
