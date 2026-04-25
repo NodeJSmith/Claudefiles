@@ -195,6 +195,141 @@ The remainder of `$ARGUMENTS` is the target scope.
    - **Rule**: read sibling rules in the same directory to check for overlaps, contradictions, or gaps. Grep for the rule's key terms across skills, agents, and other rules to find all consumers. If the rule references specific tools, commands, or patterns, verify they exist.
 4. Note what problem the target ostensibly solves
 
+### Pre-Flight Analysis
+
+Run all three stages before proceeding to Specialist Selection. This sub-phase adds zero subagent invocations — all analysis happens in the orchestrator's context using the target content already read above.
+
+#### Stage 1: Surface Issue Scan
+
+Scan the target for surface issues using target-type-aware heuristics:
+
+| Target type | Surface issue heuristics |
+|-------------|--------------------------|
+| `design-doc`, `spec` | Implicit promises contradicted by other sections; vague scope references ("update all of X"); undefined terms used in requirements; acceptance criteria that aren't testable; internal contradictions between sections |
+| `skill-file` | Phase references that don't exist; tool names that don't match available tools; instructions that contradict earlier instructions; undefined variables or placeholders |
+| `code` | Functions contradicting their signatures/docstrings; obvious dead code paths; parameters accepted but never used; return values that don't match declared types |
+| `frontend-code` | Same as `code`, plus: components accepting props they don't render; event handlers that don't match element types |
+| `brief`, `research` | Claims without supporting evidence; conclusions that don't follow from the analysis; scope statements contradicted by content |
+| `rule` | Rules that contradict each other; references to tools or patterns that don't exist; ambiguity in when/where the rule applies |
+| `agent-file`, `docs`, `other` | Internal contradictions; undefined references; vague or unmeasurable criteria |
+
+**If no issues are found**: proceed silently to Stage 2 — do not prompt the user.
+
+**If issues are found**: present them via AskUserQuestion before applying any fixes:
+
+```
+AskUserQuestion:
+  question: "Pre-flight found N surface issues in <target>:\n\n1. <issue description>\n2. <issue description>\n...\n\nFix these before launching critics?"
+  header: "Pre-flight"
+  options:
+    - label: "Fix all"
+      description: "Apply all fixes and proceed to critics"
+    - label: "Show me each fix"
+      description: "Walk through each fix individually before applying"
+    - label: "Skip fixes"
+      description: "Proceed to critics without fixing — issues will be noted in critic briefing"
+```
+
+- **"Fix all"**: apply all fixes to the target file, then re-read the modified content.
+- **"Show me each fix"**: present each fix sequentially. For each fix, show the issue description with before/after text and ask:
+
+  ```
+  AskUserQuestion:
+    question: "Fix <N> of <total>: <issue description>"
+    header: "Fix <N>/<total>"
+    options:
+      - label: "Accept"
+        description: "Apply this fix"
+        preview: |
+          Before:
+          <before text>
+
+          After:
+          <after text>
+      - label: "Skip this one"
+        description: "Leave this issue as-is"
+  ```
+
+  Apply accepted fixes, skip declined ones. After all fixes are presented, re-read the modified content.
+
+- **"Skip fixes"**: proceed without modifying the target. Note unfixed issues in Stage 3 as known issues to deprioritize (see "Known Surface Issues" in the briefing template below).
+
+**Edge case — inline content targets**: When the target was passed as inline text (passthrough callers like mine.research, mine.brainstorm), the orchestrator cannot edit the target. Do not present the Fix all / Show me each fix / Skip options. Instead, note the issues for injection into the Stage 3 briefing as "Pre-Flight Notes" (see briefing template below) and proceed silently.
+
+**After fixes are applied** ("Fix all" or "Show me each fix" with at least one accepted fix), re-read the modified target content before proceeding to Stage 2. Stage 2 must operate on the post-fix version. If no fixes were applied ("Skip fixes", "Show me each fix" with all declined, or no issues found), proceed directly to Stage 2 without re-reading.
+
+#### Stage 2: Architecture Smell Test
+
+Evaluate whether the target's overall approach is sound before spending on critics.
+
+**Guiding question**: "Would critics all point to the same root cause regardless of which individual findings they raise?" If yes, there is a fundamental architectural concern that should be surfaced before critics run.
+
+Check for:
+- Internal inconsistency in the proposed approach
+- Circular dependencies or impossible constraints
+- Disconnect between stated motivation and proposed solution
+- Scope that tries to do too many things at once
+
+**Be over-sensitive, not under-sensitive** — present any concern and let the user decide. It is better to surface a concern the user dismisses than to miss one that wastes a full critic round.
+
+**If no concerns are detected**: proceed silently to Stage 3 — do not prompt the user.
+
+**If a concern is detected**: present it via AskUserQuestion:
+
+```
+AskUserQuestion:
+  question: "Architecture concern: <description of the concern>\n\n<why this matters>\n\nThis may mean critics will produce many findings that all point to the same root cause."
+  header: "Arch check"
+  options:
+    - label: "Proceed anyway"
+      description: "Launch critics — the concern may not be as fundamental as it seems"
+    - label: "Let me rethink"
+      description: "Stop here — I'll revise the approach before challenging"
+```
+
+- **"Let me rethink"**: stop the challenge and return control to the user.
+- **"Proceed anyway"**: note the concern in the Stage 3 briefing and continue.
+
+#### Stage 3: Critic Briefing Generation
+
+Generate a structured briefing block to inject into every critic prompt in Phase 2. Store this briefing in context — Phase 2 injects it into each critic's prompt after their persona and before the target content.
+
+```markdown
+## Critic Briefing
+
+<!-- Include this Problem Context block ONLY for design-doc and spec targets. Omit entirely for code, skill-file, rule, agent-file, brief, research, docs, and other targets. For non-design-doc/spec targets, critics read the file and infer purpose directly — extracting structured context from targets without Problem/Goals headings risks hallucination. -->
+### Problem Context
+This work exists because: <extracted from the target's Problem/Motivation section>
+What's in scope: <extracted from Goals/Scope>
+What's out of scope: <extracted from Non-Goals, if present>
+Decisions already locked: <key architectural decisions stated as decided, not open>
+
+### Review Focus
+Focus on architectural soundness, design coherence, and implementation feasibility. Do not flag:
+- Document formatting, wording, or style issues
+- Surface-level consistency issues (ambiguity, implicit promises, vague references) — these have already been addressed in a pre-flight pass
+- Whether the stated problem is worth solving — that decision is made
+
+<!-- Include this section ONLY if the user chose "Skip fixes" and surface issues remain unfixed. -->
+### Known Surface Issues (deprioritize)
+The following issues were identified and the user chose not to fix them. Do not re-flag these:
+- <issue 1>
+- <issue 2>
+
+<!-- Include this section ONLY for inline content targets where surface issues were found but could not be fixed. -->
+### Pre-Flight Notes
+The following issues were identified but could not be fixed (inline content target). Weigh them as you would any other concern:
+- <issue 1>
+- <issue 2>
+```
+
+**Briefing construction rules**:
+- The `Problem Context` block is included **only for `design-doc` and `spec` targets**. For all other target types, omit it entirely — the `Review Focus` section alone provides sufficient steering.
+- The `Known Surface Issues` section is included **when any surface issues remain unfixed after Stage 1** — whether because the user chose "Skip fixes" or declined individual fixes in "Show me each fix".
+- The `Pre-Flight Notes` section is included **only for inline content targets** where surface issues were found but could not be fixed.
+- If neither conditional section applies, omit both. The briefing contains only `Problem Context` (if applicable) and `Review Focus`.
+- If Stage 2 detected an architectural concern and the user chose "Proceed anyway", append a brief note to the `Review Focus` section: "Note: a potential architectural concern was identified before critics launched — <one sentence description>. Be attentive to whether this concern materializes in your findings."
+
 ### If empty
 
 1. Quick recon: directory structure, recently changed files (`git log -n 10 --diff-filter=M --name-only --format= | sort -u`), largest files
