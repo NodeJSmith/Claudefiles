@@ -35,10 +35,18 @@ def main():
             )
         else:
             kwargs["start_new_session"] = True
-        subprocess.Popen(
-            ["cm-sync-current", "--input-file", tmp_path],
-            **kwargs,
-        )
+        try:
+            subprocess.Popen(
+                ["cm-sync-current", "--input-file", tmp_path],
+                **kwargs,
+            )
+        except Exception:
+            # Popen failed — clean up the temp file (cm-sync-current won't run to do it)
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
     except Exception:
         pass
 

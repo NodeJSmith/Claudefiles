@@ -152,7 +152,21 @@ def import_project(
     return sessions_imported, messages_imported, sessions_skipped
 
 
+_PID_FILE = DEFAULT_DB_PATH.parent / ".pid-cm-import-conversations"
+
+
 def main():
+    try:
+        _main()
+    finally:
+        # Delete PID file so _spawn_background can spawn again next session
+        try:
+            _PID_FILE.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def _main():
     parser = argparse.ArgumentParser(
         description="Import Claude Code conversations into SQLite"
     )

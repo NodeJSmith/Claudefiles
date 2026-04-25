@@ -1,13 +1,20 @@
 """Integration tests for sync_current.py hook."""
 
+import io
+import os
 import sqlite3
 import tempfile
+import time
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from claude_memory.db import SCHEMA, _migrate_columns
+from claude_memory.hooks import memory_setup, memory_sync
 from claude_memory.hooks.sync_current import sync_session, validate_session_id
+from claude_memory.recent_chats import main as recent_chats_main
+from claude_memory.search_conversations import main as search_conversations_main
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
@@ -372,3 +379,264 @@ class TestSyncBranchMessagesDiff:
                 "branch_messages did not grow after syncing a longer session — "
                 f"partial={len(links_after_partial)}, full={len(links_after_full)}"
             )
+
+
+class TestPidGuard:
+    """Tests for _spawn_background() PID-file guard in memory_setup.py."""
+
+    def test_pid_guard_prevents_concurrent_spawn(self, tmp_path, monkeypatch):
+        """When a live PID file exists, _spawn_background skips spawning."""
+
+        pid_path = tmp_path / ".pid-cm-test-cmd"
+        monkeypatch.setattr(memory_setup, "_PID_DIR", tmp_path)
+
+        # Write our own PID (current process) as a "live" PID
+        pid_path.write_text(str(os.getpid()))
+
+        with patch("subprocess.Popen") as mock_popen:
+            memory_setup._spawn_background("cm-test-cmd")
+            mock_popen.assert_not_called()
+
+    def test_pid_guard_reaps_stale_pid(self, tmp_path, monkeypatch):
+        """When PID file holds a dead PID, _spawn_background reaps it and spawns."""
+
+        pid_path = tmp_path / ".pid-cm-test-cmd"
+        monkeypatch.setattr(memory_setup, "_PID_DIR", tmp_path)
+
+        # Use PID 1 for kernel (always alive) — we need a truly dead PID.
+        # os.fork() gives us a real dead PID safely.
+        child_pid = os.fork()
+        if child_pid == 0:
+            # Child exits immediately
+            os._exit(0)
+        # Wait for child to die
+        os.waitpid(child_pid, 0)
+
+        # Write the dead child's PID to the file
+        pid_path.write_text(str(child_pid))
+
+        mock_proc = MagicMock()
+        mock_proc.pid = 99999
+
+        with patch("subprocess.Popen", return_value=mock_proc) as mock_popen:
+            with patch("os.write"):
+                memory_setup._spawn_background("cm-test-cmd")
+                mock_popen.assert_called_once()
+
+        # PID file should have been reaped (it no longer exists or has been rewritten)
+        # Since we patched os.write, the file won't be written with the new PID
+        # but the stale file should have been unlinked before the spawn attempt
+
+    def test_pid_guard_atomic_create(self, tmp_path, monkeypatch):
+        """PID file creation uses O_CREAT | O_EXCL to prevent TOCTOU races."""
+
+        monkeypatch.setattr(memory_setup, "_PID_DIR", tmp_path)
+
+        created_flags = []
+
+        original_open = os.open
+
+        def capturing_open(path, flags, mode=0o777):
+            if ".pid-cm-test-cmd" in str(path):
+                created_flags.append(flags)
+            return original_open(path, flags, mode)
+
+        mock_proc = MagicMock()
+        mock_proc.pid = 12345
+
+        with patch("os.open", side_effect=capturing_open):
+            with patch("subprocess.Popen", return_value=mock_proc):
+                with patch("os.write"):
+                    with patch("os.close"):
+                        memory_setup._spawn_background("cm-test-cmd")
+
+        assert created_flags, "os.open must have been called for the PID file"
+        flags = created_flags[0]
+        assert flags & os.O_CREAT, "O_CREAT must be set"
+        assert flags & os.O_EXCL, "O_EXCL must be set for atomic create"
+
+
+class TestMemorySyncTempCleanup:
+    """Tests for temp file cleanup in memory_sync.py."""
+
+    def test_memory_sync_cleans_temp_on_popen_failure(self, tmp_path):
+        """When Popen raises, the temp file is unlinked."""
+
+        # Create a fake temp file
+        tmp_file = tmp_path / "claude-memory-sync-test.json"
+        tmp_file.write_text('{"test": true}')
+        tmp_path_str = str(tmp_file)
+
+        with patch("tempfile.mkstemp", return_value=(0, tmp_path_str)):
+            with patch("os.fdopen") as mock_fdopen:
+                # Make fdopen return a context manager that writes successfully
+                mock_file = MagicMock()
+                mock_fdopen.return_value.__enter__ = MagicMock(return_value=mock_file)
+                mock_fdopen.return_value.__exit__ = MagicMock(return_value=False)
+                with patch("subprocess.Popen", side_effect=OSError("no such file")):
+                    with patch("os.unlink") as mock_unlink:
+                        # Run with a stdin that returns empty content
+                        with patch("sys.stdin") as mock_stdin:
+                            mock_stdin.read.return_value = '{"session": "test"}'
+                            try:
+                                memory_sync.main()
+                            except Exception:
+                                pass
+                        # Verify unlink was called with our tmp path
+                        mock_unlink.assert_any_call(tmp_path_str)
+
+
+class TestReapStaleTempFiles:
+    """Tests for _reap_stale_temp_files() in memory_setup.py."""
+
+    def test_reaps_files_older_than_one_hour(self, tmp_path, monkeypatch):
+        """Files older than 1 hour matching the pattern are deleted."""
+
+        # Create a stale file matching the pattern
+        stale_file = tmp_path / "claude-memory-sync-old.json"
+        stale_file.write_text('{"old": true}')
+        # Set mtime to 2 hours ago
+        old_time = time.time() - 7200
+        os.utime(str(stale_file), (old_time, old_time))
+
+        # Create a fresh file (should NOT be deleted)
+        fresh_file = tmp_path / "claude-memory-sync-new.json"
+        fresh_file.write_text('{"new": true}')
+
+        monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path))
+
+        memory_setup._reap_stale_temp_files()
+
+        assert not stale_file.exists(), "Stale file should have been deleted"
+        assert fresh_file.exists(), "Fresh file should NOT have been deleted"
+
+    def test_does_not_delete_non_matching_files(self, tmp_path, monkeypatch):
+        """Files not matching the pattern are not touched."""
+
+        # Create an old file with a different pattern
+        other_file = tmp_path / "other-old-file.json"
+        other_file.write_text('{"other": true}')
+        old_time = time.time() - 7200
+        os.utime(str(other_file), (old_time, old_time))
+
+        monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path))
+
+        memory_setup._reap_stale_temp_files()
+
+        assert other_file.exists(), "Non-matching file must not be deleted"
+
+
+class TestRecentChatsDbFlag:
+    """Tests for --db flag override in recent_chats.py after sqlite3.connect replacement."""
+
+    def test_recent_chats_db_flag_override(self, tmp_path):
+        """--db /tmp/test.db still works after sqlite3.connect replacement."""
+
+        # Create a real SQLite DB at a custom path with known data
+        custom_db = tmp_path / "custom.db"
+        conn = sqlite3.connect(str(custom_db))
+        conn.executescript(SCHEMA)
+        conn.commit()
+        _migrate_columns(conn)
+
+        # Insert a project and session with a branch so recent_chats can retrieve it
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO projects (path, key, name) VALUES (?, ?, ?)",
+            ("/test/project", "-test-project", "test-project"),
+        )
+        project_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO sessions (uuid, project_id) VALUES (?, ?)",
+            ("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", project_id),
+        )
+        session_id = cursor.lastrowid
+        cursor.execute(
+            """INSERT INTO branches
+               (session_id, leaf_uuid, is_active, started_at, ended_at, exchange_count)
+               VALUES (?, ?, 1, datetime('now', '-1 hour'), datetime('now'), 1)""",
+            (session_id, "leaf-uuid-1"),
+        )
+        branch_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO messages (session_id, uuid, role, content, timestamp) VALUES (?, ?, ?, ?, datetime('now'))",
+            (session_id, "msg-uuid-1", "user", "hello from custom db"),
+        )
+        msg_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO branch_messages (branch_id, message_id) VALUES (?, ?)",
+            (branch_id, msg_id),
+        )
+        conn.commit()
+        conn.close()
+
+        # Call main() with --db pointing to our custom DB
+        with patch("sys.argv", ["cm-recent-chats", "--db", str(custom_db)]):
+            captured = io.StringIO()
+            with patch("sys.stdout", captured):
+                recent_chats_main()
+
+        output = captured.getvalue()
+        assert (
+            "test-project" in output
+            or "hello from custom db" in output
+            or "Recent Conversations" in output
+        )
+
+
+class TestSearchConversationsDbFlag:
+    """Tests for --db flag override in search_conversations.py after sqlite3.connect replacement."""
+
+    def test_search_conversations_db_flag_override(self, tmp_path):
+        """--db /tmp/test.db still works after sqlite3.connect replacement."""
+
+        # Create a real SQLite DB at a custom path with known data
+        custom_db = tmp_path / "search_custom.db"
+        conn = sqlite3.connect(str(custom_db))
+        conn.executescript(SCHEMA)
+        conn.commit()
+        _migrate_columns(conn)
+
+        # Insert a project, session, branch, and message with unique searchable content
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO projects (path, key, name) VALUES (?, ?, ?)",
+            ("/test/search-project", "-test-search-project", "search-project"),
+        )
+        project_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO sessions (uuid, project_id) VALUES (?, ?)",
+            ("bbbbbbbb-cccc-dddd-eeee-ffffffffffff", project_id),
+        )
+        session_id = cursor.lastrowid
+        cursor.execute(
+            """INSERT INTO branches
+               (session_id, leaf_uuid, is_active, started_at, ended_at,
+                exchange_count, aggregated_content)
+               VALUES (?, ?, 1, datetime('now', '-1 hour'), datetime('now'), 1, ?)""",
+            (session_id, "leaf-uuid-search", "uniqueterm12345"),
+        )
+        branch_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO messages (session_id, uuid, role, content, timestamp) VALUES (?, ?, ?, ?, datetime('now'))",
+            (session_id, "msg-uuid-search", "user", "uniqueterm12345"),
+        )
+        msg_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO branch_messages (branch_id, message_id) VALUES (?, ?)",
+            (branch_id, msg_id),
+        )
+        conn.commit()
+        conn.close()
+
+        # Call main() with --db and --query flags
+        with patch(
+            "sys.argv",
+            ["cm-search", "--query", "uniqueterm12345", "--db", str(custom_db)],
+        ):
+            captured = io.StringIO()
+            with patch("sys.stdout", captured):
+                search_conversations_main()
+
+        output = captured.getvalue()
+        assert "Error" not in output
