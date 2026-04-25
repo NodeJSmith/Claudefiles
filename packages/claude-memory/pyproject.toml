@@ -25,7 +25,7 @@ cm-write-config          = "claude_memory.hooks.write_config:main"
 # Skill CLI tools (called from SKILL.md files)
 cm-recent-chats          = "claude_memory.recent_chats:main"
 cm-search-conversations  = "claude_memory.search_conversations:main"
-cm-ingest-token-data     = "claude_memory.ingest_token_data:main"
+cm-ingest-token-data     = "claude_memory.token_dashboard:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -10,17 +10,19 @@ from pathlib import Path
 
 import pytest
 
-from claude_memory.ingest_token_data import (
-    JnlFile,
-    ParsedSession,
+from claude_memory.token_schema import (
     SCHEMA_SQL,
     SCHEMA_VERSION,
-    Turn,
     ensure_schema,
-    import_session,
+)
+from claude_memory.token_parser import (
+    JnlFile,
+    ParsedSession,
+    Turn,
     record_import,
     should_skip_file,
 )
+from claude_memory.token_analytics import import_session
 
 
 # ---------------------------------------------------------------------------
