@@ -1,7 +1,7 @@
 # Design: Claude-Memory Package Overhaul
 
 **Date:** 2026-04-25
-**Status:** approved
+**Status:** archived
 
 ## Problem
 
