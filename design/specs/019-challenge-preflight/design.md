@@ -1,7 +1,7 @@
 # Design: Challenge Pre-Flight
 
 **Date:** 2026-04-25
-**Status:** approved
+**Status:** archived
 
 ## Problem
 
