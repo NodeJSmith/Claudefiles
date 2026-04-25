@@ -7,7 +7,8 @@
 # usage and provides actionable guidance at higher usage.
 #
 # Tiers:
-#   low      (<40%)  — reassurance: continue working normally
+#   low      (<25%)  — reassurance: continue working normally
+#   low-mid  (25-39%) — reassurance refresh (original low message has faded)
 #   moderate (40-59%) — prefer subagents for large reads
 #   high     (60-79%) — finish current task, delegate exploratory work
 #   critical (80%+)   — compaction imminent, checkpoint or finish
@@ -41,9 +42,12 @@ case "$percent" in
   *[!0-9]*) exit 0 ;;
 esac
 
-if [ "$percent" -lt 40 ]; then
+if [ "$percent" -lt 25 ]; then
   tier="low"
   message="Context: low usage (${percent}%). Continue working normally."
+elif [ "$percent" -lt 40 ]; then
+  tier="low-mid"
+  message="Context: low usage (${percent}%). Plenty of room — continue working normally."
 elif [ "$percent" -lt 60 ]; then
   tier="moderate"
   message="Context: moderate usage (${percent}%). Prefer subagents for large file reads."
