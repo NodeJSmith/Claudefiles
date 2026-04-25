@@ -34,7 +34,9 @@ _BASH_ANTIPATTERN_PREDICATE = """
     AND tc.command NOT LIKE 'cat >%'
     AND tc.command NOT LIKE 'cat % | %'
     AND tc.command NOT LIKE 'ls -l%'
-    AND tc.command NOT LIKE 'ls -[Ralt]%'
+    AND tc.command NOT LIKE 'ls -R%'
+    AND tc.command NOT LIKE 'ls -a%'
+    AND tc.command NOT LIKE 'ls -t%'
     AND tc.command NOT LIKE 'ls %2>/dev/null%'
     AND tc.command NOT LIKE 'ls %||%'
     AND tc.command NOT LIKE 'ls %&&%'
@@ -517,7 +519,7 @@ def parse_session(filepath: Path, jnl: JnlFile) -> ParsedSession | None:
 def _detect_cache_ttl_ms(session: ParsedSession) -> tuple[int, str]:
     """Detect the dominant cache tier from ephemeral token data.
 
-    Returns (ttl_ms, tier_label).  Falls back to 1h when no tier
+    Returns (ttl_ms, tier_label).  Falls back to 5m when no tier
     breakdown is available (the common case for Claude Code JSONL).
     """
     total_5m = sum(t.ephem_5m_tokens for t in session.turns)

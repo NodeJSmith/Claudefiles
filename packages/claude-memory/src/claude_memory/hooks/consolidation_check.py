@@ -75,7 +75,7 @@ def read_last_nudge(project_key: str) -> datetime | None:
         return None
     try:
         text = marker.read_text(encoding="utf-8").strip()
-        return datetime.fromisoformat(text)
+        return datetime.fromisoformat(text.replace("Z", "+00:00"))
     except (ValueError, OSError, TypeError):
         return None
 
@@ -87,7 +87,7 @@ def read_global_nudge() -> datetime | None:
         return None
     try:
         text = marker.read_text(encoding="utf-8").strip()
-        return datetime.fromisoformat(text)
+        return datetime.fromisoformat(text.replace("Z", "+00:00"))
     except (ValueError, OSError, TypeError):
         return None
 

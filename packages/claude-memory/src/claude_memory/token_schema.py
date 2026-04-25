@@ -176,8 +176,6 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             file=sys.stderr,
         )
         conn.execute("DELETE FROM token_import_log")
-        # Drop the legacy import_log table from pre-v4 schemas; replaced by token_import_log.
-        conn.execute("DROP TABLE IF EXISTS import_log")
         if current == 0:
             conn.execute(
                 "INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,)
