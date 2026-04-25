@@ -82,9 +82,15 @@ COUNTER_FILE="${TMPDIR}/claude-pytest-loop-${SESSION_UUID}.count"
 TOTAL_FILE="${TMPDIR}/claude-pytest-loop-${SESSION_UUID}.total"
 STATUS_FILE="${TMPDIR}/claude-pytest-loop-${SESSION_UUID}.status"
 
-# Thresholds (env var overrides)
+# Thresholds (env var overrides, sanitized to positive integers)
 NO_EDIT_MAX="${CLAUDE_PYTEST_LOOP_MAX:-3}"
+case "$NO_EDIT_MAX" in
+  '' | *[!0-9]*) NO_EDIT_MAX=3 ;;
+esac
 TOTAL_MAX="${CLAUDE_PYTEST_LOOP_TOTAL_MAX:-8}"
+case "$TOTAL_MAX" in
+  '' | *[!0-9]*) TOTAL_MAX=8 ;;
+esac
 
 deny() {
   jq -cn --arg reason "$1" \

@@ -52,7 +52,9 @@ def run_hook(
     """Run a hook script with given stdin and CLAUDE_CODE_TMPDIR set to tmpdir."""
     env = os.environ.copy()
     env["CLAUDE_CODE_TMPDIR"] = tmpdir
-    env.pop("CLAUDE_PYTEST_LOOP_BYPASS", None)  # remove bypass by default
+    env.pop("CLAUDE_PYTEST_LOOP_BYPASS", None)
+    env.pop("CLAUDE_PYTEST_LOOP_MAX", None)
+    env.pop("CLAUDE_PYTEST_LOOP_TOTAL_MAX", None)
     if extra_env:
         env.update(extra_env)
     return subprocess.run(
