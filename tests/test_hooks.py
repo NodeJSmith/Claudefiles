@@ -1,14 +1,15 @@
-"""Integration tests for pytest-loop-detector.sh and pytest-loop-reset.sh hooks.
+"""Integration tests for hook scripts (pytest-loop-detector, context-tier, etc).
 
 Each test creates a temp directory, writes a session ID file, crafts JSON input
 matching the PreToolUse/PostToolUse schema, invokes the hook via subprocess.run,
-and asserts on exit code and stdout JSON.
+and asserts on exit code and stdout.
 """
 
 import json
 import os
 import subprocess
 import tempfile
+import uuid as _uuid
 from pathlib import Path
 
 # Resolve hook paths relative to the repo root
@@ -572,3 +573,349 @@ class TestStatusHook:
             result = run_hook(STATUS_HOOK, inp, tmpdir)
             assert result.returncode == 0
             assert self._read_status(tmpdir, uuid) == "137"
+
+
+# ---------------------------------------------------------------------------
+# context-tier.sh tests
+# ---------------------------------------------------------------------------
+
+CONTEXT_TIER_HOOK = REPO_ROOT / "scripts" / "hooks" / "context-tier.sh"
+
+
+def _context_tier_session_id(test_name: str) -> str:
+    """Generate a unique session ID for a context-tier test to avoid cross-talk."""
+    return f"ct-test-{test_name}-{_uuid.uuid4().hex[:8]}"
+
+
+def _write_sidecar(session_id: str, percent: str) -> Path:
+    """Write the sidecar file that claude-context-writer would produce."""
+    p = Path(f"/tmp/claude-context-{session_id}.txt")
+    p.write_text(percent)
+    return p
+
+
+def _read_tier(session_id: str) -> str | None:
+    """Read the tier state file; returns None if absent."""
+    p = Path(f"/tmp/claude-context-tier-{session_id}.txt")
+    if not p.exists():
+        return None
+    return p.read_text().strip()
+
+
+def _write_tier(session_id: str, tier: str) -> Path:
+    """Pre-seed the tier state file to simulate a prior call."""
+    p = Path(f"/tmp/claude-context-tier-{session_id}.txt")
+    p.write_text(tier)
+    return p
+
+
+def _cleanup_context_tier(session_id: str) -> None:
+    """Remove sidecar and tier files for a session."""
+    for pattern in (
+        f"/tmp/claude-context-{session_id}.txt",
+        f"/tmp/claude-context-tier-{session_id}.txt",
+    ):
+        p = Path(pattern)
+        if p.exists():
+            p.unlink()
+
+
+def _make_context_tier_input(session_id: str) -> str:
+    """Build JSON stdin for the context-tier hook."""
+    return json.dumps({"session_id": session_id})
+
+
+def _run_context_tier(session_id: str) -> subprocess.CompletedProcess:
+    """Run the context-tier hook with the given session_id."""
+    return subprocess.run(
+        [str(CONTEXT_TIER_HOOK)],
+        input=_make_context_tier_input(session_id),
+        capture_output=True,
+        text=True,
+        env=os.environ.copy(),
+    )
+
+
+class TestContextTierFirstCallEmits:
+    """First call (no prior tier state) emits a tier message."""
+
+    def test_context_tier_first_call_emits_low(self):
+        sid = _context_tier_session_id("first_low")
+        try:
+            _write_sidecar(sid, "10")
+            result = _run_context_tier(sid)
+
+            assert result.returncode == 0
+            assert "low usage (10%)" in result.stdout
+            assert _read_tier(sid) == "low"
+        finally:
+            _cleanup_context_tier(sid)
+
+    def test_context_tier_first_call_emits_critical(self):
+        sid = _context_tier_session_id("first_crit")
+        try:
+            _write_sidecar(sid, "90")
+            result = _run_context_tier(sid)
+
+            assert result.returncode == 0
+            assert "critical usage (90%)" in result.stdout
+            assert _read_tier(sid) == "critical"
+        finally:
+            _cleanup_context_tier(sid)
+
+
+class TestContextTierSameTierSuppressed:
+    """Repeat call at the same tier produces no output."""
+
+    def test_context_tier_same_tier_silent(self):
+        sid = _context_tier_session_id("same_tier")
+        try:
+            _write_sidecar(sid, "15")
+            _write_tier(sid, "low")  # already at low
+
+            result = _run_context_tier(sid)
+
+            assert result.returncode == 0
+            assert result.stdout.strip() == ""
+        finally:
+            _cleanup_context_tier(sid)
+
+    def test_context_tier_same_tier_moderate_silent(self):
+        sid = _context_tier_session_id("same_mod")
+        try:
+            _write_sidecar(sid, "50")
+            _write_tier(sid, "moderate")
+
+            result = _run_context_tier(sid)
+
+            assert result.returncode == 0
+            assert result.stdout.strip() == ""
+        finally:
+            _cleanup_context_tier(sid)
+
+
+class TestContextTierTransitionEmits:
+    """Tier change emits a new message and updates the state file."""
+
+    def test_context_tier_low_to_low_mid(self):
+        sid = _context_tier_session_id("low_lowmid")
+        try:
+            _write_sidecar(sid, "30")
+            _write_tier(sid, "low")
+
+            result = _run_context_tier(sid)
+
+            assert result.returncode == 0
+            assert "Plenty of room" in result.stdout
+            assert _read_tier(sid) == "low-mid"
+        finally:
+            _cleanup_context_tier(sid)
+
+    def test_context_tier_low_mid_to_moderate(self):
+        sid = _context_tier_session_id("lowmid_mod")
+        try:
+            _write_sidecar(sid, "45")
+            _write_tier(sid, "low-mid")
+
+            result = _run_context_tier(sid)
+
+            assert result.returncode == 0
+            assert "moderate usage (45%)" in result.stdout
+            assert _read_tier(sid) == "moderate"
+        finally:
+            _cleanup_context_tier(sid)
+
+    def test_context_tier_moderate_to_high(self):
+        sid = _context_tier_session_id("mod_high")
+        try:
+            _write_sidecar(sid, "70")
+            _write_tier(sid, "moderate")
+
+            result = _run_context_tier(sid)
+
+            assert result.returncode == 0
+            assert "high usage (70%)" in result.stdout
+            assert _read_tier(sid) == "high"
+        finally:
+            _cleanup_context_tier(sid)
+
+    def test_context_tier_high_to_critical(self):
+        sid = _context_tier_session_id("high_crit")
+        try:
+            _write_sidecar(sid, "85")
+            _write_tier(sid, "high")
+
+            result = _run_context_tier(sid)
+
+            assert result.returncode == 0
+            assert "critical usage (85%)" in result.stdout
+            assert _read_tier(sid) == "critical"
+        finally:
+            _cleanup_context_tier(sid)
+
+    def test_context_tier_full_escalation_sequence(self):
+        """Walk through all five tiers in sequence."""
+        sid = _context_tier_session_id("full_seq")
+        try:
+            # low (first call)
+            _write_sidecar(sid, "5")
+            result = _run_context_tier(sid)
+            assert "low usage (5%)" in result.stdout
+            assert _read_tier(sid) == "low"
+
+            # low → low-mid
+            _write_sidecar(sid, "30")
+            result = _run_context_tier(sid)
+            assert "Plenty of room" in result.stdout
+            assert _read_tier(sid) == "low-mid"
+
+            # low-mid → moderate
+            _write_sidecar(sid, "50")
+            result = _run_context_tier(sid)
+            assert "moderate usage (50%)" in result.stdout
+            assert _read_tier(sid) == "moderate"
+
+            # moderate → high
+            _write_sidecar(sid, "65")
+            result = _run_context_tier(sid)
+            assert "high usage (65%)" in result.stdout
+            assert _read_tier(sid) == "high"
+
+            # high → critical
+            _write_sidecar(sid, "80")
+            result = _run_context_tier(sid)
+            assert "critical usage (80%)" in result.stdout
+            assert _read_tier(sid) == "critical"
+        finally:
+            _cleanup_context_tier(sid)
+
+
+class TestContextTierMissingSidecar:
+    """Missing sidecar file is a no-op."""
+
+    def test_context_tier_missing_sidecar_exits_zero(self):
+        sid = _context_tier_session_id("no_sidecar")
+        try:
+            # Do NOT create a sidecar file
+            result = _run_context_tier(sid)
+
+            assert result.returncode == 0
+            assert result.stdout.strip() == ""
+        finally:
+            _cleanup_context_tier(sid)
+
+
+class TestContextTierInvalidSidecar:
+    """Invalid or non-numeric sidecar content is a no-op."""
+
+    def test_context_tier_empty_sidecar(self):
+        sid = _context_tier_session_id("empty_sc")
+        try:
+            _write_sidecar(sid, "")
+            result = _run_context_tier(sid)
+
+            assert result.returncode == 0
+            assert result.stdout.strip() == ""
+        finally:
+            _cleanup_context_tier(sid)
+
+    def test_context_tier_non_numeric_sidecar(self):
+        sid = _context_tier_session_id("nonnumeric")
+        try:
+            _write_sidecar(sid, "abc")
+            result = _run_context_tier(sid)
+
+            assert result.returncode == 0
+            assert result.stdout.strip() == ""
+        finally:
+            _cleanup_context_tier(sid)
+
+    def test_context_tier_negative_number_sidecar(self):
+        sid = _context_tier_session_id("negative")
+        try:
+            _write_sidecar(sid, "-5")
+            result = _run_context_tier(sid)
+
+            assert result.returncode == 0
+            assert result.stdout.strip() == ""
+        finally:
+            _cleanup_context_tier(sid)
+
+    def test_context_tier_float_sidecar(self):
+        sid = _context_tier_session_id("float")
+        try:
+            _write_sidecar(sid, "42.5")
+            result = _run_context_tier(sid)
+
+            assert result.returncode == 0
+            assert result.stdout.strip() == ""
+        finally:
+            _cleanup_context_tier(sid)
+
+
+class TestContextTierMissingSessionId:
+    """Missing session_id in input is a no-op."""
+
+    def test_context_tier_no_session_id_field(self):
+        result = subprocess.run(
+            [str(CONTEXT_TIER_HOOK)],
+            input=json.dumps({"tool_name": "Bash"}),
+            capture_output=True,
+            text=True,
+            env=os.environ.copy(),
+        )
+
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+
+    def test_context_tier_empty_session_id(self):
+        result = subprocess.run(
+            [str(CONTEXT_TIER_HOOK)],
+            input=json.dumps({"session_id": ""}),
+            capture_output=True,
+            text=True,
+            env=os.environ.copy(),
+        )
+
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+
+
+class TestContextTierPathTraversal:
+    """Session IDs with path traversal characters are rejected."""
+
+    def test_context_tier_slash_in_session_id(self):
+        result = subprocess.run(
+            [str(CONTEXT_TIER_HOOK)],
+            input=json.dumps({"session_id": "../etc/passwd"}),
+            capture_output=True,
+            text=True,
+            env=os.environ.copy(),
+        )
+
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+
+    def test_context_tier_dot_in_session_id(self):
+        result = subprocess.run(
+            [str(CONTEXT_TIER_HOOK)],
+            input=json.dumps({"session_id": "foo.bar"}),
+            capture_output=True,
+            text=True,
+            env=os.environ.copy(),
+        )
+
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+
+    def test_context_tier_dotdot_in_session_id(self):
+        result = subprocess.run(
+            [str(CONTEXT_TIER_HOOK)],
+            input=json.dumps({"session_id": ".."}),
+            capture_output=True,
+            text=True,
+            env=os.environ.copy(),
+        )
+
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""

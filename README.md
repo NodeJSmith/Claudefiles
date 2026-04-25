@@ -171,6 +171,7 @@ Event-driven scripts that run before/after tool calls.
 | `cm-memory-context` (package) | SessionStart (startup\|clear) | Load memory context into the session |
 | `cm-consolidation-check` (package) | SessionStart (startup\|clear) | Check if memory consolidation is needed |
 | `cm-clear-handoff` (package) | SessionEnd (clear) | Write a handoff note before `/clear` |
+| `context-tier.sh` | PreToolUse (*) | Inject context window tier guidance when usage crosses a threshold — prevents hallucinated context pressure |
 | `cm-memory-sync` (package) | Stop | Sync current session to the conversation database |
 
 ### Helper Scripts

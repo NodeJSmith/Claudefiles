@@ -13,8 +13,8 @@
 #   high     (60-79%) — finish current task, delegate exploratory work
 #   critical (80%+)   — compaction imminent, checkpoint or finish
 #
-# Hook wiring: append to the existing "PreToolUse" > "Bash" hooks array
-# in settings.json (alongside sudo-poll, pytest-guard, pytest-loop-detector).
+# Hook wiring: add as a separate "PreToolUse" entry with matcher "*" in
+# settings.json so it fires before any tool call, not just Bash.
 #
 # No set -euo pipefail — this hook is a sequence of guard clauses that each
 # exit 0 on failure. Every operation has an explicit failure path; adding -e
