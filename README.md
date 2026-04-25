@@ -161,8 +161,8 @@ Event-driven scripts that run before/after tool calls.
 | `tmux-remind.sh` | SessionStart | Reminds Claude to rename the tmux session |
 | `sudo-poll.sh` | PreToolUse (Bash) | Deny-then-poll for sudo — detects cached credentials or waits 30s for user to `sudo -v` in another pane |
 | `pytest-guard.sh` | PreToolUse (Bash) | Deny bare pytest — requires `timeout` wrapper; per-repo config via `.claude/pytest-guard.json` for custom timeouts, flag denylist, or full block (`deny_all`) |
-| `pytest-loop-detector.sh` | PreToolUse (Bash) | Deny pytest after 3 consecutive post-failure runs without code changes — nudges to `/mine.debug` for root-cause investigation |
-| `pytest-loop-reset.sh` | PostToolUse (Edit/Write/MultiEdit/NotebookEdit) | Reset the pytest loop counter when code changes are made |
+| `pytest-loop-detector.sh` | PreToolUse (Bash) | Deny pytest after repeated failures: 3 consecutive runs without edits, or 8 total failures since last success — nudges to `/mine.debug` |
+| `pytest-loop-reset.sh` | PostToolUse (Edit/Write/MultiEdit/NotebookEdit) | Reset the no-edit pytest failure counter when code changes are made (total counter intentionally preserved) |
 | `pytest-loop-status.sh` | PostToolUse (Bash) | Record pytest exit code for loop detector failure tracking |
 | `pytest-detect.sh` | (sourced) | Shared pytest detection patterns for loop detector and status hooks |
 | `cm-memory-setup` (package) | SessionStart | Initialize memory DB, trigger background import if needed |
@@ -203,7 +203,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `git-branch-log` | Print `git log --oneline` for current branch vs its base (uses git-branch-base) |
 | `git-default-branch` | Print the default branch name for the current repo |
 | `git-platform` | Detect git hosting platform (`github`, `ado`, or `unknown`) from remote URL |
-| `pytest-loop-reset` | Manually clear the pytest loop detector counter — use when you want to retry without making code changes |
+| `pytest-loop-reset` | Manually clear both pytest failure counters (no-edit and total) — use when you want to retry after a denial |
 | `lint-cli-conventions` | Drift prevention lint — verifies `--help` handling in bin/ scripts and capabilities-core.md CLI Tools sync |
 
 ### Packages
