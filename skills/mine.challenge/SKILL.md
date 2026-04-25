@@ -349,11 +349,28 @@ AskUserQuestion:
       description: "I'll tell you exactly what to look at"
 ```
 
+### Re-Challenge Detection
+
+Determine whether this is a re-challenge run before proceeding to Specialist Selection. The result is written to the manifest at the end of Phase 1 — this persists the detection result before any compaction window.
+
+**Primary signal — on-disk artifact check** (always check this first):
+
+1. If `--findings-out` was provided: check whether a file already exists at that path. If it does, this is a re-challenge. Absence of a file at `--findings-out` means this is the first run — not a re-challenge.
+2. If `--findings-out` was not provided: check the feature directory — the directory containing the target file. Look for any file matching `findings*.md` or `challenge-findings*.md`. If one or more exist, this is a re-challenge. For inline content targets (passthrough callers), the on-disk check cannot be tied to a specific file — skip the primary signal and fall through to the secondary signal.
+
+**Secondary signal — conversation context** (use only if the primary signal is inconclusive): if the primary signal found nothing but the current conversation context contains a prior challenge run against the same target, treat this as a re-challenge. Conversation context is secondary because it is lost to compaction — the on-disk check is always more reliable.
+
+**If re-challenge is detected**: set the re-challenge flag to `yes`. Proceed to Specialist Selection (which will be skipped — see below).
+
+**If no re-challenge is detected**: set the re-challenge flag to `no`. Proceed to Specialist Selection normally.
+
 ### Specialist Selection
 
 After classifying the target type, select specialist personas to augment the three generic critics. Specialists provide domain-specific focus that generics are blind to.
 
 **If `--no-specialists` was passed**, skip this section entirely — only generics run.
+
+**If re-challenge was detected** (re-challenge flag is `yes`): skip this section entirely — the absence of specialist entries in the manifest encodes this state for Phase 4. Only the two generic critics (Senior Engineer + Adversarial Reviewer) will run — see Phase 2 for the reduced roster.
 
 **Enumerate specialists**: Run `Glob ~/.claude/skills/mine.challenge/personas/specialist/*.md` to discover all specialist persona files on disk. This Glob runs unconditionally (regardless of target type or `--focus`) and its results are used for orphan detection, `--focus` matching, and cross-referencing the mapping table. If the Glob returns zero results (e.g., symlink not yet installed), record a warning to `<tmpdir>/validation-warnings.md`: "`specialist directory not found or empty at ~/.claude/skills/mine.challenge/personas/specialist/`" and proceed with generics only.
 
@@ -384,13 +401,43 @@ After classifying the target type, select specialist personas to augment the thr
 5. **Only if a substitution occurred** (a preset specialist was replaced): Write `<tmpdir>/focus-substitution.md` with a single line: "Note: [focus specialist] ran in place of [dropped specialist] due to --focus override (2-specialist cap)." The dropped specialist is the set difference: `[initial-specialists]` minus `[final-specialists]`. Phase 4 reads this file for the announcement (see Phase 4 Specialist announcement section). If no substitution occurred (focus specialist was simply added, or no match was found), do not write this file.
 6. **If `--focus` was provided and no specialist match occurred** (value was multi-word, comma-separated, below 6-char minimum, or matched no slug) and `--no-specialists` was not passed: record a warning to `<tmpdir>/validation-warnings.md`: "Focus value `<value>` did not match any specialist — proceeding with preset specialists only."
 
+### Write session manifest
+
+**Write `<tmpdir>/manifest.md` now**, at the end of Phase 1, before Phase 2 begins. Writing it here persists all session metadata before the critic dispatch window, making all phase transitions compaction-safe. The critic file list is left empty at this stage — Phase 2 appends it after persona files are read and the roster is finalized.
+
+Format — comment lines are session metadata; the critic file list is appended by Phase 2:
+
+```
+# target-type: skill-file
+# mode: structured | standalone | passthrough
+# findings-out: <path> | default
+# focus: <area> | none
+# target: <absolute path or scope description>
+# rechallenge: yes | no
+```
+
+**Field definitions**:
+- `mode`: `structured` when `--findings-out` is present; `passthrough` when `--mode=passthrough` is passed; `standalone` otherwise (includes direct user invocations and standalone callers like mine.grill that want the full Consent Gate flow).
+- `findings-out`: the `--findings-out` path if provided, or `default` (meaning `<tmpdir>/findings.md`).
+- `focus`: the `--focus` value if provided, or `none`.
+- `target`: the target scope — use the absolute path when the target is a file; use the scope description when inline content.
+- `rechallenge`: `yes` if re-challenge was detected in the Re-Challenge Detection step above; `no` otherwise.
+
+This decouples all session metadata from LLM context memory. Phase 2 appends the critic file list once the roster is finalized. Phase 3 reads the manifest for the critic list; Phase 4 reads it for target type, specialist list, mode, and re-challenge status.
+
 ## Phase 2: Launch Critics
 
 ### Read persona files
 
 **Pre-flight check**: Before reading persona files, verify the generic persona directory exists at `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/personas/generic/`. If the directory is missing or empty, stop with: "Cannot launch critics — persona files not found at `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/personas/generic/`. Run `uv run install.py` to symlink skills into your Claude config directory."
 
-Read all 3 generic persona files from `~/.claude/skills/mine.challenge/personas/generic/`:
+**Re-challenge roster reduction**: Read `# rechallenge:` from `<tmpdir>/manifest.md`. If the value is `yes`, use only 2 generic critics:
+- `senior-engineer.md`
+- `adversarial-reviewer.md`
+
+Do NOT read `systems-architect.md` on re-challenges. Do NOT read any specialist files on re-challenges — the specialist list from Phase 1 is ignored entirely.
+
+**Standard roster** (re-challenge is `no`): read all 3 generic persona files from `~/.claude/skills/mine.challenge/personas/generic/`:
 - `senior-engineer.md`
 - `systems-architect.md`
 - `adversarial-reviewer.md`
@@ -459,18 +506,13 @@ Specialist critics (when selected) use their filename slug as the output name:
 - **documentation-architect.md** → writes to `<tmpdir>/documentation-architect.md`
 - **web-platform.md** → writes to `<tmpdir>/web-platform.md`
 
-### Write session manifest
+### Update manifest with critic file list
 
-**Write `<tmpdir>/manifest.md` before issuing Agent tool calls** — pre-populate it with the planned critic list and all session state that later phases need. This ensures crash recovery if the orchestrator fails between critic dispatch and Phase 3, and makes all phase transitions compaction-safe.
+**Append the critic report filenames to `<tmpdir>/manifest.md`** — read the existing manifest (written in Phase 1 with the comment-line metadata), then append the critic file list. The comment-line metadata (`# target-type:`, `# mode:`, `# findings-out:`, `# focus:`, `# target:`, `# rechallenge:`) is already present from Phase 1; do not re-write those lines.
 
-Format — comment lines are session metadata, non-comment lines are critic report filenames:
+Append only the critic filenames (generics first, then specialists). The resulting manifest will have the comment-line metadata from Phase 1 followed by these lines:
 
 ```
-# target-type: skill-file
-# mode: structured | standalone | passthrough
-# findings-out: <path> | default
-# focus: <area> | none
-# target: <absolute path or scope description>
 senior.md
 architect.md
 adversarial.md
@@ -478,19 +520,15 @@ adversarial.md
 <specialist-slug>.md
 ```
 
-**Field definitions**:
-- `mode`: `structured` when `--findings-out` is present; `passthrough` when `--mode=passthrough` is passed; `standalone` otherwise (includes direct user invocations and standalone callers like mine.grill that want the full Consent Gate flow).
-- `findings-out`: the `--findings-out` path if provided, or `default` (meaning `<tmpdir>/findings.md`).
-- `focus`: the `--focus` value if provided, or `none`.
-- `target`: the target scope — use the absolute path when the target is a file; use the scope description when inline content.
+List only the critics that will be launched. On re-challenges (where `# rechallenge: yes`), list only `senior.md` and `adversarial.md` — no `architect.md` and no specialist entries. Specialist entries use the filename slugs selected in Phase 1.
 
-List generics first, then specialists. List only the critics that will be launched; specialist entries use the filename slugs selected in Phase 1.
-
-This decouples all session state from LLM context memory. Phase 3 reads the manifest for the critic list; Phase 4 reads it for target type, specialist list, and mode. Specialists are identified as entries not in the known-generic set (`senior.md`, `architect.md`, `adversarial.md`).
+Specialists are identified by Phase 3 and Phase 4 as entries not in the known-generic set (`senior.md`, `architect.md`, `adversarial.md`).
 
 ### Validate critic reports
 
 After all critic subagents complete, verify each file listed in the manifest exists and has substantive content (at least 500 bytes). For missing or undersized files, record a warning to `<tmpdir>/validation-warnings.md`: "Critic [name] report is missing or suspiciously small ([N] bytes) — findings from this critic may be incomplete." Missing files reduce the confidence denominator; undersized-but-present files are warned but still counted.
+
+**On re-challenges**: the expected critic count is 2 (Senior Engineer + Adversarial Reviewer), so the confidence denominator is 2 — not 3 or higher. Do not flag a denominator of 2 as a warning; it is the expected count for re-challenge runs.
 
 ## Phase 3: Synthesize
 
