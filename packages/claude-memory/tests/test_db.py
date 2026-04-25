@@ -12,6 +12,7 @@ from claude_memory.db import (
     SCHEMA,
     _migrate_columns,
     _migrate_project_paths,
+    get_db_connection,
     load_config,
     load_settings,
     migrate_db,
@@ -241,7 +242,7 @@ class TestVersionedMigration:
         conn = _pre_migration_db()
         _migrate_columns(conn)
         version = conn.execute("PRAGMA user_version").fetchone()[0]
-        assert version == 4
+        assert version == 6
         conn.close()
 
     def test_v0_to_v2_backfills_both(self):
@@ -266,7 +267,7 @@ class TestVersionedMigration:
         assert rows[0] == (1, 0)
         assert rows[1] == (2, 1)
         assert rows[2] == (3, 1)
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
         conn.close()
 
     def test_v1_to_v2_backfills_only_teammate(self):
@@ -292,7 +293,7 @@ class TestVersionedMigration:
         assert rows[0] == (1, 1)  # Already flagged, untouched
         assert rows[1] == (2, 1)  # Newly flagged by version 2
         assert rows[2] == (3, 0)  # Normal, untouched
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
         conn.close()
 
     def test_v2_skips_data_backfills(self):
@@ -310,7 +311,7 @@ class TestVersionedMigration:
         cursor.execute("SELECT is_notification FROM messages WHERE id = 1")
         assert cursor.fetchone()[0] == 0
         # v3 migration runs from v2, bumping version to 3
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
         conn.close()
 
     def test_v2_to_v3_preserves_import_log(self):
@@ -328,7 +329,7 @@ class TestVersionedMigration:
         assert count == 1
         hash_val = conn.execute("SELECT file_hash FROM import_log").fetchone()[0]
         assert hash_val == "abc123"
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
         conn.close()
 
     def test_v3_backfill_updates_origin(self, tmp_path):
@@ -736,10 +737,10 @@ class TestV4Migration:
     """user_version=3 -> 4: clear stale task-notification values from origin column."""
 
     def test_v4_bumps_user_version(self):
-        """After migration from v3, user_version should be 4."""
+        """After migration from v3, user_version progresses through all versions to latest."""
         conn = _v3_db_with_messages()
         _migrate_columns(conn)
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
         conn.close()
 
     def test_v4_clears_task_notification_origin(self):
@@ -774,10 +775,10 @@ class TestV4Migration:
         )
         conn.commit()
 
-        _migrate_columns(conn)  # v3->v4
+        _migrate_columns(conn)  # v3->v6
         _migrate_columns(conn)  # no-op
 
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
         origin = conn.execute("SELECT origin FROM messages WHERE id = 1").fetchone()[0]
         assert origin == "telegram", (
             "idempotent re-run must not corrupt already-correct data"
@@ -947,3 +948,465 @@ class TestMigrateDbBackupGuard:
         assert count == 1, (
             "Original session data must be intact after aborted migration"
         )
+
+
+def _v4_db_for_v5_tests():
+    """Create an in-memory DB at user_version=4 with full branches schema for v5 migration tests."""
+    conn = sqlite3.connect(":memory:")
+    conn.execute("""
+        CREATE TABLE messages (
+            id INTEGER PRIMARY KEY, session_id INTEGER, uuid TEXT,
+            parent_uuid TEXT, timestamp DATETIME, role TEXT,
+            content TEXT NOT NULL, tool_summary TEXT,
+            has_tool_use INTEGER DEFAULT 0, has_thinking INTEGER DEFAULT 0,
+            is_notification INTEGER DEFAULT 0, origin TEXT,
+            UNIQUE(session_id, uuid)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE branches (
+            id INTEGER PRIMARY KEY, session_id INTEGER, leaf_uuid TEXT,
+            fork_point_uuid TEXT, is_active INTEGER DEFAULT 1,
+            started_at DATETIME, ended_at DATETIME, exchange_count INTEGER DEFAULT 0,
+            files_modified TEXT, commits TEXT, aggregated_content TEXT,
+            tool_counts TEXT, context_summary TEXT, context_summary_json TEXT,
+            summary_version INTEGER DEFAULT 0
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE branch_messages (
+            branch_id INTEGER, message_id INTEGER, PRIMARY KEY (branch_id, message_id)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE import_log (
+            id INTEGER PRIMARY KEY, file_path TEXT UNIQUE NOT NULL,
+            file_hash TEXT, imported_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            messages_imported INTEGER DEFAULT 0
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE sessions (
+            id INTEGER PRIMARY KEY, uuid TEXT UNIQUE NOT NULL,
+            project_id INTEGER, parent_session_id INTEGER,
+            git_branch TEXT, cwd TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE projects (
+            id INTEGER PRIMARY KEY, path TEXT UNIQUE NOT NULL,
+            key TEXT UNIQUE NOT NULL, name TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    # FTS5 branches table (for FTS rebuild test)
+    try:
+        conn.execute("""
+            CREATE VIRTUAL TABLE IF NOT EXISTS branches_fts USING fts5(
+              aggregated_content,
+              content=branches,
+              content_rowid=id,
+              tokenize='porter unicode61'
+            )
+        """)
+    except Exception:
+        pass  # FTS5 may not be available in all test environments
+    conn.execute("PRAGMA user_version = 4")
+    conn.commit()
+    return conn
+
+
+class TestV5Migration:
+    """user_version=4 -> 5: recompute aggregated_content with file paths and commits."""
+
+    def test_v5_migration_enriches_aggregated_content(self):
+        """v5 recomputes aggregated_content to include file paths for branches that have them."""
+        conn = _v4_db_for_v5_tests()
+        cursor = conn.cursor()
+
+        # Insert a branch with files_modified (JSON list)
+        cursor.execute(
+            "INSERT INTO branches (id, session_id, leaf_uuid, files_modified, commits, aggregated_content) VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                1,
+                1,
+                "leaf-1",
+                json.dumps(["/src/main.py", "/src/utils.py"]),
+                None,
+                "old content",
+            ),
+        )
+        cursor.execute(
+            "INSERT INTO messages (id, session_id, uuid, timestamp, role, content) VALUES (?, ?, ?, ?, ?, ?)",
+            (1, 1, "msg-1", "2025-01-01T10:00:00Z", "user", "fix the bug"),
+        )
+        cursor.execute("INSERT INTO branch_messages VALUES (1, 1)")
+        conn.commit()
+
+        _migrate_columns(conn)
+
+        agg = cursor.execute(
+            "SELECT aggregated_content FROM branches WHERE id = 1"
+        ).fetchone()[0]
+        assert "/src/main.py" in agg, (
+            "File paths must be included in aggregated_content after v5"
+        )
+        assert "/src/utils.py" in agg, (
+            "File paths must be included in aggregated_content after v5"
+        )
+        conn.close()
+
+    def test_v5_migration_renames_interrupted_to_abandoned(self):
+        """v5 renames INTERRUPTED to ABANDONED in context_summary and context_summary_json."""
+        conn = _v4_db_for_v5_tests()
+        cursor = conn.cursor()
+
+        summary_json = json.dumps(
+            {
+                "version": 2,
+                "disposition": "INTERRUPTED",
+                "first_exchanges": [],
+                "last_exchanges": [],
+            }
+        )
+        cursor.execute(
+            "INSERT INTO branches (id, session_id, leaf_uuid, context_summary, context_summary_json) VALUES (?, ?, ?, ?, ?)",
+            (1, 1, "leaf-1", "**Status:** INTERRUPTED\nSome text", summary_json),
+        )
+        conn.commit()
+
+        _migrate_columns(conn)
+
+        row = cursor.execute(
+            "SELECT context_summary, context_summary_json FROM branches WHERE id = 1"
+        ).fetchone()
+        cs, csj = row
+        assert "INTERRUPTED" not in cs, (
+            "context_summary must not contain INTERRUPTED after v5"
+        )
+        assert "ABANDONED" in cs, "context_summary must contain ABANDONED after v5"
+        parsed = json.loads(csj)
+        assert parsed["disposition"] == "ABANDONED", (
+            "context_summary_json disposition must be ABANDONED"
+        )
+        conn.close()
+
+    def test_v5_migration_idempotent(self):
+        """Running v5 twice produces identical aggregated_content (SET not APPEND)."""
+        conn = _v4_db_for_v5_tests()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "INSERT INTO branches (id, session_id, leaf_uuid, files_modified, commits, aggregated_content) VALUES (?, ?, ?, ?, ?, ?)",
+            (1, 1, "leaf-1", json.dumps(["/src/a.py"]), None, "old"),
+        )
+        cursor.execute(
+            "INSERT INTO messages (id, session_id, uuid, timestamp, role, content) VALUES (?, ?, ?, ?, ?, ?)",
+            (1, 1, "msg-1", "2025-01-01T10:00:00Z", "user", "hello"),
+        )
+        cursor.execute("INSERT INTO branch_messages VALUES (1, 1)")
+        conn.commit()
+
+        _migrate_columns(conn)
+        agg_first = cursor.execute(
+            "SELECT aggregated_content FROM branches WHERE id = 1"
+        ).fetchone()[0]
+
+        # Reset version to 4 to simulate running v5 again
+        conn.execute("PRAGMA user_version = 4")
+        conn.commit()
+        _migrate_columns(conn)
+        agg_second = cursor.execute(
+            "SELECT aggregated_content FROM branches WHERE id = 1"
+        ).fetchone()[0]
+
+        assert agg_first == agg_second, (
+            "v5 is SET semantics — running twice must produce the same result"
+        )
+        conn.close()
+
+    def test_v5_migration_gates_project_paths(self):
+        """_migrate_project_paths is called inside v5, not on every get_db_connection call."""
+        # Verify that _migrate_project_paths is NOT called by examining the call path:
+        # get_db_connection should not call _migrate_project_paths unconditionally.
+        import claude_memory.db as db_module
+        import inspect
+
+        source = inspect.getsource(db_module.get_db_connection)
+        # The unconditional call pattern was: _migrate_project_paths(conn) at the end
+        # After WP03 it should be inside the v5 migration block, not at the top level.
+        # We verify this structurally by checking _migrate_columns source for _migrate_project_paths.
+        mc_source = inspect.getsource(db_module._migrate_columns)
+        assert "_migrate_project_paths" in mc_source, (
+            "_migrate_project_paths must be called inside _migrate_columns (v5 block)"
+        )
+        assert "_migrate_project_paths" not in source, (
+            "_migrate_project_paths must NOT be called unconditionally in get_db_connection"
+        )
+
+    def test_v5_migration_handles_null_files_and_commits(self):
+        """v5 handles branches where files_modified and commits are NULL."""
+        conn = _v4_db_for_v5_tests()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "INSERT INTO branches (id, session_id, leaf_uuid, files_modified, commits, aggregated_content) VALUES (?, ?, ?, ?, ?, ?)",
+            (1, 1, "leaf-1", None, None, "some content"),
+        )
+        cursor.execute(
+            "INSERT INTO messages (id, session_id, uuid, timestamp, role, content) VALUES (?, ?, ?, ?, ?, ?)",
+            (1, 1, "msg-1", "2025-01-01T10:00:00Z", "user", "hello"),
+        )
+        cursor.execute("INSERT INTO branch_messages VALUES (1, 1)")
+        conn.commit()
+
+        # Should not raise even with NULL files/commits
+        _migrate_columns(conn)
+
+        agg = cursor.execute(
+            "SELECT aggregated_content FROM branches WHERE id = 1"
+        ).fetchone()[0]
+        assert agg is not None
+        conn.close()
+
+    def test_v5_fts_rebuild(self):
+        """After v5, branches_fts contains updated aggregated_content."""
+        conn = _v4_db_for_v5_tests()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "INSERT INTO branches (id, session_id, leaf_uuid, files_modified, aggregated_content) VALUES (?, ?, ?, ?, ?)",
+            (1, 1, "leaf-fts", json.dumps(["/repo/uniquefile_xyzzy.py"]), "old"),
+        )
+        cursor.execute(
+            "INSERT INTO messages (id, session_id, uuid, timestamp, role, content) VALUES (?, ?, ?, ?, ?, ?)",
+            (1, 1, "msg-1", "2025-01-01T10:00:00Z", "user", "fts test content"),
+        )
+        cursor.execute("INSERT INTO branch_messages VALUES (1, 1)")
+        conn.commit()
+
+        _migrate_columns(conn)
+
+        # Check branches_fts exists and is queryable (FTS rebuild should have run)
+        try:
+            rows = cursor.execute(
+                "SELECT rowid FROM branches_fts WHERE branches_fts MATCH 'uniquefile_xyzzy'"
+            ).fetchall()
+            # If FTS5 is available, the file path should be findable
+            assert len(rows) >= 1, (
+                "branches_fts must contain the updated aggregated_content"
+            )
+        except sqlite3.OperationalError:
+            # FTS may not be available in this SQLite build — skip FTS assertion
+            pass
+
+        conn.close()
+
+    def test_migrations_run_on_get_db_connection(self, tmp_path, monkeypatch):
+        """Opening a v4 database via get_db_connection triggers v5 and v6 automatically."""
+        import claude_memory.db as db_module
+
+        db_file = tmp_path / "conversations.db"
+        # Create a v4 DB at the filesystem level
+        setup_conn = sqlite3.connect(str(db_file))
+        setup_conn.executescript("""
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY, session_id INTEGER, uuid TEXT,
+                parent_uuid TEXT, timestamp DATETIME, role TEXT,
+                content TEXT NOT NULL, tool_summary TEXT,
+                has_tool_use INTEGER DEFAULT 0, has_thinking INTEGER DEFAULT 0,
+                is_notification INTEGER DEFAULT 0, origin TEXT,
+                UNIQUE(session_id, uuid)
+            );
+            CREATE TABLE IF NOT EXISTS branches (
+                id INTEGER PRIMARY KEY, session_id INTEGER, leaf_uuid TEXT,
+                fork_point_uuid TEXT, is_active INTEGER DEFAULT 1,
+                started_at DATETIME, ended_at DATETIME, exchange_count INTEGER DEFAULT 0,
+                files_modified TEXT, commits TEXT, aggregated_content TEXT,
+                tool_counts TEXT, context_summary TEXT, context_summary_json TEXT,
+                summary_version INTEGER DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS branch_messages (
+                branch_id INTEGER, message_id INTEGER, PRIMARY KEY (branch_id, message_id)
+            );
+            CREATE TABLE IF NOT EXISTS import_log (
+                id INTEGER PRIMARY KEY, file_path TEXT UNIQUE NOT NULL,
+                file_hash TEXT, imported_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                messages_imported INTEGER DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS sessions (
+                id INTEGER PRIMARY KEY, uuid TEXT UNIQUE NOT NULL,
+                project_id INTEGER, parent_session_id INTEGER,
+                git_branch TEXT, cwd TEXT
+            );
+            CREATE TABLE IF NOT EXISTS projects (
+                id INTEGER PRIMARY KEY, path TEXT UNIQUE NOT NULL,
+                key TEXT UNIQUE NOT NULL, name TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        setup_conn.execute("PRAGMA user_version = 4")
+        setup_conn.commit()
+        setup_conn.close()
+
+        # Patch the default db path so get_db_connection uses our tmp file
+        monkeypatch.setattr(db_module, "DEFAULT_DB_PATH", db_file)
+
+        conn = get_db_connection()
+        version = conn.execute("PRAGMA user_version").fetchone()[0]
+        conn.close()
+
+        assert version == 6, (
+            f"get_db_connection on a v4 DB must run v5+v6, got version={version}"
+        )
+
+
+class TestV6Migration:
+    """user_version=5 -> 6: truncate oversized context_summary_json entries."""
+
+    def _v5_db(self):
+        """Create an in-memory DB at user_version=5 for v6 migration tests."""
+        conn = sqlite3.connect(":memory:")
+        conn.execute("""
+            CREATE TABLE messages (
+                id INTEGER PRIMARY KEY, session_id INTEGER, uuid TEXT,
+                parent_uuid TEXT, timestamp DATETIME, role TEXT,
+                content TEXT NOT NULL, tool_summary TEXT,
+                has_tool_use INTEGER DEFAULT 0, has_thinking INTEGER DEFAULT 0,
+                is_notification INTEGER DEFAULT 0, origin TEXT,
+                UNIQUE(session_id, uuid)
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE branches (
+                id INTEGER PRIMARY KEY, session_id INTEGER, leaf_uuid TEXT,
+                fork_point_uuid TEXT, is_active INTEGER DEFAULT 1,
+                started_at DATETIME, ended_at DATETIME, exchange_count INTEGER DEFAULT 0,
+                files_modified TEXT, commits TEXT, aggregated_content TEXT,
+                tool_counts TEXT, context_summary TEXT, context_summary_json TEXT,
+                summary_version INTEGER DEFAULT 0
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE branch_messages (
+                branch_id INTEGER, message_id INTEGER, PRIMARY KEY (branch_id, message_id)
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE import_log (
+                id INTEGER PRIMARY KEY, file_path TEXT UNIQUE NOT NULL,
+                file_hash TEXT, imported_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                messages_imported INTEGER DEFAULT 0
+            )
+        """)
+        conn.execute("PRAGMA user_version = 5")
+        conn.commit()
+        return conn
+
+    def _large_summary_json(self, size_bytes: int) -> str:
+        """Build a context_summary_json dict with large exchange text fields totalling size_bytes."""
+        padding = "x" * size_bytes
+        data = {
+            "version": 3,
+            "disposition": "IN_PROGRESS",
+            "first_exchanges": [
+                {"user": padding, "assistant": "short", "timestamp": "2025-01-01"}
+            ],
+            "last_exchanges": [
+                {"user": "short", "assistant": "short", "timestamp": "2025-01-01"}
+            ],
+        }
+        return json.dumps(data)
+
+    def test_v6_truncates_large_json(self):
+        """v6 truncates context_summary_json entries that exceed 50KB."""
+        conn = self._v5_db()
+        cursor = conn.cursor()
+
+        large_json = self._large_summary_json(60000)  # > 50KB
+        assert len(large_json) > 51200
+
+        cursor.execute(
+            "INSERT INTO branches (id, session_id, leaf_uuid, context_summary_json) VALUES (?, ?, ?, ?)",
+            (1, 1, "leaf-large", large_json),
+        )
+        conn.commit()
+
+        _migrate_columns(conn)
+
+        result = cursor.execute(
+            "SELECT context_summary_json FROM branches WHERE id = 1"
+        ).fetchone()[0]
+        assert result is not None
+        assert len(result) < 51200, (
+            f"context_summary_json must be < 50KB after v6, got {len(result)}"
+        )
+        conn.close()
+
+    def test_v6_leaves_small_json_unchanged(self):
+        """v6 does not modify context_summary_json entries that are within 50KB."""
+        conn = self._v5_db()
+        cursor = conn.cursor()
+
+        small_json = json.dumps(
+            {
+                "version": 3,
+                "disposition": "COMPLETED",
+                "first_exchanges": [
+                    {"user": "hello", "assistant": "world", "timestamp": "2025-01-01"}
+                ],
+                "last_exchanges": [],
+            }
+        )
+        assert len(small_json) < 51200
+
+        cursor.execute(
+            "INSERT INTO branches (id, session_id, leaf_uuid, context_summary_json) VALUES (?, ?, ?, ?)",
+            (1, 1, "leaf-small", small_json),
+        )
+        conn.commit()
+
+        _migrate_columns(conn)
+
+        result = cursor.execute(
+            "SELECT context_summary_json FROM branches WHERE id = 1"
+        ).fetchone()[0]
+        assert result == small_json, "Small JSON must be unchanged after v6 migration"
+        conn.close()
+
+    def test_v6_idempotent(self):
+        """Running v6 twice produces the same result."""
+        conn = self._v5_db()
+        cursor = conn.cursor()
+
+        large_json = self._large_summary_json(60000)
+        cursor.execute(
+            "INSERT INTO branches (id, session_id, leaf_uuid, context_summary_json) VALUES (?, ?, ?, ?)",
+            (1, 1, "leaf-idem", large_json),
+        )
+        conn.commit()
+
+        _migrate_columns(conn)
+        result_first = cursor.execute(
+            "SELECT context_summary_json FROM branches WHERE id = 1"
+        ).fetchone()[0]
+
+        # Reset to v5 to simulate re-run
+        conn.execute("PRAGMA user_version = 5")
+        conn.commit()
+        _migrate_columns(conn)
+        result_second = cursor.execute(
+            "SELECT context_summary_json FROM branches WHERE id = 1"
+        ).fetchone()[0]
+
+        assert result_first == result_second, (
+            "v6 is idempotent — running twice must produce the same result"
+        )
+        conn.close()
+
+    def test_v6_bumps_user_version(self):
+        """After running from v5, user_version must be 6."""
+        conn = self._v5_db()
+        _migrate_columns(conn)
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
+        conn.close()

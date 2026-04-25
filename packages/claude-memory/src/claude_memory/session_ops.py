@@ -30,7 +30,7 @@ from claude_memory.content import (
 )
 from claude_memory.formatting import normalize_project_key
 from claude_memory.parsing import (
-    aggregate_branch_content,
+    build_aggregated_content,
     compute_branch_metadata,
     extract_session_metadata,
     find_all_branches,
@@ -330,15 +330,7 @@ def sync_session(
 
         # Aggregate branch content for FTS — SET (recompute from scratch, not append)
         # Includes: message text + deduplicated full file paths + commit text
-        msg_text = aggregate_branch_content(cursor, branch_db_id)
-        parts = [msg_text]
-        if files:
-            # Use full paths (not basenames) for FTS precision under porter stemmer
-            deduped_paths = list(dict.fromkeys(files))  # preserve order, deduplicate
-            parts.append("\n__files__\n" + "\n".join(deduped_paths))
-        if commits:
-            parts.append("\n__commits__\n" + "\n".join(commits))
-        agg_content = "".join(parts)
+        agg_content = build_aggregated_content(cursor, branch_db_id, files, commits)
         cursor.execute(
             "UPDATE branches SET aggregated_content = ? WHERE id = ?",
             (agg_content, branch_db_id),
