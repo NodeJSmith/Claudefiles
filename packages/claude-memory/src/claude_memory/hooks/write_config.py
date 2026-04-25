@@ -11,16 +11,7 @@ import os
 import tempfile
 from pathlib import Path
 
-from claude_memory.db import CONFIG_PATH, CURRENT_ONBOARDING_VERSION
-
-DEFAULT_CONFIG = {
-    "onboarding_completed": False,
-    "onboarding_version": 0,
-    "auto_inject_context": True,
-    "consolidation_reminder_enabled": True,
-    "consolidation_min_hours": 24,
-    "consolidation_min_sessions": 5,
-}
+from claude_memory.db import CONFIG_PATH, CURRENT_ONBOARDING_VERSION, DEFAULT_SETTINGS
 
 
 def main():
@@ -52,9 +43,19 @@ def main():
     )
     args = parser.parse_args()
 
-    # Load existing config or start from defaults.
-    # Skip merge when --defaults is set so it always writes DEFAULT_CONFIG as-is.
-    config = DEFAULT_CONFIG.copy()
+    # Build initial config from DEFAULT_SETTINGS (plus write_config-specific keys).
+    # Skip merge when --defaults is set so it always writes fresh defaults.
+    _write_config_defaults = {
+        "onboarding_completed": False,
+        "onboarding_version": 0,
+        "auto_inject_context": DEFAULT_SETTINGS["auto_inject_context"],
+        "consolidation_reminder_enabled": DEFAULT_SETTINGS[
+            "consolidation_reminder_enabled"
+        ],
+        "consolidation_min_hours": DEFAULT_SETTINGS["consolidation_min_hours"],
+        "consolidation_min_sessions": DEFAULT_SETTINGS["consolidation_min_sessions"],
+    }
+    config = _write_config_defaults.copy()
     if CONFIG_PATH.exists() and not args.defaults:
         try:
             existing = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))

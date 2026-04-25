@@ -30,7 +30,7 @@ DEFAULT_SETTINGS = {
     "sync_on_stop": True,
     "consolidation_reminder_enabled": True,
     "consolidation_min_hours": 24,
-    "consolidation_min_sessions": 5,
+    "consolidation_min_sessions": 10,
 }
 
 # Keys in config.json that override DEFAULT_SETTINGS
