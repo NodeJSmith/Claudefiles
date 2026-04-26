@@ -96,7 +96,7 @@ The following tag names and values are consumed by calling skills (mine.define) 
 - **Contract tag names**: `severity`, `type`, `design-level`, `resolution`
 - **Contract tag names (TENSION only)**: `side-a`, `side-b`, `deciding-factor`
 - **Severity values**: `CRITICAL`, `HIGH`, `MEDIUM`, `TENSION`
-- **Presentation-only fields** (not contract — safe to evolve without updating callers): `raised-by`, `confidence`, `why-it-matters`, `evidence`, `references`, `design-challenge`. These fields are absent in challenge-results.md files produced before this format version; Phase 4 must render gracefully when they are missing — omit the section rather than rendering an empty block.
+- **Presentation-only fields** (not contract — safe to evolve without updating callers): `raised-by`, `confidence`, `why-it-matters`, `evidence`, `references`, `design-challenge`. These fields are absent in findings files produced before this format version; Phase 4 must render gracefully when they are missing — omit the section rather than rendering an empty block.
   - `raised-by` values use shortened display names derived from persona file `name:` frontmatter (e.g., "Skeptical Senior Engineer" → "Senior", "Data Integrity Critic" → "Data Integrity"). The mapping table's display names are the canonical short forms. If a future caller begins pattern-matching on `raised-by` values, treat persona name changes as a contract change at that point.
   - `confidence` format: `N/<total> (<critic names>)` — e.g., `3/5 (Senior + Architect + Data Integrity)`. Total is the number of critics that successfully produced reports. If a critic fails to report, note the missing critic and reduce the denominator.
   - `why-it-matters`: one sentence describing the consequence if left unfixed. Copied verbatim by synthesis from the contributing critic with the most concrete consequence statement.
@@ -643,7 +643,7 @@ If `<tmpdir>/validation-warnings.md` exists and is non-empty, read it. For any c
 
 ### Per-finding format
 
-**Read each finding from challenge-results.md and render it using the template below.** Fill each slot from the corresponding field in the findings file — do not rephrase, generate, or embellish. If a presentation-only field (`why-it-matters`, `evidence`, `references`, `design-challenge`) is missing from a finding (e.g., in pre-format-version-2 files), omit that section entirely rather than generating it or rendering an empty block.
+**Read each finding from the findings file and render it using the template below.** Fill each slot from the corresponding field in the findings file — do not rephrase, generate, or embellish. If a presentation-only field (`why-it-matters`, `evidence`, `references`, `design-challenge`) is missing from a finding (e.g., in pre-format-version-2 files), omit that section entirely rather than generating it or rendering an empty block.
 
 Findings MUST be numbered sequentially (`### 1.`, `### 2.`, etc.) for easy reference in conversation.
 
@@ -711,7 +711,7 @@ Read `# mode:` from `<tmpdir>/manifest.md` to determine the wrap-up behavior. Do
 
 1. **Summary** — one paragraph: total finding count, breakdown by severity, the single most important takeaway across all findings.
 
-2. **Resolve findings** — Read `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md` and follow the Resolution Manifest flow defined there. Generate the manifest from challenge-results.md, present the Consent Gate, invoke `edit-manifest <tmpdir>/resolutions.md`, run the detection logic, present the Commit Gate, and execute. The protocol file provides format, verb vocabulary, execution semantics, and detection logic — mine.challenge delegates those mechanics. The async/compaction rules below are mine.challenge-specific.
+2. **Resolve findings** — Read `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md` and follow the Resolution Manifest flow defined there. Generate the manifest from the findings file, present the Consent Gate, invoke `edit-manifest <tmpdir>/resolutions.md`, run the detection logic, present the Commit Gate, and execute. The protocol file provides format, verb vocabulary, execution semantics, and detection logic — mine.challenge delegates those mechanics. The async/compaction rules below are mine.challenge-specific.
 
 ### Async Completion
 

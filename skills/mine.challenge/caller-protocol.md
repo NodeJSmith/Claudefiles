@@ -21,7 +21,7 @@ This protocol covers **doc-edit callers** (mine.define) — findings target sect
 This caller follows a fixed structural sequence. Caller-specific logic is confined to the pre-routing pass and verb execution phase.
 
 ```
-Challenge returns challenge-results.md (unchanged contract)
+Challenge returns the findings file (schema unchanged)
        |
        v
 Caller pre-routing pass (CALLER-SPECIFIC)

@@ -195,7 +195,7 @@ If the manifest editor signals that no interactive editor is available (e.g., ex
 
 ## Detection Logic
 
-The invoking skill runs this logic at notification receipt (or on synchronous return); challenge-results.md defines the cases and actions.
+The invoking skill runs this logic at notification receipt (or on synchronous return); the findings file defines the cases and actions.
 
 **Exit code handling (primary signal):**
 
