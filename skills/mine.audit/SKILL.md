@@ -127,15 +127,15 @@ Run `get-skill-tmpdir mine-audit` and write `<tmpdir>/audit-results.md` using th
 # Audit Findings
 **Target:** [project name or scope]
 **Date:** [today's date]
-**Format-version:** 2
+**Format-version:** 3
 
 ## Finding 1: [concise title]
-**Severity:** CRITICAL | **Type:** Test Gap | **Raised by:** Audit Analysis (1/1)
+**Severity:** CRITICAL | **Type:** Test Gap | **Raised-by:** Audit Analysis (1/1)
 **Resolution:** User-directed
 
 **Problem:** [specific description with evidence — file names, line counts, churn data]
 
-**Why it matters:** [concrete consequence — what breaks, what slows down]
+**Why-it-matters:** [concrete consequence — what breaks, what slows down]
 
 **Recommendation:** Option A
 
@@ -149,18 +149,16 @@ Run `get-skill-tmpdir mine-audit` and write `<tmpdir>/audit-results.md` using th
 
 Use finding types from this vocabulary: `Test Gap` | `Structural` | `Coupling` | `Tech Debt` | `Pattern Drift`
 
-The `(1/1)` in `Raised by` is the single-source convention for non-critic-panel callers — audit has one analyst, not a critic panel.
+The `(1/1)` in `Raised-by` is the single-source convention for non-critic-panel callers — audit has one analyst, not a critic panel.
 
 ### Step 3: Follow findings protocol
 
-Follow `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md` for the Consent Gate, manifest editor, and execution.
+Follow `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md` for the findings file format and status field definitions.
 
-Audit findings use the User-directed model with explicit option letters (A/B/C). During manifest execution, option verbs execute as follows:
+Audit findings use the User-directed model with explicit option letters (A/B/C). Present each finding one at a time via AskUserQuestion:
 - **`A`** (or `fix`) — invoke `/mine.build` with the finding's description as the argument. For structural/architectural problems, `/mine.build` will assess complexity and route to direct implementation or the full caliper workflow.
 - **`B`** — create a GitHub issue via `gh-issue create` for this finding
 - **`C`** (or `skip`) — noted in session summary, no action
-
-Since the resolution model is User-directed with option letters, "File as issue" and "Skip" are explicit options in the findings template — the findings protocol does not append them again during `ask` execution (the `ask` verb is not used for these findings).
 
 **Multiple findings selected for build**: if several findings are being addressed via `/mine.build`, suggest an order of attack — highest impact first, dependency-aware (e.g., fix the circular dependency before refactoring the modules caught in the cycle).
 
