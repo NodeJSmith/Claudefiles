@@ -8,7 +8,7 @@ All notable changes to this Claudefiles repository are documented here.
 - `/mine.gap-close` skill — conversational completeness review for design docs, briefs, work packages, and general-purpose specs; surveys against per-type checklists, fills gaps one question at a time via Edit; replaces "Challenge first" in mine.define's sign-off gate (#266)
 
 ### Added
-- `gh-issue` `--repo`/`-R` flag — target any repository without being inside it
+- `gh-issue` `--repo`/`-R` flag — target any repository without being inside it (#271)
 
 ### Fixed
 - `context-tier.sh` hook output silently ignored — PreToolUse hooks require JSON `hookSpecificOutput` with `additionalContext`, not plain text (#270)
