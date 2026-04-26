@@ -79,4 +79,4 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 - **Thread workflow**: Run `gh-pr-threads --json <pr>` → extract `.id` fields (`PRRT_...` values) → pass to `gh-pr-reply --resolve` or `gh-pr-resolve-thread`.
 - **gh-pr-threads**: Auto-detects PR from current branch when no number given. Handles 100+ threads with internal pagination.
 - **gh-pr-reply --resolve**: Combines reply and resolve in one call — preferred over separate steps.
-- **gh-issue overview**: Run `gh-issue overview` to see repo milestones, labels, and usage patterns before creating issues. Pass `--repo OWNER/REPO` before the subcommand to target a different repository. Use `--milestone "name"` on `list` (filter) and `create` (assign).
+- **gh-issue overview**: Run `gh-issue overview` to see repo milestones, labels, and usage patterns before creating issues. Use `--repo`/`-R OWNER/REPO` (works in any position) to target a different repository. Use `--milestone "name"` on `list` (filter) and `create` (assign).
