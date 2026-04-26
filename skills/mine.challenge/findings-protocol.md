@@ -111,7 +111,8 @@ TENSION findings always classify as User-directed.
 
 Findings are capped before presentation to prevent overwhelming the user:
 
-- **CRITICAL and HIGH**: Always shown, no cap
+- If `cap=0`: all findings are auto-applied or overflow — pure automation mode
+- **CRITICAL and HIGH**: Always shown, no cap (except `cap=0`)
 - **MEDIUM**: At most `max(3, cap - CRITICAL_count - HIGH_count)` MEDIUM
   findings are shown; the rest are marked `overflow: true, status: overflow`
 - **TENSION**: Shown only when no CRITICAL/HIGH findings exist; otherwise
@@ -142,10 +143,13 @@ AskUserQuestion:
       description: ""
     - label: "Skip — defer to later"
       description: "Record this finding without acting on it"
+    - label: "File as issue"
+      description: "Create a GitHub issue for this finding"
 ```
 
-Apply chosen option via Edit tool (or no edit for Skip). Set `status: applied`
-or `status: skipped`. Continue to next finding.
+Apply chosen option via Edit tool. Set `status: applied` for options,
+`status: skipped` for Skip, or `status: skipped` + create issue via
+`gh-issue create` for File as issue. Continue to next finding.
 
 **TENSION findings** (`Resolution: User-directed`, `Severity: TENSION`):
 
@@ -160,6 +164,8 @@ AskUserQuestion:
       description: "<side-b detail>"
     - label: "Skip — defer to later"
       description: "Record this finding without acting on it"
+    - label: "File as issue"
+      description: "Create a GitHub issue for this finding"
 ```
 
 Apply chosen side via Edit tool. Set `status: applied` and append
