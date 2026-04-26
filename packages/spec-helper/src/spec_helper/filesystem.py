@@ -167,7 +167,9 @@ def find_feature_dir(root: Path, feature: str) -> Path:
         if d.name.startswith(feature):
             return d
 
-    die(f"Feature '{feature}' not found in {sd}")
+    available = [d.name for d in list_features(root)]
+    hint = f" Available: {', '.join(available)}" if available else ""
+    die(f"Feature '{feature}' not found in {sd}.{hint}")
 
 
 def find_wp_file(feature_dir: Path, wp_id: str) -> Path:
