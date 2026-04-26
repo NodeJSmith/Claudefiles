@@ -188,8 +188,8 @@ The synthesis subagent receives:
    - `overflow`: `false` for in-cap findings; `true` for findings beyond the cap
 4. **CRITICAL guard**: CRITICAL findings MUST always be classified as `resolution: User-directed` regardless of the resolution field from any critic or agreement level. This is a non-negotiable override — do not classify any CRITICAL finding as Auto-apply under any circumstances.
 5. **Cap enforcement:**
-   - If cap=0: mark ALL findings as overflow (pure automation — auto-apply only, no presentation)
-   - CRITICAL and HIGH: always included, never overflow (except cap=0)
+   - If cap=0: pure automation mode — keep `resolution: Auto-apply` findings as `status: pending` so Phase 4 applies them; mark `resolution: User-directed` findings as `status: overflow`
+   - CRITICAL and HIGH: always included, never overflow (except User-directed findings when cap=0)
    - TENSION: overflow if any CRITICAL or HIGH findings exist
    - MEDIUM: include up to `max(3, cap - CRITICAL_count - HIGH_count)` MEDIUMs; remaining are overflow
 6. **Copy presentation fields** from critic reports: `why-it-matters` (most concrete consequence statement), `evidence` (all file:line citations, deduped), `references` (all URLs), `design-challenge` (strongest question). Write `not cited` for evidence when none; omit other fields when absent.

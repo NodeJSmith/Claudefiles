@@ -8,8 +8,12 @@ mine.define and mine.audit.
 
 ## Findings File Format
 
-The findings file is a markdown file at `<tmpdir>/challenge-results.md`. It
-opens with a required header block:
+The per-finding format below (sections, fields, status values) is the shared
+contract. The file path, title, and header fields are producer-specific — e.g.,
+challenge writes `<tmpdir>/challenge-results.md` with `# Challenge Findings`,
+while mine.audit writes `<tmpdir>/audit-results.md` with `# Audit Findings`.
+
+The canonical challenge header block:
 
 ```markdown
 # Challenge Findings
