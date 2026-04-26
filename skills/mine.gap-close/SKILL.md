@@ -1,6 +1,6 @@
 ---
 name: mine.gap-close
-description: "Use when the user says: 'close gaps in this design', 'fill gaps in the spec', 'lightweight design review', 'completeness review', or wants to verify a doc has all required content before implementation."
+description: "Use when the user says: 'close gaps in this design', 'fill gaps in the spec', 'lightweight design review', 'gap-close this doc', 'completeness review', or wants to verify a doc has all required content before implementation."
 user-invocable: true
 ---
 
@@ -33,7 +33,7 @@ Read the artifact. Detect type:
 - `## Deliverables` OR first heading starts with `# WP` → work package
 - None → general-purpose
 
-Load the matching checklist from `${CLAUDE_HOME:-~/.claude}/skills/mine.gap-close/REFERENCE.md`. Exception: for skill files, use `${CLAUDE_HOME:-~/.claude}/skills/mine.write-skill/REFERENCE.md`. When type is ambiguous, confirm before surveying.
+Load the matching checklist from `${CLAUDE_HOME:-~/.claude}/skills/mine.gap-close/REFERENCE.md`. When type is ambiguous, confirm before surveying.
 
 ## Phase 2: Survey
 
