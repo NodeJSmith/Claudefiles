@@ -280,7 +280,7 @@ If the combined findings total fewer than 3 issues, say so plainly: "The UI is i
 
 ### After presenting findings
 
-This skill uses a skill-specific gate (per `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md` Skill-Specific Overrides) because resolution paths include non-fix actions.
+This skill uses a custom resolution gate (not the standard inline resolution flow) because resolution paths include non-fix actions.
 
 ```
 AskUserQuestion:
@@ -297,11 +297,11 @@ AskUserQuestion:
       description: "File findings as tracked issues for later"
 ```
 
-When offering to read agent reports, list the temp file paths. If "Fix issues now" is selected, follow the legacy resolve flow in `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`'s Skill-Specific Overrides section. (A follow-up design will migrate visual-qa to the Resolution Manifest flow; that work is explicit scope for the next design iteration and is NOT in scope here.)
+When offering to read agent reports, list the temp file paths. If "Fix issues now" is selected, auto-apply unambiguous fixes directly via Edit tool, then present judgment-call findings one at a time via AskUserQuestion with fix/skip/file-as-issue options.
 
 ## Handoffs
 
-**Fix issues** → follow the legacy Skill-Specific Override path in `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md` (Resolution Manifest migration deferred to follow-up design)
+**Fix issues** → auto-apply unambiguous fixes, then present judgment calls one at a time via AskUserQuestion
 
 **Different viewport** → re-run this skill with `--mobile` and/or `--dark`
 

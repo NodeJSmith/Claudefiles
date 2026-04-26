@@ -130,12 +130,12 @@ Run `get-skill-tmpdir mine-audit` and write `<tmpdir>/audit-results.md` using th
 **Format-version:** 3
 
 ## Finding 1: [concise title]
-**Severity:** CRITICAL | **Type:** Test Gap | **Raised by:** Audit Analysis (1/1)
+**Severity:** CRITICAL | **Type:** Test Gap | **Raised-by:** Audit Analysis (1/1)
 **Resolution:** User-directed
 
 **Problem:** [specific description with evidence — file names, line counts, churn data]
 
-**Why it matters:** [concrete consequence — what breaks, what slows down]
+**Why-it-matters:** [concrete consequence — what breaks, what slows down]
 
 **Recommendation:** Option A
 
@@ -149,7 +149,7 @@ Run `get-skill-tmpdir mine-audit` and write `<tmpdir>/audit-results.md` using th
 
 Use finding types from this vocabulary: `Test Gap` | `Structural` | `Coupling` | `Tech Debt` | `Pattern Drift`
 
-The `(1/1)` in `Raised by` is the single-source convention for non-critic-panel callers — audit has one analyst, not a critic panel.
+The `(1/1)` in `Raised-by` is the single-source convention for non-critic-panel callers — audit has one analyst, not a critic panel.
 
 ### Step 3: Follow findings protocol
 
