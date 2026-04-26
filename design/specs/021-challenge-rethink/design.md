@@ -1,7 +1,7 @@
 ---
 spec: "021"
 title: "Challenge Skill Rethink"
-status: approved
+status: archived
 created: 2026-04-26
 ---
 
@@ -49,9 +49,9 @@ Session archaeology over 14 days (63 invocations, 826 findings) confirms: when u
 1. mine.define invokes challenge with a design doc path and structured output path
 2. Challenge runs the same triage → critics → synthesis → auto-apply flow
 3. Auto-applied findings are applied directly to the design doc sections
-4. User-directed findings are presented inline via the same one-at-a-time flow
-5. mine.define receives the updated design doc and a summary of what changed
-6. mine.define continues its quality validation on the updated doc
+4. User-directed findings are returned in the structured output as `status: pending` for the caller to resolve
+5. mine.define receives the updated design doc, the structured findings payload, and a summary of what changed
+6. mine.define resolves any pending findings via its caller protocol, then continues quality validation on the updated doc
 
 ### Actor: mine.gap-close offering "run full challenge"
 
@@ -178,7 +178,7 @@ It returns a JSON-structured response:
 1. Invoke challenge with `--findings-out=<path> --target-type=design-doc <doc-path>`
 2. Read the findings file after challenge completes
 3. For `status: applied` findings with `design-level: Yes`: verify the edit was applied to the correct design.md section
-4. For `status: pending` findings: these were already presented to the user during challenge — check their final status
+4. For `status: pending` findings: these are User-directed findings deferred to the caller — present them to the user via AskUserQuestion per caller-protocol.md
 5. Remove: pre-routing tables, default verb selection, manifest generation, editor session, compaction recovery via manifest hash
 
 **mine.gap-close**: No structural changes needed — it just invokes challenge and loops back. The invocation interface (`/mine.challenge <path>`) is unchanged.

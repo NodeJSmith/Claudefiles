@@ -408,7 +408,7 @@ Then invoke: `/mine.challenge --findings-out=<dir>/challenge-results.md --target
 
 In structured mode, challenge auto-applies `Auto-apply` findings to the design doc, sets their `status: applied`, and returns without presenting User-directed findings interactively. User-directed findings return as `status: pending`.
 
-**Compaction recovery:** If the findings file already exists and contains at least one finding with `status: applied` or `status: skipped`, challenge already ran and completed resolution — do not re-invoke. If the file exists but all findings are `status: pending`, challenge was interrupted before resolution started — re-invoke.
+**Compaction recovery:** If the findings file already exists and contains at least one finding with `status: applied` or `status: skipped`, challenge already ran at least partially — do not re-invoke. Instead, continue to the post-challenge review below and process any `status: pending` findings there. If the file exists but all findings are `status: pending`, challenge was interrupted before resolution started — re-invoke.
 
 #### Post-challenge review
 

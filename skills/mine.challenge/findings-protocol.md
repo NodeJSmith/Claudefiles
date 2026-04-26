@@ -2,8 +2,9 @@
 
 # Findings Protocol
 
-Defines the findings file format produced by challenge and consumed by
-structured callers (mine.define).
+Defines the findings file format used by challenge and other tools that
+produce, consume, or reference findings, including structured callers such as
+mine.define and mine.audit.
 
 ## Findings File Format
 

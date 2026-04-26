@@ -17,8 +17,10 @@ Structured callers (e.g., mine.define):
 | `--findings-out` | absolute path | Where challenge writes the findings file |
 | `--target-type` | any value from SKILL.md vocabulary | Guides critic selection |
 
-Challenge returns when all findings are resolved (or overflow). The findings
-file at `--findings-out` is the only output contract.
+Challenge returns when each finding has either been resolved during challenge
+execution, marked `overflow`, or (in structured mode) left `status: pending`
+for the caller to resolve when `resolution: User-directed`. The findings file
+at `--findings-out` is the only output contract.
 
 ## What Callers Receive
 
@@ -26,8 +28,10 @@ A findings file at `<--findings-out>` containing `## Finding N:` sections per
 `findings-protocol.md`. Each finding has `status` and `overflow` fields
 populated by challenge before it returns.
 
-Callers read the findings file after challenge returns. They do not interact
-with challenge's inline resolution flow.
+Callers read the findings file after challenge returns. Challenge does not run
+its inline resolution flow in structured mode — callers present `status: pending`
+findings to the user themselves, following the same per-finding AskUserQuestion
+pattern described in findings-protocol.md.
 
 ## Handling Findings by Status
 
