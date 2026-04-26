@@ -164,7 +164,7 @@ class TestWpAutoDone:
 
         assert tasks.exists()
 
-    def test_dry_run_with_non_done_wps_reports_would_archive(
+    def test_all_dry_run_with_non_done_wps_shows_auto_promoted(
         self, git_repo: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         feature = git_repo / "design" / "specs" / "001-test-feature"
@@ -184,6 +184,29 @@ class TestWpAutoDone:
         assert tasks.exists()
         out = capsys.readouterr().out
         assert "would archive" in out
+        assert "auto-promoted" in out
+
+    def test_single_feature_dry_run_skips_non_done_wps(
+        self, git_repo: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        feature = git_repo / "design" / "specs" / "001-test-feature"
+        tasks = feature / "tasks"
+
+        wp1 = tasks / "WP01.md"
+        post = frontmatter.load(str(wp1))
+        post.metadata["lane"] = "doing"
+        with open(wp1, "wb") as f:
+            frontmatter.dump(post, f)
+        _git(git_repo, "add", ".")
+        _git(git_repo, "commit", "-m", "set WP01 to doing")
+
+        os.chdir(git_repo)
+        cmd_archive(_archive_args(feature="001-test-feature", dry_run=True))
+
+        assert tasks.exists()
+        out = capsys.readouterr().out
+        assert "skipped" in out
+        assert "would archive" not in out
 
     def test_all_flag_auto_promotes_planned_wps(self, git_repo: Path) -> None:
         feature = git_repo / "design" / "specs" / "001-test-feature"
@@ -234,6 +257,28 @@ class TestDesignStatusUpdate:
         text = design.read_text()
         assert "**Status:** archived" in text
         assert "approved" not in text
+
+
+class TestErrorExitCode:
+    def test_archive_all_exits_nonzero_on_error(
+        self, git_repo: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from spec_helper import commands
+
+        original = commands._archive_feature
+
+        def _fail_on_first(feature_dir, tasks_dir, git_root):
+            if "001-" in feature_dir.name:
+                raise RuntimeError("simulated failure")
+            return original(feature_dir, tasks_dir, git_root)
+
+        monkeypatch.setattr(commands, "_archive_feature", _fail_on_first)
+
+        os.chdir(git_repo)
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_archive(_archive_args(all_flag=True))
+
+        assert exc_info.value.code == 1
 
 
 class TestArchiveAll:
