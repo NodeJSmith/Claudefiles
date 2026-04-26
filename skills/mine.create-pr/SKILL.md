@@ -24,7 +24,8 @@ Based on the above changes:
 4. Analyze ALL commits in the branch (not just the latest) using `git log`
 5. Use `git diff [base-branch]...HEAD` to see all code changes
 6. Read key modified files if needed for additional context
-7. Draft a comprehensive PR:
+7. **WP ARCHIVAL (auto — before PR):** If `spec-helper` is available (`command -v spec-helper`) and WP files exist on the branch (`find design/specs -path '*/tasks/WP*.md' -print -quit 2>/dev/null` produces output), run `spec-helper archive --all --dry-run --json`. If any entries have `status: "would_archive"`, run `spec-helper archive --all`, commit the archival (`chore: archive completed WPs`), and push before creating the PR. Do not ask — just archive. If `spec-helper archive --all` exits non-zero, stop and report the error to the user — do not proceed to create the PR. If no WP files exist, `design/specs/` doesn't exist, or `spec-helper` isn't installed, skip silently.
+8. Draft a comprehensive PR:
    - Title: < 70 characters, summarize the change
    - Body format: group changes by topic. For each logical area with multiple related changes, use an `### H3` header followed by bullet points. Order sections from most to least impactful. Bullets should explain *why* a change was made, not just *what* changed — include motivation, tradeoffs, or decisions worth preserving for future readers. Exception: if the PR includes changes to `./design/` (ADRs, design docs, decision records), don't re-explain that reasoning in the PR body — just reference the document (e.g., "see `design/adr-012-auth-approach.md`"). Duplicating it risks going stale or conflicting. Collect small, standalone changes (one-liners that don't warrant their own section) into one or two ungrouped sections:
      - **`### Notable Changes`** (top) — small but important changes worth seeing first
@@ -58,7 +59,7 @@ Based on the above changes:
        ```
      - If multiple distinct issue numbers are found, append one `Closes #N` line per issue.
      - Skip this step entirely for Azure DevOps (ADO uses a different work-item linking syntax).
-8. Create the PR as a **draft**:
+9. Create the PR as a **draft**:
    - Run `get-skill-tmpdir mine-pr` to create a temp directory, then write the PR body to `<dir>/body.md` and use that path in subsequent commands
    - **GitHub**:
      ```bash
@@ -69,26 +70,25 @@ Based on the above changes:
      az repos pr create --draft true --title "..." --description "<body content>" --source-branch <branch> --target-branch <default-branch>
      ```
      Do NOT use `--description "$(cat <tmpfile>)"` — command substitution is broken in the Bash tool eval wrapper.
-9. **Update CHANGELOG with PR number**: Locate the nearest `CHANGELOG.md` using the ancestor-walk algorithm: walk upward from the current working directory one level at a time toward the repo root, checking each directory for `CHANGELOG.md` — the first one found is the nearest. If none found by walking up, run `git ls-files '*CHANGELOG.md'` and pick the result with the shortest relative path from CWD. If no `CHANGELOG.md` exists anywhere, suggest the user add one. Once located:
-   - Extract the PR number from the PR URL
-   - Use the platform-appropriate prefix for the PR reference:
-     - **GitHub**: `#` (e.g., `(#123)`) — links to the PR
-     - **Azure DevOps**: **!** prefix (e.g., `(!123)`) — links to the PR (`#` would link to a work item instead)
-   - Determine the PR base branch from the platform API:
-     - **GitHub**: `gh pr view --json baseRefName --jq '.baseRefName'`
-     - **Azure DevOps**: `ado-api pr show --json | jq -r '.targetRefName' | sed 's|refs/heads/||'`
-   - Use `git diff origin/<base>...HEAD -- <changelog-path>` to identify lines added in this branch
-   - For each newly added changelog entry line (lines starting with `- `) that does not already contain a PR reference (`(#...)` or `(!...)`), append ` (#<PR_NUMBER>)` for GitHub or ` (!<PR_NUMBER>)` for Azure DevOps to the end of the line
-   - Commit with message: e.g., `changelog: add PR #<NUMBER>` for GitHub or `changelog: add PR !<NUMBER>` for Azure DevOps
-   - Push
-   - If no `CHANGELOG.md` exists, suggest to the user that they add one to track notable changes per release
-10. **Mark PR as ready** (reviewers see the final state with changelog PR numbers already in place):
+10. **Update CHANGELOG with PR number**: Locate the nearest `CHANGELOG.md` using the ancestor-walk algorithm: walk upward from the current working directory one level at a time toward the repo root, checking each directory for `CHANGELOG.md` — the first one found is the nearest. If none found by walking up, run `git ls-files '*CHANGELOG.md'` and pick the result with the shortest relative path from CWD. If no `CHANGELOG.md` exists anywhere, suggest the user add one. Once located:
+    - Extract the PR number from the PR URL
+    - Use the platform-appropriate prefix for the PR reference:
+      - **GitHub**: `#` (e.g., `(#123)`) — links to the PR
+      - **Azure DevOps**: **!** prefix (e.g., `(!123)`) — links to the PR (`#` would link to a work item instead)
+    - Determine the PR base branch from the platform API:
+      - **GitHub**: `gh pr view --json baseRefName --jq '.baseRefName'`
+      - **Azure DevOps**: `ado-api pr show --json | jq -r '.targetRefName' | sed 's|refs/heads/||'`
+    - Use `git diff origin/<base>...HEAD -- <changelog-path>` to identify lines added in this branch
+    - For each newly added changelog entry line (lines starting with `- `) that does not already contain a PR reference (`(#...)` or `(!...)`), append ` (#<PR_NUMBER>)` for GitHub or ` (!<PR_NUMBER>)` for Azure DevOps to the end of the line
+    - Commit with message: e.g., `changelog: add PR #<NUMBER>` for GitHub or `changelog: add PR !<NUMBER>` for Azure DevOps
+    - Push
+    - If no `CHANGELOG.md` exists, suggest to the user that they add one to track notable changes per release
+11. **Mark PR as ready** (reviewers see the final state with changelog PR numbers already in place):
     - **GitHub**: `gh pr ready`
     - **Azure DevOps**: `az repos pr update --id <PR_ID> --draft false`
-11. Return the PR URL. If step 12 produced archival guidance, include it in the same response after the URL.
-12. **WP ARCHIVAL REMINDER:** If `design/specs/` exists in the repo and `spec-helper` is available (`command -v spec-helper`), run `spec-helper archive --dry-run --json`. If any entries have `status: "would_archive"`, tell the user: "These specs are ready to archive: [list]. Run `spec-helper archive --all` to clean up tasks/ before merging." If none qualify, `design/specs/` doesn't exist, or `spec-helper` isn't installed, skip silently. Run this check before composing the final response in step 11.
+12. Return the PR URL.
 
-You have the capability to call multiple tools in a single response. You should gather all necessary context first (steps 1-6), then create the PR in a single action. Do not create multiple PRs.
+You have the capability to call multiple tools in a single response. Gather context first (steps 1-6), complete WP archival if needed (step 7), draft the PR body (step 8), then create the PR (step 9). Do not create multiple PRs.
 
 **Important:**
 - If the branch is not pushed, inform the user they need to push first

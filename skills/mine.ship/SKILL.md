@@ -20,7 +20,7 @@ Ship the current changes: commit, push, and open a PR. Follow each phase in orde
 
 Follow **all steps in `mine.commit-push`** exactly (read `skills/mine.commit-push/SKILL.md` and execute its full workflow). When that phase completes successfully — changes committed and pushed — continue to Phase 2 below.
 
-`mine.commit-push` handles: branch creation, commit scope check, changelog, code review loop, integration review, local verification (tests + linting + test presence check), staging, committing, pushing, and WP archival reminder.
+`mine.commit-push` handles: branch creation, commit scope check, changelog, code review loop, integration review, local verification (tests + linting + test presence check), WP archival, staging, committing, and pushing.
 
 ### Phase 2 — Create PR
 
@@ -50,7 +50,7 @@ Follow **all steps in `mine.commit-push`** exactly (read `skills/mine.commit-pus
       az repos pr create --draft true --title "..." --description "<body content>" --source-branch <branch> --target-branch <default-branch>
       ```
       Do NOT use `--description "$(cat <tmpfile>)"` — command substitution is broken in the Bash tool eval wrapper.
-18. **Update CHANGELOG with PR number**: If a `CHANGELOG.md` exists (use the one closest to the current working directory if multiple exist — not necessarily the repo root):
+18. **Update CHANGELOG with PR number**: Locate the nearest `CHANGELOG.md` using the ancestor-walk algorithm: walk upward from the current working directory one level at a time toward the repo root, checking each directory for `CHANGELOG.md` — the first one found is the nearest. If none found by walking up, run `git ls-files '*CHANGELOG.md'` and pick the result with the shortest relative path from CWD. If no `CHANGELOG.md` exists anywhere, suggest the user add one. Once located:
     - Extract the PR number from the PR URL
     - Use the platform-appropriate prefix for the PR reference:
       - **GitHub**: `#` (e.g., `(#123)`) — links to the PR
@@ -58,7 +58,7 @@ Follow **all steps in `mine.commit-push`** exactly (read `skills/mine.commit-pus
     - Determine the PR base branch from the platform API:
       - **GitHub**: `gh pr view --json baseRefName --jq '.baseRefName'`
       - **Azure DevOps**: `ado-api pr show --json | jq -r '.targetRefName' | sed 's|refs/heads/||'`
-    - Use `git diff origin/<base>...HEAD -- <changelog-path>` to identify lines added in this branch (use the path discovered in step 18, not a hardcoded `CHANGELOG.md`)
+    - Use `git diff origin/<base>...HEAD -- <changelog-path>` to identify lines added in this branch (use the path discovered above, not a hardcoded `CHANGELOG.md`)
     - For each newly added changelog entry line (lines starting with `- `) that does not already contain a PR reference (`(#...)` or `(!...)`), append ` (#<PR_NUMBER>)` for GitHub or ` (!<PR_NUMBER>)` for Azure DevOps to the end of the line
     - Commit with message: e.g., `changelog: add PR #<NUMBER>` for GitHub or `changelog: add PR !<NUMBER>` for Azure DevOps
     - Push
@@ -66,7 +66,7 @@ Follow **all steps in `mine.commit-push`** exactly (read `skills/mine.commit-pus
 19. **Mark PR as ready** (reviewers see the final state with changelog PR numbers already in place):
     - **GitHub**: `gh pr ready`
     - **Azure DevOps**: `az repos pr update --id <PR_ID> --draft false`
-20. Return the PR URL. (WP archival reminder already runs as part of mine.commit-push in Phase 1.)
+20. Return the PR URL.
 
 **Important:**
 - If a PR already exists, show the PR URL and do not create a duplicate

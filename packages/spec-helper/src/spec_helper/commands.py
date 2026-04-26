@@ -356,7 +356,8 @@ def cmd_checkpoint_update(args: argparse.Namespace) -> None:
 
     if not updates:
         die(
-            "No fields to update. Use --last-completed-wp, --tmpdir, etc.",
+            "No fields to update. Use --last-completed-wp, --tmpdir, "
+            "--current-wp, --current-wp-status, or --visual-mode.",
             json_mode=args.json,
         )
 
@@ -472,17 +473,13 @@ def cmd_archive(args: argparse.Namespace) -> None:
                 die(f"No WP files found in {name}/tasks/", json_mode=args.json)
             continue
 
-        # Guard: all WPs must be in lane "done"
-        non_done = [
-            {
-                "wp_id": wp.get("work_package_id", wp["filename"]),
-                "lane": wp.get("lane", "planned"),
-            }
-            for wp in wps
-            if wp.get("lane", "planned") != "done"
-        ]
-        if non_done:
-            labels = ", ".join(f"{nd['wp_id']} ({nd['lane']})" for nd in non_done)
+        # Check non-done WPs before dry-run (F-02: dry-run must reflect real behavior)
+        non_done = [wp for wp in wps if wp.get("lane", "planned") != "done"]
+        if non_done and not args.all:
+            labels = ", ".join(
+                f"{wp.get('work_package_id', wp['filename'])} ({wp.get('lane', 'planned')})"
+                for wp in non_done
+            )
             results.append(
                 {
                     "feature": name,
@@ -490,45 +487,43 @@ def cmd_archive(args: argparse.Namespace) -> None:
                     "reason": f"non-done WPs: {labels}",
                 }
             )
-            if not args.all:
-                die(f"Not all WPs are done in {name}: {labels}", json_mode=args.json)
-            continue
-
-        # Guard: no active orchestration checkpoint
-        cp_path = checkpoint_path(feature_dir)
-        if cp_path.exists():
-            results.append(
-                {
-                    "feature": name,
-                    "status": "skipped",
-                    "reason": "active orchestration checkpoint",
-                }
-            )
-            if not args.all:
+            if not args.dry_run:
                 die(
-                    f"Active orchestration checkpoint in {name}. "
-                    f"Run 'spec-helper checkpoint-delete {name}' first.",
+                    f"Not all WPs are done in {name}: {labels}",
                     json_mode=args.json,
                 )
             continue
 
-        # All checks passed
         wp_count = len(wps)
         has_design = (feature_dir / "design.md").exists()
+        auto_promoted = len(non_done)
 
         if args.dry_run:
-            results.append(
-                {
-                    "feature": name,
-                    "status": "would_archive",
-                    "wp_count": wp_count,
-                    "has_design": has_design,
-                }
-            )
+            result_entry: dict[str, Any] = {
+                "feature": name,
+                "status": "would_archive",
+                "wp_count": wp_count,
+                "has_design": has_design,
+            }
+            if auto_promoted:
+                result_entry["auto_promoted"] = auto_promoted
+            results.append(result_entry)
             continue
 
         # Per-spec exception isolation for --all mode
         try:
+            # Auto-move non-done WPs to "done" (--all only; single-feature blocked above)
+            for wp in non_done:
+                wp_file = tasks_dir / wp["filename"]
+                post = frontmatter.load(str(wp_file))
+                post.metadata["lane"] = "done"
+                atomic_write(post, wp_file)
+
+            # Auto-delete stale orchestration checkpoint
+            cp_path = checkpoint_path(feature_dir)
+            if cp_path.exists():
+                delete_checkpoint(cp_path)
+
             _archive_feature(feature_dir, tasks_dir, git_root)
         except Exception as exc:
             if args.all:
@@ -555,7 +550,9 @@ def cmd_archive(args: argparse.Namespace) -> None:
             if feat_status == "archived":
                 print(f"  {feat_name}: archived ({r['wp_count']} WPs removed)")
             elif feat_status == "would_archive":
-                print(f"  {feat_name}: would archive ({r['wp_count']} WPs)")
+                promoted = r.get("auto_promoted", 0)
+                suffix = f", {promoted} auto-promoted" if promoted else ""
+                print(f"  {feat_name}: would archive ({r['wp_count']} WPs{suffix})")
             elif feat_status == "error":
                 print(f"  {feat_name}: ERROR — {r['reason']}")
             elif feat_status == "skipped":
@@ -565,8 +562,15 @@ def cmd_archive(args: argparse.Namespace) -> None:
             1 for r in results if r["status"] in ("archived", "would_archive")
         )
         skipped_count = sum(1 for r in results if r["status"] == "skipped")
+        error_count = sum(1 for r in results if r["status"] == "error")
         verb = "Would archive" if args.dry_run else "Archived"
-        print(f"\n{verb}: {archived_count}, Skipped: {skipped_count}")
+        summary = f"\n{verb}: {archived_count}, Skipped: {skipped_count}"
+        if error_count:
+            summary += f", Errors: {error_count}"
+        print(summary)
+
+    if any(r["status"] == "error" for r in results):
+        sys.exit(1)
 
 
 def _is_tracked(git_root: Path, rel_path: str) -> bool:
@@ -581,7 +585,7 @@ def _is_tracked(git_root: Path, rel_path: str) -> bool:
 
 def _git_rm(git_root: Path, rel_path: str, *, recursive: bool = False) -> None:
     """Remove a file or directory via git rm. Raises RuntimeError on failure."""
-    cmd = ["git", "-C", str(git_root), "rm", "-q"]
+    cmd = ["git", "-C", str(git_root), "rm", "-q", "-f"]
     if recursive:
         cmd.append("-r")
     cmd.append(rel_path)
