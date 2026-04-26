@@ -393,7 +393,7 @@ After gap-close completes, loop back to the sign-off gate above.
 
 ### On "Challenge (via gap-close)"
 
-> **Note:** This flow is no longer reachable from mine.define's sign-off gate directly. It is preserved for reference — when a user selects "Challenge first" from gap-close's Phase 5 sign-off, challenge runs standalone via `/mine.challenge`. This mine.define-specific manifest flow (CHALLENGE-CALLER, pre-routing, post-execute hooks) can be re-wired if design-doc challenge resolution needs to route through mine.define's context in the future.
+> **Note:** This flow is no longer reachable from mine.define's sign-off gate directly. It is preserved for reference — when a user selects "Run full challenge" from gap-close's Phase 5 sign-off, challenge runs standalone via `/mine.challenge`. This mine.define-specific manifest flow (CHALLENGE-CALLER, pre-routing, post-execute hooks) can be re-wired if design-doc challenge resolution needs to route through mine.define's context in the future.
 
 Create a known output path for the findings file:
 

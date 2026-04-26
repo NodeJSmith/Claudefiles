@@ -80,7 +80,7 @@ AskUserQuestion:
   options:
     - label: "Approve"
       description: "Mark ready — update status field if present"
-    - label: "Challenge first"
+    - label: "Run full challenge"
       description: "Invoke /mine.challenge for deeper critique"
     - label: "Save and stop"
       description: "Leave as-is, no status change"
@@ -88,4 +88,4 @@ AskUserQuestion:
 
 If Blockers remain: report count, then AskUserQuestion (header: "Blockers") with options: "Continue — keep filling" or "Save and stop".
 
-On "Approve": update `**Status:**` to `approved` if present. On "Challenge first": invoke `/mine.challenge <artifact-path>`, loop back to sign-off after. On "Save and stop": confirm with "Saved. Resume with `/mine.gap-close <path>` later."
+On "Approve": if the detected type is design doc and the artifact contains `**Status:** draft`, update to `approved`; otherwise leave any existing status unchanged. On "Run full challenge": invoke `/mine.challenge <artifact-path>`, loop back to sign-off after. On "Save and stop": confirm with "Saved. Resume with `/mine.gap-close <path>` later."

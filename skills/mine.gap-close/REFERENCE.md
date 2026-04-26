@@ -295,7 +295,7 @@ new_string: "## Edge Cases\n\n- Concurrent edits by two users to the same record
 
 ```
 old_string: "## Problem\n\nUsers frequently lose their place when navigating between sections of a long form.\n\n## Goals"
-new_string: "## Problem\n\nUsers frequently lose their place when navigating between sections of a long form. Internally, support tickets for \"where did my data go\" account for 23% of form-related tickets in Q1 2026, suggesting the problem is both common and frustrating enough to prompt contact.\n\n## Goals"
+new_string: "## Problem\n\nUsers frequently lose their place when navigating between sections of a long form. Internally, support tickets for \"where did my data go\" account for 23% of form-related tickets last quarter, suggesting the problem is both common and frustrating enough to prompt contact.\n\n## Goals"
 ```
 
 **Edit tool example — appending to a bullet list:**
@@ -320,11 +320,11 @@ Each checklist item is evaluated as one of:
 - **GAP** — the content is missing or incomplete (severity from the checklist applies)
 - **N/A** — the checklist item does not apply to this artifact (e.g., DD-25 security items for a feature that doesn't touch auth)
 
-Surveys may be selective — skip items that are obviously satisfied and focus on sections where gaps are likely. The walkthrough below demonstrates a selective survey.
+Surveys must be complete — evaluate every checklist item and record a result as **PASS**, **GAP**, or **N/A**. Do not skip items just because they appear obviously satisfied. For readability, the walkthrough below shows only a condensed subset of the full survey output.
 
 ### Step 1: Survey (scanning the artifact)
 
-The skill reads the design doc and identifies gaps against the DD-* checklist:
+The skill reads the design doc and evaluates the DD-* checklist item by item. The excerpt below shows representative results from the full survey:
 
 ```
 DD-01  PASS   Problem states "Users cannot export more than 100 records at a time"
@@ -391,13 +391,13 @@ new_string: "## Edge Cases\n\n- Zero-length export: return empty file with heade
 
 > "Open question item 2 reads 'Should we support XLSX as well as CSV?' but has no owner or target date. Who should resolve this, and when?"
 
-**Answer:** "Product owner (Sam) will decide by April 30."
+**Answer:** "Product owner (Sam) will decide by end of month."
 
 **Converted to artifact** (Pattern 5 — matching open question style):
 
 ```
 old_string: "2. Should we support XLSX as well as CSV?"
-new_string: "2. Should we support XLSX as well as CSV? (Owner: Sam/Product; target: April 30)"
+new_string: "2. Should we support XLSX as well as CSV? (Owner: Sam/Product; target: end of month)"
 ```
 
 ### Step 4: Sign-off
@@ -406,5 +406,5 @@ After filling all Blocker gaps, the skill confirms: "All Blocker gaps resolved. 
 
 Presents sign-off gate:
 - "Approve" — update status field
-- "Challenge first" — invoke /mine.challenge for deeper critique
+- "Run full challenge" — invoke /mine.challenge for deeper critique
 - "Save and stop" — leave as-is
