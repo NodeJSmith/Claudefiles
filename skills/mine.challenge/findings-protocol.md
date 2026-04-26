@@ -2,8 +2,8 @@
 
 # Findings Protocol
 
-Defines the findings file format produced by challenge and consumed by callers
-(mine.define, mine.gap-close).
+Defines the findings file format produced by challenge and consumed by
+structured callers (mine.define).
 
 ## Findings File Format
 
@@ -28,8 +28,8 @@ Each finding is a top-level section:
 **Design-level:** Yes | No
 **Resolution:** Auto-apply | User-directed
 **Raised-by:** <critic-name>
-**status:** pending | applied | overflow | skipped
-**overflow:** true | false
+**status:** pending | applied | overflow | skipped  <!-- lowercase: runtime-written by synthesis/resolution, not by critics -->
+**overflow:** true | false  <!-- lowercase: runtime-written -->
 
 **Why-it-matters:** <consequence if left unfixed>
 

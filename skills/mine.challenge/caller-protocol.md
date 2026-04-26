@@ -7,15 +7,15 @@ each finding status. Applies to structured callers (mine.define).
 
 ## Invocation
 
+Structured callers (e.g., mine.define):
 ```
-challenge --findings-out=<path> --target-type=<type> --mode=<mode> <target>
+/mine.challenge --findings-out=<path> --target-type=<type> <target>
 ```
 
 | Flag | Values | Meaning |
 |---|---|---|
 | `--findings-out` | absolute path | Where challenge writes the findings file |
-| `--target-type` | `design-doc` \| `code` \| `skill-file` | Guides critic selection |
-| `--mode` | `passthrough` | Present summary only; skip inline resolution. Omit for normal use — mode is derived from `--findings-out` presence |
+| `--target-type` | any value from SKILL.md vocabulary | Guides critic selection |
 
 Challenge returns when all findings are resolved (or overflow). The findings
 file at `--findings-out` is the only output contract.

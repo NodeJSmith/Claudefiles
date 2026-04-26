@@ -395,7 +395,7 @@ After gap-close completes, loop back to the sign-off gate above.
 
 This section handles structured challenge invocations with `--findings-out`. Currently reachable only if a caller explicitly routes here; mine.gap-close's "Run full challenge" invokes challenge standalone instead. Preserved for future re-wiring.
 
-Challenge in structured mode auto-applies confident findings and returns User-directed findings as `status: pending` for mine.define to resolve.
+Challenge in structured mode auto-applies `Auto-apply` findings and returns `User-directed` findings as `status: pending` for mine.define to resolve.
 
 Create a known output path for the findings file:
 
@@ -403,6 +403,7 @@ Create a known output path for the findings file:
 get-skill-tmpdir mine-define-challenge
 ```
 
+<!-- CHALLENGE-CALLER -->
 Then invoke: `/mine.challenge --findings-out=<dir>/challenge-results.md --target-type=design-doc <design-doc-path>`
 
 In structured mode, challenge auto-applies `Auto-apply` findings to the design doc, sets their `status: applied`, and returns without presenting User-directed findings interactively. User-directed findings return as `status: pending`.
