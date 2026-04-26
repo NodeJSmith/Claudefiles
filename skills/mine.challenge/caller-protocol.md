@@ -3,7 +3,7 @@
 # Caller Protocol
 
 Defines how callers invoke challenge, what they receive, and how they handle
-each finding status. Applies to mine.define and mine.gap-close.
+each finding status. Applies to structured callers (mine.define).
 
 ## Invocation
 
@@ -14,7 +14,7 @@ challenge --findings-out=<path> --target-type=<type> --mode=<mode> <target>
 | Flag | Values | Meaning |
 |---|---|---|
 | `--findings-out` | absolute path | Where challenge writes the findings file |
-| `--target-type` | `design-doc` \| `code` \| `skill` | Guides critic selection |
+| `--target-type` | `design-doc` \| `code` \| `skill-file` | Guides critic selection |
 | `--mode` | `passthrough` | Present summary only; skip inline resolution. Omit for normal use — mode is derived from `--findings-out` presence |
 
 Challenge returns when all findings are resolved (or overflow). The findings

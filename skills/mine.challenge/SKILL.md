@@ -1,342 +1,120 @@
 ---
 name: mine.challenge
-description: "Use when the user says: \"challenge this\", \"poke holes in this\", or \"what's wrong with this approach\". Adversarial review with pre-flight analysis, parallel critics (3 generics + 0-2 specialists; 2 on re-challenges). Assumes the target is wrong, finds out why, and argues for a better approach."
+description: "Use when the user says: \"challenge this\", \"poke holes in this\", or \"what's wrong with this approach\". Adversarial review with triage-driven critic selection, parallel critics (1–3 on first run; max 2 on re-challenges). Assumes the target is wrong, finds out why, and argues for a better approach."
 user-invocable: true
 ---
 
 # Challenge
 
-Adversarial review of any artifact — code, specs, designs, briefs, skill files. Assumes the target is wrong and sets out to prove it. Pre-flight analysis catches surface issues and validates architecture before launching critics. Three generic critics run on first challenge; re-challenges use a reduced 2-critic roster. Up to two domain-specialist critics are added based on target type. Findings are cross-referenced for confidence, and every claim must cite evidence.
-
-When invoked by caliper workflow skills (mine.define), the caller handles revision planning after challenge completes. When invoked standalone, challenge resolves findings via `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`.
-
-## How This Differs From Other Skills
-
-| Skill | Stage | Question it answers |
-|-------|-------|-------------------|
-| `mine.grill` | Idea | "Have I thought this through?" |
-| **`mine.challenge`** | **Artifact** | **"Is this approach actually right?"** |
-| `code-reviewer` | Diff | "Is this diff safe to merge?" |
+Adversarial review of any artifact — code, specs, designs, briefs, skill files. Assumes the target is wrong and sets out to prove it. A Haiku triage pass selects 1–3 critics best suited to the target; critics run in parallel and findings are synthesized, classified, and executed inline.
 
 ## Arguments
 
 $ARGUMENTS — optional scope:
 - File/path: `/mine.challenge src/services/user_service.py`
 - Module/concept: `/mine.challenge "the auth module"`
-- Empty: brief recon to find the most suspect design areas, then confirm scope before critiquing
+- Empty: brief recon to find the most suspect design areas, then confirm scope
 
-**Optional arguments**:
-- `--focus="<area>"` — steer critics toward specific concerns (e.g., `--focus="security, error handling"`). Passed to all critics as a priority signal: "Pay special attention to X." Critics still review broadly but weight output toward the user's concern. **Specialist forcing**: to force a specific specialist persona, `--focus` must be a single term (no commas, no spaces) of at least 6 characters that case-insensitively prefix-matches a specialist filename slug (e.g., `--focus="contract"` forces `contract-caller.md`). Multi-word values (e.g., `"design conformance"`) and comma-separated values bypass specialist matching and act as priority signals only.
-- `--target-type=<type>` — override heuristic target-type classification. Callers that know their artifact type should pass this. Values: `code`, `frontend-code`, `spec`, `design-doc`, `brief`, `skill-file`, `agent-file`, `rule`, `docs`, `research`, `other`.
-- `--findings-out=<path>` — (structured callers only) deterministic output path for the findings file. Used by mine.define for reliable handoff. Not needed for standalone or passthrough invocations. **Overwrites** any existing file at the path without warning.
-- `--mode=passthrough` — (passthrough callers only) signals that the calling skill handles post-challenge routing. Challenge provides a summary but skips the Consent Gate. Required for mine.brainstorm and mine.research invocations.
-- `--no-specialists` — skip specialist selection, run only the three generic critics.
+**Optional arguments** (extracted from the beginning of $ARGUMENTS only — stop at first non-flag token):
+- `--focus="<area>"` — steer critics; also forces any specialist whose filename slug prefix-matches (≥6 chars, case-insensitive, single word only)
+- `--target-type=<type>` — override heuristic classification. Values: `code`, `frontend-code`, `spec`, `design-doc`, `brief`, `skill-file`, `agent-file`, `rule`, `docs`, `research`, `other`
+- `--findings-out=<path>` — deterministic output path (structured callers only, e.g., mine.define). Overwrites without warning.
+- `--mode=passthrough` — present summary only; skip inline resolution (mine.brainstorm, mine.research)
+- `--no-specialists` — triage selects from generic personas only
+- `--cap=N` — finding cap (default 7). CRITICAL and HIGH are never capped.
+- `--verbose` — show all findings including overflow
 
 ## How to Analyze
 
-Do NOT run tests, execute builds, install packages, run linters, or write throwaway analysis scripts.
+Do NOT run tests, execute builds, or write throwaway scripts.
 
-DO read directly (Read, Grep, Glob, `git log` / `git diff`). Use WebSearch to look up canonical descriptions of design patterns you recommend, or to cite documented failure modes — a "better approach" backed by a reference is stronger than one asserted without it.
+DO use Read, Grep, Glob, `git log`/`git diff`. Use WebSearch to cite canonical patterns or failure modes.
 
 ## Finding Taxonomy
 
-Every finding gets four contract tags: **severity**, **type**, **design-level**, and **resolution**, plus a **confidence** annotation (presentation-only). TENSION findings add three more: **side-a**, **side-b**, **deciding-factor**.
-
-### Severity (impact-based)
-
-Each critic assigns severity based on consequence — how bad is this if left unfixed?
-
-| Severity | Meaning |
-|----------|---------|
-| **CRITICAL** | Fundamental flaw — the target cannot succeed as designed |
-| **HIGH** | Serious problem — will cause real damage but the target isn't doomed |
-| **MEDIUM** | Valid concern — worth fixing but won't cause failure |
-| **TENSION** | Critics disagree on whether this is even a problem — surface both views for the user to decide |
-
-**TENSION vs. fix disagreement**: TENSION means critics disagree on whether something is a problem at all (one says "this is broken," another says "this is fine"). If critics agree it's a problem but propose different fixes, that's NOT TENSION — use the highest severity and present the differing fixes as options in a User-directed finding.
-
-During synthesis, the **highest severity any critic assigned** is used. Agreement count is recorded on a separate **confidence** line (e.g., `3/5 (Senior + Architect + Data Integrity)` or `1/4 (Senior only)`). This prevents novel findings from being deprioritized just because only one specialist spotted them. The `severity` field must be exactly one of `CRITICAL`, `HIGH`, `MEDIUM`, or `TENSION` — a single token with no parenthetical. Confidence is a separate, non-contract field.
-
-### Type (what kind of problem)
-
-Describes the nature of the finding — what's wrong, not where to fix it.
-
-| Type | Meaning |
-|------|---------|
-| **Structural** | Boundary, coupling, or layering problem — system shape is wrong |
-| **Approach** | The pattern or method is flawed — wrong abstraction, fighting the framework. Sub-tag with timing: `now` (wrong regardless of conditions) or `later` (will become wrong as requirements evolve or scale increases) |
-| **Fragility** | Correct under happy-path conditions, will fail under specific operational stress — concurrency bugs, hidden state, race conditions, resource exhaustion, partial failures. Signals "fix before ship," not "revisit later" |
-| **Gap** | Missing details, unhandled cases, spec holes, undefined behavior |
-
-### Design-level (architectural scope)
-
-Whether this finding is architectural/structural in nature — meaning it would require revisiting how the system was designed, not just how it was implemented. This is about the nature of the finding, not about whether a specific document exists.
-
-| Value | Meaning |
-|-------|---------|
-| **Yes** | Architectural or structural — would require revisiting design decisions |
-| **No** | Implementation-level — addressable during coding without design changes |
-
-### Resolution (does the user need to decide?)
-
-| Resolution | Meaning | How it appears |
-|------------|---------|----------------|
-| **Auto-apply** | One clear fix, localized and additive — safe to apply directly | "Here's the change" — approve or skip |
-| **User-directed** | Multiple valid approaches, OR the fix is large/structural | "Here are the options, here's my recommendation" — you pick |
-
-**Classification rules:**
-- **Auto-apply** requires: (1) critics agree on both problem and fix, AND (2) the fix is localized — edits to a specific section, additive content, or wording changes. Not deletions, restructurings, or section rewrites.
-- **User-directed** when: critics disagree on the fix, OR the fix involves deletion, restructuring, or rewriting a significant section — regardless of critic agreement.
-- **When ambiguous, default to User-directed.** Err toward user input, not silent application.
-
-## Output Contract
-
-The following tag names and values are consumed by calling skills (mine.define) to generate revision plans. Changing these is a **breaking change** — update all callers. The rationalization table (bottom of file) is also a breaking-change surface when rows redefine how severity, type, design-level, or resolution are assigned during synthesis — changes to those rows require the same caller update pass.
-
-- **Contract tag names**: `severity`, `type`, `design-level`, `resolution`
-- **Contract tag names (TENSION only)**: `side-a`, `side-b`, `deciding-factor`
-- **Severity values**: `CRITICAL`, `HIGH`, `MEDIUM`, `TENSION`
-- **Presentation-only fields** (not contract — safe to evolve without updating callers): `raised-by`, `confidence`, `why-it-matters`, `evidence`, `references`, `design-challenge`. These fields are absent in findings files produced before this format version; Phase 4 must render gracefully when they are missing — omit the section rather than rendering an empty block.
-  - `raised-by` values use shortened display names derived from persona file `name:` frontmatter (e.g., "Skeptical Senior Engineer" → "Senior", "Data Integrity Critic" → "Data Integrity"). The mapping table's display names are the canonical short forms. If a future caller begins pattern-matching on `raised-by` values, treat persona name changes as a contract change at that point.
-  - `confidence` format: `N/<total> (<critic names>)` — e.g., `3/5 (Senior + Architect + Data Integrity)`. Total is the number of critics that successfully produced reports. If a critic fails to report, note the missing critic and reduce the denominator.
-  - `why-it-matters`: one sentence describing the consequence if left unfixed. Copied verbatim by synthesis from the contributing critic with the most concrete consequence statement.
-  - `evidence`: comma-separated list of `file:line` citations or section references. For non-code targets (`other`, `spec`, `design-doc`, `rule`, `brief`), may contain section references instead of file:line. Written as `not cited` when no critic provided structured evidence — Phase 4 suppresses the Evidence section when the value is `not cited` or the field is absent.
-  - `references`: comma-separated list of external URLs cited by critics. Phase 4 splits on commas and renders each URL as a bullet. Omitted entirely when no external references were cited.
-  - `design-challenge`: one question that forces the author to justify or rethink the finding.
-- **design-level values**: `Yes` (fix requires editing a design artifact — design doc, including requirements sections such as Goals, Functional Requirements, or Acceptance Criteria), `No` (fix is implementation-only — no document changes needed)
-- **Resolution values**: `Auto-apply`, `User-directed`
-- **Format-version**: `2` — written in the findings file header. Callers should assert this value to detect format mismatches. Absent in pre-enrichment files (version 1). Increment when the findings file format changes in a way that requires callers to adapt or makes pre-existing files unreadable by Phase 4.
-- **Temp dir**: `<tmpdir>` — written in the findings file header. Contract field — used by structured callers to locate `validation-warnings.md` and individual critic reports. Callers that use this path must handle the case where the directory no longer exists (cleaned after 7 days) — treat a missing tmpdir as equivalent to `Warnings: none` and skip the `validation-warnings.md` read.
-- **Findings file**: `<tmpdir>/challenge-results.md`, or `--findings-out` path when provided by structured callers (always written)
-- **Validation warnings**: `<tmpdir>/validation-warnings.md` — written only when validation issues or orphan warnings were detected; absence means a clean run. Structured callers may read this via `Temp dir:` in the findings header to diagnose unexpected confidence denominators.
-
-**Known callers** (update all when contract changes). New structured callers must add a `<!-- CHALLENGE-CALLER -->` comment at their invocation site. To verify this list is complete: `grep -r 'CHALLENGE-CALLER' ${CLAUDE_HOME:-~/.claude}/skills/ --include='*.md' -l`.
-
-Structured callers (read findings file, use manifest flow via `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md`):
-- `skills/mine.define/SKILL.md` — "On 'Challenge first'" section; uses doc-edit manifest flow
-
-Detection callers (scan for severity labels to detect prior analysis, don't read findings file):
-- `skills/mine.build/SKILL.md` — accelerated path detection
-
-Standalone callers (invoke challenge without `--findings-out`; challenge runs full standalone flow including Consent Gate, then returns control to the caller):
-- `skills/mine.grill/SKILL.md` — loops back to its handoff gate after challenge completes
-
-Passthrough callers (invoke challenge standalone, don't consume findings file; challenge provides summary only, no Consent Gate):
-- `skills/mine.research/SKILL.md`
-- `skills/mine.brainstorm/SKILL.md`
-
-Inline-revision callers (invoke `/mine.challenge` inline during a gate, read findings, and revise their own proposal before proceeding — they do not pass `--findings-out`, do not use `--mode=passthrough`, and do not read the findings file programmatically; the LLM reads findings in-context and revises the proposal):
-- `skills/i-adapt/SKILL.md`
-- `skills/i-animate/SKILL.md`
-- `skills/i-bolder/SKILL.md`
-- `skills/i-clarify/SKILL.md`
-- `skills/i-colorize/SKILL.md`
-- `skills/i-delight/SKILL.md`
-- `skills/i-distill/SKILL.md`
-- `skills/i-harden/SKILL.md`
-- `skills/i-layout/SKILL.md`
-- `skills/i-overdrive/SKILL.md`
-- `skills/i-optimize/SKILL.md`
-- `skills/i-polish/SKILL.md`
-- `skills/i-quieter/SKILL.md`
-- `skills/i-typeset/SKILL.md`
-
-Standalone-only target types (no structured caller — findings are presented to the user for manual action):
-- `docs` — no revision skill exists yet. A future `mine.docs-review` caller would consume `--findings-out` like mine.define does for `design-doc` targets.
-
-**Caller guidance for TENSION findings**: Doc-edit callers (mine.define) route TENSION findings to the document's "Open Questions" section via the post-execute hook in `caller-protocol.md` — the Doc target field makes this routing visible and editable in the manifest. See `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md` for the full post-execute hook specification.
-
-## Phase 1: Gather Context
-
-### Parse arguments
-
-Extract optional flags from the **beginning** of `$ARGUMENTS` only. Once a non-flag token is encountered (no `--` prefix), treat all remaining text as the target scope — do not extract flags from within target content. This prevents passthrough callers' inline content from being misinterpreted as flags.
-
-Recognized flags:
-- `--findings-out=<path>` — deterministic output path (structured callers only)
-- `--focus="<area>"` — critic focus steering
-- `--target-type=<type>` — override heuristic classification
-- `--mode=passthrough` — passthrough caller signal (mine.brainstorm, mine.research)
-- `--no-specialists` — skip specialist selection, run generics only
-
-The remainder of `$ARGUMENTS` is the target scope.
-
-**Create temp directory**: Run `get-skill-tmpdir mine-challenge` and note the directory path (e.g., `/tmp/claude-mine-challenge-a8Kx3Q`). This tmpdir is used for critic reports, manifest, validation warnings, and (if `--findings-out` is not present) the findings file.
-
-### If $ARGUMENTS given (after extracting flags)
-
-1. Determine the **input shape**:
-   - **File path or module name**: read the targeted file(s) fully
-   - **List file** (`.txt` or `.list` extension): read its contents as a newline-separated list of file paths (absolute or relative — resolve relative paths from the current working directory). Skip blank lines and lines starting with `#`. If a listed file does not exist, record a warning to `<tmpdir>/validation-warnings.md` and skip it — do not halt.
-   - **Inline content** (multiple sentences or structured markdown): treat the argument text as the target to analyze directly — do not attempt to read it as a file. This happens when passthrough callers (mine.research, mine.brainstorm) pass content instead of a path.
-
-2. **Classify the target type** — if `--target-type` was provided, use it directly. Otherwise, use heuristics. This classification is passed to critics in Phase 2:
-
-   | Target type | Detected by | What critics focus on |
-   |-------------|-------------|----------------------|
-   | `code` | `.py`, `.go`, `.rs`, `.java`, `.ts`, `.js`, or other implementation files; use this for backend/server-side TypeScript or JavaScript, and for repo-wide or mixed frontend+backend scopes. For ambiguous `.ts`/`.js`, default to `code` unless frontend-specific signals are present. | Runtime failures, coupling, security, error handling |
-   | `frontend-code` | `.tsx`, `.jsx`, `.vue`, `.svelte`, `.astro`, or directories named `components/`, `pages/`, `hooks/` — frontend-specific code. For ambiguous extensions (`.ts`, `.js`), classify as `frontend-code` only when UI framework imports (React, Vue, Svelte, Solid, Qwik, Lit, Angular, etc.), DOM APIs (`document`, `window`), or `package.json` frontend framework dependencies are present. In full-stack apps, targets scoped to clearly frontend directories such as `frontend/` or `src/components/` classify as `frontend-code`; targeting the whole repo or any mixed frontend+backend scope classifies as `code`. | Client-side performance, component architecture, data fetching, accessibility, CSS architecture (in addition to generic concerns) |
-   | `spec` | Standalone requirement docs outside the caliper workflow (caliper design.md files use `design-doc` even when they contain requirements sections) | Completeness, testability, internal consistency, scope gaps |
-   | `design-doc` | `design.md` or content with architecture/API contracts | Feasibility, missing alternatives, boundary correctness |
-   | `brief` | `brief.md` or content from grill/brainstorm | Framing validity, assumption quality, scope coherence |
-   | `skill-file` | `SKILL.md` or content with phases/persona definitions | LLM behavior assumptions, prompt ambiguity, contract fragility, caller compatibility |
-   | `agent-file` | Files in `agents/` directory or `.md` with agent frontmatter (name, description, tools) | Identity bloat, missing conventions, filler sections, scope overlap, executor compatibility |
-   | `docs` | `README.md` or `.md` files in a `docs/` directory | Technical accuracy of code samples and commands, API reference validity, version currency, consistency between docs and codebase |
-   | `research` | `research.md` or research artifacts/investigation output | Conclusion validity, exploration completeness, confirmation bias |
-   | `rule` | Files in `rules/` directory or `.md` files defining conventions, guidelines, or behavioral contracts (coding style, git workflow, testing policy, agent orchestration, etc.) | Rule clarity and enforceability, interaction with other rules, downstream impact on skills/agents that consume the rule, ambiguity that leads to inconsistent compliance |
-   | `other` | No type matches above | Correctness, assumption validity, internal consistency — critics use their general focus without type-specific narrowing |
-
-3. **Gather context** based on target type:
-   - **Code** / **Frontend-code**: grep for call sites and dependencies — understand what uses this code and what it uses. For `frontend-code`, also read `package.json` (framework, dependencies), and if present, the design tokens file (varies by project: `tailwind.config.*`, `theme.ts`, `tokens.*`, `variables.css`) and the API client/fetch layer to understand the data contract with the backend.
-   - **Document** (spec, design-doc, brief, research): read related codebase files the document references, and any adjacent artifacts in the same feature directory
-   - **Docs**: read sibling docs in the same directory or docs/ tree to understand the documentation set as a whole. If the doc references code, commands, or config, verify those exist and read the referenced sections to check for interface drift — confirm the current behavior matches what the doc describes.
-   - **Skill file**: read all callers listed in the file, grep for additional references across the codebase
-   - **Agent file**: read 2-3 gold-standard agents for structural comparison (`engineering-backend-developer.md`, `engineering-data-engineer.md`, `engineering-frontend-developer.md`), check routing tables (`rules/common/agents.md`, `skills/mine.orchestrate/SKILL.md`) for how the agent is dispatched, and grep for the agent name across skills/rules to find all references
-   - **Rule**: read sibling rules in the same directory to check for overlaps, contradictions, or gaps. Grep for the rule's key terms across skills, agents, and other rules to find all consumers. If the rule references specific tools, commands, or patterns, verify they exist.
-4. Note what problem the target ostensibly solves
-
-### Pre-Flight Analysis
-
-Run all three stages before proceeding to Specialist Selection. This sub-phase adds zero subagent invocations — all analysis happens in the orchestrator's context using the target content already read above.
-
-#### Stage 1: Surface Issue Scan
-
-Scan the target for surface issues using target-type-aware heuristics:
-
-| Target type | Surface issue heuristics |
-|-------------|--------------------------|
-| `design-doc`, `spec` | Implicit promises contradicted by other sections; vague scope references ("update all of X"); undefined terms used in requirements; acceptance criteria that aren't testable; internal contradictions between sections |
-| `skill-file` | Phase references that don't exist; tool names that don't match available tools; instructions that contradict earlier instructions; undefined variables or placeholders |
-| `code` | Functions contradicting their signatures/docstrings; obvious dead code paths; parameters accepted but never used; return values that don't match declared types |
-| `frontend-code` | Same as `code`, plus: components accepting props they don't render; event handlers that don't match element types |
-| `brief`, `research` | Claims without supporting evidence; conclusions that don't follow from the analysis; scope statements contradicted by content |
-| `rule` | Rules that contradict each other; references to tools or patterns that don't exist; ambiguity in when/where the rule applies |
-| `agent-file`, `docs`, `other` | Internal contradictions; undefined references; vague or unmeasurable criteria |
-
-**If no issues are found**: proceed silently to Stage 2 — do not prompt the user.
-
-**If issues are found**: present them via AskUserQuestion before applying any fixes:
-
-```
-AskUserQuestion:
-  question: "Pre-flight found N surface issues in <target>:\n\n1. <issue description>\n2. <issue description>\n...\n\nFix these before launching critics?"
-  header: "Pre-flight"
-  options:
-    - label: "Fix all"
-      description: "Apply all fixes and proceed to critics"
-    - label: "Show me each fix"
-      description: "Walk through each fix individually before applying"
-    - label: "Skip fixes"
-      description: "Proceed to critics without fixing — issues will be noted in critic briefing"
-```
-
-For multi-file targets (module scopes or list files), apply the surface scan per-file but present all issues across all files in a single AskUserQuestion. Fixes are applied to each file individually.
-
-- **"Fix all"**: apply all fixes to the target file(s), then re-read the modified content.
-- **"Show me each fix"**: present each fix sequentially. For each fix, show the issue description with before/after text and ask:
-
-  ```
-  AskUserQuestion:
-    question: "Fix <N> of <total>: <issue description>"
-    header: "Fix <N>/<total>"
-    multiSelect: false
-    options:
-      - label: "Accept"
-        description: "Apply this fix"
-        preview: |
-          Before:
-          <before text>
-
-          After:
-          <after text>
-      - label: "Skip this one"
-        description: "Leave this issue as-is"
-  ```
-
-  Apply accepted fixes, skip declined ones. After all fixes are presented, re-read the modified content.
-
-- **"Skip fixes"**: proceed without modifying the target. Note unfixed issues in Stage 3 as known issues to deprioritize (see "Known Surface Issues" in the briefing template below).
-
-**Edge case — inline content targets**: When the target was passed as inline text (passthrough callers like mine.research, mine.brainstorm), the orchestrator cannot edit the target. Do not present the Fix all / Show me each fix / Skip options. Instead, note the issues for injection into the Stage 3 briefing as "Pre-Flight Notes" (see briefing template below) and proceed silently.
-
-**After fixes are applied** ("Fix all" or "Show me each fix" with at least one accepted fix), re-read the modified target content before proceeding to Stage 2. Stage 2 must operate on the post-fix version. If no fixes were applied ("Skip fixes", "Show me each fix" with all declined, or no issues found), proceed directly to Stage 2 without re-reading.
-
-#### Stage 2: Architecture Smell Test
-
-Evaluate whether the target's overall approach is sound before spending on critics.
-
-**Guiding question**: "Would critics all point to the same root cause regardless of which individual findings they raise?" If yes, there is a fundamental architectural concern that should be surfaced before critics run.
-
-Check for:
-- Internal inconsistency in the proposed approach
-- Circular dependencies or impossible constraints
-- Disconnect between stated motivation and proposed solution
-- Scope that tries to do too many things at once
-
-**Be over-sensitive, not under-sensitive** — present any concern and let the user decide. It is better to surface a concern the user dismisses than to miss one that wastes a full critic round.
-
-**If no concerns are detected**: proceed silently to Stage 3 — do not prompt the user.
-
-**If a concern is detected**: present it via AskUserQuestion:
-
-```
-AskUserQuestion:
-  question: "Architecture concern: <description of the concern>\n\n<why this matters>\n\nThis may mean critics will produce many findings that all point to the same root cause."
-  header: "Arch check"
-  options:
-    - label: "Proceed anyway"
-      description: "Launch critics — the concern may not be as fundamental as it seems"
-    - label: "Let me rethink"
-      description: "Stop here — I'll revise the approach before challenging"
-```
-
-- **"Let me rethink"**: stop the challenge and return control to the user.
-- **"Proceed anyway"**: note the concern in the Stage 3 briefing and continue.
-
-#### Stage 3: Critic Briefing Generation
-
-Always generate a structured briefing block for Phase 2. At minimum, the briefing contains the `### Review Focus` section (which applies to all target types). The `### Problem Context` section is added only for `design-doc` and `spec` targets. Store the briefing in context — Phase 2 injects it into each critic's prompt after their persona and before the target content.
-
-```markdown
-## Critic Briefing
-
-<!-- Include this Problem Context block ONLY for design-doc and spec targets. Omit entirely for code, skill-file, rule, agent-file, brief, research, docs, and other targets. For non-design-doc/spec targets, critics read the file and infer purpose directly — extracting structured context from targets without Problem/Goals headings risks hallucination. -->
-### Problem Context
-This work exists because: <extracted from the target's Problem/Motivation section>
-What's in scope: <extracted from Goals/Scope>
-What's out of scope: <extracted from Non-Goals, if present>
-Decisions already locked: <key architectural decisions stated as decided, not open>
-
-### Review Focus
-Focus on architectural soundness, design coherence, and implementation feasibility. Do not flag:
-- Document formatting, wording, or style issues
-- Surface-level consistency issues (ambiguity, implicit promises, vague references) that were addressed in pre-flight, or that are listed under Known Surface Issues / Pre-Flight Notes below
-- Whether the stated problem is worth solving — that decision is made
-
-<!-- Include this section ONLY if the user chose "Skip fixes" and surface issues remain unfixed. -->
-### Known Surface Issues (deprioritize)
-The following issues were identified and the user chose not to fix them. Do not re-flag these:
-- <issue 1>
-- <issue 2>
-
-<!-- Include this section ONLY for inline content targets where surface issues were found but could not be fixed. -->
-### Pre-Flight Notes
-The following issues were identified but could not be fixed (inline content target). Weigh them as you would any other concern:
-- <issue 1>
-- <issue 2>
-```
-
-**Briefing construction rules**:
-- The `Problem Context` block is included **only for `design-doc` and `spec` targets**. For all other target types, omit it entirely — the `Review Focus` section alone provides sufficient steering.
-- The `Known Surface Issues` section is included **when any surface issues remain unfixed after Stage 1** — whether because the user chose "Skip fixes" or declined individual fixes in "Show me each fix".
-- The `Pre-Flight Notes` section is included **only for inline content targets** where surface issues were found but could not be fixed.
-- If neither conditional section applies, omit both. The briefing contains only `Problem Context` (if applicable) and `Review Focus`.
-- If Stage 2 detected an architectural concern and the user chose "Proceed anyway", append a brief note to the `Review Focus` section: "Note: a potential architectural concern was identified before critics launched — <one sentence description>. Be attentive to whether this concern materializes in your findings."
-
-### If empty
-
-1. Quick recon: directory structure, recently changed files (`git log -n 10 --diff-filter=M --name-only --format= | sort -u`), largest files
-2. Use `AskUserQuestion` to confirm the focus area before proceeding:
+Every finding gets: **severity** (CRITICAL / HIGH / MEDIUM / TENSION), **type** (Structural / Approach-now / Approach-later / Fragility / Gap), **design-level** (Yes / No), **resolution** (Auto-apply / User-directed).
+
+See `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md` for classification criteria, status/overflow fields, and the inline resolution flow.
+
+## Phase 1: Triage
+
+### Parse arguments and create tmpdir
+
+Extract flags from $ARGUMENTS. Run `get-skill-tmpdir mine-challenge` — note the directory (e.g., `/tmp/claude-mine-challenge-a8Kx3Q`). All intermediate files live here.
+
+### Read target and classify type
+
+Determine the input shape and read the target:
+- **File path**: read the file(s) fully
+- **List file** (`.txt`/`.list`): read as newline-separated paths; skip blank/comment lines; record missing files to `<tmpdir>/validation-warnings.md`
+- **Inline content** (multi-sentence markdown): treat as target text directly
+
+Classify target type — use `--target-type` if provided, otherwise:
+
+| Target type | Detected by |
+|-------------|-------------|
+| `code` | `.py`, `.go`, `.rs`, `.java`, `.ts`, `.js` (backend); mixed/repo-wide scope |
+| `frontend-code` | `.tsx`, `.jsx`, `.vue`, `.svelte`, `.astro`; UI framework imports; dirs named `components/`, `pages/`, `hooks/` |
+| `spec` | Standalone requirement docs outside caliper workflow |
+| `design-doc` | `design.md`; architecture/API contract content |
+| `brief` | `brief.md`; grill/brainstorm output |
+| `skill-file` | `SKILL.md`; phases/persona definitions |
+| `agent-file` | Files in `agents/`; `.md` with agent frontmatter |
+| `docs` | `README.md`; `.md` in `docs/` directories |
+| `research` | `research.md`; investigation output |
+| `rule` | Files in `rules/`; convention/guideline definitions |
+| `other` | Nothing matches |
+
+### Re-challenge detection
+
+Check for a prior challenge run before dispatching triage:
+1. If `--findings-out` provided: check whether that file exists and starts with `# Challenge Findings` + `**Format-version:**`. If yes → re-challenge.
+2. Otherwise: look for `challenge-results*.md` or `challenge-findings*.md` in the target's directory with the same validation check.
+3. Fallback: if conversation context shows a prior challenge against this target → re-challenge.
+
+Note re-challenge status in context for Phase 2 critic selection.
+
+### Dispatch Haiku triage subagent
+
+**Dispatch a single triage subagent** (`model: haiku`, `subagent_type: general-purpose`). Pass:
+- Full target content (or file paths to read)
+- Target type classification
+- Re-challenge flag (`yes` / `no`)
+- `--focus` value if provided
+- `--no-specialists` flag if provided
+- The persona catalog (name + one-line description from each frontmatter):
+
+**Generics:**
+- `senior-engineer.md` — Skeptical Senior Engineer: runtime risks, edge cases, security, operational blindness
+- `systems-architect.md` — Systems Architect: abstraction violations, change amplification, data model problems
+- `adversarial-reviewer.md` — Adversarial Reviewer: wrong solution entirely, UX failures, "should this exist?"
+
+**Specialists:**
+- `agent-definition.md` — Agent Definition Critic: agent file quality, executor compatibility, scope leakage
+- `contract-caller.md` — Contract & Caller Critic: output schema fragility, breaking change surface, implicit contracts
+- `data-integrity.md` — Data Integrity Critic: transaction safety, partial writes, cache/source-of-truth divergence
+- `documentation-architect.md` — Documentation Architect Critic: doc set structure, mode confusion, findability gaps
+- `end-user-reader.md` — End-User Reader Critic: assumed prerequisites, missing steps, error path silence
+- `operational-resilience.md` — Operational Resilience Critic: resource exhaustion, upstream failures, recovery behavior
+- `web-platform.md` — Web Platform Critic: re-renders, data fetching patterns, accessibility, CSS architecture
+- `workflow-ux.md` — Workflow & UX Critic: phase transitions, unhelpful defaults, unnecessary friction
+
+**Triage subagent instructions:** Return a JSON block with:
+- `critics`: array of 1–3 persona filenames (e.g., `["senior-engineer.md", "contract-caller.md"]`)
+- `rationale`: object mapping each filename to a one-sentence reason for selection
+- `target_summary`: one sentence describing what the target does
+
+**Triage rules:**
+- If `--no-specialists`: select only from generics
+- If `--focus` is a single word ≥6 chars that prefix-matches a specialist slug: always include that specialist
+- If re-challenge (`yes`): select max 2 critics total
+- Otherwise: select 1–3 critics; include at least one generic unless the target is highly specialized
+
+Write triage JSON to `<tmpdir>/triage.md`. Parse the result in the orchestrator context.
+
+### If empty $ARGUMENTS
+
+Quick recon: directory structure, recently modified files (`git log -n 10 --diff-filter=M --name-only --format=`), largest files. Then:
 
 ```
 AskUserQuestion:
@@ -345,400 +123,124 @@ AskUserQuestion:
   multiSelect: false
   options:
     - label: "<area 1>"
-      description: "<brief observation about why it looks suspect>"
+      description: "<why it looks suspect>"
     - label: "<area 2>"
-      description: "<brief observation>"
+      description: "<why it looks suspect>"
     - label: "Let me specify"
       description: "I'll tell you exactly what to look at"
 ```
 
-### Re-Challenge Detection
+## Phase 2: Critique
 
-Determine whether this is a re-challenge run before proceeding to Specialist Selection. The result is written to the manifest at the end of Phase 1 — this persists the detection result before any compaction window.
+### Read selected persona files
 
-**Primary signal — on-disk artifact check** (always check this first):
+For each persona filename from triage, resolve to the full path by searching `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/personas/generic/` then `personas/specialist/`. Verify each file has `name` and `type` in frontmatter and a non-empty body. Record validation issues to `<tmpdir>/validation-warnings.md` and exclude invalid files.
 
-1. If `--findings-out` was provided: check whether a file already exists at that path. If it does, validate it looks like a prior challenge findings file (starts with `# Challenge Findings` and contains `Format-version:`). If valid, this is a re-challenge. If the file is missing or doesn't look like a findings file, treat as first run.
-2. If `--findings-out` was not provided: check the feature directory — the directory containing the target file. Look for any file matching `challenge-results*.md` or `challenge-findings*.md`. If found, validate at least one starts with `# Challenge Findings` and contains `Format-version:`. If valid, this is a re-challenge. For inline content targets (passthrough callers), the on-disk check cannot be tied to a specific file — skip the primary signal and fall through to the secondary signal.
+If the generic persona directory is missing or empty, stop with: "Cannot launch critics — persona files not found at `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/personas/generic/`. Run `uv run install.py`."
 
-**Secondary signal — conversation context** (use only if the primary signal is inconclusive): if the primary signal found nothing but the current conversation context contains a prior challenge run against the same target, treat this as a re-challenge. Conversation context is secondary because it is lost to compaction — the on-disk check is always more reliable.
+### Dispatch critics in parallel
 
-**If re-challenge is detected**: set the re-challenge flag to `yes`. Proceed to Specialist Selection (which will be skipped — see below).
+**Issue ALL critic Agent tool calls in a single response message.** Each uses `model: sonnet`, `subagent_type: general-purpose`, NOT `run_in_background`. Each critic receives:
+- Target content (file paths to read, or inline text)
+- Target type and `target_summary` from triage
+- Full persona content (Persona, Characteristic question, Focus bullets)
+- Triage rationale for why this critic was selected
+- Focus instruction if `--focus` was provided: "The user is specifically concerned about: <focus>. Weight your analysis toward this concern."
+- If re-challenge: "This is a re-challenge after fixes were applied. Focus on: (1) whether the fixes were thorough, (2) whether fixes introduced new problems, (3) issues missed in the first round."
+- Output path: `<tmpdir>/<persona-slug>-report.md`
+- Critic rules:
+  1. **Cite evidence for every claim** — `file:line` for codebase claims; canonical URL for external patterns
+  2. **Name the problem directly** — no hedging
+  3. **Propose a fix**: `Resolution: Auto-apply | User-directed` + one-sentence fix or options
+  4. **Tag each finding**: severity (CRITICAL/HIGH/MEDIUM/TENSION), type, design-level
+  5. **Structure each finding**: `**Why it matters**`, `**Evidence**`, `**References**` (if any), `**Design challenge**`
+  6. **Include a Pushback section**: findings you anticipate other critics raising that you'd disagree with
+  7. **Read beyond provided files**: use Read, Grep, Glob; include **Files examined** at top of report
 
-**If no re-challenge is detected**: set the re-challenge flag to `no`. Proceed to Specialist Selection normally.
+After all critics complete, verify each output file exists and has ≥500 bytes. Record undersized/missing files to `<tmpdir>/validation-warnings.md`.
 
-### Specialist Selection
+## Phase 3: Synthesize + Classify
 
-After classifying the target type, select specialist personas to augment the three generic critics. Specialists provide domain-specific focus that generics are blind to.
-
-**If `--no-specialists` was passed**, skip this section entirely — only generics run.
-
-**If re-challenge was detected** (re-challenge flag is `yes`): skip this section entirely — the absence of specialist entries in the manifest encodes this state for Phase 4. Only the two generic critics (Senior Engineer + Adversarial Reviewer) will run — see Phase 2 for the reduced roster.
-
-**Enumerate specialists**: Run `Glob ~/.claude/skills/mine.challenge/personas/specialist/*.md` to discover all specialist persona files on disk. This Glob runs unconditionally (regardless of target type or `--focus`) and its results are used for orphan detection, `--focus` matching, and cross-referencing the mapping table. If the Glob returns zero results (e.g., symlink not yet installed), record a warning to `<tmpdir>/validation-warnings.md`: "`specialist directory not found or empty at ~/.claude/skills/mine.challenge/personas/specialist/`" and proceed with generics only.
-
-**Orphan detection**: Compare the Glob results against the specialist filenames referenced in the mapping table below. If any specialist file exists on disk but is not referenced by any row in the table, record a warning: "Specialist [filename] exists but is not mapped to any target type in the specialist selection table — it will never auto-activate. Add it to the table or use `--focus` to force it."
-
-**Target-type → specialist mapping**:
-
-| Target type | Specialist personas (display name → filename) |
-|-------------|-------------------|
-| `code` | Data Integrity (`data-integrity.md`) + Operational Resilience (`operational-resilience.md`) |
-| `frontend-code` | Web Platform (`web-platform.md`) + Operational Resilience (`operational-resilience.md`) |
-| `skill-file` | Contract & Caller (`contract-caller.md`) + Workflow & UX (`workflow-ux.md`) |
-| `agent-file` | Agent Definition (`agent-definition.md`) |
-| `design-doc` | Contract & Caller (`contract-caller.md`) + Operational Resilience (`operational-resilience.md`) |
-| `spec` | Workflow & UX (`workflow-ux.md`) |
-| `docs` | End-User Reader (`end-user-reader.md`) + Documentation Architect (`documentation-architect.md`) |
-| `rule` | Contract & Caller (`contract-caller.md`) + Workflow & UX (`workflow-ux.md`) |
-| `brief` | Workflow & UX (`workflow-ux.md`) |
-| `research` | _(none — generics only)_ |
-| `other` | _(none — generics only)_ |
-
-**`--focus` override**: If `--focus` was provided:
-
-1. If `--focus` contains a comma (multiple areas), skip specialist matching entirely — treat `--focus` as a priority signal only and proceed with preset selection from the table.
-2. Match the `--focus` value against the Glob results (from the enumerate step above) using case-insensitive prefix matching on the filename slug (without `.md`) with a **minimum 6-character prefix** (e.g., `--focus="operat"` matches `operational-resilience.md`, but `--focus="data"` does not — too short). Any specialist file in the directory can be forced this way.
-3. Record the initial specialist selection from the mapping table as `[initial-specialists]`.
-4. If a match is found and not already in the preset selection, add it. Capped at 2 specialists total (5 total critics is the practical limit for synthesis quality). If the cap is already full from the preset, the focus specialist replaces the second preset default. Record the final selection as `[final-specialists]`.
-5. **Only if a substitution occurred** (a preset specialist was replaced): Write `<tmpdir>/focus-substitution.md` with a single line: "Note: [focus specialist] ran in place of [dropped specialist] due to --focus override (2-specialist cap)." The dropped specialist is the set difference: `[initial-specialists]` minus `[final-specialists]`. Phase 4 reads this file for the announcement (see Phase 4 Specialist announcement section). If no substitution occurred (focus specialist was simply added, or no match was found), do not write this file.
-6. **If `--focus` was provided and no specialist match occurred** (value was multi-word, comma-separated, below 6-char minimum, or matched no slug) and `--no-specialists` was not passed: record a warning to `<tmpdir>/validation-warnings.md`: "Focus value `<value>` did not match any specialist — proceeding with preset specialists only."
-
-### Write session manifest
-
-**Write `<tmpdir>/manifest.md` now**, at the end of Phase 1, before Phase 2 begins. Writing it here persists all session metadata before the critic dispatch window, making all phase transitions compaction-safe. The critic file list is left empty at this stage — Phase 2 appends it after persona files are read and the roster is finalized.
-
-Format — comment lines are session metadata; the critic file list is appended by Phase 2:
-
-```
-# target-type: skill-file
-# mode: structured | standalone | passthrough
-# findings-out: <path> | default
-# focus: <area> | none
-# target: <absolute path or scope description>
-# rechallenge: yes | no
-```
-
-**Field definitions**:
-- `mode`: `structured` when `--findings-out` is present; `passthrough` when `--mode=passthrough` is passed; `standalone` otherwise (includes direct user invocations and standalone callers like mine.grill that want the full Consent Gate flow).
-- `findings-out`: the `--findings-out` path if provided, or `default` (meaning `<tmpdir>/challenge-results.md`).
-- `focus`: the `--focus` value if provided, or `none`.
-- `target`: the target scope — use the absolute path when the target is a file; use the scope description when inline content.
-- `rechallenge`: `yes` if re-challenge was detected in the Re-Challenge Detection step above; `no` otherwise.
-
-This decouples all session metadata from LLM context memory. Phase 2 appends the critic file list once the roster is finalized. Phase 3 reads the manifest for the critic list; Phase 4 reads it for target type, specialist list, mode, and re-challenge status.
-
-## Phase 2: Launch Critics
-
-### Read persona files
-
-**Pre-flight check**: Before reading persona files, verify the generic persona directory exists at `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/personas/generic/`. If the directory is missing or empty, stop with: "Cannot launch critics — persona files not found at `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/personas/generic/`. Run `uv run install.py` to symlink skills into your Claude config directory."
-
-**Re-challenge roster reduction**: Read `# rechallenge:` from `<tmpdir>/manifest.md`. If the value is `yes`, use only 2 generic critics:
-- `senior-engineer.md`
-- `adversarial-reviewer.md`
-
-Do NOT read `systems-architect.md` on re-challenges. Do NOT read any specialist files on re-challenges — the specialist list from Phase 1 is ignored entirely.
-
-**Re-challenge briefing (re-challenge runs only)**: When building each critic's prompt, include a `### Re-Challenge Focus` subsection after any `## Critic Briefing` content from Phase 1 Stage 3 (if one was generated), or as a standalone `## Critic Briefing` block (if Stage 3 produced no briefing). The subsection text: "This is a re-challenge after fixes were applied. Focus on: (1) whether the fixes were thorough and complete, (2) whether fixes introduced new problems, (3) any issues that were missed in the first round."
-
-**Standard roster** (re-challenge is `no`): read all 3 generic persona files from `~/.claude/skills/mine.challenge/personas/generic/`:
-- `senior-engineer.md`
-- `systems-architect.md`
-- `adversarial-reviewer.md`
-
-If specialists were selected, read the corresponding files from `~/.claude/skills/mine.challenge/personas/specialist/` (e.g., `data-integrity.md`, `contract-caller.md`).
-
-**Validate**: After reading each persona file, verify it has `name` and `type` in its YAML frontmatter, and the body contains at least one of "Persona", "Characteristic question", or "Focus". If a file is missing, has malformed frontmatter, or has an empty body, record the issue to `<tmpdir>/validation-warnings.md` and exclude it from the run.
-
-**Warning persistence**: Write all validation issues and orphan warnings (from Phase 1 and this step) to `<tmpdir>/validation-warnings.md` (create the file only if there are warnings). This ensures warnings survive as a persistent artifact regardless of whether mine.challenge is running standalone or as a subagent.
-
-### Launch all critics in parallel
-
-Subagents write their reports inside this directory:
-- Generic critics: `<tmpdir>/senior.md`, `<tmpdir>/architect.md`, `<tmpdir>/adversarial.md`
-- Specialist critics: `<tmpdir>/<slug>.md` matching the persona filename (e.g., `<tmpdir>/data-integrity.md`, `<tmpdir>/contract-caller.md`)
-
-**CRITICAL: Issue ALL Agent tool calls in a single response message. Each call must use `subagent_type: general-purpose`, `model: sonnet`, and must NOT set `run_in_background`.** On standard runs this is 3-5 critics; on re-challenges this is exactly 2 critics (`senior-engineer.md` and `adversarial-reviewer.md`). Foreground agents in the same message run concurrently. Background agents cannot request permissions and cannot spawn their own subagents — both are required here. Each critic receives:
-- The target under review (file paths to read — pass full file paths, not excerpts; or inline content if the target was passed as text). For `docs` targets: also pass all sibling doc paths discovered in Phase 1 to the Documentation Architect specialist, so it can evaluate the documentation set as a whole. If no siblings were found, explicitly state: "No sibling docs were found — apply the single-file scope note from your persona."
-- The **target type** from Phase 1 classification (e.g., "This is a `spec` target — focus on requirement completeness, testability, and internal consistency")
-- Their persona and focus lens (from the persona file read above — include the full body text: Persona, Characteristic question, and Focus bullets)
-- Critic briefing (if generated): the full `## Critic Briefing` block, including any `### Re-Challenge Focus` subsection appended during roster reduction. Omit this bullet entirely only when no briefing was generated and this is a standard (non-re-challenge) run.
-- If `--focus` was provided: "The user is specifically concerned about: <focus area>. Weight your analysis toward this concern."
-- The path to write their report to
-- These rules:
-  1. **Cite evidence for every claim** — no vague assertions:
-     - For claims about this codebase, cite `file:line` for each point.
-     - For external best practices, patterns, or failure modes, cite a canonical URL (via WebSearch).
-  2. **Name the problem directly** — no hedging, no "this could potentially be improved"
-  3. **Propose a fix** using this structure (required for every finding). Anchor option descriptions to the finding's problem name for reliable cross-critic matching:
-     ```
-     **Proposed fix**:
-     - Resolution: Auto-apply | User-directed
-     - If Auto-apply: [one-sentence description of the specific change]
-     - If User-directed: [Option A — Option B — key tradeoff between them]
-     ```
-  4. **Tag each finding** with severity (CRITICAL / HIGH / MEDIUM), type (Structural / Approach-now / Approach-later / Fragility / Gap), and design-level (Yes / No). Assign severity based on impact — how bad is this if left unfixed? **design-level** means "requires a change to a design artifact (spec, design doc) rather than only to implementation code." If the fix is editing spec text, acceptance criteria, requirements, architecture descriptions, or any other document content — that's `Yes`. If the fix is purely about how code is written and doesn't change any document — that's `No`.
-  5. **Structure each finding with these required sections** (synthesis copies these directly — produce them as discrete, labeled sections, not embedded in prose):
-     ```
-     **Why it matters**: [One sentence — the concrete consequence if this is left unfixed]
-     **Evidence**:
-     - [file:line only — no prose annotations. For non-code targets, use section references instead]
-     **References** (include only if you found external sources):
-     - [URL — canonical doc, RFC, or pattern description that supports this critique]
-     **Design challenge**: [One question that forces the author to justify or reconsider]
-     ```
-  6. **Include a "Pushback" section** at the end of your report. For each finding raised by other critics (you won't see their reports, but anticipate likely concerns from the other critics), note any you would disagree with and why. If you think something another critic is likely to flag is actually fine, say so explicitly — e.g., "The coupling here is intentional because X." This gives synthesis the raw material to produce TENSION findings.
-  7. **Read beyond the provided files** — you have Read, Grep, and Glob access. Before writing your report, grep for call sites of the primary module/function under review and read at least two of them. Include a **Files examined** section at the top of your report listing every file you read. Don't limit your critique to what was handed to you.
-
-Each critic writes their full, unfiltered findings to their temp file. These files persist for the session so the user can read any individual critic's reasoning after the skill completes.
-
-### Persona assignment
-
-Each critic's identity and focus lens comes from the persona file read above. Pass the full body text (Persona, Characteristic question, Focus bullets) as part of the subagent prompt. The generic critics are:
-
-- **senior-engineer.md** → writes to `<tmpdir>/senior.md`
-- **systems-architect.md** → writes to `<tmpdir>/architect.md` (standard runs only — not launched on re-challenges)
-- **adversarial-reviewer.md** → writes to `<tmpdir>/adversarial.md`
-
-On re-challenges, only `senior.md` and `adversarial.md` are written. `architect.md` is not created.
-
-Specialist critics (when selected) use their filename slug as the output name:
-
-- **contract-caller.md** → writes to `<tmpdir>/contract-caller.md`
-- **data-integrity.md** → writes to `<tmpdir>/data-integrity.md`
-- **operational-resilience.md** → writes to `<tmpdir>/operational-resilience.md`
-- **workflow-ux.md** → writes to `<tmpdir>/workflow-ux.md`
-- **end-user-reader.md** → writes to `<tmpdir>/end-user-reader.md`
-- **agent-definition.md** → writes to `<tmpdir>/agent-definition.md`
-- **documentation-architect.md** → writes to `<tmpdir>/documentation-architect.md`
-- **web-platform.md** → writes to `<tmpdir>/web-platform.md`
-
-### Update manifest with critic file list
-
-**Append the critic report filenames to `<tmpdir>/manifest.md`** — read the existing manifest (written in Phase 1 with the comment-line metadata), then append the critic file list. The comment-line metadata (`# target-type:`, `# mode:`, `# findings-out:`, `# focus:`, `# target:`, `# rechallenge:`) is already present from Phase 1; do not re-write those lines.
-
-Append only the critic filenames (generics first, then specialists). The resulting manifest will have the comment-line metadata from Phase 1 followed by these lines:
-
-```
-senior.md
-architect.md
-adversarial.md
-<specialist-slug>.md
-<specialist-slug>.md
-```
-
-List only the critics that will be launched. On re-challenges (where `# rechallenge: yes`), list only `senior.md` and `adversarial.md` — no `architect.md` and no specialist entries. Specialist entries use the filename slugs selected in Phase 1.
-
-Specialists are identified by Phase 3 and Phase 4 as entries not in the known-generic set (`senior.md`, `architect.md`, `adversarial.md`).
-
-### Validate critic reports
-
-After all critic subagents complete, verify each file listed in the manifest exists and has substantive content (at least 500 bytes). For missing or undersized files, record a warning to `<tmpdir>/validation-warnings.md`: "Critic [name] report is missing or suspiciously small ([N] bytes) — findings from this critic may be incomplete." Missing files reduce the confidence denominator; undersized-but-present files are warned but still counted.
-
-**On re-challenges**: the expected critic count is 2 (Senior Engineer + Adversarial Reviewer), so the confidence denominator is 2 — not 3 or higher. Do not flag a denominator of 2 as a warning; it is the expected count for re-challenge runs.
-
-## Phase 3: Synthesize
-
-**Dispatch synthesis as a separate `general-purpose` subagent (`model: sonnet`)** to give it fresh context. The orchestrating context has already consumed the full SKILL.md, persona files, target content, and subagent launch — synthesis quality degrades if it runs in that loaded context. The synthesis subagent receives clean context and better reasoning for cross-critic conflict detection, TENSION identification, and severity escalation.
+**Dispatch synthesis as a separate subagent** (`model: sonnet`, `subagent_type: general-purpose`) for fresh context.
 
 The synthesis subagent receives:
-- The `<tmpdir>` path
-- The `<tmpdir>/manifest.md` file (lists which critic reports to read)
-- Whether `<tmpdir>/validation-warnings.md` exists (and its contents if it does) — for the `Warnings:` header field
-- The findings output path: `--findings-out` path if provided, otherwise `<tmpdir>/challenge-results.md`
-- The target name/scope (for the findings file header)
-- The full synthesis procedure and findings file format below
+- All critic report paths (`<tmpdir>/<slug>-report.md` for each critic)
+- Triage rationale and `target_summary`
+- Target type
+- Cap value (from `--cap`, default 7)
+- Output path: `--findings-out` path if provided, otherwise `<tmpdir>/challenge-results.md`
+- Contents of `<tmpdir>/validation-warnings.md` if it exists
+- The full synthesis procedure below
 
-The subagent prompt must include all of the following instructions, **in this order**:
+**PRIMARY OBJECTIVE** (include as opening paragraph): You MUST write a findings file to `<output path>` using the Write tool before you finish. If you do nothing else, write that file.
 
-### PRIMARY OBJECTIVE — include as the opening paragraph of the prompt
+**Synthesis procedure:**
 
-You MUST write a findings file to `<output path>` using the Write tool before you finish. This is a file-write task — your synthesis is only useful if it ends up on disk. If you do nothing else, write that file.
+1. **Read all critic reports in full** — do not glob; read each named file explicitly
+2. **Group by problem area** — cluster findings addressing the same concern. Keep similar-but-distinct issues separate.
+3. **Assign tags per finding:**
+   - `severity`: highest severity any critic assigned (must be CRITICAL / HIGH / MEDIUM / TENSION — reclassify non-contract values as MEDIUM)
+   - `type`: type best describing the root cause
+   - `design-level`: Yes wins when critics disagree
+   - `resolution`: Auto-apply only when ALL critics agree on the same fix AND it's localized and additive AND severity is not CRITICAL. Otherwise User-directed. When ambiguous, default User-directed.
+   - `status`: `pending` for all in-cap findings; `overflow` for findings beyond the cap
+   - `overflow`: `false` for in-cap findings; `true` for findings beyond the cap
+4. **CRITICAL guard**: CRITICAL findings MUST always be classified as `resolution: User-directed` regardless of the resolution field from any critic or agreement level. This is a non-negotiable override — do not classify any CRITICAL finding as Auto-apply under any circumstances.
+5. **Cap enforcement:**
+   - CRITICAL and HIGH: always included, never overflow
+   - TENSION: overflow if any CRITICAL or HIGH findings exist
+   - MEDIUM: include up to `max(3, cap - CRITICAL_count - HIGH_count)` MEDIUMs; remaining are overflow
+6. **Copy presentation fields** from critic reports: `why-it-matters` (most concrete consequence statement), `evidence` (all file:line citations, deduped), `references` (all URLs), `design-challenge` (strongest question). Write `not cited` for evidence when none; omit other fields when absent.
+7. **Write recommendation** for each User-directed finding (which option and why). For TENSION: write deciding-factor instead.
 
-### Reading critic reports
+**Write findings file** to the output path using `Format-version: 3` header. Format per `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`.
 
-Read `<tmpdir>/manifest.md` to get the list of expected critic report filenames. Skip lines starting with `#` (comments, e.g., `# target-type:`) and empty lines — only non-comment, non-empty lines are filenames. Then **read every listed file in full** (no `limit` or `offset`). Do NOT glob `*.md` — the tmpdir also contains `challenge-results.md` and `manifest.md`. If a file listed in the manifest is missing, note the missing critic in synthesis output and adjust the confidence denominator. Skipping a file or reading only part of one means that critic's findings are silently dropped from synthesis.
+**After synthesis subagent completes:** Verify the findings file exists at the output path. If missing (subagent returned text instead of writing), extract findings from the returned text: if it starts with `# Challenge Findings` and contains `**Format-version:**` write as-is; if it contains `## Finding` headings inject the header block then write; otherwise stop with "Error: synthesis subagent did not produce findings in a writable format — re-run `/mine.challenge`."
 
-### Synthesis procedure
+## Phase 4: Execute
 
-Three steps. Prioritize trustworthy output over compact output — showing an extra finding is far cheaper than a bad merge or wrong tag.
+Read the findings file. Announce: "Specialists selected: [names from triage]" and note re-challenge if applicable. For each critic excluded by validation, announce the exclusion before findings.
 
-1. **Group by problem area** — cluster findings that address the same part of the system or the same concern. List all critic perspectives for each group. Do NOT merge or deduplicate — if two critics flagged similar-but-distinct issues, keep both as separate findings. The user can mentally merge; they can't un-apply a wrong auto-apply.
+**If `--mode=passthrough`**: present a one-paragraph summary (count by severity, top takeaway). Return. Do not execute anything.
 
-2. **Assign tags per finding**:
-   - **Severity**: take the highest severity any contributing critic assigned. The final value **must** be one of `CRITICAL`, `HIGH`, `MEDIUM`, or `TENSION` — no other values are valid. If a critic used a non-contract value (e.g., `LOW`, `INFO`), reclassify as `MEDIUM` and append a validation warning to `<tmpdir>/validation-warnings.md` (read existing content first if the file exists — Phase 1 may have already written warnings). Record agreement count on the separate confidence line (e.g., `3/5 (Senior + Architect + Data Integrity)` or `1/4 (Senior only)`).
-   - **Type**: use the type that best describes the root cause. For Approach timing conflicts (`now` vs `later`), tag as `Approach-now/later`.
-   - **Design-level**: Yes = requires editing a design artifact (spec, design doc); No = implementation-only fix. When critics disagree, Yes wins.
-   - **Resolution**: default to **User-directed** unless ALL critics proposed the same fix AND it's localized and additive — only then use **Auto-apply**. When in doubt, User-directed.
+**If `--findings-out` provided (structured mode)**: auto-apply all `resolution: Auto-apply, status: pending` findings directly via Edit tool. Update `status: applied` in findings file for each. Skip interactive prompts. Write "Challenge complete — findings written to `<path>`. Returning to caller." Return.
 
-3. **Write a recommendation** for each User-directed finding — which option you'd pick and a one-sentence reason. **Exception**: for TENSION findings, replace the recommendation with a **Deciding factor** — one question or data point that would resolve the disagreement.
+**If standalone mode** (direct user invocation, mine.grill caller):
 
-4. **Copy presentation fields** from critic reports into each finding. These are structured sections that critics produce (rule 5 in the critic prompt) — copy them, do not generate from scratch:
-   - `why-it-matters`: Copy verbatim from one critic — do not merge or rephrase. When multiple critics wrote **Why it matters** sections, pick the one with the most concrete consequence; if equally concrete, prefer the critic who assigned the highest severity for this finding. For TENSION findings, omit this field — TENSION findings present both sides via side-a/side-b, and a one-sided consequence statement is misleading.
-   - `evidence`: Collect all `file:line` citations (or section references for non-code targets) from all contributing critics' **Evidence** sections. Deduplicate only identical citations (same file and same line); different line numbers in the same file are distinct citations — keep both. Write as a comma-separated list (e.g., `src/auth.py:42, src/auth.py:88, models/user.py:15`). For TENSION findings, collect citations from both sides. If no critic provided structured evidence for a finding, write `not cited`.
-   - `references`: Collect all external URLs from contributing critics' **References** sections. Omit this field entirely if no references were cited.
-   - `design-challenge`: Copy the strongest design question from the contributing critics' **Design challenge** sections. One question per finding.
+Read and follow the Inline Resolution Flow in `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md` exactly. After all findings are processed, report: "Applied N findings. M skipped. K overflow (use `--verbose` to see all)." List critic report paths and findings file path.
 
-   **Missing sections**: If a contributing critic's report is missing one of these structured sections (no `**Evidence**` bullets, no `**Why it matters**` line, etc.), do not generate a replacement. Write `not cited` for evidence; omit the other missing fields entirely. Do not synthesize content for absent sections.
-
-**What to exclude**: Style, naming, formatting nits. Not design critiques — skip them.
-
-### Write findings file
-
-After synthesis, **always** write the findings file to the output path provided — overwrite unconditionally if a file already exists. Callers that need prior findings preserved are responsible for using iteration-suffixed paths. This file is the handoff contract for calling skills that generate revision plans. For the `Warnings:` header field: if `<tmpdir>/validation-warnings.md` exists and is non-empty, write a one-sentence summary of its contents; otherwise write `none`.
-
-Format:
-
-```markdown
-# Challenge Findings — <target>
-Date: YYYY-MM-DD
-Target: <file or scope>
-Temp dir: <tmpdir>
-Warnings: none | <one-sentence summary of validation/orphan warnings>
-Format-version: 2
-
-## Finding 1: <name>
-- severity: CRITICAL / HIGH / MEDIUM / TENSION
-- confidence (non-contract): N/<total> (<which critics>) — e.g., "3/5 (Senior + Architect + Data Integrity)" or "1/4 (Adversarial only)"
-- type: Structural / Approach-now / Approach-later / Approach-now/later / Fragility / Gap
-- design-level: Yes / No
-- resolution: Auto-apply / User-directed
-- raised-by: Senior + Architect / etc.
-- summary: <one-sentence description>
-- why-it-matters: <one sentence — consequence if left unfixed; omit for TENSION findings>
-- evidence: <comma-separated file:line citations or section references; "not cited" when none available>
-- references: <comma-separated external URLs — omit this field entirely if none>
-- design-challenge: <one question that forces the author to justify or rethink>
-- better-approach: <the fix — Auto-apply findings only; mutually exclusive with options>
-- options (User-directed only, mutually exclusive with better-approach): <Option A: [approach] / Option B: [approach]>
-- recommendation (User-directed only): <which option and why. For TENSION: deciding factor>
-- side-a (TENSION only): <Critic A argues X because Y>
-- side-b (TENSION only): <Critic B argues Z because W>
-- deciding-factor (TENSION only): <question or data point that would resolve the disagreement>
-
-## Finding 2: <name>
-...
-```
-
-### After synthesis subagent completes
-
-**Verify the findings file exists** at the expected output path (read `# findings-out:` from `<tmpdir>/manifest.md` to determine the path — use `<tmpdir>/challenge-results.md` when the value is `default`). If the file is missing, the synthesis subagent returned its analysis as text instead of writing it to disk — can happen if Claude Code's subagent Write restriction blocks the write (see anthropics/claude-code#44657). **Fallback**: extract the findings from the subagent's returned text (the Agent tool's return value) and write the file yourself. First check whether the returned text is already a complete findings file: if it starts with `# Challenge Findings` or already contains `Format-version: 2`, write it to the expected path as-is. Otherwise, if the returned text contains `## Finding` headings, inject the header block (target from manifest `# target:`, tmpdir, today's date, `Format-version: 2`, and `Warnings:` — if `<tmpdir>/validation-warnings.md` exists and is non-empty, summarize its contents in one sentence; otherwise `none`) followed by the findings body, and write to the expected path. If the returned text contains neither a complete header nor `## Finding` headings, stop with: "Error: synthesis subagent did not produce findings in a writable format — re-run `/mine.challenge`."
-
-Read the findings file. This is the input for Phase 4 presentation.
-
-## Phase 4: Present Findings
-
-### Specialist announcement
-
-Before announcing, read `<tmpdir>/manifest.md` and derive session state from its comment lines: specialist list, target type, mode, findings-out path, focus, target scope, and rechallenge flag. This is the compaction-safe recovery path — all session state lives in this file, not in LLM context recall. Specialists are entries whose filename is **not** in the known-generic set (`senior.md`, `architect.md`, `adversarial.md`). The `# target-type:` comment line provides the classified target type. To recover display names from manifest slugs, look up each specialist slug in the mapping table (e.g., `contract-caller.md` → "Contract & Caller") — the table includes both display names and filenames.
-
-If `# rechallenge: yes` is present in the manifest comments, announce before listing findings: "Re-challenge detected — running 2 generic critics (Senior + Adversarial), no specialists. Confidence denominators reflect the reduced roster (N/2 instead of the standard 3–5)."
-
-If `<tmpdir>/focus-substitution.md` exists, read it for the substitution announcement text.
-
-If specialists ran, announce the selection before listing findings: "Specialists selected: [names] (target-type: [type])". If `--focus` caused a replacement, include the substitution note from `focus-substitution.md`: "Note: [focus specialist] ran in place of [dropped preset] due to --focus override (2-specialist cap)."
-
-If `<tmpdir>/validation-warnings.md` exists and is non-empty, read it. For any critic exclusions recorded there (malformed frontmatter, missing file), announce each inline before findings: "Warning: [critic name] was excluded due to [reason] — confidence denominators are reduced accordingly." Then include a general note: "Additional validation warnings were recorded — see `<tmpdir>/validation-warnings.md`."
-
-### Per-finding format
-
-**Read each finding from the findings file and render it using the template below.** Fill each slot from the corresponding field in the findings file — do not rephrase, generate, or embellish. If a presentation-only field (`why-it-matters`, `evidence`, `references`, `design-challenge`) is missing from a finding (e.g., in pre-format-version-2 files), omit that section entirely rather than generating it or rendering an empty block.
-
-Findings MUST be numbered sequentially (`### 1.`, `### 2.`, etc.) for easy reference in conversation.
-
-All findings share this header:
-
-```
-### N. [Finding name from ## heading] — SEVERITY (confidence)
-**Type**: [type value] | **Design-level**: [design-level value] | **Resolution**: [resolution value]
-
-**What's wrong**: [summary field]
-**Why it matters**: [why-it-matters field]
-**Evidence**:
-- [each comma-separated item from evidence field as a bullet]
-**References**:
-- [each comma-separated URL from references field as a bullet]
-**Raised by**: [raised-by field]
-```
-
-Then render the resolution-specific block — these are **mutually exclusive**, not additive:
-
-**Auto-apply findings:**
-```
-**Better approach**: [better-approach field]
-**Design challenge**: [design-challenge field]
-```
-
-**User-directed findings (non-TENSION):**
-```
-**Options**:
-- **Option A**: [from options field] — *tradeoff: [from options field]*
-- **Option B**: [from options field] — *tradeoff: [from options field]*
-**Recommendation**: [recommendation field]
-**Design challenge**: [design-challenge field]
-```
-
-**TENSION findings:**
-```
-**The disagreement**: [side-a field. side-b field.]
-**Deciding factor**: [deciding-factor field]
-**Design challenge**: [design-challenge field]
-```
-
-**Suppress rules** (apply to all resolution types, including TENSION): Omit `**Evidence**` when evidence is `not cited` or absent. Omit `**References**` when the field is absent. Omit `**Why it matters**` when the field is absent OR when resolution is `TENSION` (even if synthesis incorrectly included it — TENSION findings present both sides, not a one-sided consequence). Omit `**Design challenge**` when the field is absent.
-
-### After presenting findings
-
-List critic report file paths so the user knows where reports are. Read the manifest's non-comment lines (same pattern as Phase 3) and list each one with its display name. Use the following display name mappings:
-
-- `senior.md` → Senior Engineer
-- `architect.md` → Systems Architect
-- `adversarial.md` → Adversarial Reviewer
-- Specialist slugs → look up in the specialist mapping table (e.g., `contract-caller.md` → "Contract & Caller")
-
-On re-challenge runs (`# rechallenge: yes` in manifest), `architect.md` and specialist entries will be absent from the manifest — list only what the manifest contains.
-
-Also list the structured findings path: `<tmpdir>/challenge-results.md` (or the path provided via `--findings-out`, if specified).
-
-### Wrap-up: structured callers vs standalone
-
-Read `# mode:` from `<tmpdir>/manifest.md` to determine the wrap-up behavior. Do not rely on context recall of `--findings-out` or the calling skill — the manifest is the authoritative source after potential compaction.
-
-**If mode is `structured`**: challenge is done. Do NOT begin fixing anything. Write a single line: "Challenge complete — findings written to `<findings-out path from manifest>`. Returning to caller." Then stop. The caller resumes and generates a revision plan from the findings file.
-
-**If mode is `standalone`** (user ran `/mine.challenge` directly): provide a wrap-up, then resolve findings.
-
-1. **Summary** — one paragraph: total finding count, breakdown by severity, the single most important takeaway across all findings.
-
-2. **Resolve findings** — Read `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md` and follow the Resolution Manifest flow defined there. Generate the manifest from the findings file, present the Consent Gate, invoke `edit-manifest <tmpdir>/resolutions.md`, run the detection logic, present the Commit Gate, and execute. The protocol file provides format, verb vocabulary, execution semantics, and detection logic — mine.challenge delegates those mechanics. The async/compaction rules below are mine.challenge-specific.
-
-### Async Completion
-
-Async mechanics are mine.challenge-specific (task-notification handling, 600s timeout); all other detection mechanics are in `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`.
-
-1. **Set `timeout: 600000`** on the edit-manifest Bash call as a defense-in-depth safety belt, even though auto-backgrounding usually fires first.
-2. **Acknowledge async completion**: Phase 4 prose says "when the editor session completes" rather than "when the bash call returns" — this signals the completion may arrive via task-notification, not synchronous return.
-
-**If mode is `passthrough`** (mine.brainstorm, mine.research): provide the summary (step 1) but skip the next-step prompt — the calling skill handles its own routing after challenge completes.
+If `--verbose`: also present overflow findings (status: overflow) after the main flow, labeled as "Additional findings (beyond cap)".
 
 ## Principles
 
-1. **Evidence or silence** — every claim must cite a specific file and line. No "this module is unclear" without pointing at exactly what's unclear and why.
-2. **Direct** — name the problem, explain the consequence, move on. No hedging.
-3. **The better way** — a critique without a direction isn't actionable. Every finding must name a pattern, approach, or structural alternative.
-4. **Questions challenge, not embarrass** — the design question is there to surface assumptions, not score points.
-5. **Impact over consensus** — severity reflects consequence, not vote count. Agreement is reported as confidence, not importance. A CRITICAL finding from one specialist outranks a MEDIUM finding all three noticed.
-6. **Not a style guide** — naming, formatting, and style nits are not design critiques. Skip them.
-7. **Recommend, don't just present** — for User-directed findings, state which option you'd pick and why. The user overrides if they disagree. Exception: TENSION findings get a deciding factor instead, because honest uncertainty is more useful than a fabricated preference.
-8. **Err toward user input** — when resolution classification is ambiguous, default to User-directed. The cost of asking is low; the cost of a wrong auto-apply is high.
-9. **Findings then fixes** — this skill produces findings. When invoked by structured callers, the caller handles resolution. When invoked standalone, challenge resolves findings via `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`.
+1. **Evidence or silence** — every claim must cite a specific file and line
+2. **Direct** — name the problem, explain the consequence, move on
+3. **The better way** — every finding must name a pattern, approach, or structural alternative
+4. **Impact over consensus** — severity reflects consequence, not vote count
+5. **Err toward user input** — ambiguous resolution → User-directed
+6. **CRITICAL → always user-directed** — no exceptions
 
-## Common Rationalizations
+## Known Callers
 
-| Rationalization | Reality |
-|---|---|
-| "We already challenged and fixed — no need to re-challenge" | Fixes can introduce new problems or incompletely address the original finding. A re-challenge after fixes verifies the fixes actually resolved the issues and didn't create new ones. If the user asks "did we only challenge once?", the answer should have been no. |
-| "Code review already covered this" | Code review and challenge are orthogonal gates — see `rules/common/git-workflow.md`. One does not substitute for the other. |
-| "The findings are minor, not worth re-running" | Severity is about consequence, not complexity. A "minor" finding in a migration or API contract can cause production incidents. Re-challenge is cheap; a missed regression is not. |
-| "This feels like a MEDIUM — the consequence is moderate" | Severity is consequence-based, not feel-based. Three critics agreeing on MEDIUM produces MEDIUM with 3/3 confidence — not an automatic CRITICAL. Ask: what happens in production if this is never fixed? Use that answer to set severity. High agreement is a signal to look harder at consequence, not an override of the formula. |
+Structured callers (pass `--findings-out`, read findings file per `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md`):
+- `skills/mine.define/SKILL.md`
+
+Passthrough callers (pass `--mode=passthrough`):
+- `skills/mine.research/SKILL.md`
+- `skills/mine.brainstorm/SKILL.md`
+
+Standalone callers (full inline resolution flow):
+- `skills/mine.grill/SKILL.md`
+- `skills/mine.gap-close/SKILL.md`
+
+Inline-revision callers (invoke challenge, read findings in-context, revise own proposal):
+- `skills-impeccable/i-adapt/SKILL.md`, `skills-impeccable/i-animate/SKILL.md`, `skills-impeccable/i-bolder/SKILL.md`
+- `skills-impeccable/i-clarify/SKILL.md`, `skills-impeccable/i-colorize/SKILL.md`, `skills-impeccable/i-delight/SKILL.md`
+- `skills-impeccable/i-distill/SKILL.md`, `skills-impeccable/i-harden/SKILL.md`, `skills-impeccable/i-layout/SKILL.md`
+- `skills-impeccable/i-overdrive/SKILL.md`, `skills-impeccable/i-optimize/SKILL.md`, `skills-impeccable/i-polish/SKILL.md`
+- `skills-impeccable/i-quieter/SKILL.md`, `skills-impeccable/i-typeset/SKILL.md`
+
+Detection callers (scan for severity labels, don't read findings file):
+- `skills/mine.build/SKILL.md`
+
+To find all callers: `grep -r 'CHALLENGE-CALLER' ${CLAUDE_HOME:-~/.claude}/skills/ ${CLAUDE_HOME:-~/.claude}/skills-impeccable/ --include='*.md' -l`

@@ -7,8 +7,18 @@ Defines the findings file format produced by challenge and consumed by callers
 
 ## Findings File Format
 
-The findings file is a markdown file at `<tmpdir>/challenge-results.md`. Each
-finding is a top-level section:
+The findings file is a markdown file at `<tmpdir>/challenge-results.md`. It
+opens with a required header block:
+
+```markdown
+# Challenge Findings
+
+**Format-version:** 3
+**Target:** <file path or description>
+**Critics:** <comma-separated critic names>
+```
+
+Each finding is a top-level section:
 
 ```markdown
 ## Finding N: <title>
@@ -60,7 +70,7 @@ match 1:1 with findings — no gaps.
 
 ## Type Taxonomy
 
-`Gap` · `Fragility` · `Scope` · `Structural` · `Assumption`
+`Structural` · `Approach-now` · `Approach-later` · `Fragility` · `Gap`
 
 ## Status and Overflow Fields
 
@@ -102,8 +112,8 @@ TENSION findings always classify as User-directed.
 Findings are capped before presentation to prevent overwhelming the user:
 
 - **CRITICAL and HIGH**: Always shown, no cap
-- **MEDIUM**: At most `max(3, CRITICAL_count + HIGH_count)` MEDIUM findings
-  are shown; the rest are marked `overflow: true, status: overflow`
+- **MEDIUM**: At most `max(3, cap - CRITICAL_count - HIGH_count)` MEDIUM
+  findings are shown; the rest are marked `overflow: true, status: overflow`
 - **TENSION**: Shown only when no CRITICAL/HIGH findings exist; otherwise
   overflow
 
