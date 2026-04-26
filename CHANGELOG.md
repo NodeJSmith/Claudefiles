@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-04-26
+
+### Added
+- `/mine.gap-close` skill — conversational completeness review for design docs, briefs, work packages, and general-purpose specs; surveys against per-type checklists, fills gaps one question at a time via Edit; replaces "Challenge first" in mine.define's sign-off gate
+
 ## 2026-04-25
 
 ### Added
