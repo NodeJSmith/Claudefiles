@@ -67,4 +67,4 @@ last_tier="$(cat "$tier_file" 2> /dev/null)" || true
 # Tier changed — update state and emit guidance
 printf '%s' "$tier" > "$tier_file" 2> /dev/null || true
 jq -cn --arg msg "$message" \
-  '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","additionalContext":$msg}}'
+  '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":$msg}}'
