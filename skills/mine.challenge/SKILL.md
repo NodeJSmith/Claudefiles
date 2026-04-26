@@ -96,7 +96,7 @@ The following tag names and values are consumed by calling skills (mine.define) 
 - **Contract tag names**: `severity`, `type`, `design-level`, `resolution`
 - **Contract tag names (TENSION only)**: `side-a`, `side-b`, `deciding-factor`
 - **Severity values**: `CRITICAL`, `HIGH`, `MEDIUM`, `TENSION`
-- **Presentation-only fields** (not contract — safe to evolve without updating callers): `raised-by`, `confidence`, `why-it-matters`, `evidence`, `references`, `design-challenge`. These fields are absent in findings.md files produced before this format version; Phase 4 must render gracefully when they are missing — omit the section rather than rendering an empty block.
+- **Presentation-only fields** (not contract — safe to evolve without updating callers): `raised-by`, `confidence`, `why-it-matters`, `evidence`, `references`, `design-challenge`. These fields are absent in challenge-results.md files produced before this format version; Phase 4 must render gracefully when they are missing — omit the section rather than rendering an empty block.
   - `raised-by` values use shortened display names derived from persona file `name:` frontmatter (e.g., "Skeptical Senior Engineer" → "Senior", "Data Integrity Critic" → "Data Integrity"). The mapping table's display names are the canonical short forms. If a future caller begins pattern-matching on `raised-by` values, treat persona name changes as a contract change at that point.
   - `confidence` format: `N/<total> (<critic names>)` — e.g., `3/5 (Senior + Architect + Data Integrity)`. Total is the number of critics that successfully produced reports. If a critic fails to report, note the missing critic and reduce the denominator.
   - `why-it-matters`: one sentence describing the consequence if left unfixed. Copied verbatim by synthesis from the contributing critic with the most concrete consequence statement.
@@ -107,7 +107,7 @@ The following tag names and values are consumed by calling skills (mine.define) 
 - **Resolution values**: `Auto-apply`, `User-directed`
 - **Format-version**: `2` — written in the findings file header. Callers should assert this value to detect format mismatches. Absent in pre-enrichment files (version 1). Increment when the findings file format changes in a way that requires callers to adapt or makes pre-existing files unreadable by Phase 4.
 - **Temp dir**: `<tmpdir>` — written in the findings file header. Contract field — used by structured callers to locate `validation-warnings.md` and individual critic reports. Callers that use this path must handle the case where the directory no longer exists (cleaned after 7 days) — treat a missing tmpdir as equivalent to `Warnings: none` and skip the `validation-warnings.md` read.
-- **Findings file**: `<tmpdir>/findings.md`, or `--findings-out` path when provided by structured callers (always written)
+- **Findings file**: `<tmpdir>/challenge-results.md`, or `--findings-out` path when provided by structured callers (always written)
 - **Validation warnings**: `<tmpdir>/validation-warnings.md` — written only when validation issues or orphan warnings were detected; absence means a clean run. Structured callers may read this via `Temp dir:` in the findings header to diagnose unexpected confidence denominators.
 
 **Known callers** (update all when contract changes). New structured callers must add a `<!-- CHALLENGE-CALLER -->` comment at their invocation site. To verify this list is complete: `grep -r 'CHALLENGE-CALLER' ${CLAUDE_HOME:-~/.claude}/skills/ --include='*.md' -l`.
@@ -359,7 +359,7 @@ Determine whether this is a re-challenge run before proceeding to Specialist Sel
 **Primary signal — on-disk artifact check** (always check this first):
 
 1. If `--findings-out` was provided: check whether a file already exists at that path. If it does, validate it looks like a prior challenge findings file (starts with `# Challenge Findings` and contains `Format-version:`). If valid, this is a re-challenge. If the file is missing or doesn't look like a findings file, treat as first run.
-2. If `--findings-out` was not provided: check the feature directory — the directory containing the target file. Look for any file matching `findings*.md` or `challenge-findings*.md`. If found, validate at least one starts with `# Challenge Findings` and contains `Format-version:`. If valid, this is a re-challenge. For inline content targets (passthrough callers), the on-disk check cannot be tied to a specific file — skip the primary signal and fall through to the secondary signal.
+2. If `--findings-out` was not provided: check the feature directory — the directory containing the target file. Look for any file matching `challenge-results*.md` or `challenge-findings*.md`. If found, validate at least one starts with `# Challenge Findings` and contains `Format-version:`. If valid, this is a re-challenge. For inline content targets (passthrough callers), the on-disk check cannot be tied to a specific file — skip the primary signal and fall through to the secondary signal.
 
 **Secondary signal — conversation context** (use only if the primary signal is inconclusive): if the primary signal found nothing but the current conversation context contains a prior challenge run against the same target, treat this as a re-challenge. Conversation context is secondary because it is lost to compaction — the on-disk check is always more reliable.
 
@@ -421,7 +421,7 @@ Format — comment lines are session metadata; the critic file list is appended 
 
 **Field definitions**:
 - `mode`: `structured` when `--findings-out` is present; `passthrough` when `--mode=passthrough` is passed; `standalone` otherwise (includes direct user invocations and standalone callers like mine.grill that want the full Consent Gate flow).
-- `findings-out`: the `--findings-out` path if provided, or `default` (meaning `<tmpdir>/findings.md`).
+- `findings-out`: the `--findings-out` path if provided, or `default` (meaning `<tmpdir>/challenge-results.md`).
 - `focus`: the `--focus` value if provided, or `none`.
 - `target`: the target scope — use the absolute path when the target is a file; use the scope description when inline content.
 - `rechallenge`: `yes` if re-challenge was detected in the Re-Challenge Detection step above; `no` otherwise.
@@ -546,7 +546,7 @@ The synthesis subagent receives:
 - The `<tmpdir>` path
 - The `<tmpdir>/manifest.md` file (lists which critic reports to read)
 - Whether `<tmpdir>/validation-warnings.md` exists (and its contents if it does) — for the `Warnings:` header field
-- The findings output path: `--findings-out` path if provided, otherwise `<tmpdir>/findings.md`
+- The findings output path: `--findings-out` path if provided, otherwise `<tmpdir>/challenge-results.md`
 - The target name/scope (for the findings file header)
 - The full synthesis procedure and findings file format below
 
@@ -558,7 +558,7 @@ You MUST write a findings file to `<output path>` using the Write tool before yo
 
 ### Reading critic reports
 
-Read `<tmpdir>/manifest.md` to get the list of expected critic report filenames. Skip lines starting with `#` (comments, e.g., `# target-type:`) and empty lines — only non-comment, non-empty lines are filenames. Then **read every listed file in full** (no `limit` or `offset`). Do NOT glob `*.md` — the tmpdir also contains `findings.md` and `manifest.md`. If a file listed in the manifest is missing, note the missing critic in synthesis output and adjust the confidence denominator. Skipping a file or reading only part of one means that critic's findings are silently dropped from synthesis.
+Read `<tmpdir>/manifest.md` to get the list of expected critic report filenames. Skip lines starting with `#` (comments, e.g., `# target-type:`) and empty lines — only non-comment, non-empty lines are filenames. Then **read every listed file in full** (no `limit` or `offset`). Do NOT glob `*.md` — the tmpdir also contains `challenge-results.md` and `manifest.md`. If a file listed in the manifest is missing, note the missing critic in synthesis output and adjust the confidence denominator. Skipping a file or reading only part of one means that critic's findings are silently dropped from synthesis.
 
 ### Synthesis procedure
 
@@ -623,7 +623,7 @@ Format-version: 2
 
 ### After synthesis subagent completes
 
-**Verify the findings file exists** at the expected output path (read `# findings-out:` from `<tmpdir>/manifest.md` to determine the path — use `<tmpdir>/findings.md` when the value is `default`). If the file is missing, the synthesis subagent returned its analysis as text instead of writing it to disk — a known failure mode under heavy context. **Fallback**: extract the findings from the subagent's returned text (the Agent tool's return value) and write the file yourself. First check whether the returned text is already a complete findings file: if it starts with `# Challenge Findings` or already contains `Format-version: 2`, write it to the expected path as-is. Otherwise, if the returned text contains `## Finding` headings, inject the header block (target from manifest `# target:`, tmpdir, today's date, `Format-version: 2`, and `Warnings:` — if `<tmpdir>/validation-warnings.md` exists and is non-empty, summarize its contents in one sentence; otherwise `none`) followed by the findings body, and write to the expected path. If the returned text contains neither a complete header nor `## Finding` headings, stop with: "Error: synthesis subagent did not produce findings in a writable format — re-run `/mine.challenge`."
+**Verify the findings file exists** at the expected output path (read `# findings-out:` from `<tmpdir>/manifest.md` to determine the path — use `<tmpdir>/challenge-results.md` when the value is `default`). If the file is missing, the synthesis subagent returned its analysis as text instead of writing it to disk — can happen if Claude Code's subagent Write restriction blocks the write (see anthropics/claude-code#44657). **Fallback**: extract the findings from the subagent's returned text (the Agent tool's return value) and write the file yourself. First check whether the returned text is already a complete findings file: if it starts with `# Challenge Findings` or already contains `Format-version: 2`, write it to the expected path as-is. Otherwise, if the returned text contains `## Finding` headings, inject the header block (target from manifest `# target:`, tmpdir, today's date, `Format-version: 2`, and `Warnings:` — if `<tmpdir>/validation-warnings.md` exists and is non-empty, summarize its contents in one sentence; otherwise `none`) followed by the findings body, and write to the expected path. If the returned text contains neither a complete header nor `## Finding` headings, stop with: "Error: synthesis subagent did not produce findings in a writable format — re-run `/mine.challenge`."
 
 Read the findings file. This is the input for Phase 4 presentation.
 
@@ -643,7 +643,7 @@ If `<tmpdir>/validation-warnings.md` exists and is non-empty, read it. For any c
 
 ### Per-finding format
 
-**Read each finding from findings.md and render it using the template below.** Fill each slot from the corresponding field in findings.md — do not rephrase, generate, or embellish. If a presentation-only field (`why-it-matters`, `evidence`, `references`, `design-challenge`) is missing from a finding (e.g., in pre-enrichment findings.md files), omit that section entirely rather than generating it or rendering an empty block.
+**Read each finding from challenge-results.md and render it using the template below.** Fill each slot from the corresponding field in the findings file — do not rephrase, generate, or embellish. If a presentation-only field (`why-it-matters`, `evidence`, `references`, `design-challenge`) is missing from a finding (e.g., in pre-format-version-2 files), omit that section entirely rather than generating it or rendering an empty block.
 
 Findings MUST be numbered sequentially (`### 1.`, `### 2.`, etc.) for easy reference in conversation.
 
@@ -699,7 +699,7 @@ List critic report file paths so the user knows where reports are. Read the mani
 
 On re-challenge runs (`# rechallenge: yes` in manifest), `architect.md` and specialist entries will be absent from the manifest — list only what the manifest contains.
 
-Also list the structured findings path: `<tmpdir>/findings.md` (or the path provided via `--findings-out`, if specified).
+Also list the structured findings path: `<tmpdir>/challenge-results.md` (or the path provided via `--findings-out`, if specified).
 
 ### Wrap-up: structured callers vs standalone
 
@@ -711,7 +711,7 @@ Read `# mode:` from `<tmpdir>/manifest.md` to determine the wrap-up behavior. Do
 
 1. **Summary** — one paragraph: total finding count, breakdown by severity, the single most important takeaway across all findings.
 
-2. **Resolve findings** — Read `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md` and follow the Resolution Manifest flow defined there. Generate the manifest from findings.md, present the Consent Gate, invoke `edit-manifest <tmpdir>/resolutions.md`, run the detection logic, present the Commit Gate, and execute. The protocol file provides format, verb vocabulary, execution semantics, and detection logic — mine.challenge delegates those mechanics. The async/compaction rules below are mine.challenge-specific.
+2. **Resolve findings** — Read `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md` and follow the Resolution Manifest flow defined there. Generate the manifest from challenge-results.md, present the Consent Gate, invoke `edit-manifest <tmpdir>/resolutions.md`, run the detection logic, present the Commit Gate, and execute. The protocol file provides format, verb vocabulary, execution semantics, and detection logic — mine.challenge delegates those mechanics. The async/compaction rules below are mine.challenge-specific.
 
 ### Async Completion
 

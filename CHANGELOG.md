@@ -10,6 +10,9 @@ All notable changes to this Claudefiles repository are documented here.
 ### Changed
 - `pytest-loop-detector.sh` — add total failure counter (threshold 8) that catches edit-run-fail flailing loops; denied runs no longer inflate counters (#264)
 
+### Fixed
+- Rename skill output files to avoid Claude Code's subagent Write restriction (anthropics/claude-code#44657) — `findings.md` → `challenge-results.md` / `audit-results.md`
+
 ### Removed
 - `commands/cm-manage-memory.md` — dead command; functionality superseded by automatic session sync hook (#255)
 

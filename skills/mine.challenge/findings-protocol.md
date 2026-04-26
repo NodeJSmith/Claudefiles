@@ -62,7 +62,7 @@ Pre-populate manifest verbs based on the finding's `severity:`, `resolution:`, a
 
 The F<N> IDs correspond 1:1 to `## Finding N:` headings — Finding 1 → F1, Finding 2 → F2, etc. The "source findings list" is the ordered set of all `## Finding N:` blocks in the findings file.
 
-The manifest is a markdown file at `<tmpdir>/resolutions.md`. The skill reuses the same `<tmpdir>` that holds the findings file — typically obtained via `get-skill-tmpdir` at the start of the skill. Place `resolutions.md` in the same directory as `findings.md`. Each finding gets a block:
+The manifest is a markdown file at `<tmpdir>/resolutions.md`. The skill reuses the same `<tmpdir>` that holds the findings file — typically obtained via `get-skill-tmpdir` at the start of the skill. Place `resolutions.md` in the same directory as the findings file. Each finding gets a block:
 
 ```markdown
 ## F1: Finding title here
@@ -195,7 +195,7 @@ If the manifest editor signals that no interactive editor is available (e.g., ex
 
 ## Detection Logic
 
-The invoking skill runs this logic at notification receipt (or on synchronous return); findings.md defines the cases and actions.
+The invoking skill runs this logic at notification receipt (or on synchronous return); challenge-results.md defines the cases and actions.
 
 **Exit code handling (primary signal):**
 

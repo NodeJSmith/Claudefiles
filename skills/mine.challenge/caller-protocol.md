@@ -21,7 +21,7 @@ This protocol covers **doc-edit callers** (mine.define) — findings target sect
 This caller follows a fixed structural sequence. Caller-specific logic is confined to the pre-routing pass and verb execution phase.
 
 ```
-Challenge returns findings.md (unchanged contract)
+Challenge returns challenge-results.md (unchanged contract)
        |
        v
 Caller pre-routing pass (CALLER-SPECIFIC)
@@ -239,7 +239,7 @@ If context compacts between the Consent Gate and verb execution, the manifest mu
 Before generating a new manifest, check for an existing `<tmpdir>/resolutions.md`:
 
 1. If the file exists and is non-empty, this is an orphaned manifest from a compacted session
-2. **Verify the paired findings file exists.** Check `<tmpdir>/challenge-findings.md`. If the findings file is missing, surface a named error: "Orphaned manifest found at `<path>` but source findings are unavailable — cannot verify finding context." Offer the user a choice:
+2. **Verify the paired findings file exists.** Check `<tmpdir>/challenge-results.md`. If the findings file is missing, surface a named error: "Orphaned manifest found at `<path>` but source findings are unavailable — cannot verify finding context." Offer the user a choice:
    ```
    AskUserQuestion:
      question: "Found manifest but findings file is missing. Re-run challenge to regenerate findings, or proceed with manifest only (finding context will be unavailable)?"
