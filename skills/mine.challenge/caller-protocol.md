@@ -41,10 +41,14 @@ missing or incorrect, re-apply it via the Edit tool using the finding's
 
 ### `status: pending`
 
-Challenge resolves all in-scope findings before returning. A `pending` finding
-after challenge returns means challenge exited early (token exhaustion, crash,
-or user abort). Do not silently ignore it — surface it to the user for manual
-resolution.
+In structured mode (`--findings-out`), `pending` on `resolution: User-directed`
+findings is normal — challenge defers interactive resolution to the caller.
+Present these findings to the user per findings-protocol.md's inline resolution
+flow.
+
+`pending` on `resolution: Auto-apply` findings after challenge returns means
+challenge exited early (token exhaustion, crash). Apply the finding's
+`better-approach` directly.
 
 ### `status: overflow`
 

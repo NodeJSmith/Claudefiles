@@ -391,9 +391,11 @@ After gap-close completes, loop back to the sign-off gate above.
 
 ---
 
-### On "Challenge (via gap-close)"
+### On "Challenge" (structured path — not currently in sign-off gate)
 
-> **Note:** This flow is no longer reachable from mine.define's sign-off gate directly. It is preserved for reference — when a user selects "Run full challenge" from gap-close's Phase 5 sign-off, challenge runs standalone via `/mine.challenge`. This mine.define-specific manifest flow (CHALLENGE-CALLER, pre-routing, post-execute hooks) can be re-wired if design-doc challenge resolution needs to route through mine.define's context in the future.
+This section handles structured challenge invocations with `--findings-out`. Currently reachable only if a caller explicitly routes here; mine.gap-close's "Run full challenge" invokes challenge standalone instead. Preserved for future re-wiring.
+
+Challenge in structured mode auto-applies confident findings and returns User-directed findings as `status: pending` for mine.define to resolve.
 
 Create a known output path for the findings file:
 
@@ -403,37 +405,29 @@ get-skill-tmpdir mine-define-challenge
 
 Then invoke: `/mine.challenge --findings-out=<dir>/challenge-results.md --target-type=design-doc <design-doc-path>`
 
-After challenge completes (it auto-completes after presenting findings), proceed to the manifest flow.
+In structured mode, challenge auto-applies `Auto-apply` findings to the design doc, sets their `status: applied`, and returns without presenting User-directed findings interactively. User-directed findings return as `status: pending`.
 
-#### Read findings
+**Compaction recovery:** If the findings file already exists and contains at least one finding with `status: applied` or `status: skipped`, challenge already ran and completed resolution — do not re-invoke. If the file exists but all findings are `status: pending`, challenge was interrupted before resolution started — re-invoke.
 
-<!-- CHALLENGE-CALLER -->
-Read the structured findings file at `<dir>/challenge-results.md`. If `Format-version:` is absent or less than 2, warn the user: "This findings file was produced by an older version of mine.challenge — presentation fields (why-it-matters, evidence, references, design-challenge) may be absent. Re-run challenge to enrich." Verify the `Target:` field matches `<design-doc-path>` (match is satisfied if the Target value ends with the basename or a path suffix of `<design-doc-path>` — do not require exact string equality). Then scan each `## Finding N:` block and verify that `severity:`, `type:`, `design-level:`, and `resolution:` fields are present. If any finding is missing required tags, warn the user: "Finding N is missing required contract tags — manual review needed. Re-run /mine.challenge to regenerate a valid findings file if possible." Include the finding in the manifest with a default verb of `ask` and mark it as needing manual review — do not exclude it, per the "All Findings Must Be Resolved" principle.
+#### Post-challenge review
 
-#### Manifest flow
+Read `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md` for the full status-based contract. Then process each finding by status:
 
-**Compaction recovery check (early-exit):** Before generating a new manifest, check for an existing `<dir>/resolutions.md`. If present and non-empty, this is an orphaned manifest from a compacted session — skip manifest generation and proceed directly to the Commit Gate per `caller-protocol.md §9`. Do not regenerate the manifest — doing so loses all user verb edits from the prior session.
+**`status: applied` with `design-level: Yes`** — Verify the edit was applied to the correct section of design.md. If the edit is missing or incorrect, re-apply it via the Edit tool using the finding's `better-approach` or the user's chosen option.
 
-Read `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md` before proceeding with the manifest flow. Follow the unified caller flow defined there (Compaction Recovery (§9), pre-routing pass, manifest generation, Consent Gate, editor session, Detection + Validation + Commit Gate, verb execution, post-execute hooks).
+**`status: applied` with `design-level: No`** — Implementation concern for the build phase. List these to the user after quality re-validation so they can be tracked (e.g., filed as issues or added to WP review guidance).
 
-#### mine.define pre-routing pass
+**`status: pending` with `resolution: User-directed`** — Normal in structured mode. Present each finding to the user one at a time via AskUserQuestion per the inline resolution flow in `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`. Apply chosen option and update the finding's status in the findings file.
 
-Re-read design.md to get current state. For each finding, determine the appropriate section to target.
+**`status: pending` with `resolution: Auto-apply`** — Abnormal: challenge exited before applying this finding (token exhaustion, crash). Apply the finding's `better-approach` via Edit tool and set `status: applied`.
 
-Before computing routes, scan `design.md`'s `## Open Questions` for bullets containing `(from challenge on` — these are findings deferred from a prior challenge. If any new finding overlaps with a deferred entry, note the match rather than creating a duplicate open question.
+**`status: overflow` with `design-level: Yes`** — Deferred design-level item. Do not re-present unless the user asks.
 
-Apply the routing table from `caller-protocol.md §Pre-Routing Tables → mine.define`.
+**`status: overflow` with `design-level: No`** — Overflow implementation concern. No action needed.
 
-After pre-routing, generate the manifest (`<dir>/resolutions.md`) per caller-protocol.md and proceed through the shared flow (Consent Gate, editor, Detection + Validation + Commit Gate, verb execution).
+**`status: skipped`** — User explicitly skipped. Record in session summary only.
 
-#### mine.define post-execute hooks
-
-Run the post-execute hooks as specified in `caller-protocol.md §8`. The protocol defines the trigger condition, OQ-append behavior, and dedup rules. mine.define-specific extensions:
-
-- **Deferred findings persistence**: When the Doc target names `design.md SS Open Questions`, append bullets to design.md's Open Questions section (dedup before appending).
-- **Quality re-validation**: Re-run the 12-item quality validation on the updated design doc.
-
-After post-execute hooks complete, loop back to the sign-off gate above.
+After reviewing all findings, re-run the 12-item quality validation on the updated design doc, then loop back to the sign-off gate above.
 
 ### On "Approve"
 
