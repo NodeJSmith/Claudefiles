@@ -3,11 +3,13 @@
 import argparse
 import os
 import subprocess
+from collections.abc import Iterator
 from pathlib import Path
 
 import frontmatter
 import pytest
 
+from spec_helper import commands
 from spec_helper.checkpoint import (
     CheckpointState,
     checkpoint_path,
@@ -26,7 +28,7 @@ def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
 
 
 @pytest.fixture(autouse=True)
-def _restore_cwd() -> None:
+def _restore_cwd() -> Iterator[None]:
     original = Path.cwd()
     yield
     os.chdir(original)
@@ -263,8 +265,6 @@ class TestErrorExitCode:
     def test_archive_all_exits_nonzero_on_error(
         self, git_repo: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from spec_helper import commands
-
         original = commands._archive_feature
 
         def _fail_on_first(feature_dir, tasks_dir, git_root):
