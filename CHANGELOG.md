@@ -8,7 +8,7 @@ All notable changes to this Claudefiles repository are documented here.
 - `/mine.gap-close` skill — conversational completeness review for design docs, briefs, work packages, and general-purpose specs; surveys against per-type checklists, fills gaps one question at a time via Edit; replaces "Challenge first" in mine.define's sign-off gate (#266)
 
 ### Fixed
-- `context-tier.sh` hook output silently ignored — PreToolUse hooks require JSON `hookSpecificOutput` with `additionalContext`, not plain text
+- `context-tier.sh` hook output silently ignored — PreToolUse hooks require JSON `hookSpecificOutput` with `additionalContext`, not plain text (#270)
 
 ### Changed
 - `/mine.challenge` rethink — Haiku triage selects 1-3 critics instead of dispatching the maximum 3-5-critic roster, auto-fix by default instead of manifest editing, finding cap of 7, inline per-finding resolution via AskUserQuestion (#269)
