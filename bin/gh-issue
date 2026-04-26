@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run gh issue subcommands using bot token if available, personal token otherwise
-# Usage: gh-issue <subcommand> [flags...]
+# Usage: gh-issue [--repo OWNER/REPO] <subcommand> [flags...]
 # Passes all arguments through to `gh issue`
 
 set -euo pipefail
@@ -11,7 +11,7 @@ set -euo pipefail
 
 usage() {
   cat << 'EOF'
-Usage: gh-issue <subcommand> [flags...]
+Usage: gh-issue [--repo OWNER/REPO] <subcommand> [flags...]
 
 Run gh issue subcommands using bot token if available, personal token otherwise.
 Passes all arguments through to `gh issue`.
@@ -21,10 +21,17 @@ Subcommands:
   list, create, view...  Passed through to `gh issue`
 
 Options:
-  -h, --help  Show this help message and exit
+  -R, --repo OWNER/REPO  Target a specific repository (default: current repo)
+  -h, --help             Show this help message and exit
+
+The --repo/-R flag works in any position:
+  gh-issue --repo user/repo overview     # before subcommand
+  gh-issue overview --repo user/repo     # after subcommand
+  gh-issue list -R user/repo             # short form
 
 Examples:
   gh-issue overview                      # repo issue conventions
+  gh-issue overview --repo user/repo     # overview for a different repo
   gh-issue list                          # list open issues
   gh-issue list --milestone "v1.0"       # filter by milestone
   gh-issue create --title "Bug" --body "Details"
@@ -193,13 +200,16 @@ show_patterns() {
 cmd_overview() {
   if [[ $# -gt 0 ]]; then
     echo "Error: 'overview' takes no arguments (got: $*)" >&2
-    echo "Usage: gh-issue overview" >&2
+    echo "Usage: gh-issue [--repo OWNER/REPO] overview" >&2
     exit 1
   fi
 
-  if ! gh repo view --json nameWithOwner -q '.nameWithOwner' > /dev/null 2>&1; then
-    echo "Error: not inside a GitHub repository (or gh is not authenticated)" >&2
-    exit 1
+  if [[ -z "${GH_REPO:-}" ]]; then
+    if ! gh repo view --json nameWithOwner -q '.nameWithOwner' > /dev/null 2>&1; then
+      echo "Error: not inside a GitHub repository (or gh is not authenticated)" >&2
+      echo "Hint: pass --repo OWNER/REPO to target a specific repository" >&2
+      exit 1
+    fi
   fi
 
   echo "=== Milestones ==="
@@ -220,6 +230,30 @@ cmd_overview() {
 # =============================================================================
 # Main
 # =============================================================================
+
+# --- Extract --repo / -R flag (before help guard so it's stripped from $@) ---
+_remaining_args=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --repo | -R)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: $1 requires a value (OWNER/REPO)" >&2
+        exit 1
+      fi
+      export GH_REPO="$2"
+      shift 2
+      ;;
+    --repo=*)
+      export GH_REPO="${1#--repo=}"
+      shift
+      ;;
+    *)
+      _remaining_args+=("$1")
+      shift
+      ;;
+  esac
+done
+set -- "${_remaining_args[@]+"${_remaining_args[@]}"}"
 
 # --- Help guard (before bot-token preamble to avoid triggering token fetch) ---
 for arg in "$@"; do
