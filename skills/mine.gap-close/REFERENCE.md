@@ -34,7 +34,7 @@ Before applying a checklist, identify which checklist applies:
 |--------|---------------|
 | Contains `**Status:** draft` or `**Status:** approved` AND has `## Problem` heading | Design doc |
 | Contains `## Key Decisions` OR `## Scope Boundaries` | Brief |
-| Contains `## Deliverables` OR filename starts with `WP` | Work package |
+| Contains `## Deliverables` OR first heading starts with `# WP` | Work package |
 | None of the above | General-purpose |
 
 When in doubt, ask the user to confirm the artifact type before surveying.
@@ -405,5 +405,6 @@ new_string: "2. Should we support XLSX as well as CSV? (Owner: Sam/Product; targ
 After filling all Blocker gaps, the skill confirms: "All Blocker gaps resolved. 1 Should-address item remaining: DD-02 (business cost)."
 
 Presents sign-off gate:
-- "Proceed — artifact is ready"
-- "Address one more gap" → asks DD-02 question
+- "Approve" — update status field
+- "Challenge first" — invoke /mine.challenge for deeper critique
+- "Save and stop" — leave as-is
