@@ -510,20 +510,20 @@ def cmd_archive(args: argparse.Namespace) -> None:
             results.append(result_entry)
             continue
 
-        # Auto-move non-done WPs to "done" (--all mode only; single-feature blocked above)
-        for wp in non_done:
-            wp_file = tasks_dir / wp["filename"]
-            post = frontmatter.load(str(wp_file))
-            post.metadata["lane"] = "done"
-            atomic_write(post, wp_file)
-
-        # Auto-delete stale orchestration checkpoint
-        cp_path = checkpoint_path(feature_dir)
-        if cp_path.exists():
-            delete_checkpoint(cp_path)
-
         # Per-spec exception isolation for --all mode
         try:
+            # Auto-move non-done WPs to "done" (--all only; single-feature blocked above)
+            for wp in non_done:
+                wp_file = tasks_dir / wp["filename"]
+                post = frontmatter.load(str(wp_file))
+                post.metadata["lane"] = "done"
+                atomic_write(post, wp_file)
+
+            # Auto-delete stale orchestration checkpoint
+            cp_path = checkpoint_path(feature_dir)
+            if cp_path.exists():
+                delete_checkpoint(cp_path)
+
             _archive_feature(feature_dir, tasks_dir, git_root)
         except Exception as exc:
             if args.all:

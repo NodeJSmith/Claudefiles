@@ -99,6 +99,6 @@ When in doubt about which milestone or labels to use, ask the user.
 
 ## Work Package Cleanup (BLOCKING)
 
-Before committing changes (whether via `/mine.ship`, `/mine.commit-push`, `/mine.create-pr`, or a manual commit), check for work package files via `find design/specs/*/tasks/WP*.md`. If WP files exist and `spec-helper` is available, run `spec-helper archive --all --dry-run --json`. If any specs would archive, run `spec-helper archive --all` to remove `tasks/` directories and set `**Status:** archived` in `design.md` — then include those deletions in the commit. Do not ask — just archive and commit the cleanup alongside the other changes. If no WP files exist, skip silently.
+Before committing changes (whether via `/mine.ship`, `/mine.commit-push`, `/mine.create-pr`, or a manual commit), check for work package files via `find design/specs -path '*/tasks/WP*.md' -print -quit 2>/dev/null`. If WP files exist and `spec-helper` is available, run `spec-helper archive --all --dry-run --json`. If any specs would archive, run `spec-helper archive --all` to remove `tasks/` directories and set `**Status:** archived` in `design.md` — then include those deletions in the commit. Do not ask — just archive and commit the cleanup alongside the other changes. If no WP files exist or `design/specs/` doesn't exist, skip silently.
 
 WP files must never reach a PR. Git history preserves the full content.
