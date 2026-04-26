@@ -121,7 +121,7 @@ Before entering the findings flow, present the findings as a narrative organized
 
 ### Step 2: Write findings file
 
-Run `get-skill-tmpdir mine-audit` and write `<tmpdir>/findings.md` using the findings file format:
+Run `get-skill-tmpdir mine-audit` and write `<tmpdir>/audit-results.md` using the findings file format:
 
 ```markdown
 # Audit Findings

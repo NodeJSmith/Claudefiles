@@ -391,14 +391,14 @@ Create a known output path for the findings file:
 get-skill-tmpdir mine-define-challenge
 ```
 
-Then invoke: `/mine.challenge --findings-out=<dir>/findings.md --target-type=design-doc <design-doc-path>`
+Then invoke: `/mine.challenge --findings-out=<dir>/challenge-results.md --target-type=design-doc <design-doc-path>`
 
 After challenge completes (it auto-completes after presenting findings), proceed to the manifest flow.
 
 #### Read findings
 
 <!-- CHALLENGE-CALLER -->
-Read the structured findings file at `<dir>/findings.md`. If `Format-version:` is absent or less than 2, warn the user: "This findings file was produced by an older version of mine.challenge — presentation fields (why-it-matters, evidence, references, design-challenge) may be absent. Re-run challenge to enrich." Verify the `Target:` field matches `<design-doc-path>` (match is satisfied if the Target value ends with the basename or a path suffix of `<design-doc-path>` — do not require exact string equality). Then scan each `## Finding N:` block and verify that `severity:`, `type:`, `design-level:`, and `resolution:` fields are present. If any finding is missing required tags, warn the user: "Finding N is missing required contract tags — manual review needed. Re-run /mine.challenge to regenerate a valid findings file if possible." Include the finding in the manifest with a default verb of `ask` and mark it as needing manual review — do not exclude it, per the "All Findings Must Be Resolved" principle.
+Read the structured findings file at `<dir>/challenge-results.md`. If `Format-version:` is absent or less than 2, warn the user: "This findings file was produced by an older version of mine.challenge — presentation fields (why-it-matters, evidence, references, design-challenge) may be absent. Re-run challenge to enrich." Verify the `Target:` field matches `<design-doc-path>` (match is satisfied if the Target value ends with the basename or a path suffix of `<design-doc-path>` — do not require exact string equality). Then scan each `## Finding N:` block and verify that `severity:`, `type:`, `design-level:`, and `resolution:` fields are present. If any finding is missing required tags, warn the user: "Finding N is missing required contract tags — manual review needed. Re-run /mine.challenge to regenerate a valid findings file if possible." Include the finding in the manifest with a default verb of `ask` and mark it as needing manual review — do not exclude it, per the "All Findings Must Be Resolved" principle.
 
 #### Manifest flow
 
