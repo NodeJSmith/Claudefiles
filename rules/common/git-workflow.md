@@ -97,8 +97,8 @@ When creating issues with `gh-issue create`, match the conventions already in us
 
 When in doubt about which milestone or labels to use, ask the user.
 
-## Work Package Cleanup
+## Work Package Cleanup (BLOCKING)
 
-Before pushing changes (whether via `/mine.ship`, `/mine.commit-push`, or a manual `git push`), check for completed work package files in `design/specs/*/tasks/WP*.md`. If the branch's work is complete and WP files exist, run `spec-helper archive --all --dry-run` to check for archivable specs and offer to archive them. This removes `tasks/` directories and sets `**Status:** archived` in `design.md` — git history preserves the full content.
+Before committing changes (whether via `/mine.ship`, `/mine.commit-push`, `/mine.create-pr`, or a manual commit), check for work package files via `find design/specs/*/tasks/WP*.md`. If WP files exist and `spec-helper` is available, run `spec-helper archive --all --dry-run --json`. If any specs would archive, run `spec-helper archive --all` to remove `tasks/` directories and set `**Status:** archived` in `design.md` — then include those deletions in the commit. Do not ask — just archive and commit the cleanup alongside the other changes. If no WP files exist, skip silently.
 
-This applies whenever the work is done, not only when `/mine.ship` is invoked.
+WP files must never reach a PR. Git history preserves the full content.

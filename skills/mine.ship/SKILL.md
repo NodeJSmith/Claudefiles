@@ -20,7 +20,7 @@ Ship the current changes: commit, push, and open a PR. Follow each phase in orde
 
 Follow **all steps in `mine.commit-push`** exactly (read `skills/mine.commit-push/SKILL.md` and execute its full workflow). When that phase completes successfully — changes committed and pushed — continue to Phase 2 below.
 
-`mine.commit-push` handles: branch creation, commit scope check, changelog, code review loop, integration review, local verification (tests + linting + test presence check), staging, committing, pushing, and WP archival reminder.
+`mine.commit-push` handles: branch creation, commit scope check, changelog, code review loop, integration review, local verification (tests + linting + test presence check), WP archival, staging, committing, and pushing.
 
 ### Phase 2 — Create PR
 
@@ -66,7 +66,7 @@ Follow **all steps in `mine.commit-push`** exactly (read `skills/mine.commit-pus
 19. **Mark PR as ready** (reviewers see the final state with changelog PR numbers already in place):
     - **GitHub**: `gh pr ready`
     - **Azure DevOps**: `az repos pr update --id <PR_ID> --draft false`
-20. Return the PR URL. (WP archival reminder already runs as part of mine.commit-push in Phase 1.)
+20. Return the PR URL.
 
 **Important:**
 - If a PR already exists, show the PR URL and do not create a duplicate

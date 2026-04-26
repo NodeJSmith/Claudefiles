@@ -472,47 +472,6 @@ def cmd_archive(args: argparse.Namespace) -> None:
                 die(f"No WP files found in {name}/tasks/", json_mode=args.json)
             continue
 
-        # Guard: all WPs must be in lane "done"
-        non_done = [
-            {
-                "wp_id": wp.get("work_package_id", wp["filename"]),
-                "lane": wp.get("lane", "planned"),
-            }
-            for wp in wps
-            if wp.get("lane", "planned") != "done"
-        ]
-        if non_done:
-            labels = ", ".join(f"{nd['wp_id']} ({nd['lane']})" for nd in non_done)
-            results.append(
-                {
-                    "feature": name,
-                    "status": "skipped",
-                    "reason": f"non-done WPs: {labels}",
-                }
-            )
-            if not args.all:
-                die(f"Not all WPs are done in {name}: {labels}", json_mode=args.json)
-            continue
-
-        # Guard: no active orchestration checkpoint
-        cp_path = checkpoint_path(feature_dir)
-        if cp_path.exists():
-            results.append(
-                {
-                    "feature": name,
-                    "status": "skipped",
-                    "reason": "active orchestration checkpoint",
-                }
-            )
-            if not args.all:
-                die(
-                    f"Active orchestration checkpoint in {name}. "
-                    f"Run 'spec-helper checkpoint-delete {name}' first.",
-                    json_mode=args.json,
-                )
-            continue
-
-        # All checks passed
         wp_count = len(wps)
         has_design = (feature_dir / "design.md").exists()
 
@@ -526,6 +485,26 @@ def cmd_archive(args: argparse.Namespace) -> None:
                 }
             )
             continue
+
+        # Auto-move non-done WPs to "done" (only in --all mode)
+        non_done = [wp for wp in wps if wp.get("lane", "planned") != "done"]
+        if non_done and args.all:
+            for wp in non_done:
+                wp_file = tasks_dir / wp["filename"]
+                post = frontmatter.load(str(wp_file))
+                post.metadata["lane"] = "done"
+                atomic_write(post, wp_file)
+        elif non_done:
+            labels = ", ".join(
+                f"{wp.get('work_package_id', wp['filename'])} ({wp.get('lane', 'planned')})"
+                for wp in non_done
+            )
+            die(f"Not all WPs are done in {name}: {labels}", json_mode=args.json)
+
+        # Auto-delete stale orchestration checkpoint
+        cp_path = checkpoint_path(feature_dir)
+        if cp_path.exists():
+            delete_checkpoint(cp_path)
 
         # Per-spec exception isolation for --all mode
         try:
@@ -581,7 +560,7 @@ def _is_tracked(git_root: Path, rel_path: str) -> bool:
 
 def _git_rm(git_root: Path, rel_path: str, *, recursive: bool = False) -> None:
     """Remove a file or directory via git rm. Raises RuntimeError on failure."""
-    cmd = ["git", "-C", str(git_root), "rm", "-q"]
+    cmd = ["git", "-C", str(git_root), "rm", "-q", "-f"]
     if recursive:
         cmd.append("-r")
     cmd.append(rel_path)
