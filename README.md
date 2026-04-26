@@ -59,6 +59,7 @@ All three directories symlink into `~/.claude/skills/` at install time — the r
 | `mine.debug` | Systematic debugging — 4-phase root-cause investigation with escalation protocol and error tracking |
 | `mine.define` | Proportional discovery + codebase investigation + architecture interrogation → design.md with one sign-off gate |
 | `mine.eval-repo` | Evaluate a third-party GitHub repo before adopting it -- test coverage, code quality, maintenance health, bus factor |
+| `mine.gap-close` | Conversational completeness review — surveys artifacts against per-type checklists, triages gaps by severity, fills them one question at a time |
 | `mine.grill` | Multi-angle interrogation of a raw idea — product, design, engineering, scope, and adversarial lenses. Produces a brief.md that feeds into /mine.define |
 | `mine.mockup` | Generate self-contained HTML mockup files — reads `design/context.md` for consistent styling, delivers to a session temp directory |
 | `mine.mutation-test` | Mutation testing -- intentionally break code to verify tests catch real bugs |
