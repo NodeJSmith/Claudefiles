@@ -8,7 +8,7 @@ All notable changes to this Claudefiles repository are documented here.
 - `/mine.gap-close` skill — conversational completeness review for design docs, briefs, work packages, and general-purpose specs; surveys against per-type checklists, fills gaps one question at a time via Edit; replaces "Challenge first" in mine.define's sign-off gate (#266)
 
 ### Changed
-- `spec-helper archive` — auto-deletes stale orchestration checkpoints, auto-promotes non-done WPs to done in `--all` mode, handles staged files via `git rm -f`; WP archival is now a blocking pre-commit action instead of a post-push reminder
+- `spec-helper archive` — auto-deletes stale orchestration checkpoints, auto-promotes non-done WPs to done in `--all` mode, handles staged files via `git rm -f`; WP archival is now a blocking pre-commit action instead of a post-push reminder (#268)
 
 ## 2026-04-25
 
