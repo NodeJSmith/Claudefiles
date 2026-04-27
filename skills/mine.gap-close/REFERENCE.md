@@ -195,7 +195,7 @@ new_string: "## Acceptance Criteria\n\n- When a user submits a form with a missi
 
 ```
 old_string: "## Acceptance Criteria\n\n- The system validates input on submission."
-new_string: "## Acceptance Criteria\n\n- The system validates input on submission.\n- A logged-in user with read-only permissions sees no delete button on the admin dashboard; no deletion occurs."
+new_string: "## Acceptance Criteria\n\n- The system validates input on submission.\n- When a logged-in user with read-only permissions visits the admin dashboard, no delete button is shown and no deletion can occur."
 ```
 
 ---
@@ -372,7 +372,7 @@ new_string: "## User Scenarios\n\n**Bulk export (data analyst, quarterly reporti
 Acceptance criteria (Pattern 1):
 ```
 old_string: "- Export should handle large files gracefully"
-new_string: "- Export is capped at 100,000 records per request\n- When an export exceeds 100,000 records, the file contains exactly 100,000 records and a notice reads \"Export limited to 100,000 records — results were truncated\"\n- When an export times out during generation, the partial file is discarded and the user sees an error with a \"Retry export\" link"
+new_string: "- Export is capped at 100,000 records per request\n- When a user requests an export exceeding 100,000 records, the delivered file contains exactly 100,000 records and a notice reads \"Export limited to 100,000 records — results were truncated\"\n- When a user requests an export and generation times out, no partial file is delivered; the user sees an error with a \"Retry export\" link"
 ```
 
 Edge cases (Pattern 4):
