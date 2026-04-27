@@ -88,7 +88,7 @@ Items complement mine.define's 12-item quality validation — the quality valida
 
 | ID | Severity | Gap question | Target section |
 |----|----------|-------------|----------------|
-| DD-18 | Blocker | Is each acceptance criterion written in Given/When/Then format (or equivalent) with observable outcomes? | Acceptance Criteria |
+| DD-18 | Blocker | Is each acceptance criterion specific and testable — with a clear precondition, action, and observable outcome? | Acceptance Criteria |
 | DD-19 | Blocker | Does every Functional Requirement have at least one corresponding acceptance criterion? | Acceptance Criteria |
 
 ### Architecture / Alternatives
@@ -178,30 +178,24 @@ Applies to any document that doesn't match the above types — research docs, AD
 
 When the user answers a gap question, convert the answer into artifact content using the appropriate pattern below. Apply the edit to the artifact with the Edit tool.
 
-### Pattern 1: Acceptance Criteria — Given/When/Then
+### Pattern 1: Acceptance Criteria — Testable Statement
 
 **Use when:** The answer provides conditions and expected outcomes for a requirement.
 
-**Template:**
-
-```
-Given [initial state or precondition],
-When [actor takes action],
-Then [observable outcome].
-```
+**Format:** Match the artifact's existing AC style. If no style exists, use concise declarative statements with a clear precondition, action, and outcome. Given/When/Then is one valid format but not required.
 
 **Edit tool example:**
 
 ```
 old_string: "## Acceptance Criteria\n\n[No criteria defined yet.]"
-new_string: "## Acceptance Criteria\n\nGiven a user has submitted a form with a missing required field,\nWhen the form is validated,\nThen an inline error message appears adjacent to the field describing what is missing."
+new_string: "## Acceptance Criteria\n\n- When a user submits a form with a missing required field, an inline error message appears adjacent to the field describing what is missing."
 ```
 
-**Multiple criteria:** Add each as a separate Given/When/Then block under the section, matching the existing style (bullets, numbered items, or bare blocks).
+**Multiple criteria:** Add each as a separate item under the section, matching the existing style (bullets, numbered items, or bare blocks).
 
 ```
 old_string: "## Acceptance Criteria\n\n- The system validates input on submission."
-new_string: "## Acceptance Criteria\n\n- The system validates input on submission.\n\nGiven a logged-in user with read-only permissions visits the admin dashboard,\nWhen they attempt to delete a record,\nThen the delete button is absent and no deletion occurs."
+new_string: "## Acceptance Criteria\n\n- The system validates input on submission.\n- When a logged-in user with read-only permissions visits the admin dashboard, no delete button is shown and no deletion can occur."
 ```
 
 ---
@@ -333,7 +327,7 @@ DD-03  PASS   Goals: "Bulk export supports up to 100,000 records within 60 secon
 DD-04  PASS   Non-goals listed: "We will not support scheduled exports in this version"
 DD-06  GAP    User scenario actor is "the user" — no specific persona named; task flow has no numbered steps
 DD-10  GAP    Requirement "Export should handle large files gracefully" — "gracefully" is unacceptably vague
-DD-18  GAP    Acceptance Criteria section reads "Export works for all valid inputs"
+DD-18  GAP    Acceptance criterion "Export works for all valid inputs" is vague — no precondition, action, or observable outcome
 DD-19  GAP    Requirements 2 and 3 have no corresponding acceptance criteria
 DD-21  PASS   One alternative documented: "Streaming vs. batch" with rationale
 DD-25  N/A    Feature does not touch auth (export of user's own data only, confirmed by Goals)
@@ -345,7 +339,7 @@ DD-28  GAP    Open Questions item 2 has no owner or target-resolution date
 From the survey, blockers are:
 - DD-06 (no concrete actor or task flow)
 - DD-10 (vague requirement)
-- DD-18 (acceptance criterion is not Given/When/Then and is untestable)
+- DD-18 (acceptance criterion is vague and untestable)
 - DD-19 (two requirements have no acceptance criteria)
 - DD-28 (open question item 2 missing resolution date)
 
@@ -378,7 +372,7 @@ new_string: "## User Scenarios\n\n**Bulk export (data analyst, quarterly reporti
 Acceptance criteria (Pattern 1):
 ```
 old_string: "- Export should handle large files gracefully"
-new_string: "- Export is capped at 100,000 records per request\n\nGiven an export request that would return more than 100,000 records,\nWhen the export is generated,\nThen the file contains exactly 100,000 records and a notice reads \"Export limited to 100,000 records — results were truncated\"\n\nGiven an export request that times out during generation,\nWhen the timeout occurs,\nThen the partial file is discarded, the user sees an error with a \"Retry export\" link, and no partial file is delivered"
+new_string: "- Export is capped at 100,000 records per request\n- When a user requests an export exceeding 100,000 records, the delivered file contains exactly 100,000 records and a notice reads \"Export limited to 100,000 records — results were truncated\"\n- When a user requests an export and generation times out, no partial file is delivered; the user sees an error with a \"Retry export\" link"
 ```
 
 Edge cases (Pattern 4):

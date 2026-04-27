@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-04-27
+
+### Changed
+- `/mine.gap-close` DD-18 acceptance criteria check no longer requires Given/When/Then format — now checks for testability (clear precondition, action, observable outcome) in any format (#272)
+
 ## 2026-04-26
 
 ### Added
