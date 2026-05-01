@@ -2,9 +2,9 @@
 # PreToolUse hook: inject context window tier guidance
 #
 # Reads the sidecar file written by claude-context-writer (via statusLine),
-# computes a behavioral tier, and emits additionalContext only when the tier
-# changes. This prevents Claude from hallucinating context pressure at low
-# usage and provides actionable guidance at higher usage.
+# computes a behavioral tier, and emits additionalContext when the tier
+# changes or on a periodic heartbeat. This prevents Claude from hallucinating
+# context pressure at low usage and provides actionable guidance at higher usage.
 #
 # Tiers:
 #   low      (<25%)  — reassurance: continue working normally
@@ -12,6 +12,12 @@
 #   moderate (40-59%) — prefer subagents for large reads
 #   high     (60-79%) — finish current task, delegate exploratory work
 #   critical (80%+)   — compaction imminent, checkpoint or finish
+#
+# Heartbeat: even when the tier hasn't changed, re-inject the message every
+# N tool calls (default 25, override via CLAUDE_CONTEXT_HEARTBEAT). This
+# prevents the reassurance from scrolling out of context during long
+# orchestrations, which caused Claude to fabricate context pressure and skip
+# code reviews in practice.
 #
 # Hook wiring: add as a separate "PreToolUse" entry with matcher "*" in
 # settings.json so it fires before any tool call, not just Bash.
@@ -62,9 +68,31 @@ fi
 tier_file="/tmp/claude-context-tier-${session_id}.txt"
 last_tier="$(cat "$tier_file" 2> /dev/null)" || true
 
-[ "$tier" = "$last_tier" ] && exit 0
+# Heartbeat counter — re-inject even when tier is unchanged
+heartbeat_interval="${CLAUDE_CONTEXT_HEARTBEAT:-25}"
+case "$heartbeat_interval" in
+  '' | *[!0-9]* | 0) heartbeat_interval=25 ;;
+esac
+counter_file="/tmp/claude-context-calls-${session_id}.txt"
+count="$(cat "$counter_file" 2> /dev/null)" || true
+count="${count:-0}"
+case "$count" in *[!0-9]*) count=0 ;; esac
+count=$((count + 1))
 
-# Tier changed — update state and emit guidance
+emit=false
+if [ "$tier" != "$last_tier" ]; then
+  emit=true
+  count=0
+elif [ "$count" -ge "$heartbeat_interval" ]; then
+  emit=true
+  count=0
+fi
+
+printf '%d' "$count" > "$counter_file" 2> /dev/null || true
+
+[ "$emit" = false ] && exit 0
+
+# Tier changed or heartbeat fired — update state and emit guidance
 printf '%s' "$tier" > "$tier_file" 2> /dev/null || true
 jq -cn --arg msg "$message" \
   '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":$msg}}'

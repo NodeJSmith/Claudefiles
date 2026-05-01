@@ -6,7 +6,7 @@
 
 ## Context Window (CRITICAL)
 
-A PreToolUse hook (`context-tier.sh`) injects context usage tiers when they change. Follow the guidance in those messages. When no tier message is present, do not invent context pressure — any unprompted claim about context usage ("building up," "getting low," suggesting compaction) is a fabrication.
+A PreToolUse hook (`context-tier.sh`) injects context usage tiers when they change and re-injects periodically (every 25 tool calls) to keep guidance fresh. Follow the guidance in those messages. When no tier message is present, do not invent context pressure — any unprompted claim about context usage ("building up," "getting low," suggesting compaction) is a fabrication.
 
 If you think a task should be split across sessions, justify it on *quality* grounds (complexity, focus), never context pressure.
 

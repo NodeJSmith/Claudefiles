@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-05-01
+
+### Added
+- `context-tier.sh` heartbeat — re-injects tier guidance every 25 tool calls (configurable via `CLAUDE_CONTEXT_HEARTBEAT`) to prevent fabricated context pressure during long orchestrations
+
 ## 2026-04-27
 
 ### Changed

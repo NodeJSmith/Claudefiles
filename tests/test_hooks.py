@@ -854,14 +854,31 @@ def _write_tier(session_id: str, tier: str) -> Path:
 
 
 def _cleanup_context_tier(session_id: str) -> None:
-    """Remove sidecar and tier files for a session."""
+    """Remove sidecar, tier, and counter files for a session."""
     for pattern in (
         f"/tmp/claude-context-{session_id}.txt",
         f"/tmp/claude-context-tier-{session_id}.txt",
+        f"/tmp/claude-context-calls-{session_id}.txt",
     ):
         p = Path(pattern)
         if p.exists():
             p.unlink()
+
+
+def _write_counter(session_id: str, count: int) -> Path:
+    """Pre-seed the heartbeat counter file."""
+    p = Path(f"/tmp/claude-context-calls-{session_id}.txt")
+    p.write_text(str(count))
+    return p
+
+
+def _read_counter(session_id: str) -> int | None:
+    """Read the heartbeat counter; returns None if absent."""
+    p = Path(f"/tmp/claude-context-calls-{session_id}.txt")
+    if not p.exists():
+        return None
+    text = p.read_text().strip()
+    return int(text) if text else None
 
 
 def _make_context_tier_input(session_id: str) -> str:
@@ -869,14 +886,20 @@ def _make_context_tier_input(session_id: str) -> str:
     return json.dumps({"session_id": session_id})
 
 
-def _run_context_tier(session_id: str) -> subprocess.CompletedProcess:
+def _run_context_tier(
+    session_id: str,
+    extra_env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess:
     """Run the context-tier hook with the given session_id."""
+    env = os.environ.copy()
+    if extra_env:
+        env.update(extra_env)
     return subprocess.run(
         [str(CONTEXT_TIER_HOOK)],
         input=_make_context_tier_input(session_id),
         capture_output=True,
         text=True,
-        env=os.environ.copy(),
+        env=env,
     )
 
 
@@ -909,7 +932,7 @@ class TestContextTierFirstCallEmits:
 
 
 class TestContextTierSameTierSuppressed:
-    """Repeat call at the same tier produces no output."""
+    """Repeat call at the same tier is suppressed (until heartbeat threshold)."""
 
     def test_context_tier_same_tier_silent(self):
         sid = _context_tier_session_id("same_tier")
@@ -1093,6 +1116,76 @@ class TestContextTierInvalidSidecar:
 
             assert result.returncode == 0
             assert result.stdout.strip() == ""
+        finally:
+            _cleanup_context_tier(sid)
+
+
+class TestContextTierHeartbeat:
+    """Heartbeat re-injects the message every N calls even without a tier change."""
+
+    def test_heartbeat_fires_at_threshold(self):
+        sid = _context_tier_session_id("hb_fire")
+        try:
+            _write_sidecar(sid, "15")
+            # First call emits (tier change from empty → low), resets counter to 0
+            result = _run_context_tier(sid, extra_env={"CLAUDE_CONTEXT_HEARTBEAT": "5"})
+            assert "low usage (15%)" in result.stdout
+
+            # Calls 2-5: suppressed (counter 1-4)
+            for _ in range(4):
+                result = _run_context_tier(
+                    sid, extra_env={"CLAUDE_CONTEXT_HEARTBEAT": "5"}
+                )
+                assert result.stdout.strip() == ""
+
+            # Call 6: heartbeat fires (counter hits 5)
+            result = _run_context_tier(sid, extra_env={"CLAUDE_CONTEXT_HEARTBEAT": "5"})
+            assert "low usage (15%)" in result.stdout
+            assert _read_counter(sid) == 0
+        finally:
+            _cleanup_context_tier(sid)
+
+    def test_tier_change_resets_counter(self):
+        sid = _context_tier_session_id("hb_reset")
+        try:
+            _write_sidecar(sid, "15")
+            _write_tier(sid, "low")
+            _write_counter(sid, 20)
+
+            # Tier change (low → moderate) should emit and reset counter
+            _write_sidecar(sid, "45")
+            result = _run_context_tier(sid)
+            assert "moderate usage (45%)" in result.stdout
+            assert _read_counter(sid) == 0
+        finally:
+            _cleanup_context_tier(sid)
+
+    def test_non_numeric_env_falls_back_to_default(self):
+        sid = _context_tier_session_id("hb_badenv")
+        try:
+            _write_sidecar(sid, "15")
+            _write_tier(sid, "low")
+            _write_counter(sid, 23)
+
+            # With bad env, interval falls back to 25; counter 23+1=24 < 25
+            result = _run_context_tier(
+                sid, extra_env={"CLAUDE_CONTEXT_HEARTBEAT": "off"}
+            )
+            assert result.stdout.strip() == ""
+            assert _read_counter(sid) == 24
+        finally:
+            _cleanup_context_tier(sid)
+
+    def test_zero_env_falls_back_to_default(self):
+        sid = _context_tier_session_id("hb_zero")
+        try:
+            _write_sidecar(sid, "15")
+            _write_tier(sid, "low")
+            _write_counter(sid, 23)
+
+            result = _run_context_tier(sid, extra_env={"CLAUDE_CONTEXT_HEARTBEAT": "0"})
+            assert result.stdout.strip() == ""
+            assert _read_counter(sid) == 24
         finally:
             _cleanup_context_tier(sid)
 
