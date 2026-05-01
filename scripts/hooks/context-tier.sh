@@ -88,11 +88,11 @@ elif [ "$count" -ge "$heartbeat_interval" ]; then
   count=0
 fi
 
-printf '%d' "$count" > "$counter_file" 2> /dev/null || true
+printf '%d' "$count" > "${counter_file}.tmp" 2> /dev/null && mv -f "${counter_file}.tmp" "$counter_file" 2> /dev/null || true
 
 [ "$emit" = false ] && exit 0
 
 # Tier changed or heartbeat fired — update state and emit guidance
-printf '%s' "$tier" > "$tier_file" 2> /dev/null || true
+printf '%s' "$tier" > "${tier_file}.tmp" 2> /dev/null && mv -f "${tier_file}.tmp" "$tier_file" 2> /dev/null || true
 jq -cn --arg msg "$message" \
   '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":$msg}}'
