@@ -48,7 +48,8 @@ Agent(subagent_type: "integration-reviewer"):
     Run: <diff command from above>
 
     Check for duplication, convention drift, misplacement, orphaned code,
-    and design violations.
+    design violations, parallel drift (two implementations of the same
+    concept that can diverge), and abstraction inconsistency.
 ```
 
 ## Present results

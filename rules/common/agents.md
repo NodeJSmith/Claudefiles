@@ -13,6 +13,7 @@ When the user's request matches a row below, launch the Agent tool with the corr
 | "codebase research", "feasibility analysis" | `researcher` |
 | "architecture docs", "onboarding overview" | `architect` |
 | "check for duplication", "convention drift" | `integration-reviewer` |
+| "readability review", "maintainability review", "just the WTF pass" | `wtf-reviewer` |
 | "enrich this issue", "missing acceptance criteria" | `issue-refiner` |
 | "visual regression", before/after screenshots | `visual-diff` |
 | "secure code review", "security audit", "check for vulnerabilities" | `code-reviewer` |
