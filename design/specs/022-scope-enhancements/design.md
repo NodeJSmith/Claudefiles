@@ -71,9 +71,9 @@ These gaps were identified by comparing against Garry Tan's scope-checking skill
 ## Edge Cases
 
 - User selects "expand" for a trivial feature — this shouldn't happen (trivial skips mode selection), but if forced via a brief.md or prior context, treat as "hold" and note the override
-- Codebase reconnaissance finds no existing code at all — present an empty table with a note ("no existing code found for any sub-problem") and proceed
+- Codebase reconnaissance finds no existing code at all — present an empty table with a note ("No existing code found for any sub-problem — all new code needed") and proceed
 - "What if we do nothing?" produces the answer "nothing bad happens" — surface this as a strong signal to abandon or descope, but let the user decide
-- User is resuming from a brief.md that already has scope mode context — read the structured `**Scope-mode:**` field from the brief's frontmatter (requires coordinated mine.grill change to add this field to the brief.md template during Phase 3 synthesis). If the field is present, use it as the default scope mode selection. If absent (older briefs), present scope mode selection normally.
+- User is resuming from an existing feature directory — check the design doc header for a `**Scope-mode:**` field. If present, skip re-asking and announce the recovered mode. If absent (design doc written before this enhancement), present scope mode selection normally.
 
 ## Acceptance Criteria
 
@@ -157,15 +157,12 @@ AskUserQuestion:
 ```
 
 **Processing the answer:**
-- If the answer suggests low or no cost ("nothing really", "it's just annoying", "we could live without it"), surface this:
-  > "The cost of doing nothing sounds low. That's not a reason to stop — but it's worth being explicit about motivation. Should we continue, descope to something smaller, or table this?"
+- If the answer suggests low or no cost, present a structured decision via AskUserQuestion with three options: "Continue anyway" (proceed with current scope), "Descope" (narrow to a smaller version), "Table it" (stop here). On "Descope", carry forward into scope mode selection defaulting to Reduce.
 - If the answer describes real pain ("users are churning", "we're blocked on X", "compliance deadline"), use it to strengthen the Problem section in the design doc.
 
 ### Enhancement 3: Existing Code Leverage Mapping
 
-**Location:** Phase 1.5, as an upgrade to the existing codebase reconnaissance output. Not a new phase.
-
-Phase 1.5 already explores the codebase and presents a free-form summary ("I found [X, Y, Z] in the codebase that's relevant"). This enhancement adds a second pass after discovery closes: the skill revisits its Phase 1.5 findings and structures them as a sub-problem → existing code table, now informed by the user's clarified intent from Phase 2.
+**Location:** Phase 2, after Confirm intent summary and before Phase 3 research dispatch. Phase 1.5 remains unchanged (free-form summary).
 
 The two-pass approach is deliberate:
 - **Early pass (Phase 1.5, unchanged):** Free-form recon summary to inform discovery questions. Runs before the user has articulated intent.
