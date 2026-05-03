@@ -153,7 +153,7 @@ If a later question or finding suggests a different mode would be better, note i
 ```
 AskUserQuestion:
   question: "Before we dig in — what happens if we don't build this? What's the cost of doing nothing?"
-  header: "Premise check"
+  header: "Premise"
 ```
 
 **Processing the answer:**
