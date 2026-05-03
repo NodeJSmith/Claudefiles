@@ -264,6 +264,28 @@ AskUserQuestion:
 
 If "No", ask what's wrong and revise your understanding, then confirm again.
 
+### Existing code leverage (moderate+ only)
+
+After confirming intent and before research dispatch, revisit the Phase 1.5 codebase findings. Decompose the user's confirmed intent into 3-7 sub-problems using the discovery answers, scope mode, and the code findings from Phase 1.5. For each sub-problem, map it to existing code:
+
+```markdown
+| Sub-problem | Existing code | Coverage |
+|---|---|---|
+| Validate user email | `src/validators.py` — has `validate_email()` | Full — reuse as-is |
+| Rate limit API calls | `src/middleware.py` — rate limiter exists but only for auth endpoints | Partial — handles auth but not general API |
+| Send notification on failure | (none found) | None — new code needed |
+```
+
+Coverage vocabulary: `Full — reuse as-is` (existing code solves this entirely), `Partial — <what's missing>` (existing code solves part of it), `None — new code needed` (nothing found).
+
+Present the table with: "Here's what I found. Sub-problems with existing coverage should reuse that code rather than rebuilding. Correct me if I'm wrong about any of these."
+
+If Phase 1.5 found no existing code at all, present an empty table with a note: "No existing code found for any sub-problem — all new code needed."
+
+If the user corrects any row (e.g., "that validator is deprecated, don't reuse it"), update the table and present it once more before proceeding.
+
+Skip for trivial features (Phase 1.5 doesn't run for trivial, so no code findings to revisit).
+
 ---
 
 ## Phase 3: Investigate
@@ -413,6 +435,7 @@ Write the design doc to `<feature_dir>/design.md`:
 **Rules for content:**
 - Problem, Goals, User Scenarios, Functional Requirements, Edge Cases, and Acceptance Criteria must be technology-agnostic — no technology names, database engines, library names, framework names, or API endpoint paths. Written for non-technical stakeholders
 - Architecture, Alternatives, Test Strategy, Documentation Updates, and Impact contain implementation details
+- Architecture must reference existing code from the **Existing code leverage** table. For any sub-problem marked `Full — reuse as-is`, confirm reuse or justify diverging. For `Partial`, explain what was extended.
 
 **Scope mode effects on content:**
 
