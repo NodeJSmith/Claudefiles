@@ -69,7 +69,44 @@ After exploring, present a brief summary to the user:
 
 **Ask one question per `AskUserQuestion` call. Wait for each answer before asking the next.** Do NOT batch multiple questions into a single call. Each question uses free-text input (no options needed — the user types their answer directly).
 
-This phase combines problem discovery (what to build) with architecture interrogation (how to build it) into a single proportional flow. Questions are ordered from problem space to solution space.
+This phase combines problem discovery (what to build) with architecture interrogation (how to build it) into a single proportional flow. Questions are ordered from problem space to solution space. For moderate and complex features, the premise check fires first (before problem grounding) to challenge whether the work should exist at all.
+
+### Premise check (moderate+ only)
+
+Before problem grounding, challenge the premise of the work.
+
+Skip this question if the feature is trivial.
+
+Skip this question — and instead extract cost-of-inaction framing from the brief — if a `brief.md` from a prior `/mine.grill` session exists whose "Risks and Concerns" or "Key Decisions Made" section contains explicit cost-of-inaction content (concrete consequence, deadline, or pain described). Use that framing to strengthen the Problem section in Phase 4, as though the user had given the answer directly.
+
+**Exception (mine.build Accelerated path):** Always ask this question, even if a brief.md exists. Prior analysis covers findings, not cost-of-inaction framing. Detectable from the "Starting accelerated caliper workflow" banner mine.build emits before invoking mine.define.
+
+```
+AskUserQuestion:
+  question: "Before we dig in — what happens if we don't build this? What's the cost of doing nothing?"
+  header: "Premise"
+```
+
+**Processing the answer:**
+- If the answer suggests low or no cost ("nothing really", "it's just annoying", "we could live without it"), present a structured decision:
+
+```
+AskUserQuestion:
+  question: "The cost of doing nothing sounds low — worth being explicit. How would you like to proceed?"
+  header: "Premise"
+  multiSelect: false
+  options:
+    - label: "Continue anyway"
+      description: "Proceed with the current scope"
+    - label: "Descope"
+      description: "Narrow to a smaller version"
+    - label: "Table it"
+      description: "Stop here — revisit when cost is clearer"
+```
+
+On "Table it": confirm "Tabled — design not started." and stop. On "Descope": note the user wants a reduced scope and carry this forward into the scope mode selection (defaults to Reduce if present). On "Continue anyway": proceed normally.
+
+- If the answer describes real pain ("users are churning", "we're blocked on X", "compliance deadline"), use it to strengthen the Problem section in Phase 4.
 
 ### Always ask (all complexity levels)
 
