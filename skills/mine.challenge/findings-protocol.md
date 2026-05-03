@@ -38,9 +38,7 @@ Each finding is a top-level section:
 
 **Why-it-matters:** <consequence if left unfixed>
 
-**Evidence:** <file:line, section reference, or quoted text>
-
-**References:** <optional supporting references>
+**Evidence:** <file:line, section reference, quoted text, or URL>
 
 **Design-challenge:** <what this reveals about the design's assumptions>
 
@@ -70,7 +68,7 @@ match 1:1 with findings — no gaps.
 |---|---|
 | `CRITICAL` | Breaks a core requirement or contract; must be user-directed |
 | `HIGH` | Significant gap or fragility; shown to user |
-| `MEDIUM` | Meaningful but not blocking; subject to cap budgeting |
+| `MEDIUM` | Meaningful but not blocking; always shown |
 | `TENSION` | Legitimate competing concerns; deferred unless user resolves |
 
 ## Type Taxonomy
@@ -117,9 +115,7 @@ TENSION findings always classify as User-directed.
 Findings are capped before presentation to prevent overwhelming the user:
 
 - If `cap=0`: all findings are auto-applied or overflow — pure automation mode
-- **CRITICAL and HIGH**: Always shown, no cap (except `cap=0`)
-- **MEDIUM**: At most `max(3, cap - CRITICAL_count - HIGH_count)` MEDIUM
-  findings are shown; the rest are marked `overflow: true, status: overflow`
+- **CRITICAL, HIGH, and MEDIUM**: Always shown, no cap (except `cap=0`)
 - **TENSION**: Shown only when no CRITICAL/HIGH findings exist; otherwise
   overflow
 

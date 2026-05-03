@@ -27,6 +27,7 @@ Your job is distinct from `code-reviewer`, which checks correctness (types, secu
 | 5 | **Naming drift** | MEDIUM | Doesn't match naming conventions used by sibling files/functions |
 | 6 | **Orphaned code** | LOW | Added but never imported or called |
 | 7 | **Unexpected coupling** | MEDIUM | New cross-module dependency that violates layer boundaries |
+| 8 | **Unresolved references** | HIGH | Code references an identifier that doesn't exist in the codebase |
 
 ---
 
@@ -157,6 +158,12 @@ Work through each dimension. Record findings with evidence. If a dimension has n
 - New import of a module type not seen in sibling files of the same layer → COUPLED
 - Especially flag: business logic importing from presentation layer, data layer importing from service layer, etc.
 
+#### 8. Unresolved references
+- New code references an identifier (variable, function, token, class) that doesn't exist anywhere in the codebase → UNRESOLVED
+- Toolchains catch some of these (TypeScript catches missing imports, Python linters catch undefined names) — focus on references that slip through tooling gaps
+- **CSS custom properties** are the primary gap: `var(--name)` silently resolves to `initial` when `--name` is undefined. For CSS files in the diff, grep for `var(--` references and verify each custom property is defined in a `:root`, `[data-theme]`, or other selector block. Flag any that resolve to nothing.
+- Also check: string-referenced class names, dynamic config keys, template variable names, or any cross-file reference where the toolchain doesn't enforce resolution
+
 ---
 
 ### Step 5: Output Findings
@@ -199,6 +206,11 @@ Group findings by severity (CRITICAL first), then by file.
   New dependency: <module>
   Why unexpected: <layer rule it breaks or pattern it deviates from>
   Fix: <alternative approach>
+
+[UNRESOLVED] path/to/file.py:<line>
+  Reference: <identifier that doesn't exist>
+  Expected location: <where it should be defined>
+  Fix: <define it, or use the correct existing identifier>
 ```
 
 After all findings, print a summary table:
@@ -215,12 +227,13 @@ After all findings, print a summary table:
 | Naming               | PASS / N issue(s)               |
 | Orphaned code        | PASS / N issue(s)               |
 | Coupling             | PASS / N issue(s)               |
+| Unresolved refs      | PASS / N issue(s)               |
 
 **VERDICT: APPROVE / WARN / BLOCK**
 ```
 
 **Verdict criteria:**
-- **BLOCK**: Any DUPLICATE, MISPLACED, or DESIGN_VIOLATION finding
+- **BLOCK**: Any DUPLICATE, MISPLACED, DESIGN_VIOLATION, or UNRESOLVED finding
 - **WARN**: INCONSISTENT, NAMING, COUPLED, or ORPHANED findings
 - **APPROVE**: No findings across all dimensions
 
