@@ -19,7 +19,7 @@ $ARGUMENTS — optional scope narrowing. Can be:
 
 ## How to Analyze Code
 
-**Read the code and reason about it directly.** Subagents should use Read, Grep, Glob, and Bash to examine files. Do NOT write or execute analysis scripts. The only commands to execute are `git diff`, `git log`, and project linters/type checkers if available.
+**Read the code and reason about it directly.** Subagents should use Read, Grep, Glob, and Bash to examine files. Do NOT write or execute analysis scripts — no AST parsers, no custom complexity calculators. Allowed commands: `git` (diff, log, etc.), repo helper CLIs (`git-branch-base`, `git-default-branch`), and project linters/type checkers if available.
 
 ## Phase 1: Determine the Diff
 
@@ -37,11 +37,11 @@ If $ARGUMENTS specifies files or directories, append `-- <paths>` to the diff co
 
 If there are no changes, inform the user and stop.
 
-Capture the diff stats for the dispatchers:
+Capture the diff stats using the same diff command chosen above (including any `-- <paths>` suffix):
 
 ```bash
-git diff <base>...HEAD --stat
-git diff <base>...HEAD --name-only
+<diff command> --stat
+<diff command> --name-only
 ```
 
 If the diff exceeds ~500 files, ask the user to narrow scope before proceeding.
