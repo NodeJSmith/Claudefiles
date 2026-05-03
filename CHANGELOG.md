@@ -2,6 +2,13 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-05-03
+
+### Changed
+- `/mine.orchestrate` Step 6 fixes all review findings regardless of severity — MEDIUM/LOW no longer silently pass through as WARN
+- Integration reviewer gains "Unresolved references" dimension — catches undefined CSS custom properties and other cross-file identifiers that slip through tooling
+- `/mine.challenge` removes MEDIUM finding cap and drops unused `References` field from findings protocol
+
 ## 2026-05-01
 
 ### Added
