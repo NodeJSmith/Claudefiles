@@ -126,14 +126,41 @@ AskUserQuestion:
   header: "Success"
 ```
 
-### Ask for moderate and complex features
+### Scope mode selection (moderate+ only)
 
-3. **Scope boundary:**
+After the user answers problem grounding and success definition, present a scope mode selection. Skip for trivial features. On resume from an existing feature directory, check the design doc header for a `**Scope-mode:**` field — if present, skip re-asking and announce the recovered mode.
 
 ```
 AskUserQuestion:
-  question: "Anything I should explicitly NOT include? (e.g., 'no admin UI', 'skip migration for now'). 'None' is a perfectly good answer."
-  header: "Non-goals"
+  question: "You described the problem as [X] and success as [Y]. Given that and what I found in the codebase, how should we scope this?"
+  header: "Scope mode"
+  multiSelect: false
+  options:
+    - label: "Expand — build the ambitious version"
+      description: "Push scope up. What would make this 10x better? What adjacent improvements would make it sing?"
+    - label: "Hold — make this bulletproof"
+      description: "Accept the scope as stated. Focus on making it solid, complete, and well-tested."
+    - label: "Reduce — strip to essentials"
+      description: "Find the minimum viable version. Cut everything that isn't core. What can be a follow-up?"
+```
+
+Where `[X]` is the user's answer to problem grounding (or a one-sentence paraphrase of the stated problem if Q1 was skipped) and `[Y]` is their answer to success definition. If the user selected "Descope" from the premise check, default to Reduce.
+
+### Ask for moderate and complex features
+
+The remaining questions are shaped by the selected scope mode. Prefix each AskUserQuestion header with the mode — e.g., `[Expand] Non-goals`, `[Hold] User flow`, `[Reduce] Edge cases` — so the mode is visible on every interaction turn.
+
+3. **Scope boundary:**
+
+Mode-specific framing:
+- **Expand**: "What's phase 1 vs phase 2? What should we build now, and what's a natural follow-on?"
+- **Hold**: "Anything I should explicitly NOT include? (e.g., 'no admin UI', 'skip migration for now'). 'None' is a perfectly good answer."
+- **Reduce**: "What can we cut entirely? What's the absolute minimum that ships value?"
+
+```
+AskUserQuestion:
+  question: "<mode-specific question above>"
+  header: "[<mode>] Non-goals"
 ```
 
 4. **Primary user flow:**
@@ -141,8 +168,13 @@ AskUserQuestion:
 ```
 AskUserQuestion:
   question: "Walk me through the main scenario: who is this person, what's their situation, and what do they do step by step?"
-  header: "User flow"
+  header: "[<mode>] User flow"
 ```
+
+Mode-specific follow-up (ask only the one matching the selected mode):
+- **Expand only:** "Are there adjacent flows or related scenarios we should include?"
+- **Hold:** skip — no follow-up
+- **Reduce only:** "Which of these steps could be manual or deferred for now?"
 
 ### Ask for complex features only
 
@@ -151,7 +183,7 @@ AskUserQuestion:
 ```
 AskUserQuestion:
   question: "What are the important edge cases or failure modes?"
-  header: "Edge cases"
+  header: "[<mode>] Edge cases"
 ```
 
 6. **Dependencies:**
@@ -159,7 +191,7 @@ AskUserQuestion:
 ```
 AskUserQuestion:
   question: "What external systems, services, or teams does this touch?"
-  header: "Dependencies"
+  header: "[<mode>] Deps"
 ```
 
 7. **Security / access:**
@@ -167,7 +199,7 @@ AskUserQuestion:
 ```
 AskUserQuestion:
   question: "Who should and shouldn't have access? Any data sensitivity concerns?"
-  header: "Security"
+  header: "[<mode>] Security"
 ```
 
 8. **Performance:**
@@ -175,7 +207,7 @@ AskUserQuestion:
 ```
 AskUserQuestion:
   question: "Any scale, latency, or throughput requirements?"
-  header: "Performance"
+  header: "[<mode>] Perf"
 ```
 
 9. **Rollback / reversibility:**
@@ -183,7 +215,7 @@ AskUserQuestion:
 ```
 AskUserQuestion:
   question: "If this goes wrong, what does rollback or recovery look like?"
-  header: "Rollback"
+  header: "[<mode>] Rollback"
 ```
 
 ### Adaptive follow-up (all complexity levels)
@@ -197,17 +229,25 @@ After the tier-appropriate questions above, review what you've learned. For each
 
 For each decision branch, check whether the codebase already constrains the answer (from Phase 1.5 findings or a quick targeted search). Ask only about branches where the code doesn't decide for you.
 
-Ask follow-up questions one at a time. Apply judgment proportional to complexity: for trivial features, 1–2 follow-ups max; for moderate, 3–5; for complex, as many as needed. If you're exceeding the tier's original question count by more than double, pause and ask the user whether to continue or descope the remaining branches.
+Ask follow-up questions one at a time. Apply judgment proportional to complexity and scope mode:
+- **Expand**: more follow-ups than the tier suggests; explore opportunity branches and adjacent use cases
+- **Hold**: standard follow-ups per the complexity tier — for trivial features, 1–2 follow-ups max; for moderate, 3–5; for complex, as many as needed
+- **Reduce**: fewer follow-ups; bias toward deferring unresolved branches rather than probing deeper
+
+If you're exceeding the tier's original question count by more than double, pause and ask the user whether to continue or descope the remaining branches.
 
 If the user says "I don't know yet" or "let's figure that out later", probe deeper — rephrase the question, offer concrete options, or explore the codebase to narrow the possibilities. Only move on when the branch is resolved or the user explicitly descopes it.
 
 ### Confirm intent summary
 
-Before proceeding, present a structured summary starting with the pain point:
+Before proceeding, present a structured summary starting with the pain point. Include the scope mode so the user can detect drift before the design doc is written.
 
+> **Scope mode:** <Expand|Hold|Reduce>
 > **Understood pain point:** <the underlying problem or frustration>
 >
 > <one-paragraph summary of what will be defined>
+
+**Anti-drift rule:** If a later question or finding suggests a different mode would be better, note it once — do not act on it unless the user explicitly changes mode.
 
 Then ask:
 
@@ -219,7 +259,7 @@ AskUserQuestion:
   options:
     - label: "Yes — proceed"
     - label: "No — let me clarify"
-      description: "Tell me what's wrong and I'll adjust"
+      description: "Tell me what's wrong (including scope mode) and I'll adjust"
 ```
 
 If "No", ask what's wrong and revise your understanding, then confirm again.
@@ -301,6 +341,7 @@ Write the design doc to `<feature_dir>/design.md`:
 
 **Date:** YYYY-MM-DD
 **Status:** draft
+**Scope-mode:** <expand|hold|reduce>
 **Research:** <path to research brief, if one was used — omit if no prior research>
 
 ## Problem
@@ -372,6 +413,17 @@ Write the design doc to `<feature_dir>/design.md`:
 **Rules for content:**
 - Problem, Goals, User Scenarios, Functional Requirements, Edge Cases, and Acceptance Criteria must be technology-agnostic — no technology names, database engines, library names, framework names, or API endpoint paths. Written for non-technical stakeholders
 - Architecture, Alternatives, Test Strategy, Documentation Updates, and Impact contain implementation details
+
+**Scope mode effects on content:**
+
+| Section | Expand | Hold | Reduce |
+|---|---|---|---|
+| Problem | Include the broader problem, not just the immediate one | State the problem as given | State the acute problem only |
+| Goals | Include stretch goals alongside core goals | Core goals only | Minimum viable goals only |
+| Architecture | Include platform opportunities, extensibility points | Standard recommendation | Simplest possible approach — documents only what IS being built |
+| Non-goals | Frame as "what's phase 2 vs phase 1?" | As-is | Explicitly list cut items with rationale — mine.plan uses Non-goals as exclusions |
+| Alternatives | Include the ambitious alternative even if not chosen | Standard alternatives | Include "do nothing" and "manual workaround" as alternatives |
+
 - Every requirement must be testable and unambiguous
 - No `[NEEDS CLARIFICATION]` markers — if you don't know, ask before writing
 
