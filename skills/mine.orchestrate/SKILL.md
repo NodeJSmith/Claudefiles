@@ -482,7 +482,7 @@ git ls-files --others --exclude-standard
 
 Update the WP's changed file list with the refreshed result (deduped). This updated list is used by Step 9a (commit).
 
-**Verdict impact:** If any code-review or integration-review findings remain unresolved after 3 iterations (regardless of severity), the WP verdict becomes FAIL.
+**Verdict impact:** If any non-deferred code-review or integration-review findings remain unresolved after 3 iterations (regardless of severity), the WP verdict becomes FAIL.
 
 ### Step 7: Review gate
 

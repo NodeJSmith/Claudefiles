@@ -38,7 +38,7 @@ Each finding is a top-level section:
 
 **Why-it-matters:** <consequence if left unfixed>
 
-**Evidence:** <file:line, section reference, or quoted text>
+**Evidence:** <file:line, section reference, quoted text, or URL>
 
 **Design-challenge:** <what this reveals about the design's assumptions>
 
