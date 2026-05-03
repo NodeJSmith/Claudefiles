@@ -5,8 +5,8 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-05-03
 
 ### Added
-- `/mine.wtf` skill and `wtf-reviewer` agent — comprehensive branch sniff test dispatching code, integration, and WTF readability reviewers in parallel
-- LLM-specific smell checks in `code-reviewer` (happy path assumptions, overengineering, readability smells) and two new `integration-reviewer` dimensions (parallel drift, abstraction inconsistency)
+- `/mine.wtf` skill and `wtf-reviewer` agent — comprehensive branch sniff test dispatching code, integration, and WTF readability reviewers in parallel (#278)
+- LLM-specific smell checks in `code-reviewer` (happy path assumptions, overengineering, readability smells) and two new `integration-reviewer` dimensions (parallel drift, abstraction inconsistency) (#278)
 
 ### Changed
 - `/mine.orchestrate` Step 6 fixes all review findings regardless of severity — MEDIUM/LOW no longer silently pass through as WARN (#277)
