@@ -78,6 +78,36 @@ Do not add verbose examples for patterns the model already knows. Flag the issue
 - Inefficient string building in loops (use `"".join(...)`)
 - Unnecessary list materialization when a generator suffices
 
+## LLM-Specific Smells (MEDIUM)
+
+LLM-generated code compiles and passes tests but degrades codebases through patterns that traditional review misses. Flag these with severity MEDIUM unless they compound (multiple smells in the same function → HIGH).
+
+### Happy Path Assumption
+
+LLMs systematically assume ideal conditions. Look for:
+- **Undifferentiated catch blocks** — `except Exception` or `catch (e)` that handle all errors identically instead of distinguishing recoverable from fatal
+- **Missing timeouts** — HTTP calls, database queries, or external service calls with no timeout parameter
+- **No retry logic** on idempotent operations that can transiently fail (network calls, file locks)
+- **Missing connection pooling** — creating new connections per request instead of reusing
+
+The code looks correct — the issue is what's *absent*. Ask: "what happens when this call takes 30 seconds or returns an unexpected error?"
+
+### Verbose Overengineering
+
+LLMs pattern-match to "production-ready" training examples and over-apply enterprise patterns:
+- **Premature abstraction** — factory/strategy/repository patterns applied where a plain function suffices; extract only when there are 2+ concrete callers
+- **"Universal" components** — a single class/component handling multiple dissimilar cases via conditional branches instead of separate focused implementations
+- **Excessive error handling** — try/except around operations that cannot fail in context (e.g., accessing a key that was just validated, catching TypeError on a statically-typed argument)
+- **Bloated tests** — unnecessary mocking of internal collaborators, redundant assertions that test the same behavior multiple ways, test setup that exceeds the test body
+
+### Readability Smells
+
+- **Nested ternaries** — ternary expressions nested more than one level deep; use if/elif or a mapping instead
+- **Complex boolean expressions** — conditions with 3+ clauses and mixed `and`/`or` without extraction to a named variable or function
+- **Magic numbers/strings** — unexplained literal values in logic (not in tests, config defaults, or well-known constants like HTTP status codes)
+- **Type assertions defeating safety** — `as unknown as X`, `cast()`, `# type: ignore` that bypass the type system instead of fixing the underlying type mismatch
+- **Copy-paste within a file** — two or more blocks in the same file with near-identical structure differing only in field names or literals; should be a loop, mapping, or shared helper
+
 ## Diagnostic Commands
 
 ```bash

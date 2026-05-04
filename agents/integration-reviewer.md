@@ -28,6 +28,8 @@ Your job is distinct from `code-reviewer`, which checks correctness (types, secu
 | 6 | **Orphaned code** | LOW | Added but never imported or called |
 | 7 | **Unexpected coupling** | MEDIUM | New cross-module dependency that violates layer boundaries |
 | 8 | **Unresolved references** | HIGH | Code references an identifier that doesn't exist in the codebase |
+| 9 | **Parallel drift** | HIGH | Two implementations of the same concept that can diverge independently |
+| 10 | **Abstraction inconsistency** | MEDIUM | Sibling files at different abstraction levels — some use shared utilities, others inline the same logic |
 
 ---
 
@@ -158,11 +160,25 @@ Work through each dimension. Record findings with evidence. If a dimension has n
 - New import of a module type not seen in sibling files of the same layer → COUPLED
 - Especially flag: business logic importing from presentation layer, data layer importing from service layer, etc.
 
-#### 8. Unresolved references
+#### 8. Unresolved references (+ LLM hallucination awareness)
 - New code references an identifier (variable, function, token, class) that doesn't exist anywhere in the codebase → UNRESOLVED
 - Toolchains catch some of these (TypeScript catches missing imports, Python linters catch undefined names) — focus on references that slip through tooling gaps
 - **CSS custom properties** are the primary gap: `var(--name)` silently resolves to `initial` when `--name` is undefined. For CSS files in the diff, grep for `var(--` references and verify each custom property is defined in a `:root`, `[data-theme]`, or other selector block. Flag any that resolve to nothing.
 - Also check: string-referenced class names, dynamic config keys, template variable names, or any cross-file reference where the toolchain doesn't enforce resolution
+- **LLM hallucination risk**: LLM-generated code frequently references APIs, methods, or parameters that don't exist in the library version being used. Give extra scrutiny to: new third-party imports (verify the package exists and the API matches), method calls on library objects (verify the method signature), and config keys or environment variables (verify they're defined somewhere)
+
+#### 9. Parallel drift
+- Two or more implementations of the same concept that can diverge independently → PARALLEL_DRIFT
+- Common forms: dual status mappings (e.g., `StatusVariant` vs `StatusKind` with conflicting values), duplicate config lookups using different keys, parallel validation logic in different modules, two formatters for the same data type
+- The danger is not that they differ today — it's that a future change to one won't update the other
+- Check: grep for the concept name across the codebase. If two implementations exist and neither references the other, flag it
+- Fix: extract to a single source of truth, or add a cross-reference comment if separation is intentional
+
+#### 10. Abstraction inconsistency
+- Sibling files at different abstraction levels → ABSTRACTION_DRIFT
+- Signs: some files in a directory use a shared utility (error handler, API client, data formatter) while new/changed files in the same directory inline equivalent logic
+- Also flag: a new file that re-implements from scratch what sibling files achieve by composing existing helpers
+- This is distinct from Duplication (#1) — duplication is identical code; abstraction inconsistency is *equivalent behavior* at different levels of abstraction
 
 ---
 
@@ -211,6 +227,16 @@ Group findings by severity (CRITICAL first), then by file.
   Reference: <identifier that doesn't exist>
   Expected location: <where it should be defined>
   Fix: <define it, or use the correct existing identifier>
+
+[PARALLEL_DRIFT] path/to/file_a.py + path/to/file_b.py
+  Concept: <what both implement — e.g., "status-to-severity mapping">
+  Risk: changes to one won't propagate to the other
+  Fix: extract to a single source of truth in <suggested location>
+
+[ABSTRACTION_DRIFT] path/to/new_file.py
+  Siblings use: <shared utility or pattern — cite a specific file>
+  This file: <inlines equivalent logic instead>
+  Fix: use <existing utility> like sibling files do
 ```
 
 After all findings, print a summary table:
@@ -228,13 +254,15 @@ After all findings, print a summary table:
 | Orphaned code        | PASS / N issue(s)               |
 | Coupling             | PASS / N issue(s)               |
 | Unresolved refs      | PASS / N issue(s)               |
+| Parallel drift       | PASS / N issue(s)               |
+| Abstraction inconsistency | PASS / N issue(s)          |
 
 **VERDICT: APPROVE / WARN / BLOCK**
 ```
 
 **Verdict criteria:**
-- **BLOCK**: Any DUPLICATE, MISPLACED, DESIGN_VIOLATION, or UNRESOLVED finding
-- **WARN**: INCONSISTENT, NAMING, COUPLED, or ORPHANED findings
+- **BLOCK**: Any DUPLICATE, MISPLACED, DESIGN_VIOLATION, UNRESOLVED, or PARALLEL_DRIFT finding
+- **WARN**: INCONSISTENT, NAMING, COUPLED, ORPHANED, or ABSTRACTION_DRIFT findings
 - **APPROVE**: No findings across all dimensions
 
 ---
