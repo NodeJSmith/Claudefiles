@@ -14,7 +14,7 @@ $ARGUMENTS — path to a feature directory (`design/specs/NNN-feature/`) or a `d
 
 ---
 
-## Phase 1: Read the Design Doc, Work Packages, and Changed Files
+## Phase 1: Read the Design Doc, Task Files, and Changed Files
 
 ### Locate the feature directory
 

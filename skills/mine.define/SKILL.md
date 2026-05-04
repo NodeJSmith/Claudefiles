@@ -395,7 +395,7 @@ AskUserQuestion:
     - label: "Gap-close first"
       description: "Run /mine.gap-close on the design doc to fill completeness gaps"
     - label: "Approve — proceed to planning"
-      description: "Hand off to /mine.plan to generate work packages"
+      description: "Hand off to /mine.plan to generate task files"
     - label: "Revise — I have changes"
       description: "Tell me what to change and I'll update"
     - label: "Save and stop"
@@ -459,11 +459,11 @@ Update design.md `**Status:**` from `draft` to `approved`.
 
 ```
 AskUserQuestion:
-  question: "Design doc approved. Proceed to generate work packages?"
+  question: "Design doc approved. Proceed to generate task files?"
   header: "Next step"
   multiSelect: false
   options:
-    - label: "Yes — generate work packages"
+    - label: "Yes — generate task files"
       description: "Invoke /mine.plan for this feature"
     - label: "No — I'll do it later"
       description: "Stop here; design doc is saved"

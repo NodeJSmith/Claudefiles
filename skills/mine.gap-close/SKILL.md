@@ -6,7 +6,7 @@ user-invocable: true
 
 # mine.gap-close
 
-Completeness review for design docs, briefs, work packages, and general-purpose docs. Finds missing required content (not flawed content), fills gaps conversationally via Edit, and signs off. Not a substitute for `/mine.challenge` (quality of existing content).
+Completeness review for design docs, briefs, task files, and general-purpose docs. Finds missing required content (not flawed content), fills gaps conversationally via Edit, and signs off. Not a substitute for `/mine.challenge` (quality of existing content).
 
 ## Arguments
 

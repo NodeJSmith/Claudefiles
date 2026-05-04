@@ -138,22 +138,22 @@ Briefs follow the mine.grill output format: Idea, Key Decisions Made, Open Quest
 
 ---
 
-## Checklist: Work Package
+## Checklist: Task File
 
-Work packages define a bounded unit of implementation work within a caliper plan.
+Task files define a bounded unit of implementation work within a caliper plan.
 
 | ID | Severity | Gap question | Target section |
 |----|----------|-------------|----------------|
-| WP-01 | Blocker | Is the WP's deliverable stated as a concrete artifact or observable behavior — not a process? ("Implement X" → "X exists and does Y", not "Work on X") | Objectives & Success Criteria |
-| WP-02 | Blocker | Does the success criterion specify what done looks like — observable, not aspirational? | Objectives & Success Criteria |
-| WP-03 | Blocker | Are subtasks specific enough that a developer could pick one up without reading anything else? | Subtasks |
-| WP-04 | Should-address | Are all subtasks mutually exclusive — no two subtasks duplicate effort or produce conflicting artifacts? | Subtasks |
-| WP-05 | Should-address | If this WP has dependencies on other WPs, are they listed and accurate? | depends_on |
-| WP-06 | Blocker | Is the scope bounded — is there a clear statement of what this WP does NOT include? | Objectives or Subtasks |
-| WP-07 | Should-address | Is the test strategy concrete: what will be tested, at what level (unit/integration/E2E), and what the test command is? | Test Strategy |
-| WP-08 | Should-address | Does the WP avoid implementation detail that belongs in a later or sibling WP? (No cross-WP scope bleed) | Subtasks |
-| WP-09 | Blocker | Is the WP small enough to be completed in one session? (If subtasks exceed ~8 items, split into two WPs) | Subtasks |
-| WP-10 | Nice-to-have | Are implementation notes or design hints included to reduce ramp-up time? | Implementer instructions or subtasks |
+| TF-01 | Blocker | Is the task's deliverable stated as a concrete artifact or observable behavior — not a process? ("Implement X" → "X exists and does Y", not "Work on X") | Summary |
+| TF-02 | Blocker | Does the Summary describe what done looks like — observable, not aspirational? | Summary |
+| TF-03 | Blocker | Are Prompt instructions specific enough that an executor could follow them without reading anything else? | Prompt |
+| TF-04 | Should-address | Are all Prompt instructions mutually exclusive — no two instructions duplicate effort or produce conflicting artifacts? | Prompt |
+| TF-05 | Should-address | If this task has dependencies on other tasks, are they listed and accurate? | depends_on |
+| TF-06 | Blocker | Is the scope bounded — is there a clear statement of what this task does NOT include? | Summary or Prompt |
+| TF-07 | Should-address | Does the Focus section provide concrete domain context (design tokens, API contracts, data model rationale) — not generic guidance? | Focus |
+| TF-08 | Should-address | Does the task avoid implementation detail that belongs in a later or sibling task? (No cross-task scope bleed) | Prompt |
+| TF-09 | Blocker | Is the task small enough to be completed in one session? (If Prompt instructions exceed ~8 items, split into two tasks) | Prompt |
+| TF-10 | Blocker | Does every Verify criterion reference a specific FR or AC identifier? | Verify |
 
 ---
 
