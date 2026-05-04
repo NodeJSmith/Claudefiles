@@ -281,10 +281,12 @@ The subagent reads the design doc and all task files independently (fresh contex
 Read the validation report. Then present:
 
 1. **Validation status** — APPROVED or ISSUES_FOUND (bold, prominent)
-2. **Traceability matrix** — the FR/AC → task mapping table from the report
-3. **Coverage gaps** — any FRs/ACs with no implementing task
+2. **Coverage summary** — e.g., "22/22 FRs mapped, 10/10 ACs mapped" (counts only — the full matrix is in `.validation-report.md` if needed)
+3. **Coverage gaps** — any FRs/ACs with no implementing task (only the gaps, not the full matrix)
 4. **Contradictions** — any conflicts between task prompts and the design doc
 5. **Warnings** — vague criteria, weak references, format issues
+
+Note the path to `.validation-report.md` so the user can inspect the full traceability matrix if desired.
 
 If status is ISSUES_FOUND, ask the user:
 

@@ -315,6 +315,8 @@ AskUserQuestion:
 
 **On Reject**: dispatch one retry executor (Step 4 only) scoped to only the rejected criterion. In the retry prompt, include: "Fix only the CONTESTED criterion: \"<criterion text>\". Do not change code unrelated to this criterion." After the retry, re-capture changed files (Step 4.5) and re-evaluate the criterion. If the criterion is now met, continue. If still CONTESTED after one retry, escalate to the user with "Accept — ship it as-is" and "Stop here" options only (no further retries). All prompts include full absolute paths to relevant artifacts (FR#19a).
 
+**Persistence**: When the user accepts a CONTESTED criterion (either at the first prompt or the escalation), update the criterion text in the task file's Verify section to reflect the accepted interpretation. When the user stops with an unresolved CONTESTED criterion, append `<!-- CONTESTED: unresolved -->` to the criterion line in the task file. On resume (Step 4.6), skip criteria that already have a `<!-- CONTESTED: unresolved -->` marker — present them to the user as "previously unresolved" with the option to re-attempt or accept.
+
 After all CONTESTED criteria are resolved, proceed to Step 5.
 
 ### Step 5: Parallel review pass
