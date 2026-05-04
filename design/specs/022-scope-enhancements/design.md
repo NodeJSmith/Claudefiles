@@ -77,9 +77,9 @@ These gaps were identified by comparing against Garry Tan's scope-checking skill
 
 ## Acceptance Criteria
 
-1. A moderate or complex feature run through mine.define presents scope mode selection after problem grounding and success definition
+1. A moderate or complex feature run through mine.define presents scope mode selection after problem grounding and success definition (or recovers from the design doc header on resume)
 2. A trivial feature run through mine.define skips scope mode selection
-3. The "what if we do nothing?" question appears for moderate and complex features
+3. The "what if we do nothing?" question appears for moderate and complex features (or is populated from brief.md when applicable)
 4. After discovery closes, output includes a sub-problem → existing code table derived from the user's clarified intent
 5. The design doc reflects the chosen scope mode in its framing
 6. No silent mode drift occurs after selection

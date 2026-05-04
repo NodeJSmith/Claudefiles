@@ -22,7 +22,7 @@ $ARGUMENTS — optional initial description or path. Can be:
 
 ### Understand the initial request
 
-If $ARGUMENTS points to a `design/specs/NNN-*/` directory, check for existing `design.md`. If a `brief.md` from a prior `/mine.grill` session exists, read it and use its Key Decisions, Scope Boundaries, and Open Questions as starting context — skip any discovery questions the brief already answers.
+If $ARGUMENTS points to a `design/specs/NNN-*/` directory, check for existing `design.md` and read it if present (the header fields — `**Status:**`, `**Scope-mode:**` — are needed for resume detection in later phases). If a `brief.md` from a prior `/mine.grill` session exists, read it and use its Key Decisions, Scope Boundaries, and Open Questions as starting context — skip any discovery questions the brief already answers.
 
 If $ARGUMENTS is provided (text or path), paraphrase it back in one sentence to confirm understanding. If empty, ask:
 
@@ -104,7 +104,7 @@ AskUserQuestion:
       description: "Stop here — revisit when cost is clearer"
 ```
 
-On "Table it": confirm "Tabled — design not started." and stop. On "Descope": note the user wants a reduced scope and carry this forward into the scope mode selection (defaults to Reduce if present). On "Continue anyway": proceed normally.
+On "Table it": confirm "Tabled — no changes made." and stop. On "Descope": note the user wants a reduced scope and carry this forward into the scope mode selection (defaults to Reduce if present). On "Continue anyway": proceed normally.
 
 - If the answer describes real pain ("users are churning", "we're blocked on X", "compliance deadline"), use it to strengthen the Problem section in Phase 4.
 
@@ -128,7 +128,7 @@ AskUserQuestion:
 
 ### Scope mode selection (moderate+ only)
 
-After the user answers problem grounding and success definition, present a scope mode selection. Skip for trivial features. On resume from an existing feature directory, check the design doc header for a `**Scope-mode:**` field — if present, skip re-asking and announce the recovered mode.
+After the user answers problem grounding and success definition, present a scope mode selection. Skip for trivial features — trivial features are always `hold` (use this value when writing the `**Scope-mode:**` header in Phase 4). On resume from an existing feature directory, check the design doc header for a `**Scope-mode:**` field — if present, skip re-asking and announce the recovered mode.
 
 ```
 AskUserQuestion:
