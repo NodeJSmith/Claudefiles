@@ -1,12 +1,12 @@
 ---
 name: mine.implementation-review
-description: "Use when mine.orchestrate Phase 3 runs the post-execution quality gate. Reviews changed files against design doc and WPs using a Sonnet subagent."
+description: "Use when mine.orchestrate Phase 3 runs the post-execution quality gate. Reviews changed files against design doc and task files using a Sonnet subagent."
 user-invocable: false
 ---
 
 # Implementation Review
 
-Post-execution quality gate. After `/mine.orchestrate` finishes, this reviews the full implementation against the original design doc and Work Packages. Uses a Sonnet subagent for structured review across 7 categories.
+Post-execution quality gate. After `/mine.orchestrate` finishes, this reviews the full implementation against the original design doc and task files. Uses a Sonnet subagent for structured review across 7 categories.
 
 ## Arguments
 
@@ -41,11 +41,11 @@ AskUserQuestion:
       description: "Tell me the correct feature directory and I'll use that"
 ```
 
-### Read design doc and WPs
+### Read design doc and task files
 
 Read `<feature_dir>/design.md` in full.
 
-Read all `<feature_dir>/tasks/WP*.md` files in order. If no WP files exist, proceed with design-only review and note this in the summary.
+Read all `<feature_dir>/tasks/T*.md` files in order. If no task files exist, proceed with design-only review and note this in the summary.
 
 ### Collect changed files
 
@@ -61,7 +61,7 @@ If still empty (e.g., no commits yet), fall back to:
 git diff --name-only HEAD~1
 ```
 
-Read each changed file. If the list is large (more than 15 files), prioritize files referenced in the WP Subtasks sections first.
+Read each changed file. If the list is large (more than 15 files), prioritize files referenced in the task Prompt sections first.
 
 ---
 
@@ -85,8 +85,8 @@ You are reviewing a completed caliper v2 feature implementation.
 ## Design doc
 <full design.md content>
 
-## Work packages
-<full content of each WP*.md in order, separated by "--- WP<NN> ---" headers>
+## Task files
+<full content of each T*.md in order, separated by "--- T<NN> ---" headers>
 
 ## Changed files
 <for each changed file: filename header + full content>
