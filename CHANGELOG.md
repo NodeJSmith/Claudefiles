@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-05-04
 
 ### Changed
-- Pipeline redesign: task files renamed from `WP*.md` to `T*.md`, lane management (planned/doing/for_review/done) removed, `mine.wp` decommissioned in favour of `/mine.status`; `mine.orchestrate` executes tasks sequentially without kanban state tracking
+- Pipeline redesign: task files renamed from `WP*.md` to `T*.md`, lane management (planned/doing/for_review/done) removed, `mine.wp` decommissioned in favour of `/mine.status`; `mine.orchestrate` executes tasks sequentially without kanban state tracking (#281)
 
 ## 2026-05-03
 
