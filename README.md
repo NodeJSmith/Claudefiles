@@ -73,6 +73,7 @@ All three directories symlink into `~/.claude/skills/` at install time — the r
 | `mine.worktree-rebase` | Detect when the parent repo is currently on a feature branch and rebase this worktree branch onto it (run immediately after creating the worktree) |
 | `mine.wp` | WP lane management — move work packages between lanes, view kanban, list WPs |
 | `mine.write-skill` | Guided skill creation — gathers requirements, drafts SKILL.md, validates quality checklist, auto-wires routing |
+| `mine.wtf` | Comprehensive branch sniff test — dispatches code, integration, and WTF readability reviewers in parallel, consolidates findings into one prioritized report |
 
 **[Impeccable](https://impeccable.style/) Frontend Design Skills**
 
@@ -130,6 +131,7 @@ All three directories symlink into `~/.claude/skills/` at install time — the r
 | `qa-specialist` | Adversarial QA -- systematic and exploratory testing to find defects before they ship |
 | `researcher` | Autonomous codebase research and feasibility analysis with parallel subagents and web research |
 | `visual-diff` | Visual regression testing via Playwright MCP -- before/after screenshots to catch unintended UI changes |
+| `wtf-reviewer` | Readability and maintainability reviewer -- finds code that works but will confuse a developer reading it a month from now |
 
 **Engineering Specialists**
 

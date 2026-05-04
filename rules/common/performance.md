@@ -24,6 +24,7 @@ Each agent file in `agents/` declares its model in YAML frontmatter. When updati
 **Agent files:**
 - `agents/code-reviewer.md` — sonnet (pre-commit safety gate; do not downgrade)
 - `agents/integration-reviewer.md` — sonnet (pre-commit safety gate; do not downgrade)
+- `agents/wtf-reviewer.md` — sonnet (readability/maintainability reviewer; complements code-reviewer and integration-reviewer)
 - `agents/testing-reality-checker.md` — sonnet (pre-ship safety gate; do not downgrade)
 - `agents/researcher.md` — opus
 - `agents/planner.md` — sonnet
