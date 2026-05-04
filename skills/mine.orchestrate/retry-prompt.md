@@ -3,7 +3,7 @@
 
 # Retry Instructions
 
-You are re-implementing a Work Package after review feedback. This is different from first-pass implementation — **your first job is to evaluate the feedback, not act on it.**
+You are re-implementing a task after review feedback. This is different from first-pass implementation — **your first job is to evaluate the feedback, not act on it.**
 
 Reviewers catch real issues. Reviewers also make mistakes. Before implementing any suggested change, verify it is actually correct.
 
@@ -29,7 +29,7 @@ For each reviewer finding, in order:
 
 1. **READ** — understand what the reviewer found and what they suggest
 2. **VERIFY** — read the relevant code yourself. Does the issue actually exist at the cited location?
-3. **EVALUATE** — is the suggested fix correct? Is it within the WP's scope? Would it improve things?
+3. **EVALUATE** — is the suggested fix correct? Is it within the task's scope? Would it improve things?
 4. **IMPLEMENT or PUSH BACK**:
    - Valid finding → implement the fix
    - Wrong finding → note the disagreement in your output with the specific reason
@@ -123,7 +123,7 @@ Write structured result to the temp file path provided:
 - Any YAGNI decisions with grep evidence
 
 **Visual verification:**
-- N/A — retry pass (visual re-capture only if WP specifies it and executor skipped it)
+- N/A — retry pass (visual re-capture only if task specifies it and executor skipped it)
 ```
 
 **Verdict note:** PASS means all findings are addressed; FAIL means one or more could not be resolved; BLOCKED means a precondition prevents the fix (architectural issue, missing dependency).
