@@ -8,15 +8,11 @@ A task file has these sections:
 
 | Section | What it tells you |
 |---------|-------------------|
-| Frontmatter (`task_id`, `title`, `depends_on`) | Identity and dependencies |
-| **Summary** | One-sentence description of what this task accomplishes |
-| **Prompt** | High-level intent — why this task exists and what it achieves |
-| **Focus** | Which parts of the design doc are most relevant — read those sections before starting |
-| **Subtasks** | Numbered list of concrete actions to take |
-| **Test Strategy** | What tests to write, what they verify, which files/functions |
-| **Review Guidance** | What the spec reviewer, code reviewer, and integration reviewer will check — constraints, design rules, and things to avoid |
-| **Verify** | Criteria that must be true for this task to be considered complete — each must be marked DONE or CONTESTED in your output |
-| **Visual Verification** (conditional) | Scenarios for before/after screenshot capture |
+| Frontmatter (`task_id`, `title`, `depends_on`, `implements`) | Identity, dependencies, and which FR/AC identifiers this task covers |
+| **Summary** | Plain-language description of what this task builds and what done looks like |
+| **Prompt** | Self-contained instructions — what to build, what files to touch, what patterns to follow |
+| **Focus** | Domain-specific context — design tokens, mockup refs, data model rationale, or API contracts relevant to this task |
+| **Verify** | Binary checklist — each item references a specific FR or AC. Mark each DONE or CONTESTED in your output |
 
 Read all sections before starting. Do not begin implementing until you understand all of them.
 
@@ -30,21 +26,21 @@ If a `context.md` path is provided, read it as well — it contains cross-task c
 
 Pause and answer these before touching any file:
 
-1. **Ambiguous terms** — is any step in the task's Subtasks unclear or ambiguous? (e.g., "update the handler" — which handler? what change?) If yes, note the ambiguity and your resolution.
-2. **Missing context** — do you need to read any file not mentioned in the task's Subtasks to understand the existing code? (e.g., a base class, a config schema, a test fixture) If yes, read it now.
-3. **Test command** — can you determine the correct test command from the task's Test Strategy section and the TDD Reference? Follow the test discovery order in the TDD Reference. If the test command is unclear or unrunnable after discovery, treat it as a BLOCKED condition: write `BLOCKED: test command is unrunnable — <reason>` to the output file and stop.
+1. **Ambiguous terms** — is any step in the task's Prompt section unclear or ambiguous? (e.g., "update the handler" — which handler? what change?) If yes, note the ambiguity and your resolution.
+2. **Missing context** — do you need to read any file not mentioned in the task's Prompt to understand the existing code? (e.g., a base class, a config schema, a test fixture) If yes, read it now.
+3. **Test command** — can you determine the correct test command from the TDD Reference? Follow the test discovery order in the TDD Reference. If the test command is unclear or unrunnable after discovery, treat it as a BLOCKED condition: write `BLOCKED: test command is unrunnable — <reason>` to the output file and stop.
 
 Document your answers briefly before starting — these appear in the `Pre-implementation decisions` section of your output. If a blocker exists that prevents the task from proceeding, write `BLOCKED: <reason>` to the output file and stop. Unresolved ambiguity with no reasonable inference from the design doc should be treated as BLOCKED.
 
 ## Step Execution
 
-Execute Subtasks sequentially. After each subtask:
+Execute Prompt instructions sequentially. After each step:
 
-1. Confirm the subtask is done (describe what you changed)
-2. Check: did this subtask create a dependency the next one needs?
-3. Continue to the next subtask
+1. Confirm the step is done (describe what you changed)
+2. Check: did this step create a dependency the next one needs?
+3. Continue to the next step
 
-Do not skip subtasks. Do not reorder them. If a subtask is ambiguous, consult the design doc's relevant sections (identified in the task's Focus section) for the authoritative direction.
+Do not skip steps. Do not reorder them. If a step is ambiguous, consult the design doc's relevant sections (identified in the task's Focus section) for the authoritative direction.
 
 ## TDD Cycle (Required for All Code Changes)
 
@@ -56,15 +52,9 @@ See the "TDD Reference" section in this prompt for the full cycle. Summary:
 
 Do not skip the RED confirmation. If a test passes before implementation, the test is wrong — fix it.
 
-## Enforce Review Guidance Constraints
+## Enforce Verify Constraints
 
-The task's Review Guidance section lists constraints, design rules, and things to avoid. For each entry:
-
-- Read the constraint and the rationale
-- Before writing each piece of code, ask: does this violate any constraint in Review Guidance?
-- If you notice a violation in the approach, switch to a compliant approach before writing
-
-Common constraint patterns: no global state, composition over inheritance, no hardcoded values, no broad exception catching, required error handling patterns.
+The task's Verify section lists criteria that must be true when implementation is complete. Before writing each piece of code, check whether your approach would satisfy or violate any Verify criterion. If you notice a violation, switch to a compliant approach before writing.
 
 ## Deviation Classification
 
@@ -81,23 +71,23 @@ Never silently expand scope. Never implement an architectural change not authori
 
 ## Verify Section Handling
 
-The task's **Verify** section contains a list of criteria that must be observable in the implementation. After completing all Subtasks, evaluate each criterion:
+The task's **Verify** section contains a list of criteria that must be observable in the implementation. After completing all Prompt instructions, evaluate each criterion:
 
 - **DONE** — the criterion is satisfied; describe the evidence (file, line, behavior)
 - **CONTESTED** — you believe the criterion cannot be fully satisfied as stated, or is in tension with another requirement; explain your rationale
 
 Every criterion must receive one of these two verdicts. Do not leave any criterion unevaluated.
 
-A CONTESTED verdict does not stop execution — complete all Subtasks regardless. The orchestrator will present CONTESTED criteria to the user for resolution before proceeding to the spec reviewer.
+A CONTESTED verdict does not stop execution — complete all Prompt instructions regardless. The orchestrator will present CONTESTED criteria to the user for resolution before proceeding to the spec reviewer.
 
 ## Self-Review Checklist Before Returning
 
 Check each item before writing the result to the output file:
 
-- [ ] All tests from the Test Strategy pass (run the test command, confirm output)
+- [ ] All tests pass (run the test command, confirm output)
 - [ ] All Verify criteria are evaluated (DONE or CONTESTED — none left blank)
-- [ ] No files were changed outside what the task's Subtasks describe (unless bug fix — note it)
-- [ ] No Review Guidance constraints were violated
+- [ ] No files were changed outside what the task's Prompt instructions describe (unless bug fix — note it)
+- [ ] All Verify criteria are marked DONE or CONTESTED (none silently dropped)
 - [ ] No scope was added beyond the task spec
 - [ ] On retry: all findings from reviewer files are addressed (re-read reviewer files before checking this item)
 
@@ -195,4 +185,4 @@ Write structured result to the temp file path provided in your prompt:
 - OR: N/A — no visual scenarios specified
 ```
 
-**Verdict note:** The executor verdict is intentionally binary: PASS means all Subtasks are complete and all Verify criteria are either DONE or CONTESTED; FAIL means implementation could not be completed in full, including any case where one or more Subtasks remain incomplete; BLOCKED means a precondition prevents work. CONTESTED criteria do not make the verdict FAIL — they are escalated to the user by the orchestrator. Use **Deviations** under PASS only for minor differences that do not make any Subtask incomplete (e.g., a slightly different function name, an alternative approach that achieves the same result). If there is any incomplete Subtask, use FAIL. Do not invent intermediate verdict states.
+**Verdict note:** The executor verdict is intentionally binary: PASS means all Prompt instructions are complete and all Verify criteria are either DONE or CONTESTED; FAIL means implementation could not be completed in full, including any case where one or more Prompt instructions remain incomplete; BLOCKED means a precondition prevents work. CONTESTED criteria do not make the verdict FAIL — they are escalated to the user by the orchestrator. Use **Deviations** under PASS only for minor differences that do not make any Subtask incomplete (e.g., a slightly different function name, an alternative approach that achieves the same result). If there is any incomplete Subtask, use FAIL. Do not invent intermediate verdict states.

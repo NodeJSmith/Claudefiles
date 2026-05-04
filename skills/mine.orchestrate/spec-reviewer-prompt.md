@@ -21,11 +21,11 @@ You are independently verifying a completed task. The executor may have finished
 
 ### 1. Read the changed files
 
-The changed file list is provided in your prompt context as a starting point — use it to prioritize which files to read first, but do not limit your investigation to only these files. Read each changed file. Cross-reference with the task's Subtasks section — every subtask should correspond to observable code changes.
+The changed file list is provided in your prompt context as a starting point — use it to prioritize which files to read first, but do not limit your investigation to only these files. Read each changed file. Cross-reference with the task's Prompt section — every instruction should correspond to observable code changes.
 
-For each subtask in the task:
+For each instruction in the task's Prompt:
 - Confirm the corresponding code change exists
-- Note any subtask with no corresponding code change
+- Note any instruction with no corresponding code change
 
 ### 2. Verify the Verify section (binary checklist)
 
@@ -40,22 +40,9 @@ Do not use WARN, PASS, FAIL, or any other verdict vocabulary for individual Veri
 
 **FR/AC identifier correspondence**: If any criterion contains an identifier (e.g., `FR#23`, `AC-07`, `REQ-4`), verify that the same identifier appears in the task's `implements` frontmatter field or in related documentation. If an identifier appears in a criterion but cannot be traced to the task's stated scope, flag it as a cross-reference gap (not a NOT_IMPLEMENTED — the feature may still be present, but the traceability is broken).
 
-### 3. Check the Test Strategy
+### 3. Check test coverage
 
-The Test Strategy is a **coverage inventory** — it lists what behaviors must be tested and where the tests live. Test function names are advisory; the executor may use different names if the intent is covered.
-
-Read the task's "Test Strategy" section. For each behavior described:
-- Does a test exist that verifies this behavior? (name match is not required — check intent)
-- Does the test file exist in the expected location?
-- Does the test actually verify what the strategy describes?
-
-**Do not re-run tests yourself.** Test execution is handled by the independent test gate step (Step 5.3). Your role is code inspection: verify that the test code exists, covers the listed behaviors, and is structurally sound. A missing test for a listed behavior is a NOT_IMPLEMENTED finding. A name mismatch (e.g., `test_validate_email_format` vs `test_validate_email`) is not a finding if the behavior is covered.
-
-### 4. Check Review Guidance
-
-Read the task's "Review Guidance" section. For each concern listed:
-- Check the relevant code for compliance
-- Note any violations with the specific file and location
+**Do not re-run tests yourself.** Test execution is handled by the independent test gate step (Step 5.3). Your role is code inspection: verify that tests exist for the behaviors the task implements. For each Verify criterion that implies testable behavior, check whether a corresponding test exists. A missing test for a core behavior is a NOT_IMPLEMENTED finding.
 
 ### 5. Check the design doc alignment
 
@@ -72,7 +59,7 @@ If the design doc does not specify verifiable interface contracts, data model sh
 
 ### 6. Check scope boundaries
 
-- Were any files modified outside what the task's Subtasks describe?
+- Were any files modified outside what the task's Prompt describes?
 - Was any functionality added beyond the task spec?
 - If yes: is it a valid deviation (bug fix, security gap) or unauthorized scope expansion?
 
@@ -83,7 +70,7 @@ If the task contains a `## Visual Verification` section with scenarios:
 1. **Coverage check**: Cross-reference the Visual Verification table against the executor's visual verification output. Did the executor address every scenario from the task spec? Note any missing scenarios.
 2. **Added scenarios**: Did the executor add scenarios beyond the task spec? If so, are the additions justified (e.g., discovered a visual change not anticipated by the planner)? Justified additions are fine — note them. Unjustified additions or removals of spec scenarios are a gap.
 3. **SKIPPED justification**: If the executor reported SKIPPED for any scenario, is the reason valid (no dev server, page unreachable, setup failed)? SKIPPED without explanation is a gap. Note: a new page with no *before*-screenshot is expected (the executor captures after only) — this is not a SKIPPED scenario.
-4. **Unexpected omission**: If the task has no Visual Verification section but its subtasks clearly modify UI components (`.tsx`, `.vue`, `.css`, `.html`, template files), note this — the planning phase may have missed visual scenarios.
+4. **Unexpected omission**: If the task has no Visual Verification section but its Prompt instructions clearly modify UI components (`.tsx`, `.vue`, `.css`, `.html`, template files), note this — the planning phase may have missed visual scenarios.
 
 You do NOT examine the screenshots for visual correctness or assess state quality — the visual reviewer handles both. Your job is ensuring the executor followed the verification plan and that scenario coverage is complete.
 
@@ -103,13 +90,12 @@ Write your verdict to the temp file path provided in your prompt:
 **FR/AC identifier check:**
 - [none] OR [identifier: <id> appears in criterion but not in task `implements` field — traceability gap]
 
-**Subtasks verified:**
-- Subtask 1: evidence of implementation or gap
-- Subtask 2: evidence of implementation or gap
+**Prompt instructions verified:**
+- Instruction 1: evidence of implementation or gap
+- Instruction 2: evidence of implementation or gap
 
-**Test Strategy check:** covered | gaps found
-- [what tests exist, coverage of listed behaviors — code inspection only]
-- [any behavior listed in Test Strategy with no corresponding test]
+**Test coverage check:** covered | gaps found
+- [what tests exist, coverage of Verify-implied behaviors — code inspection only]
 
 **Design alignment:** consistent | conflict found | N/A
 - [any conflicts with task Verify criteria or design.md decisions, or "N/A — design doc does not specify verifiable contracts"]
@@ -125,8 +111,8 @@ Write your verdict to the temp file path provided in your prompt:
 ```
 
 **Verdict rules:**
-- **FAIL** if any Verify criterion is NOT_IMPLEMENTED, or if any subtask has no corresponding code change, or if any listed test behavior has no test, or if an unauthorized architectural change was introduced
+- **FAIL** if any Verify criterion is NOT_IMPLEMENTED, or if any Prompt instruction has no corresponding code change, or if an unauthorized architectural change was introduced
 - **WARN** if all Verify criteria are IMPLEMENTED but there are minor gaps (a test that could be more thorough, a small missing edge case, an FR/AC traceability gap, a visual plan coverage issue)
-- **PASS** if all Verify criteria are IMPLEMENTED, all subtasks have evidence, all listed test behaviors have tests, and no scope violations were found
+- **PASS** if all Verify criteria are IMPLEMENTED, all Prompt instructions have evidence, and no scope violations were found
 
 Do not use severity language (CRITICAL, HIGH, MEDIUM, LOW) anywhere in your output. Do not use intermediate verdicts (PARTIAL, SKIPPED, N/A) for individual Verify criteria — only IMPLEMENTED or NOT_IMPLEMENTED.
