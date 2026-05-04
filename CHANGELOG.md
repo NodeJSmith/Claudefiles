@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-05-03
 
 ### Added
-- `/mine.define` scope-aware discovery — premise challenge ("what if we do nothing?"), expand/hold/reduce scope mode selection, and existing code leverage table before research dispatch
+- `/mine.define` scope-aware discovery — premise challenge ("what if we do nothing?"), expand/hold/reduce scope mode selection, and existing code leverage table before research dispatch (#280)
 
 ## 2026-05-01
 
