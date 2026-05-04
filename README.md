@@ -216,7 +216,7 @@ Installed automatically by the wizard when selected. Can also be installed manua
 | `ado-api` | Azure DevOps CLI — builds, logs, PR management, work items, approvals |
 | `claude-memory` | Conversation memory system — session DB, hooks, `cm-*` CLI entry points |
 | `merge-settings` | Three-layer settings merger (`claude-merge-settings` CLI) |
-| `spec-helper` | Work Package and spec directory management — `wp-*`, `checkpoint-*`, `status`, `next-number`, `init`, `archive` |
+| `spec-helper` | Spec directory management — `validate`, `checkpoint-*`, `next-number`, `init`, `archive` |
 
 ## Requirements
 
