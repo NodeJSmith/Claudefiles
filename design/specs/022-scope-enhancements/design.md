@@ -1,7 +1,7 @@
 # Design: Scope-Aware Discovery Enhancements for mine.define
 
 **Date:** 2026-05-03
-**Status:** approved
+**Status:** archived
 
 ## Problem
 
