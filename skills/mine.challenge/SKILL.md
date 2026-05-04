@@ -154,7 +154,7 @@ If the generic persona directory is missing or empty, stop with: "Cannot launch 
   2. **Name the problem directly** — no hedging
   3. **Propose a fix**: `Resolution: Auto-apply | User-directed` + one-sentence fix or options
   4. **Tag each finding**: severity (CRITICAL/HIGH/MEDIUM/TENSION), type, design-level
-  5. **Structure each finding**: `**Why it matters**`, `**Evidence**`, `**References**` (if any), `**Design challenge**`
+  5. **Structure each finding**: `**Why it matters**`, `**Evidence**`, `**Design challenge**`
   6. **Include a Pushback section**: findings you anticipate other critics raising that you'd disagree with
   7. **Read beyond provided files**: use Read, Grep, Glob; include **Files examined** at top of report
 
@@ -191,8 +191,8 @@ The synthesis subagent receives:
    - If cap=0: pure automation mode — keep `resolution: Auto-apply` findings as `status: pending` so Phase 4 applies them; mark `resolution: User-directed` findings as `status: overflow`
    - CRITICAL and HIGH: always included, never overflow (except User-directed findings when cap=0)
    - TENSION: overflow if any CRITICAL or HIGH findings exist
-   - MEDIUM: include up to `max(3, cap - CRITICAL_count - HIGH_count)` MEDIUMs; remaining are overflow
-6. **Copy presentation fields** from critic reports: `why-it-matters` (most concrete consequence statement), `evidence` (all file:line citations, deduped), `references` (all URLs), `design-challenge` (strongest question). Write `not cited` for evidence when none; omit other fields when absent.
+   - MEDIUM: always included, never overflow (except User-directed MEDIUM findings when cap=0)
+6. **Copy presentation fields** from critic reports: `why-it-matters` (most concrete consequence statement), `evidence` (all file:line citations, deduped), `design-challenge` (strongest question). Write `not cited` for evidence when none; omit other fields when absent.
 7. **Write recommendation** for each User-directed finding (which option and why). For TENSION: write deciding-factor instead.
 
 **Write findings file** to the output path using `Format-version: 3` header. Format per `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`.

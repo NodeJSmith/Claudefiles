@@ -7,6 +7,10 @@ All notable changes to this Claudefiles repository are documented here.
 ### Added
 - `/mine.define` scope-aware discovery — premise challenge ("what if we do nothing?"), expand/hold/reduce scope mode selection, and existing code leverage table before research dispatch (#280)
 
+### Changed
+- `/mine.orchestrate` Step 6 fixes all review findings regardless of severity — MEDIUM/LOW no longer silently pass through as WARN (#277)
+- Integration reviewer gains "Unresolved references" dimension — catches undefined CSS custom properties and other cross-file identifiers that slip through tooling (#277)
+- `/mine.challenge` removes MEDIUM finding cap and drops unused `References` field from findings protocol (#277)
 ## 2026-05-01
 
 ### Added

@@ -380,7 +380,7 @@ After the parallel reviews complete (regardless of verdicts), re-run the project
 4. **Re-capture changed files (Step 4.5)** — the retry executor may have modified different files than the original run. **Union** the retry's changed-files with the original run's changed-files (deduplicated) before writing to `changed-files.txt` — reviewers must see all touched files, not just what the retry modified.
 5. **Re-run the parallel review pass (Step 5)** — all three reviewers in parallel on the updated output
 6. **Re-run the test gate (Step 5.3)** on the updated code
-7. **If PASS after retry** → continue to Step 5.7 (visual reviewer). The WARN retry replaces only Steps 4, 4.5, 5, and 5.3.
+7. **If PASS after retry** → continue to Step 5.7 (visual reviewer), then Step 6 (review findings fix loop). The WARN retry replaces only Steps 4, 4.5, 5, and 5.3.
 8. **If still WARN after 1 retry** → escalate to the user with a distinct prompt that signals this is a persistent minor gap, not a hard failure:
 
 ```
@@ -401,7 +401,7 @@ If the user chose "Fix and retry" from the WARN persistence prompt, run one more
 
 The WARN retry happens within a single WP's execution. The checkpoint is not updated during retries — it only updates after the final verdict.
 
-**If the spec reviewer returned PASS** — continue to Step 5.7 (visual reviewer).
+**If the spec reviewer returned PASS** — continue to Step 5.7 (visual reviewer), then Step 6 (review findings fix loop).
 
 **If the spec reviewer returned FAIL** — skip to Step 8 to present the FAIL verdict.
 
@@ -461,19 +461,19 @@ Wait for the subagent to complete. Read the visual reviewer output file.
 | FAIL | WP gets FAIL; surface to user at Step 8 gate |
 | All scenarios SKIPPED (no dev server) | WP gets WARN (visual verification was unavailable) |
 
-### Step 6: Code reviewer auto-fix loop
+### Step 6: Review findings fix loop
 
-After the parallel review pass, check the code-reviewer output for CRITICAL or HIGH findings.
+After the parallel review pass, fix **all findings from both the code reviewer and integration reviewer**, regardless of severity. MEDIUM and LOW findings left unfixed accumulate across WPs into significant cleanup debt.
 
 **Loop until clean:**
-1. Read the code-reviewer output from `<dir>/<wp_id>/code-review.md` (written by Step 5).
-2. For each CRITICAL or HIGH finding:
-   - **Auto-fix** when the correct solution is unambiguous (clear bugs, missing type annotations, style violations, simple security issues)
+1. Read both review outputs: `<dir>/<wp_id>/code-review.md` and `<dir>/<wp_id>/integration-review.md` (written by Step 5).
+2. For each finding (CRITICAL, HIGH, MEDIUM, LOW — all severities):
+   - **Auto-fix** when the correct solution is unambiguous (clear bugs, missing type annotations, style violations, naming drift, orphaned code, undefined references, simple security issues)
    - **Defer** when the fix requires architectural judgment or business context
-3. If any auto-fixes were applied, re-run the code-reviewer — launch `Agent(subagent_type: "code-reviewer")` with the refreshed changed file list and instruct it to write to `<dir>/<wp_id>/code-review.md` (overwriting the previous output). Max 3 iterations total including the initial parallel run.
-4. Stop when: no CRITICAL/HIGH issues remain, only deferred findings are left, or 3 iterations reached
+3. If any auto-fixes were applied, re-run **both** the code-reviewer and integration-reviewer — launch both with the refreshed changed file list, writing to `<dir>/<wp_id>/code-review.md` and `<dir>/<wp_id>/integration-review.md` (overwriting previous output). Max 3 iterations total including the initial parallel run.
+4. Stop when: no unresolved findings remain across either reviewer, only deferred findings are left, or 3 iterations reached
 
-**After the auto-fix loop completes** (whether after 0 or 2 additional iterations), re-capture the changed file list — auto-fixes may have modified additional files:
+**After the fix loop completes** (whether after 0 or 2 additional iterations), re-capture the changed file list — auto-fixes may have modified additional files:
 
 ```bash
 git diff --name-only HEAD
@@ -482,9 +482,7 @@ git ls-files --others --exclude-standard
 
 Update the WP's changed file list with the refreshed result (deduped). This updated list is used by Step 9a (commit).
 
-**After auto-fixes**, if any changes were applied, re-run the integration-reviewer — launch `Agent(subagent_type: "integration-reviewer")` with the refreshed changed file list and instruct it to write to `<dir>/<wp_id>/integration-review.md` (overwriting the previous output).
-
-**Verdict impact:** If CRITICAL or HIGH code-review issues remain after 3 iterations that could not be auto-fixed, the WP verdict becomes FAIL. If integration reviewer returned BLOCK, the WP verdict becomes FAIL.
+**Verdict impact:** If any non-deferred code-review or integration-review findings remain unresolved after 3 iterations (regardless of severity), the WP verdict becomes FAIL.
 
 ### Step 7: Review gate
 
@@ -505,15 +503,13 @@ Derive the canonical WP verdict from all reviewer outputs. This is the single au
 **FAIL** if any of the following:
 - Spec reviewer returned FAIL
 - Visual reviewer returned FAIL (not WARN [INFRA])
-- Code reviewer has unresolved CRITICAL/HIGH after 3 iterations
-- Integration reviewer returned BLOCK
+- Code reviewer or integration reviewer has unresolved, non-deferred findings of any severity after 3 fix iterations
 - Test gate detected regressions (previously-passing tests now fail)
 
 **WARN** if not FAIL and any of the following:
 - Visual reviewer returned WARN or WARN [INFRA]
 - Visual reviewer returned SKIPPED when `visual_mode` is `enabled` (visual review was expected but the reviewer/executor reported a per-WP or per-scenario skip). Do not count SKIPPED toward WARN when `visual_mode` is not `enabled` — visual review was intentionally not requested.
-- Integration reviewer returned WARN
-- Code reviewer resolved issues in <3 iterations (auto-fixes applied)
+- Code reviewer or integration reviewer findings were resolved via auto-fix (fixes applied, but all resolved)
 - Test gate has pre-existing failures (no regressions)
 
 **PASS** otherwise (all reviewers clean, no regressions).
@@ -545,7 +541,7 @@ Gate based on verdict:
 spec-helper wp-move <feature_dir_name> <wp_id> done
 ```
 
-Note: by this point, any WARN from the spec reviewer has already been addressed by the fix loop at Step 5.5. A WARN verdict here means the fix loop succeeded (spec reviewer passed after retry) but other reviewers (code, integration, visual) raised minor concerns.
+Note: by this point, spec reviewer WARNs have been addressed by Step 5.5 and all code/integration findings have been resolved by Step 6. A WARN verdict here means fixes were applied successfully (all findings resolved), or visual review returned WARN/SKIPPED, or there are pre-existing test failures.
 
 **FAIL or non-architectural BLOCKED** — ask the user:
 ```
@@ -570,7 +566,7 @@ spec-helper checkpoint-update <feature_dir_name> --current-wp <WP_ID> --current-
 
 This ensures resume correctly returns to this WP instead of skipping it. Then:
 
-- **Fix and retry**: lane stays `doing`; set `current_wp_status: retry_pending`. Re-run from Step 3 (which includes Step 4 executor + Step 4.5 file capture) using `retry-prompt.md` as the base prompt (instead of `implementer-prompt.md`). Populate the `## Previous review feedback` template in `retry-prompt.md` with reviewer file paths based on which steps were reached: spec reviewer always; code reviewer if Step 7 was reached; integration reviewer if Step 8 was reached; visual reviewer if it ran. Pass N/A for any reviewer that didn't reach its step. The executor reads these files directly — do not inline or truncate the reviewer output. Only provide the most recent attempt's reviewer file paths.
+- **Fix and retry**: lane stays `doing`; set `current_wp_status: retry_pending`. Re-run from Step 3 (which includes Step 4 executor + Step 4.5 file capture) using `retry-prompt.md` as the base prompt (instead of `implementer-prompt.md`). Populate the `## Previous review feedback` template in `retry-prompt.md` with reviewer file paths based on which steps were reached: spec reviewer always; code reviewer and integration reviewer if Step 6 was reached; visual reviewer if it ran. Pass N/A for any reviewer that didn't reach its step. The executor reads these files directly — do not inline or truncate the reviewer output. Only provide the most recent attempt's reviewer file paths.
 - **Mark as blocked and skip**: set `current_wp_status: blocked`. Move to `for_review` (signals needs human attention)
   ```bash
   spec-helper wp-move <feature_dir_name> <wp_id> for_review
@@ -649,7 +645,7 @@ spec-helper checkpoint-update <feature_dir_name> --last-completed-wp <WP_ID> --j
 spec-helper checkpoint-verdict <feature_dir_name> --wp-id <WP_ID> --title "<WP title>" --verdict <PASS|WARN> --commit <SHA from Step 9a> [--notes "<explanation>"] --json
 ```
 
-Add `--notes` if the verdict is WARN (e.g., "test coverage low", "code review had unresolved HIGH findings").
+Add `--notes` if the verdict is WARN (e.g., "3 findings auto-fixed", "visual verification skipped").
 
 ### Loop to next WP
 
