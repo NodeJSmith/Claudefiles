@@ -219,6 +219,7 @@ design/specs/NNN-feature/
 ---
 task_id: "T01"
 title: "<imperative description>"
+status: "planned"
 depends_on: []
 implements: ["FR#13", "FR#16", "AC#19"]
 ---

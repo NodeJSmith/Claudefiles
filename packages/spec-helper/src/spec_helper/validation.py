@@ -19,13 +19,16 @@ WP_ID_PATTERN = re.compile(r"^(WP|T)\d{2,}$")
 TASK_ID_PATTERN = re.compile(r"^T\d{2,}$")
 
 # Canonical fields for the new task schema
-CANONICAL_FIELDS = {"task_id", "title", "depends_on", "implements"}
+CANONICAL_FIELDS = {"task_id", "title", "depends_on", "implements", "status"}
+
+# Valid task statuses (simpler than the old lane state machine — no CLI command, orchestrator writes directly)
+VALID_TASK_STATUSES = frozenset({"planned", "done"})
 
 # Old-schema fields (no longer canonical; triggers normalization warnings)
 OLD_SCHEMA_FIELDS = {"depends", "plan_section", "work_package_id", "lane"}
 
 # Validates implements entries: FR#N or AC#N
-_IMPLEMENTS_PATTERN = re.compile(r"^(FR|AC)#\d+$")
+_IMPLEMENTS_PATTERN = re.compile(r"^(FR|AC)#[1-9]\d*$")
 
 
 def validate_task_metadata(meta: dict, filename: str) -> list[str]:
@@ -48,6 +51,12 @@ def validate_task_metadata(meta: dict, filename: str) -> list[str]:
             errors.append(
                 f"Invalid implements reference: '{ref}' (expected FR#N or AC#N format)"
             )
+
+    status = meta.get("status", "planned")
+    if status not in VALID_TASK_STATUSES:
+        errors.append(
+            f"Invalid status: '{status}' (expected one of: {', '.join(sorted(VALID_TASK_STATUSES))})"
+        )
 
     return errors
 

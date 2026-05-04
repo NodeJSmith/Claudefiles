@@ -546,11 +546,7 @@ Test gate: PASS (N tests)|FAIL (N failures — see test-gate.md)|SKIPPED
 
 Gate based on verdict:
 
-**PASS or WARN** — auto-continue to the next task. Display the summary but do not ask for confirmation. Update the checkpoint to record this task as completed:
-
-```bash
-spec-helper checkpoint-update <feature_dir_name> --last-completed-wp <task_id> --json
-```
+**PASS or WARN** — auto-continue to the next task. Display the summary but do not ask for confirmation. Proceed to Step 9 (WIP commit + checkpoint update). Do NOT update the checkpoint here — the checkpoint must only be updated after the WIP commit succeeds (Step 9b) to prevent resume from skipping uncommitted tasks.
 
 Note: by this point, spec reviewer WARNs have been addressed by Step 5.5 and all code/integration findings have been resolved by Step 6. A WARN verdict here means fixes were applied successfully (all findings resolved), or visual review returned WARN/SKIPPED, or there are pre-existing test failures.
 
@@ -600,7 +596,9 @@ Do not offer "Fix and retry" or "skip" for architectural blocks — retrying wit
 
 **This step runs only for PASS or WARN verdicts** (i.e., when the task was recorded as completed in Step 8.5). For FAIL, BLOCKED, or user-chosen "Stop here" / "Fix and retry" outcomes, skip this step entirely — the checkpoint is not updated and no WIP commit is created.
 
-#### 9a: Create WIP commit
+#### 9a: Update task status and create WIP commit
+
+Update the task file's frontmatter to `status: done` before committing. Read the task file, change `status: "planned"` to `status: "done"` in the YAML frontmatter, and write it back. This makes the task file self-documenting for archive and future reference.
 
 Re-capture the changed file list immediately before staging to ensure it includes any files modified by the code-reviewer auto-fix loop or integration-reviewer feedback:
 

@@ -207,6 +207,7 @@ Example: `tasks/T01-data-model.md`, `tasks/T02-api-endpoints.md`
 ---
 task_id: "T01"
 title: "<imperative description>"
+status: "planned"
 depends_on: []
 implements: ["FR#1", "FR#3", "AC#7"]
 ---
@@ -273,6 +274,8 @@ Write your validation report to: <absolute path to tasks/.validation-report.md>
 
 The subagent reads the design doc and all task files independently (fresh context). It writes the report to `<feature_dir>/tasks/.validation-report.md`.
 
+**Cross-check:** After the subagent completes, verify that the traceability matrix row count matches the FR/AC identifier count from Phase 1. If the counts diverge, re-run the validator — the subagent may have dropped or hallucinated identifiers.
+
 ### Present validation results
 
 Read the validation report. Then present:
@@ -283,35 +286,23 @@ Read the validation report. Then present:
 4. **Contradictions** — any conflicts between task prompts and the design doc
 5. **Warnings** — vague criteria, weak references, format issues
 
-Then present task Summary sections for interpretive drift review. For each task file at `<absolute path to task file>`:
-
-```
-T{NN} — <title>
-Implements: <implements list>
-<Summary section content>
-```
-
-Ask the user:
+If status is ISSUES_FOUND, ask the user:
 
 ```
 AskUserQuestion:
-  question: "Validation complete. Do the task summaries accurately capture the design intent? Any interpretive drift to correct before proceeding?"
-  header: "Drift review"
+  question: "Validation found issues (see report above). How to proceed?"
+  header: "Validation"
   multiSelect: false
   options:
-    - label: "Looks good — proceed to review"
-      description: "Summaries are accurate; no interpretive drift detected"
-    - label: "Fix these tasks first"
-      description: "I'll describe which summaries are wrong"
+    - label: "Fix and re-validate"
+      description: "I'll describe corrections; re-run the validation gate after"
+    - label: "Proceed anyway"
+      description: "I understand the gaps; proceed to review"
     - label: "Regenerate tasks"
-      description: "Significant drift found — regenerate with corrections"
+      description: "Significant gaps — regenerate with corrections"
 ```
 
-If the user selects "Fix these tasks first", ask them to describe the issues, apply the corrections, and re-run Phase 3.5.
-
-If the user selects "Regenerate tasks", note the issues and loop back to Phase 3.
-
-If the user selects "Looks good", proceed to Phase 4.
+If APPROVED (with or without warnings), proceed to Phase 4 automatically.
 
 ---
 

@@ -331,11 +331,11 @@ class TestArchiveTaskFiles:
             "# Design: New\n\n**Status:** approved\n\n## Problem\n\nTest.\n"
         )
 
-        # T*.md files use new schema (no lane field)
+        # T*.md files use new schema (status field instead of lane)
         for i in (1, 2):
             task_file = tasks / f"T{i:02d}.md"
             task_file.write_text(
-                f'---\ntask_id: T{i:02d}\ntitle: Task {i}\nimplements: ["FR#{i}"]\ndepends_on: []\n---\n'
+                f'---\ntask_id: T{i:02d}\ntitle: Task {i}\nstatus: done\nimplements: ["FR#{i}"]\ndepends_on: []\n---\n'
                 f"# T{i:02d}\n\nContent.\n"
             )
 
@@ -392,7 +392,7 @@ class TestArchiveTaskFiles:
 
         t_file = tasks / "T02.md"
         t_file.write_text(
-            '---\ntask_id: T02\ntitle: New task\ndepends_on: []\nimplements: ["FR#1"]\n---\nContent.\n'
+            '---\ntask_id: T02\ntitle: New task\nstatus: done\ndepends_on: []\nimplements: ["FR#1"]\n---\nContent.\n'
         )
 
         _git(repo, "add", ".")

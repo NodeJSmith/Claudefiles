@@ -2,6 +2,7 @@
 
 import os
 import re
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -306,6 +307,15 @@ def read_task_files(feature_dir: Path) -> list[dict[str, Any]]:
     results = []
     # Collect both T*.md and WP*.md, sorted by filename
     all_files = sorted([*tasks_dir.glob("T*.md"), *tasks_dir.glob("WP*.md")])
+    # Warn if both formats coexist (likely botched migration)
+    t_files = [f for f in all_files if f.stem.startswith("T")]
+    wp_files = [f for f in all_files if f.stem.startswith("WP")]
+    if t_files and wp_files:
+        print(
+            f"warning: {tasks_dir} contains both T*.md and WP*.md files — "
+            f"possible incomplete migration",
+            file=sys.stderr,
+        )
     for f in all_files:
         post = frontmatter.load(str(f))
         normalized = normalize_task_metadata(dict(post.metadata), f.name)

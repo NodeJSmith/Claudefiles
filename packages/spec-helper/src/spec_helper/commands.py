@@ -400,20 +400,27 @@ def cmd_archive(args: argparse.Namespace) -> None:
                 die(f"No task files found in {name}/tasks/", json_mode=args.json)
             continue
 
-        # For done-checking, read raw frontmatter (normalize_task_metadata drops lane).
-        # A WP-schema file (has a lane field) is non-done if lane != "done".
-        # A T-schema file (no lane field) is always considered done — completion is
-        # tracked via the checkpoint verdict system, not the lane field.
+        # For done-checking, read raw frontmatter to check completion status.
+        # WP-schema files: done when lane == "done"
+        # T-schema files: done when status == "done" (defaults to "planned" if absent)
         raw_tasks: list[dict[str, Any]] = []
         for task in tasks:
             f = tasks_dir / task["filename"]
             post = frontmatter.load(str(f))
             raw_tasks.append({"filename": task["filename"], **dict(post.metadata)})
 
-        non_done = [rt for rt in raw_tasks if "lane" in rt and rt["lane"] != "done"]
+        non_done = []
+        for rt in raw_tasks:
+            if "lane" in rt:
+                if rt["lane"] != "done":
+                    non_done.append(rt)
+            else:
+                if rt.get("status", "planned") != "done":
+                    non_done.append(rt)
         if non_done and not args.all:
             labels = ", ".join(
-                f"{rt.get('work_package_id', rt['filename'])} ({rt['lane']})"
+                f"{rt.get('task_id', rt.get('work_package_id', rt['filename']))} "
+                f"({rt.get('lane', rt.get('status', 'planned'))})"
                 for rt in non_done
             )
             results.append(
@@ -455,11 +462,9 @@ def cmd_archive(args: argparse.Namespace) -> None:
                 post.metadata["lane"] = "done"
                 atomic_write(post, task_file)
 
-            # Also delete context.md if present
+            # Also delete context.md if present (may be untracked — use unlink, not git rm)
             context_md = tasks_dir / "context.md"
-            if context_md.exists():
-                context_rel = str(context_md.relative_to(git_root))
-                _git_rm(git_root, context_rel)
+            context_md.unlink(missing_ok=True)
 
             # Auto-delete stale orchestration checkpoint
             cp_path = checkpoint_path(feature_dir)
