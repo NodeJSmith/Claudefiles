@@ -5,47 +5,47 @@ For each checklist item, output: PASS, WARN (minor issue), or FAIL (blocking iss
 
 ## Checklist
 
-### 1. Dependency sequencing
+### 1. FR/AC coverage completeness
+Does every FR#N and AC#N in the design doc appear in at least one task's `implements` field AND have a corresponding Verify criterion in that task?
+Look for: identifiers present in the design doc but absent from all `implements` fields; identifiers listed in `implements` with no matching `- [ ] FR#N:` or `- [ ] AC#N:` item in the Verify section.
+
+### 2. Contradiction detection
+Do any task Prompt or Focus sections contradict the design doc's requirements?
+Look for: tasks that describe behavior incompatible with the FR/AC they claim to implement; tasks that use different data types, return codes, fonts, or structures than specified in the design; tasks that say "skip X" when the design requires X.
+
+### 3. Dependency sequencing
 Does the task order respect dependencies? Could any task fail because a prerequisite isn't done yet?
-Look for: tasks that reference files not yet created, tests for code not yet written, config that references modules not yet added.
+Look for: tasks that reference files not yet created by earlier tasks; tasks that implement against interfaces defined in a task with a higher ID; `depends_on` fields that are empty when they should name a prerequisite task.
 
-### 2. Artifact naming
-Are file names, variable names, and module names consistent throughout the plan?
-Look for: tasks that create `foo.py` but later steps reference `foos.py`; inconsistent class names; renamed entities mid-plan.
+### 4. Context file completeness
+Does `context.md` have all five required sections, each with non-empty content?
+Required sections: `## Problem & Motivation`, `## Visual Artifacts`, `## Key Decisions`, `## Constraints & Anti-Patterns`, `## Design Doc References`.
+Look for: missing section headings; sections that contain only a placeholder or the heading itself; Key Decisions that don't match the design doc's Architecture section.
 
-### 3. Forward traceability
-Does every task trace back to a section of the design doc?
-Look for: tasks with no clear design origin, tasks that appear to be invented by the planner rather than derived from the design. (For reverse coverage — design → task — see items 7-8. For scope containment and non-goal violations, see item 9.)
+### 5. Verify section quality
+Are Verify criteria concrete and binary? Can each item be verified without reading the code?
+Look for: vague items like "the feature works", "tests pass", "renders correctly"; items that describe intent rather than observable outcome; Verify items that reference FR/AC identifiers not in the task's `implements` field.
 
-### 4. Test structure
-Are tests specified alongside or immediately after the implementation they verify?
-Look for: tests deferred to "a later task" without being explicitly paired; tasks with no verification step; done-when criteria that can't be observed without running tests.
+### 6. Summary accuracy
+Does each task's Summary accurately describe what the task builds — consistent with its Prompt and the design doc?
+Look for: summaries that describe a different feature than the Prompt; summaries that overstate or understate scope; summaries that omit a major component the Prompt will build; interpretive drift between Summary and the FRs listed in `implements`.
 
-### 5. Task completeness
-Does every WP have all required sections (Objectives & Success Criteria, Subtasks, Test Strategy, Review Guidance)?
-Look for: missing sections, vague subtasks ("update the handler"), placeholder file paths ("path/to/file"), done-criteria that can't be observed without reading code.
+### 7. Scope containment
+Do any tasks implement things not in the design doc or explicitly listed as non-goals?
+Look for: tasks that add features, endpoints, or components not traceable to any FR or AC; scope creep disguised as "nice to have" additions; tasks implementing items from the Non-goals section.
+Note: tasks may include Focus items from the Phase 2 gap check that address unlisted reverse dependencies — these are expected and not scope violations.
 
-### 6. Context independence
-Could each task be handed to a fresh Claude instance with only the plan and referenced files?
-Look for: tasks that assume knowledge from earlier conversation, steps that say "as discussed" or "per the previous task", implicit dependencies not stated in the task.
+### 8. Prompt self-containment
+Could each task's Prompt be handed to a fresh executor subagent with only context.md and this task file?
+Look for: prompts that say "as discussed", "per the previous task", or "you know what to do"; prompts that omit the file paths to touch; prompts that assume context from the planner's session; references to design doc sections without naming which section.
 
-### 7. Requirements coverage
-Does every functional requirement in design.md (Goals, Functional Requirements, and Acceptance Criteria sections) map to at least one WP?
-Look for: requirements with no corresponding task, acceptance criteria with no verification step in any WP.
+### 9. Visual artifact coverage
+If the design doc references visual artifacts (mockups, screenshots, linked images), do the relevant tasks reference those artifacts in their Prompt or Focus sections AND have visual verification criteria in their Verify sections?
+Look for: tasks that implement UI described by a mockup but never reference the mockup path; tasks with UI changes but no visual Verify criterion; Verify sections that say "looks correct" rather than naming specific visual elements.
 
-### 8. Design coverage
-Does every architecture decision in design.md (Architecture, Alternatives Considered, and Impact sections) have corresponding WPs?
-Look for: architecture sections with no WP that implements them, design decisions referenced but never acted on.
-Note: WPs no longer carry a `plan_section` frontmatter field — verify design coverage semantically by reading WP Subtasks and Objectives against design.md sections, not by matching a metadata field.
-
-### 9. Scope containment
-Do any WPs implement things not in the design or explicitly listed as non-goals?
-Look for: WPs that add features, endpoints, or components not traceable to the design doc; scope creep disguised as "nice to have" additions.
-Note: WPs may include subtasks from the Phase 2 gap check that address unlisted reverse dependencies — these are expected and not scope violations.
-
-### 10. Gap coverage
-If design.md contains a comment starting with `<!-- Gap check` (e.g., `<!-- Gap check [date]: ... -->`), verify that every gap listed has a corresponding WP subtask.
-Look for: gap-check comments whose listed gaps have no corresponding subtask in any WP.
+### 10. Identifier format compliance
+Do all FR#N and AC#N identifiers in task files match the format `^FR#\d+$` and `^AC#\d+$` respectively?
+Look for: identifiers using dashes (FR-1), underscores (FR_1), spelled-out words (Requirement 1), or wrong prefixes; `implements` fields containing non-conforming identifiers; Verify items with malformed identifier prefixes.
 
 ## Output format
 
@@ -66,3 +66,8 @@ Then:
 ### Suggestions (non-blocking)
 - [Suggestion 1]
 ```
+
+**Verdict rules**:
+- `APPROVE` — zero FAIL items. WARN items may exist.
+- `REQUEST_REVISIONS` — one or more FAIL items that can be fixed by editing task files.
+- `ABANDON` — fundamental mismatch between the design doc and the plan that requires restarting from design.
