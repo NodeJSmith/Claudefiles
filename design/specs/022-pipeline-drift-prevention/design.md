@@ -1,7 +1,7 @@
 # Design: Pipeline Drift Prevention
 
 **Date:** 2026-05-03
-**Status:** draft
+**Status:** approved
 **Research:** design/research/2026-05-03-pipeline-drift/research.md
 
 ## Problem
@@ -110,7 +110,7 @@ The pipeline's current structure allows interpretation errors to enter at the pl
 
 1. Every functional requirement in the design doc has a unique numeric identifier (e.g., FR#1, FR#2) that downstream tools can reference for traceability
 2. Every acceptance criterion has a unique numeric identifier (e.g., AC#1, AC#2) that downstream tools can reference
-3. The design doc includes a "Visual Artifacts" section listing paths to mockups, screenshots, or prototype files when visual references exist for the feature
+3. The design doc includes a "Visual Artifacts" section listing paths to mockups, screenshots, or prototype files when visual references exist for the feature. This section is optional — most features (backend, API, CLI) won't have visual artifacts and the section is omitted entirely
 4. The design doc includes a "Key Constraints" section listing explicit anti-patterns or prohibited approaches specific to this feature (e.g., "no box-shadows," "no session IDs in the API")
 5. Functional requirements are written to be individually addressable — each requirement describes one testable behavior, not a compound list
 
@@ -155,7 +155,7 @@ The pipeline's current structure allows interpretation errors to enter at the pl
 
 ## Edge Cases
 
-1. **Design doc has no visual artifacts**: The "Visual Artifacts" section is empty or absent. The validation gate skips visual coverage checks. Task prompts reference only design doc sections, not mockup files.
+1. **Design doc has visual artifacts**: When mockups, screenshots, or prototypes exist, the Visual Artifacts section lists them and the validation gate checks visual coverage. This is the minority case — most features are backend or API work with no visual references. The pipeline's default path assumes no visual artifacts; visual support is additive.
 2. **A single FR spans multiple tasks**: The traceability matrix shows the FR mapped to multiple tasks. The validation gate verifies that the FR's full scope is covered across those tasks collectively, not that each task independently satisfies it.
 3. **Executor encounters undocumented edge case during implementation**: The executor has access to the design doc's Edge Cases section and master context. If it discovers the design doc missed something or a criterion is infeasible, it marks that criterion CONTESTED with rationale — the orchestrator escalates to the user for resolution before spec review.
 4. **Validation gate finds a contradiction that's actually intentional**: The user resolves it at the sign-off gate — they may update the design doc or confirm the task prompt is correct (design doc was wrong/stale). The resolution is recorded.
@@ -195,7 +195,7 @@ The pipeline's current structure allows interpretation errors to enter at the pl
 **Assumptions:**
 - The design doc remains the canonical source of truth — tasks, context files, and prompts are derived from it, not the reverse
 - Subagent context windows can accommodate: task prompt + focus document + master context path + reading referenced design doc sections. For very large design docs, the executor reads only the referenced sections, not the full document.
-- The planner subagent (Sonnet-class) is capable of generating self-contained prompts with verification criteria when given a well-structured design doc with numbered requirements
+- The main agent running mine.plan (not a subagent) is capable of generating self-contained prompts with verification criteria when given a well-structured design doc with numbered requirements — it has full conversation context from mine.define
 - The validation gate subagent can mechanically cross-reference task verification criteria against design doc FR/AC identifiers
 
 ## Architecture
@@ -268,7 +268,11 @@ visual constraints. For backend: data model rationale, API contracts, error phil
 
 ## Constraints & Anti-Patterns
 
-<What NOT to do. Explicit prohibitions specific to this feature.>
+<Feature-specific prohibitions sourced from the design doc's Key Constraints section.
+These are "don't do the obvious thing" signals — cases where the old pattern is still
+in the codebase but the design explicitly chose something different. NOT general coding
+best practices, NOT codebase conventions. If the feature has no notable anti-patterns,
+this section is empty. Typically 2-5 items max, each one sentence.>
 
 ## Design Doc References
 
@@ -305,10 +309,43 @@ Validation subagent:
   - Model: sonnet
   - Subagent type: general-purpose
   - Fresh context (does NOT inherit planner's interpretation — independent read)
-  - Output: .validation-report.md with ## Status: APPROVED | ISSUES_FOUND header
+  - Output: .validation-report.md (format below)
   - On ISSUES_FOUND: presents issues to user alongside task summaries
   - Revision flow: user edits task files directly or re-invokes mine.plan
 ```
+
+### Validation Report Format
+
+```markdown
+## Status: APPROVED | ISSUES_FOUND
+
+## Traceability Matrix
+
+| Identifier | Task | Verify Criterion |
+|------------|------|-----------------|
+| FR#1       | T01  | "Every FR has a unique numeric identifier" |
+| FR#2       | T01  | "Every AC has a unique numeric identifier" |
+| FR#13      | T03  | "Overview page displays greeting and metadata" |
+| ...        | ...  | ... |
+
+## Coverage Gaps
+
+<FRs or ACs with no corresponding task. Empty if none.>
+
+- FR#7: No task implements this requirement
+
+## Contradictions
+
+<Cases where task prompt text conflicts with design doc. Empty if none.>
+
+- T02 Prompt says "monospace font for values" but FR#4/design doc specifies serif display
+
+## Warnings
+
+<Vague criteria, weak references, or other non-blocking concerns. Empty if none.>
+```
+
+The report persists in `tasks/.validation-report.md` (dot-prefixed, gitignored) for reference during execution. Regenerated on re-validation.
 
 ### Spec Review Flow (per task)
 
