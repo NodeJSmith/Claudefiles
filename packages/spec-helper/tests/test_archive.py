@@ -308,3 +308,109 @@ class TestArchiveAll:
         feat1 = git_repo / "design" / "specs" / "001-test-feature"
         assert not (feat1 / "tasks").exists()
         assert not tasks2.exists()
+
+
+class TestArchiveTaskFiles:
+    """archive globs both T*.md and WP*.md files."""
+
+    @pytest.fixture
+    def task_repo(self, tmp_path: Path) -> Path:
+        """Git repo with a feature using T*.md task files (new schema)."""
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        _git(repo, "init")
+        _git(repo, "config", "user.email", "test@test.com")
+        _git(repo, "config", "user.name", "Test")
+
+        feature = repo / "design" / "specs" / "002-new-feature"
+        tasks = feature / "tasks"
+        tasks.mkdir(parents=True)
+
+        design = feature / "design.md"
+        design.write_text(
+            "# Design: New\n\n**Status:** approved\n\n## Problem\n\nTest.\n"
+        )
+
+        # T*.md files use new schema (no lane field)
+        for i in (1, 2):
+            task_file = tasks / f"T{i:02d}.md"
+            task_file.write_text(
+                f'---\ntask_id: T{i:02d}\ntitle: Task {i}\nimplements: ["FR#{i}"]\ndepends_on: []\n---\n'
+                f"# T{i:02d}\n\nContent.\n"
+            )
+
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "init")
+
+        return repo
+
+    def test_archive_task_files(self, task_repo: Path) -> None:
+        """archive removes tasks/ when only T*.md files are present."""
+        feature = task_repo / "design" / "specs" / "002-new-feature"
+        tasks = feature / "tasks"
+
+        os.chdir(task_repo)
+        cmd_archive(_archive_args(feature="002-new-feature"))
+
+        assert not tasks.exists()
+
+    def test_archive_task_files_sets_design_status(self, task_repo: Path) -> None:
+        """archive updates design.md **Status:** to archived for T*.md features."""
+        feature = task_repo / "design" / "specs" / "002-new-feature"
+        design = feature / "design.md"
+
+        assert "approved" in design.read_text()
+
+        os.chdir(task_repo)
+        cmd_archive(_archive_args(feature="002-new-feature"))
+
+        assert "**Status:** archived" in design.read_text()
+
+    def test_archive_finds_both_t_and_wp_files(self, tmp_path: Path) -> None:
+        """archive globs both T*.md and WP*.md in tasks/."""
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        _git(repo, "init")
+        _git(repo, "config", "user.email", "test@test.com")
+        _git(repo, "config", "user.name", "Test")
+
+        feature = repo / "design" / "specs" / "003-mixed"
+        tasks = feature / "tasks"
+        tasks.mkdir(parents=True)
+
+        (feature / "design.md").write_text(
+            "# Mixed\n\n**Status:** approved\n\n## Problem\n\nTest.\n"
+        )
+
+        # Mix: one WP file (old schema, done), one T file (new schema)
+        wp_file = tasks / "WP01.md"
+        wp_post = frontmatter.Post(
+            "Content.\n", work_package_id="WP01", title="Old task", lane="done"
+        )
+        with open(wp_file, "wb") as f:
+            frontmatter.dump(wp_post, f)
+
+        t_file = tasks / "T02.md"
+        t_file.write_text(
+            '---\ntask_id: T02\ntitle: New task\ndepends_on: []\nimplements: ["FR#1"]\n---\nContent.\n'
+        )
+
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "init")
+
+        os.chdir(repo)
+        cmd_archive(_archive_args(feature="003-mixed"))
+
+        # Both files archived — tasks/ directory removed
+        assert not tasks.exists()
+
+    def test_archive_dry_run_counts_task_files(
+        self, task_repo: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """dry-run reports T*.md count correctly."""
+        os.chdir(task_repo)
+        cmd_archive(_archive_args(feature="002-new-feature", dry_run=True))
+
+        out = capsys.readouterr().out
+        assert "would archive" in out
+        assert "2" in out  # 2 task files
