@@ -49,7 +49,8 @@ Agent(subagent_type: "integration-reviewer"):
 
     Check for duplication, convention drift, misplacement, orphaned code,
     design violations, parallel drift (two implementations of the same
-    concept that can diverge), and abstraction inconsistency.
+    concept that can diverge), abstraction inconsistency, and unresolved
+    references (including potential LLM hallucinations).
 ```
 
 ## Present results

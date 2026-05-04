@@ -33,7 +33,7 @@ If $ARGUMENTS is non-empty, check whether the arguments resolve to existing path
 ls -d <each argument>
 ```
 
-- **All paths exist** → check if any of them have branch changes (run `git diff --name-only HEAD -- <paths>`). If there are changes, use **diff mode** scoped to those paths. If no changes, use **path mode**.
+- **All paths exist** → determine if those paths have branch changes. First get the base branch (`git-branch-base`). If a base is found, run `git diff --name-only <base>...HEAD -- <paths>`. If no base, run `git diff --name-only HEAD -- <paths>`. If the diff produces files, use **diff mode** scoped to those paths. If empty, use **path mode**.
 - **No paths exist** (or $ARGUMENTS is empty) → use **diff mode** on the full branch.
 
 ### Step 2a: Diff mode
@@ -66,10 +66,10 @@ If the diff exceeds ~500 files, ask the user to narrow scope before proceeding.
 Collect the file list from the target paths. For directories, expand to all source files (exclude vendored, generated, build output, and binary files):
 
 ```bash
-find <paths> -type f \( -name '*.py' -o -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' -o -name '*.css' -o -name '*.html' -o -name '*.go' -o -name '*.rs' -o -name '*.java' -o -name '*.rb' \) | head -200
+find <paths> -type f \( -name '*.py' -o -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' -o -name '*.css' -o -name '*.html' -o -name '*.go' -o -name '*.rs' -o -name '*.java' -o -name '*.rb' \)
 ```
 
-Adapt the extensions to the project's language. If the file count exceeds 200, ask the user to narrow scope.
+Adapt the extensions to the project's language. Count the results first — if the file count exceeds 200, ask the user to narrow scope before proceeding. Otherwise, capture the full list.
 
 Capture a summary for the report header:
 
