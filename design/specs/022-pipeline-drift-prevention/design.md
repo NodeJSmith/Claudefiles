@@ -1,7 +1,7 @@
 # Design: Pipeline Drift Prevention
 
 **Date:** 2026-05-03
-**Status:** approved
+**Status:** archived
 **Research:** design/research/2026-05-03-pipeline-drift/research.md
 
 ## Problem
