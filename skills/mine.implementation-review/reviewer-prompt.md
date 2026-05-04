@@ -41,7 +41,7 @@ Look for: functions that can raise but callers don't handle; API responses that 
 Do the tasks wire together correctly? Are there missing glue pieces?
 
 **Verification method:** For each new public function, class, component, route handler, or
-config key introduced by any WP, grep the codebase for at least one consumer (import, call,
+config key introduced by any task, grep the codebase for at least one consumer (import, call,
 reference, or registration). A definition with zero consumers is a gap.
 
 Look for:
@@ -66,7 +66,7 @@ Does the test suite actually cover the implementation? This is a high-severity c
 
 **FAIL-level findings (these MUST be FAIL, not WARN — they are blocking):**
 - New module (`.py`, `.ts`, `.js`, etc.) containing public functions or classes with no corresponding test file (excluding items exempt per the Test Co-location rule in `testing.md`: generated code, pure type definitions, configuration files, constants, `__init__.py` / module init files, documentation-only changes, migrations with no business logic)
-- WP Test Strategy names specific tests that don't exist in the codebase
+- Test Strategy names specific tests that don't exist in the codebase
 - Core business logic paths with zero test coverage
 
 **WARN-level findings:**

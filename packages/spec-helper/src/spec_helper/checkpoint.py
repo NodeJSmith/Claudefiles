@@ -286,16 +286,16 @@ def _parse_checkpoint(text: str) -> tuple[dict[str, str], list[Verdict]]:
         if not block:
             continue
 
-        # First line: "WP01 — Set up data model"
+        # First line: "WP01 — Set up data model" or "T01 — Set up data model"
         lines = block.splitlines()
-        title_match = re.match(r"^(WP\d+)\s*[—–-]\s*(.+)$", lines[0])
+        title_match = re.match(r"^((WP|T)\d{2,})\s*[—–-]\s*(.+)$", lines[0])
         if not title_match:
             raise ValueError(
-                f"Malformed verdict block header (expected 'WPnn — title'): {lines[0]!r}"
+                f"Malformed verdict block header (expected 'WPnn — title' or 'Tnn — title'): {lines[0]!r}"
             )
 
         wp_id = title_match.group(1)
-        title = title_match.group(2).strip()
+        title = title_match.group(3).strip()
         fields: dict[str, str] = {}
 
         for line in lines[1:]:
@@ -379,8 +379,8 @@ def _validate_verdict(verdict: Verdict) -> None:
         raise ValueError(
             f"Invalid verdict '{verdict.verdict}'. Must be one of: {', '.join(sorted(VALID_VERDICTS))}"
         )
-    if not re.match(r"^WP\d+$", verdict.wp_id):
-        raise ValueError(f"Invalid WP ID: '{verdict.wp_id}'")
+    if not re.match(r"^(WP|T)\d{2,}$", verdict.wp_id):
+        raise ValueError(f"Invalid task/WP ID: '{verdict.wp_id}'")
     if not verdict.commit:
         raise ValueError(f"Verdict for {verdict.wp_id}: commit field is required")
 

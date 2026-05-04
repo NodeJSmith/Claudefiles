@@ -304,3 +304,66 @@ class TestAutoClearStatus:
         write_checkpoint(_make_state(), path)
         with pytest.raises(ValueError, match="current_wp requires current_wp_status"):
             update_header(path, current_wp="WP01")
+
+
+class TestTFormatVerdictId:
+    """Checkpoint accepts T01-format task IDs in verdict blocks (new schema)."""
+
+    def test_verdict_t_format_round_trip(self, checkpoint_dir: Path) -> None:
+        """Add a verdict with T01 ID and verify it round-trips through read."""
+        path = checkpoint_dir / ".orchestrate-state.md"
+        state = _make_state(current_wp="T01", current_wp_status="executing")
+        write_checkpoint(state, path)
+
+        verdict = Verdict(
+            wp_id="T01", title="First task", verdict="PASS", commit="abc123"
+        )
+        add_verdict(path, verdict)
+
+        restored = read_checkpoint(path)
+        assert len(restored.verdicts) == 1
+        assert restored.verdicts[0].wp_id == "T01"
+        assert restored.verdicts[0].verdict == "PASS"
+        assert restored.verdicts[0].title == "First task"
+
+    def test_verdict_both_formats_in_same_checkpoint(
+        self, checkpoint_dir: Path
+    ) -> None:
+        """WP01 and T01 verdicts can coexist in the same checkpoint."""
+        path = checkpoint_dir / ".orchestrate-state.md"
+        state = _make_state()
+        write_checkpoint(state, path)
+
+        add_verdict(
+            path,
+            Verdict(wp_id="WP01", title="Old task", verdict="PASS", commit="aaa111"),
+        )
+        add_verdict(
+            path,
+            Verdict(wp_id="T01", title="New task", verdict="WARN", commit="bbb222"),
+        )
+
+        restored = read_checkpoint(path)
+        assert len(restored.verdicts) == 2
+        ids = {v.wp_id for v in restored.verdicts}
+        assert ids == {"WP01", "T01"}
+
+    def test_t_format_id_validation_passes(self, checkpoint_dir: Path) -> None:
+        """T01 passes _validate_verdict without raising."""
+        path = checkpoint_dir / ".orchestrate-state.md"
+        state = _make_state()
+        write_checkpoint(state, path)
+
+        verdict = Verdict(wp_id="T01", title="Task", verdict="PASS", commit="abc")
+        # Should not raise
+        add_verdict(path, verdict)
+
+    def test_invalid_id_format_rejected(self, checkpoint_dir: Path) -> None:
+        """Invalid IDs (no prefix) still raise ValueError."""
+        path = checkpoint_dir / ".orchestrate-state.md"
+        state = _make_state()
+        write_checkpoint(state, path)
+
+        verdict = Verdict(wp_id="01", title="Task", verdict="PASS", commit="abc")
+        with pytest.raises(ValueError, match="Invalid"):
+            add_verdict(path, verdict)

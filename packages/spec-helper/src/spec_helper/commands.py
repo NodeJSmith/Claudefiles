@@ -30,26 +30,21 @@ except ImportError:
     die("spec-helper requires python-frontmatter: pip install python-frontmatter")
 from spec_helper.filesystem import (
     atomic_write,
-    extract_design_sections,
     find_git_root,
     find_repo_root,
     find_repo_root_or_cwd,
-    find_wp_file,
     next_feature_number,
-    read_wp_files,
+    read_task_files,
     resolve_feature,
     resolve_feature_list,
     specs_dir,
 )
 from spec_helper.validation import (
     CANONICAL_FIELDS,
-    LANE_HEADERS,
-    LANE_KEYS,
     OLD_SCHEMA_FIELDS,
-    VALID_LANES,
     WP_ID_PATTERN,
-    normalize_wp_metadata,
-    validate_wp_metadata,
+    normalize_task_metadata,
+    validate_task_metadata,
 )
 
 
@@ -95,63 +90,12 @@ def cmd_init(args: argparse.Namespace) -> None:
         print(f"Created: {result['feature_dir']}/")
 
 
-def cmd_wp_move(args: argparse.Namespace) -> None:
-    lane = args.lane.lower()
-    if lane not in VALID_LANES:
-        die(
-            f"Invalid lane '{lane}'. Must be one of: {', '.join(sorted(VALID_LANES))}",
-            json_mode=args.json,
-        )
+def cmd_validate(args: argparse.Namespace) -> None:
+    """Validate task files (T*.md and WP*.md) against canonical schema.
 
-    root = find_repo_root()
-    feature_dir = resolve_feature(root, feature=args.feature, auto=args.auto)
-    wp_file = find_wp_file(feature_dir, args.wp_id)
-
-    post = frontmatter.load(str(wp_file))
-    raw = normalize_wp_metadata(dict(post.metadata), wp_file.name)
-    old_lane = raw.get("lane", "planned")
-
-    # Warn on validation errors (does not block the move)
-    errors = validate_wp_metadata(raw, wp_file.name)
-    for err in errors:
-        print(f"warning: {wp_file.name}: {err}", file=sys.stderr)
-
-    if old_lane == lane:
-        if args.json:
-            print(
-                json.dumps(
-                    {
-                        "status": "no_change",
-                        "lane": lane,
-                        "file": str(wp_file.relative_to(root)),
-                    }
-                )
-            )
-        else:
-            print(
-                f"{wp_file.name}: already in lane '{lane}' — no change", file=sys.stderr
-            )
-        return
-
-    # Direct mutation — preserves all other fields including unknown ones
-    post.metadata["lane"] = lane
-
-    atomic_write(post, wp_file)
-
-    result = {
-        "file": str(wp_file.relative_to(root)),
-        "wp_id": raw.get("work_package_id", args.wp_id),
-        "old_lane": old_lane,
-        "new_lane": lane,
-    }
-
-    if args.json:
-        print(json.dumps(result))
-    else:
-        print(f"{wp_file.name}: {old_lane} → {lane}")
-
-
-def cmd_wp_validate(args: argparse.Namespace) -> None:
+    Accepts both the new task schema (task_id + implements) and the old WP
+    schema (work_package_id + lane) during the transition period.
+    """
     root = find_repo_root()
     feature_dirs = resolve_feature_list(
         root, feature=args.feature, auto=getattr(args, "auto", False)
@@ -166,19 +110,21 @@ def cmd_wp_validate(args: argparse.Namespace) -> None:
         if not tasks_dir.exists():
             continue
 
-        existing_wp_ids: set[str] = set()
-        wp_files = sorted(tasks_dir.glob("WP*.md"))
-        for f in wp_files:
+        # Collect existing task/WP IDs for dependency cross-reference
+        existing_ids: set[str] = set()
+        task_files = sorted([*tasks_dir.glob("T*.md"), *tasks_dir.glob("WP*.md")])
+        for f in task_files:
             stem = f.stem
-            if re.match(r"^WP\d+$", stem):
-                existing_wp_ids.add(stem)
+            if WP_ID_PATTERN.match(stem):
+                existing_ids.add(stem)
 
-        for f in wp_files:
+        for f in task_files:
             total_files += 1
             post = frontmatter.load(str(f))
             raw = dict(post.metadata)
             file_label = f"{feature_dir.name}/{f.name}"
 
+            # Warn on old-schema fields
             for old_field in OLD_SCHEMA_FIELDS:
                 if old_field in raw:
                     all_warnings.append(
@@ -188,18 +134,18 @@ def cmd_wp_validate(args: argparse.Namespace) -> None:
                         }
                     )
 
-            normalized = normalize_wp_metadata(raw, f.name)
+            normalized = normalize_task_metadata(raw, f.name)
 
-            errors = validate_wp_metadata(normalized, f.name)
+            errors = validate_task_metadata(normalized, f.name)
             for err in errors:
                 all_errors.append({"file": file_label, "message": err})
 
             for dep in normalized.get("depends_on", []):
-                if WP_ID_PATTERN.match(dep) and dep not in existing_wp_ids:
+                if WP_ID_PATTERN.match(dep) and dep not in existing_ids:
                     all_errors.append(
                         {
                             "file": file_label,
-                            "message": f"Broken dependency: '{dep}' does not exist as a WP file",
+                            "message": f"Broken dependency: '{dep}' does not exist as a task file",
                         }
                     )
 
@@ -214,7 +160,7 @@ def cmd_wp_validate(args: argparse.Namespace) -> None:
 
             # --fix: rewrite if normalization changed something OR old-schema fields are present
             if args.fix:
-                has_old_fields = any(f in raw for f in OLD_SCHEMA_FIELDS)
+                has_old_fields = any(field in raw for field in OLD_SCHEMA_FIELDS)
                 if normalized != raw or has_old_fields:
                     post.metadata.update(normalized)
                     for old_field in OLD_SCHEMA_FIELDS:
@@ -245,28 +191,6 @@ def cmd_wp_validate(args: argparse.Namespace) -> None:
 
     if not is_valid:
         sys.exit(1)
-
-
-def cmd_wp_list(args: argparse.Namespace) -> None:
-    root = find_repo_root()
-    feature_dir = resolve_feature(
-        root, feature=args.feature, auto=getattr(args, "auto", False)
-    )
-    wps = read_wp_files(feature_dir)
-
-    result = []
-    for wp in wps:
-        result.append(
-            {
-                "wp_id": wp.get("work_package_id", Path(wp["filename"]).stem),
-                "title": wp.get("title", ""),
-                "lane": wp.get("lane", "planned"),
-                "depends_on": wp.get("depends_on", []),
-                "path": str((feature_dir / "tasks" / wp["filename"]).relative_to(root)),
-            }
-        )
-
-    print(json.dumps(result, indent=2))
 
 
 def cmd_checkpoint_init(args: argparse.Namespace) -> None:
@@ -380,8 +304,11 @@ def cmd_checkpoint_verdict(args: argparse.Namespace) -> None:
     path = checkpoint_path(feature_dir)
 
     wp_id = args.wp_id.upper()
+    # Normalize bare numbers to T-format (new canonical)
     if re.match(r"^\d+$", wp_id):
-        wp_id = f"WP{int(wp_id):02d}"
+        wp_id = f"T{int(wp_id):02d}"
+    elif m := re.match(r"^T(\d+)$", wp_id):
+        wp_id = f"T{int(m.group(1)):02d}"
     elif m := re.match(r"^WP(\d+)$", wp_id):
         wp_id = f"WP{int(m.group(1)):02d}"
 
@@ -459,42 +386,58 @@ def cmd_archive(args: argparse.Namespace) -> None:
                 die(f"No tasks/ directory in {name}", json_mode=args.json)
             continue
 
-        # Guard: must have WP files (no vacuous pass on empty dir)
-        wps = read_wp_files(feature_dir)
-        if not wps:
+        # Guard: must have task files (T*.md or WP*.md); no vacuous pass on empty dir
+        tasks = read_task_files(feature_dir)
+        if not tasks:
             results.append(
                 {
                     "feature": name,
                     "status": "skipped",
-                    "reason": "no WP files in tasks/",
+                    "reason": "no task files in tasks/",
                 }
             )
             if not args.all:
-                die(f"No WP files found in {name}/tasks/", json_mode=args.json)
+                die(f"No task files found in {name}/tasks/", json_mode=args.json)
             continue
 
-        # Check non-done WPs before dry-run (F-02: dry-run must reflect real behavior)
-        non_done = [wp for wp in wps if wp.get("lane", "planned") != "done"]
+        # For done-checking, read raw frontmatter to check completion status.
+        # WP-schema files: done when lane == "done"
+        # T-schema files: done when status == "done" (defaults to "planned" if absent)
+        raw_tasks: list[dict[str, Any]] = []
+        for task in tasks:
+            f = tasks_dir / task["filename"]
+            post = frontmatter.load(str(f))
+            raw_tasks.append({"filename": task["filename"], **dict(post.metadata)})
+
+        non_done = []
+        for rt in raw_tasks:
+            if "lane" in rt:
+                if rt["lane"] != "done":
+                    non_done.append(rt)
+            else:
+                if rt.get("status", "planned") != "done":
+                    non_done.append(rt)
         if non_done and not args.all:
             labels = ", ".join(
-                f"{wp.get('work_package_id', wp['filename'])} ({wp.get('lane', 'planned')})"
-                for wp in non_done
+                f"{rt.get('task_id', rt.get('work_package_id', rt['filename']))} "
+                f"({rt.get('lane', rt.get('status', 'planned'))})"
+                for rt in non_done
             )
             results.append(
                 {
                     "feature": name,
                     "status": "skipped",
-                    "reason": f"non-done WPs: {labels}",
+                    "reason": f"non-done tasks: {labels}",
                 }
             )
             if not args.dry_run:
                 die(
-                    f"Not all WPs are done in {name}: {labels}",
+                    f"Not all tasks are done in {name}: {labels}",
                     json_mode=args.json,
                 )
             continue
 
-        wp_count = len(wps)
+        task_count = len(tasks)
         has_design = (feature_dir / "design.md").exists()
         auto_promoted = len(non_done)
 
@@ -502,7 +445,7 @@ def cmd_archive(args: argparse.Namespace) -> None:
             result_entry: dict[str, Any] = {
                 "feature": name,
                 "status": "would_archive",
-                "wp_count": wp_count,
+                "wp_count": task_count,
                 "has_design": has_design,
             }
             if auto_promoted:
@@ -512,12 +455,19 @@ def cmd_archive(args: argparse.Namespace) -> None:
 
         # Per-spec exception isolation for --all mode
         try:
-            # Auto-move non-done WPs to "done" (--all only; single-feature blocked above)
-            for wp in non_done:
-                wp_file = tasks_dir / wp["filename"]
-                post = frontmatter.load(str(wp_file))
-                post.metadata["lane"] = "done"
-                atomic_write(post, wp_file)
+            # Auto-promote non-done tasks to "done" (--all only; single-feature blocked above)
+            for rt in non_done:
+                task_file = tasks_dir / rt["filename"]
+                post = frontmatter.load(str(task_file))
+                if "lane" in rt:
+                    post.metadata["lane"] = "done"
+                else:
+                    post.metadata["status"] = "done"
+                atomic_write(post, task_file)
+
+            # Also delete context.md if present (may be untracked — use unlink, not git rm)
+            context_md = tasks_dir / "context.md"
+            context_md.unlink(missing_ok=True)
 
             # Auto-delete stale orchestration checkpoint
             cp_path = checkpoint_path(feature_dir)
@@ -535,7 +485,7 @@ def cmd_archive(args: argparse.Namespace) -> None:
             {
                 "feature": name,
                 "status": "archived",
-                "wp_count": wp_count,
+                "wp_count": task_count,
                 "has_design": has_design,
             }
         )
@@ -548,11 +498,11 @@ def cmd_archive(args: argparse.Namespace) -> None:
             feat_status = r["status"]
             feat_name = r["feature"]
             if feat_status == "archived":
-                print(f"  {feat_name}: archived ({r['wp_count']} WPs removed)")
+                print(f"  {feat_name}: archived ({r['wp_count']} tasks removed)")
             elif feat_status == "would_archive":
                 promoted = r.get("auto_promoted", 0)
                 suffix = f", {promoted} auto-promoted" if promoted else ""
-                print(f"  {feat_name}: would archive ({r['wp_count']} WPs{suffix})")
+                print(f"  {feat_name}: would archive ({r['wp_count']} tasks{suffix})")
             elif feat_status == "error":
                 print(f"  {feat_name}: ERROR — {r['reason']}")
             elif feat_status == "skipped":
@@ -571,16 +521,6 @@ def cmd_archive(args: argparse.Namespace) -> None:
 
     if any(r["status"] == "error" for r in results):
         sys.exit(1)
-
-
-def _is_tracked(git_root: Path, rel_path: str) -> bool:
-    """Check if a path is tracked by git."""
-    proc = subprocess.run(
-        ["git", "-C", str(git_root), "ls-files", "--error-unmatch", rel_path],
-        capture_output=True,
-        timeout=10,
-    )
-    return proc.returncode == 0
 
 
 def _git_rm(git_root: Path, rel_path: str, *, recursive: bool = False) -> None:
@@ -690,121 +630,3 @@ def _update_design_status(feature_dir: Path, new_status: str) -> bool:
         raise
 
     return True
-
-
-_REVIEWER_SECTIONS = ["Architecture", "Non-Goals", "Alternatives Considered"]
-_PRIMARY_SECTION = "Architecture"
-
-
-def cmd_design_extract(args: argparse.Namespace) -> None:
-    """Extract sections from design.md and print to stdout.
-
-    Exits non-zero if the primary section (Architecture) is not found.
-    Prints a warning to stderr when an optional section is missing.
-    """
-    root = find_repo_root()
-    feature_dir = resolve_feature(root, feature=args.feature)
-
-    design_path = feature_dir / "design.md"
-    if not design_path.exists():
-        die(f"No design.md found in {feature_dir}")
-
-    sections = _REVIEWER_SECTIONS if getattr(args, "reviewer", False) else args.sections
-
-    # Determine which sections were actually found by extracting each individually
-    found_sections: list[str] = []
-    missing_sections: list[str] = []
-    for section in sections:
-        extracted = extract_design_sections(feature_dir, [section])
-        if extracted.strip():
-            found_sections.append(section)
-        else:
-            missing_sections.append(section)
-
-    # Non-zero exit if the primary section (Architecture) is not found
-    # extract_design_sections handles alias resolution, so checking _PRIMARY_SECTION
-    # in missing_sections is sufficient — no need to duplicate the alias list here
-    if _PRIMARY_SECTION in sections and _PRIMARY_SECTION in missing_sections:
-        die(
-            f"Required section not found: '## {_PRIMARY_SECTION}' (and aliases) "
-            f"in {feature_dir / 'design.md'}"
-        )
-
-    # Warn about missing optional sections
-    for missing in missing_sections:
-        if missing != _PRIMARY_SECTION:
-            print(
-                f"warning: section '## {missing}' not found in design.md",
-                file=sys.stderr,
-            )
-
-    # Extract and print all found sections in requested order
-    output = extract_design_sections(feature_dir, found_sections)
-    print(output, end="")
-
-
-def cmd_status(args: argparse.Namespace) -> None:
-    root = find_repo_root()
-    feature_dirs = resolve_feature_list(
-        root, feature=args.feature, auto=getattr(args, "auto", False)
-    )
-
-    if not feature_dirs:
-        if args.json:
-            print(json.dumps([]))
-        else:
-            print("No features found in design/specs/")
-        return
-
-    all_data = []
-    for feature_dir in feature_dirs:
-        wps = read_wp_files(feature_dir)
-        lanes: dict[str, list[str]] = {k: [] for k in LANE_KEYS}
-        for wp in wps:
-            lane = wp.get("lane", "planned")
-            wp_id = wp.get("work_package_id", Path(wp["filename"]).stem)
-            if lane in lanes:
-                lanes[lane].append(wp_id)
-            else:
-                print(
-                    f"warning: {wp['filename']} has unknown lane '{lane}', treating as planned",
-                    file=sys.stderr,
-                )
-                lanes["planned"].append(wp_id)
-        all_data.append({"feature": feature_dir.name, "lanes": lanes, "wps": wps})
-
-    if args.json:
-        print(json.dumps(all_data, indent=2))
-        return
-
-    for data in all_data:
-        print(f"\nFeature: {data['feature']}")
-        lanes = data["lanes"]
-        columns = [lanes[k] for k in LANE_KEYS]
-        max_rows = max((len(c) for c in columns), default=0)
-
-        if max_rows == 0:
-            print("  (no WP files found)")
-            continue
-
-        col_widths = [
-            max(len(h), max((len(v) for v in col), default=0))
-            for h, col in zip(LANE_HEADERS, columns)
-        ]
-
-        def row_sep(left: str, mid: str, right: str, fill: str) -> str:
-            return left + mid.join(fill * (w + 2) for w in col_widths) + right
-
-        print(row_sep("┌", "┬", "┐", "─"))
-        header_cells = "│".join(f" {h:<{w}} " for h, w in zip(LANE_HEADERS, col_widths))
-        print(f"│{header_cells}│")
-        print(row_sep("├", "┼", "┤", "─"))
-
-        for i in range(max_rows):
-            cells = []
-            for col, w in zip(columns, col_widths):
-                val = col[i] if i < len(col) else ""
-                cells.append(f" {val:<{w}} ")
-            print(f"│{'│'.join(cells)}│")
-
-        print(row_sep("└", "┴", "┘", "─"))

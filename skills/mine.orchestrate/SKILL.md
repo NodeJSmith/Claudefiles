@@ -1,16 +1,16 @@
 ---
 name: mine.orchestrate
-description: "Use when the user says: \"execute the plan\", \"orchestrate implementation\", or \"start executing\". Runs work packages task-by-task with implementer + reviewer subagent loop."
+description: "Use when the user says: \"execute the plan\", \"orchestrate implementation\", or \"start executing\". Runs tasks task-by-task with implementer + reviewer subagent loop."
 user-invocable: true
 ---
 
 # Orchestrate
 
-Execute an approved set of Work Packages. Runs each WP through an executor → spec reviewer → code reviewer → integration reviewer loop. Gates on deviations. Updates WP lane state via `spec-helper` after each WP completes.
+Execute an approved set of tasks. Runs each task through an executor → spec reviewer → code reviewer → integration reviewer loop. Gates on deviations. Updates checkpoint state after each task completes.
 
 ## Arguments
 
-$ARGUMENTS — path to a feature directory (`design/specs/NNN-feature/`) or a specific `WP*.md` file. If empty, find the most recently modified `design/specs/*/tasks/WP*.md` and locate its feature directory.
+$ARGUMENTS — path to a feature directory (`design/specs/NNN-feature/`) or a specific `T*.md` file. If empty, find the most recently modified `design/specs/*/tasks/T*.md` and locate its feature directory.
 
 ---
 
@@ -19,18 +19,18 @@ $ARGUMENTS — path to a feature directory (`design/specs/NNN-feature/`) or a sp
 If context compaction occurs mid-orchestration (new session, context window reset), resume by:
 
 1. Run `/mine.status` for quick orientation (branch, last commit, errors)
-2. Run `spec-helper checkpoint-read <feature_dir_name> --json` to recover full orchestration state (completed WPs, current WP, tmpdir, base commit)
+2. Run `spec-helper checkpoint-read <feature_dir_name> --json` to recover full orchestration state (completed tasks, current task, tmpdir, base commit)
 3. Re-invoke `/mine.orchestrate <feature_dir>` — the checkpoint detection in Phase 0 will pick up where you left off
 
-The checkpoint file (`tasks/.orchestrate-state.md`) persists across sessions. Per-WP temp artifacts (executor output, review files, screenshots) may be lost if `/tmp` was cleared between sessions — the resume path handles this gracefully by skipping review-file checks for already-completed WPs.
+The checkpoint file (`tasks/.orchestrate-state.md`) persists across sessions. Per-task temp artifacts (executor output, review files, screenshots) may be lost if `/tmp` was cleared between sessions — the resume path handles this gracefully by skipping review-file checks for already-completed tasks.
 
 ---
 
-## Phase 0: Locate the Work Packages
+## Phase 0: Locate the Tasks
 
 ### Check for existing checkpoint (resume detection)
 
-Before anything else, determine the feature directory from `$ARGUMENTS` (using the same logic as "Find the feature directory" below — directory, WP file, or most-recently-modified glob). Do **not** present the confirmation AskUserQuestion at this point — just resolve the path silently. Then check for an existing checkpoint:
+Before anything else, determine the feature directory from `$ARGUMENTS` (using the same logic as "Find the feature directory" below — directory, task file, or most-recently-modified glob). Do **not** present the confirmation AskUserQuestion at this point — just resolve the path silently. Then check for an existing checkpoint:
 
 ```bash
 spec-helper checkpoint-read <feature_dir_name> --json
@@ -40,17 +40,17 @@ spec-helper checkpoint-read <feature_dir_name> --json
 
 **If it returns checkpoint data** — extract all fields from the JSON. Then determine staleness: check whether `base_commit` still exists with `git cat-file -e <base_commit>`. If the commit is gone (force-push, rebase), the checkpoint is genuinely stale — default to "Restart fresh".
 
-Count the completed WPs from the verdicts section and the total WPs from the feature directory.
+Count the completed tasks from the verdicts section and the total tasks from the feature directory.
 
 Present the resume prompt:
 
 ```
 AskUserQuestion:
-  question: "Found orchestration state from <started_at>. <N> of <M> WPs completed (<comma-separated list of verdict WP IDs and their verdicts, e.g. 'WP01: PASS, WP02: WARN'>). Resume or restart?"
+  question: "Found orchestration state from <started_at>. <N> of <M> tasks completed (<comma-separated list of verdict task IDs and their verdicts, e.g. 'T01: PASS, T02: WARN'>). Resume or restart?"
   header: "Resume"
   multiSelect: false
   options:
-    - label: "Resume from <next WP ID after last_completed_wp>"
+    - label: "Resume from <next task ID after last_completed_wp>"
       description: "Continue where we left off — screenshots: <visual_mode value: 'enabled', 'skipped_no_server', or 'skipped_no_vision'>"
     - label: "Restart fresh"
       description: "Delete the checkpoint and start from the beginning"
@@ -60,14 +60,14 @@ If `base_commit` no longer exists, append " (base commit is gone — branch may 
 
 **On resume:**
 - Restore all key-value fields from the checkpoint: `feature_dir`, `tmpdir`, `visual_mode`, `dev_server_url`, `base_commit`, `started_at`
-- Verify `tmpdir` exists. If it does not, run `get-skill-tmpdir mine-orchestrate` to create a new one and note that subagent outputs from prior WPs are gone (code changes are in git; verdicts are in the checkpoint)
-- Re-read `<feature_dir>/design.md` and all `<feature_dir>/tasks/WP*.md` files (they may have been edited between sessions)
-- **Stale verdict check**: For each WP that has a PASS verdict in the checkpoint's `verdicts` array, check whether the WP file was modified after the checkpoint's `started_at` timestamp: `git log --since="<started_at>" --oneline -- <feature_dir>/tasks/<WP_ID>.md`. If the file was modified, surface a warning: "WP<NN> was edited since its PASS verdict — the verdict may no longer be valid." Skip WPs with no verdict yet (planned/unstarted) — edits to unstarted WPs are expected between sessions. This does not require a hard stop, just visibility before proceeding.
-- **Test baseline check**: If `<dir>/test-baseline.md` is missing (tmpdir was cleared), warn: "Test baseline from prior session is gone — regression detection will be unavailable for resumed WPs. Pre-existing test failures cannot be distinguished from regressions." Do not re-capture (the codebase has changed since baseline).
+- Verify `tmpdir` exists. If it does not, run `get-skill-tmpdir mine-orchestrate` to create a new one and note that subagent outputs from prior tasks are gone (code changes are in git; verdicts are in the checkpoint)
+- Re-read `<feature_dir>/design.md` and all `<feature_dir>/tasks/T*.md` files (they may have been edited between sessions)
+- **Stale verdict check**: For each task that has a PASS verdict in the checkpoint's `verdicts` array, check whether the task file was modified after the checkpoint's `started_at` timestamp: `git log --since="<started_at>" --oneline -- <feature_dir>/tasks/<task_id>.md`. If the file was modified, surface a warning: "<task_id> was edited since its PASS verdict — the verdict may no longer be valid." Skip tasks with no verdict yet (unstarted) — edits to unstarted tasks are expected between sessions. This does not require a hard stop, just visibility before proceeding.
+- **Test baseline check**: If `<dir>/test-baseline.md` is missing (tmpdir was cleared), warn: "Test baseline from prior session is gone — regression detection will be unavailable for resumed tasks. Pre-existing test failures cannot be distinguished from regressions." Do not re-capture (the codebase has changed since baseline).
 - **Dev server re-verify**: If `visual_mode` is `enabled` and `dev_server_url` is set, ping the stored URL to verify it's still reachable. If unreachable, re-run the Phase 0 dev server detection (port scan → user prompt). If `dev_server_url` is empty or `"none"`, set `visual_mode` to `skipped_no_server` unless the user re-probes.
-- Skip the rest of Phase 0 (feature directory discovery, design doc read, WP file read are handled by the restore; dev server is re-verified above)
-- **Determine start point** (read `current_wp` before clearing it): If `current_wp` is set in the checkpoint (meaning a WP was in progress when the session ended), resume from that WP. Otherwise, skip all WPs up to and including `last_completed_wp` and start from the next WP.
-- **Then** clear the in-progress WP marker:
+- Skip the rest of Phase 0 (feature directory discovery, design doc read, task file read are handled by the restore; dev server is re-verified above)
+- **Determine start point** (read `current_wp` before clearing it): If `current_wp` is set in the checkpoint (meaning a task was in progress when the session ended), resume from that task. Otherwise, skip all tasks up to and including `last_completed_wp` and start from the next task.
+- **Then** clear the in-progress task marker:
   ```bash
   spec-helper checkpoint-update <feature_dir_name> --current-wp "" --current-wp-status "" --json
   ```
@@ -81,19 +81,19 @@ If `base_commit` no longer exists, append " (base commit is gone — branch may 
 
 If $ARGUMENTS points to a `design/specs/NNN-*/` directory, use it directly.
 
-If $ARGUMENTS points to a `WP*.md` file, the feature directory is two levels up.
+If $ARGUMENTS points to a `T*.md` file, the feature directory is two levels up.
 
 If $ARGUMENTS is empty:
 
 ```
-Glob: design/specs/*/tasks/WP*.md
+Glob: design/specs/*/tasks/T*.md
 ```
 
 Sort by modification time, take the most recent. The feature directory is two levels up from that file. Confirm:
 
 ```
 AskUserQuestion:
-  question: "Found work packages in <feature_dir>/tasks/. Execute these?"
+  question: "Found tasks in <feature_dir>/tasks/. Execute these?"
   header: "Confirm feature"
   multiSelect: false
   options:
@@ -106,38 +106,18 @@ AskUserQuestion:
 
 Read `<feature_dir>/design.md` to understand the overall architecture and constraints. This is the spec reviewer's reference document.
 
-### Generate design extracts
+### Read all task files
 
-After reading design.md, generate two extract files from it for use in executor and reviewer prompts. Run both commands, saving stdout to the tmpdir:
-
-```bash
-spec-helper design-extract <feature_dir_name> > <tmpdir>/design-extract-executor.txt
-spec-helper design-extract <feature_dir_name> --reviewer > <tmpdir>/design-extract-reviewer.txt
-```
-
-Where `<feature_dir_name>` is the directory name (e.g., `014-wp-format-noise-reduction`) and `<tmpdir>` is the orchestration tmpdir (from `get-skill-tmpdir mine-orchestrate`, obtained earlier in Phase 0 before writing the checkpoint).
-
-If either command exits non-zero, stop the orchestration run immediately and present the error to the user:
-
-> **Design extract failed**: `spec-helper design-extract` exited with an error for `<feature_dir_name>`. The most common cause is a missing `## Architecture` (or `## Proposed Approach`) heading in design.md. Fix the design doc and re-run `/mine.orchestrate`.
-
-Do not proceed to WP execution without valid extract files — executors would receive no architecture context.
-
-**Ordering note**: The tmpdir must exist before running these commands. Obtain it via `get-skill-tmpdir mine-orchestrate` before the checkpoint-init call, then use it in both the extract commands and the checkpoint-init `--tmpdir` argument.
-
-### Read all WP files
-
-Read all `<feature_dir>/tasks/WP*.md` files in order. For each WP, extract:
-- `work_package_id`
+Read all `<feature_dir>/tasks/T*.md` files in order. For each task, extract:
+- `task_id`
 - `title`
-- `lane`
 - `depends_on`
 
-Check WP statuses — warn if any WPs with `lane: done` or `lane: doing` appear ahead of `lane: planned` WPs (unexpected ordering).
+**Ordering note**: The tmpdir must exist before the checkpoint-init call. Obtain it via `get-skill-tmpdir mine-orchestrate` before the checkpoint-init call, then use it in the `--tmpdir` argument.
 
 ### Dev server check (visual verification)
 
-If any WP contains a `## Visual Verification` section, check for a running dev server:
+If any task contains a `## Visual Verification` section, check for a running dev server:
 
 ```bash
 # Linux
@@ -151,29 +131,29 @@ If a server is found, derive the URL from the matched port (e.g., `http://localh
 If no server is found:
 ```
 AskUserQuestion:
-  question: "<N> WPs have visual verification scenarios but no dev server was detected. Visual checks require a running app."
+  question: "<N> tasks have visual verification scenarios but no dev server was detected. Visual checks require a running app."
   header: "Dev server"
   multiSelect: false
   options:
     - label: "I'll start the server now"
       description: "Pause while I start the dev server, then re-check"
     - label: "Skip visual verification for this run"
-      description: "Execute WPs without visual checks — Visual line will show SKIPPED"
+      description: "Execute tasks without visual checks — Visual line will show SKIPPED"
 ```
 
 If the user starts the server, announce "Checking for dev server..." and re-probe (up to 3 attempts with a 5-second pause between). If found, confirm the URL. If still not found after 3 attempts, present the same two options again. If skipping, set `visual_mode` to `skipped_no_server` for the run — executors will skip all visual capture and report SKIPPED.
 
 ### Vision capability check
 
-If a dev server was found (`visual_mode` is `enabled`), verify vision capability by reading one PNG file from a previous run or a test image. If the Read tool can interpret image contents, vision is available — keep `visual_mode` as `enabled`. If vision is unavailable (Read returns binary data or errors), set `visual_mode` to `skipped_no_vision`. This check runs once at Phase 0, not per-WP.
+If a dev server was found (`visual_mode` is `enabled`), verify vision capability by reading one PNG file from a previous run or a test image. If the Read tool can interpret image contents, vision is available — keep `visual_mode` as `enabled`. If vision is unavailable (Read returns binary data or errors), set `visual_mode` to `skipped_no_vision`. This check runs once at Phase 0, not per-task.
 
 **Known limitation**: This check validates the orchestrator's vision capability. The visual reviewer subagent is launched with `model: sonnet` (which has vision), so capability should match. If model routing changes, this check may provide false assurance — the fallback at Step 5.7 (missing/empty visual reviewer output → FAIL) handles subagent-side failures.
 
 ### Write initial checkpoint
 
-After Phase 0 completes (feature directory found, design doc and WP files read, dev server check done, vision check done), record the base commit and create the checkpoint via `spec-helper`.
+After Phase 0 completes (feature directory found, design doc and task files read, dev server check done, vision check done), record the base commit and create the checkpoint via `spec-helper`.
 
-**Timing: capture `base_commit` BEFORE any WP execution begins.** This is the snapshot of HEAD before the orchestrator modifies any files, so that `git diff --name-only <base_commit> HEAD` after execution shows exactly what changed.
+**Timing: capture `base_commit` BEFORE any task execution begins.** This is the snapshot of HEAD before the orchestrator modifies any files, so that `git diff --name-only <base_commit> HEAD` after execution shows exactly what changed.
 
 First, get the base commit:
 
@@ -193,88 +173,90 @@ The checkpoint is written to `<feature_dir>/tasks/.orchestrate-state.md` with va
 
 ---
 
-## Phase 1: Parse WPs and Select Start Point
+## Phase 1: Parse Tasks and Select Start Point
 
-Present the WP list to the user with IDs, titles, and current lanes:
+Present the task list to the user with IDs and titles:
 
 ```
-WP01  planned  Set up data model
-WP02  planned  Implement service layer
-WP03  done     Write integration tests
+T01  Set up data model
+T02  Implement service layer
+T03  Write integration tests
 ```
 
-**Auto-select the start point.** If any WP is in `lane: doing`, resume that WP first (it was left in progress); otherwise start from the first WP in `lane: planned`. Only ask the user if the state is genuinely ambiguous — e.g., multiple WPs in `doing`, a mix of `done` and `planned` WPs in unexpected order, or all WPs already `done`.
-
-Skip WPs that are already in `lane: done`.
+**Auto-select the start point** from the checkpoint state. If the checkpoint has a `last_completed_wp` field, start from the next task after it; otherwise start from the first task. Only ask the user if the state is genuinely ambiguous — e.g., all tasks already have verdicts in the checkpoint.
 
 ---
 
-## Phase 2: Per-WP Execution Loop
+## Phase 2: Per-Task Execution Loop
 
-For each WP from the start point to the last WP:
+For each task from the start point to the last task:
 
-### Step 1: Announce the WP
+### Step 1: Announce the task
 
 Tell the user:
-> **WP<NN>: <title>**
+> **<task_id>: <title>**
 
-Move this WP to `doing` and record it in the checkpoint (so resume after compaction returns to this WP):
+Record the task in the checkpoint (so resume after compaction returns to this task):
 
 ```bash
-spec-helper wp-move <feature_dir_name> <wp_id> doing
-spec-helper checkpoint-update <feature_dir_name> --current-wp <wp_id> --current-wp-status executing --json
+spec-helper checkpoint-update <feature_dir_name> --current-wp <task_id> --current-wp-status executing --json
 ```
 
 Where `<feature_dir_name>` is the directory name (e.g., `001-user-auth`), not the full path.
 
-### Step 1.5: Capture test baseline (first WP only)
+### Step 1.5: Capture test baseline (first task only)
 
-On the first WP of this orchestration run (no baseline exists yet), capture the current test pass count before the executor modifies any code:
+On the first task of this orchestration run (no baseline exists yet), capture the current test pass count before the executor modifies any code:
 
 1. **Discover the test command** using the discovery order from `rules/common/testing.md`. Record the discovered command as `<dir>/test-command.txt` — this canonical command is passed to all executors and test gates to prevent discovery drift.
-2. **Run the test suite** and record the result as `<dir>/test-baseline.md` (at the run level, not per-WP). Note which tests pass and which fail.
+2. **Run the test suite** and record the result as `<dir>/test-baseline.md` (at the run level, not per-task). Note which tests pass and which fail.
 
-On subsequent WPs and retries, skip — the baseline from the first WP applies to the entire run (it reflects the pre-orchestration state). If the project has no test suite (no test command discoverable after the full discovery cascade), write the sentinel value `no test suite` to `<dir>/test-command.txt`, record `SKIPPED: no test suite` in `<dir>/test-baseline.md`, and skip the test-baseline run for all WPs.
+On subsequent tasks and retries, skip — the baseline from the first task applies to the entire run (it reflects the pre-orchestration state). If the project has no test suite (no test command discoverable after the full discovery cascade), write the sentinel value `no test suite` to `<dir>/test-command.txt`, record `SKIPPED: no test suite` in `<dir>/test-baseline.md`, and skip the test-baseline run for all tasks.
 
-### Step 2: Create per-WP subdirectory
+### Step 2: Create per-task subdirectory
 
-Use the run-level tmpdir from the checkpoint (`tmpdir` field from Phase 0's `checkpoint-init`). Do NOT call `get-skill-tmpdir` here — it creates a new directory each time, orphaning previous WP evidence.
+Use the run-level tmpdir from the checkpoint (`tmpdir` field from Phase 0's `checkpoint-init`). Do NOT call `get-skill-tmpdir` here — it creates a new directory each time, orphaning previous task evidence.
 
-Create a per-WP subdirectory: `<dir>/<wp_id>/` (e.g., `<dir>/wp01/`). Use these paths for subagent outputs within the subdirectory:
-- Executor output: `<dir>/<wp_id>/executor.md`
-- Spec reviewer output: `<dir>/<wp_id>/spec-review.md`
-- Visual reviewer output: `<dir>/<wp_id>/visual-review.md`
-- Code reviewer output: `<dir>/<wp_id>/code-review.md`
-- Integration reviewer output: `<dir>/<wp_id>/integration-review.md`
-- Screenshots: `<dir>/<wp_id>/before-*.png`, `<dir>/<wp_id>/after-*.png`
+Create a per-task subdirectory: `<dir>/<task_id>/` (e.g., `<dir>/t01/`). Use these paths for subagent outputs within the subdirectory:
+- Executor output: `<dir>/<task_id>/executor.md`
+- Spec reviewer output: `<dir>/<task_id>/spec-review.md`
+- Visual reviewer output: `<dir>/<task_id>/visual-review.md`
+- Code reviewer output: `<dir>/<task_id>/code-review.md`
+- Integration reviewer output: `<dir>/<task_id>/integration-review.md`
+- Screenshots: `<dir>/<task_id>/before-*.png`, `<dir>/<task_id>/after-*.png`
 
-Per-WP subdirectories preserve evidence across the full orchestration run. This allows post-hoc review, retry debugging, and screenshot comparison across WPs.
+Per-task subdirectories preserve evidence across the full orchestration run. This allows post-hoc review, retry debugging, and screenshot comparison across tasks.
 
 ### Step 3: Select executor agent type
 
-Before launching the executor, read the WP's objective and tasks to determine if a specialized agent is a better fit than `general-purpose`. Read `~/.claude/skills/mine.orchestrate/agent-routing.md` for the routing table. First match wins — stop at the first row that applies.
+Before launching the executor, read the task's objective and subtasks to determine if a specialized agent is a better fit than `general-purpose`. Read `${CLAUDE_HOME:-~/.claude}/skills/mine.orchestrate/agent-routing.md` for the routing table. First match wins — stop at the first row that applies.
 
 ### Step 4: Launch executor subagent
 
 Read these files:
-- `~/.claude/skills/mine.orchestrate/implementer-prompt.md` (always — WP execution contract)
-- `~/.claude/skills/mine.orchestrate/retry-prompt.md` (retries only — receiving-code-review posture)
-- `~/.claude/skills/mine.orchestrate/tdd.md`
+- `${CLAUDE_HOME:-~/.claude}/skills/mine.orchestrate/implementer-prompt.md` (always — task execution contract)
+- `${CLAUDE_HOME:-~/.claude}/skills/mine.orchestrate/retry-prompt.md` (retries only — receiving-code-review posture)
+- `${CLAUDE_HOME:-~/.claude}/skills/mine.orchestrate/tdd.md`
 
 For **first-pass execution**, include only `implementer-prompt.md` in the `## Implementer instructions` slot.
 
-For **retries** (WARN fix loop and FAIL retry), include **both** files: `implementer-prompt.md` in `## Implementer instructions` (WP execution contract — subtask sequencing, deviation classification, visual verification) and `retry-prompt.md` as an additional `## Retry instructions` section below it (verify-before-implement posture, YAGNI check, push-back protocol, and previous review feedback).
+For **retries** (WARN fix loop and FAIL retry), include **both** files: `implementer-prompt.md` in `## Implementer instructions` (task execution contract — subtask sequencing, deviation classification, visual verification) and `retry-prompt.md` as an additional `## Retry instructions` section below it (verify-before-implement posture, YAGNI check, push-back protocol, and previous review feedback).
 
 Launch a subagent of the type selected in Step 3 with `model: sonnet` and this prompt (fill in bracketed values):
 
 ```
-You are executing a single Work Package from an implementation plan.
+You are executing a single task from an implementation plan.
 
-## Work Package spec
-<full WP*.md content>
+## Task spec
+<full T*.md content>
 
-## Design doc (architecture reference)
-<contents of <tmpdir>/design-extract-executor.txt>
+## Design doc path
+<absolute path to <feature_dir>/design.md>
+
+Read the design doc directly for architecture context. Pay special attention to the sections referenced in the task's Focus section.
+
+## Master context path
+<absolute path to <feature_dir>/tasks/context.md, if it exists; omit this section if the file does not exist>
 
 ## Implementer instructions
 <full implementer-prompt.md content>
@@ -290,10 +272,10 @@ You are executing a single Work Package from an implementation plan.
 
 ## Visual verification status
 <If visual_mode is not "enabled">: Visual verification is SKIPPED for this run (<visual_mode reason>). Do not attempt screenshot capture. Report "SKIPPED — <reason> (orchestrator)" in your visual verification output.
-<Otherwise>: Dev server detected at <URL>. Proceed with visual verification if the WP specifies scenarios.
+<Otherwise>: Dev server detected at <URL>. Proceed with visual verification if the task specifies scenarios.
 
-Write your structured result to: <executor temp file path>
-Save screenshots to: <dir>/<wp_id>/
+Write your structured result to: <absolute path: dir>/<task_id>/executor.md>
+Save screenshots to: <absolute path: dir>/<task_id>/>
 ```
 
 Wait for the subagent to complete. Read the executor temp file.
@@ -307,24 +289,54 @@ git diff --name-only HEAD
 git ls-files --others --exclude-standard
 ```
 
-Always run both commands — the first catches all modified/deleted tracked files (staged and unstaged) relative to HEAD, the second catches newly created untracked files. Combine both lists (deduped) and write to `<dir>/<wp_id>/changed-files.txt` (one path per line). This file is used by the reviewers (Step 5) and the commit step (Step 9a). If both commands return empty, the executor may not have made any file changes — proceed to the reviewers, which will catch this if unexpected.
+Always run both commands — the first catches all modified/deleted tracked files (staged and unstaged) relative to HEAD, the second catches newly created untracked files. Combine both lists (deduped) and write to `<dir>/<task_id>/changed-files.txt` (one path per line). This file is used by the reviewers (Step 5) and the commit step (Step 9a). If both commands return empty, the executor may not have made any file changes — proceed to the reviewers, which will catch this if unexpected.
+
+### Step 4.6: CONTESTED criteria resolution
+
+After capturing changed files, check the executor's output for any Verify criteria marked **CONTESTED**. This must happen before the spec reviewer runs (FR#23a) — the spec reviewer receives the possibly-updated verification criteria after CONTESTED items are resolved.
+
+If no CONTESTED criteria are present, skip this step and proceed to Step 5.
+
+For each CONTESTED criterion, the executor must have included a rationale. Present each CONTESTED criterion to the user individually:
+
+```
+AskUserQuestion:
+  question: "The executor marked a Verify criterion as CONTESTED in <task_id>: \"<criterion text>\"\n\nExecutor rationale: <rationale from executor output>\n\nTask file: <absolute path to task file>\nExecutor output: <absolute path: dir>/<task_id>/executor.md>"
+  header: "Contested"
+  multiSelect: false
+  options:
+    - label: "Accept — criterion is met as implemented"
+      description: "Treat as DONE; continue"
+    - label: "Reject — criterion must be satisfied"
+      description: "Dispatch a single retry to address only this criterion"
+```
+
+**On Accept**: mark the criterion as resolved (DONE) in the task file's Verify section and continue to the next CONTESTED criterion.
+
+**On Reject**: dispatch one retry executor (Step 4 only) scoped to only the rejected criterion. In the retry prompt, include: "Fix only the CONTESTED criterion: '<criterion text>'. Do not change code unrelated to this criterion." After the retry, re-capture changed files (Step 4.5) and re-evaluate the criterion. If the criterion is now met, continue. If still CONTESTED after one retry, escalate to the user with "Accept — ship it as-is" and "Stop here" options only (no further retries). All prompts include full absolute paths to relevant artifacts (FR#19a).
+
+**Persistence**: When the user accepts a CONTESTED criterion (either at the first prompt or the escalation), update the criterion text in the task file's Verify section to reflect the accepted interpretation. When the user stops with an unresolved CONTESTED criterion, append `<!-- CONTESTED: unresolved -->` to the criterion line in the task file. On resume (Step 4.6), skip criteria that already have a `<!-- CONTESTED: unresolved -->` marker — present them to the user as "previously unresolved" with the option to re-attempt or accept.
+
+After all CONTESTED criteria are resolved, proceed to Step 5.
 
 ### Step 5: Parallel review pass
 
-Read `~/.claude/skills/mine.orchestrate/spec-reviewer-prompt.md`.
+Read `${CLAUDE_HOME:-~/.claude}/skills/mine.orchestrate/spec-reviewer-prompt.md`.
 
 Launch **all three reviewers in parallel** (three Agent tool calls in a single message):
 
 **Subagent 1 — Spec reviewer** (`subagent_type: "general-purpose"`, `model: sonnet`):
 
 ```
-You are independently verifying a completed Work Package.
+You are independently verifying a completed task.
 
-## Work Package spec
-<full WP*.md content>
+## Task spec
+<full T*.md content>
 
-## Design doc (supplemental architecture reference)
-<contents of <tmpdir>/design-extract-reviewer.txt>
+## Design doc path
+<absolute path to <feature_dir>/design.md>
+
+Read the design doc directly for supplemental architecture context.
 
 ## Changed files
 <contents of changed-files.txt from Step 4.5>
@@ -335,7 +347,7 @@ You are independently verifying a completed Work Package.
 ## Spec reviewer instructions
 <full spec-reviewer-prompt.md content>
 
-Write your structured review to: <dir>/<wp_id>/spec-review.md
+Write your structured review to: <absolute path: dir>/<task_id>/spec-review.md>
 ```
 
 **Subagent 2 — Code reviewer** (`subagent_type: "code-reviewer"`):
@@ -343,7 +355,7 @@ Write your structured review to: <dir>/<wp_id>/spec-review.md
 ```
 Review these changed files: <changed file list from Step 4.5>
 
-Write your review to: <dir>/<wp_id>/code-review.md
+Write your review to: <absolute path: dir>/<task_id>/code-review.md>
 ```
 
 **Subagent 3 — Integration reviewer** (`subagent_type: "integration-reviewer"`):
@@ -351,7 +363,7 @@ Write your review to: <dir>/<wp_id>/code-review.md
 ```
 Review these changed files: <changed file list from Step 4.5>
 
-Write your review to: <dir>/<wp_id>/integration-review.md
+Write your review to: <absolute path: dir>/<task_id>/integration-review.md>
 ```
 
 Wait for all three to complete. Read all output files.
@@ -365,10 +377,10 @@ After the parallel reviews complete (regardless of verdicts), re-run the project
    - If `<dir>/test-baseline.md` is missing or unreadable (e.g., tmpdir was cleared before resume), do **not** treat this as a regression signal. Continue with the test re-run, but record `NO BASELINE — cannot detect regressions` in `test-gate.md`.
 2. **Load the canonical test command** from `<dir>/test-command.txt` (created in Step 1.5 to prevent discovery drift). Treat that file as the primary source of truth. Run from the repository root. Only fall back to the discovery order from `rules/common/testing.md` if `test-command.txt` is missing, empty, or contains `no test suite`.
 3. **Run the test command** and capture output.
-4. **Compare against baseline when available**: if a valid baseline exists and any test that passed in the baseline now fails, this is a **regression**. Record regressions explicitly in `<dir>/<wp_id>/test-gate.md`. If no baseline is available, record that regression detection could not be performed and list current failures as informational only — do not classify them as regressions.
-5. **Record the test result** in the per-WP temp directory: `<dir>/<wp_id>/test-gate.md` with the command used, whether it came from `test-command.txt` or fallback discovery, output summary, baseline status, and regression list.
+4. **Compare against baseline when available**: if a valid baseline exists and any test that passed in the baseline now fails, this is a **regression**. Record regressions explicitly in `<dir>/<task_id>/test-gate.md`. If no baseline is available, record that regression detection could not be performed and list current failures as informational only — do not classify them as regressions.
+5. **Record the test result** in the per-task temp directory: `<dir>/<task_id>/test-gate.md` with the command used, whether it came from `test-command.txt` or fallback discovery, output summary, baseline status, and regression list.
 
-**Verdict impact**: If regressions are detected from a valid baseline comparison (previously-passing tests now fail), the test gate overrides the WP verdict to FAIL regardless of other reviewer results — regressions must be fixed before proceeding. Pre-existing test failures (tests that also failed in the baseline) are informational and do not block. If no baseline is available, do not fail the WP on regression grounds alone.
+**Verdict impact**: If regressions are detected from a valid baseline comparison (previously-passing tests now fail), the test gate overrides the task verdict to FAIL regardless of other reviewer results — regressions must be fixed before proceeding. Pre-existing test failures (tests that also failed in the baseline) are informational and do not block. If no baseline is available, do not fail the task on regression grounds alone.
 
 ### Step 5.5: WARN fix loop (if spec reviewer returned WARN)
 
@@ -376,30 +388,31 @@ After the parallel reviews complete (regardless of verdicts), re-run the project
 
 1. **Read the spec reviewer's WARN details** from the spec review output
 2. **Update checkpoint**: `spec-helper checkpoint-update <feature_dir_name> --current-wp-status warn_retry --json`
-3. **Re-run the executor (Step 4)** using both `implementer-prompt.md` and `retry-prompt.md` (see Step 4 retry variant). Populate the `## Previous review feedback` template with one labeled entry per file present — at minimum "Spec reviewer: <path>"; add "Test gate: <path>" if the test gate detected regressions. Instruct the executor: "Fix only the gap identified by the spec reviewer. Read each findings file in full before making changes. Do not re-implement passing subtasks — read the existing code before making changes." If the WP has visual scenarios, add: "Re-capture baseline before-screenshots as if starting fresh — do not re-use before-screenshots from the prior attempt."
+3. **Re-run the executor (Step 4)** using both `implementer-prompt.md` and `retry-prompt.md` (see Step 4 retry variant). Populate the `## Previous review feedback` template with one labeled entry per file present — at minimum "Spec reviewer: <absolute path>"; add "Test gate: <absolute path>" if the test gate detected regressions. Instruct the executor: "Fix only the gap identified by the spec reviewer. Read each findings file in full before making changes. Do not re-implement passing subtasks — read the existing code before making changes." If the task has visual scenarios, add: "Re-capture baseline before-screenshots as if starting fresh — do not re-use before-screenshots from the prior attempt."
 4. **Re-capture changed files (Step 4.5)** — the retry executor may have modified different files than the original run. **Union** the retry's changed-files with the original run's changed-files (deduplicated) before writing to `changed-files.txt` — reviewers must see all touched files, not just what the retry modified.
-5. **Re-run the parallel review pass (Step 5)** — all three reviewers in parallel on the updated output
-6. **Re-run the test gate (Step 5.3)** on the updated code
-7. **If PASS after retry** → continue to Step 5.7 (visual reviewer), then Step 6 (review findings fix loop). The WARN retry replaces only Steps 4, 4.5, 5, and 5.3.
-8. **If still WARN after 1 retry** → escalate to the user with a distinct prompt that signals this is a persistent minor gap, not a hard failure:
+5. **Re-check CONTESTED criteria (Step 4.6)** — the retry executor may have produced new CONTESTED criteria. Resolve before re-running reviews.
+6. **Re-run the parallel review pass (Step 5)** — all three reviewers in parallel on the updated output
+7. **Re-run the test gate (Step 5.3)** on the updated code
+8. **If PASS after retry** → continue to Step 5.7 (visual reviewer), then Step 6 (review findings fix loop). The WARN retry replaces only Steps 4, 4.5, 4.6, 5, and 5.3.
+9. **If still WARN after 1 retry** → escalate to the user with a distinct prompt that signals this is a persistent minor gap, not a hard failure:
 
 ```
 AskUserQuestion:
-  question: "WP<NN> has a minor gap that couldn't be resolved automatically: <WARN summary from spec reviewer>. The spec reviewer returned WARN on both the original and retry run."
+  question: "<task_id> has a minor gap that couldn't be resolved automatically: <WARN summary from spec reviewer>. The spec reviewer returned WARN on both the original and retry run."
   header: "WARN persist"
   multiSelect: false
   options:
-    - label: "Fix and retry this WP"
+    - label: "Fix and retry this task"
       description: "Run a third attempt (auto-retry already ran once). If WARN persists, only blocking or stopping will be offered."
     - label: "Mark as blocked and skip"
-      description: "Record the gap and move to the next WP"
+      description: "Record the gap and move to the next task"
     - label: "Stop here"
       description: "Pause execution; resume later with /mine.orchestrate"
 ```
 
 If the user chose "Fix and retry" from the WARN persistence prompt, run one more executor cycle (Steps 4, 4.5, 5, 5.3). If the spec reviewer returns WARN again, present only "Mark as blocked and skip" and "Stop here" — do not offer another retry.
 
-The WARN retry happens within a single WP's execution. The checkpoint is not updated during retries — it only updates after the final verdict.
+The WARN retry happens within a single task's execution. The checkpoint is not updated during retries — it only updates after the final verdict.
 
 **If the spec reviewer returned PASS** — continue to Step 5.7 (visual reviewer), then Step 6 (review findings fix loop).
 
@@ -407,21 +420,21 @@ The WARN retry happens within a single WP's execution. The checkpoint is not upd
 
 ### Step 5.7: Visual reviewer (conditional)
 
-**Only run this step if the WP contains a `## Visual Verification` section with scenarios.** If the WP has no visual verification section, skip to Step 6 (the Visual line in Step 8 will show N/A).
+**Only run this step if the task contains a `## Visual Verification` section with scenarios.** If the task has no visual verification section, skip to Step 6 (the Visual line in Step 8 will show N/A).
 
 **If `visual_mode` is not `enabled`** (no dev server or no vision model, decided in Phase 0), skip the Glob and visual reviewer entirely. Set Visual to SKIPPED with note "<visual_mode reason> (orchestrator)" and proceed to Step 6. Do not launch the visual reviewer — there are no screenshots to review.
 
-Read `~/.claude/skills/mine.orchestrate/visual-reviewer-prompt.md`.
+Read `${CLAUDE_HOME:-~/.claude}/skills/mine.orchestrate/visual-reviewer-prompt.md`.
 
-Before launching the visual reviewer, discover screenshots by Globbing the per-WP temp directory:
+Before launching the visual reviewer, discover screenshots by Globbing the per-task temp directory:
 
 ```
-Glob: <dir>/<wp_id>/*.png
+Glob: <dir>/<task_id>/*.png
 ```
 
 This is more reliable than parsing screenshot paths from the executor's text output.
 
-Vision capability was already verified in Phase 0 — if `visual_mode` is `enabled` at this point, vision is available. No per-WP re-check needed.
+Vision capability was already verified in Phase 0 — if `visual_mode` is `enabled` at this point, vision is available. No per-task re-check needed.
 
 If no `.png` files are found, distinguish the cause:
 - If `visual_mode` is not `enabled` → Visual = SKIPPED with visual_mode reason (should not reach here — Step 5.7 short-circuits above, but defensive)
@@ -431,10 +444,10 @@ If no `.png` files are found, distinguish the cause:
 Launch a `general-purpose` subagent with `model: sonnet` (vision capability required):
 
 ```
-You are reviewing screenshots from a frontend Work Package implementation.
+You are reviewing screenshots from a frontend task implementation.
 
-## Work Package spec
-<full WP*.md content — especially the Visual Verification table>
+## Task spec
+<full T*.md content — especially the Visual Verification table>
 
 ## Executor visual output
 <the Visual verification section from the executor's result>
@@ -445,7 +458,7 @@ You are reviewing screenshots from a frontend Work Package implementation.
 ## Visual reviewer instructions
 <full visual-reviewer-prompt.md content>
 
-Write your review to: <dir>/<wp_id>/visual-review.md
+Write your review to: <absolute path: dir>/<task_id>/visual-review.md>
 ```
 
 Wait for the subagent to complete. Read the visual reviewer output file.
@@ -454,23 +467,23 @@ Wait for the subagent to complete. Read the visual reviewer output file.
 
 **Visual verdict mapping:**
 
-| Visual reviewer result | Impact on WP |
-|------------------------|-------------|
+| Visual reviewer result | Impact on task |
+|------------------------|----------------|
 | VERIFIED | No impact |
-| WARN | WP gets WARN; surface in Step 8 summary |
-| FAIL | WP gets FAIL; surface to user at Step 8 gate |
-| All scenarios SKIPPED (no dev server) | WP gets WARN (visual verification was unavailable) |
+| WARN | Task gets WARN; surface in Step 8 summary |
+| FAIL | Task gets FAIL; surface to user at Step 8 gate |
+| All scenarios SKIPPED (no dev server) | Task gets WARN (visual verification was unavailable) |
 
 ### Step 6: Review findings fix loop
 
-After the parallel review pass, fix **all findings from both the code reviewer and integration reviewer**, regardless of severity. MEDIUM and LOW findings left unfixed accumulate across WPs into significant cleanup debt.
+After the parallel review pass, fix **all findings from both the code reviewer and integration reviewer**, regardless of severity. MEDIUM and LOW findings left unfixed accumulate across tasks into significant cleanup debt.
 
 **Loop until clean:**
-1. Read both review outputs: `<dir>/<wp_id>/code-review.md` and `<dir>/<wp_id>/integration-review.md` (written by Step 5).
+1. Read both review outputs: `<dir>/<task_id>/code-review.md` and `<dir>/<task_id>/integration-review.md` (written by Step 5).
 2. For each finding (CRITICAL, HIGH, MEDIUM, LOW — all severities):
    - **Auto-fix** when the correct solution is unambiguous (clear bugs, missing type annotations, style violations, naming drift, orphaned code, undefined references, simple security issues)
    - **Defer** when the fix requires architectural judgment or business context
-3. If any auto-fixes were applied, re-run **both** the code-reviewer and integration-reviewer — launch both with the refreshed changed file list, writing to `<dir>/<wp_id>/code-review.md` and `<dir>/<wp_id>/integration-review.md` (overwriting previous output). Max 3 iterations total including the initial parallel run.
+3. If any auto-fixes were applied, re-run **both** the code-reviewer and integration-reviewer — launch both with the refreshed changed file list, writing to `<dir>/<task_id>/code-review.md` and `<dir>/<task_id>/integration-review.md` (overwriting previous output). Max 3 iterations total including the initial parallel run.
 4. Stop when: no unresolved findings remain across either reviewer, only deferred findings are left, or 3 iterations reached
 
 **After the fix loop completes** (whether after 0 or 2 additional iterations), re-capture the changed file list — auto-fixes may have modified additional files:
@@ -480,25 +493,25 @@ git diff --name-only HEAD
 git ls-files --others --exclude-standard
 ```
 
-Update the WP's changed file list with the refreshed result (deduped). This updated list is used by Step 9a (commit).
+Update the task's changed file list with the refreshed result (deduped). This updated list is used by Step 9a (commit).
 
-**Verdict impact:** If any non-deferred code-review or integration-review findings remain unresolved after 3 iterations (regardless of severity), the WP verdict becomes FAIL.
+**Verdict impact:** If any non-deferred code-review or integration-review findings remain unresolved after 3 iterations (regardless of severity), the task verdict becomes FAIL.
 
 ### Step 7: Review gate
 
 Verify that all review output files exist:
 
 ```
-Read: <dir>/<wp_id>/spec-review.md
-Read: <dir>/<wp_id>/code-review.md
-Read: <dir>/<wp_id>/integration-review.md
+Read: <dir>/<task_id>/spec-review.md
+Read: <dir>/<task_id>/code-review.md
+Read: <dir>/<task_id>/integration-review.md
 ```
 
-If any file is missing or empty, **do NOT proceed to Step 8**. Go back and run the missing reviewer. Additionally, Grep each file for a `**Verdict:**` or `**Overall verdict:**` line — if the verdict line is absent (partial/crashed output), treat the file as failed and re-run the reviewer. A WP summary without all three reviews is invalid — the verdict will be overridden to FAIL with note "review step skipped."
+If any file is missing or empty, **do NOT proceed to Step 8**. Go back and run the missing reviewer. Additionally, Grep each file for a `**Verdict:**` or `**Overall verdict:**` line — if the verdict line is absent (partial/crashed output), treat the file as failed and re-run the reviewer. A task summary without all three reviews is invalid — the verdict will be overridden to FAIL with note "review step skipped."
 
-### Step 7.5: WP verdict assembly
+### Step 7.5: Task verdict assembly
 
-Derive the canonical WP verdict from all reviewer outputs. This is the single authoritative assembly point — Step 8 presents this verdict and Step 8.5 gates on it.
+Derive the canonical task verdict from all reviewer outputs. This is the single authoritative assembly point — Step 8 presents this verdict and Step 8.5 gates on it.
 
 **FAIL** if any of the following:
 - Spec reviewer returned FAIL
@@ -508,7 +521,7 @@ Derive the canonical WP verdict from all reviewer outputs. This is the single au
 
 **WARN** if not FAIL and any of the following:
 - Visual reviewer returned WARN or WARN [INFRA]
-- Visual reviewer returned SKIPPED when `visual_mode` is `enabled` (visual review was expected but the reviewer/executor reported a per-WP or per-scenario skip). Do not count SKIPPED toward WARN when `visual_mode` is not `enabled` — visual review was intentionally not requested.
+- Visual reviewer returned SKIPPED when `visual_mode` is `enabled` (visual review was expected but the reviewer/executor reported a per-task or per-scenario skip). Do not count SKIPPED toward WARN when `visual_mode` is not `enabled` — visual review was intentionally not requested.
 - Code reviewer or integration reviewer findings were resolved via auto-fix (fixes applied, but all resolved)
 - Test gate has pre-existing failures (no regressions)
 
@@ -519,7 +532,7 @@ Derive the canonical WP verdict from all reviewer outputs. This is the single au
 Present a summary:
 
 ```
-**WP<NN>: <title> — <overall verdict>**
+**<task_id>: <title> — <overall verdict>**
 
 Spec review: PASS|WARN|FAIL
 Visual: VERIFIED (N scenarios)|WARN|FAIL|SKIPPED|N/A
@@ -531,29 +544,25 @@ Test gate: PASS (N tests)|FAIL (N failures — see test-gate.md)|SKIPPED
 [Any WARN or FAIL details]
 ```
 
-### Step 8.5: Gate decision and WP lane update
+### Step 8.5: Gate decision and checkpoint update
 
 Gate based on verdict:
 
-**PASS or WARN** — auto-continue to the next WP. Display the summary but do not ask for confirmation. Move this WP to `done`:
-
-```bash
-spec-helper wp-move <feature_dir_name> <wp_id> done
-```
+**PASS or WARN** — auto-continue to the next task. Display the summary but do not ask for confirmation. Proceed to Step 9 (WIP commit + checkpoint update). Do NOT update the checkpoint here — the checkpoint must only be updated after the WIP commit succeeds (Step 9b) to prevent resume from skipping uncommitted tasks.
 
 Note: by this point, spec reviewer WARNs have been addressed by Step 5.5 and all code/integration findings have been resolved by Step 6. A WARN verdict here means fixes were applied successfully (all findings resolved), or visual review returned WARN/SKIPPED, or there are pre-existing test failures.
 
 **FAIL or non-architectural BLOCKED** — ask the user:
 ```
 AskUserQuestion:
-  question: "WP<NN> failed. What next?"
-  header: "WP<NN> gate"
+  question: "<task_id> failed. What next?"
+  header: "<task_id> gate"
   multiSelect: false
   options:
-    - label: "Fix and retry this WP"
+    - label: "Fix and retry this task"
       description: "Re-run the executor with the reviewer's notes"
     - label: "Mark as blocked and skip"
-      description: "Record the blocker and move to the next WP"
+      description: "Record the blocker and move to the next task"
     - label: "Stop here"
       description: "Pause execution; resume later with /mine.orchestrate"
 ```
@@ -561,27 +570,24 @@ AskUserQuestion:
 For FAIL/BLOCKED gate outcomes, **write a partial checkpoint update** before taking the gate action:
 
 ```bash
-spec-helper checkpoint-update <feature_dir_name> --current-wp <WP_ID> --current-wp-status <retry_pending|blocked|stopped> --json
+spec-helper checkpoint-update <feature_dir_name> --current-wp <task_id> --current-wp-status <retry_pending|blocked|stopped> --json
 ```
 
-This ensures resume correctly returns to this WP instead of skipping it. Then:
+This ensures resume correctly returns to this task instead of skipping it. Then:
 
-- **Fix and retry**: lane stays `doing`; set `current_wp_status: retry_pending`. Re-run from Step 3 (which includes Step 4 executor + Step 4.5 file capture) using `retry-prompt.md` as the base prompt (instead of `implementer-prompt.md`). Populate the `## Previous review feedback` template in `retry-prompt.md` with reviewer file paths based on which steps were reached: spec reviewer always; code reviewer and integration reviewer if Step 6 was reached; visual reviewer if it ran. Pass N/A for any reviewer that didn't reach its step. The executor reads these files directly — do not inline or truncate the reviewer output. Only provide the most recent attempt's reviewer file paths.
-- **Mark as blocked and skip**: set `current_wp_status: blocked`. Move to `for_review` (signals needs human attention)
-  ```bash
-  spec-helper wp-move <feature_dir_name> <wp_id> for_review
-  ```
-- **Stop here**: set `current_wp_status: stopped`. Leave lane as `doing`.
+- **Fix and retry**: set `current_wp_status: retry_pending`. Re-run from Step 3 (which includes Step 4 executor + Step 4.5 file capture) using `retry-prompt.md` as the base prompt (instead of `implementer-prompt.md`). Populate the `## Previous review feedback` template in `retry-prompt.md` with reviewer file paths based on which steps were reached: spec reviewer always; code reviewer and integration reviewer if Step 6 was reached; visual reviewer if it ran. Pass N/A for any reviewer that didn't reach its step. The executor reads these files directly — do not inline or truncate the reviewer output. Only provide the most recent attempt's reviewer file paths.
+- **Mark as blocked and skip**: set `current_wp_status: blocked`. Record the blocker in the checkpoint notes.
+- **Stop here**: set `current_wp_status: stopped`.
 
 **Architectural BLOCKED verdict only:**
 ```
 AskUserQuestion:
-  question: "WP<NN> is blocked on an architectural issue not covered by the plan. This requires a design change before retrying."
+  question: "<task_id> is blocked on an architectural issue not covered by the plan. This requires a design change before retrying."
   header: "Architectural block"
   multiSelect: false
   options:
     - label: "Stop and revise the design"
-      description: "Return to /mine.define or /mine.plan to update the work packages"
+      description: "Return to /mine.define or /mine.plan to update the tasks"
     - label: "Stop here for now"
       description: "Pause execution; resume after the plan is updated"
 ```
@@ -590,9 +596,11 @@ Do not offer "Fix and retry" or "skip" for architectural blocks — retrying wit
 
 ### Step 9: WIP commit and checkpoint update
 
-**This step runs only for PASS or WARN verdicts** (i.e., when the WP was moved to `done` in Step 8.5). For FAIL, BLOCKED, or user-chosen "Stop here" / "Fix and retry" outcomes, skip this step entirely — the checkpoint is not updated and no WIP commit is created.
+**This step runs only for PASS or WARN verdicts** (i.e., when the task was recorded as completed in Step 8.5). For FAIL, BLOCKED, or user-chosen "Stop here" / "Fix and retry" outcomes, skip this step entirely — the checkpoint is not updated and no WIP commit is created.
 
-#### 9a: Create WIP commit
+#### 9a: Update task status and create WIP commit
+
+Update the task file's frontmatter to `status: done` before committing. Read the task file, change `status: "planned"` to `status: "done"` in the YAML frontmatter, and write it back. This makes the task file self-documenting for archive and future reference.
 
 Re-capture the changed file list immediately before staging to ensure it includes any files modified by the code-reviewer auto-fix loop or integration-reviewer feedback:
 
@@ -601,12 +609,12 @@ git diff --name-only HEAD
 git ls-files --others --exclude-standard
 ```
 
-Combine both lists (deduped) and write to `<dir>/<wp_id>/committed-files.txt` — a separate artifact from `changed-files.txt` (which reflects the files reviewers saw). Do **not** use `git add -A` — it stages unrelated files (scratch files, editor backups, files from other features).
+Combine both lists (deduped) and write to `<dir>/<task_id>/committed-files.txt` — a separate artifact from `changed-files.txt` (which reflects the files reviewers saw). Do **not** use `git add -A` — it stages unrelated files (scratch files, editor backups, files from other features).
 
 Stage using `--pathspec-from-file` to avoid shell argument limits. Use `git -C` to ensure repo-root working directory (paths in the file are repo-relative):
 
 ```bash
-git -C <repo_root> add --all --pathspec-from-file=<dir>/<wp_id>/committed-files.txt
+git -C <repo_root> add --all --pathspec-from-file=<dir>/<task_id>/committed-files.txt
 git -C <repo_root> status --short
 ```
 
@@ -615,7 +623,7 @@ The `--all` flag ensures deletions and renames in the file list are staged corre
 Review the `git status` output to confirm only expected files are staged.
 
 ```bash
-git commit -m "WIP: <WP_ID> -- <WP title>"
+git commit -m "WIP: <task_id> -- <task title>"
 ```
 
 If the commit succeeds, capture the new HEAD SHA:
@@ -626,7 +634,7 @@ git rev-parse --short HEAD
 
 Store this SHA — it goes into the checkpoint verdict block below.
 
-**If `git commit` fails** (e.g., nothing to commit because the WP made no file changes), note the failure and use `no-changes` as the commit value in the verdict block. This is not an error — some WPs may be documentation-only or configuration changes that were already committed by a subprocess.
+**If `git commit` fails** (e.g., nothing to commit because the task made no file changes), note the failure and use `no-changes` as the commit value in the verdict block. This is not an error — some tasks may be documentation-only or configuration changes that were already committed by a subprocess.
 
 #### 9b: Update checkpoint file
 
@@ -635,45 +643,38 @@ Update the checkpoint via `spec-helper` commands. The WIP commit (Step 9a) MUST 
 **Update header:**
 
 ```bash
-spec-helper checkpoint-update <feature_dir_name> --last-completed-wp <WP_ID> --json
+spec-helper checkpoint-update <feature_dir_name> --last-completed-wp <task_id> --json
 ```
 
 **Append verdict:**
 
 ```bash
-# Per-WP commit SHAs are stored for future selective per-WP re-review (currently write-only — Phase 3 diffs against base_commit instead)
-spec-helper checkpoint-verdict <feature_dir_name> --wp-id <WP_ID> --title "<WP title>" --verdict <PASS|WARN> --commit <SHA from Step 9a> [--notes "<explanation>"] --json
+spec-helper checkpoint-verdict <feature_dir_name> --wp-id <task_id> --title "<task title>" --verdict <PASS|WARN> --commit <SHA from Step 9a> [--notes "<explanation>"] --json
 ```
 
 Add `--notes` if the verdict is WARN (e.g., "3 findings auto-fixed", "visual verification skipped").
 
-### Loop to next WP
+### Loop to next task
 
-After the gate, continue with the next WP in sequence. Track: done (PASS), warned (WARN), blocked (BLOCKED), failed (FAIL).
+After the gate, continue with the next task in sequence. Track: done (PASS), warned (WARN), blocked (BLOCKED), failed (FAIL).
 
 ---
 
 ## Phase 3: Post-Execution Review Pipeline
 
-After all WPs are processed (or user chose "Stop here"), run a review pipeline. Steps 1-2 are automatic (no user prompts unless blocking issues are found). The user is prompted at the impl-review gate (if blocking) or at the final shipping gate.
+After all tasks are processed (or user chose "Stop here"), run a review pipeline. Steps 1-2 are automatic (no user prompts unless blocking issues are found). The user is prompted at the impl-review gate (if blocking) or at the final shipping gate.
 
 **All subagents in Phase 3 MUST run in foreground** (never set `run_in_background: true`). Several steps spawn their own parallel child subagents internally, which only works in foreground execution.
 
 ### Step 1: Summary (automatic)
 
-Print the terminal kanban:
-
-```bash
-spec-helper status <feature_dir_name>
-```
-
-Then present a verdict table. **Read the checkpoint via `spec-helper checkpoint-read <feature_dir_name> --json`** and build the table from the `verdicts` array:
+Present a verdict table. **Read the checkpoint via `spec-helper checkpoint-read <feature_dir_name> --json`** and build the table from the `verdicts` array:
 
 ```
-| WP   | Title   | Verdict |
+| Task | Title   | Verdict |
 |------|---------|---------|
-| WP01 | ...     | PASS    |
-| WP02 | ...     | WARN    |
+| T01  | ...     | PASS    |
+| T02  | ...     | WARN    |
 ...
 ```
 
@@ -694,7 +695,7 @@ AskUserQuestion:
   multiSelect: false
   options:
     - label: "Stop and revise the design"
-      description: "Return to /mine.define or /mine.plan to update the work packages"
+      description: "Return to /mine.define or /mine.plan to update the tasks"
     - label: "Stop here for now"
       description: "Pause execution; resume after the design is updated"
 ```
@@ -714,7 +715,7 @@ AskUserQuestion:
 ```
 
 **On "Address fixes":**
-1. Dispatch a fresh `general-purpose` subagent with `model: sonnet` and: the impl-review findings, the relevant file paths, `<feature_dir>/design.md` content, all WP files from `<feature_dir>/tasks/` (for per-WP constraints and Review Guidance), accumulated spec-reviewer outputs, `implementer-prompt.md` content (as `## Implementer instructions`), `retry-prompt.md` content (as `## Retry instructions`), and `tdd.md` content. Populate the `## Previous review feedback` template with: "Impl-review: <impl-review findings file path>". Instruct: "Fix only the listed blocking issues. Do not expand scope beyond these findings. Respect the Review Guidance constraints from each WP."
+1. Dispatch a fresh `general-purpose` subagent with `model: sonnet` and: the impl-review findings, the relevant file paths, the design doc path (`<feature_dir>/design.md` — instruct the subagent to read it directly), all task files from `<feature_dir>/tasks/` (for per-task constraints and Review Guidance), accumulated spec-reviewer outputs, `implementer-prompt.md` content (as `## Implementer instructions`), `retry-prompt.md` content (as `## Retry instructions`), and `tdd.md` content. Populate the `## Previous review feedback` template with: "Impl-review: <absolute path to impl-review findings file>". Instruct: "Fix only the listed blocking issues. Do not expand scope beyond these findings. Respect the Review Guidance constraints from each task."
 2. After the subagent completes, re-run the project test suite (using `<dir>/test-command.txt`). If tests fail: surface the failure prominently in the next gate prompt (which offers "Address fixes" or "Stop here" — there is no "Accept and ship" option at this gate) with a note identifying the test failures.
 3. Re-run `code-reviewer` and `integration-reviewer` on the fix diff in parallel (both in a single message)
 4. Re-run `/mine.implementation-review <feature_dir>`
@@ -725,7 +726,7 @@ AskUserQuestion:
 
 ### Step 2.5: Cross-file consistency review (automatic)
 
-After impl-review passes, run an `integration-reviewer` subagent on the **full branch diff** (not per-WP). This catches cross-file consistency issues that per-WP reviews miss because they only see one WP's changes at a time.
+After impl-review passes, run an `integration-reviewer` subagent on the **full branch diff** (not per-task). This catches cross-file consistency issues that per-task reviews miss because they only see one task's changes at a time.
 
 ```bash
 git diff --name-only <base_commit> HEAD
@@ -749,7 +750,7 @@ Present the final gate with impl-review and cross-file review results:
 
 ```
 AskUserQuestion:
-  question: "All WPs complete. Implementation review: <APPROVE + any non-blocking suggestions summary>. Cross-file review: <APPROVE/WARN + any notes>. What next?"
+  question: "All tasks complete. Implementation review: <APPROVE + any non-blocking suggestions summary>. Cross-file review: <APPROVE/WARN + any notes>. What next?"
   header: "Ship"
   multiSelect: false
   options:

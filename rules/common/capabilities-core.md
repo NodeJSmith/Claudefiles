@@ -36,11 +36,10 @@
 | "specify this feature", "write a spec", "define requirements" | `/mine.define` |
 | "build this", "implement this", "make this change", "start a feature" | `/mine.build` |
 | "design this change", "write a design doc", "investigate before planning" | `/mine.define` |
-| "draft a plan", "create work packages", "generate WPs" | `/mine.plan` |
+| "draft a plan", "create work packages", "generate WPs", "create task files" | `/mine.plan` |
 | "review this plan", "check the plan", "plan review" | `/mine.plan` |
 | "execute the plan", "orchestrate implementation", "start executing" | `/mine.orchestrate` |
 | "review the implementation", "post-implementation review" | `/mine.orchestrate` (impl-review runs automatically in Phase 3) |
-| "move WP to doing", "WP status", "kanban" | `/mine.wp` |
 | "archive completed specs", "clean up old WPs", "remove working documents", "one-time cleanup of design files" | `spec-helper archive --all` |
 | "review my changes", "run the reviewers", "code and integration review" | `/mine.review` |
 | "create a skill", "write a skill", "new skill" | `/mine.write-skill` |

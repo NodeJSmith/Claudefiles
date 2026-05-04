@@ -393,7 +393,8 @@ Write the design doc to `<feature_dir>/design.md`:
 
 ## Functional Requirements
 
-[Numbered, testable, unambiguous requirements with clear acceptance criteria.]
+- **FR#1** [One testable behavior — state what the system must do, not how]
+- **FR#2** [Each entry describes exactly one behavior; do not bundle multiple behaviors into a single FR]
 
 ## Edge Cases
 
@@ -401,7 +402,16 @@ Write the design doc to `<feature_dir>/design.md`:
 
 ## Acceptance Criteria
 
-[Measurable, technology-agnostic criteria. Each independently verifiable.]
+- **AC#1** [Measurable, technology-agnostic criterion — independently verifiable]
+- **AC#2** [Each entry tests one outcome; map to one or more FR#N identifiers where relevant]
+
+## Visual Artifacts
+
+[Optional section — include only when visual references (mockups, screenshots, prototypes) exist for this feature. Omit this section entirely when no visual artifacts are available. When present, list each artifact with its path and what it shows.]
+
+## Key Constraints
+
+[Explicit anti-patterns and prohibited approaches specific to this feature, sourced from discovery. Not general coding best practices — only feature-specific prohibitions that emerged from investigation or user answers. If no feature-specific prohibitions emerged, write: "No feature-specific constraints identified during discovery."]
 
 ## Dependencies and Assumptions
 
@@ -449,6 +459,10 @@ Write the design doc to `<feature_dir>/design.md`:
 
 - Every requirement must be testable and unambiguous
 - No `[NEEDS CLARIFICATION]` markers — if you don't know, ask before writing
+- Functional Requirements use canonical identifier format `FR#N` where N is a positive integer (e.g., `FR#1`, `FR#2`). Identifiers must be unique within the document. Each FR describes exactly one testable behavior — do not bundle multiple behaviors into a single entry
+- Acceptance Criteria use canonical identifier format `AC#N` where N is a positive integer (e.g., `AC#1`, `AC#2`). Identifiers must be unique within the document
+- Visual Artifacts section is optional — include it only when visual references exist; omit the section entirely otherwise
+- Key Constraints section is required — include it even if no feature-specific prohibitions emerged (mark it empty with a note rather than omitting)
 
 Populate each section from the research brief, discovery answers, and codebase reconnaissance. Be specific — reference actual file paths, class names, and patterns found during investigation.
 
@@ -456,7 +470,7 @@ Populate each section from the research brief, discovery answers, and codebase r
 
 ## Phase 5: Quality Validation
 
-Validate the design doc against this 12-item checklist:
+Validate the design doc against this 17-item checklist:
 
 1. No implementation details in Problem, Goals, User Scenarios, Functional Requirements, Edge Cases, or Acceptance Criteria sections — any technology name, database engine, library, framework, or API path in these sections is a FAIL
 2. All requirements are testable and unambiguous
@@ -470,6 +484,11 @@ Validate the design doc against this 12-item checklist:
 10. User scenarios cover the primary flow with named actors and step-by-step task flows (for moderate+ features)
 11. Functional requirements have clear acceptance criteria
 12. Problem-space sections written for non-technical stakeholders (no internal jargon)
+13. All Functional Requirements have unique `FR#N` identifiers matching the format `FR#<positive integer>` — duplicate or missing identifiers are a FAIL
+14. All Acceptance Criteria have unique `AC#N` identifiers matching the format `AC#<positive integer>` — duplicate or missing identifiers are a FAIL
+15. Each Functional Requirement describes exactly one testable behavior — compound requirements bundling multiple behaviors into a single FR are a FAIL
+16. Key Constraints section is present; may be empty if no feature-specific prohibitions emerged from discovery (omitting the section entirely is a FAIL)
+17. Visual Artifacts section is present only when visual references (mockups, screenshots, prototypes) exist — an empty Visual Artifacts section is a FAIL; omit the section when no artifacts exist
 
 For any item that fails: **FAIL** — block and revise before proceeding. Report results as a compact list.
 
@@ -488,7 +507,7 @@ AskUserQuestion:
     - label: "Gap-close first"
       description: "Run /mine.gap-close on the design doc to fill completeness gaps"
     - label: "Approve — proceed to planning"
-      description: "Hand off to /mine.plan to generate work packages"
+      description: "Hand off to /mine.plan to generate task files"
     - label: "Revise — I have changes"
       description: "Tell me what to change and I'll update"
     - label: "Save and stop"
@@ -540,7 +559,7 @@ Read `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md` for th
 
 **`status: skipped`** — User explicitly skipped. Record in session summary only.
 
-After reviewing all findings, re-run the 12-item quality validation on the updated design doc, then loop back to the sign-off gate above.
+After reviewing all findings, re-run the 17-item quality validation on the updated design doc, then loop back to the sign-off gate above.
 
 ### On "Approve"
 
@@ -552,11 +571,11 @@ Update design.md `**Status:**` from `draft` to `approved`.
 
 ```
 AskUserQuestion:
-  question: "Design doc approved. Proceed to generate work packages?"
+  question: "Design doc approved. Proceed to generate task files?"
   header: "Next step"
   multiSelect: false
   options:
-    - label: "Yes — generate work packages"
+    - label: "Yes — generate task files"
       description: "Invoke /mine.plan for this feature"
     - label: "No — I'll do it later"
       description: "Stop here; design doc is saved"

@@ -99,7 +99,7 @@ AskUserQuestion:
 | Rationalization | Reality |
 |---|---|
 | "The findings are the spec — skip define" | Findings identify problems; specs define success criteria, scope boundaries, and non-goals. Don't silently skip the define phase — use the routing gate to offer the accelerated path. If the user selects the accelerated path, that's the legitimate workflow. |
-| "This is small enough to skip the caliper workflow" | The routing gate exists for this judgment. If you chose "Complex" or the user chose caliper, every phase runs. Don't downgrade mid-flight because individual WPs look simple. |
+| "This is small enough to skip the caliper workflow" | The routing gate exists for this judgment. If you chose "Complex" or the user chose caliper, every phase runs. Don't downgrade mid-flight because individual tasks look simple. |
 | "Prior analysis already covers research" | Prior analysis covers the *problem space*. Design-phase research covers the *solution space* — interfaces, constraints, existing patterns. Skip only when the accelerated path was explicitly selected and the analysis genuinely mapped the codebase. |
 | "Just do the simple version — user said so" | Agreeing to narrow scope without reading the affected backend code is how architectural blockers surface during challenge instead of during planning. Before confirming a narrowed scope, verify the simple version is feasible in the implementation layer. If it isn't, return to the routing gate and present the complexity finding to the user before proceeding. |
 
@@ -162,7 +162,7 @@ Chain the following skills in sequence. Do not duplicate their logic — follow 
    - If "Revise the plan": mine.plan loops internally. Repeat until approved or abandoned.
    - If "Abandon": stop.
 
-3. **Follow `/mine.orchestrate` phases** using the feature directory. The orchestrator handles per-WP execution, implementation review, and shipping as part of its Phase 3 pipeline. No further steps needed from mine.build after this point.
+3. **Follow `/mine.orchestrate` phases** using the feature directory. The orchestrator handles per-task execution, implementation review, and shipping as part of its Phase 3 pipeline. No further steps needed from mine.build after this point.
 
 ---
 
@@ -190,7 +190,7 @@ Then chain the following steps:
    - If "Revise the plan": mine.plan loops internally. Repeat until approved or abandoned.
    - If "Abandon": stop.
 
-3. **Follow `/mine.orchestrate` phases** using the feature directory. The orchestrator handles per-WP execution, implementation review, and shipping as part of its Phase 3 pipeline. No further steps needed from mine.build after this point.
+3. **Follow `/mine.orchestrate` phases** using the feature directory. The orchestrator handles per-task execution, implementation review, and shipping as part of its Phase 3 pipeline. No further steps needed from mine.build after this point.
 
 ---
 

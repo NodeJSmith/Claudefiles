@@ -35,15 +35,21 @@ Look for error files in `/tmp/claude-claude-errors-*/errors.md` (glob for direct
 
 <!-- Error files are produced by /mine.debug — the skill owns the error-tracking contract and writes to this path at each fix attempt. -->
 
-### Work Packages (Bash + Read)
+### Spec Checkpoint (Bash + Read)
 
-Check for WP files:
+Check for task files and checkpoint data:
 
 ```bash
-spec-helper status 2>/dev/null
+find design/specs -path '*/tasks/T*.md' -print -quit 2>/dev/null
 ```
 
-If the command is not found or exits non-zero, skip this section silently. If it returns output, include it in the status block.
+If any task files are found, also run:
+
+```bash
+spec-helper checkpoint-read --auto --json 2>/dev/null
+```
+
+If either command is not found, exits non-zero, or returns no output, skip this section silently. If checkpoint data is returned, include a summary in the status block.
 
 ## Output Format
 
@@ -64,7 +70,7 @@ Errors (<N> this session):
 
 Last commit: <subject> (<relative time>)
 
-<spec-helper status output, if any WP files found>
+<checkpoint summary, if any task files found>
 ```
 
 ### Rules
@@ -73,5 +79,5 @@ Last commit: <subject> (<relative time>)
 - Show at most 8 tasks. If more exist, append `  ... and N more`
 - For errors, show only unresolved entries (no "Resolved:" in Next). If all resolved, show `Errors: all resolved`
 - If no tasks, no errors, and no git — just print `No active context.`
-- If `spec-helper status` produces no output (no WP files), omit the WP section entirely
+- If no task files are found (no `T*.md` in `design/specs/*/tasks/`), omit the task section entirely
 - Do NOT use subagents, code blocks, or headers. Plain text only.

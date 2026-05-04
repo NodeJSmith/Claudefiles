@@ -2,6 +2,7 @@
 
 import os
 import re
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -12,7 +13,7 @@ try:
     import frontmatter
 except ImportError:
     die("spec-helper requires python-frontmatter: pip install python-frontmatter")
-from spec_helper.validation import normalize_wp_metadata
+from spec_helper.validation import normalize_task_metadata
 
 
 def atomic_write(post: frontmatter.Post, target: Path) -> None:
@@ -198,6 +199,46 @@ def find_wp_file(feature_dir: Path, wp_id: str) -> Path:
     die(f"WP file '{normalized}.md' not found in {tasks_dir}")
 
 
+def find_task_file(feature_dir: Path, task_id: str) -> Path:
+    """Find a task file (T*.md or WP*.md) by ID within a feature directory.
+
+    Supports both T01/WP01 format IDs during the transition period.
+    """
+    tasks_dir = feature_dir / "tasks"
+    if not tasks_dir.exists():
+        die(f"No tasks/ directory in {feature_dir}")
+
+    normalized = task_id.upper()
+
+    # Handle bare numbers: 1 -> T01
+    if re.match(r"^\d+$", normalized):
+        try:
+            normalized = f"T{int(normalized):02d}"
+        except ValueError:
+            die(f"Invalid task ID: '{task_id}'")
+
+    # Normalize T-format padding: T1 -> T01
+    if m := re.match(r"^T(\d+)$", normalized):
+        normalized = f"T{int(m.group(1)):02d}"
+
+    # Normalize WP-format padding: WP1 -> WP01
+    if m := re.match(r"^WP(\d+)$", normalized):
+        normalized = f"WP{int(m.group(1)):02d}"
+
+    # Try exact match first (T01.md or WP01.md)
+    target = tasks_dir / f"{normalized}.md"
+    if target.exists():
+        return target
+
+    # Fuzzy: find any file whose stem starts with the normalized ID (handles T01-slug.md)
+    prefix = normalized.upper()
+    for f in sorted([*tasks_dir.glob("T*.md"), *tasks_dir.glob("WP*.md")]):
+        if f.stem.upper().startswith(prefix):
+            return f
+
+    die(f"Task file '{normalized}.md' not found in {tasks_dir}")
+
+
 _SECTION_ALIASES: dict[str, list[str]] = {
     "Architecture": ["Proposed Approach", "Technical Approach"],
 }
@@ -254,14 +295,29 @@ def extract_design_sections(feature_dir: Path, sections: list[str]) -> str:
     return "".join(parts)
 
 
-def read_wp_files(feature_dir: Path) -> list[dict[str, Any]]:
-    """Read all WP*.md files in tasks/, return list of dicts with filename + frontmatter."""
+def read_task_files(feature_dir: Path) -> list[dict[str, Any]]:
+    """Read all task files (T*.md and WP*.md) in tasks/.
+
+    Returns list of dicts with filename + normalized frontmatter.
+    Both T* and WP* files are discovered for backward compatibility during transition.
+    """
     tasks_dir = feature_dir / "tasks"
     if not tasks_dir.exists():
         return []
     results = []
-    for f in sorted(tasks_dir.glob("WP*.md")):
+    # Collect both T*.md and WP*.md, sorted by filename
+    all_files = sorted([*tasks_dir.glob("T*.md"), *tasks_dir.glob("WP*.md")])
+    # Warn if both formats coexist (likely botched migration)
+    t_files = [f for f in all_files if f.stem.startswith("T")]
+    wp_files = [f for f in all_files if f.stem.startswith("WP")]
+    if t_files and wp_files:
+        print(
+            f"warning: {tasks_dir} contains both T*.md and WP*.md files — "
+            f"possible incomplete migration",
+            file=sys.stderr,
+        )
+    for f in all_files:
         post = frontmatter.load(str(f))
-        normalized = normalize_wp_metadata(dict(post.metadata), f.name)
+        normalized = normalize_task_metadata(dict(post.metadata), f.name)
         results.append({"filename": f.name, **normalized})
     return results

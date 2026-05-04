@@ -10,20 +10,15 @@ from spec_helper.commands import (
     cmd_checkpoint_read,
     cmd_checkpoint_update,
     cmd_checkpoint_verdict,
-    cmd_design_extract,
     cmd_init,
     cmd_next_number,
-    cmd_status,
-    cmd_wp_list,
-    cmd_wp_move,
-    cmd_wp_validate,
+    cmd_validate,
 )
 from spec_helper.checkpoint import (
     VALID_CURRENT_WP_STATUSES,
     VALID_VERDICTS,
     VALID_VISUAL_MODES,
 )
-from spec_helper.validation import VALID_LANES
 
 
 def _add_json_flag(parser: argparse.ArgumentParser) -> None:
@@ -45,7 +40,7 @@ def _add_auto_flag(parser: argparse.ArgumentParser) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="spec-helper",
-        description="Work Package and spec directory management for the caliper v2 pipeline.",
+        description="Task spec directory management for the caliper v2 pipeline.",
     )
     _add_json_flag(parser)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -55,35 +50,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_init.add_argument("slug", help="Feature slug (e.g. user-auth, payment-flow)")
     _add_json_flag(p_init)
 
-    # wp-move
-    p_move = sub.add_parser("wp-move", help="Move a WP to a new lane")
-    p_move.add_argument(
-        "feature",
-        nargs="?",
-        default=None,
-        help="Feature identifier (NNN, NNN-slug, or full dir name); optional with --auto",
-    )
-    p_move.add_argument("wp_id", help="Work package ID (e.g. WP01, 01, 1)")
-    p_move.add_argument("lane", help=f"Target lane: {', '.join(sorted(VALID_LANES))}")
-    _add_json_flag(p_move)
-    _add_auto_flag(p_move)
-
-    # status
-    p_status = sub.add_parser(
-        "status", help="Print terminal kanban for one or all features"
-    )
-    p_status.add_argument(
-        "feature",
-        nargs="?",
-        default=None,
-        help="Feature identifier (optional; all if omitted)",
-    )
-    _add_json_flag(p_status)
-    _add_auto_flag(p_status)
-
-    # wp-validate
+    # validate (new name; wp-validate is a hidden alias registered in dispatch)
     p_validate = sub.add_parser(
-        "wp-validate", help="Validate WP files against canonical schema"
+        "validate", help="Validate task files (T*.md / WP*.md) against canonical schema"
     )
     p_validate.add_argument(
         "feature",
@@ -97,15 +66,15 @@ def build_parser() -> argparse.ArgumentParser:
     _add_json_flag(p_validate)
     _add_auto_flag(p_validate)
 
-    # wp-list
-    p_list = sub.add_parser("wp-list", help="List WP files with frontmatter as JSON")
-    p_list.add_argument(
-        "feature",
-        nargs="?",
-        default=None,
-        help="Feature identifier (NNN, NNN-slug, or full dir name); optional with --auto",
+    # wp-validate: hidden backward-compat alias (same args as validate)
+    p_wp_validate = sub.add_parser(
+        "wp-validate",
+        help=argparse.SUPPRESS,
     )
-    _add_auto_flag(p_list)
+    p_wp_validate.add_argument("feature", nargs="?", default=None)
+    p_wp_validate.add_argument("--fix", action="store_true")
+    _add_json_flag(p_wp_validate)
+    _add_auto_flag(p_wp_validate)
 
     # archive
     p_archive = sub.add_parser(
@@ -122,7 +91,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--all",
         action="store_true",
         dest="all",
-        help="Archive all specs where every WP is done",
+        help="Archive all specs where every task is done",
     )
     p_archive.add_argument(
         "--dry-run",
@@ -131,27 +100,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show what would be archived without making changes",
     )
     _add_json_flag(p_archive)
-
-    # design-extract
-    p_extract = sub.add_parser(
-        "design-extract",
-        help="Extract sections from design.md and print to stdout",
-    )
-    p_extract.add_argument(
-        "feature",
-        help="Feature identifier (NNN, NNN-slug, or full dir name)",
-    )
-    p_extract.add_argument(
-        "--sections",
-        nargs="+",
-        default=["Architecture", "Non-Goals"],
-        help="Sections to extract (default: Architecture Non-Goals)",
-    )
-    p_extract.add_argument(
-        "--reviewer",
-        action="store_true",
-        help="Preset for spec reviewer: extracts Architecture, Non-Goals, Alternatives Considered",
-    )
 
     # next-number
     p_next = sub.add_parser("next-number", help="Print next available feature number")
@@ -200,17 +148,17 @@ def build_parser() -> argparse.ArgumentParser:
         "feature", nargs="?", default=None, help="Feature identifier"
     )
     p_cp_update.add_argument(
-        "--last-completed-wp", default=None, help="Last completed WP ID"
+        "--last-completed-wp", default=None, help="Last completed WP/task ID"
     )
     p_cp_update.add_argument("--tmpdir", default=None, help="Update tmpdir path")
     p_cp_update.add_argument(
-        "--current-wp", default=None, help="Currently in-progress WP ID"
+        "--current-wp", default=None, help="Currently in-progress WP/task ID"
     )
     p_cp_update.add_argument(
         "--current-wp-status",
         default=None,
         choices=[*sorted(VALID_CURRENT_WP_STATUSES), ""],
-        help="Status of current WP (empty string to clear)",
+        help="Status of current WP/task (empty string to clear)",
     )
     p_cp_update.add_argument(
         "--visual-mode",
@@ -228,8 +176,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_cp_verdict.add_argument(
         "feature", nargs="?", default=None, help="Feature identifier"
     )
-    p_cp_verdict.add_argument("--wp-id", required=True, help="WP ID (e.g. WP01)")
-    p_cp_verdict.add_argument("--title", required=True, help="WP title")
+    p_cp_verdict.add_argument(
+        "--wp-id", required=True, help="Task/WP ID (e.g. T01, WP01)"
+    )
+    p_cp_verdict.add_argument("--title", required=True, help="Task/WP title")
     p_cp_verdict.add_argument(
         "--verdict",
         required=True,
@@ -258,19 +208,16 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
-    # Merge --json from parent parser position (spec-helper --json status)
+    # Merge --json from parent parser position (spec-helper --json validate)
     # argparse subparser defaults override parent values, so check sys.argv
     if not args.json and "--json" in sys.argv:
         args.json = True
 
     dispatch = {
         "archive": cmd_archive,
-        "design-extract": cmd_design_extract,
         "init": cmd_init,
-        "wp-move": cmd_wp_move,
-        "wp-validate": cmd_wp_validate,
-        "wp-list": cmd_wp_list,
-        "status": cmd_status,
+        "validate": cmd_validate,
+        "wp-validate": cmd_validate,  # hidden backward-compat alias
         "next-number": cmd_next_number,
         "checkpoint-init": cmd_checkpoint_init,
         "checkpoint-read": cmd_checkpoint_read,

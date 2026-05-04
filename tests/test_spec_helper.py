@@ -19,19 +19,15 @@ from spec_helper.filesystem import (
 from spec_helper.errors import die
 from spec_helper.commands import (
     cmd_archive,
-    cmd_design_extract,
     cmd_init,
-    cmd_wp_move,
-    cmd_wp_validate,
-    cmd_wp_list,
-    cmd_status,
+    cmd_validate,
 )
 from spec_helper.cli import build_parser
 from spec_helper.filesystem import extract_design_sections
 
 
 # ===================================================================
-# CLI parsing smoke tests (challenge finding #1 and #2)
+# CLI parsing smoke tests
 # ===================================================================
 
 
@@ -55,47 +51,24 @@ class TestCLIParsing:
         # Callers use `spec-helper init slug --json` (after subcommand)
         assert args.command == "init"
 
-    def test_wp_move_basic(self):
+    def test_validate_with_fix(self):
         parser = build_parser()
-        args = parser.parse_args(["wp-move", "007-auth", "WP01", "doing"])
-        assert args.command == "wp-move"
-        assert args.feature == "007-auth"
-        assert args.wp_id == "WP01"
-        assert args.lane == "doing"
-
-    def test_wp_move_with_auto(self):
-        parser = build_parser()
-        args = parser.parse_args(["wp-move", "--auto", "WP01", "doing"])
-        assert args.auto is True
-        assert args.feature is None
-
-    def test_status_no_args(self):
-        parser = build_parser()
-        args = parser.parse_args(["status"])
-        assert args.command == "status"
-        assert args.feature is None
-
-    def test_status_with_json(self):
-        parser = build_parser()
-        args = parser.parse_args(["status", "007-auth", "--json"])
-        assert args.json is True
-
-    def test_wp_validate_with_fix(self):
-        parser = build_parser()
-        args = parser.parse_args(["wp-validate", "--fix"])
+        args = parser.parse_args(["validate", "--fix"])
         assert args.fix is True
         assert args.feature is None
 
-    def test_wp_validate_feature_with_json(self):
+    def test_validate_feature_with_json(self):
         parser = build_parser()
-        args = parser.parse_args(["wp-validate", "007-auth", "--json"])
+        args = parser.parse_args(["validate", "007-auth", "--json"])
         assert args.json is True
         assert args.feature == "007-auth"
 
-    def test_wp_list_with_auto(self):
+    def test_wp_validate_alias_accepted(self):
+        """wp-validate hidden alias still parses without error."""
         parser = build_parser()
-        args = parser.parse_args(["wp-list", "--auto"])
-        assert args.auto is True
+        args = parser.parse_args(["wp-validate", "--fix"])
+        assert args.command == "wp-validate"
+        assert args.fix is True
 
     def test_next_number(self):
         parser = build_parser()
@@ -107,11 +80,12 @@ class TestCLIParsing:
         args = parser.parse_args(["next-number", "--json"])
         assert args.json is True
 
-    def test_json_before_subcommand_is_accepted(self):
-        """--json before subcommand parses without error."""
+    def test_removed_commands_absent(self):
+        """wp-move, wp-list, status, design-extract are no longer in the parser."""
         parser = build_parser()
-        args = parser.parse_args(["--json", "status"])
-        assert args.command == "status"
+        for cmd in ("wp-move", "wp-list", "status", "design-extract"):
+            with pytest.raises(SystemExit):
+                parser.parse_args([cmd])
 
 
 # ===================================================================
@@ -649,203 +623,12 @@ depends:
 
 
 # ===================================================================
-# wp-move — WP03 tests
-# ===================================================================
-
-
-def _make_wp_file(tmp_path, content, *, feature="001-test", filename="WP01.md"):
-    """Helper: create a WP file inside a feature/tasks/ directory."""
-    root = tmp_path / "repo"
-    (root / ".git").mkdir(parents=True)
-    tasks = root / "design" / "specs" / feature / "tasks"
-    tasks.mkdir(parents=True)
-    wp_file = tasks / filename
-    wp_file.write_text(content)
-    return root, wp_file
-
-
-class TestWpMoveChangesLane:
-    def test_wp_move_changes_lane(self, tmp_path, monkeypatch):
-        content = """\
----
-work_package_id: WP01
-title: Test task
-lane: planned
-depends_on: []
----
-
-## Subtasks
-
-- Do something
-"""
-        root, wp_file = _make_wp_file(tmp_path, content)
-        monkeypatch.chdir(root)
-
-        args = argparse.Namespace(
-            feature="001-test",
-            wp_id="WP01",
-            lane="doing",
-            auto=False,
-            json=False,
-        )
-        cmd_wp_move(args)
-
-        reloaded = frontmatter.load(str(wp_file))
-        assert reloaded.metadata["lane"] == "doing"
-        assert "## Activity Log" not in wp_file.read_text()
-
-
-class TestWpMovePreservesUnknownFields:
-    def test_wp_move_preserves_unknown_fields(self, tmp_path, monkeypatch):
-        content = """\
----
-work_package_id: WP01
-title: Test task
-lane: planned
-depends_on: []
-issue: '#117'
-custom_field: some_value
----
-
-## Content
-
-Some content here.
-"""
-        root, wp_file = _make_wp_file(tmp_path, content)
-        monkeypatch.chdir(root)
-
-        args = argparse.Namespace(
-            feature="001-test",
-            wp_id="WP01",
-            lane="doing",
-            auto=False,
-            json=False,
-        )
-        cmd_wp_move(args)
-
-        reloaded = frontmatter.load(str(wp_file))
-        assert reloaded.metadata["lane"] == "doing"
-        assert reloaded.metadata["issue"] == "#117"
-        assert reloaded.metadata["custom_field"] == "some_value"
-
-
-class TestWpMoveAtomicWrite:
-    def test_wp_move_atomic_write(self, tmp_path, monkeypatch):
-        content = """\
----
-work_package_id: WP01
-title: Test task
-lane: planned
-depends_on: []
----
-
-## Content
-
-Some content here.
-"""
-        root, wp_file = _make_wp_file(tmp_path, content)
-        monkeypatch.chdir(root)
-
-        import tempfile as _tempfile
-
-        captured_dirs = []
-        _original_ntf = _tempfile.NamedTemporaryFile
-
-        def _tracking_ntf(*a, **kw):
-            captured_dirs.append(kw.get("dir"))
-            return _original_ntf(*a, **kw)
-
-        monkeypatch.setattr(_tempfile, "NamedTemporaryFile", _tracking_ntf)
-
-        args = argparse.Namespace(
-            feature="001-test",
-            wp_id="WP01",
-            lane="doing",
-            auto=False,
-            json=False,
-        )
-        cmd_wp_move(args)
-
-        assert len(captured_dirs) == 1
-        assert captured_dirs[0] == wp_file.parent
-
-
-class TestWpMoveNoopWarns:
-    def test_wp_move_noop_warns(self, tmp_path, monkeypatch, capsys):
-        content = """\
----
-work_package_id: WP01
-title: Test task
-lane: doing
-depends_on: []
----
-
-## Content
-
-Some content here.
-"""
-        root, wp_file = _make_wp_file(tmp_path, content)
-        monkeypatch.chdir(root)
-
-        args = argparse.Namespace(
-            feature="001-test",
-            wp_id="WP01",
-            lane="doing",
-            auto=False,
-            json=False,
-        )
-        cmd_wp_move(args)
-
-        captured = capsys.readouterr()
-        assert "already in lane" in captured.err
-        assert "no change" in captured.err
-
-        # File should be unchanged — no write occurred
-        text = wp_file.read_text()
-        assert text == content
-
-
-class TestWpMoveInvalidMetadataWarns:
-    def test_wp_move_invalid_metadata_warns(self, tmp_path, monkeypatch, capsys):
-        content = """\
----
-work_package_id: bad_id
-title: Test task
-lane: planned
-depends_on: []
----
-
-## Content
-
-Some content here.
-"""
-        root, wp_file = _make_wp_file(tmp_path, content)
-        monkeypatch.chdir(root)
-
-        args = argparse.Namespace(
-            feature="001-test",
-            wp_id="WP01",
-            lane="doing",
-            auto=False,
-            json=False,
-        )
-        cmd_wp_move(args)
-
-        captured = capsys.readouterr()
-        assert "warning" in captured.err.lower()
-        assert "work_package_id" in captured.err
-
-        reloaded = frontmatter.load(str(wp_file))
-        assert reloaded.metadata["lane"] == "doing"
-
-
-# ===================================================================
-# wp-validate — WP04 tests
+# validate (was wp-validate) — updated to use cmd_validate
 # ===================================================================
 
 
 def _make_feature(tmp_path, wps, *, feature="001-test", design_md=None):
-    """Helper: create a feature with WP files and optional design.md."""
+    """Helper: create a feature with WP/task files and optional design.md."""
     root = tmp_path / "repo"
     (root / ".git").mkdir(parents=True)
     feature_dir = root / "design" / "specs" / feature
@@ -887,7 +670,7 @@ class TestWpValidateAllValid:
             json=False,
             fix=False,
         )
-        cmd_wp_validate(args)
+        cmd_validate(args)
 
         captured = capsys.readouterr()
         assert "2 files validated" in captured.out
@@ -909,7 +692,7 @@ class TestWpValidateAllValid:
             json=True,
             fix=False,
         )
-        cmd_wp_validate(args)
+        cmd_validate(args)
 
         captured = capsys.readouterr()
         result = json.loads(captured.out)
@@ -935,7 +718,7 @@ class TestWpValidateMissingField:
             fix=False,
         )
         with pytest.raises(SystemExit):
-            cmd_wp_validate(args)
+            cmd_validate(args)
 
         captured = capsys.readouterr()
         result = json.loads(captured.out)
@@ -963,7 +746,7 @@ depends_on: ["WP99"]
             fix=False,
         )
         with pytest.raises(SystemExit):
-            cmd_wp_validate(args)
+            cmd_validate(args)
 
         captured = capsys.readouterr()
         result = json.loads(captured.out)
@@ -991,7 +774,7 @@ depends_on: []
             json=True,
             fix=False,
         )
-        cmd_wp_validate(args)
+        cmd_validate(args)
 
         captured = capsys.readouterr()
         result = json.loads(captured.out)
@@ -1026,7 +809,7 @@ issue: '#117'
             json=True,
             fix=False,
         )
-        cmd_wp_validate(args)
+        cmd_validate(args)
 
         captured = capsys.readouterr()
         result = json.loads(captured.out)
@@ -1052,7 +835,7 @@ depends: WP02
             fix=True,
         )
         try:
-            cmd_wp_validate(args)
+            cmd_validate(args)
         except SystemExit:
             pass  # may exit 1 due to validation errors
 
@@ -1082,61 +865,13 @@ issue: '#117'
             fix=True,
         )
         try:
-            cmd_wp_validate(args)
+            cmd_validate(args)
         except SystemExit:
             pass
 
         wp_file = root / "design" / "specs" / "001-test" / "tasks" / "WP01.md"
         reloaded = frontmatter.load(str(wp_file))
         assert reloaded.metadata["issue"] == "#117"
-
-
-# ===================================================================
-# wp-list — WP04 tests
-# ===================================================================
-
-
-class TestWpListJsonOutput:
-    def test_wp_list_json_output(self, tmp_path, monkeypatch, capsys):
-        root = _make_feature(
-            tmp_path,
-            {
-                "WP01.md": VALID_WP.format(wp_id="WP01"),
-            },
-        )
-        monkeypatch.chdir(root)
-
-        args = argparse.Namespace(feature="001-test", auto=False, json=False)
-        cmd_wp_list(args)
-
-        captured = capsys.readouterr()
-        result = json.loads(captured.out)
-        assert len(result) == 1
-        wp = result[0]
-        # Schema contract: wp-list JSON must always include these keys
-        for key in ("wp_id", "title", "lane", "depends_on", "path"):
-            assert key in wp, f"Missing required key '{key}' in wp-list output"
-        assert wp["wp_id"] == "WP01"
-
-
-class TestWpListIncludesAllWps:
-    def test_wp_list_includes_all_wps(self, tmp_path, monkeypatch, capsys):
-        root = _make_feature(
-            tmp_path,
-            {
-                "WP01.md": VALID_WP.format(wp_id="WP01"),
-                "WP02.md": VALID_WP.format(wp_id="WP02"),
-                "WP03.md": VALID_WP.format(wp_id="WP03"),
-            },
-        )
-        monkeypatch.chdir(root)
-
-        args = argparse.Namespace(feature="001-test", auto=False, json=False)
-        cmd_wp_list(args)
-
-        captured = capsys.readouterr()
-        result = json.loads(captured.out)
-        assert len(result) == 3
 
 
 # ===================================================================
@@ -1219,36 +954,8 @@ class TestErrorHumanFormat:
 
 
 # ===================================================================
-# Status invalid lane warning — WP05 tests
-# ===================================================================
-
-
-class TestStatusWarnsOnInvalidLane:
-    def test_status_warns_on_invalid_lane(self, tmp_path, monkeypatch, capsys):
-        wp = """\
----
-work_package_id: WP01
-title: Test
-lane: invalid_lane
-depends_on: []
----
-"""
-        root = _make_feature(tmp_path, {"WP01.md": wp})
-        monkeypatch.chdir(root)
-
-        args = argparse.Namespace(feature="001-test", auto=False, json=True)
-        cmd_status(args)
-
-        captured = capsys.readouterr()
-        assert "warning" in captured.err.lower()
-        assert "invalid_lane" in captured.err
-
-        result = json.loads(captured.out)
-        assert "WP01" in result[0]["lanes"]["planned"]
-
-
-# ===================================================================
-# design-extract — WP02 tests
+# design-extract (filesystem-level, not CLI) — kept because
+# extract_design_sections() is still in filesystem.py
 # ===================================================================
 
 DESIGN_MD_FULL = """\
@@ -1332,18 +1039,6 @@ The technical approach content here.
 - Out of scope
 """
 
-DESIGN_MD_NO_ARCHITECTURE = """\
-# Design: Test Feature
-
-## Problem
-
-Just a problem, no architecture heading.
-
-## Non-Goals
-
-- Still no arch
-"""
-
 DESIGN_MD_NO_NON_GOALS = """\
 # Design: Test Feature
 
@@ -1419,70 +1114,6 @@ class TestDesignExtractNonGoals:
         assert "## Problem" not in result
 
 
-class TestDesignExtractMissingArchitectureExitsNonzero:
-    def test_design_extract_missing_architecture_exits_nonzero(
-        self, tmp_path, monkeypatch, capsys
-    ):
-        """design.md with no Architecture/alias heading causes non-zero exit."""
-        root, feature_dir = _make_feature_with_design(
-            tmp_path, DESIGN_MD_NO_ARCHITECTURE
-        )
-        monkeypatch.chdir(root)
-
-        args = argparse.Namespace(
-            feature="001-test",
-            sections=["Architecture", "Non-Goals"],
-            reviewer=False,
-        )
-        with pytest.raises(SystemExit) as exc_info:
-            cmd_design_extract(args)
-        assert exc_info.value.code != 0
-
-
-class TestDesignExtractMissingNonGoalsWarns:
-    def test_design_extract_missing_non_goals_warns(
-        self, tmp_path, monkeypatch, capsys
-    ):
-        """design.md with Architecture but no Non-Goals: extract has Architecture only + stderr warning."""
-        root, feature_dir = _make_feature_with_design(tmp_path, DESIGN_MD_NO_NON_GOALS)
-        monkeypatch.chdir(root)
-
-        args = argparse.Namespace(
-            feature="001-test",
-            sections=["Architecture", "Non-Goals"],
-            reviewer=False,
-        )
-        cmd_design_extract(args)
-
-        captured = capsys.readouterr()
-        # Architecture content in stdout
-        assert "Architecture content here." in captured.out
-        # Warning on stderr
-        assert "Non-Goals" in captured.err
-        # Non-Goals content NOT in stdout
-        assert "## Non-Goals" not in captured.out
-
-
-class TestDesignExtractReviewerFlag:
-    def test_design_extract_reviewer_flag(self, tmp_path, monkeypatch, capsys):
-        """--reviewer flag adds Alternatives Considered to the extract."""
-        root, feature_dir = _make_feature_with_design(tmp_path, DESIGN_MD_FULL)
-        monkeypatch.chdir(root)
-
-        args = argparse.Namespace(
-            feature="001-test",
-            sections=["Architecture", "Non-Goals"],
-            reviewer=True,
-        )
-        cmd_design_extract(args)
-
-        captured = capsys.readouterr()
-        assert "## Architecture" in captured.out
-        assert "## Non-Goals" in captured.out
-        assert "## Alternatives Considered" in captured.out
-        assert "First alternative." in captured.out
-
-
 class TestDesignExtractNestedSubsections:
     def test_design_extract_nested_subsections(self, tmp_path):
         """### headings under ## Architecture are included in the extract."""
@@ -1492,31 +1123,6 @@ class TestDesignExtractNestedSubsections:
         assert "### Subsection B" in result
         assert "Details about subsection A." in result
         assert "Details about subsection B." in result
-
-
-class TestDesignExtractCLIParsing:
-    def test_design_extract_subparser_parses(self):
-        """design-extract subparser wires feature positional and --sections."""
-        parser = build_parser()
-        args = parser.parse_args(["design-extract", "001-test"])
-        assert args.command == "design-extract"
-        assert args.feature == "001-test"
-        assert "Architecture" in args.sections
-        assert "Non-Goals" in args.sections
-
-    def test_design_extract_custom_sections(self):
-        """--sections flag overrides the default section list."""
-        parser = build_parser()
-        args = parser.parse_args(
-            ["design-extract", "001-test", "--sections", "Architecture"]
-        )
-        assert args.sections == ["Architecture"]
-
-    def test_design_extract_reviewer_flag_sets_preset(self):
-        """--reviewer flag is accepted by the subparser."""
-        parser = build_parser()
-        args = parser.parse_args(["design-extract", "001-test", "--reviewer"])
-        assert args.reviewer is True
 
 
 # ===================================================================

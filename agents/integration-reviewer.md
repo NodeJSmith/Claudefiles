@@ -86,7 +86,7 @@ Read each changed file in full.
    git branch --show-current
    ```
 2. Glob for `design/specs/*/design.md`. If any exists, pick the most recently modified one whose directory name relates to the current branch name (slug match). If there's only one, use it.
-3. If a design.md is found, read it in full. Also read all `tasks/WP*.md` files in the same directory. These define the intended architecture — deviations are design violations.
+3. If a design.md is found, read it in full. Also read all task files (`tasks/T*.md` or `tasks/WP*.md`) in the same directory. These define the intended architecture — deviations are design violations.
 4. If no design.md is found, proceed without it and mark dimension 4 as N/A.
 
 ---

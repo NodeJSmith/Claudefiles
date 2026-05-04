@@ -63,15 +63,15 @@ All three directories symlink into `~/.claude/skills/` at install time — the r
 | `mine.grill` | Multi-angle interrogation of a raw idea — product, design, engineering, scope, and adversarial lenses. Produces a brief.md that feeds into /mine.define |
 | `mine.mockup` | Generate self-contained HTML mockup files — reads `design/context.md` for consistent styling, delivers to a session temp directory |
 | `mine.mutation-test` | Mutation testing -- intentionally break code to verify tests catch real bugs |
-| `mine.orchestrate` | Execute work packages task-by-task with parallel spec/code/integration reviewer pass; tracks WP lane state |
-| `mine.plan` | Design doc → Work Package files with objectives, subtasks, test strategy, and 10-point checklist review + approve/revise/abandon gate |
+| `mine.orchestrate` | Execute task files one-by-one with parallel spec/code/integration reviewer pass; post-execution implementation review |
+| `mine.plan` | Design doc → task files (T01, T02, …) with FR/AC traceability, validation gate, and 10-point traceability review + approve/revise/abandon gate |
 | `mine.prior-art` | Survey how others solve a problem — web-first research for mid-design architectural questions |
 | `mine.research` | Interactive research workflow — gathers user intent, dispatches the researcher agent, presents the brief |
 | `mine.ship` | Commit, push, and create a PR in one step |
 | `mine.tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |
 | `mine.visual-qa` | Live visual QA -- Playwright captures screenshots, then two agents analyze them with structural separation (one sees each page in isolation, the other sees all pages at once) |
 | `mine.worktree-rebase` | Detect when the parent repo is currently on a feature branch and rebase this worktree branch onto it (run immediately after creating the worktree) |
-| `mine.wp` | WP lane management — move work packages between lanes, view kanban, list WPs |
+| `mine.wp` | Deprecated — lane management removed; use `/mine.status` for task progress |
 | `mine.write-skill` | Guided skill creation — gathers requirements, drafts SKILL.md, validates quality checklist, auto-wires routing |
 | `mine.wtf` | Comprehensive branch sniff test — dispatches code, integration, and WTF readability reviewers in parallel, consolidates findings into one prioritized report |
 
@@ -218,7 +218,7 @@ Installed automatically by the wizard when selected. Can also be installed manua
 | `ado-api` | Azure DevOps CLI — builds, logs, PR management, work items, approvals |
 | `claude-memory` | Conversation memory system — session DB, hooks, `cm-*` CLI entry points |
 | `merge-settings` | Three-layer settings merger (`claude-merge-settings` CLI) |
-| `spec-helper` | Work Package and spec directory management — `wp-*`, `checkpoint-*`, `status`, `next-number`, `init`, `archive` |
+| `spec-helper` | Spec directory management — `validate`, `checkpoint-*`, `next-number`, `init`, `archive` |
 
 ## Requirements
 
