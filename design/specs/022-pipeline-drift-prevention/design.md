@@ -439,6 +439,8 @@ Testing this change is primarily evaluative (does the new pipeline produce bette
 
 **Blast radius:** High — this changes the core pipeline that every future feature runs through. However, the change is backward-compatible in the sense that existing approved design docs can be planned with the new system (they just won't have numbered FRs until re-processed by mine.define).
 
+<!-- Gap check 2026-05-04: 7 gaps included — rules/common/git-workflow.md:102 (WP*.md glob) → WP05 subtask 1, commands/mine.status.md:43 (spec-helper status) → WP05 subtask 2, skills/mine.wp/SKILL.md (wp-move/wp-list/status) → WP05 subtask 3, skills/mine.implementation-review/SKILL.md:48 (WP*.md glob) → WP05 subtask 4, skills/mine.build/SKILL.md:102,165,193 (WP terminology) → WP05 subtask 5, rules/common/capabilities-core.md (descriptions) → WP05 subtask 6, packages/spec-helper/tests/ (removed commands) → WP02 subtask 6-8 -->
+
 ## Open Questions
 
 None — all decisions resolved during discovery.
