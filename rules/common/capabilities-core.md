@@ -45,7 +45,7 @@
 | "review my changes", "run the reviewers", "code and integration review" | `/mine.review` |
 | "create a skill", "write a skill", "new skill" | `/mine.write-skill` |
 | "rebase this worktree", "sync worktree to parent branch" | `/mine.worktree-rebase` |
-| "sniff test this", "WTF check", "code smells", "is this code any good", "fresh eyes on this branch" | `/mine.wtf` |
+| "sniff test this", "WTF check", "code smells", "is this code any good", "fresh eyes on this branch", "review this directory", "check this module" | `/mine.wtf` |
 
 ## CLI Tools
 
