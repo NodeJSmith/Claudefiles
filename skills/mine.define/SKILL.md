@@ -22,7 +22,7 @@ $ARGUMENTS — optional initial description or path. Can be:
 
 ### Understand the initial request
 
-If $ARGUMENTS points to a `design/specs/NNN-*/` directory, check for existing `design.md`. If a `brief.md` from a prior `/mine.grill` session exists, read it and use its Key Decisions, Scope Boundaries, and Open Questions as starting context — skip any discovery questions the brief already answers.
+If $ARGUMENTS points to a `design/specs/NNN-*/` directory, check for existing `design.md` and read it if present (the header fields — `**Status:**`, `**Scope-mode:**` — are needed for resume detection in later phases). If a `brief.md` from a prior `/mine.grill` session exists, read it and use its Key Decisions, Scope Boundaries, and Open Questions as starting context — skip any discovery questions the brief already answers.
 
 If $ARGUMENTS is provided (text or path), paraphrase it back in one sentence to confirm understanding. If empty, ask:
 
@@ -69,7 +69,44 @@ After exploring, present a brief summary to the user:
 
 **Ask one question per `AskUserQuestion` call. Wait for each answer before asking the next.** Do NOT batch multiple questions into a single call. Each question uses free-text input (no options needed — the user types their answer directly).
 
-This phase combines problem discovery (what to build) with architecture interrogation (how to build it) into a single proportional flow. Questions are ordered from problem space to solution space.
+This phase combines problem discovery (what to build) with architecture interrogation (how to build it) into a single proportional flow. Questions are ordered from problem space to solution space. For moderate and complex features, the premise check fires first (before problem grounding) to challenge whether the work should exist at all.
+
+### Premise check (moderate+ only)
+
+Before problem grounding, challenge the premise of the work.
+
+Skip this question if the feature is trivial.
+
+Skip this question — and instead extract cost-of-inaction framing from the brief — if a `brief.md` from a prior `/mine.grill` session exists whose "Risks and Concerns" or "Key Decisions Made" section contains explicit cost-of-inaction content (concrete consequence, deadline, or pain described). Use that framing to strengthen the Problem section in Phase 4, as though the user had given the answer directly.
+
+**Exception (mine.build Accelerated path):** Always ask this question, even if a brief.md exists. Prior analysis covers findings, not cost-of-inaction framing. Detectable from the "Starting accelerated caliper workflow" banner mine.build emits before invoking mine.define.
+
+```
+AskUserQuestion:
+  question: "Before we dig in — what happens if we don't build this? What's the cost of doing nothing?"
+  header: "Premise"
+```
+
+**Processing the answer:**
+- If the answer suggests low or no cost ("nothing really", "it's just annoying", "we could live without it"), present a structured decision:
+
+```
+AskUserQuestion:
+  question: "The cost of doing nothing sounds low — worth being explicit. How would you like to proceed?"
+  header: "Premise"
+  multiSelect: false
+  options:
+    - label: "Continue anyway"
+      description: "Proceed with the current scope"
+    - label: "Descope"
+      description: "Narrow to a smaller version"
+    - label: "Table it"
+      description: "Stop here — revisit when cost is clearer"
+```
+
+On "Table it": confirm "Tabled — no changes made." and stop. On "Descope": note the user wants a reduced scope and carry this forward into the scope mode selection (defaults to Reduce if present). On "Continue anyway": proceed normally.
+
+- If the answer describes real pain ("users are churning", "we're blocked on X", "compliance deadline"), use it to strengthen the Problem section in Phase 4.
 
 ### Always ask (all complexity levels)
 
@@ -89,14 +126,41 @@ AskUserQuestion:
   header: "Success"
 ```
 
-### Ask for moderate and complex features
+### Scope mode selection (moderate+ only)
 
-3. **Scope boundary:**
+After the user answers problem grounding and success definition, present a scope mode selection. Skip for trivial features — trivial features are always `hold` (use this value when writing the `**Scope-mode:**` header in Phase 4). On resume from an existing feature directory, check the design doc header for a `**Scope-mode:**` field — if present, skip re-asking and announce the recovered mode.
 
 ```
 AskUserQuestion:
-  question: "Anything I should explicitly NOT include? (e.g., 'no admin UI', 'skip migration for now'). 'None' is a perfectly good answer."
-  header: "Non-goals"
+  question: "You described the problem as [X] and success as [Y]. Given that and what I found in the codebase, how should we scope this?"
+  header: "Scope mode"
+  multiSelect: false
+  options:
+    - label: "Expand — build the ambitious version"
+      description: "Push scope up. What would make this 10x better? What adjacent improvements would make it sing?"
+    - label: "Hold — make this bulletproof"
+      description: "Accept the scope as stated. Focus on making it solid, complete, and well-tested."
+    - label: "Reduce — strip to essentials"
+      description: "Find the minimum viable version. Cut everything that isn't core. What can be a follow-up?"
+```
+
+Where `[X]` is the user's answer to problem grounding (or a one-sentence paraphrase of the stated problem if Q1 was skipped) and `[Y]` is their answer to success definition. If the user selected "Descope" from the premise check, default to Reduce.
+
+### Ask for moderate and complex features
+
+The remaining questions are shaped by the selected scope mode. Prefix each AskUserQuestion header with the mode — e.g., `[Expand] Non-goals`, `[Hold] User flow`, `[Reduce] Edge cases` — so the mode is visible on every interaction turn.
+
+3. **Scope boundary:**
+
+Mode-specific framing:
+- **Expand**: "What's phase 1 vs phase 2? What should we build now, and what's a natural follow-on?"
+- **Hold**: "Anything I should explicitly NOT include? (e.g., 'no admin UI', 'skip migration for now'). 'None' is a perfectly good answer."
+- **Reduce**: "What can we cut entirely? What's the absolute minimum that ships value?"
+
+```
+AskUserQuestion:
+  question: "<mode-specific question above>"
+  header: "[<mode>] Non-goals"
 ```
 
 4. **Primary user flow:**
@@ -104,8 +168,13 @@ AskUserQuestion:
 ```
 AskUserQuestion:
   question: "Walk me through the main scenario: who is this person, what's their situation, and what do they do step by step?"
-  header: "User flow"
+  header: "[<mode>] User flow"
 ```
+
+Mode-specific follow-up (ask only the one matching the selected mode):
+- **Expand only:** "Are there adjacent flows or related scenarios we should include?"
+- **Hold:** skip — no follow-up
+- **Reduce only:** "Which of these steps could be manual or deferred for now?"
 
 ### Ask for complex features only
 
@@ -114,7 +183,7 @@ AskUserQuestion:
 ```
 AskUserQuestion:
   question: "What are the important edge cases or failure modes?"
-  header: "Edge cases"
+  header: "[<mode>] Edge cases"
 ```
 
 6. **Dependencies:**
@@ -122,7 +191,7 @@ AskUserQuestion:
 ```
 AskUserQuestion:
   question: "What external systems, services, or teams does this touch?"
-  header: "Dependencies"
+  header: "[<mode>] Deps"
 ```
 
 7. **Security / access:**
@@ -130,7 +199,7 @@ AskUserQuestion:
 ```
 AskUserQuestion:
   question: "Who should and shouldn't have access? Any data sensitivity concerns?"
-  header: "Security"
+  header: "[<mode>] Security"
 ```
 
 8. **Performance:**
@@ -138,7 +207,7 @@ AskUserQuestion:
 ```
 AskUserQuestion:
   question: "Any scale, latency, or throughput requirements?"
-  header: "Performance"
+  header: "[<mode>] Perf"
 ```
 
 9. **Rollback / reversibility:**
@@ -146,7 +215,7 @@ AskUserQuestion:
 ```
 AskUserQuestion:
   question: "If this goes wrong, what does rollback or recovery look like?"
-  header: "Rollback"
+  header: "[<mode>] Rollback"
 ```
 
 ### Adaptive follow-up (all complexity levels)
@@ -160,17 +229,25 @@ After the tier-appropriate questions above, review what you've learned. For each
 
 For each decision branch, check whether the codebase already constrains the answer (from Phase 1.5 findings or a quick targeted search). Ask only about branches where the code doesn't decide for you.
 
-Ask follow-up questions one at a time. Apply judgment proportional to complexity: for trivial features, 1–2 follow-ups max; for moderate, 3–5; for complex, as many as needed. If you're exceeding the tier's original question count by more than double, pause and ask the user whether to continue or descope the remaining branches.
+Ask follow-up questions one at a time. Apply judgment proportional to complexity and scope mode:
+- **Expand**: more follow-ups than the tier suggests; explore opportunity branches and adjacent use cases
+- **Hold**: standard follow-ups per the complexity tier — for trivial features, 1–2 follow-ups max; for moderate, 3–5; for complex, as many as needed
+- **Reduce**: fewer follow-ups; bias toward deferring unresolved branches rather than probing deeper
+
+If you're exceeding the tier's original question count by more than double, pause and ask the user whether to continue or descope the remaining branches.
 
 If the user says "I don't know yet" or "let's figure that out later", probe deeper — rephrase the question, offer concrete options, or explore the codebase to narrow the possibilities. Only move on when the branch is resolved or the user explicitly descopes it.
 
 ### Confirm intent summary
 
-Before proceeding, present a structured summary starting with the pain point:
+Before proceeding, present a structured summary starting with the pain point. Include the scope mode so the user can detect drift before the design doc is written.
 
+> **Scope mode:** <Expand|Hold|Reduce>
 > **Understood pain point:** <the underlying problem or frustration>
 >
 > <one-paragraph summary of what will be defined>
+
+**Anti-drift rule:** If a later question or finding suggests a different mode would be better, note it once — do not act on it unless the user explicitly changes mode.
 
 Then ask:
 
@@ -182,10 +259,32 @@ AskUserQuestion:
   options:
     - label: "Yes — proceed"
     - label: "No — let me clarify"
-      description: "Tell me what's wrong and I'll adjust"
+      description: "Tell me what's wrong (including scope mode) and I'll adjust"
 ```
 
 If "No", ask what's wrong and revise your understanding, then confirm again.
+
+### Existing code leverage (moderate+ only)
+
+After confirming intent and before research dispatch, revisit the Phase 1.5 codebase findings. Decompose the user's confirmed intent into 3-7 sub-problems using the discovery answers, scope mode, and the code findings from Phase 1.5. For each sub-problem, map it to existing code:
+
+```markdown
+| Sub-problem | Existing code | Coverage |
+|---|---|---|
+| Validate user email | `src/validators.py` — has `validate_email()` | Full — reuse as-is |
+| Rate limit API calls | `src/middleware.py` — rate limiter exists but only for auth endpoints | Partial — handles auth but not general API |
+| Send notification on failure | (none found) | None — new code needed |
+```
+
+Coverage vocabulary: `Full — reuse as-is` (existing code solves this entirely), `Partial — <what's missing>` (existing code solves part of it), `None — new code needed` (nothing found).
+
+Present the table with: "Here's what I found. Sub-problems with existing coverage should reuse that code rather than rebuilding. Correct me if I'm wrong about any of these."
+
+If Phase 1.5 found no existing code at all, present an empty table with a note: "No existing code found for any sub-problem — all new code needed."
+
+If the user corrects any row (e.g., "that validator is deprecated, don't reuse it"), update the table and present it once more before proceeding.
+
+Skip for trivial features (Phase 1.5 doesn't run for trivial, so no code findings to revisit).
 
 ---
 
@@ -264,6 +363,7 @@ Write the design doc to `<feature_dir>/design.md`:
 
 **Date:** YYYY-MM-DD
 **Status:** draft
+**Scope-mode:** <expand|hold|reduce>
 **Research:** <path to research brief, if one was used — omit if no prior research>
 
 ## Problem
@@ -335,6 +435,18 @@ Write the design doc to `<feature_dir>/design.md`:
 **Rules for content:**
 - Problem, Goals, User Scenarios, Functional Requirements, Edge Cases, and Acceptance Criteria must be technology-agnostic — no technology names, database engines, library names, framework names, or API endpoint paths. Written for non-technical stakeholders
 - Architecture, Alternatives, Test Strategy, Documentation Updates, and Impact contain implementation details
+- Architecture must reference existing code from the **Existing code leverage** table. For any sub-problem marked `Full — reuse as-is`, confirm reuse or justify diverging. For `Partial`, explain what was extended.
+
+**Scope mode effects on content:**
+
+| Section | Expand | Hold | Reduce |
+|---|---|---|---|
+| Problem | Include the broader problem, not just the immediate one | State the problem as given | State the acute problem only |
+| Goals | Include stretch goals alongside core goals | Core goals only | Minimum viable goals only |
+| Architecture | Include platform opportunities, extensibility points | Standard recommendation | Simplest possible approach — documents only what IS being built |
+| Non-goals | Frame as "what's phase 2 vs phase 1?" | As-is | Explicitly list cut items with rationale — mine.plan uses Non-goals as exclusions |
+| Alternatives | Include the ambitious alternative even if not chosen | Standard alternatives | Include "do nothing" and "manual workaround" as alternatives |
+
 - Every requirement must be testable and unambiguous
 - No `[NEEDS CLARIFICATION]` markers — if you don't know, ask before writing
 
