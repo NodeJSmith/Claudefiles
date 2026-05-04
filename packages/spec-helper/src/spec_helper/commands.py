@@ -455,11 +455,14 @@ def cmd_archive(args: argparse.Namespace) -> None:
 
         # Per-spec exception isolation for --all mode
         try:
-            # Auto-move non-done WP-schema tasks to "done" (--all only; single-feature blocked above)
+            # Auto-promote non-done tasks to "done" (--all only; single-feature blocked above)
             for rt in non_done:
                 task_file = tasks_dir / rt["filename"]
                 post = frontmatter.load(str(task_file))
-                post.metadata["lane"] = "done"
+                if "lane" in rt:
+                    post.metadata["lane"] = "done"
+                else:
+                    post.metadata["status"] = "done"
                 atomic_write(post, task_file)
 
             # Also delete context.md if present (may be untracked — use unlink, not git rm)

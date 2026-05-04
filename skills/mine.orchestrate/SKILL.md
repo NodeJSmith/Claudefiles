@@ -256,7 +256,7 @@ You are executing a single task from an implementation plan.
 Read the design doc directly for architecture context. Pay special attention to the sections referenced in the task's Focus section.
 
 ## Master context path
-<absolute path to <feature_dir>/context.md, if it exists; omit this section if the file does not exist>
+<absolute path to <feature_dir>/tasks/context.md, if it exists; omit this section if the file does not exist>
 
 ## Implementer instructions
 <full implementer-prompt.md content>
@@ -640,10 +640,15 @@ Store this SHA — it goes into the checkpoint verdict block below.
 
 Update the checkpoint via `spec-helper` commands. The WIP commit (Step 9a) MUST complete before this step — the commit SHA goes into the verdict.
 
+**Update header:**
+
+```bash
+spec-helper checkpoint-update <feature_dir_name> --last-completed-wp <task_id> --json
+```
+
 **Append verdict:**
 
 ```bash
-# Per-task commit SHAs are stored for future selective per-task re-review (currently write-only — Phase 3 diffs against base_commit instead)
 spec-helper checkpoint-verdict <feature_dir_name> --wp-id <task_id> --title "<task title>" --verdict <PASS|WARN> --commit <SHA from Step 9a> [--notes "<explanation>"] --json
 ```
 

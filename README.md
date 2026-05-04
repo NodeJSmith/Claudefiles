@@ -64,7 +64,7 @@ All three directories symlink into `~/.claude/skills/` at install time — the r
 | `mine.mockup` | Generate self-contained HTML mockup files — reads `design/context.md` for consistent styling, delivers to a session temp directory |
 | `mine.mutation-test` | Mutation testing -- intentionally break code to verify tests catch real bugs |
 | `mine.orchestrate` | Execute task files one-by-one with parallel spec/code/integration reviewer pass; post-execution implementation review |
-| `mine.plan` | Design doc → task files (T01, T02, …) with objectives, subtasks, test strategy, and 10-point checklist review + approve/revise/abandon gate |
+| `mine.plan` | Design doc → task files (T01, T02, …) with FR/AC traceability, validation gate, and 10-point traceability review + approve/revise/abandon gate |
 | `mine.prior-art` | Survey how others solve a problem — web-first research for mid-design architectural questions |
 | `mine.research` | Interactive research workflow — gathers user intent, dispatches the researcher agent, presents the brief |
 | `mine.ship` | Commit, push, and create a PR in one step |

@@ -288,7 +288,7 @@ def _parse_checkpoint(text: str) -> tuple[dict[str, str], list[Verdict]]:
 
         # First line: "WP01 — Set up data model" or "T01 — Set up data model"
         lines = block.splitlines()
-        title_match = re.match(r"^((WP|T)\d+)\s*[—–-]\s*(.+)$", lines[0])
+        title_match = re.match(r"^((WP|T)\d{2,})\s*[—–-]\s*(.+)$", lines[0])
         if not title_match:
             raise ValueError(
                 f"Malformed verdict block header (expected 'WPnn — title' or 'Tnn — title'): {lines[0]!r}"

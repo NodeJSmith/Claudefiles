@@ -1,6 +1,6 @@
 ---
 name: mine.wp
-description: "Deprecated — lane management has been removed. Use /mine.status to check task progress."
+description: "Use when the user says: \"move WP to doing\", \"WP status\", or \"kanban\". Deprecated — lane management removed; redirects to /mine.status."
 user-invocable: false
 ---
 
