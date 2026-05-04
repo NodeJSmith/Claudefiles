@@ -135,6 +135,7 @@ The pipeline's current structure allows interpretation errors to enter at the pl
 18. The validation gate flags any task that references a visual artifact element not covered by its verification criteria
 18a. The validation gate verifies that context.md contains all five required sections (Problem & Motivation, Visual Artifacts, Key Decisions, Constraints & Anti-Patterns, Design Doc References) with non-empty content
 19. The validation gate presents all findings to the user for sign-off before execution proceeds — execution is blocked until the user approves. The user review focuses on task Summary sections (plain-language descriptions of what each task builds) alongside the FRs they claim to implement — this is the interpretive drift check that no automated gate can perform
+19a. Every user-facing touchpoint in the pipeline (validation gate results, task summary review, deviation reports, spec review failures, escalations) includes the full absolute path to all relevant files so the user can navigate to them immediately. No relative paths or descriptions without paths — the user must be able to open any referenced artifact in one action.
 
 ### Execution (mine.orchestrate)
 
