@@ -275,7 +275,7 @@ Read the design doc directly for supplemental architecture context.
 ## Executor output path
 <absolute path: dir>/<task_id>/executor.md>
 
-Read this file when you need to: (1) check CONTESTED markers, (2) compare the executor's stated Verify section for dropped criteria, (3) read the executor's visual verification output for the plan audit (section 7 of your instructions), or (4) understand the executor's stated rationale for a decision. Do not use it as a substitute for reading the actual code.
+Read this file when you need to: (1) check CONTESTED markers, (2) compare the executor's stated Verify section for dropped criteria, (3) read the executor's visual verification output for the plan audit (section 6 of your instructions), or (4) understand the executor's stated rationale for a decision. Do not use it as a substitute for reading the actual code.
 
 ## Spec reviewer instructions
 <full spec-reviewer-prompt.md content>

@@ -2,7 +2,7 @@
 
 **If the spec reviewer returned WARN**, first classify the WARN reason:
 
-- **Structural WARN** (dev server unavailable, legitimate over-delivery of extra files, doc-comment gap) — these cannot be resolved by executor re-run. Skip to Step 5.7 (visual reviewer) and surface the WARN in Step 8 without retrying.
+- **Structural WARN** (spec reviewer cited an infrastructure limitation like dev server unavailable, legitimate over-delivery of extra files, or doc/comment gap only) — these cannot be resolved by executor re-run. Skip to Step 5.7 (visual reviewer) and surface the WARN in Step 8 without retrying.
 - **Fixable WARN** (test coverage gap for an edge case, small missing comment on a behavior) — proceed with the executor retry below.
 
 For fixable WARNs: attempt one automatic fix. The parallel code-reviewer and integration-reviewer results from Step 5 are discarded — the executor re-run will change the code, invalidating those reviews.

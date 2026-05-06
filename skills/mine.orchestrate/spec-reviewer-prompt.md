@@ -48,7 +48,7 @@ Do not use WARN, PASS, FAIL, or any other verdict vocabulary for individual Veri
 
 **Do not re-run tests yourself.** Test execution is handled by the independent test gate step (Step 5.3). Your role is code inspection: verify that tests exist for the behaviors the task implements. For each Verify criterion that implies testable behavior, check whether a corresponding test exists. A missing test for a core behavior is a NOT_IMPLEMENTED finding.
 
-### 5. Check the design doc alignment
+### 4. Check the design doc alignment
 
 The task's **Verify** section is the primary authoritative contract — it was frozen at task creation time and defines what the executor must deliver. The design doc (available at the path provided in your prompt) captures architectural intent and decisions. Read the relevant sections (identified in the task's **Focus** field) to verify the spirit of the implementation, but when the design doc is vague or under-specified, defer to the task's Verify criteria as the pass/fail source.
 
@@ -61,13 +61,13 @@ If the design doc does not specify verifiable interface contracts, data model sh
 
 **What constitutes an "architectural change"**: Changes to module structure (new modules, moved responsibilities), public API contracts (new endpoints, changed signatures), persistence schemas (new tables, changed columns), integration points (new external service calls), or undocumented new dependencies. The following are NOT architectural changes: helper function additions, iteration order choices, internal variable types, private method names.
 
-### 6. Check scope boundaries
+### 5. Check scope boundaries
 
 - Were any files modified outside what the task's Prompt describes?
 - Was any functionality added beyond the task spec?
 - If yes: is it a valid deviation (bug fix, security gap) or unauthorized scope expansion?
 
-### 7. Visual verification plan audit
+### 6. Visual verification plan audit
 
 If the task contains a `## Visual Verification` section with scenarios:
 

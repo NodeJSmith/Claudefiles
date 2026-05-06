@@ -2,7 +2,7 @@
 
 ## Check for existing checkpoint
 
-Before anything else, determine the feature directory from `$ARGUMENTS` (using the same logic as "Find the feature directory" below — directory, task file, or most-recently-modified glob). Do **not** present the confirmation AskUserQuestion at this point — just resolve the path silently. Then check for an existing checkpoint:
+Before anything else, determine the feature directory from `$ARGUMENTS` (using the same logic as the "Find the feature directory" step in SKILL.md Phase 0 — directory, task file, or most-recently-modified glob). Do **not** present the confirmation AskUserQuestion at this point — just resolve the path silently. Then check for an existing checkpoint:
 
 ```bash
 spec-helper checkpoint-read <feature_dir_name> --json
@@ -47,4 +47,4 @@ If `base_commit` no longer exists, append " (base commit is gone — branch may 
 
 **On restart:**
 - Delete the checkpoint: `spec-helper checkpoint-delete <feature_dir_name> --json`
-- Proceed with the normal Phase 0 flow below
+- Proceed with the "Find the feature directory" step in SKILL.md Phase 0

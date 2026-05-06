@@ -4,6 +4,8 @@
 
 **If `visual_mode` is not `enabled`** (no dev server or no vision model, decided in Phase 0), skip entirely. Set Visual to SKIPPED with note "<visual_mode reason> (orchestrator)" and proceed to Step 6.
 
+Read `<dir>/<task_id>/executor.md` and extract the `## Visual Verification` section — this content goes into `## Executor visual output` in the subagent prompt below.
+
 Discover screenshots by Globbing the per-task temp directory:
 
 ```
@@ -47,5 +49,6 @@ Wait for the subagent to complete. Read the visual reviewer output file.
 |------------------------|----------------|
 | VERIFIED | No impact |
 | WARN | Task gets WARN; surface in Step 8 summary |
+| WARN [INFRA] | Task gets WARN; infrastructure failure, not a regression |
 | FAIL | Task gets FAIL; surface to user at Step 8 gate |
 | All scenarios SKIPPED (no dev server) | Task gets WARN |
