@@ -289,6 +289,113 @@ class TestValidateNewTaskSchema:
         assert result["valid"] is True
 
 
+class TestValidateSluggedFilenames:
+    """validate handles T01-slug.md filenames — IDs extracted from prefix."""
+
+    def test_dependency_resolves_with_slugged_filenames(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """depends_on: [T01] resolves when T01-setup.md exists."""
+        root = _make_feature_with_tasks(
+            tmp_path,
+            {
+                "T01-setup.md": (
+                    "---\ntask_id: T01\ntitle: Setup\ndepends_on: []\n---\n"
+                ),
+                "T02-feature.md": (
+                    '---\ntask_id: T02\ntitle: Feature\ndepends_on: ["T01"]\n---\n'
+                ),
+            },
+        )
+        monkeypatch.chdir(root)
+        args = argparse.Namespace(feature="001-test", auto=False, json=True, fix=False)
+        cmd_validate(args)
+
+        captured = capsys.readouterr()
+        result = json.loads(captured.out)
+        assert result["valid"] is True
+        assert result["errors"] == []
+
+    def test_task_id_derived_from_slugged_filename(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """T01-slug.md without task_id frontmatter gets T01 auto-derived."""
+        root = _make_feature_with_tasks(
+            tmp_path,
+            {
+                "T01-setup.md": ("---\ntitle: Setup\ndepends_on: []\n---\n"),
+                "T02-feature.md": ('---\ntitle: Feature\ndepends_on: ["T01"]\n---\n'),
+            },
+        )
+        monkeypatch.chdir(root)
+        args = argparse.Namespace(feature="001-test", auto=False, json=True, fix=False)
+        cmd_validate(args)
+
+        captured = capsys.readouterr()
+        result = json.loads(captured.out)
+        assert result["valid"] is True
+        assert result["errors"] == []
+
+    def test_broken_dependency_still_caught(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """depends_on: [T99] is still caught as broken when T99 doesn't exist."""
+        root = _make_feature_with_tasks(
+            tmp_path,
+            {
+                "T01-setup.md": (
+                    '---\ntask_id: T01\ntitle: Setup\ndepends_on: ["T99"]\n---\n'
+                ),
+            },
+        )
+        monkeypatch.chdir(root)
+        args = argparse.Namespace(feature="001-test", auto=False, json=True, fix=False)
+        with pytest.raises(SystemExit):
+            cmd_validate(args)
+
+        captured = capsys.readouterr()
+        result = json.loads(captured.out)
+        assert result["valid"] is False
+        assert any("T99" in e["message"] for e in result["errors"])
+
+    def test_duplicate_id_prefix_detected(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Two files resolving to the same ID prefix are flagged as an error."""
+        root = _make_feature_with_tasks(
+            tmp_path,
+            {
+                "T01-setup.md": (
+                    "---\ntask_id: T01\ntitle: Setup\ndepends_on: []\n---\n"
+                ),
+                "T01-also-setup.md": (
+                    "---\ntask_id: T01\ntitle: Also Setup\ndepends_on: []\n---\n"
+                ),
+            },
+        )
+        monkeypatch.chdir(root)
+        args = argparse.Namespace(feature="001-test", auto=False, json=True, fix=False)
+        with pytest.raises(SystemExit):
+            cmd_validate(args)
+
+        captured = capsys.readouterr()
+        result = json.loads(captured.out)
+        assert result["valid"] is False
+        assert any("Duplicate task ID" in e["message"] for e in result["errors"])
+
+
 class TestValidateOldWpCompat:
     """validate accepts WP*.md files with old work_package_id frontmatter (backward compat)."""
 
@@ -321,3 +428,27 @@ class TestValidateOldWpCompat:
             "work_package_id" in w["message"] or "lane" in w["message"]
             for w in result["warnings"]
         )
+
+    def test_validate_old_wp_slugged_filename(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """WP01-slug.md without work_package_id derives it from the filename prefix."""
+        root = _make_feature_with_tasks(
+            tmp_path,
+            {
+                "WP01-setup.md": (
+                    "---\ntitle: Old schema slugged\n"
+                    "lane: planned\ndepends_on: []\n---\nContent.\n"
+                ),
+            },
+        )
+        monkeypatch.chdir(root)
+        args = argparse.Namespace(feature="001-test", auto=False, json=True, fix=False)
+        cmd_validate(args)
+
+        captured = capsys.readouterr()
+        result = json.loads(captured.out)
+        assert result["valid"] is True

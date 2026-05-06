@@ -16,6 +16,7 @@ VALID_LANES = set(LANE_KEYS)
 
 # ID patterns — both WP and T formats supported during transition
 WP_ID_PATTERN = re.compile(r"^(WP|T)\d{2,}$")
+WP_ID_PREFIX_PATTERN = re.compile(r"^((?:WP|T)\d{2,})")
 TASK_ID_PATTERN = re.compile(r"^T\d{2,}$")
 
 # Canonical fields for the new task schema
@@ -133,11 +134,12 @@ def normalize_task_metadata(raw: dict, filename: str) -> dict:
     # Drop lane (no longer part of task schema)
     normalized.pop("lane", None)
 
-    # Missing task_id -> derive from filename
+    # Missing task_id -> derive from filename (handles T01.md and T01-slug.md)
     if "task_id" not in normalized:
         stem = Path(filename).stem
-        if WP_ID_PATTERN.match(stem):
-            normalized["task_id"] = stem
+        m = WP_ID_PREFIX_PATTERN.match(stem)
+        if m:
+            normalized["task_id"] = m.group(1)
 
     return normalized
 
@@ -162,10 +164,11 @@ def normalize_wp_metadata(raw: dict, filename: str) -> dict:
         else:
             normalized["depends_on"] = []
 
-    # Missing work_package_id -> derive from filename
+    # Missing work_package_id -> derive from filename (handles WP01.md and WP01-slug.md)
     if "work_package_id" not in normalized:
         stem = Path(filename).stem
-        if re.match(r"^WP\d+$", stem):
-            normalized["work_package_id"] = stem
+        m = re.match(r"^(WP\d{2,})", stem)
+        if m:
+            normalized["work_package_id"] = m.group(1)
 
     return normalized
