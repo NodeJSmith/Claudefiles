@@ -43,6 +43,7 @@ from spec_helper.validation import (
     CANONICAL_FIELDS,
     OLD_SCHEMA_FIELDS,
     WP_ID_PATTERN,
+    WP_ID_PREFIX_PATTERN,
     normalize_task_metadata,
     validate_task_metadata,
 )
@@ -114,9 +115,9 @@ def cmd_validate(args: argparse.Namespace) -> None:
         existing_ids: set[str] = set()
         task_files = sorted([*tasks_dir.glob("T*.md"), *tasks_dir.glob("WP*.md")])
         for f in task_files:
-            stem = f.stem
-            if WP_ID_PATTERN.match(stem):
-                existing_ids.add(stem)
+            m = WP_ID_PREFIX_PATTERN.match(f.stem)
+            if m:
+                existing_ids.add(m.group(1))
 
         for f in task_files:
             total_files += 1
