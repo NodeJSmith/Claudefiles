@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-05-06
+
+### Changed
+- `/mine.orchestrate` SKILL.md slimmed from 779→443 lines by extracting protocols into reference files; spec reviewer hardened to default-FAIL posture with narrowed WARN band (#282)
+
 ## 2026-05-04
 
 ### Changed
