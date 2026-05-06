@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-05-06
 
 ### Fixed
-- `spec-helper validate` false "broken dependency" errors on task files with descriptive suffixes (e.g., `T01-setup.md`)
+- `spec-helper validate` false "broken dependency" errors on task files with descriptive suffixes (e.g., `T01-setup.md`) (#283)
 
 ## 2026-05-04
 
