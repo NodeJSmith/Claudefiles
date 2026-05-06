@@ -400,3 +400,27 @@ class TestValidateOldWpCompat:
             "work_package_id" in w["message"] or "lane" in w["message"]
             for w in result["warnings"]
         )
+
+    def test_validate_old_wp_slugged_filename(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """WP01-slug.md without work_package_id derives it from the filename prefix."""
+        root = _make_feature_with_tasks(
+            tmp_path,
+            {
+                "WP01-setup.md": (
+                    "---\ntitle: Old schema slugged\n"
+                    "lane: planned\ndepends_on: []\n---\nContent.\n"
+                ),
+            },
+        )
+        monkeypatch.chdir(root)
+        args = argparse.Namespace(feature="001-test", auto=False, json=True, fix=False)
+        cmd_validate(args)
+
+        captured = capsys.readouterr()
+        result = json.loads(captured.out)
+        assert result["valid"] is True

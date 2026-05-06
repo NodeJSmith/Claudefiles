@@ -164,10 +164,11 @@ def normalize_wp_metadata(raw: dict, filename: str) -> dict:
         else:
             normalized["depends_on"] = []
 
-    # Missing work_package_id -> derive from filename
+    # Missing work_package_id -> derive from filename (handles WP01.md and WP01-slug.md)
     if "work_package_id" not in normalized:
         stem = Path(filename).stem
-        if re.match(r"^WP\d+$", stem):
-            normalized["work_package_id"] = stem
+        m = re.match(r"^(WP\d{2,})", stem)
+        if m:
+            normalized["work_package_id"] = m.group(1)
 
     return normalized
