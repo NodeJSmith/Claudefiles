@@ -367,6 +367,34 @@ class TestValidateSluggedFilenames:
         assert result["valid"] is False
         assert any("T99" in e["message"] for e in result["errors"])
 
+    def test_duplicate_id_prefix_detected(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Two files resolving to the same ID prefix are flagged as an error."""
+        root = _make_feature_with_tasks(
+            tmp_path,
+            {
+                "T01-setup.md": (
+                    "---\ntask_id: T01\ntitle: Setup\ndepends_on: []\n---\n"
+                ),
+                "T01-also-setup.md": (
+                    "---\ntask_id: T01\ntitle: Also Setup\ndepends_on: []\n---\n"
+                ),
+            },
+        )
+        monkeypatch.chdir(root)
+        args = argparse.Namespace(feature="001-test", auto=False, json=True, fix=False)
+        with pytest.raises(SystemExit):
+            cmd_validate(args)
+
+        captured = capsys.readouterr()
+        result = json.loads(captured.out)
+        assert result["valid"] is False
+        assert any("Duplicate task ID" in e["message"] for e in result["errors"])
+
 
 class TestValidateOldWpCompat:
     """validate accepts WP*.md files with old work_package_id frontmatter (backward compat)."""

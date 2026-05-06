@@ -113,11 +113,23 @@ def cmd_validate(args: argparse.Namespace) -> None:
 
         # Collect existing task/WP IDs for dependency cross-reference
         existing_ids: set[str] = set()
+        id_to_files: dict[str, list[str]] = {}
         task_files = sorted([*tasks_dir.glob("T*.md"), *tasks_dir.glob("WP*.md")])
         for f in task_files:
             m = WP_ID_PREFIX_PATTERN.match(f.stem)
             if m:
-                existing_ids.add(m.group(1))
+                task_id = m.group(1)
+                existing_ids.add(task_id)
+                id_to_files.setdefault(task_id, []).append(f.name)
+
+        for task_id, filenames in id_to_files.items():
+            if len(filenames) > 1:
+                all_errors.append(
+                    {
+                        "file": f"{feature_dir.name}/tasks",
+                        "message": f"Duplicate task ID '{task_id}' resolved from: {', '.join(filenames)}",
+                    }
+                )
 
         for f in task_files:
             total_files += 1
