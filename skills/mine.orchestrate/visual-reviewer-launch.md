@@ -51,4 +51,4 @@ Wait for the subagent to complete. Read the visual reviewer output file.
 | WARN | Task gets WARN; surface in Step 8 summary |
 | WARN [INFRA] | Task gets WARN; infrastructure failure, not a regression |
 | FAIL | Task gets FAIL; surface to user at Step 8 gate |
-| All scenarios SKIPPED (no dev server) | Task gets WARN |
+| All scenarios SKIPPED (executor skipped despite visual_mode enabled) | Task gets WARN |

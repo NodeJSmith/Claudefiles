@@ -33,7 +33,7 @@ AskUserQuestion:
 
 If the user chose "Fix and retry" from the WARN persistence prompt, run one more executor cycle (Steps 4, 4.5, 5, 5.3). If the spec reviewer returns WARN again, present only "Mark as blocked and skip" and "Stop here" — do not offer another retry.
 
-The WARN retry happens within a single task's execution. The checkpoint is not updated during retries — it only updates after the final verdict.
+The WARN retry happens within a single task's execution. The checkpoint verdict and `last_completed_wp` are not updated during retries (only the in-progress status `current_wp_status` is set) — they update after the final verdict.
 
 **If the spec reviewer returned PASS** — continue to Step 5.7 (visual reviewer), then Step 6 (review findings fix loop).
 
