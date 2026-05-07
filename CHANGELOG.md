@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-05-07
 
 ### Added
-- Validity assessment layer for `/mine.challenge`, `/mine.wtf`, and `/mine.audit` — synthesis agents now flag likely-invalid findings with mandatory evidence trails (`Claimed`/`Actually`/`Why-invalid`), presented in a separate section with count in every summary
+- Validity assessment layer for `/mine.challenge`, `/mine.wtf`, and `/mine.audit` — synthesis agents now flag likely-invalid findings with mandatory evidence trails (`Claimed`/`Actually`/`Why-invalid`), presented in a separate section with count in every summary (#285)
 
 ### Changed
 - Impeccable anti-patterns and typography references synced with upstream v3.0.6–v3.0.7: new AI fingerprints (italic-serif display heroes, eyebrow chips, expanded overused font list), on-brand variant constraint in `i-bolder`, and updated font recommendations to retire newly-flagged picks (Fraunces, Newsreader, Instrument Sans, Plus Jakarta Sans) (#284)
