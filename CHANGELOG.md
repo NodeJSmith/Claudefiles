@@ -5,6 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-05-07
 
 ### Added
+- `cli-*` skill family for CLI tool UX design — six skills (`cli-harden`, `cli-output`, `cli-clarify`, `cli-affordances`, `cli-distill`, `cli-audit`) in a new `skills-cli/` directory with its own installer group and capabilities routing
 - Validity assessment layer for `/mine.challenge`, `/mine.wtf`, and `/mine.audit` — synthesis agents now flag likely-invalid findings with mandatory evidence trails (`Claimed`/`Actually`/`Why-invalid`), presented in a separate section with count in every summary (#285)
 
 ### Changed

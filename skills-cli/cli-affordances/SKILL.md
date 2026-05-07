@@ -1,10 +1,10 @@
 ---
-name: cli-harden
-description: 'Use when the user says: "harden this CLI", "CLI edge cases", "make this CLI resilient", "handle CLI errors", "CLI robustness". Review CLI tools for edge-case resilience and production readiness.'
+name: cli-affordances
+description: 'Use when the user says: "improve CLI discoverability", "CLI help UX", "CLI flag design", "CLI affordances", "CLI command structure". Review CLI tool discoverability — flag design, subcommand structure, help quality, and progressive disclosure.'
 user-invocable: true
 ---
 
-Review CLI tools for resilience against edge cases, hostile inputs, and real-world operating conditions that break idealized assumptions.
+Review and improve how users discover what a CLI tool can do — command structure, flag naming, help text organization, and the path from novice to power user.
 
 ## Arguments
 
@@ -14,24 +14,24 @@ $ARGUMENTS — path to a CLI script or tool, or blank to target the current bran
 
 ## Phase 1: Discover
 
-Identify what to harden:
+Identify what to review:
 
 1. If $ARGUMENTS names a file or directory, scope to that
 2. Otherwise, find CLI scripts changed on this branch (`git-branch-diff-files | grep -E '\.(sh|bash|py|ts|js)$'`)
-3. If no files are found, stop and tell the user: "No CLI scripts found on this branch. Pass a file path as an argument (e.g., `/cli-harden path/to/script.sh`) or run on a branch with CLI file changes."
-4. Read each file. For each, note: language, argument parsing method, output behavior, error handling approach
+3. If no files are found, stop and tell the user: "No CLI scripts found on this branch. Pass a file path as an argument (e.g., `/cli-affordances path/to/script.sh`) or run on a branch with CLI file changes."
+4. Read each file. For each, map: subcommand tree, flag inventory, help text structure, argument parsing approach
 
 ---
 
 ## Phase 2: Assess
 
-Read `${CLAUDE_HOME:-~/.claude}/skills/cli-harden/REFERENCE.md` for the full set of hardening dimensions. If the file is not found, stop and tell the user: "REFERENCE.md not found — run `uv run install.py` to install the cli-* skills."
+Read `${CLAUDE_HOME:-~/.claude}/skills/cli-affordances/REFERENCE.md` for the full set of affordance dimensions. If the file is not found, stop and tell the user: "REFERENCE.md not found — run `uv run install.py` to install the cli-* skills."
 
-Evaluate each script against those dimensions. For each, note:
+Evaluate each tool against those dimensions. For each, note:
 
-- **Solid** — handles the concern adequately
-- **Gap** — missing or incomplete handling
-- **Risk** — active bug or failure mode under realistic conditions
+- **Solid** — discoverable and intuitive
+- **Gap** — missing affordance that users will fumble on
+- **Risk** — actively confusing structure or naming that will cause misuse
 
 Focus on gaps and risks. Don't enumerate what's already solid unless it's noteworthy.
 
@@ -41,9 +41,9 @@ Focus on gaps and risks. Don't enumerate what's already solid unless it's notewo
 
 Write out findings to the user, grouped by severity. For each finding: file and line, what the issue is, what the fix looks like.
 
-1. **Risks** — will break under realistic conditions
-2. **Gaps** — missing resilience that users will hit eventually
-3. **Improvements** — nice-to-have hardening
+1. **Risks** — structure or naming that will cause misuse
+2. **Gaps** — missing discoverability that users will struggle with
+3. **Improvements** — polish that would make the tool easier to learn
 
 Then confirm:
 
@@ -55,7 +55,7 @@ AskUserQuestion:
     - label: "Fix all"
       description: "Implement fixes for all risks and gaps."
     - label: "Risks only"
-      description: "Fix only the active risks — skip gaps and improvements."
+      description: "Fix only the confusing structure — skip gaps and improvements."
     - label: "Let me pick"
       description: "I'll choose which findings to address."
     - label: "Stop here"

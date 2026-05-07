@@ -104,7 +104,12 @@ All four directories symlink into `~/.claude/skills/` at install time — the ru
 
 | Skill | Description |
 |-------|-------------|
+| `cli-affordances` | CLI discoverability — flag design, subcommand structure, help quality, progressive disclosure |
+| `cli-audit` | Comprehensive CLI quality audit across all dimensions — hardening, output, clarity, affordances, complexity |
+| `cli-clarify` | CLI UX writing — error messages, help text, prompts, confirmations, status output |
+| `cli-distill` | Simplify CLI tools — reduce flags, improve defaults, lower cognitive load per invocation |
 | `cli-harden` | CLI edge-case hardening — resilience against hostile inputs, signals, terminal quirks, and partial failures |
+| `cli-output` | CLI output design — table formatting, color semantics, verbosity, progress, human vs machine output |
 
 ### Commands
 
