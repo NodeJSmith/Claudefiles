@@ -194,22 +194,23 @@ The synthesis subagent receives:
    - MEDIUM: always included, never overflow (except User-directed MEDIUM findings when cap=0)
 6. **Copy presentation fields** from critic reports: `why-it-matters` (most concrete consequence statement), `evidence` (all file:line citations, deduped), `design-challenge` (strongest question). Write `not cited` for evidence when none; omit other fields when absent.
 7. **Write recommendation** for each User-directed finding (which option and why). For TENSION: write deciding-factor instead.
+8. **Validity assessment**: assess whether each finding holds up. Findings are valid by default — to flag one as likely invalid, you must provide concrete evidence: what the finding claims, what the code actually does, and why they conflict. Read the relevant code to verify claims. If you cannot articulate the evidence trail, the finding stays in the main list. Move likely-invalid findings to the `## Likely Invalid` section per the findings protocol; renumber the remaining findings to stay contiguous (no gaps in the `## Finding N:` sequence).
 
-**Write findings file** to the output path using `Format-version: 3` header. Format per `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`.
+**Write findings file** to the output path using `Format-version: 3` header. Include `**Likely-invalid:** N` in the header block (even when 0). Format per `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`.
 
-**After synthesis subagent completes:** Verify the findings file exists at the output path. If missing (subagent returned text instead of writing), extract findings from the returned text: if it starts with `# Challenge Findings` and contains `**Format-version:**` write as-is; if it contains `## Finding` headings inject the header block then write; otherwise stop with "Error: synthesis subagent did not produce findings in a writable format — re-run `/mine.challenge`."
+**After synthesis subagent completes:** Verify the findings file exists at the output path. If missing (subagent returned text instead of writing), extract findings from the returned text: if it starts with `# Challenge Findings` and contains `**Format-version:**` write as-is (verify `**Likely-invalid:**` line is present; inject `**Likely-invalid:** 0` after the `**Format-version:**` line if missing); if it contains `## Finding` headings inject the header block (including `**Likely-invalid:** 0`) then write; otherwise stop with "Error: synthesis subagent did not produce findings in a writable format — re-run `/mine.challenge`."
 
 ## Phase 4: Execute
 
 Read the findings file. Announce: "Specialists selected: [names from triage]" and note re-challenge if applicable. For each critic excluded by validation, announce the exclusion before findings.
 
-**If `--mode=passthrough`**: present a one-paragraph summary (count by severity, top takeaway). Return. Do not execute anything.
+**If `--mode=passthrough`**: present a one-paragraph summary (count by severity, likely-invalid count, top takeaway). Return. Do not execute anything.
 
 **If `--findings-out` provided (structured mode)**: auto-apply all `resolution: Auto-apply, status: pending` findings directly via Edit tool. Update `status: applied` in findings file for each. Skip interactive prompts. Write "Challenge complete — findings written to `<path>`. Returning to caller." Return.
 
 **If standalone mode** (direct user invocation, mine.grill caller):
 
-Read and follow the Inline Resolution Flow in `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md` exactly. After all findings are processed, report: "Applied N findings. M skipped. K overflow (use `--verbose` to see all)." List critic report paths and findings file path.
+Read and follow the Inline Resolution Flow in `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md` exactly. After all findings are processed, report: "Applied N findings. M skipped. K overflow (use `--verbose` to see all). L flagged as likely invalid." List critic report paths and findings file path.
 
 If `--verbose`: also present overflow findings (status: overflow) after the main flow, labeled as "Additional findings (beyond cap)".
 

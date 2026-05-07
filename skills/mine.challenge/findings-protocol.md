@@ -21,6 +21,7 @@ The canonical challenge header block:
 **Format-version:** 3
 **Target:** <file path or description>
 **Critics:** <comma-separated critic names>
+**Likely-invalid:** <count>
 ```
 
 Each finding is a top-level section:
@@ -122,6 +123,37 @@ Findings are capped before presentation to prevent overwhelming the user:
 Overflow findings are written to the findings file with `status: overflow` so
 callers can inspect them. They are not presented during inline resolution.
 
+## Validity Assessment
+
+After synthesizing findings, assess whether each finding holds up. Findings
+are valid by default. To flag a finding as likely invalid, the synthesizer
+must provide concrete evidence: what the finding claims, what the code
+actually does, and why they conflict. If the evidence trail cannot be
+articulated, the finding remains in the main findings list.
+
+Likely-invalid findings are removed from the main `## Finding N:` sequence
+and placed in a `## Likely Invalid` section at the end of the findings file.
+They do not consume finding numbers — the main sequence renumbers to stay
+contiguous.
+
+### Likely Invalid section format
+
+Each likely-invalid entry uses a `LI-N` identifier (sequential, separate from
+the main finding numbers):
+
+    ## Likely Invalid
+
+    ### LI-1: <original finding title>
+    **Original-severity:** <severity from the critic>
+    **Raised-by:** <critic or reviewer name>
+    **Claimed:** <what the finding asserts>
+    **Actually:** <what the code actually does, with file:line references>
+    **Why-invalid:** <the specific conflict — trace the code path, show the contradiction>
+
+The three evidence fields (`Claimed`, `Actually`, `Why-invalid`) are
+mandatory — if any are missing, the synthesizer has not met the evidence bar
+and the finding must stay in the main list.
+
 ## Inline Resolution Flow
 
 After synthesis completes and the findings file is written, challenge resolves
@@ -172,6 +204,16 @@ AskUserQuestion:
 Apply chosen side via Edit tool. Set `status: applied` and append
 `**Chosen:** side-a` or `**Chosen:** side-b` to the finding. For Skip, set
 `status: skipped`.
+
+**After all main findings are resolved**, if the findings file contains a
+`## Likely Invalid` section with entries, present them:
+
+> **Likely Invalid (N flagged)** — these findings were flagged as likely
+> invalid based on code evidence. Review below; re-run with the finding
+> restored if any were wrongly excluded.
+
+List each LI entry with its title, original severity, and a one-line summary
+of the `Why-invalid` field. Do not prompt for action — this is informational.
 
 ## Zero-Findings Case
 

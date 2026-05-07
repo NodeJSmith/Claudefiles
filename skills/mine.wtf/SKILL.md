@@ -179,6 +179,12 @@ After all three reviewers complete, merge their findings into a single report.
 
 If two reviewers flagged the same issue (e.g., code-reviewer found a magic number AND the WTF pass flagged it), keep one entry and note the cross-signal: `(flagged by code-review + WTF pass)`.
 
+### Step 1.5: Validity assessment
+
+Assess whether each finding from the reviewers holds up against the actual code. Findings are valid by default — to flag one as likely invalid, you must provide concrete evidence: what the finding claims, what the code actually does, and why they conflict. Read the relevant code to verify claims. If you cannot articulate the evidence trail, the finding stays in the main list.
+
+Move likely-invalid findings out of the severity-organized tables and into a separate `### Likely Invalid` section at the bottom of the report (see Step 2 format).
+
 ### Step 2: Present the consolidated report
 
 Organize by severity, not by reviewer. Lead with the overall picture:
@@ -190,6 +196,7 @@ Organize by severity, not by reviewer. Lead with the overall picture:
 **Code Review:** APPROVE / WARN / BLOCK
 **Integration Review:** APPROVE / WARN / BLOCK
 **WTF Readability:** X findings (N HIGH, N MEDIUM, N LOW)
+**Likely-invalid:** N
 
 ### Critical / High
 
@@ -211,6 +218,16 @@ Organize by severity, not by reviewer. Lead with the overall picture:
 ```
 
 Source column uses: `Code`, `Integration`, `WTF`, or `Code+WTF` etc. for cross-signals.
+
+### Likely Invalid (if any)
+
+For each likely-invalid finding, use the named-field format:
+
+    ### LI-1: <finding title>
+    **Source:** Code | Integration | WTF
+    **Claimed:** <what the finding asserts>
+    **Actually:** <what the code actually does, with file:line>
+    **Why-invalid:** <the specific conflict>
 
 ### Step 3: Offer next steps
 

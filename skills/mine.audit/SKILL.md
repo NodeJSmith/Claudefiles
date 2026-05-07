@@ -91,6 +91,12 @@ Rank findings by **impact** — how much this problem is likely to cause bugs, s
 - **MEDIUM** — accumulating risk that isn't urgent but will compound
 - **TENSION** — worth noting; low urgency
 
+### Validity assessment
+
+Assess whether each synthesized finding holds up against the actual code. Findings are valid by default — to flag one as likely invalid, you must provide concrete evidence: what the finding claims, what the code actually does, and why they conflict. Read the relevant source files directly to verify claims — do not rely solely on the per-directory summaries. If you cannot articulate the evidence trail, the finding stays in the main list.
+
+Likely-invalid findings are excluded from the narrative summary and placed in the `## Likely Invalid` section of the findings file per `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`. Always include the `**Likely-invalid:** N` count in the findings file header and in the narrative summary.
+
 ## Phase 3: Present the Report
 
 ### Step 1: Narrative summary
@@ -99,6 +105,7 @@ Before entering the findings flow, present the findings as a narrative organized
 
 ```
 ## Codebase Audit: [project name]
+**Likely-invalid:** N
 
 ### Critical (high impact, fix soon)
 1. **src/services/payment.py** (520 lines, 47 changes in 3 months, 12% test coverage)
@@ -128,6 +135,7 @@ Run `get-skill-tmpdir mine-audit` and write `<tmpdir>/audit-results.md` using th
 **Target:** [project name or scope]
 **Date:** [today's date]
 **Format-version:** 3
+**Likely-invalid:** <count>
 
 ## Finding 1: [concise title]
 **Severity:** CRITICAL | **Type:** Test Gap | **Raised-by:** Audit Analysis (1/1)
