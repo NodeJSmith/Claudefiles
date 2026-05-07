@@ -1,6 +1,6 @@
 # Anti-Patterns
 
-Last reviewed: 2026-05-07
+Last reviewed: 2026-05-07 (upstream [skill-v3.0.7](https://github.com/pbakaus/impeccable/releases/tag/skill-v3.0.7))
 
 These are the fingerprints of AI-generated work from 2024-2025. If your output matches these patterns, it will look generic regardless of how much effort went into the code.
 

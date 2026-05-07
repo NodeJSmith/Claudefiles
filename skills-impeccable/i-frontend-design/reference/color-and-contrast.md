@@ -1,5 +1,7 @@
 # Color & Contrast
 
+Last reviewed: 2026-05-07 (upstream [skill-v3.0.7](https://github.com/pbakaus/impeccable/releases/tag/skill-v3.0.7))
+
 ## Color Spaces: Use OKLCH
 
 **Stop using HSL.** Use OKLCH (or LCH) instead. It's perceptually uniform, meaning equal steps in lightness *look* equal—unlike HSL where 50% lightness in yellow looks bright while 50% in blue looks dark.

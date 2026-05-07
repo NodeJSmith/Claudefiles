@@ -1,5 +1,7 @@
 # Typography
 
+Last reviewed: 2026-05-07 (upstream [skill-v3.0.7](https://github.com/pbakaus/impeccable/releases/tag/skill-v3.0.7))
+
 ## Classic Typography Principles
 
 ### Vertical Rhythm
