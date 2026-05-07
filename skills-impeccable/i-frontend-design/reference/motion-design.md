@@ -1,5 +1,7 @@
 # Motion Design
 
+Last reviewed: 2026-05-07 (upstream [skill-v3.0.7](https://github.com/pbakaus/impeccable/releases/tag/skill-v3.0.7))
+
 ## Duration: The 100/300/500 Rule
 
 Timing matters more than easing. These durations feel right for most UI:

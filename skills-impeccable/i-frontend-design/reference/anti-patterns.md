@@ -1,6 +1,6 @@
 # Anti-Patterns
 
-Last reviewed: 2026-04-05
+Last reviewed: 2026-05-07 (upstream [skill-v3.0.7](https://github.com/pbakaus/impeccable/releases/tag/skill-v3.0.7))
 
 These are the fingerprints of AI-generated work from 2024-2025. If your output matches these patterns, it will look generic regardless of how much effort went into the code.
 
@@ -9,7 +9,8 @@ These are the fingerprints of AI-generated work from 2024-2025. If your output m
 If you showed this interface to someone and said "AI made this," would they believe you immediately? If yes, that's the problem. A distinctive interface should make someone ask "how was this made?" not "which AI made this?"
 
 ## Typography
-- **DON'T**: Use overused fonts — Inter, Roboto, Arial, Open Sans, system defaults
+- **DON'T**: Use overused fonts — Inter, Roboto, Arial, Open Sans, system defaults; also now flagged: Fraunces, Geist, Mona Sans, Plus Jakarta Sans, Space Grotesk, Recoleta, Instrument Sans
+- **DON'T**: Use italic-serif display fonts as a hero headline — Fraunces, Recoleta, Newsreader, Playfair, Cormorant, Tiempos (especially italic weights) are now a recognized AI-generated marketing fingerprint
 - **DON'T**: Use monospace typography as lazy shorthand for "technical/developer" vibes
 - **DON'T**: Put large icons with rounded corners above every heading — they rarely add value and make sites look templated
 
@@ -40,6 +41,7 @@ If you showed this interface to someone and said "AI made this," would they beli
 - **DON'T**: Use bounce or elastic easing — they feel dated and tacky. Spring physics without visible overshoot is acceptable (high tension, high friction); real objects decelerate smoothly, they don't bounce.
 
 ## Interaction & Copy
+- **DON'T**: Use uppercase letter-spaced eyebrow chips above hero headings (e.g. `TRUSTED BY 500+ TEAMS`) — including the pill-chip variant; this is a top AI-generated marketing fingerprint
 - **DON'T**: Repeat the same information — redundant headers, intros that restate the heading
 - **DON'T**: Make every button primary — use ghost buttons, text links, secondary styles; hierarchy matters
 - **DON'T**: Hide critical functionality on mobile — adapt the interface, don't amputate it
