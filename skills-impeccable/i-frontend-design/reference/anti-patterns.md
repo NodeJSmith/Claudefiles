@@ -10,7 +10,7 @@ If you showed this interface to someone and said "AI made this," would they beli
 
 ## Typography
 - **DON'T**: Use overused fonts — Inter, Roboto, Arial, Open Sans, system defaults; also now flagged: Fraunces, Geist, Mona Sans, Plus Jakarta Sans, Space Grotesk, Recoleta, Instrument Sans
-- **DON'T**: Use italic-serif display fonts as a hero headline — Fraunces, Recoleta, Newsreader, Playfair, Cormorant, Tiempos in italic weight are now a recognized AI-generated marketing fingerprint
+- **DON'T**: Use italic-serif display fonts as a hero headline — Fraunces, Recoleta, Newsreader, Playfair, Cormorant, Tiempos (especially italic weights) are now a recognized AI-generated marketing fingerprint
 - **DON'T**: Use monospace typography as lazy shorthand for "technical/developer" vibes
 - **DON'T**: Put large icons with rounded corners above every heading — they rarely add value and make sites look templated
 

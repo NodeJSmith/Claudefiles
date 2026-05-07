@@ -40,7 +40,7 @@ Use `ch` units for character-based measure (`max-width: 65ch`). Line-height scal
 - Instead of Inter → **Outfit**, **Figtree**, **DM Sans**
 - Instead of Roboto → **Onest**, **Urbanist**, **Nunito Sans**
 - Instead of Open Sans → **Source Sans 3**, **Karla**, **Jost**
-- For editorial/premium feel → **Lora**, **Spectral**, **Literata** (avoid Fraunces/Newsreader/Recoleta — now flagged as AI marketing fingerprints, especially in italic)
+- For editorial/premium feel → **Lora**, **Spectral**, **Literata** (avoid Fraunces/Newsreader/Recoleta — now flagged as AI marketing fingerprints, especially in italics)
 
 **System fonts are underrated**: `-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui` looks native, loads instantly, and is highly readable. Consider this for apps where performance > personality.
 
