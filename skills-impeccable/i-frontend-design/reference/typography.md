@@ -35,10 +35,10 @@ Use `ch` units for character-based measure (`max-width: 65ch`). Line-height scal
 **Avoid the invisible defaults**: Inter, Roboto, Open Sans, Lato, Montserrat. These are everywhere, making your design feel generic. They're fine for documentation or tools where personality isn't the goal—but if you want distinctive design, look elsewhere.
 
 **Better Google Fonts alternatives**:
-- Instead of Inter → **Instrument Sans**, **Plus Jakarta Sans**, **Outfit**
-- Instead of Roboto → **Onest**, **Figtree**, **Urbanist**
-- Instead of Open Sans → **Source Sans 3**, **Nunito Sans**, **DM Sans**
-- For editorial/premium feel → **Fraunces**, **Newsreader**, **Lora**
+- Instead of Inter → **Outfit**, **Figtree**, **DM Sans**
+- Instead of Roboto → **Onest**, **Urbanist**, **Nunito Sans**
+- Instead of Open Sans → **Source Sans 3**, **Karla**, **Jost**
+- For editorial/premium feel → **Lora**, **Spectral**, **Literata** (avoid Fraunces/Newsreader/Recoleta — now flagged as AI marketing fingerprints, especially in italic)
 
 **System fonts are underrated**: `-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui` looks native, loads instantly, and is highly readable. Consider this for apps where performance > personality.
 

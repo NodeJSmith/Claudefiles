@@ -41,7 +41,7 @@ If any of these are not answered by design context (`design/context.md`, `.impec
 Create a strategy to increase impact while maintaining coherence:
 
 - **Focal point**: What should be the hero moment? (Pick ONE, make it amazing)
-- **Personality direction**: Maximalist chaos? Elegant drama? Playful energy? Dark moody? Choose a lane.
+- **Personality direction**: Maximalist chaos? Elegant drama? Playful energy? Dark moody? Choose a lane — but stay within the existing palette, type choices, and visual rhetoric by default. Only depart from the established aesthetic when the design context (`design/context.md`, `.impeccable.md`) explicitly calls for it, or the user asks.
 - **Risk budget**: How experimental can we be? Push boundaries within constraints.
 - **Hierarchy amplification**: Make big things BIGGER, small things smaller (increase contrast)
 
