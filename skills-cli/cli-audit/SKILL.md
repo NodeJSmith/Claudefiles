@@ -52,7 +52,7 @@ Present a scorecard followed by prioritized findings:
 | Dimension     | Score    | Top Finding                    |
 |---------------|----------|--------------------------------|
 | Hardening     | Strong   | —                              |
-| Output        | Weak     | Tables overflow on narrow terms |
+| Output        | Weak     | Tables overflow on narrow terminals |
 | Clarity       | Adequate | Help text missing examples     |
 | Affordances   | Weak     | No tab completion, 3 dead flags|
 | Complexity    | Strong   | —                              |

@@ -61,5 +61,5 @@ Edit `settings.json` in this repo — **never** write directly to `~/.claude/set
 
 - After adding directories under `agents/`, `skills/`, `skills-impeccable/`, `skills-memory/`, `skills-cli/`, `commands/`, or `scripts/hooks/` — re-run `uv run install.py`
 - **Always update `README.md`** when adding, removing, or renaming skills, commands, agents, or bin/ scripts
-- **Always update the appropriate `rules/common/capabilities-*.md`** file with trigger phrases for new skills (`capabilities-core.md` for mine.*, `capabilities-impeccable.md` for i-*, `capabilities-memory.md` for cm-*, `capabilities-cli.md` for cli-*)
+- **Always update the appropriate capabilities file** with trigger phrases for new skills: `rules/common/capabilities-core.md` for mine.*, `skills-impeccable/capabilities-impeccable.md` for i-*, `skills-memory/capabilities-memory.md` for cm-*, `skills-cli/capabilities-cli.md` for cli-*
 - CLI tools referenced in skills/commands/agents must exist in `bin/`, be a standard system tool, or be a well-known dev tool. No private tools outside this repo.
