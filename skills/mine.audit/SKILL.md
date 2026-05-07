@@ -105,6 +105,7 @@ Before entering the findings flow, present the findings as a narrative organized
 
 ```
 ## Codebase Audit: [project name]
+**Likely-invalid:** N
 
 ### Critical (high impact, fix soon)
 1. **src/services/payment.py** (520 lines, 47 changes in 3 months, 12% test coverage)

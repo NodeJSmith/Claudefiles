@@ -196,7 +196,7 @@ Organize by severity, not by reviewer. Lead with the overall picture:
 **Code Review:** APPROVE / WARN / BLOCK
 **Integration Review:** APPROVE / WARN / BLOCK
 **WTF Readability:** X findings (N HIGH, N MEDIUM, N LOW)
-**Likely invalid:** N finding(s) flagged
+**Likely-invalid:** N
 
 ### Critical / High
 

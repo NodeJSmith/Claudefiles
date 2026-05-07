@@ -198,7 +198,7 @@ The synthesis subagent receives:
 
 **Write findings file** to the output path using `Format-version: 3` header. Include `**Likely-invalid:** N` in the header block (even when 0). Format per `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`.
 
-**After synthesis subagent completes:** Verify the findings file exists at the output path. If missing (subagent returned text instead of writing), extract findings from the returned text: if it starts with `# Challenge Findings` and contains `**Format-version:**` write as-is; if it contains `## Finding` headings inject the header block then write; otherwise stop with "Error: synthesis subagent did not produce findings in a writable format — re-run `/mine.challenge`."
+**After synthesis subagent completes:** Verify the findings file exists at the output path. If missing (subagent returned text instead of writing), extract findings from the returned text: if it starts with `# Challenge Findings` and contains `**Format-version:**` write as-is (verify `**Likely-invalid:**` line is present; inject `**Likely-invalid:** 0` after the `**Format-version:**` line if missing); if it contains `## Finding` headings inject the header block (including `**Likely-invalid:** 0`) then write; otherwise stop with "Error: synthesis subagent did not produce findings in a writable format — re-run `/mine.challenge`."
 
 ## Phase 4: Execute
 
