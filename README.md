@@ -32,13 +32,14 @@ Use `uv run install.py --reconfigure` to change selections, or `--uninstall` to 
 
 ## About skill prefixes
 
-Skills are organized into three directories:
+Skills are organized into four directories:
 
 - **`skills/`** — core skills (`mine.*`) for workflow automation, code review, planning
 - **`skills-impeccable/`** — [Impeccable](https://impeccable.style/) frontend design skills (`i-*`)
 - **`skills-memory/`** — Claude Memory skills (`cm-*`) for conversation memory
+- **`skills-cli/`** — CLI design skills (`cli-*`) for CLI tool UX and resilience
 
-All three directories symlink into `~/.claude/skills/` at install time — the runtime path is flat.
+All four directories symlink into `~/.claude/skills/` at install time — the runtime path is flat.
 
 ## Contents
 
@@ -99,6 +100,12 @@ All three directories symlink into `~/.claude/skills/` at install time — the r
 | `i-teach-impeccable` | Design context setup — gathers brand context and concrete design tokens, saves to `design/context.md` |
 | `i-typeset` | Typography — font choices, hierarchy, sizing, readability |
 
+**CLI Design Skills**
+
+| Skill | Description |
+|-------|-------------|
+| `cli-harden` | CLI edge-case hardening — resilience against hostile inputs, signals, terminal quirks, and partial failures |
+
 ### Commands
 
 | Command | Description |
@@ -153,7 +160,7 @@ All three directories symlink into `~/.claude/skills/` at install time — the r
 
 Coding guidelines that load automatically and shape how Claude writes code.
 
-**Common**: agents, bash-tools, capabilities-core, capabilities-impeccable, capabilities-memory, coding-style, command-output, frontend-workflow, git-workflow, interaction, performance, python, receiving-code-review, sudo, testing, tmux, worktrees
+**Common**: agents, bash-tools, capabilities-cli, capabilities-core, capabilities-impeccable, capabilities-memory, coding-style, command-output, frontend-workflow, git-workflow, interaction, performance, python, receiving-code-review, sudo, testing, tmux, worktrees
 
 ### Hooks
 

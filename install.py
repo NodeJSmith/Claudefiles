@@ -70,6 +70,12 @@ SKILL_GROUPS: dict[str, SkillGroup] = {
         source_dir="skills-memory",
         default=True,
     ),
+    "cli": SkillGroup(
+        label="CLI design (cli-*)",
+        description="CLI tool UX — hardening, output, affordances, clarity",
+        source_dir="skills-cli",
+        default=True,
+    ),
 }
 
 HOOK_GROUPS: dict[str, HookGroup] = {
