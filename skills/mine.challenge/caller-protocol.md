@@ -33,6 +33,12 @@ its inline resolution flow in structured mode — callers present `status: pendi
 findings to the user themselves, following the same per-finding AskUserQuestion
 pattern described in findings-protocol.md.
 
+The file may also contain a `## Likely Invalid` section with `LI-N` entries —
+findings the synthesis agent flagged as likely incorrect based on code evidence.
+The header block includes a `**Likely-invalid:** N` count. Callers should note
+this count in any summary but do not need to present or act on likely-invalid
+entries unless the user asks.
+
 ## Handling Findings by Status
 
 ### `status: applied`
