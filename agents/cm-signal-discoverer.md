@@ -91,6 +91,13 @@ patterns already captured in existing memories").
   Only surface project-specific or user-specific knowledge.
 - When in doubt about whether something is NOISE or FILL_GAP, ask: "Would knowing this
   change how Claude behaves in a future session?" If no, it's noise.
+- Code-derivability filter: If a candidate merely restates a value, configuration, or fact
+  that a future session could find by reading the relevant source file, it's noise — even
+  if it passes the behavioral-change test. Exception: configuration in external systems
+  (e.g., /etc/docker/daemon.json, cloud console settings) that isn't present in the
+  working tree. Only surface information that adds context not present in the code:
+  rationale for a decision, a gotcha discovered through debugging, or a constraint that
+  isn't obvious from reading the implementation.
 
 ## Edge Cases
 
