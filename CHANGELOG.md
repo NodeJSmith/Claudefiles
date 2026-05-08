@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-05-08
+
+### Changed
+- Memory auditor gains REDUNDANT category to flag code-derivable memories; signal discoverer gets matching code-derivability filter to prevent creating them (#287)
+
 ## 2026-05-07
 
 ### Added

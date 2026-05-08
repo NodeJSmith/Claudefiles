@@ -3,8 +3,9 @@ name: cm-memory-auditor
 group: memory
 description: >
   Use this agent when you need to verify existing memory entries against codebase ground
-  truth — checking for stale paths, outdated versions, contradicted facts, and relative
-  dates needing conversion. Recommended PROACTIVELY after large refactors or version bumps.
+  truth — checking for stale paths, outdated versions, contradicted facts, relative
+  dates needing conversion, and code-redundant entries. Recommended PROACTIVELY after
+  large refactors or version bumps.
 model: inherit
 color: blue
 memory: project
@@ -29,7 +30,7 @@ Update your agent memory as you discover recurring staleness patterns, paths tha
 move, and conventions that have shifted. Record which entries have been previously verified
 and their status, so future runs can focus on new or changed entries. Use `Read` to check
 existing memory before writing, and `Write`/`Edit` to update it. Each run, append a brief
-entry: date, memory set scanned, finding counts (STALE/CONTRADICT/MERGE/DATE_FIX: N each).
+entry: date, memory set scanned, finding counts (STALE/CONTRADICT/MERGE/DATE_FIX/REDUNDANT: N each).
 
 ## Process
 
@@ -50,7 +51,23 @@ entry: date, memory set scanned, finding counts (STALE/CONTRADICT/MERGE/DATE_FIX
 4. Scan for relative dates in memory entries — "yesterday", "recently", "last week", "this
    morning". These decay into meaninglessness. Flag each for conversion to an absolute date.
 
-5. Identify merge opportunities — memory entries that cover overlapping ground and could be
+5. Check for code-redundant entries. For each memory that states a specific value,
+   configuration, constant, version, or count — check whether the source file containing
+   that information is readable in the codebase. If the memory adds no rationale, gotcha,
+   or design decision beyond what's visible in the source, flag as REDUNDANT.
+
+   REDUNDANT: "Docker image tag is main-py3.13" (readable in docker-compose.yml)
+   REDUNDANT: "Enum has 40 members" (countable in the source file)
+   REDUNDANT: "ntfy uses TOPIC_HOME and TOPIC_JESSICA" (constants in notify.py)
+   NOT redundant: "Disk cache must compare both setpoint AND mode" (non-obvious gotcha)
+   NOT redundant: "Don't use heat_cool mode — Z-Wave unreliable" (hardware knowledge)
+
+   The test: "If this memory were deleted, would a future session make a mistake,
+   or would it just need to read one more file?" Cross-file synthesis — where the
+   memory connects facts from multiple sources — is not redundant even if each
+   individual fact is readable.
+
+6. Identify merge opportunities — memory entries that cover overlapping ground and could be
    combined into a single, stronger entry. Merge criteria: both entries must currently exist,
    reference the same entity or decision, overlap in content by more than 50%, and a single
    merged entry must be strictly shorter than the two originals combined.
@@ -60,7 +77,7 @@ entry: date, memory set scanned, finding counts (STALE/CONTRADICT/MERGE/DATE_FIX
 Return a structured list of findings. Each finding has:
 
 ```
-Category: STALE | CONTRADICT | MERGE | DATE_FIX
+Category: STALE | CONTRADICT | MERGE | DATE_FIX | REDUNDANT
 Memory file: <filename>
 Entry: "<quoted text from the memory>"
 Evidence: <what you found — the Glob/Grep/git result that proves the issue>
@@ -68,7 +85,7 @@ Suggested action: EDIT | REMOVE
 Replacement: "<proposed new text, or empty if REMOVE>"
 ```
 
-If no issues are found, report "No stale or contradicted entries detected" with a brief
+If no issues are found, report "No issues detected" with a brief
 summary of what you verified (e.g., "Checked 12 file paths, 3 version references, 5 function
 names — all current").
 
@@ -83,6 +100,11 @@ names — all current").
   that cover different aspects of the same topic.
 - When a memory entry is partially stale (some claims still true, others outdated), suggest
   an EDIT with the corrected version, not a REMOVE.
+- For REDUNDANT candidates, verify that the source file is in the working tree (not in a
+  dependency or external system). Memories about external system config (e.g.,
+  /etc/docker/daemon.json) may still be worth keeping since they're outside the project tree.
+- For REDUNDANT findings, default to REMOVE — there is no edited form of a code-readable
+  fact that isn't still redundant.
 
 ## Edge Cases
 
@@ -92,5 +114,5 @@ names — all current").
   package before flagging as STALE — absence from the working tree does not imply staleness.
 - Empty verification queue: all entries describe decisions or preferences with no concrete
   checkable entities — report this explicitly and skip to date scan.
-- All entries verified clean: report "No stale or contradicted entries detected" with the
+- All entries verified clean: report "No issues detected" with the
   full verification summary; do not manufacture findings.
