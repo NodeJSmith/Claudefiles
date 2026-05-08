@@ -85,7 +85,7 @@ Suggested action: EDIT | REMOVE
 Replacement: "<proposed new text, or empty if REMOVE>"
 ```
 
-If no issues are found, report "No stale or contradicted entries detected" with a brief
+If no issues are found, report "No issues detected" with a brief
 summary of what you verified (e.g., "Checked 12 file paths, 3 version references, 5 function
 names — all current").
 
@@ -114,5 +114,5 @@ names — all current").
   package before flagging as STALE — absence from the working tree does not imply staleness.
 - Empty verification queue: all entries describe decisions or preferences with no concrete
   checkable entities — report this explicitly and skip to date scan.
-- All entries verified clean: report "No stale or contradicted entries detected" with the
+- All entries verified clean: report "No issues detected" with the
   full verification summary; do not manufacture findings.
