@@ -19,19 +19,19 @@ case "$heartbeat_interval" in
 esac
 
 counter_file="/tmp/claude-tmux-drift-${session_id}.txt"
-count="$(cat "$counter_file" 2>/dev/null)" || true
+count="$(cat "$counter_file" 2> /dev/null)" || true
 count="${count:-0}"
 case "$count" in *[!0-9]*) count=0 ;; esac
 count=$((count + 1))
 
-printf '%d' "$count" > "${counter_file}.tmp" 2>/dev/null && mv -f "${counter_file}.tmp" "$counter_file" 2>/dev/null || true
+printf '%d' "$count" > "${counter_file}.tmp" 2> /dev/null && mv -f "${counter_file}.tmp" "$counter_file" 2> /dev/null || true
 
 [ "$count" -ge "$heartbeat_interval" ] || exit 0
 
 # Reset counter
-printf '0' > "${counter_file}.tmp" 2>/dev/null && mv -f "${counter_file}.tmp" "$counter_file" 2>/dev/null || true
+printf '0' > "${counter_file}.tmp" 2> /dev/null && mv -f "${counter_file}.tmp" "$counter_file" 2> /dev/null || true
 
-session_name="$(tmux display-message -p '#{session_name}' 2>/dev/null)" || exit 0
+session_name="$(tmux display-message -p '#{session_name}' 2> /dev/null)" || exit 0
 [ -n "$session_name" ] || exit 0
 
 jq -cn --arg name "$session_name" \
