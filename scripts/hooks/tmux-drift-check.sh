@@ -6,11 +6,20 @@
 # an extra tool call.
 #
 # Hook wiring: add as a "PreToolUse" entry with matcher "*" in settings.json.
+#
+# No set -euo pipefail — this hook is a sequence of guard clauses that each
+# exit 0 on failure.
+
+if ! command -v jq > /dev/null 2>&1; then
+  exit 0
+fi
 
 [ -n "${TMUX:-}" ] || exit 0
 
-session_id="${CLAUDE_CODE_SESSION_ID:-}"
-[ -n "$session_id" ] || exit 0
+input="$(cat || true)"
+
+session_id="$(printf '%s' "$input" | jq -r '.session_id // empty' 2> /dev/null)" || true
+case "$session_id" in '' | *[/.]*) exit 0 ;; esac
 
 heartbeat_interval="${CLAUDE_TMUX_DRIFT_HEARTBEAT:-30}"
 # 0 is rejected — use CLAUDE_TMUX_DRIFT_HEARTBEAT=1 for maximum frequency; 0 would fire every call

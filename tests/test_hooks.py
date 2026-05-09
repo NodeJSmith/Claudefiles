@@ -1256,3 +1256,229 @@ class TestContextTierPathTraversal:
 
         assert result.returncode == 0
         assert result.stdout.strip() == ""
+
+
+# tmux-drift-check.sh tests
+# ---------------------------------------------------------------------------
+
+DRIFT_CHECK_HOOK = REPO_ROOT / "scripts" / "hooks" / "tmux-drift-check.sh"
+
+
+def _drift_session_id(test_name: str) -> str:
+    return f"drift-test-{test_name}-{uuid.uuid4().hex[:8]}"
+
+
+def _write_drift_counter(session_id: str, count: int) -> Path:
+    p = Path(f"/tmp/claude-tmux-drift-{session_id}.txt")
+    p.write_text(str(count))
+    return p
+
+
+def _read_drift_counter(session_id: str) -> int | None:
+    p = Path(f"/tmp/claude-tmux-drift-{session_id}.txt")
+    if not p.exists():
+        return None
+    text = p.read_text().strip()
+    return int(text) if text else None
+
+
+def _cleanup_drift(session_id: str) -> None:
+    p = Path(f"/tmp/claude-tmux-drift-{session_id}.txt")
+    if p.exists():
+        p.unlink()
+
+
+def _make_tmux_stub(tmpdir: Path, session_name: str) -> Path:
+    """Write a tmux stub script that prints session_name for display-message."""
+    stub = tmpdir / "tmux"
+    stub.write_text(f'#!/usr/bin/env bash\necho "{session_name}"\n')
+    stub.chmod(0o755)
+    return stub
+
+
+def _run_drift_check(
+    session_id: str,
+    session_name: str = "test-session",
+    extra_env: dict[str, str] | None = None,
+    tmux_stub_dir: Path | None = None,
+) -> subprocess.CompletedProcess:
+    env = os.environ.copy()
+    env["TMUX"] = "/tmp/tmux-stub,1,0"
+    if tmux_stub_dir:
+        env["PATH"] = str(tmux_stub_dir) + ":" + env.get("PATH", "")
+    else:
+        # Default: create a temp stub inline
+        import tempfile as _tempfile
+
+        _td = Path(_tempfile.mkdtemp())
+        _make_tmux_stub(_td, session_name)
+        env["PATH"] = str(_td) + ":" + env.get("PATH", "")
+    if extra_env:
+        env.update(extra_env)
+    return subprocess.run(
+        [str(DRIFT_CHECK_HOOK)],
+        input=json.dumps({"session_id": session_id}),
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+
+class TestTmuxDriftCheckSilentBelowInterval:
+    """Hook stays silent while counter is below the heartbeat interval."""
+
+    def test_first_call_silent(self):
+        sid = _drift_session_id("first_silent")
+        try:
+            result = _run_drift_check(sid)
+            assert result.returncode == 0
+            assert result.stdout.strip() == ""
+        finally:
+            _cleanup_drift(sid)
+
+    def test_below_interval_silent(self):
+        sid = _drift_session_id("below_interval")
+        try:
+            _write_drift_counter(sid, 27)  # will become 28, threshold is 30
+            result = _run_drift_check(sid, extra_env={"CLAUDE_TMUX_DRIFT_HEARTBEAT": "30"})
+            assert result.returncode == 0
+            assert result.stdout.strip() == ""
+            assert _read_drift_counter(sid) == 28
+        finally:
+            _cleanup_drift(sid)
+
+    def test_counter_increments_each_call(self):
+        sid = _drift_session_id("increments")
+        try:
+            _write_drift_counter(sid, 5)
+            _run_drift_check(sid, extra_env={"CLAUDE_TMUX_DRIFT_HEARTBEAT": "30"})
+            assert _read_drift_counter(sid) == 6
+        finally:
+            _cleanup_drift(sid)
+
+
+class TestTmuxDriftCheckEmitsAtThreshold:
+    """Hook emits session name context at the heartbeat threshold."""
+
+    def test_emits_at_threshold(self):
+        sid = _drift_session_id("at_threshold")
+        try:
+            _write_drift_counter(sid, 29)  # will become 30, fires
+            result = _run_drift_check(
+                sid,
+                session_name="myapp-feature",
+                extra_env={"CLAUDE_TMUX_DRIFT_HEARTBEAT": "30"},
+            )
+            assert result.returncode == 0
+            output = json.loads(result.stdout)
+            context = output["hookSpecificOutput"]["additionalContext"]
+            assert "myapp-feature" in context
+            assert "claude-tmux rename" in context
+        finally:
+            _cleanup_drift(sid)
+
+    def test_counter_resets_after_firing(self):
+        sid = _drift_session_id("resets")
+        try:
+            _write_drift_counter(sid, 29)
+            _run_drift_check(sid, extra_env={"CLAUDE_TMUX_DRIFT_HEARTBEAT": "30"})
+            assert _read_drift_counter(sid) == 0
+        finally:
+            _cleanup_drift(sid)
+
+    def test_custom_heartbeat_interval(self):
+        sid = _drift_session_id("custom_interval")
+        try:
+            _write_drift_counter(sid, 4)  # will become 5, fires at interval=5
+            result = _run_drift_check(sid, extra_env={"CLAUDE_TMUX_DRIFT_HEARTBEAT": "5"})
+            assert result.returncode == 0
+            assert result.stdout.strip() != ""
+        finally:
+            _cleanup_drift(sid)
+
+
+class TestTmuxDriftCheckNoTmux:
+    """Hook exits silently when not inside tmux."""
+
+    def test_no_tmux_env_silent(self):
+        sid = _drift_session_id("no_tmux")
+        env = os.environ.copy()
+        env.pop("TMUX", None)
+        result = subprocess.run(
+            [str(DRIFT_CHECK_HOOK)],
+            input=json.dumps({"session_id": sid}),
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+
+
+class TestTmuxDriftCheckInvalidSessionId:
+    """Hook rejects session IDs with path-unsafe characters."""
+
+    def test_slash_in_session_id_silent(self):
+        env = os.environ.copy()
+        env["TMUX"] = "/tmp/tmux-stub,1,0"
+        result = subprocess.run(
+            [str(DRIFT_CHECK_HOOK)],
+            input=json.dumps({"session_id": "foo/bar"}),
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+
+    def test_dot_in_session_id_silent(self):
+        env = os.environ.copy()
+        env["TMUX"] = "/tmp/tmux-stub,1,0"
+        result = subprocess.run(
+            [str(DRIFT_CHECK_HOOK)],
+            input=json.dumps({"session_id": "foo.bar"}),
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+
+    def test_empty_session_id_silent(self):
+        env = os.environ.copy()
+        env["TMUX"] = "/tmp/tmux-stub,1,0"
+        result = subprocess.run(
+            [str(DRIFT_CHECK_HOOK)],
+            input=json.dumps({"session_id": ""}),
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+
+
+class TestTmuxDriftCheckHeartbeatConfig:
+    """Heartbeat interval env var edge cases."""
+
+    def test_zero_interval_falls_back_to_default(self):
+        sid = _drift_session_id("zero_interval")
+        try:
+            _write_drift_counter(sid, 29)  # fires at 30 (default), not 0
+            result = _run_drift_check(sid, extra_env={"CLAUDE_TMUX_DRIFT_HEARTBEAT": "0"})
+            assert result.returncode == 0
+            # Should be silent — counter 30 < default 30 hasn't fired yet (30 >= 30 fires)
+            # Actually 29+1=30 >= 30, so it fires. Confirm counter reset to 0.
+            assert _read_drift_counter(sid) == 0
+        finally:
+            _cleanup_drift(sid)
+
+    def test_invalid_interval_falls_back_to_default(self):
+        sid = _drift_session_id("invalid_interval")
+        try:
+            _write_drift_counter(sid, 5)
+            result = _run_drift_check(sid, extra_env={"CLAUDE_TMUX_DRIFT_HEARTBEAT": "abc"})
+            assert result.returncode == 0
+            assert result.stdout.strip() == ""  # 6 < 30 default
+        finally:
+            _cleanup_drift(sid)

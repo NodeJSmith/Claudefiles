@@ -97,8 +97,8 @@ HOOK_GROUPS: dict[str, HookGroup] = {
     ),
     "tmux": HookGroup(
         label="Tmux",
-        description="Session naming reminders",
-        files=("tmux-remind.sh",),
+        description="Session naming reminders and drift detection",
+        files=("tmux-remind.sh", "tmux-drift-check.sh"),
     ),
     "context": HookGroup(
         label="Context awareness",
