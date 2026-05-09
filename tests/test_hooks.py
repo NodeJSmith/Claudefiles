@@ -1340,7 +1340,9 @@ class TestTmuxDriftCheckSilentBelowInterval:
         sid = _drift_session_id("below_interval")
         try:
             _write_drift_counter(sid, 27)  # will become 28, threshold is 30
-            result = _run_drift_check(sid, extra_env={"CLAUDE_TMUX_DRIFT_HEARTBEAT": "30"})
+            result = _run_drift_check(
+                sid, extra_env={"CLAUDE_TMUX_DRIFT_HEARTBEAT": "30"}
+            )
             assert result.returncode == 0
             assert result.stdout.strip() == ""
             assert _read_drift_counter(sid) == 28
@@ -1390,7 +1392,9 @@ class TestTmuxDriftCheckEmitsAtThreshold:
         sid = _drift_session_id("custom_interval")
         try:
             _write_drift_counter(sid, 4)  # will become 5, fires at interval=5
-            result = _run_drift_check(sid, extra_env={"CLAUDE_TMUX_DRIFT_HEARTBEAT": "5"})
+            result = _run_drift_check(
+                sid, extra_env={"CLAUDE_TMUX_DRIFT_HEARTBEAT": "5"}
+            )
             assert result.returncode == 0
             assert result.stdout.strip() != ""
         finally:
@@ -1465,7 +1469,9 @@ class TestTmuxDriftCheckHeartbeatConfig:
         sid = _drift_session_id("zero_interval")
         try:
             _write_drift_counter(sid, 29)  # fires at 30 (default), not 0
-            result = _run_drift_check(sid, extra_env={"CLAUDE_TMUX_DRIFT_HEARTBEAT": "0"})
+            result = _run_drift_check(
+                sid, extra_env={"CLAUDE_TMUX_DRIFT_HEARTBEAT": "0"}
+            )
             assert result.returncode == 0
             # Should be silent — counter 30 < default 30 hasn't fired yet (30 >= 30 fires)
             # Actually 29+1=30 >= 30, so it fires. Confirm counter reset to 0.
@@ -1477,7 +1483,9 @@ class TestTmuxDriftCheckHeartbeatConfig:
         sid = _drift_session_id("invalid_interval")
         try:
             _write_drift_counter(sid, 5)
-            result = _run_drift_check(sid, extra_env={"CLAUDE_TMUX_DRIFT_HEARTBEAT": "abc"})
+            result = _run_drift_check(
+                sid, extra_env={"CLAUDE_TMUX_DRIFT_HEARTBEAT": "abc"}
+            )
             assert result.returncode == 0
             assert result.stdout.strip() == ""  # 6 < 30 default
         finally:
