@@ -1306,22 +1306,25 @@ def _run_drift_check(
     env["TMUX"] = "/tmp/tmux-stub,1,0"
     if tmux_stub_dir:
         env["PATH"] = str(tmux_stub_dir) + ":" + env.get("PATH", "")
+        stub_ctx = None
     else:
-        # Default: create a temp stub inline
-        import tempfile as _tempfile
-
-        _td = Path(_tempfile.mkdtemp())
+        stub_ctx = tempfile.TemporaryDirectory()
+        _td = Path(stub_ctx.name)
         _make_tmux_stub(_td, session_name)
         env["PATH"] = str(_td) + ":" + env.get("PATH", "")
     if extra_env:
         env.update(extra_env)
-    return subprocess.run(
-        [str(DRIFT_CHECK_HOOK)],
-        input=json.dumps({"session_id": session_id}),
-        capture_output=True,
-        text=True,
-        env=env,
-    )
+    try:
+        return subprocess.run(
+            [str(DRIFT_CHECK_HOOK)],
+            input=json.dumps({"session_id": session_id}),
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+    finally:
+        if stub_ctx is not None:
+            stub_ctx.cleanup()
 
 
 class TestTmuxDriftCheckSilentBelowInterval:
@@ -1466,15 +1469,20 @@ class TestTmuxDriftCheckHeartbeatConfig:
     """Heartbeat interval env var edge cases."""
 
     def test_zero_interval_falls_back_to_default(self):
+        # CLAUDE_TMUX_DRIFT_HEARTBEAT=0 is rejected; the hook falls back to 30.
+        # With counter at 29, the next call brings it to 30 (>= 30), so the hook fires.
         sid = _drift_session_id("zero_interval")
         try:
-            _write_drift_counter(sid, 29)  # fires at 30 (default), not 0
+            _write_drift_counter(sid, 29)
             result = _run_drift_check(
-                sid, extra_env={"CLAUDE_TMUX_DRIFT_HEARTBEAT": "0"}
+                sid,
+                session_name="zero-fallback-session",
+                extra_env={"CLAUDE_TMUX_DRIFT_HEARTBEAT": "0"},
             )
             assert result.returncode == 0
-            # Should be silent — counter 30 < default 30 hasn't fired yet (30 >= 30 fires)
-            # Actually 29+1=30 >= 30, so it fires. Confirm counter reset to 0.
+            output = json.loads(result.stdout)
+            context = output["hookSpecificOutput"]["additionalContext"]
+            assert "zero-fallback-session" in context
             assert _read_drift_counter(sid) == 0
         finally:
             _cleanup_drift(sid)
