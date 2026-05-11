@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 # List PR review threads with summary
-# Usage: gh-pr-threads [--json] [--all] [pr-number]
-#   --json  Emit raw thread nodes as a JSON array (skip human-readable formatting)
-#   --all   Include resolved threads (default: unresolved only)
+# Usage: gh-pr-threads [--json] [--all] [-R OWNER/REPO] [pr-number]
 # If no PR number given, auto-detects from current branch
 
 set -euo pipefail
@@ -11,19 +9,21 @@ set -euo pipefail
 output_json=false
 show_all=false
 pr_number=""
+repo_flag=""
 
-for arg in "$@"; do
-  case "$arg" in
+while [[ $# -gt 0 ]]; do
+  case "$1" in
     -h | --help)
       cat << 'EOF'
-Usage: gh-pr-threads [--json] [--all] [pr-number]
+Usage: gh-pr-threads [--json] [--all] [-R OWNER/REPO] [pr-number]
 
 List PR review threads with summary.
 
 Options:
-  --json   Emit raw thread nodes as a JSON array (skip human-readable formatting)
-  --all    Include resolved threads (default: unresolved only)
-  -h, --help  Show this help message and exit
+  -R, --repo OWNER/REPO  Target a specific repository (default: current repo)
+  --json                 Emit raw thread nodes as a JSON array (skip human-readable formatting)
+  --all                  Include resolved threads (default: unresolved only)
+  -h, --help             Show this help message and exit
 
 If no PR number given, auto-detects from current branch.
 
@@ -33,22 +33,43 @@ Examples:
   gh-pr-threads --all 42         # all threads (including resolved) on PR #42
   gh-pr-threads --json 42        # raw JSON output for scripting
   gh-pr-threads 42 --json --all  # combine flags in any order
+  gh-pr-threads 134 -R NodeJSmith/otf-api
 EOF
       exit 0
       ;;
     --json) output_json=true ;;
     --all) show_all=true ;;
-    *) pr_number="$arg" ;;
+    --repo | -R)
+      if [[ $# -lt 2 ]]; then
+        echo "error: $1 requires a value (OWNER/REPO)" >&2
+        exit 1
+      fi
+      repo_flag="$2"
+      shift
+      ;;
+    --repo=* | -R=*) repo_flag="${1#*=}" ;;
+    *) pr_number="$1" ;;
   esac
+  shift
 done
+
+if [[ -n "$repo_flag" ]]; then
+  if [[ "$repo_flag" != */* ]]; then
+    echo "error: --repo value must be OWNER/REPO (got: $repo_flag)" >&2
+    exit 1
+  fi
+  export GH_REPO="$repo_flag"
+  repo_owner="${repo_flag%%/*}"
+  repo_name="${repo_flag#*/}"
+else
+  nwo=$(gh repo view --json nameWithOwner -q '.nameWithOwner')
+  repo_owner="${nwo%%/*}"
+  repo_name="${nwo#*/}"
+fi
 
 if [[ -z "$pr_number" ]]; then
   pr_number=$(gh pr view --json number -q '.number')
 fi
-
-nwo=$(gh repo view --json nameWithOwner -q '.nameWithOwner')
-repo_owner="${nwo%%/*}"
-repo_name="${nwo#*/}"
 
 # --- GraphQL query (parameterized for pagination) ---
 build_query() {
