@@ -37,6 +37,7 @@ Test the behavior that produces the log, not the log output itself.
 
 ### Test Co-location
 Code and its unit tests ship in the same commit. Integration tests may follow; unit tests may not be deferred.
+**Exemptions:** generated code, type definitions, config files, constants, `__init__.py`, docs-only changes, migrations with no business logic.
 **Defined in:** `testing.md`
 
 ### File Size Limits

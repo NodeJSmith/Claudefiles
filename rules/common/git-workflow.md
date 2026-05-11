@@ -42,6 +42,8 @@ A green code review does not mean challenge is unnecessary. A green test suite i
 
 ## Local Verification Before Commit
 
+<!-- See also: verification.md covers all completion claims, not just pre-commit. -->
+
 Run tests + linter/type checker after code review passes. Fix failures before committing.
 
 **Test discovery:** Follow the order in `testing.md`.
