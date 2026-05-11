@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-05-10
 
 ### Added
-- `gh-pr-threads` `--repo`/`-R` flag — target any repository without being inside it
+- `gh-pr-threads` `--repo`/`-R` flag — target any repository without being inside it (#290)
 
 ## 2026-05-08
 
