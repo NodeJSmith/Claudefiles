@@ -1,6 +1,6 @@
 # Verification Before Completion (CRITICAL)
 
-Never claim work is done without evidence from actual command output. "Should work" is not verification.
+Never claim work is done without concrete evidence. "Should work" is not verification.
 
 ## Evidence Requirements
 
@@ -13,7 +13,7 @@ Never claim work is done without evidence from actual command output. "Should wo
 | "Type checker passes" | Type checker output with no errors |
 | "Feature works" | Demonstrated via test, script, or browser screenshot |
 
-Run the command, read the output, confirm it matches the claim. If the output is ambiguous, dig deeper — don't round up.
+Run the verification, read the output, confirm it matches the claim. If the evidence is ambiguous, dig deeper — don't round up.
 
 ## Red-Flag Language
 

@@ -2,11 +2,9 @@
 
 Named invariants that must hold across all code written in this setup. These are defined in their respective rule files — this file promotes them to a proactive checklist.
 
-## Pre-Coding Check
+## When to Check
 
-Before writing implementation code, scan this list against the approach you're about to take. Catch violations before they're written, not in review.
-
-This is not a gate that requires explicit confirmation — just a mental pass. If the planned approach would violate an invariant, stop and adjust before writing code.
+Scan this list at two points: **before writing code** (catch structural violations before they're written) and **before claiming completion** (catch process violations before they're committed). Not a gate requiring explicit confirmation — just a mental pass at each point.
 
 ## Invariant Library
 
