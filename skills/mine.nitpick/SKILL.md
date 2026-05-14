@@ -84,7 +84,21 @@ AskUserQuestion:
       description: "I'll specify a smaller directory or file list"
 ```
 
-If the user chooses **Narrow scope**: ask "What paths should I review instead?" — then restart Step 2b with the new scope.
+If the user chooses **Narrow scope**:
+
+```
+AskUserQuestion:
+  question: "What paths should I review instead?"
+  header: "New scope"
+  multiSelect: false
+  options:
+    - label: "Suggest a scope"
+      description: "Analyze the project structure and suggest a smaller directory"
+    - label: "Cancel review"
+      description: "Stop without reviewing"
+```
+
+The user types paths via Other (always available). If they choose "Suggest a scope": analyze the project structure, present suggested paths for confirmation, then restart Step 2b with the confirmed scope.
 
 ## Phase 2: Dispatch The Nitpicker
 
@@ -114,7 +128,25 @@ AskUserQuestion:
 
 If the user chooses **Fix them all**: work top to bottom through every finding. Make edits directly — do not ask for confirmation on individual findings. After all fixes, run `/mine.review` before committing.
 
-If the user chooses **Fix one category**: present the non-zero categories from the Summary table as a numbered list (up to 10 categories exceed AskUserQuestion's 4-option limit, so use a numbered list and ask the user to pick by number). Fix every finding in the chosen category. Then:
+If the user chooses **Fix one category**: present the non-zero categories from the Summary table via AskUserQuestion. If 4 or fewer categories have findings, show them all as options. If more than 4, show the first 3 as options with a 4th "Show more categories" option — repeat until the user picks one.
+
+```
+AskUserQuestion:
+  question: "Which category do you want to fix?"
+  header: "Category"
+  multiSelect: false
+  options:
+    - label: "{category 1}"
+      description: "{count} findings"
+    - label: "{category 2}"
+      description: "{count} findings"
+    - label: "{category 3}"
+      description: "{count} findings"
+    - label: "Show more categories"
+      description: "See the remaining {N} categories"
+```
+
+Fix every finding in the chosen category. Then:
 
 ```
 AskUserQuestion:
@@ -128,7 +160,7 @@ AskUserQuestion:
       description: "Stop fixing — move on"
 ```
 
-If they pick another, show remaining non-zero categories and repeat. If no categories remain, congratulate the user and stop. If done, stop.
+If they pick another, present the remaining non-zero categories using the same AskUserQuestion category picker (paginated with the same 3+1 rule if more than 4 remain). If no categories remain, congratulate the user and stop. If done, stop.
 
 ## What This Skill Does NOT Do
 
