@@ -9,21 +9,21 @@ import sqlite3
 from pathlib import Path
 
 import pytest
-
+from claude_memory.token_analytics import import_session
+from claude_memory.token_parser import (
+    JnlFile,
+    ParsedSession,
+    Turn,
+    _normalize_worktree_path,
+    _project_slug,
+    record_import,
+    should_skip_file,
+)
 from claude_memory.token_schema import (
     SCHEMA_SQL,
     SCHEMA_VERSION,
     ensure_schema,
 )
-from claude_memory.token_parser import (
-    JnlFile,
-    ParsedSession,
-    Turn,
-    record_import,
-    should_skip_file,
-)
-from claude_memory.token_analytics import import_session
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -393,8 +393,8 @@ class TestTableIsolation:
         ).fetchone()
         assert row is not None, "schema_version table must exist after ensure_schema"
 
-    def test_schema_version_is_4(self, token_db):
-        """schema_version must be SCHEMA_VERSION (4) after a fresh ensure_schema."""
+    def test_schema_version_matches_constant(self, token_db):
+        """schema_version must be SCHEMA_VERSION after a fresh ensure_schema."""
         version = token_db.execute("SELECT version FROM schema_version").fetchone()[0]
         assert version == SCHEMA_VERSION, (
             f"Expected schema version {SCHEMA_VERSION}, got {version}"
@@ -517,3 +517,131 @@ class TestV3ToV4Migration:
         version = conn.execute("SELECT version FROM schema_version").fetchone()[0]
         assert version == SCHEMA_VERSION
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Worktree path consolidation (issue #239)
+# ---------------------------------------------------------------------------
+
+
+class TestWorktreeConsolidation:
+    """Worktree sessions must be grouped under their parent repo, not as separate projects."""
+
+    def test_project_slug_normalizes_worktree_path(self):
+        """_project_slug must produce the same slug for worktree and parent repo paths."""
+        parent = "/home/jessica/source/hassette"
+        worktree = "/home/jessica/source/hassette/.claude/worktrees/65-66"
+        assert _project_slug(worktree) == _project_slug(parent)
+
+    def test_project_slug_preserves_non_worktree_paths(self):
+        """_project_slug must not alter paths that don't contain worktree segments."""
+        path = "/home/jessica/source/hassette"
+        assert _project_slug(path) == "source-hassette"
+
+    def test_project_slug_handles_deep_worktree_branch_names(self):
+        """Worktree branch names with slashes (e.g. feature/foo) must still normalize."""
+        parent = "/home/jessica/source/myapp"
+        worktree = "/home/jessica/source/myapp/.claude/worktrees/feature/fix-bug"
+        assert _project_slug(worktree) == _project_slug(parent)
+
+    def test_normalize_worktree_path_strips_suffix(self):
+        """_normalize_worktree_path must strip /.claude/worktrees/<branch>."""
+        assert (
+            _normalize_worktree_path(
+                "/home/jessica/source/hassette/.claude/worktrees/65-66"
+            )
+            == "/home/jessica/source/hassette"
+        )
+
+    def test_normalize_worktree_path_strips_decoded_form(self):
+        """_normalize_worktree_path must handle decoded paths where dot is lost (//claude/worktrees/)."""
+        assert (
+            _normalize_worktree_path(
+                "/home/jessica/source/hassette//claude/worktrees/new/ui"
+            )
+            == "/home/jessica/source/hassette"
+        )
+
+    def test_normalize_worktree_path_preserves_normal_paths(self):
+        """_normalize_worktree_path must not alter paths without worktree segments."""
+        path = "/home/jessica/source/hassette"
+        assert _normalize_worktree_path(path) == path
+
+    def test_import_stores_normalized_project_path(self, token_db, tmp_path):
+        """parse_session normalizes worktree paths; import_session stores the parent repo path."""
+        worktree_path = "/home/jessica/source/hassette/.claude/worktrees/65-66"
+        normalized = _normalize_worktree_path(worktree_path)
+
+        jnl = JnlFile(
+            path=tmp_path / "wt-session.jsonl",
+            project_cwd=worktree_path,
+            is_sidechain=False,
+            parent_session_id=None,
+        )
+        (tmp_path / "wt-session.jsonl").write_text("")
+
+        session = ParsedSession(session_id="sess-wt", project_path=normalized)
+        session.turns = [_make_turn(1)]
+
+        import_session(token_db, session, jnl)
+        token_db.commit()
+
+        stored_path = token_db.execute(
+            "SELECT project_path FROM session_metrics WHERE session_id = 'sess-wt'"
+        ).fetchone()[0]
+        assert stored_path == "/home/jessica/source/hassette", (
+            f"Expected parent repo path, got worktree path: {stored_path}"
+        )
+
+    def test_migration_normalizes_existing_worktree_paths(self):
+        """ensure_schema must normalize worktree paths in both session_metrics and token_snapshots."""
+        conn = sqlite3.connect(":memory:")
+        # First call creates all tables including token_snapshots
+        ensure_schema(conn)
+
+        # Insert sessions with both path forms
+        conn.execute(
+            "INSERT INTO session_metrics (session_id, project_path) VALUES (?, ?)",
+            ("sess-wt1", "/home/jessica/source/hassette/.claude/worktrees/65-66"),
+        )
+        conn.execute(
+            "INSERT INTO session_metrics (session_id, project_path) VALUES (?, ?)",
+            ("sess-wt2", "/home/jessica/source/hassette//claude/worktrees/new/ui"),
+        )
+        conn.execute(
+            "INSERT INTO session_metrics (session_id, project_path) VALUES (?, ?)",
+            ("sess-parent", "/home/jessica/source/hassette"),
+        )
+        conn.execute(
+            "INSERT INTO token_snapshots (session_uuid, project_path) VALUES (?, ?)",
+            ("snap-wt1", "/home/jessica/source/hassette//claude/worktrees/new/ui"),
+        )
+        conn.commit()
+
+        # Second call runs the migration on existing data
+        ensure_schema(conn)
+
+        wt1_path = conn.execute(
+            "SELECT project_path FROM session_metrics WHERE session_id = 'sess-wt1'"
+        ).fetchone()[0]
+        wt2_path = conn.execute(
+            "SELECT project_path FROM session_metrics WHERE session_id = 'sess-wt2'"
+        ).fetchone()[0]
+        parent_path = conn.execute(
+            "SELECT project_path FROM session_metrics WHERE session_id = 'sess-parent'"
+        ).fetchone()[0]
+        snap_path = conn.execute(
+            "SELECT project_path FROM token_snapshots WHERE session_uuid = 'snap-wt1'"
+        ).fetchone()[0]
+        assert wt1_path == "/home/jessica/source/hassette", (
+            f"Migration must normalize .claude/worktrees path, got: {wt1_path}"
+        )
+        assert wt2_path == "/home/jessica/source/hassette", (
+            f"Migration must normalize //claude/worktrees path, got: {wt2_path}"
+        )
+        assert parent_path == "/home/jessica/source/hassette", (
+            f"Migration must not alter non-worktree paths, got: {parent_path}"
+        )
+        assert snap_path == "/home/jessica/source/hassette", (
+            f"Migration must normalize token_snapshots paths, got: {snap_path}"
+        )
