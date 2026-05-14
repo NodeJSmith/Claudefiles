@@ -21,7 +21,7 @@ When $ARGUMENTS resolves to existing files or directories that have no uncommitt
 
 ## How to Analyze Code
 
-**Read the code and reason about it directly.** Use Read, Grep, Glob, and Bash to examine files. Do NOT write or execute analysis scripts — no AST parsers, no custom linters, no sed pipelines. Allowed Bash commands for analysis: `git` (diff, log, etc.) and repo helper CLIs (`git-branch-base`, `git-default-branch`). Standard shell commands (`test`, `find`, `wc`) are fine for scope detection in Phase 1.
+**Read the code and reason about it directly.** Use Read, Grep, Glob, and Bash to examine files. Do NOT write or execute analysis scripts — no AST parsers, no custom linters, no sed pipelines. Allowed Bash commands for analysis: `git` (diff, log, etc.) and repo helper CLIs (`git-branch-base`, `git-default-branch`). Standard shell commands (`test`, `find`, `wc`) are fine for scope detection in Phase 1 only; the subagent's allowed-command list in REFERENCE.md is narrower by design (no Phase 1 shell commands).
 
 ## Phase 1: Determine Scope
 
@@ -31,7 +31,8 @@ If $ARGUMENTS is non-empty, check whether the arguments resolve to existing path
 
 - **All paths exist** → determine if those paths have changes (committed, staged, or unstaged). Run `git-branch-base`. Check for changes using: `git diff --name-only <base>...HEAD -- <paths>` (committed branch changes), `git diff --name-only -- <paths>` (unstaged), and `git diff --name-only --cached -- <paths>` (staged). If no base, use only the unstaged + staged checks. If any check produces files, use **diff mode** scoped to those paths. If all empty, use **path mode**.
 - **Some paths exist, some do not** → warn the user about the missing paths, then proceed with the paths that do exist using the logic above.
-- **No paths exist** (or $ARGUMENTS is empty) → use **diff mode** on the full branch.
+- **No paths exist but $ARGUMENTS was non-empty** → warn the user that none of the specified paths were found (likely a typo) and stop. Do not silently fall through to a full branch review.
+- **$ARGUMENTS is empty** → use **diff mode** on the full branch.
 
 ### Step 2a: Diff mode
 
@@ -48,8 +49,6 @@ Choose the diff based on the result:
 If $ARGUMENTS specifies files or directories, append `-- <paths>` to each diff command.
 
 If there are no changes from any source, inform the user and stop.
-
-Read each **changed file in full** — not just the diff hunks. Style sins appear outside the changed lines too.
 
 ### Step 2b: Path mode
 
@@ -69,7 +68,9 @@ find <paths> -type f \
   \( -name '*.py' -o -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' -o -name '*.css' -o -name '*.scss' -o -name '*.html' -o -name '*.go' -o -name '*.rs' -o -name '*.java' -o -name '*.rb' \)
 ```
 
-Adapt extensions and exclusions to the project's language and build tooling. If the file count exceeds 200:
+Adapt extensions and exclusions to the project's language and build tooling. If the file list is empty after filtering, inform the user that no reviewable source files were found in the target paths and stop.
+
+If the file count exceeds 200:
 
 ```
 AskUserQuestion:
@@ -83,6 +84,8 @@ AskUserQuestion:
       description: "I'll specify a smaller directory or file list"
 ```
 
+If the user chooses **Narrow scope**: ask "What paths should I review instead?" — then restart Step 2b with the new scope.
+
 ## Phase 2: Dispatch The Nitpicker
 
 Launch a single `general-purpose` agent (model: sonnet) with the nitpicker prompt from `${CLAUDE_HOME:-~/.claude}/skills/mine.nitpick/REFERENCE.md`. Read that file, substitute the `[DIFF MODE]`/`[PATH MODE]` scope section with the actual scope from Phase 1, and pass the result as the agent's prompt.
@@ -91,7 +94,9 @@ Launch a single `general-purpose` agent (model: sonnet) with the nitpicker promp
 
 Present the nitpicker's full output to the user without filtering or editorializing.
 
-Then offer:
+If the Summary table shows **Total: 0**, congratulate the user on a clean result and stop — do not offer fix options.
+
+Otherwise, offer:
 
 ```
 AskUserQuestion:
@@ -109,7 +114,7 @@ AskUserQuestion:
 
 If the user chooses **Fix them all**: work top to bottom through every finding. Make edits directly — do not ask for confirmation on individual findings. After all fixes, run `/mine.review` before committing.
 
-If the user chooses **Fix one category**: present the category list from the Summary table and ask which one to fix. Fix every finding in that category. Then:
+If the user chooses **Fix one category**: present the non-zero categories from the Summary table as a numbered list (up to 10 categories exceed AskUserQuestion's 4-option limit, so use a numbered list and ask the user to pick by number). Fix every finding in the chosen category. Then:
 
 ```
 AskUserQuestion:
@@ -123,7 +128,7 @@ AskUserQuestion:
       description: "Stop fixing — move on"
 ```
 
-If they pick another, show remaining categories and repeat. If done, stop.
+If they pick another, show remaining non-zero categories and repeat. If no categories remain, congratulate the user and stop. If done, stop.
 
 ## What This Skill Does NOT Do
 
