@@ -8,6 +8,8 @@ import sqlite3
 import sys
 from pathlib import Path
 
+from claude_memory.token_parser import _WORKTREE_MARKERS
+
 SCHEMA_VERSION = 4
 
 SCHEMA_SQL = """
@@ -182,6 +184,16 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             )
         else:
             conn.execute("UPDATE schema_version SET version = ?", (SCHEMA_VERSION,))
+    # Normalize worktree paths → parent repo (idempotent, no version bump needed).
+    # Markers kept in sync with _WORKTREE_MARKERS from token_parser.
+    for marker in _WORKTREE_MARKERS:
+        for table in ("session_metrics", "token_snapshots"):
+            conn.execute(
+                f"UPDATE {table}"
+                f" SET project_path = SUBSTR(project_path, 1, INSTR(project_path, ?) - 1)"
+                f" WHERE project_path LIKE ?",
+                (marker, f"%{marker}%"),
+            )
     conn.commit()
 
 
