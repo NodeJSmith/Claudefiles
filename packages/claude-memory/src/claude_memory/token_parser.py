@@ -604,7 +604,7 @@ def _normalize_worktree_path(path: str) -> str:
     leading dot from .claude.
     """
     for marker in _WORKTREE_MARKERS:
-        idx = path.rfind(marker)
+        idx = path.find(marker)
         if idx != -1:
             return path[:idx]
     return path
