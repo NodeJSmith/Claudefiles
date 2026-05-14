@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-05-14
+
+### Added
+- `mine.nitpick` skill — hyper-critical style and hygiene reviewer: flags magic numbers, scattered constants, nested ternaries, messy CSS, dead code, and naming inconsistencies with no severity filter
+
 ## 2026-05-10
 
 ### Added

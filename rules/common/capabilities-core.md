@@ -45,6 +45,7 @@
 | "create a skill", "write a skill", "new skill" | `/mine.write-skill` |
 | "rebase this worktree", "sync worktree to parent branch" | `/mine.worktree-rebase` |
 | "sniff test this", "WTF check", "code smells", "is this code any good", "fresh eyes on this branch", "review this directory", "check this module" | `/mine.wtf` |
+| "nitpick this", "style check", "code hygiene", "find style sins", "nitpicker review", "anal retentive review", "exhaustive style review", "no-filter style report" | `/mine.nitpick` |
 
 ## CLI Tools
 
