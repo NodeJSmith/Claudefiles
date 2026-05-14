@@ -29,6 +29,10 @@ All imports at the top of the file. Only exception: `TYPE_CHECKING` guards for c
 Mock external APIs, databases, time, filesystem. Use real instances for internal collaborators. Prefer dependency injection.
 **Defined in:** `testing.md`
 
+### Dependencies as Parameters
+Functions and classes receive collaborators as parameters, not create them inline. If testing requires `mock.patch` more than one level deep, restructure the code.
+**Defined in:** `dependency-injection.md`
+
 ### No Log Capture Tests
 Test the behavior that produces the log, not the log output itself.
 **Defined in:** `testing.md`
