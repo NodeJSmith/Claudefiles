@@ -64,6 +64,7 @@ All four directories symlink into `~/.claude/skills/` at install time — the ru
 | `mine.grill` | Multi-angle interrogation of a raw idea — product, design, engineering, scope, and adversarial lenses. Produces a brief.md that feeds into /mine.define |
 | `mine.mockup` | Generate self-contained HTML mockup files — reads `design/context.md` for consistent styling, delivers to a session temp directory |
 | `mine.mutation-test` | Mutation testing -- intentionally break code to verify tests catch real bugs |
+| `mine.nitpick` | Hyper-critical style and hygiene review — flags magic numbers, scattered constants, nested ternaries, messy CSS, dead code, and naming inconsistencies with no severity filter |
 | `mine.orchestrate` | Execute task files one-by-one with parallel spec/code/integration reviewer pass; post-execution implementation review |
 | `mine.plan` | Design doc → task files (T01, T02, …) with FR/AC traceability, validation gate, and 10-point traceability review + approve/revise/abandon gate |
 | `mine.prior-art` | Survey how others solve a problem — web-first research for mid-design architectural questions |

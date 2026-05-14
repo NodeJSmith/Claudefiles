@@ -252,3 +252,4 @@ If the user chooses to fix: work through findings top-down by severity. For each
 - **Replace pre-commit review** — `/mine.review` runs code-reviewer + integration-reviewer on every commit. This skill is for on-demand comprehensive checks.
 - **Deep codebase audit** — `mine.audit` does directory-by-directory structural analysis with churn data and coverage metrics. This skill is a focused sniff test on a branch diff or a set of files.
 - **Fix anything automatically** — it diagnoses, then asks what to fix.
+- **Exhaustive style-only sweep with no severity filter** — use `/mine.nitpick` for a zero-mercy report on magic numbers, scattered constants, messy CSS, naming inconsistencies, and dead code where nothing is too small to flag.
