@@ -285,7 +285,9 @@ def _extract_usage(msg: dict) -> dict:
 
 
 def parse_session(filepath: Path, jnl: JnlFile) -> ParsedSession | None:
-    session = ParsedSession(session_id="", project_path=jnl.project_cwd)
+    session = ParsedSession(
+        session_id="", project_path=_normalize_worktree_path(jnl.project_cwd)
+    )
 
     current_turn: Turn | None = None
     turn_index = 0
@@ -591,6 +593,23 @@ def compute_session_analytics(session: ParsedSession) -> dict:
 # ── Helpers ───────────────────────────────────────────────────────────
 
 
+_WORKTREE_MARKERS = ("/.claude/worktrees/", "//claude/worktrees/")
+
+
+def _normalize_worktree_path(path: str) -> str:
+    """Strip worktree suffix so worktree sessions map to their parent repo.
+
+    Handles both the real filesystem path (/.claude/worktrees/) and the
+    decoded form (//claude/worktrees/) where _decode_project_cwd loses the
+    leading dot from .claude.
+    """
+    for marker in _WORKTREE_MARKERS:
+        idx = path.find(marker)
+        if idx != -1:
+            return path[:idx]
+    return path
+
+
 def _project_slug(path: str | None) -> str:
     """Build a short but unique project label from the full path.
 
@@ -600,6 +619,7 @@ def _project_slug(path: str | None) -> str:
     """
     if not path:
         return "unknown"
+    path = _normalize_worktree_path(path)
     path = path.rstrip("/")
     parts = path.split("/")
     # Drop common path prefixes to find the meaningful suffix

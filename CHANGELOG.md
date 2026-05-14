@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-05-14
+
+### Fixed
+- Token analytics now consolidates worktree sessions under their parent repo — `worktrees-new-ui`, `worktrees-ui-rebuild`, etc. roll into `source-hassette` for accurate per-repo cost tracking (#293)
+
 ## 2026-05-10
 
 ### Added
