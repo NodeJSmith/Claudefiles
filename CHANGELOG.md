@@ -6,7 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Added
 - `mine.nitpick` skill — hyper-critical style and hygiene reviewer: flags magic numbers, scattered constants, nested ternaries, messy CSS, dead code, and naming inconsistencies with no severity filter (#292)
-
+- `dependency-injection.md` rule — prefer DI over inline construction, `mock.patch` depth as a code smell, `None` sentinel defaults, refactoring checklist (#294)
 ### Fixed
 - Token analytics now consolidates worktree sessions under their parent repo — `worktrees-new-ui`, `worktrees-ui-rebuild`, etc. roll into `source-hassette` for accurate per-repo cost tracking (#293)
 ## 2026-05-10
