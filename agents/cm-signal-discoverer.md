@@ -7,7 +7,6 @@ description: >
   preferences. Not for persisting memories — use extract-learnings for that.
 model: inherit
 color: cyan
-memory: project
 effort: medium
 tools:
   - Read
@@ -146,14 +145,3 @@ aggressively. The user can always ask for more if the initial set seems thin.
 - Project name cannot be inferred from cwd (no git root, no recognizable project name):
   ask the caller to supply the project name before running the recall script.
 
-## Agent Memory
-
-Your agent memory tracks signal-discovery coverage: which sessions have been analyzed,
-which candidates were surfaced, and which were accepted or rejected by the caller.
-
-After each run, update your own agent memory (provided by the memory system) with:
-- Session range scanned (e.g., "Scanned 10 sessions: 2026-04-01 to 2026-04-07")
-- Candidate count by category (UPDATE: N, CONTRADICT: N, FILL_GAP: N, NOISE: N)
-
-This is your internal tracking only. Do NOT write to the project's memory directory —
-that is the orchestrator's responsibility after user approval.
