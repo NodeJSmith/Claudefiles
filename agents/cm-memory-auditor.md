@@ -50,9 +50,9 @@ approval and all file writes.
 
 5. Check for completed work. Project-type memories that describe in-progress work,
    active incidents, or ongoing initiatives should be checked against git history and
-   current code. If the work is done (merged, shipped, closed), flag as REMOVE — do NOT
-   update the memory to say "completed" or "resolved". A memory about finished work has
-   zero future utility; it just adds index noise. The git history preserves the record.
+   current code. If the work is done (merged, shipped, closed), flag as COMPLETED with
+   suggested action REMOVE. Do NOT update the memory to say "completed" or "resolved".
+   A memory about finished work has zero future utility; git history preserves the record.
 
 6. Check for code-redundant entries. For each memory that states a specific value,
    configuration, constant, version, or count — check whether the source file containing

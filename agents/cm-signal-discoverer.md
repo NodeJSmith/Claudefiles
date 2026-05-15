@@ -12,7 +12,6 @@ tools:
   - Read
   - Glob
   - Bash(cm-recent-chats:*)
-  - Bash(ls:*)
   - Bash(git:*)
   - Bash(find:*)
 maxTurns: 35
@@ -35,7 +34,7 @@ project name. If the project name is missing, infer it from the current working 
 1. Run the recall script directly — it's an installed entry point:
    `cm-recent-chats --n 10 --project <project-name> --verbose`
 
-3. Analyze each session for high-signal content. Look specifically for:
+2. Analyze each session for high-signal content. Look specifically for:
    - User corrections ("no, not that", "don't do X", "stop doing Y") — these indicate
      behavioral preferences the agent should internalize
    - Architectural decisions with rationale ("we chose X because Y") — these prevent
@@ -47,7 +46,7 @@ project name. If the project name is missing, infer it from the current working 
    - Configuration discoveries — settings, flags, or workarounds found through trial and
      error that aren't documented elsewhere
 
-4. For each finding, generalize to a principle. This is the critical step. Do not record
+3. For each finding, generalize to a principle. This is the critical step. Do not record
    incidents — record the principle behind them.
 
    Incident (bad): "In the March 15 session, we spent 30 minutes debugging why the hook
@@ -56,7 +55,7 @@ project name. If the project name is missing, infer it from the current working 
    Principle (good): "Strip CLAUDECODE env var before spawning claude -p subprocesses —
    the nesting guard only matters for interactive sessions, not programmatic invocations."
 
-5. Classify each finding:
+4. Classify each finding:
    - UPDATE: modifies something already in existing memories (something changed)
    - CONTRADICT: conflicts with an existing memory (something was wrong)
    - FILL_GAP: important knowledge with no existing entry

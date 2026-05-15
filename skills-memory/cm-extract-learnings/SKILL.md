@@ -34,7 +34,7 @@ Steps 2-4 are required and run as parallel tool calls.
 
 Launch both agent calls in a single message so they run in parallel. Use the Agent tool with:
 
-- **Memory Auditor**: `subagent_type: "cm-memory-auditor"`. In the `prompt`, include the context snapshot from Phase 1 — memory file contents, git log output, and verification targets list.
+- **Memory Auditor**: `subagent_type: "cm-memory-auditor"`. In the `prompt`, include the context snapshot from Phase 1 — memory file contents, git log output, and verification targets list. Remind: "Report findings only — do not write any files."
 
 - **Signal Discoverer**: `subagent_type: "cm-signal-discoverer"`. In the `prompt`, include existing memory summaries (for dedup) and the project name. Remind: "Report findings only — do not write any files."
 
@@ -48,7 +48,7 @@ Phase 2 is complete when both agents return reports. If either returns empty or 
 
 1. Receive agent reports
 2. Deduplicate across reports and against existing memories
-3. Rank by impact, limit to 3-7 candidates
+3. Rank by impact, limit to 3-5 candidates
 4. For each candidate: determine target layer, target section, action (ADD / EDIT / REMOVE)
 5. Read target files, check for duplicates
 6. Present proposals:
