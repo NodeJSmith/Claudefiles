@@ -18,9 +18,9 @@ Does the task order respect dependencies? Could any task fail because a prerequi
 Look for: tasks that reference files not yet created by earlier tasks; tasks that implement against interfaces defined in a task with a higher ID; `depends_on` fields that are empty when they should name a prerequisite task.
 
 ### 4. Context file completeness
-Does `context.md` have all five required sections, each with non-empty content?
-Required sections: `## Problem & Motivation`, `## Visual Artifacts`, `## Key Decisions`, `## Constraints & Anti-Patterns`, `## Design Doc References`.
-Look for: missing section headings; sections that contain only a placeholder or the heading itself; Key Decisions that don't match the design doc's Architecture section.
+Does `context.md` have all five required sections, each with non-empty content? If a `## Convention Examples` section is present, does it contain real code snippets or "None"?
+Required sections: `## Problem & Motivation`, `## Visual Artifacts`, `## Key Decisions`, `## Constraints & Anti-Patterns`, `## Design Doc References`. Optional: `## Convention Examples`.
+Look for: missing section headings; sections that contain only a placeholder or the heading itself; Key Decisions that don't match the design doc's Architecture section; Convention Examples that don't match the design doc's Convention Examples section.
 
 ### 5. Verify section quality
 Are Verify criteria concrete and binary? Can each item be verified without reading the code?

@@ -59,9 +59,27 @@ Before asking the user questions, silently explore the codebase for context rele
 
 **Principle: If a question can be answered by exploring the codebase, explore the codebase instead of asking the user.**
 
+### Code example extraction
+
+While exploring, collect **3-5 concrete code snippets** that represent the codebase's conventions for the kind of work this feature involves. These are real code from the repo — not prose descriptions of patterns.
+
+**What to extract:**
+- A function or class that follows the naming/structure conventions the new code should match
+- An existing test that demonstrates the project's testing patterns (setup, assertions, fixtures)
+- An error handling or validation pattern representative of how this codebase does it
+- An API endpoint, CLI command, or UI component similar to what's being built (if applicable)
+
+**Selection criteria (quality > quantity):**
+- Choose diverse examples that each demonstrate a different convention (don't pick 3 similar functions)
+- Prefer examples close to where the new code will live (same module, same layer)
+- Keep each snippet short — the relevant function/class, not the entire file
+- If a convention has a common wrong way to do it in this codebase, note a DO/DON'T pair
+
+Hold these snippets internally — they'll be written to the `## Convention Examples` section of `design.md` in Phase 4.
+
 After exploring, present a brief summary to the user:
 
-> "I found [X, Y, Z] in the codebase that's relevant to this feature. I'll focus my questions on decisions the code can't answer. Correct me if I'm missing something."
+> "I found [X, Y, Z] in the codebase that's relevant to this feature. I also identified [N] code examples that demonstrate the conventions new code should follow. I'll focus my questions on decisions the code can't answer. Correct me if I'm missing something."
 
 ---
 
@@ -286,6 +304,18 @@ If the user corrects any row (e.g., "that validator is deprecated, don't reuse i
 
 Skip for trivial features (Phase 1.5 doesn't run for trivial, so no code findings to revisit).
 
+### Convention examples checkpoint (moderate+ only)
+
+After the code leverage table is confirmed, present the code examples collected in Phase 1.5 to the user:
+
+> "I've identified these convention examples for the design doc. They'll flow through to implementers via `context.md` during orchestration. Let me know if any should be swapped out."
+
+Then list each example briefly (pattern name, source file, 1-line description). The actual snippets will be written to the `## Convention Examples` section of `design.md` in Phase 4.
+
+If the user asks to change examples, note the changes. Don't re-confirm — proceed to Phase 3.
+
+If Phase 1.5 found no meaningful conventions to extract (e.g., greenfield project, no similar code exists), skip this step and note: "No convention examples to extract — the codebase has no similar patterns to reference."
+
 ---
 
 ## Phase 3: Investigate
@@ -420,6 +450,18 @@ Write the design doc to `<feature_dir>/design.md`:
 ## Architecture
 
 [The recommended approach with rationale. Reference specific files, patterns, and abstractions from the research brief. Include data model, interface contracts, and any relevant diagrams in prose form.]
+
+## Convention Examples
+
+[Code examples extracted from the codebase during Phase 1.5 reconnaissance. Each example demonstrates a convention that new code for this feature should follow. 3-5 examples, each showing a different convention. Include DO/DON'T pairs only when the wrong approach is non-obvious. Omit this section if Phase 1.5 found no meaningful conventions to extract (greenfield project, no similar code).]
+
+### [Pattern name — e.g., "Service function structure"]
+
+**Source:** `<file_path>`
+
+\`\`\`<language>
+<extracted code snippet — the relevant function/class/block, not the whole file>
+\`\`\`
 
 ## Alternatives Considered
 
