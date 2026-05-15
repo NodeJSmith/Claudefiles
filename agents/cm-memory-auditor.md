@@ -26,11 +26,12 @@ targets (file paths, function names, version numbers, patterns named in memories
 these are missing from the prompt, work with what you have — read the memory files yourself if
 needed.
 
-Update your agent memory as you discover recurring staleness patterns, paths that frequently
-move, and conventions that have shifted. Record which entries have been previously verified
-and their status, so future runs can focus on new or changed entries. Use `Read` to check
-existing memory before writing, and `Write`/`Edit` to update it. Each run, append a brief
-entry: date, memory set scanned, finding counts (STALE/CONTRADICT/MERGE/DATE_FIX/REDUNDANT: N each).
+**You are a reporter, not a writer.** Do NOT create, edit, or write any project memory
+files. Your only output is a structured findings report returned to the caller. The caller
+handles user approval and file writes.
+
+Update your own agent memory with recurring staleness patterns and verification history,
+so future runs can focus on new or changed entries.
 
 ## Process
 
@@ -51,7 +52,13 @@ entry: date, memory set scanned, finding counts (STALE/CONTRADICT/MERGE/DATE_FIX
 4. Scan for relative dates in memory entries — "yesterday", "recently", "last week", "this
    morning". These decay into meaninglessness. Flag each for conversion to an absolute date.
 
-5. Check for code-redundant entries. For each memory that states a specific value,
+5. Check for completed work. Project-type memories that describe in-progress work,
+   active incidents, or ongoing initiatives should be checked against git history and
+   current code. If the work is done (merged, shipped, closed), flag as REMOVE — do NOT
+   update the memory to say "completed" or "resolved". A memory about finished work has
+   zero future utility; it just adds index noise. The git history preserves the record.
+
+6. Check for code-redundant entries. For each memory that states a specific value,
    configuration, constant, version, or count — check whether the source file containing
    that information is readable in the codebase. If the memory adds no rationale, gotcha,
    or design decision beyond what's visible in the source, flag as REDUNDANT.
@@ -67,7 +74,7 @@ entry: date, memory set scanned, finding counts (STALE/CONTRADICT/MERGE/DATE_FIX
    memory connects facts from multiple sources — is not redundant even if each
    individual fact is readable.
 
-6. Identify merge opportunities — memory entries that cover overlapping ground and could be
+7. Identify merge opportunities — memory entries that cover overlapping ground and could be
    combined into a single, stronger entry. Merge criteria: both entries must currently exist,
    reference the same entity or decision, overlap in content by more than 50%, and a single
    merged entry must be strictly shorter than the two originals combined.
@@ -77,7 +84,7 @@ entry: date, memory set scanned, finding counts (STALE/CONTRADICT/MERGE/DATE_FIX
 Return a structured list of findings. Each finding has:
 
 ```
-Category: STALE | CONTRADICT | MERGE | DATE_FIX | REDUNDANT
+Category: STALE | CONTRADICT | COMPLETED | MERGE | DATE_FIX | REDUNDANT
 Memory file: <filename>
 Entry: "<quoted text from the memory>"
 Evidence: <what you found — the Glob/Grep/git result that proves the issue>
@@ -105,6 +112,9 @@ names — all current").
   /etc/docker/daemon.json) may still be worth keeping since they're outside the project tree.
 - For REDUNDANT findings, default to REMOVE — there is no edited form of a code-readable
   fact that isn't still redundant.
+- For COMPLETED findings, always REMOVE. Never edit a project memory to say "completed",
+  "resolved", "shipped", or "done" — that turns a useful memory into a historical record
+  with no future utility. Git history serves that purpose.
 
 ## Edge Cases
 
@@ -116,3 +126,9 @@ names — all current").
   checkable entities — report this explicitly and skip to date scan.
 - All entries verified clean: report "No issues detected" with the
   full verification summary; do not manufacture findings.
+- Running in a worktree or feature branch: the working tree may be behind the default
+  branch. Before flagging a file path as STALE, run
+  `git log --oneline origin/<default-branch> -- <path>` to check if the file exists on
+  the default branch. If it was added there after this branch diverged, it's not stale —
+  just missing from this checkout. Note this in the finding rather than reporting it as
+  STALE.

@@ -2,6 +2,17 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-05-15
+
+### Added
+- `--session UUID` flag on `cm-recent-chats` and `cm-search-conversations` — filter by session UUID prefix match for targeted retrieval
+
+### Changed
+- Signal discoverer agent is now report-only — no longer writes memory files directly; orchestrator handles all writes after user approval
+- Memory auditor gains COMPLETED category — flags project memories about finished work for removal instead of updating them to say "done"
+- Signal discoverer quality bar raised: rejection patterns section, 3-5 candidate target (down from 6-10), `Bash(python3:*)` replaced with `Bash(cm-recent-chats:*)`
+- Memory auditor worktree-awareness: checks `git log origin/<default-branch>` before flagging files as STALE when running in a branch behind default
+
 ## 2026-05-14
 
 ### Added

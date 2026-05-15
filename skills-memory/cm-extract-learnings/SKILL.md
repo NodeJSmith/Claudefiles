@@ -36,7 +36,7 @@ Launch both agent calls in a single message so they run in parallel. Use the Age
 
 - **Memory Auditor**: `subagent_type: "cm-memory-auditor"`. In the `prompt`, include the context snapshot from Phase 1 — memory file contents, git log output, and verification targets list.
 
-- **Signal Discoverer**: `subagent_type: "cm-signal-discoverer"`. In the `prompt`, include existing memory summaries (for dedup) and the project name.
+- **Signal Discoverer**: `subagent_type: "cm-signal-discoverer"`. In the `prompt`, include existing memory summaries (for dedup) and the project name. Remind: "Report findings only — do not write any files."
 
 If Phase 1 noted MEMORY.md was just created (no existing memories), skip the Memory Auditor and spawn only the Signal Discoverer.
 
@@ -83,6 +83,14 @@ Phase 4 is complete when all approved edits are applied and the summary table is
 
 Every candidate must pass: (1) agent would benefit from knowing this in future sessions, (2) condensed to minimum useful form, (3) placed at correct layer, (4) not already captured in target file, (5) stated as reusable principle not session-specific incident.
 
-Pass: commands discovered through trial-and-error, non-obvious gotchas, architectural decisions with rationale, user behavioral corrections, configuration quirks, version milestones.
+Pass: commands discovered through trial-and-error, non-obvious gotchas, architectural decisions with rationale, user behavioral corrections that reflect recurring risk, configuration quirks, cross-cutting preferences confirmed across multiple sessions.
 
-Fail: information readable from code, generic best practices, one-off bugs without pattern, verbose explanations, duplicates, temporary state, unverified speculation, incidents without generalizable principle.
+Fail: information readable from code, generic best practices, one-off bugs without pattern, verbose explanations, duplicates, temporary state, unverified speculation, incidents without generalizable principle, library behavior that's in the docs, process rules better enforced by tooling, hyper-specific corrections for situations unlikely to recur.
+
+### Pruning at Proposal Time
+
+When reviewing Signal Discoverer output before presenting to the user, actively prune:
+- Candidates that address a one-time incident with no recurring surface area
+- Candidates where the "principle" is just a restatement of how a well-documented tool works
+- Candidates that could be a pre-commit hook or CI check instead of a memory
+- Aim for 3-5 proposals, not 6-10. Quality over quantity.

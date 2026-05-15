@@ -14,6 +14,7 @@ cm-recent-chats --n 3
 | `--sort-order`            | 'desc' (newest first, default) or 'asc'                |
 | `--before DATE`           | Sessions before this datetime (ISO)                    |
 | `--after DATE`            | Sessions after this datetime (ISO)                     |
+| `--session UUID`          | Filter by session UUID (prefix match)                  |
 | `--project NAME`          | Filter by project name(s), comma-separated             |
 | `--verbose`               | Include files_modified and commits                     |
 | `--format`                | 'markdown' (default) or 'json'                         |
@@ -34,6 +35,7 @@ cm-search-conversations --query "keyword"
 |--------|--------|
 | `--query` | Required - substantive keywords |
 | `--max-results N` | Limit results (1-10, default 5) |
+| `--session UUID` | Filter by session UUID (prefix match) |
 | `--project NAME` | Filter by project name(s), comma-separated |
 | `--verbose` | Include files_modified and commits |
 | `--format` | 'markdown' (default) or 'json' |
