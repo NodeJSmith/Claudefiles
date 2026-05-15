@@ -5,6 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-05-15
 
 ### Added
+- Convention example extraction in `mine.define` — Phase 1.5 collects 3-5 real code snippets from the codebase and writes them to `design.md`, propagated to implementers via `context.md` during orchestration (#296)
 - `--session UUID` flag on `cm-recent-chats` and `cm-search-conversations` — filter by session UUID prefix match for targeted retrieval (#295)
 
 ### Changed

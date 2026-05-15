@@ -20,15 +20,16 @@ Read all sections before starting. Do not begin implementing until you understan
 
 The orchestrator provides you with the absolute path to the design doc (`design.md`). Read it directly — do not rely on a summary. The task's **Focus** section tells you which sections of the design doc are most relevant to this task; start there, but read the full doc if needed for context.
 
-If a `context.md` path is provided, read it as well — it contains cross-task constraints and shared architecture decisions.
+If a `context.md` path is provided, read it first — it contains cross-task constraints and shared architecture decisions. If it includes a `## Convention Examples` section, treat those code snippets as the naming, structure, error handling, and testing patterns your implementation must match.
 
-## Before Writing Any Code: 3 Pre-Implementation Questions
+## Before Writing Any Code: 4 Pre-Implementation Questions
 
 Pause and answer these before touching any file:
 
 1. **Ambiguous terms** — is any step in the task's Prompt section unclear or ambiguous? (e.g., "update the handler" — which handler? what change?) If yes, note the ambiguity and your resolution.
-2. **Missing context** — do you need to read any file not mentioned in the task's Prompt to understand the existing code? (e.g., a base class, a config schema, a test fixture) If yes, read it now.
-3. **Test command** — can you determine the correct test command from the TDD Reference? Follow the test discovery order in the TDD Reference. If the test command is unclear or unrunnable after discovery, treat it as a BLOCKED condition: write `BLOCKED: test command is unrunnable — <reason>` to the output file and stop.
+2. **Convention check** — if `context.md` was provided, which examples are most relevant to this task? Note the patterns you'll follow (e.g., "service function structure from `src/services/user.py`"). If no `context.md` was provided, skip.
+3. **Missing context** — do you need to read any file not mentioned in the task's Prompt to understand the existing code? (e.g., a base class, a config schema, a test fixture) If yes, read it now.
+4. **Test command** — can you determine the correct test command from the TDD Reference? Follow the test discovery order in the TDD Reference. If the test command is unclear or unrunnable after discovery, treat it as a BLOCKED condition: write `BLOCKED: test command is unrunnable — <reason>` to the output file and stop.
 
 Document your answers briefly before starting — these appear in the `Pre-implementation decisions` section of your output. If a blocker exists that prevents the task from proceeding, write `BLOCKED: <reason>` to the output file and stop. Unresolved ambiguity with no reasonable inference from the design doc should be treated as BLOCKED.
 

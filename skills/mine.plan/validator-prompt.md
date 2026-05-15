@@ -41,14 +41,15 @@ For each task file, extract:
 - **Focus section** — full text, for visual artifact coverage checking
 - **Summary section** — full text, for completeness checking
 
-For context.md, verify it has all five required sections:
+For context.md, verify it has all five required sections plus the optional sixth:
 1. `## Problem & Motivation`
 2. `## Visual Artifacts`
 3. `## Key Decisions`
 4. `## Constraints & Anti-Patterns`
 5. `## Design Doc References`
+6. `## Convention Examples` (optional — may contain "None" if no examples were captured)
 
-Each section must have non-empty content (not just the heading).
+Sections 1-5 must have non-empty content (not just the heading). Section 6 is valid whether present with code snippets, present with "None", or absent entirely.
 
 ---
 
@@ -191,7 +192,7 @@ Write a structured report to the output path provided. Use this exact format:
 ```
 
 **Status determination**:
-- `APPROVED` — zero coverage gaps, zero contradictions, and context.md has all five sections with non-empty content. Warnings do not block approval.
+- `APPROVED` — zero coverage gaps, zero contradictions, and context.md has all five required sections with non-empty content. `## Convention Examples` is optional and does not block approval, but if present must contain code snippets or "None" (not an empty heading). Warnings do not block approval.
 - `ISSUES_FOUND` — one or more coverage gaps OR contradictions OR missing/empty context.md sections.
 
 ---

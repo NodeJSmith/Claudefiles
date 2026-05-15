@@ -171,6 +171,9 @@ Before writing task files, generate the master context file at `<feature_dir>/ta
 
 ## Design Doc References
 <Section headings from the design doc that are relevant to this feature, with a one-line description of each. Format: "## Section Name — what it covers".>
+
+## Convention Examples
+<If the design doc has a "Convention Examples" section, copy it here verbatim — these are real code snippets from the codebase that implementers must follow. If the design doc has no Convention Examples section, write "None — no convention examples captured during discovery.">
 ```
 
 ### Step 3b: Write task files
