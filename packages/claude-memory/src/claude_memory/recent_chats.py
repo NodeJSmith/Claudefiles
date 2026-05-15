@@ -23,6 +23,7 @@ def get_recent_sessions(
     before: str | None = None,
     after: str | None = None,
     projects: list[str] | None = None,
+    session_id: str | None = None,
     verbose: bool = False,
     include_notifications: bool = False,
 ) -> list[dict]:
@@ -46,6 +47,13 @@ def get_recent_sessions(
         WHERE 1=1
     """
     params = []
+
+    if session_id:
+        sql += " AND s.uuid LIKE ? ESCAPE '\\'"
+        escaped = (
+            session_id.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        )
+        params.append(f"{escaped}%")
 
     if before:
         sql += " AND b.started_at < ?"
@@ -169,6 +177,9 @@ def main():
     )
     parser.add_argument("--after", type=str, help="Sessions after this datetime (ISO)")
     parser.add_argument(
+        "--session", type=str, help="Filter by session UUID (prefix match)"
+    )
+    parser.add_argument(
         "--project", type=str, help="Filter by project name(s), comma-separated"
     )
     parser.add_argument(
@@ -217,6 +228,7 @@ def main():
             before=args.before,
             after=args.after,
             projects=projects,
+            session_id=args.session,
             verbose=args.verbose,
             include_notifications=args.include_notifications,
         )

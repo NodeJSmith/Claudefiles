@@ -52,6 +52,7 @@ cm-search-conversations --query "keyword"
    - Retrieve more sessions: `--n 20`
    - Search for specific terms that surfaced
    - Filter by project: `--project projectname`
+   - Filter by session: `--session <uuid-prefix>` (when a specific session ID is known)
    - If 2 rounds of deepening yield no new relevant sessions, synthesize from available data.
 
 ---

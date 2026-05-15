@@ -23,6 +23,7 @@ def search_sessions(
     fts_level: str | None,
     max_results: int = 5,
     projects: list[str] | None = None,
+    session_id: str | None = None,
     verbose: bool = False,
     include_notifications: bool = False,
 ) -> list[dict]:
@@ -71,6 +72,13 @@ def search_sessions(
             sql += f" AND p.name IN ({placeholders})"
             params.extend(projects)
 
+        if session_id:
+            sql += " AND s.uuid LIKE ? ESCAPE '\\'"
+            escaped = (
+                session_id.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            )
+            params.append(f"{escaped}%")
+
         if fts_level == "fts5":
             sql += " ORDER BY bm25(branches_fts) LIMIT ?"
         else:
@@ -95,6 +103,13 @@ def search_sessions(
             placeholders = ",".join("?" * len(projects))
             sql += f" AND p.name IN ({placeholders})"
             params.extend(projects)
+
+        if session_id:
+            sql += " AND s.uuid LIKE ? ESCAPE '\\'"
+            escaped = (
+                session_id.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            )
+            params.append(f"{escaped}%")
 
         sql += " ORDER BY b.ended_at DESC LIMIT ?"
         params.append(max_results)
@@ -176,6 +191,9 @@ def main():
         "--max-results", type=int, default=5, help="Max sessions (1-10, default: 5)"
     )
     parser.add_argument(
+        "--session", type=str, help="Filter by session UUID (prefix match)"
+    )
+    parser.add_argument(
         "--project", type=str, help="Filter by project name(s), comma-separated"
     )
     parser.add_argument(
@@ -225,6 +243,7 @@ def main():
             fts_level=fts_level,
             max_results=max_results,
             projects=projects,
+            session_id=args.session,
             verbose=args.verbose,
             include_notifications=args.include_notifications,
         )

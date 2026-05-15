@@ -1,10 +1,11 @@
-"""Tests for search_conversations.py — FTS5/FTS4/LIKE search cascade."""
+"""Tests for search_conversations.py and recent_chats.py — search and retrieval."""
 
 import sqlite3
 
 import pytest
 
 from claude_memory.search_conversations import search_sessions
+from claude_memory.recent_chats import get_recent_sessions
 from claude_memory.db import SCHEMA, _migrate_columns, detect_fts_support
 
 
@@ -212,6 +213,40 @@ class TestSearchSessionsFTS:
         assert session["messages"][0]["role"] == "user"
         assert session["messages"][1]["role"] == "assistant"
 
+    def test_session_filter(self, search_db):
+        fts_level = detect_fts_support(search_db)
+        if fts_level not in ("fts5", "fts4"):
+            pytest.skip("FTS not available")
+
+        results = search_sessions(
+            search_db, "pytest", fts_level, max_results=10, session_id="sess-alpha-1"
+        )
+        assert len(results) == 1
+        assert results[0]["uuid"] == "sess-alpha-1"
+
+    def test_session_filter_prefix_match(self, search_db):
+        fts_level = detect_fts_support(search_db)
+        if fts_level not in ("fts5", "fts4"):
+            pytest.skip("FTS not available")
+
+        results = search_sessions(
+            search_db, "pytest", fts_level, max_results=10, session_id="sess"
+        )
+        uuids = {r["uuid"] for r in results}
+        assert len(results) == 2
+        assert "sess-alpha-1" in uuids
+        assert "sess-beta-1" in uuids
+
+    def test_session_filter_no_match(self, search_db):
+        fts_level = detect_fts_support(search_db)
+        if fts_level not in ("fts5", "fts4"):
+            pytest.skip("FTS not available")
+
+        results = search_sessions(
+            search_db, "pytest", fts_level, max_results=10, session_id="nonexistent"
+        )
+        assert len(results) == 0
+
 
 class TestSearchSessionsLIKE:
     """Test LIKE fallback when FTS is not available."""
@@ -246,6 +281,13 @@ class TestSearchSessionsLIKE:
     def test_like_max_results(self, search_db):
         results = search_sessions(search_db, "pytest", fts_level=None, max_results=1)
         assert len(results) <= 1
+
+    def test_like_session_filter(self, search_db):
+        results = search_sessions(
+            search_db, "pytest", fts_level=None, max_results=10, session_id="sess-beta"
+        )
+        assert len(results) == 1
+        assert results[0]["uuid"] == "sess-beta-1"
 
 
 class TestFtsSearchFindsFilePath:
@@ -347,3 +389,26 @@ class TestFtsSearchFindsFilePath:
         assert "sess-file-1" in uuids, (
             "LIKE search for 'summarizer' should find the session that edited summarizer.py"
         )
+
+
+class TestRecentChatsSessionFilter:
+    """Test --session filter on get_recent_sessions."""
+
+    def test_session_filter_exact(self, search_db):
+        results = get_recent_sessions(search_db, n=10, session_id="sess-alpha-1")
+        assert len(results) == 1
+        assert results[0]["uuid"] == "sess-alpha-1"
+
+    def test_session_filter_prefix(self, search_db):
+        results = get_recent_sessions(search_db, n=10, session_id="sess-alpha")
+        assert len(results) == 2
+        uuids = {r["uuid"] for r in results}
+        assert uuids == {"sess-alpha-1", "sess-alpha-2"}
+
+    def test_session_filter_no_match(self, search_db):
+        results = get_recent_sessions(search_db, n=10, session_id="nonexistent")
+        assert len(results) == 0
+
+    def test_session_filter_short_prefix(self, search_db):
+        results = get_recent_sessions(search_db, n=10, session_id="sess")
+        assert len(results) == 3
