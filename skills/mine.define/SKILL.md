@@ -459,9 +459,7 @@ Write the design doc to `<feature_dir>/design.md`:
 
 **Source:** `<file_path>`
 
-\`\`\`<language>
-<extracted code snippet — the relevant function/class/block, not the whole file>
-\`\`\`
+<fenced code block with language tag — the relevant function/class/block, not the whole file>
 
 ## Alternatives Considered
 
