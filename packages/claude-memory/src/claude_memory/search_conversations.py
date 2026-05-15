@@ -74,7 +74,9 @@ def search_sessions(
 
         if session_id:
             sql += " AND s.uuid LIKE ? ESCAPE '\\'"
-            escaped = session_id.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            escaped = (
+                session_id.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            )
             params.append(f"{escaped}%")
 
         if fts_level == "fts5":
@@ -104,7 +106,9 @@ def search_sessions(
 
         if session_id:
             sql += " AND s.uuid LIKE ? ESCAPE '\\'"
-            escaped = session_id.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            escaped = (
+                session_id.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            )
             params.append(f"{escaped}%")
 
         sql += " ORDER BY b.ended_at DESC LIMIT ?"

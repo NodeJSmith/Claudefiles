@@ -50,7 +50,9 @@ def get_recent_sessions(
 
     if session_id:
         sql += " AND s.uuid LIKE ? ESCAPE '\\'"
-        escaped = session_id.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        escaped = (
+            session_id.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        )
         params.append(f"{escaped}%")
 
     if before:

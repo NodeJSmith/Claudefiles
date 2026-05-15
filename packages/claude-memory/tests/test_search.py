@@ -213,7 +213,6 @@ class TestSearchSessionsFTS:
         assert session["messages"][0]["role"] == "user"
         assert session["messages"][1]["role"] == "assistant"
 
-
     def test_session_filter(self, search_db):
         fts_level = detect_fts_support(search_db)
         if fts_level not in ("fts5", "fts4"):
