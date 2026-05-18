@@ -5,6 +5,8 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-05-18
 
 ### Added
+- Must/Should/Consider severity tiers in `invariants.md` — distinguishes hard rules from documented exceptions and judgment calls
+- `security.md` and `reliability.md` rule files — input validation, injection prevention, timeouts, retry, shared state protection
 - Coding style rules promoted from personal to common: early returns, variable naming, method decomposition, boolean comparisons, constants placement, no section dividers, logging, data structures, functions over methods (#297)
 - No default underscore prefixes rule + invariant — resist Claude's instinct to `_`-prefix everything (#297)
 - `whenever` library rule in `python.md` — use `whenever` instead of stdlib `datetime` for all date/time operations (#297)
