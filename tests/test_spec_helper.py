@@ -583,7 +583,7 @@ Some content here.
         post.metadata["lane"] = "for_review"
 
         out_file = tmp_path / "WP01_out.md"
-        with open(out_file, "wb") as f:
+        with open(out_file, "w", encoding="utf-8") as f:
             frontmatter.dump(post, f)
 
         reloaded = frontmatter.load(str(out_file))
@@ -614,7 +614,7 @@ depends:
         post.metadata["lane"] = "for_review"
 
         out_file = tmp_path / "WP01_out.md"
-        with open(out_file, "wb") as f:
+        with open(out_file, "w", encoding="utf-8") as f:
             frontmatter.dump(post, f)
 
         reloaded = frontmatter.load(str(out_file))

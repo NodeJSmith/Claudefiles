@@ -46,6 +46,10 @@ Code and its unit tests ship in the same commit. Integration tests may follow; u
 200-400 lines typical, 800 max. Functions <50 lines, nesting <4 levels.
 **Defined in:** `coding-style.md`
 
+### No Default Underscore Prefixes
+Don't prefix methods with `_` unless genuinely unsafe to call out of sequence, required by a framework, or part of a published library API.
+**Defined in:** `coding-style.md`
+
 ### Evidence Before Claims
 Never claim work is done without actual command output proving it.
 **Defined in:** `verification.md`
