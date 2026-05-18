@@ -15,3 +15,173 @@ ALWAYS create new objects, NEVER mutate existing ones. Return new copies with ch
 - 200-400 lines typical, 800 max
 - Organize by feature/domain, not by type
 - Functions <50 lines, nesting <4 levels
+
+## No Default Underscore Prefixes
+
+<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
+
+Do not prefix methods with `_` unless there is a concrete reason. Claude's instinct is to mark anything not called in the same method as `_private` — resist this.
+
+`_` is appropriate when:
+- The method is genuinely unsafe to call outside its intended sequence (e.g., `_commit_transaction` that assumes locks are held)
+- A framework convention requires it (e.g., `_meta` in Django models)
+- The class is part of a published library with a stable API contract
+
+`_` is not appropriate just because:
+- Only one other method calls it
+- It's a "helper" or "internal" method
+- It "feels like an implementation detail"
+
+Most application code has no consumers beyond the same codebase. Underscore prefixes add noise, make testing harder (signaling "don't call this directly"), and create a false sense of encapsulation.
+
+```python
+class OrderService:
+    def place_order(self, items: list[Item]) -> Order:
+        total = self.calculate_total(items)
+        order = self.create_order(items, total)
+        self.send_confirmation(order)
+        return order
+
+    def calculate_total(self, items: list[Item]) -> Decimal: ...
+    def create_order(self, items: list[Item], total: Decimal) -> Order: ...
+    def send_confirmation(self, order: Order) -> None: ...
+```
+
+## Early Returns
+
+Prefer early returns to reduce nesting. Guard clauses at the top, happy path at the bottom.
+
+```python
+def process_payment(payment: Payment, account: Account) -> Result:
+    if payment.amount <= 0:
+        return Result.invalid("Amount must be positive")
+    if account.is_frozen:
+        return Result.rejected("Account is frozen")
+    if payment.amount > account.balance:
+        return Result.rejected("Insufficient funds")
+
+    return Result.success(payment)
+```
+
+## Variable Naming
+
+Short, contextually obvious names inside methods. Longer names for module-level constants and config fields where context is absent.
+
+```python
+# good: short names where context is clear
+resp = await client.get(f"/users/{user_id}")
+total = sum(item.price for item in items)
+rows = cursor.fetchall()
+
+# good: longer names at module level where context is absent
+DEFAULT_RETRY_DELAY_SECONDS = 5
+MAX_BATCH_SIZE = 1000
+```
+
+## Method Decomposition
+
+Extract methods when they make the code testable or when logic appears twice. Don't extract every 3-line block into its own method. One-liner checks stay inline.
+
+```python
+# good: inline check, not a dedicated method
+if cache.get(throttle_key) is not None:
+    return
+
+# good: extracted because it's called from two places and is independently testable
+def resolve_priority(ticket: Ticket) -> Priority:
+    if ticket.is_escalated:
+        return Priority.CRITICAL
+    for rule in PRIORITY_RULES:
+        if rule.matches(ticket):
+            return rule.priority
+    return Priority.LOW
+```
+
+## Boolean Comparisons
+
+When a value is known to be a `bool`, use it directly. Only use `is True`/`is False` when the value can also be `None` and `None` is semantically different from `False`.
+
+```python
+# good: is_active is always a bool
+if not user.is_active:
+    return
+
+# good: enabled can be True, False, or None (not configured)
+if feature.enabled is True:
+    apply_feature(feature)
+```
+
+## Constants at the Top
+
+All module-level constants go at the top of the file, after imports. Never define a constant inline next to the code that uses it.
+
+```python
+import httpx
+from decimal import Decimal
+
+TIMEOUT_SECONDS = 30
+MAX_RETRIES = 3
+DEFAULT_CURRENCY = "USD"
+
+
+class PaymentGateway:
+    ...
+```
+
+## No Section Divider Comments
+
+Don't add decorated comment blocks between methods. If the class needs section headers to be readable, it needs fewer methods.
+
+```python
+class UserService:
+    def login(self, credentials: Credentials) -> Session: ...
+    def logout(self, session: Session) -> None: ...
+    def update_profile(self, user_id: int, data: ProfileData) -> User: ...
+```
+
+## Logging
+
+Log at decision points and actions, not at every step. Use warnings for unexpected state, info for actions taken. Don't log routine state reads or echo every variable.
+
+```python
+def sync_inventory(self, warehouse_id: str) -> SyncResult:
+    items = self.fetch_items(warehouse_id)
+    failed = []
+    for item in items:
+        try:
+            self.update_stock(item)
+        except StaleDataError:
+            self.logger.warning("Stale data for %s, skipping", item.sku)
+            failed.append(item.sku)
+    self.logger.info("Synced warehouse %s: %d updated, %d failed", warehouse_id, len(items) - len(failed), len(failed))
+```
+
+## Data Structures
+
+Use dataclasses when a structure is passed between multiple methods or stored. Don't introduce them for intermediate values within a single method.
+
+```python
+@dataclass(frozen=True)
+class SyncResult:
+    updated: int
+    failed: list[str]
+    duration_seconds: float
+```
+
+## Functions Over Methods
+
+Logic that doesn't need `self` should be a module-level function, not a method. This makes it easier to test and reuse. Place helper functions below the class.
+
+```python
+class ReportGenerator:
+    def generate(self, data: list[Row]) -> Report:
+        summary = summarize_rows(data)
+        return Report(summary=summary, generated_at=Instant.now())
+
+
+def summarize_rows(rows: list[Row]) -> Summary:
+    totals = defaultdict(Decimal)
+    for row in rows:
+        totals[row.category] += row.amount
+    return Summary(category_totals=dict(totals))
+```
