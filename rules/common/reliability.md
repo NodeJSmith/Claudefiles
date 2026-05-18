@@ -35,7 +35,7 @@ async def fetch_with_retry(client: httpx.AsyncClient, url: str) -> httpx.Respons
         if resp.status_code not in TRANSIENT_STATUS_CODES:
             return resp
         if attempt < 2:
-            await asyncio.sleep(2 ** attempt)
+            await asyncio.sleep(2 ** attempt + random.uniform(0, 1))
     resp.raise_for_status()
     return resp  # unreachable, satisfies type checker
 ```

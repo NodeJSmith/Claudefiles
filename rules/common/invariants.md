@@ -18,7 +18,7 @@ Scan this list at two points: **before writing code** (catch structural violatio
 
 #### Immutability
 Create new objects, never mutate existing ones. Return new copies with changes.
-**Exception:** PySpark DataFrame reassignment is conventional and safe.
+**Note:** PySpark DataFrame reassignment (`df = df.filter(...)`) does not violate this — DataFrames are immutable per transform; reassignment rebinds the name to a new object.
 **Defined in:** `coding-style.md`
 
 #### No Future Annotations
