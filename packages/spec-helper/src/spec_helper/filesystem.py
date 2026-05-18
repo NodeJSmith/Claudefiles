@@ -21,7 +21,7 @@ def atomic_write(post: frontmatter.Post, target: Path) -> None:
     tmp_path = None
     try:
         with tempfile.NamedTemporaryFile(
-            mode="wb", dir=target.parent, delete=False, suffix=".md"
+            mode="w", dir=target.parent, delete=False, suffix=".md", encoding="utf-8"
         ) as tmp:
             frontmatter.dump(post, tmp)
             tmp_path = tmp.name
