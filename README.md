@@ -58,6 +58,7 @@ All four directories symlink into `~/.claude/skills/` at install time — the ru
 | `mine.commit-push` | Commit and push changes to the current branch |
 | `mine.create-pr` | Review branch changes and create a PR on GitHub or Azure DevOps |
 | `mine.debug` | Systematic debugging — 4-phase root-cause investigation with escalation protocol and error tracking |
+| `mine.decompose` | Codebase decomposition analysis — finds split opportunities using Git behavioral signals and structural metrics, proposes concrete splits with ROI-based prioritization |
 | `mine.define` | Proportional discovery + codebase investigation + architecture interrogation → design.md with one sign-off gate |
 | `mine.eval-repo` | Evaluate a third-party GitHub repo before adopting it -- test coverage, code quality, maintenance health, bus factor |
 | `mine.gap-close` | Conversational completeness review — surveys artifacts against per-type checklists, triages gaps by severity, fills them one question at a time |
