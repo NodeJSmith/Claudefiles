@@ -4,6 +4,9 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-05-19
 
+### Added
+- `mine.decompose` skill — analyzes codebases for decomposition opportunities using Git behavioral signals and structural metrics, proposes concrete splits with ROI-based prioritization (#301)
+
 ### Changed
 - Trimmed `mine.gap-close` checklists from 58 to 35 items — removed always-N/A and always-PASS items that never find gaps (#300)
 

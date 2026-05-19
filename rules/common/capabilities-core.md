@@ -20,6 +20,7 @@
 | "close gaps in this design", "fill gaps in the spec", "lightweight design review", "gap-close this doc", "completeness review" | `/mine.gap-close` |
 | "debug this", "investigate this failure", "systematic debugging", "why is this failing", "stop retrying and investigate" | `/mine.debug` |
 | "audit the codebase", "find tech debt", "health check" | `/mine.audit` |
+| "decompose this", "find decomposition opportunities", "what should I split", "break this apart", "this file is too big", "split opportunities", "extract candidates", "find god classes" | `/mine.decompose` |
 | "research adding X", "feasibility study", "evaluate approach" | `/mine.research` |
 | "prior art", "how do others do this", "what patterns exist", "industry standards for X" | `/mine.prior-art` |
 <!-- NOTE: "design this UI" = visual direction (i-teach-impeccable); "design this change" = architecture doc (design) -->
