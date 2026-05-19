@@ -37,7 +37,7 @@ Load the matching checklist from `${CLAUDE_HOME:-~/.claude}/skills/mine.gap-clos
 
 ## Phase 2: Survey
 
-Evaluate each checklist item against the artifact. Mark each **PASS**, **GAP** (severity: Blocker / Should-address / Nice-to-have), or **N/A**. Example: `DD-03 GAP [Blocker] Goals lack measurable success metrics`.
+Evaluate each checklist item against the artifact. Mark each **PASS**, **GAP** (severity: Blocker / Should-address / Nice-to-have), or **N/A**. Example: `DD-02 GAP [Blocker] Goals lack measurable success metrics`.
 
 ## Phase 3: Triage
 
