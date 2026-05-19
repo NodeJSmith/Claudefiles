@@ -19,7 +19,7 @@ Concern filter: <concern_filter or "none — analyze all decomposition signals">
 Run these commands and analyze the results:
 
 1. **Churn hotspots** — files ranked by commit frequency:
-   git log --since="6 months ago" --format='' --name-only -- <scope> | sort | uniq -c | sort -rn | head -30
+   git log --since="6 months ago" --format= --name-only -- <scope> | grep -v '^$' | sort | uniq -c | sort -rn | head -30
 
 2. **Change coupling** — for each of the top 10 hotspot files, which OTHER files change in the same commits:
    git log --since="6 months ago" --format='%H' -- <file> | xargs -I {} git diff-tree --no-commit-id --name-only -r {} | sort | uniq -c | sort -rn | head -10

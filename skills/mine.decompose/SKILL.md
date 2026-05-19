@@ -21,9 +21,10 @@ $ARGUMENTS — optional target scope. Can be:
 **Read the code and reason about it directly.** Subagents use Read, Grep, Glob to examine files. Do NOT write or execute analysis scripts — no AST parsers, no custom complexity calculators.
 
 Allowed commands during analysis:
-- `git log` / `git shortlog` — churn, change coupling, developer dispersion
+- `git log` / `git shortlog` / `git diff-tree` / `git show` — churn, change coupling, developer dispersion, per-commit diffs
 - `wc -l` — file and function size counts
-- `find` — file discovery
+- `find` / `grep` — file discovery, import/fan-in analysis
+- `sort`, `uniq`, `head`, `xargs` — text processing for git output pipelines
 - Project linters if available
 
 ## Phase 1: Scope
