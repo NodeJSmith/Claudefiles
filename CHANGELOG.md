@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-05-19
+
+### Changed
+- Trimmed `mine.gap-close` checklists from 58 to 35 items — removed always-N/A and always-PASS items that never find gaps (#300)
+
 ## 2026-05-18
 
 ### Added
