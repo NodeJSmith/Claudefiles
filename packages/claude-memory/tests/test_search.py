@@ -31,10 +31,10 @@ def search_db():
     )
     beta_id = cursor.lastrowid
 
-    # Session 1 in alpha: talks about "pytest fixtures"
+    # Session 1 in alpha: talks about "pytest fixtures" (base repo)
     cursor.execute(
-        "INSERT INTO sessions (uuid, project_id) VALUES (?, ?)",
-        ("sess-alpha-1", alpha_id),
+        "INSERT INTO sessions (uuid, project_id, cwd) VALUES (?, ?, ?)",
+        ("sess-alpha-1", alpha_id, "/home/user/alpha"),
     )
     s1_id = cursor.lastrowid
     cursor.execute(
@@ -68,10 +68,10 @@ def search_db():
     cursor.execute("INSERT INTO branch_messages VALUES (?, ?)", (b1_id, m1_id))
     cursor.execute("INSERT INTO branch_messages VALUES (?, ?)", (b1_id, m2_id))
 
-    # Session 2 in alpha: talks about "database migration"
+    # Session 2 in alpha: talks about "database migration" (worktree)
     cursor.execute(
-        "INSERT INTO sessions (uuid, project_id) VALUES (?, ?)",
-        ("sess-alpha-2", alpha_id),
+        "INSERT INTO sessions (uuid, project_id, cwd) VALUES (?, ?, ?)",
+        ("sess-alpha-2", alpha_id, "/home/user/alpha/.claude/worktrees/ui-decomp"),
     )
     s2_id = cursor.lastrowid
     cursor.execute(
@@ -105,10 +105,10 @@ def search_db():
     cursor.execute("INSERT INTO branch_messages VALUES (?, ?)", (b2_id, m3_id))
     cursor.execute("INSERT INTO branch_messages VALUES (?, ?)", (b2_id, m4_id))
 
-    # Session 3 in beta: talks about "pytest mocking"
+    # Session 3 in beta: talks about "pytest mocking" (base repo)
     cursor.execute(
-        "INSERT INTO sessions (uuid, project_id) VALUES (?, ?)",
-        ("sess-beta-1", beta_id),
+        "INSERT INTO sessions (uuid, project_id, cwd) VALUES (?, ?, ?)",
+        ("sess-beta-1", beta_id, "/home/user/beta"),
     )
     s3_id = cursor.lastrowid
     cursor.execute(
@@ -412,3 +412,66 @@ class TestRecentChatsSessionFilter:
     def test_session_filter_short_prefix(self, search_db):
         results = get_recent_sessions(search_db, n=10, session_id="sess")
         assert len(results) == 3
+
+
+class TestPathFilter:
+    """Test --path filter on both get_recent_sessions and search_sessions."""
+
+    def test_recent_path_worktree_name(self, search_db):
+        results = get_recent_sessions(search_db, n=10, path="ui-decomp")
+        assert len(results) == 1
+        assert results[0]["uuid"] == "sess-alpha-2"
+
+    def test_recent_path_no_match(self, search_db):
+        results = get_recent_sessions(search_db, n=10, path="nonexistent-worktree")
+        assert len(results) == 0
+
+    def test_recent_path_substring_matches_base_and_worktrees(self, search_db):
+        """Substring match on a repo path includes worktrees under it."""
+        results = get_recent_sessions(search_db, n=10, path="/home/user/alpha")
+        assert len(results) == 2
+        uuids = {r["uuid"] for r in results}
+        assert uuids == {"sess-alpha-1", "sess-alpha-2"}
+
+    def test_recent_path_combined_with_project(self, search_db):
+        results = get_recent_sessions(
+            search_db, n=10, projects=["alpha"], path="ui-decomp"
+        )
+        assert len(results) == 1
+        assert results[0]["uuid"] == "sess-alpha-2"
+
+    def test_recent_path_project_mismatch(self, search_db):
+        results = get_recent_sessions(
+            search_db, n=10, projects=["beta"], path="ui-decomp"
+        )
+        assert len(results) == 0
+
+    def test_search_path_fts(self, search_db):
+        fts_level = detect_fts_support(search_db)
+        if fts_level not in ("fts5", "fts4"):
+            pytest.skip("FTS not available")
+
+        results = search_sessions(
+            search_db, "database", fts_level, max_results=10, path="ui-decomp"
+        )
+        assert len(results) == 1
+        assert results[0]["uuid"] == "sess-alpha-2"
+
+    def test_search_path_like_fallback(self, search_db):
+        results = search_sessions(
+            search_db, "database", fts_level=None, max_results=10, path="ui-decomp"
+        )
+        assert len(results) == 1
+        assert results[0]["uuid"] == "sess-alpha-2"
+
+    def test_search_path_narrows_results(self, search_db):
+        fts_level = detect_fts_support(search_db)
+        if fts_level not in ("fts5", "fts4"):
+            pytest.skip("FTS not available")
+
+        all_pytest = search_sessions(search_db, "pytest", fts_level, max_results=10)
+        with_path = search_sessions(
+            search_db, "pytest", fts_level, max_results=10, path="/home/user/beta"
+        )
+        assert len(with_path) < len(all_pytest)
+        assert all(r["uuid"] == "sess-beta-1" for r in with_path)
