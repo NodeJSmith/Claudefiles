@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-05-21
+
+### Added
+- `--path` flag on `cm-recent-chats` and `cm-search-conversations` — substring match on session cwd for filtering by worktree or subdirectory (#302)
+
 ## 2026-05-19
 
 ### Added

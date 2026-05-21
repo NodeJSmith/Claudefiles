@@ -16,6 +16,7 @@ cm-recent-chats --n 3
 | `--after DATE`            | Sessions after this datetime (ISO)                     |
 | `--session UUID`          | Filter by session UUID (prefix match)                  |
 | `--project NAME`          | Filter by project name(s), comma-separated             |
+| `--path SUBSTR`           | Filter by cwd substring (e.g. worktree name)           |
 | `--verbose`               | Include files_modified and commits                     |
 | `--format`                | 'markdown' (default) or 'json'                         |
 | `--include-notifications` | Include task notification messages (hidden by default) |
@@ -37,6 +38,7 @@ cm-search-conversations --query "keyword"
 | `--max-results N` | Limit results (1-10, default 5) |
 | `--session UUID` | Filter by session UUID (prefix match) |
 | `--project NAME` | Filter by project name(s), comma-separated |
+| `--path SUBSTR` | Filter by cwd substring (e.g. worktree name) |
 | `--verbose` | Include files_modified and commits |
 | `--format` | 'markdown' (default) or 'json' |
 | `--include-notifications` | Include task notification messages (hidden by default) |

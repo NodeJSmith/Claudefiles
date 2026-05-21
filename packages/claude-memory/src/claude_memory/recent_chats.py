@@ -24,6 +24,7 @@ def get_recent_sessions(
     after: str | None = None,
     projects: list[str] | None = None,
     session_id: str | None = None,
+    path: str | None = None,
     verbose: bool = False,
     include_notifications: bool = False,
 ) -> list[dict]:
@@ -67,6 +68,11 @@ def get_recent_sessions(
         placeholders = ",".join("?" * len(projects))
         sql += f" AND p.name IN ({placeholders})"
         params.extend(projects)
+
+    if path:
+        sql += " AND s.cwd LIKE ? ESCAPE '\\'"
+        escaped = path.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        params.append(f"%{escaped}%")
 
     order = "DESC" if sort_order == "desc" else "ASC"
     sql += f" ORDER BY b.ended_at {order} LIMIT ?"
@@ -183,6 +189,9 @@ def main():
         "--project", type=str, help="Filter by project name(s), comma-separated"
     )
     parser.add_argument(
+        "--path", type=str, help="Filter by cwd substring (e.g. worktree name)"
+    )
+    parser.add_argument(
         "--format",
         choices=["markdown", "json"],
         default="markdown",
@@ -229,6 +238,7 @@ def main():
             after=args.after,
             projects=projects,
             session_id=args.session,
+            path=args.path,
             verbose=args.verbose,
             include_notifications=args.include_notifications,
         )
