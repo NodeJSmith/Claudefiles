@@ -4,6 +4,9 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-05-22
 
+### Changed
+- Removed premise check ("what happens if we don't build this?") from `mine.define` interview flow (#305)
+
 ### Fixed
 - `git-branch-base` returning wrong base when run on the default branch (#304)
 
