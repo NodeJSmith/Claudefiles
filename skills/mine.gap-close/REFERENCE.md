@@ -45,7 +45,7 @@ When in doubt, ask the user to confirm the artifact type before surveying.
 
 Design docs follow the caliper workflow template. Check each item against the content of design.md.
 
-Items complement mine.define's Phase 5 quality validation — the quality validation checks that sections exist and are non-empty; these items check that the content within each section is complete. Items that mine.define's interview process consistently produces well (named actors, testable requirements, alternatives with rationale, etc.) are intentionally excluded — this checklist focuses on gaps that mine.define systematically misses.
+Items complement mine.define's Phase 5 quality validation — the quality validation checks structural correctness (sections present, identifier formats, tech-agnostic boundaries, conditional section rules); these items check that the content within each section is complete. Items that mine.define's interview process consistently produces well (named actors, testable requirements, alternatives with rationale, etc.) are intentionally excluded — this checklist focuses on gaps that mine.define systematically misses.
 
 ### Problem / Goals
 

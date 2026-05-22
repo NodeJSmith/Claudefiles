@@ -448,7 +448,7 @@ Write the design doc to `<feature_dir>/design.md`:
 
 ## Test Strategy
 
-[For repos with no test infrastructure, replace all subsections with: "N/A — no test infrastructure in this repo."]
+[For repos with no test infrastructure, replace the entire Test Strategy section (including all subsection headings below) with a single line: "N/A — no test infrastructure in this repo."]
 
 ### Existing Tests to Adapt
 [Test files that will break or need updating due to this change, with file paths and what specifically needs to change. Sourced from Phase 1.5 test survey. If none, state "No existing tests affected."]
