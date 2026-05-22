@@ -32,6 +32,17 @@ EOF
 set -uo pipefail
 
 current=$(git branch --show-current 2> /dev/null) || current=""
+default=$(git-default-branch 2> /dev/null) || default=""
+
+# On the default branch, the base is its own remote tracking ref
+if [[ -n "$current" && "$current" == "$default" ]]; then
+  if git rev-parse --verify "origin/${default}" &> /dev/null; then
+    printf 'origin/%s\n' "$default"
+  else
+    printf '%s\n' "$default"
+  fi
+  exit 0
+fi
 
 # Find the remote branch with the fewest commits ahead of HEAD (closest ancestor)
 best_base=""
@@ -51,7 +62,7 @@ if [[ -n "$best_base" ]]; then
 fi
 
 # Fallback: use default branch
-default=$(git-default-branch 2> /dev/null) || exit 1
+[[ -z "$default" ]] && exit 1
 
 if git rev-parse --verify "origin/${default}" &> /dev/null; then
   printf 'origin/%s\n' "$default"
