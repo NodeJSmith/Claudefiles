@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-05-22
+
+### Fixed
+- `git-branch-base` returning wrong base when run on the default branch (#304)
+
 ## 2026-05-21
 
 ### Added
