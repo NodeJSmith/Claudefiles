@@ -5,6 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-05-22
 
 ### Changed
+- Structured test strategy, replacement targets, migration, behavioral invariants, and documentation specificity in `mine.define` design docs — downstream consumers (`mine.plan`, `mine.gap-close`) updated to match (#306)
 - Removed premise check ("what happens if we don't build this?") from `mine.define` interview flow (#305)
 
 ### Fixed

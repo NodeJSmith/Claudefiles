@@ -55,9 +55,13 @@ Before asking the user questions, silently explore the codebase for context rele
 - Existing modules, patterns, or prior art related to the feature
 - Conventions the codebase already follows for similar work
 - Integration points, data models, or APIs the feature would touch
+- Test files covering code that will be modified or replaced — note what they test and whether they'll break
+- Code or patterns being superseded if this is a migration or refactor — these become replacement targets in the design doc
 - Anything that narrows the design space or resolves potential questions
 
 **Principle: If a question can be answered by exploring the codebase, explore the codebase instead of asking the user.**
+
+**Principle: Resolve conditionals now, not later.** If reconnaissance reveals something that can be determined definitively (e.g., "does file X exist?", "are there remaining consumers of Y?", "does this test reference old imports?"), state the answer as fact in the design doc — not as a conditional for the implementer to verify. "Remove `reconnectVersion` from `AppState` — zero consumers remain after migration" is better than "verify whether any consumers remain; if none, remove it."
 
 ### Code example extraction
 
@@ -208,6 +212,12 @@ After the tier-appropriate questions above, review what you've learned. For each
 - "Does the user make a choice here? What do they need to know to decide?" — surfaces decision points
 - "What happens right after?" — surfaces system responses and transitions
 
+**Data impact probing (moderate+ features touching data models, schemas, or storage):** If Phase 1.5 found data models, database schemas, file formats, config structures, or persistent state in the affected code, ask:
+- "This touches [specific data model/schema]. What happens to existing data when this changes?"
+- "Are there consumers of this data format that need to stay compatible?"
+
+Skip if Phase 1.5 found no data-related code in the affected area.
+
 For each decision branch, check whether the codebase already constrains the answer (from Phase 1.5 findings or a quick targeted search). Ask only about branches where the code doesn't decide for you.
 
 Ask follow-up questions one at a time. Apply judgment proportional to complexity and scope mode:
@@ -257,9 +267,9 @@ After confirming intent and before research dispatch, revisit the Phase 1.5 code
 | Send notification on failure | (none found) | None — new code needed |
 ```
 
-Coverage vocabulary: `Full — reuse as-is` (existing code solves this entirely), `Partial — <what's missing>` (existing code solves part of it), `None — new code needed` (nothing found).
+Coverage vocabulary: `Full — reuse as-is` (existing code solves this entirely), `Partial — <what's missing>` (existing code solves part of it), `Replace — <what's being superseded>` (existing code is being intentionally replaced by the new approach — implementers should migrate or remove it, not preserve it), `None — new code needed` (nothing found).
 
-Present the table with: "Here's what I found. Sub-problems with existing coverage should reuse that code rather than rebuilding. Correct me if I'm wrong about any of these."
+Present the table with: "Here's what I found. Sub-problems with existing coverage should reuse that code rather than rebuilding. Sub-problems marked `Replace` indicate old code being superseded — implementers will remove or migrate it rather than preserving it. Correct me if I'm wrong about any of these."
 
 If Phase 1.5 found no existing code at all, present an empty table with a note: "No existing code found for any sub-problem — all new code needed."
 
@@ -414,6 +424,14 @@ Write the design doc to `<feature_dir>/design.md`:
 
 [The recommended approach with rationale. Reference specific files, patterns, and abstractions from the research brief. Include data model, interface contracts, and any relevant diagrams in prose form.]
 
+## Replacement Targets
+
+[Existing code, patterns, or approaches being intentionally replaced by this change. Derived from `Replace` entries in the code leverage table. For each target: the file/pattern being replaced, what replaces it, and whether the old code should be removed outright or migrated incrementally. Implementers should remove or migrate these — not preserve them alongside the new code. If this is purely additive with no code being superseded, state "No existing code is being replaced."]
+
+## Migration
+
+[What happens to existing data? Schema changes, data transformations, state format migrations. Include: what changes, what the migration does, whether it's reversible, and what happens to data written by the old code. Optional section — include only when the feature involves data model changes, schema migrations, or changes to persistent state format (detected during Phase 1.5 or surfaced during discovery). Omit entirely when no data changes are involved.]
+
 ## Convention Examples
 
 [Code examples extracted from the codebase during Phase 1.5 reconnaissance. Each example demonstrates a convention that new code for this feature should follow. 3-5 examples, each showing a different convention. Include DO/DON'T pairs only when the wrong approach is non-obvious. Omit this section if Phase 1.5 found no meaningful conventions to extract (greenfield project, no similar code).]
@@ -430,15 +448,31 @@ Write the design doc to `<feature_dir>/design.md`:
 
 ## Test Strategy
 
-[High-level approach to testing this change. Which layers need tests? Key behaviors to verify? For repos with no test infrastructure, state "N/A — no test infrastructure in this repo."]
+[For repos with no test infrastructure, replace the entire Test Strategy section (including all subsection headings below) with a single line: "N/A — no test infrastructure in this repo."]
+
+### Existing Tests to Adapt
+[Test files that will break or need updating due to this change, with file paths and what specifically needs to change. Sourced from Phase 1.5 test survey. If none, state "No existing tests affected."]
+
+### New Test Coverage
+[New behaviors that need tests. Map to Functional Requirements (FR#N) where possible. Identify which testing layer (unit, integration, E2E) each behavior needs.]
+
+### Tests to Remove
+[Tests for functionality being removed or replaced. Reference Replacement Targets where applicable. If none, state "No tests to remove."]
 
 ## Documentation Updates
 
-[Documentation or rules that need updating alongside this change. Omit if none.]
+[Specific documentation artifacts that need updating alongside this change. Consider: README, CHANGELOG, API docs, CLI help text, configuration docs, rules files, capabilities/trigger-phrase files. List each artifact with the specific change needed. If none, state "No documentation updates required."]
 
 ## Impact
 
-[Files and modules affected. Blast radius. Dependencies that will need updates.]
+### Changed Files
+[Files being modified, created, or deleted, with the nature of each change. Shared or cross-cutting files first — these carry higher risk.]
+
+### Behavioral Invariants
+[Existing behaviors that must NOT change — downstream consumers, API contracts, CLI flags, integration points that must continue working as-is. These inform which existing tests must keep passing. If none, state "No behavioral invariants identified."]
+
+### Blast Radius
+[Who/what is affected beyond the immediate change. Other services, consumers, or workflows that depend on the changed code.]
 
 ## Open Questions
 
@@ -447,7 +481,7 @@ Write the design doc to `<feature_dir>/design.md`:
 
 **Rules for content:**
 - Problem, Goals, User Scenarios, Functional Requirements, Edge Cases, and Acceptance Criteria must be technology-agnostic — no technology names, database engines, library names, framework names, or API endpoint paths. Written for non-technical stakeholders
-- Architecture, Alternatives, Test Strategy, Documentation Updates, and Impact contain implementation details
+- Architecture, Replacement Targets, Migration, Alternatives, Test Strategy, Documentation Updates, and Impact contain implementation details
 - Architecture must reference existing code from the **Existing code leverage** table. For any sub-problem marked `Full — reuse as-is`, confirm reuse or justify diverging. For `Partial`, explain what was extended.
 
 **Scope mode effects on content:**
@@ -458,6 +492,8 @@ Write the design doc to `<feature_dir>/design.md`:
 | Goals | Include stretch goals alongside core goals | Core goals only | Minimum viable goals only |
 | Architecture | Include platform opportunities, extensibility points | Standard recommendation | Simplest possible approach — documents only what IS being built |
 | Non-goals | Frame as "what's phase 2 vs phase 1?" | As-is | Explicitly list cut items with rationale — mine.plan uses Non-goals as exclusions |
+| Replacement Targets | Items being replaced in this change — note candidates for future replacement in Architecture | Only items being replaced in this change | Only items being replaced — defer others to follow-up |
+| Test Strategy | Include stretch coverage goals; test adjacent behaviors | Cover all FRs; adapt all affected tests | Minimum tests for core FRs; note deferred coverage |
 | Alternatives | Include the ambitious alternative even if not chosen | Standard alternatives | Include "do nothing" and "manual workaround" as alternatives |
 
 - Every requirement must be testable and unambiguous
@@ -467,13 +503,15 @@ Write the design doc to `<feature_dir>/design.md`:
 - Visual Artifacts section is optional — include it only when visual references exist; omit the section entirely otherwise
 - Key Constraints section is required — include it even if no feature-specific prohibitions emerged (mark it empty with a note rather than omitting)
 
+**Counts are not instructions.** Approximate counts are fine in Problem/Goals for framing ("a flat class with ~90 fields"). But in Architecture, Impact, and Test Strategy, never use a count as an implementation instruction — "extract the 13 fields" breaks when the real count is 20. Instead, reference the code location: "extract all fields from `config.py:31-55`" and let the implementer see the real count. File lists matter; file counts don't.
+
 Populate each section from the research brief, discovery answers, and codebase reconnaissance. Be specific — reference actual file paths, class names, and patterns found during investigation.
 
 ---
 
 ## Phase 5: Quality Validation
 
-Validate the design doc against this 17-item checklist:
+Validate the design doc against this 21-item checklist:
 
 1. No implementation details in Problem, Goals, User Scenarios, Functional Requirements, Edge Cases, or Acceptance Criteria sections — any technology name, database engine, library, framework, or API path in these sections is a FAIL
 2. All requirements are testable and unambiguous
@@ -492,6 +530,10 @@ Validate the design doc against this 17-item checklist:
 15. Each Functional Requirement describes exactly one testable behavior — compound requirements bundling multiple behaviors into a single FR are a FAIL
 16. Key Constraints section is present; may be empty if no feature-specific prohibitions emerged from discovery (omitting the section entirely is a FAIL)
 17. Visual Artifacts section is present only when visual references (mockups, screenshots, prototypes) exist — an empty Visual Artifacts section is a FAIL; omit the section when no artifacts exist
+18. Test Strategy identifies existing tests to adapt (with file paths), new coverage needed (mapped to FR#N), and tests to remove — or states N/A for repos with no test infrastructure
+19. If the code leverage table has `Replace` entries, Replacement Targets section lists what's being superseded and what replaces it — an empty Replacement Targets section when Replace entries exist is a FAIL
+20. Migration section is present when the feature involves data model changes, schema migrations, or persistent state format changes — missing Migration section when data changes are involved is a FAIL; Migration section present when no data changes are involved is also a FAIL
+21. Documentation Updates lists specific artifacts with specific changes needed, or explicitly states none are required — a vague "update docs" without naming artifacts is a FAIL
 
 For any item that fails: **FAIL** — block and revise before proceeding. Report results as a compact list.
 
@@ -562,7 +604,7 @@ Read `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md` for th
 
 **`status: skipped`** — User explicitly skipped. Record in session summary only.
 
-After reviewing all findings, re-run the 17-item quality validation on the updated design doc, then loop back to the sign-off gate above.
+After reviewing all findings, re-run the 21-item quality validation on the updated design doc, then loop back to the sign-off gate above.
 
 ### On "Approve"
 

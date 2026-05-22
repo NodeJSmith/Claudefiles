@@ -45,7 +45,7 @@ When in doubt, ask the user to confirm the artifact type before surveying.
 
 Design docs follow the caliper workflow template. Check each item against the content of design.md.
 
-Items complement mine.define's 12-item quality validation — the quality validation checks that sections exist and are non-empty; these items check that the content within each section is complete. Items that mine.define's interview process consistently produces well (named actors, testable requirements, alternatives with rationale, etc.) are intentionally excluded — this checklist focuses on gaps that mine.define systematically misses.
+Items complement mine.define's Phase 5 quality validation — the quality validation checks structural correctness (sections present, identifier formats, tech-agnostic boundaries, conditional section rules); these items check that the content within each section is complete. Items that mine.define's interview process consistently produces well (named actors, testable requirements, alternatives with rationale, etc.) are intentionally excluded — this checklist focuses on gaps that mine.define systematically misses.
 
 ### Problem / Goals
 
@@ -93,6 +93,26 @@ Items complement mine.define's 12-item quality validation — the quality valida
 |----|----------|-------------|----------------|
 | DD-11 | Should-address | Are at least two operational failure modes identified (e.g., dependency unavailable, data corruption, timeout)? | Edge Cases (preferred) or a dedicated Failure Modes section if one exists |
 | DD-12 | Should-address | Is the expected system behavior on failure defined (graceful degradation, error message, fallback)? | Same section as DD-11 |
+
+### Replacement Targets / Migration
+
+| ID | Severity | Gap question | Target section |
+|----|----------|-------------|----------------|
+| DD-13 | Blocker | If the feature replaces existing code, does the Replacement Targets section list each pattern being superseded and what replaces it? | Replacement Targets |
+| DD-14 | Should-address | If a Migration section is present, does it address what happens to existing data and whether the migration is reversible? | Migration |
+
+### Test Strategy
+
+| ID | Severity | Gap question | Target section |
+|----|----------|-------------|----------------|
+| DD-15 | Blocker | Does the Test Strategy identify specific existing test files that will break or need updating (with file paths), or explicitly state none are affected? | Test Strategy > Existing Tests to Adapt |
+| DD-16 | Should-address | Does the New Test Coverage subsection map new behaviors to Functional Requirements (FR#N)? | Test Strategy > New Test Coverage |
+
+### Impact
+
+| ID | Severity | Gap question | Target section |
+|----|----------|-------------|----------------|
+| DD-17 | Should-address | Does the Impact section identify behavioral invariants — existing behaviors that must not change? | Impact > Behavioral Invariants |
 
 ---
 

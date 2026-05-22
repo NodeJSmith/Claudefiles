@@ -48,9 +48,10 @@ Read the doc fully. Extract and record:
 - **Problem** — what is being solved
 - **Architecture / Proposed approach** — the recommended direction and design decisions
 - **Non-goals** — explicit exclusions (tasks must NOT implement these). This section is optional in design docs — if absent, the user stated no explicit exclusions; proceed without scope constraints from this field.
-- **Impact / affected files** — modules and files named in the design
+- **Impact / Changed Files** — modules and files named in the design (under the `### Changed Files` subsection of `## Impact`). Also note any `### Behavioral Invariants` — existing behaviors that must not change.
+- **Replacement Targets** — code or patterns being intentionally replaced (if section exists). Tasks should remove or migrate these, not preserve them alongside new code.
 - **Open questions** — collect any that are non-empty
-- **Test Strategy** — high-level testing approach and infrastructure needs. If the design doc's Test Strategy states N/A (no test infrastructure), tasks should use "N/A — no test infrastructure in this repo" for their Verify sections rather than inventing test requirements.
+- **Test Strategy** — testing approach, structured as three subsections: `### Existing Tests to Adapt` (test files that will break), `### New Test Coverage` (behaviors needing tests, mapped to FR#N), and `### Tests to Remove` (obsolete tests). If the design doc's Test Strategy states N/A (no test infrastructure), tasks should use "N/A — no test infrastructure in this repo" for their Verify sections rather than inventing test requirements.
 - **Numbered FRs** — every functional requirement with identifier format `FR#N` (e.g., `FR#1`, `FR#13`). Record the complete list of FR identifiers.
 - **Numbered ACs** — every acceptance criterion with identifier format `AC#N` (e.g., `AC#1`, `AC#19`). Record the complete list of AC identifiers.
 - **Visual Artifacts** — any mockup paths, screenshot references, or linked visual assets mentioned in the doc.
