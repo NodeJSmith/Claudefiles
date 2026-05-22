@@ -28,10 +28,6 @@ Rules:
 - No spaces or special characters beyond hyphens
 - Prefer branch name if it's already descriptive
 
-## Terminal Tab Title (Bedrock Only)
-
-On Bedrock, Claude Code's auto-title generation is broken (output_config rejected by Bedrock API). The workaround is in `tmux.conf`: when `CLAUDE_CODE_USE_BEDROCK=1`, `set-titles-string` uses `#{session_name}` instead of `#{pane_title}`. Claude Code's spinner constantly overwrites the pane title but never touches the session name, so the tab always reflects the session name set by `claude-tmux rename`. No sidecar files or extra hooks needed — just renaming the session is sufficient.
-
 ## Drift Detection
 
 When the conversation topic shifts significantly (e.g., pivoting from one feature to another), update the session name to match the new focus.
