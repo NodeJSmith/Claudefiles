@@ -1,8 +1,8 @@
-# WIP Commit Protocol (Step 9)
+# WIP Commit Protocol (Step 17)
 
 **This step runs only for PASS or WARN verdicts.** For FAIL, BLOCKED, or user-chosen "Stop here" / "Fix and retry" outcomes, skip this step entirely — the checkpoint is not updated and no WIP commit is created.
 
-## 9a: Update task status and create WIP commit
+## 17a: Update task status and create WIP commit
 
 Update the task file's frontmatter to `status: done` before committing. Read the task file, change `status: "planned"` to `status: "done"` in the YAML frontmatter, and write it back. This makes the task file self-documenting for archive and future reference.
 
@@ -40,9 +40,9 @@ Store this SHA — it goes into the checkpoint verdict block below.
 
 **If `git commit` fails** (e.g., nothing to commit because the task made no file changes), note the failure and use `no-changes` as the commit value in the verdict block. This is not an error — some tasks may be documentation-only or configuration changes that were already committed by a subprocess.
 
-## 9b: Update checkpoint file
+## 17b: Update checkpoint file
 
-Update the checkpoint via `spec-helper` commands. The WIP commit (Step 9a) MUST complete before this step — the commit SHA goes into the verdict.
+Update the checkpoint via `spec-helper` commands. The WIP commit (Step 17a) MUST complete before this step — the commit SHA goes into the verdict.
 
 **Update header:**
 
@@ -53,7 +53,11 @@ spec-helper checkpoint-update <feature_dir_name> --last-completed-wp <task_id> -
 **Append verdict:**
 
 ```bash
-spec-helper checkpoint-verdict <feature_dir_name> --wp-id <task_id> --title "<task title>" --verdict <PASS|WARN> --commit <SHA from Step 9a> [--notes "<explanation>"] --json
+spec-helper checkpoint-verdict <feature_dir_name> --wp-id <task_id> --title "<task title>" --verdict <PASS|WARN> --commit <SHA from Step 17a> [--notes "<explanation>"] --json
 ```
 
-Add `--notes` if the verdict is WARN (e.g., "3 findings auto-fixed", "visual verification skipped").
+Always add `--notes` when the verdict includes context:
+- **PASS with auto-fixes**: `--verdict PASS --notes "3 auto-fixed"` — findings were raised and resolved
+- **WARN**: `--verdict WARN --notes "visual skipped"` — something genuinely unresolved remains
+
+Resolved findings (all auto-fixed, nothing remaining) produce PASS with a note, not WARN.
