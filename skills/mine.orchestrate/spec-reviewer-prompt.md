@@ -46,7 +46,7 @@ Do not use WARN, PASS, FAIL, or any other verdict vocabulary for individual Veri
 
 ### 3. Check test coverage
 
-**Do not re-run tests yourself.** Test execution is handled by the independent test gate step (Step 5.3). Your role is code inspection: verify that tests exist for the behaviors the task implements. For each Verify criterion that implies testable behavior, check whether a corresponding test exists. A missing test for a core behavior is a NOT_IMPLEMENTED finding.
+**Do not re-run tests yourself.** Test execution is handled by the independent test and lint gate step (Step 9). Your role is code inspection: verify that tests exist for the behaviors the task implements. For each Verify criterion that implies testable behavior, check whether a corresponding test exists. A missing test for a core behavior is a NOT_IMPLEMENTED finding.
 
 ### 4. Check the design doc alignment
 
