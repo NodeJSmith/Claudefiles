@@ -31,7 +31,7 @@ AskUserQuestion:
       description: "Pause execution; resume later with /mine.orchestrate"
 ```
 
-If the user chose "Fix and retry" from the WARN persistence prompt, run one more executor cycle (Steps 5, 6, 8, 9). If the spec reviewer returns WARN again, present only "Mark as blocked and skip" and "Stop here" — do not offer another retry.
+If the user chose "Fix and retry" from the WARN persistence prompt, run one more executor cycle (Steps 5, 6, 7, 8, 9). If the spec reviewer returns WARN again, present only "Mark as blocked and skip" and "Stop here" — do not offer another retry.
 
 The WARN retry happens within a single task's execution. The checkpoint verdict and `last_completed_wp` are not updated during retries (only the in-progress status `current_wp_status` is set) — they update after the final verdict.
 

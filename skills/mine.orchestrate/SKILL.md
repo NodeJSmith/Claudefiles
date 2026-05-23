@@ -206,7 +206,7 @@ If no test suite is discoverable and the user confirms none exists, write `no te
 
 Run both suites and record baselines:
 - Test baseline → `<dir>/test-baseline.md` (note which tests pass and which fail)
-- Lint baseline → `<dir>/lint-baseline.md` (note which checks pass and which fail)
+- Lint baseline → `<dir>/lint-baseline.md` (record per command: the exact command line, exit code, and error count — these are compared by the lint gate in Step 9 to detect regressions)
 
 If a command file contains the sentinel value (`no test suite` / `no lint tools`), record `SKIPPED: <reason>` in the corresponding baseline file and skip that baseline run.
 
@@ -441,7 +441,7 @@ Derive the canonical task verdict from all reviewer outputs. This is the single 
 - Visual reviewer returned WARN or WARN [INFRA]
 - Visual reviewer returned SKIPPED when `visual_mode` is `enabled` (visual review was expected but the reviewer/executor reported a per-task or per-scenario skip). Do not count SKIPPED toward WARN when `visual_mode` is not `enabled` — visual review was intentionally not requested.
 - Test gate has pre-existing failures (no regressions)
-- Lint gate detected regressions that were not fixed by the review findings fix loop
+- Lint gate detected regressions that remain unresolved (the review findings fix loop may incidentally fix some lint issues, but does not target lint specifically)
 
 WARN is reserved for genuinely unresolved items. Always include a parenthetical note explaining what remains: e.g., `WARN (visual skipped)`, `WARN (2 pre-existing test failures)`.
 

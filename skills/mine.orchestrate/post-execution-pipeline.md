@@ -73,6 +73,8 @@ After impl-review passes, run an `integration-reviewer` subagent on the **full b
 git diff --name-only <base_commit> HEAD
 ```
 
+Use the `base_commit` from the checkpoint read in Step 1.
+
 Launch `Agent(subagent_type: "integration-reviewer")` with all changed files. Add this focus instruction to the prompt:
 
 > In addition to your standard checklist (duplication, convention drift, misplacement, orphaned code, design violations), pay special attention to **cross-file consistency** across the full diff:
@@ -112,7 +114,7 @@ After the findings are reported:
 2. Fix ALL findings that have unambiguous solutions — dead code removal, naming improvements, missing type annotations, redundant parameters, magic numbers, API ergonomics improvements, etc.
 3. For findings that require architectural judgment or could change behavior in subtle ways, leave them unfixed and note them in your summary
 4. After fixing, run the project's test suite to verify no regressions: <contents of <dir>/test-command.txt>
-5. If tests pass, run lint: <contents of <dir>/lint-command.txt>
+5. If tests pass, run lint using <contents of <dir>/lint-command.txt>. If that file contains the sentinel "no lint tools", skip this step.
 
 ## Design doc path
 <absolute path to <feature_dir>/design.md>
@@ -152,7 +154,7 @@ After the findings are reported:
 3. Work through every finding top to bottom, making edits directly
 4. For findings that require architectural judgment or could change behavior, leave them unfixed and note them in your summary
 5. After fixing, run the project's test suite to verify no regressions: <contents of <dir>/test-command.txt>
-6. If tests pass, run lint: <contents of <dir>/lint-command.txt>
+6. If tests pass, run lint using <contents of <dir>/lint-command.txt>. If that file contains the sentinel "no lint tools", skip this step.
 
 ## Design doc path
 <absolute path to <feature_dir>/design.md>
@@ -171,6 +173,8 @@ After WTF and nitpick fixes, run a final `code-reviewer` and `integration-review
 ```bash
 git diff --name-only <base_commit> HEAD
 ```
+
+Use the `base_commit` from the checkpoint read in Step 1.
 
 Launch both reviewers in a single message (parallel):
 
