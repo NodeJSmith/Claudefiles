@@ -4,7 +4,7 @@ Defines all 13 PR leaf models plus the ``Pr`` group model that wires them
 as subcommands with hyphenated aliases.
 """
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import AliasChoices, BaseModel, Field, field_validator
 from pydantic_settings import CliApp, CliPositionalArg, CliSubCommand
 
 from ado_api.cli_context import (
@@ -88,10 +88,14 @@ class PrCreate(BaseModel):
         description="Read description from file (- for stdin)",
     )
     source: str | None = Field(
-        None, description="Source branch (default: current branch)"
+        None,
+        validation_alias=AliasChoices("source", "source-branch"),
+        description="Source branch (default: current branch)",
     )
     target: str | None = Field(
-        None, description="Target branch (default: repo default)"
+        None,
+        validation_alias=AliasChoices("target", "target-branch"),
+        description="Target branch (default: repo default)",
     )
     draft: bool = Field(False, description="Create as draft PR")
     json_output: bool = Field(False, alias="json", description="Output as JSON")
