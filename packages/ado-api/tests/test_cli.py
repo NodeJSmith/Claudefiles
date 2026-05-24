@@ -600,6 +600,82 @@ class TestHyphenatedAliasRouting:
             mock.assert_called_once()
 
 
+class TestPrCreateBranchAliases:
+    """Verify --source-branch/--target-branch aliases populate source/target."""
+
+    def test_source_branch_alias(self) -> None:
+        with patch("ado_api.cli_models.pr.cmd_pr_create") as mock:
+            CliApp.run(
+                AdoCli,
+                cli_args=[
+                    "pr",
+                    "create",
+                    "--title",
+                    "Test PR",
+                    "--source-branch",
+                    "feature/foo",
+                ],
+            )
+            mock.assert_called_once()
+            assert mock.call_args.kwargs["source"] == "feature/foo"
+            assert mock.call_args.kwargs["target"] is None
+
+    def test_target_branch_alias(self) -> None:
+        with patch("ado_api.cli_models.pr.cmd_pr_create") as mock:
+            CliApp.run(
+                AdoCli,
+                cli_args=[
+                    "pr",
+                    "create",
+                    "--title",
+                    "Test PR",
+                    "--target-branch",
+                    "main",
+                ],
+            )
+            mock.assert_called_once()
+            assert mock.call_args.kwargs["target"] == "main"
+            assert mock.call_args.kwargs["source"] is None
+
+    def test_both_aliases_together(self) -> None:
+        with patch("ado_api.cli_models.pr.cmd_pr_create") as mock:
+            CliApp.run(
+                AdoCli,
+                cli_args=[
+                    "pr",
+                    "create",
+                    "--title",
+                    "Test PR",
+                    "--source-branch",
+                    "feature/bar",
+                    "--target-branch",
+                    "develop",
+                ],
+            )
+            mock.assert_called_once()
+            assert mock.call_args.kwargs["source"] == "feature/bar"
+            assert mock.call_args.kwargs["target"] == "develop"
+
+    def test_original_flags_still_work(self) -> None:
+        with patch("ado_api.cli_models.pr.cmd_pr_create") as mock:
+            CliApp.run(
+                AdoCli,
+                cli_args=[
+                    "pr",
+                    "create",
+                    "--title",
+                    "Test PR",
+                    "--source",
+                    "feature/baz",
+                    "--target",
+                    "main",
+                ],
+            )
+            mock.assert_called_once()
+            assert mock.call_args.kwargs["source"] == "feature/baz"
+            assert mock.call_args.kwargs["target"] == "main"
+
+
 class TestStartupLatency:
     """Benchmark CLI startup time via subprocess."""
 
