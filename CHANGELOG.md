@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-05-24
+
+### Added
+- `--source-branch` and `--target-branch` aliases for `--source` and `--target` on `ado-api pr create` (#308)
+
 ## 2026-05-23
 
 ### Changed
