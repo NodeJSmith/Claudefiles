@@ -188,6 +188,8 @@ Event-driven scripts that run before/after tool calls.
 | `cm-consolidation-check` (package) | SessionStart (startup\|clear) | Check if memory consolidation is needed |
 | `cm-clear-handoff` (package) | SessionEnd (clear) | Write a handoff note before `/clear` |
 | `context-tier.sh` | PreToolUse (*) | Inject context window tier guidance on tier change or periodic heartbeat (every 25 calls) — prevents hallucinated context pressure |
+| `tmux-drift-check.sh` | PreToolUse (*) | Periodically remind Claude to verify tmux session name alignment with current work (every 30 calls) |
+| `phrase-monitor.sh` | PreToolUse (*) | Log assistant rationalization phrases (context pressure, minimize changes, scope avoidance, etc.) — observation-only with optional ntfy notifications |
 | `cm-memory-sync` (package) | Stop | Sync current session to the conversation database |
 
 > **Context tier setup:** The `context-tier.sh` hook reads a sidecar file written by `claude-context-writer`. To enable it, add `claude-context-writer` to your `statusLine.command` in settings — either by itself or in front of your existing command:
@@ -222,6 +224,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `git-platform` | Detect git hosting platform (`github`, `ado`, or `unknown`) from remote URL |
 | `pytest-loop-reset` | Manually clear both pytest failure counters (no-edit and total) — use when you want to retry after a denial |
 | `lint-cli-conventions` | Drift prevention lint — verifies `--help` handling in bin/ scripts and capabilities-core.md CLI Tools sync |
+| `phrase-monitor-log` | View phrase monitor detections — last N entries, stats, live tail, or clear |
 
 ### Packages
 
