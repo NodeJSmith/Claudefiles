@@ -290,7 +290,7 @@ AskUserQuestion:
       description: "{N} findings"
 ```
 
-Only include checkers with non-zero finding counts. Work through every finding in the chosen checker top to bottom. If a checker has many findings (more than 8), present the first 4 with an option to "Show more" — repeat until the user has worked through all findings or stops. After completing the chosen checker:
+Only include checkers with non-zero finding counts. Work through every finding in the chosen checker top to bottom. If a checker has many findings (more than 8), chunk the presentation: show the first 4 with an option to "Show more" — repeat until the user has worked through all findings or stops. (Threshold 8 avoids overwhelming a single prompt; chunk size 4 keeps each batch scannable.) After completing the chosen checker:
 
 ```
 AskUserQuestion:

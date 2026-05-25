@@ -110,7 +110,7 @@ Run /mine.clean-code on this branch. This dispatches three parallel checkers (ll
 
 After the findings are reported:
 
-1. Read every finding carefully
+1. When mine.clean-code asks "What would you like to do with these findings?", choose "Fix all"
 2. Fix ALL findings that have unambiguous solutions — obvious-comment removal, dead helper removal, naming improvements, scattered constants, hardcoded values that should be configurable, copy-paste extraction, etc.
 3. For findings that require architectural judgment or could change behavior in subtle ways (e.g., collapsing an abstraction stack, restructuring an error hierarchy), leave them unfixed and note them in your summary
 4. After fixing, run the project's test suite to verify no regressions: <contents of <dir>/test-command.txt>

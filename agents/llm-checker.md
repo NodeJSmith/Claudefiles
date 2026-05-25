@@ -25,11 +25,13 @@ LLM-generated code compiles, passes tests, and looks like good engineering — t
 - Acknowledge what reads well before listing issues
 
 ## Invocation patterns
-- **Orchestrate pipeline** (`mine.orchestrate`) or **clean-code skill** (`mine.clean-code`): passes explicit file list in prompt — use that list, skip self-discovery
+- **Clean-code skill** (`mine.clean-code`): passes explicit file list in prompt — use that list, skip self-discovery
 - **Manual**: no file list provided — use the self-discovery cascade below
 
+<!-- PARALLEL: lazy-checker.md has an identical invocation/discovery block — update both -->
+
 When invoked:
-1. Find all changed files. If an explicit file list or diff command was provided, use it. Otherwise discover:
+1. Find all changed files. If an explicit file list or diff command was provided, use it and skip discovery entirely. Only if no file list was provided, discover:
    ```bash
    # 1. Uncommitted changes (staged + unstaged)
    git diff --name-only HEAD

@@ -68,16 +68,36 @@ If the diff exceeds ~500 files, ask the user to narrow scope before proceeding.
 Collect the file list from the target paths. For directories, expand to all source files (exclude vendored, generated, build output, and binary files):
 
 ```bash
-find <paths> -type f \( -name '*.py' -o -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' -o -name '*.css' -o -name '*.html' -o -name '*.go' -o -name '*.rs' -o -name '*.java' -o -name '*.rb' \)
+find <paths> -type f \
+  -not -path '*/node_modules/*' \
+  -not -path '*/.git/*' \
+  -not -path '*/dist/*' \
+  -not -path '*/build/*' \
+  -not -path '*/__pycache__/*' \
+  -not -path '*/.venv/*' \
+  -not -path '*/vendor/*' \
+  -not -path '*/.next/*' \
+  -not -path '*/coverage/*' \
+  \( -name '*.py' -o -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' -o -name '*.css' -o -name '*.scss' -o -name '*.html' -o -name '*.go' -o -name '*.rs' -o -name '*.java' -o -name '*.rb' \)
 ```
 
-Adapt the extensions to the project's language. Count the results first — if the file count exceeds 200, ask the user to narrow scope before proceeding. Otherwise, capture the full list.
+Adapt the extensions to the project's language. If the file list is empty after filtering, inform the user that no reviewable source files were found in the target paths and stop.
 
-Capture a summary for the report header:
+Count the results first — if the file count exceeds 200, ask the user to narrow scope before proceeding:
 
-```bash
-wc -l <files> | tail -1
 ```
+AskUserQuestion:
+  question: "Path mode found {N} files — that's a lot of ground to cover. Want to narrow scope?"
+  header: "Scope"
+  multiSelect: false
+  options:
+    - label: "Proceed anyway"
+      description: "Review all {N} files — this will take a while"
+    - label: "Narrow scope"
+      description: "I'll specify a smaller directory or file list"
+```
+
+If the user chooses **Narrow scope**, ask what paths to use instead (the user types them via Other), then restart Step 2b with the confirmed scope.
 
 ## Phase 2: Dispatch Three Parallel Reviewers
 
@@ -88,14 +108,12 @@ Launch all three agents **in a single message** so they run in parallel. Adapt t
 #### Reviewer 1: Code Review (`subagent_type: "code-reviewer"`)
 
 ```
-Review all changes on this branch for correctness, security, performance, and LLM-specific smells.
+Review all changes on this branch for correctness, security, and performance.
 
 Run: <diff command>
 
 This repo may or may not have tests/linters — check before running them.
-Focus on correctness, types, security, performance, style, and LLM-specific
-smells (happy path assumptions, overengineering, nested ternaries, magic
-numbers, type assertions defeating safety, copy-paste patterns).
+Focus on correctness, types, security, performance, and style.
 ```
 
 #### Reviewer 2: Integration Review (`subagent_type: "integration-reviewer"`)
@@ -128,16 +146,13 @@ from now — readability debt, bespoke complexity, and structural smells.
 #### Reviewer 1: Code Review (`subagent_type: "code-reviewer"`)
 
 ```
-Review the following files for correctness, security, performance, and
-LLM-specific smells. These are existing files, not a diff — review each
-file in full.
+Review the following files for correctness, security, and performance.
+These are existing files, not a diff — review each file in full.
 
 Files: <file list>
 
 This repo may or may not have tests/linters — check before running them.
-Focus on correctness, types, security, performance, style, and LLM-specific
-smells (happy path assumptions, overengineering, nested ternaries, magic
-numbers, type assertions defeating safety, copy-paste patterns).
+Focus on correctness, types, security, performance, and style.
 ```
 
 #### Reviewer 2: Integration Review (`subagent_type: "integration-reviewer"`)

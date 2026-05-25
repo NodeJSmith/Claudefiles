@@ -4,7 +4,8 @@
 
 When the user's request matches a row below, launch the Agent tool with the corresponding `subagent_type`. Do NOT do the work inline — dispatch to the agent.
 
-<!-- PARALLEL: skills/mine.orchestrate/SKILL.md Step 3 also routes to these agents by WP content (not user intent) — add new agents to both, but signal wording differs intentionally -->
+<!-- PARALLEL: skills/mine.orchestrate/SKILL.md Step 3 also routes to these agents by WP content (not user intent) — add new agents to both. This table uses user-intent phrases ("readability review"); orchestrate uses WP-content signals ("contains UI components"). The wording differs because the routing trigger differs. -->
+<!-- wtf-reviewer, llm-checker, lazy-checker, and nitpicker are dispatched only by skills (mine.review / mine.clean-code), not directly by users — use the skill for these reviews -->
 | User needs... | Use `subagent_type` |
 |---|---|
 | "plan this feature", implementation planning | `planner` |
