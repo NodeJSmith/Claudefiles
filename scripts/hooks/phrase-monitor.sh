@@ -12,6 +12,7 @@
 #   simplicity_excuse — choosing worse approaches for "simplicity"
 #   scope_avoidance   — preemptively limiting scope
 #   avoid_refactor    — explicitly avoiding needed refactoring
+#   backward_compat   — citing backward compatibility to avoid proper fixes
 #
 # Fires every N tool calls (default 5, override via CLAUDE_PHRASE_MONITOR_INTERVAL).
 # Lower than other hooks because we need to catch phrases close to when they
@@ -28,6 +29,8 @@
 # 2000ms sibling hooks due to transcript parsing + grep loops + curl)
 #
 # No set -euo pipefail — guard clause style, same as context-tier.sh.
+
+umask 077
 
 if ! command -v jq > /dev/null 2>&1; then
   exit 0
@@ -68,6 +71,8 @@ case "$seen_count" in *[!0-9]*) seen_count=0 ;; esac
 # Extract assistant messages we haven't seen yet
 # The transcript is JSONL — each line is a message object
 total_lines="$(wc -l < "$transcript_path" 2> /dev/null)" || exit 0
+# Reset if transcript was recreated (total_lines < seen_count)
+[ "$total_lines" -ge "$seen_count" ] || seen_count=0
 [ "$total_lines" -gt "$seen_count" ] || exit 0
 
 # Read only new lines, filter to assistant text content
@@ -210,7 +215,7 @@ if [ "$detection_count" -gt 0 ] && [ "$notify_enabled" = 1 ]; then
       -H "Authorization: Bearer ${ntfy_token}" \
       -H "Tags: eyes" \
       -H "X-Markdown: 1" \
-      -d "${hostname} ${cwd}
+      --data-binary "${hostname} ${cwd}
 ${notify_body}" \
       "$ntfy_url" 2> /dev/null || true
   fi
