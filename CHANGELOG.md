@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-05-25
 
 ### Added
-- `phrase-monitor.sh` PreToolUse hook — monitors assistant messages for rationalization phrases (context pressure, scope avoidance, etc.) with optional ntfy notifications
+- `phrase-monitor.sh` PreToolUse hook — monitors assistant messages for rationalization phrases (context pressure, scope avoidance, etc.) with optional ntfy notifications (#309)
 
 ## 2026-05-24
 
