@@ -5,22 +5,22 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-05-25
 
 ### Added
-- `mine.clean-code` skill — stylistic quality review dispatching llm-checker, lazy-checker, and nitpicker in parallel; detects LLM training-bias patterns, deferred-debt shortcuts, and style hygiene issues
-- `llm-checker` agent — detects 6 LLM training-bias patterns (obvious comments, defensive everything, unnecessary abstractions, dead helpers, over-engineered errors, context blindness)
-- `lazy-checker` agent — detects 5 deferred-debt patterns (verbosity inflation, naming chaos, copy-paste duplication, TODO rot, hardcoded shortcuts)
-- `nitpicker` agent — hyper-critical style reviewer converted from mine.nitpick REFERENCE.md to a named agent file
+- `mine.clean-code` skill — stylistic quality review dispatching llm-checker, lazy-checker, and nitpicker in parallel; detects LLM training-bias patterns, deferred-debt shortcuts, and style hygiene issues (#310)
+- `llm-checker` agent — detects 6 LLM training-bias patterns (obvious comments, defensive everything, unnecessary abstractions, dead helpers, over-engineered errors, context blindness) (#310)
+- `lazy-checker` agent — detects 5 deferred-debt patterns (verbosity inflation, naming chaos, copy-paste duplication, TODO rot, hardcoded shortcuts) (#310)
+- `nitpicker` agent — hyper-critical style reviewer converted from mine.nitpick REFERENCE.md to a named agent file (#310)
 - `phrase-monitor.sh` PreToolUse hook — monitors assistant messages for rationalization phrases (context pressure, scope avoidance, etc.) with optional ntfy notifications (#309)
 
 ### Changed
-- `mine.review` promoted from command to full skill — absorbs mine.wtf's three-phase architecture (scope detection → parallel dispatch → consolidation) with code-reviewer, integration-reviewer, and wtf-reviewer
-- `mine.orchestrate` Phase 3 collapses WTF + nitpick steps into a single mine.clean-code step
-- `mine.ship` gains Phase 1.5 clean code gate between commit-push and PR creation
-- `wtf-reviewer` narrowed — LLM-specific patterns section removed (now llm-checker territory); "non-prompted consideration" moved to Readability Debt
+- `mine.review` promoted from command to full skill — absorbs mine.wtf's three-phase architecture (scope detection → parallel dispatch → consolidation) with code-reviewer, integration-reviewer, and wtf-reviewer (#310)
+- `mine.orchestrate` Phase 3 collapses WTF + nitpick steps into a single mine.clean-code step (#310)
+- `mine.ship` gains Phase 1.5 clean code gate between commit-push and PR creation (#310)
+- `wtf-reviewer` narrowed — LLM-specific patterns section removed (now llm-checker territory); "non-prompted consideration" moved to Readability Debt (#310)
 
 ### Removed
-- `mine.wtf` skill — absorbed into `mine.review`
-- `mine.nitpick` skill — replaced by `mine.clean-code`; REFERENCE.md content became `agents/nitpicker.md`
-- `commands/mine.review.md` — replaced by `skills/mine.review/SKILL.md`
+- `mine.wtf` skill — absorbed into `mine.review` (#310)
+- `mine.nitpick` skill — replaced by `mine.clean-code`; REFERENCE.md content became `agents/nitpicker.md` (#310)
+- `commands/mine.review.md` — replaced by `skills/mine.review/SKILL.md` (#310)
 
 ## 2026-05-24
 
