@@ -73,7 +73,7 @@ The review skill landscape also has overlapping coverage. Three separate skills 
 
 ## Edge Cases
 
-- **Cross-checker duplicate findings**: The llm-checker flags "defensive code at wrong boundary" and the nitpicker flags the same code as "scattered constants in the try/catch block." The consolidation step must deduplicate by file:line, keeping the most specific finding and noting the cross-signal.
+- **Cross-checker duplicate findings**: The llm-checker flags "defensive code at wrong boundary" and the nitpicker flags the same code as "scattered constants in the try/catch block." The consolidation step keeps both entries in their respective checker sections and notes the cross-signal with `(also flagged by X)` — findings are not merged across checkers since each represents a different quality dimension.
 - **Overlap between code-reviewer's LLM section and llm-checker**: The code-reviewer has its own "LLM-Specific Smells" dimension (MEDIUM severity). When mine.review and mine.clean-code both run in the same pipeline (orchestration), some findings may appear in both passes. This is acceptable — each pass runs independently and the orchestration pipeline presents results sequentially.
 - **Empty diff in path mode**: Files exist but have no changes on the branch. Both skills should review the files as-is without requiring a diff.
 - **Large scope**: The existing mine.wtf caps at ~500 files (diff) / 200 files (path). Both new skills should inherit these limits.

@@ -29,12 +29,30 @@ LLM-generated code compiles, passes tests, and looks like good engineering — t
 - **Manual**: no file list provided — use the self-discovery cascade below
 
 When invoked:
-1. Find all changed files. If an explicit file list was provided, use it. Otherwise discover:
+1. Find all changed files. If an explicit file list or diff command was provided, use it. Otherwise discover:
    ```bash
+   # 1. Uncommitted changes (staged + unstaged)
    git diff --name-only HEAD
+   ```
+   Also check for new untracked files:
+   ```bash
    git ls-files --others --exclude-standard
    ```
-   Fall back in order: `@{upstream}...HEAD` → default branch diff → `HEAD~1`
+   If both are empty, fall back to committed branch diffs:
+   ```bash
+   # 2. Branch diff vs upstream
+   git diff --name-only @{upstream}...HEAD 2>/dev/null
+   ```
+   If empty or fails:
+   ```bash
+   # 3. Branch diff vs default branch
+   git-default-branch | xargs -I {} git diff --name-only "origin/{}...HEAD" 2>/dev/null || git-default-branch | xargs -I {} git diff --name-only "{}...HEAD"
+   ```
+   If still empty:
+   ```bash
+   # 4. Last commit
+   git diff --name-only HEAD~1
+   ```
 2. Read every file in full
 3. Begin review
 

@@ -144,7 +144,7 @@ Launch both reviewers in a single message (parallel):
 
 **Integration reviewer** (`subagent_type: "integration-reviewer"`): review all changed files, write to `<dir>/final-integration-review.md`.
 
-If either reviewer finds CRITICAL or HIGH issues, fix them inline (same pattern as Step 12's fix loop — max 2 iterations). MEDIUM and LOW findings are noted for the shipping gate but do not block.
+If either reviewer finds CRITICAL or HIGH issues, fix them inline (auto-fix unambiguous issues, re-run both reviewers, max 2 iterations). MEDIUM and LOW findings are noted for the shipping gate but do not block.
 
 ## Step 6: Shipping gate
 

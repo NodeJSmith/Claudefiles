@@ -27,11 +27,11 @@ Follow **all steps in `mine.commit-push`** exactly (read `skills/mine.commit-pus
 After Phase 1 completes (changes committed and pushed), check for a prior clean-code run:
 
 ```bash
-find /tmp -maxdepth 2 -name 'clean-code-summary.md' -path '*/claude-mine-orchestrate-*' 2>/dev/null | head -1
+find /tmp -maxdepth 2 -name 'clean-code-summary.md' -path '*/claude-mine-orchestrate-*' -printf '%T@ %p\n' 2>/dev/null | sort -rn | cut -d' ' -f2-
 ```
 
-- If a file is found, read it and check if the first line contains the current HEAD SHA (`git rev-parse --short HEAD`). If matched, skip this phase with a note: "Stylistic review already completed."
-- If no file found or SHA doesn't match, run `/mine.clean-code` on the branch diff
+- For each match (most recent first), read its first line and check if it contains the current HEAD SHA (`git rev-parse --short HEAD`). If any match, skip this phase with a note: "Stylistic review already completed."
+- If no files found or no SHA match, run `/mine.clean-code` on the branch diff
 
 If mine.clean-code produces findings, present:
 
