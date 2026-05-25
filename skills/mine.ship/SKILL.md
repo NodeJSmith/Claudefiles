@@ -22,6 +22,41 @@ Follow **all steps in `mine.commit-push`** exactly (read `skills/mine.commit-pus
 
 `mine.commit-push` handles: branch creation, commit scope check, changelog, code review loop, integration review, local verification (tests + linting + test presence check), WP archival, staging, committing, and pushing.
 
+### Phase 1.5 — Clean Code Gate
+
+After Phase 1 completes (changes committed and pushed), check for a prior clean-code run:
+
+```bash
+find /tmp -maxdepth 2 -name 'clean-code-summary.md' -path '*/claude-mine-orchestrate-*' 2>/dev/null | head -1
+```
+
+- If a file is found, read it and check if the first line contains the current HEAD SHA (`git rev-parse --short HEAD`). If matched, skip this phase with a note: "Stylistic review already completed."
+- If no file found or SHA doesn't match, run `/mine.clean-code` on the branch diff
+
+If mine.clean-code produces findings, present:
+
+```
+AskUserQuestion:
+  question: "Stylistic review found findings. What next?"
+  header: "Clean code"
+  multiSelect: false
+  options:
+    - label: "Address findings"
+      description: "Apply fixes top-to-bottom, then proceed to PR creation"
+    - label: "Ship anyway"
+      description: "Proceed to PR creation with findings noted"
+    - label: "Stop here"
+      description: "Pause; I'll address findings manually"
+```
+
+- **"Address findings"**: apply fixes top-to-bottom inline (no subagent), then proceed to Phase 2
+- **"Ship anyway"**: proceed to Phase 2
+- **"Stop here"**: stop
+
+If mine.clean-code produces no findings, proceed to Phase 2 automatically.
+
+If any checker subagent fails to complete, skip that checker's findings and note "unavailable" in the gate question — do not block PR creation for checker failures.
+
 ### Phase 2 — Create PR
 
 11. **Detect platform** by running `git-platform`. If output is `unknown`, inform the user the platform is unsupported and stop. If `github`, use `gh` CLI. If `ado`, use `az` CLI.

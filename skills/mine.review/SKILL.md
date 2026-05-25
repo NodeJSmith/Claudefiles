@@ -1,12 +1,12 @@
 ---
-name: mine.wtf
-description: "Use when the user says: \"sniff test this\", \"WTF check\", \"code smells\", \"is this code any good\", \"fresh eyes on this branch\", \"review this directory\", \"check this module\". Dispatches three parallel reviewers — code, integration, and a WTF readability pass — and consolidates findings into one prioritized report."
+name: mine.review
+description: "Use when the user says: \"review my changes\", \"run the reviewers\", \"code and integration review\", \"readability review\", \"maintainability review\", \"sniff test this\", \"WTF check\", \"code smells\", \"is this code any good\", \"fresh eyes on this branch\", \"review this directory\", \"check this module\". Dispatches three parallel reviewers — code, integration, and a readability pass — and consolidates findings into one prioritized report."
 user-invocable: true
 ---
 
-# WTF Check
+# Technical Review
 
-A comprehensive "sniff test" for code. Dispatches three parallel reviewers — code correctness, integration fit, and a dedicated WTF/readability pass — then consolidates findings into a single prioritized report.
+A comprehensive technical review. Dispatches three parallel reviewers — code correctness, integration fit, and a readability pass — then consolidates findings into a single prioritized report.
 
 Use this when you want fresh eyes on a branch before shipping, after a big implementation push, when you suspect code quality has drifted, or when you want to review existing code you didn't write.
 
@@ -14,8 +14,8 @@ Use this when you want fresh eyes on a branch before shipping, after a big imple
 
 $ARGUMENTS — optional scope. Can be:
 - Empty: review the full branch diff (default)
-- A directory: `/mine.wtf src/components/`
-- A file list: `/mine.wtf src/api/routes.py src/services/auth.py`
+- A directory: `/mine.review src/components/`
+- A file list: `/mine.review src/api/routes.py src/services/auth.py`
 
 When $ARGUMENTS resolves to existing files or directories that have no uncommitted or branch changes, the skill operates in **path mode** — reviewing the files as they are, not as a diff.
 
@@ -34,7 +34,9 @@ ls -d <each argument>
 ```
 
 - **All paths exist** → determine if those paths have branch changes. First get the base branch (`git-branch-base`). If a base is found, run `git diff --name-only <base>...HEAD -- <paths>`. If no base, run `git diff --name-only HEAD -- <paths>`. If the diff produces files, use **diff mode** scoped to those paths. If empty, use **path mode**.
-- **No paths exist** (or $ARGUMENTS is empty) → use **diff mode** on the full branch.
+- **Some paths exist, some do not** → warn the user about the missing paths, then proceed with the paths that do exist using the logic above.
+- **No paths exist but $ARGUMENTS was non-empty** → warn the user that none of the specified paths were found (likely a typo) and stop. Do not silently fall through to a full branch review.
+- **$ARGUMENTS is empty** → use **diff mode** on the full branch.
 
 ### Step 2a: Diff mode
 
@@ -110,7 +112,7 @@ that can diverge), abstraction inconsistency, and unresolved references
 reference real packages/methods).
 ```
 
-#### Reviewer 3: WTF Readability Pass (`subagent_type: "wtf-reviewer"`)
+#### Reviewer 3: Readability Pass (`subagent_type: "wtf-reviewer"`)
 
 ```
 Review all changes on this branch for readability and maintainability issues.
@@ -118,9 +120,7 @@ Review all changes on this branch for readability and maintainability issues.
 Run: <diff command>
 
 Focus on code that works but will confuse a developer reading it a month
-from now — readability debt, bespoke complexity, LLM-specific patterns
-(prompt-biased code, non-prompted considerations, defensive code for
-impossible cases), and structural smells.
+from now — readability debt, bespoke complexity, and structural smells.
 ```
 
 ### Path mode prompts
@@ -157,7 +157,7 @@ and misplacement, check only within the target files and their immediate
 siblings — do not scan the entire codebase.
 ```
 
-#### Reviewer 3: WTF Readability Pass (`subagent_type: "wtf-reviewer"`)
+#### Reviewer 3: Readability Pass (`subagent_type: "wtf-reviewer"`)
 
 ```
 Review the following files for readability and maintainability issues.
@@ -166,9 +166,7 @@ These are existing files, not a diff — review each file in full.
 Files: <file list>
 
 Focus on code that works but will confuse a developer reading it a month
-from now — readability debt, bespoke complexity, LLM-specific patterns
-(prompt-biased code, non-prompted considerations, defensive code for
-impossible cases), and structural smells.
+from now — readability debt, bespoke complexity, and structural smells.
 ```
 
 ## Phase 3: Consolidate Findings
@@ -177,7 +175,7 @@ After all three reviewers complete, merge their findings into a single report.
 
 ### Step 1: Deduplicate
 
-If two reviewers flagged the same issue (e.g., code-reviewer found a magic number AND the WTF pass flagged it), keep one entry and note the cross-signal: `(flagged by code-review + WTF pass)`.
+If two reviewers flagged the same issue (e.g., code-reviewer found a magic number AND the readability pass flagged it), keep one entry and note the cross-signal: `(flagged by code-review + readability pass)`.
 
 ### Step 1.5: Validity assessment
 
@@ -190,12 +188,12 @@ Move likely-invalid findings out of the severity-organized tables and into a sep
 Organize by severity, not by reviewer. Lead with the overall picture:
 
 ```markdown
-## WTF Check: [branch name or target path]
+## Technical Review: [branch name or target path]
 
 **Scope:** N files changed, +X/-Y lines (diff mode) | N files, X total lines (path mode)
 **Code Review:** APPROVE / WARN / BLOCK
 **Integration Review:** APPROVE / WARN / BLOCK
-**WTF Readability:** X findings (N HIGH, N MEDIUM, N LOW)
+**Readability Pass:** X findings (N HIGH, N MEDIUM, N LOW)
 **Likely-invalid:** N
 
 ### Critical / High
@@ -204,7 +202,7 @@ Organize by severity, not by reviewer. Lead with the overall picture:
 |---|--------|---------|------|
 | 1 | Code | [description] | `file:line` |
 | 2 | Integration | [description] | `file:line` |
-| 3 | WTF | [description] | `file:line` |
+| 3 | Readability | [description] | `file:line` |
 
 ### Medium
 
@@ -217,14 +215,14 @@ Organize by severity, not by reviewer. Lead with the overall picture:
 ...
 ```
 
-Source column uses: `Code`, `Integration`, `WTF`, or `Code+WTF` etc. for cross-signals.
+Source column uses: `Code`, `Integration`, `Readability`, or `Code+Readability` etc. for cross-signals.
 
 ### Likely Invalid (if any)
 
 For each likely-invalid finding, use the named-field format:
 
     ### LI-1: <finding title>
-    **Source:** Code | Integration | WTF
+    **Source:** Code | Integration | Readability
     **Claimed:** <what the finding asserts>
     **Actually:** <what the code actually does, with file:line>
     **Why-invalid:** <the specific conflict>
@@ -245,11 +243,10 @@ AskUserQuestion:
       description: "Acknowledged — no fixes this session"
 ```
 
-If the user chooses to fix: work through findings top-down by severity. For each fix, make the edit directly. After all selected fixes are done, run `/mine.review` to verify the fixes pass code and integration review before committing. (The WTF pass is not re-run — it is not a pre-commit gate.)
+If the user chooses to fix: work through findings top-down by severity. For each fix, make the edit directly. After all selected fixes are done, say: "Fixes complete — run `/mine.commit-push` or proceed to commit when ready." (Do not re-run mine.review — it is not needed after targeted fixes.)
 
 ## What This Skill Does NOT Do
 
-- **Replace pre-commit review** — `/mine.review` runs code-reviewer + integration-reviewer on every commit. This skill is for on-demand comprehensive checks.
 - **Deep codebase audit** — `mine.audit` does directory-by-directory structural analysis with churn data and coverage metrics. This skill is a focused sniff test on a branch diff or a set of files.
 - **Fix anything automatically** — it diagnoses, then asks what to fix.
-- **Exhaustive style-only sweep with no severity filter** — use `/mine.nitpick` for a zero-mercy report on magic numbers, scattered constants, messy CSS, naming inconsistencies, and dead code where nothing is too small to flag.
+- **Exhaustive style-only sweep with no severity filter** — use `/mine.clean-code` for a zero-mercy report on LLM-specific smells, lazy patterns, magic numbers, scattered constants, naming inconsistencies, and dead code where nothing is too small to flag.

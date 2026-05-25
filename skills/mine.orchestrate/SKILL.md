@@ -527,4 +527,4 @@ After the gate, continue with the next task in sequence. Track: done (PASS), war
 
 ## Phase 3: Post-Execution Review Pipeline
 
-Read `${CLAUDE_HOME:-~/.claude}/skills/mine.orchestrate/post-execution-pipeline.md` and follow it. Covers: verdict summary table, implementation review gate, cross-file consistency review, WTF check (auto-fix), nitpick check (auto-fix), and shipping gate.
+Read `${CLAUDE_HOME:-~/.claude}/skills/mine.orchestrate/post-execution-pipeline.md` and follow it. Covers: verdict summary table, implementation review gate, cross-file consistency review, clean code check (auto-fix), and shipping gate.

@@ -5,7 +5,22 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-05-25
 
 ### Added
+- `mine.clean-code` skill — stylistic quality review dispatching llm-checker, lazy-checker, and nitpicker in parallel; detects LLM training-bias patterns, deferred-debt shortcuts, and style hygiene issues
+- `llm-checker` agent — detects 6 LLM training-bias patterns (obvious comments, defensive everything, unnecessary abstractions, dead helpers, over-engineered errors, context blindness)
+- `lazy-checker` agent — detects 5 deferred-debt patterns (verbosity inflation, naming chaos, copy-paste duplication, TODO rot, hardcoded shortcuts)
+- `nitpicker` agent — hyper-critical style reviewer converted from mine.nitpick REFERENCE.md to a named agent file
 - `phrase-monitor.sh` PreToolUse hook — monitors assistant messages for rationalization phrases (context pressure, scope avoidance, etc.) with optional ntfy notifications (#309)
+
+### Changed
+- `mine.review` promoted from command to full skill — absorbs mine.wtf's three-phase architecture (scope detection → parallel dispatch → consolidation) with code-reviewer, integration-reviewer, and wtf-reviewer
+- `mine.orchestrate` Phase 3 collapses WTF + nitpick steps into a single mine.clean-code step
+- `mine.ship` gains Phase 1.5 clean code gate between commit-push and PR creation
+- `wtf-reviewer` narrowed — LLM-specific patterns section removed (now llm-checker territory); "non-prompted consideration" moved to Readability Debt
+
+### Removed
+- `mine.wtf` skill — absorbed into `mine.review`
+- `mine.nitpick` skill — replaced by `mine.clean-code`; REFERENCE.md content became `agents/nitpicker.md`
+- `commands/mine.review.md` — replaced by `skills/mine.review/SKILL.md`
 
 ## 2026-05-24
 
@@ -15,7 +30,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-05-23
 
 ### Changed
-- `mine.orchestrate` Phase 3 adds automatic WTF, nitpick, and final review passes — Opus subagents auto-fix findings before the shipping gate (#307)
+- `mine.orchestrate` Phase 3 adds automatic clean code check and final review passes — Opus subagent auto-fixes findings before the shipping gate (#307)
 - `mine.orchestrate` Phase 2 adds lint/format gate alongside test gate, with user-confirmed command discovery and per-command regression tracking (#307)
 
 ## 2026-05-22
