@@ -55,6 +55,7 @@ All four directories symlink into `~/.claude/skills/` at install time — the ru
 | `mine.brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas ranked by user-chosen criteria, with handoff to research or planning |
 | `mine.build` | Single entry point — routes between direct implementation and the full caliper v2 workflow (define → plan → orchestrate → ship) |
 | `mine.challenge` | Adversarial review using 3 generic + up to 2 domain-specialist critics — assumes the target is wrong, finds out why, argues for better. Pre-flight catches surface issues and validates architecture before launching critics; reduces to 2 critics on re-challenges. Works on code, specs, designs, briefs, skill files, docs |
+| `mine.clean-code` | Stylistic quality review — dispatches llm-checker, lazy-checker, and nitpicker in parallel; flags LLM-bias patterns, deferred debt, and hyper-critical style issues |
 | `mine.commit-push` | Commit and push changes to the current branch |
 | `mine.create-pr` | Review branch changes and create a PR on GitHub or Azure DevOps |
 | `mine.debug` | Systematic debugging — 4-phase root-cause investigation with escalation protocol and error tracking |
@@ -65,18 +66,17 @@ All four directories symlink into `~/.claude/skills/` at install time — the ru
 | `mine.grill` | Multi-angle interrogation of a raw idea — product, design, engineering, scope, and adversarial lenses. Produces a brief.md that feeds into /mine.define |
 | `mine.mockup` | Generate self-contained HTML mockup files — reads `design/context.md` for consistent styling, delivers to a session temp directory |
 | `mine.mutation-test` | Mutation testing -- intentionally break code to verify tests catch real bugs |
-| `mine.nitpick` | Hyper-critical style and hygiene review — flags magic numbers, scattered constants, nested ternaries, messy CSS, dead code, and naming inconsistencies with no severity filter |
 | `mine.orchestrate` | Execute task files one-by-one with parallel spec/code/integration reviewer pass; post-execution implementation review |
 | `mine.plan` | Design doc → task files (T01, T02, …) with FR/AC traceability, validation gate, and 10-point traceability review + approve/revise/abandon gate |
 | `mine.prior-art` | Survey how others solve a problem — web-first research for mid-design architectural questions |
 | `mine.research` | Interactive research workflow — gathers user intent, dispatches the researcher agent, presents the brief |
+| `mine.review` | Comprehensive branch review — dispatches code-reviewer, integration-reviewer, and wtf-reviewer in parallel, consolidates findings into one prioritized report |
 | `mine.ship` | Commit, push, and create a PR in one step |
 | `mine.tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |
 | `mine.visual-qa` | Live visual QA -- Playwright captures screenshots, then two agents analyze them with structural separation (one sees each page in isolation, the other sees all pages at once) |
 | `mine.worktree-rebase` | Detect when the parent repo is currently on a feature branch and rebase this worktree branch onto it (run immediately after creating the worktree) |
 | `mine.wp` | Deprecated — lane management removed; use `/mine.status` for task progress |
 | `mine.write-skill` | Guided skill creation — gathers requirements, drafts SKILL.md, validates quality checklist, auto-wires routing |
-| `mine.wtf` | Comprehensive branch sniff test — dispatches code, integration, and WTF readability reviewers in parallel, consolidates findings into one prioritized report |
 
 **[Impeccable](https://impeccable.style/) Frontend Design Skills**
 
@@ -121,7 +121,6 @@ All four directories symlink into `~/.claude/skills/` at install time — the ru
 | `mine.issues-scan` | Scan open issues, classify by effort, pick one to deep-dive |
 | `mine.permissions-audit` | Analyze frequent permission prompts and recommend allow-list entries |
 | `mine.pre-compact` | Generate a focused /compact prompt preserving what matters |
-| `mine.review` | Run code-reviewer and integration-reviewer in parallel on the current branch diff |
 | `mine.status` | Quick orientation -- branch, tasks, errors, last commit |
 
 ### Agents
@@ -141,6 +140,9 @@ All four directories symlink into `~/.claude/skills/` at install time — the ru
 | `code-reviewer` | Expert code reviewer -- PEP 8, type hints, security, performance |
 | `integration-reviewer` | Codebase integration reviewer -- duplication, misplacement, convention drift, orphaned code, design violations |
 | `issue-refiner` | Enrich GitHub issues with acceptance criteria, edge cases, technical considerations, and NFRs |
+| `lazy-checker` | Deferred-debt reviewer — flags lazy code patterns, deferred decisions, and shortcuts that accumulate into real debt |
+| `llm-checker` | LLM-bias reviewer — detects training-bias patterns and code smells introduced by LLM-generated code |
+| `nitpicker` | Hyper-critical style reviewer — flags magic numbers, scattered constants, nested ternaries, dead code, and naming inconsistencies with no severity filter |
 | `planner` | Implementation planning for complex features and refactoring |
 | `qa-specialist` | Adversarial QA -- systematic and exploratory testing to find defects before they ship |
 | `researcher` | Autonomous codebase research and feasibility analysis with parallel subagents and web research |

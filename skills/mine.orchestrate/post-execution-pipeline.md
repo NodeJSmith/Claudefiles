@@ -1,6 +1,6 @@
 # Post-Execution Review Pipeline (Phase 3)
 
-After all tasks are processed (or user chose "Stop here"), run a review pipeline. Steps 1–6 are automatic (no user prompts unless blocking issues are found). The user is prompted at the impl-review gate (if blocking) or at the final shipping gate.
+After all tasks are processed (or user chose "Stop here"), run a review pipeline. Steps 1–5 are automatic (no user prompts unless blocking issues are found). The user is prompted at the impl-review gate (if blocking) or at the final shipping gate.
 
 **All subagents in Phase 3 MUST run in foreground** (never set `run_in_background: true`). Several steps spawn their own parallel child subagents internally, which only works in foreground execution.
 
@@ -85,16 +85,16 @@ Launch `Agent(subagent_type: "integration-reviewer")` with all changed files. Ad
 > - **Hard-coded values that should be parameterized**: artifact names or paths that appear as literals but should vary by context (e.g., iteration suffixes)
 > - **Worked examples using invalid contract values**: examples that show values not in the canonical vocabulary
 
-If the integration-reviewer returns BLOCK, surface the blocking issues to the user with an "Address" / "Stop here" gate (same pattern as the impl-review gate). If APPROVE or WARN, note any suggestions and continue to Step 4 (WTF check).
+If the integration-reviewer returns BLOCK, surface the blocking issues to the user with an "Address" / "Stop here" gate (same pattern as the impl-review gate). If APPROVE or WARN, note any suggestions and continue to Step 4 (Clean code check).
 
-## Step 4: WTF check (automatic, Opus subagent)
+## Step 4: Clean code check (automatic, Opus subagent)
 
-After the cross-file consistency review passes, run a full WTF check on the entire branch diff. This catches readability debt, dead code, naming inconsistencies, API ergonomics issues, and other hygiene problems that correctness and integration reviewers don't target.
+After the cross-file consistency review passes, run a clean code check on the entire branch diff. This catches LLM training-bias patterns, deferred-debt shortcuts, and style hygiene issues that correctness and integration reviewers don't target.
 
 Launch a single `general-purpose` subagent with `model: opus` and this prompt:
 
 ```
-You are running a comprehensive code quality review on a completed feature branch.
+You are running a comprehensive stylistic quality review on a completed feature branch.
 
 ## Branch diff
 
@@ -106,13 +106,13 @@ git diff <printed-base>...HEAD --name-only
 
 ## Task
 
-Run /mine.wtf on this branch. This dispatches three parallel reviewers (code-reviewer, integration-reviewer, wtf-reviewer) and consolidates their findings.
+Run /mine.clean-code on this branch. This dispatches three parallel checkers (llm-checker, lazy-checker, nitpicker) and consolidates their findings.
 
 After the findings are reported:
 
-1. Read every finding carefully
-2. Fix ALL findings that have unambiguous solutions — dead code removal, naming improvements, missing type annotations, redundant parameters, magic numbers, API ergonomics improvements, etc.
-3. For findings that require architectural judgment or could change behavior in subtle ways, leave them unfixed and note them in your summary
+1. When mine.clean-code asks "What would you like to do with these findings?", choose "Fix all"
+2. Fix ALL findings that have unambiguous solutions — obvious-comment removal, dead helper removal, naming improvements, scattered constants, hardcoded values that should be configurable, copy-paste extraction, etc.
+3. For findings that require architectural judgment or could change behavior in subtle ways (e.g., collapsing an abstraction stack, restructuring an error hierarchy), leave them unfixed and note them in your summary
 4. After fixing, run the project's test suite to verify no regressions: <contents of <dir>/test-command.txt>
 5. If tests pass, run lint using <contents of <dir>/lint-command.txt>. If that file contains the sentinel "no lint tools", skip this step.
 
@@ -121,54 +121,16 @@ After the findings are reported:
 
 Read for architecture context when evaluating whether a fix is safe.
 
-Write a summary of what you fixed and what you left unfixed to: <dir>/wtf-summary.md
+Write a summary of what you fixed and what you left unfixed to: <dir>/clean-code-summary.md
+
+The first line of the summary file MUST be: `<!-- HEAD: <git rev-parse --short HEAD> -->` — this allows mine.ship to detect that the clean-code check already ran at this commit.
 ```
 
-Wait for the subagent to complete. Read `<dir>/wtf-summary.md` to see what was fixed and what remains. Note any unfixed findings for the shipping gate.
+Wait for the subagent to complete. Read `<dir>/clean-code-summary.md` to see what was fixed and what remains. Note any unfixed findings for the shipping gate.
 
-## Step 5: Nitpick check (automatic, Opus subagent)
+## Step 5: Final review pass (automatic)
 
-After the WTF check, run a nitpick pass on the branch diff. This catches finer-grained style and hygiene issues — scattered constants, magic numbers, naming inconsistencies, messy formatting, dead code — that the WTF pass may not have fully addressed.
-
-Launch a single `general-purpose` subagent with `model: opus` and this prompt:
-
-```
-You are running a style and hygiene review on a completed feature branch.
-
-## Branch diff
-
-Run these commands to get the scope — do NOT use $() command substitution (it silently fails in this environment):
-
-git-branch-base
-# Note the printed result (e.g., "origin/main"), then use it in the next command:
-git diff <printed-base>...HEAD --name-only
-
-## Task
-
-Run /mine.nitpick on this branch. This dispatches a hyper-critical style reviewer who flags every organization and hygiene issue with no severity filter.
-
-After the findings are reported:
-
-1. Read every finding carefully
-2. When asked "What would you like to do with these findings?", choose "Fix them all"
-3. Work through every finding top to bottom, making edits directly
-4. For findings that require architectural judgment or could change behavior, leave them unfixed and note them in your summary
-5. After fixing, run the project's test suite to verify no regressions: <contents of <dir>/test-command.txt>
-6. If tests pass, run lint using <contents of <dir>/lint-command.txt>. If that file contains the sentinel "no lint tools", skip this step.
-
-## Design doc path
-<absolute path to <feature_dir>/design.md>
-
-Read for architecture context when evaluating whether a fix is safe.
-
-Write a summary of what you fixed and what you left unfixed to: <dir>/nitpick-summary.md
-```
-
-Wait for the subagent to complete. Read `<dir>/nitpick-summary.md` to see what was fixed and what remains. Note any unfixed findings for the shipping gate.
-
-## Step 6: Final review pass (automatic)
-
-After WTF and nitpick fixes, run a final `code-reviewer` and `integration-reviewer` pass in parallel on the full branch diff to catch any issues introduced by the auto-fix subagents.
+After the clean code fixes, run a final `code-reviewer` and `integration-reviewer` pass in parallel on the full branch diff to catch any issues introduced by the auto-fix subagent.
 
 ```bash
 git diff --name-only <base_commit> HEAD
@@ -182,15 +144,15 @@ Launch both reviewers in a single message (parallel):
 
 **Integration reviewer** (`subagent_type: "integration-reviewer"`): review all changed files, write to `<dir>/final-integration-review.md`.
 
-If either reviewer finds CRITICAL or HIGH issues, fix them inline (same pattern as Step 12's fix loop — max 2 iterations). MEDIUM and LOW findings are noted for the shipping gate but do not block.
+If either reviewer finds CRITICAL or HIGH issues, fix them inline (auto-fix unambiguous issues, re-run both reviewers, max 2 iterations). MEDIUM and LOW findings are noted for the shipping gate but do not block.
 
-## Step 7: Shipping gate
+## Step 6: Shipping gate
 
 Present the final gate with impl-review and cross-file review results:
 
 ```
 AskUserQuestion:
-  question: "All tasks complete. Implementation review: <APPROVE + any non-blocking suggestions summary>. Cross-file review: <APPROVE/WARN + any notes>. WTF check: <N fixed, M unfixed — or 'all clean'>. Nitpick: <N fixed, M unfixed — or 'all clean'>. Final review: <clean / N findings fixed>. What next?"
+  question: "All tasks complete. Implementation review: <APPROVE + any non-blocking suggestions summary>. Cross-file review: <APPROVE/WARN + any notes>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Final review: <clean / N findings fixed>. What next?"
   header: "Ship"
   multiSelect: false
   options:
@@ -202,13 +164,15 @@ AskUserQuestion:
       description: "Pause; I'll review manually"
 ```
 
+Read `<dir>/clean-code-summary.md` to populate the `Clean code check:` field in the question above.
+
 **On "Ship via /mine.ship":** Invoke `/mine.ship`.
 
 **On "Challenge first":** Tell the user to run `/mine.challenge` on the changed files. After challenge completes and the user is satisfied, they can run `/mine.ship` directly.
 
 **On "Stop here":** Leave the checkpoint in place. The user can resume later.
 
-## Step 8: Delete checkpoint
+## Step 7: Delete checkpoint
 
 After the user chooses "Ship via /mine.ship" (and `/mine.ship` completes), delete the checkpoint. Do NOT delete the checkpoint if the user chose "Stop here" — it must persist for future resume.
 

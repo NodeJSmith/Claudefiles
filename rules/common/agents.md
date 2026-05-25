@@ -4,7 +4,8 @@
 
 When the user's request matches a row below, launch the Agent tool with the corresponding `subagent_type`. Do NOT do the work inline — dispatch to the agent.
 
-<!-- PARALLEL: skills/mine.orchestrate/SKILL.md Step 3 also routes to these agents by WP content (not user intent) — add new agents to both, but signal wording differs intentionally -->
+<!-- PARALLEL: skills/mine.orchestrate/SKILL.md Step 3 also routes to these agents by WP content (not user intent) — add new agents to both. This table uses user-intent phrases ("readability review"); orchestrate uses WP-content signals ("contains UI components"). The wording differs because the routing trigger differs. -->
+<!-- llm-checker and lazy-checker can be dispatched directly for targeted checks (rows below), but their primary path is through mine.clean-code. wtf-reviewer and nitpicker are dispatched only by skills (mine.review / mine.clean-code). -->
 | User needs... | Use `subagent_type` |
 |---|---|
 | "plan this feature", implementation planning | `planner` |
@@ -13,7 +14,8 @@ When the user's request matches a row below, launch the Agent tool with the corr
 | "codebase research", "feasibility analysis" | `researcher` |
 | "architecture docs", "onboarding overview" | `architect` |
 | "check for duplication", "convention drift" | `integration-reviewer` |
-| "readability review", "maintainability review", "just the WTF pass" | `wtf-reviewer` |
+| "LLM code smells", "training-bias patterns" | `llm-checker` |
+| "deferred debt", "lazy code patterns" | `lazy-checker` |
 | "enrich this issue", "missing acceptance criteria" | `issue-refiner` |
 | "visual regression", before/after screenshots | `visual-diff` |
 | "secure code review", "security audit", "check for vulnerabilities" | `code-reviewer` |

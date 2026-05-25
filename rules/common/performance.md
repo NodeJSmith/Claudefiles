@@ -24,7 +24,9 @@ Each agent file in `agents/` declares its model in YAML frontmatter. When updati
 **Agent files:**
 - `agents/code-reviewer.md` — sonnet (pre-commit safety gate; do not downgrade)
 - `agents/integration-reviewer.md` — sonnet (pre-commit safety gate; do not downgrade)
-- `agents/wtf-reviewer.md` — sonnet (readability/maintainability reviewer; complements code-reviewer and integration-reviewer)
+- `agents/lazy-checker.md` — sonnet
+- `agents/llm-checker.md` — sonnet
+- `agents/nitpicker.md` — sonnet
 - `agents/testing-reality-checker.md` — sonnet (pre-ship safety gate; do not downgrade)
 - `agents/researcher.md` — opus
 - `agents/planner.md` — sonnet
@@ -32,6 +34,7 @@ Each agent file in `agents/` declares its model in YAML frontmatter. When updati
 - `agents/qa-specialist.md` — sonnet
 - `agents/issue-refiner.md` — sonnet
 - `agents/visual-diff.md` — sonnet
+- `agents/wtf-reviewer.md` — sonnet (readability/maintainability reviewer; dispatched by mine.review)
 - `agents/engineering-frontend-developer.md` — sonnet
 - `agents/engineering-backend-developer.md` — sonnet
 - `agents/engineering-data-engineer.md` — sonnet
@@ -43,5 +46,4 @@ Each agent file in `agents/` declares its model in YAML frontmatter. When updati
 - `skills/mine.orchestrate/SKILL.md` — `model: sonnet` for executor and reviewer subagents
 - `skills/mine.plan/SKILL.md` — `model: sonnet` for review subagent
 - `skills/mine.implementation-review/SKILL.md` — `model: sonnet` for review subagent
-- `skills/mine.nitpick/SKILL.md` — `model: sonnet` for nitpicker subagent
 - `skills/mine.decompose/SKILL.md` — `model: haiku` for behavioral and structural analysis subagents
