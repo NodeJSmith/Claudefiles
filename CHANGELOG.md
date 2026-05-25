@@ -30,7 +30,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-05-23
 
 ### Changed
-- `mine.orchestrate` Phase 3 adds automatic clean code check and final review passes — Opus subagent auto-fixes findings before the shipping gate (#307)
+- `mine.orchestrate` Phase 3 adds automatic WTF + nitpick checks and final review passes — Opus subagent auto-fixes findings before the shipping gate (#307)
 - `mine.orchestrate` Phase 2 adds lint/format gate alongside test gate, with user-confirmed command discovery and per-command regression tracking (#307)
 
 ## 2026-05-22

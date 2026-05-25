@@ -24,7 +24,7 @@ The distinction between lazy-checker and nitpicker is: nitpick catches *individu
 - Acknowledge what reads well before listing issues
 
 ## Invocation patterns
-- **Clean-code skill** (`mine.clean-code`): passes explicit file list in prompt — use that list, skip self-discovery
+- **Clean-code skill** (`mine.clean-code`): passes explicit file list or diff command in prompt — use what's provided, skip self-discovery
 - **Manual**: no file list provided — use the self-discovery cascade below
 
 <!-- PARALLEL: llm-checker.md has an identical invocation/discovery block — update both -->

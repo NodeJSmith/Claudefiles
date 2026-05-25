@@ -83,7 +83,7 @@ find <paths> -type f \
 
 Adapt the extensions to the project's language. If the file list is empty after filtering, inform the user that no reviewable source files were found in the target paths and stop.
 
-Count the results first — if the file count exceeds 200, ask the user to narrow scope before proceeding:
+Count the results (`find ... | wc -l`) — if the file count exceeds 200, ask the user to narrow scope before proceeding:
 
 ```
 AskUserQuestion:
@@ -250,7 +250,7 @@ For each likely-invalid finding, use the named-field format:
     **Actually:** <what the code actually does, with file:line>
     **Why-invalid:** <the specific conflict>
 
-The Summary section is designed for orchestration consumption. When invoked from `mine.orchestrate`, the Opus subagent writes just the Summary table (plus the total line) to `clean-code-summary.md` so the shipping gate can display it concisely.
+The Summary section is designed for orchestration consumption. When invoked from `mine.orchestrate`, the Opus subagent writes to `clean-code-summary.md` with a HEAD SHA marker as the first line (`<!-- HEAD: <short-sha> -->`) followed by a narrative of what was fixed and what was left unfixed — this format allows mine.ship to detect prior runs.
 
 ### Step 3: Offer next steps
 

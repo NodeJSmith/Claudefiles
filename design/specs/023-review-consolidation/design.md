@@ -352,7 +352,7 @@ N/A — no test infrastructure in this repo.
 ### Blast Radius
 
 - Any running orchestration pipeline will see different Phase 3 steps (Steps 4-5 become single Step 4)
-- Users who invoke `/mine.wtf` or `/mine.nitpick` by muscle memory will get redirected — the functionality still exists but under different names
+- The `/mine.wtf` and `/mine.nitpick` slash commands are retired — trigger-phrase routing handles the replacement skills, so natural-language invocations ("WTF check", "nitpick this") work but the literal slash commands no longer exist
 - The shipping flow gains an additional gate (mine.clean-code) that didn't exist before — slightly longer ship time
 
 ## Open Questions
