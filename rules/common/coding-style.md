@@ -156,7 +156,9 @@ def sync_inventory(self, warehouse_id: str) -> SyncResult:
     self.logger.info("Synced warehouse %s: %d updated, %d failed", warehouse_id, len(items) - len(failed), len(failed))
 ```
 
-## Data Structures
+## Data Structures First
+
+Get the data shape right before writing logic. The right shape makes downstream code obvious. Define core types early, trace every access pattern, and choose structures that match the dominant paths. A data-structure change late is a rewrite; early, it is a one-line diff.
 
 Use dataclasses when a structure is passed between multiple methods or stored. Don't introduce them for intermediate values within a single method.
 
@@ -167,6 +169,10 @@ class SyncResult:
     failed: list[str]
     duration_seconds: float
 ```
+
+## Migrate Callers Then Delete Legacy APIs
+
+When introducing a new internal API, migrate all callers and remove the old API in the same refactor wave. Do not keep legacy paths alive only because internal callers still exist. No compatibility shims, no parallel old-and-new paths waiting for cleanup later.
 
 ## Functions Over Methods
 

@@ -92,7 +92,9 @@ with contextlib.suppress(FileNotFoundError):
 <!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
 ## Shared State Protection
 
-Concurrent access to shared mutable state must be protected. Use locks, queues, or atomic operations — not hope.
+Concurrent access to shared mutable state must be protected — but first ask whether the actors truly need the same mutable object. If not, eliminate the sharing: give each actor its own owned file, key, or state, and merge only at the read boundary. Two workers writing their own field into one `state.json` is still shared mutation; `worker-a-state.json` + `worker-b-state.json` is not.
+
+When sharing is a real invariant, use locks, queues, or atomic operations — not hope.
 
 ```python
 # good: lock protects shared state
@@ -128,7 +130,9 @@ If you intentionally want fire-and-forget, make it explicit with `asyncio.create
 
 ## Idempotent Operations
 
-Operations that may be retried (queue consumers, webhook handlers, scheduled tasks) should be idempotent. Use idempotency keys, upserts, or check-before-write patterns.
+Operations that may be retried (queue consumers, webhook handlers, scheduled tasks) should be idempotent. Every state-mutating operation should answer three questions: What happens if this runs twice? What if the previous run crashed halfway? Does re-execution converge to the same end state? If any answer is "it depends on what state was left behind," the operation needs a reconciliation step.
+
+Use idempotency keys, upserts, or check-before-write patterns.
 
 ```python
 async def handle_webhook(event: WebhookEvent):
