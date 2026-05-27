@@ -11,9 +11,9 @@ All notable changes to this Claudefiles repository are documented here.
 ### Changed
 - Strengthened `reliability.md`, `security.md`, `verification.md`, `coding-style.md`, and `git-workflow.md` with pstack-derived additions (#314)
 - Review fixes: resolved parallel drift between `reliability.md`/`debugging-discipline.md` and `coding-style.md`/`refactoring-discipline.md`; aligned stale invariant entries; renamed `perf-discipline.md` to `performance-discipline.md`; added worktree baseline testing rule to `git-workflow.md`
-- Strengthened agents and skills with pstack workflow patterns: lead-judgment self-check in code-reviewer, epistemics framework in researcher, three-lens scan in signal discoverer, acceptance criteria in extract-learnings
-- `writing-quality.md` rule file with 22 named AI prose anti-patterns
-- Updated README Common rules list (was missing 17 files from previous PR)
+- Strengthened agents and skills with pstack workflow patterns: lead-judgment self-check in code-reviewer, epistemics framework in researcher, three-lens scan in signal discoverer, acceptance criteria in extract-learnings (#315)
+- `writing-quality.md` rule file with 22 named AI prose anti-patterns (#315)
+- Updated README Common rules list (was missing 17 files from previous PR) (#315)
 
 ## 2026-05-26
 
