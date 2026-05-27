@@ -218,14 +218,14 @@ depth: quick | normal | deep
 
 ## Open Questions
 
-[Questions that couldn't be answered by code reading alone — need user input, experimentation, or prototyping]
+[Questions that couldn't be answered by code reading alone — need user input, experimentation, or prototyping. Include Unknown-tier gaps: what you searched, what you searched for, and what you didn't find.]
 
 - [ ] [Question 1]
 - [ ] [Question 2]
 
 ## Recommendation
 
-[Your honest assessment. Not always "do it" — sometimes the answer is "not yet", "do something simpler first", or "this needs a prototype before committing".]
+[Your honest assessment. Calibrate confidence per the Epistemics section — cite sources for Direct/Supported claims, hedge Inferred ones, and flag Speculative reasoning explicitly. Not always "do it" — sometimes the answer is "not yet", "do something simpler first", or "this needs a prototype before committing".]
 
 ### Suggested next steps
 1. [Concrete next action — e.g., "Write a design doc via /mine.define"]
@@ -250,3 +250,44 @@ depth: quick | normal | deep
 - **Options, not prescriptions** — present trade-offs honestly. Include a "do less" option when the proposal is ambitious.
 - **Honest about effort** — if something is hard, say so. If a simpler alternative exists, surface it.
 - **Feeds forward** — the research brief should contain everything needed to write a design doc or create an implementation plan.
+
+## Epistemics
+
+Code doesn't carry its own motivation. You can see what code does by reading it. You can't see *why it exists* by reading it. That information lives in commits, PRs, tickets, docs, and conversations, all incomplete and sometimes contradictory. Pretending otherwise produces confident-sounding guesses that mislead the user.
+
+### Confidence Tiers
+
+Every claim in the brief must sit at one of these tiers. The tier determines phrasing.
+
+**Direct** — An explicit, textual source answers the question. A PR description, ticket, code comment, or design doc that states the rationale. Phrasing: confident, present tense. "This exists because X." Cite the source.
+
+**Supported** — Multiple pieces of indirect evidence converge on the same conclusion. No single source states it, but the pattern across sources makes it likely. Phrasing: "The evidence points strongly to X: [the specific pieces]." Cite multiple sources.
+
+**Inferred** — A reasonable reading of the context, but nothing explicitly supports it. Phrasing: hedged. "It appears", "likely", "suggests", "is consistent with". Make the inference chain explicit: "Given A and B, C seems likely because D."
+
+**Speculative** — A plausible hypothesis, but the evidence is thin and other explanations fit equally well. Phrasing: "One possibility is X, but we have no direct evidence." Present alongside competing hypotheses.
+
+**Unknown** — You looked and couldn't find out. Document what you searched and what you searched for. "We searched X, Y, and Z and found no evidence of why" is more useful than "we couldn't find out."
+
+### Phrasing Calibration
+
+Words that carry confidence ("because", "the reason is", "was designed to", "the team decided") imply Direct or Supported tier. Don't use them for inferences — they create false certainty.
+
+Words that hedge ("appears to", "likely", "suggests", "is consistent with", "may have been") signal interpretation. Use liberally for Inferred and Speculative claims.
+
+Avoid: "obviously" (if it were obvious, the user wouldn't ask), "clearly" (almost always precedes an unclear claim), "just" as a dismissal ("it's just for performance" hides uncertainty).
+
+### Anti-Rationalization
+
+Code that "makes sense" today may have been written for reasons that no longer apply, or that were wrong when they were written. Resist the urge to:
+- Assume the author did the "right" thing and work backward to justify it
+- Assume a consistent pattern across the codebase was intentional when it might be copy-paste
+- Turn an absence of evidence into evidence of absence
+
+### The Sycophancy Trap
+
+Users often phrase questions with an embedded hypothesis: "I assume it's for performance?" Do not simply confirm it. Treat the hypothesis as one candidate among others and check the evidence independently. If evidence supports their hypothesis, say so with citations. If it doesn't, say so and present what the evidence does support. The user's guess is a prompt for investigation, not a conclusion to validate.
+
+### When Evidence Contradicts
+
+If two sources disagree (e.g., the PR description says one thing but the ticket says another), surface both with citations. Don't pick the one that fits a tidier narrative. Present both and let the user make the call.

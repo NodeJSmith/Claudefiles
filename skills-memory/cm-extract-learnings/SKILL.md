@@ -48,10 +48,16 @@ Phase 2 is complete when both agents return reports. If either returns empty or 
 
 1. Receive agent reports
 2. Deduplicate across reports and against existing memories
-3. Rank by impact, limit to 3-5 candidates
-4. For each candidate: determine target layer, target section, action (ADD / EDIT / REMOVE)
-5. Read target files, check for duplicates
-6. Present proposals:
+3. Apply acceptance criteria to each candidate — all must pass:
+   - **Durability**: still true in 6 months once paths, SHAs, tool versions, and code shapes have changed
+   - **Specificity**: broad enough to apply across tasks, precise enough that a future agent recognizes when to use it. Reject vague platitudes ("write good code") and hyper-specific facts
+   - **Convergence**: findings echoed by both agents or across multiple sessions carry higher confidence. Singletons must clear a higher bar on the other criteria
+   - **Decision-changing**: a future agent does something different because of this memory, not just reads more text
+   - **Structural-mechanism check**: reject when a lint rule, hook, or CI check already enforces the rule or could enforce it cheaply. Memory is for things mechanisms cannot enforce
+4. Rank survivors by impact, limit to 3-5 candidates
+5. For each candidate: determine target layer, target section, action (ADD / EDIT / REMOVE)
+6. Read target files, check for duplicates
+7. Present proposals:
    ```
    ### [ACTION] Learning: <summary>
    **Target:** <file> → <section>
@@ -61,9 +67,9 @@ Phase 2 is complete when both agents return reports. If either returns empty or 
    + <new line>
    ```
    ```
-7. MEMORY.md line check — if over 170 lines, propose specific demotions to L3 or removals
-8. Layer 0 gate — if targeting `~/.claude/CLAUDE.md`, warn: "This modifies global instructions loaded in every session across all projects. Confirm?"
-9. AskUserQuestion: Approve all / Approve selectively / Reject
+8. MEMORY.md line check — if over 170 lines, propose specific demotions to L3 or removals
+9. Layer 0 gate — if targeting `~/.claude/CLAUDE.md`, warn: "This modifies global instructions loaded in every session across all projects. Confirm?"
+10. AskUserQuestion: Approve all / Approve selectively / Reject
 
 ### Phase 4: Execute
 
@@ -92,5 +98,5 @@ Fail: information readable from code, generic best practices, one-off bugs witho
 When reviewing Signal Discoverer output before presenting to the user, actively prune:
 - Candidates that address a one-time incident with no recurring surface area
 - Candidates where the "principle" is just a restatement of how a well-documented tool works
-- Candidates that could be a pre-commit hook or CI check instead of a memory
+- Candidates that fail the acceptance criteria in Phase 3 step 3 (durability, specificity, convergence, decision-changing, structural-mechanism check)
 - Aim for 3-5 proposals, not 6-10. Quality over quantity.

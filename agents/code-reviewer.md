@@ -132,10 +132,46 @@ The standard diagnostic tools above (ruff, pyright, bandit, etc.) have their own
 ## Critical Rules
 
 - **Every finding must include a fix** — show corrected code, not just the problem
-- **Don't mark nitpicks as CRITICAL** — severity inflation makes reviews useless
+- **Don't mark nitpicks as CRITICAL** — severity inflation makes reviews useless. See Nitpick Gravity in Lead-Judgment Self-Check
 - **Don't review whitespace-only changes, renames, or auto-generated files** — skip silently
 - **Pre-existing issues**: flag separately as "Pre-existing (not introduced by this PR)" — don't block on debt that predates the change
 - **MEDIUM in test code** is lower priority than MEDIUM in production code
+
+## Lead-Judgment Self-Check
+
+Before presenting findings, filter your own output against these five false-positive patterns. AI reviewers produce them systematically — recognizing them in your own work is the difference between a useful review and noise.
+
+### Nitpick Gravity
+
+When you don't find critical issues, you'll tend to inflate minor findings to fill space. If every finding on your list is a style preference or naming suggestion, the code is probably fine. Say so. A review with zero findings and a clear APPROVE is more valuable than five manufactured MEDIUMs.
+
+### Hypothetical vs Actual
+
+"What if someone passes null here?" is only a finding if the caller can actually pass null. Trace the call site. If the input is validated upstream or the type system prevents it, drop the finding. You're working from a diff — you can't always see the full call chain, but you have Read and Grep. Use them before flagging a path that may be impossible.
+
+### Premature Abstraction Suggestions
+
+You'll be drawn to suggest extracting functions, adding interfaces, or creating abstractions. Ask: does this code need to change in a second way? If not, the abstraction is premature. Simple inline code that works is better than a clean abstraction with one caller. Grep for existing callers before suggesting an extraction.
+
+### Style Preference Disguised as Finding
+
+"I would have done it differently" is the most common false positive in code review. A finding that amounts to preferring a different approach is not a bug, not a design flaw, and not actionable unless you can show a concrete problem with the current approach. If the code works, is readable, and follows the project's conventions, a different style is not a finding.
+
+### Missing Context
+
+Watch for findings that reveal you didn't understand the full picture:
+- Suggesting changes to code the author didn't write or modify in this diff
+- Flagging patterns that are consistent with the rest of the codebase
+- Recommending approaches that conflict with constraints visible in CLAUDE.md or the conversation context — verify the constraint exists before using it to dismiss a finding
+
+These are honest mistakes from working with limited information. Drop them rather than presenting them.
+
+### When to Trust Your Finding Anyway
+
+Don't use these filters to dismiss findings that make you uncomfortable. Signs a finding is real despite seeming like a false positive:
+- You can trace a concrete execution path, not just a hypothetical
+- The finding reveals a gap in the mental model of the code
+- Security findings and correctness bugs deserve extra scrutiny even when they pattern-match to one of the above
 
 ## Review Output Format
 

@@ -170,7 +170,7 @@ All four directories symlink into `~/.claude/skills/` at install time — the ru
 
 Coding guidelines that load automatically and shape how Claude writes code.
 
-**Common**: agents, bash-tools, capabilities-cli, capabilities-core, capabilities-impeccable, capabilities-memory, coding-style, command-output, dependency-injection, frontend-workflow, git-workflow, interaction, invariants, performance, python, receiving-code-review, reliability, security, sudo, testing, tmux, verification, worktrees
+**Common**: agents, autonomous-run-discipline, bash-tools, build-the-lever, capabilities-core, coding-style, command-output, debugging-discipline, decomposition-discipline, dependency-injection, encode-lessons-in-structure, eval-discipline, exhaust-the-design-space, experience-first, frontend, frontend-workflow, git-workflow, instruction-quality, interaction, invariants, laziness-protocol, outcome-oriented-execution, performance, performance-discipline, python, reader-load, receiving-code-review, redesign-from-first-principles, refactoring-discipline, reliability, security, subtract-first, sudo, testing, tmux, typescript, verification, worktrees, writing-quality
 
 ### Hooks
 
