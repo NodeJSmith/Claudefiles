@@ -8,23 +8,18 @@ user-invocable: true
 
 Codebase-aware issue creation. Investigates the code to produce well-structured issues that the triage skill can assess as "well-defined" — with concrete acceptance criteria, affected code areas, and testable outcomes. Uses the Goal/Scope/Acceptance Criteria pattern.
 
+Note: This skill creates new issues. To enrich an existing issue with acceptance criteria and technical detail, use the `issue-refiner` agent instead.
+
 ## Arguments
 
 $ARGUMENTS — a description of the issue to create. Can be:
 - A short description: `/mine.create-issue "add retry logic to the webhook sender"`
 - A bug report: `/mine.create-issue "500 error when submitting empty form"`
-- Multiple issues: `/mine.create-issue "split the config module into per-domain files"`
 - Empty: ask the user what they want to file
 
 ## Phase 1: Classify and Gather
 
-If $ARGUMENTS is empty, ask:
-
-```
-AskUserQuestion:
-  question: "What do you want to create an issue for?"
-  header: "Issue"
-```
+If $ARGUMENTS is empty, ask the user: "What do you want to create an issue for?"
 
 ### Classify type
 
@@ -36,6 +31,8 @@ From the description, classify the issue type:
 | feature | "add", "new", "support", "enable", "implement" |
 | task | "refactor", "rename", "move", "split", "clean up", "remove", "update", "upgrade" |
 | chore | "deps", "CI", "config", "version bump" |
+
+When signals overlap (e.g., "upgrade" could be task or chore), prefer the type whose follow-up questions would extract the most useful detail. If genuinely ambiguous, default to task.
 
 ### Targeted follow-ups
 
@@ -55,7 +52,7 @@ Keep this to **1-2 questions max**. The codebase investigation (Phase 2) fills i
 
 ## Phase 2: Investigate
 
-Launch an **Explore subagent** (`subagent_type: Explore`) to find affected code:
+Launch an **Explore subagent** (`subagent_type: Explore`, `model: haiku`) to find affected code:
 
 > Search the codebase for code relevant to this issue: "<user's description>"
 >
@@ -70,8 +67,10 @@ Launch an **Explore subagent** (`subagent_type: Explore`) to find affected code:
 > - **Existing patterns**: how similar things are done in this codebase
 > - **Test files**: related test files that would need updates
 > - **Constraints**: anything that limits how this should be implemented
+>
+> If you cannot find relevant code, return "No relevant code found" with what you searched for.
 
-Read the subagent's findings. These feed into the issue body.
+If the subagent found no relevant code, note this for Phase 3 — the Affected Areas section will use "TBD — investigation needed" and Confidence will be lower. Proceed to drafting regardless.
 
 ## Phase 3: Draft and Preview
 
@@ -106,7 +105,7 @@ Short, specific, imperative mood. Include the component/area when it helps:
 
 ## Context
 
-[Optional: motivation, links to related issues, technical constraints discovered during investigation. Omit if the description is self-explanatory.]
+[Include constraints, patterns, or related issues discovered during investigation. Omit only if Phase 2 found no constraints and the description is fully self-explanatory.]
 ```
 
 **Acceptance criteria rules:**
@@ -119,7 +118,7 @@ Short, specific, imperative mood. Include the component/area when it helps:
 **Affected areas rules:**
 - Include actual file paths from the investigation (Phase 2)
 - Include test files
-- Omit if the investigation couldn't identify specific files (set to "TBD — investigation needed")
+- If the investigation couldn't identify specific files, set to "TBD — investigation needed"
 
 ### Preview
 
@@ -139,24 +138,30 @@ AskUserQuestion:
       description: "Don't create the issue"
 ```
 
-If **"Edit first"**: ask what to change, revise, and re-preview.
+If **"Edit first"**: ask what to change, revise, and re-preview. Repeat until the user selects "Create it" or "Cancel".
 
 ## Phase 4: Create
 
-### Detect labels
+### Detect labels and milestones
 
-Run `gh-issue overview` to see available labels. Match the issue type to existing labels:
+Run `gh-issue overview` once to see available labels and milestones. Cache the result if creating multiple issues in the same session.
+
+**Labels:** Match the issue type to existing labels:
 - bug → "bug" label (if it exists)
 - feature → "enhancement" label (if it exists)
 - task/chore → no default label unless the repo has one
 
+**Milestones:** If >50% of recent issues have milestones, pick the milestone that fits the work's scope. Add `--milestone "<name>"` to the create command.
+
 ### Create the issue
 
-```bash
-gh-issue create --title "<title>" --body-file <tmpdir>/issue-body.md [--label "<label>"]
-```
+1. Run `get-skill-tmpdir mine-create-issue` — note the path
+2. Write the issue body to `<tmpdir>/issue-body.md`
+3. Run:
 
-Write the body to a temp file first (`get-skill-tmpdir mine-create-issue`), then use `--body-file` to avoid shell escaping issues.
+```bash
+gh-issue create --title "<title>" --body-file <tmpdir>/issue-body.md [--label "<label>"] [--milestone "<name>"]
+```
 
 Display the issue URL and number.
 
