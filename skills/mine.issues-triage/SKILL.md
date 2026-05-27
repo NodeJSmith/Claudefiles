@@ -82,6 +82,10 @@ Each subagent receives this prompt (substitute `<issues>`, `<batch_number>`, `<t
 >      - large: 8+ files or cross-cutting concern, significant design work
 >      - xl: architectural change, new subsystem, multi-day effort
 >    - **Files**: estimated number of files that would need to change (must be an integer — if uncertain, use the upper bound estimate)
+>    - **Definition**: well-defined / partial / unclear
+>      - well-defined: issue body has specific acceptance criteria, concrete behavior descriptions, or references exact code/config to change
+>      - partial: general intent is clear but missing specifics (e.g., "improve logging" without saying what to log or where)
+>      - unclear: title-only, single vague sentence, or the desired outcome is ambiguous
 >    - **Confidence**: high / medium / low (low = couldn't find relevant code, or issue is vague)
 >    - **Notes**: 1 sentence on what the change actually involves in the code (escape any `|` characters as `\|` so the markdown table renders correctly — do the same for Title)
 >
@@ -90,8 +94,8 @@ Each subagent receives this prompt (substitute `<issues>`, `<batch_number>`, `<t
 > Write your results to `<tmpdir>/batch-<batch_number>.md`. Start with the markdown table, then optionally add an `## Errors` section for any issues that couldn't be fetched or assessed:
 >
 > ```
-> | # | Title | Complexity | Files | Confidence | Notes |
-> |---|-------|-----------|-------|------------|-------|
+> | # | Title | Complexity | Files | Definition | Confidence | Notes |
+> |---|-------|-----------|-------|------------|------------|-------|
 >
 > ## Errors
 > - #42: gh-issue view failed (404)
@@ -110,7 +114,7 @@ Prepend a summary:
 ```
 ## Triage Results
 
-**Total assessed:** N | **Quick wins (trivial+small, high confidence):** N | **Medium:** N | **Large+XL:** N | **Needs review (low confidence):** N
+**Total assessed:** N | **Quick wins (trivial+small, well-defined, high confidence):** N | **Medium:** N | **Large+XL:** N | **Poorly defined:** N | **Needs review (low confidence):** N
 ```
 
 If there were errors or missing batches, append them after the summary.
@@ -137,7 +141,7 @@ AskUserQuestion:
 
 ### Pick issues to work on
 
-Filter to trivial + small issues with high confidence. If none exist, tell the user: "No trivial or small high-confidence issues in this triage run. Try a larger `--limit` or different filters." and return to the Phase 4 question.
+Filter to trivial + small issues with high confidence AND well-defined. If none exist, tell the user: "No trivial or small well-defined high-confidence issues in this triage run. Try a larger `--limit` or different filters." and return to the Phase 4 question.
 
 Otherwise, present up to 4 as options via AskUserQuestion (single-select). After the user picks an issue, ask what to do with it:
 
