@@ -31,7 +31,7 @@ Remaining flags (`--label`, `--milestone`, etc.) are forwarded verbatim to `gh-i
 
 ### Tool detection
 
-Read `$ISSUE_TRACKER`. If set to `jira`, tell the user: "This skill currently supports GitHub only (`$ISSUE_TRACKER` is set to `jira`)." and stop. If unset, empty, or `gh`, proceed.
+Read `$ISSUE_TRACKER`. If set to `jira`, tell the user: "This skill currently supports GitHub only (`$ISSUE_TRACKER` is set to `jira`)." and stop. If set to any other unexpected value, tell the user and stop. If unset or empty, default to `gh` and warn: "Note: `$ISSUE_TRACKER` is not set. Defaulting to GitHub. Set `ISSUE_TRACKER=gh` for compatibility with `/mine.issues` and `/mine.issues-scan`." If set to `gh`, proceed.
 
 Check that `gh-issue` is available. If not, tell the user and stop.
 
@@ -81,9 +81,9 @@ Each subagent receives this prompt (substitute `<issues>`, `<batch_number>`, `<t
 >      - medium: 3-8 files, some design decisions needed
 >      - large: 8+ files or cross-cutting concern, significant design work
 >      - xl: architectural change, new subsystem, multi-day effort
->    - **Files**: estimated number of files that would need to change
+>    - **Files**: estimated number of files that would need to change (must be an integer — if uncertain, use the upper bound estimate)
 >    - **Confidence**: high / medium / low (low = couldn't find relevant code, or issue is vague)
->    - **Notes**: 1 sentence on what the change actually involves in the code
+>    - **Notes**: 1 sentence on what the change actually involves in the code (escape any `|` characters as `\|` so the markdown table renders correctly — do the same for Title)
 >
 > If you cannot find any relevant code for an issue, set confidence to "low" and note what you searched for.
 >
