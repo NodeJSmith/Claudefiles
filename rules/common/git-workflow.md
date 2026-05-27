@@ -57,6 +57,15 @@ Run tests + linter/type checker after code review passes. Fix failures before co
 
 **Retry limit:** 3 attempts, then present failures to the user.
 
+## Bug Fix Commits
+
+When fixing a reported bug, stage commits so the reproduction lands before the fix:
+
+1. First commit: failing test or reproduction script that proves the bug exists
+2. Second commit: the fix, with the reproduction now passing
+
+The diff tells the story. A reviewer can verify the bug was real and the fix addresses it.
+
 ## Commit Message Format
 
 Follow [Conventional Commits](https://www.conventionalcommits.org/). Every commit message must use this format:

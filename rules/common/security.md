@@ -18,6 +18,10 @@ def process(request: RequestModel) -> Response:
 
 Don't scatter validation throughout internal code. One validated parse at the edge, then pass typed objects.
 
+Two diagnostic tests:
+- "Is this data crossing a system boundary right now?" If not, validation is redundant.
+- "Can this logic be a pure function that the boundary shell just calls?" If yes, extract it. Business logic belongs in pure functions with no framework dependencies, making it testable without the framework.
+
 ## Injection Prevention
 
 Never interpolate untrusted data into SQL, shell commands, HTML, or template strings. Use parameterized queries, subprocess argument lists, and template engines.

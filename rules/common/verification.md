@@ -15,6 +15,14 @@ Never claim work is done without concrete evidence. "Should work" is not verific
 
 Run the verification, read the output, confirm it matches the claim. If the evidence is ambiguous, dig deeper — don't round up.
 
+## Script the Check
+
+The strongest proof is a deterministic script that re-runs the same comparison, not a one-time eyeball. When practical, write the check as a script a reviewer can re-run instead of trusting your word.
+
+## Trust Artifacts Not Self-Reports
+
+When verifying delegated work (subagent output, automated pipeline results), inspect the actual output artifact (git diff, file contents, runtime behavior), not the delegate's summary. Agents report what they intended, not always what happened.
+
 ## Red-Flag Language
 
 These phrases signal a claim without evidence. If you catch yourself writing one, stop and verify first:

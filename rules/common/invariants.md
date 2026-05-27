@@ -49,6 +49,18 @@ Test the behavior that produces the log, not the log output itself.
 Never claim work is done without actual command output proving it.
 **Defined in:** `verification.md`
 
+#### No `any`
+Do not use `any` in TypeScript. Use `unknown` for external data and narrow before use.
+**Defined in:** `typescript.md`
+
+#### No `as` Casts
+Do not use `as` casts in TypeScript except after full validation at boundaries.
+**Defined in:** `typescript.md`
+
+#### No Enums
+Do not use TypeScript `enum`. Use `as const` objects or union types instead.
+**Defined in:** `typescript.md`
+
 #### Input Validation at Boundaries
 External data (user input, API responses, file reads, env vars) validated and parsed at system boundaries. Internal code trusts what the boundary already validated.
 **Defined in:** `security.md`
@@ -76,7 +88,59 @@ Code and its unit tests ship in the same commit. Integration tests may follow; u
 Every error path is explicitly handled or propagated. Silent catch-and-ignore hides real failures — use `contextlib.suppress` with a specific exception type when intentional.
 **Defined in:** `reliability.md`
 
+#### Reproduce Before Fixing
+A bug you cannot reproduce, you cannot prove fixed. Reproduce it yourself before designing a fix.
+**Defined in:** `debugging-discipline.md`
+
+#### Pin Behavior Before Refactoring
+Before restructuring, capture current behavior with a characterization test. Type checks and lint are not a pin.
+**Defined in:** `refactoring-discipline.md`
+
+#### Exit Condition Before Iterating
+Define done as a checkable predicate before the first iteration of a long-running task.
+**Defined in:** `autonomous-run-discipline.md`
+
 ### Consider
+
+#### Laziness Protocol
+If tracing a value requires more than 3 files or layers, flatten the hierarchy. Prefer deletion over addition; minimize the diff.
+**Defined in:** `laziness-protocol.md`
+
+#### Reader Load
+Code is readable when a new reader can answer "where does X come from?" in under 30 seconds. Collapse one-caller wrappers; shrink mutable state scope.
+**Defined in:** `reader-load.md`
+
+#### Subtract Before You Add
+When evolving a system, remove complexity first, then build on the simpler base. Sequence removal before construction.
+**Defined in:** `subtract-first.md`
+
+#### Redesign from First Principles
+When integrating a new requirement, redesign as if it had been there from the start. The result should have no bolt-on seams.
+**Defined in:** `redesign-from-first-principles.md`
+
+#### Outcome-Oriented Execution
+During planned rewrites and migrations, optimize for the end state. Intermediate breakage is acceptable when planned, scoped, and reversible.
+**Defined in:** `outcome-oriented-execution.md`
+
+#### Encode Lessons in Structure
+When the same instruction appears twice, encode it as a lint rule, metadata flag, runtime check, or script. The instruction is the symptom.
+**Defined in:** `encode-lessons-in-structure.md`
+
+#### Exhaust the Design Space
+When the right answer is not obvious and no precedent exists, build 2-3 competing prototypes and compare before committing.
+**Defined in:** `exhaust-the-design-space.md`
+
+#### Experience First
+When implementation convenience conflicts with user delight, choose delight. Every feature must earn its place.
+**Defined in:** `experience-first.md`
+
+#### Baseline Before Optimizing
+Capture a trace or measurement before changing anything. "It feels faster" is not verification.
+**Defined in:** `perf-discipline.md`
+
+#### Decompose Before Implementing
+For multi-module features, answer the four blocking/parallel/shared-state/decomposition questions before writing logic.
+**Defined in:** `decomposition-discipline.md`
 
 #### No Default Underscore Prefixes
 Don't prefix methods with `_` unless genuinely unsafe to call out of sequence, required by a framework, or part of a published library API.

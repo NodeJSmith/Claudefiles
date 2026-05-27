@@ -1,5 +1,7 @@
 # Frontend Workflow
 
+For component design, hooks, CSS, and accessibility rules, see `frontend.md`.
+
 ## Scope Expansion Before UI Changes (CRITICAL)
 
 When asked to change **anything** on a UI page, before writing a single line of code:

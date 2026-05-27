@@ -2,6 +2,15 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-05-27
+
+### Added
+- 17 new rule files adapted from [pstack](https://github.com/cursor/plugins/tree/main/pstack): engineering principles, task discipline, TypeScript type system, and Preact/frontend conventions
+- Invariant entries for new rules across Must/Should/Consider tiers
+
+### Changed
+- Strengthened `reliability.md`, `security.md`, `verification.md`, `coding-style.md`, and `git-workflow.md` with pstack-derived additions
+
 ## 2026-05-26
 
 ### Added
