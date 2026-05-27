@@ -14,7 +14,7 @@ Note: The complexity tiers here (trivial/small/medium/large/xl) are codebase-ver
 
 $ARGUMENTS — optional flags and filters:
 - `--limit=N` — max issues to triage (default: 50)
-- `--offset=N` — skip the first N issues (default: 0). Use for pagination across runs.
+- `--offset=N` — skip the first N issues (default: 0). Best-effort pagination — issue ordering may shift between runs if new issues are created or updated.
 - `--batch-size=N` — issues per subagent (default: 5)
 - `--label="bug"` — filter by label
 - `--milestone="v2"` — filter by milestone

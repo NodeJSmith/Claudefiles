@@ -14,7 +14,7 @@ All notable changes to this Claudefiles repository are documented here.
 - `mine.issues` no-arg flow now routes to `mine.issues-triage` instead of the removed `mine.issues-scan` (#312)
 
 ### Fixed
-- Invalid `--sort`/`--order` flags on `gh-issue list` in triage and scan commands (#312)
+- Invalid `--sort`/`--order` flags on `gh-issue list` in triage skill (#312)
 
 ### Removed
 - `mine.issues-scan` command — superseded by `mine.issues-triage` (#312)

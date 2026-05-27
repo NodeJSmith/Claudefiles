@@ -6,7 +6,7 @@ user-invocable: true
 
 # Create Issue
 
-Codebase-aware issue creation. Investigates the code to produce well-structured issues that the triage skill can assess as "well-defined" — with concrete acceptance criteria, affected code areas, and testable outcomes. Uses the Goal/Scope/Acceptance Criteria pattern.
+Codebase-aware issue creation. Investigates the code to produce well-structured issues that the triage skill can assess as "well-defined" — with concrete acceptance criteria, affected code areas, and testable outcomes.
 
 Note: This skill creates new issues. To enrich an existing issue with acceptance criteria and technical detail, use the `issue-refiner` agent instead.
 

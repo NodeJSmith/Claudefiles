@@ -1,10 +1,10 @@
 ---
-description: Deep-dive one or more issues by key, or scan and pick if no keys given.
+description: Deep-dive one or more issues by key, or triage if no keys given.
 ---
 
 # Issues Command
 
-Deep-dive specific issues by key, or fall through to scanning if no keys are provided. Supports GitHub (`gh`) and Jira (`jira`) via the `$ISSUE_TRACKER` env var.
+Deep-dive specific issues by key, or fall through to codebase-aware triage if no keys are provided. Supports GitHub (`gh`) and Jira (`jira`) via the `$ISSUE_TRACKER` env var.
 
 ## Arguments
 
