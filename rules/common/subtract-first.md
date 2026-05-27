@@ -13,5 +13,5 @@ During planned migrations where phases are explicitly declared, see `outcome-ori
 - Sequence removal before construction.
 - Cut before you polish. Get to the minimum before investing in quality.
 - Design for observed usage, not speculative edge cases.
-- No speculative validators, parsers, or guards beyond what the spec demands. Out-of-spec features drag validators behind them.
+- No speculative validators, parsers, or guards beyond what the spec demands. Speculative features drag validators behind them.
 - When a reference has no novel content, delete it rather than leaving a stub.

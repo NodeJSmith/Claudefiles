@@ -1,5 +1,7 @@
 # Build the Lever
 
+<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
+
 When the work repeats, build the tool that does it instead of grinding by hand.
 
 Doing the same edit a hundred times is slow and drifts into inconsistent mistakes. A codemod, generator, or script does it once, the same way every time, reruns for free, and gives a reviewer one artifact to check.

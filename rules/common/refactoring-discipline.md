@@ -14,13 +14,9 @@ If the area has no coverage, write the pin before moving structure. The pin test
 
 A refactor that smuggles in a behavior change loses its safety net. If cleanup reveals a missing feature or a real bug, split it out and ship the structural change first against the pinned contract. A redesign is allowed, but name it and route it as a feature rather than letting it walk in under the refactor banner.
 
-## Subtract Before Reshaping
-
-See `subtract-first.md`. Apply it before introducing the new shape — sequence deletion before construction, not as a follow-up.
-
 ## Move in Small Steps
 
-Each step keeps the pin green. For API reshapes, migrate every caller and delete the old API in the same wave. No compatibility shims, no parallel old-and-new paths waiting for cleanup later.
+Each step keeps the pin green. Sequence deletion before construction — see `subtract-first.md`. For API reshapes, migrate every caller and delete the old API in the same wave — see `coding-style.md` (Migrate Callers Then Delete Legacy APIs).
 
 Spot-check every rename against the actual files. Renames silently miss usages in strings, prose, and back-references.
 

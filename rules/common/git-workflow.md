@@ -40,6 +40,10 @@ Code review and challenge are **orthogonal quality gates** with different scopes
 
 A green code review does not mean challenge is unnecessary. A green test suite is necessary but not sufficient — tests verify expected behavior, not unexpected behavior.
 
+## Worktree Baseline Testing
+
+When you need to run tests against the default branch (e.g., to confirm a failure is new), do not stash and switch branches. If the main repo is already on the default branch, run the tests there directly using its path. The main repo is the worktree's parent — find it via `git -C <worktree> worktree list`.
+
 ## Local Verification Before Commit
 
 <!-- See also: verification.md covers all completion claims, not just pre-commit. -->

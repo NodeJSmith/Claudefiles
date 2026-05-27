@@ -24,7 +24,7 @@ Does each rule name the specific trap it guards against?
 
 Does the instruction call out what AI agents specifically get wrong in this domain?
 
-Generic engineering advice reads as background knowledge and gets skimmed. "You have a specific bias toward X because generation is free for you" gets attention because it is addressed directly to the reader. Rules that acknowledge the agent's tendencies are more effective than rules that describe ideal behavior in the abstract.
+Generic engineering advice reads as background knowledge and gets skimmed. "Agents tend to X because generation is free — counter it by Y" gets attention because it names the specific tendency. Rules that acknowledge the agent's tendencies are more effective than rules that describe ideal behavior in the abstract.
 
 ### 4. A Generative Value
 

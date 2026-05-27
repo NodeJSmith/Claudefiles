@@ -12,4 +12,4 @@ The product is the experience. Every technical decision either helps or hurts it
 - **Sweat the details.** Transitions, alignment, spacing, feedback, error states.
 - **Tighten the core loop.** Every feature should serve the central workflow or get out of the way.
 
-Foundations should serve the experience, not the other way around. Foundational thinking governs the sequence of work; this principle governs the target.
+Foundations should serve the experience, not the other way around. `decomposition-discipline.md` governs the sequence of work (foundations first); this principle governs the target (experience first).

@@ -10,7 +10,7 @@ Every shipped line must trace to runtime evidence that proved it necessary. Belt
 
 When evidence refutes a hypothesis, revert the changes it motivated (see `laziness-protocol.md` — revert unconfirmed hypotheses). Leftover defensive code from abandoned hypotheses is how debugging sessions leave the codebase worse than they found it.
 
-See also `perf-discipline.md` for the same evidence-first approach applied to performance work.
+See also `performance-discipline.md` for the same evidence-first approach applied to performance work.
 
 ## Binary-Search the Cause
 

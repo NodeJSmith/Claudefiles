@@ -114,13 +114,6 @@ class RateLimiter:
 
 If you're tempted to skip a lock because "it's probably fine," add the lock.
 
-## Fix Root Causes
-
-When debugging, do not paper over symptoms. Trace every problem to its root cause and fix it there.
-
-- **Restart bugs: suspect state before code.** Code does not change between runs. State does. When something fails after restart, suspect stale persistent state first: config files, caches, lock files, serialized state.
-- **Check for the pattern, not just the instance.** Grep for the same pattern across the codebase and fix all instances, not just the one you found.
-
 ## Async Awaiting
 
 Every coroutine call must be awaited. Forgetting `await` returns a coroutine object instead of the result — and the operation silently never happens.

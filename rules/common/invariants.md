@@ -54,12 +54,20 @@ Do not use `any` in TypeScript. Use `unknown` for external data and narrow befor
 **Defined in:** `typescript.md`
 
 #### No `as` Casts
-Do not use `as` casts in TypeScript except after full validation at boundaries.
+Do not use `as` casts in TypeScript. Exceptions: after full validation at system boundaries, and branded type constructors where the preceding validation is the only path to the type.
 **Defined in:** `typescript.md`
 
 #### No Enums
 Do not use TypeScript `enum`. Use `as const` objects or union types instead.
 **Defined in:** `typescript.md`
+
+#### Functional Components Only
+No class components in React/Preact. Use function components with hooks.
+**Defined in:** `frontend.md`
+
+#### Effect Cleanup
+Every `useEffect` that subscribes, listens, or opens a connection must return a cleanup function.
+**Defined in:** `frontend.md`
 
 #### Input Validation at Boundaries
 External data (user input, API responses, file reads, env vars) validated and parsed at system boundaries. Internal code trusts what the boundary already validated.
@@ -70,7 +78,7 @@ Every call to an external service has an explicit timeout. No implicit "wait for
 **Defined in:** `reliability.md`
 
 #### Shared State Protection
-Concurrent access to shared mutable state is protected with locks, queues, or atomic operations.
+Concurrent access to shared mutable state: first ask whether sharing is necessary — if not, give each actor its own state. When sharing is a real invariant, protect with locks, queues, or atomic operations.
 **Defined in:** `reliability.md`
 
 ### Should
@@ -136,7 +144,7 @@ When implementation convenience conflicts with user delight, choose delight. Eve
 
 #### Baseline Before Optimizing
 Capture a trace or measurement before changing anything. "It feels faster" is not verification.
-**Defined in:** `perf-discipline.md`
+**Defined in:** `performance-discipline.md`
 
 #### Decompose Before Implementing
 For multi-module features, answer the four blocking/parallel/shared-state/decomposition questions before writing logic.

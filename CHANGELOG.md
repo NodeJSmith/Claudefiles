@@ -10,6 +10,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Changed
 - Strengthened `reliability.md`, `security.md`, `verification.md`, `coding-style.md`, and `git-workflow.md` with pstack-derived additions (#314)
+- Review fixes: resolved parallel drift between `reliability.md`/`debugging-discipline.md` and `coding-style.md`/`refactoring-discipline.md`; aligned stale invariant entries; renamed `perf-discipline.md` to `performance-discipline.md`; added worktree baseline testing rule to `git-workflow.md`
 
 ## 2026-05-26
 
