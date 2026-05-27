@@ -22,7 +22,7 @@ Replace with plain words: additionally, crucial, delve, enduring, enhance, foste
 
 ### Copula Avoidance
 
-"Serves as", "stands as", "boasts", "features" — just say "is" or "has."
+"Serves as", "stands as", "boasts", "features." Just say "is" or "has."
 
 ### Significance Inflation
 
@@ -30,7 +30,7 @@ Replace with plain words: additionally, crucial, delve, enduring, enhance, foste
 
 ### Superficial -ing Phrases
 
-"Highlighting...", "ensuring...", "reflecting...", "showcasing...", "fostering..." — delete or expand with real content.
+"Highlighting...", "ensuring...", "reflecting...", "showcasing...", "fostering..." Delete or expand with real content.
 
 ### Negative Parallelisms
 
