@@ -8,12 +8,13 @@ user-invocable: true
 
 Batch codebase-aware issue assessment. Fetches open issues, fans them out to parallel Haiku subagents that investigate the actual codebase, and consolidates results into a ranked report sorted by effort. Designed for large backlogs where title/label classification misses the true scope of changes.
 
-Note: The complexity tiers here (trivial/small/medium/large/xl) are codebase-verified and differ from `mine.issues-scan`'s label-inferred small/medium/large classification. This skill reads the code; scan reads the title.
+Note: The complexity tiers here (trivial/small/medium/large/xl) are codebase-verified — subagents read the actual code, not just the issue title or labels.
 
 ## Arguments
 
 $ARGUMENTS — optional flags and filters:
-- `--limit=N` — max issues to fetch (default: 50)
+- `--limit=N` — max issues to triage (default: 50)
+- `--offset=N` — skip the first N issues (default: 0). Best-effort pagination — issue ordering may shift between runs if new issues are created or updated.
 - `--batch-size=N` — issues per subagent (default: 5)
 - `--label="bug"` — filter by label
 - `--milestone="v2"` — filter by milestone
@@ -22,7 +23,8 @@ $ARGUMENTS — optional flags and filters:
 ### Argument parsing
 
 Extract these flags from $ARGUMENTS before forwarding to `gh-issue list`:
-- `--limit=N` → use N as the fetch limit (default 50). Pass to `gh-issue list` as `--limit N`.
+- `--limit=N` → use N as the triage limit (default 50). Do NOT forward directly — see Phase 1 for adjusted fetch.
+- `--offset=N` → skip the first N results (default 0). Do NOT forward to `gh-issue list`.
 - `--batch-size=N` → use N for batch splitting (default 5). Do NOT forward to `gh-issue list`.
 
 Remaining flags (`--label`, `--milestone`, etc.) are forwarded verbatim to `gh-issue list`.
@@ -31,22 +33,25 @@ Remaining flags (`--label`, `--milestone`, etc.) are forwarded verbatim to `gh-i
 
 ### Tool detection
 
-Read `$ISSUE_TRACKER`. If set to `jira`, tell the user: "This skill currently supports GitHub only (`$ISSUE_TRACKER` is set to `jira`)." and stop. If set to any other unexpected value, tell the user and stop. If unset or empty, default to `gh` and warn: "Note: `$ISSUE_TRACKER` is not set. Defaulting to GitHub. Set `ISSUE_TRACKER=gh` for compatibility with `/mine.issues` and `/mine.issues-scan`." If set to `gh`, proceed.
+Read `$ISSUE_TRACKER`. If set to `jira`, tell the user: "This skill currently supports GitHub only (`$ISSUE_TRACKER` is set to `jira`)." and stop. If set to any other unexpected value, tell the user and stop. If unset or empty, default to `gh` and warn: "Note: `$ISSUE_TRACKER` is not set. Defaulting to GitHub. Set `ISSUE_TRACKER=gh` for compatibility with `/mine.issues`." If set to `gh`, proceed.
 
 Check that `gh-issue` is available. If not, tell the user and stop.
 
 ### Fetch
 
-Run:
+Fetch `<offset> + <limit>` issues to support pagination:
+
 ```
-gh-issue list --state open --limit <limit> --sort created --order asc --json number,title,labels
+gh-issue list --state open --limit <offset + limit> --json number,title,labels
 ```
 
 Pass through forwarded filters from $ARGUMENTS.
 
-If 0 issues returned, tell the user and stop.
+If offset > 0, discard the first `<offset>` issues from the result. If fewer than `<offset>` issues were returned, tell the user: "Offset N exceeds the number of matching issues (M). Nothing to triage." and stop.
 
-Report: "Fetched N issues. Splitting into batches of `<batch-size>` across N subagents for codebase-aware assessment..."
+If 0 issues remain after applying offset, tell the user and stop.
+
+Report: "Fetched N issues (offset: M). Splitting into batches of `<batch-size>` across K subagents for codebase-aware assessment..."
 
 ## Phase 2: Batch and Dispatch
 
@@ -82,6 +87,10 @@ Each subagent receives this prompt (substitute `<issues>`, `<batch_number>`, `<t
 >      - large: 8+ files or cross-cutting concern, significant design work
 >      - xl: architectural change, new subsystem, multi-day effort
 >    - **Files**: estimated number of files that would need to change (must be an integer — if uncertain, use the upper bound estimate)
+>    - **Definition**: well-defined / partial / unclear
+>      - well-defined: issue body has specific acceptance criteria, concrete behavior descriptions, or references exact code/config to change
+>      - partial: general intent is clear but missing specifics (e.g., "improve logging" without saying what to log or where)
+>      - unclear: title-only, single vague sentence, or the desired outcome is ambiguous
 >    - **Confidence**: high / medium / low (low = couldn't find relevant code, or issue is vague)
 >    - **Notes**: 1 sentence on what the change actually involves in the code (escape any `|` characters as `\|` so the markdown table renders correctly — do the same for Title)
 >
@@ -90,8 +99,8 @@ Each subagent receives this prompt (substitute `<issues>`, `<batch_number>`, `<t
 > Write your results to `<tmpdir>/batch-<batch_number>.md`. Start with the markdown table, then optionally add an `## Errors` section for any issues that couldn't be fetched or assessed:
 >
 > ```
-> | # | Title | Complexity | Files | Confidence | Notes |
-> |---|-------|-----------|-------|------------|-------|
+> | # | Title | Complexity | Files | Definition | Confidence | Notes |
+> |---|-------|-----------|-------|------------|------------|-------|
 >
 > ## Errors
 > - #42: gh-issue view failed (404)
@@ -110,7 +119,7 @@ Prepend a summary:
 ```
 ## Triage Results
 
-**Total assessed:** N | **Quick wins (trivial+small, high confidence):** N | **Medium:** N | **Large+XL:** N | **Needs review (low confidence):** N
+**Total assessed:** N | **Quick wins (trivial+small, well-defined, high confidence):** N | **Medium:** N | **Large+XL:** N | **Poorly defined:** N | **Needs review (low confidence):** N
 ```
 
 If there were errors or missing batches, append them after the summary.
@@ -137,7 +146,7 @@ AskUserQuestion:
 
 ### Pick issues to work on
 
-Filter to trivial + small issues with high confidence. If none exist, tell the user: "No trivial or small high-confidence issues in this triage run. Try a larger `--limit` or different filters." and return to the Phase 4 question.
+Filter to trivial + small issues with high confidence AND well-defined. If none exist, tell the user: "No trivial or small well-defined high-confidence issues in this triage run. Try a larger `--limit` or different filters." and return to the Phase 4 question.
 
 Otherwise, present up to 4 as options via AskUserQuestion (single-select). After the user picks an issue, ask what to do with it:
 

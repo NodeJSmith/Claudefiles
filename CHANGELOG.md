@@ -6,6 +6,18 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Added
 - `mine.issues-triage` skill — batch codebase-aware issue triage with parallel Haiku subagents that assess actual complexity by reading the code (#311)
+- `mine.create-issue` skill — codebase-aware issue creation with Goal/Scope/AC structure for automated triage compatibility (#312)
+- Definition quality field in triage assessment (well-defined/partial/unclear) — quick-win filter now requires well-defined issues (#312)
+- `--offset` flag for triage pagination across runs (#312)
+
+### Changed
+- `mine.issues` no-arg flow now routes to `mine.issues-triage` instead of the removed `mine.issues-scan` (#312)
+
+### Fixed
+- Invalid `--sort`/`--order` flags on `gh-issue list` in triage skill (#312)
+
+### Removed
+- `mine.issues-scan` command — superseded by `mine.issues-triage` (#312)
 
 ## 2026-05-25
 

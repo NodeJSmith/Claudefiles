@@ -1,10 +1,10 @@
 ---
-description: Deep-dive one or more issues by key, or scan and pick if no keys given.
+description: Deep-dive one or more issues by key, or triage if no keys given.
 ---
 
 # Issues Command
 
-Deep-dive specific issues by key, or fall through to scanning if no keys are provided. Supports GitHub (`gh`) and Jira (`jira`) via the `$ISSUE_TRACKER` env var.
+Deep-dive specific issues by key, or fall through to codebase-aware triage if no keys are provided. Supports GitHub (`gh`) and Jira (`jira`) via the `$ISSUE_TRACKER` env var.
 
 ## Arguments
 
@@ -19,7 +19,7 @@ Read `$ISSUE_TRACKER`.
 
 ## Phase 2: Route
 
-- **No arguments provided**: Run the full scan flow — behave exactly as `/mine.issues-scan` would (list, classify, pick, then deep-dive the chosen issue). Follow the same phases described in `mine.issues-scan.md`.
+- **No arguments provided**: Run `/mine.issues-triage` for codebase-aware batch assessment, then let the user pick issues to deep-dive.
 - **Arguments provided**: Continue to Phase 3 (Deep Dive).
 
 ## Phase 3: Deep Dive (Subagent)
