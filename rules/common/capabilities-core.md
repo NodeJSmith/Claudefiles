@@ -14,8 +14,7 @@
 | "create PR", "open pull request" | `/mine.create-pr` |
 | "address PR comments", "fix review feedback", "fix failing CI", "resolve merge conflicts" | `/mine.address-pr-issues` |
 | "show issue", "investigate this issue" | `/mine.issues` |
-| "scan issues", "what issues are open" | `/mine.issues-scan` |
-| "triage issues", "classify issues by complexity", "assess issue complexity", "find quick wins", "which issues are small", "batch issue assessment" | `/mine.issues-triage` |
+| "scan issues", "what issues are open", "triage issues", "classify issues by complexity", "assess issue complexity", "find quick wins", "which issues are small", "batch issue assessment" | `/mine.issues-triage` |
 | "brainstorm options", "generate ideas", "explore ideas", "what are our options" | `/mine.brainstorm` |
 | "challenge this", "challenge this design", "challenge this code", "poke holes in this", "what's wrong with this approach", "ask the critics", "see what the critics say", "run it by the critics" | `/mine.challenge` |
 | "close gaps in this design", "fill gaps in the spec", "lightweight design review", "gap-close this doc", "completeness review" | `/mine.gap-close` |

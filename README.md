@@ -119,7 +119,7 @@ All four directories symlink into `~/.claude/skills/` at install time — the ru
 | Command | Description |
 |---------|-------------|
 | `mine.issues` | Deep-dive issues by key, or scan and pick |
-| `mine.issues-scan` | Scan open issues, classify by effort, pick one to deep-dive |
+
 | `mine.permissions-audit` | Analyze frequent permission prompts and recommend allow-list entries |
 | `mine.pre-compact` | Generate a focused /compact prompt preserving what matters |
 | `mine.status` | Quick orientation -- branch, tasks, errors, last commit |

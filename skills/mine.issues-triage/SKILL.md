@@ -8,12 +8,13 @@ user-invocable: true
 
 Batch codebase-aware issue assessment. Fetches open issues, fans them out to parallel Haiku subagents that investigate the actual codebase, and consolidates results into a ranked report sorted by effort. Designed for large backlogs where title/label classification misses the true scope of changes.
 
-Note: The complexity tiers here (trivial/small/medium/large/xl) are codebase-verified and differ from `mine.issues-scan`'s label-inferred small/medium/large classification. This skill reads the code; scan reads the title.
+Note: The complexity tiers here (trivial/small/medium/large/xl) are codebase-verified — subagents read the actual code, not just the issue title or labels.
 
 ## Arguments
 
 $ARGUMENTS — optional flags and filters:
-- `--limit=N` — max issues to fetch (default: 50)
+- `--limit=N` — max issues to triage (default: 50)
+- `--offset=N` — skip the first N issues (default: 0). Use for pagination across runs.
 - `--batch-size=N` — issues per subagent (default: 5)
 - `--label="bug"` — filter by label
 - `--milestone="v2"` — filter by milestone
@@ -22,7 +23,8 @@ $ARGUMENTS — optional flags and filters:
 ### Argument parsing
 
 Extract these flags from $ARGUMENTS before forwarding to `gh-issue list`:
-- `--limit=N` → use N as the fetch limit (default 50). Pass to `gh-issue list` as `--limit N`.
+- `--limit=N` → use N as the triage limit (default 50). Do NOT forward directly — see Phase 1 for adjusted fetch.
+- `--offset=N` → skip the first N results (default 0). Do NOT forward to `gh-issue list`.
 - `--batch-size=N` → use N for batch splitting (default 5). Do NOT forward to `gh-issue list`.
 
 Remaining flags (`--label`, `--milestone`, etc.) are forwarded verbatim to `gh-issue list`.
@@ -31,22 +33,25 @@ Remaining flags (`--label`, `--milestone`, etc.) are forwarded verbatim to `gh-i
 
 ### Tool detection
 
-Read `$ISSUE_TRACKER`. If set to `jira`, tell the user: "This skill currently supports GitHub only (`$ISSUE_TRACKER` is set to `jira`)." and stop. If set to any other unexpected value, tell the user and stop. If unset or empty, default to `gh` and warn: "Note: `$ISSUE_TRACKER` is not set. Defaulting to GitHub. Set `ISSUE_TRACKER=gh` for compatibility with `/mine.issues` and `/mine.issues-scan`." If set to `gh`, proceed.
+Read `$ISSUE_TRACKER`. If set to `jira`, tell the user: "This skill currently supports GitHub only (`$ISSUE_TRACKER` is set to `jira`)." and stop. If set to any other unexpected value, tell the user and stop. If unset or empty, default to `gh` and warn: "Note: `$ISSUE_TRACKER` is not set. Defaulting to GitHub. Set `ISSUE_TRACKER=gh` for compatibility with `/mine.issues`." If set to `gh`, proceed.
 
 Check that `gh-issue` is available. If not, tell the user and stop.
 
 ### Fetch
 
-Run:
+Fetch `<offset> + <limit>` issues to support pagination:
+
 ```
-gh-issue list --state open --limit <limit> --sort created --order asc --json number,title,labels
+gh-issue list --state open --limit <offset + limit> --json number,title,labels
 ```
 
 Pass through forwarded filters from $ARGUMENTS.
 
-If 0 issues returned, tell the user and stop.
+If offset > 0, discard the first `<offset>` issues from the result. If fewer than `<offset>` issues were returned, tell the user: "Offset N exceeds the number of matching issues (M). Nothing to triage." and stop.
 
-Report: "Fetched N issues. Splitting into batches of `<batch-size>` across N subagents for codebase-aware assessment..."
+If 0 issues remain after applying offset, tell the user and stop.
+
+Report: "Fetched N issues (offset: M). Splitting into batches of `<batch-size>` across K subagents for codebase-aware assessment..."
 
 ## Phase 2: Batch and Dispatch
 
