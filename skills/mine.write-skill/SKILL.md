@@ -66,8 +66,9 @@ Write to `skills/mine.<name>/SKILL.md` using the template in REFERENCE.md. See R
 
 ## Phase 3: Quality Checklist
 
-Validate the drafted skill against the quality checklist in REFERENCE.md (full criteria there). Quick list:
+Validate the drafted skill against both checklists in REFERENCE.md. Quick list:
 
+**Structural checks:**
 1. Description includes "Use when..." trigger phrases
 2. SKILL.md under ~100 lines (or split with REFERENCE.md)
 3. No time-sensitive info (dates, versions)
@@ -76,6 +77,15 @@ Validate the drafted skill against the quality checklist in REFERENCE.md (full c
 6. References at most one level deep
 7. No significant duplication with existing skills
 8. All user interaction points use AskUserQuestion
+
+**Instruction quality checks** (see `rules/common/instruction-quality.md` for full criteria):
+9. Diagnostic questions over bare thresholds where applicable
+10. Named failure modes — each behavioral rule names the trap it guards against
+11. AI-specific bias acknowledgment where the skill addresses a known agent tendency
+12. A generative value — one sentence that produces correct behavior even if the rest were deleted
+13. "Why" before "what" on major rules
+
+Apply 9-13 proportionally: simple factual rules need only the rule itself; behavioral and principle-level guidance should hit most of these.
 
 Report results. Fix any failures before presenting to the user.
 
