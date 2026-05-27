@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-05-26
+
+### Added
+- `mine.issues-triage` skill — batch codebase-aware issue triage with parallel Haiku subagents that assess actual complexity by reading the code
+
 ## 2026-05-25
 
 ### Added

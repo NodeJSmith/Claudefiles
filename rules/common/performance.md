@@ -47,3 +47,4 @@ Each agent file in `agents/` declares its model in YAML frontmatter. When updati
 - `skills/mine.plan/SKILL.md` — `model: sonnet` for review subagent
 - `skills/mine.implementation-review/SKILL.md` — `model: sonnet` for review subagent
 - `skills/mine.decompose/SKILL.md` — `model: haiku` for behavioral and structural analysis subagents
+- `skills/mine.issues-triage/SKILL.md` — `model: haiku` for batch triage subagents
