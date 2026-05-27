@@ -34,17 +34,31 @@ project name. If the project name is missing, infer it from the current working 
 1. Run the recall script directly — it's an installed entry point:
    `cm-recent-chats --n 10 --project <project-name> --verbose`
 
-2. Analyze each session for high-signal content. Look specifically for:
-   - User corrections ("no, not that", "don't do X", "stop doing Y") — these indicate
-     behavioral preferences the agent should internalize
-   - Architectural decisions with rationale ("we chose X because Y") — these prevent
-     future sessions from re-litigating settled questions
-   - Recurring patterns — if the user does the same thing across multiple sessions, it
-     may warrant a memory entry or even a skill
+2. Analyze each session through three lenses. Each lens catches different signals — scan
+   for all three, not just the most obvious one.
+
+   **Judgment lens** — decisions and their rationale:
+   - User corrections ("no, not that", "don't do X", "stop doing Y") — behavioral
+     preferences the agent should internalize
+   - Architectural decisions with rationale ("we chose X because Y") — prevent future
+     sessions from re-litigating settled questions
    - Behavioral preferences confirmed through acceptance — when the user accepts a
      non-obvious approach without pushback, that's a validated preference worth recording
+   - Mistakes made and corrections received — name the durable principle, not the incident
+
+   **Tooling lens** — concrete technical facts:
    - Configuration discoveries — settings, flags, or workarounds found through trial and
      error that aren't documented elsewhere
+   - Tool/library quirks discovered through debugging
+   - Commands, paths, or flags the agent had to discover through iteration
+   - Recurring patterns — if the user does the same thing across multiple sessions, it
+     may warrant a memory entry or even a skill
+
+   **Divergent lens** — what the other two lenses miss:
+   - Decisions that worked but for the wrong reasons
+   - Verifications that were skipped or self-reported instead of artifact-checked
+   - Skills or tools that should have been invoked but weren't
+   - Implicit assumptions about scope or what the user actually wanted
 
 3. For each finding, generalize to a principle. This is the critical step. Do not record
    incidents — record the principle behind them.
