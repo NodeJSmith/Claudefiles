@@ -1,7 +1,7 @@
 # Design: Svelte-Derived Voice Guide for Hassette Docs
 
 **Date:** 2026-05-28
-**Status:** approved
+**Status:** archived
 **Scope-mode:** hold
 **Research:** design/research/2026-05-28-llm-doc-voice-transfer/research.md
 
