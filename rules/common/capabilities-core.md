@@ -30,6 +30,8 @@
 | "audit permissions", "reduce permission prompts" | `/mine.permissions-audit` |
 | "status", "where am I", "quick summary" | `/mine.status` |
 | "prepare to compact", "running low on context" | `/mine.pre-compact` |
+| "end of day", "wrapping up", "eod", "signing off", "handoff for tomorrow" | `/mine.end-of-day` |
+| "good morning", "pick up where I left off", "what was I working on", "read the handoff" | `/mine.good-morning` |
 | "evaluate this repo", "should I use this library" | `/mine.eval-repo` |
 | "mutation test", "do my tests actually catch bugs" | `/mine.mutation-test` |
 | "find tool gaps", "session archaeology", "missing cli features" | `/mine.tool-gaps` |
