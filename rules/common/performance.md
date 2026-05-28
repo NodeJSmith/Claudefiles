@@ -28,7 +28,7 @@ Each agent file in `agents/` declares its model in YAML frontmatter. When updati
 - `agents/llm-checker.md` — sonnet
 - `agents/nitpicker.md` — sonnet
 - `agents/testing-reality-checker.md` — sonnet (pre-ship safety gate; do not downgrade)
-- `agents/researcher.md` — claude-opus-4-6 (pinned; do not upgrade without explicit approval)
+- `agents/researcher.md` — opus (pinned to 4.6; do not upgrade without explicit approval)
 - `agents/planner.md` — sonnet
 - `agents/architect.md` — sonnet
 - `agents/qa-specialist.md` — sonnet
