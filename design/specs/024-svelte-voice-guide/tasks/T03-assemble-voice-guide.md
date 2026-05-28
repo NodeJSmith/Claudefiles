@@ -1,7 +1,7 @@
 ---
 task_id: "T03"
 title: "Assemble voice-guide.md and update doc-rules.md"
-status: "planned"
+status: "done"
 depends_on: ["T02"]
 implements: ["FR#5", "FR#6", "FR#7", "FR#8", "AC#1", "AC#5", "AC#6", "AC#7", "AC#8"]
 ---
