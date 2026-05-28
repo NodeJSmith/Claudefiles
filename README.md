@@ -119,6 +119,8 @@ All four directories symlink into `~/.claude/skills/` at install time — the ru
 
 | Command | Description |
 |---------|-------------|
+| `mine.end-of-day` | Capture session state as a handoff file for morning pickup |
+| `mine.good-morning` | Read the handoff, orient, and resume yesterday's work |
 | `mine.issues` | Deep-dive issues by key, or scan and pick |
 | `mine.permissions-audit` | Analyze frequent permission prompts and recommend allow-list entries |
 | `mine.pre-compact` | Generate a focused /compact prompt preserving what matters |

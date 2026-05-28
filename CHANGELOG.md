@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-05-28
+
+### Added
+- `mine.end-of-day` and `mine.good-morning` commands — session handoff for cross-day continuity
+
 ## 2026-05-27
 
 ### Changed

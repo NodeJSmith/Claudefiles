@@ -28,6 +28,8 @@
 | "mockup this UI", "show me what it looks like", "HTML mockup", "UI preview", "generate a mockup" | `/mine.mockup` |
 | "visual QA", "screenshot review", "review the UI visually", "take screenshots and find issues", "UX review" | `/mine.visual-qa` |
 | "audit permissions", "reduce permission prompts" | `/mine.permissions-audit` |
+| "end of day", "wrapping up", "EOD", "signing off", "handoff for tomorrow" | `/mine.end-of-day` |
+| "good morning", "pick up where I left off", "what was I working on", "read the handoff" | `/mine.good-morning` |
 | "status", "where am I", "quick summary" | `/mine.status` |
 | "prepare to compact", "running low on context" | `/mine.pre-compact` |
 | "evaluate this repo", "should I use this library" | `/mine.eval-repo` |
