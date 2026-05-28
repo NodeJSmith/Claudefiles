@@ -31,7 +31,7 @@ Based on the above changes:
    - **Defer to the user** when the fix requires business logic decisions, architectural judgment, or context you don't have — present the finding and ask before proceeding
 
    After applying fixes, re-run `code-reviewer` and repeat until no CRITICAL or HIGH issues remain or only LOW/noise is left. If the same CRITICAL or HIGH findings appear again and cannot be auto-fixed, defer to the user — do not proceed to commit.
-5. **INTEGRATION REVIEW (skip for documentation-only changes):** Run `integration-reviewer` once on the final state of the changes (after the code-reviewer loop). Address any CRITICAL or HIGH findings; defer ambiguous ones to the user.
+5. **INTEGRATION + WTF REVIEW (skip for documentation-only changes):** Run `integration-reviewer` and `wtf-reviewer` in parallel on the final state of the changes (after the code-reviewer loop). Address any CRITICAL or HIGH findings; defer ambiguous ones to the user.
 6. **LOCAL VERIFICATION (skip for documentation-only changes):**
    1. Determine the project's test command using the test execution discovery order from `rules/common/testing.md`
    2. **TEST PRESENCE CHECK (skip if sub-step 1 found no test command — this signals the repo has no test infrastructure. Also skip for changes exempt per the Test Co-location rule in `testing.md`):**
