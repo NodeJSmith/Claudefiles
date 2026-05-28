@@ -5,7 +5,7 @@
 When the user's request matches a row below, launch the Agent tool with the corresponding `subagent_type`. Do NOT do the work inline — dispatch to the agent.
 
 <!-- PARALLEL: skills/mine.orchestrate/SKILL.md Step 3 also routes to these agents by WP content (not user intent) — add new agents to both. This table uses user-intent phrases ("readability review"); orchestrate uses WP-content signals ("contains UI components"). The wording differs because the routing trigger differs. -->
-<!-- llm-checker and lazy-checker can be dispatched directly for targeted checks (rows below), but their primary path is through mine.clean-code. wtf-reviewer and nitpicker are dispatched only by skills (mine.review / mine.clean-code). -->
+<!-- llm-checker and lazy-checker can be dispatched directly for targeted checks (rows below), but their primary path is through mine.clean-code. wtf-reviewer is mandatory pre-commit (see git-workflow.md) and also dispatched by mine.review / mine.clean-code. nitpicker is dispatched only by skills (mine.clean-code). -->
 | User needs... | Use `subagent_type` |
 |---|---|
 | "plan this feature", implementation planning | `planner` |
