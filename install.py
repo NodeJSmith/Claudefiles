@@ -101,9 +101,9 @@ HOOK_GROUPS: dict[str, HookGroup] = {
         files=("tmux-remind.sh", "tmux-drift-check.sh"),
     ),
     "context": HookGroup(
-        label="Context awareness",
-        description="Inject context window tier guidance to prevent hallucinated urgency",
-        files=("context-tier.sh",),
+        label="Context & phrase monitoring",
+        description="Context window tier guidance and rationalization phrase detection",
+        files=("context-tier.sh", "phrase-monitor.sh"),
     ),
 }
 
