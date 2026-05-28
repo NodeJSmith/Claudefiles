@@ -2,7 +2,7 @@
 description: Capture session state as a handoff file for morning pickup.
 ---
 
-# End of Day Handoff
+# End of Day
 
 Write a handoff document capturing everything needed to resume this work tomorrow. Fully autonomous — no questions asked.
 
@@ -16,7 +16,7 @@ First, get the git toplevel:
 git rev-parse --show-toplevel
 ```
 
-If this fails (not a git repo), tell the user and stop.
+If this fails: "Not in a git repo — nothing to hand off."
 
 Then create the `.claude/` directory if needed:
 
@@ -31,7 +31,6 @@ The handoff path is `<toplevel>/.claude/handoff.md`. The `mine.good-morning` com
 Run in parallel where possible:
 
 ### Git (Bash)
-- `git rev-parse --show-toplevel`
 - `git branch --show-current`
 - `git status --short`
 - `git log --oneline -8`
@@ -52,8 +51,8 @@ Reflect on the entire conversation and write each section below. Brief a colleag
 2. **Approach** — how the work was structured. Key technical choices and their rationale.
 3. **Current State** — what's done (committed, tested, verified) vs. in progress vs. not started. Use file paths.
 4. **Uncommitted Changes** — if any, describe contents and intent. If none, say so.
-5. **Decisions Made** — non-obvious choices a fresh reader wouldn't know from the code. Skip if none.
-6. **Open Questions** — unresolved items needing attention. Skip if none.
+5. **Decisions Made** — non-obvious choices a fresh reader wouldn't know from the code.
+6. **Open Questions** — unresolved items needing attention.
 7. **Key Files** — files central to the work, one-line note on each.
 8. **Next Steps** — ordered list. First item should be immediately actionable.
 

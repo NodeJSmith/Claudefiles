@@ -47,7 +47,7 @@ Add these only if relevant:
 ```
 AskUserQuestion:
   question: "Want to pick up where you left off?"
-  header: "Continue?"
+  header: "Resume"
   multiSelect: false
   options:
     - label: "Yes, continue"
