@@ -91,7 +91,7 @@ If the integration-reviewer returns BLOCK, surface the blocking issues to the us
 
 After the cross-file consistency review passes, run a clean code check on the entire branch diff. This catches LLM training-bias patterns, deferred-debt shortcuts, and style hygiene issues that correctness and integration reviewers don't target.
 
-Launch a single `general-purpose` subagent with `model: opus` and this prompt:
+Launch a single `general-purpose` subagent with `model: opus` (pin to claude-opus-4-6) and this prompt:
 
 ```
 You are running a comprehensive stylistic quality review on a completed feature branch.

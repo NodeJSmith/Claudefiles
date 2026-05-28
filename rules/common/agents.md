@@ -30,7 +30,7 @@ When the user's request matches a row below, launch the Agent tool with the corr
 
 No user prompt needed:
 1. Complex feature requests — use **planner** agent
-2. Code just written/modified — **MUST** run **code-reviewer** AND **integration-reviewer** in parallel before committing; exceptions: documentation-only changes or explicit user skip (see `rules/common/git-workflow.md`)
+2. Code just written/modified — **MUST** run **code-reviewer**, **integration-reviewer**, AND **wtf-reviewer** in parallel before committing; exceptions: documentation-only changes or explicit user skip (see `rules/common/git-workflow.md`)
 
 ## Agent Patterns
 

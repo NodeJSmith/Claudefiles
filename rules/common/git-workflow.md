@@ -18,7 +18,7 @@ Before your first commit in a repo during a session, check for a pre-commit conf
 
 ## Mandatory Code Review Before Commit
 
-**ALWAYS run `code-reviewer` before committing code changes**, then `integration-reviewer` once on the final diff.
+**ALWAYS run `code-reviewer`, `integration-reviewer`, and `wtf-reviewer` before committing code changes.** All three run in parallel on the final diff.
 
 Exceptions: documentation-only changes or explicit user skip.
 
@@ -29,13 +29,14 @@ Loop until no CRITICAL/HIGH issues remain:
 2. Re-run `code-reviewer`
 3. Stop when no CRITICAL/HIGH remain
 
-Then run `integration-reviewer` once on the final diff.
+Then run `integration-reviewer` and `wtf-reviewer` in parallel on the final diff.
 
 ## Code Review vs Challenge
 
 Code review and challenge are **orthogonal quality gates** with different scopes. One does not substitute for the other.
 
 - **Code review** catches: correctness, style, obvious bugs, regressions
+- **WTF review** catches: readability traps, confusing naming, code that works but will puzzle the next reader
 - **Challenge** catches: design coherence, fragility, anti-patterns, cross-cutting concerns, missing edge cases
 
 A green code review does not mean challenge is unnecessary. A green test suite is necessary but not sufficient — tests verify expected behavior, not unexpected behavior.
