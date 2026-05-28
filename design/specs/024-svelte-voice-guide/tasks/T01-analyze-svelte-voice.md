@@ -1,7 +1,7 @@
 ---
 task_id: "T01"
 title: "Analyze Svelte docs and extract voice patterns"
-status: "planned"
+status: "done"
 depends_on: []
 implements: ["FR#2", "AC#3"]
 ---
