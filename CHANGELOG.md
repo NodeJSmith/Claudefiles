@@ -5,8 +5,8 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-05-27
 
 ### Changed
-- wtf-reviewer now mandatory in pre-commit gate alongside code-reviewer and integration-reviewer
-- Opus agents pinned to `claude-opus-4-6` to prevent auto-upgrade to 4.7
+- wtf-reviewer now mandatory in pre-commit gate alongside code-reviewer and integration-reviewer (#317)
+- Opus agents pinned to `claude-opus-4-6` to prevent auto-upgrade to 4.7 (#317)
 
 ### Added
 - 17 new rule files adapted from [pstack](https://github.com/cursor/plugins/tree/main/pstack): engineering principles, task discipline, TypeScript type system, and Preact/frontend conventions (#314)
