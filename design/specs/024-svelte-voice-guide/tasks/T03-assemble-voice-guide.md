@@ -59,10 +59,10 @@ those stay in the analysis file for traceability]
 Check the file against these acceptance criteria:
 - Under 300 lines total (AC#7)
 - Uses `<reference-voice>`, `<style-rules>`, `<examples>` XML tags (AC#5)
-- No structural rules duplicated from doc-rules.md — check against page types (lines 56-101), snippet rules (lines 105-141), admonition rules (lines 153-165), layering rules (lines 147-152) in doc-rules.md (AC#6)
-- No AI-tell detection rules duplicated from writing-quality.md — check the "Patterns to Detect and Fix" section of `/home/jessica/Claudefiles/rules/common/writing-quality.md` (AC#8)
+- No structural rules duplicated from doc-rules.md — check against the `## Page Structure`, `## Examples`, `## Layering for Skill Levels`, and `## Admonitions` sections in doc-rules.md (AC#6)
+- No AI-tell detection rules duplicated from writing-quality.md — check the `## Patterns to Detect and Fix` section of `/home/jessica/Claudefiles/rules/common/writing-quality.md` (AC#8)
 
-If over 300 lines: trim constraint evidence citations (they live in .voice-analysis.md for traceability), shorten exemplar passages (use the most impactful section rather than full passages), or consolidate similar constraints.
+If over 300 lines: use 3 exemplar pairs instead of 5, trim constraint evidence citations (they live in .voice-analysis.md for traceability), shorten exemplar passages (use the most impactful section rather than full passages), or consolidate similar constraints.
 
 **Step 3: Update doc-rules.md**
 
@@ -93,6 +93,6 @@ Do NOT delete `/home/jessica/source/hassette/.claude/rules/.voice-analysis.md` �
 - [ ] FR#8: No rule restates a rule from writing-quality.md — Hassette-specific additions only
 - [ ] AC#1: File exists at the specified path
 - [ ] AC#5: XML tag structure is present and correctly formed
-- [ ] AC#6: Zero structural rule duplication confirmed by comparison with doc-rules.md lines 56-174
+- [ ] AC#6: Zero structural rule duplication confirmed by comparison with doc-rules.md sections: Page Structure, Examples, Layering for Skill Levels, Admonitions
 - [ ] AC#7: File is under 300 lines (run `wc -l`)
 - [ ] AC#8: Zero AI-tell rule duplication confirmed by comparison with writing-quality.md
