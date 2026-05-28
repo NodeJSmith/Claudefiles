@@ -1,7 +1,7 @@
 ---
 task_id: "T02"
 title: "Curate behavioral constraints and create exemplars"
-status: "planned"
+status: "done"
 depends_on: ["T01"]
 implements: ["FR#1", "FR#3", "FR#4", "FR#9", "AC#2", "AC#4", "AC#9"]
 ---
