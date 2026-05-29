@@ -122,6 +122,16 @@
             "timeout": 2000
           }
         ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'f=\"${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/subagent-compaction-check.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
+            "timeout": 5000
+          }
+        ]
       }
     ],
     "PreCompact": [],

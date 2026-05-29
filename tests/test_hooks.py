@@ -1498,3 +1498,181 @@ class TestTmuxDriftCheckHeartbeatConfig:
             assert result.stdout.strip() == ""  # 6 < 30 default
         finally:
             _cleanup_drift(sid)
+
+
+# ---------------------------------------------------------------------------
+# Subagent compaction check hook tests
+# ---------------------------------------------------------------------------
+
+COMPACTION_HOOK = REPO_ROOT / "scripts" / "hooks" / "subagent-compaction-check.sh"
+
+
+def _make_compaction_input(session_id: str, transcript_path: str) -> str:
+    return json.dumps(
+        {
+            "session_id": session_id,
+            "transcript_path": transcript_path,
+            "tool_input": {"description": "test agent"},
+            "tool_response": {},
+        }
+    )
+
+
+def _write_compact_boundary(jsonl_path: Path, pre: int, post: int) -> None:
+    entry = {
+        "type": "system",
+        "subtype": "compact_boundary",
+        "compactMetadata": {
+            "trigger": "auto",
+            "preTokens": pre,
+            "postTokens": post,
+            "durationMs": 5000,
+        },
+    }
+    with open(jsonl_path, "a") as f:
+        f.write(json.dumps(entry) + "\n")
+
+
+def _write_agent_meta(meta_path: Path, description: str) -> None:
+    meta = {
+        "agentType": "general-purpose",
+        "description": description,
+        "toolUseId": "toolu_test",
+    }
+    meta_path.write_text(json.dumps(meta))
+
+
+class TestCompactionHookDetectsCompaction:
+    """Hook detects compact_boundary events and emits a warning."""
+
+    def test_compaction_detected(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sid = f"compaction-test-{uuid.uuid4().hex[:8]}"
+            transcript = Path(tmpdir) / "session.jsonl"
+            transcript.write_text("")
+            subagent_dir = Path(tmpdir) / "session" / "subagents"
+            subagent_dir.mkdir(parents=True)
+
+            agent_jsonl = subagent_dir / "agent-abc123.jsonl"
+            _write_compact_boundary(agent_jsonl, 170000, 8000)
+            _write_agent_meta(subagent_dir / "agent-abc123.meta.json", "T01 executor")
+
+            stdin = _make_compaction_input(sid, str(transcript))
+            result = run_hook(COMPACTION_HOOK, stdin, tmpdir)
+
+            assert result.returncode == 0
+            assert "Subagent compaction detected" in result.stdout
+            assert "T01 executor" in result.stdout
+            assert "170,000" in result.stdout
+            assert "8,000" in result.stdout
+
+
+class TestCompactionHookNoCompaction:
+    """Hook exits silently when no compaction events are present."""
+
+    def test_no_compaction_silent(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sid = f"no-compact-{uuid.uuid4().hex[:8]}"
+            transcript = Path(tmpdir) / "session.jsonl"
+            transcript.write_text("")
+            subagent_dir = Path(tmpdir) / "session" / "subagents"
+            subagent_dir.mkdir(parents=True)
+
+            agent_jsonl = subagent_dir / "agent-abc123.jsonl"
+            agent_jsonl.write_text('{"type":"assistant","content":"hello"}\n')
+
+            stdin = _make_compaction_input(sid, str(transcript))
+            result = run_hook(COMPACTION_HOOK, stdin, tmpdir)
+
+            assert result.returncode == 0
+            assert result.stdout.strip() == ""
+
+
+class TestCompactionHookDedup:
+    """Hook deduplicates — second call for same session is silent."""
+
+    def test_dedup(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sid = f"dedup-{uuid.uuid4().hex[:8]}"
+            transcript = Path(tmpdir) / "session.jsonl"
+            transcript.write_text("")
+            subagent_dir = Path(tmpdir) / "session" / "subagents"
+            subagent_dir.mkdir(parents=True)
+
+            agent_jsonl = subagent_dir / "agent-abc123.jsonl"
+            _write_compact_boundary(agent_jsonl, 170000, 8000)
+
+            stdin = _make_compaction_input(sid, str(transcript))
+
+            result1 = run_hook(COMPACTION_HOOK, stdin, tmpdir)
+            assert "Subagent compaction detected" in result1.stdout
+
+            result2 = run_hook(COMPACTION_HOOK, stdin, tmpdir)
+            assert result2.stdout.strip() == ""
+
+
+class TestCompactionHookMissingPostTokens:
+    """Hook handles missing postTokens gracefully."""
+
+    def test_missing_post_tokens(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sid = f"no-post-{uuid.uuid4().hex[:8]}"
+            transcript = Path(tmpdir) / "session.jsonl"
+            transcript.write_text("")
+            subagent_dir = Path(tmpdir) / "session" / "subagents"
+            subagent_dir.mkdir(parents=True)
+
+            agent_jsonl = subagent_dir / "agent-abc123.jsonl"
+            entry = {
+                "type": "system",
+                "subtype": "compact_boundary",
+                "compactMetadata": {"trigger": "auto", "preTokens": 175000},
+            }
+            agent_jsonl.write_text(json.dumps(entry) + "\n")
+
+            stdin = _make_compaction_input(sid, str(transcript))
+            result = run_hook(COMPACTION_HOOK, stdin, tmpdir)
+
+            assert result.returncode == 0
+            assert "175,000" in result.stdout
+            assert "not recorded" in result.stdout
+            assert "0%" not in result.stdout
+
+
+class TestCompactionHookMultipleEvents:
+    """Hook reports all compaction events for an agent that compacted twice."""
+
+    def test_multiple_compactions(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sid = f"multi-{uuid.uuid4().hex[:8]}"
+            transcript = Path(tmpdir) / "session.jsonl"
+            transcript.write_text("")
+            subagent_dir = Path(tmpdir) / "session" / "subagents"
+            subagent_dir.mkdir(parents=True)
+
+            agent_jsonl = subagent_dir / "agent-abc123.jsonl"
+            _write_compact_boundary(agent_jsonl, 170000, 8000)
+            _write_compact_boundary(agent_jsonl, 165000, 9000)
+
+            stdin = _make_compaction_input(sid, str(transcript))
+            result = run_hook(COMPACTION_HOOK, stdin, tmpdir)
+
+            assert result.returncode == 0
+            assert "170,000" in result.stdout
+            assert "165,000" in result.stdout
+
+
+class TestCompactionHookNoSubagentDir:
+    """Hook exits silently when no subagent directory exists."""
+
+    def test_no_subagent_dir(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sid = f"no-dir-{uuid.uuid4().hex[:8]}"
+            transcript = Path(tmpdir) / "session.jsonl"
+            transcript.write_text("")
+
+            stdin = _make_compaction_input(sid, str(transcript))
+            result = run_hook(COMPACTION_HOOK, stdin, tmpdir)
+
+            assert result.returncode == 0
+            assert result.stdout.strip() == ""

@@ -102,8 +102,8 @@ HOOK_GROUPS: dict[str, HookGroup] = {
     ),
     "context": HookGroup(
         label="Context & phrase monitoring",
-        description="Context window tier guidance and rationalization phrase detection",
-        files=("context-tier.sh", "phrase-monitor.sh"),
+        description="Context window tier guidance, rationalization phrase detection, and subagent compaction alerts",
+        files=("context-tier.sh", "phrase-monitor.sh", "subagent-compaction-check.sh"),
     ),
 }
 
