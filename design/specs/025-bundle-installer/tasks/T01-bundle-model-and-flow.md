@@ -1,7 +1,7 @@
 ---
 task_id: "T01"
 title: "Convert installer to bundle model (engine, wizard, flow)"
-status: "planned"
+status: "done"
 depends_on: []
 implements: ["FR#1", "FR#2", "FR#3", "FR#4", "FR#6", "FR#7", "FR#8", "FR#9", "FR#10", "AC#1", "AC#3", "AC#4", "AC#5", "AC#10", "AC#11", "AC#12", "AC#13"]
 ---

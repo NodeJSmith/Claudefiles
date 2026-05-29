@@ -1,6 +1,5 @@
 ---
 name: cm-memory-auditor
-group: memory
 description: >
   Use this agent when you need to verify existing memory entries against codebase ground
   truth — checking for stale paths, outdated versions, contradicted facts, relative

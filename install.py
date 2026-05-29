@@ -23,147 +23,162 @@ import questionary
 from rich.console import Console
 from rich.panel import Panel
 
-CONFIG_VERSION = 1  # bump = full re-wizard (no migration — schema is additive)
+CONFIG_VERSION = 2  # v1→v2 migration arrives in T02; bump CONFIG_VERSION for new breaking schema changes
 CONFIG_FILENAME = ".claudefiles-install-config.json"
 
-
-@dataclass(frozen=True)
-class SkillGroup:
-    label: str
-    description: str
-    source_dir: str
-    default: bool = True
+SKILL_DIRS = ["skills", "skills-impeccable", "skills-cli", "skills-memory"]
 
 
 @dataclass(frozen=True)
-class HookGroup:
+class Bundle:
     label: str
     description: str
-    files: tuple[str, ...]
-    default: bool = True
+    skills: tuple[str, ...] = ()
+    agents: tuple[str, ...] = ()
+    packages: tuple[str, ...] = ()
+    capabilities_files: tuple[str, ...] = ()
+    always_installed: bool = False
 
 
-@dataclass(frozen=True)
-class PackageDef:
-    label: str
-    description: str
-    dir_name: str
-    default: bool = True
+def _base_skills(repo_dir: Path) -> tuple[str, ...]:
+    """Return all skill directory names under skills/ except mine.wp."""
+    skills_dir = repo_dir / "skills"
+    if not skills_dir.is_dir():
+        return ()
+    return tuple(
+        sorted(
+            d.name for d in skills_dir.iterdir() if d.is_dir() and d.name != "mine.wp"
+        )
+    )
 
 
-SKILL_GROUPS: dict[str, SkillGroup] = {
-    "core": SkillGroup(
-        label="Core skills (mine.*)",
-        description="Workflow automation, code review, planning, shipping",
-        source_dir="skills",
-        default=True,
-    ),
-    "impeccable": SkillGroup(
-        label="Impeccable frontend design (i-*)",
-        description="UI design, responsive layout, accessibility, animations",
-        source_dir="skills-impeccable",
-        default=True,
-    ),
-    "memory": SkillGroup(
-        label="Claude Memory (cm-*)",
-        description="Conversation memory, learnings extraction, token insights",
-        source_dir="skills-memory",
-        default=True,
-    ),
-    "cli": SkillGroup(
-        label="CLI design (cli-*)",
-        description="CLI tool UX — hardening, output, affordances, clarity",
-        source_dir="skills-cli",
-        default=True,
-    ),
-}
+# BUNDLES is populated lazily via get_bundles(repo_dir) so the base skill list
+# is derived from the actual filesystem rather than being hardcoded.
+_BUNDLES_CACHE: dict[str, Bundle] | None = None
+_BUNDLES_REPO_DIR: Path | None = None
 
-HOOK_GROUPS: dict[str, HookGroup] = {
-    "pytest": HookGroup(
-        label="Pytest safety",
-        description="Prevents orphaned pytest processes and retry loops",
-        files=(
-            "pytest-detect.sh",
-            "pytest-guard.sh",
-            "pytest-loop-detector.sh",
-            "pytest-loop-reset.sh",
-            "pytest-loop-status.sh",
+
+def get_bundles(repo_dir: Path) -> dict[str, Bundle]:
+    """Return the BUNDLES dict, derived from repo_dir on first call."""
+    global _BUNDLES_CACHE, _BUNDLES_REPO_DIR
+    if _BUNDLES_CACHE is not None and _BUNDLES_REPO_DIR == repo_dir:
+        return _BUNDLES_CACHE
+    _BUNDLES_REPO_DIR = repo_dir
+    _BUNDLES_CACHE = {
+        "base": Bundle(
+            label="Base (always installed)",
+            description="Core workflow: planning, code review, shipping pipeline",
+            skills=_base_skills(repo_dir),
+            agents=(
+                "code-reviewer",
+                "integration-reviewer",
+                "wtf-reviewer",
+                "researcher",
+                "llm-checker",
+                "lazy-checker",
+                "nitpicker",
+                "issue-refiner",
+            ),
+            packages=("spec-helper", "merge-settings"),
+            always_installed=True,
         ),
-    ),
-    "sudo": HookGroup(
-        label="Sudo handling",
-        description="Transparent sudo authentication polling",
-        files=("sudo-poll.sh",),
-    ),
-    "tmux": HookGroup(
-        label="Tmux",
-        description="Session naming reminders and drift detection",
-        files=("tmux-remind.sh", "tmux-drift-check.sh"),
-    ),
-    "context": HookGroup(
-        label="Context & phrase monitoring",
-        description="Context window tier guidance and rationalization phrase detection",
-        files=("context-tier.sh", "phrase-monitor.sh"),
-    ),
-}
+        "frontend": Bundle(
+            label="Frontend design (i-*)",
+            description="UI design, responsive layout, accessibility, animations — 19 Impeccable skills",
+            skills=(
+                "i-adapt",
+                "i-animate",
+                "i-audit",
+                "i-bolder",
+                "i-clarify",
+                "i-colorize",
+                "i-critique",
+                "i-delight",
+                "i-distill",
+                "i-frontend-design",
+                "i-harden",
+                "i-layout",
+                "i-optimize",
+                "i-overdrive",
+                "i-polish",
+                "i-quieter",
+                "i-shape",
+                "i-teach-impeccable",
+                "i-typeset",
+            ),
+            capabilities_files=("capabilities-impeccable.md",),
+        ),
+        "cli": Bundle(
+            label="CLI design (cli-*)",
+            description="CLI tool UX — hardening, output, affordances, clarity",
+            skills=(
+                "cli-affordances",
+                "cli-audit",
+                "cli-clarify",
+                "cli-distill",
+                "cli-harden",
+                "cli-output",
+            ),
+            capabilities_files=("capabilities-cli.md",),
+        ),
+        "memory": Bundle(
+            label="Memory (cm-*)",
+            description="Conversation memory, learnings extraction, token insights",
+            skills=(
+                "cm-extract-learnings",
+                "cm-get-token-insights",
+                "cm-recall-conversations",
+            ),
+            agents=("cm-memory-auditor", "cm-signal-discoverer"),
+            packages=("claude-memory",),
+            capabilities_files=("capabilities-memory.md",),
+        ),
+        "engineering": Bundle(
+            label="Engineering specialists",
+            description="Domain-specific engineering agents: backend, frontend, data, SRE, technical writer, testing",
+            agents=(
+                "engineering-backend-developer",
+                "engineering-data-engineer",
+                "engineering-frontend-developer",
+                "engineering-sre",
+                "engineering-technical-writer",
+                "testing-reality-checker",
+            ),
+        ),
+        "extra-agents": Bundle(
+            label="Extra agents",
+            description="Additional planning and QA agents: architect, planner, qa-specialist, visual-diff",
+            agents=("architect", "planner", "qa-specialist", "visual-diff"),
+        ),
+    }
+    return _BUNDLES_CACHE
 
-PACKAGE_DEFS: dict[str, PackageDef] = {
-    "ado-api": PackageDef(
-        label="ado-api",
-        description="Azure DevOps CLI",
-        dir_name="ado-api",
-    ),
-    "claude-memory": PackageDef(
-        label="claude-memory",
-        description="Conversation memory hooks and CLIs",
-        dir_name="claude-memory",
-    ),
-    "merge-settings": PackageDef(
-        label="merge-settings",
-        description="Three-layer settings merger (claude-merge-settings)",
-        dir_name="merge-settings",
-    ),
-    "spec-helper": PackageDef(
-        label="spec-helper",
-        description="Work package and spec directory management",
-        dir_name="spec-helper",
-    ),
-}
+
+def optional_bundles(repo_dir: Path) -> dict[str, Bundle]:
+    """Return only the optional (non-always-installed) bundles."""
+    return {k: v for k, v in get_bundles(repo_dir).items() if not v.always_installed}
 
 
 # ---------------------------------------------------------------------------
-# Agent group discovery
+# Skill source resolution
 # ---------------------------------------------------------------------------
 
 
-def discover_agent_groups(repo_dir: Path) -> dict[str, list[str]]:
-    """Read group: field from agent frontmatter, return {group_name: [filenames]}."""
-    agents_dir = repo_dir / "agents"
-    if not agents_dir.is_dir():
-        return {}
-    groups: dict[str, list[str]] = {}
-    for md_file in sorted(agents_dir.glob("*.md")):
-        group = _parse_agent_group(md_file)
-        if group:
-            groups.setdefault(group, []).append(md_file.name)
-    return groups
+def find_skill_source(skill_name: str, repo_dir: Path) -> Path:
+    """Search skill directories for a matching subdirectory. Raises FileNotFoundError if not found."""
+    for dir_name in SKILL_DIRS:
+        candidate = repo_dir / dir_name / skill_name
+        if candidate.is_dir():
+            return candidate
+    raise FileNotFoundError(f"Skill not found: {skill_name}")
 
 
-def _parse_agent_group(path: Path) -> str | None:
-    """Extract group: value from YAML frontmatter."""
-    try:
-        text = path.read_text()
-    except OSError:
-        return None
-    if not text.startswith("---"):
-        return None
-    end = text.find("---", 3)
-    if end == -1:
-        return None
-    for line in text[3:end].splitlines():
-        stripped = line.strip()
-        if stripped.startswith("group:"):
-            return stripped.split(":", 1)[1].strip()
+def _find_capabilities_file(filename: str, repo_dir: Path) -> Path | None:
+    """Find a capabilities .md file in any skill source directory."""
+    for dir_name in SKILL_DIRS:
+        candidate = repo_dir / dir_name / filename
+        if candidate.exists():
+            return candidate
     return None
 
 
@@ -375,6 +390,32 @@ def create_symlinks_file_level(
     return count
 
 
+def create_symlink(
+    source: Path,
+    dest: Path,
+    *,
+    repo_dir: Path | None = None,
+    shadowed_out: list[tuple[Path, Path]] | None = None,
+) -> bool:
+    """Create a single symlink from source to dest. Returns True if created."""
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if dest.is_symlink():
+        if repo_dir and not is_owned_by(dest, repo_dir):
+            if shadowed_out is not None:
+                shadowed_out.append((dest, source))
+            return False
+        dest.unlink()
+        dest.symlink_to(source)
+        return True
+    elif dest.exists():
+        if shadowed_out is not None:
+            shadowed_out.append((dest, source))
+        return False
+    else:
+        dest.symlink_to(source)
+        return True
+
+
 def remove_owned_symlinks(
     directory: Path, repo_dir: Path, names: list[str] | None = None
 ) -> int:
@@ -411,7 +452,7 @@ def find_new_groups(saved: dict, category: str, current_keys: list[str]) -> list
 
 def install_package(repo_dir: Path, pkg_name: str) -> tuple[bool, str]:
     """Run uv tool install -e for a package. Returns (success, error_detail)."""
-    pkg_dir = repo_dir / "packages" / PACKAGE_DEFS[pkg_name].dir_name
+    pkg_dir = repo_dir / "packages" / pkg_name
     try:
         result = subprocess.run(
             ["uv", "tool", "install", "-e", str(pkg_dir)],
@@ -473,7 +514,6 @@ def _get_installed_packages() -> set[str]:
 
 def run_wizard(
     repo_dir: Path,
-    agent_groups: dict[str, list[str]],
     *,
     preselected: dict | None = None,
 ) -> dict:
@@ -483,62 +523,22 @@ def run_wizard(
     console.print(
         Panel(
             "[bold]Claudefiles Installer[/bold]\n\n"
-            "Select which components to install. Use arrow keys to move,\n"
+            "The base bundle (pipeline workflow, code review, rules, hooks) always installs.\n"
+            "Select optional add-ons below. Use arrow keys to move,\n"
             "space to toggle, and enter to confirm.",
             border_style="blue",
         )
     )
 
-    config: dict = {}
-
-    # Skills
-    config["skills"] = _ask_checkbox(
-        "Select skill groups to install:",
-        {k: f"{g.label} — {g.description}" for k, g in SKILL_GROUPS.items()},
-        _preselected_keys(preselected, "skills", list(SKILL_GROUPS.keys())),
+    opt = optional_bundles(repo_dir)
+    presel = preselected.get("bundles", {}) if preselected else {}
+    bundle_selections = _ask_checkbox(
+        "Select optional bundles to install:",
+        {k: f"{b.label} — {b.description}" for k, b in opt.items()},
+        {k: presel.get(k, False) for k in opt},
     )
 
-    # Agents
-    agent_choices = {}
-    for group_name, files in sorted(agent_groups.items()):
-        agent_choices[group_name] = (
-            f"{group_name} ({len(files)} agents: {', '.join(f.removesuffix('.md') for f in files[:3])}{'...' if len(files) > 3 else ''})"
-        )
-    config["agents"] = _ask_checkbox(
-        "Select agent groups to install:",
-        agent_choices,
-        _preselected_keys(preselected, "agents", list(agent_groups.keys())),
-    )
-
-    # Hooks
-    config["hooks"] = _ask_checkbox(
-        "Select hook groups to install:",
-        {
-            k: f"{g.label} — {g.description} ({len(g.files)} files)"
-            for k, g in HOOK_GROUPS.items()
-        },
-        _preselected_keys(preselected, "hooks", list(HOOK_GROUPS.keys())),
-    )
-
-    # Packages (with auto-selection)
-    auto_selected: set[str] = set()
-    if config["skills"].get("memory") or config["agents"].get("memory"):
-        auto_selected.add("claude-memory")
-
-    pkg_preselected = _preselected_keys(
-        preselected, "packages", list(PACKAGE_DEFS.keys())
-    )
-    for pkg in auto_selected:
-        pkg_preselected[pkg] = True
-
-    config["packages"] = _ask_checkbox(
-        "Select packages to install:"
-        + (f"\n  (auto-selected: {', '.join(auto_selected)})" if auto_selected else ""),
-        {k: f"{p.label} — {p.description}" for k, p in PACKAGE_DEFS.items()},
-        pkg_preselected,
-    )
-
-    return config
+    return {"bundles": bundle_selections}
 
 
 def _ask_checkbox(
@@ -549,7 +549,7 @@ def _ask_checkbox(
         questionary.Choice(
             title=desc,
             value=key,
-            checked=preselected.get(key, True),
+            checked=preselected.get(key, False),
         )
         for key, desc in choices.items()
     ]
@@ -560,23 +560,11 @@ def _ask_checkbox(
     return {k: k in selected for k in choices}
 
 
-def _preselected_keys(
-    preselected: dict | None, category: str, all_keys: list[str]
-) -> dict[str, bool]:
-    """Extract preselected state for a category, defaulting to True."""
-    if preselected is None:
-        return {k: True for k in all_keys}
-    section = preselected.get(category, {})
-    return {k: section.get(k, True) for k in all_keys}
-
-
-def _all_selected_config(agent_groups: dict[str, list[str]]) -> dict:
-    """Return config with everything selected."""
+def _all_selected_config(repo_dir: Path) -> dict:
+    """Return config with all optional bundles selected."""
+    opt = optional_bundles(repo_dir)
     return {
-        "skills": {k: True for k in SKILL_GROUPS},
-        "agents": {k: True for k in agent_groups},
-        "hooks": {k: True for k in HOOK_GROUPS},
-        "packages": {k: True for k in PACKAGE_DEFS},
+        "bundles": {k: True for k in opt},
     }
 
 
@@ -589,7 +577,6 @@ def do_install(
     repo_dir: Path,
     claude_dir: Path,
     config: dict,
-    agent_groups: dict[str, list[str]],
     *,
     prev_config: dict | None = None,
     interactive: bool = True,
@@ -601,7 +588,13 @@ def do_install(
     total_links = 0
     shadowed: list[tuple[Path, Path]] = []
 
-    # Always-installed: rules (file-level), learned (file-level), bin (dir-level), commands (dir-level)
+    bundles = get_bundles(repo_dir)
+    skills_dest = claude_dir / "skills"
+    agents_dest = claude_dir / "agents"
+    rules_common_dest = claude_dir / "rules" / "common"
+
+    # Always-installed: rules (file-level), learned (file-level), bin (dir-level),
+    # commands (dir-level), hooks (bulk dir symlink — always in v2)
     total_links += create_symlinks_file_level(
         repo_dir / "rules",
         claude_dir / "rules",
@@ -623,94 +616,124 @@ def do_install(
         repo_dir=repo_dir,
         shadowed_out=shadowed,
     )
+    total_links += create_symlinks_dir_level(
+        repo_dir / "scripts" / "hooks",
+        claude_dir / "scripts" / "hooks",
+        repo_dir=repo_dir,
+        shadowed_out=shadowed,
+    )
 
-    # Selective: skills (+ conditional rule fragments in skill group dirs)
-    skills_dest = claude_dir / "skills"
-    rules_common_dest = claude_dir / "rules" / "common"
-    for group_key, group in SKILL_GROUPS.items():
-        group_dir = repo_dir / group.source_dir
-        if config.get("skills", {}).get(group_key):
-            total_links += create_symlinks_dir_level(
-                group_dir,
-                skills_dest,
-                repo_dir=repo_dir,
-                shadowed_out=shadowed,
-                dirs_only=True,
-            )
-            for md_file in sorted(group_dir.glob("*.md")):
-                target = rules_common_dest / md_file.name
-                if target.is_symlink():
-                    if not is_owned_by(target, repo_dir):
-                        shadowed.append((target, md_file))
-                        continue
-                    target.unlink()
-                elif target.exists():
-                    shadowed.append((target, md_file))
-                    continue
-                target.symlink_to(md_file)
-                total_links += 1
-        else:
-            removed = remove_owned_symlinks(skills_dest, group_dir)
-            if removed:
+    # Always-installed bundles: symlink skills and agents by name
+    for bundle in (b for b in bundles.values() if b.always_installed):
+        for skill_name in bundle.skills:
+            try:
+                source = find_skill_source(skill_name, repo_dir)
+            except FileNotFoundError:
                 console.print(
-                    f"  Removed {removed} symlinks for deselected skill group: {group.label}"
+                    f"  [yellow]Warning: skill not found: {skill_name}[/yellow]"
                 )
-            for md_file in sorted(group_dir.glob("*.md")):
-                target = rules_common_dest / md_file.name
-                if target.is_symlink() and is_owned_by(target, repo_dir):
-                    target.unlink()
+                continue
+            dest = skills_dest / skill_name
+            if create_symlink(source, dest, repo_dir=repo_dir, shadowed_out=shadowed):
+                total_links += 1
 
-    # Selective: agents
-    agents_dest = claude_dir / "agents"
-    for group_key, files in agent_groups.items():
-        if config.get("agents", {}).get(group_key):
-            source_dir = repo_dir / "agents"
-            agents_dest.mkdir(parents=True, exist_ok=True)
-            for fname in files:
-                source = source_dir / fname
-                target = agents_dest / fname
-                if target.is_symlink():
-                    if not is_owned_by(target, repo_dir):
-                        shadowed.append((target, source))
-                        continue
-                    target.unlink()
-                if not target.exists():
-                    target.symlink_to(source)
-                    total_links += 1
-                elif not target.is_symlink():
-                    shadowed.append((target, source))
-        else:
-            for fname in files:
-                target = agents_dest / fname
-                if target.is_symlink() and is_owned_by(target, repo_dir):
-                    target.unlink()
+        agents_dest.mkdir(parents=True, exist_ok=True)
+        for agent_name in bundle.agents:
+            source = repo_dir / "agents" / f"{agent_name}.md"
+            dest = agents_dest / f"{agent_name}.md"
+            if create_symlink(source, dest, repo_dir=repo_dir, shadowed_out=shadowed):
+                total_links += 1
 
-    # Selective: hooks
-    hooks_dest = claude_dir / "scripts" / "hooks"
-    for group_key, group in HOOK_GROUPS.items():
-        if config.get("hooks", {}).get(group_key):
-            source_dir = repo_dir / "scripts" / "hooks"
-            hooks_dest.mkdir(parents=True, exist_ok=True)
-            for fname in group.files:
-                source = source_dir / fname
-                if not source.exists():
+    # Optional bundles: install selected, remove deselected
+    installed_pkgs = _get_installed_packages()
+    bundle_cfg = config.get("bundles", {})
+
+    for bundle_key, bundle in (b for b in bundles.items() if not b[1].always_installed):
+        selected = bundle_cfg.get(bundle_key, False)
+
+        if selected:
+            # Install skills
+            for skill_name in bundle.skills:
+                try:
+                    source = find_skill_source(skill_name, repo_dir)
+                except FileNotFoundError:
+                    console.print(
+                        f"  [yellow]Warning: skill not found: {skill_name}[/yellow]"
+                    )
                     continue
-                target = hooks_dest / fname
-                if target.is_symlink():
-                    if not is_owned_by(target, repo_dir):
-                        shadowed.append((target, source))
-                        continue
-                    target.unlink()
-                if not target.exists():
-                    target.symlink_to(source)
+                dest = skills_dest / skill_name
+                if create_symlink(
+                    source, dest, repo_dir=repo_dir, shadowed_out=shadowed
+                ):
                     total_links += 1
-                elif not target.is_symlink():
-                    shadowed.append((target, source))
+
+            # Install agents
+            agents_dest.mkdir(parents=True, exist_ok=True)
+            for agent_name in bundle.agents:
+                source = repo_dir / "agents" / f"{agent_name}.md"
+                dest = agents_dest / f"{agent_name}.md"
+                if create_symlink(
+                    source, dest, repo_dir=repo_dir, shadowed_out=shadowed
+                ):
+                    total_links += 1
+
+            # Install packages
+            for pkg_name in bundle.packages:
+                if pkg_name in installed_pkgs:
+                    continue
+                console.print(f"  Installing package: {pkg_name}...")
+                ok, detail = install_package(repo_dir, pkg_name)
+                if not ok:
+                    console.print(f"  [red]Failed to install {pkg_name}[/red]")
+                    if detail:
+                        console.print(f"  [dim]{detail}[/dim]")
+                    errors += 1
+
+            # Install capabilities files
+            rules_common_dest.mkdir(parents=True, exist_ok=True)
+            for cap_file in bundle.capabilities_files:
+                source = _find_capabilities_file(cap_file, repo_dir)
+                if source is None:
+                    console.print(
+                        f"  [yellow]Warning: capabilities file not found: {cap_file}[/yellow]"
+                    )
+                    continue
+                dest = rules_common_dest / cap_file
+                if create_symlink(
+                    source, dest, repo_dir=repo_dir, shadowed_out=shadowed
+                ):
+                    total_links += 1
+
         else:
-            for fname in group.files:
-                target = hooks_dest / fname
-                if target.is_symlink() and is_owned_by(target, repo_dir):
-                    target.unlink()
+            # Deselect: remove owned skill symlinks
+            for skill_name in bundle.skills:
+                dest = skills_dest / skill_name
+                if dest.is_symlink() and is_owned_by(dest, repo_dir):
+                    dest.unlink()
+
+            # Remove owned agent symlinks
+            for agent_name in bundle.agents:
+                dest = agents_dest / f"{agent_name}.md"
+                if dest.is_symlink() and is_owned_by(dest, repo_dir):
+                    dest.unlink()
+
+            # Uninstall packages (only if previously selected)
+            if prev_config:
+                prev_bundle_cfg = prev_config.get("bundles", {})
+                if prev_bundle_cfg.get(bundle_key):
+                    for pkg_name in bundle.packages:
+                        console.print(
+                            f"  Uninstalling deselected package: {pkg_name}..."
+                        )
+                        ok, detail = uninstall_package(pkg_name)
+                        if not ok and detail:
+                            console.print(f"  [yellow]Warning: {detail}[/yellow]")
+
+            # Remove capabilities files (only if owned)
+            for cap_file in bundle.capabilities_files:
+                dest = rules_common_dest / cap_file
+                if dest.is_symlink() and is_owned_by(dest, repo_dir):
+                    dest.unlink()
 
     # Handle shadowed files
     if shadowed:
@@ -771,32 +794,6 @@ def do_install(
                     link.unlink()
                     console.print(f"  removed: {link}")
 
-    # Packages
-    installed_pkgs = _get_installed_packages()
-    for pkg_key, pkg in PACKAGE_DEFS.items():
-        if config.get("packages", {}).get(pkg_key):
-            if pkg_key in installed_pkgs:
-                continue
-            console.print(f"  Installing package: {pkg.label}...")
-            ok, detail = install_package(repo_dir, pkg_key)
-            if not ok:
-                console.print(f"  [red]Failed to install {pkg.label}[/red]")
-                if detail:
-                    console.print(f"  [dim]{detail}[/dim]")
-                errors += 1
-
-    # Uninstall deselected packages (F10)
-    if prev_config:
-        for pkg_key in prev_config.get("packages", {}):
-            if prev_config["packages"].get(pkg_key) and not config.get(
-                "packages", {}
-            ).get(pkg_key):
-                if pkg_key in PACKAGE_DEFS:
-                    console.print(f"  Uninstalling deselected package: {pkg_key}...")
-                    ok, detail = uninstall_package(pkg_key)
-                    if not ok and detail:
-                        console.print(f"  [yellow]Warning: {detail}[/yellow]")
-
     console.print(
         f"\n[green]Claudefiles installed to {claude_dir}[/green] ({total_links} symlinks)"
     )
@@ -828,22 +825,33 @@ def do_uninstall(repo_dir: Path, claude_dir: Path, cfg: dict) -> None:
                     if removed:
                         console.print(f"  Removed {removed} symlinks from {sub}")
 
-    # Uninstall packages from config
-    if not cfg.get("packages"):
+    # Derive packages to uninstall: base bundle packages + selected optional bundle packages
+    bundles = get_bundles(repo_dir)
+    bundle_cfg = cfg.get("bundles", {})
+    pkgs_to_uninstall: list[str] = []
+
+    # Always include base bundle packages
+    for bundle in (b for b in bundles.values() if b.always_installed):
+        pkgs_to_uninstall.extend(bundle.packages)
+
+    # Add packages from selected optional bundles
+    for bundle_key, bundle in (b for b in bundles.items() if not b[1].always_installed):
+        if bundle_cfg.get(bundle_key):
+            pkgs_to_uninstall.extend(bundle.packages)
+
+    if not pkgs_to_uninstall and not cfg.get("bundles"):
         console.print(
             "  [yellow]No config file found. Package uninstall skipped. "
             "Run 'uv tool uninstall <name>' manually if needed.[/yellow]"
         )
-    for pkg_key in cfg.get("packages", {}):
-        if cfg["packages"][pkg_key] and pkg_key in PACKAGE_DEFS:
-            console.print(f"  Uninstalling package: {pkg_key}...")
-            ok, detail = uninstall_package(pkg_key)
-            if not ok:
-                console.print(
-                    f"  [yellow]Warning: failed to uninstall {pkg_key}[/yellow]"
-                )
-                if detail:
-                    console.print(f"  [dim]{detail}[/dim]")
+
+    for pkg_name in pkgs_to_uninstall:
+        console.print(f"  Uninstalling package: {pkg_name}...")
+        ok, detail = uninstall_package(pkg_name)
+        if not ok:
+            console.print(f"  [yellow]Warning: failed to uninstall {pkg_name}[/yellow]")
+            if detail:
+                console.print(f"  [dim]{detail}[/dim]")
 
     # Remove config
     cfg_path = config_path(claude_dir)
@@ -859,42 +867,37 @@ def do_uninstall(repo_dir: Path, claude_dir: Path, cfg: dict) -> None:
 
 
 def _print_dry_run(
+    repo_dir: Path,
     config: dict,
-    agent_groups: dict[str, list[str]],
     prev_config: dict | None = None,
 ) -> None:
     """Print what would be installed/removed without making changes."""
     console = Console()
     console.print("\n[bold]Dry run — no changes will be made[/bold]\n")
+    console.print(
+        "[bold]Always installed:[/bold] base bundle, rules, learned, bin, commands, hooks"
+    )
+    console.print()
+    console.print("[bold]Optional bundles:[/bold]")
 
-    def _status(category: str, key: str) -> str:
-        selected = config.get(category, {}).get(key, False)
-        was_selected = (prev_config or {}).get(category, {}).get(key)
+    opt = optional_bundles(repo_dir)
+    bundle_cfg = config.get("bundles", {})
+    prev_bundle_cfg = (prev_config or {}).get("bundles", {})
+
+    for key, bundle in opt.items():
+        selected = bundle_cfg.get(key, False)
+        was_selected = prev_bundle_cfg.get(key) if prev_config else None
+
         if selected and was_selected is False:
-            return "[green]install (new)[/green]"
-        if selected:
-            return "[green]install[/green]"
-        if was_selected:
-            return "[red]remove[/red]"
-        return "[dim]skip[/dim]"
+            status = "[green]install (new)[/green]"
+        elif selected:
+            status = "[green]install[/green]"
+        elif was_selected:
+            status = "[red]remove[/red]"
+        else:
+            status = "[dim]skip[/dim]"
 
-    console.print("[bold]Skills:[/bold]")
-    for key, group in SKILL_GROUPS.items():
-        console.print(f"  {group.label}: {_status('skills', key)}")
-
-    console.print("[bold]Agents:[/bold]")
-    for key, files in sorted(agent_groups.items()):
-        console.print(f"  {key} ({len(files)} agents): {_status('agents', key)}")
-
-    console.print("[bold]Hooks:[/bold]")
-    for key, group in HOOK_GROUPS.items():
-        console.print(f"  {group.label}: {_status('hooks', key)}")
-
-    console.print("[bold]Packages:[/bold]")
-    for key, pkg in PACKAGE_DEFS.items():
-        console.print(f"  {pkg.label}: {_status('packages', key)}")
-
-    console.print("\n[bold]Always installed:[/bold] rules, learned, bin, commands")
+        console.print(f"  {bundle.label}: {status}")
 
 
 # ---------------------------------------------------------------------------
@@ -942,10 +945,13 @@ def main() -> int:
                 console = Console()
                 console.print("\n[bold]Dry run — would uninstall:[/bold]\n")
                 console.print("  All Claudefiles-owned symlinks from ~/.claude/")
-                for pkg_key in cfg.get("packages", {}):
-                    if cfg["packages"][pkg_key] and pkg_key in PACKAGE_DEFS:
-                        console.print(f"  Package: {pkg_key}")
-                if not cfg.get("packages"):
+                bundles = get_bundles(repo_dir)
+                bundle_cfg = cfg.get("bundles", {})
+                for bundle_key, bundle in bundles.items():
+                    if bundle.always_installed or bundle_cfg.get(bundle_key):
+                        for pkg in bundle.packages:
+                            console.print(f"  Package: {pkg}")
+                if not cfg.get("bundles"):
                     console.print(
                         "  [yellow]No config — packages would need manual uninstall[/yellow]"
                     )
@@ -954,7 +960,6 @@ def main() -> int:
             do_uninstall(repo_dir, claude_dir, cfg)
             return 0
 
-        agent_groups = discover_agent_groups(repo_dir)
         saved = load_config(cfg_path)
         original_saved = saved
 
@@ -962,7 +967,6 @@ def main() -> int:
             if interactive:
                 cfg = run_wizard(
                     repo_dir,
-                    agent_groups,
                     preselected=saved if args.reconfigure else None,
                 )
             else:
@@ -974,89 +978,40 @@ def main() -> int:
                     cfg = saved
                     print("Non-interactive mode: applying saved config.")
                 else:
-                    cfg = _all_selected_config(agent_groups)
+                    cfg = _all_selected_config(repo_dir)
                     print(
                         "Non-interactive mode: no saved config, installing all groups."
                     )
         else:
-            new_skills = find_new_groups(saved, "skills", list(SKILL_GROUPS.keys()))
-            new_agents = find_new_groups(saved, "agents", list(agent_groups.keys()))
-            new_hooks = find_new_groups(saved, "hooks", list(HOOK_GROUPS.keys()))
-            new_packages = find_new_groups(saved, "packages", list(PACKAGE_DEFS.keys()))
+            opt_keys = list(optional_bundles(repo_dir).keys())
+            new_bundles = find_new_groups(saved, "bundles", opt_keys)
 
-            has_new = any([new_skills, new_agents, new_hooks, new_packages])
-
-            if has_new and interactive:
-                items = []
-                if new_skills:
-                    items.append(f"{len(new_skills)} skill group(s)")
-                if new_agents:
-                    items.append(f"{len(new_agents)} agent group(s)")
-                if new_hooks:
-                    items.append(f"{len(new_hooks)} hook group(s)")
-                if new_packages:
-                    items.append(f"{len(new_packages)} package(s)")
-                print(f"Found new items not in your config: {', '.join(items)}")
-
-                new_selections: dict[str, dict[str, bool]] = {}
-                for key in new_skills:
-                    g = SKILL_GROUPS[key]
+            if new_bundles and interactive:
+                print(
+                    f"Found new bundles not in your config: {len(new_bundles)} bundle(s)"
+                )
+                opt = optional_bundles(repo_dir)
+                new_bundle_selections: dict[str, bool] = {}
+                for key in new_bundles:
+                    bundle = opt[key]
                     answer = questionary.confirm(
-                        f"Install {g.label}?", default=g.default
+                        f"Install {bundle.label}?", default=False
                     ).ask()
                     if answer is None:
                         print("Aborted.")
                         sys.exit(1)
-                    new_selections.setdefault("skills", {})[key] = answer
-                for key in new_agents:
-                    answer = questionary.confirm(
-                        f"Install agent group '{key}'?", default=True
-                    ).ask()
-                    if answer is None:
-                        print("Aborted.")
-                        sys.exit(1)
-                    new_selections.setdefault("agents", {})[key] = answer
-                for key in new_hooks:
-                    g = HOOK_GROUPS[key]
-                    answer = questionary.confirm(
-                        f"Install {g.label}?", default=g.default
-                    ).ask()
-                    if answer is None:
-                        print("Aborted.")
-                        sys.exit(1)
-                    new_selections.setdefault("hooks", {})[key] = answer
-                for key in new_packages:
-                    p = PACKAGE_DEFS[key]
-                    answer = questionary.confirm(
-                        f"Install {p.label}?", default=p.default
-                    ).ask()
-                    if answer is None:
-                        print("Aborted.")
-                        sys.exit(1)
-                    new_selections.setdefault("packages", {})[key] = answer
-                saved = {
-                    cat: {**saved.get(cat, {}), **new_selections.get(cat, {})}
-                    for cat in {*saved.keys(), *new_selections.keys()}
-                    if cat != "version"
-                }
-            elif has_new:
+                    new_bundle_selections[key] = answer
                 saved = {
                     **{k: v for k, v in saved.items() if k != "version"},
-                    "skills": {
-                        **saved.get("skills", {}),
-                        **{k: SKILL_GROUPS[k].default for k in new_skills},
-                    },
-                    "agents": {
-                        **saved.get("agents", {}),
-                        **{k: True for k in new_agents},
-                    },
-                    "hooks": {
-                        **saved.get("hooks", {}),
-                        **{k: HOOK_GROUPS[k].default for k in new_hooks},
-                    },
-                    "packages": {
-                        **saved.get("packages", {}),
-                        **{k: PACKAGE_DEFS[k].default for k in new_packages},
+                    "bundles": {**saved.get("bundles", {}), **new_bundle_selections},
+                }
+            elif new_bundles:
+                # Non-interactive: default new bundles to True (install all)
+                saved = {
+                    **{k: v for k, v in saved.items() if k != "version"},
+                    "bundles": {
+                        **saved.get("bundles", {}),
+                        **{k: True for k in new_bundles},
                     },
                 }
             else:
@@ -1067,21 +1022,19 @@ def main() -> int:
             cfg = saved
 
         if args.dry_run:
-            _print_dry_run(cfg, agent_groups, prev_config=original_saved)
+            _print_dry_run(repo_dir, cfg, prev_config=original_saved)
             return 0
-
-        # Save config before installing (records intent)
-        if interactive or saved is not None:
-            save_config(cfg_path, cfg)
 
         errors = do_install(
             repo_dir,
             claude_dir,
             cfg,
-            agent_groups,
             prev_config=original_saved,
             interactive=interactive,
         )
+
+        # Save config after successful install (records completed state)
+        save_config(cfg_path, cfg)
 
     return 1 if errors else 0
 

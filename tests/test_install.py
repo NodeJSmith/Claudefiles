@@ -24,14 +24,12 @@ class TestConfigLoadSave:
     def test_roundtrip(self, tmp_path: Path) -> None:
         cfg_path = tmp_path / install.CONFIG_FILENAME
         data = {
-            "skills": {"core": True, "impeccable": False},
-            "agents": {"core": True},
+            "bundles": {"frontend": True, "cli": False},
         }
         install.save_config(cfg_path, data)
         loaded = install.load_config(cfg_path)
         assert loaded is not None
-        assert loaded["skills"] == {"core": True, "impeccable": False}
-        assert loaded["agents"] == {"core": True}
+        assert loaded["bundles"] == {"frontend": True, "cli": False}
         assert loaded["version"] == install.CONFIG_VERSION
 
     def test_corrupt_recovery(self, tmp_path: Path) -> None:
@@ -51,10 +49,10 @@ class TestConfigLoadSave:
     def test_atomic_write(self, tmp_path: Path) -> None:
         cfg_path = tmp_path / install.CONFIG_FILENAME
         cfg_path.write_text("original content")
-        install.save_config(cfg_path, {"skills": {"core": True}})
+        install.save_config(cfg_path, {"bundles": {"frontend": True}})
         loaded = install.load_config(cfg_path)
         assert loaded is not None
-        assert loaded["skills"]["core"] is True
+        assert loaded["bundles"]["frontend"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -208,6 +206,54 @@ class TestSymlinkCreation:
         assert count == 1
         assert not (dest / ".hidden").exists()
 
+    def test_create_symlink_single(self, tmp_path: Path) -> None:
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        source = repo / "my-skill"
+        source.mkdir()
+        dest = tmp_path / "dest" / "my-skill"
+        result = install.create_symlink(source, dest, repo_dir=repo)
+        assert result is True
+        assert dest.is_symlink()
+        assert dest.resolve() == source.resolve()
+
+    def test_create_symlink_skips_unowned_existing(self, tmp_path: Path) -> None:
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        other = tmp_path / "other"
+        other.mkdir()
+        source_other = other / "my-skill"
+        source_other.mkdir()
+        dest = tmp_path / "dest" / "my-skill"
+        dest.parent.mkdir()
+        dest.symlink_to(source_other)
+
+        new_source = repo / "my-skill"
+        new_source.mkdir()
+        shadowed: list[tuple[Path, Path]] = []
+        result = install.create_symlink(
+            new_source, dest, repo_dir=repo, shadowed_out=shadowed
+        )
+        assert result is False
+        assert len(shadowed) == 1
+        # Original symlink untouched
+        assert dest.resolve() == source_other.resolve()
+
+    def test_create_symlink_replaces_owned(self, tmp_path: Path) -> None:
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        old_source = repo / "old-skill"
+        old_source.mkdir()
+        new_source = repo / "new-skill"
+        new_source.mkdir()
+        dest = tmp_path / "dest" / "my-skill"
+        dest.parent.mkdir()
+        dest.symlink_to(old_source)
+
+        result = install.create_symlink(new_source, dest, repo_dir=repo)
+        assert result is True
+        assert dest.resolve() == new_source.resolve()
+
 
 # ---------------------------------------------------------------------------
 # Deselection cleanup tests
@@ -263,195 +309,449 @@ class TestDeselectionCleanup:
 
 class TestSmartDiff:
     def test_new_group_detected(self) -> None:
-        saved = {"skills": {"core": True}}
-        new = install.find_new_groups(saved, "skills", ["core", "impeccable"])
-        assert new == ["impeccable"]
+        saved = {"bundles": {"frontend": True}}
+        new = install.find_new_groups(saved, "bundles", ["frontend", "cli"])
+        assert new == ["cli"]
 
     def test_no_changes(self) -> None:
-        saved = {"skills": {"core": True, "impeccable": False}}
-        new = install.find_new_groups(saved, "skills", ["core", "impeccable"])
+        saved = {"bundles": {"frontend": True, "cli": False}}
+        new = install.find_new_groups(saved, "bundles", ["frontend", "cli"])
         assert new == []
 
     def test_missing_section(self) -> None:
         saved = {}
-        new = install.find_new_groups(saved, "skills", ["core", "impeccable"])
-        assert new == ["core", "impeccable"]
+        new = install.find_new_groups(saved, "bundles", ["frontend", "cli"])
+        assert new == ["frontend", "cli"]
 
 
 # ---------------------------------------------------------------------------
-# Agent group discovery tests
+# Bundle data model tests
 # ---------------------------------------------------------------------------
 
 
-class TestAgentDiscovery:
-    def test_discovers_groups(self, tmp_path: Path) -> None:
-        agents = tmp_path / "agents"
-        agents.mkdir()
-        (agents / "reviewer.md").write_text("---\nname: reviewer\ngroup: core\n---\n")
-        (agents / "frontend.md").write_text(
-            "---\nname: frontend\ngroup: engineering\n---\n"
-        )
-        (agents / "auditor.md").write_text("---\nname: auditor\ngroup: memory\n---\n")
-        groups = install.discover_agent_groups(tmp_path)
-        assert sorted(groups.keys()) == ["core", "engineering", "memory"]
-        assert groups["core"] == ["reviewer.md"]
+class TestBundleModel:
+    def test_base_bundle_always_installed(self, tmp_path: Path) -> None:
+        """Base bundle must have always_installed=True."""
+        _setup_minimal_repo(tmp_path)
+        bundles = install.get_bundles(tmp_path)
+        assert "base" in bundles
+        assert bundles["base"].always_installed is True
 
-    def test_skips_no_group(self, tmp_path: Path) -> None:
-        agents = tmp_path / "agents"
-        agents.mkdir()
-        (agents / "orphan.md").write_text("---\nname: orphan\n---\n")
-        groups = install.discover_agent_groups(tmp_path)
-        assert groups == {}
+    def test_optional_bundles_not_always_installed(self, tmp_path: Path) -> None:
+        """Optional bundles must have always_installed=False."""
+        _setup_minimal_repo(tmp_path)
+        opt = install.optional_bundles(tmp_path)
+        assert "base" not in opt
+        for key, bundle in opt.items():
+            assert bundle.always_installed is False, (
+                f"{key} should not be always_installed"
+            )
+
+    def test_five_optional_bundles(self, tmp_path: Path) -> None:
+        """Exactly 5 optional bundles."""
+        _setup_minimal_repo(tmp_path)
+        opt = install.optional_bundles(tmp_path)
+        assert set(opt.keys()) == {
+            "frontend",
+            "cli",
+            "memory",
+            "engineering",
+            "extra-agents",
+        }
+
+    def test_base_agents(self, tmp_path: Path) -> None:
+        """Base bundle has exactly 8 agents from FR#1."""
+        _setup_minimal_repo(tmp_path)
+        bundles = install.get_bundles(tmp_path)
+        base = bundles["base"]
+        assert set(base.agents) == {
+            "code-reviewer",
+            "integration-reviewer",
+            "wtf-reviewer",
+            "researcher",
+            "llm-checker",
+            "lazy-checker",
+            "nitpicker",
+            "issue-refiner",
+        }
+
+    def test_base_packages(self, tmp_path: Path) -> None:
+        """Base bundle has spec-helper and merge-settings packages."""
+        _setup_minimal_repo(tmp_path)
+        bundles = install.get_bundles(tmp_path)
+        assert set(bundles["base"].packages) == {"spec-helper", "merge-settings"}
+
+    def test_memory_bundle_has_claude_memory(self, tmp_path: Path) -> None:
+        _setup_minimal_repo(tmp_path)
+        bundles = install.get_bundles(tmp_path)
+        assert "claude-memory" in bundles["memory"].packages
+
+    def test_memory_capabilities_file(self, tmp_path: Path) -> None:
+        _setup_minimal_repo(tmp_path)
+        bundles = install.get_bundles(tmp_path)
+        assert "capabilities-memory.md" in bundles["memory"].capabilities_files
+
+    def test_frontend_capabilities_file(self, tmp_path: Path) -> None:
+        _setup_minimal_repo(tmp_path)
+        bundles = install.get_bundles(tmp_path)
+        assert "capabilities-impeccable.md" in bundles["frontend"].capabilities_files
+
+    def test_cli_capabilities_file(self, tmp_path: Path) -> None:
+        _setup_minimal_repo(tmp_path)
+        bundles = install.get_bundles(tmp_path)
+        assert "capabilities-cli.md" in bundles["cli"].capabilities_files
+
+    def test_base_excludes_mine_wp(self, tmp_path: Path) -> None:
+        """mine.wp must NOT be in the base bundle."""
+        # Create a skills dir with mine.wp and another skill
+        skills_dir = tmp_path / "skills"
+        (skills_dir / "mine.build").mkdir(parents=True)
+        (skills_dir / "mine.wp").mkdir(parents=True)
+        bundles = install.get_bundles(tmp_path)
+        assert "mine.wp" not in bundles["base"].skills
+        assert "mine.build" in bundles["base"].skills
 
 
 # ---------------------------------------------------------------------------
-# Integration test
+# find_skill_source tests
 # ---------------------------------------------------------------------------
+
+
+class TestFindSkillSource:
+    def test_finds_in_skills(self, tmp_path: Path) -> None:
+        (tmp_path / "skills" / "mine.build").mkdir(parents=True)
+        result = install.find_skill_source("mine.build", tmp_path)
+        assert result == tmp_path / "skills" / "mine.build"
+
+    def test_finds_in_skills_impeccable(self, tmp_path: Path) -> None:
+        (tmp_path / "skills-impeccable" / "i-audit").mkdir(parents=True)
+        result = install.find_skill_source("i-audit", tmp_path)
+        assert result == tmp_path / "skills-impeccable" / "i-audit"
+
+    def test_finds_in_skills_cli(self, tmp_path: Path) -> None:
+        (tmp_path / "skills-cli" / "cli-harden").mkdir(parents=True)
+        result = install.find_skill_source("cli-harden", tmp_path)
+        assert result == tmp_path / "skills-cli" / "cli-harden"
+
+    def test_finds_in_skills_memory(self, tmp_path: Path) -> None:
+        (tmp_path / "skills-memory" / "cm-recall-conversations").mkdir(parents=True)
+        result = install.find_skill_source("cm-recall-conversations", tmp_path)
+        assert result == tmp_path / "skills-memory" / "cm-recall-conversations"
+
+    def test_raises_when_not_found(self, tmp_path: Path) -> None:
+        with pytest.raises(FileNotFoundError, match="Skill not found: nonexistent"):
+            install.find_skill_source("nonexistent", tmp_path)
+
+    def test_prefers_skills_over_others(self, tmp_path: Path) -> None:
+        """skills/ is checked first in SKILL_DIRS order."""
+        (tmp_path / "skills" / "mine.build").mkdir(parents=True)
+        (tmp_path / "skills-impeccable" / "mine.build").mkdir(parents=True)
+        result = install.find_skill_source("mine.build", tmp_path)
+        assert result == tmp_path / "skills" / "mine.build"
+
+
+# ---------------------------------------------------------------------------
+# Bundle dependency completeness
+# ---------------------------------------------------------------------------
+
+
+class TestBundleDependencyCompleteness:
+    def test_all_base_skills_resolve(self) -> None:
+        """Every skill in the base bundle must exist in the actual repo."""
+        repo_dir = Path(__file__).resolve().parent.parent
+        # Reset cache to use actual repo
+        install._BUNDLES_CACHE = None
+        bundles = install.get_bundles(repo_dir)
+        base = bundles["base"]
+        missing = []
+        for skill_name in base.skills:
+            try:
+                install.find_skill_source(skill_name, repo_dir)
+            except FileNotFoundError:
+                missing.append(skill_name)
+        assert missing == [], f"Missing skills from base bundle: {missing}"
+
+    def test_all_optional_skills_resolve(self) -> None:
+        """Every skill in every optional bundle must exist in the actual repo."""
+        repo_dir = Path(__file__).resolve().parent.parent
+        install._BUNDLES_CACHE = None
+        opt = install.optional_bundles(repo_dir)
+        missing = []
+        for bundle_key, bundle in opt.items():
+            for skill_name in bundle.skills:
+                try:
+                    install.find_skill_source(skill_name, repo_dir)
+                except FileNotFoundError:
+                    missing.append(f"{bundle_key}/{skill_name}")
+        assert missing == [], f"Missing skills from optional bundles: {missing}"
+
+    def test_mine_wp_not_in_base(self) -> None:
+        """mine.wp must not be in base bundle (deprecated)."""
+        repo_dir = Path(__file__).resolve().parent.parent
+        install._BUNDLES_CACHE = None
+        bundles = install.get_bundles(repo_dir)
+        assert "mine.wp" not in bundles["base"].skills
+
+
+# ---------------------------------------------------------------------------
+# Integration test: full install flow (bundle-based)
+# ---------------------------------------------------------------------------
+
+
+def _setup_minimal_repo(path: Path) -> None:
+    """Create a minimal repo directory structure for testing."""
+    # Clear bundle cache so tests use this path
+    install._BUNDLES_CACHE = None
+    install._BUNDLES_REPO_DIR = None
+
+    (path / "skills" / "mine.build").mkdir(parents=True)
+    (path / "skills" / "mine.build" / "SKILL.md").write_text("skill")
+    (path / "agents").mkdir(parents=True)
+    (path / "rules" / "common").mkdir(parents=True)
+    (path / "rules" / "common" / "test.md").write_text("rule")
+
+
+def _setup_full_repo(path: Path) -> None:
+    """Create a repo with skills, agents, hooks, etc. for integration tests."""
+    install._BUNDLES_CACHE = None
+    install._BUNDLES_REPO_DIR = None
+
+    # Base skills
+    (path / "skills" / "mine.build").mkdir(parents=True)
+    (path / "skills" / "mine.build" / "SKILL.md").write_text("skill")
+    # Frontend skills
+    (path / "skills-impeccable" / "i-audit").mkdir(parents=True)
+    (path / "skills-impeccable" / "i-audit" / "SKILL.md").write_text("skill")
+    (path / "skills-impeccable" / "capabilities-impeccable.md").write_text("caps")
+    # Memory skills
+    (path / "skills-memory" / "cm-recall-conversations").mkdir(parents=True)
+    (path / "skills-memory" / "cm-recall-conversations" / "SKILL.md").write_text(
+        "skill"
+    )
+    (path / "skills-memory" / "capabilities-memory.md").write_text("caps")
+    # CLI skills
+    (path / "skills-cli" / "cli-harden").mkdir(parents=True)
+    (path / "skills-cli" / "cli-harden" / "SKILL.md").write_text("skill")
+    (path / "skills-cli" / "capabilities-cli.md").write_text("caps")
+    # Agents
+    (path / "agents").mkdir(parents=True)
+    for name in [
+        "code-reviewer",
+        "integration-reviewer",
+        "wtf-reviewer",
+        "researcher",
+        "llm-checker",
+        "lazy-checker",
+        "nitpicker",
+        "issue-refiner",
+        "cm-memory-auditor",
+        "cm-signal-discoverer",
+        "engineering-backend-developer",
+        "engineering-data-engineer",
+        "engineering-frontend-developer",
+        "engineering-sre",
+        "engineering-technical-writer",
+        "testing-reality-checker",
+        "architect",
+        "planner",
+        "qa-specialist",
+        "visual-diff",
+    ]:
+        (path / "agents" / f"{name}.md").write_text(f"---\nname: {name}\n---\n")
+    # Hooks
+    (path / "scripts" / "hooks").mkdir(parents=True)
+    (path / "scripts" / "hooks" / "pytest-guard.sh").write_text("#!/bin/bash")
+    (path / "scripts" / "hooks" / "sudo-poll.sh").write_text("#!/bin/bash")
+    # Rules
+    (path / "rules" / "common").mkdir(parents=True)
+    (path / "rules" / "common" / "test.md").write_text("rule")
+    # Commands
+    (path / "commands" / "test-cmd").mkdir(parents=True)
 
 
 class TestFullInstallFlow:
-    def test_install_creates_correct_symlinks(self, tmp_path: Path) -> None:
+    def test_base_installs_regardless_of_bundle_selections(
+        self, tmp_path: Path
+    ) -> None:
+        """Base skills/agents always install, no prompt."""
         repo = tmp_path / "repo"
         claude_dir = tmp_path / "claude"
+        _setup_full_repo(repo)
 
-        # Build mock repo
-        (repo / "skills" / "mine.build").mkdir(parents=True)
-        (repo / "skills" / "mine.build" / "SKILL.md").write_text("skill")
-        (repo / "skills-impeccable" / "i-audit").mkdir(parents=True)
-        (repo / "skills-impeccable" / "i-audit" / "SKILL.md").write_text("skill")
-        (repo / "skills-impeccable" / "capabilities-impeccable.md").write_text("caps")
-        (repo / "skills-memory" / "cm-recall").mkdir(parents=True)
-        (repo / "skills-memory" / "cm-recall" / "SKILL.md").write_text("skill")
-        (repo / "skills-memory" / "capabilities-memory.md").write_text("caps")
-        (repo / "agents").mkdir()
-        (repo / "agents" / "reviewer.md").write_text(
-            "---\nname: reviewer\ngroup: core\n---\n"
-        )
-        (repo / "commands" / "test-cmd").mkdir(parents=True)
-        (repo / "scripts" / "hooks").mkdir(parents=True)
-        (repo / "scripts" / "hooks" / "pytest-guard.sh").write_text("#!/bin/bash")
-        (repo / "scripts" / "hooks" / "sudo-poll.sh").write_text("#!/bin/bash")
-        (repo / "rules" / "common").mkdir(parents=True)
-        (repo / "rules" / "common" / "test.md").write_text("rule")
+        # Override bundles to use test repo with minimal skills
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
 
-        config = {
-            "skills": {"core": True, "impeccable": True, "memory": False},
-            "agents": {"core": True},
-            "hooks": {"pytest": True, "sudo": False, "tmux": False},
-            "packages": {},
-        }
+        config = {"bundles": {k: False for k in install.optional_bundles(repo)}}
 
-        agent_groups = install.discover_agent_groups(repo)
-        with patch("install.install_package"):
-            with patch.object(Path, "home", return_value=tmp_path / "home"):
-                (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
-                errors = install.do_install(
-                    repo, claude_dir, config, agent_groups, interactive=False
-                )
-
-        assert errors == 0
-
-        # Core skills installed
-        assert (claude_dir / "skills" / "mine.build").is_symlink()
-        # Impeccable skills installed
-        assert (claude_dir / "skills" / "i-audit").is_symlink()
-        # Capability fragments go to rules/common, not skills/
-        assert not (claude_dir / "skills" / "capabilities-impeccable.md").exists()
-        assert (
-            claude_dir / "rules" / "common" / "capabilities-impeccable.md"
-        ).is_symlink()
-        # Memory skills NOT installed (deselected)
-        assert not (claude_dir / "skills" / "cm-recall").exists()
-        assert not (claude_dir / "rules" / "common" / "capabilities-memory.md").exists()
-
-        # Agent installed
-        assert (claude_dir / "agents" / "reviewer.md").is_symlink()
-
-        # Commands always installed
-        assert (claude_dir / "commands" / "test-cmd").is_symlink()
-
-        # Selected hooks installed
-        assert (claude_dir / "scripts" / "hooks" / "pytest-guard.sh").is_symlink()
-        # Deselected hooks not installed
-        assert not (claude_dir / "scripts" / "hooks" / "sudo-poll.sh").exists()
-
-        # Rules always installed (file-level)
-        assert (claude_dir / "rules" / "common" / "test.md").is_symlink()
-
-    def test_deselected_group_removes_rule_fragments(self, tmp_path: Path) -> None:
-        repo = tmp_path / "repo"
-        claude_dir = tmp_path / "claude"
-
-        (repo / "skills" / "mine.build").mkdir(parents=True)
-        (repo / "skills" / "mine.build" / "SKILL.md").write_text("skill")
-        (repo / "skills-impeccable" / "i-audit").mkdir(parents=True)
-        (repo / "skills-impeccable" / "i-audit" / "SKILL.md").write_text("skill")
-        (repo / "skills-impeccable" / "capabilities-impeccable.md").write_text("caps")
-        (repo / "skills-memory" / "cm-recall").mkdir(parents=True)
-        (repo / "skills-memory" / "cm-recall" / "SKILL.md").write_text("skill")
-        (repo / "skills-memory" / "capabilities-memory.md").write_text("caps")
-        (repo / "agents").mkdir()
-        (repo / "rules" / "common").mkdir(parents=True)
-        (repo / "rules" / "common" / "test.md").write_text("rule")
-
-        rules_common = claude_dir / "rules" / "common"
-
-        # First install with impeccable enabled
-        config_v1 = {
-            "skills": {"core": True, "impeccable": True, "memory": True},
-            "agents": {},
-            "hooks": {},
-            "packages": {},
-        }
-        agent_groups = install.discover_agent_groups(repo)
         with (
             patch("install.install_package"),
+            patch("install._get_installed_packages", return_value=set()),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
-            install.do_install(
-                repo, claude_dir, config_v1, agent_groups, interactive=False
-            )
+            errors = install.do_install(repo, claude_dir, config, interactive=False)
 
-        assert (rules_common / "capabilities-impeccable.md").is_symlink()
-        assert (rules_common / "capabilities-memory.md").is_symlink()
+        assert errors == 0
+        # Base skill mine.build installed
+        assert (claude_dir / "skills" / "mine.build").is_symlink()
+        # Base agents installed
+        assert (claude_dir / "agents" / "code-reviewer.md").is_symlink()
+        assert (claude_dir / "agents" / "issue-refiner.md").is_symlink()
+        # Optional skills NOT installed (all deselected)
+        assert not (claude_dir / "skills" / "i-audit").exists()
+        assert not (claude_dir / "skills" / "cm-recall-conversations").exists()
 
-        # Re-install with impeccable deselected
-        config_v2 = {
-            "skills": {"core": True, "impeccable": False, "memory": True},
-            "agents": {},
-            "hooks": {},
-            "packages": {},
+    def test_selected_bundle_installs_skills_and_agents(self, tmp_path: Path) -> None:
+        repo = tmp_path / "repo"
+        claude_dir = tmp_path / "claude"
+        _setup_full_repo(repo)
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
+
+        config = {
+            "bundles": {
+                "frontend": True,
+                "cli": False,
+                "memory": False,
+                "engineering": False,
+                "extra-agents": False,
+            }
         }
+
         with (
             patch("install.install_package"),
+            patch("install._get_installed_packages", return_value=set()),
+            patch.object(Path, "home", return_value=tmp_path / "home"),
+        ):
+            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
+            errors = install.do_install(repo, claude_dir, config, interactive=False)
+
+        assert errors == 0
+        # Frontend skill installed
+        assert (claude_dir / "skills" / "i-audit").is_symlink()
+        # Frontend capabilities file installed into rules/common
+        assert (
+            claude_dir / "rules" / "common" / "capabilities-impeccable.md"
+        ).is_symlink()
+        # Capability file NOT in skills/
+        assert not (claude_dir / "skills" / "capabilities-impeccable.md").exists()
+        # Memory NOT installed
+        assert not (claude_dir / "skills" / "cm-recall-conversations").exists()
+        assert not (claude_dir / "rules" / "common" / "capabilities-memory.md").exists()
+
+    def test_hooks_always_installed(self, tmp_path: Path) -> None:
+        """All hooks install regardless of bundle selection."""
+        repo = tmp_path / "repo"
+        claude_dir = tmp_path / "claude"
+        _setup_full_repo(repo)
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
+
+        config = {"bundles": {k: False for k in install.optional_bundles(repo)}}
+
+        with (
+            patch("install.install_package"),
+            patch("install._get_installed_packages", return_value=set()),
+            patch.object(Path, "home", return_value=tmp_path / "home"),
+        ):
+            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
+            install.do_install(repo, claude_dir, config, interactive=False)
+
+        assert (claude_dir / "scripts" / "hooks" / "pytest-guard.sh").is_symlink()
+        assert (claude_dir / "scripts" / "hooks" / "sudo-poll.sh").is_symlink()
+
+    def test_rules_always_installed(self, tmp_path: Path) -> None:
+        """Rules always install, including capabilities-core.md if present."""
+        repo = tmp_path / "repo"
+        claude_dir = tmp_path / "claude"
+        _setup_full_repo(repo)
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
+
+        config = {"bundles": {k: False for k in install.optional_bundles(repo)}}
+
+        with (
+            patch("install.install_package"),
+            patch("install._get_installed_packages", return_value=set()),
+            patch.object(Path, "home", return_value=tmp_path / "home"),
+        ):
+            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
+            install.do_install(repo, claude_dir, config, interactive=False)
+
+        assert (claude_dir / "rules" / "common" / "test.md").is_symlink()
+
+    def test_deselected_bundle_removes_symlinks(self, tmp_path: Path) -> None:
+        """Deselecting a bundle removes its skill and agent symlinks."""
+        repo = tmp_path / "repo"
+        claude_dir = tmp_path / "claude"
+        _setup_full_repo(repo)
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
+
+        # First: install with memory selected
+        config_v1 = {
+            "bundles": {
+                "frontend": False,
+                "cli": False,
+                "memory": True,
+                "engineering": False,
+                "extra-agents": False,
+            }
+        }
+        with (
+            patch("install.install_package", return_value=(True, "")),
+            patch("install._get_installed_packages", return_value=set()),
+            patch.object(Path, "home", return_value=tmp_path / "home"),
+        ):
+            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
+            install.do_install(repo, claude_dir, config_v1, interactive=False)
+
+        assert (claude_dir / "skills" / "cm-recall-conversations").is_symlink()
+        assert (claude_dir / "agents" / "cm-memory-auditor.md").is_symlink()
+        assert (claude_dir / "rules" / "common" / "capabilities-memory.md").is_symlink()
+
+        # Second: deselect memory
+        config_v2 = {
+            "bundles": {
+                "frontend": False,
+                "cli": False,
+                "memory": False,
+                "engineering": False,
+                "extra-agents": False,
+            }
+        }
+        mock_uninstall = MagicMock(return_value=(True, ""))
+        with (
+            patch("install.install_package"),
+            patch("install.uninstall_package", mock_uninstall),
+            patch("install._get_installed_packages", return_value=set()),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             install.do_install(
-                repo, claude_dir, config_v2, agent_groups, interactive=False
+                repo, claude_dir, config_v2, prev_config=config_v1, interactive=False
             )
 
-        assert not (rules_common / "capabilities-impeccable.md").exists()
-        assert (rules_common / "capabilities-memory.md").is_symlink()
-        assert (claude_dir / "skills" / "cm-recall").is_symlink()
-        assert not (claude_dir / "skills" / "i-audit").exists()
+        assert not (claude_dir / "skills" / "cm-recall-conversations").exists()
+        assert not (claude_dir / "agents" / "cm-memory-auditor.md").exists()
+        assert not (claude_dir / "rules" / "common" / "capabilities-memory.md").exists()
+        # Package uninstall triggered
+        mock_uninstall.assert_called_with("claude-memory")
 
-    def test_deselection_preserves_unowned_rule_fragments(self, tmp_path: Path) -> None:
+    def test_deselection_preserves_unowned_capabilities_file(
+        self, tmp_path: Path
+    ) -> None:
+        """Deselecting a bundle must not remove capabilities files owned by another repo."""
         repo = tmp_path / "repo"
         claude_dir = tmp_path / "claude"
-
-        (repo / "skills-impeccable" / "i-audit").mkdir(parents=True)
-        (repo / "skills-impeccable" / "i-audit" / "SKILL.md").write_text("skill")
-        (repo / "skills-impeccable" / "capabilities-impeccable.md").write_text("caps")
-        (repo / "skills" / "mine.build").mkdir(parents=True)
-        (repo / "skills" / "mine.build" / "SKILL.md").write_text("skill")
-        (repo / "agents").mkdir()
-        (repo / "rules" / "common").mkdir(parents=True)
+        _setup_full_repo(repo)
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
 
         rules_common = claude_dir / "rules" / "common"
         rules_common.mkdir(parents=True)
 
-        # Place an unowned file where capabilities-impeccable.md would go
+        # Place an unowned symlink for capabilities-impeccable.md
         other_repo = tmp_path / "other-repo"
         other_repo.mkdir()
         other_source = other_repo / "capabilities-impeccable.md"
@@ -459,26 +759,82 @@ class TestFullInstallFlow:
         (rules_common / "capabilities-impeccable.md").symlink_to(other_source)
 
         config = {
-            "skills": {"core": True, "impeccable": False, "memory": False},
-            "agents": {},
-            "hooks": {},
-            "packages": {},
+            "bundles": {
+                "frontend": False,
+                "cli": False,
+                "memory": False,
+                "engineering": False,
+                "extra-agents": False,
+            }
         }
-        agent_groups = install.discover_agent_groups(repo)
         with (
             patch("install.install_package"),
+            patch("install._get_installed_packages", return_value=set()),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
-            install.do_install(
-                repo, claude_dir, config, agent_groups, interactive=False
-            )
+            install.do_install(repo, claude_dir, config, interactive=False)
 
         # Unowned fragment must survive deselection
         assert (rules_common / "capabilities-impeccable.md").is_symlink()
         assert (
             rules_common / "capabilities-impeccable.md"
         ).resolve() == other_source.resolve()
+
+    def test_deselected_group_removes_rule_fragments(self, tmp_path: Path) -> None:
+        """Re-run with bundle deselected removes rule fragment; other bundle's fragment survives."""
+        repo = tmp_path / "repo"
+        claude_dir = tmp_path / "claude"
+        _setup_full_repo(repo)
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
+
+        rules_common = claude_dir / "rules" / "common"
+
+        # First install with frontend and memory enabled
+        config_v1 = {
+            "bundles": {
+                "frontend": True,
+                "cli": False,
+                "memory": True,
+                "engineering": False,
+                "extra-agents": False,
+            }
+        }
+        with (
+            patch("install.install_package", return_value=(True, "")),
+            patch("install._get_installed_packages", return_value=set()),
+            patch.object(Path, "home", return_value=tmp_path / "home"),
+        ):
+            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
+            install.do_install(repo, claude_dir, config_v1, interactive=False)
+
+        assert (rules_common / "capabilities-impeccable.md").is_symlink()
+        assert (rules_common / "capabilities-memory.md").is_symlink()
+
+        # Re-install with frontend deselected
+        config_v2 = {
+            "bundles": {
+                "frontend": False,
+                "cli": False,
+                "memory": True,
+                "engineering": False,
+                "extra-agents": False,
+            }
+        }
+        with (
+            patch("install.install_package", return_value=(True, "")),
+            patch("install._get_installed_packages", return_value=set()),
+            patch.object(Path, "home", return_value=tmp_path / "home"),
+        ):
+            install.do_install(
+                repo, claude_dir, config_v2, prev_config=config_v1, interactive=False
+            )
+
+        assert not (rules_common / "capabilities-impeccable.md").exists()
+        assert (rules_common / "capabilities-memory.md").is_symlink()
+        assert (claude_dir / "skills" / "cm-recall-conversations").is_symlink()
+        assert not (claude_dir / "skills" / "i-audit").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -489,6 +845,8 @@ class TestFullInstallFlow:
 def _minimal_repo(tmp_path: Path) -> Path:
     """Create a minimal repo structure for do_install."""
     repo = tmp_path / "repo"
+    install._BUNDLES_CACHE = None
+    install._BUNDLES_REPO_DIR = None
     (repo / "skills" / "mine.build").mkdir(parents=True)
     (repo / "skills" / "mine.build" / "SKILL.md").write_text("skill")
     (repo / "agents").mkdir()
@@ -500,38 +858,59 @@ class TestPackageInstall:
     def test_skips_already_installed(self, tmp_path: Path) -> None:
         repo = _minimal_repo(tmp_path)
         claude_dir = tmp_path / "claude"
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
 
+        # memory bundle selects claude-memory
         config = {
-            "skills": {"core": True},
-            "agents": {},
-            "hooks": {},
-            "packages": {"ado-api": True},
+            "bundles": {
+                "frontend": False,
+                "cli": False,
+                "memory": True,
+                "engineering": False,
+                "extra-agents": False,
+            }
         }
-        agent_groups = install.discover_agent_groups(repo)
+        # Add memory skill dirs to repo so bundle can be installed
+        (repo / "skills-memory" / "cm-extract-learnings").mkdir(parents=True)
+        (repo / "skills-memory" / "cm-get-token-insights").mkdir(parents=True)
+        (repo / "skills-memory" / "cm-recall-conversations").mkdir(parents=True)
+        for name in ("cm-memory-auditor", "cm-signal-discoverer"):
+            (repo / "agents" / f"{name}.md").write_text(f"---\nname: {name}\n---\n")
+
         mock_install = MagicMock()
         with (
             patch("install.install_package", mock_install),
-            patch("install._get_installed_packages", return_value={"ado-api"}),
+            patch("install._get_installed_packages", return_value={"claude-memory"}),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
-            install.do_install(
-                repo, claude_dir, config, agent_groups, interactive=False
-            )
+            install.do_install(repo, claude_dir, config, interactive=False)
 
         mock_install.assert_not_called()
 
     def test_installs_when_not_present(self, tmp_path: Path) -> None:
         repo = _minimal_repo(tmp_path)
         claude_dir = tmp_path / "claude"
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
+
+        # memory bundle selects claude-memory
+        (repo / "skills-memory" / "cm-extract-learnings").mkdir(parents=True)
+        (repo / "skills-memory" / "cm-get-token-insights").mkdir(parents=True)
+        (repo / "skills-memory" / "cm-recall-conversations").mkdir(parents=True)
+        for name in ("cm-memory-auditor", "cm-signal-discoverer"):
+            (repo / "agents" / f"{name}.md").write_text(f"---\nname: {name}\n---\n")
 
         config = {
-            "skills": {"core": True},
-            "agents": {},
-            "hooks": {},
-            "packages": {"ado-api": True},
+            "bundles": {
+                "frontend": False,
+                "cli": False,
+                "memory": True,
+                "engineering": False,
+                "extra-agents": False,
+            }
         }
-        agent_groups = install.discover_agent_groups(repo)
         mock_install = MagicMock(return_value=(True, ""))
         with (
             patch("install.install_package", mock_install),
@@ -539,29 +918,35 @@ class TestPackageInstall:
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
-            install.do_install(
-                repo, claude_dir, config, agent_groups, interactive=False
-            )
+            install.do_install(repo, claude_dir, config, interactive=False)
 
-        mock_install.assert_called_once_with(repo, "ado-api")
+        mock_install.assert_called_once_with(repo, "claude-memory")
 
     def test_uninstalls_deselected_package(self, tmp_path: Path) -> None:
         repo = _minimal_repo(tmp_path)
         claude_dir = tmp_path / "claude"
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
 
         prev_config = {
-            "skills": {"core": True},
-            "agents": {},
-            "hooks": {},
-            "packages": {"ado-api": True},
+            "bundles": {
+                "frontend": False,
+                "cli": False,
+                "memory": True,
+                "engineering": False,
+                "extra-agents": False,
+            }
         }
         new_config = {
-            "skills": {"core": True},
-            "agents": {},
-            "hooks": {},
-            "packages": {"ado-api": False},
+            "bundles": {
+                "frontend": False,
+                "cli": False,
+                "memory": False,
+                "engineering": False,
+                "extra-agents": False,
+            }
         }
-        agent_groups = install.discover_agent_groups(repo)
+
         mock_uninstall = MagicMock(return_value=(True, ""))
         with (
             patch("install.install_package"),
@@ -574,24 +959,27 @@ class TestPackageInstall:
                 repo,
                 claude_dir,
                 new_config,
-                agent_groups,
                 prev_config=prev_config,
                 interactive=False,
             )
 
-        mock_uninstall.assert_called_once_with("ado-api")
+        mock_uninstall.assert_called_once_with("claude-memory")
 
     def test_no_uninstall_without_prev_config(self, tmp_path: Path) -> None:
         repo = _minimal_repo(tmp_path)
         claude_dir = tmp_path / "claude"
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
 
         config = {
-            "skills": {"core": True},
-            "agents": {},
-            "hooks": {},
-            "packages": {"ado-api": False},
+            "bundles": {
+                "frontend": False,
+                "cli": False,
+                "memory": False,
+                "engineering": False,
+                "extra-agents": False,
+            }
         }
-        agent_groups = install.discover_agent_groups(repo)
         mock_uninstall = MagicMock()
         with (
             patch("install.install_package"),
@@ -600,9 +988,7 @@ class TestPackageInstall:
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
-            install.do_install(
-                repo, claude_dir, config, agent_groups, interactive=False
-            )
+            install.do_install(repo, claude_dir, config, interactive=False)
 
         mock_uninstall.assert_not_called()
 
@@ -659,12 +1045,17 @@ class TestMainNonInteractive:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
 
         saved = {
-            "skills": {"core": True, "impeccable": False},
-            "agents": {},
-            "hooks": {},
-            "packages": {},
+            "bundles": {
+                "frontend": True,
+                "cli": False,
+                "memory": False,
+                "engineering": False,
+                "extra-agents": False,
+            },
         }
         cfg_path = install.config_path(claude_dir)
         install.save_config(cfg_path, saved)
@@ -674,34 +1065,32 @@ class TestMainNonInteractive:
             patch("sys.argv", ["install.py"]),
             patch("install._is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
-            patch("install.discover_agent_groups", return_value={}),
             patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
             patch("install.sys") as mock_sys,
         ):
             mock_sys.stdin.isatty.return_value = False
             mock_sys.exit = sys.exit
-            # re-import won't work, so let's call main directly
-            # but main reads __file__ — need to patch that too
             with patch.object(install, "__file__", str(repo / "install.py")):
                 result = install.main()
 
         assert result == 0
         mock_do_install.assert_called_once()
         call_config = mock_do_install.call_args[0][2]
-        assert call_config["skills"]["core"] is True
-        assert call_config["skills"]["impeccable"] is False
+        assert call_config["bundles"]["frontend"] is True
+        assert call_config["bundles"]["cli"] is False
 
     def test_non_interactive_no_saved_config_installs_all(self, tmp_path: Path) -> None:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
 
         mock_do_install = MagicMock(return_value=0)
         with (
             patch("sys.argv", ["install.py"]),
             patch("install._is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
-            patch("install.discover_agent_groups", return_value={"core": ["r.md"]}),
             patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
             patch("install.sys") as mock_sys,
             patch("install.save_config"),
@@ -714,21 +1103,25 @@ class TestMainNonInteractive:
         assert result == 0
         mock_do_install.assert_called_once()
         call_config = mock_do_install.call_args[0][2]
-        # All groups should be True
-        for group_key in install.SKILL_GROUPS:
-            assert call_config["skills"][group_key] is True
-        assert call_config["agents"]["core"] is True
+        # All optional bundles should be True
+        for bundle_key in install.optional_bundles(repo):
+            assert call_config["bundles"][bundle_key] is True
 
     def test_non_interactive_reconfigure_warns(self, tmp_path: Path, capsys) -> None:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
 
         saved = {
-            "skills": {"core": True},
-            "agents": {},
-            "hooks": {},
-            "packages": {},
+            "bundles": {
+                "frontend": False,
+                "cli": False,
+                "memory": False,
+                "engineering": False,
+                "extra-agents": False,
+            },
         }
         cfg_path = install.config_path(claude_dir)
         install.save_config(cfg_path, saved)
@@ -738,7 +1131,6 @@ class TestMainNonInteractive:
             patch("sys.argv", ["install.py", "--reconfigure"]),
             patch("install._is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
-            patch("install.discover_agent_groups", return_value={}),
             patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
             patch("install.sys") as mock_sys,
         ):
@@ -751,7 +1143,48 @@ class TestMainNonInteractive:
         captured = capsys.readouterr()
         assert "--reconfigure has no effect in non-interactive mode" in captured.out
         call_config = mock_do_install.call_args[0][2]
-        assert call_config["skills"]["core"] is True
+        assert call_config["bundles"]["frontend"] is False
+
+
+# ---------------------------------------------------------------------------
+# Config save timing: saved after do_install, not before
+# ---------------------------------------------------------------------------
+
+
+class TestConfigSaveTiming:
+    def test_config_saved_after_install(self, tmp_path: Path) -> None:
+        """Config must be written after do_install completes, not before."""
+        claude_dir = tmp_path / "claude_home"
+        claude_dir.mkdir()
+        repo = _minimal_repo(tmp_path)
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
+
+        save_order: list[str] = []
+
+        def mock_do_install(*args, **kwargs):
+            save_order.append("install")
+            return 0
+
+        def mock_save_config(*args, **kwargs):
+            save_order.append("save")
+
+        with (
+            patch("sys.argv", ["install.py"]),
+            patch("install._is_git_worktree", return_value=False),
+            patch("install.do_install", side_effect=mock_do_install),
+            patch("install.save_config", side_effect=mock_save_config),
+            patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
+            patch("install.sys") as mock_sys,
+        ):
+            mock_sys.stdin.isatty.return_value = False
+            mock_sys.exit = sys.exit
+            with patch.object(install, "__file__", str(repo / "install.py")):
+                install.main()
+
+        assert save_order == ["install", "save"], (
+            f"Expected install before save, got: {save_order}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -799,7 +1232,7 @@ class TestSaveConfigException:
             patch("install.os.write", side_effect=OSError("disk full")),
             pytest.raises(OSError, match="disk full"),
         ):
-            install.save_config(cfg_path, {"skills": {"core": True}})
+            install.save_config(cfg_path, {"bundles": {"frontend": True}})
 
         # Original file untouched
         assert cfg_path.read_text() == "original"
@@ -815,7 +1248,7 @@ class TestSaveConfigException:
             patch("install.os.replace", side_effect=OSError("permission denied")),
             pytest.raises(OSError, match="permission denied"),
         ):
-            install.save_config(cfg_path, {"skills": {"core": True}})
+            install.save_config(cfg_path, {"bundles": {"frontend": True}})
 
         assert cfg_path.read_text() == "original"
         tmp_files = list(tmp_path.glob("*.tmp"))
@@ -823,55 +1256,94 @@ class TestSaveConfigException:
 
 
 # ---------------------------------------------------------------------------
-# Malformed frontmatter tests
+# Capabilities file tests
 # ---------------------------------------------------------------------------
 
 
-class TestParseAgentGroup:
-    def test_no_frontmatter(self, tmp_path: Path) -> None:
-        f = tmp_path / "agent.md"
-        f.write_text("Just a plain file with no frontmatter.")
-        assert install._parse_agent_group(f) is None
+class TestCapabilitiesFiles:
+    def test_capabilities_core_not_in_any_bundle(self, tmp_path: Path) -> None:
+        """capabilities-core.md must not be in any bundle — it lives in rules/common/."""
+        _setup_minimal_repo(tmp_path)
+        bundles = install.get_bundles(tmp_path)
+        for key, bundle in bundles.items():
+            assert "capabilities-core.md" not in bundle.capabilities_files, (
+                f"capabilities-core.md should not be in bundle '{key}'"
+            )
 
-    def test_no_closing_dashes(self, tmp_path: Path) -> None:
-        f = tmp_path / "agent.md"
-        f.write_text("---\nname: agent\ngroup: core\n")
-        assert install._parse_agent_group(f) is None
+    def test_capabilities_files_install_with_bundle(self, tmp_path: Path) -> None:
+        """capabilities-*.md files install to rules/common/ when bundle selected."""
+        repo = tmp_path / "repo"
+        claude_dir = tmp_path / "claude"
+        _setup_full_repo(repo)
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
 
-    def test_empty_group_value(self, tmp_path: Path) -> None:
-        f = tmp_path / "agent.md"
-        f.write_text("---\nname: agent\ngroup: \n---\n")
-        assert install._parse_agent_group(f) == ""
+        config = {
+            "bundles": {
+                "frontend": False,
+                "cli": True,
+                "memory": False,
+                "engineering": False,
+                "extra-agents": False,
+            }
+        }
+        with (
+            patch("install.install_package"),
+            patch("install._get_installed_packages", return_value=set()),
+            patch.object(Path, "home", return_value=tmp_path / "home"),
+        ):
+            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
+            install.do_install(repo, claude_dir, config, interactive=False)
 
-    def test_no_group_key(self, tmp_path: Path) -> None:
-        f = tmp_path / "agent.md"
-        f.write_text("---\nname: agent\ndescription: something\n---\n")
-        assert install._parse_agent_group(f) is None
+        assert (claude_dir / "rules" / "common" / "capabilities-cli.md").is_symlink()
+        assert not (claude_dir / "rules" / "common" / "capabilities-memory.md").exists()
+        assert not (
+            claude_dir / "rules" / "common" / "capabilities-impeccable.md"
+        ).exists()
 
-    def test_unreadable_file(self, tmp_path: Path) -> None:
-        f = tmp_path / "agent.md"
-        f.write_text("---\ngroup: core\n---\n")
-        with patch.object(Path, "read_text", side_effect=OSError("perm")):
-            assert install._parse_agent_group(f) is None
+    def test_capabilities_files_removed_on_deselect(self, tmp_path: Path) -> None:
+        """capabilities-*.md files removed from rules/common/ when bundle deselected."""
+        repo = tmp_path / "repo"
+        claude_dir = tmp_path / "claude"
+        _setup_full_repo(repo)
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
 
+        config_v1 = {
+            "bundles": {
+                "frontend": False,
+                "cli": True,
+                "memory": False,
+                "engineering": False,
+                "extra-agents": False,
+            }
+        }
+        config_v2 = {
+            "bundles": {
+                "frontend": False,
+                "cli": False,
+                "memory": False,
+                "engineering": False,
+                "extra-agents": False,
+            }
+        }
+        with (
+            patch("install.install_package"),
+            patch("install._get_installed_packages", return_value=set()),
+            patch.object(Path, "home", return_value=tmp_path / "home"),
+        ):
+            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
+            install.do_install(repo, claude_dir, config_v1, interactive=False)
 
-class TestDiscoverAgentGroupsEdgeCases:
-    def test_empty_group_is_filtered_out(self, tmp_path: Path) -> None:
-        agents = tmp_path / "agents"
-        agents.mkdir()
-        (agents / "a.md").write_text("---\nname: a\ngroup: \n---\n")
-        groups = install.discover_agent_groups(tmp_path)
-        assert groups == {}
+        assert (claude_dir / "rules" / "common" / "capabilities-cli.md").is_symlink()
 
-    def test_mixed_valid_and_malformed(self, tmp_path: Path) -> None:
-        agents = tmp_path / "agents"
-        agents.mkdir()
-        (agents / "good.md").write_text("---\nname: good\ngroup: core\n---\n")
-        (agents / "no-close.md").write_text("---\nname: x\ngroup: core\n")
-        (agents / "no-fm.md").write_text("Just text.")
-        (agents / "no-group.md").write_text("---\nname: y\n---\n")
-        groups = install.discover_agent_groups(tmp_path)
-        assert groups == {"core": ["good.md"]}
+        with (
+            patch("install.install_package"),
+            patch("install._get_installed_packages", return_value=set()),
+            patch.object(Path, "home", return_value=tmp_path / "home"),
+        ):
+            install.do_install(
+                repo, claude_dir, config_v2, prev_config=config_v1, interactive=False
+            )
 
-    def test_no_agents_dir(self, tmp_path: Path) -> None:
-        assert install.discover_agent_groups(tmp_path) == {}
+        assert not (claude_dir / "rules" / "common" / "capabilities-cli.md").exists()
