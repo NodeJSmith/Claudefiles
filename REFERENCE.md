@@ -153,6 +153,7 @@ Event-driven scripts that run before/after tool calls.
 | `pytest-loop-detector.sh` | PreToolUse (Bash) | Deny pytest after repeated failures: 3 consecutive runs without edits, or 8 total failures since last success — nudges to `/mine.debug` |
 | `pytest-loop-reset.sh` | PostToolUse (Edit/Write/MultiEdit/NotebookEdit) | Reset the no-edit pytest failure counter when code changes are made (total counter intentionally preserved) |
 | `pytest-loop-status.sh` | PostToolUse (Bash) | Record pytest exit code for loop detector failure tracking |
+| `subagent-compaction-check.sh` | PostToolUse (Agent) | Detect subagent context compaction — warns the orchestrator when a subagent hit its context window limit mid-task |
 | `pytest-detect.sh` | (sourced) | Shared pytest detection patterns for loop detector and status hooks |
 | `cm-memory-setup` (package) | SessionStart | Initialize memory DB, trigger background import if needed |
 | `cm-onboarding` (package) | SessionStart (startup) | Inject MEMORY.md context and greet the user with persistent memory |
