@@ -34,6 +34,10 @@ if ! command -v jq > /dev/null 2>&1; then
   exit 0
 fi
 
+if ! command -v python3 > /dev/null 2>&1; then
+  exit 0
+fi
+
 input="$(cat || true)"
 
 session_id="$(printf '%s' "$input" | jq -r '.session_id // empty' 2> /dev/null)" || true
@@ -41,9 +45,9 @@ case "$session_id" in '' | *[/.]*) exit 0 ;; esac
 
 transcript_path="$(printf '%s' "$input" | jq -r '.transcript_path // empty' 2> /dev/null)" || true
 [ -z "$transcript_path" ] && exit 0
+case "$transcript_path" in *.jsonl) ;; *) exit 0 ;; esac
 
-# Claude Code transcript paths always end in .jsonl; subagent files live in a
-# sibling directory named <session-uuid>/subagents/.
+# Subagent files live in a sibling directory named <session-uuid>/subagents/.
 subagent_dir="${transcript_path%.jsonl}/subagents"
 [ -d "$subagent_dir" ] || exit 0
 
