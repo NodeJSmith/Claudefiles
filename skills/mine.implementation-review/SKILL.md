@@ -73,7 +73,7 @@ Run `get-skill-tmpdir mine-impl-review` and use `<dir>/review.md` for the review
 
 ### Read reviewer prompt
 
-Read `~/.claude/skills/mine.implementation-review/reviewer-prompt.md`.
+Read `${CLAUDE_HOME:-~/.claude}/skills/mine.implementation-review/reviewer-prompt.md`.
 
 ### Launch review subagent
 

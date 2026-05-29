@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-05-29
+
+### Fixed
+- `mine.tool-gaps` and `mine.implementation-review` skill paths now use `${CLAUDE_HOME:-~/.claude}` instead of hardcoded `~/.claude/`
+
 ## 2026-05-28
 
 ### Added
