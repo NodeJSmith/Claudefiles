@@ -1477,32 +1477,16 @@ class TestMigrateV1ToV2:
         # No bundle key for 'base' in the v2 bundles section (base is always_installed)
         assert "base" not in result["bundles"]
 
-    def test_ado_api_preserved_true(self) -> None:
-        v1 = {"version": 1, "skills": {}, "agents": {}, "packages": {"ado-api": True}}
-        result = install.migrate_v1_to_v2(v1)
-        assert result["packages"]["ado-api"] is True
-
-    def test_ado_api_preserved_false(self) -> None:
-        v1 = {"version": 1, "skills": {}, "agents": {}, "packages": {"ado-api": False}}
-        result = install.migrate_v1_to_v2(v1)
-        assert result["packages"]["ado-api"] is False
-
-    def test_ado_api_missing_defaults_false(self) -> None:
-        v1 = {"version": 1, "skills": {}, "agents": {}, "packages": {}}
-        result = install.migrate_v1_to_v2(v1)
-        assert result["packages"]["ado-api"] is False
-
     def test_missing_v1_fields_default_false(self) -> None:
         """Completely empty v1 config → all optional bundles false."""
         result = install.migrate_v1_to_v2({"version": 1})
         for key in ("frontend", "cli", "memory", "engineering", "extra-agents"):
             assert result["bundles"][key] is False
-        assert result["packages"]["ado-api"] is False
 
     def test_result_is_v2_format(self) -> None:
-        """Result has version, bundles, and packages keys."""
+        """Result has version and bundles keys only (no packages)."""
         result = install.migrate_v1_to_v2(V1_ALL_SELECTED)
-        assert set(result.keys()) == {"version", "bundles", "packages"}
+        assert set(result.keys()) == {"version", "bundles"}
 
     def test_is_pure_no_io(self, tmp_path: Path) -> None:
         """migrate_v1_to_v2 must not write any files."""
@@ -1529,20 +1513,6 @@ class TestLoadConfigReturnsV1:
         cfg_path = tmp_path / install.CONFIG_FILENAME
         cfg_path.write_text(json.dumps({"version": 999}))
         assert install.load_config(cfg_path) is None
-
-
-class TestAllSelectedConfigHasPackages:
-    def test_packages_key_present(self, tmp_path: Path) -> None:
-        """_all_selected_config must include a packages section."""
-        _setup_minimal_repo(tmp_path)
-        cfg = install._all_selected_config(tmp_path)
-        assert "packages" in cfg
-
-    def test_ado_api_default_false(self, tmp_path: Path) -> None:
-        """ado-api defaults to False in fresh all-selected config."""
-        _setup_minimal_repo(tmp_path)
-        cfg = install._all_selected_config(tmp_path)
-        assert cfg["packages"]["ado-api"] is False
 
 
 class TestMigrationMainFlow:
@@ -1592,6 +1562,7 @@ class TestMigrationMainFlow:
         assert len(saved_configs) == 1
         assert saved_configs[0]["bundles"]["frontend"] is True
         assert saved_configs[0]["bundles"]["extra-agents"] is True
+        assert "packages" not in saved_configs[0]
 
     def test_v1_backup_written(self, tmp_path: Path) -> None:
         """Backup file .claudefiles-install-config.v1.json.bak must be written."""
@@ -1677,7 +1648,6 @@ class TestMigrationMainFlow:
                 "engineering": False,
                 "extra-agents": False,
             },
-            "packages": {"ado-api": False},
         }
         install.save_config(cfg_path, v2)
 
@@ -1740,477 +1710,28 @@ class TestMigrationMainFlow:
 
 
 # ---------------------------------------------------------------------------
-# T03: ADO detection helper
+# First-install ado-api tip
 # ---------------------------------------------------------------------------
 
 
-class TestIsAdoRepo:
-    def test_returns_true_when_git_platform_prints_ado(self, tmp_path: Path) -> None:
-        mock_result = MagicMock(returncode=0, stdout="ado\n")
-        with patch("install.subprocess.run", return_value=mock_result):
-            assert install._is_ado_repo(tmp_path) is True
+class TestFirstInstallAdoTip:
+    """The ado-api discoverability tip prints only on fresh installs."""
 
-    def test_returns_false_when_git_platform_prints_github(
-        self, tmp_path: Path
-    ) -> None:
-        mock_result = MagicMock(returncode=0, stdout="github\n")
-        with patch("install.subprocess.run", return_value=mock_result):
-            assert install._is_ado_repo(tmp_path) is False
-
-    def test_returns_false_when_git_platform_prints_unknown(
-        self, tmp_path: Path
-    ) -> None:
-        mock_result = MagicMock(returncode=0, stdout="unknown\n")
-        with patch("install.subprocess.run", return_value=mock_result):
-            assert install._is_ado_repo(tmp_path) is False
-
-    def test_returns_false_when_git_platform_not_found(self, tmp_path: Path) -> None:
-        with patch("install.subprocess.run", side_effect=FileNotFoundError):
-            assert install._is_ado_repo(tmp_path) is False
-
-    def test_returns_false_on_timeout(self, tmp_path: Path) -> None:
-        with patch(
-            "install.subprocess.run",
-            side_effect=subprocess.TimeoutExpired("git-platform", 5),
-        ):
-            assert install._is_ado_repo(tmp_path) is False
-
-    def test_returns_false_on_permission_error(self, tmp_path: Path) -> None:
-        """A non-executable git-platform (common on WSL/Windows clones) must not crash."""
-        with patch("install.subprocess.run", side_effect=PermissionError):
-            assert install._is_ado_repo(tmp_path) is False
-
-    def test_returns_false_on_nonzero_returncode(self, tmp_path: Path) -> None:
-        """A failed git-platform invocation must not be read as a platform answer."""
-        mock_result = MagicMock(returncode=1, stdout="ado\n")
-        with patch("install.subprocess.run", return_value=mock_result):
-            assert install._is_ado_repo(tmp_path) is False
-
-    def test_calls_git_platform_with_correct_executable_and_cwd(
-        self, tmp_path: Path
-    ) -> None:
-        """Must invoke repo_dir/bin/git-platform as executable with cwd=repo_dir."""
-        mock_result = MagicMock(returncode=0, stdout="ado\n")
-        with patch("install.subprocess.run", return_value=mock_result) as mock_run:
-            install._is_ado_repo(tmp_path)
-        call_kwargs = mock_run.call_args
-        cmd = call_kwargs[0][0]
-        assert cmd[0] == str(tmp_path / "bin" / "git-platform")
-        assert call_kwargs[1]["cwd"] == tmp_path
-
-
-# ---------------------------------------------------------------------------
-# T03: Wizard prompt for ADO
-# ---------------------------------------------------------------------------
-
-
-class TestWizardAdoPrompt:
-    def test_ado_detected_prompts_and_records_true(self, tmp_path: Path) -> None:
-        """When ADO detected and user says yes, packages.ado-api is True."""
-        _setup_minimal_repo(tmp_path)
-        with (
-            patch("install._is_ado_repo", return_value=True),
-            patch(
-                "install._ask_checkbox",
-                return_value={k: False for k in install.optional_bundles(tmp_path)},
-            ),
-            patch("install.questionary.confirm") as mock_confirm,
-        ):
-            mock_confirm.return_value.ask.return_value = True
-            result = install.run_wizard(tmp_path)
-        assert result["packages"]["ado-api"] is True
-
-    def test_ado_detected_prompts_and_records_false(self, tmp_path: Path) -> None:
-        """When ADO detected and user says no, packages.ado-api is False."""
-        _setup_minimal_repo(tmp_path)
-        with (
-            patch("install._is_ado_repo", return_value=True),
-            patch(
-                "install._ask_checkbox",
-                return_value={k: False for k in install.optional_bundles(tmp_path)},
-            ),
-            patch("install.questionary.confirm") as mock_confirm,
-        ):
-            mock_confirm.return_value.ask.return_value = False
-            result = install.run_wizard(tmp_path)
-        assert result["packages"]["ado-api"] is False
-
-    def test_ado_not_detected_no_prompt_preserves_existing_false(
-        self, tmp_path: Path
-    ) -> None:
-        """When ADO not detected, no confirm prompt; existing packages.ado-api preserved."""
-        _setup_minimal_repo(tmp_path)
-        preselected = {
-            "bundles": {k: False for k in install.optional_bundles(tmp_path)},
-            "packages": {"ado-api": False},
-        }
-        with (
-            patch("install._is_ado_repo", return_value=False),
-            patch(
-                "install._ask_checkbox",
-                return_value={k: False for k in install.optional_bundles(tmp_path)},
-            ),
-            patch("install.questionary.confirm") as mock_confirm,
-        ):
-            result = install.run_wizard(tmp_path, preselected=preselected)
-        mock_confirm.assert_not_called()
-        assert result["packages"]["ado-api"] is False
-
-    def test_ado_not_detected_no_prompt_preserves_existing_true(
-        self, tmp_path: Path
-    ) -> None:
-        """When ADO not detected, preserves packages.ado-api=True from saved config."""
-        _setup_minimal_repo(tmp_path)
-        preselected = {
-            "bundles": {k: False for k in install.optional_bundles(tmp_path)},
-            "packages": {"ado-api": True},
-        }
-        with (
-            patch("install._is_ado_repo", return_value=False),
-            patch(
-                "install._ask_checkbox",
-                return_value={k: False for k in install.optional_bundles(tmp_path)},
-            ),
-            patch("install.questionary.confirm") as mock_confirm,
-        ):
-            result = install.run_wizard(tmp_path, preselected=preselected)
-        mock_confirm.assert_not_called()
-        assert result["packages"]["ado-api"] is True
-
-    def test_ado_not_detected_no_preselected_defaults_false(
-        self, tmp_path: Path
-    ) -> None:
-        """When ADO not detected and no preselected, packages.ado-api defaults False."""
-        _setup_minimal_repo(tmp_path)
-        with (
-            patch("install._is_ado_repo", return_value=False),
-            patch(
-                "install._ask_checkbox",
-                return_value={k: False for k in install.optional_bundles(tmp_path)},
-            ),
-        ):
-            result = install.run_wizard(tmp_path)
-        assert result["packages"]["ado-api"] is False
-
-    def test_ado_reconfigure_prechecks_saved_value(self, tmp_path: Path) -> None:
-        """On --reconfigure with ADO detected, confirm defaults to saved ado-api value."""
-        _setup_minimal_repo(tmp_path)
-        preselected = {
-            "bundles": {k: False for k in install.optional_bundles(tmp_path)},
-            "packages": {"ado-api": True},
-        }
-        with (
-            patch("install._is_ado_repo", return_value=True),
-            patch(
-                "install._ask_checkbox",
-                return_value={k: False for k in install.optional_bundles(tmp_path)},
-            ),
-            patch("install.questionary.confirm") as mock_confirm,
-        ):
-            mock_confirm.return_value.ask.return_value = True
-            install.run_wizard(tmp_path, preselected=preselected)
-        # confirm called with default=True (pre-checked from saved value)
-        call_kwargs = mock_confirm.call_args
-        assert call_kwargs[1].get("default") is True
-
-    def test_ado_reconfigure_prechecks_false(self, tmp_path: Path) -> None:
-        """On --reconfigure with ADO detected, confirm defaults to False when saved False."""
-        _setup_minimal_repo(tmp_path)
-        preselected = {
-            "bundles": {k: False for k in install.optional_bundles(tmp_path)},
-            "packages": {"ado-api": False},
-        }
-        with (
-            patch("install._is_ado_repo", return_value=True),
-            patch(
-                "install._ask_checkbox",
-                return_value={k: False for k in install.optional_bundles(tmp_path)},
-            ),
-            patch("install.questionary.confirm") as mock_confirm,
-        ):
-            mock_confirm.return_value.ask.return_value = False
-            install.run_wizard(tmp_path, preselected=preselected)
-        call_kwargs = mock_confirm.call_args
-        assert call_kwargs[1].get("default") is False
-
-
-# ---------------------------------------------------------------------------
-# T03: do_install — standalone ado-api package lifecycle
-# ---------------------------------------------------------------------------
-
-
-class TestDoInstallAdoApi:
-    def test_installs_ado_api_when_flag_true(self, tmp_path: Path) -> None:
-        """do_install installs ado-api when config['packages']['ado-api'] is True."""
-        repo = _minimal_repo(tmp_path)
-        claude_dir = tmp_path / "claude"
-        # Create packages/ado-api so install_package can be called
-        (repo / "packages" / "ado-api").mkdir(parents=True)
-
-        config = {
-            "bundles": {k: False for k in install.optional_bundles(repo)},
-            "packages": {"ado-api": True},
-        }
-        mock_install = MagicMock(return_value=(True, ""))
-        with (
-            patch("install.install_package", mock_install),
-            patch("install._get_installed_packages", return_value=set()),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
-        ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
-            errors = install.do_install(repo, claude_dir, config, interactive=False)
-
-        assert errors == 0
-        mock_install.assert_any_call(repo, "ado-api")
-
-    def test_skips_ado_api_when_already_installed(self, tmp_path: Path) -> None:
-        """do_install skips ado-api if already in installed packages."""
-        repo = _minimal_repo(tmp_path)
-        claude_dir = tmp_path / "claude"
-        (repo / "packages" / "ado-api").mkdir(parents=True)
-
-        config = {
-            "bundles": {k: False for k in install.optional_bundles(repo)},
-            "packages": {"ado-api": True},
-        }
-        mock_install = MagicMock(return_value=(True, ""))
-        with (
-            patch("install.install_package", mock_install),
-            patch("install._get_installed_packages", return_value={"ado-api"}),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
-        ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
-            install.do_install(repo, claude_dir, config, interactive=False)
-
-        # install_package must not be called for ado-api
-        for call in mock_install.call_args_list:
-            assert call[0][1] != "ado-api", (
-                "ado-api must be skipped if already installed"
-            )
-
-    def test_does_not_install_ado_api_when_flag_false(self, tmp_path: Path) -> None:
-        """do_install does not install ado-api when config['packages']['ado-api'] is False."""
-        repo = _minimal_repo(tmp_path)
-        claude_dir = tmp_path / "claude"
-
-        config = {
-            "bundles": {k: False for k in install.optional_bundles(repo)},
-            "packages": {"ado-api": False},
-        }
-        mock_install = MagicMock(return_value=(True, ""))
-        with (
-            patch("install.install_package", mock_install),
-            patch("install._get_installed_packages", return_value=set()),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
-        ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
-            install.do_install(repo, claude_dir, config, interactive=False)
-
-        for call in mock_install.call_args_list:
-            assert call[0][1] != "ado-api"
-
-    def test_uninstalls_ado_api_when_toggled_false(self, tmp_path: Path) -> None:
-        """do_install uninstalls ado-api when prev had it True and now False."""
-        repo = _minimal_repo(tmp_path)
-        claude_dir = tmp_path / "claude"
-
-        prev_config = {
-            "bundles": {k: False for k in install.optional_bundles(repo)},
-            "packages": {"ado-api": True},
-        }
-        new_config = {
-            "bundles": {k: False for k in install.optional_bundles(repo)},
-            "packages": {"ado-api": False},
-        }
-        mock_uninstall = MagicMock(return_value=(True, ""))
-        with (
-            patch("install.install_package"),
-            patch("install.uninstall_package", mock_uninstall),
-            patch("install._get_installed_packages", return_value=set()),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
-        ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
-            install.do_install(
-                repo, claude_dir, new_config, prev_config=prev_config, interactive=False
-            )
-
-        mock_uninstall.assert_any_call("ado-api")
-
-    def test_no_uninstall_when_no_prev_config(self, tmp_path: Path) -> None:
-        """No uninstall of ado-api when prev_config is None."""
-        repo = _minimal_repo(tmp_path)
-        claude_dir = tmp_path / "claude"
-
-        config = {
-            "bundles": {k: False for k in install.optional_bundles(repo)},
-            "packages": {"ado-api": False},
-        }
-        mock_uninstall = MagicMock(return_value=(True, ""))
-        with (
-            patch("install.install_package"),
-            patch("install.uninstall_package", mock_uninstall),
-            patch("install._get_installed_packages", return_value=set()),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
-        ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
-            install.do_install(repo, claude_dir, config, interactive=False)
-
-        for call in mock_uninstall.call_args_list:
-            assert call[0][0] != "ado-api"
-
-
-# ---------------------------------------------------------------------------
-# T03: do_uninstall — packages section contribution
-# ---------------------------------------------------------------------------
-
-
-class TestDoUninstallAdoApi:
-    def test_uninstalls_ado_api_when_flagged_true(self, tmp_path: Path) -> None:
-        """do_uninstall must uninstall ado-api when packages.ado-api is True."""
-        repo = _minimal_repo(tmp_path)
-        claude_dir = tmp_path / "claude"
-        claude_dir.mkdir()
-
-        cfg = {
-            "bundles": {k: False for k in install.optional_bundles(repo)},
-            "packages": {"ado-api": True},
-        }
-        mock_uninstall = MagicMock(return_value=(True, ""))
-        with (
-            patch("install.uninstall_package", mock_uninstall),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
-        ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
-            install.do_uninstall(repo, claude_dir, cfg)
-
-        mock_uninstall.assert_any_call("ado-api")
-
-    def test_does_not_uninstall_ado_api_when_flagged_false(
-        self, tmp_path: Path
-    ) -> None:
-        """do_uninstall must not uninstall ado-api when packages.ado-api is False."""
-        repo = _minimal_repo(tmp_path)
-        claude_dir = tmp_path / "claude"
-        claude_dir.mkdir()
-
-        cfg = {
-            "bundles": {k: False for k in install.optional_bundles(repo)},
-            "packages": {"ado-api": False},
-        }
-        mock_uninstall = MagicMock(return_value=(True, ""))
-        with (
-            patch("install.uninstall_package", mock_uninstall),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
-        ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
-            install.do_uninstall(repo, claude_dir, cfg)
-
-        for call in mock_uninstall.call_args_list:
-            assert call[0][0] != "ado-api"
-
-    def test_does_not_uninstall_ado_api_when_packages_section_missing(
-        self, tmp_path: Path
-    ) -> None:
-        """do_uninstall must not crash when packages section is absent."""
-        repo = _minimal_repo(tmp_path)
-        claude_dir = tmp_path / "claude"
-        claude_dir.mkdir()
-
-        cfg = {"bundles": {k: False for k in install.optional_bundles(repo)}}
-        mock_uninstall = MagicMock(return_value=(True, ""))
-        with (
-            patch("install.uninstall_package", mock_uninstall),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
-        ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
-            install.do_uninstall(repo, claude_dir, cfg)
-
-        for call in mock_uninstall.call_args_list:
-            assert call[0][0] != "ado-api"
-
-
-# ---------------------------------------------------------------------------
-# T03: _print_dry_run — ado-api standalone status
-# ---------------------------------------------------------------------------
-
-
-class TestDryRunAdoApi:
-    def test_shows_install_when_ado_api_true_no_prev(
-        self, tmp_path: Path, capsys
-    ) -> None:
-        """_print_dry_run shows ado-api: install when flag is True and no prev config."""
-        _setup_minimal_repo(tmp_path)
-        config = {
-            "bundles": {k: False for k in install.optional_bundles(tmp_path)},
-            "packages": {"ado-api": True},
-        }
-        install._print_dry_run(tmp_path, config)
-        captured = capsys.readouterr()
-        assert "ado-api" in captured.out
-        assert "install" in captured.out
-
-    def test_shows_remove_when_ado_api_toggled_off(
-        self, tmp_path: Path, capsys
-    ) -> None:
-        """_print_dry_run shows ado-api: remove when prev True and now False."""
-        _setup_minimal_repo(tmp_path)
-        config = {
-            "bundles": {k: False for k in install.optional_bundles(tmp_path)},
-            "packages": {"ado-api": False},
-        }
-        prev_config = {
-            "bundles": {k: False for k in install.optional_bundles(tmp_path)},
-            "packages": {"ado-api": True},
-        }
-        install._print_dry_run(tmp_path, config, prev_config=prev_config)
-        captured = capsys.readouterr()
-        assert "ado-api" in captured.out
-        assert "remove" in captured.out
-
-    def test_shows_skip_when_ado_api_false(self, tmp_path: Path, capsys) -> None:
-        """_print_dry_run shows ado-api: skip when flag is False and no prev."""
-        _setup_minimal_repo(tmp_path)
-        config = {
-            "bundles": {k: False for k in install.optional_bundles(tmp_path)},
-            "packages": {"ado-api": False},
-        }
-        install._print_dry_run(tmp_path, config)
-        captured = capsys.readouterr()
-        assert "ado-api" in captured.out
-        assert "skip" in captured.out
-
-    def test_omits_ado_api_section_when_packages_missing(
-        self, tmp_path: Path, capsys
-    ) -> None:
-        """_print_dry_run must not crash when packages section is missing."""
-        _setup_minimal_repo(tmp_path)
-        config = {"bundles": {k: False for k in install.optional_bundles(tmp_path)}}
-        # Should not raise
-        install._print_dry_run(tmp_path, config)
-
-
-class TestUninstallDryRunAdoApi:
-    """The --uninstall --dry-run preview must list standalone packages too."""
-
-    def test_uninstall_dry_run_lists_ado_api(self, tmp_path: Path, capsys) -> None:
+    def test_tip_prints_on_fresh_install(self, tmp_path: Path, capsys) -> None:
+        """When no prior config exists (fresh install) and install succeeds, print the tip."""
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
         install._BUNDLES_CACHE = None
         install._BUNDLES_REPO_DIR = None
 
-        cfg_path = install.config_path(claude_dir)
-        install.save_config(
-            cfg_path,
-            {
-                "bundles": {k: False for k in install.optional_bundles(repo)},
-                "packages": {"ado-api": True},
-            },
-        )
-
+        # No saved config file — fresh install
+        mock_do_install = MagicMock(return_value=0)
         with (
-            patch("sys.argv", ["install.py", "--uninstall", "--dry-run"]),
+            patch("sys.argv", ["install.py"]),
             patch("install._is_git_worktree", return_value=False),
+            patch("install.do_install", mock_do_install),
+            patch("install.save_config"),
             patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
             patch("install.sys") as mock_sys,
         ):
@@ -2220,4 +1741,105 @@ class TestUninstallDryRunAdoApi:
                 result = install.main()
 
         assert result == 0
-        assert "ado-api" in capsys.readouterr().out
+        out = capsys.readouterr().out
+        assert "ado-api" in out
+        assert "uv tool install" in out
+
+    def test_tip_suppressed_when_existing_config(self, tmp_path: Path, capsys) -> None:
+        """When a saved config already exists, the tip must NOT print."""
+        claude_dir = tmp_path / "claude_home"
+        claude_dir.mkdir()
+        repo = _minimal_repo(tmp_path)
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
+
+        # Write an existing v2 config so original_saved is not None
+        saved = {
+            "bundles": {
+                "frontend": False,
+                "cli": False,
+                "memory": False,
+                "engineering": False,
+                "extra-agents": False,
+            },
+        }
+        cfg_path = install.config_path(claude_dir)
+        install.save_config(cfg_path, saved)
+
+        mock_do_install = MagicMock(return_value=0)
+        with (
+            patch("sys.argv", ["install.py"]),
+            patch("install._is_git_worktree", return_value=False),
+            patch("install.do_install", mock_do_install),
+            patch("install.save_config"),
+            patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
+            patch("install.sys") as mock_sys,
+        ):
+            mock_sys.stdin.isatty.return_value = False
+            mock_sys.exit = sys.exit
+            with patch.object(install, "__file__", str(repo / "install.py")):
+                result = install.main()
+
+        assert result == 0
+        out = capsys.readouterr().out
+        assert "uv tool install" not in out
+
+    def test_tip_suppressed_when_install_has_errors(
+        self, tmp_path: Path, capsys
+    ) -> None:
+        """A fresh install that reported errors must NOT print the tip."""
+        claude_dir = tmp_path / "claude_home"
+        claude_dir.mkdir()
+        repo = _minimal_repo(tmp_path)
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
+
+        mock_do_install = MagicMock(return_value=1)  # one error
+        with (
+            patch("sys.argv", ["install.py"]),
+            patch("install._is_git_worktree", return_value=False),
+            patch("install.do_install", mock_do_install),
+            patch("install.save_config"),
+            patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
+            patch("install.sys") as mock_sys,
+        ):
+            mock_sys.stdin.isatty.return_value = False
+            mock_sys.exit = sys.exit
+            with patch.object(install, "__file__", str(repo / "install.py")):
+                result = install.main()
+
+        assert result == 1
+        assert "uv tool install" not in capsys.readouterr().out
+
+    def test_tip_suppressed_on_reconfigure_without_config(
+        self, tmp_path: Path, capsys
+    ) -> None:
+        """--reconfigure is an explicit choice, not a first encounter — no tip."""
+        claude_dir = tmp_path / "claude_home"
+        claude_dir.mkdir()
+        repo = _minimal_repo(tmp_path)
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
+
+        mock_do_install = MagicMock(return_value=0)
+        with (
+            patch("sys.argv", ["install.py", "--reconfigure"]),
+            patch("install._is_git_worktree", return_value=False),
+            patch("install.do_install", mock_do_install),
+            patch("install.save_config"),
+            patch(
+                "install.run_wizard",
+                return_value={
+                    "bundles": {k: False for k in install.optional_bundles(repo)}
+                },
+            ),
+            patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
+            patch("install.sys") as mock_sys,
+        ):
+            mock_sys.stdin.isatty.return_value = True
+            mock_sys.exit = sys.exit
+            with patch.object(install, "__file__", str(repo / "install.py")):
+                result = install.main()
+
+        assert result == 0
+        assert "uv tool install" not in capsys.readouterr().out

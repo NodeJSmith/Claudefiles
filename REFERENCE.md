@@ -200,7 +200,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
 ## Packages
 
-`spec-helper` and `merge-settings` are part of the base and always install. `claude-memory` installs with the Memory bundle; `ado-api` installs when the wizard detects an Azure DevOps repo. Any can also be installed manually with `uv tool install -e packages/<name>`.
+`spec-helper` and `merge-settings` are part of the base and always install. `claude-memory` installs with the Memory bundle. `ado-api` is not wired into a bundle — if you work in Azure DevOps repos, install it on its own with `uv tool install -e packages/ado-api`. Any package can be installed manually the same way.
 
 | Name | Description |
 |------|-------------|
