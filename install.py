@@ -23,7 +23,7 @@ import questionary
 from rich.console import Console
 from rich.panel import Panel
 
-CONFIG_VERSION = 2  # v1→v2 migration arrives in T02; bump CONFIG_VERSION for new breaking schema changes
+CONFIG_VERSION = 2  # on a breaking schema change, bump this and add a migrate_vN_to_v(N+1) step (see migrate_v1_to_v2)
 CONFIG_FILENAME = ".claudefiles-install-config.json"
 
 SKILL_DIRS = ["skills", "skills-impeccable", "skills-cli", "skills-memory"]
@@ -192,12 +192,20 @@ def config_path(claude_dir: Path) -> Path:
 
 
 def load_config(path: Path) -> dict | None:
-    """Load config, returning None if missing or corrupt."""
+    """Load config, returning None if missing or corrupt.
+
+    Returns the raw dict for any recognized version (1 or 2) so the caller
+    can decide whether to migrate. Returns None for truly unknown versions.
+    """
     if not path.exists():
         return None
     try:
         data = json.loads(path.read_text())
-        if not isinstance(data, dict) or data.get("version") != CONFIG_VERSION:
+        if not isinstance(data, dict):
+            return None
+        version = data.get("version")
+        # v1 is returned as-is for migration; v2 is current; anything else is unknown
+        if version not in (1, CONFIG_VERSION):
             return None
         return data
     except (json.JSONDecodeError, OSError):
@@ -224,6 +232,38 @@ def save_config(path: Path, data: dict) -> None:
         except OSError:
             pass
         raise
+
+
+def migrate_v1_to_v2(v1_config: dict) -> dict:
+    """Pure function: map v1 type-based config to v2 bundle format.
+
+    Migration table (from design doc):
+      skills.impeccable  → bundles.frontend
+      skills.cli         → bundles.cli
+      skills.memory      → bundles.memory
+      agents.engineering → bundles.engineering
+      agents.core        → bundles.extra-agents (true iff agents.core was true)
+      skills.core, packages.spec-helper, packages.merge-settings,
+        hooks.*, agents.memory, packages.claude-memory → base (always installed)
+      packages.ado-api   → packages.ado-api (preserved; default false)
+    """
+    skills = v1_config.get("skills", {})
+    agents = v1_config.get("agents", {})
+    packages = v1_config.get("packages", {})
+
+    return {
+        "version": 2,
+        "bundles": {
+            "frontend": bool(skills.get("impeccable", False)),
+            "cli": bool(skills.get("cli", False)),
+            "memory": bool(skills.get("memory", False)),
+            "engineering": bool(agents.get("engineering", False)),
+            "extra-agents": bool(agents.get("core", False)),
+        },
+        "packages": {
+            "ado-api": bool(packages.get("ado-api", False)),
+        },
+    }
 
 
 class ConfigLock:
@@ -565,6 +605,7 @@ def _all_selected_config(repo_dir: Path) -> dict:
     opt = optional_bundles(repo_dir)
     return {
         "bundles": {k: True for k in opt},
+        "packages": {"ado-api": False},
     }
 
 
@@ -901,6 +942,52 @@ def _print_dry_run(
 
 
 # ---------------------------------------------------------------------------
+# Migration helpers
+# ---------------------------------------------------------------------------
+
+
+def _migrate_and_backup(v1_config: dict, cfg_path: Path) -> dict:
+    """Migrate a v1 config to v2, write a backup of the raw v1 data, and print a summary.
+
+    Returns the migrated v2 dict. Does NOT call save_config — the caller does that
+    after do_install completes (config-save-timing contract).
+    """
+    console = Console()
+    v2 = migrate_v1_to_v2(v1_config)
+
+    # Write raw v1 backup BEFORE save_config touches anything
+    bak_path = cfg_path.parent / (cfg_path.stem + ".v1.json.bak")
+    bak_content = json.dumps(v1_config, indent=2) + "\n"
+    bak_path.write_text(bak_content)
+
+    # Migration summary
+    console.print()
+    console.print(
+        Panel(
+            "[bold]Migrating config from v1 to v2[/bold]\n\n"
+            "Your previous config used type-based groups (skills/agents/hooks/packages).\n"
+            "The new installer uses bundles. Your selections have been mapped:\n\n"
+            f"  skills.impeccable → bundles.frontend  ({v2['bundles']['frontend']})\n"
+            f"  skills.cli        → bundles.cli        ({v2['bundles']['cli']})\n"
+            f"  skills.memory     → bundles.memory     ({v2['bundles']['memory']})\n"
+            f"  agents.engineering → bundles.engineering ({v2['bundles']['engineering']})\n"
+            f"  agents.core       → bundles.extra-agents ({v2['bundles']['extra-agents']})\n\n"
+            "[bold]Force-installed (base bundle — non-negotiable in v2):[/bold]\n"
+            "  - All mine.* skills (including former research and issues skills)\n"
+            "  - 8 base agents: code-reviewer, integration-reviewer, wtf-reviewer,\n"
+            "    researcher, llm-checker, lazy-checker, nitpicker, issue-refiner\n"
+            "  - Packages: spec-helper, merge-settings\n"
+            "  - All rules, hooks, bin scripts, commands\n\n"
+            f"v1 config backed up to: [dim]{bak_path}[/dim]",
+            border_style="yellow",
+            title="Config Migration",
+        )
+    )
+
+    return v2
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -961,6 +1048,16 @@ def main() -> int:
             return 0
 
         saved = load_config(cfg_path)
+
+        # Migrate v1 config to v2 before any further processing.
+        # On --dry-run, transform purely (no backup write, no summary panel) so
+        # the no-changes contract holds; the real migration runs on a live install.
+        if saved is not None and saved.get("version") == 1:
+            if args.dry_run:
+                saved = migrate_v1_to_v2(saved)
+            else:
+                saved = _migrate_and_backup(saved, cfg_path)
+
         original_saved = saved
 
         if args.reconfigure or saved is None:

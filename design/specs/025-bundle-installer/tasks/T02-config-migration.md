@@ -1,7 +1,7 @@
 ---
 task_id: "T02"
 title: "Add v1 to v2 config migration"
-status: "planned"
+status: "done"
 depends_on: ["T01"]
 implements: ["FR#5", "AC#2"]
 ---

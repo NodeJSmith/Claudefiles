@@ -1347,3 +1347,393 @@ class TestCapabilitiesFiles:
             )
 
         assert not (claude_dir / "rules" / "common" / "capabilities-cli.md").exists()
+
+
+# ---------------------------------------------------------------------------
+# Config migration tests (v1 → v2)
+# ---------------------------------------------------------------------------
+
+
+V1_ALL_SELECTED = {
+    "version": 1,
+    "skills": {
+        "core": True,
+        "impeccable": True,
+        "cli": True,
+        "memory": True,
+    },
+    "agents": {
+        "core": True,
+        "engineering": True,
+        "memory": True,
+    },
+    "packages": {
+        "spec-helper": True,
+        "merge-settings": True,
+        "claude-memory": True,
+        "ado-api": True,
+    },
+    "hooks": {
+        "all": True,
+    },
+}
+
+V1_NONE_SELECTED = {
+    "version": 1,
+    "skills": {
+        "core": False,
+        "impeccable": False,
+        "cli": False,
+        "memory": False,
+    },
+    "agents": {
+        "core": False,
+        "engineering": False,
+        "memory": False,
+    },
+    "packages": {
+        "spec-helper": False,
+        "merge-settings": False,
+        "claude-memory": False,
+        "ado-api": False,
+    },
+    "hooks": {
+        "all": False,
+    },
+}
+
+
+class TestMigrateV1ToV2:
+    def test_all_selected_maps_all_bundles_true(self) -> None:
+        result = install.migrate_v1_to_v2(V1_ALL_SELECTED)
+        assert result["version"] == 2
+        bundles = result["bundles"]
+        assert bundles["frontend"] is True
+        assert bundles["cli"] is True
+        assert bundles["memory"] is True
+        assert bundles["engineering"] is True
+        assert bundles["extra-agents"] is True
+
+    def test_none_selected_maps_all_bundles_false(self) -> None:
+        result = install.migrate_v1_to_v2(V1_NONE_SELECTED)
+        bundles = result["bundles"]
+        assert bundles["frontend"] is False
+        assert bundles["cli"] is False
+        assert bundles["memory"] is False
+        assert bundles["engineering"] is False
+        assert bundles["extra-agents"] is False
+
+    def test_partial_impeccable_only(self) -> None:
+        v1 = {
+            "version": 1,
+            "skills": {"core": True, "impeccable": True, "cli": False, "memory": False},
+            "agents": {"core": False, "engineering": False, "memory": False},
+            "packages": {},
+        }
+        result = install.migrate_v1_to_v2(v1)
+        bundles = result["bundles"]
+        assert bundles["frontend"] is True
+        assert bundles["cli"] is False
+        assert bundles["memory"] is False
+        assert bundles["engineering"] is False
+        assert bundles["extra-agents"] is False
+
+    def test_agents_core_deselected_extra_agents_false(self) -> None:
+        """agents.core=False → extra-agents=False (base agents still install)."""
+        v1 = {
+            "version": 1,
+            "skills": {},
+            "agents": {"core": False, "engineering": False},
+            "packages": {},
+        }
+        result = install.migrate_v1_to_v2(v1)
+        assert result["bundles"]["extra-agents"] is False
+
+    def test_agents_core_selected_extra_agents_true(self) -> None:
+        """agents.core=True → extra-agents=True."""
+        v1 = {
+            "version": 1,
+            "skills": {},
+            "agents": {"core": True, "engineering": False},
+            "packages": {},
+        }
+        result = install.migrate_v1_to_v2(v1)
+        assert result["bundles"]["extra-agents"] is True
+
+    def test_skills_core_false_does_not_affect_bundles(self) -> None:
+        """skills.core=False is ignored; base always installs (no bundle for it)."""
+        v1 = {
+            "version": 1,
+            "skills": {
+                "core": False,
+                "impeccable": False,
+                "cli": False,
+                "memory": False,
+            },
+            "agents": {},
+            "packages": {},
+        }
+        result = install.migrate_v1_to_v2(v1)
+        # No bundle key for 'base' in the v2 bundles section (base is always_installed)
+        assert "base" not in result["bundles"]
+
+    def test_ado_api_preserved_true(self) -> None:
+        v1 = {"version": 1, "skills": {}, "agents": {}, "packages": {"ado-api": True}}
+        result = install.migrate_v1_to_v2(v1)
+        assert result["packages"]["ado-api"] is True
+
+    def test_ado_api_preserved_false(self) -> None:
+        v1 = {"version": 1, "skills": {}, "agents": {}, "packages": {"ado-api": False}}
+        result = install.migrate_v1_to_v2(v1)
+        assert result["packages"]["ado-api"] is False
+
+    def test_ado_api_missing_defaults_false(self) -> None:
+        v1 = {"version": 1, "skills": {}, "agents": {}, "packages": {}}
+        result = install.migrate_v1_to_v2(v1)
+        assert result["packages"]["ado-api"] is False
+
+    def test_missing_v1_fields_default_false(self) -> None:
+        """Completely empty v1 config → all optional bundles false."""
+        result = install.migrate_v1_to_v2({"version": 1})
+        for key in ("frontend", "cli", "memory", "engineering", "extra-agents"):
+            assert result["bundles"][key] is False
+        assert result["packages"]["ado-api"] is False
+
+    def test_result_is_v2_format(self) -> None:
+        """Result has version, bundles, and packages keys."""
+        result = install.migrate_v1_to_v2(V1_ALL_SELECTED)
+        assert set(result.keys()) == {"version", "bundles", "packages"}
+
+    def test_is_pure_no_io(self, tmp_path: Path) -> None:
+        """migrate_v1_to_v2 must not write any files."""
+        import os
+
+        files_before = set(os.listdir(tmp_path))
+        install.migrate_v1_to_v2(V1_ALL_SELECTED)
+        files_after = set(os.listdir(tmp_path))
+        assert files_before == files_after
+
+
+class TestLoadConfigReturnsV1:
+    def test_v1_config_returned_for_migration(self, tmp_path: Path) -> None:
+        """load_config must return the raw dict for v1 config (not None)."""
+        cfg_path = tmp_path / install.CONFIG_FILENAME
+        v1_data = {"version": 1, "skills": {"core": True}}
+        cfg_path.write_text(json.dumps(v1_data))
+        result = install.load_config(cfg_path)
+        assert result is not None
+        assert result["version"] == 1
+
+    def test_unknown_version_still_returns_none(self, tmp_path: Path) -> None:
+        """load_config returns None for truly unknown versions (e.g. 999)."""
+        cfg_path = tmp_path / install.CONFIG_FILENAME
+        cfg_path.write_text(json.dumps({"version": 999}))
+        assert install.load_config(cfg_path) is None
+
+
+class TestAllSelectedConfigHasPackages:
+    def test_packages_key_present(self, tmp_path: Path) -> None:
+        """_all_selected_config must include a packages section."""
+        _setup_minimal_repo(tmp_path)
+        cfg = install._all_selected_config(tmp_path)
+        assert "packages" in cfg
+
+    def test_ado_api_default_false(self, tmp_path: Path) -> None:
+        """ado-api defaults to False in fresh all-selected config."""
+        _setup_minimal_repo(tmp_path)
+        cfg = install._all_selected_config(tmp_path)
+        assert cfg["packages"]["ado-api"] is False
+
+
+class TestMigrationMainFlow:
+    """Test main() detects v1 config, migrates, backs up, and saves v2."""
+
+    def _write_v1_config(self, cfg_path: Path, v1_data: dict) -> None:
+        cfg_path.write_text(json.dumps(v1_data))
+
+    def test_v1_config_triggers_migration(self, tmp_path: Path) -> None:
+        """When main() sees a v1 config, it must migrate and save v2."""
+        claude_dir = tmp_path / "claude_home"
+        claude_dir.mkdir()
+        repo = _minimal_repo(tmp_path)
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
+
+        cfg_path = install.config_path(claude_dir)
+        v1 = {
+            "version": 1,
+            "skills": {"core": True, "impeccable": True, "cli": False, "memory": False},
+            "agents": {"core": True, "engineering": False},
+            "packages": {"ado-api": False},
+        }
+        self._write_v1_config(cfg_path, v1)
+
+        saved_configs: list[dict] = []
+
+        def capture_save(path, data):
+            saved_configs.append(data)
+
+        mock_do_install = MagicMock(return_value=0)
+        with (
+            patch("sys.argv", ["install.py"]),
+            patch("install._is_git_worktree", return_value=False),
+            patch("install.do_install", mock_do_install),
+            patch("install.save_config", side_effect=capture_save),
+            patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
+            patch("install.sys") as mock_sys,
+        ):
+            mock_sys.stdin.isatty.return_value = False
+            mock_sys.exit = sys.exit
+            with patch.object(install, "__file__", str(repo / "install.py")):
+                result = install.main()
+
+        assert result == 0
+        # save_config must have been called with v2 data
+        assert len(saved_configs) == 1
+        assert saved_configs[0]["bundles"]["frontend"] is True
+        assert saved_configs[0]["bundles"]["extra-agents"] is True
+
+    def test_v1_backup_written(self, tmp_path: Path) -> None:
+        """Backup file .claudefiles-install-config.v1.json.bak must be written."""
+        claude_dir = tmp_path / "claude_home"
+        claude_dir.mkdir()
+        repo = _minimal_repo(tmp_path)
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
+
+        cfg_path = install.config_path(claude_dir)
+        v1 = {
+            "version": 1,
+            "skills": {"core": True, "impeccable": False, "cli": False, "memory": True},
+            "agents": {"core": False, "engineering": True},
+            "packages": {"ado-api": True},
+        }
+        self._write_v1_config(cfg_path, v1)
+
+        mock_do_install = MagicMock(return_value=0)
+        with (
+            patch("sys.argv", ["install.py"]),
+            patch("install._is_git_worktree", return_value=False),
+            patch("install.do_install", mock_do_install),
+            patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
+            patch("install.sys") as mock_sys,
+        ):
+            mock_sys.stdin.isatty.return_value = False
+            mock_sys.exit = sys.exit
+            with patch.object(install, "__file__", str(repo / "install.py")):
+                install.main()
+
+        bak_path = claude_dir / ".claudefiles-install-config.v1.json.bak"
+        assert bak_path.exists(), "Backup file must be written"
+        bak_data = json.loads(bak_path.read_text())
+        assert bak_data["version"] == 1
+        assert bak_data["packages"]["ado-api"] is True
+
+    def test_v1_backup_is_raw_v1_data(self, tmp_path: Path) -> None:
+        """Backup must contain original v1 content, not v2."""
+        claude_dir = tmp_path / "claude_home"
+        claude_dir.mkdir()
+        repo = _minimal_repo(tmp_path)
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
+
+        cfg_path = install.config_path(claude_dir)
+        v1 = {"version": 1, "skills": {"core": True}, "agents": {}, "packages": {}}
+        self._write_v1_config(cfg_path, v1)
+
+        mock_do_install = MagicMock(return_value=0)
+        with (
+            patch("sys.argv", ["install.py"]),
+            patch("install._is_git_worktree", return_value=False),
+            patch("install.do_install", mock_do_install),
+            patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
+            patch("install.sys") as mock_sys,
+        ):
+            mock_sys.stdin.isatty.return_value = False
+            mock_sys.exit = sys.exit
+            with patch.object(install, "__file__", str(repo / "install.py")):
+                install.main()
+
+        bak_path = claude_dir / ".claudefiles-install-config.v1.json.bak"
+        bak_data = json.loads(bak_path.read_text())
+        # Must NOT have been stamped with version=2 by save_config
+        assert bak_data["version"] == 1
+        assert "bundles" not in bak_data
+
+    def test_v2_config_not_migrated(self, tmp_path: Path) -> None:
+        """A valid v2 config must not trigger migration."""
+        claude_dir = tmp_path / "claude_home"
+        claude_dir.mkdir()
+        repo = _minimal_repo(tmp_path)
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
+
+        cfg_path = install.config_path(claude_dir)
+        v2 = {
+            "bundles": {
+                "frontend": False,
+                "cli": False,
+                "memory": False,
+                "engineering": False,
+                "extra-agents": False,
+            },
+            "packages": {"ado-api": False},
+        }
+        install.save_config(cfg_path, v2)
+
+        mock_do_install = MagicMock(return_value=0)
+        with (
+            patch("sys.argv", ["install.py"]),
+            patch("install._is_git_worktree", return_value=False),
+            patch("install.do_install", mock_do_install),
+            patch("install.save_config"),
+            patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
+            patch("install.sys") as mock_sys,
+        ):
+            mock_sys.stdin.isatty.return_value = False
+            mock_sys.exit = sys.exit
+            with patch.object(install, "__file__", str(repo / "install.py")):
+                install.main()
+
+        bak_path = claude_dir / ".claudefiles-install-config.v1.json.bak"
+        assert not bak_path.exists(), "No backup should be written for v2 config"
+
+    def test_dry_run_v1_writes_no_backup_and_no_save(self, tmp_path: Path) -> None:
+        """--dry-run with a v1 config must not write the backup or save config."""
+        claude_dir = tmp_path / "claude_home"
+        claude_dir.mkdir()
+        repo = _minimal_repo(tmp_path)
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
+
+        cfg_path = install.config_path(claude_dir)
+        v1 = {
+            "version": 1,
+            "skills": {"core": True, "impeccable": True, "cli": False, "memory": False},
+            "agents": {"core": True, "engineering": False},
+            "packages": {"ado-api": False},
+        }
+        self._write_v1_config(cfg_path, v1)
+
+        mock_do_install = MagicMock(return_value=0)
+        mock_save = MagicMock()
+        with (
+            patch("sys.argv", ["install.py", "--dry-run"]),
+            patch("install._is_git_worktree", return_value=False),
+            patch("install.do_install", mock_do_install),
+            patch("install.save_config", mock_save),
+            patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
+            patch("install.sys") as mock_sys,
+        ):
+            mock_sys.stdin.isatty.return_value = False
+            mock_sys.exit = sys.exit
+            with patch.object(install, "__file__", str(repo / "install.py")):
+                result = install.main()
+
+        assert result == 0
+        bak_path = claude_dir / ".claudefiles-install-config.v1.json.bak"
+        assert not bak_path.exists(), "--dry-run must not write the v1 backup"
+        mock_save.assert_not_called()
+        mock_do_install.assert_not_called()
+        # The original v1 config on disk must be untouched.
+        assert json.loads(cfg_path.read_text())["version"] == 1
