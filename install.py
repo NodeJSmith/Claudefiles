@@ -547,6 +547,23 @@ def _get_installed_packages() -> set[str]:
         return set()
 
 
+def _is_ado_repo(repo_dir: Path) -> bool:
+    """Return True if the repo at repo_dir uses Azure DevOps (via git-platform)."""
+    try:
+        result = subprocess.run(
+            [str(repo_dir / "bin" / "git-platform")],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            cwd=repo_dir,
+        )
+        if result.returncode != 0:
+            return False
+        return result.stdout.strip() == "ado"
+    except (FileNotFoundError, PermissionError, subprocess.TimeoutExpired):
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Wizard
 # ---------------------------------------------------------------------------
@@ -578,7 +595,23 @@ def run_wizard(
         {k: presel.get(k, False) for k in opt},
     )
 
-    return {"bundles": bundle_selections}
+    # ADO standalone package: offer only when git-platform detects Azure DevOps.
+    # When not detected, preserve any existing saved value unchanged.
+    prev_packages = (preselected or {}).get("packages", {})
+    if _is_ado_repo(repo_dir):
+        prev_ado = prev_packages.get("ado-api", False)
+        ado_answer = questionary.confirm(
+            "This repo uses Azure DevOps. Install ado-api?",
+            default=prev_ado,
+        ).ask()
+        if ado_answer is None:
+            print("Aborted.")
+            sys.exit(1)
+        packages = {"ado-api": ado_answer}
+    else:
+        packages = {"ado-api": prev_packages.get("ado-api", False)}
+
+    return {"bundles": bundle_selections, "packages": packages}
 
 
 def _ask_checkbox(
@@ -776,6 +809,24 @@ def do_install(
                 if dest.is_symlink() and is_owned_by(dest, repo_dir):
                     dest.unlink()
 
+    # Standalone packages (ado-api): install/uninstall from config["packages"]
+    pkg_cfg = config.get("packages", {})
+    prev_pkg_cfg = (prev_config or {}).get("packages", {})
+    if pkg_cfg.get("ado-api"):
+        if "ado-api" not in installed_pkgs:
+            console.print("  Installing package: ado-api...")
+            ok, detail = install_package(repo_dir, "ado-api")
+            if not ok:
+                console.print("  [red]Failed to install ado-api[/red]")
+                if detail:
+                    console.print(f"  [dim]{detail}[/dim]")
+                errors += 1
+    elif prev_pkg_cfg.get("ado-api"):
+        console.print("  Uninstalling deselected package: ado-api...")
+        ok, detail = uninstall_package("ado-api")
+        if not ok and detail:
+            console.print(f"  [yellow]Warning: {detail}[/yellow]")
+
     # Handle shadowed files
     if shadowed:
         console.print(
@@ -880,6 +931,11 @@ def do_uninstall(repo_dir: Path, claude_dir: Path, cfg: dict) -> None:
         if bundle_cfg.get(bundle_key):
             pkgs_to_uninstall.extend(bundle.packages)
 
+    # Add standalone packages flagged true in cfg["packages"] (e.g. ado-api)
+    for pkg_name, enabled in cfg.get("packages", {}).items():
+        if enabled:
+            pkgs_to_uninstall.append(pkg_name)
+
     if not pkgs_to_uninstall and not cfg.get("bundles"):
         console.print(
             "  [yellow]No config file found. Package uninstall skipped. "
@@ -939,6 +995,24 @@ def _print_dry_run(
             status = "[dim]skip[/dim]"
 
         console.print(f"  {bundle.label}: {status}")
+
+    # Standalone packages (ado-api)
+    pkg_cfg = config.get("packages", {})
+    if pkg_cfg:
+        prev_pkg_cfg = (prev_config or {}).get("packages", {})
+        console.print()
+        console.print("[bold]Standalone packages:[/bold]")
+        for pkg_name, selected in pkg_cfg.items():
+            was_selected = prev_pkg_cfg.get(pkg_name) if prev_config else None
+            if selected and was_selected is False:
+                status = "[green]install (new)[/green]"
+            elif selected:
+                status = "[green]install[/green]"
+            elif was_selected:
+                status = "[red]remove[/red]"
+            else:
+                status = "[dim]skip[/dim]"
+            console.print(f"  {pkg_name}: {status}")
 
 
 # ---------------------------------------------------------------------------
@@ -1038,6 +1112,9 @@ def main() -> int:
                     if bundle.always_installed or bundle_cfg.get(bundle_key):
                         for pkg in bundle.packages:
                             console.print(f"  Package: {pkg}")
+                for pkg_name, enabled in cfg.get("packages", {}).items():
+                    if enabled:
+                        console.print(f"  Package: {pkg_name}")
                 if not cfg.get("bundles"):
                     console.print(
                         "  [yellow]No config — packages would need manual uninstall[/yellow]"
