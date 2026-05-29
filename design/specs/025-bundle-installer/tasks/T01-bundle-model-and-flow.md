@@ -62,6 +62,7 @@ Adapt `tests/test_install.py` so the suite is green against the bundle model (se
 - **CI does not lint `install.py`** — `.github/workflows/test.yml` runs `ruff check packages/ tests/` only. Keep `install.py` clean anyway (the repo's Python rules apply), but know that only the test suite gates it in CI.
 - Test command (from `.github/workflows/test.yml`): `timeout 300 uv run --with pytest --with python-frontmatter --with rich --with questionary --find-links packages/spec-helper pytest tests/ -v`.
 - The base skill list is derived, not hand-enumerated: glob `skills/*/` and exclude `mine.wp`. Hand-listing risks drift. Source of truth for the base agent set is FR#1's 8 names.
+- **`_all_selected_config` is intentionally incomplete after this task.** Return `{"version": 2, "bundles": {...}}` with NO `packages` key — the `packages` section is introduced in T02 (config) and wired to behavior in T03 (ado-api). Do not add a `packages` key here; T02 extends this function.
 
 ## Verify
 - [ ] FR#1: `BUNDLES` has one `always_installed` base bundle containing all `skills/*` dirs except `mine.wp`, the 8 FR#1 agents, and packages `spec-helper` + `merge-settings`; `do_install` symlinks them with no prompt.

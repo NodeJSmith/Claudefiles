@@ -1,7 +1,7 @@
 # Design: Onboarding and Incremental Adoption
 
 **Date:** 2026-05-29
-**Status:** draft (challenged)
+**Status:** approved
 **Scope-mode:** hold
 
 ## Problem
