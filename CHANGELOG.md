@@ -5,11 +5,11 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-05-29
 
 ### Added
-- Bundle-based installer — base always installs (full pipeline), single checkbox prompt for optional bundles (Frontend, CLI, Memory, Engineering, Extra Agents); v1 config migrates automatically
-- ONBOARDING.md and REFERENCE.md — adoption guide with three paths (Pick and Choose, Full Pipeline, Everything) and full component reference tables moved from README
+- Bundle-based installer — base always installs (full pipeline), single checkbox prompt for optional bundles (Frontend, CLI, Memory, Engineering, Extra Agents); v1 config migrates automatically (#325)
+- ONBOARDING.md and REFERENCE.md — adoption guide with three paths (Pick and Choose, Full Pipeline, Everything) and full component reference tables moved from README (#325)
 
 ### Changed
-- README trimmed to project description, install, and pointers to ONBOARDING.md
+- README trimmed to project description, install, and pointers to ONBOARDING.md (#325)
 
 ## 2026-05-28
 
