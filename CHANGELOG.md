@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-05-29
 
 ### Added
-- `subagent-compaction-check.sh` hook — detects when subagents auto-compact mid-task and warns the orchestrator with pre/post token counts
+- `subagent-compaction-check.sh` hook — detects when subagents auto-compact mid-task and warns the orchestrator with pre/post token counts (#324)
 
 ## 2026-05-28
 
