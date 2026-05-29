@@ -1,7 +1,7 @@
 # Design: Onboarding and Incremental Adoption
 
 **Date:** 2026-05-29
-**Status:** approved
+**Status:** archived
 **Scope-mode:** hold
 
 ## Problem
