@@ -51,7 +51,7 @@ The base is enough. `/mine.brainstorm` runs four parallel thinkers and ranks ide
 The base is enough. `/mine.create-issue` creates codebase-aware issues with acceptance criteria. `/mine.issues-triage` batch-triages open issues with parallel agents that read the code, not just titles. Included in base.
 
 **"I want frontend design help"**
-Add the **Frontend** bundle. You get 19 Impeccable skills for UI audit (`/i-audit`), layout (`/i-layout`), typography (`/i-typeset`), color systems (`/i-colorize`), and more. Start with `/i-teach-impeccable` to set up design context, then pick the skill that matches your current problem.
+Add the **Frontend** bundle. You get the Impeccable UI design skills for audit (`/i-audit`), layout (`/i-layout`), typography (`/i-typeset`), color systems (`/i-colorize`), and more. Start with `/i-teach-impeccable` to set up design context, then pick the skill that matches your current problem.
 
 **"I want help building CLI tools"**
 Add the **CLI** bundle. Six skills cover hardening, output formatting, discoverability, error messages, complexity reduction, and comprehensive auditing. Start with `/cli-audit` for an existing tool, or `/cli-affordances` when designing a new one.
@@ -63,7 +63,7 @@ Add the **Memory** bundle. Claude remembers corrections, architectural decisions
 Add the **Engineering** bundle. You get agents for FastAPI backends, PySpark pipelines, React/Vue/Angular frontends, SRE work (SLOs, observability), technical writing, and an adversarial pre-ship testing gate.
 
 **"I want architecture and QA agents"**
-Add the **Extra Agents** bundle. Architect produces Mermaid diagrams and high-level overviews. Planner breaks complex features into task files. QA Specialist finds defects adversarially. Visual Diff catches unintended UI changes via Playwright.
+Add the **Extra agents** bundle. Architect produces Mermaid diagrams and high-level overviews. Planner breaks complex features into task files. QA Specialist finds defects adversarially. Visual Diff catches unintended UI changes via Playwright.
 
 ---
 

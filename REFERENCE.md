@@ -124,7 +124,7 @@ Full component tables for Claudefiles. For context on what each component type d
 | `engineering-technical-writer` | Developer docs, API references, READMEs, tutorials that developers actually read |
 | `testing-reality-checker` | Adversarial pre-ship gate via Playwright MCP — defaults to "NEEDS WORK", requires visual evidence |
 
-### Extra Agents — Extra Agents bundle
+### Extra agents — Extra agents bundle
 
 | Agent | Description |
 |-------|-------------|

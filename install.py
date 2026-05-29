@@ -84,7 +84,7 @@ def get_bundles(repo_dir: Path) -> dict[str, Bundle]:
         ),
         "frontend": Bundle(
             label="Frontend design (i-*)",
-            description="UI design, responsive layout, accessibility, animations — 19 Impeccable skills",
+            description="Impeccable UI design skills: layout, responsive, accessibility, animations",
             skills=(
                 "i-adapt",
                 "i-animate",
@@ -1020,7 +1020,7 @@ def _print_dry_run(
 # ---------------------------------------------------------------------------
 
 
-def _migrate_and_backup(v1_config: dict, cfg_path: Path) -> dict:
+def _migrate_and_backup(v1_config: dict, cfg_path: Path, repo_dir: Path) -> dict:
     """Migrate a v1 config to v2, write a backup of the raw v1 data, and print a summary.
 
     Returns the migrated v2 dict. Does NOT call save_config — the caller does that
@@ -1028,6 +1028,9 @@ def _migrate_and_backup(v1_config: dict, cfg_path: Path) -> dict:
     """
     console = Console()
     v2 = migrate_v1_to_v2(v1_config)
+    base = get_bundles(repo_dir)["base"]
+    base_agents = ", ".join(base.agents)
+    base_packages = ", ".join(base.packages)
 
     # Write raw v1 backup BEFORE save_config touches anything
     bak_path = cfg_path.parent / (cfg_path.stem + ".v1.json.bak")
@@ -1048,9 +1051,8 @@ def _migrate_and_backup(v1_config: dict, cfg_path: Path) -> dict:
             f"  agents.core       → bundles.extra-agents ({v2['bundles']['extra-agents']})\n\n"
             "[bold]Force-installed (base bundle — non-negotiable in v2):[/bold]\n"
             "  - All mine.* skills (including former research and issues skills)\n"
-            "  - 8 base agents: code-reviewer, integration-reviewer, wtf-reviewer,\n"
-            "    researcher, llm-checker, lazy-checker, nitpicker, issue-refiner\n"
-            "  - Packages: spec-helper, merge-settings\n"
+            f"  - Base agents: {base_agents}\n"
+            f"  - Packages: {base_packages}\n"
             "  - All rules, hooks, bin scripts, commands\n\n"
             f"v1 config backed up to: [dim]{bak_path}[/dim]",
             border_style="yellow",
@@ -1133,7 +1135,7 @@ def main() -> int:
             if args.dry_run:
                 saved = migrate_v1_to_v2(saved)
             else:
-                saved = _migrate_and_backup(saved, cfg_path)
+                saved = _migrate_and_backup(saved, cfg_path, repo_dir)
 
         original_saved = saved
 
