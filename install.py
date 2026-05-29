@@ -726,7 +726,6 @@ def do_install(
         selected = bundle_cfg.get(bundle_key, False)
 
         if selected:
-            # Install skills
             for skill_name in bundle.skills:
                 try:
                     source = find_skill_source(skill_name, repo_dir)
@@ -741,7 +740,6 @@ def do_install(
                 ):
                     total_links += 1
 
-            # Install agents
             agents_dest.mkdir(parents=True, exist_ok=True)
             for agent_name in bundle.agents:
                 source = repo_dir / "agents" / f"{agent_name}.md"
@@ -751,7 +749,6 @@ def do_install(
                 ):
                     total_links += 1
 
-            # Install packages
             for pkg_name in bundle.packages:
                 if pkg_name in installed_pkgs:
                     continue
@@ -763,7 +760,6 @@ def do_install(
                         console.print(f"  [dim]{detail}[/dim]")
                     errors += 1
 
-            # Install capabilities files
             rules_common_dest.mkdir(parents=True, exist_ok=True)
             for cap_file in bundle.capabilities_files:
                 source = _find_capabilities_file(cap_file, repo_dir)
@@ -963,6 +959,17 @@ def do_uninstall(repo_dir: Path, claude_dir: Path, cfg: dict) -> None:
     console.print("[green]Claudefiles uninstalled.[/green]")
 
 
+def _dry_run_status(selected: bool, was_selected: bool | None) -> str:
+    """Format the install/remove/skip status for one item in the dry-run preview."""
+    if selected and was_selected is False:
+        return "[green]install (new)[/green]"
+    if selected:
+        return "[green]install[/green]"
+    if was_selected:
+        return "[red]remove[/red]"
+    return "[dim]skip[/dim]"
+
+
 def _print_dry_run(
     repo_dir: Path,
     config: dict,
@@ -984,17 +991,7 @@ def _print_dry_run(
     for key, bundle in opt.items():
         selected = bundle_cfg.get(key, False)
         was_selected = prev_bundle_cfg.get(key) if prev_config else None
-
-        if selected and was_selected is False:
-            status = "[green]install (new)[/green]"
-        elif selected:
-            status = "[green]install[/green]"
-        elif was_selected:
-            status = "[red]remove[/red]"
-        else:
-            status = "[dim]skip[/dim]"
-
-        console.print(f"  {bundle.label}: {status}")
+        console.print(f"  {bundle.label}: {_dry_run_status(selected, was_selected)}")
 
     # Standalone packages (ado-api)
     pkg_cfg = config.get("packages", {})
@@ -1004,15 +1001,7 @@ def _print_dry_run(
         console.print("[bold]Standalone packages:[/bold]")
         for pkg_name, selected in pkg_cfg.items():
             was_selected = prev_pkg_cfg.get(pkg_name) if prev_config else None
-            if selected and was_selected is False:
-                status = "[green]install (new)[/green]"
-            elif selected:
-                status = "[green]install[/green]"
-            elif was_selected:
-                status = "[red]remove[/red]"
-            else:
-                status = "[dim]skip[/dim]"
-            console.print(f"  {pkg_name}: {status}")
+            console.print(f"  {pkg_name}: {_dry_run_status(selected, was_selected)}")
 
 
 # ---------------------------------------------------------------------------
@@ -1156,7 +1145,7 @@ def main() -> int:
                 else:
                     cfg = _all_selected_config(repo_dir)
                     print(
-                        "Non-interactive mode: no saved config, installing all groups."
+                        "Non-interactive mode: no saved config, installing all bundles."
                     )
         else:
             opt_keys = list(optional_bundles(repo_dir).keys())
