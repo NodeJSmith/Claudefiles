@@ -8,6 +8,8 @@
 
 A PreToolUse hook (`context-tier.sh`) injects context usage tiers when they change and re-injects periodically (every 25 tool calls) to keep guidance fresh. Follow the guidance in those messages. When no tier message is present, do not invent context pressure — any unprompted claim about context usage ("building up," "getting low," suggesting compaction) is a fabrication.
 
+A PostToolUse hook (`subagent-compaction-check.sh`) reports when a subagent auto-compacted during execution. These messages are based on observed `compact_boundary` events in the subagent's JSONL, not inference. Treat them as a data point about task scope, not an alarm requiring immediate action.
+
 If you think a task should be split across sessions, justify it on *quality* grounds (complexity, focus), never context pressure.
 
 ## Haiku Disqualifiers
