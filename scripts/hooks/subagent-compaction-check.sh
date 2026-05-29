@@ -58,7 +58,6 @@ for agent_file in "$subagent_dir"/agent-*.jsonl; do
 
   filename="$(basename "$agent_file")"
 
-  # Skip if already reported
   grep -qF "$filename" "$reported_file" 2> /dev/null && continue
 
   # Python for the thousands-separator formatting ({pre:,}) that jq can't do
@@ -83,7 +82,6 @@ if events:
 
   [ -z "$stats" ] && continue
 
-  # Read agent description from the companion meta file
   meta_file="${agent_file%.jsonl}.meta.json"
   agent_desc="$filename"
   if [ -f "$meta_file" ]; then
