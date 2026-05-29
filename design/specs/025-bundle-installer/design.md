@@ -6,7 +6,7 @@
 
 ## Problem
 
-A colleague opens this repo and sees 58 skills, 20 agents, 40 rule files, and a README that is a reference catalog. There is no way to understand what matters, what to try first, or how to adopt pieces incrementally. The installer compounds this by presenting four separate wizard steps organized by component type (skills, agents, hooks, packages) — concepts that mean nothing to someone who hasn't used the system yet.
+A colleague opens this repo and sees 58 skills, 20 agents, 39 rule files, and a README that is a reference catalog. There is no way to understand what matters, what to try first, or how to adopt pieces incrementally. The installer compounds this by presenting four separate wizard steps organized by component type (skills, agents, hooks, packages) — concepts that mean nothing to someone who hasn't used the system yet.
 
 The repo's most valuable capability — the define → plan → orchestrate → ship pipeline — is invisible unless you already know to look for it. A colleague who could benefit from just the code review workflow has no path to install that without also getting 50 other things they don't understand yet.
 
@@ -77,23 +77,23 @@ The repo's most valuable capability — the define → plan → orchestrate → 
 
 ## Functional Requirements
 
-- **FR#1** The installer always installs the base bundle without prompting: 22 skills (build, define, plan, orchestrate, ship, commit-push, create-pr, address-pr-issues, review, clean-code, challenge, research, debug, gap-close, implementation-review, brainstorm, grill, prior-art, eval-repo, create-issue, issues-triage), 8 agents (code-reviewer, integration-reviewer, wtf-reviewer, researcher, llm-checker, lazy-checker, nitpicker, issue-refiner), spec-helper package, all rules, all bin scripts, all hooks, and all commands
+- **FR#1** The installer always installs the base bundle without prompting: all `mine.*` skills except the deprecated `mine.wp` (no `mine.*` skill belongs to an optional bundle — optional bundles are `i-*`, `cli-*`, and `cm-*` only), 8 agents (code-reviewer, integration-reviewer, wtf-reviewer, researcher, llm-checker, lazy-checker, nitpicker, issue-refiner), spec-helper and merge-settings packages, all rules, all bin scripts, all hooks, and all commands
 - **FR#2** The installer presents optional bundles in a single checkbox prompt, where each bundle includes its skills, agents, and packages as a unit
 - **FR#3** The optional bundles are: Frontend design (all i-* skills), CLI design (all cli-* skills), Memory (all cm-* skills, cm-memory-auditor and cm-signal-discoverer agents, claude-memory package), Engineering specialists (all engineering-* agents, testing-reality-checker agent), Extra agents (architect, planner, qa-specialist, visual-diff)
-- **FR#13** When `git-platform` detects Azure DevOps in the current repo, the installer offers `ado-api` as a standalone package install with a contextual prompt ("This repo uses Azure DevOps. Install ado-api?"). It is not a bundle — just a detected suggestion
+- **FR#13** When `git-platform` detects Azure DevOps in the current repo, the installer offers `ado-api` as a standalone package install with a contextual prompt ("This repo uses Azure DevOps. Install ado-api?"). It is not a bundle — just a detected suggestion. The choice is recorded in the config's `packages` section so `--reconfigure` pre-checks it and `do_uninstall` removes it
 - **FR#4** Deselecting an optional bundle removes its symlinks and uninstalls its packages
 - **FR#5** The installer detects a v1 config and migrates it to v2 format by mapping old selections to the closest bundle equivalents
 - **FR#6** The installer detects bundles added to the repo since the last install and prompts for them (existing smart-diff behavior, applied to bundles)
 - **FR#7** Non-interactive mode applies saved config or installs everything if no config exists (existing behavior preserved)
 - **FR#8** The `--dry-run` flag shows what would be installed per bundle (existing behavior adapted)
-- **FR#9** Standalone skills not belonging to any optional bundle (mutation-test, visual-qa, audit, decompose, worktree-rebase, write-skill, mockup, tool-gaps) are included in the base bundle. Research (brainstorm, grill, prior-art, eval-repo) and Issues (create-issue, issues-triage) skills are also in the base — they are core workflow, not specialized tooling
+- **FR#9** All `mine.*` skills install as part of the base — there is no "standalone vs core" distinction. This includes specialized tooling (mutation-test, visual-qa, audit, decompose, worktree-rebase, write-skill, mockup, tool-gaps), research (brainstorm, grill, prior-art, eval-repo), and issues (create-issue, issues-triage) skills; all are core workflow, not optional. The deprecated `mine.wp` is the sole exclusion — it redirects to `/mine.status` and is not installed
 - **FR#10** `capabilities-core.md` already lives in `rules/common/` and requires no relocation — it installs as part of the always-installed rules with no installer changes needed
 - **FR#11** An onboarding document (ONBOARDING.md) replaces the reference tables in README with a journey-oriented guide structured around user personas
 - **FR#12** README.md is trimmed to project description, install command, link to ONBOARDING.md, requirements, and license
 
 ## Edge Cases
 
-- User has v1 config with "core" agents deselected — migration must still install the 7 base agents since they're now mandatory. The migration summary should name which items are being force-installed so the user is informed, but no confirmation prompt is needed — the base bundle is the product's value proposition and is non-negotiable in v2
+- User has v1 config with "core" agents deselected — migration must still install the 8 base agents since they're now mandatory. The migration summary should name which items are being force-installed so the user is informed, but no confirmation prompt is needed — the base bundle is the product's value proposition and is non-negotiable in v2
 - User has v1 config with `skills.core = false` — migration installs base (now mandatory, includes former research and issues skills). User is informed via migration summary
 - Non-interactive mode with no config defaults to all bundles installed (existing behavior)
 - A bundle's package is already installed by another means (e.g., user manually `uv tool install`'d claude-memory) — installer skips without error (existing behavior via `_get_installed_packages`)
@@ -116,7 +116,7 @@ The repo's most valuable capability — the define → plan → orchestrate → 
 - **AC#9** README.md is under 50 lines (FR#12)
 - **AC#10** Running the installer after a new bundle is added to BUNDLES prompts the user for the new bundle only, preserving existing selections (FR#6)
 - **AC#11** Running the installer non-interactively with a v2 config applies saved bundle selections without prompting; with no config, installs all bundles (FR#7)
-- **AC#12** Skills not assigned to any optional bundle (mutation-test, visual-qa, audit, decompose, worktree-rebase, write-skill, mockup, tool-gaps) are present after a base-only install with no optional bundles selected (FR#9)
+- **AC#12** Every `mine.*` skill except `mine.wp` is present after a base-only install with no optional bundles selected; `mine.wp` is not symlinked (FR#9)
 - **AC#13** capabilities-core.md is present in rules/common/ regardless of bundle selections (FR#10)
 
 ## Key Constraints
@@ -126,7 +126,7 @@ The repo's most valuable capability — the define → plan → orchestrate → 
 
 ## Dependencies and Assumptions
 
-- Assumes `spec-helper` package is the only package needed by base skills (verified by dependency audit)
+- Assumes `spec-helper` and `merge-settings` are the only packages needed by the base (verified by dependency audit; `merge-settings` provides `claude-merge-settings`, core setup tooling)
 - Assumes all hooks are lightweight enough to always install (no user has requested granular hook selection)
 - `capabilities-core.md` already lives in `rules/common/` — no relocation needed
 - Several base skills assume GitHub CLI tooling (`gh-issue`, `gh-pr-create`, `gh-pr-threads`, `gh-pr-reply`). ADO support exists in some skills via `git-platform` detection but is incomplete. A platform audit is needed before colleagues on ADO can use the full pipeline. This audit is out of scope for this design — tracked separately
@@ -199,7 +199,7 @@ def create_symlink(
 The config file records **intent** — which bundles the user selected. It does not record filesystem state. Each operation derives what to do from `BUNDLES` + config:
 
 - **`do_install`**: for each bundle where `cfg["bundles"][key]` is true, iterate `BUNDLES[key].skills`, `.agents`, `.packages`, `.capabilities_files` and create symlinks / install packages. Symlink creation is idempotent (re-linking an existing symlink is safe), so re-running after a crash converges to the correct state without special recovery logic.
-- **`do_uninstall`**: derive the full package list by iterating all bundles where `cfg["bundles"][key]` is true and collecting `.packages`. Also always include the base bundle's packages. Then uninstall each. Symlink removal uses the existing `remove_owned_symlinks` scan, which is config-independent.
+- **`do_uninstall`**: derive the full package list by iterating all bundles where `cfg["bundles"][key]` is true and collecting `.packages`. Also always include the base bundle's packages, and any package flagged true in `cfg["packages"]` (e.g. `ado-api`). Then uninstall each. Symlink removal uses the existing `remove_owned_symlinks` scan, which is config-independent.
 - **Config save timing**: save config **after** `do_install` completes successfully, not before. This ensures config always reflects completed state. If the installer crashes mid-install, the next run detects the stale config and re-applies. The current code saves before install (install.py:1075); this must change.
 
 ### Wizard changes
@@ -219,13 +219,18 @@ Version bumped from 1 to 2:
     "memory": true,
     "engineering": false,
     "extra-agents": false
+  },
+  "packages": {
+    "ado-api": false
   }
 }
 ```
 
+The `packages` section records standalone package choices that are not part of any bundle — currently just `ado-api` (FR#13). It is what lets `--reconfigure` pre-check a previously-installed standalone package and lets `do_uninstall` remove it. Bundle packages are never listed here; they are derived from `bundles` + `BUNDLES`.
+
 ### Config migration (v1 → v2)
 
-Migration is handled by a pure function `migrate_v1_to_v2(v1_config: dict) -> dict` that takes the raw v1 config and returns a v2-format dict. `load_config` stays pure (read-only). The main flow detects `version == 1`, calls `migrate_v1_to_v2`, backs up the v1 config to `.claudefiles-install-config.v1.json.bak`, then calls `save_config` with the v2 result. The backup path is included in the migration summary shown to the user.
+Migration is handled by a pure function `migrate_v1_to_v2(v1_config: dict) -> dict` that takes the raw v1 config and returns a v2-format dict. `load_config` stays pure (read-only). The main flow detects `version == 1`, calls `migrate_v1_to_v2`, backs up the v1 config to `.claudefiles-install-config.v1.json.bak`, then calls `save_config` with the v2 result. The backup path is included in the migration summary shown to the user. Note: the current `CONFIG_VERSION` comment at install.py:26 documents the opposite strategy ("bump = full re-wizard, no migration"); this design reverses that decision, so that comment must be updated to describe the migration path.
 
 Package names in `Bundle.packages` must exactly match their directory names under `packages/`. `install_package(repo_dir, pkg_name)` resolves `repo_dir / "packages" / pkg_name` directly, removing the need for `PACKAGE_DEFS` and `dir_name`.
 
@@ -241,7 +246,7 @@ The migration maps old selections to bundles:
 | `agents.core` | base agents (including issue-refiner) always installed; `extra-agents` = true if agents.core was true |
 | `agents.engineering` | `engineering` |
 | `agents.memory` | (covered by `memory` bundle) |
-| `packages.ado-api` | not migrated to a bundle — offered separately via ADO detection prompt |
+| `packages.ado-api` | v2 `packages.ado-api` (preserved if v1 had it true; otherwise offered separately via ADO detection prompt) |
 | `packages.claude-memory` | (covered by `memory` bundle) |
 | `packages.spec-helper` | base (always installed) |
 | `packages.merge-settings` | base (always installed) |
@@ -305,7 +310,7 @@ README.md keeps: project description (3 sentences), install section, link to ONB
 - `SkillGroup` dataclass and `SKILL_GROUPS` dict → replaced by `Bundle` dataclass and `BUNDLES` dict
 - `HookGroup` dataclass and `HOOK_GROUPS` dict → removed (hooks always installed)
 - `PackageDef` dataclass and `PACKAGE_DEFS` dict → packages declared inline in bundles; `install_package`/`uninstall_package` functions kept
-- `discover_agent_groups` and `_parse_agent_group` → removed (agents declared explicitly in bundles, not discovered from frontmatter)
+- `discover_agent_groups` and `_parse_agent_group` → removed (agents declared explicitly in bundles, not discovered from frontmatter); the now-vestigial `group:` frontmatter in every `agents/*.md` should be removed in the same change
 - `run_wizard` 4-prompt structure → replaced with single-prompt bundle selection
 - `do_install` category-based loop → replaced with bundle-based loop
 - `_preselected_keys` and `_all_selected_config` → simplified for bundle model
@@ -395,7 +400,7 @@ def create_symlinks_dir_level(
 
 ## Alternatives Considered
 
-**Plugin system**: Evaluated in this conversation. Rejected because rules can't be pluginized (40 rule files, the most valuable part of the repo), skill namespacing changes UX (`/mine.challenge` → `/claudefiles:mine.challenge`), and the system is premature for a repo that hasn't proven external adoption yet.
+**Plugin system**: Evaluated in this conversation. Rejected because rules can't be pluginized (39 rule files, the most valuable part of the repo), skill namespacing changes UX (`/mine.challenge` → `/claudefiles:mine.challenge`), and the system is premature for a repo that hasn't proven external adoption yet.
 
 **Per-skill selection**: Individual checkboxes for each of 58 skills. Rejected as too granular — users don't know which skills they need until they've used them. Bundles are the right level of abstraction.
 
@@ -431,6 +436,8 @@ No tests to remove — existing tests are adapted, not deleted.
 - **CHANGELOG.md** — entry for the installer redesign and onboarding doc
 
 ## Impact
+
+<!-- Gap check 2026-05-29: clean. Only code dependent on install.py internals is tests/test_install.py (already listed). Doc references (CLAUDE.md, README.md) already listed. FR#13 needs net-new bin/git-platform subprocess integration → T03 Focus. CI lints packages/ and tests/ only, not install.py → T01 Focus. -->
 
 ### Changed Files
 
