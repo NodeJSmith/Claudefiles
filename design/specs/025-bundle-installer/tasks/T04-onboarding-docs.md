@@ -1,7 +1,7 @@
 ---
 task_id: "T04"
 title: "Write ONBOARDING and REFERENCE docs, trim README"
-status: "planned"
+status: "done"
 depends_on: ["T01"]
 implements: ["FR#11", "FR#12", "AC#6", "AC#7", "AC#8", "AC#9"]
 ---
