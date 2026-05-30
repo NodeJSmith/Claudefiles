@@ -1,5 +1,6 @@
 """Tests for install.py core logic."""
 
+import io
 import itertools
 import json
 import os
@@ -9,6 +10,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from rich.console import Console
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -506,6 +508,20 @@ class TestBundleDependencyCompleteness:
 # ---------------------------------------------------------------------------
 
 
+def _write_rule_files(path: Path, content_map: dict[str, str] | None = None) -> None:
+    """Create every rules/common file declared in install.RULE_CATEGORIES.
+
+    Derived from the live category map so the fixture cannot drift from install.py.
+    content_map overrides the body of named files (used to plant cross-references).
+    """
+    common = path / "rules" / "common"
+    common.mkdir(parents=True, exist_ok=True)
+    overrides = content_map or {}
+    for category in install.RULE_CATEGORIES.values():
+        for fname in category.files:
+            (common / fname).write_text(overrides.get(fname, "rule"))
+
+
 def _setup_minimal_repo(path: Path) -> None:
     """Create a minimal repo directory structure for testing."""
     # Clear bundle cache so tests use this path
@@ -515,8 +531,7 @@ def _setup_minimal_repo(path: Path) -> None:
     (path / "skills" / "mine.build").mkdir(parents=True)
     (path / "skills" / "mine.build" / "SKILL.md").write_text("skill")
     (path / "agents").mkdir(parents=True)
-    (path / "rules" / "common").mkdir(parents=True)
-    (path / "rules" / "common" / "test.md").write_text("rule")
+    _write_rule_files(path)
 
 
 def _setup_full_repo(path: Path) -> None:
@@ -571,8 +586,7 @@ def _setup_full_repo(path: Path) -> None:
     (path / "scripts" / "hooks" / "pytest-guard.sh").write_text("#!/bin/bash")
     (path / "scripts" / "hooks" / "sudo-poll.sh").write_text("#!/bin/bash")
     # Rules
-    (path / "rules" / "common").mkdir(parents=True)
-    (path / "rules" / "common" / "test.md").write_text("rule")
+    _write_rule_files(path)
     # Commands
     (path / "commands" / "test-cmd").mkdir(parents=True)
 
@@ -670,13 +684,14 @@ class TestFullInstallFlow:
         assert (claude_dir / "scripts" / "hooks" / "sudo-poll.sh").is_symlink()
 
     def test_rules_always_installed(self, tmp_path: Path) -> None:
-        """Rules always install, including capabilities-core.md if present."""
+        """Core rules always install; a config without rule_categories installs all rules."""
         repo = tmp_path / "repo"
         claude_dir = tmp_path / "claude"
         _setup_full_repo(repo)
         install._BUNDLES_CACHE = None
         install._BUNDLES_REPO_DIR = None
 
+        # No rule_categories key → absence means "all selected" (backward compat).
         config = {"bundles": {k: False for k in install.optional_bundles(repo)}}
 
         with (
@@ -687,7 +702,13 @@ class TestFullInstallFlow:
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             install.do_install(repo, claude_dir, config, interactive=False)
 
-        assert (claude_dir / "rules" / "common" / "test.md").is_symlink()
+        common = claude_dir / "rules" / "common"
+        # Core files always present
+        for fname in install.RULE_CATEGORIES["core"].files:
+            assert (common / fname).is_symlink(), fname
+        # Optional files present too, since rule_categories was absent
+        assert (common / "python.md").is_symlink()
+        assert (common / "testing.md").is_symlink()
 
     def test_deselected_bundle_removes_symlinks(self, tmp_path: Path) -> None:
         """Deselecting a bundle removes its skill and agent symlinks."""
@@ -846,6 +867,183 @@ class TestFullInstallFlow:
 
 
 # ---------------------------------------------------------------------------
+# Rule category selection tests
+# ---------------------------------------------------------------------------
+
+
+def _run_rule_install(
+    repo: Path,
+    claude_dir: Path,
+    tmp_path: Path,
+    rule_categories: dict[str, bool],
+    *,
+    prev_config: dict | None = None,
+) -> None:
+    """Install with all optional bundles off and the given rule_categories selection."""
+    install._BUNDLES_CACHE = None
+    install._BUNDLES_REPO_DIR = None
+    config = {
+        "bundles": {k: False for k in install.optional_bundles(repo)},
+        "rule_categories": rule_categories,
+    }
+    with (
+        patch("install.install_package"),
+        patch("install._get_installed_packages", return_value=BASE_PACKAGES),
+        patch.object(Path, "home", return_value=tmp_path / "home"),
+    ):
+        (tmp_path / "home" / ".local" / "bin").mkdir(parents=True, exist_ok=True)
+        install.do_install(
+            repo, claude_dir, config, prev_config=prev_config, interactive=False
+        )
+
+
+class TestRuleCategories:
+    def test_categories_cover_every_rule_file(self) -> None:
+        """Every file in the real rules/common is mapped to exactly one category."""
+        repo = Path(__file__).resolve().parent.parent
+        actual = {p.name for p in (repo / "rules" / "common").glob("*.md")}
+        mapped = [f for c in install.RULE_CATEGORIES.values() for f in c.files]
+        assert len(mapped) == len(set(mapped)), "a rule file appears in two categories"
+        assert set(mapped) == actual, (
+            "RULE_CATEGORIES is out of sync with rules/common/; "
+            f"unmapped={actual - set(mapped)}, missing={set(mapped) - actual}"
+        )
+
+    def test_core_rules_always_install(self, tmp_path: Path) -> None:
+        """With every optional category off, core files install and optional ones don't."""
+        repo = tmp_path / "repo"
+        claude_dir = tmp_path / "claude"
+        _setup_full_repo(repo)
+
+        _run_rule_install(
+            repo,
+            claude_dir,
+            tmp_path,
+            {k: False for k in install.optional_rule_categories()},
+        )
+
+        common = claude_dir / "rules" / "common"
+        for fname in install.RULE_CATEGORIES["core"].files:
+            assert (common / fname).is_symlink(), fname
+        # A representative optional file from each of two categories is absent
+        assert not (common / "python.md").exists()
+        assert not (common / "testing.md").exists()
+
+    def test_selected_category_installs_files(self, tmp_path: Path) -> None:
+        """Selecting one category installs its files and leaves others uninstalled."""
+        repo = tmp_path / "repo"
+        claude_dir = tmp_path / "claude"
+        _setup_full_repo(repo)
+
+        selection = {k: False for k in install.optional_rule_categories()}
+        selection["testing"] = True
+        _run_rule_install(repo, claude_dir, tmp_path, selection)
+
+        common = claude_dir / "rules" / "common"
+        for fname in install.RULE_CATEGORIES["testing"].files:
+            assert (common / fname).is_symlink(), fname
+        # A file from an unselected category is absent
+        assert not (common / "python.md").exists()
+
+    def test_deselected_category_removes_files(self, tmp_path: Path) -> None:
+        """Deselecting a previously-installed category removes its owned symlinks."""
+        repo = tmp_path / "repo"
+        claude_dir = tmp_path / "claude"
+        _setup_full_repo(repo)
+
+        on = {k: False for k in install.optional_rule_categories()}
+        on["languages"] = True
+        _run_rule_install(repo, claude_dir, tmp_path, on)
+        common = claude_dir / "rules" / "common"
+        assert (common / "python.md").is_symlink()
+
+        off = {k: False for k in install.optional_rule_categories()}
+        _run_rule_install(
+            repo,
+            claude_dir,
+            tmp_path,
+            off,
+            prev_config={"bundles": {}, "rule_categories": on},
+        )
+        assert not (common / "python.md").exists()
+        # Core survives the deselection
+        assert (common / "interaction.md").is_symlink()
+
+    def test_deselect_preserves_unowned_rule_file(self, tmp_path: Path) -> None:
+        """A rule symlink owned by another repo is not removed when its category is off."""
+        repo = tmp_path / "repo"
+        claude_dir = tmp_path / "claude"
+        _setup_full_repo(repo)
+
+        common = claude_dir / "rules" / "common"
+        common.mkdir(parents=True)
+        other_repo = tmp_path / "other-repo"
+        other_repo.mkdir()
+        other_source = other_repo / "python.md"
+        other_source.write_text("other rule")
+        (common / "python.md").symlink_to(other_source)
+
+        _run_rule_install(
+            repo,
+            claude_dir,
+            tmp_path,
+            {k: False for k in install.optional_rule_categories()},
+        )
+
+        assert (common / "python.md").is_symlink()
+        assert install.is_owned_by(common / "python.md", repo) is False
+
+    def test_absent_rule_categories_means_all_selected(self) -> None:
+        """A config with no rule_categories key selects every optional category."""
+        keys = install.selected_rule_category_keys({"bundles": {}})
+        assert keys == set(install.optional_rule_categories())
+
+    def test_partial_rule_categories_treats_missing_as_off(self) -> None:
+        """A present-but-partial dict deselects categories not listed."""
+        keys = install.selected_rule_category_keys(
+            {"rule_categories": {"testing": True}}
+        )
+        assert keys == {"testing"}
+
+    def test_new_category_detected_against_saved_config(self) -> None:
+        """find_new_groups flags an optional category missing from the saved config."""
+        saved = {"rule_categories": {"testing": True}}
+        opt_keys = list(install.optional_rule_categories().keys())
+        new = install.find_new_groups(saved, "rule_categories", opt_keys)
+        assert "testing" not in new
+        assert "languages" in new
+
+    def test_warn_dangling_refs_fires(self, tmp_path: Path) -> None:
+        """A kept rule that references an uninstalled rule produces a warning."""
+        repo = tmp_path / "repo"
+        _write_rule_files(
+            repo,
+            {"refactoring-discipline.md": "Pin behavior first; see `testing.md`."},
+        )
+        buf = io.StringIO()
+        console = Console(file=buf, width=120)
+        # 'style' is selected (contains refactoring-discipline); 'testing' is not.
+        install.warn_dangling_rule_refs(repo, {"style"}, console)
+        out = buf.getvalue()
+        assert "refactoring-discipline.md" in out
+        assert "testing.md" in out
+
+    def test_warn_dangling_refs_silent_when_target_installed(
+        self, tmp_path: Path
+    ) -> None:
+        """No warning when the referenced rule's category is also selected."""
+        repo = tmp_path / "repo"
+        _write_rule_files(
+            repo,
+            {"refactoring-discipline.md": "Pin behavior first; see `testing.md`."},
+        )
+        buf = io.StringIO()
+        console = Console(file=buf, width=120)
+        install.warn_dangling_rule_refs(repo, {"style", "testing"}, console)
+        assert "refactoring-discipline.md" not in buf.getvalue()
+
+
+# ---------------------------------------------------------------------------
 # Package install / uninstall tests
 # ---------------------------------------------------------------------------
 
@@ -858,7 +1056,7 @@ def _minimal_repo(tmp_path: Path) -> Path:
     (repo / "skills" / "mine.build").mkdir(parents=True)
     (repo / "skills" / "mine.build" / "SKILL.md").write_text("skill")
     (repo / "agents").mkdir()
-    (repo / "rules" / "common").mkdir(parents=True)
+    _write_rule_files(repo)
     return repo
 
 

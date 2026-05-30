@@ -135,18 +135,21 @@ Full component tables for Claudefiles. For context on what each component type d
 
 ## Rules
 
-Coding guidelines in `rules/common/` that load automatically and shape how Claude writes code, grouped by area:
+Coding guidelines in `rules/common/` that load automatically and shape how Claude writes code. The installer groups them into **categories** you select at install time (see `RULE_CATEGORIES` in `install.py`). The **Core** category always installs and is never offered for deselection; every other category is opt-out (selected by default on a fresh install). Use `uv run install.py --reconfigure` to change selections.
 
-| Area | Rule files |
-|------|-----------|
-| Code structure & style | `coding-style`, `reader-load`, `laziness-protocol`, `invariants`, `subtract-first`, `redesign-from-first-principles`, `refactoring-discipline` |
-| Languages & frontend | `python`, `typescript`, `frontend`, `frontend-workflow` |
-| Workflow & collaboration | `agents`, `git-workflow`, `interaction`, `capabilities-core`, `performance` |
-| Planning & execution | `decomposition-discipline`, `outcome-oriented-execution`, `autonomous-run-discipline`, `exhaust-the-design-space`, `experience-first`, `build-the-lever`, `encode-lessons-in-structure` |
-| Testing & debugging | `testing`, `verification`, `debugging-discipline`, `performance-discipline` |
-| Reliability & security | `reliability`, `security`, `dependency-injection` |
-| Reviewing & authoring | `receiving-code-review`, `instruction-quality`, `eval-discipline`, `writing-quality` |
-| Environment & tooling | `bash-tools`, `command-output`, `sudo`, `tmux`, `worktrees` |
+| Category | Installer key | Rule files |
+|----------|---------------|-----------|
+| Core (always installed) | — | `capabilities-core`, `interaction`, `invariants`, `agents`, `performance`, `worktrees` |
+| Code structure & style | `style` | `coding-style`, `reader-load`, `laziness-protocol`, `subtract-first`, `redesign-from-first-principles`, `refactoring-discipline` |
+| Languages & frontend | `languages` | `python`, `typescript`, `frontend`, `frontend-workflow` |
+| Git workflow | `workflow` | `git-workflow` |
+| Planning & execution | `planning` | `decomposition-discipline`, `outcome-oriented-execution`, `autonomous-run-discipline`, `exhaust-the-design-space`, `experience-first`, `build-the-lever`, `encode-lessons-in-structure` |
+| Testing & debugging | `testing` | `testing`, `verification`, `debugging-discipline`, `performance-discipline` |
+| Reliability & security | `reliability` | `reliability`, `security`, `dependency-injection` |
+| Reviewing & authoring | `authoring` | `receiving-code-review`, `instruction-quality`, `eval-discipline`, `writing-quality` |
+| Environment & tooling | `environment` | `bash-tools`, `command-output`, `sudo`, `tmux` |
+
+Deselecting a category whose rules are referenced by a kept rule (e.g. `refactoring-discipline` points to `testing`) prints a warning but does not block — the references are prose pointers, not requirements.
 
 Optional bundle capabilities files (install with their bundle): `capabilities-impeccable.md` (Frontend), `capabilities-memory.md` (Memory), `capabilities-cli.md` (CLI).
 
