@@ -12,6 +12,7 @@ import argparse
 import fcntl
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -37,6 +38,14 @@ class Bundle:
     agents: tuple[str, ...] = ()
     packages: tuple[str, ...] = ()
     capabilities_files: tuple[str, ...] = ()
+    always_installed: bool = False
+
+
+@dataclass(frozen=True)
+class RuleCategory:
+    label: str
+    description: str
+    files: tuple[str, ...]
     always_installed: bool = False
 
 
@@ -157,6 +166,157 @@ def get_bundles(repo_dir: Path) -> dict[str, Bundle]:
 def optional_bundles(repo_dir: Path) -> dict[str, Bundle]:
     """Return only the optional (non-always-installed) bundles."""
     return {k: v for k, v in get_bundles(repo_dir).items() if not v.always_installed}
+
+
+# Rule categories group the files in rules/common/ so users can install only the
+# guidance they need. Categories mirror the "Rules" table in REFERENCE.md; the core
+# category is always installed and never offered for deselection. Keep these in sync
+# with rules/common/ and REFERENCE.md (the test suite asserts every file is mapped).
+RULE_CATEGORIES: dict[str, RuleCategory] = {
+    "core": RuleCategory(
+        label="Core (always installed)",
+        description="Capabilities routing, interaction style, invariants, agent dispatch, model selection, worktree safety",
+        files=(
+            "capabilities-core.md",
+            "interaction.md",
+            "invariants.md",
+            "agents.md",
+            "performance.md",
+            "worktrees.md",
+        ),
+        always_installed=True,
+    ),
+    "style": RuleCategory(
+        label="Code structure & style",
+        description="coding-style, reader-load, laziness, subtract-first, redesign, refactoring discipline",
+        files=(
+            "coding-style.md",
+            "reader-load.md",
+            "laziness-protocol.md",
+            "subtract-first.md",
+            "redesign-from-first-principles.md",
+            "refactoring-discipline.md",
+        ),
+    ),
+    "languages": RuleCategory(
+        label="Languages & frontend",
+        description="Python, TypeScript, frontend, frontend workflow conventions",
+        files=("python.md", "typescript.md", "frontend.md", "frontend-workflow.md"),
+    ),
+    "workflow": RuleCategory(
+        label="Git workflow",
+        description="Commit conventions, pre-commit review gate, branch and PR workflow",
+        files=("git-workflow.md",),
+    ),
+    "planning": RuleCategory(
+        label="Planning & execution",
+        description="Decomposition, outcome-oriented execution, autonomous runs, design exploration, experience-first, levers, encoding lessons",
+        files=(
+            "decomposition-discipline.md",
+            "outcome-oriented-execution.md",
+            "autonomous-run-discipline.md",
+            "exhaust-the-design-space.md",
+            "experience-first.md",
+            "build-the-lever.md",
+            "encode-lessons-in-structure.md",
+        ),
+    ),
+    "testing": RuleCategory(
+        label="Testing & debugging",
+        description="Testing discipline, verification before completion, debugging, performance discipline",
+        files=(
+            "testing.md",
+            "verification.md",
+            "debugging-discipline.md",
+            "performance-discipline.md",
+        ),
+    ),
+    "reliability": RuleCategory(
+        label="Reliability & security",
+        description="Reliability patterns, security boundaries, dependency injection",
+        files=("reliability.md", "security.md", "dependency-injection.md"),
+    ),
+    "authoring": RuleCategory(
+        label="Reviewing & authoring",
+        description="Receiving code review, instruction quality, eval discipline, writing quality",
+        files=(
+            "receiving-code-review.md",
+            "instruction-quality.md",
+            "eval-discipline.md",
+            "writing-quality.md",
+        ),
+    ),
+    "environment": RuleCategory(
+        label="Environment & tooling",
+        description="Bash tool usage, command output capture, sudo handling, tmux conventions",
+        files=("bash-tools.md", "command-output.md", "sudo.md", "tmux.md"),
+    ),
+}
+
+
+def optional_rule_categories() -> dict[str, RuleCategory]:
+    """Return only the optional (non-always-installed) rule categories."""
+    return {k: v for k, v in RULE_CATEGORIES.items() if not v.always_installed}
+
+
+def selected_rule_category_keys(config: dict) -> set[str]:
+    """Return the optional rule category keys to install for this config.
+
+    A config with no ``rule_categories`` key predates rule selection, when all rules
+    were always installed — so absence means "all selected". A present-but-partial dict
+    treats any missing key as deselected (new categories are backfilled in main()).
+    """
+    opt = optional_rule_categories()
+    rule_cfg = config.get("rule_categories")
+    if rule_cfg is None:
+        return set(opt)
+    return {k for k in opt if rule_cfg.get(k, False)}
+
+
+# Matches backtick-quoted rule filenames in prose (e.g. `testing.md`). Rule files are
+# kebab-case, so the character class is [a-z-]; a non-rule match is dropped by the
+# all_rule_files membership check below.
+_RULE_REF_RE = re.compile(r"`([a-z][a-z-]+\.md)`")
+
+
+def warn_dangling_rule_refs(
+    repo_dir: Path, selected_rule_keys: set[str], console: Console
+) -> None:
+    """Warn when an installed optional rule points to a rule that won't be installed.
+
+    These references are prose pointers ("see `testing.md`"), not imports, so a missing
+    target degrades guidance but never breaks behavior — hence warn, not block. Only
+    selected optional files are scanned as sources: invariants.md (core) indexes nearly
+    every rule by design, so scanning core files would warn on almost any deselection.
+    """
+    all_rule_files = {f for c in RULE_CATEGORIES.values() for f in c.files}
+    installed = set(RULE_CATEGORIES["core"].files)
+    for key in selected_rule_keys:
+        installed.update(RULE_CATEGORIES[key].files)
+
+    common = repo_dir / "rules" / "common"
+    dangling: list[tuple[str, str]] = []
+    for key in sorted(selected_rule_keys):
+        for fname in RULE_CATEGORIES[key].files:
+            try:
+                text = (common / fname).read_text()
+            except OSError:
+                continue
+            for ref in sorted(set(_RULE_REF_RE.findall(text))):
+                if ref in all_rule_files and ref != fname and ref not in installed:
+                    dangling.append((fname, ref))
+
+    if not dangling:
+        return
+    lines = "\n".join(f"  {src} → {ref}" for src, ref in dangling)
+    console.print(
+        Panel(
+            "Some installed rules reference rules you didn't install. They'll still work — "
+            "the references are pointers, not requirements:\n\n" + lines,
+            border_style="yellow",
+            title="Rule cross-references",
+        )
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -576,8 +736,8 @@ def run_wizard(
     console.print(
         Panel(
             "[bold]Claudefiles Installer[/bold]\n\n"
-            "The base bundle (pipeline workflow, code review, rules, hooks) always installs.\n"
-            "Select optional add-ons below. Use arrow keys to move,\n"
+            "The base bundle (pipeline workflow, code review, core rules, hooks) always installs.\n"
+            "Select optional bundles and rule categories below. Use arrow keys to move,\n"
             "space to toggle, and enter to confirm.",
             border_style="blue",
         )
@@ -591,7 +751,22 @@ def run_wizard(
         {k: presel.get(k, False) for k in opt},
     )
 
-    return {"bundles": bundle_selections}
+    # Rule categories default ON for a fresh install (preselected is None) to preserve
+    # the prior all-rules behavior; users opt out of what they don't want. On
+    # --reconfigure, the saved selections (backfilled to all-on for pre-#334 configs)
+    # drive the checkboxes.
+    opt_rules = optional_rule_categories()
+    if preselected is None:
+        presel_rules: dict[str, bool] = {k: True for k in opt_rules}
+    else:
+        presel_rules = preselected.get("rule_categories", {})
+    rule_selections = _ask_checkbox(
+        "Select rule categories to install (core rules always install):",
+        {k: f"{c.label} — {c.description}" for k, c in opt_rules.items()},
+        {k: presel_rules.get(k, False) for k in opt_rules},
+    )
+
+    return {"bundles": bundle_selections, "rule_categories": rule_selections}
 
 
 def _ask_checkbox(
@@ -614,10 +789,10 @@ def _ask_checkbox(
 
 
 def _all_selected_config(repo_dir: Path) -> dict:
-    """Return config with all optional bundles selected."""
-    opt = optional_bundles(repo_dir)
+    """Return config with all optional bundles and rule categories selected."""
     return {
-        "bundles": {k: True for k in opt},
+        "bundles": {k: True for k in optional_bundles(repo_dir)},
+        "rule_categories": {k: True for k in optional_rule_categories()},
     }
 
 
@@ -646,14 +821,42 @@ def do_install(
     agents_dest = claude_dir / "agents"
     rules_common_dest = claude_dir / "rules" / "common"
 
-    # Always-installed: rules (file-level), learned (file-level), bin (dir-level),
+    # Rules (file-level): core category always installs; optional categories install
+    # when selected and have their owned symlinks removed when deselected. This replaces
+    # the former bulk symlink of all of rules/common/ (see issue #334).
+    rules_common_src = repo_dir / "rules" / "common"
+    selected_rule_keys = selected_rule_category_keys(config)
+    rules_common_dest.mkdir(parents=True, exist_ok=True)
+    for key, category in RULE_CATEGORIES.items():
+        keep = category.always_installed or key in selected_rule_keys
+        for fname in category.files:
+            dest = rules_common_dest / fname
+            if keep:
+                source = rules_common_src / fname
+                if not source.exists():
+                    console.print(
+                        f"  [yellow]Warning: rule file not found: {fname}[/yellow]"
+                    )
+                    continue
+                if create_symlink(
+                    source, dest, repo_dir=repo_dir, shadowed_out=shadowed
+                ):
+                    total_links += 1
+            elif dest.is_symlink() and is_owned_by(dest, repo_dir):
+                dest.unlink()
+    warn_dangling_rule_refs(repo_dir, selected_rule_keys, console)
+
+    # rules/ contains only common/ today; the category logic above covers it. Surface
+    # any other subdir loudly rather than silently dropping it from the install.
+    for sub in sorted((repo_dir / "rules").iterdir()):
+        if sub.is_dir() and sub.name != "common" and not sub.name.startswith("."):
+            console.print(
+                f"  [yellow]Warning: rules/{sub.name}/ not installed — only "
+                f"rules/common/ is handled. Add it to install.py.[/yellow]"
+            )
+
+    # Always-installed: learned (file-level), bin (dir-level),
     # commands (dir-level), hooks (bulk dir symlink — always in v2)
-    total_links += create_symlinks_file_level(
-        repo_dir / "rules",
-        claude_dir / "rules",
-        repo_dir=repo_dir,
-        shadowed_out=shadowed,
-    )
     total_links += create_symlinks_file_level(
         repo_dir / "learned",
         claude_dir / "learned",
@@ -929,7 +1132,7 @@ def _print_dry_run(
     console = Console()
     console.print("\n[bold]Dry run — no changes will be made[/bold]\n")
     console.print(
-        "[bold]Always installed:[/bold] base bundle, rules, learned, bin, commands, hooks"
+        "[bold]Always installed:[/bold] base bundle, core rules, learned, bin, commands, hooks"
     )
     console.print()
     console.print("[bold]Optional bundles:[/bold]")
@@ -942,6 +1145,18 @@ def _print_dry_run(
         selected = bundle_cfg.get(key, False)
         was_selected = prev_bundle_cfg.get(key) if prev_config else None
         console.print(f"  {bundle.label}: {_dry_run_status(selected, was_selected)}")
+
+    console.print()
+    console.print("[bold]Rule categories:[/bold]")
+
+    selected_rule_keys = selected_rule_category_keys(config)
+    prev_rule_keys = (
+        selected_rule_category_keys(prev_config) if prev_config is not None else None
+    )
+    for key, category in optional_rule_categories().items():
+        selected = key in selected_rule_keys
+        was_selected = (key in prev_rule_keys) if prev_rule_keys is not None else None
+        console.print(f"  {category.label}: {_dry_run_status(selected, was_selected)}")
 
 
 # ---------------------------------------------------------------------------
@@ -1063,6 +1278,14 @@ def main() -> int:
             else:
                 saved = _migrate_and_backup(saved, cfg_path, repo_dir)
 
+        # Backfill rule_categories for configs predating rule selection (issue #334):
+        # those installs had every rule, so absence means "all selected".
+        if saved is not None and "rule_categories" not in saved:
+            saved = {
+                **saved,
+                "rule_categories": {k: True for k in optional_rule_categories()},
+            }
+
         original_saved = saved
 
         if args.reconfigure or saved is None:
@@ -1082,38 +1305,67 @@ def main() -> int:
                 else:
                     cfg = _all_selected_config(repo_dir)
                     print(
-                        "Non-interactive mode: no saved config, installing all bundles."
+                        "Non-interactive mode: no saved config, installing all bundles and rule categories."
                     )
         else:
             opt_keys = list(optional_bundles(repo_dir).keys())
+            opt_rule_keys = list(optional_rule_categories().keys())
             new_bundles = find_new_groups(saved, "bundles", opt_keys)
+            new_rule_cats = find_new_groups(saved, "rule_categories", opt_rule_keys)
 
-            if new_bundles and interactive:
-                print(
-                    f"Found new bundles not in your config: {len(new_bundles)} bundle(s)"
-                )
-                opt = optional_bundles(repo_dir)
+            if (new_bundles or new_rule_cats) and interactive:
                 new_bundle_selections: dict[str, bool] = {}
-                for key in new_bundles:
-                    bundle = opt[key]
-                    answer = questionary.confirm(
-                        f"Install {bundle.label}?", default=False
-                    ).ask()
-                    if answer is None:
-                        print("Aborted.")
-                        sys.exit(1)
-                    new_bundle_selections[key] = answer
+                if new_bundles:
+                    print(
+                        f"Found new bundles not in your config: {len(new_bundles)} bundle(s)"
+                    )
+                    opt = optional_bundles(repo_dir)
+                    for key in new_bundles:
+                        answer = questionary.confirm(
+                            f"Install {opt[key].label}?", default=False
+                        ).ask()
+                        if answer is None:
+                            print("Aborted.")
+                            sys.exit(1)
+                        new_bundle_selections[key] = answer
+
+                new_rule_selections: dict[str, bool] = {}
+                if new_rule_cats:
+                    print(
+                        f"Found new rule categories not in your config: {len(new_rule_cats)}"
+                    )
+                    opt_rules = optional_rule_categories()
+                    for key in new_rule_cats:
+                        # Rule categories are opt-out: default new ones ON, matching the
+                        # non-interactive branch and the fresh-install wizard default.
+                        answer = questionary.confirm(
+                            f"Install rules: {opt_rules[key].label}?", default=True
+                        ).ask()
+                        if answer is None:
+                            print("Aborted.")
+                            sys.exit(1)
+                        new_rule_selections[key] = answer
+
+                # version is stamped by save_config, so drop it from the merged config.
                 saved = {
                     **{k: v for k, v in saved.items() if k != "version"},
                     "bundles": {**saved.get("bundles", {}), **new_bundle_selections},
+                    "rule_categories": {
+                        **saved.get("rule_categories", {}),
+                        **new_rule_selections,
+                    },
                 }
-            elif new_bundles:
-                # Non-interactive: default new bundles to True (install all)
+            elif new_bundles or new_rule_cats:
+                # Non-interactive: default new groups to True (install all)
                 saved = {
                     **{k: v for k, v in saved.items() if k != "version"},
                     "bundles": {
                         **saved.get("bundles", {}),
                         **{k: True for k in new_bundles},
+                    },
+                    "rule_categories": {
+                        **saved.get("rule_categories", {}),
+                        **{k: True for k in new_rule_cats},
                     },
                 }
             else:

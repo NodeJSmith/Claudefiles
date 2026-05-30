@@ -16,7 +16,7 @@ cd ~/Claudefiles
 uv run install.py
 ```
 
-The base (pipeline workflow) always installs. On a first install the wizard asks which optional bundles you want. Re-running later applies your saved selections silently and only prompts for bundles added since last time. Use `--reconfigure` to change selections, or `--uninstall` to remove everything.
+The base (pipeline workflow) always installs. On a first install the wizard asks which optional bundles you want, then which rule categories to install. Re-running later applies your saved selections silently and only prompts for bundles or rule categories added since last time. Use `--reconfigure` to change selections, or `--uninstall` to remove everything.
 
 ## Key Concepts
 
@@ -160,13 +160,15 @@ The result is a consistent development environment that works the same way every
 
 ## Customizing
 
+**Choosing rule categories** — every rule in `rules/common/` loads into Claude's context each session, so the installer lets you install only the categories you need. A small **Core** set (capabilities routing, interaction style, invariants, agent dispatch, model selection, worktree safety) always installs. Everything else — language conventions, testing discipline, planning rules, and so on — is grouped into opt-out categories: selected by default, but you can drop the ones that don't fit your stack (a Python-only user might skip nothing, a backend-only user might drop frontend rules). Run `uv run install.py --reconfigure` to change the selection. If a rule you keep references one you dropped, the installer warns but installs anyway — the references are pointers, not hard dependencies. See the Rules table in [REFERENCE.md](REFERENCE.md) for the categories and their files.
+
 **Add your own rules** — drop a `.md` file straight into `~/.claude/rules/common/` and it loads automatically next session, no installer step. If you add it to the repo's `rules/common/` instead (so it's version-controlled), re-run `uv run install.py` to symlink it.
 
 **Add your own skills** — `/mine.write-skill` walks you through requirements, drafts the `SKILL.md`, validates a quality checklist, and wires the routing entry. The result lands in `skills/` ready to install.
 
 **Settings** — edit `settings.json` in the repo root, then run `claude-merge-settings` to write `~/.claude/settings.json`. It merges the repo's shared settings with a per-machine `~/.claude/settings.machine.json`, so each box can keep its own permissions, env vars, and hook tweaks without touching the version-controlled config. When you re-run the merge, it detects permissions you granted at runtime and offers to promote them into the machine file so they survive. Only the layers that actually exist are applied.
 
-**Removing things** — run `uv run install.py --reconfigure` and deselect the bundle. For individual rule files, delete the symlink from `~/.claude/rules/common/` or remove the source file.
+**Removing things** — run `uv run install.py --reconfigure` and deselect the bundle or rule category. For an individual rule file within a category you otherwise want, delete the symlink from `~/.claude/rules/common/` or remove the source file.
 
 ## Reference
 
