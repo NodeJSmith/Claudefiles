@@ -47,9 +47,6 @@ The base is enough. The full pipeline is `/mine.define` (produces a `design.md`)
 **"I want to brainstorm and challenge ideas"**
 The base is enough. `/mine.brainstorm` runs four parallel thinkers and ranks ideas. `/mine.grill` interrogates a rough idea across product, engineering, and adversarial lenses. `/mine.challenge` assumes your approach is wrong and argues for better. Included in base.
 
-**"I want to manage GitHub issues"**
-The base is enough. `/mine.create-issue` creates codebase-aware issues with acceptance criteria. `/mine.issues-triage` batch-triages open issues with parallel agents that read the code, not just titles. Included in base.
-
 **"I want frontend design help"**
 Add the **Frontend** bundle. You get the Impeccable UI design skills for audit (`/i-audit`), layout (`/i-layout`), typography (`/i-typeset`), color systems (`/i-colorize`), and more. Start with `/i-teach-impeccable` to set up design context, then pick the skill that matches your current problem.
 
@@ -57,7 +54,7 @@ Add the **Frontend** bundle. You get the Impeccable UI design skills for audit (
 Add the **CLI** bundle. Six skills cover hardening, output formatting, discoverability, error messages, complexity reduction, and comprehensive auditing. Start with `/cli-audit` for an existing tool, or `/cli-affordances` when designing a new one.
 
 **"I want conversation memory across sessions"**
-Add the **Memory** bundle. Claude remembers corrections, architectural decisions, and preferences across sessions. `/cm-extract-learnings` saves insights from the current session; `/cm-recall-conversations` searches past sessions.
+Add the **Memory** bundle. Claude remembers corrections, architectural decisions, and preferences across sessions. Every few sessions it nudges you to consolidate. Running `/cm-extract-learnings` then mines your recent sessions for new learnings and reconciles them against what's already saved, adding or updating memories as needed. You can also run it on demand. `/cm-recall-conversations` searches past sessions.
 
 **"I want domain-specific engineering agents"**
 Add the **Engineering** bundle. You get agents for FastAPI backends, PySpark pipelines, React/Vue/Angular frontends, SRE work (SLOs, observability), technical writing, and an adversarial pre-ship testing gate.
@@ -71,7 +68,7 @@ Add the **Extra agents** bundle. Architect produces Mermaid diagrams and high-le
 
 This is the workflow that makes Claude Code feel like a senior engineer on your team, not a code autocomplete. It takes 10–30 minutes to run end to end for a small feature.
 
-**Example:** adding an `--output-format` flag to a CLI tool.
+**Example:** adding rate limiting to a public API endpoint — a token-bucket limiter, per-key configuration, and `429` responses with retry headers.
 
 **Step 1: Sharpen the idea**
 
@@ -125,7 +122,7 @@ Commits, pushes, and opens a PR in one step. Picks up the right commit message f
 
 ---
 
-That's the full loop. For a small feature like the `--output-format` flag, the whole pipeline takes about 15 minutes of wall-clock time, most of it waiting for Claude to execute. You stay in the reviewer seat, not the implementer seat.
+That's the full loop. For a feature like rate limiting — limiter logic, config, request-handler integration, and tests across a few files — the pipeline takes 20–30 minutes of wall-clock time, most of it waiting for Claude to execute. You stay in the reviewer seat, not the implementer seat.
 
 ---
 
@@ -147,7 +144,7 @@ When you have all bundles installed, the system covers the full development life
 claude --worktree <branch>  → start a fresh Claude session in an isolated branch
 ```
 
-Each worktree gets its own context. Use `/mine.worktree-rebase` if the parent repo was on a feature branch when you created the worktree.
+Each worktree gets its own context, isolated from the main working tree.
 
 **Research before committing to a direction:**
 
@@ -163,11 +160,11 @@ The result is a consistent development environment that works the same way every
 
 ## Customizing
 
-**Own rules** — drop a `.md` file straight into `~/.claude/rules/common/` and it loads automatically next session, no installer step. If you add it to the repo's `rules/common/` instead (so it's version-controlled), re-run `uv run install.py` to symlink it.
+**Add your own rules** — drop a `.md` file straight into `~/.claude/rules/common/` and it loads automatically next session, no installer step. If you add it to the repo's `rules/common/` instead (so it's version-controlled), re-run `uv run install.py` to symlink it.
 
-**Own skills** — `/mine.write-skill` walks you through requirements, drafts the `SKILL.md`, validates a quality checklist, and wires the routing entry. The result lands in `skills/` ready to install.
+**Add your own skills** — `/mine.write-skill` walks you through requirements, drafts the `SKILL.md`, validates a quality checklist, and wires the routing entry. The result lands in `skills/` ready to install.
 
-**Settings** — edit `settings.json` in the repo root, then run `claude-merge-settings` to merge your repo settings with machine-specific overrides into `~/.claude/settings.json`.
+**Settings** — edit `settings.json` in the repo root, then run `claude-merge-settings` to write `~/.claude/settings.json`. It merges the repo's shared settings with a per-machine `~/.claude/settings.machine.json`, so each box can keep its own permissions, env vars, and hook tweaks without touching the version-controlled config. When you re-run the merge, it detects permissions you granted at runtime and offers to promote them into the machine file so they survive. Only the layers that actually exist are applied.
 
 **Removing things** — run `uv run install.py --reconfigure` and deselect the bundle. For individual rule files, delete the symlink from `~/.claude/rules/common/` or remove the source file.
 

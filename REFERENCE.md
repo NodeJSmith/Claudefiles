@@ -135,9 +135,9 @@ Full component tables for Claudefiles. For context on what each component type d
 
 ## Rules
 
-Coding guidelines in `rules/common/` that load automatically and shape how Claude writes code.
+Coding guidelines in `rules/common/` that load automatically and shape how Claude writes code. The rule files are:
 
-agents, autonomous-run-discipline, bash-tools, build-the-lever, capabilities-core, coding-style, command-output, debugging-discipline, decomposition-discipline, dependency-injection, encode-lessons-in-structure, eval-discipline, exhaust-the-design-space, experience-first, frontend, frontend-workflow, git-workflow, instruction-quality, interaction, invariants, laziness-protocol, outcome-oriented-execution, performance, performance-discipline, python, reader-load, receiving-code-review, redesign-from-first-principles, refactoring-discipline, reliability, security, subtract-first, sudo, testing, tmux, typescript, verification, worktrees, writing-quality
+`agents`, `autonomous-run-discipline`, `bash-tools`, `build-the-lever`, `capabilities-core`, `coding-style`, `command-output`, `debugging-discipline`, `decomposition-discipline`, `dependency-injection`, `encode-lessons-in-structure`, `eval-discipline`, `exhaust-the-design-space`, `experience-first`, `frontend`, `frontend-workflow`, `git-workflow`, `instruction-quality`, `interaction`, `invariants`, `laziness-protocol`, `outcome-oriented-execution`, `performance`, `performance-discipline`, `python`, `reader-load`, `receiving-code-review`, `redesign-from-first-principles`, `refactoring-discipline`, `reliability`, `security`, `subtract-first`, `sudo`, `testing`, `tmux`, `typescript`, `verification`, `worktrees`, `writing-quality`
 
 Optional bundle capabilities files (install with their bundle): `capabilities-impeccable.md` (Frontend), `capabilities-memory.md` (Memory), `capabilities-cli.md` (CLI).
 
