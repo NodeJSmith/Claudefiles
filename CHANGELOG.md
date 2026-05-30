@@ -7,6 +7,10 @@ All notable changes to this Claudefiles repository are documented here.
 ### Added
 - Installer rule-category selection — choose which `rules/common/` categories install instead of all 39 rules loading every session; a Core set always installs, the rest are opt-out (#344)
 
+### Fixed
+- `pytest-guard.sh` no longer false-positives on commands that mention "pytest" inside quoted strings (e.g., `grep 'pytest'`, `gh-issue create --title "..."`)
+- `pytest-guard.sh` now detects `timeout N uv run pytest` pattern correctly; removed unused `CLAUDE_PYTEST_TIMEOUT` env var
+
 ## 2026-05-29
 
 ### Added

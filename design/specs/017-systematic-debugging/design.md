@@ -222,7 +222,7 @@ PreToolUse hook on Bash that:
 5. Writes the updated counter atomically (write to `.tmp`, then `mv`)
 
 **Override mechanisms:**
-- `CLAUDE_PYTEST_LOOP_BYPASS=1` env var — if set, hook allows the run and resets the counter. Consistent with `CLAUDE_PYTEST_TIMEOUT` pattern in `pytest-guard.sh`.
+- `CLAUDE_PYTEST_LOOP_BYPASS=1` env var — if set, hook allows the run and resets the counter.
 - `pytest-loop-reset` bin script — clears the counter file. Pre-approved in settings.json. Gives users explicit control without knowing the counter file path.
 
 **Session key:** A SessionStart hook writes a UUID to `${CLAUDE_CODE_TMPDIR:-/tmp}/claude-pytest-loop-session.id`. Both the PreToolUse detector and PostToolUse reset hooks read this file to derive the counter file path. This avoids `$PPID` (which differs between PreToolUse and PostToolUse subprocess contexts) and `$CLAUDE_SESSION_ID` (which doesn't propagate to Bash tool calls per CLAUDE.md).

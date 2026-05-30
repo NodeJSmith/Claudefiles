@@ -51,9 +51,9 @@ A PreToolUse hook (`pytest-guard.sh`) denies any pytest invocation not wrapped w
 
 **Always run pytest as:** `timeout 300 pytest ...` (or `timeout 300 uv run pytest`, `timeout 300 python -m pytest`)
 
-The timeout value is resolved in order: `CLAUDE_PYTEST_TIMEOUT` env var → per-repo `.claude/pytest-guard.json` → default 300s.
+The hook strips quoted strings before matching, so commands that merely reference "pytest" inside quotes (e.g., `grep 'pytest' file`, `gh-issue create --title "pytest fix"`) are not denied.
 
-Per-repo config can also deny specific flags (e.g., `-n auto` on resource-constrained machines) or block all pytest invocations entirely (`deny_all: true`, e.g., for nox-based repos). See the hook header for config format.
+Per-repo config (`.claude/pytest-guard.json`) can deny specific flags (e.g., `-n auto` on resource-constrained machines) or block all pytest invocations entirely (`deny_all: true`, e.g., for nox-based repos). See the hook header for config format.
 
 ## Pytest Loop Detector
 

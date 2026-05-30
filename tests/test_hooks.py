@@ -19,6 +19,7 @@ RESET_HOOK = REPO_ROOT / "scripts" / "hooks" / "pytest-loop-reset.sh"
 STATUS_HOOK = REPO_ROOT / "scripts" / "hooks" / "pytest-loop-status.sh"
 BIN_RESET = REPO_ROOT / "bin" / "pytest-loop-reset"
 COMPACTION_HOOK = REPO_ROOT / "scripts" / "hooks" / "subagent-compaction-check.sh"
+GUARD_HOOK = REPO_ROOT / "scripts" / "hooks" / "pytest-guard.sh"
 
 
 def make_pretooluse_input(command: str, cwd: str = "/tmp") -> str:
@@ -1660,3 +1661,224 @@ class TestCompactionHookNoSubagentDir:
 
             assert result.returncode == 0
             assert result.stdout.strip() == ""
+
+
+# ---------------------------------------------------------------------------
+# pytest-guard.sh tests
+# ---------------------------------------------------------------------------
+
+
+def _run_guard(command: str, cwd: str = "/tmp") -> subprocess.CompletedProcess:
+    """Run pytest-guard.sh with a Bash command payload."""
+    stdin = json.dumps(
+        {"tool_name": "Bash", "tool_input": {"command": command}, "cwd": cwd}
+    )
+    env = os.environ.copy()
+    env.pop("CLAUDE_PYTEST_TIMEOUT", None)
+    return subprocess.run(
+        [str(GUARD_HOOK)],
+        input=stdin,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+
+def _guard_denies(result: subprocess.CompletedProcess) -> bool:
+    """Check if the guard hook denied the command."""
+    if not result.stdout.strip():
+        return False
+    output = json.loads(result.stdout)
+    return output["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
+def _guard_reason(result: subprocess.CompletedProcess) -> str:
+    """Extract the denial reason. Call only after asserting _guard_denies()."""
+    assert result.stdout.strip(), "No denial output — guard did not deny"
+    output = json.loads(result.stdout)
+    return output["hookSpecificOutput"]["permissionDecisionReason"]
+
+
+def _make_guard_repo(tmpdir: str, config: dict) -> str:
+    """Create a git repo with .claude/pytest-guard.json and return its path."""
+    repo = Path(tmpdir) / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", str(repo)], capture_output=True, check=True)
+    config_dir = repo / ".claude"
+    config_dir.mkdir()
+    (config_dir / "pytest-guard.json").write_text(json.dumps(config))
+    return str(repo)
+
+
+class TestGuardDeniesWithoutTimeout:
+    """Pytest invocations without timeout wrapper are denied."""
+
+    def test_bare_pytest(self):
+        result = _run_guard("pytest tests/")
+        assert _guard_denies(result)
+        assert "timeout" in _guard_reason(result)
+
+    def test_uv_run_pytest(self):
+        result = _run_guard("uv run pytest tests/")
+        assert _guard_denies(result)
+
+    def test_python_m_pytest(self):
+        result = _run_guard("python -m pytest tests/")
+        assert _guard_denies(result)
+
+    def test_poetry_run_pytest(self):
+        result = _run_guard("poetry run pytest tests/")
+        assert _guard_denies(result)
+
+    def test_chained_bare_pytest(self):
+        result = _run_guard("echo starting && pytest tests/")
+        assert _guard_denies(result)
+
+    def test_piped_bare_pytest(self):
+        result = _run_guard("echo foo | pytest --co -q")
+        assert _guard_denies(result)
+
+
+class TestGuardPassesWithTimeout:
+    """Pytest invocations with timeout wrapper pass."""
+
+    def test_timeout_pytest(self):
+        result = _run_guard("timeout 300 pytest tests/")
+        assert not _guard_denies(result)
+
+    def test_timeout_uv_run_pytest(self):
+        """Issue #256: timeout before runner must be detected."""
+        result = _run_guard("timeout 300 uv run pytest tests/ -x -v")
+        assert not _guard_denies(result)
+
+    def test_timeout_poetry_run_pytest(self):
+        result = _run_guard("timeout 300 poetry run pytest tests/")
+        assert not _guard_denies(result)
+
+    def test_timeout_python_m_pytest(self):
+        result = _run_guard("timeout 300 python -m pytest tests/")
+        assert not _guard_denies(result)
+
+    def test_timeout_uv_run_python_m_pytest(self):
+        result = _run_guard("timeout 300 uv run python -m pytest tests/")
+        assert not _guard_denies(result)
+
+    def test_env_var_prefix_with_timeout(self):
+        result = _run_guard("FOO=bar timeout 300 pytest tests/")
+        assert not _guard_denies(result)
+
+    def test_chained_with_timeout(self):
+        result = _run_guard("echo starting && timeout 300 pytest tests/")
+        assert not _guard_denies(result)
+
+
+class TestGuardIgnoresNonPytest:
+    """Commands that don't invoke pytest are ignored."""
+
+    def test_ls(self):
+        result = _run_guard("ls -la /tmp")
+        assert not _guard_denies(result)
+
+    def test_empty_command(self):
+        stdin = json.dumps({"tool_name": "Bash", "tool_input": {}, "cwd": "/tmp"})
+        env = os.environ.copy()
+        env.pop("CLAUDE_PYTEST_TIMEOUT", None)
+        result = subprocess.run(
+            [str(GUARD_HOOK)], input=stdin, capture_output=True, text=True, env=env
+        )
+        assert not _guard_denies(result)
+
+
+class TestGuardQuotedPytestNotDenied:
+    """Issue #333: pytest inside quoted strings must not trigger denial."""
+
+    def test_grep_single_quoted_pattern(self):
+        result = _run_guard("grep 'pytest' file.txt")
+        assert not _guard_denies(result)
+
+    def test_grep_alternation_in_quotes(self):
+        result = _run_guard("grep 'foo\\|pytest bar' file.txt")
+        assert not _guard_denies(result)
+
+    def test_rg_quoted_pattern(self):
+        result = _run_guard("rg 'pytest' src/")
+        assert not _guard_denies(result)
+
+    def test_gh_issue_title_double_quotes(self):
+        result = _run_guard('gh-issue create --title "pytest guard fix"')
+        assert not _guard_denies(result)
+
+    def test_echo_quoted_pytest(self):
+        result = _run_guard("echo 'run pytest now'")
+        assert not _guard_denies(result)
+
+    def test_quoted_pytest_plus_real_invocation_denied(self):
+        """Quoted ref is ignored but real bare pytest after && is still caught."""
+        result = _run_guard("echo 'pytest' && pytest tests/")
+        assert _guard_denies(result)
+
+    def test_quoted_pytest_plus_real_timeout_invocation_passes(self):
+        result = _run_guard("echo 'pytest' && timeout 300 pytest tests/")
+        assert not _guard_denies(result)
+
+
+class TestGuardDenyAll:
+    """Per-repo deny_all blocks all pytest invocations."""
+
+    def test_deny_all_blocks_with_timeout(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = _make_guard_repo(tmpdir, {"deny_all": True})
+            result = _run_guard("timeout 300 pytest tests/", cwd=repo)
+            assert _guard_denies(result)
+            assert "not allowed" in _guard_reason(result)
+
+    def test_deny_all_custom_reason(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = _make_guard_repo(
+                tmpdir, {"deny_all": True, "deny_reason": "Use nox instead"}
+            )
+            result = _run_guard("timeout 300 pytest tests/", cwd=repo)
+            assert _guard_denies(result)
+            assert "nox" in _guard_reason(result)
+
+    def test_deny_all_blocks_timeout_uv_run(self):
+        """Issue #256: deny_all must also catch timeout + runner pattern."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = _make_guard_repo(tmpdir, {"deny_all": True})
+            result = _run_guard("timeout 300 uv run pytest tests/", cwd=repo)
+            assert _guard_denies(result)
+
+
+class TestGuardDenyFlags:
+    """Per-repo deny_flags blocks specific flags."""
+
+    def test_denies_matching_flag(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = _make_guard_repo(
+                tmpdir,
+                {
+                    "deny_flags": ["-n auto"],
+                    "deny_reason": "Use -n 2 instead",
+                },
+            )
+            result = _run_guard("timeout 300 pytest -n auto tests/", cwd=repo)
+            assert _guard_denies(result)
+            assert "-n auto" in _guard_reason(result)
+
+    def test_passes_without_denied_flag(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = _make_guard_repo(
+                tmpdir, {"deny_flags": ["-n auto"], "deny_reason": "nope"}
+            )
+            result = _run_guard("timeout 300 pytest -n 2 tests/", cwd=repo)
+            assert not _guard_denies(result)
+
+
+class TestGuardNoTimeoutEnvVar:
+    """CLAUDE_PYTEST_TIMEOUT env var is no longer used."""
+
+    def test_denial_message_is_static(self):
+        result = _run_guard("pytest tests/")
+        reason = _guard_reason(result)
+        assert "CLAUDE_PYTEST_TIMEOUT" not in reason
+        assert "timeout 300" in reason

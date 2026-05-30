@@ -161,7 +161,7 @@ Event-driven scripts that run before/after tool calls.
 |------|-------|-------------|
 | `tmux-remind.sh` | SessionStart | Reminds Claude to rename the tmux session |
 | `sudo-poll.sh` | PreToolUse (Bash) | Deny-then-poll for sudo — detects cached credentials or waits 30s for user to `sudo -v` in another pane |
-| `pytest-guard.sh` | PreToolUse (Bash) | Deny bare pytest — requires `timeout` wrapper; per-repo config via `.claude/pytest-guard.json` for custom timeouts, flag denylist, or full block (`deny_all`) |
+| `pytest-guard.sh` | PreToolUse (Bash) | Deny bare pytest — requires `timeout` wrapper; per-repo config via `.claude/pytest-guard.json` for flag denylist or full block (`deny_all`) |
 | `pytest-loop-detector.sh` | PreToolUse (Bash) | Deny pytest after repeated failures: 3 consecutive runs without edits, or 8 total failures since last success — nudges to `/mine.debug` |
 | `pytest-loop-reset.sh` | PostToolUse (Edit/Write/MultiEdit/NotebookEdit) | Reset the no-edit pytest failure counter when code changes are made (total counter intentionally preserved) |
 | `pytest-loop-status.sh` | PostToolUse (Bash) | Record pytest exit code for loop detector failure tracking |
