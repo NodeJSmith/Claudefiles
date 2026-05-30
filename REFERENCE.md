@@ -135,9 +135,18 @@ Full component tables for Claudefiles. For context on what each component type d
 
 ## Rules
 
-Coding guidelines in `rules/common/` that load automatically and shape how Claude writes code. The rule files are:
+Coding guidelines in `rules/common/` that load automatically and shape how Claude writes code, grouped by area:
 
-`agents`, `autonomous-run-discipline`, `bash-tools`, `build-the-lever`, `capabilities-core`, `coding-style`, `command-output`, `debugging-discipline`, `decomposition-discipline`, `dependency-injection`, `encode-lessons-in-structure`, `eval-discipline`, `exhaust-the-design-space`, `experience-first`, `frontend`, `frontend-workflow`, `git-workflow`, `instruction-quality`, `interaction`, `invariants`, `laziness-protocol`, `outcome-oriented-execution`, `performance`, `performance-discipline`, `python`, `reader-load`, `receiving-code-review`, `redesign-from-first-principles`, `refactoring-discipline`, `reliability`, `security`, `subtract-first`, `sudo`, `testing`, `tmux`, `typescript`, `verification`, `worktrees`, `writing-quality`
+| Area | Rule files |
+|------|-----------|
+| Code structure & style | `coding-style`, `reader-load`, `laziness-protocol`, `invariants`, `subtract-first`, `redesign-from-first-principles`, `refactoring-discipline` |
+| Languages & frontend | `python`, `typescript`, `frontend`, `frontend-workflow` |
+| Workflow & collaboration | `agents`, `git-workflow`, `interaction`, `capabilities-core`, `performance` |
+| Planning & execution | `decomposition-discipline`, `outcome-oriented-execution`, `autonomous-run-discipline`, `exhaust-the-design-space`, `experience-first`, `build-the-lever`, `encode-lessons-in-structure` |
+| Testing & debugging | `testing`, `verification`, `debugging-discipline`, `performance-discipline` |
+| Reliability & security | `reliability`, `security`, `dependency-injection` |
+| Reviewing & authoring | `receiving-code-review`, `instruction-quality`, `eval-discipline`, `writing-quality` |
+| Environment & tooling | `bash-tools`, `command-output`, `sudo`, `tmux`, `worktrees` |
 
 Optional bundle capabilities files (install with their bundle): `capabilities-impeccable.md` (Frontend), `capabilities-memory.md` (Memory), `capabilities-cli.md` (CLI).
 
