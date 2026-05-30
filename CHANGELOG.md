@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-05-30
 
 ### Added
-- Installer rule-category selection — choose which `rules/common/` categories install instead of all 39 rules loading every session; a Core set always installs, the rest are opt-out
+- Installer rule-category selection — choose which `rules/common/` categories install instead of all 39 rules loading every session; a Core set always installs, the rest are opt-out (#344)
 
 ## 2026-05-29
 
