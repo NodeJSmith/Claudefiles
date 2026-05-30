@@ -522,6 +522,24 @@ def uninstall_package(pkg_name: str) -> tuple[bool, str]:
         return False, "uv not found — install via https://docs.astral.sh/uv/"
 
 
+def install_bundle_packages(
+    bundle: Bundle, installed_pkgs: set[str], repo_dir: Path, console: Console
+) -> int:
+    """Install a bundle's packages, skipping already-installed ones. Returns error count."""
+    errors = 0
+    for pkg_name in bundle.packages:
+        if pkg_name in installed_pkgs:
+            continue
+        console.print(f"  Installing package: {pkg_name}...")
+        ok, detail = install_package(repo_dir, pkg_name)
+        if not ok:
+            console.print(f"  [red]Failed to install {pkg_name}[/red]")
+            if detail:
+                console.print(f"  [dim]{detail}[/dim]")
+            errors += 1
+    return errors
+
+
 def _get_installed_packages() -> set[str]:
     """Return set of currently installed uv tool package names."""
     try:
@@ -658,7 +676,9 @@ def do_install(
         shadowed_out=shadowed,
     )
 
-    # Always-installed bundles: symlink skills and agents by name
+    installed_pkgs = _get_installed_packages()
+
+    # Always-installed bundles: symlink skills and agents by name, install packages
     for bundle in (b for b in bundles.values() if b.always_installed):
         for skill_name in bundle.skills:
             try:
@@ -679,8 +699,9 @@ def do_install(
             if create_symlink(source, dest, repo_dir=repo_dir, shadowed_out=shadowed):
                 total_links += 1
 
+        errors += install_bundle_packages(bundle, installed_pkgs, repo_dir, console)
+
     # Optional bundles: install selected, remove deselected
-    installed_pkgs = _get_installed_packages()
     bundle_cfg = config.get("bundles", {})
 
     for bundle_key, bundle in (b for b in bundles.items() if not b[1].always_installed):
@@ -710,16 +731,7 @@ def do_install(
                 ):
                     total_links += 1
 
-            for pkg_name in bundle.packages:
-                if pkg_name in installed_pkgs:
-                    continue
-                console.print(f"  Installing package: {pkg_name}...")
-                ok, detail = install_package(repo_dir, pkg_name)
-                if not ok:
-                    console.print(f"  [red]Failed to install {pkg_name}[/red]")
-                    if detail:
-                        console.print(f"  [dim]{detail}[/dim]")
-                    errors += 1
+            errors += install_bundle_packages(bundle, installed_pkgs, repo_dir, console)
 
             rules_common_dest.mkdir(parents=True, exist_ok=True)
             for cap_file in bundle.capabilities_files:
@@ -870,10 +882,10 @@ def do_uninstall(repo_dir: Path, claude_dir: Path, cfg: dict) -> None:
         if bundle_cfg.get(bundle_key):
             pkgs_to_uninstall.extend(bundle.packages)
 
-    if not pkgs_to_uninstall and not cfg.get("bundles"):
+    if "bundles" not in cfg:
         console.print(
-            "  [yellow]No config file found. Package uninstall skipped. "
-            "Run 'uv tool uninstall <name>' manually if needed.[/yellow]"
+            "  [yellow]No config file found — uninstalling base packages only. "
+            "Run 'uv tool uninstall <name>' for any optional-bundle packages.[/yellow]"
         )
 
     for pkg_name in pkgs_to_uninstall:
@@ -1031,9 +1043,9 @@ def main() -> int:
                     if bundle.always_installed or bundle_cfg.get(bundle_key):
                         for pkg in bundle.packages:
                             console.print(f"  Package: {pkg}")
-                if not cfg.get("bundles"):
+                if "bundles" not in cfg:
                     console.print(
-                        "  [yellow]No config — packages would need manual uninstall[/yellow]"
+                        "  [yellow]No config — optional-bundle packages are not shown and need manual uninstall[/yellow]"
                     )
                 console.print(f"  Config file: {cfg_path}")
                 return 0

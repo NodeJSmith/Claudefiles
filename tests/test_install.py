@@ -14,6 +14,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import install  # noqa: E402
 
+# Base bundle packages, derived from the live bundle definition so this value
+# cannot drift from install.py. Used as the already-installed set in tests not
+# concerned with package installation, so the always-installed package loop is a
+# no-op there.
+BASE_PACKAGES = frozenset(
+    install.get_bundles(Path(__file__).resolve().parent.parent)["base"].packages
+)
+
 
 # ---------------------------------------------------------------------------
 # Config tests
@@ -586,7 +594,7 @@ class TestFullInstallFlow:
 
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=set()),
+            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -621,7 +629,7 @@ class TestFullInstallFlow:
 
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=set()),
+            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -652,7 +660,7 @@ class TestFullInstallFlow:
 
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=set()),
+            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -673,7 +681,7 @@ class TestFullInstallFlow:
 
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=set()),
+            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -701,7 +709,7 @@ class TestFullInstallFlow:
         }
         with (
             patch("install.install_package", return_value=(True, "")),
-            patch("install._get_installed_packages", return_value=set()),
+            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -725,7 +733,7 @@ class TestFullInstallFlow:
         with (
             patch("install.install_package"),
             patch("install.uninstall_package", mock_uninstall),
-            patch("install._get_installed_packages", return_value=set()),
+            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             install.do_install(
@@ -769,7 +777,7 @@ class TestFullInstallFlow:
         }
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=set()),
+            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -803,7 +811,7 @@ class TestFullInstallFlow:
         }
         with (
             patch("install.install_package", return_value=(True, "")),
-            patch("install._get_installed_packages", return_value=set()),
+            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -824,7 +832,7 @@ class TestFullInstallFlow:
         }
         with (
             patch("install.install_package", return_value=(True, "")),
-            patch("install._get_installed_packages", return_value=set()),
+            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             install.do_install(
@@ -881,7 +889,10 @@ class TestPackageInstall:
         mock_install = MagicMock()
         with (
             patch("install.install_package", mock_install),
-            patch("install._get_installed_packages", return_value={"claude-memory"}),
+            patch(
+                "install._get_installed_packages",
+                return_value={"claude-memory"} | BASE_PACKAGES,
+            ),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -914,7 +925,7 @@ class TestPackageInstall:
         mock_install = MagicMock(return_value=(True, ""))
         with (
             patch("install.install_package", mock_install),
-            patch("install._get_installed_packages", return_value=set()),
+            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -951,7 +962,7 @@ class TestPackageInstall:
         with (
             patch("install.install_package"),
             patch("install.uninstall_package", mock_uninstall),
-            patch("install._get_installed_packages", return_value=set()),
+            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -984,13 +995,112 @@ class TestPackageInstall:
         with (
             patch("install.install_package"),
             patch("install.uninstall_package", mock_uninstall),
-            patch("install._get_installed_packages", return_value=set()),
+            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             install.do_install(repo, claude_dir, config, interactive=False)
 
         mock_uninstall.assert_not_called()
+
+    def test_base_packages_installed(self, tmp_path: Path) -> None:
+        """Base bundle packages install on a fresh run with nothing present."""
+        repo = _minimal_repo(tmp_path)
+        claude_dir = tmp_path / "claude"
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
+
+        config = {"bundles": dict.fromkeys(install.optional_bundles(repo), False)}
+        mock_install = MagicMock(return_value=(True, ""))
+        with (
+            patch("install.install_package", mock_install),
+            patch("install._get_installed_packages", return_value=set()),
+            patch.object(Path, "home", return_value=tmp_path / "home"),
+        ):
+            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
+            install.do_install(repo, claude_dir, config, interactive=False)
+
+        # install_package is called as install_package(repo_dir, pkg_name)
+        installed = [call.args[1] for call in mock_install.call_args_list]
+        assert sorted(installed) == sorted(install.get_bundles(repo)["base"].packages)
+
+    def test_base_package_failure_increments_errors(self, tmp_path: Path) -> None:
+        """A failed base-package install is counted in the returned error total."""
+        repo = _minimal_repo(tmp_path)
+        claude_dir = tmp_path / "claude"
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
+
+        config = {"bundles": dict.fromkeys(install.optional_bundles(repo), False)}
+        with (
+            patch("install.install_package", return_value=(False, "uv not found")),
+            patch("install._get_installed_packages", return_value=set()),
+            patch.object(Path, "home", return_value=tmp_path / "home"),
+        ):
+            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
+            errors = install.do_install(repo, claude_dir, config, interactive=False)
+
+        assert errors == len(install.get_bundles(repo)["base"].packages)
+
+    def test_base_packages_skip_only_already_present(self, tmp_path: Path) -> None:
+        """Only base packages missing from the installed set get (re)installed."""
+        repo = _minimal_repo(tmp_path)
+        claude_dir = tmp_path / "claude"
+        install._BUNDLES_CACHE = None
+        install._BUNDLES_REPO_DIR = None
+
+        base_pkgs = install.get_bundles(repo)["base"].packages
+        missing = base_pkgs[0]
+        already_present = set(base_pkgs[1:])
+
+        config = {"bundles": dict.fromkeys(install.optional_bundles(repo), False)}
+        mock_install = MagicMock(return_value=(True, ""))
+        with (
+            patch("install.install_package", mock_install),
+            patch("install._get_installed_packages", return_value=already_present),
+            patch.object(Path, "home", return_value=tmp_path / "home"),
+        ):
+            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
+            install.do_install(repo, claude_dir, config, interactive=False)
+
+        mock_install.assert_called_once_with(repo, missing)
+
+
+class TestDoUninstall:
+    def test_base_packages_uninstalled_without_config(self, tmp_path: Path) -> None:
+        """Even with no config, base bundle packages are uninstalled."""
+        repo = _minimal_repo(tmp_path)
+        claude_dir = tmp_path / "claude"
+        claude_dir.mkdir()
+
+        mock_uninstall = MagicMock(return_value=(True, ""))
+        with (
+            patch("install.uninstall_package", mock_uninstall),
+            patch.object(Path, "home", return_value=tmp_path / "home"),
+        ):
+            install.do_uninstall(repo, claude_dir, {})
+
+        # uninstall_package is called as uninstall_package(pkg_name)
+        uninstalled = {call.args[0] for call in mock_uninstall.call_args_list}
+        assert uninstalled == set(install.get_bundles(repo)["base"].packages)
+
+    def test_optional_packages_uninstalled_when_in_config(self, tmp_path: Path) -> None:
+        """Selected optional bundle packages uninstall alongside base packages."""
+        repo = _minimal_repo(tmp_path)
+        claude_dir = tmp_path / "claude"
+        claude_dir.mkdir()
+
+        cfg = {"bundles": {"memory": True}}
+        mock_uninstall = MagicMock(return_value=(True, ""))
+        with (
+            patch("install.uninstall_package", mock_uninstall),
+            patch.object(Path, "home", return_value=tmp_path / "home"),
+        ):
+            install.do_uninstall(repo, claude_dir, cfg)
+
+        uninstalled = {call.args[0] for call in mock_uninstall.call_args_list}
+        assert "claude-memory" in uninstalled
+        assert set(install.get_bundles(repo)["base"].packages) <= uninstalled
 
 
 # ---------------------------------------------------------------------------
@@ -1289,7 +1399,7 @@ class TestCapabilitiesFiles:
         }
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=set()),
+            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -1329,7 +1439,7 @@ class TestCapabilitiesFiles:
         }
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=set()),
+            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -1339,7 +1449,7 @@ class TestCapabilitiesFiles:
 
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=set()),
+            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             install.do_install(
