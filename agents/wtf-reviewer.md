@@ -1,6 +1,5 @@
 ---
 name: wtf-reviewer
-group: core
 model: sonnet
 description: Readability and maintainability reviewer — finds code that works but will confuse a developer reading it a month from now. Complements code-reviewer (correctness) and integration-reviewer (fit).
 tools: ["Read", "Grep", "Glob", "Bash"]

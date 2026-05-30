@@ -1,6 +1,5 @@
 ---
 name: lazy-checker
-group: core
 model: sonnet
 description: Deferred-debt and shortcut pattern detector — finds patterns of hasty code accumulation across a file or set of files. Complements llm-checker (training-bias patterns) and nitpicker (individual style instances). Use for code quality reviews focused on accumulated shortcuts and deferred cleanup.
 tools: ["Read", "Grep", "Glob", "Bash"]
