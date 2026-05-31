@@ -371,7 +371,7 @@ Write the design doc to `<feature_dir>/design.md`:
 
 ## Problem
 
-[What is broken, missing, or suboptimal — and why it matters now. Technology-agnostic.]
+[What is broken, missing, or suboptimal — and why it matters now. State the problem from the user's perspective.]
 
 ## Goals
 
@@ -405,7 +405,7 @@ Write the design doc to `<feature_dir>/design.md`:
 
 ## Acceptance Criteria
 
-- **AC#1** [Measurable, technology-agnostic criterion — independently verifiable]
+- **AC#1** [Measurable, observable outcome — independently verifiable]
 - **AC#2** [Each entry tests one outcome; map to one or more FR#N identifiers where relevant]
 
 ## Visual Artifacts
@@ -480,7 +480,7 @@ Write the design doc to `<feature_dir>/design.md`:
 ```
 
 **Rules for content:**
-- Problem, Goals, User Scenarios, Functional Requirements, Edge Cases, and Acceptance Criteria must be technology-agnostic — no technology names, database engines, library names, framework names, or API endpoint paths. Written for non-technical stakeholders
+- Requirements sections (Problem, Goals, User Scenarios, Functional Requirements, Edge Cases, Acceptance Criteria) describe observable behaviors — what the system does, not how it's built. Naming the domain is fine ("pytest", "webhook", "CLI flag"); dictating implementation steps is not ("use subprocess.Popen", "add a column to the X table")
 - Architecture, Replacement Targets, Migration, Alternatives, Test Strategy, Documentation Updates, and Impact contain implementation details
 - Architecture must reference existing code from the **Existing code leverage** table. For any sub-problem marked `Full — reuse as-is`, confirm reuse or justify diverging. For `Partial`, explain what was extended.
 
@@ -513,9 +513,9 @@ Populate each section from the research brief, discovery answers, and codebase r
 
 Validate the design doc against this 21-item checklist:
 
-1. No implementation details in Problem, Goals, User Scenarios, Functional Requirements, Edge Cases, or Acceptance Criteria sections — any technology name, database engine, library, framework, or API path in these sections is a FAIL
+1. Requirements sections describe observable behaviors — domain terms are fine; implementation steps (specific libraries, internal APIs, database operations) are a FAIL
 2. All requirements are testable and unambiguous
-3. Success criteria are measurable and technology-agnostic
+3. Success criteria are measurable and framed as outcomes, not implementation
 4. No `[NEEDS CLARIFICATION]` markers remain
 5. Edge cases are identified (at least one)
 6. Scope is clearly bounded
@@ -524,7 +524,7 @@ Validate the design doc against this 21-item checklist:
 9. All mandatory sections are completed (none empty)
 10. User scenarios cover the primary flow with named actors and step-by-step task flows (for moderate+ features)
 11. Functional requirements have clear acceptance criteria
-12. Problem-space sections written for non-technical stakeholders (no internal jargon)
+12. Requirements sections describe what the system does from the outside — a developer unfamiliar with the codebase can understand the requirement without reading the implementation
 13. All Functional Requirements have unique `FR#N` identifiers matching the format `FR#<positive integer>` — duplicate or missing identifiers are a FAIL
 14. All Acceptance Criteria have unique `AC#N` identifiers matching the format `AC#<positive integer>` — duplicate or missing identifiers are a FAIL
 15. Each Functional Requirement describes exactly one testable behavior — compound requirements bundling multiple behaviors into a single FR are a FAIL
