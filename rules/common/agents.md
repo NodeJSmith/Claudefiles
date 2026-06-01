@@ -62,3 +62,29 @@ Default to `Explore` unless the subagent needs to write files, run commands, or 
 ### Parallel Reviewer / Critic Pattern
 
 When launching 2+ independent reviewer or critic agents (e.g., code-reviewer + integration-reviewer, or the three challenge critics), issue multiple Agent tool calls in a **single message** so they run in parallel. Only set `run_in_background: true` if you're sure the agents won't need to ask the user questions or request additional file/command permissions.
+
+### Parallel Executor Isolation (CRITICAL)
+
+Reviewers and critics only read — they can safely share a working tree. **Executors that write files cannot.** When multiple executor subagents edit the same working directory simultaneously, their changes collide, pre-commit hooks destroy each other's work via stash/restore cycles, and git operations race on the shared index. This is a documented failure mode (pre-commit/pre-commit#176), not a theoretical risk.
+
+**The rule:** When launching 2+ subagents that **write files** in parallel, each must use `isolation: "worktree"`:
+
+```
+Agent({
+  prompt: "Implement issue #822...",
+  isolation: "worktree",
+})
+```
+
+Each agent gets its own git worktree — private HEAD, private index, private working directory. Changes from each agent land on separate branches. Conflicts defer to merge time, where standard git tooling handles them. Worktrees with no changes are automatically cleaned up; after a parallel run, audit with `git worktree list` and clean up stale ones with `git worktree prune`. Git hooks are shared across worktrees via `git-common-dir` — hooks that write to shared paths outside the working tree (coverage databases, caches) are not isolated by this mechanism.
+
+**After parallel execution**, merge each executor's branch into the orchestrator's branch. Review each branch before merging. Merge smallest-diff-first to minimize conflict surface. If an agent failed mid-task, inspect its branch — discard partial work with `git branch -D <branch>` or salvage and complete manually.
+
+**When isolation is NOT needed:**
+- Read-only subagents (reviewers, critics, triagers, analyzers) — they don't write to the git working directory
+- A single executor running alone — no contention
+- Sequential executors (one finishes before the next starts, as in `mine.orchestrate`)
+
+**Before parallelizing executors**, check file domain overlap — scan affected files per issue (grep/glob for relevant symbols) rather than relying on file counts alone. If two tasks modify the same files, they'll conflict at merge time even with isolation — serialize them instead, or accept the merge cost. The decomposition questions in `decomposition-discipline.md` (especially Q2: independent workstreams and Q3: shared mutable state) apply here.
+
+**Practical cap:** 3-5 parallel executor agents — the constraint is review burden, not throughput. Each parallel task adds one branch to review and one merge. Single-file trivial patches can go higher; large cross-cutting changes should stay at 2-3.
