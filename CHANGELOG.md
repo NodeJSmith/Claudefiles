@@ -4,6 +4,9 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-05-31
 
+### Added
+- Parallel executor isolation rule — `isolation: "worktree"` required when launching 2+ file-writing subagents in parallel; includes merge protocol, failure recovery, and file domain overlap check (#347)
+
 ### Changed
 - `mine.define` design doc language rule — replaced "technology-agnostic / non-technical stakeholders" with "observable behaviors"; domain terms are now fine, only implementation steps are prohibited (#346)
 

@@ -164,6 +164,14 @@ AskUserQuestion:
 
 If "Deep-dive": run `/mine.issues <number>`. If "Implement": run `/mine.build` with the issue context.
 
+### Parallel implementation
+
+If the user asks to implement multiple issues at once (e.g., "do all 4", "fan out", "implement these in parallel"), each executor subagent **must** use `isolation: "worktree"` — multiple agents writing to the same working directory destroys changes. See `agents.md` (Parallel Executor Isolation).
+
+Before launching, check for file domain overlap by scanning affected files per issue (grep/glob for the keywords from each issue's Notes column). Issues that modify the same files should be serialized, not parallelized. Cap at 3-5 parallel executors.
+
+After all agents complete, merge each branch into the current branch. Review each before merging, smallest-diff-first. For failed agents, remove the worktree with `git worktree remove <path>` then discard the branch with `git branch -D`.
+
 ### Save report
 
 Write the full report to `<tmpdir>/triage-report.md` and tell the user the path.

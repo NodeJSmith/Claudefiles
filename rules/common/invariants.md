@@ -81,6 +81,10 @@ Every call to an external service has an explicit timeout. No implicit "wait for
 Concurrent access to shared mutable state: first ask whether sharing is necessary — if not, give each actor its own state. When sharing is a real invariant, protect with locks, queues, or atomic operations.
 **Defined in:** `reliability.md`
 
+#### Parallel Executor Isolation
+When launching 2+ subagents that write to the git working directory in parallel, each must use `isolation: "worktree"`. A shared working directory with concurrent writers destroys changes via index races and pre-commit hook stash collisions.
+**Defined in:** `agents.md`
+
 ### Should
 
 #### Test Co-location

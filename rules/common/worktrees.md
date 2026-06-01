@@ -14,6 +14,12 @@ When running inside a worktree:
 2. **Never run the installer** (`install.py` or any setup script that symlinks or copies files to system paths). Worktrees are isolated branches for development — installing from a worktree would overwrite symlinks/configs with the worktree's potentially in-progress state.
 3. **Use `git -C <worktree-path>`** for all git commands to stay unambiguous about which working tree you're operating on.
 
+## Subagent Isolation
+
+When launching multiple executor subagents in parallel (agents that write files), each must run in its own worktree via `isolation: "worktree"` on the Agent tool call. A shared working directory with concurrent writers leads to destroyed changes, index corruption, and pre-commit hook race conditions.
+
+Read-only subagents (reviewers, critics, analyzers) do not need isolation — they can safely share the working tree. See `agents.md` (Parallel Executor Isolation) for the full decision rules.
+
 ## Rebasing a Worktree onto a Feature Branch
 
 If `claude --worktree` was invoked while the parent repo was on a feature branch (not `main`/`master`), the worktree will be based on `origin/<default>` instead of that feature branch. To fix this, run:
