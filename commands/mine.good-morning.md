@@ -26,9 +26,9 @@ test -f <toplevel>/.claude/handoff.md && echo "FOUND" || echo "NO_HANDOFF"
 
 If no handoff: "No handoff found for this project. Run `/mine.status` for a quick orientation, or tell me what you'd like to work on."
 
-## Step 2: Read and Summarize
+## Step 2: Read, Summarize, and Clean Up
 
-Read the handoff file. Present a **concise summary** — the user wants quick orientation, not a wall of text.
+Read the handoff file, then delete it — the information has been consumed. Present a **concise summary** — the user wants quick orientation, not a wall of text.
 
 Format:
 
@@ -58,6 +58,6 @@ AskUserQuestion:
       description: "Work on something else today"
 ```
 
-- **"Yes, continue":** Begin executing the first next step from the handoff. Delete the handoff file after the first step completes.
+- **"Yes, continue":** Begin executing the first next step from the handoff.
 - **"Show full handoff":** Print the full file contents. Do not re-ask — the user can run `/mine.good-morning` again or start working directly.
-- **"Different direction":** Delete the handoff file. Say "OK — what would you like to work on?"
+- **"Different direction":** Say "OK — what would you like to work on?"
