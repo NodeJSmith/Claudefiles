@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-05-31
 
 ### Changed
-- `mine.define` design doc language rule — replaced "technology-agnostic / non-technical stakeholders" with "observable behaviors"; domain terms are now fine, only implementation steps are prohibited
+- `mine.define` design doc language rule — replaced "technology-agnostic / non-technical stakeholders" with "observable behaviors"; domain terms are now fine, only implementation steps are prohibited (#346)
 
 ## 2026-05-30
 
