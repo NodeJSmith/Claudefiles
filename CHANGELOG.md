@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-06-01
 
 ### Changed
-- `mine.gap-close` design doc checklist — removed non-goals check (DD-03); gap-close lacks context to evaluate whether adjacent features were intentionally excluded, and `mine.define` already handles this during the interview
+- `mine.gap-close` design doc checklist — removed non-goals check (DD-03); gap-close lacks context to evaluate whether adjacent features were intentionally excluded, and `mine.define` already handles this during the interview (#348)
 
 ## 2026-05-31
 
