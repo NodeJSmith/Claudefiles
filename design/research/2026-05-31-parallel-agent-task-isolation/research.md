@@ -82,7 +82,7 @@ Conflicts are deferred to merge time, where standard git tooling (three-way merg
 
 - **Shared working directory with stash-based isolation**: Multiple agents or hooks using `git stash` to save/restore changes in a single working directory. The stash/restore cycle assumes exclusive access. This is our exact failure mode, and it's a known, long-standing issue (https://github.com/pre-commit/pre-commit/issues/176). Pre-commit hooks that stash unstaged changes are particularly dangerous because they run automatically, creating invisible race conditions.
 
-- **Coordination locks on a shared worktree**: File locks to serialize access reduces parallelism to sequential execution, defeating the purpose. Lock management with agent crashes creates stale locks that freeze all agents.
+- **Coordination locks on a shared worktree**: File locks to serialize access reduce parallelism to sequential execution, defeating the purpose. Lock management with agent crashes creates stale locks that freeze all agents.
 
 - **Symlinking dependencies across worktrees**: Sharing `node_modules` between worktrees is unsafe unless lockfiles are byte-identical across worktrees.
 

@@ -170,7 +170,7 @@ If the user asks to implement multiple issues at once (e.g., "do all 4", "fan ou
 
 Before launching, check for file domain overlap by scanning affected files per issue (grep/glob for the keywords from each issue's Notes column). Issues that modify the same files should be serialized, not parallelized. Cap at 3-5 parallel executors.
 
-After all agents complete, merge each branch into the current branch. Review each before merging, smallest-diff-first. Discard branches from failed agents with `git branch -D`.
+After all agents complete, merge each branch into the current branch. Review each before merging, smallest-diff-first. For failed agents, remove the worktree with `git worktree remove <path>` then discard the branch with `git branch -D`.
 
 ### Save report
 

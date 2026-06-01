@@ -76,9 +76,9 @@ Agent({
 })
 ```
 
-Each agent gets its own git worktree — private HEAD, private index, private working directory. Changes from each agent land on separate branches. Conflicts defer to merge time, where standard git tooling handles them. Worktrees with no changes are automatically cleaned up; after a parallel run, audit with `git worktree list` and clean up stale ones with `git worktree prune`. Git hooks are shared across worktrees via `git-common-dir` — hooks that write to shared paths outside the working tree (coverage databases, caches) are not isolated by this mechanism.
+Each agent gets its own git worktree — private HEAD, private index, private working directory. Changes from each agent land on separate branches. Conflicts defer to merge time, where standard git tooling handles them. Worktrees with no changes are automatically cleaned up; after a parallel run, audit with `git worktree list` and remove completed ones with `git worktree remove <path>`. Git hooks are shared across worktrees via `git-common-dir` — hooks that write to shared paths outside the working tree (coverage databases, caches) are not isolated by this mechanism.
 
-**After parallel execution**, merge each executor's branch into the orchestrator's branch. Review each branch before merging. Merge smallest-diff-first to minimize conflict surface. If an agent failed mid-task, inspect its branch — discard partial work with `git branch -D <branch>` or salvage and complete manually.
+**After parallel execution**, merge each executor's branch into the orchestrator's branch. Review each branch before merging. Merge smallest-diff-first to minimize conflict surface. If an agent failed mid-task, remove its worktree with `git worktree remove <path>` then discard the branch with `git branch -D <branch>`, or salvage and complete manually.
 
 **When isolation is NOT needed:**
 - Read-only subagents (reviewers, critics, triagers, analyzers) — they don't write to the git working directory
