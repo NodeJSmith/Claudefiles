@@ -53,66 +53,65 @@ Items complement mine.define's Phase 5 quality validation — the quality valida
 |----|----------|-------------|----------------|
 | DD-01 | Blocker | Is the business or user cost of not solving this problem quantified or at least characterized? | Problem |
 | DD-02 | Blocker | Does each goal have a measurable success metric (number, percentage, threshold, or binary outcome)? | Goals |
-| DD-03 | Should-address | Are non-goals listed when there is a plausible adjacent feature that is being intentionally excluded? | Goals |
-| DD-04 | Should-address | Is the scope boundary stated — what this feature does AND does not change? | Goals |
+| DD-03 | Should-address | Is the scope boundary stated — what this feature does AND does not change? | Goals |
 
 ### User Scenarios
 
 | ID | Severity | Gap question | Target section |
 |----|----------|-------------|----------------|
-| DD-05 | Should-address | Are there scenarios for the primary happy path AND at least one error/failure path? | User Scenarios |
-| DD-06 | Should-address | Do the scenarios cover the entry point (how the user reaches this feature) as well as the core action? | User Scenarios |
+| DD-04 | Should-address | Are there scenarios for the primary happy path AND at least one error/failure path? | User Scenarios |
+| DD-05 | Should-address | Do the scenarios cover the entry point (how the user reaches this feature) as well as the core action? | User Scenarios |
 
 ### Functional Requirements
 
 | ID | Severity | Gap question | Target section |
 |----|----------|-------------|----------------|
-| DD-07 | Blocker | Are requirements free of ambiguous qualifiers like "appropriate", "reasonable", "as needed", "user-friendly"? | Functional Requirements |
+| DD-06 | Blocker | Are requirements free of ambiguous qualifiers like "appropriate", "reasonable", "as needed", "user-friendly"? | Functional Requirements |
 
 ### Edge Cases
 
 | ID | Severity | Gap question | Target section |
 |----|----------|-------------|----------------|
-| DD-08 | Should-address | Are concurrent or race-condition scenarios identified where the feature touches shared state? | Edge Cases |
+| DD-07 | Should-address | Are concurrent or race-condition scenarios identified where the feature touches shared state? | Edge Cases |
 
 ### Acceptance Criteria
 
 | ID | Severity | Gap question | Target section |
 |----|----------|-------------|----------------|
-| DD-09 | Blocker | Does every Functional Requirement have at least one corresponding acceptance criterion? | Acceptance Criteria |
+| DD-08 | Blocker | Does every Functional Requirement have at least one corresponding acceptance criterion? | Acceptance Criteria |
 
 ### Architecture / Alternatives
 
 | ID | Severity | Gap question | Target section |
 |----|----------|-------------|----------------|
-| DD-10 | Nice-to-have | Are the trade-offs of the chosen architecture stated (what it optimizes for, what it sacrifices)? | Architecture |
+| DD-09 | Nice-to-have | Are the trade-offs of the chosen architecture stated (what it optimizes for, what it sacrifices)? | Architecture |
 
 ### Failure Modes
 
 | ID | Severity | Gap question | Target section |
 |----|----------|-------------|----------------|
-| DD-11 | Should-address | Are at least two operational failure modes identified (e.g., dependency unavailable, data corruption, timeout)? | Edge Cases (preferred) or a dedicated Failure Modes section if one exists |
-| DD-12 | Should-address | Is the expected system behavior on failure defined (graceful degradation, error message, fallback)? | Same section as DD-11 |
+| DD-10 | Should-address | Are at least two operational failure modes identified (e.g., dependency unavailable, data corruption, timeout)? | Edge Cases (preferred) or a dedicated Failure Modes section if one exists |
+| DD-11 | Should-address | Is the expected system behavior on failure defined (graceful degradation, error message, fallback)? | Same section as DD-10 |
 
 ### Replacement Targets / Migration
 
 | ID | Severity | Gap question | Target section |
 |----|----------|-------------|----------------|
-| DD-13 | Blocker | If the feature replaces existing code, does the Replacement Targets section list each pattern being superseded and what replaces it? | Replacement Targets |
-| DD-14 | Should-address | If a Migration section is present, does it address what happens to existing data and whether the migration is reversible? | Migration |
+| DD-12 | Blocker | If the feature replaces existing code, does the Replacement Targets section list each pattern being superseded and what replaces it? | Replacement Targets |
+| DD-13 | Should-address | If a Migration section is present, does it address what happens to existing data and whether the migration is reversible? | Migration |
 
 ### Test Strategy
 
 | ID | Severity | Gap question | Target section |
 |----|----------|-------------|----------------|
-| DD-15 | Blocker | Does the Test Strategy identify specific existing test files that will break or need updating (with file paths), or explicitly state none are affected? | Test Strategy > Existing Tests to Adapt |
-| DD-16 | Should-address | Does the New Test Coverage subsection map new behaviors to Functional Requirements (FR#N)? | Test Strategy > New Test Coverage |
+| DD-14 | Blocker | Does the Test Strategy identify specific existing test files that will break or need updating (with file paths), or explicitly state none are affected? | Test Strategy > Existing Tests to Adapt |
+| DD-15 | Should-address | Does the New Test Coverage subsection map new behaviors to Functional Requirements (FR#N)? | Test Strategy > New Test Coverage |
 
 ### Impact
 
 | ID | Severity | Gap question | Target section |
 |----|----------|-------------|----------------|
-| DD-17 | Should-address | Does the Impact section identify behavioral invariants — existing behaviors that must not change? | Impact > Behavioral Invariants |
+| DD-16 | Should-address | Does the Impact section identify behavioral invariants — existing behaviors that must not change? | Impact > Behavioral Invariants |
 
 ---
 
@@ -304,7 +303,7 @@ A design doc has been written for a new "Bulk Export" feature. Mine.gap-close is
 Each checklist item is evaluated as one of:
 - **PASS** — the required content is present and complete
 - **GAP** — the content is missing or incomplete (severity from the checklist applies)
-- **N/A** — the checklist item does not apply to this artifact (e.g., DD-08 race conditions for a feature with no shared state)
+- **N/A** — the checklist item does not apply to this artifact (e.g., DD-07 race conditions for a feature with no shared state)
 
 Surveys must be complete — evaluate every checklist item and record a result as **PASS**, **GAP**, or **N/A**. Do not skip items just because they appear obviously satisfied. For readability, the walkthrough below shows only a condensed subset of the full survey output.
 
@@ -315,29 +314,28 @@ The skill reads the design doc and evaluates the DD-* checklist item by item. Th
 ```
 DD-01  GAP    [Blocker] No business cost of the limitation stated — why does this matter?
 DD-02  PASS   Goals: "Bulk export supports up to 100,000 records within 60 seconds"
-DD-03  PASS   Non-goals listed: "We will not support scheduled exports in this version"
-DD-04  PASS   Scope boundary clear
-DD-05  GAP    [Should-address] No error/failure scenario — what happens when an export fails?
-DD-06  PASS   Entry point covered: "clicks Export All from the filtered record list"
-DD-07  GAP    [Blocker] Requirement "Export should handle large files gracefully" — "gracefully" is unacceptably vague
-DD-08  N/A    Feature does not touch shared state (export is per-user, no concurrent writes)
-DD-09  GAP    [Blocker] Requirements 2 and 3 have no corresponding acceptance criteria
-DD-10  PASS   Trade-offs stated: "queue complexity vs synchronous simplicity"
-DD-11  GAP    [Should-address] No operational failure modes identified
-DD-12  GAP    [Should-address] No failure behavior defined
+DD-03  PASS   Scope boundary clear
+DD-04  GAP    [Should-address] No error/failure scenario — what happens when an export fails?
+DD-05  PASS   Entry point covered: "clicks Export All from the filtered record list"
+DD-06  GAP    [Blocker] Requirement "Export should handle large files gracefully" — "gracefully" is unacceptably vague
+DD-07  N/A    Feature does not touch shared state (export is per-user, no concurrent writes)
+DD-08  GAP    [Blocker] Requirements 2 and 3 have no corresponding acceptance criteria
+DD-09  PASS   Trade-offs stated: "queue complexity vs synchronous simplicity"
+DD-10  GAP    [Should-address] No operational failure modes identified
+DD-11  GAP    [Should-address] No failure behavior defined
 ```
 
 ### Step 2: Triage
 
 From the survey, blockers are:
 - DD-01 (missing business cost)
-- DD-07 (vague requirement)
-- DD-09 (two requirements have no acceptance criteria)
+- DD-06 (vague requirement)
+- DD-08 (two requirements have no acceptance criteria)
 
 Should-address gaps:
-- DD-05 (no error/failure scenario)
-- DD-11 (no failure modes)
-- DD-12 (no failure behavior)
+- DD-04 (no error/failure scenario)
+- DD-10 (no failure modes)
+- DD-11 (no failure behavior)
 
 ### Step 3: Gap Questions
 
@@ -354,7 +352,7 @@ old_string: "## Problem\n\nUsers cannot export more than 100 records at a time."
 new_string: "## Problem\n\nUsers cannot export more than 100 records at a time. Data analysts hit this weekly when preparing quarterly reports, working around it by exporting in batches and stitching CSVs manually — 30-45 minutes per report."
 ```
 
-**Question 2** (targets DD-07):
+**Question 2** (targets DD-06):
 
 > "Requirement: 'Export should handle large files gracefully.' What does 'gracefully' mean in practice? What should happen when an export reaches the 100,000-record limit? What if it times out?"
 
@@ -374,7 +372,7 @@ old_string: "## Edge Cases\n\n- Zero-length export: return empty file with heade
 new_string: "## Edge Cases\n\n- Zero-length export: return empty file with headers only\n- Export exceeding 100,000 records: capped at limit with truncation notice shown to user\n- Export timeout mid-generation: partial file discarded, user sees error with retry link"
 ```
 
-**Question 3** (targets DD-09):
+**Question 3** (targets DD-08):
 
 > "Requirements 2 and 3 have no acceptance criteria. What observable outcome would tell a tester that requirement 2 (format selection) passes? And requirement 3 (progress indication)?"
 
@@ -389,7 +387,7 @@ new_string: "- When a user requests an export, the system begins processing with
 
 ### Step 4: Sign-off
 
-After filling all Blocker gaps, the skill confirms: "All Blocker gaps resolved. 3 Should-address items remaining: DD-05 (error scenario), DD-11 (failure modes), DD-12 (failure behavior)."
+After filling all Blocker gaps, the skill confirms: "All Blocker gaps resolved. 3 Should-address items remaining: DD-04 (error scenario), DD-10 (failure modes), DD-11 (failure behavior)."
 
 Presents sign-off gate:
 - "Approve" — update status field
