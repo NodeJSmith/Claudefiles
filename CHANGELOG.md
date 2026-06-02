@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-06-02
+
+### Added
+- Fine-toothed comb review steps — unstructured subagent review before planning (design file only) and before execution (design + tasks together)
+
 ## 2026-06-01
 
 ### Changed

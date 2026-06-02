@@ -128,6 +128,47 @@ The checkpoint is written to `<feature_dir>/tasks/.orchestrate-state.md` with va
 
 ---
 
+## Phase 0.5: Fine-Toothed Comb Review
+
+After reading the design doc and tasks, dispatch a subagent to review everything together. The prompt is exactly this — no checklist, no rubric:
+
+> Go over the design file and the corresponding tasks with a fine-toothed comb, making sure that they are all consistent, accurate, and thorough.
+
+```
+Agent:
+  subagent_type: general-purpose
+  model: sonnet
+  prompt: |
+    Read this design file: <design_doc_path>
+    Read all task files in: <feature_dir>/tasks/
+
+    Go over the design file and the corresponding tasks with a fine-toothed comb, making sure that they are all consistent, accurate, and thorough. Report anything you find.
+```
+
+If the subagent returns findings, present them to the user:
+
+```
+AskUserQuestion:
+  question: "Fine-toothed comb review found issues. How to proceed?"
+  header: "Pre-execution review"
+  multiSelect: false
+  options:
+    - label: "Fix and re-review"
+      description: "Address the findings, then run the review again"
+    - label: "Proceed to execution"
+      description: "Acknowledge the findings and continue"
+    - label: "Stop"
+      description: "Halt and address issues manually"
+```
+
+If "Fix and re-review": apply the fixes, then re-run this phase.
+
+If the subagent finds nothing notable, proceed silently to Phase 1.
+
+**Skip on resume**: If Phase 0 detected a checkpoint and is resuming mid-execution, skip this step — the review already ran before the first execution.
+
+---
+
 ## Phase 1: Parse Tasks and Select Start Point
 
 Present the task list to the user with IDs and titles:

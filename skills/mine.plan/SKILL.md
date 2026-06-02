@@ -14,6 +14,44 @@ $ARGUMENTS — path to a `design.md` or the feature directory (`design/specs/NNN
 
 ---
 
+## Phase 0: Fine-Toothed Comb Review
+
+Before planning, dispatch a subagent to review the design doc. The prompt is exactly this — no checklist, no rubric:
+
+> Go over the design file with a fine-toothed comb and make sure it's accurate, consistent, and thorough.
+
+```
+Agent:
+  subagent_type: general-purpose
+  model: sonnet
+  prompt: |
+    Read this design file: <design_doc_path>
+
+    Go over it with a fine-toothed comb and make sure it's accurate, consistent, and thorough. Report anything you find.
+```
+
+If the subagent returns findings, present them to the user:
+
+```
+AskUserQuestion:
+  question: "Fine-toothed comb review found issues. How to proceed?"
+  header: "Design review"
+  multiSelect: false
+  options:
+    - label: "Fix and re-review"
+      description: "Address the findings, then run the review again"
+    - label: "Proceed to planning"
+      description: "Acknowledge the findings and continue"
+    - label: "Stop"
+      description: "Halt and address issues manually"
+```
+
+If "Fix and re-review": apply the fixes, then re-run this phase.
+
+If the subagent finds nothing notable, proceed silently to Phase 1.
+
+---
+
 ## Phase 1: Read the Design Doc
 
 ### Locate the design doc
