@@ -16,7 +16,9 @@ $ARGUMENTS — path to a `design.md` or the feature directory (`design/specs/NNN
 
 ## Phase 0: Fine-Toothed Comb Review
 
-Before planning, dispatch a subagent to review the design doc. The prompt is exactly this — no checklist, no rubric:
+Resolve the design doc path from $ARGUMENTS (same resolution logic as Phase 1's "Locate the design doc"). Phase 1 reuses this path.
+
+Dispatch a subagent to review the design doc. The core direction is just this — no checklist, no rubric:
 
 > Go over the design file with a fine-toothed comb and make sure it's accurate, consistent, and thorough.
 
@@ -35,7 +37,7 @@ If the subagent returns findings, present them to the user:
 ```
 AskUserQuestion:
   question: "Fine-toothed comb review found issues. How to proceed?"
-  header: "Design review"
+  header: "Design comb"
   multiSelect: false
   options:
     - label: "Fix and re-review"

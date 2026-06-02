@@ -130,7 +130,7 @@ The checkpoint is written to `<feature_dir>/tasks/.orchestrate-state.md` with va
 
 ## Phase 0.5: Fine-Toothed Comb Review
 
-After reading the design doc and tasks, dispatch a subagent to review everything together. The prompt is exactly this — no checklist, no rubric:
+After reading the design doc and tasks, dispatch a subagent to review everything together. The core direction is just this — no checklist, no rubric:
 
 > Go over the design file and the corresponding tasks with a fine-toothed comb, making sure that they are all consistent, accurate, and thorough.
 
@@ -150,7 +150,7 @@ If the subagent returns findings, present them to the user:
 ```
 AskUserQuestion:
   question: "Fine-toothed comb review found issues. How to proceed?"
-  header: "Pre-execution review"
+  header: "Plan comb"
   multiSelect: false
   options:
     - label: "Fix and re-review"
