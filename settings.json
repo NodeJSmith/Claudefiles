@@ -61,7 +61,7 @@
   "extraKnownMarketplaces": {
     "last30days-skill": {
       "source": {
-        "type": "github",
+        "source": "github",
         "repo": "mvanhorn/last30days-skill"
       },
       "autoUpdate": false
