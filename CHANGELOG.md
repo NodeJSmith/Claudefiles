@@ -9,6 +9,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Fixed
 - `spec-helper archive` crash on `--all` with non-done tasks — `atomic_write` opened temp file in text mode but `frontmatter.dump()` writes bytes (#351)
+- `extraKnownMarketplaces` schema error — `source.type` should be `source.source` per Claude Code's settings schema; `/doctor` reported invalid input
 
 ## 2026-06-02
 
