@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-06-03
 
 ### Fixed
-- `spec-helper archive` crash on `--all` with non-done tasks — `atomic_write` opened temp file in text mode but `frontmatter.dump()` writes bytes
+- `spec-helper archive` crash on `--all` with non-done tasks — `atomic_write` opened temp file in text mode but `frontmatter.dump()` writes bytes (#351)
 
 ## 2026-06-02
 
