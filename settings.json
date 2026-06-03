@@ -58,6 +58,18 @@
     "ask": [],
     "defaultMode": "default"
   },
+  "extraKnownMarketplaces": {
+    "last30days-skill": {
+      "source": {
+        "type": "github",
+        "repo": "mvanhorn/last30days-skill"
+      },
+      "autoUpdate": false
+    }
+  },
+  "enabledPlugins": {
+    "last30days@last30days-skill": true
+  },
   "includeGitInstructions": false,
   "hooks": {
     "PreToolUse": [

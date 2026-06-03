@@ -184,6 +184,16 @@ Event-driven scripts that run before/after tool calls.
 > "statusLine": { "type": "command", "command": "claude-context-writer ~/bin/mine/starship-claude" }
 > ```
 
+## Plugins
+
+Third-party Claude Code plugins pre-configured via `extraKnownMarketplaces` and `enabledPlugins` in `settings.json`. These install automatically when settings are merged — no manual `/plugin marketplace add` needed.
+
+| Plugin | Marketplace | Description |
+|--------|-------------|-------------|
+| `last30days` | `last30days-skill` | Research any topic across Reddit, X, YouTube, TikTok, Instagram, HN, Polymarket, GitHub, and more — AI agent scores by upvotes, likes, and real-money odds |
+
+To add a plugin: add its marketplace to `extraKnownMarketplaces` and enable it in `enabledPlugins` in `settings.json`, then document it here and in ONBOARDING.md.
+
 ## Helper Scripts
 
 CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
