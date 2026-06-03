@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-06-03
 
 ### Added
-- Bundled plugin: `last30days` — multi-platform research across Reddit, X, YouTube, TikTok, HN, Polymarket, and more via Claude Code's native plugin system
+- Bundled plugin: `last30days` — multi-platform research across Reddit, X, YouTube, TikTok, HN, Polymarket, and more via Claude Code's native plugin system (#352)
 
 ### Fixed
 - `spec-helper archive` crash on `--all` with non-done tasks — `atomic_write` opened temp file in text mode but `frontmatter.dump()` writes bytes (#351)
