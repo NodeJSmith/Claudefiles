@@ -16,6 +16,7 @@ from spec_helper.checkpoint import (
     write_checkpoint,
 )
 from spec_helper.commands import cmd_archive
+from spec_helper.filesystem import atomic_write
 
 
 def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -244,6 +245,24 @@ class TestStagedFilesHandling:
         cmd_archive(_archive_args(feature="001-test-feature"))
 
         assert not tasks.exists()
+
+
+class TestAtomicWrite:
+    def test_atomic_write_roundtrips_frontmatter(self, tmp_path: Path) -> None:
+        target = tmp_path / "task.md"
+        post = frontmatter.Post(
+            "Body content.\n",
+            task_id="T01",
+            title="Test task",
+            status="done",
+        )
+        atomic_write(post, target)
+
+        loaded = frontmatter.load(str(target))
+        assert loaded.metadata["task_id"] == "T01"
+        assert loaded.metadata["title"] == "Test task"
+        assert loaded.metadata["status"] == "done"
+        assert "Body content." in loaded.content
 
 
 class TestDesignStatusUpdate:
