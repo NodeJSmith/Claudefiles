@@ -63,4 +63,5 @@ Edit `settings.json` in this repo — **never** write directly to `~/.claude/set
 - **Always update `REFERENCE.md`** when adding, removing, or renaming skills, commands, agents, or bin/ scripts — it holds the full component tables
 - **Always update `ONBOARDING.md`** when adding a capability a new adopter should know about (new bundle, significant new skill, workflow change)
 - **Always update the appropriate capabilities file** with trigger phrases for new skills: `rules/common/capabilities-core.md` for mine.*, `skills-impeccable/capabilities-impeccable.md` for i-*, `skills-memory/capabilities-memory.md` for cm-*, `skills-cli/capabilities-cli.md` for cli-*
+- **When bundling a new plugin:** add its marketplace to `extraKnownMarketplaces` and enable it in `enabledPlugins` in `settings.json`, then document it in the Plugins table in `REFERENCE.md` and the relevant path in `ONBOARDING.md`
 - CLI tools referenced in skills/commands/agents must exist in `bin/`, be a standard system tool, or be a well-known dev tool. No private tools outside this repo.
