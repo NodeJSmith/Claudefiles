@@ -24,6 +24,8 @@ def atomic_write(post: frontmatter.Post, target: Path) -> None:
             mode="w", dir=target.parent, delete=False, suffix=".md", encoding="utf-8"
         ) as tmp:
             tmp.write(frontmatter.dumps(post))
+            tmp.flush()
+            os.fsync(tmp.fileno())
             tmp_path = tmp.name
         os.replace(tmp_path, target)
     except Exception:
