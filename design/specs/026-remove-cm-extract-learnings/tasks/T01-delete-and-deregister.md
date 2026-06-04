@@ -20,12 +20,12 @@ Delete the following files and directories:
 Then make these surgical edits:
 
 **`settings.json`** — Two removals:
-- Remove `"Bash(cm-consolidation-check:*)"` from the `allowedTools` array (around line 28)
+- Remove `"Bash(cm-consolidation-check:*)"` from the `allowedTools` array (search for that exact string)
 - In the `hooks.SessionStart` array, find the entry whose inner `hooks` array contains a command starting with `bash -c 'command -v cm-consolidation-check`. Remove that single element from the inner `hooks` array. Do NOT remove the entire SessionStart entry — it contains other commands.
 
-**`install.py`** — Remove `"cm-extract-learnings"` from the memory bundle skills tuple (around line 137). Also remove `"cm-memory-auditor"` and `"cm-signal-discoverer"` from the agents tuple in the same bundle definition (around line 141).
+**`install.py`** — Remove `"cm-extract-learnings"` from the memory bundle's `skills=()` tuple. Also remove `"cm-memory-auditor"` and `"cm-signal-discoverer"` from the `agents=()` tuple in the same `BundleDef` call.
 
-**`packages/claude-memory/pyproject.toml`** — Remove the `cm-consolidation-check` line from `[project.scripts]` (line 18: `cm-consolidation-check   = "claude_memory.hooks.consolidation_check:main"`).
+**`packages/claude-memory/pyproject.toml`** — Remove the `cm-consolidation-check` entrypoint line from `[project.scripts]` (the line reading `cm-consolidation-check   = "claude_memory.hooks.consolidation_check:main"`).
 
 ## Focus
 - `settings.json` is shared config loaded by every Claude Code session. The SessionStart hook structure has one entry with an inner `hooks` array containing 6 commands. After this edit there should be 5 commands remaining. Do not accidentally remove sibling hook commands.

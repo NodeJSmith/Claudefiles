@@ -12,33 +12,33 @@ Remove consolidation-related logic from the claude-memory package code files (on
 ## Prompt
 Make these surgical edits:
 
-**`packages/claude-memory/src/claude_memory/hooks/onboarding.py`** — Remove consolidation reminder setup logic. The file contains both consolidation and non-consolidation onboarding flows. Remove only lines related to consolidation reminders and `/cm-extract-learnings` nudges (around lines 26 and 38). The remaining onboarding logic for session capture and memory setup must stay intact.
+**`packages/claude-memory/src/claude_memory/hooks/onboarding.py`** — Remove consolidation reminder setup logic. The file contains both consolidation and non-consolidation onboarding flows. Search for strings containing `cm-extract-learnings`, `consolidat`, and `extract-learnings` — remove only those lines. The remaining onboarding logic for session capture and memory setup must stay intact.
 
 **`packages/claude-memory/src/claude_memory/hooks/write_config.py`** — Remove:
-- The `--consolidation-reminder` argument definition (around line 32)
+- The `--consolidation-reminder` argument definition (search for `add_argument` with `consolidation`)
 - The `--consolidation-min-hours` and `--consolidation-min-sessions` argument definitions
-- All consolidation key assignments in the config dict (around lines 52-56, 72-79)
+- All consolidation key assignments in the config dict (search for `consolidation_reminder_enabled`, `consolidation_min_hours`, `consolidation_min_sessions` in the dict construction and conditional blocks)
 The remaining config args and logic must stay intact.
 
-**`packages/claude-memory/src/claude_memory/db.py`** — Remove consolidation keys from `DEFAULT_SETTINGS` dict (lines 31-33: `consolidation_reminder_enabled`, `consolidation_min_hours`, `consolidation_min_sessions`) and from the `CONFIG_KEYS` tuple/set (lines 39-41).
+**`packages/claude-memory/src/claude_memory/db.py`** — Remove consolidation keys from `DEFAULT_SETTINGS` dict (`consolidation_reminder_enabled`, `consolidation_min_hours`, `consolidation_min_sessions`) and from the `CONFIG_KEYS` tuple/set (same three key names).
 
-**`skills-memory/cm-recall-conversations/SKILL.md`** — Remove the extract-learnings lens routing row from the trigger table (line 36: `| "what I learned", "reflect" | extract-learnings |`).
+**`skills-memory/cm-recall-conversations/SKILL.md`** — Remove the extract-learnings lens routing row from the trigger table (the row containing `| "what I learned", "reflect" | extract-learnings |`).
 
-**`skills-memory/cm-recall-conversations/references/lenses.md`** — Remove the `extract-learnings` entry from all three tables in the file (lines 8, 20, and 35).
+**`skills-memory/cm-recall-conversations/references/lenses.md`** — Remove the `extract-learnings` entry from all three tables in the file (search for `extract-learnings` — appears once per table).
 
 **`tests/test_install.py`** — Remove:
-- `"cm-memory-auditor"` and `"cm-signal-discoverer"` from the agent list in `_setup_full_repo` (lines 570-571)
-- The `cm-memory-auditor.md` symlink assertion (line 740: `assert (claude_dir / "agents" / "cm-memory-auditor.md").is_symlink()`)
-- The `cm-memory-auditor.md` negative assertion (line 765: `assert not (claude_dir / "agents" / "cm-memory-auditor.md").exists()`)
-- The `cm-extract-learnings` mkdir calls in `test_ignores_when_already_installed` and `test_installs_when_not_present` (lines 1081, 1108)
-- The `for name in ("cm-memory-auditor", "cm-signal-discoverer")` loops in those same tests (lines 1084, 1111)
+- `"cm-memory-auditor"` and `"cm-signal-discoverer"` from the agent list in `_setup_full_repo` (search for those strings in a list/tuple literal)
+- The `cm-memory-auditor.md` symlink assertion (`assert (claude_dir / "agents" / "cm-memory-auditor.md").is_symlink()`)
+- The `cm-memory-auditor.md` negative existence assertion (`assert not (claude_dir / "agents" / "cm-memory-auditor.md").exists()`)
+- The `cm-extract-learnings` mkdir calls in `test_ignores_when_already_installed` and `test_installs_when_not_present` (search for `"cm-extract-learnings"` in those methods)
+- The `for name in ("cm-memory-auditor", "cm-signal-discoverer")` loops and their bodies in those same test methods
 
 **`packages/claude-memory/tests/test_write_config.py`** — Remove:
-- Consolidation key names from the config keys assertion (lines 86-88: `consolidation_reminder_enabled`, `consolidation_min_hours`, `consolidation_min_sessions`)
-- The `test_consolidation_min_hours_floor` test method (lines 209-217)
+- Consolidation key names from the config keys assertion (the strings `"consolidation_reminder_enabled"`, `"consolidation_min_hours"`, `"consolidation_min_sessions"` in the assertion list)
+- The `test_consolidation_min_hours_floor` test method (entire method)
 
-**`packages/merge-settings/tests/test_merge.py`** — In `test_real_scenario_session_start_duplicate` (around line 89):
-- Remove the `cm-consolidation-check` dict entry from the `claudefiles_entry` hook list
+**`packages/merge-settings/tests/test_merge.py`** — In `test_real_scenario_session_start_duplicate`:
+- Remove the `cm-consolidation-check` dict entry from the `claudefiles_entry` hook list (search for `"cm-consolidation-check"`)
 - Update the count assertion from `len(result[0]["hooks"]) == 6` to `== 5`
 
 ## Focus

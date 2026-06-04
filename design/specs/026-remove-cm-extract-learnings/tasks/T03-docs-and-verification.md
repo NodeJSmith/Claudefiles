@@ -20,14 +20,14 @@ Make these documentation edits:
 - The `cm-signal-discoverer` row in the Agents table
 - The `cm-consolidation-check` row in the Hooks table
 
-**`ONBOARDING.md`** — Remove extract-learnings and consolidation mentions from the Memory bundle description (around line 59). The sentence about nudging to consolidate and running `/cm-extract-learnings` should be removed. Keep the `/cm-recall-conversations` mention.
+**`ONBOARDING.md`** — Remove extract-learnings and consolidation mentions from the Memory bundle description (the sentence containing "nudges you to consolidate" and "/cm-extract-learnings"). Keep the `/cm-recall-conversations` mention.
 
 **`packages/claude-memory/README.md`** — Remove:
-- The consolidation reminders question in the onboarding section (around line 22)
-- The `cm-consolidation-check` row from the hooks table (around line 43)
-- The `/cm-extract-learnings` row from the skills table (around line 71)
-- The consolidation config keys from the JSON example (lines 102-104: `consolidation_reminder_enabled`, `consolidation_min_hours`, `consolidation_min_sessions`)
-- The `cm-consolidation-check` line from the architecture diagram (around lines 89-90)
+- The consolidation reminders question in the onboarding section (the numbered item mentioning "Consolidation reminders")
+- The `cm-consolidation-check` row from the hooks feature table (search for `cm-consolidation-check` in a markdown table)
+- The `/cm-extract-learnings` row from the skills feature table (search for `cm-extract-learnings` in a markdown table)
+- The consolidation config keys from the JSON example (`consolidation_reminder_enabled`, `consolidation_min_hours`, `consolidation_min_sessions`)
+- The `cm-consolidation-check` lines from the architecture diagram (the indented lines mentioning `cm-consolidation-check` and `extract-learnings`)
 
 After all edits, run the verification:
 
