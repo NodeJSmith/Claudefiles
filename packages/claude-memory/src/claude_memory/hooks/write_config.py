@@ -26,21 +26,6 @@ def main():
         choices=["true", "false"],
         help="Enable session context injection on startup",
     )
-    parser.add_argument(
-        "--consolidation-enabled",
-        choices=["true", "false"],
-        help="Enable extract-learnings consolidation reminders",
-    )
-    parser.add_argument(
-        "--consolidation-min-hours",
-        type=int,
-        help="Hours between consolidation reminders",
-    )
-    parser.add_argument(
-        "--consolidation-min-sessions",
-        type=int,
-        help="Sessions between consolidation reminders",
-    )
     args = parser.parse_args()
 
     # Build initial config from DEFAULT_SETTINGS (plus write_config-specific keys).
@@ -49,11 +34,6 @@ def main():
         "onboarding_completed": False,
         "onboarding_version": 0,
         "auto_inject_context": DEFAULT_SETTINGS["auto_inject_context"],
-        "consolidation_reminder_enabled": DEFAULT_SETTINGS[
-            "consolidation_reminder_enabled"
-        ],
-        "consolidation_min_hours": DEFAULT_SETTINGS["consolidation_min_hours"],
-        "consolidation_min_sessions": DEFAULT_SETTINGS["consolidation_min_sessions"],
     }
     config = _write_config_defaults.copy()
     if CONFIG_PATH.exists() and not args.defaults:
@@ -68,16 +48,6 @@ def main():
     if not args.defaults:
         if args.auto_inject_context is not None:
             config["auto_inject_context"] = args.auto_inject_context == "true"
-        if args.consolidation_enabled is not None:
-            config["consolidation_reminder_enabled"] = (
-                args.consolidation_enabled == "true"
-            )
-        if args.consolidation_min_hours is not None:
-            config["consolidation_min_hours"] = max(1, args.consolidation_min_hours)
-        if args.consolidation_min_sessions is not None:
-            config["consolidation_min_sessions"] = max(
-                1, args.consolidation_min_sessions
-            )
 
     # Mark onboarding complete
     config["onboarding_completed"] = True

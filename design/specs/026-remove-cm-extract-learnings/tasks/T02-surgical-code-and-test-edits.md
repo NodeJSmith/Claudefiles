@@ -1,7 +1,7 @@
 ---
 task_id: "T02"
 title: "Surgical edits to code and test files"
-status: "planned"
+status: "done"
 depends_on: ["T01"]
 implements: ["FR#11", "FR#12", "FR#13", "FR#15", "FR#16", "FR#17", "FR#18"]
 ---

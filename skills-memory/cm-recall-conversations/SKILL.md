@@ -33,7 +33,6 @@ cm-search-conversations --query "keyword"
 | User Says | Lens |
 |-----------|------|
 | "where were we", "recap" | restore-context |
-| "what I learned", "reflect" | extract-learnings |
 | "gaps", "struggling" | find-gaps |
 | "mentor", "review process" | review-process |
 | "retro", "project review" | run-retro |

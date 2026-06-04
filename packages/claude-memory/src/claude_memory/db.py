@@ -28,17 +28,11 @@ DEFAULT_SETTINGS = {
     "exclude_projects": [],
     "logging_enabled": False,
     "sync_on_stop": True,
-    "consolidation_reminder_enabled": True,
-    "consolidation_min_hours": 24,
-    "consolidation_min_sessions": 10,
 }
 
 # Keys in config.json that override DEFAULT_SETTINGS
 _CONFIG_KEYS = {
     "auto_inject_context",
-    "consolidation_reminder_enabled",
-    "consolidation_min_hours",
-    "consolidation_min_sessions",
     "max_context_sessions",
 }
 

@@ -567,8 +567,6 @@ def _setup_full_repo(path: Path) -> None:
         "lazy-checker",
         "nitpicker",
         "issue-refiner",
-        "cm-memory-auditor",
-        "cm-signal-discoverer",
         "engineering-backend-developer",
         "engineering-data-engineer",
         "engineering-frontend-developer",
@@ -737,7 +735,6 @@ class TestFullInstallFlow:
             install.do_install(repo, claude_dir, config_v1, interactive=False)
 
         assert (claude_dir / "skills" / "cm-recall-conversations").is_symlink()
-        assert (claude_dir / "agents" / "cm-memory-auditor.md").is_symlink()
         assert (claude_dir / "rules" / "common" / "capabilities-memory.md").is_symlink()
 
         # Second: deselect memory
@@ -762,7 +759,6 @@ class TestFullInstallFlow:
             )
 
         assert not (claude_dir / "skills" / "cm-recall-conversations").exists()
-        assert not (claude_dir / "agents" / "cm-memory-auditor.md").exists()
         assert not (claude_dir / "rules" / "common" / "capabilities-memory.md").exists()
         # Package uninstall triggered
         mock_uninstall.assert_called_with("claude-memory")
@@ -1078,11 +1074,8 @@ class TestPackageInstall:
             }
         }
         # Add memory skill dirs to repo so bundle can be installed
-        (repo / "skills-memory" / "cm-extract-learnings").mkdir(parents=True)
         (repo / "skills-memory" / "cm-get-token-insights").mkdir(parents=True)
         (repo / "skills-memory" / "cm-recall-conversations").mkdir(parents=True)
-        for name in ("cm-memory-auditor", "cm-signal-discoverer"):
-            (repo / "agents" / f"{name}.md").write_text(f"---\nname: {name}\n---\n")
 
         mock_install = MagicMock()
         with (
@@ -1105,11 +1098,8 @@ class TestPackageInstall:
         install._BUNDLES_REPO_DIR = None
 
         # memory bundle selects claude-memory
-        (repo / "skills-memory" / "cm-extract-learnings").mkdir(parents=True)
         (repo / "skills-memory" / "cm-get-token-insights").mkdir(parents=True)
         (repo / "skills-memory" / "cm-recall-conversations").mkdir(parents=True)
-        for name in ("cm-memory-auditor", "cm-signal-discoverer"):
-            (repo / "agents" / f"{name}.md").write_text(f"---\nname: {name}\n---\n")
 
         config = {
             "bundles": {
