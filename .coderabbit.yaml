@@ -40,9 +40,9 @@ reviews:
 
     - path: "scripts/hooks/**"
       instructions: |
-        Claude Code hooks. These run on every tool call and must be fast (<100ms).
-        Check for performance, correct exit codes, and that they don't block
-        on network calls.
+        Claude Code hooks. These run on tool calls and must complete within
+        their configured timeout (2-35s depending on the hook). Check for
+        correct exit codes and that they don't make slow or flaky network calls.
 
 chat:
   auto_reply: true
