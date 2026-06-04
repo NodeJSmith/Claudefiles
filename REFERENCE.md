@@ -76,7 +76,6 @@ Full component tables for Claudefiles. For context on what each component type d
 
 | Skill | Description |
 |-------|-------------|
-| `cm-extract-learnings` | Persist insights from the current session to the MEMORY.md system — corrections, architectural decisions, behavioral preferences |
 | `cm-get-token-insights` | Analyze Claude token usage — cost breakdown, cache hit rates, model mix, workflow patterns, interactive dashboard |
 | `cm-recall-conversations` | Recall or search past conversation sessions — "what did we discuss", "continue where we left off", keyword search |
 
@@ -105,13 +104,6 @@ Full component tables for Claudefiles. For context on what each component type d
 | `nitpicker` | Hyper-critical style reviewer — flags magic numbers, scattered constants, nested ternaries, dead code, and naming inconsistencies with no severity filter |
 | `researcher` | Autonomous codebase research and feasibility analysis with parallel subagents and web research |
 | `wtf-reviewer` | Readability and maintainability reviewer — finds code that works but will confuse a developer reading it a month from now |
-
-### Memory agents — Memory bundle
-
-| Agent | Description |
-|-------|-------------|
-| `cm-memory-auditor` | Audit existing memory entries — detect stale, vague, or conflicting entries before consolidation |
-| `cm-signal-discoverer` | Mine recent sessions for uncaptured knowledge — corrections, architectural decisions, recurring patterns |
 
 ### Engineering Specialists — Engineering bundle
 
@@ -170,7 +162,6 @@ Event-driven scripts that run before/after tool calls.
 | `cm-memory-setup` (package) | SessionStart | Initialize memory DB, trigger background import if needed |
 | `cm-onboarding` (package) | SessionStart (startup) | Inject MEMORY.md context and greet the user with persistent memory |
 | `cm-memory-context` (package) | SessionStart (startup\|clear) | Load memory context into the session |
-| `cm-consolidation-check` (package) | SessionStart (startup\|clear) | Check if memory consolidation is needed |
 | `cm-clear-handoff` (package) | SessionEnd (clear) | Write a handoff note before `/clear` |
 | `context-tier.sh` | PreToolUse (*) | Inject context window tier guidance on tier change or periodic heartbeat (every 25 calls) — prevents hallucinated context pressure |
 | `tmux-drift-check.sh` | PreToolUse (*) | Periodically remind Claude to verify tmux session name alignment with current work (every 30 calls) |

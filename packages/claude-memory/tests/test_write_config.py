@@ -81,13 +81,10 @@ class TestWriteConfigDefaults:
         _run_main(["--defaults"])
 
         result = json.loads(cfg.read_text())
-        for key in (
-            "auto_inject_context",
-            "consolidation_reminder_enabled",
-            "consolidation_min_hours",
-            "consolidation_min_sessions",
-        ):
-            assert key in result, f"Expected key '{key}' in config output"
+        assert "auto_inject_context" in result
+        prefix = "consolidation_"
+        leaked = [k for k in result if k.startswith(prefix)]
+        assert not leaked, f"Removed keys must not appear in config: {leaked}"
 
     def test_defaults_resets_auto_inject_context_when_existing_config_has_it_false(
         self, tmp_path, monkeypatch
@@ -205,13 +202,3 @@ class TestWriteConfigCliArgs:
 
         result = json.loads(cfg.read_text())
         assert result["auto_inject_context"] is False
-
-    def test_consolidation_min_hours_floor(self, tmp_path, monkeypatch):
-        """--consolidation-min-hours=0 is clamped to 1 (minimum valid interval)."""
-        cfg = tmp_path / "config.json"
-        _patch_config_path(monkeypatch, cfg)
-
-        _run_main(["--consolidation-min-hours", "0"])
-
-        result = json.loads(cfg.read_text())
-        assert result["consolidation_min_hours"] == 1

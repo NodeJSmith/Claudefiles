@@ -17,13 +17,13 @@ def _build_onboarding_context() -> str:
 ## Claude Memory: Onboarding Pending
 
 claude-memory is installed but unconfigured. Its features (session context \
-injection, consolidation reminders) are paused until setup completes.
+injection) are paused until setup completes.
 
 Address the user's message first — complete their task normally. At the end \
 of your response, append a one-time notice in natural prose (not AskUserQuestion) \
-mentioning that claude-memory is installed and offering setup. Mention three \
-capabilities briefly: session context recall, /cm-recall-conversations for searching \
-past work, and /cm-extract-learnings reminders. Offer two choices: (1) walk through \
+mentioning that claude-memory is installed and offering setup. Mention two \
+capabilities briefly: session context recall and /cm-recall-conversations for searching \
+past work. Offer two choices: (1) walk through \
 settings, or (2) enable recommended defaults. Note they can change settings later \
 in ~/.claude-memory/config.json.
 
@@ -32,21 +32,14 @@ in ~/.claude-memory/config.json.
 Flat branches — handle the user's reply to the notice:
 
 **Walkthrough (default)** — any affirmative reply ("ok", "sure", "let's do it", \
-"set it up", "yes") routes here. Use AskUserQuestion for two settings:
+"set it up", "yes") routes here. Use AskUserQuestion for one setting:
 
 1. Session context injection (auto-recall last session on startup): Yes / No
-2. Consolidation reminders (/extract-learnings nudges): Yes with defaults / \
-Yes with custom thresholds / No
-
-If custom thresholds, ask once: hours and sessions between reminders.
 
 Then run cm-write-config with chosen values:
 ```
 cm-write-config \\
-  --auto-inject-context <true|false> \\
-  --consolidation-enabled <true|false> \\
-  --consolidation-min-hours <N> \\
-  --consolidation-min-sessions <N>
+  --auto-inject-context <true|false>
 ```
 Confirm: preferences saved, features activate next session.
 

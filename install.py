@@ -132,13 +132,12 @@ def get_bundles(repo_dir: Path) -> dict[str, Bundle]:
         ),
         "memory": Bundle(
             label="Memory (cm-*)",
-            description="Conversation memory, learnings extraction, token insights",
+            description="Conversation memory, recall, and token insights",
             skills=(
-                "cm-extract-learnings",
                 "cm-get-token-insights",
                 "cm-recall-conversations",
             ),
-            agents=("cm-memory-auditor", "cm-signal-discoverer"),
+            agents=(),
             packages=("claude-memory",),
             capabilities_files=("capabilities-memory.md",),
         ),

@@ -2,6 +2,11 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-06-04
+
+### Removed
+- `cm-extract-learnings` skill, `cm-memory-auditor` and `cm-signal-discoverer` agents, and `cm-consolidation-check` hook — memsearch replaces proactive memory surfacing (#357)
+
 ## 2026-06-03
 
 ### Added

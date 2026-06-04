@@ -15,7 +15,6 @@ cm-memory-setup          = "claude_memory.hooks.memory_setup:main"
 cm-memory-sync           = "claude_memory.hooks.memory_sync:main"
 cm-memory-context        = "claude_memory.hooks.memory_context:main"
 cm-onboarding            = "claude_memory.hooks.onboarding:main"
-cm-consolidation-check   = "claude_memory.hooks.consolidation_check:main"
 cm-clear-handoff         = "claude_memory.hooks.clear_handoff:main"
 # Internal helpers (called as subprocesses by hooks above)
 cm-sync-current          = "claude_memory.hooks.sync_current:main"

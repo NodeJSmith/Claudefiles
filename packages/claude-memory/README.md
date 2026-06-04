@@ -16,12 +16,11 @@ The hooks are wired in `settings.json` with graceful degradation — they silent
 
 ## First-run setup
 
-On your first session after installing, Claude will notice that `~/.claude-memory/config.json` doesn't exist and walk you through a brief onboarding. It will ask two questions:
+On your first session after installing, Claude will notice that `~/.claude-memory/config.json` doesn't exist and walk you through a brief onboarding. It will ask one question:
 
 1. **Session context injection** — should Claude automatically recall what you were working on last session?
-2. **Consolidation reminders** — should Claude nudge you to run `/cm-extract-learnings` periodically to save key insights to your MEMORY.md?
 
-Your choices get written to `~/.claude-memory/config.json`. You can edit that file directly at any time to change settings.
+Your choice gets written to `~/.claude-memory/config.json`. You can edit that file directly at any time to change settings.
 
 To skip the walkthrough and use recommended defaults immediately:
 
@@ -40,7 +39,6 @@ These are wired into `settings.json` and fire on their respective Claude Code ev
 | `cm-memory-setup` | SessionStart | Creates `~/.claude-memory/` if needed, opens the DB to apply any pending migrations, then spawns `cm-import-conversations` and `cm-backfill-summaries` as background processes |
 | `cm-onboarding` | SessionStart (startup only) | One-time first-run onboarding. Injects setup instructions into Claude's context if `config.json` is missing or onboarding hasn't been completed. Silent no-op after that |
 | `cm-memory-context` | SessionStart (startup + clear) | Injects a summary of your most recent session into Claude's context so it knows what you were working on. On `/clear`, reads a handoff file to link directly to the session you just cleared from |
-| `cm-consolidation-check` | SessionStart (startup + clear) | Nudges Claude to suggest `/cm-extract-learnings` if it's been 24+ hours and 5+ sessions since your last consolidation. Silent until both thresholds are crossed |
 | `cm-clear-handoff` | SessionEnd (clear only) | Writes a small handoff file so the next session start knows which session to link to after a `/clear`. Without this, context injection falls back to "most recent session" heuristic |
 | `cm-memory-sync` | Stop | Syncs the current session to the DB in a detached background process. Runs on every session end |
 
@@ -68,7 +66,6 @@ These are the entry points that the `cm-*` skills invoke. You can run them from 
 | Skill | Trigger | What it does |
 |---|---|---|
 | `/cm-recall-conversations` | "what did we discuss", "continue where we left off", "search my conversations" | Lets Claude search or browse your past sessions on demand |
-| `/cm-extract-learnings` | "extract learnings", "save this for next time", "consolidate memories" | Mines the current session for corrections, decisions, and patterns worth saving to your `MEMORY.md` |
 | `/cm-get-token-insights` | "analyze Claude token usage", "how much am I spending on Claude" | Full cost + workflow analytics report with an interactive HTML dashboard |
 
 ## Data flow
@@ -84,10 +81,8 @@ Session starts
   │    └─ cm-import-conversations (background, first run / new files)
   │    └─ cm-backfill-summaries (background, if summaries missing)
   ├─ cm-onboarding (SessionStart, startup only — one-time)
-  ├─ cm-memory-context (SessionStart, startup + clear)
-  │    └─ injects last session summary into Claude's context
-  └─ cm-consolidation-check (SessionStart, startup + clear)
-       └─ nudges /cm-extract-learnings if thresholds met
+  └─ cm-memory-context (SessionStart, startup + clear)
+       └─ injects last session summary into Claude's context
 ```
 
 ## Config file
@@ -98,10 +93,7 @@ Session starts
 {
   "onboarding_completed": true,
   "onboarding_version": 1,
-  "auto_inject_context": true,
-  "consolidation_reminder_enabled": true,
-  "consolidation_min_hours": 24,
-  "consolidation_min_sessions": 5
+  "auto_inject_context": true
 }
 ```
 

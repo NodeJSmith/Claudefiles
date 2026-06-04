@@ -87,9 +87,9 @@ class TestMergeHookEntries:
         assert result[1]["matcher"] == "Bash"
 
     def test_real_scenario_session_start_duplicate(self) -> None:
-        """The exact bug: Claudefiles has SessionStart with 6 hooks, machine
+        """The exact bug: Claudefiles has SessionStart with 5 hooks, machine
         has SessionStart with 1 hook (tmux-remind.sh) that's already in
-        Claudefiles.  Should merge into one entry with 6 hooks (deduped)."""
+        Claudefiles.  Should merge into one entry with 5 hooks (deduped)."""
         claudefiles_entry = {
             "hooks": [
                 {"type": "command", "command": "uuidgen", "timeout": 2000},
@@ -97,11 +97,6 @@ class TestMergeHookEntries:
                 {"type": "command", "command": "cm-memory-setup", "timeout": 10000},
                 {"type": "command", "command": "cm-onboarding", "timeout": 10000},
                 {"type": "command", "command": "cm-memory-context", "timeout": 10000},
-                {
-                    "type": "command",
-                    "command": "cm-consolidation-check",
-                    "timeout": 10000,
-                },
             ]
         }
         machine_entry = {
@@ -111,7 +106,7 @@ class TestMergeHookEntries:
         }
         result = merge_hook_entries([claudefiles_entry], [machine_entry])
         assert len(result) == 1
-        assert len(result[0]["hooks"]) == 6
+        assert len(result[0]["hooks"]) == 5
 
 
 # ---------------------------------------------------------------------------
