@@ -1,7 +1,7 @@
 ---
 task_id: "T01"
 title: "Delete files and deregister from system config"
-status: "planned"
+status: "done"
 depends_on: []
 implements: ["FR#1", "FR#2", "FR#3", "FR#4", "FR#5", "FR#6", "FR#7", "FR#19"]
 ---
@@ -23,7 +23,7 @@ Then make these surgical edits:
 - Remove `"Bash(cm-consolidation-check:*)"` from the `allowedTools` array (search for that exact string)
 - In the `hooks.SessionStart` array, find the entry whose inner `hooks` array contains a command starting with `bash -c 'command -v cm-consolidation-check`. Remove that single element from the inner `hooks` array. Do NOT remove the entire SessionStart entry — it contains other commands.
 
-**`install.py`** — Remove `"cm-extract-learnings"` from the memory bundle's `skills=()` tuple. Also remove `"cm-memory-auditor"` and `"cm-signal-discoverer"` from the `agents=()` tuple in the same `BundleDef` call.
+**`install.py`** — Remove `"cm-extract-learnings"` from the memory bundle's `skills=()` tuple. Also remove `"cm-memory-auditor"` and `"cm-signal-discoverer"` from the `agents=()` tuple in the same `BundleDef` call. Update the bundle's `description=` string to remove "learnings extraction" (e.g., change to `"Conversation memory, recall, and token insights"`).
 
 **`packages/claude-memory/pyproject.toml`** — Remove the `cm-consolidation-check` entrypoint line from `[project.scripts]` (the line reading `cm-consolidation-check   = "claude_memory.hooks.consolidation_check:main"`).
 

@@ -46,7 +46,7 @@ The cm-extract-learnings skill mines past sessions for knowledge to persist as m
 - **FR#12** `packages/claude-memory/src/claude_memory/hooks/write_config.py` contains no consolidation-related config args or logic
 - **FR#13** `tests/test_install.py` contains no references to cm-extract-learnings, cm-memory-auditor, or cm-signal-discoverer (mkdir calls, agent list entries, symlink assertions)
 - **FR#14** `packages/claude-memory/README.md` contains no extract-learnings or consolidation-check feature table entries
-- **FR#15** `packages/claude-memory/src/claude_memory/db.py` contains no consolidation keys in `DEFAULT_SETTINGS` or `CONFIG_KEYS`
+- **FR#15** `packages/claude-memory/src/claude_memory/db.py` contains no consolidation keys in `DEFAULT_SETTINGS` or `_CONFIG_KEYS`
 - **FR#16** `packages/claude-memory/tests/test_write_config.py` contains no consolidation-related assertions or test methods
 - **FR#17** `skills-memory/cm-recall-conversations/SKILL.md` and `skills-memory/cm-recall-conversations/references/lenses.md` contain no `extract-learnings` lens references
 - **FR#18** `packages/merge-settings/tests/test_merge.py` has the `cm-consolidation-check` entry removed from the hardcoded hook list and the count assertion updated
@@ -93,7 +93,7 @@ Pure deletion and surgical editing. No new code.
 5. `ONBOARDING.md` — remove consolidation and extract-learnings mentions
 6. `packages/claude-memory/src/claude_memory/hooks/onboarding.py` — remove consolidation reminder setup
 7. `packages/claude-memory/src/claude_memory/hooks/write_config.py` — remove consolidation config args and logic
-8. `packages/claude-memory/src/claude_memory/db.py` — remove consolidation keys from `DEFAULT_SETTINGS` and `CONFIG_KEYS`
+8. `packages/claude-memory/src/claude_memory/db.py` — remove consolidation keys from `DEFAULT_SETTINGS` and `_CONFIG_KEYS`
 9. `tests/test_install.py` — remove all references to cm-extract-learnings, cm-memory-auditor, and cm-signal-discoverer (mkdir calls, agent list entries, symlink assertions)
 10. `packages/claude-memory/tests/test_write_config.py` — remove consolidation-related assertions and test methods
 11. `packages/claude-memory/README.md` — remove feature table entries
