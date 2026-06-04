@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-06-04
 
 ### Added
-- CodeRabbit AI code review — `.coderabbit.yaml` with thorough profile and path-specific instructions for skills, agents, rules, bin scripts, and hooks
+- CodeRabbit AI code review — `.coderabbit.yaml` with thorough profile and path-specific instructions for skills, agents, rules, bin scripts, and hooks (#358)
 
 ### Removed
 - `cm-extract-learnings` skill, `cm-memory-auditor` and `cm-signal-discoverer` agents, and `cm-consolidation-check` hook — memsearch replaces proactive memory surfacing (#357)
