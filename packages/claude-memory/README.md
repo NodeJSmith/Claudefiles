@@ -16,7 +16,7 @@ The hooks are wired in `settings.json` with graceful degradation — they silent
 
 ## First-run setup
 
-On your first session after installing, Claude will notice that `~/.claude-memory/config.json` doesn't exist and walk you through a brief onboarding. It will ask two questions:
+On your first session after installing, Claude will notice that `~/.claude-memory/config.json` doesn't exist and walk you through a brief onboarding. It will ask one question:
 
 1. **Session context injection** — should Claude automatically recall what you were working on last session?
 

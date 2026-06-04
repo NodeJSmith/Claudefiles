@@ -1,7 +1,7 @@
 # Design: Remove cm-extract-learnings and consolidation hooks
 
 **Date:** 2026-06-04
-**Status:** approved
+**Status:** archived
 **Scope-mode:** hold
 
 ## Problem

@@ -22,7 +22,7 @@
 | extract-decisions | What trade-offs were discussed? What was rejected and why? |
 | find-antipatterns | What mistakes repeat? What confusions persist? |
 
-**Follow-ups**: find-gaps suggests `learn-anything`. extract-decisions suggests `/update-claudemd`.
+**Follow-ups**: extract-decisions suggests `/update-claudemd`.
 
 ## Supplementary Search Patterns
 
