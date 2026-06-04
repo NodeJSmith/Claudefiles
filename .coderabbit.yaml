@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+
+reviews:
+  profile: thorough
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+
+  path_instructions:
+    - path: "skills/**"
+      instructions: |
+        SKILL.md files follow a specific convention: YAML-like structured blocks,
+        AskUserQuestion tool dispatch patterns, and phase-based execution.
+        Check for correct tool call syntax, phase ordering, and that trigger
+        phrases match the skill's purpose.
+
+    - path: "agents/**"
+      instructions: |
+        Agent files use YAML frontmatter (model, tools list). Verify the model
+        declaration matches the project's model policy (see rules/common/performance.md).
+        Check that the system prompt is focused and doesn't duplicate rules.
+
+    - path: "rules/**"
+      instructions: |
+        Rule files shape agent behavior. Check for named failure modes, diagnostic
+        questions over bare thresholds, and AI-specific bias acknowledgment per
+        rules/common/instruction-quality.md.
+
+    - path: "bin/**"
+      instructions: |
+        CLI scripts. Check for set -euo pipefail, proper quoting, --help output,
+        and error handling. Scripts must be portable across Ubuntu and WSL2.
+
+    - path: "scripts/hooks/**"
+      instructions: |
+        Claude Code hooks. These run on every tool call and must be fast (<100ms).
+        Check for performance, correct exit codes, and that they don't block
+        on network calls.
+
+chat:
+  auto_reply: true
