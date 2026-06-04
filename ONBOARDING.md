@@ -56,7 +56,7 @@ Add the **Frontend** bundle. You get the Impeccable UI design skills for audit (
 Add the **CLI** bundle. Six skills cover hardening, output formatting, discoverability, error messages, complexity reduction, and comprehensive auditing. Start with `/cli-audit` for an existing tool, or `/cli-affordances` when designing a new one.
 
 **"I want conversation memory across sessions"**
-Add the **Memory** bundle. Claude remembers corrections, architectural decisions, and preferences across sessions. Every few sessions it nudges you to consolidate. Running `/cm-extract-learnings` then mines your recent sessions for new learnings and reconciles them against what's already saved, adding or updating memories as needed. You can also run it on demand. `/cm-recall-conversations` searches past sessions.
+Add the **Memory** bundle. Claude remembers corrections, architectural decisions, and preferences across sessions. `/cm-recall-conversations` searches past sessions.
 
 **"I want to research a topic across Reddit, X, YouTube, and more"**
 The `/last30days` plugin is bundled and registers automatically. Type `/last30days <topic>` to research across Reddit, X, YouTube, TikTok, Instagram, HN, Polymarket, GitHub, and other platforms. Results are scored by real engagement (upvotes, likes, real-money odds), not editors. Zero config for the core sources; run it once and the setup wizard unlocks additional platforms.

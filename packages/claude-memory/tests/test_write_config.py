@@ -82,14 +82,9 @@ class TestWriteConfigDefaults:
 
         result = json.loads(cfg.read_text())
         assert "auto_inject_context" in result
-        for removed_key in (
-            "consolidation_reminder_enabled",
-            "consolidation_min_hours",
-            "consolidation_min_sessions",
-        ):
-            assert removed_key not in result, (
-                f"Removed key '{removed_key}' must not appear in config"
-            )
+        prefix = "consolidation_"
+        leaked = [k for k in result if k.startswith(prefix)]
+        assert not leaked, f"Removed keys must not appear in config: {leaked}"
 
     def test_defaults_resets_auto_inject_context_when_existing_config_has_it_false(
         self, tmp_path, monkeypatch
