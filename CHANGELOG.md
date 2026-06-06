@@ -2,6 +2,14 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-06-07
+
+### Added
+- `code-judo-reviewer` agent — structural simplification reviewer wired into `mine.define` (pre-design) and `mine.orchestrate` post-execution pipeline
+- `secrets-auditor` agent and `secrets-check.sh` git pre-commit hook — credential scanning with 44 patterns
+- Anti-sycophancy baseline in `interaction.md` — challenge assumptions and correct plainly by default
+- Usage-first design gate in `mine.define` — write caller-perspective call sites before defining API types
+
 ## 2026-06-04
 
 ### Added

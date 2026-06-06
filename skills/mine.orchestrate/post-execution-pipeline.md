@@ -128,6 +128,40 @@ The first line of the summary file MUST be: `<!-- HEAD: <git rev-parse --short H
 
 Wait for the subagent to complete. Read `<dir>/clean-code-summary.md` to see what was fixed and what remains. Note any unfixed findings for the shipping gate.
 
+## Step 4.5: Structural simplification check (gates on HIGH findings)
+
+After clean-code fixes, run a `code-judo-reviewer` subagent on the full branch diff. This catches structural simplification opportunities that per-task reviewers miss — bolt-on patterns, ad-hoc conditionals, duplicated logic that only becomes visible across the full change.
+
+```bash
+git diff --name-only <base_commit> HEAD
+```
+
+Launch `Agent(subagent_type: "code-judo-reviewer")` with all changed files plus context:
+
+> Review all changes on this branch for structural simplification opportunities.
+>
+> Run: git diff <base_commit>...HEAD
+>
+> You have full-branch context — read callers and siblings of changed files to find structural moves that span the whole change. Focus on: ad-hoc conditionals bolted onto unrelated flows, duplicated helpers when a canonical home exists, state machines replaceable by data transformations, and deletion opportunities that enable collapsing a layer. Propose concrete structural moves, not just observations.
+
+If the reviewer finds HIGH findings, present them to the user:
+
+```
+AskUserQuestion:
+  question: "Structural simplification check found opportunities: <summary>. Address them?"
+  header: "Simplify?"
+  multiSelect: false
+  options:
+    - label: "Address simplifications"
+      description: "Dispatch a subagent to apply the structural moves"
+    - label: "Note and continue"
+      description: "Acknowledge findings, proceed to final review"
+```
+
+On "Address simplifications": dispatch a `general-purpose` subagent with `model: sonnet`. Pass it: the judo-reviewer's findings (full report), the affected file paths, and the design doc path (`<feature_dir>/design.md`). Prompt: "Apply only the HIGH structural simplification moves listed below. Do not expand scope beyond these findings. After applying, run the test suite to verify no regressions: `<contents of <dir>/test-command.txt>`." On "Note and continue" or if no HIGH findings: proceed to Step 5.
+
+MEDIUM and LOW findings are noted for the shipping gate but do not block.
+
 ## Step 5: Final review pass (automatic)
 
 After the clean code fixes, run a final `code-reviewer` and `integration-reviewer` pass in parallel on the full branch diff to catch any issues introduced by the auto-fix subagent.
@@ -152,7 +186,7 @@ Present the final gate with impl-review and cross-file review results:
 
 ```
 AskUserQuestion:
-  question: "All tasks complete. Implementation review: <APPROVE + any non-blocking suggestions summary>. Cross-file review: <APPROVE/WARN + any notes>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Final review: <clean / N findings fixed>. What next?"
+  question: "All tasks complete. Implementation review: <APPROVE + any non-blocking suggestions summary>. Cross-file review: <APPROVE/WARN + any notes>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Structural simplification: <N findings — or 'no significant simplification found'>. Final review: <clean / N findings fixed>. What next?"
   header: "Ship"
   multiSelect: false
   options:

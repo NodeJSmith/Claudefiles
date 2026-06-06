@@ -96,6 +96,7 @@ Full component tables for Claudefiles. For context on what each component type d
 
 | Agent | Description |
 |-------|-------------|
+| `code-judo-reviewer` | Structural simplification reviewer — hunts aggressively for simplification moves; advisory, does not block commits |
 | `code-reviewer` | Expert code reviewer — PEP 8, type hints, security, performance |
 | `integration-reviewer` | Codebase integration reviewer — duplication, misplacement, convention drift, orphaned code, design violations |
 | `issue-refiner` | Enrich GitHub issues with acceptance criteria, edge cases, technical considerations, and NFRs |
@@ -103,6 +104,7 @@ Full component tables for Claudefiles. For context on what each component type d
 | `llm-checker` | LLM-bias reviewer — detects training-bias patterns and code smells introduced by LLM-generated code |
 | `nitpicker` | Hyper-critical style reviewer — flags magic numbers, scattered constants, nested ternaries, dead code, and naming inconsistencies with no severity filter |
 | `researcher` | Autonomous codebase research and feasibility analysis with parallel subagents and web research |
+| `secrets-auditor` | Read-only credential scanner — scans staged diff and working tree for secrets, tokens, and credentials |
 | `wtf-reviewer` | Readability and maintainability reviewer — finds code that works but will confuse a developer reading it a month from now |
 
 ### Engineering Specialists — Engineering bundle
@@ -166,6 +168,7 @@ Event-driven scripts that run before/after tool calls.
 | `context-tier.sh` | PreToolUse (*) | Inject context window tier guidance on tier change or periodic heartbeat (every 25 calls) — prevents hallucinated context pressure |
 | `tmux-drift-check.sh` | PreToolUse (*) | Periodically remind Claude to verify tmux session name alignment with current work (every 30 calls) |
 | `phrase-monitor.sh` | PreToolUse (*) | Log assistant rationalization phrases (context pressure, minimize changes, scope avoidance, etc.) — observation-only with optional ntfy notifications |
+| `secrets-check.sh` | Git pre-commit | Block commits containing secrets, tokens, or dangerous files — 44 patterns (29 regex + 15 filename), truncated output, `SKIP_SECRETS_CHECK=1` override |
 | `cm-memory-sync` (package) | Stop | Sync current session to the conversation database |
 
 > **Context tier setup:** The `context-tier.sh` hook reads a sidecar file written by `claude-context-writer`. To enable it, add `claude-context-writer` to your `statusLine.command` in settings — either by itself or in front of your existing command:
