@@ -24,6 +24,7 @@ Use Sonnet instead of Haiku when any of these apply:
 Each agent file in `agents/` declares its model in YAML frontmatter. When updating model policy, check all locations:
 
 **Agent files:**
+- `agents/code-judo-reviewer.md` — sonnet
 - `agents/code-reviewer.md` — sonnet (pre-commit safety gate; do not downgrade)
 - `agents/integration-reviewer.md` — sonnet (pre-commit safety gate; do not downgrade)
 - `agents/lazy-checker.md` — sonnet
@@ -31,6 +32,7 @@ Each agent file in `agents/` declares its model in YAML frontmatter. When updati
 - `agents/nitpicker.md` — sonnet
 - `agents/testing-reality-checker.md` — sonnet (pre-ship safety gate; do not downgrade)
 - `agents/researcher.md` — opus (pinned to 4.6; do not upgrade without explicit approval)
+- `agents/secrets-auditor.md` — haiku
 - `agents/planner.md` — sonnet
 - `agents/architect.md` — sonnet
 - `agents/qa-specialist.md` — sonnet

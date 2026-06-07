@@ -23,6 +23,8 @@ Full component tables for Claudefiles. For context on what each component type d
 | `mine.eval-repo` | Evaluate a third-party GitHub repo before adopting it — test coverage, code quality, maintenance health, bus factor |
 | `mine.gap-close` | Conversational completeness review — surveys artifacts against per-type checklists, triages gaps by severity, fills them one question at a time |
 | `mine.grill` | Multi-angle interrogation of a raw idea — product, design, engineering, scope, and adversarial lenses. Produces a brief.md that feeds into /mine.define |
+| `mine.how` | Interactive subsystem explanation — complexity-adaptive walkthroughs grounded in actual code, with mandatory accuracy review |
+| `mine.why` | Decision archaeology — reconstructs historical rationale from git history, issues, design docs, rules, comments, and tests with confidence calibration |
 | `mine.issues-triage` | Batch codebase-aware issue triage — parallel Haiku subagents assess actual complexity and effort by reading the code, not just titles |
 | `mine.mockup` | Generate self-contained HTML mockup files — reads `design/context.md` for consistent styling, delivers to a session temp directory |
 | `mine.mutation-test` | Mutation testing — intentionally break code to verify tests catch real bugs |
@@ -96,6 +98,7 @@ Full component tables for Claudefiles. For context on what each component type d
 
 | Agent | Description |
 |-------|-------------|
+| `code-judo-reviewer` | Structural simplification reviewer — hunts aggressively for simplification moves; advisory, does not block commits |
 | `code-reviewer` | Expert code reviewer — PEP 8, type hints, security, performance |
 | `integration-reviewer` | Codebase integration reviewer — duplication, misplacement, convention drift, orphaned code, design violations |
 | `issue-refiner` | Enrich GitHub issues with acceptance criteria, edge cases, technical considerations, and NFRs |
@@ -103,6 +106,7 @@ Full component tables for Claudefiles. For context on what each component type d
 | `llm-checker` | LLM-bias reviewer — detects training-bias patterns and code smells introduced by LLM-generated code |
 | `nitpicker` | Hyper-critical style reviewer — flags magic numbers, scattered constants, nested ternaries, dead code, and naming inconsistencies with no severity filter |
 | `researcher` | Autonomous codebase research and feasibility analysis with parallel subagents and web research |
+| `secrets-auditor` | Read-only credential scanner — scans staged diff and working tree for secrets, tokens, and credentials |
 | `wtf-reviewer` | Readability and maintainability reviewer — finds code that works but will confuse a developer reading it a month from now |
 
 ### Engineering Specialists — Engineering bundle
@@ -166,6 +170,7 @@ Event-driven scripts that run before/after tool calls.
 | `context-tier.sh` | PreToolUse (*) | Inject context window tier guidance on tier change or periodic heartbeat (every 25 calls) — prevents hallucinated context pressure |
 | `tmux-drift-check.sh` | PreToolUse (*) | Periodically remind Claude to verify tmux session name alignment with current work (every 30 calls) |
 | `phrase-monitor.sh` | PreToolUse (*) | Log assistant rationalization phrases (context pressure, minimize changes, scope avoidance, etc.) — observation-only with optional ntfy notifications |
+| `secrets-check.sh` | Git pre-commit | Block commits containing secrets, tokens, or dangerous files — 44 patterns (29 regex + 15 filename), truncated output, `SKIP_SECRETS_CHECK=1` override |
 | `cm-memory-sync` (package) | Stop | Sync current session to the conversation database |
 
 > **Context tier setup:** The `context-tier.sh` hook reads a sidecar file written by `claude-context-writer`. To enable it, add `claude-context-writer` to your `statusLine.command` in settings — either by itself or in front of your existing command:
@@ -209,6 +214,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `git-default-branch` | Print the default branch name for the current repo |
 | `git-platform` | Detect git hosting platform (`github`, `ado`, or `unknown`) from remote URL |
 | `lint-cli-conventions` | Drift prevention lint — verifies `--help` handling in bin/ scripts and capabilities-core.md CLI Tools sync |
+| `log` | Append a TSV row to a trail file with timestamping, sanitization, and event validation |
 | `phrase-monitor-log` | View phrase monitor detections — last N entries, stats, live tail, or clear |
 | `pytest-loop-reset` | Manually clear both pytest failure counters (no-edit and total) — use when you want to retry after a denial |
 

@@ -58,6 +58,7 @@ Before asking the user questions, silently explore the codebase for context rele
 - Test files covering code that will be modified or replaced — note what they test and whether they'll break
 - Code or patterns being superseded if this is a migration or refactor — these become replacement targets in the design doc
 - Anything that narrows the design space or resolves potential questions
+- **Structural simplification opportunities** — existing complexity in the affected area that could be simplified before building on top. Bolt-on conditionals, duplicated helpers, state machines that could be data transformations. Note these for the Architecture section — the design should incorporate the simplification rather than layer new code over existing complexity.
 
 **Principle: If a question can be answered by exploring the codebase, explore the codebase instead of asking the user.**
 
@@ -254,6 +255,22 @@ AskUserQuestion:
 ```
 
 If "No", ask what's wrong and revise your understanding, then confirm again.
+
+### Caller perspective (API/module designs only)
+
+If the artifact being designed is an API, module, library, or public interface (not a workflow, feature, or internal refactor), insert this step before proceeding.
+
+Ask:
+
+```
+AskUserQuestion:
+  question: "Before defining the interface, write 2-3 realistic call sites. What does the caller's code look like when using this?"
+  header: "Caller view"
+```
+
+The user's answer becomes the spec. When the call-site ergonomics conflict with the type definitions later, reconcile types to match the caller's perspective — not the reverse. Hold these call sites internally; they'll inform the Architecture section and be included as examples in Phase 4.
+
+If the user already provided call-site examples during discovery (e.g., in their problem description or flow walkthrough), skip this step and note: "Using the call sites you described earlier as the design anchor."
 
 ### Existing code leverage (moderate+ only)
 
