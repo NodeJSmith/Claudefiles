@@ -14,7 +14,7 @@ Read `design/specs/028-show-me-your-work/design.md` sections `## Architecture > 
 
 Modify `skills/mine.orchestrate/SKILL.md` to add trail logging:
 
-### Phase 0 additions (after checkpoint init, around line 127-128)
+### Phase 0 additions (after checkpoint init — find the lines containing `gitignore` and `.orchestrate-state.md`)
 1. Derive the trail path: `<feature_dir>/trail.tsv` from the checkpoint's `feature_dir` field
 2. Add gitignore entries: append `trail.tsv` and `trail-audit.md` to `<feature_dir>/.gitignore` (create the file if it doesn't exist). Follow the same manual approach used for `.orchestrate-state.md` in `tasks/.gitignore` at lines 127-128
 3. Log the writability probe: `log.sh <trail_path> p0 - start "orchestrate run started"`. If this fails, surface a warning: "Trail logging unavailable — check permissions at `<feature_dir>/`. Run will continue; trail will be absent." Store trail availability as a boolean for subsequent calls
@@ -28,14 +28,14 @@ Insert `log.sh` calls at each decision point, piping raw output. Each call is co
 
 | Step | Event | Detail source |
 |------|-------|---------------|
-| Step 1 (after line ~194) | `start` | Task ID and title (inline text) |
-| Step 4-5 (after line ~269) | `dispatch` | Agent type from agent-routing.md match (inline text) |
-| Step 7 (after line ~340) | `contested` | Each CONTESTED criterion resolution — pipe from executor output |
-| Step 9 (after line ~423) | `gate` | Pipe first 400 chars of test-gate.md and lint-gate.md |
-| Step 10 (after line ~427) | `retry` | WARN classification result and retry decision (inline text) |
-| Step 11 (after line ~431) | `review` | Pipe first 400 chars of visual-review.md |
-| Step 12 (after line ~454) | `fix` | Auto-fix count, deferred count, iteration number (inline text) |
-| Step 14-15 (after line ~489) | `verdict` | Pipe first 400 chars of the verdict summary |
+| Step 1 (find "Announce task") | `start` | Task ID and title (inline text) |
+| Step 4-5 (find "Select executor agent type" / "Launch executor") | `dispatch` | Agent type from agent-routing.md match (inline text) |
+| Step 7 (find "CONTESTED criteria resolution") | `contested` | Each CONTESTED criterion resolution — pipe from executor output |
+| Step 9 (find "Test and lint gate") | `gate` | Pipe first 400 chars of test-gate.md and lint-gate.md |
+| Step 10 (find "WARN fix loop") | `retry` | WARN classification result and retry decision (inline text) |
+| Step 11 (find "Visual reviewer") | `review` | Pipe first 400 chars of visual-review.md |
+| Step 12 (find "Review findings fix loop") | `fix` | Auto-fix count, deferred count, iteration number (inline text) |
+| Step 14-15 (find "Task verdict assembly" / "Present results") | `verdict` | Pipe first 400 chars of the verdict summary |
 
 ### Shipping gate integration
 At the shipping gate presentation (Step 15, line ~507), if the failure counter > 0, include: "trail logging had N failures during this run — check disk space and file permissions"

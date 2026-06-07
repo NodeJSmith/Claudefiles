@@ -44,7 +44,7 @@ Insert after the Final review field:
 Trail audit: <N findings — or 'no findings' — or 'failed to complete'>.
 ```
 
-If the log failure counter from T02 is > 0, also include: `Trail logging: N write failures.`
+If the log failure counter (initialized by T02 in Phase 0 as an inline variable, incremented on each failed `log.sh` call) is > 0, also include: `Trail logging: N write failures.`
 
 The shipping gate options remain unchanged — the audit is informational.
 
@@ -56,7 +56,7 @@ The shipping gate options remain unchanged — the audit is informational.
 - The post-execution pipeline requires all Phase 3 subagents to run in foreground (`post-execution-pipeline.md:5`) — do not set `run_in_background: true`
 - The audit report goes to `<feature_dir>/trail-audit.md` (alongside `trail.tsv`), NOT to the ephemeral tmpdir. This is intentional — it persists across session boundaries
 - The expected-sequence grammar in the audit prompt must match the call-site table from T02. If T02 changes the call sites, the grammar here must be updated to match
-- The shipping gate question string is at `post-execution-pipeline.md` lines ~188-189. It is a single AskUserQuestion with a long question field — append the new fields to the existing string
+- The shipping gate question string is in `post-execution-pipeline.md` at the `## Step 6: Shipping gate` section (find "All tasks complete"). It is a single AskUserQuestion with a long question field — append the new fields to the existing string
 - Follow the Step 4/4.5 pattern for formatting the new step: heading level, description, subagent launch, result handling
 
 ## Verify
