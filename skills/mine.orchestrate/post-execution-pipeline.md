@@ -186,7 +186,7 @@ Present the final gate with impl-review and cross-file review results:
 
 ```
 AskUserQuestion:
-  question: "All tasks complete. Implementation review: <APPROVE + any non-blocking suggestions summary>. Cross-file review: <APPROVE/WARN + any notes>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Structural simplification: <N findings — or 'no significant simplification found'>. Final review: <clean / N findings fixed>. What next?"
+  question: "All tasks complete. Implementation review: <APPROVE + any non-blocking suggestions summary>. Cross-file review: <APPROVE/WARN + any notes>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Structural simplification: <N findings — or 'no significant simplification found'>. Final review: <clean / N findings fixed>. Trail audit: <N findings — or 'no findings'>.<if log_failures > 0: ' Trail logging had <log_failures> failures during this run — check disk space and file permissions.'> What next?"
   header: "Ship"
   multiSelect: false
   options:
