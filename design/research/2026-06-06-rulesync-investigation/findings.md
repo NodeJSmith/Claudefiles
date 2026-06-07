@@ -63,8 +63,10 @@ Tested with `generate --dry-run` from a complete `.rulesync/` import.
 **How Codex actually loads instructions:**
 1. `AGENTS.md` files (project root + hierarchical walking from git root to cwd)
 2. `config.toml` `instructions` / `developer_instructions` fields (single string)
-3. Skills (`~/.codex/skills/*/SKILL.md` and `.agents/skills/*/SKILL.md`)
+3. Skills — discovered from a hierarchy: `$CWD/.agents/skills` → parent → `$REPO_ROOT/.agents/skills` → `$HOME/.agents/skills` → `/etc/codex/skills` → built-in
 4. That's it — no global rules directory
+
+**Note:** `~/.codex/skills/` is deprecated upstream; the canonical path is `$HOME/.agents/skills/` (see [official docs](https://developers.openai.com/codex/skills)). Rulesync still writes to `.codex/skills/` — tracked in issue #1685.
 
 **TOON workaround:** Rulesync prepends a TOON-formatted reference section to AGENTS.md asking the LLM to read the non-root files. This is prompt engineering, not native loading. Verified unreliable via `codex debug prompt-input`.
 
@@ -105,7 +107,7 @@ Cursor adds significant complexity:
 
 | File type | Codex | Antigravity |
 |---|---|---|
-| Skills (SKILL.md) | Symlink to `~/.codex/skills/` or `.agents/skills/` | Symlink to `.agents/skills/` |
+| Skills (SKILL.md) | Symlink to `~/.agents/skills/` (canonical) | Symlink to `.agents/skills/` |
 | Rules (.md) | **Cannot symlink** — no rules directory in Codex | Symlink to `.agents/rules/` |
 | Agents (.md) | **Needs conversion** — Codex uses `.toml` format | Not supported yet |
 | Commands (.md) | Not supported | Not supported yet |
@@ -118,25 +120,13 @@ Cursor adds significant complexity:
 
 ### What needs a different approach
 
-**Codex rules** — no directory-based discovery. Options:
-1. Pass rules inline when shelling out via `codex exec` prompt
-2. Concatenate into a single AGENTS.md (clunky but works)
-3. Convert rules to skills (Codex reads skills on demand)
+**Codex rules** — no directory-based discovery. The correct approach is concatenating non-root rules into AGENTS.md under section headers. This matches Claude Code's always-on semantics (rules load every conversation). Skills are wrong for rules because skills are opt-in — they load on demand when Codex decides they're relevant, which means rules like "use conventional commits" might not activate when needed.
 
-For the primary use case (shelling out for reviews/challenges), option 1 is most practical.
-
-## Reconstructed Documents
-
-Two independent agents reconstructed the lost `cursor-conversion-reference.md` from the Mar 31 session:
-- `cursor-conversion-reference-A.md` (655 lines) — more actionable, ready-to-use config dumps
-- `cursor-conversion-reference-B.md` (683 lines) — better explanations, before/after examples
-
-These are preserved for reference but partially superseded by this investigation. The Cursor-specific conversion detail remains useful if Cursor support is revisited.
+Rulesync issue #1765 proposes a `ruleDiscoveryMode: "inline"` option for this.
 
 ## Next Steps (Not Started)
 
-1. Extend `install.py` to symlink skills into `~/.codex/skills/` and `.agents/skills/` for Codex/Antigravity
-2. Decide on Codex rules strategy (inline prompt vs AGENTS.md concatenation)
-3. Watch rulesync issue #1765 for upstream fix
-4. Revisit `antigravity-cli` target coverage as rulesync adds features
-5. Build the pre-push hook for rulesync generation if/when format conversions are needed
+1. Extend `install.py` to symlink skills into `~/.agents/skills/` for Codex/Antigravity
+2. Watch rulesync issues #1765 (rules → AGENTS.md inline) and #1685 (skills path `.codex/` → `.agents/`) for upstream fixes
+3. Revisit `antigravity-cli` target coverage as rulesync adds features
+4. Build the pre-push hook for rulesync generation if/when format conversions are needed
