@@ -1,7 +1,7 @@
 # Design: Show Me Your Work — Decision Trail for Orchestrate Runs
 
 **Date:** 2026-06-07
-**Status:** approved
+**Status:** archived
 **Scope-mode:** hold
 **Research:** /tmp/claude-define-research-trail.md
 
