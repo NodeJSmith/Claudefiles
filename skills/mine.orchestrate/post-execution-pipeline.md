@@ -60,10 +60,13 @@ AskUserQuestion:
 2. After the subagent completes, re-run the project test suite (using `<dir>/test-command.txt`). If tests fail: surface the failure prominently in the next gate prompt (which offers "Address fixes" or "Stop here" — there is no "Accept and ship" option at this gate) with a note identifying the test failures.
 3. Re-run `code-reviewer` and `integration-reviewer` on the fix diff in parallel (both in a single message)
 4. Re-run `/mine.implementation-review <feature_dir>`
-5. If it now returns APPROVE, continue to Step 3
+5. If it now returns APPROVE, log the resolution if `trail_available` is true: `log <trail_path> p3 - gate "impl-review: APPROVE (after fix loop)"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`. Continue to Step 3
 6. "Address fixes" remains available across iterations — the user decides when to stop. Starting with the 3rd round, prepend a warning to the gate question: "Multiple rounds have not resolved the blocking issues — consider stopping to investigate the root cause before continuing." Do not remove the option; the user may have context (e.g., knowing the next iteration targets a different layer) that justifies continuing.
 
 **On "Stop here":** Leave the checkpoint in place. The user can resume later. Do not delete the checkpoint.
+
+If `trail_available` is true, log the impl-review verdict after it resolves (APPROVE continues, REQUEST_FIXES triggers fix loop, ABANDON hard-stops):
+`log <trail_path> p3 - gate "impl-review: <APPROVE|REQUEST_FIXES|ABANDON> — <brief summary>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
 
 ## Step 3: Cross-file consistency review (automatic)
 
@@ -86,6 +89,9 @@ Launch `Agent(subagent_type: "integration-reviewer")` with all changed files. Ad
 > - **Worked examples using invalid contract values**: examples that show values not in the canonical vocabulary
 
 If the integration-reviewer returns BLOCK, surface the blocking issues to the user with an "Address" / "Stop here" gate (same pattern as the impl-review gate). If APPROVE or WARN, note any suggestions and continue to Step 4 (Clean code check).
+
+If `trail_available` is true, log the cross-file review result:
+`log <trail_path> p3 - review "cross-file consistency: <APPROVE|WARN|BLOCK> — <brief summary>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
 
 ## Step 4: Clean code check (automatic, Opus subagent)
 
@@ -128,6 +134,9 @@ The first line of the summary file MUST be: `<!-- HEAD: <git rev-parse --short H
 
 Wait for the subagent to complete. Read `<dir>/clean-code-summary.md` to see what was fixed and what remains. Note any unfixed findings for the shipping gate.
 
+If `trail_available` is true, log the clean code results:
+`log <trail_path> p3 - fix "clean code: <N fixed, M unfixed — or 'all clean'>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+
 ## Step 4.5: Structural simplification check (gates on HIGH findings)
 
 After clean-code fixes, run a `code-judo-reviewer` subagent on the full branch diff. This catches structural simplification opportunities that per-task reviewers miss — bolt-on patterns, ad-hoc conditionals, duplicated logic that only becomes visible across the full change.
@@ -162,6 +171,9 @@ On "Address simplifications": dispatch a `general-purpose` subagent with `model:
 
 MEDIUM and LOW findings are noted for the shipping gate but do not block.
 
+If `trail_available` is true, log the structural simplification result after the user decision:
+`log <trail_path> p3 - review "structural simplification: <N HIGH findings — or 'no HIGH findings'>; user decision: <addressed|noted and continued>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+
 ## Step 5: Final review pass (automatic)
 
 After the clean code fixes, run a final `code-reviewer` and `integration-reviewer` pass in parallel on the full branch diff to catch any issues introduced by the auto-fix subagent.
@@ -180,13 +192,56 @@ Launch both reviewers in a single message (parallel):
 
 If either reviewer finds CRITICAL or HIGH issues, fix them inline (auto-fix unambiguous issues, re-run both reviewers, max 2 iterations). MEDIUM and LOW findings are noted for the shipping gate but do not block.
 
+If `trail_available` is true, log the final review result:
+`log <trail_path> p3 - review "final review: <clean — or N findings fixed>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+
+## Step 5.5: Trail audit (automatic)
+
+If `trail_available` is false, skip this step entirely — the trail does not exist, so there is nothing to audit. The shipping gate will show "Trail audit: skipped (trail unavailable)".
+
+If `trail_available` is true, launch a single `general-purpose` subagent with `model: sonnet` and this prompt (substitute `<feature_dir>` with the actual feature directory path — this is the persistent spec directory, e.g. `design/specs/028-show-me-your-work/`, NOT the tmpdir `<dir>`):
+
+```
+You are auditing the structural integrity of the decision trail from an overnight orchestrate run.
+
+Read the trail file at: <feature_dir>/trail.tsv
+
+## Expected sequence per task
+
+For each task, the expected sequence is: start → [dispatch] → [contested*] → [gate] → [retry*] → [review] → [fix*] → verdict. Optional steps are bracketed; * means zero or more occurrences. Flag deviations from this sequence.
+
+## What to check
+
+1. Missing entries: a task with a verdict but no start entry, or vice versa
+2. Sequence anomalies: entries out of expected order, or unexpected gaps between start and verdict
+3. Retry patterns: a retry event with no preceding gate or review event that would have triggered it
+4. Timing outliers: unusually short intervals between start and verdict (suggests skipped steps)
+5. Empty detail fields: entries where the detail is blank or trivially short (under 20 characters)
+
+Do NOT attempt to verify whether the content of detail fields is accurate — you cannot cross-reference against the actual command outputs. Focus on structural patterns the trail reveals about the execution flow.
+
+## Output format
+
+Start your report with: ## Summary
+N findings (or "no findings")
+
+Then list each finding with: the task ID, the structural issue, and why it matters.
+
+Write your audit report to: <feature_dir>/trail-audit.md
+```
+
+Wait for the subagent to complete. Read `<feature_dir>/trail-audit.md` and extract the finding count from the `## Summary` line (e.g., "3 findings", "no findings"). If the file is missing or unreadable, use "failed to complete" as the audit status.
+
+Log a trail entry for the audit:
+`log <trail_path> p3 - review "trail audit: <N findings — or 'no findings' — or 'failed to complete' if report missing>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+
 ## Step 6: Shipping gate
 
 Present the final gate with impl-review and cross-file review results:
 
 ```
 AskUserQuestion:
-  question: "All tasks complete. Implementation review: <APPROVE + any non-blocking suggestions summary>. Cross-file review: <APPROVE/WARN + any notes>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Structural simplification: <N findings — or 'no significant simplification found'>. Final review: <clean / N findings fixed>. Trail audit: <N findings — or 'no findings'>.<if log_failures > 0: ' Trail logging had <log_failures> failures during this run — check disk space and file permissions.'> What next?"
+  question: "All tasks complete. Implementation review: <APPROVE + any non-blocking suggestions summary>. Cross-file review: <APPROVE/WARN + any notes>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Structural simplification: <N findings — or 'no significant simplification found'>. Final review: <clean / N findings fixed>. Trail audit: <N findings — or 'no findings' — or 'skipped (trail unavailable)' — or 'failed to complete'>.<if log_failures > 0: ' Trail logging had <log_failures> failures during this run — check disk space and file permissions.'> What next?"
   header: "Ship"
   multiSelect: false
   options:
