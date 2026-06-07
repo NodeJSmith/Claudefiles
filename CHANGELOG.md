@@ -9,6 +9,8 @@ All notable changes to this Claudefiles repository are documented here.
 - `secrets-auditor` agent and `secrets-check.sh` git pre-commit hook — credential scanning with 44 patterns
 - Anti-sycophancy baseline in `interaction.md` — challenge assumptions and correct plainly by default
 - Usage-first design gate in `mine.define` — write caller-perspective call sites before defining API types
+- `mine.how` skill — complexity-adaptive subsystem explanation with mandatory accuracy review
+- `mine.why` skill — decision archaeology with parallel evidence gathering and confidence calibration
 
 ## 2026-06-04
 

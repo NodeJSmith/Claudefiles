@@ -33,6 +33,8 @@
 | "end of day", "wrapping up", "eod", "signing off", "handoff for tomorrow" | `/mine.end-of-day` |
 | "good morning", "pick up where I left off", "what was I working on", "read the handoff" | `/mine.good-morning` |
 | "evaluate this repo", "should I use this library" | `/mine.eval-repo` |
+| "how does X work", "walk me through", "explain this subsystem", "explain how", "trace the flow" | `/mine.how` |
+| "why is this code like this", "why does this exist", "why was this built this way", "decision rationale", "what's the history behind" | `/mine.why` |
 | "mutation test", "do my tests actually catch bugs" | `/mine.mutation-test` |
 | "find tool gaps", "session archaeology", "missing cli features" | `/mine.tool-gaps` |
 | "grill me on this", "poke holes in my idea", "help me think this through", "what am I not thinking about" | `/mine.grill` |
