@@ -11,6 +11,7 @@ All notable changes to this Claudefiles repository are documented here.
 - Usage-first design gate in `mine.define` — write caller-perspective call sites before defining API types
 - `mine.how` skill — complexity-adaptive subsystem explanation with mandatory accuracy review
 - `mine.why` skill — decision archaeology with parallel evidence gathering and confidence calibration
+- `bin/log` helper + trail logging in `mine.orchestrate` — append-only TSV decision trail for overnight runs with post-run structural audit
 
 ## 2026-06-04
 

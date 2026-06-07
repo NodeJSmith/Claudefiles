@@ -25,6 +25,9 @@ Invoke `/mine.implementation-review <feature_dir>` automatically. The skill pres
 
 Read the review output. Extract the verdict (APPROVE, REQUEST_FIXES, or ABANDON) and any suggestions or blocking issues.
 
+If `trail_available` is true, log the impl-review verdict immediately:
+`log <trail_path> p3 - gate "impl-review: <APPROVE|REQUEST_FIXES|ABANDON> — <brief summary>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+
 **If impl-review returns APPROVE** — note any non-blocking suggestions to surface later. Continue to Step 3 automatically.
 
 **If impl-review returns ABANDON** — hard stop. ABANDON means the implementation is unrecoverable and requires a design rethink, not a code fix. Do not offer "Address fixes":
@@ -60,13 +63,10 @@ AskUserQuestion:
 2. After the subagent completes, re-run the project test suite (using `<dir>/test-command.txt`). If tests fail: surface the failure prominently in the next gate prompt (which offers "Address fixes" or "Stop here" — there is no "Accept and ship" option at this gate) with a note identifying the test failures.
 3. Re-run `code-reviewer` and `integration-reviewer` on the fix diff in parallel (both in a single message)
 4. Re-run `/mine.implementation-review <feature_dir>`
-5. If it now returns APPROVE, log the resolution if `trail_available` is true: `log <trail_path> p3 - gate "impl-review: APPROVE (after fix loop)"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`. Continue to Step 3
+5. If it now returns APPROVE, continue to Step 3
 6. "Address fixes" remains available across iterations — the user decides when to stop. Starting with the 3rd round, prepend a warning to the gate question: "Multiple rounds have not resolved the blocking issues — consider stopping to investigate the root cause before continuing." Do not remove the option; the user may have context (e.g., knowing the next iteration targets a different layer) that justifies continuing.
 
 **On "Stop here":** Leave the checkpoint in place. The user can resume later. Do not delete the checkpoint.
-
-If `trail_available` is true, log the impl-review verdict after it resolves (APPROVE continues, REQUEST_FIXES triggers fix loop, ABANDON hard-stops):
-`log <trail_path> p3 - gate "impl-review: <APPROVE|REQUEST_FIXES|ABANDON> — <brief summary>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
 
 ## Step 3: Cross-file consistency review (automatic)
 

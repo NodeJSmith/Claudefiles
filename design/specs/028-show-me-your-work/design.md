@@ -51,7 +51,7 @@ The `autonomous-run-discipline.md` rule mandates "keep a decision trail" but pro
    - Then: Asks Claude to read the trail entries surrounding the flagged ones for more context
 
 2. **Investigates a flagged entry**
-   - Sees: Claude explains the trail sequence — T03 has a verdict but the start entry is missing (possible log.sh failure or context-pressure skip)
+   - Sees: Claude explains the trail sequence — T03 has a verdict but the start entry is missing (possible log failure or context-pressure skip)
    - Decides: Whether to re-run the task manually or accept the work with the caveat noted
    - Then: Ships with awareness of the weak spots, or re-runs the specific task
 
@@ -64,27 +64,27 @@ The `autonomous-run-discipline.md` rule mandates "keep a decision trail" but pro
 
 ## Functional Requirements
 
-- **FR#1** A `log.sh` bin script accepts a trail file path, phase, task ID, event type, and detail text, and appends a single TSV row with an auto-generated timestamp
+- **FR#1** A `log` bin script accepts a trail file path, phase, task ID, event type, and detail text, and appends a single TSV row with an auto-generated timestamp
 - **FR#2** The script strips formula-injection characters (`=`, `+`, `@`, `;`) from the leading position of each field value before writing
 - **FR#3** The script sanitizes tab, newline, and carriage return characters within field values by replacing them with spaces
 - **FR#4** The script writes a TSV header row (`timestamp`, `phase`, `task`, `event`, `detail`) when the trail file does not yet exist
-- **FR#5** mine.orchestrate calls `log.sh` at each significant decision point during Phase 2 (per-task loop) and Phase 3 (post-execution pipeline), producing ~7-11 entries per task
+- **FR#5** mine.orchestrate calls `log` at each significant decision point during Phase 2 (per-task loop) and Phase 3 (post-execution pipeline), producing ~7-11 entries per task
 - **FR#6** The trail file persists at `<feature_dir>/trail.tsv` as a local-only file (gitignored, like the checkpoint file)
 - **FR#7** After Phase 3 completes (before the shipping gate), a Sonnet audit reviewer reads the full trail and produces a structured report flagging structural anomalies: missing entries, sequence violations, retry-without-trigger patterns, timing outliers, and empty detail fields
 - **FR#8** The audit is informational — findings are surfaced to the user at the shipping gate but do not block shipping
 
 ## Edge Cases
 
-- Trail file path contains spaces or special characters — `log.sh` must quote correctly
+- Trail file path contains spaces or special characters — `log` must quote correctly
 - Detail text is empty — write the row with an empty detail field rather than failing
 - Detail text exceeds a reasonable length — truncate to 500 characters to keep entries concise and context-efficient
 - Orchestrate resumes from checkpoint — append to the existing trail file rather than overwriting it
 - Orchestrate run has zero tasks (edge case: empty task list) — trail file gets only the header row and Phase 3 entries
 - Audit reviewer finds no issues — report states "no findings" rather than being empty
-- `log.sh` fails (disk full, permissions error) — the orchestrate run must not abort; log the failure via stderr and continue execution without the trail entry. The orchestrator maintains an inline failure counter; if any `log.sh` calls returned non-zero, the shipping gate surfaces "trail logging had N failures during this run — check disk space and file permissions" so users can distinguish write failures from behavioral omissions
+- `log` fails (disk full, permissions error) — the orchestrate run must not abort; log the failure via stderr and continue execution without the trail entry. The orchestrator maintains an inline failure counter; if any `log` calls returned non-zero, the shipping gate surfaces "trail logging had N failures during this run — check disk space and file permissions" so users can distinguish write failures from behavioral omissions
 - Audit reviewer subagent fails or times out — surface the failure at the shipping gate as "trail audit: failed to complete" rather than blocking; the trail file itself is still available for manual review
 - Trail file is corrupted (e.g., partial write from a killed process) — the audit reviewer should note the corruption as a finding rather than crashing. Single-process sequential `>>` appends on Linux are effectively atomic in practice, so corruption is unlikely but not impossible on non-POSIX filesystems
-- Orchestrate crashes mid-run — the trail contains entries up to the crash point. On resume, the orchestrator logs a synthetic start entry (`log.sh <trail> p0 - start "resuming from checkpoint; last completed: <task_id>; base_commit: <sha>"`) to create an unambiguous context anchor. New entries then append normally. The audit reviewer can detect gaps (e.g., a task with a verdict but no start entry) and flag them
+- Orchestrate crashes mid-run — the trail contains entries up to the crash point. On resume, the orchestrator logs a synthetic start entry (`log <trail> p0 - start "resuming from checkpoint; last completed: <task_id>; base_commit: <sha>"`) to create an unambiguous context anchor. New entries then append normally. The audit reviewer can detect gaps (e.g., a task with a verdict but no start entry) and flag them
 
 ## Acceptance Criteria
 
@@ -98,27 +98,27 @@ The `autonomous-run-discipline.md` rule mandates "keep a decision trail" but pro
 
 ## Key Constraints
 
-- The orchestrator is the sole trail writer — executor subagents do not call `log.sh` directly. The orchestrator extracts key decisions from executor output files and logs on the executor's behalf. This avoids changes to the already-long `implementer-prompt.md`.
-- Trail detail fields must pipe raw command or artifact output (e.g., `cat test-gate.md | head -c 400`) rather than agent-composed prose summaries. This shifts each `log.sh` call from "write a summary" (high cognitive load, degrades under context pressure) to "route this output" (low cognitive load, degrades to an empty field rather than a misleading one).
-- The `log.sh` script must NOT strip leading `-` (hyphen) from fields — only `=`, `+`, `@`, `;`. Leading hyphens appear legitimately in prose and the DDE risk from `-` is lower than from the other characters.
+- The orchestrator is the sole trail writer — executor subagents do not call `log` directly. The orchestrator extracts key decisions from executor output files and logs on the executor's behalf. This avoids changes to the already-long `implementer-prompt.md`.
+- Trail detail fields must pipe raw command or artifact output (e.g., `cat test-gate.md | head -c 400`) rather than agent-composed prose summaries. This shifts each `log` call from "write a summary" (high cognitive load, degrades under context pressure) to "route this output" (low cognitive load, degrades to an empty field rather than a misleading one).
+- The `log` script must NOT strip leading `-` (hyphen) from fields — only `=`, `+`, `@`, `;`. Leading hyphens appear legitimately in prose and the DDE risk from `-` is lower than from the other characters.
 
 ## Dependencies and Assumptions
 
-- `spec-helper` continues to manage checkpoint state — `log.sh` is a parallel artifact, not a replacement for the checkpoint
+- `spec-helper` continues to manage checkpoint state — `log` is a parallel artifact, not a replacement for the checkpoint
 - TSV format remains parseable by standard tools (`awk -F'\t'`, Python `csv.reader`)
-- The orchestrate SKILL.md structure (numbered steps, Phase 2/3 boundaries) remains stable enough for `log.sh` call sites to be maintained
+- The orchestrate SKILL.md structure (numbered steps, Phase 2/3 boundaries) remains stable enough for `log` call sites to be maintained
 
 ## Architecture
 
 ### Trade-offs
 
-This approach optimizes for simplicity and auditability at the cost of instruction surface area. Adding ~15 `log.sh` calls to the already-570-line orchestrate SKILL.md increases the instruction count, and under context pressure the agent may skip some calls. The audit reviewer mitigates this by detecting gaps in the trail — missing entries are themselves a finding. The alternative (hook-based automatic capture) would avoid instruction bloat but would produce high-noise, low-signal entries because hooks fire on tool calls, not decisions.
+This approach optimizes for simplicity and auditability at the cost of instruction surface area. Adding ~15 `log` calls to the already-570-line orchestrate SKILL.md increases the instruction count, and under context pressure the agent may skip some calls. The audit reviewer mitigates this by detecting gaps in the trail — missing entries are themselves a finding. The alternative (hook-based automatic capture) would avoid instruction bloat but would produce high-noise, low-signal entries because hooks fire on tool calls, not decisions.
 
-### `bin/log.sh`
+### `bin/log`
 
 A bin script following the same conventions as `get-skill-tmpdir` and `get-tmp-filename`: `set -euo pipefail`, `--help` support, clear error messages.
 
-Interface: `log.sh <trail-file> <phase> <task> <event> <detail>`
+Interface: `log <trail-file> <phase> <task> <event> <detail>`
 
 - `trail-file`: absolute path to the TSV file
 - `phase`: `p0`, `p1`, `p2`, or `p3`
@@ -136,7 +136,7 @@ The script:
 
 ### Decision points in mine.orchestrate
 
-The orchestrator calls `log.sh` at these points in the per-task loop (Phase 2):
+The orchestrator calls `log` at these points in the per-task loop (Phase 2):
 
 | Step | Event | What's logged |
 |------|-------|---------------|
@@ -169,9 +169,9 @@ Phase 3 decision points:
 
 ### Orchestrate checkpoint integration
 
-In Phase 0, after checkpoint init, log the first trail entry: `log.sh <trail_path> p0 - start "orchestrate run started"`. If this fails, surface a warning: "Trail logging unavailable — check permissions at `<feature_dir>/`. Run will continue; trail will be absent." This is an early-detection probe at negligible cost.
+In Phase 0, after checkpoint init, log the first trail entry: `log <trail_path> p0 - start "orchestrate run started"`. If this fails, surface a warning: "Trail logging unavailable — check permissions at `<feature_dir>/`. Run will continue; trail will be absent." This is an early-detection probe at negligible cost.
 
-The trail file path is derived as `<feature_dir>/trail.tsv` from the checkpoint's existing `feature_dir` field — no new checkpoint fields are needed. The orchestrator and audit subagent both derive the path from `feature_dir` using this convention. On resume, the orchestrator reads `trail_path` from the checkpoint and appends to the existing trail — the header row check in `log.sh` handles this naturally.
+The trail file path is derived as `<feature_dir>/trail.tsv` from the checkpoint's existing `feature_dir` field — no new checkpoint fields are needed. The orchestrator and audit subagent both derive the path from `feature_dir` using this convention. On resume, the orchestrator reads `trail_path` from the checkpoint and appends to the existing trail — the header row check in `log` handles this naturally.
 
 Since the trail file is gitignored, no WIP commit staging is needed — the trail persists locally alongside the checkpoint.
 
@@ -280,7 +280,7 @@ Wait for the subagent to complete. Read `<dir>/clean-code-summary.md`...
 
 A PreToolUse/PostToolUse hook that automatically logs decisions during any long-running skill, not just orchestrate.
 
-Rejected because: hooks fire on tool calls, not decisions. The mapping from "Bash tool invoked" to "significant decision made" requires the semantic context that only the orchestrator has. A hook would produce high-noise, low-signal entries. The explicit `log.sh` call sites in the orchestrate SKILL.md are where the orchestrator already knows what decision is being made.
+Rejected because: hooks fire on tool calls, not decisions. The mapping from "Bash tool invoked" to "significant decision made" requires the semantic context that only the orchestrator has. A hook would produce high-noise, low-signal entries. The explicit `log` call sites in the orchestrate SKILL.md are where the orchestrator already knows what decision is being made.
 
 ### Wrapper skill that invokes orchestrate
 
@@ -294,27 +294,27 @@ Rejected because: TSV is trivially parseable by `awk -F'\t'` and trivially appen
 
 ## Test Strategy
 
-N/A — no test infrastructure in this repo. The `log.sh` script is validated by manual invocation and by observing the trail file after an orchestrate run. The lint-cli-conventions hook validates bin script structure automatically.
+N/A — no test infrastructure in this repo. The `log` script is validated by manual invocation and by observing the trail file after an orchestrate run. The lint-cli-conventions hook validates bin script structure automatically.
 
 ## Documentation Updates
 
-- **REFERENCE.md** — add `log.sh` to the bin/ scripts table
-- **`rules/common/capabilities-core.md`** — add `log.sh` to the CLI tools table (no trigger phrase needed — it's called by orchestrate, not by the user directly)
+- **REFERENCE.md** — add `log` to the bin/ scripts table
+- **`rules/common/capabilities-core.md`** — add `log` to the CLI tools table (no trigger phrase needed — it's called by orchestrate, not by the user directly)
 - **CHANGELOG.md** — entry for the new trail mechanism
 
 ## Impact
 
 ### Changed Files
 
-- `bin/log.sh` — new file (the logging helper script)
-- `skills/mine.orchestrate/SKILL.md` — insert `log.sh` calls at ~15 decision points in Phase 2
+- `bin/log` — new file (the logging helper script)
+- `skills/mine.orchestrate/SKILL.md` — insert `log` calls at ~15 decision points in Phase 2
 - `skills/mine.orchestrate/post-execution-pipeline.md` — add Step 5.5 (trail audit) and update Step 6 (shipping gate question)
 - `REFERENCE.md` — add bin script entry
 - `rules/common/capabilities-core.md` — add CLI tool entry
 
 ### Behavioral Invariants
 
-- mine.orchestrate's existing Phase 2 step sequence and Phase 3 pipeline must continue working unchanged — `log.sh` calls are additive insertions between existing steps, not modifications to step logic
+- mine.orchestrate's existing Phase 2 step sequence and Phase 3 pipeline must continue working unchanged — `log` calls are additive insertions between existing steps, not modifications to step logic
 - The checkpoint system (`spec-helper checkpoint-*`) is unchanged — trail is a parallel artifact
 - WIP commits are unaffected — `trail.tsv` is gitignored and not staged
 - The shipping gate options (Ship/Challenge/Stop) remain unchanged — only the question text gains a new field
@@ -322,7 +322,7 @@ N/A — no test infrastructure in this repo. The `log.sh` script is validated by
 ### Blast Radius
 
 - mine.orchestrate is the only consumer — no other skills or agents are affected
-- The `log.sh` bin script is general-purpose and could be reused by other skills in the future, but this design does not wire it into anything else
+- The `log` bin script is general-purpose and could be reused by other skills in the future, but this design does not wire it into anything else
 
 ## Open Questions
 

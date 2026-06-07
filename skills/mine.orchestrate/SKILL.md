@@ -126,7 +126,7 @@ The checkpoint is written to `<feature_dir>/tasks/.orchestrate-state.md` with va
 
 **Gitignore the checkpoint:** Ensure `tasks/.orchestrate-state.md` is excluded from git. Check if `<feature_dir>/tasks/.gitignore` or `<feature_dir>/.gitignore` already contains this entry. If not, append `.orchestrate-state.md` to `<feature_dir>/tasks/.gitignore` (create the file if needed). This prevents the checkpoint file from being accidentally staged in WIP commits.
 
-**Set up trail logging:** After writing the checkpoint:
+**Set up trail logging** (see also: resume-protocol.md for the resume-path equivalent): After writing the checkpoint:
 
 1. Derive the trail path: `trail_path="<feature_dir>/trail.tsv"` (from the checkpoint's `feature_dir` field).
 2. Gitignore trail files: check if `<feature_dir>/.gitignore` already contains `trail.tsv` and `trail-audit.md`. If not, append both entries to `<feature_dir>/.gitignore` (create the file if needed).
