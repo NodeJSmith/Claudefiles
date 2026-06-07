@@ -59,10 +59,10 @@ PATTERNS=(
   # Generic secrets
   "JWT token	eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}"
   "Private key header	-----BEGIN (RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----"
-  "Generic high-entropy secret	(password|passwd|secret|token|api_key|apikey|api-key|auth_token|access_token|client_secret)\s*[=:]\s*['\"][^\s'\"]{8,}['\"]"
+  "Generic high-entropy secret	(password|passwd|secret|token|api_key|apikey|api-key|auth_token|access_token|client_secret)[[:space:]]*[=:][[:space:]]*['\"][^[:space:]'\"]{8,}['\"]"
 
-  # Dangerous files (staged, not in diff content)
-  "Service account JSON	\"type\":\s*\"service_account\""
+  # Service account JSON (matched against diff content, like other PATTERNS entries)
+  "Service account JSON	\"type\":[[:space:]]*\"service_account\""
 )
 
 # File-name patterns checked against staged file list (not diff content)
@@ -87,45 +87,45 @@ DANGEROUS_FILES=(
 found=0
 findings=""
 
-diff_output=$(git diff --cached --diff-filter=ACMR -U0 2> /dev/null) || true
-
-if [[ -z "$diff_output" ]]; then
-  exit 0
-fi
-
-for entry in "${PATTERNS[@]}"; do
-  name="${entry%%	*}"
-  pattern="${entry#*	}"
-
-  matches=$(echo "$diff_output" | grep -nEo "^\+.*${pattern}" 2> /dev/null || true)
-  if [[ -n "$matches" ]]; then
-    found=1
-    while IFS= read -r line; do
-      truncated="${line:0:80}"
-      if [[ ${#line} -gt 80 ]]; then
-        truncated="${truncated}..."
-      fi
-      findings+="  [BLOCKED] ${name}: ${truncated}\n"
-    done <<< "$matches"
-  fi
-done
-
 staged_files=$(git diff --cached --name-only --diff-filter=ACMR 2> /dev/null) || true
 
-for pattern in "${DANGEROUS_FILES[@]}"; do
-  matches=$(echo "$staged_files" | grep -E "$pattern" 2> /dev/null || true)
-  if [[ -n "$matches" ]]; then
-    found=1
-    while IFS= read -r file; do
-      findings+="  [BLOCKED] Dangerous file staged: ${file}\n"
-    done <<< "$matches"
-  fi
-done
+if [[ -n "$staged_files" ]]; then
+  for pattern in "${DANGEROUS_FILES[@]}"; do
+    matches=$(grep -E "$pattern" <<< "$staged_files" 2> /dev/null || true)
+    if [[ -n "$matches" ]]; then
+      found=1
+      while IFS= read -r file; do
+        findings+="  [BLOCKED] Dangerous file staged: ${file}\n"
+      done <<< "$matches"
+    fi
+  done
+fi
+
+diff_output=$(git diff --cached --diff-filter=ACMR -U0 2> /dev/null) || true
+
+if [[ -n "$diff_output" ]]; then
+  for entry in "${PATTERNS[@]}"; do
+    name="${entry%%	*}"
+    pattern="${entry#*	}"
+
+    matches=$(grep -nEo "^\+.*${pattern}" <<< "$diff_output" 2> /dev/null || true)
+    if [[ -n "$matches" ]]; then
+      found=1
+      while IFS= read -r line; do
+        truncated="${line:0:80}"
+        if [[ ${#line} -gt 80 ]]; then
+          truncated="${truncated}..."
+        fi
+        findings+="  [BLOCKED] ${name}: ${truncated}\n"
+      done <<< "$matches"
+    fi
+  done
+fi
 
 if [[ $found -eq 1 ]]; then
   echo "secrets-check: potential credentials detected in staged changes"
   echo ""
-  echo -e "$findings"
+  printf '%b' "$findings"
   echo "If these are false positives, re-run with: SKIP_SECRETS_CHECK=1 git commit ..."
   exit 1
 fi

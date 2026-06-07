@@ -2,7 +2,7 @@
 
 Source: Claude Code Digest May 27 + Jun 1, 2026  
 Branch: pstack-review  
-Status: Ready for pickup
+Status: Partially implemented in PR #359 (patterns 1 and 2); pattern 3 is future work
 
 ---
 
@@ -12,15 +12,13 @@ Three patterns from pstack that should improve existing local skills rather than
 
 ---
 
-## 1. `code-judo-review-lens` → Improve `mine.review`
+## 1. `code-judo-review-lens` → Integrated into `mine.orchestrate` post-execution pipeline
 
 **What pstack does:** Adds a "code judo" review dimension — actively hunting for structural reframings that preserve behavior while making implementation dramatically simpler and smaller. Specific blockers: a file growing from under 1k to over 1k lines without justification; ad-hoc conditionals inserted into unrelated flows; duplicated helpers when a canonical home exists. Reviewers are told to be ambitious, not satisfied with local cleanup.
 
 **The gap:** The local three-reviewer model (correctness, integration, readability) identifies problems but doesn't have the specific posture of "assume a structural simplification move is always available, find it." The wtf-reviewer catches confusing code; the code-judo lens asks "what if this file or abstraction just... didn't need to exist?"
 
-**What to do:**
-- Add a fourth reviewer option to `mine.review`: the "code judo" lens
-- Or add it as a mandatory pass in `mine.orchestrate`'s post-execution pipeline (Phase 3), where it has full diff context
+**Chosen path:** Implemented as a mandatory pass in `mine.orchestrate`'s post-execution pipeline (Phase 3), where it has full diff context. Adding it to `mine.review` as a fourth reviewer option remains a future alternative.
 - Agent prompt: "Assume a structural simplification exists. Look for: files that crossed 1k lines in this diff, ad-hoc conditionals inserted into unrelated flows, helpers duplicated when a canonical home exists. Be ambitious — hunt for moves that delete whole layers, not just rearrange them."
 - This fits naturally alongside the existing `lazy-checker` and `llm-checker` agents
 

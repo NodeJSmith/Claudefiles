@@ -36,7 +36,7 @@ When invoked:
    # 4. Last commit
    git diff --name-only HEAD~1
    ```
-2. Read every changed file in full. Also read surrounding context — callers, siblings, the module the file lives in. Total context budget: 5 sibling reads + 5 grep searches across all files. Prioritize callers of changed functions over unrelated siblings.
+2. Read every changed file in full. Also read surrounding context — callers, siblings, the module the file lives in. Aim for ~5 sibling reads + ~5 grep searches across all files; increase for large or complex diffs. Prioritize callers of changed functions over unrelated siblings.
 3. Begin review
 
 ## Core Question
