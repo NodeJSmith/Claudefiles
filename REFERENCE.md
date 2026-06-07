@@ -214,6 +214,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `git-default-branch` | Print the default branch name for the current repo |
 | `git-platform` | Detect git hosting platform (`github`, `ado`, or `unknown`) from remote URL |
 | `lint-cli-conventions` | Drift prevention lint — verifies `--help` handling in bin/ scripts and capabilities-core.md CLI Tools sync |
+| `log` | Append a TSV row to a trail file with timestamping, sanitization, and event validation |
 | `phrase-monitor-log` | View phrase monitor detections — last N entries, stats, live tail, or clear |
 | `pytest-loop-reset` | Manually clear both pytest failure counters (no-edit and total) — use when you want to retry after a denial |
 
