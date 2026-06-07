@@ -171,8 +171,9 @@ On "Address simplifications": dispatch a `general-purpose` subagent with `model:
 
 MEDIUM and LOW findings are noted for the shipping gate but do not block.
 
-If `trail_available` is true, log the structural simplification result after the user decision:
-`log "<trail_path>" p3 - review "structural simplification: <N HIGH findings — or 'no HIGH findings'>; user decision: <addressed|noted and continued>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+If `trail_available` is true, log the structural simplification result:
+- If HIGH findings existed: `log "<trail_path>" p3 - review "structural simplification: <N> HIGH findings; user decision: <addressed|noted and continued>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+- If no HIGH findings: `log "<trail_path>" p3 - review "structural simplification: no HIGH findings"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
 
 ## Step 5: Final review pass (automatic)
 
