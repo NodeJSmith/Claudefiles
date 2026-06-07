@@ -1,56 +1,131 @@
 #!/usr/bin/env bash
 # Print the default branch name for the current repository.
 #
-# Tries (in order):
-#   1. git symbolic-ref refs/remotes/origin/HEAD  (local, fast, no network)
-#   2. git remote show origin                      (queries remote)
-#   3. First remote branch that isn't HEAD         (best-effort fallback)
+# Resolution order (authoritative first, never guesses blindly):
+#   1. Local symbolic ref refs/remotes/origin/HEAD  (fast, no network)
+#      — verified to still point at an existing remote-tracking branch.
+#   2. git ls-remote --symref origin HEAD           (network, authoritative)
+#   3. git remote show origin -> "HEAD branch:"     (network, authoritative)
+#   4. A known default name (main, master, develop, trunk, default) that
+#      actually exists as a remote-tracking branch.
+#   5. The sole remote branch, if exactly one exists (unambiguous).
+#   Otherwise: error out rather than return a spurious branch.
 #
-# Usage: git-default-branch
+# Usage: git-default-branch [--no-network]
+#
+# Options:
+#   --no-network   Skip steps 2 and 3 (no remote round-trips).
 #
 # Exit codes:
 #   0  success — branch name printed to stdout
-#   1  not a git repo or no remote named "origin"
+#   1  not a git repo, no "origin" remote, or default could not be resolved
 
 [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && {
   cat << 'EOF'
-Usage: git-default-branch
+Usage: git-default-branch [--no-network]
 
-Print the default branch name for the current repository (e.g. "main").
+Print the default branch name for the current repository (e.g. "main",
+"master"). Uses authoritative sources first and refuses to guess when the
+result would be ambiguous, so it won't return a spurious branch.
 
-Tries local symbolic ref first, then queries the remote, then falls back
-to the first remote tracking branch.
+Options:
+  --no-network   Skip remote round-trips; use only local refs.
 
 Examples:
-  git-default-branch                         # prints e.g. "main"
-  git log "origin/$(git-default-branch)..HEAD"  # commits since default
-  git diff "$(git-default-branch)"           # diff against default branch
+  git-default-branch                              # prints e.g. "master"
+  git log "origin/$(git-default-branch)..HEAD"    # commits since default
+  git diff "origin/$(git-default-branch)"         # diff against default
 EOF
   exit 0
 }
 
 set -euo pipefail
 
-# 1. Local symbolic ref (fastest — no network round-trip)
-branch=$(git symbolic-ref refs/remotes/origin/HEAD 2> /dev/null | sed 's|^refs/remotes/origin/||') || true
-if [[ -n "$branch" ]]; then
-  echo "$branch"
+no_network=0
+[[ "${1:-}" == "--no-network" ]] && no_network=1
+
+# Known names to prefer when no authoritative source is available, in order.
+KNOWN_DEFAULTS=(main master develop trunk default)
+
+# Must be inside a git repo.
+if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1 &&
+  ! git rev-parse --git-dir > /dev/null 2>&1; then
+  echo "fatal: not a git repository" >&2
+  exit 1
+fi
+
+# Must have an "origin" remote.
+if ! git remote get-url origin > /dev/null 2>&1; then
+  echo "fatal: no remote named 'origin'" >&2
+  exit 1
+fi
+
+# True if refs/remotes/origin/<branch> exists locally.
+remote_branch_exists() {
+  git show-ref --verify --quiet "refs/remotes/origin/$1"
+}
+
+# Terminates the whole script (exit 0) when the candidate is a real
+# remote-tracking branch; otherwise returns 1 so the caller falls through.
+# The exit side effect is why call sites read `emit_and_exit_if_valid ... || true`.
+emit_and_exit_if_valid() {
+  local candidate=$1
+  [[ -n "$candidate" && "$candidate" != "(unknown)" && "$candidate" != "HEAD" ]] || return 1
+  if remote_branch_exists "$candidate"; then
+    echo "$candidate"
+    exit 0
+  fi
+  return 1
+}
+
+# 1. Local symbolic ref (no network) — but verify the target still exists,
+#    so a stale origin/HEAD pointing at a deleted branch falls through.
+branch=$(git symbolic-ref --short refs/remotes/origin/HEAD 2> /dev/null |
+  sed 's|^origin/||') || true
+emit_and_exit_if_valid "$branch" || true
+
+if ((!no_network)); then
+  # Fail fast instead of blocking on a credential/host prompt — this tool runs
+  # unattended in automation, where a hang is worse than a clean fall-through.
+  export GIT_TERMINAL_PROMPT=0
+
+  # 2. Ask the remote what HEAD points to (authoritative, parseable).
+  branch=$(git ls-remote --symref origin HEAD 2> /dev/null |
+    awk '/^ref:/ {sub("refs/heads/", "", $2); print $2; exit}') || true
+  # Network paths may name a branch we have not fetched yet; accept it as-is
+  # if it looks valid, otherwise fall through to verified sources.
+  if [[ -n "$branch" && "$branch" != "HEAD" ]]; then
+    echo "$branch"
+    exit 0
+  fi
+
+  # 3. git remote show origin (authoritative; older fallback).
+  branch=$(git remote show origin 2> /dev/null |
+    awk '/HEAD branch:/ {print $NF}') || true
+  if [[ -n "$branch" && "$branch" != "(unknown)" ]]; then
+    echo "$branch"
+    exit 0
+  fi
+fi
+
+# 4. Prefer a known default name that actually exists as a remote branch.
+for name in "${KNOWN_DEFAULTS[@]}"; do
+  emit_and_exit_if_valid "$name" || true
+done
+
+# 5. If there is exactly one remote branch, it is unambiguous.
+mapfile -t remote_branches < <(
+  git for-each-ref --format='%(refname:short)' refs/remotes/origin |
+    sed 's|^origin/||' | grep -vxF 'HEAD'
+) || true
+if ((${#remote_branches[@]} == 1)); then
+  echo "${remote_branches[0]}"
   exit 0
 fi
 
-# 2. Query the remote (requires network, but authoritative)
-branch=$(git remote show origin 2> /dev/null | awk '/HEAD branch:/ {print $NF}') || true
-if [[ -n "$branch" && "$branch" != "(unknown)" ]]; then
-  echo "$branch"
-  exit 0
+# Refuse to guess — returning an arbitrary branch causes spurious results.
+echo "fatal: could not determine default branch for 'origin'" >&2
+if ((${#remote_branches[@]} > 1)); then
+  echo "hint: origin/HEAD is not set. Fix it with: git remote set-head origin -a" >&2
 fi
-
-# 3. Best-effort: first remote tracking branch that isn't HEAD
-branch=$(git branch -r 2> /dev/null | grep -oP 'origin/\K\S+' | grep -vxF 'HEAD' | head -1) || true
-if [[ -n "$branch" ]]; then
-  echo "$branch"
-  exit 0
-fi
-
-echo "fatal: could not determine default branch" >&2
 exit 1
