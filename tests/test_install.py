@@ -411,16 +411,6 @@ class TestBundleModel:
         bundles = install.get_bundles(tmp_path)
         assert "capabilities-cli.md" in bundles["cli"].capabilities_files
 
-    def test_base_excludes_mine_wp(self, tmp_path: Path) -> None:
-        """mine.wp must NOT be in the base bundle."""
-        # Create a skills dir with mine.wp and another skill
-        skills_dir = tmp_path / "skills"
-        (skills_dir / "mine.build").mkdir(parents=True)
-        (skills_dir / "mine.wp").mkdir(parents=True)
-        bundles = install.get_bundles(tmp_path)
-        assert "mine.wp" not in bundles["base"].skills
-        assert "mine.build" in bundles["base"].skills
-
 
 # ---------------------------------------------------------------------------
 # find_skill_source tests
@@ -495,12 +485,14 @@ class TestBundleDependencyCompleteness:
                     missing.append(f"{bundle_key}/{skill_name}")
         assert missing == [], f"Missing skills from optional bundles: {missing}"
 
-    def test_mine_wp_not_in_base(self) -> None:
-        """mine.wp must not be in base bundle (deprecated)."""
+    def test_all_skill_dirs_in_base(self) -> None:
+        """Every directory under skills/ appears in the base bundle."""
         repo_dir = Path(__file__).resolve().parent.parent
         install._BUNDLES_CACHE = None
         bundles = install.get_bundles(repo_dir)
-        assert "mine.wp" not in bundles["base"].skills
+        skills_dir = repo_dir / "skills"
+        expected = {d.name for d in skills_dir.iterdir() if d.is_dir()}
+        assert expected == set(bundles["base"].skills)
 
 
 # ---------------------------------------------------------------------------
