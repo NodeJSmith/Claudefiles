@@ -41,7 +41,7 @@ The base (pipeline workflow) always installs. On a first install the wizard asks
 Start with whatever problem you have right now.
 
 **"I want better code review"**
-The base is enough. Before every commit, code-reviewer, integration-reviewer, and wtf-reviewer run automatically. For an on-demand review of your current branch: `/mine.review`. For a style and debt check: `/mine.clean-code`. Included in base — no extra bundles needed.
+The base is enough. Before every commit, code-reviewer, integration-reviewer, and wtf-reviewer run automatically. For an on-demand review of your current branch: `/mine.review`. For a style and debt check: `/mine.clean-code`. For prose quality (PR descriptions, docs, commit messages): `/mine.humanize`. Included in base — no extra bundles needed.
 
 **"I want structured planning for complex features"**
 The base is enough. The full pipeline is `/mine.define` (produces a `design.md`) → `/mine.plan` (generates task files) → `/mine.orchestrate` (executes them with reviewer loops) → `/mine.ship` (commits, pushes, opens the PR). Start with `/mine.grill` to sharpen a raw idea first. Included in base.
