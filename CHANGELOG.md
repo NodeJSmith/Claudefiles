@@ -4,6 +4,15 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-06-07
 
+### Added
+- `code-judo-reviewer` agent — structural simplification reviewer wired into `mine.define` (pre-design) and `mine.orchestrate` post-execution pipeline (#359)
+- `secrets-auditor` agent and `secrets-check.sh` git pre-commit hook — credential scanning with 44 patterns (#359)
+- Anti-sycophancy baseline in `interaction.md` — challenge assumptions and correct plainly by default (#359)
+- Usage-first design gate in `mine.define` — write caller-perspective call sites before defining API types (#359)
+- `mine.how` skill — complexity-adaptive subsystem explanation with mandatory accuracy review (#359)
+- `mine.why` skill — decision archaeology with parallel evidence gathering and confidence calibration (#359)
+- `bin/log` helper + trail logging in `mine.orchestrate` — append-only TSV decision trail for overnight runs with post-run structural audit (#359)
+
 ### Changed
 - `git-default-branch` — resolves the default branch from authoritative sources (verified `origin/HEAD`, `ls-remote`, `remote show`) and refuses to guess when ambiguous instead of returning a spurious branch; adds a `--no-network` flag (#361)
 

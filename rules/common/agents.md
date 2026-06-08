@@ -25,6 +25,8 @@ When the user's request matches a row below, launch the Agent tool with the corr
 | "FastAPI", "REST API", "backend service", "API endpoints" | `engineering-backend-developer` |
 | "developer docs", "API reference", "tutorial" | `engineering-technical-writer` |
 | "pre-ship gate", "visual verification before deploy" | `testing-reality-checker` |
+| "structural simplification", "find simplification moves", "code judo" | `code-judo-reviewer` |
+| "scan for secrets", "check for credentials", "credential scan" | `secrets-auditor` |
 
 ## Immediate Agent Usage
 

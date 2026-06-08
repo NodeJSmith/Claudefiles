@@ -25,6 +25,9 @@ Invoke `/mine.implementation-review <feature_dir>` automatically. The skill pres
 
 Read the review output. Extract the verdict (APPROVE, REQUEST_FIXES, or ABANDON) and any suggestions or blocking issues.
 
+If `trail_available` is true, log the impl-review verdict immediately:
+`log "<trail_path>" p3 - gate "impl-review: <APPROVE|REQUEST_FIXES|ABANDON> — <brief summary>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+
 **If impl-review returns APPROVE** — note any non-blocking suggestions to surface later. Continue to Step 3 automatically.
 
 **If impl-review returns ABANDON** — hard stop. ABANDON means the implementation is unrecoverable and requires a design rethink, not a code fix. Do not offer "Address fixes":
@@ -87,6 +90,9 @@ Launch `Agent(subagent_type: "integration-reviewer")` with all changed files. Ad
 
 If the integration-reviewer returns BLOCK, surface the blocking issues to the user with an "Address" / "Stop here" gate (same pattern as the impl-review gate). If APPROVE or WARN, note any suggestions and continue to Step 4 (Clean code check).
 
+If `trail_available` is true, log the cross-file review result:
+`log "<trail_path>" p3 - review "cross-file consistency: <APPROVE|WARN|BLOCK> — <brief summary>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+
 ## Step 4: Clean code check (automatic, Opus subagent)
 
 After the cross-file consistency review passes, run a clean code check on the entire branch diff. This catches LLM training-bias patterns, deferred-debt shortcuts, and style hygiene issues that correctness and integration reviewers don't target.
@@ -128,6 +134,47 @@ The first line of the summary file MUST be: `<!-- HEAD: <git rev-parse --short H
 
 Wait for the subagent to complete. Read `<dir>/clean-code-summary.md` to see what was fixed and what remains. Note any unfixed findings for the shipping gate.
 
+If `trail_available` is true, log the clean code results:
+`log "<trail_path>" p3 - fix "clean code: <N fixed, M unfixed — or 'all clean'>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+
+## Step 4.5: Structural simplification check (gates on HIGH findings)
+
+After clean-code fixes, run a `code-judo-reviewer` subagent on the full branch diff. This catches structural simplification opportunities that per-task reviewers miss — bolt-on patterns, ad-hoc conditionals, duplicated logic that only becomes visible across the full change.
+
+```bash
+git diff --name-only <base_commit> HEAD
+```
+
+Launch `Agent(subagent_type: "code-judo-reviewer")` with all changed files plus context:
+
+> Review all changes on this branch for structural simplification opportunities.
+>
+> Run: git diff <base_commit>...HEAD
+>
+> You have full-branch context — read callers and siblings of changed files to find structural moves that span the whole change. Focus on: ad-hoc conditionals bolted onto unrelated flows, duplicated helpers when a canonical home exists, state machines replaceable by data transformations, and deletion opportunities that enable collapsing a layer. Propose concrete structural moves, not just observations.
+
+If the reviewer finds HIGH findings, present them to the user:
+
+```
+AskUserQuestion:
+  question: "Structural simplification check found opportunities: <summary>. Address them?"
+  header: "Simplify?"
+  multiSelect: false
+  options:
+    - label: "Address simplifications"
+      description: "Dispatch a subagent to apply the structural moves"
+    - label: "Note and continue"
+      description: "Acknowledge findings, proceed to final review"
+```
+
+On "Address simplifications": dispatch a `general-purpose` subagent with `model: sonnet`. Pass it: the judo-reviewer's findings (full report), the affected file paths, and the design doc path (`<feature_dir>/design.md`). Prompt: "Apply only the HIGH structural simplification moves listed below. Do not expand scope beyond these findings. After applying, run the test suite to verify no regressions: `<contents of <dir>/test-command.txt>`." On "Note and continue" or if no HIGH findings: proceed to Step 5.
+
+MEDIUM and LOW findings are noted for the shipping gate but do not block.
+
+If `trail_available` is true, log the structural simplification result:
+- If HIGH findings existed: `log "<trail_path>" p3 - review "structural simplification: <N> HIGH findings; user decision: <addressed|noted and continued>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+- If no HIGH findings: `log "<trail_path>" p3 - review "structural simplification: no HIGH findings"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+
 ## Step 5: Final review pass (automatic)
 
 After the clean code fixes, run a final `code-reviewer` and `integration-reviewer` pass in parallel on the full branch diff to catch any issues introduced by the auto-fix subagent.
@@ -146,13 +193,56 @@ Launch both reviewers in a single message (parallel):
 
 If either reviewer finds CRITICAL or HIGH issues, fix them inline (auto-fix unambiguous issues, re-run both reviewers, max 2 iterations). MEDIUM and LOW findings are noted for the shipping gate but do not block.
 
+If `trail_available` is true, log the final review result:
+`log "<trail_path>" p3 - review "final review: <clean — or N findings fixed>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+
+## Step 5.5: Trail audit (automatic)
+
+If `trail_available` is false, skip this step entirely — the trail does not exist, so there is nothing to audit. The shipping gate will show "Trail audit: skipped (trail unavailable)".
+
+If `trail_available` is true, launch a single `general-purpose` subagent with `model: sonnet` and this prompt (substitute `<feature_dir>` with the actual feature directory path — this is the persistent spec directory, e.g. `design/specs/028-show-me-your-work/`, NOT the tmpdir `<dir>`):
+
+```
+You are auditing the structural integrity of the decision trail from an overnight orchestrate run.
+
+Read the trail file at: <feature_dir>/trail.tsv
+
+## Expected sequence per task
+
+For each task, the expected sequence is: start → [dispatch] → [contested*] → [gate] → [retry*] → [review] → [fix*] → verdict. Optional steps are bracketed; * means zero or more occurrences. Flag deviations from this sequence.
+
+## What to check
+
+1. Missing entries: a task with a verdict but no start entry, or vice versa
+2. Sequence anomalies: entries out of expected order, or unexpected gaps between start and verdict
+3. Retry patterns: a retry event with no preceding gate or review event that would have triggered it
+4. Timing outliers: unusually short intervals between start and verdict (suggests skipped steps)
+5. Empty detail fields: entries where the detail is blank or trivially short (under 20 characters)
+
+Do NOT attempt to verify whether the content of detail fields is accurate — you cannot cross-reference against the actual command outputs. Focus on structural patterns the trail reveals about the execution flow.
+
+## Output format
+
+Start your report with: ## Summary
+N findings (or "no findings")
+
+Then list each finding with: the task ID, the structural issue, and why it matters.
+
+Write your audit report to: <feature_dir>/trail-audit.md
+```
+
+Wait for the subagent to complete. Read `<feature_dir>/trail-audit.md` and extract the finding count from the `## Summary` line (e.g., "3 findings", "no findings"). If the file is missing or unreadable, use "failed to complete" as the audit status.
+
+Log a trail entry for the audit:
+`log "<trail_path>" p3 - review "trail audit: <N findings — or 'no findings' — or 'failed to complete' if report missing>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+
 ## Step 6: Shipping gate
 
 Present the final gate with impl-review and cross-file review results:
 
 ```
 AskUserQuestion:
-  question: "All tasks complete. Implementation review: <APPROVE + any non-blocking suggestions summary>. Cross-file review: <APPROVE/WARN + any notes>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Final review: <clean / N findings fixed>. What next?"
+  question: "All tasks complete. Implementation review: <APPROVE + any non-blocking suggestions summary>. Cross-file review: <APPROVE/WARN + any notes>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Structural simplification: <N findings — or 'no significant simplification found'>. Final review: <clean / N findings fixed>. Trail audit: <N findings — or 'no findings' — or 'skipped (trail unavailable)' — or 'failed to complete'>.<if log_failures > 0: ' Trail logging had <log_failures> failures during this run — check disk space and file permissions.'> What next?"
   header: "Ship"
   multiSelect: false
   options:

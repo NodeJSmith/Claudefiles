@@ -43,6 +43,7 @@ If `base_commit` no longer exists, append " (base commit is gone — branch may 
   ```bash
   spec-helper checkpoint-update <feature_dir_name> --current-wp "" --current-wp-status "" --json
   ```
+- **Log a synthetic resume entry** (see also: SKILL.md Phase 0 "Set up trail logging" for the fresh-start equivalent): Derive `trail_path` as `<feature_dir>/trail.tsv` from the restored `feature_dir` field. Initialize `log_failures=0`. Run: `log "<trail_path>" p0 - start "resuming from checkpoint; last completed: <last_completed_wp>; base_commit: <base_commit>"`. If this returns non-zero, set `trail_available=false` and surface: "Trail logging unavailable — check permissions at `<feature_dir>/`. Run will continue; trail will be absent." Otherwise set `trail_available=true`.
 - Jump directly to Phase 2 (skip Phase 1 entirely).
 
 **On restart:**
