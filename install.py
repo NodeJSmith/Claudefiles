@@ -50,15 +50,11 @@ class RuleCategory:
 
 
 def _base_skills(repo_dir: Path) -> tuple[str, ...]:
-    """Return all skill directory names under skills/ except mine.wp."""
+    """Return all skill directory names under skills/."""
     skills_dir = repo_dir / "skills"
     if not skills_dir.is_dir():
         return ()
-    return tuple(
-        sorted(
-            d.name for d in skills_dir.iterdir() if d.is_dir() and d.name != "mine.wp"
-        )
-    )
+    return tuple(sorted(d.name for d in skills_dir.iterdir() if d.is_dir()))
 
 
 # BUNDLES is populated lazily via get_bundles(repo_dir) so the base skill list
