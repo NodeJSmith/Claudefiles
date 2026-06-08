@@ -1037,7 +1037,7 @@ class TestRuleCategories:
         )
         buf = io.StringIO()
         console = Console(file=buf, width=120)
-        # 'authoring' is selected (contains eval-discipline); 'testing' is not.
+        # 'authoring' is selected (contains eval-discipline); 'verification' is not.
         install.warn_dangling_rule_refs(repo, {"authoring"}, console)
         out = buf.getvalue()
         assert "eval-discipline.md" in out
