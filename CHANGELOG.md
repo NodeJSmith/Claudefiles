@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-06-08
 
 ### Removed
-- `last30days` plugin — removed bundled multi-platform research plugin
+- `last30days` plugin — removed bundled multi-platform research plugin (#362)
 
 ## 2026-06-07
 
