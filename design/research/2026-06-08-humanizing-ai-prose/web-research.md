@@ -1,3 +1,5 @@
+# Web Research: Humanizing AI Prose
+
 ## Sources Found
 
 ### hardikpandya/stop-slop

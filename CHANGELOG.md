@@ -5,6 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-06-08
 
 ### Added
+
 - `mine.humanize` skill — edit prose to remove AI writing patterns and add human voice; analyzes first, then surgical edits or full rewrite with two-pass editing and text-type awareness (#363)
 
 ### Removed

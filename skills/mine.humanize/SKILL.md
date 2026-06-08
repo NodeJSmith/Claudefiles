@@ -21,7 +21,7 @@ $ARGUMENTS -- the target. Can be:
 
 If $ARGUMENTS is empty and nothing is staged:
 
-```
+```yaml
 AskUserQuestion:
   question: "What should I humanize?"
   header: "Target"
@@ -81,7 +81,7 @@ Analyze only the prose between protected regions.
 
 Read each file and identify AI writing patterns from writing-quality.md. Number each finding sequentially across all files. For each:
 
-```
+```text
 - **Finding N** — [Pattern name] (file:line): "quoted text" → suggested fix
 ```
 
@@ -91,7 +91,7 @@ End with a summary: `Found N issues across M files (X vocabulary, Y structural, 
 
 ### Ask how to proceed
 
-```
+```yaml
 AskUserQuestion:
   question: "Found {N} issues. How should I fix them?"
   header: "Fix mode"
@@ -134,7 +134,7 @@ Apply pass 1 edits via the Edit tool. Preserve the author's meaning and the text
 
 Apply pass 2 edits. After all files are edited, show a summary:
 
-```
+```text
 Edited N files, M changes total.
 - file1.md: X changes (vocabulary: A, structural: B, style: C)
 - file2.md: Y changes (...)
@@ -149,7 +149,7 @@ One file at a time. For each file:
 3. Present a before/after diff
 4. Ask:
 
-```
+```yaml
 AskUserQuestion:
   question: "Accept this rewrite of {filename}?"
   header: "Accept"
