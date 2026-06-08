@@ -9,7 +9,9 @@ All notable changes to this Claudefiles repository are documented here.
 - `mine.humanize` skill — edit prose to remove AI writing patterns and add human voice; analyzes first, then surgical edits or full rewrite with two-pass editing and text-type awareness (#363)
 
 ### Removed
+
 - `last30days` plugin — removed bundled multi-platform research plugin (#362)
+- `mine.worktree-rebase` skill — removed worktree rebasing skill and all active references (#364)
 
 ## 2026-06-07
 
