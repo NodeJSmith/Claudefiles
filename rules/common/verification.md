@@ -6,7 +6,7 @@ Never claim work is done without concrete evidence. "Should work" is not verific
 
 | Claim | Required evidence |
 |---|---|
-| "Tests pass" | Fresh test output showing 0 failures (use `timeout 300 pytest` per `testing.md`) |
+| "Tests pass" | Fresh test output showing 0 failures (use `timeout 300 pytest` per `references/common/testing.md`) |
 | "Bug is fixed" | Reproduction steps that now produce the correct result |
 | "Build succeeds" | Build command output with exit code 0 |
 | "Linter is clean" | Linter output showing no errors |

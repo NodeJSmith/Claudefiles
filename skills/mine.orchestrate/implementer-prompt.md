@@ -96,7 +96,7 @@ Check each item before writing the result to the output file:
 
 If the task spec contains a `## Visual Verification` section with a scenario table, you must capture before/after screenshots as part of your implementation. If the task has no Visual Verification section, skip this entire section and write `**Visual verification:** N/A — no visual scenarios specified` in your output.
 
-Follow `rules/common/frontend-workflow.md` for general screenshot protocol. The instructions below extend that protocol with structured scenario execution.
+Follow `references/common/frontend.md` (Workflow section) for general screenshot protocol. The instructions below extend that protocol with structured scenario execution.
 
 ### Dev server requirement
 

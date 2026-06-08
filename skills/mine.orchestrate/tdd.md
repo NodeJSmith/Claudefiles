@@ -4,7 +4,7 @@ Reference for the executor subagent. Follow this during every task that involves
 
 ## Test Discovery
 
-Before running any test, find the correct command. Never guess. Follow this discovery order (from `rules/common/testing.md`):
+Before running any test, find the correct command. Never guess. Follow this discovery order (from `references/common/testing.md`):
 
 1. **CLAUDE.md** — look for a "Test Execution" or "Testing" section; if present, use that command
 2. **CI config** — `.github/workflows/*.yml`, `.gitlab-ci.yml` — use the exact command CI uses

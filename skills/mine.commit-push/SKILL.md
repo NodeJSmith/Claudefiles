@@ -33,8 +33,8 @@ Based on the above changes:
    After applying fixes, re-run `code-reviewer` and repeat until no CRITICAL or HIGH issues remain or only LOW/noise is left. If the same CRITICAL or HIGH findings appear again and cannot be auto-fixed, defer to the user — do not proceed to commit.
 5. **INTEGRATION + WTF REVIEW (skip for documentation-only changes):** Run `integration-reviewer` and `wtf-reviewer` in parallel on the final state of the changes (after the code-reviewer loop). Address any CRITICAL or HIGH findings; defer ambiguous ones to the user.
 6. **LOCAL VERIFICATION (skip for documentation-only changes):**
-   1. Determine the project's test command using the test execution discovery order from `rules/common/testing.md`
-   2. **TEST PRESENCE CHECK (skip if sub-step 1 found no test command — this signals the repo has no test infrastructure. Also skip for changes exempt per the Test Co-location rule in `testing.md`):**
+   1. Determine the project's test command using the test execution discovery order from `references/common/testing.md`
+   2. **TEST PRESENCE CHECK (skip if sub-step 1 found no test command — this signals the repo has no test infrastructure. Also skip for changes exempt per the Test Co-location rule in `references/common/testing.md`):**
       Review the branch diff (`git diff --name-only` against the default branch). If the diff contains new or changed source files but zero changes in test files (no files matching common test patterns like `test_*`, `*_test.*`, `*_spec.*`, `__tests__/`), mention this to the user and ask whether to proceed or stop to write tests.
       This is advisory, not a hard block — the user decides.
    3. Run the test suite locally. If tests fail, fix the issues and re-run (max 3 iterations). If still failing after 3 attempts, stop and present the failures to the user.

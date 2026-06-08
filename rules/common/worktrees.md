@@ -18,4 +18,4 @@ When running inside a worktree:
 
 When launching multiple executor subagents in parallel (agents that write files), each must run in its own worktree via `isolation: "worktree"` on the Agent tool call. A shared working directory with concurrent writers leads to destroyed changes, index corruption, and pre-commit hook race conditions.
 
-Read-only subagents (reviewers, critics, analyzers) do not need isolation — they can safely share the working tree. See `agents.md` (Parallel Executor Isolation) for the full decision rules.
+Read-only subagents (reviewers, critics, analyzers) do not need isolation — they can safely share the working tree. See `references/common/agents.md` (Parallel Executor Isolation) for the full decision rules.

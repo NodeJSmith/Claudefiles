@@ -2,7 +2,7 @@
 
 <!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
 
-Rules for long-running tasks driven to completion without human intervention ("going to bed", "run until done", "/loop until X"). For test-loop failures specifically, see the retry limits in `testing.md` and `git-workflow.md`.
+Rules for long-running tasks driven to completion without human intervention ("going to bed", "run until done", "/loop until X"). For test-loop failures specifically, see the retry limits in `references/common/testing.md` and `git-workflow.md`.
 
 ## State the Exit Condition First
 

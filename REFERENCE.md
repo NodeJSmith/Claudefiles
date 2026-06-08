@@ -135,19 +135,35 @@ Coding guidelines in `rules/common/` that load automatically and shape how Claud
 
 | Category | Installer key | Rule files |
 |----------|---------------|-----------|
-| Core (always installed) | — | `capabilities-core`, `interaction`, `invariants`, `agents`, `performance`, `worktrees` |
+| Core (always installed) | — | `capabilities-core`, `interaction`, `invariants`, `performance`, `worktrees` |
 | Code structure & style | `style` | `coding-style`, `reader-load`, `laziness-protocol`, `subtract-first`, `redesign-from-first-principles`, `refactoring-discipline` |
-| Languages & frontend | `languages` | `python`, `typescript`, `frontend`, `frontend-workflow` |
+| Languages | `languages` | `python` |
 | Git workflow | `workflow` | `git-workflow` |
 | Planning & execution | `planning` | `decomposition-discipline`, `outcome-oriented-execution`, `autonomous-run-discipline`, `exhaust-the-design-space`, `experience-first`, `build-the-lever`, `encode-lessons-in-structure` |
-| Testing & debugging | `testing` | `testing`, `verification`, `debugging-discipline`, `performance-discipline` |
-| Reliability & security | `reliability` | `reliability`, `security`, `dependency-injection` |
-| Reviewing & authoring | `authoring` | `receiving-code-review`, `instruction-quality`, `eval-discipline`, `writing-quality` |
+| Verification & debugging | `testing` | `verification`, `debugging-discipline`, `performance-discipline` |
+| Authoring | `authoring` | `eval-discipline` |
 | Environment & tooling | `environment` | `bash-tools`, `command-output`, `sudo`, `tmux` |
 
-Deselecting a category whose rules are referenced by a kept rule (e.g. `refactoring-discipline` points to `testing`) prints a warning but does not block — the references are prose pointers, not requirements.
+Deselecting a category whose rules are referenced by a kept rule prints a warning but does not block — the references are prose pointers, not requirements.
 
 Optional bundle capabilities files (install with their bundle): `capabilities-impeccable.md` (Frontend), `capabilities-memory.md` (Memory), `capabilities-cli.md` (CLI).
+
+## References
+
+Domain-specific guidance in `references/common/` loaded on demand by skills and agents. Always installed but not always-loaded — `invariants.md` has a Domain References table mapping file types to reference files. Skills and agents `Read` the ones they need.
+
+| Reference | Loaded by |
+|-----------|-----------|
+| `frontend.md` | `i-*` skills, `engineering-frontend-developer` agent, meta-rule on `.tsx`/`.jsx` files |
+| `typescript.md` | Frontend agent, meta-rule on `.ts`/`.tsx` files |
+| `reliability.md` | `engineering-backend-developer`, `engineering-sre`, `llm-checker` agents |
+| `writing-quality.md` | `mine.humanize`, `engineering-technical-writer` agent |
+| `testing.md` | `mine.orchestrate`, `mine.build`, `mine.commit-push`, `mine.address-pr-issues` |
+| `agents.md` | `mine.orchestrate`, meta-rule when spawning subagents |
+| `receiving-code-review.md` | `mine.address-pr-issues`, `mine.orchestrate` |
+| `dependency-injection.md` | `engineering-backend-developer` agent |
+| `instruction-quality.md` | `mine.write-skill`, `engineering-technical-writer` agent |
+| `security.md` | `engineering-backend-developer` agent, meta-rule on API/auth work |
 
 ## Hooks
 

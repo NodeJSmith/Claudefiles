@@ -78,7 +78,7 @@ Validate the drafted skill against both checklists in REFERENCE.md. Quick list:
 7. No significant duplication with existing skills
 8. All user interaction points use AskUserQuestion
 
-**Instruction quality checks** (see `rules/common/instruction-quality.md` for full criteria):
+**Instruction quality checks** (see `references/common/instruction-quality.md` for full criteria):
 9. Diagnostic questions over bare thresholds where applicable
 10. Named failure modes — each behavioral rule names the trap it guards against
 11. AI-specific bias acknowledgment where the skill addresses a known agent tendency

@@ -51,7 +51,7 @@ When you need to run tests against the default branch (e.g., to confirm a failur
 
 Run tests + linter/type checker after code review passes. Fix failures before committing.
 
-**Test discovery:** Follow the order in `testing.md`.
+**Test discovery:** Follow the order in `references/common/testing.md`.
 
 **Linter/type checker discovery** (same pattern):
 

@@ -1,4 +1,4 @@
-<!-- SYNC: rules/common/receiving-code-review.md — mental stance, response protocol, YAGNI check,
+<!-- SYNC: references/common/receiving-code-review.md — mental stance, response protocol, YAGNI check,
      and push-back protocol must be kept in sync. When updating either file, update both. -->
 
 # Retry Instructions

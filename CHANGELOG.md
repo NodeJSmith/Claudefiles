@@ -8,10 +8,16 @@ All notable changes to this Claudefiles repository are documented here.
 
 - `mine.humanize` skill — edit prose to remove AI writing patterns and add human voice; analyzes first, then surgical edits or full rewrite with two-pass editing and text-type awareness (#363)
 
+### Changed
+
+- Rules-to-references restructuring — moved 9 domain-specific rule files (frontend, typescript, reliability, testing, agents, security, writing-quality, dependency-injection, instruction-quality, receiving-code-review) from always-loaded `rules/common/` to on-demand `references/common/`; added BLOCKING REQUIREMENT meta-rule in `invariants.md` mapping file types to reference files; skills and agents Read references they need; 46% reduction in always-loaded context (2,441 → 1,313 lines)
+- `frontend-workflow.md` folded into `references/common/frontend.md` Workflow section with scope expansion examples
+
 ### Removed
 
 - `last30days` plugin — removed bundled multi-platform research plugin (#362)
 - `mine.worktree-rebase` skill — removed worktree rebasing skill and all active references (#364)
+- `security.md` as standalone rule — content moved to `references/common/security.md`; critical points folded into `invariants.md`
 
 ## 2026-06-07
 
