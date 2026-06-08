@@ -219,7 +219,7 @@ RULE_CATEGORIES: dict[str, RuleCategory] = {
             "encode-lessons-in-structure.md",
         ),
     ),
-    "testing": RuleCategory(
+    "verification": RuleCategory(
         label="Verification & debugging",
         description="Verification before completion, debugging, performance discipline",
         files=(
@@ -842,8 +842,7 @@ def do_install(
                 f"rules/common/ is handled. Add it to install.py.[/yellow]"
             )
 
-    # References (file-level): domain-specific guidance loaded on demand by skills and
-    # agents. Always installed — the meta-rule in invariants.md points to these files.
+    # Always installed — the meta-rule in invariants.md points to these files.
     total_links += create_symlinks_file_level(
         repo_dir / "references",
         claude_dir / "references",

@@ -140,7 +140,7 @@ Coding guidelines in `rules/common/` that load automatically and shape how Claud
 | Languages | `languages` | `python` |
 | Git workflow | `workflow` | `git-workflow` |
 | Planning & execution | `planning` | `decomposition-discipline`, `outcome-oriented-execution`, `autonomous-run-discipline`, `exhaust-the-design-space`, `experience-first`, `build-the-lever`, `encode-lessons-in-structure` |
-| Verification & debugging | `testing` | `verification`, `debugging-discipline`, `performance-discipline` |
+| Verification & debugging | `verification` | `verification`, `debugging-discipline`, `performance-discipline` |
 | Authoring | `authoring` | `eval-discipline` |
 | Environment & tooling | `environment` | `bash-tools`, `command-output`, `sudo`, `tmux` |
 

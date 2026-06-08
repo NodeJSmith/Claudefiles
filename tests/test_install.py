@@ -585,7 +585,6 @@ def _setup_full_repo(path: Path) -> None:
     (path / "scripts" / "hooks" / "sudo-poll.sh").write_text("#!/bin/bash")
     # Rules
     _write_rule_files(path)
-    # References (domain-specific guidance loaded on demand)
     refs = path / "references" / "common"
     refs.mkdir(parents=True, exist_ok=True)
     for fname in [
@@ -952,11 +951,11 @@ class TestRuleCategories:
         _setup_full_repo(repo)
 
         selection = {k: False for k in install.optional_rule_categories()}
-        selection["testing"] = True
+        selection["verification"] = True
         _run_rule_install(repo, claude_dir, tmp_path, selection)
 
         common = claude_dir / "rules" / "common"
-        for fname in install.RULE_CATEGORIES["testing"].files:
+        for fname in install.RULE_CATEGORIES["verification"].files:
             assert (common / fname).is_symlink(), fname
         # A file from an unselected category is absent
         assert not (common / "python.md").exists()
@@ -1017,16 +1016,16 @@ class TestRuleCategories:
     def test_partial_rule_categories_treats_missing_as_off(self) -> None:
         """A present-but-partial dict deselects categories not listed."""
         keys = install.selected_rule_category_keys(
-            {"rule_categories": {"testing": True}}
+            {"rule_categories": {"verification": True}}
         )
-        assert keys == {"testing"}
+        assert keys == {"verification"}
 
     def test_new_category_detected_against_saved_config(self) -> None:
         """find_new_groups flags an optional category missing from the saved config."""
-        saved = {"rule_categories": {"testing": True}}
+        saved = {"rule_categories": {"verification": True}}
         opt_keys = list(install.optional_rule_categories().keys())
         new = install.find_new_groups(saved, "rule_categories", opt_keys)
-        assert "testing" not in new
+        assert "verification" not in new
         assert "languages" in new
 
     def test_warn_dangling_refs_fires(self, tmp_path: Path) -> None:
@@ -1055,7 +1054,7 @@ class TestRuleCategories:
         )
         buf = io.StringIO()
         console = Console(file=buf, width=120)
-        install.warn_dangling_rule_refs(repo, {"authoring", "testing"}, console)
+        install.warn_dangling_rule_refs(repo, {"authoring", "verification"}, console)
         assert "eval-discipline.md" not in buf.getvalue()
 
 
