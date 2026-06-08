@@ -13,6 +13,9 @@ All notable changes to this Claudefiles repository are documented here.
 - `mine.why` skill — decision archaeology with parallel evidence gathering and confidence calibration (#359)
 - `bin/log` helper + trail logging in `mine.orchestrate` — append-only TSV decision trail for overnight runs with post-run structural audit (#359)
 
+### Changed
+- `git-default-branch` — resolves the default branch from authoritative sources (verified `origin/HEAD`, `ls-remote`, `remote show`) and refuses to guess when ambiguous instead of returning a spurious branch; adds a `--no-network` flag (#361)
+
 ## 2026-06-04
 
 ### Added
