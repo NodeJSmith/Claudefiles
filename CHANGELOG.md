@@ -5,7 +5,7 @@ All notable changes to this Claudefiles repository are documented here.
 ## 2026-06-07
 
 ### Changed
-- `git-default-branch` — resolves the default branch from authoritative sources (verified `origin/HEAD`, `ls-remote`, `remote show`) and refuses to guess when ambiguous instead of returning a spurious branch; adds a `--no-network` flag
+- `git-default-branch` — resolves the default branch from authoritative sources (verified `origin/HEAD`, `ls-remote`, `remote show`) and refuses to guess when ambiguous instead of returning a spurious branch; adds a `--no-network` flag (#361)
 
 ## 2026-06-04
 
