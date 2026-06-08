@@ -30,7 +30,7 @@ The base (pipeline workflow) always installs. On a first install the wizard asks
 
 **Hooks** — event-driven scripts that run before or after tool calls (pytest safety guard, sudo handling, tmux session naming). Background infrastructure you don't think about.
 
-**Plugins** — third-party Claude Code plugins bundled via `settings.json`. These register automatically when settings are merged, so you get them without manual setup. Currently ships `/last30days` for multi-platform research.
+**Plugins** — third-party Claude Code plugins bundled via `settings.json`. These register automatically when settings are merged, so you get them without manual setup. None currently bundled.
 
 **Bundles** — use-case packages. The base bundle gives you the pipeline. Optional bundles add capabilities: frontend design, CLI tooling, conversation memory, engineering specialists, and extra planning agents.
 
@@ -57,9 +57,6 @@ Add the **CLI** bundle. Six skills cover hardening, output formatting, discovera
 
 **"I want conversation memory across sessions"**
 Add the **Memory** bundle. Claude remembers corrections, architectural decisions, and preferences across sessions. `/cm-recall-conversations` searches past sessions.
-
-**"I want to research a topic across Reddit, X, YouTube, and more"**
-The `/last30days` plugin is bundled and registers automatically. Type `/last30days <topic>` to research across Reddit, X, YouTube, TikTok, Instagram, HN, Polymarket, GitHub, and other platforms. Results are scored by real engagement (upvotes, likes, real-money odds), not editors. Zero config for the core sources; run it once and the setup wizard unlocks additional platforms.
 
 **"I want domain-specific engineering agents"**
 Add the **Engineering** bundle. You get agents for FastAPI backends, PySpark pipelines, React/Vue/Angular frontends, SRE work (SLOs, observability), technical writing, and an adversarial pre-ship testing gate.
