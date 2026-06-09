@@ -35,9 +35,9 @@ RIGHT:  RED→GREEN: test1→impl1 → RED→GREEN: test2→impl2
 
 ### Mocking
 
-<!-- SYNC: rules/common/invariants.md and rules/common/dependency-injection.md — update both when changing this rule. -->
+<!-- SYNC: rules/common/invariants.md and references/common/dependency-injection.md — update both when changing this rule. -->
 
-Mock only at system boundaries (external APIs, databases, time, filesystem). Prefer real instances for internal collaborators. Structure code for dependency injection so tests can supply fakes directly — see `dependency-injection.md` for the full rule.
+Mock only at system boundaries (external APIs, databases, time, filesystem). Prefer real instances for internal collaborators. Structure code for dependency injection so tests can supply fakes directly — see `references/common/dependency-injection.md` for the full rule.
 
 ### Avoid Log Capture Tests
 

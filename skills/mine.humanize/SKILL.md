@@ -10,7 +10,7 @@ Fix prose that reads as AI-generated. This skill edits text that already exists 
 
 Agents default to generating text that reads as generated. The tells are structural (negative parallelisms, tricolon lists, resolution closers) and lexical (delve, tapestry, crucial). Readers develop an instinct for it and discount the text even when the content is correct.
 
-The pattern reference is `${CLAUDE_HOME:-~/.claude}/rules/common/writing-quality.md`. Read it in full before starting any analysis.
+The pattern reference is `${CLAUDE_HOME:-~/.claude}/references/common/writing-quality.md`. Read it in full before starting any analysis.
 
 ## Arguments
 
@@ -172,5 +172,5 @@ Show the finding numbers from Phase 2. Ask: "Which finding numbers should I appl
 ## What This Skill Does NOT Do
 
 - **Code quality** -- use `/mine.clean-code` for LLM-bias patterns, deferred debt, and style hygiene in code
-- **Prevention** -- `writing-quality.md` is already loaded as a rule to shape generation. This skill fixes text after the fact.
+- **Prevention** -- `writing-quality.md` is a reference file loaded on demand via the Domain References meta-rule. This skill fixes text after the fact.
 - **AI detection scoring** -- edits for quality, not to fool classifiers

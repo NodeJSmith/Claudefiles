@@ -218,7 +218,7 @@ On subsequent tasks and retries, skip — the baselines from the first task appl
 
 #### Discovery
 
-1. **Discover test command(s)** using the discovery order from `rules/common/testing.md`.
+1. **Discover test command(s)** using the discovery order from `references/common/testing.md`.
 2. **Discover lint/format command(s)** using this discovery order:
    1. **CLAUDE.md** — "Lint", "Formatting", or "Code Quality" section
    2. **CI configuration** — `.github/workflows/`, `.gitlab-ci.yml`; extract lint/format/typecheck steps
@@ -414,7 +414,7 @@ After the parallel reviews complete (regardless of verdicts), re-run the project
 1. **Use the test baseline** from Step 2 (captured before the first executor ran).
    - If the baseline is `SKIPPED: no test suite`, skip the test gate and record `SKIPPED` in `test-gate.md`.
    - If `<dir>/test-baseline.md` is missing or unreadable (e.g., tmpdir was cleared before resume), do **not** treat this as a regression signal. Continue with the test re-run, but record `NO BASELINE — cannot detect regressions` in `test-gate.md`.
-2. **Load the canonical test command** from `<dir>/test-command.txt` (created in Step 2 to prevent discovery drift). Treat that file as the primary source of truth. Run from the repository root. Only fall back to the discovery order from `rules/common/testing.md` if `test-command.txt` is missing, empty, or contains `no test suite`.
+2. **Load the canonical test command** from `<dir>/test-command.txt` (created in Step 2 to prevent discovery drift). Treat that file as the primary source of truth. Run from the repository root. Only fall back to the discovery order from `references/common/testing.md` if `test-command.txt` is missing, empty, or contains `no test suite`.
 3. **Run the test command** and capture output.
 4. **Compare against baseline when available**: if a valid baseline exists and any test that passed in the baseline now fails, this is a **regression**. Record regressions explicitly in `<dir>/<task_id>/test-gate.md`. If no baseline is available, record that regression detection could not be performed and list current failures as informational only — do not classify them as regressions.
 5. **Record the test result** in the per-task temp directory: `<dir>/<task_id>/test-gate.md` with the command used, whether it came from `test-command.txt` or fallback discovery, output summary, baseline status, and regression list.

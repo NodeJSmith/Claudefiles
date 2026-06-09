@@ -142,10 +142,10 @@ test("calls onSelect with user ID when clicked", async () => {
 - Color contrast must meet WCAG AA (4.5:1 for normal text, 3:1 for large text)
 
 ### Visual Verification
-When a WP or task prompt contains a `## Visual Verification` section, follow the screenshot capture protocol in `rules/common/frontend-workflow.md`. Capture before/after screenshots for each scenario and include the structured output format in your result. If no dev server is available, mark each scenario SKIPPED with reason.
+When a WP or task prompt contains a `## Visual Verification` section, follow the screenshot capture protocol in `references/common/frontend.md` (Workflow section). Capture before/after screenshots for each scenario and include the structured output format in your result. If no dev server is available, mark each scenario SKIPPED with reason.
 
 ### Anti-Patterns — Never Do These
-<!-- SYNC: rules/common/coding-style.md, rules/common/testing.md — keep in sync with global rules (python.md N/A for TS agent) -->
+<!-- SYNC: rules/common/coding-style.md, references/common/testing.md — keep in sync with global rules (python.md N/A for TS agent) -->
 - No direct state mutation — use immutable updates (`setState`, spread, `structuredClone`)
 <!-- Agent-specific rules below -->
 - No `any` type in TypeScript — use proper generics, `unknown`, or specific types

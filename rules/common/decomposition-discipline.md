@@ -10,7 +10,7 @@ Before implementing a feature, answer four decomposition questions. A dimension 
 
 2. **Independent workstreams.** Which slices touch disjoint files, services, or layers and can proceed in parallel? Which share write targets and must serialize? Parallel work on shared files is not parallelism; it is a merge conflict.
 
-3. **Shared mutable state.** Do any workstreams write to the same file, branch, key, or state object? Default to splitting the target so each workstream owns its output. Serialize structurally (locks, sequential phases, exclusive ownership) only when one shared write target is a real invariant. See `reliability.md`.
+3. **Shared mutable state.** Do any workstreams write to the same file, branch, key, or state object? Default to splitting the target so each workstream owns its output. Serialize structurally (locks, sequential phases, exclusive ownership) only when one shared write target is a real invariant. See `references/common/reliability.md`.
 
 4. **Smallest safe decomposition.** Can this be split into smaller independently-landable units? If one worker is best, name why. If multiple workers make sense, each gets a specific scope (file paths, named data shape, success criteria).
 

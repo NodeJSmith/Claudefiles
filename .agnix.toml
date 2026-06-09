@@ -17,4 +17,9 @@ disabled_rules = [
   #            ~/.claude/ at install time. CI checks out the repo without
   #            running install.sh, so the resolved paths don't exist there.
   "CC-HK-008",
+
+  # AS-013: references/common/*.md paths are intentionally two levels deep,
+  #         mirroring the rules/common/ convention. Skills reference these
+  #         files by their installed path under ${CLAUDE_HOME}/references/.
+  "AS-013",
 ]

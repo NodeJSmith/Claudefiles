@@ -221,7 +221,7 @@ Use `loading="lazy"` for below-the-fold images. Provide `width` and `height` att
 
 ## Testing
 
-Follow `testing.md` for test discovery and execution rules. When starting a new project, prefer Vitest for unit tests with `@testing-library/preact` (not `@testing-library/react`) and Playwright for E2E. Test user behavior, not implementation details.
+Follow `references/common/testing.md` for test discovery and execution rules. When starting a new project, prefer Vitest for unit tests with `@testing-library/preact` (not `@testing-library/react`) and Playwright for E2E. Test user behavior, not implementation details.
 
 ```tsx
 // bad: testing implementation
@@ -233,3 +233,40 @@ expect(screen.getByText("Count: 1")).toBeInTheDocument();
 ```
 
 Prefer `getByRole`, `getByLabelText`, `getByText` over `getByTestId`. Test IDs are a last resort.
+
+## Workflow
+
+### Scope Before Coding (CRITICAL)
+
+When asked to change **anything** on a UI page, before writing a single line of code:
+
+1. **Screenshot with Playwright** — if Playwright MCP tools are available and the app is running, take a live screenshot of the affected page(s)
+2. **Identify the full surface** — find *everything* on the page related to the request, not just the literal ask
+3. **Check sibling pages** — the same pattern almost always appears on related pages (e.g., one list page → all list pages; one sort column → all sort columns; one form → all forms)
+4. **Present the full scope to the user** — one plan covering all of it, before implementing anything
+
+Scoping to the literal request creates 3-4 follow-up prompts. One screenshot + sibling check prevents the entire loop.
+
+**Wrong approach:**
+> User: "add sort indicators to the dashboard"
+> Claude: *implements dashboard sort indicators only*
+> User: "now do the same for the schedule list"
+> (repeat for each page)
+
+**Right approach:**
+> User: "add sort indicators to the dashboard"
+> Claude: *screenshots dashboard and schedule list, notices list has the same unsorted pattern*
+> Claude: "I see the dashboard and schedule list both need this. Here's the plan for both."
+
+### Verify After Implementing
+
+Take fresh screenshots to verify the change looks right before committing. Visual bugs only appear in screenshots — code review alone is not sufficient for UI work.
+
+### Screenshots Before Design Review (MANDATORY)
+
+Before running **any** frontend design review — UX audit, interface design critique, HCD review, anti-pattern scan — always get visual context first:
+
+1. If Playwright MCP tools are available and a dev server is running, take fresh screenshots of all main pages — screenshots are used for immediate inline review and do not need to be saved to disk
+2. Read each screenshot alongside the code — visual review catches overflow, clipping, empty states, contrast failures, and density issues that are invisible in code alone
+
+This applies regardless of which skill or command triggers the review.

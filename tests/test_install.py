@@ -577,6 +577,21 @@ def _setup_full_repo(path: Path) -> None:
     (path / "scripts" / "hooks" / "sudo-poll.sh").write_text("#!/bin/bash")
     # Rules
     _write_rule_files(path)
+    refs = path / "references" / "common"
+    refs.mkdir(parents=True, exist_ok=True)
+    for fname in [
+        "agents.md",
+        "dependency-injection.md",
+        "frontend.md",
+        "instruction-quality.md",
+        "receiving-code-review.md",
+        "reliability.md",
+        "security.md",
+        "testing.md",
+        "typescript.md",
+        "writing-quality.md",
+    ]:
+        (refs / fname).write_text("reference")
     # Commands
     (path / "commands" / "test-cmd").mkdir(parents=True)
 
@@ -698,7 +713,11 @@ class TestFullInstallFlow:
             assert (common / fname).is_symlink(), fname
         # Optional files present too, since rule_categories was absent
         assert (common / "python.md").is_symlink()
-        assert (common / "testing.md").is_symlink()
+        assert (common / "verification.md").is_symlink()
+        # Reference files always installed
+        refs = claude_dir / "references" / "common"
+        assert (refs / "testing.md").is_symlink()
+        assert (refs / "frontend.md").is_symlink()
 
     def test_deselected_bundle_removes_symlinks(self, tmp_path: Path) -> None:
         """Deselecting a bundle removes its skill and agent symlinks."""
@@ -924,11 +943,11 @@ class TestRuleCategories:
         _setup_full_repo(repo)
 
         selection = {k: False for k in install.optional_rule_categories()}
-        selection["testing"] = True
+        selection["verification"] = True
         _run_rule_install(repo, claude_dir, tmp_path, selection)
 
         common = claude_dir / "rules" / "common"
-        for fname in install.RULE_CATEGORIES["testing"].files:
+        for fname in install.RULE_CATEGORIES["verification"].files:
             assert (common / fname).is_symlink(), fname
         # A file from an unselected category is absent
         assert not (common / "python.md").exists()
@@ -989,16 +1008,16 @@ class TestRuleCategories:
     def test_partial_rule_categories_treats_missing_as_off(self) -> None:
         """A present-but-partial dict deselects categories not listed."""
         keys = install.selected_rule_category_keys(
-            {"rule_categories": {"testing": True}}
+            {"rule_categories": {"verification": True}}
         )
-        assert keys == {"testing"}
+        assert keys == {"verification"}
 
     def test_new_category_detected_against_saved_config(self) -> None:
         """find_new_groups flags an optional category missing from the saved config."""
-        saved = {"rule_categories": {"testing": True}}
+        saved = {"rule_categories": {"verification": True}}
         opt_keys = list(install.optional_rule_categories().keys())
         new = install.find_new_groups(saved, "rule_categories", opt_keys)
-        assert "testing" not in new
+        assert "verification" not in new
         assert "languages" in new
 
     def test_warn_dangling_refs_fires(self, tmp_path: Path) -> None:
@@ -1006,15 +1025,15 @@ class TestRuleCategories:
         repo = tmp_path / "repo"
         _write_rule_files(
             repo,
-            {"refactoring-discipline.md": "Pin behavior first; see `testing.md`."},
+            {"eval-discipline.md": "Check evidence; see `verification.md`."},
         )
         buf = io.StringIO()
         console = Console(file=buf, width=120)
-        # 'style' is selected (contains refactoring-discipline); 'testing' is not.
-        install.warn_dangling_rule_refs(repo, {"style"}, console)
+        # 'authoring' is selected (contains eval-discipline); 'verification' is not.
+        install.warn_dangling_rule_refs(repo, {"authoring"}, console)
         out = buf.getvalue()
-        assert "refactoring-discipline.md" in out
-        assert "testing.md" in out
+        assert "eval-discipline.md" in out
+        assert "verification.md" in out
 
     def test_warn_dangling_refs_silent_when_target_installed(
         self, tmp_path: Path
@@ -1023,12 +1042,12 @@ class TestRuleCategories:
         repo = tmp_path / "repo"
         _write_rule_files(
             repo,
-            {"refactoring-discipline.md": "Pin behavior first; see `testing.md`."},
+            {"eval-discipline.md": "Check evidence; see `verification.md`."},
         )
         buf = io.StringIO()
         console = Console(file=buf, width=120)
-        install.warn_dangling_rule_refs(repo, {"style", "testing"}, console)
-        assert "refactoring-discipline.md" not in buf.getvalue()
+        install.warn_dangling_rule_refs(repo, {"authoring", "verification"}, console)
+        assert "eval-discipline.md" not in buf.getvalue()
 
 
 # ---------------------------------------------------------------------------

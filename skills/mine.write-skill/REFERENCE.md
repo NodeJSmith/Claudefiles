@@ -65,7 +65,7 @@ Keep SKILL.md under ~100 lines. If the skill needs detailed reference material (
 
 ## Quality Checklist — Instruction Quality Criteria
 
-See `rules/common/instruction-quality.md` for the full framework. Apply proportionally — simple factual rules need only the rule itself; behavioral and principle-level guidance should hit most of these.
+See `references/common/instruction-quality.md` for the full framework. Apply proportionally — simple factual rules need only the rule itself; behavioral and principle-level guidance should hit most of these.
 
 9. **Diagnostic questions over thresholds** — where the skill sets a standard, include a question the agent can ask itself in the moment ("can a reader answer X in 30 seconds?") not just a number to check against ("max 800 lines"). The question generalizes to novel situations.
 10. **Named failure modes** — each behavioral rule should name the specific trap it guards against, not just the desired behavior. "Agents tend to X because Y — counter it by Z" fires at the right moment. "Don't do X" gets skimmed.

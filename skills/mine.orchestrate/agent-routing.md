@@ -4,7 +4,7 @@ Match WP content against this table to select the executor agent type. **First m
 
 <!-- SYNC CHECKLIST — when adding a new specialist agent:
   1. Add a row to this table (WP content signals → subagent_type)
-  2. Add a row to rules/common/agents.md (user intent → subagent_type)
+  2. Add a row to references/common/agents.md (user intent → subagent_type)
   3. Create the agent definition in agents/<name>.md with executor note
   4. Add to SKILL.md Step 3 routing table reference (if using a new subagent_type)
   Signal wording differs intentionally: this table uses WP content signals; agents.md uses user intent phrases.

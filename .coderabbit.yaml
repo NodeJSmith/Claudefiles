@@ -31,7 +31,7 @@ reviews:
       instructions: |
         Rule files shape agent behavior. Check for named failure modes, diagnostic
         questions over bare thresholds, and AI-specific bias acknowledgment per
-        rules/common/instruction-quality.md.
+        references/common/instruction-quality.md.
 
     - path: "bin/**"
       instructions: |

@@ -156,7 +156,7 @@ Skip on hot paths where the allocation cost matters (per-frame render, tokenizer
 
 ## Boundary Validation
 
-Follow `security.md` (input validation at boundaries). TypeScript-specific addenda:
+Follow `references/common/security.md` (input validation at boundaries). TypeScript-specific addenda:
 
 - Wire formats (proto, JSON-RPC): parse with `ignoreUnknownFields` for forward compatibility.
 - Persisted JSON: versioned blob with try/catch around the parse.

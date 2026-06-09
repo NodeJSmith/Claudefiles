@@ -204,7 +204,7 @@ For each group from the plan, launch a **general-purpose subagent** with:
 >
 > If `light`: Read the target file. Apply the fix. Run the project's test suite. If tests fail: fix or escalate. Max 3 retries.
 >
-> If `medium`: Read the target file fully. Grep for call sites of the function/class being modified. Read at least one call site to understand usage. Apply the fix. Run the project's test suite (follow the test execution discovery order from `rules/common/testing.md`). If tests fail: fix the code. Max 3 retries, then escalate to user.
+> If `medium`: Read the target file fully. Grep for call sites of the function/class being modified. Read at least one call site to understand usage. Apply the fix. Run the project's test suite (follow the test execution discovery order from `references/common/testing.md`). If tests fail: fix the code. Max 3 retries, then escalate to user.
 >
 > If `deep`: Read the target file fully. Grep for call sites — read ALL callers. Read related test files. Read adjacent modules in the same package/directory. Apply the fix. Run the project's test suite. If tests fail: fix or escalate. Max 3 retries.
 >
