@@ -25,3 +25,12 @@ Never relax the predicate to declare victory.
 ## Keep a Decision Trail
 
 Checkpoint every iteration: what changed, whether the predicate moved, what was tried and discarded. A run with no trail cannot be audited or resumed. The trail plus the diff is what lets the human come back and trust the work.
+
+## Self-Unblock with a Sketch
+
+When you hit a fork where you'd ask the user an empirical question, classify it first:
+
+- **Observable by running something** (behavior, timing, layout, output, perf): do not ask. Build a throwaway probe and let the observation answer it.
+- **Genuine product/preference call** that no experiment can settle: ask the user.
+
+A 10-line script or a quick HTTP call is enough for a probe. The goal is an observation, not a polished solution. Reserve questions for what only the user can answer.

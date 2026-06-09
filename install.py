@@ -201,16 +201,21 @@ RULE_CATEGORIES: dict[str, RuleCategory] = {
     ),
     "workflow": RuleCategory(
         label="Git workflow",
-        description="Commit conventions, pre-commit review gate, branch and PR workflow",
-        files=("commit-conventions.md", "git-workflow.md"),
+        description="Commit conventions, pre-commit review gate, branch and PR workflow, verifiable-unit sequencing",
+        files=(
+            "commit-conventions.md",
+            "git-workflow.md",
+            "sequence-verifiable-units.md",
+        ),
     ),
     "planning": RuleCategory(
         label="Planning & execution",
-        description="Decomposition, outcome-oriented execution, autonomous runs, design exploration, experience-first, levers, encoding lessons",
+        description="Decomposition, outcome-oriented execution, autonomous runs, safe pausing, design exploration, experience-first, levers, encoding lessons",
         files=(
             "decomposition-discipline.md",
             "outcome-oriented-execution.md",
             "autonomous-run-discipline.md",
+            "pause-safely.md",
             "exhaust-the-design-space.md",
             "experience-first.md",
             "build-the-lever.md",

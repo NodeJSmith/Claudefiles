@@ -175,6 +175,10 @@ Write structured result to the temp file path provided in your prompt:
 - command used
 - result (N passed, N failed)
 
+**TDD evidence:** *(include only if TDD was required for this task)*
+- RED: <paste failing test output before implementation>
+- GREEN: <paste passing test output after implementation>
+
 **Verify section:**
 - <criterion text> — DONE: <evidence (file, line, or observable behavior)>
 - <criterion text> — CONTESTED: <rationale for why criterion cannot be fully satisfied as stated>
