@@ -85,21 +85,10 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/). Every commi
 
 **Rules**:
 - Type is **mandatory** — never commit without a type prefix
-- Description is lowercase, imperative mood ("add feature" not "added feature" or "adds feature")
-- No period at the end
-- Keep the first line under 72 characters
-- Optional body separated by a blank line for multi-line messages
+- Description is lowercase, imperative mood, no trailing period, first line under 72 characters
 - Scope is optional: `feat(challenge): add orphan detection`
 
-**Choosing the right type**:
-- `feat` — new functionality visible to the user
-- `fix` — bug fix (something was broken, now it works)
-- `refactor` — code change that neither fixes a bug nor adds a feature
-- `docs` — documentation, comments, README, CHANGELOG, rules, SKILL.md prompt changes
-- `test` — adding or modifying tests only
-- `chore` — maintenance (deps, config, CI tweaks, tooling)
-- `perf` — performance improvement
-- `ci` — CI/CD pipeline changes
+**House nuance**: `docs` covers rules, SKILL.md, and agent prompt changes — in this setup, instruction files are documentation, not `feat`/`refactor`.
 
 Attribution disabled globally via ~/.claude/settings.json.
 

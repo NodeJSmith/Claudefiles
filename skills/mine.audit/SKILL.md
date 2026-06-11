@@ -93,7 +93,7 @@ Rank findings by **impact** — how much this problem is likely to cause bugs, s
 
 ### Validity assessment
 
-Assess whether each synthesized finding holds up against the actual code. Findings are valid by default — to flag one as likely invalid, you must provide concrete evidence: what the finding claims, what the code actually does, and why they conflict. Read the relevant source files directly to verify claims — do not rely solely on the per-directory summaries. If you cannot articulate the evidence trail, the finding stays in the main list.
+Apply the Validity Assessment protocol from `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`: findings are valid by default; flagging one as likely invalid requires a concrete evidence trail (claim vs. what the code actually does). Read the relevant source files directly to verify claims — do not rely solely on the per-directory summaries.
 
 Likely-invalid findings are excluded from the narrative summary and placed in the `## Likely Invalid` section of the findings file per `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`. Always include the `**Likely-invalid:** N` count in the findings file header and in the narrative summary.
 

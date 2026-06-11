@@ -17,8 +17,7 @@ Scan this list at two points: **before writing code** (catch structural violatio
 ### Must
 
 #### Immutability
-Create new objects, never mutate existing ones. Return new copies with changes.
-**Note:** PySpark DataFrame reassignment (`df = df.filter(...)`) does not violate this — DataFrames are immutable per transform; reassignment rebinds the name to a new object.
+Create new objects, never mutate existing ones. Return new copies with changes. (PySpark DataFrame reassignment is exempt — see coding-style.md.)
 **Defined in:** `rules/common/coding-style.md`
 
 #### No Future Annotations
@@ -118,57 +117,13 @@ When code review findings arrive, verify each against the actual code before imp
 
 ### Consider
 
-#### Laziness Protocol
-If tracing a value requires more than 3 files or layers, flatten the hierarchy. Prefer deletion over addition; minimize the diff.
-**Defined in:** `rules/common/laziness-protocol.md`
+These principles are defined in rule files that are themselves always loaded — their full text is already in context, so this tier is just the scan list: **Laziness Protocol, Reader Load, Subtract Before You Add, Redesign from First Principles, Outcome-Oriented Execution, Encode Lessons in Structure, Exhaust the Design Space, Experience First, Baseline Before Optimizing, Decompose Before Implementing, No Default Underscore Prefixes, Build the Lever.**
 
-#### Reader Load
-Code is readable when a new reader can answer "where does X come from?" in under 30 seconds. Collapse one-caller wrappers; shrink mutable state scope.
-**Defined in:** `rules/common/reader-load.md`
-
-#### Subtract Before You Add
-When evolving a system, remove complexity first, then build on the simpler base. Sequence removal before construction.
-**Defined in:** `rules/common/subtract-first.md`
-
-#### Redesign from First Principles
-When integrating a new requirement, redesign as if it had been there from the start. The result should have no bolt-on seams.
-**Defined in:** `rules/common/redesign-from-first-principles.md`
-
-#### Outcome-Oriented Execution
-During planned rewrites and migrations, optimize for the end state. Intermediate breakage is acceptable when planned, scoped, and reversible.
-**Defined in:** `rules/common/outcome-oriented-execution.md`
-
-#### Encode Lessons in Structure
-When the same instruction appears twice, encode it as a lint rule, metadata flag, runtime check, or script. The instruction is the symptom.
-**Defined in:** `rules/common/encode-lessons-in-structure.md`
-
-#### Exhaust the Design Space
-When the right answer is not obvious and no precedent exists, build 2-3 competing prototypes and compare before committing.
-**Defined in:** `rules/common/exhaust-the-design-space.md`
-
-#### Experience First
-When implementation convenience conflicts with user delight, choose delight. Every feature must earn its place.
-**Defined in:** `rules/common/experience-first.md`
-
-#### Baseline Before Optimizing
-Capture a trace or measurement before changing anything. "It feels faster" is not verification.
-**Defined in:** `rules/common/performance-discipline.md`
-
-#### Decompose Before Implementing
-For multi-module features, answer the four blocking/parallel/shared-state/decomposition questions before writing logic.
-**Defined in:** `rules/common/decomposition-discipline.md`
-
-#### No Default Underscore Prefixes
-Don't prefix methods with `_` unless genuinely unsafe to call out of sequence, required by a framework, or part of a published library API.
-**Defined in:** `rules/common/coding-style.md`
+Three more live in on-demand references, so their summaries stay here:
 
 #### AI Prose Self-Audit
 After writing non-code text (PR descriptions, docs, skill files, rules), ask: "What makes this obviously AI-generated?" Fix whatever comes to mind. Em dashes, hedging, significance inflation, and synonym cycling are the common tells.
 **Defined in:** `references/common/writing-quality.md`
-
-#### Build the Lever
-When repeating a transform, check, or setup more than a handful of times, build the tool that does it instead. Do the first few by hand to learn the recipe, then automate.
-**Defined in:** `rules/common/build-the-lever.md`
 
 #### Screenshot Before and After UI Changes
 Before changing any UI, screenshot the affected pages and sibling pages. After implementing, screenshot again to verify. Visual bugs only appear in screenshots.
