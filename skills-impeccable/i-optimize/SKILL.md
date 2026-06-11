@@ -8,7 +8,7 @@ Identify and fix performance issues to create faster, smoother user experiences.
 
 ## MANDATORY PREPARATION
 
-Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
+Read `${CLAUDE_HOME:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
 
 ---
 
@@ -68,171 +68,13 @@ If "Stop here" → end the skill.
 
 ## Optimization Strategy
 
-Create systematic improvement plan:
+The standard techniques are familiar — apply the ones the trace points to:
 
-### Loading Performance
-
-**Optimize Images**:
-- Use modern formats (WebP, AVIF)
-- Proper sizing (don't load 3000px image for 300px display)
-- Lazy loading for below-fold images
-- Responsive images (`srcset`, `picture` element)
-- Compress images (80-85% quality is usually imperceptible)
-- Use CDN for faster delivery
-
-```html
-<img 
-  src="hero.webp"
-  srcset="hero-400.webp 400w, hero-800.webp 800w, hero-1200.webp 1200w"
-  sizes="(max-width: 400px) 400px, (max-width: 800px) 800px, 1200px"
-  loading="lazy"
-  alt="Hero image"
-/>
-```
-
-**Reduce JavaScript Bundle**:
-- Code splitting (route-based, component-based)
-- Tree shaking (remove unused code)
-- Remove unused dependencies
-- Lazy load non-critical code
-- Use dynamic imports for large components
-
-```javascript
-// Lazy load heavy component
-const HeavyChart = lazy(() => import('./HeavyChart'));
-```
-
-**Optimize CSS**:
-- Remove unused CSS
-- Critical CSS inline, rest async
-- Minimize CSS files
-- Use CSS containment for independent regions
-
-**Optimize Fonts**:
-- Use `font-display: swap` or `optional`
-- Subset fonts (only characters you need)
-- Preload critical fonts
-- Use system fonts when appropriate
-- Limit font weights loaded
-
-```css
-@font-face {
-  font-family: 'CustomFont';
-  src: url('/fonts/custom.woff2') format('woff2');
-  font-display: swap; /* Show fallback immediately */
-  unicode-range: U+0020-007F; /* Basic Latin only */
-}
-```
-
-**Optimize Loading Strategy**:
-- Critical resources first (async/defer non-critical)
-- Preload critical assets
-- Prefetch likely next pages
-- Service worker for offline/caching
-- HTTP/2 or HTTP/3 for multiplexing
-
-### Rendering Performance
-
-**Avoid Layout Thrashing**:
-```javascript
-// ❌ Bad: Alternating reads and writes (causes reflows)
-elements.forEach(el => {
-  const height = el.offsetHeight; // Read (forces layout)
-  el.style.height = height * 2; // Write
-});
-
-// ✅ Good: Batch reads, then batch writes
-const heights = elements.map(el => el.offsetHeight); // All reads
-elements.forEach((el, i) => {
-  el.style.height = heights[i] * 2; // All writes
-});
-```
-
-**Optimize Rendering**:
-- Use CSS `contain` property for independent regions
-- Minimize DOM depth (flatter is faster)
-- Reduce DOM size (fewer elements)
-- Use `content-visibility: auto` for long lists
-- Virtual scrolling for very long lists (react-window, react-virtualized)
-
-**Reduce Paint & Composite**:
-- Use `transform` and `opacity` for animations (GPU-accelerated)
-- Avoid animating layout properties (width, height, top, left)
-- Use `will-change` sparingly for known expensive operations
-- Minimize paint areas (smaller is faster)
-
-### Animation Performance
-
-**GPU Acceleration**:
-```css
-/* ✅ GPU-accelerated (fast) */
-.animated {
-  transform: translateX(100px);
-  opacity: 0.5;
-}
-
-/* ❌ CPU-bound (slow) */
-.animated {
-  left: 100px;
-  width: 300px;
-}
-```
-
-**Smooth 60fps**:
-- Target 16ms per frame (60fps)
-- Use `requestAnimationFrame` for JS animations
-- Debounce/throttle scroll handlers
-- Use CSS animations when possible
-- Avoid long-running JavaScript during animations
-
-**Intersection Observer**:
-```javascript
-// Efficiently detect when elements enter viewport
-const observer = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    if (entry.isIntersecting) {
-      // Element is visible, lazy load or animate
-    }
-  });
-});
-```
-
-### React/Framework Optimization
-
-**React-specific**:
-- Use `memo()` for expensive components
-- `useMemo()` and `useCallback()` for expensive computations
-- Virtualize long lists
-- Code split routes
-- Avoid inline function creation in render
-- Use React DevTools Profiler
-
-**Framework-agnostic**:
-- Minimize re-renders
-- Debounce expensive operations
-- Memoize computed values
-- Lazy load routes and components
-
-### Network Optimization
-
-**Reduce Requests**:
-- Combine small files
-- Use SVG sprites for icons
-- Inline small critical assets
-- Remove unused third-party scripts
-
-**Optimize APIs**:
-- Use pagination (don't load everything)
-- GraphQL to request only needed fields
-- Response compression (gzip, brotli)
-- HTTP caching headers
-- CDN for static assets
-
-**Optimize for Slow Connections**:
-- Adaptive loading based on connection (navigator.connection)
-- Optimistic UI updates
-- Request prioritization
-- Progressive enhancement
+- **Loading**: modern image formats + `srcset`/`loading="lazy"` at display size; route/component code splitting and dynamic imports; critical CSS inline; `font-display: swap` with subsetting and preload.
+- **Rendering**: batch DOM reads then writes (never alternate — that forces reflow per iteration); `content-visibility: auto` and virtual scrolling for long lists; CSS `contain` for independent regions.
+- **Animation**: animate only `transform`/`opacity` (GPU-composited), never layout properties; `requestAnimationFrame` for JS animation; `will-change` sparingly.
+- **React**: `memo`/`useMemo`/`useCallback` on measured-expensive work only; virtualize long lists; no inline function creation in hot render paths; profile before sprinkling memos.
+- **Network**: paginate, compress (brotli/gzip), cache headers, CDN; drop unused third-party scripts; adaptive loading on slow connections.
 
 ## Core Web Vitals Optimization
 

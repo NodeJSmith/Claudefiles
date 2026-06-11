@@ -8,7 +8,7 @@ Strengthen interfaces against edge cases, errors, internationalization issues, a
 
 ## MANDATORY PREPARATION
 
-Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
+Read `${CLAUDE_HOME:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
 
 ---
 
@@ -79,190 +79,25 @@ If "Stop here" → end the skill.
 
 ## Hardening Dimensions
 
-Systematically improve resilience:
+You already know the standard recipes — ellipsis/line-clamp truncation, `Intl.DateTimeFormat`/`Intl.NumberFormat` for locale formatting, debounce/throttle, proper-plural i18n libraries, status-code handling (400 validate, 401 login, 403 permission, 404 not-found, 429 rate-limit, 500 generic+support), retry buttons, skeleton screens, listener/timer cleanup on unmount. Apply them. The non-obvious ones worth spelling out:
 
-### Text Overflow & Wrapping
-
-**Long text handling**:
+**Flex/grid overflow**: a flex or grid child overflowing its container is almost always a missing `min-width: 0` — the default `min-width: auto` refuses to shrink below content size.
 ```css
-/* Single line with ellipsis */
-.truncate {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Multi-line with clamp */
-.line-clamp {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* Allow wrapping */
-.wrap {
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  hyphens: auto;
-}
+.flex-item { min-width: 0; overflow: hidden; }
+.grid-item { min-width: 0; min-height: 0; }
 ```
 
-**Flex/Grid overflow**:
+**RTL**: use logical properties so layout flips automatically, instead of physical left/right.
 ```css
-/* Prevent flex items from overflowing */
-.flex-item {
-  min-width: 0; /* Allow shrinking below content size */
-  overflow: hidden;
-}
-
-/* Prevent grid items from overflowing */
-.grid-item {
-  min-width: 0;
-  min-height: 0;
-}
-```
-
-**Responsive text sizing**:
-- Use `clamp()` for fluid typography
-- Set minimum readable sizes (14px on mobile)
-- Test text scaling (zoom to 200%)
-- Ensure containers expand with text
-
-### Internationalization (i18n)
-
-**Text expansion**:
-- Add 30-40% space budget for translations
-- Use flexbox/grid that adapts to content
-- Test with longest language (usually German)
-- Avoid fixed widths on text containers
-
-```jsx
-// ❌ Bad: Assumes short English text
-<button className="w-24">Submit</button>
-
-// ✅ Good: Adapts to content
-<button className="px-4 py-2">Submit</button>
-```
-
-**RTL (Right-to-Left) support**:
-```css
-/* Use logical properties */
-margin-inline-start: 1rem; /* Not margin-left */
-padding-inline: 1rem; /* Not padding-left/right */
-border-inline-end: 1px solid; /* Not border-right */
-
-/* Or use dir attribute */
+margin-inline-start: 1rem;   /* not margin-left */
+padding-inline: 1rem;        /* not padding-left/right */
+border-inline-end: 1px solid;/* not border-right */
 [dir="rtl"] .arrow { transform: scaleX(-1); }
 ```
 
-**Character set support**:
-- Use UTF-8 encoding everywhere
-- Test with Chinese/Japanese/Korean (CJK) characters
-- Test with emoji (they can be 2-4 bytes)
-- Handle different scripts (Latin, Cyrillic, Arabic, etc.)
+**Text expansion**: translations run longer than English (German ~30%) — see [ux-writing.md](../i-frontend-design/reference/ux-writing.md) for the per-language budget. Never use fixed widths on text containers; let flex/grid adapt to content.
 
-**Date/Time formatting**:
-```javascript
-// ✅ Use Intl API for proper formatting
-new Intl.DateTimeFormat('en-US').format(date); // 1/15/2024
-new Intl.DateTimeFormat('de-DE').format(date); // 15.1.2024
-
-new Intl.NumberFormat('en-US', { 
-  style: 'currency', 
-  currency: 'USD' 
-}).format(1234.56); // $1,234.56
-```
-
-**Pluralization**:
-```javascript
-// ❌ Bad: Assumes English pluralization
-`${count} item${count !== 1 ? 's' : ''}`
-
-// ✅ Good: Use proper i18n library
-t('items', { count }) // Handles complex plural rules
-```
-
-### Error Handling
-
-**Network errors**:
-- Show clear error messages
-- Provide retry button
-- Explain what happened
-- Offer offline mode (if applicable)
-- Handle timeout scenarios
-
-```jsx
-// Error states with recovery
-{error && (
-  <ErrorMessage>
-    <p>Failed to load data. {error.message}</p>
-    <button onClick={retry}>Try again</button>
-  </ErrorMessage>
-)}
-```
-
-**Form validation errors**:
-- Inline errors near fields
-- Clear, specific messages
-- Suggest corrections
-- Don't block submission unnecessarily
-- Preserve user input on error
-
-**API errors**:
-- Handle each status code appropriately
-  - 400: Show validation errors
-  - 401: Redirect to login
-  - 403: Show permission error
-  - 404: Show not found state
-  - 429: Show rate limit message
-  - 500: Show generic error, offer support
-
-**Graceful degradation**:
-- Core functionality works without JavaScript
-- Images have alt text
-- Progressive enhancement
-- Fallbacks for unsupported features
-
-### Edge Cases & Boundary Conditions
-
-**Empty states**:
-- No items in list
-- No search results
-- No notifications
-- No data to display
-- Provide clear next action
-
-**Loading states**:
-- Initial load
-- Pagination load
-- Refresh
-- Show what's loading ("Loading your projects...")
-- Time estimates for long operations
-
-**Large datasets**:
-- Pagination or virtual scrolling
-- Search/filter capabilities
-- Performance optimization
-- Don't load all 10,000 items at once
-
-**Concurrent operations**:
-- Prevent double-submission (disable button while loading)
-- Handle race conditions
-- Optimistic updates with rollback
-- Conflict resolution
-
-**Permission states**:
-- No permission to view
-- No permission to edit
-- Read-only mode
-- Clear explanation of why
-
-**Browser compatibility**:
-- Polyfills for modern features
-- Fallbacks for unsupported CSS
-- Feature detection (not browser detection)
-- Test in target browsers
+**Concurrent operations**: disable submit while in-flight to prevent double-submission; optimistic updates need a rollback path. Abort pending requests on unmount.
 
 ### Onboarding & First-Run Experience
 
@@ -291,54 +126,9 @@ Empty state types to handle:
 - Badges or indicators on new or unused features
 - Celebrate activation events quietly (a toast, not a modal)
 
-**NEVER**:
-- Force long onboarding before users can touch the product
-- Show the same tooltip repeatedly (track and respect dismissals)
-- Block the entire UI during a guided tour
-- Create separate tutorial modes disconnected from the real product
-- Design empty states that just say "No items" with no next action
+### Input, Accessibility & Performance Resilience
 
-### Input Validation & Sanitization
-
-**Client-side validation**:
-- Required fields
-- Format validation (email, phone, URL)
-- Length limits
-- Pattern matching
-- Custom validation rules
-
-**Server-side validation**: Out of scope for UI hardening. Ensure your backend validates all inputs independently — never rely on client-side validation alone.
-
-**Constraint handling**:
-```html
-<!-- Set clear constraints -->
-<input 
-  type="text"
-  maxlength="100"
-  pattern="[A-Za-z0-9]+"
-  required
-  aria-describedby="username-hint"
-/>
-<small id="username-hint">
-  Letters and numbers only, up to 100 characters
-</small>
-```
-
-### Accessibility Resilience
-
-**Keyboard navigation**:
-- All functionality accessible via keyboard
-- Logical tab order
-- Focus management in modals
-- Skip links for long content
-
-**Screen reader support**:
-- Proper ARIA labels
-- Announce dynamic changes (live regions)
-- Descriptive alt text
-- Semantic HTML
-
-**Motion sensitivity**:
+Standard practice applies — client-side validation with clear `maxlength`/`pattern` constraints (backend validates independently), keyboard-accessible everything with logical tab order and modal focus management, ARIA live regions for dynamic changes, never color alone, skeleton screens on slow connections. One concrete snippet worth keeping is the reduced-motion reset:
 ```css
 @media (prefers-reduced-motion: reduce) {
   * {
@@ -349,46 +139,9 @@ Empty state types to handle:
 }
 ```
 
-**High contrast mode**:
-- Test in Windows high contrast mode
-- Don't rely only on color
-- Provide alternative visual cues
-
-### Performance Resilience
-
-**Slow connections**:
-- Progressive image loading
-- Skeleton screens
-- Optimistic UI updates
-- Offline support (service workers)
-
-**Memory leaks**:
-- Clean up event listeners
-- Cancel subscriptions
-- Clear timers/intervals
-- Abort pending requests on unmount
-
-**Throttling & Debouncing**:
-```javascript
-// Debounce search input
-const debouncedSearch = debounce(handleSearch, 300);
-
-// Throttle scroll handler
-const throttledScroll = throttle(handleScroll, 100);
-```
-
 ## Testing Strategies
 
-**Manual testing**:
-- Test with extreme data (very long, very short, empty)
-- Test in different languages
-- Test offline
-- Test slow connection (throttle to 3G)
-- Test with screen reader
-- Test keyboard-only navigation
-- Test on old browsers
-
-**Automated testing**: Out of scope for UI hardening. For automated test coverage, consult your project's testing framework and conventions.
+Test with extreme data (very long, very short, empty), different languages, offline, throttled-to-3G connections, screen readers, keyboard-only, and old browsers. Automated coverage is out of scope — use your project's testing conventions.
 
 **IMPORTANT**: Hardening is about expecting the unexpected. Real users will do things you never imagined.
 
@@ -398,9 +151,12 @@ const throttledScroll = throttle(handleScroll, 100);
 - Leave error messages generic ("Error occurred")
 - Forget offline scenarios
 - Trust client-side validation alone
-- Use fixed widths for text
-- Assume English-length text
-- Block entire interface when one component errors
+- Use fixed widths for text; assume English-length text
+- Block the entire interface when one component errors
+- Force long onboarding before users can touch the product
+- Show the same tooltip repeatedly (track and respect dismissals)
+- Block the entire UI during a guided tour, or build tutorial modes disconnected from the real product
+- Design empty states that just say "No items" with no next action
 
 ## Verify Hardening
 

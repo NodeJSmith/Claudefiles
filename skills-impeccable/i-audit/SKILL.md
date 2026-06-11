@@ -8,7 +8,7 @@ Run systematic quality checks and generate a comprehensive audit report with pri
 
 ## MANDATORY PREPARATION
 
-Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles and anti-patterns. Check for design context (`design/context.md`, `.impeccable.md`, or `design/direction.md`) — if found, use it to inform brand-specific judgments. If no context exists, **proceed anyway** but note in the report: "No design context found — anti-pattern checks are universal only; brand-specific judgments may not apply. Run `/i-teach-impeccable` to establish context."
+Read `${CLAUDE_HOME:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles and anti-patterns. Check for design context (`design/context.md`, `.impeccable.md`, or `design/direction.md`) — if found, use it to inform brand-specific judgments. If no context exists, **proceed anyway** but note in the report: "No design context found — anti-pattern checks are universal only; brand-specific judgments may not apply. Run `/i-teach-impeccable` to establish context."
 
 Audits are read-only diagnostics — they should never be blocked by missing context.
 
@@ -16,37 +16,13 @@ Audits are read-only diagnostics — they should never be blocked by missing con
 
 ## Diagnostic Scan
 
-Run comprehensive checks across multiple dimensions:
+Scan across these dimensions. The specific checks within each are standard — work through them against the reference files rather than from a checklist here:
 
-1. **Accessibility (A11y)** - Check for:
-   - **Contrast issues**: Text contrast ratios < 4.5:1 (or 7:1 for AAA)
-   - **Missing ARIA**: Interactive elements without proper roles, labels, or states
-   - **Keyboard navigation**: Missing focus indicators, illogical tab order, keyboard traps
-   - **Semantic HTML**: Improper heading hierarchy, missing landmarks, divs instead of buttons
-   - **Alt text**: Missing or poor image descriptions
-   - **Form issues**: Inputs without labels, poor error messaging, missing required indicators
-
-2. **Performance** - Check for:
-   - **Layout thrashing**: Reading/writing layout properties in loops
-   - **Expensive animations**: Animating layout properties (width, height, top, left) instead of transform/opacity
-   - **Missing optimization**: Images without lazy loading, unoptimized assets, missing will-change
-   - **Bundle size**: Unnecessary imports, unused dependencies
-   - **Render performance**: Unnecessary re-renders, missing memoization
-
-3. **Theming** - Check for:
-   - **Hard-coded colors**: Colors not using design tokens
-   - **Broken dark mode**: Missing dark mode variants, poor contrast in dark theme
-   - **Inconsistent tokens**: Using wrong tokens, mixing token types
-   - **Theme switching issues**: Values that don't update on theme change
-
-4. **Responsive Design** - Check for:
-   - **Fixed widths**: Hard-coded widths that break on mobile
-   - **Touch targets**: Interactive elements < 44x44px
-   - **Horizontal scroll**: Content overflow on narrow viewports
-   - **Text scaling**: Layouts that break when text size increases
-   - **Missing breakpoints**: No mobile/tablet variants
-
-5. **Anti-Patterns (CRITICAL)** - Check against the [anti-patterns reference](../i-frontend-design/reference/anti-patterns.md). Look for AI slop tells and general design anti-patterns documented there.
+1. **Accessibility** — contrast, ARIA, keyboard nav, semantic HTML, alt text, form labeling. See [interaction-design.md](../i-frontend-design/reference/interaction-design.md).
+2. **Performance** — layout thrashing, layout-property animations, missing lazy-load, bundle bloat, needless re-renders. See [performance.md](../i-frontend-design/reference/performance.md) if present.
+3. **Theming** — hard-coded colors vs tokens, dark-mode coverage and contrast, token consistency.
+4. **Responsive** — fixed widths, sub-44px touch targets, horizontal scroll, text-scaling breakage, missing breakpoints.
+5. **Anti-Patterns (CRITICAL)** — check against the [anti-patterns reference](../i-frontend-design/reference/anti-patterns.md) for AI slop tells and general design anti-patterns.
 
 **CRITICAL**: This is an audit, not a fix. Document issues thoroughly with clear explanations of impact. Use other commands (polish, optimize, harden, etc.) to fix issues after audit.
 
@@ -87,46 +63,13 @@ For each issue, document:
   - Overall too generic/bland → `/i-bolder`
   - Final polish pass → `/i-polish`
 
-#### Critical Issues
-[Issues that block core functionality or violate WCAG A]
+Group findings under four severity tiers:
+- **Critical** — blocks core functionality or violates WCAG A
+- **High** — significant usability/accessibility impact, WCAG AA violations
+- **Medium** — quality issues, WCAG AAA, performance concerns
+- **Low** — minor inconsistencies, optimization opportunities
 
-#### High-Severity Issues  
-[Significant usability/accessibility impact, WCAG AA violations]
-
-#### Medium-Severity Issues
-[Quality issues, WCAG AAA violations, performance concerns]
-
-#### Low-Severity Issues
-[Minor inconsistencies, optimization opportunities]
-
-### Patterns & Systemic Issues
-
-Identify recurring problems:
-- "Hard-coded colors appear in 15+ components, should use design tokens"
-- "Touch targets consistently too small (<44px) throughout mobile experience"
-- "Missing focus indicators on all custom interactive components"
-
-### Positive Findings
-
-Note what's working well:
-- Good practices to maintain
-- Exemplary implementations to replicate elsewhere
-
-### Recommendations by Priority
-
-Create actionable plan:
-1. **Immediate**: Critical blockers to fix first
-2. **Short-term**: High-severity issues (this sprint)
-3. **Medium-term**: Quality improvements (next sprint)
-4. **Long-term**: Nice-to-haves and optimizations
-
-### Suggested Commands for Fixes
-
-Group findings by the skill that would fix them, using the routing from the per-finding "Suggested command" field. Example:
-
-- "Use `/i-polish` to align with design system (addresses N theming issues)"
-- "Use `/i-adapt` to fix responsive problems (addresses N mobile/touch issues)"
-- "Use `/i-harden` to improve resilience (addresses N edge cases)"
+Then call out systemic patterns (the same defect across many components), positive findings worth keeping, and a priority-ordered fix plan that groups findings by the skill that fixes them (using the per-finding "Suggested command" routing).
 
 **IMPORTANT**: Be thorough but actionable. Too many low-priority issues creates noise. Focus on what actually matters.
 

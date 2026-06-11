@@ -8,7 +8,7 @@ Remove unnecessary complexity from designs, revealing the essential elements and
 
 ## MANDATORY PREPARATION
 
-Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
+Read `${CLAUDE_HOME:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
 
 ---
 
@@ -82,50 +82,14 @@ If "Stop here" → end the skill.
 
 ## Simplify the Design
 
-Systematically remove complexity across these dimensions:
+Remove complexity across these dimensions:
 
-### Information Architecture
-- **Reduce scope**: Remove secondary actions, optional features, redundant information
-- **Progressive disclosure**: Hide complexity behind clear entry points (accordions, modals, step-through flows)
-- **Combine related actions**: Merge similar buttons, consolidate forms, group related content
-- **Clear hierarchy**: ONE primary action, few secondary actions, everything else tertiary or hidden
-- **Remove redundancy**: If it's said elsewhere, don't repeat it here
-
-### Visual Simplification
-- **Reduce color palette**: Use 1-2 colors plus neutrals, not 5-7 colors
-- **Limit typography**: One font family, 3-4 sizes maximum, 2-3 weights
-- **Remove decorations**: Eliminate borders, shadows, backgrounds that don't serve hierarchy or function
-- **Flatten structure**: Reduce nesting, remove unnecessary containers—never nest cards inside cards
-- **Remove unnecessary cards**: Cards aren't needed for basic layout; use spacing and alignment instead
-- **Consistent spacing**: Use one spacing scale, remove arbitrary gaps
-
-### Layout Simplification
-- **Linear flow**: Replace complex grids with simple vertical flow where possible
-- **Remove sidebars**: Move secondary content inline or hide it
-- **Full-width**: Use available space generously instead of complex multi-column layouts
-- **Consistent alignment**: Pick left or center, stick with it
-- **Generous white space**: Let content breathe, don't pack everything tight
-
-### Interaction Simplification
-- **Reduce choices**: Fewer buttons, fewer options, clearer path forward (paradox of choice is real)
-- **Smart defaults**: Make common choices automatic, only ask when necessary
-- **Inline actions**: Replace modal flows with inline editing where possible
-- **Remove steps**: Can signup be one step instead of three? Can checkout be simplified?
-- **Clear CTAs**: ONE obvious next step, not five competing actions
-
-### Content Simplification
-- **Shorter copy**: Cut every sentence in half, then do it again
-- **Active voice**: "Save changes" not "Changes will be saved"
-- **Remove jargon**: Plain language always wins
-- **Scannable structure**: Short paragraphs, bullet points, clear headings
-- **Essential information only**: Remove marketing fluff, legalese, hedging
-- **Remove redundant copy**: No headers restating intros, no repeated explanations, say it once
-
-### Code Simplification
-- **Remove unused code**: Dead CSS, unused components, orphaned files
-- **Flatten component trees**: Reduce nesting depth
-- **Consolidate styles**: Merge similar styles, use utilities consistently
-- **Reduce variants**: Does that component need 12 variations, or can 3 cover 90% of cases?
+- **Information architecture**: ONE primary action, few secondary, everything else tertiary or hidden behind progressive disclosure. Merge similar actions; cut anything said elsewhere.
+- **Visual**: cap the palette at 1-2 colors plus neutrals; one font family, 3-4 sizes, 2-3 weights. Strip decorations that don't serve hierarchy. **Never nest cards inside cards** — cards aren't needed for basic layout; use spacing and alignment instead.
+- **Layout**: prefer linear vertical flow over complex grids; consistent alignment and one spacing scale. (See /i-layout for spacing and rhythm.)
+- **Interaction**: fewer choices, smart defaults, inline over modal, ONE obvious next step.
+- **Content**: cut copy hard, say it once. (See /i-clarify for voice and labeling.)
+- **Code**: remove dead CSS and orphaned files, flatten component trees, reduce variants (does it need 12, or do 3 cover 90%?).
 
 **NEVER**:
 - Remove necessary functionality (simplicity ≠ feature-less)
@@ -152,7 +116,7 @@ If you removed features or options:
 - Consider if they need alternative access points
 - Note any user feedback to monitor
 
-Remember: You have great taste and judgment. Simplification is an act of confidence - knowing what to keep and courage to remove the rest. As Antoine de Saint-Exupéry said: "Perfection is achieved not when there is nothing more to add, but when there is nothing left to take away."
+Remember: simplification is an act of confidence — knowing what to keep and having the courage to remove the rest.
 
 ## Completion
 
