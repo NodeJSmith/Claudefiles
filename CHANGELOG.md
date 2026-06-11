@@ -6,19 +6,19 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Added
 
-- `lint-agent-models` bin script + pre-commit hook — validates the Agent Model Declarations list in `performance.md` against `agents/*.md` frontmatter, so the two can no longer drift
+- `lint-agent-models` bin script + pre-commit hook — validates the Agent Model Declarations list in `performance.md` against `agents/*.md` frontmatter, so the two can no longer drift (#368)
 
 ### Changed
 
-- Model-fit compression pass across rules, references, skills, and agents — removed content that restates default Opus/Sonnet 4.6 behavior and deduplicated copy-pasted blocks (net ~2,200 lines removed); `mine.ship` Phase 2 now delegates to `mine.create-pr`; shared `scope-detection.md` extracted for `mine.review`/`mine.clean-code`; `invariants.md` Consider tier collapsed to a scan list (full audit: `design/critiques/2026-06-10-model-fit-audit/`)
-- Researcher agent unpinned from Opus 4.6 — generic `opus` alias now resolves to the latest Opus (4.8)
+- Model-fit compression pass across rules, references, skills, and agents — removed content that restates default Opus/Sonnet 4.6 behavior and deduplicated copy-pasted blocks (net ~2,200 lines removed); `mine.ship` Phase 2 now delegates to `mine.create-pr`; shared `scope-detection.md` extracted for `mine.review`/`mine.clean-code`; `invariants.md` Consider tier collapsed to a scan list (full audit: `design/critiques/2026-06-10-model-fit-audit/`) (#368)
+- Researcher agent unpinned from Opus 4.6 — generic `opus` alias now resolves to the latest Opus (4.8) (#368)
 
 ### Fixed
 
-- Impeccable font contradiction — `typography.md` recommended Outfit/DM Sans/Lora, all banned by `i-frontend-design`'s reflex list; replaced with a pointer to the selection procedure
-- Hardcoded `~/.claude` paths in 18 skill files replaced with `${CLAUDE_HOME:-~/.claude}`
-- `testing-reality-checker` agent missing its `tools:` frontmatter
-- `engineering-sre` communication tips mis-filed under "Anti-Patterns — Never Do These"
+- Impeccable font contradiction — `typography.md` recommended Outfit/DM Sans/Lora, all banned by `i-frontend-design`'s reflex list; replaced with a pointer to the selection procedure (#368)
+- Hardcoded `~/.claude` paths in 18 skill files replaced with `${CLAUDE_HOME:-~/.claude}` (#368)
+- `testing-reality-checker` agent missing its `tools:` frontmatter (#368)
+- `engineering-sre` communication tips mis-filed under "Anti-Patterns — Never Do These" (#368)
 
 ## 2026-06-08
 
