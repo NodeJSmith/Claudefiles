@@ -18,7 +18,7 @@ Ship the current changes: commit, push, and open a PR. Follow each phase in orde
 
 ### Phase 1 — Commit & Push
 
-Follow **all steps in `mine.commit-push`** exactly (read `skills/mine.commit-push/SKILL.md` and execute its full workflow — commit quality gates included). When that phase completes successfully — changes committed and pushed — continue to Phase 2 below.
+Follow **all steps in `mine.commit-push`** exactly (read `${CLAUDE_HOME:-~/.claude}/skills/mine.commit-push/SKILL.md` and execute its full workflow — commit quality gates included). When that phase completes successfully — changes committed and pushed — continue to Phase 2 below.
 
 ### Phase 1.5 — Clean Code Gate
 
@@ -59,4 +59,4 @@ If any checker subagent fails to complete, skip that checker's findings and note
 
 ### Phase 2 — Create PR
 
-Follow **all steps in `mine.create-pr`** exactly (read `skills/mine.create-pr/SKILL.md` and execute its full workflow — platform detection, draft PR, CHANGELOG PR-number update, ready transition). Phase 1 already committed and pushed (so create-pr's push check passes) and already archived task files (so its archival step finds nothing and skips silently). Return the PR URL it produces.
+Follow **all steps in `mine.create-pr`** exactly (read `${CLAUDE_HOME:-~/.claude}/skills/mine.create-pr/SKILL.md` and execute its full workflow — platform detection, draft PR, CHANGELOG PR-number update, ready transition). Phase 1 already committed and pushed (so create-pr's push check passes) and already archived task files (so its archival step finds nothing and skips silently). Return the PR URL it produces.
