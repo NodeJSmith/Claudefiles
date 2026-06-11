@@ -49,7 +49,7 @@ AskUserQuestion:
       description: "Pause; I'll address findings manually"
 ```
 
-- **"Address findings"**: apply fixes top-to-bottom inline (no subagent), then stage, commit (`style: address clean-code findings`), and push before proceeding to Phase 2 — mine.create-pr verifies the branch is fully pushed
+- **"Address findings"**: apply fixes top-to-bottom inline (no subagent), then stage, commit (`refactor: address clean-code findings`), and push before proceeding to Phase 2 — mine.create-pr verifies the branch is fully pushed
 - **"Ship anyway"**: proceed to Phase 2
 - **"Stop here"**: stop
 
