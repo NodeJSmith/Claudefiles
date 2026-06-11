@@ -133,6 +133,8 @@ The checkpoint is written to `<feature_dir>/tasks/.orchestrate-state.md` with va
 3. Probe writability: run `log "<trail_path>" p0 - start "orchestrate run started"`. If this returns non-zero, surface: "Trail logging unavailable — check permissions at `<feature_dir>/`. Run will continue; trail will be absent." Set `trail_available=false`. Otherwise set `trail_available=true`.
 4. Initialize the log failure counter: `log_failures=0`.
 
+**Trail-logging counter rule (applies to ALL `log` calls below and in post-execution-pipeline.md):** Every `log` call that returns non-zero increments the counter: `log_failures=$((log_failures + 1))`. The call sites below show the bare `log` command; apply this rule to each.
+
 ---
 
 ## Phase 0.5: Fine-Toothed Comb Review
@@ -208,7 +210,7 @@ spec-helper checkpoint-update <feature_dir_name> --current-wp <task_id> --curren
 Where `<feature_dir_name>` is the directory name (e.g., `001-user-auth`), not the full path.
 
 If `trail_available` is true, log the task start:
-`log "<trail_path>" p2 <task_id> start "<task_id>: <title>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+`log "<trail_path>" p2 <task_id> start "<task_id>: <title>"`
 
 ### Step 2: Discover and confirm test + lint commands, capture baselines (first task only)
 
@@ -282,7 +284,7 @@ Per-task subdirectories preserve evidence across the full orchestration run. Thi
 Before launching the executor, read the task's objective and subtasks to determine if a specialized agent is a better fit than `general-purpose`. Read `${CLAUDE_HOME:-~/.claude}/skills/mine.orchestrate/agent-routing.md` for the routing table. First match wins — stop at the first row that applies.
 
 If `trail_available` is true, log the dispatch decision after selecting the agent type:
-`log "<trail_path>" p2 <task_id> dispatch "agent type: <selected_agent_type>; routing match: <matched rule or 'default general-purpose'>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+`log "<trail_path>" p2 <task_id> dispatch "agent type: <selected_agent_type>; routing match: <matched rule or 'default general-purpose'>"`
 
 ### Step 5: Launch executor subagent
 
@@ -352,7 +354,7 @@ Always run both commands — the first catches all modified/deleted tracked file
 Read `${CLAUDE_HOME:-~/.claude}/skills/mine.orchestrate/contested-criteria.md` and follow it. This must happen before the spec reviewer runs — the spec reviewer receives the possibly-updated verification criteria after CONTESTED items are resolved.
 
 For each CONTESTED criterion resolved (accept or reject), if `trail_available` is true, log it:
-`log "<trail_path>" p2 <task_id> contested "<criterion text>: <accept|reject> — <rationale>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+`log "<trail_path>" p2 <task_id> contested "<criterion text>: <accept|reject> — <rationale>"`
 
 ### Step 8: Parallel review pass
 
@@ -438,21 +440,21 @@ After the parallel reviews complete (regardless of verdicts), re-run the project
 **Lint verdict impact**: Lint regressions (checks that passed in the baseline now fail) contribute WARN to the task verdict. The executor should address lint issues proactively; if they don't, regressions surface as WARN at the verdict assembly and are reported in Step 15. Lint regressions do not independently FAIL the task. Pre-existing lint failures do not contribute to the verdict.
 
 After both gates complete, if `trail_available` is true, log the gate results:
-`log "<trail_path>" p2 <task_id> gate "test: <PASS|FAIL (N regressions)|SKIPPED> | lint: <PASS|WARN (N regressions)|SKIPPED>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+`log "<trail_path>" p2 <task_id> gate "test: <PASS|FAIL (N regressions)|SKIPPED> | lint: <PASS|WARN (N regressions)|SKIPPED>"`
 
 ### Step 10: WARN fix loop (if spec reviewer returned WARN)
 
 Read `${CLAUDE_HOME:-~/.claude}/skills/mine.orchestrate/warn-fix-loop.md` and follow it.
 
 If the WARN fix loop ran and `trail_available` is true, log the retry decision after the loop completes:
-`log "<trail_path>" p2 <task_id> retry "WARN classification: <fixable|structural>; retry decision: <retried|skipped>; iteration count: <N>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+`log "<trail_path>" p2 <task_id> retry "WARN classification: <fixable|structural>; retry decision: <retried|skipped>; iteration count: <N>"`
 
 ### Step 11: Visual reviewer (conditional)
 
 Read `${CLAUDE_HOME:-~/.claude}/skills/mine.orchestrate/visual-reviewer-prompt.md`, then read `${CLAUDE_HOME:-~/.claude}/skills/mine.orchestrate/visual-reviewer-launch.md` and follow it.
 
 If the visual reviewer ran and `trail_available` is true, log the result after it completes:
-`log "<trail_path>" p2 <task_id> review "visual: <VERIFIED|WARN|FAIL|SKIPPED> (<N scenarios>)"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+`log "<trail_path>" p2 <task_id> review "visual: <VERIFIED|WARN|FAIL|SKIPPED> (<N scenarios>)"`
 
 ### Step 12: Review findings fix loop
 
@@ -467,7 +469,7 @@ After the parallel review pass, fix **all findings from both the code reviewer a
 4. Stop when: no unresolved findings remain across either reviewer, only deferred findings are left, or 3 iterations reached
 
 After the fix loop completes, if `trail_available` is true, log the fix summary:
-`log "<trail_path>" p2 <task_id> fix "auto-fixed: <N findings>; deferred: <M findings>; iterations: <iteration count>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+`log "<trail_path>" p2 <task_id> fix "auto-fixed: <N findings>; deferred: <M findings>; iterations: <iteration count>"`
 
 **After the fix loop completes** (whether after 0 or 2 additional iterations), re-capture the changed file list — auto-fixes may have modified additional files:
 
@@ -517,7 +519,7 @@ WARN is reserved for genuinely unresolved items. Always include a parenthetical 
 **PASS** if all reviewers clean and no unresolved issues. If findings were raised but all resolved via auto-fix, the verdict is **PASS** with a note — e.g., `PASS (3 auto-fixed)`. Resolved findings do not downgrade the verdict to WARN.
 
 If `trail_available` is true, log the assembled verdict:
-`log "<trail_path>" p2 <task_id> verdict "<assembled verdict with parenthetical> | spec: <verdict> | code: <verdict> | integration: <verdict> | test: <verdict> | lint: <verdict>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+`log "<trail_path>" p2 <task_id> verdict "<assembled verdict with parenthetical> | spec: <verdict> | code: <verdict> | integration: <verdict> | test: <verdict> | lint: <verdict>"`
 
 ### Step 15: Present results and gate
 

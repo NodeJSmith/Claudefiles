@@ -74,11 +74,7 @@ While exploring, collect **3-5 concrete code snippets** that represent the codeb
 - An error handling or validation pattern representative of how this codebase does it
 - An API endpoint, CLI command, or UI component similar to what's being built (if applicable)
 
-**Selection criteria (quality > quantity):**
-- Choose diverse examples that each demonstrate a different convention (don't pick 3 similar functions)
-- Prefer examples close to where the new code will live (same module, same layer)
-- Keep each snippet short — the relevant function/class, not the entire file
-- If a convention has a common wrong way to do it in this codebase, note a DO/DON'T pair
+**Selection criteria (quality > quantity):** pick diverse examples (each a different convention, not 3 similar functions), prefer code close to where the new code will live, and keep each snippet short. Note a DO/DON'T pair when a convention has a common wrong way to do it.
 
 Hold these snippets internally — they'll be written to the `## Convention Examples` section of `design.md` in Phase 4.
 
@@ -528,7 +524,7 @@ Populate each section from the research brief, discovery answers, and codebase r
 
 ## Phase 5: Quality Validation
 
-Validate the design doc against this 21-item checklist:
+Validate the design doc against this checklist:
 
 1. Requirements sections describe observable behaviors — domain terms are fine; implementation steps (specific libraries, internal APIs, database operations) are a FAIL
 2. All requirements are testable and unambiguous
@@ -545,12 +541,9 @@ Validate the design doc against this 21-item checklist:
 13. All Functional Requirements have unique `FR#N` identifiers matching the format `FR#<positive integer>` — duplicate or missing identifiers are a FAIL
 14. All Acceptance Criteria have unique `AC#N` identifiers matching the format `AC#<positive integer>` — duplicate or missing identifiers are a FAIL
 15. Each Functional Requirement describes exactly one testable behavior — compound requirements bundling multiple behaviors into a single FR are a FAIL
-16. Key Constraints section is present; may be empty if no feature-specific prohibitions emerged from discovery (omitting the section entirely is a FAIL)
-17. Visual Artifacts section is present only when visual references (mockups, screenshots, prototypes) exist — an empty Visual Artifacts section is a FAIL; omit the section when no artifacts exist
-18. Test Strategy identifies existing tests to adapt (with file paths), new coverage needed (mapped to FR#N), and tests to remove — or states N/A for repos with no test infrastructure
-19. If the code leverage table has `Replace` entries, Replacement Targets section lists what's being superseded and what replaces it — an empty Replacement Targets section when Replace entries exist is a FAIL
-20. Migration section is present when the feature involves data model changes, schema migrations, or persistent state format changes — missing Migration section when data changes are involved is a FAIL; Migration section present when no data changes are involved is also a FAIL
-21. Documentation Updates lists specific artifacts with specific changes needed, or explicitly states none are required — a vague "update docs" without naming artifacts is a FAIL
+16. Section presence and content rules match the template annotations (re-read them and verify each): Key Constraints, Visual Artifacts, Replacement Targets, and Migration follow the include/omit conditions stated in the template — a section present when it should be omitted (or omitted when required) is a FAIL
+17. Test Strategy identifies existing tests to adapt (with file paths), new coverage needed (mapped to FR#N), and tests to remove — or states N/A for repos with no test infrastructure
+18. Documentation Updates lists specific artifacts with specific changes needed, or explicitly states none are required — a vague "update docs" without naming artifacts is a FAIL
 
 For any item that fails: **FAIL** — block and revise before proceeding. Report results as a compact list.
 
@@ -581,47 +574,6 @@ AskUserQuestion:
 Invoke: `/mine.gap-close <design-doc-path>`
 
 After gap-close completes, loop back to the sign-off gate above.
-
----
-
-### On "Challenge" (structured path — not currently in sign-off gate)
-
-This section handles structured challenge invocations with `--findings-out`. Currently reachable only if a caller explicitly routes here; mine.gap-close's "Run full challenge" invokes challenge standalone instead. Preserved for future re-wiring.
-
-Challenge in structured mode auto-applies `Auto-apply` findings and returns `User-directed` findings as `status: pending` for mine.define to resolve.
-
-Create a known output path for the findings file:
-
-```bash
-get-skill-tmpdir mine-define-challenge
-```
-
-<!-- CHALLENGE-CALLER -->
-Then invoke: `/mine.challenge --findings-out=<dir>/challenge-results.md --target-type=design-doc <design-doc-path>`
-
-In structured mode, challenge auto-applies `Auto-apply` findings to the design doc, sets their `status: applied`, and returns without presenting User-directed findings interactively. User-directed findings return as `status: pending`.
-
-**Compaction recovery:** If the findings file already exists and contains at least one finding with `status: applied` or `status: skipped`, challenge already ran at least partially — do not re-invoke. Instead, continue to the post-challenge review below and process any `status: pending` findings there. If the file exists but all findings are `status: pending`, challenge was interrupted before resolution started — re-invoke.
-
-#### Post-challenge review
-
-Read `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md` for the full status-based contract. Then process each finding by status:
-
-**`status: applied` with `design-level: Yes`** — Verify the edit was applied to the correct section of design.md. If the edit is missing or incorrect, re-apply it via the Edit tool using the finding's `better-approach` or the user's chosen option.
-
-**`status: applied` with `design-level: No`** — Implementation concern for the build phase. List these to the user after quality re-validation so they can be tracked (e.g., filed as issues or added to WP review guidance).
-
-**`status: pending` with `resolution: User-directed`** — Normal in structured mode. Present each finding to the user one at a time via AskUserQuestion per the inline resolution flow in `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`. Apply chosen option and update the finding's status in the findings file.
-
-**`status: pending` with `resolution: Auto-apply`** — Abnormal: challenge exited before applying this finding (token exhaustion, crash). Apply the finding's `better-approach` via Edit tool and set `status: applied`.
-
-**`status: overflow` with `design-level: Yes`** — Deferred design-level item. Do not re-present unless the user asks.
-
-**`status: overflow` with `design-level: No`** — Overflow implementation concern. No action needed.
-
-**`status: skipped`** — User explicitly skipped. Record in session summary only.
-
-After reviewing all findings, re-run the 21-item quality validation on the updated design doc, then loop back to the sign-off gate above.
 
 ### On "Approve"
 
