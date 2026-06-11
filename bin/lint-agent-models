@@ -24,7 +24,8 @@ MODEL_TOKEN = re.compile(r"`model: (\w+)`")
 FRONTMATTER_MODEL = re.compile(r"^model:\s*(\w+)", re.MULTILINE)
 
 
-def frontmatter(text: str) -> str:
+def parse_frontmatter(text: str) -> str:
+    # Splitting on "---" yields ["", frontmatter, body] for a well-formed file.
     parts = text.split("---", 2)
     return parts[1] if len(parts) >= 3 and text.startswith("---") else ""
 
@@ -43,34 +44,34 @@ def main() -> int:
         print(f"lint-agent-models: {PERFORMANCE_MD} not found", file=sys.stderr)
         return 1
 
-    declared: dict[str, str] = {}
+    agent_declarations: dict[str, str] = {}
     skill_declarations: dict[str, set[str]] = {}
     for line in perf_text.splitlines():
         if m := AGENT_BULLET.match(line):
-            declared[m.group(1)] = m.group(2)
+            agent_declarations[m.group(1)] = m.group(2)
         elif m := SKILL_BULLET.match(line):
             skill_declarations[m.group(1)] = set(MODEL_TOKEN.findall(m.group(2)))
 
-    for rel_path, listed_model in declared.items():
+    for rel_path, listed_model in agent_declarations.items():
         path = ROOT / rel_path
         if not path.exists():
             errors.append(f"listed but missing: {rel_path}")
             continue
-        fm = frontmatter(path.read_text())
-        m = FRONTMATTER_MODEL.search(fm)
-        if not m:
+        fm = parse_frontmatter(path.read_text())
+        fm_match = FRONTMATTER_MODEL.search(fm)
+        if not fm_match:
             errors.append(
                 f"{rel_path}: no `model:` in frontmatter (listed as {listed_model})"
             )
-        elif m.group(1) != listed_model:
+        elif fm_match.group(1) != listed_model:
             errors.append(
-                f"{rel_path}: frontmatter says {m.group(1)}, list says {listed_model}"
+                f"{rel_path}: frontmatter says {fm_match.group(1)}, list says {listed_model}"
             )
 
     for agent_file in sorted(AGENTS_DIR.glob("*.md")):
-        rel = str(agent_file.relative_to(ROOT))
-        if rel not in declared:
-            errors.append(f"not in performance.md list: {rel}")
+        rel_path = str(agent_file.relative_to(ROOT))
+        if rel_path not in agent_declarations:
+            errors.append(f"not in performance.md list: {rel_path}")
 
     # Skill declarations are prose instructions ("dispatch with model: sonnet"),
     # not structured frontmatter, so this check is deliberately looser than the
@@ -94,7 +95,7 @@ def main() -> int:
         return 1
 
     print(
-        f"lint-agent-models: {len(declared)} agents + {len(skill_declarations)} skill declarations in sync"
+        f"lint-agent-models: {len(agent_declarations)} agents + {len(skill_declarations)} skill declarations in sync"
     )
     return 0
 
