@@ -4,6 +4,8 @@ After all tasks are processed (or user chose "Stop here"), run a review pipeline
 
 **All subagents in Phase 3 MUST run in foreground** (never set `run_in_background: true`). Several steps spawn their own parallel child subagents internally, which only works in foreground execution.
 
+**Trail-logging counter rule:** every `log` call below that returns non-zero increments the counter: `log_failures=$((log_failures + 1))` (same rule stated in SKILL.md).
+
 ## Step 1: Summary (automatic)
 
 Present a verdict table. **Read the checkpoint via `spec-helper checkpoint-read <feature_dir_name> --json`** and build the table from the `verdicts` array:
@@ -26,7 +28,7 @@ Invoke `/mine.implementation-review <feature_dir>` automatically. The skill pres
 Read the review output. Extract the verdict (APPROVE, REQUEST_FIXES, or ABANDON) and any suggestions or blocking issues.
 
 If `trail_available` is true, log the impl-review verdict immediately:
-`log "<trail_path>" p3 - gate "impl-review: <APPROVE|REQUEST_FIXES|ABANDON> — <brief summary>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+`log "<trail_path>" p3 - gate "impl-review: <APPROVE|REQUEST_FIXES|ABANDON> — <brief summary>"`
 
 **If impl-review returns APPROVE** — note any non-blocking suggestions to surface later. Continue to Step 3 automatically.
 
@@ -91,7 +93,7 @@ Launch `Agent(subagent_type: "integration-reviewer")` with all changed files. Ad
 If the integration-reviewer returns BLOCK, surface the blocking issues to the user with an "Address" / "Stop here" gate (same pattern as the impl-review gate). If APPROVE or WARN, note any suggestions and continue to Step 4 (Clean code check).
 
 If `trail_available` is true, log the cross-file review result:
-`log "<trail_path>" p3 - review "cross-file consistency: <APPROVE|WARN|BLOCK> — <brief summary>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+`log "<trail_path>" p3 - review "cross-file consistency: <APPROVE|WARN|BLOCK> — <brief summary>"`
 
 ## Step 4: Clean code check (automatic, Opus subagent)
 
@@ -135,7 +137,7 @@ The first line of the summary file MUST be: `<!-- HEAD: <git rev-parse --short H
 Wait for the subagent to complete. Read `<dir>/clean-code-summary.md` to see what was fixed and what remains. Note any unfixed findings for the shipping gate.
 
 If `trail_available` is true, log the clean code results:
-`log "<trail_path>" p3 - fix "clean code: <N fixed, M unfixed — or 'all clean'>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+`log "<trail_path>" p3 - fix "clean code: <N fixed, M unfixed — or 'all clean'>"`
 
 ## Step 4.5: Structural simplification check (gates on HIGH findings)
 
@@ -172,8 +174,8 @@ On "Address simplifications": dispatch a `general-purpose` subagent with `model:
 MEDIUM and LOW findings are noted for the shipping gate but do not block.
 
 If `trail_available` is true, log the structural simplification result:
-- If HIGH findings existed: `log "<trail_path>" p3 - review "structural simplification: <N> HIGH findings; user decision: <addressed|noted and continued>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
-- If no HIGH findings: `log "<trail_path>" p3 - review "structural simplification: no HIGH findings"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+- If HIGH findings existed: `log "<trail_path>" p3 - review "structural simplification: <N> HIGH findings; user decision: <addressed|noted and continued>"`
+- If no HIGH findings: `log "<trail_path>" p3 - review "structural simplification: no HIGH findings"`
 
 ## Step 5: Final review pass (automatic)
 
@@ -194,7 +196,7 @@ Launch both reviewers in a single message (parallel):
 If either reviewer finds CRITICAL or HIGH issues, fix them inline (auto-fix unambiguous issues, re-run both reviewers, max 2 iterations). MEDIUM and LOW findings are noted for the shipping gate but do not block.
 
 If `trail_available` is true, log the final review result:
-`log "<trail_path>" p3 - review "final review: <clean — or N findings fixed>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+`log "<trail_path>" p3 - review "final review: <clean — or N findings fixed>"`
 
 ## Step 5.5: Trail audit (automatic)
 
@@ -234,7 +236,7 @@ Write your audit report to: <feature_dir>/trail-audit.md
 Wait for the subagent to complete. Read `<feature_dir>/trail-audit.md` and extract the finding count from the `## Summary` line (e.g., "3 findings", "no findings"). If the file is missing or unreadable, use "failed to complete" as the audit status.
 
 Log a trail entry for the audit:
-`log "<trail_path>" p3 - review "trail audit: <N findings — or 'no findings' — or 'failed to complete' if report missing>"` — if this returns non-zero, increment: `log_failures=$((log_failures + 1))`
+`log "<trail_path>" p3 - review "trail audit: <N findings — or 'no findings' — or 'failed to complete' if report missing>"`
 
 ## Step 6: Shipping gate
 

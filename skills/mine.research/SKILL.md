@@ -40,9 +40,8 @@ The goal is to distinguish between:
 - "I want specifically SQLite" vs. "I need persistence and SQLite is one option"
 - "This is urgent and I want to ship it this week" vs. "This is exploratory"
 
-Example opening questions — **adapt the Motivation options to match the proposal's domain**. The snippets below are items within the `AskUserQuestion: questions:` array. They show how the structure varies across different types of proposals:
+Example opening questions — **adapt the Motivation options to match the proposal's domain** (the example below is for a persistence/data-layer proposal; generate domain-fitting options for architecture, technology-choice, or migration proposals). The snippets are items within the `AskUserQuestion: questions:` array:
 
-**Persistence/data layer proposal** (e.g., "add a database"):
 ```
     - question: "What's driving this change?"
       header: "Motivation"
@@ -53,32 +52,6 @@ Example opening questions — **adapt the Motivation options to match the propos
           description: "In-memory data structures are getting unwieldy"
         - label: "New feature needs it"
           description: "A planned feature requires persistent or queryable data"
-```
-
-**Architecture/pattern proposal** (e.g., "should we adopt a monorepo?"):
-```
-    - question: "What's driving this change?"
-      header: "Motivation"
-      options:
-        - label: "Coordination overhead"
-          description: "Cross-repo changes are painful — too many PRs, broken integrations"
-        - label: "Inconsistent standards"
-          description: "Each repo drifts on tooling, linting, testing conventions"
-        - label: "Deployment coupling"
-          description: "Services need to ship together but repos make that hard"
-```
-
-**Technology choice proposal** (e.g., "switch from REST to GraphQL"):
-```
-    - question: "What's driving this change?"
-      header: "Motivation"
-      options:
-        - label: "Over-fetching / under-fetching"
-          description: "Clients need data from multiple endpoints or get too much back"
-        - label: "API evolution pain"
-          description: "Adding fields or endpoints is getting fragile"
-        - label: "Developer experience"
-          description: "The current API is hard to work with or document"
 ```
 
 The **Flexibility** question is consistent across all proposals:
@@ -189,8 +162,8 @@ If "Build it (/mine.build)" is selected: invoke `/mine.build` with context: "Pri
 
 ## Principles
 
-1. **Questions before code** — understand motivation and constraints before exploring the codebase. The user's first description of what they want is almost never the full picture.
-2. **Options, not prescriptions** — present trade-offs honestly. Include a "do less" option when the proposal is ambitious. The user decides, you inform.
+1. **Questions before code** — the user's first description of what they want is almost never the full picture.
+2. **Options, not prescriptions** — include a "do less" option when the proposal is ambitious.
 3. **Feeds forward** — the research brief should contain everything needed to write a design doc or create an implementation plan. No redundant investigation later.
 
 ## Common Rationalizations

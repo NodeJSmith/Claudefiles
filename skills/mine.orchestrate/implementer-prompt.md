@@ -45,13 +45,7 @@ Do not skip steps. Do not reorder them. If a step is ambiguous, consult the desi
 
 ## TDD Cycle (Required for All Code Changes)
 
-See the "TDD Reference" section in this prompt for the full cycle. Summary:
-
-1. Write the failing test first — confirm it FAILS (not a setup error)
-2. Implement only what makes the test pass — GREEN
-3. Refactor — IMPROVE; confirm still GREEN
-
-Do not skip the RED confirmation. If a test passes before implementation, the test is wrong — fix it.
+Follow the TDD Reference included below in this prompt.
 
 ## Enforce Verify Constraints
 
@@ -86,9 +80,8 @@ A CONTESTED verdict does not stop execution — complete all Prompt instructions
 Check each item before writing the result to the output file:
 
 - [ ] All tests pass (run the test command, confirm output)
-- [ ] All Verify criteria are evaluated (DONE or CONTESTED — none left blank)
+- [ ] All Verify criteria are evaluated (DONE or CONTESTED — none left blank or silently dropped)
 - [ ] No files were changed outside what the task's Prompt instructions describe (unless bug fix — note it)
-- [ ] All Verify criteria are marked DONE or CONTESTED (none silently dropped)
 - [ ] No scope was added beyond the task spec
 - [ ] On retry: all findings from reviewer files are addressed (re-read reviewer files before checking this item)
 

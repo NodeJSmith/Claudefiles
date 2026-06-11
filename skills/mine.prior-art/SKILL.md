@@ -134,33 +134,9 @@ status: Draft
 
 [Brief summary of the current local approach from Subagent A. "We don't have this yet" is a valid answer. Keep this short — 2-3 sentences max.]
 
-## Patterns Found
+## Patterns Found / Anti-Patterns / Emerging Trends
 
-### Pattern 1: <Name>
-
-**Used by**: [projects, companies, or communities that use this]
-**How it works**: [2-3 paragraph explanation]
-**Strengths**: [what makes this work well]
-**Weaknesses**: [known limitations or tradeoffs]
-**Example**: [link to reference implementation or documentation, or [no source found]]
-
-### Pattern 2: <Name>
-
-[Same structure]
-
-### Pattern 3: <Name>
-
-[Same structure — include 3-5 patterns total, more if the space is rich]
-
-## Anti-Patterns (Optional — omit entirely if nothing notable)
-
-[What NOT to do — common mistakes others have documented. 2-4 items.]
-
-- **<Anti-pattern name>**: [why it fails, who got burned — with citation]
-
-## Emerging Trends (Optional — omit entirely if nothing notable)
-
-[What's new or changing in this space.]
+Same section schema as the subagent `web-research.md` format above — this is a merge, not a translation. Carry the patterns through (3-5 total, more if the space is rich), keep the Optional sections optional, and preserve the **Used by / How it works / Strengths / Weaknesses / Example** fields per pattern.
 
 ## Relevance to Us
 

@@ -262,7 +262,4 @@ If the tool is missing from the appropriate `rules/common/capabilities-*.md` fil
 
 ## Principles
 
-1. **Evidence over assumption** — every gap must be backed by actual session commands, not hypothetical use cases
-2. **Frequency matters** — one-off workarounds are not gaps; recurring patterns are
-3. **Signal over noise** — skip standard workflow commands that will never be scripted
-4. **Diagnosis, not treatment** — the skill's job is to surface findings and hand off decisions, not to start implementing
+1. **Evidence over assumption** — every gap must be backed by actual session commands, not hypothetical use cases. When a finding can't cite a real command line, drop it.

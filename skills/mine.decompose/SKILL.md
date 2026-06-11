@@ -145,8 +145,5 @@ If the user chooses "Build top opportunity", invoke `/mine.build` with a descrip
 
 ## Principles
 
-1. **ROI over purity** — decompose what hurts development velocity, not what offends a metric
-2. **Cohesion is the goal, small files are the side effect** — never split just to reduce line count
-3. **Show, don't tell** — concrete "move X to Y" suggestions, not "consider improving cohesion"
-4. **Behavioral signals first** — Git history reveals what actually changes together; static metrics are secondary
-5. **Respect working code** — stable, well-tested code doesn't need decomposition regardless of size
+1. **Show, don't tell** — concrete "move X to Y" suggestions, not "consider improving cohesion"
+2. **Behavioral signals first** — Git history reveals what actually changes together; static metrics are secondary

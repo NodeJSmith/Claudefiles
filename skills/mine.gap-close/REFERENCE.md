@@ -175,18 +175,13 @@ When the user answers a gap question, convert the answer into artifact content u
 
 **Format:** Match the artifact's existing AC style. If no style exists, use concise declarative statements with a clear precondition, action, and outcome. Given/When/Then is one valid format but not required.
 
-**Edit tool example:**
+**Multiple criteria:** add each as a separate item under the section, matching the existing style (bullets, numbered items, or bare blocks).
+
+**Edit tool example** (the single worked example for all patterns — the others follow the same `old_string`/`new_string` mechanics):
 
 ```
 old_string: "## Acceptance Criteria\n\n[No criteria defined yet.]"
 new_string: "## Acceptance Criteria\n\n- When a user submits a form with a missing required field, an inline error message appears adjacent to the field describing what is missing."
-```
-
-**Multiple criteria:** Add each as a separate item under the section, matching the existing style (bullets, numbered items, or bare blocks).
-
-```
-old_string: "## Acceptance Criteria\n\n- The system validates input on submission."
-new_string: "## Acceptance Criteria\n\n- The system validates input on submission.\n- When a logged-in user with read-only permissions visits the admin dashboard, no delete button is shown and no deletion can occur."
 ```
 
 ---
@@ -201,19 +196,7 @@ new_string: "## Acceptance Criteria\n\n- The system validates input on submissio
 [Decision or approach]. [Why this was chosen]. [What it trades off or sacrifices compared to the alternative].
 ```
 
-**Edit tool example:**
-
-```
-old_string: "## Architecture\n\nThe service uses a queue-based approach."
-new_string: "## Architecture\n\nThe service uses a queue-based approach. A queue decouples ingestion from processing, allowing the pipeline to absorb burst loads without dropping events. The trade-off is added operational complexity (a queue service must be provisioned and monitored) compared to direct synchronous processing, which was rejected because it blocks the ingestion path under load."
-```
-
-**Alternatives section example:**
-
-```
-old_string: "## Alternatives Considered\n\n_None documented._"
-new_string: "## Alternatives Considered\n\n**Synchronous processing**: Rejected because it blocks the ingestion path under sustained load, causing upstream timeouts during peak traffic periods.\n\n**Batch file ingestion**: Considered for simplicity; rejected because it introduces 15-minute latency that violates the real-time SLA stated in Goals."
-```
+For an Alternatives Considered section, give each rejected option a bold label, the reason it was rejected, and what it traded off.
 
 ---
 
@@ -231,13 +214,6 @@ new_string: "## Alternatives Considered\n\n**Synchronous processing**: Rejected 
 - Exit: [what ends this state]
 ```
 
-**Edit tool example:**
-
-```
-old_string: "## Edge Cases\n\n- Empty results state not defined."
-new_string: "## Edge Cases\n\n**Empty results state**\n- Trigger: Search returns zero matching records\n- Visual: Illustration with caption \"No results found for '[query]'\" and a secondary line \"Try adjusting your search terms\"\n- Behavior: Search input remains active; filters remain visible; no table or list is rendered\n- Exit: User modifies the query and resubmits, or clears the search"
-```
-
 ---
 
 ### Pattern 4: Edge Case — Bullet Point
@@ -250,19 +226,7 @@ new_string: "## Edge Cases\n\n**Empty results state**\n- Trigger: Search returns
 - [Condition that triggers the edge case]: [expected system behavior]
 ```
 
-**Edit tool example — appending to an existing list:**
-
-```
-old_string: "- Zero-length input: rejected with validation error"
-new_string: "- Zero-length input: rejected with validation error\n- Input exceeding 10,000 characters: truncated to limit with a warning displayed; excess content is not silently discarded\n- Input containing only whitespace: treated as zero-length input after trimming"
-```
-
-**Edit tool example — populating an empty section:**
-
-```
-old_string: "## Edge Cases\n\n_None identified._"
-new_string: "## Edge Cases\n\n- Concurrent edits by two users to the same record: last-write wins; a conflict warning is shown to the second writer naming the first writer and the timestamp of their change\n- Session expires mid-flow: form state is preserved in localStorage; user is prompted to re-authenticate, then returned to the same step"
-```
+Append to an existing list or populate an empty section, matching the section's bullet style.
 
 ---
 
@@ -276,120 +240,23 @@ new_string: "## Edge Cases\n\n- Concurrent edits by two users to the same record
 3. Insert at the natural end of the section, before the next heading.
 4. Preserve existing whitespace conventions (blank line before headings, single-line bullets, etc.).
 
-**Edit tool example — appending to a prose section:**
-
-```
-old_string: "## Problem\n\nUsers frequently lose their place when navigating between sections of a long form.\n\n## Goals"
-new_string: "## Problem\n\nUsers frequently lose their place when navigating between sections of a long form. Internally, support tickets for \"where did my data go\" account for 23% of form-related tickets last quarter, suggesting the problem is both common and frustrating enough to prompt contact.\n\n## Goals"
-```
-
-**Edit tool example — appending to a bullet list:**
-
-```
-old_string: "## Dependencies\n\n- Auth service: user identity and session tokens"
-new_string: "## Dependencies\n\n- Auth service: user identity and session tokens\n- Notification service: sends confirmation emails on successful submission\n- Feature-flag service: gates the new form behind the `new-form-v2` flag during rollout"
-```
-
 ---
 
-## Example Walkthrough
-
-### Scenario
-
-A design doc has been written for a new "Bulk Export" feature. Mine.gap-close is invoked with the design.md path.
-
-### Survey Result Codes
+## Survey Output Format
 
 Each checklist item is evaluated as one of:
 - **PASS** — the required content is present and complete
 - **GAP** — the content is missing or incomplete (severity from the checklist applies)
 - **N/A** — the checklist item does not apply to this artifact (e.g., DD-07 race conditions for a feature with no shared state)
 
-Surveys must be complete — evaluate every checklist item and record a result as **PASS**, **GAP**, or **N/A**. Do not skip items just because they appear obviously satisfied. For readability, the walkthrough below shows only a condensed subset of the full survey output.
-
-### Step 1: Survey (scanning the artifact)
-
-The skill reads the design doc and evaluates the DD-* checklist item by item. The excerpt below shows representative results from the full survey:
+Surveys must be complete — evaluate every checklist item and record a result. Do not skip items just because they appear obviously satisfied. Sample output:
 
 ```
 DD-01  GAP    [Blocker] No business cost of the limitation stated — why does this matter?
 DD-02  PASS   Goals: "Bulk export supports up to 100,000 records within 60 seconds"
-DD-03  PASS   Scope boundary clear
-DD-04  GAP    [Should-address] No error/failure scenario — what happens when an export fails?
-DD-05  PASS   Entry point covered: "clicks Export All from the filtered record list"
-DD-06  GAP    [Blocker] Requirement "Export should handle large files gracefully" — "gracefully" is unacceptably vague
+DD-06  GAP    [Blocker] Requirement "handle large files gracefully" — "gracefully" is unacceptably vague
 DD-07  N/A    Feature does not touch shared state (export is per-user, no concurrent writes)
 DD-08  GAP    [Blocker] Requirements 2 and 3 have no corresponding acceptance criteria
-DD-09  PASS   Trade-offs stated: "queue complexity vs synchronous simplicity"
-DD-10  GAP    [Should-address] No operational failure modes identified
-DD-11  GAP    [Should-address] No failure behavior defined
 ```
 
-### Step 2: Triage
-
-From the survey, blockers are:
-- DD-01 (missing business cost)
-- DD-06 (vague requirement)
-- DD-08 (two requirements have no acceptance criteria)
-
-Should-address gaps:
-- DD-04 (no error/failure scenario)
-- DD-10 (no failure modes)
-- DD-11 (no failure behavior)
-
-### Step 3: Gap Questions
-
-**Question 1** (targets DD-01):
-
-> "The Problem section describes the limitation but not its cost. What happens to users because of the 100-record export cap? How often does this come up?"
-
-**Answer:** "Data analysts hit this weekly when preparing quarterly reports. They work around it by exporting in batches and stitching CSVs manually, which takes 30-45 minutes per report."
-
-**Converted to artifact** (Pattern 5 — matching existing prose style):
-
-```
-old_string: "## Problem\n\nUsers cannot export more than 100 records at a time."
-new_string: "## Problem\n\nUsers cannot export more than 100 records at a time. Data analysts hit this weekly when preparing quarterly reports, working around it by exporting in batches and stitching CSVs manually — 30-45 minutes per report."
-```
-
-**Question 2** (targets DD-06):
-
-> "Requirement: 'Export should handle large files gracefully.' What does 'gracefully' mean in practice? What should happen when an export reaches the 100,000-record limit? What if it times out?"
-
-**Answer:** "At the limit, the export is capped and the user sees a message saying 'Export limited to 100,000 records — your results have been truncated.' On timeout, the partial file is discarded and the user gets an error with a retry link."
-
-**Converted to artifact** (Pattern 1 for acceptance criteria + Pattern 4 for edge cases):
-
-Acceptance criteria (Pattern 1):
-```
-old_string: "- Export should handle large files gracefully"
-new_string: "- Export is capped at 100,000 records per request\n- When a user requests an export exceeding 100,000 records, the delivered file contains exactly 100,000 records and a notice reads \"Export limited to 100,000 records — results were truncated\"\n- When a user requests an export and generation times out, no partial file is delivered; the user sees an error with a \"Retry export\" link"
-```
-
-Edge cases (Pattern 4):
-```
-old_string: "## Edge Cases\n\n- Zero-length export: return empty file with headers only"
-new_string: "## Edge Cases\n\n- Zero-length export: return empty file with headers only\n- Export exceeding 100,000 records: capped at limit with truncation notice shown to user\n- Export timeout mid-generation: partial file discarded, user sees error with retry link"
-```
-
-**Question 3** (targets DD-08):
-
-> "Requirements 2 and 3 have no acceptance criteria. What observable outcome would tell a tester that requirement 2 (format selection) passes? And requirement 3 (progress indication)?"
-
-**Answer:** "For format selection: user picks CSV or JSON from a dropdown, downloaded file matches the chosen format. For progress: a progress bar appears within 2 seconds of clicking Export, updates at least every 5 seconds, and disappears on completion."
-
-**Converted to artifact** (Pattern 1):
-
-```
-old_string: "- When a user requests an export, the system begins processing within 5 seconds."
-new_string: "- When a user requests an export, the system begins processing within 5 seconds.\n- When a user selects CSV or JSON from the format dropdown and clicks Export, the downloaded file is in the selected format.\n- A progress bar appears within 2 seconds of clicking Export, updates at least every 5 seconds, and disappears when the export completes or fails."
-```
-
-### Step 4: Sign-off
-
-After filling all Blocker gaps, the skill confirms: "All Blocker gaps resolved. 3 Should-address items remaining: DD-04 (error scenario), DD-10 (failure modes), DD-11 (failure behavior)."
-
-Presents sign-off gate:
-- "Approve" — update status field
-- "Run full challenge" — invoke /mine.challenge for deeper critique
-- "Save and stop" — leave as-is
+Triage GAPs by severity, ask one gap question per Blocker, convert each answer to artifact content via the patterns above, then present the sign-off gate ("Approve" / "Run full challenge" / "Save and stop").

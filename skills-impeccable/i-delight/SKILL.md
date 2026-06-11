@@ -8,7 +8,7 @@ Identify opportunities to add moments of joy, personality, and unexpected polish
 
 ## MANDATORY PREPARATION
 
-Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: what's appropriate for the domain (playful vs professional vs quirky vs elegant).
+Read `${CLAUDE_HOME:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: what's appropriate for the domain (playful vs professional vs quirky vs elegant).
 
 ---
 
@@ -106,214 +106,32 @@ If "Stop here" → end the skill.
 
 ## Delight Techniques
 
-Add personality and joy through these methods:
+Surfaces where delight earns its place: button press/hover feedback, loading and empty states, success confirmations, drag-and-drop lift/snap, toggle transitions, and milestone celebrations. Hidden touches (easter eggs, seasonal themes, console messages) reward the curious but are never required.
 
-### Micro-interactions & Animation
-
-**Button delight**:
-```css
-/* Satisfying button press */
-.button {
-  transition: transform 0.1s, box-shadow 0.1s;
-}
-.button:active {
-  transform: translateY(2px);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-}
-
-/* Ripple effect on click */
-/* Smooth lift on hover */
-.button:hover {
-  transform: translateY(-2px);
-  transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1); /* ease-out-quart */
-}
-```
-
-**Loading delight**:
-- Playful loading animations (not just spinners)
-- Personality in loading messages (write product-specific ones, not generic AI filler)
-- Progress indication with encouraging messages
-- Skeleton screens with subtle animations
-
-**Success animations**:
-- Checkmark draw animation
-- Confetti burst for major achievements
-- Gentle scale + fade for confirmation
-- Satisfying sound effects (subtle)
-
-**Hover surprises**:
-- Icons that animate on hover
-- Color shifts or glow effects
-- Tooltip reveals with personality
-- Cursor changes (custom cursors for branded experiences)
+Spring physics on toggles and drops should settle with zero or near-zero overshoot — visible bounce is not permitted. Easing and motion: see /i-animate.
 
 ### Personality in Copy
 
 **Note**: Playful error copy is appropriate only for non-blocking, easily recoverable errors (404s, empty search results) on playful brands. For serious errors (data loss, permission failures, blocking errors), empathy overrides personality — see /i-clarify.
 
-**Playful error messages** (non-blocking errors only):
-```
-"Error 404"
-"This page is playing hide and seek. (And winning)"
-
-"Connection failed"
-"Looks like the internet took a coffee break. Want to retry?"
-```
-
-**Encouraging empty states**:
-```
-"No projects"
-"Your canvas awaits. Create something amazing."
-
-"No messages"
-"Inbox zero! You're crushing it today."
-```
-
-**Playful labels & tooltips**:
-```
-"Delete"
-"Send to void" (for playful brand)
-
-"Help"
-"Rescue me" (tooltip)
-```
-
-**IMPORTANT**: Match copy personality to brand. Banks shouldn't be wacky, but they can be warm.
-
-### Illustrations & Visual Personality
-
-**Custom illustrations**:
-- Empty state illustrations (not stock icons)
-- Error state illustrations (friendly monsters, quirky characters)
-- Loading state illustrations (animated characters)
-- Success state illustrations (celebrations)
-
-**Icon personality**:
-- Custom icon set matching brand personality
-- Animated icons (subtle motion on hover/click)
-- Illustrative icons (more detailed than generic)
-- Consistent style across all icons
-
-**Background effects**:
-- Subtle particle effects
-- Gradient mesh backgrounds
-- Geometric patterns
-- Parallax depth
-- Time-of-day themes (morning vs night)
-
-### Satisfying Interactions
-
-**Drag and drop delight**:
-- Lift effect on drag (shadow, scale)
-- Snap animation when dropped
-- Satisfying placement sound
-- Undo toast ("Dropped in wrong place? [Undo]")
-
-**Toggle switches**:
-- Smooth slide with spring physics (zero or near-zero overshoot — e.g., React Spring with high tension, high friction. Visible overshoot/bounce is not permitted.)
-- Color transition
-- Haptic feedback on mobile
-- Optional sound effect
-
-**Progress & achievements**:
-- Streak counters with celebratory milestones
-- Progress bars that "celebrate" at 100%
-- Badge unlocks with animation
-- Playful stats ("You're on fire! 5 days in a row")
-
-**Form interactions**:
-- Input fields that animate on focus
-- Checkboxes with a satisfying scale pulse when checked
-- Success state that celebrates valid input
-- Auto-grow textareas
-
-### Sound Design
-
-**Subtle audio cues** (when appropriate):
-- Notification sounds (distinctive but not annoying)
-- Success sounds (satisfying "ding")
-- Error sounds (empathetic, not harsh)
-- Typing sounds for chat/messaging
-- Ambient background audio (very subtle)
-
-**IMPORTANT**:
-- Respect system sound settings
-- Provide mute option
-- Keep volumes quiet (subtle cues, not alarms)
-- Don't play on every interaction (sound fatigue is real)
-
-### Easter Eggs & Hidden Delights
-
-**Discovery rewards**:
-- Konami code unlocks special theme
-- Hidden keyboard shortcuts (Cmd+K for special features)
-- Hover reveals on logos or illustrations
-- Alt text jokes on images (for screen reader users too!)
-- Console messages for developers ("Like what you see? We're hiring!")
-
-**Seasonal touches**:
-- Holiday themes (subtle, tasteful)
-- Seasonal color shifts
-- Weather-based variations
-- Time-based changes (dark at night, light during day)
-
-**Contextual personality**:
-- Different messages based on time of day
-- Responses to specific user actions
-- Randomized variations (not same every time)
-- Progressive reveals with continued use
-
-### Loading & Waiting States
-
-**Make waiting engaging**:
-- Interesting loading messages that rotate
-- Progress bars with personality
-- Mini-games during long loads
-- Fun facts or tips while waiting
-- Countdown with encouraging messages
+Match copy personality to brand — banks shouldn't be wacky, but they can be warm. Examples of the right register on a playful brand:
 
 ```
-Loading messages — write ones specific to your product, not generic AI filler:
+"Error 404" → "This page is playing hide and seek. (And winning)"
+"No messages" → "Inbox zero! You're crushing it today."
+```
+
+### Loading Messages
+
+Write messages specific to what your product actually does:
+
+```
 - "Crunching your latest numbers..."
 - "Syncing with your team's changes..."
 - "Preparing your dashboard..."
-- "Checking for updates since yesterday..."
 ```
 
-**WARNING**: Avoid cliched loading messages like "Herding pixels", "Teaching robots to dance", "Consulting the magic 8-ball", "Counting backwards from infinity". These are AI-slop copy — instantly recognizable as machine-generated. Write messages that are specific to what your product actually does.
-
-### Celebration Moments
-
-**Success celebrations**:
-- Confetti for major milestones
-- Animated checkmarks for completions
-- Progress bar celebrations at 100%
-- "Achievement unlocked" style notifications
-- Personalized messages ("You published your 10th article!")
-
-**Milestone recognition**:
-- First-time actions get special treatment
-- Streak tracking and celebration
-- Progress toward goals
-- Anniversary celebrations
-
-## Implementation Patterns
-
-**Animation libraries**:
-- Framer Motion (React)
-- GSAP (universal)
-- Lottie (After Effects animations)
-- Canvas confetti (party effects)
-
-**Sound libraries**:
-- Howler.js (audio management)
-- Use-sound (React hook)
-
-**Physics libraries**:
-- React Spring (spring physics)
-- Popmotion (animation primitives)
-
-**IMPORTANT**: File size matters. Compress images, optimize animations, lazy load delight features.
+**WARNING**: Avoid cliched loading messages like "Herding pixels", "Teaching robots to dance", "Consulting the magic 8-ball", "Counting backwards from infinity". These are AI-slop copy — instantly recognizable as machine-generated.
 
 **NEVER**:
 - Delay core functionality for delight
@@ -329,12 +147,11 @@ Loading messages — write ones specific to your product, not generic AI filler:
 
 Test that delight actually delights:
 
-- **User reactions**: Do users smile? Share screenshots?
-- **Doesn't annoy**: Still pleasant after 100th time?
-- **Doesn't block**: Can users opt out or skip?
+- **Skippable**: Users can opt out or skip every delight moment
+- **Fast**: Each moment completes in under 1 second; core functionality is never delayed
 - **Performant**: No jank, no slowdown
 - **Appropriate**: Matches brand and context
-- **Accessible**: Works with reduced motion, screen readers
+- **Accessible**: Honors `prefers-reduced-motion` and works with screen readers
 
 Remember: Delight is the difference between a tool and an experience. Add personality, surprise users positively, and create moments worth sharing. But always respect usability - delight should enhance, never obstruct.
 

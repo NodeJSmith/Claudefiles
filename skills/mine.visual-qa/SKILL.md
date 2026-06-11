@@ -71,42 +71,19 @@ Launch a single `general-purpose` agent. Its job is capturing screenshots — pa
 **Screenshot directory**: `<dir>/screenshots/`
 **Run in background**: `true`
 
-Substitute `<VIEWPORT_INSTRUCTION>` and `<NAMING_EXAMPLES>` based on the flags:
+Substitute `<VIEWPORT_INSTRUCTION>` based on the flags:
 
-**Default (desktop light):**
-- VIEWPORT_INSTRUCTION: `Use the default desktop viewport. Do not resize to mobile or toggle dark mode.`
-- NAMING_EXAMPLES:
-  ```
-  01-dashboard.png
-  02-items-list.png
-  03-settings.png
-  ```
+- **Default (desktop light):** `Use the default desktop viewport. Do not resize to mobile or toggle dark mode.`
+- **--mobile:** `Resize the browser to 375px width before capturing any screenshots. Stay in mobile viewport for the entire session.`
+- **--dark:** `If the app has a visible dark mode toggle, activate it before capturing. If not, use Playwright's emulateMedia to set colorScheme to 'dark'. Stay in dark mode for the entire session.`
+- **--mobile --dark:** Combine the --mobile and --dark instructions.
 
-**--mobile:**
-- VIEWPORT_INSTRUCTION: `Resize the browser to 375px width before capturing any screenshots. Stay in mobile viewport for the entire session.`
-- NAMING_EXAMPLES:
-  ```
-  01-dashboard-mobile.png
-  02-items-list-mobile.png
-  03-settings-mobile.png
-  ```
-
-**--dark:**
-- VIEWPORT_INSTRUCTION: `If the app has a visible dark mode toggle, activate it before capturing. If not, use Playwright's emulateMedia to set colorScheme to 'dark'. Stay in dark mode for the entire session.`
-- NAMING_EXAMPLES:
-  ```
-  01-dashboard-dark.png
-  02-items-list-dark.png
-  03-settings-dark.png
-  ```
-
-**--mobile --dark:** Combine both instructions.
-- NAMING_EXAMPLES:
-  ```
-  01-dashboard-mobile-dark.png
-  02-items-list-mobile-dark.png
-  03-settings-mobile-dark.png
-  ```
+Substitute `<NAMING_EXAMPLES>` with this base set, appending the active mode suffix (`-mobile`, `-dark`, or `-mobile-dark`) to each filename for non-default runs:
+```
+01-dashboard.png
+02-items-list.png
+03-settings.png
+```
 
 ```
 You are opening <APP_NAME> at <APP_URL> for the first time.

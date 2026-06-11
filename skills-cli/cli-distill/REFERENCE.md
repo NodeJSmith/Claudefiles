@@ -8,23 +8,21 @@ Detailed dimensions for simplifying CLI tool complexity. Referenced by SKILL.md.
 
 **Count your flags.** A command with more than 8-10 flags is asking users to read a manual before every invocation. Audit each flag: is it used in >10% of invocations? If not, it's a candidate for removal, a config file, or a subcommand.
 
-**Merge related flags.** `--start-date` and `--end-date` can become `--range "2024-01-01..2024-02-01"`. `--host` and `--port` can become `--addr host:port`. Fewer flags, same capability.
+**Merge related flags.** `--start-date`/`--end-date` → `--range "2024-01-01..2024-02-01"`; `--host`/`--port` → `--addr host:port`.
 
-**Promote to config.** Flags that rarely change between invocations belong in a config file, environment variable, or profile. `--region us-east-1` on every call → `MYTOOL_REGION=us-east-1` in the environment or `region: us-east-1` in `~/.mytool.yaml`.
+**Promote to config.** Flags that rarely change between invocations belong in a config file, env var, or profile: `--region us-east-1` on every call → `MYTOOL_REGION=us-east-1` or `region:` in `~/.mytool.yaml`.
 
-**Remove dead flags.** Flags added for one-off debugging, backward compatibility, or edge cases that nobody uses. Grep usage, check if any docs reference them, and remove if safe.
+**Remove dead flags** added for one-off debugging or edge cases nobody uses — grep usage and docs, then remove if safe.
 
-**Boolean flag cleanup.** `--no-verify --skip-checks --force --yes` — if a tool has multiple "skip safety" flags, consolidate. `--force` (or `--yes`) should be one flag that means "I know what I'm doing."
+**Boolean flag cleanup.** Consolidate multiple "skip safety" flags (`--no-verify --skip-checks --force --yes`) into one `--force`/`--yes` meaning "I know what I'm doing."
 
 ---
 
 ## Default Design
 
-**The zero-flag invocation should work.** `mytool deploy` should do the right thing for the common case. If the tool requires three flags before it does anything useful, the defaults are wrong.
-
-**Defaults should be safe.** `--dry-run` should not be the default (users expect action), but destructive operations should confirm. The default should be the action the user most likely wants, with guardrails.
-
-**Inference over configuration.** If the tool can figure out the right answer, don't make the user specify it. Detect the project type from the directory. Infer the output format from the file extension. Read the default branch from git config.
+- **Zero-flag invocation should work** — `mytool deploy` does the right thing for the common case. Three required flags means the defaults are wrong.
+- **Defaults safe, not timid** — the action the user most likely wants, with guardrails (`--dry-run` is not the default; destructive ops confirm).
+- **Inference over configuration** — detect project type from the directory, output format from the file extension, default branch from git config rather than asking.
 
 **Smart defaults with escape hatches.** Auto-detect, but let the user override:
 ```
@@ -37,13 +35,10 @@ mytool export data.csv --format tsv # → TSV despite extension
 
 ## Cognitive Load
 
-**One way to do common things.** If `tool ls`, `tool list`, and `tool show --all` all do the same thing, pick one and alias the rest. Don't document three paths to the same destination.
-
-**Reduce required decisions.** Every flag is a decision. Every required flag is a blocking decision. Minimize the number of things users must decide before the tool runs.
-
-**Group complexity into subcommands.** Instead of `tool --sync --direction=push --remote=origin --branch=main --force`, offer `tool push --force`. The subcommand absorbs the context that would otherwise be flags.
-
-**Predictable behavior.** A tool that does different things depending on subtle context (working directory, env vars, time of day) feels complex even if it has few flags. Make behavior deterministic and documented.
+- **One way to do common things** — if `ls`, `list`, and `show --all` overlap, pick one and alias the rest.
+- **Reduce required decisions** — every required flag is a blocking decision; minimize them.
+- **Group complexity into subcommands** — `tool push --force` over `tool --sync --direction=push --remote=origin --branch=main --force`; the subcommand absorbs what would be flags.
+- **Predictable behavior** — deterministic and documented, not dependent on subtle context (cwd, env vars).
 
 ---
 

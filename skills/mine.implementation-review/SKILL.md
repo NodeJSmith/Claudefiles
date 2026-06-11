@@ -73,7 +73,7 @@ Run `get-skill-tmpdir mine-impl-review` and use `<dir>/review.md` for the review
 
 ### Read reviewer prompt
 
-Read `~/.claude/skills/mine.implementation-review/reviewer-prompt.md`.
+Read `${CLAUDE_HOME:-~/.claude}/skills/mine.implementation-review/reviewer-prompt.md`.
 
 ### Launch review subagent
 
@@ -110,7 +110,5 @@ Read the temp file. Format the results clearly:
 3. **Summary** — 2-3 sentences from the subagent
 4. **Blocking issues** — if verdict is REQUEST_FIXES or ABANDON
 5. **Suggestions** — non-blocking notes, if any
-
-
 
 Phase 3 is the final output. The caller (`mine.orchestrate`) handles all gate logic, status updates, and next-step decisions. This skill does not prompt the user or update `design.md`.

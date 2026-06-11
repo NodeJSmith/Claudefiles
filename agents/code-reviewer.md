@@ -38,14 +38,7 @@ When invoked:
 
 ## Security (CRITICAL)
 
-- **SQL injection**: string concatenation in queries — use parameterized queries
-- **Command injection**: unvalidated input in subprocess/os.system — use list form
-- **Path traversal**: user-controlled file paths — normalize and validate
-- **Eval/exec abuse**: with user input
-- **Pickle unsafe deserialization**: loading untrusted data
-- **Hardcoded secrets**: API keys, passwords in source
-- **Weak crypto**: MD5/SHA1 for security purposes
-- **YAML unsafe load**: yaml.load without Loader
+Flag injection (SQL/command/eval-exec), path traversal, unsafe deserialization (pickle, `yaml.load` without Loader), hardcoded secrets, and weak crypto (MD5/SHA1 for security).
 
 ## Spec Verification (HIGH)
 
@@ -59,23 +52,13 @@ Do not trust the implementer's self-reported status:
 
 ## Code Quality (HIGH)
 
-Apply the rules from `rules/common/python.md` (auto-loaded) and general best practices. Flag:
-
-- Missing or incorrect type annotations on public functions
-- Bare except clauses / swallowed exceptions
-- Mutable default arguments
-- Resource leaks (files, connections not closed)
-- Functions over 50 lines or nesting over 4 levels
-- Duplicate code / reimplemented stdlib functionality
-- Missing `if __name__ == "__main__"` guard on scripts
+Apply the rules from `rules/common/python.md` (auto-loaded) and general best practices. Flag bare excepts/swallowed exceptions, mutable default arguments, resource leaks, functions over 50 lines or nesting over 4 levels, reimplemented stdlib, and missing `if __name__ == "__main__"` guards on scripts.
 
 Do not add verbose examples for patterns the model already knows. Flag the issue, cite the line, show the fix.
 
 ## Performance (MEDIUM)
 
-- N+1 queries (database calls in loops)
-- Inefficient string building in loops (use `"".join(...)`)
-- Unnecessary list materialization when a generator suffices
+Flag N+1 queries (database calls in loops) and unnecessary list materialization where a generator suffices.
 
 ## LLM-Specific Smells (MEDIUM)
 

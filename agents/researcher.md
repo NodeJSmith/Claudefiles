@@ -1,6 +1,6 @@
 ---
 name: researcher
-model: opus  # PINNED to claude-opus-4-6 — do not change to generic 'opus' when 4.7 becomes default
+model: opus
 description: Autonomous codebase research and feasibility analysis. Explores code with parallel subagents, conducts web research, and writes a structured research brief.
 tools: ["Read", "Grep", "Glob", "Bash", "Write", "WebSearch", "WebFetch", "Task"]
 ---
