@@ -114,10 +114,7 @@ After identifying mutation points, present the plan:
 | 1 | 23 | Guard removal | Remove `if not amount > 0: raise ValueError` |
 | 2 | 31 | Logic flip | `and` → `or` in discount eligibility check |
 | 3 | 45 | Boundary | `>=` → `>` in minimum order threshold |
-| 4 | 52 | Return value | `return total` → `return None` |
-| 5 | 67 | Exception removal | Remove `raise InsufficientFunds` |
-| 6 | 78 | Arithmetic | `price * quantity` → `price + quantity` |
-| 7 | 89 | Off-by-one | `items[1:]` → `items[2:]` |
+| ... | | | (one row per mutation point) |
 
 **7 mutations planned** — running tests/test_payment.py per mutation.
 ```
@@ -186,9 +183,7 @@ Maintain a running results table:
 |---|----------|-----------|
 | 1 | Remove guard (L23) | test_negative_amount |
 | 3 | Boundary >= → > (L45) | test_minimum_order |
-| 4 | Return None (L52) | test_calculate_total_returns_value |
-| 5 | Remove raise (L67) | test_insufficient_funds |
-| 6 | price * qty → price + qty (L78) | test_multi_item_order |
+| ... | (one row per killed mutant) | |
 
 ### Survived (tests missed the bug)
 | # | Mutation | Severity | Why it matters |
@@ -241,7 +236,7 @@ This is a mini TDD cycle: the mutation is the "bug" and the new test is the "fix
 None — all mutations killed.
 
 ### Confidence assessment
-The test suite for payment.py now covers guard clauses, boundary conditions, return values, exception paths, and logic branches. The main remaining risk area is integration behavior (payment gateway responses), which mutation testing can't cover — integration tests are needed for that.
+[One or two sentences: what the suite now covers, plus the main risk area mutation testing can't reach — e.g., integration behavior — and what would cover it.]
 ```
 
 If the working tree was stashed in Phase 0, run `git stash pop` now.
@@ -255,8 +250,6 @@ If the working tree was stashed in Phase 0, run `git stash pop` now.
 
 ## Principles
 
-1. **Semantic over mechanical** — Claude picks mutations that represent real bugs a developer might introduce, not every possible character swap
-2. **Always revert** — the codebase must never be left in a mutated state
-3. **Targeted test runs** — run only relevant tests per mutation for speed
-4. **Interactive** — user chooses scope, confirms plan, picks which survivors to fix
-5. **Evidence-based** — every surviving mutation is a concrete, demonstrable gap in test coverage
+1. **Targeted test runs** — run only relevant tests per mutation for speed
+2. **Interactive** — user chooses scope, confirms plan, picks which survivors to fix
+3. **Evidence-based** — every surviving mutation is a concrete, demonstrable gap in test coverage

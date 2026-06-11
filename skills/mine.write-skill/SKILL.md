@@ -68,7 +68,7 @@ Write to `skills/mine.<name>/SKILL.md` using the template in REFERENCE.md. See R
 
 Validate the drafted skill against both checklists in REFERENCE.md. Quick list:
 
-**Structural checks:**
+**Structural checks** — see REFERENCE.md ("Quality Checklist — Structural Criteria") for what each one means:
 1. Description includes "Use when..." trigger phrases
 2. SKILL.md under ~100 lines (or split with REFERENCE.md)
 3. No time-sensitive info (dates, versions)

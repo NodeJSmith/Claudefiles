@@ -91,27 +91,19 @@ Evaluate each dimension on a simple scale: **Strong / Adequate / Weak / Missing*
 
 ### Red Flags
 
-Explicitly call out any of these if present:
-- Single maintainer with no succession plan
+Explicitly call out any of these if present (focus on the non-obvious ones; obvious failings like no tests or outright abandonment are already covered by the health matrix):
 - Large proportion of AI-generated commits (Jules, Copilot agents)
-- No tests at all, or tests that only check method existence
-- Archived or abandoned with no fork continuing development
+- Bus factor of 1 with no succession plan (commits concentrated in a single contributor)
 - License incompatible with user's needs
 - Known security vulnerabilities in dependencies
-- Massive monolithic files with no separation of concerns
-- Dormant for 6+ months with open issues/PRs unanswered
 
 ### Green Flags
 
-Also call out positives:
-- Semantic versioning with regular releases
+Also call out positives that go beyond the baseline:
 - CI with test matrix across multiple runtime versions
-- High test coverage with meaningful assertions
-- Active issue triage and PR review
-- Clean modular architecture
-- TypeScript/type annotations throughout
+- Coverage thresholds enforced in CI (not just coverage configured)
 - Security scanning in CI
-- Good documentation with examples
+- Bus factor of 3+ with active issue triage and PR review
 
 ## Phase 3: Present the Verdict
 

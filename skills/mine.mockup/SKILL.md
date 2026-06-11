@@ -49,10 +49,7 @@ Lightweight direction — ~30 seconds, not the full /i-teach-impeccable workflow
 - IDE-inspired (borrow a real, named color scheme: Dracula, Nord, Catppuccin Mocha/Latte, Solarized Dark/Light, Gruvbox, One Dark, Rose Pine) — commit to the actual palette, don't approximate
 - Data-dense (small type, tight spacing, maximum information, muted colors)
 
-**Explicitly forbidden:**
-- Neon dashboard (cyan + magenta + purple on dark) — always produces AI slop
-- Gradient mesh (pink/purple/cyan blobs) — too generic
-- Any combination of Inter font + violet/indigo accents + gradient text
+**Explicitly forbidden:** see the canonical forbidden list in the **Anti-Patterns (AI Slop)** section below — it governs fonts, accent colors, effects, and aesthetics for every step.
 
 Pick font pairing, color palette, depth strategy. Vary the choice each time. The swap test: if you replaced your styling with a generic dark theme and nobody would notice the difference, you haven't designed anything.
 
@@ -86,19 +83,10 @@ Pick font pairing, color palette, depth strategy. Vary the choice each time. The
 | Timeline | CSS (central line + cards) | Simple linear layout doesn't need a layout engine |
 | Dashboard | CSS Grid + Chart.js | Card grid with embedded charts |
 
-**Mermaid theming:** Always use `theme: 'base'` with custom `themeVariables` so colors match your page palette. Use `layout: 'elk'` for complex graphs (requires the `@mermaid-js/layout-elk` package — see `./references/libraries.md` for the CDN import). Override Mermaid's SVG classes with CSS for pixel-perfect control. See `./references/libraries.md` for full theming guide.
+**Mermaid rules** (theming, `elk` layout, scaling per node count, TD-vs-LR direction, `<br/>` label breaks, and the `.node` CSS class-collision constraint) live in `./references/libraries.md` — read it for the specifics rather than relying on memory. Two non-negotiables to carry forward:
 
-**Mermaid containers:** Always center Mermaid diagrams with `display: flex; justify-content: center;`. Add zoom controls (+/-/reset/expand) to every `.mermaid-wrap` container. Include the click-to-expand JavaScript so clicking the diagram (or the expand button) opens it full-size in a new tab.
-
-**Never use bare `<pre class="mermaid">`.** It renders but has no zoom/pan controls — diagrams become tiny and unusable. Always use the full `diagram-shell` pattern from `templates/mermaid-flowchart.html`: the HTML structure (`.diagram-shell` > `.mermaid-wrap` > `.zoom-controls` + `.mermaid-viewport` > `.mermaid-canvas`), the CSS, and the JS module for zoom/pan/fit. Copy it wholesale.
-
-**Mermaid scaling:** Diagrams with 10+ nodes render too small by default. For 10-12 nodes, increase `fontSize` in themeVariables to 18-20px and set `INITIAL_ZOOM` to 1.5-1.6. For 15+ elements, don't try to scale — use the hybrid pattern instead (simple Mermaid overview + CSS Grid cards). See "Architecture / System Diagrams" in the diagram types section below.
-
-**Mermaid layout direction:** Prefer `flowchart TD` (top-down) over `flowchart LR` (left-to-right) for complex diagrams. LR spreads horizontally and makes labels unreadable when there are many nodes. Use LR only for simple 3-4 node linear flows.
-
-**Mermaid line breaks in flowchart labels:** Use `<br/>` inside quoted labels. Never use escaped newlines like `\n` (Mermaid renders them as literal text in HTML output).
-
-**Mermaid CSS class collision constraint:** Never define `.node` as a page-level CSS class. Mermaid.js uses `.node` internally on SVG `<g>` elements with `transform: translate(x, y)` for positioning. Use the namespaced `.ve-card` class for card components instead.
+- **Never use bare `<pre class="mermaid">`.** It has no zoom/pan controls — diagrams become tiny and unusable. Copy the full `diagram-shell` pattern from `templates/mermaid-flowchart.html` wholesale (HTML structure + CSS + zoom/pan/fit JS), center it with `display: flex; justify-content: center;`, and give every `.mermaid-wrap` zoom controls plus click-to-expand.
+- For 15+ elements, don't scale a single diagram — use the hybrid pattern (simple Mermaid overview + CSS Grid cards). See "Architecture / System Diagrams" below.
 
 ### 4. Style
 
@@ -106,7 +94,7 @@ Apply design context tokens (or inline direction) to the HTML. If design/context
 
 **Typography is the diagram.** Pick a distinctive font pairing from the list in `./references/libraries.md`. Every page should use a different pairing from recent generations.
 
-**Forbidden as `--font-body`:** Inter, Roboto, Arial, Helvetica, system-ui alone. These are AI slop signals.
+**Forbidden as `--font-body`:** see the canonical forbidden list in **Anti-Patterns (AI Slop)** below.
 
 **Good pairings (use these):**
 - DM Sans + Fira Code (technical, precise)
@@ -119,7 +107,7 @@ Load via `<link>` in `<head>`. Include a system font fallback in the `font-famil
 
 **Color tells a story.** Use CSS custom properties for the full palette. Define at minimum: `--bg`, `--surface`, `--border`, `--text`, `--text-dim`, and 3-5 accent colors. Each accent should have a full and a dim variant. Name variables semantically. Support both themes.
 
-**Forbidden accent colors:** `#8b5cf6` `#7c3aed` `#a78bfa` (indigo/violet), `#d946ef` (fuchsia), the cyan-magenta-pink combination. These are Tailwind defaults that signal zero design intent.
+**Forbidden accent colors:** see the canonical forbidden list in **Anti-Patterns (AI Slop)** below.
 
 **Good accent palettes (use these):**
 - Terracotta + sage (`#c2410c`, `#65a30d`) — warm, earthy
@@ -148,12 +136,7 @@ Put your primary aesthetic in `:root` and the alternate in the media query:
 
 **Surface depth creates hierarchy.** Vary card depth to signal what matters. Hero sections get elevated shadows and accent-tinted backgrounds. Body content stays flat. Code blocks feel recessed. See the depth tiers in `./references/css-patterns.md`.
 
-**Animation earns its place.** Staggered fade-ins on page load guide the eye. Mix animation types by role: `fadeUp` for cards, `fadeScale` for KPIs, `drawIn` for SVG connectors, `countUp` for hero numbers. Always respect `prefers-reduced-motion`. For orchestrated multi-element sequences, anime.js via CDN is available (see `./references/libraries.md`).
-
-**Forbidden animations:**
-- Animated glowing box-shadows — this is AI slop
-- Pulsing/breathing effects on static content
-- Continuous animations that run after page load (except progress indicators)
+**Animation earns its place.** Staggered fade-ins on page load guide the eye. Mix animation types by role: `fadeUp` for cards, `fadeScale` for KPIs, `drawIn` for SVG connectors, `countUp` for hero numbers. Always respect `prefers-reduced-motion`. For orchestrated multi-element sequences, anime.js via CDN is available (see `./references/libraries.md`). Forbidden animations are listed in the canonical **Anti-Patterns (AI Slop)** section below.
 
 ### 5. Quality Checks
 
@@ -231,6 +214,9 @@ These patterns are explicitly forbidden. Review every generated page against thi
 **Forbidden accent colors:** Indigo-500/violet-500 (`#8b5cf6`, `#7c3aed`, `#a78bfa`). The cyan + magenta + pink neon gradient combination.
 
 **Forbidden color effects:** Gradient text on headings (`background-clip: text`). Animated glowing box-shadows. Multiple overlapping radial glows creating a "neon haze."
+
+### Motion
+**Forbidden animations:** Animated glowing box-shadows. Pulsing/breathing effects on static content. Continuous animations that run after page load (except progress indicators).
 
 ### Section Headers
 **Forbidden:** Emoji icons in section headers. Section headers that all use the same icon-in-rounded-box pattern.
