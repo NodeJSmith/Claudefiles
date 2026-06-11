@@ -85,7 +85,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/). Every commi
 
 **Rules**:
 - Type is **mandatory** — never commit without a type prefix
-- Description is lowercase, imperative mood, no trailing period, first line under 72 characters
+- Description is lowercase, imperative mood, no trailing period, first line under 72 characters; optional body separated by a blank line
 - Scope is optional: `feat(challenge): add orphan detection`
 
 **House nuance**: `docs` covers rules, SKILL.md, and agent prompt changes — in this setup, instruction files are documentation, not `feat`/`refactor`.

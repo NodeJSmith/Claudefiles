@@ -2,7 +2,7 @@
 
 **Haiku 4.5** — Lightweight/worker agents, frequent invocation, 3x cost savings
 **Sonnet 4.6** — Main development work, orchestration, complex coding
-**Opus 4.6** — Deep reasoning, architecture decisions, research
+**Opus 4.8** — Deep reasoning, architecture decisions, research
 
 ## Context Window (CRITICAL)
 
@@ -21,7 +21,7 @@ Use Sonnet instead of Haiku when any of these apply:
 
 ## Agent Model Declarations
 
-Each agent file in `agents/` declares its model in YAML frontmatter. When updating model policy, check all locations:
+Each agent file in `agents/` declares its model in YAML frontmatter. When updating model policy, check all locations. The agent-file list below is validated against frontmatter by `bin/lint-agent-models` (pre-commit hook) — a mismatch, missing entry, or stale entry fails the commit.
 
 **Agent files:**
 - `agents/code-judo-reviewer.md` — sonnet
@@ -31,7 +31,7 @@ Each agent file in `agents/` declares its model in YAML frontmatter. When updati
 - `agents/llm-checker.md` — sonnet
 - `agents/nitpicker.md` — sonnet
 - `agents/testing-reality-checker.md` — sonnet (pre-ship safety gate; do not downgrade)
-- `agents/researcher.md` — opus (pinned to 4.6; do not upgrade without explicit approval)
+- `agents/researcher.md` — opus
 - `agents/secrets-auditor.md` — haiku
 - `agents/planner.md` — sonnet
 - `agents/architect.md` — sonnet

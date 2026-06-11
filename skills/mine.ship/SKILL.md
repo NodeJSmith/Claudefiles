@@ -49,7 +49,7 @@ AskUserQuestion:
       description: "Pause; I'll address findings manually"
 ```
 
-- **"Address findings"**: apply fixes top-to-bottom inline (no subagent), then proceed to Phase 2
+- **"Address findings"**: apply fixes top-to-bottom inline (no subagent), then stage, commit (`style: address clean-code findings`), and push before proceeding to Phase 2 — mine.create-pr verifies the branch is fully pushed
 - **"Ship anyway"**: proceed to Phase 2
 - **"Stop here"**: stop
 
@@ -59,4 +59,4 @@ If any checker subagent fails to complete, skip that checker's findings and note
 
 ### Phase 2 — Create PR
 
-Follow **all steps in `mine.create-pr`** exactly (read `skills/mine.create-pr/SKILL.md` and execute its full workflow — platform detection, draft PR, CHANGELOG PR-number update, ready transition). Phase 1 already committed, pushed, and archived task files, so its push and archival checks should pass immediately. Return the PR URL it produces.
+Follow **all steps in `mine.create-pr`** exactly (read `skills/mine.create-pr/SKILL.md` and execute its full workflow — platform detection, draft PR, CHANGELOG PR-number update, ready transition). Phase 1 already committed and pushed (so create-pr's push check passes) and already archived task files (so its archival step finds nothing and skips silently). Return the PR URL it produces.

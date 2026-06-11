@@ -34,4 +34,4 @@ Based on the above changes:
 7. Stage all relevant files (including CHANGELOG.md if updated, and any archival deletions from step 6).
 8. For multi-line commit messages, run `get-skill-tmpdir mine-commit` to create a temp directory, then write the message to `<dir>/message.md` and run `git commit -F <dir>/message.md`. For simple one-line messages, `git commit -m "..."` is fine. Do NOT use `git commit -m "$(cat <<'EOF'...)"` — command substitution triggers extra permission prompts.
 9. Push the branch to origin (use `-u` flag only if you just created a new branch).
-10. You MUST do steps 7–9 in a single message. Include the Write call for the commit message file (if needed) in that same message. Do not use any other tools or do anything else besides these tool calls.
+10. You MUST do steps 7–9 (stage, commit, push) in a single message. Include the Write call for the commit message file (if needed) in that same message. Do not use any other tools or do anything else besides these tool calls.

@@ -117,9 +117,9 @@ When code review findings arrive, verify each against the actual code before imp
 
 ### Consider
 
-These principles are defined in rule files that are themselves always loaded — their full text is already in context, so this tier is just the scan list: **Laziness Protocol, Reader Load, Subtract Before You Add, Redesign from First Principles, Outcome-Oriented Execution, Encode Lessons in Structure, Exhaust the Design Space, Experience First, Baseline Before Optimizing, Decompose Before Implementing, No Default Underscore Prefixes, Build the Lever.**
+These principles are defined in `rules/common/` files that are themselves always loaded — their full text is already in context, so this tier is just the scan list: **Laziness Protocol, Reader Load, Subtract Before You Add, Redesign from First Principles, Outcome-Oriented Execution, Encode Lessons in Structure, Exhaust the Design Space, Experience First, Baseline Before Optimizing, Decompose Before Implementing, No Default Underscore Prefixes, Build the Lever.**
 
-Three more live in on-demand references, so their summaries stay here:
+Three more are defined in `references/common/` files, which load only on demand (via the Domain References table below) — so their summaries stay here as the always-present surface:
 
 #### AI Prose Self-Audit
 After writing non-code text (PR descriptions, docs, skill files, rules), ask: "What makes this obviously AI-generated?" Fix whatever comes to mind. Em dashes, hedging, significance inflation, and synonym cycling are the common tells.

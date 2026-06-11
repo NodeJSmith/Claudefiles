@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+"""Validate the Agent Model Declarations list in rules/common/performance.md.
+
+Checks three things against agents/*.md frontmatter:
+  1. Every listed agent file exists and its declared model matches frontmatter.
+  2. Every agents/*.md file appears in the list (no undeclared agents).
+  3. Every listed skill file exists and contains each `model: X` it declares.
+
+Wired as a repo:local pre-commit hook. Exit 0 on success, 1 with details.
+"""
+
+import argparse
+import re
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+PERFORMANCE_MD = ROOT / "rules" / "common" / "performance.md"
+AGENTS_DIR = ROOT / "agents"
+
+AGENT_BULLET = re.compile(r"^- `(agents/[^`]+)` — (haiku|sonnet|opus)\b")
+SKILL_BULLET = re.compile(r"^- `(skills/[^`]+)` — (.+)$")
+MODEL_TOKEN = re.compile(r"`model: (\w+)`")
+FRONTMATTER_MODEL = re.compile(r"^model:\s*(\w+)", re.MULTILINE)
+
+
+def frontmatter(text: str) -> str:
+    parts = text.split("---", 2)
+    return parts[1] if len(parts) >= 3 and text.startswith("---") else ""
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Validate performance.md agent model declarations against frontmatter.",
+        epilog="Reads rules/common/performance.md and agents/*.md from the repo root. Exit 0 = in sync.",
+    )
+    parser.parse_args()
+
+    errors: list[str] = []
+    try:
+        perf_text = PERFORMANCE_MD.read_text()
+    except FileNotFoundError:
+        print(f"lint-agent-models: {PERFORMANCE_MD} not found", file=sys.stderr)
+        return 1
+
+    declared: dict[str, str] = {}
+    skill_declarations: dict[str, set[str]] = {}
+    for line in perf_text.splitlines():
+        if m := AGENT_BULLET.match(line):
+            declared[m.group(1)] = m.group(2)
+        elif m := SKILL_BULLET.match(line):
+            skill_declarations[m.group(1)] = set(MODEL_TOKEN.findall(m.group(2)))
+
+    for rel_path, listed_model in declared.items():
+        path = ROOT / rel_path
+        if not path.exists():
+            errors.append(f"listed but missing: {rel_path}")
+            continue
+        fm = frontmatter(path.read_text())
+        m = FRONTMATTER_MODEL.search(fm)
+        if not m:
+            errors.append(
+                f"{rel_path}: no `model:` in frontmatter (listed as {listed_model})"
+            )
+        elif m.group(1) != listed_model:
+            errors.append(
+                f"{rel_path}: frontmatter says {m.group(1)}, list says {listed_model}"
+            )
+
+    for agent_file in sorted(AGENTS_DIR.glob("*.md")):
+        rel = str(agent_file.relative_to(ROOT))
+        if rel not in declared:
+            errors.append(f"not in performance.md list: {rel}")
+
+    # Skill declarations are prose instructions ("dispatch with model: sonnet"),
+    # not structured frontmatter, so this check is deliberately looser than the
+    # agent check above: substring presence, not parsed-field comparison.
+    for rel_path, models in skill_declarations.items():
+        path = ROOT / rel_path
+        if not path.exists():
+            errors.append(f"listed but missing: {rel_path}")
+            continue
+        text = path.read_text()
+        for model in models:
+            if f"model: {model}" not in text:
+                errors.append(
+                    f"{rel_path}: declared `model: {model}` not found in file"
+                )
+
+    if errors:
+        print("lint-agent-models: performance.md is out of sync:", file=sys.stderr)
+        for e in errors:
+            print(f"  - {e}", file=sys.stderr)
+        return 1
+
+    print(
+        f"lint-agent-models: {len(declared)} agents + {len(skill_declarations)} skill declarations in sync"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
