@@ -75,11 +75,8 @@ Search terms should be content-bearing words that discriminate between sessions 
 
 ### Principles
 
-1. **Prioritize significance** — 3-5 key findings, not exhaustive lists
-2. **Be specific** — file paths, dates, project names
-3. **Make it actionable** — every finding suggests a response
-4. **Show evidence** — quotes or references
-5. **Keep it scannable** — clear structure, no walls of text
+- **3-5 key findings**, not exhaustive lists — each specific (file paths, dates, project names) and backed by a quote or reference.
+- **Make it actionable** — every finding suggests a response.
 
 ### Structure
 

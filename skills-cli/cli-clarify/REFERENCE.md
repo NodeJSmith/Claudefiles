@@ -57,13 +57,10 @@ Examples:
   mytool delete 42
 ```
 
-**One-line description per flag.** If a flag needs a paragraph, it belongs in a man page, not `--help`.
-
-**Show defaults.** `--timeout SEC  Connection timeout (default: 30)`. Users shouldn't have to guess the default behavior.
-
-**Include examples.** At least one realistic example at the bottom. Two or three is better. Examples teach faster than descriptions.
-
-**Subcommand help.** `mytool create --help` should show create-specific flags and examples, not the top-level help again.
+- **One-line description per flag** — a paragraph belongs in a man page.
+- **Show defaults:** `--timeout SEC  Connection timeout (default: 30)`.
+- **Include examples** — at least one realistic example at the bottom; two or three is better.
+- **Subcommand help** shows that subcommand's flags and examples, not the top-level help again.
 
 ---
 
@@ -98,11 +95,9 @@ Proceed? [y/N]
 
 ## Status and Progress Messages
 
-**Use consistent verbs.** Pick a tense and stick with it: "Creating..." → "Created." or "Create... done." Don't mix "Building app" with "Deployed successfully" with "Tests have been run."
-
-**Be specific.** "Processing..." is almost never useful. "Compiling 12 source files..." tells the user what's happening and how much work remains.
-
-**End state should be clear.** After a command completes, the user should know: did it work? what changed? what do I do next?
+- **Consistent verbs/tense:** "Creating..." → "Created." Don't mix "Building app" with "Deployed successfully."
+- **Be specific:** "Compiling 12 source files..." over "Processing...".
+- **End state clear:** after completion the user knows did it work, what changed, what next.
 
 ```
 # Bad
@@ -117,11 +112,9 @@ Next: cd my-app && npm install
 
 ## Consistency
 
-**Same concept, same words.** If you call it "workspace" in one command, don't call it "project" in another. Pick one term and use it everywhere — help text, errors, output, docs.
-
-**Same format, same structure.** If `tool list` outputs a table with NAME, STATUS, UPDATED columns, then `tool list --filter active` should output the same columns in the same order, not a different format.
-
-**Same error style.** If one command says "Error: file not found: foo.txt", another shouldn't say "ERROR — Cannot locate foo.txt" or "foo.txt: No such file or directory". Pick a format and reuse it.
+- **Same concept, same words** across help, errors, output, docs (don't alternate "workspace"/"project").
+- **Same format, same structure** — `tool list` and `tool list --filter active` share columns and order.
+- **Same error style** — pick one format ("Error: file not found: foo.txt") and reuse it; no "ERROR —" vs "error:" drift.
 
 ---
 

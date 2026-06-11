@@ -4,18 +4,6 @@ Detailed dimensions for assessing CLI tool output quality. Referenced by SKILL.m
 
 ---
 
-## Information Hierarchy
-
-**Lead with what matters.** The most important information should appear first. Users scan top-down; if the answer is buried after boilerplate, the output failed.
-
-**Summary before detail.** For commands that process multiple items, print a summary line first ("3 passed, 1 failed, 2 skipped"), then the detail. Users who only need the verdict shouldn't have to scroll.
-
-**Group related output.** Don't interleave unrelated concerns. If a command checks permissions and then validates config, group all permission output together and all config output together — don't alternate.
-
-**Use whitespace intentionally.** Blank lines separate logical sections. No blank lines between tightly related lines (a filename and its status). Double-spacing everything is as bad as no spacing.
-
----
-
 ## Table Formatting
 
 **Align columns.** Unaligned columns force the eye to scan horizontally. Use fixed-width formatting or a table library.
@@ -58,7 +46,7 @@ web-frontend   passing      0.8s
 
 **Default to human-readable.** Optimized for scanning, with formatting, color, and structure. This is the interactive experience.
 
-**Offer --json for scripting.** JSON output should be a complete, stable representation — not a serialization of the human format. Include fields that the human format omits or truncates. JSON goes to stdout; status/progress messages stay on stderr.
+**Offer --json for scripting.** JSON output should be a complete, stable representation — not a serialization of the human format. Include fields that the human format omits or truncates.
 
 **Keep the contract stable.** Once a field appears in JSON output, it's an API. Don't rename, retype, or remove fields without a version bump or deprecation notice.
 
@@ -76,17 +64,13 @@ web-frontend   passing      0.8s
 - **Default**: The information a typical user needs. Not everything — the right things.
 - **Verbose** (`-v` / `--verbose`): Debug-level detail. Timestamps, request IDs, intermediate steps, full paths instead of truncated ones.
 
-**Don't hide errors behind -v.** Errors always print at every verbosity level. Only diagnostic detail moves between levels.
-
-**Debug output goes to stderr.** Verbose/debug output must not pollute stdout. Use stderr so pipes stay clean: `mytool -v 2>debug.log | next-command`.
+**Don't hide errors behind -v.** Errors always print at every verbosity level. Only diagnostic detail moves between levels. (Verbose/debug output goes to stderr — see stderr vs stdout below.)
 
 ---
 
 ## Progress Indication
 
-**Show progress for anything over ~2 seconds.** Users assume a silent terminal is frozen. A spinner, counter, or progress bar tells them the tool is working.
-
-**Progress goes to stderr.** Never mix progress output with data output on stdout. This is non-negotiable for pipeable tools.
+**Show progress for anything over ~2 seconds.** Users assume a silent terminal is frozen. A spinner, counter, or progress bar tells them the tool is working. (Progress goes to stderr — see stderr vs stdout below.)
 
 **Clear progress on completion.** Spinners and progress bars should disappear or be replaced by the final result. Don't leave "Processing... done" artifacts in the output when there's a proper result to show.
 
@@ -114,13 +98,7 @@ web-frontend   passing      0.8s
 
 ---
 
-## Density and Readability
-
-**Match output density to use case.** A monitoring dashboard tool should be dense. An interactive wizard should be spacious. Most CLI tools land in between.
-
-**One concept per line.** Each line should represent one item, one status, or one action. Cramming multiple concepts onto one line saves space but hurts scanning.
-
-**Consistent formatting across subcommands.** If `tool list` uses a table, `tool status` should use a table too, not switch to free-form paragraphs. Users learn the visual grammar once.
+## Timestamps, Paths, Units
 
 **Timestamps.** Use ISO 8601 (`2024-01-15T09:30:00Z`) for machine output. Use relative time ("2 hours ago") for human output when recency matters more than precision. Always include timezone or use UTC.
 
