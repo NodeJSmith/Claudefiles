@@ -1,6 +1,6 @@
 # Model-Fit Audit: Claudefiles vs Opus 4.6 / Sonnet 4.6
 
-**Date:** 2026-06-10 · **Method:** Fable 5 synthesis over a direct read of the always-loaded layer (rules, references, capabilities) plus 9 parallel Opus 4.8 batch audits covering all 58 skills, 34 support files, 20 agents, and 6 commands. Every instruction block was judged by its *delta versus what a 4.6-class model does unprompted*: counter-bias (keep), default-restating (cut), or fact/convention (keep but bare).
+**Date:** 2026-06-10 · **Status:** Applied same day (commits `350e407`..`2b4fe6e`, 64 files, +497/−2694). Deferred decisions are listed at the end of the session that produced this report. · **Method:** Fable 5 synthesis over a direct read of the always-loaded layer (rules, references, capabilities) plus 9 parallel Opus 4.8 batch audits covering all 58 skills, 34 support files, 20 agents, and 6 commands. Every instruction block was judged by its *delta versus what a 4.6-class model does unprompted*: counter-bias (keep), default-restating (cut), or fact/convention (keep but bare).
 
 ## Verdict
 
