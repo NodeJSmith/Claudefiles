@@ -19,7 +19,7 @@ Audits are read-only diagnostics — they should never be blocked by missing con
 Scan across these dimensions. The specific checks within each are standard — work through them against the reference files rather than from a checklist here:
 
 1. **Accessibility** — contrast, ARIA, keyboard nav, semantic HTML, alt text, form labeling. See [interaction-design.md](../i-frontend-design/reference/interaction-design.md).
-2. **Performance** — layout thrashing, layout-property animations, missing lazy-load, bundle bloat, needless re-renders. See [performance.md](../i-frontend-design/reference/performance.md) if present.
+2. **Performance** — layout thrashing, layout-property animations, missing lazy-load, bundle bloat, needless re-renders.
 3. **Theming** — hard-coded colors vs tokens, dark-mode coverage and contrast, token consistency.
 4. **Responsive** — fixed widths, sub-44px touch targets, horizontal scroll, text-scaling breakage, missing breakpoints.
 5. **Anti-Patterns (CRITICAL)** — check against the [anti-patterns reference](../i-frontend-design/reference/anti-patterns.md) for AI slop tells and general design anti-patterns.
