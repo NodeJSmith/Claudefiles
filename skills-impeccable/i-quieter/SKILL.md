@@ -85,21 +85,26 @@ If "Stop here" → end the skill.
 Systematically reduce intensity across these dimensions:
 
 ### Color Refinement
+
 - **Reduce saturation**: shift fully saturated colors to 70-85% saturation; soften bright tones to muted ones.
 - **Neutral dominance**: let neutrals do more work, color as accent (10% rule); high contrast only where it matters most.
 - **Tinted grays, never gray on color**: see /i-colorize.
 
 ### Visual Weight Reduction
+
 - Reduce font weights (900 → 600, 700 → 500); build hierarchy through weight, size, and space rather than color and boldness.
 - Increase breathing room; thin or remove borders.
 
 ### Simplification
+
 - Remove decorative gradients, shadows, patterns, glows, and multiple-shadow stacks that don't serve purpose; flatten layering.
 
 ### Motion Reduction
+
 - Shorter distances (10-20px instead of 40px), gentler feedback over dramatic effects. Remove animations that serve no clear purpose. Easing: see /i-animate.
 
 ### Composition Refinement
+
 - Reduce scale jumps for a calmer feel; bring rogue elements back to the grid; even out spacing to a consistent rhythm.
 
 **NEVER**:

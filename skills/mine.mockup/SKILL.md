@@ -208,17 +208,21 @@ Every mockup is a single self-contained `.html` file. No external assets except 
 These patterns are explicitly forbidden. Review every generated page against this list.
 
 ### Typography
+
 **Forbidden fonts as primary `--font-body`:** Inter, Roboto, Arial, Helvetica, system-ui/sans-serif alone.
 
 ### Color Palette
+
 **Forbidden accent colors:** Indigo-500/violet-500 (`#8b5cf6`, `#7c3aed`, `#a78bfa`). The cyan + magenta + pink neon gradient combination.
 
 **Forbidden color effects:** Gradient text on headings (`background-clip: text`). Animated glowing box-shadows. Multiple overlapping radial glows creating a "neon haze."
 
 ### Motion
+
 **Forbidden animations:** Animated glowing box-shadows. Pulsing/breathing effects on static content. Continuous animations that run after page load (except progress indicators).
 
 ### Section Headers
+
 **Forbidden:** Emoji icons in section headers. Section headers that all use the same icon-in-rounded-box pattern.
 
 **Required:** Use styled monospace labels with colored dot indicators, numbered badges, or asymmetric section dividers. If an icon is genuinely needed, use an inline SVG — not emoji.
