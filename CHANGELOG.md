@@ -10,7 +10,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Fixed
 
-- `code-judo-reviewer` and `secrets-auditor` agents shipped but never installed — `install.py` never registered them in a bundle, so the installer skipped them no matter how often you re-ran it; both are now registered, and `lint-agent-models` now fails the commit if any agent is missing from an install.py bundle (#XXX)
+- `code-judo-reviewer` and `secrets-auditor` agents shipped but never installed — `install.py` never registered them in a bundle, so the installer skipped them no matter how often you re-ran it; both are now registered, and `lint-agent-models` now fails the commit if any agent is missing from an install.py bundle (#371)
 
 ## 2026-06-10
 
