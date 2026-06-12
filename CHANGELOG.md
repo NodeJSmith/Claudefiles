@@ -6,7 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Added
 
-- Branch staleness pre-flight — `mine.define`, `mine.plan`, and `mine.orchestrate` now check whether the branch is behind the default branch before starting work, so a forgotten `git pull` surfaces up front instead of as conflicts after a long run; offers to rebase (with dirty-tree and stale-ref safeguards) or proceed. Backed by a new `git-branch-behind` bin script.
+- Branch staleness pre-flight — `mine.define`, `mine.plan`, and `mine.orchestrate` now check whether the branch is behind the default branch before starting work, so a forgotten `git pull` surfaces up front instead of as conflicts after a long run; offers to rebase (with dirty-tree and stale-ref safeguards) or proceed. Backed by a new `git-branch-behind` bin script. (#370)
 
 ## 2026-06-10
 
