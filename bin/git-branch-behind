@@ -59,6 +59,9 @@ EOF
 
 set -uo pipefail
 
+# Bound the fetch so a reachable-but-slow host can't wedge an unattended caller.
+FETCH_TIMEOUT_SECONDS=15
+
 emit_json=0
 do_fetch=1
 for arg in "$@"; do
@@ -106,7 +109,7 @@ current=$(git branch --show-current 2> /dev/null) || current=""
 fetch_ok=1
 if ((do_fetch)); then
   fetch_cmd=(git fetch --quiet origin "$default")
-  command -v timeout > /dev/null 2>&1 && fetch_cmd=(timeout 15 "${fetch_cmd[@]}")
+  command -v timeout > /dev/null 2>&1 && fetch_cmd=(timeout "$FETCH_TIMEOUT_SECONDS" "${fetch_cmd[@]}")
   if ! GIT_TERMINAL_PROMPT=0 "${fetch_cmd[@]}" > /dev/null 2>&1; then
     fetch_ok=0
   fi
@@ -114,7 +117,7 @@ else
   # --no-fetch: no fetch attempted, so freshness is unverified — same flag, deliberate skip.
   fetch_ok=0
 fi
-# (( )) yields an exit status: fetch_ok=1 → true, fetch_ok=0 → false.
+# "true"/"false" string, ready for the JSON output below.
 fetch_ok_json=$( ((fetch_ok)) && echo true || echo false)
 
 base_ref="origin/$default"
@@ -142,19 +145,19 @@ if ((emit_json)); then
   printf '{"current":"%s","default_branch":"%s","base_ref":"%s","behind":%d,"fetch_ok":%s,"up_to_date":%s}\n' \
     "$current" "$default" "$base_ref" "$behind" "$fetch_ok_json" "$up_to_date"
 else
-  staleness=""
+  suffix=""
   if ((!fetch_ok)); then
     if ((do_fetch)); then
-      staleness=" (could not reach origin; based on last fetch)"
+      suffix=" (could not reach origin; based on last fetch)"
     else
-      staleness=" (local refs only; --no-fetch)"
+      suffix=" (local refs only; --no-fetch)"
     fi
   fi
   if [[ "$behind" -eq 0 ]]; then
-    echo "up to date with $base_ref${staleness}"
+    echo "up to date with $base_ref${suffix}"
   else
     plural=$([[ "$behind" -eq 1 ]] && echo commit || echo commits)
-    echo "behind $base_ref by $behind $plural${staleness}"
+    echo "behind $base_ref by $behind $plural${suffix}"
   fi
 fi
 

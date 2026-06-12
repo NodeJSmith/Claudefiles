@@ -222,7 +222,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `gh-pr-resolve-thread` | Resolve one or more PR review threads by GraphQL ID |
 | `gh-pr-threads` | List PR review threads — supports `--json` (structured output), `--all` (include resolved), with pagination |
 | `git-branch-base` | Print the base ref for the current branch — closest remote branch, with default branch fallback |
-| `git-branch-behind` | Report whether the branch is missing commits from the default branch (forgot-to-pull pre-flight); fetches origin (with timeout), counts commits behind, degrades gracefully offline. Depends on `git-default-branch` |
+| `git-branch-behind` | Report how many commits the branch is behind the default branch (forgot-to-pull pre-flight); fetches origin with a timeout, degrades offline. Depends on `git-default-branch` |
 | `git-branch-diff-files` | Print changed file names for current branch vs its base (uses git-branch-base) |
 | `git-branch-diff-stat` | Print `git diff --stat` for current branch vs its base (uses git-branch-base) |
 | `git-branch-log` | Print `git log --oneline` for current branch vs its base (uses git-branch-base) |
