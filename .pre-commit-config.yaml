@@ -27,7 +27,7 @@ repos:
         pass_filenames: false
         always_run: true
       - id: lint-agent-models
-        name: Agent model declaration sync
+        name: Agent registry sync (models + install.py)
         entry: bin/lint-agent-models
         language: system
         pass_filenames: false

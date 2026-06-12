@@ -370,7 +370,7 @@ class TestBundleModel:
         }
 
     def test_base_agents(self, tmp_path: Path) -> None:
-        """Base bundle has exactly 8 agents from FR#1."""
+        """Base bundle holds the advisory reviewers plus the credential/registry agents."""
         _setup_minimal_repo(tmp_path)
         bundles = install.get_bundles(tmp_path)
         base = bundles["base"]
@@ -378,11 +378,13 @@ class TestBundleModel:
             "code-reviewer",
             "integration-reviewer",
             "wtf-reviewer",
+            "code-judo-reviewer",
             "researcher",
             "llm-checker",
             "lazy-checker",
             "nitpicker",
             "issue-refiner",
+            "secrets-auditor",
         }
 
     def test_base_packages(self, tmp_path: Path) -> None:
