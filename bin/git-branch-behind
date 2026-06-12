@@ -1,0 +1,162 @@
+#!/usr/bin/env bash
+# Report whether the current branch is missing commits from the default branch.
+#
+# Catches the "I forgot to pull latest main before starting" mistake: it
+# fetches the default branch from origin and counts how many commits HEAD is
+# behind it. A long unattended run (e.g. a 12-hour orchestrate) that starts on
+# a stale base only discovers the staleness when work conflicts — this surfaces
+# it in the first second instead.
+#
+# Behind count = commits reachable from origin/<default> but not from HEAD,
+# i.e. `git rev-list --count HEAD..origin/<default>`.
+#
+# Degrades gracefully: if the fetch fails (offline, unreachable host), it does
+# NOT block — it reports against the last-known remote-tracking ref and sets
+# fetch_ok=false so the caller can say "couldn't verify upstream".
+#
+# Depends on `git-default-branch` for the default branch name; expects a bare
+# branch name on stdout (e.g. "main"), which becomes base_ref "origin/<name>".
+#
+# Usage: git-branch-behind [--json] [--no-fetch]
+#
+# Options:
+#   --json       Emit a JSON object instead of a human-readable line.
+#   --no-fetch   Skip the network fetch; compare against local refs only.
+#
+# Exit codes:
+#   0   up to date (behind == 0), or could not verify (fetch failed AND no
+#       local remote-tracking ref to compare against — reported, not fatal)
+#   10  behind (behind > 0) — distinct code so shell callers can branch on it
+#   1   hard error: not a git repo, no origin remote, or default unresolvable
+
+[[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && {
+  cat << 'EOF'
+Usage: git-branch-behind [--json] [--no-fetch]
+
+Report whether the current branch is missing commits from the default branch
+(i.e. you forgot to pull/rebase latest before starting work).
+
+Fetches the default branch from origin, then counts how many commits HEAD is
+behind origin/<default>. Does not block on a failed fetch — reports against the
+last-known state and flags that the remote could not be reached.
+
+Options:
+  --json       Emit a JSON object instead of a human-readable line.
+  --no-fetch   Skip the network fetch; compare against local refs only.
+
+Exit codes:
+  0   up to date (or could not verify)
+  10  behind by one or more commits
+  1   not a git repo / no origin / default branch unresolvable
+
+Examples:
+  git-branch-behind                 # "up to date with origin/main"
+  git-branch-behind --json          # {"behind":3,"default_branch":"main",...}
+  git-branch-behind && echo fresh   # exit 0 only when up to date
+EOF
+  exit 0
+}
+
+set -uo pipefail
+
+emit_json=0
+do_fetch=1
+for arg in "$@"; do
+  case "$arg" in
+    --json) emit_json=1 ;;
+    --no-fetch) do_fetch=0 ;;
+    *)
+      echo "git-branch-behind: unknown argument: $arg" >&2
+      exit 1
+      ;;
+  esac
+done
+
+# Must be inside a git repo with an origin remote.
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+  echo "fatal: not a git repository" >&2
+  exit 1
+fi
+if ! git remote get-url origin > /dev/null 2>&1; then
+  echo "fatal: no remote named 'origin'" >&2
+  exit 1
+fi
+
+default=$(git-default-branch --no-network 2> /dev/null) || default=""
+# git-default-branch exits non-zero when it can't decide; fall back to the
+# network resolver, and let the emptiness check below report a hard failure.
+if [[ -z "$default" ]]; then
+  default=$(git-default-branch 2> /dev/null) || default=""
+fi
+if [[ -z "$default" ]]; then
+  echo "fatal: could not determine default branch for 'origin'" >&2
+  exit 1
+fi
+
+current=$(git branch --show-current 2> /dev/null) || current=""
+
+# Fetch the default branch so the comparison reflects the real remote state.
+# A hung credential/host prompt is worse than a stale answer here, so never
+# prompt — fail fast and fall through to the last-known remote-tracking ref.
+# fetch_ok==0 means the behind count is NOT backed by a fresh fetch (network
+# failure or --no-fetch); callers reading JSON treat it as "freshness unknown".
+# GIT_TERMINAL_PROMPT=0 handles an *unreachable* host; `timeout` (when present)
+# handles a *reachable-but-slow* one — a stalled socket or hanging proxy would
+# otherwise wedge an unattended caller indefinitely.
+fetch_ok=1
+if ((do_fetch)); then
+  fetch_cmd=(git fetch --quiet origin "$default")
+  command -v timeout > /dev/null 2>&1 && fetch_cmd=(timeout 15 "${fetch_cmd[@]}")
+  if ! GIT_TERMINAL_PROMPT=0 "${fetch_cmd[@]}" > /dev/null 2>&1; then
+    fetch_ok=0
+  fi
+else
+  # --no-fetch: no fetch attempted, so freshness is unverified — same flag, deliberate skip.
+  fetch_ok=0
+fi
+# (( )) yields an exit status: fetch_ok=1 → true, fetch_ok=0 → false.
+fetch_ok_json=$( ((fetch_ok)) && echo true || echo false)
+
+base_ref="origin/$default"
+if ! git rev-parse --verify --quiet "$base_ref" > /dev/null 2>&1; then
+  # No remote-tracking ref at all (never fetched, brand-new clone offline).
+  if ((emit_json)); then
+    printf '{"current":"%s","default_branch":"%s","base_ref":null,"behind":null,"fetch_ok":%s,"up_to_date":null}\n' \
+      "$current" "$default" "$fetch_ok_json"
+  else
+    suffix=""
+    [[ -n "$current" ]] && suffix=" (on $current)"
+    echo "could not verify: no $base_ref ref available$suffix"
+  fi
+  exit 0
+fi
+
+behind=$(git rev-list --count "HEAD..${base_ref}" 2> /dev/null) || behind=""
+if [[ -z "$behind" ]]; then
+  echo "fatal: could not compute commits behind $base_ref" >&2
+  exit 1
+fi
+
+if ((emit_json)); then
+  up_to_date=$([[ "$behind" -eq 0 ]] && echo true || echo false)
+  printf '{"current":"%s","default_branch":"%s","base_ref":"%s","behind":%d,"fetch_ok":%s,"up_to_date":%s}\n' \
+    "$current" "$default" "$base_ref" "$behind" "$fetch_ok_json" "$up_to_date"
+else
+  staleness=""
+  if ((!fetch_ok)); then
+    if ((do_fetch)); then
+      staleness=" (could not reach origin; based on last fetch)"
+    else
+      staleness=" (local refs only; --no-fetch)"
+    fi
+  fi
+  if [[ "$behind" -eq 0 ]]; then
+    echo "up to date with $base_ref${staleness}"
+  else
+    plural=$([[ "$behind" -eq 1 ]] && echo commit || echo commits)
+    echo "behind $base_ref by $behind $plural${staleness}"
+  fi
+fi
+
+[[ "$behind" -gt 0 ]] && exit 10
+exit 0

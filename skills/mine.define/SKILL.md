@@ -20,6 +20,10 @@ $ARGUMENTS — optional initial description or path. Can be:
 
 ## Phase 1: Scope and Classify
 
+### Branch staleness pre-flight
+
+Before investigating the codebase, confirm the branch contains the latest default branch — designing against stale code produces a design with stale references that compound downstream (plan inherits them, then orchestrate). Read `${CLAUDE_HOME:-~/.claude}/references/common/staleness-preflight.md` and follow it in **soft** mode, with this stakes sentence: "Designing against stale code can carry into the plan and the run."
+
 ### Understand the initial request
 
 If $ARGUMENTS points to a `design/specs/NNN-*/` directory, check for existing `design.md` and read it if present (the header fields — `**Status:**`, `**Scope-mode:**` — are needed for resume detection in later phases). If a `brief.md` from a prior `/mine.grill` session exists, read it and use its Key Decisions, Scope Boundaries, and Open Questions as starting context — skip any discovery questions the brief already answers.

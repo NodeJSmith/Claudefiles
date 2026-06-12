@@ -30,7 +30,13 @@ The checkpoint file (`tasks/.orchestrate-state.md`) persists across sessions. Pe
 
 ### Check for existing checkpoint (resume detection)
 
-Read `${CLAUDE_HOME:-~/.claude}/skills/mine.orchestrate/resume-protocol.md` and follow it. If a checkpoint exists, the protocol either resumes at Phase 2 or restarts fresh; if no checkpoint exists, proceed to "Find the feature directory" below.
+Read `${CLAUDE_HOME:-~/.claude}/skills/mine.orchestrate/resume-protocol.md` and follow it. If a checkpoint exists, the protocol either resumes at Phase 2 or restarts fresh; if no checkpoint exists, proceed to "Branch staleness pre-flight" below.
+
+### Branch staleness pre-flight
+
+**Skip on resume**: if the resume-protocol above resumed an existing run at Phase 2, do NOT run this check — work is already in progress against the checkpoint's `base_commit`, and rebasing now would invalidate it. This runs only on a fresh run or a restart-fresh (the resume protocol discarded a stale checkpoint and is starting over).
+
+A 12-hour run that stamps its `base_commit` onto a stale base will conflict late. Read `${CLAUDE_HOME:-~/.claude}/references/common/staleness-preflight.md` and follow it in **gate** mode, with this stakes sentence: "Starting orchestrate now bases the whole run on stale code." On Abort, stop without creating a checkpoint.
 
 ### Find the feature directory
 

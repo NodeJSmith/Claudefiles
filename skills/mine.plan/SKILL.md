@@ -14,6 +14,12 @@ $ARGUMENTS — path to a `design.md` or the feature directory (`design/specs/NNN
 
 ---
 
+## Pre-flight: Branch staleness check
+
+Task files encode literal file paths and pointers. If the branch is behind the default branch — e.g. a docs rewrite moved files since you branched — the task files get authored against stale paths, and the error only surfaces during orchestrate, forcing a rewrite of every affected task file. Catch it before generating: read `${CLAUDE_HOME:-~/.claude}/references/common/staleness-preflight.md` and follow it in **gate** mode, with this stakes sentence: "Task files generated now will reference paths from stale code."
+
+---
+
 ## Phase 0: Fine-Toothed Comb Review
 
 Resolve the design doc path from $ARGUMENTS (same resolution logic as Phase 1's "Locate the design doc"). Phase 1 reuses this path.
