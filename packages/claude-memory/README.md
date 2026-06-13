@@ -36,7 +36,7 @@ The embedding model is [bge-m3 (int8-quantized ONNX)](https://huggingface.co/gpa
 
 ### Coverage
 
-New sessions are embedded automatically as they sync (embed-on-write), so coverage builds forward on its own. Only **active-leaf** branches are embedded — the one live conversation per session, not its abandoned forks/retries. The search path only ever returns active leaves, so embedding inactive forks would just produce vectors that can never surface.
+New sessions are embedded automatically as they sync (embed-on-write), so coverage builds forward on its own. Only **active-leaf** branches are embedded — at most one active leaf per session (maintained by sync/import), not its abandoned forks/retries. The flag isn't DB-enforced, but sync/import marks exactly one branch `is_active=1` per session. The search path only ever returns active leaves, so embedding inactive forks would just produce vectors that can never surface.
 
 ### Optional: seed historical conversations
 
@@ -71,7 +71,7 @@ These are included in the package dependencies. If onnxruntime or tokenizers fai
 ### Degradation
 
 Semantic fusion is automatically disabled when:
-- The model snapshot is not present (`~/.cache/huggingface/hub/models--gpahal--bge-m3-onnx-int8/`)
+- No valid model snapshot is found under `~/.cache/huggingface/hub/models--gpahal--bge-m3-onnx-int8/snapshots/`
 - `onnxruntime` or `tokenizers` cannot be imported
 - `sqlite-vec` cannot be loaded on the connection (e.g. Python built without loadable extensions)
 
