@@ -613,6 +613,25 @@ class TestDegradation:
         assert called == [], "embed_text must not be called with keyword_only=True"
         assert len(results) >= 2
 
+    def test_vec_table_missing_falls_back(self, search_db):
+        """FR#3: model_available=True but branch_vec absent → OperationalError → keyword results."""
+        fts_level = detect_fts_support(search_db)
+        if fts_level not in ("fts5", "fts4"):
+            pytest.skip("FTS not available")
+
+        # search_db has no branch_vec table; model says available.
+        # search_sessions probes branch_vec before embedding, gets OperationalError,
+        # and falls back to the keyword path.
+        with patch(
+            "claude_memory.search_conversations.model_available", return_value=True
+        ):
+            results = search_sessions(search_db, "database", fts_level, max_results=10)
+
+        assert isinstance(results, list)
+        assert len(results) >= 1
+        uuids = {r["uuid"] for r in results}
+        assert "sess-alpha-2" in uuids
+
 
 # ---------------------------------------------------------------------------
 # FR#11 / AC#9 — stale-version branch_vec rows excluded from vector candidates

@@ -14,6 +14,8 @@ description: >
 
 Two scripts retrieve data. For full option catalogs, load `references/tool-reference.md`.
 
+Semantic recall is active: `cm-search-conversations` fuses keyword ranking with bge-m3 vector similarity by default. No behavior change required — the skill uses the same commands as before.
+
 **recent_chats.py** — retrieve recent sessions:
 ```bash
 cm-recent-chats --n 3

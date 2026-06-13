@@ -28,6 +28,49 @@ To skip the walkthrough and use recommended defaults immediately:
 cm-write-config --defaults
 ```
 
+## Semantic search
+
+Search results are fused from two signals: keyword full-text search (FTS5 → FTS4 → LIKE fallback) and vector similarity from a locally-running embedding model. The two ranked lists are merged with Reciprocal Rank Fusion (RRF), so results that rank well in both signals appear first.
+
+The embedding model is [bge-m3 (int8-quantized ONNX)](https://huggingface.co/gpahal/bge-m3-onnx-int8), running entirely on your machine via onnxruntime. No data leaves your machine.
+
+### One-time backfill
+
+After installing, run the backfill once to embed your existing conversations:
+
+```bash
+cm-backfill-embeddings
+```
+
+This takes roughly 20 minutes for a large history (~10k branches). Progress is printed to stdout. Subsequent runs are fast — only unembedded branches are processed.
+
+### Flags
+
+| Flag | Effect |
+|------|--------|
+| `--keyword-only` | Skip the embedding step entirely, use keyword search only |
+| `--status` | Print diagnostic info (vec extension loaded, model path, embedded vs. total summarized (embeddable) branch count) and exit 0 |
+
+### Runtime deps
+
+The semantic search path requires four extra packages beyond the base install:
+
+- `sqlite-vec` — SQLite extension for vector KNN queries
+- `onnxruntime` — runs the ONNX embedding model
+- `tokenizers` — tokenizes text before embedding
+- `numpy` — vector math (normalization)
+
+These are included in the package dependencies. If onnxruntime or tokenizers fail to import (e.g. ABI mismatch on an unusual platform), search falls back silently to keyword-only mode.
+
+### Degradation
+
+Semantic fusion is automatically disabled when:
+- The model snapshot is not present (`~/.cache/huggingface/hub/models--gpahal--bge-m3-onnx-int8/`)
+- `onnxruntime` or `tokenizers` cannot be imported
+- `sqlite-vec` cannot be loaded on the connection (e.g. Python built without loadable extensions)
+
+In all cases, search falls back to keyword-only and returns results normally. Use `cm-search-conversations --status` to check which path is active.
+
 ## Entry points
 
 ### Hooks (run automatically — don't call these manually)
@@ -49,6 +92,7 @@ These are wired into `settings.json` and fire on their respective Claude Code ev
 | `cm-sync-current` | Syncs a single session file to the DB. Called by `cm-memory-sync` with the session ID from stdin |
 | `cm-import-conversations` | Full import of all JSONL files in `~/.claude/projects/`. Skips files that haven't changed since last import (file hash check). Run on first install and whenever new sessions need backfilling |
 | `cm-backfill-summaries` | Generates context summaries for any DB branches that don't have one yet. Runs in the background after `cm-memory-setup` |
+| `cm-backfill-embeddings` | Embeds all un-embedded branches using bge-m3 (int8 ONNX). Run once after first install; subsequent runs skip already-embedded branches |
 | `cm-write-config` | Writes `~/.claude-memory/config.json`. Called by Claude during onboarding to persist your settings choices. You can also call it directly — run `cm-write-config --help` for flags |
 
 ### Skill CLIs (called from skill files — can also be used directly)
@@ -58,7 +102,7 @@ These are the entry points that the `cm-*` skills invoke. You can run them from 
 | Entry point | What it does |
 |---|---|
 | `cm-recent-chats` | Prints recent sessions from the DB in markdown (default) or JSON. Used by `/cm-recall-conversations` |
-| `cm-search-conversations` | Full-text search across all sessions (FTS5 → FTS4 → LIKE fallback). Used by `/cm-recall-conversations` |
+| `cm-search-conversations` | Searches sessions by keyword fused with vector similarity (FTS5 → FTS4 → LIKE fallback, RRF-fused with bge-m3 embeddings when available). Used by `/cm-recall-conversations` |
 | `cm-ingest-token-data` | Parses JSONL files for token usage analytics — cost, cache hits, model mix, skill/agent/hook patterns. Populates analytics tables and builds `~/.claude-memory/dashboard.html`. Used by `/cm-get-token-insights` |
 
 ## Skills
@@ -75,10 +119,12 @@ Session ends
   └─ cm-memory-sync (Stop hook)
        └─ cm-sync-current (background)
             └─ writes to ~/.claude-memory/conversations.db
+            └─ embeds branch via bge-m3 if model available (drops silently on failure)
 
 Session starts
   └─ cm-memory-setup (SessionStart)
   │    └─ cm-import-conversations (background, first run / new files)
+  │         └─ embeds each new branch via bge-m3 if model available
   │    └─ cm-backfill-summaries (background, if summaries missing)
   ├─ cm-onboarding (SessionStart, startup only — one-time)
   └─ cm-memory-context (SessionStart, startup + clear)
@@ -106,6 +152,7 @@ Session starts
 - `messages` — all messages, stored once per session regardless of branch
 - `branch_messages` — join table linking messages to branches
 - `import_log` — tracks which JSONL files have been imported and their hashes
+- `branch_vec` — vec0 virtual table (sqlite-vec) storing 1024-dim bge-m3 embeddings for each branch, used for KNN search
 - `token_snapshots`, `turns`, `turn_tool_calls`, `session_metrics` — analytics tables populated by `cm-ingest-token-data`
 
 ## Running tests

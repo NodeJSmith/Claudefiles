@@ -1,7 +1,7 @@
 ---
 task_id: "T06"
 title: "Integration verification, docs, and semantic-recall evidence"
-status: "planned"
+status: "done"
 depends_on: ["T03", "T04", "T05"]
 implements: ["FR#3", "AC#1", "AC#7", "AC#8"]
 ---
