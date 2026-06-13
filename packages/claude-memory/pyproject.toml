@@ -24,6 +24,7 @@ cm-clear-handoff         = "claude_memory.hooks.clear_handoff:main"
 # Internal helpers (called as subprocesses by hooks above)
 cm-sync-current          = "claude_memory.hooks.sync_current:main"
 cm-backfill-summaries    = "claude_memory.hooks.backfill_summaries:main"
+cm-backfill-embeddings   = "claude_memory.hooks.backfill_embeddings:main"
 cm-import-conversations  = "claude_memory.hooks.import_conversations:main"
 cm-write-config          = "claude_memory.hooks.write_config:main"
 # Skill CLI tools (called from SKILL.md files)

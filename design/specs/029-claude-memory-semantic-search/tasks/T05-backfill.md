@@ -1,7 +1,7 @@
 ---
 task_id: "T05"
 title: "Resumable embedding backfill + spawn gate"
-status: "planned"
+status: "done"
 depends_on: ["T01", "T02"]
 implements: ["FR#6", "FR#7", "FR#8", "FR#9", "FR#14", "AC#3", "AC#4", "AC#12"]
 ---

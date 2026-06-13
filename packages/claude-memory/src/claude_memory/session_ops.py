@@ -28,8 +28,8 @@ from claude_memory.content import (
     is_tool_result,
     parse_origin,
 )
-from claude_memory.db import upsert_branch_vec
-from claude_memory.embeddings import EMBEDDING_MODEL, EMBEDDING_VERSION, embed_text
+from claude_memory.db import write_branch_embedding
+from claude_memory.embeddings import embed_text
 from claude_memory.formatting import normalize_project_key
 from claude_memory.parsing import (
     build_aggregated_content,
@@ -359,16 +359,7 @@ def sync_session(
         if summary_md:
             try:
                 vec = embed_text(summary_md)
-                upsert_branch_vec(cursor, branch_db_id, vec)
-                # Version columns updated LAST — only after the vec upsert succeeds.
-                cursor.execute(
-                    """
-                    UPDATE branches
-                    SET embedding_version = ?, embedding_model = ?, summary_version_at_embed = ?
-                    WHERE id = ?
-                    """,
-                    (EMBEDDING_VERSION, EMBEDDING_MODEL, SUMMARY_VERSION, branch_db_id),
-                )
+                write_branch_embedding(cursor, branch_db_id, vec, SUMMARY_VERSION)
             except Exception:
                 pass  # Don't fail sync/import on embedding errors
 

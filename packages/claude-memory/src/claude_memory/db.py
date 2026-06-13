@@ -13,6 +13,7 @@ from pathlib import Path
 import sqlite_vec
 
 from claude_memory.content import parse_origin
+from claude_memory.embeddings import EMBEDDING_MODEL, EMBEDDING_VERSION
 from claude_memory.parsing import build_aggregated_content
 from claude_memory.summarizer import truncate_mid
 
@@ -246,6 +247,17 @@ def upsert_branch_vec(
     cursor.execute(
         "INSERT INTO branch_vec(branch_id, embedding) VALUES (?, ?)",
         (branch_id, sqlite_vec.serialize_float32(embedding)),
+    )
+
+
+def write_branch_embedding(
+    cursor: sqlite3.Cursor, branch_id: int, embedding: list[float], summary_version: int
+) -> None:
+    """Persist a branch's embedding: vector upsert FIRST, version columns LAST (order is load-bearing)."""
+    upsert_branch_vec(cursor, branch_id, embedding)
+    cursor.execute(
+        "UPDATE branches SET embedding_version = ?, embedding_model = ?, summary_version_at_embed = ? WHERE id = ?",
+        (EMBEDDING_VERSION, EMBEDDING_MODEL, summary_version, branch_id),
     )
 
 
