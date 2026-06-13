@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-06-13
+
+### Added
+
+- `/mine.resume` — after a `/clear` or a stopped session, recover the *prior* session's intent from its transcript tail: your last instruction plus any `AskUserQuestion` you left unanswered. User-invoked only, backed by a new `cm-session-tail` tool. With the Memory bundle, the SessionStart hook also auto-warns when the previous session ended on an unanswered decision, so it surfaces at startup unprompted. (#376)
+
 ## 2026-06-12
 
 ### Added

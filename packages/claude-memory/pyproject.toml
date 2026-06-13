@@ -25,6 +25,7 @@ cm-write-config          = "claude_memory.hooks.write_config:main"
 cm-recent-chats          = "claude_memory.recent_chats:main"
 cm-search-conversations  = "claude_memory.search_conversations:main"
 cm-ingest-token-data     = "claude_memory.token_dashboard:main"
+cm-session-tail          = "claude_memory.session_tail:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
