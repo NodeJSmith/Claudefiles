@@ -10,6 +10,8 @@ import time
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+import sqlite_vec
+
 from claude_memory.content import parse_origin
 from claude_memory.parsing import build_aggregated_content
 from claude_memory.summarizer import truncate_mid
@@ -216,6 +218,44 @@ def detect_fts_support(conn: sqlite3.Connection) -> str | None:
     return None
 
 
+def vec_available(conn: sqlite3.Connection) -> bool:
+    """Return True iff the sqlite-vec extension can be loaded on this connection.
+
+    On success, disables the SQL load_extension() surface after loading so the
+    vec0 module stays registered (queryable) but `load_extension()` from SQL is
+    no longer callable — closes a latent injection surface.
+
+    Catches broadly (except Exception, NOT a narrow sqlite3.*) because
+    enable_load_extension raises AttributeError on Python builds compiled
+    without loadable-extension support — not a sqlite3.OperationalError.
+    """
+    try:
+        conn.enable_load_extension(True)
+        sqlite_vec.load(conn)
+        conn.enable_load_extension(False)
+        return True
+    except Exception:
+        return False
+
+
+def _ensure_vec_schema(conn: sqlite3.Connection) -> None:
+    """Create the branch_vec virtual table and orphan-cleanup trigger.
+
+    Caller is responsible for loading the sqlite-vec extension before calling
+    this function (via vec_available or equivalent). Does not load the
+    extension itself and does not commit — the caller manages the transaction.
+    """
+    conn.execute(
+        "CREATE VIRTUAL TABLE IF NOT EXISTS branch_vec"
+        " USING vec0(branch_id INTEGER PRIMARY KEY, embedding float[1024])"
+    )
+    conn.execute(
+        "CREATE TRIGGER IF NOT EXISTS branches_vec_ad"
+        " AFTER DELETE ON branches"
+        " BEGIN DELETE FROM branch_vec WHERE branch_id = OLD.id; END"
+    )
+
+
 def migrate_db(conn: sqlite3.Connection) -> bool:
     """
     Migrate database to v3 schema (messages-once + branch index).
@@ -389,10 +429,28 @@ def _migrate_columns(conn: sqlite3.Connection) -> None:
         cursor.execute(
             "ALTER TABLE branches ADD COLUMN summary_version INTEGER DEFAULT 0"
         )
+    if "embedding_version" not in branch_cols:
+        cursor.execute(
+            "ALTER TABLE branches ADD COLUMN embedding_version INTEGER DEFAULT 0"
+        )
+    if "embedding_model" not in branch_cols:
+        cursor.execute("ALTER TABLE branches ADD COLUMN embedding_model TEXT")
+    if "summary_version_at_embed" not in branch_cols:
+        cursor.execute(
+            "ALTER TABLE branches ADD COLUMN summary_version_at_embed INTEGER"
+        )
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_branches_summary_version ON branches(summary_version)"
     )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_branches_embedding_version ON branches(embedding_version)"
+    )
     conn.commit()
+
+    # Vec schema (branch_vec virtual table + trigger) is only created on
+    # load_vec=True connections in get_db_connection. It is not created here
+    # because this function runs on every connection, including load_vec=False
+    # connections used by recent-chats and token-analytics.
 
     # token_snapshots table (new table, not a column add)
     cursor.execute(
@@ -825,11 +883,22 @@ def _migrate_v6(conn: sqlite3.Connection, cursor: sqlite3.Cursor) -> None:
     conn.commit()
 
 
-def get_db_connection(settings: dict | None = None) -> sqlite3.Connection:
-    """
-    Get database connection, initializing schema and running migrations if needed.
+def get_db_connection(
+    settings: dict | None = None, load_vec: bool = False
+) -> sqlite3.Connection:
+    """Get database connection, initializing schema and running migrations if needed.
+
     Uses settings-based path if provided.
     Sets WAL mode and busy_timeout for concurrent access safety.
+
+    Args:
+        settings: Optional settings dict (for db_path override).
+        load_vec: When True, load the sqlite-vec extension on the returned
+            connection and raise busy_timeout to 30000. Use this for
+            connections that query or write branch_vec (search, write path,
+            backfill). Default False keeps the extension unloaded — cheaper
+            for recent-chats, token analytics, and setup paths that never
+            touch branch_vec.
     """
     db_path = get_db_path(settings)
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -861,8 +930,16 @@ def get_db_connection(settings: dict | None = None) -> sqlite3.Connection:
             conn.executescript(SCHEMA_FTS4)
         conn.commit()
 
-    # Add any missing columns and run versioned data migrations (v1-v6)
+    # Add any missing columns and run versioned data migrations (v1-v6).
     _migrate_columns(conn)
+
+    if load_vec and vec_available(conn):
+        # First and only place the vec extension is loaded for this connection.
+        # _ensure_vec_schema creates branch_vec + trigger, then we commit and
+        # raise busy_timeout for concurrent vec writers.
+        _ensure_vec_schema(conn)
+        conn.commit()
+        conn.execute("PRAGMA busy_timeout = 30000")
 
     return conn
 

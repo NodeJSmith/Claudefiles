@@ -150,7 +150,7 @@ Both the write path and the query path import `embed_text` from here. No second 
 After the existing summary write block, when the summary was computed and the model is available, embed and persist — **in this exact order [C3/F3]:**
 
 1. `embed_text(summary_md)` — this call lazily constructs and caches the shared session on first use; the swallow guard catches model-unavailable here, so the write path does **not** call `model_available()` separately [S6] (no double session construction)
-2. `INSERT OR REPLACE INTO branch_vec(branch_id, embedding)` — **vec0 upsert FIRST**
+2. vec0 upsert — **FIRST**. Note: sqlite-vec 0.1.9 does **not** support `INSERT OR REPLACE` on vec0 (it raises a UNIQUE-constraint error), so the upsert is `DELETE FROM branch_vec WHERE branch_id = ?` then `INSERT INTO branch_vec(branch_id, embedding) VALUES (?, ?)` (serialize via `sqlite_vec.serialize_float32`).
 3. `UPDATE branches SET embedding_version=?, embedding_model=?, summary_version_at_embed=? WHERE id=?` — version columns LAST
 
 The whole block is wrapped in the same swallow-errors guard the summary write uses (FR#5). **Ordering is a load-bearing invariant:** if step 1 or 2 throws and is swallowed, the version columns stay at 0 and the backfill re-embeds. If the version UPDATE ran *before* a failing vec upsert, the row would read "done" with no vector → permanently invisible to KNN (the data-loss inversion). The upsert runs **unconditionally whenever a non-empty summary was computed** (not gated on `summary_version` change), so a re-imported branch with rewritten summary overwrites its stale vector [C/F4]. The connection feeding this path must be opened `load_vec=True`; if vec isn't available the upsert raises and is swallowed (branch stays eligible for backfill).

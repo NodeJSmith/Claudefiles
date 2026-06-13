@@ -1,7 +1,7 @@
 ---
 task_id: "T02"
 title: "Add branch_vec schema, columns, trigger, and guarded vec loading"
-status: "planned"
+status: "done"
 depends_on: ["T01"]
 implements: ["FR#13", "AC#11"]
 ---

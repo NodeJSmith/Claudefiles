@@ -14,7 +14,7 @@ Work in `packages/claude-memory/src/claude_memory/session_ops.py` (and the two s
 
 1. **At the summary-write block (`session_ops.py:339–350`)**, after the existing `UPDATE branches SET context_summary = ?, ... summary_version = 3` succeeds and a non-empty summary was computed, add an embedding block in **this exact order**:
    1. `vec = embed_text(summary_md)` (import from `claude_memory.embeddings`). Do NOT call `model_available()` separately first — `embed_text` constructs/caches the session and the swallow guard below handles unavailability (avoids double session construction).
-   2. `INSERT OR REPLACE INTO branch_vec(branch_id, embedding) VALUES (?, ?)` — **vec0 upsert FIRST** (serialize the float list as sqlite-vec expects).
+   2. **vec0 upsert FIRST** — sqlite-vec 0.1.9 does NOT support `INSERT OR REPLACE` on vec0 (raises a UNIQUE-constraint error, verified in T02). Use DELETE+INSERT: `DELETE FROM branch_vec WHERE branch_id = ?` then `INSERT INTO branch_vec(branch_id, embedding) VALUES (?, ?)`, serializing the float list with `sqlite_vec.serialize_float32(vec)`.
    3. `UPDATE branches SET embedding_version = ?, embedding_model = ?, summary_version_at_embed = ? WHERE id = ?` — version columns **LAST**, using `EMBEDDING_VERSION`, `EMBEDDING_MODEL`, and the branch's current `summary_version`.
    Wrap the whole block in `try/except Exception: pass` (mirror the summary guard at `:349`). Run the upsert **unconditionally whenever a non-empty summary was computed** (not gated on `summary_version` change), so a re-imported branch with a rewritten summary overwrites its stale vector.
 
