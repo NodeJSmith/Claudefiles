@@ -2,9 +2,11 @@
 # Append a single TSV row to a trail file.
 # Handles timestamping, formula-injection stripping, field sanitization,
 # detail truncation, header row creation, and event vocabulary validation.
+# Named `trail-log`, NOT `log`: zsh has a `log` builtin that shadows PATH
+# executables, so a bare `log` call would silently hit the builtin instead.
 [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && {
   cat << 'EOF'
-Usage: log <trail-file> <phase> <task> <event> <detail>
+Usage: trail-log <trail-file> <phase> <task> <event> <detail>
 
 Append a TSV row to a trail file with auto-generated timestamp.
 
@@ -24,18 +26,18 @@ Behavior:
   - Appends when trail file already exists (safe for resume)
 
 Examples:
-  log /path/to/trail.tsv p2 T01 start "executor launched"
-  log /path/to/trail.tsv p3 - gate "impl review: PASS"
+  trail-log /path/to/trail.tsv p2 T01 start "executor launched"
+  trail-log /path/to/trail.tsv p3 - gate "impl review: PASS"
 EOF
   exit 0
 }
 
 set -euo pipefail
 
-trail_file="${1:?usage: log <trail-file> <phase> <task> <event> <detail>}"
-phase="${2:?usage: log <trail-file> <phase> <task> <event> <detail>}"
-task="${3:?usage: log <trail-file> <phase> <task> <event> <detail>}"
-event="${4:?usage: log <trail-file> <phase> <task> <event> <detail>}"
+trail_file="${1:?usage: trail-log <trail-file> <phase> <task> <event> <detail>}"
+phase="${2:?usage: trail-log <trail-file> <phase> <task> <event> <detail>}"
+task="${3:?usage: trail-log <trail-file> <phase> <task> <event> <detail>}"
+event="${4:?usage: trail-log <trail-file> <phase> <task> <event> <detail>}"
 detail="${5:-}"
 
 # --- formula-injection stripping -------------------------------------------
@@ -66,7 +68,7 @@ validate_event() {
 }
 
 if ! validate_event "$event"; then
-  echo "log: warning: unknown event '$event' (known: start dispatch verdict contested gate retry review fix)" >&2
+  echo "trail-log: warning: unknown event '$event' (known: start dispatch verdict contested gate retry review fix)" >&2
 fi
 
 # --- sanitize control characters -------------------------------------------
