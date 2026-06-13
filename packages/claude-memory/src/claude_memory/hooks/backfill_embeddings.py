@@ -21,6 +21,7 @@ import time
 
 from claude_memory.db import (
     DEFAULT_DB_PATH,
+    branch_vec_queryable,
     get_db_connection,
     load_settings,
     setup_logging,
@@ -135,6 +136,21 @@ def _main(argv: list[str] | None = None):
         return
 
     cursor = conn.cursor()
+
+    # FR#14 ABORT level: vec must be queryable before any selection runs — the
+    # eligibility WHERE references branch_vec, which get_db_connection only
+    # creates when sqlite-vec loaded. Without this guard the COUNT below crashes
+    # with "no such table: branch_vec" instead of exiting cleanly.
+    if not branch_vec_queryable(conn):
+        logger.error(
+            "Backfill embeddings: sqlite-vec unavailable, aborting (no rows marked)"
+        )
+        print(
+            "cm-backfill-embeddings: sqlite-vec unavailable, aborting (no rows marked)",
+            file=sys.stderr,
+        )
+        return
+
     total_updated = 0
     last_batch_ids: list[int] | None = None
 
@@ -150,8 +166,11 @@ def _main(argv: list[str] | None = None):
         if args.limit is not None and total_updated >= args.limit:
             break
 
+        # ORDER BY id keeps batch order deterministic: the no-progress guard
+        # below compares current_ids to last_batch_ids, which is only meaningful
+        # if re-selection returns rows in a stable order.
         cursor.execute(
-            f"SELECT id, context_summary FROM branches {where} LIMIT ?",
+            f"SELECT id, context_summary FROM branches {where} ORDER BY id LIMIT ?",
             (*params, BATCH_SIZE),
         )
         rows = cursor.fetchall()
