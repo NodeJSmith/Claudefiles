@@ -33,6 +33,7 @@ Full component tables for Claudefiles. For context on what each component type d
 | `mine.plan` | Design doc → task files (T01, T02, …) with FR/AC traceability, validation gate, and 10-point traceability review + approve/revise/abandon gate |
 | `mine.prior-art` | Survey how others solve a problem — web-first research for mid-design architectural questions |
 | `mine.research` | Interactive research workflow — gathers user intent, dispatches the researcher agent, presents the brief |
+| `mine.resume` | Pick up a fresh session after `/clear`/stop — reads the prior transcript's tail via `cm-session-tail` to recover the last instruction and surface any unanswered `AskUserQuestion`. The clear/startup hook also auto-warns about unresolved decisions |
 | `mine.review` | Comprehensive branch review — dispatches code-reviewer, integration-reviewer, and wtf-reviewer in parallel, consolidates findings into one prioritized report |
 | `mine.ship` | Commit, push, and create a PR in one step |
 | `mine.tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |

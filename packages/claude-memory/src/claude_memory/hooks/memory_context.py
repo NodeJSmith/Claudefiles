@@ -35,11 +35,39 @@ from claude_memory.formatting import (
     get_project_key,
     normalize_cwd,
 )
+from claude_memory.session_tail import (
+    find_pending_question,
+    format_pending_block,
+    load_tail_entries,
+    transcript_for_uuid,
+)
 from claude_memory.summarizer import (
     build_exchange_pairs,
     detect_disposition,
     render_context_summary,
 )
+
+
+def _pending_question_block(sessions: list[dict], cwd: str) -> str:
+    """Markdown warning if the most recent prior session ended on an unanswered
+    AskUserQuestion, else "". ``sessions`` is select_sessions output (most-recent
+    first, current session already excluded), so sessions[0] is the prior session.
+    Wrapped defensively — this must never break the SessionStart hook, so any
+    failure degrades to no warning.
+    """
+    try:
+        uuid = sessions[0].get("uuid")
+        if not uuid:
+            return ""
+        path = transcript_for_uuid(uuid, cwd=cwd)
+        if not path:
+            return ""
+        payload = find_pending_question(load_tail_entries(path))
+        if not payload:
+            return ""
+        return format_pending_block(payload, for_injection=True) + "\n\n"
+    except Exception:
+        return ""
 
 
 def _row_to_entry(row) -> dict:
@@ -518,9 +546,12 @@ def main():
             "`recall-conversations` skill rather than guessing."
         )
 
-        # Wrap in directive + origin block + session content
+        # Wrap in directive + origin block + (optional pending-question warning)
+        # + session content. The warning goes high: an unresolved decision is the
+        # highest-signal thing to recover, and earlier tokens get more attention.
         origin = build_origin_block(source, sessions)
-        full_context = f"{directive}\n\n{origin}\n\n{context}"
+        pending = _pending_question_block(sessions, cwd)
+        full_context = f"{directive}\n\n{origin}\n\n{pending}{context}"
 
         output = {
             "hookSpecificOutput": {

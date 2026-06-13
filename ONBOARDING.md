@@ -140,6 +140,8 @@ When you have all bundles installed, the system covers the full development life
 /mine.end-of-day            → capture session state as a handoff file
 ```
 
+After a `/clear` (e.g. to drop a huge uncached context the morning after an orchestration), `/mine.resume` reads the *prior* session's transcript tail to recover your last instruction and any decision you left unanswered — no hand-written handoff needed. With the Memory bundle, the SessionStart hook also auto-warns when the previous session ended on an unanswered question.
+
 **Worktree-based development:**
 
 ```bash
