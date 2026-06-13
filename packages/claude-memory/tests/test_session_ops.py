@@ -541,32 +541,41 @@ class TestEmbedOnWriteSuccess:
         assert result >= 0
 
         cursor = conn.cursor()
-        # Every branch that got a summary should have a branch_vec row
+        # Only active leaves are embedded — the query path filters is_active=1,
+        # so an inactive fork's vector could never be returned.
         cursor.execute(
-            "SELECT b.id, b.embedding_version, b.embedding_model, b.summary_version_at_embed"
+            "SELECT b.id, b.embedding_version, b.embedding_model,"
+            " b.summary_version_at_embed, b.is_active"
             " FROM branches b"
             " WHERE b.context_summary IS NOT NULL AND b.context_summary != ''"
         )
         rows = cursor.fetchall()
         assert rows, "should have at least one summarized branch"
 
-        for branch_id, ev, em, svae in rows:
-            assert ev == EMBEDDING_VERSION, (
-                f"branch {branch_id}: embedding_version={ev}, want {EMBEDDING_VERSION}"
-            )
-            assert em == EMBEDDING_MODEL, (
-                f"branch {branch_id}: embedding_model={em!r}, want {EMBEDDING_MODEL!r}"
-            )
-            assert svae == 3, (
-                f"branch {branch_id}: summary_version_at_embed={svae}, want 3"
-            )
-
+        active_embedded = False
+        for branch_id, ev, em, svae, is_active in rows:
             cursor.execute(
                 "SELECT COUNT(*) FROM branch_vec WHERE branch_id = ?", (branch_id,)
             )
-            count = cursor.fetchone()[0]
-            assert count == 1, (
-                f"branch {branch_id}: expected 1 branch_vec row, got {count}"
-            )
+            vec_count = cursor.fetchone()[0]
+            if is_active:
+                active_embedded = True
+                assert ev == EMBEDDING_VERSION, (
+                    f"branch {branch_id}: embedding_version={ev}, want {EMBEDDING_VERSION}"
+                )
+                assert em == EMBEDDING_MODEL, (
+                    f"branch {branch_id}: embedding_model={em!r}, want {EMBEDDING_MODEL!r}"
+                )
+                assert svae == 3, (
+                    f"branch {branch_id}: summary_version_at_embed={svae}, want 3"
+                )
+                assert vec_count == 1, (
+                    f"active branch {branch_id}: expected 1 branch_vec row, got {vec_count}"
+                )
+            else:
+                assert vec_count == 0, (
+                    f"inactive branch {branch_id}: should have no vector, got {vec_count}"
+                )
 
+        assert active_embedded, "expected at least one embedded active leaf"
         conn.close()

@@ -34,15 +34,21 @@ Search results are fused from two signals: keyword full-text search (FTS5 → FT
 
 The embedding model is [bge-m3 (int8-quantized ONNX)](https://huggingface.co/gpahal/bge-m3-onnx-int8), running entirely on your machine via onnxruntime. No data leaves your machine.
 
-### One-time backfill
+### Coverage
 
-After installing, run the backfill once to embed your existing conversations:
+New sessions are embedded automatically as they sync (embed-on-write), so coverage builds forward on its own. Only **active-leaf** branches are embedded — the one live conversation per session, not its abandoned forks/retries. The search path only ever returns active leaves, so embedding inactive forks would just produce vectors that can never surface.
+
+### Optional: seed historical conversations
+
+Embedding is bge-m3 inference on CPU (~4–5s per summary), so seeding a large history is genuinely CPU-heavy (~2.4 CPU-hours for ~2k active leaves at one thread). It is therefore **opt-in** — it is *not* auto-spawned on SessionStart — so it never fires unbidden. Run it yourself when you want to seed:
 
 ```bash
-cm-backfill-embeddings
+cm-backfill-embeddings              # all active leaves, all history
+cm-backfill-embeddings --days 14    # only the last 14 days
+cm-backfill-embeddings --limit 500  # cap this run at 500 branches
 ```
 
-This takes roughly 20 minutes for a large history (~10k branches). Progress is printed to stderr (one line per batch). Subsequent runs are fast — only unembedded branches are processed.
+It runs at low scheduling priority (`nice`) and a single inference thread by default so it yields to interactive work. Tune the thread count with `CLAUDE_MEMORY_EMBED_THREADS` (e.g. `=4` on an idle workstation to finish faster). Progress prints to stderr (one line per batch); the run is resumable — re-running skips already-embedded branches.
 
 ### Flags
 
@@ -92,7 +98,6 @@ These are wired into `settings.json` and fire on their respective Claude Code ev
 | `cm-sync-current` | Syncs a single session file to the DB. Called by `cm-memory-sync` with the session ID from stdin |
 | `cm-import-conversations` | Full import of all JSONL files in `~/.claude/projects/`. Skips files that haven't changed since last import (file hash check). Run on first install and whenever new sessions need backfilling |
 | `cm-backfill-summaries` | Generates context summaries for any DB branches that don't have one yet. Runs in the background after `cm-memory-setup` |
-| `cm-backfill-embeddings` | Embeds all un-embedded branches using bge-m3 (int8 ONNX). Run once after first install; subsequent runs skip already-embedded branches |
 | `cm-write-config` | Writes `~/.claude-memory/config.json`. Called by Claude during onboarding to persist your settings choices. You can also call it directly — run `cm-write-config --help` for flags |
 
 ### Skill CLIs (called from skill files — can also be used directly)
@@ -103,6 +108,7 @@ These are the entry points that the `cm-*` skills invoke. You can run them from 
 |---|---|
 | `cm-recent-chats` | Prints recent sessions from the DB in markdown (default) or JSON. Used by `/cm-recall-conversations` |
 | `cm-search-conversations` | Searches sessions by keyword fused with vector similarity (FTS5 → FTS4 → LIKE fallback, RRF-fused with bge-m3 embeddings when available). Used by `/cm-recall-conversations` |
+| `cm-backfill-embeddings` | Opt-in seeding of embeddings for historical active-leaf branches (bge-m3 int8 ONNX). Not auto-spawned. Supports `--days N` / `--limit N`; throttled via `nice` + `CLAUDE_MEMORY_EMBED_THREADS`. Resumable |
 | `cm-ingest-token-data` | Parses JSONL files for token usage analytics — cost, cache hits, model mix, skill/agent/hook patterns. Populates analytics tables and builds `~/.claude-memory/dashboard.html`. Used by `/cm-get-token-insights` |
 
 ## Skills
@@ -119,13 +125,14 @@ Session ends
   └─ cm-memory-sync (Stop hook)
        └─ cm-sync-current (background)
             └─ writes to ~/.claude-memory/conversations.db
-            └─ embeds branch via bge-m3 if model available (drops silently on failure)
+            └─ embeds the active leaf via bge-m3 if model available (drops silently on failure)
 
 Session starts
   └─ cm-memory-setup (SessionStart)
   │    └─ cm-import-conversations (background, first run / new files)
-  │         └─ embeds each new branch via bge-m3 if model available
+  │         └─ embeds each new active leaf via bge-m3 if model available
   │    └─ cm-backfill-summaries (background, if summaries missing)
+  │    └─ (embedding backfill is NOT auto-spawned — opt-in via cm-backfill-embeddings)
   ├─ cm-onboarding (SessionStart, startup only — one-time)
   └─ cm-memory-context (SessionStart, startup + clear)
        └─ injects last session summary into Claude's context

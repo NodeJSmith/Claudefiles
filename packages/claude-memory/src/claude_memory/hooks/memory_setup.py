@@ -11,8 +11,6 @@ import time
 from pathlib import Path
 
 from claude_memory.db import DEFAULT_DB_PATH, get_db_connection, load_settings
-from claude_memory.embeddings import EMBEDDING_MODEL, EMBEDDING_VERSION
-from claude_memory.summarizer import SUMMARY_VERSION
 
 # PID files live in the same directory as the DB
 _PID_DIR = DEFAULT_DB_PATH.parent
@@ -91,51 +89,6 @@ def _needs_reimport(settings: dict | None = None) -> bool:
         return False
 
 
-def _needs_embedding_backfill(settings: dict | None = None) -> bool:
-    """Check if any branches need embedding backfill. Returns False on any error.
-
-    Queries only the branches table — never branch_vec — so it is safe to call
-    on connections without the sqlite-vec extension loaded.
-
-    ACCEPTED FALSE-NEGATIVE: this predicate intentionally omits the
-    ``NOT EXISTS (SELECT 1 FROM branch_vec WHERE branch_id = branches.id)``
-    heal clause that the backfill's own selection query uses. The heal clause
-    requires the vec extension, which may not be loadable at SessionStart time.
-    A branch whose version columns say "done" but whose branch_vec row is
-    missing will therefore NOT trigger a spawn via this gate. It gets healed on
-    the next run triggered by any other eligible branch. This is a deliberate
-    trade-off — safe startup vs. eager healing — not an oversight.
-    """
-    try:
-        conn = get_db_connection(settings)
-        cursor = conn.cursor()
-        cursor.execute("PRAGMA table_info(branches)")
-        cols = {row[1] for row in cursor.fetchall()}
-        if "embedding_version" not in cols:
-            conn.close()
-            return False
-        cursor.execute(
-            """
-            SELECT COUNT(*) FROM branches
-            WHERE context_summary IS NOT NULL
-              AND context_summary != ''
-              AND embedding_version IS NOT -1
-              AND (
-                embedding_version IS NULL
-                OR embedding_version < ?
-                OR embedding_model IS NOT ?
-                OR summary_version_at_embed IS NOT ?
-              )
-            """,
-            (EMBEDDING_VERSION, EMBEDDING_MODEL, SUMMARY_VERSION),
-        )
-        count = cursor.fetchone()[0]
-        conn.close()
-        return count > 0
-    except Exception:
-        return False
-
-
 def _needs_backfill(settings: dict | None = None) -> bool:
     """Check if any branches need summary backfill. Returns False on any error."""
     try:
@@ -193,8 +146,10 @@ def main():
         if _needs_backfill(settings):
             _spawn_background("cm-backfill-summaries")
 
-        if _needs_embedding_backfill(settings):
-            _spawn_background("cm-backfill-embeddings")
+        # Note: embedding backfill is NOT auto-spawned. Embeddings are filled
+        # forward by embed-on-write (active leaves only); historical seeding is
+        # opt-in via `cm-backfill-embeddings [--days N] [--limit N]` so the
+        # ~CPU-hours of bge-m3 inference never fire unbidden (machines.md).
     except Exception:
         pass
 

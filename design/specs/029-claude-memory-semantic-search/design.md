@@ -5,6 +5,22 @@
 **Scope-mode:** hold
 **Research:** /tmp/claude-memory-semantic-search-brief.md (authoritative design seed)
 
+> **Post-implementation revision (2026-06-13).** Live validation against the real
+> 748 MB DB overturned two assumptions in this design:
+> 1. **Cost.** bge-m3 int8 inference is ~4–5s/summary on CPU — the "one-time
+>    backfill ≈ 20 min" estimate was off by ~50×. Embedding all ~12.8k branches
+>    is ~16 CPU-hours.
+> 2. **Scope.** The query path only ever returns `is_active = 1` leaves, so
+>    embedding the ~11.5k inactive forks (85% of branches) produced vectors that
+>    could never be returned. Embedding is now scoped to active leaves (~1.9k),
+>    cutting the work ~6.6× with no recall change.
+>
+> Consequently: the historical backfill is **opt-in** (not auto-spawned on
+> SessionStart — see "A one-time backfill…" goal below, now superseded), gains
+> `--days`/`--limit`, and runs throttled (`nice` + `CLAUDE_MEMORY_EMBED_THREADS`,
+> default 1 thread). embed-on-write (active leaves only) provides forward
+> coverage automatically.
+
 ## Problem
 
 `claude-memory` recall is keyword-only: `cm-search-conversations` ranks branches with SQLite FTS5/BM25 (FTS4 MATCH or `LIKE` fallback) over `branches.aggregated_content`. When the user can't recall the exact wording stored in a conversation, recall returns nothing — verified: the query "windows terminal settings sync" returns zero rows despite matching history existing under different phrasing. This is the tool the user actually reaches for (~36× in the past week, via `/cm-recall-conversations` and the `cm-search-conversations` / `cm-recent-chats` CLIs), so the keyword blind spot bites often and silently.
@@ -62,7 +78,7 @@ Explicitly out of scope for this Phase-1 change (the brief defers these):
 - **FR#3** When the vec extension is unavailable, the model is missing, or embedding fails, search returns keyword-only results without raising an error.
 - **FR#4** When a branch's `context_summary` is written via the normal import/sync path, its embedding is computed and upserted into the vector table within the same background operation, with the same model and version used by the query path.
 - **FR#5** An embedding write failure does not fail the surrounding import/sync (mirrors the existing summary-write error swallow).
-- **FR#6** `cm-backfill-embeddings` embeds every branch that has a non-empty `context_summary` and no current-version embedding, processing in batches and committing per batch.
+- **FR#6** `cm-backfill-embeddings` embeds every **active-leaf** branch (`is_active = 1`; see revision note) that has a non-empty `context_summary` and no current-version embedding, processing in batches and committing per batch.
 - **FR#7** `cm-backfill-embeddings` is resumable: re-running after an interruption processes only branches still missing a current-version embedding, and branches whose embedding repeatedly errors are marked so they are not retried indefinitely.
 - **FR#8** `cm-backfill-embeddings` reports progress (count processed / remaining) as it runs.
 - **FR#9** A model/version change (different `embedding_model`, bumped `embedding_version`, or a changed `summary_version` since embed time) causes affected branches to be re-embedded on the next backfill, without manual DB surgery.
@@ -90,7 +106,7 @@ Explicitly out of scope for this Phase-1 change (the brief defers these):
 
 - **AC#1** (manual-only — requires the real ~12.8k-row DB with backfill complete; the implementer captures it). The known failing query — the *concept* of "windows terminal settings sync" phrased with different words than the stored summary — returns the correct session (the one whose summary covers terminal-settings sync, identified by the tester reading the result) in the top results with fusion enabled, and returns nothing/wrong-rank with `--keyword-only`. Capture before/after `cm-search-conversations` output and paste it into the PR description as evidence. (maps FR#1, FR#2)
 - **AC#2** With the vec extension forced unavailable, `cm-search-conversations` returns keyword-only results and exits 0 (no traceback). (maps FR#3)
-- **AC#3** After `cm-backfill-embeddings` completes, the vector table row count equals the count of branches with non-empty `context_summary` and current `embedding_version` (minus any rows marked errored), verified by a SQL count. (maps FR#6, FR#7)
+- **AC#3** After `cm-backfill-embeddings` completes, the vector table row count equals the count of **active-leaf** branches (`is_active = 1`) with non-empty `context_summary` and current `embedding_version` (minus any rows marked errored), verified by a SQL count. (maps FR#6, FR#7)
 - **AC#4** Interrupting `cm-backfill-embeddings` mid-run and re-running it completes the remaining branches and reaches the same final row count, without re-embedding already-done branches. (maps FR#7)
 - **AC#5** A branch summary written through the normal sync path has a corresponding current-version embedding row immediately afterward. (maps FR#4)
 - **AC#6** The query path and write path import and call the same embedding function; a test asserts identical vectors for identical input text across both entry points. (maps FR#10)

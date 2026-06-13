@@ -5,13 +5,33 @@ from pathlib import Path
 import pytest
 
 from claude_memory.embeddings import (
+    DEFAULT_EMBED_THREADS,
     EMBEDDING_DIM,
     EMBEDDING_MODEL,
     EMBEDDING_VERSION,
     embed_text,
     embed_texts,
     model_available,
+    resolve_embed_threads,
 )
+
+
+class TestResolveEmbedThreads:
+    def test_default_when_unset(self, monkeypatch):
+        monkeypatch.delenv("CLAUDE_MEMORY_EMBED_THREADS", raising=False)
+        assert resolve_embed_threads() == DEFAULT_EMBED_THREADS
+
+    def test_env_override(self, monkeypatch):
+        monkeypatch.setenv("CLAUDE_MEMORY_EMBED_THREADS", "4")
+        assert resolve_embed_threads() == 4
+
+    def test_malformed_falls_back(self, monkeypatch):
+        monkeypatch.setenv("CLAUDE_MEMORY_EMBED_THREADS", "garbage")
+        assert resolve_embed_threads() == DEFAULT_EMBED_THREADS
+
+    def test_floor_at_one(self, monkeypatch):
+        monkeypatch.setenv("CLAUDE_MEMORY_EMBED_THREADS", "0")
+        assert resolve_embed_threads() == 1
 
 
 class TestModelAvailable:

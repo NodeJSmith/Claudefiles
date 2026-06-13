@@ -353,10 +353,12 @@ def sync_session(
             summary_md = None  # Don't fail sync/import on summary errors
 
         # Embed-on-write: compute and upsert vector after summary succeeds.
+        # Only active leaves are embedded — the query path filters is_active=1,
+        # so a vector on an inactive fork could never be returned.
         # Order is load-bearing: vec0 upsert FIRST, version columns LAST.
         # If the upsert raises and is swallowed, version columns stay at 0
         # so the branch remains eligible for backfill (no "version done, no vector").
-        if summary_md:
+        if summary_md and is_active:
             try:
                 vec = embed_text(summary_md)
                 write_branch_embedding(cursor, branch_db_id, vec, SUMMARY_VERSION)

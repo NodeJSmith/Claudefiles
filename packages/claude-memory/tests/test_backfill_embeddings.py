@@ -6,7 +6,8 @@ FR#7/AC#4: resume processes only remaining branches; heal clause re-embeds
 FR#8:      per-batch progress logged.
 FR#9:      bumping EMBEDDING_VERSION / model / summary_version makes rows re-appear.
 FR#14/AC#12: model-load failure marks nothing; one bad summary marks exactly that row.
-Spawn gate: _needs_embedding_backfill is safe on pre-migration and no-extension DBs.
+Scope: only active leaves (is_active=1) are embedded — inactive forks are skipped.
+Opt-in: --days bounds by recency, --limit caps the run.
 """
 
 import sqlite3
@@ -15,13 +16,8 @@ from unittest.mock import patch
 import pytest
 import sqlite_vec
 
-from claude_memory.db import (
-    SCHEMA,
-    _migrate_columns,
-)
 from claude_memory.embeddings import EMBEDDING_MODEL, EMBEDDING_VERSION
 from claude_memory.hooks.backfill_embeddings import BATCH_SIZE, _main
-from claude_memory.hooks.memory_setup import _needs_embedding_backfill
 from claude_memory.summarizer import SUMMARY_VERSION
 from conftest import make_vec_conn
 
@@ -54,9 +50,16 @@ _VEC_SKIP = pytest.mark.skipif(
 
 
 def _insert_branch(
-    conn: sqlite3.Connection, summary: str | None = "hello world"
+    conn: sqlite3.Connection,
+    summary: str | None = "hello world",
+    is_active: int = 1,
+    ended_at: str | None = None,
 ) -> int:
-    """Insert a minimal branch row and return its id."""
+    """Insert a minimal branch row and return its id.
+
+    Defaults to an active leaf (is_active=1) since only active leaves are
+    eligible for embedding. ended_at lets recency (--days) tests place a row.
+    """
     conn.execute(
         "INSERT INTO sessions(uuid, project_id) VALUES (?, NULL)",
         (
@@ -66,10 +69,18 @@ def _insert_branch(
     session_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
     conn.execute(
         """
-        INSERT INTO branches(session_id, leaf_uuid, context_summary, summary_version)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO branches(session_id, leaf_uuid, context_summary, summary_version,
+                             is_active, ended_at)
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (session_id, f"leaf-{session_id}", summary, SUMMARY_VERSION),
+        (
+            session_id,
+            f"leaf-{session_id}",
+            summary,
+            SUMMARY_VERSION,
+            is_active,
+            ended_at,
+        ),
     )
     branch_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
     conn.commit()
@@ -113,8 +124,11 @@ class _NoCloseConn:
         return getattr(self._conn, name)
 
 
-def _run_backfill_with_stub(conn: sqlite3.Connection):
-    """Run _main() with embed_text stubbed out to return _FIXED_VEC, using given conn."""
+def _run_backfill_with_stub(conn: sqlite3.Connection, argv: list[str] | None = None):
+    """Run _main(argv) with embed_text stubbed to _FIXED_VEC, using given conn.
+
+    argv defaults to [] so the run never reads pytest's own sys.argv.
+    """
     with (
         patch(
             "claude_memory.hooks.backfill_embeddings.model_available", return_value=True
@@ -130,7 +144,7 @@ def _run_backfill_with_stub(conn: sqlite3.Connection):
         patch("claude_memory.hooks.backfill_embeddings.load_settings", return_value={}),
         patch("claude_memory.hooks.backfill_embeddings.time.sleep"),
     ):
-        _main()
+        _main(argv if argv is not None else [])
 
 
 # ---------------------------------------------------------------------------
@@ -237,7 +251,7 @@ class TestBackfillResume:
             ),
             patch("claude_memory.hooks.backfill_embeddings.time.sleep"),
         ):
-            _main()
+            _main([])
 
         first_run_calls = call_count[0]
         assert first_run_calls == len(ids)
@@ -262,7 +276,7 @@ class TestBackfillResume:
             ),
             patch("claude_memory.hooks.backfill_embeddings.time.sleep"),
         ):
-            _main()
+            _main([])
 
         assert call_count[0] == 0
 
@@ -446,7 +460,7 @@ class TestBackfillNoProgressGuard:
             ),
             patch("claude_memory.hooks.backfill_embeddings.time.sleep"),
         ):
-            _main()  # must return, not hang
+            _main([])  # must return, not hang
 
         # Row was never actually stamped (write was a no-op), confirming
         # _main() exited via the guard, not via the row becoming done.
@@ -481,7 +495,7 @@ class TestBackfillFailureModes:
                 "claude_memory.hooks.backfill_embeddings.load_settings", return_value={}
             ),
         ):
-            _main()
+            _main([])
 
         # All rows still eligible (embedding_version still NULL or 0, not -1)
         for bid in ids:
@@ -519,7 +533,7 @@ class TestBackfillFailureModes:
             ),
             patch("claude_memory.hooks.backfill_embeddings.time.sleep"),
         ):
-            _main()
+            _main([])
 
         # Bad row marked -1
         assert _branch_embedding_version(conn, bad_id) == -1
@@ -557,7 +571,7 @@ class TestBackfillFailureModes:
             ),
             patch("claude_memory.hooks.backfill_embeddings.time.sleep"),
         ):
-            _main()
+            _main([])
 
         # No rows should be marked -1 — infra failure aborts without marking
         for bid in ids:
@@ -596,203 +610,67 @@ class TestBackfillFailureModes:
             ),
             patch("claude_memory.hooks.backfill_embeddings.time.sleep"),
         ):
-            _main()
+            _main([])
 
         assert call_count[0] == 0
 
 
 # ---------------------------------------------------------------------------
-# Spawn gate: _needs_embedding_backfill
+# Scope: only active leaves are embedded (query path filters is_active=1)
 # ---------------------------------------------------------------------------
 
 
-class TestNeedsEmbeddingBackfill:
-    def test_returns_false_on_no_embedding_version_column(self):
-        """Pre-migration DB (no embedding_version column) → returns False, no raise."""
-        conn = sqlite3.connect(":memory:")
-        conn.executescript(SCHEMA)
-        conn.commit()
-        # Do NOT call _migrate_columns — so embedding_version column is absent
-        # (SCHEMA_CORE does not include embedding_version)
-        settings = {"db_path": ":memory:"}
+@_VEC_SKIP
+class TestBackfillScopeActive:
+    def test_inactive_branch_not_embedded(self):
+        """is_active=0 branches are skipped — a vector on them is never returnable."""
+        conn = make_vec_conn()
+        active = _insert_branch(conn, "active summary", is_active=1)
+        inactive = _insert_branch(conn, "inactive summary", is_active=0)
 
-        # We can't use the real connection because get_db_connection opens its own.
-        # Instead, verify the column is truly absent and that the function handles it.
-        cols = {
-            row[1] for row in conn.execute("PRAGMA table_info(branches)").fetchall()
-        }
-        assert "embedding_version" not in cols
+        _run_backfill_with_stub(conn)
 
-        # Patch get_db_connection to return our pre-migration connection
-        with patch(
-            "claude_memory.hooks.memory_setup.get_db_connection", return_value=conn
-        ):
-            result = _needs_embedding_backfill(settings)
-        assert result is False
+        assert _has_vec(conn, active)
+        assert not _has_vec(conn, inactive)
+        # Untouched: the inactive row keeps version 0, but is_active excludes it.
+        assert _branch_embedding_version(conn, inactive) == 0
+        assert _vec_count(conn) == 1
 
-    def test_returns_false_when_no_eligible_branches(self):
-        """Returns False when all branches already have current embedding."""
-        conn = sqlite3.connect(":memory:")
-        conn.executescript(SCHEMA)
-        conn.commit()
-        _migrate_columns(conn)
 
-        # Insert a branch already at current version
-        conn.execute("INSERT INTO sessions(uuid, project_id) VALUES ('s1', NULL)")
-        sess_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+# ---------------------------------------------------------------------------
+# Opt-in flags: --days bounds recency, --limit caps the run
+# ---------------------------------------------------------------------------
+
+
+@_VEC_SKIP
+class TestBackfillFlags:
+    def test_days_excludes_branches_outside_window(self):
+        """--days N only embeds active leaves ended within the last N days."""
+        conn = make_vec_conn()
+        recent = _insert_branch(conn, "recent")
+        old = _insert_branch(conn, "old")
+        # Set ended_at relative to 'now' so the test is wall-clock independent.
         conn.execute(
-            """
-            INSERT INTO branches(session_id, leaf_uuid, context_summary,
-                                  embedding_version, embedding_model, summary_version_at_embed)
-            VALUES (?, 'leaf1', 'some text', ?, ?, ?)
-            """,
-            (sess_id, EMBEDDING_VERSION, EMBEDDING_MODEL, SUMMARY_VERSION),
+            "UPDATE branches SET ended_at = datetime('now') WHERE id = ?", (recent,)
+        )
+        conn.execute(
+            "UPDATE branches SET ended_at = datetime('now', '-60 days') WHERE id = ?",
+            (old,),
         )
         conn.commit()
 
-        with patch(
-            "claude_memory.hooks.memory_setup.get_db_connection", return_value=conn
-        ):
-            result = _needs_embedding_backfill()
-        assert result is False
+        _run_backfill_with_stub(conn, argv=["--days", "30"])
 
-    def test_returns_true_when_eligible_branches_exist(self):
-        """Returns True when branches with NULL embedding_version exist."""
-        conn = sqlite3.connect(":memory:")
-        conn.executescript(SCHEMA)
-        conn.commit()
-        _migrate_columns(conn)
+        assert _has_vec(conn, recent)
+        assert not _has_vec(conn, old)
+        assert _vec_count(conn) == 1
 
-        conn.execute("INSERT INTO sessions(uuid, project_id) VALUES ('s2', NULL)")
-        sess_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-        conn.execute(
-            """
-            INSERT INTO branches(session_id, leaf_uuid, context_summary, embedding_version)
-            VALUES (?, 'leaf2', 'some text', NULL)
-            """,
-            (sess_id,),
-        )
-        conn.commit()
+    def test_limit_caps_embeds_across_batches(self):
+        """--limit N stops after N branches even though batches are BATCH_SIZE-wide."""
+        conn = make_vec_conn()
+        for i in range(5):
+            _insert_branch(conn, f"summary {i}")
 
-        with patch(
-            "claude_memory.hooks.memory_setup.get_db_connection", return_value=conn
-        ):
-            result = _needs_embedding_backfill()
-        assert result is True
+        _run_backfill_with_stub(conn, argv=["--limit", "2"])
 
-    def test_returns_false_on_exception(self):
-        """Returns False (no raise) when get_db_connection raises."""
-        with patch(
-            "claude_memory.hooks.memory_setup.get_db_connection",
-            side_effect=RuntimeError("DB error"),
-        ):
-            result = _needs_embedding_backfill()
-        assert result is False
-
-    def test_sentinel_rows_excluded(self):
-        """Rows with embedding_version=-1 do not count as needing backfill."""
-        conn = sqlite3.connect(":memory:")
-        conn.executescript(SCHEMA)
-        conn.commit()
-        _migrate_columns(conn)
-
-        conn.execute("INSERT INTO sessions(uuid, project_id) VALUES ('s3', NULL)")
-        sess_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-        conn.execute(
-            """
-            INSERT INTO branches(session_id, leaf_uuid, context_summary, embedding_version)
-            VALUES (?, 'leaf3', 'some text', -1)
-            """,
-            (sess_id,),
-        )
-        conn.commit()
-
-        with patch(
-            "claude_memory.hooks.memory_setup.get_db_connection", return_value=conn
-        ):
-            result = _needs_embedding_backfill()
-        assert result is False
-
-    def test_returns_true_on_stale_embedding_model(self):
-        """Fix 1: row at current version+summary but stale embedding_model → gate returns True."""
-        conn = sqlite3.connect(":memory:")
-        conn.executescript(SCHEMA)
-        conn.commit()
-        _migrate_columns(conn)
-
-        conn.execute("INSERT INTO sessions(uuid, project_id) VALUES ('s5', NULL)")
-        sess_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-        conn.execute(
-            """
-            INSERT INTO branches(session_id, leaf_uuid, context_summary,
-                                  embedding_version, embedding_model, summary_version_at_embed)
-            VALUES (?, 'leaf5', 'some text', ?, 'old/model', ?)
-            """,
-            (sess_id, EMBEDDING_VERSION, 1),
-        )
-        conn.commit()
-
-        with patch(
-            "claude_memory.hooks.memory_setup.get_db_connection", return_value=conn
-        ):
-            result = _needs_embedding_backfill()
-        assert result is True
-
-    def test_returns_true_on_stale_summary_version(self):
-        """Fix 1: row at current version+model but stale summary_version_at_embed → gate returns True."""
-        conn = sqlite3.connect(":memory:")
-        conn.executescript(SCHEMA)
-        conn.commit()
-        _migrate_columns(conn)
-
-        conn.execute("INSERT INTO sessions(uuid, project_id) VALUES ('s6', NULL)")
-        sess_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-        conn.execute(
-            """
-            INSERT INTO branches(session_id, leaf_uuid, context_summary,
-                                  embedding_version, embedding_model, summary_version_at_embed)
-            VALUES (?, 'leaf6', 'some text', ?, ?, 0)
-            """,
-            (sess_id, EMBEDDING_VERSION, EMBEDDING_MODEL),
-        )
-        conn.commit()
-
-        # Patch SUMMARY_VERSION to something higher than the stored 0
-        from claude_memory.summarizer import SUMMARY_VERSION as _SV
-
-        with (
-            patch("claude_memory.hooks.memory_setup.SUMMARY_VERSION", _SV + 1),
-            patch(
-                "claude_memory.hooks.memory_setup.get_db_connection", return_value=conn
-            ),
-        ):
-            result = _needs_embedding_backfill()
-        assert result is True
-
-    def test_never_touches_branch_vec(self):
-        """spawn gate query never references branch_vec (safe without vec extension)."""
-        # A plain connection without vec extension loaded — any reference to
-        # branch_vec would raise OperationalError.
-        conn = sqlite3.connect(":memory:")
-        conn.executescript(SCHEMA)
-        conn.commit()
-        _migrate_columns(conn)
-        # Do NOT load vec extension
-
-        conn.execute("INSERT INTO sessions(uuid, project_id) VALUES ('s4', NULL)")
-        sess_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-        conn.execute(
-            """
-            INSERT INTO branches(session_id, leaf_uuid, context_summary, embedding_version)
-            VALUES (?, 'leaf4', 'some text', NULL)
-            """,
-            (sess_id,),
-        )
-        conn.commit()
-
-        with patch(
-            "claude_memory.hooks.memory_setup.get_db_connection", return_value=conn
-        ):
-            # Must not raise even without vec extension
-            result = _needs_embedding_backfill()
-        assert result is True
+        assert _vec_count(conn) == 2

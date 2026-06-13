@@ -430,11 +430,16 @@ def print_status(args: argparse.Namespace, settings: dict | None) -> None:
     # Embedded vs total branch counts — reuse the same connection
     if conn is not None:
         try:
+            # Scope to active leaves: only is_active=1 branches are embeddable
+            # (the query path filters is_active=1), so the denominator must match
+            # the backfill's eligibility universe (see build_selection).
             total = conn.execute(
-                "SELECT count(*) FROM branches WHERE context_summary IS NOT NULL AND context_summary != ''"
+                "SELECT count(*) FROM branches WHERE is_active = 1"
+                " AND context_summary IS NOT NULL AND context_summary != ''"
             ).fetchone()[0]
             embedded = conn.execute(
-                "SELECT count(*) FROM branches WHERE context_summary IS NOT NULL AND context_summary != ''"
+                "SELECT count(*) FROM branches WHERE is_active = 1"
+                " AND context_summary IS NOT NULL AND context_summary != ''"
                 " AND embedding_version = ? AND embedding_model = ?",
                 (EMBEDDING_VERSION, EMBEDDING_MODEL),
             ).fetchone()[0]

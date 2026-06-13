@@ -4,6 +4,7 @@ Both the write path and the query path must import from here. No second
 embedding code path may exist.
 """
 
+import os
 from pathlib import Path
 
 import numpy as np
@@ -25,12 +26,29 @@ EMBEDDING_MODEL = "gpahal/bge-m3-onnx-int8"
 EMBEDDING_VERSION = 1  # Starts at 1 so existing rows at 0 are eligible for backfill.
 EMBEDDING_DIM = 1024
 
+# onnxruntime defaults intra-op parallelism to every CPU core, so each single
+# inference briefly saturates the whole machine. Embedding here is always a
+# single short text (write/query/backfill all call embed_one per text), so a
+# low thread count costs interactive paths almost nothing while keeping the
+# opt-in backfill — which can run ~1.9k active-leaf inferences in one go — from
+# thrashing constrained machines. Override with CLAUDE_MEMORY_EMBED_THREADS.
+DEFAULT_EMBED_THREADS = 1
+
 _HF_CACHE = Path.home() / ".cache" / "huggingface" / "hub"
 _SNAPSHOTS_DIR = _HF_CACHE / "models--gpahal--bge-m3-onnx-int8" / "snapshots"
 
 # Module-level singletons — lazily constructed, reused within a process.
 _session = None
 _tokenizer = None
+
+
+def resolve_embed_threads() -> int:
+    """Resolve the onnxruntime thread cap from env, falling back to the default."""
+    raw = os.environ.get("CLAUDE_MEMORY_EMBED_THREADS", "")
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return DEFAULT_EMBED_THREADS
 
 
 def resolve_snapshot() -> Path | None:
@@ -78,7 +96,13 @@ def get_session_and_tokenizer():
     if snapshot is None:
         raise RuntimeError("No valid bge-m3-onnx-int8 snapshot found")
 
-    _session = onnxruntime.InferenceSession(str(snapshot / "model_quantized.onnx"))
+    opts = onnxruntime.SessionOptions()
+    threads = resolve_embed_threads()
+    opts.intra_op_num_threads = threads
+    opts.inter_op_num_threads = threads
+    _session = onnxruntime.InferenceSession(
+        str(snapshot / "model_quantized.onnx"), sess_options=opts
+    )
     _tokenizer = tokenizers.Tokenizer.from_file(str(snapshot / "tokenizer.json"))
     return _session, _tokenizer
 
