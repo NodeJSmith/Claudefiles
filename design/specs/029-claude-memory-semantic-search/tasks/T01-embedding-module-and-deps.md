@@ -1,7 +1,7 @@
 ---
 task_id: "T01"
 title: "Add deps + shared embedding module and RRF fusion function"
-status: "planned"
+status: "done"
 depends_on: []
 implements: ["FR#10", "AC#6"]
 ---
