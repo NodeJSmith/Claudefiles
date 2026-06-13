@@ -1,7 +1,7 @@
 # Design: Semantic (vector) search for claude-memory, fused with FTS via RRF
 
 **Date:** 2026-06-12
-**Status:** approved
+**Status:** archived
 **Scope-mode:** hold
 **Research:** /tmp/claude-memory-semantic-search-brief.md (authoritative design seed)
 
