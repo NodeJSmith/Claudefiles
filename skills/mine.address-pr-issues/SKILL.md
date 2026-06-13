@@ -50,29 +50,29 @@ ado-api pr show {PR} --json
 
 Returns `pullRequestId`, `title`, `status`, `sourceRefName`, `targetRefName`, `repository.webUrl`. URL: `repository.webUrl + "/pullrequest/" + pullRequestId`. Note: `mergeStatus` is optional and only present after a merge attempt.
 
-### Review threads (MANDATORY — separate from metadata)
+### Review threads & non-thread comments (MANDATORY — separate from metadata)
 
-**CRITICAL**: `gh pr view --json` does NOT return review threads (inline comments from reviewers or Copilot). You MUST run the thread-fetching command below. Do not conclude "no review comments" based on PR metadata alone — that field doesn't exist in the metadata response.
+**CRITICAL**: `gh pr view --json` does NOT return review threads (inline comments from reviewers or Copilot). You MUST run the fetching command below. Do not conclude "no review comments" based on PR metadata alone — that field doesn't exist in the metadata response.
 
 **GitHub:**
 ```bash
 gh-pr-threads {PR} --json --all
 ```
 
-Returns all threads (resolved + unresolved) as JSON with `id`, `isResolved`, `isOutdated`, `path`, `line`, `startLine`, `diffSide`, and `comments` including `databaseId`, `body`, `author.login`, `author.__typename`.
+Returns a JSON object with three surfaces — **all three need triage**:
+
+- `.threads` — inline review threads (resolvable). Each has `id` (`PRRT_…`), `isResolved`, `isOutdated`, `path`, `line`, `startLine`, `diffSide`, and `comments` (with `databaseId`, `body`, `author.login`, `author.__typename`).
+- `.reviewComments` — review-summary bodies carrying findings that are **not** inline threads. CodeRabbit posts substantial findings here ("Outside diff range comments", "Duplicate comments") when it can't anchor to the diff. **Not resolvable** — no `PRRT_` id; reply with a normal PR comment. Each has `author`, `state`, `url`, `body`.
+- `.issueComments` — PR conversation comments (human comments, bot chat replies). Machine-generated status noise (walkthroughs, build reports) is already filtered out. **Not resolvable.** Each has `author`, `databaseId`, `url`, `body`.
+
+Do NOT skip `.reviewComments` — it is the surface most often missed, and CodeRabbit routinely puts Major findings there.
 
 **ADO:**
 ```bash
 ado-api pr threads {PR} --json --all
 ```
 
-Returns all threads as JSON. Threads with `threadContext` are inline comments; threads without are general conversation. ADO has no `isOutdated` concept.
-
-### General PR comments
-
-**GitHub:** `gh pr view {PR} --json comments` — extract actionable non-inline comments.
-
-**ADO:** Already in the thread list — threads without `threadContext` are general comments.
+Returns all threads as JSON. Threads with `threadContext` are inline comments; threads without are general conversation. ADO has no `isOutdated` concept. ADO carries general comments in the same thread list, so it has no separate `.reviewComments`/`.issueComments` split.
 
 ### CI status
 
