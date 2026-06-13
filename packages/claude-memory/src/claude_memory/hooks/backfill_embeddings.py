@@ -12,6 +12,7 @@ Two-level failure distinction:
     row embedding_version = -1 and continue.
 """
 
+import sys
 import time
 
 from claude_memory.db import (
@@ -55,12 +56,20 @@ def _main():
         logger.error(
             "Backfill embeddings: model not available, aborting (no rows marked)"
         )
+        print(
+            "cm-backfill-embeddings: model not available, aborting (no rows marked)",
+            file=sys.stderr,
+        )
         return
 
     try:
         conn = get_db_connection(settings, load_vec=True)
     except Exception as e:
         logger.error(f"Backfill embeddings: failed to connect to DB: {e}")
+        print(
+            f"cm-backfill-embeddings: failed to connect to DB: {e}",
+            file=sys.stderr,
+        )
         return
 
     cursor = conn.cursor()
@@ -120,6 +129,10 @@ def _main():
             logger.error(
                 "Backfill embeddings: no progress — same batch re-selected; aborting to avoid infinite loop"
             )
+            print(
+                "cm-backfill-embeddings: no progress — same batch re-selected, aborting",
+                file=sys.stderr,
+            )
             break
         last_batch_ids = current_ids
 
@@ -156,11 +169,19 @@ def _main():
         logger.info(
             f"Backfill embeddings: processed {total_updated} so far, {remaining} remaining"
         )
+        print(
+            f"cm-backfill-embeddings: {total_updated} embedded, {remaining} remaining",
+            file=sys.stderr,
+        )
 
         time.sleep(BACKFILL_BATCH_DELAY_SECONDS)
 
     conn.close()
     logger.info(f"Backfill embeddings complete: {total_updated} branches embedded")
+    print(
+        f"cm-backfill-embeddings: complete: {total_updated} branches embedded",
+        file=sys.stderr,
+    )
 
 
 if __name__ == "__main__":

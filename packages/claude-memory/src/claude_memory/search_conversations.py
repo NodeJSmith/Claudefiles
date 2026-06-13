@@ -19,7 +19,6 @@ from claude_memory.db import (
     DEFAULT_DB_PATH,
     detect_fts_support,
     get_db_connection,
-    vec_available,
 )
 from claude_memory.content import sanitize_fts_term
 from claude_memory.formatting import format_markdown_session, format_json_sessions
@@ -409,12 +408,18 @@ def format_markdown(sessions: list[dict], query: str, verbose: bool = False) -> 
 
 def print_status(args: argparse.Namespace, settings: dict | None) -> None:
     """Print diagnostic status and exit 0 (FR#15 / AC#13)."""
-    # Vec availability
+    # Open one connection with vec loaded; probe vec availability without a second
+    # vec_available() call — get_db_connection already loaded the extension iff it
+    # could, so a guarded SELECT is sufficient to determine whether it's usable.
     try:
-        vec_conn = get_db_connection(settings, load_vec=True)
-        is_vec = vec_available(vec_conn)
-        vec_conn.close()
+        conn = get_db_connection(settings, load_vec=True)
+        try:
+            conn.execute("SELECT count(*) FROM branch_vec LIMIT 1")
+            is_vec = True
+        except Exception:
+            is_vec = False
     except Exception:
+        conn = None
         is_vec = False
     print(f"vec extension: {'yes' if is_vec else 'no'}")
 
@@ -422,21 +427,24 @@ def print_status(args: argparse.Namespace, settings: dict | None) -> None:
     snapshot = resolve_snapshot()
     print(f"model path: {snapshot if snapshot is not None else 'none'}")
 
-    # Embedded vs total branch counts
-    try:
-        count_conn = get_db_connection(settings)
-        total = count_conn.execute(
-            "SELECT count(*) FROM branches WHERE context_summary IS NOT NULL AND context_summary != ''"
-        ).fetchone()[0]
-        embedded = count_conn.execute(
-            "SELECT count(*) FROM branches WHERE context_summary IS NOT NULL AND context_summary != ''"
-            " AND embedding_version = ? AND embedding_model = ?",
-            (EMBEDDING_VERSION, EMBEDDING_MODEL),
-        ).fetchone()[0]
-        count_conn.close()
-        print(f"embedded branches: {embedded}/{total}")
-    except Exception as e:
-        print(f"embedded branches: error ({e})")
+    # Embedded vs total branch counts — reuse the same connection
+    if conn is not None:
+        try:
+            total = conn.execute(
+                "SELECT count(*) FROM branches WHERE context_summary IS NOT NULL AND context_summary != ''"
+            ).fetchone()[0]
+            embedded = conn.execute(
+                "SELECT count(*) FROM branches WHERE context_summary IS NOT NULL AND context_summary != ''"
+                " AND embedding_version = ? AND embedding_model = ?",
+                (EMBEDDING_VERSION, EMBEDDING_MODEL),
+            ).fetchone()[0]
+            print(f"embedded branches: {embedded}/{total}")
+        except Exception as e:
+            print(f"embedded branches: error ({e})")
+        finally:
+            conn.close()
+    else:
+        print("embedded branches: error (could not open database)")
 
     sys.exit(0)
 

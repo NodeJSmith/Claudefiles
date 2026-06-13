@@ -96,6 +96,15 @@ def _needs_embedding_backfill(settings: dict | None = None) -> bool:
 
     Queries only the branches table — never branch_vec — so it is safe to call
     on connections without the sqlite-vec extension loaded.
+
+    ACCEPTED FALSE-NEGATIVE: this predicate intentionally omits the
+    ``NOT EXISTS (SELECT 1 FROM branch_vec WHERE branch_id = branches.id)``
+    heal clause that the backfill's own selection query uses. The heal clause
+    requires the vec extension, which may not be loadable at SessionStart time.
+    A branch whose version columns say "done" but whose branch_vec row is
+    missing will therefore NOT trigger a spawn via this gate. It gets healed on
+    the next run triggered by any other eligible branch. This is a deliberate
+    trade-off — safe startup vs. eager healing — not an oversight.
     """
     try:
         conn = get_db_connection(settings)

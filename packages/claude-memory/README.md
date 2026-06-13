@@ -42,7 +42,7 @@ After installing, run the backfill once to embed your existing conversations:
 cm-backfill-embeddings
 ```
 
-This takes roughly 20 minutes for a large history (~10k branches). Progress is printed to stdout. Subsequent runs are fast — only unembedded branches are processed.
+This takes roughly 20 minutes for a large history (~10k branches). Progress is printed to stderr (one line per batch). Subsequent runs are fast — only unembedded branches are processed.
 
 ### Flags
 

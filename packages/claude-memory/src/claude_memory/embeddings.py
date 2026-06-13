@@ -133,7 +133,8 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
     """Embed texts sequentially (one inference call per text), reusing the session.
 
     Not true batched inference — it loops, but avoids per-call session
-    construction. Used by the backfill path.
+    construction. Convenience batch wrapper; the backfill hot path calls
+    embed_text per-row directly.
     Raises on failure — callers should wrap in their own guard.
     """
     session, tokenizer = get_session_and_tokenizer()
