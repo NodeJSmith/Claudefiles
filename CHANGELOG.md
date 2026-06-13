@@ -14,7 +14,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Fixed
 
-- `bin/log` renamed to `bin/trail-log` — the old name collided with the zsh `log` builtin, which shadows PATH executables in the default shell. Under zsh, `mine.orchestrate`'s bare `log` calls hit the builtin instead (erroring on the 5-arg call shape), so the decision trail silently never got written and the failure surfaced as a misattributed file-permissions error. All orchestrate call sites and docs updated to `trail-log`. After pulling, re-run `install.py` to create the `trail-log` symlink and confirm the stale-symlink prompt to remove the old `~/.local/bin/log`
+- `bin/log` renamed to `bin/trail-log` — the old name collided with the zsh `log` builtin, which shadows PATH executables in the default shell. Under zsh, `mine.orchestrate`'s bare `log` calls hit the builtin instead (erroring on the 5-arg call shape), so the decision trail silently never got written and the failure surfaced as a misattributed file-permissions error. All orchestrate call sites and docs updated to `trail-log`. After pulling, re-run `install.py` to create the `trail-log` symlink and confirm the stale-symlink prompt to remove the old `~/.local/bin/log` (#373)
 - `code-judo-reviewer` and `secrets-auditor` agents shipped but never installed — `install.py` never registered them in a bundle, so the installer skipped them no matter how often you re-ran it; both are now registered, and `lint-agent-models` now fails the commit if any agent is missing from an install.py bundle (#371)
 
 ## 2026-06-10
