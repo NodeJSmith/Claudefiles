@@ -202,7 +202,7 @@ def _main():
     exclude_projects = settings.get("exclude_projects", [])
 
     # Use get_db_connection which handles migration
-    conn = get_db_connection(settings)
+    conn = get_db_connection(settings, load_vec=True)
 
     if args.stats:
         cursor = conn.cursor()

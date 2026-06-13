@@ -25,7 +25,7 @@ Use `--verbose` for lenses that need file/commit context (restore-context, revie
 
 ## search_conversations.py
 
-Search for sessions containing keywords using full-text search (FTS5/FTS4/LIKE cascade).
+Search for sessions using keyword full-text search (FTS5/FTS4/LIKE cascade) fused with vector similarity via RRF when both the bge-m3 model and the sqlite-vec vector path (queryable `branch_vec`) are available. If either is missing, search degrades to keyword-only.
 
 ```bash
 cm-search-conversations --query "keyword"
@@ -34,7 +34,9 @@ cm-search-conversations --query "keyword"
 
 | Option | Effect |
 |--------|--------|
-| `--query` | Required - substantive keywords |
+| `--query` | Required (unless `--status`) — substantive keywords |
+| `--status` | Print diagnostic info (vec extension, model path, embedded vs. total summarized (embeddable) branch count) and exit 0 |
+| `--keyword-only` | Skip embedding, use keyword search only |
 | `--max-results N` | Limit results (1-10, default 5) |
 | `--session UUID` | Filter by session UUID (prefix match) |
 | `--project NAME` | Filter by project name(s), comma-separated |
