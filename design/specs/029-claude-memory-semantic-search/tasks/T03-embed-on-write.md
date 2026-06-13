@@ -1,7 +1,7 @@
 ---
 task_id: "T03"
 title: "Embed-on-write in the sync/import path"
-status: "planned"
+status: "done"
 depends_on: ["T01", "T02"]
 implements: ["FR#4", "FR#5", "AC#5"]
 ---

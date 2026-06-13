@@ -238,6 +238,17 @@ def vec_available(conn: sqlite3.Connection) -> bool:
         return False
 
 
+def upsert_branch_vec(
+    cursor: sqlite3.Cursor, branch_id: int, embedding: list[float]
+) -> None:
+    """Replace a branch's vector row (DELETE+INSERT — vec0 rejects INSERT OR REPLACE)."""
+    cursor.execute("DELETE FROM branch_vec WHERE branch_id = ?", (branch_id,))
+    cursor.execute(
+        "INSERT INTO branch_vec(branch_id, embedding) VALUES (?, ?)",
+        (branch_id, sqlite_vec.serialize_float32(embedding)),
+    )
+
+
 def _ensure_vec_schema(conn: sqlite3.Connection) -> None:
     """Create the branch_vec virtual table and orphan-cleanup trigger.
 
