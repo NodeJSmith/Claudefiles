@@ -47,7 +47,7 @@ def parse_lines_with_uuids(lines: Iterable[str]) -> Generator[dict, None, None]:
             obj = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if obj.get("uuid"):
+        if isinstance(obj, dict) and obj.get("uuid"):
             yield obj
 
 

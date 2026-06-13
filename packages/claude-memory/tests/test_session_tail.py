@@ -218,6 +218,11 @@ class TestBuildTail:
         entries = [user_text(f"u{i}") for i in range(20)]
         assert len(build_tail(entries, 5)) == 5
 
+    def test_non_positive_k_returns_empty(self):
+        entries = [user_text("u1"), assistant_text("a1")]
+        assert build_tail(entries, 0) == []
+        assert build_tail(entries, -1) == []
+
 
 class TestTranscriptDir:
     def test_worktree_path_not_normalized(self):

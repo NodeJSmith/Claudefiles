@@ -206,6 +206,8 @@ def last_assistant_text(entries: list[dict]) -> str | None:
 def build_tail(entries: list[dict], k: int) -> list[tuple[str, str]]:
     """Last K main-chain events as (kind, body). One assistant entry can yield
     several events (its text plus each tool_use); K bounds the output, not input."""
+    if k <= 0:
+        return []
     events: list[tuple[str, str]] = []
     for entry in entries:
         if not _is_main_chain(entry):
@@ -351,6 +353,9 @@ def main() -> int:
         help="number of tail events to show",
     )
     args = ap.parse_args()
+    if args.n < 1:
+        print("cm-session-tail: -n must be >= 1", file=sys.stderr)
+        return 2
 
     pdir = transcript_dir(args.cwd)
     if not pdir.is_dir():
