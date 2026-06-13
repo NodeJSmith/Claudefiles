@@ -65,7 +65,7 @@ gh-pr-threads {PR} --json --all
 Returns a JSON object with three surfaces — **all three need triage**:
 
 - `.threads` — inline review threads (resolvable). Each has `id` (`PRRT_…`), `isResolved`, `isOutdated`, `path`, `line`, `startLine`, `diffSide`, and `comments` (with `databaseId`, `body`, `author.login`, `author.__typename`).
-- `.reviewComments` — review-summary bodies carrying findings that are **not** inline threads. CodeRabbit posts substantial findings here ("Outside diff range comments", "Duplicate comments") when it can't anchor to the diff. **Not resolvable** — no `PRRT_` id; reply with a normal PR comment. Each has `author`, `state`, `url`, `body`.
+- `.reviewComments` — review-summary bodies carrying findings that are **not** inline threads. CodeRabbit posts substantial findings here ("Outside diff range comments", "Duplicate comments", "Nitpick comments") when it can't anchor to the diff. **Not resolvable** — no `PRRT_` id; reply with a normal PR comment. Each has `author`, `state`, `url`, `body`.
 - `.issueComments` — PR conversation comments (human comments, bot chat replies). Machine-generated status noise (walkthroughs, build reports) is already filtered out. **Not resolvable.** Each has `author`, `databaseId`, `url`, `body`.
 
 Do NOT skip `.reviewComments` — it is the surface most often missed, and CodeRabbit routinely puts Major findings there.
