@@ -60,7 +60,7 @@ Use the issue's **Estimated scope** from Phase 3 to recommend: small/medium → 
 **If the user picks "Build it":**
 1. **Branch naming reminder**: Check `git branch --show-current`. If the current branch name does not contain the issue number, remind the user:
    > "When you create your working branch, include the issue number so the PR links back automatically — e.g., `git checkout -b 123-short-description` or `claude --worktree 123-short-description`."
-2. Invoke `/mine.build`, passing the issue's structured summary (title, description, affected areas, suggested approach) as the change description.
+2. Invoke `/mine.build`, passing the issue's structured summary (title, description, estimated scope, affected areas, suggested approach) as the change description.
 
 **If the user picks "Research first":** invoke `/mine.research`, passing the issue context as the proposal to investigate.
 
