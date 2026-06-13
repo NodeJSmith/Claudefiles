@@ -12,6 +12,7 @@ import pytest
 from claude_memory.db import SCHEMA, _ensure_vec_schema, _migrate_columns, vec_available
 from claude_memory.embeddings import EMBEDDING_MODEL, EMBEDDING_VERSION
 from claude_memory.session_ops import sync_session
+from claude_memory.summarizer import SUMMARY_VERSION
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
@@ -566,8 +567,8 @@ class TestEmbedOnWriteSuccess:
                 assert em == EMBEDDING_MODEL, (
                     f"branch {branch_id}: embedding_model={em!r}, want {EMBEDDING_MODEL!r}"
                 )
-                assert svae == 3, (
-                    f"branch {branch_id}: summary_version_at_embed={svae}, want 3"
+                assert svae == SUMMARY_VERSION, (
+                    f"branch {branch_id}: summary_version_at_embed={svae}, want {SUMMARY_VERSION}"
                 )
                 assert vec_count == 1, (
                     f"active branch {branch_id}: expected 1 branch_vec row, got {vec_count}"
