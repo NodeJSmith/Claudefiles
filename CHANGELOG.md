@@ -8,6 +8,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 - Branch staleness pre-flight — `mine.define`, `mine.plan`, and `mine.orchestrate` now check whether the branch is behind the default branch before starting work, so a forgotten `git pull` surfaces up front instead of as conflicts after a long run; offers to rebase (with dirty-tree and stale-ref safeguards) or proceed. Backed by a new `git-branch-behind` bin script. (#370)
 
+### Changed
+
+- `/mine.issues` deep-dive now hands off to the implementation pipeline — the next-step menu offers "Build it" (routes to `/mine.build`) and "Research first" (`/mine.research`), carrying the issue summary and scope estimate forward, instead of producing an in-conversation plan that dead-ended. (#372)
+
 ### Fixed
 
 - `code-judo-reviewer` and `secrets-auditor` agents shipped but never installed — `install.py` never registered them in a bundle, so the installer skipped them no matter how often you re-ran it; both are now registered, and `lint-agent-models` now fails the commit if any agent is missing from an install.py bundle (#371)

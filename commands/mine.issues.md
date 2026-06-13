@@ -49,15 +49,19 @@ Launch subagents **in parallel** when multiple keys are provided. Display all st
 
 ## Phase 4: Next Step (Main Context)
 
-Use `AskUserQuestion` to ask the user what they'd like to do next:
+Hand the deep-dive context off to the implementation pipeline. Use `AskUserQuestion`:
 
-- **Create a plan** — Launch the planner to design an implementation approach for this issue
-- **Just explore** — Continue researching the codebase without committing to a plan yet
+- **Build it** — Hand the issue to `/mine.build`, which routes by complexity (direct implementation for small changes, the full `define → plan → orchestrate` pipeline for large ones)
+- **Research first** — Run `/mine.research` to investigate feasibility before committing to an approach
 - **Skip** — Done for now, I'll come back to this later
 
-If the user picks "Create a plan":
+Use the issue's **Estimated scope** from Phase 3 to recommend: small/medium → "Build it"; large or uncertain approach → mention "Research first" is worth considering. Phrase the recommendation, but let the user choose.
+
+**If the user picks "Build it":**
 1. **Branch naming reminder**: Check `git branch --show-current`. If the current branch name does not contain the issue number, remind the user:
    > "When you create your working branch, include the issue number so the PR links back automatically — e.g., `git checkout -b 123-short-description` or `claude --worktree 123-short-description`."
-2. Launch the Agent tool with `subagent_type: "planner"`, passing the issue context. Present the plan to the user via `AskUserQuestion` for approval.
+2. Invoke `/mine.build`, passing the issue's structured summary (title, description, estimated scope, affected areas, suggested approach) as the change description.
 
-Otherwise, follow their choice.
+**If the user picks "Research first":** invoke `/mine.research`, passing the issue context as the proposal to investigate.
+
+**If the user picks "Skip":** stop.
