@@ -4,7 +4,6 @@ Both the write path and the query path must import from here. No second
 embedding code path may exist.
 """
 
-import os
 from pathlib import Path
 
 import numpy as np
@@ -34,7 +33,8 @@ EMBEDDING_DIM = 1024
 # single short text (write/query/backfill all call embed_one per text), so a
 # low thread count costs interactive paths almost nothing while keeping the
 # opt-in backfill — which can run ~1.9k active-leaf inferences in one go — from
-# thrashing constrained machines. Override with CLAUDE_MEMORY_EMBED_THREADS.
+# thrashing constrained machines. The backfill exposes `--threads` to raise this
+# on an idle machine; interactive write/query paths always use the default.
 DEFAULT_EMBED_THREADS = 1
 
 _HF_CACHE = Path.home() / ".cache" / "huggingface" / "hub"
@@ -45,13 +45,11 @@ _session = None
 _tokenizer = None
 
 
-def resolve_embed_threads() -> int:
-    """Resolve the onnxruntime thread cap from env, falling back to the default."""
-    raw = os.environ.get("CLAUDE_MEMORY_EMBED_THREADS", "")
-    try:
-        return max(1, int(raw))
-    except ValueError:
+def resolve_thread_count(threads: int | None) -> int:
+    """Clamp a requested onnxruntime thread count to >= 1, defaulting when None."""
+    if threads is None:
         return DEFAULT_EMBED_THREADS
+    return max(1, threads)
 
 
 def resolve_snapshot() -> Path | None:
@@ -83,10 +81,12 @@ def resolve_snapshot() -> Path | None:
         return None
 
 
-def get_session_and_tokenizer():
+def get_session_and_tokenizer(threads: int | None = None):
     """Return the cached (session, tokenizer), constructing on first call.
 
-    Raises on failure — callers wrap in their own guard.
+    ``threads`` sets onnxruntime intra/inter-op parallelism, applied only when
+    the session is first constructed and ignored once it is cached. None means
+    DEFAULT_EMBED_THREADS. Raises on failure — callers wrap in their own guard.
     """
     global _session, _tokenizer
     if _session is not None and _tokenizer is not None:
@@ -100,9 +100,9 @@ def get_session_and_tokenizer():
         raise RuntimeError("No valid bge-m3-onnx-int8 snapshot found")
 
     opts = onnxruntime.SessionOptions()
-    threads = resolve_embed_threads()
-    opts.intra_op_num_threads = threads
-    opts.inter_op_num_threads = threads
+    n = resolve_thread_count(threads)
+    opts.intra_op_num_threads = n
+    opts.inter_op_num_threads = n
     _session = onnxruntime.InferenceSession(
         str(snapshot / "model_quantized.onnx"), sess_options=opts
     )
@@ -110,18 +110,19 @@ def get_session_and_tokenizer():
     return _session, _tokenizer
 
 
-def model_available() -> bool:
+def model_available(threads: int | None = None) -> bool:
     """Return True iff the ONNX model can be loaded and run.
 
     Validates real loadability: deps importable AND a valid snapshot exists
     AND InferenceSession + Tokenizer construct without raising. A truncated
     .onnx only raises at session construction, not at path-existence check.
-    Caches the constructed session and tokenizer for reuse.
+    Caches the constructed session and tokenizer for reuse — pass ``threads``
+    to set the thread count when this call is the one that warms the singleton.
     """
     if not DEPS_AVAILABLE:
         return False
     try:
-        get_session_and_tokenizer()
+        get_session_and_tokenizer(threads)
         return True
     except Exception:
         return False

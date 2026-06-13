@@ -12,26 +12,22 @@ from claude_memory.embeddings import (
     embed_text,
     embed_texts,
     model_available,
-    resolve_embed_threads,
+    resolve_thread_count,
 )
 
 
-class TestResolveEmbedThreads:
-    def test_default_when_unset(self, monkeypatch):
-        monkeypatch.delenv("CLAUDE_MEMORY_EMBED_THREADS", raising=False)
-        assert resolve_embed_threads() == DEFAULT_EMBED_THREADS
+class TestResolveThreadCount:
+    def test_default_when_none(self):
+        assert resolve_thread_count(None) == DEFAULT_EMBED_THREADS
 
-    def test_env_override(self, monkeypatch):
-        monkeypatch.setenv("CLAUDE_MEMORY_EMBED_THREADS", "4")
-        assert resolve_embed_threads() == 4
+    def test_passthrough(self):
+        assert resolve_thread_count(4) == 4
 
-    def test_malformed_falls_back(self, monkeypatch):
-        monkeypatch.setenv("CLAUDE_MEMORY_EMBED_THREADS", "garbage")
-        assert resolve_embed_threads() == DEFAULT_EMBED_THREADS
+    def test_floor_at_one(self):
+        assert resolve_thread_count(0) == 1
 
-    def test_floor_at_one(self, monkeypatch):
-        monkeypatch.setenv("CLAUDE_MEMORY_EMBED_THREADS", "0")
-        assert resolve_embed_threads() == 1
+    def test_negative_floored(self):
+        assert resolve_thread_count(-3) == 1
 
 
 class TestModelAvailable:

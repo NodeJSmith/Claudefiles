@@ -46,9 +46,10 @@ Embedding is bge-m3 inference on CPU (~4–5s per summary), so seeding a large h
 cm-backfill-embeddings              # all active leaves, all history
 cm-backfill-embeddings --days 14    # only the last 14 days
 cm-backfill-embeddings --limit 500  # cap this run at 500 branches
+cm-backfill-embeddings --threads 4  # use 4 inference threads (idle machine)
 ```
 
-It runs at low scheduling priority (`nice`) and a single inference thread by default so it yields to interactive work. Tune the thread count with `CLAUDE_MEMORY_EMBED_THREADS` (e.g. `=4` on an idle workstation to finish faster). Progress prints to stderr (one line per batch); the run is resumable — re-running skips already-embedded branches.
+It runs at low scheduling priority (`nice`) and a single inference thread by default so it yields to interactive work. Tune the thread count with `--threads` (e.g. `--threads 4` on an idle workstation to finish faster). Progress prints to stderr (one line per batch); the run is resumable — re-running skips already-embedded branches.
 
 ### Flags
 
@@ -108,7 +109,7 @@ These are the entry points that the `cm-*` skills invoke. You can run them from 
 |---|---|
 | `cm-recent-chats` | Prints recent sessions from the DB in markdown (default) or JSON. Used by `/cm-recall-conversations` |
 | `cm-search-conversations` | Searches sessions by keyword fused with vector similarity (FTS5 → FTS4 → LIKE fallback, RRF-fused with bge-m3 embeddings when available). Used by `/cm-recall-conversations` |
-| `cm-backfill-embeddings` | Opt-in seeding of embeddings for historical active-leaf branches (bge-m3 int8 ONNX). Not auto-spawned. Supports `--days N` / `--limit N`; throttled via `nice` + `CLAUDE_MEMORY_EMBED_THREADS`. Resumable |
+| `cm-backfill-embeddings` | Opt-in seeding of embeddings for historical active-leaf branches (bge-m3 int8 ONNX). Not auto-spawned. Supports `--days N` / `--limit N` / `--threads N`; throttled via `nice` + a single inference thread by default. Resumable |
 | `cm-ingest-token-data` | Parses JSONL files for token usage analytics — cost, cache hits, model mix, skill/agent/hook patterns. Populates analytics tables and builds `~/.claude-memory/dashboard.html`. Used by `/cm-get-token-insights` |
 
 ## Skills

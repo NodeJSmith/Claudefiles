@@ -28,6 +28,7 @@ from claude_memory.db import (
     write_branch_embedding,
 )
 from claude_memory.embeddings import (
+    DEFAULT_EMBED_THREADS,
     EMBEDDING_MODEL,
     EMBEDDING_VERSION,
     embed_text,
@@ -100,6 +101,13 @@ def _main(argv: list[str] | None = None):
         default=None,
         help="Stop after embedding at most N branches this run",
     )
+    parser.add_argument(
+        "--threads",
+        type=int,
+        default=DEFAULT_EMBED_THREADS,
+        help="onnxruntime inference threads (default: %(default)s). Raise it on "
+        "an idle machine to finish faster; 1 keeps the box responsive.",
+    )
     args = parser.parse_args(argv)
 
     settings = load_settings()
@@ -115,7 +123,8 @@ def _main(argv: list[str] | None = None):
 
     # FR#14 ABORT level: check model availability before touching any rows.
     # model_available() warms the singleton session on success — no extra cost.
-    if not model_available():
+    # Pass --threads here since this is the call that constructs the session.
+    if not model_available(threads=args.threads):
         logger.error(
             "Backfill embeddings: model not available, aborting (no rows marked)"
         )
