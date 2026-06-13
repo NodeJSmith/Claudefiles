@@ -59,10 +59,12 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "numpy" },
-    { name = "onnxruntime" },
-    { name = "sqlite-vec" },
-    { name = "tokenizers" },
+    { name = "numpy", marker = "python_full_version < '3.11'", specifier = "==2.2.6" },
+    { name = "numpy", marker = "python_full_version >= '3.11'", specifier = "==2.4.6" },
+    { name = "onnxruntime", marker = "python_full_version < '3.11'", specifier = "==1.24.3" },
+    { name = "onnxruntime", marker = "python_full_version >= '3.11'", specifier = "==1.26.0" },
+    { name = "sqlite-vec", specifier = "==0.1.9" },
+    { name = "tokenizers", specifier = "==0.23.1" },
 ]
 
 [package.metadata.requires-dev]
