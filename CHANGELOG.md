@@ -6,7 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Fixed
 
-- `gh-pr-threads` missed CodeRabbit's most substantial findings. CodeRabbit posts "Outside diff range" and "Duplicate comments" in review **bodies**, not inline threads (it can't anchor them to the diff), so the script — which only queried `reviewThreads` — reported PRs as clean while Major findings sat unread. It now also surfaces review-summary bodies and PR conversation comments, filtering out machine-generated status noise (CodeRabbit walkthroughs, ReadTheDocs build reports). `--json` now returns `{pr, threads, reviewComments, issueComments}` (was a bare threads array); `mine.address-pr-issues` consumes the new shape and no longer fetches conversation comments separately.
+- `gh-pr-threads` missed CodeRabbit's most substantial findings. CodeRabbit posts "Outside diff range" and "Duplicate comments" in review **bodies**, not inline threads (it can't anchor them to the diff), so the script — which only queried `reviewThreads` — reported PRs as clean while Major findings sat unread. It now also surfaces review-summary bodies and PR conversation comments, filtering out machine-generated status noise (CodeRabbit walkthroughs, ReadTheDocs build reports). `--json` now returns `{pr, threads, reviewComments, issueComments}` (was a bare threads array); `mine.address-pr-issues` consumes the new shape and no longer fetches conversation comments separately. (#381)
 
 ### Added
 
