@@ -42,7 +42,7 @@ Work in `packages/claude-memory/`.
 - [ ] FR#6: backfill embeds every branch with a non-empty `context_summary` lacking a current embedding, in batches, committing per batch.
 - [ ] FR#7: re-running after interruption processes only still-missing branches; the heal clause re-embeds a "version-done but no vector" row.
 - [ ] FR#8: per-batch progress (processed/remaining) is logged.
-- [ ] FR#9: a bumped `EMBEDDING_VERSION`/changed model/changed `summary_version` makes affected rows eligible again on the next run.
+- [ ] FR#9: with a row already at the current embedding version, bumping `EMBEDDING_VERSION` (or changing `embedding_model`, or changing the branch's `summary_version`) makes that exact row re-appear in the selection-predicate result on the next run (assert the predicate selects it).
 - [ ] FR#14: model-load failure marks zero rows; a single malformed row marks only itself.
 - [ ] AC#3: post-backfill `branch_vec` count equals eligible-branch count (minus error-marked).
 - [ ] AC#4: interrupt + resume reaches the same final count without re-embedding done rows.

@@ -29,6 +29,7 @@ Work in `packages/claude-memory/` and the repo docs.
    - CLI `--help` text for `--keyword-only` and `--status` (verify the strings read well).
 
 ## Focus
+- **Pre-merge concurrency gate (design-mandated):** before declaring done, verify `vec0` shadow-table WAL safety under concurrent writers (backfill + embed-on-write both write `branch_vec`). Review the sqlite-vec issue tracker/source for known WAL/shadow-table races and confirm the raised `busy_timeout` on vec connections (T02) covers a slow batch commit. Record the finding in the PR description. This is a verification gate, not an assumption — if a real race is found, surface it before merge.
 - This task runs AFTER T03/T04/T05 land — it verifies their integration, it doesn't re-implement.
 - AC#1 is the one manual, non-automatable criterion — it needs the real DB and a completed backfill. The evidence lives in the PR description, not a test file.
 - The backfill on the real DB is ~20 min of CPU; run it deliberately (not in CI). `cm-search-conversations --status` should show embedded≈total when it's done.
@@ -39,4 +40,4 @@ Work in `packages/claude-memory/` and the repo docs.
 - [ ] FR#3: end-to-end, a vec-unavailable environment returns keyword-only search results and exits 0.
 - [ ] AC#1: before/after `cm-search-conversations` output for the concept-phrased query (fusion hits, `--keyword-only` misses) is captured in the PR description, with the correct session identified.
 - [ ] AC#7: `cd packages/claude-memory && uv sync && uv run pytest` passes (output captured).
-- [ ] AC#8: `cm-recent-chats` output is identical before and after the change.
+- [ ] AC#8: a test (not just a manual diff) asserts `cm-recent-chats` output on a fixture DB is byte-identical before and after the change (it uses `load_vec=False`, so fusion never touches it).
