@@ -17,6 +17,7 @@ import sqlite_vec
 # Local imports
 from claude_memory.db import (
     DEFAULT_DB_PATH,
+    branch_vec_queryable,
     detect_fts_support,
     get_db_connection,
 )
@@ -347,13 +348,9 @@ def search_sessions(
     if use_fusion:
         if not model_available():
             use_fusion = False
-        else:
-            # Check whether branch_vec is queryable on this connection
-            try:
-                cursor.execute("SELECT count(*) FROM branch_vec LIMIT 1")
-            except Exception:
-                use_fusion = False
-                _emit_degrade = True
+        elif not branch_vec_queryable(conn):
+            use_fusion = False
+            _emit_degrade = True
 
     if use_fusion:
         try:
@@ -408,16 +405,12 @@ def format_markdown(sessions: list[dict], query: str, verbose: bool = False) -> 
 
 def print_status(args: argparse.Namespace, settings: dict | None) -> None:
     """Print diagnostic status and exit 0 (FR#15 / AC#13)."""
-    # Open one connection with vec loaded; probe vec availability without a second
-    # vec_available() call — get_db_connection already loaded the extension iff it
-    # could, so a guarded SELECT is sufficient to determine whether it's usable.
+    # Open one connection with vec loaded; branch_vec_queryable probes whether
+    # the vec table is usable — get_db_connection already loaded the extension
+    # iff it could, so the table-existence probe is sufficient.
     try:
         conn = get_db_connection(settings, load_vec=True)
-        try:
-            conn.execute("SELECT count(*) FROM branch_vec LIMIT 1")
-            is_vec = True
-        except Exception:
-            is_vec = False
+        is_vec = branch_vec_queryable(conn)
     except Exception:
         conn = None
         is_vec = False
@@ -511,9 +504,12 @@ def main():
 
     if not args.db.exists():
         if args.status:
-            # For --status, report missing DB gracefully rather than hard-exiting
+            # For --status, report missing DB gracefully rather than hard-exiting.
+            # The model snapshot lives in the HF cache, independent of the DB, so
+            # resolve and report it even when the DB is absent.
+            snapshot = resolve_snapshot()
             print("vec extension: no")
-            print("model path: none")
+            print(f"model path: {snapshot if snapshot is not None else 'none'}")
             print("embedded branches: error (database not found)")
             sys.exit(0)
         if args.format == "json":

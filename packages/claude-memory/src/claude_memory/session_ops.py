@@ -28,7 +28,7 @@ from claude_memory.content import (
     is_tool_result,
     parse_origin,
 )
-from claude_memory.db import write_branch_embedding
+from claude_memory.db import branch_vec_queryable, write_branch_embedding
 from claude_memory.embeddings import embed_text
 from claude_memory.formatting import normalize_project_key
 from claude_memory.parsing import (
@@ -222,6 +222,12 @@ def sync_session(
     )
     existing_branches = {row[1]: row[0] for row in cursor.fetchall()}
 
+    # Probe vec persistence once: if sqlite-vec didn't load, branch_vec doesn't
+    # exist and write_branch_embedding would raise. Skip embed-on-write entirely
+    # in that case rather than paying for embed_text inference on every active
+    # leaf just to have the write swallowed.
+    vec_writable = branch_vec_queryable(conn)
+
     for branch in branches:
         leaf_uuid = branch["leaf_uuid"]
         branch_uuids = branch["uuids"]
@@ -358,7 +364,7 @@ def sync_session(
         # Order is load-bearing: vec0 upsert FIRST, version columns LAST.
         # If the upsert raises and is swallowed, version columns stay at 0
         # so the branch remains eligible for backfill (no "version done, no vector").
-        if summary_md and is_active:
+        if summary_md and is_active and vec_writable:
             try:
                 vec = embed_text(summary_md)
                 write_branch_embedding(cursor, branch_db_id, vec, SUMMARY_VERSION)

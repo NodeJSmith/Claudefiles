@@ -17,7 +17,10 @@ try:
     import tokenizers
 
     DEPS_AVAILABLE = True
-except ImportError:
+except (ImportError, OSError):
+    # OSError too: a native wheel that imports but can't load its shared
+    # library (ABI mismatch, missing system lib) raises OSError, not
+    # ImportError — catch both so import-time degrades instead of crashing.
     onnxruntime = None
     tokenizers = None
     DEPS_AVAILABLE = False

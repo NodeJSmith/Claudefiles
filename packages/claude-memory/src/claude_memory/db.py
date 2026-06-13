@@ -3,6 +3,7 @@
 Database connection, schema management, settings, and logging.
 """
 
+import contextlib
 import json
 import logging
 import sqlite3
@@ -13,7 +14,7 @@ from pathlib import Path
 import sqlite_vec
 
 from claude_memory.content import parse_origin
-from claude_memory.embeddings import EMBEDDING_MODEL, EMBEDDING_VERSION
+from claude_memory.embeddings import EMBEDDING_DIM, EMBEDDING_MODEL, EMBEDDING_VERSION
 from claude_memory.parsing import build_aggregated_content
 from claude_memory.summarizer import truncate_mid
 
@@ -236,6 +237,30 @@ def vec_available(conn: sqlite3.Connection) -> bool:
         conn.enable_load_extension(False)
         return True
     except Exception:
+        # Re-disable on the failure path too, so a partially-enabled connection
+        # doesn't leave the load_extension() SQL surface callable. Suppressed
+        # because enable_load_extension itself may be what raised (e.g. builds
+        # without loadable-extension support raise AttributeError).
+        with contextlib.suppress(Exception):
+            conn.enable_load_extension(False)
+        return False
+
+
+def branch_vec_queryable(conn: sqlite3.Connection) -> bool:
+    """Return True iff the branch_vec virtual table exists and is queryable.
+
+    get_db_connection(load_vec=True) only creates branch_vec when sqlite-vec
+    loaded successfully, so a guarded probe is the cheapest way for the write,
+    query, and backfill paths to learn whether vector persistence is available
+    before spending inference or running branch_vec queries.
+
+    Scoped to sqlite3.Error (the table-missing OperationalError is the expected
+    failure) so a non-DB bug — e.g. a bad connection object — still surfaces.
+    """
+    try:
+        conn.execute("SELECT 1 FROM branch_vec LIMIT 1")
+        return True
+    except sqlite3.Error:
         return False
 
 
@@ -270,7 +295,7 @@ def _ensure_vec_schema(conn: sqlite3.Connection) -> None:
     """
     conn.execute(
         "CREATE VIRTUAL TABLE IF NOT EXISTS branch_vec"
-        " USING vec0(branch_id INTEGER PRIMARY KEY, embedding float[1024])"
+        f" USING vec0(branch_id INTEGER PRIMARY KEY, embedding float[{EMBEDDING_DIM}])"
     )
     conn.execute(
         "CREATE TRIGGER IF NOT EXISTS branches_vec_ad"
