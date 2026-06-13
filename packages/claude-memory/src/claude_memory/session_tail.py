@@ -21,7 +21,6 @@ for locating files. So we encode the raw cwd here.
 """
 
 import argparse
-import json
 import os
 import sys
 from collections import deque
@@ -34,7 +33,11 @@ from claude_memory.content import (
     is_tool_result,
 )
 from claude_memory.db import DEFAULT_PROJECTS_DIR
-from claude_memory.parsing import extract_session_metadata, parse_all_with_uuids
+from claude_memory.parsing import (
+    extract_session_metadata,
+    parse_all_with_uuids,
+    parse_lines_with_uuids,
+)
 
 # A genuinely answered AskUserQuestion produces a tool_result whose text begins
 # "Your questions have been answered: …"; we match the stable substring. A
@@ -53,6 +56,10 @@ _NOISE_PREFIXES = (
     "base directory for this skill:",
 )
 _TEXT_CLIP = 600
+# Lines of transcript tail the SessionStart hook parses — enough to catch the
+# trailing AskUserQuestion + its result without reading a multi-MB file in full.
+_HOOK_TAIL_LINES = 400
+_DEFAULT_TAIL_EVENTS = 8  # CLI -n default
 
 
 def transcript_dir(cwd: str, projects_dir: Path = DEFAULT_PROJECTS_DIR) -> Path:
@@ -81,7 +88,7 @@ def load_entries(path: Path) -> list[dict]:
     return list(parse_all_with_uuids(path))
 
 
-def load_tail_entries(path: Path, tail_lines: int = 400) -> list[dict]:
+def load_tail_entries(path: Path, tail_lines: int = _HOOK_TAIL_LINES) -> list[dict]:
     """Parse only the last ``tail_lines`` lines into entries with uuids.
 
     Sufficient for pending-question detection (a session that stalls on a question
@@ -91,18 +98,7 @@ def load_tail_entries(path: Path, tail_lines: int = 400) -> list[dict]:
     """
     with open(path, "r", encoding="utf-8", errors="replace") as fh:
         lines = deque(fh, maxlen=tail_lines)
-    entries: list[dict] = []
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            obj = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if obj.get("uuid"):
-            entries.append(obj)
-    return entries
+    return list(parse_lines_with_uuids(lines))
 
 
 def clip(text: str, limit: int = _TEXT_CLIP) -> str:
@@ -348,7 +344,12 @@ def main() -> int:
     ap.add_argument(
         "--cwd", default=os.getcwd(), help="derive project dir from this path"
     )
-    ap.add_argument("-n", type=int, default=8, help="number of tail events to show")
+    ap.add_argument(
+        "-n",
+        type=int,
+        default=_DEFAULT_TAIL_EVENTS,
+        help="number of tail events to show",
+    )
     args = ap.parse_args()
 
     pdir = transcript_dir(args.cwd)
