@@ -10,7 +10,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Changed
 
-- `/mine.issues` deep-dive now hands off to the implementation pipeline — the next-step menu offers "Build it" (routes to `/mine.build`) and "Research first" (`/mine.research`), carrying the issue summary and scope estimate forward, instead of producing an in-conversation plan that dead-ended.
+- `/mine.issues` deep-dive now hands off to the implementation pipeline — the next-step menu offers "Build it" (routes to `/mine.build`) and "Research first" (`/mine.research`), carrying the issue summary and scope estimate forward, instead of producing an in-conversation plan that dead-ended. (#372)
 
 ### Fixed
 
