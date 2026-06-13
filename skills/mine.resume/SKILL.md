@@ -1,6 +1,6 @@
 ---
 name: mine.resume
-description: "Pick up work in a fresh session after /clear, a stop, or an unanswered AskUserQuestion — reconstructs the prior session's intent from its transcript tail and surfaces any unresolved decision. User-invoked only (never auto-fired); for a hand-written end-of-day handoff use /mine.good-morning instead."
+description: "Use when picking up a fresh session after /clear, a stop, or an unanswered AskUserQuestion — reconstructs the prior session's intent from its transcript tail and surfaces any unresolved decision. User-invoked only (never auto-fired); for a hand-written end-of-day handoff use /mine.good-morning instead."
 user-invocable: true
 disable-model-invocation: true
 ---
