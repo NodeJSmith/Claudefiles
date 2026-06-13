@@ -1,7 +1,7 @@
 ---
 task_id: "T04"
 title: "Fused query path: vector KNN + RRF + dedup + flags"
-status: "planned"
+status: "done"
 depends_on: ["T01", "T02"]
 implements: ["FR#1", "FR#2", "FR#3", "FR#11", "FR#12", "FR#15", "AC#2", "AC#9", "AC#10", "AC#13"]
 ---

@@ -1,5 +1,6 @@
 """Tests for claude_memory.db — schema creation, migration, settings."""
 
+import inspect
 import json
 import sqlite3
 import tempfile
@@ -8,13 +9,14 @@ from unittest.mock import patch
 
 import pytest
 
+import claude_memory.db as db_module
 import sqlite_vec
 
+from conftest import make_vec_conn
 from claude_memory.db import (
     CURRENT_ONBOARDING_VERSION,
     DEFAULT_SETTINGS,
     SCHEMA,
-    _ensure_vec_schema,
     _migrate_columns,
     _migrate_project_paths,
     get_db_connection,
@@ -352,8 +354,6 @@ class TestVersionedMigration:
 
         # Create a JSONL file with origin data
         jsonl_file = tmp_path / "test-uuid.jsonl"
-        import json
-
         jsonl_file.write_text(
             json.dumps(
                 {
@@ -390,8 +390,6 @@ class TestVersionedMigration:
 
         # Create JSONL with an isMeta+origin entry (channel message previously filtered)
         jsonl_file = tmp_path / "chan-uuid.jsonl"
-        import json
-
         lines = [
             json.dumps({"type": "user", "uuid": "u1", "message": {"content": "hi"}}),
             json.dumps(
@@ -423,8 +421,6 @@ class TestVersionedMigration:
 class TestLoadSettings:
     def test_always_returns_defaults(self, tmp_path, monkeypatch):
         """load_settings returns hardcoded defaults when no config file exists."""
-        import claude_memory.db as db_module
-
         monkeypatch.setattr(db_module, "CONFIG_PATH", tmp_path / "no_config.json")
         settings = load_settings()
         assert settings == DEFAULT_SETTINGS
@@ -929,8 +925,6 @@ class TestMigrateDbBackupGuard:
         conn.execute("INSERT INTO sessions (uuid) VALUES ('keep-me')")
         conn.commit()
 
-        import claude_memory.db as db_module
-
         monkeypatch.setattr(
             db_module, "_backup_db_before_migration", lambda *_a, **_kw: False
         )
@@ -1135,9 +1129,6 @@ class TestV5Migration:
         """_migrate_project_paths is called inside v5, not on every get_db_connection call."""
         # Verify that _migrate_project_paths is NOT called by examining the call path:
         # get_db_connection should not call _migrate_project_paths unconditionally.
-        import claude_memory.db as db_module
-        import inspect
-
         source = inspect.getsource(db_module.get_db_connection)
         # The unconditional call pattern was: _migrate_project_paths(conn) at the end
         # After WP03 it should be inside the v5 migration block, not at the top level.
@@ -1210,8 +1201,6 @@ class TestV5Migration:
 
     def test_migrations_run_on_get_db_connection(self, tmp_path, monkeypatch):
         """Opening a v4 database via get_db_connection triggers v5 and v6 automatically."""
-        import claude_memory.db as db_module
-
         db_file = tmp_path / "conversations.db"
         # Create a v4 DB at the filesystem level
         setup_conn = sqlite3.connect(str(db_file))
@@ -1588,17 +1577,7 @@ class TestVecSchema:
     )
     def test_branch_vec_exists_when_extension_available(self):
         """branch_vec virtual table is created by _ensure_vec_schema after loading the extension."""
-        conn = sqlite3.connect(":memory:")
-        conn.executescript(SCHEMA)
-        conn.commit()
-        _migrate_columns(conn)
-        # branch_vec is not created by _migrate_columns — load the extension
-        # and call _ensure_vec_schema explicitly (mirrors what load_vec=True does).
-        conn.enable_load_extension(True)
-        sqlite_vec.load(conn)
-        conn.enable_load_extension(False)
-        _ensure_vec_schema(conn)
-        conn.commit()
+        conn = make_vec_conn()
 
         tables = {
             row[0]
@@ -1614,15 +1593,7 @@ class TestVecSchema:
     )
     def test_trigger_exists_when_extension_available(self):
         """branches_vec_ad trigger is created by _ensure_vec_schema after loading the extension."""
-        conn = sqlite3.connect(":memory:")
-        conn.executescript(SCHEMA)
-        conn.commit()
-        _migrate_columns(conn)
-        conn.enable_load_extension(True)
-        sqlite_vec.load(conn)
-        conn.enable_load_extension(False)
-        _ensure_vec_schema(conn)
-        conn.commit()
+        conn = make_vec_conn()
 
         row = conn.execute(
             "SELECT name FROM sqlite_master WHERE type='trigger' AND name='branches_vec_ad'"
@@ -1635,15 +1606,7 @@ class TestVecSchema:
     )
     def test_trigger_removes_branch_vec_row_on_branch_delete(self):
         """AC#11: deleting a branch row removes its branch_vec row (trigger fires)."""
-        conn = sqlite3.connect(":memory:")
-        conn.executescript(SCHEMA)
-        conn.commit()
-        _migrate_columns(conn)
-        conn.enable_load_extension(True)
-        sqlite_vec.load(conn)
-        conn.enable_load_extension(False)
-        _ensure_vec_schema(conn)
-        conn.commit()
+        conn = make_vec_conn()
 
         # Populate branches with a row so we can insert a vector
         cursor = conn.cursor()
@@ -1693,15 +1656,7 @@ class TestVecSchema:
 
         This verifies the actual write-path upsert mechanism works correctly.
         """
-        conn = sqlite3.connect(":memory:")
-        conn.executescript(SCHEMA)
-        conn.commit()
-        _migrate_columns(conn)
-        conn.enable_load_extension(True)
-        sqlite_vec.load(conn)
-        conn.enable_load_extension(False)
-        _ensure_vec_schema(conn)
-        conn.commit()
+        conn = make_vec_conn()
 
         cursor = conn.cursor()
         cursor.execute(
@@ -1749,8 +1704,6 @@ class TestLoadVecParameter:
 
     def test_default_connection_initializes_cleanly(self, tmp_path, monkeypatch):
         """get_db_connection() with default load_vec=False returns a working connection."""
-        import claude_memory.db as db_module
-
         db_file = tmp_path / "conversations.db"
         monkeypatch.setattr(db_module, "DEFAULT_DB_PATH", db_file)
 
@@ -1779,8 +1732,6 @@ class TestLoadVecParameter:
     )
     def test_load_vec_true_allows_branch_vec_query(self, tmp_path, monkeypatch):
         """get_db_connection(load_vec=True) returns a connection that can query branch_vec."""
-        import claude_memory.db as db_module
-
         db_file = tmp_path / "conversations.db"
         monkeypatch.setattr(db_module, "DEFAULT_DB_PATH", db_file)
 
@@ -1798,8 +1749,6 @@ class TestLoadVecParameter:
         This test always passes — it verifies the non-load_vec path does not
         touch branch_vec in a way that would require the extension.
         """
-        import claude_memory.db as db_module
-
         db_file = tmp_path / "conversations.db"
         monkeypatch.setattr(db_module, "DEFAULT_DB_PATH", db_file)
 
