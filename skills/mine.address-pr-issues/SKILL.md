@@ -37,6 +37,7 @@ Output is `github`, `ado`, or `unknown`. If `unknown`, tell the user the platfor
 ### PR metadata
 
 **GitHub:**
+
 ```bash
 gh pr view {PR} --json number,title,url,baseRefName,headRefName,mergeable,mergeStateStatus,statusCheckRollup,isDraft,reviewDecision
 ```
@@ -44,6 +45,7 @@ gh pr view {PR} --json number,title,url,baseRefName,headRefName,mergeable,mergeS
 If `mergeable` is `UNKNOWN`, retry up to 3 times with backoff (3s, 6s, 12s) — GitHub computes mergeability asynchronously. If still `UNKNOWN` after retries, warn the user and continue.
 
 **ADO:**
+
 ```bash
 ado-api pr show {PR} --json
 ```
@@ -55,6 +57,7 @@ Returns `pullRequestId`, `title`, `status`, `sourceRefName`, `targetRefName`, `r
 **CRITICAL**: `gh pr view --json` does NOT return review threads (inline comments from reviewers or Copilot). You MUST run the fetching command below. Do not conclude "no review comments" based on PR metadata alone — that field doesn't exist in the metadata response.
 
 **GitHub:**
+
 ```bash
 gh-pr-threads {PR} --json --all
 ```
@@ -68,6 +71,7 @@ Returns a JSON object with three surfaces — **all three need triage**:
 Do NOT skip `.reviewComments` — it is the surface most often missed, and CodeRabbit routinely puts Major findings there.
 
 **ADO:**
+
 ```bash
 ado-api pr threads {PR} --json --all
 ```
@@ -79,6 +83,7 @@ Returns all threads as JSON. Threads with `threadContext` are inline comments; t
 **GitHub:** From `statusCheckRollup` in metadata. Filter for `conclusion` in `FAILURE`, `TIMED_OUT`, `ACTION_REQUIRED`.
 
 **ADO:**
+
 ```bash
 az repos pr policy list --id {PR_ID} -o json
 ```
