@@ -17,13 +17,21 @@ while [[ $# -gt 0 ]]; do
       cat << 'EOF'
 Usage: gh-pr-threads [--json] [--all] [-R OWNER/REPO] [pr-number]
 
-List PR review threads with summary.
+List everything on a PR that may need a response: inline review threads, plus
+review-summary findings and conversation comments that aren't inline threads.
+
+The non-thread surfaces matter because CodeRabbit posts substantial findings
+("Outside diff range comments", "Duplicate comments") in review bodies rather
+than inline threads. Auto-generated walkthrough/summary noise is filtered out.
 
 Options:
   -R, --repo OWNER/REPO  Target a specific repository (default: current repo)
-  --json                 Emit raw thread nodes as a JSON array (skip human-readable formatting)
+  --json                 Emit a JSON object: {pr, threads, reviewComments, issueComments}
   --all                  Include resolved threads (default: unresolved only)
   -h, --help             Show this help message and exit
+
+Only inline threads are resolvable (PRRT_ ids). Review-summary findings and
+conversation comments are informational — reply with a normal PR comment.
 
 If no PR number given, auto-detects from current branch.
 
@@ -83,6 +91,26 @@ query(\$owner: String!, \$repo: String!, \$pr: Int!) {
     pullRequest(number: \$pr) {
       title
       url
+      reviews(first: 100) {
+        pageInfo { hasNextPage }
+        nodes {
+          author { login __typename }
+          state
+          url
+          body
+          createdAt
+        }
+      }
+      comments(first: 100) {
+        pageInfo { hasNextPage }
+        nodes {
+          databaseId
+          author { login __typename }
+          url
+          body
+          createdAt
+        }
+      }
       reviewThreads(first: 100${after_clause}) {
         pageInfo {
           hasNextPage
@@ -117,6 +145,7 @@ GRAPHQL
 # --- Pagination loop: accumulate all thread nodes ---
 all_nodes="[]"
 cursor=""
+meta_response=""
 
 while true; do
   query=$(build_query "$cursor")
@@ -131,6 +160,12 @@ while true; do
   if printf '%s' "$response" | jq -e '.errors' > /dev/null 2>&1; then
     printf '%s' "$response" | jq -r '.errors[0].message // "unknown GraphQL error"' >&2
     exit 1
+  fi
+
+  # Only reviewThreads is paginated; title/url/reviews/comments are identical on
+  # every page, so keep the first page's response as the source for all of them.
+  if [[ -z "$meta_response" ]]; then
+    meta_response="$response"
   fi
 
   # Extract page nodes and metadata
@@ -152,18 +187,65 @@ while true; do
   cursor="$end_cursor"
 done
 
-# Extract title and url from the last response (same across pages)
-pr_title=$(printf '%s' "$response" | jq -r '.data.repository.pullRequest.title')
-pr_url=$(printf '%s' "$response" | jq -r '.data.repository.pullRequest.url')
+# --- Non-thread surfaces (review summary bodies + PR conversation comments) ---
+# CodeRabbit posts substantial findings ("Outside diff range comments",
+# "Duplicate comments") in review BODIES, not inline threads — and auto-generated
+# walkthrough/summary noise in conversation comments. Filter to signal only.
+pr_data=$(printf '%s' "$meta_response" | jq '.data.repository.pullRequest')
+pr_title=$(printf '%s' "$pr_data" | jq -r '.title')
+pr_url=$(printf '%s' "$pr_data" | jq -r '.url')
+
+# Warn if non-thread surfaces were truncated at 100 (no silent caps)
+if printf '%s' "$pr_data" | jq -e '.reviews.pageInfo.hasNextPage' > /dev/null 2>&1; then
+  echo "warning: PR has >100 reviews — review bodies beyond the first 100 are not shown" >&2
+fi
+if printf '%s' "$pr_data" | jq -e '.comments.pageInfo.hasNextPage' > /dev/null 2>&1; then
+  echo "warning: PR has >100 conversation comments — comments beyond the first 100 are not shown" >&2
+fi
+
+# Review bodies: keep human-authored summaries, or bot bodies carrying out-of-band
+# findings (CodeRabbit posts these in the body, not as inline threads). Drop
+# pointer-boilerplate ("Actionable comments posted: N" whose items are already
+# captured as inline threads) — we scan for finding-section titles independently
+# of that header, since a body can contain both.
+#
+# CodeRabbit has no findings API (REST/GraphQL/SARIF/webhook) — parsing these
+# section titles out of the review-body markdown is the only available path. The
+# titles are CodeRabbit product copy, NOT an API contract, and have drifted before
+# (emoji/wording change across releases). The match below is deliberately tolerant
+# (bare phrases, no emoji, no counts); if CodeRabbit renames a section this is the
+# line to update.
+review_comments=$(printf '%s' "$pr_data" | jq '
+  [.reviews.nodes[]
+   | select((.body | length) > 0)
+   | select((.author.__typename == "User")
+            or (.body | test("Outside diff range|Duplicate comments|Nitpick comments")))]')
+
+# Conversation comments: drop machine-generated status noise. Automated status
+# comments lead with an HTML marker comment (e.g. CodeRabbit's
+# "<!-- This is an auto-generated comment: ... -->", ReadTheDocs' "<!-- readthedocs-... -->");
+# genuine human comments and bot chat replies lead with prose. Keep the latter.
+issue_comments=$(printf '%s' "$pr_data" | jq '
+  [.comments.nodes[]
+   | select((.body | length) > 0)
+   | select(.body | test("^\\s*<!--") | not)]')
 
 # --- Output ---
 if [[ "$output_json" == true ]]; then
-  # JSON mode: emit thread nodes as a JSON array
+  # JSON mode: object with all three surfaces. Threads stay under .threads
+  # (same node shape as before); non-thread surfaces are not resolvable.
   if [[ "$show_all" == true ]]; then
-    printf '%s' "$all_nodes" | jq '.'
+    threads_json=$(printf '%s' "$all_nodes" | jq '.')
   else
-    printf '%s' "$all_nodes" | jq '[.[] | select(.isResolved | not)]'
+    threads_json=$(printf '%s' "$all_nodes" | jq '[.[] | select(.isResolved | not)]')
   fi
+  jq -n \
+    --arg title "$pr_title" \
+    --arg url "$pr_url" \
+    --argjson threads "$threads_json" \
+    --argjson reviewComments "$review_comments" \
+    --argjson issueComments "$issue_comments" \
+    '{pr: {title: $title, url: $url}, threads: $threads, reviewComments: $reviewComments, issueComments: $issueComments}'
 else
   # Human-readable mode (original --jq behavior)
   if [[ "$show_all" == true ]]; then
@@ -201,4 +283,23 @@ else
       )
     '
   fi
+
+  # Non-thread surfaces — not resolvable (no PRRT_ id; reply with a normal PR
+  # comment, not a thread-resolve). Shown regardless of --all.
+  printf '%s' "$review_comments" | jq -r '
+    if length > 0 then
+      "── Review-summary findings (not threads — out-of-diff / duplicate / nitpick, or human review bodies) ──",
+      (.[] | "@\(.author.login) [\(.state)] \(.url)",
+             "  \(.body[0:400] | gsub("\n"; " "))",
+             ""),
+      ""
+    else empty end'
+  printf '%s' "$issue_comments" | jq -r '
+    if length > 0 then
+      "── Conversation comments (not threads) ──",
+      (.[] | "@\(.author.login) \(.url)",
+             "  \(.body[0:400] | gsub("\n"; " "))",
+             ""),
+      ""
+    else empty end'
 fi

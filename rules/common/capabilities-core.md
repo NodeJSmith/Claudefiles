@@ -86,7 +86,7 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 ### GitHub tool notes
 
 - **Bot-token auth**: All five `gh-*` tools silently upgrade to bot identity when `gh-app-token` is installed and `GITHUB_APP_ID` is set. Falls back to your personal token otherwise.
-- **Thread workflow**: Run `gh-pr-threads --json <pr>` → extract `.id` fields (`PRRT_...` values) → pass to `gh-pr-reply --resolve` or `gh-pr-resolve-thread`.
-- **gh-pr-threads**: Auto-detects PR from current branch when no number given. Handles 100+ threads with internal pagination. Use `--repo`/`-R OWNER/REPO` to target a different repository.
+- **Thread workflow**: Run `gh-pr-threads --json <pr>` → extract `.threads[].id` (`PRRT_...` values) → pass to `gh-pr-reply --resolve` or `gh-pr-resolve-thread`. Only `.threads` are resolvable; `.reviewComments` and `.issueComments` are informational (reply with a normal PR comment).
+- **gh-pr-threads**: `--json` returns `{pr, threads, reviewComments, issueComments}`. `.reviewComments` surfaces review-summary findings that aren't inline threads — CodeRabbit puts Major findings ("Outside diff range", "Duplicate comments") there; don't skip it. Auto-generated status noise is filtered from `.issueComments`. Auto-detects PR from current branch when no number given. Handles 100+ threads with internal pagination. Use `--repo`/`-R OWNER/REPO` to target a different repository.
 - **gh-pr-reply --resolve**: Combines reply and resolve in one call — preferred over separate steps.
 - **gh-issue overview**: Run `gh-issue overview` to see repo milestones, labels, and usage patterns before creating issues. Use `--repo`/`-R OWNER/REPO` (works in any position) to target a different repository. Use `--milestone "name"` on `list` (filter) and `create` (assign).

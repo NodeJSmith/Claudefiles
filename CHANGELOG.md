@@ -4,6 +4,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-06-13
 
+### Fixed
+
+- `gh-pr-threads` missed CodeRabbit's most substantial findings. CodeRabbit posts "Outside diff range" and "Duplicate comments" in review **bodies**, not inline threads (it can't anchor them to the diff), so the script — which only queried `reviewThreads` — reported PRs as clean while Major findings sat unread. It now also surfaces review-summary bodies and PR conversation comments, filtering out machine-generated status noise (CodeRabbit walkthroughs, ReadTheDocs build reports). `--json` now returns `{pr, threads, reviewComments, issueComments}` (was a bare threads array); `mine.address-pr-issues` consumes the new shape and no longer fetches conversation comments separately. (#381)
+
 ### Added
 
 - `/mine.resume` — after a `/clear` or a stopped session, recover the *prior* session's intent from its transcript tail: your last instruction plus any `AskUserQuestion` you left unanswered. User-invoked only, backed by a new `cm-session-tail` tool. With the Memory bundle, the SessionStart hook also auto-warns when the previous session ended on an unanswered decision, so it surfaces at startup unprompted. (#376)

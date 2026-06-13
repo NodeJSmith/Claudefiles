@@ -221,7 +221,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `gh-pr-create` | Create a GitHub PR using bot token if available, personal token otherwise |
 | `gh-pr-reply` | Reply to a PR review comment thread; optionally resolve it with `--resolve <PRRT_...>` |
 | `gh-pr-resolve-thread` | Resolve one or more PR review threads by GraphQL ID |
-| `gh-pr-threads` | List PR review threads — supports `--json` (structured output), `--all` (include resolved), with pagination |
+| `gh-pr-threads` | List everything on a PR needing a response — inline threads plus review-summary findings and conversation comments (CodeRabbit out-of-diff comments included; status noise filtered). `--json` emits `{pr, threads, reviewComments, issueComments}`; `--all` includes resolved threads; paginated |
 | `git-branch-base` | Print the base ref for the current branch — closest remote branch, with default branch fallback |
 | `git-branch-behind` | Report how many commits the branch is behind the default branch (forgot-to-pull pre-flight); fetches origin with a timeout, degrades offline. Depends on `git-default-branch` |
 | `git-branch-diff-files` | Print changed file names for current branch vs its base (uses git-branch-base) |
