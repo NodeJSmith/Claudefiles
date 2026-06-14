@@ -734,6 +734,44 @@ class TestBackfillStatus:
         assert "remaining: 2" in out
         assert "errored:   1" in out
 
+    def test_days_filters_counts(self, capsys):
+        """--status --days N bounds universe/eligible/errored by recency.
+
+        Mirrors count_status's recency clause. Two rows fall outside a 30-day
+        window for different reasons: an explicitly old row (ended 60 days ago)
+        and a never-ended row (NULL ended_at, since `NULL > datetime(...)` is
+        false in SQLite). Both must drop out of every counted set.
+        """
+        conn = make_vec_conn()
+        recent = _insert_branch(conn, "recent eligible")
+        recent_err = _insert_branch(conn, "recent errored")
+        old = _insert_branch(conn, "old eligible")  # ended 60d ago → out of window
+        _insert_branch(conn, "never ended")  # NULL ended_at → out of window
+        # Use SQLite's clock so the window math is wall-clock independent.
+        conn.execute(
+            "UPDATE branches SET ended_at = datetime('now') WHERE id IN (?, ?)",
+            (recent, recent_err),
+        )
+        conn.execute(
+            "UPDATE branches SET ended_at = datetime('now', '-60 days') WHERE id = ?",
+            (old,),
+        )
+        conn.execute(
+            "UPDATE branches SET embedding_version = -1 WHERE id = ?", (recent_err,)
+        )
+        conn.commit()
+
+        out = _run_status(conn, ["--json", "--days", "30"], capsys)
+        data = json.loads(out)
+
+        # Only `recent` (eligible) and `recent_err` (errored) are within the
+        # window; both count toward universe. `old` and the NULL row are excluded.
+        assert data["universe"] == 2
+        assert data["eligible"] == 1
+        assert data["errored"] == 1
+        assert data["done"] == 0
+        assert data["days"] == 30
+
     def test_status_does_not_embed(self, capsys):
         """--status is read-only: it must not write any vectors."""
         conn = make_vec_conn()
