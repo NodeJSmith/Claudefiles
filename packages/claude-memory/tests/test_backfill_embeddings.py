@@ -10,6 +10,7 @@ Scope: only active leaves (is_active=1) are embedded — inactive forks are skip
 Opt-in: --days bounds by recency, --limit caps the run.
 """
 
+import json
 import sqlite3
 from unittest.mock import patch
 
@@ -674,3 +675,109 @@ class TestBackfillFlags:
         _run_backfill_with_stub(conn, argv=["--limit", "2"])
 
         assert _vec_count(conn) == 2
+
+
+# ---------------------------------------------------------------------------
+# --status: read-only progress reader (done / eligible / errored / total)
+# ---------------------------------------------------------------------------
+
+
+def _run_status(conn: sqlite3.Connection, argv: list[str], capsys):
+    """Invoke `_main(--status ...)` against `conn`; return captured stdout."""
+    with (
+        patch(
+            "claude_memory.hooks.backfill_embeddings.get_db_connection",
+            return_value=_NoCloseConn(conn),
+        ),
+        patch("claude_memory.hooks.backfill_embeddings.load_settings", return_value={}),
+    ):
+        code = _main(["--status", *argv])
+    assert code == 0
+    return capsys.readouterr().out
+
+
+@_VEC_SKIP
+class TestBackfillStatus:
+    def _seed_mixed(self, conn: sqlite3.Connection) -> None:
+        """3 done, 2 eligible, 1 errored — universe of 6."""
+        for i in range(3):
+            _insert_branch(conn, f"done {i}")
+        _run_backfill_with_stub(conn)  # marks those 3 done
+        for i in range(2):
+            _insert_branch(conn, f"eligible {i}")
+        errored = _insert_branch(conn, "errored")
+        conn.execute(
+            "UPDATE branches SET embedding_version = -1 WHERE id = ?", (errored,)
+        )
+        conn.commit()
+
+    def test_json_counts(self, capsys):
+        conn = make_vec_conn()
+        self._seed_mixed(conn)
+
+        out = _run_status(conn, ["--json"], capsys)
+        data = json.loads(out)
+
+        assert data["universe"] == 6
+        assert data["done"] == 3
+        assert data["eligible"] == 2
+        assert data["errored"] == 1
+        assert data["days"] is None
+
+    def test_human_output_reports_progress(self, capsys):
+        conn = make_vec_conn()
+        self._seed_mixed(conn)
+
+        out = _run_status(conn, [], capsys)
+
+        assert "embedded:  3 / 6" in out
+        assert "remaining: 2" in out
+        assert "errored:   1" in out
+
+    def test_days_filters_counts(self, capsys):
+        """--status --days N bounds universe/eligible/errored by recency.
+
+        Mirrors count_status's recency clause. Two rows fall outside a 30-day
+        window for different reasons: an explicitly old row (ended 60 days ago)
+        and a never-ended row (NULL ended_at, since `NULL > datetime(...)` is
+        false in SQLite). Both must drop out of every counted set.
+        """
+        conn = make_vec_conn()
+        recent = _insert_branch(conn, "recent eligible")
+        recent_err = _insert_branch(conn, "recent errored")
+        old = _insert_branch(conn, "old eligible")  # ended 60d ago → out of window
+        _insert_branch(conn, "never ended")  # NULL ended_at → out of window
+        # Use SQLite's clock so the window math is wall-clock independent.
+        conn.execute(
+            "UPDATE branches SET ended_at = datetime('now') WHERE id IN (?, ?)",
+            (recent, recent_err),
+        )
+        conn.execute(
+            "UPDATE branches SET ended_at = datetime('now', '-60 days') WHERE id = ?",
+            (old,),
+        )
+        conn.execute(
+            "UPDATE branches SET embedding_version = -1 WHERE id = ?", (recent_err,)
+        )
+        conn.commit()
+
+        out = _run_status(conn, ["--json", "--days", "30"], capsys)
+        data = json.loads(out)
+
+        # Only `recent` (eligible) and `recent_err` (errored) are within the
+        # window; both count toward universe. `old` and the NULL row are excluded.
+        assert data["universe"] == 2
+        assert data["eligible"] == 1
+        assert data["errored"] == 1
+        assert data["done"] == 0
+        assert data["days"] == 30
+
+    def test_status_does_not_embed(self, capsys):
+        """--status is read-only: it must not write any vectors."""
+        conn = make_vec_conn()
+        _insert_branch(conn, "untouched")
+
+        before = _vec_count(conn)
+        _run_status(conn, ["--json"], capsys)
+
+        assert _vec_count(conn) == before == 0

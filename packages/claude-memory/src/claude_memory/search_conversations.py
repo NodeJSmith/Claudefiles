@@ -17,6 +17,7 @@ import sqlite_vec
 # Local imports
 from claude_memory.db import (
     DEFAULT_DB_PATH,
+    EMBEDDABLE_BRANCH_FILTER,
     branch_vec_queryable,
     detect_fts_support,
     get_db_connection,
@@ -423,16 +424,14 @@ def print_status(args: argparse.Namespace, settings: dict | None) -> None:
     # Embedded vs total branch counts — reuse the same connection
     if conn is not None:
         try:
-            # Scope to active leaves: only is_active=1 branches are embeddable
-            # (the query path filters is_active=1), so the denominator must match
-            # the backfill's eligibility universe (see build_selection).
+            # Denominator is the shared embeddable universe (db.EMBEDDABLE_BRANCH_FILTER),
+            # the same predicate the backfill's build_selection()/count_status() use,
+            # so this diagnostic can't drift from `cm-backfill-embeddings --status`.
             total = conn.execute(
-                "SELECT count(*) FROM branches WHERE is_active = 1"
-                " AND context_summary IS NOT NULL AND context_summary != ''"
+                f"SELECT count(*) FROM branches WHERE {EMBEDDABLE_BRANCH_FILTER}"
             ).fetchone()[0]
             embedded = conn.execute(
-                "SELECT count(*) FROM branches WHERE is_active = 1"
-                " AND context_summary IS NOT NULL AND context_summary != ''"
+                f"SELECT count(*) FROM branches WHERE {EMBEDDABLE_BRANCH_FILTER}"
                 " AND embedding_version = ? AND embedding_model = ?",
                 (EMBEDDING_VERSION, EMBEDDING_MODEL),
             ).fetchone()[0]

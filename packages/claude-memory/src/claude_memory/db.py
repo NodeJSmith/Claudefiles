@@ -24,6 +24,19 @@ DEFAULT_PROJECTS_DIR = Path.home() / ".claude" / "projects"
 DEFAULT_LOG_PATH = Path.home() / ".claude-memory" / "memory.log"
 CONFIG_PATH = Path.home() / ".claude-memory" / "config.json"
 
+# Shared SQL predicate for "branches that are candidates to embed": active
+# leaves (the query path only returns is_active=1) with a usable summary. This
+# is the single source of truth for the embedding universe — build_selection()
+# (eligibility), count_status() (backfill progress), and search_conversations
+# print_status() (diagnostics) all build on it so their counts can't drift.
+EMBEDDABLE_BRANCH_FILTER = (
+    "is_active = 1 AND context_summary IS NOT NULL AND context_summary != ''"
+)
+# Sentinel written to embedding_version when a branch's summary can't be embedded
+# (tokenizer overflow, malformed content). Excluded from eligibility so it isn't
+# retried forever; counted separately as "errored".
+CONTENT_ERROR_VERSION = -1
+
 # Default settings
 DEFAULT_SETTINGS = {
     "db_path": str(DEFAULT_DB_PATH),
