@@ -112,7 +112,7 @@ fi
 # Shown only on the global timeout denial below — not on per-repo deny_all/
 # deny_flags, whose configured reasons reflect a deliberate repo policy we don't
 # undercut by advertising the bypass.
-OVERRIDE_HINT='To run without the timeout wrapper, prefix the command with PYTEST_GUARD_OFF="<your reason>".'
+OVERRIDE_HINT='To run without the timeout wrapper, prefix the command with PYTEST_GUARD_OFF="<reason>" (a non-empty reason; the literal <reason> is rejected).'
 
 deny() {
   jq -cn --arg reason "$1" \
