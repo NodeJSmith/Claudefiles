@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-06-15
+
+### Fixed
+
+- `trail-log` now resolves a relative trail-file path against the git worktree root instead of the current directory. `mine.orchestrate` invokes it from varying working directories — sometimes from inside the feature dir itself — so a repo-relative path could double up (`design/specs/X/design/specs/X/trail.tsv`), fail to write, and silently drop the decision trail. Absolute paths are unchanged. (#383)
+
 ## 2026-06-13
 
 ### Fixed
