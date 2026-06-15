@@ -1,6 +1,6 @@
 ---
 name: mine.debug
-description: "Use when encountering any bug, test failure, or unexpected behavior — invoked manually or nudged by the pytest loop detector hook"
+description: "Use when encountering any bug, test failure, or unexpected behavior"
 user-invocable: true
 ---
 

@@ -39,7 +39,8 @@ CAPABILITIES="${REPO_ROOT}/rules/common/capabilities-core.md"
 failures=0
 
 # --- plumbing exemptions (no --help required) ----------------------------
-HELP_EXEMPT="pytest-loop-reset"
+# Space-separated list of bin scripts that don't need --help handling.
+HELP_EXEMPT=""
 
 # --- check 1: --help presence --------------------------------------------
 echo "=== Check 1: --help handling ==="

@@ -26,6 +26,13 @@
 # Env var override:
 #   CLAUDE_PYTEST_TIMEOUT — overrides default and per-repo timeout value
 #
+# Escape hatch (mirrors serena-guard.sh): prefix the command with a
+# reason-bearing env var to opt out of every check below when you genuinely need
+# to run pytest without a timeout wrapper (or past a per-repo deny):
+#   PYTEST_GUARD_OFF="running under a debugger that owns process lifetime" pytest ...
+# The reason must be non-empty; it's echoed to stderr so the override stays a
+# conscious, auditable choice.
+#
 # Requires:
 #   - jq (for parsing hook input and per-repo config)
 #   - git (for finding repo root)
@@ -54,6 +61,29 @@ CWD=$(printf '%s' "$INPUT" | jq -r '.cwd // empty')
 
 [ -z "$COMMAND" ] && exit 0
 
+# --- OVERRIDE: a PYTEST_GUARD_OFF="reason" prefix opts out of every check below ---
+# Mirrors serena-guard.sh. The opt-out is deliberately a conscious choice — a
+# real, non-empty reason is required:
+#   - anchored to the start of the command (the documented prefix form), so it
+#     can't be triggered from inside a later argument, heredoc, or string.
+#   - the three regex branches accept a double-quoted, single-quoted, or bare-word
+#     value; an empty value (PYTEST_GUARD_OFF= / "" / '') matches none of them.
+#   - the captured value is unquoted and trimmed, then a bare <reason> placeholder
+#     (the literal from the hint text) is rejected.
+# Pipeline: grep -o prints the whole match (KEY=VALUE), so cut strips the "KEY="
+# prefix; sed then strips surrounding quotes and whitespace. The '\'' sequences
+# are a literal single-quote inside a single-quoted string. grep exits 1 on no
+# match; the trailing || true keeps that (or any pipe-stage failure) from aborting
+# under set -e — it just leaves OVERRIDE_REASON empty.
+OVERRIDE_REASON=$(printf '%s' "$COMMAND" |
+  grep -oE '^[[:space:]]*PYTEST_GUARD_OFF=("[^"]+"|'\''[^'\'']+'\''|[^[:space:]"'\'']+)' |
+  head -n1 | cut -d= -f2- |
+  sed -e 's/^["'\'']//' -e 's/["'\'']$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' || true)
+if [ -n "$OVERRIDE_REASON" ] && [ "$OVERRIDE_REASON" != "<reason>" ]; then
+  printf 'pytest-guard.sh: override honored — %s\n' "$OVERRIDE_REASON" >&2
+  exit 0
+fi
+
 # --- Detect whether this command actually runs pytest ---
 
 # Prefix pattern: optional env vars, optional runner (uv run, poetry run, etc.)
@@ -78,6 +108,11 @@ if ! is_pytest_invocation "$COMMAND"; then
 fi
 
 # --- From here on, we know it's a pytest invocation ---
+
+# Shown only on the global timeout denial below — not on per-repo deny_all/
+# deny_flags, whose configured reasons reflect a deliberate repo policy we don't
+# undercut by advertising the bypass.
+OVERRIDE_HINT='To run without the timeout wrapper, prefix the command with PYTEST_GUARD_OFF="<your reason>".'
 
 deny() {
   jq -cn --arg reason "$1" \
@@ -152,7 +187,7 @@ has_timeout() {
 }
 
 if ! has_timeout "$COMMAND"; then
-  deny "pytest must be wrapped with timeout to prevent orphaned processes. Use: timeout ${TIMEOUT} pytest ... (or set CLAUDE_PYTEST_TIMEOUT to adjust the limit)"
+  deny "pytest must be wrapped with timeout to prevent orphaned processes. Use: timeout ${TIMEOUT} pytest ... (or set CLAUDE_PYTEST_TIMEOUT to adjust the limit). ${OVERRIDE_HINT}"
 fi
 
 # --- Check 2: per-repo deny_flags ---

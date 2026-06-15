@@ -4,6 +4,14 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-06-15
 
+### Added
+
+- `pytest-guard.sh` now honors a `PYTEST_GUARD_OFF="reason"` command prefix as an escape hatch, mirroring the serena-guard pattern. When you genuinely need pytest without a `timeout` wrapper (or past a per-repo `deny_all`/`deny_flags`), prefix the command with a non-empty reason — it's echoed to stderr so the opt-out stays a conscious, auditable choice. Empty or `<reason>`-placeholder values are rejected.
+
+### Removed
+
+- The pytest loop detector and its supporting machinery: `pytest-loop-detector.sh`, `pytest-loop-status.sh`, `pytest-loop-reset.sh`, the shared `pytest-detect.sh`, and the `pytest-loop-reset` bin script, plus their settings.json wiring (PreToolUse detector, PostToolUse reset+status, SessionStart session-id writer) and the `Bash(pytest-loop-reset)` permission. It never triggered in practice and added counter-file state, two PostToolUse hooks, and a SessionStart hook for no observed benefit. `mine.debug` remains the path for systematic debugging.
+
 ### Fixed
 
 - `trail-log` now resolves a relative trail-file path against the git worktree root instead of the current directory. `mine.orchestrate` invokes it from varying working directories — sometimes from inside the feature dir itself — so a repo-relative path could double up (`design/specs/X/design/specs/X/trail.tsv`), fail to write, and silently drop the decision trail. Absolute paths are unchanged. (#383)

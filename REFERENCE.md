@@ -174,12 +174,8 @@ Event-driven scripts that run before/after tool calls.
 |------|-------|-------------|
 | `tmux-remind.sh` | SessionStart | Reminds Claude to rename the tmux session |
 | `sudo-poll.sh` | PreToolUse (Bash) | Deny-then-poll for sudo — detects cached credentials or waits 30s for user to `sudo -v` in another pane |
-| `pytest-guard.sh` | PreToolUse (Bash) | Deny bare pytest — requires `timeout` wrapper; per-repo config via `.claude/pytest-guard.json` for custom timeouts, flag denylist, or full block (`deny_all`) |
-| `pytest-loop-detector.sh` | PreToolUse (Bash) | Deny pytest after repeated failures: 3 consecutive runs without edits, or 8 total failures since last success — nudges to `/mine.debug` |
-| `pytest-loop-reset.sh` | PostToolUse (Edit/Write/MultiEdit/NotebookEdit) | Reset the no-edit pytest failure counter when code changes are made (total counter intentionally preserved) |
-| `pytest-loop-status.sh` | PostToolUse (Bash) | Record pytest exit code for loop detector failure tracking |
+| `pytest-guard.sh` | PreToolUse (Bash) | Deny bare pytest — requires `timeout` wrapper; per-repo config via `.claude/pytest-guard.json` for custom timeouts, flag denylist, or full block (`deny_all`). Escape hatch: prefix with `PYTEST_GUARD_OFF="reason"` to opt out |
 | `subagent-compaction-check.sh` | PostToolUse (Agent) | Detect subagent context compaction — warns the orchestrator when a subagent hit its context window limit mid-task |
-| `pytest-detect.sh` | (sourced) | Shared pytest detection patterns for loop detector and status hooks |
 | `cm-memory-setup` (package) | SessionStart | Initialize memory DB, trigger background import if needed |
 | `cm-onboarding` (package) | SessionStart (startup) | Inject MEMORY.md context and greet the user with persistent memory |
 | `cm-memory-context` (package) | SessionStart (startup\|clear) | Load memory context into the session |
@@ -232,7 +228,6 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `lint-agent-models` | Agent registry drift lint — checks every `agents/*.md` is listed in performance.md (with matching model) and registered in an install.py bundle, so no agent ships uninstalled |
 | `lint-cli-conventions` | Drift prevention lint — verifies `--help` handling in bin/ scripts and capabilities-core.md CLI Tools sync |
 | `phrase-monitor-log` | View phrase monitor detections — last N entries, stats, live tail, or clear |
-| `pytest-loop-reset` | Manually clear both pytest failure counters (no-edit and total) — use when you want to retry after a denial |
 | `trail-log` | Append a TSV row to a trail file with timestamping, sanitization, and event validation |
 
 ## Packages
