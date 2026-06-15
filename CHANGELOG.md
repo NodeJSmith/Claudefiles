@@ -6,11 +6,11 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Added
 
-- `pytest-guard.sh` now honors a `PYTEST_GUARD_OFF="reason"` command prefix as an escape hatch, mirroring the serena-guard pattern. When you genuinely need pytest without a `timeout` wrapper (or past a per-repo `deny_all`/`deny_flags`), prefix the command with a non-empty reason — it's echoed to stderr so the opt-out stays a conscious, auditable choice. Empty or `<reason>`-placeholder values are rejected.
+- `pytest-guard.sh` now honors a `PYTEST_GUARD_OFF="reason"` command prefix as an escape hatch, mirroring the serena-guard pattern. When you genuinely need pytest without a `timeout` wrapper (or past a per-repo `deny_all`/`deny_flags`), prefix the command with a non-empty reason — it's echoed to stderr so the opt-out stays a conscious, auditable choice. Empty or `<reason>`-placeholder values are rejected. (#384)
 
 ### Removed
 
-- The pytest loop detector and its supporting machinery: `pytest-loop-detector.sh`, `pytest-loop-status.sh`, `pytest-loop-reset.sh`, the shared `pytest-detect.sh`, and the `pytest-loop-reset` bin script, plus their settings.json wiring (PreToolUse detector, PostToolUse reset+status, SessionStart session-id writer) and the `Bash(pytest-loop-reset)` permission. It never triggered in practice and added counter-file state, two PostToolUse hooks, and a SessionStart hook for no observed benefit. `mine.debug` remains the path for systematic debugging.
+- The pytest loop detector and its supporting machinery: `pytest-loop-detector.sh`, `pytest-loop-status.sh`, `pytest-loop-reset.sh`, the shared `pytest-detect.sh`, and the `pytest-loop-reset` bin script, plus their settings.json wiring (PreToolUse detector, PostToolUse reset+status, SessionStart session-id writer) and the `Bash(pytest-loop-reset)` permission. It never triggered in practice and added counter-file state, two PostToolUse hooks, and a SessionStart hook for no observed benefit. `mine.debug` remains the path for systematic debugging. (#384)
 
 ### Fixed
 
