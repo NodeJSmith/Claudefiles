@@ -338,7 +338,7 @@ Read the design doc directly for architecture context. Pay special attention to 
 
 ## Output capture
 Capture raw test/lint command output to the per-task log files (`test-output.log` / `lint-output.log`,
-concrete paths in the output-paths section below) rather than inlining full output into your result.
+concrete paths given on the output lines at the end of this prompt) rather than inlining full output into your result.
 Summarize results inline (e.g., "12 passed, 0 failed"); keep the full logs in the files.
 
 Do NOT re-run the full test suite mid-task to verify that an edit landed — the Step 9 gate
