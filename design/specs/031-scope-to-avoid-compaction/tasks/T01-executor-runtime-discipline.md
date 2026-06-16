@@ -27,6 +27,11 @@ Edit two files. Make the smallest prose changes that satisfy the Verify items.
    - Do NOT re-run the *full test suite* mid-task to "verify" an edit landed — the Step 9 gate
      re-runs the full suite as the real gate. The targeted TDD run for the change, and re-reading the
      file you just edited, remain expected. (FR#8)
+   - **Also update the Step 3 per-task artifact inventory** (`SKILL.md` ~lines 277–284, the bulleted
+     list of `<dir>/<task_id>/` outputs: `executor.md`, `spec-review.md`, …, `lint-gate.md`,
+     screenshots). Add `test-output.log` and `lint-output.log` to that list so the orchestrator's own
+     artifact documentation stays consistent with the new capture-to-log instruction. Without this,
+     the launch prompt references logs the Step 3 inventory never lists.
 
 2. `skills/mine.orchestrate/implementer-prompt.md` — mirror the same two points where the TDD cycle
    / output-format guidance lives, AND **reword** (do not append to) the Self-Review checklist line
@@ -56,9 +61,13 @@ after `/mine.challenge` — see the design's `## Alternatives Considered`. Refer
 
 ## Verify
 - [ ] FR#7: The executor prompt (in `SKILL.md` and mirrored in `implementer-prompt.md`) instructs
-      capturing test/lint output to `<dir>/<task_id>/*.log` rather than inlining full output.
+      capturing test/lint output to `<dir>/<task_id>/*.log` rather than inlining full output, AND the
+      Step 3 per-task artifact inventory (`SKILL.md` ~lines 277–284) lists `test-output.log` and
+      `lint-output.log`.
 - [ ] FR#8: The executor prompt forbids re-running the full test suite mid-task to verify, while
-      explicitly preserving the targeted TDD run and re-reading the just-edited file.
+      explicitly preserving the TDD cycle for the change (red/green/refactor using the one canonical
+      test command) and re-reading the just-edited file. ("TDD cycle for the change," not a separate
+      "targeted test command" — there is no targeting mechanism; that alternative was cut.)
 - [ ] FR#9: The Self-Review line `All tests pass (run the test command, confirm output)` is reworded
       (not appended to) to match FR#7/FR#8; no internally contradictory test instruction remains.
 - [ ] AC#7: Both `SKILL.md` and `implementer-prompt.md` contain the capture-to-log and

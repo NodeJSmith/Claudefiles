@@ -41,8 +41,10 @@ diff artifact. Reference the design's `## Architecture` (Lever 2) and `## Key Co
 - `scope-detection.md` is shared (read by review too) — do not edit it for this; the chunking logic
   lives in `mine.clean-code/SKILL.md`'s dispatch section.
 - The checker prompts are fenced blocks containing `[DIFF MODE] Run: <diff command>` and the "read
-  each file IN FULL" instruction (`mine.clean-code/SKILL.md:41,43,55,57,68`); the chunking wraps how
-  many times each is dispatched and with which file subset — it does not change what each looks for.
+  each file IN FULL" instruction (`mine.clean-code/SKILL.md:41,43,55,57,68,70` — line 70 is the
+  nitpicker's `IN FULL` mandate, the checker whose 38 full-file reads triggered the measured
+  compaction, so it must be preserved too); the chunking wraps how many times each is dispatched and
+  with which file subset — it does not change what each looks for.
 - Merging: the existing consolidation step expects one findings set per checker; make sure batched
   runs are merged back to that shape so downstream report formatting is unaffected.
 - AC#8: the ten checklist categories / severity-free flagging of each checker are unchanged — only

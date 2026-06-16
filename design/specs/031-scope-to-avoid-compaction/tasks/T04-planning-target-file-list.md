@@ -27,18 +27,27 @@ Four files, one coherent change — keep them consistent with each other:
 2. `skills/mine.plan/reviewer-prompt.md` — extend checklist item **#8 (Prompt self-containment,
    lines 38–40)** to also assert the target-file field is present and concrete (not "as discussed",
    not empty). Do not add a count/threshold check.
-3. `skills/mine.define/SKILL.md` — ensure the design.md `## Impact → Changed Files` section produces
-   a per-change file inventory concrete enough for `mine.plan` to slice into per-task target-file
-   lists. Treat it as optional *input* to the plan, never a gate that fails when absent. Keep the
-   existing rule at line 523 ("File lists matter; file counts don't") intact — this change is
-   consistent with it.
+3. `skills/mine.define/SKILL.md` — the `### Changed Files` template placeholder lives at **lines
+   485–486** (inside the design.md template fence; `## Impact` is line 483). The current placeholder
+   reads: `[Files being modified, created, or deleted, with the nature of each change. Shared or
+   cross-cutting files first — these carry higher risk.]`. Make the smallest edit that makes this
+   inventory explicitly per-change and plan-consumable — e.g. note that each entry should pair a
+   concrete file path with the change verb (create/modify/delete) so `mine.plan` can slice it into
+   per-task target-file lists. If you judge the existing placeholder already adequate, state that in
+   your result rather than editing for its own sake (laziness protocol). Treat the inventory as
+   optional *input* to the plan, never a gate that fails when absent. Keep the existing rule at line
+   523 ("File lists matter; file counts don't") intact — this change is consistent with it.
 4. `rules/common/decomposition-discipline.md` — add the per-task target-file / context-footprint
    consideration (no count threshold) to the four-questions framing.
 5. **SYNC reconciliation (distinct step — do not skip):** `decomposition-discipline.md` carries a
    `SYNC: rules/common/invariants.md` comment at line 3. After editing it in step 4, open
-   `rules/common/invariants.md`, find the corresponding "Decompose Before Implementing" entry, and
-   update it if this addition warrants — or confirm in your result that no change was needed.
-   Treat this as its own sub-step so the synced file isn't left stale.
+   `rules/common/invariants.md`. Note: "Decompose Before Implementing" is **not** a standalone
+   `####` heading — it appears only as one item in the `Consider`-tier inline scan-list sentence at
+   **line 120** (`...Experience First, Baseline Before Optimizing, Decompose Before Implementing, No
+   Default Underscore Prefixes, Build the Lever`). Decide whether the target-file/footprint addition
+   warrants touching that sentence (or promoting a new invariant), and update it if so — or confirm
+   in your result that no change was needed. Treat this as its own sub-step so the synced file isn't
+   left stale.
 
 Reference the design's `## Architecture` (Lever 1), `## Non-Goals` (no count threshold), and
 `## Edge Cases` (standalone `mine.plan` fallback).
