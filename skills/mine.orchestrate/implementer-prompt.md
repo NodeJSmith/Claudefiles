@@ -47,6 +47,19 @@ Do not skip steps. Do not reorder them. If a step is ambiguous, consult the desi
 
 Follow the TDD Reference included below in this prompt.
 
+<!-- SYNC: skills/mine.orchestrate/SKILL.md "## Output capture" slot — the output-capture and
+     no-full-suite-re-run rules below mirror that slot (both render into the same executor prompt).
+     When updating either, update both. -->
+
+**Output capture:** Capture raw test and lint command output to the per-task log files
+(`test-output.log` / `lint-output.log`, concrete paths named in the `## Output capture` section of
+your prompt) rather than inlining full output. Summarize results inline; keep full output in the logs.
+
+**No full-suite re-run mid-task:** Do NOT re-run the full test suite to verify that an edit
+landed — the Step 9 gate is the real verification gate for the full suite. The TDD cycle for the
+change (red/green/refactor using the canonical test command) and re-reading the file you just edited
+remain expected.
+
 ## Enforce Verify Constraints
 
 The task's Verify section lists criteria that must be true when implementation is complete. Before writing each piece of code, check whether your approach would satisfy or violate any Verify criterion. If you notice a violation, switch to a compliant approach before writing.
@@ -79,7 +92,7 @@ A CONTESTED verdict does not stop execution — complete all Prompt instructions
 
 Check each item before writing the result to the output file:
 
-- [ ] All tests pass (run the test command, confirm output)
+- [ ] Targeted tests for this change pass (TDD run, output captured to log); full-suite verification is the Step 9 gate's job
 - [ ] All Verify criteria are evaluated (DONE or CONTESTED — none left blank or silently dropped)
 - [ ] No files were changed outside what the task's Prompt instructions describe (unless bug fix — note it)
 - [ ] No scope was added beyond the task spec

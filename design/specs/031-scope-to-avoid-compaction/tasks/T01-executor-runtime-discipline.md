@@ -1,7 +1,7 @@
 ---
 task_id: "T01"
 title: "Narrow mine.orchestrate executor verification discipline"
-status: "planned"
+status: "done"
 depends_on: []
 implements: ["FR#7", "FR#8", "FR#9", "AC#7", "AC#8"]
 ---

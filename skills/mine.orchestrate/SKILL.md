@@ -281,6 +281,8 @@ Create a per-task subdirectory: `<dir>/<task_id>/` (e.g., `<dir>/t01/`). Use the
 - Integration reviewer output: `<dir>/<task_id>/integration-review.md`
 - Test gate output: `<dir>/<task_id>/test-gate.md`
 - Lint gate output: `<dir>/<task_id>/lint-gate.md`
+- Test output log: `<dir>/<task_id>/test-output.log`
+- Lint output log: `<dir>/<task_id>/lint-output.log`
 - Screenshots: `<dir>/<task_id>/before-*.png`, `<dir>/<task_id>/after-*.png`
 
 Per-task subdirectories preserve evidence across the full orchestration run. This allows post-hoc review, retry debugging, and screenshot comparison across tasks.
@@ -334,11 +336,21 @@ Read the design doc directly for architecture context. Pay special attention to 
 ## Lint command
 <contents of <dir>/lint-command.txt, or "no lint tools" if SKIPPED>
 
+## Output capture
+Capture raw test/lint command output to the per-task log files (`test-output.log` / `lint-output.log`,
+concrete paths in the output-paths section below) rather than inlining full output into your result.
+Summarize results inline (e.g., "12 passed, 0 failed"); keep the full logs in the files.
+
+Do NOT re-run the full test suite mid-task to verify that an edit landed — the Step 9 gate
+re-runs the full suite as the real verification gate. The TDD cycle for the change (red/green/refactor
+using the canonical test command) and re-reading the file you just edited remain expected.
+
 ## Visual verification status
 <If visual_mode is not "enabled">: Visual verification is SKIPPED for this run (<visual_mode reason>). Do not attempt screenshot capture. Report "SKIPPED — <reason> (orchestrator)" in your visual verification output.
 <Otherwise>: Dev server detected at <URL>. Proceed with visual verification if the task specifies scenarios.
 
 Write your structured result to: <absolute path: dir>/<task_id>/executor.md>
+Capture any test/lint output you run to: <absolute path: dir>/<task_id>/test-output.log> and <absolute path: dir>/<task_id>/lint-output.log>
 Save screenshots to: <absolute path: dir>/<task_id>/>
 ```
 
