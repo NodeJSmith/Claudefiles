@@ -1,6 +1,10 @@
 # Decomposition Discipline
 
-<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
+<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule.
+     The matching entry there is the name-only "Decompose Before Implementing" item in the Consider-tier
+     scan list, which already covers this whole file; adding or editing a question here needs no
+     invariants.md change unless a question is promoted to a Must/Should invariant. (5th question added
+     2026-06-16 — checked, no promotion warranted.) -->
 
 Before implementing a feature, answer five decomposition questions. A dimension that genuinely does not apply keeps its entry with a brief reason rather than being silently dropped.
 
