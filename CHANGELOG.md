@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-06-16
+
+### Changed
+
+- The build/review loop now plans against subagent context limits to avoid mid-run compaction: `mine.orchestrate` executors follow tighter runtime discipline (targeted tests, capture-to-file, no re-reads), `mine.review` critics receive a pre-computed diff artifact instead of recomputing it, `mine.clean-code` chunks its checkers above ~10 files, and `mine.plan` requires a per-task target-file list.
+
 ## 2026-06-15
 
 ### Added

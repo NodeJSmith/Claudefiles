@@ -1,7 +1,7 @@
 # Design: Reduce Mid-Execution Subagent Compaction in Workflow Skills
 
 **Date:** 2026-06-15
-**Status:** approved
+**Status:** archived
 **Scope-mode:** hold
 
 > **Revision note (post-challenge):** `/mine.challenge` (workflow-ux, agent-definition,
