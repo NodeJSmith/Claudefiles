@@ -1,7 +1,7 @@
 ---
 task_id: "T05"
 title: "Write Lever 4 baseline-trim research stub"
-status: "planned"
+status: "done"
 depends_on: []
 implements: ["FR#10", "AC#9"]
 ---
