@@ -265,6 +265,14 @@ implements: ["FR#1", "FR#3", "AC#7"]
 ## Summary
 <Human-readable plain-language description. What this task builds and why. 3-8 lines max.>
 
+## Target Files
+<Required. List every file this task creates, reads, modifies, or deletes — one entry per file, labeled with the change verb. The design's `## Impact → Changed Files` inventory seeds the create/modify/delete entries when present; `read` references (and anything the inventory omits) are derived from Phase 2 codebase exploration.>
+
+- create: `path/to/new_file.py`
+- modify: `path/to/existing_file.py`
+- read: `path/to/reference_file.md`
+- delete: `path/to/removed_file.py`
+
 ## Prompt
 <Self-contained instructions. What to build, what files to touch, what patterns to follow. References specific design doc sections and visual artifacts by path. Must be complete enough for a fresh executor subagent with only context.md and this task file.>
 
@@ -285,6 +293,7 @@ implements: ["FR#1", "FR#3", "AC#7"]
 - **depends_on**: List task IDs this task must wait for (e.g., `["T01"]`). Empty array if none.
 - **implements**: List every FR#N and AC#N this task directly addresses. Must be non-empty. Every listed identifier must also appear in the Verify section.
 - **Summary**: Plain language, no code blocks. What the executor will build and why it matters. 3-8 lines.
+- **Target Files**: Required. One entry per file with a change verb (`create`, `modify`, `read`, `delete`). The design's `## Impact → Changed Files` inventory seeds the create/modify/delete entries when present; `read` references (and anything the inventory omits) come from Phase 2 codebase exploration. Do not leave empty or write "as discussed". File lists matter; counts do not — list every file, even for large mechanical changes.
 - **Prompt**: Self-contained. Name exact file paths (absolute or repo-relative). Reference design doc sections by heading name. Reference visual artifacts by path. Do not say "as discussed" or assume context from earlier phases. Must be completable by a fresh subagent.
 - **Focus**: Ground truth from Phase 2 exploration. Exact file paths, class names, existing patterns to follow, gotchas. What would break if done wrong.
 - **Verify**: Binary checklist only. Each item must start with `- [ ] FR#N:` or `- [ ] AC#N:` followed by a concrete, observable criterion. "The endpoint returns 200" not "the feature works". Every `implements` identifier must have exactly one Verify item.
