@@ -1,7 +1,7 @@
 ---
 task_id: "T02"
 title: "Pass mine.review critics a pre-computed diff artifact"
-status: "planned"
+status: "done"
 depends_on: []
 implements: ["FR#5", "AC#5", "AC#8"]
 ---
