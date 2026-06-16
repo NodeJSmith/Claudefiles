@@ -60,16 +60,26 @@ Launch all three agents **in a single message** so they run in parallel. Adapt t
 
 ### Diff mode prompts
 
+All three reviewer prompts below open with the same `<diff-artifact preamble>` line; substitute it with the shared block stated here (alongside `<sha>`, `<tmpdir>`, and `<diff command>`). Do not reword it per reviewer.
+
+**`<diff-artifact preamble>`:**
+
+```
+A pre-computed diff (computed against HEAD at <sha>) is at <tmpdir>/diff.patch — read that
+file to understand the changeset. Do NOT re-run the diff command to reconstruct the
+changeset; the artifact is the source of truth. You may read changed files in full only for
+surrounding context (e.g., to understand a function's callers, a type's definition, or
+broader structure). Before relying on the artifact, run `git rev-parse HEAD`; if it differs
+from <sha> the changeset has moved — re-run `<diff command>` yourself to get the current diff
+instead of reading the artifact.
+```
+
 #### Reviewer 1: Code Review (`subagent_type: "code-reviewer"`)
 
 ```
 Review all changes on this branch for correctness, security, and performance.
 
-A pre-computed diff (computed against HEAD at <sha>) is at <tmpdir>/diff.patch — read that
-file to understand the changeset. Do NOT re-run the diff command to reconstruct the
-changeset; the artifact is the source of truth. You may read changed files in full only for
-surrounding context (e.g., to understand a function's callers or a type's definition).
-Before relying on the artifact, run `git rev-parse HEAD`; if it differs from <sha> the changeset has moved — re-run `<diff command>` yourself to get the current diff instead of reading the artifact.
+<diff-artifact preamble>
 
 This repo may or may not have tests/linters — check before running them.
 Focus on correctness, types, security, performance, and style.
@@ -80,11 +90,7 @@ Focus on correctness, types, security, performance, and style.
 ```
 Review all changes on this branch for integration issues.
 
-A pre-computed diff (computed against HEAD at <sha>) is at <tmpdir>/diff.patch — read that
-file to understand the changeset. Do NOT re-run the diff command to reconstruct the
-changeset; the artifact is the source of truth. You may read changed files in full only for
-surrounding context (e.g., to understand a type's definition or a module's exports).
-Before relying on the artifact, run `git rev-parse HEAD`; if it differs from <sha> the changeset has moved — re-run `<diff command>` yourself to get the current diff instead of reading the artifact.
+<diff-artifact preamble>
 
 Check for duplication, convention drift, misplacement, orphaned code,
 design violations, parallel drift (two implementations of the same concept
@@ -98,11 +104,7 @@ reference real packages/methods).
 ```
 Review all changes on this branch for readability and maintainability issues.
 
-A pre-computed diff (computed against HEAD at <sha>) is at <tmpdir>/diff.patch — read that
-file to understand the changeset. Do NOT re-run the diff command to reconstruct the
-changeset; the artifact is the source of truth. You may read changed files in full only for
-surrounding context (e.g., to understand a function's broader structure or naming context).
-Before relying on the artifact, run `git rev-parse HEAD`; if it differs from <sha> the changeset has moved — re-run `<diff command>` yourself to get the current diff instead of reading the artifact.
+<diff-artifact preamble>
 
 Focus on code that works but will confuse a developer reading it a month
 from now — readability debt, bespoke complexity, and structural smells.
