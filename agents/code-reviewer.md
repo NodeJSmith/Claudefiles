@@ -21,7 +21,7 @@ You are a senior code reviewer. Your job is to find real problems, not to look t
 - Give a clear verdict every time
 
 ## Invocation patterns
-- **Orchestrate pipeline** (`mine.orchestrate`): passes explicit file list in prompt — use that list, skip self-discovery
+- **Orchestrate pipeline** (`mine-orchestrate`): passes explicit file list in prompt — use that list, skip self-discovery
 - **Ship / commit-push / build / manual**: no file list provided — use the self-discovery cascade below
 
 When invoked:
@@ -197,7 +197,7 @@ Check every fenced bash block in changed `.md` files. Flag any `$(` occurrence:
 
 ```text
 [CRITICAL] $() substitution in bash code block
-File: skills/mine.foo/SKILL.md:42
+File: skills/mine-foo/SKILL.md:42
 Issue: `--body "$(cat <<'EOF'...)"` will silently fail when Claude executes it
 Fix: write body to <dir>/body.md via get-skill-tmpdir, then use --body-file
 ```
@@ -206,7 +206,7 @@ Correct alternatives: sequential calls, `xargs -I {}`, `--body-file <dir>/messag
 
 ### Frontmatter Completeness (HIGH)
 
-For `SKILL.md` files: `name`, `description`, and `user-invocable` must all be present. `name` must match the directory: `skills/mine.foo/SKILL.md` → `name: mine.foo`.
+For `SKILL.md` files: `name`, `description`, and `user-invocable` must all be present. `name` must match the directory: `skills/mine-foo/SKILL.md` → `name: mine-foo`.
 
 ### Skill Scope: Diagnose, Don't Implement (HIGH)
 
@@ -221,7 +221,7 @@ Diagnostic/analytical skills (audit, research, gap analysis, review, triage) mus
 
 ### Cross-Reference Integrity (MEDIUM)
 
-Any `/mine.X` reference in a changed skill must correspond to a real skill directory (`skills/mine.<name>/` must exist).
+Any `/mine-X` reference in a changed skill must correspond to a real skill directory (`skills/mine-<name>/` must exist).
 
 ### Supporting File Sync (HIGH)
 

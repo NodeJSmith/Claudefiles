@@ -24,7 +24,7 @@ LLM-generated code compiles, passes tests, and looks like good engineering — t
 - Acknowledge what reads well before listing issues
 
 ## Invocation patterns
-- **Clean-code skill** (`mine.clean-code`): passes explicit file list or diff command in prompt — use what's provided, skip self-discovery
+- **Clean-code skill** (`mine-clean-code`): passes explicit file list or diff command in prompt — use what's provided, skip self-discovery
 - **Manual**: no file list provided — use the self-discovery cascade below
 
 <!-- PARALLEL: lazy-checker.md has an identical invocation/discovery block — update both -->

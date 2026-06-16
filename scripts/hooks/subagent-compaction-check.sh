@@ -14,7 +14,7 @@
 #   Tracks which subagent files have already been reported to avoid duplicate
 #   warnings across multiple Agent tool calls in the same session.
 #
-# See also: skills/mine.orchestrate/SKILL.md "Resuming after context compaction"
+# See also: skills/mine-orchestrate/SKILL.md "Resuming after context compaction"
 #   for parent-compaction handling (a separate concern from subagent compaction).
 #
 # Hook wiring (settings.json):

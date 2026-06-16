@@ -1,6 +1,6 @@
 # Eval Discipline
 
-**Scope:** Applies when explicitly running an evaluation of agent behavior (e.g., A/B comparisons of prompts, skills, or structural changes via `/mine.mutation-test` or manual eval sessions). Not a general coding rule.
+**Scope:** Applies when explicitly running an evaluation of agent behavior (e.g., A/B comparisons of prompts, skills, or structural changes via `/mine-mutation-test` or manual eval sessions). Not a general coding rule.
 
 When testing how a skill, prompt, or structural change affects agent behavior, the failure mode is the observer effect. An agent that knows it is being evaluated behaves differently from one doing organic work. Candidates must run blind.
 

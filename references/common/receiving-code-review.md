@@ -1,4 +1,4 @@
-<!-- SYNC: skills/mine.orchestrate/retry-prompt.md — mental stance, response protocol, YAGNI check,
+<!-- SYNC: skills/mine-orchestrate/retry-prompt.md — mental stance, response protocol, YAGNI check,
      and push-back protocol must be kept in sync. When updating either file, update both. -->
 
 # Receiving Code Review

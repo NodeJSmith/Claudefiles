@@ -4,41 +4,41 @@ Full component tables for Claudefiles. For context on what each component type d
 
 ## Skills
 
-### Core Skills (`mine.*`)
+### Core Skills (`mine-*`)
 
 | Skill | Description |
 |-------|-------------|
-| `mine.address-pr-issues` | Triage and resolve PR blockers — review comments, merge conflicts, and failing CI |
-| `mine.audit` | Systematic codebase health audit — surfaces aging code, brittle designs, missing tests, and accumulated debt, ranked by impact |
-| `mine.brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas ranked by user-chosen criteria, with handoff to research or planning |
-| `mine.build` | Single entry point — routes between direct implementation and the full caliper v2 workflow (define → plan → orchestrate → ship) |
-| `mine.challenge` | Adversarial review using 3 generic + up to 2 domain-specialist critics — assumes the target is wrong, finds out why, argues for better. Pre-flight catches surface issues and validates architecture before launching critics; reduces to 2 critics on re-challenges. Works on code, specs, designs, briefs, skill files, docs |
-| `mine.clean-code` | Stylistic quality review — dispatches llm-checker, lazy-checker, and nitpicker in parallel; flags LLM-bias patterns, deferred debt, and hyper-critical style issues |
-| `mine.commit-push` | Commit and push changes to the current branch |
-| `mine.create-issue` | Codebase-aware issue creation — investigates the code to produce well-structured issues with acceptance criteria and affected areas for automated triage |
-| `mine.create-pr` | Review branch changes and create a PR on GitHub or Azure DevOps |
-| `mine.debug` | Systematic debugging — 4-phase root-cause investigation with escalation protocol and error tracking |
-| `mine.decompose` | Codebase decomposition analysis — finds split opportunities using Git behavioral signals and structural metrics, proposes concrete splits with ROI-based prioritization |
-| `mine.define` | Proportional discovery + codebase investigation + architecture interrogation → design.md with one sign-off gate |
-| `mine.eval-repo` | Evaluate a third-party GitHub repo before adopting it — test coverage, code quality, maintenance health, bus factor |
-| `mine.gap-close` | Conversational completeness review — surveys artifacts against per-type checklists, triages gaps by severity, fills them one question at a time |
-| `mine.grill` | Multi-angle interrogation of a raw idea — product, design, engineering, scope, and adversarial lenses. Produces a brief.md that feeds into /mine.define |
-| `mine.how` | Interactive subsystem explanation — complexity-adaptive walkthroughs grounded in actual code, with mandatory accuracy review |
-| `mine.humanize` | Edit prose to remove AI writing patterns and add human voice — analyzes first, then surgical edits or full rewrite. Two-pass editing, text-type aware. Prose complement to mine.clean-code |
-| `mine.why` | Decision archaeology — reconstructs historical rationale from git history, issues, design docs, rules, comments, and tests with confidence calibration |
-| `mine.issues-triage` | Batch codebase-aware issue triage — parallel Haiku subagents assess actual complexity and effort by reading the code, not just titles |
-| `mine.mockup` | Generate self-contained HTML mockup files — reads `design/context.md` for consistent styling, delivers to a session temp directory |
-| `mine.mutation-test` | Mutation testing — intentionally break code to verify tests catch real bugs |
-| `mine.orchestrate` | Execute task files one-by-one with parallel spec/code/integration reviewer pass; post-execution implementation review |
-| `mine.plan` | Design doc → task files (T01, T02, …) with FR/AC traceability, validation gate, and 10-point traceability review + approve/revise/abandon gate |
-| `mine.prior-art` | Survey how others solve a problem — web-first research for mid-design architectural questions |
-| `mine.research` | Interactive research workflow — gathers user intent, dispatches the researcher agent, presents the brief |
-| `mine.resume` | Pick up a fresh session after `/clear`/stop — reads the prior transcript's tail via `cm-session-tail` to recover the last instruction and surface any unanswered `AskUserQuestion`. The clear/startup hook also auto-warns about unresolved decisions |
-| `mine.review` | Comprehensive branch review — dispatches code-reviewer, integration-reviewer, and wtf-reviewer in parallel, consolidates findings into one prioritized report |
-| `mine.ship` | Commit, push, and create a PR in one step |
-| `mine.tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |
-| `mine.visual-qa` | Live visual QA — Playwright captures screenshots, then two agents analyze them with structural separation (one sees each page in isolation, the other sees all pages at once) |
-| `mine.write-skill` | Guided skill creation — gathers requirements, drafts SKILL.md, validates quality checklist, auto-wires routing |
+| `mine-address-pr-issues` | Triage and resolve PR blockers — review comments, merge conflicts, and failing CI |
+| `mine-audit` | Systematic codebase health audit — surfaces aging code, brittle designs, missing tests, and accumulated debt, ranked by impact |
+| `mine-brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas ranked by user-chosen criteria, with handoff to research or planning |
+| `mine-build` | Single entry point — routes between direct implementation and the full caliper v2 workflow (define → plan → orchestrate → ship) |
+| `mine-challenge` | Adversarial review using 3 generic + up to 2 domain-specialist critics — assumes the target is wrong, finds out why, argues for better. Pre-flight catches surface issues and validates architecture before launching critics; reduces to 2 critics on re-challenges. Works on code, specs, designs, briefs, skill files, docs |
+| `mine-clean-code` | Stylistic quality review — dispatches llm-checker, lazy-checker, and nitpicker in parallel; flags LLM-bias patterns, deferred debt, and hyper-critical style issues |
+| `mine-commit-push` | Commit and push changes to the current branch |
+| `mine-create-issue` | Codebase-aware issue creation — investigates the code to produce well-structured issues with acceptance criteria and affected areas for automated triage |
+| `mine-create-pr` | Review branch changes and create a PR on GitHub or Azure DevOps |
+| `mine-debug` | Systematic debugging — 4-phase root-cause investigation with escalation protocol and error tracking |
+| `mine-decompose` | Codebase decomposition analysis — finds split opportunities using Git behavioral signals and structural metrics, proposes concrete splits with ROI-based prioritization |
+| `mine-define` | Proportional discovery + codebase investigation + architecture interrogation → design.md with one sign-off gate |
+| `mine-eval-repo` | Evaluate a third-party GitHub repo before adopting it — test coverage, code quality, maintenance health, bus factor |
+| `mine-gap-close` | Conversational completeness review — surveys artifacts against per-type checklists, triages gaps by severity, fills them one question at a time |
+| `mine-grill` | Multi-angle interrogation of a raw idea — product, design, engineering, scope, and adversarial lenses. Produces a brief.md that feeds into /mine-define |
+| `mine-how` | Interactive subsystem explanation — complexity-adaptive walkthroughs grounded in actual code, with mandatory accuracy review |
+| `mine-humanize` | Edit prose to remove AI writing patterns and add human voice — analyzes first, then surgical edits or full rewrite. Two-pass editing, text-type aware. Prose complement to mine-clean-code |
+| `mine-why` | Decision archaeology — reconstructs historical rationale from git history, issues, design docs, rules, comments, and tests with confidence calibration |
+| `mine-issues-triage` | Batch codebase-aware issue triage — parallel Haiku subagents assess actual complexity and effort by reading the code, not just titles |
+| `mine-mockup` | Generate self-contained HTML mockup files — reads `design/context.md` for consistent styling, delivers to a session temp directory |
+| `mine-mutation-test` | Mutation testing — intentionally break code to verify tests catch real bugs |
+| `mine-orchestrate` | Execute task files one-by-one with parallel spec/code/integration reviewer pass; post-execution implementation review |
+| `mine-plan` | Design doc → task files (T01, T02, …) with FR/AC traceability, validation gate, and 10-point traceability review + approve/revise/abandon gate |
+| `mine-prior-art` | Survey how others solve a problem — web-first research for mid-design architectural questions |
+| `mine-research` | Interactive research workflow — gathers user intent, dispatches the researcher agent, presents the brief |
+| `mine-resume` | Pick up a fresh session after `/clear`/stop — reads the prior transcript's tail via `cm-session-tail` to recover the last instruction and surface any unanswered `AskUserQuestion`. The clear/startup hook also auto-warns about unresolved decisions |
+| `mine-review` | Comprehensive branch review — dispatches code-reviewer, integration-reviewer, and wtf-reviewer in parallel, consolidates findings into one prioritized report |
+| `mine-ship` | Commit, push, and create a PR in one step |
+| `mine-tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |
+| `mine-visual-qa` | Live visual QA — Playwright captures screenshots, then two agents analyze them with structural separation (one sees each page in isolation, the other sees all pages at once) |
+| `mine-write-skill` | Guided skill creation — gathers requirements, drafts SKILL.md, validates quality checklist, auto-wires routing |
 
 ### Frontend Design Skills (`i-*`) — Frontend bundle
 
@@ -86,12 +86,12 @@ Full component tables for Claudefiles. For context on what each component type d
 
 | Command | Description |
 |---------|-------------|
-| `mine.end-of-day` | Capture session state as a handoff file for morning pickup |
-| `mine.good-morning` | Read the handoff, orient, and resume yesterday's work |
-| `mine.issues` | Deep-dive issues by key, or scan and pick |
-| `mine.permissions-audit` | Analyze frequent permission prompts and recommend allow-list entries |
-| `mine.pre-compact` | Generate a focused /compact prompt preserving what matters |
-| `mine.status` | Quick orientation — branch, tasks, errors, last commit |
+| `mine-end-of-day` | Capture session state as a handoff file for morning pickup |
+| `mine-good-morning` | Read the handoff, orient, and resume yesterday's work |
+| `mine-issues` | Deep-dive issues by key, or scan and pick |
+| `mine-permissions-audit` | Analyze frequent permission prompts and recommend allow-list entries |
+| `mine-pre-compact` | Generate a focused /compact prompt preserving what matters |
+| `mine-status` | Quick orientation — branch, tasks, errors, last commit |
 
 ## Agents
 
@@ -158,12 +158,12 @@ Domain-specific guidance in `references/common/` loaded on demand by skills and 
 | `frontend.md` | `i-*` skills, `engineering-frontend-developer` agent, meta-rule on `.tsx`/`.jsx` files |
 | `typescript.md` | Frontend agent, meta-rule on `.ts`/`.tsx` files |
 | `reliability.md` | `engineering-backend-developer`, `engineering-sre`, `llm-checker` agents |
-| `writing-quality.md` | `mine.humanize`, `engineering-technical-writer` agent |
-| `testing.md` | `mine.orchestrate`, `mine.build`, `mine.commit-push`, `mine.address-pr-issues` |
-| `agents.md` | `mine.orchestrate`, meta-rule when spawning subagents |
-| `receiving-code-review.md` | `mine.address-pr-issues`, `mine.orchestrate` |
+| `writing-quality.md` | `mine-humanize`, `engineering-technical-writer` agent |
+| `testing.md` | `mine-orchestrate`, `mine-build`, `mine-commit-push`, `mine-address-pr-issues` |
+| `agents.md` | `mine-orchestrate`, meta-rule when spawning subagents |
+| `receiving-code-review.md` | `mine-address-pr-issues`, `mine-orchestrate` |
 | `dependency-injection.md` | `engineering-backend-developer` agent |
-| `instruction-quality.md` | `mine.write-skill`, `engineering-technical-writer` agent |
+| `instruction-quality.md` | `mine-write-skill`, `engineering-technical-writer` agent |
 | `security.md` | `engineering-backend-developer` agent, meta-rule on API/auth work |
 
 ## Hooks

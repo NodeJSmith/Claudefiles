@@ -1195,7 +1195,7 @@ def _migrate_and_backup(v1_config: dict, cfg_path: Path, repo_dir: Path) -> dict
             f"  agents.engineering → bundles.engineering ({v2['bundles']['engineering']})\n"
             f"  agents.core       → bundles.extra-agents ({v2['bundles']['extra-agents']})\n\n"
             "[bold]Force-installed (base bundle — non-negotiable in v2):[/bold]\n"
-            "  - All mine.* skills (including former research and issues skills)\n"
+            "  - All mine-* skills (including former research and issues skills)\n"
             f"  - Base agents: {base_agents}\n"
             f"  - Packages: {base_packages}\n"
             "  - All rules, hooks, bin scripts, commands\n\n"

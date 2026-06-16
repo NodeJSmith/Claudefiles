@@ -16,4 +16,4 @@
 - **Same tool called 3+ times in one block** — suggest batch mode
 - **3+ pipe stages** — suggests a missing flag on the upstream tool
 
-For retroactive discovery, use `/mine.tool-gaps`.
+For retroactive discovery, use `/mine-tool-gaps`.
