@@ -55,22 +55,7 @@ The timeout value is resolved in order: `CLAUDE_PYTEST_TIMEOUT` env var → per-
 
 Per-repo config can also deny specific flags (e.g., `-n auto` on resource-constrained machines) or block all pytest invocations entirely (`deny_all: true`, e.g., for nox-based repos). See the hook header for config format.
 
-## Pytest Loop Detector
-
-A PreToolUse hook (`pytest-loop-detector.sh`) catches two failure patterns:
-
-1. **No-edit counter** (threshold: 3) — consecutive pytest failures without any code change (Edit/Write/MultiEdit/NotebookEdit). Resets on edit or success.
-2. **Total failure counter** (threshold: 8) — total pytest failures since the last success, regardless of edits. Catches "edit → run → fail" flailing loops where the agent makes small changes that never converge.
-
-Both counters reset on pytest success. The no-edit counter also resets on any code edit. The total counter only resets on success, manual bypass, or `pytest-loop-reset`.
-
-**Env var overrides:**
-- `CLAUDE_PYTEST_LOOP_MAX` — no-edit threshold (default 3)
-- `CLAUDE_PYTEST_LOOP_TOTAL_MAX` — total failure threshold (default 8)
-
-**Manual overrides:**
-- `CLAUDE_PYTEST_LOOP_BYPASS=1` env var — allows the next run and resets both counters
-- `pytest-loop-reset` bin script — clears both counter files directly
+**Escape hatch:** when you genuinely need to run pytest without a timeout wrapper (or past a per-repo deny), prefix the command with a reason-bearing env var: `PYTEST_GUARD_OFF="running under a debugger that owns process lifetime" pytest ...`. The reason must be non-empty; it's echoed to stderr so the opt-out stays a conscious, auditable choice.
 
 ## Test Execution
 
