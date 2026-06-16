@@ -1,7 +1,7 @@
 ---
 task_id: "T03"
 title: "Chunk mine.clean-code within each checker above ~10 files"
-status: "planned"
+status: "done"
 depends_on: []
 implements: ["FR#6", "AC#6", "AC#8"]
 ---
