@@ -6,7 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Changed
 
-- Personal skills and commands renamed from dot-prefixed to hyphenated (`mine.ship` → `mine-ship`, `/mine.status` → `/mine-status`, etc.) — Claude Code stopped supporting dots in skill/command names, which made them vanish from the slash-command picker. Invoke them as `/mine-<name>` and re-run `uv run install.py` after pulling to refresh the symlinks.
+- Personal skills and commands renamed from dot-prefixed to hyphenated (`mine.ship` → `mine-ship`, `/mine.status` → `/mine-status`, etc.) — Claude Code stopped supporting dots in skill/command names, which made them vanish from the slash-command picker. Invoke them as `/mine-<name>` and re-run `uv run install.py` after pulling to refresh the symlinks. (#386)
 - The build/review loop now plans against subagent context limits to avoid mid-run compaction: `mine.orchestrate` executors follow tighter runtime discipline (targeted tests, capture-to-file, no re-reads), `mine.review` critics receive a pre-computed diff artifact instead of recomputing it, `mine.clean-code` chunks its checkers above ~10 files, and `mine.plan` requires a per-task target-file list. (#385)
 
 ## 2026-06-15
