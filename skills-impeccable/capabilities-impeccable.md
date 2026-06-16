@@ -4,7 +4,7 @@
 
 ## Intent Routing
 
-<!-- NOTE: "design this UI" = visual direction (i-teach-impeccable); "design this change" = architecture doc (mine.define) -->
+<!-- NOTE: "design this UI" = visual direction (i-teach-impeccable); "design this change" = architecture doc (mine-define) -->
 
 | User says something like... | Invoke |
 |---|---|

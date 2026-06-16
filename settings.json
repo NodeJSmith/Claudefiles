@@ -48,7 +48,7 @@
       "Bash(agnix:*)",
       "Bash(ls:*)",
       "Bash(uv:*)",
-      "Skill(mine.commit-push)",
+      "Skill(mine-commit-push)",
       "Bash(claude-tmux:*)",
       "Bash(edit-manifest:*)",
       "Bash(which:*)"

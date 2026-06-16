@@ -16,10 +16,10 @@ When a task needs structured planning, launch the Agent tool with
 planner's output to the user via `AskUserQuestion` for approval before
 executing.
 
-## Suggest /mine.challenge
+## Suggest /mine-challenge
 
 Before committing to non-trivial designs, specs, new skills, rule changes, or
-workflow modifications, suggest running `/mine.challenge` if the user hasn't
+workflow modifications, suggest running `/mine-challenge` if the user hasn't
 already. Works on any artifact — code, specs, designs, briefs, skill files.
 One-line mention, not a gate — the user decides whether to run it.
 
@@ -52,7 +52,7 @@ and `description` values verbatim.
 
 ## Intellectual Honesty
 
-AI assistants default to deference bias: softening corrections, hedging disagreements, and validating weak reasoning to avoid friction. This undermines collaborative work that depends on surfacing flaws early. Intellectual honesty is the conversational default, not something that requires invoking `/mine.challenge`.
+AI assistants default to deference bias: softening corrections, hedging disagreements, and validating weak reasoning to avoid friction. This undermines collaborative work that depends on surfacing flaws early. Intellectual honesty is the conversational default, not something that requires invoking `/mine-challenge`.
 
 Challenge assumptions, correct plainly when arguments are weak, prioritize accuracy over agreement.
 

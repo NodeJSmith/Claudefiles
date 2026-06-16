@@ -1,0 +1,67 @@
+---
+description: Deep-dive one or more issues by key, or triage if no keys given.
+---
+
+# Issues Command
+
+Deep-dive specific issues by key, or fall through to codebase-aware triage if no keys are provided. Supports GitHub (`gh`) and Jira (`jira`) via the `$ISSUE_TRACKER` env var.
+
+## Arguments
+
+$ARGUMENTS — zero or more issue keys. GitHub: `123 456`. Jira: `PROJ-123 PROJ-456`. If none provided, falls through to the scan flow.
+
+## Phase 1: Tool Detection
+
+Read `$ISSUE_TRACKER`.
+
+- If **unset or empty**: tell the user `$ISSUE_TRACKER is not configured. Set it to "gh" or "jira" in your context var file.` and **stop**.
+- If set to something other than `gh` or `jira`: tell the user `Unsupported ISSUE_TRACKER value: "$ISSUE_TRACKER". Expected "gh" or "jira".` and **stop**.
+
+## Phase 2: Route
+
+- **No arguments provided**: Run `/mine-issues-triage` for codebase-aware batch assessment, then let the user pick issues to deep-dive.
+- **Arguments provided**: Continue to Phase 3 (Deep Dive).
+
+## Phase 3: Deep Dive (Subagent)
+
+For **each** issue key in the arguments, launch a **Task subagent** (`subagent_type: Explore`, `model: haiku`) with this prompt:
+
+> **If `$ISSUE_TRACKER` is `gh`:**
+> Run `gh-issue view <N> --json title,body,comments,labels,assignees,milestone` to get the full issue.
+>
+> **If `$ISSUE_TRACKER` is `jira`:**
+> Run `jira issue view <KEY> --comments 5 --plain` to get the full issue.
+>
+> Then scan the codebase for files and areas mentioned in or related to the issue (grep for keywords, check referenced file paths, look at relevant modules).
+>
+> Return this structured summary and nothing else:
+>
+> ```
+> ## Issue <KEY> — Title
+> - **Description**: [condensed from body, 2-3 sentences max]
+> - **Key comments**: [relevant discussion points, or "None" if no useful comments]
+> - **Affected areas**: [files/modules identified from codebase scan]
+> - **Estimated scope**: [small/medium/large with brief reasoning]
+> - **Suggested approach**: [1-2 sentences]
+> ```
+
+Launch subagents **in parallel** when multiple keys are provided. Display all structured summaries.
+
+## Phase 4: Next Step (Main Context)
+
+Hand the deep-dive context off to the implementation pipeline. Use `AskUserQuestion`:
+
+- **Build it** — Hand the issue to `/mine-build`, which routes by complexity (direct implementation for small changes, the full `define → plan → orchestrate` pipeline for large ones)
+- **Research first** — Run `/mine-research` to investigate feasibility before committing to an approach
+- **Skip** — Done for now, I'll come back to this later
+
+Use the issue's **Estimated scope** from Phase 3 to recommend: small/medium → "Build it"; large or uncertain approach → mention "Research first" is worth considering. Phrase the recommendation, but let the user choose.
+
+**If the user picks "Build it":**
+1. **Branch naming reminder**: Check `git branch --show-current`. If the current branch name does not contain the issue number, remind the user:
+   > "When you create your working branch, include the issue number so the PR links back automatically — e.g., `git checkout -b 123-short-description` or `claude --worktree 123-short-description`."
+2. Invoke `/mine-build`, passing the issue's structured summary (title, description, estimated scope, affected areas, suggested approach) as the change description.
+
+**If the user picks "Research first":** invoke `/mine-research`, passing the issue context as the proposal to investigate.
+
+**If the user picks "Skip":** stop.

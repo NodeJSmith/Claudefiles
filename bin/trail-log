@@ -47,7 +47,7 @@ detail="${5:-}"
 # --- resolve relative trail paths against the repo root --------------------
 # A relative trail-file is interpreted relative to the git worktree root, NOT
 # the current directory. trail-log is invoked from varying working directories
-# (mine.orchestrate sometimes runs it from inside the feature dir itself), so a
+# (mine-orchestrate sometimes runs it from inside the feature dir itself), so a
 # CWD-relative path resolves inconsistently and can double up: CWD
 # design/specs/X plus a passed design/specs/X/trail.tsv yields
 # design/specs/X/design/specs/X/trail.tsv. Anchoring to the worktree root makes

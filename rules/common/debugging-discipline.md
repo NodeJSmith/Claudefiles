@@ -2,7 +2,7 @@
 
 <!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
 
-When invoked as a skill, `mine.debug` provides the phased workflow. This file captures the cross-cutting principles.
+When invoked as a skill, `mine-debug` provides the phased workflow. This file captures the cross-cutting principles.
 
 ## Evidence-Based Fixes Only
 

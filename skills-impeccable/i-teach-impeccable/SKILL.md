@@ -15,7 +15,7 @@ Before asking questions, scan the project to discover what you can:
 - **Existing components**: Current design patterns, spacing, typography in use
 - **Brand assets**: Logos, favicons, color values already defined
 - **Design tokens / CSS variables**: Existing color palettes, font stacks, spacing scales
-- **Mockup files**: If HTML mockups exist (from /mine.mockup), read them for aesthetic direction to reference when gathering tokens
+- **Mockup files**: If HTML mockups exist (from /mine-mockup), read them for aesthetic direction to reference when gathering tokens
 - **Any style guides or brand documentation**
 
 Also check for a design doc: look for `design/specs/*/design.md`. If found, read the **User Scenarios** section — it contains structured actor/goal/context data that pre-answers Step 2 questions.
@@ -209,14 +209,14 @@ AskUserQuestion:
   header: "Next step"
   options:
     - label: "Generate a mockup"
-      description: "Run /mine.mockup to produce an HTML preview using these tokens"
+      description: "Run /mine-mockup to produce an HTML preview using these tokens"
     - label: "Also add to CLAUDE.md"
       description: "Append a Design Context summary to CLAUDE.md so it loads automatically in all sessions (takes effect in new sessions, not the current one)"
     - label: "Done for now"
       description: "Context is saved — it will be used by all i-* design skills automatically"
 ```
 
-If mockup → invoke `/mine.mockup`.
+If mockup → invoke `/mine-mockup`.
 If CLAUDE.md → append or update a `## Design Context` section in CLAUDE.md with a summary of the prose sections (not the full token tables — those live in design/context.md).
 
 ## Communication Style

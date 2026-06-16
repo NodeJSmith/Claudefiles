@@ -2,7 +2,7 @@
 """Recover a prior session's tail for fast resume.
 
 Powers two things:
-  - the ``cm-session-tail`` CLI (invoked by the mine.resume skill), and
+  - the ``cm-session-tail`` CLI (invoked by the mine-resume skill), and
   - the SessionStart context injection's "unresolved decision" warning
     (``memory_context.py``).
 
@@ -272,7 +272,7 @@ def resolve_target(pdir: Path, selector: str | None) -> Path | None:
     """Pick the transcript to show.
 
     With a selector, match by session-id substring. Without one, assume this runs
-    inside the live session (as the mine.resume skill does): the newest file by
+    inside the live session (as the mine-resume skill does): the newest file by
     mtime is the current session, so the prior session is the second-newest.
     Invoked outside an active session this is off by one — pass a selector there.
     """
