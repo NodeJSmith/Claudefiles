@@ -483,7 +483,7 @@ Write the design doc to `<feature_dir>/design.md`:
 ## Impact
 
 ### Changed Files
-[Files being modified, created, or deleted, with the nature of each change. Shared or cross-cutting files first — these carry higher risk.]
+[List each file with its change verb (create / modify / delete) and a one-line note on what changes. Shared or cross-cutting files first — these carry higher risk. `mine.plan` reads this inventory to seed per-task target-file lists; concrete path + verb pairs make that slicing reliable (mine.plan additionally records `read`-only references it finds during planning). This section is optional input to the plan — its absence does not block planning.]
 
 ### Behavioral Invariants
 [Existing behaviors that must NOT change — downstream consumers, API contracts, CLI flags, integration points that must continue working as-is. These inform which existing tests must keep passing. If none, state "No behavioral invariants identified."]

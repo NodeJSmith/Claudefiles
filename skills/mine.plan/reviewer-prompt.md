@@ -35,9 +35,9 @@ Do any tasks implement things not in the design doc or explicitly listed as non-
 Look for: tasks that add features, endpoints, or components not traceable to any FR or AC; scope creep disguised as "nice to have" additions; tasks implementing items from the Non-goals section.
 Note: tasks may include Focus items from the Phase 2 gap check that address unlisted reverse dependencies — these are expected and not scope violations.
 
-### 8. Prompt self-containment
-Could each task's Prompt be handed to a fresh executor subagent with only context.md and this task file?
-Look for: prompts that say "as discussed", "per the previous task", or "you know what to do"; prompts that omit the file paths to touch; prompts that assume context from the planner's session; references to design doc sections without naming which section.
+### 8. Prompt self-containment and target-file coverage
+Could each task's Prompt be handed to a fresh executor subagent with only context.md and this task file? Does the task have a populated, concrete Target Files section?
+Look for: prompts that say "as discussed", "per the previous task", or "you know what to do"; prompts that omit the file paths to touch; prompts that assume context from the planner's session; references to design doc sections without naming which section. Also look for: a missing or empty Target Files section; entries that say "as discussed" or list no concrete paths; entries that omit the change verb (create/modify/read/delete). Do NOT flag based on how many files are listed — a long list is fine.
 
 ### 9. Visual artifact coverage
 If the design doc references visual artifacts (mockups, screenshots, linked images), do the relevant tasks reference those artifacts in their Prompt or Focus sections AND have visual verification criteria in their Verify sections?

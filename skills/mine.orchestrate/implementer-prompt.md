@@ -10,6 +10,7 @@ A task file has these sections:
 |---------|-------------------|
 | Frontmatter (`task_id`, `title`, `depends_on`, `implements`) | Identity, dependencies, and which FR/AC identifiers this task covers |
 | **Summary** | Plain-language description of what this task builds and what done looks like |
+| **Target Files** | Your reading scope: the files this task creates, reads, modifies, or deletes. Required in plans from current `mine.plan`; older task files may omit it. When present, start from these instead of exploring the surface from scratch — only widen when the work genuinely requires it. |
 | **Prompt** | Self-contained instructions — what to build, what files to touch, what patterns to follow |
 | **Focus** | Domain-specific context — design tokens, mockup refs, data model rationale, or API contracts relevant to this task |
 | **Verify** | Binary checklist — each item references a specific FR or AC. Mark each DONE or CONTESTED in your output |
@@ -47,6 +48,19 @@ Do not skip steps. Do not reorder them. If a step is ambiguous, consult the desi
 
 Follow the TDD Reference included below in this prompt.
 
+<!-- SYNC: skills/mine.orchestrate/SKILL.md "## Output capture" slot — the output-capture and
+     no-full-suite-re-run rules below mirror that slot (both render into the same executor prompt).
+     When updating either, update both. -->
+
+**Output capture:** Capture raw test and lint command output to the per-task log files
+(`test-output.log` / `lint-output.log`, concrete paths named in the `## Output capture` section of
+your prompt) rather than inlining full output. Summarize results inline; keep full output in the logs.
+
+**No full-suite re-run mid-task:** Do NOT re-run the full test suite to verify that an edit
+landed — the Step 9 gate is the real verification gate for the full suite. The TDD cycle for the
+change (red/green/refactor using the canonical test command) and re-reading the file you just edited
+remain expected.
+
 ## Enforce Verify Constraints
 
 The task's Verify section lists criteria that must be true when implementation is complete. Before writing each piece of code, check whether your approach would satisfy or violate any Verify criterion. If you notice a violation, switch to a compliant approach before writing.
@@ -79,7 +93,7 @@ A CONTESTED verdict does not stop execution — complete all Prompt instructions
 
 Check each item before writing the result to the output file:
 
-- [ ] All tests pass (run the test command, confirm output)
+- [ ] Targeted tests for this change pass (TDD run, output captured to log); full-suite verification is the Step 9 gate's job
 - [ ] All Verify criteria are evaluated (DONE or CONTESTED — none left blank or silently dropped)
 - [ ] No files were changed outside what the task's Prompt instructions describe (unless bug fix — note it)
 - [ ] No scope was added beyond the task spec
