@@ -75,7 +75,7 @@ Review all changes on this branch for deferred-debt and lazy-shortcut patterns.
 
 [DIFF MODE] Run: <diff command>
 
-For diff mode: read each changed file in full where needed to detect
+For diff mode: read each changed file IN FULL where needed to detect
 copy-paste duplication and naming inconsistencies across the file. Flag all
 five pattern categories: verbosity inflation, naming chaos, copy-paste
 duplication, TODO rot, and hardcoded shortcuts.
