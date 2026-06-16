@@ -33,9 +33,12 @@ Four files, one coherent change — keep them consistent with each other:
    existing rule at line 523 ("File lists matter; file counts don't") intact — this change is
    consistent with it.
 4. `rules/common/decomposition-discipline.md` — add the per-task target-file / context-footprint
-   consideration (no count threshold) to the four-questions framing. Honor the
-   `SYNC: invariants.md` comment at line 3: check `rules/common/invariants.md` for the corresponding
-   "Decompose Before Implementing" entry and update it if this addition warrants.
+   consideration (no count threshold) to the four-questions framing.
+5. **SYNC reconciliation (distinct step — do not skip):** `decomposition-discipline.md` carries a
+   `SYNC: rules/common/invariants.md` comment at line 3. After editing it in step 4, open
+   `rules/common/invariants.md`, find the corresponding "Decompose Before Implementing" entry, and
+   update it if this addition warrants — or confirm in your result that no change was needed.
+   Treat this as its own sub-step so the synced file isn't left stale.
 
 Reference the design's `## Architecture` (Lever 1), `## Non-Goals` (no count threshold), and
 `## Edge Cases` (standalone `mine.plan` fallback).
