@@ -10,7 +10,7 @@ A task file has these sections:
 |---------|-------------------|
 | Frontmatter (`task_id`, `title`, `depends_on`, `implements`) | Identity, dependencies, and which FR/AC identifiers this task covers |
 | **Summary** | Plain-language description of what this task builds and what done looks like |
-| **Target Files** (if present) | The files this task creates, reads, modifies, or deletes — your reading scope. Start from these instead of exploring the surface from scratch; only widen beyond them when the work genuinely requires it. |
+| **Target Files** | Your reading scope: the files this task creates, reads, modifies, or deletes. Required in plans from current `mine.plan`; older task files may omit it. When present, start from these instead of exploring the surface from scratch — only widen when the work genuinely requires it. |
 | **Prompt** | Self-contained instructions — what to build, what files to touch, what patterns to follow |
 | **Focus** | Domain-specific context — design tokens, mockup refs, data model rationale, or API contracts relevant to this task |
 | **Verify** | Binary checklist — each item references a specific FR or AC. Mark each DONE or CONTESTED in your output |
