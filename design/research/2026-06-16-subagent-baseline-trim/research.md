@@ -1,131 +1,128 @@
 # Research: Subagent Baseline-Trim (Lever 4)
 
 **Date:** 2026-06-16
-**Status:** scoped, not started
+**Status:** complete — findings recorded
 **Spec:** 031-scope-to-avoid-compaction (design.md → Architecture → Lever 4)
-**Implementer note:** This stub records the scope of the investigation so it isn't lost between
-sessions. Do NOT run the investigation here — it is deferred work. No skill files were modified.
+**Companion:** full prior-art survey in `prior-art-brief.md` (this directory)
+
+This was the deferred Lever 4 investigation from spec 031. It ran in three parts: Q1 prior art
+(`/mine.prior-art` over the curated Claude Code digest repos), Q2 platform-bug status, and Q3 an
+empirical baseline measurement from the real subagent transcripts. No skill/rule/agent files were
+modified — research only.
 
 ---
 
 ## The Problem
 
 Every subagent launched by `mine.orchestrate`, `mine.review`, and `mine.clean-code` starts life
-already carrying a ~44k fixed baseline:
+carrying a fixed, job-independent baseline (harness system prompt + tool schemas + inherited
+rules/CLAUDE.md + inlined scaffolding) before it reads a line of the task. Against the
+auto-compaction ceiling, that baseline plus accumulated working context is what tips a subagent
+into compaction — which degrades reasoning and drops file references and prior decisions.
 
-- Subagent system prompt
-- Tool schemas
-- Inherited rules / CLAUDE.md
-
-This baseline is **job-independent** — it is paid by every subagent regardless of what it actually
-does. Against the ~167k auto-compaction ceiling (~83% of the ~200k window), that leaves only
-**~115k tokens of real working budget** before the harness compacts the subagent and drops file
-references, prior decisions, and test output.
-
-The ~44k baseline is the **dominant tax** in the compaction arithmetic. Levers 1–3 of spec 031
-cut avoidable *usage* of the working budget (re-deriving diffs, inlining full test output,
-full-suite re-runs mid-task). Lever 4 investigates whether the baseline itself can be shrunk.
-
-Note: the ~200k/~167k window parameters are empirically confirmed from 15 `compact_boundary`
-events (all firing in a 167k–176k band across four `hassette` worktrees) but are **platform
-parameters, not contracts** — they can move. The research must not hardcode them into anything
-user-facing.
+Levers 1–3 of spec 031 cut avoidable *working-budget* usage (re-derived diffs, inlined test
+output, full-suite re-runs). Lever 4 asks whether the fixed baseline itself can be shrunk.
 
 ---
 
-## Prior Art Already in This Repo
+## Q3 — Empirical baseline & compaction band (HIGH CONFIDENCE — measured)
 
-Two earlier research docs and one shipped partial fix provide the starting point:
+Measured from the real subagent transcripts at
+`~/.claude/projects/<project>/<session-uuid>/subagents/agent-*.jsonl` (the location the
+`subagent-compaction-check.sh` PostToolUse hook reads), across the `hassette` worktree projects.
 
-- `design/research/2026-03-16-hot-cold-architecture/research.md` — hot/cold architecture
-  investigation (earlier attempt at selective rule loading)
-- `design/research/2026-06-08-conditional-rule-loading/research.md` — conditional rule loading
-  investigation; the partial fix from this work shipped in PR #366, cutting always-loaded rule
-  lines by −46% (2,441 → 1,313 lines; see `CHANGELOG.md`)
+**The spec's premise reproduced exactly:**
 
-Both directories confirmed to exist at the time this stub was written.
-
----
-
-## Known Blockers (verify status when research runs)
-
-Two platform features would enable deeper per-subagent scoping but were broken at the time of the
-June 2026 investigation. **Verify whether these are still blocked before designing any solution:**
-
-| Feature | Issues | Symptom |
+| Metric | Spec estimate | Measured |
 |---|---|---|
-| `paths:` frontmatter for conditional rule loading | #16299, #16853 | Rule files cannot be scoped to specific path patterns; frontmatter silently ignored |
-| PreToolUse `additionalContext` injection | #19432, #55889 | Injection silently drops — context never reaches the subagent |
+| Compaction events | "15" | **16**, across the hassette worktrees |
+| Trigger | auto | **16/16 `auto`** (zero manual) |
+| Compaction band (preTokens) | ~167k–176k | **167,001 → 176,075** (median 167,572) |
+| Per-subagent baseline (opening context) | ~44k | **43,962 (floor) / 50,568 (median)** |
+| Subagent model / window | (200k assumed) | **`claude-sonnet-4-6`, 200k window** (167k ≈ 83%) |
+| Working budget | ~115k | 167k − 44k ≈ **~123k** |
 
-If either has been fixed since June 2026, that changes the solution space significantly.
+**What compacts:** executors and reviewers/critics — `Execute T01`–`T06`, `Retry T02`, plus
+whole-branch implementation review, style-hygiene, LLM-training-bias, senior-engineer and
+contract-caller critics. Exactly the Lever 1/2/3 targets.
 
----
+**Baseline composition.** The ~44k floor is dominated by harness-injected content (system prompt +
+tool schemas) plus inherited rules/CLAUDE.md. These are *not* written to the JSONL as text — they
+appear only inside the first assistant turn's token `usage` counts, which is why the baseline is
+measured from usage totals, not a char-count of the transcript. The inlined scaffolding
+(implementer-prompt + tdd + task spec; retry-prompt only on retries) is a small slice (~5k tokens).
 
-## Research Sub-Questions (none started)
+**Scaffolding-trim verdict: not worth it (weak sub-lever).** Two reasons: (1) the ~44k baseline is
+dominated by harness system-prompt + tools + rules, not scaffolding, so trimming scaffolding moves
+~3–5k of a 44k floor; (2) the executor must read its instructions regardless, so passing
+`tdd.md`/`implementer-prompt.md` by reference just relocates the same bytes to a Read — net saving
+only for content the subagent can genuinely skip (already handled: retry instructions load only on
+retries). More fundamentally: baseline is only ~26% of the 167k ceiling, so the ~123k of *variable*
+accumulation is the real driver of compaction — which is precisely what Levers 1–3 attack. **This
+data vindicates the spec's decision to ship Levers 1–3 first and defer Lever 4.**
 
-### Q1 — Prior art: how have others reduced per-subagent baseline context?
-
-**Status:** not started
-
-Run `/mine.prior-art` to survey external approaches to reducing per-subagent baseline context
-(system prompt trimming, tool-schema pruning, rule hot-swapping, lazy loading patterns, etc.).
-
-**PREREQUISITE — obtain before running:** The `/mine.prior-art` run **must incorporate the repos
-surfaced in the Claude Code digest**. The pointer to that digest (its location and format) has not
-been resolved — it is an open question deferred from spec 031. Before running Q1, ask Jessica for
-the Claude Code digest repo list / location. Do not invent or guess a path.
-
-Scope the prior-art question to: techniques for reducing the fixed baseline paid by subagents in
-Claude Code–style harnesses, including work published or shared since June 2026.
-
-### Q2 — Have the blocking platform bugs moved?
-
-**Status:** not started
-
-Check the current status of:
-- #16299 and #16853 (`paths:` frontmatter for conditional rule loading)
-- #19432 and #55889 (PreToolUse `additionalContext` injection)
-
-For each: is it fixed, in progress, or still open? If fixed, what version or release shipped the
-fix? Does the fix match what was originally needed, or is the behavior subtly different?
-
-### Q3 — What is the actual baseline composition, and is scaffolding-trim actionable today?
-
-**Status:** not started
-
-Measure the ~44k baseline empirically rather than estimating. Source: subagent JSONLs (the same
-`compact_boundary` JSONL data that confirmed the 15 compaction events). Split the baseline into:
-
-- System prompt (harness-injected, per-subagent)
-- Tool schemas (MCP + built-in tools)
-- Inherited rules (always-loaded rule files, post-PR-#366)
-- Scaffolding (e.g., `tdd.md`, `implementer-prompt.md`, other inline-included content)
-
-Then evaluate **scaffolding-trim** as the one lever potentially actionable today without platform
-fixes: passing `tdd.md` and similar scaffolding files by path reference instead of inlining them
-would avoid repeating their content in every subagent's baseline. Estimated recovery: ~3–4k tokens.
-
-Assess: is that recovery worth the complexity? Does it require any platform features that are
-currently broken, or is it achievable with current capabilities?
+> **Methodology note (lesson captured).** A first analysis pass looked at the top-level session
+> JSONLs (`~/.claude/projects/<project>/*.jsonl`) and found only main-session *manual* `/compact`
+> events on the Opus 4.8 (1M-window) main loop — concluding, wrongly, that the spec premise didn't
+> reproduce. Subagent transcripts are persisted, but in the **`<session-uuid>/subagents/`** sibling
+> directory with `isSidechain: true` and `.meta.json` description sidecars. Any future
+> subagent-baseline/compaction analysis must read that path and use token `usage` counts, not
+> char-counts of the top-level transcript. (This is exactly what `subagent-compaction-check.sh`
+> does — it is the reference implementation for locating these files.)
 
 ---
 
-## Out of Scope for This Research
+## Q1 — Prior art (see `prior-art-brief.md` for full survey, patterns, and sources)
 
-- Editing any skill file, rule file, or agent file — Lever 4 is research-only this round.
+Surveyed 13 of 14 curated digest repos + official Anthropic docs + research literature. Nine
+patterns; the headline takeaways for us:
+
+- **Three-level progressive disclosure** (metadata → body → referenced files) is the field's
+  dominant baseline lever — and is **already our primary mechanism** (skills + the `references/`
+  table). Anthropic measured 40+ skills at ~1,500 baseline tokens, 47% tokens-per-task drop.
+- **Our conditional loading is the agent-discretionary flavor.** "Treating 'load when relevant'
+  text as enforcement" is a documented anti-pattern — our `references/` table's exact failure mode.
+  The reliable form is mechanical (`paths:` frontmatter) — see Q2.
+- **Tool-schema deferral** (the field's single biggest lever) is **already handled for us** by the
+  harness's native deferred-tools / ToolSearch mechanism. Nothing to build.
+- **Per-capability token budgets + lint** (obra/superpowers' word ceilings) is the most actionable
+  in-our-control lever, and maps onto our existing `lint-agent-models` precedent.
+- Honest gap: tool-schema pruning appeared in **zero** of the 14 dotfiles repos — it lives only in
+  Anthropic's native tooling and research papers.
+
+## Q2 — Platform-bug status (checked `anthropics/claude-code`, 2026-06-16)
+
+| Issue | Status | Implication |
+|---|---|---|
+| #16299 — `paths:` rules load globally regardless of frontmatter | **OPEN** | Mechanical conditional loading still broken |
+| #16853 — `paths:` rules not auto-loaded on matching files | **OPEN** | Same — the high-value mechanical lever is unavailable |
+| #19432 — PreToolUse `additionalContext` not injected | **CLOSED · NOT_PLANNED (stale)** | Hook-injection path effectively abandoned |
+| #55889 — all hook context-injection channels dropped (Bash matcher) | **CLOSED · NOT_PLANNED (stale)** | Same — won't-fix |
+
+The mechanical fix that would convert our `references/` table from best-effort to enforced is still
+unavailable, and the hook-injection alternative is dead.
+
+---
+
+## Recommendation
+
+1. **Lever 4 stays low priority — and this research confirms why.** The ~44k baseline is ~26% of
+   the 167k ceiling; the ~123k of variable accumulation is what actually drives compaction, and
+   Levers 1–3 already target it. Baseline-trim is a marginal lever by comparison.
+2. **Drop scaffolding-trim** as a candidate — weak, and partly a no-op (must-read content).
+3. **If baseline-trim is ever pursued, target the inherited-rules/CLAUDE.md surface** via Pattern 5
+   (per-capability budgets + a lint check, mirroring `lint-agent-models`) — the unshipped hot/cold
+   follow-up, now with an evidence-backed target. Do **not** invest in tool-schema work (harness
+   already solves it).
+4. **Path-gating (`paths:`) is blocked (Q2)** — don't design around it; re-check if #16299/#16853
+   ever close, at which point the `references/` table could become mechanically enforced.
+5. **Re-validate periodically:** the band is model/window-specific (Sonnet 4.6 / 200k today). If
+   orchestrate executors move to a larger-window model, the compaction pressure that motivated
+   spec 031 relaxes and Lever 4's priority drops further still.
+
+---
+
+## Out of Scope (held from spec 031)
+
+- Editing any skill/rule/agent file — Lever 4 was research-only this round.
 - Introducing a new hook or runtime enforcement mechanism.
-- Resolving the Claude Code digest source pointer — that is the open question that gates Q1.
-
----
-
-## Deliverable
-
-A follow-up research doc (or an update to this file) recording:
-
-1. Q1 findings from `/mine.prior-art` with digest repos included.
-2. Q2 bug-status verdicts for all four issue numbers, with version info if fixed.
-3. Q3 empirical baseline breakdown (token counts by component) and a scaffolding-trim
-   recommendation (adopt / defer / skip, with rationale).
-4. A proposed next step: if blockers are cleared and prior art points to a viable approach,
-   draft a follow-on design stub. If blockers remain and scaffolding-trim is the only lever,
-   assess whether it warrants its own small implementation task.
