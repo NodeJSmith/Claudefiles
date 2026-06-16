@@ -908,12 +908,22 @@ class TestPytestGuardOverride:
             result = run_hook(GUARD_HOOK, inp, tmpdir)
             assert result.returncode == 0
             assert _guard_decision(result) is None
+            # the reason is echoed to stderr so the bypass stays auditable
+            assert "under a debugger" in result.stderr
+
+    def test_single_quoted_reason_allows(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            inp = _guard_input("PYTEST_GUARD_OFF='under a debugger' pytest tests/")
+            result = run_hook(GUARD_HOOK, inp, tmpdir)
+            assert _guard_decision(result) is None
+            assert "under a debugger" in result.stderr
 
     def test_bare_word_reason_allows(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             inp = _guard_input("PYTEST_GUARD_OFF=ci pytest tests/")
             result = run_hook(GUARD_HOOK, inp, tmpdir)
             assert _guard_decision(result) is None
+            assert "ci" in result.stderr
 
     def test_empty_reason_denied(self):
         with tempfile.TemporaryDirectory() as tmpdir:
