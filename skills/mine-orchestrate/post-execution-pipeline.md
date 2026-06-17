@@ -1,6 +1,6 @@
 # Post-Execution Review Pipeline (Phase 3)
 
-After all tasks are processed (or user chose "Stop here"), run a review pipeline. Steps 1–5 are automatic (no user prompts unless blocking issues are found). The user is prompted at the impl-review gate (if blocking) or at the final shipping gate.
+After all tasks are processed (or user chose "Stop here"), run a review pipeline. Steps 1–5.7 are automatic (no user prompts unless blocking issues are found). The user is prompted at the impl-review gate (if blocking), the implementation comb gate (if blocking), or the final shipping gate.
 
 **All subagents in Phase 3 MUST run in foreground** (never set `run_in_background: true`). Several steps spawn their own parallel child subagents internally, which only works in foreground execution.
 
@@ -238,13 +238,73 @@ Wait for the subagent to complete. Read `<feature_dir>/trail-audit.md` and extra
 Log a trail entry for the audit:
 `trail-log "<trail_path>" p3 - review "trail audit: <N findings — or 'no findings' — or 'failed to complete' if report missing>"`
 
+## Step 5.7: Implementation fine-toothed comb (final holistic pass, gates on blocking findings)
+
+This is the last content review before shipping. Unlike impl-review's structured checklist (Step 2), this is open-ended: does the **finished implementation faithfully and thoroughly realize the design** — is every FR and AC actually implemented, did anything get silently dropped, did any behavior drift from what the design specified? Running it last means it reviews the settled code, after clean-code and structural-simplification edits.
+
+**Compaction warning (read before dispatching).** This is the most context-heavy subagent in the pipeline — it must reason over the whole change against the design. Subagents auto-compact around ~167k tokens on a 200k window (~115k working budget after baseline; see spec 031), and a holistic comb that compacts mid-review will miss exactly the cross-cutting gaps it exists to catch. Two mitigations, applied together:
+
+1. **Feed the branch diff, not full file contents.** Instruct the subagent to run the diff itself (keeps the diff out of the orchestrator's context). The diff is a fraction of every changed file in full — this is the variable-accumulation lever from spec 031, not the weak baseline-trim lever.
+2. **Run on the 1m context window.** Dispatch with `model: opus[1m]` — the `[1m]` suffix is required. Plain `model: opus` resolves to the default ~200k window, and subagents do **not** inherit the parent session's 1m window, so the suffix is the only way to get it here. For diffs so large that design + diff still exceeds ~900k tokens (1m can compact at the very top), fall back to chunking the diff by file group, combing each group, then reconciling.
+
+Dispatch:
+
+```
+Agent:
+  subagent_type: general-purpose
+  model: opus[1m]
+  prompt: |
+    Read this design file: <feature_dir>/design.md
+    Read all task files in: <feature_dir>/tasks/
+
+    Then get the full implementation diff — do NOT use $() command substitution (it silently fails in this environment):
+
+    git-branch-base
+    # Note the printed base (e.g. "origin/main"), then:
+    git diff <printed-base>...HEAD
+
+    Go over the implementation against the design with a fine-toothed comb, making sure it's consistent, accurate, and thorough — every functional requirement and acceptance criterion in the design is actually implemented, nothing was silently dropped, and no behavior drifted from what the design specified. Report anything you find.
+
+    Classify each finding by severity:
+    - **blocking** — a requirement not met, behavior that drifted from the design, or an inconsistency that makes the implementation wrong relative to the design
+    - **minor** — a nitpick or optional improvement that does not threaten design fidelity
+
+    If you find nothing notable, say so explicitly.
+```
+
+### Comb gate
+
+A comb that surfaces issues is never cleared by acknowledgement — only by a fresh run that comes back clean (or with minor findings the user accepts). Apply the severity threshold:
+
+- **No findings or only minor findings:** note any minor findings for the shipping gate and proceed to Step 6. No fix required.
+- **Any blocking findings** (no proceed option while any remain):
+
+```
+AskUserQuestion:
+  question: "Implementation comb found blocking design-fidelity gaps: <summary>. These must be resolved before shipping."
+  header: "Impl comb"
+  multiSelect: false
+  options:
+    - label: "Address gaps"
+      description: "Dispatch a subagent to fix the findings, then re-run the comb"
+    - label: "Stop here"
+      description: "Pause; I'll address the gaps manually"
+```
+
+On "Address gaps": dispatch a `general-purpose` subagent with `model: sonnet`, passing the comb findings, the design doc path (`<feature_dir>/design.md`), the task files from `<feature_dir>/tasks/`, and the affected file paths. Instruct: "Fix only the listed design-fidelity gaps. Do not expand scope beyond these findings. After fixing, run the test suite: `<contents of <dir>/test-command.txt>`." After it completes, re-run this step's comb from the top. Loop until the comb returns no blocking findings.
+
+On "Stop here": leave the checkpoint in place — do not delete it. The user can resume later.
+
+If `trail_available` is true, log the result:
+`trail-log "<trail_path>" p3 - review "impl comb: <clean — or N minor noted — or N blocking, user decision: addressed|stopped>"`
+
 ## Step 6: Shipping gate
 
 Present the final gate with impl-review and cross-file review results:
 
 ```
 AskUserQuestion:
-  question: "All tasks complete. Implementation review: <APPROVE + any non-blocking suggestions summary>. Cross-file review: <APPROVE/WARN + any notes>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Structural simplification: <N findings — or 'no significant simplification found'>. Final review: <clean / N findings fixed>. Trail audit: <N findings — or 'no findings' — or 'skipped (trail unavailable)' — or 'failed to complete'>.<if log_failures > 0: ' Trail logging had <log_failures> failures during this run — check disk space and file permissions.'> What next?"
+  question: "All tasks complete. Implementation review: <APPROVE + any non-blocking suggestions summary>. Cross-file review: <APPROVE/WARN + any notes>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Structural simplification: <N findings — or 'no significant simplification found'>. Final review: <clean / N findings fixed>. Trail audit: <N findings — or 'no findings' — or 'skipped (trail unavailable)' — or 'failed to complete'>. Implementation comb: <clean — or N minor noted — or N blocking resolved>.<if log_failures > 0: ' Trail logging had <log_failures> failures during this run — check disk space and file permissions.'> What next?"
   header: "Ship"
   multiSelect: false
   options:
