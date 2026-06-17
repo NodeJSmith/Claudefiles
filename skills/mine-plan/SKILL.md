@@ -20,46 +20,6 @@ Task files encode literal file paths and pointers. If the branch is behind the d
 
 ---
 
-## Phase 0: Fine-Toothed Comb Review
-
-Resolve the design doc path from $ARGUMENTS (same resolution logic as Phase 1's "Locate the design doc"). Phase 1 reuses this path.
-
-Dispatch a subagent to review the design doc. The core direction is just this — no checklist, no rubric:
-
-> Go over the design file with a fine-toothed comb and make sure it's accurate, consistent, and thorough.
-
-```
-Agent:
-  subagent_type: general-purpose
-  model: sonnet
-  prompt: |
-    Read this design file: <design_doc_path>
-
-    Go over it with a fine-toothed comb and make sure it's accurate, consistent, and thorough. Report anything you find.
-```
-
-If the subagent returns findings, present them to the user:
-
-```
-AskUserQuestion:
-  question: "Fine-toothed comb review found issues. How to proceed?"
-  header: "Design comb"
-  multiSelect: false
-  options:
-    - label: "Fix and re-review"
-      description: "Address the findings, then run the review again"
-    - label: "Proceed to planning"
-      description: "Acknowledge the findings and continue"
-    - label: "Stop"
-      description: "Halt and address issues manually"
-```
-
-If "Fix and re-review": apply the fixes, then re-run this phase.
-
-If the subagent finds nothing notable, proceed silently to Phase 1.
-
----
-
 ## Phase 1: Read the Design Doc
 
 ### Locate the design doc
@@ -427,6 +387,68 @@ Read the temp file. Format the results clearly:
 3. **Summary** — 2-3 sentences from the subagent
 4. **Blocking issues** — if verdict is REQUEST_REVISIONS or ABANDON
 5. **Suggestions** — non-blocking notes, if any
+
+---
+
+## Phase 5.5: Fine-Toothed Comb Review
+
+The task files are now the plan's output. Comb the design doc and the task files **together** one last time — an open-ended pass, no checklist, no rubric. This is distinct from the Phase 3.5 traceability gate and the Phase 5 review checklist: it catches the design and tasks reading as inconsistent, inaccurate, or thin once taken in as a whole (a task that drifted from the design's intent, a design decision no task honors, terminology that diverged between the two).
+
+Dispatch a subagent:
+
+```
+Agent:
+  subagent_type: general-purpose
+  model: sonnet
+  prompt: |
+    Read this design file: <design_doc_path>
+    Read all task files in: <feature_dir>/tasks/
+
+    Go over the design file and the corresponding tasks with a fine-toothed comb, making sure that they are all consistent, accurate, and thorough. Report anything you find.
+
+    Classify each finding by severity:
+    - **blocking** — an inconsistency, inaccuracy, or gap between the design and tasks that would mislead implementation
+    - **minor** — a nitpick or optional polish that does not threaten correctness
+
+    If you find nothing notable, say so explicitly.
+```
+
+### Comb gate
+
+A comb that surfaces issues is never cleared by acknowledgement — only by a fresh run that comes back clean (or with minor findings the user accepts). Apply the severity threshold:
+
+- **No findings:** proceed to Phase 6 silently.
+- **Only minor findings:**
+
+```
+AskUserQuestion:
+  question: "Fine-toothed comb found only minor issues: <summary>. How to proceed?"
+  header: "Plan comb"
+  multiSelect: false
+  options:
+    - label: "Fix and re-review"
+      description: "Address the findings, then re-run the comb"
+    - label: "Proceed to the gate"
+      description: "Accept the minor findings and continue"
+    - label: "Stop"
+      description: "Halt and address issues manually"
+```
+
+- **Any blocking findings** (no proceed option while any remain):
+
+```
+AskUserQuestion:
+  question: "Fine-toothed comb found blocking issues: <summary>. These must be resolved before proceeding."
+  header: "Plan comb"
+  multiSelect: false
+  options:
+    - label: "Fix and re-review"
+      description: "Address the findings, then re-run the comb"
+    - label: "Stop"
+      description: "Halt and address issues manually"
+```
+
+On "Fix and re-review": apply the fixes to the design doc and/or task files, then re-run this phase from the top. Restrict task file edits to the same cosmetic-vs-substantive rule as Phase 6's "Approve with suggestions" — substantive task changes require re-running task generation from Phase 2. Loop until the comb returns no blocking findings.
 
 ---
 
