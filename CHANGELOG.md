@@ -6,7 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Changed
 
-- Fine-toothed comb reviews now run at the **end** of each workflow phase, combing that phase's own output instead of re-combing its input at the start: `mine-define` combs the design doc before sign-off, `mine-plan` combs design + tasks before its gate, and `mine-orchestrate` adds a final implementation-vs-design comb before shipping. Findings are tagged blocking vs minor — blocking findings must be fixed and re-combed rather than acknowledged-and-skipped; minor findings can be accepted. The final implementation comb runs on `opus[1m]` over the branch diff so it doesn't compact mid-review.
+- Fine-toothed comb reviews now run at the **end** of each workflow phase, combing that phase's own output instead of re-combing its input at the start: `mine-define` combs the design doc before sign-off, `mine-plan` combs design + tasks before its gate, and `mine-orchestrate` adds a final implementation-vs-design comb before shipping. Findings are tagged blocking vs minor — blocking findings must be fixed and re-combed rather than acknowledged-and-skipped; minor findings can be accepted. The final implementation comb runs on `opus[1m]` over the branch diff so it doesn't compact mid-review. (#387)
 
 ## 2026-06-16
 
