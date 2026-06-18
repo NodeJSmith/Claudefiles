@@ -60,8 +60,8 @@ def split_frontmatter(text: str) -> tuple[str, str]:
         return "", text
     parts = text.split("---", 2)
     if len(parts) < 3:
-        _opening_dashes, _newline, body = text.partition("\n")
-        return "", body
+        # Unclosed: drop the opening `---` line, keep the rest as body.
+        return "", text.partition("\n")[2]
     return parts[1], parts[2]
 
 
@@ -75,15 +75,6 @@ def tools_for(frontmatter: str) -> list[str] | None:
     if not m:
         return None
     return [t.strip().strip("\"'").lower() for t in m.group(1).split(",") if t.strip()]
-
-
-def is_included(frontmatter: str) -> bool:
-    """True iff the rule's `tool:` allowlist contains the target tool (fail-closed).
-
-    Delegates to tools_for; an absent key (None) means Claude-only → excluded.
-    """
-    tools = tools_for(frontmatter)
-    return tools is not None and TARGET_TOOL in tools
 
 
 def source_label(path: Path, rules_dir: Path) -> str:
@@ -118,7 +109,10 @@ def build_output(rules_dir: Path) -> tuple[str, list[Path], list[Path]]:
                 "Claude-only and excluded from Codex.",
                 file=sys.stderr,
             )
-        if not is_included(frontmatter):
+        # Fail-closed: a rule reaches Codex only via an explicit `tool: ..., codex`;
+        # an absent key (tools_for → None) stays Claude-only.
+        tools = tools_for(frontmatter)
+        if tools is None or TARGET_TOOL not in tools:
             excluded.append(path)
             continue
         included.append(path)

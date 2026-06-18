@@ -28,7 +28,10 @@ GENERATED_FIRST_LINE = (
 
 
 def write_rule(
-    rules_dir: Path, name: str, body: str, tools=("claude", "codex")
+    rules_dir: Path,
+    name: str,
+    body: str,
+    tools: tuple[str, ...] | None = ("claude", "codex"),
 ) -> None:
     """Write a fixture rule. tools=None → no frontmatter (fail-closed: Codex-excluded)."""
     fm = ""
