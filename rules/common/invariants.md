@@ -107,6 +107,10 @@ Every error path is explicitly handled or propagated. Silent catch-and-ignore hi
 A bug you cannot reproduce, you cannot prove fixed. Reproduce it yourself before designing a fix.
 **Defined in:** `rules/common/debugging-discipline.md`
 
+#### Pause Safely on Unplanned Interruption
+When mid-task work is interrupted unexpectedly: stop at an atomic boundary, commit with `wip:` prefix, write a resume note to `/tmp/<slug>-resume.md`, then report position to the user.
+**Defined in:** `rules/common/pause-safely.md`
+
 #### Pin Behavior Before Refactoring
 Before restructuring, capture current behavior with a characterization test. Type checks and lint are not a pin.
 **Defined in:** `rules/common/refactoring-discipline.md`
@@ -121,7 +125,7 @@ When code review findings arrive, verify each against the actual code before imp
 
 ### Consider
 
-These principles are defined in `rules/common/` files that are themselves always loaded — their full text is already in context, so this tier is just the scan list: **Laziness Protocol, Reader Load, Subtract Before You Add, Redesign from First Principles, Outcome-Oriented Execution, Encode Lessons in Structure, Exhaust the Design Space, Experience First, Baseline Before Optimizing, Decompose Before Implementing, No Default Underscore Prefixes, Build the Lever**.
+These principles are defined in `rules/common/` files that are themselves always loaded — their full text is already in context, so this tier is just the scan list: **Laziness Protocol, Reader Load, Subtract Before You Add, Redesign from First Principles, Outcome-Oriented Execution, Encode Lessons in Structure, Exhaust the Design Space, Sequence Verifiable Units, Experience First, Baseline Before Optimizing, Decompose Before Implementing, No Default Underscore Prefixes, Build the Lever**.
 
 Three more are defined in `references/common/` files, which load only on demand (via the Domain References table below) — so their summaries stay here as the always-present surface:
 

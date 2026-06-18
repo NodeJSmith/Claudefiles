@@ -41,6 +41,24 @@ These phrases signal a claim without evidence. If you catch yourself writing one
 
 This applies to **all completion claims** — mid-task status updates, commit messages, PR descriptions, and responses to the user. The pre-commit verification in `commit-conventions.md` is a subset of this rule; this rule covers everything upstream of the commit too.
 
+## Observe the Running System
+
+When you reach for a test file to verify behavior, pause and ask: "How would I observe this if I had no test suite?"
+
+A passing test proves the test passes. It does not prove the running system behaves correctly. Prefer observing the actual running system — a CLI invocation, an HTTP request, logged output — when the surface is reachable.
+
+Use tests to verify behavior you can't observe directly. Don't substitute test assertions for system observation when both are available.
+
+## Name Observability Gaps
+
+When you cannot observe a behavior because the system emits no signal for it — no log, no metric, no CLI output, no visible state — do not silently skip the verification.
+
+Name it explicitly as an observability gap finding:
+
+> **Observability gap:** `<behavior>` cannot be verified without `<what's missing>`. This is a gap in the system's instrumentation, not a verification shortcut.
+
+This turns a silent skip into an actionable finding that can drive follow-up instrumentation work.
+
 ## Not a Blanket Re-run Mandate
 
 This does not mean re-run every command after every edit. Verify the specific claim you're about to make. If you changed test code, run the tests. If you changed a type signature, run the type checker. Match verification to the claim.

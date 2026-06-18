@@ -20,6 +20,17 @@ When you catch yourself writing the same instruction a second time:
 
 Do not paper over symptoms. If the fix is structural, only use the structural fix. The instruction is the symptom.
 
+### Pick the Strongest Rung
+
+When encoding a lesson, pick the mechanism that enforces it most automatically:
+
+1. **Runtime check** — fails immediately when violated (strongest)
+2. **Lint rule / pre-commit hook** — catches it before commit
+3. **Metadata flag** — marks the constraint in data
+4. **Instruction** — requires a reader to notice and comply (weakest)
+
+Work up from the bottom. An instruction that should be a lint rule is not yet encoded.
+
 ## Feedback Loop
 
 - **Capture every correction.** When the human intervenes or tests fail, decide if it is a one-off or a pattern.

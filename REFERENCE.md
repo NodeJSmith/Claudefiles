@@ -139,8 +139,8 @@ Coding guidelines in `rules/common/` that load automatically and shape how Claud
 | Core (always installed) | — | `capabilities-core`, `interaction`, `invariants`, `performance`, `worktrees` |
 | Code structure & style | `style` | `coding-style`, `reader-load`, `laziness-protocol`, `subtract-first`, `redesign-from-first-principles`, `refactoring-discipline` |
 | Languages | `languages` | `python` |
-| Git workflow | `workflow` | `commit-conventions`, `git-workflow` |
-| Planning & execution | `planning` | `decomposition-discipline`, `outcome-oriented-execution`, `autonomous-run-discipline`, `exhaust-the-design-space`, `experience-first`, `build-the-lever`, `encode-lessons-in-structure` |
+| Git workflow | `workflow` | `commit-conventions`, `git-workflow`, `sequence-verifiable-units` |
+| Planning & execution | `planning` | `decomposition-discipline`, `outcome-oriented-execution`, `autonomous-run-discipline`, `pause-safely`, `exhaust-the-design-space`, `experience-first`, `build-the-lever`, `encode-lessons-in-structure` |
 | Verification & debugging | `verification` | `verification`, `debugging-discipline`, `performance-discipline` |
 | Authoring | `authoring` | `eval-discipline` |
 | Environment & tooling | `environment` | `bash-tools`, `command-output`, `sudo`, `tmux` |
