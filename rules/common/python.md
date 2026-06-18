@@ -1,3 +1,7 @@
+---
+tool: claude, codex, antigravity
+---
+
 # Python
 
 ## Never Use `from __future__ import annotations`

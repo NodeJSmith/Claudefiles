@@ -1,3 +1,7 @@
+---
+tool: claude, codex, antigravity
+---
+
 # Eval Discipline
 
 **Scope:** Applies when explicitly running an evaluation of agent behavior (e.g., A/B comparisons of prompts, skills, or structural changes via `/mine-mutation-test` or manual eval sessions). Not a general coding rule.

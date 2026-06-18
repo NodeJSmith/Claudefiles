@@ -1,3 +1,7 @@
+---
+tool: claude  # harness-only: get-tmp-filename and Bash-tool truncation are Claude-Code-specific
+---
+
 # Command Output Preservation
 
 Bash output truncates at 30k chars. Preserve full output in a tmp file.

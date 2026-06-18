@@ -1,3 +1,7 @@
+---
+tool: claude, codex, antigravity
+---
+
 # Verification Before Completion (CRITICAL)
 
 Never claim work is done without concrete evidence. "Should work" is not verification.
@@ -35,7 +39,7 @@ These phrases signal a claim without evidence. If you catch yourself writing one
 
 ## Scope
 
-This applies to **all completion claims** — mid-task status updates, commit messages, PR descriptions, and responses to the user. The git-workflow.md pre-commit verification is a subset of this rule; this rule covers everything upstream of the commit too.
+This applies to **all completion claims** — mid-task status updates, commit messages, PR descriptions, and responses to the user. The pre-commit verification in `commit-conventions.md` is a subset of this rule; this rule covers everything upstream of the commit too.
 
 ## Not a Blanket Re-run Mandate
 

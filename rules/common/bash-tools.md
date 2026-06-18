@@ -1,3 +1,7 @@
+---
+tool: claude  # harness-only: the Bash/Read/Grep/Edit tool mapping is Claude-Code-specific
+---
+
 # Bash Tool vs Dedicated Tools
 
 ## Tool Mapping

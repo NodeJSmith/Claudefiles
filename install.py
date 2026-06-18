@@ -202,7 +202,7 @@ RULE_CATEGORIES: dict[str, RuleCategory] = {
     "workflow": RuleCategory(
         label="Git workflow",
         description="Commit conventions, pre-commit review gate, branch and PR workflow",
-        files=("git-workflow.md",),
+        files=("commit-conventions.md", "git-workflow.md"),
     ),
     "planning": RuleCategory(
         label="Planning & execution",
@@ -1037,10 +1037,46 @@ def do_install(
                     link.unlink()
                     console.print(f"  removed: {link}")
 
+    generate_codex_rules(repo_dir, console)
+
     console.print(
         f"\n[green]Claudefiles installed to {claude_dir}[/green] ({total_links} symlinks)"
     )
     return errors
+
+
+def generate_codex_rules(repo_dir: Path, console: Console) -> None:
+    """Materialize the global Codex AGENTS.md from the portable rules.
+
+    Runs after the symlink phase so the generated file reflects the rules just
+    installed. The generator exits 0 both when it writes and when it skips (Codex
+    not installed), so this call is safe to make unconditionally and is non-fatal to
+    the install — Codex rules are an add-on, not core install state. A non-zero exit
+    means Codex *is* installed and generation actually failed (empty result, write
+    error): that is surfaced in red, distinct from the benign skip, so it isn't lost
+    under the green success banner. See design/specs/032-codex-agents-rules.
+    """
+    script = repo_dir / "bin" / "codex-rules-sync"
+    try:
+        result = subprocess.run(
+            [sys.executable, str(script)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        console.print(
+            f"  [red]Codex rules FAILED: codex-rules-sync could not run: {e}[/red]"
+        )
+        return
+    summary = result.stdout.strip() or result.stderr.strip()
+    if result.returncode == 0:
+        if summary:
+            console.print(f"  {summary}")
+    else:
+        console.print(
+            f"  [red]Codex rules FAILED — global AGENTS.md not updated: {summary}[/red]"
+        )
 
 
 def do_uninstall(repo_dir: Path, claude_dir: Path, cfg: dict) -> None:

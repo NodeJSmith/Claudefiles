@@ -1,3 +1,7 @@
+---
+tool: claude, codex, antigravity
+---
+
 # Exhaust the Design Space
 
 <!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->

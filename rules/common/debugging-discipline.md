@@ -1,3 +1,7 @@
+---
+tool: claude, codex, antigravity
+---
+
 # Debugging Discipline
 
 <!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
@@ -26,4 +30,4 @@ A bug you cannot reproduce, you cannot prove fixed. If the bug will not reproduc
 
 Verify the fix on the same surface where the bug was observed. Unit tests show branch behavior, not bug absence. "Inconclusive" or wrong-surface is not a pass.
 
-For commit sequencing on bug fixes, see `git-workflow.md`.
+For commit sequencing on bug fixes, see `commit-conventions.md`.

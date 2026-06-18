@@ -1,3 +1,7 @@
+---
+tool: claude  # harness-only: the sudo-poll PreToolUse hook is Claude-Code-specific
+---
+
 # Sudo Operations
 
 Claude Code cannot run `sudo` directly — no TTY for the password prompt. A PreToolUse hook (`sudo-poll.sh`) handles this automatically for most cases.
