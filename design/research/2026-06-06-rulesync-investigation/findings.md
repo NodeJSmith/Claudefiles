@@ -101,6 +101,27 @@ Cursor adds significant complexity:
 - Rulesync split target: `antigravity-ide` (desktop) vs `antigravity-cli` (the `agy` binary)
 - `geminicli` target will be deprecated in rulesync
 
+## Re-verification 2026-06-18 (rulesync 8.30.1)
+
+Re-ran the import → generate pipeline on **8.30.1** (findings above were on 8.24.1) to confirm the tables still hold before building. Method: flat staging copy of this worktree (28 rules flattened from `rules/common/`, 59 skills, 20 agents, 6 commands, settings) → `rulesync import -t claudecode -f '*'` → `rulesync generate -t {codexcli,antigravity-cli} -f '*'`.
+
+Counts differ from the original tables only because of repo changes since 2026-06-06 (the `mine.*`→`mine-*` rename, #357 removals, single-repo vs the original multi-repo staging). The **structural findings all hold**:
+
+| Original finding | Status on 8.30.1 |
+|---|---|
+| #1765 — codex non-root rules → `.codex/memories/` (Codex never reads) | **Still broken.** All 28 non-root rules written there |
+| Codex skills path (our PR #1766, fixes #1685) | **Live.** Skills now write to `.agents/skills/` |
+| `learned/` dir aborts skill import | **Gone** (removed by #357). Import ran clean, 117 files, no hard failure |
+| Codex agents → `.toml` | Confirmed (`.codex/agents/*.toml`) |
+| Codex hooks + permissions | Confirmed (`.codex/config.toml`, `.codex/rules/rulesync.rules`); the 3 hook events our PR wired map correctly |
+| Codex commands unsupported | Confirmed ("does not support... Skipping") |
+| Antigravity rules → `.agents/rules/` (symlinkable) | Confirmed |
+| Antigravity agents / commands / permissions unsupported | Confirmed skipped |
+
+**Material update — `.agents/skills/` is a shared canonical path.** Both `codexcli` and `antigravity-cli` write skills to `.agents/skills/`. Our PR #1766 aligning the codex path means **one symlink target (`~/.agents/skills/`) serves both tools** — Next Step #1 is simpler than originally assumed (one symlink, not per-tool copies).
+
+**Still open:** #1765. Codex rules remain the one hard piece; the concat-into-`AGENTS.md` approach (below) is still required, no upstream fix to wait on.
+
 ## Architecture Decision
 
 ### What works without rulesync (symlinks via install.py)
@@ -126,7 +147,7 @@ Rulesync issue #1765 proposes a `ruleDiscoveryMode: "inline"` option for this.
 
 ## Next Steps (Not Started)
 
-1. Extend `install.py` to symlink skills into `~/.agents/skills/` for Codex/Antigravity
-2. Watch rulesync issues #1765 (rules → AGENTS.md inline) and #1685 (skills path `.codex/` → `.agents/`) for upstream fixes
+1. Extend `install.py` to symlink skills into `~/.agents/skills/` for Codex/Antigravity (one shared target serves both — see Re-verification above)
+2. Watch rulesync issue #1765 (rules → AGENTS.md inline) for upstream fix. #1685 (skills path `.codex/` → `.agents/`) — **done**, our PR #1766, shipped in 8.28.0
 3. Revisit `antigravity-cli` target coverage as rulesync adds features
 4. Build the pre-push hook for rulesync generation if/when format conversions are needed
