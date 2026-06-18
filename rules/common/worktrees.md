@@ -1,3 +1,7 @@
+---
+tool: claude  # harness-only: the claude --worktree flow and subagent isolation are Claude-Code-specific
+---
+
 # Worktree Workflow
 
 Worktrees are created by the user via `claude --worktree <branch>`. These rules govern behavior when already inside a worktree.

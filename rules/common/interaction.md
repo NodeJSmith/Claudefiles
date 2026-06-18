@@ -1,3 +1,7 @@
+---
+tool: claude  # harness-only: plan mode, AskUserQuestion, and the dispatch model are Claude-Code-specific
+---
+
 # Interaction Style
 
 ## Clarify, Don't Plan

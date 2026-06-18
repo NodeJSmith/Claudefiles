@@ -1,3 +1,7 @@
+---
+tool: claude, codex, antigravity
+---
+
 # Coding Style
 
 ## Immutability (CRITICAL)

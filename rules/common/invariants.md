@@ -1,3 +1,7 @@
+---
+tool: claude, codex, antigravity
+---
+
 # Design Invariants
 
 Named invariants that must hold across all code written in this setup. These are defined in their respective rule files — this file promotes them to a proactive checklist.

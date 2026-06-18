@@ -1,3 +1,7 @@
+---
+tool: claude, codex, antigravity
+---
+
 # Subtract Before You Add
 
 <!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->

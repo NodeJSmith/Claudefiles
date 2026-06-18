@@ -1,3 +1,7 @@
+---
+tool: claude  # harness-only: skill/command routing tables are Claude-Code dispatch
+---
+
 # Skill & Command Capabilities
 
 **BLOCKING REQUIREMENT**: When a user request matches a trigger phrase below, you MUST invoke the corresponding skill or CLI tool **before** responding. Do NOT perform the task directly — dispatch to the skill. This applies even if you could answer inline.

@@ -139,13 +139,15 @@ Coding guidelines in `rules/common/` that load automatically and shape how Claud
 | Core (always installed) | — | `capabilities-core`, `interaction`, `invariants`, `performance`, `worktrees` |
 | Code structure & style | `style` | `coding-style`, `reader-load`, `laziness-protocol`, `subtract-first`, `redesign-from-first-principles`, `refactoring-discipline` |
 | Languages | `languages` | `python` |
-| Git workflow | `workflow` | `git-workflow` |
+| Git workflow | `workflow` | `commit-conventions`, `git-workflow` |
 | Planning & execution | `planning` | `decomposition-discipline`, `outcome-oriented-execution`, `autonomous-run-discipline`, `exhaust-the-design-space`, `experience-first`, `build-the-lever`, `encode-lessons-in-structure` |
 | Verification & debugging | `verification` | `verification`, `debugging-discipline`, `performance-discipline` |
 | Authoring | `authoring` | `eval-discipline` |
 | Environment & tooling | `environment` | `bash-tools`, `command-output`, `sudo`, `tmux` |
 
 Deselecting a category whose rules are referenced by a kept rule prints a warning but does not block — the references are prose pointers, not requirements.
+
+**Codex disposition.** Each rule's `tool:` frontmatter lists which assistants it applies to (`tool: claude, codex, antigravity` for portable rules; `tool: claude` for Claude-Code-harness-specific ones — capabilities routing, the review-agent gate, and the bash-tools/command-output/sudo/tmux/worktrees/git-workflow helpers). `codex-rules-sync` includes a rule in the global `~/.codex/AGENTS.md` only when its list contains `codex`; the default is fail-closed (no `tool:` key → Claude-only). For the current breakdown, run `codex-rules-sync --list` — the frontmatter is the single source of truth.
 
 Optional bundle capabilities files (install with their bundle): `capabilities-impeccable.md` (Frontend), `capabilities-memory.md` (Memory), `capabilities-cli.md` (CLI).
 
@@ -225,6 +227,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `git-branch-log` | Print `git log --oneline` for current branch vs its base (uses git-branch-base) |
 | `git-default-branch` | Print the default branch name for the current repo |
 | `git-platform` | Detect git hosting platform (`github`, `ado`, or `unknown`) from remote URL |
+| `codex-rules-sync` | Generates the global Codex `~/.codex/AGENTS.md` from `rules/common/*.md`, concatenating the rules whose `tool:` frontmatter lists `codex`. `--list` prints the include/exclude breakdown without writing. Run by `install.py` after the symlink phase; skips silently if Codex isn't installed |
 | `lint-agent-models` | Agent registry drift lint — checks every `agents/*.md` is listed in performance.md (with matching model) and registered in an install.py bundle, so no agent ships uninstalled |
 | `lint-cli-conventions` | Drift prevention lint — verifies `--help` handling in bin/ scripts and capabilities-core.md CLI Tools sync |
 | `phrase-monitor-log` | View phrase monitor detections — last N entries, stats, live tail, or clear |
