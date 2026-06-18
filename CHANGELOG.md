@@ -6,7 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Added
 
-- Codex CLI now gets the same always-on rules as Claude Code: `install.py` generates a global `~/.codex/AGENTS.md` from `rules/common/*.md` via the new `codex-rules-sync` tool. Each rule's `tool:` frontmatter decides where it goes — portable rules carry `tool: claude, codex, antigravity`, Claude-Code-harness-specific ones carry `tool: claude` and are excluded. Fail-closed (an untagged rule stays Claude-only) and skips silently if Codex isn't installed; run `codex-rules-sync --list` to see the breakdown. (#PR)
+- Codex CLI now gets the same always-on rules as Claude Code: `install.py` generates a global `~/.codex/AGENTS.md` from `rules/common/*.md` via the new `codex-rules-sync` tool. Each rule's `tool:` frontmatter decides where it goes — portable rules carry `tool: claude, codex, antigravity`, Claude-Code-harness-specific ones carry `tool: claude` and are excluded. Fail-closed (an untagged rule stays Claude-only) and skips silently if Codex isn't installed; run `codex-rules-sync --list` to see the breakdown. (#388)
 
 ## 2026-06-17
 
