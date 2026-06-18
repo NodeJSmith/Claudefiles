@@ -48,27 +48,16 @@
       "Bash(agnix:*)",
       "Bash(ls:*)",
       "Bash(uv:*)",
-      "Skill(mine.commit-push)",
+      "Skill(mine-commit-push)",
       "Bash(claude-tmux:*)",
       "Bash(edit-manifest:*)",
-      "Bash(which:*)",
-      "Bash(pytest-loop-reset)"
+      "Bash(which:*)"
     ],
     "ask": [],
     "defaultMode": "default"
   },
-  "extraKnownMarketplaces": {
-    "last30days-skill": {
-      "source": {
-        "source": "github",
-        "repo": "mvanhorn/last30days-skill"
-      },
-      "autoUpdate": false
-    }
-  },
-  "enabledPlugins": {
-    "last30days@last30days-skill": true
-  },
+  "extraKnownMarketplaces": {},
+  "enabledPlugins": {},
   "includeGitInstructions": false,
   "hooks": {
     "PreToolUse": [
@@ -83,11 +72,6 @@
           {
             "type": "command",
             "command": "bash -c 'f=\"${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/pytest-guard.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
-            "timeout": 5000
-          },
-          {
-            "type": "command",
-            "command": "bash -c 'f=\"${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/pytest-loop-detector.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
             "timeout": 5000
           }
         ]
@@ -115,26 +99,6 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'f=\"${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/pytest-loop-reset.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
-            "timeout": 2000
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'f=\"${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/pytest-loop-status.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
-            "timeout": 2000
-          }
-        ]
-      },
-      {
         "matcher": "Agent",
         "hooks": [
           {
@@ -149,11 +113,6 @@
     "SessionStart": [
       {
         "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c '(command -v uuidgen > /dev/null && uuidgen || python3 -c \"import uuid; print(uuid.uuid4())\") > \"${CLAUDE_CODE_TMPDIR:-/tmp}/claude-pytest-loop-session.id\"'",
-            "timeout": 2000
-          },
           {
             "type": "command",
             "command": "bash -c 'f=\"${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/tmux-remind.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",

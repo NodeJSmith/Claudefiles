@@ -8,7 +8,7 @@ Identify and improve unclear, confusing, or poorly written interface text to mak
 
 ## MANDATORY PREPARATION
 
-Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: audience technical level and users' mental state in context.
+Read `${CLAUDE_HOME:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: audience technical level and users' mental state in context.
 
 ---
 
@@ -66,7 +66,7 @@ AskUserQuestion:
     - label: "Refine scope"
       description: "I want to adjust what's included before you start."
     - label: "Challenge this first"
-      description: "I'll run /mine.challenge against your proposal before we proceed."
+      description: "I'll run /mine-challenge against your proposal before we proceed."
     - label: "Stop here"
       description: "Don't implement anything. The proposal is in this conversation only."
 ```
@@ -74,122 +74,22 @@ AskUserQuestion:
 If "Implement" → proceed to implementation below.
 If "Refine scope" → ask what to change, update proposal, re-confirm.
 <!-- CHALLENGE-CALLER -->
-If "Challenge this first" → invoke `/mine.challenge` inline against the proposal, read findings, revise proposal, re-present this gate.
+If "Challenge this first" → invoke `/mine-challenge` inline against the proposal, read findings, revise proposal, re-present this gate.
 If "Stop here" → end the skill.
 
 ---
 
 ## Improve Copy Systematically
 
-Refine text across these common areas:
+Refine text across the common surfaces: error messages, form labels and instructions, button/CTA text, help text and tooltips, empty states, success messages, loading states, confirmation dialogs, and navigation labels. The shape of the fix is the same everywhere — name the specific thing, say what to do next, never blame the user. Two illustrative pairs:
 
-### Error Messages
-**Bad**: "Error 403: Forbidden"
-**Good**: "You don't have permission to view this page. Contact your admin for access."
+**Error** — "Error 403: Forbidden" → "You don't have permission to view this page. Contact your admin for access."
 
-**Bad**: "Invalid input"
-**Good**: "Email addresses need an @ symbol. Try: name@example.com"
-
-**Principles**:
-- Explain what went wrong in plain language
-- Suggest how to fix it
-- Don't blame the user
-- Include examples when helpful
-- Link to help/support if applicable
-
-### Form Labels & Instructions
-**Bad**: "DOB (MM/DD/YYYY)"
-**Good**: "Date of birth" (with placeholder showing format)
-
-**Bad**: "Enter value here"
-**Good**: "Your email address" or "Company name"
-
-**Principles**:
-- Use clear, specific labels (not generic placeholders)
-- Show format expectations with examples
-- Explain why you're asking (when not obvious)
-- Put instructions before the field, not after
-- Keep required field indicators clear
-
-### Button & CTA Text
-**Bad**: "Click here" | "Submit" | "OK"
-**Good**: "Create account" | "Save changes" | "Got it, thanks"
-
-**Principles**:
-- Describe the action specifically
-- Use active voice (verb + noun)
-- Match user's mental model
-- Be specific ("Save" is better than "OK")
-
-### Help Text & Tooltips
-**Bad**: "This is the username field"
-**Good**: "Choose a username. You can change this later in Settings."
-
-**Principles**:
-- Add value (don't just repeat the label)
-- Answer the implicit question ("What is this?" or "Why do you need this?")
-- Keep it brief but complete
-- Link to detailed docs if needed
-
-### Empty States
-**Bad**: "No items"
-**Good**: "No projects yet. Create your first project to get started."
-
-**Principles**:
-- Explain why it's empty (if not obvious)
-- Show next action clearly
-- Make it welcoming, not dead-end
-
-### Success Messages
-**Bad**: "Success"
-**Good**: "Settings saved! Your changes will take effect immediately."
-
-**Principles**:
-- Confirm what happened
-- Explain what happens next (if relevant)
-- Be brief but complete
-- Match the user's emotional moment (celebrate big wins)
-
-### Loading States
-**Bad**: "Loading..." (for 30+ seconds)
-**Good**: "Analyzing your data... this usually takes 30-60 seconds"
-
-**Principles**:
-- Set expectations (how long?)
-- Explain what's happening (when it's not obvious)
-- Show progress when possible
-- Offer escape hatch if appropriate ("Cancel")
-
-### Confirmation Dialogs
-**Bad**: "Are you sure?"
-**Good**: "Delete 'Project Alpha'? This can't be undone."
-
-**Principles**:
-- State the specific action
-- Explain consequences (especially for destructive actions)
-- Use clear button labels ("Delete project" not "Yes")
-- Don't overuse confirmations (only for risky actions)
-
-### Navigation & Wayfinding
-**Bad**: Generic labels like "Items" | "Things" | "Stuff"
-**Good**: Specific labels like "Your projects" | "Team members" | "Settings"
-
-**Principles**:
-- Be specific and descriptive
-- Use language users understand (not internal jargon)
-- Make hierarchy clear
-- Consider information scent (breadcrumbs, current location)
+**Confirmation** — "Are you sure?" → "Delete 'Project Alpha'? This can't be undone." (and label the button "Delete project," not "Yes")
 
 ## Apply Clarity Principles
 
-Every piece of copy should follow these rules:
-
-1. **Be specific**: "Enter email" not "Enter value"
-2. **Be concise**: Cut unnecessary words (but don't sacrifice clarity)
-3. **Be active**: "Save changes" not "Changes will be saved"
-4. **Be human**: "Oops, something went wrong" not "System error encountered"
-5. **Be helpful**: Tell users what to do, not just what happened
-6. **Be consistent**: Use same terms throughout (don't vary for variety)
+Be specific, concise, active, human, helpful, and consistent — name the action ("Save changes," not "OK"; "Enter email," not "Enter value"), and pick one term per concept and stick to it.
 
 **NEVER**:
 - Use jargon without explanation

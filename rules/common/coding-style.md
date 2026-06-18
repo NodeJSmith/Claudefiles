@@ -34,49 +34,13 @@ Do not prefix methods with `_` unless there is a concrete reason. Claude's insti
 
 Most application code has no consumers beyond the same codebase. Underscore prefixes add noise, make testing harder (signaling "don't call this directly"), and create a false sense of encapsulation.
 
-```python
-class OrderService:
-    def place_order(self, items: list[Item]) -> Order:
-        total = self.calculate_total(items)
-        order = self.create_order(items, total)
-        self.send_confirmation(order)
-        return order
-
-    def calculate_total(self, items: list[Item]) -> Decimal: ...
-    def create_order(self, items: list[Item], total: Decimal) -> Order: ...
-    def send_confirmation(self, order: Order) -> None: ...
-```
-
 ## Early Returns
 
 Prefer early returns to reduce nesting. Guard clauses at the top, happy path at the bottom.
 
-```python
-def process_payment(payment: Payment, account: Account) -> Result:
-    if payment.amount <= 0:
-        return Result.invalid("Amount must be positive")
-    if account.is_frozen:
-        return Result.rejected("Account is frozen")
-    if payment.amount > account.balance:
-        return Result.rejected("Insufficient funds")
-
-    return Result.success(payment)
-```
-
 ## Variable Naming
 
-Short, contextually obvious names inside methods. Longer names for module-level constants and config fields where context is absent.
-
-```python
-# good: short names where context is clear
-resp = await client.get(f"/users/{user_id}")
-total = sum(item.price for item in items)
-rows = cursor.fetchall()
-
-# good: longer names at module level where context is absent
-DEFAULT_RETRY_DELAY_SECONDS = 5
-MAX_BATCH_SIZE = 1000
-```
+Short, contextually obvious names inside methods (`resp`, `total`, `rows`). Longer names for module-level constants and config fields where context is absent (`DEFAULT_RETRY_DELAY_SECONDS`).
 
 ## Method Decomposition
 
@@ -99,76 +63,25 @@ def resolve_priority(ticket: Ticket) -> Priority:
 
 ## Boolean Comparisons
 
-When a value is known to be a `bool`, use it directly. Only use `is True`/`is False` when the value can also be `None` and `None` is semantically different from `False`.
-
-```python
-# good: is_active is always a bool
-if not user.is_active:
-    return
-
-# good: enabled can be True, False, or None (not configured)
-if feature.enabled is True:
-    apply_feature(feature)
-```
+When a value is known to be a `bool`, use it directly (`if not user.is_active:`). Only use `is True`/`is False` when the value can also be `None` and `None` is semantically different from `False`.
 
 ## Constants at the Top
 
 All module-level constants go at the top of the file, after imports. Never define a constant inline next to the code that uses it.
 
-```python
-import httpx
-from decimal import Decimal
-
-TIMEOUT_SECONDS = 30
-MAX_RETRIES = 3
-DEFAULT_CURRENCY = "USD"
-
-
-class PaymentGateway:
-    ...
-```
-
 ## No Section Divider Comments
 
 Don't add decorated comment blocks between methods. If the class needs section headers to be readable, it needs fewer methods.
 
-```python
-class UserService:
-    def login(self, credentials: Credentials) -> Session: ...
-    def logout(self, session: Session) -> None: ...
-    def update_profile(self, user_id: int, data: ProfileData) -> User: ...
-```
-
 ## Logging
 
 Log at decision points and actions, not at every step. Use warnings for unexpected state, info for actions taken. Don't log routine state reads or echo every variable.
-
-```python
-def sync_inventory(self, warehouse_id: str) -> SyncResult:
-    items = self.fetch_items(warehouse_id)
-    failed = []
-    for item in items:
-        try:
-            self.update_stock(item)
-        except StaleDataError:
-            self.logger.warning("Stale data for %s, skipping", item.sku)
-            failed.append(item.sku)
-    self.logger.info("Synced warehouse %s: %d updated, %d failed", warehouse_id, len(items) - len(failed), len(failed))
-```
 
 ## Data Structures First
 
 Get the data shape right before writing logic. The right shape makes downstream code obvious. Define core types early, trace every access pattern, and choose structures that match the dominant paths. A data-structure change late is a rewrite; early, it is a one-line diff.
 
 Use dataclasses when a structure is passed between multiple methods or stored. Don't introduce them for intermediate values within a single method.
-
-```python
-@dataclass(frozen=True)
-class SyncResult:
-    updated: int
-    failed: list[str]
-    duration_seconds: float
-```
 
 ## Migrate Callers Then Delete Legacy APIs
 
@@ -177,17 +90,3 @@ When introducing a new internal API, migrate all callers and remove the old API 
 ## Functions Over Methods
 
 Logic that doesn't need `self` should be a module-level function, not a method. This makes it easier to test and reuse. Place helper functions below the class.
-
-```python
-class ReportGenerator:
-    def generate(self, data: list[Row]) -> Report:
-        summary = summarize_rows(data)
-        return Report(summary=summary, generated_at=Instant.now())
-
-
-def summarize_rows(rows: list[Row]) -> Summary:
-    totals = defaultdict(Decimal)
-    for row in rows:
-        totals[row.category] += row.amount
-    return Summary(category_totals=dict(totals))
-```

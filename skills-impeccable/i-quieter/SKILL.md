@@ -8,7 +8,7 @@ Reduce visual intensity in designs that are too bold, aggressive, or overstimula
 
 ## MANDATORY PREPARATION
 
-Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
+Read `${CLAUDE_HOME:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
 
 ---
 
@@ -67,7 +67,7 @@ AskUserQuestion:
     - label: "Refine scope"
       description: "I want to adjust what's included before you start."
     - label: "Challenge this first"
-      description: "I'll run /mine.challenge against your proposal before we proceed."
+      description: "I'll run /mine-challenge against your proposal before we proceed."
     - label: "Stop here"
       description: "Don't implement anything. The proposal is in this conversation only."
 ```
@@ -75,7 +75,7 @@ AskUserQuestion:
 If "Implement" → proceed to implementation below.
 If "Refine scope" → ask what to change, update proposal, re-confirm.
 <!-- CHALLENGE-CALLER -->
-If "Challenge this first" → invoke `/mine.challenge` inline against the proposal, read findings, revise proposal, re-present this gate.
+If "Challenge this first" → invoke `/mine-challenge` inline against the proposal, read findings, revise proposal, re-present this gate.
 If "Stop here" → end the skill.
 
 ---
@@ -85,37 +85,27 @@ If "Stop here" → end the skill.
 Systematically reduce intensity across these dimensions:
 
 ### Color Refinement
-- **Reduce saturation**: Shift from fully saturated to 70-85% saturation
-- **Soften palette**: Replace bright colors with muted, sophisticated tones
-- **Reduce color variety**: Use fewer colors more thoughtfully
-- **Neutral dominance**: Let neutrals do more work, use color as accent (10% rule)
-- **Gentler contrasts**: High contrast only where it matters most
-- **Tinted grays**: Use warm or cool tinted grays instead of pure gray—adds sophistication without loudness
-- **Never gray on color**: If you have gray text on a colored background, use a darker shade of that color or transparency instead
+
+- **Reduce saturation**: shift fully saturated colors to 70-85% saturation; soften bright tones to muted ones.
+- **Neutral dominance**: let neutrals do more work, color as accent (10% rule); high contrast only where it matters most.
+- **Tinted grays, never gray on color**: see /i-colorize.
 
 ### Visual Weight Reduction
-- **Typography**: Reduce font weights (900 → 600, 700 → 500), decrease sizes where appropriate
-- **Hierarchy through subtlety**: Use weight, size, and space instead of color and boldness
-- **White space**: Increase breathing room, reduce density
-- **Borders & lines**: Reduce thickness, decrease opacity, or remove entirely
+
+- Reduce font weights (900 → 600, 700 → 500); build hierarchy through weight, size, and space rather than color and boldness.
+- Increase breathing room; thin or remove borders.
 
 ### Simplification
-- **Remove decorative elements**: Gradients, shadows, patterns, textures that don't serve purpose
-- **Simplify shapes**: Reduce border radius extremes, simplify custom shapes
-- **Reduce layering**: Flatten visual hierarchy where possible
-- **Clean up effects**: Reduce or remove blur effects, glows, multiple shadows
+
+- Remove decorative gradients, shadows, patterns, glows, and multiple-shadow stacks that don't serve purpose; flatten layering.
 
 ### Motion Reduction
-- **Reduce animation intensity**: Shorter distances (10-20px instead of 40px), gentler easing
-- **Remove decorative animations**: Keep functional motion, remove flourishes
-- **Subtle micro-interactions**: Replace dramatic effects with gentle feedback
-- **Refined easing**: Use ease-out-quart for smooth, understated motion—never bounce or elastic
-- **Remove animations entirely** if they're not serving a clear purpose
+
+- Shorter distances (10-20px instead of 40px), gentler feedback over dramatic effects. Remove animations that serve no clear purpose. Easing: see /i-animate.
 
 ### Composition Refinement
-- **Reduce scale jumps**: Smaller contrast between sizes creates calmer feeling
-- **Align to grid**: Bring rogue elements back into systematic alignment
-- **Even out spacing**: Replace extreme spacing variations with consistent rhythm
+
+- Reduce scale jumps for a calmer feel; bring rogue elements back to the grid; even out spacing to a consistent rhythm.
 
 **NEVER**:
 - Make everything the same size/weight (hierarchy still matters)

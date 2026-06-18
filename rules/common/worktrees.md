@@ -18,14 +18,4 @@ When running inside a worktree:
 
 When launching multiple executor subagents in parallel (agents that write files), each must run in its own worktree via `isolation: "worktree"` on the Agent tool call. A shared working directory with concurrent writers leads to destroyed changes, index corruption, and pre-commit hook race conditions.
 
-Read-only subagents (reviewers, critics, analyzers) do not need isolation — they can safely share the working tree. See `agents.md` (Parallel Executor Isolation) for the full decision rules.
-
-## Rebasing a Worktree onto a Feature Branch
-
-If `claude --worktree` was invoked while the parent repo was on a feature branch (not `main`/`master`), the worktree will be based on `origin/<default>` instead of that feature branch. To fix this, run:
-
-```
-/mine.worktree-rebase
-```
-
-This detects the parent repo's current branch, shows you what it will do, and performs `git rebase --onto <orig-branch> origin/<default>` after confirmation. Run it immediately after entering the new worktree, before the parent repo's branch changes.
+Read-only subagents (reviewers, critics, analyzers) do not need isolation — they can safely share the working tree. See `references/common/agents.md` (Parallel Executor Isolation) for the full decision rules.

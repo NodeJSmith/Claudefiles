@@ -28,6 +28,8 @@ from claude_memory.content import (
     is_tool_result,
     parse_origin,
 )
+from claude_memory.db import branch_vec_queryable, write_branch_embedding
+from claude_memory.embeddings import embed_text
 from claude_memory.formatting import normalize_project_key
 from claude_memory.parsing import (
     build_aggregated_content,
@@ -38,7 +40,7 @@ from claude_memory.parsing import (
     parse_jsonl_file,
 )
 from claude_memory.project_ops import upsert_project
-from claude_memory.summarizer import compute_context_summary
+from claude_memory.summarizer import SUMMARY_VERSION, compute_context_summary
 
 
 def sync_session(
@@ -220,6 +222,12 @@ def sync_session(
     )
     existing_branches = {row[1]: row[0] for row in cursor.fetchall()}
 
+    # Probe vec persistence once: if sqlite-vec didn't load, branch_vec doesn't
+    # exist and write_branch_embedding would raise. Skip embed-on-write entirely
+    # in that case rather than paying for embed_text inference on every active
+    # leaf just to have the write swallowed.
+    vec_writable = branch_vec_queryable(conn)
+
     for branch in branches:
         leaf_uuid = branch["leaf_uuid"]
         branch_uuids = branch["uuids"]
@@ -337,17 +345,31 @@ def sync_session(
         )
 
         # Compute and store context summary
+        summary_md = None
         try:
             summary_md, summary_json = compute_context_summary(cursor, branch_db_id)
             cursor.execute(
                 """
-                UPDATE branches SET context_summary = ?, context_summary_json = ?, summary_version = 3
+                UPDATE branches SET context_summary = ?, context_summary_json = ?, summary_version = ?
                 WHERE id = ?
                 """,
-                (summary_md, summary_json, branch_db_id),
+                (summary_md, summary_json, SUMMARY_VERSION, branch_db_id),
             )
         except Exception:
-            pass  # Don't fail sync/import on summary errors
+            summary_md = None  # Don't fail sync/import on summary errors
+
+        # Embed-on-write: compute and upsert vector after summary succeeds.
+        # Only active leaves are embedded — the query path filters is_active=1,
+        # so a vector on an inactive fork could never be returned.
+        # Order is load-bearing: vec0 upsert FIRST, version columns LAST.
+        # If the upsert raises and is swallowed, version columns stay at 0
+        # so the branch remains eligible for backfill (no "version done, no vector").
+        if summary_md and is_active and vec_writable:
+            try:
+                vec = embed_text(summary_md)
+                write_branch_embedding(cursor, branch_db_id, vec, SUMMARY_VERSION)
+            except Exception:
+                pass  # Don't fail sync/import on embedding errors
 
     # --- Update import_log ---
     if write_import_log:

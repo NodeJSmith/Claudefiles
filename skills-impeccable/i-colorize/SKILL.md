@@ -8,7 +8,7 @@ Strategically introduce color to designs that are too monochromatic, gray, or la
 
 ## MANDATORY PREPARATION
 
-Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: existing brand colors.
+Read `${CLAUDE_HOME:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: existing brand colors.
 
 ---
 
@@ -67,7 +67,7 @@ AskUserQuestion:
     - label: "Refine scope"
       description: "I want to adjust what's included before you start."
     - label: "Challenge this first"
-      description: "I'll run /mine.challenge against your proposal before we proceed."
+      description: "I'll run /mine-challenge against your proposal before we proceed."
     - label: "Stop here"
       description: "Don't implement anything. The proposal is in this conversation only."
 ```
@@ -75,82 +75,25 @@ AskUserQuestion:
 If "Implement" → proceed to implementation below.
 If "Refine scope" → ask what to change, update proposal, re-confirm.
 <!-- CHALLENGE-CALLER -->
-If "Challenge this first" → invoke `/mine.challenge` inline against the proposal, read findings, revise proposal, re-present this gate.
+If "Challenge this first" → invoke `/mine-challenge` inline against the proposal, read findings, revise proposal, re-present this gate.
 If "Stop here" → end the skill.
 
 ---
 
 ## Introduce Color Strategically
 
-Add color systematically across these dimensions:
+You already know the standard semantic mappings (success=green, error=red, warning=amber, info=blue) and the obvious surfaces for accent color — primary CTAs, links, status badges, charts, accent borders, focus rings. Apply them with restraint per the 60/30/10 split from your plan. The load-bearing specifics:
 
-### Semantic Color
-- **State indicators**:
-  - Success: Green tones (emerald, forest, mint)
-  - Error: Red/pink tones (rose, crimson, coral)
-  - Warning: Orange/amber tones
-  - Info: Blue tones (sky, ocean, indigo)
-  - Neutral: Gray/slate for inactive states
+**Tinted neutrals**: replace pure gray (`#f5f5f5`) with a warm or cool tint — `oklch(97% 0.01 60)` (warm) or `oklch(97% 0.01 250)` (cool). Never pure gray for neutrals, and never pure black (`#000`) or pure white (`#fff`) for large areas.
 
-- **Status badges**: Colored backgrounds or borders for states (active, pending, completed, etc.)
-- **Progress indicators**: Colored bars, rings, or charts showing completion or health
-
-### Accent Color Application
-- **Primary actions**: Color the most important buttons/CTAs
-- **Links**: Add color to clickable text (maintain accessibility)
-- **Icons**: Colorize key icons for recognition and personality
-- **Headers/titles**: Add color to section headers or key labels
-- **Hover states**: Introduce color on interaction
-
-### Background & Surfaces
-- **Tinted backgrounds**: Replace pure gray (`#f5f5f5`) with warm neutrals (`oklch(97% 0.01 60)`) or cool tints (`oklch(97% 0.01 250)`)
-- **Colored sections**: Use subtle background colors to separate areas
-- **Gradient backgrounds**: Add depth with subtle, intentional gradients (not generic purple-blue)
-- **Cards & surfaces**: Tint cards or surfaces slightly for warmth
-
-**Use OKLCH for color**: It's perceptually uniform, meaning equal steps in lightness *look* equal. Great for generating harmonious scales.
-
-### Data Visualization
-- **Charts & graphs**: Use color to encode categories or values
-- **Heatmaps**: Color intensity shows density or importance
-- **Comparison**: Color coding for different datasets or timeframes
-
-### Borders & Accents
-- **Accent borders**: Add colored left/top borders to cards or sections
-- **Underlines**: Color underlines for emphasis or active states
-- **Dividers**: Subtle colored dividers instead of gray lines
-- **Focus rings**: Colored focus indicators matching brand
-
-### Typography Color
-- **Colored headings**: Use brand colors for section headings (maintain contrast)
-- **Highlight text**: Color for emphasis or categories
-- **Labels & tags**: Small colored labels for metadata or categories
-
-### Decorative Elements
-- **Illustrations**: Add colored illustrations or icons
-- **Shapes**: Geometric shapes in brand colors as background elements
-- **Gradients**: Colorful gradient overlays or mesh backgrounds
-- **Blobs/organic shapes**: Soft colored shapes for visual interest
+**Use OKLCH**: perceptually uniform, so equal lightness steps *look* equal — ideal for generating harmonious scales.
 
 ## Balance & Refinement
 
 Ensure color addition improves rather than overwhelms:
 
-### Maintain Hierarchy
-- **Dominant color** (60%): Primary brand color or most used accent
-- **Secondary color** (30%): Supporting color for variety
-- **Accent color** (10%): High contrast for key moments
-- **Neutrals** (remaining): Gray/black/white for structure
-
-### Accessibility
-- **Contrast ratios**: Ensure WCAG compliance (4.5:1 for text, 3:1 for UI components)
-- **Don't rely on color alone**: Use icons, labels, or patterns alongside color
-- **Test for color blindness**: Verify red/green combinations work for all users
-
-### Cohesion
-- **Consistent palette**: Use colors from defined palette, not arbitrary choices
-- **Systematic application**: Same color meanings throughout (green always = success)
-- **Temperature consistency**: Warm palette stays warm, cool stays cool
+- **Accessibility**: meet WCAG contrast (4.5:1 text, 3:1 UI components), never rely on color alone, verify red/green works for colorblind users.
+- **Cohesion**: pull from the defined palette only, keep meanings consistent (green always = success), keep temperature consistent (warm stays warm).
 
 **NEVER**:
 - Use every color in the rainbow (choose 2-4 colors beyond neutrals)

@@ -128,6 +128,9 @@ def build_exchange_pairs(messages: list[dict]) -> list[dict]:
     return exchanges
 
 
+SUMMARY_VERSION = 3
+
+
 def build_context_summary_json(branch_row: dict, messages: list[dict]) -> dict:
     """
     Assemble the structured JSON summary from branch metadata and messages.
@@ -139,7 +142,7 @@ def build_context_summary_json(branch_row: dict, messages: list[dict]) -> dict:
     exchanges = build_exchange_pairs(messages)
     if not exchanges:
         return {
-            "version": 3,
+            "version": SUMMARY_VERSION,
             "topic": "",
             "first_exchanges": [],
             "last_exchanges": [],
@@ -208,7 +211,7 @@ def build_context_summary_json(branch_row: dict, messages: list[dict]) -> dict:
         ]
 
     return {
-        "version": 3,
+        "version": SUMMARY_VERSION,
         "topic": topic,
         "disposition": disposition,
         "first_exchanges": first_exchanges,

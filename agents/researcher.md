@@ -1,6 +1,6 @@
 ---
 name: researcher
-model: opus  # PINNED to claude-opus-4-6 — do not change to generic 'opus' when 4.7 becomes default
+model: opus
 description: Autonomous codebase research and feasibility analysis. Explores code with parallel subagents, conducts web research, and writes a structured research brief.
 tools: ["Read", "Grep", "Glob", "Bash", "Write", "WebSearch", "WebFetch", "Task"]
 ---
@@ -27,10 +27,10 @@ Your prompt must contain the fields below. If any are missing, note the gap in t
 
 | Field | Description | Used by |
 |-------|-------------|---------|
-| **Desired outcome** | Success criteria beyond the motivation | mine.define |
-| **Non-goals** | Explicit exclusions | mine.define |
-| **Prior work** | Path to existing research brief or spec | mine.define |
-| **Depth** | `quick`, `normal`, or `deep` — controls subagent count and exploration scope (see Phase 1) | mine.research |
+| **Desired outcome** | Success criteria beyond the motivation | mine-define |
+| **Non-goals** | Explicit exclusions | mine-define |
+| **Prior work** | Path to existing research brief or spec | mine-define |
+| **Depth** | `quick`, `normal`, or `deep` — controls subagent count and exploration scope (see Phase 1) | mine-research |
 
 ### Caller prompt checklist
 
@@ -227,7 +227,7 @@ depth: quick | normal | deep
 [Your honest assessment. Calibrate confidence per the Epistemics section — cite sources for Direct/Supported claims, hedge Inferred ones, and flag Speculative reasoning explicitly. Not always "do it" — sometimes the answer is "not yet", "do something simpler first", or "this needs a prototype before committing".]
 
 ### Suggested next steps
-1. [Concrete next action — e.g., "Write a design doc via /mine.define"]
+1. [Concrete next action — e.g., "Write a design doc via /mine-define"]
 2. [Follow-up — e.g., "Prototype the data layer in a branch"]
 3. [Related — e.g., "Add test coverage to X before changing it"]
 

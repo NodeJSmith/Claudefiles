@@ -370,7 +370,7 @@ class TestBundleModel:
         }
 
     def test_base_agents(self, tmp_path: Path) -> None:
-        """Base bundle has exactly 8 agents from FR#1."""
+        """Base bundle holds the advisory reviewers plus the credential/registry agents."""
         _setup_minimal_repo(tmp_path)
         bundles = install.get_bundles(tmp_path)
         base = bundles["base"]
@@ -378,11 +378,13 @@ class TestBundleModel:
             "code-reviewer",
             "integration-reviewer",
             "wtf-reviewer",
+            "code-judo-reviewer",
             "researcher",
             "llm-checker",
             "lazy-checker",
             "nitpicker",
             "issue-refiner",
+            "secrets-auditor",
         }
 
     def test_base_packages(self, tmp_path: Path) -> None:
@@ -411,16 +413,6 @@ class TestBundleModel:
         bundles = install.get_bundles(tmp_path)
         assert "capabilities-cli.md" in bundles["cli"].capabilities_files
 
-    def test_base_excludes_mine_wp(self, tmp_path: Path) -> None:
-        """mine.wp must NOT be in the base bundle."""
-        # Create a skills dir with mine.wp and another skill
-        skills_dir = tmp_path / "skills"
-        (skills_dir / "mine.build").mkdir(parents=True)
-        (skills_dir / "mine.wp").mkdir(parents=True)
-        bundles = install.get_bundles(tmp_path)
-        assert "mine.wp" not in bundles["base"].skills
-        assert "mine.build" in bundles["base"].skills
-
 
 # ---------------------------------------------------------------------------
 # find_skill_source tests
@@ -429,9 +421,9 @@ class TestBundleModel:
 
 class TestFindSkillSource:
     def test_finds_in_skills(self, tmp_path: Path) -> None:
-        (tmp_path / "skills" / "mine.build").mkdir(parents=True)
-        result = install.find_skill_source("mine.build", tmp_path)
-        assert result == tmp_path / "skills" / "mine.build"
+        (tmp_path / "skills" / "mine-build").mkdir(parents=True)
+        result = install.find_skill_source("mine-build", tmp_path)
+        assert result == tmp_path / "skills" / "mine-build"
 
     def test_finds_in_skills_impeccable(self, tmp_path: Path) -> None:
         (tmp_path / "skills-impeccable" / "i-audit").mkdir(parents=True)
@@ -454,10 +446,10 @@ class TestFindSkillSource:
 
     def test_prefers_skills_over_others(self, tmp_path: Path) -> None:
         """skills/ is checked first in SKILL_DIRS order."""
-        (tmp_path / "skills" / "mine.build").mkdir(parents=True)
-        (tmp_path / "skills-impeccable" / "mine.build").mkdir(parents=True)
-        result = install.find_skill_source("mine.build", tmp_path)
-        assert result == tmp_path / "skills" / "mine.build"
+        (tmp_path / "skills" / "mine-build").mkdir(parents=True)
+        (tmp_path / "skills-impeccable" / "mine-build").mkdir(parents=True)
+        result = install.find_skill_source("mine-build", tmp_path)
+        assert result == tmp_path / "skills" / "mine-build"
 
 
 # ---------------------------------------------------------------------------
@@ -495,12 +487,14 @@ class TestBundleDependencyCompleteness:
                     missing.append(f"{bundle_key}/{skill_name}")
         assert missing == [], f"Missing skills from optional bundles: {missing}"
 
-    def test_mine_wp_not_in_base(self) -> None:
-        """mine.wp must not be in base bundle (deprecated)."""
+    def test_all_skill_dirs_in_base(self) -> None:
+        """Every directory under skills/ appears in the base bundle."""
         repo_dir = Path(__file__).resolve().parent.parent
         install._BUNDLES_CACHE = None
         bundles = install.get_bundles(repo_dir)
-        assert "mine.wp" not in bundles["base"].skills
+        skills_dir = repo_dir / "skills"
+        expected = {d.name for d in skills_dir.iterdir() if d.is_dir()}
+        assert expected == set(bundles["base"].skills)
 
 
 # ---------------------------------------------------------------------------
@@ -528,8 +522,8 @@ def _setup_minimal_repo(path: Path) -> None:
     install._BUNDLES_CACHE = None
     install._BUNDLES_REPO_DIR = None
 
-    (path / "skills" / "mine.build").mkdir(parents=True)
-    (path / "skills" / "mine.build" / "SKILL.md").write_text("skill")
+    (path / "skills" / "mine-build").mkdir(parents=True)
+    (path / "skills" / "mine-build" / "SKILL.md").write_text("skill")
     (path / "agents").mkdir(parents=True)
     _write_rule_files(path)
 
@@ -540,8 +534,8 @@ def _setup_full_repo(path: Path) -> None:
     install._BUNDLES_REPO_DIR = None
 
     # Base skills
-    (path / "skills" / "mine.build").mkdir(parents=True)
-    (path / "skills" / "mine.build" / "SKILL.md").write_text("skill")
+    (path / "skills" / "mine-build").mkdir(parents=True)
+    (path / "skills" / "mine-build" / "SKILL.md").write_text("skill")
     # Frontend skills
     (path / "skills-impeccable" / "i-audit").mkdir(parents=True)
     (path / "skills-impeccable" / "i-audit" / "SKILL.md").write_text("skill")
@@ -585,6 +579,21 @@ def _setup_full_repo(path: Path) -> None:
     (path / "scripts" / "hooks" / "sudo-poll.sh").write_text("#!/bin/bash")
     # Rules
     _write_rule_files(path)
+    refs = path / "references" / "common"
+    refs.mkdir(parents=True, exist_ok=True)
+    for fname in [
+        "agents.md",
+        "dependency-injection.md",
+        "frontend.md",
+        "instruction-quality.md",
+        "receiving-code-review.md",
+        "reliability.md",
+        "security.md",
+        "testing.md",
+        "typescript.md",
+        "writing-quality.md",
+    ]:
+        (refs / fname).write_text("reference")
     # Commands
     (path / "commands" / "test-cmd").mkdir(parents=True)
 
@@ -613,8 +622,8 @@ class TestFullInstallFlow:
             errors = install.do_install(repo, claude_dir, config, interactive=False)
 
         assert errors == 0
-        # Base skill mine.build installed
-        assert (claude_dir / "skills" / "mine.build").is_symlink()
+        # Base skill mine-build installed
+        assert (claude_dir / "skills" / "mine-build").is_symlink()
         # Base agents installed
         assert (claude_dir / "agents" / "code-reviewer.md").is_symlink()
         assert (claude_dir / "agents" / "issue-refiner.md").is_symlink()
@@ -706,7 +715,11 @@ class TestFullInstallFlow:
             assert (common / fname).is_symlink(), fname
         # Optional files present too, since rule_categories was absent
         assert (common / "python.md").is_symlink()
-        assert (common / "testing.md").is_symlink()
+        assert (common / "verification.md").is_symlink()
+        # Reference files always installed
+        refs = claude_dir / "references" / "common"
+        assert (refs / "testing.md").is_symlink()
+        assert (refs / "frontend.md").is_symlink()
 
     def test_deselected_bundle_removes_symlinks(self, tmp_path: Path) -> None:
         """Deselecting a bundle removes its skill and agent symlinks."""
@@ -932,11 +945,11 @@ class TestRuleCategories:
         _setup_full_repo(repo)
 
         selection = {k: False for k in install.optional_rule_categories()}
-        selection["testing"] = True
+        selection["verification"] = True
         _run_rule_install(repo, claude_dir, tmp_path, selection)
 
         common = claude_dir / "rules" / "common"
-        for fname in install.RULE_CATEGORIES["testing"].files:
+        for fname in install.RULE_CATEGORIES["verification"].files:
             assert (common / fname).is_symlink(), fname
         # A file from an unselected category is absent
         assert not (common / "python.md").exists()
@@ -997,16 +1010,16 @@ class TestRuleCategories:
     def test_partial_rule_categories_treats_missing_as_off(self) -> None:
         """A present-but-partial dict deselects categories not listed."""
         keys = install.selected_rule_category_keys(
-            {"rule_categories": {"testing": True}}
+            {"rule_categories": {"verification": True}}
         )
-        assert keys == {"testing"}
+        assert keys == {"verification"}
 
     def test_new_category_detected_against_saved_config(self) -> None:
         """find_new_groups flags an optional category missing from the saved config."""
-        saved = {"rule_categories": {"testing": True}}
+        saved = {"rule_categories": {"verification": True}}
         opt_keys = list(install.optional_rule_categories().keys())
         new = install.find_new_groups(saved, "rule_categories", opt_keys)
-        assert "testing" not in new
+        assert "verification" not in new
         assert "languages" in new
 
     def test_warn_dangling_refs_fires(self, tmp_path: Path) -> None:
@@ -1014,15 +1027,15 @@ class TestRuleCategories:
         repo = tmp_path / "repo"
         _write_rule_files(
             repo,
-            {"refactoring-discipline.md": "Pin behavior first; see `testing.md`."},
+            {"eval-discipline.md": "Check evidence; see `verification.md`."},
         )
         buf = io.StringIO()
         console = Console(file=buf, width=120)
-        # 'style' is selected (contains refactoring-discipline); 'testing' is not.
-        install.warn_dangling_rule_refs(repo, {"style"}, console)
+        # 'authoring' is selected (contains eval-discipline); 'verification' is not.
+        install.warn_dangling_rule_refs(repo, {"authoring"}, console)
         out = buf.getvalue()
-        assert "refactoring-discipline.md" in out
-        assert "testing.md" in out
+        assert "eval-discipline.md" in out
+        assert "verification.md" in out
 
     def test_warn_dangling_refs_silent_when_target_installed(
         self, tmp_path: Path
@@ -1031,12 +1044,12 @@ class TestRuleCategories:
         repo = tmp_path / "repo"
         _write_rule_files(
             repo,
-            {"refactoring-discipline.md": "Pin behavior first; see `testing.md`."},
+            {"eval-discipline.md": "Check evidence; see `verification.md`."},
         )
         buf = io.StringIO()
         console = Console(file=buf, width=120)
-        install.warn_dangling_rule_refs(repo, {"style", "testing"}, console)
-        assert "refactoring-discipline.md" not in buf.getvalue()
+        install.warn_dangling_rule_refs(repo, {"authoring", "verification"}, console)
+        assert "eval-discipline.md" not in buf.getvalue()
 
 
 # ---------------------------------------------------------------------------
@@ -1049,8 +1062,8 @@ def _minimal_repo(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
     install._BUNDLES_CACHE = None
     install._BUNDLES_REPO_DIR = None
-    (repo / "skills" / "mine.build").mkdir(parents=True)
-    (repo / "skills" / "mine.build" / "SKILL.md").write_text("skill")
+    (repo / "skills" / "mine-build").mkdir(parents=True)
+    (repo / "skills" / "mine-build" / "SKILL.md").write_text("skill")
     (repo / "agents").mkdir()
     _write_rule_files(repo)
     return repo

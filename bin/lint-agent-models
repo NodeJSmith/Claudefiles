@@ -1,0 +1,137 @@
+#!/usr/bin/env python3
+"""Validate that every agent is registered in its declaration sites.
+
+Checks against agents/*.md frontmatter and the install.py bundles:
+  1. Every agent listed in performance.md exists and its model matches frontmatter.
+  2. Every agents/*.md file appears in the performance.md list (no undeclared agents).
+  3. Every listed skill file exists and contains each `model: X` it declares.
+  4. Every agents/*.md file is registered in exactly one install.py bundle, and
+     every agent named in a bundle has a matching file. This is what prevents an
+     agent shipping uninstalled — present in the repo and docs but never symlinked.
+
+Wired as a repo:local pre-commit hook. Exit 0 on success, 1 with details.
+"""
+
+import argparse
+import re
+import sys
+from collections import Counter
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+PERFORMANCE_MD = ROOT / "rules" / "common" / "performance.md"
+AGENTS_DIR = ROOT / "agents"
+INSTALL_PY = ROOT / "install.py"
+
+AGENT_BULLET = re.compile(r"^- `(agents/[^`]+)` — (haiku|sonnet|opus)\b")
+SKILL_BULLET = re.compile(r"^- `(skills/[^`]+)` — (.+)$")
+MODEL_TOKEN = re.compile(r"`model: (\w+)`")
+FRONTMATTER_MODEL = re.compile(r"^model:\s*(\w+)", re.MULTILINE)
+# Bundle agent tuples are flat `agents=("a", "b", ...)` literals — no nested
+# parens — so `[^)]*` reliably captures each tuple body. Parsing the source
+# (vs importing install.py) keeps this hook stdlib-only; install.py pulls in
+# rich/questionary that the pre-commit env does not provide.
+INSTALL_AGENTS_TUPLE = re.compile(r"agents=\(([^)]*)\)", re.DOTALL)
+INSTALL_AGENT_NAME = re.compile(r"""["']([^"']+)["']""")
+
+
+def parse_frontmatter(text: str) -> str:
+    # Splitting on "---" yields ["", frontmatter, body] for a well-formed file.
+    parts = text.split("---", 2)
+    return parts[1] if len(parts) >= 3 and text.startswith("---") else ""
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Validate that every agents/*.md is listed in performance.md (with matching model) and registered in an install.py bundle.",
+        epilog="Reads performance.md, install.py, and agents/*.md from the repo root. Exit 0 = in sync.",
+    )
+    parser.parse_args()
+
+    errors: list[str] = []
+    try:
+        perf_text = PERFORMANCE_MD.read_text()
+    except FileNotFoundError:
+        print(f"lint-agent-models: {PERFORMANCE_MD} not found", file=sys.stderr)
+        return 1
+
+    agent_declarations: dict[str, str] = {}
+    skill_declarations: dict[str, set[str]] = {}
+    for line in perf_text.splitlines():
+        if m := AGENT_BULLET.match(line):
+            agent_declarations[m.group(1)] = m.group(2)
+        elif m := SKILL_BULLET.match(line):
+            skill_declarations[m.group(1)] = set(MODEL_TOKEN.findall(m.group(2)))
+
+    for rel_path, listed_model in agent_declarations.items():
+        path = ROOT / rel_path
+        if not path.exists():
+            errors.append(f"listed but missing: {rel_path}")
+            continue
+        fm = parse_frontmatter(path.read_text())
+        fm_match = FRONTMATTER_MODEL.search(fm)
+        if not fm_match:
+            errors.append(
+                f"{rel_path}: no `model:` in frontmatter (listed as {listed_model})"
+            )
+        elif fm_match.group(1) != listed_model:
+            errors.append(
+                f"{rel_path}: frontmatter says {fm_match.group(1)}, list says {listed_model}"
+            )
+
+    agent_stems = {p.stem for p in AGENTS_DIR.glob("*.md")}
+    for stem in sorted(agent_stems):
+        if f"agents/{stem}.md" not in agent_declarations:
+            errors.append(f"not in performance.md list: agents/{stem}.md")
+
+    # install.py registration: an agent must be in exactly one bundle, or the
+    # installer never symlinks it and it ships uninstalled (the failure that
+    # left code-judo-reviewer and secrets-auditor present-but-unusable).
+    try:
+        install_text = INSTALL_PY.read_text()
+    except FileNotFoundError:
+        print(f"lint-agent-models: {INSTALL_PY} not found", file=sys.stderr)
+        return 1
+    registered = Counter(
+        name
+        for body in INSTALL_AGENTS_TUPLE.findall(install_text)
+        for name in INSTALL_AGENT_NAME.findall(body)
+    )
+    for stem in sorted(agent_stems):
+        if stem not in registered:
+            errors.append(f"not registered in any install.py bundle: agents/{stem}.md")
+    for name in sorted(set(registered) - agent_stems):
+        errors.append(f"install.py registers a missing agent: {name}")
+    for name in sorted(n for n, count in registered.items() if count > 1):
+        errors.append(f"registered in multiple install.py bundles: {name}")
+
+    # Skill declarations are prose instructions ("dispatch with model: sonnet"),
+    # not structured frontmatter, so this check is deliberately looser than the
+    # agent check above: substring presence, not parsed-field comparison.
+    for rel_path, models in skill_declarations.items():
+        path = ROOT / rel_path
+        if not path.exists():
+            errors.append(f"listed but missing: {rel_path}")
+            continue
+        text = path.read_text()
+        for model in models:
+            if f"model: {model}" not in text:
+                errors.append(
+                    f"{rel_path}: declared `model: {model}` not found in file"
+                )
+
+    if errors:
+        print("lint-agent-models: agent registry is out of sync:", file=sys.stderr)
+        for e in errors:
+            print(f"  - {e}", file=sys.stderr)
+        return 1
+
+    print(
+        f"lint-agent-models: {len(agent_stems)} agents registered in install.py + "
+        f"performance.md, {len(skill_declarations)} skill declarations in sync"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

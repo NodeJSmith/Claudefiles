@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# Append a single TSV row to a trail file.
+# Handles timestamping, formula-injection stripping, field sanitization,
+# detail truncation, header row creation, and event vocabulary validation.
+# Named `trail-log`, NOT `log`: zsh has a `log` builtin that shadows PATH
+# executables, so a bare `log` call would silently hit the builtin instead.
+[[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && {
+  cat << 'EOF'
+Usage: trail-log <trail-file> <phase> <task> <event> <detail>
+
+Append a TSV row to a trail file with auto-generated timestamp.
+
+Arguments:
+  trail-file  Path to the TSV file (created with header if absent). Absolute
+              paths are used as-is. A relative path is resolved against the
+              git worktree root, not the current directory, so it lands in
+              the same place regardless of where trail-log is invoked from.
+              Falls back to CWD-relative when not inside a git repo.
+  phase       Execution phase: p0, p1, p2, or p3
+  task        Task ID (e.g. T01, T02) or - for phase-level events
+  event       Event type from vocabulary: start, dispatch, verdict, contested,
+              gate, retry, review, fix  (unknown values warn but still write)
+  detail      Free text — tabs/newlines replaced with spaces, truncated to 500 chars
+
+Behavior:
+  - ISO 8601 timestamp generated automatically (UTC)
+  - Formula-injection prefixes (=, +, @, ;) stripped from leading position
+    of phase, task, event, and detail fields (leading - is NOT stripped)
+  - Header row written when trail file does not yet exist
+  - Appends when trail file already exists (safe for resume)
+
+Examples:
+  trail-log /path/to/trail.tsv p2 T01 start "executor launched"
+  trail-log /path/to/trail.tsv p3 - gate "impl review: PASS"
+EOF
+  exit 0
+}
+
+set -euo pipefail
+
+trail_file="${1:?usage: trail-log <trail-file> <phase> <task> <event> <detail>}"
+phase="${2:?usage: trail-log <trail-file> <phase> <task> <event> <detail>}"
+task="${3:?usage: trail-log <trail-file> <phase> <task> <event> <detail>}"
+event="${4:?usage: trail-log <trail-file> <phase> <task> <event> <detail>}"
+detail="${5:-}"
+
+# --- resolve relative trail paths against the repo root --------------------
+# A relative trail-file is interpreted relative to the git worktree root, NOT
+# the current directory. trail-log is invoked from varying working directories
+# (mine-orchestrate sometimes runs it from inside the feature dir itself), so a
+# CWD-relative path resolves inconsistently and can double up: CWD
+# design/specs/X plus a passed design/specs/X/trail.tsv yields
+# design/specs/X/design/specs/X/trail.tsv. Anchoring to the worktree root makes
+# a repo-relative path land in the same place from any CWD.
+if [[ "$trail_file" != /* ]]; then
+  repo_root="$(git rev-parse --show-toplevel 2> /dev/null || true)"
+  [[ -n "$repo_root" ]] && trail_file="$repo_root/$trail_file"
+fi
+
+# --- formula-injection stripping -------------------------------------------
+# Strip leading =, +, @, ; from each field (but NOT leading -)
+strip_injection() {
+  local val="$1"
+  # Remove leading injection character(s) iteratively
+  while [[ "${val:0:1}" == "=" || "${val:0:1}" == "+" ||
+    "${val:0:1}" == "@" || "${val:0:1}" == ";" ]]; do
+    val="${val:1}"
+  done
+  printf '%s' "$val"
+}
+
+phase="$(strip_injection "$phase")"
+task="$(strip_injection "$task")"
+event="$(strip_injection "$event")"
+detail="$(strip_injection "$detail")"
+
+# --- event vocabulary validation (after stripping) -------------------------
+validate_event() {
+  local e="$1"
+  local known
+  for known in start dispatch verdict contested gate retry review fix; do
+    [[ "$e" == "$known" ]] && return 0
+  done
+  return 1
+}
+
+if ! validate_event "$event"; then
+  echo "trail-log: warning: unknown event '$event' (known: start dispatch verdict contested gate retry review fix)" >&2
+fi
+
+# --- sanitize control characters -------------------------------------------
+# Replace tabs, newlines, and carriage returns with spaces
+phase="$(printf '%s' "$phase" | tr '\n\t\r' '   ')"
+task="$(printf '%s' "$task" | tr '\n\t\r' '   ')"
+event="$(printf '%s' "$event" | tr '\n\t\r' '   ')"
+detail="$(printf '%s' "$detail" | tr '\n\t\r' '   ')"
+
+# --- truncate detail to 500 characters -------------------------------------
+if [[ "${#detail}" -gt 500 ]]; then
+  detail="${detail:0:497}..."
+fi
+
+# --- generate timestamp ----------------------------------------------------
+timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+# --- write to trail file ---------------------------------------------------
+if [[ ! -f "$trail_file" ]]; then
+  # Write header and data row in a single printf call to avoid race window
+  printf 'timestamp\tphase\ttask\tevent\tdetail\n%s\t%s\t%s\t%s\t%s\n' \
+    "$timestamp" "$phase" "$task" "$event" "$detail" > "$trail_file"
+else
+  printf '%s\t%s\t%s\t%s\t%s\n' \
+    "$timestamp" "$phase" "$task" "$event" "$detail" >> "$trail_file"
+fi

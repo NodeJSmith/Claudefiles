@@ -38,9 +38,6 @@ CAPABILITIES="${REPO_ROOT}/rules/common/capabilities-core.md"
 
 failures=0
 
-# --- plumbing exemptions (no --help required) ----------------------------
-HELP_EXEMPT="pytest-loop-reset"
-
 # --- check 1: --help presence --------------------------------------------
 echo "=== Check 1: --help handling ==="
 
@@ -49,11 +46,6 @@ for script in "${BIN_DIR}"/*; do
   [[ -x "$script" ]] || continue
 
   name="$(basename "$script")"
-
-  # skip exempted plumbing scripts
-  if echo "$HELP_EXEMPT" | grep -qw "$name"; then
-    continue
-  fi
 
   shebang="$(head -1 "$script")"
 

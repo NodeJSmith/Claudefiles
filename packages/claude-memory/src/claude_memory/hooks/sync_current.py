@@ -124,7 +124,7 @@ def main():
 
     # Sync
     try:
-        conn = get_db_connection(settings)
+        conn = get_db_connection(settings, load_vec=True)
         project_dir = session_file.parent
 
         # Handle subagent paths

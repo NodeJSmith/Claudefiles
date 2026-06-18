@@ -1,11 +1,18 @@
 """Tests for claude_memory.db — schema creation, migration, settings."""
 
+import inspect
 import json
 import sqlite3
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
+import pytest
 
+import claude_memory.db as db_module
+import sqlite_vec
+
+from conftest import make_vec_conn
 from claude_memory.db import (
     CURRENT_ONBOARDING_VERSION,
     DEFAULT_SETTINGS,
@@ -16,6 +23,7 @@ from claude_memory.db import (
     load_config,
     load_settings,
     migrate_db,
+    vec_available,
 )
 
 
@@ -346,8 +354,6 @@ class TestVersionedMigration:
 
         # Create a JSONL file with origin data
         jsonl_file = tmp_path / "test-uuid.jsonl"
-        import json
-
         jsonl_file.write_text(
             json.dumps(
                 {
@@ -384,8 +390,6 @@ class TestVersionedMigration:
 
         # Create JSONL with an isMeta+origin entry (channel message previously filtered)
         jsonl_file = tmp_path / "chan-uuid.jsonl"
-        import json
-
         lines = [
             json.dumps({"type": "user", "uuid": "u1", "message": {"content": "hi"}}),
             json.dumps(
@@ -417,8 +421,6 @@ class TestVersionedMigration:
 class TestLoadSettings:
     def test_always_returns_defaults(self, tmp_path, monkeypatch):
         """load_settings returns hardcoded defaults when no config file exists."""
-        import claude_memory.db as db_module
-
         monkeypatch.setattr(db_module, "CONFIG_PATH", tmp_path / "no_config.json")
         settings = load_settings()
         assert settings == DEFAULT_SETTINGS
@@ -923,8 +925,6 @@ class TestMigrateDbBackupGuard:
         conn.execute("INSERT INTO sessions (uuid) VALUES ('keep-me')")
         conn.commit()
 
-        import claude_memory.db as db_module
-
         monkeypatch.setattr(
             db_module, "_backup_db_before_migration", lambda *_a, **_kw: False
         )
@@ -1129,9 +1129,6 @@ class TestV5Migration:
         """_migrate_project_paths is called inside v5, not on every get_db_connection call."""
         # Verify that _migrate_project_paths is NOT called by examining the call path:
         # get_db_connection should not call _migrate_project_paths unconditionally.
-        import claude_memory.db as db_module
-        import inspect
-
         source = inspect.getsource(db_module.get_db_connection)
         # The unconditional call pattern was: _migrate_project_paths(conn) at the end
         # After WP03 it should be inside the v5 migration block, not at the top level.
@@ -1204,8 +1201,6 @@ class TestV5Migration:
 
     def test_migrations_run_on_get_db_connection(self, tmp_path, monkeypatch):
         """Opening a v4 database via get_db_connection triggers v5 and v6 automatically."""
-        import claude_memory.db as db_module
-
         db_file = tmp_path / "conversations.db"
         # Create a v4 DB at the filesystem level
         setup_conn = sqlite3.connect(str(db_file))
@@ -1409,4 +1404,356 @@ class TestV6Migration:
         conn = self._v5_db()
         _migrate_columns(conn)
         assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# T02: vec schema, columns, trigger, vec_available, load_vec
+# ---------------------------------------------------------------------------
+
+
+def _vec_available_in_env() -> bool:
+    """Return True if the sqlite-vec extension can be loaded in this test run."""
+    try:
+        conn = sqlite3.connect(":memory:")
+        conn.enable_load_extension(True)
+        sqlite_vec.load(conn)
+        conn.close()
+        return True
+    except Exception:
+        return False
+
+
+_VEC_AVAILABLE = _vec_available_in_env()
+
+
+class TestNewBranchColumns:
+    """Three new columns on branches (embedding_version, embedding_model, summary_version_at_embed)."""
+
+    def test_new_columns_exist_via_migrate_columns(self):
+        """_migrate_columns adds the three embedding columns to an existing branches table."""
+        conn = _pre_migration_db()
+        _migrate_columns(conn)
+
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(branches)")
+        columns = {row[1] for row in cursor.fetchall()}
+        assert "embedding_version" in columns
+        assert "embedding_model" in columns
+        assert "summary_version_at_embed" in columns
+        conn.close()
+
+    def test_new_columns_exist_on_memory_db_fixture(self, memory_db):
+        """The memory_db fixture (SCHEMA + _migrate_columns) also has the three columns."""
+        cursor = memory_db.cursor()
+        cursor.execute("PRAGMA table_info(branches)")
+        columns = {row[1] for row in cursor.fetchall()}
+        assert "embedding_version" in columns
+        assert "embedding_model" in columns
+        assert "summary_version_at_embed" in columns
+
+    def test_embedding_version_defaults_to_zero(self, memory_db):
+        """New rows get embedding_version = 0 by default."""
+        cursor = memory_db.cursor()
+        cursor.execute(
+            "INSERT INTO projects (path, key, name) VALUES (?, ?, ?)",
+            ("/p", "-p", "p"),
+        )
+        proj_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO sessions (uuid, project_id) VALUES (?, ?)",
+            ("sess-emb-default", proj_id),
+        )
+        sess_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO branches (session_id, leaf_uuid) VALUES (?, ?)",
+            (sess_id, "leaf-emb"),
+        )
+        branch_id = cursor.lastrowid
+        memory_db.commit()
+
+        row = cursor.execute(
+            "SELECT embedding_version, embedding_model, summary_version_at_embed FROM branches WHERE id = ?",
+            (branch_id,),
+        ).fetchone()
+        assert row[0] == 0
+        assert row[1] is None
+        assert row[2] is None
+
+    def test_embedding_version_index_exists(self, memory_db):
+        """idx_branches_embedding_version index is created by _migrate_columns."""
+        cursor = memory_db.cursor()
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_branches_embedding_version'"
+        )
+        assert cursor.fetchone() is not None
+
+    def test_new_columns_idempotent(self, memory_db):
+        """Calling _migrate_columns a second time does not raise."""
+        _migrate_columns(memory_db)  # already called by fixture; call again
+
+
+class TestVecAvailable:
+    """vec_available(conn) returns bool and never raises."""
+
+    def test_returns_bool(self):
+        """vec_available always returns a bool regardless of extension availability."""
+        conn = sqlite3.connect(":memory:")
+        result = vec_available(conn)
+        assert isinstance(result, bool)
+        conn.close()
+
+    def test_never_raises_on_attributeerror(self):
+        """When enable_load_extension raises AttributeError, vec_available returns False.
+
+        Uses a duck-typed mock because sqlite3.Connection C methods are read-only
+        and cannot be patched via patch.object.
+        """
+
+        class _NoExtConn:
+            def enable_load_extension(self, _flag):
+                raise AttributeError("no extension support")
+
+        result = vec_available(_NoExtConn())
+        assert result is False
+
+    def test_never_raises_on_operational_error(self):
+        """When sqlite_vec.load raises OperationalError, vec_available returns False."""
+        with patch("claude_memory.db.sqlite_vec") as mock_vec:
+            mock_vec.load.side_effect = sqlite3.OperationalError(
+                "cannot load extension"
+            )
+
+            class _FakeConn:
+                def enable_load_extension(self, _flag):
+                    pass
+
+            result = vec_available(_FakeConn())
+            assert result is False
+
+    @pytest.mark.skipif(
+        not _VEC_AVAILABLE, reason="sqlite-vec not available in this environment"
+    )
+    def test_returns_true_when_available(self):
+        """Returns True when the extension loads successfully."""
+        conn = sqlite3.connect(":memory:")
+        result = vec_available(conn)
+        assert result is True
+        conn.close()
+
+
+class TestVecSchema:
+    """branch_vec table and branches_vec_ad trigger — guarded by vec_available."""
+
+    def test_raw_no_vec_connection_unaffected(self):
+        """_migrate_columns never creates branch_vec — it belongs to load_vec=True only."""
+        conn = sqlite3.connect(":memory:")
+        conn.executescript(SCHEMA)
+        conn.commit()
+        _migrate_columns(conn)
+        tables = {
+            row[0]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        # Core tables must always be there
+        assert "branches" in tables
+        # branch_vec must NEVER appear via the plain migration path — regardless
+        # of whether sqlite-vec is installed. Vec schema is load_vec=True only.
+        assert "branch_vec" not in tables
+        conn.close()
+
+    def test_conftest_memory_db_fixture_works(self, memory_db):
+        """The memory_db fixture (conftest) initializes cleanly — no 'no such module: vec0'."""
+        cursor = memory_db.cursor()
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='branches'"
+        )
+        assert cursor.fetchone() is not None
+
+    @pytest.mark.skipif(
+        not _VEC_AVAILABLE, reason="sqlite-vec not available in this environment"
+    )
+    def test_branch_vec_exists_when_extension_available(self):
+        """branch_vec virtual table is created by _ensure_vec_schema after loading the extension."""
+        conn = make_vec_conn()
+
+        tables = {
+            row[0]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        assert "branch_vec" in tables
+        conn.close()
+
+    @pytest.mark.skipif(
+        not _VEC_AVAILABLE, reason="sqlite-vec not available in this environment"
+    )
+    def test_trigger_exists_when_extension_available(self):
+        """branches_vec_ad trigger is created by _ensure_vec_schema after loading the extension."""
+        conn = make_vec_conn()
+
+        row = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND name='branches_vec_ad'"
+        ).fetchone()
+        assert row is not None
+        conn.close()
+
+    @pytest.mark.skipif(
+        not _VEC_AVAILABLE, reason="sqlite-vec not available in this environment"
+    )
+    def test_trigger_removes_branch_vec_row_on_branch_delete(self):
+        """AC#11: deleting a branch row removes its branch_vec row (trigger fires)."""
+        conn = make_vec_conn()
+
+        # Populate branches with a row so we can insert a vector
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO projects (path, key, name) VALUES (?, ?, ?)",
+            ("/p", "-p", "p"),
+        )
+        proj_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO sessions (uuid, project_id) VALUES (?, ?)",
+            ("sess-trigger", proj_id),
+        )
+        sess_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO branches (session_id, leaf_uuid) VALUES (?, ?)",
+            (sess_id, "leaf-trigger"),
+        )
+        branch_id = cursor.lastrowid
+        conn.commit()
+
+        # Insert a branch_vec row
+        vec = sqlite_vec.serialize_float32([0.1] * 1024)
+        conn.execute(
+            "INSERT INTO branch_vec(branch_id, embedding) VALUES (?, ?)",
+            (branch_id, vec),
+        )
+        conn.commit()
+
+        count_before = conn.execute("SELECT COUNT(*) FROM branch_vec").fetchone()[0]
+        assert count_before == 1
+
+        # Delete the branch — trigger should cascade to branch_vec
+        conn.execute("DELETE FROM branches WHERE id = ?", (branch_id,))
+        conn.commit()
+
+        count_after = conn.execute("SELECT COUNT(*) FROM branch_vec").fetchone()[0]
+        assert count_after == 0, (
+            "AFTER DELETE ON branches trigger must remove the matching branch_vec row"
+        )
+        conn.close()
+
+    @pytest.mark.skipif(
+        not _VEC_AVAILABLE, reason="sqlite-vec not available in this environment"
+    )
+    def test_upsert_via_delete_insert(self):
+        """vec0 upsert pattern is DELETE + INSERT (INSERT OR REPLACE is not supported by vec0).
+
+        This verifies the actual write-path upsert mechanism works correctly.
+        """
+        conn = make_vec_conn()
+
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO projects (path, key, name) VALUES (?, ?, ?)",
+            ("/p2", "-p2", "p2"),
+        )
+        proj_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO sessions (uuid, project_id) VALUES (?, ?)",
+            ("sess-upsert", proj_id),
+        )
+        sess_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO branches (session_id, leaf_uuid) VALUES (?, ?)",
+            (sess_id, "leaf-upsert"),
+        )
+        branch_id = cursor.lastrowid
+        conn.commit()
+
+        vec1 = sqlite_vec.serialize_float32([0.1] * 1024)
+        vec2 = sqlite_vec.serialize_float32([0.9] * 1024)
+
+        # First insert
+        conn.execute(
+            "INSERT INTO branch_vec(branch_id, embedding) VALUES (?, ?)",
+            (branch_id, vec1),
+        )
+        conn.commit()
+
+        # Upsert via DELETE + INSERT (vec0 does not support INSERT OR REPLACE)
+        conn.execute("DELETE FROM branch_vec WHERE branch_id = ?", (branch_id,))
+        conn.execute(
+            "INSERT INTO branch_vec(branch_id, embedding) VALUES (?, ?)",
+            (branch_id, vec2),
+        )
+        conn.commit()
+
+        count = conn.execute("SELECT COUNT(*) FROM branch_vec").fetchone()[0]
+        assert count == 1, "DELETE+INSERT upsert must produce exactly one row"
+        conn.close()
+
+
+class TestLoadVecParameter:
+    """get_db_connection(load_vec=...) parameter behavior."""
+
+    def test_default_connection_initializes_cleanly(self, tmp_path, monkeypatch):
+        """get_db_connection() with default load_vec=False returns a working connection."""
+        db_file = tmp_path / "conversations.db"
+        monkeypatch.setattr(db_module, "DEFAULT_DB_PATH", db_file)
+
+        conn = get_db_connection()
+        # Core tables must exist
+        tables = {
+            row[0]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        assert "branches" in tables
+        assert "sessions" in tables
+
+        # Three new columns must exist
+        cols = {
+            row[1] for row in conn.execute("PRAGMA table_info(branches)").fetchall()
+        }
+        assert "embedding_version" in cols
+        assert "embedding_model" in cols
+        assert "summary_version_at_embed" in cols
+        conn.close()
+
+    @pytest.mark.skipif(
+        not _VEC_AVAILABLE, reason="sqlite-vec not available in this environment"
+    )
+    def test_load_vec_true_allows_branch_vec_query(self, tmp_path, monkeypatch):
+        """get_db_connection(load_vec=True) returns a connection that can query branch_vec."""
+        db_file = tmp_path / "conversations.db"
+        monkeypatch.setattr(db_module, "DEFAULT_DB_PATH", db_file)
+
+        conn = get_db_connection(load_vec=True)
+        # branch_vec must be queryable (extension loaded)
+        count = conn.execute("SELECT COUNT(*) FROM branch_vec").fetchone()[0]
+        assert count == 0
+        conn.close()
+
+    def test_load_vec_false_default_does_not_require_extension(
+        self, tmp_path, monkeypatch
+    ):
+        """get_db_connection() default path works even on machines where vec is unavailable.
+
+        This test always passes — it verifies the non-load_vec path does not
+        touch branch_vec in a way that would require the extension.
+        """
+        db_file = tmp_path / "conversations.db"
+        monkeypatch.setattr(db_module, "DEFAULT_DB_PATH", db_file)
+
+        conn = get_db_connection()
+        # Must be able to read branches without touching branch_vec
+        count = conn.execute("SELECT COUNT(*) FROM branches").fetchone()[0]
+        assert count == 0
         conn.close()

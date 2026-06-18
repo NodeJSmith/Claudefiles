@@ -24,7 +24,7 @@ LLM-generated code compiles, passes tests, and looks like good engineering — t
 - Acknowledge what reads well before listing issues
 
 ## Invocation patterns
-- **Clean-code skill** (`mine.clean-code`): passes explicit file list or diff command in prompt — use what's provided, skip self-discovery
+- **Clean-code skill** (`mine-clean-code`): passes explicit file list or diff command in prompt — use what's provided, skip self-discovery
 - **Manual**: no file list provided — use the self-discovery cascade below
 
 <!-- PARALLEL: lazy-checker.md has an identical invocation/discovery block — update both -->
@@ -87,7 +87,7 @@ Signs:
 - `if x is None: raise ValueError` when x was just constructed by the caller and is guaranteed non-None
 - Retry logic on operations that cannot transiently fail (e.g., pure in-memory transforms)
 
-Per `rules/common/reliability.md`: defensive coding belongs at system boundaries — external APIs, databases, queue consumers, user input, env vars. Internal code should trust what the boundary layer already validated. If the defensive code is at a boundary, it's legitimate; flag only when it's inside the trust perimeter.
+Per `references/common/reliability.md`: defensive coding belongs at system boundaries — external APIs, databases, queue consumers, user input, env vars. Internal code should trust what the boundary layer already validated. If the defensive code is at a boundary, it's legitimate; flag only when it's inside the trust perimeter.
 
 The test: "Is there a real failure mode this guard is protecting against, or is it defending against a case the type system or upstream validation already rules out?"
 
@@ -154,7 +154,7 @@ Signs:
 
 The test: "Do the callers actually use the type specificity of these exceptions, or is the hierarchy only visible to the `raise` sites?"
 
-Per `rules/common/reliability.md`: log at decision points and actions, not at every step. Entry/exit logging is execution tracing, not event recording.
+Per `references/common/reliability.md`: log at decision points and actions, not at every step. Entry/exit logging is execution tracing, not event recording.
 
 ### 6. Context Blindness
 
@@ -199,6 +199,6 @@ Verdict criteria:
 - Deferred-debt patterns (verbosity inflation, naming chaos, copy-paste duplication, TODO rot, hardcoded values) — those are lazy-checker territory
 - Individual style violations (magic numbers, formatting, import order) — those are nitpicker territory
 - Correctness issues, security vulnerabilities, type errors, bugs — those are code-reviewer territory
-- Defensive coding at legitimate system boundaries (external APIs, user input, env vars, database calls) — per `rules/common/reliability.md`, this is correct behavior
+- Defensive coding at legitimate system boundaries (external APIs, user input, env vars, database calls) — per `references/common/reliability.md`, this is correct behavior
 - Abstractions that serve a documented extension plan in design.md or a comment
 - Dead code introduced in a different diff (pre-existing issues in unchanged files — note separately if notable)

@@ -2,6 +2,107 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-06-17
+
+### Changed
+
+- Fine-toothed comb reviews now run at the **end** of each workflow phase, combing that phase's own output instead of re-combing its input at the start: `mine-define` combs the design doc before sign-off, `mine-plan` combs design + tasks before its gate, and `mine-orchestrate` adds a final implementation-vs-design comb before shipping. Findings are tagged blocking vs minor — blocking findings must be fixed and re-combed rather than acknowledged-and-skipped; minor findings can be accepted. The final implementation comb runs on `opus[1m]` over the branch diff so it doesn't compact mid-review. (#387)
+
+## 2026-06-16
+
+### Changed
+
+- Personal skills and commands renamed from dot-prefixed to hyphenated (`mine.ship` → `mine-ship`, `/mine.status` → `/mine-status`, etc.) — Claude Code stopped supporting dots in skill/command names, which made them vanish from the slash-command picker. Invoke them as `/mine-<name>` and re-run `uv run install.py` after pulling to refresh the symlinks. (#386)
+- The build/review loop now plans against subagent context limits to avoid mid-run compaction: `mine.orchestrate` executors follow tighter runtime discipline (targeted tests, capture-to-file, no re-reads), `mine.review` critics receive a pre-computed diff artifact instead of recomputing it, `mine.clean-code` chunks its checkers above ~10 files, and `mine.plan` requires a per-task target-file list. (#385)
+
+## 2026-06-15
+
+### Added
+
+- `pytest-guard.sh` now honors a `PYTEST_GUARD_OFF="reason"` command prefix as an escape hatch, mirroring the serena-guard pattern. When you genuinely need pytest without a `timeout` wrapper (or past a per-repo `deny_all`/`deny_flags`), prefix the command with a non-empty reason — it's echoed to stderr so the opt-out stays a conscious, auditable choice. Empty or `<reason>`-placeholder values are rejected. (#384)
+
+### Removed
+
+- The pytest loop detector and its supporting machinery: `pytest-loop-detector.sh`, `pytest-loop-status.sh`, `pytest-loop-reset.sh`, the shared `pytest-detect.sh`, and the `pytest-loop-reset` bin script, plus their settings.json wiring (PreToolUse detector, PostToolUse reset+status, SessionStart session-id writer) and the `Bash(pytest-loop-reset)` permission. It never triggered in practice and added counter-file state, two PostToolUse hooks, and a SessionStart hook for no observed benefit. `mine.debug` remains the path for systematic debugging. (#384)
+
+### Fixed
+
+- `trail-log` now resolves a relative trail-file path against the git worktree root instead of the current directory. `mine.orchestrate` invokes it from varying working directories — sometimes from inside the feature dir itself — so a repo-relative path could double up (`design/specs/X/design/specs/X/trail.tsv`), fail to write, and silently drop the decision trail. Absolute paths are unchanged. (#383)
+
+## 2026-06-13
+
+### Fixed
+
+- `gh-pr-threads` missed CodeRabbit's most substantial findings. CodeRabbit posts "Outside diff range" and "Duplicate comments" in review **bodies**, not inline threads (it can't anchor them to the diff), so the script — which only queried `reviewThreads` — reported PRs as clean while Major findings sat unread. It now also surfaces review-summary bodies and PR conversation comments, filtering out machine-generated status noise (CodeRabbit walkthroughs, ReadTheDocs build reports). `--json` now returns `{pr, threads, reviewComments, issueComments}` (was a bare threads array); `mine.address-pr-issues` consumes the new shape and no longer fetches conversation comments separately. (#381)
+
+### Added
+
+- `/mine.resume` — after a `/clear` or a stopped session, recover the *prior* session's intent from its transcript tail: your last instruction plus any `AskUserQuestion` you left unanswered. User-invoked only, backed by a new `cm-session-tail` tool. With the Memory bundle, the SessionStart hook also auto-warns when the previous session ended on an unanswered decision, so it surfaces at startup unprompted. (#376)
+
+## 2026-06-12
+
+### Added
+
+- Branch staleness pre-flight — `mine.define`, `mine.plan`, and `mine.orchestrate` now check whether the branch is behind the default branch before starting work, so a forgotten `git pull` surfaces up front instead of as conflicts after a long run; offers to rebase (with dirty-tree and stale-ref safeguards) or proceed. Backed by a new `git-branch-behind` bin script. (#370)
+
+### Changed
+
+- `/mine.issues` deep-dive now hands off to the implementation pipeline — the next-step menu offers "Build it" (routes to `/mine.build`) and "Research first" (`/mine.research`), carrying the issue summary and scope estimate forward, instead of producing an in-conversation plan that dead-ended. (#372)
+
+### Fixed
+
+- `bin/log` renamed to `bin/trail-log` — the old name collided with the zsh `log` builtin, which shadows PATH executables in the default shell. Under zsh, `mine.orchestrate`'s bare `log` calls hit the builtin instead (erroring on the 5-arg call shape), so the decision trail silently never got written and the failure surfaced as a misattributed file-permissions error. All orchestrate call sites and docs updated to `trail-log`. After pulling, re-run `install.py` to create the `trail-log` symlink and confirm the stale-symlink prompt to remove the old `~/.local/bin/log` (#373)
+- `code-judo-reviewer` and `secrets-auditor` agents shipped but never installed — `install.py` never registered them in a bundle, so the installer skipped them no matter how often you re-ran it; both are now registered, and `lint-agent-models` now fails the commit if any agent is missing from an install.py bundle (#371)
+
+## 2026-06-10
+
+### Added
+
+- `lint-agent-models` bin script + pre-commit hook — validates the Agent Model Declarations list in `performance.md` against `agents/*.md` frontmatter, so the two can no longer drift (#368)
+
+### Changed
+
+- Model-fit compression pass across rules, references, skills, and agents — removed content that restates default Opus/Sonnet 4.6 behavior and deduplicated copy-pasted blocks (net ~2,200 lines removed); `mine.ship` Phase 2 now delegates to `mine.create-pr`; shared `scope-detection.md` extracted for `mine.review`/`mine.clean-code`; `invariants.md` Consider tier collapsed to a scan list (full audit: `design/critiques/2026-06-10-model-fit-audit/`) (#368)
+- Researcher agent unpinned from Opus 4.6 — generic `opus` alias now resolves to the latest Opus (4.8) (#368)
+
+### Fixed
+
+- Impeccable font contradiction — `typography.md` recommended Outfit/DM Sans/Lora, all banned by `i-frontend-design`'s reflex list; replaced with a pointer to the selection procedure (#368)
+- Hardcoded `~/.claude` paths in 18 skill files replaced with `${CLAUDE_HOME:-~/.claude}` (#368)
+- `testing-reality-checker` agent missing its `tools:` frontmatter (#368)
+- `engineering-sre` communication tips mis-filed under "Anti-Patterns — Never Do These" (#368)
+
+## 2026-06-08
+
+### Added
+
+- `mine.humanize` skill — edit prose to remove AI writing patterns and add human voice; analyzes first, then surgical edits or full rewrite with two-pass editing and text-type awareness (#363)
+
+### Changed
+
+- Rules-to-references restructuring — moved 9 domain-specific rule files (frontend, typescript, reliability, testing, agents, security, writing-quality, dependency-injection, instruction-quality, receiving-code-review) from always-loaded `rules/common/` to on-demand `references/common/`; added BLOCKING REQUIREMENT meta-rule in `invariants.md` mapping file types to reference files; skills and agents Read references they need; 46% reduction in always-loaded context (2,441 → 1,313 lines) (#366)
+- `frontend-workflow.md` folded into `references/common/frontend.md` Workflow section with scope expansion examples (#366)
+
+### Removed
+
+- `last30days` plugin — removed bundled multi-platform research plugin (#362)
+- `mine.worktree-rebase` skill — removed worktree rebasing skill and all active references (#364)
+- `security.md` as standalone rule — content moved to `references/common/security.md`; critical points folded into `invariants.md` (#366)
+
+## 2026-06-07
+
+### Added
+- `code-judo-reviewer` agent — structural simplification reviewer wired into `mine.define` (pre-design) and `mine.orchestrate` post-execution pipeline (#359)
+- `secrets-auditor` agent and `secrets-check.sh` git pre-commit hook — credential scanning with 44 patterns (#359)
+- Anti-sycophancy baseline in `interaction.md` — challenge assumptions and correct plainly by default (#359)
+- Usage-first design gate in `mine.define` — write caller-perspective call sites before defining API types (#359)
+- `mine.how` skill — complexity-adaptive subsystem explanation with mandatory accuracy review (#359)
+- `mine.why` skill — decision archaeology with parallel evidence gathering and confidence calibration (#359)
+- `bin/log` helper + trail logging in `mine.orchestrate` — append-only TSV decision trail for overnight runs with post-run structural audit (#359)
+
+### Changed
+- `git-default-branch` — resolves the default branch from authoritative sources (verified `origin/HEAD`, `ls-remote`, `remote show`) and refuses to guess when ambiguous instead of returning a spurious branch; adds a `--no-network` flag (#361)
+
 ## 2026-06-04
 
 ### Added

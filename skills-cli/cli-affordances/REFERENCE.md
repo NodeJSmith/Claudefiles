@@ -6,39 +6,26 @@ Detailed dimensions for assessing CLI tool discoverability and usability. Refere
 
 ## Command Structure
 
-**Flat vs nested.** A tool with 3-5 actions works well as `tool action`. A tool with 15+ actions needs subcommand groups: `tool group action`. More than two levels deep (`tool group subgroup action`) is almost always too much.
-
-**Verb-noun vs noun-verb.** Pick one and be consistent. `git commit` (verb-noun) and `docker container ls` (noun-verb) both work — mixing them doesn't.
-
-**Default action.** Running `tool` with no arguments should show help or a useful default, not an error. Running `tool subcommand` with no arguments should show that subcommand's help.
-
-**Aliases for common operations.** `tool ls` → `tool list`, `tool rm` → `tool remove`. Aliases reduce friction for experienced users but shouldn't appear in primary help text (they clutter it for newcomers).
+- **Flat vs nested.** 3-5 actions → `tool action`. 15+ actions → `tool group action`. More than two levels deep is almost always too much.
+- **Verb-noun vs noun-verb.** Pick one and be consistent. `git commit` and `docker container ls` both work — mixing them doesn't.
+- **Default action.** `tool` with no args shows help or a useful default, not an error. `tool subcommand` with no args shows that subcommand's help.
+- **Aliases for common operations.** `ls` → `list`, `rm` → `remove`. Keep them out of primary help text so they don't clutter it for newcomers.
 
 ---
 
 ## Flag Design
 
-**Short flags for frequent operations.** `-v`, `-q`, `-f`, `-o` — these are muscle memory. Reserve single letters for operations users type daily.
-
-**Long flags for everything.** Every flag should have a `--long-form`. Short flags are a convenience, not a replacement.
-
-**Boolean flags should be positive.** `--color` (default on) with `--no-color` to disable. Not `--no-color` (default off) with `--color` to enable. The bare form should be the common case.
-
-**Flag values should be obvious.** `--format json` or `--format=json`, not `--json-format` (is that a format called "json" or a flag that formats JSON?).
-
-**Mutually exclusive flags.** If `--json` and `--csv` can't both be used, say so in help and error clearly: "Cannot use --json and --csv together."
-
-**Don't overload flags.** `-v` should not mean "verbose" in one subcommand and "version" in another. `--version` is always `--version`.
+- **Short flags for frequent operations** (`-v`, `-q`, `-f`, `-o`); every flag also gets a `--long-form`.
+- **Boolean flags positive.** `--color` (default on) with `--no-color` to disable, so the bare form is the common case.
+- **Flag values obvious.** `--format json`, not `--json-format` (a format called "json" or a flag that formats JSON?).
+- **Mutually exclusive flags** stated in help and rejected clearly: "Cannot use --json and --csv together."
+- **Don't overload flags.** `-v` is verbose everywhere; `--version` is always `--version`.
 
 ---
 
 ## Progressive Disclosure
 
-**Beginner path.** A new user should be able to accomplish the most common task with minimal flags. `tool create "My Thing"` not `tool create --type standard --format default --name "My Thing" --no-dry-run`.
-
-**Sensible defaults.** Every flag should have a default that works for the common case. The user only adds flags to override the default. Document what the defaults are.
-
-**Complexity on demand.** The simple version works. The advanced version is available. The user discovers advanced features when they need them, not on first use.
+The simple version works with minimal flags; complexity is available on demand. Every flag has a documented default for the common case, so users only add flags to override.
 
 ```
 # Beginner: works with zero config
@@ -80,13 +67,10 @@ Deploy: mytool deploy --project 42
 
 ## Naming
 
-**Use common words.** `list` not `enumerate`. `delete` not `expunge`. `show` not `describe` (unless the domain uses "describe" — e.g., AWS CLI).
-
-**Be specific.** `create-user` not `create` (when there are multiple things to create). But if there's only one thing to create, just `create`.
-
-**Match the domain.** If users think in "deployments," don't call them "releases." If the API says "workspace," the CLI should say "workspace" too.
-
-**Avoid abbreviations.** `--configuration` not `--conf` or `--cfg` as the primary form. Abbreviations can be aliases for power users but shouldn't be the canonical name.
+- **Common words:** `list` not `enumerate`, `delete` not `expunge`, `show` not `describe` (unless the domain uses "describe", e.g. AWS CLI).
+- **Be specific** only when ambiguous: `create-user` when there are several things to create; plain `create` when there's one.
+- **Match the domain.** If the API says "workspace," the CLI says "workspace" — don't rename to "release"/"project".
+- **Avoid abbreviations as the canonical name** (`--configuration`, not `--conf`); abbreviations can be power-user aliases.
 
 ---
 

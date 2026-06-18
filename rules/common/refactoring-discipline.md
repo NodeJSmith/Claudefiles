@@ -8,7 +8,7 @@ A refactor changes structure without changing behavior. These rules keep that co
 
 Before touching structure, capture the current behavior with a characterization test, snapshot, or equivalence harness. The pin is what makes "refactor" a checkable claim. Type checks and lint are not a pin.
 
-If the area has no coverage, write the pin before moving structure. The pin test ships in the same commit as (or a commit before) the first structural change it guards. See `testing.md` for co-location requirements.
+If the area has no coverage, write the pin before moving structure. The pin test ships in the same commit as (or a commit before) the first structural change it guards. See `references/common/testing.md` for co-location requirements.
 
 ## No Smuggled Behavior Changes
 

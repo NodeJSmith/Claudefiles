@@ -14,6 +14,8 @@ description: >
 
 Two scripts retrieve data. For full option catalogs, load `references/tool-reference.md`.
 
+Semantic recall is active: `cm-search-conversations` fuses keyword ranking with bge-m3 vector similarity by default. No behavior change required — the skill uses the same commands as before.
+
 **recent_chats.py** — retrieve recent sessions:
 ```bash
 cm-recent-chats --n 3
@@ -75,11 +77,8 @@ Search terms should be content-bearing words that discriminate between sessions 
 
 ### Principles
 
-1. **Prioritize significance** — 3-5 key findings, not exhaustive lists
-2. **Be specific** — file paths, dates, project names
-3. **Make it actionable** — every finding suggests a response
-4. **Show evidence** — quotes or references
-5. **Keep it scannable** — clear structure, no walls of text
+- **3-5 key findings**, not exhaustive lists — each specific (file paths, dates, project names) and backed by a quote or reference.
+- **Make it actionable** — every finding suggests a response.
 
 ### Structure
 

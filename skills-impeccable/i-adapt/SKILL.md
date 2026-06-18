@@ -8,7 +8,7 @@ Adapt existing designs to work effectively across different contexts - different
 
 ## MANDATORY PREPARATION
 
-Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: target platforms/devices and usage contexts.
+Read `${CLAUDE_HOME:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: target platforms/devices and usage contexts.
 
 ---
 
@@ -151,7 +151,7 @@ AskUserQuestion:
     - label: "Refine scope"
       description: "I want to adjust what's included before you start."
     - label: "Challenge this first"
-      description: "I'll run /mine.challenge against your proposal before we proceed."
+      description: "I'll run /mine-challenge against your proposal before we proceed."
     - label: "Stop here"
       description: "Don't implement anything. The proposal is in this conversation only."
 ```
@@ -159,7 +159,7 @@ AskUserQuestion:
 If "Implement" → proceed to implementation below.
 If "Refine scope" → ask what to change, update proposal, re-confirm.
 <!-- CHALLENGE-CALLER -->
-If "Challenge this first" → invoke `/mine.challenge` inline against the proposal, read findings, revise proposal, re-present this gate.
+If "Challenge this first" → invoke `/mine-challenge` inline against the proposal, read findings, revise proposal, re-present this gate.
 If "Stop here" → end the skill.
 
 ---

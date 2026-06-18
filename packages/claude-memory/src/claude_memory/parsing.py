@@ -6,7 +6,7 @@ JSONL parsing, branch detection, and metadata extraction.
 import json
 import sqlite3
 from pathlib import Path
-from typing import Generator
+from typing import Generator, Iterable
 
 from claude_memory.content import (
     extract_commits,
@@ -34,22 +34,30 @@ def parse_jsonl_file(filepath: Path) -> Generator[dict, None, None]:
                 pass
 
 
+def parse_lines_with_uuids(lines: Iterable[str]) -> Generator[dict, None, None]:
+    """Yield parsed JSONL entries that carry a uuid, skipping blanks and bad JSON.
+
+    Shared by the full-file reader and session_tail's tail-bounded reader.
+    """
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(obj, dict) and obj.get("uuid"):
+            yield obj
+
+
 def parse_all_with_uuids(filepath: Path) -> Generator[dict, None, None]:
     """
     Parse JSONL file yielding ALL entries with UUIDs.
     Used for building the parentUuid chain to find branches.
     """
     with open(filepath, "r", encoding="utf-8", errors="replace") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                obj = json.loads(line)
-                if obj.get("uuid"):
-                    yield obj
-            except json.JSONDecodeError:
-                pass
+        yield from parse_lines_with_uuids(f)
 
 
 def extract_session_metadata(entries: list[dict]) -> dict:

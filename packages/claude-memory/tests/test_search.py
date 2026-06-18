@@ -1,12 +1,30 @@
 """Tests for search_conversations.py and recent_chats.py — search and retrieval."""
 
+import argparse
 import sqlite3
+import sys
+from unittest.mock import patch
 
 import pytest
 
-from claude_memory.search_conversations import search_sessions
+from claude_memory.search_conversations import (
+    _dedup_by_session,
+    _get_vec_branch_ids,
+    main,
+    print_status,
+    search_sessions,
+)
 from claude_memory.recent_chats import get_recent_sessions
-from claude_memory.db import SCHEMA, _migrate_columns, detect_fts_support
+from claude_memory.db import (
+    SCHEMA,
+    SCHEMA_CORE,
+    _migrate_columns,
+    detect_fts_support,
+    upsert_branch_vec,
+    vec_available,
+)
+from claude_memory.embeddings import EMBEDDING_MODEL, EMBEDDING_VERSION
+from conftest import make_vec_conn
 
 
 @pytest.fixture
@@ -475,3 +493,508 @@ class TestPathFilter:
         )
         assert len(with_path) < len(all_pytest)
         assert all(r["uuid"] == "sess-beta-1" for r in with_path)
+
+
+# ---------------------------------------------------------------------------
+# Helpers shared by new vec/fusion tests
+# ---------------------------------------------------------------------------
+
+
+def _seed_branch(
+    conn: sqlite3.Connection, uuid: str, content: str, summary: str
+) -> tuple[int, int]:
+    """Seed one project/session/branch; returns (session_id, branch_id)."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT OR IGNORE INTO projects (path, key, name) VALUES (?, ?, ?)",
+        ("/home/user/proj", "-home-user-proj", "proj"),
+    )
+    cursor.execute("SELECT id FROM projects WHERE key = ?", ("-home-user-proj",))
+    proj_id = cursor.fetchone()[0]
+    cursor.execute(
+        "INSERT INTO sessions (uuid, project_id, cwd) VALUES (?, ?, ?)",
+        (uuid, proj_id, "/home/user/proj"),
+    )
+    sess_id = cursor.lastrowid
+    cursor.execute(
+        """
+        INSERT INTO branches (session_id, leaf_uuid, is_active, exchange_count,
+                               aggregated_content, context_summary,
+                               embedding_version, embedding_model)
+        VALUES (?, ?, 1, 1, ?, ?, ?, ?)
+        """,
+        (sess_id, f"leaf-{uuid}", content, summary, EMBEDDING_VERSION, EMBEDDING_MODEL),
+    )
+    branch_id = cursor.lastrowid
+    cursor.execute(
+        "INSERT INTO messages (session_id, uuid, role, content, timestamp) VALUES (?, ?, ?, ?, ?)",
+        (sess_id, f"m-{uuid}", "user", content, "2025-01-01T00:00:00Z"),
+    )
+    msg_id = cursor.lastrowid
+    cursor.execute("INSERT INTO branch_messages VALUES (?, ?)", (branch_id, msg_id))
+    conn.commit()
+    return sess_id, branch_id
+
+
+# ---------------------------------------------------------------------------
+# FR#3 / AC#2 — degrade to keyword when model/extension unavailable
+# ---------------------------------------------------------------------------
+
+
+class TestDegradation:
+    """search_sessions must not raise and must return FTS results when vec/model unavailable."""
+
+    def test_no_model_returns_fts_results(self, search_db):
+        """model_available() == False → keyword path, no raise (FR#3)."""
+        fts_level = detect_fts_support(search_db)
+        if fts_level not in ("fts5", "fts4"):
+            pytest.skip("FTS not available")
+
+        with patch(
+            "claude_memory.search_conversations.model_available", return_value=False
+        ):
+            results = search_sessions(search_db, "pytest", fts_level, max_results=10)
+        assert len(results) >= 2
+        uuids = {r["uuid"] for r in results}
+        assert "sess-alpha-1" in uuids
+        assert "sess-beta-1" in uuids
+
+    def test_attribute_error_on_extension_does_not_raise(self, search_db):
+        """AttributeError from extension load → keyword path, no raise (AC#2)."""
+        fts_level = detect_fts_support(search_db)
+
+        def _raise(*_a, **_kw):
+            raise AttributeError("no load_extension")
+
+        with patch(
+            "claude_memory.search_conversations.model_available", return_value=True
+        ):
+            with patch(
+                "claude_memory.search_conversations.embed_text", side_effect=_raise
+            ):
+                results = search_sessions(
+                    search_db, "pytest", fts_level, max_results=10
+                )
+
+        # Should return results via keyword fallback, not raise
+        assert isinstance(results, list)
+
+    def test_missing_model_path_does_not_raise(self, search_db):
+        """resolve_snapshot returns None (truncated model) → keyword path (FR#3)."""
+        fts_level = detect_fts_support(search_db)
+
+        with patch(
+            "claude_memory.search_conversations.model_available", return_value=False
+        ):
+            results = search_sessions(search_db, "database", fts_level, max_results=10)
+
+        assert isinstance(results, list)
+        # Should still return keyword results
+        uuids = {r["uuid"] for r in results}
+        assert "sess-alpha-2" in uuids
+
+    def test_keyword_only_flag_skips_embed(self, search_db):
+        """--keyword-only skips embed_text entirely (FR#2)."""
+        fts_level = detect_fts_support(search_db)
+        called = []
+
+        def _should_not_be_called(text):
+            called.append(text)
+            return [0.0] * 1024
+
+        with patch(
+            "claude_memory.search_conversations.embed_text",
+            side_effect=_should_not_be_called,
+        ):
+            results = search_sessions(
+                search_db, "pytest", fts_level, max_results=10, keyword_only=True
+            )
+
+        assert called == [], "embed_text must not be called with keyword_only=True"
+        assert len(results) >= 2
+
+    def test_vec_table_missing_falls_back(self, search_db):
+        """FR#3: model_available=True but branch_vec absent → OperationalError → keyword results."""
+        fts_level = detect_fts_support(search_db)
+        if fts_level not in ("fts5", "fts4"):
+            pytest.skip("FTS not available")
+
+        # search_db has no branch_vec table; model says available.
+        # search_sessions probes branch_vec before embedding, gets OperationalError,
+        # and falls back to the keyword path.
+        with patch(
+            "claude_memory.search_conversations.model_available", return_value=True
+        ):
+            results = search_sessions(search_db, "database", fts_level, max_results=10)
+
+        assert isinstance(results, list)
+        assert len(results) >= 1
+        uuids = {r["uuid"] for r in results}
+        assert "sess-alpha-2" in uuids
+
+
+# ---------------------------------------------------------------------------
+# FR#11 / AC#9 — stale-version branch_vec rows excluded from vector candidates
+# ---------------------------------------------------------------------------
+
+
+class TestStaleVersionExclusion:
+    """Branches with old embedding_version must not appear via the vector path."""
+
+    @pytest.fixture
+    def vec_conn(self):
+        conn = make_vec_conn()
+        yield conn
+        conn.close()
+
+    @pytest.fixture
+    def stale_db(self, vec_conn):
+        """DB with one current-version branch and one stale-version branch, both in branch_vec."""
+        # Current-version branch
+        _seed_branch(
+            vec_conn, "sess-current", "current version text", "current summary"
+        )
+        cursor = vec_conn.cursor()
+        cursor.execute("SELECT id FROM branches WHERE leaf_uuid = 'leaf-sess-current'")
+        current_branch_id = cursor.fetchone()[0]
+
+        # Stale-version branch: seed in branches with old embedding_version
+        cursor.execute(
+            "INSERT INTO sessions (uuid, project_id, cwd) VALUES (?, ?, ?)",
+            ("sess-stale", 1, "/home/user/proj"),
+        )
+        stale_sess_id = cursor.lastrowid
+        cursor.execute(
+            """
+            INSERT INTO branches (session_id, leaf_uuid, is_active, exchange_count,
+                                   aggregated_content, context_summary,
+                                   embedding_version, embedding_model)
+            VALUES (?, ?, 1, 1, ?, ?, ?, ?)
+            """,
+            (
+                stale_sess_id,
+                "leaf-sess-stale",
+                "stale text",
+                "stale summary",
+                EMBEDDING_VERSION - 1,  # stale version
+                EMBEDDING_MODEL,
+            ),
+        )
+        stale_branch_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO messages (session_id, uuid, role, content, timestamp) VALUES (?, ?, ?, ?, ?)",
+            (stale_sess_id, "m-stale", "user", "stale text", "2025-01-01T00:00:00Z"),
+        )
+        msg_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO branch_messages VALUES (?, ?)", (stale_branch_id, msg_id)
+        )
+        vec_conn.commit()
+
+        # Seed both branches into branch_vec with the same vector
+        fake_vec = [0.1] * 1024
+        upsert_branch_vec(cursor, current_branch_id, fake_vec)
+        upsert_branch_vec(cursor, stale_branch_id, fake_vec)
+        vec_conn.commit()
+
+        return vec_conn, current_branch_id, stale_branch_id
+
+    @pytest.mark.skipif(
+        not vec_available(sqlite3.connect(":memory:")),
+        reason="sqlite-vec not available",
+    )
+    def test_stale_branch_excluded_from_vec_candidates(self, stale_db):
+        """_get_vec_branch_ids must not return the stale-version branch (FR#11 / AC#9)."""
+        conn, current_id, stale_id = stale_db
+        cursor = conn.cursor()
+        fake_vec = [0.1] * 1024
+        result_ids = _get_vec_branch_ids(cursor, fake_vec, top_k=10)
+        assert stale_id not in result_ids, (
+            "Stale-version branch must not appear in vector candidates"
+        )
+        assert current_id in result_ids, (
+            "Current-version branch must appear in vector candidates"
+        )
+
+    @pytest.mark.skipif(
+        not vec_available(sqlite3.connect(":memory:")),
+        reason="sqlite-vec not available",
+    )
+    def test_stale_branch_reachable_via_fts_not_vec(self, stale_db):
+        """Integration: stale branch appears in FTS results but NOT in vec candidates (FR#11).
+
+        The stale branch's aggregated_content contains "stale text", so a keyword
+        search for "stale" must surface it via FTS. However, _get_vec_branch_ids
+        must exclude it because its embedding_version != EMBEDDING_VERSION.
+        """
+        conn, _current_id, stale_id = stale_db
+        fts_level = detect_fts_support(conn)
+
+        # Confirm vec path excludes stale branch
+        cursor = conn.cursor()
+        fake_vec = [0.1] * 1024
+        vec_ids = _get_vec_branch_ids(cursor, fake_vec, top_k=10)
+        assert stale_id not in vec_ids, (
+            "Stale-version branch must not appear in vector candidates"
+        )
+
+        # Confirm keyword path (FTS or LIKE) does surface stale session
+        with patch(
+            "claude_memory.search_conversations.model_available", return_value=False
+        ):
+            results = search_sessions(
+                conn, "stale", fts_level, max_results=10, keyword_only=True
+            )
+        uuids = {r["uuid"] for r in results}
+        assert "sess-stale" in uuids, (
+            "Stale session must still be reachable via keyword/FTS search"
+        )
+
+
+# ---------------------------------------------------------------------------
+# FR#12 / AC#10 — session dedup: two branches of one session → one result
+# ---------------------------------------------------------------------------
+
+
+class TestSessionDedup:
+    """Two branches of the same session in the fused top-K yield exactly one result."""
+
+    def test_dedup_by_session_unit(self):
+        """Unit test _dedup_by_session: keeps first (highest-ranked) branch per session."""
+        conn = sqlite3.connect(":memory:")
+        conn.executescript(SCHEMA)
+        conn.commit()
+        _migrate_columns(conn)
+
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO projects (path, key, name) VALUES (?, ?, ?)",
+            ("/p", "-p", "p"),
+        )
+        proj_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO sessions (uuid, project_id) VALUES (?, ?)",
+            ("sess-dup", proj_id),
+        )
+        sess_id = cursor.lastrowid
+
+        # Two branches in the same session
+        cursor.execute(
+            "INSERT INTO branches (session_id, leaf_uuid, is_active) VALUES (?, ?, 1)",
+            (sess_id, "leaf-A"),
+        )
+        b1 = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO branches (session_id, leaf_uuid, is_active) VALUES (?, ?, 1)",
+            (sess_id, "leaf-B"),
+        )
+        b2 = cursor.lastrowid
+        conn.commit()
+
+        # b1 ranked first — dedup should keep b1 and drop b2
+        result = _dedup_by_session(cursor, [b1, b2])
+        assert result == [b1], "Should keep only the first branch of the session"
+
+    def test_dedup_by_session_different_sessions(self):
+        """Branches from different sessions are both kept."""
+        conn = sqlite3.connect(":memory:")
+        conn.executescript(SCHEMA)
+        conn.commit()
+        _migrate_columns(conn)
+
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO projects (path, key, name) VALUES (?, ?, ?)",
+            ("/p", "-p", "p"),
+        )
+        proj_id = cursor.lastrowid
+
+        cursor.execute(
+            "INSERT INTO sessions (uuid, project_id) VALUES (?, ?)",
+            ("sess-X", proj_id),
+        )
+        sx = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO sessions (uuid, project_id) VALUES (?, ?)",
+            ("sess-Y", proj_id),
+        )
+        sy = cursor.lastrowid
+
+        cursor.execute(
+            "INSERT INTO branches (session_id, leaf_uuid, is_active) VALUES (?, ?, 1)",
+            (sx, "leaf-X"),
+        )
+        bx = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO branches (session_id, leaf_uuid, is_active) VALUES (?, ?, 1)",
+            (sy, "leaf-Y"),
+        )
+        by = cursor.lastrowid
+        conn.commit()
+
+        result = _dedup_by_session(cursor, [bx, by])
+        assert result == [bx, by], "Different sessions should both be kept"
+
+    @pytest.mark.skipif(
+        not vec_available(sqlite3.connect(":memory:")),
+        reason="sqlite-vec not available",
+    )
+    def test_duplicate_session_via_search(self):
+        """Two branches of one session ranked by fusion → exactly one result returned (AC#10)."""
+        conn = make_vec_conn()
+        fts_level = detect_fts_support(conn)
+
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO projects (path, key, name) VALUES (?, ?, ?)",
+            ("/home/user/proj", "-home-user-proj", "proj"),
+        )
+        proj_id = cursor.lastrowid
+
+        cursor.execute(
+            "INSERT INTO sessions (uuid, project_id, cwd) VALUES (?, ?, ?)",
+            ("sess-multi-branch", proj_id, "/home/user/proj"),
+        )
+        sess_id = cursor.lastrowid
+
+        # Branch A and Branch B both belong to the same session
+        for leaf, content in [
+            ("leaf-A", "python async await coroutine"),
+            ("leaf-B", "python async await event loop"),
+        ]:
+            cursor.execute(
+                """
+                INSERT INTO branches (session_id, leaf_uuid, is_active, exchange_count,
+                                       aggregated_content, context_summary,
+                                       embedding_version, embedding_model)
+                VALUES (?, ?, 1, 1, ?, ?, ?, ?)
+                """,
+                (
+                    sess_id,
+                    leaf,
+                    content,
+                    f"summary {leaf}",
+                    EMBEDDING_VERSION,
+                    EMBEDDING_MODEL,
+                ),
+            )
+            bid = cursor.lastrowid
+            cursor.execute(
+                "INSERT INTO messages (session_id, uuid, role, content, timestamp) VALUES (?, ?, ?, ?, ?)",
+                (sess_id, f"m-{leaf}", "user", content, "2025-01-01T00:00:00Z"),
+            )
+            mid = cursor.lastrowid
+            cursor.execute("INSERT INTO branch_messages VALUES (?, ?)", (bid, mid))
+            # Seed branch_vec for both
+            upsert_branch_vec(cursor, bid, [0.5] * 1024)
+
+        conn.commit()
+
+        with patch(
+            "claude_memory.search_conversations.model_available", return_value=True
+        ):
+            with patch(
+                "claude_memory.search_conversations.embed_text",
+                return_value=[0.5] * 1024,
+            ):
+                results = search_sessions(
+                    conn, "async coroutine", fts_level, max_results=10
+                )
+
+        session_uuids = [r["uuid"] for r in results]
+        assert session_uuids.count("sess-multi-branch") == 1, (
+            "Two branches of the same session must yield exactly one result (FR#12 / AC#10)"
+        )
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# FR#15 / AC#13 — --status flag
+# ---------------------------------------------------------------------------
+
+
+class TestStatusFlag:
+    """--status prints diagnostic info and exits 0 without requiring --query."""
+
+    def test_status_exits_zero(self, tmp_path, capsys):
+        """--status exits 0 and outputs the three diagnostic fields (AC#13)."""
+        db_path = tmp_path / "test.db"
+        # Create a minimal DB so status can read branch counts
+        c = sqlite3.connect(str(db_path))
+        c.executescript(SCHEMA_CORE)
+        c.commit()
+        _migrate_columns(c)
+        c.close()
+
+        args = argparse.Namespace(
+            db=db_path, keyword_only=False, status=True, query=None
+        )
+        settings = {"db_path": str(db_path)}
+
+        with pytest.raises(SystemExit) as exc:
+            print_status(args, settings)
+
+        assert exc.value.code == 0
+        captured = capsys.readouterr()
+        assert "vec extension:" in captured.out
+        assert "model path:" in captured.out
+        assert "embedded branches:" in captured.out
+
+    def test_status_does_not_require_query(self, tmp_path, monkeypatch):
+        """--status works without --query (AC#13 — query must not be required)."""
+        db_path = tmp_path / "conv.db"
+        c = sqlite3.connect(str(db_path))
+        c.executescript(SCHEMA_CORE)
+        c.commit()
+        _migrate_columns(c)
+        c.close()
+
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["search_conversations", "--status", "--db", str(db_path)],
+        )
+
+        with pytest.raises(SystemExit) as exc:
+            main()
+        assert exc.value.code == 0
+
+    def test_status_ignores_keyword_only(self, tmp_path, monkeypatch, capsys):
+        """--status combined with --keyword-only still exits 0 (AC#13)."""
+        db_path = tmp_path / "conv2.db"
+        c = sqlite3.connect(str(db_path))
+        c.executescript(SCHEMA_CORE)
+        c.commit()
+        _migrate_columns(c)
+        c.close()
+
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "search_conversations",
+                "--status",
+                "--keyword-only",
+                "--db",
+                str(db_path),
+            ],
+        )
+
+        with pytest.raises(SystemExit) as exc:
+            main()
+        assert exc.value.code == 0
+
+    def test_main_errors_without_query_or_status(self, tmp_path, monkeypatch):
+        """main() errors when neither --query nor --status is provided."""
+        db_path = tmp_path / "conv3.db"
+
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["search_conversations", "--db", str(db_path)],
+        )
+
+        with pytest.raises(SystemExit) as exc:
+            main()
+        # argparse calls sys.exit(2) for errors
+        assert exc.value.code != 0

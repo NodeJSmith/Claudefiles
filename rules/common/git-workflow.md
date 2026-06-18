@@ -51,7 +51,7 @@ When you need to run tests against the default branch (e.g., to confirm a failur
 
 Run tests + linter/type checker after code review passes. Fix failures before committing.
 
-**Test discovery:** Follow the order in `testing.md`.
+**Test discovery:** Follow the order in `references/common/testing.md`.
 
 **Linter/type checker discovery** (same pattern):
 
@@ -85,21 +85,10 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/). Every commi
 
 **Rules**:
 - Type is **mandatory** — never commit without a type prefix
-- Description is lowercase, imperative mood ("add feature" not "added feature" or "adds feature")
-- No period at the end
-- Keep the first line under 72 characters
-- Optional body separated by a blank line for multi-line messages
+- Description is lowercase, imperative mood, no trailing period, first line under 72 characters; optional body separated by a blank line
 - Scope is optional: `feat(challenge): add orphan detection`
 
-**Choosing the right type**:
-- `feat` — new functionality visible to the user
-- `fix` — bug fix (something was broken, now it works)
-- `refactor` — code change that neither fixes a bug nor adds a feature
-- `docs` — documentation, comments, README, CHANGELOG, rules, SKILL.md prompt changes
-- `test` — adding or modifying tests only
-- `chore` — maintenance (deps, config, CI tweaks, tooling)
-- `perf` — performance improvement
-- `ci` — CI/CD pipeline changes
+**House nuance**: `docs` covers rules, SKILL.md, and agent prompt changes — in this setup, instruction files are documentation, not `feat`/`refactor`.
 
 Attribution disabled globally via ~/.claude/settings.json.
 
@@ -115,6 +104,6 @@ When in doubt about which milestone or labels to use, ask the user.
 
 ## Task File Cleanup (BLOCKING)
 
-Before committing changes (whether via `/mine.ship`, `/mine.commit-push`, `/mine.create-pr`, or a manual commit), check for task files via `find design/specs -path '*/tasks/T*.md' -print -quit 2>/dev/null`. If task files exist and `spec-helper` is available, run `spec-helper archive --all --dry-run --json`. If any specs would archive, run `spec-helper archive --all` to remove `tasks/` directories and set `**Status:** archived` in `design.md` — then include those deletions in the commit. Do not ask — just archive and commit the cleanup alongside the other changes. If no task files exist or `design/specs/` doesn't exist, skip silently.
+Before committing changes (whether via `/mine-ship`, `/mine-commit-push`, `/mine-create-pr`, or a manual commit), check for task files via `find design/specs -path '*/tasks/T*.md' -print -quit 2>/dev/null`. If task files exist and `spec-helper` is available, run `spec-helper archive --all --dry-run --json`. If any specs would archive, run `spec-helper archive --all` to remove `tasks/` directories and set `**Status:** archived` in `design.md` — then include those deletions in the commit. Do not ask — just archive and commit the cleanup alongside the other changes. If no task files exist or `design/specs/` doesn't exist, skip silently.
 
 Task files must never reach a PR. Git history preserves the full content.

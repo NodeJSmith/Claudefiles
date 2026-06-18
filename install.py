@@ -50,15 +50,11 @@ class RuleCategory:
 
 
 def _base_skills(repo_dir: Path) -> tuple[str, ...]:
-    """Return all skill directory names under skills/ except mine.wp."""
+    """Return all skill directory names under skills/."""
     skills_dir = repo_dir / "skills"
     if not skills_dir.is_dir():
         return ()
-    return tuple(
-        sorted(
-            d.name for d in skills_dir.iterdir() if d.is_dir() and d.name != "mine.wp"
-        )
-    )
+    return tuple(sorted(d.name for d in skills_dir.iterdir() if d.is_dir()))
 
 
 # BUNDLES is populated lazily via get_bundles(repo_dir) so the base skill list
@@ -82,11 +78,13 @@ def get_bundles(repo_dir: Path) -> dict[str, Bundle]:
                 "code-reviewer",
                 "integration-reviewer",
                 "wtf-reviewer",
+                "code-judo-reviewer",
                 "researcher",
                 "llm-checker",
                 "lazy-checker",
                 "nitpicker",
                 "issue-refiner",
+                "secrets-auditor",
             ),
             packages=("spec-helper", "merge-settings"),
             always_installed=True,
@@ -174,12 +172,11 @@ def optional_bundles(repo_dir: Path) -> dict[str, Bundle]:
 RULE_CATEGORIES: dict[str, RuleCategory] = {
     "core": RuleCategory(
         label="Core (always installed)",
-        description="Capabilities routing, interaction style, invariants, agent dispatch, model selection, worktree safety",
+        description="Capabilities routing, interaction style, invariants, model selection, worktree safety",
         files=(
             "capabilities-core.md",
             "interaction.md",
             "invariants.md",
-            "agents.md",
             "performance.md",
             "worktrees.md",
         ),
@@ -198,9 +195,9 @@ RULE_CATEGORIES: dict[str, RuleCategory] = {
         ),
     ),
     "languages": RuleCategory(
-        label="Languages & frontend",
-        description="Python, TypeScript, frontend, frontend workflow conventions",
-        files=("python.md", "typescript.md", "frontend.md", "frontend-workflow.md"),
+        label="Languages",
+        description="Python conventions",
+        files=("python.md",),
     ),
     "workflow": RuleCategory(
         label="Git workflow",
@@ -220,30 +217,19 @@ RULE_CATEGORIES: dict[str, RuleCategory] = {
             "encode-lessons-in-structure.md",
         ),
     ),
-    "testing": RuleCategory(
-        label="Testing & debugging",
-        description="Testing discipline, verification before completion, debugging, performance discipline",
+    "verification": RuleCategory(
+        label="Verification & debugging",
+        description="Verification before completion, debugging, performance discipline",
         files=(
-            "testing.md",
             "verification.md",
             "debugging-discipline.md",
             "performance-discipline.md",
         ),
     ),
-    "reliability": RuleCategory(
-        label="Reliability & security",
-        description="Reliability patterns, security boundaries, dependency injection",
-        files=("reliability.md", "security.md", "dependency-injection.md"),
-    ),
     "authoring": RuleCategory(
-        label="Reviewing & authoring",
-        description="Receiving code review, instruction quality, eval discipline, writing quality",
-        files=(
-            "receiving-code-review.md",
-            "instruction-quality.md",
-            "eval-discipline.md",
-            "writing-quality.md",
-        ),
+        label="Authoring",
+        description="Eval discipline (blinding candidates in evaluations)",
+        files=("eval-discipline.md",),
     ),
     "environment": RuleCategory(
         label="Environment & tooling",
@@ -854,6 +840,14 @@ def do_install(
                 f"rules/common/ is handled. Add it to install.py.[/yellow]"
             )
 
+    # Always installed — the meta-rule in invariants.md points to these files.
+    total_links += create_symlinks_file_level(
+        repo_dir / "references",
+        claude_dir / "references",
+        repo_dir=repo_dir,
+        shadowed_out=shadowed,
+    )
+
     # Always-installed: learned (file-level), bin (dir-level),
     # commands (dir-level), hooks (bulk dir symlink — always in v2)
     total_links += create_symlinks_file_level(
@@ -1020,7 +1014,11 @@ def do_install(
     for d in stale_dirs:
         all_stale.extend(find_stale_symlinks(d, repo_dir))
     # Also check rules and learned file-level symlinks
-    for sub_root in [claude_dir / "rules", claude_dir / "learned"]:
+    for sub_root in [
+        claude_dir / "rules",
+        claude_dir / "learned",
+        claude_dir / "references",
+    ]:
         if sub_root.is_dir():
             for sub in sub_root.iterdir():
                 if sub.is_dir() and not sub.is_symlink():
@@ -1061,8 +1059,12 @@ def do_uninstall(repo_dir: Path, claude_dir: Path, cfg: dict) -> None:
         if removed:
             console.print(f"  Removed {removed} symlinks from {d}")
 
-    # File-level: rules and learned
-    for sub_root in [claude_dir / "rules", claude_dir / "learned"]:
+    # File-level: rules, learned, and references
+    for sub_root in [
+        claude_dir / "rules",
+        claude_dir / "learned",
+        claude_dir / "references",
+    ]:
         if sub_root.is_dir():
             for sub in sub_root.iterdir():
                 if sub.is_dir() and not sub.is_symlink():
@@ -1193,7 +1195,7 @@ def _migrate_and_backup(v1_config: dict, cfg_path: Path, repo_dir: Path) -> dict
             f"  agents.engineering → bundles.engineering ({v2['bundles']['engineering']})\n"
             f"  agents.core       → bundles.extra-agents ({v2['bundles']['extra-agents']})\n\n"
             "[bold]Force-installed (base bundle — non-negotiable in v2):[/bold]\n"
-            "  - All mine.* skills (including former research and issues skills)\n"
+            "  - All mine-* skills (including former research and issues skills)\n"
             f"  - Base agents: {base_agents}\n"
             f"  - Packages: {base_packages}\n"
             "  - All rules, hooks, bin scripts, commands\n\n"

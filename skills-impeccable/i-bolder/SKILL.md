@@ -8,7 +8,7 @@ Increase visual impact and personality in designs that are too safe, generic, or
 
 ## MANDATORY PREPARATION
 
-Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
+Read `${CLAUDE_HOME:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first.
 
 ---
 
@@ -69,7 +69,7 @@ AskUserQuestion:
     - label: "Refine scope"
       description: "I want to adjust what's included before you start."
     - label: "Challenge this first"
-      description: "I'll run /mine.challenge against your proposal before we proceed."
+      description: "I'll run /mine-challenge against your proposal before we proceed."
     - label: "Stop here"
       description: "Don't implement anything. The proposal is in this conversation only."
 ```
@@ -77,7 +77,7 @@ AskUserQuestion:
 If "Implement" → proceed to implementation below.
 If "Refine scope" → ask what to change, update proposal, re-confirm.
 <!-- CHALLENGE-CALLER -->
-If "Challenge this first" → invoke `/mine.challenge` inline against the proposal, read findings, revise proposal, re-present this gate.
+If "Challenge this first" → invoke `/mine-challenge` inline against the proposal, read findings, revise proposal, re-present this gate.
 If "Stop here" → end the skill.
 
 ---
@@ -86,45 +86,14 @@ If "Stop here" → end the skill.
 
 Systematically increase impact across these dimensions:
 
-### Typography Amplification
-- **Replace generic fonts**: Swap system fonts for distinctive choices (see frontend-design skill for inspiration)
-- **Extreme scale**: Create dramatic size jumps (3x-5x differences, not 1.5x)
-- **Weight contrast**: Pair 900 weights with 200 weights, not 600 with 400
-- **Unexpected choices**: Variable fonts, display fonts for headlines, condensed/extended widths, monospace as intentional accent (not as lazy "dev tool" default)
+Push hard, but the "not X" anchors are where bold diverges from AI slop:
 
-### Color Intensification
-- **Increase saturation**: Shift to more vibrant, energetic colors (but not neon)
-- **Bold palette**: Introduce unexpected color combinations—avoid the purple-blue gradient AI slop
-- **Dominant color strategy**: Let one bold color own 60% of the design
-- **Sharp accents**: High-contrast accent colors that pop
-- **Tinted neutrals**: Replace pure grays with tinted grays that harmonize with your palette
-- **Rich gradients**: Intentional multi-stop gradients (not generic purple-to-blue)
-
-### Spatial Drama
-- **Extreme scale jumps**: Make important elements 3-5x larger than surroundings
-- **Break the grid**: Let hero elements escape containers and cross boundaries
-- **Asymmetric layouts**: Replace centered, balanced layouts with tension-filled asymmetry
-- **Generous space**: Use white space dramatically (100-200px gaps, not 20-40px)
-- **Overlap**: Layer elements intentionally for depth
-
-### Visual Effects
-- **Dramatic shadows**: Large, soft shadows for elevation (but not generic drop shadows on rounded rectangles)
-- **Background treatments**: Mesh patterns, noise textures, geometric patterns, intentional gradients (not purple-to-blue)
-- **Texture & depth**: Grain, halftone, duotone, layered elements—NOT glassmorphism (it's overused AI slop)
-- **Borders & frames**: Thick borders, decorative frames, custom shapes (not rounded rectangles with colored border on one side)
-- **Custom elements**: Illustrative elements, custom icons, decorative details that reinforce brand
-
-### Motion & Animation
-- **Entrance choreography**: Staggered, dramatic page load animations with 50-100ms delays
-- **Scroll effects**: Parallax, reveal animations, scroll-triggered sequences
-- **Micro-interactions**: Satisfying hover effects, click feedback, state changes
-- **Transitions**: Smooth, noticeable transitions using ease-out-quart/quint/expo (not bounce or elastic—they cheapen the effect)
-
-### Composition Boldness
-- **Hero moments**: Create clear focal points with dramatic treatment
-- **Diagonal flows**: Escape horizontal/vertical rigidity with diagonal arrangements
-- **Full-bleed elements**: Use full viewport width/height for impact
-- **Unexpected proportions**: Golden ratio? Throw it out. Try 70/30, 80/20 splits
+- **Typography**: dramatic scale jumps (3x-5x, not 1.5x); weight contrast (900 paired with 200, not 600 with 400); monospace as an intentional accent, not as a lazy "dev tool" default.
+- **Color**: more saturated and energetic (but not neon); let one bold color own 60%; multi-stop gradients that are *not* the generic purple-to-blue AI slop. Tinted neutrals that harmonize with the palette.
+- **Spatial drama**: hero elements 3-5x larger; break the grid; tension-filled asymmetry over centered balance; dramatic white space (100-200px gaps, not 20-40px); intentional overlap.
+- **Visual effects**: large soft shadows (not generic drop shadows on rounded rectangles); grain, halftone, duotone — *not* glassmorphism (overused AI slop); thick or custom borders, not a rounded rectangle with one colored edge.
+- **Composition**: clear hero focal points, diagonal flows, full-bleed elements, unexpected proportions (70/30, 80/20 — not the golden ratio by reflex).
+- **Motion**: dramatic, noticeable — see /i-animate.
 
 **NEVER**:
 - Add effects randomly without purpose (chaos ≠ bold)

@@ -20,9 +20,9 @@ The base (pipeline workflow) always installs. On a first install the wizard asks
 
 ## Key Concepts
 
-**Skills** — reusable prompts Claude invokes by name (`/mine.challenge`, `/mine.plan`). The main interface. You type the slash command; Claude runs the structured workflow behind it.
+**Skills** — reusable prompts Claude invokes by name (`/mine-challenge`, `/mine-plan`). The main interface. You type the slash command; Claude runs the structured workflow behind it.
 
-**Commands** — lightweight slash commands for daily tasks (`/mine.status`, `/mine.end-of-day`). Quicker than skills, no multi-step flow.
+**Commands** — lightweight slash commands for daily tasks (`/mine-status`, `/mine-end-of-day`). Quicker than skills, no multi-step flow.
 
 **Agents** — specialized subagents dispatched by skills (code-reviewer, researcher, planner). You don't invoke these directly; skills launch them when needed.
 
@@ -30,7 +30,7 @@ The base (pipeline workflow) always installs. On a first install the wizard asks
 
 **Hooks** — event-driven scripts that run before or after tool calls (pytest safety guard, sudo handling, tmux session naming). Background infrastructure you don't think about.
 
-**Plugins** — third-party Claude Code plugins bundled via `settings.json`. These register automatically when settings are merged, so you get them without manual setup. Currently ships `/last30days` for multi-platform research.
+**Plugins** — third-party Claude Code plugins bundled via `settings.json`. These register automatically when settings are merged, so you get them without manual setup. None currently bundled.
 
 **Bundles** — use-case packages. The base bundle gives you the pipeline. Optional bundles add capabilities: frontend design, CLI tooling, conversation memory, engineering specialists, and extra planning agents.
 
@@ -41,13 +41,13 @@ The base (pipeline workflow) always installs. On a first install the wizard asks
 Start with whatever problem you have right now.
 
 **"I want better code review"**
-The base is enough. Before every commit, code-reviewer, integration-reviewer, and wtf-reviewer run automatically. For an on-demand review of your current branch: `/mine.review`. For a style and debt check: `/mine.clean-code`. Included in base — no extra bundles needed.
+The base is enough. Before every commit, code-reviewer, integration-reviewer, and wtf-reviewer run automatically. For an on-demand review of your current branch: `/mine-review`. For a style and debt check: `/mine-clean-code`. For prose quality (PR descriptions, docs, commit messages): `/mine-humanize`. Included in base — no extra bundles needed.
 
 **"I want structured planning for complex features"**
-The base is enough. The full pipeline is `/mine.define` (produces a `design.md`) → `/mine.plan` (generates task files) → `/mine.orchestrate` (executes them with reviewer loops) → `/mine.ship` (commits, pushes, opens the PR). Start with `/mine.grill` to sharpen a raw idea first. Included in base.
+The base is enough. The full pipeline is `/mine-define` (produces a `design.md`) → `/mine-plan` (generates task files) → `/mine-orchestrate` (executes them with reviewer loops) → `/mine-ship` (commits, pushes, opens the PR). Start with `/mine-grill` to sharpen a raw idea first. Included in base.
 
 **"I want to brainstorm and challenge ideas"**
-The base is enough. `/mine.brainstorm` runs four parallel thinkers and ranks ideas. `/mine.grill` interrogates a rough idea across product, engineering, and adversarial lenses. `/mine.challenge` assumes your approach is wrong and argues for better. Included in base.
+The base is enough. `/mine-brainstorm` runs four parallel thinkers and ranks ideas. `/mine-grill` interrogates a rough idea across product, engineering, and adversarial lenses. `/mine-challenge` assumes your approach is wrong and argues for better. Included in base.
 
 **"I want frontend design help"**
 Add the **Frontend** bundle. You get the Impeccable UI design skills for audit (`/i-audit`), layout (`/i-layout`), typography (`/i-typeset`), color systems (`/i-colorize`), and more. Start with `/i-teach-impeccable` to set up design context, then pick the skill that matches your current problem.
@@ -57,9 +57,6 @@ Add the **CLI** bundle. Six skills cover hardening, output formatting, discovera
 
 **"I want conversation memory across sessions"**
 Add the **Memory** bundle. Claude remembers corrections, architectural decisions, and preferences across sessions. `/cm-recall-conversations` searches past sessions.
-
-**"I want to research a topic across Reddit, X, YouTube, and more"**
-The `/last30days` plugin is bundled and registers automatically. Type `/last30days <topic>` to research across Reddit, X, YouTube, TikTok, Instagram, HN, Polymarket, GitHub, and other platforms. Results are scored by real engagement (upvotes, likes, real-money odds), not editors. Zero config for the core sources; run it once and the setup wizard unlocks additional platforms.
 
 **"I want domain-specific engineering agents"**
 Add the **Engineering** bundle. You get agents for FastAPI backends, PySpark pipelines, React/Vue/Angular frontends, SRE work (SLOs, observability), technical writing, and an adversarial pre-ship testing gate.
@@ -78,17 +75,17 @@ This is the workflow that makes Claude Code feel like a senior engineer on your 
 **Step 1: Sharpen the idea**
 
 ```
-/mine.grill
+/mine-grill
 ```
 
-You describe the feature. `/mine.grill` interrogates it across five lenses — product fit, design clarity, engineering complexity, scope, and adversarial ("what could go wrong?"). It produces a `brief.md` that surfaces the decisions you haven't made yet.
+You describe the feature. `/mine-grill` interrogates it across five lenses — product fit, design clarity, engineering complexity, scope, and adversarial ("what could go wrong?"). It produces a `brief.md` that surfaces the decisions you haven't made yet.
 
 *What you get:* a one-page brief identifying the key decisions and risks before you write any code.
 
 **Step 2: Define the design**
 
 ```
-/mine.define
+/mine-define
 ```
 
 Feed it your brief (or start fresh). The skill reads the codebase, asks the right clarifying questions, and produces a `design.md` with problem statement, functional requirements, acceptance criteria, and architecture notes. One sign-off gate before it finalizes.
@@ -98,7 +95,7 @@ Feed it your brief (or start fresh). The skill reads the codebase, asks the righ
 **Step 3: Generate a task plan**
 
 ```
-/mine.plan
+/mine-plan
 ```
 
 Takes the `design.md` and breaks it into concrete task files (`T01.md`, `T02.md`, ...) with FR/AC traceability. A 10-point review validates the plan before you approve it.
@@ -108,7 +105,7 @@ Takes the `design.md` and breaks it into concrete task files (`T01.md`, `T02.md`
 **Step 4: Execute**
 
 ```
-/mine.orchestrate
+/mine-orchestrate
 ```
 
 Executes task files one by one. For each task, it runs code-reviewer, integration-reviewer, and wtf-reviewer in parallel on the diff. Findings are fixed before moving to the next task. A post-execution implementation review checks the full diff at the end.
@@ -118,7 +115,7 @@ Executes task files one by one. For each task, it runs code-reviewer, integratio
 **Step 5: Ship**
 
 ```
-/mine.ship
+/mine-ship
 ```
 
 Commits, pushes, and opens a PR in one step. Picks up the right commit message format, links the related issue, and handles the PR description.
@@ -138,10 +135,12 @@ When you have all bundles installed, the system covers the full development life
 **Daily workflow pattern:**
 
 ```
-/mine.good-morning          → read yesterday's handoff, orient, pick up where you left off
+/mine-good-morning          → read yesterday's handoff, orient, pick up where you left off
 <work happens>
-/mine.end-of-day            → capture session state as a handoff file
+/mine-end-of-day            → capture session state as a handoff file
 ```
+
+After a `/clear` (e.g. to drop a huge uncached context the morning after an orchestration), `/mine-resume` reads the *prior* session's transcript tail to recover your last instruction and any decision you left unanswered — no hand-written handoff needed. With the Memory bundle, the SessionStart hook also auto-warns when the previous session ended on an unanswered question.
 
 **Worktree-based development:**
 
@@ -154,9 +153,9 @@ Each worktree gets its own context, isolated from the main working tree.
 **Research before committing to a direction:**
 
 ```
-/mine.research              → architecture mapping and feasibility analysis
-/mine.prior-art             → survey how others solve the same problem
-/mine.challenge             → adversarial review of your proposed approach
+/mine-research              → architecture mapping and feasibility analysis
+/mine-prior-art             → survey how others solve the same problem
+/mine-challenge             → adversarial review of your proposed approach
 ```
 
 **How the pieces interact:** Rules load automatically and shape every response — Claude writes code, handles git, and approaches security according to the rule files in `rules/common/`. Hooks run in the background — the pytest guard prevents hanging test runs, the context-tier hook prevents hallucinated context pressure. Skills and agents sit on top: you invoke a skill, it dispatches the right agents, they report back.
@@ -169,7 +168,7 @@ The result is a consistent development environment that works the same way every
 
 **Add your own rules** — drop a `.md` file straight into `~/.claude/rules/common/` and it loads automatically next session, no installer step. If you add it to the repo's `rules/common/` instead (so it's version-controlled), re-run `uv run install.py` to symlink it.
 
-**Add your own skills** — `/mine.write-skill` walks you through requirements, drafts the `SKILL.md`, validates a quality checklist, and wires the routing entry. The result lands in `skills/` ready to install.
+**Add your own skills** — `/mine-write-skill` walks you through requirements, drafts the `SKILL.md`, validates a quality checklist, and wires the routing entry. The result lands in `skills/` ready to install.
 
 **Settings** — edit `settings.json` in the repo root, then run `claude-merge-settings` to write `~/.claude/settings.json`. It merges the repo's shared settings with a per-machine `~/.claude/settings.machine.json`, so each box can keep its own permissions, env vars, and hook tweaks without touching the version-controlled config. When you re-run the merge, it detects permissions you granted at runtime and offers to promote them into the machine file so they survive. Only the layers that actually exist are applied.
 

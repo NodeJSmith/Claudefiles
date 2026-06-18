@@ -8,7 +8,7 @@ Analyze a feature and strategically add animations and micro-interactions that e
 
 ## MANDATORY PREPARATION
 
-Read `~/.claude/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: performance constraints.
+Read `${CLAUDE_HOME:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run /i-teach-impeccable first. Additionally gather: performance constraints.
 
 ---
 
@@ -66,7 +66,7 @@ AskUserQuestion:
     - label: "Refine scope"
       description: "I want to adjust what's included before you start."
     - label: "Challenge this first"
-      description: "I'll run /mine.challenge against your proposal before we proceed."
+      description: "I'll run /mine-challenge against your proposal before we proceed."
     - label: "Stop here"
       description: "Don't implement anything. The proposal is in this conversation only."
 ```
@@ -74,61 +74,16 @@ AskUserQuestion:
 If "Implement" → proceed to implementation below.
 If "Refine scope" → ask what to change, update proposal, re-confirm.
 <!-- CHALLENGE-CALLER -->
-If "Challenge this first" → invoke `/mine.challenge` inline against the proposal, read findings, revise proposal, re-present this gate.
+If "Challenge this first" → invoke `/mine-challenge` inline against the proposal, read findings, revise proposal, re-present this gate.
 If "Stop here" → end the skill.
 
 ---
 
 ## Implement Animations
 
-Add motion systematically across these categories:
-
-### Entrance Animations
-- **Page load choreography**: Stagger element reveals (100-150ms delays), fade + slide combinations
-- **Hero section**: Dramatic entrance for primary content (scale, parallax, or creative effects)
-- **Content reveals**: Scroll-triggered animations using intersection observer
-- **Modal/drawer entry**: Smooth slide + fade, backdrop fade, focus management
-
-### Micro-interactions
-- **Button feedback**:
-  - Hover: Subtle scale (1.02-1.05), color shift, shadow increase
-  - Click: Quick scale down then up (0.95 → 1), ripple effect
-  - Loading: Spinner or pulse state
-- **Form interactions**:
-  - Input focus: Border color transition, slight scale or glow
-  - Validation: Shake on error, check mark on success, smooth color transitions
-- **Toggle switches**: Smooth slide + color transition (200-300ms)
-- **Checkboxes/radio**: Check mark animation, ripple effect
-- **Like/favorite**: Scale + rotation, particle effects, color transition
-
-### State Transitions
-- **Show/hide**: Fade + slide (not instant), appropriate timing (200-300ms)
-- **Expand/collapse**: Height transition with overflow handling, icon rotation
-- **Loading states**: Skeleton screen fades, spinner animations, progress bars
-- **Success/error**: Color transitions, icon animations, gentle scale pulse
-- **Enable/disable**: Opacity transitions, cursor changes
-
-### Navigation & Flow
-- **Page transitions**: Crossfade between routes, shared element transitions
-- **Tab switching**: Slide indicator, content fade/slide
-- **Carousel/slider**: Smooth transforms, snap points, momentum
-- **Scroll effects**: Parallax layers, sticky headers with state changes, scroll progress indicators
-
-### Feedback & Guidance
-- **Hover hints**: Tooltip fade-ins, cursor changes, element highlights
-- **Drag & drop**: Lift effect (shadow + scale), drop zone highlights, smooth repositioning
-- **Copy/paste**: Brief highlight flash on paste, "copied" confirmation
-- **Focus flow**: Highlight path through form or workflow
-
-### Delight Moments
-- **Empty states**: Subtle floating animations on illustrations
-- **Completed actions**: Confetti, check mark flourish, success celebrations
-- **Easter eggs**: Hidden interactions for discovery
-- **Contextual animation**: Weather effects, time-of-day themes, seasonal touches
+Work across these categories, weighted toward the hero moment and feedback layer from your plan: **entrance** (staggered page-load reveals, hero, scroll-triggered, modal entry), **micro-interactions** (button hover/click, input focus, validation, toggles), **state transitions** (show/hide, expand/collapse, loading, success/error), **navigation** (page/tab transitions, carousels, scroll effects), and **delight** (empty-state float, completion flourishes, easter eggs). You know how each is built — the load-bearing details are the timing and easing below.
 
 ## Technical Implementation
-
-Use appropriate techniques for each animation:
 
 ### Timing & Easing
 
@@ -152,29 +107,9 @@ Use appropriate techniques for each animation:
 
 **Exit animations are faster than entrances.** Use ~75% of enter duration.
 
-### CSS Animations
-```css
-/* Prefer for simple, declarative animations */
-- transitions for state changes
-- @keyframes for complex sequences
-- transform + opacity only (GPU-accelerated)
-```
+### Performance & Accessibility
 
-### JavaScript Animation
-```javascript
-/* Use for complex, interactive animations */
-- Web Animations API for programmatic control
-- Framer Motion for React
-- GSAP for complex sequences
-```
-
-### Performance
-- **GPU acceleration**: Use `transform` and `opacity`, avoid layout properties
-- **will-change**: Add sparingly for known expensive animations
-- **Reduce paint**: Minimize repaints, use `contain` where appropriate
-- **Monitor FPS**: Ensure 60fps on target devices
-
-### Accessibility
+Animate `transform` and `opacity` only (GPU-composited); `will-change` sparingly. Always honor reduced motion:
 ```css
 @media (prefers-reduced-motion: reduce) {
   * {
@@ -186,12 +121,10 @@ Use appropriate techniques for each animation:
 ```
 
 **NEVER**:
-- Use bounce or elastic easing curves—they feel dated and draw attention to the animation itself. Spring physics without visible overshoot is permitted (e.g., React Spring with high tension/friction).
-- Animate layout properties (width, height, top, left)—use transform instead
-- Use durations over 500ms for feedback—it feels laggy
-- Animate without purpose—every animation needs a reason
-- Ignore `prefers-reduced-motion`—this is an accessibility violation
-- Animate everything—animation fatigue makes interfaces feel exhausting
+- Use bounce or elastic easing — they feel dated and draw attention to the animation itself. Spring physics with zero visible overshoot is permitted (e.g., React Spring with high tension/friction).
+- Animate layout properties (width, height, top, left) — use transform instead
+- Use durations over 500ms for feedback — it feels laggy
+- Animate without purpose, or animate everything — animation fatigue is real
 - Block interaction during animations unless intentional
 
 Also review the [anti-patterns reference](../i-frontend-design/reference/anti-patterns.md) for general visual anti-patterns to avoid when styling animated elements.
@@ -207,7 +140,7 @@ Test animations thoroughly:
 - **Doesn't block**: Users can interact during/after animations
 - **Adds value**: Makes interface clearer or more delightful
 
-Remember: Motion should enhance understanding and provide feedback, not just add decoration. Animate with purpose, respect performance constraints, and always consider accessibility. Great animation is invisible - it just makes everything feel right.
+Remember: Motion should enhance understanding and provide feedback, not just add decoration. Animate with purpose, respect performance constraints, and always consider accessibility.
 
 ## Completion
 

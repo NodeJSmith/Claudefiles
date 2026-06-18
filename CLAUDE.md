@@ -16,7 +16,7 @@ Use `--reconfigure` to change selections, `--uninstall` to remove everything.
 
 ## Naming Conventions
 
-- `mine.*` — personal skills and commands
+- `mine-*` — personal skills and commands
 - `i-*` — [Impeccable](https://impeccable.style/) frontend design skills
 - `cm-*` — claude-memory skills, agents, and CLI entry points
 - `cli-*` — CLI design skills
@@ -40,8 +40,8 @@ The Bash tool wraps commands in `eval '...' < /dev/null`. **Never use:**
 
 When referencing installed skill, agent, or persona files from within a SKILL.md or agent file, always use `${CLAUDE_HOME:-~/.claude}` — never hardcode `~/.claude`. This ensures paths resolve correctly when `$CLAUDE_HOME` is set to a non-default location.
 
-**Right:** `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/findings-protocol.md`
-**Wrong:** `~/.claude/skills/mine.challenge/findings-protocol.md`
+**Right:** `${CLAUDE_HOME:-~/.claude}/skills/mine-challenge/findings-protocol.md`
+**Wrong:** `~/.claude/skills/mine-challenge/findings-protocol.md`
 
 ## Temp File Convention
 
@@ -62,6 +62,6 @@ Edit `settings.json` in this repo — **never** write directly to `~/.claude/set
 - After adding directories under `agents/`, `skills/`, `skills-impeccable/`, `skills-memory/`, `skills-cli/`, `commands/`, or `scripts/hooks/` — re-run `uv run install.py`
 - **Always update `REFERENCE.md`** when adding, removing, or renaming skills, commands, agents, or bin/ scripts — it holds the full component tables
 - **Always update `ONBOARDING.md`** when adding a capability a new adopter should know about (new bundle, significant new skill, workflow change)
-- **Always update the appropriate capabilities file** with trigger phrases for new skills: `rules/common/capabilities-core.md` for mine.*, `skills-impeccable/capabilities-impeccable.md` for i-*, `skills-memory/capabilities-memory.md` for cm-*, `skills-cli/capabilities-cli.md` for cli-*
+- **Always update the appropriate capabilities file** with trigger phrases for new skills: `rules/common/capabilities-core.md` for mine-*, `skills-impeccable/capabilities-impeccable.md` for i-*, `skills-memory/capabilities-memory.md` for cm-*, `skills-cli/capabilities-cli.md` for cli-*
 - **When bundling a new plugin:** add its marketplace to `extraKnownMarketplaces` and enable it in `enabledPlugins` in `settings.json`, then document it in the Plugins table in `REFERENCE.md` and the relevant path in `ONBOARDING.md`
 - CLI tools referenced in skills/commands/agents must exist in `bin/`, be a standard system tool, or be a well-known dev tool. No private tools outside this repo.

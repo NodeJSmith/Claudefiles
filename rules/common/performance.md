@@ -2,7 +2,7 @@
 
 **Haiku 4.5** — Lightweight/worker agents, frequent invocation, 3x cost savings
 **Sonnet 4.6** — Main development work, orchestration, complex coding
-**Opus 4.6** — Deep reasoning, architecture decisions, research
+**Opus 4.8** — Deep reasoning, architecture decisions, research
 
 ## Context Window (CRITICAL)
 
@@ -21,16 +21,18 @@ Use Sonnet instead of Haiku when any of these apply:
 
 ## Agent Model Declarations
 
-Each agent file in `agents/` declares its model in YAML frontmatter. When updating model policy, check all locations:
+Each agent file in `agents/` declares its model in YAML frontmatter. When updating model policy, check all locations. The agent-file list below is validated against frontmatter by `bin/lint-agent-models` (pre-commit hook) — a mismatch, missing entry, or stale entry fails the commit.
 
 **Agent files:**
+- `agents/code-judo-reviewer.md` — sonnet
 - `agents/code-reviewer.md` — sonnet (pre-commit safety gate; do not downgrade)
 - `agents/integration-reviewer.md` — sonnet (pre-commit safety gate; do not downgrade)
 - `agents/lazy-checker.md` — sonnet
 - `agents/llm-checker.md` — sonnet
 - `agents/nitpicker.md` — sonnet
 - `agents/testing-reality-checker.md` — sonnet (pre-ship safety gate; do not downgrade)
-- `agents/researcher.md` — opus (pinned to 4.6; do not upgrade without explicit approval)
+- `agents/researcher.md` — opus
+- `agents/secrets-auditor.md` — haiku
 - `agents/planner.md` — sonnet
 - `agents/architect.md` — sonnet
 - `agents/qa-specialist.md` — sonnet
@@ -44,10 +46,10 @@ Each agent file in `agents/` declares its model in YAML frontmatter. When updati
 - `agents/engineering-sre.md` — sonnet
 
 **Skill files with inline model declarations** (not governed by agent frontmatter):
-- `skills/mine.challenge/SKILL.md` — `model: haiku` for triage subagent, `model: sonnet` for critic and synthesis subagents
-- `skills/mine.orchestrate/SKILL.md` — `model: sonnet` for executor and reviewer subagents
-- `skills/mine.orchestrate/post-execution-pipeline.md` — `model: opus` for clean code check subagent
-- `skills/mine.plan/SKILL.md` — `model: sonnet` for review subagent
-- `skills/mine.implementation-review/SKILL.md` — `model: sonnet` for review subagent
-- `skills/mine.decompose/SKILL.md` — `model: haiku` for behavioral and structural analysis subagents
-- `skills/mine.issues-triage/SKILL.md` — `model: haiku` for batch triage subagents
+- `skills/mine-challenge/SKILL.md` — `model: haiku` for triage subagent, `model: sonnet` for critic and synthesis subagents
+- `skills/mine-orchestrate/SKILL.md` — `model: sonnet` for executor and reviewer subagents
+- `skills/mine-orchestrate/post-execution-pipeline.md` — `model: opus` for clean code check subagent; `model: opus[1m]` for the implementation fine-toothed comb subagent (1m window avoids mid-review compaction on the full branch diff)
+- `skills/mine-plan/SKILL.md` — `model: sonnet` for review subagent
+- `skills/mine-implementation-review/SKILL.md` — `model: sonnet` for review subagent
+- `skills/mine-decompose/SKILL.md` — `model: haiku` for behavioral and structural analysis subagents
+- `skills/mine-issues-triage/SKILL.md` — `model: haiku` for batch triage subagents
