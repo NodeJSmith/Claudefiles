@@ -1,27 +1,14 @@
 #!/usr/bin/env python3
 """Integration tests for the import pipeline with v3 schema guards."""
 
-import sqlite3
 import tempfile
 from pathlib import Path
 
 import pytest
 
 from claude_memory.hooks.import_conversations import import_session, import_project
-from claude_memory.db import SCHEMA, _migrate_columns
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
-
-
-@pytest.fixture
-def memory_db():
-    """In-memory SQLite database with full v3 schema applied."""
-    conn = sqlite3.connect(":memory:")
-    conn.executescript(SCHEMA)
-    conn.commit()
-    _migrate_columns(conn)
-    yield conn
-    conn.close()
 
 
 @pytest.fixture
@@ -317,7 +304,6 @@ class TestFKSafeReimport:
 
     def test_reimport_with_fk_enabled(self, memory_db, project_id):
         """Reimporting with PRAGMA foreign_keys = ON should not raise IntegrityError."""
-        memory_db.execute("PRAGMA foreign_keys = ON")
         fixture_file = FIXTURE_DIR / "linear_3_exchange.jsonl"
 
         # First import
@@ -341,7 +327,6 @@ class TestFKSafeReimport:
 
     def test_reimport_with_branches_fk(self, memory_db, project_id):
         """Reimport of branched conversation with FK enabled should not crash."""
-        memory_db.execute("PRAGMA foreign_keys = ON")
         fixture_file = FIXTURE_DIR / "single_rewind.jsonl"
 
         branches1, _messages1 = import_session(memory_db, fixture_file, project_id)

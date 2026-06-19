@@ -94,6 +94,17 @@ def import_session(
     total_messages = cursor.fetchone()[0]
 
     if total_messages == 0:
+        # All of this session's content was filtered out (tool results,
+        # notifications, empty text), but sync_session's find_all_branches still
+        # inserted branch rows before that filtering. Tear down the FK chain
+        # grandchild->child->parent (branch_messages -> branches -> sessions) so
+        # the session delete doesn't trip the branches.session_id constraint.
+        cursor.execute(
+            "DELETE FROM branch_messages WHERE branch_id IN "
+            "(SELECT id FROM branches WHERE session_id = ?)",
+            (session_id,),
+        )
+        cursor.execute("DELETE FROM branches WHERE session_id = ?", (session_id,))
         cursor.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
         return -1, 0
 
