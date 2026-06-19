@@ -78,6 +78,7 @@ def get_bundles(repo_dir: Path) -> dict[str, Bundle]:
                 "code-reviewer",
                 "integration-reviewer",
                 "wtf-reviewer",
+                "fine-toothed-comb",
                 "code-judo-reviewer",
                 "researcher",
                 "llm-checker",

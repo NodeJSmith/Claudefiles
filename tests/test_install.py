@@ -378,6 +378,7 @@ class TestBundleModel:
             "code-reviewer",
             "integration-reviewer",
             "wtf-reviewer",
+            "fine-toothed-comb",
             "code-judo-reviewer",
             "researcher",
             "llm-checker",
