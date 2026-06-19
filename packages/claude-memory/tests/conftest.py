@@ -34,6 +34,10 @@ def make_vec_conn(db_path: str = ":memory:") -> sqlite3.Connection:
 def memory_db():
     """In-memory SQLite database with full v3 schema applied."""
     conn = sqlite3.connect(":memory:")
+    # Match production (db.py enables this on every real connection). Without it,
+    # a parent-before-child delete succeeds silently in tests but raises
+    # IntegrityError at runtime where FK enforcement is on.
+    conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(SCHEMA)
     conn.commit()
     _migrate_columns(conn)
