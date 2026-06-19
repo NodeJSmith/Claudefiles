@@ -247,11 +247,11 @@ This is the last content review before shipping. Unlike impl-review's structured
 1. **Feed the branch diff, not full file contents.** Instruct the subagent to run the diff itself (keeps the diff out of the orchestrator's context). The diff is a fraction of every changed file in full — this is the variable-accumulation lever from spec 031, not the weak baseline-trim lever.
 2. **Run on the 1m context window.** Dispatch with `model: opus[1m]` — the `[1m]` suffix is required. Plain `model: opus` resolves to the default ~200k window, and subagents do **not** inherit the parent session's 1m window, so the suffix is the only way to get it here. For diffs so large that design + diff still exceeds ~900k tokens (1m can compact at the very top), fall back to chunking the diff by file group, combing each group, then reconciling.
 
-Dispatch:
+Dispatch the `fine-toothed-comb` agent (see `${CLAUDE_HOME:-~/.claude}/agents/fine-toothed-comb.md`):
 
 ```
 Agent:
-  subagent_type: general-purpose
+  subagent_type: fine-toothed-comb
   model: opus[1m]
   prompt: |
     Read this design file: <feature_dir>/design.md
@@ -265,35 +265,19 @@ Agent:
 
     Go over the implementation against the design with a fine-toothed comb, making sure it's consistent, accurate, and thorough — every functional requirement and acceptance criterion in the design is actually implemented, nothing was silently dropped, and no behavior drifted from what the design specified. Report anything you find.
 
-    Classify each finding by severity:
-    - **blocking** — a requirement not met, behavior that drifted from the design, or an inconsistency that makes the implementation wrong relative to the design
-    - **minor** — a nitpick or optional improvement that does not threaten design fidelity
-
-    If you find nothing notable, say so explicitly.
+    Define blocking as: a requirement not met, behavior that drifted from the design, or an inconsistency that makes the implementation wrong relative to the design.
 ```
 
 ### Comb gate
 
-A comb that surfaces issues is never cleared by acknowledgement — only by a fresh run that comes back clean (or with minor findings the user accepts). Apply the severity threshold:
+Read `${CLAUDE_HOME:-~/.claude}/skills/mine-comb/comb-gate.md` and apply it with:
 
-- **No findings or only minor findings:** note any minor findings for the shipping gate and proceed to Step 6. No fix required.
-- **Any blocking findings** (no proceed option while any remain):
+- **`<header>`**: `Impl comb`
+- **`minor_blocks`**: `false` — note any minor findings for the shipping gate and proceed to Step 6; a finished implementation doesn't block shipping on polish.
+- **`<blocking_question>`**: "Implementation comb found blocking design-fidelity gaps: <summary>. These must be resolved before shipping."
+- **`<re_review_instructions>`**: dispatch a `general-purpose` subagent with `model: sonnet`, passing the comb findings, the design doc path (`<feature_dir>/design.md`), the task files from `<feature_dir>/tasks/`, and the affected file paths. Instruct: "Fix only the listed design-fidelity gaps. Do not expand scope beyond these findings. After fixing, run the test suite: `<contents of <dir>/test-command.txt>`." After it completes, re-run this step's comb from the top.
 
-```
-AskUserQuestion:
-  question: "Implementation comb found blocking design-fidelity gaps: <summary>. These must be resolved before shipping."
-  header: "Impl comb"
-  multiSelect: false
-  options:
-    - label: "Address gaps"
-      description: "Dispatch a subagent to fix the findings, then re-run the comb"
-    - label: "Stop here"
-      description: "Pause; I'll address the gaps manually"
-```
-
-On "Address gaps": dispatch a `general-purpose` subagent with `model: sonnet`, passing the comb findings, the design doc path (`<feature_dir>/design.md`), the task files from `<feature_dir>/tasks/`, and the affected file paths. Instruct: "Fix only the listed design-fidelity gaps. Do not expand scope beyond these findings. After fixing, run the test suite: `<contents of <dir>/test-command.txt>`." After it completes, re-run this step's comb from the top. Loop until the comb returns no blocking findings.
-
-On "Stop here": leave the checkpoint in place — do not delete it. The user can resume later.
+The gate's "Stop" leaves the checkpoint in place — for this caller that means do **not** delete the checkpoint; the user can resume later.
 
 If `trail_available` is true, log the result:
 `trail-log "<trail_path>" p3 - review "impl comb: <clean — or N minor noted — or N blocking, user decision: addressed|stopped>"`

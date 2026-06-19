@@ -43,6 +43,7 @@ Each agent file in `agents/` declares its model in YAML frontmatter. When updati
 - `agents/issue-refiner.md` — sonnet
 - `agents/visual-diff.md` — sonnet
 - `agents/wtf-reviewer.md` — sonnet (pre-commit readability gate; do not downgrade)
+- `agents/fine-toothed-comb.md` — sonnet (callers may override to opus[1m] for large implementation diffs)
 - `agents/engineering-frontend-developer.md` — sonnet
 - `agents/engineering-backend-developer.md` — sonnet
 - `agents/engineering-data-engineer.md` — sonnet

@@ -394,11 +394,11 @@ Read the temp file. Format the results clearly:
 
 The task files are now the plan's output. Comb the design doc and the task files **together** one last time — an open-ended pass, no checklist, no rubric. This is distinct from the Phase 3.5 traceability gate and the Phase 5 review checklist: it catches the design and tasks reading as inconsistent, inaccurate, or thin once taken in as a whole (a task that drifted from the design's intent, a design decision no task honors, terminology that diverged between the two).
 
-Dispatch a subagent:
+Dispatch the `fine-toothed-comb` agent (see `${CLAUDE_HOME:-~/.claude}/agents/fine-toothed-comb.md`):
 
 ```
 Agent:
-  subagent_type: general-purpose
+  subagent_type: fine-toothed-comb
   model: sonnet
   prompt: |
     Read this design file: <design_doc_path>
@@ -406,49 +406,19 @@ Agent:
 
     Go over the design file and the corresponding tasks with a fine-toothed comb, making sure that they are all consistent, accurate, and thorough. Report anything you find.
 
-    Classify each finding by severity:
-    - **blocking** — an inconsistency, inaccuracy, or gap between the design and tasks that would mislead implementation
-    - **minor** — a nitpick or optional polish that does not threaten correctness
-
-    If you find nothing notable, say so explicitly.
+    Define blocking as: an inconsistency, inaccuracy, or gap between the design and tasks that would mislead implementation.
 ```
 
 ### Comb gate
 
-A comb that surfaces issues is never cleared by acknowledgement — only by a fresh run that comes back clean (or with minor findings the user accepts). Apply the severity threshold:
+Read `${CLAUDE_HOME:-~/.claude}/skills/mine-comb/comb-gate.md` and apply it with:
 
-- **No findings:** proceed to Phase 6 silently.
-- **Only minor findings:**
+- **`<header>`**: `Plan comb`
+- **`minor_blocks`**: `true`
+- **`<proceed_label>` / `<proceed_description>`**: `Proceed to the gate` / "Accept the minor findings and continue"
+- **`<re_review_instructions>`**: apply the fixes to the design doc and/or task files, then re-run this phase from the top. Restrict task file edits to the same cosmetic-vs-substantive rule as Phase 6's "Approve with suggestions" — substantive task changes require re-running task generation from Phase 2.
 
-```
-AskUserQuestion:
-  question: "Fine-toothed comb found only minor issues: <summary>. How to proceed?"
-  header: "Plan comb"
-  multiSelect: false
-  options:
-    - label: "Fix and re-review"
-      description: "Address the findings, then re-run the comb"
-    - label: "Proceed to the gate"
-      description: "Accept the minor findings and continue"
-    - label: "Stop"
-      description: "Halt and address issues manually"
-```
-
-- **Any blocking findings** (no proceed option while any remain):
-
-```
-AskUserQuestion:
-  question: "Fine-toothed comb found blocking issues: <summary>. These must be resolved before proceeding."
-  header: "Plan comb"
-  multiSelect: false
-  options:
-    - label: "Fix and re-review"
-      description: "Address the findings, then re-run the comb"
-    - label: "Stop"
-      description: "Halt and address issues manually"
-```
-
-On "Fix and re-review": apply the fixes to the design doc and/or task files, then re-run this phase from the top. Restrict task file edits to the same cosmetic-vs-substantive rule as Phase 6's "Approve with suggestions" — substantive task changes require re-running task generation from Phase 2. Loop until the comb returns no blocking findings.
+The "No findings" path proceeds to Phase 6 silently. (The gate's fix-and-re-review loop runs until the comb returns no blocking findings.)
 
 ---
 

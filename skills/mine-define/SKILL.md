@@ -557,60 +557,30 @@ For any item that fails: **FAIL** — block and revise before proceeding. Report
 
 After the structured checklist passes and before sign-off, comb the design doc one more time. This is an open-ended pass — no checklist, no rubric — and it catches what a checklist can't: the doc reading as inconsistent, inaccurate, or thin once you take it in as a whole. It complements Phase 5, it does not replace it.
 
-Dispatch a subagent:
+Dispatch the `fine-toothed-comb` agent (see `${CLAUDE_HOME:-~/.claude}/agents/fine-toothed-comb.md`):
 
 ```
 Agent:
-  subagent_type: general-purpose
+  subagent_type: fine-toothed-comb
   model: sonnet
   prompt: |
     Read this design file: <design_doc_path>
 
     Go over it with a fine-toothed comb and make sure it's accurate, consistent, and thorough. Report anything you find.
 
-    Classify each finding by severity:
-    - **blocking** — an inconsistency, inaccuracy, or gap that would mislead planning or implementation
-    - **minor** — a nitpick or optional polish that does not threaten correctness
-
-    If you find nothing notable, say so explicitly.
+    Define blocking as: an inconsistency, inaccuracy, or gap that would mislead planning or implementation.
 ```
 
 ### Comb gate
 
-A comb that surfaces issues is never cleared by acknowledgement — only by a fresh run that comes back clean (or with minor findings the user accepts). Apply the severity threshold:
+Read `${CLAUDE_HOME:-~/.claude}/skills/mine-comb/comb-gate.md` and apply it with:
 
-- **No findings:** proceed to Phase 6 silently.
-- **Only minor findings:**
+- **`<header>`**: `Design comb`
+- **`minor_blocks`**: `true`
+- **`<proceed_label>` / `<proceed_description>`**: `Proceed to sign-off` / "Accept the minor findings and continue"
+- **`<re_review_instructions>`**: apply the fixes to the design doc, then re-run this phase from the top
 
-```
-AskUserQuestion:
-  question: "Fine-toothed comb found only minor issues: <summary>. How to proceed?"
-  header: "Design comb"
-  multiSelect: false
-  options:
-    - label: "Fix and re-review"
-      description: "Address the findings, then re-run the comb"
-    - label: "Proceed to sign-off"
-      description: "Accept the minor findings and continue"
-    - label: "Stop"
-      description: "Halt and address issues manually"
-```
-
-- **Any blocking findings** (no proceed option while any remain):
-
-```
-AskUserQuestion:
-  question: "Fine-toothed comb found blocking issues: <summary>. These must be resolved before sign-off."
-  header: "Design comb"
-  multiSelect: false
-  options:
-    - label: "Fix and re-review"
-      description: "Address the findings, then re-run the comb"
-    - label: "Stop"
-      description: "Halt and address issues manually"
-```
-
-On "Fix and re-review": apply the fixes, then re-run this phase from the top. Loop until the comb returns no blocking findings.
+The "No findings" path proceeds to Phase 6 silently. (The gate's fix-and-re-review loop runs until the comb returns no blocking findings.)
 
 ---
 
