@@ -1,7 +1,7 @@
 ---
-topic: "embeddings-model recall eval — results and how to finish"
+topic: "embeddings-model recall eval — results and recommendation"
 date: 2026-06-19
-status: In progress (baseline done, candidates pending)
+status: Complete — recommend jina-v2-small-en
 ---
 
 # Embeddings-Model Recall Eval
@@ -20,48 +20,69 @@ real ccrecall corpus, not by MTEB.
 - **Metrics:** recall@1/5/10, MRR, nDCG@10, median rank. Single relevant doc per query.
 - **Harness:** `~/source/claude-code-recall/scripts/embedding_eval/recall_harness.py`. bge-m3
   baseline reuses the doc vectors already stored in `branch_vec` (only the 150 queries embed
-  live); candidates run through fastembed.
+  live); candidates run through fastembed. Candidates embedded on the gaming rig's GPU.
 - **Caveat:** a handful of fixture queries sit close to their conversation's opening line,
   slightly inflating *absolute* recall — but uniformly across all dense models, so the
   *relative* ranking (the decision) holds.
 
-## Results so far
+## Results
 
 | Model | recall@1 | recall@5 | recall@10 | MRR | nDCG@10 | median rank |
 |---|---|---|---|---|---|---|
-| **bge-m3** (baseline) | 0.540 | 0.727 | 0.767 | 0.626 | 0.655 | 1 |
-| jina-v2-small-en (0.12 GB, 512d) | _pending_ | | | | | |
-| nomic-v1.5-Q (0.13 GB, 768d int8) | _pending_ | | | | | |
-| nomic-v1.5 (0.52 GB, 768d) | _pending_ | | | | | |
+| **bge-m3** (baseline, 1024d) | 0.540 | 0.727 | 0.767 | 0.626 | 0.655 | 1 |
+| **jina-v2-small-en** (512d) | 0.533 | **0.747** | **0.800** | 0.625 | **0.662** | 1 |
+| nomic-v1.5 (768d) | 0.540 | 0.720 | 0.753 | 0.621 | 0.650 | 1 |
+| nomic-v1.5-Q (768d int8) | _not run — see below_ | | | | | |
 
-The decision rule (from the research brief): install ergonomics (fastembed auto-download, no
-PyTorch) is the headline win; a candidate only has to show it doesn't *lose materially* to
-bge-m3 on retrieval over our data to justify the switch.
+## Recommendation: switch to jina-v2-small-en
 
-## Why the candidates aren't done yet (the VPS lesson)
+The research brief set a low bar — a candidate only had to *not lose materially* to bge-m3 to
+justify the switch, since fastembed-native install ergonomics (auto-download, no PyTorch) are
+the headline win. jina clears it outright by **winning** on the metrics that matter for retrieval:
 
-Embedding the 1988-doc corpus on the VPS thrashed/hung the box **three times**: (1) unbounded
-overnight run swap-spiraled for hours (load 95); (2) a niced full run spiked load to 63 —
-fastembed lets onnxruntime grab every core, and `nice` lowers priority but not thread count;
-(3) even thread-capped to 1, the run hung on the already-slammed morning box (7h headless
-Chrome + multiple Claude sessions + services) and had to be killed. The VPS (15 GB, shared,
-always-on) is the wrong place for a parallel embedding bake-off. **Lesson: heavy embedding
-jobs go on a workstation, never backgrounded unattended on the VPS.**
+- recall@5 +0.020, recall@10 +0.033, nDCG@10 +0.007 over bge-m3; ties on recall@1 and MRR.
+- **Half the vector dimension** (512 vs 1024) → smaller `branch_vec` index, faster ANN search,
+  less storage — a real operational win on top of the quality.
+- fastembed-native, so the install story is simpler than bge-m3's.
 
-## How to finish (gaming rig)
+**nomic-v1.5** lands ≈ bge-m3 (marginally lower across the board) — no reason to switch to it.
 
-A portable bundle was tarred to `smithfamily:/tmp/embedding-eval-bundle.tar.gz` (also in
-`scripts/embedding_eval/`): `recall_harness.py`, `corpus.json`, `fixture.json`,
-`results.json` (carries the bge-m3 baseline), `README.md`. No DB / ccrecall / sqlite-vec
-needed — just `fastembed` + `numpy`.
+**nomic-v1.5-Q** was skipped: its quality ceiling is the full nomic-v1.5, which already lost to
+both bge-m3 and jina, so the quantized variant cannot change the decision. (It is also the one
+model that does not GPU-accelerate — see below.)
 
-On the gaming rig:
+## Why the corpus wasn't embedded on the VPS
 
-```bash
-scp smithfamily:/tmp/embedding-eval-bundle.tar.gz .
-tar xzf embedding-eval-bundle.tar.gz && cd embedding_eval
-uv run --with fastembed --with numpy python recall_harness.py \
-    --models jina-v2-small-en,nomic-v1.5-Q,nomic-v1.5 --corpus-file corpus.json
-```
+Embedding the 1988-doc corpus on the VPS thrashed/hung the box **three times** (unbounded
+overnight swap-spiral at load 95; a niced run still spiking load to 63; even thread-capped it
+hung on the already-slammed morning box). The VPS (15 GB, shared, always-on) is the wrong place
+for a parallel embedding bake-off. **Heavy embedding jobs go on a workstation, never
+backgrounded unattended on the VPS.**
 
-Copy the resulting `results.json` back, fill the table above, and write the recommendation.
+## Gaming-rig lessons (the candidates' actual run)
+
+"Just run the CPU bundle on the rig" hit its own walls — the rig's WSL2 is *also* 15 GB (host
+has 32 GB, but WSL defaults to ~half; raised to 24 GB via `.wslconfig memory=` for future runs):
+
+- **Batch size is a seq² memory bomb.** fastembed's default batch=256 tried a 73 GB attention
+  buffer (summaries run to ~3000 tokens; attention scales batch·heads·seq²). Even batch=4
+  OOM-killed the heavier nomic models past 12 GB. CPU-safe batch is 2.
+- **CPU is FLOP-bound and slow.** nomic on CPU ≈ 1 doc/s → ~30 min/model. Larger batches don't
+  help wall-time (cores already saturated), only raise the memory peak.
+- **GPU is the real lever.** The rig has an RTX 3060 Ti (8 GB). With `fastembed-gpu` + the
+  CUDA-12 onnxruntime stack, jina and nomic-v1.5 embedded in ~10 min total on VRAM. batch=4
+  fits the 8 GB card; batch=8 OOMs VRAM on the long docs.
+- **Quantized models don't GPU-accelerate.** nomic-v1.5-Q's int8 ops have no CUDA kernels, so
+  onnxruntime falls back to CPU with constant host↔device memcpy — slower than plain CPU. Run
+  quantized variants on CPU only.
+- **Guard the box structurally.** Runs went under a systemd `--scope` with `MemoryMax` +
+  `MemorySwapMax=0`, so a blowup OOM-kills the *job* cleanly instead of swap-freezing the
+  machine. Note: `cmd | tee` masks the real exit code — check `systemctl --user show <unit>
+  -p Result` and `results.json`, not the pipe's exit status.
+
+## Reproduce
+
+The harness embeds one or more models and merges into `results.json` (so models can be run
+one at a time). On a CUDA GPU, enable GPU mode with batch 4 (fits an 8 GB card; non-quantized
+models only). On CPU, leave GPU off and use batch 2 — slow but memory-safe. See
+`recall_harness.py --help` for the exact flags.
