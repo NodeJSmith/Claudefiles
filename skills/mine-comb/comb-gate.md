@@ -38,11 +38,11 @@ AskUserQuestion:
       description: "Halt and address issues manually"
 ```
 
-**Any blocking findings** (no proceed option offered while any remain — regardless of `minor_blocks`). Use `<blocking_question>` if the caller supplied one; otherwise the default string shown here:
+**Any blocking findings** (no proceed option offered while any remain — regardless of `minor_blocks`). Use the caller's `<blocking_question>` if one was supplied; otherwise use the default `question` shown here verbatim:
 
 ```
 AskUserQuestion:
-  question: "<blocking_question, default: Fine-toothed comb found blocking issues: <summary>. These must be resolved before proceeding.>"
+  question: "Fine-toothed comb found blocking issues: <summary>. These must be resolved before proceeding."
   header: "<header>"
   multiSelect: false
   options:
