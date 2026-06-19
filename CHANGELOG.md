@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-06-19
+
+### Added
+
+- The fine-toothed comb is now a reusable `fine-toothed-comb` agent plus a `/mine-comb` skill, so it can be run as a one-off against any artifact — a brief, design, plan, or an implementation-against-its-design — not just inside a workflow phase. The agent owns the open-ended review behavior and severity classification; a shared `skills/mine-comb/comb-gate.md` owns the comb gate (the "never cleared by acknowledgement" loop), parameterized per caller. `mine-define`, `mine-plan`, and `mine-orchestrate` now dispatch the agent and reference the shared gate instead of inlining the prompt and gate three times over; their per-phase differences (model, compaction handling, whether minor findings block) are preserved as parameters. (#390)
+
 ## 2026-06-18
 
 ### Added
