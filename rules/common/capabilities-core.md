@@ -56,6 +56,7 @@ tool: claude  # harness-only: skill/command routing tables are Claude-Code dispa
 | "readability review", "maintainability review", "sniff test this", "WTF check", "code smells", "is this code any good", "fresh eyes on this branch", "review this directory", "check this module" | `/mine-review` |
 | "create a skill", "write a skill", "new skill" | `/mine-write-skill` |
 | "clean code check", "style review", "LLM smell check", "nitpick this", "style check", "code hygiene", "find style sins", "nitpicker review", "anal retentive review", "exhaustive style review", "no-filter style report" | `/mine-clean-code` |
+| "simplify this codebase", "find simplification opportunities", "where can I simplify", "code judo this", "judo this module", "find structural simplifications", "what can I collapse", "reduce complexity in this code" | `/mine-simplify` |
 | "humanize this", "unslop this", "de-slop this", "fix AI writing", "remove AI tells", "clean up AI prose" | `/mine-humanize` |
 
 ## CLI Tools

@@ -96,6 +96,7 @@ Note re-challenge status in context for Phase 2 critic selection.
 - `documentation-architect.md` — Documentation Architect Critic: doc set structure, mode confusion, findability gaps
 - `end-user-reader.md` — End-User Reader Critic: assumed prerequisites, missing steps, error path silence
 - `operational-resilience.md` — Operational Resilience Critic: resource exhaustion, upstream failures, recovery behavior
+- `structural-minimalist.md` — Structural Minimalist Critic: speculative layers, single-consumer abstractions, bolted-on requirements, designs that could be half the size
 - `web-platform.md` — Web Platform Critic: re-renders, data fetching patterns, accessibility, CSS architecture
 - `workflow-ux.md` — Workflow & UX Critic: phase transitions, unhelpful defaults, unnecessary friction
 
