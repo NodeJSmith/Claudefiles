@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-06-20
+
+### Added
+
+- The "code judo" structural-simplification posture now reaches two more surfaces beyond the `mine-orchestrate` diff pass: a new `structural-minimalist` challenge persona applies it to design docs (auto-selected by `mine-challenge` triage, so it runs through `mine-define`), and a new `/mine-simplify` skill applies it to existing code — fanning out parallel `code-judo-reviewer` agents (now mode-aware with a codebase mode) over a file, directory, or repo and consolidating the moves into one impact-ranked report. (#392)
+
 ## 2026-06-19
 
 ### Added

@@ -37,6 +37,7 @@ Full component tables for Claudefiles. For context on what each component type d
 | `mine-resume` | Pick up a fresh session after `/clear`/stop — reads the prior transcript's tail via `cm-session-tail` to recover the last instruction and surface any unanswered `AskUserQuestion`. The clear/startup hook also auto-warns about unresolved decisions |
 | `mine-review` | Comprehensive branch review — dispatches code-reviewer, integration-reviewer, and wtf-reviewer in parallel, consolidates findings into one prioritized report |
 | `mine-ship` | Commit, push, and create a PR in one step |
+| `mine-simplify` | Codebase-scoped structural simplification — fans out parallel `code-judo-reviewer` agents (codebase mode) over a file/dir/repo, consolidates dramatic simplification moves into one impact-ranked report. The non-diff counterpart to the orchestrate judo pass |
 | `mine-tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |
 | `mine-visual-qa` | Live visual QA — Playwright captures screenshots, then two agents analyze them with structural separation (one sees each page in isolation, the other sees all pages at once) |
 | `mine-write-skill` | Guided skill creation — gathers requirements, drafts SKILL.md, validates quality checklist, auto-wires routing |

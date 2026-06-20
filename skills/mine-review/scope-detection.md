@@ -1,6 +1,6 @@
 # Scope Detection (shared)
 
-Shared Phase 1 for `mine-review` and `mine-clean-code`. Resolves `$ARGUMENTS` to either **diff mode** (a diff command) or **path mode** (a file list). The calling skill's later phases consume the result.
+Shared Phase 1 for `mine-review`, `mine-clean-code`, and `mine-simplify`. Resolves `$ARGUMENTS` to either **diff mode** (a diff command) or **path mode** (a file list). The calling skill's later phases consume the result.
 
 ## Step 1: Detect mode
 
