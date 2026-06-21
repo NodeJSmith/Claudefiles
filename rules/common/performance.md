@@ -43,7 +43,7 @@ Each agent file in `agents/` declares its model in YAML frontmatter. When updati
 - `agents/issue-refiner.md` — sonnet
 - `agents/visual-diff.md` — sonnet
 - `agents/wtf-reviewer.md` — sonnet (pre-commit readability gate; do not downgrade)
-- `agents/fine-toothed-comb.md` — sonnet (callers may override to opus[1m] for large implementation diffs)
+- `agents/fine-toothed-comb.md` — sonnet
 - `agents/engineering-frontend-developer.md` — sonnet
 - `agents/engineering-backend-developer.md` — sonnet
 - `agents/engineering-data-engineer.md` — sonnet
@@ -53,7 +53,7 @@ Each agent file in `agents/` declares its model in YAML frontmatter. When updati
 **Skill files with inline model declarations** (not governed by agent frontmatter):
 - `skills/mine-challenge/SKILL.md` — `model: haiku` for triage subagent, `model: sonnet` for critic and synthesis subagents
 - `skills/mine-orchestrate/SKILL.md` — `model: sonnet` for executor and reviewer subagents
-- `skills/mine-orchestrate/post-execution-pipeline.md` — `model: opus` for clean code check subagent; `model: opus[1m]` for the implementation fine-toothed comb subagent (1m window avoids mid-review compaction on the full branch diff)
+- `skills/mine-orchestrate/post-execution-pipeline.md` — `model: opus` for clean code check subagent; `model: sonnet` for the implementation fine-toothed comb subagent
 - `skills/mine-plan/SKILL.md` — `model: sonnet` for review subagent
 - `skills/mine-implementation-review/SKILL.md` — `model: sonnet` for review subagent
 - `skills/mine-decompose/SKILL.md` — `model: haiku` for behavioral and structural analysis subagents
