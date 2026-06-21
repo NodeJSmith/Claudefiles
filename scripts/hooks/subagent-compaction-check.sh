@@ -28,7 +28,7 @@
 #   }]
 #
 # No set -euo pipefail — this hook is a sequence of guard clauses that each
-# exit 0 on failure, same as context-tier.sh.
+# exit 0 on failure, same guard-clause style as the sibling PreToolUse hooks.
 
 if ! command -v jq > /dev/null 2>&1; then
   exit 0

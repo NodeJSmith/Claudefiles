@@ -28,7 +28,7 @@
 # Hook wiring: PreToolUse with matcher "*", timeout 3000 (higher than the
 # 2000ms sibling hooks due to transcript parsing + grep loops + curl)
 #
-# No set -euo pipefail — guard clause style, same as context-tier.sh.
+# No set -euo pipefail — guard clause style, same as the sibling PreToolUse hooks.
 
 umask 077
 

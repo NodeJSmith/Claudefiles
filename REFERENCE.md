@@ -185,18 +185,10 @@ Event-driven scripts that run before/after tool calls.
 | `cm-onboarding` (package) | SessionStart (startup) | Inject MEMORY.md context and greet the user with persistent memory |
 | `cm-memory-context` (package) | SessionStart (startup\|clear) | Load memory context into the session |
 | `cm-clear-handoff` (package) | SessionEnd (clear) | Write a handoff note before `/clear` |
-| `context-tier.sh` | PreToolUse (*) | Inject context window tier guidance on tier change or periodic heartbeat (every 25 calls) — prevents hallucinated context pressure |
 | `tmux-drift-check.sh` | PreToolUse (*) | Periodically remind Claude to verify tmux session name alignment with current work (every 30 calls) |
 | `phrase-monitor.sh` | PreToolUse (*) | Log assistant rationalization phrases (context pressure, minimize changes, scope avoidance, etc.) — observation-only with optional ntfy notifications |
 | `secrets-check.sh` | Git pre-commit | Block commits containing secrets, tokens, or dangerous files — 44 patterns (29 regex + 15 filename), truncated output, `SKIP_SECRETS_CHECK=1` override |
 | `cm-memory-sync` (package) | Stop | Sync current session to the conversation database |
-
-> **Context tier setup:** The `context-tier.sh` hook reads a sidecar file written by `claude-context-writer`. To enable it, add `claude-context-writer` to your `statusLine.command` in settings — either by itself or in front of your existing command:
->
-> ```json
-> "statusLine": { "type": "command", "command": "claude-context-writer" }
-> "statusLine": { "type": "command", "command": "claude-context-writer ~/bin/mine/starship-claude" }
-> ```
 
 ## Plugins
 
@@ -213,7 +205,6 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | Script | Description |
 |--------|-------------|
 | `agnix-check` | Validate agent, skill, and command files against agnix schema |
-| `claude-context-writer` | statusLine wrapper — writes per-session context % sidecar file for the context-tier hook |
 | `claude-tmux` | Tmux session helper — rename, list, create, capture, kill sessions |
 | `edit-manifest` | Open a manifest file in nvim via a new tmux window with shadow-file autosave and blocking wait |
 | `get-skill-tmpdir` | Create unique temp directories for skill runs |
