@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# claude-context-writer — statusLine wrapper that writes a context sidecar file
+# claude-context-writer — statusLine wrapper that writes context sidecar files
 #
 # Reads the JSON payload from Claude Code's statusLine mechanism, extracts
 # session ID and context percentage, writes them to a per-session sidecar
@@ -7,6 +7,13 @@
 #
 # The sidecar file is read by the context-tier.sh PreToolUse hook to inject
 # behavioral guidance based on context usage tiers.
+#
+# Two sidecar files are written (atomically, best-effort):
+#   /tmp/claude-context-<sid>.txt  — bare integer context % (unchanged; read by context-tier.sh)
+#   /tmp/claude-context-<sid>.meta — two-line key=value file with:
+#                                      pct=<int>
+#                                      cwd=<path>
+#                                    read by child-context-check to join on worktree path
 #
 # Usage in settings.json (or settings.local.json / settings.machine.json):
 #   "statusLine": {
@@ -49,7 +56,8 @@ if command -v jq > /dev/null 2>&1 && [ -n "$payload" ]; then
     " _inp=" + (safe_num(.context_window.current_usage.input_tokens) | tostring | @sh) +
     " _cc="  + (safe_num(.context_window.current_usage.cache_creation_input_tokens) | tostring | @sh) +
     " _cr="  + (safe_num(.context_window.current_usage.cache_read_input_tokens) | tostring | @sh) +
-    " _sz="  + (safe_num(.context_window.context_window_size) | tostring | @sh)
+    " _sz="  + (safe_num(.context_window.context_window_size) | tostring | @sh) +
+    " _cwd=" + ((.workspace.current_dir // .workspace.project_dir // .cwd // "") | @sh)
   ' 2> /dev/null)" 2> /dev/null || true
 
   # Guard against path traversal — session_id should be a UUID, reject anything with / or .
@@ -62,6 +70,13 @@ if command -v jq > /dev/null 2>&1 && [ -n "$payload" ]; then
     _target="/tmp/claude-context-${_sid}.txt"
     _tmp="${_target}.tmp"
     printf '%d' "$_pct" > "$_tmp" 2> /dev/null && mv -f "$_tmp" "$_target" 2> /dev/null || true
+
+    # Write .meta companion for child-context-check (worktree path join).
+    # Best-effort: never let a .meta failure affect downstream rendering.
+    _meta_target="/tmp/claude-context-${_sid}.meta"
+    _meta_tmp="${_meta_target}.tmp"
+    printf 'pct=%d\ncwd=%s\n' "$_pct" "${_cwd:-}" > "$_meta_tmp" 2> /dev/null &&
+      mv -f "$_meta_tmp" "$_meta_target" 2> /dev/null || true
   fi
 fi
 
