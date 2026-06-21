@@ -242,17 +242,14 @@ Log a trail entry for the audit:
 
 This is the last content review before shipping. Unlike impl-review's structured checklist (Step 2), this is open-ended: does the **finished implementation faithfully and thoroughly realize the design** — is every FR and AC actually implemented, did anything get silently dropped, did any behavior drift from what the design specified? Running it last means it reviews the settled code, after clean-code and structural-simplification edits.
 
-**Compaction warning (read before dispatching).** This is the most context-heavy subagent in the pipeline — it must reason over the whole change against the design. Subagents auto-compact around ~167k tokens on a 200k window (~115k working budget after baseline; see spec 031), and a holistic comb that compacts mid-review will miss exactly the cross-cutting gaps it exists to catch. Two mitigations, applied together:
-
-1. **Feed the branch diff, not full file contents.** Instruct the subagent to run the diff itself (keeps the diff out of the orchestrator's context). The diff is a fraction of every changed file in full — this is the variable-accumulation lever from spec 031, not the weak baseline-trim lever.
-2. **Run on the 1m context window.** Dispatch with `model: opus[1m]` — the `[1m]` suffix is required. Plain `model: opus` resolves to the default ~200k window, and subagents do **not** inherit the parent session's 1m window, so the suffix is the only way to get it here. For diffs so large that design + diff still exceeds ~900k tokens (1m can compact at the very top), fall back to chunking the diff by file group, combing each group, then reconciling.
+**Compaction tip.** This is the most context-heavy subagent in the pipeline. Feed the branch diff, not full file contents — instruct the subagent to run the diff itself (keeps the diff out of the orchestrator's context). For very large diffs, chunk by file group and reconcile.
 
 Dispatch the `fine-toothed-comb` agent (see `${CLAUDE_HOME:-~/.claude}/agents/fine-toothed-comb.md`):
 
 ```
 Agent:
   subagent_type: fine-toothed-comb
-  model: opus[1m]
+  model: sonnet
   prompt: |
     Read this design file: <feature_dir>/design.md
     Read all task files in: <feature_dir>/tasks/
