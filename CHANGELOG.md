@@ -6,7 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Removed
 
-- The statusLine context writer (`claude-context-writer`) and the `context-tier.sh` PreToolUse hook are no longer bundled here — they moved to the maintainer's personal Dotfiles repo, which already owned the rest of that pipeline (statusLine config, downstream renderer, and the `child-context-check` consumer).
+- The statusLine context writer (`claude-context-writer`) and the `context-tier.sh` PreToolUse hook are no longer bundled here — they moved to the maintainer's personal Dotfiles repo, which already owned the rest of that pipeline (statusLine config, downstream renderer, and the `child-context-check` consumer). (#395)
 
 ## 2026-06-20
 
