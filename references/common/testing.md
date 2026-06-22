@@ -45,10 +45,6 @@ Mock only at system boundaries (external APIs, databases, time, filesystem). Pre
 
 Do not write tests that assert on log output (e.g., `caplog`, `capfd`, checking `logger.warning` was called). These tests are brittle — they break when log messages are reworded, reformatted, or when log levels change. Test the *behavior* that produces the log, not the log itself.
 
-## Pytest on Resource-Constrained Machines
-
-On low-RAM, small-CPU machines (e.g., the laptop), avoid `-n auto` — it spawns one worker per core, and overlapping or leaked parallel runs can fill swap and freeze the box. Pin a small worker count instead (e.g., `-n 2`) to cap the blast radius.
-
 ## Test Execution
 
 **NEVER run tests without understanding how the project expects them to run.**
