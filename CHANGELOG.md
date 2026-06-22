@@ -14,6 +14,10 @@ All notable changes to this Claudefiles repository are documented here.
 - `install.py` now registers the `ccrecall` plugin itself (`claude plugin marketplace add` + `install`) instead of relying on Claude Code's implicit startup sync, so every machine gets a tracked install that `claude plugin update` recognizes. `do_uninstall` removes it symmetrically. `claude` is resolved with `shutil.which` so the interactive `--bare` shell alias (which skips plugin sync) can never shadow the real binary. Per-machine rollout collapses to a single `uv run install.py`. (#398)
 - `install.py` now checks `claude plugin list` before registering the `ccrecall` plugin and skips the marketplace add + install entirely when it's already a tracked install, so re-running the installer no longer reprints progress or refetches the marketplace on every machine. (#400)
 
+### Fixed
+
+- `install.py` no longer reinstalls the `ccrecall` PyPI package over a non-uv install. `ensure_ccrecall` detected presence via membership in `uv tool list`, so a mise- or pipx-managed ccrecall (invisible to `uv tool list`) was clobbered by a redundant `uv tool install` on every run — recreating shadowing `~/.local/bin/ccrecall*` shims. Presence is now detected with `shutil.which`, so any PATH-resident install (mise, pipx, uv) is recognized and left alone; a genuinely-absent ccrecall still installs from PyPI as before. The legacy `claude-memory` cleanup still keys off `uv tool list`, since that one is specifically a uv-tool install to remove.
+
 ## 2026-06-21
 
 ### Removed
