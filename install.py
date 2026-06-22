@@ -696,7 +696,11 @@ def install_pypi_tool(name: str) -> tuple[bool, str]:
 
 
 def run_claude_plugin(claude_bin: str, args: list[str]) -> tuple[bool, str]:
-    """Run `claude plugin <args>` via an explicit binary path. Returns (ok, detail)."""
+    """Run `claude plugin <args>` via an explicit binary path. Returns (ok, detail).
+
+    On success, detail is stdout (callers that only check ok can ignore it; callers that
+    need command output, e.g. `list --json`, parse it). On failure, detail is the error.
+    """
     try:
         result = subprocess.run(
             [claude_bin, "plugin", *args],
@@ -706,11 +710,31 @@ def run_claude_plugin(claude_bin: str, args: list[str]) -> tuple[bool, str]:
         )
         if result.returncode != 0:
             return False, (result.stderr or result.stdout).strip()
-        return True, ""
+        return True, result.stdout.strip()
     except subprocess.TimeoutExpired:
         return False, "timed out after 120s"
     except FileNotFoundError:
         return False, f"{claude_bin} not found"
+
+
+def ccrecall_plugin_installed(claude_bin: str) -> bool:
+    """True if CCRECALL_PLUGIN_REF is already a tracked install in `claude plugin list`.
+
+    Returns False on any error (claude missing the subcommand, bad JSON) so the caller
+    falls through to the install path rather than wrongly skipping it.
+    """
+    ok, detail = run_claude_plugin(claude_bin, ["list", "--json"])
+    if not ok:
+        return False
+    try:
+        plugins = json.loads(detail)
+    except json.JSONDecodeError:
+        return False  # treat malformed output as not-installed
+    # `claude plugin list --json` returns [{"id": "name@marketplace", ...}, ...].
+    # Anything other than that array shape is treated as not-installed (fail open).
+    if not isinstance(plugins, list):
+        return False
+    return any(p.get("id") == CCRECALL_PLUGIN_REF for p in plugins)
 
 
 def ensure_ccrecall_plugin(console: Console) -> int:
@@ -718,7 +742,10 @@ def ensure_ccrecall_plugin(console: Console) -> int:
 
     The plugin auto-syncs from enabledPlugins in settings.json at session start, but that
     sync leaves no tracked install record (so `claude plugin update` won't see it). This
-    makes the install explicit and idempotent — both commands no-op when already present.
+    makes the install explicit. The underlying commands are idempotent (both no-op when
+    already present), but not silently — they reprint progress and refetch the marketplace
+    on every run. So we check `claude plugin list` first and skip the work entirely once
+    the plugin is a tracked install.
 
     claude is resolved with shutil.which, never the bare name: the interactive `claude`
     shell function launches `--bare`, which skips plugin sync. shutil.which sees only real
@@ -731,6 +758,12 @@ def ensure_ccrecall_plugin(console: Console) -> int:
         console.print(
             "  [yellow]claude not on PATH — skipping plugin registration "
             "(it auto-syncs from settings.json on next session start)[/yellow]"
+        )
+        return errors
+
+    if ccrecall_plugin_installed(claude_bin):
+        console.print(
+            f"  Plugin already installed: {CCRECALL_PLUGIN_REF} [dim](skipping)[/dim]"
         )
         return errors
 
