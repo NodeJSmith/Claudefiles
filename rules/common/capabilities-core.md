@@ -66,7 +66,6 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | User says something like... | Run |
 |---|---|
 | "view issue", "create issue", "list issues", "edit issue", "filter issues by milestone", "repo issue conventions" | `gh-issue` |
-| "run gh-pr-create", "create PR with bot token" | `gh-pr-create` |
 | "list PR threads", "unresolved comments" | `gh-pr-threads` |
 | "reply to PR comment", "respond to review" | `gh-pr-reply` |
 | "resolve PR thread", "mark thread resolved" | `gh-pr-resolve-thread` |
@@ -90,7 +89,7 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 
 ### GitHub tool notes
 
-- **Bot-token auth**: All five `gh-*` tools silently upgrade to bot identity when `gh-app-token` is installed and `GITHUB_APP_ID` is set. Falls back to your personal token otherwise.
+- **Bot-token auth**: `gh-issue`, `gh-pr-reply`, and `gh-pr-resolve-thread` silently upgrade to bot identity when `gh-app-token` is installed and `GITHUB_APP_ID` is set. Falls back to your personal token otherwise. PR creation uses plain `gh pr create` (your personal identity, so authorship stays attributable); `gh-pr-threads` is read-only.
 - **Thread workflow**: Run `gh-pr-threads --json <pr>` → extract `.threads[].id` (`PRRT_...` values) → pass to `gh-pr-reply --resolve` or `gh-pr-resolve-thread`. Only `.threads` are resolvable; `.reviewComments` and `.issueComments` are informational (reply with a normal PR comment).
 - **gh-pr-threads**: `--json` returns `{pr, threads, reviewComments, issueComments}`. `.reviewComments` surfaces review-summary findings that aren't inline threads — CodeRabbit puts Major findings ("Outside diff range", "Duplicate comments") there; don't skip it. Auto-generated status noise is filtered from `.issueComments`. Auto-detects PR from current branch when no number given. Handles 100+ threads with internal pagination. Use `--repo`/`-R OWNER/REPO` to target a different repository.
 - **gh-pr-reply --resolve**: Combines reply and resolve in one call — preferred over separate steps.
