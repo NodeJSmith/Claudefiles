@@ -56,12 +56,13 @@ Determine mode and scope from `$ARGUMENTS`.
 
 ### Targeted mode archaeology
 
-Use two data sources in sequence. First, `cm-search-conversations` for session discovery, then direct `grep` on session JSONL files for raw bash commands.
+Use two data sources in sequence. First, `ccrecall search` (from the ccrecall plugin package) for session discovery, then direct `grep` on session JSONL files for raw bash commands.
 
 ```bash
 # Step 1: Find sessions that mentioned the tool
-cm-search-conversations --query "<tool>" --max-results 10 --format json
-# Note: max-results caps at 10. Step 2 grep is a broader cross-check.
+ccrecall --json search --query "<tool>" --max-results 10
+# Note: max-results caps at 10; --json is a global flag, before the subcommand.
+# Step 2 grep is a broader cross-check.
 ```
 
 ```bash
