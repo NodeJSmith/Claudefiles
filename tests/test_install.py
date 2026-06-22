@@ -43,7 +43,7 @@ def _stub_ccrecall_side_effects(monkeypatch):
     monkeypatch.setattr(
         install.shutil,
         "which",
-        lambda name: None if name == "ccrecall" else _real_which(name),
+        lambda name: None if name == install.CCRECALL_PACKAGE else _real_which(name),
     )
     # `list` returns an explicit empty array (not-yet-installed) so ensure_ccrecall_plugin
     # proceeds to install; other plugin subcommands no-op successfully.
