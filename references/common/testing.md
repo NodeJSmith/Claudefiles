@@ -45,11 +45,9 @@ Mock only at system boundaries (external APIs, databases, time, filesystem). Pre
 
 Do not write tests that assert on log output (e.g., `caplog`, `capfd`, checking `logger.warning` was called). These tests are brittle — they break when log messages are reworded, reformatted, or when log levels change. Test the *behavior* that produces the log, not the log itself.
 
-## Pytest Timeout
+## Pytest on Resource-Constrained Machines
 
-**Always run pytest wrapped in a timeout:** `timeout 300 pytest ...` (or `timeout 300 uv run pytest`, `timeout 300 python -m pytest`). This prevents orphaned pytest processes from accumulating when Claude sessions die unexpectedly — a real risk on the resource-constrained machines (VPS, laptop).
-
-On resource-constrained machines, also avoid `-n auto`; pin the worker count (e.g., `-n 2`) so a parallel run can't fill swap.
+On low-RAM, small-CPU machines (e.g., the laptop), avoid `-n auto` — it spawns one worker per core, and overlapping or leaked parallel runs can fill swap and freeze the box. Pin a small worker count instead (e.g., `-n 2`) to cap the blast radius.
 
 ## Test Execution
 

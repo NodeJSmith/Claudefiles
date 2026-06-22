@@ -6,7 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Removed
 
-- The `pytest-guard.sh` and `phrase-monitor.sh` PreToolUse hooks are no longer bundled, along with the `phrase-monitor-log` CLI that read the latter's log. `pytest-guard` denied pytest invocations not wrapped in `timeout`; the practice of running `timeout 300 pytest` (and pinning `-n` on constrained machines) stays as guidance in `references/common/testing.md`, just no longer enforced. `phrase-monitor` only logged rationalization phrases — it never blocked anything. (#399)
+- The `pytest-guard.sh` and `phrase-monitor.sh` PreToolUse hooks are no longer bundled, along with the `phrase-monitor-log` CLI that read the latter's log. `pytest-guard` denied pytest invocations not wrapped in `timeout`; that enforcement and its timeout guidance are both gone — `references/common/testing.md` now keeps only the `-n` worker-cap advice for constrained machines. `phrase-monitor` only logged rationalization phrases — it never blocked anything. (#399)
 
 ### Changed
 
