@@ -89,7 +89,7 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 
 ### GitHub tool notes
 
-- **Bot-token auth**: `gh-issue`, `gh-pr-reply`, and `gh-pr-resolve-thread` silently upgrade to bot identity when `gh-app-token` is installed and `GITHUB_APP_ID` is set. Falls back to your personal token otherwise. PR creation uses plain `gh pr create` (your personal identity, so authorship stays attributable); `gh-pr-threads` is read-only.
+- **Bot-token auth**: only `gh-issue` upgrades to bot identity when `gh-app-token` is installed and `GITHUB_APP_ID` is set (falling back to your personal token otherwise). All PR operations use your personal identity so PR authorship and review replies stay attributable to you — `gh pr create`, `gh-pr-reply`, and `gh-pr-resolve-thread` never touch the bot token; `gh-pr-threads` is read-only.
 - **Thread workflow**: Run `gh-pr-threads --json <pr>` → extract `.threads[].id` (`PRRT_...` values) → pass to `gh-pr-reply --resolve` or `gh-pr-resolve-thread`. Only `.threads` are resolvable; `.reviewComments` and `.issueComments` are informational (reply with a normal PR comment).
 - **gh-pr-threads**: `--json` returns `{pr, threads, reviewComments, issueComments}`. `.reviewComments` surfaces review-summary findings that aren't inline threads — CodeRabbit puts Major findings ("Outside diff range", "Duplicate comments") there; don't skip it. Auto-generated status noise is filtered from `.issueComments`. Auto-detects PR from current branch when no number given. Handles 100+ threads with internal pagination. Use `--repo`/`-R OWNER/REPO` to target a different repository.
 - **gh-pr-reply --resolve**: Combines reply and resolve in one call — preferred over separate steps.
