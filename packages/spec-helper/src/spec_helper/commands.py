@@ -48,6 +48,8 @@ from spec_helper.validation import (
     validate_task_metadata,
 )
 
+GIT_SUBPROCESS_TIMEOUT_SECONDS = 30
+
 
 def cmd_next_number(args: argparse.Namespace) -> None:
     root = find_repo_root()
@@ -478,12 +480,10 @@ def cmd_archive(args: argparse.Namespace) -> None:
                     post.metadata["status"] = "done"
                 atomic_write(post, task_file)
 
-            # Remove context.md and the feature-dir orchestration scaffolding.
-            # trail.tsv / trail-audit.md are written by the orchestrator alongside
-            # design.md; .gitignore exists only to keep them untracked. None of
-            # these belong in history — left behind, they leak into every PR.
-            # design.md is intentionally preserved (stamped archived below).
-            # (tasks/.gitignore is handled in _archive_feature before git rm -r.)
+            # Remove context.md and the feature-dir scaffolding (trail.tsv,
+            # trail-audit.md, .gitignore) — orchestrator artifacts that otherwise
+            # leak into PRs. design.md is preserved; tasks/.gitignore is handled
+            # in _archive_feature before git rm -r.
             _remove_artifact(tasks_dir / "context.md", git_root)
             for artifact_name in ("trail.tsv", "trail-audit.md", ".gitignore"):
                 _remove_artifact(feature_dir / artifact_name, git_root)
@@ -549,10 +549,12 @@ def _git_rm(git_root: Path, rel_path: str, *, recursive: bool = False) -> None:
         cmd.append("-r")
     cmd.append(rel_path)
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        proc = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=GIT_SUBPROCESS_TIMEOUT_SECONDS
+        )
     except subprocess.TimeoutExpired:
         raise RuntimeError(
-            f"git rm timed out after 30s for {rel_path}. "
+            f"git rm timed out after {GIT_SUBPROCESS_TIMEOUT_SECONDS}s for {rel_path}. "
             f"Check for a stale .git/index.lock. Run 'git status' to confirm "
             f"nothing was partially staged; if clean, re-running archive is safe."
         ) from None
@@ -579,7 +581,7 @@ def _is_tracked(git_root: Path, rel_path: str) -> bool:
         ["git", "-C", str(git_root), "ls-files", "--error-unmatch", rel_path],
         capture_output=True,
         text=True,
-        timeout=30,
+        timeout=GIT_SUBPROCESS_TIMEOUT_SECONDS,
     )
     return proc.returncode == 0
 
