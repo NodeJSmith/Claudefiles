@@ -23,18 +23,6 @@
       "Bash(git-branch-diff-stat)",
       "Bash(git-branch-diff-files)",
       "Bash(git-platform)",
-      "Bash(cm-backfill-summaries:*)",
-      "Bash(cm-clear-handoff:*)",
-      "Bash(cm-import-conversations:*)",
-      "Bash(cm-ingest-token-data:*)",
-      "Bash(cm-memory-context:*)",
-      "Bash(cm-memory-setup:*)",
-      "Bash(cm-memory-sync:*)",
-      "Bash(cm-onboarding:*)",
-      "Bash(cm-recent-chats:*)",
-      "Bash(cm-search-conversations:*)",
-      "Bash(cm-sync-current:*)",
-      "Bash(cm-write-config:*)",
       "Bash(git:*)",
       "Grep(/tmp/*)",
       "Grep(/tmp/**)",
@@ -56,8 +44,17 @@
     "ask": [],
     "defaultMode": "default"
   },
-  "extraKnownMarketplaces": {},
-  "enabledPlugins": {},
+  "extraKnownMarketplaces": {
+    "claude-code-recall": {
+      "source": {
+        "source": "github",
+        "repo": "NodeJSmith/claude-code-recall"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "ccrecall@claude-code-recall": true
+  },
   "includeGitInstructions": false,
   "hooks": {
     "PreToolUse": [
@@ -112,46 +109,11 @@
             "type": "command",
             "command": "bash -c 'f=\"${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/tmux-remind.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
             "timeout": 5000
-          },
-          {
-            "type": "command",
-            "command": "bash -c 'command -v cm-memory-setup >/dev/null 2>&1 && cm-memory-setup || true'",
-            "timeout": 10000
-          },
-          {
-            "type": "command",
-            "command": "bash -c 'command -v cm-onboarding >/dev/null 2>&1 && cm-onboarding || true'",
-            "timeout": 10000
-          },
-          {
-            "type": "command",
-            "command": "bash -c 'command -v cm-memory-context >/dev/null 2>&1 && cm-memory-context || true'",
-            "timeout": 10000
           }
         ]
       }
     ],
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'command -v cm-clear-handoff >/dev/null 2>&1 && cm-clear-handoff || true'",
-            "timeout": 10000
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'command -v cm-memory-sync >/dev/null 2>&1 && cm-memory-sync || true'",
-            "timeout": 30000
-          }
-        ]
-      }
-    ]
+    "SessionEnd": [],
+    "Stop": []
   }
 }

@@ -1,7 +1,10 @@
 # Cutover: De-vendor claude-memory, consume ccrecall as a plugin
 
 **Date:** 2026-06-21 (updated 2026-06-22)
-**Status:** documented — **do not execute yet** (gated on external prerequisites)
+**Status:** EXECUTED in the repo (2026-06-22) — sections A–E landed on `worktree-devendoring`.
+The dev-machine plugin verify (§F) was deliberately skipped; the per-machine package swap
+(`uv tool install ccrecall` + `uv tool uninstall claude-memory`) and `claude-merge-settings`
++ `uv run install.py` still run on each machine when the branch lands (§F steps 4–5).
 **Companion:** [`brief.md`](./brief.md) (the platform decision); this doc is the Claudefiles-side change set.
 
 ## What this is

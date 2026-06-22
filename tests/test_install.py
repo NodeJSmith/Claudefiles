@@ -624,7 +624,6 @@ class TestFullInstallFlow:
         assert (claude_dir / "agents" / "issue-refiner.md").is_symlink()
         # Optional skills NOT installed (all deselected)
         assert not (claude_dir / "skills" / "i-audit").exists()
-        assert not (claude_dir / "skills" / "cm-recall-conversations").exists()
 
     def test_selected_bundle_installs_skills_and_agents(self, tmp_path: Path) -> None:
         repo = tmp_path / "repo"
@@ -1521,7 +1520,6 @@ class TestCapabilitiesFiles:
             install.do_install(repo, claude_dir, config, interactive=False)
 
         assert (claude_dir / "rules" / "common" / "capabilities-cli.md").is_symlink()
-        assert not (claude_dir / "rules" / "common" / "capabilities-memory.md").exists()
         assert not (
             claude_dir / "rules" / "common" / "capabilities-impeccable.md"
         ).exists()
