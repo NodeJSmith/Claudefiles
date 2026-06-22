@@ -6,7 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Changed
 
-- Conversation memory is no longer a vendored bundle — it now ships as the external [`ccrecall`](https://github.com/NodeJSmith/claude-code-recall) plugin. The `cm-*` skills are replaced by namespaced plugin skills (`/ccrecall:ccr-recall`, `/ccrecall:ccr-resume`, `/ccrecall:ccr-tokens`), and `/mine-resume` is replaced by `/ccrecall:ccr-resume`. After pulling, run `claude-merge-settings` + `uv run install.py` on each machine — `install.py` now installs the `ccrecall` PyPI package and removes the old `claude-memory` install, and the plugin auto-migrates `~/.claude-memory` → `~/.ccrecall` on first session start.
+- Conversation memory is no longer a vendored bundle — it now ships as the external [`ccrecall`](https://github.com/NodeJSmith/claude-code-recall) plugin. The `cm-*` skills are replaced by namespaced plugin skills (`/ccrecall:ccr-recall`, `/ccrecall:ccr-resume`, `/ccrecall:ccr-tokens`), and `/mine-resume` is replaced by `/ccrecall:ccr-resume`. After pulling, run `claude-merge-settings` + `uv run install.py` on each machine — `install.py` now installs the `ccrecall` PyPI package and removes the old `claude-memory` install, and the plugin auto-migrates `~/.claude-memory` → `~/.ccrecall` on first session start. (#397)
 
 ## 2026-06-21
 
