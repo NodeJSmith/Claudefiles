@@ -7,7 +7,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 from rich.console import Console
@@ -26,13 +26,18 @@ BASE_PACKAGES = frozenset(
 
 
 @pytest.fixture(autouse=True)
-def _stub_ccrecall_pypi_install(monkeypatch):
-    """Stop do_install from shelling out to a real `uv tool install ccrecall`.
+def _stub_ccrecall_side_effects(monkeypatch):
+    """Stop do_install from shelling out to real ccrecall installs.
 
-    do_install always calls ensure_ccrecall, which installs ccrecall from PyPI when
-    absent. Default it to a successful no-op; tests that assert on it re-patch.
+    do_install always calls ensure_ccrecall (uv tool install ccrecall) and
+    ensure_ccrecall_plugin (claude plugin marketplace add + install). Default the leaf
+    shell-outs to successful no-ops; tests that assert on them re-patch. Stubbing the
+    leaf rather than ensure_ccrecall_plugin keeps that function real in do_install tests.
     """
     monkeypatch.setattr(install, "install_pypi_tool", lambda name: (True, ""))
+    monkeypatch.setattr(
+        install, "run_claude_plugin", lambda claude_bin, args: (True, "")
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1052,6 +1057,90 @@ def _minimal_repo(tmp_path: Path) -> Path:
     (repo / "agents").mkdir()
     _write_rule_files(repo)
     return repo
+
+
+class TestCcrecallPlugin:
+    def test_resolves_claude_via_which_not_bare_name(self) -> None:
+        """The plugin commands run the shutil.which-resolved path, never bare `claude`
+        (the interactive shell function launches --bare, which skips plugin sync)."""
+        resolved = "/home/u/.local/share/mise/shims/claude"
+        mock_run = MagicMock(return_value=(True, ""))
+        with (
+            patch("install.shutil.which", return_value=resolved),
+            patch("install.run_claude_plugin", mock_run),
+        ):
+            errors = install.ensure_ccrecall_plugin(install.Console())
+        assert errors == 0
+        assert mock_run.call_args_list == [
+            call(resolved, ["marketplace", "add", install.CCRECALL_MARKETPLACE_REPO]),
+            call(resolved, ["install", install.CCRECALL_PLUGIN_REF]),
+        ]
+
+    def test_skips_when_claude_absent(self) -> None:
+        """A missing claude binary is a warning, not a failure — the startup sync is the
+        fallback, so no plugin commands run and no error is counted."""
+        mock_run = MagicMock()
+        with (
+            patch("install.shutil.which", return_value=None),
+            patch("install.run_claude_plugin", mock_run),
+        ):
+            errors = install.ensure_ccrecall_plugin(install.Console())
+        assert errors == 0
+        mock_run.assert_not_called()
+
+    def test_install_failure_increments_errors(self) -> None:
+        """A failed `claude plugin install` is counted in the returned error total."""
+
+        def fake_run(claude_bin, args):
+            subcommand = args[0]  # "marketplace" or "install"
+            return (True, "") if subcommand == "marketplace" else (False, "boom")
+
+        with (
+            patch("install.shutil.which", return_value="/usr/bin/claude"),
+            patch("install.run_claude_plugin", side_effect=fake_run),
+        ):
+            errors = install.ensure_ccrecall_plugin(install.Console())
+        assert errors == 1
+
+    def test_marketplace_failure_is_warning_not_error(self) -> None:
+        """A failed marketplace add still proceeds to install and is not counted as an
+        error when the install itself succeeds (the marketplace may already be known)."""
+
+        def fake_run(claude_bin, args):
+            subcommand = args[0]  # "marketplace" or "install"
+            return (False, "boom") if subcommand == "marketplace" else (True, "")
+
+        mock_run = MagicMock(side_effect=fake_run)
+        with (
+            patch("install.shutil.which", return_value="/usr/bin/claude"),
+            patch("install.run_claude_plugin", mock_run),
+        ):
+            errors = install.ensure_ccrecall_plugin(install.Console())
+        assert errors == 0
+        assert mock_run.call_count == 2
+
+    def test_remove_resolves_claude_and_uninstalls(self) -> None:
+        """remove_ccrecall_plugin uninstalls the plugin via the shutil.which path."""
+        resolved = "/home/u/.local/share/mise/shims/claude"
+        mock_run = MagicMock(return_value=(True, ""))
+        with (
+            patch("install.shutil.which", return_value=resolved),
+            patch("install.run_claude_plugin", mock_run),
+        ):
+            install.remove_ccrecall_plugin(install.Console())
+        mock_run.assert_called_once_with(
+            resolved, ["uninstall", install.CCRECALL_PLUGIN_REF]
+        )
+
+    def test_remove_skips_when_claude_absent(self) -> None:
+        """A missing claude binary makes plugin uninstall a no-op (best-effort)."""
+        mock_run = MagicMock()
+        with (
+            patch("install.shutil.which", return_value=None),
+            patch("install.run_claude_plugin", mock_run),
+        ):
+            install.remove_ccrecall_plugin(install.Console())
+        mock_run.assert_not_called()
 
 
 class TestPackageInstall:

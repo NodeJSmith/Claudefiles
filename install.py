@@ -13,6 +13,7 @@ import fcntl
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -31,9 +32,13 @@ SKILL_DIRS = ["skills", "skills-impeccable", "skills-cli"]
 
 # ccrecall ships as a Claude Code plugin (skills + hooks), but its hook binaries and
 # CLI come from this PyPI package — install.py keeps it on PATH and removes the
-# pre-plugin vendored install it replaces. See design/specs/030-claude-memory-plugin.
+# pre-plugin vendored install it replaces. install.py also registers the plugin itself
+# (marketplace + install) so every machine gets a tracked install rather than relying on
+# the implicit startup sync. See design/specs/030-claude-memory-plugin.
 CCRECALL_PACKAGE = "ccrecall"
 LEGACY_MEMORY_PACKAGE = "claude-memory"
+CCRECALL_MARKETPLACE_REPO = "NodeJSmith/claude-code-recall"
+CCRECALL_PLUGIN_REF = "ccrecall@claude-code-recall"
 
 
 @dataclass(frozen=True)
@@ -690,6 +695,92 @@ def install_pypi_tool(name: str) -> tuple[bool, str]:
         return False, "uv not found — install via https://docs.astral.sh/uv/"
 
 
+def run_claude_plugin(claude_bin: str, args: list[str]) -> tuple[bool, str]:
+    """Run `claude plugin <args>` via an explicit binary path. Returns (ok, detail)."""
+    try:
+        result = subprocess.run(
+            [claude_bin, "plugin", *args],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if result.returncode != 0:
+            return False, (result.stderr or result.stdout).strip()
+        return True, ""
+    except subprocess.TimeoutExpired:
+        return False, "timed out after 120s"
+    except FileNotFoundError:
+        return False, f"{claude_bin} not found"
+
+
+def ensure_ccrecall_plugin(console: Console) -> int:
+    """Register the ccrecall plugin: add its marketplace, then install it. Returns errors.
+
+    The plugin auto-syncs from enabledPlugins in settings.json at session start, but that
+    sync leaves no tracked install record (so `claude plugin update` won't see it). This
+    makes the install explicit and idempotent — both commands no-op when already present.
+
+    claude is resolved with shutil.which, never the bare name: the interactive `claude`
+    shell function launches `--bare`, which skips plugin sync. shutil.which sees only real
+    PATH binaries, never shell functions/aliases. A missing claude is a warning, not a
+    failure — the startup sync remains as a fallback.
+    """
+    errors = 0
+    claude_bin = shutil.which("claude")
+    if claude_bin is None:
+        console.print(
+            "  [yellow]claude not on PATH — skipping plugin registration "
+            "(it auto-syncs from settings.json on next session start)[/yellow]"
+        )
+        return errors
+
+    # Marketplace add failing is non-fatal — it's already-known on every machine past the
+    # first, and a real failure surfaces again as the install error below.
+    console.print(f"  Adding plugin marketplace: {CCRECALL_MARKETPLACE_REPO}...")
+    mp_ok, detail = run_claude_plugin(
+        claude_bin, ["marketplace", "add", CCRECALL_MARKETPLACE_REPO]
+    )
+    if not mp_ok:
+        console.print("  [yellow]Warning: marketplace add failed[/yellow]")
+        if detail:
+            console.print(f"  [dim]{detail}[/dim]")
+
+    console.print(f"  Installing plugin: {CCRECALL_PLUGIN_REF}...")
+    inst_ok, detail = run_claude_plugin(claude_bin, ["install", CCRECALL_PLUGIN_REF])
+    if not inst_ok:
+        console.print(f"  [red]Failed to register plugin {CCRECALL_PLUGIN_REF}[/red]")
+        if detail:
+            console.print(f"  [dim]{detail}[/dim]")
+        errors += 1
+    return errors
+
+
+def remove_ccrecall_plugin(console: Console) -> None:
+    """Uninstall the ccrecall plugin — the do_uninstall mirror of ensure_ccrecall_plugin.
+
+    Best-effort: a missing claude or a failed uninstall warns rather than fails, matching
+    the package uninstalls. claude is resolved with shutil.which for the same reason as
+    ensure_ccrecall_plugin (avoid the --bare shell function). enabledPlugins in
+    settings.json is left untouched on purpose — a full teardown reverts settings.json
+    separately; this just drops the tracked install.
+    """
+    claude_bin = shutil.which("claude")
+    if claude_bin is None:
+        console.print(
+            "  [yellow]claude not on PATH — skipping plugin uninstall[/yellow]"
+        )
+        return
+
+    console.print(f"  Uninstalling plugin: {CCRECALL_PLUGIN_REF}...")
+    ok, detail = run_claude_plugin(claude_bin, ["uninstall", CCRECALL_PLUGIN_REF])
+    if not ok:
+        console.print(
+            f"  [yellow]Warning: failed to uninstall plugin {CCRECALL_PLUGIN_REF}[/yellow]"
+        )
+        if detail:
+            console.print(f"  [dim]{detail}[/dim]")
+
+
 def ensure_ccrecall(installed_pkgs: set[str], console: Console) -> int:
     """Install the ccrecall package and remove the legacy claude-memory install.
 
@@ -1032,6 +1123,7 @@ def do_install(
     # package install is unconditional — not gated behind a bundle. This also removes the
     # legacy claude-memory install that ccrecall replaces.
     errors += ensure_ccrecall(installed_pkgs, console)
+    errors += ensure_ccrecall_plugin(console)
 
     # Handle shadowed files
     if shadowed:
@@ -1198,6 +1290,8 @@ def do_uninstall(repo_dir: Path, claude_dir: Path, cfg: dict) -> None:
             console.print(f"  [yellow]Warning: failed to uninstall {pkg_name}[/yellow]")
             if detail:
                 console.print(f"  [dim]{detail}[/dim]")
+
+    remove_ccrecall_plugin(console)
 
     # Remove config
     cfg_path = config_path(claude_dir)
