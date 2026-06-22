@@ -478,9 +478,15 @@ def cmd_archive(args: argparse.Namespace) -> None:
                     post.metadata["status"] = "done"
                 atomic_write(post, task_file)
 
-            # Also delete context.md if present (may be untracked — use unlink, not git rm)
-            context_md = tasks_dir / "context.md"
-            context_md.unlink(missing_ok=True)
+            # Remove context.md and the feature-dir orchestration scaffolding.
+            # trail.tsv / trail-audit.md are written by the orchestrator alongside
+            # design.md; .gitignore exists only to keep them untracked. None of
+            # these belong in history — left behind, they leak into every PR.
+            # design.md is intentionally preserved (stamped archived below).
+            # (tasks/.gitignore is handled in _archive_feature before git rm -r.)
+            _remove_artifact(tasks_dir / "context.md", git_root)
+            for artifact_name in ("trail.tsv", "trail-audit.md", ".gitignore"):
+                _remove_artifact(feature_dir / artifact_name, git_root)
 
             # Auto-delete stale orchestration checkpoint
             cp_path = checkpoint_path(feature_dir)
@@ -567,6 +573,32 @@ def _git_rm(git_root: Path, rel_path: str, *, recursive: bool = False) -> None:
         raise RuntimeError(f"git rm failed for {rel_path}: {stderr}")
 
 
+def _is_tracked(git_root: Path, rel_path: str) -> bool:
+    """True if rel_path is tracked by git."""
+    proc = subprocess.run(
+        ["git", "-C", str(git_root), "ls-files", "--error-unmatch", rel_path],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    return proc.returncode == 0
+
+
+def _remove_artifact(path: Path, git_root: Path) -> None:
+    """Remove a scaffolding file whether tracked or untracked.
+
+    Tracked files go through git rm so the deletion is staged and traceable;
+    untracked/gitignored files are unlinked from the working tree.
+    """
+    if not path.exists():
+        return
+    rel = str(path.relative_to(git_root))
+    if _is_tracked(git_root, rel):
+        _git_rm(git_root, rel)
+    else:
+        path.unlink()
+
+
 def _archive_feature(feature_dir: Path, tasks_dir: Path, git_root: Path) -> None:
     """Delete tasks/ and update design.md status for a single feature.
 
@@ -574,6 +606,10 @@ def _archive_feature(feature_dir: Path, tasks_dir: Path, git_root: Path) -> None
     untouched and re-running archive retries cleanly. The reverse order
     would leave design.md stamped "archived" with tasks/ still present.
     """
+    # Clear the checkpoint's tasks/.gitignore first — left untracked, it keeps
+    # tasks/ on disk after git rm -r (which only removes tracked files).
+    _remove_artifact(tasks_dir / ".gitignore", git_root)
+
     # Delete tasks/ via git rm -r (traceable)
     tasks_rel = str(tasks_dir.relative_to(git_root))
     _git_rm(git_root, tasks_rel, recursive=True)

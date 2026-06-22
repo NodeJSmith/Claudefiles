@@ -17,6 +17,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Fixed
 
+- `spec-helper archive` now removes the orchestration scaffolding that lived alongside `design.md` — `trail.tsv`, `trail-audit.md`, and the feature-dir `.gitignore` — instead of leaving them behind to leak into every PR. It also clears the untracked `tasks/.gitignore` (checkpoint ignore) that otherwise kept `tasks/` on disk after `git rm -r`. Tracked artifacts are removed with `git rm` (staged, traceable); gitignored ones are unlinked. `design.md` is still preserved and stamped `**Status:** archived`.
 - `install.py` no longer reinstalls the `ccrecall` PyPI package over a non-uv install. `ensure_ccrecall` detected presence via membership in `uv tool list`, so a mise- or pipx-managed ccrecall (invisible to `uv tool list`) was clobbered by a redundant `uv tool install` on every run — recreating shadowing `~/.local/bin/ccrecall*` shims. Presence is now detected with `shutil.which`, so any PATH-resident install (mise, pipx, uv) is recognized and left alone; a genuinely-absent ccrecall still installs from PyPI as before. The legacy `claude-memory` cleanup still keys off `uv tool list`, since that one is specifically a uv-tool install to remove. (#401)
 
 ## 2026-06-21
