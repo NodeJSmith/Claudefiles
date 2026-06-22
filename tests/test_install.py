@@ -636,7 +636,6 @@ class TestFullInstallFlow:
             "bundles": {
                 "frontend": True,
                 "cli": False,
-                "memory": False,
                 "engineering": False,
                 "extra-agents": False,
             }
@@ -789,7 +788,6 @@ class TestFullInstallFlow:
             "bundles": {
                 "frontend": False,
                 "cli": False,
-                "memory": False,
                 "engineering": False,
                 "extra-agents": False,
             }
@@ -1276,7 +1274,6 @@ class TestMainNonInteractive:
             "bundles": {
                 "frontend": True,
                 "cli": False,
-                "memory": False,
                 "engineering": False,
                 "extra-agents": False,
             },
@@ -1342,7 +1339,6 @@ class TestMainNonInteractive:
             "bundles": {
                 "frontend": False,
                 "cli": False,
-                "memory": False,
                 "engineering": False,
                 "extra-agents": False,
             },
@@ -1506,7 +1502,6 @@ class TestCapabilitiesFiles:
             "bundles": {
                 "frontend": False,
                 "cli": True,
-                "memory": False,
                 "engineering": False,
                 "extra-agents": False,
             }
@@ -1536,7 +1531,6 @@ class TestCapabilitiesFiles:
             "bundles": {
                 "frontend": False,
                 "cli": True,
-                "memory": False,
                 "engineering": False,
                 "extra-agents": False,
             }
@@ -1545,7 +1539,6 @@ class TestCapabilitiesFiles:
             "bundles": {
                 "frontend": False,
                 "cli": False,
-                "memory": False,
                 "engineering": False,
                 "extra-agents": False,
             }
@@ -1864,7 +1857,6 @@ class TestMigrationMainFlow:
             "bundles": {
                 "frontend": False,
                 "cli": False,
-                "memory": False,
                 "engineering": False,
                 "extra-agents": False,
             },
@@ -1978,7 +1970,6 @@ class TestFirstInstallAdoTip:
             "bundles": {
                 "frontend": False,
                 "cli": False,
-                "memory": False,
                 "engineering": False,
                 "extra-agents": False,
             },
