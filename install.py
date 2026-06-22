@@ -27,7 +27,13 @@ from rich.panel import Panel
 CONFIG_VERSION = 2  # on a breaking schema change, bump this and add a migrate_vN_to_v(N+1) step (see migrate_v1_to_v2)
 CONFIG_FILENAME = ".claudefiles-install-config.json"
 
-SKILL_DIRS = ["skills", "skills-impeccable", "skills-cli", "skills-memory"]
+SKILL_DIRS = ["skills", "skills-impeccable", "skills-cli"]
+
+# ccrecall ships as a Claude Code plugin (skills + hooks), but its hook binaries and
+# CLI come from this PyPI package — install.py keeps it on PATH and removes the
+# pre-plugin vendored install it replaces. See design/specs/030-claude-memory-plugin.
+CCRECALL_PACKAGE = "ccrecall"
+LEGACY_MEMORY_PACKAGE = "claude-memory"
 
 
 @dataclass(frozen=True)
@@ -128,17 +134,6 @@ def get_bundles(repo_dir: Path) -> dict[str, Bundle]:
                 "cli-output",
             ),
             capabilities_files=("capabilities-cli.md",),
-        ),
-        "memory": Bundle(
-            label="Memory (cm-*)",
-            description="Conversation memory, recall, and token insights",
-            skills=(
-                "cm-get-token-insights",
-                "cm-recall-conversations",
-            ),
-            agents=(),
-            packages=("claude-memory",),
-            capabilities_files=("capabilities-memory.md",),
         ),
         "engineering": Bundle(
             label="Engineering specialists",
@@ -391,11 +386,12 @@ def migrate_v1_to_v2(v1_config: dict) -> dict:
     Migration table (from design doc):
       skills.impeccable  → bundles.frontend
       skills.cli         → bundles.cli
-      skills.memory      → bundles.memory
       agents.engineering → bundles.engineering
       agents.core        → bundles.extra-agents (true iff agents.core was true)
       skills.core, packages.spec-helper, packages.merge-settings,
-        hooks.*, agents.memory, packages.claude-memory → base (always installed)
+        hooks.*, agents.memory → base (always installed)
+      skills.memory, packages.claude-memory → dropped (memory is now the external
+        ccrecall plugin, not a Claudefiles bundle)
     """
     skills = v1_config.get("skills", {})
     agents = v1_config.get("agents", {})
@@ -405,7 +401,6 @@ def migrate_v1_to_v2(v1_config: dict) -> dict:
         "bundles": {
             "frontend": bool(skills.get("impeccable", False)),
             "cli": bool(skills.get("cli", False)),
-            "memory": bool(skills.get("memory", False)),
             "engineering": bool(agents.get("engineering", False)),
             "extra-agents": bool(agents.get("core", False)),
         },
@@ -671,6 +666,59 @@ def uninstall_package(pkg_name: str) -> tuple[bool, str]:
         return False, "timed out after 30s"
     except FileNotFoundError:
         return False, "uv not found — install via https://docs.astral.sh/uv/"
+
+
+def install_pypi_tool(name: str) -> tuple[bool, str]:
+    """Run uv tool install <name> for a published (non-editable) PyPI package.
+
+    Unlike install_package, this takes no repo_dir — the package is fetched from
+    PyPI, not installed editable from a local path in this repo.
+    """
+    try:
+        result = subprocess.run(
+            ["uv", "tool", "install", name],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if result.returncode != 0:
+            return False, (result.stderr or result.stdout).strip()
+        return True, ""
+    except subprocess.TimeoutExpired:
+        return False, "timed out after 300s"
+    except FileNotFoundError:
+        return False, "uv not found — install via https://docs.astral.sh/uv/"
+
+
+def ensure_ccrecall(installed_pkgs: set[str], console: Console) -> int:
+    """Install the ccrecall package and remove the legacy claude-memory install.
+
+    ccrecall replaces the formerly-vendored claude-memory: its hook binaries and CLI
+    must be on PATH for the plugin's bundled hooks to work. Installs from PyPI when
+    absent (idempotent — skips if already present) and uninstalls claude-memory when
+    it lingers (silent no-op if it was never installed). Returns error count.
+    """
+    errors = 0
+    ccrecall_present = CCRECALL_PACKAGE in installed_pkgs
+    if not ccrecall_present:
+        console.print(f"  Installing package: {CCRECALL_PACKAGE} (PyPI)...")
+        ok, detail = install_pypi_tool(CCRECALL_PACKAGE)
+        if ok:
+            ccrecall_present = True
+        else:
+            console.print(f"  [red]Failed to install {CCRECALL_PACKAGE}[/red]")
+            if detail:
+                console.print(f"  [dim]{detail}[/dim]")
+            errors += 1
+
+    # Only drop the legacy package once its replacement is in place — removing it
+    # while ccrecall is absent would leave the machine with neither.
+    if ccrecall_present and LEGACY_MEMORY_PACKAGE in installed_pkgs:
+        console.print(f"  Removing legacy package: {LEGACY_MEMORY_PACKAGE}...")
+        ok, detail = uninstall_package(LEGACY_MEMORY_PACKAGE)
+        if not ok and detail:
+            console.print(f"  [yellow]Warning: {detail}[/yellow]")
+    return errors
 
 
 def install_bundle_packages(
@@ -980,6 +1028,11 @@ def do_install(
                 if dest.is_symlink() and is_owned_by(dest, repo_dir):
                     dest.unlink()
 
+    # ccrecall is always-on (its plugin is enabled globally in settings.json), so the
+    # package install is unconditional — not gated behind a bundle. This also removes the
+    # legacy claude-memory install that ccrecall replaces.
+    errors += ensure_ccrecall(installed_pkgs, console)
+
     # Handle shadowed files
     if shadowed:
         console.print(
@@ -1123,6 +1176,10 @@ def do_uninstall(repo_dir: Path, claude_dir: Path, cfg: dict) -> None:
     for bundle in (b for b in bundles.values() if b.always_installed):
         pkgs_to_uninstall.extend(bundle.packages)
 
+    # ccrecall is installed unconditionally by do_install (ensure_ccrecall), so the
+    # uninstall path removes it too — it is not part of any bundle.
+    pkgs_to_uninstall.append(CCRECALL_PACKAGE)
+
     # Add packages from selected optional bundles
     for bundle_key, bundle in (b for b in bundles.items() if not b[1].always_installed):
         if bundle_cfg.get(bundle_key):
@@ -1233,7 +1290,6 @@ def _migrate_and_backup(v1_config: dict, cfg_path: Path, repo_dir: Path) -> dict
             "The new installer uses bundles. Your selections have been mapped:\n\n"
             f"  skills.impeccable → bundles.frontend  ({v2['bundles']['frontend']})\n"
             f"  skills.cli        → bundles.cli        ({v2['bundles']['cli']})\n"
-            f"  skills.memory     → bundles.memory     ({v2['bundles']['memory']})\n"
             f"  agents.engineering → bundles.engineering ({v2['bundles']['engineering']})\n"
             f"  agents.core       → bundles.extra-agents ({v2['bundles']['extra-agents']})\n\n"
             "[bold]Force-installed (base bundle — non-negotiable in v2):[/bold]\n"

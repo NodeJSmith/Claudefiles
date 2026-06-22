@@ -25,6 +25,16 @@ BASE_PACKAGES = frozenset(
 )
 
 
+@pytest.fixture(autouse=True)
+def _stub_ccrecall_pypi_install(monkeypatch):
+    """Stop do_install from shelling out to a real `uv tool install ccrecall`.
+
+    do_install always calls ensure_ccrecall, which installs ccrecall from PyPI when
+    absent. Default it to a successful no-op; tests that assert on it re-patch.
+    """
+    monkeypatch.setattr(install, "install_pypi_tool", lambda name: (True, ""))
+
+
 # ---------------------------------------------------------------------------
 # Config tests
 # ---------------------------------------------------------------------------
@@ -357,14 +367,13 @@ class TestBundleModel:
                 f"{key} should not be always_installed"
             )
 
-    def test_five_optional_bundles(self, tmp_path: Path) -> None:
-        """Exactly 5 optional bundles."""
+    def test_four_optional_bundles(self, tmp_path: Path) -> None:
+        """Exactly 4 optional bundles (memory is now the external ccrecall plugin)."""
         _setup_minimal_repo(tmp_path)
         opt = install.optional_bundles(tmp_path)
         assert set(opt.keys()) == {
             "frontend",
             "cli",
-            "memory",
             "engineering",
             "extra-agents",
         }
@@ -394,15 +403,11 @@ class TestBundleModel:
         bundles = install.get_bundles(tmp_path)
         assert set(bundles["base"].packages) == {"spec-helper", "merge-settings"}
 
-    def test_memory_bundle_has_claude_memory(self, tmp_path: Path) -> None:
+    def test_no_memory_bundle(self, tmp_path: Path) -> None:
+        """Memory is the external ccrecall plugin, not a Claudefiles bundle."""
         _setup_minimal_repo(tmp_path)
         bundles = install.get_bundles(tmp_path)
-        assert "claude-memory" in bundles["memory"].packages
-
-    def test_memory_capabilities_file(self, tmp_path: Path) -> None:
-        _setup_minimal_repo(tmp_path)
-        bundles = install.get_bundles(tmp_path)
-        assert "capabilities-memory.md" in bundles["memory"].capabilities_files
+        assert "memory" not in bundles
 
     def test_frontend_capabilities_file(self, tmp_path: Path) -> None:
         _setup_minimal_repo(tmp_path)
@@ -435,11 +440,6 @@ class TestFindSkillSource:
         (tmp_path / "skills-cli" / "cli-harden").mkdir(parents=True)
         result = install.find_skill_source("cli-harden", tmp_path)
         assert result == tmp_path / "skills-cli" / "cli-harden"
-
-    def test_finds_in_skills_memory(self, tmp_path: Path) -> None:
-        (tmp_path / "skills-memory" / "cm-recall-conversations").mkdir(parents=True)
-        result = install.find_skill_source("cm-recall-conversations", tmp_path)
-        assert result == tmp_path / "skills-memory" / "cm-recall-conversations"
 
     def test_raises_when_not_found(self, tmp_path: Path) -> None:
         with pytest.raises(FileNotFoundError, match="Skill not found: nonexistent"):
@@ -541,12 +541,6 @@ def _setup_full_repo(path: Path) -> None:
     (path / "skills-impeccable" / "i-audit").mkdir(parents=True)
     (path / "skills-impeccable" / "i-audit" / "SKILL.md").write_text("skill")
     (path / "skills-impeccable" / "capabilities-impeccable.md").write_text("caps")
-    # Memory skills
-    (path / "skills-memory" / "cm-recall-conversations").mkdir(parents=True)
-    (path / "skills-memory" / "cm-recall-conversations" / "SKILL.md").write_text(
-        "skill"
-    )
-    (path / "skills-memory" / "capabilities-memory.md").write_text("caps")
     # CLI skills
     (path / "skills-cli" / "cli-harden").mkdir(parents=True)
     (path / "skills-cli" / "cli-harden" / "SKILL.md").write_text("skill")
@@ -666,9 +660,6 @@ class TestFullInstallFlow:
         ).is_symlink()
         # Capability file NOT in skills/
         assert not (claude_dir / "skills" / "capabilities-impeccable.md").exists()
-        # Memory NOT installed
-        assert not (claude_dir / "skills" / "cm-recall-conversations").exists()
-        assert not (claude_dir / "rules" / "common" / "capabilities-memory.md").exists()
 
     def test_hooks_always_installed(self, tmp_path: Path) -> None:
         """All hooks install regardless of bundle selection."""
@@ -723,19 +714,18 @@ class TestFullInstallFlow:
         assert (refs / "frontend.md").is_symlink()
 
     def test_deselected_bundle_removes_symlinks(self, tmp_path: Path) -> None:
-        """Deselecting a bundle removes its skill and agent symlinks."""
+        """Deselecting a bundle removes its skill and capability symlinks."""
         repo = tmp_path / "repo"
         claude_dir = tmp_path / "claude"
         _setup_full_repo(repo)
         install._BUNDLES_CACHE = None
         install._BUNDLES_REPO_DIR = None
 
-        # First: install with memory selected
+        # First: install with frontend selected
         config_v1 = {
             "bundles": {
-                "frontend": False,
+                "frontend": True,
                 "cli": False,
-                "memory": True,
                 "engineering": False,
                 "extra-agents": False,
             }
@@ -748,23 +738,22 @@ class TestFullInstallFlow:
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             install.do_install(repo, claude_dir, config_v1, interactive=False)
 
-        assert (claude_dir / "skills" / "cm-recall-conversations").is_symlink()
-        assert (claude_dir / "rules" / "common" / "capabilities-memory.md").is_symlink()
+        assert (claude_dir / "skills" / "i-audit").is_symlink()
+        assert (
+            claude_dir / "rules" / "common" / "capabilities-impeccable.md"
+        ).is_symlink()
 
-        # Second: deselect memory
+        # Second: deselect frontend
         config_v2 = {
             "bundles": {
                 "frontend": False,
                 "cli": False,
-                "memory": False,
                 "engineering": False,
                 "extra-agents": False,
             }
         }
-        mock_uninstall = MagicMock(return_value=(True, ""))
         with (
             patch("install.install_package"),
-            patch("install.uninstall_package", mock_uninstall),
             patch("install._get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
@@ -772,10 +761,10 @@ class TestFullInstallFlow:
                 repo, claude_dir, config_v2, prev_config=config_v1, interactive=False
             )
 
-        assert not (claude_dir / "skills" / "cm-recall-conversations").exists()
-        assert not (claude_dir / "rules" / "common" / "capabilities-memory.md").exists()
-        # Package uninstall triggered
-        mock_uninstall.assert_called_with("claude-memory")
+        assert not (claude_dir / "skills" / "i-audit").exists()
+        assert not (
+            claude_dir / "rules" / "common" / "capabilities-impeccable.md"
+        ).exists()
 
     def test_deselection_preserves_unowned_capabilities_file(
         self, tmp_path: Path
@@ -830,12 +819,11 @@ class TestFullInstallFlow:
 
         rules_common = claude_dir / "rules" / "common"
 
-        # First install with frontend and memory enabled
+        # First install with frontend and cli enabled
         config_v1 = {
             "bundles": {
                 "frontend": True,
-                "cli": False,
-                "memory": True,
+                "cli": True,
                 "engineering": False,
                 "extra-agents": False,
             }
@@ -849,14 +837,13 @@ class TestFullInstallFlow:
             install.do_install(repo, claude_dir, config_v1, interactive=False)
 
         assert (rules_common / "capabilities-impeccable.md").is_symlink()
-        assert (rules_common / "capabilities-memory.md").is_symlink()
+        assert (rules_common / "capabilities-cli.md").is_symlink()
 
         # Re-install with frontend deselected
         config_v2 = {
             "bundles": {
                 "frontend": False,
-                "cli": False,
-                "memory": True,
+                "cli": True,
                 "engineering": False,
                 "extra-agents": False,
             }
@@ -871,8 +858,8 @@ class TestFullInstallFlow:
             )
 
         assert not (rules_common / "capabilities-impeccable.md").exists()
-        assert (rules_common / "capabilities-memory.md").is_symlink()
-        assert (claude_dir / "skills" / "cm-recall-conversations").is_symlink()
+        assert (rules_common / "capabilities-cli.md").is_symlink()
+        assert (claude_dir / "skills" / "cli-harden").is_symlink()
         assert not (claude_dir / "skills" / "i-audit").exists()
 
 
@@ -1071,138 +1058,60 @@ def _minimal_repo(tmp_path: Path) -> Path:
 
 
 class TestPackageInstall:
-    def test_skips_already_installed(self, tmp_path: Path) -> None:
-        repo = _minimal_repo(tmp_path)
-        claude_dir = tmp_path / "claude"
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
-
-        # memory bundle selects claude-memory
-        config = {
-            "bundles": {
-                "frontend": False,
-                "cli": False,
-                "memory": True,
-                "engineering": False,
-                "extra-agents": False,
-            }
-        }
-        # Add memory skill dirs to repo so bundle can be installed
-        (repo / "skills-memory" / "cm-get-token-insights").mkdir(parents=True)
-        (repo / "skills-memory" / "cm-recall-conversations").mkdir(parents=True)
-
-        mock_install = MagicMock()
-        with (
-            patch("install.install_package", mock_install),
-            patch(
-                "install._get_installed_packages",
-                return_value={"claude-memory"} | BASE_PACKAGES,
-            ),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
-        ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
-            install.do_install(repo, claude_dir, config, interactive=False)
-
+    def test_skips_ccrecall_when_present(self) -> None:
+        """ensure_ccrecall does not reinstall ccrecall when it is already on PATH."""
+        mock_install = MagicMock(return_value=(True, ""))
+        with patch("install.install_pypi_tool", mock_install):
+            errors = install.ensure_ccrecall(
+                {"ccrecall"} | BASE_PACKAGES, install.Console()
+            )
+        assert errors == 0
         mock_install.assert_not_called()
 
-    def test_installs_when_not_present(self, tmp_path: Path) -> None:
-        repo = _minimal_repo(tmp_path)
-        claude_dir = tmp_path / "claude"
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
-
-        # memory bundle selects claude-memory
-        (repo / "skills-memory" / "cm-get-token-insights").mkdir(parents=True)
-        (repo / "skills-memory" / "cm-recall-conversations").mkdir(parents=True)
-
-        config = {
-            "bundles": {
-                "frontend": False,
-                "cli": False,
-                "memory": True,
-                "engineering": False,
-                "extra-agents": False,
-            }
-        }
+    def test_installs_ccrecall_when_absent(self) -> None:
+        """ensure_ccrecall installs ccrecall from PyPI when it is not present."""
         mock_install = MagicMock(return_value=(True, ""))
-        with (
-            patch("install.install_package", mock_install),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
-        ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
-            install.do_install(repo, claude_dir, config, interactive=False)
+        with patch("install.install_pypi_tool", mock_install):
+            errors = install.ensure_ccrecall(set(BASE_PACKAGES), install.Console())
+        assert errors == 0
+        mock_install.assert_called_once_with("ccrecall")
 
-        mock_install.assert_called_once_with(repo, "claude-memory")
+    def test_install_failure_increments_errors(self) -> None:
+        """A failed ccrecall install is counted in the returned error total."""
+        with patch("install.install_pypi_tool", return_value=(False, "boom")):
+            errors = install.ensure_ccrecall(set(BASE_PACKAGES), install.Console())
+        assert errors == 1
 
-    def test_uninstalls_deselected_package(self, tmp_path: Path) -> None:
-        repo = _minimal_repo(tmp_path)
-        claude_dir = tmp_path / "claude"
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
-
-        prev_config = {
-            "bundles": {
-                "frontend": False,
-                "cli": False,
-                "memory": True,
-                "engineering": False,
-                "extra-agents": False,
-            }
-        }
-        new_config = {
-            "bundles": {
-                "frontend": False,
-                "cli": False,
-                "memory": False,
-                "engineering": False,
-                "extra-agents": False,
-            }
-        }
-
+    def test_uninstalls_legacy_claude_memory_when_present(self) -> None:
+        """ensure_ccrecall removes a lingering claude-memory install."""
         mock_uninstall = MagicMock(return_value=(True, ""))
         with (
-            patch("install.install_package"),
+            patch("install.install_pypi_tool", return_value=(True, "")),
             patch("install.uninstall_package", mock_uninstall),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
-            install.do_install(
-                repo,
-                claude_dir,
-                new_config,
-                prev_config=prev_config,
-                interactive=False,
-            )
-
+            install.ensure_ccrecall({"ccrecall", "claude-memory"}, install.Console())
         mock_uninstall.assert_called_once_with("claude-memory")
 
-    def test_no_uninstall_without_prev_config(self, tmp_path: Path) -> None:
-        repo = _minimal_repo(tmp_path)
-        claude_dir = tmp_path / "claude"
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
-
-        config = {
-            "bundles": {
-                "frontend": False,
-                "cli": False,
-                "memory": False,
-                "engineering": False,
-                "extra-agents": False,
-            }
-        }
+    def test_no_uninstall_when_claude_memory_absent(self) -> None:
+        """ensure_ccrecall is a silent no-op for uninstall when claude-memory is gone."""
         mock_uninstall = MagicMock()
         with (
-            patch("install.install_package"),
+            patch("install.install_pypi_tool", return_value=(True, "")),
             patch("install.uninstall_package", mock_uninstall),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
-            install.do_install(repo, claude_dir, config, interactive=False)
+            install.ensure_ccrecall({"ccrecall"}, install.Console())
+        mock_uninstall.assert_not_called()
 
+    def test_keeps_legacy_when_ccrecall_install_fails(self) -> None:
+        """Legacy claude-memory is kept if ccrecall fails — never leave the machine
+        with neither the new package nor the old one."""
+        mock_uninstall = MagicMock()
+        with (
+            patch("install.install_pypi_tool", return_value=(False, "boom")),
+            patch("install.uninstall_package", mock_uninstall),
+        ):
+            errors = install.ensure_ccrecall({"claude-memory"}, install.Console())
+        assert errors == 1
         mock_uninstall.assert_not_called()
 
     def test_base_packages_installed(self, tmp_path: Path) -> None:
@@ -1242,6 +1151,7 @@ class TestPackageInstall:
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             errors = install.do_install(repo, claude_dir, config, interactive=False)
 
+        # ccrecall contributes 0 errors here — the autouse stub makes its install succeed.
         assert errors == len(install.get_bundles(repo)["base"].packages)
 
     def test_base_packages_skip_only_already_present(self, tmp_path: Path) -> None:
@@ -1284,15 +1194,18 @@ class TestDoUninstall:
 
         # uninstall_package is called as uninstall_package(pkg_name)
         uninstalled = {call.args[0] for call in mock_uninstall.call_args_list}
-        assert uninstalled == set(install.get_bundles(repo)["base"].packages)
+        # ccrecall is always uninstalled too (installed unconditionally by do_install)
+        assert uninstalled == set(install.get_bundles(repo)["base"].packages) | {
+            "ccrecall"
+        }
 
-    def test_optional_packages_uninstalled_when_in_config(self, tmp_path: Path) -> None:
-        """Selected optional bundle packages uninstall alongside base packages."""
+    def test_ccrecall_uninstalled_with_base_packages(self, tmp_path: Path) -> None:
+        """do_uninstall removes ccrecall alongside the base bundle packages."""
         repo = _minimal_repo(tmp_path)
         claude_dir = tmp_path / "claude"
         claude_dir.mkdir()
 
-        cfg = {"bundles": {"memory": True}}
+        cfg = {"bundles": {}}
         mock_uninstall = MagicMock(return_value=(True, ""))
         with (
             patch("install.uninstall_package", mock_uninstall),
@@ -1301,7 +1214,7 @@ class TestDoUninstall:
             install.do_uninstall(repo, claude_dir, cfg)
 
         uninstalled = {call.args[0] for call in mock_uninstall.call_args_list}
-        assert "claude-memory" in uninstalled
+        assert "ccrecall" in uninstalled
         assert set(install.get_bundles(repo)["base"].packages) <= uninstalled
 
 
@@ -1722,7 +1635,6 @@ class TestMigrateV1ToV2:
         bundles = result["bundles"]
         assert bundles["frontend"] is True
         assert bundles["cli"] is True
-        assert bundles["memory"] is True
         assert bundles["engineering"] is True
         assert bundles["extra-agents"] is True
 
@@ -1731,7 +1643,6 @@ class TestMigrateV1ToV2:
         bundles = result["bundles"]
         assert bundles["frontend"] is False
         assert bundles["cli"] is False
-        assert bundles["memory"] is False
         assert bundles["engineering"] is False
         assert bundles["extra-agents"] is False
 
@@ -1746,7 +1657,6 @@ class TestMigrateV1ToV2:
         bundles = result["bundles"]
         assert bundles["frontend"] is True
         assert bundles["cli"] is False
-        assert bundles["memory"] is False
         assert bundles["engineering"] is False
         assert bundles["extra-agents"] is False
 
@@ -1792,7 +1702,7 @@ class TestMigrateV1ToV2:
     def test_missing_v1_fields_default_false(self) -> None:
         """Completely empty v1 config → all optional bundles false."""
         result = install.migrate_v1_to_v2({"version": 1})
-        for key in ("frontend", "cli", "memory", "engineering", "extra-agents"):
+        for key in ("frontend", "cli", "engineering", "extra-agents"):
             assert result["bundles"][key] is False
 
     def test_result_is_v2_format(self) -> None:
