@@ -35,6 +35,16 @@ def _stub_ccrecall_side_effects(monkeypatch):
     leaf rather than ensure_ccrecall_plugin keeps that function real in do_install tests.
     """
     monkeypatch.setattr(install, "install_pypi_tool", lambda name: (True, ""))
+    # ensure_ccrecall now checks `shutil.which("ccrecall")` (a PATH boundary). Force it
+    # "absent" by default so do_install exercises the (stubbed) install branch regardless
+    # of whether the test host has ccrecall installed. Every other lookup (e.g. "claude")
+    # resolves for real, keeping ensure_ccrecall_plugin real in do_install tests.
+    _real_which = install.shutil.which
+    monkeypatch.setattr(
+        install.shutil,
+        "which",
+        lambda name: None if name == install.CCRECALL_PACKAGE else _real_which(name),
+    )
     # `list` returns an explicit empty array (not-yet-installed) so ensure_ccrecall_plugin
     # proceeds to install; other plugin subcommands no-op successfully.
     monkeypatch.setattr(
@@ -1201,12 +1211,19 @@ class TestCcrecallPlugin:
 
 class TestPackageInstall:
     def test_skips_ccrecall_when_present(self) -> None:
-        """ensure_ccrecall does not reinstall ccrecall when it is already on PATH."""
+        """ensure_ccrecall does not reinstall ccrecall when its binary is on PATH —
+        even when it is absent from `uv tool list` (e.g. a mise- or pipx-managed
+        install). This is the case that a naive `installed_pkgs` check missed."""
         mock_install = MagicMock(return_value=(True, ""))
-        with patch("install.install_pypi_tool", mock_install):
-            errors = install.ensure_ccrecall(
-                {"ccrecall"} | BASE_PACKAGES, install.Console()
-            )
+        with (
+            patch(
+                "install.shutil.which",
+                return_value="/home/u/.local/share/mise/shims/ccrecall",
+            ),
+            patch("install.install_pypi_tool", mock_install),
+        ):
+            # installed_pkgs (from `uv tool list`) deliberately lacks ccrecall.
+            errors = install.ensure_ccrecall(set(BASE_PACKAGES), install.Console())
         assert errors == 0
         mock_install.assert_not_called()
 
@@ -1228,20 +1245,24 @@ class TestPackageInstall:
         """ensure_ccrecall removes a lingering claude-memory install."""
         mock_uninstall = MagicMock(return_value=(True, ""))
         with (
+            # ccrecall present on PATH; claude-memory still in `uv tool list`.
+            patch("install.shutil.which", return_value="/usr/local/bin/ccrecall"),
             patch("install.install_pypi_tool", return_value=(True, "")),
             patch("install.uninstall_package", mock_uninstall),
         ):
-            install.ensure_ccrecall({"ccrecall", "claude-memory"}, install.Console())
+            install.ensure_ccrecall({"claude-memory"}, install.Console())
         mock_uninstall.assert_called_once_with("claude-memory")
 
     def test_no_uninstall_when_claude_memory_absent(self) -> None:
         """ensure_ccrecall is a silent no-op for uninstall when claude-memory is gone."""
         mock_uninstall = MagicMock()
         with (
+            # ccrecall present on PATH; nothing in `uv tool list` to remove.
+            patch("install.shutil.which", return_value="/usr/local/bin/ccrecall"),
             patch("install.install_pypi_tool", return_value=(True, "")),
             patch("install.uninstall_package", mock_uninstall),
         ):
-            install.ensure_ccrecall({"ccrecall"}, install.Console())
+            install.ensure_ccrecall(set(), install.Console())
         mock_uninstall.assert_not_called()
 
     def test_keeps_legacy_when_ccrecall_install_fails(self) -> None:

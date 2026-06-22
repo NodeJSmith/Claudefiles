@@ -818,12 +818,18 @@ def ensure_ccrecall(installed_pkgs: set[str], console: Console) -> int:
     """Install the ccrecall package and remove the legacy claude-memory install.
 
     ccrecall replaces the formerly-vendored claude-memory: its hook binaries and CLI
-    must be on PATH for the plugin's bundled hooks to work. Installs from PyPI when
-    absent (idempotent — skips if already present) and uninstalls claude-memory when
+    must be on PATH for the plugin's bundled hooks to work. Presence is checked via
+    shutil.which, so any install method counts — a mise- or pipx-managed ccrecall is
+    recognized and never clobbered by a redundant `uv tool install`. Installs from
+    PyPI only when the binary is absent from PATH, and uninstalls claude-memory when
     it lingers (silent no-op if it was never installed). Returns error count.
+
+    installed_pkgs is still consulted for the `LEGACY_MEMORY_PACKAGE in installed_pkgs`
+    guard at the end of this function — claude-memory is specifically a uv-tool install
+    we want to remove, so `uv tool list` is the right signal there.
     """
     errors = 0
-    ccrecall_present = CCRECALL_PACKAGE in installed_pkgs
+    ccrecall_present = shutil.which("ccrecall") is not None
     if not ccrecall_present:
         console.print(f"  Installing package: {CCRECALL_PACKAGE} (PyPI)...")
         ok, detail = install_pypi_tool(CCRECALL_PACKAGE)
