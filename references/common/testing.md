@@ -45,17 +45,11 @@ Mock only at system boundaries (external APIs, databases, time, filesystem). Pre
 
 Do not write tests that assert on log output (e.g., `caplog`, `capfd`, checking `logger.warning` was called). These tests are brittle — they break when log messages are reworded, reformatted, or when log levels change. Test the *behavior* that produces the log, not the log itself.
 
-## Pytest Timeout Guard
+## Pytest Timeout
 
-A PreToolUse hook (`pytest-guard.sh`) denies any pytest invocation not wrapped with `timeout`. This prevents orphaned pytest processes from accumulating when Claude sessions die unexpectedly.
+**Always run pytest wrapped in a timeout:** `timeout 300 pytest ...` (or `timeout 300 uv run pytest`, `timeout 300 python -m pytest`). This prevents orphaned pytest processes from accumulating when Claude sessions die unexpectedly — a real risk on the resource-constrained machines (VPS, laptop).
 
-**Always run pytest as:** `timeout 300 pytest ...` (or `timeout 300 uv run pytest`, `timeout 300 python -m pytest`)
-
-The timeout value is resolved in order: `CLAUDE_PYTEST_TIMEOUT` env var → per-repo `.claude/pytest-guard.json` → default 300s.
-
-Per-repo config can also deny specific flags (e.g., `-n auto` on resource-constrained machines) or block all pytest invocations entirely (`deny_all: true`, e.g., for nox-based repos). See the hook header for config format.
-
-**Escape hatch:** when you genuinely need to run pytest without a timeout wrapper (or past a per-repo deny), prefix the command with a reason-bearing env var: `PYTEST_GUARD_OFF="running under a debugger that owns process lifetime" pytest ...`. The reason must be non-empty; it's echoed to stderr so the opt-out stays a conscious, auditable choice.
+On resource-constrained machines, also avoid `-n auto`; pin the worker count (e.g., `-n 2`) so a parallel run can't fill swap.
 
 ## Test Execution
 
