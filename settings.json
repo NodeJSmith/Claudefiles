@@ -65,11 +65,6 @@
             "type": "command",
             "command": "bash -c 'f=\"${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/sudo-poll.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
             "timeout": 35000
-          },
-          {
-            "type": "command",
-            "command": "bash -c 'f=\"${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/pytest-guard.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
-            "timeout": 5000
           }
         ]
       },
@@ -80,11 +75,6 @@
             "type": "command",
             "command": "bash -c 'f=\"${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/tmux-drift-check.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
             "timeout": 2000
-          },
-          {
-            "type": "command",
-            "command": "bash -c 'f=\"${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/phrase-monitor.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
-            "timeout": 3000
           }
         ]
       }

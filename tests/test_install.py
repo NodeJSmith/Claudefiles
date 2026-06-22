@@ -579,7 +579,6 @@ def _setup_full_repo(path: Path) -> None:
         (path / "agents" / f"{name}.md").write_text(f"---\nname: {name}\n---\n")
     # Hooks
     (path / "scripts" / "hooks").mkdir(parents=True)
-    (path / "scripts" / "hooks" / "pytest-guard.sh").write_text("#!/bin/bash")
     (path / "scripts" / "hooks" / "sudo-poll.sh").write_text("#!/bin/bash")
     # Rules
     _write_rule_files(path)
@@ -686,7 +685,6 @@ class TestFullInstallFlow:
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             install.do_install(repo, claude_dir, config, interactive=False)
 
-        assert (claude_dir / "scripts" / "hooks" / "pytest-guard.sh").is_symlink()
         assert (claude_dir / "scripts" / "hooks" / "sudo-poll.sh").is_symlink()
 
     def test_rules_always_installed(self, tmp_path: Path) -> None:
