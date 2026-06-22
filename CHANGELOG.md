@@ -16,7 +16,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Fixed
 
-- `install.py` no longer reinstalls the `ccrecall` PyPI package over a non-uv install. `ensure_ccrecall` detected presence via membership in `uv tool list`, so a mise- or pipx-managed ccrecall (invisible to `uv tool list`) was clobbered by a redundant `uv tool install` on every run — recreating shadowing `~/.local/bin/ccrecall*` shims. Presence is now detected with `shutil.which`, so any PATH-resident install (mise, pipx, uv) is recognized and left alone; a genuinely-absent ccrecall still installs from PyPI as before. The legacy `claude-memory` cleanup still keys off `uv tool list`, since that one is specifically a uv-tool install to remove.
+- `install.py` no longer reinstalls the `ccrecall` PyPI package over a non-uv install. `ensure_ccrecall` detected presence via membership in `uv tool list`, so a mise- or pipx-managed ccrecall (invisible to `uv tool list`) was clobbered by a redundant `uv tool install` on every run — recreating shadowing `~/.local/bin/ccrecall*` shims. Presence is now detected with `shutil.which`, so any PATH-resident install (mise, pipx, uv) is recognized and left alone; a genuinely-absent ccrecall still installs from PyPI as before. The legacy `claude-memory` cleanup still keys off `uv tool list`, since that one is specifically a uv-tool install to remove. (#401)
 
 ## 2026-06-21
 
