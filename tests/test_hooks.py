@@ -1,4 +1,4 @@
-"""Integration tests for hook scripts (pytest-guard, tmux-drift, compaction).
+"""Integration tests for hook scripts (tmux-drift, compaction).
 
 Each test crafts JSON input matching the PreToolUse/PostToolUse schema, invokes
 the hook via subprocess.run, and asserts on exit code and stdout.
@@ -14,7 +14,6 @@ from pathlib import Path
 # Resolve hook paths relative to the repo root
 REPO_ROOT = Path(__file__).parent.parent
 COMPACTION_HOOK = REPO_ROOT / "scripts" / "hooks" / "subagent-compaction-check.sh"
-GUARD_HOOK = REPO_ROOT / "scripts" / "hooks" / "pytest-guard.sh"
 
 
 def run_hook(
@@ -439,71 +438,3 @@ class TestCompactionHookNoSubagentDir:
 
             assert result.returncode == 0
             assert result.stdout.strip() == ""
-
-
-# ---------------------------------------------------------------------------
-# pytest-guard.sh escape-hatch tests
-# ---------------------------------------------------------------------------
-
-
-def _guard_input(command: str) -> str:
-    """Build a PreToolUse JSON payload for the pytest guard (cwd avoids per-repo config)."""
-    return json.dumps(
-        {"tool_name": "Bash", "tool_input": {"command": command}, "cwd": "/tmp"}
-    )
-
-
-def _guard_decision(result: subprocess.CompletedProcess) -> str | None:
-    """The permissionDecision from a deny, or None if the hook passed silently."""
-    out = result.stdout.strip()
-    if not out:
-        return None
-    return json.loads(out)["hookSpecificOutput"]["permissionDecision"]
-
-
-class TestPytestGuardOverride:
-    """PYTEST_GUARD_OFF="reason" prefix opts out of the timeout requirement."""
-
-    def test_valid_reason_allows_bare_pytest(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            inp = _guard_input('PYTEST_GUARD_OFF="under a debugger" pytest tests/')
-            result = run_hook(GUARD_HOOK, inp, tmpdir)
-            assert result.returncode == 0
-            assert _guard_decision(result) is None
-            # the reason is echoed to stderr so the bypass stays auditable
-            assert "under a debugger" in result.stderr
-
-    def test_single_quoted_reason_allows(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            inp = _guard_input("PYTEST_GUARD_OFF='under a debugger' pytest tests/")
-            result = run_hook(GUARD_HOOK, inp, tmpdir)
-            assert _guard_decision(result) is None
-            assert "under a debugger" in result.stderr
-
-    def test_bare_word_reason_allows(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            inp = _guard_input("PYTEST_GUARD_OFF=ci pytest tests/")
-            result = run_hook(GUARD_HOOK, inp, tmpdir)
-            assert _guard_decision(result) is None
-            assert "ci" in result.stderr
-
-    def test_empty_reason_denied(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            inp = _guard_input('PYTEST_GUARD_OFF="" pytest tests/')
-            result = run_hook(GUARD_HOOK, inp, tmpdir)
-            assert _guard_decision(result) == "deny"
-
-    def test_placeholder_reason_denied(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            inp = _guard_input('PYTEST_GUARD_OFF="<reason>" pytest tests/')
-            result = run_hook(GUARD_HOOK, inp, tmpdir)
-            assert _guard_decision(result) == "deny"
-
-    def test_timeout_deny_advertises_override(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            inp = _guard_input("pytest tests/")
-            result = run_hook(GUARD_HOOK, inp, tmpdir)
-            reason = json.loads(result.stdout)["hookSpecificOutput"][
-                "permissionDecisionReason"
-            ]
-            assert "PYTEST_GUARD_OFF" in reason

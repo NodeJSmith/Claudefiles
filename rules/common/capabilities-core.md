@@ -80,7 +80,6 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "am I behind main", "did I forget to pull", "is my branch stale", "behind default branch" | `git-branch-behind` |
 | "detect git platform", "github or ado" | `git-platform` |
 | "validate agent files", "check skill schema" | `agnix-check` |
-| "phrase monitor log", "show phrase detections", "phrase monitor stats" | `phrase-monitor-log` |
 | (internal — called by mine-orchestrate) | `trail-log` |
 | "cancel builds", "cancel pipeline runs", "list ADO builds" | `ado-api builds` |
 | "build logs", "CI logs", "why did the build fail" | `ado-api logs` |

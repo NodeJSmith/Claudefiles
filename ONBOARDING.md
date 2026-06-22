@@ -158,7 +158,7 @@ Each worktree gets its own context, isolated from the main working tree.
 /mine-challenge             → adversarial review of your proposed approach
 ```
 
-**How the pieces interact:** Rules load automatically and shape every response — Claude writes code, handles git, and approaches security according to the rule files in `rules/common/`. Hooks run in the background — the pytest guard prevents hanging test runs, the tmux-drift check keeps your session name aligned with your work. Skills and agents sit on top: you invoke a skill, it dispatches the right agents, they report back.
+**How the pieces interact:** Rules load automatically and shape every response — Claude writes code, handles git, and approaches security according to the rule files in `rules/common/`. Hooks run in the background — the sudo poller handles privilege prompts, the tmux-drift check keeps your session name aligned with your work. Skills and agents sit on top: you invoke a skill, it dispatches the right agents, they report back.
 
 The result is a consistent development environment that works the same way every session, regardless of which codebase you're in.
 
