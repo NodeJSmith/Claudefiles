@@ -1,10 +1,11 @@
 # Cutover: De-vendor claude-memory, consume ccrecall as a plugin
 
 **Date:** 2026-06-21 (updated 2026-06-22)
-**Status:** EXECUTED in the repo (2026-06-22) — sections A–E landed on `worktree-devendoring`.
-The dev-machine plugin verify (§F) was deliberately skipped; the per-machine package swap
-(`uv tool install ccrecall` + `uv tool uninstall claude-memory`) and `claude-merge-settings`
-+ `uv run install.py` still run on each machine when the branch lands (§F steps 4–5).
+**Status:** EXECUTED in the repo (2026-06-22) — sections A–E landed on `worktree-devendoring`;
+dev machine (jessica-desktop) verified 2026-06-22 (plugin loads, data migrated, hooks not
+double-firing). `install.py` now automates the full per-machine swap — package install +
+`claude-memory` removal **and** the tracked plugin install — so each remaining machine just
+runs `claude-merge-settings` + `uv run install.py` (§F steps 4–5).
 **Companion:** [`brief.md`](./brief.md) (the platform decision); this doc is the Claudefiles-side change set.
 
 ## What this is
@@ -211,12 +212,16 @@ or drop. (Moot if the merge-settings tests use it only as illustrative mock data
    historical semantic search (CPU-heavy, ~120 MB jina download — run when idle; keyword
    search works meanwhile).
 3. Land the Claudefiles removals (A–E) once the plugin is verified.
-4. `claude-merge-settings` + `uv run install.py` (clears stale `cm-*` symlinks via
-   `find_stale_symlinks`) + `uv tool uninstall claude-memory`.
-5. Roll out to the other 4 machines: git sync + `uv run install.py` + `uv tool install
-   ccrecall` + `uv tool uninstall claude-memory`. The **package swap is per-machine** (does
-   not propagate via git); the auto-migration then fires on first session start. Optional
-   per-machine `ccrecall backfill embeddings` when each box is idle.
+4. `claude-merge-settings` + `uv run install.py`. `install.py` now does the whole ccrecall
+   swap itself (`ensure_ccrecall` installs the `ccrecall` package + uninstalls
+   `claude-memory`; `ensure_ccrecall_plugin` adds the marketplace + installs the plugin via
+   the `shutil.which`-resolved `claude`, not the `--bare` shell alias), and clears stale
+   `cm-*` symlinks via `find_stale_symlinks`. No separate `uv tool` commands needed.
+5. Roll out to the other 4 machines: git sync + `claude-merge-settings` + `uv run install.py`.
+   That single installer run does the package swap **and** the tracked plugin install — both
+   are per-machine (neither propagates via git, but `install.py` handles them). The
+   data auto-migration then fires on first session start. Optional per-machine
+   `ccrecall backfill embeddings` when each box is idle.
 
 ## G. Deferred / open items (decide at execution time)
 
