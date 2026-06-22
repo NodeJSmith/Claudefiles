@@ -63,7 +63,7 @@ Based on the above changes:
    - Run `get-skill-tmpdir mine-pr` to create a temp directory, then write the PR body to `<dir>/body.md` and use that path in subsequent commands
    - **GitHub**:
      ```bash
-     gh-pr-create --draft --title "..." --body-file <tmpfile>
+     gh pr create --draft --title "..." --body-file <tmpfile>
      ```
    - **Azure DevOps**: Read the body file content using the Read tool, then pass it as a literal string argument:
      ```bash

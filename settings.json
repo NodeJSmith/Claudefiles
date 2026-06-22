@@ -4,7 +4,6 @@
       "Bash(gh)",
       "Bash(gh:*)",
       "Bash(gh-issue:*)",
-      "Bash(gh-pr-create:*)",
       "Bash(gh-pr-reply:*)",
       "Bash(gh-pr-resolve-thread:*)",
       "Bash(gh-pr-threads:*)",

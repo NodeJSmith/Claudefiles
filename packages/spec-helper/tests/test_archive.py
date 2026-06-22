@@ -247,6 +247,79 @@ class TestStagedFilesHandling:
         assert not tasks.exists()
 
 
+class TestScaffoldingCleanup:
+    """Feature-dir-level orchestration scaffolding must not survive archive."""
+
+    def test_archive_removes_trail_and_gitignore(
+        self, git_repo: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        feature = git_repo / "design" / "specs" / "001-test-feature"
+
+        # .gitignore is tracked (committed in a prior PR) and ignores the trail files
+        gitignore = feature / ".gitignore"
+        gitignore.write_text("trail.tsv\ntrail-audit.md\n")
+        _git(git_repo, "add", str(gitignore))
+        _git(git_repo, "commit", "-m", "add feature gitignore")
+
+        # trail files are gitignored → untracked on disk
+        trail = feature / "trail.tsv"
+        trail.write_text("phase\twp\taction\tdetail\n")
+        audit = feature / "trail-audit.md"
+        audit.write_text("## Summary\n\nno findings\n")
+
+        os.chdir(git_repo)
+        cmd_archive(_archive_args(feature="001-test-feature"))
+
+        assert not trail.exists()
+        assert not audit.exists()
+        assert not gitignore.exists()
+        # design.md is preserved (stamped archived), only scaffolding is removed
+        assert (feature / "design.md").exists()
+        # the result reports the feature, not a scaffolding filename (regression
+        # guard: a leaked loop variable once mislabeled this ".gitignore")
+        out = capsys.readouterr().out
+        assert "001-test-feature: archived" in out
+        assert ".gitignore: archived" not in out
+
+    def test_archive_handles_untracked_gitignore(self, git_repo: Path) -> None:
+        feature = git_repo / "design" / "specs" / "001-test-feature"
+
+        # .gitignore never committed — purely local, untracked
+        gitignore = feature / ".gitignore"
+        gitignore.write_text("trail.tsv\ntrail-audit.md\n")
+        trail = feature / "trail.tsv"
+        trail.write_text("phase\twp\taction\tdetail\n")
+
+        os.chdir(git_repo)
+        cmd_archive(_archive_args(feature="001-test-feature"))
+
+        assert not gitignore.exists()
+        assert not trail.exists()
+        # design.md must survive even when scaffolding is untracked
+        assert (feature / "design.md").exists()
+
+    def test_archive_removes_untracked_tasks_gitignore(self, git_repo: Path) -> None:
+        # The orchestrator writes tasks/.gitignore for the checkpoint. Left
+        # untracked, it blocks `git rm -r tasks/` from removing the directory.
+        feature = git_repo / "design" / "specs" / "001-test-feature"
+        tasks_gitignore = feature / "tasks" / ".gitignore"
+        tasks_gitignore.write_text(".orchestrate-state.md\n")
+
+        os.chdir(git_repo)
+        cmd_archive(_archive_args(feature="001-test-feature"))
+
+        assert not (feature / "tasks").exists()
+
+    def test_archive_without_scaffolding_still_succeeds(self, git_repo: Path) -> None:
+        feature = git_repo / "design" / "specs" / "001-test-feature"
+
+        os.chdir(git_repo)
+        cmd_archive(_archive_args(feature="001-test-feature"))
+
+        assert not (feature / "tasks").exists()
+        assert (feature / "design.md").exists()
+
+
 class TestAtomicWrite:
     def test_atomic_write_roundtrips_frontmatter(self, tmp_path: Path) -> None:
         target = tmp_path / "task.md"
