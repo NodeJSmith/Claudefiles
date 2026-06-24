@@ -1,47 +1,17 @@
 {
   "permissions": {
     "allow": [
-      "Bash(gh)",
-      "Bash(gh:*)",
-      "Bash(gh-issue:*)",
-      "Bash(gh-pr-reply:*)",
-      "Bash(gh-pr-resolve-thread:*)",
-      "Bash(gh-pr-threads:*)",
-      "Bash(ado-api:*)",
-      "Read(/tmp/*)",
-      "Read(/tmp/**)",
-      "Write(/tmp/*)",
-      "Write(/tmp/**)",
-      "Edit(/tmp/*)",
-      "Edit(/tmp/**)",
-      "Bash(get-tmp-filename)",
+      "Write(//tmp/**)",
+      "Edit(//tmp/**)",
       "Bash(get-skill-tmpdir:*)",
-      "Bash(git-default-branch)",
-      "Bash(git-branch-base)",
-      "Bash(git-branch-log)",
-      "Bash(git-branch-diff-stat)",
-      "Bash(git-branch-diff-files)",
-      "Bash(git-platform)",
-      "Bash(git:*)",
-      "Grep(/tmp/*)",
-      "Grep(/tmp/**)",
+      "Bash(get-tmp-filename)",
       "Bash(ruff:*)",
       "Bash(pyright:*)",
-      "Bash(bandit:*)",
-      "Bash(pip-audit:*)",
-      "Bash(safety:*)",
       "Bash(pytest:*)",
-      "Bash(timeout:*)",
-      "Bash(agnix:*)",
-      "Bash(ls:*)",
-      "Bash(uv:*)",
-      "Skill(mine-commit-push)",
-      "Bash(claude-tmux:*)",
-      "Bash(edit-manifest:*)",
-      "Bash(which:*)"
+      "Skill(mine-commit-push)"
     ],
     "ask": [],
-    "defaultMode": "default"
+    "defaultMode": "auto"
   },
   "extraKnownMarketplaces": {
     "claude-code-recall": {

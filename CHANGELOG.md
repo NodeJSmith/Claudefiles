@@ -2,6 +2,17 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-06-24
+
+### Changed
+
+- `permissions.defaultMode` is now `auto` instead of `default`. Auto mode (Claude Code research preview, requires v2.1.83+ and Opus 4.6+/Sonnet 4.6 — all our machines qualify) auto-approves tool calls behind a background safety classifier that blocks escalations, untrusted infrastructure, and destructive ops, while eliminating routine permission prompts. The merge target is `~/.claude/settings.json` (user settings), so `auto` is honored — Claude Code only ignores `defaultMode: auto` from project-level `.claude/settings.json`. After pulling, run `claude-merge-settings` on each machine to apply.
+- The `permissions.allow` list is aggressively slimmed from 38 entries to 8. Under auto mode the classifier is the real gate, and broad tool allows (`Bash(git:*)`, `Bash(gh:*)`, `Bash(ado-api:*)`) actively *undermine* it — allow rules resolve before the classifier runs, so they would bypass its force-push / push-to-main / destructive-op protections. Read-only commands (including read-only git) and all file reads are already prompt-free, so their entries were redundant. What remains is a zero-risk hot-path core: corrected `//tmp/**` write/edit rules (the old `/tmp/**` entries were anchored to the project root, not absolute `/tmp`, so they never matched real scratch files), the `get-skill-tmpdir` / `get-tmp-filename` temp helpers (invoked on essentially every skill run), `ruff`/`pyright`/`pytest`, and the `mine-commit-push` skill. Narrow rules are trivially re-addable if a specific command proves high-friction.
+
+### Removed
+
+- Stale guidance claiming the Bash tool's `eval '...' < /dev/null` wrapper breaks `$(...)` command substitution, backticks, and trailing pipes. All three work normally within a single Bash call (verified directly) — the only real limit is that shell state does not persist *across* separate Bash tool calls. The `CLAUDE.md` "Bash Tool Restrictions" section is replaced with an accurate "Bash Tool State" note. The false "silently fails" warnings in `mine-orchestrate/post-execution-pipeline` and the `fine-toothed-comb` agent are removed and their diff-capture steps collapsed to a single inline `git diff "$(git-branch-base)"...HEAD`; `mine-review`'s stale warning is removed but its multi-step capture is intentionally preserved (the diff command isn't known until `scope-detection` resolves at runtime, and it writes a shared artifact for parallel subagents). The `code-reviewer` "Bash Code Block Safety" check now flags genuine cross-call state assumptions instead of valid `$()`; the five style/structure reviewer agents (`wtf-reviewer`, `integration-reviewer`, `lazy-checker`, `code-judo-reviewer`, `llm-checker`) drop their `xargs -I {}` workaround for the cleaner inline form; and the `get-skill-tmpdir` / `get-tmp-filename` bin-script headers and `rules/common/command-output.md` are corrected to attribute the bare-command pattern to cross-call state, not the removed allow-list entries. The `mine-commit-push` and `mine-create-pr` `--body-file`/`-F` practice is kept (cleaner for multi-line content) with its now-stale "$() is broken" rationale corrected.
+
 ## 2026-06-22
 
 ### Removed

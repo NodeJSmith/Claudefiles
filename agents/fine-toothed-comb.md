@@ -21,11 +21,9 @@ The caller tells you the targets and what fidelity means in this context. If it 
 ## Invocation patterns
 
 - **Skill/workflow-invoked** — the prompt names the targets (file paths, a diff command) and the fidelity criterion. Use exactly what's provided; do not go hunting for more.
-- **Manual** — no targets named. Discover the artifact: the most recently edited design/brief/spec under `design/specs/**`, `design/**`, or a path the user gestured at. If a reference comparison is implied (e.g. "comb the implementation"), get the branch diff yourself — do **not** use `$()` command substitution (it silently fails in this environment):
+- **Manual** — no targets named. Discover the artifact: the most recently edited design/brief/spec under `design/specs/**`, `design/**`, or a path the user gestured at. If a reference comparison is implied (e.g. "comb the implementation"), get the branch diff yourself:
   ```bash
-  git-branch-base
-  # note the printed base (e.g. "origin/main"), then:
-  git diff <printed-base>...HEAD
+  git diff "$(git-branch-base)"...HEAD
   ```
 
 ## How you read

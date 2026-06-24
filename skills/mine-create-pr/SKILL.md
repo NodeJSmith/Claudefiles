@@ -69,7 +69,7 @@ Based on the above changes:
      ```bash
      az repos pr create --draft true --title "..." --description "<body content>" --source-branch <branch> --target-branch <default-branch>
      ```
-     Do NOT use `--description "$(cat <tmpfile>)"` — command substitution is broken in the Bash tool eval wrapper.
+     Prefer reading the file and passing the content as a literal over embedding `--description "$(cat <tmpfile>)"` — it keeps a long multi-line body out of the command line.
 10. **Update CHANGELOG with PR number**: Locate the nearest `CHANGELOG.md` using the ancestor-walk algorithm: walk upward from the current working directory one level at a time toward the repo root, checking each directory for `CHANGELOG.md` — the first one found is the nearest. If none found by walking up, run `git ls-files '*CHANGELOG.md'` and pick the result with the shortest relative path from CWD. If no `CHANGELOG.md` exists anywhere, suggest the user add one. Once located:
     - Extract the PR number from the PR URL
     - Use the platform-appropriate prefix for the PR reference:
@@ -93,7 +93,7 @@ You have the capability to call multiple tools in a single response. Gather cont
 **Important:**
 - If the branch is not pushed, inform the user they need to push first
 - If a PR already exists, show the PR URL and do not create a duplicate
-- Always write the PR body to a temp file and use `--body-file` (GitHub) to avoid command substitution
+- Always write the PR body to a temp file and use `--body-file` (GitHub) — gh's native mechanism for multi-line bodies, cleaner than embedding the body on the command line
 - Focus on the "why" rather than the "what" in the summary
 
 **Azure DevOps notes:**
