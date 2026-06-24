@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-06-24
+
+### Added
+
+- `/mine-elevate` — surfaces upward improvements to a subsystem through three generator lenses (friction/v2, latent peer-adoption, maximalist provocation), each annotated with a cost and the case against and ordered by signal. The deliberate inverse of `/mine-simplify`: a menu of independently-landable improvements, never a filtered mandate.
+
 ## 2026-06-22
 
 ### Removed
