@@ -15,9 +15,9 @@ Usage: get-skill-tmpdir <skill-name>
 
 Create a unique temp directory for a skill run. Prints the path to stdout.
 
-All paths start with "claude-" for consistent allowlisting. Do NOT wrap
-this command in $() in Bash tool calls — run it bare, then use the printed
-path in the next command.
+All paths start with "claude-" for consistent allowlisting. Run it bare so
+the printed path is visible to reuse in the next call — shell state does not
+persist across separate Bash tool calls.
 
 Examples:
   get-skill-tmpdir mine-challenge    # /tmp/claude-mine-challenge-a8Kx3Q
