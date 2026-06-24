@@ -4,6 +4,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-06-24
 
+### Added
+
+- `/mine-elevate` — surfaces upward improvements to a subsystem through three generator lenses (friction/v2, latent peer-adoption, maximalist provocation), each annotated with a cost and the case against and ordered by signal. The deliberate inverse of `/mine-simplify`: a menu of independently-landable improvements, never a filtered mandate. (#404)
+
 ### Changed
 
 - `permissions.defaultMode` is now `auto` instead of `default`. Auto mode (Claude Code research preview, requires v2.1.83+ and Opus 4.6+/Sonnet 4.6 — all our machines qualify) auto-approves tool calls behind a background safety classifier that blocks escalations, untrusted infrastructure, and destructive ops, while eliminating routine permission prompts. The merge target is `~/.claude/settings.json` (user settings), so `auto` is honored — Claude Code only ignores `defaultMode: auto` from project-level `.claude/settings.json`. After pulling, run `claude-merge-settings` and restart Claude Code on each machine to apply. (#403)
