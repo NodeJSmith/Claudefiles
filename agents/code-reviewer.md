@@ -189,7 +189,7 @@ Apply when `.md` files in `skills/`, `commands/`, `agents/`, or `rules/` appear 
 
 Bash examples in these `.md` files execute via the Bash tool. Command substitution (`$(...)`), backticks, and pipes all work normally **within a single call**. The one thing that does not work is relying on shell state across separate Bash tool calls — each call is a fresh shell, so env vars, variables, and `cd` set in one call are gone in the next.
 
-Check every fenced bash block in changed `.md` files (skills, commands, agents, rules). Flag examples that capture a value into a variable in one call and use it in a later call:
+Check every fenced bash block in changed `.md` files (skills, commands, agents, rules). Flag examples that rely on shell state set in one call and reused in a later call — a variable, a `cd`, or an exported env var:
 
 ```text
 [CRITICAL] shell state assumed to persist across Bash tool calls
