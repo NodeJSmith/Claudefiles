@@ -46,7 +46,7 @@ When invoked:
    If empty or fails:
    ```bash
    # 3. Branch diff vs default branch
-   git-default-branch | xargs -I {} git diff --name-only "origin/{}...HEAD" 2>/dev/null || git-default-branch | xargs -I {} git diff --name-only "{}...HEAD"
+   git diff --name-only "origin/$(git-default-branch)...HEAD" 2>/dev/null || git diff --name-only "$(git-default-branch)...HEAD"
    ```
    If still empty:
    ```bash

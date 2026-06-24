@@ -187,22 +187,18 @@ Apply when `.md` files in `skills/`, `commands/`, `agents/`, or `rules/` appear 
 
 ### Bash Code Block Safety (CRITICAL)
 
-Bash examples in skill files execute via the Bash tool, which wraps in `eval '...' < /dev/null`. These patterns silently fail or error:
+Bash examples in these `.md` files execute via the Bash tool. Command substitution (`$(...)`), backticks, and pipes all work normally **within a single call**. The one thing that does not work is relying on shell state across separate Bash tool calls — each call is a fresh shell, so env vars, variables, and `cd` set in one call are gone in the next.
 
-- `$(...)` command substitution
-- Backtick substitution `` `cmd` ``
-- Variable assignments used across tool calls
-
-Check every fenced bash block in changed `.md` files. Flag any `$(` occurrence:
+Check every fenced bash block in changed `.md` files (skills, commands, agents, rules). Flag examples that rely on shell state set in one call and reused in a later call — a variable, a `cd`, or an exported env var:
 
 ```text
-[CRITICAL] $() substitution in bash code block
+[CRITICAL] shell state assumed to persist across Bash tool calls
 File: skills/mine-foo/SKILL.md:42
-Issue: `--body "$(cat <<'EOF'...)"` will silently fail when Claude executes it
-Fix: write body to <dir>/body.md via get-skill-tmpdir, then use --body-file
+Issue: `BASE=$(git-branch-base)` in one block, then `git diff $BASE...HEAD` in a separate block —
+       $BASE is unset in the second call's fresh shell
+Fix: inline the substitution in one call (`git diff "$(git-branch-base)"...HEAD`), or write the
+     value to a file and read it back
 ```
-
-Correct alternatives: sequential calls, `xargs -I {}`, `--body-file <dir>/message.md`.
 
 ### Frontmatter Completeness (HIGH)
 

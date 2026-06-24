@@ -106,11 +106,9 @@ You are running a comprehensive stylistic quality review on a completed feature 
 
 ## Branch diff
 
-Run these commands to get the scope — do NOT use $() command substitution (it silently fails in this environment):
+Run this to get the scope:
 
-git-branch-base
-# Note the printed result (e.g., "origin/main"), then use it in the next command:
-git diff <printed-base>...HEAD --name-only
+git diff "$(git-branch-base)"...HEAD --name-only
 
 ## Task
 
@@ -254,11 +252,9 @@ Agent:
     Read this design file: <feature_dir>/design.md
     Read all task files in: <feature_dir>/tasks/
 
-    Then get the full implementation diff — do NOT use $() command substitution (it silently fails in this environment):
+    Then get the full implementation diff:
 
-    git-branch-base
-    # Note the printed base (e.g. "origin/main"), then:
-    git diff <printed-base>...HEAD
+    git diff "$(git-branch-base)"...HEAD
 
     Go over the implementation against the design with a fine-toothed comb, making sure it's consistent, accurate, and thorough — every functional requirement and acceptance criterion in the design is actually implemented, nothing was silently dropped, and no behavior drifted from what the design specified. Report anything you find.
 

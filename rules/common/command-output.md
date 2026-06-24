@@ -15,7 +15,7 @@ Bash output truncates at 30k chars. Preserve full output in a tmp file.
 ## Pattern
 
 ```bash
-# Step 1: create capture file (pre-allowed)
+# Step 1: create capture file
 get-tmp-filename
 # → /tmp/claude-cmd-abc123.txt  (or $CLAUDE_CODE_TMPDIR/... under sandbox)
 ```
@@ -25,7 +25,7 @@ get-tmp-filename
 pytest -v 2>&1 | tee /path/from/step-1 | tail -80
 ```
 
-**Do NOT** wrap step 1 in a variable assignment (`_f=$(get-tmp-filename)`). The bare command is pre-allowed; wrappers break permission matching.
+**Do NOT** wrap step 1 in a variable assignment (`_f=$(get-tmp-filename)`) — a shell variable set in one Bash call is gone in the next, so step 2 can't use it. Run it bare and reuse the printed path as a literal.
 
 For skill-specific temp files, use `get-skill-tmpdir` instead (see CLAUDE.md).
 
