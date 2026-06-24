@@ -30,8 +30,10 @@ Read and execute `${CLAUDE_HOME:-~/.claude}/skills/mine-review/scope-detection.m
 ## Phase 1.5: Pre-compute the diff artifact (diff mode only)
 
 After `scope-detection.md` resolves to **diff mode** (and confirms the diff is non-empty), run the
-diff once and persist it before dispatching any critic. Run these three Bash calls **sequentially** —
-do NOT use `$(...)` command substitution to capture the path (the Bash tool breaks on it; see CLAUDE.md):
+diff once and persist it to a file so every parallel critic can read the same artifact — this is
+why it's pre-computed rather than inlined. Run these Bash calls **sequentially**: the temp dir path
+is captured in one call and reused in later ones, and shell state does not persist between Bash tool
+calls, so note each printed value and pass it as a literal in the following step.
 
 1. Get the temp directory:
    ```bash

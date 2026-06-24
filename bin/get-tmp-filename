@@ -2,21 +2,20 @@
 # Create a temp file for capturing command output.
 # Prints the file path to stdout. Pair with tee/tail in the next command.
 #
-# Usage (correct two-call pattern — do NOT wrap in $() in Bash tool calls):
+# Usage (run bare so the printed path is visible to reuse in the next call and
+# to Read back later — shell state does not persist across separate Bash calls):
 #   get-tmp-filename
 #   command 2>&1 | tee /path/from/above | tail -80
 #
-# See rules/common/command-output.md for the correct pattern.
-#
-# Permission: add Bash(get-tmp-filename) to allowedTools for auto-approve.
+# See rules/common/command-output.md for the full pattern.
 [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && {
   cat << 'EOF'
 Usage: get-tmp-filename
 
 Create a temp file for capturing command output. Prints the path to stdout.
 
-Do NOT wrap this command in $() in Bash tool calls — run it bare, then use
-the printed path in the next command with tee.
+Run it bare so the printed path is visible to reuse in the next call with
+tee — shell state does not persist across separate Bash tool calls.
 
 Examples:
   get-tmp-filename                   # /tmp/claude-cmd-abc123.txt

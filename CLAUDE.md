@@ -20,20 +20,9 @@ Use `--reconfigure` to change selections, `--uninstall` to remove everything.
 - `i-*` — [Impeccable](https://impeccable.style/) frontend design skills
 - `cli-*` — CLI design skills
 
-## Bash Tool Restrictions
+## Bash Tool State
 
-The Bash tool wraps commands in `eval '...' < /dev/null`. **Never use:**
-
-- **`$(...)` command substitution** — silently fails or errors
-- **Backtick substitution** — same broken code path
-- **Bare pipes as the final element** (sandbox mode) — data silently lost
-
-**Workarounds:**
-- Split into sequential calls: run the inner command first, use result in next call
-- `xargs -I {}` piping: `git-default-branch | xargs -I {} git log "origin/{}..HEAD"`
-
-**Wrong:** `git diff --name-only "$(git-default-branch)"`
-**Right:** `git-default-branch | xargs -I {} git diff --name-only {}`
+Command substitution (`$(...)`), backticks, and pipes work normally in the Bash tool — use them freely within a single call. The one limit: shell state (env vars, variables, `cd`) does **not** persist across separate Bash tool calls, since each call is a fresh shell. When you need a value in a later command, either inline the substitution in one call (`git diff "$(git-branch-base)"...HEAD`) or write it to a file.
 
 ## Path References in Skills
 
