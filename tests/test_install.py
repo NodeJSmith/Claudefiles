@@ -245,6 +245,37 @@ class TestSymlinkCreation:
         assert count == 1
         assert not (dest / ".hidden").exists()
 
+    def test_file_level_preserves_unowned_subdir_symlink(self, tmp_path: Path) -> None:
+        """A subdir-level symlink we don't own is shadowed, not destroyed.
+
+        Regression: the sub_dest unlink used to skip the ownership check, so a
+        foreign symlink at e.g. references/common would be replaced with a real
+        directory, dropping every file it pointed to.
+        """
+        repo = tmp_path / "repo"
+        (repo / "common").mkdir(parents=True)
+        (repo / "common" / "file1.md").write_text("x")
+
+        other = tmp_path / "other"
+        (other / "common").mkdir(parents=True)
+        (other / "common" / "preexisting.md").write_text("keep me")
+
+        dest = tmp_path / "dest"
+        dest.mkdir()
+        (dest / "common").symlink_to(other / "common")
+
+        shadowed: list[tuple[Path, Path]] = []
+        count = install.create_symlinks_file_level(
+            repo, dest, repo_dir=repo, shadowed_out=shadowed
+        )
+
+        assert count == 0
+        assert (dest / "common").is_symlink()
+        assert (dest / "common").resolve() == (other / "common").resolve()
+        assert (dest / "common" / "preexisting.md").read_text() == "keep me"
+        assert len(shadowed) == 1
+        assert shadowed[0][0] == dest / "common"
+
     def test_create_symlink_single(self, tmp_path: Path) -> None:
         repo = tmp_path / "repo"
         repo.mkdir()
