@@ -63,6 +63,19 @@ def _stub_ccrecall_side_effects(monkeypatch):
     )
 
 
+def _fake_home_patch(tmp_path: Path):
+    """Point Path.home() at tmp_path/home with ~/.local/bin created for bin symlinks.
+
+    Returned as a context manager so it drops straight into a test's existing `with`
+    block alongside the other patches. Replaces the per-test
+    patch.object(Path, "home", ...) + bin.mkdir boilerplate. Note the bin dir is created
+    when this is called (at `with`-expression evaluation), before the patch is entered;
+    tmp_path is unique per test so that side effect is harmless.
+    """
+    (tmp_path / "home" / ".local" / "bin").mkdir(parents=True, exist_ok=True)
+    return patch.object(Path, "home", return_value=tmp_path / "home")
+
+
 # ---------------------------------------------------------------------------
 # Config tests
 # ---------------------------------------------------------------------------
@@ -661,9 +674,8 @@ class TestFullInstallFlow:
         with (
             patch("install.install_package"),
             patch("install.get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             errors = install.do_install(repo, claude_dir, config, interactive=False)
 
         assert errors == 0
@@ -692,9 +704,8 @@ class TestFullInstallFlow:
         with (
             patch("install.install_package"),
             patch("install.get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             errors = install.do_install(repo, claude_dir, config, interactive=False)
 
         assert errors == 0
@@ -718,9 +729,8 @@ class TestFullInstallFlow:
         with (
             patch("install.install_package"),
             patch("install.get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             install.do_install(repo, claude_dir, config, interactive=False)
 
         assert (claude_dir / "scripts" / "hooks" / "sudo-poll.sh").is_symlink()
@@ -737,9 +747,8 @@ class TestFullInstallFlow:
         with (
             patch("install.install_package"),
             patch("install.get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             install.do_install(repo, claude_dir, config, interactive=False)
 
         common = claude_dir / "rules" / "common"
@@ -772,9 +781,8 @@ class TestFullInstallFlow:
         with (
             patch("install.install_package", return_value=(True, "")),
             patch("install.get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             install.do_install(repo, claude_dir, config_v1, interactive=False)
 
         assert (claude_dir / "skills" / "i-audit").is_symlink()
@@ -794,7 +802,7 @@ class TestFullInstallFlow:
         with (
             patch("install.install_package"),
             patch("install.get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            _fake_home_patch(tmp_path),
         ):
             install.do_install(
                 repo, claude_dir, config_v2, prev_config=config_v1, interactive=False
@@ -834,9 +842,8 @@ class TestFullInstallFlow:
         with (
             patch("install.install_package"),
             patch("install.get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             install.do_install(repo, claude_dir, config, interactive=False)
 
         # Unowned fragment must survive deselection
@@ -865,9 +872,8 @@ class TestFullInstallFlow:
         with (
             patch("install.install_package", return_value=(True, "")),
             patch("install.get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             install.do_install(repo, claude_dir, config_v1, interactive=False)
 
         assert (rules_common / "capabilities-impeccable.md").is_symlink()
@@ -885,7 +891,7 @@ class TestFullInstallFlow:
         with (
             patch("install.install_package", return_value=(True, "")),
             patch("install.get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            _fake_home_patch(tmp_path),
         ):
             install.do_install(
                 repo, claude_dir, config_v2, prev_config=config_v1, interactive=False
@@ -918,9 +924,8 @@ def _run_rule_install(
     with (
         patch("install.install_package"),
         patch("install.get_installed_packages", return_value=BASE_PACKAGES),
-        patch.object(Path, "home", return_value=tmp_path / "home"),
+        _fake_home_patch(tmp_path),
     ):
-        (tmp_path / "home" / ".local" / "bin").mkdir(parents=True, exist_ok=True)
         install.do_install(
             repo, claude_dir, config, prev_config=prev_config, interactive=False
         )
@@ -1078,12 +1083,12 @@ class TestRuleCategories:
 
 
 def _minimal_repo(tmp_path: Path) -> Path:
-    """Create a minimal repo structure for do_install."""
+    """Create a minimal repo under tmp_path/repo and return it.
+
+    Thin wrapper over _setup_minimal_repo so the build steps live in one place.
+    """
     repo = tmp_path / "repo"
-    (repo / "skills" / "mine-build").mkdir(parents=True)
-    (repo / "skills" / "mine-build" / "SKILL.md").write_text("skill")
-    (repo / "agents").mkdir()
-    _write_rule_files(repo)
+    _setup_minimal_repo(repo)
     return repo
 
 
@@ -1303,9 +1308,8 @@ class TestPackageInstall:
         with (
             patch("install.install_package", mock_install),
             patch("install.get_installed_packages", return_value=set()),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             install.do_install(repo, claude_dir, config, interactive=False)
 
         # install_package is called as install_package(repo_dir, pkg_name)
@@ -1321,9 +1325,8 @@ class TestPackageInstall:
         with (
             patch("install.install_package", return_value=(False, "uv not found")),
             patch("install.get_installed_packages", return_value=set()),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             errors = install.do_install(repo, claude_dir, config, interactive=False)
 
         # ccrecall contributes 0 errors here — the autouse stub makes its install succeed.
@@ -1343,9 +1346,8 @@ class TestPackageInstall:
         with (
             patch("install.install_package", mock_install),
             patch("install.get_installed_packages", return_value=already_present),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             install.do_install(repo, claude_dir, config, interactive=False)
 
         mock_install.assert_called_once_with(repo, missing)
@@ -1361,7 +1363,7 @@ class TestDoUninstall:
         mock_uninstall = MagicMock(return_value=(True, ""))
         with (
             patch("install.uninstall_package", mock_uninstall),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            _fake_home_patch(tmp_path),
         ):
             install.do_uninstall(repo, claude_dir, {})
 
@@ -1382,7 +1384,7 @@ class TestDoUninstall:
         mock_uninstall = MagicMock(return_value=(True, ""))
         with (
             patch("install.uninstall_package", mock_uninstall),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            _fake_home_patch(tmp_path),
         ):
             install.do_uninstall(repo, claude_dir, cfg)
 
@@ -1601,7 +1603,7 @@ class TestConfigLock:
         cfg_path = tmp_path / "config.json"
         with install.ConfigLock(cfg_path) as lock:
             assert lock._fd is not None
-            lock_file = str(cfg_path) + ".lock"
+            lock_file = str(cfg_path) + install.LOCK_SUFFIX
             assert os.path.exists(lock_file)
         assert lock._fd is None
 
@@ -1675,9 +1677,8 @@ class TestCapabilitiesFiles:
         with (
             patch("install.install_package"),
             patch("install.get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             install.do_install(repo, claude_dir, config, interactive=False)
 
         assert (claude_dir / "rules" / "common" / "capabilities-cli.md").is_symlink()
@@ -1710,9 +1711,8 @@ class TestCapabilitiesFiles:
         with (
             patch("install.install_package"),
             patch("install.get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             install.do_install(repo, claude_dir, config_v1, interactive=False)
 
         assert (claude_dir / "rules" / "common" / "capabilities-cli.md").is_symlink()
@@ -1720,7 +1720,7 @@ class TestCapabilitiesFiles:
         with (
             patch("install.install_package"),
             patch("install.get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            _fake_home_patch(tmp_path),
         ):
             install.do_install(
                 repo, claude_dir, config_v2, prev_config=config_v1, interactive=False

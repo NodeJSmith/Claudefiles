@@ -48,7 +48,9 @@ CODEX_SYNC_TIMEOUT = 30
 GIT_TIMEOUT = 5
 UV_NOT_FOUND_MSG = "uv not found — install via https://docs.astral.sh/uv/"
 
-# Config lock: how long to wait for the exclusive flock, and the poll interval.
+# Config lock: filename suffix for the lock file, how long to wait for the exclusive
+# flock, and the poll interval.
+LOCK_SUFFIX = ".lock"
 LOCK_TIMEOUT_SECONDS = 10
 LOCK_POLL_SECONDS = 0.2
 
@@ -432,7 +434,7 @@ def migrate_v1_to_v2(v1_config: dict) -> dict:
     agents = v1_config.get("agents", {})
 
     return {
-        "version": 2,
+        "version": CONFIG_VERSION,
         "bundles": {
             "frontend": bool(skills.get("impeccable", False)),
             "cli": bool(skills.get("cli", False)),
@@ -451,7 +453,8 @@ class ConfigLock:
 
     def __enter__(self) -> "ConfigLock":
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._fd = os.open(str(self._path) + ".lock", os.O_CREAT | os.O_RDWR)
+        lock_path = str(self._path) + LOCK_SUFFIX
+        self._fd = os.open(lock_path, os.O_CREAT | os.O_RDWR)
         deadline = time.monotonic() + LOCK_TIMEOUT_SECONDS
         while True:
             try:
@@ -461,7 +464,6 @@ class ConfigLock:
                 if time.monotonic() >= deadline:
                     os.close(self._fd)
                     self._fd = None
-                    lock_path = str(self._path) + ".lock"
                     raise RuntimeError(
                         f"Could not acquire lock after {LOCK_TIMEOUT_SECONDS}s. "
                         f"If no other installer is running, delete {lock_path}"
@@ -1354,7 +1356,7 @@ def do_uninstall(repo_dir: Path, claude_dir: Path, config: dict) -> None:
         cfg_path.unlink()
         console.print(f"  Removed config: {cfg_path}")
 
-    lock = Path(str(cfg_path) + ".lock")
+    lock = Path(str(cfg_path) + LOCK_SUFFIX)
     if lock.exists():
         lock.unlink()
 
@@ -1455,6 +1457,169 @@ def _migrate_and_backup(v1_config: dict, cfg_path: Path, repo_dir: Path) -> dict
 
 
 # ---------------------------------------------------------------------------
+# Config resolution (main's helpers)
+# ---------------------------------------------------------------------------
+
+
+def prepare_saved_config(
+    cfg_path: Path, repo_dir: Path, *, dry_run: bool
+) -> dict | None:
+    """Load the saved config and bring it up to the current schema.
+
+    Migrates a v1 config to v2 (writing a backup unless this is a dry run) and backfills
+    rule_categories for configs that predate rule selection. Returns the prepared config,
+    or None when there is no saved config yet.
+    """
+    saved = load_config(cfg_path)
+    if saved is None:
+        return None
+
+    # Migrate v1 → v2 before any further processing. On --dry-run, transform purely
+    # (no backup write, no summary panel) so the no-changes contract holds; the real
+    # migration runs on a live install.
+    if saved.get("version") == 1:
+        saved = (
+            migrate_v1_to_v2(saved)
+            if dry_run
+            else _migrate_and_backup(saved, cfg_path, repo_dir)
+        )
+
+    # Backfill rule_categories for configs predating rule selection (issue #334):
+    # those installs had every rule, so absence means "all selected".
+    if "rule_categories" not in saved:
+        saved = {
+            **saved,
+            "rule_categories": {k: True for k in optional_rule_categories()},
+        }
+
+    return saved
+
+
+def confirm_or_abort(question: str, *, default: bool) -> bool:
+    """Ask a yes/no question; exit the installer if the user cancels (Ctrl-C / ESC)."""
+    answer = questionary.confirm(question, default=default).ask()
+    if answer is None:
+        print("Aborted.")
+        sys.exit(1)
+    return answer
+
+
+def prompt_new_bundles(new_bundles: list[str], repo_dir: Path) -> dict[str, bool]:
+    """Prompt the user to install each newly-added optional bundle (default off)."""
+    if not new_bundles:
+        return {}
+    print(f"Found new bundles not in your config: {len(new_bundles)} bundle(s)")
+    opt = optional_bundles(repo_dir)
+    return {
+        key: confirm_or_abort(f"Install {opt[key].label}?", default=False)
+        for key in new_bundles
+    }
+
+
+def prompt_new_rule_categories(new_rule_cats: list[str]) -> dict[str, bool]:
+    """Prompt the user to install each newly-added rule category (default on, opt-out).
+
+    Rule categories are opt-out: new ones default ON, matching the non-interactive
+    branch and the fresh-install wizard default.
+    """
+    if not new_rule_cats:
+        return {}
+    print(f"Found new rule categories not in your config: {len(new_rule_cats)}")
+    opt_rules = optional_rule_categories()
+    return {
+        key: confirm_or_abort(f"Install rules: {opt_rules[key].label}?", default=True)
+        for key in new_rule_cats
+    }
+
+
+def merge_new_groups(saved: dict, repo_dir: Path, *, interactive: bool) -> dict:
+    """Merge saved config with any bundles/rule categories added since it was written.
+
+    Interactive runs prompt per new group; non-interactive runs default them on. Returns
+    saved unchanged (after a note) when nothing is new.
+    """
+    new_bundles = find_new_groups(saved, "bundles", list(optional_bundles(repo_dir)))
+    new_rule_cats = find_new_groups(
+        saved, "rule_categories", list(optional_rule_categories())
+    )
+
+    if not (new_bundles or new_rule_cats):
+        print("Config loaded. No new items detected. Applying saved selections...")
+        return saved
+
+    if interactive:
+        new_bundle_selections = prompt_new_bundles(new_bundles, repo_dir)
+        new_rule_selections = prompt_new_rule_categories(new_rule_cats)
+    else:
+        # Non-interactive: default new groups to True (install all).
+        new_bundle_selections = {k: True for k in new_bundles}
+        new_rule_selections = {k: True for k in new_rule_cats}
+
+    # save_config restamps version on write, so no need to strip it here.
+    return {
+        **saved,
+        "bundles": {**saved.get("bundles", {}), **new_bundle_selections},
+        "rule_categories": {
+            **saved.get("rule_categories", {}),
+            **new_rule_selections,
+        },
+    }
+
+
+def resolve_config(
+    saved: dict | None, repo_dir: Path, *, interactive: bool, reconfigure: bool
+) -> dict:
+    """Decide the config to install from the prepared saved config.
+
+    Runs the wizard on --reconfigure or a fresh install; otherwise applies the saved
+    config, merging in any groups added since it was written.
+    """
+    if reconfigure or saved is None:
+        if interactive:
+            return run_wizard(repo_dir, preselected=saved if reconfigure else None)
+        # Non-interactive: the next two ifs are independent (no fall-through return) —
+        # warn that --reconfigure does nothing here, then pick saved vs all-selected.
+        if reconfigure:
+            print("Warning: --reconfigure has no effect in non-interactive mode.")
+        if saved is not None:
+            print("Non-interactive mode: applying saved config.")
+            return saved
+        print(
+            "Non-interactive mode: no saved config, installing all bundles and rule categories."
+        )
+        return all_selected_config(repo_dir)
+    return merge_new_groups(saved, repo_dir, interactive=interactive)
+
+
+def print_uninstall_dry_run(repo_dir: Path, cfg: dict, cfg_path: Path) -> None:
+    """Print what an uninstall would remove without making changes."""
+    console = Console()
+    console.print("\n[bold]Dry run — would uninstall:[/bold]\n")
+    console.print("  All Claudefiles-owned symlinks from ~/.claude/")
+    bundle_cfg = cfg.get("bundles", {})
+    for bundle_key, bundle in get_bundles(repo_dir).items():
+        if bundle.always_installed or bundle_cfg.get(bundle_key):
+            for pkg in bundle.packages:
+                console.print(f"  Package: {pkg}")
+    if "bundles" not in cfg:
+        console.print(
+            "  [yellow]No config — optional-bundle packages are not shown and need manual uninstall[/yellow]"
+        )
+    console.print(f"  Config file: {cfg_path}")
+
+
+def print_first_install_tip(repo_dir: Path) -> None:
+    """Surface the optional ado-api CLI, shown once on a genuine first install."""
+    console = Console()
+    console.print()
+    console.print(
+        "Tip: working in an Azure DevOps repo? Claudefiles includes an 'ado-api' CLI "
+        "for ADO pull requests, builds, pipelines, and work items. It installs on its own:"
+    )
+    console.print(f"    uv tool install -e {repo_dir}/packages/ado-api")
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -1496,131 +1661,18 @@ def main() -> int:
         if args.uninstall:
             cfg = load_config(cfg_path) or {}
             if args.dry_run:
-                console = Console()
-                console.print("\n[bold]Dry run — would uninstall:[/bold]\n")
-                console.print("  All Claudefiles-owned symlinks from ~/.claude/")
-                bundles = get_bundles(repo_dir)
-                bundle_cfg = cfg.get("bundles", {})
-                for bundle_key, bundle in bundles.items():
-                    if bundle.always_installed or bundle_cfg.get(bundle_key):
-                        for pkg in bundle.packages:
-                            console.print(f"  Package: {pkg}")
-                if "bundles" not in cfg:
-                    console.print(
-                        "  [yellow]No config — optional-bundle packages are not shown and need manual uninstall[/yellow]"
-                    )
-                console.print(f"  Config file: {cfg_path}")
+                print_uninstall_dry_run(repo_dir, cfg, cfg_path)
                 return 0
             do_uninstall(repo_dir, claude_dir, cfg)
             return 0
 
-        saved = load_config(cfg_path)
-
-        # Migrate v1 config to v2 before any further processing.
-        # On --dry-run, transform purely (no backup write, no summary panel) so
-        # the no-changes contract holds; the real migration runs on a live install.
-        if saved is not None and saved.get("version") == 1:
-            if args.dry_run:
-                saved = migrate_v1_to_v2(saved)
-            else:
-                saved = _migrate_and_backup(saved, cfg_path, repo_dir)
-
-        # Backfill rule_categories for configs predating rule selection (issue #334):
-        # those installs had every rule, so absence means "all selected".
-        if saved is not None and "rule_categories" not in saved:
-            saved = {
-                **saved,
-                "rule_categories": {k: True for k in optional_rule_categories()},
-            }
-
-        original_saved = saved
-
-        if args.reconfigure or saved is None:
-            if interactive:
-                cfg = run_wizard(
-                    repo_dir,
-                    preselected=saved if args.reconfigure else None,
-                )
-            else:
-                if args.reconfigure:
-                    print(
-                        "Warning: --reconfigure has no effect in non-interactive mode."
-                    )
-                if saved is not None:
-                    cfg = saved
-                    print("Non-interactive mode: applying saved config.")
-                else:
-                    cfg = all_selected_config(repo_dir)
-                    print(
-                        "Non-interactive mode: no saved config, installing all bundles and rule categories."
-                    )
-        else:
-            opt_keys = list(optional_bundles(repo_dir).keys())
-            opt_rule_keys = list(optional_rule_categories().keys())
-            new_bundles = find_new_groups(saved, "bundles", opt_keys)
-            new_rule_cats = find_new_groups(saved, "rule_categories", opt_rule_keys)
-
-            if (new_bundles or new_rule_cats) and interactive:
-                new_bundle_selections: dict[str, bool] = {}
-                if new_bundles:
-                    print(
-                        f"Found new bundles not in your config: {len(new_bundles)} bundle(s)"
-                    )
-                    opt = optional_bundles(repo_dir)
-                    for key in new_bundles:
-                        answer = questionary.confirm(
-                            f"Install {opt[key].label}?", default=False
-                        ).ask()
-                        if answer is None:
-                            print("Aborted.")
-                            sys.exit(1)
-                        new_bundle_selections[key] = answer
-
-                new_rule_selections: dict[str, bool] = {}
-                if new_rule_cats:
-                    print(
-                        f"Found new rule categories not in your config: {len(new_rule_cats)}"
-                    )
-                    opt_rules = optional_rule_categories()
-                    for key in new_rule_cats:
-                        # Rule categories are opt-out: default new ones ON, matching the
-                        # non-interactive branch and the fresh-install wizard default.
-                        answer = questionary.confirm(
-                            f"Install rules: {opt_rules[key].label}?", default=True
-                        ).ask()
-                        if answer is None:
-                            print("Aborted.")
-                            sys.exit(1)
-                        new_rule_selections[key] = answer
-
-                # save_config restamps version on write, so no need to strip it here.
-                saved = {
-                    **saved,
-                    "bundles": {**saved.get("bundles", {}), **new_bundle_selections},
-                    "rule_categories": {
-                        **saved.get("rule_categories", {}),
-                        **new_rule_selections,
-                    },
-                }
-            elif new_bundles or new_rule_cats:
-                # Non-interactive: default new groups to True (install all)
-                saved = {
-                    **saved,
-                    "bundles": {
-                        **saved.get("bundles", {}),
-                        **{k: True for k in new_bundles},
-                    },
-                    "rule_categories": {
-                        **saved.get("rule_categories", {}),
-                        **{k: True for k in new_rule_cats},
-                    },
-                }
-            else:
-                print(
-                    "Config loaded. No new items detected. Applying saved selections..."
-                )
-
-            cfg = saved
+        original_saved = prepare_saved_config(cfg_path, repo_dir, dry_run=args.dry_run)
+        cfg = resolve_config(
+            original_saved,
+            repo_dir,
+            interactive=interactive,
+            reconfigure=args.reconfigure,
+        )
 
         if args.dry_run:
             print_dry_run(repo_dir, cfg, prev_config=original_saved)
@@ -1642,13 +1694,7 @@ def main() -> int:
         # succeeded (errors == 0 — guaranteed bound here since the --dry-run and
         # --uninstall paths return earlier).
         if original_saved is None and not args.reconfigure and errors == 0:
-            console = Console()
-            console.print()
-            console.print(
-                "Tip: working in an Azure DevOps repo? Claudefiles includes an 'ado-api' CLI "
-                "for ADO pull requests, builds, pipelines, and work items. It installs on its own:"
-            )
-            console.print(f"    uv tool install -e {repo_dir}/packages/ado-api")
+            print_first_install_tip(repo_dir)
 
     return 1 if errors else 0
 

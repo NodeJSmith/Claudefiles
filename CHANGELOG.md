@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-06-25
+
+### Fixed
+
+- `install.py` no longer replaces a non-owned symlink under `~/.claude/references/` or `learned/` with a real directory — an upgrade path that silently dropped whatever a foreign symlink pointed to — and a missing agent file now warns instead of leaving a dangling symlink.
+
 ## 2026-06-24
 
 ### Added
