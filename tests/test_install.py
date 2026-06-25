@@ -26,6 +26,15 @@ BASE_PACKAGES = frozenset(
 
 
 @pytest.fixture(autouse=True)
+def _clear_bundle_cache():
+    """Reset the memoized bundles before each test so per-test temp repos aren't
+    served a stale dict cached under a previous test's path. Replaces the manual
+    cache_clear() each test used to call by hand."""
+    install.get_bundles.cache_clear()
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _stub_ccrecall_side_effects(monkeypatch):
     """Stop do_install from shelling out to real ccrecall installs.
 
@@ -325,6 +334,36 @@ class TestSymlinkCreation:
         assert dest.resolve() == new_source.resolve()
 
 
+class TestLinkBundleArtifacts:
+    def test_missing_agent_skipped_not_dangling(self, tmp_path: Path) -> None:
+        """A bundle agent with no source file is warned and skipped, never linked.
+
+        Regression: agent symlinks used to bypass the existence check that skills
+        had, so a missing agent file produced a silent dangling symlink.
+        """
+        repo = tmp_path / "repo"
+        (repo / "agents").mkdir(parents=True)
+        (repo / "agents" / "real.md").write_text("---\nname: real\n---\n")
+
+        claude = tmp_path / "claude"
+        bundle = install.Bundle(label="x", description="d", agents=("real", "missing"))
+        shadowed: list[tuple[Path, Path]] = []
+        links = install.link_bundle_artifacts(
+            bundle,
+            repo,
+            skills_dest=claude / "skills",
+            agents_dest=claude / "agents",
+            rules_common_dest=claude / "rules" / "common",
+            console=Console(),
+            shadowed_out=shadowed,
+        )
+
+        assert links == 1
+        assert (claude / "agents" / "real.md").is_symlink()
+        assert not (claude / "agents" / "missing.md").is_symlink()
+        assert not (claude / "agents" / "missing.md").exists()
+
+
 # ---------------------------------------------------------------------------
 # Deselection cleanup tests
 # ---------------------------------------------------------------------------
@@ -356,20 +395,6 @@ class TestDeselectionCleanup:
         removed = install.remove_owned_symlinks(dest, repo)
         assert removed == 0
         assert (dest / "ext-skill").is_symlink()
-
-    def test_filters_by_name(self, tmp_path: Path) -> None:
-        repo = tmp_path / "repo"
-        repo.mkdir()
-        (repo / "a").mkdir()
-        (repo / "b").mkdir()
-        dest = tmp_path / "dest"
-        dest.mkdir()
-        (dest / "a").symlink_to(repo / "a")
-        (dest / "b").symlink_to(repo / "b")
-        removed = install.remove_owned_symlinks(dest, repo, names=["a"])
-        assert removed == 1
-        assert not (dest / "a").exists()
-        assert (dest / "b").is_symlink()
 
 
 # ---------------------------------------------------------------------------
@@ -513,7 +538,6 @@ class TestBundleDependencyCompleteness:
         """Every skill in the base bundle must exist in the actual repo."""
         repo_dir = Path(__file__).resolve().parent.parent
         # Reset cache to use actual repo
-        install._BUNDLES_CACHE = None
         bundles = install.get_bundles(repo_dir)
         base = bundles["base"]
         missing = []
@@ -527,7 +551,6 @@ class TestBundleDependencyCompleteness:
     def test_all_optional_skills_resolve(self) -> None:
         """Every skill in every optional bundle must exist in the actual repo."""
         repo_dir = Path(__file__).resolve().parent.parent
-        install._BUNDLES_CACHE = None
         opt = install.optional_bundles(repo_dir)
         missing = []
         for bundle_key, bundle in opt.items():
@@ -541,7 +564,6 @@ class TestBundleDependencyCompleteness:
     def test_all_skill_dirs_in_base(self) -> None:
         """Every directory under skills/ appears in the base bundle."""
         repo_dir = Path(__file__).resolve().parent.parent
-        install._BUNDLES_CACHE = None
         bundles = install.get_bundles(repo_dir)
         skills_dir = repo_dir / "skills"
         expected = {d.name for d in skills_dir.iterdir() if d.is_dir()}
@@ -569,10 +591,6 @@ def _write_rule_files(path: Path, content_map: dict[str, str] | None = None) -> 
 
 def _setup_minimal_repo(path: Path) -> None:
     """Create a minimal repo directory structure for testing."""
-    # Clear bundle cache so tests use this path
-    install._BUNDLES_CACHE = None
-    install._BUNDLES_REPO_DIR = None
-
     (path / "skills" / "mine-build").mkdir(parents=True)
     (path / "skills" / "mine-build" / "SKILL.md").write_text("skill")
     (path / "agents").mkdir(parents=True)
@@ -581,9 +599,6 @@ def _setup_minimal_repo(path: Path) -> None:
 
 def _setup_full_repo(path: Path) -> None:
     """Create a repo with skills, agents, hooks, etc. for integration tests."""
-    install._BUNDLES_CACHE = None
-    install._BUNDLES_REPO_DIR = None
-
     # Base skills
     (path / "skills" / "mine-build").mkdir(parents=True)
     (path / "skills" / "mine-build" / "SKILL.md").write_text("skill")
@@ -595,28 +610,13 @@ def _setup_full_repo(path: Path) -> None:
     (path / "skills-cli" / "cli-harden").mkdir(parents=True)
     (path / "skills-cli" / "cli-harden" / "SKILL.md").write_text("skill")
     (path / "skills-cli" / "capabilities-cli.md").write_text("caps")
-    # Agents
+    # Agents — write a stub for every agent named by any bundle, derived from the live
+    # bundle definitions so the fixture can't drift from install.py's agent lists.
     (path / "agents").mkdir(parents=True)
-    for name in [
-        "code-reviewer",
-        "integration-reviewer",
-        "wtf-reviewer",
-        "researcher",
-        "llm-checker",
-        "lazy-checker",
-        "nitpicker",
-        "issue-refiner",
-        "engineering-backend-developer",
-        "engineering-data-engineer",
-        "engineering-frontend-developer",
-        "engineering-sre",
-        "engineering-technical-writer",
-        "testing-reality-checker",
-        "architect",
-        "planner",
-        "qa-specialist",
-        "visual-diff",
-    ]:
+    all_agents = {
+        name for bundle in install.get_bundles(path).values() for name in bundle.agents
+    }
+    for name in sorted(all_agents):
         (path / "agents" / f"{name}.md").write_text(f"---\nname: {name}\n---\n")
     # Hooks
     (path / "scripts" / "hooks").mkdir(parents=True)
@@ -640,6 +640,9 @@ def _setup_full_repo(path: Path) -> None:
         (refs / fname).write_text("reference")
     # Commands
     (path / "commands" / "test-cmd").mkdir(parents=True)
+    # Deriving agents above cached bundles mid-build; clear so install code under test
+    # rescans the now-complete tree rather than reusing that partial snapshot.
+    install.get_bundles.cache_clear()
 
 
 class TestFullInstallFlow:
@@ -652,14 +655,12 @@ class TestFullInstallFlow:
         _setup_full_repo(repo)
 
         # Override bundles to use test repo with minimal skills
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         config = {"bundles": {k: False for k in install.optional_bundles(repo)}}
 
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -678,8 +679,6 @@ class TestFullInstallFlow:
         repo = tmp_path / "repo"
         claude_dir = tmp_path / "claude"
         _setup_full_repo(repo)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         config = {
             "bundles": {
@@ -692,7 +691,7 @@ class TestFullInstallFlow:
 
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -713,14 +712,12 @@ class TestFullInstallFlow:
         repo = tmp_path / "repo"
         claude_dir = tmp_path / "claude"
         _setup_full_repo(repo)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         config = {"bundles": {k: False for k in install.optional_bundles(repo)}}
 
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -733,15 +730,13 @@ class TestFullInstallFlow:
         repo = tmp_path / "repo"
         claude_dir = tmp_path / "claude"
         _setup_full_repo(repo)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         # No rule_categories key → absence means "all selected" (backward compat).
         config = {"bundles": {k: False for k in install.optional_bundles(repo)}}
 
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -764,8 +759,6 @@ class TestFullInstallFlow:
         repo = tmp_path / "repo"
         claude_dir = tmp_path / "claude"
         _setup_full_repo(repo)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         # First: install with frontend selected
         config_v1 = {
@@ -778,7 +771,7 @@ class TestFullInstallFlow:
         }
         with (
             patch("install.install_package", return_value=(True, "")),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -800,7 +793,7 @@ class TestFullInstallFlow:
         }
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             install.do_install(
@@ -819,8 +812,6 @@ class TestFullInstallFlow:
         repo = tmp_path / "repo"
         claude_dir = tmp_path / "claude"
         _setup_full_repo(repo)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         rules_common = claude_dir / "rules" / "common"
         rules_common.mkdir(parents=True)
@@ -842,7 +833,7 @@ class TestFullInstallFlow:
         }
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -859,8 +850,6 @@ class TestFullInstallFlow:
         repo = tmp_path / "repo"
         claude_dir = tmp_path / "claude"
         _setup_full_repo(repo)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         rules_common = claude_dir / "rules" / "common"
 
@@ -875,7 +864,7 @@ class TestFullInstallFlow:
         }
         with (
             patch("install.install_package", return_value=(True, "")),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -895,7 +884,7 @@ class TestFullInstallFlow:
         }
         with (
             patch("install.install_package", return_value=(True, "")),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             install.do_install(
@@ -922,15 +911,13 @@ def _run_rule_install(
     prev_config: dict | None = None,
 ) -> None:
     """Install with all optional bundles off and the given rule_categories selection."""
-    install._BUNDLES_CACHE = None
-    install._BUNDLES_REPO_DIR = None
     config = {
         "bundles": {k: False for k in install.optional_bundles(repo)},
         "rule_categories": rule_categories,
     }
     with (
         patch("install.install_package"),
-        patch("install._get_installed_packages", return_value=BASE_PACKAGES),
+        patch("install.get_installed_packages", return_value=BASE_PACKAGES),
         patch.object(Path, "home", return_value=tmp_path / "home"),
     ):
         (tmp_path / "home" / ".local" / "bin").mkdir(parents=True, exist_ok=True)
@@ -1093,8 +1080,6 @@ class TestRuleCategories:
 def _minimal_repo(tmp_path: Path) -> Path:
     """Create a minimal repo structure for do_install."""
     repo = tmp_path / "repo"
-    install._BUNDLES_CACHE = None
-    install._BUNDLES_REPO_DIR = None
     (repo / "skills" / "mine-build").mkdir(parents=True)
     (repo / "skills" / "mine-build" / "SKILL.md").write_text("skill")
     (repo / "agents").mkdir()
@@ -1312,14 +1297,12 @@ class TestPackageInstall:
         """Base bundle packages install on a fresh run with nothing present."""
         repo = _minimal_repo(tmp_path)
         claude_dir = tmp_path / "claude"
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         config = {"bundles": dict.fromkeys(install.optional_bundles(repo), False)}
         mock_install = MagicMock(return_value=(True, ""))
         with (
             patch("install.install_package", mock_install),
-            patch("install._get_installed_packages", return_value=set()),
+            patch("install.get_installed_packages", return_value=set()),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -1333,13 +1316,11 @@ class TestPackageInstall:
         """A failed base-package install is counted in the returned error total."""
         repo = _minimal_repo(tmp_path)
         claude_dir = tmp_path / "claude"
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         config = {"bundles": dict.fromkeys(install.optional_bundles(repo), False)}
         with (
             patch("install.install_package", return_value=(False, "uv not found")),
-            patch("install._get_installed_packages", return_value=set()),
+            patch("install.get_installed_packages", return_value=set()),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -1352,8 +1333,6 @@ class TestPackageInstall:
         """Only base packages missing from the installed set get (re)installed."""
         repo = _minimal_repo(tmp_path)
         claude_dir = tmp_path / "claude"
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         base_pkgs = install.get_bundles(repo)["base"].packages
         missing = base_pkgs[0]
@@ -1363,7 +1342,7 @@ class TestPackageInstall:
         mock_install = MagicMock(return_value=(True, ""))
         with (
             patch("install.install_package", mock_install),
-            patch("install._get_installed_packages", return_value=already_present),
+            patch("install.get_installed_packages", return_value=already_present),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -1464,8 +1443,6 @@ class TestMainNonInteractive:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         saved = {
             "bundles": {
@@ -1501,8 +1478,6 @@ class TestMainNonInteractive:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         mock_do_install = MagicMock(return_value=0)
         with (
@@ -1529,8 +1504,6 @@ class TestMainNonInteractive:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         saved = {
             "bundles": {
@@ -1574,8 +1547,6 @@ class TestConfigSaveTiming:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         save_order: list[str] = []
 
@@ -1692,8 +1663,6 @@ class TestCapabilitiesFiles:
         repo = tmp_path / "repo"
         claude_dir = tmp_path / "claude"
         _setup_full_repo(repo)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         config = {
             "bundles": {
@@ -1705,7 +1674,7 @@ class TestCapabilitiesFiles:
         }
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -1721,8 +1690,6 @@ class TestCapabilitiesFiles:
         repo = tmp_path / "repo"
         claude_dir = tmp_path / "claude"
         _setup_full_repo(repo)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         config_v1 = {
             "bundles": {
@@ -1742,7 +1709,7 @@ class TestCapabilitiesFiles:
         }
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
@@ -1752,7 +1719,7 @@ class TestCapabilitiesFiles:
 
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
             patch.object(Path, "home", return_value=tmp_path / "home"),
         ):
             install.do_install(
@@ -1900,8 +1867,6 @@ class TestMigrateV1ToV2:
 
     def test_is_pure_no_io(self, tmp_path: Path) -> None:
         """migrate_v1_to_v2 must not write any files."""
-        import os
-
         files_before = set(os.listdir(tmp_path))
         install.migrate_v1_to_v2(V1_ALL_SELECTED)
         files_after = set(os.listdir(tmp_path))
@@ -1936,8 +1901,6 @@ class TestMigrationMainFlow:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         cfg_path = install.config_path(claude_dir)
         v1 = {
@@ -1979,8 +1942,6 @@ class TestMigrationMainFlow:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         cfg_path = install.config_path(claude_dir)
         v1 = {
@@ -2015,8 +1976,6 @@ class TestMigrationMainFlow:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         cfg_path = install.config_path(claude_dir)
         v1 = {"version": 1, "skills": {"core": True}, "agents": {}, "packages": {}}
@@ -2046,8 +2005,6 @@ class TestMigrationMainFlow:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         cfg_path = install.config_path(claude_dir)
         v2 = {
@@ -2082,8 +2039,6 @@ class TestMigrationMainFlow:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         cfg_path = install.config_path(claude_dir)
         v1 = {
@@ -2131,8 +2086,6 @@ class TestFirstInstallAdoTip:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         # No saved config file — fresh install
         mock_do_install = MagicMock(return_value=0)
@@ -2159,8 +2112,6 @@ class TestFirstInstallAdoTip:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         # Write an existing v2 config so original_saved is not None
         saved = {
@@ -2199,8 +2150,6 @@ class TestFirstInstallAdoTip:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         mock_do_install = MagicMock(return_value=1)  # one error
         with (
@@ -2226,8 +2175,6 @@ class TestFirstInstallAdoTip:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         mock_do_install = MagicMock(return_value=0)
         with (
