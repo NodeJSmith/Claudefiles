@@ -1,0 +1,744 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["ccrecall @ git+https://github.com/NodeJSmith/claude-code-recall.git@main"]
+# ///
+# NOTE: pinned to git main (not a PyPI release) because the Opus 4.7/4.8 pricing fix
+# (claude-code-recall#37, commit 1241f91 — Opus now prices at the $5/$25 tier, not the
+# legacy $15/$75 catch-all) is merged to main but not yet published. Switch to a PyPI
+# version pin (ccrecall>=<fixed release>) once it ships.
+"""orchestrate-cost — model-weighted USD cost of mine-orchestrate runs, by role and model.
+
+Answers "where do the token dollars go across an orchestrate run, and how has that
+shifted as the pipeline evolved?" — the cost half of the keep/cut/downgrade decision.
+Value is deliberately NOT scored here (see the 033 design doc §7: blocking% is a
+wrong-sign value proxy). Pair these numbers with per-gate value reasoning by hand.
+
+Why USD, not tokens: dollar cost *is* the correct model weighting. Opus input is 5x
+Sonnet, output 5x input, cache_read 0.1x — a raw token count would massively overstate
+the cache-read-heavy orchestrator loop. Pricing is delegated entirely to
+ccrecall.token_parser (get_pricing / turn_cost); this tool never hardcodes a rate.
+
+What it does:
+  - Delimits runs from the durable trail markers in parent-session JSONLs
+    (`trail-log ... p0 - start "orchestrate run started"` and the resume variant),
+    stitching multi-session runs by (feature, base_commit) — session != run.
+  - Attributes cost per (role, model): subagents from their own JSONLs; the
+    orchestrator loop from the parent session's windowed turns, split into a band of
+    own-generation (output) vs absorbed-context (input/cache it merely received).
+  - Disambiguates the shared `general-purpose` agentType into real roles (executor,
+    spec-reviewer, the fix subagents, ...) by a dispatch-prompt signature.
+  - Buckets runs by pipeline fingerprint (the model assigned to each role whose model
+    has actually varied across history) so model-assignment drift is visible and the
+    tool can't silently go stale.
+  - Reports coverage: runs included / undelimited / unwindowed / crashed / unpriced /
+    excluded (non-orchestrate subagents sharing the session window).
+
+Usage:
+  orchestrate-cost                  # cost table + bands + fingerprint buckets + coverage
+  orchestrate-cost --json           # same data, machine-readable
+  orchestrate-cost --since 2026-05-01   # only runs whose start marker is on/after DATE
+  orchestrate-cost --projects DIR   # override the projects root
+
+Options:
+  --since DATE     Only runs whose start marker timestamp is on/after DATE (YYYY-MM-DD).
+  --projects DIR   Projects root (default: $CLAUDE_HOME/projects or ~/.claude/projects).
+  --json           Emit JSON instead of the table.
+"""
+
+import argparse
+import json
+import os
+import re
+import statistics
+import sys
+from dataclasses import dataclass, field
+from glob import glob
+from pathlib import Path
+
+from ccrecall.token_parser import get_pricing, turn_cost
+
+# --- Run-boundary markers (durable, in the parent-session JSONL as Bash commands) ---
+START_MARKER = "orchestrate run started"
+RESUME_MARKER = "resuming from checkpoint"
+
+# Feature slug like "033-orchestration-cost-analysis"; base commit a short/long sha.
+# checkpoint-init (an executed command) is preferred over design/specs/ (which can also
+# appear in displayed skill docs). base_commit lands either as the --base-commit flag or
+# inside the spec-helper checkpoint JSON *output* ("base_commit": "ea12dcc1") — match
+# both. The 6+ hex-digit requirement rejects the literal "<base_commit>" doc placeholder.
+FEATURE_SLUG_RE = re.compile(
+    r"(?:checkpoint-init\s+|design/specs/)(\d{2,}[A-Za-z0-9_-]+)"
+)
+BASE_COMMIT_RE = re.compile(
+    r'(?:--base-commit\s+|base_commit["\s:=]+)([0-9a-f]{6,40})\b'
+)
+
+# general-purpose is shared by many orchestrate roles. Resolve by a distinctive
+# substring of the dispatch prompt (the subagent's first user message). ORDER MATTERS:
+# the fix subagents embed the full implementer-prompt, so the generic executor
+# signature must be checked LAST or every fix run misbuckets as an executor.
+GP_SIGNATURES: list[tuple[str, str]] = [
+    (
+        "clean-code",
+        "comprehensive stylistic quality review on a completed feature branch",
+    ),
+    ("trail-audit", "auditing the structural integrity of the decision trail"),
+    ("impl-review", "reviewing a completed feature implementation against its design"),
+    ("spec-reviewer", "You are independently verifying a completed task"),
+    # caliper v2 renamed the unit task -> Work Package; older runs use that wording.
+    ("spec-reviewer", "independently verifying a completed Work Package"),
+    ("impl-review-fix", "Fix only the listed blocking issues"),
+    ("judo-fix", "Apply only the HIGH structural simplification moves"),
+    ("comb-fix", "Fix only the listed design-fidelity gaps"),
+    # The rendered dispatch says "executing" (the implementer-prompt heading reads
+    # "implementing", but the orchestrator's prompt does not — match the live text).
+    # Checked last: the fix subagents embed the implementer prompt.
+    ("executor", "executing a single task from an implementation plan"),
+    ("executor", "executing a single Work Package from an implementation plan"),
+]
+
+# Named (non-general-purpose) agentTypes that mine-orchestrate dispatches. A run's
+# parent session can also run *other* skills (challenge critics, doc reviewers, the
+# engineering-* agents, ...) whose subagents share the same session window — those are
+# NOT orchestrate cost. Restricting to the design's §4 role taxonomy excludes them.
+# code-reviewer / integration-reviewer are shared with other skills, but within an
+# orchestrate run window they are overwhelmingly orchestrate's own (window assumption).
+ORCHESTRATE_TYPES = frozenset(
+    {
+        "code-reviewer",
+        "integration-reviewer",
+        "wtf-reviewer",
+        "code-judo-reviewer",
+        "fine-toothed-comb",
+    }
+)
+
+NO_DATA = "—"
+
+
+def projects_root(override: str | None) -> Path:
+    if override:
+        return Path(override).expanduser()
+    home = os.environ.get("CLAUDE_HOME")
+    base = Path(home).expanduser() if home else Path.home() / ".claude"
+    return base / "projects"
+
+
+def short_model(model: str | None) -> str:
+    """claude-opus-4-8 -> opus-4-8; claude-haiku-4-5-20251001 -> haiku-4-5."""
+    if not model:
+        return "?"
+    m = model.removeprefix("claude-")
+    return re.sub(r"-\d{8}$", "", m)
+
+
+def message_text(msg: dict) -> str:
+    content = msg.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "".join(
+            b["text"]
+            for b in content
+            if isinstance(b, dict) and b.get("type") == "text"
+        )
+    return ""
+
+
+# --------------------------------------------------------------------------------------
+# Pricing: per-turn cost over a JSONL, reusing ccrecall pricing. Splits each turn into
+# own-generation (output) vs absorbed-context (input + cache) so the orchestrator loop's
+# "cost" isn't mislabeled — by late tasks its input carries every subagent's returned
+# report as cheap cache_read, which is real spend but not the orchestrator's own work.
+# --------------------------------------------------------------------------------------
+@dataclass
+class Cost:
+    own_gen: float = 0.0  # output-token dollars (the turn's own generation)
+    absorbed: float = 0.0  # input + cache_read + cache_creation dollars
+    model: str | None = None  # dominant model (most turn-output by tokens)
+
+    @property
+    def total(self) -> float:
+        return self.own_gen + self.absorbed
+
+
+def price_jsonl(path: str, run_start_ts: str | None = None) -> Cost:
+    """Sum dollar cost over a JSONL's assistant turns, de-duped by message id (later
+    events for the same id overwrite — matching how usage is finalized). When
+    `run_start_ts` is set, only turns at/after it count, bounding an orchestrator session
+    to its run window and excluding pre-run contamination. (This is the run-window anchor,
+    NOT the CLI --since date — see build_runs.)"""
+    turns: dict[str, dict] = {}  # message_id -> {usage, model, ts}
+    try:
+        with open(path, encoding="utf-8") as fh:
+            for raw in fh:
+                if '"usage"' not in raw:
+                    continue
+                try:
+                    obj = json.loads(raw)
+                except ValueError:
+                    continue
+                if obj.get("type") != "assistant":
+                    continue
+                msg = obj.get("message") or {}
+                mid = msg.get("id")
+                usage = msg.get("usage")
+                if not mid or not usage:
+                    continue
+                turns[mid] = {
+                    "usage": usage,
+                    "model": msg.get("model"),
+                    "ts": obj.get("timestamp") or "",
+                }
+    except OSError:
+        return Cost()
+
+    cost = Cost()
+    model_tokens: dict[str, int] = {}
+    for t in turns.values():
+        # ISO timestamps sort lexically, so a plain string compare windows correctly.
+        if run_start_ts and t["ts"] and t["ts"] < run_start_ts:
+            continue
+        u = t["usage"]
+        creation = u.get("cache_creation") or {}
+        out = u.get("output_tokens", 0) or 0
+        pricing = get_pricing(t["model"])
+        total = turn_cost(
+            u.get("input_tokens", 0) or 0,
+            out,
+            u.get("cache_read_input_tokens", 0) or 0,
+            u.get("cache_creation_input_tokens", 0) or 0,
+            creation.get("ephemeral_5m_input_tokens", 0) or 0,
+            creation.get("ephemeral_1h_input_tokens", 0) or 0,
+            pricing,
+        )
+        own = out * pricing["output"] / 1_000_000
+        cost.own_gen += own
+        cost.absorbed += total - own
+        if out:
+            model_tokens[t["model"]] = model_tokens.get(t["model"], 0) + out
+    if model_tokens:
+        cost.model = max(model_tokens, key=model_tokens.get)
+    return cost
+
+
+def first_user_text(path: str) -> str:
+    """Text of the first user message — carries the dispatch prompt used for role ID."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            for raw in fh:
+                if '"user"' not in raw:
+                    continue
+                try:
+                    obj = json.loads(raw)
+                except ValueError:
+                    continue
+                msg = obj.get("message") or {}
+                if msg.get("role") == "user":
+                    text = message_text(msg)
+                    if text:
+                        return text
+    except OSError:
+        pass
+    return ""
+
+
+def first_ts(path: str) -> str:
+    """First timestamp in a JSONL (used to window subagents to a run)."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            for raw in fh:
+                try:
+                    obj = json.loads(raw)
+                except ValueError:
+                    continue
+                ts = obj.get("timestamp")
+                if ts:
+                    return ts
+    except OSError:
+        pass
+    return ""
+
+
+def resolve_role(agent_type: str, prompt: str) -> str | None:
+    """Map a subagent to an orchestrate role, or None if it is not an orchestrate
+    subagent (another skill sharing the session window). Named types are kept only if
+    they are in the orchestrate taxonomy; general-purpose is kept only if its dispatch
+    prompt matches a known orchestrate signature."""
+    if agent_type in ORCHESTRATE_TYPES:
+        return agent_type
+    if agent_type == "general-purpose":
+        for role, sig in GP_SIGNATURES:
+            if sig in prompt:
+                return f"gp:{role}"
+    return None
+
+
+# --------------------------------------------------------------------------------------
+# Run delimiting + attribution
+# --------------------------------------------------------------------------------------
+@dataclass
+class AgentRun:
+    role: str
+    model: str
+    cost: float
+    project: str
+
+
+@dataclass
+class Run:
+    feature: str
+    base_commit: str
+    start_ts: str
+    sessions: list[str] = field(default_factory=list)  # parent jsonl paths
+    orch: Cost = field(default_factory=Cost)
+    agents: list[AgentRun] = field(default_factory=list)
+
+    @property
+    def key(self) -> tuple[str, str]:
+        return (self.feature, self.base_commit)
+
+    @property
+    def total(self) -> float:
+        return self.orch.total + sum(a.cost for a in self.agents)
+
+    @property
+    def executors(self) -> int:
+        return sum(1 for a in self.agents if a.role == "gp:executor")
+
+
+def run_fingerprint(run: Run, varying: set[str]) -> tuple[tuple[str, str], ...]:
+    """Pipeline-era signature for a run: the model assigned to each role whose model has
+    varied across history (`varying` is a cross-run statistic computed by varying_roles,
+    so this can't live on Run alone). Roles with a stable model add no spurious split."""
+    seen: dict[str, str] = {}
+    for a in run.agents:
+        if a.role in varying:
+            seen[a.role] = a.model
+    return tuple(sorted(seen.items()))
+
+
+@dataclass
+class ParentMarkers:
+    has_start: bool
+    has_resume: bool
+    feature: str | None
+    base_commit: str | None
+    start_ts: str
+
+
+def scan_parent_markers(path: str) -> ParentMarkers | None:
+    """Find orchestrate run-boundary markers in a parent session. Returns None if the
+    session has no orchestrate marker. The start marker is sometimes only a filesystem
+    probe that omits base_commit, which instead lands in the checkpoint JSON output — so
+    feature/base_commit are extracted from the WHOLE session text (it is a confirmed
+    orchestrate session), not just the marker-bearing command, with start_ts still taken
+    from the marker line itself."""
+    try:
+        raw = Path(path).read_text(encoding="utf-8")
+    except OSError:
+        return None
+    if START_MARKER not in raw and RESUME_MARKER not in raw:
+        return None
+
+    has_start = has_resume = False
+    start_ts = ""
+    for line in raw.splitlines():
+        if START_MARKER not in line and RESUME_MARKER not in line:
+            continue
+        try:
+            obj = json.loads(line)
+        except ValueError:
+            continue
+        msg = obj.get("message") or {}
+        content = msg.get("content")
+        if not isinstance(content, list):
+            continue
+        for b in content:
+            if not (isinstance(b, dict) and b.get("type") == "tool_use"):
+                continue
+            cmd = str((b.get("input") or {}).get("command", ""))
+            if START_MARKER in cmd:
+                has_start = True
+                start_ts = start_ts or (obj.get("timestamp") or "")
+            if RESUME_MARKER in cmd:
+                has_resume = True
+                start_ts = start_ts or (obj.get("timestamp") or "")
+
+    if not (has_start or has_resume):
+        return None
+    fm = FEATURE_SLUG_RE.search(raw)
+    bm = BASE_COMMIT_RE.search(raw)
+    return ParentMarkers(
+        has_start=has_start,
+        has_resume=has_resume,
+        feature=fm.group(1) if fm else None,
+        base_commit=bm.group(1) if bm else None,
+        start_ts=start_ts,
+    )
+
+
+def iter_parent_sessions(root: Path):
+    """Yield (project_dir_name, parent_jsonl_path) for top-level session files."""
+    for proj in root.iterdir():
+        if not proj.is_dir():
+            continue
+        for jsonl in proj.glob("*.jsonl"):
+            yield proj.name, str(jsonl)
+
+
+def attribute_subagents(
+    root: Path, project: str, session_uuid: str, run_start_ts: str, coverage: dict
+) -> list[AgentRun]:
+    """All subagents under one parent session whose first turn is at/after the run window.
+    Returns the orchestrate AgentRuns AND mutates `coverage` in place (crashed / unpriced /
+    excluded counters) — partial failures are counted, never silently dropped."""
+    agents: list[AgentRun] = []
+    pattern = str(root / project / session_uuid / "subagents" / "agent-*.meta.json")
+    for meta_path in glob(pattern):
+        try:
+            with open(meta_path, encoding="utf-8") as fh:
+                meta = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        jsonl = meta_path[: -len(".meta.json")] + ".jsonl"
+        if not os.path.exists(jsonl):
+            coverage["crashed"] += 1  # meta written, transcript gone (subagent died)
+            continue
+        ft = first_ts(jsonl)
+        if run_start_ts and ft and ft < run_start_ts:
+            continue
+        cost = price_jsonl(jsonl)
+        if cost.total == 0.0:
+            coverage["unpriced"] += (
+                1  # ran but priced to $0 (zero usage or pricing gap)
+            )
+            continue
+        role = resolve_role(meta.get("agentType", "?"), first_user_text(jsonl))
+        if role is None:
+            # Another skill's subagent sharing this session window — not orchestrate cost.
+            coverage["excluded_n"] += 1
+            coverage["excluded_usd"] += cost.total
+            continue
+        agents.append(
+            AgentRun(
+                role=role,
+                model=short_model(cost.model),
+                cost=cost.total,
+                project=project,
+            )
+        )
+    return agents
+
+
+def build_runs(root: Path, since: str | None) -> tuple[list[Run], dict]:
+    """Delimit runs across all parent sessions, stitch multi-session runs by
+    (feature, base_commit), and attribute orchestrator + subagent cost to each.
+
+    The CLI --since filter is applied AFTER merging, on each run's overall earliest start
+    — filtering per-session would silently drop the early session of a run that straddles
+    the cutoff, undercounting it."""
+    coverage = {
+        "undelimited": 0,
+        "unwindowed": 0,
+        "crashed": 0,
+        "unpriced": 0,
+        "excluded_n": 0,
+        "excluded_usd": 0.0,
+    }
+    runs: dict[tuple[str, str], Run] = {}
+
+    for project, path in iter_parent_sessions(root):
+        markers = scan_parent_markers(path)
+        if markers is None:
+            continue
+        if not markers.start_ts:
+            # No usable window anchor: can't bound the orchestrator turns, so including
+            # it would sum pre-run work and inflate the band. Count, don't attribute.
+            coverage["unwindowed"] += 1
+            continue
+        if not markers.feature and not markers.base_commit:
+            coverage["undelimited"] += 1
+            continue
+        key = (markers.feature or "?", markers.base_commit or "?")
+        run = runs.get(key)
+        if run is None:
+            run = Run(feature=key[0], base_commit=key[1], start_ts=markers.start_ts)
+            runs[key] = run
+        elif markers.start_ts < run.start_ts:
+            run.start_ts = markers.start_ts
+        run.sessions.append(path)
+        session_uuid = Path(path).stem
+        run.orch = _add_cost(run.orch, price_jsonl(path, run_start_ts=markers.start_ts))
+        run.agents.extend(
+            attribute_subagents(root, project, session_uuid, markers.start_ts, coverage)
+        )
+
+    selected = [r for r in runs.values() if not since or r.start_ts[:10] >= since]
+    return selected, coverage
+
+
+def _add_cost(a: Cost, b: Cost) -> Cost:
+    # model is a display label only — cost is already baked into each turn's pricing — so
+    # last-session-wins here is a best-effort tag, not a numerically significant choice.
+    return Cost(
+        own_gen=a.own_gen + b.own_gen,
+        absorbed=a.absorbed + b.absorbed,
+        model=b.model or a.model,
+    )
+
+
+# --------------------------------------------------------------------------------------
+# Aggregation + bucketing
+# --------------------------------------------------------------------------------------
+def varying_roles(runs: list[Run]) -> set[str]:
+    """Roles that appear with more than one model across the dataset — the only
+    dimensions that should split fingerprint buckets (a stable-model role adds noise)."""
+    models: dict[str, set[str]] = {}
+    for run in runs:
+        for a in run.agents:
+            models.setdefault(a.role, set()).add(a.model)
+    return {role for role, ms in models.items() if len(ms) > 1}
+
+
+def aggregate_roles(runs: list[Run]) -> list[dict]:
+    """Per (role, model): run count, total USD, mean USD per appearance."""
+    groups: dict[tuple[str, str], list[float]] = {}
+    for run in runs:
+        for a in run.agents:
+            groups.setdefault((a.role, a.model), []).append(a.cost)
+    # Orchestrator loop as a pseudo-role pair (own-gen vs absorbed reported separately).
+    rows = []
+    for (role, model), costs in groups.items():
+        rows.append(
+            {
+                "role": role,
+                "model": model,
+                "n": len(costs),
+                "total": sum(costs),
+                "mean": statistics.mean(costs),
+            }
+        )
+    rows.sort(key=lambda r: -r["total"])
+    return rows
+
+
+def orchestrator_band(runs: list[Run]) -> dict:
+    own = sum(r.orch.own_gen for r in runs)
+    absorbed = sum(r.orch.absorbed for r in runs)
+    return {"own_gen": own, "absorbed": absorbed, "total": own + absorbed}
+
+
+def fingerprint_buckets(runs: list[Run], varying: set[str]) -> list[dict]:
+    buckets: dict[tuple, list[Run]] = {}
+    for run in runs:
+        buckets.setdefault(run_fingerprint(run, varying), []).append(run)
+    out = []
+    for fp, grp in buckets.items():
+        starts = sorted(r.start_ts[:10] for r in grp if r.start_ts)
+        totals = [r.total for r in grp]
+        out.append(
+            {
+                "fingerprint": [{"role": role, "model": model} for role, model in fp],
+                "runs": len(grp),
+                "date_range": [starts[0], starts[-1]] if starts else None,
+                "mean_run_usd": statistics.mean(totals) if totals else 0.0,
+            }
+        )
+    out.sort(key=lambda b: (b["date_range"] or [""])[0])
+    return out
+
+
+# --------------------------------------------------------------------------------------
+# Rendering
+# --------------------------------------------------------------------------------------
+def usd(x: float) -> str:
+    return f"${x:,.2f}"
+
+
+def render_table(runs: list[Run], coverage: dict) -> None:
+    if not runs:
+        print("no delimited orchestrate runs found", file=sys.stderr)
+        return
+    total = sum(r.total for r in runs)
+    if total == 0:
+        print(
+            "delimited runs found but zero priced cost — nothing to report",
+            file=sys.stderr,
+        )
+        return
+    starts = sorted(r.start_ts[:10] for r in runs if r.start_ts)
+    span = f"{starts[0]} … {starts[-1]}" if starts else "unknown range"
+    print(f"orchestrate-cost — {len(runs)} runs  ({span})   total {usd(total)}\n")
+
+    print(
+        f"{'role':<22} {'model':<12} {'runs':>5} {'total':>11} {'mean/run':>11} {'%':>5}"
+    )
+    print("-" * 70)
+    band = orchestrator_band(runs)
+    print(
+        f"{'orchestrator (own-gen)':<22} {NO_DATA:<12} {len(runs):>5} "
+        f"{usd(band['own_gen']):>11} {usd(band['own_gen'] / len(runs)):>11} "
+        f"{100 * band['own_gen'] / total:>4.0f}%"
+    )
+    print(
+        f"{'orchestrator (absorbed)':<22} {NO_DATA:<12} {len(runs):>5} "
+        f"{usd(band['absorbed']):>11} {usd(band['absorbed'] / len(runs)):>11} "
+        f"{100 * band['absorbed'] / total:>4.0f}%"
+    )
+    for r in aggregate_roles(runs):
+        print(
+            f"{r['role']:<22} {r['model']:<12} {r['n']:>5} "
+            f"{usd(r['total']):>11} {usd(r['mean']):>11} "
+            f"{100 * r['total'] / total:>4.0f}%"
+        )
+    print(
+        "\n  orchestrator 'absorbed' is input/cache it received — including every "
+        "subagent's\n  returned report. It is real spend but not the orchestrator's "
+        "own work; read the\n  two bands separately, never as one 'orchestrator cost' "
+        "number."
+    )
+    print(
+        "  orchestrator cost is bounded [start-marker, session-end] — there is no "
+        "durable\n  run-end marker, so trailing same-session work inflates it. (The "
+        "dispatch ledger\n  follow-up removes this guess.)\n"
+    )
+
+    # Per-run normalization
+    run_totals = [r.total for r in runs]
+    execs = [r.executors for r in runs if r.executors]
+    print(
+        f"  per run:  mean {usd(statistics.mean(run_totals))}"
+        + (
+            f"  stdev {usd(statistics.stdev(run_totals))}"
+            if len(run_totals) > 1
+            else ""
+        )
+        + f"   (N={len(run_totals)})"
+    )
+    if execs:
+        # Full pipeline cost (orchestrator + all gates + every subagent) divided by
+        # executor dispatches = end-to-end cost per unit of work the pipeline served.
+        per_exec = total / sum(r.executors for r in runs)
+        print(
+            f"  per executor-dispatch:  {usd(per_exec)}   "
+            f"(end-to-end cost per task-unit; inflated by retries)"
+        )
+    print()
+
+    # Fingerprint buckets
+    varying = varying_roles(runs)
+    buckets = fingerprint_buckets(runs, varying)
+    if varying and len(buckets) > 1:
+        print(
+            f"  pipeline fingerprint buckets (by model of varying roles: "
+            f"{', '.join(sorted(varying))}):"
+        )
+        for b in buckets:
+            fp = (
+                ", ".join(f"{f['role']}={f['model']}" for f in b["fingerprint"])
+                or "(none)"
+            )
+            dr = (
+                f"{b['date_range'][0]}…{b['date_range'][1]}" if b["date_range"] else "?"
+            )
+            print(f"    [{dr}]  {b['runs']} runs  mean {usd(b['mean_run_usd'])}   {fp}")
+        print()
+    elif not varying:
+        print(
+            "  pipeline fingerprint: no role changed model across this window "
+            "(single pipeline era).\n"
+        )
+
+    # Coverage
+    print("  coverage:")
+    print(f"    runs included:   {len(runs)}")
+    print(
+        f"    undelimited:     {coverage['undelimited']} "
+        f"(orchestrate marker but no feature/base_commit — not merged)"
+    )
+    print(
+        f"    unwindowed:      {coverage['unwindowed']} "
+        f"(marker present but no timestamp to bound the run — skipped)"
+    )
+    print(
+        "    note: run count is a LOWER BOUND — runs whose base_commit can't be "
+        "parsed merge\n          by feature, and role attribution relies on "
+        "drift-prone prompt signatures."
+    )
+    print(
+        f"    crashed:         {coverage['crashed']} (meta present, transcript missing)"
+    )
+    print(
+        f"    unpriced:        {coverage['unpriced']} (subagent ran but priced to $0)"
+    )
+    print(
+        f"    excluded:        {coverage['excluded_n']} non-orchestrate subagent runs, "
+        f"{usd(coverage['excluded_usd'])} (other skills sharing the session window)"
+    )
+
+
+def render_json(runs: list[Run], coverage: dict) -> None:
+    varying = varying_roles(runs)
+    out = {
+        "runs": len(runs),
+        "total_usd": sum(r.total for r in runs),
+        "by_role_model": aggregate_roles(runs),
+        "orchestrator_band": orchestrator_band(runs),
+        "per_run": {
+            "mean_usd": statistics.mean([r.total for r in runs]) if runs else 0.0,
+            "stdev_usd": statistics.stdev([r.total for r in runs])
+            if len(runs) > 1
+            else None,
+            "n": len(runs),
+            "executor_dispatches": sum(r.executors for r in runs),
+        },
+        "fingerprint_buckets": fingerprint_buckets(runs, varying),
+        "coverage": coverage,
+    }
+    print(json.dumps(out, indent=2))
+
+
+def main() -> int:
+    p = argparse.ArgumentParser(
+        description="Model-weighted USD cost of mine-orchestrate runs, by role and model.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__,
+    )
+    p.add_argument(
+        "--since",
+        help="only runs whose start marker is on/after DATE (YYYY-MM-DD). NOTE: this is "
+        "the durable trail-marker timestamp from the transcript — unlike agent-stats, "
+        "which filters by file mtime — so the two tools' --since cohorts can differ.",
+    )
+    p.add_argument("--projects", help="override projects root")
+    p.add_argument("--json", action="store_true", help="emit JSON")
+    args = p.parse_args()
+
+    since = None
+    if args.since:
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", args.since):
+            print(f"bad --since date (want YYYY-MM-DD): {args.since}", file=sys.stderr)
+            return 1
+        since = args.since  # ISO timestamps sort lexically against a date prefix
+
+    root = projects_root(args.projects)
+    if not root.is_dir():
+        print(f"projects root not found: {root}", file=sys.stderr)
+        return 1
+
+    runs, coverage = build_runs(root, since)
+    if not runs:
+        print("no delimited orchestrate runs found", file=sys.stderr)
+        return 1
+
+    if args.json:
+        render_json(runs, coverage)
+    else:
+        render_table(runs, coverage)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

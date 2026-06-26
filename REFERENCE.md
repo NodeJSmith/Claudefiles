@@ -202,6 +202,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 |--------|-------------|
 | `agent-stats` | Post-hoc effectiveness stats for subagent runs mined from the JSONL store — per agent type: run count, verdict mix (parsed from the `## Summary` line), compaction rate, and peak turn tokens. `--type` for a detailed report, `--findings` to dump blocking text, `--impl-only` for the comb's orchestrate pass, `--json`, `--since` |
 | `agnix-check` | Validate agent, skill, and command files against agnix schema |
+| `orchestrate-cost` | Model-weighted USD cost of mine-orchestrate runs by (role, model), mined from the JSONL store — delimits runs from durable trail markers, splits the orchestrator loop into own-gen vs absorbed bands, disambiguates `general-purpose` roles by dispatch-prompt signature, buckets runs by pipeline fingerprint, and reports coverage. Reuses `ccrecall` pricing via PEP 723. `--since`, `--projects`, `--json` |
 | `claude-tmux` | Tmux session helper — rename, list, create, capture, kill sessions |
 | `edit-manifest` | Open a manifest file in nvim via a new tmux window with shadow-file autosave and blocking wait |
 | `get-skill-tmpdir` | Create unique temp directories for skill runs |
