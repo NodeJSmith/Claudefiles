@@ -1,12 +1,11 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["ccrecall @ git+https://github.com/NodeJSmith/claude-code-recall.git@main"]
+# dependencies = ["ccrecall>=0.12.0"]
 # ///
-# NOTE: pinned to git main (not a PyPI release) because the Opus 4.7/4.8 pricing fix
-# (claude-code-recall#37, commit 1241f91 — Opus now prices at the $5/$25 tier, not the
-# legacy $15/$75 catch-all) is merged to main but not yet published. Switch to a PyPI
-# version pin (ccrecall>=<fixed release>) once it ships.
+# 0.12.0 is the floor: it carries the Opus 4.7/4.8 pricing fix (claude-code-recall#37 —
+# Opus prices at the $5/$25 tier, not the legacy $15/$75 catch-all). Earlier releases
+# overstate every Opus figure 3x.
 """orchestrate-cost — model-weighted USD cost of mine-orchestrate runs, by role and model.
 
 Answers "where do the token dollars go across an orchestrate run, and how has that
