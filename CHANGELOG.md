@@ -4,6 +4,14 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-06-25
 
+### Added
+
+- `agent-stats` — a CLI that mines the session JSONL store to report per-subagent-type effectiveness stats (run count, verdict mix, compaction rate, peak tokens), answering "is this review gate earning its keep?" without hand-combing transcripts. Splits `fine-toothed-comb` runs by caller mode.
+
+### Changed
+
+- The `fine-toothed-comb` agent now confirms "behavior is wrong" blocking claims against the running system (trace the real path, run the naming test) before reporting them — missing-requirement gaps are still reported from reading alone. Cuts false-positive blocking findings on the orchestrate implementation comb.
+
 ### Fixed
 
 - `install.py` no longer replaces a non-owned symlink under `~/.claude/references/` or `learned/` with a real directory — an upgrade path that silently dropped whatever a foreign symlink pointed to — and a missing agent file now warns instead of leaving a dangling symlink. (#405)
