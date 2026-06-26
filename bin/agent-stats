@@ -117,8 +117,8 @@ def parse_summary(text: str) -> tuple[str, int | None, int | None]:
     return "clean", blk, mnr
 
 
-def assistant_text(msg: dict) -> str:
-    """Concatenate the text blocks of one assistant message."""
+def message_text(msg: dict) -> str:
+    """Concatenate the text blocks of one message (assistant or user)."""
     content = msg.get("content")
     if isinstance(content, str):
         return content
@@ -133,7 +133,7 @@ def assistant_text(msg: dict) -> str:
 
 def scan_run(jsonl: str) -> dict:
     """Single pass over a run's JSONL for everything we report: compaction
-    count, peak context window, comb impl-mode signature, and the final
+    count, peak turn tokens, comb impl-mode signature, and the final
     assistant message's text (the agent's report, which carries `## Summary`)."""
     compactions = 0
     peak = 0
@@ -144,15 +144,30 @@ def scan_run(jsonl: str) -> dict:
             for raw in fh:
                 if '"compact_boundary"' in raw:
                     compactions += 1
-                if not impl_sig and any(s in raw for s in IMPL_COMB_SIGNATURES):
-                    impl_sig = True
-                if '"usage"' not in raw and '"assistant"' not in raw:
+                # Keep usage turns (peak), assistant turns (report), and user
+                # turns (impl-mode signature below). The '"user"' arm is
+                # load-bearing: drop it and the impl_sig check never sees the
+                # dispatch prompt.
+                if (
+                    '"usage"' not in raw
+                    and '"assistant"' not in raw
+                    and '"user"' not in raw
+                ):
                     continue
                 try:
                     obj = json.loads(raw)
                 except ValueError:
                     continue
                 msg = obj.get("message", {}) or {}
+                # The impl-mode signature lives in the orchestrate Step 5.7
+                # dispatch prompt, which arrives as a user message. Match the full
+                # signature there — not substrings anywhere in the transcript — so
+                # reviewed text or the comb's own report can't misbucket a
+                # design/plan/brief comb run as impl.
+                if not impl_sig and msg.get("role") == "user":
+                    prompt = message_text(msg)
+                    if all(s in prompt for s in IMPL_COMB_SIGNATURES):
+                        impl_sig = True
                 # Peak = total turn tokens (input context + this turn's output).
                 # Output is included deliberately: it rolls into the next turn's
                 # input, so total is the better compaction-risk proxy. Evidence:
@@ -168,7 +183,7 @@ def scan_run(jsonl: str) -> dict:
                         + u.get("output_tokens", 0),
                     )
                 if msg.get("role") == "assistant":
-                    text = assistant_text(msg)
+                    text = message_text(msg)
                     if text:
                         report = text  # keep the most recent assistant turn
     except OSError:
@@ -340,6 +355,15 @@ def main() -> int:
         print(
             "--findings requires --type (findings are only dumped in the "
             "per-type report)",
+            file=sys.stderr,
+        )
+        return 1
+
+    if args.impl_only and args.type not in MODE_SPLIT_TYPES:
+        allowed = ", ".join(sorted(MODE_SPLIT_TYPES))
+        print(
+            f"--impl-only requires --type {allowed} (only mode-split types "
+            "carry the impl-vs-design pass)",
             file=sys.stderr,
         )
         return 1
