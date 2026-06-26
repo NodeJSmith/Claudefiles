@@ -10,6 +10,7 @@
 
 import argparse
 import fcntl
+import functools
 import json
 import os
 import re
@@ -20,15 +21,40 @@ import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import questionary
 from rich.console import Console
 from rich.panel import Panel
 
-CONFIG_VERSION = 2  # on a breaking schema change, bump this and add a migrate_vN_to_v(N+1) step (see migrate_v1_to_v2)
+# On a breaking schema change, bump CONFIG_VERSION and add a migrate_vN_to_v(N+1) step
+# (see migrate_v1_to_v2). CONFIG_VERSION_V1 is the legacy schema the migration reads from.
+CONFIG_VERSION = 2
+CONFIG_VERSION_V1 = 1
 CONFIG_FILENAME = ".claudefiles-install-config.json"
 
 SKILL_DIRS = ["skills", "skills-impeccable", "skills-cli"]
+
+# Subdirectories under ~/.claude/ whose contents are symlinked file-by-file (each
+# leaf file is its own symlink) rather than as a whole directory. Used by both the
+# install stale-symlink sweep and the uninstall teardown.
+FILE_LEVEL_SUBDIRS = ("rules", "learned", "references")
+
+# Subprocess timeouts (seconds). Each `uv tool` op gets its own budget; the paired
+# "timed out after Ns" messages are derived from these so they can't go stale.
+INSTALL_TIMEOUT = 120
+UNINSTALL_TIMEOUT = 30
+PYPI_INSTALL_TIMEOUT = 300
+PLUGIN_TIMEOUT = 120
+UV_LIST_TIMEOUT = 10
+CODEX_SYNC_TIMEOUT = 30
+GIT_TIMEOUT = 5
+UV_NOT_FOUND_MSG = "uv not found — install via https://docs.astral.sh/uv/"
+
+# Config lock: the lock file sits next to the config; acquisition polls until the timeout.
+LOCK_SUFFIX = ".lock"
+LOCK_TIMEOUT_SECONDS = 10
+LOCK_POLL_SECONDS = 0.2
 
 # ccrecall ships as a Claude Code plugin (skills + hooks), but its hook binaries and
 # CLI come from this PyPI package — install.py keeps it on PATH and removes the
@@ -39,6 +65,9 @@ CCRECALL_PACKAGE = "ccrecall"
 LEGACY_MEMORY_PACKAGE = "claude-memory"
 CCRECALL_MARKETPLACE_REPO = "NodeJSmith/claude-code-recall"
 CCRECALL_PLUGIN_REF = "ccrecall@claude-code-recall"
+
+# Optional ADO CLI surfaced (not installed) in the first-install tip.
+ADO_API_PACKAGE = "ado-api"
 
 
 @dataclass(frozen=True)
@@ -60,7 +89,7 @@ class RuleCategory:
     always_installed: bool = False
 
 
-def _base_skills(repo_dir: Path) -> tuple[str, ...]:
+def base_skills(repo_dir: Path) -> tuple[str, ...]:
     """Return all skill directory names under skills/."""
     skills_dir = repo_dir / "skills"
     if not skills_dir.is_dir():
@@ -68,23 +97,19 @@ def _base_skills(repo_dir: Path) -> tuple[str, ...]:
     return tuple(sorted(d.name for d in skills_dir.iterdir() if d.is_dir()))
 
 
-# BUNDLES is populated lazily via get_bundles(repo_dir) so the base skill list
-# is derived from the actual filesystem rather than being hardcoded.
-_BUNDLES_CACHE: dict[str, Bundle] | None = None
-_BUNDLES_REPO_DIR: Path | None = None
-
-
+@functools.lru_cache(maxsize=None)
 def get_bundles(repo_dir: Path) -> dict[str, Bundle]:
-    """Return the BUNDLES dict, derived from repo_dir on first call."""
-    global _BUNDLES_CACHE, _BUNDLES_REPO_DIR
-    if _BUNDLES_CACHE is not None and _BUNDLES_REPO_DIR == repo_dir:
-        return _BUNDLES_CACHE
-    _BUNDLES_REPO_DIR = repo_dir
-    _BUNDLES_CACHE = {
+    """Return the BUNDLES dict, derived from repo_dir (memoized per repo_dir).
+
+    The base skill list is read from the filesystem rather than hardcoded. Cached
+    so repeated calls in one run don't re-scan; tests call ``get_bundles.cache_clear()``
+    when they rebuild a repo under a fresh path.
+    """
+    return {
         "base": Bundle(
             label="Base (always installed)",
             description="Core workflow: planning, code review, shipping pipeline",
-            skills=_base_skills(repo_dir),
+            skills=base_skills(repo_dir),
             agents=(
                 "code-reviewer",
                 "integration-reviewer",
@@ -158,7 +183,6 @@ def get_bundles(repo_dir: Path) -> dict[str, Bundle]:
             agents=("architect", "planner", "qa-specialist", "visual-diff"),
         ),
     }
-    return _BUNDLES_CACHE
 
 
 def optional_bundles(repo_dir: Path) -> dict[str, Bundle]:
@@ -267,7 +291,7 @@ def selected_rule_category_keys(config: dict) -> set[str]:
 # Matches backtick-quoted rule filenames in prose (e.g. `testing.md`). Rule files are
 # kebab-case, so the character class is [a-z-]; a non-rule match is dropped by the
 # all_rule_files membership check below.
-_RULE_REF_RE = re.compile(r"`([a-z][a-z-]+\.md)`")
+RULE_REF_RE = re.compile(r"`([a-z][a-z-]+\.md)`")
 
 
 def warn_dangling_rule_refs(
@@ -293,7 +317,7 @@ def warn_dangling_rule_refs(
                 text = (common / fname).read_text()
             except OSError:
                 continue
-            for ref in sorted(set(_RULE_REF_RE.findall(text))):
+            for ref in sorted(set(RULE_REF_RE.findall(text))):
                 if ref in all_rule_files and ref != fname and ref not in installed:
                     dangling.append((fname, ref))
 
@@ -324,7 +348,7 @@ def find_skill_source(skill_name: str, repo_dir: Path) -> Path:
     raise FileNotFoundError(f"Skill not found: {skill_name}")
 
 
-def _find_capabilities_file(filename: str, repo_dir: Path) -> Path | None:
+def find_capabilities_file(filename: str, repo_dir: Path) -> Path | None:
     """Find a capabilities .md file in any skill source directory."""
     for dir_name in SKILL_DIRS:
         candidate = repo_dir / dir_name / filename
@@ -342,6 +366,11 @@ def config_path(claude_dir: Path) -> Path:
     return claude_dir / CONFIG_FILENAME
 
 
+def local_bin_dir() -> Path:
+    """Resolve ~/.local/bin. A function, not a constant, so it tracks Path.home()."""
+    return Path.home() / ".local" / "bin"
+
+
 def load_config(path: Path) -> dict | None:
     """Load config, returning None if missing or corrupt.
 
@@ -356,17 +385,19 @@ def load_config(path: Path) -> dict | None:
             return None
         version = data.get("version")
         # v1 is returned as-is for migration; v2 is current; anything else is unknown
-        if version not in (1, CONFIG_VERSION):
+        if version not in (CONFIG_VERSION_V1, CONFIG_VERSION):
             return None
         return data
     except (json.JSONDecodeError, OSError):
         return None
 
 
-def save_config(path: Path, data: dict) -> None:
-    """Atomically write config using tempfile + os.replace."""
-    data = {**data, "version": CONFIG_VERSION}
-    content = json.dumps(data, indent=2) + "\n"
+def atomic_write_text(path: Path, content: str) -> None:
+    """Write content to path atomically: tempfile in the same dir, fsync, os.replace.
+
+    A crash mid-write leaves the original intact (the rename is the only mutation an
+    observer sees) rather than a half-written file.
+    """
     fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
     closed = False
     try:
@@ -383,6 +414,12 @@ def save_config(path: Path, data: dict) -> None:
         except OSError:
             pass
         raise
+
+
+def save_config(path: Path, data: dict) -> None:
+    """Atomically write config (stamps the current version)."""
+    data = {**data, "version": CONFIG_VERSION}
+    atomic_write_text(path, json.dumps(data, indent=2) + "\n")
 
 
 def migrate_v1_to_v2(v1_config: dict) -> dict:
@@ -402,7 +439,7 @@ def migrate_v1_to_v2(v1_config: dict) -> dict:
     agents = v1_config.get("agents", {})
 
     return {
-        "version": 2,
+        "version": CONFIG_VERSION,
         "bundles": {
             "frontend": bool(skills.get("impeccable", False)),
             "cli": bool(skills.get("cli", False)),
@@ -421,8 +458,9 @@ class ConfigLock:
 
     def __enter__(self) -> "ConfigLock":
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._fd = os.open(str(self._path) + ".lock", os.O_CREAT | os.O_RDWR)
-        deadline = time.monotonic() + 10
+        lock_path = str(self._path) + LOCK_SUFFIX
+        self._fd = os.open(lock_path, os.O_CREAT | os.O_RDWR)
+        deadline = time.monotonic() + LOCK_TIMEOUT_SECONDS
         while True:
             try:
                 fcntl.flock(self._fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -431,12 +469,11 @@ class ConfigLock:
                 if time.monotonic() >= deadline:
                     os.close(self._fd)
                     self._fd = None
-                    lock_path = str(self._path) + ".lock"
                     raise RuntimeError(
-                        f"Could not acquire lock after 10s. "
+                        f"Could not acquire lock after {LOCK_TIMEOUT_SECONDS}s. "
                         f"If no other installer is running, delete {lock_path}"
                     )
-                time.sleep(0.2)
+                time.sleep(LOCK_POLL_SECONDS)
 
     def __exit__(self, *_: object) -> None:
         if self._fd is not None:
@@ -450,20 +487,20 @@ class ConfigLock:
 # ---------------------------------------------------------------------------
 
 
-def _is_git_worktree(repo_dir: Path) -> bool:
+def is_git_worktree(repo_dir: Path) -> bool:
     """Detect if repo_dir is a git worktree (not the main working tree)."""
     try:
         git_dir = subprocess.run(
             ["git", "-C", str(repo_dir), "rev-parse", "--git-dir"],
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=GIT_TIMEOUT,
         )
         git_common = subprocess.run(
             ["git", "-C", str(repo_dir), "rev-parse", "--git-common-dir"],
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=GIT_TIMEOUT,
         )
         if git_dir.returncode != 0 or git_common.returncode != 0:
             return False
@@ -500,13 +537,42 @@ def find_stale_symlinks(directory: Path, repo_dir: Path) -> list[Path]:
     return stale
 
 
+def create_symlink(
+    source: Path,
+    dest: Path,
+    *,
+    repo_dir: Path | None = None,
+    shadowed_out: list[tuple[Path, Path]] | None = None,
+) -> bool:
+    """Create a single symlink from source to dest. Returns True if created.
+
+    The one place the ownership/shadowing decision lives: an existing symlink we own
+    is relinked; one we don't own (or a real file) is recorded in shadowed_out and
+    left untouched. The batch helpers below route every link through here.
+    """
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if dest.is_symlink():
+        if repo_dir and not is_owned_by(dest, repo_dir):
+            if shadowed_out is not None:
+                shadowed_out.append((dest, source))
+            return False
+        dest.unlink()
+        dest.symlink_to(source)
+        return True
+    if dest.exists():
+        if shadowed_out is not None:
+            shadowed_out.append((dest, source))
+        return False
+    dest.symlink_to(source)
+    return True
+
+
 def create_symlinks_dir_level(
     source_dir: Path,
     dest_dir: Path,
     *,
     repo_dir: Path | None = None,
     shadowed_out: list[tuple[Path, Path]] | None = None,
-    dirs_only: bool = False,
 ) -> int:
     """Symlink each item in source_dir into dest_dir. Returns count of links created."""
     if not source_dir.is_dir():
@@ -516,22 +582,9 @@ def create_symlinks_dir_level(
     for item in sorted(source_dir.iterdir()):
         if item.name.startswith("."):
             continue
-        if dirs_only and not item.is_dir():
-            continue
-        target = dest_dir / item.name
-        if target.is_symlink():
-            if repo_dir and not is_owned_by(target, repo_dir):
-                if shadowed_out is not None:
-                    shadowed_out.append((target, item))
-                continue
-            target.unlink()
-            target.symlink_to(item)
-            count += 1
-        elif target.exists():
-            if shadowed_out is not None:
-                shadowed_out.append((target, item))
-        else:
-            target.symlink_to(item)
+        if create_symlink(
+            item, dest_dir / item.name, repo_dir=repo_dir, shadowed_out=shadowed_out
+        ):
             count += 1
     return count
 
@@ -553,66 +606,33 @@ def create_symlinks_file_level(
             continue
         sub_dest = dest_dir / sub.name
         if sub_dest.is_symlink():
+            # A subdir symlink we don't own is shadowed, not clobbered (replacing it
+            # with a real dir would drop whatever it points to). One we DO own — e.g. a
+            # bulk-dir link from an older install — is unlinked so we can convert it to
+            # the per-file symlinks created below.
+            if repo_dir and not is_owned_by(sub_dest, repo_dir):
+                if shadowed_out is not None:
+                    shadowed_out.append((sub_dest, sub))
+                continue
             sub_dest.unlink()
         sub_dest.mkdir(parents=True, exist_ok=True)
         for item in sorted(sub.iterdir()):
             if item.name.startswith("."):
                 continue
-            target = sub_dest / item.name
-            if target.is_symlink():
-                if repo_dir and not is_owned_by(target, repo_dir):
-                    if shadowed_out is not None:
-                        shadowed_out.append((target, item))
-                    continue
-                target.unlink()
-                target.symlink_to(item)
-                count += 1
-            elif target.exists():
-                if shadowed_out is not None:
-                    shadowed_out.append((target, item))
-            else:
-                target.symlink_to(item)
+            if create_symlink(
+                item, sub_dest / item.name, repo_dir=repo_dir, shadowed_out=shadowed_out
+            ):
                 count += 1
     return count
 
 
-def create_symlink(
-    source: Path,
-    dest: Path,
-    *,
-    repo_dir: Path | None = None,
-    shadowed_out: list[tuple[Path, Path]] | None = None,
-) -> bool:
-    """Create a single symlink from source to dest. Returns True if created."""
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    if dest.is_symlink():
-        if repo_dir and not is_owned_by(dest, repo_dir):
-            if shadowed_out is not None:
-                shadowed_out.append((dest, source))
-            return False
-        dest.unlink()
-        dest.symlink_to(source)
-        return True
-    elif dest.exists():
-        if shadowed_out is not None:
-            shadowed_out.append((dest, source))
-        return False
-    else:
-        dest.symlink_to(source)
-        return True
-
-
-def remove_owned_symlinks(
-    directory: Path, repo_dir: Path, names: list[str] | None = None
-) -> int:
-    """Remove symlinks in directory owned by repo_dir. If names given, only those."""
+def remove_owned_symlinks(directory: Path, repo_dir: Path) -> int:
+    """Remove symlinks in directory owned by repo_dir. Returns count removed."""
     if not directory.is_dir():
         return 0
     count = 0
     for item in sorted(directory.iterdir()):
         if not item.is_symlink():
-            continue
-        if names is not None and item.name not in names:
             continue
         if is_owned_by(item, repo_dir):
             item.unlink()
@@ -620,12 +640,22 @@ def remove_owned_symlinks(
     return count
 
 
+def unlink_if_owned(dest: Path, repo_dir: Path) -> None:
+    """Remove a single path if it is a symlink owned by repo_dir (no-op otherwise)."""
+    if dest.is_symlink() and is_owned_by(dest, repo_dir):
+        dest.unlink()
+
+
 # ---------------------------------------------------------------------------
 # Smart diff
 # ---------------------------------------------------------------------------
 
 
-def find_new_groups(saved: dict, category: str, current_keys: list[str]) -> list[str]:
+def find_new_groups(
+    saved: dict,
+    category: Literal["bundles", "rule_categories"],
+    current_keys: list[str],
+) -> list[str]:
     """Return group keys present in current_keys but missing from saved config."""
     saved_section = saved.get(category, {})
     return [k for k in current_keys if k not in saved_section]
@@ -636,41 +666,32 @@ def find_new_groups(saved: dict, category: str, current_keys: list[str]) -> list
 # ---------------------------------------------------------------------------
 
 
-def install_package(repo_dir: Path, pkg_name: str) -> tuple[bool, str]:
-    """Run uv tool install -e for a package. Returns (success, error_detail)."""
-    pkg_dir = repo_dir / "packages" / pkg_name
+def run_uv_tool(cmd: list[str], timeout: int) -> tuple[bool, str]:
+    """Run a `uv tool` subprocess. Returns (success, error_detail).
+
+    Centralizes the returncode/timeout/uv-missing handling shared by every
+    package op so the error messages stay consistent and timeout values single-sourced.
+    """
     try:
-        result = subprocess.run(
-            ["uv", "tool", "install", "-e", str(pkg_dir)],
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
         if result.returncode != 0:
             return False, (result.stderr or result.stdout).strip()
         return True, ""
     except subprocess.TimeoutExpired:
-        return False, "timed out after 120s"
+        return False, f"timed out after {timeout}s"
     except FileNotFoundError:
-        return False, "uv not found — install via https://docs.astral.sh/uv/"
+        return False, UV_NOT_FOUND_MSG
+
+
+def install_package(repo_dir: Path, pkg_name: str) -> tuple[bool, str]:
+    """Run uv tool install -e for a package. Returns (success, error_detail)."""
+    pkg_dir = repo_dir / "packages" / pkg_name
+    return run_uv_tool(["uv", "tool", "install", "-e", str(pkg_dir)], INSTALL_TIMEOUT)
 
 
 def uninstall_package(pkg_name: str) -> tuple[bool, str]:
     """Run uv tool uninstall for a package. Returns (success, error_detail)."""
-    try:
-        result = subprocess.run(
-            ["uv", "tool", "uninstall", pkg_name],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        if result.returncode != 0:
-            return False, (result.stderr or result.stdout).strip()
-        return True, ""
-    except subprocess.TimeoutExpired:
-        return False, "timed out after 30s"
-    except FileNotFoundError:
-        return False, "uv not found — install via https://docs.astral.sh/uv/"
+    return run_uv_tool(["uv", "tool", "uninstall", pkg_name], UNINSTALL_TIMEOUT)
 
 
 def install_pypi_tool(name: str) -> tuple[bool, str]:
@@ -679,20 +700,7 @@ def install_pypi_tool(name: str) -> tuple[bool, str]:
     Unlike install_package, this takes no repo_dir — the package is fetched from
     PyPI, not installed editable from a local path in this repo.
     """
-    try:
-        result = subprocess.run(
-            ["uv", "tool", "install", name],
-            capture_output=True,
-            text=True,
-            timeout=300,
-        )
-        if result.returncode != 0:
-            return False, (result.stderr or result.stdout).strip()
-        return True, ""
-    except subprocess.TimeoutExpired:
-        return False, "timed out after 300s"
-    except FileNotFoundError:
-        return False, "uv not found — install via https://docs.astral.sh/uv/"
+    return run_uv_tool(["uv", "tool", "install", name], PYPI_INSTALL_TIMEOUT)
 
 
 def run_claude_plugin(claude_bin: str, args: list[str]) -> tuple[bool, str]:
@@ -706,13 +714,13 @@ def run_claude_plugin(claude_bin: str, args: list[str]) -> tuple[bool, str]:
             [claude_bin, "plugin", *args],
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=PLUGIN_TIMEOUT,
         )
         if result.returncode != 0:
             return False, (result.stderr or result.stdout).strip()
         return True, result.stdout.strip()
     except subprocess.TimeoutExpired:
-        return False, "timed out after 120s"
+        return False, f"timed out after {PLUGIN_TIMEOUT}s"
     except FileNotFoundError:
         return False, f"{claude_bin} not found"
 
@@ -770,17 +778,17 @@ def ensure_ccrecall_plugin(console: Console) -> int:
     # Marketplace add failing is non-fatal — it's already-known on every machine past the
     # first, and a real failure surfaces again as the install error below.
     console.print(f"  Adding plugin marketplace: {CCRECALL_MARKETPLACE_REPO}...")
-    mp_ok, detail = run_claude_plugin(
+    ok, detail = run_claude_plugin(
         claude_bin, ["marketplace", "add", CCRECALL_MARKETPLACE_REPO]
     )
-    if not mp_ok:
+    if not ok:
         console.print("  [yellow]Warning: marketplace add failed[/yellow]")
         if detail:
             console.print(f"  [dim]{detail}[/dim]")
 
     console.print(f"  Installing plugin: {CCRECALL_PLUGIN_REF}...")
-    inst_ok, detail = run_claude_plugin(claude_bin, ["install", CCRECALL_PLUGIN_REF])
-    if not inst_ok:
+    ok, detail = run_claude_plugin(claude_bin, ["install", CCRECALL_PLUGIN_REF])
+    if not ok:
         console.print(f"  [red]Failed to register plugin {CCRECALL_PLUGIN_REF}[/red]")
         if detail:
             console.print(f"  [dim]{detail}[/dim]")
@@ -869,17 +877,19 @@ def install_bundle_packages(
     return errors
 
 
-def _get_installed_packages() -> set[str]:
+def get_installed_packages() -> set[str]:
     """Return set of currently installed uv tool package names."""
     try:
         result = subprocess.run(
             ["uv", "tool", "list"],
             capture_output=True,
             text=True,
-            timeout=10,
+            timeout=UV_LIST_TIMEOUT,
         )
         if result.returncode != 0:
             return set()
+        # `uv tool list` prints each package name flush-left and its executables
+        # indented beneath it, so a non-indented, non-blank line is a package row.
         names = set()
         for line in result.stdout.splitlines():
             if line and not line.startswith(" "):
@@ -914,7 +924,7 @@ def run_wizard(
 
     opt = optional_bundles(repo_dir)
     presel = preselected.get("bundles", {}) if preselected else {}
-    bundle_selections = _ask_checkbox(
+    bundle_selections = ask_checkbox(
         "Select optional bundles to install:",
         {k: f"{b.label} — {b.description}" for k, b in opt.items()},
         {k: presel.get(k, False) for k in opt},
@@ -929,7 +939,7 @@ def run_wizard(
         presel_rules: dict[str, bool] = {k: True for k in opt_rules}
     else:
         presel_rules = preselected.get("rule_categories", {})
-    rule_selections = _ask_checkbox(
+    rule_selections = ask_checkbox(
         "Select rule categories to install (core rules always install):",
         {k: f"{c.label} — {c.description}" for k, c in opt_rules.items()},
         {k: presel_rules.get(k, False) for k in opt_rules},
@@ -938,7 +948,7 @@ def run_wizard(
     return {"bundles": bundle_selections, "rule_categories": rule_selections}
 
 
-def _ask_checkbox(
+def ask_checkbox(
     message: str, choices: dict[str, str], preselected: dict[str, bool]
 ) -> dict[str, bool]:
     """Present a checkbox question and return {key: bool} selections."""
@@ -957,7 +967,7 @@ def _ask_checkbox(
     return {k: k in selected for k in choices}
 
 
-def _all_selected_config(repo_dir: Path) -> dict:
+def all_selected_config(repo_dir: Path) -> dict:
     """Return config with all optional bundles and rule categories selected."""
     return {
         "bundles": {k: True for k in optional_bundles(repo_dir)},
@@ -970,6 +980,243 @@ def _all_selected_config(repo_dir: Path) -> dict:
 # ---------------------------------------------------------------------------
 
 
+def link_bundle_artifacts(
+    bundle: Bundle,
+    repo_dir: Path,
+    *,
+    skills_dest: Path,
+    agents_dest: Path,
+    rules_common_dest: Path,
+    console: Console,
+    shadowed_out: list[tuple[Path, Path]],
+) -> int:
+    """Symlink a bundle's skills, agents, and capabilities files. Returns links created.
+
+    Shared by the always-installed and optional-selected install paths so both stay in
+    step. A missing skill or agent source warns and is skipped rather than leaving a
+    dangling symlink. Packages are installed separately by the caller (they return an
+    error count, not a link count).
+    """
+    links = 0
+    for skill_name in bundle.skills:
+        try:
+            source = find_skill_source(skill_name, repo_dir)
+        except FileNotFoundError:
+            console.print(f"  [yellow]Warning: skill not found: {skill_name}[/yellow]")
+            continue
+        if create_symlink(
+            source,
+            skills_dest / skill_name,
+            repo_dir=repo_dir,
+            shadowed_out=shadowed_out,
+        ):
+            links += 1
+
+    if bundle.agents:
+        agents_dest.mkdir(parents=True, exist_ok=True)
+    for agent_name in bundle.agents:
+        source = repo_dir / "agents" / f"{agent_name}.md"
+        if not source.exists():
+            console.print(
+                f"  [yellow]Warning: agent file not found: {agent_name}.md[/yellow]"
+            )
+            continue
+        if create_symlink(
+            source,
+            agents_dest / f"{agent_name}.md",
+            repo_dir=repo_dir,
+            shadowed_out=shadowed_out,
+        ):
+            links += 1
+
+    for cap_file in bundle.capabilities_files:
+        source = find_capabilities_file(cap_file, repo_dir)
+        if source is None:
+            console.print(
+                f"  [yellow]Warning: capabilities file not found: {cap_file}[/yellow]"
+            )
+            continue
+        rules_common_dest.mkdir(parents=True, exist_ok=True)
+        if create_symlink(
+            source,
+            rules_common_dest / cap_file,
+            repo_dir=repo_dir,
+            shadowed_out=shadowed_out,
+        ):
+            links += 1
+    return links
+
+
+def install_rule_categories(
+    config: dict,
+    repo_dir: Path,
+    claude_dir: Path,
+    console: Console,
+    *,
+    shadowed_out: list[tuple[Path, Path]],
+) -> int:
+    """Symlink selected rule-category files into ~/.claude/rules/common (file-level).
+
+    Core always installs; optional categories install when selected and have their owned
+    symlinks removed when deselected (replacing the former bulk symlink of all of
+    rules/common/, see issue #334). Returns links created.
+    """
+    rules_common_src = repo_dir / "rules" / "common"
+    rules_common_dest = claude_dir / "rules" / "common"
+    rules_common_dest.mkdir(parents=True, exist_ok=True)
+    selected = selected_rule_category_keys(config)
+    links = 0
+    for key, category in RULE_CATEGORIES.items():
+        keep = category.always_installed or key in selected
+        for fname in category.files:
+            dest = rules_common_dest / fname
+            if not keep:
+                unlink_if_owned(dest, repo_dir)
+                continue
+            source = rules_common_src / fname
+            if not source.exists():
+                console.print(
+                    f"  [yellow]Warning: rule file not found: {fname}[/yellow]"
+                )
+                continue
+            if create_symlink(
+                source, dest, repo_dir=repo_dir, shadowed_out=shadowed_out
+            ):
+                links += 1
+    warn_dangling_rule_refs(repo_dir, selected, console)
+    return links
+
+
+def warn_unhandled_rule_subdirs(repo_dir: Path, console: Console) -> None:
+    """Warn about any rules/ subdir other than common/ — the installer only handles common/."""
+    for sub in sorted((repo_dir / "rules").iterdir()):
+        if sub.is_dir() and sub.name != "common" and not sub.name.startswith("."):
+            console.print(
+                f"  [yellow]Warning: rules/{sub.name}/ not installed — only "
+                f"rules/common/ is handled. Add it to install.py.[/yellow]"
+            )
+
+
+def remove_bundle_artifacts(
+    bundle: Bundle,
+    repo_dir: Path,
+    *,
+    skills_dest: Path,
+    agents_dest: Path,
+    rules_common_dest: Path,
+) -> None:
+    """Remove a deselected bundle's owned skill/agent/capabilities symlinks.
+
+    The teardown mirror of link_bundle_artifacts. Takes no console/shadowed_out because
+    teardown only unlinks what we own — nothing to warn about or shadow. Package uninstall
+    is the caller's job (symmetric with install_bundle_packages on the install side).
+    """
+    for skill_name in bundle.skills:
+        unlink_if_owned(skills_dest / skill_name, repo_dir)
+    for agent_name in bundle.agents:
+        unlink_if_owned(agents_dest / f"{agent_name}.md", repo_dir)
+    for cap_file in bundle.capabilities_files:
+        unlink_if_owned(rules_common_dest / cap_file, repo_dir)
+
+
+def uninstall_deselected_packages(
+    bundle: Bundle, bundle_key: str, prev_config: dict | None, console: Console
+) -> None:
+    """Uninstall a deselected bundle's packages, but only if a prior config had it selected."""
+    was_selected = bool(prev_config and prev_config.get("bundles", {}).get(bundle_key))
+    if not was_selected:
+        return
+    for pkg_name in bundle.packages:
+        console.print(f"  Uninstalling deselected package: {pkg_name}...")
+        ok, detail = uninstall_package(pkg_name)
+        if not ok and detail:
+            console.print(f"  [yellow]Warning: {detail}[/yellow]")
+
+
+def resolve_shadowed(
+    shadowed: list[tuple[Path, Path]], console: Console, *, interactive: bool
+) -> int:
+    """Report shadowed (non-symlink) targets and, interactively, offer to relink files.
+
+    Returns the count of files relinked. Shadowed directories always need manual removal.
+    """
+    if not shadowed:
+        return 0
+    console.print(
+        f"\n[yellow]Warning: {len(shadowed)} file(s) not symlinked — a non-symlink already exists:[/yellow]"
+    )
+    for target, source in shadowed:
+        console.print(f"  {target} (shadows {source})")
+    if not interactive:
+        return 0
+
+    links = 0
+    file_shadowed = [(t, s) for t, s in shadowed if not t.is_dir()]
+    dir_shadowed = [(t, s) for t, s in shadowed if t.is_dir()]
+    if file_shadowed:
+        replace = questionary.confirm(
+            f"Remove and re-link {len(file_shadowed)} shadowed file(s)?",
+            default=False,
+        ).ask()
+        if replace:
+            for target, source in file_shadowed:
+                target.unlink()
+                target.symlink_to(source)
+                console.print(f"  linked: {target}")
+                links += 1
+    if dir_shadowed:
+        console.print(
+            f"\n[yellow]{len(dir_shadowed)} shadowed director(ies) require manual removal:[/yellow]"
+        )
+        for target, source in dir_shadowed:
+            console.print(f"  rm -rf {target}  # then re-run installer")
+    return links
+
+
+def resolve_stale_symlinks(
+    claude_dir: Path,
+    repo_dir: Path,
+    bin_dir: Path,
+    console: Console,
+    *,
+    interactive: bool,
+) -> None:
+    """Find owned symlinks whose targets vanished and, interactively, offer to remove them."""
+    stale_dirs = [
+        claude_dir / "skills",
+        claude_dir / "agents",
+        claude_dir / "commands",
+        claude_dir / "scripts" / "hooks",
+        bin_dir,
+    ]
+    all_stale: list[Path] = []
+    for d in stale_dirs:
+        all_stale.extend(find_stale_symlinks(d, repo_dir))
+    # Also check the file-level sub-roots (rules, learned, references).
+    for name in FILE_LEVEL_SUBDIRS:
+        sub_root = claude_dir / name
+        if not sub_root.is_dir():
+            continue
+        for sub in sub_root.iterdir():
+            if sub.is_dir() and not sub.is_symlink():
+                all_stale.extend(find_stale_symlinks(sub, repo_dir))
+
+    if not all_stale:
+        return
+    console.print(
+        f"\n[yellow]Warning: {len(all_stale)} stale symlink(s) found:[/yellow]"
+    )
+    for link in all_stale:
+        console.print(f"  {link} -> {os.readlink(link)}")
+    if (
+        interactive
+        and questionary.confirm("Remove stale symlinks?", default=True).ask()
+    ):
+        for link in all_stale:
+            link.unlink()
+            console.print(f"  removed: {link}")
+
+
 def do_install(
     repo_dir: Path,
     claude_dir: Path,
@@ -980,7 +1227,7 @@ def do_install(
 ) -> int:
     """Perform installation based on config. Returns count of errors."""
     console = Console()
-    bin_dir = Path.home() / ".local" / "bin"
+    bin_dir = local_bin_dir()
     errors = 0
     total_links = 0
     shadowed: list[tuple[Path, Path]] = []
@@ -990,50 +1237,20 @@ def do_install(
     agents_dest = claude_dir / "agents"
     rules_common_dest = claude_dir / "rules" / "common"
 
-    # Rules (file-level): core category always installs; optional categories install
-    # when selected and have their owned symlinks removed when deselected. This replaces
-    # the former bulk symlink of all of rules/common/ (see issue #334).
-    rules_common_src = repo_dir / "rules" / "common"
-    selected_rule_keys = selected_rule_category_keys(config)
-    rules_common_dest.mkdir(parents=True, exist_ok=True)
-    for key, category in RULE_CATEGORIES.items():
-        keep = category.always_installed or key in selected_rule_keys
-        for fname in category.files:
-            dest = rules_common_dest / fname
-            if keep:
-                source = rules_common_src / fname
-                if not source.exists():
-                    console.print(
-                        f"  [yellow]Warning: rule file not found: {fname}[/yellow]"
-                    )
-                    continue
-                if create_symlink(
-                    source, dest, repo_dir=repo_dir, shadowed_out=shadowed
-                ):
-                    total_links += 1
-            elif dest.is_symlink() and is_owned_by(dest, repo_dir):
-                dest.unlink()
-    warn_dangling_rule_refs(repo_dir, selected_rule_keys, console)
+    # Rules: install the selected categories, then warn about any rules/ subdir we don't handle.
+    total_links += install_rule_categories(
+        config, repo_dir, claude_dir, console, shadowed_out=shadowed
+    )
+    warn_unhandled_rule_subdirs(repo_dir, console)
 
-    # rules/ contains only common/ today; the category logic above covers it. Surface
-    # any other subdir loudly rather than silently dropping it from the install.
-    for sub in sorted((repo_dir / "rules").iterdir()):
-        if sub.is_dir() and sub.name != "common" and not sub.name.startswith("."):
-            console.print(
-                f"  [yellow]Warning: rules/{sub.name}/ not installed — only "
-                f"rules/common/ is handled. Add it to install.py.[/yellow]"
-            )
-
-    # Always installed — the meta-rule in invariants.md points to these files.
+    # Always-installed trees: references + learned (file-level), bin/commands/hooks
+    # (dir-level). The meta-rule in invariants.md points to references/.
     total_links += create_symlinks_file_level(
         repo_dir / "references",
         claude_dir / "references",
         repo_dir=repo_dir,
         shadowed_out=shadowed,
     )
-
-    # Always-installed: learned (file-level), bin (dir-level),
-    # commands (dir-level), hooks (bulk dir symlink — always in v2)
     total_links += create_symlinks_file_level(
         repo_dir / "learned",
         claude_dir / "learned",
@@ -1056,177 +1273,56 @@ def do_install(
         shadowed_out=shadowed,
     )
 
-    installed_pkgs = _get_installed_packages()
+    installed_pkgs = get_installed_packages()
 
-    # Always-installed bundles: symlink skills and agents by name, install packages
+    # Always-installed bundles: link artifacts + install packages.
     for bundle in (b for b in bundles.values() if b.always_installed):
-        for skill_name in bundle.skills:
-            try:
-                source = find_skill_source(skill_name, repo_dir)
-            except FileNotFoundError:
-                console.print(
-                    f"  [yellow]Warning: skill not found: {skill_name}[/yellow]"
-                )
-                continue
-            dest = skills_dest / skill_name
-            if create_symlink(source, dest, repo_dir=repo_dir, shadowed_out=shadowed):
-                total_links += 1
-
-        agents_dest.mkdir(parents=True, exist_ok=True)
-        for agent_name in bundle.agents:
-            source = repo_dir / "agents" / f"{agent_name}.md"
-            dest = agents_dest / f"{agent_name}.md"
-            if create_symlink(source, dest, repo_dir=repo_dir, shadowed_out=shadowed):
-                total_links += 1
-
+        total_links += link_bundle_artifacts(
+            bundle,
+            repo_dir,
+            skills_dest=skills_dest,
+            agents_dest=agents_dest,
+            rules_common_dest=rules_common_dest,
+            console=console,
+            shadowed_out=shadowed,
+        )
         errors += install_bundle_packages(bundle, installed_pkgs, repo_dir, console)
 
-    # Optional bundles: install selected, remove deselected
+    # Optional bundles: link selected, tear down deselected.
     bundle_cfg = config.get("bundles", {})
-
     for bundle_key, bundle in (b for b in bundles.items() if not b[1].always_installed):
-        selected = bundle_cfg.get(bundle_key, False)
-
-        if selected:
-            for skill_name in bundle.skills:
-                try:
-                    source = find_skill_source(skill_name, repo_dir)
-                except FileNotFoundError:
-                    console.print(
-                        f"  [yellow]Warning: skill not found: {skill_name}[/yellow]"
-                    )
-                    continue
-                dest = skills_dest / skill_name
-                if create_symlink(
-                    source, dest, repo_dir=repo_dir, shadowed_out=shadowed
-                ):
-                    total_links += 1
-
-            agents_dest.mkdir(parents=True, exist_ok=True)
-            for agent_name in bundle.agents:
-                source = repo_dir / "agents" / f"{agent_name}.md"
-                dest = agents_dest / f"{agent_name}.md"
-                if create_symlink(
-                    source, dest, repo_dir=repo_dir, shadowed_out=shadowed
-                ):
-                    total_links += 1
-
+        if bundle_cfg.get(bundle_key, False):
+            total_links += link_bundle_artifacts(
+                bundle,
+                repo_dir,
+                skills_dest=skills_dest,
+                agents_dest=agents_dest,
+                rules_common_dest=rules_common_dest,
+                console=console,
+                shadowed_out=shadowed,
+            )
             errors += install_bundle_packages(bundle, installed_pkgs, repo_dir, console)
-
-            rules_common_dest.mkdir(parents=True, exist_ok=True)
-            for cap_file in bundle.capabilities_files:
-                source = _find_capabilities_file(cap_file, repo_dir)
-                if source is None:
-                    console.print(
-                        f"  [yellow]Warning: capabilities file not found: {cap_file}[/yellow]"
-                    )
-                    continue
-                dest = rules_common_dest / cap_file
-                if create_symlink(
-                    source, dest, repo_dir=repo_dir, shadowed_out=shadowed
-                ):
-                    total_links += 1
-
         else:
-            # Deselect: remove owned skill symlinks
-            for skill_name in bundle.skills:
-                dest = skills_dest / skill_name
-                if dest.is_symlink() and is_owned_by(dest, repo_dir):
-                    dest.unlink()
+            remove_bundle_artifacts(
+                bundle,
+                repo_dir,
+                skills_dest=skills_dest,
+                agents_dest=agents_dest,
+                rules_common_dest=rules_common_dest,
+            )
+            uninstall_deselected_packages(bundle, bundle_key, prev_config, console)
 
-            # Remove owned agent symlinks
-            for agent_name in bundle.agents:
-                dest = agents_dest / f"{agent_name}.md"
-                if dest.is_symlink() and is_owned_by(dest, repo_dir):
-                    dest.unlink()
-
-            # Uninstall packages (only if previously selected)
-            if prev_config:
-                prev_bundle_cfg = prev_config.get("bundles", {})
-                if prev_bundle_cfg.get(bundle_key):
-                    for pkg_name in bundle.packages:
-                        console.print(
-                            f"  Uninstalling deselected package: {pkg_name}..."
-                        )
-                        ok, detail = uninstall_package(pkg_name)
-                        if not ok and detail:
-                            console.print(f"  [yellow]Warning: {detail}[/yellow]")
-
-            # Remove capabilities files (only if owned)
-            for cap_file in bundle.capabilities_files:
-                dest = rules_common_dest / cap_file
-                if dest.is_symlink() and is_owned_by(dest, repo_dir):
-                    dest.unlink()
-
-    # ccrecall is always-on (its plugin is enabled globally in settings.json), so the
-    # package install is unconditional — not gated behind a bundle. This also removes the
-    # legacy claude-memory install that ccrecall replaces.
+    # ccrecall is always-on (plugin enabled globally in settings.json), so its package
+    # install is unconditional. Also removes the legacy claude-memory install it replaces.
     errors += ensure_ccrecall(installed_pkgs, console)
     errors += ensure_ccrecall_plugin(console)
 
-    # Handle shadowed files
-    if shadowed:
-        console.print(
-            f"\n[yellow]Warning: {len(shadowed)} file(s) not symlinked — a non-symlink already exists:[/yellow]"
-        )
-        for target, source in shadowed:
-            console.print(f"  {target} (shadows {source})")
-        if interactive:
-            file_shadowed = [(t, s) for t, s in shadowed if not t.is_dir()]
-            dir_shadowed = [(t, s) for t, s in shadowed if t.is_dir()]
-            if file_shadowed:
-                replace = questionary.confirm(
-                    f"Remove and re-link {len(file_shadowed)} shadowed file(s)?",
-                    default=False,
-                ).ask()
-                if replace:
-                    for target, source in file_shadowed:
-                        target.unlink()
-                        target.symlink_to(source)
-                        console.print(f"  linked: {target}")
-                        total_links += 1
-            if dir_shadowed:
-                console.print(
-                    f"\n[yellow]{len(dir_shadowed)} shadowed director(ies) require manual removal:[/yellow]"
-                )
-                for target, source in dir_shadowed:
-                    console.print(f"  rm -rf {target}  # then re-run installer")
-
-    # Handle stale symlinks
-    stale_dirs = [
-        claude_dir / "skills",
-        claude_dir / "agents",
-        claude_dir / "commands",
-        claude_dir / "scripts" / "hooks",
-        bin_dir,
-    ]
-    all_stale: list[Path] = []
-    for d in stale_dirs:
-        all_stale.extend(find_stale_symlinks(d, repo_dir))
-    # Also check rules and learned file-level symlinks
-    for sub_root in [
-        claude_dir / "rules",
-        claude_dir / "learned",
-        claude_dir / "references",
-    ]:
-        if sub_root.is_dir():
-            for sub in sub_root.iterdir():
-                if sub.is_dir() and not sub.is_symlink():
-                    all_stale.extend(find_stale_symlinks(sub, repo_dir))
-
-    if all_stale:
-        console.print(
-            f"\n[yellow]Warning: {len(all_stale)} stale symlink(s) found:[/yellow]"
-        )
-        for link in all_stale:
-            console.print(f"  {link} -> {os.readlink(link)}")
-        if interactive:
-            remove = questionary.confirm("Remove stale symlinks?", default=True).ask()
-            if remove:
-                for link in all_stale:
-                    link.unlink()
-                    console.print(f"  removed: {link}")
-
+    # Interactively relinking a shadowed file creates a symlink, so its count adds to
+    # total_links; stale-symlink removal only deletes, so it returns nothing.
+    total_links += resolve_shadowed(shadowed, console, interactive=interactive)
+    resolve_stale_symlinks(
+        claude_dir, repo_dir, bin_dir, console, interactive=interactive
+    )
     generate_codex_rules(repo_dir, console)
 
     console.print(
@@ -1252,7 +1348,7 @@ def generate_codex_rules(repo_dir: Path, console: Console) -> None:
             [sys.executable, str(script)],
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=CODEX_SYNC_TIMEOUT,
         )
     except (OSError, subprocess.TimeoutExpired) as e:
         console.print(
@@ -1269,10 +1365,10 @@ def generate_codex_rules(repo_dir: Path, console: Console) -> None:
         )
 
 
-def do_uninstall(repo_dir: Path, claude_dir: Path, cfg: dict) -> None:
+def do_uninstall(repo_dir: Path, claude_dir: Path, config: dict) -> None:
     """Remove all Claudefiles-owned symlinks and uninstall packages."""
     console = Console()
-    bin_dir = Path.home() / ".local" / "bin"
+    bin_dir = local_bin_dir()
 
     for d in [
         claude_dir / "skills",
@@ -1285,12 +1381,9 @@ def do_uninstall(repo_dir: Path, claude_dir: Path, cfg: dict) -> None:
         if removed:
             console.print(f"  Removed {removed} symlinks from {d}")
 
-    # File-level: rules, learned, and references
-    for sub_root in [
-        claude_dir / "rules",
-        claude_dir / "learned",
-        claude_dir / "references",
-    ]:
+    # File-level sub-roots: rules, learned, references
+    for name in FILE_LEVEL_SUBDIRS:
+        sub_root = claude_dir / name
         if sub_root.is_dir():
             for sub in sub_root.iterdir():
                 if sub.is_dir() and not sub.is_symlink():
@@ -1300,7 +1393,7 @@ def do_uninstall(repo_dir: Path, claude_dir: Path, cfg: dict) -> None:
 
     # Derive packages to uninstall: base bundle packages + selected optional bundle packages
     bundles = get_bundles(repo_dir)
-    bundle_cfg = cfg.get("bundles", {})
+    bundle_cfg = config.get("bundles", {})
     pkgs_to_uninstall: list[str] = []
 
     # Always include base bundle packages
@@ -1316,7 +1409,7 @@ def do_uninstall(repo_dir: Path, claude_dir: Path, cfg: dict) -> None:
         if bundle_cfg.get(bundle_key):
             pkgs_to_uninstall.extend(bundle.packages)
 
-    if "bundles" not in cfg:
+    if "bundles" not in config:
         console.print(
             "  [yellow]No config file found — uninstalling base packages only. "
             "Run 'uv tool uninstall <name>' for any optional-bundle packages.[/yellow]"
@@ -1332,21 +1425,21 @@ def do_uninstall(repo_dir: Path, claude_dir: Path, cfg: dict) -> None:
 
     remove_ccrecall_plugin(console)
 
-    # Remove config
     cfg_path = config_path(claude_dir)
     if cfg_path.exists():
         cfg_path.unlink()
         console.print(f"  Removed config: {cfg_path}")
 
-    lock = Path(str(cfg_path) + ".lock")
-    if lock.exists():
-        lock.unlink()
+    # The .lock file is left in place: main() still holds an flock on it via ConfigLock,
+    # and unlinking the pathname here would let a concurrent installer create a new inode
+    # at the same path and acquire a second lock before ConfigLock.__exit__ releases ours.
+    # The lockfile is a persistent flock sentinel, not state that needs cleanup.
 
     console.print("[green]Claudefiles uninstalled.[/green]")
 
 
-def _dry_run_status(selected: bool, was_selected: bool | None) -> str:
-    """Format the install/remove/skip status for one item in the dry-run preview."""
+def dry_run_status(selected: bool, was_selected: bool | None) -> str:
+    """Return the install/remove/skip status as Rich markup (print-only, not plain text)."""
     if selected and was_selected is False:
         return "[green]install (new)[/green]"
     if selected:
@@ -1356,7 +1449,7 @@ def _dry_run_status(selected: bool, was_selected: bool | None) -> str:
     return "[dim]skip[/dim]"
 
 
-def _print_dry_run(
+def print_dry_run(
     repo_dir: Path,
     config: dict,
     prev_config: dict | None = None,
@@ -1365,7 +1458,7 @@ def _print_dry_run(
     console = Console()
     console.print("\n[bold]Dry run — no changes will be made[/bold]\n")
     console.print(
-        "[bold]Always installed:[/bold] base bundle, core rules, learned, bin, commands, hooks"
+        "[bold]Always installed:[/bold] base bundle, core rules, references, learned, bin, commands, hooks"
     )
     console.print()
     console.print("[bold]Optional bundles:[/bold]")
@@ -1377,7 +1470,7 @@ def _print_dry_run(
     for key, bundle in opt.items():
         selected = bundle_cfg.get(key, False)
         was_selected = prev_bundle_cfg.get(key) if prev_config else None
-        console.print(f"  {bundle.label}: {_dry_run_status(selected, was_selected)}")
+        console.print(f"  {bundle.label}: {dry_run_status(selected, was_selected)}")
 
     console.print()
     console.print("[bold]Rule categories:[/bold]")
@@ -1389,7 +1482,7 @@ def _print_dry_run(
     for key, category in optional_rule_categories().items():
         selected = key in selected_rule_keys
         was_selected = (key in prev_rule_keys) if prev_rule_keys is not None else None
-        console.print(f"  {category.label}: {_dry_run_status(selected, was_selected)}")
+        console.print(f"  {category.label}: {dry_run_status(selected, was_selected)}")
 
 
 # ---------------------------------------------------------------------------
@@ -1397,7 +1490,7 @@ def _print_dry_run(
 # ---------------------------------------------------------------------------
 
 
-def _migrate_and_backup(v1_config: dict, cfg_path: Path, repo_dir: Path) -> dict:
+def migrate_and_backup(v1_config: dict, cfg_path: Path, repo_dir: Path) -> dict:
     """Migrate a v1 config to v2, write a backup of the raw v1 data, and print a summary.
 
     Returns the migrated v2 dict. Does NOT call save_config — the caller does that
@@ -1411,8 +1504,7 @@ def _migrate_and_backup(v1_config: dict, cfg_path: Path, repo_dir: Path) -> dict
 
     # Write raw v1 backup BEFORE save_config touches anything
     bak_path = cfg_path.parent / (cfg_path.stem + ".v1.json.bak")
-    bak_content = json.dumps(v1_config, indent=2) + "\n"
-    bak_path.write_text(bak_content)
+    atomic_write_text(bak_path, json.dumps(v1_config, indent=2) + "\n")
 
     # Migration summary
     console.print()
@@ -1440,6 +1532,171 @@ def _migrate_and_backup(v1_config: dict, cfg_path: Path, repo_dir: Path) -> dict
 
 
 # ---------------------------------------------------------------------------
+# Config resolution (main's helpers)
+# ---------------------------------------------------------------------------
+
+
+def prepare_saved_config(
+    cfg_path: Path, repo_dir: Path, *, dry_run: bool
+) -> dict | None:
+    """Load the saved config and bring it up to the current schema.
+
+    Migrates a v1 config to v2 (writing a backup unless this is a dry run) and backfills
+    rule_categories for configs that predate rule selection. Returns the prepared config,
+    or None when there is no saved config yet.
+    """
+    saved = load_config(cfg_path)
+    if saved is None:
+        return None
+
+    # Migrate v1 → v2 before any further processing. On --dry-run, transform purely
+    # (no backup write, no summary panel) so the no-changes contract holds; the real
+    # migration writes a backup and prints a summary, so it can't hide in a ternary.
+    if saved.get("version") == CONFIG_VERSION_V1:
+        if dry_run:
+            saved = migrate_v1_to_v2(saved)
+        else:
+            saved = migrate_and_backup(saved, cfg_path, repo_dir)
+
+    # Backfill rule_categories for configs predating rule selection (issue #334):
+    # those installs had every rule, so absence means "all selected".
+    if "rule_categories" not in saved:
+        saved = {
+            **saved,
+            "rule_categories": {k: True for k in optional_rule_categories()},
+        }
+
+    return saved
+
+
+def confirm_or_abort(question: str, *, default: bool) -> bool:
+    """Ask a yes/no question; exit the installer if the user cancels (Ctrl-C / ESC)."""
+    answer = questionary.confirm(question, default=default).ask()
+    if answer is None:
+        print("Aborted.")
+        sys.exit(1)
+    return answer
+
+
+def prompt_new_bundles(new_bundles: list[str], repo_dir: Path) -> dict[str, bool]:
+    """Prompt the user to install each newly-added optional bundle (default off)."""
+    if not new_bundles:
+        return {}
+    print(f"Found new bundles not in your config: {len(new_bundles)} bundle(s)")
+    opt = optional_bundles(repo_dir)
+    return {
+        key: confirm_or_abort(f"Install {opt[key].label}?", default=False)
+        for key in new_bundles
+    }
+
+
+def prompt_new_rule_categories(new_rule_cats: list[str]) -> dict[str, bool]:
+    """Prompt the user to install each newly-added rule category (default on, opt-out).
+
+    Rule categories are opt-out: new ones default ON, matching the non-interactive
+    branch and the fresh-install wizard default.
+    """
+    if not new_rule_cats:
+        return {}
+    print(f"Found new rule categories not in your config: {len(new_rule_cats)}")
+    opt_rules = optional_rule_categories()
+    return {
+        key: confirm_or_abort(f"Install rules: {opt_rules[key].label}?", default=True)
+        for key in new_rule_cats
+    }
+
+
+def merge_new_groups(saved: dict, repo_dir: Path, *, interactive: bool) -> dict:
+    """Merge saved config with any bundles/rule categories added since it was written.
+
+    Interactive runs prompt per new group; non-interactive runs default them on. Returns
+    saved unchanged (after a note) when nothing is new.
+    """
+    new_bundles = find_new_groups(saved, "bundles", list(optional_bundles(repo_dir)))
+    new_rule_cats = find_new_groups(
+        saved, "rule_categories", list(optional_rule_categories())
+    )
+
+    if not (new_bundles or new_rule_cats):
+        print("Config loaded. No new items detected. Applying saved selections...")
+        return saved
+
+    if interactive:
+        new_bundle_selections = prompt_new_bundles(new_bundles, repo_dir)
+        new_rule_selections = prompt_new_rule_categories(new_rule_cats)
+    else:
+        # Non-interactive: default new groups to True (install all).
+        new_bundle_selections = {k: True for k in new_bundles}
+        new_rule_selections = {k: True for k in new_rule_cats}
+
+    # save_config restamps version on write, so no need to strip it here.
+    return {
+        **saved,
+        "bundles": {**saved.get("bundles", {}), **new_bundle_selections},
+        "rule_categories": {
+            **saved.get("rule_categories", {}),
+            **new_rule_selections,
+        },
+    }
+
+
+def resolve_config(
+    saved: dict | None, repo_dir: Path, *, interactive: bool, reconfigure: bool
+) -> dict:
+    """Decide the config to install from the prepared saved config.
+
+    Runs the wizard on --reconfigure or a fresh install; otherwise applies the saved
+    config, merging in any groups added since it was written.
+    """
+    if reconfigure or saved is None:
+        if interactive:
+            return run_wizard(repo_dir, preselected=saved if reconfigure else None)
+        # Non-interactive: the next two ifs are independent (no fall-through return) —
+        # warn that --reconfigure does nothing here, then pick saved vs all-selected.
+        if reconfigure:
+            print("Warning: --reconfigure has no effect in non-interactive mode.")
+        if saved is not None:
+            print(
+                "Non-interactive mode: applying saved config, defaulting any new groups on."
+            )
+            return merge_new_groups(saved, repo_dir, interactive=False)
+        print(
+            "Non-interactive mode: no saved config, installing all bundles and rule categories."
+        )
+        return all_selected_config(repo_dir)
+    return merge_new_groups(saved, repo_dir, interactive=interactive)
+
+
+def print_uninstall_dry_run(repo_dir: Path, config: dict, cfg_path: Path) -> None:
+    """Print what an uninstall would remove without making changes."""
+    console = Console()
+    console.print("\n[bold]Dry run — would uninstall:[/bold]\n")
+    console.print("  All Claudefiles-owned symlinks from ~/.claude/")
+    console.print(f"  Package: {CCRECALL_PACKAGE}")
+    bundle_cfg = config.get("bundles", {})
+    for bundle_key, bundle in get_bundles(repo_dir).items():
+        if bundle.always_installed or bundle_cfg.get(bundle_key):
+            for pkg in bundle.packages:
+                console.print(f"  Package: {pkg}")
+    if "bundles" not in config:
+        console.print(
+            "  [yellow]No config — optional-bundle packages are not shown and need manual uninstall[/yellow]"
+        )
+    console.print(f"  Config file: {cfg_path}")
+
+
+def print_first_install_tip(repo_dir: Path) -> None:
+    """Surface the optional ado-api CLI, shown once on a genuine first install."""
+    console = Console()
+    console.print()
+    console.print(
+        "Tip: working in an Azure DevOps repo? Claudefiles includes an 'ado-api' CLI "
+        "for ADO pull requests, builds, pipelines, and work items. It installs on its own:"
+    )
+    console.print(f"    uv tool install -e {repo_dir}/packages/{ADO_API_PACKAGE}")
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -1464,7 +1721,7 @@ def main() -> int:
     args = parser.parse_args()
 
     repo_dir = Path(__file__).resolve().parent
-    if _is_git_worktree(repo_dir):
+    if is_git_worktree(repo_dir):
         print(
             "Error: refusing to install from a git worktree. "
             "Symlinks would point to the worktree and break when it's cleaned up. "
@@ -1479,161 +1736,42 @@ def main() -> int:
 
     with ConfigLock(cfg_path):
         if args.uninstall:
-            cfg = load_config(cfg_path) or {}
+            config = load_config(cfg_path) or {}
             if args.dry_run:
-                console = Console()
-                console.print("\n[bold]Dry run — would uninstall:[/bold]\n")
-                console.print("  All Claudefiles-owned symlinks from ~/.claude/")
-                bundles = get_bundles(repo_dir)
-                bundle_cfg = cfg.get("bundles", {})
-                for bundle_key, bundle in bundles.items():
-                    if bundle.always_installed or bundle_cfg.get(bundle_key):
-                        for pkg in bundle.packages:
-                            console.print(f"  Package: {pkg}")
-                if "bundles" not in cfg:
-                    console.print(
-                        "  [yellow]No config — optional-bundle packages are not shown and need manual uninstall[/yellow]"
-                    )
-                console.print(f"  Config file: {cfg_path}")
+                print_uninstall_dry_run(repo_dir, config, cfg_path)
                 return 0
-            do_uninstall(repo_dir, claude_dir, cfg)
+            do_uninstall(repo_dir, claude_dir, config)
             return 0
 
-        saved = load_config(cfg_path)
-
-        # Migrate v1 config to v2 before any further processing.
-        # On --dry-run, transform purely (no backup write, no summary panel) so
-        # the no-changes contract holds; the real migration runs on a live install.
-        if saved is not None and saved.get("version") == 1:
-            if args.dry_run:
-                saved = migrate_v1_to_v2(saved)
-            else:
-                saved = _migrate_and_backup(saved, cfg_path, repo_dir)
-
-        # Backfill rule_categories for configs predating rule selection (issue #334):
-        # those installs had every rule, so absence means "all selected".
-        if saved is not None and "rule_categories" not in saved:
-            saved = {
-                **saved,
-                "rule_categories": {k: True for k in optional_rule_categories()},
-            }
-
-        original_saved = saved
-
-        if args.reconfigure or saved is None:
-            if interactive:
-                cfg = run_wizard(
-                    repo_dir,
-                    preselected=saved if args.reconfigure else None,
-                )
-            else:
-                if args.reconfigure:
-                    print(
-                        "Warning: --reconfigure has no effect in non-interactive mode."
-                    )
-                if saved is not None:
-                    cfg = saved
-                    print("Non-interactive mode: applying saved config.")
-                else:
-                    cfg = _all_selected_config(repo_dir)
-                    print(
-                        "Non-interactive mode: no saved config, installing all bundles and rule categories."
-                    )
-        else:
-            opt_keys = list(optional_bundles(repo_dir).keys())
-            opt_rule_keys = list(optional_rule_categories().keys())
-            new_bundles = find_new_groups(saved, "bundles", opt_keys)
-            new_rule_cats = find_new_groups(saved, "rule_categories", opt_rule_keys)
-
-            if (new_bundles or new_rule_cats) and interactive:
-                new_bundle_selections: dict[str, bool] = {}
-                if new_bundles:
-                    print(
-                        f"Found new bundles not in your config: {len(new_bundles)} bundle(s)"
-                    )
-                    opt = optional_bundles(repo_dir)
-                    for key in new_bundles:
-                        answer = questionary.confirm(
-                            f"Install {opt[key].label}?", default=False
-                        ).ask()
-                        if answer is None:
-                            print("Aborted.")
-                            sys.exit(1)
-                        new_bundle_selections[key] = answer
-
-                new_rule_selections: dict[str, bool] = {}
-                if new_rule_cats:
-                    print(
-                        f"Found new rule categories not in your config: {len(new_rule_cats)}"
-                    )
-                    opt_rules = optional_rule_categories()
-                    for key in new_rule_cats:
-                        # Rule categories are opt-out: default new ones ON, matching the
-                        # non-interactive branch and the fresh-install wizard default.
-                        answer = questionary.confirm(
-                            f"Install rules: {opt_rules[key].label}?", default=True
-                        ).ask()
-                        if answer is None:
-                            print("Aborted.")
-                            sys.exit(1)
-                        new_rule_selections[key] = answer
-
-                # version is stamped by save_config, so drop it from the merged config.
-                saved = {
-                    **{k: v for k, v in saved.items() if k != "version"},
-                    "bundles": {**saved.get("bundles", {}), **new_bundle_selections},
-                    "rule_categories": {
-                        **saved.get("rule_categories", {}),
-                        **new_rule_selections,
-                    },
-                }
-            elif new_bundles or new_rule_cats:
-                # Non-interactive: default new groups to True (install all)
-                saved = {
-                    **{k: v for k, v in saved.items() if k != "version"},
-                    "bundles": {
-                        **saved.get("bundles", {}),
-                        **{k: True for k in new_bundles},
-                    },
-                    "rule_categories": {
-                        **saved.get("rule_categories", {}),
-                        **{k: True for k in new_rule_cats},
-                    },
-                }
-            else:
-                print(
-                    "Config loaded. No new items detected. Applying saved selections..."
-                )
-
-            cfg = saved
+        original_saved = prepare_saved_config(cfg_path, repo_dir, dry_run=args.dry_run)
+        config = resolve_config(
+            original_saved,
+            repo_dir,
+            interactive=interactive,
+            reconfigure=args.reconfigure,
+        )
 
         if args.dry_run:
-            _print_dry_run(repo_dir, cfg, prev_config=original_saved)
+            print_dry_run(repo_dir, config, prev_config=original_saved)
             return 0
 
         errors = do_install(
             repo_dir,
             claude_dir,
-            cfg,
+            config,
             prev_config=original_saved,
             interactive=interactive,
         )
 
         # Save config after successful install (records completed state)
-        save_config(cfg_path, cfg)
+        save_config(cfg_path, config)
 
         # Surface ado-api once, only on a genuine first install: no prior config
         # (original_saved is None), not an explicit --reconfigure, and the install
         # succeeded (errors == 0 — guaranteed bound here since the --dry-run and
         # --uninstall paths return earlier).
         if original_saved is None and not args.reconfigure and errors == 0:
-            console = Console()
-            console.print()
-            console.print(
-                "Tip: working in an Azure DevOps repo? Claudefiles includes an 'ado-api' CLI "
-                "for ADO pull requests, builds, pipelines, and work items. It installs on its own:"
-            )
-            console.print(f"    uv tool install -e {repo_dir}/packages/ado-api")
+            print_first_install_tip(repo_dir)
 
     return 1 if errors else 0
 

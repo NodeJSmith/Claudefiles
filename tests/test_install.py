@@ -6,12 +6,15 @@ import json
 import os
 import subprocess
 import sys
+from contextlib import AbstractContextManager
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
 import pytest
 from rich.console import Console
 
+# install.py lives one level up and is a single-file script, not an installed package,
+# so prepend its directory before importing it.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import install  # noqa: E402
@@ -23,6 +26,23 @@ import install  # noqa: E402
 BASE_PACKAGES = frozenset(
     install.get_bundles(Path(__file__).resolve().parent.parent)["base"].packages
 )
+
+# Fake binary paths returned by patched shutil.which across plugin/ccrecall tests, and
+# a config version no migration handles.
+MISE_CLAUDE_BIN = "/home/u/.local/share/mise/shims/claude"
+MISE_CCRECALL_BIN = "/home/u/.local/share/mise/shims/ccrecall"
+USR_BIN_CLAUDE = "/usr/bin/claude"
+USR_LOCAL_CCRECALL_BIN = "/usr/local/bin/ccrecall"
+UNKNOWN_CONFIG_VERSION = 999
+
+
+@pytest.fixture(autouse=True)
+def _clear_bundle_cache():
+    """Reset the memoized bundles before each test so per-test temp repos aren't
+    served a stale dict cached under a previous test's path. Replaces the manual
+    cache_clear() each test used to call by hand."""
+    install.get_bundles.cache_clear()
+    yield
 
 
 @pytest.fixture(autouse=True)
@@ -54,6 +74,19 @@ def _stub_ccrecall_side_effects(monkeypatch):
     )
 
 
+def _fake_home_patch(tmp_path: Path) -> AbstractContextManager[MagicMock]:
+    """Point Path.home() at tmp_path/home with ~/.local/bin created for bin symlinks.
+
+    Returned as a context manager so it drops straight into a test's existing `with`
+    block alongside the other patches. Replaces the per-test
+    patch.object(Path, "home", ...) + bin.mkdir boilerplate. Note the bin dir is created
+    when this is called (at `with`-expression evaluation), before the patch is entered;
+    tmp_path is unique per test so that side effect is harmless.
+    """
+    (tmp_path / "home" / ".local" / "bin").mkdir(parents=True, exist_ok=True)
+    return patch.object(Path, "home", return_value=tmp_path / "home")
+
+
 # ---------------------------------------------------------------------------
 # Config tests
 # ---------------------------------------------------------------------------
@@ -78,7 +111,7 @@ class TestConfigLoadSave:
 
     def test_wrong_version(self, tmp_path: Path) -> None:
         cfg_path = tmp_path / install.CONFIG_FILENAME
-        cfg_path.write_text(json.dumps({"version": 999}))
+        cfg_path.write_text(json.dumps({"version": UNKNOWN_CONFIG_VERSION}))
         assert install.load_config(cfg_path) is None
 
     def test_missing_file(self, tmp_path: Path) -> None:
@@ -245,6 +278,37 @@ class TestSymlinkCreation:
         assert count == 1
         assert not (dest / ".hidden").exists()
 
+    def test_file_level_preserves_unowned_subdir_symlink(self, tmp_path: Path) -> None:
+        """A subdir-level symlink we don't own is shadowed, not destroyed.
+
+        Regression: the sub_dest unlink used to skip the ownership check, so a
+        foreign symlink at e.g. references/common would be replaced with a real
+        directory, dropping every file it pointed to.
+        """
+        repo = tmp_path / "repo"
+        (repo / "common").mkdir(parents=True)
+        (repo / "common" / "file1.md").write_text("x")
+
+        other = tmp_path / "other"
+        (other / "common").mkdir(parents=True)
+        (other / "common" / "preexisting.md").write_text("keep me")
+
+        dest = tmp_path / "dest"
+        dest.mkdir()
+        (dest / "common").symlink_to(other / "common")
+
+        shadowed: list[tuple[Path, Path]] = []
+        count = install.create_symlinks_file_level(
+            repo, dest, repo_dir=repo, shadowed_out=shadowed
+        )
+
+        assert count == 0
+        assert (dest / "common").is_symlink()
+        assert (dest / "common").resolve() == (other / "common").resolve()
+        assert (dest / "common" / "preexisting.md").read_text() == "keep me"
+        assert len(shadowed) == 1
+        assert shadowed[0][0] == dest / "common"
+
     def test_create_symlink_single(self, tmp_path: Path) -> None:
         repo = tmp_path / "repo"
         repo.mkdir()
@@ -294,6 +358,36 @@ class TestSymlinkCreation:
         assert dest.resolve() == new_source.resolve()
 
 
+class TestLinkBundleArtifacts:
+    def test_missing_agent_skipped_not_dangling(self, tmp_path: Path) -> None:
+        """A bundle agent with no source file is warned and skipped, never linked.
+
+        Regression: agent symlinks used to bypass the existence check that skills
+        had, so a missing agent file produced a silent dangling symlink.
+        """
+        repo = tmp_path / "repo"
+        (repo / "agents").mkdir(parents=True)
+        (repo / "agents" / "real.md").write_text("---\nname: real\n---\n")
+
+        claude = tmp_path / "claude"
+        bundle = install.Bundle(label="x", description="d", agents=("real", "missing"))
+        shadowed: list[tuple[Path, Path]] = []
+        links = install.link_bundle_artifacts(
+            bundle,
+            repo,
+            skills_dest=claude / "skills",
+            agents_dest=claude / "agents",
+            rules_common_dest=claude / "rules" / "common",
+            console=Console(),
+            shadowed_out=shadowed,
+        )
+
+        assert links == 1
+        assert (claude / "agents" / "real.md").is_symlink()
+        assert not (claude / "agents" / "missing.md").is_symlink()
+        assert not (claude / "agents" / "missing.md").exists()
+
+
 # ---------------------------------------------------------------------------
 # Deselection cleanup tests
 # ---------------------------------------------------------------------------
@@ -325,20 +419,6 @@ class TestDeselectionCleanup:
         removed = install.remove_owned_symlinks(dest, repo)
         assert removed == 0
         assert (dest / "ext-skill").is_symlink()
-
-    def test_filters_by_name(self, tmp_path: Path) -> None:
-        repo = tmp_path / "repo"
-        repo.mkdir()
-        (repo / "a").mkdir()
-        (repo / "b").mkdir()
-        dest = tmp_path / "dest"
-        dest.mkdir()
-        (dest / "a").symlink_to(repo / "a")
-        (dest / "b").symlink_to(repo / "b")
-        removed = install.remove_owned_symlinks(dest, repo, names=["a"])
-        assert removed == 1
-        assert not (dest / "a").exists()
-        assert (dest / "b").is_symlink()
 
 
 # ---------------------------------------------------------------------------
@@ -482,7 +562,6 @@ class TestBundleDependencyCompleteness:
         """Every skill in the base bundle must exist in the actual repo."""
         repo_dir = Path(__file__).resolve().parent.parent
         # Reset cache to use actual repo
-        install._BUNDLES_CACHE = None
         bundles = install.get_bundles(repo_dir)
         base = bundles["base"]
         missing = []
@@ -496,7 +575,6 @@ class TestBundleDependencyCompleteness:
     def test_all_optional_skills_resolve(self) -> None:
         """Every skill in every optional bundle must exist in the actual repo."""
         repo_dir = Path(__file__).resolve().parent.parent
-        install._BUNDLES_CACHE = None
         opt = install.optional_bundles(repo_dir)
         missing = []
         for bundle_key, bundle in opt.items():
@@ -510,7 +588,6 @@ class TestBundleDependencyCompleteness:
     def test_all_skill_dirs_in_base(self) -> None:
         """Every directory under skills/ appears in the base bundle."""
         repo_dir = Path(__file__).resolve().parent.parent
-        install._BUNDLES_CACHE = None
         bundles = install.get_bundles(repo_dir)
         skills_dir = repo_dir / "skills"
         expected = {d.name for d in skills_dir.iterdir() if d.is_dir()}
@@ -538,10 +615,6 @@ def _write_rule_files(path: Path, content_map: dict[str, str] | None = None) -> 
 
 def _setup_minimal_repo(path: Path) -> None:
     """Create a minimal repo directory structure for testing."""
-    # Clear bundle cache so tests use this path
-    install._BUNDLES_CACHE = None
-    install._BUNDLES_REPO_DIR = None
-
     (path / "skills" / "mine-build").mkdir(parents=True)
     (path / "skills" / "mine-build" / "SKILL.md").write_text("skill")
     (path / "agents").mkdir(parents=True)
@@ -550,9 +623,6 @@ def _setup_minimal_repo(path: Path) -> None:
 
 def _setup_full_repo(path: Path) -> None:
     """Create a repo with skills, agents, hooks, etc. for integration tests."""
-    install._BUNDLES_CACHE = None
-    install._BUNDLES_REPO_DIR = None
-
     # Base skills
     (path / "skills" / "mine-build").mkdir(parents=True)
     (path / "skills" / "mine-build" / "SKILL.md").write_text("skill")
@@ -564,28 +634,13 @@ def _setup_full_repo(path: Path) -> None:
     (path / "skills-cli" / "cli-harden").mkdir(parents=True)
     (path / "skills-cli" / "cli-harden" / "SKILL.md").write_text("skill")
     (path / "skills-cli" / "capabilities-cli.md").write_text("caps")
-    # Agents
+    # Agents — write a stub for every agent named by any bundle, derived from the live
+    # bundle definitions so the fixture can't drift from install.py's agent lists.
     (path / "agents").mkdir(parents=True)
-    for name in [
-        "code-reviewer",
-        "integration-reviewer",
-        "wtf-reviewer",
-        "researcher",
-        "llm-checker",
-        "lazy-checker",
-        "nitpicker",
-        "issue-refiner",
-        "engineering-backend-developer",
-        "engineering-data-engineer",
-        "engineering-frontend-developer",
-        "engineering-sre",
-        "engineering-technical-writer",
-        "testing-reality-checker",
-        "architect",
-        "planner",
-        "qa-specialist",
-        "visual-diff",
-    ]:
+    all_agents = {
+        name for bundle in install.get_bundles(path).values() for name in bundle.agents
+    }
+    for name in sorted(all_agents):
         (path / "agents" / f"{name}.md").write_text(f"---\nname: {name}\n---\n")
     # Hooks
     (path / "scripts" / "hooks").mkdir(parents=True)
@@ -609,6 +664,9 @@ def _setup_full_repo(path: Path) -> None:
         (refs / fname).write_text("reference")
     # Commands
     (path / "commands" / "test-cmd").mkdir(parents=True)
+    # Deriving agents above cached bundles mid-build; clear so install code under test
+    # rescans the now-complete tree rather than reusing that partial snapshot.
+    install.get_bundles.cache_clear()
 
 
 class TestFullInstallFlow:
@@ -621,17 +679,14 @@ class TestFullInstallFlow:
         _setup_full_repo(repo)
 
         # Override bundles to use test repo with minimal skills
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         config = {"bundles": {k: False for k in install.optional_bundles(repo)}}
 
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             errors = install.do_install(repo, claude_dir, config, interactive=False)
 
         assert errors == 0
@@ -647,8 +702,6 @@ class TestFullInstallFlow:
         repo = tmp_path / "repo"
         claude_dir = tmp_path / "claude"
         _setup_full_repo(repo)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         config = {
             "bundles": {
@@ -661,10 +714,9 @@ class TestFullInstallFlow:
 
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             errors = install.do_install(repo, claude_dir, config, interactive=False)
 
         assert errors == 0
@@ -682,17 +734,14 @@ class TestFullInstallFlow:
         repo = tmp_path / "repo"
         claude_dir = tmp_path / "claude"
         _setup_full_repo(repo)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         config = {"bundles": {k: False for k in install.optional_bundles(repo)}}
 
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             install.do_install(repo, claude_dir, config, interactive=False)
 
         assert (claude_dir / "scripts" / "hooks" / "sudo-poll.sh").is_symlink()
@@ -702,18 +751,15 @@ class TestFullInstallFlow:
         repo = tmp_path / "repo"
         claude_dir = tmp_path / "claude"
         _setup_full_repo(repo)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         # No rule_categories key → absence means "all selected" (backward compat).
         config = {"bundles": {k: False for k in install.optional_bundles(repo)}}
 
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             install.do_install(repo, claude_dir, config, interactive=False)
 
         common = claude_dir / "rules" / "common"
@@ -733,8 +779,6 @@ class TestFullInstallFlow:
         repo = tmp_path / "repo"
         claude_dir = tmp_path / "claude"
         _setup_full_repo(repo)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         # First: install with frontend selected
         config_v1 = {
@@ -747,10 +791,9 @@ class TestFullInstallFlow:
         }
         with (
             patch("install.install_package", return_value=(True, "")),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             install.do_install(repo, claude_dir, config_v1, interactive=False)
 
         assert (claude_dir / "skills" / "i-audit").is_symlink()
@@ -769,8 +812,8 @@ class TestFullInstallFlow:
         }
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
+            _fake_home_patch(tmp_path),
         ):
             install.do_install(
                 repo, claude_dir, config_v2, prev_config=config_v1, interactive=False
@@ -788,8 +831,6 @@ class TestFullInstallFlow:
         repo = tmp_path / "repo"
         claude_dir = tmp_path / "claude"
         _setup_full_repo(repo)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         rules_common = claude_dir / "rules" / "common"
         rules_common.mkdir(parents=True)
@@ -811,10 +852,9 @@ class TestFullInstallFlow:
         }
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             install.do_install(repo, claude_dir, config, interactive=False)
 
         # Unowned fragment must survive deselection
@@ -828,8 +868,6 @@ class TestFullInstallFlow:
         repo = tmp_path / "repo"
         claude_dir = tmp_path / "claude"
         _setup_full_repo(repo)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         rules_common = claude_dir / "rules" / "common"
 
@@ -844,10 +882,9 @@ class TestFullInstallFlow:
         }
         with (
             patch("install.install_package", return_value=(True, "")),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             install.do_install(repo, claude_dir, config_v1, interactive=False)
 
         assert (rules_common / "capabilities-impeccable.md").is_symlink()
@@ -864,8 +901,8 @@ class TestFullInstallFlow:
         }
         with (
             patch("install.install_package", return_value=(True, "")),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
+            _fake_home_patch(tmp_path),
         ):
             install.do_install(
                 repo, claude_dir, config_v2, prev_config=config_v1, interactive=False
@@ -891,18 +928,15 @@ def _run_rule_install(
     prev_config: dict | None = None,
 ) -> None:
     """Install with all optional bundles off and the given rule_categories selection."""
-    install._BUNDLES_CACHE = None
-    install._BUNDLES_REPO_DIR = None
     config = {
         "bundles": {k: False for k in install.optional_bundles(repo)},
         "rule_categories": rule_categories,
     }
     with (
         patch("install.install_package"),
-        patch("install._get_installed_packages", return_value=BASE_PACKAGES),
-        patch.object(Path, "home", return_value=tmp_path / "home"),
+        patch("install.get_installed_packages", return_value=BASE_PACKAGES),
+        _fake_home_patch(tmp_path),
     ):
-        (tmp_path / "home" / ".local" / "bin").mkdir(parents=True, exist_ok=True)
         install.do_install(
             repo, claude_dir, config, prev_config=prev_config, interactive=False
         )
@@ -1060,14 +1094,12 @@ class TestRuleCategories:
 
 
 def _minimal_repo(tmp_path: Path) -> Path:
-    """Create a minimal repo structure for do_install."""
+    """Create a minimal repo under tmp_path/repo and return it.
+
+    Thin wrapper over _setup_minimal_repo so the build steps live in one place.
+    """
     repo = tmp_path / "repo"
-    install._BUNDLES_CACHE = None
-    install._BUNDLES_REPO_DIR = None
-    (repo / "skills" / "mine-build").mkdir(parents=True)
-    (repo / "skills" / "mine-build" / "SKILL.md").write_text("skill")
-    (repo / "agents").mkdir()
-    _write_rule_files(repo)
+    _setup_minimal_repo(repo)
     return repo
 
 
@@ -1076,7 +1108,7 @@ class TestCcrecallPlugin:
         """The plugin commands run the shutil.which-resolved path, never bare `claude`
         (the interactive shell function launches --bare, which skips plugin sync). When
         the plugin is absent, the list check is followed by marketplace add + install."""
-        resolved = "/home/u/.local/share/mise/shims/claude"
+        resolved = MISE_CLAUDE_BIN
 
         def fake_run(claude_bin, args):
             if args[0] == "list":
@@ -1099,7 +1131,7 @@ class TestCcrecallPlugin:
     def test_skips_when_plugin_already_installed(self) -> None:
         """When `claude plugin list` already reports the plugin, ensure_ccrecall_plugin
         skips marketplace add + install entirely — no redundant refetch or progress noise."""
-        resolved = "/home/u/.local/share/mise/shims/claude"
+        resolved = MISE_CLAUDE_BIN
         listing = json.dumps([{"id": install.CCRECALL_PLUGIN_REF, "enabled": True}])
 
         def fake_run(claude_bin, args):
@@ -1118,7 +1150,7 @@ class TestCcrecallPlugin:
     def test_installs_when_plugin_list_is_malformed(self) -> None:
         """A `claude plugin list` that succeeds but emits non-array / unparseable output
         fails open: the plugin is treated as absent and the install proceeds."""
-        resolved = "/home/u/.local/share/mise/shims/claude"
+        resolved = MISE_CLAUDE_BIN
 
         def fake_run(claude_bin, args):
             if args[0] == "list":
@@ -1160,7 +1192,7 @@ class TestCcrecallPlugin:
             return (True, "") if subcommand == "marketplace" else (False, "boom")
 
         with (
-            patch("install.shutil.which", return_value="/usr/bin/claude"),
+            patch("install.shutil.which", return_value=USR_BIN_CLAUDE),
             patch("install.run_claude_plugin", side_effect=fake_run),
         ):
             errors = install.ensure_ccrecall_plugin(install.Console())
@@ -1178,7 +1210,7 @@ class TestCcrecallPlugin:
 
         mock_run = MagicMock(side_effect=fake_run)
         with (
-            patch("install.shutil.which", return_value="/usr/bin/claude"),
+            patch("install.shutil.which", return_value=USR_BIN_CLAUDE),
             patch("install.run_claude_plugin", mock_run),
         ):
             errors = install.ensure_ccrecall_plugin(install.Console())
@@ -1187,7 +1219,7 @@ class TestCcrecallPlugin:
 
     def test_remove_resolves_claude_and_uninstalls(self) -> None:
         """remove_ccrecall_plugin uninstalls the plugin via the shutil.which path."""
-        resolved = "/home/u/.local/share/mise/shims/claude"
+        resolved = MISE_CLAUDE_BIN
         mock_run = MagicMock(return_value=(True, ""))
         with (
             patch("install.shutil.which", return_value=resolved),
@@ -1218,7 +1250,7 @@ class TestPackageInstall:
         with (
             patch(
                 "install.shutil.which",
-                return_value="/home/u/.local/share/mise/shims/ccrecall",
+                return_value=MISE_CCRECALL_BIN,
             ),
             patch("install.install_pypi_tool", mock_install),
         ):
@@ -1230,14 +1262,20 @@ class TestPackageInstall:
     def test_installs_ccrecall_when_absent(self) -> None:
         """ensure_ccrecall installs ccrecall from PyPI when it is not present."""
         mock_install = MagicMock(return_value=(True, ""))
-        with patch("install.install_pypi_tool", mock_install):
+        with (
+            patch("install.shutil.which", return_value=None),
+            patch("install.install_pypi_tool", mock_install),
+        ):
             errors = install.ensure_ccrecall(set(BASE_PACKAGES), install.Console())
         assert errors == 0
-        mock_install.assert_called_once_with("ccrecall")
+        mock_install.assert_called_once_with(install.CCRECALL_PACKAGE)
 
     def test_install_failure_increments_errors(self) -> None:
         """A failed ccrecall install is counted in the returned error total."""
-        with patch("install.install_pypi_tool", return_value=(False, "boom")):
+        with (
+            patch("install.shutil.which", return_value=None),
+            patch("install.install_pypi_tool", return_value=(False, "boom")),
+        ):
             errors = install.ensure_ccrecall(set(BASE_PACKAGES), install.Console())
         assert errors == 1
 
@@ -1246,19 +1284,19 @@ class TestPackageInstall:
         mock_uninstall = MagicMock(return_value=(True, ""))
         with (
             # ccrecall present on PATH; claude-memory still in `uv tool list`.
-            patch("install.shutil.which", return_value="/usr/local/bin/ccrecall"),
+            patch("install.shutil.which", return_value=USR_LOCAL_CCRECALL_BIN),
             patch("install.install_pypi_tool", return_value=(True, "")),
             patch("install.uninstall_package", mock_uninstall),
         ):
-            install.ensure_ccrecall({"claude-memory"}, install.Console())
-        mock_uninstall.assert_called_once_with("claude-memory")
+            install.ensure_ccrecall({install.LEGACY_MEMORY_PACKAGE}, install.Console())
+        mock_uninstall.assert_called_once_with(install.LEGACY_MEMORY_PACKAGE)
 
     def test_no_uninstall_when_claude_memory_absent(self) -> None:
         """ensure_ccrecall is a silent no-op for uninstall when claude-memory is gone."""
         mock_uninstall = MagicMock()
         with (
             # ccrecall present on PATH; nothing in `uv tool list` to remove.
-            patch("install.shutil.which", return_value="/usr/local/bin/ccrecall"),
+            patch("install.shutil.which", return_value=USR_LOCAL_CCRECALL_BIN),
             patch("install.install_pypi_tool", return_value=(True, "")),
             patch("install.uninstall_package", mock_uninstall),
         ):
@@ -1270,10 +1308,13 @@ class TestPackageInstall:
         with neither the new package nor the old one."""
         mock_uninstall = MagicMock()
         with (
+            patch("install.shutil.which", return_value=None),
             patch("install.install_pypi_tool", return_value=(False, "boom")),
             patch("install.uninstall_package", mock_uninstall),
         ):
-            errors = install.ensure_ccrecall({"claude-memory"}, install.Console())
+            errors = install.ensure_ccrecall(
+                {install.LEGACY_MEMORY_PACKAGE}, install.Console()
+            )
         assert errors == 1
         mock_uninstall.assert_not_called()
 
@@ -1281,17 +1322,14 @@ class TestPackageInstall:
         """Base bundle packages install on a fresh run with nothing present."""
         repo = _minimal_repo(tmp_path)
         claude_dir = tmp_path / "claude"
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         config = {"bundles": dict.fromkeys(install.optional_bundles(repo), False)}
         mock_install = MagicMock(return_value=(True, ""))
         with (
             patch("install.install_package", mock_install),
-            patch("install._get_installed_packages", return_value=set()),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            patch("install.get_installed_packages", return_value=set()),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             install.do_install(repo, claude_dir, config, interactive=False)
 
         # install_package is called as install_package(repo_dir, pkg_name)
@@ -1302,16 +1340,13 @@ class TestPackageInstall:
         """A failed base-package install is counted in the returned error total."""
         repo = _minimal_repo(tmp_path)
         claude_dir = tmp_path / "claude"
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         config = {"bundles": dict.fromkeys(install.optional_bundles(repo), False)}
         with (
             patch("install.install_package", return_value=(False, "uv not found")),
-            patch("install._get_installed_packages", return_value=set()),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            patch("install.get_installed_packages", return_value=set()),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             errors = install.do_install(repo, claude_dir, config, interactive=False)
 
         # ccrecall contributes 0 errors here — the autouse stub makes its install succeed.
@@ -1321,8 +1356,6 @@ class TestPackageInstall:
         """Only base packages missing from the installed set get (re)installed."""
         repo = _minimal_repo(tmp_path)
         claude_dir = tmp_path / "claude"
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         base_pkgs = install.get_bundles(repo)["base"].packages
         missing = base_pkgs[0]
@@ -1332,10 +1365,9 @@ class TestPackageInstall:
         mock_install = MagicMock(return_value=(True, ""))
         with (
             patch("install.install_package", mock_install),
-            patch("install._get_installed_packages", return_value=already_present),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            patch("install.get_installed_packages", return_value=already_present),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             install.do_install(repo, claude_dir, config, interactive=False)
 
         mock_install.assert_called_once_with(repo, missing)
@@ -1351,7 +1383,7 @@ class TestDoUninstall:
         mock_uninstall = MagicMock(return_value=(True, ""))
         with (
             patch("install.uninstall_package", mock_uninstall),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            _fake_home_patch(tmp_path),
         ):
             install.do_uninstall(repo, claude_dir, {})
 
@@ -1359,7 +1391,7 @@ class TestDoUninstall:
         uninstalled = {call.args[0] for call in mock_uninstall.call_args_list}
         # ccrecall is always uninstalled too (installed unconditionally by do_install)
         assert uninstalled == set(install.get_bundles(repo)["base"].packages) | {
-            "ccrecall"
+            install.CCRECALL_PACKAGE
         }
 
     def test_ccrecall_uninstalled_with_base_packages(self, tmp_path: Path) -> None:
@@ -1372,12 +1404,12 @@ class TestDoUninstall:
         mock_uninstall = MagicMock(return_value=(True, ""))
         with (
             patch("install.uninstall_package", mock_uninstall),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            _fake_home_patch(tmp_path),
         ):
             install.do_uninstall(repo, claude_dir, cfg)
 
         uninstalled = {call.args[0] for call in mock_uninstall.call_args_list}
-        assert "ccrecall" in uninstalled
+        assert install.CCRECALL_PACKAGE in uninstalled
         assert set(install.get_bundles(repo)["base"].packages) <= uninstalled
 
 
@@ -1389,13 +1421,13 @@ class TestDoUninstall:
 class TestIsGitWorktree:
     def test_returns_false_when_git_not_found(self, tmp_path: Path) -> None:
         with patch("install.subprocess.run", side_effect=FileNotFoundError):
-            assert install._is_git_worktree(tmp_path) is False
+            assert install.is_git_worktree(tmp_path) is False
 
     def test_returns_false_on_timeout(self, tmp_path: Path) -> None:
         with patch(
             "install.subprocess.run", side_effect=subprocess.TimeoutExpired("git", 5)
         ):
-            assert install._is_git_worktree(tmp_path) is False
+            assert install.is_git_worktree(tmp_path) is False
 
     def test_returns_false_when_git_dir_equals_common_dir(self, tmp_path: Path) -> None:
         results = [
@@ -1403,7 +1435,7 @@ class TestIsGitWorktree:
             MagicMock(returncode=0, stdout=".git\n"),
         ]
         with patch("install.subprocess.run", side_effect=results):
-            assert install._is_git_worktree(tmp_path) is False
+            assert install.is_git_worktree(tmp_path) is False
 
     def test_returns_true_when_dirs_differ(self, tmp_path: Path) -> None:
         results = [
@@ -1411,14 +1443,14 @@ class TestIsGitWorktree:
             MagicMock(returncode=0, stdout="/repo/.git\n"),
         ]
         with patch("install.subprocess.run", side_effect=results):
-            assert install._is_git_worktree(tmp_path) is True
+            assert install.is_git_worktree(tmp_path) is True
 
     def test_returns_false_when_git_fails(self, tmp_path: Path) -> None:
         mock_result = MagicMock()
         mock_result.returncode = 128
         mock_result.stdout = ""
         with patch("install.subprocess.run", return_value=mock_result):
-            assert install._is_git_worktree(tmp_path) is False
+            assert install.is_git_worktree(tmp_path) is False
 
 
 # ---------------------------------------------------------------------------
@@ -1433,8 +1465,6 @@ class TestMainNonInteractive:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         saved = {
             "bundles": {
@@ -1450,7 +1480,7 @@ class TestMainNonInteractive:
         mock_do_install = MagicMock(return_value=0)
         with (
             patch("sys.argv", ["install.py"]),
-            patch("install._is_git_worktree", return_value=False),
+            patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
             patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
             patch("install.sys") as mock_sys,
@@ -1470,13 +1500,11 @@ class TestMainNonInteractive:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         mock_do_install = MagicMock(return_value=0)
         with (
             patch("sys.argv", ["install.py"]),
-            patch("install._is_git_worktree", return_value=False),
+            patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
             patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
             patch("install.sys") as mock_sys,
@@ -1498,8 +1526,6 @@ class TestMainNonInteractive:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         saved = {
             "bundles": {
@@ -1515,7 +1541,7 @@ class TestMainNonInteractive:
         mock_do_install = MagicMock(return_value=0)
         with (
             patch("sys.argv", ["install.py", "--reconfigure"]),
-            patch("install._is_git_worktree", return_value=False),
+            patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
             patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
             patch("install.sys") as mock_sys,
@@ -1543,8 +1569,6 @@ class TestConfigSaveTiming:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         save_order: list[str] = []
 
@@ -1557,7 +1581,7 @@ class TestConfigSaveTiming:
 
         with (
             patch("sys.argv", ["install.py"]),
-            patch("install._is_git_worktree", return_value=False),
+            patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", side_effect=mock_do_install),
             patch("install.save_config", side_effect=mock_save_config),
             patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
@@ -1599,7 +1623,7 @@ class TestConfigLock:
         cfg_path = tmp_path / "config.json"
         with install.ConfigLock(cfg_path) as lock:
             assert lock._fd is not None
-            lock_file = str(cfg_path) + ".lock"
+            lock_file = str(cfg_path) + install.LOCK_SUFFIX
             assert os.path.exists(lock_file)
         assert lock._fd is None
 
@@ -1661,8 +1685,6 @@ class TestCapabilitiesFiles:
         repo = tmp_path / "repo"
         claude_dir = tmp_path / "claude"
         _setup_full_repo(repo)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         config = {
             "bundles": {
@@ -1674,10 +1696,9 @@ class TestCapabilitiesFiles:
         }
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             install.do_install(repo, claude_dir, config, interactive=False)
 
         assert (claude_dir / "rules" / "common" / "capabilities-cli.md").is_symlink()
@@ -1690,8 +1711,6 @@ class TestCapabilitiesFiles:
         repo = tmp_path / "repo"
         claude_dir = tmp_path / "claude"
         _setup_full_repo(repo)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         config_v1 = {
             "bundles": {
@@ -1711,18 +1730,17 @@ class TestCapabilitiesFiles:
         }
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
+            _fake_home_patch(tmp_path),
         ):
-            (tmp_path / "home" / ".local" / "bin").mkdir(parents=True)
             install.do_install(repo, claude_dir, config_v1, interactive=False)
 
         assert (claude_dir / "rules" / "common" / "capabilities-cli.md").is_symlink()
 
         with (
             patch("install.install_package"),
-            patch("install._get_installed_packages", return_value=BASE_PACKAGES),
-            patch.object(Path, "home", return_value=tmp_path / "home"),
+            patch("install.get_installed_packages", return_value=BASE_PACKAGES),
+            _fake_home_patch(tmp_path),
         ):
             install.do_install(
                 repo, claude_dir, config_v2, prev_config=config_v1, interactive=False
@@ -1737,7 +1755,7 @@ class TestCapabilitiesFiles:
 
 
 V1_ALL_SELECTED = {
-    "version": 1,
+    "version": install.CONFIG_VERSION_V1,
     "skills": {
         "core": True,
         "impeccable": True,
@@ -1761,7 +1779,7 @@ V1_ALL_SELECTED = {
 }
 
 V1_NONE_SELECTED = {
-    "version": 1,
+    "version": install.CONFIG_VERSION_V1,
     "skills": {
         "core": False,
         "impeccable": False,
@@ -1788,7 +1806,7 @@ V1_NONE_SELECTED = {
 class TestMigrateV1ToV2:
     def test_all_selected_maps_all_bundles_true(self) -> None:
         result = install.migrate_v1_to_v2(V1_ALL_SELECTED)
-        assert result["version"] == 2
+        assert result["version"] == install.CONFIG_VERSION
         bundles = result["bundles"]
         assert bundles["frontend"] is True
         assert bundles["cli"] is True
@@ -1805,7 +1823,7 @@ class TestMigrateV1ToV2:
 
     def test_partial_impeccable_only(self) -> None:
         v1 = {
-            "version": 1,
+            "version": install.CONFIG_VERSION_V1,
             "skills": {"core": True, "impeccable": True, "cli": False, "memory": False},
             "agents": {"core": False, "engineering": False, "memory": False},
             "packages": {},
@@ -1820,7 +1838,7 @@ class TestMigrateV1ToV2:
     def test_agents_core_deselected_extra_agents_false(self) -> None:
         """agents.core=False → extra-agents=False (base agents still install)."""
         v1 = {
-            "version": 1,
+            "version": install.CONFIG_VERSION_V1,
             "skills": {},
             "agents": {"core": False, "engineering": False},
             "packages": {},
@@ -1831,7 +1849,7 @@ class TestMigrateV1ToV2:
     def test_agents_core_selected_extra_agents_true(self) -> None:
         """agents.core=True → extra-agents=True."""
         v1 = {
-            "version": 1,
+            "version": install.CONFIG_VERSION_V1,
             "skills": {},
             "agents": {"core": True, "engineering": False},
             "packages": {},
@@ -1842,7 +1860,7 @@ class TestMigrateV1ToV2:
     def test_skills_core_false_does_not_affect_bundles(self) -> None:
         """skills.core=False is ignored; base always installs (no bundle for it)."""
         v1 = {
-            "version": 1,
+            "version": install.CONFIG_VERSION_V1,
             "skills": {
                 "core": False,
                 "impeccable": False,
@@ -1858,7 +1876,7 @@ class TestMigrateV1ToV2:
 
     def test_missing_v1_fields_default_false(self) -> None:
         """Completely empty v1 config → all optional bundles false."""
-        result = install.migrate_v1_to_v2({"version": 1})
+        result = install.migrate_v1_to_v2({"version": install.CONFIG_VERSION_V1})
         for key in ("frontend", "cli", "engineering", "extra-agents"):
             assert result["bundles"][key] is False
 
@@ -1869,8 +1887,6 @@ class TestMigrateV1ToV2:
 
     def test_is_pure_no_io(self, tmp_path: Path) -> None:
         """migrate_v1_to_v2 must not write any files."""
-        import os
-
         files_before = set(os.listdir(tmp_path))
         install.migrate_v1_to_v2(V1_ALL_SELECTED)
         files_after = set(os.listdir(tmp_path))
@@ -1881,23 +1897,24 @@ class TestLoadConfigReturnsV1:
     def test_v1_config_returned_for_migration(self, tmp_path: Path) -> None:
         """load_config must return the raw dict for v1 config (not None)."""
         cfg_path = tmp_path / install.CONFIG_FILENAME
-        v1_data = {"version": 1, "skills": {"core": True}}
+        v1_data = {"version": install.CONFIG_VERSION_V1, "skills": {"core": True}}
         cfg_path.write_text(json.dumps(v1_data))
         result = install.load_config(cfg_path)
         assert result is not None
-        assert result["version"] == 1
+        assert result["version"] == install.CONFIG_VERSION_V1
 
     def test_unknown_version_still_returns_none(self, tmp_path: Path) -> None:
         """load_config returns None for truly unknown versions (e.g. 999)."""
         cfg_path = tmp_path / install.CONFIG_FILENAME
-        cfg_path.write_text(json.dumps({"version": 999}))
+        cfg_path.write_text(json.dumps({"version": UNKNOWN_CONFIG_VERSION}))
         assert install.load_config(cfg_path) is None
 
 
 class TestMigrationMainFlow:
     """Test main() detects v1 config, migrates, backs up, and saves v2."""
 
-    def _write_v1_config(self, cfg_path: Path, v1_data: dict) -> None:
+    @staticmethod
+    def _write_v1_config(cfg_path: Path, v1_data: dict) -> None:
         cfg_path.write_text(json.dumps(v1_data))
 
     def test_v1_config_triggers_migration(self, tmp_path: Path) -> None:
@@ -1905,12 +1922,10 @@ class TestMigrationMainFlow:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         cfg_path = install.config_path(claude_dir)
         v1 = {
-            "version": 1,
+            "version": install.CONFIG_VERSION_V1,
             "skills": {"core": True, "impeccable": True, "cli": False, "memory": False},
             "agents": {"core": True, "engineering": False},
             "packages": {"ado-api": False},
@@ -1925,7 +1940,7 @@ class TestMigrationMainFlow:
         mock_do_install = MagicMock(return_value=0)
         with (
             patch("sys.argv", ["install.py"]),
-            patch("install._is_git_worktree", return_value=False),
+            patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
             patch("install.save_config", side_effect=capture_save),
             patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
@@ -1948,12 +1963,10 @@ class TestMigrationMainFlow:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         cfg_path = install.config_path(claude_dir)
         v1 = {
-            "version": 1,
+            "version": install.CONFIG_VERSION_V1,
             "skills": {"core": True, "impeccable": False, "cli": False, "memory": True},
             "agents": {"core": False, "engineering": True},
             "packages": {"ado-api": True},
@@ -1963,7 +1976,7 @@ class TestMigrationMainFlow:
         mock_do_install = MagicMock(return_value=0)
         with (
             patch("sys.argv", ["install.py"]),
-            patch("install._is_git_worktree", return_value=False),
+            patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
             patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
             patch("install.sys") as mock_sys,
@@ -1976,7 +1989,7 @@ class TestMigrationMainFlow:
         bak_path = claude_dir / ".claudefiles-install-config.v1.json.bak"
         assert bak_path.exists(), "Backup file must be written"
         bak_data = json.loads(bak_path.read_text())
-        assert bak_data["version"] == 1
+        assert bak_data["version"] == install.CONFIG_VERSION_V1
         assert bak_data["packages"]["ado-api"] is True
 
     def test_v1_backup_is_raw_v1_data(self, tmp_path: Path) -> None:
@@ -1984,17 +1997,20 @@ class TestMigrationMainFlow:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         cfg_path = install.config_path(claude_dir)
-        v1 = {"version": 1, "skills": {"core": True}, "agents": {}, "packages": {}}
+        v1 = {
+            "version": install.CONFIG_VERSION_V1,
+            "skills": {"core": True},
+            "agents": {},
+            "packages": {},
+        }
         self._write_v1_config(cfg_path, v1)
 
         mock_do_install = MagicMock(return_value=0)
         with (
             patch("sys.argv", ["install.py"]),
-            patch("install._is_git_worktree", return_value=False),
+            patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
             patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
             patch("install.sys") as mock_sys,
@@ -2007,7 +2023,7 @@ class TestMigrationMainFlow:
         bak_path = claude_dir / ".claudefiles-install-config.v1.json.bak"
         bak_data = json.loads(bak_path.read_text())
         # Must NOT have been stamped with version=2 by save_config
-        assert bak_data["version"] == 1
+        assert bak_data["version"] == install.CONFIG_VERSION_V1
         assert "bundles" not in bak_data
 
     def test_v2_config_not_migrated(self, tmp_path: Path) -> None:
@@ -2015,8 +2031,6 @@ class TestMigrationMainFlow:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         cfg_path = install.config_path(claude_dir)
         v2 = {
@@ -2032,7 +2046,7 @@ class TestMigrationMainFlow:
         mock_do_install = MagicMock(return_value=0)
         with (
             patch("sys.argv", ["install.py"]),
-            patch("install._is_git_worktree", return_value=False),
+            patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
             patch("install.save_config"),
             patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
@@ -2051,12 +2065,10 @@ class TestMigrationMainFlow:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         cfg_path = install.config_path(claude_dir)
         v1 = {
-            "version": 1,
+            "version": install.CONFIG_VERSION_V1,
             "skills": {"core": True, "impeccable": True, "cli": False, "memory": False},
             "agents": {"core": True, "engineering": False},
             "packages": {"ado-api": False},
@@ -2067,7 +2079,7 @@ class TestMigrationMainFlow:
         mock_save = MagicMock()
         with (
             patch("sys.argv", ["install.py", "--dry-run"]),
-            patch("install._is_git_worktree", return_value=False),
+            patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
             patch("install.save_config", mock_save),
             patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
@@ -2084,7 +2096,7 @@ class TestMigrationMainFlow:
         mock_save.assert_not_called()
         mock_do_install.assert_not_called()
         # The original v1 config on disk must be untouched.
-        assert json.loads(cfg_path.read_text())["version"] == 1
+        assert json.loads(cfg_path.read_text())["version"] == install.CONFIG_VERSION_V1
 
 
 # ---------------------------------------------------------------------------
@@ -2100,14 +2112,12 @@ class TestFirstInstallAdoTip:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         # No saved config file — fresh install
         mock_do_install = MagicMock(return_value=0)
         with (
             patch("sys.argv", ["install.py"]),
-            patch("install._is_git_worktree", return_value=False),
+            patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
             patch("install.save_config"),
             patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
@@ -2128,8 +2138,6 @@ class TestFirstInstallAdoTip:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         # Write an existing v2 config so original_saved is not None
         saved = {
@@ -2146,7 +2154,7 @@ class TestFirstInstallAdoTip:
         mock_do_install = MagicMock(return_value=0)
         with (
             patch("sys.argv", ["install.py"]),
-            patch("install._is_git_worktree", return_value=False),
+            patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
             patch("install.save_config"),
             patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
@@ -2168,13 +2176,11 @@ class TestFirstInstallAdoTip:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         mock_do_install = MagicMock(return_value=1)  # one error
         with (
             patch("sys.argv", ["install.py"]),
-            patch("install._is_git_worktree", return_value=False),
+            patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
             patch("install.save_config"),
             patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
@@ -2195,13 +2201,11 @@ class TestFirstInstallAdoTip:
         claude_dir = tmp_path / "claude_home"
         claude_dir.mkdir()
         repo = _minimal_repo(tmp_path)
-        install._BUNDLES_CACHE = None
-        install._BUNDLES_REPO_DIR = None
 
         mock_do_install = MagicMock(return_value=0)
         with (
             patch("sys.argv", ["install.py", "--reconfigure"]),
-            patch("install._is_git_worktree", return_value=False),
+            patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
             patch("install.save_config"),
             patch(
