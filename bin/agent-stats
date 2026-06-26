@@ -68,6 +68,9 @@ AUTO_COMPACT_TOKEN_THRESHOLD = 167_000
 # as a single group.
 MODE_SPLIT_TYPES = {"fine-toothed-comb"}
 
+# Shown wherever a stat has no underlying data (empty denominator, no token usage).
+NO_DATA = "—"
+
 
 def projects_root(override: str | None) -> Path:
     if override:
@@ -216,17 +219,17 @@ def collect(root: Path, type_filter: str | None, since: float | None) -> list[di
 
 
 def pct(n: int, d: int) -> str:
-    return f"{100 * n / d:.0f}%" if d else "—"
+    return f"{100 * n / d:.0f}%" if d else NO_DATA
 
 
 def peak_line(runs: list[dict]) -> str:
     peaks = sorted(r["peak"] for r in runs if r["peak"])
     if not peaks:
-        return "no token data"
+        return NO_DATA
     over = sum(1 for p in peaks if p >= AUTO_COMPACT_TOKEN_THRESHOLD)
     return (
         f"median {int(statistics.median(peaks)):,}  max {peaks[-1]:,}"
-        f"  [>=167k auto-compact zone: {over}]"
+        f"  [>={AUTO_COMPACT_TOKEN_THRESHOLD // 1000}k auto-compact zone: {over}]"
     )
 
 
@@ -302,7 +305,7 @@ def report_summary(runs: list[dict]) -> None:
         blk = sum(1 for r in grp if r["verdict"] == "blocking")
         parseable = sum(1 for r in grp if r["verdict"] != "unparsed")
         peaks = [r["peak"] for r in grp if r["peak"]]
-        med = f"{int(statistics.median(peaks)):,}" if peaks else "—"
+        med = f"{int(statistics.median(peaks)):,}" if peaks else NO_DATA
         blk_pct = pct(blk, parseable) if parseable else "n/a"
         print(f"{t:<26} {n:>5} {pct(comp, n):>9} {blk_pct:>10} {med:>11}")
     print(
