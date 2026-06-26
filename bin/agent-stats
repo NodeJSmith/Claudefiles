@@ -1,0 +1,396 @@
+#!/usr/bin/env python3
+"""Post-hoc effectiveness stats for subagent runs, mined from the JSONL store.
+
+Answers the recurring "is this gate earning its keep?" question for any
+subagent type (fine-toothed-comb, code-reviewer, integration-reviewer, ...)
+without hand-mining thousands of transcripts. For each run it reads the
+durable record — `<project>/<session>/subagents/agent-*.jsonl` plus the
+`.meta.json` sidecar — and reports, per agent type:
+
+  - run count
+  - verdict mix parsed from the agent's own `## Summary` line
+    (clean / minor-only / blocking, with blocking-finding counts)
+  - compaction rate (count of `compact_boundary` events in the run)
+  - peak turn tokens (max input+output usage in any one turn, a
+    compaction-risk proxy)
+
+Why JSONL and not the trail: trail.tsv records the orchestrator's *distilled,
+post-verification* verdict and is archived/deleted on ship, so it both
+undercounts (dedup, downgrades) and disappears. The agent JSONL is the
+complete, durable, per-run source.
+
+For the fine-toothed-comb specifically, runs are split by caller mode:
+`impl` (the end-of-orchestration implementation-vs-design pass) vs `other`
+(design/plan/brief combs), because they have very different base rates.
+
+Usage:
+  agent-stats                         # summary table across all agent types
+  agent-stats --type fine-toothed-comb        # detailed report for one type
+  agent-stats --type fine-toothed-comb --impl-only
+  agent-stats --type fine-toothed-comb --findings   # dump blocking finding text
+  agent-stats --type code-reviewer --json
+  agent-stats --since 2026-06-01       # only runs whose file mtime is on/after
+
+Options:
+  --type NAME      Restrict to one agentType; print a detailed report.
+  --impl-only      Comb only: keep just the orchestrate impl-vs-design pass.
+  --findings       Print the Blocking section text for each blocking run.
+  --since DATE     Only runs modified on/after DATE (YYYY-MM-DD).
+  --projects DIR   Override the projects root (default: $CLAUDE_HOME/projects
+                   or ~/.claude/projects).
+  --json           Emit machine-readable JSON instead of a table.
+"""
+
+import argparse
+import calendar
+import datetime
+import json
+import os
+import re
+import statistics
+import sys
+from glob import glob
+from pathlib import Path
+
+# Signature text the orchestrate Step 5.7 dispatch puts in the comb's prompt.
+# Used to tell the implementation comb apart from design/plan/brief combs.
+IMPL_COMB_SIGNATURES = (
+    "against the design with a fine-toothed comb",
+    "every functional requirement and acceptance",
+)
+
+# Sonnet's auto-compaction fires around here (measured 167k–176k; the floor is
+# the conservative threshold). See the subagent-baseline-trim research / spec 031.
+AUTO_COMPACT_TOKEN_THRESHOLD = 167_000
+
+# Only the comb is split by caller mode (impl-vs-design pass vs design/plan/brief
+# comb) because the two have very different base rates. Other agent types report
+# as a single group.
+MODE_SPLIT_TYPES = {"fine-toothed-comb"}
+
+
+def projects_root(override: str | None) -> Path:
+    if override:
+        return Path(override).expanduser()
+    home = os.environ.get("CLAUDE_HOME")
+    base = Path(home).expanduser() if home else Path.home() / ".claude"
+    return base / "projects"
+
+
+def iter_runs(root: Path, type_filter: str | None):
+    """Yield (meta_dict, jsonl_path) per run, reading the cheap meta sidecar
+    first so the type filter is applied before the larger JSONL is opened."""
+    for meta_path in glob(
+        str(root / "**" / "subagents" / "agent-*.meta.json"), recursive=True
+    ):
+        try:
+            with open(meta_path, encoding="utf-8") as fh:
+                meta = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        if type_filter and meta.get("agentType") != type_filter:
+            continue
+        jsonl = meta_path[: -len(".meta.json")] + ".jsonl"
+        if os.path.exists(jsonl):
+            yield meta, jsonl
+
+
+def parse_summary(text: str) -> tuple[str, int | None, int | None]:
+    """Return (verdict, blocking, minor) from an agent's `## Summary` line."""
+    m = re.search(r"##\s*Summary\s*\n+\s*(.+)", text)
+    line = m.group(1).strip() if m else ""
+    if re.search(r"\bno findings\b", line, re.I):
+        return "clean", 0, 0
+    mb = re.search(r"(\d+)\s*blocking", line, re.I)
+    mm = re.search(r"(\d+)\s*minor", line, re.I)
+    blk = int(mb.group(1)) if mb else None
+    mnr = int(mm.group(1)) if mm else None
+    if blk is None and mnr is None:
+        return "unparsed", None, None
+    if (blk or 0) > 0:
+        return "blocking", blk, mnr
+    if (mnr or 0) > 0:
+        return "minor", blk, mnr
+    return "clean", blk, mnr
+
+
+def assistant_text(msg: dict) -> str:
+    """Concatenate the text blocks of one assistant message."""
+    content = msg.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "".join(
+            b["text"]
+            for b in content
+            if isinstance(b, dict) and b.get("type") == "text"
+        )
+    return ""
+
+
+def scan_run(jsonl: str) -> dict:
+    """Single pass over a run's JSONL for everything we report: compaction
+    count, peak context window, comb impl-mode signature, and the final
+    assistant message's text (the agent's report, which carries `## Summary`)."""
+    compactions = 0
+    peak = 0
+    impl_sig = False
+    report = ""
+    try:
+        with open(jsonl, encoding="utf-8") as fh:
+            for raw in fh:
+                if '"compact_boundary"' in raw:
+                    compactions += 1
+                if not impl_sig and any(s in raw for s in IMPL_COMB_SIGNATURES):
+                    impl_sig = True
+                if '"usage"' not in raw and '"assistant"' not in raw:
+                    continue
+                try:
+                    obj = json.loads(raw)
+                except ValueError:
+                    continue
+                msg = obj.get("message", {}) or {}
+                # Peak = total turn tokens (input context + this turn's output).
+                # Output is included deliberately: it rolls into the next turn's
+                # input, so total is the better compaction-risk proxy. Evidence:
+                # the one run that auto-compacted peaked at 161,661 input-only
+                # but 173,972 total — only total lands it in the ~167k+ band.
+                u = msg.get("usage") or {}
+                if u:
+                    peak = max(
+                        peak,
+                        u.get("input_tokens", 0)
+                        + u.get("cache_read_input_tokens", 0)
+                        + u.get("cache_creation_input_tokens", 0)
+                        + u.get("output_tokens", 0),
+                    )
+                if msg.get("role") == "assistant":
+                    text = assistant_text(msg)
+                    if text:
+                        report = text  # keep the most recent assistant turn
+    except OSError:
+        pass
+    return {
+        "compactions": compactions,
+        "peak": peak,
+        "impl_sig": impl_sig,
+        "report": report,
+    }
+
+
+def blocking_section(text: str) -> str:
+    """Return the body of the report's `### Blocking` section (everything up to
+    the next Minor/##-level heading), or empty if there is none."""
+    m = re.search(
+        r"###?\s*Blocking(.*?)(?:\n###?\s*Minor|\n##\s|\Z)", text, re.S | re.I
+    )
+    return m.group(1).strip() if m else ""
+
+
+def collect(root: Path, type_filter: str | None, since: float | None) -> list[dict]:
+    runs = []
+    for meta, jsonl in iter_runs(root, type_filter):
+        if since is not None and os.path.getmtime(jsonl) < since:
+            continue
+        scan = scan_run(jsonl)
+        report = scan["report"]
+        verdict, blk, mnr = parse_summary(report)
+        # Path layout: <project>/<session>/subagents/agent-*.jsonl → parts[-4] is project.
+        parts = Path(jsonl).parts
+        runs.append(
+            {
+                "type": meta.get("agentType", "?"),
+                "desc": meta.get("description", ""),
+                "project": parts[-4] if len(parts) >= 4 else "?",
+                "verdict": verdict,
+                "blocking": blk,
+                "minor": mnr,
+                "compactions": scan["compactions"],
+                "peak": scan["peak"],
+                "impl": scan["impl_sig"],
+                "jsonl": jsonl,
+                "report": report,
+            }
+        )
+    return runs
+
+
+def pct(n: int, d: int) -> str:
+    return f"{100 * n / d:.0f}%" if d else "—"
+
+
+def peak_line(runs: list[dict]) -> str:
+    peaks = sorted(r["peak"] for r in runs if r["peak"])
+    if not peaks:
+        return "no token data"
+    over = sum(1 for p in peaks if p >= AUTO_COMPACT_TOKEN_THRESHOLD)
+    return (
+        f"median {int(statistics.median(peaks)):,}  max {peaks[-1]:,}"
+        f"  [>=167k auto-compact zone: {over}]"
+    )
+
+
+def verdict_counts(runs: list[dict]) -> dict:
+    return {
+        "n": len(runs),
+        "clean": sum(1 for r in runs if r["verdict"] == "clean"),
+        "minor": sum(1 for r in runs if r["verdict"] == "minor"),
+        "blocking": sum(1 for r in runs if r["verdict"] == "blocking"),
+        "unparsed": sum(1 for r in runs if r["verdict"] == "unparsed"),
+    }
+
+
+def report_one_type(runs: list[dict], agent_type: str, show_findings: bool) -> None:
+    n = len(runs)
+    print(f"{agent_type} — {n} runs\n")
+    compacted = sum(1 for r in runs if r["compactions"] > 0)
+    print(f"  compaction: {compacted}/{n} runs ({pct(compacted, n)})")
+    print(f"  peak tokens: {peak_line(runs)}\n")
+
+    groups = [("all", runs)]
+    if agent_type in MODE_SPLIT_TYPES:
+        groups = [
+            ("impl (orchestrate vs design)", [r for r in runs if r["impl"]]),
+            ("other (design/plan/brief)", [r for r in runs if not r["impl"]]),
+        ]
+
+    for label, grp in groups:
+        if not grp:
+            continue
+        c = verdict_counts(grp)
+        print(f"  [{label}]  n={c['n']}")
+        print(
+            f"    verdicts:   clean {c['clean']} | minor-only {c['minor']} "
+            f"| blocking {c['blocking']}"
+            + (f" | unparsed {c['unparsed']}" if c["unparsed"] else "")
+        )
+        print(
+            f"    raised >=1 blocking: {c['blocking']}/{c['n']} ({pct(c['blocking'], c['n'])})"
+        )
+        gcompact = sum(1 for r in grp if r["compactions"] > 0)
+        print(
+            f"    compaction: {gcompact}/{c['n']} ({pct(gcompact, c['n'])})   "
+            f"peak: {peak_line(grp)}"
+        )
+        print()
+
+    if show_findings:
+        blockers = [r for r in runs if r["verdict"] == "blocking"]
+        print(f"=== blocking-finding text ({len(blockers)} runs) ===")
+        for r in sorted(blockers, key=lambda r: -(r["blocking"] or 0)):
+            mode = "impl" if r["impl"] else "other"
+            print(
+                f"\n--- [{r['project']}] {mode}  "
+                f"{r['blocking']} blocking, {r['minor'] or 0} minor ---"
+            )
+            body = blocking_section(r["report"]) or r["report"]
+            print(body[:900])
+
+
+def report_summary(runs: list[dict]) -> None:
+    types: dict[str, list[dict]] = {}
+    for r in runs:
+        types.setdefault(r["type"], []).append(r)
+    print(
+        f"{'agent type':<26} {'runs':>5} {'compact%':>9} {'blocking%':>10} {'median pk':>11}"
+    )
+    print("-" * 65)
+    for t in sorted(types, key=lambda t: -len(types[t])):
+        grp = types[t]
+        n = len(grp)
+        comp = sum(1 for r in grp if r["compactions"] > 0)
+        blk = sum(1 for r in grp if r["verdict"] == "blocking")
+        parseable = sum(1 for r in grp if r["verdict"] != "unparsed")
+        peaks = [r["peak"] for r in grp if r["peak"]]
+        med = f"{int(statistics.median(peaks)):,}" if peaks else "—"
+        blk_pct = pct(blk, parseable) if parseable else "n/a"
+        print(f"{t:<26} {n:>5} {pct(comp, n):>9} {blk_pct:>10} {med:>11}")
+    print(
+        f"\n{len(runs)} runs across {len(types)} agent types. "
+        f"blocking% is over runs with a parseable ## Summary line."
+    )
+
+
+def main() -> int:
+    p = argparse.ArgumentParser(
+        description="Post-hoc effectiveness stats for subagent runs.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__,
+    )
+    p.add_argument("--type", help="restrict to one agentType (detailed report)")
+    p.add_argument(
+        "--impl-only",
+        action="store_true",
+        help="comb only: keep just the orchestrate impl-vs-design pass",
+    )
+    p.add_argument(
+        "--findings",
+        action="store_true",
+        help="print Blocking section text for each blocking run",
+    )
+    p.add_argument("--since", help="only runs modified on/after DATE (YYYY-MM-DD)")
+    p.add_argument("--projects", help="override projects root")
+    p.add_argument("--json", action="store_true", help="emit JSON")
+    args = p.parse_args()
+
+    if args.findings and not args.type:
+        print(
+            "--findings requires --type (findings are only dumped in the "
+            "per-type report)",
+            file=sys.stderr,
+        )
+        return 1
+
+    root = projects_root(args.projects)
+    if not root.is_dir():
+        print(f"projects root not found: {root}", file=sys.stderr)
+        return 1
+
+    since = None
+    if args.since:
+        try:
+            y, m, d = (int(x) for x in args.since.split("-"))
+            datetime.date(y, m, d)  # rejects invalid day/month (timegm would roll over)
+            since = calendar.timegm((y, m, d, 0, 0, 0, 0, 0, 0))
+        except (ValueError, TypeError):
+            print(f"bad --since date (want YYYY-MM-DD): {args.since}", file=sys.stderr)
+            return 1
+
+    runs = collect(root, args.type, since)
+    if args.impl_only:
+        runs = [r for r in runs if r["impl"]]
+
+    if not runs:
+        print("no matching subagent runs found", file=sys.stderr)
+        return 1
+
+    if args.json:
+        slim = [
+            {
+                k: r[k]
+                for k in (
+                    "type",
+                    "project",
+                    "verdict",
+                    "blocking",
+                    "minor",
+                    "compactions",
+                    "peak",
+                    "impl",
+                    "desc",
+                )
+            }
+            for r in runs
+        ]
+        print(json.dumps(slim, indent=2))
+        return 0
+
+    if args.type:
+        report_one_type(runs, args.type, args.findings)
+    else:
+        report_summary(runs)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

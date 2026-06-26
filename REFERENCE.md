@@ -200,6 +200,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
 | Script | Description |
 |--------|-------------|
+| `agent-stats` | Post-hoc effectiveness stats for subagent runs mined from the JSONL store — per agent type: run count, verdict mix (parsed from the `## Summary` line), compaction rate, and peak context window. `--type` for a detailed report, `--findings` to dump blocking text, `--impl-only` for the comb's orchestrate pass, `--json`, `--since` |
 | `agnix-check` | Validate agent, skill, and command files against agnix schema |
 | `claude-tmux` | Tmux session helper — rename, list, create, capture, kill sessions |
 | `edit-manifest` | Open a manifest file in nvim via a new tmux window with shadow-file autosave and blocking wait |
