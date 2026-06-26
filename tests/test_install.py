@@ -1262,14 +1262,20 @@ class TestPackageInstall:
     def test_installs_ccrecall_when_absent(self) -> None:
         """ensure_ccrecall installs ccrecall from PyPI when it is not present."""
         mock_install = MagicMock(return_value=(True, ""))
-        with patch("install.install_pypi_tool", mock_install):
+        with (
+            patch("install.shutil.which", return_value=None),
+            patch("install.install_pypi_tool", mock_install),
+        ):
             errors = install.ensure_ccrecall(set(BASE_PACKAGES), install.Console())
         assert errors == 0
         mock_install.assert_called_once_with(install.CCRECALL_PACKAGE)
 
     def test_install_failure_increments_errors(self) -> None:
         """A failed ccrecall install is counted in the returned error total."""
-        with patch("install.install_pypi_tool", return_value=(False, "boom")):
+        with (
+            patch("install.shutil.which", return_value=None),
+            patch("install.install_pypi_tool", return_value=(False, "boom")),
+        ):
             errors = install.ensure_ccrecall(set(BASE_PACKAGES), install.Console())
         assert errors == 1
 
@@ -1302,6 +1308,7 @@ class TestPackageInstall:
         with neither the new package nor the old one."""
         mock_uninstall = MagicMock()
         with (
+            patch("install.shutil.which", return_value=None),
             patch("install.install_pypi_tool", return_value=(False, "boom")),
             patch("install.uninstall_package", mock_uninstall),
         ):
