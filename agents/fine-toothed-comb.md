@@ -42,6 +42,11 @@ Classify every finding:
 
 Do not inflate severity to seem thorough, and do not soften a real gap to minor to avoid blocking. If you are genuinely unsure whether something is blocking, say so in the finding and lean blocking — the gate exists to surface it, not to auto-fix it.
 
+**Verify "behavior is wrong" claims against the running system before reporting them blocking.** This applies when you are combing an implementation and have the code and a runnable test suite in front of you. There are two shapes of blocking finding, and they need different evidence:
+
+- **A requirement is missing or dropped** (the design specifies X, the diff has no X). Reading is sufficient — report it; there is nothing to run.
+- **Existing behavior is incorrect** (you claim a code path coerces wrong, returns the wrong status, breaks a test, etc.). This is the false-positive-prone shape: it rests on a mental model of runtime behavior that is easy to get wrong. Before reporting it blocking, confirm it — trace the actual call path the value takes (not the one you assume), and where a test names the behavior, run it. If the suite is green against the code you're calling wrong, or the real path differs from your assumption, the claim is refuted: drop it or downgrade to a noted observation, and say what you checked. Lean-blocking-when-unsure does not license shipping an unverified runtime claim you had the tools to check.
+
 ## Output format
 
 Start with a single machine-readable summary line, then the findings. The caller parses the summary line to drive its gate.
