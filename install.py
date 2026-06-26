@@ -1430,9 +1430,10 @@ def do_uninstall(repo_dir: Path, claude_dir: Path, config: dict) -> None:
         cfg_path.unlink()
         console.print(f"  Removed config: {cfg_path}")
 
-    lock = Path(str(cfg_path) + LOCK_SUFFIX)
-    if lock.exists():
-        lock.unlink()
+    # The .lock file is left in place: main() still holds an flock on it via ConfigLock,
+    # and unlinking the pathname here would let a concurrent installer create a new inode
+    # at the same path and acquire a second lock before ConfigLock.__exit__ releases ours.
+    # The lockfile is a persistent flock sentinel, not state that needs cleanup.
 
     console.print("[green]Claudefiles uninstalled.[/green]")
 
@@ -1457,7 +1458,7 @@ def print_dry_run(
     console = Console()
     console.print("\n[bold]Dry run — no changes will be made[/bold]\n")
     console.print(
-        "[bold]Always installed:[/bold] base bundle, core rules, learned, bin, commands, hooks"
+        "[bold]Always installed:[/bold] base bundle, core rules, references, learned, bin, commands, hooks"
     )
     console.print()
     console.print("[bold]Optional bundles:[/bold]")
@@ -1655,8 +1656,10 @@ def resolve_config(
         if reconfigure:
             print("Warning: --reconfigure has no effect in non-interactive mode.")
         if saved is not None:
-            print("Non-interactive mode: applying saved config.")
-            return saved
+            print(
+                "Non-interactive mode: applying saved config, defaulting any new groups on."
+            )
+            return merge_new_groups(saved, repo_dir, interactive=False)
         print(
             "Non-interactive mode: no saved config, installing all bundles and rule categories."
         )
@@ -1669,6 +1672,7 @@ def print_uninstall_dry_run(repo_dir: Path, config: dict, cfg_path: Path) -> Non
     console = Console()
     console.print("\n[bold]Dry run — would uninstall:[/bold]\n")
     console.print("  All Claudefiles-owned symlinks from ~/.claude/")
+    console.print(f"  Package: {CCRECALL_PACKAGE}")
     bundle_cfg = config.get("bundles", {})
     for bundle_key, bundle in get_bundles(repo_dir).items():
         if bundle.always_installed or bundle_cfg.get(bundle_key):
