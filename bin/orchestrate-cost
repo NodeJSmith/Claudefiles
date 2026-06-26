@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["ccrecall>=0.12.0"]
+# dependencies = ["ccrecall>=0.12.0", "whenever>=0.10"]
 # ///
 # 0.12.0 is the floor: it carries the Opus 4.7/4.8 pricing fix (claude-code-recall#37 —
 # Opus prices at the $5/$25 tier, not the legacy $15/$75 catch-all). Earlier releases
@@ -56,6 +56,7 @@ from glob import glob
 from pathlib import Path
 
 from ccrecall.token_parser import get_pricing, turn_cost
+from whenever import Date
 
 # --- Run-boundary markers (durable, in the parent-session JSONL as Bash commands) ---
 START_MARKER = "orchestrate run started"
@@ -66,9 +67,11 @@ RESUME_MARKER = "resuming from checkpoint"
 # appear in displayed skill docs). base_commit lands either as the --base-commit flag or
 # inside the spec-helper checkpoint JSON *output* ("base_commit": "ea12dcc1") — match
 # both. The 6+ hex-digit requirement rejects the literal "<base_commit>" doc placeholder.
-FEATURE_SLUG_RE = re.compile(
-    r"(?:checkpoint-init\s+|design/specs/)(\d{2,}[A-Za-z0-9_-]+)"
-)
+# Two separate patterns, tried in order: a checkpoint-init match (the executed command)
+# must beat a design/specs/ match anywhere earlier in the text. A single combined regex
+# would let whichever appears FIRST lexically win, defeating the stated preference.
+CHECKPOINT_FEATURE_RE = re.compile(r"checkpoint-init\s+(\d{2,}[A-Za-z0-9_-]+)")
+DESIGN_FEATURE_RE = re.compile(r"design/specs/(\d{2,}[A-Za-z0-9_-]+)")
 BASE_COMMIT_RE = re.compile(
     r'(?:--base-commit\s+|base_commit["\s:=]+)([0-9a-f]{6,40})\b'
 )
@@ -286,13 +289,35 @@ class AgentRun:
 
 
 @dataclass
+class SubagentCoverage:
+    """Partial-failure tally for the subagents under one session, summed onto the owning
+    Run across its stitched sessions so --since can scope it to the selected cohort instead
+    of reporting all-time counts against a filtered run list."""
+
+    crashed: int = 0  # meta written, transcript gone (subagent died)
+    unpriced: int = 0  # ran but priced to $0 (zero usage or pricing gap)
+    excluded_n: int = 0  # non-orchestrate subagent sharing the session window
+    excluded_usd: float = 0.0
+
+    def __add__(self, other: "SubagentCoverage") -> "SubagentCoverage":
+        return SubagentCoverage(
+            crashed=self.crashed + other.crashed,
+            unpriced=self.unpriced + other.unpriced,
+            excluded_n=self.excluded_n + other.excluded_n,
+            excluded_usd=self.excluded_usd + other.excluded_usd,
+        )
+
+
+@dataclass
 class Run:
     feature: str
     base_commit: str
     start_ts: str
+    has_start: bool = False  # any stitched session had a real START (not resume-only)
     sessions: list[str] = field(default_factory=list)  # parent jsonl paths
     orch: Cost = field(default_factory=Cost)
     agents: list[AgentRun] = field(default_factory=list)
+    coverage: SubagentCoverage = field(default_factory=SubagentCoverage)
 
     @property
     def key(self) -> tuple[str, str]:
@@ -367,7 +392,7 @@ def scan_parent_markers(path: str) -> ParentMarkers | None:
 
     if not (has_start or has_resume):
         return None
-    fm = FEATURE_SLUG_RE.search(raw)
+    fm = CHECKPOINT_FEATURE_RE.search(raw) or DESIGN_FEATURE_RE.search(raw)
     bm = BASE_COMMIT_RE.search(raw)
     return ParentMarkers(
         has_start=has_start,
@@ -388,12 +413,14 @@ def iter_parent_sessions(root: Path):
 
 
 def attribute_subagents(
-    root: Path, project: str, session_uuid: str, run_start_ts: str, coverage: dict
-) -> list[AgentRun]:
+    root: Path, project: str, session_uuid: str, run_start_ts: str
+) -> tuple[list[AgentRun], SubagentCoverage]:
     """All subagents under one parent session whose first turn is at/after the run window.
-    Returns the orchestrate AgentRuns AND mutates `coverage` in place (crashed / unpriced /
-    excluded counters) — partial failures are counted, never silently dropped."""
+    Returns the orchestrate AgentRuns AND a per-session coverage tally (crashed / unpriced /
+    excluded) — partial failures are counted, never silently dropped. The caller folds the
+    tally into the owning Run so --since can scope it to the selected cohort."""
     agents: list[AgentRun] = []
+    cov = SubagentCoverage()
     pattern = str(root / project / session_uuid / "subagents" / "agent-*.meta.json")
     for meta_path in glob(pattern):
         try:
@@ -403,22 +430,20 @@ def attribute_subagents(
             continue
         jsonl = meta_path[: -len(".meta.json")] + ".jsonl"
         if not os.path.exists(jsonl):
-            coverage["crashed"] += 1  # meta written, transcript gone (subagent died)
+            cov.crashed += 1
             continue
         ft = first_ts(jsonl)
         if run_start_ts and ft and ft < run_start_ts:
             continue
         cost = price_jsonl(jsonl)
         if cost.total == 0.0:
-            coverage["unpriced"] += (
-                1  # ran but priced to $0 (zero usage or pricing gap)
-            )
+            cov.unpriced += 1
             continue
         role = resolve_role(meta.get("agentType", "?"), first_user_text(jsonl))
         if role is None:
             # Another skill's subagent sharing this session window — not orchestrate cost.
-            coverage["excluded_n"] += 1
-            coverage["excluded_usd"] += cost.total
+            cov.excluded_n += 1
+            cov.excluded_usd += cost.total
             continue
         agents.append(
             AgentRun(
@@ -428,7 +453,7 @@ def attribute_subagents(
                 project=project,
             )
         )
-    return agents
+    return agents, cov
 
 
 def build_runs(root: Path, since: str | None) -> tuple[list[Run], dict]:
@@ -437,44 +462,69 @@ def build_runs(root: Path, since: str | None) -> tuple[list[Run], dict]:
 
     The CLI --since filter is applied AFTER merging, on each run's overall earliest start
     — filtering per-session would silently drop the early session of a run that straddles
-    the cutoff, undercounting it."""
-    coverage = {
-        "undelimited": 0,
-        "unwindowed": 0,
-        "crashed": 0,
-        "unpriced": 0,
-        "excluded_n": 0,
-        "excluded_usd": 0.0,
-    }
+    the cutoff, undercounting it. Coverage counters are likewise scoped to the selected
+    cohort (except `unwindowed`, which by definition has no timestamp to scope by)."""
     runs: dict[tuple[str, str], Run] = {}
+    unwindowed = 0
+    undelimited_ts: list[str] = []  # one start_ts per session that never forms a clean run
 
     for project, path in iter_parent_sessions(root):
         markers = scan_parent_markers(path)
         if markers is None:
             continue
         if not markers.start_ts:
-            # No usable window anchor: can't bound the orchestrator turns, so including
-            # it would sum pre-run work and inflate the band. Count, don't attribute.
-            coverage["unwindowed"] += 1
+            # No usable window anchor: can't bound the orchestrator turns, so including it
+            # would sum pre-run work and inflate the band. No timestamp also means it can't
+            # be placed in or out of a --since cohort. Count globally, don't attribute.
+            unwindowed += 1
             continue
-        if not markers.feature and not markers.base_commit:
-            coverage["undelimited"] += 1
+        if not (markers.feature and markers.base_commit):
+            # A partial key (only one of the two parsed) would merge unrelated runs under a
+            # shared "?" placeholder, corrupting totals and fingerprints. Require both.
+            undelimited_ts.append(markers.start_ts)
             continue
-        key = (markers.feature or "?", markers.base_commit or "?")
+        key = (markers.feature, markers.base_commit)
         run = runs.get(key)
         if run is None:
-            run = Run(feature=key[0], base_commit=key[1], start_ts=markers.start_ts)
+            run = Run(
+                feature=key[0],
+                base_commit=key[1],
+                start_ts=markers.start_ts,
+                has_start=markers.has_start,
+            )
             runs[key] = run
-        elif markers.start_ts < run.start_ts:
-            run.start_ts = markers.start_ts
+        else:
+            run.has_start = run.has_start or markers.has_start  # any session counts
+            if markers.start_ts < run.start_ts:
+                run.start_ts = markers.start_ts
         run.sessions.append(path)
         session_uuid = Path(path).stem
         run.orch = _add_cost(run.orch, price_jsonl(path, run_start_ts=markers.start_ts))
-        run.agents.extend(
-            attribute_subagents(root, project, session_uuid, markers.start_ts, coverage)
-        )
+        agents, cov = attribute_subagents(root, project, session_uuid, markers.start_ts)
+        run.agents.extend(agents)
+        run.coverage = run.coverage + cov
 
-    selected = [r for r in runs.values() if not since or r.start_ts[:10] >= since]
+    # A run stitched only from resume markers never saw a clean start — its window anchor is
+    # a mid-run resume timestamp, so its orchestrator band would be a partial. Drop it to
+    # undelimited rather than report a misleading partial run. `undelimited` is session-
+    # grained throughout, so a dropped run contributes one entry per stitched session (each
+    # session was an orchestrate session that never formed a clean run), counted at the
+    # run's earliest start for --since scoping.
+    delimited = [r for r in runs.values() if r.has_start]
+    for r in runs.values():
+        if not r.has_start:
+            undelimited_ts.extend(r.start_ts for _ in r.sessions)
+
+    selected = [r for r in delimited if not since or r.start_ts[:10] >= since]
+    sel_cov = sum((r.coverage for r in selected), SubagentCoverage())
+    coverage = {
+        "undelimited": sum(1 for ts in undelimited_ts if not since or ts[:10] >= since),
+        "unwindowed": unwindowed,
+        "crashed": sel_cov.crashed,
+        "unpriced": sel_cov.unpriced,
+        "excluded_n": sel_cov.excluded_n,
+        "excluded_usd": sel_cov.excluded_usd,
+    }
     return selected, coverage
 
 
@@ -502,7 +552,9 @@ def varying_roles(runs: list[Run]) -> set[str]:
 
 
 def aggregate_roles(runs: list[Run]) -> list[dict]:
-    """Per (role, model): run count, total USD, mean USD per appearance."""
+    """Per (role, model): appearance (dispatch) count, total USD, mean USD per appearance.
+    `groups` collects one entry per agent invocation, so a role that runs several times in a
+    single run contributes several appearances — this is a call-level metric, not run-level."""
     groups: dict[tuple[str, str], list[float]] = {}
     for run in runs:
         for a in run.agents:
@@ -514,7 +566,7 @@ def aggregate_roles(runs: list[Run]) -> list[dict]:
             {
                 "role": role,
                 "model": model,
-                "n": len(costs),
+                "calls": len(costs),
                 "total": sum(costs),
                 "mean": statistics.mean(costs),
             }
@@ -572,7 +624,7 @@ def render_table(runs: list[Run], coverage: dict) -> None:
     print(f"orchestrate-cost — {len(runs)} runs  ({span})   total {usd(total)}\n")
 
     print(
-        f"{'role':<22} {'model':<12} {'runs':>5} {'total':>11} {'mean/run':>11} {'%':>5}"
+        f"{'role':<22} {'model':<12} {'calls':>5} {'total':>11} {'mean/call':>11} {'%':>5}"
     )
     print("-" * 70)
     band = orchestrator_band(runs)
@@ -588,7 +640,7 @@ def render_table(runs: list[Run], coverage: dict) -> None:
     )
     for r in aggregate_roles(runs):
         print(
-            f"{r['role']:<22} {r['model']:<12} {r['n']:>5} "
+            f"{r['role']:<22} {r['model']:<12} {r['calls']:>5} "
             f"{usd(r['total']):>11} {usd(r['mean']):>11} "
             f"{100 * r['total'] / total:>4.0f}%"
         )
@@ -655,7 +707,7 @@ def render_table(runs: list[Run], coverage: dict) -> None:
     print(f"    runs included:   {len(runs)}")
     print(
         f"    undelimited:     {coverage['undelimited']} "
-        f"(orchestrate marker but no feature/base_commit — not merged)"
+        f"(incomplete feature/base_commit key, or resume-only with no clean start)"
     )
     print(
         f"    unwindowed:      {coverage['unwindowed']} "
@@ -717,7 +769,9 @@ def main() -> int:
 
     since = None
     if args.since:
-        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", args.since):
+        try:
+            Date.parse_iso(args.since)  # rejects impossible dates like 2026-99-99
+        except ValueError:
             print(f"bad --since date (want YYYY-MM-DD): {args.since}", file=sys.stderr)
             return 1
         since = args.since  # ISO timestamps sort lexically against a date prefix
