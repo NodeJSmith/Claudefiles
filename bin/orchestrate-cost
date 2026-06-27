@@ -40,7 +40,7 @@ Usage:
   orchestrate-cost --projects DIR   # override the projects root
 
 Options:
-  --since DATE     Only runs whose start marker timestamp is on/after DATE (YYYY-MM-DD).
+  --since DATE     Only runs whose start marker timestamp is on/after DATE (YYYY-MM-DD or YYYYMMDD).
   --projects DIR   Projects root (default: $CLAUDE_HOME/projects or ~/.claude/projects).
   --json           Emit JSON instead of the table.
 """
@@ -778,7 +778,10 @@ def main() -> int:
             # (20260501 -> 2026-05-01) so the lexical r.start_ts[:10] >= since holds
             since = Date.parse_iso(args.since).format_iso()
         except ValueError:
-            print(f"bad --since date (want YYYY-MM-DD): {args.since}", file=sys.stderr)
+            print(
+                f"bad --since date (want YYYY-MM-DD or YYYYMMDD): {args.since}",
+                file=sys.stderr,
+            )
             return 1
 
     root = projects_root(args.projects)
