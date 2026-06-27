@@ -7,7 +7,7 @@
 
 ## Problem
 
-`mine-orchestrate` runs as a single long-lived **Opus** conversation — ~154 turns for a typical run. Every file the orchestrator `Read`s stays in its context permanently and is re-billed as `cache_read` on *every subsequent turn*. The 033 cost analysis measured the consequence: the orchestrator loop is the single largest cost bucket (~$1,240 of ~$2,068 across 30 runs, ~54%), and its absorbed band is **98% `cache_read`** (1.55B tokens). The cache is healthy (only 1.6% creation) — the problem is **volume**, not churn.
+`mine-orchestrate` runs as a single long-lived **Opus** conversation — ~154 turns for a typical run. Every file the orchestrator `Read`s stays in its context permanently and is re-billed as `cache_read` on *every subsequent turn*. The 033 cost analysis measured the consequence: the orchestrator loop is the single largest cost bucket (~$1,240 of ~$2,068 across 30 runs, ~60%), and its absorbed band is **98% `cache_read`** (1.55B tokens). The cache is healthy (only 1.6% creation) — the problem is **volume**, not churn.
 
 The driver is verdict consumption. Per task, the orchestrator reads ~6 full report files into its own context:
 
@@ -266,6 +266,8 @@ None.
 - `skills/mine-orchestrate/findings-fix-loop.md` — create: the dispatched fixer + terminal-ledger loop (purpose-built prompt; iteration accounting; classify-mode terminal pass).
 - `skills/mine-orchestrate/verdict-line-format.md` — create: single source of truth for the canonical line, referenced by all four reviewers.
 - Permanent verdict-line conformance check — create (location per repo convention for checks, e.g. `bin/` + pre-commit hook).
+- `bin/orchestrate-concise-probe` — create: read-only probe reporting the concise-return compliance rate from a run's JSONL (AC#7).
+- `design/specs/034-orchestrate-verdict-only/measurement.md` — create: the cost-measurement runbook (AC#7).
 
 ### Behavioral Invariants
 - Task verdict and gate decision identical for identical findings, including deferred-vs-unresolved (AC#3, via the terminal-fixer ledger).
