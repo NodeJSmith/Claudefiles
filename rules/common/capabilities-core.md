@@ -81,6 +81,7 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "detect git platform", "github or ado" | `git-platform` |
 | "validate agent files", "check skill schema" | `agnix-check` |
 | "is this gate earning its keep", "how often does X subagent catch issues", "how often does the comb compact", "subagent effectiveness stats", "agent stats" | `agent-stats` |
+| "orchestrate run cost", "where do the token dollars go", "cost of orchestrate", "how much does a mine-orchestrate run cost", "cost by role and model", "is this gate worth the cost" | `orchestrate-cost` |
 | (internal — called by mine-orchestrate) | `trail-log` |
 | "cancel builds", "cancel pipeline runs", "list ADO builds" | `ado-api builds` |
 | "build logs", "CI logs", "why did the build fail" | `ado-api logs` |

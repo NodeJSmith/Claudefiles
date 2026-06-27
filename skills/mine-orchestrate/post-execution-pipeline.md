@@ -95,11 +95,11 @@ If the integration-reviewer returns BLOCK, surface the blocking issues to the us
 If `trail_available` is true, log the cross-file review result:
 `trail-log "<trail_path>" p3 - review "cross-file consistency: <APPROVE|WARN|BLOCK> — <brief summary>"`
 
-## Step 4: Clean code check (automatic, Opus subagent)
+## Step 4: Clean code check (automatic)
 
 After the cross-file consistency review passes, run a clean code check on the entire branch diff. This catches LLM training-bias patterns, deferred-debt shortcuts, and style hygiene issues that correctness and integration reviewers don't target.
 
-Launch a single `general-purpose` subagent with `model: opus` and this prompt:
+Launch a single `general-purpose` subagent with `model: sonnet` and this prompt. (The analysis is done by `mine-clean-code`'s three Sonnet checkers; this wrapper only invokes the skill and applies the unambiguous fixes — leaving anything that needs architectural judgment noted, not fixed — so it does not need Opus.)
 
 ```
 You are running a comprehensive stylistic quality review on a completed feature branch.
