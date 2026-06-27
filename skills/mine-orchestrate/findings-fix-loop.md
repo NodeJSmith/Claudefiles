@@ -97,12 +97,12 @@ If the iteration 3 re-review still reports findings (or WARN or BLOCK on either 
 
 The loop reaches the gate in one of two terminal states.
 
-**Terminal state A — clean re-review (early exit).** A re-review after a fixer pass reported `findings: 0` with no WARN/BLOCK on either reviewer. The independent reviewers are authoritative for detection, so the task **PASSES**. Read the latest `<dir>/<task_id>/fix-ledger.md` only to count the `fixed` rows for the `(N auto-fixed)` note and to carry forward any `deferred(reason)` rows for Step 14/15. A stale `unresolved` row left in a ledger written *before* the clean re-review does **not** FAIL the task — the independent re-review supersedes it.
+**Terminal state A — clean re-review (early exit).** A re-review after a fixer pass reported `findings: 0` with no WARN/BLOCK on either reviewer. The independent reviewers are authoritative for detection, so the **fixer gate result is PASS**. Read the latest `<dir>/<task_id>/fix-ledger.md` only to count the `fixed` rows for the `(N auto-fixed)` note and to carry forward any `deferred(reason)` rows for Step 14/15. A stale `unresolved` row left in a ledger written *before* the clean re-review does **not** FAIL the task — the independent re-review supersedes it.
 
 **Terminal state B — budget exhausted (classify-mode ledger).** Both fixer passes ran and the latest re-review still reported findings, so the classify-mode pass wrote the terminal ledger against that latest review. Read the terminal ledger:
 
-- **Any `unresolved` row → the task verdict is FAIL.** Route to Step 16.
-- **No `unresolved` rows (only `fixed` and/or `deferred`, or an empty ledger) → PASS.** Count the `fixed` rows; carry a `(N auto-fixed)` note forward for Step 14/15.
+- **Any `unresolved` row → the fixer gate result is FAIL.**
+- **No `unresolved` rows (only `fixed` and/or `deferred`, or an empty ledger) → the fixer gate result is PASS.** Count the `fixed` rows; carry a `(N auto-fixed)` note forward for Step 14/15.
 
 In both states the orchestrator reads only the ledger (for counts and classification) and the canonical verdict lines — never a review report body, and it never matches findings across agents. The ledger is the sole input for the FAIL determination. **AC#6 holds:** every finding the latest review reported is recorded in the ledger as `fixed`, `deferred(reason)`, or (in state B) `unresolved` — none are silently skipped.
 
@@ -118,6 +118,4 @@ trail-log "<trail_path>" p2 <task_id> fix "fixed: <N>; deferred: <M>; unresolved
 
 Read the counts from the terminal ledger's row classifications (or from the fixer's one-line summary return). Iteration count = number of review passes run (2 after one fixer cycle, 3 after two fixer cycles).
 
-**If the gate is PASS** → continue to Step 13 (review gate). The `(N auto-fixed)` note surfaces in Step 15.
-
-**If the gate is FAIL** → task verdict is FAIL; route to Step 16.
+Return the **fixer gate result** (PASS or FAIL, plus the `(N auto-fixed)` count or the `unresolved` reasons) to Step 12. The orchestrator continues to Step 13 regardless and folds this result into the single Step 14 verdict assembly — this loop does **not** route to Step 16 itself. The `(N auto-fixed)` note surfaces in Step 15; a FAIL fixer gate result becomes a Step 14 FAIL, which Step 16 then gates.

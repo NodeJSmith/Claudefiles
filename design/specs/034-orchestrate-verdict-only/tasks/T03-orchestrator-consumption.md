@@ -1,7 +1,7 @@
 ---
 task_id: "T03"
 title: "Lean orchestrator consumption — extract verdicts, dispatch fixer, gate on ledger"
-status: "planned"
+status: "done"
 depends_on: ["T01", "T02"]
 implements: ["FR#4", "FR#5", "FR#6", "FR#7", "FR#8", "FR#9", "AC#1", "AC#2", "AC#3"]
 ---
