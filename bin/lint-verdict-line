@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""Verify that all four reviewer files specify a conformant canonical verdict line.
+
+The canonical line is defined in skills/mine-orchestrate/verdict-line-format.md.
+Each reviewer's report must contain exactly one line starting with '**Verdict:**'
+(the prefix is reserved). For code and integration reviewers that line must include
+'(findings:'; for spec and visual reviewers it must not.
+
+Reads the actual reviewer files from the repo — never tests hardcoded sample strings.
+
+Exit 0 on success, 1 with details on failure.
+"""
+
+import argparse
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+
+# Reviewers whose canonical line carries a findings count
+REVIEWERS_WITH_COUNT = [
+    ROOT / "agents" / "code-reviewer.md",
+    ROOT / "agents" / "integration-reviewer.md",
+]
+
+# Reviewers whose canonical line carries no count
+REVIEWERS_WITHOUT_COUNT = [
+    ROOT / "skills" / "mine-orchestrate" / "spec-reviewer-prompt.md",
+    ROOT / "skills" / "mine-orchestrate" / "visual-reviewer-prompt.md",
+]
+
+VERDICT_PREFIX = "**Verdict:**"
+
+
+def check_reviewer(path: Path, expects_count: bool) -> list[str]:
+    errors: list[str] = []
+    rel = path.relative_to(ROOT)
+
+    try:
+        text = path.read_text()
+    except FileNotFoundError:
+        return [f"{rel}: file not found"]
+    except OSError as exc:
+        return [f"{rel}: cannot read file: {exc}"]
+    except UnicodeDecodeError as exc:
+        return [f"{rel}: file is not valid UTF-8: {exc}"]
+
+    verdict_lines = [
+        line for line in text.splitlines() if line.startswith(VERDICT_PREFIX)
+    ]
+
+    if not verdict_lines:
+        errors.append(
+            f"{rel}: no line starting with '{VERDICT_PREFIX}' found"
+            " — reviewer must emit the canonical verdict line"
+        )
+        return errors
+
+    if len(verdict_lines) > 1:
+        errors.append(
+            f"{rel}: '{VERDICT_PREFIX}' prefix appears {len(verdict_lines)} time(s)"
+            " — must be exactly 1 (prefix is reserved for the canonical verdict line);"
+            f" found: {verdict_lines!r}"
+        )
+
+    # The extraction contract takes the last matching line
+    canonical = verdict_lines[-1]
+
+    if expects_count:
+        if "(findings:" not in canonical:
+            errors.append(
+                f"{rel}: canonical verdict line is missing '(findings: N)' suffix"
+                f" — code and integration reviewers require it; got: {canonical!r}"
+            )
+    else:
+        if "(findings:" in canonical:
+            errors.append(
+                f"{rel}: canonical verdict line must not contain '(findings:)'"
+                " — count is for code and integration reviewers only;"
+                f" got: {canonical!r}"
+            )
+
+    return errors
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Verify the four reviewer files specify a conformant canonical verdict line.",
+        epilog="Reads agents/{code,integration}-reviewer.md and the spec/visual reviewer prompts. Exit 0 = conformant.",
+    )
+    parser.parse_args()
+
+    errors: list[str] = []
+
+    for path in REVIEWERS_WITH_COUNT:
+        errors.extend(check_reviewer(path, expects_count=True))
+
+    for path in REVIEWERS_WITHOUT_COUNT:
+        errors.extend(check_reviewer(path, expects_count=False))
+
+    if errors:
+        print(
+            "lint-verdict-line: reviewer verdict-line format is out of sync:",
+            file=sys.stderr,
+        )
+        for e in errors:
+            print(f"  - {e}", file=sys.stderr)
+        return 1
+
+    total = len(REVIEWERS_WITH_COUNT) + len(REVIEWERS_WITHOUT_COUNT)
+    print(
+        f"lint-verdict-line: all {total} reviewer files specify a conformant"
+        " canonical verdict line"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

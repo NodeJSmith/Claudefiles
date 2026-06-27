@@ -168,18 +168,29 @@ Fix: Use parameterized query — cursor.execute("SELECT * FROM users WHERE id = 
 
 End with an **Assessment**:
 
+<!-- SYNC: skills/mine-orchestrate/verdict-line-format.md -->
 ```text
 ### Assessment
 **Strengths:** [what works well — 1-3 sentences]
-**Verdict:** APPROVE | WARN | BLOCK
+**Verdict:** APPROVE | WARN | BLOCK (findings: N)
 **Reasoning:** [1-2 sentences — technical, not performative]
 ```
+
+`N` = count of CRITICAL + HIGH + MEDIUM + LOW findings introduced by this change. Do not include findings listed under "Pre-existing (not introduced by this PR)". Use `N = 0` when there are no new findings.
 
 ## Approval Criteria
 
 - **APPROVE**: No CRITICAL or HIGH issues
 - **WARN**: MEDIUM issues only — can proceed with caution
 - **BLOCK**: Any CRITICAL or HIGH issue found
+
+## Concise-return mode
+
+When the dispatch prompt contains the **exact literal token** `CONCISE-RETURN-MODE` **and** provides an output file path, enter concise-return mode:
+- Write the full report to the provided output file path
+- Return **only the canonical verdict line** (`**Verdict:** APPROVE | WARN | BLOCK (findings: N)`) as your final message
+
+In all other cases — including when no output file path is provided — return the full report as your final message. This is the unconditional default. Callers such as `/mine-review`, `/mine-ship`, `/mine-commit-push`, `/mine-build`, and `/mine-address-pr-issues` do not supply the token and always receive the full report.
 
 ## Skill & Markdown File Checks
 

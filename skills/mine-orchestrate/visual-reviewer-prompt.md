@@ -65,15 +65,16 @@ Second, independently judge whether the state is rich enough to exercise the tas
 
 Write your review to the temp file path provided:
 
+<!-- SYNC: skills/mine-orchestrate/verdict-line-format.md -->
 ```
 ## Visual Review
 
-**Overall verdict:** VERIFIED (N scenarios) | WARN (N scenarios, M warnings) | FAIL (N scenarios, M failures)
+**Verdict:** VERIFIED | WARN | FAIL
 
 **Scenarios:**
 
 ### Scenario 1: <page> — <setup summary>
-**Verdict:** VERIFIED | WARN | FAIL | SKIPPED
+**Scenario verdict:** VERIFIED | WARN | FAIL | SKIPPED
 **Verify criteria met:**
 - <criterion>: YES | NO | PARTIAL — <what you observed>
 **Unintended changes:** [none] OR [description of regression]
@@ -92,3 +93,11 @@ Write your review to the temp file path provided:
 3. **Don't manufacture findings** — if the screenshots look correct and match the criteria, say VERIFIED. Padding out findings wastes time.
 4. **Flag state quality honestly** — if the executor captured a trivial state that doesn't exercise the task's changes, say so. This is the most important thing you catch.
 5. **You are not a designer** — you verify against the stated criteria, not against your aesthetic preferences. Leave design critique to `mine-visual-qa`.
+
+## Concise-return mode
+
+When the dispatch prompt contains the **exact literal token** `CONCISE-RETURN-MODE` **and** provides an output file path, enter concise-return mode:
+- Write the full report to the provided output file path
+- Return **only the canonical verdict line** (`**Verdict:** VERIFIED | WARN | FAIL`) as your final message
+
+In all other cases — including when no output file path is provided — return the full report as your final message. This is the unconditional default.
