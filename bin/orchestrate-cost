@@ -314,7 +314,7 @@ class Run:
     base_commit: str
     start_ts: str
     has_start: bool = False  # any stitched session had a real START (not resume-only)
-    sessions: list[str] = field(default_factory=list)  # parent jsonl paths
+    session_start_ts: list[str] = field(default_factory=list)  # marker ts per session
     orch: Cost = field(default_factory=Cost)
     agents: list[AgentRun] = field(default_factory=list)
     coverage: SubagentCoverage = field(default_factory=SubagentCoverage)
@@ -436,14 +436,16 @@ def attribute_subagents(
         if run_start_ts and ft and ft < run_start_ts:
             continue
         cost = price_jsonl(jsonl)
-        if cost.total == 0.0:
-            cov.unpriced += 1
-            continue
         role = resolve_role(meta.get("agentType", "?"), first_user_text(jsonl))
         if role is None:
             # Another skill's subagent sharing this session window — not orchestrate cost.
             cov.excluded_n += 1
             cov.excluded_usd += cost.total
+            continue
+        if cost.total == 0.0:
+            # Classified as orchestrate but priced to $0 — a real coverage gap, counted
+            # only after exclusion so foreign zero-cost subagents don't inflate it.
+            cov.unpriced += 1
             continue
         agents.append(
             AgentRun(
@@ -497,7 +499,7 @@ def build_runs(root: Path, since: str | None) -> tuple[list[Run], dict]:
             run.has_start = run.has_start or markers.has_start  # any session counts
             if markers.start_ts < run.start_ts:
                 run.start_ts = markers.start_ts
-        run.sessions.append(path)
+        run.session_start_ts.append(markers.start_ts)
         session_uuid = Path(path).stem
         run.orch = _add_cost(run.orch, price_jsonl(path, run_start_ts=markers.start_ts))
         agents, cov = attribute_subagents(root, project, session_uuid, markers.start_ts)
@@ -509,11 +511,12 @@ def build_runs(root: Path, since: str | None) -> tuple[list[Run], dict]:
     # undelimited rather than report a misleading partial run. `undelimited` is session-
     # grained throughout, so a dropped run contributes one entry per stitched session (each
     # session was an orchestrate session that never formed a clean run), counted at the
-    # run's earliest start for --since scoping.
+    # session's own marker timestamp for --since scoping (reusing the run's earliest
+    # would undercount later sessions that fall on/after a cutoff between them).
     delimited = [r for r in runs.values() if r.has_start]
     for r in runs.values():
         if not r.has_start:
-            undelimited_ts.extend(r.start_ts for _ in r.sessions)
+            undelimited_ts.extend(r.session_start_ts)
 
     selected = [r for r in delimited if not since or r.start_ts[:10] >= since]
     sel_cov = sum((r.coverage for r in selected), SubagentCoverage())
@@ -714,9 +717,9 @@ def render_table(runs: list[Run], coverage: dict) -> None:
         f"(marker present but no timestamp to bound the run — skipped)"
     )
     print(
-        "    note: run count is a LOWER BOUND — runs whose base_commit can't be "
-        "parsed merge\n          by feature, and role attribution relies on "
-        "drift-prone prompt signatures."
+        "    note: run count is a LOWER BOUND — sessions whose feature/base_commit "
+        "can't be\n          parsed are reported as undelimited, and role attribution "
+        "relies on drift-prone prompt signatures."
     )
     print(
         f"    crashed:         {coverage['crashed']} (meta present, transcript missing)"
@@ -759,7 +762,8 @@ def main() -> int:
     )
     p.add_argument(
         "--since",
-        help="only runs whose start marker is on/after DATE (YYYY-MM-DD). NOTE: this is "
+        help="only runs whose start marker is on/after DATE (YYYY-MM-DD or YYYYMMDD). "
+        "NOTE: this is "
         "the durable trail-marker timestamp from the transcript — unlike agent-stats, "
         "which filters by file mtime — so the two tools' --since cohorts can differ.",
     )
@@ -770,11 +774,12 @@ def main() -> int:
     since = None
     if args.since:
         try:
-            Date.parse_iso(args.since)  # rejects impossible dates like 2026-99-99
+            # rejects impossible dates (2026-99-99) and canonicalizes basic form
+            # (20260501 -> 2026-05-01) so the lexical r.start_ts[:10] >= since holds
+            since = Date.parse_iso(args.since).format_iso()
         except ValueError:
             print(f"bad --since date (want YYYY-MM-DD): {args.since}", file=sys.stderr)
             return 1
-        since = args.since  # ISO timestamps sort lexically against a date prefix
 
     root = projects_root(args.projects)
     if not root.is_dir():
