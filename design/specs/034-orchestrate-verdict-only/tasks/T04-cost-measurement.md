@@ -1,7 +1,7 @@
 ---
 task_id: "T04"
 title: "Cost-measurement runbook and concise-return compliance probe"
-status: "planned"
+status: "done"
 depends_on: ["T03"]
 implements: ["AC#7"]
 ---

@@ -1,0 +1,425 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
+"""orchestrate-concise-probe — concise-return compliance rate for mine-orchestrate runs.
+
+Reads one or more mine-orchestrate parent-session JSONLs and checks each reviewer
+subagent's final return message. In concise-return mode a reviewer's return message
+is ONLY its canonical `**Verdict:**` line; a non-compliant reviewer returns a
+multi-line full report instead. The probe counts compliant vs non-compliant reviewer
+dispatches and reports the compliance rate.
+
+Usage:
+  orchestrate-concise-probe                        # scan all orchestrate runs (default projects root)
+  orchestrate-concise-probe <session.jsonl>        # scan one specific parent-session JSONL
+  orchestrate-concise-probe --since 2026-06-01     # only runs whose start marker is on/after DATE
+  orchestrate-concise-probe --projects DIR         # override projects root
+  orchestrate-concise-probe --json                 # machine-readable output
+
+Reviewer identification:
+  Named agentType:  code-reviewer, integration-reviewer
+  General-purpose:  spec-reviewer (by dispatch signature), visual-reviewer (by dispatch signature)
+
+Compliance rule:
+  A reviewer dispatch is COMPLIANT if its final assistant message is a single non-empty
+  line that starts with '**Verdict:**'. Any multi-line return is NON-COMPLIANT, as is
+  an empty return or one missing the prefix.
+
+Run this against a post-change orchestrate run to verify concise-return is active. A
+low compliance rate means the CONCISE-RETURN-MODE instruction is not being honored by
+the reviewers (correctness is unaffected — the reviewer output file is authoritative).
+"""
+
+import argparse
+import datetime
+import json
+import os
+import re
+import sys
+from dataclasses import dataclass
+from glob import glob
+from pathlib import Path
+
+# --- Reviewer identification -------------------------------------------------
+REVIEWER_TYPES = frozenset({"code-reviewer", "integration-reviewer"})
+
+# General-purpose subagents that are orchestrate reviewers, keyed by dispatch signature.
+# Order matters: list more specific signatures before shorter ones.
+REVIEWER_GP_SIGS: list[tuple[str, str]] = [
+    ("spec-reviewer", "You are independently verifying a completed task"),
+    ("spec-reviewer", "independently verifying a completed Work Package"),
+    ("visual-reviewer", "You are reviewing screenshots captured by an executor agent"),
+]
+
+# --- Run-boundary markers --------------------------------------------------
+# NOTE: duplicated from bin/orchestrate-cost (the run-delimiting markers and the
+# message_text / first_user_text / first_ts / projects_root helpers below).
+# This script is a standalone PEP 723 uv-script with `dependencies = []`, so a
+# shared module is not an option. Keep these in sync with bin/orchestrate-cost;
+# the marker strings mirror mine-orchestrate's trail-log calls and drift silently
+# if renamed in only one place.
+START_MARKER = "orchestrate run started"
+RESUME_MARKER = "resuming from checkpoint"
+CHECKPOINT_FEATURE_RE = re.compile(r"checkpoint-init\s+(\d{2,}[A-Za-z0-9_-]+)")
+DESIGN_FEATURE_RE = re.compile(r"design/specs/(\d{2,}[A-Za-z0-9_-]+)")
+
+VERDICT_PREFIX = "**Verdict:**"
+
+
+# --- Message helpers ---------------------------------------------------------
+def message_text(msg: dict) -> str:
+    content = msg.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "".join(
+            b["text"]
+            for b in content
+            if isinstance(b, dict) and b.get("type") == "text"
+        )
+    return ""
+
+
+def last_assistant_text(path: str) -> str:
+    """Text of the final assistant message in a subagent JSONL — the return message."""
+    last = ""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            for raw in fh:
+                if '"assistant"' not in raw:
+                    continue
+                try:
+                    obj = json.loads(raw)
+                except ValueError:
+                    continue
+                if obj.get("type") != "assistant":
+                    continue
+                text = message_text(obj.get("message") or {})
+                if text:
+                    last = text
+    except OSError:
+        pass
+    return last
+
+
+def first_user_text(path: str) -> str:
+    """Text of the first user message — carries the dispatch prompt for role ID."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            for raw in fh:
+                if '"user"' not in raw:
+                    continue
+                try:
+                    obj = json.loads(raw)
+                except ValueError:
+                    continue
+                msg = obj.get("message") or {}
+                if msg.get("role") == "user":
+                    text = message_text(msg)
+                    if text:
+                        return text
+    except OSError:
+        pass
+    return ""
+
+
+def first_ts(path: str) -> str:
+    """First timestamp in a JSONL (used to window subagents to a run)."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            for raw in fh:
+                try:
+                    obj = json.loads(raw)
+                except ValueError:
+                    continue
+                ts = obj.get("timestamp")
+                if ts:
+                    return ts
+    except OSError:
+        pass
+    return ""
+
+
+# --- Reviewer classification -------------------------------------------------
+def resolve_reviewer_role(agent_type: str, dispatch: str) -> str | None:
+    """Return the reviewer role name, or None if this is not an orchestrate reviewer."""
+    if agent_type in REVIEWER_TYPES:
+        return agent_type
+    if agent_type == "general-purpose":
+        for role, sig in REVIEWER_GP_SIGS:
+            if sig in dispatch:
+                return role
+    return None
+
+
+def is_compliant(text: str) -> bool:
+    """A compliant return is a single non-empty line starting with '**Verdict:**'."""
+    lines = [line for line in text.splitlines() if line.strip()]
+    return len(lines) == 1 and lines[0].startswith(VERDICT_PREFIX)
+
+
+# --- Data model -------------------------------------------------------------
+@dataclass
+class ReviewerDispatch:
+    role: str
+    feature: str
+    jsonl: str
+    return_lines: int  # non-empty lines in the return message
+    compliant: bool
+    verdict_line: str  # the single verdict line if compliant, else ""
+
+
+# --- Session scanning --------------------------------------------------------
+def extract_orchestrate_start(path: str) -> tuple[str | None, str]:
+    """Return (feature_slug, start_ts) for an orchestrate parent session, or (None, '')."""
+    try:
+        raw = Path(path).read_text(encoding="utf-8")
+    except OSError:
+        return None, ""
+    if START_MARKER not in raw and RESUME_MARKER not in raw:
+        return None, ""
+
+    start_ts = ""
+    for line in raw.splitlines():
+        if START_MARKER not in line and RESUME_MARKER not in line:
+            continue
+        try:
+            obj = json.loads(line)
+        except ValueError:
+            continue
+        msg = obj.get("message") or {}
+        content = msg.get("content")
+        if not isinstance(content, list):
+            continue
+        for b in content:
+            if not (isinstance(b, dict) and b.get("type") == "tool_use"):
+                continue
+            cmd = str((b.get("input") or {}).get("command", ""))
+            if START_MARKER in cmd or RESUME_MARKER in cmd:
+                start_ts = start_ts or (obj.get("timestamp") or "")
+        if start_ts:
+            break
+
+    fm = CHECKPOINT_FEATURE_RE.search(raw) or DESIGN_FEATURE_RE.search(raw)
+    feature = fm.group(1) if fm else "unknown"
+    return feature, start_ts
+
+
+def scan_session(parent_jsonl: Path, since: str | None) -> list[ReviewerDispatch]:
+    """Find all reviewer dispatches in one orchestrate parent-session JSONL."""
+    feature, start_ts = extract_orchestrate_start(str(parent_jsonl))
+    if feature is None:
+        return []
+    if since and (not start_ts or start_ts[:10] < since):
+        return []
+
+    session_uuid = parent_jsonl.stem
+    proj_dir = parent_jsonl.parent
+    pattern = str(proj_dir / session_uuid / "subagents" / "agent-*.meta.json")
+
+    dispatches: list[ReviewerDispatch] = []
+    for meta_path in glob(pattern):
+        try:
+            with open(meta_path, encoding="utf-8") as fh:
+                meta = json.load(fh)
+        except (OSError, ValueError):
+            continue
+
+        agent_type = meta.get("agentType", "?")
+        jsonl_path = meta_path[: -len(".meta.json")] + ".jsonl"
+        if not os.path.exists(jsonl_path):
+            continue
+
+        # Window subagent to the run start (same approach as orchestrate-cost).
+        ft = first_ts(jsonl_path)
+        if start_ts and ft and ft < start_ts:
+            continue
+
+        dispatch = first_user_text(jsonl_path)
+        role = resolve_reviewer_role(agent_type, dispatch)
+        if role is None:
+            continue
+
+        return_text = last_assistant_text(jsonl_path)
+        if not return_text:
+            continue
+
+        non_empty = [line for line in return_text.splitlines() if line.strip()]
+        compliant = is_compliant(return_text)
+        verdict_line = non_empty[0] if compliant else ""
+
+        dispatches.append(
+            ReviewerDispatch(
+                role=role,
+                feature=feature,
+                jsonl=jsonl_path,
+                return_lines=len(non_empty),
+                compliant=compliant,
+                verdict_line=verdict_line,
+            )
+        )
+    return dispatches
+
+
+def projects_root(override: str | None) -> Path:
+    if override:
+        return Path(override).expanduser()
+    home = os.environ.get("CLAUDE_HOME")
+    base = Path(home).expanduser() if home else Path.home() / ".claude"
+    return base / "projects"
+
+
+def collect_dispatches(
+    source: str | None,
+    projects_override: str | None,
+    since: str | None,
+) -> list[ReviewerDispatch]:
+    """Collect reviewer dispatches from one JSONL path or all orchestrate sessions."""
+    if source:
+        p = Path(source).expanduser()
+        if not p.exists():
+            print(f"error: path not found: {p}", file=sys.stderr)
+            sys.exit(1)
+        return scan_session(p, since)
+
+    root = projects_root(projects_override)
+    if not root.is_dir():
+        print(f"error: projects root not found: {root}", file=sys.stderr)
+        sys.exit(1)
+
+    all_dispatches: list[ReviewerDispatch] = []
+    for proj in root.iterdir():
+        if not proj.is_dir():
+            continue
+        for jsonl in proj.glob("*.jsonl"):
+            all_dispatches.extend(scan_session(jsonl, since))
+    return all_dispatches
+
+
+# --- Rendering ---------------------------------------------------------------
+def render_table(dispatches: list[ReviewerDispatch]) -> None:
+    total = len(dispatches)
+    compliant_n = sum(1 for d in dispatches if d.compliant)
+    rate = 100.0 * compliant_n / total if total else 0.0
+
+    print(f"concise-return compliance: {compliant_n}/{total} ({rate:.0f}%)\n")
+
+    roles: dict[str, list[bool]] = {}
+    for d in dispatches:
+        roles.setdefault(d.role, []).append(d.compliant)
+
+    print(f"  {'role':<24} {'dispatches':>10} {'compliant':>9} {'rate':>6}")
+    print("  " + "-" * 54)
+    for role in sorted(roles):
+        flags = roles[role]
+        ok = sum(flags)
+        pct = 100.0 * ok / len(flags)
+        print(f"  {role:<24} {len(flags):>10} {ok:>9} {pct:>5.0f}%")
+
+    non_compliant = [d for d in dispatches if not d.compliant]
+    if non_compliant:
+        print(f"\nnon-compliant dispatches ({len(non_compliant)}):")
+        for d in non_compliant:
+            print(f"  [{d.role}]  feature={d.feature}  return={d.return_lines} lines")
+            print(f"    {d.jsonl}")
+    else:
+        print("\nall reviewer dispatches returned a single verdict line")
+
+    print(
+        "\n  compliance = final assistant message is a single '**Verdict:**' line\n"
+        "  a low rate signals CONCISE-RETURN-MODE is not being honored by reviewers;\n"
+        "  correctness is unaffected — the reviewer output file is always authoritative"
+    )
+
+
+def render_json(dispatches: list[ReviewerDispatch]) -> None:
+    total = len(dispatches)
+    compliant_n = sum(1 for d in dispatches if d.compliant)
+
+    roles: dict[str, dict] = {}
+    for d in dispatches:
+        if d.role not in roles:
+            roles[d.role] = {"total": 0, "compliant": 0}
+        roles[d.role]["total"] += 1
+        if d.compliant:
+            roles[d.role]["compliant"] += 1
+
+    out = {
+        "total": total,
+        "compliant": compliant_n,
+        "compliance_rate": round(100.0 * compliant_n / total, 1) if total else None,
+        "by_role": {
+            role: {
+                "total": v["total"],
+                "compliant": v["compliant"],
+                "rate": round(100.0 * v["compliant"] / v["total"], 1),
+            }
+            for role, v in sorted(roles.items())
+        },
+        "non_compliant": [
+            {
+                "role": d.role,
+                "feature": d.feature,
+                "return_lines": d.return_lines,
+                "jsonl": d.jsonl,
+            }
+            for d in dispatches
+            if not d.compliant
+        ],
+    }
+    print(json.dumps(out, indent=2))
+
+
+def main() -> int:
+    p = argparse.ArgumentParser(
+        description=(
+            "Concise-return compliance rate for mine-orchestrate reviewer dispatches."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__,
+    )
+    p.add_argument(
+        "path",
+        nargs="?",
+        help=(
+            "parent-session JSONL to probe "
+            "(default: scan all orchestrate runs in projects root)"
+        ),
+    )
+    p.add_argument(
+        "--since",
+        metavar="DATE",
+        help="only runs whose start marker is on/after DATE (YYYY-MM-DD)",
+    )
+    p.add_argument("--projects", metavar="DIR", help="override projects root")
+    p.add_argument("--json", action="store_true", help="emit JSON instead of table")
+    args = p.parse_args()
+
+    # Validate and canonicalize --since (YYYY-MM-DD or compact YYYYMMDD) to the
+    # dashed form the lexical start_ts[:10] comparison expects. Mirrors the
+    # date-parsing orchestrate-cost does via whenever, using stdlib so this
+    # script keeps `dependencies = []`.
+    since = args.since
+    if since:
+        try:
+            since = datetime.date.fromisoformat(since).isoformat()
+        except ValueError:
+            print(f"bad --since date (want YYYY-MM-DD): {since}", file=sys.stderr)
+            return 1
+
+    dispatches = collect_dispatches(args.path, args.projects, since)
+    if not dispatches:
+        print("no reviewer dispatches found in orchestrate runs", file=sys.stderr)
+        return 1
+
+    if args.json:
+        render_json(dispatches)
+    else:
+        render_table(dispatches)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

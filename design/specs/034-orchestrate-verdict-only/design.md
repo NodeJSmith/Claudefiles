@@ -250,7 +250,7 @@ None.
 
 ## Documentation Updates
 
-- **No `REFERENCE.md` change** — `findings-fix-loop.md` and `verdict-line-format.md` are supporting files inside an existing skill directory, not new skills/commands/agents/bin entries.
+- **`REFERENCE.md`** — `findings-fix-loop.md` and `verdict-line-format.md` need no entry (supporting files inside an existing skill directory). The two new `bin/` scripts *do* get rows in the Helper Scripts table per the CLAUDE.md mandate: **`bin/orchestrate-concise-probe`** (T04) and **`bin/lint-verdict-line`** (T01, a pre-commit lint hook listed alongside its siblings `lint-agent-models` and `lint-cli-conventions`, which are already in the table).
 - **No capabilities-file change** — no new trigger phrases.
 - **No `ONBOARDING.md` change** — internal cost optimization.
 
