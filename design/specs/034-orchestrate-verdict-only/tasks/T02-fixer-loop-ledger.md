@@ -1,7 +1,7 @@
 ---
 task_id: "T02"
 title: "Dispatched fixer loop with terminal ledger"
-status: "planned"
+status: "done"
 depends_on: ["T01"]
 implements: ["FR#10", "AC#6"]
 ---

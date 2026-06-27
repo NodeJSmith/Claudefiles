@@ -63,21 +63,21 @@ The canonical line extracted from the file is always authoritative. Concise-retu
 
 ## CONCISE-RETURN-MODE Leak Check
 
-After T01 (this task), before T03 adds the orchestrate per-task dispatch:
+Run the check:
 
 ```bash
 grep -rl CONCISE-RETURN-MODE skills commands
 ```
 
-Expected result: three files, all of which legitimately define or document the token —
+The intent of this check is fixed: the sentinel may appear **only in orchestrate-internal files** (the single source of truth, the orchestrate-local reviewer prompts, and the orchestrate per-task dispatch machinery) — it must **never** appear in a path-less / non-orchestrate caller (`mine-ship`, `mine-commit-push`, `mine-review`, `mine-build`, `mine-address-pr-issues`).
 
-- `skills/mine-orchestrate/verdict-line-format.md` (this file — the single source of truth, which both documents and demonstrates the token)
-- `skills/mine-orchestrate/spec-reviewer-prompt.md` (orchestrate-local prompt that defines activation)
-- `skills/mine-orchestrate/visual-reviewer-prompt.md` (orchestrate-local prompt that defines activation)
+The set of legitimate orchestrate-internal hosts grows as the feature lands, so the expected file list depends on which tasks are complete:
+
+- **After T01** — three files: `verdict-line-format.md` (this file — the single source of truth, which both documents and demonstrates the token), `spec-reviewer-prompt.md`, and `visual-reviewer-prompt.md` (orchestrate-local prompts that define activation).
+- **After T02** — four files: the three above plus `skills/mine-orchestrate/findings-fix-loop.md`, which instructs the orchestrator to emit the verbatim sentinel in its re-review re-dispatches.
+- **After T03** — five files: the four above plus `skills/mine-orchestrate/SKILL.md`, which adds the per-task Step 8 dispatch.
 
 The agent files (`agents/code-reviewer.md`, `agents/integration-reviewer.md`) also legitimately contain the token but are in `agents/`, not `skills/` or `commands/`, so they don't appear in this grep.
-
-After T03 adds the orchestrate per-task dispatch, the orchestrate dispatch file (`skills/mine-orchestrate/SKILL.md`) will also appear — four files total. The sentinel must never appear in path-less callers (`mine-ship`, `mine-commit-push`, `mine-review`, `mine-build`, `mine-address-pr-issues`).
 
 ## Conformance Check
 
