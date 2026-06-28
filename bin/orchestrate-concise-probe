@@ -101,7 +101,7 @@ def last_assistant_text(path: str) -> str:
                 text = message_text(obj.get("message") or {})
                 if text:
                     last = text
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         pass
     return last
 
@@ -122,7 +122,7 @@ def first_user_text(path: str) -> str:
                     text = message_text(msg)
                     if text:
                         return text
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         pass
     return ""
 
@@ -139,7 +139,7 @@ def first_ts(path: str) -> str:
                 ts = obj.get("timestamp")
                 if ts:
                     return ts
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         pass
     return ""
 
@@ -178,7 +178,7 @@ def extract_orchestrate_start(path: str) -> tuple[str | None, str]:
     """Return (feature_slug, start_ts) for an orchestrate parent session, or (None, '')."""
     try:
         raw = Path(path).read_text(encoding="utf-8")
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         return None, ""
     if START_MARKER not in raw and RESUME_MARKER not in raw:
         return None, ""
@@ -282,14 +282,12 @@ def collect_dispatches(
     if source:
         p = Path(source).expanduser()
         if not p.exists():
-            print(f"error: path not found: {p}", file=sys.stderr)
-            sys.exit(1)
+            raise FileNotFoundError(f"path not found: {p}")
         return scan_session(p, since)
 
     root = projects_root(projects_override)
     if not root.is_dir():
-        print(f"error: projects root not found: {root}", file=sys.stderr)
-        sys.exit(1)
+        raise NotADirectoryError(f"projects root not found: {root}")
 
     all_dispatches: list[ReviewerDispatch] = []
     for proj in root.iterdir():
@@ -410,10 +408,17 @@ def main() -> int:
         try:
             since = datetime.date.fromisoformat(since).isoformat()
         except ValueError:
-            print(f"bad --since date (want YYYY-MM-DD): {since}", file=sys.stderr)
+            print(
+                f"bad --since date (want YYYY-MM-DD or YYYYMMDD): {since}",
+                file=sys.stderr,
+            )
             return 1
 
-    dispatches = collect_dispatches(args.path, args.projects, since)
+    try:
+        dispatches = collect_dispatches(args.path, args.projects, since)
+    except (FileNotFoundError, NotADirectoryError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     if not dispatches:
         print("no reviewer dispatches found in orchestrate runs", file=sys.stderr)
         return 1
