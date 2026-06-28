@@ -6,7 +6,7 @@ user-invocable: true
 
 # Simplify (Codebase Judo)
 
-Hunts for dramatic structural simplifications across a body of **existing** code — moves that delete whole layers, collapse abstractions, or replace orchestration with a data transformation while preserving behavior. This is the codebase-scoped counterpart to the `code-judo-reviewer` diff pass in `mine-orchestrate`: same posture, pointed at code that already exists rather than at a diff.
+Hunts for dramatic structural simplifications across a body of **existing** code — moves that delete whole layers, collapse abstractions, or replace orchestration with a data transformation while preserving behavior. This is the on-demand, codebase-scoped form of the `code-judo-reviewer` posture: same structural simplification lens, pointed at existing code rather than a branch diff.
 
 Use this to judo a module you suspect is over-built, audit a subsystem for collapse opportunities, or sweep a small repo for structural debt. This is **not** a correctness review (use `/mine-review`), a style sweep (use `/mine-clean-code`), a broad health audit (use `/mine-audit`), or a split-the-big-file analysis (use `/mine-decompose` — that splits; this collapses).
 
@@ -17,7 +17,7 @@ $ARGUMENTS — the scope to simplify. Can be:
 - A file list: `/mine-simplify src/api/routes.py src/api/handlers.py`
 - Empty: the skill asks what to target (it does not silently sweep the whole repo)
 
-`mine-simplify` always operates in **codebase mode** — it reads the target files in full and treats pre-existing complexity as in scope. It never diffs against a branch; for simplifying just your branch changes, dispatch `code-judo-reviewer` directly or let `mine-orchestrate` run it.
+`mine-simplify` always operates in **codebase mode** — it reads the target files in full and treats pre-existing complexity as in scope. It never diffs against a branch; for simplifying just your branch changes, dispatch `code-judo-reviewer` directly on the diff.
 
 ## How to Analyze Code
 
@@ -155,7 +155,7 @@ AskUserQuestion:
 
 ## What This Skill Does NOT Do
 
-- **Simplify a diff** — that's `code-judo-reviewer` directly, or the automatic pass in `mine-orchestrate` Phase 3
+- **Simplify a diff** — dispatch `code-judo-reviewer` directly on the branch diff
 - **Correctness or security review** — use `/mine-review`
 - **Style/hygiene sweep** — use `/mine-clean-code`
 - **Broad health audit (churn, coverage, aging)** — use `/mine-audit`
