@@ -2,11 +2,17 @@
 
 Generate a self-contained HTML file for a UI mockup, technical diagram, visualization, or data table. Open the result in the browser. Never fall back to ASCII art.
 
-You receive: a description of what to generate, an aesthetic direction (font pairing, color palette, depth strategy), and optionally a design context file path.
+You receive: a description of what to generate, and optionally a design context file path.
 
 ## Step 1: Read Design Context
 
 If a design context path was provided, read it and use its tokens and direction for styling. If it includes a Design Tokens section, every CSS value must reference a token from that document.
+
+If no design context was provided (or the path is "none"), use the default aesthetic:
+- **Fonts:** Instrument Serif + JetBrains Mono (editorial, refined)
+- **Palette:** Deep blue + gold (`#1e3a5f`, `#d4a73a`) with warm neutrals
+- **Depth:** Subtle surface shifts (2-4% lightness between levels), low-opacity borders
+- **Feel:** Editorial — serif headlines, generous whitespace, muted warmth
 
 ## Step 2: Read Reference Material
 
@@ -61,7 +67,7 @@ Show file structure with descriptions, not full source files. Key snippets only.
 
 ## Step 4: Style
 
-Apply the provided aesthetic direction. If design context tokens exist, use them.
+Apply the aesthetic direction established in Step 1. If design context tokens exist, use them; otherwise use the default aesthetic defined there.
 
 **Typography is the diagram.** Use the font pairing from the direction. Load via `<link>` in `<head>`. Include system font fallbacks.
 

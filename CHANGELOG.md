@@ -7,6 +7,7 @@ All notable changes to this Claudefiles repository are documented here.
 ### Changed
 
 - `mine-create-pr`, `mine-create-issue`, `mine-mockup` — converted from prose loaders to autonomous executors: SKILL.md dispatches a subagent that reads `worker.md`, keeping full instructions out of the main agent's context window. (#419)
+- `mine-create-issue`, `mine-mockup` — made workers fully self-contained so they work when invoked as subagents: issue creation moved into worker.md (no more interactive preview), mockup worker gains a default aesthetic when no design context exists. (#421)
 - `/mine-orchestrate` — happy-path review now consumes a single canonical `**Verdict:**` line per reviewer (concise-return keeps reviewer messages lean) and routes fixes through a dispatched fixer with a terminal ledger, instead of reading full report bodies inline — lowering context and cost per task. (#417)
 
 ### Removed

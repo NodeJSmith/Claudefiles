@@ -1,6 +1,6 @@
 # Create Issue — Worker Instructions
 
-You receive an issue description, type, and any additional context the user provided. Your job: investigate the codebase and draft a complete, well-structured issue. Return the title and body as your final output.
+You receive an issue description, type, and any additional context the user provided. Your job: investigate the codebase, draft a complete issue, create it on GitHub, and return the URL.
 
 ## Step 1: Investigate
 
@@ -70,13 +70,26 @@ Short, specific, imperative mood. Include the component/area when it helps:
 - Include test files
 - If the investigation couldn't identify specific files, use "TBD — investigation needed"
 
-## Step 3: Return
+## Step 3: Create
 
-Your final message must be exactly this format (no other text):
+1. Run `gh-issue overview` to see available labels and milestones.
 
-```
-TITLE: <issue title>
----
-BODY:
-<full issue body in markdown>
-```
+2. **Labels:** Match the issue type to existing labels:
+   - bug → "bug" label (if it exists)
+   - feature → "enhancement" label (if it exists)
+   - task/chore → no default label unless the repo has one
+
+3. **Milestones:** If >50% of recent issues have milestones, pick the milestone that fits the work's scope.
+
+4. Run `get-skill-tmpdir mine-create-issue` — note the path.
+
+5. Write the issue body to `<tmpdir>/issue-body.md`.
+
+6. Create the issue:
+   ```bash
+   gh-issue create --title "<title>" --body-file <tmpdir>/issue-body.md [--label "<label>"] [--milestone "<name>"]
+   ```
+
+## Step 4: Return
+
+Your final message must end with the issue URL on its own line. If you have notes (e.g., no labels matched, no relevant code found), put them on lines before the URL. If you encountered an error at any step, return `ERROR: <description>` instead.
