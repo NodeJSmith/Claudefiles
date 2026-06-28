@@ -1,7 +1,7 @@
 # Design: mine-orchestrate — retain only verdicts on the happy path
 
 **Date:** 2026-06-27
-**Status:** approved
+**Status:** archived
 **Scope-mode:** hold
 **Issue:** #410 (part of the 033 cost analysis)
 
