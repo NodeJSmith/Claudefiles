@@ -96,7 +96,6 @@ GP_SIGNATURES: list[tuple[str, str]] = [
     # caliper v2 renamed the unit task -> Work Package; older runs use that wording.
     ("spec-reviewer", "independently verifying a completed Work Package"),
     ("impl-review-fix", "Fix only the listed blocking issues"),
-    ("judo-fix", "Apply only the HIGH structural simplification moves"),
     ("comb-fix", "Fix only the listed design-fidelity gaps"),
     # The rendered dispatch says "executing" (the implementer-prompt heading reads
     # "implementing", but the orchestrator's prompt does not — match the live text).
@@ -116,7 +115,6 @@ ORCHESTRATE_TYPES = frozenset(
         "code-reviewer",
         "integration-reviewer",
         "wtf-reviewer",
-        "code-judo-reviewer",
         "fine-toothed-comb",
     }
 )

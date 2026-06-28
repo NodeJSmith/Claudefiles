@@ -8,6 +8,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 - `/mine-orchestrate` — happy-path review now consumes a single canonical `**Verdict:**` line per reviewer (concise-return keeps reviewer messages lean) and routes fixes through a dispatched fixer with a terminal ledger, instead of reading full report bodies inline — lowering context and cost per task. (#417)
 
+### Removed
+
+- Step 4.5 (structural simplification via `code-judo-reviewer`) from the `mine-orchestrate` post-execution pipeline — recent runs showed 0 HIGH findings; structural review is better run on demand via `/mine-simplify`. (#416)
+
 ### Added
 
 - `lint-verdict-line` pre-commit check (reviewer files must declare exactly one canonical verdict line) and `orchestrate-concise-probe` for measuring concise-return compliance. (#417)
