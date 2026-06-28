@@ -69,7 +69,7 @@ The fixer ends its response with a one-line summary: `fixed: N, deferred: M, unr
    git ls-files --others --exclude-standard
    ```
    Union the result with the in-context changed-files list (deduplicated). Update `<dir>/<task_id>/changed-files.txt`.
-4. Re-dispatch the code reviewer and integration reviewer **in parallel** with the `CONCISE-RETURN-MODE` sentinel and output file paths:
+4. Re-dispatch the code reviewer and integration reviewer **in parallel** with the `CONCISE-RETURN-MODE` sentinel and output file paths — using the same agent types as Step 8 (`subagent_type: "code-reviewer"` and `subagent_type: "integration-reviewer"`), not `general-purpose`:
    - Each dispatch prompt must contain the **exact literal token** `CONCISE-RETURN-MODE` (verbatim) **and** an output file path — both conditions required to activate concise return (see `verdict-line-format.md`)
    - Output paths: `<dir>/<task_id>/code-review.md` and `<dir>/<task_id>/integration-review.md` (overwrite)
    - Pass the refreshed changed-files list in each dispatch
@@ -81,7 +81,7 @@ The fixer ends its response with a one-line summary: `fixed: N, deferred: M, unr
 1. Dispatch the fixer subagent (normal pass) with the freshened review file paths from the iteration 2 re-review and the updated changed-files list.
 2. The fixer writes `<dir>/<task_id>/fix-ledger.md` (overwrites the previous ledger).
 3. Re-capture changed files (same as above). Update `<dir>/<task_id>/changed-files.txt`.
-4. Re-dispatch the code and integration reviewers in parallel (same concise dispatch: `CONCISE-RETURN-MODE` + output file paths + refreshed changed-files list). Overwrite the review files.
+4. Re-dispatch the code and integration reviewers in parallel (same concise dispatch as iteration 2 step 4: `subagent_type: "code-reviewer"` / `"integration-reviewer"`, `CONCISE-RETURN-MODE` + output file paths + refreshed changed-files list). Overwrite the review files.
 5. Extract canonical verdict lines.
 6. **If both reviewers report `findings: 0` (and no WARN or BLOCK verdict) → early exit. Skip to the Gate section (terminal state A).**
 
