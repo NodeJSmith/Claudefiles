@@ -106,8 +106,6 @@ Once located:
 6. Commit: `changelog: add PR #<NUMBER>` (or `!<NUMBER>` for ADO)
 7. Push
 
-If no `CHANGELOG.md` exists, suggest to the user that they add one.
-
 ## Step 8: Mark PR Ready
 
 - **GitHub**: `gh pr ready`
@@ -117,12 +115,8 @@ If no `CHANGELOG.md` exists, suggest to the user that they add one.
 
 Your final message must end with the PR URL on its own line. If you have notes (e.g., no CHANGELOG found), put them on lines before the URL. If you encountered an error at any step, return `ERROR: <description>` instead.
 
-## Important Notes
+## Azure DevOps Notes
 
-- Always write the PR body to a temp file and use `--body-file` (GitHub)
-- Focus on the "why" rather than the "what" in the summary
-- Do not create multiple PRs
-- **Azure DevOps notes:**
-  - Infer org, project, and repo from the remote URL where possible (e.g., `https://dev.azure.com/{org}/{project}/_git/{repo}`)
-  - Do not use `--auto-complete` or `--delete-source-branch` flags
-  - The `az repos pr create` command returns JSON; extract the PR URL from the response
+- Infer org, project, and repo from the remote URL where possible (e.g., `https://dev.azure.com/{org}/{project}/_git/{repo}`)
+- Do not use `--auto-complete` or `--delete-source-branch` flags
+- The `az repos pr create` command returns JSON; extract the PR URL from the response

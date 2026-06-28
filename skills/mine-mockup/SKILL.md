@@ -1,7 +1,7 @@
 ---
 name: mine-mockup
-user-invocable: true
 description: "Use when the user says: \"mockup this UI\", \"show me what it looks like\", \"HTML mockup\", \"UI preview\", or \"generate a mockup\". Generate self-contained HTML mockup files. Reads design/context.md if present for consistent styling."
+user-invocable: true
 ---
 
 # Mockup
