@@ -59,6 +59,11 @@ from ccrecall.token_parser import get_pricing, turn_cost
 from whenever import Date
 
 # --- Run-boundary markers (durable, in the parent-session JSONL as Bash commands) ---
+# NOTE: keep in sync with bin/orchestrate-concise-probe, which duplicates these
+# markers and the transcript-parsing helpers. Each tool is a self-contained
+# single-file PEP 723 uv-script, so the shared logic is duplicated by design
+# rather than factored into a sibling module. A grep for either filename surfaces
+# both maintenance sites.
 START_MARKER = "orchestrate run started"
 RESUME_MARKER = "resuming from checkpoint"
 

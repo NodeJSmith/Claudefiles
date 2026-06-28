@@ -203,6 +203,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `agent-stats` | Post-hoc effectiveness stats for subagent runs mined from the JSONL store — per agent type: run count, verdict mix (parsed from the `## Summary` line), compaction rate, and peak turn tokens. `--type` for a detailed report, `--findings` to dump blocking text, `--impl-only` for the comb's orchestrate pass, `--json`, `--since` |
 | `agnix-check` | Validate agent, skill, and command files against agnix schema |
 | `orchestrate-cost` | Model-weighted USD cost of mine-orchestrate runs by (role, model), mined from the JSONL store — delimits runs from durable trail markers, splits the orchestrator loop into own-gen vs absorbed bands, disambiguates `general-purpose` roles by dispatch-prompt signature, buckets runs by pipeline fingerprint, and reports coverage. Reuses `ccrecall` pricing via PEP 723. `--since`, `--projects`, `--json` |
+| `orchestrate-concise-probe` | Concise-return compliance rate for mine-orchestrate reviewer dispatches, mined from the JSONL store — reads each reviewer subagent's return message and reports the fraction that returned only the canonical `**Verdict:**` line vs a full report, per role and overall. Read-only; standalone PEP 723 uv-script. `--since`, `--projects`, `--json` |
 | `claude-tmux` | Tmux session helper — rename, list, create, capture, kill sessions |
 | `edit-manifest` | Open a manifest file in nvim via a new tmux window with shadow-file autosave and blocking wait |
 | `get-skill-tmpdir` | Create unique temp directories for skill runs |
@@ -221,6 +222,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `codex-rules-sync` | Generates the global Codex `~/.codex/AGENTS.md` from `rules/common/*.md`, concatenating the rules whose `tool:` frontmatter lists `codex`. `--list` prints the include/exclude breakdown without writing. Run by `install.py` after the symlink phase; skips silently if Codex isn't installed |
 | `lint-agent-models` | Agent registry drift lint — checks every `agents/*.md` is listed in performance.md (with matching model) and registered in an install.py bundle, so no agent ships uninstalled |
 | `lint-cli-conventions` | Drift prevention lint — verifies `--help` handling in bin/ scripts and capabilities-core.md CLI Tools sync |
+| `lint-verdict-line` | Reviewer verdict-line conformance lint — reads the four mine-orchestrate reviewer files and verifies each specifies the canonical `**Verdict:**` line (with `(findings: N)` for code/integration, without for spec/visual), so the orchestrator's verdict extraction never silently breaks |
 | `trail-log` | Append a TSV row to a trail file with timestamping, sanitization, and event validation |
 
 ## Packages

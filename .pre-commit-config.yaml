@@ -32,3 +32,9 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: lint-verdict-line
+        name: Reviewer verdict-line conformance
+        entry: bin/lint-verdict-line
+        language: system
+        pass_filenames: false
+        always_run: true

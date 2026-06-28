@@ -240,6 +240,7 @@ Create a per-task subdirectory: `<dir>/<task_id>/` (e.g., `<dir>/t01/`). Use the
 - Integration reviewer output: `<dir>/<task_id>/integration-review.md`
 - Test gate output: `<dir>/<task_id>/test-gate.md`
 - Lint gate output: `<dir>/<task_id>/lint-gate.md`
+- Fix ledger: `<dir>/<task_id>/fix-ledger.md`
 - Test output log: `<dir>/<task_id>/test-output.log`
 - Lint output log: `<dir>/<task_id>/lint-output.log`
 - Screenshots: `<dir>/<task_id>/before-*.png`, `<dir>/<task_id>/after-*.png`
@@ -363,12 +364,16 @@ Read this file when you need to: (1) check CONTESTED markers, (2) compare the ex
 ## Spec reviewer instructions
 <full spec-reviewer-prompt.md content>
 
+CONCISE-RETURN-MODE
+
 Write your structured review to: <absolute path: dir>/<task_id>/spec-review.md>
 ```
 
 **Subagent 2 — Code reviewer** (`subagent_type: "code-reviewer"`):
 
 ```
+CONCISE-RETURN-MODE
+
 Review these changed files: <changed file list from Step 6>
 
 Write your review to: <absolute path: dir>/<task_id>/code-review.md>
@@ -377,12 +382,20 @@ Write your review to: <absolute path: dir>/<task_id>/code-review.md>
 **Subagent 3 — Integration reviewer** (`subagent_type: "integration-reviewer"`):
 
 ```
+CONCISE-RETURN-MODE
+
 Review these changed files: <changed file list from Step 6>
 
 Write your review to: <absolute path: dir>/<task_id>/integration-review.md>
 ```
 
-Wait for all three to complete. Read all output files.
+Wait for all three to complete. Extract each reviewer's canonical verdict line from its report file — do **not** read the report bodies:
+
+- Spec: Grep `<dir>/<task_id>/spec-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract PASS / WARN / FAIL
+- Code: Grep `<dir>/<task_id>/code-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract APPROVE / WARN / BLOCK and the findings count N from `(findings: N)`
+- Integration: Grep `<dir>/<task_id>/integration-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract APPROVE / WARN / BLOCK and the findings count N
+
+Record these three verdict lines (the extracted text, not the file contents) for use by Steps 12, 13, and 14. If a line is absent from a required reviewer's file, treat that reviewer as failed and re-run it.
 
 ### Step 9: Test and lint gate
 
@@ -394,7 +407,7 @@ After the parallel reviews complete (regardless of verdicts), re-run the project
    - If the baseline is `SKIPPED: no test suite`, skip the test gate and record `SKIPPED` in `test-gate.md`.
    - If `<dir>/test-baseline.md` is missing or unreadable (e.g., tmpdir was cleared before resume), do **not** treat this as a regression signal. Continue with the test re-run, but record `NO BASELINE — cannot detect regressions` in `test-gate.md`.
 2. **Load the canonical test command** from `<dir>/test-command.txt` (created in Step 2 to prevent discovery drift). Treat that file as the primary source of truth. Run from the repository root. Only fall back to the discovery order from `references/common/testing.md` if `test-command.txt` is missing, empty, or contains `no test suite`.
-3. **Run the test command** and capture output.
+3. **Run the test command**, piping raw output via `tee` to `<dir>/<task_id>/test-output.log`. Keep only a short summary (e.g., the last 20 lines of the captured log) in the orchestrator's context.
 4. **Compare against baseline when available**: if a valid baseline exists and any test that passed in the baseline now fails, this is a **regression**. Record regressions explicitly in `<dir>/<task_id>/test-gate.md`. If no baseline is available, record that regression detection could not be performed and list current failures as informational only — do not classify them as regressions.
 5. **Record the test result** in the per-task temp directory: `<dir>/<task_id>/test-gate.md` with the command used, whether it came from `test-command.txt` or fallback discovery, output summary, baseline status, and regression list.
 
@@ -405,7 +418,7 @@ After the parallel reviews complete (regardless of verdicts), re-run the project
 1. **Load the canonical lint command(s)** from `<dir>/lint-command.txt` (created in Step 2).
    - If the lint command is `no lint tools`, skip the lint gate and record `SKIPPED` in `lint-gate.md`.
    - If `<dir>/lint-baseline.md` is missing or unreadable, record `NO BASELINE — cannot detect regressions` in `lint-gate.md`.
-2. **Run each lint command** and capture output. If multiple commands (one per line in `lint-command.txt`), run each separately and record per-command results.
+2. **Run each lint command**, piping raw output via `tee -a` to `<dir>/<task_id>/lint-output.log` (append so multiple commands accumulate in one log). Keep only a short summary (e.g., the last 20 lines) in the orchestrator's context. Capture each command's **real** exit code with `${PIPESTATUS[0]}` immediately after its pipeline (or run with `set -o pipefail`) — `tee` otherwise reports its own exit status (almost always 0) and masks a non-zero lint exit, defeating the exit-code regression check in bullet 3. If multiple commands (one per line in `lint-command.txt`), run each separately and record per-command results and exit codes.
 3. **Compare against baseline per command**: for each lint command, compare the exit code and error count against the baseline:
    - **Exit code regression**: command passed (exit 0) in baseline, now fails (exit non-zero) → regression
    - **Error count regression**: command had N errors in baseline, now has >N errors → regression (new errors introduced)
@@ -435,43 +448,23 @@ If the visual reviewer ran and `trail_available` is true, log the result after i
 
 ### Step 12: Review findings fix loop
 
-After the parallel review pass, fix **all findings from both the code reviewer and integration reviewer**, regardless of severity. MEDIUM and LOW findings left unfixed accumulate across tasks into significant cleanup debt.
+When the canonical verdict line for the code reviewer or integration reviewer from Step 8 shows `findings > 0`, or its verdict is WARN or BLOCK, read `${CLAUDE_HOME:-~/.claude}/skills/mine-orchestrate/findings-fix-loop.md` and follow it.
 
-**Loop until clean:**
-1. Read both review outputs: `<dir>/<task_id>/code-review.md` and `<dir>/<task_id>/integration-review.md` (written by Step 8).
-2. For each finding (CRITICAL, HIGH, MEDIUM, LOW — all severities):
-   - **Auto-fix** when the correct solution is unambiguous (clear bugs, missing type annotations, style violations, naming drift, orphaned code, undefined references, simple security issues)
-   - **Defer** when the fix requires architectural judgment or business context
-3. If any auto-fixes were applied, re-run **both** the code-reviewer and integration-reviewer — launch both with the refreshed changed file list, writing to `<dir>/<task_id>/code-review.md` and `<dir>/<task_id>/integration-review.md` (overwriting previous output). Max 3 iterations total including the initial parallel run.
-4. Stop when: no unresolved findings remain across either reviewer, only deferred findings are left, or 3 iterations reached
+Spec and visual findings do **not** trigger this loop — a spec WARN routes to the Step 10 WARN loop, a spec FAIL routes to Step 16, and visual findings feed Step 14 directly.
 
-After the fix loop completes, if `trail_available` is true, log the fix summary:
-`trail-log "<trail_path>" p2 <task_id> fix "auto-fixed: <N findings>; deferred: <M findings>; iterations: <iteration count>"`
-
-**After the fix loop completes** (whether after 0 or 2 additional iterations), re-capture the changed file list — auto-fixes may have modified additional files:
-
-```bash
-git diff --name-only HEAD
-git ls-files --others --exclude-standard
-```
-
-Update the task's changed file list with the refreshed result (deduped). This updated list is used by Step 17a (commit).
-
-**Verdict impact:** If any non-deferred code-review or integration-review findings remain unresolved after 3 iterations (regardless of severity), the task verdict becomes FAIL.
+The fix loop handles trail logging, changed-files re-capture, and the gate decision internally — it produces a **fixer gate result** of PASS or FAIL (per its terminal-state-A/B logic in `findings-fix-loop.md`). Record that result; do **not** route on it here. Continue to Step 13 regardless. The fixer gate result is one input to the Step 14 verdict assembly (the single authoritative gate), which Step 15 presents and Step 16 acts on. If the loop was not triggered, there is no fixer gate result and Step 14 treats code/integration as clean.
 
 ### Step 13: Review gate
 
-Verify that all review output files exist:
+Verify review file presence using a non-empty-file check — do **not** read the bodies:
 
-```
-Read: <dir>/<task_id>/spec-review.md
-Read: <dir>/<task_id>/code-review.md
-Read: <dir>/<task_id>/integration-review.md
-Read: <dir>/<task_id>/test-gate.md
-Read: <dir>/<task_id>/lint-gate.md
-```
+- `<dir>/<task_id>/spec-review.md` — must be non-empty
+- `<dir>/<task_id>/code-review.md` — must be non-empty
+- `<dir>/<task_id>/integration-review.md` — must be non-empty
 
-If any review file (spec-review, code-review, integration-review) is missing or empty, **do NOT proceed past Step 13**. Go back and run the missing reviewer. Additionally, Grep each review file for a `**Verdict:**` or `**Overall verdict:**` line — if the verdict line is absent (partial/crashed output), treat the file as failed and re-run the reviewer. A task summary without all three reviews is invalid — the verdict will be overridden to FAIL with note "review step skipped."
+If any of these files is missing or empty, **do NOT proceed past Step 13**. Go back and run the missing reviewer. A task summary without all three reviews is invalid — the verdict will be overridden to FAIL with note "review step skipped."
+
+Source verdicts from the canonical lines extracted in Step 8 (re-extract here if needed). For each required review file that is present, Grep for the last line matching `^\*\*Verdict:\*\*` — all four reviewers emit this single canonical pattern. If no such line is found in a required file (partial/crashed output), treat the file as failed and re-run that reviewer.
 
 If `test-gate.md` or `lint-gate.md` is missing, record `SKIPPED — gate output missing` for that gate in the verdict assembly rather than blocking.
 
@@ -482,7 +475,7 @@ Derive the canonical task verdict from all reviewer outputs. This is the single 
 **FAIL** if any of the following:
 - Spec reviewer returned FAIL
 - Visual reviewer returned FAIL (not WARN [INFRA])
-- Code reviewer or integration reviewer has unresolved, non-deferred findings of any severity after 3 fix iterations
+- The Step 12 findings fix loop returned a FAIL fixer gate result (its terminal ledger has `unresolved` rows under terminal state B — the loop computes this in `findings-fix-loop.md`). Consume that result; do **not** re-derive it by re-reading the raw ledger here, which would mis-FAIL an early-exit (terminal state A) task whose stale `unresolved` rows the clean re-review already superseded
 - Test gate detected regressions (previously-passing tests now fail)
 
 **WARN** if not FAIL and any of these **unresolved** conditions remain:
@@ -493,7 +486,7 @@ Derive the canonical task verdict from all reviewer outputs. This is the single 
 
 WARN is reserved for genuinely unresolved items. Always include a parenthetical note explaining what remains: e.g., `WARN (visual skipped)`, `WARN (2 pre-existing test failures)`.
 
-**PASS** if all reviewers clean and no unresolved issues. If findings were raised but all resolved via auto-fix, the verdict is **PASS** with a note — e.g., `PASS (3 auto-fixed)`. Resolved findings do not downgrade the verdict to WARN.
+**PASS** if all reviewers clean and no unresolved issues. If findings were raised and fixed or deferred by the fixer loop, the verdict is **PASS** with a note from the fixer gate result's `(N auto-fixed)` count carried back from Step 12 (not a fresh ledger read) — e.g., `PASS (3 auto-fixed)`. Deferred and resolved findings do not downgrade the verdict to WARN.
 
 If `trail_available` is true, log the assembled verdict:
 `trail-log "<trail_path>" p2 <task_id> verdict "<assembled verdict with parenthetical> | spec: <verdict> | code: <verdict> | integration: <verdict> | test: <verdict> | lint: <verdict>"`
@@ -507,7 +500,7 @@ Present a summary:
 
 Spec review: PASS|WARN|FAIL
 Visual: VERIFIED (N scenarios)|WARN|FAIL|SKIPPED|N/A
-Code review: PASS|WARN|FAIL (N iterations) — NEVER "N/A" or "skipped"
+Code review: APPROVE|WARN|BLOCK (N iterations) — NEVER "N/A" or "skipped"
 Integration review: APPROVE|WARN|BLOCK — NEVER "N/A" or "skipped"
 Test gate: PASS (N tests)|FAIL (N failures — see test-gate.md)|SKIPPED
 Lint gate: PASS|WARN (N regressions)|SKIPPED

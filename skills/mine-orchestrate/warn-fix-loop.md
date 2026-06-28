@@ -7,7 +7,7 @@
 
 For fixable WARNs: attempt one automatic fix. The parallel code-reviewer and integration-reviewer results from Step 8 are discarded — the executor re-run will change the code, invalidating those reviews.
 
-1. **Read the spec reviewer's WARN details** from the spec review output
+1. **Read `<dir>/<task_id>/spec-review.md`** to classify the WARN as structural or fixable. The full spec report is always written to this file even when concise-return mode is active, so this read works on the WARN path.
 2. **Update checkpoint**: `spec-helper checkpoint-update <feature_dir_name> --current-wp-status warn_retry --json`
 3. **Re-run the executor (Step 5)** using both `implementer-prompt.md` and `retry-prompt.md` (see Step 5 retry variant). Populate the `## Previous review feedback` template with one labeled entry per file present — at minimum "Spec reviewer: <absolute path>"; add "Test gate: <absolute path>" if the test gate detected regressions. Instruct the executor: "Fix only the gap identified by the spec reviewer. Read each findings file in full before making changes. Do not re-implement passing subtasks — read the existing code before making changes." If the task has visual scenarios, add: "Re-capture baseline before-screenshots as if starting fresh — do not re-use before-screenshots from the prior attempt."
 4. **Re-capture changed files (Step 6)** — the retry executor may have modified different files than the original run. **Union** the retry's changed-files with the original run's changed-files (deduplicated) before writing to `changed-files.txt` — reviewers must see all touched files, not just what the retry modified.

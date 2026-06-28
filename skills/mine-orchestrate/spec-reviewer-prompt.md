@@ -82,6 +82,7 @@ You do NOT examine the screenshots for visual correctness or assess state qualit
 
 Write your verdict to the temp file path provided in your prompt:
 
+<!-- SYNC: skills/mine-orchestrate/verdict-line-format.md -->
 ```
 ## Spec Review
 
@@ -137,3 +138,12 @@ Write your verdict to the temp file path provided in your prompt:
 **The WARN band is narrow.** If you're uncertain whether something is WARN or FAIL, it's FAIL.
 
 Do not use severity language (CRITICAL, HIGH, MEDIUM, LOW) anywhere in your output. Do not use intermediate verdicts (PARTIAL, SKIPPED, N/A) for individual Verify criteria — only IMPLEMENTED or NOT_IMPLEMENTED.
+
+<!-- SYNC: skills/mine-orchestrate/verdict-line-format.md -->
+## Concise-Return Mode
+
+When the dispatch prompt contains the **exact literal token** `CONCISE-RETURN-MODE` **and** provides an output file path, enter concise-return mode:
+- Write the full report to the provided output file path
+- Return **only the canonical verdict line** (`**Verdict:** PASS | WARN | FAIL`) as your final message
+
+In all other cases — including when no output file path is provided — return the full report as your final message. This is the unconditional default.
