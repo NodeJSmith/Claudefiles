@@ -10,7 +10,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Removed
 
-- Step 4.5 (structural simplification via `code-judo-reviewer`) from the `mine-orchestrate` post-execution pipeline — recent runs showed 0 HIGH findings; structural review is better run on demand via `/mine-simplify`. (#416)
+- Step 4.5 (structural simplification via `code-judo-reviewer`) from the `mine-orchestrate` post-execution pipeline — recent runs showed 0 HIGH findings; structural review is better run on demand via `/mine-simplify`. (#418)
 
 ### Added
 
