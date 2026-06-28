@@ -69,6 +69,19 @@ DESIGN_FEATURE_RE = re.compile(r"design/specs/(\d{2,}[A-Za-z0-9_-]+)")
 
 VERDICT_PREFIX = "**Verdict:**"
 
+# Concise-return activation signal — see skills/mine-orchestrate/verdict-line-format.md §51.
+# A dispatch only requests concise-return when this exact token is present in the prompt;
+# the probe scores only those dispatches (see the gate in scan_session).
+#
+# Drift surface: this literal also lives at every dispatch and reviewer site the probe
+# reads at runtime — skills/mine-orchestrate/{SKILL.md, findings-fix-loop.md,
+# spec-reviewer-prompt.md, visual-reviewer-prompt.md} and agents/{code,integration}-reviewer.md.
+# Renaming the sentinel at any of those without updating this constant makes the gate match
+# nothing, so the probe silently scores zero dispatches with no error. Keep in sync; the
+# leak check (verdict-line-format.md §64) keeps it out of path-less callers.
+#   Grep: grep -rln CONCISE-RETURN-MODE skills agents bin/orchestrate-concise-probe
+CONCISE_RETURN_SENTINEL = "CONCISE-RETURN-MODE"
+
 
 # --- Message helpers ---------------------------------------------------------
 def message_text(msg: dict) -> str:
@@ -242,6 +255,16 @@ def scan_session(parent_jsonl: Path, since: str | None) -> list[ReviewerDispatch
         dispatch = first_user_text(jsonl_path)
         role = resolve_reviewer_role(agent_type, dispatch)
         if role is None:
+            continue
+
+        # Only score dispatches that requested concise-return. Phase-3 and other
+        # path-less callers legitimately return the full report (verdict-line-format.md
+        # §60), so scoring them would deflate the rate and make it unusable as the
+        # acceptance metric (AC#7 in design/specs/034-orchestrate-verdict-only). Gating on
+        # the sentinel scores exactly the intended denominator: it counts a reviewer that
+        # ignored concise-return as non-compliant, and excludes a dispatch the orchestrator
+        # never asked to be concise — rather than the reverse.
+        if CONCISE_RETURN_SENTINEL not in dispatch:
             continue
 
         return_text = last_assistant_text(jsonl_path)

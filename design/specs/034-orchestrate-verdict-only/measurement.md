@@ -96,6 +96,11 @@ A non-compliant reviewer still writes its full report to the output file (correc
 is unaffected), but the return-message leak into the orchestrator's context is not
 eliminated — the cost win is lost for that dispatch.
 
+The denominator is **only dispatches that requested concise-return** — those carrying
+the verbatim `CONCISE-RETURN-MODE` sentinel. Path-less callers that legitimately
+return the full report (Phase-3 reviewers, `/mine-review`, etc.) are excluded, so they
+don't deflate the rate.
+
 ### Run the probe
 
 Against a specific post-change orchestrate parent-session JSONL:
