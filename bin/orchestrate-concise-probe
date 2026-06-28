@@ -56,10 +56,12 @@ REVIEWER_GP_SIGS: list[tuple[str, str]] = [
 # --- Run-boundary markers --------------------------------------------------
 # NOTE: duplicated from bin/orchestrate-cost (the run-delimiting markers and the
 # message_text / first_user_text / first_ts / projects_root helpers below).
-# This script is a standalone PEP 723 uv-script with `dependencies = []`, so a
-# shared module is not an option. Keep these in sync with bin/orchestrate-cost;
-# the marker strings mirror mine-orchestrate's trail-log calls and drift silently
-# if renamed in only one place.
+# Kept duplicated deliberately so each tool stays a self-contained single-file
+# PEP 723 uv-script (no sibling-module coupling at install/run time). The cost is
+# this drift surface: keep these in sync with bin/orchestrate-cost — the marker
+# strings mirror mine-orchestrate's trail-log calls and drift silently if renamed
+# in only one place. (A shared bin/ module is technically importable; the
+# single-file property is the reason it is not used.)
 START_MARKER = "orchestrate run started"
 RESUME_MARKER = "resuming from checkpoint"
 CHECKPOINT_FEATURE_RE = re.compile(r"checkpoint-init\s+(\d{2,}[A-Za-z0-9_-]+)")
@@ -314,9 +316,9 @@ def render_table(dispatches: list[ReviewerDispatch]) -> None:
     print("  " + "-" * 54)
     for role in sorted(roles):
         flags = roles[role]
-        ok = sum(flags)
-        pct = 100.0 * ok / len(flags)
-        print(f"  {role:<24} {len(flags):>10} {ok:>9} {pct:>5.0f}%")
+        compliant_count = sum(flags)
+        pct = 100.0 * compliant_count / len(flags)
+        print(f"  {role:<24} {len(flags):>10} {compliant_count:>9} {pct:>5.0f}%")
 
     non_compliant = [d for d in dispatches if not d.compliant]
     if non_compliant:
@@ -373,14 +375,14 @@ def render_json(dispatches: list[ReviewerDispatch]) -> None:
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(
+    parser = argparse.ArgumentParser(
         description=(
             "Concise-return compliance rate for mine-orchestrate reviewer dispatches."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    p.add_argument(
+    parser.add_argument(
         "path",
         nargs="?",
         help=(
@@ -388,14 +390,16 @@ def main() -> int:
             "(default: scan all orchestrate runs in projects root)"
         ),
     )
-    p.add_argument(
+    parser.add_argument(
         "--since",
         metavar="DATE",
         help="only runs whose start marker is on/after DATE (YYYY-MM-DD)",
     )
-    p.add_argument("--projects", metavar="DIR", help="override projects root")
-    p.add_argument("--json", action="store_true", help="emit JSON instead of table")
-    args = p.parse_args()
+    parser.add_argument("--projects", metavar="DIR", help="override projects root")
+    parser.add_argument(
+        "--json", action="store_true", help="emit JSON instead of table"
+    )
+    args = parser.parse_args()
 
     # Validate and canonicalize --since (YYYY-MM-DD or compact YYYYMMDD) to the
     # dashed form the lexical start_ts[:10] comparison expects. Mirrors the

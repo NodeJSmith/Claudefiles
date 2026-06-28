@@ -75,7 +75,7 @@ def check_reviewer(path: Path, expects_count: bool) -> list[str]:
     else:
         if "(findings:" in canonical:
             errors.append(
-                f"{rel}: canonical verdict line must not contain '(findings:)'"
+                f"{rel}: canonical verdict line must not contain '(findings:'"
                 " — count is for code and integration reviewers only;"
                 f" got: {canonical!r}"
             )
@@ -88,6 +88,7 @@ def main() -> int:
         description="Verify the four reviewer files specify a conformant canonical verdict line.",
         epilog="Reads agents/{code,integration}-reviewer.md and the spec/visual reviewer prompts. Exit 0 = conformant.",
     )
+    # No args to consume; this validates --help/-h and rejects unknown flags.
     parser.parse_args()
 
     errors: list[str] = []
@@ -103,8 +104,8 @@ def main() -> int:
             "lint-verdict-line: reviewer verdict-line format is out of sync:",
             file=sys.stderr,
         )
-        for e in errors:
-            print(f"  - {e}", file=sys.stderr)
+        for error in errors:
+            print(f"  - {error}", file=sys.stderr)
         return 1
 
     total = len(REVIEWERS_WITH_COUNT) + len(REVIEWERS_WITHOUT_COUNT)

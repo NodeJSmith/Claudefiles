@@ -184,7 +184,8 @@ End with an **Assessment**:
 - **WARN**: MEDIUM issues only — can proceed with caution
 - **BLOCK**: Any CRITICAL or HIGH issue found
 
-## Concise-return mode
+<!-- SYNC: skills/mine-orchestrate/verdict-line-format.md -->
+## Concise-Return Mode
 
 When the dispatch prompt contains the **exact literal token** `CONCISE-RETURN-MODE` **and** provides an output file path, enter concise-return mode:
 - Write the full report to the provided output file path

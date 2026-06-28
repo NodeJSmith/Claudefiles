@@ -500,7 +500,7 @@ Present a summary:
 
 Spec review: PASS|WARN|FAIL
 Visual: VERIFIED (N scenarios)|WARN|FAIL|SKIPPED|N/A
-Code review: PASS|WARN|FAIL (N iterations) — NEVER "N/A" or "skipped"
+Code review: APPROVE|WARN|BLOCK (N iterations) — NEVER "N/A" or "skipped"
 Integration review: APPROVE|WARN|BLOCK — NEVER "N/A" or "skipped"
 Test gate: PASS (N tests)|FAIL (N failures — see test-gate.md)|SKIPPED
 Lint gate: PASS|WARN (N regressions)|SKIPPED

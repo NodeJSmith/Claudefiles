@@ -139,7 +139,8 @@ Write your verdict to the temp file path provided in your prompt:
 
 Do not use severity language (CRITICAL, HIGH, MEDIUM, LOW) anywhere in your output. Do not use intermediate verdicts (PARTIAL, SKIPPED, N/A) for individual Verify criteria — only IMPLEMENTED or NOT_IMPLEMENTED.
 
-## Concise-return mode
+<!-- SYNC: skills/mine-orchestrate/verdict-line-format.md -->
+## Concise-Return Mode
 
 When the dispatch prompt contains the **exact literal token** `CONCISE-RETURN-MODE` **and** provides an output file path, enter concise-return mode:
 - Write the full report to the provided output file path
