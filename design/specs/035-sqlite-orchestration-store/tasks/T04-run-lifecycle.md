@@ -59,7 +59,7 @@ Implement 5 commands following `cli-design.md` §cfl run start through §cfl run
 5. `run_resume(conn, spec_id, *, run_id=None)` — if `run_id` omitted, find most recent `stopped` run for this spec. Error if run is `completed` (terminal) or already `running`. Single transaction:
    - UPDATE runs SET `status='running'`, `ended_at=NULL`.
    - UPDATE specs SET `active_run_id=?`, `status='in_progress'`.
-   - INSERT `run.resumed` event with `last_completed` and `current_task` derived from tasks.
+   - INSERT `run.resumed` event with data matching db-design-brief.md minimum schema: `{"session_id": <from env>, "last_completed": <derived>, "resumed_at": <current timestamp>}`.
    - Session auto-join.
 
 **Wire into cli.py:** Replace stubs for `run start`, `run status`, `run complete`, `run stop`, `run resume`.

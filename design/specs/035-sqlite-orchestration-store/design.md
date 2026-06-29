@@ -198,6 +198,7 @@ packages/cfl/
     ├── test_dispatch.py
     ├── test_event.py
     ├── test_session.py
+    ├── test_output.py
     ├── test_archive.py
     └── test_direct.py
 ```
@@ -326,6 +327,7 @@ No tests to adapt. `cfl` is a new package. `packages/spec-helper/tests/` tests t
 - **modify** `skills/mine-create-pr/worker.md` — replace spec-helper archive with cfl archive
 - **modify** `skills/mine-write-skill/REFERENCE.md` — replace spec-helper reference with cfl
 - **modify** `rules/common/git-workflow.md` — replace spec-helper archive with cfl archive
+- **modify** `ONBOARDING.md` — add cfl as the orchestration state management tool
 - **modify** `REFERENCE.md` — add cfl to CLI tools table, remove spec-helper and trail-log
 - **modify** `rules/common/capabilities-core.md` — add cfl trigger phrases, remove spec-helper/trail-log triggers
 - **modify** `install.py` — add cfl package to installation wizard

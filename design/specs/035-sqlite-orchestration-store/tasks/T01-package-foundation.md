@@ -31,7 +31,7 @@ Create the `packages/cfl/` Python package with the foundational modules: databas
 
 Create the `packages/cfl/` Python package following the same structure as `packages/spec-helper/`.
 
-**pyproject.toml:** Use `setuptools` build backend (never hatchling). Name: `cfl`. Entry point: `cfl = "cfl.cli:main"`. Dependencies: `python-frontmatter` (for task file parsing in later tasks). Dev dependencies: `pytest>=9.0.2`. `requires-python = ">=3.11"`.
+**pyproject.toml:** Use `setuptools` build backend (never hatchling). Name: `cfl`. Entry point: `cfl = "cfl.cli:main"`. Dependencies: `python-frontmatter` (for task file parsing), `whenever>=0.10` (for timestamp handling in later tasks). Dev dependencies: `pytest>=9.0.2`. `requires-python = ">=3.11"`.
 
 **src/cfl/__init__.py:** Module docstring only.
 

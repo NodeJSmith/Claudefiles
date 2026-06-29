@@ -14,6 +14,7 @@ Update REFERENCE.md, capabilities-core.md, install.py, and settings.json to regi
 
 - modify: `REFERENCE.md`
 - modify: `rules/common/capabilities-core.md`
+- modify: `ONBOARDING.md`
 - modify: `install.py`
 - modify: `settings.json`
 - delete: `bin/trail-log`
@@ -38,6 +39,10 @@ Read the full file. Find the CLI tools tables (there are multiple — one for pe
 2. **Remove** `spec-helper` and `trail-log` entries from the table.
 
 3. **Remove** `orchestrate-cost` and `agent-stats` from their current descriptions — they still exist but their descriptions should note they query the cfl database.
+
+### ONBOARDING.md
+
+`cfl` is a new installable bundle replacing two existing tools — this qualifies as "a capability a new adopter should know about" per CLAUDE.md. Add a section documenting `cfl` as the orchestration state management tool, replacing spec-helper and trail-log. Note the DB location (`~/.local/share/claudefiles/cfl.db`) and key commands (`cfl run status`, `cfl archive`).
 
 ### rules/common/capabilities-core.md
 

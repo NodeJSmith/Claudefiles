@@ -27,18 +27,18 @@ Implement 4 commands following `cli-design.md` §cfl task start through §cfl ta
 1. `task_start(conn, run_id, task_id)` — UPDATE tasks SET `status='executing'`, `started_at=datetime('now')`. INSERT `task.started` event. Output JSON.
 
 2. `task_update(conn, run_id, task_id, new_status)` — validate the transition against the state machine:
-   - Valid transitions (from `db-design-brief.md` task lifecycle):
+   - Valid transitions for `task_update` (intermediate state changes only):
      - `pending → executing`
      - `executing → reviewing`
      - `reviewing → fixing`
      - `fixing → reviewing`
-     - `executing → blocked` (executor BLOCKED)
+     - `failed → executing` (retry)
      - `failed → stopped` (user stops at a failed task)
      - `executing → stopped` (user stops mid-execution)
-     - `reviewing → done` (via verdict)
-     - `reviewing → failed` (via verdict)
-     - `failed → executing` (retry)
-   - Reject invalid transitions with exit 1, error code `invalid_status`, hint listing valid next states.
+   - Transitions NOT handled by `task_update` (exclusive to other commands):
+     - `reviewing → done` / `reviewing → failed` — exclusively via `task_verdict` (FR#16, atomically creates gate + event)
+     - `executing → blocked` — exclusively via `task_block` (FR#17, atomically sets verdict='BLOCKED')
+   - Reject any attempt to use `task_update` for these exclusive paths with exit 1, error code `invalid_status`, hint directing to the correct command (e.g., "Use `cfl task verdict` to set done/failed" or "Use `cfl task block` to block a task").
    - UPDATE tasks SET `status=?`. Output JSON with `task_id`, `status`, `previous`.
    - No implicit event — intermediate transitions are high-frequency. Callers emit explicit `cfl event` calls when needed.
 
