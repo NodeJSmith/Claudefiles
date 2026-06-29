@@ -13,14 +13,14 @@
 ## Design Decisions (already made)
 
 - `cfl` fully replaces `spec-helper` — ground-up rewrite, spec-helper's functionality is absorbed
-- `.cfl-run-id` file in the feature dir holds the active run ID (auto-resolved by subsequent commands)
+- Active run ID stored in `specs.active_run_id` DB column (no filesystem artifact)
 - Events have both `detail` (human-readable text) and `data` (queryable JSON)
 - Named CLI flags for common arguments + `--data` for custom/uncommon
 - Descriptive event names (`run.started`, `task.verdict`) — not `p0`/`p2`/`p3`
 - Unified verdict vocabulary: PASS, WARN, FAIL, SKIPPED (no APPROVE/BLOCK/VERIFIED split)
 - Events table is append-only (audit trail); other tables are mutable (current state)
 - Cost/token data is not available at runtime — populated post-hoc via `cfl ingest-cost` from JSONL transcripts
-- `cfl archive` handles the full cleanup (git rm tasks/, remove .gitignore, .cfl-run-id, stamp design.md)
+- `cfl archive` handles the full cleanup (git rm tasks/, remove .gitignore, clear active_run_id, stamp design.md)
 - Python package (not PEP 723 script) — proper modules and tests
 - No historical backfill — forward-only. Past orchestration runs are not migrated into the new schema. This is a greenfield store, not a migration target.
 
@@ -127,6 +127,7 @@ CREATE TABLE gates (
     id          INTEGER PRIMARY KEY,
     run_id      INTEGER NOT NULL REFERENCES runs(id),
     task_id     TEXT,                -- NULL for run-level gates (Phase 3)
+    FOREIGN KEY (run_id, task_id) REFERENCES tasks(run_id, task_id),
     gate_type   TEXT NOT NULL,
     iteration   INTEGER NOT NULL DEFAULT 1,
     verdict     TEXT NOT NULL
@@ -149,6 +150,7 @@ CREATE TABLE dispatches (
     id              INTEGER PRIMARY KEY,
     run_id          INTEGER NOT NULL REFERENCES runs(id),
     task_id         TEXT,                -- NULL for run-level dispatches
+    FOREIGN KEY (run_id, task_id) REFERENCES tasks(run_id, task_id),
     gate_id         INTEGER REFERENCES gates(id),  -- which gate this serves (NULL for executor)
     parent_id       INTEGER REFERENCES dispatches(id),  -- parent dispatch for nested subagents (NULL = top-level)
     role            TEXT NOT NULL,       -- canonical role name
@@ -156,10 +158,7 @@ CREATE TABLE dispatches (
     model           TEXT,                -- sonnet, haiku, opus
     spawn_depth     INTEGER DEFAULT 1,  -- 1 = dispatched by orchestrator, 2+ = nested
     routing_reason  TEXT,                -- why this agent type was selected
-    verdict         TEXT
-        CHECK(verdict IN ('PASS', 'WARN', 'FAIL', 'SKIPPED') OR verdict IS NULL),
-    detail          TEXT,
-    output_path     TEXT,                -- advisory: subagent output file path. Ephemeral (/tmp); may be stale after reboot. Consumers handle file-not-found.
+    -- No output_path column: derivable from runs.tmpdir + task_id + role convention
     dispatched_at   TEXT NOT NULL,
     completed_at    TEXT,
     -- Subagent health (populated post-hoc by cfl ingest-cost)
@@ -206,6 +205,7 @@ CREATE TABLE events (
     id          INTEGER PRIMARY KEY,
     run_id      INTEGER NOT NULL REFERENCES runs(id),
     task_id     TEXT,                -- NULL for run-level events
+    FOREIGN KEY (run_id, task_id) REFERENCES tasks(run_id, task_id),
     event       TEXT NOT NULL,       -- dotted name: run.started, task.verdict, etc.
     detail      TEXT,                -- human-readable description
     data        TEXT,                -- JSON, queryable via json_extract()
@@ -256,40 +256,13 @@ CREATE TABLE sessions (
 
 **Compaction tracking:** Orchestrator compactions are detectable via `PreCompact` hook → `cfl event session.compacted` + increment `sessions.compactions` in the same call. Subagent compactions are tracked on the `dispatches` table (see below).
 
-### findings
+### findings (deferred to v2)
 
-Individual review findings. One row per finding reported by any reviewer. Enables trend analysis across runs: "which files get the most findings?", "auto-fixed vs deferred rates", "is the code reviewer getting stricter?"
+Per-finding storage for trend analysis is deferred. In v1, individual findings are stored as JSON arrays in `gates.data` (e.g., `{"findings": [{"file": "...", "severity": "...", "description": "..."}]}`). The `gates.data` minimum schemas already include `{"findings": int}` counts; expanding to arrays is additive.
 
-```sql
-CREATE TABLE findings (
-    id              INTEGER PRIMARY KEY,
-    gate_id         INTEGER NOT NULL REFERENCES gates(id),
-    reviewer_type   TEXT NOT NULL,       -- code, integration, spec, comb
-    file_path       TEXT,                -- NULL for spec/comb findings
-    line_number     INTEGER,             -- NULL for spec/comb findings
-    severity        TEXT,                -- CRITICAL/HIGH/MEDIUM/LOW (code/integration), blocking/minor (comb), NULL (spec)
-    category        TEXT,                -- integration: DUPLICATE/MISPLACED/etc. code: section name. NULL for spec/comb
-    description     TEXT NOT NULL,
-    fix_suggestion  TEXT,                -- NULL for spec/comb
-    disposition     TEXT,                -- fixed/deferred/unresolved (code/integration fix loop only). NULL for spec/comb
-    disposition_detail TEXT,             -- reason for deferred, what-was-done for fixed
-    fixer_iteration INTEGER,            -- which fix pass produced the disposition (1-3). NULL until fix loop runs
-    is_preexisting  INTEGER NOT NULL DEFAULT 0,  -- 1 = pre-existing issue, excluded from verdict counts
-    data            TEXT,                -- JSON: reviewer-specific overflow (integration cross-refs, spec criterion text, comb full body)
-    created_at      TEXT NOT NULL
-);
-CREATE INDEX idx_findings_gate ON findings(gate_id);
-CREATE INDEX idx_findings_file ON findings(file_path);
-CREATE INDEX idx_findings_disposition ON findings(reviewer_type, disposition);
-```
+A dedicated `findings` table will be added in v2 once real query patterns emerge from usage. The table design will be informed by: which queries are actually run, whether the severity vocabulary has been normalized across reviewer types (CRITICAL/HIGH/MEDIUM/LOW vs comb's blocking/minor), and which columns are actually filtered/grouped on.
 
-**Unified table with JSON overflow:** All four reviewer types share the common columns (gate_id, reviewer_type, description). Code/integration findings populate file_path, severity, disposition. Spec/comb findings leave those NULL and put reviewer-specific content in the `data` JSON column.
-
-**What goes in `data`:**
-- Integration: `{"cross_ref": "path/to/other/file.py"}` for PARALLEL_DRIFT findings with two files
-- Spec: `{"criterion": "FR#1 text", "evidence": "file:function:line"}` for per-criterion checks
-- Comb: `{"full_body": "the complete finding text"}` for free-form findings
-- Code: typically NULL (columns cover everything)
+**Not losing data:** Gate-level finding counts are always in `gates.data`. The full finding text is in the ephemeral review files during execution and can be captured into `gates.data` JSON at gate write time if needed for post-hoc analysis.
 
 ### schema_version
 
@@ -363,13 +336,13 @@ CREATE TABLE schema_version (
 | runs | dispatches | 1:many | `dispatches.run_id = runs.id` | FK |
 | runs | events | 1:many | `events.run_id = runs.id` | FK |
 | gates | dispatches | 1:many | `dispatches.gate_id = gates.id` | FK — which gate a dispatch serves |
-| gates | findings | 1:many | `findings.gate_id = gates.id` | FK — which gate produced the finding |
+| gates | findings (v2) | 1:many | `findings.gate_id = gates.id` | FK — deferred to v2 |
 | dispatches | dispatches | 1:many | `dispatches.parent_id = dispatches.id` | Self-FK — nested subagent parentage |
 | tasks ↔ gates | via task_id | logical | `gates.task_id = tasks.task_id AND gates.run_id = tasks.run_id` | TEXT join, not FK |
 | tasks ↔ dispatches | via task_id | logical | `dispatches.task_id = tasks.task_id AND ...` | TEXT join, not FK |
 | tasks ↔ events | via task_id | logical | `events.task_id = tasks.task_id AND ...` | TEXT join, not FK |
 
-**Why task_id is TEXT, not a FK to tasks.id:** Gates, dispatches, and events for a task are written before the task row may exist (the event `task.started` fires at the same moment the task row is created). Using the text task_id (T01, T02) as a natural key avoids ordering dependencies. Run-level records use `task_id = NULL`.
+**task_id joins:** All task rows are pre-created at run start (`status='pending'`), so task rows always exist before any gates/dispatches/events reference the task_id. Gates, dispatches, and events use a composite FK `(run_id, task_id) REFERENCES tasks(run_id, task_id)` for task-level records. Run-level records have `task_id = NULL`, which bypasses the FK (SQLite FKs don't fire when the child column is NULL).
 
 **Scoping rules for task_id and run_id on child tables:**
 
@@ -440,12 +413,13 @@ You can't dispatch a run (dispatches always serve a specific task or a run-level
 
 All gates, dispatches, and task verdicts use the same 4 values:
 
-| Value | Meaning |
-|---|---|
-| PASS | Clean. No issues, or all issues resolved. |
-| WARN | Minor unresolved issues. Proceed with notes. |
-| FAIL | Blocking issues. Must fix or escalate. |
-| SKIPPED | Not applicable for this run/task. |
+| Value | Meaning | Scope |
+|---|---|---|
+| PASS | Clean. No issues, or all issues resolved. | gates, tasks |
+| WARN | Minor unresolved issues. Proceed with notes. | gates, tasks |
+| FAIL | Blocking issues. Must fix or escalate. | gates, tasks |
+| SKIPPED | Not applicable for this run/task. | gates, tasks |
+| BLOCKED | Architectural block — requires design change, not code fix. | tasks only |
 
 Gate-type-specific nuance goes in `data` JSON:
 
@@ -592,6 +566,10 @@ Subsequent `cfl` commands auto-resolve the active run:
 
 **CWD resolution:** `cfl` walks up from CWD looking for `design/specs/NNN-slug/` pattern, extracts the spec number, and looks it up in the DB via `(repo_url, number)`. Falls back to `--feature` flag if CWD is ambiguous (e.g., repo root with multiple specs).
 
+**Run start guard:** `cfl run start` errors if `active_run_id IS NOT NULL` for the target spec. Error message names the existing run ID and started_at timestamp, and instructs: "Resume with `/mine-orchestrate`, or `cfl run stop` to abandon it first." This prevents accidental orphan runs.
+
+**Resume behavior:** On resume, the task status is left as-is (e.g., `executing`). Phase 2 reads tmpdir artifacts to determine whether to re-execute or skip to reviewing. No status reset on resume.
+
 ## What cfl Replaces
 
 | Current tool/artifact | Replaced by | Notes |
@@ -600,7 +578,7 @@ Subsequent `cfl` commands auto-resolve the active run:
 | `spec-helper next-number` | `cfl spec next-number` | Queries DB, not filesystem |
 | `spec-helper validate` | `cfl spec validate` | Task file schema validation |
 | `spec-helper archive` | `cfl archive` | Full cleanup: git rm tasks/, .gitignore, .cfl-run-id, stamp design.md |
-| `spec-helper checkpoint-init` | `cfl run start` | Creates `runs` + `tasks` rows, writes `.cfl-run-id` |
+| `spec-helper checkpoint-init` | `cfl run start` | Creates `runs` + `tasks` rows, sets `specs.active_run_id` |
 | `spec-helper checkpoint-read` | `cfl run status` | Reads from DB |
 | `spec-helper checkpoint-update` | `cfl task update` | Updates task status/fields |
 | `spec-helper checkpoint-verdict` | `cfl task verdict` | Updates task verdict + creates verdict-assembly gate |
@@ -610,7 +588,6 @@ Subsequent `cfl` commands auto-resolve the active run:
 | `trail.tsv` | events table | TSV file eliminated |
 | `trail-audit.md` | Gate record in gates table | Audit report file eliminated |
 | `.gitignore` entries | None needed | No orchestration files on disk to gitignore |
-| `.cfl-run-id` file | `specs.active_run_id` column | Run identity is DB-only, no file/DB divergence |
 
 ## SQLite Configuration
 
