@@ -324,7 +324,7 @@ gains batching. No other instruction is removed.
 
 Not applicable — the changed artifacts are skill `SKILL.md` / supporting `.md` / rule files
 (instruction prose), not application code with reusable code-shape conventions. The relevant
-conventions live in CLAUDE.md (path refs via `${CLAUDE_HOME:-~/.claude}`, temp files via
+conventions live in CLAUDE.md (path refs via `${CLAUDE_CONFIG_DIR:-~/.claude}`, temp files via
 `get-skill-tmpdir`) and the existing structure of the target skills, which the edits follow.
 
 ## Alternatives Considered

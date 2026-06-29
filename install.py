@@ -6,7 +6,7 @@
 #   "questionary>=2.0",
 # ]
 # ///
-"""Interactive installer for Claudefiles — symlinks skills, agents, hooks, rules, and bin scripts into ~/.claude/."""
+"""Interactive installer for Claudefiles — symlinks skills, agents, hooks, rules, and bin scripts into $CLAUDE_CONFIG_DIR."""
 
 import argparse
 import fcntl
@@ -35,7 +35,7 @@ CONFIG_FILENAME = ".claudefiles-install-config.json"
 
 SKILL_DIRS = ["skills", "skills-impeccable", "skills-cli"]
 
-# Subdirectories under ~/.claude/ whose contents are symlinked file-by-file (each
+# Subdirectories under $CLAUDE_CONFIG_DIR whose contents are symlinked file-by-file (each
 # leaf file is its own symlink) rather than as a whole directory. Used by both the
 # install stale-symlink sweep and the uninstall teardown.
 FILE_LEVEL_SUBDIRS = ("rules", "learned", "references")
@@ -1055,7 +1055,7 @@ def install_rule_categories(
     *,
     shadowed_out: list[tuple[Path, Path]],
 ) -> int:
-    """Symlink selected rule-category files into ~/.claude/rules/common (file-level).
+    """Symlink selected rule-category files into $CLAUDE_CONFIG_DIR/rules/common (file-level).
 
     Core always installs; optional categories install when selected and have their owned
     symlinks removed when deselected (replacing the former bulk symlink of all of
@@ -1671,7 +1671,7 @@ def print_uninstall_dry_run(repo_dir: Path, config: dict, cfg_path: Path) -> Non
     """Print what an uninstall would remove without making changes."""
     console = Console()
     console.print("\n[bold]Dry run — would uninstall:[/bold]\n")
-    console.print("  All Claudefiles-owned symlinks from ~/.claude/")
+    console.print("  All Claudefiles-owned symlinks from $CLAUDE_CONFIG_DIR")
     console.print(f"  Package: {CCRECALL_PACKAGE}")
     bundle_cfg = config.get("bundles", {})
     for bundle_key, bundle in get_bundles(repo_dir).items():
@@ -1702,7 +1702,9 @@ def print_first_install_tip(repo_dir: Path) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Install Claudefiles into ~/.claude/")
+    parser = argparse.ArgumentParser(
+        description="Install Claudefiles into $CLAUDE_CONFIG_DIR (default: ~/.claude/)"
+    )
     parser.add_argument(
         "--reconfigure",
         action="store_true",
@@ -1729,7 +1731,9 @@ def main() -> int:
         )
         return 1
 
-    claude_dir = Path(os.path.expanduser(os.environ.get("CLAUDE_HOME", "~/.claude")))
+    claude_dir = Path(
+        os.path.expanduser(os.environ.get("CLAUDE_CONFIG_DIR", "~/.claude"))
+    )
     interactive = sys.stdin.isatty()
 
     cfg_path = config_path(claude_dir)

@@ -163,7 +163,7 @@ All notable changes to this Claudefiles repository are documented here.
 ### Fixed
 
 - Impeccable font contradiction — `typography.md` recommended Outfit/DM Sans/Lora, all banned by `i-frontend-design`'s reflex list; replaced with a pointer to the selection procedure (#368)
-- Hardcoded `~/.claude` paths in 18 skill files replaced with `${CLAUDE_HOME:-~/.claude}` (#368)
+- Hardcoded `~/.claude` paths in 18 skill files replaced with `${CLAUDE_CONFIG_DIR:-~/.claude}` (#368)
 - `testing-reality-checker` agent missing its `tools:` frontmatter (#368)
 - `engineering-sre` communication tips mis-filed under "Anti-Patterns — Never Do These" (#368)
 

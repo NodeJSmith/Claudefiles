@@ -147,15 +147,15 @@ When writing rules or skill files, apply proportionally: diagnostic questions ov
 
 | When working with... | Read |
 |----------------------|------|
-| `.ts`, `.tsx`, `.js`, `.jsx` files | `${CLAUDE_HOME:-~/.claude}/references/common/typescript.md` |
-| Frontend components, CSS, UI | `${CLAUDE_HOME:-~/.claude}/references/common/frontend.md` |
-| Backend services, async code, retries | `${CLAUDE_HOME:-~/.claude}/references/common/reliability.md`, `${CLAUDE_HOME:-~/.claude}/references/common/dependency-injection.md` |
-| Tests, TDD, pytest | `${CLAUDE_HOME:-~/.claude}/references/common/testing.md` |
-| Prose: PR descriptions, docs, skills, rules | `${CLAUDE_HOME:-~/.claude}/references/common/writing-quality.md` |
-| Subagent orchestration, parallel executors | `${CLAUDE_HOME:-~/.claude}/references/common/agents.md` |
-| Processing code review findings | `${CLAUDE_HOME:-~/.claude}/references/common/receiving-code-review.md` |
-| Writing rules or skill files | `${CLAUDE_HOME:-~/.claude}/references/common/instruction-quality.md` |
-| API endpoints, auth handlers, user input | `${CLAUDE_HOME:-~/.claude}/references/common/security.md` |
+| `.ts`, `.tsx`, `.js`, `.jsx` files | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/typescript.md` |
+| Frontend components, CSS, UI | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/frontend.md` |
+| Backend services, async code, retries | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/reliability.md`, `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/dependency-injection.md` |
+| Tests, TDD, pytest | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/testing.md` |
+| Prose: PR descriptions, docs, skills, rules | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/writing-quality.md` |
+| Subagent orchestration, parallel executors | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/agents.md` |
+| Processing code review findings | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/receiving-code-review.md` |
+| Writing rules or skill files | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/instruction-quality.md` |
+| API endpoints, auth handlers, user input | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/security.md` |
 
 ## Adding Invariants
 

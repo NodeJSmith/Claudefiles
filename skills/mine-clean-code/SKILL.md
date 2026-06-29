@@ -25,7 +25,7 @@ When $ARGUMENTS resolves to existing files or directories that have no uncommitt
 
 ## Phase 1: Determine Scope
 
-Read and execute `${CLAUDE_HOME:-~/.claude}/skills/mine-review/scope-detection.md` (shared with `mine-review`). It resolves $ARGUMENTS to either **diff mode** (a diff command) or **path mode** (a file list), with scope-narrowing guards.
+Read and execute `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-review/scope-detection.md` (shared with `mine-review`). It resolves $ARGUMENTS to either **diff mode** (a diff command) or **path mode** (a file list), with scope-narrowing guards.
 
 ## Phase 1.5: Determine Batching
 
@@ -146,7 +146,7 @@ Do not merge cross-checker duplicates into one — the checkers represent differ
 
 ### Step 1.5: Validity assessment
 
-Apply the Validity Assessment protocol from `${CLAUDE_HOME:-~/.claude}/skills/mine-challenge/findings-protocol.md`: findings are valid by default; flagging one as likely invalid requires a concrete evidence trail (claim vs. what the code actually does). Move likely-invalid findings out of the checker sections and into a separate `### Likely Invalid` section at the bottom of the report.
+Apply the Validity Assessment protocol from `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`: findings are valid by default; flagging one as likely invalid requires a concrete evidence trail (claim vs. what the code actually does). Move likely-invalid findings out of the checker sections and into a separate `### Likely Invalid` section at the bottom of the report.
 
 ### Step 2: Present the consolidated report
 

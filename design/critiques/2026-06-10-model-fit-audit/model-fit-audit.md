@@ -29,7 +29,7 @@ Estimated always-loaded savings: ~1.5–2k words (~15%) per session. Estimated s
 ## Bugs and Contradictions (fix regardless of the audit)
 
 1. **Font contradiction (behavioral bug).** `i-frontend-design/SKILL.md` `<reflex_fonts_to_reject>` bans Outfit, DM Sans, Plus Jakarta, Space Grotesk. `i-frontend-design/reference/typography.md` recommends Outfit and DM Sans as the Inter replacements. The model gets opposite instructions depending on which file it reads last. Fix: remove the named-font table from typography.md; the SKILL.md selection *procedure* is the right mechanism.
-2. **Hardcoded `~/.claude` paths** violate the repo's own `${CLAUDE_HOME:-~/.claude}` rule (CLAUDE.md): all 8 i-* skills with the MANDATORY PREPARATION block (i-audit, i-critique, i-shape, i-overdrive, i-polish, i-harden, i-optimize, i-adapt) and `mine.implementation-review/SKILL.md:76`.
+2. **Hardcoded `~/.claude` paths** violate the repo's own `${CLAUDE_CONFIG_DIR:-~/.claude}` rule (CLAUDE.md): all 8 i-* skills with the MANDATORY PREPARATION block (i-audit, i-critique, i-shape, i-overdrive, i-polish, i-harden, i-optimize, i-adapt) and `mine.implementation-review/SKILL.md:76`.
 3. **`agents/testing-reality-checker.md` missing `tools:` frontmatter** — every sibling declares one; this file lists its Playwright tools only in prose.
 4. **`agents/engineering-sre.md` structural mislabel** — three positive communication tips ("Lead with data", "Frame reliability as investment") sit under the "Anti-Patterns — Never Do These" header.
 5. **`mine.ship` Phase 2 steps are numbered 11–20** to continue mine.commit-push's 1–10 across file boundaries — fragile coupling, confusing in isolation.
@@ -83,7 +83,7 @@ Preserve verbatim — this is the content that most changes 4.6 behavior:
 
 ## Suggested Execution Order
 
-1. Bugs first (font contradiction, `${CLAUDE_HOME}` paths, tools: frontmatter, sre mislabel) — small, unambiguous, immediate.
+1. Bugs first (font contradiction, `${CLAUDE_CONFIG_DIR}` paths, tools: frontmatter, sre mislabel) — small, unambiguous, immediate.
 2. Always-loaded trims (#1, #9-rules-parts) — pays every session.
 3. Structural dedup (#2, #3, #8) — kills drift risk; behavior-neutral.
 4. Bulk compressions (#4, #5, #6, #7, #10) — biggest word counts, most judgment; reviewable file-by-file.

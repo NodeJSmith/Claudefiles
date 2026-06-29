@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-A personal Claude Code configuration repository — skills, commands, agents, rules, and hooks that symlink into `~/.claude/`.
+A personal Claude Code configuration repository — skills, commands, agents, rules, and hooks that symlink into `$CLAUDE_CONFIG_DIR` (defaults to `~/.claude/`).
 
 ## Installation
 
@@ -10,7 +10,7 @@ Requires [uv](https://docs.astral.sh/uv/getting-started/installation/).
 uv run install.py
 ```
 
-Interactive wizard that symlinks skills, agents, hooks, rules, commands, and bin scripts into `~/.claude/`. Installs selected packages via `uv tool install -e`. Safe to re-run — loads saved config and only prompts for new items. Respects `$CLAUDE_HOME`.
+Interactive wizard that symlinks skills, agents, hooks, rules, commands, and bin scripts into `$CLAUDE_CONFIG_DIR` (default: `~/.claude/`). Installs selected packages via `uv tool install -e`. Safe to re-run — loads saved config and only prompts for new items.
 
 Use `--reconfigure` to change selections, `--uninstall` to remove everything.
 
@@ -26,9 +26,9 @@ Command substitution (`$(...)`), backticks, and pipes work normally in the Bash 
 
 ## Path References in Skills
 
-When referencing installed skill, agent, or persona files from within a SKILL.md or agent file, always use `${CLAUDE_HOME:-~/.claude}` — never hardcode `~/.claude`. This ensures paths resolve correctly when `$CLAUDE_HOME` is set to a non-default location.
+When referencing installed skill, agent, or persona files from within a SKILL.md or agent file, always use `${CLAUDE_CONFIG_DIR:-~/.claude}` — never hardcode `~/.claude`. This ensures paths resolve correctly when `$CLAUDE_CONFIG_DIR` is set to a non-default location.
 
-**Right:** `${CLAUDE_HOME:-~/.claude}/skills/mine-challenge/findings-protocol.md`
+**Right:** `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`
 **Wrong:** `~/.claude/skills/mine-challenge/findings-protocol.md`
 
 ## Temp File Convention
@@ -39,11 +39,11 @@ Skills that write temp files use `get-skill-tmpdir <skill-name>` — prints a un
 
 ## Settings
 
-Edit `settings.json` in this repo — **never** write directly to `~/.claude/settings.json`. Run `claude-merge-settings` to merge three layers:
+Edit `settings.json` in this repo — **never** write directly to `$CLAUDE_CONFIG_DIR/settings.json`. Run `claude-merge-settings` to merge three layers:
 
 1. `~/Claudefiles/settings.json`
 2. `~/Dotfiles/config/claude/settings.json`
-3. `~/.claude/settings.machine.json`
+3. `$CLAUDE_CONFIG_DIR/settings.machine.json`
 
 ## Making Changes
 

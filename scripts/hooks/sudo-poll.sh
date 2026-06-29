@@ -17,7 +17,7 @@
 #     "matcher": "Bash",
 #     "hooks": [{
 #       "type": "command",
-#       "command": "${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/sudo-poll.sh",
+#       "command": "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/sudo-poll.sh",
 #       "timeout": 35000
 #     }]
 #   }]

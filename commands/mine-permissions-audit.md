@@ -23,7 +23,7 @@ Read `~/Claudefiles/settings.json` if it exists (it may not yet — that's fine)
 Scan recent Claude Code debug logs for actual permission prompts. These capture what Claude Code itself prompted for — ground truth.
 
 ```bash
-ls -t ~/.claude/debug/*.txt 2>/dev/null | head -20 | xargs grep -h "ruleContent" 2>/dev/null | grep -oP '"ruleContent": "\K[^"]+' | sort | uniq -c | sort -rn | head -40
+ls -t ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/debug/*.txt 2>/dev/null | head -20 | xargs grep -h "ruleContent" 2>/dev/null | grep -oP '"ruleContent": "\K[^"]+' | sort | uniq -c | sort -rn | head -40
 ```
 
 This gives a ranked list of `(count, ruleContent)` — the exact strings Claude Code suggested adding to the allow list. Filter out noise:
@@ -36,10 +36,10 @@ This gives a ranked list of `(count, ruleContent)` — the exact strings Claude 
 `settings.local.json` accumulates per-session approvals that Claude Code writes automatically when the user approves a permission prompt. Entries that survive multiple sessions here are strong candidates for promotion to the portable allow list.
 
 ```bash
-find ~/.claude/projects -name "settings.local.json" 2>/dev/null | head -5
+find ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects -name "settings.local.json" 2>/dev/null | head -5
 ```
 
-Then read each found file. Cross-reference its `permissions.allow` entries against the merged `~/.claude/settings.json` allow list to find entries present in local but not in the portable settings.
+Then read each found file. Cross-reference its `permissions.allow` entries against the merged `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json` allow list to find entries present in local but not in the portable settings.
 
 ## Step 2: Filter and Categorize
 
@@ -90,7 +90,7 @@ Output a compact report:
 
 COUNT  PATTERN
 ─────  ───────
-    7  Read(~/.claude/**)
+    7  Read(${CLAUDE_CONFIG_DIR:-$HOME/.claude}/**)
     5  Bash(git:*)
    ...
 
@@ -105,7 +105,7 @@ COUNT  PATTERN                         NOTE
 
 Entries in settings.local.json not yet in portable settings — these survived at least one session approval and may be worth promoting:
 
-  Read(~/.claude/**)                  [project: Claudefiles]
+  Read(${CLAUDE_CONFIG_DIR:-$HOME/.claude}/**)                  [project: Claudefiles]
   ...
 
 ### Skipped
@@ -137,5 +137,5 @@ If the user chooses to apply:
 1. If `~/Claudefiles/settings.json` doesn't exist, create it with `{"permissions": {"allow": []}}`
 2. Edit `~/Claudefiles/settings.json` to add the selected patterns to `permissions.allow`
 3. Deduplicate against existing entries
-4. Run `claude-merge-settings` to propagate to `~/.claude/settings.json`
+4. Run `claude-merge-settings` to propagate to `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json`
 5. Confirm what was added

@@ -244,7 +244,7 @@ Counter reset mechanism: a PostToolUse hook on Edit, Write, MultiEdit, and Noteb
     // existing sudo-poll and pytest-guard
     {
       "type": "command",
-      "command": "${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/pytest-loop-detector.sh",
+      "command": "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/pytest-loop-detector.sh",
       "timeout": 5000
     }
   ]
@@ -253,7 +253,7 @@ Counter reset mechanism: a PostToolUse hook on Edit, Write, MultiEdit, and Noteb
   "matcher": "Edit|Write|MultiEdit|NotebookEdit",
   "hooks": [{
     "type": "command",
-    "command": "${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/pytest-loop-reset.sh",
+    "command": "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/pytest-loop-reset.sh",
     "timeout": 2000
   }]
 }]

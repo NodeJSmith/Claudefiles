@@ -30,13 +30,13 @@ The checkpoint file (`tasks/.orchestrate-state.md`) persists across sessions. Pe
 
 ### Check for existing checkpoint (resume detection)
 
-Read `${CLAUDE_HOME:-~/.claude}/skills/mine-orchestrate/resume-protocol.md` and follow it. If a checkpoint exists, the protocol either resumes at Phase 2 or restarts fresh; if no checkpoint exists, proceed to "Branch staleness pre-flight" below.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/resume-protocol.md` and follow it. If a checkpoint exists, the protocol either resumes at Phase 2 or restarts fresh; if no checkpoint exists, proceed to "Branch staleness pre-flight" below.
 
 ### Branch staleness pre-flight
 
 **Skip on resume**: if the resume-protocol above resumed an existing run at Phase 2, do NOT run this check — work is already in progress against the checkpoint's `base_commit`, and rebasing now would invalidate it. This runs only on a fresh run or a restart-fresh (the resume protocol discarded a stale checkpoint and is starting over).
 
-A 12-hour run that stamps its `base_commit` onto a stale base will conflict late. Read `${CLAUDE_HOME:-~/.claude}/references/common/staleness-preflight.md` and follow it in **gate** mode, with this stakes sentence: "Starting orchestrate now bases the whole run on stale code." On Abort, stop without creating a checkpoint.
+A 12-hour run that stamps its `base_commit` onto a stale base will conflict late. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/staleness-preflight.md` and follow it in **gate** mode, with this stakes sentence: "Starting orchestrate now bases the whole run on stale code." On Abort, stop without creating a checkpoint.
 
 ### Find the feature directory
 
@@ -249,7 +249,7 @@ Per-task subdirectories preserve evidence across the full orchestration run. Thi
 
 ### Step 4: Select executor agent type
 
-Before launching the executor, read the task's objective and subtasks to determine if a specialized agent is a better fit than `general-purpose`. Read `${CLAUDE_HOME:-~/.claude}/skills/mine-orchestrate/agent-routing.md` for the routing table. First match wins — stop at the first row that applies.
+Before launching the executor, read the task's objective and subtasks to determine if a specialized agent is a better fit than `general-purpose`. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/agent-routing.md` for the routing table. First match wins — stop at the first row that applies.
 
 If `trail_available` is true, log the dispatch decision after selecting the agent type:
 `trail-log "<trail_path>" p2 <task_id> dispatch "agent type: <selected_agent_type>; routing match: <matched rule or 'default general-purpose'>"`
@@ -257,9 +257,9 @@ If `trail_available` is true, log the dispatch decision after selecting the agen
 ### Step 5: Launch executor subagent
 
 Read these files:
-- `${CLAUDE_HOME:-~/.claude}/skills/mine-orchestrate/implementer-prompt.md` (always — task execution contract)
-- `${CLAUDE_HOME:-~/.claude}/skills/mine-orchestrate/retry-prompt.md` (retries only — receiving-code-review posture)
-- `${CLAUDE_HOME:-~/.claude}/skills/mine-orchestrate/tdd.md`
+- `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/implementer-prompt.md` (always — task execution contract)
+- `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/retry-prompt.md` (retries only — receiving-code-review posture)
+- `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/tdd.md`
 
 For **first-pass execution**, include only `implementer-prompt.md` in the `## Implementer instructions` slot.
 
@@ -329,14 +329,14 @@ Always run both commands — the first catches all modified/deleted tracked file
 
 ### Step 7: CONTESTED criteria resolution
 
-Read `${CLAUDE_HOME:-~/.claude}/skills/mine-orchestrate/contested-criteria.md` and follow it. This must happen before the spec reviewer runs — the spec reviewer receives the possibly-updated verification criteria after CONTESTED items are resolved.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/contested-criteria.md` and follow it. This must happen before the spec reviewer runs — the spec reviewer receives the possibly-updated verification criteria after CONTESTED items are resolved.
 
 For each CONTESTED criterion resolved (accept or reject), if `trail_available` is true, log it:
 `trail-log "<trail_path>" p2 <task_id> contested "<criterion text>: <accept|reject> — <rationale>"`
 
 ### Step 8: Parallel review pass
 
-Read `${CLAUDE_HOME:-~/.claude}/skills/mine-orchestrate/spec-reviewer-prompt.md`.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/spec-reviewer-prompt.md`.
 
 Launch **all three reviewers in parallel** (three Agent tool calls in a single message):
 
@@ -434,21 +434,21 @@ After both gates complete, if `trail_available` is true, log the gate results:
 
 ### Step 10: WARN fix loop (if spec reviewer returned WARN)
 
-Read `${CLAUDE_HOME:-~/.claude}/skills/mine-orchestrate/warn-fix-loop.md` and follow it.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/warn-fix-loop.md` and follow it.
 
 If the WARN fix loop ran and `trail_available` is true, log the retry decision after the loop completes:
 `trail-log "<trail_path>" p2 <task_id> retry "WARN classification: <fixable|structural>; retry decision: <retried|skipped>; iteration count: <N>"`
 
 ### Step 11: Visual reviewer (conditional)
 
-Read `${CLAUDE_HOME:-~/.claude}/skills/mine-orchestrate/visual-reviewer-prompt.md`, then read `${CLAUDE_HOME:-~/.claude}/skills/mine-orchestrate/visual-reviewer-launch.md` and follow it.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/visual-reviewer-prompt.md`, then read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/visual-reviewer-launch.md` and follow it.
 
 If the visual reviewer ran and `trail_available` is true, log the result after it completes:
 `trail-log "<trail_path>" p2 <task_id> review "visual: <VERIFIED|WARN|FAIL|SKIPPED> (<N scenarios>)"`
 
 ### Step 12: Review findings fix loop
 
-When the canonical verdict line for the code reviewer or integration reviewer from Step 8 shows `findings > 0`, or its verdict is WARN or BLOCK, read `${CLAUDE_HOME:-~/.claude}/skills/mine-orchestrate/findings-fix-loop.md` and follow it.
+When the canonical verdict line for the code reviewer or integration reviewer from Step 8 shows `findings > 0`, or its verdict is WARN or BLOCK, read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/findings-fix-loop.md` and follow it.
 
 Spec and visual findings do **not** trigger this loop — a spec WARN routes to the Step 10 WARN loop, a spec FAIL routes to Step 16, and visual findings feed Step 14 directly.
 
@@ -561,7 +561,7 @@ Do not offer "Fix and retry" or "skip" for architectural blocks — retrying wit
 
 ### Step 17: WIP commit and checkpoint update
 
-Read `${CLAUDE_HOME:-~/.claude}/skills/mine-orchestrate/wip-commit-protocol.md` and follow it.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/wip-commit-protocol.md` and follow it.
 
 ### Loop to next task
 
@@ -571,4 +571,4 @@ After the gate, continue with the next task in sequence. Track: done (PASS), war
 
 ## Phase 3: Post-Execution Review Pipeline
 
-Read `${CLAUDE_HOME:-~/.claude}/skills/mine-orchestrate/post-execution-pipeline.md` and follow it. Covers: verdict summary table, implementation review gate, cross-file consistency review, clean code check (auto-fix), implementation fine-toothed comb (final holistic pass), and shipping gate.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/post-execution-pipeline.md` and follow it. Covers: verdict summary table, implementation review gate, cross-file consistency review, clean code check (auto-fix), implementation fine-toothed comb (final holistic pass), and shipping gate.

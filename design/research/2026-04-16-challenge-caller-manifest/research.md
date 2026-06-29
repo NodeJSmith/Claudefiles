@@ -356,12 +356,12 @@ Current routing happens **before** the revision plan is presented. The question 
 **Rationale**:
 1. **Matches existing pattern**. `findings-protocol.md` already lives there; a sibling file is the natural extension. Other skills (`mine.orchestrate/`) already have multiple prose files alongside `SKILL.md`.
 2. **On-demand loading**. Like `findings-protocol.md`, it won't be auto-loaded into subagent contexts. Preserves commit `a5026f0`'s perf improvement.
-3. **Discoverable**. Callers reference it via `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md`, same convention as `findings-protocol.md`.
+3. **Discoverable**. Callers reference it via `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine.challenge/caller-protocol.md`, same convention as `findings-protocol.md`.
 4. **Scoped growth**. New callers (future doc types, future research-flow callers) extend `caller-protocol.md` without bloating `findings-protocol.md` or the rules auto-load path.
 5. **Keeps challenge's skill boundary clean**. The protocol files live where mine.challenge lives; callers reference them without mine.challenge needing to actively load or re-export them. Documentation-by-convention.
 
 **Existing patterns for "skill A and skill B share protocol X"**:
-- `skills/mine.challenge/findings-protocol.md` — shared across mine.challenge (standalone), mine.visual-qa (legacy), mine.tool-gaps (legacy). Referenced by `${CLAUDE_HOME:-~/.claude}/...` paths. This is the canonical pattern.
+- `skills/mine.challenge/findings-protocol.md` — shared across mine.challenge (standalone), mine.visual-qa (legacy), mine.tool-gaps (legacy). Referenced by `${CLAUDE_CONFIG_DIR:-~/.claude}/...` paths. This is the canonical pattern.
 - `skills/mine.orchestrate/retry-prompt.md` ↔ `rules/common/receiving-code-review.md` — SYNC markers on both sides, content duplicated in two locations. This is the **anti-pattern** of SYNC markers ("don't be this" if you can avoid it).
 - `rules/common/testing.md` ↔ `skills/mine.implementation-review/reviewer-prompt.md` — content inlined in the reviewer prompt with a SYNC marker. Same anti-pattern.
 
@@ -370,7 +370,7 @@ The takeaway: when possible, **single-source the protocol in one file and have t
 **Resulting SYNC block elimination**:
 - `skills/mine.specify/SKILL.md:343` — delete SYNC marker
 - `skills/mine.design/SKILL.md:287` — delete SYNC marker
-- Replace with explicit `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md` reference
+- Replace with explicit `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine.challenge/caller-protocol.md` reference
 - The **remaining** caller-specific content (routing heuristic table, deferred-findings persistence for specify, post-execute sign-off loop) stays inline in each SKILL.md. This content is genuinely caller-specific and should not be shared; it reads different files and applies different post-hooks.
 
 ---

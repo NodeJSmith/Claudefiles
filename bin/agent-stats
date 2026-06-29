@@ -36,7 +36,7 @@ Options:
   --impl-only      Comb only: keep just the orchestrate impl-vs-design pass.
   --findings       Print the Blocking section text for each blocking run.
   --since DATE     Only runs modified on/after DATE (YYYY-MM-DD).
-  --projects DIR   Override the projects root (default: $CLAUDE_HOME/projects
+  --projects DIR   Override the projects root (default: $CLAUDE_CONFIG_DIR/projects
                    or ~/.claude/projects).
   --json           Emit machine-readable JSON instead of a table.
 """
@@ -75,7 +75,7 @@ NO_DATA = "—"
 def projects_root(override: str | None) -> Path:
     if override:
         return Path(override).expanduser()
-    home = os.environ.get("CLAUDE_HOME")
+    home = os.environ.get("CLAUDE_CONFIG_DIR")
     base = Path(home).expanduser() if home else Path.home() / ".claude"
     return base / "projects"
 

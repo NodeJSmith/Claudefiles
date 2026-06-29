@@ -27,11 +27,11 @@ Identify what to audit:
 
 Read the REFERENCE.md for each sibling skill. If any file is not found, stop and report the missing path(s) to the user rather than proceeding without reference material.
 
-- `${CLAUDE_HOME:-~/.claude}/skills/cli-harden/REFERENCE.md` — edge-case resilience
-- `${CLAUDE_HOME:-~/.claude}/skills/cli-output/REFERENCE.md` — output design
-- `${CLAUDE_HOME:-~/.claude}/skills/cli-clarify/REFERENCE.md` — message clarity
-- `${CLAUDE_HOME:-~/.claude}/skills/cli-affordances/REFERENCE.md` — discoverability
-- `${CLAUDE_HOME:-~/.claude}/skills/cli-distill/REFERENCE.md` — complexity
+- `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/cli-harden/REFERENCE.md` — edge-case resilience
+- `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/cli-output/REFERENCE.md` — output design
+- `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/cli-clarify/REFERENCE.md` — message clarity
+- `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/cli-affordances/REFERENCE.md` — discoverability
+- `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/cli-distill/REFERENCE.md` — complexity
 
 Evaluate the tool against each dimension. Score each area:
 

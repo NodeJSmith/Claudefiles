@@ -29,7 +29,7 @@ Pass review and design doc as **paths** so the fixer reads them in its own ephem
 
 The fixer prompt must include:
 
-> Read `${CLAUDE_HOME:-~/.claude}/references/common/receiving-code-review.md` and apply its posture — verify each finding against the actual code before acting (verify-before-fix), and do not add abstractions no caller needs (YAGNI). Do not re-run the task, re-capture screenshots, or expand scope beyond findings in the review files provided.
+> Read `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/receiving-code-review.md` and apply its posture — verify each finding against the actual code before acting (verify-before-fix), and do not add abstractions no caller needs (YAGNI). Do not re-run the task, re-capture screenshots, or expand scope beyond findings in the review files provided.
 >
 > **For each finding (CRITICAL, HIGH, MEDIUM, LOW — all severities):**
 > - **Auto-fix** when the correct solution is unambiguous (clear bugs, missing type annotations, style violations, naming drift, orphaned code, undefined references, simple security issues)

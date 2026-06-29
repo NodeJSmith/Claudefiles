@@ -25,7 +25,7 @@ Identify what to review:
 
 ## Phase 2: Assess
 
-Read `${CLAUDE_HOME:-~/.claude}/skills/cli-clarify/REFERENCE.md` for the full set of clarity dimensions. If the file is not found, stop and tell the user: "REFERENCE.md not found — run `uv run install.py` to install the cli-* skills."
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/cli-clarify/REFERENCE.md` for the full set of clarity dimensions. If the file is not found, stop and tell the user: "REFERENCE.md not found — run `uv run install.py` to install the cli-* skills."
 
 Evaluate each user-facing string against those dimensions. For each, note:
 

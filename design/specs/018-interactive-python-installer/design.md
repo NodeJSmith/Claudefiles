@@ -105,7 +105,7 @@ New users cloning Claudefiles get everything installed with zero choice — all 
 1. The installer presents a guided wizard on first run with checkbox selection for skill groups, agent groups, hook groups, and packages
 2. The installer saves user selections to a config file that persists across runs
 3. On subsequent runs, the installer loads saved config and only prompts for groups not present in the config (smart diff operates at group level, not individual item level)
-4. The installer creates symlinks from `~/.claude/` (or `$CLAUDE_HOME`) to repo asset directories, matching the current behavior
+4. The installer creates symlinks from `~/.claude/` (or `$CLAUDE_CONFIG_DIR`) to repo asset directories, matching the current behavior
 5. The installer runs `uv tool install -e` for each selected package
 6. The installer detects and reports shadowed files (non-symlink blocking a symlink target) with interactive replacement prompt
 7. The installer detects and reports stale symlinks (target no longer exists) with interactive removal prompt
@@ -124,7 +124,7 @@ New users cloning Claudefiles get everything installed with zero choice — all 
 4. **Package install fails** — report the error, continue with remaining packages, exit with non-zero status
 5. **No TTY and no saved config** — install everything (all groups selected) but do not save a config file, so the next interactive run still shows the wizard
 6. **User runs old install.sh after switching to install.py** — not our problem (no backward compat), but install.sh could be replaced with a shim that prints "Use `uv run install.py` instead"
-7. **`$CLAUDE_HOME` set to non-default location** — all paths use `$CLAUDE_HOME` with `~/.claude` fallback, matching current behavior
+7. **`$CLAUDE_CONFIG_DIR` set to non-default location** — all paths use `$CLAUDE_CONFIG_DIR` with `~/.claude` fallback, matching current behavior
 
 ## Acceptance Criteria
 
@@ -169,7 +169,7 @@ Invoked as `uv run install.py`. The `uv run --script` mechanism auto-installs de
 ```
 Claudefiles/
 ├── install.py                    # New installer (replaces install.sh)
-├── (config stored at ${CLAUDE_HOME}/.claudefiles-install-config.json)
+├── (config stored at ${CLAUDE_CONFIG_DIR}/.claudefiles-install-config.json)
 ├── skills/                       # Core skills (mine.*, always-available)
 │   ├── mine.build/
 │   ├── mine.challenge/
@@ -199,7 +199,7 @@ Note: `cm-*` skills also move to their own directory (`skills-memory/`) to make 
 
 ### Config file format
 
-`${CLAUDE_HOME:-~/.claude}/.claudefiles-install-config.json` (stored with user runtime, not in the repo — avoids worktree divergence and gitignore pollution):
+`${CLAUDE_CONFIG_DIR:-~/.claude}/.claudefiles-install-config.json` (stored with user runtime, not in the repo — avoids worktree divergence and gitignore pollution):
 
 ```json
 {

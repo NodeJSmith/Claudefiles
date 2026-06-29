@@ -31,7 +31,7 @@ Launch one subagent (`model: sonnet`, `subagent_type: general-purpose`):
 > **Design context file:** <path to design/context.md or equivalent, or "none">
 > **Design doc:** <path to design.md if found, or "none">
 >
-> Read `${CLAUDE_HOME:-~/.claude}/skills/mine-mockup/worker.md` for the complete workflow. Follow every step.
+> Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-mockup/worker.md` for the complete workflow. Follow every step.
 
 The subagent returns the file path of the generated HTML.
 

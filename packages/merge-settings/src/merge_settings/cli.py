@@ -80,34 +80,34 @@ def main() -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\
 Examples:
-  claude-merge-settings              # merge all layers into ~/.claude/settings.json
+  claude-merge-settings              # merge all layers into $CLAUDE_CONFIG_DIR/settings.json
   claude-merge-settings --inspect    # print current permissions/hooks summary
 """,
     )
     parser.add_argument(
         "--inspect",
         action="store_true",
-        help="Read ~/.claude/settings.json and print permissions/hooks summary (no merge)",
+        help="Read $CLAUDE_CONFIG_DIR/settings.json and print permissions/hooks summary (no merge)",
     )
     args, _ = parser.parse_known_args()
 
     home = Path.home()
-    output_file = home / ".claude" / "settings.json"
+    config_dir = Path(os.environ.get("CLAUDE_CONFIG_DIR", str(home / ".claude")))
+    output_file = config_dir / "settings.json"
 
     try:
         if args.inspect:
             return _cmd_inspect(output_file)
-        return _run_merge(home, output_file)
+        return _run_merge(home, config_dir, output_file)
     except ValueError as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 1
 
 
-def _run_merge(home: Path, output_file: Path) -> int:
-    machine_path = home / ".claude" / "settings.machine.json"
-    claudefiles_dir = Path(os.environ.get("CLAUDE_HOME", str(home / "Claudefiles")))
+def _run_merge(home: Path, config_dir: Path, output_file: Path) -> int:
+    machine_path = config_dir / "settings.machine.json"
     layers: list[tuple[str, Path]] = [
-        ("Claudefiles", claudefiles_dir / "settings.json"),
+        ("Claudefiles", home / "Claudefiles" / "settings.json"),
         (
             "Dotfiles",
             Path(
