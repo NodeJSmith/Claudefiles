@@ -596,7 +596,7 @@ def build_db_runs(
     try:
         rows = conn.execute(
             """
-            SELECT r.id, s.slug AS feature, r.base_commit, r.started_at
+            SELECT r.id, s.number, s.slug, r.base_commit, r.started_at
             FROM runs r
             JOIN specs s ON r.spec_id = s.id
             ORDER BY r.started_at
@@ -610,7 +610,7 @@ def build_db_runs(
     pending_total = 0
 
     for row in rows:
-        feature = row["feature"] or ""
+        feature = f"{row['number']:03d}-{row['slug']}" if row["number"] and row["slug"] else ""
         base_commit = row["base_commit"] or ""
         start_ts = row["started_at"] or ""
         if since and start_ts[:10] < since:
