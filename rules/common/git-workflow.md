@@ -63,6 +63,12 @@ Task files must never reach a PR. Git history preserves the full content.
 
 When you need to run tests against the default branch (e.g., to confirm a failure is new), do not stash and switch branches. If the main repo is already on the default branch, run the tests there directly using its path. The main repo is the worktree's parent — find it via `git -C <worktree> worktree list`.
 
+## Changelog Timing
+
+Do not add changelog entries during feature work or at commit time. Changelog entries belong at PR creation, when the full branch diff is known and the entry can describe the shipped change coherently. `mine-create-pr` handles this automatically.
+
+Adding entries mid-feature produces noisy, granular, often-wrong entries that accumulate across multiple commits and don't reflect what actually shipped.
+
 ## Commit Attribution
 
 Attribution disabled globally via ~/.claude/settings.json.

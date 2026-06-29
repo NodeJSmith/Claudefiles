@@ -2,6 +2,13 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-06-29
+
+### Changed
+
+- `mine-commit-push` — removed the CHANGELOG CHECK step; changelog entries now belong at PR creation (`mine-create-pr`), when the full branch diff is known and entries can describe what actually shipped. (#422)
+- `mine-create-pr` — Step 7 now writes the changelog entry (7a) before annotating it with the PR number (7b); previously only annotated existing entries. (#422)
+
 ## 2026-06-28
 
 ### Changed
