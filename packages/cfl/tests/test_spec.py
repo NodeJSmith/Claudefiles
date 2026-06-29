@@ -137,6 +137,50 @@ def test_spec_init_errors_on_existing_directory(tmp_path, monkeypatch, db_conn):
     assert row is None, "spec row should not persist after failed init"
 
 
+def test_spec_init_with_explicit_number(tmp_path, monkeypatch, db_conn, capsys):
+    """spec_init --number creates a spec with the requested number."""
+    init_repo_with_remote(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    spec_init(db_conn, "my-feature", number=42)
+
+    row = db_conn.execute("SELECT number, slug FROM specs").fetchone()
+    assert row["number"] == 42
+    assert row["slug"] == "my-feature"
+    assert (tmp_path / "design" / "specs" / "042-my-feature").is_dir()
+
+    data = json.loads(capsys.readouterr().out)
+    assert data["number"] == 42
+    assert data["dir"] == "design/specs/042-my-feature"
+
+
+def test_spec_init_explicit_number_conflict(tmp_path, monkeypatch, db_conn):
+    """spec_init errors when the explicit number is already taken."""
+    init_repo_with_remote(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    spec_init(db_conn, "first")
+
+    with pytest.raises(SystemExit) as exc_info:
+        spec_init(db_conn, "second", number=1)
+    assert exc_info.value.code == 1
+
+
+def test_spec_init_explicit_number_does_not_affect_auto_increment(
+    tmp_path, monkeypatch, db_conn
+):
+    """Auto-assigned numbers use MAX(number)+1, so a gap after explicit number is fine."""
+    init_repo_with_remote(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    spec_init(db_conn, "early", number=50)
+    spec_init(db_conn, "next-auto")
+
+    rows = db_conn.execute("SELECT number, slug FROM specs ORDER BY number").fetchall()
+    assert rows[0]["number"] == 50
+    assert rows[1]["number"] == 51
+
+
 # ---------------------------------------------------------------------------
 # spec_validate
 # ---------------------------------------------------------------------------

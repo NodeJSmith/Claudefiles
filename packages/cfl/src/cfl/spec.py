@@ -28,7 +28,9 @@ SETTABLE_STATUSES: frozenset[str] = frozenset({"draft", "approved", "abandoned"}
 _TERMINAL_SPEC_STATUSES: frozenset[str] = frozenset({"archived", "abandoned"})
 
 
-def spec_init(conn: sqlite3.Connection, slug: str) -> None:
+def spec_init(
+    conn: sqlite3.Connection, slug: str, *, number: int | None = None
+) -> None:
     """Create a new spec in the DB and on disk.
 
     Single BEGIN IMMEDIATE transaction: query next number → INSERT → COMMIT.
@@ -58,7 +60,27 @@ def spec_init(conn: sqlite3.Connection, slug: str) -> None:
 
     conn.execute("BEGIN IMMEDIATE")
     try:
-        next_num = _next_spec_number(conn, repo_url)
+        if number is not None:
+            if number < 1:
+                conn.execute("ROLLBACK")
+                output_module.emit_error(
+                    f"Spec number must be positive (got {number}).",
+                    code="invalid_number",
+                )
+            existing = conn.execute(
+                "SELECT id FROM specs WHERE repo_url=? AND number=?",
+                (repo_url, number),
+            ).fetchone()
+            if existing is not None:
+                conn.execute("ROLLBACK")
+                output_module.emit_error(
+                    f"Spec {number:03d} already exists in this repo.",
+                    code="number_taken",
+                    hint="Use a different --number or omit to auto-assign.",
+                )
+            next_num = number
+        else:
+            next_num = _next_spec_number(conn, repo_url)
 
         cursor = conn.execute(
             """INSERT INTO specs (number, slug, repo_url, status, created_at)

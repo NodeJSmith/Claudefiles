@@ -64,6 +64,13 @@ def build_parser() -> argparse.ArgumentParser:
         "init", help="Create a new spec in the DB and on disk"
     )
     spec_init_p.add_argument("slug", help="Slug for the new spec (e.g. my-feature)")
+    spec_init_p.add_argument(
+        "--number",
+        type=int,
+        default=None,
+        metavar="NNN",
+        help="Explicit spec number (default: auto-assign next available)",
+    )
 
     spec_sub.add_parser("validate", help="Validate task files against canonical schema")
     spec_sub.add_parser("status", help="Query spec status and run history")
@@ -421,7 +428,7 @@ def _handle_spec(args: argparse.Namespace) -> None:
 
     if spec_cmd == "init":
         with db_connection() as conn:
-            spec_init(conn, args.slug)
+            spec_init(conn, args.slug, number=getattr(args, "number", None))
     elif spec_cmd == "validate":
         with db_connection() as conn:
             spec_validate(conn, spec_override=spec_override)
