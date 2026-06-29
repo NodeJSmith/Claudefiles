@@ -6,7 +6,7 @@ user-invocable: true
 
 # Create PR
 
-Dispatches a subagent to handle the entire PR workflow: platform detection, diff analysis, PR body drafting, task archival, changelog updates, and marking ready.
+Dispatches a subagent to handle the entire PR workflow: platform detection, diff analysis, PR body drafting, task archival, changelog entry + PR-number annotation, and marking ready.
 
 ## Execute
 
