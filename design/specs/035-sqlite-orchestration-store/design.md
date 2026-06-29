@@ -1,7 +1,7 @@
 # Design: cfl — Claudefiles Orchestration Store
 
 **Date:** 2026-06-29
-**Status:** approved
+**Status:** archived
 **Companions:** `cli-design.md` (CLI command reference, JSON output schemas), `db-design-brief.md` (schema DDL, state machines, entity relationships)
 
 ## Problem
