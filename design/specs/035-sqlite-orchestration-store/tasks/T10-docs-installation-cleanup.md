@@ -1,7 +1,7 @@
 ---
 task_id: "T10"
 title: "Update documentation, installation, and remove replaced tools"
-status: "planned"
+status: "done"
 depends_on: ["T01", "T08", "T09"]
 implements: ["FR#1", "FR#27"]
 ---

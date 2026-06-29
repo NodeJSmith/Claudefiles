@@ -3,6 +3,7 @@
     "allow": [
       "Write(//tmp/**)",
       "Edit(//tmp/**)",
+      "Bash(cfl:*)",
       "Bash(get-skill-tmpdir:*)",
       "Bash(get-tmp-filename)",
       "Bash(ruff:*)",

@@ -497,10 +497,10 @@ class TestBundleModel:
         }
 
     def test_base_packages(self, tmp_path: Path) -> None:
-        """Base bundle has spec-helper and merge-settings packages."""
+        """Base bundle has cfl and merge-settings packages."""
         _setup_minimal_repo(tmp_path)
         bundles = install.get_bundles(tmp_path)
-        assert set(bundles["base"].packages) == {"spec-helper", "merge-settings"}
+        assert set(bundles["base"].packages) == {"cfl", "merge-settings"}
 
     def test_no_memory_bundle(self, tmp_path: Path) -> None:
         """Memory is the external ccrecall plugin, not a Claudefiles bundle."""

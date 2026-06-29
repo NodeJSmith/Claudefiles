@@ -35,9 +35,9 @@ Look for error files in `/tmp/claude-claude-errors-*/errors.md` (glob for direct
 
 <!-- Error files are produced by /mine-debug — the skill owns the error-tracking contract and writes to this path at each fix attempt. -->
 
-### Spec Checkpoint (Bash + Read)
+### Spec Run Status (Bash)
 
-Check for task files and checkpoint data:
+Check for task files and run status:
 
 ```bash
 find design/specs -path '*/tasks/T*.md' -print -quit 2>/dev/null
@@ -46,10 +46,10 @@ find design/specs -path '*/tasks/T*.md' -print -quit 2>/dev/null
 If any task files are found, also run:
 
 ```bash
-spec-helper checkpoint-read --auto --json 2>/dev/null
+cfl run status 2>/dev/null
 ```
 
-If either command is not found, exits non-zero, or returns no output, skip this section silently. If checkpoint data is returned, include a summary in the status block.
+If either command is not found, exits non-zero, or returns no output, skip this section silently. If run status is returned, include a summary in the status block.
 
 ## Output Format
 

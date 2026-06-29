@@ -162,6 +162,24 @@ Each worktree gets its own context, isolated from the main working tree.
 
 The result is a consistent development environment that works the same way every session, regardless of which codebase you're in.
 
+## Orchestration State: cfl
+
+`cfl` is the orchestration state management CLI, part of the base bundle. It replaces the older `spec-helper` and `trail-log` tools with a single CLI backed by a durable SQLite database at `~/.local/share/claudefiles/cfl.db` (overridable via `$CFL_DB`).
+
+All orchestration state — spec lifecycle, run management, task status, gate results, subagent dispatches, and audit events — lives in the DB rather than in ephemeral files like `trail.tsv` or `.orchestrate-state.md` that were deleted on archive. This makes pipeline effectiveness data available to query across runs.
+
+Key commands:
+
+```bash
+cfl run status          # current run state: tasks, verdicts, derived fields
+cfl archive             # archive completed spec: removes task files, stamps design.md
+cfl spec status         # spec-level state including active run
+cfl gate                # record a gate evaluation result
+cfl event               # append a free-form event to the audit trail
+```
+
+`mine-orchestrate` calls `cfl` automatically — you rarely need to invoke it directly. The main user-facing commands are `cfl run status` (to check where an orchestration run is) and `cfl archive` (to clean up after shipping).
+
 ## Customizing
 
 **Choosing rule categories** — every rule in `rules/common/` loads into Claude's context each session, so the installer lets you install only the categories you need. A small **Core** set (capabilities routing, interaction style, invariants, agent dispatch, model selection, worktree safety) always installs. Everything else — language conventions, testing discipline, planning rules, and so on — is grouped into opt-out categories: selected by default, but you can drop the ones that don't fit your stack (a Python-only user might skip nothing, a backend-only user might drop frontend rules). Run `uv run install.py --reconfigure` to change the selection. If a rule you keep references one you dropped, the installer warns but installs anyway — the references are pointers, not hard dependencies. See the Rules table in [REFERENCE.md](REFERENCE.md) for the categories and their files.
