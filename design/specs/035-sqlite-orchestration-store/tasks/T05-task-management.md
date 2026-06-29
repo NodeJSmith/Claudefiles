@@ -1,7 +1,7 @@
 ---
 task_id: "T05"
 title: "Implement task management commands"
-status: "planned"
+status: "done"
 depends_on: ["T04"]
 implements: ["FR#15", "FR#16", "FR#17", "AC#16", "AC#17", "AC#21"]
 ---

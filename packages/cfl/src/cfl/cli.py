@@ -1,6 +1,7 @@
 """CLI entry point and argparse configuration for cfl."""
 
 import argparse
+import json
 import os
 import sys
 
@@ -16,6 +17,14 @@ from cfl.spec import (
     spec_set_status,
     spec_status,
     spec_validate,
+)
+from cfl.task import (
+    TASK_UPDATE_TRANSITIONS,
+    VALID_VERDICTS,
+    task_block,
+    task_start,
+    task_update,
+    task_verdict,
 )
 
 
@@ -146,10 +155,64 @@ def build_parser() -> argparse.ArgumentParser:
     # ------------------------------------------------------------------
     task_p = sub.add_parser("task", help="Task lifecycle commands")
     task_sub = task_p.add_subparsers(dest="task_cmd", required=True)
-    task_sub.add_parser("start", help="Mark a task as executing")
-    task_sub.add_parser("update", help="Update task status")
-    task_sub.add_parser("verdict", help="Record the final verdict for a task")
-    task_sub.add_parser("block", help="Set a task to blocked status")
+
+    task_start_p = task_sub.add_parser("start", help="Mark a task as executing")
+    task_start_p.add_argument("task_id", help="Task ID (e.g. T01)")
+
+    task_update_p = task_sub.add_parser(
+        "update", help="Update task status (state machine)"
+    )
+    task_update_p.add_argument("task_id", help="Task ID (e.g. T01)")
+    task_update_p.add_argument(
+        "--status",
+        required=True,
+        choices=sorted(
+            {s for targets in TASK_UPDATE_TRANSITIONS.values() for s in targets}
+        ),
+        dest="status",
+        help="New task status",
+    )
+
+    task_verdict_p = task_sub.add_parser(
+        "verdict", help="Record the final verdict for a task"
+    )
+    task_verdict_p.add_argument("task_id", help="Task ID (e.g. T01)")
+    task_verdict_p.add_argument(
+        "--verdict",
+        required=True,
+        choices=sorted(VALID_VERDICTS),
+        help="Task verdict (BLOCKED uses `cfl task block`)",
+    )
+    task_verdict_p.add_argument(
+        "--detail",
+        default=None,
+        metavar="TEXT",
+        help="Optional human-readable detail (e.g. '3 auto-fixed')",
+    )
+    task_verdict_p.add_argument(
+        "--commit",
+        dest="commit_sha",
+        default=None,
+        metavar="SHA",
+        help="WIP commit SHA or 'no-changes'",
+    )
+    task_verdict_p.add_argument(
+        "--data",
+        default=None,
+        metavar="JSON",
+        help='Per-reviewer breakdown as JSON (e.g. \'{"spec": "PASS", ...}\')',
+    )
+
+    task_block_p = task_sub.add_parser(
+        "block", help="Set a task to blocked status (BLOCKED verdict)"
+    )
+    task_block_p.add_argument("task_id", help="Task ID (e.g. T01)")
+    task_block_p.add_argument(
+        "--reason",
+        default=None,
+        metavar="TEXT",
+        help="Why the task is blocked (architectural block, missing dependency, etc.)",
+    )
 
     # ------------------------------------------------------------------
     # gate (leaf)
@@ -321,7 +384,54 @@ def main() -> None:
                 exit_code=2,
             )
     elif cmd == "task":
-        _not_implemented()
+        task_cmd = args.task_cmd
+        spec_override = getattr(args, "spec", None)
+
+        if task_cmd == "start":
+            with db_connection() as conn:
+                ctx = resolve_context(conn, spec_override=spec_override)
+                task_start(conn, ctx["active_run_id"], args.task_id)
+
+        elif task_cmd == "update":
+            with db_connection() as conn:
+                ctx = resolve_context(conn, spec_override=spec_override)
+                task_update(conn, ctx["active_run_id"], args.task_id, args.status)
+
+        elif task_cmd == "verdict":
+            with db_connection() as conn:
+                ctx = resolve_context(conn, spec_override=spec_override)
+                if args.data:
+                    try:
+                        data = json.loads(args.data)
+                    except json.JSONDecodeError as exc:
+                        output_module.emit_error(
+                            f"--data is not valid JSON: {exc}",
+                            code="invalid_json",
+                            exit_code=2,
+                        )
+                else:
+                    data = None
+                task_verdict(
+                    conn,
+                    ctx["active_run_id"],
+                    args.task_id,
+                    args.verdict,
+                    detail=args.detail,
+                    commit_sha=args.commit_sha,
+                    data=data,
+                )
+
+        elif task_cmd == "block":
+            with db_connection() as conn:
+                ctx = resolve_context(conn, spec_override=spec_override)
+                task_block(conn, ctx["active_run_id"], args.task_id, reason=args.reason)
+
+        else:
+            output_module.emit_error(
+                f"Unknown task subcommand: {task_cmd}",
+                code="usage_error",
+                exit_code=2,
+            )
     elif cmd == "gate":
         _not_implemented()
     elif cmd == "dispatch":
