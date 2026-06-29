@@ -3,7 +3,7 @@ task_id: "T05"
 title: "Implement task management commands"
 status: "planned"
 depends_on: ["T04"]
-implements: ["FR#15", "FR#16", "FR#17", "AC#16", "AC#17"]
+implements: ["FR#15", "FR#16", "FR#17", "AC#16", "AC#17", "AC#21"]
 ---
 
 ## Summary
@@ -33,6 +33,8 @@ Implement 4 commands following `cli-design.md` §cfl task start through §cfl ta
      - `reviewing → fixing`
      - `fixing → reviewing`
      - `executing → blocked` (executor BLOCKED)
+     - `failed → stopped` (user stops at a failed task)
+     - `executing → stopped` (user stops mid-execution)
      - `reviewing → done` (via verdict)
      - `reviewing → failed` (via verdict)
      - `failed → executing` (retry)
@@ -82,3 +84,4 @@ Implement 4 commands following `cli-design.md` §cfl task start through §cfl ta
 - [ ] FR#17: `task_block` sets status to `blocked` with BLOCKED verdict
 - [ ] AC#16: `cfl task update T01 --status reviewing` when T01 is `pending` exits 1 with `invalid_status`
 - [ ] AC#17: `cfl task verdict T01 --verdict PASS --commit abc123 --data '{...}'` atomically creates verdict-assembly gate + `task.verdict` event + updates task to `done`
+- [ ] AC#21: After `cfl task start T01`, events table has a `task.started` row without a separate `cfl event` call

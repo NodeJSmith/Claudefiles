@@ -16,6 +16,7 @@ Implement the auto-resolution chain that every active-run command uses to find t
 - create: `packages/cfl/src/cfl/session.py`
 - create: `packages/cfl/tests/test_resolve.py`
 - create: `packages/cfl/tests/test_session.py`
+- modify: `packages/cfl/src/cfl/cli.py`
 - read: `design/specs/035-sqlite-orchestration-store/cli-design.md`
 - read: `design/specs/035-sqlite-orchestration-store/db-design-brief.md`
 
@@ -38,6 +39,8 @@ Implement the resolution chain from `cli-design.md` §Auto-resolution:
 4. `resolve_context(conn, *, spec_override=None, require_active_run=True)` — convenience wrapper. Calls `resolve_repo_url()`, `resolve_spec()`, optionally `resolve_run()`, then `auto_join_session()`. Returns a context dict with all resolved fields.
 
 Also update `repo_path` on the spec row each invocation: `UPDATE specs SET repo_path=? WHERE id=?` with the current git root path.
+
+**Wire into cli.py:** Replace the stub implementations for `session end` and `session compacted` with calls to `end_session()` and `record_compaction()`. Parse CLI arguments: `cfl session end [--reason <clear|exit>]` and `cfl session compacted [--context-pct <n>]`.
 
 **src/cfl/session.py — Session tracking:**
 
@@ -77,6 +80,6 @@ Also update `repo_path` on the spec row each invocation: `UPDATE specs SET repo_
 
 - [ ] FR#8: In a worktree with one spec's task files, `resolve_context()` auto-resolves to that spec without `--spec`
 - [ ] FR#22: After `auto_join_session()` with `$CLAUDE_CODE_SESSION_ID` set, sessions table has a row for that session
-- [ ] FR#23: `end_session()` sets `ended_at`; `record_compaction()` creates a `session.compacted` event
+- [ ] FR#23: `cfl session end` sets `ended_at` and `context_pct_end`; `cfl session compacted --context-pct 78` creates a `session.compacted` event — both commands work end-to-end through the CLI
 - [ ] AC#8: In a worktree with one spec's task files, `cfl run status` auto-resolves to that spec without `--spec`
 - [ ] AC#22: After any `cfl` active-run command with `$CLAUDE_CODE_SESSION_ID` set, sessions table has a matching row

@@ -3,7 +3,7 @@ task_id: "T06"
 title: "Implement gate, dispatch, and event commands"
 status: "planned"
 depends_on: ["T04"]
-implements: ["FR#18", "FR#19", "FR#20", "FR#21", "FR#25", "AC#18", "AC#19", "AC#20", "AC#21", "AC#24"]
+implements: ["FR#18", "FR#19", "FR#20", "FR#21", "FR#25", "AC#18", "AC#19", "AC#20", "AC#24"]
 ---
 
 ## Summary
@@ -97,5 +97,4 @@ Add a wrapper in `cli.py` that records every `cfl` invocation. After the main co
 - [ ] AC#18: `cfl gate code-review T01 --verdict PASS --data '{"findings": 0}'` creates a gates row with correct `gate_type`, `verdict`, and `data`
 - [ ] AC#19: `cfl dispatch executor T01 --agent-type engineering-frontend-developer` creates a dispatches row with `dispatched_at` set; `cfl dispatch end <id>` sets `completed_at`
 - [ ] AC#20: `cfl event task.contested T01 --data '{...}'` exits 0 even when DB file is read-only
-- [ ] AC#21: After `cfl task start T01`, events table has a `task.started` row without a separate `cfl event` call
 - [ ] AC#24: After `cfl run start`, events table has a `cfl.invoked` row with command and duration_ms

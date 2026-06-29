@@ -104,6 +104,7 @@ The result: orchestration data is either destroyed before it can be queried, or 
 
 - **FR#26** All 17 `trail-log` call sites in SKILL.md and post-execution-pipeline.md are replaced with corresponding `cfl` commands (see cli-design.md §Trail-log → cfl Event Migration for the complete mapping).
 - **FR#27** All `spec-helper` call sites in SKILL.md, mine-plan, mine-define, and git-workflow.md are replaced with `cfl` equivalents (see cli-design.md §spec-helper → cfl Migration for the complete mapping).
+- **FR#28** `bin/orchestrate-cost` and `bin/agent-stats` are migrated to query the cfl SQLite database for runs with DB entries, falling back to JSONL parsing for pre-cfl runs.
 
 ## Acceptance Criteria
 
@@ -131,6 +132,7 @@ The result: orchestration data is either destroyed before it can be queried, or 
 - **AC#22** After any `cfl` active-run command with `$CLAUDE_CODE_SESSION_ID` set, `SELECT * FROM sessions WHERE run_id=? AND session_id=?` returns a row. (FR#22)
 - **AC#23** `cfl set task T03 status=pending started_at=null` updates the task bypassing state machine guards and logs a `set.applied` event with `previous` state. (FR#24)
 - **AC#24** After a `cfl run start`, `SELECT * FROM events WHERE event='cfl.invoked'` contains a row with command, args, and duration_ms. (FR#25)
+- **AC#25** After a run with cfl data, `orchestrate-cost` shows per-role cost breakdown from the `dispatches` table; `agent-stats` shows verdict distribution from the `gates` table. Both fall back to JSONL for pre-cfl runs. (FR#28)
 
 ## Edge Cases
 
@@ -290,7 +292,7 @@ No tests to adapt. `cfl` is a new package. `packages/spec-helper/tests/` tests t
 - **FR#2, FR#3**: `test_db.py` — schema creation, migration application, version tracking.
 - **FR#4**: `test_db.py` — journal mode fallback on `/mnt/` paths (mock `os.path.realpath`).
 - **FR#5**: `test_db.py` — concurrent writes from two connections without SQLITE_BUSY.
-- **FR#6, FR#7**: `test_cli.py` — JSON output format, `_v` field, `--text` flag, exit codes.
+- **FR#6, FR#7**: `test_output.py` — JSON output format, `_v` field, `--text` flag, exit codes, error formatting.
 - **FR#8**: `test_resolve.py` — auto-resolution from git remote + disk globs + DB state.
 - **FR#9, FR#10**: `test_spec.py` — spec init (DB + disk), validate (valid/invalid frontmatter), next-number.
 - **FR#11**: `test_archive.py` — archive workflow end-to-end (git rm, design.md stamp, DB updates).

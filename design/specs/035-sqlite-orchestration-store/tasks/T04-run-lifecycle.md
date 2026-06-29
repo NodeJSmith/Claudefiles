@@ -29,6 +29,7 @@ Implement 5 commands following `cli-design.md` §cfl run start through §cfl run
    - Guard: error `run_already_active` if `specs.active_run_id IS NOT NULL`
    - Discover tasks: glob `<feature_dir>/tasks/T*.md`, parse YAML frontmatter for `task_id` and `title`. Sort by task_id naturally. Error `no_tasks` if none found or frontmatter missing.
    - `base_commit` defaults to `git rev-parse HEAD`.
+   - The `run_already_active` error hint should distinguish between a reachable run ("Resume with `/mine-orchestrate`, or `cfl run stop` first.") and a stale/crashed run ("Run N has status 'running' but no events since <timestamp>. Force-stop with `cfl set run N status=stopped`, then resume."). Check for staleness: `SELECT MAX(created_at) FROM events WHERE run_id=?` against a 4-hour threshold.
    - INSERT into `runs` with `status='running'`, `started_at=datetime('now')`.
    - INSERT into `tasks` for each discovered task with `status='pending'`.
    - UPDATE `specs` SET `active_run_id=<new_run_id>`, `status='in_progress'`.

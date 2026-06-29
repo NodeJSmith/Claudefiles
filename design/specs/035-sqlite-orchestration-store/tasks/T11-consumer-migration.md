@@ -3,7 +3,7 @@ task_id: "T11"
 title: "Migrate orchestrate-cost and agent-stats to SQL queries"
 status: "planned"
 depends_on: ["T06"]
-implements: ["FR#19"]
+implements: ["FR#28", "AC#25"]
 ---
 
 ## Summary
@@ -59,16 +59,16 @@ Read the full file (~424 lines). The tool currently:
 2. Classifies verdicts from summary text
 3. Counts compactions from session events
 
-Replace with SQL queries:
+Replace with SQL queries against the `gates` and `dispatches` tables. Note: the `dispatches` table has NO `verdict` column — verdicts live on `gates` and `tasks`. Query gate verdicts for reviewer effectiveness:
 
 ```sql
--- Verdict distribution by role
-SELECT d.role, d.verdict, COUNT(*) as count
-FROM dispatches d
-WHERE d.verdict IS NOT NULL
-GROUP BY d.role, d.verdict;
+-- Verdict distribution by gate type
+SELECT g.gate_type, g.verdict, COUNT(*) as count
+FROM gates g
+WHERE g.run_id IN (SELECT id FROM runs WHERE spec_id = ?)
+GROUP BY g.gate_type, g.verdict;
 
--- Compaction rate by role
+-- Compaction rate by role (from dispatches — compactions column exists here)
 SELECT d.role, AVG(d.compactions) as avg_compactions
 FROM dispatches d
 WHERE d.compactions IS NOT NULL
@@ -92,4 +92,5 @@ Same approach: keep CLI interface, become SQL wrapper, fall back to JSONL for pr
 
 ## Verify
 
-- [ ] FR#19: `orchestrate-cost` and `agent-stats` query the cfl database for runs that have DB entries, showing correct role/verdict/cost data from the dispatches table
+- [ ] FR#28: `orchestrate-cost` and `agent-stats` query the cfl database for runs with DB entries; both fall back to JSONL for pre-cfl runs
+- [ ] AC#25: `orchestrate-cost` shows per-role cost breakdown from `dispatches`; `agent-stats` shows verdict distribution from `gates` — both produce correct output for a cfl-managed run

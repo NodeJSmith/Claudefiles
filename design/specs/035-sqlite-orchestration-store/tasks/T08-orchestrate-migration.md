@@ -80,6 +80,7 @@ Replace every `trail-log` and `spec-helper` call in the mine-orchestrate skill f
 
 ### wip-commit-protocol.md:
 
+- Line ~45: `spec-helper` reference in the comment about running checkpoint commands after WIP commit → update to reference `cfl` commands instead
 - Line ~50: `spec-helper checkpoint-update ... --last-completed-wp <task_id> --json` → REMOVE (last_completed is derived from task statuses)
 - Line ~56: `spec-helper checkpoint-verdict ... --wp-id <task_id> --verdict ... --commit ... --notes "..." --json` → `cfl task verdict <task_id> --verdict <v> --commit <sha> --detail "..."`
 
