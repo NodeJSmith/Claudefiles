@@ -70,7 +70,8 @@ Implement 5 commands following `cli-design.md` §cfl run start through §cfl run
 
 `test_run.py`:
 - Test `run_start` creates runs row + N tasks rows + sets active_run_id.
-- Test `run_start` errors on existing active_run_id.
+- Test `run_start` errors on existing active_run_id with `run_already_active` code.
+- Test `run_start` detects stale run (no events for >4 hours) and returns `run_stale` error code with hint to use `cfl set`.
 - Test `run_start` errors when no task files found.
 - Test `run_start` discovers and sorts tasks naturally (T01, T02, T10 not T01, T10, T02).
 - Test `run_status` returns correct `last_completed`, `current_task`, `needs_intervention`.

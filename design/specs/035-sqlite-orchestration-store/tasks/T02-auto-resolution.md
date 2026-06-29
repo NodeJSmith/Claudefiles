@@ -3,7 +3,7 @@ task_id: "T02"
 title: "Implement auto-resolution and session tracking"
 status: "planned"
 depends_on: ["T01"]
-implements: ["FR#8", "FR#22", "FR#23", "AC#8", "AC#22"]
+implements: ["FR#8", "FR#22", "FR#23", "AC#8", "AC#22", "AC#26"]
 ---
 
 ## Summary
@@ -83,3 +83,4 @@ Also update `repo_path` on the spec row each invocation: `UPDATE specs SET repo_
 - [ ] FR#23: `cfl session end` sets `ended_at` and `context_pct_end`; `cfl session compacted --context-pct 78` creates a `session.compacted` event — both commands work end-to-end through the CLI
 - [ ] AC#8: In a worktree with one spec's task files, `cfl run status` auto-resolves to that spec without `--spec`
 - [ ] AC#22: After any `cfl` active-run command with `$CLAUDE_CODE_SESSION_ID` set, sessions table has a matching row
+- [ ] AC#26: `cfl session end` sets `ended_at` and `context_pct_end`; `cfl session compacted --context-pct 78` creates `session.compacted` event with `context_pct_before=78`

@@ -8,7 +8,7 @@ implements: ["FR#28", "AC#25"]
 
 ## Summary
 
-Rewrite `bin/orchestrate-cost` and `bin/agent-stats` to query the cfl SQLite database instead of parsing JSONL session transcripts. Both tools keep their existing CLI interface and output format — only the data source changes. JSONL parsing code (~900 combined lines) is replaced by SQL queries.
+Rewrite `bin/orchestrate-cost` and `bin/agent-stats` to query the cfl SQLite database instead of parsing JSONL session transcripts. Both tools keep their existing CLI interface and output format — only the data source changes. JSONL parsing code (~1,200 combined lines across both tools) is replaced by SQL queries.
 
 ## Target Files
 

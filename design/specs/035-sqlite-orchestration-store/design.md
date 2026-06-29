@@ -133,6 +133,7 @@ The result: orchestration data is either destroyed before it can be queried, or 
 - **AC#23** `cfl set task T03 status=pending started_at=null` updates the task bypassing state machine guards and logs a `set.applied` event with `previous` state. (FR#24)
 - **AC#24** After a `cfl run start`, `SELECT * FROM events WHERE event='cfl.invoked'` contains a row with command, args, and duration_ms. (FR#25)
 - **AC#25** After a run with cfl data, `orchestrate-cost` shows per-role cost breakdown from the `dispatches` table; `agent-stats` shows verdict distribution from the `gates` table. Both fall back to JSONL for pre-cfl runs. (FR#28)
+- **AC#26** `cfl session end` sets `ended_at` and `context_pct_end` on the session row. `cfl session compacted --context-pct 78` creates a `session.compacted` event with `context_pct_before=78`. (FR#23)
 
 ## Edge Cases
 
@@ -143,7 +144,7 @@ The result: orchestration data is either destroyed before it can be queried, or 
 - **cfl event failure**: DB errors during event writes produce stderr warning but exit 0. Event data may be lost but the orchestration run continues.
 - **No git remote**: Repos without a remote fall back to a hash of the root commit SHA for `specs.repo_url`.
 - **No $CLAUDE_CODE_SESSION_ID**: Session auto-join is a no-op. Context % capture is NULL. Commands that don't need session context still work.
-- **Stale active_run_id**: `specs.active_run_id` points to a run that crashed. `cfl run start` rejects with `run_already_active` and hints to use `cfl set` to clear it.
+- **Stale active_run_id**: `specs.active_run_id` points to a run that crashed (status='running', no events for >4 hours). `cfl run start` detects the staleness and rejects with `run_stale` error code, hinting to force-stop with `cfl set run <id> status=stopped` then resume.
 
 ## Key Constraints
 
