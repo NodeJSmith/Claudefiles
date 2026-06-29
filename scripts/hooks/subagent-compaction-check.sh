@@ -22,7 +22,7 @@
 #     "matcher": "Agent",
 #     "hooks": [{
 #       "type": "command",
-#       "command": "bash -c 'f=\"${CLAUDE_HOME:-$HOME/.claude}/scripts/hooks/subagent-compaction-check.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
+#       "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/subagent-compaction-check.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
 #       "timeout": 5000
 #     }]
 #   }]

@@ -6,6 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Changed
 
+- `CLAUDE_HOME` environment variable renamed to `CLAUDE_CONFIG_DIR` across the entire repo — update any machine-local overrides. (#423)
 - `mine-commit-push` — removed the CHANGELOG CHECK step; changelog entries now belong at PR creation (`mine-create-pr`), when the full branch diff is known and entries can describe what actually shipped. (#422)
 - `mine-create-pr` — Step 7 now writes the changelog entry (7a) before annotating it with the PR number (7b); previously only annotated existing entries. (#422)
 
@@ -163,7 +164,7 @@ All notable changes to this Claudefiles repository are documented here.
 ### Fixed
 
 - Impeccable font contradiction — `typography.md` recommended Outfit/DM Sans/Lora, all banned by `i-frontend-design`'s reflex list; replaced with a pointer to the selection procedure (#368)
-- Hardcoded `~/.claude` paths in 18 skill files replaced with `${CLAUDE_HOME:-~/.claude}` (#368)
+- Hardcoded `~/.claude` paths in 18 skill files replaced with `${CLAUDE_CONFIG_DIR:-~/.claude}` (#368)
 - `testing-reality-checker` agent missing its `tools:` frontmatter (#368)
 - `engineering-sre` communication tips mis-filed under "Anti-Patterns — Never Do These" (#368)
 

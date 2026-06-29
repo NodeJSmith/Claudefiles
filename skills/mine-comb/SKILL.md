@@ -49,11 +49,11 @@ Agent:
     the reference — if a reference was given>.
 ```
 
-The agent classifies findings and returns a `## Summary` line plus grouped findings. (See `${CLAUDE_HOME:-~/.claude}/agents/fine-toothed-comb.md`.)
+The agent classifies findings and returns a `## Summary` line plus grouped findings. (See `${CLAUDE_CONFIG_DIR:-~/.claude}/agents/fine-toothed-comb.md`.)
 
 ## Phase 3: Comb gate
 
-Read `${CLAUDE_HOME:-~/.claude}/skills/mine-comb/comb-gate.md` and apply it with:
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply it with:
 
 - **`<header>`**: `Comb`
 - **`minor_blocks`**: `true` — the user invoked this to make a call on what it finds, so surface minor findings too

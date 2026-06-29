@@ -9,12 +9,12 @@ disabled_rules = [
   "CC-SK-006",
 
   # CC-HK-008: Hook scripts live in scripts/hooks/ and are symlinked into
-  #            ~/.claude/ at install time. CI checks out the repo without
+  #            $CLAUDE_CONFIG_DIR at install time. CI checks out the repo without
   #            running install.sh, so the resolved paths don't exist there.
   "CC-HK-008",
 
   # AS-013: references/common/*.md paths are intentionally two levels deep,
   #         mirroring the rules/common/ convention. Skills reference these
-  #         files by their installed path under ${CLAUDE_HOME}/references/.
+  #         files by their installed path under ${CLAUDE_CONFIG_DIR}/references/.
   "AS-013",
 ]

@@ -6,7 +6,7 @@ user-invocable: true
 
 ## MANDATORY PREPARATION
 
-Read `${CLAUDE_HOME:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles and anti-patterns. Check for design context (`design/context.md`, `.impeccable.md`, or `design/direction.md`) — if found, use it to inform brand-specific judgments. If no context exists, **proceed anyway** but note: "No design context found — critique uses universal design principles only. Run `/i-teach-impeccable` to establish brand context." Additionally gather: what the interface is trying to accomplish.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/i-frontend-design/SKILL.md` for design principles and anti-patterns. Check for design context (`design/context.md`, `.impeccable.md`, or `design/direction.md`) — if found, use it to inform brand-specific judgments. If no context exists, **proceed anyway** but note: "No design context found — critique uses universal design principles only. Run `/i-teach-impeccable` to establish brand context." Additionally gather: what the interface is trying to accomplish.
 
 Critiques are read-only diagnostics — they should never be blocked by missing context.
 

@@ -34,7 +34,7 @@ DO use Read, Grep, Glob, `git log`/`git diff`. Use WebSearch to cite canonical p
 
 Every finding gets: **severity** (CRITICAL / HIGH / MEDIUM / TENSION), **type** (Structural / Approach-now / Approach-later / Fragility / Gap), **design-level** (Yes / No), **resolution** (Auto-apply / User-directed).
 
-See `${CLAUDE_HOME:-~/.claude}/skills/mine-challenge/findings-protocol.md` for classification criteria, status/overflow fields, and the inline resolution flow.
+See `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md` for classification criteria, status/overflow fields, and the inline resolution flow.
 
 ## Phase 1: Triage
 
@@ -136,9 +136,9 @@ AskUserQuestion:
 
 ### Read selected persona files
 
-For each persona filename from triage, resolve to the full path by searching `${CLAUDE_HOME:-~/.claude}/skills/mine-challenge/personas/generic/` then `personas/specialist/`. Verify each file has `name` and `type` in frontmatter and a non-empty body. Record validation issues to `<tmpdir>/validation-warnings.md` and exclude invalid files.
+For each persona filename from triage, resolve to the full path by searching `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/personas/generic/` then `personas/specialist/`. Verify each file has `name` and `type` in frontmatter and a non-empty body. Record validation issues to `<tmpdir>/validation-warnings.md` and exclude invalid files.
 
-If the generic persona directory is missing or empty, stop with: "Cannot launch critics — persona files not found at `${CLAUDE_HOME:-~/.claude}/skills/mine-challenge/personas/generic/`. Run `uv run install.py`."
+If the generic persona directory is missing or empty, stop with: "Cannot launch critics — persona files not found at `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/personas/generic/`. Run `uv run install.py`."
 
 ### Dispatch critics in parallel
 
@@ -197,7 +197,7 @@ The synthesis subagent receives:
 7. **Write recommendation** for each User-directed finding (which option and why). For TENSION: write deciding-factor instead.
 8. **Validity assessment**: assess whether each finding holds up. Findings are valid by default — to flag one as likely invalid, you must provide concrete evidence: what the finding claims, what the code actually does, and why they conflict. Read the relevant code to verify claims. If you cannot articulate the evidence trail, the finding stays in the main list. Move likely-invalid findings to the `## Likely Invalid` section per the findings protocol; renumber the remaining findings to stay contiguous (no gaps in the `## Finding N:` sequence).
 
-**Write findings file** to the output path using `Format-version: 3` header. Include `**Likely-invalid:** N` in the header block (even when 0). Format per `${CLAUDE_HOME:-~/.claude}/skills/mine-challenge/findings-protocol.md`.
+**Write findings file** to the output path using `Format-version: 3` header. Include `**Likely-invalid:** N` in the header block (even when 0). Format per `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`.
 
 **After synthesis subagent completes:** Verify the findings file exists at the output path. If missing (subagent returned text instead of writing), extract findings from the returned text: if it starts with `# Challenge Findings` and contains `**Format-version:**` write as-is (verify `**Likely-invalid:**` line is present; inject `**Likely-invalid:** 0` after the `**Format-version:**` line if missing); if it contains `## Finding` headings inject the header block (including `**Likely-invalid:** 0`) then write; otherwise stop with "Error: synthesis subagent did not produce findings in a writable format — re-run `/mine-challenge`."
 
@@ -211,7 +211,7 @@ Read the findings file. Announce: "Specialists selected: [names from triage]" an
 
 **If standalone mode** (direct user invocation, mine-grill caller):
 
-Read and follow the Inline Resolution Flow in `${CLAUDE_HOME:-~/.claude}/skills/mine-challenge/findings-protocol.md` exactly. After all findings are processed, report: "Applied N findings. M skipped. K overflow (use `--verbose` to see all). L flagged as likely invalid." List critic report paths and findings file path.
+Read and follow the Inline Resolution Flow in `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md` exactly. After all findings are processed, report: "Applied N findings. M skipped. K overflow (use `--verbose` to see all). L flagged as likely invalid." List critic report paths and findings file path.
 
 If `--verbose`: also present overflow findings (status: overflow) after the main flow, labeled as "Additional findings (beyond cap)".
 
@@ -226,7 +226,7 @@ If `--verbose`: also present overflow findings (status: overflow) after the main
 
 ## Known Callers
 
-Structured callers (pass `--findings-out`, read findings file per `${CLAUDE_HOME:-~/.claude}/skills/mine-challenge/caller-protocol.md`):
+Structured callers (pass `--findings-out`, read findings file per `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/caller-protocol.md`):
 - `skills/mine-define/SKILL.md`
 
 Passthrough callers (pass `--mode=passthrough`):
@@ -247,4 +247,4 @@ Inline-revision callers (invoke challenge, read findings in-context, revise own 
 Detection callers (scan for severity labels, don't read findings file):
 - `skills/mine-build/SKILL.md`
 
-To find all callers: `grep -r 'CHALLENGE-CALLER' ${CLAUDE_HOME:-~/.claude}/skills/ ${CLAUDE_HOME:-~/.claude}/skills-impeccable/ --include='*.md' -l`
+To find all callers: `grep -r 'CHALLENGE-CALLER' ${CLAUDE_CONFIG_DIR:-~/.claude}/skills/ ${CLAUDE_CONFIG_DIR:-~/.claude}/skills-impeccable/ --include='*.md' -l`

@@ -71,4 +71,4 @@ Adding entries mid-feature produces noisy, granular, often-wrong entries that ac
 
 ## Commit Attribution
 
-Attribution disabled globally via ~/.claude/settings.json.
+Attribution disabled globally via `$CLAUDE_CONFIG_DIR/settings.json`.

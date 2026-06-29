@@ -10,7 +10,7 @@ Fix prose that reads as AI-generated. This skill edits text that already exists 
 
 Agents default to generating text that reads as generated. The tells are structural (negative parallelisms, tricolon lists, resolution closers) and lexical (delve, tapestry, crucial). Readers develop an instinct for it and discount the text even when the content is correct.
 
-The pattern reference is `${CLAUDE_HOME:-~/.claude}/references/common/writing-quality.md`. Read it in full before starting any analysis.
+The pattern reference is `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/writing-quality.md`. Read it in full before starting any analysis.
 
 ## Arguments
 

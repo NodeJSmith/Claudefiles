@@ -48,7 +48,7 @@ All four files (`caller-protocol.md` + three caller SKILL.md updates) MUST ship 
 
 **Location rationale**: Commit `a5026f0` moved `findings-protocol.md` OUT of `rules/common/` because auto-loading added ~144KB per challenge run. `caller-protocol.md` MUST NOT go into `rules/common/` — it stays in `skills/mine.challenge/` and is loaded on-demand via explicit `Read`.
 
-Callers reference it via `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md`. Each caller's SKILL.md MUST include an explicit `Read` instruction: "Read `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md` before proceeding with the manifest flow." This prevents LLMs from following remembered protocol instead of the live file.
+Callers reference it via `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine.challenge/caller-protocol.md`. Each caller's SKILL.md MUST include an explicit `Read` instruction: "Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine.challenge/caller-protocol.md` before proceeding with the manifest flow." This prevents LLMs from following remembered protocol instead of the live file.
 
 ### Unified caller flow
 
@@ -210,7 +210,7 @@ Delete `<!-- SYNC: -->` markers from:
 - `skills/mine.specify/SKILL.md:343`
 - `skills/mine.design/SKILL.md:287`
 
-Replace the bundled gate section in each caller with an explicit `Read` instruction and delegation: "Read `${CLAUDE_HOME:-~/.claude}/skills/mine.challenge/caller-protocol.md`, then follow the manifest flow defined there."
+Replace the bundled gate section in each caller with an explicit `Read` instruction and delegation: "Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine.challenge/caller-protocol.md`, then follow the manifest flow defined there."
 
 Content that remains inline per caller (irreducibly specific):
 - **mine.specify**: spec-vs-design routing heuristic, deferred findings persistence to design.md stub, 12-item re-validation

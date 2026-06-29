@@ -68,13 +68,13 @@ ccrecall --json search --query "<tool>" --max-results 10
 ```bash
 # Step 2: Search session JSONL files for bash commands involving the tool
 # Filter for Bash tool_use entries (not hook_progress records which also have "command")
-grep -rh "<tool>" ~/.claude/projects/*/*.jsonl 2>/dev/null | grep '"name":"Bash"' | grep -o '"command":"[^"]*"' | head -40
+grep -rh "<tool>" ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/*/*.jsonl 2>/dev/null | grep '"name":"Bash"' | grep -o '"command":"[^"]*"' | head -40
 ```
 
 For deeper extraction from a specific session (UUID from Step 1; the glob resolves the project slug):
 ```bash
 # Step 3: Extract bash commands from a specific session
-grep '"name":"Bash"' ~/.claude/projects/*/<session-uuid>.jsonl 2>/dev/null | grep -o '"command":"[^"]*"' | head -40
+grep '"name":"Bash"' ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/*/<session-uuid>.jsonl 2>/dev/null | grep -o '"command":"[^"]*"' | head -40
 ```
 
 Collect the raw command lines that involve the tool. Look for signal patterns.
@@ -85,7 +85,7 @@ Search session JSONL files directly for signal patterns. If the user selected a 
 
 ```bash
 # Find session files modified within the date range (e.g., -90 for 90 days)
-find ~/.claude/projects -name "*.jsonl" -not -path "*/subagents/*" -mtime -90 2>/dev/null > /tmp/claude-sessions-list.txt
+find ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects -name "*.jsonl" -not -path "*/subagents/*" -mtime -90 2>/dev/null > /tmp/claude-sessions-list.txt
 ```
 
 Then search those files for signal patterns:
@@ -120,7 +120,7 @@ Run in parallel with or after the archaeology phase:
 
 ```bash
 # Scan debug logs for for-loop artifacts and batched tool calls
-ls -t ~/.claude/debug/*.txt 2>/dev/null | head -20 | xargs grep -h "ruleContent" 2>/dev/null | grep -oP '"ruleContent": "\K[^"]+' | sort | uniq -c | sort -rn | head -40
+ls -t ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/debug/*.txt 2>/dev/null | head -20 | xargs grep -h "ruleContent" 2>/dev/null | grep -oP '"ruleContent": "\K[^"]+' | sort | uniq -c | sort -rn | head -40
 ```
 
 ### Classify permission findings as tool gaps only if:

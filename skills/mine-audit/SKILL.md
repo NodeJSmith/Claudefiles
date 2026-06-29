@@ -93,9 +93,9 @@ Rank findings by **impact** — how much this problem is likely to cause bugs, s
 
 ### Validity assessment
 
-Apply the Validity Assessment protocol from `${CLAUDE_HOME:-~/.claude}/skills/mine-challenge/findings-protocol.md`: findings are valid by default; flagging one as likely invalid requires a concrete evidence trail (claim vs. what the code actually does). Read the relevant source files directly to verify claims — do not rely solely on the per-directory summaries.
+Apply the Validity Assessment protocol from `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`: findings are valid by default; flagging one as likely invalid requires a concrete evidence trail (claim vs. what the code actually does). Read the relevant source files directly to verify claims — do not rely solely on the per-directory summaries.
 
-Likely-invalid findings are excluded from the narrative summary and placed in the `## Likely Invalid` section of the findings file per `${CLAUDE_HOME:-~/.claude}/skills/mine-challenge/findings-protocol.md`. Always include the `**Likely-invalid:** N` count in the findings file header and in the narrative summary.
+Likely-invalid findings are excluded from the narrative summary and placed in the `## Likely Invalid` section of the findings file per `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`. Always include the `**Likely-invalid:** N` count in the findings file header and in the narrative summary.
 
 ## Phase 3: Present the Report
 
@@ -161,7 +161,7 @@ The `(1/1)` in `Raised-by` is the single-source convention for non-critic-panel 
 
 ### Step 3: Follow findings protocol
 
-Follow `${CLAUDE_HOME:-~/.claude}/skills/mine-challenge/findings-protocol.md` for the findings file format and status field definitions.
+Follow `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md` for the findings file format and status field definitions.
 
 Audit findings use the User-directed model with explicit option letters (A/B/C). Present each finding one at a time via AskUserQuestion:
 - **`A`** (or `fix`) — invoke `/mine-build` with the finding's description as the argument. For structural/architectural problems, `/mine-build` will assess complexity and route to direct implementation or the full caliper workflow.

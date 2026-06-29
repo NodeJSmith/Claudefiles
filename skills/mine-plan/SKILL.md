@@ -16,7 +16,7 @@ $ARGUMENTS — path to a `design.md` or the feature directory (`design/specs/NNN
 
 ## Branch staleness pre-flight
 
-Task files encode literal file paths and pointers. If the branch is behind the default branch — e.g. a docs rewrite moved files since you branched — the task files get authored against stale paths, and the error only surfaces during orchestrate, forcing a rewrite of every affected task file. Catch it before generating: read `${CLAUDE_HOME:-~/.claude}/references/common/staleness-preflight.md` and follow it in **gate** mode, with this stakes sentence: "Task files generated now will reference paths from stale code."
+Task files encode literal file paths and pointers. If the branch is behind the default branch — e.g. a docs rewrite moved files since you branched — the task files get authored against stale paths, and the error only surfaces during orchestrate, forcing a rewrite of every affected task file. Catch it before generating: read `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/staleness-preflight.md` and follow it in **gate** mode, with this stakes sentence: "Task files generated now will reference paths from stale code."
 
 ---
 
@@ -272,7 +272,7 @@ After writing all task files and context.md, dispatch a validation subagent with
 
 ### Dispatch the validator
 
-Read `${CLAUDE_HOME:-~/.claude}/skills/mine-plan/validator-prompt.md` to get the validator instructions.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-plan/validator-prompt.md` to get the validator instructions.
 
 Launch a `general-purpose` subagent with `model: sonnet`. Pass this prompt (fill in the bracketed values):
 
@@ -354,7 +354,7 @@ If git operations fail (not a repo, nothing to commit), note it and continue.
 
 Run `get-skill-tmpdir mine-plan` and use `<dir>/review.md` for the review output.
 
-Read `${CLAUDE_HOME:-~/.claude}/skills/mine-plan/reviewer-prompt.md` to get the checklist content.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-plan/reviewer-prompt.md` to get the checklist content.
 
 Launch a general-purpose subagent with `model: sonnet`. Pass this prompt (fill in the bracketed values from the files you read):
 
@@ -394,7 +394,7 @@ Read the temp file. Format the results clearly:
 
 The task files are now the plan's output. Comb the design doc and the task files **together** one last time — an open-ended pass, no checklist, no rubric. This is distinct from the Phase 3.5 traceability gate and the Phase 5 review checklist: it catches the design and tasks reading as inconsistent, inaccurate, or thin once taken in as a whole (a task that drifted from the design's intent, a design decision no task honors, terminology that diverged between the two).
 
-Dispatch the `fine-toothed-comb` agent (see `${CLAUDE_HOME:-~/.claude}/agents/fine-toothed-comb.md`):
+Dispatch the `fine-toothed-comb` agent (see `${CLAUDE_CONFIG_DIR:-~/.claude}/agents/fine-toothed-comb.md`):
 
 ```
 Agent:
@@ -411,7 +411,7 @@ Agent:
 
 ### Comb gate
 
-Read `${CLAUDE_HOME:-~/.claude}/skills/mine-comb/comb-gate.md` and apply it with:
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply it with:
 
 - **`<header>`**: `Plan comb`
 - **`minor_blocks`**: `true`

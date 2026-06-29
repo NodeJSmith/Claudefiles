@@ -18,14 +18,14 @@ If no design context was provided (or the path is "none"), use the default aesth
 
 Read the appropriate reference material **before** generating. Don't skip this.
 
-- For text-heavy architecture overviews (card content matters more than topology): read `${CLAUDE_HOME:-~/.claude}/skills/mine-mockup/templates/architecture.html`
-- For flowcharts, sequence diagrams, ER, state machines, mind maps, class diagrams, C4: read `${CLAUDE_HOME:-~/.claude}/skills/mine-mockup/templates/mermaid-flowchart.html`
-- For data tables, comparisons, audits, feature matrices: read `${CLAUDE_HOME:-~/.claude}/skills/mine-mockup/templates/data-table.html`
-- For prose-heavy publishable pages (READMEs, articles, blog posts, essays): read the "Prose Page Elements" section in `${CLAUDE_HOME:-~/.claude}/skills/mine-mockup/references/css-patterns.md` and "Typography by Content Voice" in `${CLAUDE_HOME:-~/.claude}/skills/mine-mockup/references/libraries.md`
+- For text-heavy architecture overviews (card content matters more than topology): read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-mockup/templates/architecture.html`
+- For flowcharts, sequence diagrams, ER, state machines, mind maps, class diagrams, C4: read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-mockup/templates/mermaid-flowchart.html`
+- For data tables, comparisons, audits, feature matrices: read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-mockup/templates/data-table.html`
+- For prose-heavy publishable pages (READMEs, articles, blog posts, essays): read the "Prose Page Elements" section in `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-mockup/references/css-patterns.md` and "Typography by Content Voice" in `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-mockup/references/libraries.md`
 
-**For CSS/layout patterns and SVG connectors**, read `${CLAUDE_HOME:-~/.claude}/skills/mine-mockup/references/css-patterns.md`.
+**For CSS/layout patterns and SVG connectors**, read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-mockup/references/css-patterns.md`.
 
-**For pages with 4+ sections** (reviews, recaps, dashboards), also read `${CLAUDE_HOME:-~/.claude}/skills/mine-mockup/references/responsive-nav.md` for section navigation.
+**For pages with 4+ sections** (reviews, recaps, dashboards), also read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-mockup/references/responsive-nav.md` for section navigation.
 
 ## Step 3: Choose Rendering Approach
 
@@ -45,7 +45,7 @@ Read the appropriate reference material **before** generating. Don't skip this.
 | Timeline | CSS (central line + cards) | Simple linear layout |
 | Dashboard | CSS Grid + Chart.js | Card grid with embedded charts |
 
-**Mermaid rules** (theming, `elk` layout, scaling, direction, label breaks, `.node` CSS class-collision) live in `${CLAUDE_HOME:-~/.claude}/skills/mine-mockup/references/libraries.md`. Two non-negotiables:
+**Mermaid rules** (theming, `elk` layout, scaling, direction, label breaks, `.node` CSS class-collision) live in `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-mockup/references/libraries.md`. Two non-negotiables:
 
 - **Never use bare `<pre class="mermaid">`.** Copy the full `diagram-shell` pattern from `templates/mermaid-flowchart.html` wholesale (HTML structure + CSS + zoom/pan/fit JS). Give every `.mermaid-wrap` zoom controls plus click-to-expand.
 - For 15+ elements, use the hybrid pattern (simple Mermaid overview + CSS Grid cards).

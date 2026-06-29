@@ -178,7 +178,7 @@ These are removed/migrated, not left alongside the new flow.
 ```markdown
 ### Step 10: WARN fix loop (if spec reviewer returned WARN)
 
-Read `${CLAUDE_HOME:-~/.claude}/skills/mine-orchestrate/warn-fix-loop.md` and follow it.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/warn-fix-loop.md` and follow it.
 ```
 
 ### Pattern: a self-contained loop supporting file (model for findings-fix-loop.md)

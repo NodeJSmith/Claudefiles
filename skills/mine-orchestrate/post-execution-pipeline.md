@@ -204,7 +204,7 @@ This is the last content review before shipping. Unlike impl-review's structured
 
 **Compaction tip.** This is the most context-heavy subagent in the pipeline. Feed the branch diff, not full file contents — instruct the subagent to run the diff itself (keeps the diff out of the orchestrator's context). For very large diffs, chunk by file group and reconcile.
 
-Dispatch the `fine-toothed-comb` agent (see `${CLAUDE_HOME:-~/.claude}/agents/fine-toothed-comb.md`):
+Dispatch the `fine-toothed-comb` agent (see `${CLAUDE_CONFIG_DIR:-~/.claude}/agents/fine-toothed-comb.md`):
 
 ```
 Agent:
@@ -225,7 +225,7 @@ Agent:
 
 ### Comb gate
 
-Read `${CLAUDE_HOME:-~/.claude}/skills/mine-comb/comb-gate.md` and apply it with:
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply it with:
 
 - **`<header>`**: `Impl comb`
 - **`minor_blocks`**: `false` — note any minor findings for the shipping gate and proceed to Step 6; a finished implementation doesn't block shipping on polish.

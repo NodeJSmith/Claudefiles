@@ -25,7 +25,7 @@ Subagents read code and reason about it directly using Read, Grep, Glob, and `gi
 
 ## Phase 1: Determine Scope
 
-Resolve $ARGUMENTS to a file list using **only the path-mode logic** from `${CLAUDE_HOME:-~/.claude}/skills/mine-review/scope-detection.md` (Step 2b: the `find` expansion with its exclusions, language adaptation, and the 200-file count guard). Skip Step 1's diff detection and Step 2a entirely — this skill is always path/codebase mode.
+Resolve $ARGUMENTS to a file list using **only the path-mode logic** from `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-review/scope-detection.md` (Step 2b: the `find` expansion with its exclusions, language adaptation, and the 200-file count guard). Skip Step 1's diff detection and Step 2a entirely — this skill is always path/codebase mode.
 
 - **$ARGUMENTS resolves to existing paths** → expand per Step 2b and proceed.
 - **Some paths missing** → warn about the missing ones, proceed with the rest.
@@ -94,7 +94,7 @@ Concatenate every agent's findings, preserving `file:line` references. When two 
 
 ### Step 2: Validity assessment
 
-Apply the Validity Assessment protocol from `${CLAUDE_HOME:-~/.claude}/skills/mine-challenge/findings-protocol.md`: findings are valid by default; flagging one as likely invalid requires a concrete evidence trail (what the finding claims vs. what the code actually does, with `file:line`). Move likely-invalid findings into a separate `### Likely Invalid` section at the bottom.
+Apply the Validity Assessment protocol from `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`: findings are valid by default; flagging one as likely invalid requires a concrete evidence trail (what the finding claims vs. what the code actually does, with `file:line`). Move likely-invalid findings into a separate `### Likely Invalid` section at the bottom.
 
 ### Step 3: Present the consolidated report
 

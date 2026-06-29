@@ -25,7 +25,7 @@ When $ARGUMENTS resolves to existing files or directories that have no uncommitt
 
 ## Phase 1: Determine Scope
 
-Read and execute `${CLAUDE_HOME:-~/.claude}/skills/mine-review/scope-detection.md` (shared with `mine-clean-code`). It resolves $ARGUMENTS to either **diff mode** (a diff command) or **path mode** (a file list), with scope-narrowing guards.
+Read and execute `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-review/scope-detection.md` (shared with `mine-clean-code`). It resolves $ARGUMENTS to either **diff mode** (a diff command) or **path mode** (a file list), with scope-narrowing guards.
 
 ## Phase 1.5: Pre-compute the diff artifact (diff mode only)
 
@@ -165,7 +165,7 @@ If two reviewers flagged the same issue (e.g., code-reviewer found a magic numbe
 
 ### Step 1.5: Validity assessment
 
-Apply the Validity Assessment protocol from `${CLAUDE_HOME:-~/.claude}/skills/mine-challenge/findings-protocol.md`: findings are valid by default; flagging one as likely invalid requires a concrete evidence trail (claim vs. what the code actually does). Move likely-invalid findings out of the severity-organized tables and into a separate `### Likely Invalid` section at the bottom of the report (see Step 2 format).
+Apply the Validity Assessment protocol from `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`: findings are valid by default; flagging one as likely invalid requires a concrete evidence trail (claim vs. what the code actually does). Move likely-invalid findings out of the severity-organized tables and into a separate `### Likely Invalid` section at the bottom of the report (see Step 2 format).
 
 ### Step 2: Present the consolidated report
 

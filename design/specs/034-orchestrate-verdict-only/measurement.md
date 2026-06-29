@@ -107,10 +107,10 @@ Against a specific post-change orchestrate parent-session JSONL:
 
 ```bash
 # Find the JSONL path for a recent orchestrate run:
-ls -lt "${CLAUDE_HOME:-~/.claude}"/projects/*/  | grep '\.jsonl' | head -20
+ls -lt "${CLAUDE_CONFIG_DIR:-~/.claude}"/projects/*/  | grep '\.jsonl' | head -20
 
 # Then probe it:
-orchestrate-concise-probe "${CLAUDE_HOME:-~/.claude}"/projects/<project-dir>/<session-uuid>.jsonl
+orchestrate-concise-probe "${CLAUDE_CONFIG_DIR:-~/.claude}"/projects/<project-dir>/<session-uuid>.jsonl
 ```
 
 Or scan all runs since the merge date:

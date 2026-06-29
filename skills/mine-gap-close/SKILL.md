@@ -33,7 +33,7 @@ Read the artifact. Detect type:
 - `## Deliverables` OR first heading starts with `# WP` → work package
 - None → general-purpose
 
-Load the matching checklist from `${CLAUDE_HOME:-~/.claude}/skills/mine-gap-close/REFERENCE.md`. When type is ambiguous, confirm before surveying.
+Load the matching checklist from `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-gap-close/REFERENCE.md`. When type is ambiguous, confirm before surveying.
 
 ## Phase 2: Survey
 

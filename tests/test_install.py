@@ -1482,7 +1482,7 @@ class TestMainNonInteractive:
             patch("sys.argv", ["install.py"]),
             patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
-            patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
+            patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(claude_dir)}),
             patch("install.sys") as mock_sys,
         ):
             mock_sys.stdin.isatty.return_value = False
@@ -1506,7 +1506,7 @@ class TestMainNonInteractive:
             patch("sys.argv", ["install.py"]),
             patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
-            patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
+            patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(claude_dir)}),
             patch("install.sys") as mock_sys,
             patch("install.save_config"),
         ):
@@ -1543,7 +1543,7 @@ class TestMainNonInteractive:
             patch("sys.argv", ["install.py", "--reconfigure"]),
             patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
-            patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
+            patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(claude_dir)}),
             patch("install.sys") as mock_sys,
         ):
             mock_sys.stdin.isatty.return_value = False
@@ -1584,7 +1584,7 @@ class TestConfigSaveTiming:
             patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", side_effect=mock_do_install),
             patch("install.save_config", side_effect=mock_save_config),
-            patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
+            patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(claude_dir)}),
             patch("install.sys") as mock_sys,
         ):
             mock_sys.stdin.isatty.return_value = False
@@ -1943,7 +1943,7 @@ class TestMigrationMainFlow:
             patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
             patch("install.save_config", side_effect=capture_save),
-            patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
+            patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(claude_dir)}),
             patch("install.sys") as mock_sys,
         ):
             mock_sys.stdin.isatty.return_value = False
@@ -1978,7 +1978,7 @@ class TestMigrationMainFlow:
             patch("sys.argv", ["install.py"]),
             patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
-            patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
+            patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(claude_dir)}),
             patch("install.sys") as mock_sys,
         ):
             mock_sys.stdin.isatty.return_value = False
@@ -2012,7 +2012,7 @@ class TestMigrationMainFlow:
             patch("sys.argv", ["install.py"]),
             patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
-            patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
+            patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(claude_dir)}),
             patch("install.sys") as mock_sys,
         ):
             mock_sys.stdin.isatty.return_value = False
@@ -2049,7 +2049,7 @@ class TestMigrationMainFlow:
             patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
             patch("install.save_config"),
-            patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
+            patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(claude_dir)}),
             patch("install.sys") as mock_sys,
         ):
             mock_sys.stdin.isatty.return_value = False
@@ -2082,7 +2082,7 @@ class TestMigrationMainFlow:
             patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
             patch("install.save_config", mock_save),
-            patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
+            patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(claude_dir)}),
             patch("install.sys") as mock_sys,
         ):
             mock_sys.stdin.isatty.return_value = False
@@ -2120,7 +2120,7 @@ class TestFirstInstallAdoTip:
             patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
             patch("install.save_config"),
-            patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
+            patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(claude_dir)}),
             patch("install.sys") as mock_sys,
         ):
             mock_sys.stdin.isatty.return_value = False
@@ -2157,7 +2157,7 @@ class TestFirstInstallAdoTip:
             patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
             patch("install.save_config"),
-            patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
+            patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(claude_dir)}),
             patch("install.sys") as mock_sys,
         ):
             mock_sys.stdin.isatty.return_value = False
@@ -2183,7 +2183,7 @@ class TestFirstInstallAdoTip:
             patch("install.is_git_worktree", return_value=False),
             patch("install.do_install", mock_do_install),
             patch("install.save_config"),
-            patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
+            patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(claude_dir)}),
             patch("install.sys") as mock_sys,
         ):
             mock_sys.stdin.isatty.return_value = False
@@ -2214,7 +2214,7 @@ class TestFirstInstallAdoTip:
                     "bundles": {k: False for k in install.optional_bundles(repo)}
                 },
             ),
-            patch.dict(os.environ, {"CLAUDE_HOME": str(claude_dir)}),
+            patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(claude_dir)}),
             patch("install.sys") as mock_sys,
         ):
             mock_sys.stdin.isatty.return_value = True
