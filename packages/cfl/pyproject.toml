@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cfl"
+version = "0.1.0"
+description = "Claudefiles orchestration store CLI"
+requires-python = ">=3.11"
+dependencies = [
+    "python-frontmatter",
+    "whenever>=0.10",
+]
+
+[project.scripts]
+cfl = "cfl.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
