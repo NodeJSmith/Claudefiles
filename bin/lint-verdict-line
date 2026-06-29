@@ -31,6 +31,23 @@ REVIEWERS_WITHOUT_COUNT = [
 
 VERDICT_PREFIX = "**Verdict:**"
 
+# Allowed verdict words per reviewer type (aligned with cfl gate vocabulary)
+ALLOWED_VERDICTS_STANDARD = {"PASS", "WARN", "FAIL"}
+ALLOWED_VERDICTS_VISUAL = {"VERIFIED", "WARN", "FAIL"}
+
+REVIEWER_ALLOWED_VERDICTS: dict[Path, set[str]] = {
+    ROOT / "agents" / "code-reviewer.md": ALLOWED_VERDICTS_STANDARD,
+    ROOT / "agents" / "integration-reviewer.md": ALLOWED_VERDICTS_STANDARD,
+    ROOT
+    / "skills"
+    / "mine-orchestrate"
+    / "spec-reviewer-prompt.md": ALLOWED_VERDICTS_STANDARD,
+    ROOT
+    / "skills"
+    / "mine-orchestrate"
+    / "visual-reviewer-prompt.md": ALLOWED_VERDICTS_VISUAL,
+}
+
 
 def check_reviewer(path: Path, expects_count: bool) -> list[str]:
     errors: list[str] = []
@@ -79,6 +96,16 @@ def check_reviewer(path: Path, expects_count: bool) -> list[str]:
                 " — count is for code and integration reviewers only;"
                 f" got: {canonical!r}"
             )
+
+    allowed = REVIEWER_ALLOWED_VERDICTS.get(path, ALLOWED_VERDICTS_STANDARD)
+    verdict_words = canonical.removeprefix(VERDICT_PREFIX).strip().split("|")
+    verdict_words = [w.strip().split("(")[0].strip() for w in verdict_words]
+    bad = [w for w in verdict_words if w and w not in allowed]
+    if bad:
+        errors.append(
+            f"{rel}: verdict line contains non-normalized words: {bad}"
+            f" — allowed: {sorted(allowed)}; got: {canonical!r}"
+        )
 
     return errors
 

@@ -420,12 +420,12 @@ cfl dispatch end <integration_reviewer_dispatch_id>
 Extract each reviewer's canonical verdict line from its report file — do **not** read the report bodies:
 
 - Spec: Grep `<dir>/<task_id>/spec-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract PASS / WARN / FAIL
-- Code: Grep `<dir>/<task_id>/code-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract APPROVE / WARN / BLOCK and the findings count N from `(findings: N)`
-- Integration: Grep `<dir>/<task_id>/integration-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract APPROVE / WARN / BLOCK and the findings count N
+- Code: Grep `<dir>/<task_id>/code-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract PASS / WARN / FAIL and the findings count N from `(findings: N)`
+- Integration: Grep `<dir>/<task_id>/integration-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract PASS / WARN / FAIL and the findings count N
 
 Record these three verdict lines (the extracted text, not the file contents) for use by Steps 12, 13, and 14. If a line is absent from a required reviewer's file, treat that reviewer as failed and re-run it.
 
-Record the three gate results (normalize APPROVE→PASS, BLOCK→FAIL):
+Record the three gate results:
 
 ```bash
 cfl gate spec-review <task_id> --verdict <PASS|WARN|FAIL>
@@ -486,7 +486,7 @@ cfl event task.retried <task_id> --data '{"reason": "WARN classification: <fixab
 
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/visual-reviewer-prompt.md`, then read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/visual-reviewer-launch.md` and follow it.
 
-If the visual reviewer ran, record the gate result after it completes (normalize VERIFIED→PASS):
+If the visual reviewer ran, record the gate result after it completes (VERIFIED maps to PASS):
 
 ```bash
 cfl gate visual-review <task_id> --verdict <PASS|WARN|FAIL|SKIPPED> --data '{"scenarios": <N>, "verified": <N>, "warned": <N>, "skipped": <N>}'
@@ -494,7 +494,7 @@ cfl gate visual-review <task_id> --verdict <PASS|WARN|FAIL|SKIPPED> --data '{"sc
 
 ### Step 12: Review findings fix loop
 
-When the canonical verdict line for the code reviewer or integration reviewer from Step 8 shows `findings > 0`, or its verdict is WARN or BLOCK, read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/findings-fix-loop.md` and follow it.
+When the canonical verdict line for the code reviewer or integration reviewer from Step 8 shows `findings > 0`, or its verdict is WARN or FAIL, read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/findings-fix-loop.md` and follow it.
 
 Spec and visual findings do **not** trigger this loop — a spec WARN routes to the Step 10 WARN loop, a spec FAIL routes to Step 16, and visual findings feed Step 14 directly.
 

@@ -106,7 +106,7 @@ The subagent will write the review to the temp file.
 Read the temp file. Format the results clearly:
 
 1. **Checklist results** — one line per item: `N. <name>: PASS|WARN|FAIL — note`
-2. **Verdict** — APPROVE, REQUEST_FIXES, or ABANDON (bold, prominent)
+2. **Verdict** — PASS, REQUEST_FIXES, or ABANDON (bold, prominent)
 3. **Summary** — 2-3 sentences from the subagent
 4. **Blocking issues** — if verdict is REQUEST_FIXES or ABANDON
 5. **Suggestions** — non-blocking notes, if any

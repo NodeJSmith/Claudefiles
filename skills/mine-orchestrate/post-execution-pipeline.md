@@ -23,13 +23,13 @@ Use `tasks[].verdict` and `tasks[].verdict_detail` fields. PASS with a detail no
 
 Invoke `/mine-implementation-review <feature_dir>` automatically. The skill presents findings and returns — no user gate (the orchestrator handles all gate logic).
 
-Read the review output. Extract the verdict (APPROVE, REQUEST_FIXES, or ABANDON) and any suggestions or blocking issues. Record the gate result (normalize APPROVE→PASS, REQUEST_FIXES/ABANDON→FAIL):
+Read the review output. Extract the verdict (PASS, REQUEST_FIXES, or ABANDON) and any suggestions or blocking issues. Record the gate result (REQUEST_FIXES/ABANDON map to FAIL):
 
 ```bash
 cfl gate impl-review --verdict <PASS|FAIL> --detail "<brief summary>"
 ```
 
-**If impl-review returns APPROVE** — note any non-blocking suggestions to surface later. Continue to Step 3 automatically.
+**If impl-review returns PASS** — note any non-blocking suggestions to surface later. Continue to Step 3 automatically.
 
 **If impl-review returns ABANDON** — hard stop. ABANDON means the implementation is unrecoverable and requires a design rethink, not a code fix. Do not offer "Address fixes":
 
@@ -69,7 +69,7 @@ AskUserQuestion:
 4. Re-run the project test suite (using `<dir>/test-command.txt`). If tests fail: surface the failure prominently in the next gate prompt (which offers "Address fixes" or "Stop here" — there is no "Accept and ship" option at this gate) with a note identifying the test failures.
 5. Re-run `code-reviewer` and `integration-reviewer` on the fix diff in parallel (both in a single message)
 6. Re-run `/mine-implementation-review <feature_dir>`
-7. If it now returns APPROVE, record the updated gate and continue to Step 3:
+7. If it now returns PASS, record the updated gate and continue to Step 3:
    ```bash
    cfl gate impl-review --verdict PASS --detail "<summary>"
    ```
@@ -105,13 +105,13 @@ Launch `Agent(subagent_type: "integration-reviewer")` with all changed files. Ad
 
 After the reviewer completes: `cfl dispatch end <dispatch_id>`
 
-Record the gate result (normalize APPROVE→PASS, BLOCK→FAIL):
+Record the gate result:
 
 ```bash
 cfl gate cross-file-review --verdict <PASS|WARN|FAIL> --data '{"findings": <N>}'
 ```
 
-If the integration-reviewer returns BLOCK, surface the blocking issues to the user with an "Address" / "Stop here" gate (same pattern as the impl-review gate). If APPROVE or WARN, note any suggestions and continue to Step 4 (Clean code check).
+If the integration-reviewer returns FAIL, surface the blocking issues to the user with an "Address" / "Stop here" gate (same pattern as the impl-review gate). If PASS or WARN, note any suggestions and continue to Step 4 (Clean code check).
 
 ## Step 4: Clean code check (automatic)
 

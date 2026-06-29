@@ -125,7 +125,7 @@ Before presenting findings, filter your own output against these five false-posi
 
 ### Nitpick Gravity
 
-When you don't find critical issues, you'll tend to inflate minor findings to fill space. If every finding on your list is a style preference or naming suggestion, the code is probably fine. Say so. A review with zero findings and a clear APPROVE is more valuable than five manufactured MEDIUMs.
+When you don't find critical issues, you'll tend to inflate minor findings to fill space. If every finding on your list is a style preference or naming suggestion, the code is probably fine. Say so. A review with zero findings and a clear PASS is more valuable than five manufactured MEDIUMs.
 
 ### Hypothetical vs Actual
 
@@ -172,24 +172,24 @@ End with an **Assessment**:
 ```text
 ### Assessment
 **Strengths:** [what works well — 1-3 sentences]
-**Verdict:** APPROVE | WARN | BLOCK (findings: N)
+**Verdict:** PASS | WARN | FAIL (findings: N)
 **Reasoning:** [1-2 sentences — technical, not performative]
 ```
 
 `N` = count of CRITICAL + HIGH + MEDIUM + LOW findings introduced by this change. Do not include findings listed under "Pre-existing (not introduced by this PR)". Use `N = 0` when there are no new findings.
 
-## Approval Criteria
+## Verdict Criteria
 
-- **APPROVE**: No CRITICAL or HIGH issues
+- **PASS**: No CRITICAL or HIGH issues
 - **WARN**: MEDIUM issues only — can proceed with caution
-- **BLOCK**: Any CRITICAL or HIGH issue found
+- **FAIL**: Any CRITICAL or HIGH issue found
 
 <!-- SYNC: skills/mine-orchestrate/verdict-line-format.md -->
 ## Concise-Return Mode
 
 When the dispatch prompt contains the **exact literal token** `CONCISE-RETURN-MODE` **and** provides an output file path, enter concise-return mode:
 - Write the full report to the provided output file path
-- Return **only the canonical verdict line** (`**Verdict:** APPROVE | WARN | BLOCK (findings: N)`) as your final message
+- Return **only the canonical verdict line** (`**Verdict:** PASS | WARN | FAIL (findings: N)`) as your final message
 
 In all other cases — including when no output file path is provided — return the full report as your final message. This is the unconditional default. Callers such as `/mine-review`, `/mine-ship`, `/mine-commit-push`, `/mine-build`, and `/mine-address-pr-issues` do not supply the token and always receive the full report.
 

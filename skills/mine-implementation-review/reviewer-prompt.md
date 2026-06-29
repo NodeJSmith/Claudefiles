@@ -75,7 +75,7 @@ Does the test suite actually cover the implementation? This is a high-severity c
 - Coverage gaps on error paths or branching logic
 - Generated code or pure type definitions without tests (acceptable but worth noting)
 
-**Verdict rule:** A FAIL on item 7 (test coverage) always produces REQUEST_FIXES, never APPROVE, regardless of whether the reviewer considers the gap minor.
+**Verdict rule:** A FAIL on item 7 (test coverage) always produces REQUEST_FIXES, never PASS, regardless of whether the reviewer considers the gap minor.
 
 ## Output Format
 
@@ -84,7 +84,7 @@ For each item: `N. <name>: PASS|WARN|FAIL — <one-line note>`
 Then:
 
 ```
-## Verdict: APPROVE | REQUEST_FIXES | ABANDON
+## Verdict: PASS | REQUEST_FIXES | ABANDON
 
 ### Summary
 [2-3 sentences on overall implementation quality and completeness]
@@ -97,6 +97,6 @@ Then:
 - [Suggestion 1]
 ```
 
-APPROVE: no FAIL ratings; minor WARNs may remain
+PASS: no FAIL ratings; minor WARNs may remain
 REQUEST_FIXES: one or more FAIL ratings that can be addressed without re-architecting
 ABANDON: fundamental implementation gaps that require starting over or significant plan changes
