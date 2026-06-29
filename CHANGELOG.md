@@ -4,6 +4,14 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-06-29
 
+### Added
+
+- `cfl` — new SQLite-backed orchestration store CLI replacing `spec-helper` and `trail-log`. All run state, task verdicts, gate results, and event logs now persist in a durable DB instead of ephemeral markdown checkpoints and TSV trails. (#424)
+
+### Removed
+
+- `spec-helper` package and `trail-log` bin script — fully replaced by `cfl`. (#424)
+
 ### Changed
 
 - `CLAUDE_HOME` environment variable renamed to `CLAUDE_CONFIG_DIR` across the entire repo — update any machine-local overrides. (#423)
