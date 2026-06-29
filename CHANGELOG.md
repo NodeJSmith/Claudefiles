@@ -6,6 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Changed
 
+- `CLAUDE_HOME` environment variable renamed to `CLAUDE_CONFIG_DIR` across the entire repo — update any machine-local overrides. (#423)
 - `mine-commit-push` — removed the CHANGELOG CHECK step; changelog entries now belong at PR creation (`mine-create-pr`), when the full branch diff is known and entries can describe what actually shipped. (#422)
 - `mine-create-pr` — Step 7 now writes the changelog entry (7a) before annotating it with the PR number (7b); previously only annotated existing entries. (#422)
 
