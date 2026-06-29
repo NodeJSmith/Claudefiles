@@ -335,7 +335,7 @@ After the validation gate passes, run schema validation (frontmatter fields, ID 
 cfl spec validate
 ```
 
-Auto-resolves to the current spec from CWD. If multiple specs have task files present, use `cfl spec validate --spec NNN` where NNN is the spec number. If validation reports errors, fix the task files before committing. Warnings are informational — do not block on them.
+Auto-resolves to the current spec from CWD. If multiple specs have task files present, use `cfl --spec NNN spec validate` where NNN is the spec number (`--spec` is a root-level flag). If validation reports errors, fix the task files before committing. Warnings are informational — do not block on them.
 
 Then commit:
 
