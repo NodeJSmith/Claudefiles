@@ -1,7 +1,7 @@
 ---
 task_id: "T04"
 title: "Implement run lifecycle commands"
-status: "planned"
+status: "done"
 depends_on: ["T01", "T02", "T03"]
 implements: ["FR#12", "FR#13", "FR#14", "FR#21", "AC#12", "AC#13", "AC#14", "AC#15", "AC#27"]
 ---

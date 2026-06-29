@@ -6,7 +6,8 @@ import sys
 
 import cfl.output as output_module
 from cfl.db import db_connection
-from cfl.resolve import resolve_context
+from cfl.resolve import resolve_context, resolve_spec
+from cfl.run import run_complete, run_resume, run_start, run_status, run_stop
 from cfl.session import end_session, record_compaction
 from cfl.spec import (
     SETTABLE_STATUSES,
@@ -69,11 +70,76 @@ def build_parser() -> argparse.ArgumentParser:
     # ------------------------------------------------------------------
     run_p = sub.add_parser("run", help="Orchestration run commands")
     run_sub = run_p.add_subparsers(dest="run_cmd", required=True)
-    run_sub.add_parser("start", help="Begin a new orchestration run")
+
+    run_start_p = run_sub.add_parser("start", help="Begin a new orchestration run")
+    run_start_p.add_argument(
+        "--base-commit",
+        dest="base_commit",
+        metavar="SHA",
+        default=None,
+        help="Base commit SHA (defaults to git rev-parse HEAD)",
+    )
+    run_start_p.add_argument(
+        "--tmpdir",
+        metavar="PATH",
+        default=None,
+        help="Ephemeral /tmp path for this run",
+    )
+    run_start_p.add_argument(
+        "--visual-mode",
+        dest="visual_mode",
+        metavar="MODE",
+        default=None,
+        choices=["enabled", "skipped_no_server", "skipped_no_vision"],
+        help="Visual review mode for this run",
+    )
+    run_start_p.add_argument(
+        "--dev-server-url",
+        dest="dev_server_url",
+        metavar="URL",
+        default=None,
+        help="Dev server URL for visual review",
+    )
+
     run_sub.add_parser("status", help="Read current run state")
-    run_sub.add_parser("complete", help="Mark the active run as completed")
-    run_sub.add_parser("stop", help="Stop the active run (user chose stop here)")
-    run_sub.add_parser("resume", help="Resume a stopped run")
+
+    run_complete_p = run_sub.add_parser(
+        "complete", help="Mark the active run as completed"
+    )
+    run_complete_p.add_argument(
+        "--pr-url",
+        dest="pr_url",
+        metavar="URL",
+        default=None,
+        help="URL of the merged PR (optional)",
+    )
+
+    run_stop_p = run_sub.add_parser(
+        "stop", help="Stop the active run (user chose stop here)"
+    )
+    run_stop_p.add_argument(
+        "--reason",
+        metavar="TEXT",
+        default=None,
+        help="Why the run was stopped",
+    )
+    run_stop_p.add_argument(
+        "--at-task",
+        dest="at_task",
+        metavar="TASK_ID",
+        default=None,
+        help="Task ID where the run was stopped",
+    )
+
+    run_resume_p = run_sub.add_parser("resume", help="Resume a stopped run")
+    run_resume_p.add_argument(
+        "--run-id",
+        dest="run_id",
+        type=int,
+        metavar="ID",
+        default=None,
+        help="Specific run ID to resume (defaults to most recent stopped run)",
+    )
 
     # ------------------------------------------------------------------
     # task group
@@ -184,7 +250,76 @@ def main() -> None:
                 exit_code=2,
             )
     elif cmd == "run":
-        _not_implemented()
+        run_cmd = args.run_cmd
+        spec_override = getattr(args, "spec", None)
+
+        if run_cmd == "start":
+            with db_connection() as conn:
+                spec_ctx = resolve_spec(
+                    conn, spec_override=spec_override, require_active_run=False
+                )
+                run_start(
+                    conn,
+                    spec_ctx.spec_id,
+                    spec_ctx.feature_dir,
+                    base_commit=getattr(args, "base_commit", None),
+                    tmpdir=getattr(args, "tmpdir", None),
+                    visual_mode=getattr(args, "visual_mode", None),
+                    dev_server_url=getattr(args, "dev_server_url", None),
+                )
+
+        elif run_cmd == "status":
+            with db_connection() as conn:
+                spec_ctx = resolve_spec(
+                    conn, spec_override=spec_override, require_active_run=False
+                )
+                run_status(
+                    conn,
+                    spec_ctx.active_run_id,
+                    spec_ctx.spec_id,
+                    spec_ctx.spec_number,
+                    spec_ctx.spec_slug,
+                    spec_ctx.feature_dir,
+                )
+
+        elif run_cmd == "complete":
+            with db_connection() as conn:
+                ctx = resolve_context(conn, spec_override=spec_override)
+                run_complete(
+                    conn,
+                    ctx["active_run_id"],
+                    ctx["spec_id"],
+                    pr_url=getattr(args, "pr_url", None),
+                )
+
+        elif run_cmd == "stop":
+            with db_connection() as conn:
+                ctx = resolve_context(conn, spec_override=spec_override)
+                run_stop(
+                    conn,
+                    ctx["active_run_id"],
+                    ctx["spec_id"],
+                    reason=getattr(args, "reason", None),
+                    at_task=getattr(args, "at_task", None),
+                )
+
+        elif run_cmd == "resume":
+            with db_connection() as conn:
+                spec_ctx = resolve_spec(
+                    conn, spec_override=spec_override, require_active_run=False
+                )
+                run_resume(
+                    conn,
+                    spec_ctx.spec_id,
+                    run_id=getattr(args, "run_id", None),
+                )
+
+        else:
+            output_module.emit_error(
+                f"Unknown run subcommand: {run_cmd}",
+                code="usage_error",
+                exit_code=2,
+            )
     elif cmd == "task":
         _not_implemented()
     elif cmd == "gate":
