@@ -283,6 +283,42 @@ def test_archive_closes_active_run(db_conn, git_repo, monkeypatch):
     assert data["via"] == "archive"
 
 
+def test_archive_untracked_tasks_warns_but_does_not_crash(
+    db_conn, git_repo, capsys, monkeypatch
+):
+    """archive_spec warns about untracked files instead of crashing."""
+    monkeypatch.chdir(git_repo)
+
+    # Create feature dir with design.md committed, but tasks only on disk (untracked).
+    feature_dir = git_repo / "design" / "specs" / "035-my-feature"
+    tasks_dir = feature_dir / "tasks"
+    tasks_dir.mkdir(parents=True)
+    (tasks_dir / "T01.md").write_text(
+        "---\ntask_id: T01\ntitle: T01\nstatus: done\n---\n"
+    )
+
+    design = feature_dir / "design.md"
+    design.write_text("# Design\n\n**Status:** in_progress\n\nBody.\n")
+    subprocess.run(["git", "add", str(design)], capture_output=True, cwd=git_repo)
+    subprocess.run(
+        ["git", "commit", "-m", "add design"],
+        capture_output=True,
+        check=True,
+        cwd=git_repo,
+    )
+
+    spec_id, run_id = insert_spec_with_run(db_conn, 35, "my-feature", REMOTE_URL)
+    insert_task(db_conn, run_id, "T01", status="done")
+
+    archive_spec(db_conn, spec_override="035")
+
+    out = capsys.readouterr()
+    assert "archived" in out.out
+    assert "untracked_files_remain" in out.err
+    assert tasks_dir.exists(), "untracked tasks dir should NOT be deleted"
+    assert (tasks_dir / "T01.md").exists(), "untracked task file should NOT be deleted"
+
+
 # ---------------------------------------------------------------------------
 # _stamp_design_md unit tests
 # ---------------------------------------------------------------------------

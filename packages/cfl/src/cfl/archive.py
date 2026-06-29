@@ -95,7 +95,7 @@ def archive_spec(
 
     git_root = get_git_root()
     tasks_dir_rel = f"{feature_dir}/tasks"
-    _git_rm(git_root, tasks_dir_rel, recursive=True)
+    _git_rm_ignore_unmatch(git_root, tasks_dir_rel, recursive=True)
 
     # Step 3: Remove legacy scaffolding (ignore-unmatch — may not exist).
     for artifact in ("trail.tsv", "trail-audit.md", ".gitignore"):
@@ -195,12 +195,17 @@ def _git_rm(git_root: str | None, rel_path: str, *, recursive: bool = False) -> 
         raise RuntimeError(f"git rm failed for {rel_path}: {stderr}")
 
 
-def _git_rm_ignore_unmatch(git_root: str | None, rel_path: str) -> None:
+def _git_rm_ignore_unmatch(
+    git_root: str | None, rel_path: str, *, recursive: bool = False
+) -> None:
     """Remove a path via git rm --ignore-unmatch. Silently succeeds if not tracked."""
     cmd = ["git"]
     if git_root:
         cmd += ["-C", git_root]
-    cmd += ["rm", "-q", "--ignore-unmatch", rel_path]
+    cmd += ["rm", "-q", "--ignore-unmatch"]
+    if recursive:
+        cmd.append("-r")
+    cmd.append(rel_path)
 
     try:
         subprocess.run(
@@ -211,6 +216,16 @@ def _git_rm_ignore_unmatch(git_root: str | None, rel_path: str) -> None:
         )
     except subprocess.TimeoutExpired:
         pass  # Non-fatal for optional artifact removal.
+
+    if recursive and git_root:
+        abs_path = os.path.join(git_root, rel_path)
+        if os.path.isdir(abs_path):
+            remaining = os.listdir(abs_path)
+            if remaining:
+                output_module.emit_warning(
+                    f"Untracked files remain in {rel_path}/: {', '.join(sorted(remaining))}",
+                    code="untracked_files_remain",
+                )
 
 
 def _stamp_design_md(design_path: str) -> None:

@@ -47,6 +47,11 @@ def emit_error(
     sys.exit(exit_code)
 
 
+def emit_warning(message: str, *, code: str) -> None:
+    """Write a warning to stderr as JSON. Does not exit."""
+    print(json.dumps({"warning": message, "code": code}), file=sys.stderr)
+
+
 def to_iso(dt_string: str | None) -> str | None:
     """Convert SQLite datetime format to ISO 8601.
 
