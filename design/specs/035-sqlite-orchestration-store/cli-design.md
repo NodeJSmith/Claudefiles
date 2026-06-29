@@ -228,7 +228,7 @@ cfl run start [--base-commit <sha>] [--tmpdir <path>] [--visual-mode <mode>] [--
 }
 ```
 
-**Exit codes:** 0 success, 1 `run_already_active` (names existing run_id and started_at), 1 `no_tasks` (no T*.md files or missing frontmatter).
+**Exit codes:** 0 success, 1 `run_already_active` (names existing run_id and started_at), 1 `run_stale` (active run with no events for >4 hours — hints to force-stop with `cfl set`), 1 `no_tasks` (no T*.md files or missing frontmatter).
 
 ---
 

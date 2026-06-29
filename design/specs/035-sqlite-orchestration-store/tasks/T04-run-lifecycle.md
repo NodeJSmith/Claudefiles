@@ -3,7 +3,7 @@ task_id: "T04"
 title: "Implement run lifecycle commands"
 status: "planned"
 depends_on: ["T01", "T02", "T03"]
-implements: ["FR#12", "FR#13", "FR#14", "AC#12", "AC#13", "AC#14", "AC#15"]
+implements: ["FR#12", "FR#13", "FR#14", "FR#21", "AC#12", "AC#13", "AC#14", "AC#15", "AC#27"]
 ---
 
 ## Summary
@@ -95,6 +95,8 @@ Implement 5 commands following `cli-design.md` §cfl run start through §cfl run
 - [ ] FR#13: `run_status` returns JSON with `tasks` array, `last_completed`, `current_task`, `needs_intervention`, and `tmpdir_exists`
 - [ ] FR#14: `run_complete` sets terminal state and clears `active_run_id`; `run_stop` → `run_resume` round-trips correctly; `run_resume` errors on completed or already-running runs; crashed runs detected by status='running' with no recent events
 - [ ] AC#12: `run_start` with 5 task files creates 1 runs row + 5 tasks rows (all `status='pending'`) + sets `specs.active_run_id` — `SELECT COUNT(*) FROM tasks WHERE run_id=?` returns 5
-- [ ] AC#13: `run_start` when `active_run_id IS NOT NULL` exits 1 with `run_already_active` error code and hint
-- [ ] AC#14: `run_status` returns JSON with `tasks` array, `last_completed`, `current_task`, and `needs_intervention` with correct derivation
+- [ ] AC#13: `run_start` when `active_run_id IS NOT NULL` and run has recent events exits 1 with `run_already_active`
+- [ ] AC#27: `run_start` when `active_run_id IS NOT NULL` and run has no events for >4 hours exits 1 with `run_stale` and hint to use `cfl set`
+- [ ] AC#14: `run_status` returns JSON with `tasks` array, `last_completed`, `current_task`, `needs_intervention`, and `tmpdir_exists` with correct derivation
+- [ ] FR#21: `run_start`, `run_complete`, `run_stop`, and `run_resume` each emit their corresponding event implicitly without a separate `cfl event` call
 - [ ] AC#15: After `run_stop` + `run_resume`, run transitions `running→stopped→running` and `active_run_id` is re-set
