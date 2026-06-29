@@ -54,7 +54,7 @@ CREATE TABLE specs (
 | → `draft` | `cfl spec init` (mine-define creates the spec) |
 | `draft` → `approved` | mine-define Phase 4 / mine-plan approval / mine-gap-close approval |
 | `draft` → `abandoned` | mine-plan user abandons |
-| `approved` → `in_progress` | `cfl run start` (atomically with runs INSERT + active_run_id) |
+| `approved` → `in_progress` | `cfl run start` (atomically with runs INSERT + active_run_id) or `cfl run resume` (re-activates a stopped run) |
 | `in_progress` → `approved` | `cfl run complete` / `cfl run stop` (run finished but not yet archived) |
 | `approved` → `archived` | `cfl archive` (git rm tasks/, stamp design.md) |
 | `in_progress` → `archived` | `cfl archive` (run completed and archived in one step) |
@@ -203,10 +203,10 @@ Append-only audit trail. Every significant orchestration event.
 ```sql
 CREATE TABLE events (
     id          INTEGER PRIMARY KEY,
-    run_id      INTEGER NOT NULL REFERENCES runs(id),
+    run_id      INTEGER REFERENCES runs(id),  -- NULL for invocation telemetry (cfl.invoked) and commands outside a run context
     task_id     TEXT,                -- NULL for run-level events
     FOREIGN KEY (run_id, task_id) REFERENCES tasks(run_id, task_id),
-    event       TEXT NOT NULL,       -- dotted name: run.started, task.verdict, etc.
+    event       TEXT NOT NULL,       -- dotted name: run.started, task.verdict, cfl.invoked, etc.
     detail      TEXT,                -- human-readable description
     data        TEXT,                -- JSON, queryable via json_extract()
     context_pct INTEGER,            -- orchestrator context % at time of event (from sidecar)
@@ -229,7 +229,7 @@ CREATE TABLE sessions (
     model           TEXT,                -- opus, sonnet, etc. (orchestrator model)
     context_pct_start INTEGER,           -- context % when session joined this run
     context_pct_end   INTEGER,           -- context % when session left this run
-    compactions     INTEGER DEFAULT 0,   -- orchestrator compaction count in this session
+    -- compactions derived from: SELECT COUNT(*) FROM events WHERE event='session.compacted' AND run_id=? AND json_extract(data, '$.session_id')=?
     started_at      TEXT NOT NULL,
     ended_at        TEXT,
     UNIQUE(run_id, session_id)
@@ -238,14 +238,16 @@ CREATE TABLE sessions (
 
 **Why a separate table:** One run can span 3+ sessions. Storing session_ids as a JSON array on `runs` (old design) loses per-session model/context/compaction data. Queries like "runs that compacted more than twice" or "average context % at task completion" need per-session granularity.
 
-**Auto-join:** Every `cfl` command that operates within an active run executes `INSERT OR IGNORE INTO sessions (run_id, session_id, started_at) VALUES (?, ?, ?)` before doing any other work. Keyed on `UNIQUE(run_id, session_id)`, this is idempotent — the first call creates the row, subsequent calls are no-ops. The orchestrator never has to remember to call a separate join command. The `session_id` comes from `$CLAUDE_CODE_SESSION_ID`.
+**Auto-join:** Every `cfl` command that operates within an active run executes `INSERT OR IGNORE INTO sessions (run_id, session_id, model, context_pct_start, started_at) VALUES (?, ?, ?, ?, ?)` before doing any other work. `context_pct_start` is read from the sidecar on first join (NULL if unavailable). Keyed on `UNIQUE(run_id, session_id)`, this is idempotent — the first call creates the row, subsequent calls are no-ops. The orchestrator never has to remember to call a separate join command. The `session_id` comes from `$CLAUDE_CODE_SESSION_ID`.
+
+**`context_pct_end` population:** `cfl session end` (wired to `SessionEnd` hook) sets both `ended_at` and `context_pct_end` (read from sidecar at that moment).
 
 **Session lifecycle at boundaries:**
 
 | Boundary | Session ID changes? | Hook fires | sessions action |
 |---|---|---|---|
 | `/clear` | Yes (new UUID) | `SessionEnd` (`end_reason="clear"`) + `SessionStart` | Set `ended_at` on old row via SessionEnd hook; new row auto-inserted on first `cfl` call |
-| Compaction | No (same UUID) | `PreCompact` | Increment `compactions` on existing row; write `session.compacted` event |
+| Compaction | No (same UUID) | `PreCompact` | Write `session.compacted` event (compaction count derived from events) |
 | Crash | Yes (next session is new) | Nothing for old session | Old row stays `ended_at=NULL` (crash evidence); new row auto-inserted on first `cfl` call |
 
 **NULL `ended_at` is evidence, not an error.** A session with `ended_at=NULL` and no recent events is a crashed session. Do not backfill `ended_at` on resume — the NULL distinguishes "crashed" from "exited cleanly." Queries: `WHERE ended_at IS NULL AND run_id IN (SELECT id FROM runs WHERE status != 'running')` finds crashed sessions.
@@ -254,7 +256,7 @@ CREATE TABLE sessions (
 
 **Context % source:** Available at `/tmp/claude-context-<session_id>.meta` (sidecar written by `claude-context-writer` via Claude Code's statusLine). Contains `pct=N`. Readable at any point during execution via `$CLAUDE_CODE_SESSION_ID`.
 
-**Compaction tracking:** Orchestrator compactions are detectable via `PreCompact` hook → `cfl event session.compacted` + increment `sessions.compactions` in the same call. Subagent compactions are tracked on the `dispatches` table (see below).
+**Compaction tracking:** Orchestrator compactions are detectable via `PreCompact` hook → `cfl session compacted` (inserts a `session.compacted` event). Compaction count is derived from events: `SELECT COUNT(*) FROM events WHERE event='session.compacted' AND run_id=? AND json_extract(data, '$.session_id')=?`. Subagent compactions are tracked on the `dispatches` table (see below).
 
 ### findings (deferred to v2)
 
@@ -309,11 +311,11 @@ CREATE TABLE schema_version (
 │ model  │ │ status   │ │ gate_type  │ │ gate_id   │→ gates.id  │
 │context │ │ verdict  │ │ verdict    │ │ parent_id │→ self      │
 └────────┘ └──────────┘ └──────┬─────┘ │ role      │ │ event    │
-                               │ 1     │ verdict   │ │ data     │
+                               │ 1     │ model     │ │ data     │
                                │       └───────────┘ └──────────┘
                                │ *
                          ┌─────┴─────┐
-                         │ findings  │
+                         │findings(v2│
                          │───────────│
                          │ id     PK │
                          │ gate_id   │──→ gates.id
@@ -362,13 +364,13 @@ You can't dispatch a run (dispatches always serve a specific task or a run-level
 
 ```
                  ┌──────────┐
-         ┌──────→│  running  │◄──────┐
-         │       └────┬──┬──┘       │
-         │            │  │          │
-    (resume)    ┌─────┘  └─────┐  (resume)
-         │      ▼              ▼    │
-         │ ┌──────────┐  ┌─────┴────┐
-         └─┤ stopped  │  │completed │
+         ┌──────→│  running  │
+         │       └────┬──┬──┘
+         │            │  │
+    (resume)    ┌─────┘  └─────┐
+         │      ▼              ▼
+         │ ┌──────────┐  ┌──────────┐
+         └─┤ stopped  │  │completed │  (terminal)
            └──────────┘  └──────────┘
 
          ┌──────────┐
@@ -384,10 +386,10 @@ You can't dispatch a run (dispatches always serve a specific task or a run-level
                     └────┬────┘
                          ▼
                    ┌──────────┐
-              ┌───→│executing │
-              │    └────┬─────┘
-              │         │
-              │         ▼
+              ┌───→│executing │──────────┐
+              │    └────┬─────┘          │
+              │         │          (executor BLOCKED)
+              │         ▼                │
               │    ┌──────────┐     ┌────────┐
               │    │reviewing │◄───→│ fixing │
               │    └────┬─────┘     └────────┘
@@ -411,7 +413,7 @@ You can't dispatch a run (dispatches always serve a specific task or a run-level
 
 ### Unified verdict values
 
-All gates, dispatches, and task verdicts use the same 4 values:
+All gates and task verdicts use the same values (dispatches do not carry verdicts):
 
 | Value | Meaning | Scope |
 |---|---|---|
@@ -430,7 +432,9 @@ Gate-type-specific nuance goes in `data` JSON:
 | VERIFIED | PASS | `{"scenarios": N}` |
 | REQUEST_FIXES | FAIL | `{"fixable": true}` |
 | ABANDON | FAIL | `{"fixable": false}` |
-| ship/challenge/stop | — | User choice stored in `data`, not as verdict |
+| ship | PASS | `{"choice": "ship"}` |
+| challenge | WARN | `{"choice": "challenge"}` |
+| stop | FAIL | `{"choice": "stop"}` |
 
 ### Gate types
 
@@ -480,7 +484,7 @@ Run-level (task_id = NULL, Phase 3):
 run.started           — orchestration begins (fresh or from resume)
 run.completed         — mine-ship succeeded
 run.stopped           — user chose "Stop here" at any gate
-run.resumed           — resumed from .cfl-run-id
+run.resumed           — resumed from stopped/stale state
 
 task.started          — task execution begins
 task.dispatched       — subagent launched (any role)
@@ -492,9 +496,13 @@ task.fixed            — fix pass completed
 task.verdict          — final task verdict assembled
 
 review.started        — Phase 3 step begins
+review.dispatched     — Phase 3 subagent launched (run-level dispatch, task_id=NULL)
 review.gated          — Phase 3 gate result
 review.fixed          — Phase 3 fix applied
 review.completed      — Phase 3 step completed
+
+cfl.invoked           — every cfl CLI invocation (telemetry)
+set.applied           — direct-access tier field write (cfl set)
 
 session.compacted     — orchestrator context compaction detected
 dispatch.compacted    — subagent compaction detected (from hook)
@@ -507,22 +515,25 @@ Each event type defines a minimum set of keys in its `data` JSON. Additional key
 | event | Minimum `data` fields |
 |---|---|
 | `run.started` | `{"feature_dir": str, "base_commit": str, "task_count": int}` |
-| `run.completed` | `{"pr_url": str}` (if shipped via mine-ship) |
+| `run.completed` | `{"pr_url": str\|null, "via": str}` — `pr_url` is null when not shipped via mine-ship; `via` is `"ship"` or `"archive"` |
 | `run.stopped` | `{"reason": str, "at_task": str}` |
-| `run.resumed` | `{"session_id": str, "last_completed": str}` |
+| `run.resumed` | `{"session_id": str, "last_completed": str, "resumed_at": str}` |
 | `task.started` | `{"title": str}` |
-| `task.dispatched` | `{"role": str, "agent_type": str, "routing_reason": str}` |
+| `task.dispatched` | `{"role": str, "agent_type": str, "routing_reason": str, "dispatch_id": int}` |
 | `task.contested` | `{"criterion": str, "decision": "accept"\|"reject", "rationale": str}` |
 | `task.gated` | `{"gate_type": str, "verdict": str}` |
 | `task.retried` | `{"reason": str, "iteration": int}` |
 | `task.reviewed` | `{"reviewers": [str], "findings_total": int}` |
 | `task.fixed` | `{"fixed": int, "deferred": int, "unresolved": int, "iteration": int}` |
-| `task.verdict` | `{"verdict": str, "detail": str, "spec": str, "code": str, "integration": str, "test": str, "lint": str, "visual": str}` |
+| `task.verdict` | For reviewed verdicts (PASS/WARN/FAIL/SKIPPED): `{"verdict": str, "detail": str, "spec": str, "code": str, "integration": str, "test": str, "lint": str, "visual": str}`. For BLOCKED (via `cfl task block`): `{"verdict": "BLOCKED", "reason": str|null}` |
 | `review.started` | `{"gate_type": str}` |
+| `review.dispatched` | `{"role": str, "agent_type": str, "routing_reason": str, "dispatch_id": int}` |
 | `review.gated` | `{"gate_type": str, "verdict": str}` |
 | `review.fixed` | `{"gate_type": str, "fixed": int}` |
 | `review.completed` | `{"gate_type": str}` |
-| `session.compacted` | `{"context_pct_before": int}` |
+| `cfl.invoked` | `{"command": str, "args": [str], "flags": {str: str}, "exit_code": int, "duration_ms": int}` |
+| `set.applied` | `{"entity": str, "id": str, "fields": {str: any}, "previous": {str: any}}` |
+| `session.compacted` | `{"session_id": str, "context_pct_before": int}` |
 | `dispatch.compacted` | `{"dispatch_id": int, "role": str}` |
 
 ### gates.data schemas (minimum defined fields per gate type)
@@ -559,12 +570,12 @@ ALTER TABLE specs ADD COLUMN active_run_id INTEGER REFERENCES runs(id);
 `cfl run start` sets `specs.active_run_id` atomically with the runs INSERT (same transaction). `cfl run complete` and `cfl run stop` clear it. `cfl archive` clears it.
 
 Subsequent `cfl` commands auto-resolve the active run:
-1. Determine the spec (from `--feature` flag, CWD-based feature dir detection, or git root + `repo_url` lookup)
+1. Determine the spec (from `--spec` flag, CWD-based detection, or git root + `repo_url` lookup)
 2. Read `specs.active_run_id` — if NULL, no active run
 3. Verify the referenced run has `status = 'running'`
 4. If NULL or status mismatch → error with a clear message
 
-**CWD resolution:** `cfl` walks up from CWD looking for `design/specs/NNN-slug/` pattern, extracts the spec number, and looks it up in the DB via `(repo_url, number)`. Falls back to `--feature` flag if CWD is ambiguous (e.g., repo root with multiple specs).
+**CWD resolution:** `cfl` globs `design/specs/*/tasks/T*.md` in the current working tree to find specs with task files, or falls back to `design/specs/NNN-slug/` directory pattern for specs without tasks (draft/approved state). Falls back to `--spec NNN` flag if CWD is ambiguous (e.g., repo root with multiple specs).
 
 **Run start guard:** `cfl run start` errors if `active_run_id IS NOT NULL` for the target spec. Error message names the existing run ID and started_at timestamp, and instructs: "Resume with `/mine-orchestrate`, or `cfl run stop` to abandon it first." This prevents accidental orphan runs.
 
@@ -577,12 +588,12 @@ Subsequent `cfl` commands auto-resolve the active run:
 | `spec-helper init` | `cfl spec init` | Also registers in `specs` table |
 | `spec-helper next-number` | `cfl spec next-number` | Queries DB, not filesystem |
 | `spec-helper validate` | `cfl spec validate` | Task file schema validation |
-| `spec-helper archive` | `cfl archive` | Full cleanup: git rm tasks/, .gitignore, .cfl-run-id, stamp design.md |
+| `spec-helper archive` | `cfl archive` | Full cleanup: git rm tasks/, .gitignore, stamp design.md, close run if active |
 | `spec-helper checkpoint-init` | `cfl run start` | Creates `runs` + `tasks` rows, sets `specs.active_run_id` |
 | `spec-helper checkpoint-read` | `cfl run status` | Reads from DB |
 | `spec-helper checkpoint-update` | `cfl task update` | Updates task status/fields |
 | `spec-helper checkpoint-verdict` | `cfl task verdict` | Updates task verdict + creates verdict-assembly gate |
-| `spec-helper checkpoint-delete` | `cfl run complete` | Sets run status, removes `.cfl-run-id` |
+| `spec-helper checkpoint-delete` | `cfl run complete` | Sets run status, clears `active_run_id` |
 | `trail-log` (Bash) | `cfl event` | Writes to events table |
 | `.orchestrate-state.md` | runs + tasks tables | Checkpoint file eliminated |
 | `trail.tsv` | events table | TSV file eliminated |
@@ -599,7 +610,7 @@ PRAGMA foreign_keys = ON;
 -- wal_autocheckpoint left at default (1000 pages ≈ 4MB) — no manual checkpoint management needed
 ```
 
-**WSL2 /mnt/ paths:** If the DB path resolves under `/mnt/`, fall back to DELETE journal mode (WAL uses shared memory, which fails on Windows-mounted filesystems).
+**WSL2 /mnt/ paths:** If the DB path resolves under `/mnt/`, fall back to DELETE journal mode (WAL uses shared memory, which fails on Windows-mounted filesystems). The check must use `os.path.realpath(db_path)` to resolve symlinks before testing the prefix — `~/.local/share` may be symlinked to a Windows-mounted path.
 
 ## Scope Boundaries for Challenge
 
