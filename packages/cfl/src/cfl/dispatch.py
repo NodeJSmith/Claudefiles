@@ -12,11 +12,6 @@ import cfl.output as output_module
 from cfl.session import read_context_pct
 
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
-
 def record_dispatch(
     conn: sqlite3.Connection,
     run_id: int,

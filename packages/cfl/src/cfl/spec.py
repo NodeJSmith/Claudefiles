@@ -18,32 +18,14 @@ import frontmatter
 import cfl.output as output_module
 from cfl.resolve import get_git_root, resolve_repo_url, resolve_spec
 
-# ---------------------------------------------------------------------------
-# Validation constants
-# ---------------------------------------------------------------------------
-
-# task_id in task file frontmatter must be T followed by one or more digits
-_TASK_ID_RE = re.compile(r"^T\d+$")
-
-# implements entries must be FR#N or AC#N (N >= 1)
-_IMPLEMENTS_RE = re.compile(r"^(FR|AC)#[1-9]\d*$")
-
-# Valid slug: starts with letter or digit, only lowercase alphanumeric and hyphens
-_SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
-
-# All five fields are required in task file frontmatter
-_REQUIRED_FIELDS = frozenset({"task_id", "title", "status", "depends_on", "implements"})
-
-# Statuses accepted by spec_set_status (external callers)
-SETTABLE_STATUSES = frozenset({"draft", "approved", "abandoned"})
-
-# Terminal spec statuses — cannot be transitioned out of via spec_set_status
-_TERMINAL_SPEC_STATUSES = frozenset({"archived", "abandoned"})
-
-
-# ---------------------------------------------------------------------------
-# Public command functions
-# ---------------------------------------------------------------------------
+_TASK_ID_RE: re.Pattern[str] = re.compile(r"^T\d+$")
+_IMPLEMENTS_RE: re.Pattern[str] = re.compile(r"^(FR|AC)#[1-9]\d*$")
+_SLUG_RE: re.Pattern[str] = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+_REQUIRED_FIELDS: frozenset[str] = frozenset(
+    {"task_id", "title", "status", "depends_on", "implements"}
+)
+SETTABLE_STATUSES: frozenset[str] = frozenset({"draft", "approved", "abandoned"})
+_TERMINAL_SPEC_STATUSES: frozenset[str] = frozenset({"archived", "abandoned"})
 
 
 def spec_init(conn: sqlite3.Connection, slug: str) -> None:
@@ -55,7 +37,7 @@ def spec_init(conn: sqlite3.Connection, slug: str) -> None:
     Exits 1 if the slug is invalid or the target directory already exists.
 
     Crash window: if the process is killed between COMMIT and mkdir(), the DB
-    row persists with no corresponding directory.  The consequence is a gap in
+    row persists with no corresponding directory. The consequence is a gap in
     spec numbering — the orphaned row is not recoverable via spec_init.
     """
     slug = _normalize_slug(slug)
@@ -168,7 +150,6 @@ def spec_validate(conn: sqlite3.Connection, spec_override: str | None = None) ->
 
         meta = parsed_meta[file_label]
 
-        # Required field presence check
         for field in sorted(_REQUIRED_FIELDS):
             if field not in meta:
                 errors.append(
@@ -179,7 +160,6 @@ def spec_validate(conn: sqlite3.Connection, spec_override: str | None = None) ->
                     }
                 )
 
-        # task_id format validation (only if the field is present)
         task_id = meta.get("task_id")
         if task_id is not None and not _TASK_ID_RE.match(str(task_id)):
             errors.append(
@@ -190,7 +170,6 @@ def spec_validate(conn: sqlite3.Connection, spec_override: str | None = None) ->
                 }
             )
 
-        # implements entry format validation
         for ref in meta.get("implements") or []:
             ref_str = str(ref)
             if not _IMPLEMENTS_RE.match(ref_str):
@@ -205,7 +184,6 @@ def spec_validate(conn: sqlite3.Connection, spec_override: str | None = None) ->
                     }
                 )
 
-        # depends_on cross-reference validation
         for dep in meta.get("depends_on") or []:
             dep_str = str(dep)
             if _TASK_ID_RE.match(dep_str):
@@ -355,11 +333,6 @@ def spec_next_number(conn: sqlite3.Connection) -> None:
     """
     repo_url = resolve_repo_url()
     output_module.emit({"next_number": _next_spec_number(conn, repo_url)})
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
 
 
 def _next_spec_number(conn: sqlite3.Connection, repo_url: str) -> int:

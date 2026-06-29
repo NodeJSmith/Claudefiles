@@ -10,6 +10,10 @@ import re
 import sqlite3
 from pathlib import Path
 
+SESSION_ID_ENV_VAR: str = "CLAUDE_CODE_SESSION_ID"
+MODEL_ENV_VAR: str = "CLAUDE_MODEL"
+CONTEXT_SIDECAR_TEMPLATE: str = "/tmp/claude-context-{session_id}.meta"
+
 
 def read_context_pct() -> int | None:
     """Read context percentage from the sidecar file for the current session.
@@ -17,11 +21,11 @@ def read_context_pct() -> int | None:
     Reads /tmp/claude-context-<session_id>.meta and extracts 'pct=N'.
     Returns None if the env var is unset, the file is missing, or the file is malformed.
     """
-    session_id = os.environ.get("CLAUDE_CODE_SESSION_ID")
+    session_id = os.environ.get(SESSION_ID_ENV_VAR)
     if session_id is None:
         return None
 
-    sidecar_path = Path(f"/tmp/claude-context-{session_id}.meta")
+    sidecar_path = Path(CONTEXT_SIDECAR_TEMPLATE.format(session_id=session_id))
     try:
         content = sidecar_path.read_text()
         m = re.search(r"pct=(\d+)", content)
@@ -39,11 +43,11 @@ def auto_join_session(conn: sqlite3.Connection, run_id: int | None) -> str | Non
     Idempotent — second call for the same (run_id, session_id) is a no-op via INSERT OR IGNORE.
     Returns session_id if registered, None if CLAUDE_CODE_SESSION_ID is not set or run_id is None.
     """
-    session_id = os.environ.get("CLAUDE_CODE_SESSION_ID")
+    session_id = os.environ.get(SESSION_ID_ENV_VAR)
     if session_id is None or run_id is None:
         return None
 
-    model = os.environ.get("CLAUDE_MODEL")
+    model = os.environ.get(MODEL_ENV_VAR)
     context_pct = read_context_pct()
 
     conn.execute(

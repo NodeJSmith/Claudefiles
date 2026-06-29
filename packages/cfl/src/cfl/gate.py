@@ -12,10 +12,6 @@ import cfl.output as output_module
 from cfl.session import read_context_pct
 from cfl.vocabulary import COMMON_VERDICTS
 
-# ---------------------------------------------------------------------------
-# Vocabulary
-# ---------------------------------------------------------------------------
-
 KNOWN_GATE_TYPES: frozenset[str] = frozenset(
     {
         "spec-review",
@@ -37,11 +33,6 @@ KNOWN_GATE_TYPES: frozenset[str] = frozenset(
 
 # Shared base from vocabulary.py; extend here when gate verdicts diverge from task verdicts.
 VALID_GATE_VERDICTS: frozenset[str] = COMMON_VERDICTS
-
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
 
 
 def record_gate(

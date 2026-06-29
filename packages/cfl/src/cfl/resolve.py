@@ -4,7 +4,7 @@ Every active-run command calls resolve_context() to locate the current spec
 and register the current session. Override resolution with --spec NNN.
 """
 
-import glob as glob_module
+import glob
 import re
 import sqlite3
 import subprocess
@@ -12,6 +12,8 @@ from typing import NamedTuple
 
 import cfl.output as output_module
 from cfl.session import auto_join_session
+
+GIT_SUBPROCESS_TIMEOUT_SECONDS: int = 10
 
 
 class SpecContext(NamedTuple):
@@ -36,7 +38,7 @@ def resolve_repo_url() -> str:
             capture_output=True,
             text=True,
             check=True,
-            timeout=10,
+            timeout=GIT_SUBPROCESS_TIMEOUT_SECONDS,
         )
         return result.stdout.strip()
     except subprocess.CalledProcessError:
@@ -49,7 +51,7 @@ def resolve_repo_url() -> str:
             capture_output=True,
             text=True,
             check=True,
-            timeout=10,
+            timeout=GIT_SUBPROCESS_TIMEOUT_SECONDS,
         )
         return result.stdout.strip()
     except subprocess.CalledProcessError:
@@ -69,10 +71,14 @@ def get_git_root() -> str | None:
             capture_output=True,
             text=True,
             check=True,
-            timeout=10,
+            timeout=GIT_SUBPROCESS_TIMEOUT_SECONDS,
         )
         return result.stdout.strip()
-    except subprocess.CalledProcessError:
+    except (
+        subprocess.CalledProcessError,
+        subprocess.TimeoutExpired,
+        FileNotFoundError,
+    ):
         return None
 
 
@@ -96,11 +102,11 @@ def _find_spec_numbers_from_disk() -> list[int]:
     Falls back to bare spec directory pattern (design/specs/*/) if no task files found.
     Returns sorted list of unique integer spec numbers found.
     """
-    task_matches = glob_module.glob("design/specs/*/tasks/T*.md")
+    task_matches = glob.glob("design/specs/*/tasks/T*.md")
     if task_matches:
         return _extract_numbers_from_paths(task_matches)
 
-    dir_matches = glob_module.glob("design/specs/*/")
+    dir_matches = glob.glob("design/specs/*/")
     return _extract_numbers_from_paths(dir_matches)
 
 
@@ -276,7 +282,7 @@ def resolve_context(
     )
 
     run: dict | None = None
-    if require_active_run and active_run_id is not None:
+    if require_active_run:
         run = resolve_run(conn, spec_id)
 
     session_id: str | None = None

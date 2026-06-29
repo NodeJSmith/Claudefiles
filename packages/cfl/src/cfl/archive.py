@@ -21,9 +21,10 @@ import subprocess
 import tempfile
 
 import cfl.output as output_module
-from cfl.resolve import resolve_spec
+from cfl.resolve import get_git_root, resolve_spec
 
-GIT_SUBPROCESS_TIMEOUT_SECONDS = 30
+GIT_SUBPROCESS_TIMEOUT_SECONDS: int = 30
+ARCHIVED_STATUS_LINE: str = "\n**Status:** archived\n"
 
 # Regex that matches **Status:** <word> in the header section of design.md.
 _STATUS_PATTERN = re.compile(r"\*\*Status:\*\*\s*\w+")
@@ -45,7 +46,6 @@ def archive_spec(
     spec_slug = spec_ctx.spec_slug
     feature_dir = spec_ctx.feature_dir
 
-    # Verify all tasks are done.
     not_done = _find_not_done_tasks(conn, spec_id, spec_ctx.active_run_id)
     if not_done:
         labels = ", ".join(f"{t['task_id']} ({t['status']})" for t in not_done)
@@ -93,8 +93,7 @@ def archive_spec(
         conn.execute("ROLLBACK")
         raise
 
-    # Step 2: git rm -r tasks/
-    git_root = _get_git_root()
+    git_root = get_git_root()
     tasks_dir_rel = f"{feature_dir}/tasks"
     _git_rm(git_root, tasks_dir_rel, recursive=True)
 
@@ -103,7 +102,6 @@ def archive_spec(
         artifact_rel = f"{feature_dir}/{artifact}"
         _git_rm_ignore_unmatch(git_root, artifact_rel)
 
-    # Step 4: Stamp **Status:** archived in design.md.
     design_path = (
         os.path.join(git_root, feature_dir, "design.md")
         if git_root
@@ -119,11 +117,6 @@ def archive_spec(
             "task_count": task_count,
         }
     )
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
 
 
 def _resolve_run_id(
@@ -173,25 +166,6 @@ def _count_tasks(
     return conn.execute(
         "SELECT COUNT(*) AS cnt FROM tasks WHERE run_id=?", (run_id,)
     ).fetchone()["cnt"]
-
-
-def _get_git_root() -> str | None:
-    """Return the git root directory, or None if not in a git repo."""
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=10,
-        )
-        return result.stdout.strip()
-    except (
-        subprocess.CalledProcessError,
-        subprocess.TimeoutExpired,
-        FileNotFoundError,
-    ):
-        return None
 
 
 def _git_rm(git_root: str | None, rel_path: str, *, recursive: bool = False) -> None:
@@ -261,10 +235,10 @@ def _stamp_design_md(design_path: str) -> None:
         for line in lines:
             result.append(line)
             if line.startswith("# ") and not inserted:
-                result.append("\n**Status:** archived\n")
+                result.append(ARCHIVED_STATUS_LINE)
                 inserted = True
         if not inserted:
-            result.append("\n**Status:** archived\n")
+            result.append(ARCHIVED_STATUS_LINE)
         new_text = "".join(result)
 
     # Atomic write: temp file + os.replace.

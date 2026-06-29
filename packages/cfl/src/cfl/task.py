@@ -14,10 +14,6 @@ import cfl.output as output_module
 from cfl.session import read_context_pct
 from cfl.vocabulary import COMMON_VERDICTS
 
-# ---------------------------------------------------------------------------
-# State machine
-# ---------------------------------------------------------------------------
-
 # Valid transitions via `cfl task update` (guarded command, no event).
 # Transitions exclusive to other commands are NOT listed here.
 TASK_UPDATE_TRANSITIONS: dict[str, set[str]] = {
@@ -38,7 +34,7 @@ EXCLUSIVE_HINTS: dict[tuple[str, str], str] = {
 
 # Verdicts accepted by task_verdict (BLOCKED is exclusive to task_block).
 # Shared base from vocabulary.py; extend here when task verdicts diverge from gate verdicts.
-VALID_VERDICTS = COMMON_VERDICTS
+VALID_VERDICTS: frozenset[str] = COMMON_VERDICTS
 
 # Verdict → terminal task status mapping.
 VERDICT_TO_STATUS: dict[str, str] = {
@@ -47,11 +43,6 @@ VERDICT_TO_STATUS: dict[str, str] = {
     "SKIPPED": "done",
     "FAIL": "failed",
 }
-
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
 
 
 def task_start(conn: sqlite3.Connection, run_id: int, task_id: str) -> None:
@@ -299,11 +290,6 @@ def task_block(
             "reason": reason,
         }
     )
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
 
 
 def _require_task(conn: sqlite3.Connection, run_id: int, task_id: str) -> sqlite3.Row:

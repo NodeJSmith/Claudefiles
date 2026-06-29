@@ -9,20 +9,16 @@ import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-# ---------------------------------------------------------------------------
-# Schema versioning
-# ---------------------------------------------------------------------------
-
-SCHEMA_VERSION = 1
+SCHEMA_VERSION: int = 1
+CFL_DB_ENV_VAR: str = "CFL_DB"
+DEFAULT_DB_PATH: str = "~/.local/share/claudefiles/cfl.db"
+BUSY_TIMEOUT_MS: int = 5000
+WSL_MOUNT_PREFIX: str = "/mnt/"
 
 # Migration DDL strings, keyed by the target version they produce.
 # Version 1 is the initial schema (handled by _create_schema_v1).
 # Future versions go here: MIGRATIONS[2] = "ALTER TABLE ..."
 MIGRATIONS: dict[int, list[str]] = {}
-
-# ---------------------------------------------------------------------------
-# Initial schema DDL (version 1)
-# ---------------------------------------------------------------------------
 
 _SCHEMA_STATEMENTS: list[str] = [
     """
@@ -155,16 +151,11 @@ _SCHEMA_STATEMENTS: list[str] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
-
 def get_db_path() -> str:
     """Return the configured DB path, defaulting to ~/.local/share/claudefiles/cfl.db."""
     return os.environ.get(
-        "CFL_DB",
-        os.path.expanduser("~/.local/share/claudefiles/cfl.db"),
+        CFL_DB_ENV_VAR,
+        os.path.expanduser(DEFAULT_DB_PATH),
     )
 
 
@@ -182,9 +173,9 @@ def setup_db(db_path: str) -> sqlite3.Connection:
 
     # Choose journal mode: WAL for local paths, DELETE for Windows-mounted /mnt/ paths
     real_path = os.path.realpath(db_path)
-    journal_mode = "DELETE" if real_path.startswith("/mnt/") else "WAL"
+    journal_mode = "DELETE" if real_path.startswith(WSL_MOUNT_PREFIX) else "WAL"
     conn.execute(f"PRAGMA journal_mode={journal_mode}")
-    conn.execute("PRAGMA busy_timeout=5000")
+    conn.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
     conn.execute("PRAGMA synchronous=NORMAL")
     conn.execute("PRAGMA foreign_keys=ON")
 
@@ -206,11 +197,6 @@ def db_connection(db_path: str | None = None) -> Iterator[sqlite3.Connection]:
         yield conn
     finally:
         conn.close()
-
-
-# ---------------------------------------------------------------------------
-# Internal schema management
-# ---------------------------------------------------------------------------
 
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
@@ -235,9 +221,9 @@ def _create_schema_v1(conn: sqlite3.Connection) -> None:
     conn.execute("BEGIN IMMEDIATE")
     try:
         for stmt in _SCHEMA_STATEMENTS:
-            stmt = stmt.strip()
-            if stmt:
-                conn.execute(stmt)
+            sql = stmt.strip()
+            if sql:
+                conn.execute(sql)
         conn.execute(
             "INSERT OR IGNORE INTO schema_version(version, applied_at) VALUES(1, datetime('now'))"
         )
@@ -256,9 +242,9 @@ def _apply_migrations(conn: sqlite3.Connection, current_version: int) -> None:
         conn.execute("BEGIN IMMEDIATE")
         try:
             for stmt in migration_sql:
-                stmt = stmt.strip()
-                if stmt:
-                    conn.execute(stmt)
+                sql = stmt.strip()
+                if sql:
+                    conn.execute(sql)
             conn.execute(
                 "INSERT INTO schema_version(version, applied_at) VALUES(?, datetime('now'))",
                 (version,),

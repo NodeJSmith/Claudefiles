@@ -11,10 +11,6 @@ import sys
 import cfl.output as output_module
 from cfl.session import read_context_pct
 
-# ---------------------------------------------------------------------------
-# Vocabulary
-# ---------------------------------------------------------------------------
-
 KNOWN_EVENT_NAMES: frozenset[str] = frozenset(
     {
         "run.started",
@@ -37,14 +33,8 @@ KNOWN_EVENT_NAMES: frozenset[str] = frozenset(
         "cfl.invoked",
         "set.applied",
         "session.compacted",
-        "dispatch.compacted",  # planned: emitted by future cfl dispatch compacted command
     }
 )
-
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
 
 
 def record_event(
@@ -68,11 +58,6 @@ def record_event(
             json.dumps({"warning": f"Event logging failed: {exc}"}),
             file=sys.stderr,
         )
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
 
 
 def _do_record(

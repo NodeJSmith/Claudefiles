@@ -18,11 +18,11 @@ from pathlib import Path
 import frontmatter
 
 import cfl.output as output_module
-from cfl.session import auto_join_session
+from cfl.session import SESSION_ID_ENV_VAR, auto_join_session
 
-STALE_RUN_HOURS = 4
-
-INTERVENTION_STATUSES = frozenset({"failed", "blocked", "stopped"})
+STALE_RUN_HOURS: int = 4
+GIT_SUBPROCESS_TIMEOUT_SECONDS: int = 10
+INTERVENTION_STATUSES: frozenset[str] = frozenset({"failed", "blocked", "stopped"})
 
 
 def run_start(
@@ -355,7 +355,7 @@ def run_resume(
 
     last_completed = _derive_last_completed(task_dicts)
     current_task = _derive_current_task(task_dicts)
-    session_id = os.environ.get("CLAUDE_CODE_SESSION_ID")
+    session_id = os.environ.get(SESSION_ID_ENV_VAR)
 
     conn.execute("BEGIN IMMEDIATE")
     try:
@@ -415,11 +415,6 @@ def run_resume(
             "current_task": current_task,
         }
     )
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
 
 
 def _guard_active_run(conn: sqlite3.Connection, existing_run_id: int) -> None:
@@ -500,7 +495,7 @@ def _get_head_commit() -> str:
             capture_output=True,
             text=True,
             check=True,
-            timeout=10,
+            timeout=GIT_SUBPROCESS_TIMEOUT_SECONDS,
         )
         return result.stdout.strip()
     except (

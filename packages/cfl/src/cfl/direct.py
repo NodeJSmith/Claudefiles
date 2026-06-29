@@ -12,10 +12,6 @@ import sqlite3
 
 import cfl.output as output_module
 
-# ---------------------------------------------------------------------------
-# Entity → table mapping
-# ---------------------------------------------------------------------------
-
 VALID_ENTITIES: frozenset[str] = frozenset({"task", "run", "spec", "session"})
 
 _ENTITY_TABLE: dict[str, str] = {
@@ -195,11 +191,6 @@ def set_field(
     )
 
 
-# ---------------------------------------------------------------------------
-# Argument parsing helpers
-# ---------------------------------------------------------------------------
-
-
 def parse_field_args(raw_pairs: list[str]) -> dict[str, str | None]:
     """Parse 'field=value' positional args into a dict.
 
@@ -225,11 +216,6 @@ def parse_field_args(raw_pairs: list[str]) -> dict[str, str | None]:
             )
         result[key] = None if value.lower() == "null" else value
     return result
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
 
 
 def _find_row(

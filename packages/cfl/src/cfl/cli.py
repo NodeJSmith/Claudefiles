@@ -8,15 +8,15 @@ import sys
 from whenever import Instant
 
 import cfl.output as output_module
-from cfl.db import db_connection
 from cfl.archive import archive_spec
+from cfl.db import db_connection
 from cfl.direct import VALID_ENTITIES, parse_field_args, set_field
 from cfl.dispatch import end_dispatch, record_dispatch
 from cfl.event import record_event
 from cfl.gate import VALID_GATE_VERDICTS, record_gate
 from cfl.resolve import resolve_context, resolve_spec
 from cfl.run import run_complete, run_resume, run_start, run_status, run_stop
-from cfl.session import end_session, record_compaction
+from cfl.session import SESSION_ID_ENV_VAR, end_session, record_compaction
 from cfl.spec import (
     SETTABLE_STATUSES,
     spec_init,
@@ -413,15 +413,11 @@ def _execute(args: argparse.Namespace) -> None:
         _handle_archive(args)
     elif cmd == "set":
         _handle_set(args)
-    else:
-        _parser_ref = build_parser()
-        _parser_ref.print_help()
-        sys.exit(2)
 
 
 def _handle_spec(args: argparse.Namespace) -> None:
     spec_cmd = args.spec_cmd
-    spec_override = getattr(args, "spec", None)
+    spec_override = args.spec
 
     if spec_cmd == "init":
         with db_connection() as conn:
@@ -448,7 +444,7 @@ def _handle_spec(args: argparse.Namespace) -> None:
 
 def _handle_run(args: argparse.Namespace) -> None:
     run_cmd = args.run_cmd
-    spec_override = getattr(args, "spec", None)
+    spec_override = args.spec
 
     if run_cmd == "start":
         with db_connection() as conn:
@@ -521,7 +517,7 @@ def _handle_run(args: argparse.Namespace) -> None:
 
 def _handle_task(args: argparse.Namespace) -> None:
     task_cmd = args.task_cmd
-    spec_override = getattr(args, "spec", None)
+    spec_override = args.spec
 
     if task_cmd == "start":
         with db_connection() as conn:
@@ -560,7 +556,7 @@ def _handle_task(args: argparse.Namespace) -> None:
 
 
 def _handle_gate(args: argparse.Namespace) -> None:
-    spec_override = getattr(args, "spec", None)
+    spec_override = args.spec
     with db_connection() as conn:
         ctx = resolve_context(conn, spec_override=spec_override)
         record_gate(
@@ -584,7 +580,7 @@ def _handle_dispatch(args: argparse.Namespace) -> None:
 
     The first positional arg determines which branch runs.
     """
-    spec_override = getattr(args, "spec", None)
+    spec_override = args.spec
     dispatch_args: list[str] = args.dispatch_args
 
     if dispatch_args and dispatch_args[0] == "end":
@@ -662,7 +658,7 @@ def _handle_dispatch(args: argparse.Namespace) -> None:
 
 
 def _handle_event(args: argparse.Namespace) -> None:
-    spec_override = getattr(args, "spec", None)
+    spec_override = args.spec
 
     # Resolve run context if possible; cfl event is fire-and-forget so errors
     # during resolution are also swallowed — run_id stays None on failure.
@@ -671,9 +667,7 @@ def _handle_event(args: argparse.Namespace) -> None:
         with db_connection() as conn:
             ctx = resolve_context(conn, spec_override=spec_override)
             run_id = ctx["active_run_id"]
-    except SystemExit:
-        pass
-    except Exception:
+    except (SystemExit, Exception):
         pass
 
     # Open a fresh connection for the actual event write (the context resolution
@@ -695,7 +689,7 @@ def _handle_event(args: argparse.Namespace) -> None:
 def _handle_session(args: argparse.Namespace) -> None:
     session_cmd = args.session_cmd
     if session_cmd == "end":
-        session_id = os.environ.get("CLAUDE_CODE_SESSION_ID")
+        session_id = os.environ.get(SESSION_ID_ENV_VAR)
         reason = getattr(args, "reason", None)
         if session_id is None:
             output_module.emit(
@@ -725,7 +719,7 @@ def _handle_session(args: argparse.Namespace) -> None:
                 )
     elif session_cmd == "compacted":
         context_pct = getattr(args, "context_pct", None)
-        spec_override = getattr(args, "spec", None)
+        spec_override = args.spec
         with db_connection() as conn:
             ctx = resolve_context(conn, spec_override=spec_override)
             run_id = ctx["active_run_id"]
@@ -747,14 +741,14 @@ def _handle_session(args: argparse.Namespace) -> None:
 
 
 def _handle_archive(args: argparse.Namespace) -> None:
-    spec_override = getattr(args, "spec", None)
+    spec_override = args.spec
     dry_run = getattr(args, "dry_run", False)
     with db_connection() as conn:
         archive_spec(conn, spec_override=spec_override, dry_run=dry_run)
 
 
 def _handle_set(args: argparse.Namespace) -> None:
-    spec_override = getattr(args, "spec", None)
+    spec_override = args.spec
     fields = parse_field_args(args.field_pairs)
 
     with db_connection() as conn:
@@ -772,11 +766,6 @@ def _handle_set(args: argparse.Namespace) -> None:
             fields,
             active_run_id=active_run_id,
         )
-
-
-# ---------------------------------------------------------------------------
-# Invocation telemetry
-# ---------------------------------------------------------------------------
 
 
 def _try_record_invocation(
@@ -866,8 +855,8 @@ def _parse_argv_for_telemetry(
             or getattr(args, "session_cmd", None)
         )
         command = f"{cmd} {sub}".strip() if sub else cmd
-        n_cmd_words = len(command.split()) if command else 0
-        positional_args = raw_positionals[n_cmd_words:]
+        cmd_word_count = len(command.split()) if command else 0
+        positional_args = raw_positionals[cmd_word_count:]
     else:
         command = raw_positionals[0] if raw_positionals else ""
         positional_args = raw_positionals[1:]
