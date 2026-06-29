@@ -76,10 +76,10 @@ After each answer, walk down any decision branches it opens — same pattern as 
 After the interrogation, write a brief to the feature directory. If no feature directory exists yet, create one:
 
 ```bash
-spec-helper init <slug> --json
+cfl spec init <slug>
 ```
 
-Record the returned `feature_dir` — you will write the brief there.
+Record the returned `dir` field — you will write the brief there.
 
 Write to `<feature_dir>/brief.md`:
 

@@ -41,7 +41,7 @@ $ARGUMENTS — <what arguments it accepts, or "none">
 - Use `AskUserQuestion` for every user interaction point — explicit header and options
   - `header` ≤12 characters
   - Maximum 4 options per question
-- Use `spec-helper`, `get-skill-tmpdir`, and other `bin/` helpers where appropriate — don't reinvent
+- Use `cfl`, `get-skill-tmpdir`, and other `bin/` helpers where appropriate — don't reinvent
 - If the skill needs scripts, add them to `bin/` (shared), not inside the skill directory
 
 ## Size Target

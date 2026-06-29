@@ -31,7 +31,7 @@ git-branch-diff-stat               # → diff summary
 
 ## Step 4: Task File Archival
 
-Follow `rules/common/git-workflow.md` (Task File Cleanup): check for task files via `find design/specs -path '*/tasks/T*.md' -print -quit 2>/dev/null`. If task files exist and `spec-helper` is available, run `spec-helper archive --all --dry-run --json`. If any specs would archive, run `spec-helper archive --all`, then commit (`chore: archive completed tasks`) and push before creating the PR. If `spec-helper archive --all` exits non-zero, return `ERROR: spec-helper archive failed` with the error output.
+Follow `rules/common/git-workflow.md` (Task File Cleanup): check for task files via `find design/specs -path '*/tasks/T*.md' -print -quit 2>/dev/null`. If task files exist and `cfl` is available, run `cfl archive --dry-run`. If the output has `"status": "would_archive"`, run `cfl archive`, then commit (`chore: archive completed tasks`) and push before creating the PR. If `cfl archive` exits non-zero, return `ERROR: cfl archive failed` with the error output.
 
 ## Step 5: Draft PR Body
 

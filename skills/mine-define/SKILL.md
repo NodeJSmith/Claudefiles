@@ -361,10 +361,10 @@ If `$ARGUMENTS` pointed to an existing `design/specs/NNN-*/` directory (checked 
 
 Otherwise, run:
 ```bash
-spec-helper init <slug> --json
+cfl spec init <slug>
 ```
 
-Use the preliminary slug from Phase 1 (refine it if the user's answers suggest a better name). Record the returned `feature_dir`.
+Use the preliminary slug from Phase 1 (refine it if the user's answers suggest a better name). Record the `dir` field from the output as the feature directory.
 
 ### Design context check
 

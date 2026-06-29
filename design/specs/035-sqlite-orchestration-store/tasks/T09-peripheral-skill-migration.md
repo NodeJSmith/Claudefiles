@@ -1,7 +1,7 @@
 ---
 task_id: "T09"
 title: "Migrate peripheral skills and rules to cfl"
-status: "planned"
+status: "done"
 depends_on: ["T03", "T07"]
 implements: ["FR#27"]
 ---
