@@ -1,330 +1,256 @@
-# Design: SQLite Orchestration Store
+# Design: cfl — Claudefiles Orchestration Store
 
-**Date:** 2026-06-28
-**Status:** superseded
-**Scope-mode:** hold
-**Research:** design/research/2026-06-28-sqlite-orchestration-store/research.md
+**Date:** 2026-06-29
+**Status:** draft
+**Companions:** `cli-design.md` (CLI command reference, JSON output schemas), `db-design-brief.md` (schema DDL, state machines, entity relationships)
 
 ## Problem
 
-Orchestration pipeline signal — task verdicts, reviewer effectiveness, gate outcomes, iteration counts — is lost when `spec-helper archive` deletes `trail.tsv` on ship. The remaining data lives in JSONL session transcripts accessible only through fragile reverse-engineering: `orchestrate-cost` (809 lines) regex-parses run boundaries from raw session text and disambiguates roles via 9 dispatch-prompt substring signatures; `agent-stats` (424 lines) parses `## Summary` lines for verdict classification. Both are brittle — any prompt wording or output format change silently breaks attribution and verdict parsing, and the logic is duplicated across tools with documented drift risks.
+Orchestration pipeline signal — task verdicts, reviewer effectiveness, gate outcomes, iteration counts — is fragmented across ephemeral artifacts that are destroyed on ship. `trail.tsv` is deleted by `spec-helper archive`. The `.orchestrate-state.md` checkpoint file is deleted. `orchestrate-cost` (809 lines) and `agent-stats` (424 lines) reconstruct partial signal by regex-parsing raw JSONL session transcripts — a fragile approach where any prompt wording change silently breaks attribution.
 
-The result: asking "is the comb step earning its keep?" or "how many fix iterations per task on average?" requires mining thousands of transcript files with fragile parsers, and the authoritative trail data is destroyed before anyone can query it.
+`spec-helper` manages orchestration state via a markdown checkpoint file that is parsed and rewritten on every update. State lives on disk in the working tree, creating race conditions between concurrent operations and making cross-session resume unreliable. Spec numbering is filesystem-based, creating collision risks across worktrees.
+
+The result: orchestration data is either destroyed before it can be queried, or requires brittle reverse-engineering to reconstruct.
 
 ## Goals
 
-- Orchestration events, task verdicts, and agent effectiveness data survive `spec-helper archive` in a queryable store.
-- Effectiveness queries ("blocking rate by reviewer type", "average fix iterations per task", "compaction rate by agent type") are answerable via SQL against the store — no JSONL parsing required.
-- The store handles concurrent orchestrate sessions across multiple repos without data collision or write contention.
-- Zero overhead on resource-constrained machines (personal laptop) — the SQLite capture is opt-in via environment variable.
+- Replace `spec-helper` and `trail-log` with a single CLI tool (`cfl`) backed by a durable SQLite store.
+- Spec lifecycle, orchestration state, task management, gate results, dispatch records, and event logging all live in the DB — no filesystem state files.
+- Effectiveness queries ("blocking rate by gate type", "average fix iterations per task", "compaction rate by session") are SQL queries against structured tables.
+- The store handles concurrent orchestrate sessions across repos without data collision.
+- All CLI output is JSON by default with schema versioning, making it a stable API for SKILL.md callers.
 
 ## Non-Goals
 
 - Historical backfill of past orchestration runs from existing JSONLs. Forward-only.
-- Real-time dashboarding or web UI (Datasette integration is a potential follow-up, not in scope).
-- Replacing the JSONL transcripts as the system of record for full conversation content — the store captures structured metadata, not message text.
-- Cost attribution as a primary concern — cost data is secondary to effectiveness analytics and may be captured post-hoc.
+- Real-time dashboarding or web UI.
+- Compatibility shims or dual-write periods with spec-helper or trail-log — this is a ground-up replacement.
+- Cost attribution as a first-class runtime concern — cost data is populated post-hoc via JSONL parsing.
+- MCP server integration (deferred to post-v1).
 
 ## User Scenarios
 
 ### Jessica: Solo AI-driven developer
 
-- **Goal:** Understand which orchestration pipeline gates are earning their keep and which are burning tokens without catching issues.
-- **Context:** After noticing increased API usage or hitting rate limits, wants to query pipeline effectiveness data across recent runs.
+- **Goal:** Understand which orchestration pipeline gates earn their keep and which burn tokens without catching issues.
+- **Context:** After noticing increased API usage, wants to query pipeline effectiveness data across recent runs.
 
 #### Query pipeline effectiveness
 
-1. **Notices usage spike or rate limit pressure**
-   - Sees: higher-than-expected token usage in billing
-   - Decides: investigate which pipeline steps are contributing value vs cost
-   - Then: runs a query against the orchestration store
-
-2. **Asks effectiveness questions**
-   - Sees: SQL-queryable data covering reviewer verdicts, blocking rates, iteration counts
-   - Decides: which gates to keep, cut, or downgrade based on evidence
-   - Then: adjusts pipeline configuration (model selection, gate inclusion)
-
-3. **Runs orchestrate on a feature**
-   - Sees: orchestration proceeds normally with no visible overhead
-   - Decides: nothing — capture is transparent
-   - Then: data is durably stored, surviving spec-helper archive
+1. Notices usage spike → runs SQL against the orchestration store
+2. Asks effectiveness questions → structured data covering gate verdicts, blocking rates, iteration counts
+3. Adjusts pipeline configuration based on evidence
 
 #### Compare across runs
 
-1. **Wonders if a recent pipeline change improved things**
-   - Sees: per-run data with timestamps, reviewer verdicts, iteration counts
-   - Decides: whether the change (e.g., adding concise-return mode) reduced iterations
-   - Then: keeps or reverts the pipeline change based on evidence
+1. Wonders if a pipeline change improved things → per-run data with timestamps, gate verdicts, iteration counts
+2. Keeps or reverts the pipeline change based on evidence
 
 ## Functional Requirements
 
-- **FR#1** Every trail-log event emitted during orchestration is persisted to an SQLite database when the store is enabled.
-- **FR#2** Task verdicts (overall and per-reviewer breakdown) are stored as structured data, not flattened free-text strings.
-- **FR#3** Agent dispatch records capture the role, agent type, and dispatch timestamp at the moment the subagent is launched — not post-hoc.
-- **FR#4** Agent effectiveness data (verdict classification, blocking/minor finding counts) is captured when the orchestrator reads the subagent's result.
-- **FR#5** Run lifecycle (started_at, ended_at, status) is managed synchronously via trail-log events — not dependent on a post-run step that may not execute.
-- **FR#6** The store handles concurrent writes from multiple orchestrate sessions (different repos/features) without data loss or corruption.
-- **FR#7** The store is opt-in: when the environment variable is unset, orchestration behavior is unchanged with zero additional overhead.
-- **FR#8** Schema migrations are applied automatically on first use after an update — no manual migration step required.
-- **FR#9** On WSL2 machines where the DB path resolves under `/mnt/`, the store falls back to DELETE journal mode instead of WAL to avoid shared-memory failures on Windows-mounted filesystems.
+### Store and Infrastructure
 
-## Edge Cases
+- **FR#1** `cfl` is a Python package installed via `uv tool install -e`, providing a `cfl` CLI entry point. Package lives at `packages/cfl/` following the same `src/` layout as `packages/spec-helper/`.
+- **FR#2** The SQLite store persists to `~/.local/share/claudefiles/cfl.db` (overridable via `$CFL_DB`), with 7 entity tables (`specs`, `runs`, `tasks`, `gates`, `dispatches`, `events`, `sessions`) plus `schema_version`.
+- **FR#3** Schema migrations are auto-applied on first DB open — `setup_db()` checks `schema_version`, applies pending migrations in a single transaction.
+- **FR#4** On WSL2 machines where `os.path.realpath(db_path)` resolves under `/mnt/`, cfl falls back to DELETE journal mode instead of WAL.
+- **FR#5** WAL mode with `busy_timeout=5000` supports concurrent writes from multiple orchestrate sessions without SQLITE_BUSY errors.
+- **FR#6** All CLI output is JSON by default with `"_v": 1` schema versioning. Human-readable output is available via `--text`. Error output includes `error`, `code`, and `hint` fields.
+- **FR#7** Exit codes follow the 0/1/2 convention: 0 success, 1 runtime/precondition error, 2 usage/argument error.
 
-- **Crashed run**: A run that crashes or is killed mid-Phase-2 has `status='running'` and `ended_at=NULL`. The last event timestamp in the events table distinguishes "crashed recently" from "crashed long ago." A future `orch-db gc` command could mark stale runs as crashed (not in this scope).
-- **Re-run on same branch**: Starting a fresh run on the same feature and base_commit after a failed run creates a new run row (no UNIQUE constraint on feature+base_commit). Both runs are preserved.
-- **Concurrent sessions**: Three simultaneous orchestrate sessions (hassette, claudefiles, claude-code-recall) write to the same DB. WAL mode serializes writes with `busy_timeout=5000ms`. Each run has its own run_id — no data collision.
-- **DB path on Windows mount**: `$ORCHESTRATE_DB` set to `/mnt/c/...` path — startup check detects `/mnt/` prefix and falls back to DELETE journal mode with a stderr warning.
-- **trail-log failure**: If orch-db exits non-zero, trail-log still exits 0 (TSV write already succeeded). The SKILL.md `log_failures` counter does NOT increment (it counts trail-log failures, not orch-db failures). SQLite data may be incomplete but TSV is intact and the orchestration run continues unaffected. orch-db failures are visible only via stderr.
-- **Schema version mismatch**: trail-log launches orch-db which runs `setup_db()`. If the DB is at schema version N and the code expects version N+1, setup_db applies the migration in a single transaction before any writes.
+### Auto-Resolution
+
+- **FR#8** Every command that operates within a run context auto-resolves the active run: repo identity from `git remote get-url origin` → spec from disk (task file glob, then directory glob fallback) → `specs.active_run_id`. Override via `--spec NNN`.
+
+### Spec Management
+
+- **FR#9** `cfl spec init <slug>` creates a spec row (DB-first, then disk directory). Spec numbers are auto-assigned per-repo, unique via `UNIQUE(repo_url, number)`.
+- **FR#10** `cfl spec validate` validates task file YAML frontmatter against canonical schema (same validation as `spec-helper validate`).
+- **FR#11** `cfl archive` removes task files (`git rm -r tasks/`), removes legacy scaffolding (`trail.tsv`, `trail-audit.md`, `.gitignore`), stamps `**Status:** archived` in design.md, closes any active run, and marks the spec as archived.
+
+### Run Lifecycle
+
+- **FR#12** `cfl run start` discovers tasks from disk (glob `T*.md` + parse YAML frontmatter), creates a `runs` row, pre-creates all `tasks` rows with `status='pending'`, and sets `specs.active_run_id` — all in one transaction. Guards against existing active run.
+- **FR#13** `cfl run status` returns full run state: all tasks with status/verdict/commit_sha, derived fields (`last_completed`, `current_task`, `needs_intervention`), and `tmpdir_exists` check.
+- **FR#14** `cfl run complete`, `cfl run stop`, and `cfl run resume` manage run lifecycle transitions with proper state guards. Crashed runs (status='running' with no recent events) are detected by query, not a written state — recovery path is `cfl set run <id> status=stopped` → `cfl run resume`.
+
+### Task Management
+
+- **FR#15** Task status transitions follow the defined state machine: `pending → executing → reviewing ↔ fixing → done/failed/blocked/stopped`. Illegal transitions are rejected with exit 1.
+- **FR#16** `cfl task verdict` atomically updates the task (status, verdict, verdict_detail, commit_sha, ended_at), creates a verdict-assembly gate record, and logs a `task.verdict` event — all in one transaction.
+- **FR#17** `cfl task block` sets the task to blocked status with BLOCKED verdict, bypassing the full verdict ceremony.
+
+### Gate and Dispatch Tracking
+
+- **FR#18** `cfl gate <gate_type> [<task_id>]` records gate evaluations with typed vocabulary, verdict (PASS/WARN/FAIL/SKIPPED), iteration count, and structured `--data` JSON. Run-level gates (Phase 3) omit task_id.
+- **FR#19** `cfl dispatch <role> [<task_id>]` records subagent dispatches at dispatch time with role, agent_type, model, and routing_reason — not reconstructed post-hoc. `cfl dispatch end <dispatch_id>` marks completion.
+
+### Event System
+
+- **FR#20** `cfl event <event_name> [<task_id>]` appends to the audit trail with fire-and-forget semantics: exit 0 always, DB write errors logged to stderr only.
+- **FR#21** State-mutating commands (run start/complete/stop/resume, task start/verdict/block, dispatch, gate) emit corresponding events implicitly — callers do not need separate `cfl event` calls.
+
+### Session Tracking
+
+- **FR#22** Every `cfl` command that operates within an active run auto-joins the current session via `INSERT OR IGNORE INTO sessions` using `$CLAUDE_CODE_SESSION_ID`. Idempotent on `UNIQUE(run_id, session_id)`.
+- **FR#23** `cfl session end` (SessionEnd hook) sets `ended_at` and `context_pct_end`. `cfl session compacted` (PreCompact hook) logs a `session.compacted` event.
+
+### Direct Access and Telemetry
+
+- **FR#24** `cfl set <entity> <id> <field>=<value>` bypasses state machine guards for arbitrary field writes. Logs `set.applied` events with before/after state. Entities: task, run, spec, session.
+- **FR#25** Every `cfl` invocation is logged as a `cfl.invoked` event for usage-pattern analysis: command, args, flags, exit code, duration_ms.
+
+### SKILL.md Integration
+
+- **FR#26** All 17 `trail-log` call sites in SKILL.md and post-execution-pipeline.md are replaced with corresponding `cfl` commands (see cli-design.md §Trail-log → cfl Event Migration for the complete mapping).
+- **FR#27** All `spec-helper` call sites in SKILL.md, mine-plan, mine-define, and git-workflow.md are replaced with `cfl` equivalents (see cli-design.md §spec-helper → cfl Migration for the complete mapping).
 
 ## Acceptance Criteria
 
-- **AC#1** After a complete orchestrate run with `$ORCHESTRATE_DB` set, `sqlite3 $ORCHESTRATE_DB "SELECT COUNT(*) FROM events WHERE run_id = ?"` returns a count matching the number of trail-log calls in the run. (FR#1)
-- **AC#2** `SELECT verdict, json_extract(verdict_breakdown, '$.spec') as spec, json_extract(verdict_breakdown, '$.code') as code FROM tasks WHERE run_id = ?` returns structured verdict data from the JSON column, not a flattened string. (FR#2)
-- **AC#3** `SELECT role, agent_type, dispatched_at FROM agent_dispatches WHERE run_id = ?` returns rows for every subagent dispatched, with timestamps matching the dispatch event. (FR#3)
-- **AC#4** `SELECT verdict, blocking_count, minor_count FROM agent_dispatches WHERE run_id = ? AND role = 'fine-toothed-comb'` returns effectiveness data. (FR#4)
-- **AC#5** After a run that completes Phase 3, `SELECT status, ended_at FROM runs WHERE id = ?` returns `status='completed'` and a non-NULL `ended_at`. (FR#5)
-- **AC#6** After a run that crashes in Phase 2, `SELECT status FROM runs WHERE id = ?` returns `status='running'` and the events table contains all events up to the crash point. (FR#5)
-- **AC#7** Two concurrent orchestrate runs complete without SQLITE_BUSY errors or data corruption. (FR#6)
-- **AC#8** With `$ORCHESTRATE_DB` unset, `trail-log` executes in <5ms with no Python process spawned. (FR#7)
-- **AC#9** After a schema update, the first trail-log call auto-migrates the DB and subsequent calls use the new schema. (FR#8)
-- **AC#10** With `$ORCHESTRATE_DB` set to a path under `/mnt/`, `PRAGMA journal_mode` returns `delete` (not `wal`). (FR#9)
+- **AC#1** After `uv tool install -e packages/cfl`, `cfl --help` shows the command tree including `spec`, `run`, `task`, `gate`, `dispatch`, `event`, `session`, `archive`, and `set` subcommands. (FR#1)
+- **AC#2** After any `cfl` write command, `sqlite3 ~/.local/share/claudefiles/cfl.db ".tables"` lists all 8 tables. (FR#2)
+- **AC#3** Creating a DB at schema version 1, then running any `cfl` command that expects version 2, auto-applies the migration and updates `schema_version`. (FR#3)
+- **AC#4** With `$CFL_DB` pointing to a path under `/mnt/`, `PRAGMA journal_mode` returns `delete`. (FR#4)
+- **AC#5** Two concurrent `cfl event` calls from different processes complete without SQLITE_BUSY errors. (FR#5)
+- **AC#6** All `cfl` commands emit JSON with `"_v": 1`. Passing `--text` produces human-readable output. (FR#6)
+- **AC#7** Unknown subcommand exits 2. Invalid state transition exits 1 with `hint` field in the JSON error. (FR#7)
+- **AC#8** In a worktree with one spec's task files, `cfl run status` auto-resolves to that spec without `--spec`. (FR#8)
+- **AC#9** `cfl spec init my-feature` in a repo creates a DB row with auto-incremented number and `design/specs/NNN-my-feature/` directory. (FR#9)
+- **AC#10** `cfl spec validate` with valid task files exits 0 with `"valid": true`. With invalid frontmatter, exits 1 with errors listing the problems. (FR#10)
+- **AC#11** `cfl archive` with all tasks done: `git rm -r tasks/` succeeds, design.md gets `**Status:** archived`, specs row gets `status='archived'`, `active_run_id` is cleared. (FR#11)
+- **AC#12** `cfl run start` with 5 task files creates 1 runs row + 5 tasks rows (all `status='pending'`) + sets `specs.active_run_id` — verified by `SELECT COUNT(*) FROM tasks WHERE run_id=?` returning 5. (FR#12)
+- **AC#13** `cfl run start` when `active_run_id IS NOT NULL` exits 1 with `run_already_active` error code and hint. (FR#12)
+- **AC#14** `cfl run status` returns JSON with `tasks` array, `last_completed`, `current_task`, and `needs_intervention` fields with correct derivation. (FR#13)
+- **AC#15** After `cfl run stop` + `cfl run resume`, the run transitions `running→stopped→running` and `active_run_id` is re-set. (FR#14)
+- **AC#16** `cfl task update T01 --status reviewing` when T01 is `pending` exits 1 with `invalid_status`. (FR#15)
+- **AC#17** `cfl task verdict T01 --verdict PASS --commit abc123 --data '{...}'` atomically creates a verdict-assembly gate, a `task.verdict` event, and updates task to `status='done'`. (FR#16)
+- **AC#18** `cfl gate code-review T01 --verdict PASS --data '{"findings": 0}'` creates a gates row with correct `gate_type`, `verdict`, and `data`. (FR#18)
+- **AC#19** `cfl dispatch executor T01 --agent-type engineering-frontend-developer` creates a dispatches row with `dispatched_at` set. `cfl dispatch end <id>` sets `completed_at`. (FR#19)
+- **AC#20** `cfl event task.contested T01 --data '{...}'` exits 0 even when the DB file is read-only. (FR#20)
+- **AC#21** After `cfl task start T01`, the events table has a `task.started` row without a separate `cfl event` call. (FR#21)
+- **AC#22** After any `cfl` active-run command with `$CLAUDE_CODE_SESSION_ID` set, `SELECT * FROM sessions WHERE run_id=? AND session_id=?` returns a row. (FR#22)
+- **AC#23** `cfl set task T03 status=pending started_at=null` updates the task bypassing state machine guards and logs a `set.applied` event with `previous` state. (FR#24)
+- **AC#24** After a `cfl run start`, `SELECT * FROM events WHERE event='cfl.invoked'` contains a row with command, args, and duration_ms. (FR#25)
+
+## Edge Cases
+
+- **Crashed run**: Status remains `running` with no recent events. Detected by query: `WHERE status='running' AND id NOT IN (SELECT DISTINCT run_id FROM events WHERE created_at > datetime('now', '-4 hours'))`. Recovery: `cfl set run <id> status=stopped` → `cfl run resume`.
+- **Re-run on same branch**: Starting a fresh run after a failed run creates a new run row (no UNIQUE on spec+commit). Both runs preserved.
+- **Concurrent sessions**: Multiple orchestrate sessions write to the same DB. WAL mode serializes writes with `busy_timeout=5000`. Each run has its own run_id.
+- **DB path on Windows mount**: `$CFL_DB` or `~/.local/share` symlinked to `/mnt/c/...` — `os.path.realpath()` detects `/mnt/` prefix, falls back to DELETE journal mode.
+- **cfl event failure**: DB errors during event writes produce stderr warning but exit 0. Event data may be lost but the orchestration run continues.
+- **No git remote**: Repos without a remote fall back to a hash of the root commit SHA for `specs.repo_url`.
+- **No $CLAUDE_CODE_SESSION_ID**: Session auto-join is a no-op. Context % capture is NULL. Commands that don't need session context still work.
+- **Stale active_run_id**: `specs.active_run_id` points to a run that crashed. `cfl run start` rejects with `run_already_active` and hints to use `cfl set` to clear it.
 
 ## Key Constraints
 
-- trail-log must not spawn a Python process when `$ORCHESTRATE_DB` is unset — the personal laptop is resource-constrained and the orchestrator calls trail-log 17+ times per run.
-- All multi-table writes from a single trail-log invocation must be wrapped in a single `BEGIN IMMEDIATE ... COMMIT` transaction. No auto-commit across tables.
-- Agent dispatch identity (role, agent_type) must be captured at dispatch time from the routing decision — not reconstructed post-hoc from prompt substring matching. This eliminates the GP_SIGNATURES fragility.
-- The DB file must not live under `~/.claude/` (that's Claude Code's directory, not ours) or under the Claudefiles repo (that's git-synced).
+- cfl must not require a running orchestration session to function — `cfl spec init`, `cfl spec validate`, `cfl archive`, and query commands work standalone.
+- All multi-table writes from a single `cfl` command are wrapped in a single `BEGIN IMMEDIATE ... COMMIT` transaction. No partial writes.
+- Agent dispatch identity (role, agent_type) is captured at dispatch time from the routing decision — not reconstructed post-hoc from prompt substring matching.
+- The DB file lives at `~/.local/share/claudefiles/cfl.db`, not under `~/.claude/` (Claude Code's directory) or under the Claudefiles repo (git-synced).
+- Build backend must be `setuptools` (not hatchling) per project conventions.
 
 ## Dependencies and Assumptions
 
-- **sqlite-utils** (PyPI): used by orch-db for convenient INSERT/upsert/transform APIs. Declared as a PEP 723 inline dependency.
-- **ccrecall** (PyPI, >=0.12.0): used by the cost-ingest subcommand for token pricing (`get_pricing`, `turn_cost`). Already a dependency of orchestrate-cost.
-- **whenever** (PyPI, >=0.10): used for timestamp handling. Already a dependency of orchestrate-cost.
-- **Python >=3.11**: required by PEP 723 script format. Available on all 5 machines.
-- **Assumption**: The Claude Code harness continues writing subagent JSONLs to `~/.claude/projects/<project>/<session>/subagents/`. If this path changes, cost-ingest breaks (same risk as today's orchestrate-cost).
-- **Assumption**: The `$ORCHESTRATE_DB` environment variable is set in the user's shell profile on machines where capture is desired. Not set on the personal laptop.
+- **Python >=3.11**: required for the package. Available on all 5 machines.
+- **sqlite3** (stdlib): no external SQLite dependency needed.
+- **python-frontmatter** (PyPI): for parsing task file YAML frontmatter (same as spec-helper).
+- **Assumption**: `$CLAUDE_CODE_SESSION_ID` is available in the Bash tool environment during orchestration. If absent, session tracking is skipped.
+- **Assumption**: The context % sidecar file exists at `/tmp/claude-context-<session_id>.meta` during active sessions. If absent, `context_pct` fields are NULL.
 
 ## Architecture
 
 ### Overview
 
-Two new components; one modified component. SKILL.md gains structured flags on existing trail-log calls (p0 start, p2 start, p2 verdict) and new `orch-db dispatch/result` calls for effectiveness capture.
+`cfl` is a Python package (`packages/cfl/`) that provides a CLI tool backed by a single SQLite database. It replaces both `spec-helper` (orchestration state management) and `trail-log` (event logging) with a unified interface.
 
-**`bin/trail-log` (modified, Bash):** Unchanged TSV write behavior (the 5 positional arguments are consumed as before; any additional arguments after the 5th are ignored by the TSV path). After the TSV write, if `$ORCHESTRATE_DB` is set, invokes `orch-db log "$@"` — forwarding all positional arguments and any trailing flags (`--title`, `--feature`, `--base-commit`, `--verdict-breakdown`) to orch-db. If `orch-db` exits non-zero, trail-log still exits 0 (TSV succeeded). This preserves the zero-overhead guarantee when the store is disabled.
-
-**`bin/orch-db` (new, Python PEP 723):** Single entry point for all SQLite operations. Subcommands:
-
-- `orch-db log <trail-file> <phase> <task> <event> <detail> [--structured-flags]` — writes to the events table; for lifecycle events (p0 start, p2 start, p2 verdict, p3 complete), also manages runs/tasks rows in the same transaction. For p0 start events, accepts `--feature <slug> --base-commit <sha>` to create the runs row. For p2 start events, accepts `--title <title>` to create the tasks row. For p2 verdict events, accepts `--verdict <PASS|WARN|FAIL|BLOCKED|SKIPPED> --verdict-detail "<parenthetical>" --verdict-breakdown '{"spec":"PASS","code":"APPROVE",...}'` to populate `tasks.verdict`, `tasks.verdict_detail`, and `tasks.verdict_breakdown`.
-- `orch-db dispatch <trail-file> <task-id> <role> <agent-type>` — INSERTs an agent_dispatches row. Called by SKILL.md at Step 4 after routing.
-- `orch-db result <trail-file> <task-id> <role> --verdict <v> [--blocking N] [--minor N]` — UPDATEs the most recently inserted agent_dispatches row matching (run, task_id, role) with effectiveness data (`UPDATE ... WHERE id = (SELECT MAX(id) FROM agent_dispatches WHERE run_id = ? AND task_id = ? AND role = ?)`). This handles retries correctly: Step 16 "fix and retry" re-dispatches the same role for the same task, creating a new row; the subsequent result call updates only the latest dispatch. Called by SKILL.md after reading each Agent tool result.
-- `orch-db ingest-cost [--since YYYY-MM-DD]` — post-hoc cost capture from JSONL transcripts. Updates agent_dispatches rows that have NULL cost columns. Runs `PRAGMA wal_checkpoint(TRUNCATE)` before bulk work (since `wal_autocheckpoint=0` defers checkpoints to this step). Secondary priority; can be run manually or via cron.
-- `orch-db query <sql>` — convenience wrapper for ad-hoc SQL queries against the store.
-- `orch-db status` — shows recent runs, their status, and event counts.
-
-**DB location:** `~/.local/share/claudefiles/orchestrate.db` by default, overridable via `$ORCHESTRATE_DB`.
-
-On startup, `orch-db` calls `setup_db()` which: creates `~/.local/share/claudefiles/` if absent, opens or creates `orchestrate.db` (or the `$ORCHESTRATE_DB` path), checks the filesystem path for `/mnt/` prefix (falls back to DELETE journal mode with a warning), sets pragmas (WAL, busy_timeout=5000, synchronous=NORMAL, foreign_keys=ON, wal_autocheckpoint=0), checks schema_version, applies pending migrations in a single transaction, and runs `PRAGMA wal_checkpoint(TRUNCATE)` if the WAL file exceeds 10MB (a safety valve since `wal_autocheckpoint=0` defers normal checkpoints to `orch-db ingest-cost`).
-
-**`skills/mine-orchestrate/SKILL.md` (modified):**
-
-Phase 0:
-- At Phase 0 Step 3: existing `trail-log ... p0 - start "orchestrate run started"` call gains `--feature <slug> --base-commit <sha>` flags — trail-log forwards these to `orch-db log` which creates the runs row.
-
-Phase 2 (per task):
-1. At Step 1 (task start): existing `trail-log ... p2 <task_id> start` call gains `--title <title>` flag — creates the tasks row.
-2. After Step 4 routing decision: `orch-db dispatch "$trail_path" <task_id> <role> <agent_type>` — creates agent_dispatches row.
-3. After reading each Agent tool result (executor at Step 5, reviewers at Step 8): `orch-db result "$trail_path" <task_id> <role> --verdict <v> --blocking <N> --minor <M>` — updates agent_dispatches with effectiveness data.
-4. At Step 14 (verdict assembly): existing `trail-log ... p2 <task_id> verdict` call gains `--verdict <PASS|WARN|FAIL|BLOCKED|SKIPPED> --verdict-detail "<parenthetical>" --verdict-breakdown '{"spec":"PASS","code":"APPROVE",...}'` flags — updates the tasks row.
-
-All `orch-db` calls are guarded by `$ORCHESTRATE_DB` being set — no-ops on machines where the store is disabled.
-
-**`skills/mine-orchestrate/post-execution-pipeline.md` (modified):** Same two call sites for each Phase 3 subagent (impl-review, cross-file consistency, clean-code, fine-toothed-comb, trail-audit). Phase 3 agents use `task_id = -` (run-level). Additionally, a `trail-log ... p3 - complete "shipped"` event after `/mine-ship` succeeds (not at the shipping gate question — if ship fails, the run is not complete).
-
-
-### Schema (4 tables)
-
-```sql
-CREATE TABLE schema_version (
-    version   INTEGER PRIMARY KEY,
-    applied   TEXT NOT NULL  -- ISO 8601 timestamp
-);
-
-CREATE TABLE runs (
-    id          INTEGER PRIMARY KEY,
-    feature     TEXT NOT NULL,
-    base_commit TEXT NOT NULL,
-    started_at  TEXT NOT NULL,       -- ISO 8601 UTC
-    ended_at    TEXT,                -- NULL until 'complete' event
-    status      TEXT NOT NULL DEFAULT 'running',  -- running, completed
-    visual_mode TEXT,
-    session_ids TEXT,                -- JSON array, appended at p0 start/resume
-    trail_path  TEXT                 -- trail-file path (run identity anchor)
-);
-CREATE INDEX idx_runs_feature ON runs(feature, base_commit);
-
-CREATE TABLE tasks (
-    id          INTEGER PRIMARY KEY,
-    run_id      INTEGER NOT NULL REFERENCES runs(id),
-    task_id     TEXT NOT NULL,       -- "T01", "T02", etc.
-    title       TEXT NOT NULL,
-    started_at  TEXT,
-    ended_at    TEXT,
-    verdict     TEXT,                -- PASS, WARN, FAIL, BLOCKED, SKIPPED
-    verdict_detail TEXT,             -- parenthetical: "(3 auto-fixed)"
-    verdict_breakdown TEXT,          -- JSON: {"spec":"PASS","code":"APPROVE",...}
-    commit_sha  TEXT,
-    findings_fixed      INTEGER,
-    findings_deferred   INTEGER,
-    findings_unresolved INTEGER,
-    fix_iterations      INTEGER,
-    UNIQUE(run_id, task_id)
-);
-
-CREATE TABLE events (
-    id          INTEGER PRIMARY KEY,
-    run_id      INTEGER NOT NULL REFERENCES runs(id),
-    timestamp   TEXT NOT NULL,       -- ISO 8601 UTC
-    phase       TEXT NOT NULL,       -- p0, p1, p2, p3
-    task_id     TEXT,                -- NULL for phase-level events
-    event       TEXT NOT NULL,       -- start, dispatch, verdict, contested, gate,
-                                    -- retry, review, fix, complete
-    detail      TEXT,
-    -- Structured fields for gate-type events (replaces phase3_gates table)
-    gate_verdict    TEXT,            -- for gate/review events: APPROVE, PASS, FAIL, etc.
-    gate_summary    TEXT,
-    gate_iterations INTEGER,
-    UNIQUE(run_id, timestamp, phase, task_id, event)  -- idempotency key
-);
-CREATE INDEX idx_events_run ON events(run_id);
-
-CREATE TABLE agent_dispatches (
-    id              INTEGER PRIMARY KEY,
-    run_id          INTEGER REFERENCES runs(id),
-    task_id         TEXT,
-    role            TEXT NOT NULL,    -- code-reviewer, integration-reviewer, gp:executor, etc.
-    agent_type      TEXT NOT NULL,    -- raw agentType: code-reviewer, general-purpose, etc.
-    model           TEXT,
-    dispatched_at   TEXT,
-    -- Effectiveness (populated by orch-db result)
-    verdict         TEXT,            -- clean, minor, blocking, unparsed
-    blocking_count  INTEGER,
-    minor_count     INTEGER,
-    compactions     INTEGER DEFAULT 0,
-    peak_tokens     INTEGER,
-    comb_mode       TEXT,            -- impl, other (NULL for non-comb agents)
-    -- Cost (populated by orch-db ingest-cost, secondary)
-    jsonl_path      TEXT,
-    cost_total_usd  REAL,
-    cost_own_gen    REAL,
-    cost_absorbed   REAL,
-    UNIQUE(jsonl_path)               -- idempotency key for cost ingest
-);
-CREATE INDEX idx_dispatches_run ON agent_dispatches(run_id);
-CREATE INDEX idx_dispatches_role ON agent_dispatches(role);
+**Package structure:**
+```
+packages/cfl/
+├── pyproject.toml
+├── src/cfl/
+│   ├── __init__.py
+│   ├── cli.py          # argparse entry point, subcommand routing
+│   ├── db.py           # setup_db(), connection management, pragmas, migrations
+│   ├── resolve.py      # auto-resolution: CWD → spec → active run
+│   ├── spec.py         # spec init, validate, status, set-status, next-number
+│   ├── run.py          # run start, status, complete, stop, resume
+│   ├── task.py         # task start, update, verdict, block
+│   ├── gate.py         # gate recording
+│   ├── dispatch.py     # dispatch, dispatch end
+│   ├── event.py        # event logging (fire-and-forget)
+│   ├── session.py      # session end, session compacted
+│   ├── archive.py      # archive workflow
+│   ├── direct.py       # cfl set (direct-access tier)
+│   └── output.py       # JSON/text output formatting, _v versioning, error formatting
+└── tests/
+    ├── __init__.py
+    ├── conftest.py     # shared fixtures (temp DB, test repos)
+    ├── test_db.py
+    ├── test_resolve.py
+    ├── test_spec.py
+    ├── test_run.py
+    ├── test_task.py
+    ├── test_gate.py
+    ├── test_dispatch.py
+    ├── test_event.py
+    ├── test_session.py
+    ├── test_archive.py
+    └── test_direct.py
 ```
 
-**Canonical role vocabulary** (used in `agent_dispatches.role` — stable across runs for consistent cross-run queries):
+**Two-tier command design:** Natural step commands (`cfl task start`, `cfl gate`, `cfl run resume`) enforce state machine guards. Direct-access commands (`cfl set`) bypass guards for crash recovery and debugging. Both tiers log everything.
 
-| Role | Agent type | Phase | Source |
-|---|---|---|---|
-| `code-reviewer` | code-reviewer | P2 | Named agent type |
-| `integration-reviewer` | integration-reviewer | P2 | Named agent type |
-| `wtf-reviewer` | wtf-reviewer | P2 | Named agent type |
-| `fine-toothed-comb` | fine-toothed-comb | P2/P3 | Named agent type |
-| `gp:executor` | general-purpose | P2 | Routing decision |
-| `gp:spec-reviewer` | general-purpose | P2 | Routing decision |
-| `gp:impl-review-fix` | general-purpose | P3 | Routing decision |
-| `gp:comb-fix` | general-purpose | P3 | Routing decision |
-| `gp:clean-code` | general-purpose | P3 | Dispatch context |
-| `gp:trail-audit` | general-purpose | P3 | Dispatch context |
-| `gp:impl-review` | general-purpose | P3 | Dispatch context |
-| `gp:cross-file` | general-purpose | P3 | Dispatch context |
+**Schema:** 7 entity tables + `schema_version`. See `db-design-brief.md` for full DDL, entity relationships, state machines, and vocabulary definitions.
 
-New roles may be added as the pipeline evolves. The role is set at dispatch time from the routing decision (P2) or dispatch context (P3) — never reconstructed post-hoc.
+**CLI contract:** See `cli-design.md` for the complete command reference, JSON output schemas, exit code semantics, and the trail-log/spec-helper migration mappings.
 
-**Design decisions from challenge findings:**
-- No `phase3_gates` table — gate outcomes are columns on gate-type events rows (challenge F13).
-- No `findings` table in initial schema — granularity question unresolved; add in a follow-up when at least one source format is implemented (challenge F4).
-- `verdict_breakdown` is JSON instead of 6 fixed columns — adding a reviewer requires only a SKILL.md call site change, no ALTER TABLE (challenge F12).
-- `runs` has no UNIQUE(feature, base_commit) — non-unique index instead, allowing re-runs on the same commit (challenge F6).
-- `events` has a composite UNIQUE for idempotency during dual-write migration window (challenge F8).
-- `agent_dispatches` has UNIQUE(jsonl_path) for cost-ingest idempotency (challenge F3).
-- 'complete' added to the event vocabulary so run lifecycle is managed synchronously via trail-log (challenge F5, F7).
+### Key Design Decisions
 
-**Column population tiers:**
-- **Tier 1 — trail-log flags (synchronous):** `runs.feature`, `runs.base_commit`, `runs.started_at`, `runs.status`, `runs.ended_at`, `runs.trail_path`; `tasks.task_id`, `tasks.title`, `tasks.started_at`, `tasks.ended_at` (set at p2 verdict time), `tasks.verdict`, `tasks.verdict_detail`, `tasks.verdict_breakdown`; all `events` columns.
-- **Tier 2 — orch-db dispatch/result (synchronous):** `agent_dispatches.role`, `agent_dispatches.agent_type`, `agent_dispatches.dispatched_at`, `agent_dispatches.verdict`, `agent_dispatches.blocking_count`, `agent_dispatches.minor_count`.
-- **Tier 3 — orch-db ingest-cost (post-hoc, secondary):** `agent_dispatches.jsonl_path`, `agent_dispatches.cost_total_usd`, `agent_dispatches.cost_own_gen`, `agent_dispatches.cost_absorbed`, `agent_dispatches.model`, `agent_dispatches.peak_tokens`, `agent_dispatches.compactions`, `agent_dispatches.comb_mode`.
-- **Tier 4 — deferred (NULL until a future pass adds the write path):** `runs.visual_mode`, `runs.session_ids`, `tasks.commit_sha`, `tasks.findings_fixed`, `tasks.findings_deferred`, `tasks.findings_unresolved`, `tasks.fix_iterations`. These columns are in the schema for forward compatibility; queries that need this data before the write paths are implemented can derive it from the events table (e.g., counting `retry` events per task_id for fix iterations).
-
-### SQLite pragmas
-
-```sql
-PRAGMA journal_mode = WAL;           -- or DELETE on /mnt/ paths (FR#9)
-PRAGMA busy_timeout = 5000;          -- 5s retry for concurrent sessions (FR#6)
-PRAGMA synchronous = NORMAL;         -- analytics-grade durability
-PRAGMA foreign_keys = ON;
-PRAGMA wal_autocheckpoint = 0;       -- defer checkpoints to orch-db ingest-cost
-                                     -- WAL grows unbounded until ingest-cost runs;
-                                     -- acceptable for this workload (~100 rows/run).
-                                     -- setup_db() also checkpoints if WAL > 10MB.
-```
-
-### Run identity
-
-The orchestrator resolves the current run from the trail_path column: `SELECT id FROM runs WHERE trail_path = ? AND status = 'running' ORDER BY started_at DESC LIMIT 1`. This avoids passing run_id through SKILL.md — orch-db derives it from the trail-file argument, which the orchestrator already passes to every trail-log call.
-
-### Consumer migration path
-
-**orchestrate-cost**: The JSONL-parsing core (~600 lines) is replaced by `orch-db ingest-cost` for cost capture. The remaining ~200 lines become SQL queries against agent_dispatches. The `GP_SIGNATURES` list and dispatch-prompt substring matching are eliminated — role is captured at dispatch time.
-
-**agent-stats**: The JSONL scanning, verdict parsing, and compaction counting (~300 lines) are replaced by SQL queries against agent_dispatches. The `## Summary` line parsing is eliminated — verdict is captured when the orchestrator reads the agent result.
-
-Both tools remain as CLI scripts but become thin SQL query wrappers. Migration is non-blocking: both tools continue to work against JSONLs until agent_dispatches has sufficient data from new runs.
+1. **DB-first, not file-first.** State lives in SQLite, not markdown files. No `.orchestrate-state.md`, no `trail.tsv`. Disk artifacts (task files, design.md) are inputs and outputs, not state.
+2. **JSON by default.** SKILL.md callers parse JSON, not text. `_v` versioning prevents the Kubernetes `--export` problem.
+3. **Implicit events.** Commands that mutate state emit their own events. Callers don't need separate `cfl event` calls for standard lifecycle transitions.
+4. **Fire-and-forget events.** `cfl event` exits 0 always. The DB either works or it doesn't — no per-call failure counting.
+5. **Auto-resolution.** Active run resolved from CWD + git remote + DB state. No explicit `--run-id` threading through SKILL.md instructions.
+6. **Session auto-join.** Every active-run command registers the current session. No explicit `cfl session start` needed.
+7. **Unified verdict vocabulary.** PASS/WARN/FAIL/SKIPPED/BLOCKED. Nuance goes in `data` JSON, not the verdict value.
 
 ## Replacement Targets
 
-| Target | Replaced by | Action |
+| Current tool/artifact | Replaced by | Action |
 |---|---|---|
-| `bin/trail-log` TSV-only behavior | `bin/trail-log` with optional `orch-db` delegation | Modify in place — Bash script gains a conditional `orch-db` call |
-| `bin/orchestrate-cost` JSONL parsing (~600 lines) | `orch-db ingest-cost` + SQL queries | Rewrite incrementally — keep JSONL path as fallback until DB has data |
-| `bin/agent-stats` JSONL scanning (~300 lines) | SQL queries against `agent_dispatches` | Rewrite incrementally — keep JSONL path as fallback until DB has data |
-| `GP_SIGNATURES` role disambiguation | Dispatch-time role capture via `orch-db dispatch` | Remove from orchestrate-cost once all queried runs have dispatch-time roles |
-| `trail.tsv` as event record | `events` table | Keep TSV writes during migration; drop when consumers are migrated |
-
-## Migration
-
-### Phase 1: Dual-write (TSV + SQLite)
-trail-log writes TSV (unchanged) and delegates to orch-db for SQLite (new). TSV remains the primary record. All existing consumers (spec-helper archive, manual grep) continue unchanged.
-
-### Phase 2: Consumer migration
-orchestrate-cost and agent-stats are updated to query SQLite first, falling back to JSONL for runs that predate the store. New SKILL.md call sites added for `orch-db dispatch` and `orch-db result`.
-
-### Phase 3: Reconciliation gate
-Before dropping TSV writes, verify parity: compare event counts per trail file between trail.tsv and the events table. Only proceed once verified.
-
-### Phase 4: Drop TSV writes
-Remove the TSV write from trail-log. Remove spec-helper archive's deletion of trail.tsv (no longer produced). trail-log becomes a thin wrapper around orch-db.
-
-**Rollback**: At any phase, reverting trail-log to the pre-modification Bash script (a `git checkout`) restores the original behavior. Data captured only in SQLite during the migration window is lost, which is acceptable — it's new data that didn't exist before.
+| `packages/spec-helper/` | `packages/cfl/` | Delete package after cfl is complete |
+| `bin/trail-log` | `cfl event` + implicit events | Delete script |
+| `.orchestrate-state.md` | `runs` + `tasks` tables | Eliminated — no checkpoint file |
+| `trail.tsv` | `events` table | Eliminated — no TSV file |
+| `trail-audit.md` | Gate records in `gates` table | Eliminated — no audit file |
+| `bin/orchestrate-cost` JSONL parsing | `cfl ingest-cost` + SQL queries | Rewrite as thin SQL wrapper |
+| `bin/agent-stats` JSONL scanning | SQL queries against `dispatches` | Rewrite as thin SQL wrapper |
+| `GP_SIGNATURES` role disambiguation | Dispatch-time role capture via `cfl dispatch` | Eliminated |
 
 ## Convention Examples
 
-### PEP 723 script header with inline dependencies
+### Python package pyproject.toml (setuptools backend)
 
-**Source:** `bin/orchestrate-cost`
+**Source:** `packages/spec-helper/pyproject.toml`
 
-```python
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.11"
-# dependencies = ["ccrecall>=0.12.0", "whenever>=0.10"]
-# ///
-"""orchestrate-cost — model-weighted USD cost of mine-orchestrate runs, by role and model.
-...
-"""
+```toml
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spec-helper"
+version = "2.0.0"
+requires-python = ">=3.11"
+dependencies = ["python-frontmatter"]
+
+[project.scripts]
+spec-helper = "spec_helper.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
 ```
 
 ### Dataclass for structured data
@@ -332,127 +258,104 @@ Remove the TSV write from trail-log. Remove spec-helper archive's deletion of tr
 **Source:** `packages/spec-helper/src/spec_helper/checkpoint.py`
 
 ```python
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 
-CHECKPOINT_FILENAME = ".orchestrate-state.md"
-CHECKPOINT_VERSION = 2
-
-REQUIRED_HEADER_FIELDS = frozenset(
-    {
-        "feature_dir",
-        "tmpdir",
-        "visual_mode",
-        ...
-    }
-)
+@dataclass(frozen=True)
+class CheckpointHeader:
+    feature_dir: str
+    tmpdir: str
+    visual_mode: str
+    ...
 ```
 
-### trail-log argument validation and event vocabulary
+### SQLite pragma setup
 
-**Source:** `bin/trail-log` (shown with the `complete` event added as part of this change)
+**Source:** `db-design-brief.md`
 
-```bash
-validate_event() {
-  local e="$1"
-  local known
-  for known in start dispatch verdict contested gate retry review fix complete; do
-    [[ "$e" == "$known" ]] && return 0
-  done
-  return 1
-}
-
-if ! validate_event "$event"; then
-  echo "trail-log: warning: unknown event '$event'" >&2
-fi
+```sql
+PRAGMA journal_mode = WAL;          -- or DELETE on /mnt/ paths
+PRAGMA busy_timeout = 5000;         -- concurrent session support
+PRAGMA synchronous = NORMAL;        -- analytics-grade durability
+PRAGMA foreign_keys = ON;
 ```
-
-**DON'T:** Silently accept unknown events without warning — trail-log warns but still writes, preventing data loss from vocabulary extensions while surfacing drift.
-
-### Worktree-root path resolution
-
-**Source:** `bin/trail-log`
-
-```bash
-if [[ "$trail_file" != /* ]]; then
-  repo_root="$(git rev-parse --show-toplevel 2> /dev/null || true)"
-  [[ -n "$repo_root" ]] && trail_file="$repo_root/$trail_file"
-fi
-```
-
-**DO:** Anchor relative paths to the git worktree root, not CWD. trail-log is invoked from varying working directories during resume paths.
-
-## Alternatives Considered
-
-### Rewrite trail-log entirely to Python
-
-The research brief proposed rewriting trail-log from Bash to Python. Challenge Finding 10 identified that this adds ~200ms cold-start latency per call (17+ calls per run) and memory pressure on constrained machines. Keeping trail-log as Bash with optional orch-db delegation preserves zero overhead when the store is disabled and adds overhead only on machines that opt in.
-
-### Post-hoc orch-ingest for all data capture
-
-The research brief proposed a batch `orch-ingest` step at Phase 3 Step 6. Challenge Finding 1 identified this as the exact "agent-driven logging" anti-pattern the prior art warned against — if the orchestrator doesn't reach Phase 3, no data is captured. Per-dispatch capture (orch-db dispatch + orch-db result) captures effectiveness data while the run is live. Cost data remains post-hoc (acceptable since it's secondary).
-
-### Append-only JSONL store instead of SQLite
-
-JSONL files with one event per line, queryable via `jq` or a Python script. Simpler than SQLite but doesn't support SQL queries, indexes, or concurrent access patterns. The effectiveness queries the user wants ("blocking rate by reviewer type across runs") require aggregation that JSONL makes painful.
-
-### Do nothing — keep mining JSONLs
-
-orchestrate-cost and agent-stats already work. But they're ~1,200 combined lines of fragile parsing that breaks on prompt wording changes, and trail data is destroyed on ship. The status quo answers effectiveness questions but requires re-running the parsers each time and provides no durability.
 
 ## Test Strategy
 
 ### Existing Tests to Adapt
 
-No existing tests for trail-log (it's a 115-line Bash script with no test suite). No tests for orchestrate-cost or agent-stats. The spec-helper package has tests in `packages/spec-helper/tests/` but none touch trail-log behavior.
+No tests to adapt. `cfl` is a new package. `packages/spec-helper/tests/` tests the tool being replaced — they will be removed when spec-helper is deleted.
 
 ### New Test Coverage
 
-- **FR#1**: Integration test — run trail-log with `$ORCHESTRATE_DB` set, verify events table has the expected row.
-- **FR#2**: Unit test — call `orch-db log` with a p2 verdict event including structured flags, verify tasks.verdict_breakdown is valid JSON with expected keys.
-- **FR#3**: Unit test — call `orch-db dispatch`, verify agent_dispatches row exists with correct role and dispatched_at.
-- **FR#5**: Integration test — simulate a complete run (p0 start → p2 verdict → p3 complete), verify runs.status='completed' and ended_at is set.
-- **FR#6**: Integration test — two concurrent `orch-db log` calls from different "runs", verify both succeed without SQLITE_BUSY.
-- **FR#7**: Unit test — run trail-log with `$ORCHESTRATE_DB` unset, verify no Python process is spawned (check with `strace` or timing).
-- **FR#8**: Unit test — create a DB at schema version 1, run `setup_db()` with version 2 code, verify migration applied and version updated.
-- **FR#9**: Unit test — set DB path to `/mnt/c/test.db`, verify `journal_mode` is DELETE.
+- **FR#2, FR#3**: `test_db.py` — schema creation, migration application, version tracking.
+- **FR#4**: `test_db.py` — journal mode fallback on `/mnt/` paths (mock `os.path.realpath`).
+- **FR#5**: `test_db.py` — concurrent writes from two connections without SQLITE_BUSY.
+- **FR#6, FR#7**: `test_cli.py` — JSON output format, `_v` field, `--text` flag, exit codes.
+- **FR#8**: `test_resolve.py` — auto-resolution from git remote + disk globs + DB state.
+- **FR#9, FR#10**: `test_spec.py` — spec init (DB + disk), validate (valid/invalid frontmatter), next-number.
+- **FR#11**: `test_archive.py` — archive workflow end-to-end (git rm, design.md stamp, DB updates).
+- **FR#12, FR#13, FR#14**: `test_run.py` — run start (task discovery, transaction atomicity, active_run_id guard), status (derived fields), complete/stop/resume lifecycle.
+- **FR#15, FR#16, FR#17**: `test_task.py` — state machine transitions (valid/invalid), verdict atomicity (task + gate + event), block shorthand.
+- **FR#18**: `test_gate.py` — gate recording with typed vocabulary, iteration tracking, structured data.
+- **FR#19**: `test_dispatch.py` — dispatch creation at dispatch time, dispatch end.
+- **FR#20, FR#21**: `test_event.py` — fire-and-forget semantics (exit 0 on DB error), implicit event emission.
+- **FR#22, FR#23**: `test_session.py` — auto-join idempotency, session end, compaction tracking.
+- **FR#24**: `test_direct.py` — cfl set bypasses guards, logs before/after state.
 
 ### Tests to Remove
 
-No tests to remove.
-
-## Documentation Updates
-
-- **`bin/trail-log`**: Add `complete` to the event vocabulary in both the `validate_event()` function and the usage/help text. Document the new flag pass-through behavior (extra arguments after the 5 positionals are forwarded to `orch-db log` when `$ORCHESTRATE_DB` is set).
-- **`REFERENCE.md`**: Add `orch-db` to the CLI tools table with trigger phrases and description.
-- **`rules/common/capabilities-core.md`**: Add trigger phrases for `orch-db` queries (e.g., "query orchestration data", "pipeline effectiveness", "gate blocking rate").
-- **`skills/mine-orchestrate/SKILL.md`**: Document the new `orch-db dispatch` and `orch-db result` call sites at Step 4 and after Agent returns.
+- `packages/spec-helper/tests/` — removed when the spec-helper package is deleted.
 
 ## Impact
 
 ### Changed Files
 
-- **create** `bin/orch-db` — new Python PEP 723 script, all SQLite operations
-- **modify** `bin/trail-log` — add conditional `orch-db log` delegation when `$ORCHESTRATE_DB` is set
-- **modify** `skills/mine-orchestrate/SKILL.md` — add `orch-db dispatch` and `orch-db result` call sites
-- **modify** `skills/mine-orchestrate/post-execution-pipeline.md` — add `orch-db dispatch/result` calls for Phase 3 subagents + `trail-log ... p3 - complete "shipped"` event after `/mine-ship` succeeds
-- **modify** `bin/orchestrate-cost` — migrate from JSONL parsing to SQL queries (Phase 2)
-- **modify** `bin/agent-stats` — migrate from JSONL parsing to SQL queries (Phase 2)
-- **modify** `REFERENCE.md` — add orch-db to CLI tools table
-- **modify** `rules/common/capabilities-core.md` — add orch-db trigger phrases
+- **create** `packages/cfl/` — new Python package (pyproject.toml, src/cfl/*.py, tests/*.py)
+- **modify** `skills/mine-orchestrate/SKILL.md` — replace trail-log + spec-helper calls with cfl commands
+- **modify** `skills/mine-orchestrate/post-execution-pipeline.md` — replace trail-log calls with cfl gate/dispatch commands
+- **modify** `skills/mine-orchestrate/resume-protocol.md` — replace checkpoint-read with cfl run status, trail-log with cfl run resume
+- **modify** `skills/mine-orchestrate/findings-fix-loop.md` — replace trail-log with cfl event
+- **modify** `skills/mine-orchestrate/warn-fix-loop.md` — replace spec-helper checkpoint-update with cfl task update
+- **modify** `skills/mine-orchestrate/wip-commit-protocol.md` — replace spec-helper checkpoint-update/verdict with cfl task update/verdict
+- **modify** `skills/mine-plan/SKILL.md` — replace spec-helper validate with cfl spec validate
+- **modify** `skills/mine-define/SKILL.md` — replace spec-helper init with cfl spec init
+- **modify** `skills/mine-grill/SKILL.md` — replace spec-helper init with cfl spec init
+- **modify** `skills/mine-commit-push/SKILL.md` — replace spec-helper archive with cfl archive
+- **modify** `skills/mine-create-pr/worker.md` — replace spec-helper archive with cfl archive
+- **modify** `skills/mine-write-skill/REFERENCE.md` — replace spec-helper reference with cfl
+- **modify** `rules/common/git-workflow.md` — replace spec-helper archive with cfl archive
+- **modify** `REFERENCE.md` — add cfl to CLI tools table, remove spec-helper and trail-log
+- **modify** `rules/common/capabilities-core.md` — add cfl trigger phrases, remove spec-helper/trail-log triggers
+- **modify** `install.py` — add cfl package to installation wizard
+- **modify** `settings.json` — update allowedTools for cfl
+- **modify** `bin/orchestrate-cost` — migrate from JSONL parsing to SQL queries
+- **modify** `bin/agent-stats` — migrate from JSONL parsing to SQL queries
+- **delete** `bin/trail-log` — replaced by cfl event + implicit events
+- **delete** `packages/spec-helper/` — replaced by cfl
+
+<!-- Gap check 2026-06-29: 6 gaps found and included —
+  warn-fix-loop.md:11 (spec-helper checkpoint-update) → T08
+  wip-commit-protocol.md:45,50,56 (spec-helper checkpoint-update/verdict) → T08
+  mine-commit-push/SKILL.md:27 (spec-helper archive) → T09
+  mine-create-pr/worker.md:34 (spec-helper archive) → T09
+  mine-grill/SKILL.md:79 (spec-helper init) → T09
+  mine-write-skill/REFERENCE.md:44 (spec-helper reference) → T09
+-->
 
 ### Behavioral Invariants
 
-- trail-log's TSV write behavior is unchanged — all existing consumers (spec-helper archive, manual grep) continue working.
-- trail-log's exit code behavior is unchanged — it exits 0 on successful TSV write regardless of orch-db outcome.
-- The trail-log failure counter in SKILL.md continues to count trail-log failures, not orch-db failures.
-- orchestrate-cost and agent-stats continue to work against JSONLs for runs that predate the store.
+- Orchestration runs still produce the same external artifacts: commits, PRs, design docs.
+- The SKILL.md orchestration flow (Phase 0 → Phase 2 tasks → Phase 3 post-execution) is unchanged — only the state management calls change.
+- `bin/orchestrate-cost` and `bin/agent-stats` continue to provide the same CLI interface and output format — only their internal data source changes.
 
 ### Blast Radius
 
-- **mine-orchestrate SKILL.md**: New call sites for orch-db (dispatch, result). Guarded by `$ORCHESTRATE_DB` check.
-- **spec-helper archive**: No change in Phase 1-3. In Phase 4, trail.tsv is no longer produced, so archive no longer deletes it.
-- **All other skills**: No impact — they don't call trail-log or interact with orchestration data.
+- **mine-orchestrate**: All state management calls change. This is the primary consumer.
+- **mine-plan**: `spec-helper validate` becomes `cfl spec validate`.
+- **mine-define**: `spec-helper init` becomes `cfl spec init`.
+- **git-workflow.md**: Archive call site changes.
+- **All other skills**: No impact.
 
 ## Open Questions
 
-*(empty — all questions resolved during discovery and challenge)*
+*(empty — all questions resolved during challenge rounds on cli-design.md and db-design-brief.md)*
