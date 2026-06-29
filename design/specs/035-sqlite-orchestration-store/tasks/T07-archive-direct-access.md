@@ -1,7 +1,7 @@
 ---
 task_id: "T07"
 title: "Implement archive and direct access commands"
-status: "planned"
+status: "done"
 depends_on: ["T03", "T04"]
 implements: ["FR#11", "FR#24", "AC#11", "AC#23"]
 ---

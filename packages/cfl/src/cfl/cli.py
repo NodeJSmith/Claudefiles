@@ -9,6 +9,8 @@ from whenever import Instant
 
 import cfl.output as output_module
 from cfl.db import db_connection
+from cfl.archive import archive_spec
+from cfl.direct import VALID_ENTITIES, parse_field_args, set_field
 from cfl.dispatch import end_dispatch, record_dispatch
 from cfl.event import record_event
 from cfl.gate import VALID_GATE_VERDICTS, record_gate
@@ -328,12 +330,36 @@ def build_parser() -> argparse.ArgumentParser:
     # ------------------------------------------------------------------
     # archive (leaf)
     # ------------------------------------------------------------------
-    sub.add_parser("archive", help="Archive a completed spec")
+    archive_p = sub.add_parser("archive", help="Archive a completed spec")
+    archive_p.add_argument(
+        "--dry-run",
+        dest="dry_run",
+        action="store_true",
+        default=False,
+        help="Show what would be archived without making changes",
+    )
 
     # ------------------------------------------------------------------
     # set (leaf — direct-access tier, bypasses state machine)
     # ------------------------------------------------------------------
-    sub.add_parser("set", help="Direct field writes (bypass state machine guards)")
+    set_p = sub.add_parser(
+        "set", help="Direct field writes (bypass state machine guards)"
+    )
+    set_p.add_argument(
+        "entity",
+        choices=sorted(VALID_ENTITIES),
+        help="Entity type: task, run, spec, or session",
+    )
+    set_p.add_argument(
+        "entity_id",
+        help="Row identifier (task_id string for tasks, numeric id for others)",
+    )
+    set_p.add_argument(
+        "field_pairs",
+        nargs="+",
+        metavar="field=value",
+        help="Field assignments. Use field=null to write SQL NULL.",
+    )
 
     return parser
 
@@ -384,9 +410,9 @@ def _execute(args: argparse.Namespace) -> None:
     elif cmd == "session":
         _handle_session(args)
     elif cmd == "archive":
-        output_module.emit_error("not implemented", code="not_implemented")
+        _handle_archive(args)
     elif cmd == "set":
-        output_module.emit_error("not implemented", code="not_implemented")
+        _handle_set(args)
     else:
         _parser_ref = build_parser()
         _parser_ref.print_help()
@@ -717,6 +743,34 @@ def _handle_session(args: argparse.Namespace) -> None:
             f"Unknown session subcommand: {session_cmd}",
             code="usage_error",
             exit_code=2,
+        )
+
+
+def _handle_archive(args: argparse.Namespace) -> None:
+    spec_override = getattr(args, "spec", None)
+    dry_run = getattr(args, "dry_run", False)
+    with db_connection() as conn:
+        archive_spec(conn, spec_override=spec_override, dry_run=dry_run)
+
+
+def _handle_set(args: argparse.Namespace) -> None:
+    spec_override = getattr(args, "spec", None)
+    fields = parse_field_args(args.field_pairs)
+
+    with db_connection() as conn:
+        if args.entity == "task":
+            # Tasks require an active run for scoping.
+            ctx = resolve_context(conn, spec_override=spec_override)
+            active_run_id = ctx["active_run_id"]
+        else:
+            active_run_id = None
+
+        set_field(
+            conn,
+            args.entity,
+            args.entity_id,
+            fields,
+            active_run_id=active_run_id,
         )
 
 
