@@ -28,7 +28,6 @@ Implement 4 commands following `cli-design.md` §cfl task start through §cfl ta
 
 2. `task_update(conn, run_id, task_id, new_status)` — validate the transition against the state machine:
    - Valid transitions for `task_update` (intermediate state changes only):
-     - `pending → executing`
      - `executing → reviewing`
      - `reviewing → fixing`
      - `fixing → reviewing`
@@ -37,6 +36,7 @@ Implement 4 commands following `cli-design.md` §cfl task start through §cfl ta
      - `executing → stopped` (user stops mid-execution)
    - Transitions NOT handled by `task_update` (exclusive to other commands):
      - `reviewing → done` / `reviewing → failed` — exclusively via `task_verdict` (FR#16, atomically creates gate + event)
+     - `pending → executing` — exclusively via `task_start` (sets `started_at` and emits `task.started` event)
      - `executing → blocked` — exclusively via `task_block` (FR#17, atomically sets verdict='BLOCKED')
    - Reject any attempt to use `task_update` for these exclusive paths with exit 1, error code `invalid_status`, hint directing to the correct command (e.g., "Use `cfl task verdict` to set done/failed" or "Use `cfl task block` to block a task").
    - UPDATE tasks SET `status=?`. Output JSON with `task_id`, `status`, `previous`.

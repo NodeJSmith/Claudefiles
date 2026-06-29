@@ -3,7 +3,7 @@ task_id: "T08"
 title: "Migrate mine-orchestrate to cfl commands"
 status: "planned"
 depends_on: ["T04", "T05", "T06"]
-implements: ["FR#26"]
+implements: ["FR#26", "FR#27"]
 ---
 
 ## Summary
@@ -105,4 +105,5 @@ Replace every `trail-log` and `spec-helper` call in the mine-orchestrate skill f
 
 ## Verify
 
-- [ ] FR#26: All trail-log and spec-helper calls in SKILL.md are replaced with cfl equivalents — zero references to `trail-log` or `spec-helper` remain in any mine-orchestrate file
+- [ ] FR#26: All trail-log calls in mine-orchestrate files are replaced with cfl equivalents — zero references to `trail-log` remain
+- [ ] FR#27: All spec-helper calls in mine-orchestrate files are replaced with cfl equivalents — zero references to `spec-helper` remain in any mine-orchestrate file

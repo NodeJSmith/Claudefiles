@@ -228,8 +228,8 @@ packages/cfl/
 | `.orchestrate-state.md` | `runs` + `tasks` tables | Eliminated — no checkpoint file |
 | `trail.tsv` | `events` table | Eliminated — no TSV file |
 | `trail-audit.md` | Gate records in `gates` table | Eliminated — no audit file |
-| `bin/orchestrate-cost` JSONL parsing | `cfl ingest-cost` + SQL queries | Rewrite as thin SQL wrapper |
-| `bin/agent-stats` JSONL scanning | SQL queries against `dispatches` | Rewrite as thin SQL wrapper |
+| `bin/orchestrate-cost` JSONL parsing | SQL queries against `dispatches` | Rewrite as thin SQL wrapper with JSONL fallback |
+| `bin/agent-stats` JSONL scanning | SQL queries against `gates` + `dispatches` | Rewrite as thin SQL wrapper with JSONL fallback |
 | `GP_SIGNATURES` role disambiguation | Dispatch-time role capture via `cfl dispatch` | Eliminated |
 
 ## Convention Examples

@@ -29,7 +29,9 @@ Implement 5 commands following `cli-design.md` §cfl run start through §cfl run
    - Guard: error `run_already_active` if `specs.active_run_id IS NOT NULL`
    - Discover tasks: glob `<feature_dir>/tasks/T*.md`, parse YAML frontmatter for `task_id` and `title`. Sort by task_id naturally. Error `no_tasks` if none found or frontmatter missing.
    - `base_commit` defaults to `git rev-parse HEAD`.
-   - The `run_already_active` error hint should distinguish between a reachable run ("Resume with `/mine-orchestrate`, or `cfl run stop` first.") and a stale/crashed run ("Run N has status 'running' but no events since <timestamp>. Force-stop with `cfl set run N status=stopped`, then resume."). Check for staleness: `SELECT MAX(created_at) FROM events WHERE run_id=?` against a 4-hour threshold.
+   - Distinguish between a normal active run and a stale/crashed run using two distinct error codes per cli-design.md:
+     - **Normal active run** (`run_already_active`): "Run N started <timestamp>. Resume with `/mine-orchestrate`, or `cfl run stop` first."
+     - **Stale run** (`run_stale`): detected via `SELECT MAX(created_at) FROM events WHERE run_id=?` against a 4-hour threshold (`STALE_RUN_HOURS = 4`). Error: "Run N has status 'running' but no events since <timestamp>. Force-stop it first, then resume." Hint: "cfl set run N status=stopped"
    - INSERT into `runs` with `status='running'`, `started_at=datetime('now')`.
    - INSERT into `tasks` for each discovered task with `status='pending'`.
    - UPDATE `specs` SET `active_run_id=<new_run_id>`, `status='in_progress'`.
@@ -49,12 +51,12 @@ Implement 5 commands following `cli-design.md` §cfl run start through §cfl run
 3. `run_complete(conn, run_id, spec_id, *, pr_url=None)` — single transaction:
    - UPDATE runs SET `status='completed'`, `ended_at=datetime('now')`.
    - UPDATE specs SET `active_run_id=NULL`, `status='approved'`.
-   - INSERT `run.completed` event.
+   - INSERT `run.completed` event with data per db-design-brief.md minimum schema: `{"pr_url": pr_url, "via": "ship"}`.
 
 4. `run_stop(conn, run_id, spec_id, *, reason=None, at_task=None)` — single transaction:
    - UPDATE runs SET `status='stopped'`, `ended_at=datetime('now')`.
    - UPDATE specs SET `active_run_id=NULL`, `status='approved'`.
-   - INSERT `run.stopped` event.
+   - INSERT `run.stopped` event with data per db-design-brief.md minimum schema: `{"reason": reason, "at_task": at_task}`.
 
 5. `run_resume(conn, spec_id, *, run_id=None)` — if `run_id` omitted, find most recent `stopped` run for this spec. Error if run is `completed` (terminal) or already `running`. Single transaction:
    - UPDATE runs SET `status='running'`, `ended_at=NULL`.
