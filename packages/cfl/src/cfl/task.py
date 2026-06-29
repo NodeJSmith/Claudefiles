@@ -11,6 +11,8 @@ import json
 import sqlite3
 
 import cfl.output as output_module
+from cfl.session import read_context_pct
+from cfl.vocabulary import COMMON_VERDICTS
 
 # ---------------------------------------------------------------------------
 # State machine
@@ -35,7 +37,8 @@ EXCLUSIVE_HINTS: dict[tuple[str, str], str] = {
 }
 
 # Verdicts accepted by task_verdict (BLOCKED is exclusive to task_block).
-VALID_VERDICTS = frozenset({"PASS", "WARN", "FAIL", "SKIPPED"})
+# Shared base from vocabulary.py; extend here when task verdicts diverge from gate verdicts.
+VALID_VERDICTS = COMMON_VERDICTS
 
 # Verdict → terminal task status mapping.
 VERDICT_TO_STATUS: dict[str, str] = {
@@ -77,9 +80,9 @@ def task_start(conn: sqlite3.Connection, run_id: int, task_id: str) -> None:
             (run_id, task_id),
         )
         conn.execute(
-            """INSERT INTO events (run_id, task_id, event, data, created_at)
-               VALUES (?, ?, 'task.started', ?, datetime('now'))""",
-            (run_id, task_id, json.dumps({"title": title})),
+            """INSERT INTO events (run_id, task_id, event, data, context_pct, created_at)
+               VALUES (?, ?, 'task.started', ?, ?, datetime('now'))""",
+            (run_id, task_id, json.dumps({"title": title}), read_context_pct()),
         )
         conn.execute("COMMIT")
     except Exception:
@@ -155,13 +158,14 @@ def task_verdict(
     *,
     detail: str | None = None,
     commit_sha: str | None = None,
-    data: dict | None = None,
+    data: str | None = None,
 ) -> None:
     """Record the final verdict for a task. Atomic: task + verdict-assembly gate + event.
 
     BLOCKED is not accepted — use task_block instead.
     PASS/WARN/SKIPPED → status='done'; FAIL → status='failed'.
 
+    data: optional JSON string — stored verbatim in the gate row and merged into the event.
     Iteration auto-increments: SELECT COALESCE(MAX(iteration), 0) + 1 per (run_id, task_id, 'verdict-assembly').
     """
     if verdict == "BLOCKED":
@@ -188,10 +192,22 @@ def task_verdict(
             hint="Task must be in 'reviewing' or 'fixing' state to receive a verdict.",
         )
 
-    terminal_status = VERDICT_TO_STATUS[verdict]
-    gate_data_str = json.dumps(data) if data is not None else None
+    if data is not None:
+        try:
+            data_dict: dict = json.loads(data)
+        except json.JSONDecodeError as exc:
+            output_module.emit_error(
+                f"--data is not valid JSON: {exc}",
+                code="invalid_json",
+                exit_code=2,
+            )
+            raise AssertionError("unreachable: emit_error always exits")
+    else:
+        data_dict = {}
 
-    event_data: dict = {**(data or {}), "verdict": verdict, "detail": detail}
+    terminal_status = VERDICT_TO_STATUS[verdict]
+
+    event_data: dict = {**data_dict, "verdict": verdict, "detail": detail}
 
     conn.execute("BEGIN IMMEDIATE")
     try:
@@ -212,12 +228,12 @@ def task_verdict(
             """INSERT INTO gates
                (run_id, task_id, gate_type, iteration, verdict, detail, data, created_at)
                VALUES (?, ?, 'verdict-assembly', ?, ?, ?, ?, datetime('now'))""",
-            (run_id, task_id, next_iter, verdict, detail, gate_data_str),
+            (run_id, task_id, next_iter, verdict, detail, data),
         )
         conn.execute(
-            """INSERT INTO events (run_id, task_id, event, detail, data, created_at)
-               VALUES (?, ?, 'task.verdict', ?, ?, datetime('now'))""",
-            (run_id, task_id, detail, json.dumps(event_data)),
+            """INSERT INTO events (run_id, task_id, event, detail, data, context_pct, created_at)
+               VALUES (?, ?, 'task.verdict', ?, ?, ?, datetime('now'))""",
+            (run_id, task_id, detail, json.dumps(event_data), read_context_pct()),
         )
         conn.execute("COMMIT")
     except Exception:
@@ -265,9 +281,9 @@ def task_block(
             (reason, run_id, task_id),
         )
         conn.execute(
-            """INSERT INTO events (run_id, task_id, event, detail, data, created_at)
-               VALUES (?, ?, 'task.verdict', ?, ?, datetime('now'))""",
-            (run_id, task_id, reason, json.dumps(event_data)),
+            """INSERT INTO events (run_id, task_id, event, detail, data, context_pct, created_at)
+               VALUES (?, ?, 'task.verdict', ?, ?, ?, datetime('now'))""",
+            (run_id, task_id, reason, json.dumps(event_data), read_context_pct()),
         )
         conn.execute("COMMIT")
     except Exception:

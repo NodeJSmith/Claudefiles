@@ -5,26 +5,7 @@ import json
 import pytest
 
 from cfl.task import task_block, task_start, task_update, task_verdict
-from tests.helpers import REMOTE_URL, insert_spec_with_run
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _insert_task(
-    db_conn,
-    run_id: int,
-    task_id: str,
-    status: str = "pending",
-    title: str | None = None,
-) -> None:
-    """Insert a task row directly into the DB for testing."""
-    db_conn.execute(
-        "INSERT INTO tasks (run_id, task_id, title, status) VALUES (?, ?, ?, ?)",
-        (run_id, task_id, title or f"Task {task_id}", status),
-    )
+from tests.helpers import REMOTE_URL, insert_spec_with_run, insert_task as _insert_task
 
 
 # ---------------------------------------------------------------------------
@@ -443,14 +424,16 @@ def test_task_verdict_data_stored_in_gate(db_conn):
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
     _insert_task(db_conn, run_id, "T01", status="reviewing")
 
-    reviewer_data = {
-        "spec": "PASS",
-        "code": "PASS",
-        "integration": "PASS",
-        "test": "PASS",
-        "lint": "PASS",
-        "visual": "SKIPPED",
-    }
+    reviewer_data = json.dumps(
+        {
+            "spec": "PASS",
+            "code": "PASS",
+            "integration": "PASS",
+            "test": "PASS",
+            "lint": "PASS",
+            "visual": "SKIPPED",
+        }
+    )
     task_verdict(db_conn, run_id, "T01", "PASS", data=reviewer_data)
 
     gate = db_conn.execute(
@@ -618,7 +601,7 @@ def test_task_block_task_not_found_exits_1(db_conn, capsys):
     assert err["code"] == "task_not_found"
 
 
-@pytest.mark.parametrize("terminal_status", ["done", "blocked", "failed"])
+@pytest.mark.parametrize("terminal_status", ["done", "blocked", "failed", "stopped"])
 def test_task_block_terminal_status_exits_1(db_conn, capsys, terminal_status):
     """task_block exits 1 with invalid_status when task is already in a terminal state."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)

@@ -67,6 +67,20 @@ def insert_spec_no_run(
     return cursor.lastrowid
 
 
+def insert_task(
+    db_conn: sqlite3.Connection,
+    run_id: int,
+    task_id: str,
+    status: str = "pending",
+    title: str | None = None,
+) -> None:
+    """Insert a task row directly into the DB for testing."""
+    db_conn.execute(
+        "INSERT INTO tasks (run_id, task_id, title, status) VALUES (?, ?, ?, ?)",
+        (run_id, task_id, title or f"Task {task_id}", status),
+    )
+
+
 def insert_spec_with_status(
     db_conn: sqlite3.Connection,
     number: int,

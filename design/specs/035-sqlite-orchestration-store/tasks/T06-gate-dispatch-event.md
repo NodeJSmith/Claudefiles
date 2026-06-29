@@ -1,7 +1,7 @@
 ---
 task_id: "T06"
 title: "Implement gate, dispatch, and event commands"
-status: "planned"
+status: "done"
 depends_on: ["T04"]
 implements: ["FR#18", "FR#19", "FR#20", "FR#21", "FR#25", "AC#18", "AC#19", "AC#20", "AC#24"]
 ---
