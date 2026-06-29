@@ -1,7 +1,7 @@
 ---
 task_id: "T02"
 title: "Implement auto-resolution and session tracking"
-status: "planned"
+status: "done"
 depends_on: ["T01"]
 implements: ["FR#8", "FR#22", "FR#23", "AC#8", "AC#22", "AC#26"]
 ---

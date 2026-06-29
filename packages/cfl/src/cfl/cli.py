@@ -1,9 +1,13 @@
 """CLI entry point and argparse configuration for cfl."""
 
 import argparse
+import os
 import sys
 
 import cfl.output as output_module
+from cfl.db import db_connection
+from cfl.resolve import resolve_context
+from cfl.session import end_session, record_compaction
 
 
 def _not_implemented() -> None:
@@ -91,8 +95,26 @@ def build_parser() -> argparse.ArgumentParser:
     # ------------------------------------------------------------------
     session_p = sub.add_parser("session", help="Session lifecycle commands")
     session_sub = session_p.add_subparsers(dest="session_cmd", required=True)
-    session_sub.add_parser("end", help="Called by SessionEnd hook")
-    session_sub.add_parser("compacted", help="Called by PreCompact hook")
+
+    session_end_p = session_sub.add_parser("end", help="Called by SessionEnd hook")
+    session_end_p.add_argument(
+        "--reason",
+        choices=["clear", "exit"],
+        default=None,
+        help="Why the session ended (clear = /clear command, exit = normal exit)",
+    )
+
+    session_compacted_p = session_sub.add_parser(
+        "compacted", help="Called by PreCompact hook"
+    )
+    session_compacted_p.add_argument(
+        "--context-pct",
+        type=int,
+        dest="context_pct",
+        default=None,
+        metavar="N",
+        help="Context percentage before compaction (0–100)",
+    )
 
     # ------------------------------------------------------------------
     # archive (leaf)
@@ -129,7 +151,58 @@ def main() -> None:
     elif cmd == "event":
         _not_implemented()
     elif cmd == "session":
-        _not_implemented()
+        session_cmd = args.session_cmd
+        if session_cmd == "end":
+            session_id = os.environ.get("CLAUDE_CODE_SESSION_ID")
+            reason = getattr(args, "reason", None)
+            if session_id is None:
+                # No session to end — idempotent, no error
+                output_module.emit(
+                    {
+                        "session_id": None,
+                        "ended_at": None,
+                        "context_pct_end": None,
+                        "reason": reason,
+                    }
+                )
+            else:
+                with db_connection() as conn:
+                    end_session(conn, session_id)
+                    row = conn.execute(
+                        "SELECT ended_at, context_pct_end FROM sessions WHERE session_id=?",
+                        (session_id,),
+                    ).fetchone()
+                    output_module.emit(
+                        {
+                            "session_id": session_id,
+                            "ended_at": output_module.to_iso(row["ended_at"])
+                            if row
+                            else None,
+                            "context_pct_end": row["context_pct_end"] if row else None,
+                            "reason": reason,
+                        }
+                    )
+        elif session_cmd == "compacted":
+            context_pct = getattr(args, "context_pct", None)
+            spec_override = getattr(args, "spec", None)
+            with db_connection() as conn:
+                ctx = resolve_context(conn, spec_override=spec_override)
+                run_id = ctx["active_run_id"]
+                session_id = ctx["session_id"]
+                event_id = record_compaction(conn, run_id, session_id, context_pct)
+                output_module.emit(
+                    {
+                        "session_id": session_id,
+                        "event_id": event_id,
+                        "context_pct_before": context_pct,
+                    }
+                )
+        else:
+            output_module.emit_error(
+                f"Unknown session subcommand: {session_cmd}",
+                code="usage_error",
+                exit_code=2,
+            )
     elif cmd == "archive":
         _not_implemented()
     elif cmd == "set":

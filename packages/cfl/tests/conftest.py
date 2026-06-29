@@ -3,6 +3,7 @@
 import pytest
 
 from cfl.db import setup_db
+from tests.helpers import insert_spec_with_run
 
 
 @pytest.fixture
@@ -17,3 +18,15 @@ def db_conn(tmp_db_path):
     conn = setup_db(tmp_db_path)
     yield conn
     conn.close()
+
+
+@pytest.fixture
+def spec_and_run(db_conn):
+    """Create a spec and running run row in the test DB.
+
+    Returns (spec_id, run_id). The spec has active_run_id set.
+    """
+    spec_id, run_id = insert_spec_with_run(
+        db_conn, 1, "test-feature", "https://example.com/test/repo.git"
+    )
+    return spec_id, run_id
