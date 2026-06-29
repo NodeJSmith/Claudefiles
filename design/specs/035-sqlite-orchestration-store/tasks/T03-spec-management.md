@@ -1,7 +1,7 @@
 ---
 task_id: "T03"
 title: "Implement spec management commands"
-status: "planned"
+status: "done"
 depends_on: ["T01", "T02"]
 implements: ["FR#9", "FR#10", "AC#9", "AC#10"]
 ---

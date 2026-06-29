@@ -5,6 +5,34 @@ to be updated in exactly one place.
 """
 
 import sqlite3
+import subprocess
+from pathlib import Path
+
+
+REMOTE_URL = "https://github.com/test/repo.git"
+
+
+def init_repo_with_remote(path: Path, remote_url: str = REMOTE_URL) -> None:
+    """Create a git repo with a named remote in path."""
+    subprocess.run(["git", "init"], capture_output=True, check=True, cwd=path)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"],
+        capture_output=True,
+        check=True,
+        cwd=path,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test User"],
+        capture_output=True,
+        check=True,
+        cwd=path,
+    )
+    subprocess.run(
+        ["git", "remote", "add", "origin", remote_url],
+        capture_output=True,
+        check=True,
+        cwd=path,
+    )
 
 
 def insert_spec_with_run(
@@ -35,5 +63,21 @@ def insert_spec_no_run(
         """INSERT INTO specs (number, slug, repo_url, status, created_at)
            VALUES (?, ?, ?, 'approved', datetime('now'))""",
         (number, slug, repo_url),
+    )
+    return cursor.lastrowid
+
+
+def insert_spec_with_status(
+    db_conn: sqlite3.Connection,
+    number: int,
+    slug: str,
+    repo_url: str,
+    status: str,
+) -> int:
+    """Insert a spec with an explicit status. Returns spec_id."""
+    cursor = db_conn.execute(
+        """INSERT INTO specs (number, slug, repo_url, status, created_at)
+           VALUES (?, ?, ?, ?, datetime('now'))""",
+        (number, slug, repo_url, status),
     )
     return cursor.lastrowid

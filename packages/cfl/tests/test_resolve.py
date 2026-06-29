@@ -6,37 +6,17 @@ from pathlib import Path
 import pytest
 
 from cfl.resolve import resolve_context, resolve_repo_url, resolve_run, resolve_spec
-from tests.helpers import insert_spec_no_run, insert_spec_with_run
+from tests.helpers import (
+    REMOTE_URL,
+    init_repo_with_remote,
+    insert_spec_no_run,
+    insert_spec_with_run,
+)
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-REMOTE_URL = "https://github.com/test/repo.git"
-
-
-def _init_repo_with_remote(path: Path, remote_url: str = REMOTE_URL) -> None:
-    """Create a git repo with a named remote."""
-    subprocess.run(["git", "init"], capture_output=True, check=True, cwd=path)
-    subprocess.run(
-        ["git", "config", "user.email", "test@example.com"],
-        capture_output=True,
-        check=True,
-        cwd=path,
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "Test User"],
-        capture_output=True,
-        check=True,
-        cwd=path,
-    )
-    subprocess.run(
-        ["git", "remote", "add", "origin", remote_url],
-        capture_output=True,
-        check=True,
-        cwd=path,
-    )
 
 
 def _init_repo_no_remote(path: Path) -> str:
@@ -93,7 +73,7 @@ def _make_spec_dir(repo_root: Path, number: int, slug: str) -> None:
 
 def test_resolve_repo_url_returns_remote_url(tmp_path, monkeypatch):
     """When origin remote is set, returns the origin URL."""
-    _init_repo_with_remote(tmp_path, REMOTE_URL)
+    init_repo_with_remote(tmp_path, REMOTE_URL)
     monkeypatch.chdir(tmp_path)
 
     url = resolve_repo_url()
@@ -121,7 +101,7 @@ def test_resolve_repo_url_no_remote_falls_back_to_root_sha(tmp_path, monkeypatch
 
 def test_resolve_spec_from_task_files(tmp_path, monkeypatch, db_conn):
     """With one spec's task files in CWD, resolves to that spec."""
-    _init_repo_with_remote(tmp_path)
+    init_repo_with_remote(tmp_path)
     spec_id, run_id = insert_spec_with_run(db_conn, 35, "my-feature", REMOTE_URL)
     _make_task_file(tmp_path, 35, "my-feature")
     monkeypatch.chdir(tmp_path)
@@ -137,7 +117,7 @@ def test_resolve_spec_from_task_files(tmp_path, monkeypatch, db_conn):
 
 def test_resolve_spec_from_directory_fallback(tmp_path, monkeypatch, db_conn):
     """When no task files exist, falls back to directory pattern."""
-    _init_repo_with_remote(tmp_path)
+    init_repo_with_remote(tmp_path)
     spec_id, run_id = insert_spec_with_run(db_conn, 36, "another-feature", REMOTE_URL)
     _make_spec_dir(tmp_path, 36, "another-feature")
     monkeypatch.chdir(tmp_path)
@@ -153,7 +133,7 @@ def test_resolve_spec_from_directory_fallback(tmp_path, monkeypatch, db_conn):
 
 def test_resolve_spec_updates_repo_path(tmp_path, monkeypatch, db_conn):
     """After resolve_spec, specs.repo_path is updated to the git root."""
-    _init_repo_with_remote(tmp_path)
+    init_repo_with_remote(tmp_path)
     spec_id, _ = insert_spec_with_run(db_conn, 35, "my-feature", REMOTE_URL)
     _make_task_file(tmp_path, 35, "my-feature")
     monkeypatch.chdir(tmp_path)
@@ -174,7 +154,7 @@ def test_resolve_spec_updates_repo_path(tmp_path, monkeypatch, db_conn):
 
 def test_resolve_spec_override_bypasses_disk_glob(tmp_path, monkeypatch, db_conn):
     """--spec NNN queries by (repo_url, number) without disk glob."""
-    _init_repo_with_remote(tmp_path)
+    init_repo_with_remote(tmp_path)
     spec_id, run_id = insert_spec_with_run(db_conn, 35, "my-feature", REMOTE_URL)
     # No task files on disk — override must work without them
     monkeypatch.chdir(tmp_path)
@@ -187,7 +167,7 @@ def test_resolve_spec_override_bypasses_disk_glob(tmp_path, monkeypatch, db_conn
 
 def test_resolve_spec_override_with_slug_prefix(tmp_path, monkeypatch, db_conn):
     """--spec NNN-slug extracts number from prefix."""
-    _init_repo_with_remote(tmp_path)
+    init_repo_with_remote(tmp_path)
     spec_id, run_id = insert_spec_with_run(db_conn, 35, "my-feature", REMOTE_URL)
     monkeypatch.chdir(tmp_path)
 
@@ -204,7 +184,7 @@ def test_resolve_spec_override_with_slug_prefix(tmp_path, monkeypatch, db_conn):
 
 def test_resolve_spec_error_no_spec_found(tmp_path, monkeypatch, db_conn):
     """No matching spec dirs and no DB rows → exits 1 with spec_not_found."""
-    _init_repo_with_remote(tmp_path)
+    init_repo_with_remote(tmp_path)
     monkeypatch.chdir(tmp_path)
 
     with pytest.raises(SystemExit) as exc_info:
@@ -214,7 +194,7 @@ def test_resolve_spec_error_no_spec_found(tmp_path, monkeypatch, db_conn):
 
 def test_resolve_spec_error_multiple_active_specs(tmp_path, monkeypatch, db_conn):
     """Multiple active specs in the same dir → exits 1 with ambiguous_spec."""
-    _init_repo_with_remote(tmp_path)
+    init_repo_with_remote(tmp_path)
     insert_spec_with_run(db_conn, 35, "feature-a", REMOTE_URL)
     insert_spec_with_run(db_conn, 36, "feature-b", REMOTE_URL)
     _make_task_file(tmp_path, 35, "feature-a")
@@ -228,7 +208,7 @@ def test_resolve_spec_error_multiple_active_specs(tmp_path, monkeypatch, db_conn
 
 def test_resolve_spec_error_no_active_run(tmp_path, monkeypatch, db_conn):
     """Spec exists on disk and in DB but has no active run → exits 1 with no_active_run."""
-    _init_repo_with_remote(tmp_path)
+    init_repo_with_remote(tmp_path)
     insert_spec_no_run(db_conn, 35, "my-feature", REMOTE_URL)
     _make_task_file(tmp_path, 35, "my-feature")
     monkeypatch.chdir(tmp_path)
@@ -242,7 +222,7 @@ def test_resolve_spec_no_active_run_ok_when_not_required(
     tmp_path, monkeypatch, db_conn
 ):
     """With require_active_run=False, spec with no run is accepted."""
-    _init_repo_with_remote(tmp_path)
+    init_repo_with_remote(tmp_path)
     spec_id = insert_spec_no_run(db_conn, 35, "my-feature", REMOTE_URL)
     _make_task_file(tmp_path, 35, "my-feature")
     monkeypatch.chdir(tmp_path)
@@ -285,7 +265,7 @@ def test_resolve_run_errors_on_status_mismatch(spec_and_run, db_conn):
 
 def test_resolve_context_registers_session(tmp_path, monkeypatch, db_conn):
     """resolve_context auto-joins the session and returns session_id in context dict."""
-    _init_repo_with_remote(tmp_path)
+    init_repo_with_remote(tmp_path)
     _, run_id = insert_spec_with_run(db_conn, 35, "my-feature", REMOTE_URL)
     _make_task_file(tmp_path, 35, "my-feature")
     monkeypatch.chdir(tmp_path)

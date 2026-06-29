@@ -8,6 +8,14 @@ import cfl.output as output_module
 from cfl.db import db_connection
 from cfl.resolve import resolve_context
 from cfl.session import end_session, record_compaction
+from cfl.spec import (
+    SETTABLE_STATUSES,
+    spec_init,
+    spec_next_number,
+    spec_set_status,
+    spec_status,
+    spec_validate,
+)
 
 
 def _not_implemented() -> None:
@@ -38,10 +46,22 @@ def build_parser() -> argparse.ArgumentParser:
     # ------------------------------------------------------------------
     spec_p = sub.add_parser("spec", help="Spec lifecycle commands")
     spec_sub = spec_p.add_subparsers(dest="spec_cmd", required=True)
-    spec_sub.add_parser("init", help="Create a new spec in the DB and on disk")
+
+    spec_init_p = spec_sub.add_parser(
+        "init", help="Create a new spec in the DB and on disk"
+    )
+    spec_init_p.add_argument("slug", help="Slug for the new spec (e.g. my-feature)")
+
     spec_sub.add_parser("validate", help="Validate task files against canonical schema")
     spec_sub.add_parser("status", help="Query spec status and run history")
-    spec_sub.add_parser("set-status", help="Transition spec status")
+
+    spec_set_status_p = spec_sub.add_parser("set-status", help="Transition spec status")
+    spec_set_status_p.add_argument(
+        "status",
+        choices=sorted(SETTABLE_STATUSES),
+        help="New status value",
+    )
+
     spec_sub.add_parser("next-number", help="Print next available spec number")
 
     # ------------------------------------------------------------------
@@ -139,7 +159,30 @@ def main() -> None:
     cmd = args.command
 
     if cmd == "spec":
-        _not_implemented()
+        spec_cmd = args.spec_cmd
+        spec_override = getattr(args, "spec", None)
+
+        if spec_cmd == "init":
+            with db_connection() as conn:
+                spec_init(conn, args.slug)
+        elif spec_cmd == "validate":
+            with db_connection() as conn:
+                spec_validate(conn, spec_override=spec_override)
+        elif spec_cmd == "status":
+            with db_connection() as conn:
+                spec_status(conn, spec_override=spec_override)
+        elif spec_cmd == "set-status":
+            with db_connection() as conn:
+                spec_set_status(conn, args.status, spec_override=spec_override)
+        elif spec_cmd == "next-number":
+            with db_connection() as conn:
+                spec_next_number(conn)
+        else:
+            output_module.emit_error(
+                f"Unknown spec subcommand: {spec_cmd}",
+                code="usage_error",
+                exit_code=2,
+            )
     elif cmd == "run":
         _not_implemented()
     elif cmd == "task":

@@ -2,8 +2,16 @@
 
 import pytest
 
+import cfl.output as output_module
 from cfl.db import setup_db
 from tests.helpers import insert_spec_with_run
+
+
+@pytest.fixture(autouse=True)
+def reset_text_mode():
+    """Reset output text mode to False after each test to prevent cross-test contamination."""
+    yield
+    output_module.set_text_mode(False)
 
 
 @pytest.fixture

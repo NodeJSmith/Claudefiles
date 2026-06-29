@@ -61,7 +61,7 @@ def resolve_repo_url() -> str:
         raise AssertionError("unreachable: emit_error always exits")
 
 
-def _get_git_root() -> str | None:
+def get_git_root() -> str | None:
     """Return the absolute path to the git repository root, or None."""
     try:
         result = subprocess.run(
@@ -131,7 +131,7 @@ def resolve_spec(
     if repo_url is None:
         repo_url = resolve_repo_url()
 
-    git_root = _get_git_root()
+    git_root = get_git_root()
 
     if spec_override is not None:
         number = _parse_spec_number(spec_override)

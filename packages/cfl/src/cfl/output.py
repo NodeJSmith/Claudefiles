@@ -8,6 +8,7 @@ Errors are written to stderr as JSON with error, code, and optional hint fields.
 import json
 import sys
 from collections.abc import Callable
+from typing import NoReturn
 
 _TEXT_MODE: bool = False
 
@@ -34,7 +35,7 @@ def emit(data: dict, *, text_fn: Callable[[dict], None] | None = None) -> None:
 
 def emit_error(
     message: str, *, code: str, hint: str | None = None, exit_code: int = 1
-) -> None:
+) -> NoReturn:
     """Write an error to stderr as JSON and exit.
 
     Format: {"error": message, "code": code, "hint": hint}
