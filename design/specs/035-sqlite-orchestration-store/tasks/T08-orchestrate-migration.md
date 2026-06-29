@@ -1,7 +1,7 @@
 ---
 task_id: "T08"
 title: "Migrate mine-orchestrate to cfl commands"
-status: "planned"
+status: "done"
 depends_on: ["T04", "T05", "T06"]
 implements: ["FR#26", "FR#27"]
 ---

@@ -1,6 +1,6 @@
 # WIP Commit Protocol (Step 17)
 
-**This step runs only for PASS or WARN verdicts.** For FAIL, BLOCKED, or user-chosen "Stop here" / "Fix and retry" outcomes, skip this step entirely — the checkpoint is not updated and no WIP commit is created.
+**This step runs only for PASS or WARN verdicts.** For FAIL, BLOCKED, or user-chosen "Stop here" / "Fix and retry" outcomes, skip this step entirely — no WIP commit is created and no verdict is recorded.
 
 ## 17a: Update task status and create WIP commit
 
@@ -36,28 +36,22 @@ If the commit succeeds, capture the new HEAD SHA:
 git rev-parse --short HEAD
 ```
 
-Store this SHA — it goes into the checkpoint verdict block below.
+Store this SHA — it goes into the `cfl task verdict` call below.
 
 **If `git commit` fails** (e.g., nothing to commit because the task made no file changes), note the failure and use `no-changes` as the commit value in the verdict block. This is not an error — some tasks may be documentation-only or configuration changes that were already committed by a subprocess.
 
-## 17b: Update checkpoint file
+## 17b: Record task verdict via cfl
 
-Update the checkpoint via `spec-helper` commands. The WIP commit (Step 17a) MUST complete before this step — the commit SHA goes into the verdict.
-
-**Update header:**
+Record the task verdict via `cfl`. The WIP commit (Step 17a) MUST complete before this step — the commit SHA goes into the verdict. This single command updates the task status to terminal, creates the verdict-assembly gate, and emits the `task.verdict` event atomically:
 
 ```bash
-spec-helper checkpoint-update <feature_dir_name> --last-completed-wp <task_id> --json
+cfl task verdict <task_id> --verdict <PASS|WARN> --commit <SHA from Step 17a> [--detail "<explanation>"] --data '{"spec": "<v>", "code": "<v>", "integration": "<v>", "test": "<v>", "lint": "<v>", "visual": "<v>"}'
 ```
 
-**Append verdict:**
+Always add `--detail` when the verdict includes context:
+- **PASS with auto-fixes**: `--verdict PASS --detail "3 auto-fixed"` — findings were raised and resolved
+- **WARN**: `--verdict WARN --detail "visual skipped"` — something genuinely unresolved remains
 
-```bash
-spec-helper checkpoint-verdict <feature_dir_name> --wp-id <task_id> --title "<task title>" --verdict <PASS|WARN> --commit <SHA from Step 17a> [--notes "<explanation>"] --json
-```
+The `--data` JSON captures the per-reviewer breakdown for audit purposes. `last_completed` is derived from task statuses in the DB — no separate update needed.
 
-Always add `--notes` when the verdict includes context:
-- **PASS with auto-fixes**: `--verdict PASS --notes "3 auto-fixed"` — findings were raised and resolved
-- **WARN**: `--verdict WARN --notes "visual skipped"` — something genuinely unresolved remains
-
-Resolved findings (all auto-fixed, nothing remaining) produce PASS with a note, not WARN.
+Resolved findings (all auto-fixed, nothing remaining) produce PASS with a detail note, not WARN.

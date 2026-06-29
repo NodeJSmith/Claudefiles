@@ -61,7 +61,14 @@ The fixer ends its response with a one-line summary: `fixed: N, deferred: M, unr
 
 **Iteration 2 — Fixer pass 1:**
 
-1. Dispatch the fixer subagent (normal pass) with the Step 8 review file paths and the current changed-files list.
+1. Record the fixer dispatch and capture its ID:
+   ```bash
+   cfl dispatch fixer <task_id> --agent-type general-purpose
+   ```
+   Parse `dispatch_id` from the JSON output. Dispatch the fixer subagent (normal pass) with the Step 8 review file paths and the current changed-files list. After the fixer completes:
+   ```bash
+   cfl dispatch end <dispatch_id>
+   ```
 2. The fixer reads the reviews in its own context, applies fixes, and writes `<dir>/<task_id>/fix-ledger.md`.
 3. Re-capture changed files (the fixer may have touched additional files):
    ```bash
@@ -69,19 +76,29 @@ The fixer ends its response with a one-line summary: `fixed: N, deferred: M, unr
    git ls-files --others --exclude-standard
    ```
    Union the result with the in-context changed-files list (deduplicated). Update `<dir>/<task_id>/changed-files.txt`.
-4. Re-dispatch the code reviewer and integration reviewer **in parallel** with the `CONCISE-RETURN-MODE` sentinel and output file paths — using the same agent types as Step 8 (`subagent_type: "code-reviewer"` and `subagent_type: "integration-reviewer"`), not `general-purpose`:
+4. Record dispatches for both re-reviewers and capture their IDs:
+   ```bash
+   cfl dispatch code-reviewer <task_id> --agent-type code-reviewer
+   cfl dispatch integration-reviewer <task_id> --agent-type integration-reviewer
+   ```
+   Re-dispatch the code reviewer and integration reviewer **in parallel** with the `CONCISE-RETURN-MODE` sentinel and output file paths — using the same agent types as Step 8 (`subagent_type: "code-reviewer"` and `subagent_type: "integration-reviewer"`), not `general-purpose`:
    - Each dispatch prompt must contain the **exact literal token** `CONCISE-RETURN-MODE` (verbatim) **and** an output file path — both conditions required to activate concise return (see `verdict-line-format.md`)
    - Output paths: `<dir>/<task_id>/code-review.md` and `<dir>/<task_id>/integration-review.md` (overwrite)
    - Pass the refreshed changed-files list in each dispatch
+   After both reviewers complete:
+   ```bash
+   cfl dispatch end <code_reviewer_dispatch_id>
+   cfl dispatch end <integration_reviewer_dispatch_id>
+   ```
 5. Extract the canonical verdict lines from the freshened review files (last line matching `^\*\*Verdict:\*\*`, same pattern as Step 8).
 6. **If both reviewers report `findings: 0` (and no WARN or BLOCK verdict) → early exit. Skip to the Gate section (terminal state A).**
 
 **Iteration 3 — Fixer pass 2 (if findings remain after iteration 2):**
 
-1. Dispatch the fixer subagent (normal pass) with the freshened review file paths from the iteration 2 re-review and the updated changed-files list.
+1. Record the fixer dispatch (`cfl dispatch fixer <task_id> --agent-type general-purpose`), capture `dispatch_id`. Dispatch the fixer subagent (normal pass) with the freshened review file paths from the iteration 2 re-review and the updated changed-files list. After completion: `cfl dispatch end <dispatch_id>`.
 2. The fixer writes `<dir>/<task_id>/fix-ledger.md` (overwrites the previous ledger).
 3. Re-capture changed files (same as above). Update `<dir>/<task_id>/changed-files.txt`.
-4. Re-dispatch the code and integration reviewers in parallel (same concise dispatch as iteration 2 step 4: `subagent_type: "code-reviewer"` / `"integration-reviewer"`, `CONCISE-RETURN-MODE` + output file paths + refreshed changed-files list). Overwrite the review files.
+4. Record dispatches for both re-reviewers (`cfl dispatch code-reviewer/integration-reviewer <task_id>`), capture IDs. Re-dispatch in parallel (same concise dispatch as iteration 2 step 4). After completion: `cfl dispatch end` for each.
 5. Extract canonical verdict lines.
 6. **If both reviewers report `findings: 0` (and no WARN or BLOCK verdict) → early exit. Skip to the Gate section (terminal state A).**
 
@@ -89,7 +106,7 @@ The fixer ends its response with a one-line summary: `fixed: N, deferred: M, unr
 
 If the iteration 3 re-review still reports findings (or WARN or BLOCK on either reviewer):
 
-1. Dispatch the fixer subagent in **classify-mode** with the iteration 3 re-review file paths and the updated changed-files list.
+1. Record the classify-mode fixer dispatch (`cfl dispatch fixer <task_id> --agent-type general-purpose`), capture `dispatch_id`. Dispatch the fixer subagent in **classify-mode** with the iteration 3 re-review file paths and the updated changed-files list. After completion: `cfl dispatch end <dispatch_id>`.
 2. The fixer reads the latest reviews, classifies every remaining finding as `fixed`, `deferred(reason)`, or `unresolved`, and writes `<dir>/<task_id>/fix-ledger.md` (overwrites). **No code changes.**
 3. Do not re-dispatch reviewers after the classify-mode pass. The terminal ledger now reflects the latest review's findings. Proceed to the Gate section (terminal state B).
 
@@ -108,14 +125,12 @@ In both states the orchestrator reads only the ledger (for counts and classifica
 
 After the gate evaluation, the changed-files list in `<dir>/<task_id>/changed-files.txt` is current from the last loop re-capture. This is the list used by Step 17a (commit). The classify-mode terminal pass makes no code changes, so no additional re-capture is needed after it.
 
-## Trail Logging
+## Event Logging
 
-After the loop completes (gate decided), if `trail_available` is true:
+After the loop completes (gate decided), emit a fix event with the counts from the terminal ledger (or from the fixer's one-line summary return). Iteration count = number of review passes run (2 after one fixer cycle, 3 after two fixer cycles):
 
+```bash
+cfl event task.fixed <task_id> --data '{"fixed": <N>, "deferred": <M>, "unresolved": <K>, "iteration": <iteration count>}'
 ```
-trail-log "<trail_path>" p2 <task_id> fix "fixed: <N>; deferred: <M>; unresolved: <K>; iterations: <iteration count>"
-```
-
-Read the counts from the terminal ledger's row classifications (or from the fixer's one-line summary return). Iteration count = number of review passes run (2 after one fixer cycle, 3 after two fixer cycles).
 
 Return the **fixer gate result** (PASS or FAIL, plus the `(N auto-fixed)` count or the `unresolved` reasons) to Step 12. The orchestrator continues to Step 13 regardless and folds this result into the single Step 14 verdict assembly — this loop does **not** route to Step 16 itself. The `(N auto-fixed)` note surfaces in Step 15; a FAIL fixer gate result becomes a Step 14 FAIL, which Step 16 then gates.
