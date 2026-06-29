@@ -269,7 +269,7 @@ def run_stop(
             (run_id,),
         )
         conn.execute(
-            "UPDATE specs SET active_run_id=NULL WHERE id=?",
+            "UPDATE specs SET active_run_id=NULL, status='approved' WHERE id=?",
             (spec_id,),
         )
         conn.execute(
@@ -378,17 +378,21 @@ def run_resume(
             "UPDATE specs SET active_run_id=?, status='in_progress' WHERE id=?",
             (run_id, spec_id),
         )
+        now_row = conn.execute("SELECT datetime('now') AS ts").fetchone()
+        resumed_at_raw = now_row["ts"]
         conn.execute(
             """INSERT INTO events (run_id, event, data, created_at)
-               VALUES (?, 'run.resumed', ?, datetime('now'))""",
+               VALUES (?, 'run.resumed', ?, ?)""",
             (
                 run_id,
                 json.dumps(
                     {
                         "session_id": session_id,
                         "last_completed": last_completed,
+                        "resumed_at": output_module.to_iso(resumed_at_raw),
                     }
                 ),
+                resumed_at_raw,
             ),
         )
         conn.execute("COMMIT")
@@ -398,13 +402,7 @@ def run_resume(
 
     auto_join_session(conn, run_id)
 
-    event_row = conn.execute(
-        "SELECT MAX(created_at) AS ts FROM events WHERE run_id=? AND event='run.resumed'",
-        (run_id,),
-    ).fetchone()
-    resumed_at = (
-        output_module.to_iso(event_row["ts"]) if event_row and event_row["ts"] else None
-    )
+    resumed_at = output_module.to_iso(resumed_at_raw)
 
     output_module.emit(
         {

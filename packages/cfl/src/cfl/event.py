@@ -33,6 +33,7 @@ KNOWN_EVENT_NAMES: frozenset[str] = frozenset(
         "cfl.invoked",
         "set.applied",
         "session.compacted",
+        "dispatch.compacted",
     }
 )
 

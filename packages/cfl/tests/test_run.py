@@ -418,7 +418,7 @@ def test_run_stop_and_run_resume_round_trip(db_conn, tmp_path, capsys):
         "SELECT active_run_id, status FROM specs WHERE id=?", (spec_id,)
     ).fetchone()
     assert spec_after_stop["active_run_id"] is None
-    assert spec_after_stop["status"] == "in_progress"
+    assert spec_after_stop["status"] == "approved"
 
     # Resume
     run_resume(db_conn, spec_id)
