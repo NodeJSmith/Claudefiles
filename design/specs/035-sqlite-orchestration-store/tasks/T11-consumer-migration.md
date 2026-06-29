@@ -1,7 +1,7 @@
 ---
 task_id: "T11"
 title: "Migrate orchestrate-cost and agent-stats to SQL queries"
-status: "planned"
+status: "done"
 depends_on: ["T06"]
 implements: ["FR#28", "AC#25"]
 ---
