@@ -139,13 +139,13 @@ The main constraint is that we don't control Claude Code's harness — we can't 
 
 **SQLite with deterministic callbacks** is the clear winner. The prior art is consistent:
 
-1. **Capture model**: Modify `trail-log` (and any future capture points) to write to SQLite instead of/alongside TSV. The existing `trail-log` call sites in `mine-orchestrate` become the capture hooks. Do not add agent-driven insert instructions.
+1. **Capture model**: `cfl` commands (`cfl run start`, `cfl task start`, `cfl event record`, etc.) write directly to SQLite. The existing `trail-log` call sites in `mine-orchestrate` are replaced with `cfl` invocations. No agent-driven insert instructions.
 
 2. **Schema**: Adopt the hierarchical trace model (runs > tasks > events) with a separate `findings` table using the SARIF-inspired discriminator pattern. Use OTel GenAI attribute naming conventions for column names where they map.
 
-3. **Migration**: Use incremental scan (Pattern 6) to backfill historical data from existing JSONLs. New runs write directly to SQLite. Keep `trail-log` CLI stable — it becomes a thin adapter that writes to SQLite instead of appending to TSV.
+3. **Migration**: Use incremental scan (Pattern 6) to backfill historical data from existing JSONLs. New runs write directly to SQLite via `cfl`. `trail-log` is removed — `cfl` is the sole capture path.
 
-4. **Tooling**: `orchestrate-cost` and `agent-stats` become SQL queries against the store, eliminating the duplicated transcript-parsing logic.
+4. **Tooling**: `orchestrate-cost` and `agent-stats` query the `cfl` store directly, eliminating the duplicated transcript-parsing logic.
 
 Worth considering but not required for v1: hash-based content dedup (Pattern 2) and Datasette for web-based exploration.
 

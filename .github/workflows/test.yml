@@ -19,7 +19,7 @@ jobs:
         run: uv run --group dev pytest -v
 
       - name: Run root tests
-        run: uv run --with pytest pytest tests/ -v
+        run: uv run --with pytest --with questionary --with rich pytest tests/ -v
 
       - name: Lint
         run: uv run --with ruff ruff check packages/ tests/

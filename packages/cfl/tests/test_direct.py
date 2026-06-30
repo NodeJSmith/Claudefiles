@@ -154,6 +154,29 @@ def test_set_run_field_logs_event(db_conn, spec_and_run, capsys):
     assert data["id"] == str(run_id)
 
 
+def test_set_session_field_preserves_run_id(db_conn, spec_and_run):
+    """set_field for 'session' entity writes the session's run_id on the audit event."""
+    spec_id, run_id = spec_and_run
+    db_conn.execute(
+        """INSERT INTO sessions (run_id, session_id, started_at)
+           VALUES (?, 'sess-abc', datetime('now'))""",
+        (run_id,),
+    )
+    session_row = db_conn.execute(
+        "SELECT id FROM sessions WHERE session_id='sess-abc'"
+    ).fetchone()
+    session_db_id = session_row["id"]
+
+    set_field(db_conn, "session", str(session_db_id), {"model": "opus-4-8"})
+
+    event = db_conn.execute(
+        "SELECT run_id, data FROM events WHERE event='set.applied' ORDER BY id DESC LIMIT 1",
+    ).fetchone()
+    assert event["run_id"] == run_id
+    data = json.loads(event["data"])
+    assert data["entity"] == "session"
+
+
 # ---------------------------------------------------------------------------
 # Error: unknown entity
 # ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 """Session tracking for cfl.
 
 Handles auto-joining sessions to runs, ending sessions, and recording compaction events.
-All session operations are keyed on $CLAUDE_CODE_SESSION_ID from the environment.
+Session operations default to $CLAUDE_CODE_SESSION_ID but accept explicit session IDs.
 """
 
 import json
@@ -15,13 +15,14 @@ MODEL_ENV_VAR: str = "CLAUDE_MODEL"
 CONTEXT_SIDECAR_TEMPLATE: str = "/tmp/claude-context-{session_id}.meta"
 
 
-def read_context_pct() -> int | None:
-    """Read context percentage from the sidecar file for the current session.
+def read_context_pct(session_id: str | None = None) -> int | None:
+    """Read context percentage from the sidecar file.
 
-    Reads /tmp/claude-context-<session_id>.meta and extracts 'pct=N'.
-    Returns None if the env var is unset, the file is missing, or the file is malformed.
+    Uses the provided session_id, falling back to $CLAUDE_CODE_SESSION_ID.
+    Returns None if no session_id is available, the file is missing, or malformed.
     """
-    session_id = os.environ.get(SESSION_ID_ENV_VAR)
+    if session_id is None:
+        session_id = os.environ.get(SESSION_ID_ENV_VAR)
     if session_id is None:
         return None
 
@@ -69,7 +70,7 @@ def end_session(
     Idempotent — no error if the session row doesn't exist.
     context_pct_end is read from the sidecar (NULL if unavailable).
     """
-    context_pct = read_context_pct()
+    context_pct = read_context_pct(session_id)
     if run_id is not None:
         conn.execute(
             "UPDATE sessions SET ended_at=datetime('now'), context_pct_end=? "

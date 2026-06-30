@@ -152,7 +152,12 @@ def set_field(
         numeric_id = _parse_numeric_id(entity_id, entity)
         where_clause = f"{pk_col}=?"
         where_values = [numeric_id]
-        event_run_id = numeric_id if entity == "run" else None
+        if entity == "run":
+            event_run_id = numeric_id
+        elif entity == "session":
+            event_run_id = row["run_id"]
+        else:
+            event_run_id = None
 
     conn.execute("BEGIN IMMEDIATE")
     try:

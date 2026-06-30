@@ -334,7 +334,7 @@ def run_resume(
     if run_id is None:
         row = conn.execute(
             """SELECT id, status FROM runs WHERE spec_id=? AND status='stopped'
-               ORDER BY started_at DESC, id DESC LIMIT 1""",
+               ORDER BY ended_at DESC, id DESC LIMIT 1""",
             (spec_id,),
         ).fetchone()
         if row is None:

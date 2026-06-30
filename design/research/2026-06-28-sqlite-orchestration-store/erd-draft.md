@@ -204,6 +204,8 @@ Run-level gates (Phase 3, task_id = NULL):
 ### Event vocabulary
 
 ```text
+cfl.invoked          — standalone cfl command invocation (run_id = NULL)
+
 run.started          — orchestration begins
 run.completed        — after mine-ship succeeds
 run.stopped          — user chose "Stop here"

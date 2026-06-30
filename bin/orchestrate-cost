@@ -596,7 +596,9 @@ def build_db_runs(
 
     Returns (runs, covered_keys, pending_dispatch_count):
     - runs: Run objects built from dispatches.cost_total_usd (may be empty cost if pending).
-    - covered_keys: (slug, base_commit) pairs → JSONL fallback skips these.
+    - covered_keys: (feature, base_commit) pairs → JSONL fallback skips these.
+      A cross-repo key collision would suppress a valid JSONL run. This requires
+      matching both spec slug and base_commit prefix across unrelated git histories.
     - pending_dispatch_count: dispatches with NULL cost_total_usd (awaiting cfl ingest-cost).
 
     Orchestrator-loop cost is NOT stored in dispatches — it requires parsing the parent-session

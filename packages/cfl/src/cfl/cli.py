@@ -566,7 +566,7 @@ def cmd_session_end(
     else:
         with db_connection() as conn:
             session_row = conn.execute(
-                "SELECT run_id FROM sessions WHERE session_id=? AND ended_at IS NULL "
+                "SELECT id, run_id FROM sessions WHERE session_id=? AND ended_at IS NULL "
                 "ORDER BY id DESC LIMIT 1",
                 (session_id,),
             ).fetchone()
@@ -575,11 +575,13 @@ def cmd_session_end(
                 session_id,
                 run_id=session_row["run_id"] if session_row else None,
             )
-            row = conn.execute(
-                "SELECT ended_at, context_pct_end FROM sessions WHERE session_id=? "
-                "ORDER BY id DESC LIMIT 1",
-                (session_id,),
-            ).fetchone()
+            if session_row:
+                row = conn.execute(
+                    "SELECT ended_at, context_pct_end FROM sessions WHERE id=?",
+                    (session_row["id"],),
+                ).fetchone()
+            else:
+                row = None
             output_module.emit(
                 {
                     "session_id": session_id,
