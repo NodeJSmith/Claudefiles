@@ -114,7 +114,7 @@ Audit trail. Every significant thing that happens. The general-purpose log.
 
 ## Relationships
 
-```
+```text
 specs 1──────* runs
               │
 runs  1──────* tasks
@@ -130,7 +130,7 @@ runs  1──────* events
 tasks 1──────* events     (task_id on events)
 ```
 
-```
+```text
 ┌────────┐       ┌────────┐       ┌────────┐
 │ specs  │1─────*│  runs  │1─────*│ tasks  │
 └────────┘       └───┬────┘       └───┬────┘
@@ -152,7 +152,7 @@ tasks 1──────* events     (task_id on events)
 
 ### Run states
 
-```
+```text
 running ──→ completed    (all tasks done + shipped)
 running ──→ stopped      (user chose "Stop here")
 running ──→ crashed      (session died, inferred from stale running + no recent events)
@@ -161,7 +161,7 @@ stopped ──→ running      (resume)
 
 ### Task states
 
-```
+```text
 pending ──→ executing     (Step 1: task announced)
 executing ──→ reviewing   (Step 8: reviews dispatched)
 reviewing ──→ fixing      (Step 10/12: fix loop entered)
@@ -203,7 +203,7 @@ Run-level gates (Phase 3, task_id = NULL):
 
 ### Event vocabulary
 
-```
+```text
 run.started          — orchestration begins
 run.completed        — after mine-ship succeeds
 run.stopped          — user chose "Stop here"

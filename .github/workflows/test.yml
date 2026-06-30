@@ -14,11 +14,12 @@ jobs:
 
       - uses: astral-sh/setup-uv@v5
 
-      - name: Run tests
-        run: |
-          uv run --with pytest --with python-frontmatter --with whenever --with rich --with questionary pytest packages/cfl/tests/ tests/ -v
-        env:
-          PYTHONPATH: packages/cfl/src
+      - name: Run cfl tests
+        working-directory: packages/cfl
+        run: uv run --group dev pytest -v
+
+      - name: Run root tests
+        run: uv run --with pytest pytest tests/ -v
 
       - name: Lint
         run: uv run --with ruff ruff check packages/ tests/

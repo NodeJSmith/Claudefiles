@@ -129,6 +129,7 @@ _SCHEMA_STATEMENTS: list[str] = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_events_run ON events(run_id)",
+    "CREATE INDEX IF NOT EXISTS idx_events_task ON events(run_id, task_id)",
     """
     CREATE TABLE IF NOT EXISTS sessions (
         id                  INTEGER PRIMARY KEY,

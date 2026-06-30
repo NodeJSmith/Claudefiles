@@ -144,14 +144,15 @@ def set_field(
     values = list(fields.values())
 
     if entity == "task":
-        # Tasks are scoped by run_id + task_id.
         where_clause = "run_id=? AND task_id=?"
         where_values = [active_run_id, entity_id]
+        event_run_id = active_run_id
     else:
         pk_col = _ENTITY_PK[entity]
         numeric_id = _parse_numeric_id(entity_id, entity)
         where_clause = f"{pk_col}=?"
         where_values = [numeric_id]
+        event_run_id = numeric_id if entity == "run" else None
 
     conn.execute("BEGIN IMMEDIATE")
     try:
@@ -160,7 +161,6 @@ def set_field(
             [*values, *where_values],
         )
 
-        # Log set.applied event with before/after state.
         event_data = json.dumps(
             {
                 "entity": entity,
@@ -172,7 +172,7 @@ def set_field(
         cursor = conn.execute(
             """INSERT INTO events (run_id, event, data, created_at)
                VALUES (?, 'set.applied', ?, datetime('now'))""",
-            (active_run_id, event_data),
+            (event_run_id, event_data),
         )
         event_id = cursor.lastrowid
         conn.execute("COMMIT")

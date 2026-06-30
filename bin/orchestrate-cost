@@ -122,6 +122,16 @@ ORCHESTRATE_TYPES = frozenset(
 
 NO_DATA = "—"
 
+# Normalize SHAs to this many hex characters when building dedup keys.  The DB stores
+# full 40-char SHAs; JSONL trail markers may have 6–8 char short SHAs (BASE_COMMIT_RE
+# accepts 6-40).  Truncating both sides to 8 chars lets them match.
+_COMMIT_PREFIX_LEN = 8
+
+# Roles that the JSONL path prefixes with "gp:" (via resolve_role → GP_SIGNATURES).
+# DB dispatches store the bare canonical name; normalise to the gp:-prefixed form before
+# mixing the two sources so aggregation/counting sees one vocabulary.
+_GP_ROLES = frozenset(role for role, _sig in GP_SIGNATURES)
+
 # --- cfl DB support ---
 # DB path logic replicated inline (this is a PEP 723 standalone script, not part of the
 # cfl package). Keep in sync with cfl.db.get_db_path() and the same WSL2 /mnt/ guard.
@@ -521,7 +531,7 @@ def build_runs(
             # shared "?" placeholder, corrupting totals and fingerprints. Require both.
             undelimited_ts.append(markers.start_ts)
             continue
-        key = (markers.feature, markers.base_commit)
+        key = (markers.feature, markers.base_commit[:_COMMIT_PREFIX_LEN])
         if exclude_keys and key in exclude_keys:
             continue  # Run is in the cfl DB; SQL path takes precedence over JSONL.
         run = runs.get(key)
@@ -611,7 +621,7 @@ def build_db_runs(
 
     for row in rows:
         feature = f"{row['number']:03d}-{row['slug']}" if row["number"] and row["slug"] else ""
-        base_commit = row["base_commit"] or ""
+        base_commit = (row["base_commit"] or "")[:_COMMIT_PREFIX_LEN]
         start_ts = row["started_at"] or ""
         if since and start_ts[:10] < since:
             continue
@@ -640,9 +650,11 @@ def build_db_runs(
             if dr["cost_total_usd"] is None:
                 pending_total += 1
                 continue
+            db_role = dr["role"] or ""
+            role = f"gp:{db_role}" if db_role in _GP_ROLES else db_role
             run.agents.append(
                 AgentRun(
-                    role=dr["role"],
+                    role=role,
                     model=short_model(dr["model"] or ""),
                     cost=dr["cost_total_usd"],
                     project="db",

@@ -85,13 +85,21 @@ def _make_feature(
         task_file = tasks_dir / f"{tid}.md"
         task_file.write_text(content)
         subprocess.run(
-            ["git", "add", str(task_file)], capture_output=True, cwd=git_repo
+            ["git", "add", str(task_file)],
+            capture_output=True,
+            check=True,
+            cwd=git_repo,
         )
 
     if write_design_md:
         design = feature_dir / "design.md"
         design.write_text("# Design\n\n**Status:** in_progress\n\nBody.\n")
-        subprocess.run(["git", "add", str(design)], capture_output=True, cwd=git_repo)
+        subprocess.run(
+            ["git", "add", str(design)],
+            capture_output=True,
+            check=True,
+            cwd=git_repo,
+        )
 
     subprocess.run(
         ["git", "commit", "-m", f"add {slug}"],
@@ -107,7 +115,9 @@ def _add_legacy_artifacts(git_repo: Path, feature_dir: Path) -> None:
     for name in ("trail.tsv", "trail-audit.md", ".gitignore"):
         p = feature_dir / name
         p.write_text(f"legacy {name}\n")
-        subprocess.run(["git", "add", str(p)], capture_output=True, cwd=git_repo)
+        subprocess.run(
+            ["git", "add", str(p)], capture_output=True, check=True, cwd=git_repo
+        )
     subprocess.run(
         ["git", "commit", "-m", "add legacy artifacts"],
         capture_output=True,
@@ -299,7 +309,9 @@ def test_archive_untracked_tasks_warns_but_does_not_crash(
 
     design = feature_dir / "design.md"
     design.write_text("# Design\n\n**Status:** in_progress\n\nBody.\n")
-    subprocess.run(["git", "add", str(design)], capture_output=True, cwd=git_repo)
+    subprocess.run(
+        ["git", "add", str(design)], capture_output=True, check=True, cwd=git_repo
+    )
     subprocess.run(
         ["git", "commit", "-m", "add design"],
         capture_output=True,

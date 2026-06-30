@@ -135,7 +135,7 @@ def test_set_logs_set_applied_event(db_conn, spec_and_run, capsys):
 
 
 def test_set_run_field_logs_event(db_conn, spec_and_run, capsys):
-    """set_field for 'run' entity also logs set.applied (run_id=NULL in event)."""
+    """set_field for 'run' entity also logs set.applied with the run's own id."""
     spec_id, run_id = spec_and_run
 
     set_field(db_conn, "run", str(run_id), {"tmpdir": "/tmp/test"})

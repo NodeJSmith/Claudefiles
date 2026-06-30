@@ -49,7 +49,7 @@ If any task files are found, also run:
 cfl run status 2>/dev/null
 ```
 
-If either command is not found, exits non-zero, or returns no output, skip this section silently. If run status is returned, include a summary in the status block.
+If either command is not found, exits non-zero, or returns no output, skip this section silently. When run status is returned, include a summary in the status block.
 
 ## Output Format
 

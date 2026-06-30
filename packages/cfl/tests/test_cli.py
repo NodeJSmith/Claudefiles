@@ -127,8 +127,8 @@ def test_dispatch_end_calls_end_dispatch_with_integer_id(monkeypatch):
 def test_dispatch_end_rejects_non_integer_id():
     from cfl.cli import dispatch_app
 
-    with pytest.raises((SystemExit, Exception)):
-        dispatch_app("end", "not-an-int")
+    with pytest.raises(SystemExit):
+        dispatch_app(["end", "not-an-int"])
 
 
 def test_dispatch_create_calls_record_dispatch_with_role_and_task_id(monkeypatch):

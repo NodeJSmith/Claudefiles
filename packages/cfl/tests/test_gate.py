@@ -268,11 +268,10 @@ def test_record_gate_all_valid_verdicts_accepted(db_conn, capsys):
     """Each of PASS, WARN, FAIL, SKIPPED is accepted by record_gate."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
 
-    for verdict in sorted(VALID_GATE_VERDICTS):
-        _insert_task(db_conn, run_id, f"T0{verdict[:1]}")
-        record_gate(
-            db_conn, run_id, "code-review", task_id=f"T0{verdict[:1]}", verdict=verdict
-        )
+    for index, verdict in enumerate(sorted(VALID_GATE_VERDICTS), start=1):
+        task_id = f"T{index:02d}"
+        _insert_task(db_conn, run_id, task_id)
+        record_gate(db_conn, run_id, "code-review", task_id=task_id, verdict=verdict)
         _ = capsys.readouterr()
 
 

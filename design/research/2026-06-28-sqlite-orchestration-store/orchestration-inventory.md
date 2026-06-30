@@ -284,7 +284,7 @@ When a subagent auto-compacts during execution, a PostToolUse hook reports it. B
 
 ## 9. Data Flows Between Steps
 
-```
+```text
 mine-define → design.md → mine-plan → T*.md + context.md
                                               ↓
                                       mine-orchestrate

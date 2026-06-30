@@ -312,7 +312,7 @@ PRAGMA foreign_keys = ON;
 
 The SKILL.md call sites would be updated to pass these structured flags alongside the existing detail string. For example:
 
-```
+```bash
 # Current:
 trail-log "<path>" p2 T01 verdict "PASS | spec: PASS | code: APPROVE | ..."
 

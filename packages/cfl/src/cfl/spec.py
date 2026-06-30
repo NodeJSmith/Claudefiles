@@ -140,6 +140,7 @@ def spec_validate(conn: sqlite3.Connection, spec_override: str | None = None) ->
     # Tracking parse failures separately prevents spurious "dangling dependency"
     # errors against tasks whose source files failed to parse.
     existing_ids: set[str] = set()
+    task_id_sources: dict[str, str] = {}
     parsed_meta: dict[str, dict] = {}
     parse_errors: dict[str, Exception] = {}
 
@@ -150,7 +151,9 @@ def spec_validate(conn: sqlite3.Connection, spec_override: str | None = None) ->
             parsed_meta[f.name] = meta
             task_id = meta.get("task_id")
             if task_id is not None:
-                existing_ids.add(str(task_id))
+                tid = str(task_id)
+                existing_ids.add(tid)
+                task_id_sources.setdefault(tid, f.name)
         except Exception as exc:
             parse_errors[f.name] = exc
 
@@ -183,14 +186,27 @@ def spec_validate(conn: sqlite3.Connection, spec_override: str | None = None) ->
                 )
 
         task_id = meta.get("task_id")
-        if task_id is not None and not _TASK_ID_RE.match(str(task_id)):
-            errors.append(
-                {
-                    "file": file_label,
-                    "field": "task_id",
-                    "message": f"Invalid task_id format: '{task_id}' (expected T01, T02, ...)",
-                }
-            )
+        if task_id is not None:
+            tid = str(task_id)
+            if not _TASK_ID_RE.match(tid):
+                errors.append(
+                    {
+                        "file": file_label,
+                        "field": "task_id",
+                        "message": f"Invalid task_id format: '{task_id}' (expected T01, T02, ...)",
+                    }
+                )
+            elif task_id_sources.get(tid) != file_label:
+                errors.append(
+                    {
+                        "file": file_label,
+                        "field": "task_id",
+                        "message": (
+                            f"Duplicate task_id '{tid}': "
+                            f"already defined in {task_id_sources[tid]}"
+                        ),
+                    }
+                )
 
         for ref in meta.get("implements") or []:
             ref_str = str(ref)

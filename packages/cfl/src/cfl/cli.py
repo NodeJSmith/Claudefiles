@@ -565,9 +565,19 @@ def cmd_session_end(
         )
     else:
         with db_connection() as conn:
-            end_session(conn, session_id)
+            session_row = conn.execute(
+                "SELECT run_id FROM sessions WHERE session_id=? AND ended_at IS NULL "
+                "ORDER BY id DESC LIMIT 1",
+                (session_id,),
+            ).fetchone()
+            end_session(
+                conn,
+                session_id,
+                run_id=session_row["run_id"] if session_row else None,
+            )
             row = conn.execute(
-                "SELECT ended_at, context_pct_end FROM sessions WHERE session_id=?",
+                "SELECT ended_at, context_pct_end FROM sessions WHERE session_id=? "
+                "ORDER BY id DESC LIMIT 1",
                 (session_id,),
             ).fetchone()
             output_module.emit(
@@ -712,6 +722,9 @@ def _try_record_invocation(
         pass
 
 
+_BOOLEAN_FLAGS: frozenset[str] = frozenset({"text", "dry-run", "help", "version"})
+
+
 def _parse_argv_for_telemetry(
     argv: list[str],
 ) -> tuple[str, list[str], dict[str, str | bool]]:
@@ -723,7 +736,11 @@ def _parse_argv_for_telemetry(
         token = argv[i]
         if token.startswith("--"):
             key = token[2:]
-            if i + 1 < len(argv) and not argv[i + 1].startswith("-"):
+            if (
+                key not in _BOOLEAN_FLAGS
+                and i + 1 < len(argv)
+                and not argv[i + 1].startswith("-")
+            ):
                 raw_flags[key] = argv[i + 1]
                 i += 2
             else:

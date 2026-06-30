@@ -178,6 +178,22 @@ def test_resolve_spec_override_with_slug_prefix(tmp_path, monkeypatch, db_conn):
 
 
 # ---------------------------------------------------------------------------
+# resolve_spec — malformed --spec rejected
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_spec_rejects_malformed_spec_override(tmp_path, monkeypatch, db_conn):
+    """--spec '035foo' is rejected (trailing non-slug chars without hyphen separator)."""
+    init_repo_with_remote(tmp_path)
+    insert_spec_with_run(db_conn, 35, "my-feature", REMOTE_URL)
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(SystemExit) as exc_info:
+        resolve_spec(db_conn, spec_override="035foo")
+    assert exc_info.value.code == 2
+
+
+# ---------------------------------------------------------------------------
 # resolve_spec — error cases
 # ---------------------------------------------------------------------------
 

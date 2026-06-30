@@ -208,14 +208,19 @@ def _git_rm_ignore_unmatch(
     cmd.append(rel_path)
 
     try:
-        subprocess.run(
+        proc = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
             timeout=GIT_SUBPROCESS_TIMEOUT_SECONDS,
         )
     except subprocess.TimeoutExpired:
-        pass  # Non-fatal for optional artifact removal.
+        raise RuntimeError(
+            f"git rm timed out after {GIT_SUBPROCESS_TIMEOUT_SECONDS}s for {rel_path}."
+        ) from None
+
+    if proc.returncode != 0:
+        raise RuntimeError(f"git rm failed for {rel_path}: {proc.stderr.strip()}")
 
     if recursive and git_root:
         abs_path = os.path.join(git_root, rel_path)

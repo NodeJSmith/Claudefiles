@@ -215,6 +215,30 @@ def run_status(
     )
 
 
+def _guard_run_spec_ownership(
+    conn: sqlite3.Connection, run_id: int, spec_id: int
+) -> None:
+    """Verify run belongs to spec and is the spec's active run. Must be called inside a transaction."""
+    run_row = conn.execute("SELECT spec_id FROM runs WHERE id=?", (run_id,)).fetchone()
+    if run_row is None or run_row["spec_id"] != spec_id:
+        conn.execute("ROLLBACK")
+        output_module.emit_error(
+            f"Run {run_id} does not belong to spec {spec_id}.",
+            code="run_spec_mismatch",
+        )
+        raise AssertionError("unreachable: emit_error always exits")
+    spec_row = conn.execute(
+        "SELECT active_run_id FROM specs WHERE id=?", (spec_id,)
+    ).fetchone()
+    if spec_row is None or spec_row["active_run_id"] != run_id:
+        conn.execute("ROLLBACK")
+        output_module.emit_error(
+            f"Run {run_id} is not the active run for spec {spec_id}.",
+            code="run_not_active",
+        )
+        raise AssertionError("unreachable: emit_error always exits")
+
+
 def run_complete(
     conn: sqlite3.Connection,
     run_id: int,
@@ -225,6 +249,8 @@ def run_complete(
     """Mark the active run as completed. Clears active_run_id."""
     conn.execute("BEGIN IMMEDIATE")
     try:
+        _guard_run_spec_ownership(conn, run_id, spec_id)
+
         conn.execute(
             "UPDATE runs SET status='completed', ended_at=datetime('now') WHERE id=?",
             (run_id,),
@@ -264,6 +290,8 @@ def run_stop(
     """Stop the active run (user chose stop here). Clears active_run_id."""
     conn.execute("BEGIN IMMEDIATE")
     try:
+        _guard_run_spec_ownership(conn, run_id, spec_id)
+
         conn.execute(
             "UPDATE runs SET status='stopped', ended_at=datetime('now') WHERE id=?",
             (run_id,),
@@ -306,7 +334,7 @@ def run_resume(
     if run_id is None:
         row = conn.execute(
             """SELECT id, status FROM runs WHERE spec_id=? AND status='stopped'
-               ORDER BY started_at DESC LIMIT 1""",
+               ORDER BY started_at DESC, id DESC LIMIT 1""",
             (spec_id,),
         ).fetchone()
         if row is None:
@@ -369,6 +397,21 @@ def run_resume(
                 f"Run {run_id} is no longer stopped (status={live_row['status']}).",
                 code="run_state_changed",
             )
+            raise AssertionError("unreachable: emit_error always exits")
+
+        spec_row = conn.execute(
+            "SELECT active_run_id FROM specs WHERE id=?", (spec_id,)
+        ).fetchone()
+        if (
+            spec_row["active_run_id"] is not None
+            and spec_row["active_run_id"] != run_id
+        ):
+            conn.execute("ROLLBACK")
+            output_module.emit_error(
+                f"Spec {spec_id} already has active run {spec_row['active_run_id']}.",
+                code="run_already_active",
+            )
+            raise AssertionError("unreachable: emit_error always exits")
 
         conn.execute(
             "UPDATE runs SET status='running', ended_at=NULL WHERE id=?",

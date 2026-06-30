@@ -80,26 +80,28 @@ def end_dispatch(conn: sqlite3.Connection, dispatch_id: int) -> None:
     Exits 1 with dispatch_not_found if the dispatch_id does not exist.
     Exits 1 with already_ended if completed_at is already set.
     """
-    row = conn.execute(
-        "SELECT id, completed_at FROM dispatches WHERE id=?", (dispatch_id,)
-    ).fetchone()
-    if row is None:
-        output_module.emit_error(
-            f"Dispatch {dispatch_id} not found.",
-            code="dispatch_not_found",
-            hint="Check dispatch IDs with `cfl run status`.",
-        )
-        raise AssertionError("unreachable: emit_error always exits")
-    if row["completed_at"] is not None:
-        output_module.emit_error(
-            f"Dispatch {dispatch_id} already ended at {row['completed_at']}.",
-            code="already_ended",
-            hint="Use `cfl run status` to inspect dispatch state.",
-        )
-        raise AssertionError("unreachable: emit_error always exits")
-
     conn.execute("BEGIN IMMEDIATE")
     try:
+        row = conn.execute(
+            "SELECT id, completed_at FROM dispatches WHERE id=?", (dispatch_id,)
+        ).fetchone()
+        if row is None:
+            conn.execute("ROLLBACK")
+            output_module.emit_error(
+                f"Dispatch {dispatch_id} not found.",
+                code="dispatch_not_found",
+                hint="Check dispatch IDs with `cfl run status`.",
+            )
+            raise AssertionError("unreachable: emit_error always exits")
+        if row["completed_at"] is not None:
+            conn.execute("ROLLBACK")
+            output_module.emit_error(
+                f"Dispatch {dispatch_id} already ended at {row['completed_at']}.",
+                code="already_ended",
+                hint="Use `cfl run status` to inspect dispatch state.",
+            )
+            raise AssertionError("unreachable: emit_error always exits")
+
         conn.execute(
             "UPDATE dispatches SET completed_at=datetime('now') WHERE id=?",
             (dispatch_id,),

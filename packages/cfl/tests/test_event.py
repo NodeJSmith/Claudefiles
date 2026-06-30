@@ -110,7 +110,9 @@ def test_record_event_exits_0_on_read_only_db(tmp_path, capsys):
 
     os.chmod(db_path, 0o444)
 
-    readonly_conn = sqlite3.connect(db_path, isolation_level=None)
+    readonly_conn = sqlite3.connect(
+        f"file:{db_path}?mode=ro", uri=True, isolation_level=None
+    )
     readonly_conn.row_factory = sqlite3.Row
 
     try:

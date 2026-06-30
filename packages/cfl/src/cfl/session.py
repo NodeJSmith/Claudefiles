@@ -59,17 +59,29 @@ def auto_join_session(conn: sqlite3.Connection, run_id: int | None) -> str | Non
     return session_id
 
 
-def end_session(conn: sqlite3.Connection, session_id: str) -> None:
+def end_session(
+    conn: sqlite3.Connection, session_id: str, run_id: int | None = None
+) -> None:
     """Set ended_at and context_pct_end on the session row.
 
+    When run_id is provided, scopes the UPDATE to that specific run to avoid
+    ending sessions from other runs that share the same session_id.
     Idempotent — no error if the session row doesn't exist.
     context_pct_end is read from the sidecar (NULL if unavailable).
     """
     context_pct = read_context_pct()
-    conn.execute(
-        "UPDATE sessions SET ended_at=datetime('now'), context_pct_end=? WHERE session_id=?",
-        (context_pct, session_id),
-    )
+    if run_id is not None:
+        conn.execute(
+            "UPDATE sessions SET ended_at=datetime('now'), context_pct_end=? "
+            "WHERE run_id=? AND session_id=? AND ended_at IS NULL",
+            (context_pct, run_id, session_id),
+        )
+    else:
+        conn.execute(
+            "UPDATE sessions SET ended_at=datetime('now'), context_pct_end=? "
+            "WHERE session_id=? AND ended_at IS NULL",
+            (context_pct, session_id),
+        )
 
 
 def record_compaction(

@@ -185,7 +185,7 @@ def task_verdict(
 
     if data is not None:
         try:
-            data_dict: dict = json.loads(data)
+            data_parsed = json.loads(data)
         except json.JSONDecodeError as exc:
             output_module.emit_error(
                 f"--data is not valid JSON: {exc}",
@@ -193,6 +193,14 @@ def task_verdict(
                 exit_code=2,
             )
             raise AssertionError("unreachable: emit_error always exits")
+        if not isinstance(data_parsed, dict):
+            output_module.emit_error(
+                f"--data must be a JSON object, got {type(data_parsed).__name__}.",
+                code="invalid_json",
+                exit_code=2,
+            )
+            raise AssertionError("unreachable: emit_error always exits")
+        data_dict: dict = data_parsed
     else:
         data_dict = {}
 

@@ -84,7 +84,7 @@ def get_git_root() -> str | None:
 
 def _parse_spec_number(spec_override: str) -> int:
     """Parse spec number from '035' or '035-slug' format."""
-    m = re.match(r"^(\d+)", spec_override)
+    m = re.fullmatch(r"(\d+)(?:-[\w.-]+)?", spec_override)
     if not m:
         output_module.emit_error(
             f"Invalid spec override: {spec_override!r}. Expected NNN or NNN-slug.",
