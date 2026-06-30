@@ -1,10 +1,12 @@
-"""CLI entry point and argparse configuration for cfl."""
+"""CLI entry point using cyclopts for cfl."""
 
-import argparse
 import json
 import os
 import sys
+from typing import Annotated, Literal
 
+from cyclopts import App, Group, Parameter
+from cyclopts.exceptions import CycloptsError
 from whenever import Instant
 
 import cfl.output as output_module
@@ -34,641 +36,483 @@ from cfl.task import (
     task_verdict,
 )
 
+_VALID_TASK_STATUSES = sorted(
+    {s for targets in TASK_UPDATE_TRANSITIONS.values() for s in targets}
+)
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="cfl",
-        description="Claudefiles orchestration store — spec, run, and task management.",
-    )
-    parser.add_argument(
-        "--text",
-        action="store_true",
-        help="Human-readable output instead of JSON (for interactive debugging)",
-    )
-    parser.add_argument(
-        "--spec",
-        metavar="NNN",
-        default=None,
-        help="Override spec number (e.g. 035); required when CWD is ambiguous",
-    )
+_FLAG = Parameter(negative=[])
 
-    sub = parser.add_subparsers(dest="command", required=True)
+# Keep in sync with sub-App registrations (spec_app, run_app, etc.) below.
+_GROUPED_COMMANDS = {"spec", "run", "task", "dispatch", "session"}
 
-    # ------------------------------------------------------------------
-    # spec group
-    # ------------------------------------------------------------------
-    spec_p = sub.add_parser("spec", help="Spec lifecycle commands")
-    spec_sub = spec_p.add_subparsers(dest="spec_cmd", required=True)
+# ---------------------------------------------------------------------------
+# App hierarchy
+# ---------------------------------------------------------------------------
 
-    spec_init_p = spec_sub.add_parser(
-        "init", help="Create a new spec in the DB and on disk"
-    )
-    spec_init_p.add_argument("slug", help="Slug for the new spec (e.g. my-feature)")
-    spec_init_p.add_argument(
-        "--number",
-        type=int,
-        default=None,
-        metavar="NNN",
-        help="Explicit spec number (default: auto-assign next available)",
-    )
+app = App(
+    name="cfl",
+    help="Claudefiles orchestration store — spec, run, and task management.",
+)
 
-    spec_sub.add_parser("validate", help="Validate task files against canonical schema")
-    spec_sub.add_parser("status", help="Query spec status and run history")
+app.meta.group_parameters = Group("Global Options", sort_key=0)
 
-    spec_set_status_p = spec_sub.add_parser("set-status", help="Transition spec status")
-    spec_set_status_p.add_argument(
-        "status",
-        choices=sorted(SETTABLE_STATUSES),
-        help="New status value",
-    )
+spec_app = App(name="spec", help="Spec lifecycle commands.")
+app.command(spec_app)
 
-    spec_sub.add_parser("next-number", help="Print next available spec number")
+run_app = App(name="run", help="Orchestration run commands.")
+app.command(run_app)
 
-    # ------------------------------------------------------------------
-    # run group
-    # ------------------------------------------------------------------
-    run_p = sub.add_parser("run", help="Orchestration run commands")
-    run_sub = run_p.add_subparsers(dest="run_cmd", required=True)
+task_app = App(name="task", help="Task lifecycle commands.")
+app.command(task_app)
 
-    run_start_p = run_sub.add_parser("start", help="Begin a new orchestration run")
-    run_start_p.add_argument(
-        "--base-commit",
-        dest="base_commit",
-        metavar="SHA",
-        default=None,
-        help="Base commit SHA (defaults to git rev-parse HEAD)",
-    )
-    run_start_p.add_argument(
-        "--tmpdir",
-        metavar="PATH",
-        default=None,
-        help="Ephemeral /tmp path for this run",
-    )
-    run_start_p.add_argument(
-        "--visual-mode",
-        dest="visual_mode",
-        metavar="MODE",
-        default=None,
-        choices=["enabled", "skipped_no_server", "skipped_no_vision"],
-        help="Visual review mode for this run",
-    )
-    run_start_p.add_argument(
-        "--dev-server-url",
-        dest="dev_server_url",
-        metavar="URL",
-        default=None,
-        help="Dev server URL for visual review",
-    )
+dispatch_app = App(name="dispatch", help="Record subagent dispatch / end dispatch.")
+app.command(dispatch_app)
 
-    run_sub.add_parser("status", help="Read current run state")
+session_app = App(name="session", help="Session lifecycle commands.")
+app.command(session_app)
 
-    run_complete_p = run_sub.add_parser(
-        "complete", help="Mark the active run as completed"
-    )
-    run_complete_p.add_argument(
-        "--pr-url",
-        dest="pr_url",
-        metavar="URL",
-        default=None,
-        help="URL of the merged PR (optional)",
-    )
+# ---------------------------------------------------------------------------
+# Global options via meta launcher
+# ---------------------------------------------------------------------------
 
-    run_stop_p = run_sub.add_parser(
-        "stop", help="Stop the active run (user chose stop here)"
-    )
-    run_stop_p.add_argument(
-        "--reason",
-        metavar="TEXT",
-        default=None,
-        help="Why the run was stopped",
-    )
-    run_stop_p.add_argument(
-        "--at-task",
-        dest="at_task",
-        metavar="TASK_ID",
-        default=None,
-        help="Task ID where the run was stopped",
-    )
+# Stored by the meta launcher so command functions can access it.
+_spec_override: str | None = None
 
-    run_resume_p = run_sub.add_parser("resume", help="Resume a stopped run")
-    run_resume_p.add_argument(
-        "--run-id",
-        dest="run_id",
-        type=int,
-        metavar="ID",
-        default=None,
-        help="Specific run ID to resume (defaults to most recent stopped run)",
-    )
 
-    # ------------------------------------------------------------------
-    # task group
-    # ------------------------------------------------------------------
-    task_p = sub.add_parser("task", help="Task lifecycle commands")
-    task_sub = task_p.add_subparsers(dest="task_cmd", required=True)
-
-    task_start_p = task_sub.add_parser("start", help="Mark a task as executing")
-    task_start_p.add_argument("task_id", help="Task ID (e.g. T01)")
-
-    task_update_p = task_sub.add_parser(
-        "update", help="Update task status (state machine)"
-    )
-    task_update_p.add_argument("task_id", help="Task ID (e.g. T01)")
-    task_update_p.add_argument(
-        "--status",
-        required=True,
-        choices=sorted(
-            {s for targets in TASK_UPDATE_TRANSITIONS.values() for s in targets}
+@app.meta.default
+def launcher(
+    *tokens: Annotated[str, Parameter(show=False, allow_leading_hyphen=True)],
+    text: Annotated[
+        bool,
+        _FLAG,
+        Parameter(
+            name=["--text"],
+            help="Human-readable output instead of JSON (for interactive debugging)",
         ),
-        dest="status",
-        help="New task status",
-    )
-
-    task_verdict_p = task_sub.add_parser(
-        "verdict", help="Record the final verdict for a task"
-    )
-    task_verdict_p.add_argument("task_id", help="Task ID (e.g. T01)")
-    task_verdict_p.add_argument(
-        "--verdict",
-        required=True,
-        choices=sorted(VALID_VERDICTS),
-        help="Task verdict (BLOCKED uses `cfl task block`)",
-    )
-    task_verdict_p.add_argument(
-        "--detail",
-        default=None,
-        metavar="TEXT",
-        help="Optional human-readable detail (e.g. '3 auto-fixed')",
-    )
-    task_verdict_p.add_argument(
-        "--commit",
-        dest="commit_sha",
-        default=None,
-        metavar="SHA",
-        help="WIP commit SHA or 'no-changes'",
-    )
-    task_verdict_p.add_argument(
-        "--data",
-        default=None,
-        metavar="JSON",
-        help='Per-reviewer breakdown as JSON (e.g. \'{"spec": "PASS", ...}\')',
-    )
-
-    task_block_p = task_sub.add_parser(
-        "block", help="Set a task to blocked status (BLOCKED verdict)"
-    )
-    task_block_p.add_argument("task_id", help="Task ID (e.g. T01)")
-    task_block_p.add_argument(
-        "--reason",
-        default=None,
-        metavar="TEXT",
-        help="Why the task is blocked (architectural block, missing dependency, etc.)",
-    )
-
-    # ------------------------------------------------------------------
-    # gate (leaf)
-    # ------------------------------------------------------------------
-    gate_p = sub.add_parser("gate", help="Record a gate evaluation result")
-    gate_p.add_argument(
-        "gate_type",
-        help="Gate type (e.g. code-review, test-gate, impl-review)",
-    )
-    gate_p.add_argument(
-        "task_id",
-        nargs="?",
-        default=None,
-        help="Task ID (e.g. T01); omit for run-level gates (Phase 3)",
-    )
-    gate_p.add_argument(
-        "--verdict",
-        required=True,
-        choices=sorted(VALID_GATE_VERDICTS),
-        help="Gate verdict",
-    )
-    gate_p.add_argument(
-        "--iteration",
-        type=int,
-        default=None,
-        metavar="N",
-        help="Iteration number (auto-increments if omitted)",
-    )
-    gate_p.add_argument(
-        "--detail",
-        default=None,
-        metavar="TEXT",
-        help="Human-readable summary of the gate result",
-    )
-    gate_p.add_argument(
-        "--data",
-        default=None,
-        metavar="JSON",
-        help="Structured data as JSON string",
-    )
-
-    # ------------------------------------------------------------------
-    # dispatch group  (root + end)
-    # dispatch is special: `cfl dispatch role [task_id] --agent-type ...`
-    # and `cfl dispatch end <id>` share the same top-level command.
-    # Remaining args are captured and parsed manually in the handler.
-    # ------------------------------------------------------------------
-    dispatch_p = sub.add_parser(
-        "dispatch", help="Record subagent dispatch / end dispatch"
-    )
-    dispatch_p.add_argument(
-        "dispatch_args",
-        nargs=argparse.REMAINDER,
-        help=argparse.SUPPRESS,
-    )
-
-    # ------------------------------------------------------------------
-    # event (leaf)
-    # ------------------------------------------------------------------
-    event_p = sub.add_parser(
-        "event", help="Append to the audit trail (fire-and-forget)"
-    )
-    event_p.add_argument(
-        "event_name",
-        help="Event name (e.g. task.contested, task.retried)",
-    )
-    event_p.add_argument(
-        "task_id",
-        nargs="?",
-        default=None,
-        help="Task ID (e.g. T01); omit for run-level events",
-    )
-    event_p.add_argument(
-        "--detail",
-        default=None,
-        metavar="TEXT",
-        help="Human-readable detail",
-    )
-    event_p.add_argument(
-        "--data",
-        default=None,
-        metavar="JSON",
-        help="Structured data as JSON string",
-    )
-
-    # ------------------------------------------------------------------
-    # session group
-    # ------------------------------------------------------------------
-    session_p = sub.add_parser("session", help="Session lifecycle commands")
-    session_sub = session_p.add_subparsers(dest="session_cmd", required=True)
-
-    session_end_p = session_sub.add_parser("end", help="Called by SessionEnd hook")
-    session_end_p.add_argument(
-        "--reason",
-        choices=["clear", "exit"],
-        default=None,
-        help="Why the session ended (clear = /clear command, exit = normal exit)",
-    )
-
-    session_compacted_p = session_sub.add_parser(
-        "compacted", help="Called by PreCompact hook"
-    )
-    session_compacted_p.add_argument(
-        "--context-pct",
-        type=int,
-        dest="context_pct",
-        default=None,
-        metavar="N",
-        help="Context percentage before compaction (0–100)",
-    )
-
-    # ------------------------------------------------------------------
-    # archive (leaf)
-    # ------------------------------------------------------------------
-    archive_p = sub.add_parser("archive", help="Archive a completed spec")
-    archive_p.add_argument(
-        "--dry-run",
-        dest="dry_run",
-        action="store_true",
-        default=False,
-        help="Show what would be archived without making changes",
-    )
-
-    # ------------------------------------------------------------------
-    # set (leaf — direct-access tier, bypasses state machine)
-    # ------------------------------------------------------------------
-    set_p = sub.add_parser(
-        "set", help="Direct field writes (bypass state machine guards)"
-    )
-    set_p.add_argument(
-        "entity",
-        choices=sorted(VALID_ENTITIES),
-        help="Entity type: task, run, spec, or session",
-    )
-    set_p.add_argument(
-        "entity_id",
-        help="Row identifier (task_id string for tasks, numeric id for others)",
-    )
-    set_p.add_argument(
-        "field_pairs",
-        nargs="+",
-        metavar="field=value",
-        help="Field assignments. Use field=null to write SQL NULL.",
-    )
-
-    return parser
-
-
-def main() -> None:
-    """Entry point with invocation telemetry wrapper."""
-    start = Instant.now()
-    argv = sys.argv[1:]
-
-    parser = build_parser()
-
-    try:
-        args = parser.parse_args()
-    except SystemExit as exc:
-        exit_code = exc.code if isinstance(exc.code, int) else 2
-        _try_record_invocation(argv, None, exit_code=exit_code, start=start)
-        raise
-
-    if args.text:
+    ] = False,
+    spec: Annotated[
+        str | None,
+        Parameter(
+            name=["--spec"],
+            help="Override spec number (e.g. 035); required when CWD is ambiguous",
+        ),
+    ] = None,
+) -> None:
+    global _spec_override
+    if text:
         output_module.set_text_mode(True)
-
-    try:
-        _execute(args)
-    except SystemExit as exc:
-        exit_code = exc.code if isinstance(exc.code, int) else 1
-        _try_record_invocation(argv, args, exit_code=exit_code, start=start)
-        raise
-
-    _try_record_invocation(argv, args, exit_code=0, start=start)
+    _spec_override = spec
+    command, bound, _ = app.parse_args(tokens, print_error=True, exit_on_error=False)
+    command(*bound.args, **bound.kwargs)
 
 
-def _execute(args: argparse.Namespace) -> None:
-    """Dispatch parsed args to the appropriate handler."""
-    cmd = args.command
-
-    if cmd == "spec":
-        _handle_spec(args)
-    elif cmd == "run":
-        _handle_run(args)
-    elif cmd == "task":
-        _handle_task(args)
-    elif cmd == "gate":
-        _handle_gate(args)
-    elif cmd == "dispatch":
-        _handle_dispatch(args)
-    elif cmd == "event":
-        _handle_event(args)
-    elif cmd == "session":
-        _handle_session(args)
-    elif cmd == "archive":
-        _handle_archive(args)
-    elif cmd == "set":
-        _handle_set(args)
+# ---------------------------------------------------------------------------
+# spec commands
+# ---------------------------------------------------------------------------
 
 
-def _handle_spec(args: argparse.Namespace) -> None:
-    spec_cmd = args.spec_cmd
-    spec_override = args.spec
-
-    if spec_cmd == "init":
-        with db_connection() as conn:
-            spec_init(conn, args.slug, number=getattr(args, "number", None))
-    elif spec_cmd == "validate":
-        with db_connection() as conn:
-            spec_validate(conn, spec_override=spec_override)
-    elif spec_cmd == "status":
-        with db_connection() as conn:
-            spec_status(conn, spec_override=spec_override)
-    elif spec_cmd == "set-status":
-        with db_connection() as conn:
-            spec_set_status(conn, args.status, spec_override=spec_override)
-    elif spec_cmd == "next-number":
-        with db_connection() as conn:
-            spec_next_number(conn)
-    else:
-        output_module.emit_error(
-            f"Unknown spec subcommand: {spec_cmd}",
-            code="usage_error",
-            exit_code=2,
-        )
-
-
-def _handle_run(args: argparse.Namespace) -> None:
-    run_cmd = args.run_cmd
-    spec_override = args.spec
-
-    if run_cmd == "start":
-        with db_connection() as conn:
-            spec_ctx = resolve_spec(
-                conn, spec_override=spec_override, require_active_run=False
-            )
-            run_start(
-                conn,
-                spec_ctx.spec_id,
-                spec_ctx.feature_dir,
-                base_commit=getattr(args, "base_commit", None),
-                tmpdir=getattr(args, "tmpdir", None),
-                visual_mode=getattr(args, "visual_mode", None),
-                dev_server_url=getattr(args, "dev_server_url", None),
-            )
-
-    elif run_cmd == "status":
-        with db_connection() as conn:
-            spec_ctx = resolve_spec(
-                conn, spec_override=spec_override, require_active_run=False
-            )
-            run_status(
-                conn,
-                spec_ctx.active_run_id,
-                spec_ctx.spec_id,
-                spec_ctx.spec_number,
-                spec_ctx.spec_slug,
-                spec_ctx.feature_dir,
-            )
-
-    elif run_cmd == "complete":
-        with db_connection() as conn:
-            ctx = resolve_context(conn, spec_override=spec_override)
-            run_complete(
-                conn,
-                ctx["active_run_id"],
-                ctx["spec_id"],
-                pr_url=getattr(args, "pr_url", None),
-            )
-
-    elif run_cmd == "stop":
-        with db_connection() as conn:
-            ctx = resolve_context(conn, spec_override=spec_override)
-            run_stop(
-                conn,
-                ctx["active_run_id"],
-                ctx["spec_id"],
-                reason=getattr(args, "reason", None),
-                at_task=getattr(args, "at_task", None),
-            )
-
-    elif run_cmd == "resume":
-        with db_connection() as conn:
-            spec_ctx = resolve_spec(
-                conn, spec_override=spec_override, require_active_run=False
-            )
-            run_resume(
-                conn,
-                spec_ctx.spec_id,
-                run_id=getattr(args, "run_id", None),
-            )
-
-    else:
-        output_module.emit_error(
-            f"Unknown run subcommand: {run_cmd}",
-            code="usage_error",
-            exit_code=2,
-        )
-
-
-def _handle_task(args: argparse.Namespace) -> None:
-    task_cmd = args.task_cmd
-    spec_override = args.spec
-
-    if task_cmd == "start":
-        with db_connection() as conn:
-            ctx = resolve_context(conn, spec_override=spec_override)
-            task_start(conn, ctx["active_run_id"], args.task_id)
-
-    elif task_cmd == "update":
-        with db_connection() as conn:
-            ctx = resolve_context(conn, spec_override=spec_override)
-            task_update(conn, ctx["active_run_id"], args.task_id, args.status)
-
-    elif task_cmd == "verdict":
-        with db_connection() as conn:
-            ctx = resolve_context(conn, spec_override=spec_override)
-            task_verdict(
-                conn,
-                ctx["active_run_id"],
-                args.task_id,
-                args.verdict,
-                detail=args.detail,
-                commit_sha=args.commit_sha,
-                data=args.data or None,
-            )
-
-    elif task_cmd == "block":
-        with db_connection() as conn:
-            ctx = resolve_context(conn, spec_override=spec_override)
-            task_block(conn, ctx["active_run_id"], args.task_id, reason=args.reason)
-
-    else:
-        output_module.emit_error(
-            f"Unknown task subcommand: {task_cmd}",
-            code="usage_error",
-            exit_code=2,
-        )
-
-
-def _handle_gate(args: argparse.Namespace) -> None:
-    spec_override = args.spec
+@spec_app.command(name="init")
+def cmd_spec_init(
+    slug: Annotated[str, Parameter(help="Slug for the new spec (e.g. my-feature)")],
+    *,
+    number: Annotated[
+        int | None,
+        Parameter(help="Explicit spec number (default: auto-assign next available)"),
+    ] = None,
+) -> None:
+    """Create a new spec in the DB and on disk."""
     with db_connection() as conn:
-        ctx = resolve_context(conn, spec_override=spec_override)
+        spec_init(conn, slug, number=number)
+
+
+@spec_app.command(name="validate")
+def cmd_spec_validate() -> None:
+    """Validate task files against canonical schema."""
+    with db_connection() as conn:
+        spec_validate(conn, spec_override=_spec_override)
+
+
+@spec_app.command(name="status")
+def cmd_spec_status() -> None:
+    """Query spec status and run history."""
+    with db_connection() as conn:
+        spec_status(conn, spec_override=_spec_override)
+
+
+@spec_app.command(name="set-status")
+def cmd_spec_set_status(
+    status: Annotated[
+        str,
+        Parameter(help=f"New status value ({', '.join(sorted(SETTABLE_STATUSES))})"),
+    ],
+) -> None:
+    """Transition spec status."""
+    with db_connection() as conn:
+        spec_set_status(conn, status, spec_override=_spec_override)
+
+
+@spec_app.command(name="next-number")
+def cmd_spec_next_number() -> None:
+    """Print next available spec number."""
+    with db_connection() as conn:
+        spec_next_number(conn)
+
+
+# ---------------------------------------------------------------------------
+# run commands
+# ---------------------------------------------------------------------------
+
+
+@run_app.command(name="start")
+def cmd_run_start(
+    *,
+    base_commit: Annotated[
+        str | None,
+        Parameter(
+            name=["--base-commit"],
+            help="Base commit SHA (defaults to git rev-parse HEAD)",
+        ),
+    ] = None,
+    tmpdir: Annotated[
+        str | None,
+        Parameter(help="Ephemeral /tmp path for this run"),
+    ] = None,
+    visual_mode: Annotated[
+        Literal["enabled", "skipped_no_server", "skipped_no_vision"] | None,
+        Parameter(name=["--visual-mode"], help="Visual review mode for this run"),
+    ] = None,
+    dev_server_url: Annotated[
+        str | None,
+        Parameter(name=["--dev-server-url"], help="Dev server URL for visual review"),
+    ] = None,
+) -> None:
+    """Begin a new orchestration run."""
+    with db_connection() as conn:
+        spec_ctx = resolve_spec(
+            conn, spec_override=_spec_override, require_active_run=False
+        )
+        run_start(
+            conn,
+            spec_ctx.spec_id,
+            spec_ctx.feature_dir,
+            base_commit=base_commit,
+            tmpdir=tmpdir,
+            visual_mode=visual_mode,
+            dev_server_url=dev_server_url,
+        )
+
+
+@run_app.command(name="status")
+def cmd_run_status() -> None:
+    """Read current run state."""
+    with db_connection() as conn:
+        spec_ctx = resolve_spec(
+            conn, spec_override=_spec_override, require_active_run=False
+        )
+        run_status(
+            conn,
+            spec_ctx.active_run_id,
+            spec_ctx.spec_id,
+            spec_ctx.spec_number,
+            spec_ctx.spec_slug,
+            spec_ctx.feature_dir,
+        )
+
+
+@run_app.command(name="complete")
+def cmd_run_complete(
+    *,
+    pr_url: Annotated[
+        str | None,
+        Parameter(name=["--pr-url"], help="URL of the merged PR (optional)"),
+    ] = None,
+) -> None:
+    """Mark the active run as completed."""
+    with db_connection() as conn:
+        ctx = resolve_context(conn, spec_override=_spec_override)
+        run_complete(conn, ctx["active_run_id"], ctx["spec_id"], pr_url=pr_url)
+
+
+@run_app.command(name="stop")
+def cmd_run_stop(
+    *,
+    reason: Annotated[
+        str | None,
+        Parameter(help="Why the run was stopped"),
+    ] = None,
+    at_task: Annotated[
+        str | None,
+        Parameter(name=["--at-task"], help="Task ID where the run was stopped"),
+    ] = None,
+) -> None:
+    """Stop the active run (user chose stop here)."""
+    with db_connection() as conn:
+        ctx = resolve_context(conn, spec_override=_spec_override)
+        run_stop(
+            conn,
+            ctx["active_run_id"],
+            ctx["spec_id"],
+            reason=reason,
+            at_task=at_task,
+        )
+
+
+@run_app.command(name="resume")
+def cmd_run_resume(
+    *,
+    run_id: Annotated[
+        int | None,
+        Parameter(
+            name=["--run-id"],
+            help="Specific run ID to resume (defaults to most recent stopped run)",
+        ),
+    ] = None,
+) -> None:
+    """Resume a stopped run."""
+    with db_connection() as conn:
+        spec_ctx = resolve_spec(
+            conn, spec_override=_spec_override, require_active_run=False
+        )
+        run_resume(conn, spec_ctx.spec_id, run_id=run_id)
+
+
+# ---------------------------------------------------------------------------
+# task commands
+# ---------------------------------------------------------------------------
+
+
+@task_app.command(name="start")
+def cmd_task_start(
+    task_id: Annotated[str, Parameter(help="Task ID (e.g. T01)")],
+) -> None:
+    """Mark a task as executing."""
+    with db_connection() as conn:
+        ctx = resolve_context(conn, spec_override=_spec_override)
+        task_start(conn, ctx["active_run_id"], task_id)
+
+
+@task_app.command(name="update")
+def cmd_task_update(
+    task_id: Annotated[str, Parameter(help="Task ID (e.g. T01)")],
+    *,
+    status: Annotated[
+        str,
+        Parameter(help=f"New task status ({', '.join(_VALID_TASK_STATUSES)})"),
+    ],
+) -> None:
+    """Update task status (state machine)."""
+    with db_connection() as conn:
+        ctx = resolve_context(conn, spec_override=_spec_override)
+        task_update(conn, ctx["active_run_id"], task_id, status)
+
+
+@task_app.command(name="verdict")
+def cmd_task_verdict(
+    task_id: Annotated[str, Parameter(help="Task ID (e.g. T01)")],
+    *,
+    verdict: Annotated[
+        str,
+        Parameter(
+            help=f"Task verdict ({', '.join(sorted(VALID_VERDICTS))}); BLOCKED uses `cfl task block`"
+        ),
+    ],
+    detail: Annotated[
+        str | None,
+        Parameter(help="Optional human-readable detail (e.g. '3 auto-fixed')"),
+    ] = None,
+    commit_sha: Annotated[
+        str | None,
+        Parameter(name=["--commit"], help="WIP commit SHA or 'no-changes'"),
+    ] = None,
+    data: Annotated[
+        str | None,
+        Parameter(
+            help='Per-reviewer breakdown as JSON (e.g. \'{"spec": "PASS", ...}\')'
+        ),
+    ] = None,
+) -> None:
+    """Record the final verdict for a task."""
+    with db_connection() as conn:
+        ctx = resolve_context(conn, spec_override=_spec_override)
+        task_verdict(
+            conn,
+            ctx["active_run_id"],
+            task_id,
+            verdict,
+            detail=detail,
+            commit_sha=commit_sha,
+            data=data or None,
+        )
+
+
+@task_app.command(name="block")
+def cmd_task_block(
+    task_id: Annotated[str, Parameter(help="Task ID (e.g. T01)")],
+    *,
+    reason: Annotated[
+        str | None,
+        Parameter(
+            help="Why the task is blocked (architectural block, missing dependency, etc.)"
+        ),
+    ] = None,
+) -> None:
+    """Set a task to blocked status (BLOCKED verdict)."""
+    with db_connection() as conn:
+        ctx = resolve_context(conn, spec_override=_spec_override)
+        task_block(conn, ctx["active_run_id"], task_id, reason=reason)
+
+
+# ---------------------------------------------------------------------------
+# gate (leaf on root app)
+# ---------------------------------------------------------------------------
+
+
+@app.command(name="gate")
+def cmd_gate(
+    gate_type: Annotated[
+        str,
+        Parameter(help="Gate type (e.g. code-review, test-gate, impl-review)"),
+    ],
+    task_id: Annotated[
+        str | None,
+        Parameter(help="Task ID (e.g. T01); omit for run-level gates (Phase 3)"),
+    ] = None,
+    *,
+    verdict: Annotated[
+        str,
+        Parameter(help=f"Gate verdict ({', '.join(sorted(VALID_GATE_VERDICTS))})"),
+    ],
+    iteration: Annotated[
+        int | None,
+        Parameter(help="Iteration number (auto-increments if omitted)"),
+    ] = None,
+    detail: Annotated[
+        str | None,
+        Parameter(help="Human-readable summary of the gate result"),
+    ] = None,
+    data: Annotated[
+        str | None,
+        Parameter(help="Structured data as JSON string"),
+    ] = None,
+) -> None:
+    """Record a gate evaluation result."""
+    with db_connection() as conn:
+        ctx = resolve_context(conn, spec_override=_spec_override)
         record_gate(
             conn,
             ctx["active_run_id"],
-            args.gate_type,
-            task_id=args.task_id,
-            verdict=args.verdict,
-            iteration=args.iteration,
-            detail=args.detail,
-            data=args.data,
+            gate_type,
+            task_id=task_id,
+            verdict=verdict,
+            iteration=iteration,
+            detail=detail,
+            data=data,
         )
 
 
-def _handle_dispatch(args: argparse.Namespace) -> None:
-    """Handle `cfl dispatch` and `cfl dispatch end`.
+# ---------------------------------------------------------------------------
+# dispatch commands
+# ---------------------------------------------------------------------------
 
-    Dispatch is dual-mode:
-      cfl dispatch end <dispatch_id>
-      cfl dispatch <role> [<task_id>] --agent-type <type> [options]
 
-    The first positional arg determines which branch runs.
-    """
-    spec_override = args.spec
-    dispatch_args: list[str] = args.dispatch_args
-
-    if dispatch_args and dispatch_args[0] == "end":
-        # cfl dispatch end <dispatch_id>
-        if len(dispatch_args) < 2:
-            output_module.emit_error(
-                "Usage: cfl dispatch end <dispatch_id>",
-                code="usage_error",
-                exit_code=2,
-            )
-        try:
-            dispatch_id = int(dispatch_args[1])
-        except ValueError:
-            output_module.emit_error(
-                f"dispatch_id must be an integer, got: {dispatch_args[1]!r}",
-                code="usage_error",
-                exit_code=2,
-            )
-        with db_connection() as conn:
-            end_dispatch(conn, dispatch_id)
-        return
-
-    # cfl dispatch <role> [<task_id>] --agent-type <type> [options]
-    dispatch_sub = argparse.ArgumentParser(prog="cfl dispatch", add_help=False)
-    dispatch_sub.add_argument("role", help="Canonical dispatch role (e.g. executor)")
-    dispatch_sub.add_argument(
-        "task_id",
-        nargs="?",
-        default=None,
-        help="Task ID (e.g. T01); omit for run-level dispatches",
-    )
-    dispatch_sub.add_argument(
-        "--agent-type",
-        dest="agent_type",
-        required=True,
-        metavar="TYPE",
-        help="subagent_type passed to Agent tool",
-    )
-    dispatch_sub.add_argument(
-        "--model", default=None, help="Agent model (sonnet, haiku, opus)"
-    )
-    dispatch_sub.add_argument(
-        "--gate-id",
-        dest="gate_id",
-        type=int,
-        default=None,
-        metavar="ID",
-        help="Gate this dispatch serves (NULL for executor)",
-    )
-    dispatch_sub.add_argument(
-        "--routing-reason",
-        dest="routing_reason",
-        default=None,
-        metavar="TEXT",
-        help="Why this agent type was selected",
-    )
-
-    try:
-        dispatch_parsed = dispatch_sub.parse_args(dispatch_args)
-    except SystemExit as exc:
-        sys.exit(exc.code)
-
+@dispatch_app.default
+def cmd_dispatch(
+    role: Annotated[
+        str,
+        Parameter(help="Canonical dispatch role (e.g. executor)"),
+    ],
+    task_id: Annotated[
+        str | None,
+        Parameter(help="Task ID (e.g. T01); omit for run-level dispatches"),
+    ] = None,
+    *,
+    agent_type: Annotated[
+        str,
+        Parameter(name=["--agent-type"], help="subagent_type passed to Agent tool"),
+    ],
+    model: Annotated[
+        str | None,
+        Parameter(help="Agent model (sonnet, haiku, opus)"),
+    ] = None,
+    gate_id: Annotated[
+        int | None,
+        Parameter(
+            name=["--gate-id"], help="Gate this dispatch serves (NULL for executor)"
+        ),
+    ] = None,
+    routing_reason: Annotated[
+        str | None,
+        Parameter(name=["--routing-reason"], help="Why this agent type was selected"),
+    ] = None,
+) -> None:
+    """Record a subagent dispatch."""
     with db_connection() as conn:
-        ctx = resolve_context(conn, spec_override=spec_override)
+        ctx = resolve_context(conn, spec_override=_spec_override)
         record_dispatch(
             conn,
             ctx["active_run_id"],
-            dispatch_parsed.role,
-            task_id=dispatch_parsed.task_id,
-            agent_type=dispatch_parsed.agent_type,
-            model=dispatch_parsed.model,
-            gate_id=dispatch_parsed.gate_id,
-            routing_reason=dispatch_parsed.routing_reason,
+            role,
+            task_id=task_id,
+            agent_type=agent_type,
+            model=model,
+            gate_id=gate_id,
+            routing_reason=routing_reason,
         )
 
 
-def _handle_event(args: argparse.Namespace) -> None:
-    spec_override = args.spec
+@dispatch_app.command(name="end")
+def cmd_dispatch_end(
+    dispatch_id: Annotated[int, Parameter(help="Dispatch ID to mark as completed")],
+) -> None:
+    """Mark a dispatch as completed."""
+    with db_connection() as conn:
+        end_dispatch(conn, dispatch_id)
 
-    # Resolve run context if possible; cfl event is fire-and-forget so errors
-    # during resolution are also swallowed — run_id stays None on failure.
+
+# ---------------------------------------------------------------------------
+# event (leaf on root app)
+# ---------------------------------------------------------------------------
+
+
+@app.command(name="event")
+def cmd_event(
+    event_name: Annotated[
+        str,
+        Parameter(help="Event name (e.g. task.contested, task.retried)"),
+    ],
+    task_id: Annotated[
+        str | None,
+        Parameter(help="Task ID (e.g. T01); omit for run-level events"),
+    ] = None,
+    *,
+    detail: Annotated[
+        str | None,
+        Parameter(help="Human-readable detail"),
+    ] = None,
+    data: Annotated[
+        str | None,
+        Parameter(help="Structured data as JSON string"),
+    ] = None,
+) -> None:
+    """Append to the audit trail (fire-and-forget)."""
+    handle_event(
+        event_name=event_name,
+        task_id=task_id,
+        detail=detail,
+        data=data,
+        spec_override=_spec_override,
+    )
+
+
+def handle_event(
+    *,
+    event_name: str,
+    task_id: str | None,
+    detail: str | None,
+    data: str | None,
+    spec_override: str | None,
+) -> None:
+    """Fire-and-forget event handler — never raises."""
     run_id: int | None = None
     try:
         with db_connection() as conn:
@@ -677,121 +521,179 @@ def _handle_event(args: argparse.Namespace) -> None:
     except (SystemExit, Exception):
         pass
 
-    # Open a fresh connection for the actual event write (the context resolution
-    # connection may have been closed by the context manager above).
     try:
         with db_connection() as conn:
             record_event(
                 conn,
                 run_id,
-                args.event_name,
-                task_id=args.task_id,
-                detail=args.detail,
-                data=args.data,
+                event_name,
+                task_id=task_id,
+                detail=detail,
+                data=data,
             )
     except Exception as exc:
-        print(json.dumps({"warning": f"Event write failed: {exc}"}), file=sys.stderr)
-
-
-def _handle_session(args: argparse.Namespace) -> None:
-    session_cmd = args.session_cmd
-    if session_cmd == "end":
-        session_id = os.environ.get(SESSION_ID_ENV_VAR)
-        reason = getattr(args, "reason", None)
-        if session_id is None:
-            output_module.emit(
-                {
-                    "session_id": None,
-                    "ended_at": None,
-                    "context_pct_end": None,
-                    "reason": reason,
-                }
-            )
-        else:
-            with db_connection() as conn:
-                end_session(conn, session_id)
-                row = conn.execute(
-                    "SELECT ended_at, context_pct_end FROM sessions WHERE session_id=?",
-                    (session_id,),
-                ).fetchone()
-                output_module.emit(
-                    {
-                        "session_id": session_id,
-                        "ended_at": output_module.to_iso(row["ended_at"])
-                        if row
-                        else None,
-                        "context_pct_end": row["context_pct_end"] if row else None,
-                        "reason": reason,
-                    }
-                )
-    elif session_cmd == "compacted":
-        context_pct = getattr(args, "context_pct", None)
-        spec_override = args.spec
-        with db_connection() as conn:
-            ctx = resolve_context(conn, spec_override=spec_override)
-            run_id = ctx["active_run_id"]
-            session_id = ctx["session_id"]
-            event_id = record_compaction(conn, run_id, session_id, context_pct)
-            output_module.emit(
-                {
-                    "session_id": session_id,
-                    "event_id": event_id,
-                    "context_pct_before": context_pct,
-                }
-            )
-    else:
-        output_module.emit_error(
-            f"Unknown session subcommand: {session_cmd}",
-            code="usage_error",
-            exit_code=2,
+        output_module.emit_warning(
+            f"Event write failed: {exc}", code="event_write_failed"
         )
 
 
-def _handle_archive(args: argparse.Namespace) -> None:
-    spec_override = args.spec
-    dry_run = getattr(args, "dry_run", False)
+# ---------------------------------------------------------------------------
+# session commands
+# ---------------------------------------------------------------------------
+
+
+@session_app.command(name="end")
+def cmd_session_end(
+    *,
+    reason: Annotated[
+        Literal["clear", "exit"] | None,
+        Parameter(
+            help="Why the session ended (clear = /clear command, exit = normal exit)"
+        ),
+    ] = None,
+) -> None:
+    """Called by SessionEnd hook."""
+    session_id = os.environ.get(SESSION_ID_ENV_VAR)
+    if session_id is None:
+        output_module.emit(
+            {
+                "session_id": None,
+                "ended_at": None,
+                "context_pct_end": None,
+                "reason": reason,
+            }
+        )
+    else:
+        with db_connection() as conn:
+            end_session(conn, session_id)
+            row = conn.execute(
+                "SELECT ended_at, context_pct_end FROM sessions WHERE session_id=?",
+                (session_id,),
+            ).fetchone()
+            output_module.emit(
+                {
+                    "session_id": session_id,
+                    "ended_at": output_module.to_iso(row["ended_at"]) if row else None,
+                    "context_pct_end": row["context_pct_end"] if row else None,
+                    "reason": reason,
+                }
+            )
+
+
+@session_app.command(name="compacted")
+def cmd_session_compacted(
+    *,
+    context_pct: Annotated[
+        int | None,
+        Parameter(
+            name=["--context-pct"],
+            help="Context percentage before compaction (0-100)",
+        ),
+    ] = None,
+) -> None:
+    """Called by PreCompact hook."""
     with db_connection() as conn:
-        archive_spec(conn, spec_override=spec_override, dry_run=dry_run)
+        ctx = resolve_context(conn, spec_override=_spec_override)
+        run_id = ctx["active_run_id"]
+        session_id = ctx["session_id"]
+        event_id = record_compaction(conn, run_id, session_id, context_pct)
+        output_module.emit(
+            {
+                "session_id": session_id,
+                "event_id": event_id,
+                "context_pct_before": context_pct,
+            }
+        )
 
 
-def _handle_set(args: argparse.Namespace) -> None:
-    spec_override = args.spec
-    fields = parse_field_args(args.field_pairs)
+# ---------------------------------------------------------------------------
+# archive (leaf on root app)
+# ---------------------------------------------------------------------------
+
+
+@app.command(name="archive")
+def cmd_archive(
+    *,
+    dry_run: Annotated[
+        bool,
+        _FLAG,
+        Parameter(
+            name=["--dry-run"],
+            help="Show what would be archived without making changes",
+        ),
+    ] = False,
+) -> None:
+    """Archive a completed spec."""
+    with db_connection() as conn:
+        archive_spec(conn, spec_override=_spec_override, dry_run=dry_run)
+
+
+# ---------------------------------------------------------------------------
+# set (leaf on root app — direct-access tier)
+# ---------------------------------------------------------------------------
+
+
+@app.command(name="set")
+def cmd_set(
+    entity: Annotated[
+        str,
+        Parameter(help=f"Entity type ({', '.join(sorted(VALID_ENTITIES))})"),
+    ],
+    entity_id: Annotated[
+        str,
+        Parameter(
+            help="Row identifier (task_id string for tasks, numeric id for others)"
+        ),
+    ],
+    field_pairs: Annotated[
+        tuple[str, ...],
+        Parameter(
+            help="Field assignments (field=value). Use field=null to write SQL NULL."
+        ),
+    ],
+) -> None:
+    """Direct field writes (bypass state machine guards)."""
+    if not field_pairs:
+        output_module.emit_error(
+            "At least one field=value pair is required.",
+            code="usage_error",
+            exit_code=2,
+        )
+    fields = parse_field_args(list(field_pairs))
 
     with db_connection() as conn:
-        if args.entity == "task":
-            # Tasks require an active run for scoping.
-            ctx = resolve_context(conn, spec_override=spec_override)
+        if entity == "task":
+            ctx = resolve_context(conn, spec_override=_spec_override)
             active_run_id = ctx["active_run_id"]
         else:
             active_run_id = None
 
         set_field(
             conn,
-            args.entity,
-            args.entity_id,
+            entity,
+            entity_id,
             fields,
             active_run_id=active_run_id,
         )
 
 
+# ---------------------------------------------------------------------------
+# Telemetry
+# ---------------------------------------------------------------------------
+
+
 def _try_record_invocation(
     argv: list[str],
-    args: argparse.Namespace | None,
     *,
     exit_code: int,
     start: Instant,
 ) -> None:
-    """Fire-and-forget: write cfl.invoked event to the DB.
-
-    Never raises. Any exception is silently swallowed — telemetry must not
-    impact the exit code or behavior observed by the caller.
-    """
+    """Fire-and-forget: write cfl.invoked event to the DB."""
     try:
         duration_ms = int((Instant.now() - start).total("milliseconds"))
-        command, positional_args, flags = _parse_argv_for_telemetry(argv, args)
+        command, positional_args, flags = _parse_argv_for_telemetry(argv)
 
-        data = json.dumps(
+        payload = json.dumps(
             {
                 "command": command,
                 "args": positional_args,
@@ -804,22 +706,16 @@ def _try_record_invocation(
             conn.execute(
                 """INSERT INTO events (run_id, event, data, created_at)
                    VALUES (NULL, 'cfl.invoked', ?, datetime('now'))""",
-                (data,),
+                (payload,),
             )
     except Exception:
-        pass  # fire-and-forget: never fail the caller
+        pass
 
 
 def _parse_argv_for_telemetry(
     argv: list[str],
-    args: argparse.Namespace | None,
 ) -> tuple[str, list[str], dict[str, str | bool]]:
-    """Extract (command, positional_args, flags) from argv for telemetry.
-
-    Uses parsed args Namespace for reliable command identification when available.
-    Falls back to raw argv parsing when args is None (argparse failed).
-    """
-    # Parse flags and raw positionals from argv
+    """Extract (command, positional_args, flags) from raw argv."""
     raw_flags: dict[str, str | bool] = {}
     raw_positionals: list[str] = []
     i = 0
@@ -837,38 +733,41 @@ def _parse_argv_for_telemetry(
             raw_positionals.append(token)
             i += 1
 
-    # Identify command string and flags from parsed Namespace when available
-    if args is not None:
-        # Build raw_flags from Namespace — authoritative, avoids argv re-parse bugs
-        # (e.g. boolean flags before positionals being mis-classified as key-value pairs).
-        _skip = {
-            "command",
-            "spec_cmd",
-            "run_cmd",
-            "task_cmd",
-            "session_cmd",
-            "dispatch_args",
-        }
-        raw_flags = {
-            k: v
-            for k, v in vars(args).items()
-            if k not in _skip and v is not None and v is not False
-        }
-        cmd = getattr(args, "command", "") or ""
-        sub = (
-            getattr(args, "spec_cmd", None)
-            or getattr(args, "run_cmd", None)
-            or getattr(args, "task_cmd", None)
-            or getattr(args, "session_cmd", None)
-        )
-        command = f"{cmd} {sub}".strip() if sub else cmd
-        cmd_word_count = len(command.split()) if command else 0
-        positional_args = raw_positionals[cmd_word_count:]
+    # Grouped commands (spec, run, task, dispatch, session) have a subcommand
+    # as the second positional. Leaf commands (gate, event, archive, set) don't.
+    command = raw_positionals[0] if raw_positionals else ""
+    if len(raw_positionals) > 1 and command in _GROUPED_COMMANDS:
+        command = f"{command} {raw_positionals[1]}"
+        positional_args = raw_positionals[2:]
     else:
-        command = raw_positionals[0] if raw_positionals else ""
         positional_args = raw_positionals[1:]
 
     return command, positional_args, raw_flags
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+
+def main() -> None:
+    """Console-script entry point with invocation telemetry."""
+    start = Instant.now()
+    argv = sys.argv[1:]
+
+    try:
+        app.meta(exit_on_error=False, print_error=True)
+    except (CycloptsError, SystemExit) as exc:
+        if isinstance(exc, SystemExit) and isinstance(exc.code, int):
+            exit_code = exc.code
+        else:
+            exit_code = 2
+        _try_record_invocation(argv, exit_code=exit_code, start=start)
+        if isinstance(exc, CycloptsError):
+            raise SystemExit(2) from exc
+        raise
+
+    _try_record_invocation(argv, exit_code=0, start=start)
 
 
 if __name__ == "__main__":

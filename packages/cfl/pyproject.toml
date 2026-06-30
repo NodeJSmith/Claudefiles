@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Claudefiles orchestration store CLI"
 requires-python = ">=3.11"
 dependencies = [
+    "cyclopts>=3",
     "python-frontmatter",
     "whenever>=0.10",
 ]

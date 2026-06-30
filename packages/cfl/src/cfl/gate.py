@@ -6,7 +6,6 @@ task.gated or review.gated event in a single atomic transaction.
 
 import json
 import sqlite3
-import sys
 
 import cfl.output as output_module
 from cfl.session import read_context_pct
@@ -56,16 +55,9 @@ def record_gate(
     data must be a valid JSON string when provided.
     """
     if gate_type not in KNOWN_GATE_TYPES:
-        print(
-            json.dumps(
-                {
-                    "warning": (
-                        f"Unknown gate_type '{gate_type}'. "
-                        f"Known types: {sorted(KNOWN_GATE_TYPES)}"
-                    )
-                }
-            ),
-            file=sys.stderr,
+        output_module.emit_warning(
+            f"Unknown gate_type '{gate_type}'. Known types: {sorted(KNOWN_GATE_TYPES)}",
+            code="unknown_gate_type",
         )
 
     if verdict not in VALID_GATE_VERDICTS:
