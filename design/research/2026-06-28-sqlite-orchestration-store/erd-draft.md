@@ -205,6 +205,7 @@ Run-level gates (Phase 3, task_id = NULL):
 
 ```text
 cfl.invoked          — standalone cfl command invocation (run_id = NULL)
+set.applied          — direct `cfl set` mutation recorded in audit log
 
 run.started          — orchestration begins
 run.completed        — after mine-ship succeeds
@@ -221,9 +222,13 @@ task.fixed           — findings fix loop completed
 task.verdict         — final task verdict assembled
 
 review.started       — Phase 3 review step begins
+review.dispatched    — subagent launched (reviewer, Phase 3)
 review.gated         — Phase 3 gate result (impl-review, cross-file, etc.)
 review.fixed         — Phase 3 fix applied (clean-code, comb fix)
 review.completed     — Phase 3 review step completed
+
+session.compacted    — context window auto-compacted mid-session
+dispatch.compacted   — subagent auto-compacted during execution
 ```
 
 ## What .cfl-run-id Contains

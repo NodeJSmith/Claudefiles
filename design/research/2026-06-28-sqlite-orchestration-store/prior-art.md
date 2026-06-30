@@ -141,7 +141,7 @@ The main constraint is that we don't control Claude Code's harness — we can't 
 
 1. **Capture model**: `cfl` commands (`cfl run start`, `cfl task start`, `cfl event record`, etc.) write directly to SQLite. The existing `trail-log` call sites in `mine-orchestrate` are replaced with `cfl` invocations. No agent-driven insert instructions.
 
-2. **Schema**: Adopt the hierarchical trace model (runs > tasks > events) with a separate `findings` table using the SARIF-inspired discriminator pattern. Use OTel GenAI attribute naming conventions for column names where they map.
+2. **Schema**: Adopt the hierarchical trace model (runs > tasks > events). V1 ships eight tables: `specs`, `runs`, `tasks`, `gates`, `dispatches`, `events`, `sessions`, `schema_version`. A separate `findings` table using the SARIF-inspired discriminator pattern is deferred to a future iteration. Use OTel GenAI attribute naming conventions for column names where they map.
 
 3. **Migration**: Use incremental scan (Pattern 6) to backfill historical data from existing JSONLs. New runs write directly to SQLite via `cfl`. `trail-log` is removed — `cfl` is the sole capture path.
 

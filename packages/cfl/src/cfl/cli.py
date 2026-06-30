@@ -2,6 +2,7 @@
 
 import json
 import os
+import sqlite3
 import sys
 from typing import Annotated, Literal
 
@@ -9,9 +10,10 @@ from cyclopts import App, Group, Parameter
 from cyclopts.exceptions import CycloptsError
 from whenever import Instant
 
+import cfl.epilogues as help_text
 import cfl.output as output_module
 from cfl.archive import archive_spec
-from cfl.db import db_connection
+from cfl.db import db_connection, get_db_path
 from cfl.direct import VALID_ENTITIES, parse_field_args, set_field
 from cfl.dispatch import end_dispatch, record_dispatch
 from cfl.event import record_event
@@ -65,7 +67,11 @@ app.command(run_app)
 task_app = App(name="task", help="Task lifecycle commands.")
 app.command(task_app)
 
-dispatch_app = App(name="dispatch", help="Record subagent dispatch / end dispatch.")
+dispatch_app = App(
+    name="dispatch",
+    help="Record subagent dispatch / end dispatch.",
+    help_epilogue=help_text.DISPATCH,
+)
 app.command(dispatch_app)
 
 session_app = App(name="session", help="Session lifecycle commands.")
@@ -111,7 +117,7 @@ def launcher(
 # ---------------------------------------------------------------------------
 
 
-@spec_app.command(name="init")
+@spec_app.command(name="init", help_epilogue=help_text.SPEC_INIT)
 def cmd_spec_init(
     slug: Annotated[str, Parameter(help="Slug for the new spec (e.g. my-feature)")],
     *,
@@ -139,7 +145,7 @@ def cmd_spec_status() -> None:
         spec_status(conn, spec_override=_spec_override)
 
 
-@spec_app.command(name="set-status")
+@spec_app.command(name="set-status", help_epilogue=help_text.SPEC_SET_STATUS)
 def cmd_spec_set_status(
     status: Annotated[
         str,
@@ -163,7 +169,7 @@ def cmd_spec_next_number() -> None:
 # ---------------------------------------------------------------------------
 
 
-@run_app.command(name="start")
+@run_app.command(name="start", help_epilogue=help_text.RUN_START)
 def cmd_run_start(
     *,
     base_commit: Annotated[
@@ -219,7 +225,7 @@ def cmd_run_status() -> None:
         )
 
 
-@run_app.command(name="complete")
+@run_app.command(name="complete", help_epilogue=help_text.RUN_COMPLETE)
 def cmd_run_complete(
     *,
     pr_url: Annotated[
@@ -233,7 +239,7 @@ def cmd_run_complete(
         run_complete(conn, ctx["active_run_id"], ctx["spec_id"], pr_url=pr_url)
 
 
-@run_app.command(name="stop")
+@run_app.command(name="stop", help_epilogue=help_text.RUN_STOP)
 def cmd_run_stop(
     *,
     reason: Annotated[
@@ -257,7 +263,7 @@ def cmd_run_stop(
         )
 
 
-@run_app.command(name="resume")
+@run_app.command(name="resume", help_epilogue=help_text.RUN_RESUME)
 def cmd_run_resume(
     *,
     run_id: Annotated[
@@ -281,7 +287,7 @@ def cmd_run_resume(
 # ---------------------------------------------------------------------------
 
 
-@task_app.command(name="start")
+@task_app.command(name="start", help_epilogue=help_text.TASK_START)
 def cmd_task_start(
     task_id: Annotated[str, Parameter(help="Task ID (e.g. T01)")],
 ) -> None:
@@ -291,7 +297,7 @@ def cmd_task_start(
         task_start(conn, ctx["active_run_id"], task_id)
 
 
-@task_app.command(name="update")
+@task_app.command(name="update", help_epilogue=help_text.TASK_UPDATE)
 def cmd_task_update(
     task_id: Annotated[str, Parameter(help="Task ID (e.g. T01)")],
     *,
@@ -306,7 +312,7 @@ def cmd_task_update(
         task_update(conn, ctx["active_run_id"], task_id, status)
 
 
-@task_app.command(name="verdict")
+@task_app.command(name="verdict", help_epilogue=help_text.TASK_VERDICT)
 def cmd_task_verdict(
     task_id: Annotated[str, Parameter(help="Task ID (e.g. T01)")],
     *,
@@ -345,7 +351,7 @@ def cmd_task_verdict(
         )
 
 
-@task_app.command(name="block")
+@task_app.command(name="block", help_epilogue=help_text.TASK_BLOCK)
 def cmd_task_block(
     task_id: Annotated[str, Parameter(help="Task ID (e.g. T01)")],
     *,
@@ -367,7 +373,7 @@ def cmd_task_block(
 # ---------------------------------------------------------------------------
 
 
-@app.command(name="gate")
+@app.command(name="gate", help_epilogue=help_text.GATE)
 def cmd_gate(
     gate_type: Annotated[
         str,
@@ -460,7 +466,7 @@ def cmd_dispatch(
         )
 
 
-@dispatch_app.command(name="end")
+@dispatch_app.command(name="end", help_epilogue=help_text.DISPATCH_END)
 def cmd_dispatch_end(
     dispatch_id: Annotated[int, Parameter(help="Dispatch ID to mark as completed")],
 ) -> None:
@@ -474,7 +480,7 @@ def cmd_dispatch_end(
 # ---------------------------------------------------------------------------
 
 
-@app.command(name="event")
+@app.command(name="event", help_epilogue=help_text.EVENT)
 def cmd_event(
     event_name: Annotated[
         str,
@@ -542,7 +548,7 @@ def handle_event(
 # ---------------------------------------------------------------------------
 
 
-@session_app.command(name="end")
+@session_app.command(name="end", help_epilogue=help_text.SESSION_END)
 def cmd_session_end(
     *,
     reason: Annotated[
@@ -592,7 +598,7 @@ def cmd_session_end(
             )
 
 
-@session_app.command(name="compacted")
+@session_app.command(name="compacted", help_epilogue=help_text.SESSION_COMPACTED)
 def cmd_session_compacted(
     *,
     context_pct: Annotated[
@@ -623,7 +629,7 @@ def cmd_session_compacted(
 # ---------------------------------------------------------------------------
 
 
-@app.command(name="archive")
+@app.command(name="archive", help_epilogue=help_text.ARCHIVE)
 def cmd_archive(
     *,
     dry_run: Annotated[
@@ -645,7 +651,7 @@ def cmd_archive(
 # ---------------------------------------------------------------------------
 
 
-@app.command(name="set")
+@app.command(name="set", help_epilogue=help_text.SET)
 def cmd_set(
     entity: Annotated[
         str,
@@ -785,6 +791,16 @@ def main() -> None:
         if isinstance(exc, CycloptsError):
             raise SystemExit(2) from exc
         raise
+    except sqlite3.Error as exc:
+        _try_record_invocation(argv, exit_code=1, start=start)
+        output_module.emit_error(
+            f"Database error: {exc}",
+            code="db_error",
+            hint=f"Check DB path and permissions: {get_db_path()}",
+        )
+    except OSError as exc:
+        _try_record_invocation(argv, exit_code=1, start=start)
+        output_module.emit_error(f"I/O error: {exc}", code="io_error")
 
     _try_record_invocation(argv, exit_code=0, start=start)
 

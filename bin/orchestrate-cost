@@ -933,11 +933,6 @@ def main() -> int:
             )
             return 1
 
-    root = projects_root(args.projects)
-    if not root.is_dir():
-        print(f"projects root not found: {root}", file=sys.stderr)
-        return 1
-
     # SQL-first: query the cfl DB for runs it knows about, then fall back to JSONL
     # parsing for any runs that predate the DB (no DB entry).
     db_runs: list[Run] = []
@@ -950,7 +945,23 @@ def main() -> int:
         finally:
             conn.close()
 
-    jsonl_runs, coverage = build_runs(root, since, exclude_keys=db_keys)
+    jsonl_runs: list[Run] = []
+    coverage: dict = {
+        "undelimited": 0, "unwindowed": 0, "crashed": 0,
+        "unpriced": 0, "excluded_n": 0, "excluded_usd": 0.0,
+    }
+    root = projects_root(args.projects)
+    if root.is_dir():
+        jsonl_runs, coverage = build_runs(root, since, exclude_keys=db_keys)
+    elif db_runs:
+        print(
+            f"note: projects root not found ({root}); showing DB runs only",
+            file=sys.stderr,
+        )
+    else:
+        print(f"projects root not found: {root}", file=sys.stderr)
+        return 1
+
     coverage["db_runs"] = len(db_runs)
     coverage["pending_dispatches"] = db_pending
     runs = db_runs + jsonl_runs

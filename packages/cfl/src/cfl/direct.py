@@ -31,7 +31,7 @@ _ENTITY_PK: dict[str, str] = {
 
 # Column names that exist in each table. Used to validate field names before
 # issuing any UPDATE. Must match the schema in db.py exactly.
-_ENTITY_COLUMNS: dict[str, frozenset[str]] = {
+ENTITY_COLUMNS: dict[str, frozenset[str]] = {
     "task": frozenset(
         {
             "status",
@@ -116,7 +116,7 @@ def set_field(
         )
 
     # Validate field names against known columns — exit 2 on unknown.
-    valid_cols = _ENTITY_COLUMNS[entity]
+    valid_cols = ENTITY_COLUMNS[entity]
     unknown = sorted(set(fields) - valid_cols)
     if unknown:
         output_module.emit_error(

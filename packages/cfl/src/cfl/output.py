@@ -38,9 +38,9 @@ def emit_error(
 ) -> NoReturn:
     """Write an error to stderr as JSON and exit.
 
-    Format: {"error": message, "code": code, "hint": hint}
+    Format: {"_v": 1, "error": message, "code": code, "hint": hint}
     """
-    err: dict = {"error": message, "code": code}
+    err: dict = {"_v": 1, "error": message, "code": code}
     if hint is not None:
         err["hint"] = hint
     print(json.dumps(err), file=sys.stderr)
@@ -49,7 +49,7 @@ def emit_error(
 
 def emit_warning(message: str, *, code: str) -> None:
     """Write a warning to stderr as JSON. Does not exit."""
-    print(json.dumps({"warning": message, "code": code}), file=sys.stderr)
+    print(json.dumps({"_v": 1, "warning": message, "code": code}), file=sys.stderr)
 
 
 def to_iso(dt_string: str | None) -> str | None:

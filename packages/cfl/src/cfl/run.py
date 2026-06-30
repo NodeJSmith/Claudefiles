@@ -59,6 +59,11 @@ def run_start(
 
     if base_commit is None:
         base_commit = _get_head_commit()
+        if base_commit == "unknown":
+            output_module.emit_warning(
+                "Could not resolve HEAD commit; base_commit set to 'unknown'.",
+                code="base_commit_unknown",
+            )
 
     conn.execute("BEGIN IMMEDIATE")
     try:

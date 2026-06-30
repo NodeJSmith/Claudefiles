@@ -83,7 +83,8 @@ def end_dispatch(conn: sqlite3.Connection, dispatch_id: int) -> None:
     conn.execute("BEGIN IMMEDIATE")
     try:
         row = conn.execute(
-            "SELECT id, completed_at FROM dispatches WHERE id=?", (dispatch_id,)
+            "SELECT id, completed_at, role, task_id FROM dispatches WHERE id=?",
+            (dispatch_id,),
         ).fetchone()
         if row is None:
             conn.execute("ROLLBACK")
@@ -111,13 +112,15 @@ def end_dispatch(conn: sqlite3.Connection, dispatch_id: int) -> None:
         conn.execute("ROLLBACK")
         raise
 
-    row = conn.execute(
+    ended = conn.execute(
         "SELECT completed_at FROM dispatches WHERE id=?", (dispatch_id,)
     ).fetchone()
 
     output_module.emit(
         {
             "dispatch_id": dispatch_id,
-            "completed_at": output_module.to_iso(row["completed_at"]),
+            "role": row["role"],
+            "task_id": row["task_id"],
+            "completed_at": output_module.to_iso(ended["completed_at"]),
         }
     )
