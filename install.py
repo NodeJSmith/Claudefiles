@@ -123,7 +123,7 @@ def get_bundles(repo_dir: Path) -> dict[str, Bundle]:
                 "issue-refiner",
                 "secrets-auditor",
             ),
-            packages=("spec-helper", "merge-settings"),
+            packages=("cfl", "merge-settings"),
             always_installed=True,
         ),
         "frontend": Bundle(

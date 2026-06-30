@@ -6,7 +6,7 @@ user-invocable: true
 
 # Orchestrate
 
-Execute an approved set of tasks. Runs each task through an executor → spec reviewer → code reviewer → integration reviewer loop. Gates on deviations. Updates checkpoint state after each task completes.
+Execute an approved set of tasks. Runs each task through an executor → spec reviewer → code reviewer → integration reviewer loop. Gates on deviations. Updates run state via cfl after each task completes.
 
 ## Arguments
 
@@ -19,24 +19,24 @@ $ARGUMENTS — path to a feature directory (`design/specs/NNN-feature/`) or a sp
 If context compaction occurs mid-orchestration (new session, context window reset), resume by:
 
 1. Run `/mine-status` for quick orientation (branch, last commit, errors)
-2. Run `spec-helper checkpoint-read <feature_dir_name> --json` to recover full orchestration state (completed tasks, current task, tmpdir, base commit)
-3. Re-invoke `/mine-orchestrate <feature_dir>` — the checkpoint detection in Phase 0 will pick up where you left off
+2. Run `cfl run status` to recover full orchestration state (task list with statuses, `last_completed`, `current_task`, `tmpdir`, `base_commit`)
+3. Re-invoke `/mine-orchestrate <feature_dir>` — the resume detection in Phase 0 will pick up where you left off
 
-The checkpoint file (`tasks/.orchestrate-state.md`) persists across sessions. Per-task temp artifacts (executor output, review files, screenshots) may be lost if `/tmp` was cleared between sessions — the resume path handles this gracefully by skipping review-file checks for already-completed tasks.
+Run state persists in the cfl SQLite DB across sessions. Per-task temp artifacts (executor output, review files, screenshots) may be lost if `/tmp` was cleared between sessions — the resume path handles this gracefully by skipping review-file checks for already-completed tasks.
 
 ---
 
 ## Phase 0: Locate the Tasks
 
-### Check for existing checkpoint (resume detection)
+### Check for existing run (resume detection)
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/resume-protocol.md` and follow it. If a checkpoint exists, the protocol either resumes at Phase 2 or restarts fresh; if no checkpoint exists, proceed to "Branch staleness pre-flight" below.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/resume-protocol.md` and follow it. If an active run exists, the protocol either resumes at Phase 2 or restarts fresh; if no active run exists, proceed to "Branch staleness pre-flight" below.
 
 ### Branch staleness pre-flight
 
-**Skip on resume**: if the resume-protocol above resumed an existing run at Phase 2, do NOT run this check — work is already in progress against the checkpoint's `base_commit`, and rebasing now would invalidate it. This runs only on a fresh run or a restart-fresh (the resume protocol discarded a stale checkpoint and is starting over).
+**Skip on resume**: if the resume-protocol above resumed an existing run at Phase 2, do NOT run this check — work is already in progress against the run's `base_commit`, and rebasing now would invalidate it. This runs only on a fresh run or a restart-fresh (the resume protocol stopped the stale run and is starting over).
 
-A 12-hour run that stamps its `base_commit` onto a stale base will conflict late. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/staleness-preflight.md` and follow it in **gate** mode, with this stakes sentence: "Starting orchestrate now bases the whole run on stale code." On Abort, stop without creating a checkpoint.
+A 12-hour run that stamps its `base_commit` onto a stale base will conflict late. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/staleness-preflight.md` and follow it in **gate** mode, with this stakes sentence: "Starting orchestrate now bases the whole run on stale code." On Abort, stop without starting a run.
 
 ### Find the feature directory
 
@@ -74,7 +74,7 @@ Read all `<feature_dir>/tasks/T*.md` files in order. For each task, extract:
 - `title`
 - `depends_on`
 
-**Ordering note**: The tmpdir must exist before the checkpoint-init call. Obtain it via `get-skill-tmpdir mine-orchestrate` before the checkpoint-init call, then use it in the `--tmpdir` argument.
+**Ordering note**: The tmpdir must exist before `cfl run start`. Obtain it via `get-skill-tmpdir mine-orchestrate` before calling `cfl run start`, then use it in the `--tmpdir` argument.
 
 ### Dev server check (visual verification)
 
@@ -110,9 +110,9 @@ If a dev server was found (`visual_mode` is `enabled`), verify vision capability
 
 **Known limitation**: This check validates the orchestrator's vision capability. The visual reviewer subagent is launched with `model: sonnet` (which has vision), so capability should match. If model routing changes, this check may provide false assurance — the fallback at Step 11 (missing/empty visual reviewer output → FAIL) handles subagent-side failures.
 
-### Write initial checkpoint
+### Initialize orchestration run via cfl
 
-After Phase 0 completes (feature directory found, design doc and task files read, dev server check done, vision check done), record the base commit and create the checkpoint via `spec-helper`.
+After Phase 0 completes (feature directory found, design doc and task files read, dev server check done, vision check done), record the base commit and start the run via `cfl`.
 
 **Timing: capture `base_commit` BEFORE any task execution begins.** This is the snapshot of HEAD before the orchestrator modifies any files, so that `git diff --name-only <base_commit> HEAD` after execution shows exactly what changed.
 
@@ -122,24 +122,15 @@ First, get the base commit:
 git rev-parse --short HEAD
 ```
 
-Then create the checkpoint:
+Then start the run:
 
 ```bash
-spec-helper checkpoint-init <feature_dir_name> --tmpdir <tmpdir> --base-commit <sha> [--visual-mode <enabled|skipped_no_server|skipped_no_vision>] [--dev-server-url <url>] --json
+cfl run start --base-commit <sha> --tmpdir <tmpdir> [--visual-mode <enabled|skipped_no_server|skipped_no_vision>] [--dev-server-url <url>]
 ```
 
-The checkpoint is written to `<feature_dir>/tasks/.orchestrate-state.md` with validated schema.
+`cfl run start` reads task files from disk, creates the run and all task rows atomically in the DB, and emits the `run.started` event internally. No separate trail-log call is needed. The `tmpdir` field from the JSON output is the canonical tmpdir for this run.
 
-**Gitignore the checkpoint:** Ensure `tasks/.orchestrate-state.md` is excluded from git. Check if `<feature_dir>/tasks/.gitignore` or `<feature_dir>/.gitignore` already contains this entry. If not, append `.orchestrate-state.md` to `<feature_dir>/tasks/.gitignore` (create the file if needed). This prevents the checkpoint file from being accidentally staged in WIP commits.
-
-**Set up trail logging** (see also: resume-protocol.md for the resume-path equivalent): After writing the checkpoint:
-
-1. Derive the trail path: `trail_path="<feature_dir>/trail.tsv"` (from the checkpoint's `feature_dir` field).
-2. Gitignore trail files: check if `<feature_dir>/.gitignore` already contains `trail.tsv` and `trail-audit.md`. If not, append both entries to `<feature_dir>/.gitignore` (create the file if needed).
-3. Probe writability: run `trail-log "<trail_path>" p0 - start "orchestrate run started"`. If this returns non-zero, surface: "Trail logging unavailable — check permissions at `<feature_dir>/`. Run will continue; trail will be absent." Set `trail_available=false`. Otherwise set `trail_available=true`.
-4. Initialize the log failure counter: `log_failures=0`.
-
-**Trail-logging counter rule (applies to ALL `trail-log` calls below and in post-execution-pipeline.md):** Every `trail-log` call that returns non-zero increments the counter: `log_failures=$((log_failures + 1))`. The call sites below show the bare `trail-log` command; apply this rule to each.
+The active run is resolved from the DB for all subsequent `cfl` calls — no path argument required.
 
 ---
 
@@ -153,7 +144,7 @@ T02  Implement service layer
 T03  Write integration tests
 ```
 
-**Auto-select the start point** from the checkpoint state. If the checkpoint has a `last_completed_wp` field, start from the next task after it; otherwise start from the first task. Only ask the user if the state is genuinely ambiguous — e.g., all tasks already have verdicts in the checkpoint.
+**Auto-select the start point** from the run state. If the run has a `last_completed` field, start from the next task after it; otherwise start from the first task. Only ask the user if the state is genuinely ambiguous — e.g., all tasks already have verdicts in the run.
 
 ---
 
@@ -166,16 +157,13 @@ For each task from the start point to the last task:
 Tell the user:
 > **<task_id>: <title>**
 
-Record the task in the checkpoint (so resume after compaction returns to this task):
+Record the task as executing in the DB (so resume after compaction returns to this task):
 
 ```bash
-spec-helper checkpoint-update <feature_dir_name> --current-wp <task_id> --current-wp-status executing --json
+cfl task start <task_id>
 ```
 
-Where `<feature_dir_name>` is the directory name (e.g., `001-user-auth`), not the full path.
-
-If `trail_available` is true, log the task start:
-`trail-log "<trail_path>" p2 <task_id> start "<task_id>: <title>"`
+`cfl task start` emits the `task.started` event internally — no separate logging call needed.
 
 ### Step 2: Discover and confirm test + lint commands, capture baselines (first task only)
 
@@ -230,7 +218,7 @@ If a command file contains the sentinel value (`no test suite` / `no lint tools`
 
 ### Step 3: Create per-task subdirectory
 
-Use the run-level tmpdir from the checkpoint (`tmpdir` field from Phase 0's `checkpoint-init`). Do NOT call `get-skill-tmpdir` here — it creates a new directory each time, orphaning previous task evidence.
+Use the run-level tmpdir from `cfl run start` output (`tmpdir` field from Phase 0). Do NOT call `get-skill-tmpdir` here — it creates a new directory each time, orphaning previous task evidence.
 
 Create a per-task subdirectory: `<dir>/<task_id>/` (e.g., `<dir>/t01/`). Use these paths for subagent outputs within the subdirectory:
 - Executor output: `<dir>/<task_id>/executor.md`
@@ -251,8 +239,13 @@ Per-task subdirectories preserve evidence across the full orchestration run. Thi
 
 Before launching the executor, read the task's objective and subtasks to determine if a specialized agent is a better fit than `general-purpose`. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/agent-routing.md` for the routing table. First match wins — stop at the first row that applies.
 
-If `trail_available` is true, log the dispatch decision after selecting the agent type:
-`trail-log "<trail_path>" p2 <task_id> dispatch "agent type: <selected_agent_type>; routing match: <matched rule or 'default general-purpose'>"`
+After selecting the agent type, record the dispatch and capture its ID:
+
+```bash
+cfl dispatch executor <task_id> --agent-type <selected_agent_type> --routing-reason "<matched rule or 'default general-purpose'>"
+```
+
+Parse `dispatch_id` from the JSON output — it is required for `cfl dispatch end` after the executor returns.
 
 ### Step 5: Launch executor subagent
 
@@ -314,7 +307,11 @@ Capture any test/lint output you run to: <absolute path: dir>/<task_id>/test-out
 Save screenshots to: <absolute path: dir>/<task_id>/>
 ```
 
-Wait for the subagent to complete.
+Wait for the subagent to complete. Then mark the dispatch as done:
+
+```bash
+cfl dispatch end <dispatch_id>
+```
 
 ### Step 6: Capture changed files
 
@@ -327,16 +324,39 @@ git ls-files --others --exclude-standard
 
 Always run both commands — the first catches all modified/deleted tracked files (staged and unstaged) relative to HEAD, the second catches newly created untracked files. Combine both lists (deduped) and write to `<dir>/<task_id>/changed-files.txt` (one path per line). This file is used by the reviewers (Step 8) and the commit step (Step 17a). If both commands return empty, the executor may not have made any file changes — proceed to the reviewers, which will catch this if unexpected.
 
+### Step 6b: Transition task to reviewing
+
+After capturing changed files, transition the task from `executing` to `reviewing`:
+
+```bash
+cfl task update <task_id> --status reviewing
+```
+
+This marks the boundary between implementation (executor) and verification (reviewers). The `reviewing` state is a precondition for `cfl task verdict` (Step 17b) and for `cfl task update --status fixing` (fix loops).
+
 ### Step 7: CONTESTED criteria resolution
 
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/contested-criteria.md` and follow it. This must happen before the spec reviewer runs — the spec reviewer receives the possibly-updated verification criteria after CONTESTED items are resolved.
 
-For each CONTESTED criterion resolved (accept or reject), if `trail_available` is true, log it:
-`trail-log "<trail_path>" p2 <task_id> contested "<criterion text>: <accept|reject> — <rationale>"`
+For each CONTESTED criterion resolved (accept or reject), emit an event:
+
+```bash
+cfl event task.contested <task_id> --data '{"criterion": "<criterion text>", "decision": "<accept|reject>", "rationale": "<rationale>"}'
+```
 
 ### Step 8: Parallel review pass
 
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/spec-reviewer-prompt.md`.
+
+Before launching, record three dispatches and capture their IDs:
+
+```bash
+cfl dispatch spec-reviewer <task_id> --agent-type general-purpose
+cfl dispatch code-reviewer <task_id> --agent-type code-reviewer
+cfl dispatch integration-reviewer <task_id> --agent-type integration-reviewer
+```
+
+Parse `dispatch_id` from each JSON response — needed for `cfl dispatch end` after each returns.
 
 Launch **all three reviewers in parallel** (three Agent tool calls in a single message):
 
@@ -389,13 +409,29 @@ Review these changed files: <changed file list from Step 6>
 Write your review to: <absolute path: dir>/<task_id>/integration-review.md>
 ```
 
-Wait for all three to complete. Extract each reviewer's canonical verdict line from its report file — do **not** read the report bodies:
+Wait for all three to complete. Mark all three dispatches done:
+
+```bash
+cfl dispatch end <spec_reviewer_dispatch_id>
+cfl dispatch end <code_reviewer_dispatch_id>
+cfl dispatch end <integration_reviewer_dispatch_id>
+```
+
+Extract each reviewer's canonical verdict line from its report file — do **not** read the report bodies:
 
 - Spec: Grep `<dir>/<task_id>/spec-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract PASS / WARN / FAIL
-- Code: Grep `<dir>/<task_id>/code-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract APPROVE / WARN / BLOCK and the findings count N from `(findings: N)`
-- Integration: Grep `<dir>/<task_id>/integration-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract APPROVE / WARN / BLOCK and the findings count N
+- Code: Grep `<dir>/<task_id>/code-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract PASS / WARN / FAIL and the findings count N from `(findings: N)`
+- Integration: Grep `<dir>/<task_id>/integration-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract PASS / WARN / FAIL and the findings count N
 
 Record these three verdict lines (the extracted text, not the file contents) for use by Steps 12, 13, and 14. If a line is absent from a required reviewer's file, treat that reviewer as failed and re-run it.
+
+Record the three gate results:
+
+```bash
+cfl gate spec-review <task_id> --verdict <PASS|WARN|FAIL>
+cfl gate code-review <task_id> --verdict <PASS|WARN|FAIL> --data '{"findings": <N>}'
+cfl gate integration-review <task_id> --verdict <PASS|WARN|FAIL> --data '{"findings": <N>}'
+```
 
 ### Step 9: Test and lint gate
 
@@ -429,30 +465,40 @@ After the parallel reviews complete (regardless of verdicts), re-run the project
 
 **Lint verdict impact**: Lint regressions (checks that passed in the baseline now fail) contribute WARN to the task verdict. The executor should address lint issues proactively; if they don't, regressions surface as WARN at the verdict assembly and are reported in Step 15. Lint regressions do not independently FAIL the task. Pre-existing lint failures do not contribute to the verdict.
 
-After both gates complete, if `trail_available` is true, log the gate results:
-`trail-log "<trail_path>" p2 <task_id> gate "test: <PASS|FAIL (N regressions)|SKIPPED> | lint: <PASS|WARN (N regressions)|SKIPPED>"`
+After both gates complete, record their results:
+
+```bash
+cfl gate test-gate <task_id> --verdict <PASS|FAIL|SKIPPED> --data '{"total": <N>, "passed": <N>, "failed": <N>, "regressions": <N>}'
+cfl gate lint-gate <task_id> --verdict <PASS|WARN|SKIPPED> --data '{"commands": [<per-command results>]}'
+```
 
 ### Step 10: WARN fix loop (if spec reviewer returned WARN)
 
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/warn-fix-loop.md` and follow it.
 
-If the WARN fix loop ran and `trail_available` is true, log the retry decision after the loop completes:
-`trail-log "<trail_path>" p2 <task_id> retry "WARN classification: <fixable|structural>; retry decision: <retried|skipped>; iteration count: <N>"`
+If the WARN fix loop ran and a retry was attempted, emit a retry event after the loop completes:
+
+```bash
+cfl event task.retried <task_id> --data '{"reason": "WARN classification: <fixable|structural>; retry decision: <retried|skipped>", "iteration": <N>}'
+```
 
 ### Step 11: Visual reviewer (conditional)
 
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/visual-reviewer-prompt.md`, then read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/visual-reviewer-launch.md` and follow it.
 
-If the visual reviewer ran and `trail_available` is true, log the result after it completes:
-`trail-log "<trail_path>" p2 <task_id> review "visual: <VERIFIED|WARN|FAIL|SKIPPED> (<N scenarios>)"`
+If the visual reviewer ran, record the gate result after it completes (VERIFIED maps to PASS):
+
+```bash
+cfl gate visual-review <task_id> --verdict <PASS|WARN|FAIL|SKIPPED> --data '{"scenarios": <N>, "verified": <N>, "warned": <N>, "skipped": <N>}'
+```
 
 ### Step 12: Review findings fix loop
 
-When the canonical verdict line for the code reviewer or integration reviewer from Step 8 shows `findings > 0`, or its verdict is WARN or BLOCK, read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/findings-fix-loop.md` and follow it.
+When the canonical verdict line for the code reviewer or integration reviewer from Step 8 shows `findings > 0`, or its verdict is WARN or FAIL, read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/findings-fix-loop.md` and follow it.
 
 Spec and visual findings do **not** trigger this loop — a spec WARN routes to the Step 10 WARN loop, a spec FAIL routes to Step 16, and visual findings feed Step 14 directly.
 
-The fix loop handles trail logging, changed-files re-capture, and the gate decision internally — it produces a **fixer gate result** of PASS or FAIL (per its terminal-state-A/B logic in `findings-fix-loop.md`). Record that result; do **not** route on it here. Continue to Step 13 regardless. The fixer gate result is one input to the Step 14 verdict assembly (the single authoritative gate), which Step 15 presents and Step 16 acts on. If the loop was not triggered, there is no fixer gate result and Step 14 treats code/integration as clean.
+The fix loop handles cfl event emission, changed-files re-capture, and the gate decision internally — it produces a **fixer gate result** of PASS or FAIL (per its terminal-state-A/B logic in `findings-fix-loop.md`). Record that result; do **not** route on it here. Continue to Step 13 regardless. The fixer gate result is one input to the Step 14 verdict assembly (the single authoritative gate), which Step 15 presents and Step 16 acts on. If the loop was not triggered, there is no fixer gate result and Step 14 treats code/integration as clean.
 
 ### Step 13: Review gate
 
@@ -488,8 +534,7 @@ WARN is reserved for genuinely unresolved items. Always include a parenthetical 
 
 **PASS** if all reviewers clean and no unresolved issues. If findings were raised and fixed or deferred by the fixer loop, the verdict is **PASS** with a note from the fixer gate result's `(N auto-fixed)` count carried back from Step 12 (not a fresh ledger read) — e.g., `PASS (3 auto-fixed)`. Deferred and resolved findings do not downgrade the verdict to WARN.
 
-If `trail_available` is true, log the assembled verdict:
-`trail-log "<trail_path>" p2 <task_id> verdict "<assembled verdict with parenthetical> | spec: <verdict> | code: <verdict> | integration: <verdict> | test: <verdict> | lint: <verdict>"`
+The verdict is recorded via `cfl task verdict` in Step 17b (after the WIP commit) — that single call captures the verdict, commit SHA, reviewer breakdown, and emits the `task.verdict` event and verdict-assembly gate atomically.
 
 ### Step 15: Present results and gate
 
@@ -499,9 +544,9 @@ Present a summary:
 **<task_id>: <title> — <overall verdict>**
 
 Spec review: PASS|WARN|FAIL
-Visual: VERIFIED (N scenarios)|WARN|FAIL|SKIPPED|N/A
-Code review: APPROVE|WARN|BLOCK (N iterations) — NEVER "N/A" or "skipped"
-Integration review: APPROVE|WARN|BLOCK — NEVER "N/A" or "skipped"
+Visual: PASS (N scenarios)|WARN|FAIL|SKIPPED|N/A
+Code review: PASS|WARN|FAIL (N iterations) — NEVER "N/A" or "skipped"
+Integration review: PASS|WARN|FAIL — NEVER "N/A" or "skipped"
 Test gate: PASS (N tests)|FAIL (N failures — see test-gate.md)|SKIPPED
 Lint gate: PASS|WARN (N regressions)|SKIPPED
 
@@ -509,11 +554,11 @@ Lint gate: PASS|WARN (N regressions)|SKIPPED
 [Any WARN or FAIL details]
 ```
 
-### Step 16: Gate decision and checkpoint update
+### Step 16: Gate decision
 
 Gate based on verdict:
 
-**PASS or WARN** — auto-continue to the next task. Display the summary but do not ask for confirmation. Proceed to Step 17 (WIP commit + checkpoint update). Do NOT update the checkpoint here — the checkpoint must only be updated after the WIP commit succeeds (Step 17b) to prevent resume from skipping uncommitted tasks.
+**PASS or WARN** — auto-continue to the next task. Display the summary but do not ask for confirmation. Proceed to Step 17 (WIP commit + cfl task verdict). Do NOT record the verdict here — `cfl task verdict` in Step 17b records it after the WIP commit succeeds, ensuring the commit SHA is captured.
 
 Note: by this point, spec reviewer WARNs have been addressed by Step 10 and all code/integration findings have been resolved by Step 12. A PASS verdict may include a note like `(3 auto-fixed)` — this means findings were raised and resolved. A WARN verdict means something genuinely unresolved remains (visual issues, pre-existing test failures, unresolved lint regressions).
 
@@ -532,17 +577,21 @@ AskUserQuestion:
       description: "Pause execution; resume later with /mine-orchestrate"
 ```
 
-For FAIL/BLOCKED gate outcomes, **write a partial checkpoint update** before taking the gate action:
+For FAIL/BLOCKED gate outcomes, **update the task status** before taking the gate action (so resume returns to this task instead of skipping it). Then:
 
-```bash
-spec-helper checkpoint-update <feature_dir_name> --current-wp <task_id> --current-wp-status <retry_pending|blocked|stopped> --json
-```
-
-This ensures resume correctly returns to this task instead of skipping it. Then:
-
-- **Fix and retry**: set `current_wp_status: retry_pending`. Re-run from Step 4 (which includes Step 5 executor + Step 6 file capture) using `retry-prompt.md` as the base prompt (instead of `implementer-prompt.md`). Populate the `## Previous review feedback` template in `retry-prompt.md` with reviewer file paths based on which steps were reached: spec reviewer always; code reviewer and integration reviewer if Step 12 was reached; visual reviewer if it ran. Pass N/A for any reviewer that didn't reach its step. The executor reads these files directly — do not inline or truncate the reviewer output. Only provide the most recent attempt's reviewer file paths.
-- **Mark as blocked and skip**: set `current_wp_status: blocked`. Record the blocker in the checkpoint notes.
-- **Stop here**: set `current_wp_status: stopped`.
+- **Fix and retry**: update status to `fixing`:
+  ```bash
+  cfl task update <task_id> --status fixing
+  ```
+  Re-run from Step 4 (which includes Step 5 executor + Step 6 file capture + Step 6b reviewing transition) using `retry-prompt.md` as the base prompt (instead of `implementer-prompt.md`). Populate the `## Previous review feedback` template in `retry-prompt.md` with reviewer file paths based on which steps were reached: spec reviewer always; code reviewer and integration reviewer if Step 12 was reached; visual reviewer if it ran. Pass N/A for any reviewer that didn't reach its step. The executor reads these files directly — do not inline or truncate the reviewer output. Only provide the most recent attempt's reviewer file paths.
+- **Mark as blocked and skip**: record the block with a reason:
+  ```bash
+  cfl task block <task_id> --reason "<blocker description>"
+  ```
+- **Stop here**: stop the run (the task stays in its current state; `current_task` derives correctly on resume):
+  ```bash
+  cfl run stop --at-task <task_id> --reason "user chose stop at task gate"
+  ```
 
 **Architectural BLOCKED verdict only:**
 ```
@@ -559,7 +608,7 @@ AskUserQuestion:
 
 Do not offer "Fix and retry" or "skip" for architectural blocks — retrying without a plan change will produce the same result.
 
-### Step 17: WIP commit and checkpoint update
+### Step 17: WIP commit and verdict recording
 
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/wip-commit-protocol.md` and follow it.
 

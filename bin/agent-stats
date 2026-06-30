@@ -47,6 +47,7 @@ import datetime
 import json
 import os
 import re
+import sqlite3
 import statistics
 import sys
 from glob import glob
@@ -70,6 +71,145 @@ MODE_SPLIT_TYPES = {"fine-toothed-comb"}
 
 # Shown wherever a stat has no underlying data (empty denominator, no token usage).
 NO_DATA = "—"
+
+# --- cfl DB support ---
+# DB path logic replicated inline (standalone PEP 723 script). Keep in sync with
+# cfl.db.get_db_path() and the same WSL2 /mnt/ journal-mode guard.
+
+
+def _cfl_db_path() -> str:
+    """DB location: $CFL_DB or ~/.local/share/claudefiles/cfl.db."""
+    return os.environ.get(
+        "CFL_DB", os.path.expanduser("~/.local/share/claudefiles/cfl.db")
+    )
+
+
+def _open_cfl_db() -> sqlite3.Connection | None:
+    """Open the cfl SQLite DB if it exists. Returns None when unavailable."""
+    db_path = _cfl_db_path()
+    if not os.path.exists(db_path):
+        return None
+    try:
+        real_path = os.path.realpath(db_path)
+        journal_mode = "DELETE" if real_path.startswith("/mnt/") else "WAL"
+        conn = sqlite3.connect(db_path, isolation_level=None)
+        conn.row_factory = sqlite3.Row
+        conn.execute(f"PRAGMA journal_mode={journal_mode}")
+        conn.execute("PRAGMA busy_timeout=5000")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        conn.execute("PRAGMA foreign_keys=ON")
+        return conn
+    except sqlite3.Error:
+        return None
+
+
+def db_covered_dispatch_keys(conn: sqlite3.Connection) -> set[tuple[str, str]]:
+    """Return (session_uuid, tool_use_id) pairs for all dispatches tracked in the DB.
+    Used to skip JSONL subagents that are already represented by a DB dispatch row,
+    preventing double-counting when both DB and JSONL data cover the same run."""
+    try:
+        rows = conn.execute(
+            """
+            SELECT session_uuid, tool_use_id
+            FROM dispatches
+            WHERE session_uuid IS NOT NULL AND tool_use_id IS NOT NULL
+            """
+        ).fetchall()
+    except sqlite3.Error:
+        return set()
+    return {(row["session_uuid"], row["tool_use_id"]) for row in rows}
+
+
+def collect_db(
+    conn: sqlite3.Connection, type_filter: str | None, since_str: str | None
+) -> list[dict]:
+    """Query cfl DB for gate/dispatch data, returning records in the same format as
+    collect(). Only dispatches with a gate (reviewers) are included — executor dispatches
+    have no gate and no verdict. `since_str` is an ISO date (YYYY-MM-DD) or None.
+
+    `peak` is always 0 for DB records: raw token counts are not stored in the DB
+    (only peak_context_pct %). DB records are therefore excluded from peak-token stats.
+    `compactions` uses dispatches.compactions (populated by hook or ingest-cost); NULL
+    is treated as 0.
+    `report` and `jsonl` are empty strings for DB records: findings text lives in
+    gate files during execution and is not persisted to the DB in v1.
+    """
+    try:
+        rows = conn.execute(
+            """
+            SELECT
+                d.agent_type,
+                d.role,
+                d.compactions,
+                g.verdict,
+                g.gate_type,
+                g.data   AS gate_data,
+                s.slug   AS project,
+                d.dispatched_at
+            FROM dispatches d
+            JOIN gates g ON d.gate_id = g.id
+            JOIN runs r ON d.run_id = r.id
+            JOIN specs s ON r.spec_id = s.id
+            WHERE d.session_uuid IS NOT NULL
+              AND d.tool_use_id IS NOT NULL
+            ORDER BY d.dispatched_at
+            """
+        ).fetchall()
+    except sqlite3.Error:
+        return []
+
+    records = []
+    for row in rows:
+        agent_type = row["agent_type"] or "?"
+        if type_filter and agent_type != type_filter:
+            continue
+        if since_str and (row["dispatched_at"] or "")[:10] < since_str:
+            continue
+
+        gate_data: dict = {}
+        if row["gate_data"]:
+            try:
+                gate_data = json.loads(row["gate_data"])
+            except (ValueError, TypeError):
+                gate_data = {}
+
+        # Map unified DB verdicts (PASS/WARN/FAIL/SKIPPED) to agent-stats terms.
+        # Counts come from gate_data where the gate type stores them:
+        #   impl-comb → {"blocking": N, "minor": N}
+        #   code-review, integration-review → {"findings": N} (all findings, not split)
+        verdict_raw = row["verdict"] or "SKIPPED"
+        if verdict_raw in ("PASS", "SKIPPED"):
+            verdict, blk, mnr = "clean", 0, 0
+        elif verdict_raw == "WARN":
+            verdict = "minor"
+            blk = 0
+            mnr = gate_data.get("minor") or gate_data.get("findings") or 1
+        else:  # FAIL
+            verdict = "blocking"
+            blk = gate_data.get("blocking") or gate_data.get("findings") or 1
+            mnr = gate_data.get("minor", 0)
+
+        records.append(
+            {
+                "type": agent_type,
+                "desc": "",
+                "project": row["project"] or "?",
+                "verdict": verdict,
+                "blocking": blk,
+                "minor": mnr,
+                # compactions: NULL in DB means not yet populated by hook/ingest-cost; treat as 0.
+                "compactions": row["compactions"]
+                if row["compactions"] is not None
+                else 0,
+                # peak: raw token count not stored; 0 excludes this record from peak stats.
+                "peak": 0,
+                # impl: true when this is the orchestrate impl-vs-design comb pass.
+                "impl": row["gate_type"] == "impl-comb",
+                "jsonl": "",
+                "report": "",
+            }
+        )
+    return records
 
 
 def projects_root(override: str | None) -> Path:
@@ -205,11 +345,29 @@ def blocking_section(text: str) -> str:
     return m.group(1).strip() if m else ""
 
 
-def collect(root: Path, type_filter: str | None, since: float | None) -> list[dict]:
+def collect(
+    root: Path,
+    type_filter: str | None,
+    since: float | None,
+    skip_keys: set[tuple[str, str]] | None = None,
+) -> list[dict]:
+    """Collect stats from JSONL subagent transcripts.
+
+    `skip_keys`: (session_uuid, tool_use_id) pairs already tracked in the cfl DB —
+    skip matching JSONL files so DB data takes precedence and entries are not
+    double-counted in the merged result."""
     runs = []
     for meta, jsonl in iter_runs(root, type_filter):
         if since is not None and os.path.getmtime(jsonl) < since:
             continue
+        if skip_keys:
+            # Derive (session_uuid, tool_use_id) from the JSONL path:
+            #   <root>/<project>/<session_uuid>/subagents/agent-<tool_use_id>.jsonl
+            j = Path(jsonl)
+            session_uuid = j.parts[-3]
+            tool_use_id = j.stem.removeprefix("agent-")
+            if (session_uuid, tool_use_id) in skip_keys:
+                continue  # Already tracked in cfl DB; use SQL path instead.
         scan = scan_run(jsonl)
         report = scan["report"]
         verdict, blk, mnr = parse_summary(report)
@@ -294,8 +452,12 @@ def report_one_type(runs: list[dict], agent_type: str, show_findings: bool) -> N
 
     if show_findings:
         blockers = [r for r in runs if r["verdict"] == "blocking"]
-        print(f"=== blocking-finding text ({len(blockers)} runs) ===")
-        for r in sorted(blockers, key=lambda r: -(r["blocking"] or 0)):
+        # DB-sourced records have no report text (findings text is not persisted in v1).
+        text_blockers = [r for r in blockers if r["report"]]
+        db_only = len(blockers) - len(text_blockers)
+        note = f", {db_only} DB-sourced (no text)" if db_only else ""
+        print(f"=== blocking-finding text ({len(text_blockers)} runs{note}) ===")
+        for r in sorted(text_blockers, key=lambda r: -(r["blocking"] or 0)):
             mode = "impl" if r["impl"] else "other"
             print(
                 f"\n--- [{r['project']}] {mode}  "
@@ -374,16 +536,34 @@ def main() -> int:
         return 1
 
     since = None
+    since_str = (
+        None  # ISO date string for DB queries (separate from JSONL Unix timestamp)
+    )
     if args.since:
         try:
             y, m, d = (int(x) for x in args.since.split("-"))
             datetime.date(y, m, d)  # rejects invalid day/month (timegm would roll over)
             since = calendar.timegm((y, m, d, 0, 0, 0, 0, 0, 0))
+            since_str = args.since
         except (ValueError, TypeError):
             print(f"bad --since date (want YYYY-MM-DD): {args.since}", file=sys.stderr)
             return 1
 
-    runs = collect(root, args.type, since)
+    # SQL-first: query the cfl DB for dispatches it knows about, then fall back to JSONL
+    # for any subagents that predate the DB (no DB dispatch row).
+    db_records: list[dict] = []
+    skip_keys: set[tuple[str, str]] = set()
+    conn = _open_cfl_db()
+    if conn is not None:
+        try:
+            db_records = collect_db(conn, args.type, since_str)
+            skip_keys = db_covered_dispatch_keys(conn)
+        finally:
+            conn.close()
+
+    jsonl_records = collect(root, args.type, since, skip_keys=skip_keys)
+    runs = jsonl_records + db_records
+
     if args.impl_only:
         runs = [r for r in runs if r["impl"]]
 

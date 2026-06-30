@@ -3,14 +3,18 @@ requires = ["setuptools>=80"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "spec-helper"
-version = "2.0.0"
-description = "Work Package and spec directory management for the caliper v2 pipeline"
+name = "cfl"
+version = "0.1.0"
+description = "Claudefiles orchestration store CLI"
 requires-python = ">=3.11"
-dependencies = ["python-frontmatter"]
+dependencies = [
+    "cyclopts>=3",
+    "python-frontmatter",
+    "whenever>=0.10",
+]
 
 [project.scripts]
-spec-helper = "spec_helper.cli:main"
+cfl = "cfl.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

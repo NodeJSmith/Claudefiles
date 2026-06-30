@@ -7,7 +7,7 @@ Single source of truth for the canonical verdict line emitted by all four review
 ### Code and integration reviewers
 
 ```
-**Verdict:** APPROVE | WARN | BLOCK (findings: N)
+**Verdict:** PASS | WARN | FAIL (findings: N)
 ```
 
 ### Spec and visual reviewers
@@ -19,11 +19,13 @@ Single source of truth for the canonical verdict line emitted by all four review
 
 ## Verdict Vocabulary
 
+All reviewers use a normalized vocabulary aligned with the `cfl gate` verdict set (`PASS`, `WARN`, `FAIL`, `SKIPPED`). The visual reviewer uses `VERIFIED` as a synonym for `PASS`.
+
 | Reviewer | Verdict values |
 |---|---|
 | `spec-reviewer-prompt.md` | PASS / WARN / FAIL |
-| `agents/code-reviewer.md` | APPROVE / WARN / BLOCK |
-| `agents/integration-reviewer.md` | APPROVE / WARN / BLOCK |
+| `agents/code-reviewer.md` | PASS / WARN / FAIL |
+| `agents/integration-reviewer.md` | PASS / WARN / FAIL |
 | `visual-reviewer-prompt.md` | VERIFIED / WARN / FAIL |
 
 ## The `**Verdict:**` Prefix is Reserved

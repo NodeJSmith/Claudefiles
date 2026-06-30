@@ -51,7 +51,7 @@ tool: claude  # harness-only: skill/command routing tables are Claude-Code dispa
 | "review this plan", "check the plan", "plan review" | `/mine-plan` |
 | "execute the plan", "orchestrate implementation", "start executing" | `/mine-orchestrate` |
 | "review the implementation", "post-implementation review" | `/mine-orchestrate` (impl-review runs automatically in Phase 3) |
-| "archive completed specs", "clean up old WPs", "remove working documents", "one-time cleanup of design files" | `spec-helper archive --all` |
+| "archive completed specs", "clean up old WPs", "remove working documents", "one-time cleanup of design files" | `cfl archive` |
 | "review my changes", "run the reviewers", "code and integration review" | `/mine-review` |
 | "readability review", "maintainability review", "sniff test this", "WTF check", "code smells", "is this code any good", "fresh eyes on this branch", "review this directory", "check this module" | `/mine-review` |
 | "create a skill", "write a skill", "new skill" | `/mine-write-skill` |
@@ -82,7 +82,8 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "validate agent files", "check skill schema" | `agnix-check` |
 | "is this gate earning its keep", "how often does X subagent catch issues", "how often does the comb compact", "subagent effectiveness stats", "agent stats" | `agent-stats` |
 | "orchestrate run cost", "where do the token dollars go", "cost of orchestrate", "how much does a mine-orchestrate run cost", "cost by role and model", "is this gate worth the cost" | `orchestrate-cost` |
-| (internal — called by mine-orchestrate) | `trail-log` |
+| "spec status", "run status", "orchestration status", "what tasks are left" | `cfl run status` |
+| "query orchestration data", "pipeline effectiveness", "gate blocking rate" | `cfl` |
 | "cancel builds", "cancel pipeline runs", "list ADO builds" | `ado-api builds` |
 | "build logs", "CI logs", "why did the build fail" | `ado-api logs` |
 | "create ADO PR", "list ADO PRs", "show ADO PR" | `ado-api pr` |

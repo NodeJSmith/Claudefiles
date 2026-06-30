@@ -49,6 +49,7 @@ import argparse
 import json
 import os
 import re
+import sqlite3
 import statistics
 import sys
 from dataclasses import dataclass, field
@@ -120,6 +121,43 @@ ORCHESTRATE_TYPES = frozenset(
 )
 
 NO_DATA = "—"
+
+# Normalize SHAs to this many hex characters when building dedup keys.  The DB stores
+# full 40-char SHAs; JSONL trail markers may have 6–8 char short SHAs (BASE_COMMIT_RE
+# accepts 6-40).  Truncating both sides to 8 chars lets them match.
+_COMMIT_PREFIX_LEN = 8
+
+# Roles that the JSONL path prefixes with "gp:" (via resolve_role → GP_SIGNATURES).
+# DB dispatches store the bare canonical name; normalise to the gp:-prefixed form before
+# mixing the two sources so aggregation/counting sees one vocabulary.
+_GP_ROLES = frozenset(role for role, _sig in GP_SIGNATURES)
+
+# --- cfl DB support ---
+# DB path logic replicated inline (this is a PEP 723 standalone script, not part of the
+# cfl package). Keep in sync with cfl.db.get_db_path() and the same WSL2 /mnt/ guard.
+
+def _cfl_db_path() -> str:
+    """DB location: $CFL_DB or ~/.local/share/claudefiles/cfl.db."""
+    return os.environ.get("CFL_DB", os.path.expanduser("~/.local/share/claudefiles/cfl.db"))
+
+
+def _open_cfl_db() -> sqlite3.Connection | None:
+    """Open the cfl SQLite DB if it exists. Returns None when unavailable."""
+    db_path = _cfl_db_path()
+    if not os.path.exists(db_path):
+        return None
+    try:
+        real_path = os.path.realpath(db_path)
+        journal_mode = "DELETE" if real_path.startswith("/mnt/") else "WAL"
+        conn = sqlite3.connect(db_path, isolation_level=None)
+        conn.row_factory = sqlite3.Row
+        conn.execute(f"PRAGMA journal_mode={journal_mode}")
+        conn.execute("PRAGMA busy_timeout=5000")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        conn.execute("PRAGMA foreign_keys=ON")
+        return conn
+    except sqlite3.Error:
+        return None
 
 
 def projects_root(override: str | None) -> Path:
@@ -461,9 +499,14 @@ def attribute_subagents(
     return agents, cov
 
 
-def build_runs(root: Path, since: str | None) -> tuple[list[Run], dict]:
+def build_runs(
+    root: Path, since: str | None, exclude_keys: set[tuple[str, str]] | None = None
+) -> tuple[list[Run], dict]:
     """Delimit runs across all parent sessions, stitch multi-session runs by
     (feature, base_commit), and attribute orchestrator + subagent cost to each.
+
+    `exclude_keys`: (feature, base_commit) pairs already covered by the cfl DB — skip them
+    here so DB data takes precedence and runs are not double-counted.
 
     The CLI --since filter is applied AFTER merging, on each run's overall earliest start
     — filtering per-session would silently drop the early session of a run that straddles
@@ -488,7 +531,9 @@ def build_runs(root: Path, since: str | None) -> tuple[list[Run], dict]:
             # shared "?" placeholder, corrupting totals and fingerprints. Require both.
             undelimited_ts.append(markers.start_ts)
             continue
-        key = (markers.feature, markers.base_commit)
+        key = (markers.feature, markers.base_commit[:_COMMIT_PREFIX_LEN])
+        if exclude_keys and key in exclude_keys:
+            continue  # Run is in the cfl DB; SQL path takes precedence over JSONL.
         run = runs.get(key)
         if run is None:
             run = Run(
@@ -542,6 +587,84 @@ def _add_cost(a: Cost, b: Cost) -> Cost:
         absorbed=a.absorbed + b.absorbed,
         model=b.model or a.model,
     )
+
+
+def build_db_runs(
+    conn: sqlite3.Connection, since: str | None
+) -> tuple[list[Run], set[tuple[str, str]], int]:
+    """Query cfl DB for orchestrate runs.
+
+    Returns (runs, covered_keys, pending_dispatch_count):
+    - runs: Run objects built from dispatches.cost_total_usd (may be empty cost if pending).
+    - covered_keys: (feature, base_commit) pairs → JSONL fallback skips these.
+      A cross-repo key collision would suppress a valid JSONL run. This requires
+      matching both spec slug and base_commit prefix across unrelated git histories.
+    - pending_dispatch_count: dispatches with NULL cost_total_usd (awaiting cfl ingest-cost).
+
+    Orchestrator-loop cost is NOT stored in dispatches — it requires parsing the parent-session
+    JSONL. DB runs have run.orch = Cost() (zero). The render layer shows the orch band only
+    for runs where it is populated (JSONL-sourced runs).
+    """
+    try:
+        rows = conn.execute(
+            """
+            SELECT r.id, s.number, s.slug, r.base_commit, r.started_at
+            FROM runs r
+            JOIN specs s ON r.spec_id = s.id
+            ORDER BY r.started_at
+            """
+        ).fetchall()
+    except sqlite3.Error:
+        return [], set(), 0
+
+    db_keys: set[tuple[str, str]] = set()
+    runs: list[Run] = []
+    pending_total = 0
+
+    for row in rows:
+        feature = f"{row['number']:03d}-{row['slug']}" if row["number"] and row["slug"] else ""
+        base_commit = (row["base_commit"] or "")[:_COMMIT_PREFIX_LEN]
+        start_ts = row["started_at"] or ""
+        if since and start_ts[:10] < since:
+            continue
+        db_keys.add((feature, base_commit))
+
+        try:
+            dispatch_rows = conn.execute(
+                """
+                SELECT d.role, d.model, d.cost_total_usd
+                FROM dispatches d
+                WHERE d.run_id = ?
+                ORDER BY d.dispatched_at
+                """,
+                (row["id"],),
+            ).fetchall()
+        except sqlite3.Error:
+            dispatch_rows = []
+
+        run = Run(
+            feature=feature,
+            base_commit=base_commit,
+            start_ts=start_ts,
+            has_start=True,
+        )
+        for dr in dispatch_rows:
+            if dr["cost_total_usd"] is None:
+                pending_total += 1
+                continue
+            db_role = dr["role"] or ""
+            role = f"gp:{db_role}" if db_role in _GP_ROLES else db_role
+            run.agents.append(
+                AgentRun(
+                    role=role,
+                    model=short_model(dr["model"] or ""),
+                    cost=dr["cost_total_usd"],
+                    project="db",
+                )
+            )
+        runs.append(run)
+
+    return runs, db_keys, pending_total
 
 
 # --------------------------------------------------------------------------------------
@@ -620,10 +743,17 @@ def render_table(runs: list[Run], coverage: dict) -> None:
         return
     total = sum(r.total for r in runs)
     if total == 0:
-        print(
-            "delimited runs found but zero priced cost — nothing to report",
-            file=sys.stderr,
-        )
+        if coverage.get("pending_dispatches", 0) or coverage.get("db_runs", 0):
+            print(
+                f"found {len(runs)} cfl-managed run(s) but no priced dispatch costs yet — "
+                "run `cfl ingest-cost` to populate",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                "delimited runs found but zero priced cost — nothing to report",
+                file=sys.stderr,
+            )
         return
     starts = sorted(r.start_ts[:10] for r in runs if r.start_ts)
     span = f"{starts[0]} … {starts[-1]}" if starts else "unknown range"
@@ -633,17 +763,21 @@ def render_table(runs: list[Run], coverage: dict) -> None:
         f"{'role':<22} {'model':<12} {'calls':>5} {'total':>11} {'mean/call':>11} {'%':>5}"
     )
     print("-" * 70)
-    band = orchestrator_band(runs)
-    print(
-        f"{'orchestrator (own-gen)':<22} {NO_DATA:<12} {len(runs):>5} "
-        f"{usd(band['own_gen']):>11} {usd(band['own_gen'] / len(runs)):>11} "
-        f"{100 * band['own_gen'] / total:>4.0f}%"
-    )
-    print(
-        f"{'orchestrator (absorbed)':<22} {NO_DATA:<12} {len(runs):>5} "
-        f"{usd(band['absorbed']):>11} {usd(band['absorbed'] / len(runs)):>11} "
-        f"{100 * band['absorbed'] / total:>4.0f}%"
-    )
+    # Orchestrator-loop cost is only available for JSONL-sourced runs (computed by
+    # price_jsonl against the parent session). DB-sourced runs have run.orch = Cost().
+    orch_runs = [r for r in runs if r.orch.total > 0]
+    if orch_runs:
+        band = orchestrator_band(orch_runs)
+        print(
+            f"{'orchestrator (own-gen)':<22} {NO_DATA:<12} {len(orch_runs):>5} "
+            f"{usd(band['own_gen']):>11} {usd(band['own_gen'] / len(orch_runs)):>11} "
+            f"{100 * band['own_gen'] / total:>4.0f}%"
+        )
+        print(
+            f"{'orchestrator (absorbed)':<22} {NO_DATA:<12} {len(orch_runs):>5} "
+            f"{usd(band['absorbed']):>11} {usd(band['absorbed'] / len(orch_runs)):>11} "
+            f"{100 * band['absorbed'] / total:>4.0f}%"
+        )
     for r in aggregate_roles(runs):
         print(
             f"{r['role']:<22} {r['model']:<12} {r['calls']:>5} "
@@ -734,15 +868,27 @@ def render_table(runs: list[Run], coverage: dict) -> None:
         f"    excluded:        {coverage['excluded_n']} non-orchestrate subagent runs, "
         f"{usd(coverage['excluded_usd'])} (other skills sharing the session window)"
     )
+    if coverage.get("db_runs", 0):
+        print(
+            f"    db runs:         {coverage['db_runs']} "
+            "(orchestrator-loop cost not available; populated by cfl ingest-cost)"
+        )
+    if coverage.get("pending_dispatches", 0):
+        print(
+            f"    pending (cfl):   {coverage['pending_dispatches']} dispatch(es) "
+            "awaiting cfl ingest-cost"
+        )
 
 
 def render_json(runs: list[Run], coverage: dict) -> None:
     varying = varying_roles(runs)
+    # Only include orch band for runs where it was computed (JSONL-sourced runs).
+    orch_runs = [r for r in runs if r.orch.total > 0]
     out = {
         "runs": len(runs),
         "total_usd": sum(r.total for r in runs),
         "by_role_model": aggregate_roles(runs),
-        "orchestrator_band": orchestrator_band(runs),
+        "orchestrator_band": orchestrator_band(orch_runs),
         "per_run": {
             "mean_usd": statistics.mean([r.total for r in runs]) if runs else 0.0,
             "stdev_usd": statistics.stdev([r.total for r in runs])
@@ -787,12 +933,39 @@ def main() -> int:
             )
             return 1
 
+    # SQL-first: query the cfl DB for runs it knows about, then fall back to JSONL
+    # parsing for any runs that predate the DB (no DB entry).
+    db_runs: list[Run] = []
+    db_keys: set[tuple[str, str]] = set()
+    db_pending = 0
+    conn = _open_cfl_db()
+    if conn is not None:
+        try:
+            db_runs, db_keys, db_pending = build_db_runs(conn, since)
+        finally:
+            conn.close()
+
+    jsonl_runs: list[Run] = []
+    coverage: dict = {
+        "undelimited": 0, "unwindowed": 0, "crashed": 0,
+        "unpriced": 0, "excluded_n": 0, "excluded_usd": 0.0,
+    }
     root = projects_root(args.projects)
-    if not root.is_dir():
+    if root.is_dir():
+        jsonl_runs, coverage = build_runs(root, since, exclude_keys=db_keys)
+    elif db_runs:
+        print(
+            f"note: projects root not found ({root}); showing DB runs only",
+            file=sys.stderr,
+        )
+    else:
         print(f"projects root not found: {root}", file=sys.stderr)
         return 1
 
-    runs, coverage = build_runs(root, since)
+    coverage["db_runs"] = len(db_runs)
+    coverage["pending_dispatches"] = db_pending
+    runs = db_runs + jsonl_runs
+
     if not runs:
         print("no delimited orchestrate runs found", file=sys.stderr)
         return 1
