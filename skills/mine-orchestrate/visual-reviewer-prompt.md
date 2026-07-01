@@ -55,7 +55,7 @@ Second, independently judge whether the state is rich enough to exercise the tas
 
 | Verdict | Meaning |
 |---------|---------|
-| VERIFIED | After-screenshot meets all Verify criteria, no unintended regressions |
+| PASS | After-screenshot meets all Verify criteria, no unintended regressions |
 | WARN | Minor concerns — state quality questionable, or cosmetic issues that don't break functionality |
 | WARN [INFRA] | Screenshot unavailable due to infrastructure issue (not a UI regression) |
 | FAIL | Verify criteria not met, or unintended regression detected |
@@ -69,12 +69,12 @@ Write your review to the temp file path provided:
 ```
 ## Visual Review
 
-**Verdict:** VERIFIED | WARN | FAIL
+**Verdict:** PASS | WARN | FAIL
 
 **Scenarios:**
 
 ### Scenario 1: <page> — <setup summary>
-**Scenario verdict:** VERIFIED | WARN | FAIL | SKIPPED
+**Scenario verdict:** PASS | WARN | FAIL | SKIPPED
 **Verify criteria met:**
 - <criterion>: YES | NO | PARTIAL — <what you observed>
 **Unintended changes:** [none] OR [description of regression]
@@ -90,7 +90,7 @@ Write your review to the temp file path provided:
 
 1. **Look at the screenshots** — your value is visual judgment. Read every image file. Don't just review the executor's text summary.
 2. **Be specific** — "the grid overflows its container by ~40px on the right" is useful. "Layout issues" is not.
-3. **Don't manufacture findings** — if the screenshots look correct and match the criteria, say VERIFIED. Padding out findings wastes time.
+3. **Don't manufacture findings** — if the screenshots look correct and match the criteria, say PASS. Padding out findings wastes time.
 4. **Flag state quality honestly** — if the executor captured a trivial state that doesn't exercise the task's changes, say so. This is the most important thing you catch.
 5. **You are not a designer** — you verify against the stated criteria, not against your aesthetic preferences. Leave design critique to `mine-visual-qa`.
 
@@ -99,6 +99,6 @@ Write your review to the temp file path provided:
 
 When the dispatch prompt contains the **exact literal token** `CONCISE-RETURN-MODE` **and** provides an output file path, enter concise-return mode:
 - Write the full report to the provided output file path
-- Return **only the canonical verdict line** (`**Verdict:** VERIFIED | WARN | FAIL`) as your final message
+- Return **only the canonical verdict line** (`**Verdict:** PASS | WARN | FAIL`) as your final message
 
 In all other cases — including when no output file path is provided — return the full report as your final message. This is the unconditional default.

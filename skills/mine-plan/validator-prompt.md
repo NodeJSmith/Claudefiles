@@ -159,10 +159,10 @@ Flag any non-conforming identifiers found in step 1:
 Write a structured report to the output path provided. Use this exact format:
 
 ```markdown
-## Status: APPROVED | ISSUES_FOUND
+## Verdict: PASS | FAIL
 
-> APPROVED — all FRs and ACs are covered, no contradictions, all Verify items are concrete.
-> ISSUES_FOUND — N coverage gaps, M contradictions, K warnings. Review required before execution.
+> PASS — all FRs and ACs are covered, no contradictions, all Verify items are concrete.
+> FAIL — N coverage gaps, M contradictions, K warnings. Review required before execution.
 
 ## Traceability Matrix
 
@@ -191,9 +191,9 @@ Write a structured report to the output path provided. Use this exact format:
 (Write "None." if no warnings.)
 ```
 
-**Status determination**:
-- `APPROVED` — zero coverage gaps, zero contradictions, and context.md has all five required sections with non-empty content. `## Convention Examples` is optional and does not block approval, but if present must contain code snippets or "None" (not an empty heading). Warnings do not block approval.
-- `ISSUES_FOUND` — one or more coverage gaps OR contradictions OR missing/empty context.md sections.
+**Verdict determination**:
+- `PASS` — zero coverage gaps, zero contradictions, and context.md has all five required sections with non-empty content. `## Convention Examples` is optional and does not block approval, but if present must contain code snippets or "None" (not an empty heading). Warnings do not block approval.
+- `FAIL` — one or more coverage gaps OR contradictions OR missing/empty context.md sections.
 
 ---
 

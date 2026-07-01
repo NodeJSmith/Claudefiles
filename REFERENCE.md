@@ -223,7 +223,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `codex-rules-sync` | Generates the global Codex `~/.codex/AGENTS.md` from `rules/common/*.md`, concatenating the rules whose `tool:` frontmatter lists `codex`. `--list` prints the include/exclude breakdown without writing. Run by `install.py` after the symlink phase; skips silently if Codex isn't installed |
 | `lint-agent-models` | Agent registry drift lint — checks every `agents/*.md` is listed in performance.md (with matching model) and registered in an install.py bundle, so no agent ships uninstalled |
 | `lint-cli-conventions` | Drift prevention lint — verifies `--help` handling in bin/ scripts and capabilities-core.md CLI Tools sync |
-| `lint-verdict-line` | Reviewer verdict-line conformance lint — reads the four mine-orchestrate reviewer files and verifies each specifies the canonical `**Verdict:**` line (with `(findings: N)` for code/integration, without for spec/visual), so the orchestrator's verdict extraction never silently breaks |
+| `lint-verdict-line` | Reviewer verdict-line conformance lint — reads the four mine-orchestrate reviewer files and verifies each specifies the canonical `**Verdict:**` line (with `(findings: N)` for code/integration, without for spec/visual), and rejects stale verdict vocabulary in active review contracts so CFL-aligned verdicts do not drift |
 
 ## Packages
 

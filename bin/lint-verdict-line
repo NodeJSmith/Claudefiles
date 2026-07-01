@@ -12,6 +12,7 @@ Exit 0 on success, 1 with details on failure.
 """
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -33,7 +34,6 @@ VERDICT_PREFIX = "**Verdict:**"
 
 # Allowed verdict words per reviewer type (aligned with cfl gate vocabulary)
 ALLOWED_VERDICTS_STANDARD = {"PASS", "WARN", "FAIL"}
-ALLOWED_VERDICTS_VISUAL = {"VERIFIED", "WARN", "FAIL"}
 
 REVIEWER_ALLOWED_VERDICTS: dict[Path, set[str]] = {
     ROOT / "agents" / "code-reviewer.md": ALLOWED_VERDICTS_STANDARD,
@@ -45,7 +45,39 @@ REVIEWER_ALLOWED_VERDICTS: dict[Path, set[str]] = {
     ROOT
     / "skills"
     / "mine-orchestrate"
-    / "visual-reviewer-prompt.md": ALLOWED_VERDICTS_VISUAL,
+    / "visual-reviewer-prompt.md": ALLOWED_VERDICTS_STANDARD,
+}
+
+# Active prompt/skill contracts that feed reviewer verdict parsing or near-term cfl
+# state. Archived designs/research intentionally keep historical vocabulary.
+ACTIVE_CONTRACT_FILES = [
+    ROOT / "agents" / "code-reviewer.md",
+    ROOT / "agents" / "integration-reviewer.md",
+    ROOT / "skills" / "mine-implementation-review" / "SKILL.md",
+    ROOT / "skills" / "mine-implementation-review" / "reviewer-prompt.md",
+    ROOT / "skills" / "mine-orchestrate" / "SKILL.md",
+    ROOT / "skills" / "mine-orchestrate" / "implementer-prompt.md",
+    ROOT / "skills" / "mine-orchestrate" / "post-execution-pipeline.md",
+    ROOT / "skills" / "mine-orchestrate" / "verdict-line-format.md",
+    ROOT / "skills" / "mine-orchestrate" / "visual-reviewer-launch.md",
+    ROOT / "skills" / "mine-orchestrate" / "visual-reviewer-prompt.md",
+    ROOT / "skills" / "mine-plan" / "SKILL.md",
+    ROOT / "skills" / "mine-plan" / "reviewer-prompt.md",
+    ROOT / "skills" / "mine-plan" / "validator-prompt.md",
+    ROOT / "skills" / "mine-review" / "SKILL.md",
+]
+
+FORBIDDEN_VOCAB_PATTERNS = {
+    r"\bVERIFIED\b": "use PASS for successful visual verification",
+    r"\bREQUEST_FIXES\b": "use FAIL for fixable blocking review verdicts",
+    r"\bREQUEST_REVISIONS\b": "use FAIL for fixable blocking plan verdicts",
+    r"\bISSUES_FOUND\b": "use FAIL for failed validation verdicts",
+    r"\bAPPROVED\b": "use PASS for validation verdicts",
+    r"\bAPPROVE\b": "use PASS for passing review verdicts",
+    r"\bBLOCK\b": "use FAIL for blocking review verdicts",
+    r"\bAPPROVE\s*/\s*WARN\s*/\s*BLOCK\b": "use PASS / WARN / FAIL",
+    r"##\s+Verdict:\s+APPROVE\b": "use ## Verdict: PASS | FAIL | ABANDON",
+    r"##\s+Status:\s+APPROVED\b": "use ## Verdict: PASS | FAIL",
 }
 
 
@@ -110,6 +142,31 @@ def check_reviewer(path: Path, expects_count: bool) -> list[str]:
     return errors
 
 
+def check_forbidden_vocab(path: Path) -> list[str]:
+    """Reject stale verdict vocabulary in active prompt contracts."""
+    rel = path.relative_to(ROOT)
+
+    try:
+        text = path.read_text()
+    except FileNotFoundError:
+        return [f"{rel}: file not found"]
+    except OSError as exc:
+        return [f"{rel}: cannot read file: {exc}"]
+    except UnicodeDecodeError as exc:
+        return [f"{rel}: file is not valid UTF-8: {exc}"]
+
+    errors: list[str] = []
+    for pattern, hint in FORBIDDEN_VOCAB_PATTERNS.items():
+        for match in re.finditer(pattern, text):
+            line_no = text.count("\n", 0, match.start()) + 1
+            matched = match.group(0)
+            errors.append(
+                f"{rel}:{line_no}: stale verdict vocabulary {matched!r} — {hint}"
+            )
+
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Verify the four reviewer files specify a conformant canonical verdict line.",
@@ -126,6 +183,9 @@ def main() -> int:
     for path in REVIEWERS_WITHOUT_COUNT:
         errors.extend(check_reviewer(path, expects_count=False))
 
+    for path in ACTIVE_CONTRACT_FILES:
+        errors.extend(check_forbidden_vocab(path))
+
     if errors:
         print(
             "lint-verdict-line: reviewer verdict-line format is out of sync:",
@@ -138,7 +198,7 @@ def main() -> int:
     total = len(REVIEWERS_WITH_COUNT) + len(REVIEWERS_WITHOUT_COUNT)
     print(
         f"lint-verdict-line: all {total} reviewer files specify a conformant"
-        " canonical verdict line"
+        " canonical verdict line; active contracts use normalized vocabulary"
     )
     return 0
 
