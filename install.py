@@ -48,6 +48,7 @@ PYPI_INSTALL_TIMEOUT = 300
 PLUGIN_TIMEOUT = 120
 UV_LIST_TIMEOUT = 10
 CODEX_SYNC_TIMEOUT = 30
+OPENCODE_SYNC_TIMEOUT = 30
 GIT_TIMEOUT = 5
 UV_NOT_FOUND_MSG = "uv not found — install via https://docs.astral.sh/uv/"
 
@@ -1324,6 +1325,7 @@ def do_install(
         claude_dir, repo_dir, bin_dir, console, interactive=interactive
     )
     generate_codex_rules(repo_dir, console)
+    generate_opencode_skill_commands(repo_dir, claude_dir, console)
 
     console.print(
         f"\n[green]Claudefiles installed to {claude_dir}[/green] ({total_links} symlinks)"
@@ -1365,6 +1367,70 @@ def generate_codex_rules(repo_dir: Path, console: Console) -> None:
         )
 
 
+def generate_opencode_skill_commands(
+    repo_dir: Path, claude_dir: Path, console: Console
+) -> None:
+    """Materialize OpenCode slash-command wrappers for user-invocable skills.
+
+    This is a QoL bridge, not core install state: OpenCode can follow the skills when
+    prompted, but generated command wrappers make them visible in its `/` picker. The
+    generator skips cleanly when OpenCode is not installed/configured.
+    """
+    script = repo_dir / "bin" / "opencode-skills-commands-sync"
+    try:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(script),
+                "--skills-dir",
+                str(claude_dir / "skills"),
+                "--skill-base-path",
+                str(claude_dir / "skills"),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=OPENCODE_SYNC_TIMEOUT,
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        console.print(
+            f"  [red]OpenCode skill commands FAILED: opencode-skills-commands-sync could not run: {e}[/red]"
+        )
+        return
+    summary = result.stdout.strip() or result.stderr.strip()
+    if result.returncode == 0:
+        if summary:
+            console.print(f"  {summary}")
+    else:
+        console.print(
+            f"  [red]OpenCode skill commands FAILED — slash commands not updated: {summary}[/red]"
+        )
+
+
+def remove_opencode_skill_commands(repo_dir: Path, console: Console) -> None:
+    """Remove generated OpenCode skill command wrappers, preserving hand-written commands."""
+    script = repo_dir / "bin" / "opencode-skills-commands-sync"
+    try:
+        result = subprocess.run(
+            [sys.executable, str(script), "--remove-generated"],
+            capture_output=True,
+            text=True,
+            timeout=OPENCODE_SYNC_TIMEOUT,
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        console.print(
+            f"  [yellow]Warning: OpenCode skill command cleanup failed: {e}[/yellow]"
+        )
+        return
+    summary = result.stdout.strip() or result.stderr.strip()
+    if result.returncode == 0:
+        if summary:
+            console.print(f"  {summary}")
+    else:
+        console.print(
+            f"  [yellow]Warning: OpenCode skill command cleanup failed: {summary}[/yellow]"
+        )
+
+
 def do_uninstall(repo_dir: Path, claude_dir: Path, config: dict) -> None:
     """Remove all Claudefiles-owned symlinks and uninstall packages."""
     console = Console()
@@ -1380,6 +1446,8 @@ def do_uninstall(repo_dir: Path, claude_dir: Path, config: dict) -> None:
         removed = remove_owned_symlinks(d, repo_dir)
         if removed:
             console.print(f"  Removed {removed} symlinks from {d}")
+
+    remove_opencode_skill_commands(repo_dir, console)
 
     # File-level sub-roots: rules, learned, references
     for name in FILE_LEVEL_SUBDIRS:
