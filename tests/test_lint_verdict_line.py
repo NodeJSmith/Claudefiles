@@ -2,11 +2,13 @@
 
 import runpy
 import subprocess
+import sys
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).parent.parent
 SCRIPT = REPO_ROOT / "bin" / "lint-verdict-line"
+SUBPROCESS_TIMEOUT_SECONDS = 10
 
 
 def _load_script() -> dict:
@@ -15,10 +17,11 @@ def _load_script() -> dict:
 
 def test_lint_verdict_line_passes_current_repo() -> None:
     result = subprocess.run(
-        [str(SCRIPT)],
+        [sys.executable, str(SCRIPT)],
         capture_output=True,
         text=True,
         cwd=REPO_ROOT,
+        timeout=SUBPROCESS_TIMEOUT_SECONDS,
     )
 
     assert result.returncode == 0

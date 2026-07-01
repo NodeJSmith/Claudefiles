@@ -58,6 +58,7 @@ ACTIVE_CONTRACT_FILES = [
     ROOT / "skills" / "mine-orchestrate" / "SKILL.md",
     ROOT / "skills" / "mine-orchestrate" / "implementer-prompt.md",
     ROOT / "skills" / "mine-orchestrate" / "post-execution-pipeline.md",
+    ROOT / "skills" / "mine-orchestrate" / "spec-reviewer-prompt.md",
     ROOT / "skills" / "mine-orchestrate" / "verdict-line-format.md",
     ROOT / "skills" / "mine-orchestrate" / "visual-reviewer-launch.md",
     ROOT / "skills" / "mine-orchestrate" / "visual-reviewer-prompt.md",
