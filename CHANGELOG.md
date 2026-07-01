@@ -7,6 +7,7 @@ All notable changes to this Claudefiles repository are documented here.
 ### Added
 
 - `cfl` — new SQLite-backed orchestration store CLI replacing `spec-helper` and `trail-log`. All run state, task verdicts, gate results, and event logs now persist in a durable DB instead of ephemeral markdown checkpoints and TSV trails. (#424)
+- Review verdict vocabulary is normalized across active review/planning prompts (`PASS`/`WARN`/`FAIL`, with `ABANDON` only for unrecoverable plan/implementation gates), and `lint-verdict-line` now blocks stale active verdict terms from returning. (#426)
 
 ### Removed
 
