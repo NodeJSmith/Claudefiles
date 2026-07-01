@@ -14,19 +14,19 @@ Single source of truth for the canonical verdict line emitted by all four review
 
 ```
 **Verdict:** PASS | WARN | FAIL      ← spec-reviewer
-**Verdict:** VERIFIED | WARN | FAIL  ← visual-reviewer
+**Verdict:** PASS | WARN | FAIL      ← visual-reviewer
 ```
 
 ## Verdict Vocabulary
 
-All reviewers use a normalized vocabulary aligned with the `cfl gate` verdict set (`PASS`, `WARN`, `FAIL`, `SKIPPED`). The visual reviewer uses `VERIFIED` as a synonym for `PASS`.
+All reviewers use a normalized vocabulary aligned with the `cfl gate` verdict set (`PASS`, `WARN`, `FAIL`, `SKIPPED`).
 
 | Reviewer | Verdict values |
 |---|---|
 | `spec-reviewer-prompt.md` | PASS / WARN / FAIL |
 | `agents/code-reviewer.md` | PASS / WARN / FAIL |
 | `agents/integration-reviewer.md` | PASS / WARN / FAIL |
-| `visual-reviewer-prompt.md` | VERIFIED / WARN / FAIL |
+| `visual-reviewer-prompt.md` | PASS / WARN / FAIL |
 
 ## The `**Verdict:**` Prefix is Reserved
 
@@ -46,7 +46,7 @@ Parsing is per-reviewer-type:
 
 - Code/integration: last line matching `^\*\*Verdict:\*\*` and containing `(findings:` — extract verdict word and N
 - Spec: last line matching `^\*\*Verdict:\*\*` — extract PASS / WARN / FAIL
-- Visual: last line matching `^\*\*Verdict:\*\*` — extract VERIFIED / WARN / FAIL
+- Visual: last line matching `^\*\*Verdict:\*\*` — extract PASS / WARN / FAIL
 
 ## Concise-Return Mode
 

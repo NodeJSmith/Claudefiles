@@ -142,7 +142,7 @@ Include this section in your structured output (after Notes):
 **Visual verification:**
 
 Scenario 1: <page> — <setup summary>
-  Status: VERIFIED | WARN | FAIL | SKIPPED
+  Status: PASS | WARN | FAIL | SKIPPED
   Capture plan: <URL>, <viewport>, <setup steps taken>
   Before: <screenshot path>
   After: <screenshot path>
@@ -151,10 +151,10 @@ Scenario 1: <page> — <setup summary>
 
 Scenario 2: ...
 
-Visual summary: <N> scenarios checked, <N> verified, <N> warned, <N> skipped
+Visual summary: <N> scenarios checked, <N> passed, <N> warned, <N> skipped
 ```
 
-If you could not achieve the specified setup state for a scenario, explain what you did instead and mark it WARN (not VERIFIED).
+If you could not achieve the specified setup state for a scenario, explain what you did instead and mark it WARN (not PASS).
 
 ## Output Format
 

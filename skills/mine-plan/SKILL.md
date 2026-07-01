@@ -299,7 +299,7 @@ The subagent reads the design doc and all task files independently (fresh contex
 
 Read the validation report. Then present:
 
-1. **Validation status** — APPROVED or ISSUES_FOUND (bold, prominent)
+1. **Validation verdict** — PASS or FAIL (bold, prominent)
 2. **Coverage summary** — e.g., "22/22 FRs mapped, 10/10 ACs mapped" (counts only — the full matrix is in `.validation-report.md` if needed)
 3. **Coverage gaps** — any FRs/ACs with no implementing task (only the gaps, not the full matrix)
 4. **Contradictions** — any conflicts between task prompts and the design doc
@@ -307,7 +307,7 @@ Read the validation report. Then present:
 
 Note the path to `.validation-report.md` so the user can inspect the full traceability matrix if desired.
 
-If status is ISSUES_FOUND, ask the user:
+If verdict is FAIL, ask the user:
 
 ```
 AskUserQuestion:
@@ -323,7 +323,7 @@ AskUserQuestion:
       description: "Significant gaps — regenerate with corrections"
 ```
 
-If APPROVED (with or without warnings), proceed to Phase 4 automatically.
+If PASS (with or without warnings), proceed to Phase 4 automatically.
 
 ---
 
@@ -383,9 +383,9 @@ The subagent will write the review to the temp file.
 Read the temp file. Format the results clearly:
 
 1. **Checklist results** — one line per item: `N. <name>: PASS|WARN|FAIL — note`
-2. **Verdict** — APPROVE, REQUEST_REVISIONS, or ABANDON (bold, prominent)
+2. **Verdict** — PASS, FAIL, or ABANDON (bold, prominent)
 3. **Summary** — 2-3 sentences from the subagent
-4. **Blocking issues** — if verdict is REQUEST_REVISIONS or ABANDON
+4. **Blocking issues** — if verdict is FAIL or ABANDON
 5. **Suggestions** — non-blocking notes, if any
 
 ---
@@ -424,7 +424,7 @@ The "No findings" path proceeds to Phase 6 silently.
 
 ## Phase 6: Gate
 
-If the reviewer's output includes non-blocking suggestions, present "Approve with suggestions" as the first (recommended) option. If there are no suggestions (clean APPROVE), omit it and show "Approve as-is" first.
+If the reviewer's output includes non-blocking suggestions, present "Approve with suggestions" as the first (recommended) option. If there are no suggestions (clean PASS), omit it and show "Approve as-is" first.
 
 **When suggestions exist:**
 

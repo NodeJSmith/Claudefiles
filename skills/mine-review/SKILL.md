@@ -175,8 +175,8 @@ Organize by severity, not by reviewer. Lead with the overall picture:
 ## Technical Review: [branch name or target path]
 
 **Scope:** N files changed, +X/-Y lines (diff mode) | N files, X total lines (path mode)
-**Code Review:** APPROVE / WARN / BLOCK
-**Integration Review:** APPROVE / WARN / BLOCK
+**Code Review:** PASS / WARN / FAIL
+**Integration Review:** PASS / WARN / FAIL
 **Readability Pass:** X findings (N HIGH, N MEDIUM, N LOW)
 **Likely-invalid:** N
 

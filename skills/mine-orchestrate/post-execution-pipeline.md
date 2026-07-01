@@ -23,7 +23,7 @@ Use `tasks[].verdict` and `tasks[].verdict_detail` fields. PASS with a detail no
 
 Invoke `/mine-implementation-review <feature_dir>` automatically. The skill presents findings and returns — no user gate (the orchestrator handles all gate logic).
 
-Read the review output. Extract the verdict (PASS, REQUEST_FIXES, or ABANDON) and any suggestions or blocking issues. Record the gate result (REQUEST_FIXES/ABANDON map to FAIL):
+Read the review output. Extract the verdict (PASS, FAIL, or ABANDON) and any suggestions or blocking issues. Record the gate result (ABANDON maps to FAIL):
 
 ```bash
 cfl gate impl-review --verdict <PASS|FAIL> --detail "<brief summary>"
@@ -45,7 +45,7 @@ AskUserQuestion:
       description: "Pause execution; resume after the design is updated"
 ```
 
-**If impl-review returns REQUEST_FIXES** — prompt the user:
+**If impl-review returns FAIL** — prompt the user:
 
 ```
 AskUserQuestion:

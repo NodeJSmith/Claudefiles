@@ -43,11 +43,11 @@ Wait for the subagent to complete. Read the visual reviewer output file.
 
 **Fallback:** If output is empty or unparseable: dev server available + screenshots exist → FAIL "visual reviewer failed to produce output despite available screenshots." No screenshots (executor SKIPPED) → WARN "visual verification inconclusive."
 
-**Visual verdict mapping:**
+**Visual verdict impact:**
 
 | Visual reviewer result | Impact on task |
 |------------------------|----------------|
-| VERIFIED | No impact |
+| PASS | No impact |
 | WARN | Task gets WARN; surface in Step 15 summary |
 | WARN [INFRA] | Task gets WARN; infrastructure failure, not a regression |
 | FAIL | Task gets FAIL; surface to user at Step 15 gate |

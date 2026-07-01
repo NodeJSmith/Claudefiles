@@ -54,7 +54,7 @@ For each item: `N. <name>: PASS|WARN|FAIL — <one-line note>`
 Then:
 
 ```
-## Verdict: APPROVE | REQUEST_REVISIONS | ABANDON
+## Verdict: PASS | FAIL | ABANDON
 
 ### Summary
 [2-3 sentences]
@@ -68,6 +68,6 @@ Then:
 ```
 
 **Verdict rules**:
-- `APPROVE` — zero FAIL items. WARN items may exist.
-- `REQUEST_REVISIONS` — one or more FAIL items that can be fixed by editing task files.
+- `PASS` — zero FAIL items. WARN items may exist.
+- `FAIL` — one or more FAIL items that can be fixed by editing task files.
 - `ABANDON` — fundamental mismatch between the design doc and the plan that requires restarting from design.

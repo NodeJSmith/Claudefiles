@@ -486,10 +486,10 @@ cfl event task.retried <task_id> --data '{"reason": "WARN classification: <fixab
 
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/visual-reviewer-prompt.md`, then read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/visual-reviewer-launch.md` and follow it.
 
-If the visual reviewer ran, record the gate result after it completes (VERIFIED maps to PASS):
+If the visual reviewer ran, record the gate result after it completes:
 
 ```bash
-cfl gate visual-review <task_id> --verdict <PASS|WARN|FAIL|SKIPPED> --data '{"scenarios": <N>, "verified": <N>, "warned": <N>, "skipped": <N>}'
+cfl gate visual-review <task_id> --verdict <PASS|WARN|FAIL|SKIPPED> --data '{"scenarios": <N>, "passed": <N>, "warned": <N>, "skipped": <N>}'
 ```
 
 ### Step 12: Review findings fix loop
