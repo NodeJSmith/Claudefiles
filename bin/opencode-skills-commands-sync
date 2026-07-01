@@ -8,6 +8,7 @@ skill file remains the source of truth.
 """
 
 import argparse
+import ast
 import os
 import sys
 from pathlib import Path
@@ -31,8 +32,19 @@ def split_frontmatter(text: str) -> tuple[dict[str, str], str]:
         if not line or line.startswith("#") or ":" not in line:
             continue
         key, value = line.split(":", 1)
-        frontmatter[key.strip()] = value.strip().strip("\"'")
+        frontmatter[key.strip()] = parse_frontmatter_value(value)
     return frontmatter, parts[2]
+
+
+def parse_frontmatter_value(value: str) -> str:
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        try:
+            parsed = ast.literal_eval(value)
+        except (SyntaxError, ValueError):
+            return value[1:-1]
+        return parsed if isinstance(parsed, str) else value
+    return value
 
 
 def is_true(value: str | None) -> bool:
@@ -115,8 +127,8 @@ def opencode_config_exists(raw_commands_dir: str | None) -> bool:
     return (Path.home() / ".config" / "opencode").is_dir()
 
 
-def in_worktree() -> bool:
-    return "/.claude/worktrees/" in ROOT.as_posix()
+def in_worktree(path: Path) -> bool:
+    return "/.claude/worktrees/" in path.resolve().as_posix()
 
 
 def write_commands(
@@ -210,16 +222,28 @@ def main() -> int:
         action="store_true",
         help="permit writing global OpenCode commands from a worktree checkout",
     )
+    parser.add_argument(
+        "--allow-empty",
+        action="store_true",
+        help="permit writing an empty generated command set, removing stale generated wrappers",
+    )
     args = parser.parse_args()
 
+    repo_dir = args.repo_dir.expanduser().resolve()
     commands_dir = resolve_opencode_commands_dir(args.commands_dir)
 
     using_default_global_commands = args.commands_dir is None and not os.environ.get(
         "OPENCODE_CONFIG_DIR"
     )
-    if using_default_global_commands and in_worktree() and not args.allow_worktree:
+    using_repo_source = args.skills_dir is None
+    if (
+        using_default_global_commands
+        and using_repo_source
+        and in_worktree(repo_dir)
+        and not args.allow_worktree
+    ):
         raise SystemExit(
-            f"opencode-skills-commands-sync: refusing to generate from a worktree ({ROOT}). "
+            f"opencode-skills-commands-sync: refusing to generate from a worktree ({repo_dir}). "
             "The global ~/.config/opencode/commands directory is machine-wide — run "
             "from the main repo, or pass --allow-worktree (or --commands-dir) to override."
         )
@@ -238,10 +262,14 @@ def main() -> int:
         return 0
 
     skills_dir = args.skills_dir.expanduser().resolve() if args.skills_dir else None
+    if args.skills_dir and not skills_dir.is_dir():
+        raise SystemExit(
+            f"opencode-skills-commands-sync: skills dir does not exist: {skills_dir}"
+        )
     skill_base_path = args.skill_base_path or (
         str(skills_dir) if skills_dir else "${CLAUDE_CONFIG_DIR:-~/.claude}/skills"
     )
-    skills = load_skills(args.repo_dir, skills_dir)
+    skills = load_skills(repo_dir, skills_dir)
     if args.list:
         print(f"OpenCode skill commands ({len(skills)}):")
         for name, _description in skills:
@@ -254,6 +282,12 @@ def main() -> int:
             "skipping (OpenCode not installed)."
         )
         return 0
+
+    if not skills and not args.allow_empty:
+        raise SystemExit(
+            "opencode-skills-commands-sync: no user-invocable skills found — refusing "
+            "to remove generated command wrappers. Pass --allow-empty to confirm."
+        )
 
     written, skipped, errors = write_commands(skills, commands_dir, skill_base_path)
     for error in errors:

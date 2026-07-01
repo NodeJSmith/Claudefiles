@@ -1341,30 +1341,17 @@ def generate_codex_rules(repo_dir: Path, console: Console) -> None:
     not installed), so this call is safe to make unconditionally and is non-fatal to
     the install — Codex rules are an add-on, not core install state. A non-zero exit
     means Codex *is* installed and generation actually failed (empty result, write
-    error): that is surfaced in red, distinct from the benign skip, so it isn't lost
-    under the green success banner. See design/specs/032-codex-agents-rules.
+        error): that is surfaced in red, distinct from the benign skip, so it isn't lost
+        under the green success banner. See design/specs/032-codex-agents-rules.
     """
     script = repo_dir / "bin" / "codex-rules-sync"
-    try:
-        result = subprocess.run(
-            [sys.executable, str(script)],
-            capture_output=True,
-            text=True,
-            timeout=CODEX_SYNC_TIMEOUT,
-        )
-    except (OSError, subprocess.TimeoutExpired) as e:
-        console.print(
-            f"  [red]Codex rules FAILED: codex-rules-sync could not run: {e}[/red]"
-        )
-        return
-    summary = result.stdout.strip() or result.stderr.strip()
-    if result.returncode == 0:
-        if summary:
-            console.print(f"  {summary}")
-    else:
-        console.print(
-            f"  [red]Codex rules FAILED — global AGENTS.md not updated: {summary}[/red]"
-        )
+    run_optional_generator(
+        console,
+        argv=[sys.executable, str(script)],
+        timeout=CODEX_SYNC_TIMEOUT,
+        spawn_failure="Codex rules FAILED: codex-rules-sync could not run",
+        result_failure="Codex rules FAILED — global AGENTS.md not updated",
+    )
 
 
 def generate_opencode_skill_commands(
@@ -1377,58 +1364,56 @@ def generate_opencode_skill_commands(
     generator skips cleanly when OpenCode is not installed/configured.
     """
     script = repo_dir / "bin" / "opencode-skills-commands-sync"
-    try:
-        result = subprocess.run(
-            [
-                sys.executable,
-                str(script),
-                "--skills-dir",
-                str(claude_dir / "skills"),
-                "--skill-base-path",
-                str(claude_dir / "skills"),
-            ],
-            capture_output=True,
-            text=True,
-            timeout=OPENCODE_SYNC_TIMEOUT,
-        )
-    except (OSError, subprocess.TimeoutExpired) as e:
-        console.print(
-            f"  [red]OpenCode skill commands FAILED: opencode-skills-commands-sync could not run: {e}[/red]"
-        )
-        return
-    summary = result.stdout.strip() or result.stderr.strip()
-    if result.returncode == 0:
-        if summary:
-            console.print(f"  {summary}")
-    else:
-        console.print(
-            f"  [red]OpenCode skill commands FAILED — slash commands not updated: {summary}[/red]"
-        )
+    run_optional_generator(
+        console,
+        argv=[
+            sys.executable,
+            str(script),
+            "--skills-dir",
+            str(claude_dir / "skills"),
+            "--skill-base-path",
+            str(claude_dir / "skills"),
+        ],
+        timeout=OPENCODE_SYNC_TIMEOUT,
+        spawn_failure="OpenCode skill commands FAILED: opencode-skills-commands-sync could not run",
+        result_failure="OpenCode skill commands FAILED — slash commands not updated",
+    )
 
 
 def remove_opencode_skill_commands(repo_dir: Path, console: Console) -> None:
     """Remove generated OpenCode skill command wrappers, preserving hand-written commands."""
     script = repo_dir / "bin" / "opencode-skills-commands-sync"
+    run_optional_generator(
+        console,
+        argv=[sys.executable, str(script), "--remove-generated"],
+        timeout=OPENCODE_SYNC_TIMEOUT,
+        spawn_failure="Warning: OpenCode skill command cleanup failed",
+        result_failure="Warning: OpenCode skill command cleanup failed",
+        color="yellow",
+    )
+
+
+def run_optional_generator(
+    console: Console,
+    *,
+    argv: list[str],
+    timeout: int,
+    spawn_failure: str,
+    result_failure: str,
+    color: str = "red",
+) -> None:
+    """Run a non-core generated-config helper and print its one-line summary."""
     try:
-        result = subprocess.run(
-            [sys.executable, str(script), "--remove-generated"],
-            capture_output=True,
-            text=True,
-            timeout=OPENCODE_SYNC_TIMEOUT,
-        )
+        result = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
     except (OSError, subprocess.TimeoutExpired) as e:
-        console.print(
-            f"  [yellow]Warning: OpenCode skill command cleanup failed: {e}[/yellow]"
-        )
+        console.print(f"  [{color}]{spawn_failure}: {e}[/{color}]")
         return
     summary = result.stdout.strip() or result.stderr.strip()
     if result.returncode == 0:
         if summary:
             console.print(f"  {summary}")
     else:
-        console.print(
-            f"  [yellow]Warning: OpenCode skill command cleanup failed: {summary}[/yellow]"
-        )
+        console.print(f"  [{color}]{result_failure}: {summary}[/{color}]")
 
 
 def do_uninstall(repo_dir: Path, claude_dir: Path, config: dict) -> None:
