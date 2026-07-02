@@ -204,6 +204,20 @@ AskUserQuestion:
   header: "[<mode>] Rollback"
 ```
 
+### Implementation preferences (moderate+ only)
+
+After the tier-appropriate problem-space questions, surface concrete implementation decisions before they become implicit defaults:
+
+```
+AskUserQuestion:
+  question: "Are there specific implementation preferences I should lock in — frameworks, libraries, patterns, conventions, or tooling choices? For example: CLI framework, logging approach, serialization format, auth pattern, config management."
+  header: "[<mode>] Impl prefs"
+```
+
+If the user names preferences, record them for the Implementation Preferences section of design.md. If they say "no" or "follow conventions", note that and move on.
+
+This question is deliberately open-ended rather than a checklist — the relevant details vary by feature type. The examples prime the user to think about the category of decision without limiting it to a fixed set.
+
 ### Adaptive follow-up (all complexity levels)
 
 After the tier-appropriate questions above, review what you've learned. For each answer the user gave, check: does it open a decision branch that hasn't been resolved? Walk down those branches.
@@ -229,6 +243,21 @@ Ask follow-up questions one at a time. Apply judgment proportional to complexity
 If you're exceeding the tier's original question count by more than double, pause and ask the user whether to continue or descope the remaining branches.
 
 If the user says "I don't know yet" or "let's figure that out later", probe deeper — rephrase the question, offer concrete options, or explore the codebase to narrow the possibilities. Only move on when the branch is resolved or the user explicitly descopes it.
+
+### Completeness self-check (moderate+ only)
+
+After adaptive follow-ups, mentally walk through each section of the design doc template. For each section, ask: "Could I write this right now without guessing?" If any section would require inventing details the user hasn't provided and the codebase doesn't constrain, you have more questions to ask.
+
+Common gaps that survive the structured questions:
+- Implementation Preferences: the user described what to build but not which frameworks, libraries, or tooling conventions to use
+- Architecture: the approach is clear but specific technology/library choices aren't locked in
+- Edge Cases: the happy path is defined but failure modes weren't discussed
+- Migration: data changes are implied but the migration strategy wasn't addressed
+- Test Strategy: what to test is clear but how (fixtures, mocking approach, test data) isn't
+
+For each gap found, ask the user — one question at a time, same as adaptive follow-ups. Do not ask about sections the codebase already answers (from Phase 1.5) or sections that are genuinely N/A for this feature.
+
+When every section can be written from what you know, proceed. Do not announce this check to the user — it's an internal quality pass, not a visible gate. The user sees only any additional questions it generates.
 
 ### Confirm intent summary
 
@@ -441,6 +470,10 @@ Write the design doc to `<feature_dir>/design.md`:
 
 [The recommended approach with rationale. Reference specific files, patterns, and abstractions from the research brief. Include data model, interface contracts, and any relevant diagrams in prose form.]
 
+## Implementation Preferences
+
+[Concrete tooling, framework, and convention decisions that constrain how this feature is built. These are choices the implementer would otherwise make by default — and potentially make wrong. Examples: CLI framework (cyclopts vs argparse), logging approach (structlog vs stdlib), serialization format, error handling pattern, specific libraries to use or avoid. Only include decisions explicitly surfaced during discovery; do not speculatively fill this section. If no implementation preferences were identified, state "No specific implementation preferences — follow codebase conventions."]
+
 ## Replacement Targets
 
 [Existing code, patterns, or approaches being intentionally replaced by this change. Derived from `Replace` entries in the code leverage table. For each target: the file/pattern being replaced, what replaces it, and whether the old code should be removed outright or migrated incrementally. Implementers should remove or migrate these — not preserve them alongside the new code. If this is purely additive with no code being superseded, state "No existing code is being replaced."]
@@ -498,7 +531,7 @@ Write the design doc to `<feature_dir>/design.md`:
 
 **Rules for content:**
 - Requirements sections (Problem, Goals, User Scenarios, Functional Requirements, Edge Cases, Acceptance Criteria) describe observable behaviors — what the system does, not how it's built. Naming the domain is fine ("pytest", "webhook", "CLI flag"); dictating implementation steps is not ("use subprocess.Popen", "add a column to the X table")
-- Architecture, Replacement Targets, Migration, Alternatives, Test Strategy, Documentation Updates, and Impact contain implementation details
+- Architecture, Implementation Preferences, Replacement Targets, Migration, Alternatives, Test Strategy, Documentation Updates, and Impact contain implementation details
 - Architecture must reference existing code from the **Existing code leverage** table. For any sub-problem marked `Full — reuse as-is`, confirm reuse or justify diverging. For `Partial`, explain what was extended.
 
 **Scope mode effects on content:**
@@ -509,6 +542,7 @@ Write the design doc to `<feature_dir>/design.md`:
 | Goals | Include stretch goals alongside core goals | Core goals only | Minimum viable goals only |
 | Architecture | Include platform opportunities, extensibility points | Standard recommendation | Simplest possible approach — documents only what IS being built |
 | Non-goals | Frame as "what's phase 2 vs phase 1?" | As-is | Explicitly list cut items with rationale — mine-plan uses Non-goals as exclusions |
+| Implementation Preferences | Include extensibility-oriented tooling decisions; note stretch choices | Concrete decisions from discovery only | Only decisions critical to the minimum build |
 | Replacement Targets | Items being replaced in this change — note candidates for future replacement in Architecture | Only items being replaced in this change | Only items being replaced — defer others to follow-up |
 | Test Strategy | Include stretch coverage goals; test adjacent behaviors | Cover all FRs; adapt all affected tests | Minimum tests for core FRs; note deferred coverage |
 | Alternatives | Include the ambitious alternative even if not chosen | Standard alternatives | Include "do nothing" and "manual workaround" as alternatives |
@@ -548,6 +582,7 @@ Validate the design doc against this checklist:
 16. Section presence and content rules match the template annotations (re-read them and verify each): Key Constraints, Visual Artifacts, Replacement Targets, and Migration follow the include/omit conditions stated in the template — a section present when it should be omitted (or omitted when required) is a FAIL
 17. Test Strategy identifies existing tests to adapt (with file paths), new coverage needed (mapped to FR#N), and tests to remove — or states N/A for repos with no test infrastructure
 18. Documentation Updates lists specific artifacts with specific changes needed, or explicitly states none are required — a vague "update docs" without naming artifacts is a FAIL
+19. Implementation Preferences contains only decisions explicitly surfaced during discovery — speculatively filled entries (not traceable to a user answer or codebase finding) are a FAIL. Section states "No specific implementation preferences — follow codebase conventions." when none were identified
 
 For any item that fails: **FAIL** — block and revise before proceeding. Report results as a compact list.
 
