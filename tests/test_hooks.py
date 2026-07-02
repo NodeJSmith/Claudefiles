@@ -7,6 +7,7 @@ the hook via subprocess.run, and asserts on exit code and stdout.
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 import time
@@ -17,25 +18,38 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).parent.parent
 COMPACTION_HOOK = REPO_ROOT / "scripts" / "hooks" / "subagent-compaction-check.sh"
 CASS_UPDATE = REPO_ROOT / "bin" / "cass-update"
+CASS_SESSION_START_HOOK = REPO_ROOT / "scripts" / "hooks" / "cass-session-start.sh"
+CASS_CLEAR_HANDOFF_HOOK = REPO_ROOT / "scripts" / "hooks" / "cass-clear-handoff.sh"
 
 
 def run_hook(
     script: Path,
     stdin: str,
-    tmpdir: str,
+    tmpdir: str | None = None,
     extra_env: dict | None = None,
+    env: dict | None = None,
+    timeout: float | None = None,
 ) -> subprocess.CompletedProcess:
-    """Run a hook script with given stdin and CLAUDE_CODE_TMPDIR set to tmpdir."""
-    env = os.environ.copy()
-    env["CLAUDE_CODE_TMPDIR"] = tmpdir
-    if extra_env:
-        env.update(extra_env)
+    """Run a hook script with given stdin.
+
+    Pass `tmpdir` for hooks that read CLAUDE_CODE_TMPDIR (sets it on a copy of
+    the current environment, optionally overlaid with `extra_env`). Pass a
+    full `env` override instead for hooks that don't consume
+    CLAUDE_CODE_TMPDIR and need direct control over PATH/HOME.
+    """
+    if env is None:
+        env = os.environ.copy()
+        if tmpdir is not None:
+            env["CLAUDE_CODE_TMPDIR"] = tmpdir
+        if extra_env:
+            env.update(extra_env)
     return subprocess.run(
         [str(script)],
         input=stdin,
         capture_output=True,
         text=True,
         env=env,
+        timeout=timeout,
     )
 
 
@@ -773,3 +787,342 @@ class TestCassUpdateTimestamp:
 
             assert result.returncode == 0, result.stderr
             assert marker.exists()
+
+
+# ---------------------------------------------------------------------------
+# scripts/hooks/cass-session-start.sh and cass-clear-handoff.sh tests
+# ---------------------------------------------------------------------------
+#
+# The SessionStart hook shells out to `cass`, `cass-update`, and `jq`, all
+# stubbed via a PATH prefix so tests never touch the real GitHub API or a
+# real cass install. jq itself is left as the real system binary (it's
+# already a hard dependency of other hooks in this file) — only `cass` and
+# `cass-update` are faked.
+
+
+def _write_cass_multi_stub(
+    stub_dir: Path,
+    *,
+    search_json: str = '{"hits": []}',
+    search_sleep: float = 0,
+    index_log: Path | None = None,
+) -> Path:
+    """A `cass` stand-in supporting the `index` and `search` subcommands used
+    by the SessionStart hook. `index` logs an invocation marker; `search`
+    optionally sleeps (to exercise the hook's 3s timeout) before printing
+    canned --robot JSON."""
+    index_log = index_log or (stub_dir / "index.log")
+    script = f"""#!/usr/bin/env bash
+if [[ "$1" == "index" ]]; then
+  echo "indexed" >> "{index_log}"
+  exit 0
+fi
+if [[ "$1" == "search" ]]; then
+  sleep {search_sleep}
+  cat << 'JSON'
+{search_json}
+JSON
+  exit 0
+fi
+exit 1
+"""
+    stub = stub_dir / "cass"
+    stub.write_text(script)
+    stub.chmod(0o755)
+    return stub
+
+
+def _write_cass_update_logging_stub(stub_dir: Path, log_path: Path) -> Path:
+    """A `cass-update` stand-in that logs its arguments instead of hitting
+    the real GitHub API — used to verify the SessionStart hook triggers it,
+    without exercising cass-update's own bootstrap/update logic (covered by
+    TestCassUpdate* above)."""
+    script = f"""#!/usr/bin/env bash
+echo "$@" >> "{log_path}"
+exit 0
+"""
+    stub = stub_dir / "cass-update"
+    stub.write_text(script)
+    stub.chmod(0o755)
+    return stub
+
+
+def _wait_for_file(path: Path, timeout: float = 2.0) -> bool:
+    """Poll for a file written by a detached background process instead of
+    a blind sleep — the hook's background spawns are async by design."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if path.exists():
+            return True
+        time.sleep(0.05)
+    return path.exists()
+
+
+def _make_no_jq_path(tmp: Path, extra_names: list[str]) -> Path:
+    """Build a PATH directory with symlinks to real coreutils but no `jq`, so
+    a test can deterministically exercise a hook's jq-absent fallback branch
+    rather than relying on the dev machine happening to lack jq (it always
+    has it — jq is a hard dependency of other hooks in this file)."""
+    stub = tmp / "no-jq-path"
+    stub.mkdir()
+    for name in ["env", "bash", *extra_names]:
+        resolved = shutil.which(name)
+        assert resolved, f"required binary not found on PATH: {name}"
+        (stub / name).symlink_to(resolved)
+    return stub
+
+
+class TestSessionStartHookNoCassInstalled:
+    """Hook exits silently when cass is not on PATH."""
+
+    def test_exits_silently_when_cass_not_installed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            # A PATH with just enough on it to exec the script's own
+            # `#!/usr/bin/env bash` shebang and its `command -v` builtin
+            # check — deliberately excluding any directory that might have
+            # a real `cass` on it, so this test is independent of whether
+            # the host machine happens to have cass installed.
+            bare_path = tmp / "bare-path"
+            bare_path.mkdir()
+            (bare_path / "bash").symlink_to(shutil.which("bash"))
+            fake_home = tmp / "home"
+            fake_home.mkdir()
+
+            env = os.environ.copy()
+            env["PATH"] = str(bare_path)
+            env["HOME"] = str(fake_home)
+
+            result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
+
+            assert result.returncode == 0
+            assert result.stdout.strip() == ""
+
+
+class TestSessionStartHookBackgroundSpawns:
+    """Hook spawns cass index and cass-update --if-stale as detached
+    background processes (FR#3, FR#11)."""
+
+    def test_spawns_background_cass_index(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            stub_dir = tmp / "stubs"
+            stub_dir.mkdir()
+            fake_home = tmp / "home"
+            fake_home.mkdir()
+            index_log = tmp / "index.log"
+
+            _write_cass_multi_stub(stub_dir, index_log=index_log)
+
+            env = os.environ.copy()
+            env["PATH"] = f"{stub_dir}:{env['PATH']}"
+            env["HOME"] = str(fake_home)
+
+            result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
+
+            assert result.returncode == 0
+            assert _wait_for_file(index_log)
+            assert index_log.read_text().strip() == "indexed"
+
+    def test_triggers_cass_update_if_stale(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            stub_dir = tmp / "stubs"
+            stub_dir.mkdir()
+            fake_home = tmp / "home"
+            fake_home.mkdir()
+            update_log = tmp / "update.log"
+
+            _write_cass_multi_stub(stub_dir)
+            _write_cass_update_logging_stub(stub_dir, update_log)
+
+            env = os.environ.copy()
+            env["PATH"] = f"{stub_dir}:{env['PATH']}"
+            env["HOME"] = str(fake_home)
+
+            result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
+
+            assert result.returncode == 0
+            assert _wait_for_file(update_log)
+            assert update_log.read_text().strip() == "--if-stale"
+
+
+class TestSessionStartHookContextInjection:
+    """Synchronous context injection: emits a summary or degrades to silence
+    within the 3s budget (FR#4, edge case: timeout/empty results)."""
+
+    def test_context_injection_produces_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            stub_dir = tmp / "stubs"
+            stub_dir.mkdir()
+            fake_home = tmp / "home"
+            fake_home.mkdir()
+
+            search_json = json.dumps(
+                {
+                    "hits": [
+                        {
+                            "title": "pytest fixtures work",
+                            "date": "2026-06-30",
+                            "snippet": "discussed fixture scoping",
+                        }
+                    ]
+                }
+            )
+            _write_cass_multi_stub(stub_dir, search_json=search_json)
+
+            env = os.environ.copy()
+            env["PATH"] = f"{stub_dir}:{env['PATH']}"
+            env["HOME"] = str(fake_home)
+
+            result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
+
+            assert result.returncode == 0
+            assert "pytest fixtures work" in result.stdout
+            assert "2026-06-30" in result.stdout
+            assert "discussed fixture scoping" in result.stdout
+
+    def test_context_injection_exits_zero_on_timeout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            stub_dir = tmp / "stubs"
+            stub_dir.mkdir()
+            fake_home = tmp / "home"
+            fake_home.mkdir()
+
+            _write_cass_multi_stub(stub_dir, search_sleep=5)
+
+            env = os.environ.copy()
+            env["PATH"] = f"{stub_dir}:{env['PATH']}"
+            env["HOME"] = str(fake_home)
+
+            start = time.monotonic()
+            result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
+            elapsed = time.monotonic() - start
+
+            assert result.returncode == 0
+            assert result.stdout.strip() == ""
+            # The hook's own `timeout 3` must cap this, not the stub's 5s sleep.
+            assert elapsed < 5
+
+
+class TestSessionStartHookNoJqFallback:
+    """Hook degrades to silent context injection when jq is absent
+    (cass-session-start.sh:32-34), but the two background spawns — which
+    don't depend on jq — still fire. Every other context-injection test in
+    this file runs with real jq on PATH, so this fallback would otherwise
+    ship untested."""
+
+    def test_no_jq_skips_context_but_still_spawns_background_work(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            stub_dir = tmp / "stubs"
+            stub_dir.mkdir()
+            fake_home = tmp / "home"
+            fake_home.mkdir()
+            index_log = tmp / "index.log"
+            update_log = tmp / "update.log"
+
+            _write_cass_multi_stub(stub_dir, index_log=index_log)
+            _write_cass_update_logging_stub(stub_dir, update_log)
+
+            no_jq_path = _make_no_jq_path(tmp, ["cat", "nohup"])
+
+            env = os.environ.copy()
+            env["HOME"] = str(fake_home)
+            env["PATH"] = f"{no_jq_path}:{stub_dir}"
+
+            result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
+
+            assert result.returncode == 0
+            assert result.stdout.strip() == ""
+            assert _wait_for_file(index_log)
+            assert index_log.read_text().strip() == "indexed"
+            assert _wait_for_file(update_log)
+            assert update_log.read_text().strip() == "--if-stale"
+
+
+class TestClearHandoffHookWritesFile:
+    """SessionEnd hook writes a per-project handoff JSON file (FR#5, AC#6)."""
+
+    def test_writes_handoff_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            fake_home = tmp / "home"
+            fake_home.mkdir()
+
+            stdin_payload = json.dumps(
+                {"session_id": "sess-abc123", "cwd": "/home/jessica/myproject"}
+            )
+
+            env = os.environ.copy()
+            env["HOME"] = str(fake_home)
+
+            result = run_hook(CASS_CLEAR_HANDOFF_HOOK, stdin_payload, env=env)
+
+            assert result.returncode == 0
+
+            handoff_dir = (
+                fake_home / ".local" / "share" / "claudefiles-cass" / "clear-handoff"
+            )
+            files = list(handoff_dir.glob("*.json"))
+            assert len(files) == 1
+            assert files[0].name == "-home-jessica-myproject.json"
+
+            data = json.loads(files[0].read_text())
+            assert data["session_id"] == "sess-abc123"
+            assert data["project_path"] == "/home/jessica/myproject"
+            assert "timestamp" in data
+
+
+class TestClearHandoffHookNoJqFallback:
+    """SessionEnd hook falls back to hand-rolled JSON escaping when jq is
+    absent (cass-clear-handoff.sh:44-58) — every other test in this file
+    runs with real jq on PATH, so this fallback would otherwise ship
+    untested."""
+
+    def test_escapes_quotes_and_backslashes_without_jq(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            fake_home = tmp / "home"
+            fake_home.mkdir()
+            no_jq_path = _make_no_jq_path(tmp, ["cat", "mkdir", "date", "sed", "grep"])
+
+            # A cwd containing a quote and a backslash — the exact characters
+            # the hand-rolled `sed 's/\\/\\\\/g; s/"/\\"/g'` escape must get
+            # right. Delivered via the process's actual working directory
+            # rather than the stdin JSON's "cwd" field, so this test
+            # isolates the write-side escaping (lines 44-58) from the
+            # separate stdin-JSON field-extraction fallback (lines 26-27),
+            # which is a different code path than the one this finding is
+            # about.
+            tricky_dir = tmp / 'weird"quote\\dir'
+            tricky_dir.mkdir()
+
+            stdin_payload = json.dumps({"session_id": "sess-xyz"})
+            env = os.environ.copy()
+            env["HOME"] = str(fake_home)
+            env["PATH"] = str(no_jq_path)
+
+            result = subprocess.run(
+                [str(CASS_CLEAR_HANDOFF_HOOK)],
+                input=stdin_payload,
+                capture_output=True,
+                text=True,
+                env=env,
+                cwd=str(tricky_dir),
+            )
+
+            assert result.returncode == 0
+
+            handoff_dir = (
+                fake_home / ".local" / "share" / "claudefiles-cass" / "clear-handoff"
+            )
+            files = list(handoff_dir.glob("*.json"))
+            assert len(files) == 1
+
+            data = json.loads(files[0].read_text())
+            assert data["project_path"] == str(tricky_dir)
+            assert data["session_id"] == "sess-xyz"
+            assert "timestamp" in data

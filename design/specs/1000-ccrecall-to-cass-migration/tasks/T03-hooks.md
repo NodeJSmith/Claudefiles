@@ -1,7 +1,7 @@
 ---
 task_id: "T03"
 title: "Create SessionStart and SessionEnd hooks"
-status: "planned"
+status: "done"
 depends_on: ["T01", "T02"]
 implements: ["FR#3", "FR#4", "FR#5", "FR#11", "AC#4", "AC#5", "AC#6", "AC#12"]
 ---

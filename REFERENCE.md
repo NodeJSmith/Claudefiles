@@ -179,6 +179,8 @@ Event-driven scripts that run before/after tool calls.
 | `subagent-compaction-check.sh` | PostToolUse (Agent) | Detect subagent context compaction — warns the orchestrator when a subagent hit its context window limit mid-task |
 | `tmux-drift-check.sh` | PreToolUse (*) | Periodically remind Claude to verify tmux session name alignment with current work (every 30 calls) |
 | `secrets-check.sh` | Git pre-commit | Block commits containing secrets, tokens, or dangerous files — 44 patterns (29 regex + 15 filename), truncated output, `SKIP_SECRETS_CHECK=1` override |
+| `cass-session-start.sh` | SessionStart | Background `cass-update --if-stale` + background `cass index` + 3s-capped recent-session-context injection via `cass search --robot` |
+| `cass-clear-handoff.sh` | SessionEnd | Writes a per-project handoff JSON so `/cass-resume` can find the prior session |
 
 The `ccrecall` plugin contributes its own SessionStart / SessionEnd / Stop memory hooks
 (`cm-memory-setup`, `cm-onboarding`, `cm-memory-context`, `cm-clear-handoff`,
