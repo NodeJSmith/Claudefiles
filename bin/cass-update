@@ -1,0 +1,173 @@
+#!/usr/bin/env bash
+# Bootstrap or update the cass binary (coding_agent_session_search).
+#
+# Two modes, chosen by whether cass is already on PATH:
+#   Bootstrap (cass missing): downloads cass-linux-amd64.tar.gz + its .sha256
+#     from the GitHub releases "latest" endpoint, verifies the checksum,
+#     extracts, and moves the binary into place at ~/.local/bin/cass. This is
+#     the only path with custom download logic.
+#   Update (cass present): delegates to `cass upgrade --yes`, which natively
+#     handles version checks, checksum verification, and in-place replacement.
+#
+# --if-stale skips the whole check when the last one (tracked via the mtime of
+# a marker file, not its contents) ran less than 24h ago. Any completed check
+# — bootstrap, update, or "already current" — refreshes the marker.
+#
+# No `set -euo pipefail`: this script is spawned from a detached background
+# process (the SessionStart hook) and from install.py. A failure here must
+# never propagate as a hard stop for the caller — every step checks its own
+# exit status and degrades gracefully instead.
+#
+# Usage:
+#   cass-update              # bootstrap or update, unconditionally
+#   cass-update --if-stale   # skip if the last check was <24h ago
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  cat << 'EOF'
+Usage: cass-update [--if-stale]
+
+Bootstrap or update the cass binary (coding_agent_session_search).
+
+Bootstrap mode (cass not on PATH): downloads the latest GitHub release,
+verifies its SHA-256 checksum, and installs it to ~/.local/bin/cass.
+
+Update mode (cass on PATH): delegates to `cass upgrade --yes`.
+
+Options:
+  --if-stale    Skip the check if the last one ran within the last 24 hours
+                (tracked by the mtime of
+                ~/.local/share/claudefiles-cass/last-update-check).
+  -h, --help    Show this help message and exit
+EOF
+  exit 0
+fi
+
+RELEASES_API="https://api.github.com/repos/Dicklesworthstone/coding_agent_session_search/releases/latest"
+RELEASE_DOWNLOAD_BASE="https://github.com/Dicklesworthstone/coding_agent_session_search/releases/download"
+ASSET_NAME="cass-linux-amd64.tar.gz"
+INSTALL_DIR="${HOME}/.local/bin"
+INSTALL_PATH="${INSTALL_DIR}/cass"
+STATE_DIR="${HOME}/.local/share/claudefiles-cass"
+TIMESTAMP_FILE="${STATE_DIR}/last-update-check"
+STALE_MINUTES=1440 # 24h
+CURL_TIMEOUT_ARGS=(--connect-timeout 10 --max-time 15)
+
+if_stale=0
+[[ "${1:-}" == "--if-stale" ]] && if_stale=1
+
+# --if-stale: bail out early if the marker's mtime is within the last 24h.
+# Uses mtime, not file contents, so refreshing is a plain `touch`.
+if [[ $if_stale -eq 1 && -f "$TIMESTAMP_FILE" ]]; then
+  if [[ -z "$(find "$TIMESTAMP_FILE" -mmin +"$STALE_MINUTES" 2> /dev/null)" ]]; then
+    exit 0
+  fi
+fi
+
+record_timestamp() {
+  mkdir -p "$STATE_DIR" 2> /dev/null
+  touch "$TIMESTAMP_FILE" 2> /dev/null
+}
+
+# Shared by every bootstrap_cass failure branch that warns and gives up:
+# log the message, clean up the temp dir. The caller still does its own
+# `return 0` — a function can't return from its caller — but this collapses
+# the message+cleanup duplication to one line per call site.
+warn_skip() {
+  echo "cass-update: warning: $1" >&2
+  rm -rf "$tmpdir"
+}
+
+# Bootstrap: cass is not on PATH yet, so custom download + verify + install.
+bootstrap_cass() {
+  # Stage the temp dir inside INSTALL_DIR (not the system tmp) so the final
+  # `mv` below is a same-filesystem rename — a real atomic move, not a
+  # cross-filesystem copy+unlink that could leave a partially-written binary.
+  mkdir -p "$INSTALL_DIR" 2> /dev/null
+
+  local tmpdir
+  tmpdir="$(mktemp -d "${INSTALL_DIR}/.cass-update.XXXXXX" 2> /dev/null)" || {
+    echo "cass-update: warning: could not create a temp directory — skipping install" >&2
+    return 0
+  }
+  # Backstop for the normal per-branch `rm -rf "$tmpdir"` calls below: if this
+  # detached process is interrupted (session end, reaper SIGTERM) before one
+  # of those runs, the EXIT trap still fires and cleans up the temp dir.
+  trap 'rm -rf "$tmpdir"' EXIT
+
+  local release_json
+  release_json="$(curl -fsSL "${CURL_TIMEOUT_ARGS[@]}" "$RELEASES_API" 2> /dev/null)"
+  if [[ -z "$release_json" ]]; then
+    warn_skip "GitHub releases API unreachable — skipping install"
+    return 0
+  fi
+
+  local tag
+  if command -v jq > /dev/null 2>&1; then
+    tag="$(echo "$release_json" | jq -r '.tag_name // empty')"
+  else
+    tag="$(echo "$release_json" | grep -m1 '"tag_name"' |
+      sed -E 's/.*"tag_name"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')"
+  fi
+  if [[ -z "$tag" ]]; then
+    warn_skip "could not parse latest release tag — skipping install"
+    return 0
+  fi
+
+  local asset_url="${RELEASE_DOWNLOAD_BASE}/${tag}/${ASSET_NAME}"
+  local checksum_url="${asset_url}.sha256"
+  local tarball="${tmpdir}/${ASSET_NAME}"
+  local checksum_file="${tmpdir}/${ASSET_NAME}.sha256"
+
+  if ! curl -fsSL "${CURL_TIMEOUT_ARGS[@]}" -o "$tarball" "$asset_url" 2> /dev/null; then
+    warn_skip "failed to download ${ASSET_NAME} — skipping install"
+    return 0
+  fi
+  if ! curl -fsSL "${CURL_TIMEOUT_ARGS[@]}" -o "$checksum_file" "$checksum_url" 2> /dev/null; then
+    warn_skip "failed to download checksum file — skipping install"
+    return 0
+  fi
+
+  local expected actual
+  expected="$(awk '{print $1}' "$checksum_file" 2> /dev/null)"
+  actual="$(sha256sum "$tarball" 2> /dev/null | awk '{print $1}')"
+  if [[ -z "$expected" || "$expected" != "$actual" ]]; then
+    echo "cass-update: checksum mismatch for ${ASSET_NAME} — aborting install, no binary placed" >&2
+    rm -rf "$tmpdir"
+    return 1
+  fi
+
+  if ! tar xzf "$tarball" -C "$tmpdir" 2> /dev/null || [[ ! -f "${tmpdir}/cass" ]]; then
+    warn_skip "failed to extract cass binary from archive — skipping install"
+    return 0
+  fi
+
+  if ! mv "${tmpdir}/cass" "$INSTALL_PATH" 2> /dev/null; then
+    warn_skip "failed to install cass binary to ${INSTALL_PATH}"
+    return 0
+  fi
+  chmod +x "$INSTALL_PATH" 2> /dev/null ||
+    echo "cass-update: warning: could not make ${INSTALL_PATH} executable" >&2
+
+  rm -rf "$tmpdir"
+  return 0
+}
+
+# Update: cass is on PATH already — let it handle its own version check,
+# checksum verification, and in-place replacement.
+update_cass() {
+  if ! cass upgrade --yes; then
+    echo "cass-update: warning: 'cass upgrade' failed — keeping existing binary" >&2
+  fi
+  return 0
+}
+
+if command -v cass > /dev/null 2>&1; then
+  update_cass
+  status=$?
+else
+  bootstrap_cass
+  status=$?
+fi
+
+record_timestamp
+exit "$status"

@@ -1,7 +1,7 @@
 ---
 task_id: "T01"
 title: "Create bin/cass-update bootstrap and update script"
-status: "planned"
+status: "done"
 depends_on: []
 implements: ["FR#2", "AC#3"]
 ---

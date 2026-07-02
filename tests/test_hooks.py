@@ -4,16 +4,19 @@ Each test crafts JSON input matching the PreToolUse/PostToolUse schema, invokes
 the hook via subprocess.run, and asserts on exit code and stdout.
 """
 
+import hashlib
 import json
 import os
 import subprocess
 import tempfile
+import time
 import uuid
 from pathlib import Path
 
 # Resolve hook paths relative to the repo root
 REPO_ROOT = Path(__file__).parent.parent
 COMPACTION_HOOK = REPO_ROOT / "scripts" / "hooks" / "subagent-compaction-check.sh"
+CASS_UPDATE = REPO_ROOT / "bin" / "cass-update"
 
 
 def run_hook(
@@ -438,3 +441,335 @@ class TestCompactionHookNoSubagentDir:
 
             assert result.returncode == 0
             assert result.stdout.strip() == ""
+
+
+# ---------------------------------------------------------------------------
+# bin/cass-update tests
+# ---------------------------------------------------------------------------
+#
+# cass-update shells out to curl (GitHub API + asset downloads) and to cass
+# itself (update path). Both are stubbed via PATH so tests never touch the
+# real GitHub API or a real cass install. tar/sha256sum/mv/mkdir/chmod are
+# left as the real system binaries — they're deterministic and safe to run
+# for real against a throwaway HOME.
+
+CASS_RELEASE_TAG = "v1.2.3"
+
+_CURL_STUB_TEMPLATE = """#!/usr/bin/env bash
+outfile=""
+url=""
+args=("$@")
+i=0
+while [[ $i -lt ${#args[@]} ]]; do
+  a="${args[$i]}"
+  if [[ "$a" == "-o" ]]; then
+    i=$((i + 1))
+    outfile="${args[$i]}"
+  elif [[ "$a" != -* ]]; then
+    url="$a"
+  fi
+  i=$((i + 1))
+done
+
+echo "$url" >> "__LOG_PATH__"
+
+if [[ "$url" == *"api.github.com"* ]]; then
+  echo '{"tag_name": "__TAG__"}'
+  exit 0
+fi
+if [[ "$url" == *".sha256" ]]; then
+  cp "__CHECKSUM_FILE__" "$outfile"
+  exit 0
+fi
+if [[ "$url" == *"cass-linux-amd64.tar.gz" ]]; then
+  cp "__TARBALL__" "$outfile"
+  exit 0
+fi
+exit 1
+"""
+
+_CASS_STUB_TEMPLATE = """#!/usr/bin/env bash
+echo "$@" >> "__LOG_PATH__"
+exit __EXIT_CODE__
+"""
+
+
+def _make_cass_release_asset(tmpdir: Path) -> tuple[Path, Path]:
+    """Build a real cass-linux-amd64.tar.gz + matching .sha256 fixture,
+    using the real tar/sha256sum binaries so the fixture is bit-for-bit what
+    cass-update's own tar/sha256sum invocations will see."""
+    payload_dir = tmpdir / "payload"
+    payload_dir.mkdir()
+    cass_bin = payload_dir / "cass"
+    cass_bin.write_text("#!/usr/bin/env bash\necho fake-cass\n")
+    cass_bin.chmod(0o755)
+
+    tarball = tmpdir / "cass-linux-amd64.tar.gz"
+    subprocess.run(
+        ["tar", "czf", str(tarball), "-C", str(payload_dir), "cass"], check=True
+    )
+    digest = hashlib.sha256(tarball.read_bytes()).hexdigest()
+    checksum_file = tmpdir / "cass-linux-amd64.tar.gz.sha256"
+    checksum_file.write_text(f"{digest}  cass-linux-amd64.tar.gz\n")
+    return tarball, checksum_file
+
+
+def _write_curl_stub(
+    stub_dir: Path,
+    tarball: Path,
+    checksum_file: Path,
+    log_path: Path,
+    tag: str = CASS_RELEASE_TAG,
+) -> Path:
+    """A curl stand-in serving the release JSON + fixture asset files, logging
+    every requested URL so tests can assert on what was fetched."""
+    script = (
+        _CURL_STUB_TEMPLATE.replace("__LOG_PATH__", str(log_path))
+        .replace("__TAG__", tag)
+        .replace("__CHECKSUM_FILE__", str(checksum_file))
+        .replace("__TARBALL__", str(tarball))
+    )
+    stub = stub_dir / "curl"
+    stub.write_text(script)
+    stub.chmod(0o755)
+    return stub
+
+
+def _write_failing_curl_stub(stub_dir: Path) -> Path:
+    """A curl stand-in that always fails, simulating GitHub being unreachable."""
+    stub = stub_dir / "curl"
+    stub.write_text("#!/usr/bin/env bash\nexit 7\n")
+    stub.chmod(0o755)
+    return stub
+
+
+def _write_cass_stub(stub_dir: Path, log_path: Path, exit_code: int = 0) -> Path:
+    """A cass stand-in that logs `cass upgrade --yes` invocations."""
+    script = _CASS_STUB_TEMPLATE.replace("__LOG_PATH__", str(log_path)).replace(
+        "__EXIT_CODE__", str(exit_code)
+    )
+    stub = stub_dir / "cass"
+    stub.write_text(script)
+    stub.chmod(0o755)
+    return stub
+
+
+def _cass_update_env(fake_home: Path, stub_dir: Path) -> dict:
+    """Env for running cass-update in isolation: a throwaway HOME (so
+    ~/.local/bin and ~/.local/share/claudefiles-cass are sandboxed) and a PATH
+    that puts stubs first, followed only by the standard system directories —
+    never the real ~/.local/bin, so a real cass on the dev machine can't leak
+    into "command -v cass"."""
+    env = os.environ.copy()
+    env["HOME"] = str(fake_home)
+    env["PATH"] = f"{stub_dir}:/usr/bin:/bin"
+    return env
+
+
+def _run_cass_update(args: list[str], env: dict) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [str(CASS_UPDATE), *args], capture_output=True, text=True, env=env
+    )
+
+
+class TestCassUpdateBootstrap:
+    """Bootstrap path: cass is not on PATH, so cass-update downloads it."""
+
+    def test_downloads_and_verifies_checksum(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            fake_home = tmp / "home"
+            fake_home.mkdir()
+            stub_dir = tmp / "stubs"
+            stub_dir.mkdir()
+
+            tarball, checksum_file = _make_cass_release_asset(tmp)
+            _write_curl_stub(stub_dir, tarball, checksum_file, tmp / "curl.log")
+
+            env = _cass_update_env(fake_home, stub_dir)
+            result = _run_cass_update([], env)
+
+            assert result.returncode == 0, result.stderr
+            installed = fake_home / ".local" / "bin" / "cass"
+            assert installed.is_file()
+            assert os.access(installed, os.X_OK)
+            assert installed.read_text() == (tmp / "payload" / "cass").read_text()
+
+    def test_checksum_mismatch_aborts_leaving_no_binary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            fake_home = tmp / "home"
+            fake_home.mkdir()
+            stub_dir = tmp / "stubs"
+            stub_dir.mkdir()
+
+            tarball, checksum_file = _make_cass_release_asset(tmp)
+            # Corrupt the checksum so it no longer matches the tarball.
+            checksum_file.write_text("0" * 64 + "  cass-linux-amd64.tar.gz\n")
+            _write_curl_stub(stub_dir, tarball, checksum_file, tmp / "curl.log")
+
+            env = _cass_update_env(fake_home, stub_dir)
+            result = _run_cass_update([], env)
+
+            assert result.returncode == 1
+            assert "checksum mismatch" in result.stderr.lower()
+            installed = fake_home / ".local" / "bin" / "cass"
+            assert not installed.exists()
+
+    def test_github_unreachable_warns_and_exits_zero(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            fake_home = tmp / "home"
+            fake_home.mkdir()
+            stub_dir = tmp / "stubs"
+            stub_dir.mkdir()
+            _write_failing_curl_stub(stub_dir)
+
+            env = _cass_update_env(fake_home, stub_dir)
+            result = _run_cass_update([], env)
+
+            assert result.returncode == 0
+            assert result.stderr.strip() != ""
+            installed = fake_home / ".local" / "bin" / "cass"
+            assert not installed.exists()
+
+
+class TestCassUpdateUpdate:
+    """Update path: cass is already on PATH, so cass-update delegates to it."""
+
+    def test_delegates_to_cass_upgrade(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            fake_home = tmp / "home"
+            fake_home.mkdir()
+            stub_dir = tmp / "stubs"
+            stub_dir.mkdir()
+            log = tmp / "cass-invocations.log"
+            _write_cass_stub(stub_dir, log)
+
+            env = _cass_update_env(fake_home, stub_dir)
+            result = _run_cass_update([], env)
+
+            assert result.returncode == 0, result.stderr
+            assert log.exists()
+            assert log.read_text().strip() == "upgrade --yes"
+
+    def test_upgrade_failure_warns_and_exits_zero(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            fake_home = tmp / "home"
+            fake_home.mkdir()
+            stub_dir = tmp / "stubs"
+            stub_dir.mkdir()
+            log = tmp / "cass-invocations.log"
+            _write_cass_stub(stub_dir, log, exit_code=1)
+
+            env = _cass_update_env(fake_home, stub_dir)
+            result = _run_cass_update([], env)
+
+            assert result.returncode == 0
+            assert result.stderr.strip() != ""
+
+
+class TestCassUpdateIfStale:
+    """--if-stale gate: skip when the timestamp marker is fresh, run when not."""
+
+    def test_exits_early_when_timestamp_fresh(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            fake_home = tmp / "home"
+            fake_home.mkdir()
+            stub_dir = tmp / "stubs"
+            stub_dir.mkdir()
+            log = tmp / "cass-invocations.log"
+            _write_cass_stub(stub_dir, log)
+
+            state_dir = fake_home / ".local" / "share" / "claudefiles-cass"
+            state_dir.mkdir(parents=True)
+            marker = state_dir / "last-update-check"
+            marker.touch()  # fresh mtime — "just checked"
+
+            env = _cass_update_env(fake_home, stub_dir)
+            result = _run_cass_update(["--if-stale"], env)
+
+            assert result.returncode == 0
+            assert not log.exists()  # cass was never invoked
+
+    def test_runs_when_timestamp_is_old(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            fake_home = tmp / "home"
+            fake_home.mkdir()
+            stub_dir = tmp / "stubs"
+            stub_dir.mkdir()
+            log = tmp / "cass-invocations.log"
+            _write_cass_stub(stub_dir, log)
+
+            state_dir = fake_home / ".local" / "share" / "claudefiles-cass"
+            state_dir.mkdir(parents=True)
+            marker = state_dir / "last-update-check"
+            marker.touch()
+            old = time.time() - (25 * 60 * 60)  # 25h ago
+            os.utime(marker, (old, old))
+
+            env = _cass_update_env(fake_home, stub_dir)
+            result = _run_cass_update(["--if-stale"], env)
+
+            assert result.returncode == 0
+            assert log.exists()
+            assert log.read_text().strip() == "upgrade --yes"
+
+
+class TestCassUpdateTimestamp:
+    """The timestamp marker is refreshed after any completed check."""
+
+    def test_writes_timestamp_after_bootstrap(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            fake_home = tmp / "home"
+            fake_home.mkdir()
+            stub_dir = tmp / "stubs"
+            stub_dir.mkdir()
+
+            tarball, checksum_file = _make_cass_release_asset(tmp)
+            _write_curl_stub(stub_dir, tarball, checksum_file, tmp / "curl.log")
+
+            marker = (
+                fake_home
+                / ".local"
+                / "share"
+                / "claudefiles-cass"
+                / "last-update-check"
+            )
+            assert not marker.exists()
+
+            env = _cass_update_env(fake_home, stub_dir)
+            result = _run_cass_update([], env)
+
+            assert result.returncode == 0, result.stderr
+            assert marker.exists()
+
+    def test_writes_timestamp_after_update(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            fake_home = tmp / "home"
+            fake_home.mkdir()
+            stub_dir = tmp / "stubs"
+            stub_dir.mkdir()
+            log = tmp / "cass-invocations.log"
+            _write_cass_stub(stub_dir, log)
+
+            marker = (
+                fake_home
+                / ".local"
+                / "share"
+                / "claudefiles-cass"
+                / "last-update-check"
+            )
+            assert not marker.exists()
+
+            env = _cass_update_env(fake_home, stub_dir)
+            result = _run_cass_update([], env)
+
+            assert result.returncode == 0, result.stderr
+            assert marker.exists()
