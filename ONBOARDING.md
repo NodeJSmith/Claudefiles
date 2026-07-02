@@ -30,9 +30,9 @@ The base (pipeline workflow) always installs. On a first install the wizard asks
 
 **Hooks** — event-driven scripts that run before or after tool calls (pytest safety guard, sudo handling, tmux session naming). Background infrastructure you don't think about.
 
-**Plugins** — third-party Claude Code plugins bundled via `settings.json`. These register automatically when settings are merged, so you get them without manual setup. Currently: `ccrecall` (conversation memory — recall, resume, token insights).
+**Plugins** — third-party Claude Code plugins bundled via `settings.json`. These register automatically when settings are merged, so you get them without manual setup. None are currently bundled.
 
-**Bundles** — use-case packages. The base bundle gives you the pipeline. Optional bundles add capabilities: frontend design, CLI tooling, engineering specialists, and extra planning agents. (Conversation memory used to be a bundle — it's now the `ccrecall` plugin.)
+**Bundles** — use-case packages. The base bundle gives you the pipeline. Optional bundles add capabilities: frontend design, CLI tooling, engineering specialists, and extra planning agents. (Conversation memory used to be a bundle, then a plugin — it's now built in via the `cass-*` skills and hooks, always installed with the base.)
 
 ## Choose Your Path
 
@@ -56,7 +56,7 @@ Add the **Frontend** bundle. You get the Impeccable UI design skills for audit (
 Add the **CLI** bundle. Six skills cover hardening, output formatting, discoverability, error messages, complexity reduction, and comprehensive auditing. Start with `/cli-audit` for an existing tool, or `/cli-affordances` when designing a new one.
 
 **"I want conversation memory across sessions"**
-Enable the **`ccrecall`** plugin (wired in `settings.json`; its hook binaries come from the `ccrecall` PyPI package that `install.py` installs). Claude remembers corrections, architectural decisions, and preferences across sessions. `/ccrecall:ccr-recall` searches past sessions; `/ccrecall:ccr-resume` picks up a fresh session after `/clear`.
+Built in — no bundle to enable. `install.py` installs the `cass` binary (from GitHub releases) and wires SessionStart/SessionEnd hooks that index sessions and inject recent context automatically. Run `cass index` once after a fresh install to populate the index. `/cass-recall` searches past sessions by query; `/cass-context` synthesizes a context brief for a task description; `/cass-resume` picks up a fresh session after `/clear`, surfacing the prior session's last instruction and any unanswered question.
 
 **"I want domain-specific engineering agents"**
 Add the **Engineering** bundle. You get agents for FastAPI backends, PySpark pipelines, React/Vue/Angular frontends, SRE work (SLOs, observability), technical writing, and an adversarial pre-ship testing gate.
@@ -140,7 +140,7 @@ When you have all bundles installed, the system covers the full development life
 /mine-end-of-day            → capture session state as a handoff file
 ```
 
-After a `/clear` (e.g. to drop a huge uncached context the morning after an orchestration), `/ccrecall:ccr-resume` (from the `ccrecall` plugin) reads the *prior* session's transcript tail to recover your last instruction and any decision you left unanswered — no hand-written handoff needed. With the plugin enabled, the SessionStart hook also auto-warns when the previous session ended on an unanswered question.
+After a `/clear` (e.g. to drop a huge uncached context the morning after an orchestration), `/cass-resume` reads the *prior* session's transcript tail to recover your last instruction and any decision you left unanswered — no hand-written handoff needed. This is a manual step — there's no SessionStart auto-warning for an unanswered question — invoke `/cass-resume` yourself when you pick a session back up.
 
 **Worktree-based development:**
 

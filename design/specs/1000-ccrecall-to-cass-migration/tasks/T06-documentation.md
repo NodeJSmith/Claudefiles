@@ -1,7 +1,7 @@
 ---
 task_id: "T06"
 title: "Update documentation and cross-repo references"
-status: "planned"
+status: "done"
 depends_on: ["T01", "T02", "T03", "T04", "T05"]
 implements: []
 ---
