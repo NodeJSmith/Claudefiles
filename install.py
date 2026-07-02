@@ -44,27 +44,20 @@ FILE_LEVEL_SUBDIRS = ("rules", "learned", "references")
 # "timed out after Ns" messages are derived from these so they can't go stale.
 INSTALL_TIMEOUT = 120
 UNINSTALL_TIMEOUT = 30
-PYPI_INSTALL_TIMEOUT = 300
 PLUGIN_TIMEOUT = 120
 UV_LIST_TIMEOUT = 10
 CODEX_SYNC_TIMEOUT = 30
 GIT_TIMEOUT = 5
+# bin/cass-update budgets 3 curl calls at --max-time 15s each (release metadata,
+# tarball, checksum) plus extraction/move overhead — 90s gives headroom without
+# leaving a hung download blocking install indefinitely.
+CASS_UPDATE_TIMEOUT = 90
 UV_NOT_FOUND_MSG = "uv not found — install via https://docs.astral.sh/uv/"
 
 # Config lock: the lock file sits next to the config; acquisition polls until the timeout.
 LOCK_SUFFIX = ".lock"
 LOCK_TIMEOUT_SECONDS = 10
 LOCK_POLL_SECONDS = 0.2
-
-# ccrecall ships as a Claude Code plugin (skills + hooks), but its hook binaries and
-# CLI come from this PyPI package — install.py keeps it on PATH and removes the
-# pre-plugin vendored install it replaces. install.py also registers the plugin itself
-# (marketplace + install) so every machine gets a tracked install rather than relying on
-# the implicit startup sync. See design/specs/030-claude-memory-plugin.
-CCRECALL_PACKAGE = "ccrecall"
-LEGACY_MEMORY_PACKAGE = "claude-memory"
-CCRECALL_MARKETPLACE_REPO = "NodeJSmith/claude-code-recall"
-CCRECALL_PLUGIN_REF = "ccrecall@claude-code-recall"
 
 # Optional ADO CLI surfaced (not installed) in the first-install tip.
 ADO_API_PACKAGE = "ado-api"
@@ -371,6 +364,18 @@ def local_bin_dir() -> Path:
     return Path.home() / ".local" / "bin"
 
 
+def cass_state_dir() -> Path:
+    """Resolve ~/.local/share/claudefiles-cass — cass-update's bookkeeping dir.
+
+    A function, not a constant, so it tracks Path.home() (same rationale as
+    local_bin_dir()). Mirrors bin/cass-update's STATE_DIR. do_uninstall deletes this
+    directory (update-check timestamp, clear-handoff files) but leaves cass's own
+    index data at ~/.local/share/coding-agent-search/ untouched — that's owned by
+    cass, not Claudefiles.
+    """
+    return Path.home() / ".local" / "share" / "claudefiles-cass"
+
+
 def load_config(path: Path) -> dict | None:
     """Load config, returning None if missing or corrupt.
 
@@ -432,8 +437,8 @@ def migrate_v1_to_v2(v1_config: dict) -> dict:
       agents.core        → bundles.extra-agents (true iff agents.core was true)
       skills.core, packages.spec-helper, packages.merge-settings,
         hooks.*, agents.memory → base (always installed)
-      skills.memory, packages.claude-memory → dropped (memory is now the external
-        ccrecall plugin, not a Claudefiles bundle)
+      skills.memory, packages.claude-memory → dropped (memory is now built-in via
+        cass skills/hooks, not a separate bundle or plugin)
     """
     skills = v1_config.get("skills", {})
     agents = v1_config.get("agents", {})
@@ -666,21 +671,26 @@ def find_new_groups(
 # ---------------------------------------------------------------------------
 
 
-def run_uv_tool(cmd: list[str], timeout: int) -> tuple[bool, str]:
-    """Run a `uv tool` subprocess. Returns (success, error_detail).
+def run_uv_tool(
+    cmd: list[str], timeout: int, missing_msg: str = UV_NOT_FOUND_MSG
+) -> tuple[bool, str]:
+    """Run a subprocess. Returns (success, error_detail).
 
-    Centralizes the returncode/timeout/uv-missing handling shared by every
+    Centralizes the returncode/timeout/missing-binary handling shared by every
     package op so the error messages stay consistent and timeout values single-sourced.
+    `missing_msg` is the FileNotFoundError detail; defaults to the uv-not-found message
+    since most callers invoke `uv`, but non-uv callers (e.g. cass-update) pass their own.
     """
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        output = (result.stderr or result.stdout).strip()
         if result.returncode != 0:
-            return False, (result.stderr or result.stdout).strip()
-        return True, ""
+            return False, output
+        return True, output
     except subprocess.TimeoutExpired:
         return False, f"timed out after {timeout}s"
     except FileNotFoundError:
-        return False, UV_NOT_FOUND_MSG
+        return False, missing_msg
 
 
 def install_package(repo_dir: Path, pkg_name: str) -> tuple[bool, str]:
@@ -694,13 +704,17 @@ def uninstall_package(pkg_name: str) -> tuple[bool, str]:
     return run_uv_tool(["uv", "tool", "uninstall", pkg_name], UNINSTALL_TIMEOUT)
 
 
-def install_pypi_tool(name: str) -> tuple[bool, str]:
-    """Run uv tool install <name> for a published (non-editable) PyPI package.
+def run_cass_update(script: Path) -> tuple[bool, str]:
+    """Run bin/cass-update via subprocess. Returns (success, error_detail).
 
-    Unlike install_package, this takes no repo_dir — the package is fetched from
-    PyPI, not installed editable from a local path in this repo.
+    Delegates to run_uv_tool for the shared returncode/timeout/missing-binary handling.
+    Called by repo path (repo_dir / "bin" / "cass-update"), not the symlinked
+    ~/.local/bin/cass-update, since the bin/ symlinks may not exist yet on a
+    fresh install — cass-update is what creates ~/.local/bin in the first place.
     """
-    return run_uv_tool(["uv", "tool", "install", name], PYPI_INSTALL_TIMEOUT)
+    return run_uv_tool(
+        [str(script)], CASS_UPDATE_TIMEOUT, missing_msg=f"{script} not found"
+    )
 
 
 def run_claude_plugin(claude_bin: str, args: list[str]) -> tuple[bool, str]:
@@ -726,10 +740,12 @@ def run_claude_plugin(claude_bin: str, args: list[str]) -> tuple[bool, str]:
 
 
 def ccrecall_plugin_installed(claude_bin: str) -> bool:
-    """True if CCRECALL_PLUGIN_REF is already a tracked install in `claude plugin list`.
+    """True if ccrecall@claude-code-recall is a tracked install in `claude plugin list`.
 
-    Returns False on any error (claude missing the subcommand, bad JSON) so the caller
-    falls through to the install path rather than wrongly skipping it.
+    Lets ensure_cass skip a redundant uninstall attempt (and its warning) once the
+    plugin is already gone. Returns False on any error (claude missing the subcommand,
+    bad JSON) so the caller treats it as already-removed rather than retrying a removal
+    that would just fail again.
     """
     ok, detail = run_claude_plugin(claude_bin, ["list", "--json"])
     if not ok:
@@ -742,120 +758,71 @@ def ccrecall_plugin_installed(claude_bin: str) -> bool:
     # Anything other than that array shape is treated as not-installed (fail open).
     if not isinstance(plugins, list):
         return False
-    return any(p.get("id") == CCRECALL_PLUGIN_REF for p in plugins)
+    return any(p.get("id") == "ccrecall@claude-code-recall" for p in plugins)
 
 
-def ensure_ccrecall_plugin(console: Console) -> int:
-    """Register the ccrecall plugin: add its marketplace, then install it. Returns errors.
+def ensure_cass(repo_dir: Path, console: Console) -> int:
+    """Install the cass binary via bin/cass-update, then remove ccrecall + its plugin.
 
-    The plugin auto-syncs from enabledPlugins in settings.json at session start, but that
-    sync leaves no tracked install record (so `claude plugin update` won't see it). This
-    makes the install explicit. The underlying commands are idempotent (both no-op when
-    already present), but not silently — they reprint progress and refetch the marketplace
-    on every run. So we check `claude plugin list` first and skip the work entirely once
-    the plugin is a tracked install.
+    cass replaces ccrecall as the conversation-search backend. Presence is checked via
+    shutil.which, so any install method counts — a manually-installed cass is recognized
+    and never clobbered by a redundant cass-update run. cass-update is invoked by repo
+    path (repo_dir / "bin" / "cass-update"), not the symlinked ~/.local/bin/cass-update,
+    since bin/ symlinks may not exist yet on a fresh install.
 
-    claude is resolved with shutil.which, never the bare name: the interactive `claude`
-    shell function launches `--bare`, which skips plugin sync. shutil.which sees only real
-    PATH binaries, never shell functions/aliases. A missing claude is a warning, not a
-    failure — the startup sync remains as a fallback.
+    Safety invariant (preserved from the old ensure_ccrecall): ccrecall and its plugin
+    registration are removed ONLY after cass is confirmed on PATH — never leave a
+    machine with neither search tool. A cass install failure is counted as an error;
+    ccrecall/plugin removal failures are best-effort warnings (they don't block install,
+    and a lingering ccrecall install is harmless once cass is the working search tool).
+    Returns error count.
     """
     errors = 0
+    cass_present = shutil.which("cass") is not None
+    if cass_present:
+        console.print("  cass already on PATH [dim](skipping)[/dim]")
+    else:
+        console.print("  Installing cass binary via bin/cass-update...")
+        ok, detail = run_cass_update(repo_dir / "bin" / "cass-update")
+        if not ok:
+            console.print("  [red]cass-update failed[/red]")
+            if detail:
+                console.print(f"  [dim]{detail}[/dim]")
+        cass_present = shutil.which("cass") is not None
+
+    if not cass_present:
+        console.print(
+            "  [yellow]Warning: cass still not on PATH — leaving ccrecall in place[/yellow]"
+        )
+        if ok and detail:
+            console.print(f"  [dim]cass-update output: {detail}[/dim]")
+        errors += 1
+        return errors
+
+    if shutil.which("ccrecall") is not None:
+        console.print("  Removing legacy package: ccrecall...")
+        ok, detail = uninstall_package("ccrecall")
+        if not ok and detail:
+            console.print(f"  [yellow]Warning: {detail}[/yellow]")
+
     claude_bin = shutil.which("claude")
     if claude_bin is None:
         console.print(
-            "  [yellow]claude not on PATH — skipping plugin registration "
-            "(it auto-syncs from settings.json on next session start)[/yellow]"
+            "  [yellow]claude not on PATH — skipping ccrecall plugin uninstall[/yellow]"
         )
         return errors
 
     if ccrecall_plugin_installed(claude_bin):
-        console.print(
-            f"  Plugin already installed: {CCRECALL_PLUGIN_REF} [dim](skipping)[/dim]"
+        console.print("  Uninstalling plugin: ccrecall@claude-code-recall...")
+        ok, detail = run_claude_plugin(
+            claude_bin, ["uninstall", "ccrecall@claude-code-recall"]
         )
-        return errors
-
-    # Marketplace add failing is non-fatal — it's already-known on every machine past the
-    # first, and a real failure surfaces again as the install error below.
-    console.print(f"  Adding plugin marketplace: {CCRECALL_MARKETPLACE_REPO}...")
-    ok, detail = run_claude_plugin(
-        claude_bin, ["marketplace", "add", CCRECALL_MARKETPLACE_REPO]
-    )
-    if not ok:
-        console.print("  [yellow]Warning: marketplace add failed[/yellow]")
-        if detail:
-            console.print(f"  [dim]{detail}[/dim]")
-
-    console.print(f"  Installing plugin: {CCRECALL_PLUGIN_REF}...")
-    ok, detail = run_claude_plugin(claude_bin, ["install", CCRECALL_PLUGIN_REF])
-    if not ok:
-        console.print(f"  [red]Failed to register plugin {CCRECALL_PLUGIN_REF}[/red]")
-        if detail:
-            console.print(f"  [dim]{detail}[/dim]")
-        errors += 1
-    return errors
-
-
-def remove_ccrecall_plugin(console: Console) -> None:
-    """Uninstall the ccrecall plugin — the do_uninstall mirror of ensure_ccrecall_plugin.
-
-    Best-effort: a missing claude or a failed uninstall warns rather than fails, matching
-    the package uninstalls. claude is resolved with shutil.which for the same reason as
-    ensure_ccrecall_plugin (avoid the --bare shell function). enabledPlugins in
-    settings.json is left untouched on purpose — a full teardown reverts settings.json
-    separately; this just drops the tracked install.
-    """
-    claude_bin = shutil.which("claude")
-    if claude_bin is None:
-        console.print(
-            "  [yellow]claude not on PATH — skipping plugin uninstall[/yellow]"
-        )
-        return
-
-    console.print(f"  Uninstalling plugin: {CCRECALL_PLUGIN_REF}...")
-    ok, detail = run_claude_plugin(claude_bin, ["uninstall", CCRECALL_PLUGIN_REF])
-    if not ok:
-        console.print(
-            f"  [yellow]Warning: failed to uninstall plugin {CCRECALL_PLUGIN_REF}[/yellow]"
-        )
-        if detail:
-            console.print(f"  [dim]{detail}[/dim]")
-
-
-def ensure_ccrecall(installed_pkgs: set[str], console: Console) -> int:
-    """Install the ccrecall package and remove the legacy claude-memory install.
-
-    ccrecall replaces the formerly-vendored claude-memory: its hook binaries and CLI
-    must be on PATH for the plugin's bundled hooks to work. Presence is checked via
-    shutil.which, so any install method counts — a mise- or pipx-managed ccrecall is
-    recognized and never clobbered by a redundant `uv tool install`. Installs from
-    PyPI only when the binary is absent from PATH, and uninstalls claude-memory when
-    it lingers (silent no-op if it was never installed). Returns error count.
-
-    installed_pkgs is still consulted for the `LEGACY_MEMORY_PACKAGE in installed_pkgs`
-    guard at the end of this function — claude-memory is specifically a uv-tool install
-    we want to remove, so `uv tool list` is the right signal there.
-    """
-    errors = 0
-    ccrecall_present = shutil.which("ccrecall") is not None
-    if not ccrecall_present:
-        console.print(f"  Installing package: {CCRECALL_PACKAGE} (PyPI)...")
-        ok, detail = install_pypi_tool(CCRECALL_PACKAGE)
-        if ok:
-            ccrecall_present = True
-        else:
-            console.print(f"  [red]Failed to install {CCRECALL_PACKAGE}[/red]")
+        if not ok:
+            console.print(
+                "  [yellow]Warning: failed to uninstall plugin ccrecall@claude-code-recall[/yellow]"
+            )
             if detail:
                 console.print(f"  [dim]{detail}[/dim]")
-            errors += 1
-
-    # Only drop the legacy package once its replacement is in place — removing it
-    # while ccrecall is absent would leave the machine with neither.
-    if ccrecall_present and LEGACY_MEMORY_PACKAGE in installed_pkgs:
-        console.print(f"  Removing legacy package: {LEGACY_MEMORY_PACKAGE}...")
-        ok, detail = uninstall_package(LEGACY_MEMORY_PACKAGE)
-        if not ok and detail:
-            console.print(f"  [yellow]Warning: {detail}[/yellow]")
     return errors
 
 
@@ -1312,10 +1279,10 @@ def do_install(
             )
             uninstall_deselected_packages(bundle, bundle_key, prev_config, console)
 
-    # ccrecall is always-on (plugin enabled globally in settings.json), so its package
-    # install is unconditional. Also removes the legacy claude-memory install it replaces.
-    errors += ensure_ccrecall(installed_pkgs, console)
-    errors += ensure_ccrecall_plugin(console)
+    # cass is always-on, so its install is unconditional. Removes ccrecall + its
+    # plugin registration once cass is confirmed present (never leaves the machine
+    # with neither search tool — see ensure_cass).
+    errors += ensure_cass(repo_dir, console)
 
     # Interactively relinking a shadowed file creates a symlink, so its count adds to
     # total_links; stale-symlink removal only deletes, so it returns nothing.
@@ -1400,10 +1367,6 @@ def do_uninstall(repo_dir: Path, claude_dir: Path, config: dict) -> None:
     for bundle in (b for b in bundles.values() if b.always_installed):
         pkgs_to_uninstall.extend(bundle.packages)
 
-    # ccrecall is installed unconditionally by do_install (ensure_ccrecall), so the
-    # uninstall path removes it too — it is not part of any bundle.
-    pkgs_to_uninstall.append(CCRECALL_PACKAGE)
-
     # Add packages from selected optional bundles
     for bundle_key, bundle in (b for b in bundles.items() if not b[1].always_installed):
         if bundle_cfg.get(bundle_key):
@@ -1423,7 +1386,29 @@ def do_uninstall(repo_dir: Path, claude_dir: Path, config: dict) -> None:
             if detail:
                 console.print(f"  [dim]{detail}[/dim]")
 
-    remove_ccrecall_plugin(console)
+    # cass is not a uv-tool package (installed from GitHub releases via bin/cass-update),
+    # so it's cleaned up here directly rather than through pkgs_to_uninstall above. Gated
+    # on cass_state_dir() (written exclusively by bin/cass-update) so a binary that
+    # happens to exist at this path but wasn't placed by Claudefiles is never deleted —
+    # same ownership-check principle remove_owned_symlinks/unlink_if_owned use for
+    # symlinks elsewhere in this function.
+    state_dir = cass_state_dir()
+    cass_bin = bin_dir / "cass"
+    if state_dir.is_dir() and cass_bin.exists():
+        cass_bin.unlink()
+        console.print(f"  Removed cass binary: {cass_bin}")
+
+    if state_dir.is_dir():
+        shutil.rmtree(state_dir)
+        console.print(f"  Removed cass bookkeeping dir: {state_dir}")
+
+    # Best-effort cleanup of any lingering ccrecall plugin registration — do_install's
+    # ensure_cass already removes this on a machine that ran install.py post-migration,
+    # so this is mainly for a machine going straight to uninstall. Never errors on
+    # failure: a missing claude or a failed uninstall just means nothing to clean up.
+    claude_bin = shutil.which("claude")
+    if claude_bin is not None:
+        run_claude_plugin(claude_bin, ["uninstall", "ccrecall@claude-code-recall"])
 
     cfg_path = config_path(claude_dir)
     if cfg_path.exists():
@@ -1672,7 +1657,8 @@ def print_uninstall_dry_run(repo_dir: Path, config: dict, cfg_path: Path) -> Non
     console = Console()
     console.print("\n[bold]Dry run — would uninstall:[/bold]\n")
     console.print("  All Claudefiles-owned symlinks from $CLAUDE_CONFIG_DIR")
-    console.print(f"  Package: {CCRECALL_PACKAGE}")
+    console.print(f"  Binary: {local_bin_dir() / 'cass'}")
+    console.print(f"  Directory: {cass_state_dir()}")
     bundle_cfg = config.get("bundles", {})
     for bundle_key, bundle in get_bundles(repo_dir).items():
         if bundle.always_installed or bundle_cfg.get(bundle_key):

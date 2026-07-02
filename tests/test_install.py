@@ -8,7 +8,7 @@ import subprocess
 import sys
 from contextlib import AbstractContextManager
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from rich.console import Console
@@ -27,12 +27,11 @@ BASE_PACKAGES = frozenset(
     install.get_bundles(Path(__file__).resolve().parent.parent)["base"].packages
 )
 
-# Fake binary paths returned by patched shutil.which across plugin/ccrecall tests, and
+# Fake binary paths returned by patched shutil.which across plugin/cass tests, and
 # a config version no migration handles.
 MISE_CLAUDE_BIN = "/home/u/.local/share/mise/shims/claude"
-MISE_CCRECALL_BIN = "/home/u/.local/share/mise/shims/ccrecall"
+MISE_CASS_BIN = "/home/u/.local/share/mise/shims/cass"
 USR_BIN_CLAUDE = "/usr/bin/claude"
-USR_LOCAL_CCRECALL_BIN = "/usr/local/bin/ccrecall"
 UNKNOWN_CONFIG_VERSION = 999
 
 
@@ -46,31 +45,31 @@ def _clear_bundle_cache():
 
 
 @pytest.fixture(autouse=True)
-def _stub_ccrecall_side_effects(monkeypatch):
-    """Stop do_install from shelling out to real ccrecall installs.
+def _stub_cass_side_effects(monkeypatch):
+    """Stop do_install/do_uninstall from shelling out to real cass/ccrecall commands.
 
-    do_install always calls ensure_ccrecall (uv tool install ccrecall) and
-    ensure_ccrecall_plugin (claude plugin marketplace add + install). Default the leaf
-    shell-outs to successful no-ops; tests that assert on them re-patch. Stubbing the
-    leaf rather than ensure_ccrecall_plugin keeps that function real in do_install tests.
+    do_install always calls ensure_cass, which checks `shutil.which("cass")`, may run
+    bin/cass-update, and then — only if ccrecall/its plugin are still present — removes
+    them. Force cass "present" and ccrecall "absent" by default so unrelated
+    do_install/do_uninstall tests take the already-installed-and-already-migrated skip
+    branches, regardless of whether the test host actually has cass or ccrecall on
+    PATH. Tests that assert on ensure_cass's own behavior (TestCassBinary) re-patch
+    shutil.which, run_cass_update, uninstall_package, and run_claude_plugin directly.
     """
-    monkeypatch.setattr(install, "install_pypi_tool", lambda name: (True, ""))
-    # ensure_ccrecall now checks `shutil.which("ccrecall")` (a PATH boundary). Force it
-    # "absent" by default so do_install exercises the (stubbed) install branch regardless
-    # of whether the test host has ccrecall installed. Every other lookup (e.g. "claude")
-    # resolves for real, keeping ensure_ccrecall_plugin real in do_install tests.
     _real_which = install.shutil.which
+
+    def fake_which(name):
+        if name == "cass":
+            return MISE_CASS_BIN
+        if name == "ccrecall":
+            return None
+        return _real_which(name)
+
+    monkeypatch.setattr(install.shutil, "which", fake_which)
+    monkeypatch.setattr(install, "run_cass_update", lambda script: (True, ""))
+    monkeypatch.setattr(install, "uninstall_package", lambda name: (True, ""))
     monkeypatch.setattr(
-        install.shutil,
-        "which",
-        lambda name: None if name == install.CCRECALL_PACKAGE else _real_which(name),
-    )
-    # `list` returns an explicit empty array (not-yet-installed) so ensure_ccrecall_plugin
-    # proceeds to install; other plugin subcommands no-op successfully.
-    monkeypatch.setattr(
-        install,
-        "run_claude_plugin",
-        lambda claude_bin, args: (True, "[]") if args[0] == "list" else (True, ""),
+        install, "run_claude_plugin", lambda claude_bin, args: (True, "")
     )
 
 
@@ -467,7 +466,7 @@ class TestBundleModel:
             )
 
     def test_four_optional_bundles(self, tmp_path: Path) -> None:
-        """Exactly 4 optional bundles (memory is now the external ccrecall plugin)."""
+        """Exactly 4 optional bundles (conversation memory is now built-in via cass)."""
         _setup_minimal_repo(tmp_path)
         opt = install.optional_bundles(tmp_path)
         assert set(opt.keys()) == {
@@ -503,7 +502,7 @@ class TestBundleModel:
         assert set(bundles["base"].packages) == {"cfl", "merge-settings"}
 
     def test_no_memory_bundle(self, tmp_path: Path) -> None:
-        """Memory is the external ccrecall plugin, not a Claudefiles bundle."""
+        """Conversation memory is now built-in via cass skills/hooks, not a bundle."""
         _setup_minimal_repo(tmp_path)
         bundles = install.get_bundles(tmp_path)
         assert "memory" not in bundles
@@ -1103,221 +1102,147 @@ def _minimal_repo(tmp_path: Path) -> Path:
     return repo
 
 
-class TestCcrecallPlugin:
-    def test_resolves_claude_via_which_not_bare_name(self) -> None:
-        """The plugin commands run the shutil.which-resolved path, never bare `claude`
-        (the interactive shell function launches --bare, which skips plugin sync). When
-        the plugin is absent, the list check is followed by marketplace add + install."""
-        resolved = MISE_CLAUDE_BIN
-
-        def fake_run(claude_bin, args):
-            if args[0] == "list":
-                return (True, "[]")  # not yet installed
-            return (True, "")
-
-        mock_run = MagicMock(side_effect=fake_run)
+class TestCassBinary:
+    def test_skips_when_cass_on_path(self) -> None:
+        """ensure_cass does not run cass-update when cass is already on PATH."""
+        mock_update = MagicMock(return_value=(True, ""))
+        mock_uninstall = MagicMock(return_value=(True, ""))
+        mock_plugin = MagicMock(return_value=(True, ""))
         with (
-            patch("install.shutil.which", return_value=resolved),
-            patch("install.run_claude_plugin", mock_run),
+            patch("install.shutil.which", return_value=MISE_CASS_BIN),
+            patch("install.run_cass_update", mock_update),
+            patch("install.uninstall_package", mock_uninstall),
+            patch("install.run_claude_plugin", mock_plugin),
         ):
-            errors = install.ensure_ccrecall_plugin(install.Console())
+            errors = install.ensure_cass(Path("/repo"), install.Console())
         assert errors == 0
-        assert mock_run.call_args_list == [
-            call(resolved, ["list", "--json"]),
-            call(resolved, ["marketplace", "add", install.CCRECALL_MARKETPLACE_REPO]),
-            call(resolved, ["install", install.CCRECALL_PLUGIN_REF]),
-        ]
+        mock_update.assert_not_called()
 
-    def test_skips_when_plugin_already_installed(self) -> None:
-        """When `claude plugin list` already reports the plugin, ensure_ccrecall_plugin
-        skips marketplace add + install entirely — no redundant refetch or progress noise."""
-        resolved = MISE_CLAUDE_BIN
-        listing = json.dumps([{"id": install.CCRECALL_PLUGIN_REF, "enabled": True}])
+    def test_installs_when_absent(self) -> None:
+        """ensure_cass invokes bin/cass-update when cass is not on PATH, then verifies
+        via shutil.which that the install succeeded before touching ccrecall."""
+        cass_calls = {"n": 0}
 
-        def fake_run(claude_bin, args):
-            assert args[0] == "list", f"unexpected command after skip: {args}"
-            return (True, listing)
+        def fake_which(name):
+            if name != "cass":
+                return MISE_CLAUDE_BIN
+            cass_calls["n"] += 1
+            return None if cass_calls["n"] == 1 else MISE_CASS_BIN
 
-        mock_run = MagicMock(side_effect=fake_run)
+        mock_update = MagicMock(return_value=(True, ""))
         with (
-            patch("install.shutil.which", return_value=resolved),
-            patch("install.run_claude_plugin", mock_run),
+            patch("install.shutil.which", side_effect=fake_which),
+            patch("install.run_cass_update", mock_update),
+            patch("install.uninstall_package", return_value=(True, "")),
+            patch("install.run_claude_plugin", return_value=(True, "")),
         ):
-            errors = install.ensure_ccrecall_plugin(install.Console())
+            errors = install.ensure_cass(Path("/repo"), install.Console())
         assert errors == 0
-        mock_run.assert_called_once_with(resolved, ["list", "--json"])
+        mock_update.assert_called_once_with(Path("/repo") / "bin" / "cass-update")
 
-    def test_installs_when_plugin_list_is_malformed(self) -> None:
-        """A `claude plugin list` that succeeds but emits non-array / unparseable output
-        fails open: the plugin is treated as absent and the install proceeds."""
-        resolved = MISE_CLAUDE_BIN
-
-        def fake_run(claude_bin, args):
-            if args[0] == "list":
-                return (True, "not json at all")
-            return (True, "")
-
-        mock_run = MagicMock(side_effect=fake_run)
-        with (
-            patch("install.shutil.which", return_value=resolved),
-            patch("install.run_claude_plugin", mock_run),
-        ):
-            errors = install.ensure_ccrecall_plugin(install.Console())
-        assert errors == 0
-        assert mock_run.call_args_list == [
-            call(resolved, ["list", "--json"]),
-            call(resolved, ["marketplace", "add", install.CCRECALL_MARKETPLACE_REPO]),
-            call(resolved, ["install", install.CCRECALL_PLUGIN_REF]),
-        ]
-
-    def test_skips_when_claude_absent(self) -> None:
-        """A missing claude binary is a warning, not a failure — the startup sync is the
-        fallback, so no plugin commands run and no error is counted."""
-        mock_run = MagicMock()
+    def test_handles_download_failure(self) -> None:
+        """A cass-update failure that leaves cass off PATH is a hard error, and
+        ccrecall/its plugin are never touched."""
+        mock_uninstall = MagicMock()
+        mock_plugin = MagicMock()
         with (
             patch("install.shutil.which", return_value=None),
-            patch("install.run_claude_plugin", mock_run),
+            patch("install.run_cass_update", return_value=(False, "download failed")),
+            patch("install.uninstall_package", mock_uninstall),
+            patch("install.run_claude_plugin", mock_plugin),
         ):
-            errors = install.ensure_ccrecall_plugin(install.Console())
-        assert errors == 0
-        mock_run.assert_not_called()
-
-    def test_install_failure_increments_errors(self) -> None:
-        """A failed `claude plugin install` is counted in the returned error total."""
-
-        def fake_run(claude_bin, args):
-            subcommand = args[0]  # "list", "marketplace", or "install"
-            if subcommand == "list":
-                return (True, "[]")  # not yet installed
-            return (True, "") if subcommand == "marketplace" else (False, "boom")
-
-        with (
-            patch("install.shutil.which", return_value=USR_BIN_CLAUDE),
-            patch("install.run_claude_plugin", side_effect=fake_run),
-        ):
-            errors = install.ensure_ccrecall_plugin(install.Console())
+            errors = install.ensure_cass(Path("/repo"), install.Console())
         assert errors == 1
+        mock_uninstall.assert_not_called()
+        mock_plugin.assert_not_called()
 
-    def test_marketplace_failure_is_warning_not_error(self) -> None:
-        """A failed marketplace add still proceeds to install and is not counted as an
-        error when the install itself succeeds (the marketplace may already be known)."""
+    def test_removes_ccrecall_after_cass_installed(self) -> None:
+        """Once cass is confirmed present, ensure_cass removes a still-present ccrecall
+        and its still-tracked plugin registration."""
 
-        def fake_run(claude_bin, args):
-            subcommand = args[0]  # "list", "marketplace", or "install"
-            if subcommand == "list":
-                return (True, "[]")  # not yet installed
-            return (False, "boom") if subcommand == "marketplace" else (True, "")
+        def fake_which(name):
+            return {
+                "cass": MISE_CASS_BIN,
+                "claude": MISE_CLAUDE_BIN,
+                "ccrecall": "/usr/bin/ccrecall",
+            }.get(name)
 
-        mock_run = MagicMock(side_effect=fake_run)
+        def fake_plugin(claude_bin, args):
+            if args == ["list", "--json"]:
+                return True, json.dumps([{"id": "ccrecall@claude-code-recall"}])
+            return True, ""
+
+        mock_uninstall = MagicMock(return_value=(True, ""))
+        mock_plugin = MagicMock(side_effect=fake_plugin)
         with (
-            patch("install.shutil.which", return_value=USR_BIN_CLAUDE),
-            patch("install.run_claude_plugin", mock_run),
+            patch("install.shutil.which", side_effect=fake_which),
+            patch("install.run_cass_update", return_value=(True, "")),
+            patch("install.uninstall_package", mock_uninstall),
+            patch("install.run_claude_plugin", mock_plugin),
         ):
-            errors = install.ensure_ccrecall_plugin(install.Console())
+            errors = install.ensure_cass(Path("/repo"), install.Console())
         assert errors == 0
-        assert mock_run.call_count == 3
-
-    def test_remove_resolves_claude_and_uninstalls(self) -> None:
-        """remove_ccrecall_plugin uninstalls the plugin via the shutil.which path."""
-        resolved = MISE_CLAUDE_BIN
-        mock_run = MagicMock(return_value=(True, ""))
-        with (
-            patch("install.shutil.which", return_value=resolved),
-            patch("install.run_claude_plugin", mock_run),
-        ):
-            install.remove_ccrecall_plugin(install.Console())
-        mock_run.assert_called_once_with(
-            resolved, ["uninstall", install.CCRECALL_PLUGIN_REF]
+        mock_uninstall.assert_called_once_with("ccrecall")
+        mock_plugin.assert_any_call(
+            MISE_CLAUDE_BIN, ["uninstall", "ccrecall@claude-code-recall"]
         )
 
-    def test_remove_skips_when_claude_absent(self) -> None:
-        """A missing claude binary makes plugin uninstall a no-op (best-effort)."""
-        mock_run = MagicMock()
+    def test_skips_ccrecall_uninstall_when_already_absent(self) -> None:
+        """ensure_cass does not call uninstall_package when ccrecall isn't on PATH —
+        otherwise every re-run of an already-migrated machine reprints "Removing
+        legacy package: ccrecall..." followed by a spurious warning, forever."""
+
+        def fake_which(name):
+            return {"cass": MISE_CASS_BIN, "claude": MISE_CLAUDE_BIN}.get(name)
+
+        mock_uninstall = MagicMock(return_value=(True, ""))
+        with (
+            patch("install.shutil.which", side_effect=fake_which),
+            patch("install.run_cass_update", return_value=(True, "")),
+            patch("install.uninstall_package", mock_uninstall),
+            patch("install.run_claude_plugin", return_value=(True, "[]")),
+        ):
+            errors = install.ensure_cass(Path("/repo"), install.Console())
+        assert errors == 0
+        mock_uninstall.assert_not_called()
+
+    def test_skips_plugin_uninstall_when_not_tracked(self) -> None:
+        """ensure_cass checks `claude plugin list` before uninstalling — once the
+        plugin is no longer a tracked install, it does not re-attempt the uninstall
+        (and its warning-on-failure) on every subsequent run."""
+
+        def fake_which(name):
+            return {"cass": MISE_CASS_BIN, "claude": MISE_CLAUDE_BIN}.get(name)
+
+        mock_plugin = MagicMock(return_value=(True, "[]"))
+        with (
+            patch("install.shutil.which", side_effect=fake_which),
+            patch("install.run_cass_update", return_value=(True, "")),
+            patch("install.uninstall_package", return_value=(True, "")),
+            patch("install.run_claude_plugin", mock_plugin),
+        ):
+            errors = install.ensure_cass(Path("/repo"), install.Console())
+        assert errors == 0
+        mock_plugin.assert_called_once_with(MISE_CLAUDE_BIN, ["list", "--json"])
+
+    def test_keeps_ccrecall_if_cass_fails(self) -> None:
+        """Safety invariant: ccrecall and its plugin are never removed while cass is
+        absent — never leave the machine with neither search tool."""
+        mock_uninstall = MagicMock()
+        mock_plugin = MagicMock()
         with (
             patch("install.shutil.which", return_value=None),
-            patch("install.run_claude_plugin", mock_run),
+            patch("install.run_cass_update", return_value=(False, "boom")),
+            patch("install.uninstall_package", mock_uninstall),
+            patch("install.run_claude_plugin", mock_plugin),
         ):
-            install.remove_ccrecall_plugin(install.Console())
-        mock_run.assert_not_called()
+            errors = install.ensure_cass(Path("/repo"), install.Console())
+        assert errors == 1
+        mock_uninstall.assert_not_called()
+        mock_plugin.assert_not_called()
 
 
 class TestPackageInstall:
-    def test_skips_ccrecall_when_present(self) -> None:
-        """ensure_ccrecall does not reinstall ccrecall when its binary is on PATH —
-        even when it is absent from `uv tool list` (e.g. a mise- or pipx-managed
-        install). This is the case that a naive `installed_pkgs` check missed."""
-        mock_install = MagicMock(return_value=(True, ""))
-        with (
-            patch(
-                "install.shutil.which",
-                return_value=MISE_CCRECALL_BIN,
-            ),
-            patch("install.install_pypi_tool", mock_install),
-        ):
-            # installed_pkgs (from `uv tool list`) deliberately lacks ccrecall.
-            errors = install.ensure_ccrecall(set(BASE_PACKAGES), install.Console())
-        assert errors == 0
-        mock_install.assert_not_called()
-
-    def test_installs_ccrecall_when_absent(self) -> None:
-        """ensure_ccrecall installs ccrecall from PyPI when it is not present."""
-        mock_install = MagicMock(return_value=(True, ""))
-        with (
-            patch("install.shutil.which", return_value=None),
-            patch("install.install_pypi_tool", mock_install),
-        ):
-            errors = install.ensure_ccrecall(set(BASE_PACKAGES), install.Console())
-        assert errors == 0
-        mock_install.assert_called_once_with(install.CCRECALL_PACKAGE)
-
-    def test_install_failure_increments_errors(self) -> None:
-        """A failed ccrecall install is counted in the returned error total."""
-        with (
-            patch("install.shutil.which", return_value=None),
-            patch("install.install_pypi_tool", return_value=(False, "boom")),
-        ):
-            errors = install.ensure_ccrecall(set(BASE_PACKAGES), install.Console())
-        assert errors == 1
-
-    def test_uninstalls_legacy_claude_memory_when_present(self) -> None:
-        """ensure_ccrecall removes a lingering claude-memory install."""
-        mock_uninstall = MagicMock(return_value=(True, ""))
-        with (
-            # ccrecall present on PATH; claude-memory still in `uv tool list`.
-            patch("install.shutil.which", return_value=USR_LOCAL_CCRECALL_BIN),
-            patch("install.install_pypi_tool", return_value=(True, "")),
-            patch("install.uninstall_package", mock_uninstall),
-        ):
-            install.ensure_ccrecall({install.LEGACY_MEMORY_PACKAGE}, install.Console())
-        mock_uninstall.assert_called_once_with(install.LEGACY_MEMORY_PACKAGE)
-
-    def test_no_uninstall_when_claude_memory_absent(self) -> None:
-        """ensure_ccrecall is a silent no-op for uninstall when claude-memory is gone."""
-        mock_uninstall = MagicMock()
-        with (
-            # ccrecall present on PATH; nothing in `uv tool list` to remove.
-            patch("install.shutil.which", return_value=USR_LOCAL_CCRECALL_BIN),
-            patch("install.install_pypi_tool", return_value=(True, "")),
-            patch("install.uninstall_package", mock_uninstall),
-        ):
-            install.ensure_ccrecall(set(), install.Console())
-        mock_uninstall.assert_not_called()
-
-    def test_keeps_legacy_when_ccrecall_install_fails(self) -> None:
-        """Legacy claude-memory is kept if ccrecall fails — never leave the machine
-        with neither the new package nor the old one."""
-        mock_uninstall = MagicMock()
-        with (
-            patch("install.shutil.which", return_value=None),
-            patch("install.install_pypi_tool", return_value=(False, "boom")),
-            patch("install.uninstall_package", mock_uninstall),
-        ):
-            errors = install.ensure_ccrecall(
-                {install.LEGACY_MEMORY_PACKAGE}, install.Console()
-            )
-        assert errors == 1
-        mock_uninstall.assert_not_called()
-
     def test_base_packages_installed(self, tmp_path: Path) -> None:
         """Base bundle packages install on a fresh run with nothing present."""
         repo = _minimal_repo(tmp_path)
@@ -1349,7 +1274,7 @@ class TestPackageInstall:
         ):
             errors = install.do_install(repo, claude_dir, config, interactive=False)
 
-        # ccrecall contributes 0 errors here — the autouse stub makes its install succeed.
+        # cass contributes 0 errors here — the autouse stub makes ensure_cass succeed.
         assert errors == len(install.get_bundles(repo)["base"].packages)
 
     def test_base_packages_skip_only_already_present(self, tmp_path: Path) -> None:
@@ -1375,7 +1300,9 @@ class TestPackageInstall:
 
 class TestDoUninstall:
     def test_base_packages_uninstalled_without_config(self, tmp_path: Path) -> None:
-        """Even with no config, base bundle packages are uninstalled."""
+        """Even with no config, base bundle packages are uninstalled. ccrecall is not
+        a uv-tool package removal target here — do_install's ensure_cass already
+        removes it once cass is confirmed present."""
         repo = _minimal_repo(tmp_path)
         claude_dir = tmp_path / "claude"
         claude_dir.mkdir()
@@ -1389,28 +1316,108 @@ class TestDoUninstall:
 
         # uninstall_package is called as uninstall_package(pkg_name)
         uninstalled = {call.args[0] for call in mock_uninstall.call_args_list}
-        # ccrecall is always uninstalled too (installed unconditionally by do_install)
-        assert uninstalled == set(install.get_bundles(repo)["base"].packages) | {
-            install.CCRECALL_PACKAGE
-        }
+        assert uninstalled == set(install.get_bundles(repo)["base"].packages)
 
-    def test_ccrecall_uninstalled_with_base_packages(self, tmp_path: Path) -> None:
-        """do_uninstall removes ccrecall alongside the base bundle packages."""
+    def test_removes_cass_binary(self, tmp_path: Path) -> None:
+        """do_uninstall deletes ~/.local/bin/cass when present and cass_state_dir()
+        (written exclusively by bin/cass-update) confirms Claudefiles put it there."""
         repo = _minimal_repo(tmp_path)
         claude_dir = tmp_path / "claude"
         claude_dir.mkdir()
 
-        cfg = {"bundles": {}}
-        mock_uninstall = MagicMock(return_value=(True, ""))
         with (
-            patch("install.uninstall_package", mock_uninstall),
             _fake_home_patch(tmp_path),
+            patch("install.uninstall_package", return_value=(True, "")),
         ):
-            install.do_uninstall(repo, claude_dir, cfg)
+            cass_bin = install.local_bin_dir() / "cass"
+            cass_bin.write_text("#!/bin/sh\n")
+            install.cass_state_dir().mkdir(parents=True)
+            install.do_uninstall(repo, claude_dir, {})
+            assert not cass_bin.exists()
 
-        uninstalled = {call.args[0] for call in mock_uninstall.call_args_list}
-        assert install.CCRECALL_PACKAGE in uninstalled
-        assert set(install.get_bundles(repo)["base"].packages) <= uninstalled
+    def test_preserves_cass_binary_without_state_dir(self, tmp_path: Path) -> None:
+        """A binary at ~/.local/bin/cass is left alone if cass_state_dir() doesn't
+        exist — the ownership check that stops do_uninstall from deleting a binary
+        Claudefiles never installed (e.g. manually placed, or installed by another
+        tool at the same path)."""
+        repo = _minimal_repo(tmp_path)
+        claude_dir = tmp_path / "claude"
+        claude_dir.mkdir()
+
+        with (
+            _fake_home_patch(tmp_path),
+            patch("install.uninstall_package", return_value=(True, "")),
+        ):
+            cass_bin = install.local_bin_dir() / "cass"
+            cass_bin.write_text("#!/bin/sh\n")
+            install.do_uninstall(repo, claude_dir, {})
+            assert cass_bin.exists()
+
+    def test_missing_cass_binary_is_silent_no_op(self, tmp_path: Path) -> None:
+        """A missing cass binary is a silent no-op, not an error."""
+        repo = _minimal_repo(tmp_path)
+        claude_dir = tmp_path / "claude"
+        claude_dir.mkdir()
+
+        with (
+            _fake_home_patch(tmp_path),
+            patch("install.uninstall_package", return_value=(True, "")),
+        ):
+            install.do_uninstall(repo, claude_dir, {})  # must not raise
+
+    def test_removes_cass_state_dir(self, tmp_path: Path) -> None:
+        """do_uninstall deletes ~/.local/share/claudefiles-cass/ when present."""
+        repo = _minimal_repo(tmp_path)
+        claude_dir = tmp_path / "claude"
+        claude_dir.mkdir()
+
+        with (
+            _fake_home_patch(tmp_path),
+            patch("install.uninstall_package", return_value=(True, "")),
+        ):
+            state_dir = install.cass_state_dir()
+            state_dir.mkdir(parents=True)
+            (state_dir / "last-update-check").write_text("")
+            install.do_uninstall(repo, claude_dir, {})
+            assert not state_dir.exists()
+
+    def test_attempts_ccrecall_plugin_cleanup(self, tmp_path: Path) -> None:
+        """do_uninstall best-effort uninstalls any lingering ccrecall plugin
+        registration — for a machine that goes straight to uninstall without ever
+        running install.py post-migration."""
+        repo = _minimal_repo(tmp_path)
+        claude_dir = tmp_path / "claude"
+        claude_dir.mkdir()
+
+        mock_plugin = MagicMock(return_value=(True, ""))
+        with (
+            _fake_home_patch(tmp_path),
+            patch("install.uninstall_package", return_value=(True, "")),
+            patch("install.shutil.which", return_value=USR_BIN_CLAUDE),
+            patch("install.run_claude_plugin", mock_plugin),
+        ):
+            install.do_uninstall(repo, claude_dir, {})
+
+        mock_plugin.assert_called_once_with(
+            USR_BIN_CLAUDE, ["uninstall", "ccrecall@claude-code-recall"]
+        )
+
+    def test_skips_plugin_cleanup_when_claude_absent(self, tmp_path: Path) -> None:
+        """A missing claude binary makes the plugin cleanup a no-op, not an error."""
+        repo = _minimal_repo(tmp_path)
+        claude_dir = tmp_path / "claude"
+        claude_dir.mkdir()
+
+        mock_plugin = MagicMock()
+        with (
+            _fake_home_patch(tmp_path),
+            patch("install.uninstall_package", return_value=(True, "")),
+            patch("install.shutil.which", return_value=None),
+            patch("install.run_claude_plugin", mock_plugin),
+        ):
+            install.do_uninstall(repo, claude_dir, {})
+
+        mock_plugin.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -1760,7 +1767,6 @@ V1_ALL_SELECTED = {
         "core": True,
         "impeccable": True,
         "cli": True,
-        "memory": True,
     },
     "agents": {
         "core": True,
@@ -1770,7 +1776,6 @@ V1_ALL_SELECTED = {
     "packages": {
         "spec-helper": True,
         "merge-settings": True,
-        "claude-memory": True,
         "ado-api": True,
     },
     "hooks": {
@@ -1784,7 +1789,6 @@ V1_NONE_SELECTED = {
         "core": False,
         "impeccable": False,
         "cli": False,
-        "memory": False,
     },
     "agents": {
         "core": False,
@@ -1794,7 +1798,6 @@ V1_NONE_SELECTED = {
     "packages": {
         "spec-helper": False,
         "merge-settings": False,
-        "claude-memory": False,
         "ado-api": False,
     },
     "hooks": {

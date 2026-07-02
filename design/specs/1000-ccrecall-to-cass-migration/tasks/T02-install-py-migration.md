@@ -1,7 +1,7 @@
 ---
 task_id: "T02"
 title: "Migrate install.py from ccrecall to cass"
-status: "planned"
+status: "done"
 depends_on: ["T01"]
 implements: ["FR#1", "FR#12", "AC#1", "AC#2", "AC#13"]
 ---
