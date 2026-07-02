@@ -249,6 +249,7 @@ If the user says "I don't know yet" or "let's figure that out later", probe deep
 After adaptive follow-ups, mentally walk through each section of the design doc template. For each section, ask: "Could I write this right now without guessing?" If any section would require inventing details the user hasn't provided and the codebase doesn't constrain, you have more questions to ask.
 
 Common gaps that survive the structured questions:
+- Implementation Preferences: the user described what to build but not which frameworks, libraries, or tooling conventions to use
 - Architecture: the approach is clear but specific technology/library choices aren't locked in
 - Edge Cases: the happy path is defined but failure modes weren't discussed
 - Migration: data changes are implied but the migration strategy wasn't addressed
@@ -581,7 +582,7 @@ Validate the design doc against this checklist:
 16. Section presence and content rules match the template annotations (re-read them and verify each): Key Constraints, Visual Artifacts, Replacement Targets, and Migration follow the include/omit conditions stated in the template — a section present when it should be omitted (or omitted when required) is a FAIL
 17. Test Strategy identifies existing tests to adapt (with file paths), new coverage needed (mapped to FR#N), and tests to remove — or states N/A for repos with no test infrastructure
 18. Documentation Updates lists specific artifacts with specific changes needed, or explicitly states none are required — a vague "update docs" without naming artifacts is a FAIL
-19. Implementation Preferences contains only decisions explicitly surfaced during discovery — speculatively filled entries (not traceable to a user answer or codebase finding) are a FAIL. Section states "No specific implementation preferences" when none were identified
+19. Implementation Preferences contains only decisions explicitly surfaced during discovery — speculatively filled entries (not traceable to a user answer or codebase finding) are a FAIL. Section states "No specific implementation preferences — follow codebase conventions." when none were identified
 
 For any item that fails: **FAIL** — block and revise before proceeding. Report results as a compact list.
 
