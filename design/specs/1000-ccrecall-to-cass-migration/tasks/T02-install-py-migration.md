@@ -21,7 +21,7 @@ Replace all ccrecall installation, plugin management, and uninstall code in inst
 
 **Remove constants** (lines 59-67): `CCRECALL_PACKAGE`, `LEGACY_MEMORY_PACKAGE`, `CCRECALL_MARKETPLACE_REPO`, `CCRECALL_PLUGIN_REF`. The `LEGACY_MEMORY_PACKAGE` cleanup path is no longer needed — all machines have already migrated from claude-memory.
 
-**Remove functions**: `ensure_ccrecall()` (lines 825-859), `ensure_ccrecall_plugin()` (lines 748-796), `ccrecall_plugin_installed()` (lines 728-745), `remove_ccrecall_plugin()` (in `do_uninstall()`).
+**Remove functions**: `ensure_ccrecall()` (lines 825-859), `ensure_ccrecall_plugin()` (lines 748-796), `ccrecall_plugin_installed()` (lines 728-745), `remove_ccrecall_plugin()` (in `do_uninstall()`), `install_pypi_tool()` (lines 697-703 — sole caller was `ensure_ccrecall()`). Also remove the `PYPI_INSTALL_TIMEOUT` constant (line 47) — no remaining callers.
 
 **Remove from `do_install()`** (lines 1316-1318): the calls to `ensure_ccrecall()` and `ensure_ccrecall_plugin()`.
 
@@ -39,7 +39,13 @@ Replace all ccrecall installation, plugin management, and uninstall code in inst
 - Delete `~/.local/share/claudefiles-cass/` directory if it exists (timestamp + handoff files)
 - Attempt `run_claude_plugin(claude_bin, ["uninstall", "ccrecall@claude-code-recall"])` as a cleanup of any lingering plugin registration (best-effort, don't error on failure)
 
+**Update `print_uninstall_dry_run()`** (lines 1670-1685): This function references `CCRECALL_PACKAGE` at line 1675 (`console.print(f"  Package: {CCRECALL_PACKAGE}")`). Replace with printing the cass binary path and bookkeeping directory that `do_uninstall()` now removes.
+
 **Update V1-to-V2 migration** (lines 425-449): The existing code already drops `skills.memory` and `packages.claude-memory` — no changes needed to the migration logic itself, but the comment mentioning ccrecall can be updated.
+
+**Update stale comments**: Lines 1315-1316 ("ccrecall is always-on...") and 1403-1404 ("ccrecall is installed unconditionally...") describe the old behavior — update to describe cass.
+
+**Update stale test docstrings**: `test_four_optional_bundles` (line 469-470) and `test_no_memory_bundle` (line 505-506) reference "the external ccrecall plugin" — update to reflect that conversation memory is now built-in via cass skills/hooks.
 
 ### settings.json changes
 
@@ -47,7 +53,7 @@ Remove the `extraKnownMarketplaces` block (lines 17-24) and the `enabledPlugins`
 
 ### test_install.py changes
 
-**Remove**: `_stub_ccrecall_side_effects` autouse fixture (lines 48-74). Remove `TestCcrecallPlugin` class (8 tests, lines 1106-1243). Remove 6 cases from `TestPackageInstall` — 3 ccrecall-specific (`test_skips_ccrecall_when_present`, `test_installs_ccrecall_when_absent`, `test_install_failure_increments_errors`) and 3 legacy-claude-memory-specific (`test_uninstalls_legacy_claude_memory_when_present`, `test_no_uninstall_when_claude_memory_absent`, `test_keeps_legacy_when_ccrecall_install_fails`). Keep the 3 non-ccrecall tests. Remove `"memory": True/False` from V1-to-V2 migration test fixtures and the paired `"claude-memory": True/False` from the `packages` block (lines 1757-1803).
+**Remove**: `_stub_ccrecall_side_effects` autouse fixture (lines 48-74). Remove test constants `MISE_CCRECALL_BIN` (line 33) and `USR_LOCAL_CCRECALL_BIN` (line 35) — no remaining callers after test removal. Remove `TestCcrecallPlugin` class (8 tests, lines 1106-1243). Remove 6 cases from `TestPackageInstall` — 3 ccrecall-specific (`test_skips_ccrecall_when_present`, `test_installs_ccrecall_when_absent`, `test_install_failure_increments_errors`) and 3 legacy-claude-memory-specific (`test_uninstalls_legacy_claude_memory_when_present`, `test_no_uninstall_when_claude_memory_absent`, `test_keeps_legacy_when_ccrecall_install_fails`). Keep the 3 non-ccrecall tests. Remove `"memory": True/False` from V1-to-V2 migration test fixtures and the paired `"claude-memory": True/False` from the `packages` block (lines 1757-1803).
 
 **Add `TestCassBinary` class**:
 - `test_skips_when_cass_on_path`: stub `shutil.which("cass")` to return a path → `ensure_cass()` returns 0, no subprocess called

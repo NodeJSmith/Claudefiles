@@ -66,12 +66,16 @@ No `set -euo pipefail`.
 
 Add the two hooks to the existing hook arrays. Follow the Convention Examples pattern for hook wiring:
 
-**SessionStart** — add a new entry to the existing array (alongside the tmux-remind hook):
+**SessionStart** — add a new entry object to the existing `SessionStart` array (alongside the tmux-remind entry), using the same wrapper structure:
 ```json
 {
-  "type": "command",
-  "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/cass-session-start.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
-  "timeout": 10000
+  "hooks": [
+    {
+      "type": "command",
+      "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/cass-session-start.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
+      "timeout": 10000
+    }
+  ]
 }
 ```
 

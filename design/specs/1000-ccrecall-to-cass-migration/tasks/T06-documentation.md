@@ -7,7 +7,7 @@ implements: []
 ---
 
 ## Summary
-Update all documentation files that reference ccrecall, its skills, hooks, or plugin registration. This includes REFERENCE.md, ONBOARDING.md, capabilities-core.md, and CLAUDE.md in Claudefiles, plus four cross-repo files in Dotfiles that hard-code `/ccrecall:ccr-resume`. AC#6 is partially covered here (the handoff file's readability by `/cass-resume` is documented in the updated docs).
+Update all documentation files that reference ccrecall, its skills, hooks, or plugin registration. This includes REFERENCE.md, ONBOARDING.md, capabilities-core.md, and CLAUDE.md in Claudefiles, plus four cross-repo files in Dotfiles that hard-code `/ccrecall:ccr-resume`.
 
 ## Target Files
 - modify: `REFERENCE.md`

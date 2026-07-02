@@ -22,6 +22,7 @@ Inline the pricing functions from ccrecall's `token_parser.py` into `bin/orchest
 **Remove the ccrecall dependency:**
 1. Update the PEP 723 header — change `dependencies = ["ccrecall>=0.12.0", "whenever>=0.10"]` to `dependencies = ["whenever>=0.10"]`.
 2. Remove line 59: `from ccrecall.token_parser import get_pricing, turn_cost`.
+3. Update the module docstring: lines 6-8 ("0.12.0 is the floor...") reference a dependency that no longer exists — remove. Lines 16-19 ("Pricing is delegated entirely to ccrecall.token_parser... this tool never hardcodes a rate") become false after inlining — update to describe the inlined pricing table.
 
 **Inline the pricing module:**
 Copy the contiguous block from `~/source/claude-code-recall/src/ccrecall/token_parser.py` lines 63-162 into `orchestrate-cost`. This includes:

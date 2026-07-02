@@ -11,6 +11,7 @@ Create `bin/cass-update`, a bash script that handles both initial bootstrap (dow
 
 ## Target Files
 - create: `bin/cass-update`
+- modify: `tests/test_hooks.py`
 - read: `bin/orchestrate-cost` (reference for bin/ script conventions — shebang, permissions)
 - read: `design/specs/1000-ccrecall-to-cass-migration/design.md` (§ Architecture > Binary lifecycle)
 
@@ -43,6 +44,7 @@ The script should NOT use `set -euo pipefail` since failures in background-spawn
 Refer to the Convention Examples in context.md for bin/ script conventions. The script must be executable (`chmod +x`).
 
 ## Focus
+- Add a `TestCassUpdate` class to `tests/test_hooks.py` following the existing test patterns (subprocess invocation, temp directories). Tests: bootstrap downloads and verifies checksum when cass not on PATH, bootstrap aborts on checksum mismatch leaving no binary, update path delegates to `cass upgrade --yes` when cass is on PATH, `--if-stale` exits early when timestamp <24h old, timestamp file written after completed check. Use mock scripts (e.g., a temp bash script that logs invocations) to verify subprocess calls without hitting the real GitHub API.
 - The GitHub releases API returns JSON. Use `curl -fsSL` and parse with basic tools (`grep`/`sed`) or `jq` if available, with a fallback if `jq` is not installed.
 - The `cass-linux-amd64.tar.gz` asset contains a single `cass` binary. Use `tar xzf` to extract.
 - Atomic move: extract to a temp location, then `mv` to the final path. This prevents a partially-written binary from being found on PATH.

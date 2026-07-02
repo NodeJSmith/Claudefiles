@@ -120,7 +120,7 @@ disable-model-invocation: true
 - Skills are SKILL.md prompt files, not code. They instruct Claude how to use the `cass` CLI.
 - The `--robot` flag is essential — it suppresses the TUI and emits structured JSON. Without it, cass launches an interactive terminal UI.
 - `cass-resume` depends on the handoff file written by `cass-clear-handoff.sh` (T03). The file location and format must match exactly.
-- `cass-resume` has `disable-model-invocation: true` — the model cannot invoke it on its own, only the user can.
+- `cass-resume` has `disable-model-invocation: true` — the model cannot invoke it on its own, only the user can. This is a standard Claude Code skill frontmatter key (used by ccrecall's own ccr-resume skill), even though it's not documented in this repo's REFERENCE.md.
 - The output contract for `cass-context` is deliberately stable — four sections, always present. This is the swap point for cm.
 - Query construction is critical for search quality. The skills should guide Claude to use content-bearing keywords (specific nouns, technologies) and exclude generic terms ("discuss", "talk", "thing").
 
