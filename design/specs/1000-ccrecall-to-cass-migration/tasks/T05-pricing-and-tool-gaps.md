@@ -1,7 +1,7 @@
 ---
 task_id: "T05"
 title: "Extract pricing module and update mine-tool-gaps"
-status: "planned"
+status: "done"
 depends_on: []
 implements: ["FR#9", "FR#10", "AC#10", "AC#11"]
 ---
