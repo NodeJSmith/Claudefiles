@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-07-02
+
+### Added
+
+- `mine-define` — implementation preferences question (Phase 2, moderate+) surfaces tooling and convention decisions before they become implicit executor defaults; completeness self-check internally walks the design doc template after adaptive follow-ups and generates questions for any section that would require guessing; new Implementation Preferences section in the design doc template captures these decisions for implementers.
+
 ## 2026-06-29
 
 ### Added
