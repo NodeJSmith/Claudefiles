@@ -16,10 +16,17 @@ from cfl.archive import archive_spec
 from cfl.db import db_connection, get_db_path
 from cfl.direct import VALID_ENTITIES, parse_field_args, set_field
 from cfl.dispatch import end_dispatch, record_dispatch
-from cfl.event import record_event
+from cfl.event import list_events, record_event
 from cfl.gate import VALID_GATE_VERDICTS, record_gate
-from cfl.resolve import resolve_context, resolve_spec
-from cfl.run import run_complete, run_resume, run_start, run_status, run_stop
+from cfl.resolve import resolve_context, resolve_spec, try_resolve_active_run_id
+from cfl.run import (
+    run_complete,
+    run_resume,
+    run_start,
+    run_status,
+    run_stop,
+    stop_orphans,
+)
 from cfl.session import SESSION_ID_ENV_VAR, end_session, record_compaction
 from cfl.spec import (
     SETTABLE_STATUSES,
@@ -45,7 +52,7 @@ _VALID_TASK_STATUSES = sorted(
 _FLAG = Parameter(negative=[])
 
 # Keep in sync with sub-App registrations (spec_app, run_app, etc.) below.
-_GROUPED_COMMANDS = {"spec", "run", "task", "dispatch", "session"}
+_GROUPED_COMMANDS = {"spec", "run", "task", "dispatch", "event", "session"}
 
 # ---------------------------------------------------------------------------
 # App hierarchy
@@ -73,6 +80,9 @@ dispatch_app = App(
     help_epilogue=help_text.DISPATCH,
 )
 app.command(dispatch_app)
+
+event_app = App(name="event", help="Audit trail event commands.")
+app.command(event_app)
 
 session_app = App(name="session", help="Session lifecycle commands.")
 app.command(session_app)
@@ -315,13 +325,13 @@ def cmd_task_update(
 @task_app.command(name="verdict", help_epilogue=help_text.TASK_VERDICT)
 def cmd_task_verdict(
     task_id: Annotated[str, Parameter(help="Task ID (e.g. T01)")],
-    *,
     verdict: Annotated[
         str,
         Parameter(
             help=f"Task verdict ({', '.join(sorted(VALID_VERDICTS))}); BLOCKED uses `cfl task block`"
         ),
     ],
+    *,
     detail: Annotated[
         str | None,
         Parameter(help="Optional human-readable detail (e.g. '3 auto-fixed')"),
@@ -476,11 +486,11 @@ def cmd_dispatch_end(
 
 
 # ---------------------------------------------------------------------------
-# event (leaf on root app)
+# event commands
 # ---------------------------------------------------------------------------
 
 
-@app.command(name="event", help_epilogue=help_text.EVENT)
+@event_app.default
 def cmd_event(
     event_name: Annotated[
         str,
@@ -540,6 +550,37 @@ def handle_event(
     except Exception as exc:
         output_module.emit_warning(
             f"Event write failed: {exc}", code="event_write_failed"
+        )
+
+
+@event_app.command(name="list", help_epilogue=help_text.EVENT_LIST)
+def cmd_event_list(
+    *,
+    event_name: Annotated[
+        str | None,
+        Parameter(name=["--event"], help="Filter by event name"),
+    ] = None,
+    task_id: Annotated[
+        str | None,
+        Parameter(help="Filter by task ID"),
+    ] = None,
+    run_id: Annotated[
+        int | None,
+        Parameter(name=["--run"], help="Filter by run ID"),
+    ] = None,
+    limit: Annotated[
+        int,
+        Parameter(help="Max rows to return"),
+    ] = 50,
+) -> None:
+    """List events from the audit trail."""
+    with db_connection() as conn:
+        list_events(
+            conn,
+            event_name=event_name,
+            task_id=task_id,
+            run_id=run_id,
+            limit=limit,
         )
 
 
@@ -647,6 +688,18 @@ def cmd_archive(
 
 
 # ---------------------------------------------------------------------------
+# stop-orphans (leaf on root app)
+# ---------------------------------------------------------------------------
+
+
+@app.command(name="stop-orphans", help_epilogue=help_text.STOP_ORPHANS)
+def cmd_stop_orphans() -> None:
+    """Stop running runs whose working directory no longer exists."""
+    with db_connection() as conn:
+        stop_orphans(conn)
+
+
+# ---------------------------------------------------------------------------
 # set (leaf on root app — direct-access tier)
 # ---------------------------------------------------------------------------
 
@@ -721,10 +774,11 @@ def _try_record_invocation(
             }
         )
         with db_connection() as conn:
+            run_id = try_resolve_active_run_id(conn)
             conn.execute(
                 """INSERT INTO events (run_id, event, data, created_at)
-                   VALUES (NULL, 'cfl.invoked', ?, datetime('now'))""",
-                (payload,),
+                   VALUES (?, 'cfl.invoked', ?, datetime('now'))""",
+                (run_id, payload),
             )
     except Exception:
         pass

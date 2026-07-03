@@ -50,6 +50,7 @@ ENTITY_COLUMNS: dict[str, frozenset[str]] = {
             "visual_mode",
             "dev_server_url",
             "tmpdir",
+            "cwd",
             "started_at",
             "ended_at",
         }

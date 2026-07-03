@@ -9,16 +9,16 @@ import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-SCHEMA_VERSION: int = 1
+SCHEMA_VERSION: int = 2
 CFL_DB_ENV_VAR: str = "CFL_DB"
 DEFAULT_DB_PATH: str = "~/.local/share/claudefiles/cfl.db"
 BUSY_TIMEOUT_MS: int = 5000
 WSL_MOUNT_PREFIX: str = "/mnt/"
 
 # Migration DDL strings, keyed by the target version they produce.
-# Version 1 is the initial schema (handled by _create_schema_v1).
-# Future versions go here: MIGRATIONS[2] = "ALTER TABLE ..."
-MIGRATIONS: dict[int, list[str]] = {}
+MIGRATIONS: dict[int, list[str]] = {
+    2: ["ALTER TABLE runs ADD COLUMN cwd TEXT"],
+}
 
 _SCHEMA_STATEMENTS: list[str] = [
     """
@@ -46,6 +46,7 @@ _SCHEMA_STATEMENTS: list[str] = [
             CHECK(visual_mode IN ('enabled', 'skipped_no_server', 'skipped_no_vision') OR visual_mode IS NULL),
         dev_server_url  TEXT,
         tmpdir          TEXT,
+        cwd             TEXT,
         started_at      TEXT NOT NULL,
         ended_at        TEXT
     )
@@ -207,7 +208,7 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
     ).fetchone()
 
     if result is None:
-        _create_schema_v1(conn)
+        _create_schema(conn)
         return
 
     row = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()
@@ -217,8 +218,8 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
         _apply_migrations(conn, current)
 
 
-def _create_schema_v1(conn: sqlite3.Connection) -> None:
-    """Create all v1 tables and indexes in a single transaction."""
+def _create_schema(conn: sqlite3.Connection) -> None:
+    """Create all tables from the current DDL and record SCHEMA_VERSION."""
     conn.execute("BEGIN IMMEDIATE")
     try:
         for stmt in _SCHEMA_STATEMENTS:
@@ -226,7 +227,8 @@ def _create_schema_v1(conn: sqlite3.Connection) -> None:
             if sql:
                 conn.execute(sql)
         conn.execute(
-            "INSERT OR IGNORE INTO schema_version(version, applied_at) VALUES(1, datetime('now'))"
+            "INSERT OR IGNORE INTO schema_version(version, applied_at) VALUES(?, datetime('now'))",
+            (SCHEMA_VERSION,),
         )
         conn.execute("COMMIT")
     except Exception:
@@ -242,6 +244,12 @@ def _apply_migrations(conn: sqlite3.Connection, current_version: int) -> None:
             raise RuntimeError(f"No migration defined for version {version}")
         conn.execute("BEGIN IMMEDIATE")
         try:
+            # Re-check inside the write lock to handle concurrent migrators
+            row = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()
+            actual = row[0] if row and row[0] is not None else 0
+            if actual >= version:
+                conn.execute("ROLLBACK")
+                continue
             for stmt in migration_sql:
                 sql = stmt.strip()
                 if sql:

@@ -5,7 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from cfl.resolve import resolve_context, resolve_repo_url, resolve_run, resolve_spec
+from cfl.resolve import (
+    resolve_context,
+    resolve_repo_url,
+    resolve_run,
+    resolve_spec,
+    try_resolve_active_run_id,
+)
 from tests.helpers import (
     REMOTE_URL,
     init_repo_with_remote,
@@ -296,3 +302,49 @@ def test_resolve_context_registers_session(tmp_path, monkeypatch, db_conn):
     ).fetchone()
     assert row is not None
     assert row["run_id"] == run_id
+
+
+# ---------------------------------------------------------------------------
+# try_resolve_active_run_id
+# ---------------------------------------------------------------------------
+
+
+def test_try_resolve_active_run_id_single_active(db_conn, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    init_repo_with_remote(tmp_path)
+    _, run_id = insert_spec_with_run(db_conn, 1, "feat", REMOTE_URL)
+
+    result = try_resolve_active_run_id(db_conn)
+    assert result == run_id
+
+
+def test_try_resolve_active_run_id_ambiguous_returns_none(
+    db_conn, tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    init_repo_with_remote(tmp_path)
+    insert_spec_with_run(db_conn, 1, "feat-a", REMOTE_URL)
+    insert_spec_with_run(db_conn, 2, "feat-b", REMOTE_URL)
+
+    result = try_resolve_active_run_id(db_conn)
+    assert result is None
+
+
+def test_try_resolve_active_run_id_no_active_returns_none(
+    db_conn, tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    init_repo_with_remote(tmp_path)
+    insert_spec_no_run(db_conn, 1, "feat", REMOTE_URL)
+
+    result = try_resolve_active_run_id(db_conn)
+    assert result is None
+
+
+def test_try_resolve_active_run_id_not_in_git_returns_none(
+    db_conn, tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+
+    result = try_resolve_active_run_id(db_conn)
+    assert result is None

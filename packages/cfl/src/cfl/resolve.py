@@ -26,6 +26,37 @@ class SpecContext(NamedTuple):
     feature_dir: str
 
 
+def try_resolve_active_run_id(conn: sqlite3.Connection) -> int | None:
+    """Best-effort lookup of the active run_id for telemetry. Never raises."""
+    try:
+        result = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            capture_output=True,
+            text=True,
+            timeout=GIT_SUBPROCESS_TIMEOUT_SECONDS,
+        )
+        if result.returncode != 0:
+            result = subprocess.run(
+                ["git", "rev-list", "--max-parents=0", "HEAD"],
+                capture_output=True,
+                text=True,
+                timeout=GIT_SUBPROCESS_TIMEOUT_SECONDS,
+            )
+            if result.returncode != 0:
+                return None
+        repo_url = result.stdout.strip()
+
+        rows = conn.execute(
+            "SELECT active_run_id FROM specs WHERE repo_url=? AND active_run_id IS NOT NULL",
+            (repo_url,),
+        ).fetchall()
+        if len(rows) != 1:
+            return None
+        return rows[0]["active_run_id"]
+    except Exception:
+        return None
+
+
 def resolve_repo_url() -> str:
     """Return the repo identity string for the current working directory.
 
