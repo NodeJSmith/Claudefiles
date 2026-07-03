@@ -7,7 +7,7 @@ import sqlite3
 import pytest
 
 from cfl.db import setup_db
-from cfl.event import KNOWN_EVENT_NAMES, record_event
+from cfl.event import KNOWN_EVENT_NAMES, list_events, record_event
 from tests.helpers import REMOTE_URL, insert_spec_with_run, insert_task as _insert_task
 
 
@@ -232,3 +232,62 @@ def test_known_event_names_exported():
     assert "cfl.invoked" in KNOWN_EVENT_NAMES
     assert "run.started" in KNOWN_EVENT_NAMES
     assert "session.compacted" in KNOWN_EVENT_NAMES
+
+
+# ---------------------------------------------------------------------------
+# list_events
+# ---------------------------------------------------------------------------
+
+
+def _list_events_json(db_conn, capsys, **kwargs):
+    """Call list_events() and return the parsed JSON output."""
+    # Clear any prior captured output from record_event calls
+    capsys.readouterr()
+    list_events(db_conn, **kwargs)
+    captured = capsys.readouterr()
+    return json.loads(captured.out)
+
+
+def test_list_events_returns_all_events(db_conn, capsys):
+    _, run_id = insert_spec_with_run(db_conn, 1, "feat", REMOTE_URL)
+    _insert_task(db_conn, run_id, "T01")
+    record_event(db_conn, run_id, "task.started", task_id="T01")
+    record_event(db_conn, run_id, "task.verdict", task_id="T01")
+
+    result = _list_events_json(db_conn, capsys)
+    assert result["count"] == 2
+    assert len(result["events"]) == 2
+
+
+def test_list_events_filters_by_event_name(db_conn, capsys):
+    _, run_id = insert_spec_with_run(db_conn, 1, "feat", REMOTE_URL)
+    _insert_task(db_conn, run_id, "T01")
+    record_event(db_conn, run_id, "task.started", task_id="T01")
+    record_event(db_conn, run_id, "task.verdict", task_id="T01")
+
+    result = _list_events_json(db_conn, capsys, event_name="task.verdict")
+    assert result["count"] == 1
+    assert result["events"][0]["event"] == "task.verdict"
+
+
+def test_list_events_filters_by_task_id(db_conn, capsys):
+    _, run_id = insert_spec_with_run(db_conn, 1, "feat", REMOTE_URL)
+    _insert_task(db_conn, run_id, "T01")
+    _insert_task(db_conn, run_id, "T02")
+    record_event(db_conn, run_id, "task.started", task_id="T01")
+    record_event(db_conn, run_id, "task.started", task_id="T02")
+
+    result = _list_events_json(db_conn, capsys, task_id="T02")
+    assert result["count"] == 1
+    assert result["events"][0]["task_id"] == "T02"
+
+
+def test_list_events_respects_limit(db_conn, capsys):
+    _, run_id = insert_spec_with_run(db_conn, 1, "feat", REMOTE_URL)
+    _insert_task(db_conn, run_id, "T01")
+    for i in range(5):
+        record_event(db_conn, run_id, "task.started", task_id="T01")
+
+    result = _list_events_json(db_conn, capsys, limit=2)
+    assert result["count"] == 2
+    assert len(result["events"]) == 2

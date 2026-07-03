@@ -910,9 +910,11 @@ def ensure_cass(repo_dir: Path, console: Console) -> int:
         )
 
     if shutil.which("ccrecall") is not None:
+        # which can find ccrecall via a non-uv installer (mise shim) — uv correctly
+        # reports "is not installed" in that case, which is noise, not a real failure.
         console.print("  Removing legacy package: ccrecall...")
         ok, detail = uninstall_package("ccrecall")
-        if not ok and detail:
+        if not ok and detail and "is not installed" not in detail:
             console.print(f"  [yellow]Warning: {detail}[/yellow]")
 
     claude_bin = shutil.which("claude")

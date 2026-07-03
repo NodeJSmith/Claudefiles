@@ -51,9 +51,9 @@ Examples:
 
 TASK_VERDICT = """\
 Examples:
-  cfl task verdict T01 --verdict PASS --commit abc1234
-  cfl task verdict T02 --verdict FAIL --detail "test-gate failed: 3 errors"
-  cfl task verdict T01 --verdict PASS --data '{"code-review": "PASS", "test-gate": "PASS"}'"""
+  cfl task verdict T01 PASS --commit abc1234
+  cfl task verdict T02 FAIL --detail "test-gate failed: 3 errors"
+  cfl task verdict T01 PASS --data '{"code-review": "PASS", "test-gate": "PASS"}'"""
 
 TASK_BLOCK = """\
 Examples:
@@ -79,6 +79,12 @@ Examples:
   cfl event task.retried T02 --data '{{"attempt": 2, "reason": "test flake"}}'
   cfl event run.stopped --detail "user requested stop"
 """
+
+EVENT_LIST = """\
+Examples:
+  cfl event list
+  cfl event list --event task.verdict --limit 10
+  cfl event list --run 5 --task-id T01"""
 
 DISPATCH = """\
 Examples:
@@ -110,6 +116,10 @@ Examples:
   cfl set task T01 status=executing started_at=null
   cfl set spec 3 status=draft
   cfl set session 1 ended_at=null"""
+
+STOP_ORPHANS = """\
+Examples:
+  cfl stop-orphans"""
 
 SESSION_END = """\
 Examples:

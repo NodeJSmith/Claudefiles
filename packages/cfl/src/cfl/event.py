@@ -37,6 +37,47 @@ KNOWN_EVENT_NAMES: frozenset[str] = frozenset(
 )
 
 
+def list_events(
+    conn: sqlite3.Connection,
+    *,
+    event_name: str | None = None,
+    task_id: str | None = None,
+    run_id: int | None = None,
+    limit: int = 50,
+) -> None:
+    """Query events from the audit trail with optional filters."""
+    conditions: list[str] = []
+    params: list[str | int] = []
+
+    if event_name is not None:
+        conditions.append("event = ?")
+        params.append(event_name)
+    if task_id is not None:
+        conditions.append("task_id = ?")
+        params.append(task_id)
+    if run_id is not None:
+        conditions.append("run_id = ?")
+        params.append(run_id)
+
+    where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
+    params.append(limit)
+
+    rows = conn.execute(
+        "SELECT id, run_id, task_id, event, detail, data, context_pct, created_at"
+        f" FROM events{where} ORDER BY id DESC LIMIT ?",
+        params,
+    ).fetchall()
+
+    events = []
+    for r in rows:
+        event = dict(r)
+        if event.get("created_at"):
+            event["created_at"] = output_module.to_iso(event["created_at"])
+        events.append(event)
+
+    output_module.emit({"count": len(events), "events": events})
+
+
 def record_event(
     conn: sqlite3.Connection,
     run_id: int | None,

@@ -78,13 +78,13 @@ def test_mnt_path_uses_delete_journal(tmp_db_path):
 # ---------------------------------------------------------------------------
 
 
-def test_schema_version_is_1_after_setup(db_conn):
+def test_schema_version_is_current_after_setup(db_conn):
     version = db_conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
-    assert version == 1
+    assert version == SCHEMA_VERSION
 
 
 def test_schema_version_code_constant():
-    assert SCHEMA_VERSION == 1
+    assert SCHEMA_VERSION == 2
 
 
 # ---------------------------------------------------------------------------
@@ -93,15 +93,18 @@ def test_schema_version_code_constant():
 
 
 def test_migration_applied(tmp_db_path):
-    # Step 1: create v1 DB
+    # Step 1: create DB at current schema version
     conn = setup_db(tmp_db_path)
     conn.close()
 
-    # Step 2: pretend code now expects v2, with a real migration
-    v2_sql = ["CREATE TABLE IF NOT EXISTS test_migration_v2 (id INTEGER PRIMARY KEY)"]
+    # Step 2: pretend code now expects v3, with a real migration
+    next_version = SCHEMA_VERSION + 1
+    v_next_sql = [
+        "CREATE TABLE IF NOT EXISTS test_migration_v_next (id INTEGER PRIMARY KEY)"
+    ]
     with (
-        patch("cfl.db.SCHEMA_VERSION", 2),
-        patch.dict("cfl.db.MIGRATIONS", {2: v2_sql}),
+        patch("cfl.db.SCHEMA_VERSION", next_version),
+        patch.dict("cfl.db.MIGRATIONS", {next_version: v_next_sql}),
     ):
         conn = setup_db(tmp_db_path)
 
@@ -114,8 +117,8 @@ def test_migration_applied(tmp_db_path):
     }
     conn.close()
 
-    assert version == 2
-    assert "test_migration_v2" in tables
+    assert version == next_version
+    assert "test_migration_v_next" in tables
 
 
 # ---------------------------------------------------------------------------
@@ -160,4 +163,4 @@ def test_concurrent_writes(tmp_db_path):
 def test_db_connection_context_manager(tmp_db_path):
     with db_connection(tmp_db_path) as conn:
         version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
-    assert version == 1
+    assert version == SCHEMA_VERSION

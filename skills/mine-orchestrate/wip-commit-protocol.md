@@ -45,12 +45,12 @@ Store this SHA — it goes into the `cfl task verdict` call below.
 Record the task verdict via `cfl`. The WIP commit (Step 17a) MUST complete before this step — the commit SHA goes into the verdict. This single command updates the task status to terminal, creates the verdict-assembly gate, and emits the `task.verdict` event atomically:
 
 ```bash
-cfl task verdict <task_id> --verdict <PASS|WARN> --commit <SHA from Step 17a> [--detail "<explanation>"] --data '{"spec": "<v>", "code": "<v>", "integration": "<v>", "test": "<v>", "lint": "<v>", "visual": "<v>"}'
+cfl task verdict <task_id> <PASS|WARN> --commit <SHA from Step 17a> [--detail "<explanation>"] --data '{"spec": "<v>", "code": "<v>", "integration": "<v>", "test": "<v>", "lint": "<v>", "visual": "<v>"}'
 ```
 
 Always add `--detail` when the verdict includes context:
-- **PASS with auto-fixes**: `--verdict PASS --detail "3 auto-fixed"` — findings were raised and resolved
-- **WARN**: `--verdict WARN --detail "visual skipped"` — something genuinely unresolved remains
+- **PASS with auto-fixes**: `PASS --detail "3 auto-fixed"` — findings were raised and resolved
+- **WARN**: `WARN --detail "visual skipped"` — something genuinely unresolved remains
 
 The `--data` JSON captures the per-reviewer breakdown for audit purposes. `last_completed` is derived from task statuses in the DB — no separate update needed.
 

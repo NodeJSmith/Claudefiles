@@ -11,6 +11,7 @@ Implements:
 import json
 import os
 import re
+import stat
 import sqlite3
 import subprocess
 from pathlib import Path
@@ -75,10 +76,11 @@ def run_start(
             conn.execute("ROLLBACK")
             _guard_active_run(conn, spec_row["active_run_id"])
 
+        cwd = os.getcwd()
         cursor = conn.execute(
-            """INSERT INTO runs (spec_id, base_commit, status, visual_mode, dev_server_url, tmpdir, started_at)
-               VALUES (?, ?, 'running', ?, ?, ?, datetime('now'))""",
-            (spec_id, base_commit, visual_mode, dev_server_url, tmpdir),
+            """INSERT INTO runs (spec_id, base_commit, status, visual_mode, dev_server_url, tmpdir, cwd, started_at)
+               VALUES (?, ?, 'running', ?, ?, ?, ?, datetime('now'))""",
+            (spec_id, base_commit, visual_mode, dev_server_url, tmpdir, cwd),
         )
         run_id = cursor.lastrowid
 
@@ -206,6 +208,7 @@ def run_status(
             "feature_dir": feature_dir,
             "status": run_row["status"],
             "base_commit": run_row["base_commit"],
+            "cwd": run_row["cwd"],
             "tmpdir": run_row["tmpdir"],
             "tmpdir_exists": tmpdir_exists,
             "visual_mode": run_row["visual_mode"],
@@ -419,8 +422,8 @@ def run_resume(
             raise AssertionError("unreachable: emit_error always exits")
 
         conn.execute(
-            "UPDATE runs SET status='running', ended_at=NULL WHERE id=?",
-            (run_id,),
+            "UPDATE runs SET status='running', ended_at=NULL, cwd=? WHERE id=?",
+            (os.getcwd(), run_id),
         )
         conn.execute(
             "UPDATE specs SET active_run_id=?, status='in_progress' WHERE id=?",
@@ -577,3 +580,60 @@ def _derive_needs_intervention(tasks: list[dict], current_task: str | None) -> b
         if t["task_id"] == current_task:
             return t["status"] in INTERVENTION_STATUSES
     return False
+
+
+def stop_orphans(conn: sqlite3.Connection) -> None:
+    """Stop running runs whose cwd no longer exists on disk."""
+    rows = conn.execute(
+        """SELECT r.id AS run_id, r.cwd, s.id AS spec_id, s.number, s.slug
+           FROM runs r JOIN specs s ON r.spec_id = s.id
+           WHERE r.status = 'running' AND r.cwd IS NOT NULL""",
+    ).fetchall()
+
+    stopped = []
+    for row in rows:
+        try:
+            cwd_exists = stat.S_ISDIR(os.stat(row["cwd"]).st_mode)
+        except PermissionError:
+            cwd_exists = True
+        except OSError:
+            cwd_exists = False
+
+        if cwd_exists:
+            continue
+
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            cursor = conn.execute(
+                "UPDATE runs SET status='stopped', ended_at=datetime('now') WHERE id=? AND status='running'",
+                (row["run_id"],),
+            )
+            if cursor.rowcount == 0:
+                conn.execute("ROLLBACK")
+                continue
+            conn.execute(
+                "UPDATE specs SET active_run_id=NULL, status='approved' WHERE id=? AND active_run_id=?",
+                (row["spec_id"], row["run_id"]),
+            )
+            conn.execute(
+                """INSERT INTO events (run_id, event, detail, data, created_at)
+                   VALUES (?, 'run.stopped', 'cwd no longer exists', ?, datetime('now'))""",
+                (
+                    row["run_id"],
+                    json.dumps({"reason": "orphan", "cwd": row["cwd"]}),
+                ),
+            )
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+
+        stopped.append(
+            {
+                "run_id": row["run_id"],
+                "spec": f"{row['number']:03d}-{row['slug']}",
+                "cwd": row["cwd"],
+            }
+        )
+
+    output_module.emit({"stopped": stopped, "count": len(stopped)})

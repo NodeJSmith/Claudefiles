@@ -25,6 +25,7 @@ def test_app_registers_all_expected_commands():
         "event",
         "session",
         "archive",
+        "stop-orphans",
         "set",
     }
     assert expected_commands <= registered

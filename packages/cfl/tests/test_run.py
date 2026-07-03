@@ -1,11 +1,19 @@
 """Tests for cfl.run — run lifecycle commands."""
 
 import json
+import os
 from pathlib import Path
 
 import pytest
 
-from cfl.run import run_complete, run_resume, run_start, run_status, run_stop
+from cfl.run import (
+    run_complete,
+    run_resume,
+    run_start,
+    run_status,
+    run_stop,
+    stop_orphans,
+)
 from tests.helpers import REMOTE_URL, insert_spec_no_run, insert_spec_with_run
 
 
@@ -556,3 +564,94 @@ def test_run_start_ac12_task_count_in_db(db_conn, tmp_path):
         "SELECT COUNT(*) AS cnt FROM tasks WHERE run_id=?", (run_row["id"],)
     ).fetchone()["cnt"]
     assert count == 5
+
+
+# ---------------------------------------------------------------------------
+# stop_orphans
+# ---------------------------------------------------------------------------
+
+
+def test_stop_orphans_stops_run_with_missing_cwd(db_conn):
+    spec_id, run_id = insert_spec_with_run(db_conn, 1, "feat", REMOTE_URL)
+    db_conn.execute(
+        "UPDATE runs SET cwd='/tmp/nonexistent-path-xyz' WHERE id=?", (run_id,)
+    )
+
+    stop_orphans(db_conn)
+
+    row = db_conn.execute("SELECT status FROM runs WHERE id=?", (run_id,)).fetchone()
+    assert row["status"] == "stopped"
+    spec = db_conn.execute(
+        "SELECT active_run_id, status FROM specs WHERE id=?", (spec_id,)
+    ).fetchone()
+    assert spec["active_run_id"] is None
+    assert spec["status"] == "approved"
+    event = db_conn.execute(
+        "SELECT detail FROM events WHERE run_id=? AND event='run.stopped'", (run_id,)
+    ).fetchone()
+    assert event["detail"] == "cwd no longer exists"
+
+
+def test_stop_orphans_leaves_run_with_existing_cwd(db_conn, tmp_path):
+    _, run_id = insert_spec_with_run(db_conn, 1, "feat", REMOTE_URL)
+    db_conn.execute("UPDATE runs SET cwd=? WHERE id=?", (str(tmp_path), run_id))
+
+    stop_orphans(db_conn)
+
+    row = db_conn.execute("SELECT status FROM runs WHERE id=?", (run_id,)).fetchone()
+    assert row["status"] == "running"
+
+
+def test_stop_orphans_skips_null_cwd(db_conn):
+    _, run_id = insert_spec_with_run(db_conn, 1, "feat", REMOTE_URL)
+
+    stop_orphans(db_conn)
+
+    row = db_conn.execute("SELECT status FROM runs WHERE id=?", (run_id,)).fetchone()
+    assert row["status"] == "running"
+
+
+def test_stop_orphans_skips_unreadable_cwd(db_conn, tmp_path):
+    _, run_id = insert_spec_with_run(db_conn, 1, "feat", REMOTE_URL)
+    blocked = tmp_path / "blocked"
+    blocked.mkdir()
+    cwd = blocked / "cwd"
+    cwd.mkdir()
+    db_conn.execute("UPDATE runs SET cwd=? WHERE id=?", (str(cwd), run_id))
+    os.chmod(str(blocked), 0o000)
+    try:
+        stop_orphans(db_conn)
+        row = db_conn.execute(
+            "SELECT status FROM runs WHERE id=?", (run_id,)
+        ).fetchone()
+        assert row["status"] == "running"
+    finally:
+        os.chmod(str(blocked), 0o755)
+
+
+def test_stop_orphans_skips_non_running_run(db_conn):
+    """If a run is already non-running before scanning, stop_orphans skips it."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "feat", REMOTE_URL)
+    db_conn.execute("UPDATE runs SET cwd='/tmp/nonexistent-xyz' WHERE id=?", (run_id,))
+    db_conn.execute("UPDATE runs SET status='completed' WHERE id=?", (run_id,))
+
+    stop_orphans(db_conn)
+
+    row = db_conn.execute("SELECT status FROM runs WHERE id=?", (run_id,)).fetchone()
+    assert row["status"] == "completed"
+
+
+# ---------------------------------------------------------------------------
+# run_resume updates cwd
+# ---------------------------------------------------------------------------
+
+
+def test_run_resume_updates_cwd(db_conn):
+    spec_id, run_id = insert_spec_with_run(db_conn, 1, "feat", REMOTE_URL)
+    db_conn.execute("UPDATE runs SET cwd='/old/path' WHERE id=?", (run_id,))
+    run_stop(db_conn, run_id, spec_id, reason="test")
+    run_resume(db_conn, spec_id)
+
+    row = db_conn.execute("SELECT cwd FROM runs WHERE id=?", (run_id,)).fetchone()
+    assert row["cwd"] != "/old/path"
+    assert row["cwd"] is not None

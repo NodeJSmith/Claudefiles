@@ -4,10 +4,16 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-07-03
 
+### Added
+
+- `cfl stop-orphans` — stops runs whose recorded working directory no longer exists on disk, with a new `SessionStart` hook (`cfl-stop-orphans.sh`) that runs it automatically and reports how many orphans it cleaned. (#433)
+- `cfl event list` — query the event audit trail with `--event`/`--task-id`/`--run`/`--limit` filters; `event` is now a subgroup instead of a single write-only leaf command. (#433)
+
 ### Changed
 
+- `cfl task verdict` — verdict is now a positional argument (`cfl task verdict T01 PASS`) instead of `--verdict PASS`. (#433)
+- `cfl.invoked` telemetry events now record `run_id` when an active run can be unambiguously resolved, instead of always `NULL`. (#433)
 - `install.py` — `ensure_cass` hints to run `cass index` when cass is installed but has never indexed anything on this machine, instead of leaving search silently empty until the next `SessionStart` hook fires; also distinguishes a genuine `cass-update` failure from the binary landing on disk but not yet resolvable on this shell's PATH, hinting to restart the terminal rather than reporting a bare warning. (#432)
-
 ## 2026-07-02
 
 ### Added
