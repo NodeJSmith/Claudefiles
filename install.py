@@ -407,6 +407,25 @@ def cass_index_populated() -> bool:
         return False
 
 
+def cass_semantic_model_installed() -> bool:
+    """True if any semantic embedding model has been downloaded.
+
+    Unlike cass_index_populated (which avoids assuming cass's internal layout),
+    this checks for a specific file (model.onnx) because a bare non-empty models/
+    dir would false-positive on interrupted downloads. Degrades to False on
+    filesystem errors — shows the hint rather than crashing.
+    """
+    try:
+        models_dir = cass_index_dir() / "models"
+        if not models_dir.is_dir():
+            return False
+        return any(
+            (d / "model.onnx").exists() for d in models_dir.iterdir() if d.is_dir()
+        )
+    except OSError:
+        return False
+
+
 def load_config(path: Path) -> dict | None:
     """Load config, returning None if missing or corrupt.
 
@@ -814,12 +833,12 @@ def ensure_cass(repo_dir: Path, console: Console) -> int:
     ccrecall/plugin removal failures are best-effort warnings (they don't block install,
     and a lingering ccrecall install is harmless once cass is the working search tool).
 
-    Also hints at first-run indexing: if cass installed but isn't resolvable on this
+    Also hints at first-run setup: if cass installed but isn't resolvable on this
     shell's PATH yet, tells the user to restart their terminal rather than reporting a
     bare failure; if cass is present but cass_index_populated() is False, hints to run
-    `cass index` now instead of leaving the user with silently empty search until the
-    next SessionStart hook fires. Both are print-only — no subprocess is spawned here,
-    so a slow first index never blocks the installer.
+    `cass index`; if no semantic embedding model is downloaded, hints to run
+    `cass models install` + `cass index --semantic`. All print-only — no subprocess is
+    spawned here, so setup never blocks the installer.
 
     Returns error count.
     """
@@ -859,11 +878,27 @@ def ensure_cass(repo_dir: Path, console: Console) -> int:
         errors += 1
         return errors
 
-    if not cass_index_populated():
+    index_populated = cass_index_populated()
+    model_installed = cass_semantic_model_installed()
+
+    if not index_populated and not model_installed:
         console.print(
-            "  [dim]No cass search index found yet — run `cass index` to populate "
-            "it now, or it'll run automatically in the background at your next "
-            "Claude Code session.[/dim]"
+            "  [dim]No cass search index found yet. To set up with semantic search:\n"
+            "    1. `cass models install`  (download embedding model, ~87 MB)\n"
+            "    2. `cass index --semantic` (builds lexical + semantic index)\n"
+            "  Or run `cass index` for lexical-only — it'll also run automatically "
+            "at your next Claude Code session.[/dim]"
+        )
+    elif not index_populated:
+        console.print(
+            "  [dim]No cass search index found yet — run `cass index --semantic` "
+            "to populate it now, or it'll run automatically in the background at "
+            "your next Claude Code session.[/dim]"
+        )
+    elif not model_installed:
+        console.print(
+            "  [dim]For semantic search: run `cass models install` to download the "
+            "embedding model (~87 MB), then `cass index --semantic`.[/dim]"
         )
 
     if shutil.which("ccrecall") is not None:

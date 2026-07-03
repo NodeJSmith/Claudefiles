@@ -1300,7 +1300,35 @@ class TestCassBinary:
         ):
             errors = install.ensure_cass(Path("/repo"), console)
         assert errors == 0
-        assert "run `cass index`" in buf.getvalue()
+        output = buf.getvalue()
+        assert "cass models install" in output
+        assert "cass index --semantic" in output
+        assert "cass index`" in output
+
+    def test_index_hint_with_model_installed(self, tmp_path: Path) -> None:
+        """When model is installed but index is empty, hints `cass index --semantic`
+        without mentioning `cass models install`. This state is unlikely in practice
+        (model dir lives inside index dir), but the branch should work correctly."""
+        buf = io.StringIO()
+        console = Console(file=buf, width=120)
+
+        def fake_which(name):
+            return {"cass": MISE_CASS_BIN, "claude": MISE_CLAUDE_BIN}.get(name)
+
+        with (
+            _fake_home_patch(tmp_path),
+            patch("install.shutil.which", side_effect=fake_which),
+            patch("install.run_cass_update", return_value=(True, "")),
+            patch("install.uninstall_package", return_value=(True, "")),
+            patch("install.run_claude_plugin", return_value=(True, "[]")),
+            patch("install.cass_index_populated", return_value=False),
+            patch("install.cass_semantic_model_installed", return_value=True),
+        ):
+            errors = install.ensure_cass(Path("/repo"), console)
+        assert errors == 0
+        output = buf.getvalue()
+        assert "cass index --semantic" in output
+        assert "cass models install" not in output
 
     def test_no_index_hint_when_already_populated(self, tmp_path: Path) -> None:
         """No first-index hint once cass has already indexed something on this
@@ -1321,9 +1349,62 @@ class TestCassBinary:
             index_dir = install.cass_index_dir()
             index_dir.mkdir(parents=True)
             (index_dir / "index.db").touch()
+            model_dir = index_dir / "models" / "all-MiniLM-L6-v2"
+            model_dir.mkdir(parents=True)
+            (model_dir / "model.onnx").touch()
             errors = install.ensure_cass(Path("/repo"), console)
         assert errors == 0
         assert "run `cass index`" not in buf.getvalue()
+        assert "cass models install" not in buf.getvalue()
+
+    def test_semantic_model_hint_when_not_installed(self, tmp_path: Path) -> None:
+        """Hints at semantic model even when base index is populated."""
+        buf = io.StringIO()
+        console = Console(file=buf, width=120)
+
+        def fake_which(name):
+            return {"cass": MISE_CASS_BIN, "claude": MISE_CLAUDE_BIN}.get(name)
+
+        with (
+            _fake_home_patch(tmp_path),
+            patch("install.shutil.which", side_effect=fake_which),
+            patch("install.run_cass_update", return_value=(True, "")),
+            patch("install.uninstall_package", return_value=(True, "")),
+            patch("install.run_claude_plugin", return_value=(True, "[]")),
+        ):
+            index_dir = install.cass_index_dir()
+            index_dir.mkdir(parents=True)
+            (index_dir / "index.db").touch()
+            errors = install.ensure_cass(Path("/repo"), console)
+        assert errors == 0
+        assert "run `cass index`" not in buf.getvalue()
+        assert "cass models install" in buf.getvalue()
+        assert "cass index --semantic" in buf.getvalue()
+
+    def test_no_semantic_hint_when_model_installed(self, tmp_path: Path) -> None:
+        """No semantic model hint when a model is already downloaded."""
+        buf = io.StringIO()
+        console = Console(file=buf, width=120)
+
+        def fake_which(name):
+            return {"cass": MISE_CASS_BIN, "claude": MISE_CLAUDE_BIN}.get(name)
+
+        with (
+            _fake_home_patch(tmp_path),
+            patch("install.shutil.which", side_effect=fake_which),
+            patch("install.run_cass_update", return_value=(True, "")),
+            patch("install.uninstall_package", return_value=(True, "")),
+            patch("install.run_claude_plugin", return_value=(True, "[]")),
+        ):
+            index_dir = install.cass_index_dir()
+            index_dir.mkdir(parents=True)
+            (index_dir / "index.db").touch()
+            model_dir = index_dir / "models" / "all-MiniLM-L6-v2"
+            model_dir.mkdir(parents=True)
+            (model_dir / "model.onnx").touch()
+            errors = install.ensure_cass(Path("/repo"), console)
+        assert errors == 0
+        assert "cass models install" not in buf.getvalue()
 
 
 class TestCassIndexPopulated:
@@ -1348,6 +1429,37 @@ class TestCassIndexPopulated:
             install.cass_index_dir().mkdir(parents=True)
             with patch.object(Path, "iterdir", side_effect=PermissionError("denied")):
                 assert install.cass_index_populated() is False
+
+
+class TestCassSemanticModelInstalled:
+    def test_false_when_models_dir_missing(self, tmp_path: Path) -> None:
+        with _fake_home_patch(tmp_path):
+            assert install.cass_semantic_model_installed() is False
+
+    def test_false_when_models_dir_empty(self, tmp_path: Path) -> None:
+        with _fake_home_patch(tmp_path):
+            (install.cass_index_dir() / "models").mkdir(parents=True)
+            assert install.cass_semantic_model_installed() is False
+
+    def test_false_when_model_subdir_has_no_onnx(self, tmp_path: Path) -> None:
+        with _fake_home_patch(tmp_path):
+            model_dir = install.cass_index_dir() / "models" / "some-model"
+            model_dir.mkdir(parents=True)
+            (model_dir / "config.json").touch()
+            assert install.cass_semantic_model_installed() is False
+
+    def test_true_when_model_onnx_exists(self, tmp_path: Path) -> None:
+        with _fake_home_patch(tmp_path):
+            model_dir = install.cass_index_dir() / "models" / "all-MiniLM-L6-v2"
+            model_dir.mkdir(parents=True)
+            (model_dir / "model.onnx").touch()
+            assert install.cass_semantic_model_installed() is True
+
+    def test_false_when_models_dir_unreadable(self, tmp_path: Path) -> None:
+        with _fake_home_patch(tmp_path):
+            (install.cass_index_dir() / "models").mkdir(parents=True)
+            with patch.object(Path, "iterdir", side_effect=PermissionError("denied")):
+                assert install.cass_semantic_model_installed() is False
 
 
 class TestRunManagedSubprocess:
