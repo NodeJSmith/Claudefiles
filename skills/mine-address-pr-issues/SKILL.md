@@ -147,26 +147,40 @@ Fetch failure logs and categorize: test failures, lint/type errors, build errors
 
 ### Present the plan
 
-Show a numbered plan with:
-- Each issue, its proposed action, and investigation depth
-- Resolution policy per thread (resolve vs reply-only — see Phase 3)
+Print the plan as a numbered list **before** the AskUserQuestion. Each entry must include:
+
+1. **The reviewer's concern** — one-sentence summary of what they asked for
+2. **Proposed fix** — concrete description of the code change (name the function, the file, what will change). "Fix error handling" is not a plan; "wrap `fetch_user()` in try/except for `ConnectionError` in `auth.py:42`" is.
+3. **Investigation depth** — `light` / `medium` / `deep`
+4. **Resolution policy** — resolve (bot or self-review) or reply-only (human reviewer)
+
+Mark items that need a user decision with **`[DECISION NEEDED]`** — these are comments where:
+- The reviewer suggests two or more valid approaches
+- The concern is about design/architecture with no single obvious answer
+- You disagree with the reviewer's suggestion (state why)
+- The requested change would conflict with another reviewer's comment
+
+For `[DECISION NEEDED]` items, state the options and your recommendation.
+
+Also include:
 - Pre-flight warnings from Phase 1
+- "Already addressed" items (with evidence) — listed separately so the user can verify
 
 ```
 AskUserQuestion:
-  question: "Here's my plan for PR #{N}. Review and skip any items you don't want me to address."
+  question: "Here's my plan for PR #{N}. Items marked [DECISION NEEDED] require your input before I can proceed. Review and tell me if anything should change."
   header: "PR Plan"
   multiSelect: false
   options:
     - label: "Looks good — address all"
-      description: "Proceed with the full plan as shown"
-    - label: "Skip specific items"
-      description: "I'll tell you which items to skip"
+      description: "Proceed with the full plan, using your recommendations for [DECISION NEEDED] items"
+    - label: "Adjust items"
+      description: "I'll tell you what to change, skip, or decide differently"
     - label: "Cancel"
       description: "Exit without making changes"
 ```
 
-If "Skip specific items": follow-up asking which numbered items to skip.
+If "Adjust items": ask which numbered items to skip or change. For items the user wants changed, ask what they want instead and update the plan entry before proceeding.
 
 ### Merge conflict strategy
 
@@ -195,6 +209,8 @@ get-skill-tmpdir mine-address-pr
 
 For each group from the plan, launch a **general-purpose subagent** with:
 - The review comment(s) to address (bodies, file paths, line numbers)
+- The approved proposed fix from the plan (what the user agreed to)
+- For `[DECISION NEEDED]` items: the resolved decision
 - The investigation depth (`light`, `medium`, or `deep`)
 - Output path: `<tmpdir>/group-N/result.md`
 
@@ -204,6 +220,9 @@ For each group from the plan, launch a **general-purpose subagent** with:
 >
 > **Comments to address:**
 > {comment_details}
+>
+> **Approved fix:**
+> {proposed_fix_from_plan}
 >
 > **Investigation depth: {depth}**
 >

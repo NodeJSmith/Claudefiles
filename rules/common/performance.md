@@ -61,3 +61,4 @@ Each agent file in `agents/` declares its model in YAML frontmatter. When updati
 - `skills/mine-create-pr/SKILL.md` — `model: sonnet` for PR creation worker subagent
 - `skills/mine-create-issue/SKILL.md` — `model: sonnet` for investigation, drafting, and creation worker subagent
 - `skills/mine-mockup/SKILL.md` — `model: sonnet` for mockup generation worker subagent
+- `skills/mine-review/SKILL.md` — `model: sonnet` for instruction-mode reviewers (instruction quality, writing quality)

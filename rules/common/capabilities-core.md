@@ -53,7 +53,7 @@ tool: claude  # harness-only: skill/command routing tables are Claude-Code dispa
 | "review the implementation", "post-implementation review" | `/mine-orchestrate` (impl-review runs automatically in Phase 3) |
 | "archive completed specs", "clean up old WPs", "remove working documents", "one-time cleanup of design files" | `cfl archive` |
 | "review my changes", "run the reviewers", "code and integration review" | `/mine-review` |
-| "readability review", "maintainability review", "sniff test this", "WTF check", "code smells", "is this code any good", "fresh eyes on this branch", "review this directory", "check this module" | `/mine-review` |
+| "readability review", "maintainability review", "sniff test this", "WTF check", "code smells", "is this code any good", "fresh eyes on this branch", "review this directory", "check this module", "review this skill", "review these instructions" | `/mine-review` |
 | "create a skill", "write a skill", "new skill" | `/mine-write-skill` |
 | "clean code check", "style review", "LLM smell check", "nitpick this", "style check", "code hygiene", "find style sins", "nitpicker review", "anal retentive review", "exhaustive style review", "no-filter style report" | `/mine-clean-code` |
 | "simplify this codebase", "find simplification opportunities", "where can I simplify", "code judo this", "judo this module", "find structural simplifications", "what can I collapse", "reduce complexity in this code" | `/mine-simplify` |

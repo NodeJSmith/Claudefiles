@@ -1,14 +1,14 @@
 ---
 name: mine-review
-description: "Use when the user says: \"review my changes\", \"run the reviewers\", \"code and integration review\", \"readability review\", \"maintainability review\", \"sniff test this\", \"WTF check\", \"code smells\", \"is this code any good\", \"fresh eyes on this branch\", \"review this directory\", \"check this module\". Dispatches three parallel reviewers — code, integration, and a readability pass — and consolidates findings into one prioritized report."
+description: "Use when the user says: \"review my changes\", \"run the reviewers\", \"code and integration review\", \"readability review\", \"maintainability review\", \"sniff test this\", \"WTF check\", \"code smells\", \"is this code any good\", \"fresh eyes on this branch\", \"review this directory\", \"check this module\", \"review this skill\", \"review these instructions\". Dispatches three parallel reviewers — code, integration, and a readability pass for code; consistency, instruction quality, and writing quality for instruction files — and consolidates findings into one prioritized report."
 user-invocable: true
 ---
 
 # Technical Review
 
-A comprehensive technical review. Dispatches three parallel reviewers — code correctness, integration fit, and a readability pass — then consolidates findings into a single prioritized report.
+A comprehensive review that adapts to what it's reviewing. For code, dispatches code correctness, integration fit, and readability reviewers. For instruction files (skills, agents, rules, references), dispatches consistency/completeness, instruction quality, and writing quality reviewers. Consolidates findings into a single prioritized report.
 
-Use this when you want fresh eyes on a branch before shipping, after a big implementation push, when you suspect code quality has drifted, or when you want to review existing code you didn't write.
+Use this when you want fresh eyes on a branch before shipping, after a big implementation push, when you suspect code quality has drifted, or when you want to review existing code or instruction files you didn't write.
 
 ## Arguments
 
@@ -56,11 +56,28 @@ transient — it lives only in the run's `get-skill-tmpdir` directory (never com
 discarded when that temp directory is reaped. If the diff is empty (scope-detection already stopped
 in that case), skip this step entirely.
 
+## Phase 1.75: Detect review mode
+
+Determine whether the scope is **code** or **instructions** — this controls which reviewers to dispatch.
+
+Get the file list:
+- **Diff mode:** `<diff command> --name-only` (or read `<tmpdir>/diff.patch` and extract file paths)
+- **Path mode:** use the file list from Phase 1
+
+A file is an **instruction file** if it is a `.md` file under any of: `skills/`, `skills-impeccable/`, `skills-cli/`, `agents/`, `rules/`, `references/`, `commands/`, or is a top-level instruction doc (`CLAUDE.md`, `REFERENCE.md`, `ONBOARDING.md`).
+
+| Scope contents | Review mode |
+|---|---|
+| All instruction files | **instruction mode** |
+| Any non-instruction file | **code mode** (default) |
+
+Mixed scopes use code mode — the code reviewers handle `.md` files in the diff fine; instruction-specific reviewers would miss the code.
+
 ## Phase 2: Dispatch Three Parallel Reviewers
 
-Launch all three agents **in a single message** so they run in parallel. Adapt the prompts based on the mode detected in Phase 1.
+Launch all three agents **in a single message** so they run in parallel. Adapt the prompts based on the scope mode (Phase 1) and review mode (Phase 1.75).
 
-### Diff mode prompts
+### Code mode — diff prompts
 
 All three reviewer prompts below open with the same `<diff-artifact preamble>` line; substitute it with the shared block stated here (alongside `<sha>`, `<tmpdir>`, and `<diff command>`). Do not reword it per reviewer.
 
@@ -112,7 +129,7 @@ Focus on code that works but will confuse a developer reading it a month
 from now — readability debt, bespoke complexity, and structural smells.
 ```
 
-### Path mode prompts
+### Code mode — path prompts
 
 #### Reviewer 1: Code Review (`subagent_type: "code-reviewer"`)
 
@@ -155,6 +172,145 @@ Focus on code that works but will confuse a developer reading it a month
 from now — readability debt, bespoke complexity, and structural smells.
 ```
 
+### Instruction mode prompts
+
+Used when Phase 1.75 detected instruction mode. All use `model: sonnet`. Reviewer 1 uses `subagent_type: "fine-toothed-comb"`; Reviewers 2 and 3 use `subagent_type: "general-purpose"`. In diff mode, include the `<diff-artifact preamble>` in each prompt. In path mode, include `Files: <file list>` and note they are existing files.
+
+#### Reviewer 1: Consistency & Completeness (`subagent_type: "fine-toothed-comb"`)
+
+**Diff mode:**
+
+```
+Review these instruction file changes for consistency, accuracy, and completeness.
+
+<diff-artifact preamble>
+
+Read every changed file in full (not just the diff hunks) to understand the
+complete document. Check for:
+- Internal contradictions within a file
+- Contradictions between changed files and their neighbors (read sibling
+  files in the same directory)
+- Gaps: something the instructions logically need to cover but don't
+- Stale cross-references (links to files, sections, or names that don't exist)
+- Trigger phrases or capability tables that don't match what the skill/agent
+  actually does
+
+Classify each finding as blocking (would cause wrong behavior) or minor.
+```
+
+**Path mode:**
+
+```
+Review these instruction files for consistency, accuracy, and completeness.
+These are existing files, not a diff — review each file in full.
+
+Files: <file list>
+
+Read sibling files in the same directory for cross-reference context. Check for:
+- Internal contradictions within a file
+- Contradictions between files
+- Gaps: something the instructions logically need to cover but don't
+- Stale cross-references (links to files, sections, or names that don't exist)
+- Trigger phrases or capability tables that don't match what the skill/agent
+  actually does
+
+Classify each finding as blocking (would cause wrong behavior) or minor.
+```
+
+#### Reviewer 2: Instruction Quality
+
+**Diff mode:**
+
+```
+Review these instruction file changes against the five instruction quality
+checks. Read the full reference first:
+
+Read: ${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/instruction-quality.md
+
+<diff-artifact preamble>
+
+Read every changed file in full. For each file, assess proportionally (simple
+factual rules need less; behavioral rules and principles need more):
+
+1. Diagnostic questions vs bare thresholds
+2. Named failure modes — does each rule name the trap it guards against?
+3. AI-specific bias acknowledgment — does it call out what agents get wrong?
+4. Generative value — is there a one-sentence stance that would produce
+   correct behavior even if the details were forgotten?
+5. "Why" before "what" — does it explain the trap before stating the rule?
+
+Only flag items where the instruction would be materially stronger with
+the fix. Do not flag simple factual rules for missing a generative value.
+Classify each finding as blocking or minor.
+```
+
+**Path mode:**
+
+```
+Review these instruction files against the five instruction quality checks.
+These are existing files, not a diff — review each file in full.
+
+Read: ${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/instruction-quality.md
+
+Files: <file list>
+
+For each file, assess proportionally (simple factual rules need less;
+behavioral rules and principles need more):
+
+1. Diagnostic questions vs bare thresholds
+2. Named failure modes — does each rule name the trap it guards against?
+3. AI-specific bias acknowledgment — does it call out what agents get wrong?
+4. Generative value — is there a one-sentence stance that would produce
+   correct behavior even if the details were forgotten?
+5. "Why" before "what" — does it explain the trap before stating the rule?
+
+Only flag items where the instruction would be materially stronger with
+the fix. Do not flag simple factual rules for missing a generative value.
+Classify each finding as blocking or minor.
+```
+
+#### Reviewer 3: Writing Quality
+
+**Diff mode:**
+
+```
+Review these instruction file changes for AI prose patterns and writing quality.
+Read the full reference first:
+
+Read: ${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/writing-quality.md
+
+<diff-artifact preamble>
+
+Read every changed file in full. Check for the patterns listed in that
+reference: AI vocabulary, significance inflation, em dash overuse, synonym
+cycling, hedging, abstract metaphor nouns, and the rest. Also check for
+voice — sterile, voiceless writing is as obvious as slop.
+
+Focus on prose sections (descriptions, explanations, rationale). Do not
+flag code blocks, YAML frontmatter, or command examples.
+Classify each finding as blocking or minor.
+```
+
+**Path mode:**
+
+```
+Review these instruction files for AI prose patterns and writing quality.
+These are existing files, not a diff — review each file in full.
+
+Read: ${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/writing-quality.md
+
+Files: <file list>
+
+Check for the patterns listed in that reference: AI vocabulary,
+significance inflation, em dash overuse, synonym cycling, hedging,
+abstract metaphor nouns, and the rest. Also check for voice — sterile,
+voiceless writing is as obvious as slop.
+
+Focus on prose sections (descriptions, explanations, rationale). Do not
+flag code blocks, YAML frontmatter, or command examples.
+Classify each finding as blocking or minor.
+```
+
 ## Phase 3: Consolidate Findings
 
 After all three reviewers complete, merge their findings into a single report.
@@ -169,7 +325,9 @@ Apply the Validity Assessment protocol from `${CLAUDE_CONFIG_DIR:-~/.claude}/ski
 
 ### Step 2: Present the consolidated report
 
-Organize by severity, not by reviewer. Lead with the overall picture:
+Organize by severity, not by reviewer. Lead with the overall picture. Adapt the header and source labels to the review mode:
+
+**Code mode:**
 
 ```markdown
 ## Technical Review: [branch name or target path]
@@ -179,14 +337,32 @@ Organize by severity, not by reviewer. Lead with the overall picture:
 **Integration Review:** PASS / WARN / FAIL
 **Readability Pass:** X findings (N HIGH, N MEDIUM, N LOW)
 **Likely-invalid:** N
+```
 
+Source labels: `Code`, `Integration`, `Readability`, or `Code+Readability` etc. for cross-signals.
+
+**Instruction mode:**
+
+```markdown
+## Instruction Review: [branch name or target path]
+
+**Scope:** N files changed, +X/-Y lines (diff mode) | N files, X total lines (path mode)
+**Consistency & Completeness:** PASS / WARN / FAIL
+**Instruction Quality:** PASS / WARN / FAIL
+**Writing Quality:** X findings (N HIGH, N MEDIUM, N LOW)
+**Likely-invalid:** N
+```
+
+Source labels: `Consistency`, `Instruction`, `Writing`, or `Consistency+Writing` etc. for cross-signals.
+
+**Both modes use the same table format:**
+
+```markdown
 ### Critical / High
 
 | # | Source | Finding | File |
 |---|--------|---------|------|
-| 1 | Code | [description] | `file:line` |
-| 2 | Integration | [description] | `file:line` |
-| 3 | Readability | [description] | `file:line` |
+| 1 | ... | [description] | `file:line` |
 
 ### Medium
 
@@ -199,16 +375,14 @@ Organize by severity, not by reviewer. Lead with the overall picture:
 ...
 ```
 
-Source column uses: `Code`, `Integration`, `Readability`, or `Code+Readability` etc. for cross-signals.
-
 ### Likely Invalid (if any)
 
 For each likely-invalid finding, use the named-field format:
 
     ### LI-1: <finding title>
-    **Source:** Code | Integration | Readability
+    **Source:** <reviewer name>
     **Claimed:** <what the finding asserts>
-    **Actually:** <what the code actually does, with file:line>
+    **Actually:** <what the file actually says, with file:line>
     **Why-invalid:** <the specific conflict>
 
 ### Step 3: Offer next steps
