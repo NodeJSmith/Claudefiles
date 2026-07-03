@@ -396,14 +396,21 @@ def cass_index_dir() -> Path:
 def cass_index_populated() -> bool:
     """True if cass has indexed anything on this machine yet.
 
-    Checked via non-emptiness of cass_index_dir() rather than a specific filename,
-    since its internal file layout isn't Claudefiles' to assume. Returns False (not
-    raises) if the directory isn't readable — degrades to showing the hint.
+    Queries `cass status --json` and reads `index.exists`. Returns False on
+    any failure (cass not on PATH, bad JSON, timeout) — degrades to showing
+    the hint rather than crashing the installer.
     """
+    ok, output = run_managed_subprocess(
+        ["cass", "status", "--json"],
+        timeout=10,
+        missing_msg="cass not found",
+    )
+    if not ok:
+        return False
     try:
-        index_dir = cass_index_dir()
-        return index_dir.is_dir() and any(index_dir.iterdir())
-    except OSError:
+        data = json.loads(output)
+        return data.get("index", {}).get("exists", False) is True
+    except (json.JSONDecodeError, AttributeError):
         return False
 
 

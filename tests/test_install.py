@@ -1297,6 +1297,7 @@ class TestCassBinary:
             patch("install.run_cass_update", return_value=(True, "")),
             patch("install.uninstall_package", return_value=(True, "")),
             patch("install.run_claude_plugin", return_value=(True, "[]")),
+            patch("install.cass_index_populated", return_value=False),
             patch("install.cass_semantic_model_installed", return_value=False),
         ):
             errors = install.ensure_cass(Path("/repo"), console)
@@ -1346,11 +1347,9 @@ class TestCassBinary:
             patch("install.run_cass_update", return_value=(True, "")),
             patch("install.uninstall_package", return_value=(True, "")),
             patch("install.run_claude_plugin", return_value=(True, "[]")),
+            patch("install.cass_index_populated", return_value=True),
             patch("install.cass_semantic_model_installed", return_value=True),
         ):
-            index_dir = install.cass_index_dir()
-            index_dir.mkdir(parents=True)
-            (index_dir / "index.db").touch()
             errors = install.ensure_cass(Path("/repo"), console)
         assert errors == 0
         assert "run `cass index`" not in buf.getvalue()
@@ -1370,11 +1369,9 @@ class TestCassBinary:
             patch("install.run_cass_update", return_value=(True, "")),
             patch("install.uninstall_package", return_value=(True, "")),
             patch("install.run_claude_plugin", return_value=(True, "[]")),
+            patch("install.cass_index_populated", return_value=True),
             patch("install.cass_semantic_model_installed", return_value=False),
         ):
-            index_dir = install.cass_index_dir()
-            index_dir.mkdir(parents=True)
-            (index_dir / "index.db").touch()
             errors = install.ensure_cass(Path("/repo"), console)
         assert errors == 0
         assert "run `cass index`" not in buf.getvalue()
@@ -1395,38 +1392,38 @@ class TestCassBinary:
             patch("install.run_cass_update", return_value=(True, "")),
             patch("install.uninstall_package", return_value=(True, "")),
             patch("install.run_claude_plugin", return_value=(True, "[]")),
+            patch("install.cass_index_populated", return_value=True),
             patch("install.cass_semantic_model_installed", return_value=True),
         ):
-            index_dir = install.cass_index_dir()
-            index_dir.mkdir(parents=True)
-            (index_dir / "index.db").touch()
             errors = install.ensure_cass(Path("/repo"), console)
         assert errors == 0
         assert "cass models install" not in buf.getvalue()
 
 
 class TestCassIndexPopulated:
-    def test_false_when_dir_missing(self, tmp_path: Path) -> None:
-        with _fake_home_patch(tmp_path):
-            assert install.cass_index_populated() is False
-
-    def test_false_when_dir_empty(self, tmp_path: Path) -> None:
-        with _fake_home_patch(tmp_path):
-            install.cass_index_dir().mkdir(parents=True)
-            assert install.cass_index_populated() is False
-
-    def test_true_when_dir_has_contents(self, tmp_path: Path) -> None:
-        with _fake_home_patch(tmp_path):
-            index_dir = install.cass_index_dir()
-            index_dir.mkdir(parents=True)
-            (index_dir / "index.db").touch()
+    def test_true_when_index_exists(self) -> None:
+        status_json = json.dumps({"index": {"exists": True}})
+        with patch("install.run_managed_subprocess", return_value=(True, status_json)):
             assert install.cass_index_populated() is True
 
-    def test_false_when_dir_unreadable(self, tmp_path: Path) -> None:
-        with _fake_home_patch(tmp_path):
-            install.cass_index_dir().mkdir(parents=True)
-            with patch.object(Path, "iterdir", side_effect=PermissionError("denied")):
-                assert install.cass_index_populated() is False
+    def test_false_when_index_missing(self) -> None:
+        status_json = json.dumps({"index": {"exists": False}})
+        with patch("install.run_managed_subprocess", return_value=(True, status_json)):
+            assert install.cass_index_populated() is False
+
+    def test_false_when_field_missing(self) -> None:
+        with patch("install.run_managed_subprocess", return_value=(True, "{}")):
+            assert install.cass_index_populated() is False
+
+    def test_false_when_cass_not_found(self) -> None:
+        with patch(
+            "install.run_managed_subprocess", return_value=(False, "cass not found")
+        ):
+            assert install.cass_index_populated() is False
+
+    def test_false_when_bad_json(self) -> None:
+        with patch("install.run_managed_subprocess", return_value=(True, "not json")):
+            assert install.cass_index_populated() is False
 
 
 class TestCassSemanticModelInstalled:
