@@ -845,8 +845,8 @@ def ensure_cass(repo_dir: Path, console: Console) -> int:
     shell's PATH yet, tells the user to restart their terminal rather than reporting a
     bare failure; if cass is present but cass_index_populated() is False, hints to run
     `cass index`; if no semantic embedding model is downloaded, hints to run
-    `cass models install` + `cass index --semantic`. All print-only — no subprocess is
-    spawned here, so setup never blocks the installer.
+    `cass models install` + `cass index --semantic`. Detection uses lightweight cass
+    status subprocesses (short timeouts); indexing itself is never invoked here.
 
     Returns error count.
     """
