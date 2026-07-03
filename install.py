@@ -397,10 +397,14 @@ def cass_index_populated() -> bool:
     """True if cass has indexed anything on this machine yet.
 
     Checked via non-emptiness of cass_index_dir() rather than a specific filename,
-    since its internal file layout isn't Claudefiles' to assume.
+    since its internal file layout isn't Claudefiles' to assume. Returns False (not
+    raises) if the directory isn't readable — degrades to showing the hint.
     """
-    index_dir = cass_index_dir()
-    return index_dir.is_dir() and any(index_dir.iterdir())
+    try:
+        index_dir = cass_index_dir()
+        return index_dir.is_dir() and any(index_dir.iterdir())
+    except OSError:
+        return False
 
 
 def load_config(path: Path) -> dict | None:

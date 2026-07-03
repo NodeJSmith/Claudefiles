@@ -1343,6 +1343,12 @@ class TestCassIndexPopulated:
             (index_dir / "index.db").touch()
             assert install.cass_index_populated() is True
 
+    def test_false_when_dir_unreadable(self, tmp_path: Path) -> None:
+        with _fake_home_patch(tmp_path):
+            install.cass_index_dir().mkdir(parents=True)
+            with patch.object(Path, "iterdir", side_effect=PermissionError("denied")):
+                assert install.cass_index_populated() is False
+
 
 class TestRunManagedSubprocess:
     def test_permission_error_returns_failure_not_raises(self) -> None:
