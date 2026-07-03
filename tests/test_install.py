@@ -1103,12 +1103,13 @@ def _minimal_repo(tmp_path: Path) -> Path:
 
 
 class TestCassBinary:
-    def test_skips_when_cass_on_path(self) -> None:
+    def test_skips_when_cass_on_path(self, tmp_path: Path) -> None:
         """ensure_cass does not run cass-update when cass is already on PATH."""
         mock_update = MagicMock(return_value=(True, ""))
         mock_uninstall = MagicMock(return_value=(True, ""))
         mock_plugin = MagicMock(return_value=(True, ""))
         with (
+            _fake_home_patch(tmp_path),
             patch("install.shutil.which", return_value=MISE_CASS_BIN),
             patch("install.run_cass_update", mock_update),
             patch("install.uninstall_package", mock_uninstall),
@@ -1118,7 +1119,7 @@ class TestCassBinary:
         assert errors == 0
         mock_update.assert_not_called()
 
-    def test_installs_when_absent(self) -> None:
+    def test_installs_when_absent(self, tmp_path: Path) -> None:
         """ensure_cass invokes bin/cass-update when cass is not on PATH, then verifies
         via shutil.which that the install succeeded before touching ccrecall."""
         cass_which_calls = {"count": 0}
@@ -1131,6 +1132,7 @@ class TestCassBinary:
 
         mock_update = MagicMock(return_value=(True, ""))
         with (
+            _fake_home_patch(tmp_path),
             patch("install.shutil.which", side_effect=fake_which),
             patch("install.run_cass_update", mock_update),
             patch("install.uninstall_package", return_value=(True, "")),
@@ -1156,7 +1158,7 @@ class TestCassBinary:
         mock_uninstall.assert_not_called()
         mock_plugin.assert_not_called()
 
-    def test_removes_ccrecall_after_cass_installed(self) -> None:
+    def test_removes_ccrecall_after_cass_installed(self, tmp_path: Path) -> None:
         """Once cass is confirmed present, ensure_cass removes a still-present ccrecall
         and its still-tracked plugin registration."""
 
@@ -1175,6 +1177,7 @@ class TestCassBinary:
         mock_uninstall = MagicMock(return_value=(True, ""))
         mock_plugin = MagicMock(side_effect=fake_plugin)
         with (
+            _fake_home_patch(tmp_path),
             patch("install.shutil.which", side_effect=fake_which),
             patch("install.run_cass_update", return_value=(True, "")),
             patch("install.uninstall_package", mock_uninstall),
@@ -1187,7 +1190,7 @@ class TestCassBinary:
             MISE_CLAUDE_BIN, ["uninstall", install.CCRECALL_PLUGIN_REF]
         )
 
-    def test_skips_ccrecall_uninstall_when_already_absent(self) -> None:
+    def test_skips_ccrecall_uninstall_when_already_absent(self, tmp_path: Path) -> None:
         """ensure_cass does not call uninstall_package when ccrecall isn't on PATH —
         otherwise every re-run of an already-migrated machine reprints "Removing
         legacy package: ccrecall..." followed by a spurious warning, forever."""
@@ -1197,6 +1200,7 @@ class TestCassBinary:
 
         mock_uninstall = MagicMock(return_value=(True, ""))
         with (
+            _fake_home_patch(tmp_path),
             patch("install.shutil.which", side_effect=fake_which),
             patch("install.run_cass_update", return_value=(True, "")),
             patch("install.uninstall_package", mock_uninstall),
@@ -1206,7 +1210,7 @@ class TestCassBinary:
         assert errors == 0
         mock_uninstall.assert_not_called()
 
-    def test_skips_plugin_uninstall_when_not_tracked(self) -> None:
+    def test_skips_plugin_uninstall_when_not_tracked(self, tmp_path: Path) -> None:
         """ensure_cass checks `claude plugin list` before uninstalling — once the
         plugin is no longer a tracked install, it does not re-attempt the uninstall
         (and its warning-on-failure) on every subsequent run."""
@@ -1216,6 +1220,7 @@ class TestCassBinary:
 
         mock_plugin = MagicMock(return_value=(True, "[]"))
         with (
+            _fake_home_patch(tmp_path),
             patch("install.shutil.which", side_effect=fake_which),
             patch("install.run_cass_update", return_value=(True, "")),
             patch("install.uninstall_package", return_value=(True, "")),
@@ -1240,6 +1245,103 @@ class TestCassBinary:
         assert errors == 1
         mock_uninstall.assert_not_called()
         mock_plugin.assert_not_called()
+
+    def test_not_on_path_yet_hints_shell_restart(self, tmp_path: Path) -> None:
+        """When cass-update reports success and the binary lands on disk but this
+        shell's PATH doesn't include ~/.local/bin, ensure_cass tells the user to
+        restart their terminal instead of a bare 'still not on PATH' warning that
+        reads like an install failure."""
+        buf = io.StringIO()
+        console = Console(file=buf, width=120)
+        with (
+            _fake_home_patch(tmp_path),
+            patch("install.shutil.which", return_value=None),
+            patch("install.run_cass_update", return_value=(True, "")),
+        ):
+            (install.local_bin_dir() / "cass").touch()
+            errors = install.ensure_cass(Path("/repo"), console)
+        assert errors == 1
+        out = buf.getvalue()
+        assert "restart your terminal" in out
+        assert "still not on PATH — leaving ccrecall" not in out
+
+    def test_genuine_failure_keeps_original_warning(self, tmp_path: Path) -> None:
+        """When cass-update fails outright (binary never lands on disk), the original
+        'still not on PATH' warning is shown, not the shell-restart hint."""
+        buf = io.StringIO()
+        console = Console(file=buf, width=120)
+        with (
+            _fake_home_patch(tmp_path),
+            patch("install.shutil.which", return_value=None),
+            patch("install.run_cass_update", return_value=(False, "download failed")),
+        ):
+            errors = install.ensure_cass(Path("/repo"), console)
+        assert errors == 1
+        out = buf.getvalue()
+        assert "still not on PATH — leaving ccrecall" in out
+        assert "restart your terminal" not in out
+
+    def test_hints_first_index_when_unpopulated(self, tmp_path: Path) -> None:
+        """ensure_cass hints to run `cass index` when cass is present but has never
+        indexed anything on this machine, instead of leaving search silently empty
+        until the next SessionStart hook fires."""
+        buf = io.StringIO()
+        console = Console(file=buf, width=120)
+
+        def fake_which(name):
+            return {"cass": MISE_CASS_BIN, "claude": MISE_CLAUDE_BIN}.get(name)
+
+        with (
+            _fake_home_patch(tmp_path),
+            patch("install.shutil.which", side_effect=fake_which),
+            patch("install.run_cass_update", return_value=(True, "")),
+            patch("install.uninstall_package", return_value=(True, "")),
+            patch("install.run_claude_plugin", return_value=(True, "[]")),
+        ):
+            errors = install.ensure_cass(Path("/repo"), console)
+        assert errors == 0
+        assert "run `cass index`" in buf.getvalue()
+
+    def test_no_index_hint_when_already_populated(self, tmp_path: Path) -> None:
+        """No first-index hint once cass has already indexed something on this
+        machine — otherwise every re-run of an already-working install nags forever."""
+        buf = io.StringIO()
+        console = Console(file=buf, width=120)
+
+        def fake_which(name):
+            return {"cass": MISE_CASS_BIN, "claude": MISE_CLAUDE_BIN}.get(name)
+
+        with (
+            _fake_home_patch(tmp_path),
+            patch("install.shutil.which", side_effect=fake_which),
+            patch("install.run_cass_update", return_value=(True, "")),
+            patch("install.uninstall_package", return_value=(True, "")),
+            patch("install.run_claude_plugin", return_value=(True, "[]")),
+        ):
+            index_dir = install.cass_index_dir()
+            index_dir.mkdir(parents=True)
+            (index_dir / "index.db").touch()
+            errors = install.ensure_cass(Path("/repo"), console)
+        assert errors == 0
+        assert "run `cass index`" not in buf.getvalue()
+
+
+class TestCassIndexPopulated:
+    def test_false_when_dir_missing(self, tmp_path: Path) -> None:
+        with _fake_home_patch(tmp_path):
+            assert install.cass_index_populated() is False
+
+    def test_false_when_dir_empty(self, tmp_path: Path) -> None:
+        with _fake_home_patch(tmp_path):
+            install.cass_index_dir().mkdir(parents=True)
+            assert install.cass_index_populated() is False
+
+    def test_true_when_dir_has_contents(self, tmp_path: Path) -> None:
+        with _fake_home_patch(tmp_path):
+            index_dir = install.cass_index_dir()
+            index_dir.mkdir(parents=True)
+            (index_dir / "index.db").touch()
+            assert install.cass_index_populated() is True
 
 
 class TestRunManagedSubprocess:
