@@ -8,6 +8,14 @@ All notable changes to this Claudefiles repository are documented here.
 
 - `mine-define` — implementation preferences question (Phase 2, moderate+) surfaces tooling and convention decisions before they become implicit executor defaults; completeness self-check internally walks the design doc template after adaptive follow-ups and generates questions for any section that would require guessing; new Implementation Preferences section in the design doc template captures these decisions for implementers.
 
+### Changed
+
+- Conversation memory (recall, resume, context) migrated from the `ccrecall` plugin (Python, brute-force KNN search) to `cass` (Rust binary, HNSW + BM25 search, secret redaction at ingestion) — new `/cass-recall`, `/cass-context`, `/cass-resume` skills, `bin/cass-update` for binary install/update, and SessionStart/SessionEnd hooks for indexing, context injection, and clear-handoff. (#431)
+
+### Removed
+
+- `/ccrecall:ccr-tokens` token-usage dashboard — not used, dropped along with the rest of the `ccrecall` plugin. (#431)
+
 ## 2026-06-29
 
 ### Added
