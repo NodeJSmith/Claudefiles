@@ -6,7 +6,7 @@ user-invocable: true
 
 # Technical Review
 
-A comprehensive review that adapts to what it's reviewing. For code, dispatches code correctness, integration fit, and readability reviewers. For instruction files (skills, agents, rules, references), dispatches consistency/completeness, instruction quality, and writing quality reviewers. Consolidates findings into a single prioritized report.
+A comprehensive review that adapts to what it's reviewing. For code, dispatches code correctness, integration fit, and readability reviewers. For markdown-only scopes, dispatches consistency/completeness, instruction quality, and writing quality reviewers. Consolidates findings into a single prioritized report.
 
 Use this when you want fresh eyes on a branch before shipping, after a big implementation push, when you suspect code quality has drifted, or when you want to review existing code or instruction files you didn't write.
 
@@ -64,7 +64,7 @@ Get the file list:
 - **Diff mode:** `<diff command> --name-only` (or read `<tmpdir>/diff.patch` and extract file paths)
 - **Path mode:** use the file list from Phase 1
 
-A file is an **instruction file** if it is a `.md` file under any of: `skills/`, `skills-impeccable/`, `skills-cli/`, `agents/`, `rules/`, `references/`, `commands/`, or is a top-level instruction doc (`CLAUDE.md`, `REFERENCE.md`, `ONBOARDING.md`).
+A file is an **instruction file** if it has a `.md` extension.
 
 | Scope contents | Review mode |
 |---|---|
@@ -174,7 +174,7 @@ from now — readability debt, bespoke complexity, and structural smells.
 
 ### Instruction mode prompts
 
-Used when Phase 1.75 detected instruction mode. All use `model: sonnet`. Reviewer 1 uses `subagent_type: "fine-toothed-comb"`; Reviewers 2 and 3 use `subagent_type: "general-purpose"`. In diff mode, include the `<diff-artifact preamble>` in each prompt. In path mode, include `Files: <file list>` and note they are existing files.
+Used when Phase 1.75 detected instruction mode. All use `model: sonnet`. Reviewer 1 uses `subagent_type: "fine-toothed-comb"`; Reviewers 2 and 3 use `subagent_type: "general-purpose"`. In diff mode, include the `<diff-artifact preamble>` in each prompt — but note that instruction-mode reviewers must read every changed file in full (overriding the preamble's "surrounding context only" restriction, since instruction files need whole-document review). In path mode, include `Files: <file list>` and note they are existing files.
 
 #### Reviewer 1: Consistency & Completeness (`subagent_type: "fine-toothed-comb"`)
 

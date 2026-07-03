@@ -1334,7 +1334,7 @@ class TestCassBinary:
         output = buf.getvalue()
         assert "cass models install" in output
         assert "cass index --semantic" in output
-        assert "cass index`" in output
+        assert "cass index for lexical-only" in output
 
     def test_index_hint_with_model_installed(self, tmp_path: Path) -> None:
         """When model is installed but index is empty, hints `cass index --semantic`
@@ -1387,7 +1387,8 @@ class TestCassBinary:
     def test_semantic_model_hint_when_not_installed(self, tmp_path: Path) -> None:
         """Hints at semantic model even when base index is populated."""
         buf = io.StringIO()
-        console = Console(file=buf, width=120)
+        # wider than sibling tests — narrower widths wrap "cass index --semantic" mid-phrase
+        console = Console(file=buf, width=200)
 
         def fake_which(name):
             return {"cass": MISE_CASS_BIN, "claude": MISE_CLAUDE_BIN}.get(name)

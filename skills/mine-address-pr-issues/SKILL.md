@@ -168,7 +168,7 @@ Also include:
 
 ```
 AskUserQuestion:
-  question: "Here's my plan for PR #{N}. Items marked [DECISION NEEDED] require your input before I can proceed. Review and tell me if anything should change."
+  question: "Here's my plan for PR #{N}. Items marked [DECISION NEEDED] have options listed — choosing 'Looks good' accepts my recommendation for those. Review and tell me if anything should change."
   header: "PR Plan"
   multiSelect: false
   options:
