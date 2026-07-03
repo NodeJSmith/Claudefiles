@@ -27,7 +27,10 @@ TASK_UPDATE_TRANSITIONS: dict[str, set[str]] = {
 # Keyed by (current_status, attempted_status).
 EXCLUSIVE_HINTS: dict[tuple[str, str], str] = {
     ("pending", "executing"): "Use `cfl task start` to begin a task.",
-    ("reviewing", "done"): "Use `cfl task verdict <task_id> PASS` or WARN.",
+    (
+        "reviewing",
+        "done",
+    ): "Use `cfl task verdict <task_id> PASS` or `cfl task verdict <task_id> WARN`.",
     ("reviewing", "failed"): "Use `cfl task verdict <task_id> FAIL`.",
     ("executing", "blocked"): "Use `cfl task block` to block a task.",
 }
