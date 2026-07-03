@@ -35,7 +35,7 @@ Full component tables for Claudefiles. For context on what each component type d
 | `mine-plan` | Design doc → task files (T01, T02, …) with FR/AC traceability, validation gate, and 10-point traceability review + approve/revise/abandon gate |
 | `mine-prior-art` | Survey how others solve a problem — web-first research for mid-design architectural questions |
 | `mine-research` | Interactive research workflow — gathers user intent, dispatches the researcher agent, presents the brief |
-| `mine-review` | Comprehensive branch review — dispatches code-reviewer, integration-reviewer, and wtf-reviewer in parallel, consolidates findings into one prioritized report |
+| `mine-review` | Comprehensive branch review — dispatches code/integration/readability reviewers for code changes, or consistency/instruction-quality/writing-quality reviewers for instruction files; consolidates findings into one prioritized report |
 | `mine-ship` | Commit, push, and create a PR in one step |
 | `mine-simplify` | Codebase-scoped structural simplification — fans out parallel `code-judo-reviewer` agents over a file/dir/repo, consolidates dramatic simplification moves into one impact-ranked report. On-demand alternative to baking structural review into every orchestrate run |
 | `mine-tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |

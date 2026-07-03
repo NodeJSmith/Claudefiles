@@ -1331,10 +1331,10 @@ class TestCassBinary:
         ):
             errors = install.ensure_cass(Path("/repo"), console)
         assert errors == 0
-        output = buf.getvalue()
+        output = " ".join(buf.getvalue().split())
         assert "cass models install" in output
         assert "cass index --semantic" in output
-        assert "cass index`" in output
+        assert "cass index for lexical-only" in output
 
     def test_index_hint_with_model_installed(self, tmp_path: Path) -> None:
         """When model is installed but index is empty, hints `cass index --semantic`
@@ -1403,9 +1403,10 @@ class TestCassBinary:
         ):
             errors = install.ensure_cass(Path("/repo"), console)
         assert errors == 0
-        assert "run `cass index`" not in buf.getvalue()
-        assert "cass models install" in buf.getvalue()
-        assert "cass index --semantic" in buf.getvalue()
+        output = " ".join(buf.getvalue().split())
+        assert "run `cass index`" not in output
+        assert "cass models install" in output
+        assert "cass index --semantic" in output
 
     def test_no_semantic_hint_when_model_installed(self, tmp_path: Path) -> None:
         """No semantic model hint when a model is already downloaded."""

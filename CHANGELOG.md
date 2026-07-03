@@ -14,6 +14,9 @@ All notable changes to this Claudefiles repository are documented here.
 - `cfl task verdict` — verdict is now a positional argument (`cfl task verdict T01 PASS`) instead of `--verdict PASS`. (#433)
 - `cfl.invoked` telemetry events now record `run_id` when an active run can be unambiguously resolved, instead of always `NULL`. (#433)
 - `install.py` — `ensure_cass` hints to run `cass index` when cass is installed but has never indexed anything on this machine, instead of leaving search silently empty until the next `SessionStart` hook fires; also distinguishes a genuine `cass-update` failure from the binary landing on disk but not yet resolvable on this shell's PATH, hinting to restart the terminal rather than reporting a bare warning. (#432)
+- `mine-review` — new instruction mode: reviewing a skill, agent, rule, or reference file now dispatches consistency/completeness, instruction-quality, and writing-quality reviewers instead of the code-shaped reviewers, with "review this skill" / "review these instructions" as new triggers. (#434)
+- `mine-address-pr-issues` — plan entries now require a concrete proposed fix and flag ambiguous items as `[DECISION NEEDED]` with options and a recommendation, so approval covers an actual diff instead of vague intent. (#434)
+
 ## 2026-07-02
 
 ### Added

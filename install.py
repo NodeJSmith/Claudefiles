@@ -890,24 +890,30 @@ def ensure_cass(repo_dir: Path, console: Console) -> int:
     model_installed = cass_semantic_model_installed()
 
     if not index_populated and not model_installed:
+        console.print()
         console.print(
-            "  [dim]No cass search index found yet. To set up with semantic search:\n"
-            "    1. `cass models install`  (download embedding model, ~87 MB)\n"
-            "    2. `cass index --semantic` (builds lexical + semantic index)\n"
-            "  Or run `cass index` for lexical-only — it'll also run automatically "
-            "at your next Claude Code session.[/dim]"
+            "  [yellow]No cass search index found yet.[/yellow] To set up with semantic search:\n"
+            "    1. [bold]cass models install[/bold]  (download embedding model, ~87 MB)\n"
+            "    2. [bold]cass index --semantic[/bold] (builds lexical + semantic index)\n"
+            "  Or run [bold]cass index[/bold] for lexical-only — it'll also run automatically "
+            "at your next Claude Code session."
         )
+        console.print()
     elif not index_populated:
+        console.print()
         console.print(
-            "  [dim]No cass search index found yet — run `cass index --semantic` "
+            "  [yellow]No cass search index found yet[/yellow] — run [bold]cass index --semantic[/bold] "
             "to populate it now, or it'll run automatically in the background at "
-            "your next Claude Code session.[/dim]"
+            "your next Claude Code session."
         )
+        console.print()
     elif not model_installed:
+        console.print()
         console.print(
-            "  [dim]For semantic search: run `cass models install` to download the "
-            "embedding model (~87 MB), then `cass index --semantic`.[/dim]"
+            "  [yellow]Semantic search not set up.[/yellow] Run [bold]cass models install[/bold] to download the "
+            "embedding model (~87 MB), then [bold]cass index --semantic[/bold]."
         )
+        console.print()
 
     if shutil.which("ccrecall") is not None:
         # which can find ccrecall via a non-uv installer (mise shim) — uv correctly

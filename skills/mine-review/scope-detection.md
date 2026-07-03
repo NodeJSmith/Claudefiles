@@ -55,7 +55,7 @@ find <paths> -type f \
   -not -path '*/vendor/*' \
   -not -path '*/.next/*' \
   -not -path '*/coverage/*' \
-  \( -name '*.py' -o -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' -o -name '*.css' -o -name '*.scss' -o -name '*.html' -o -name '*.go' -o -name '*.rs' -o -name '*.java' -o -name '*.rb' \)
+  \( -name '*.py' -o -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' -o -name '*.css' -o -name '*.scss' -o -name '*.html' -o -name '*.go' -o -name '*.rs' -o -name '*.java' -o -name '*.rb' -o -name '*.md' \)
 ```
 
 Adapt the extensions to the project's language. If the file list is empty after filtering, inform the user that no reviewable source files were found in the target paths and stop.
