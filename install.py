@@ -893,16 +893,16 @@ def ensure_cass(repo_dir: Path, console: Console) -> int:
         console.print()
         console.print(
             "  [yellow]No cass search index found yet.[/yellow] To set up with semantic search:\n"
-            "    1. [bold]cass models install[/bold]  (download embedding model, ~87 MB)\n"
-            "    2. [bold]cass index --semantic[/bold] (builds lexical + semantic index)\n"
-            "  Or run [bold]cass index[/bold] for lexical-only — it'll also run automatically "
+            "    1. `cass models install`  (download embedding model, ~87 MB)\n"
+            "    2. `cass index --semantic` (builds lexical + semantic index)\n"
+            "  Or run `cass index` for lexical-only — it'll also run automatically "
             "at your next Claude Code session."
         )
         console.print()
     elif not index_populated:
         console.print()
         console.print(
-            "  [yellow]No cass search index found yet[/yellow] — run [bold]cass index --semantic[/bold] "
+            "  [yellow]No cass search index found yet[/yellow] — run `cass index --semantic` "
             "to populate it now, or it'll run automatically in the background at "
             "your next Claude Code session."
         )
@@ -910,8 +910,8 @@ def ensure_cass(repo_dir: Path, console: Console) -> int:
     elif not model_installed:
         console.print()
         console.print(
-            "  [yellow]Semantic search not set up.[/yellow] Run [bold]cass models install[/bold] to download the "
-            "embedding model (~87 MB), then [bold]cass index --semantic[/bold]."
+            "  [yellow]Semantic search not set up.[/yellow] Run `cass models install` to download the "
+            "embedding model (~87 MB), then `cass index --semantic`."
         )
         console.print()
 
