@@ -1,7 +1,7 @@
 # Design: Migrate from ccrecall to cass
 
 **Date:** 2026-07-02
-**Status:** approved
+**Status:** archived
 **Scope-mode:** hold
 
 ## Problem
