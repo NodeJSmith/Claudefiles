@@ -19,6 +19,7 @@ Use `--reconfigure` to change selections, `--uninstall` to remove everything.
 - `mine-*` — personal skills and commands
 - `i-*` — [Impeccable](https://impeccable.style/) frontend design skills
 - `cli-*` — CLI design skills
+- `cass-*` — conversation memory skills (recall, context, resume) backed by the `cass` binary
 
 ## Bash Tool State
 
@@ -50,7 +51,7 @@ Edit `settings.json` in this repo — **never** write directly to `$CLAUDE_CONFI
 - After adding directories under `agents/`, `skills/`, `skills-impeccable/`, `skills-cli/`, `commands/`, or `scripts/hooks/` — re-run `uv run install.py`
 - **Always update `REFERENCE.md`** when adding, removing, or renaming skills, commands, agents, or bin/ scripts — it holds the full component tables
 - **Always update `ONBOARDING.md`** when adding a capability a new adopter should know about (new bundle, significant new skill, workflow change)
-- **Always update the appropriate capabilities file** with trigger phrases for new skills: `rules/common/capabilities-core.md` for mine-*, `skills-impeccable/capabilities-impeccable.md` for i-*, `skills-cli/capabilities-cli.md` for cli-*
+- **Always update the appropriate capabilities file** with trigger phrases for new skills: `rules/common/capabilities-core.md` for mine-* and cass-*, `skills-impeccable/capabilities-impeccable.md` for i-*, `skills-cli/capabilities-cli.md` for cli-*
 - **When bundling a new plugin:** add its marketplace to `extraKnownMarketplaces` and enable it in `enabledPlugins` in `settings.json`, then document it in the Plugins table in `REFERENCE.md` and the relevant path in `ONBOARDING.md`
 - **When adding a rule to `rules/common/`** — set its `tool:` frontmatter. Portable rules get `tool: claude, codex, antigravity`; Claude-Code-harness-specific rules get `tool: claude  # harness-only: <reason>`. Omitting `tool:` is fail-closed (the rule reaches Claude only, never Codex). `codex-rules-sync` reads this to build `~/.codex/AGENTS.md`.
 - CLI tools referenced in skills/commands/agents must exist in `bin/`, be a standard system tool, or be a well-known dev tool. No private tools outside this repo.

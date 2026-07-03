@@ -4,41 +4,59 @@ Each test crafts JSON input matching the PreToolUse/PostToolUse schema, invokes
 the hook via subprocess.run, and asserts on exit code and stdout.
 """
 
+import hashlib
 import json
 import os
+import shutil
 import subprocess
 import tempfile
+import time
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
+
+import pytest
 
 # Resolve hook paths relative to the repo root
 REPO_ROOT = Path(__file__).parent.parent
 COMPACTION_HOOK = REPO_ROOT / "scripts" / "hooks" / "subagent-compaction-check.sh"
+CASS_UPDATE = REPO_ROOT / "bin" / "cass-update"
+CASS_SESSION_START_HOOK = REPO_ROOT / "scripts" / "hooks" / "cass-session-start.sh"
+CASS_CLEAR_HANDOFF_HOOK = REPO_ROOT / "scripts" / "hooks" / "cass-clear-handoff.sh"
 
 
 def run_hook(
     script: Path,
     stdin: str,
-    tmpdir: str,
+    tmpdir: str | None = None,
     extra_env: dict | None = None,
+    env: dict | None = None,
+    timeout: float | None = None,
 ) -> subprocess.CompletedProcess:
-    """Run a hook script with given stdin and CLAUDE_CODE_TMPDIR set to tmpdir."""
-    env = os.environ.copy()
-    env["CLAUDE_CODE_TMPDIR"] = tmpdir
-    if extra_env:
-        env.update(extra_env)
+    """Run a hook script with given stdin.
+
+    Pass `tmpdir` for hooks that read CLAUDE_CODE_TMPDIR (sets it on a copy of
+    the current environment, optionally overlaid with `extra_env`). Pass a
+    full `env` override instead for hooks that don't consume
+    CLAUDE_CODE_TMPDIR and need direct control over PATH/HOME.
+    """
+    if env is None:
+        env = os.environ.copy()
+        if tmpdir is not None:
+            env["CLAUDE_CODE_TMPDIR"] = tmpdir
+        if extra_env:
+            env.update(extra_env)
     return subprocess.run(
         [str(script)],
         input=stdin,
         capture_output=True,
         text=True,
         env=env,
+        timeout=timeout,
     )
 
 
-# ---------------------------------------------------------------------------
 # tmux-drift-check.sh tests
-# ---------------------------------------------------------------------------
 
 DRIFT_CHECK_HOOK = REPO_ROOT / "scripts" / "hooks" / "tmux-drift-check.sh"
 
@@ -438,3 +456,586 @@ class TestCompactionHookNoSubagentDir:
 
             assert result.returncode == 0
             assert result.stdout.strip() == ""
+
+
+# bin/cass-update tests
+#
+# cass-update shells out to curl (GitHub API + asset downloads) and to cass
+# itself (update path). Both are stubbed via PATH so tests never touch the
+# real GitHub API or a real cass install. tar/sha256sum/mv/mkdir/chmod are
+# left as the real system binaries — they're deterministic and safe to run
+# for real against a throwaway HOME.
+
+
+@dataclass
+class CassSandbox:
+    """A throwaway HOME + stub-binary directory for cass subprocess tests.
+
+    `tmp` is the sandbox root (fixture files like tarballs and logs live directly
+    under it); `home` and `stubs` are pre-created subdirectories so every test that
+    needs them doesn't repeat the same two `.mkdir()` calls.
+    """
+
+    tmp: Path
+    home: Path
+    stubs: Path
+
+
+@pytest.fixture
+def cass_sandbox(tmp_path: Path) -> CassSandbox:
+    home = tmp_path / "home"
+    home.mkdir()
+    stubs = tmp_path / "stubs"
+    stubs.mkdir()
+    return CassSandbox(tmp=tmp_path, home=home, stubs=stubs)
+
+
+def _cass_state_dir(home: Path) -> Path:
+    """The claudefiles-cass bookkeeping dir under a given (fake) HOME — mirrors
+    install.cass_state_dir() and bin/cass-update's STATE_DIR."""
+    return home / ".local" / "share" / "claudefiles-cass"
+
+
+def _clear_handoff_dir(home: Path) -> Path:
+    return _cass_state_dir(home) / "clear-handoff"
+
+
+CASS_RELEASE_TAG = "v1.2.3"
+
+_CURL_STUB_TEMPLATE = """#!/usr/bin/env bash
+outfile=""
+url=""
+args=("$@")
+i=0
+while [[ $i -lt ${#args[@]} ]]; do
+  a="${args[$i]}"
+  if [[ "$a" == "-o" ]]; then
+    i=$((i + 1))
+    outfile="${args[$i]}"
+  elif [[ "$a" != -* ]]; then
+    url="$a"
+  fi
+  i=$((i + 1))
+done
+
+echo "$url" >> "__LOG_PATH__"
+
+if [[ "$url" == *"api.github.com"* ]]; then
+  echo '{"tag_name": "__TAG__"}'
+  exit 0
+fi
+if [[ "$url" == *".sha256" ]]; then
+  cp "__CHECKSUM_FILE__" "$outfile"
+  exit 0
+fi
+if [[ "$url" == *"cass-linux-amd64.tar.gz" ]]; then
+  cp "__TARBALL__" "$outfile"
+  exit 0
+fi
+exit 1
+"""
+
+_CASS_STUB_TEMPLATE = """#!/usr/bin/env bash
+echo "$@" >> "__LOG_PATH__"
+exit __EXIT_CODE__
+"""
+
+
+def _make_cass_release_asset(tmpdir: Path) -> tuple[Path, Path]:
+    """Build a real cass-linux-amd64.tar.gz + matching .sha256 fixture,
+    using the real tar/sha256sum binaries so the fixture is bit-for-bit what
+    cass-update's own tar/sha256sum invocations will see."""
+    payload_dir = tmpdir / "payload"
+    payload_dir.mkdir()
+    cass_bin = payload_dir / "cass"
+    cass_bin.write_text("#!/usr/bin/env bash\necho fake-cass\n")
+    cass_bin.chmod(0o755)
+
+    tarball = tmpdir / "cass-linux-amd64.tar.gz"
+    subprocess.run(
+        ["tar", "czf", str(tarball), "-C", str(payload_dir), "cass"], check=True
+    )
+    digest = hashlib.sha256(tarball.read_bytes()).hexdigest()
+    checksum_file = tmpdir / "cass-linux-amd64.tar.gz.sha256"
+    checksum_file.write_text(f"{digest}  cass-linux-amd64.tar.gz\n")
+    return tarball, checksum_file
+
+
+def _write_curl_stub(
+    stub_dir: Path,
+    tarball: Path,
+    checksum_file: Path,
+    log_path: Path,
+    tag: str = CASS_RELEASE_TAG,
+) -> Path:
+    """A curl stand-in serving the release JSON + fixture asset files, logging
+    every requested URL so tests can assert on what was fetched."""
+    script = (
+        _CURL_STUB_TEMPLATE.replace("__LOG_PATH__", str(log_path))
+        .replace("__TAG__", tag)
+        .replace("__CHECKSUM_FILE__", str(checksum_file))
+        .replace("__TARBALL__", str(tarball))
+    )
+    stub = stub_dir / "curl"
+    stub.write_text(script)
+    stub.chmod(0o755)
+    return stub
+
+
+def _write_failing_curl_stub(stub_dir: Path) -> Path:
+    """A curl stand-in that always fails, simulating GitHub being unreachable."""
+    stub = stub_dir / "curl"
+    stub.write_text("#!/usr/bin/env bash\nexit 7\n")
+    stub.chmod(0o755)
+    return stub
+
+
+def _write_cass_stub(stub_dir: Path, log_path: Path, exit_code: int = 0) -> Path:
+    """A cass stand-in that logs `cass upgrade --yes` invocations."""
+    script = _CASS_STUB_TEMPLATE.replace("__LOG_PATH__", str(log_path)).replace(
+        "__EXIT_CODE__", str(exit_code)
+    )
+    stub = stub_dir / "cass"
+    stub.write_text(script)
+    stub.chmod(0o755)
+    return stub
+
+
+def _cass_update_env(sandbox: CassSandbox) -> dict:
+    """Env for running cass-update in isolation: a throwaway HOME (so
+    ~/.local/bin and ~/.local/share/claudefiles-cass are sandboxed) and a PATH
+    that puts stubs first, followed only by the standard system directories —
+    never the real ~/.local/bin, so a real cass on the dev machine can't leak
+    into "command -v cass"."""
+    env = os.environ.copy()
+    env["HOME"] = str(sandbox.home)
+    env["PATH"] = f"{sandbox.stubs}:/usr/bin:/bin"
+    return env
+
+
+def _run_cass_update(args: list[str], env: dict) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [str(CASS_UPDATE), *args], capture_output=True, text=True, env=env
+    )
+
+
+class TestCassUpdateBootstrap:
+    """Bootstrap path: cass is not on PATH, so cass-update downloads it."""
+
+    def test_downloads_and_verifies_checksum(self, cass_sandbox: CassSandbox):
+        tarball, checksum_file = _make_cass_release_asset(cass_sandbox.tmp)
+        _write_curl_stub(
+            cass_sandbox.stubs, tarball, checksum_file, cass_sandbox.tmp / "curl.log"
+        )
+
+        result = _run_cass_update([], _cass_update_env(cass_sandbox))
+
+        assert result.returncode == 0, result.stderr
+        installed = cass_sandbox.home / ".local" / "bin" / "cass"
+        assert installed.is_file()
+        assert os.access(installed, os.X_OK)
+        payload = cass_sandbox.tmp / "payload" / "cass"
+        assert installed.read_text() == payload.read_text()
+
+    def test_checksum_mismatch_aborts_leaving_no_binary(
+        self, cass_sandbox: CassSandbox
+    ):
+        tarball, checksum_file = _make_cass_release_asset(cass_sandbox.tmp)
+        # Corrupt the checksum so it no longer matches the tarball.
+        checksum_file.write_text("0" * 64 + "  cass-linux-amd64.tar.gz\n")
+        _write_curl_stub(
+            cass_sandbox.stubs, tarball, checksum_file, cass_sandbox.tmp / "curl.log"
+        )
+
+        result = _run_cass_update([], _cass_update_env(cass_sandbox))
+
+        assert result.returncode == 1
+        assert "checksum mismatch" in result.stderr.lower()
+        installed = cass_sandbox.home / ".local" / "bin" / "cass"
+        assert not installed.exists()
+
+    def test_github_unreachable_warns_and_exits_zero(self, cass_sandbox: CassSandbox):
+        _write_failing_curl_stub(cass_sandbox.stubs)
+
+        result = _run_cass_update([], _cass_update_env(cass_sandbox))
+
+        assert result.returncode == 0
+        assert result.stderr.strip() != ""
+        installed = cass_sandbox.home / ".local" / "bin" / "cass"
+        assert not installed.exists()
+
+
+class TestCassUpdateUpdate:
+    """Update path: cass is already on PATH, so cass-update delegates to it."""
+
+    def test_delegates_to_cass_upgrade(self, cass_sandbox: CassSandbox):
+        log = cass_sandbox.tmp / "cass-invocations.log"
+        _write_cass_stub(cass_sandbox.stubs, log)
+
+        result = _run_cass_update([], _cass_update_env(cass_sandbox))
+
+        assert result.returncode == 0, result.stderr
+        assert log.exists()
+        assert log.read_text().strip() == "upgrade --yes"
+
+    def test_upgrade_failure_warns_and_exits_zero(self, cass_sandbox: CassSandbox):
+        log = cass_sandbox.tmp / "cass-invocations.log"
+        _write_cass_stub(cass_sandbox.stubs, log, exit_code=1)
+
+        result = _run_cass_update([], _cass_update_env(cass_sandbox))
+
+        assert result.returncode == 0
+        assert result.stderr.strip() != ""
+
+
+class TestCassUpdateIfStale:
+    """--if-stale gate: skip when the timestamp marker is fresh, run when not."""
+
+    def test_exits_early_when_timestamp_fresh(self, cass_sandbox: CassSandbox):
+        log = cass_sandbox.tmp / "cass-invocations.log"
+        _write_cass_stub(cass_sandbox.stubs, log)
+
+        state_dir = _cass_state_dir(cass_sandbox.home)
+        state_dir.mkdir(parents=True)
+        marker = state_dir / "last-update-check"
+        marker.touch()  # fresh mtime — "just checked"
+
+        result = _run_cass_update(["--if-stale"], _cass_update_env(cass_sandbox))
+
+        assert result.returncode == 0
+        assert not log.exists()  # cass was never invoked
+
+    def test_runs_when_timestamp_is_old(self, cass_sandbox: CassSandbox):
+        log = cass_sandbox.tmp / "cass-invocations.log"
+        _write_cass_stub(cass_sandbox.stubs, log)
+
+        state_dir = _cass_state_dir(cass_sandbox.home)
+        state_dir.mkdir(parents=True)
+        marker = state_dir / "last-update-check"
+        marker.touch()
+        old = time.time() - (25 * 60 * 60)  # 25h ago
+        os.utime(marker, (old, old))
+
+        result = _run_cass_update(["--if-stale"], _cass_update_env(cass_sandbox))
+
+        assert result.returncode == 0
+        assert log.exists()
+        assert log.read_text().strip() == "upgrade --yes"
+
+
+class TestCassUpdateTimestamp:
+    """The timestamp marker is refreshed after any completed check."""
+
+    def test_writes_timestamp_after_bootstrap(self, cass_sandbox: CassSandbox):
+        tarball, checksum_file = _make_cass_release_asset(cass_sandbox.tmp)
+        _write_curl_stub(
+            cass_sandbox.stubs, tarball, checksum_file, cass_sandbox.tmp / "curl.log"
+        )
+
+        marker = _cass_state_dir(cass_sandbox.home) / "last-update-check"
+        assert not marker.exists()
+
+        result = _run_cass_update([], _cass_update_env(cass_sandbox))
+
+        assert result.returncode == 0, result.stderr
+        assert marker.exists()
+
+    def test_writes_timestamp_after_update(self, cass_sandbox: CassSandbox):
+        log = cass_sandbox.tmp / "cass-invocations.log"
+        _write_cass_stub(cass_sandbox.stubs, log)
+
+        marker = _cass_state_dir(cass_sandbox.home) / "last-update-check"
+        assert not marker.exists()
+
+        result = _run_cass_update([], _cass_update_env(cass_sandbox))
+
+        assert result.returncode == 0, result.stderr
+        assert marker.exists()
+
+
+# scripts/hooks/cass-session-start.sh and cass-clear-handoff.sh tests
+#
+# The SessionStart hook shells out to `cass`, `cass-update`, and `jq`, all
+# stubbed via a PATH prefix so tests never touch the real GitHub API or a
+# real cass install. jq itself is left as the real system binary (it's
+# already a hard dependency of other hooks in this file) — only `cass` and
+# `cass-update` are faked.
+
+
+def _write_cass_multi_stub(
+    stub_dir: Path,
+    *,
+    search_json: str = '{"hits": []}',
+    search_sleep: float = 0,
+    index_log: Path | None = None,
+) -> Path:
+    """A `cass` stand-in supporting the `index` and `search` subcommands used
+    by the SessionStart hook. `index` logs an invocation marker; `search`
+    optionally sleeps (to exercise the hook's 3s timeout) before printing
+    canned --robot JSON."""
+    index_log = index_log or (stub_dir / "index.log")
+    script = f"""#!/usr/bin/env bash
+if [[ "$1" == "index" ]]; then
+  echo "indexed" >> "{index_log}"
+  exit 0
+fi
+if [[ "$1" == "search" ]]; then
+  sleep {search_sleep}
+  cat << 'JSON'
+{search_json}
+JSON
+  exit 0
+fi
+exit 1
+"""
+    stub = stub_dir / "cass"
+    stub.write_text(script)
+    stub.chmod(0o755)
+    return stub
+
+
+def _write_cass_update_logging_stub(stub_dir: Path, log_path: Path) -> Path:
+    """A `cass-update` stand-in that logs its arguments instead of hitting
+    the real GitHub API — used to verify the SessionStart hook triggers it,
+    without exercising cass-update's own bootstrap/update logic (covered by
+    TestCassUpdate* above)."""
+    script = f"""#!/usr/bin/env bash
+echo "$@" >> "{log_path}"
+exit 0
+"""
+    stub = stub_dir / "cass-update"
+    stub.write_text(script)
+    stub.chmod(0o755)
+    return stub
+
+
+def _wait_for_file(path: Path, timeout: float = 2.0) -> bool:
+    """Poll for a file written by a detached background process instead of
+    a blind sleep — the hook's background spawns are async by design."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if path.exists():
+            return True
+        time.sleep(0.05)
+    return path.exists()
+
+
+def _make_no_jq_path(tmp: Path, extra_names: list[str]) -> Path:
+    """Build a PATH directory with symlinks to real coreutils but no `jq`, so
+    a test can deterministically exercise a hook's jq-absent fallback branch
+    rather than relying on the dev machine happening to lack jq (it always
+    has it — jq is a hard dependency of other hooks in this file)."""
+    stub = tmp / "no-jq-path"
+    stub.mkdir()
+    for name in ["env", "bash", *extra_names]:
+        resolved = shutil.which(name)
+        assert resolved, f"required binary not found on PATH: {name}"
+        (stub / name).symlink_to(resolved)
+    return stub
+
+
+class TestSessionStartHookNoCassInstalled:
+    """Hook exits silently when cass is not on PATH."""
+
+    def test_exits_silently_when_cass_not_installed(self, cass_sandbox: CassSandbox):
+        # A PATH with just enough on it to exec the script's own
+        # `#!/usr/bin/env bash` shebang and its `command -v` builtin check —
+        # deliberately excluding any directory that might have a real `cass`
+        # on it, so this test is independent of whether the host machine
+        # happens to have cass installed.
+        bare_path = cass_sandbox.tmp / "bare-path"
+        bare_path.mkdir()
+        (bare_path / "bash").symlink_to(shutil.which("bash"))
+
+        env = os.environ.copy()
+        env["PATH"] = str(bare_path)
+        env["HOME"] = str(cass_sandbox.home)
+
+        result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
+
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+
+
+class TestSessionStartHookBackgroundSpawns:
+    """Hook spawns cass index and cass-update --if-stale as detached
+    background processes (FR#3, FR#11)."""
+
+    def test_spawns_background_cass_index(self, cass_sandbox: CassSandbox):
+        index_log = cass_sandbox.tmp / "index.log"
+        _write_cass_multi_stub(cass_sandbox.stubs, index_log=index_log)
+
+        env = os.environ.copy()
+        env["PATH"] = f"{cass_sandbox.stubs}:{env['PATH']}"
+        env["HOME"] = str(cass_sandbox.home)
+
+        result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
+
+        assert result.returncode == 0
+        assert _wait_for_file(index_log)
+        assert index_log.read_text().strip() == "indexed"
+
+    def test_triggers_cass_update_if_stale(self, cass_sandbox: CassSandbox):
+        update_log = cass_sandbox.tmp / "update.log"
+        _write_cass_multi_stub(cass_sandbox.stubs)
+        _write_cass_update_logging_stub(cass_sandbox.stubs, update_log)
+
+        env = os.environ.copy()
+        env["PATH"] = f"{cass_sandbox.stubs}:{env['PATH']}"
+        env["HOME"] = str(cass_sandbox.home)
+
+        result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
+
+        assert result.returncode == 0
+        assert _wait_for_file(update_log)
+        assert update_log.read_text().strip() == "--if-stale"
+
+
+class TestSessionStartHookContextInjection:
+    """Synchronous context injection: emits a summary or degrades to silence
+    within the 3s budget (FR#4, edge case: timeout/empty results)."""
+
+    def test_context_injection_produces_output(self, cass_sandbox: CassSandbox):
+        search_json = json.dumps(
+            {
+                "hits": [
+                    {
+                        "title": "pytest fixtures work",
+                        "date": "2026-06-30",
+                        "snippet": "discussed fixture scoping",
+                    }
+                ]
+            }
+        )
+        _write_cass_multi_stub(cass_sandbox.stubs, search_json=search_json)
+
+        env = os.environ.copy()
+        env["PATH"] = f"{cass_sandbox.stubs}:{env['PATH']}"
+        env["HOME"] = str(cass_sandbox.home)
+
+        result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
+
+        assert result.returncode == 0
+        assert "pytest fixtures work" in result.stdout
+        assert "2026-06-30" in result.stdout
+        assert "discussed fixture scoping" in result.stdout
+
+    def test_context_injection_exits_zero_on_timeout(self, cass_sandbox: CassSandbox):
+        _write_cass_multi_stub(cass_sandbox.stubs, search_sleep=5)
+
+        env = os.environ.copy()
+        env["PATH"] = f"{cass_sandbox.stubs}:{env['PATH']}"
+        env["HOME"] = str(cass_sandbox.home)
+
+        start = time.monotonic()
+        result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
+        elapsed = time.monotonic() - start
+
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+        # The hook's own `timeout 3` must cap this, not the stub's 5s sleep.
+        assert elapsed < 5
+
+
+class TestSessionStartHookNoJqFallback:
+    """Hook degrades to silent context injection when jq is absent
+    (cass-session-start.sh:32-34), but the two background spawns — which
+    don't depend on jq — still fire. Every other context-injection test in
+    this file runs with real jq on PATH, so this fallback would otherwise
+    ship untested."""
+
+    def test_no_jq_skips_context_but_still_spawns_background_work(
+        self, cass_sandbox: CassSandbox
+    ):
+        index_log = cass_sandbox.tmp / "index.log"
+        update_log = cass_sandbox.tmp / "update.log"
+
+        _write_cass_multi_stub(cass_sandbox.stubs, index_log=index_log)
+        _write_cass_update_logging_stub(cass_sandbox.stubs, update_log)
+
+        no_jq_path = _make_no_jq_path(cass_sandbox.tmp, ["cat", "nohup"])
+
+        env = os.environ.copy()
+        env["HOME"] = str(cass_sandbox.home)
+        env["PATH"] = f"{no_jq_path}:{cass_sandbox.stubs}"
+
+        result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
+
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+        assert _wait_for_file(index_log)
+        assert index_log.read_text().strip() == "indexed"
+        assert _wait_for_file(update_log)
+        assert update_log.read_text().strip() == "--if-stale"
+
+
+class TestClearHandoffHookWritesFile:
+    """SessionEnd hook writes a per-project handoff JSON file (FR#5, AC#6)."""
+
+    def test_writes_handoff_file(self, cass_sandbox: CassSandbox):
+        stdin_payload = json.dumps(
+            {"session_id": "sess-abc123", "cwd": "/home/user/myproject"}
+        )
+
+        env = os.environ.copy()
+        env["HOME"] = str(cass_sandbox.home)
+
+        result = run_hook(CASS_CLEAR_HANDOFF_HOOK, stdin_payload, env=env)
+
+        assert result.returncode == 0
+
+        files = list(_clear_handoff_dir(cass_sandbox.home).glob("*.json"))
+        assert len(files) == 1
+        assert files[0].name == "-home-user-myproject.json"
+
+        handoff = json.loads(files[0].read_text())
+        assert handoff["session_id"] == "sess-abc123"
+        assert handoff["project_path"] == "/home/user/myproject"
+        assert "timestamp" in handoff
+
+
+class TestClearHandoffHookNoJqFallback:
+    """SessionEnd hook falls back to hand-rolled JSON escaping when jq is
+    absent (cass-clear-handoff.sh:44-58) — every other test in this file
+    runs with real jq on PATH, so this fallback would otherwise ship
+    untested."""
+
+    def test_escapes_quotes_and_backslashes_without_jq(self, cass_sandbox: CassSandbox):
+        no_jq_path = _make_no_jq_path(
+            cass_sandbox.tmp, ["cat", "mkdir", "date", "sed", "grep"]
+        )
+
+        # A cwd containing a quote and a backslash — the exact characters
+        # the hand-rolled `sed 's/\\/\\\\/g; s/"/\\"/g'` escape must get
+        # right. Delivered via the process's actual working directory
+        # rather than the stdin JSON's "cwd" field, so this test
+        # isolates the write-side escaping (lines 44-58) from the
+        # separate stdin-JSON field-extraction fallback (lines 26-27),
+        # which is a different code path than the one this finding is
+        # about.
+        tricky_dir = cass_sandbox.tmp / 'weird"quote\\dir'
+        tricky_dir.mkdir()
+
+        stdin_payload = json.dumps({"session_id": "sess-xyz"})
+        env = os.environ.copy()
+        env["HOME"] = str(cass_sandbox.home)
+        env["PATH"] = str(no_jq_path)
+
+        result = subprocess.run(
+            [str(CASS_CLEAR_HANDOFF_HOOK)],
+            input=stdin_payload,
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=str(tricky_dir),
+        )
+
+        assert result.returncode == 0
+
+        files = list(_clear_handoff_dir(cass_sandbox.home).glob("*.json"))
+        assert len(files) == 1
+
+        handoff = json.loads(files[0].read_text())
+        assert handoff["project_path"] == str(tricky_dir)
+        assert handoff["session_id"] == "sess-xyz"
+        assert "timestamp" in handoff

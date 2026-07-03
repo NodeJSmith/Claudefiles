@@ -59,6 +59,8 @@ tool: claude  # harness-only: skill/command routing tables are Claude-Code dispa
 | "simplify this codebase", "find simplification opportunities", "where can I simplify", "code judo this", "judo this module", "find structural simplifications", "what can I collapse", "reduce complexity in this code" | `/mine-simplify` |
 | "what would a v2 look like", "how would we rebuild this", "next iteration of this design", "what improvements are we skipping", "what would a mature version look like", "what are we not considering here", "how would we make this more robust", "sophistication ceiling", "elevate this subsystem" | `/mine-elevate` |
 | "humanize this", "unslop this", "de-slop this", "fix AI writing", "remove AI tells", "clean up AI prose" | `/mine-humanize` |
+| "search past sessions", "find that conversation", "what did we discuss about", "recall this session" | `/cass-recall` |
+| "give me context on this task", "context brief", "what do I need to know before starting this" | `/cass-context` |
 
 ## CLI Tools
 
@@ -82,6 +84,7 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "validate agent files", "check skill schema" | `agnix-check` |
 | "is this gate earning its keep", "how often does X subagent catch issues", "how often does the comb compact", "subagent effectiveness stats", "agent stats" | `agent-stats` |
 | "orchestrate run cost", "where do the token dollars go", "cost of orchestrate", "how much does a mine-orchestrate run cost", "cost by role and model", "is this gate worth the cost" | `orchestrate-cost` |
+| "update cass", "check for cass binary update", "install cass" | `cass-update` |
 | "spec status", "run status", "orchestration status", "what tasks are left" | `cfl run status` |
 | "query orchestration data", "pipeline effectiveness", "gate blocking rate" | `cfl` |
 | "cancel builds", "cancel pipeline runs", "list ADO builds" | `ado-api builds` |
