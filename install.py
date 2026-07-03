@@ -684,10 +684,11 @@ def run_managed_subprocess(
 ) -> tuple[bool, str]:
     """Run a subprocess. Returns (success, error_detail).
 
-    Centralizes the returncode/timeout/missing-binary handling shared by every
-    package op so the error messages stay consistent and timeout values single-sourced.
-    `missing_msg` is the FileNotFoundError detail; defaults to the uv-not-found message
-    since most callers invoke `uv`, but non-uv callers (e.g. cass-update) pass their own.
+    Centralizes the returncode/timeout/missing-binary/permission handling shared by
+    every package op so the error messages stay consistent and timeout values
+    single-sourced. `missing_msg` is the FileNotFoundError detail; defaults to the
+    uv-not-found message since most callers invoke `uv`, but non-uv callers (e.g.
+    cass-update) pass their own.
     """
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
@@ -699,6 +700,8 @@ def run_managed_subprocess(
         return False, f"timed out after {timeout}s"
     except FileNotFoundError:
         return False, missing_msg
+    except PermissionError as e:
+        return False, str(e)
 
 
 def install_package(repo_dir: Path, pkg_name: str) -> tuple[bool, str]:

@@ -1242,6 +1242,17 @@ class TestCassBinary:
         mock_plugin.assert_not_called()
 
 
+class TestRunManagedSubprocess:
+    def test_permission_error_returns_failure_not_raises(self) -> None:
+        """A non-executable script (PermissionError) degrades gracefully like every
+        other failure mode here, instead of crashing the caller (e.g. ensure_cass)."""
+        with patch("install.subprocess.run", side_effect=PermissionError("denied")):
+            ok, detail = install.run_managed_subprocess(["./script"], timeout=5)
+
+        assert ok is False
+        assert detail == "denied"
+
+
 class TestPackageInstall:
     def test_base_packages_installed(self, tmp_path: Path) -> None:
         """Base bundle packages install on a fresh run with nothing present."""
