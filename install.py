@@ -377,11 +377,61 @@ def cass_state_dir() -> Path:
     local_bin_dir()). Mirrors bin/cass-update's STATE_DIR and
     scripts/hooks/cass-clear-handoff.sh's STATE_DIR — keep all three in sync if this
     path ever changes. do_uninstall deletes this directory (update-check timestamp,
-    clear-handoff files) but leaves cass's own index data at
-    ~/.local/share/coding-agent-search/ untouched — that's owned by cass, not
-    Claudefiles.
+    clear-handoff files) but leaves cass's own index data (cass_index_dir())
+    untouched — that's owned by cass, not Claudefiles.
     """
     return Path.home() / ".local" / "share" / "claudefiles-cass"
+
+
+def cass_index_dir() -> Path:
+    """Resolve ~/.local/share/coding-agent-search — cass's own index data dir.
+
+    A function, not a constant, so it tracks Path.home() (same rationale as
+    local_bin_dir()). Owned by cass, not Claudefiles — do_uninstall leaves it
+    untouched (see cass_state_dir()).
+    """
+    return Path.home() / ".local" / "share" / "coding-agent-search"
+
+
+def cass_index_populated() -> bool:
+    """True if cass has indexed anything on this machine yet.
+
+    Queries `cass status --json` and reads `index.exists`. Returns False on
+    any failure (cass not on PATH, bad JSON, timeout) — degrades to showing
+    the hint rather than crashing the installer.
+    """
+    ok, output = run_managed_subprocess(
+        ["cass", "status", "--json"],
+        timeout=10,
+        missing_msg="cass not found",
+    )
+    if not ok:
+        return False
+    try:
+        data = json.loads(output)
+        return data.get("index", {}).get("exists", False) is True
+    except (json.JSONDecodeError, AttributeError):
+        return False
+
+
+def cass_semantic_model_installed() -> bool:
+    """True if the active semantic embedding model has been downloaded.
+
+    Queries `cass models status --json` and reads the top-level `installed`
+    field. Returns False on any failure (cass not on PATH, bad JSON, timeout)
+    — degrades to showing the hint rather than crashing the installer.
+    """
+    ok, output = run_managed_subprocess(
+        ["cass", "models", "status", "--json"],
+        timeout=10,
+        missing_msg="cass not found",
+    )
+    if not ok:
+        return False
+    try:
+        return json.loads(output).get("installed", False) is True
+    except (json.JSONDecodeError, AttributeError):
+        return False
 
 
 def load_config(path: Path) -> dict | None:
@@ -790,6 +840,14 @@ def ensure_cass(repo_dir: Path, console: Console) -> int:
     machine with neither search tool. A cass install failure is counted as an error;
     ccrecall/plugin removal failures are best-effort warnings (they don't block install,
     and a lingering ccrecall install is harmless once cass is the working search tool).
+
+    Also hints at first-run setup: if cass installed but isn't resolvable on this
+    shell's PATH yet, tells the user to restart their terminal rather than reporting a
+    bare failure; if cass is present but cass_index_populated() is False, hints to run
+    `cass index`; if no semantic embedding model is downloaded, hints to run
+    `cass models install` + `cass index --semantic`. Detection uses lightweight cass
+    status subprocesses (short timeouts); indexing itself is never invoked here.
+
     Returns error count.
     """
     errors = 0
@@ -807,13 +865,49 @@ def ensure_cass(repo_dir: Path, console: Console) -> int:
         cass_present = shutil.which("cass") is not None
 
     if not cass_present:
-        console.print(
-            "  [yellow]Warning: cass still not on PATH — leaving ccrecall in place[/yellow]"
-        )
+        if ok and (local_bin_dir() / "cass").exists():
+            # cass-update reported success and the binary is on disk — the problem is
+            # a stale shell PATH (e.g. a profile script this session never sourced),
+            # not a broken install. Still counts as an error below: ccrecall is left
+            # in place until cass is actually resolvable (safety invariant).
+            console.print(
+                "  [yellow]cass installed to ~/.local/bin, but it's not on PATH in "
+                "this shell yet — restart your terminal (or open a new one) to pick "
+                "it up. Once available, run `cass index` to populate search "
+                "immediately, or it'll run automatically in the background at your "
+                "next Claude Code session.[/yellow]"
+            )
+        else:
+            console.print(
+                "  [yellow]Warning: cass still not on PATH — leaving ccrecall in place[/yellow]"
+            )
         if ok and detail:
             console.print(f"  [dim]cass-update output: {detail}[/dim]")
         errors += 1
         return errors
+
+    index_populated = cass_index_populated()
+    model_installed = cass_semantic_model_installed()
+
+    if not index_populated and not model_installed:
+        console.print(
+            "  [dim]No cass search index found yet. To set up with semantic search:\n"
+            "    1. `cass models install`  (download embedding model, ~87 MB)\n"
+            "    2. `cass index --semantic` (builds lexical + semantic index)\n"
+            "  Or run `cass index` for lexical-only — it'll also run automatically "
+            "at your next Claude Code session.[/dim]"
+        )
+    elif not index_populated:
+        console.print(
+            "  [dim]No cass search index found yet — run `cass index --semantic` "
+            "to populate it now, or it'll run automatically in the background at "
+            "your next Claude Code session.[/dim]"
+        )
+    elif not model_installed:
+        console.print(
+            "  [dim]For semantic search: run `cass models install` to download the "
+            "embedding model (~87 MB), then `cass index --semantic`.[/dim]"
+        )
 
     if shutil.which("ccrecall") is not None:
         console.print("  Removing legacy package: ccrecall...")
