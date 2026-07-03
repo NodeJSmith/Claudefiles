@@ -408,21 +408,22 @@ def cass_index_populated() -> bool:
 
 
 def cass_semantic_model_installed() -> bool:
-    """True if any semantic embedding model has been downloaded.
+    """True if the active semantic embedding model has been downloaded.
 
-    Unlike cass_index_populated (which avoids assuming cass's internal layout),
-    this checks for a specific file (model.onnx) because a bare non-empty models/
-    dir would false-positive on interrupted downloads. Degrades to False on
-    filesystem errors — shows the hint rather than crashing.
+    Queries `cass models status --json` and reads the top-level `installed`
+    field. Returns False on any failure (cass not on PATH, bad JSON, timeout)
+    — degrades to showing the hint rather than crashing the installer.
     """
+    ok, output = run_managed_subprocess(
+        ["cass", "models", "status", "--json"],
+        timeout=10,
+        missing_msg="cass not found",
+    )
+    if not ok:
+        return False
     try:
-        models_dir = cass_index_dir() / "models"
-        if not models_dir.is_dir():
-            return False
-        return any(
-            (d / "model.onnx").exists() for d in models_dir.iterdir() if d.is_dir()
-        )
-    except OSError:
+        return json.loads(output).get("installed", False) is True
+    except (json.JSONDecodeError, AttributeError):
         return False
 
 
