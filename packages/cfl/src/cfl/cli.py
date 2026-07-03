@@ -812,8 +812,8 @@ def _parse_argv_for_telemetry(
             raw_positionals.append(token)
             i += 1
 
-    # Grouped commands (spec, run, task, dispatch, session) have a subcommand
-    # as the second positional. Leaf commands (gate, event, archive, set) don't.
+    # Grouped commands have a subcommand as the second positional.
+    # Leaf commands (gate, archive, stop-orphans, set) don't.
     command = raw_positionals[0] if raw_positionals else ""
     if len(raw_positionals) > 1 and command in _GROUPED_COMMANDS:
         command = f"{command} {raw_positionals[1]}"

@@ -63,7 +63,7 @@ def list_events(
     params.append(limit)
 
     rows = conn.execute(
-        f"SELECT id, run_id, task_id, event, detail, data, context_pct, created_at"
+        "SELECT id, run_id, task_id, event, detail, data, context_pct, created_at"
         f" FROM events{where} ORDER BY id DESC LIMIT ?",
         params,
     ).fetchall()
