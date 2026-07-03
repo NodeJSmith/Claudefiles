@@ -1334,7 +1334,7 @@ class TestCassBinary:
         output = " ".join(buf.getvalue().split())
         assert "cass models install" in output
         assert "cass index --semantic" in output
-        assert "cass index for lexical-only" in output
+        assert "`cass index` for lexical-only" in output
 
     def test_index_hint_with_model_installed(self, tmp_path: Path) -> None:
         """When model is installed but index is empty, hints `cass index --semantic`
