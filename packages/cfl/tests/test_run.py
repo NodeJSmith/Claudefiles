@@ -629,8 +629,8 @@ def test_stop_orphans_skips_unreadable_cwd(db_conn, tmp_path):
         os.chmod(str(blocked), 0o755)
 
 
-def test_stop_orphans_race_condition_guard(db_conn):
-    """If a run was completed between SELECT and UPDATE, stop_orphans skips it."""
+def test_stop_orphans_skips_non_running_run(db_conn):
+    """If a run is already non-running before scanning, stop_orphans skips it."""
     _, run_id = insert_spec_with_run(db_conn, 1, "feat", REMOTE_URL)
     db_conn.execute("UPDATE runs SET cwd='/tmp/nonexistent-xyz' WHERE id=?", (run_id,))
     db_conn.execute("UPDATE runs SET status='completed' WHERE id=?", (run_id,))
