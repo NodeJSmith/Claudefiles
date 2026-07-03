@@ -1190,6 +1190,35 @@ class TestCassBinary:
             MISE_CLAUDE_BIN, ["uninstall", install.CCRECALL_PLUGIN_REF]
         )
 
+    def test_suppresses_warning_when_ccrecall_not_uv_managed(
+        self, tmp_path: Path
+    ) -> None:
+        """When which finds ccrecall via a non-uv installer (e.g. mise), uv reports
+        'is not installed'. That's noise, not a real failure — no warning printed."""
+
+        def fake_which(name):
+            return {
+                "cass": MISE_CASS_BIN,
+                "claude": MISE_CLAUDE_BIN,
+                "ccrecall": "/home/user/.local/share/mise/installs/pipx-ccrecall/latest/bin/ccrecall",
+            }.get(name)
+
+        console = install.Console(record=True)
+        with (
+            _fake_home_patch(tmp_path),
+            patch("install.shutil.which", side_effect=fake_which),
+            patch("install.run_cass_update", return_value=(True, "")),
+            patch(
+                "install.uninstall_package",
+                return_value=(False, "error: `ccrecall` is not installed"),
+            ),
+            patch("install.run_claude_plugin", return_value=(True, "[]")),
+        ):
+            errors = install.ensure_cass(Path("/repo"), console)
+        assert errors == 0
+        out = console.export_text()
+        assert "Warning" not in out
+
     def test_skips_ccrecall_uninstall_when_already_absent(self, tmp_path: Path) -> None:
         """ensure_cass does not call uninstall_package when ccrecall isn't on PATH —
         otherwise every re-run of an already-migrated machine reprints "Removing
