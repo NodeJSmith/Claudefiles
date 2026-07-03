@@ -12,7 +12,10 @@ import subprocess
 import tempfile
 import time
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
+
+import pytest
 
 # Resolve hook paths relative to the repo root
 REPO_ROOT = Path(__file__).parent.parent
@@ -53,9 +56,7 @@ def run_hook(
     )
 
 
-# ---------------------------------------------------------------------------
 # tmux-drift-check.sh tests
-# ---------------------------------------------------------------------------
 
 DRIFT_CHECK_HOOK = REPO_ROOT / "scripts" / "hooks" / "tmux-drift-check.sh"
 
@@ -457,15 +458,47 @@ class TestCompactionHookNoSubagentDir:
             assert result.stdout.strip() == ""
 
 
-# ---------------------------------------------------------------------------
 # bin/cass-update tests
-# ---------------------------------------------------------------------------
 #
 # cass-update shells out to curl (GitHub API + asset downloads) and to cass
 # itself (update path). Both are stubbed via PATH so tests never touch the
 # real GitHub API or a real cass install. tar/sha256sum/mv/mkdir/chmod are
 # left as the real system binaries — they're deterministic and safe to run
 # for real against a throwaway HOME.
+
+
+@dataclass
+class CassSandbox:
+    """A throwaway HOME + stub-binary directory for cass subprocess tests.
+
+    `tmp` is the sandbox root (fixture files like tarballs and logs live directly
+    under it); `home` and `stubs` are pre-created subdirectories so every test that
+    needs them doesn't repeat the same two `.mkdir()` calls.
+    """
+
+    tmp: Path
+    home: Path
+    stubs: Path
+
+
+@pytest.fixture
+def cass_sandbox(tmp_path: Path) -> CassSandbox:
+    home = tmp_path / "home"
+    home.mkdir()
+    stubs = tmp_path / "stubs"
+    stubs.mkdir()
+    return CassSandbox(tmp=tmp_path, home=home, stubs=stubs)
+
+
+def _cass_state_dir(home: Path) -> Path:
+    """The claudefiles-cass bookkeeping dir under a given (fake) HOME — mirrors
+    install.cass_state_dir() and bin/cass-update's STATE_DIR."""
+    return home / ".local" / "share" / "claudefiles-cass"
+
+
+def _clear_handoff_dir(home: Path) -> Path:
+    return _cass_state_dir(home) / "clear-handoff"
+
 
 CASS_RELEASE_TAG = "v1.2.3"
 
@@ -568,15 +601,15 @@ def _write_cass_stub(stub_dir: Path, log_path: Path, exit_code: int = 0) -> Path
     return stub
 
 
-def _cass_update_env(fake_home: Path, stub_dir: Path) -> dict:
+def _cass_update_env(sandbox: CassSandbox) -> dict:
     """Env for running cass-update in isolation: a throwaway HOME (so
     ~/.local/bin and ~/.local/share/claudefiles-cass are sandboxed) and a PATH
     that puts stubs first, followed only by the standard system directories —
     never the real ~/.local/bin, so a real cass on the dev machine can't leak
     into "command -v cass"."""
     env = os.environ.copy()
-    env["HOME"] = str(fake_home)
-    env["PATH"] = f"{stub_dir}:/usr/bin:/bin"
+    env["HOME"] = str(sandbox.home)
+    env["PATH"] = f"{sandbox.stubs}:/usr/bin:/bin"
     return env
 
 
@@ -589,209 +622,138 @@ def _run_cass_update(args: list[str], env: dict) -> subprocess.CompletedProcess:
 class TestCassUpdateBootstrap:
     """Bootstrap path: cass is not on PATH, so cass-update downloads it."""
 
-    def test_downloads_and_verifies_checksum(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp = Path(tmp)
-            fake_home = tmp / "home"
-            fake_home.mkdir()
-            stub_dir = tmp / "stubs"
-            stub_dir.mkdir()
+    def test_downloads_and_verifies_checksum(self, cass_sandbox: CassSandbox):
+        tarball, checksum_file = _make_cass_release_asset(cass_sandbox.tmp)
+        _write_curl_stub(
+            cass_sandbox.stubs, tarball, checksum_file, cass_sandbox.tmp / "curl.log"
+        )
 
-            tarball, checksum_file = _make_cass_release_asset(tmp)
-            _write_curl_stub(stub_dir, tarball, checksum_file, tmp / "curl.log")
+        result = _run_cass_update([], _cass_update_env(cass_sandbox))
 
-            env = _cass_update_env(fake_home, stub_dir)
-            result = _run_cass_update([], env)
+        assert result.returncode == 0, result.stderr
+        installed = cass_sandbox.home / ".local" / "bin" / "cass"
+        assert installed.is_file()
+        assert os.access(installed, os.X_OK)
+        payload = cass_sandbox.tmp / "payload" / "cass"
+        assert installed.read_text() == payload.read_text()
 
-            assert result.returncode == 0, result.stderr
-            installed = fake_home / ".local" / "bin" / "cass"
-            assert installed.is_file()
-            assert os.access(installed, os.X_OK)
-            assert installed.read_text() == (tmp / "payload" / "cass").read_text()
+    def test_checksum_mismatch_aborts_leaving_no_binary(
+        self, cass_sandbox: CassSandbox
+    ):
+        tarball, checksum_file = _make_cass_release_asset(cass_sandbox.tmp)
+        # Corrupt the checksum so it no longer matches the tarball.
+        checksum_file.write_text("0" * 64 + "  cass-linux-amd64.tar.gz\n")
+        _write_curl_stub(
+            cass_sandbox.stubs, tarball, checksum_file, cass_sandbox.tmp / "curl.log"
+        )
 
-    def test_checksum_mismatch_aborts_leaving_no_binary(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp = Path(tmp)
-            fake_home = tmp / "home"
-            fake_home.mkdir()
-            stub_dir = tmp / "stubs"
-            stub_dir.mkdir()
+        result = _run_cass_update([], _cass_update_env(cass_sandbox))
 
-            tarball, checksum_file = _make_cass_release_asset(tmp)
-            # Corrupt the checksum so it no longer matches the tarball.
-            checksum_file.write_text("0" * 64 + "  cass-linux-amd64.tar.gz\n")
-            _write_curl_stub(stub_dir, tarball, checksum_file, tmp / "curl.log")
+        assert result.returncode == 1
+        assert "checksum mismatch" in result.stderr.lower()
+        installed = cass_sandbox.home / ".local" / "bin" / "cass"
+        assert not installed.exists()
 
-            env = _cass_update_env(fake_home, stub_dir)
-            result = _run_cass_update([], env)
+    def test_github_unreachable_warns_and_exits_zero(self, cass_sandbox: CassSandbox):
+        _write_failing_curl_stub(cass_sandbox.stubs)
 
-            assert result.returncode == 1
-            assert "checksum mismatch" in result.stderr.lower()
-            installed = fake_home / ".local" / "bin" / "cass"
-            assert not installed.exists()
+        result = _run_cass_update([], _cass_update_env(cass_sandbox))
 
-    def test_github_unreachable_warns_and_exits_zero(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp = Path(tmp)
-            fake_home = tmp / "home"
-            fake_home.mkdir()
-            stub_dir = tmp / "stubs"
-            stub_dir.mkdir()
-            _write_failing_curl_stub(stub_dir)
-
-            env = _cass_update_env(fake_home, stub_dir)
-            result = _run_cass_update([], env)
-
-            assert result.returncode == 0
-            assert result.stderr.strip() != ""
-            installed = fake_home / ".local" / "bin" / "cass"
-            assert not installed.exists()
+        assert result.returncode == 0
+        assert result.stderr.strip() != ""
+        installed = cass_sandbox.home / ".local" / "bin" / "cass"
+        assert not installed.exists()
 
 
 class TestCassUpdateUpdate:
     """Update path: cass is already on PATH, so cass-update delegates to it."""
 
-    def test_delegates_to_cass_upgrade(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp = Path(tmp)
-            fake_home = tmp / "home"
-            fake_home.mkdir()
-            stub_dir = tmp / "stubs"
-            stub_dir.mkdir()
-            log = tmp / "cass-invocations.log"
-            _write_cass_stub(stub_dir, log)
+    def test_delegates_to_cass_upgrade(self, cass_sandbox: CassSandbox):
+        log = cass_sandbox.tmp / "cass-invocations.log"
+        _write_cass_stub(cass_sandbox.stubs, log)
 
-            env = _cass_update_env(fake_home, stub_dir)
-            result = _run_cass_update([], env)
+        result = _run_cass_update([], _cass_update_env(cass_sandbox))
 
-            assert result.returncode == 0, result.stderr
-            assert log.exists()
-            assert log.read_text().strip() == "upgrade --yes"
+        assert result.returncode == 0, result.stderr
+        assert log.exists()
+        assert log.read_text().strip() == "upgrade --yes"
 
-    def test_upgrade_failure_warns_and_exits_zero(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp = Path(tmp)
-            fake_home = tmp / "home"
-            fake_home.mkdir()
-            stub_dir = tmp / "stubs"
-            stub_dir.mkdir()
-            log = tmp / "cass-invocations.log"
-            _write_cass_stub(stub_dir, log, exit_code=1)
+    def test_upgrade_failure_warns_and_exits_zero(self, cass_sandbox: CassSandbox):
+        log = cass_sandbox.tmp / "cass-invocations.log"
+        _write_cass_stub(cass_sandbox.stubs, log, exit_code=1)
 
-            env = _cass_update_env(fake_home, stub_dir)
-            result = _run_cass_update([], env)
+        result = _run_cass_update([], _cass_update_env(cass_sandbox))
 
-            assert result.returncode == 0
-            assert result.stderr.strip() != ""
+        assert result.returncode == 0
+        assert result.stderr.strip() != ""
 
 
 class TestCassUpdateIfStale:
     """--if-stale gate: skip when the timestamp marker is fresh, run when not."""
 
-    def test_exits_early_when_timestamp_fresh(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp = Path(tmp)
-            fake_home = tmp / "home"
-            fake_home.mkdir()
-            stub_dir = tmp / "stubs"
-            stub_dir.mkdir()
-            log = tmp / "cass-invocations.log"
-            _write_cass_stub(stub_dir, log)
+    def test_exits_early_when_timestamp_fresh(self, cass_sandbox: CassSandbox):
+        log = cass_sandbox.tmp / "cass-invocations.log"
+        _write_cass_stub(cass_sandbox.stubs, log)
 
-            state_dir = fake_home / ".local" / "share" / "claudefiles-cass"
-            state_dir.mkdir(parents=True)
-            marker = state_dir / "last-update-check"
-            marker.touch()  # fresh mtime — "just checked"
+        state_dir = _cass_state_dir(cass_sandbox.home)
+        state_dir.mkdir(parents=True)
+        marker = state_dir / "last-update-check"
+        marker.touch()  # fresh mtime — "just checked"
 
-            env = _cass_update_env(fake_home, stub_dir)
-            result = _run_cass_update(["--if-stale"], env)
+        result = _run_cass_update(["--if-stale"], _cass_update_env(cass_sandbox))
 
-            assert result.returncode == 0
-            assert not log.exists()  # cass was never invoked
+        assert result.returncode == 0
+        assert not log.exists()  # cass was never invoked
 
-    def test_runs_when_timestamp_is_old(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp = Path(tmp)
-            fake_home = tmp / "home"
-            fake_home.mkdir()
-            stub_dir = tmp / "stubs"
-            stub_dir.mkdir()
-            log = tmp / "cass-invocations.log"
-            _write_cass_stub(stub_dir, log)
+    def test_runs_when_timestamp_is_old(self, cass_sandbox: CassSandbox):
+        log = cass_sandbox.tmp / "cass-invocations.log"
+        _write_cass_stub(cass_sandbox.stubs, log)
 
-            state_dir = fake_home / ".local" / "share" / "claudefiles-cass"
-            state_dir.mkdir(parents=True)
-            marker = state_dir / "last-update-check"
-            marker.touch()
-            old = time.time() - (25 * 60 * 60)  # 25h ago
-            os.utime(marker, (old, old))
+        state_dir = _cass_state_dir(cass_sandbox.home)
+        state_dir.mkdir(parents=True)
+        marker = state_dir / "last-update-check"
+        marker.touch()
+        old = time.time() - (25 * 60 * 60)  # 25h ago
+        os.utime(marker, (old, old))
 
-            env = _cass_update_env(fake_home, stub_dir)
-            result = _run_cass_update(["--if-stale"], env)
+        result = _run_cass_update(["--if-stale"], _cass_update_env(cass_sandbox))
 
-            assert result.returncode == 0
-            assert log.exists()
-            assert log.read_text().strip() == "upgrade --yes"
+        assert result.returncode == 0
+        assert log.exists()
+        assert log.read_text().strip() == "upgrade --yes"
 
 
 class TestCassUpdateTimestamp:
     """The timestamp marker is refreshed after any completed check."""
 
-    def test_writes_timestamp_after_bootstrap(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp = Path(tmp)
-            fake_home = tmp / "home"
-            fake_home.mkdir()
-            stub_dir = tmp / "stubs"
-            stub_dir.mkdir()
+    def test_writes_timestamp_after_bootstrap(self, cass_sandbox: CassSandbox):
+        tarball, checksum_file = _make_cass_release_asset(cass_sandbox.tmp)
+        _write_curl_stub(
+            cass_sandbox.stubs, tarball, checksum_file, cass_sandbox.tmp / "curl.log"
+        )
 
-            tarball, checksum_file = _make_cass_release_asset(tmp)
-            _write_curl_stub(stub_dir, tarball, checksum_file, tmp / "curl.log")
+        marker = _cass_state_dir(cass_sandbox.home) / "last-update-check"
+        assert not marker.exists()
 
-            marker = (
-                fake_home
-                / ".local"
-                / "share"
-                / "claudefiles-cass"
-                / "last-update-check"
-            )
-            assert not marker.exists()
+        result = _run_cass_update([], _cass_update_env(cass_sandbox))
 
-            env = _cass_update_env(fake_home, stub_dir)
-            result = _run_cass_update([], env)
+        assert result.returncode == 0, result.stderr
+        assert marker.exists()
 
-            assert result.returncode == 0, result.stderr
-            assert marker.exists()
+    def test_writes_timestamp_after_update(self, cass_sandbox: CassSandbox):
+        log = cass_sandbox.tmp / "cass-invocations.log"
+        _write_cass_stub(cass_sandbox.stubs, log)
 
-    def test_writes_timestamp_after_update(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp = Path(tmp)
-            fake_home = tmp / "home"
-            fake_home.mkdir()
-            stub_dir = tmp / "stubs"
-            stub_dir.mkdir()
-            log = tmp / "cass-invocations.log"
-            _write_cass_stub(stub_dir, log)
+        marker = _cass_state_dir(cass_sandbox.home) / "last-update-check"
+        assert not marker.exists()
 
-            marker = (
-                fake_home
-                / ".local"
-                / "share"
-                / "claudefiles-cass"
-                / "last-update-check"
-            )
-            assert not marker.exists()
+        result = _run_cass_update([], _cass_update_env(cass_sandbox))
 
-            env = _cass_update_env(fake_home, stub_dir)
-            result = _run_cass_update([], env)
-
-            assert result.returncode == 0, result.stderr
-            assert marker.exists()
+        assert result.returncode == 0, result.stderr
+        assert marker.exists()
 
 
-# ---------------------------------------------------------------------------
 # scripts/hooks/cass-session-start.sh and cass-clear-handoff.sh tests
-# ---------------------------------------------------------------------------
 #
 # The SessionStart hook shells out to `cass`, `cass-update`, and `jq`, all
 # stubbed via a PATH prefix so tests never touch the real GitHub API or a
@@ -875,136 +837,104 @@ def _make_no_jq_path(tmp: Path, extra_names: list[str]) -> Path:
 class TestSessionStartHookNoCassInstalled:
     """Hook exits silently when cass is not on PATH."""
 
-    def test_exits_silently_when_cass_not_installed(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp = Path(tmp)
-            # A PATH with just enough on it to exec the script's own
-            # `#!/usr/bin/env bash` shebang and its `command -v` builtin
-            # check — deliberately excluding any directory that might have
-            # a real `cass` on it, so this test is independent of whether
-            # the host machine happens to have cass installed.
-            bare_path = tmp / "bare-path"
-            bare_path.mkdir()
-            (bare_path / "bash").symlink_to(shutil.which("bash"))
-            fake_home = tmp / "home"
-            fake_home.mkdir()
+    def test_exits_silently_when_cass_not_installed(self, cass_sandbox: CassSandbox):
+        # A PATH with just enough on it to exec the script's own
+        # `#!/usr/bin/env bash` shebang and its `command -v` builtin check —
+        # deliberately excluding any directory that might have a real `cass`
+        # on it, so this test is independent of whether the host machine
+        # happens to have cass installed.
+        bare_path = cass_sandbox.tmp / "bare-path"
+        bare_path.mkdir()
+        (bare_path / "bash").symlink_to(shutil.which("bash"))
 
-            env = os.environ.copy()
-            env["PATH"] = str(bare_path)
-            env["HOME"] = str(fake_home)
+        env = os.environ.copy()
+        env["PATH"] = str(bare_path)
+        env["HOME"] = str(cass_sandbox.home)
 
-            result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
+        result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
 
-            assert result.returncode == 0
-            assert result.stdout.strip() == ""
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
 
 
 class TestSessionStartHookBackgroundSpawns:
     """Hook spawns cass index and cass-update --if-stale as detached
     background processes (FR#3, FR#11)."""
 
-    def test_spawns_background_cass_index(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp = Path(tmp)
-            stub_dir = tmp / "stubs"
-            stub_dir.mkdir()
-            fake_home = tmp / "home"
-            fake_home.mkdir()
-            index_log = tmp / "index.log"
+    def test_spawns_background_cass_index(self, cass_sandbox: CassSandbox):
+        index_log = cass_sandbox.tmp / "index.log"
+        _write_cass_multi_stub(cass_sandbox.stubs, index_log=index_log)
 
-            _write_cass_multi_stub(stub_dir, index_log=index_log)
+        env = os.environ.copy()
+        env["PATH"] = f"{cass_sandbox.stubs}:{env['PATH']}"
+        env["HOME"] = str(cass_sandbox.home)
 
-            env = os.environ.copy()
-            env["PATH"] = f"{stub_dir}:{env['PATH']}"
-            env["HOME"] = str(fake_home)
+        result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
 
-            result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
+        assert result.returncode == 0
+        assert _wait_for_file(index_log)
+        assert index_log.read_text().strip() == "indexed"
 
-            assert result.returncode == 0
-            assert _wait_for_file(index_log)
-            assert index_log.read_text().strip() == "indexed"
+    def test_triggers_cass_update_if_stale(self, cass_sandbox: CassSandbox):
+        update_log = cass_sandbox.tmp / "update.log"
+        _write_cass_multi_stub(cass_sandbox.stubs)
+        _write_cass_update_logging_stub(cass_sandbox.stubs, update_log)
 
-    def test_triggers_cass_update_if_stale(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp = Path(tmp)
-            stub_dir = tmp / "stubs"
-            stub_dir.mkdir()
-            fake_home = tmp / "home"
-            fake_home.mkdir()
-            update_log = tmp / "update.log"
+        env = os.environ.copy()
+        env["PATH"] = f"{cass_sandbox.stubs}:{env['PATH']}"
+        env["HOME"] = str(cass_sandbox.home)
 
-            _write_cass_multi_stub(stub_dir)
-            _write_cass_update_logging_stub(stub_dir, update_log)
+        result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
 
-            env = os.environ.copy()
-            env["PATH"] = f"{stub_dir}:{env['PATH']}"
-            env["HOME"] = str(fake_home)
-
-            result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
-
-            assert result.returncode == 0
-            assert _wait_for_file(update_log)
-            assert update_log.read_text().strip() == "--if-stale"
+        assert result.returncode == 0
+        assert _wait_for_file(update_log)
+        assert update_log.read_text().strip() == "--if-stale"
 
 
 class TestSessionStartHookContextInjection:
     """Synchronous context injection: emits a summary or degrades to silence
     within the 3s budget (FR#4, edge case: timeout/empty results)."""
 
-    def test_context_injection_produces_output(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp = Path(tmp)
-            stub_dir = tmp / "stubs"
-            stub_dir.mkdir()
-            fake_home = tmp / "home"
-            fake_home.mkdir()
+    def test_context_injection_produces_output(self, cass_sandbox: CassSandbox):
+        search_json = json.dumps(
+            {
+                "hits": [
+                    {
+                        "title": "pytest fixtures work",
+                        "date": "2026-06-30",
+                        "snippet": "discussed fixture scoping",
+                    }
+                ]
+            }
+        )
+        _write_cass_multi_stub(cass_sandbox.stubs, search_json=search_json)
 
-            search_json = json.dumps(
-                {
-                    "hits": [
-                        {
-                            "title": "pytest fixtures work",
-                            "date": "2026-06-30",
-                            "snippet": "discussed fixture scoping",
-                        }
-                    ]
-                }
-            )
-            _write_cass_multi_stub(stub_dir, search_json=search_json)
+        env = os.environ.copy()
+        env["PATH"] = f"{cass_sandbox.stubs}:{env['PATH']}"
+        env["HOME"] = str(cass_sandbox.home)
 
-            env = os.environ.copy()
-            env["PATH"] = f"{stub_dir}:{env['PATH']}"
-            env["HOME"] = str(fake_home)
+        result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
 
-            result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
+        assert result.returncode == 0
+        assert "pytest fixtures work" in result.stdout
+        assert "2026-06-30" in result.stdout
+        assert "discussed fixture scoping" in result.stdout
 
-            assert result.returncode == 0
-            assert "pytest fixtures work" in result.stdout
-            assert "2026-06-30" in result.stdout
-            assert "discussed fixture scoping" in result.stdout
+    def test_context_injection_exits_zero_on_timeout(self, cass_sandbox: CassSandbox):
+        _write_cass_multi_stub(cass_sandbox.stubs, search_sleep=5)
 
-    def test_context_injection_exits_zero_on_timeout(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp = Path(tmp)
-            stub_dir = tmp / "stubs"
-            stub_dir.mkdir()
-            fake_home = tmp / "home"
-            fake_home.mkdir()
+        env = os.environ.copy()
+        env["PATH"] = f"{cass_sandbox.stubs}:{env['PATH']}"
+        env["HOME"] = str(cass_sandbox.home)
 
-            _write_cass_multi_stub(stub_dir, search_sleep=5)
+        start = time.monotonic()
+        result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
+        elapsed = time.monotonic() - start
 
-            env = os.environ.copy()
-            env["PATH"] = f"{stub_dir}:{env['PATH']}"
-            env["HOME"] = str(fake_home)
-
-            start = time.monotonic()
-            result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
-            elapsed = time.monotonic() - start
-
-            assert result.returncode == 0
-            assert result.stdout.strip() == ""
-            # The hook's own `timeout 3` must cap this, not the stub's 5s sleep.
-            assert elapsed < 5
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+        # The hook's own `timeout 3` must cap this, not the stub's 5s sleep.
+        assert elapsed < 5
 
 
 class TestSessionStartHookNoJqFallback:
@@ -1014,66 +944,54 @@ class TestSessionStartHookNoJqFallback:
     this file runs with real jq on PATH, so this fallback would otherwise
     ship untested."""
 
-    def test_no_jq_skips_context_but_still_spawns_background_work(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp = Path(tmp)
-            stub_dir = tmp / "stubs"
-            stub_dir.mkdir()
-            fake_home = tmp / "home"
-            fake_home.mkdir()
-            index_log = tmp / "index.log"
-            update_log = tmp / "update.log"
+    def test_no_jq_skips_context_but_still_spawns_background_work(
+        self, cass_sandbox: CassSandbox
+    ):
+        index_log = cass_sandbox.tmp / "index.log"
+        update_log = cass_sandbox.tmp / "update.log"
 
-            _write_cass_multi_stub(stub_dir, index_log=index_log)
-            _write_cass_update_logging_stub(stub_dir, update_log)
+        _write_cass_multi_stub(cass_sandbox.stubs, index_log=index_log)
+        _write_cass_update_logging_stub(cass_sandbox.stubs, update_log)
 
-            no_jq_path = _make_no_jq_path(tmp, ["cat", "nohup"])
+        no_jq_path = _make_no_jq_path(cass_sandbox.tmp, ["cat", "nohup"])
 
-            env = os.environ.copy()
-            env["HOME"] = str(fake_home)
-            env["PATH"] = f"{no_jq_path}:{stub_dir}"
+        env = os.environ.copy()
+        env["HOME"] = str(cass_sandbox.home)
+        env["PATH"] = f"{no_jq_path}:{cass_sandbox.stubs}"
 
-            result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
+        result = run_hook(CASS_SESSION_START_HOOK, "", env=env, timeout=10)
 
-            assert result.returncode == 0
-            assert result.stdout.strip() == ""
-            assert _wait_for_file(index_log)
-            assert index_log.read_text().strip() == "indexed"
-            assert _wait_for_file(update_log)
-            assert update_log.read_text().strip() == "--if-stale"
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+        assert _wait_for_file(index_log)
+        assert index_log.read_text().strip() == "indexed"
+        assert _wait_for_file(update_log)
+        assert update_log.read_text().strip() == "--if-stale"
 
 
 class TestClearHandoffHookWritesFile:
     """SessionEnd hook writes a per-project handoff JSON file (FR#5, AC#6)."""
 
-    def test_writes_handoff_file(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp = Path(tmp)
-            fake_home = tmp / "home"
-            fake_home.mkdir()
+    def test_writes_handoff_file(self, cass_sandbox: CassSandbox):
+        stdin_payload = json.dumps(
+            {"session_id": "sess-abc123", "cwd": "/home/user/myproject"}
+        )
 
-            stdin_payload = json.dumps(
-                {"session_id": "sess-abc123", "cwd": "/home/jessica/myproject"}
-            )
+        env = os.environ.copy()
+        env["HOME"] = str(cass_sandbox.home)
 
-            env = os.environ.copy()
-            env["HOME"] = str(fake_home)
+        result = run_hook(CASS_CLEAR_HANDOFF_HOOK, stdin_payload, env=env)
 
-            result = run_hook(CASS_CLEAR_HANDOFF_HOOK, stdin_payload, env=env)
+        assert result.returncode == 0
 
-            assert result.returncode == 0
+        files = list(_clear_handoff_dir(cass_sandbox.home).glob("*.json"))
+        assert len(files) == 1
+        assert files[0].name == "-home-user-myproject.json"
 
-            handoff_dir = (
-                fake_home / ".local" / "share" / "claudefiles-cass" / "clear-handoff"
-            )
-            files = list(handoff_dir.glob("*.json"))
-            assert len(files) == 1
-            assert files[0].name == "-home-jessica-myproject.json"
-
-            data = json.loads(files[0].read_text())
-            assert data["session_id"] == "sess-abc123"
-            assert data["project_path"] == "/home/jessica/myproject"
-            assert "timestamp" in data
+        handoff = json.loads(files[0].read_text())
+        assert handoff["session_id"] == "sess-abc123"
+        assert handoff["project_path"] == "/home/user/myproject"
+        assert "timestamp" in handoff
 
 
 class TestClearHandoffHookNoJqFallback:
@@ -1082,47 +1000,42 @@ class TestClearHandoffHookNoJqFallback:
     runs with real jq on PATH, so this fallback would otherwise ship
     untested."""
 
-    def test_escapes_quotes_and_backslashes_without_jq(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp = Path(tmp)
-            fake_home = tmp / "home"
-            fake_home.mkdir()
-            no_jq_path = _make_no_jq_path(tmp, ["cat", "mkdir", "date", "sed", "grep"])
+    def test_escapes_quotes_and_backslashes_without_jq(self, cass_sandbox: CassSandbox):
+        no_jq_path = _make_no_jq_path(
+            cass_sandbox.tmp, ["cat", "mkdir", "date", "sed", "grep"]
+        )
 
-            # A cwd containing a quote and a backslash — the exact characters
-            # the hand-rolled `sed 's/\\/\\\\/g; s/"/\\"/g'` escape must get
-            # right. Delivered via the process's actual working directory
-            # rather than the stdin JSON's "cwd" field, so this test
-            # isolates the write-side escaping (lines 44-58) from the
-            # separate stdin-JSON field-extraction fallback (lines 26-27),
-            # which is a different code path than the one this finding is
-            # about.
-            tricky_dir = tmp / 'weird"quote\\dir'
-            tricky_dir.mkdir()
+        # A cwd containing a quote and a backslash — the exact characters
+        # the hand-rolled `sed 's/\\/\\\\/g; s/"/\\"/g'` escape must get
+        # right. Delivered via the process's actual working directory
+        # rather than the stdin JSON's "cwd" field, so this test
+        # isolates the write-side escaping (lines 44-58) from the
+        # separate stdin-JSON field-extraction fallback (lines 26-27),
+        # which is a different code path than the one this finding is
+        # about.
+        tricky_dir = cass_sandbox.tmp / 'weird"quote\\dir'
+        tricky_dir.mkdir()
 
-            stdin_payload = json.dumps({"session_id": "sess-xyz"})
-            env = os.environ.copy()
-            env["HOME"] = str(fake_home)
-            env["PATH"] = str(no_jq_path)
+        stdin_payload = json.dumps({"session_id": "sess-xyz"})
+        env = os.environ.copy()
+        env["HOME"] = str(cass_sandbox.home)
+        env["PATH"] = str(no_jq_path)
 
-            result = subprocess.run(
-                [str(CASS_CLEAR_HANDOFF_HOOK)],
-                input=stdin_payload,
-                capture_output=True,
-                text=True,
-                env=env,
-                cwd=str(tricky_dir),
-            )
+        result = subprocess.run(
+            [str(CASS_CLEAR_HANDOFF_HOOK)],
+            input=stdin_payload,
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=str(tricky_dir),
+        )
 
-            assert result.returncode == 0
+        assert result.returncode == 0
 
-            handoff_dir = (
-                fake_home / ".local" / "share" / "claudefiles-cass" / "clear-handoff"
-            )
-            files = list(handoff_dir.glob("*.json"))
-            assert len(files) == 1
+        files = list(_clear_handoff_dir(cass_sandbox.home).glob("*.json"))
+        assert len(files) == 1
 
-            data = json.loads(files[0].read_text())
-            assert data["project_path"] == str(tricky_dir)
-            assert data["session_id"] == "sess-xyz"
-            assert "timestamp" in data
+        handoff = json.loads(files[0].read_text())
+        assert handoff["project_path"] == str(tricky_dir)
+        assert handoff["session_id"] == "sess-xyz"
+        assert "timestamp" in handoff

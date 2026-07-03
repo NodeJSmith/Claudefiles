@@ -6,6 +6,8 @@
 
 input="$(cat)"
 
+# claudefiles-cass mirrors bin/cass-update's STATE_DIR and install.py's cass_state_dir() —
+# keep all three in sync if this path ever changes.
 STATE_DIR="${HOME}/.local/share/claudefiles-cass/clear-handoff"
 mkdir -p "$STATE_DIR" 2> /dev/null || exit 0
 

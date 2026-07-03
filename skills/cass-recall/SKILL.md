@@ -8,6 +8,10 @@ user-invocable: true
 
 Direct search over past Claude Code (and other agent) sessions, backed by `cass` (coding_agent_session_search) — a Rust search engine with HNSW approximate nearest-neighbor search and Tantivy BM25 lexical search. No lens taxonomy: this is the plain "find it and tell me" path.
 
+## Arguments
+
+`$ARGUMENTS` — the user's natural-language query, e.g. `/cass-recall "what did we decide about the rate limiter"`. If empty, ask what to search for.
+
 ## Tools
 
 `cass search "<query>" --robot` — the only command this skill needs. `--robot` suppresses cass's interactive TUI and emits structured JSON instead; without it, cass launches a full-screen terminal UI that isn't useful here.

@@ -17,7 +17,7 @@ Update all documentation files that reference ccrecall, its skills, hooks, or pl
 - modify: `~/Dotfiles/config/claude/rules/personal/capabilities.md`
 - modify: `~/Dotfiles/CLAUDE.md`
 - modify: `~/Dotfiles/config/claude/orchestrator/CLAUDE.md`
-- modify: `~/Dotfiles/home/bin/orchestrator/orchestrator-tick`
+- modify: `~/Dotfiles` (`home/bin/orchestrator/orchestrator-tick`)
 - read: `design/specs/1000-ccrecall-to-cass-migration/design.md` (§ Documentation Updates — the authoritative list of changes per file)
 
 ## Prompt
@@ -58,7 +58,7 @@ Read `design/specs/1000-ccrecall-to-cass-migration/design.md` § Documentation U
 ### Cross-repo: ~/Dotfiles/config/claude/orchestrator/CLAUDE.md
 - Update `rc-send` command from `/ccrecall:ccr-resume` to `/cass-resume`
 
-### Cross-repo: ~/Dotfiles/home/bin/orchestrator/orchestrator-tick
+### Cross-repo: ~/Dotfiles (home/bin/orchestrator/orchestrator-tick)
 - Update heartbeat warning message from `/ccrecall:ccr-resume` to `/cass-resume`
 
 ## Focus

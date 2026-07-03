@@ -47,17 +47,19 @@ RELEASE_DOWNLOAD_BASE="https://github.com/Dicklesworthstone/coding_agent_session
 ASSET_NAME="cass-linux-amd64.tar.gz"
 INSTALL_DIR="${HOME}/.local/bin"
 INSTALL_PATH="${INSTALL_DIR}/cass"
+# Mirrored by install.py's cass_state_dir() and scripts/hooks/cass-clear-handoff.sh's
+# STATE_DIR — keep all three in sync if this path ever changes.
 STATE_DIR="${HOME}/.local/share/claudefiles-cass"
 TIMESTAMP_FILE="${STATE_DIR}/last-update-check"
 STALE_MINUTES=1440 # 24h
 CURL_TIMEOUT_ARGS=(--connect-timeout 10 --max-time 15)
 
-if_stale=0
-[[ "${1:-}" == "--if-stale" ]] && if_stale=1
+only_if_stale=0
+[[ "${1:-}" == "--if-stale" ]] && only_if_stale=1
 
 # --if-stale: bail out early if the marker's mtime is within the last 24h.
 # Uses mtime, not file contents, so refreshing is a plain `touch`.
-if [[ $if_stale -eq 1 && -f "$TIMESTAMP_FILE" ]]; then
+if [[ $only_if_stale -eq 1 && -f "$TIMESTAMP_FILE" ]]; then
   if [[ -z "$(find "$TIMESTAMP_FILE" -mmin +"$STALE_MINUTES" 2> /dev/null)" ]]; then
     exit 0
   fi

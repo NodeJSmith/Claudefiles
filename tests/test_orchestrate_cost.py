@@ -66,9 +66,9 @@ HAIKU_RATES = {
 
 
 def test_turn_cost_matches_ccrecall_baseline_per_tier() -> None:
-    module = _load_script()
-    get_pricing = module["get_pricing"]
-    turn_cost = module["turn_cost"]
+    script_ns = _load_script()
+    get_pricing = script_ns["get_pricing"]
+    turn_cost = script_ns["turn_cost"]
 
     for model, expected in EXPECTED_COST_BY_MODEL.items():
         pricing = get_pricing(model)
@@ -77,11 +77,11 @@ def test_turn_cost_matches_ccrecall_baseline_per_tier() -> None:
 
 
 def test_get_pricing_representative_models() -> None:
-    module = _load_script()
-    get_pricing = module["get_pricing"]
-    MODEL_PRICING = module["MODEL_PRICING"]
-    DEFAULT_PRICING = module["DEFAULT_PRICING"]
-    legacy_rates = module["_LEGACY_OPUS_RATES"]
+    script_ns = _load_script()
+    get_pricing = script_ns["get_pricing"]
+    MODEL_PRICING = script_ns["MODEL_PRICING"]
+    DEFAULT_PRICING = script_ns["DEFAULT_PRICING"]
+    legacy_rates = script_ns["_LEGACY_OPUS_RATES"]
 
     sonnet_rates = next(rates for substr, rates in MODEL_PRICING if substr == "sonnet")
     opus_current_rates = next(

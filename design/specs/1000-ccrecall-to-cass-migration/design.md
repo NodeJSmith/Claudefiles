@@ -338,7 +338,7 @@ Split the installation across Dotfiles (binary, systemd service) and Claudefiles
 - **`~/Dotfiles/config/claude/rules/personal/capabilities.md`** *(cross-repo)* — Update the Memory Recall table to reference `/cass-recall` instead of `/cm-recall-conversations` (note: this reference is already orphaned — the `cm-*` name predates the ccrecall plugin rename and was never updated). Update the Proactive Memory Recall section to reference `/cass-recall`.
 - **`~/Dotfiles/CLAUDE.md`** *(cross-repo)* — Update the orchestrator reset recipe reference from `/ccrecall:ccr-resume` to `/cass-resume`.
 - **`~/Dotfiles/config/claude/orchestrator/CLAUDE.md`** *(cross-repo)* — Update `rc-send` command from `/ccrecall:ccr-resume` to `/cass-resume`.
-- **`~/Dotfiles/home/bin/orchestrator/orchestrator-tick`** *(cross-repo)* — Update heartbeat warning message from `/ccrecall:ccr-resume` to `/cass-resume`.
+- **`~/Dotfiles` (`home/bin/orchestrator/orchestrator-tick`)** *(cross-repo)* — Update heartbeat warning message from `/ccrecall:ccr-resume` to `/cass-resume`.
 - **`CLAUDE.md`** — Add `cass-*` to the Naming Conventions section alongside `mine-*`, `i-*`, and `cli-*`. Update the "Making Changes" section's capabilities-file mapping to route `cass-*` trigger phrases to `capabilities-core.md`.
 
 ## Impact
@@ -364,7 +364,7 @@ Split the installation across Dotfiles (binary, systemd service) and Claudefiles
 - **modify** `~/Dotfiles/config/claude/rules/personal/capabilities.md` *(cross-repo)* — update Memory Recall and Proactive Memory Recall references from `/cm-recall-conversations` to `/cass-recall`
 - **modify** `~/Dotfiles/CLAUDE.md` *(cross-repo)* — update orchestrator reset recipe from `/ccrecall:ccr-resume` to `/cass-resume`
 - **modify** `~/Dotfiles/config/claude/orchestrator/CLAUDE.md` *(cross-repo)* — update `rc-send` command from `/ccrecall:ccr-resume` to `/cass-resume`
-- **modify** `~/Dotfiles/home/bin/orchestrator/orchestrator-tick` *(cross-repo)* — update heartbeat warning from `/ccrecall:ccr-resume` to `/cass-resume`
+- **modify** `~/Dotfiles` (`home/bin/orchestrator/orchestrator-tick`) *(cross-repo)* — update heartbeat warning from `/ccrecall:ccr-resume` to `/cass-resume`
 
 ### Behavioral Invariants
 

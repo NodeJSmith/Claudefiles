@@ -1121,13 +1121,13 @@ class TestCassBinary:
     def test_installs_when_absent(self) -> None:
         """ensure_cass invokes bin/cass-update when cass is not on PATH, then verifies
         via shutil.which that the install succeeded before touching ccrecall."""
-        cass_calls = {"n": 0}
+        cass_which_calls = {"count": 0}
 
         def fake_which(name):
             if name != "cass":
                 return MISE_CLAUDE_BIN
-            cass_calls["n"] += 1
-            return None if cass_calls["n"] == 1 else MISE_CASS_BIN
+            cass_which_calls["count"] += 1
+            return None if cass_which_calls["count"] == 1 else MISE_CASS_BIN
 
         mock_update = MagicMock(return_value=(True, ""))
         with (
@@ -1169,7 +1169,7 @@ class TestCassBinary:
 
         def fake_plugin(claude_bin, args):
             if args == ["list", "--json"]:
-                return True, json.dumps([{"id": "ccrecall@claude-code-recall"}])
+                return True, json.dumps([{"id": install.CCRECALL_PLUGIN_REF}])
             return True, ""
 
         mock_uninstall = MagicMock(return_value=(True, ""))
@@ -1184,7 +1184,7 @@ class TestCassBinary:
         assert errors == 0
         mock_uninstall.assert_called_once_with("ccrecall")
         mock_plugin.assert_any_call(
-            MISE_CLAUDE_BIN, ["uninstall", "ccrecall@claude-code-recall"]
+            MISE_CLAUDE_BIN, ["uninstall", install.CCRECALL_PLUGIN_REF]
         )
 
     def test_skips_ccrecall_uninstall_when_already_absent(self) -> None:
@@ -1399,7 +1399,7 @@ class TestDoUninstall:
             install.do_uninstall(repo, claude_dir, {})
 
         mock_plugin.assert_called_once_with(
-            USR_BIN_CLAUDE, ["uninstall", "ccrecall@claude-code-recall"]
+            USR_BIN_CLAUDE, ["uninstall", install.CCRECALL_PLUGIN_REF]
         )
 
     def test_skips_plugin_cleanup_when_claude_absent(self, tmp_path: Path) -> None:

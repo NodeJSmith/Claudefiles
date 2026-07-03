@@ -62,6 +62,12 @@ LOCK_POLL_SECONDS = 0.2
 # Optional ADO CLI surfaced (not installed) in the first-install tip.
 ADO_API_PACKAGE = "ado-api"
 
+# ensure_cass's removal target: the ccrecall plugin registration cass replaces. Named
+# here (not re-added alongside CCRECALL_PACKAGE et al., which stay removed per the
+# migration design) since it's still hand-typed at every ensure_cass/do_uninstall call
+# site that checks or removes the tracked install.
+CCRECALL_PLUGIN_REF = "ccrecall@claude-code-recall"
+
 
 @dataclass(frozen=True)
 class Bundle:
@@ -368,10 +374,12 @@ def cass_state_dir() -> Path:
     """Resolve ~/.local/share/claudefiles-cass — cass-update's bookkeeping dir.
 
     A function, not a constant, so it tracks Path.home() (same rationale as
-    local_bin_dir()). Mirrors bin/cass-update's STATE_DIR. do_uninstall deletes this
-    directory (update-check timestamp, clear-handoff files) but leaves cass's own
-    index data at ~/.local/share/coding-agent-search/ untouched — that's owned by
-    cass, not Claudefiles.
+    local_bin_dir()). Mirrors bin/cass-update's STATE_DIR and
+    scripts/hooks/cass-clear-handoff.sh's STATE_DIR — keep all three in sync if this
+    path ever changes. do_uninstall deletes this directory (update-check timestamp,
+    clear-handoff files) but leaves cass's own index data at
+    ~/.local/share/coding-agent-search/ untouched — that's owned by cass, not
+    Claudefiles.
     """
     return Path.home() / ".local" / "share" / "claudefiles-cass"
 
@@ -671,7 +679,7 @@ def find_new_groups(
 # ---------------------------------------------------------------------------
 
 
-def run_uv_tool(
+def run_managed_subprocess(
     cmd: list[str], timeout: int, missing_msg: str = UV_NOT_FOUND_MSG
 ) -> tuple[bool, str]:
     """Run a subprocess. Returns (success, error_detail).
@@ -696,23 +704,27 @@ def run_uv_tool(
 def install_package(repo_dir: Path, pkg_name: str) -> tuple[bool, str]:
     """Run uv tool install -e for a package. Returns (success, error_detail)."""
     pkg_dir = repo_dir / "packages" / pkg_name
-    return run_uv_tool(["uv", "tool", "install", "-e", str(pkg_dir)], INSTALL_TIMEOUT)
+    return run_managed_subprocess(
+        ["uv", "tool", "install", "-e", str(pkg_dir)], INSTALL_TIMEOUT
+    )
 
 
 def uninstall_package(pkg_name: str) -> tuple[bool, str]:
     """Run uv tool uninstall for a package. Returns (success, error_detail)."""
-    return run_uv_tool(["uv", "tool", "uninstall", pkg_name], UNINSTALL_TIMEOUT)
+    return run_managed_subprocess(
+        ["uv", "tool", "uninstall", pkg_name], UNINSTALL_TIMEOUT
+    )
 
 
 def run_cass_update(script: Path) -> tuple[bool, str]:
     """Run bin/cass-update via subprocess. Returns (success, error_detail).
 
-    Delegates to run_uv_tool for the shared returncode/timeout/missing-binary handling.
-    Called by repo path (repo_dir / "bin" / "cass-update"), not the symlinked
+    Delegates to run_managed_subprocess for the shared returncode/timeout/missing-binary
+    handling. Called by repo path (repo_dir / "bin" / "cass-update"), not the symlinked
     ~/.local/bin/cass-update, since the bin/ symlinks may not exist yet on a
     fresh install — cass-update is what creates ~/.local/bin in the first place.
     """
-    return run_uv_tool(
+    return run_managed_subprocess(
         [str(script)], CASS_UPDATE_TIMEOUT, missing_msg=f"{script} not found"
     )
 
@@ -740,7 +752,7 @@ def run_claude_plugin(claude_bin: str, args: list[str]) -> tuple[bool, str]:
 
 
 def ccrecall_plugin_installed(claude_bin: str) -> bool:
-    """True if ccrecall@claude-code-recall is a tracked install in `claude plugin list`.
+    """True if CCRECALL_PLUGIN_REF is a tracked install in `claude plugin list`.
 
     Lets ensure_cass skip a redundant uninstall attempt (and its warning) once the
     plugin is already gone. Returns False on any error (claude missing the subcommand,
@@ -758,7 +770,7 @@ def ccrecall_plugin_installed(claude_bin: str) -> bool:
     # Anything other than that array shape is treated as not-installed (fail open).
     if not isinstance(plugins, list):
         return False
-    return any(p.get("id") == "ccrecall@claude-code-recall" for p in plugins)
+    return any(p.get("id") == CCRECALL_PLUGIN_REF for p in plugins)
 
 
 def ensure_cass(repo_dir: Path, console: Console) -> int:
@@ -778,6 +790,7 @@ def ensure_cass(repo_dir: Path, console: Console) -> int:
     Returns error count.
     """
     errors = 0
+    ok, detail = True, ""
     cass_present = shutil.which("cass") is not None
     if cass_present:
         console.print("  cass already on PATH [dim](skipping)[/dim]")
@@ -813,13 +826,11 @@ def ensure_cass(repo_dir: Path, console: Console) -> int:
         return errors
 
     if ccrecall_plugin_installed(claude_bin):
-        console.print("  Uninstalling plugin: ccrecall@claude-code-recall...")
-        ok, detail = run_claude_plugin(
-            claude_bin, ["uninstall", "ccrecall@claude-code-recall"]
-        )
+        console.print(f"  Uninstalling plugin: {CCRECALL_PLUGIN_REF}...")
+        ok, detail = run_claude_plugin(claude_bin, ["uninstall", CCRECALL_PLUGIN_REF])
         if not ok:
             console.print(
-                "  [yellow]Warning: failed to uninstall plugin ccrecall@claude-code-recall[/yellow]"
+                f"  [yellow]Warning: failed to uninstall plugin {CCRECALL_PLUGIN_REF}[/yellow]"
             )
             if detail:
                 console.print(f"  [dim]{detail}[/dim]")
@@ -1408,7 +1419,7 @@ def do_uninstall(repo_dir: Path, claude_dir: Path, config: dict) -> None:
     # failure: a missing claude or a failed uninstall just means nothing to clean up.
     claude_bin = shutil.which("claude")
     if claude_bin is not None:
-        run_claude_plugin(claude_bin, ["uninstall", "ccrecall@claude-code-recall"])
+        run_claude_plugin(claude_bin, ["uninstall", CCRECALL_PLUGIN_REF])
 
     cfg_path = config_path(claude_dir)
     if cfg_path.exists():
