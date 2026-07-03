@@ -1,6 +1,7 @@
 """Tests for cfl.run — run lifecycle commands."""
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -581,9 +582,10 @@ def test_stop_orphans_stops_run_with_missing_cwd(db_conn):
     row = db_conn.execute("SELECT status FROM runs WHERE id=?", (run_id,)).fetchone()
     assert row["status"] == "stopped"
     spec = db_conn.execute(
-        "SELECT active_run_id FROM specs WHERE id=?", (spec_id,)
+        "SELECT active_run_id, status FROM specs WHERE id=?", (spec_id,)
     ).fetchone()
     assert spec["active_run_id"] is None
+    assert spec["status"] == "approved"
     event = db_conn.execute(
         "SELECT detail FROM events WHERE run_id=? AND event='run.stopped'", (run_id,)
     ).fetchone()
@@ -607,6 +609,24 @@ def test_stop_orphans_skips_null_cwd(db_conn):
 
     row = db_conn.execute("SELECT status FROM runs WHERE id=?", (run_id,)).fetchone()
     assert row["status"] == "running"
+
+
+def test_stop_orphans_skips_unreadable_cwd(db_conn, tmp_path):
+    _, run_id = insert_spec_with_run(db_conn, 1, "feat", REMOTE_URL)
+    blocked = tmp_path / "blocked"
+    blocked.mkdir()
+    cwd = blocked / "cwd"
+    cwd.mkdir()
+    db_conn.execute("UPDATE runs SET cwd=? WHERE id=?", (str(cwd), run_id))
+    os.chmod(str(blocked), 0o000)
+    try:
+        stop_orphans(db_conn)
+        row = db_conn.execute(
+            "SELECT status FROM runs WHERE id=?", (run_id,)
+        ).fetchone()
+        assert row["status"] == "running"
+    finally:
+        os.chmod(str(blocked), 0o755)
 
 
 def test_stop_orphans_race_condition_guard(db_conn):

@@ -11,6 +11,7 @@ Implements:
 import json
 import os
 import re
+import stat
 import sqlite3
 import subprocess
 from pathlib import Path
@@ -591,7 +592,14 @@ def stop_orphans(conn: sqlite3.Connection) -> None:
 
     stopped = []
     for row in rows:
-        if os.path.isdir(row["cwd"]):
+        try:
+            cwd_exists = stat.S_ISDIR(os.stat(row["cwd"]).st_mode)
+        except PermissionError:
+            cwd_exists = True
+        except OSError:
+            cwd_exists = False
+
+        if cwd_exists:
             continue
 
         conn.execute("BEGIN IMMEDIATE")
@@ -604,7 +612,7 @@ def stop_orphans(conn: sqlite3.Connection) -> None:
                 conn.execute("ROLLBACK")
                 continue
             conn.execute(
-                "UPDATE specs SET active_run_id=NULL WHERE id=? AND active_run_id=?",
+                "UPDATE specs SET active_run_id=NULL, status='approved' WHERE id=? AND active_run_id=?",
                 (row["spec_id"], row["run_id"]),
             )
             conn.execute(
