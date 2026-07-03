@@ -173,7 +173,7 @@ AskUserQuestion:
   multiSelect: false
   options:
     - label: "Looks good — address all"
-      description: "Proceed with the full plan, using your recommendations for [DECISION NEEDED] items"
+      description: "Proceed with the full plan, using the proposed recommendations for [DECISION NEEDED] items"
     - label: "Adjust items"
       description: "I'll tell you what to change, skip, or decide differently"
     - label: "Cancel"
