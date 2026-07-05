@@ -14,6 +14,17 @@
     "ask": [],
     "defaultMode": "auto"
   },
+  "extraKnownMarketplaces": {
+    "claude-code-recall": {
+      "source": {
+        "source": "github",
+        "repo": "NodeJSmith/claude-code-recall"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "ccrecall@claude-code-recall": true
+  },
   "includeGitInstructions": false,
   "hooks": {
     "PreToolUse": [
@@ -65,32 +76,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/cass-session-start.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
-            "timeout": 10000
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
             "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/cfl-stop-orphans.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
             "timeout": 5000
           }
         ]
       }
     ],
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/cass-clear-handoff.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
-            "timeout": 5000
-          }
-        ]
-      }
-    ],
+    "SessionEnd": [],
     "Stop": []
   },
   "env": {}

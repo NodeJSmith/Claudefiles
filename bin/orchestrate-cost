@@ -1,8 +1,11 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["whenever>=0.10"]
+# dependencies = ["ccrecall>=0.12.0", "whenever>=0.10"]
 # ///
+# 0.12.0 is the floor: it carries the Opus 4.7/4.8 pricing fix (claude-code-recall#37 —
+# Opus prices at the $5/$25 tier, not the legacy $15/$75 catch-all). Earlier releases
+# overstate every Opus figure 3x.
 """orchestrate-cost — model-weighted USD cost of mine-orchestrate runs, by role and model.
 
 Answers "where do the token dollars go across an orchestrate run, and how has that
@@ -12,9 +15,8 @@ wrong-sign value proxy). Pair these numbers with per-gate value reasoning by han
 
 Why USD, not tokens: dollar cost *is* the correct model weighting. Opus input is 5x
 Sonnet, output 5x input, cache_read 0.1x — a raw token count would massively overstate
-the cache-read-heavy orchestrator loop. Pricing is a self-contained table inlined below
-(get_pricing / turn_cost, extracted from ccrecall's token_parser) — this tool never
-depends on an external package for a rate.
+the cache-read-heavy orchestrator loop. Pricing is delegated entirely to
+ccrecall.token_parser (get_pricing / turn_cost); this tool never hardcodes a rate.
 
 What it does:
   - Delimits runs from the durable trail markers in parent-session JSONLs
@@ -54,121 +56,8 @@ from dataclasses import dataclass, field
 from glob import glob
 from pathlib import Path
 
+from ccrecall.token_parser import get_pricing, turn_cost
 from whenever import Date
-
-# --------------------------------------------------------------------------------------
-# Pricing (USD per million tokens), extracted from ccrecall's token_parser.py.
-# Source: https://docs.anthropic.com/en/docs/about-claude/pricing
-# Keys match as substrings of the lowercased model id, in order, but must NOT be
-# immediately followed by another digit (see get_pricing) — so "opus-4-1" matches
-# claude-opus-4-1 but not claude-opus-4-10. cache_write_5m = 1.25x input,
-# cache_write_1h = 2x input, cache_read = 0.1x input.
-# --------------------------------------------------------------------------------------
-
-# Shared by the three legacy-Opus keys below so a legacy-rate correction is a
-# one-line edit instead of three in-sync copies. Read-only — get_pricing returns
-# it as-is and callers never mutate the dict.
-_LEGACY_OPUS_RATES: dict[str, float] = {
-    "input": 15.0,
-    "output": 75.0,
-    "cache_write_5m": 18.75,
-    "cache_write_1h": 30.0,
-    "cache_read": 1.50,
-}
-
-MODEL_PRICING: list[tuple[str, dict[str, float]]] = [
-    # Legacy Opus (4.0 / 4.1) — the only Opus models at the old $15/$75 tier; all
-    # three keys alias _LEGACY_OPUS_RATES. Enumerated explicitly so they're matched
-    # before the generic "opus" fallback below; relative order within this block
-    # doesn't matter (no key is a digit-boundary prefix of another).
-    #   "opus-4-0"        → the 4.0 alias (claude-opus-4-0)
-    #   "opus-4-20250514" → the dated 4.0 id. Must be the FULL date, not a year
-    #     prefix like "opus-4-2025": the digit-boundary rule in get_pricing rejects
-    #     a key immediately followed by a digit, so "opus-4-2025" (followed by "0")
-    #     would never match its own model id.
-    #   "opus-4-1"        → 4.1 (claude-opus-4-1, dated or bare)
-    ("opus-4-0", _LEGACY_OPUS_RATES),
-    ("opus-4-20250514", _LEGACY_OPUS_RATES),
-    ("opus-4-1", _LEGACY_OPUS_RATES),
-    # Every other Opus (4.5+ and anything newer) is the current $5/$25 tier.
-    # A generic fallback rather than per-version entries so a new Opus release
-    # prices correctly with no table edit — the failure mode behind issue #37,
-    # where new opus-4-N ids silently hit the legacy $15/$75 catch-all.
-    (
-        "opus",
-        {
-            "input": 5.0,
-            "output": 25.0,
-            "cache_write_5m": 6.25,
-            "cache_write_1h": 10.0,
-            "cache_read": 0.50,
-        },
-    ),
-    (
-        "sonnet",
-        {
-            "input": 3.0,
-            "output": 15.0,
-            "cache_write_5m": 3.75,
-            "cache_write_1h": 6.0,
-            "cache_read": 0.30,
-        },
-    ),
-    (
-        "haiku",
-        {
-            "input": 1.0,
-            "output": 5.0,
-            "cache_write_5m": 1.25,
-            "cache_write_1h": 2.0,
-            "cache_read": 0.10,
-        },
-    ),
-]
-
-
-# Fallback rates for unknown/missing models. Resolved by name so reordering
-# MODEL_PRICING can't silently change the default (was a hardcoded [4][1] index).
-DEFAULT_PRICING = next(rates for substr, rates in MODEL_PRICING if substr == "sonnet")
-
-
-def get_pricing(model: str | None) -> dict[str, float]:
-    """Return pricing dict for a model ID, falling back to Sonnet rates.
-
-    A key matches as a substring of the model id but must not be immediately
-    followed by another digit, so a version key like "opus-4-1" matches
-    claude-opus-4-1 without also matching a future claude-opus-4-10.
-    """
-    if model:
-        m = model.lower()
-        for substr, rates in MODEL_PRICING:
-            if re.search(re.escape(substr) + r"(?!\d)", m):
-                return rates
-    return DEFAULT_PRICING
-
-
-def turn_cost(
-    input_tok: int,
-    output_tok: int,
-    cache_read: int,
-    cache_creation: int,
-    ephem_5m: int,
-    ephem_1h: int,
-    pricing: dict[str, float],
-) -> float:
-    """Compute dollar cost for a single turn."""
-    # Cache creation split: use exact tier amounts where available,
-    # attribute remainder to 5m tier (cheaper, conservative estimate).
-    unclassified_creation = max(0, cache_creation - ephem_5m - ephem_1h)
-    cost = (
-        input_tok * pricing["input"]
-        + output_tok * pricing["output"]
-        + cache_read * pricing["cache_read"]
-        + (ephem_5m + unclassified_creation) * pricing["cache_write_5m"]
-        + ephem_1h * pricing["cache_write_1h"]
-    ) / 1_000_000
-    return cost
-
 
 # --- Run-boundary markers (durable, in the parent-session JSONL as Bash commands) ---
 # NOTE: keep in sync with bin/orchestrate-concise-probe, which duplicates these
@@ -301,7 +190,7 @@ def message_text(msg: dict) -> str:
 
 
 # --------------------------------------------------------------------------------------
-# Pricing: per-turn cost over a JSONL, using the pricing table above. Splits each turn into
+# Pricing: per-turn cost over a JSONL, reusing ccrecall pricing. Splits each turn into
 # own-generation (output) vs absorbed-context (input + cache) so the orchestrator loop's
 # "cost" isn't mislabeled — by late tasks its input carries every subagent's returned
 # report as cheap cache_read, which is real spend but not the orchestrator's own work.
