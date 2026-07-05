@@ -39,6 +39,7 @@ tool: claude  # harness-only: skill/command routing tables are Claude-Code dispa
 | "good morning", "pick up where I left off", "what was I working on", "read the handoff" | `/mine-good-morning` |
 | "evaluate this repo", "should I use this library" | `/mine-eval-repo` |
 | "how does X work", "walk me through", "explain this subsystem", "explain how", "trace the flow" | `/mine-how` |
+| "document how X works", "write up how this works", "durable explanation", "explain this for the docs", "document this subsystem" | `/mine-document` |
 | "why is this code like this", "why does this exist", "why was this built this way", "decision rationale", "what's the history behind" | `/mine-why` |
 | "mutation test", "do my tests actually catch bugs" | `/mine-mutation-test` |
 | "find tool gaps", "session archaeology", "missing cli features" | `/mine-tool-gaps` |
