@@ -42,6 +42,15 @@ sudo chown $USER:$USER /etc/myapp/config.toml
 
 The hook only detects the `sudo` keyword. Other privilege escalation mechanisms (`pkexec`, `su -c`) are not detected — use the fallback script-generation workflow for those.
 
+## Configuration
+
+| Variable | Effect | Default |
+|---|---|---|
+| `CLAUDE_SUDO_SKIP=1` | Disables the hook entirely (no polling, no deny) | unset |
+| `CLAUDE_SUDO_POLL_TIMEOUT=N` | Seconds to poll before denying (max 30) | 30 |
+
+Set these in your shell profile or a per-machine settings layer — not in the repo's committed `settings.json` (that would disable the hook for all machines).
+
 ## Fallback: Script Generation
 
 For complex multi-step operations (5+ sudo commands, phased execution, or when you need a reviewable artifact), generate a script instead. This is the exception, not the default.
