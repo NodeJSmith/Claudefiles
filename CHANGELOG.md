@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-07-05
+
+### Added
+
+- `mine-document` — durable, architectural-altitude subsystem explanation that anchors to named components and file-level references instead of line numbers, so it survives code churn; sister skill to `mine-how`. (#438)
+
 ## 2026-07-03
 
 ### Added
