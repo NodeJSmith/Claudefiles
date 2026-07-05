@@ -76,6 +76,8 @@ grep -r "claimed-feature-keyword" . --include="*.ts" --include="*.tsx" --include
 - Interactive elements that don't respond
 - User journeys that can't be completed end-to-end
 
+<output_format>
+
 ## Integration Report Template
 
 ```markdown
@@ -115,6 +117,8 @@ grep -r "claimed-feature-keyword" . --include="*.ts" --include="*.tsx" --include
 
 **Revision Cycles Expected**: [realistic estimate — usually 1–2 for a solid first pass]
 ```
+
+</output_format>
 
 ## Anti-Patterns — Never Do These
 

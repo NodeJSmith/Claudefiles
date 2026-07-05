@@ -94,6 +94,8 @@ All output goes under `<tmpdir>` (obtained in Setup above):
 └── report.md
 ```
 
+<output_format>
+
 ## Output Format
 
 Create `<tmpdir>/report.md`:
@@ -130,6 +132,8 @@ Create `<tmpdir>/report.md`:
 1. [Fix for breaking/unexpected changes]
 2. [Notes on expected changes to document as accepted]
 ```
+
+</output_format>
 
 ## Critical Rules
 

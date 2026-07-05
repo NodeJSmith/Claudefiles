@@ -61,6 +61,8 @@ When invoked:
 
 **Read the code and reason about it directly.** Use Read, Grep, Glob, and Bash to examine files. Do NOT write or execute analysis scripts — no AST parsers, no custom linters, no sed pipelines, no xargs constructions. Allowed Bash commands: `git` (diff, log, etc.) and repo-provided helper CLIs (`git-branch-base`, `git-default-branch`).
 
+<checklist>
+
 ## Review Dimensions
 
 ### 1. Obvious-Comment Plague
@@ -170,6 +172,10 @@ Signs:
 
 The test: "What is the precondition for this pattern to pay off? Is that precondition present in this codebase?"
 
+</checklist>
+
+<output_format>
+
 ## Output Format
 
 Start with a **Strengths** section — what the code does well from a structural/contextual standpoint. Then findings:
@@ -193,6 +199,8 @@ End with:
 Verdict criteria:
 - **CLEAN**: No findings across all 6 dimensions
 - **SMELLS (N)**: N findings total — count each finding row, not each category
+
+</output_format>
 
 ## What NOT to Flag
 

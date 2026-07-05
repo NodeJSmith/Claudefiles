@@ -43,6 +43,8 @@ When invoked:
 
 For each file, ask: "If a new developer opened this file with no context, what would confuse them?"
 
+<checklist>
+
 ## What to Look For
 
 ### Readability Debt
@@ -65,6 +67,10 @@ For each file, ask: "If a new developer opened this file with no context, what w
 - Magic numbers or strings with no explanation in logic paths
 - Type assertions / casts that bypass the type system
 
+</checklist>
+
+<output_format>
+
 ## Output Format
 
 Start with a **Strengths** section — what the code does well from a readability standpoint. Then findings:
@@ -85,6 +91,8 @@ End with:
 **Strengths:** [what reads well — 1-3 sentences]
 **Summary:** X findings: N HIGH, N MEDIUM, N LOW
 ```
+
+</output_format>
 
 ## What NOT to Flag
 - Code that's clear but not your preferred style

@@ -29,6 +29,8 @@ When invoked:
 
 **Read the code and reason about it directly.** Use Read, Grep, Glob, and Bash to examine files. Do NOT write or execute analysis scripts — no AST parsers, no custom linters, no sed pipelines, no xargs constructions. Allowed Bash commands: `git` (diff, log, etc.) and repo-provided helper CLIs (`git-branch-base`, `git-default-branch`).
 
+<checklist>
+
 ## Your Checklist
 
 Work through every category below for every file in scope. Do not skip categories. Do not decide something is "not worth mentioning" — that is not your job. If you catch yourself thinking "this is minor" — write it down anyway.
@@ -105,6 +107,10 @@ Work through every category below for every file in scope. Do not skip categorie
 - Trailing whitespace on lines (flag only if widespread, not 1-2 instances)
 - Inconsistent blank line usage (e.g., sometimes two blank lines between functions, sometimes one, sometimes none)
 
+</checklist>
+
+<output_format>
+
 ## Output Format
 
 Do NOT filter by severity. Do NOT call anything "minor." Do NOT decide a finding is not worth reporting. Report everything.
@@ -144,6 +150,8 @@ Verdict criteria:
 - **FINDINGS (N)**: N total findings across all categories
 
 Do NOT offer to fix anything. Do NOT add a next-steps section. Your job ends at reporting.
+
+</output_format>
 
 ## What NOT to Flag
 

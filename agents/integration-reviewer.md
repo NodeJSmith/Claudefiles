@@ -125,6 +125,8 @@ For each changed file, do bounded exploration. Total budget: **5 sibling reads +
 
 Work through each dimension. Record findings with evidence. If a dimension has no issues, it's PASS — don't fabricate findings.
 
+<checklist>
+
 #### 1. Duplication
 - Grep match exists for a function/class that does the same thing as new code? → DUPLICATE
 - New code reimplements something from stdlib or an already-imported library? → DUPLICATE
@@ -179,7 +181,11 @@ Work through each dimension. Record findings with evidence. If a dimension has n
 - Also flag: a new file that re-implements from scratch what sibling files achieve by composing existing helpers
 - This is distinct from Duplication (#1) — duplication is identical code; abstraction inconsistency is *equivalent behavior* at different levels of abstraction
 
+</checklist>
+
 ---
+
+<output_format>
 
 ### Step 5: Output Findings
 
@@ -266,6 +272,8 @@ After all findings, print a summary table:
 - **FAIL**: Any DUPLICATE, MISPLACED, DESIGN_VIOLATION, UNRESOLVED, or PARALLEL_DRIFT finding
 - **WARN**: INCONSISTENT, NAMING, COUPLED, ORPHANED, or ABSTRACTION_DRIFT findings
 - **PASS**: No findings across all dimensions
+
+</output_format>
 
 ---
 
