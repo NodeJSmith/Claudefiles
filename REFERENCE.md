@@ -78,13 +78,9 @@ Full component tables for Claudefiles. For context on what each component type d
 | `cli-harden` | CLI edge-case hardening — resilience against hostile inputs, signals, terminal quirks, and partial failures |
 | `cli-output` | CLI output design — table formatting, color semantics, verbosity, progress, human vs machine output |
 
-### Conversation Memory Skills (`cass-*`)
-
-| Skill | Description |
-|-------|-------------|
-| `cass-recall` | Direct search — takes a query, calls `cass search --robot`, returns ranked session results with metadata |
-| `cass-context` | Task-oriented context assembly — extracts content-bearing keywords from a task description, searches scoped to the current workspace, synthesizes a context brief |
-| `cass-resume` | Session resume — reads the clear-handoff file, retrieves the prior session's transcript tail via cass, reconciles against disk state, and surfaces any unanswered question without auto-resolving it |
+Conversation memory (recall, token insights, resume) now ships as the external
+[`ccrecall`](https://github.com/NodeJSmith/claude-code-recall) plugin (`/ccrecall:ccr-recall`,
+`/ccrecall:ccr-tokens`, `/ccrecall:ccr-resume`) — see [Plugins](#plugins) — not as a Claudefiles bundle.
 
 ## Commands
 
@@ -184,12 +180,18 @@ Event-driven scripts that run before/after tool calls.
 | `subagent-compaction-check.sh` | PostToolUse (Agent) | Detect subagent context compaction — warns the orchestrator when a subagent hit its context window limit mid-task |
 | `tmux-drift-check.sh` | PreToolUse (*) | Periodically remind Claude to verify tmux session name alignment with current work (every 30 calls) |
 | `secrets-check.sh` | Git pre-commit | Block commits containing secrets, tokens, or dangerous files — 44 patterns (29 regex + 15 filename), truncated output, `SKIP_SECRETS_CHECK=1` override |
-| `cass-session-start.sh` | SessionStart | Background `cass-update --if-stale` + background `cass index` + 3s-capped recent-session-context injection via `cass search --robot` |
-| `cass-clear-handoff.sh` | SessionEnd | Writes a per-project handoff JSON so `/cass-resume` can find the prior session |
+
+The `ccrecall` plugin contributes its own SessionStart / SessionEnd / Stop memory hooks
+(`cm-memory-setup`, `cm-onboarding`, `cm-memory-context`, `cm-clear-handoff`,
+`cm-memory-sync`) — see [Plugins](#plugins). They are not wired in this repo's `settings.json`.
 
 ## Plugins
 
-No third-party plugins are currently installed. Third-party Claude Code plugins can be pre-configured via `extraKnownMarketplaces` and `enabledPlugins` in `settings.json` — these install automatically when settings are merged, no manual `/plugin marketplace add` needed.
+Third-party Claude Code plugins pre-configured via `extraKnownMarketplaces` and `enabledPlugins` in `settings.json`. These install automatically when settings are merged — no manual `/plugin marketplace add` needed.
+
+| Plugin | Marketplace | Description |
+|--------|-------------|-------------|
+| `ccrecall` | `claude-code-recall` (`NodeJSmith/claude-code-recall`) | Conversation memory — session DB + recall/resume/token-insights skills (`/ccrecall:ccr-recall`, `/ccrecall:ccr-resume`, `/ccrecall:ccr-tokens`) and the SessionStart/SessionEnd/Stop memory hooks. Requires the `ccrecall` PyPI package (installed by `install.py`) for its hook binaries and CLI. |
 
 To add a plugin: add its marketplace to `extraKnownMarketplaces` and enable it in `enabledPlugins` in `settings.json`, then document it here and in ONBOARDING.md.
 
@@ -201,7 +203,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 |--------|-------------|
 | `agent-stats` | Post-hoc effectiveness stats for subagent runs mined from the JSONL store (queries the cfl database for gate verdicts) — per agent type: run count, verdict mix (parsed from the `## Summary` line), compaction rate, and peak turn tokens. `--type` for a detailed report, `--findings` to dump blocking text, `--impl-only` for the comb's orchestrate pass, `--json`, `--since` |
 | `agnix-check` | Validate agent, skill, and command files against agnix schema |
-| `orchestrate-cost` | Model-weighted USD cost of mine-orchestrate runs by (role, model), mined from the JSONL store (queries the cfl database for run boundaries) — delimits runs from durable trail markers, splits the orchestrator loop into own-gen vs absorbed bands, disambiguates `general-purpose` roles by dispatch-prompt signature, buckets runs by pipeline fingerprint, and reports coverage. Pricing table is inlined in the PEP 723 script — no external dependency. `--since`, `--projects`, `--json` |
+| `orchestrate-cost` | Model-weighted USD cost of mine-orchestrate runs by (role, model), mined from the JSONL store (queries the cfl database for run boundaries) — delimits runs from durable trail markers, splits the orchestrator loop into own-gen vs absorbed bands, disambiguates `general-purpose` roles by dispatch-prompt signature, buckets runs by pipeline fingerprint, and reports coverage. Reuses `ccrecall` pricing via PEP 723. `--since`, `--projects`, `--json` |
 | `orchestrate-concise-probe` | Concise-return compliance rate for mine-orchestrate reviewer dispatches, mined from the JSONL store — reads each reviewer subagent's return message and reports the fraction that returned only the canonical `**Verdict:**` line vs a full report, per role and overall. Read-only; standalone PEP 723 uv-script. `--since`, `--projects`, `--json` |
 | `claude-tmux` | Tmux session helper — rename, list, create, capture, kill sessions |
 | `edit-manifest` | Open a manifest file in nvim via a new tmux window with shadow-file autosave and blocking wait |
@@ -220,14 +222,13 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `git-platform` | Detect git hosting platform (`github`, `ado`, or `unknown`) from remote URL |
 | `cfl` | Orchestration state store CLI backed by a durable SQLite DB (`~/.local/share/claudefiles/cfl.db`). Replaces `spec-helper` and `trail-log`. Subcommands: `spec init/validate/status/set-status/next-number` (spec lifecycle), `run start/status/complete/stop/resume` (run lifecycle), `task start/update/verdict/block` (task state), `gate` (record gate results), `dispatch`/`dispatch end` (record subagent dispatches), `event` (append to audit trail), `session end/compacted` (session lifecycle hooks), `archive` (archive completed specs), `set` (direct field access for crash recovery). JSON output by default; `--text` for human-readable. |
 | `codex-rules-sync` | Generates the global Codex `~/.codex/AGENTS.md` from `rules/common/*.md`, concatenating the rules whose `tool:` frontmatter lists `codex`. `--list` prints the include/exclude breakdown without writing. Run by `install.py` after the symlink phase; skips silently if Codex isn't installed |
-| `cass-update` | Bootstrap or update the `cass` binary (conversation search). Two modes chosen by whether `cass` is already on PATH: bootstrap downloads the latest GitHub release, verifies its SHA-256 checksum, and installs it to `~/.local/bin/cass`; update delegates to `cass upgrade --yes`. `--if-stale` skips the check if the last one ran within 24h (tracked by a marker file's mtime). Invoked by `install.py` and by the `cass-session-start.sh` hook (detached, `--if-stale`) |
 | `lint-agent-models` | Agent registry drift lint — checks every `agents/*.md` is listed in performance.md (with matching model) and registered in an install.py bundle, so no agent ships uninstalled |
 | `lint-cli-conventions` | Drift prevention lint — verifies `--help` handling in bin/ scripts and capabilities-core.md CLI Tools sync |
 | `lint-verdict-line` | Reviewer verdict-line conformance lint — reads the four mine-orchestrate reviewer files and verifies each specifies the canonical `**Verdict:**` line (with `(findings: N)` for code/integration, without for spec/visual), and rejects stale verdict vocabulary in active review contracts so CFL-aligned verdicts do not drift |
 
 ## Packages
 
-`cfl` and `merge-settings` are part of the base and always install. Conversation search is backed by the `cass` binary, not a Python package — `install.py` installs it unconditionally from GitHub releases (via `bin/cass-update`) to `~/.local/bin/cass` when it's not already on PATH. `ado-api` is not wired into a bundle — if you work in Azure DevOps repos, install it on its own with `uv tool install -e packages/ado-api`. Any package can be installed manually the same way.
+`cfl` and `merge-settings` are part of the base and always install. `ccrecall` is installed unconditionally from PyPI by `install.py` (it backs the `ccrecall` plugin — see [Plugins](#plugins)). `ado-api` is not wired into a bundle — if you work in Azure DevOps repos, install it on its own with `uv tool install -e packages/ado-api`. Any package can be installed manually the same way.
 
 | Name | Description |
 |------|-------------|
