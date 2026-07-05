@@ -13,6 +13,7 @@ Interactive subsystem explanation grounded in actual code. Reads the real files,
 | Skill | What it produces |
 |-------|-----------------|
 | **`/mine-how`** | **Conversational walkthrough — builds a mental model** |
+| `/mine-document` | Durable write-up — same investigation, written to a file that survives code churn |
 | `architect` agent | Documentation artifacts — Mermaid diagrams, architecture overviews |
 | `/mine-research` | Investigation brief — evaluates feasibility of a proposed change |
 
