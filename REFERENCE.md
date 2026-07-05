@@ -228,7 +228,7 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 
 ## Packages
 
-`cfl` and `merge-settings` are part of the base and always install. `ccrecall` is installed unconditionally from PyPI by `install.py` (it backs the `ccrecall` plugin — see [Plugins](#plugins)). `ado-api` is not wired into a bundle — if you work in Azure DevOps repos, install it on its own with `uv tool install -e packages/ado-api`. Any package can be installed manually the same way.
+`cfl` and `merge-settings` are part of the base and always install. `ccrecall` is installed from PyPI by `install.py` when not already on PATH (it backs the `ccrecall` plugin — see [Plugins](#plugins)). `ado-api` is not wired into a bundle — if you work in Azure DevOps repos, install it on its own with `uv tool install -e packages/ado-api`. Any package can be installed manually the same way.
 
 | Name | Description |
 |------|-------------|

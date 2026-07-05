@@ -681,6 +681,8 @@ def run_uv_tool(cmd: list[str], timeout: int) -> tuple[bool, str]:
         return False, f"timed out after {timeout}s"
     except FileNotFoundError:
         return False, UV_NOT_FOUND_MSG
+    except PermissionError:
+        return False, f"permission denied running: {' '.join(cmd)}"
 
 
 def install_package(repo_dir: Path, pkg_name: str) -> tuple[bool, str]:
@@ -742,7 +744,9 @@ def ccrecall_plugin_installed(claude_bin: str) -> bool:
     # Anything other than that array shape is treated as not-installed (fail open).
     if not isinstance(plugins, list):
         return False
-    return any(p.get("id") == CCRECALL_PLUGIN_REF for p in plugins)
+    return any(
+        isinstance(p, dict) and p.get("id") == CCRECALL_PLUGIN_REF for p in plugins
+    )
 
 
 def ensure_ccrecall_plugin(console: Console) -> int:
@@ -810,6 +814,9 @@ def remove_ccrecall_plugin(console: Console) -> None:
         console.print(
             "  [yellow]claude not on PATH — skipping plugin uninstall[/yellow]"
         )
+        return
+
+    if not ccrecall_plugin_installed(claude_bin):
         return
 
     console.print(f"  Uninstalling plugin: {CCRECALL_PLUGIN_REF}...")
@@ -1418,7 +1425,7 @@ def do_uninstall(repo_dir: Path, claude_dir: Path, config: dict) -> None:
     for pkg_name in pkgs_to_uninstall:
         console.print(f"  Uninstalling package: {pkg_name}...")
         ok, detail = uninstall_package(pkg_name)
-        if not ok:
+        if not ok and detail and "is not installed" not in detail:
             console.print(f"  [yellow]Warning: failed to uninstall {pkg_name}[/yellow]")
             if detail:
                 console.print(f"  [dim]{detail}[/dim]")
@@ -1673,6 +1680,7 @@ def print_uninstall_dry_run(repo_dir: Path, config: dict, cfg_path: Path) -> Non
     console.print("\n[bold]Dry run — would uninstall:[/bold]\n")
     console.print("  All Claudefiles-owned symlinks from $CLAUDE_CONFIG_DIR")
     console.print(f"  Package: {CCRECALL_PACKAGE}")
+    console.print(f"  Plugin: {CCRECALL_PLUGIN_REF}")
     bundle_cfg = config.get("bundles", {})
     for bundle_key, bundle in get_bundles(repo_dir).items():
         if bundle.always_installed or bundle_cfg.get(bundle_key):

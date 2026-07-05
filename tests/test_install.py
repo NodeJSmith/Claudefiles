@@ -1170,6 +1170,29 @@ class TestCcrecallPlugin:
             call(resolved, ["install", install.CCRECALL_PLUGIN_REF]),
         ]
 
+    def test_installs_when_plugin_list_has_non_dict_elements(self) -> None:
+        """A `claude plugin list --json` that returns valid JSON with non-object elements
+        (e.g. ["bad"]) fails open: treats plugin as absent and proceeds to install."""
+        resolved = MISE_CLAUDE_BIN
+
+        def fake_run(claude_bin, args):
+            if args[0] == "list":
+                return (True, '["bad", 123, null]')
+            return (True, "")
+
+        mock_run = MagicMock(side_effect=fake_run)
+        with (
+            patch("install.shutil.which", return_value=resolved),
+            patch("install.run_claude_plugin", mock_run),
+        ):
+            errors = install.ensure_ccrecall_plugin(install.Console())
+        assert errors == 0
+        assert mock_run.call_args_list == [
+            call(resolved, ["list", "--json"]),
+            call(resolved, ["marketplace", "add", install.CCRECALL_MARKETPLACE_REPO]),
+            call(resolved, ["install", install.CCRECALL_PLUGIN_REF]),
+        ]
+
     def test_skips_when_claude_absent(self) -> None:
         """A missing claude binary is a warning, not a failure — the startup sync is the
         fallback, so no plugin commands run and no error is counted."""
@@ -1218,17 +1241,25 @@ class TestCcrecallPlugin:
         assert mock_run.call_count == 3
 
     def test_remove_resolves_claude_and_uninstalls(self) -> None:
-        """remove_ccrecall_plugin uninstalls the plugin via the shutil.which path."""
+        """remove_ccrecall_plugin checks if installed, then uninstalls."""
         resolved = MISE_CLAUDE_BIN
-        mock_run = MagicMock(return_value=(True, ""))
+        plugin_json = json.dumps([{"id": install.CCRECALL_PLUGIN_REF}])
+
+        def fake_run(claude_bin, args):
+            if args[0] == "list":
+                return (True, plugin_json)
+            return (True, "")
+
+        mock_run = MagicMock(side_effect=fake_run)
         with (
             patch("install.shutil.which", return_value=resolved),
             patch("install.run_claude_plugin", mock_run),
         ):
             install.remove_ccrecall_plugin(install.Console())
-        mock_run.assert_called_once_with(
-            resolved, ["uninstall", install.CCRECALL_PLUGIN_REF]
-        )
+        assert mock_run.call_args_list == [
+            call(resolved, ["list", "--json"]),
+            call(resolved, ["uninstall", install.CCRECALL_PLUGIN_REF]),
+        ]
 
     def test_remove_skips_when_claude_absent(self) -> None:
         """A missing claude binary makes plugin uninstall a no-op (best-effort)."""

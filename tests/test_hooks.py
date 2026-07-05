@@ -21,6 +21,7 @@ def run_hook(
     stdin: str,
     tmpdir: str,
     extra_env: dict | None = None,
+    timeout: int = 5,
 ) -> subprocess.CompletedProcess:
     """Run a hook script with given stdin and CLAUDE_CODE_TMPDIR set to tmpdir."""
     env = os.environ.copy()
@@ -33,6 +34,7 @@ def run_hook(
         capture_output=True,
         text=True,
         env=env,
+        timeout=timeout,
     )
 
 
