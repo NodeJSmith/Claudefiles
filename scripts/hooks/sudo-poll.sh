@@ -24,6 +24,11 @@
 
 set -euo pipefail
 
+# Escape hatch: skip all sudo handling when set (e.g., no sudoers access, CI)
+if [ "${CLAUDE_SUDO_SKIP:-}" = "1" ]; then
+  exit 0
+fi
+
 # Validate timeout is a non-negative integer, capped at 30s
 # (harness timeout is 35000ms — hook must finish before SIGKILL)
 RAW_TIMEOUT="${CLAUDE_SUDO_POLL_TIMEOUT:-30}"
