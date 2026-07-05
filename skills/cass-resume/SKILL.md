@@ -2,7 +2,6 @@
 name: cass-resume
 description: "Use when picking up a fresh session after /clear, a stop, or an unanswered AskUserQuestion. Reconstructs the prior session's intent from its transcript tail and surfaces any unresolved decision; user-invoked only — for a hand-written end-of-day handoff use /mine-good-morning instead."
 user-invocable: true
-disable-model-invocation: true
 ---
 
 # Resume

@@ -61,6 +61,7 @@ tool: claude  # harness-only: skill/command routing tables are Claude-Code dispa
 | "what would a v2 look like", "how would we rebuild this", "next iteration of this design", "what improvements are we skipping", "what would a mature version look like", "what are we not considering here", "how would we make this more robust", "sophistication ceiling", "elevate this subsystem" | `/mine-elevate` |
 | "humanize this", "unslop this", "de-slop this", "fix AI writing", "remove AI tells", "clean up AI prose" | `/mine-humanize` |
 | "search past sessions", "find that conversation", "what did we discuss about", "recall this session" | `/cass-recall` |
+| "resume after clear", "pick up after clear", "what was I working on before clear", "resume prior session" | `/cass-resume` |
 | "give me context on this task", "context brief", "what do I need to know before starting this" | `/cass-context` |
 
 ## CLI Tools
