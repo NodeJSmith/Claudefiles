@@ -66,6 +66,8 @@ For Copy-Paste Duplication and Hardcoded Shortcuts: scope checks to the reviewed
 
 To find immediate import siblings, read the import statements in the reviewed files and read those sibling files if they exist in the repo.
 
+<checklist>
+
 ## Review Dimensions
 
 ### 1. Verbosity Inflation
@@ -136,6 +138,10 @@ Scope constraint: check the reviewed files and their immediate import siblings (
 
 The test: "If the environment changes or this service moves, would a developer need to hunt through business logic to update this value?"
 
+</checklist>
+
+<output_format>
+
 ## Output Format
 
 Start with a **Strengths** section — what the code does well from a debt/maintainability standpoint. Then findings:
@@ -159,6 +165,8 @@ End with:
 Verdict criteria:
 - **CLEAN**: No findings across all 5 dimensions
 - **DEBT (N)**: N findings total — count each finding row, not each category
+
+</output_format>
 
 ## What NOT to Flag
 

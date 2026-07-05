@@ -44,6 +44,8 @@ When invoked:
 
 For each file and across the diff as a whole, ask: "What if this didn't need to exist? What structural move would make this layer, abstraction, or file unnecessary?"
 
+<checklist>
+
 ## What to Look For
 
 ### Structural Reframing
@@ -58,9 +60,13 @@ Do not flag dead code purely for being unused — that is integration-reviewer's
 - Configuration or feature flags that are always on/off in practice, when removing them simplifies control flow
 - Test infrastructure (fixtures, helpers, mocks) that exists only because the production code is structured inconveniently — the structural fix is in production, not in tests
 
+</checklist>
+
 ## Be Ambitious
 
 Do not settle for local cleanup. Hunt for moves that delete whole layers, collapse two abstractions into one, or replace 200 lines of orchestration with a 20-line data transformation. The best simplification often isn't in the code that changed — it's in the surrounding code that the change makes obsolete.
+
+<output_format>
 
 ## Output Format
 
@@ -91,6 +97,8 @@ Otherwise end with:
 **Strengths:** [structural choices that are already clean — 1-3 sentences]
 **Summary:** X findings: N HIGH, N MEDIUM, N LOW
 ```
+
+</output_format>
 
 ## What NOT to Flag
 - Style preferences or formatting — that's not structural

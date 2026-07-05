@@ -36,6 +36,8 @@ When invoked:
 2. Run static analysis for Python files if available
 3. Begin review
 
+<checklist>
+
 ## Security (CRITICAL)
 
 Flag injection (SQL/command/eval-exec), path traversal, unsafe deserialization (pickle, `yaml.load` without Loader), hardcoded secrets, and weak crypto (MD5/SHA1 for security).
@@ -89,6 +91,8 @@ LLMs pattern-match to "production-ready" training examples and over-apply enterp
 - **Magic numbers/strings** — unexplained literal values in logic (not in tests, config defaults, or well-known constants like HTTP status codes)
 - **Type assertions defeating safety** — `as unknown as X`, `cast()`, `# type: ignore` that bypass the type system instead of fixing the underlying type mismatch
 - **Copy-paste within a file** — two or more blocks in the same file with near-identical structure differing only in field names or literals; should be a loop, mapping, or shared helper
+
+</checklist>
 
 ## Diagnostic Commands
 
@@ -155,6 +159,8 @@ Don't use these filters to dismiss findings that make you uncomfortable. Signs a
 - The finding reveals a gap in the mental model of the code
 - Security findings and correctness bugs deserve extra scrutiny even when they pattern-match to one of the above
 
+<output_format>
+
 ## Review Output Format
 
 Start with a **Strengths** section — what the implementation does well. Then findings:
@@ -183,6 +189,8 @@ End with an **Assessment**:
 - **PASS**: No CRITICAL or HIGH issues
 - **WARN**: MEDIUM issues only — can proceed with caution
 - **FAIL**: Any CRITICAL or HIGH issue found
+
+</output_format>
 
 <!-- SYNC: skills/mine-orchestrate/verdict-line-format.md -->
 ## Concise-Return Mode

@@ -130,6 +130,8 @@ Keep it **focused** — 2-3 targeted searches, not a survey of everything. Use w
 
 Combine all findings into a structured research brief. Write it to the output path provided in the prompt.
 
+<output_format>
+
 ### Research Brief Format
 
 ```markdown
@@ -235,6 +237,8 @@ depth: quick | normal | deep
 
 [URLs from web research, if any. Omit this section if no external research was done.]
 ```
+
+</output_format>
 
 ## Anti-Patterns
 
