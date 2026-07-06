@@ -5,7 +5,7 @@ import json
 import pytest
 
 from cfl.gate import KNOWN_GATE_TYPES, VALID_GATE_VERDICTS, record_gate
-from tests.helpers import REMOTE_URL, insert_spec_with_run, insert_task as _insert_task
+from tests.helpers import REMOTE_URL, insert_spec_with_run, insert_task
 
 
 # ---------------------------------------------------------------------------
@@ -16,7 +16,7 @@ from tests.helpers import REMOTE_URL, insert_spec_with_run, insert_task as _inse
 def test_record_gate_creates_gate_row_with_correct_fields(db_conn, capsys):
     """record_gate inserts a gates row with gate_type, verdict, and data (FR#18, AC#18)."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    _insert_task(db_conn, run_id, "T01")
+    insert_task(db_conn, run_id, "T01")
 
     record_gate(
         db_conn,
@@ -42,7 +42,7 @@ def test_record_gate_creates_gate_row_with_correct_fields(db_conn, capsys):
 def test_record_gate_outputs_json_with_required_fields(db_conn, capsys):
     """record_gate emits JSON with gate_id, run_id, task_id, gate_type, verdict, iteration."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    _insert_task(db_conn, run_id, "T01")
+    insert_task(db_conn, run_id, "T01")
 
     record_gate(db_conn, run_id, "code-review", task_id="T01", verdict="PASS")
 
@@ -59,7 +59,7 @@ def test_record_gate_outputs_json_with_required_fields(db_conn, capsys):
 def test_record_gate_stores_detail(db_conn, capsys):
     """record_gate stores the --detail field in the gate row."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    _insert_task(db_conn, run_id, "T01")
+    insert_task(db_conn, run_id, "T01")
 
     record_gate(
         db_conn,
@@ -102,7 +102,7 @@ def test_record_gate_run_level_no_task_id(db_conn, capsys):
 def test_record_gate_auto_increments_iteration_to_1_on_first_call(db_conn, capsys):
     """First gate for a (run, task, gate_type) starts at iteration=1."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    _insert_task(db_conn, run_id, "T01")
+    insert_task(db_conn, run_id, "T01")
 
     record_gate(db_conn, run_id, "code-review", task_id="T01", verdict="PASS")
 
@@ -116,7 +116,7 @@ def test_record_gate_auto_increments_iteration_to_1_on_first_call(db_conn, capsy
 def test_record_gate_auto_increments_iteration_on_retry(db_conn, capsys):
     """record_gate auto-increments iteration for same (run, task, gate_type) on retry."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    _insert_task(db_conn, run_id, "T01")
+    insert_task(db_conn, run_id, "T01")
 
     record_gate(db_conn, run_id, "code-review", task_id="T01", verdict="FAIL")
     _ = capsys.readouterr()
@@ -136,7 +136,7 @@ def test_record_gate_auto_increments_iteration_on_retry(db_conn, capsys):
 def test_record_gate_explicit_iteration_overrides_auto(db_conn, capsys):
     """Providing iteration= uses that value instead of auto-incrementing."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    _insert_task(db_conn, run_id, "T01")
+    insert_task(db_conn, run_id, "T01")
 
     record_gate(
         db_conn, run_id, "code-review", task_id="T01", verdict="PASS", iteration=7
@@ -154,7 +154,7 @@ def test_record_gate_run_level_auto_increments_separately_from_task_level(
 ):
     """Run-level gate iteration is counted separately from task-level iterations."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    _insert_task(db_conn, run_id, "T01")
+    insert_task(db_conn, run_id, "T01")
 
     # task-level gate: iteration 1
     record_gate(db_conn, run_id, "code-review", task_id="T01", verdict="PASS")
@@ -177,7 +177,7 @@ def test_record_gate_run_level_auto_increments_separately_from_task_level(
 def test_record_gate_emits_task_gated_for_task_level(db_conn, capsys):
     """record_gate emits task.gated event when task_id is provided (FR#21)."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    _insert_task(db_conn, run_id, "T01")
+    insert_task(db_conn, run_id, "T01")
 
     record_gate(db_conn, run_id, "code-review", task_id="T01", verdict="PASS")
 
@@ -270,7 +270,7 @@ def test_record_gate_all_valid_verdicts_accepted(db_conn, capsys):
 
     for index, verdict in enumerate(sorted(VALID_GATE_VERDICTS), start=1):
         task_id = f"T{index:02d}"
-        _insert_task(db_conn, run_id, task_id)
+        insert_task(db_conn, run_id, task_id)
         record_gate(db_conn, run_id, "code-review", task_id=task_id, verdict=verdict)
         _ = capsys.readouterr()
 

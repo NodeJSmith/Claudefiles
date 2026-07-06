@@ -684,7 +684,10 @@ def _resolve_base_commit(base_commit: str | None) -> str:
 
 
 def _insert_task_rows(conn: sqlite3.Connection, run_id: int, tasks: list[dict]) -> None:
-    """Insert one pending tasks row per discovered task. Shared by run_start and run_advance_phase."""
+    """Insert one pending tasks row per discovered task.
+
+    Shared by run_start and run_advance_phase.
+    """
     for task in tasks:
         conn.execute(
             "INSERT INTO tasks (run_id, task_id, title, status) VALUES (?, ?, ?, 'pending')",

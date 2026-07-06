@@ -46,6 +46,8 @@ from cfl.task import (
     task_verdict,
 )
 
+PhaseStr = Literal["define", "plan", "orchestrate"]
+
 _VALID_TASK_STATUSES = sorted(
     {s for targets in TASK_UPDATE_TRANSITIONS.values() for s in targets}
 )
@@ -82,7 +84,11 @@ dispatch_app = App(
 )
 app.command(dispatch_app)
 
-event_app = App(name="event", help="Audit trail event commands.")
+event_app = App(
+    name="event",
+    help="Audit trail event commands.",
+    help_epilogue=help_text.EVENT,
+)
 app.command(event_app)
 
 session_app = App(name="session", help="Session lifecycle commands.")
@@ -184,7 +190,7 @@ def cmd_spec_next_number() -> None:
 def cmd_run_start(
     *,
     phase: Annotated[
-        Literal["define", "plan", "orchestrate"] | None,
+        PhaseStr | None,
         Parameter(
             name=["--phase"],
             help="Pipeline phase (define, plan, orchestrate). Defaults to orchestrate.",
@@ -304,7 +310,7 @@ def cmd_run_resume(
 @run_app.command(name="advance-phase", help_epilogue=help_text.RUN_ADVANCE_PHASE)
 def cmd_run_advance_phase(
     target_phase: Annotated[
-        Literal["define", "plan", "orchestrate"],
+        PhaseStr,
         Parameter(help="Target phase to advance to"),
     ],
     *,
