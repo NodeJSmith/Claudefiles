@@ -1,7 +1,7 @@
 ---
 task_id: "T06"
 title: "Update mine-orchestrate for phase-aware run detection"
-status: "planned"
+status: "done"
 depends_on: ["T03"]
 implements: ["AC#5"]
 ---

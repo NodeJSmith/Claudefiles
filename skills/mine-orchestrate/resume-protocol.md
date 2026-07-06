@@ -10,7 +10,51 @@ cfl run status
 
 **If it returns `{"exists": false}`** — proceed to "Find the feature directory" and continue the normal fresh-start flow.
 
-**If it returns run data (`"exists": true`)** — extract all fields from the JSON. Then determine staleness: check whether `base_commit` still exists with `git cat-file -e <base_commit>`. If the commit is gone (force-push, rebase), the run is genuinely stale — default to "Restart fresh".
+**If it returns run data (`"exists": true`)** — read the `"phase"` field from the output before doing anything else.
+
+### Phase check
+
+**If phase is `"define"`** (no task files exist yet — mine-plan has not run):
+
+Do not present the "Resume from task X" / "Restart fresh" options below — there are no tasks to resume from, and advancing to orchestrate would fail (`no_tasks` error).
+
+```
+AskUserQuestion:
+  question: "An active run exists in define phase (from mine-define). Task files don't exist yet — run /mine-plan first to generate them, or stop the run."
+  header: "No tasks"
+  multiSelect: false
+  options:
+    - label: "Stop the run"
+      description: "Stop this run so I can run /mine-plan first"
+    - label: "I already have task files"
+      description: "Task files exist on disk — advance to orchestrate"
+```
+
+- **"Stop the run"**: Call `cfl run stop --reason "user chose stop — needs mine-plan"` and exit.
+- **"I already have task files"**: Set an internal flag `advance_from_prior_phase = true`. Do NOT call `cfl run advance-phase` here — tmpdir, visual_mode, and dev_server_url are not yet resolved. Fall through to the remainder of Phase 0's setup steps in SKILL.md (branch staleness pre-flight, feature directory discovery, design doc read, task file read, dev server check, vision capability check), then act on the flag at the "Initialize orchestration run via cfl" step.
+
+**If phase is `"plan"`** (task files should exist from mine-plan):
+
+```
+AskUserQuestion:
+  question: "An active run exists in plan phase (from mine-plan). Advance to orchestrate to begin task execution?"
+  header: "Advance?"
+  multiSelect: false
+  options:
+    - label: "Advance to orchestrate"
+      description: "Load task files and begin execution"
+    - label: "Stop the run"
+      description: "Stop this run; the spec remains in plan phase"
+```
+
+- **"Advance to orchestrate"**: Set an internal flag `advance_from_prior_phase = true`. Do NOT call `cfl run advance-phase` here — tmpdir, visual_mode, and dev_server_url are not yet resolved. Fall through to the remainder of Phase 0's setup steps in SKILL.md, then act on the flag at the "Initialize orchestration run via cfl" step.
+- **"Stop the run"**: Call `cfl run stop --reason "user chose stop at phase advance"` and exit.
+
+**If phase is `"orchestrate"`** — proceed with the existing resume/restart logic below, unchanged.
+
+### Resume or restart (orchestrate-phase runs only)
+
+Extract all fields from the JSON. Then determine staleness: check whether `base_commit` still exists with `git cat-file -e <base_commit>`. If the commit is gone (force-push, rebase), the run is genuinely stale — default to "Restart fresh".
 
 Count the completed tasks from the `tasks` array (those with `status: "done"`) and the total tasks count.
 
