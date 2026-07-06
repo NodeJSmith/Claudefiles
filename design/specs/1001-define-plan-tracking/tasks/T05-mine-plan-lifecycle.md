@@ -1,7 +1,7 @@
 ---
 task_id: "T05"
 title: "Add cfl lifecycle tracking to mine-plan"
-status: "planned"
+status: "done"
 depends_on: ["T03"]
 implements: ["FR#12"]
 ---
