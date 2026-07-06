@@ -27,6 +27,14 @@ KNOWN_GATE_TYPES: frozenset[str] = frozenset(
         "trail-audit",
         "impl-comb",
         "shipping-gate",
+        "define-quality",
+        "define-comb",
+        "define-signoff",
+        "plan-validation",
+        "plan-spec-validate",
+        "plan-review",
+        "plan-comb",
+        "plan-approval",
     }
 )
 

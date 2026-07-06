@@ -9,7 +9,7 @@ import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-SCHEMA_VERSION: int = 2
+SCHEMA_VERSION: int = 3
 CFL_DB_ENV_VAR: str = "CFL_DB"
 DEFAULT_DB_PATH: str = "~/.local/share/claudefiles/cfl.db"
 BUSY_TIMEOUT_MS: int = 5000
@@ -18,6 +18,10 @@ WSL_MOUNT_PREFIX: str = "/mnt/"
 # Migration DDL strings, keyed by the target version they produce.
 MIGRATIONS: dict[int, list[str]] = {
     2: ["ALTER TABLE runs ADD COLUMN cwd TEXT"],
+    3: [
+        "ALTER TABLE runs ADD COLUMN phase TEXT DEFAULT 'orchestrate'"
+        " CHECK(phase IN ('define', 'plan', 'orchestrate'))"
+    ],
 }
 
 _SCHEMA_STATEMENTS: list[str] = [
@@ -47,6 +51,8 @@ _SCHEMA_STATEMENTS: list[str] = [
         dev_server_url  TEXT,
         tmpdir          TEXT,
         cwd             TEXT,
+        phase           TEXT DEFAULT 'orchestrate'
+            CHECK(phase IN ('define', 'plan', 'orchestrate')),
         started_at      TEXT NOT NULL,
         ended_at        TEXT
     )

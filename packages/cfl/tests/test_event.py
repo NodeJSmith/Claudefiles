@@ -232,6 +232,9 @@ def test_known_event_names_exported():
     assert "cfl.invoked" in KNOWN_EVENT_NAMES
     assert "run.started" in KNOWN_EVENT_NAMES
     assert "session.compacted" in KNOWN_EVENT_NAMES
+    assert "define.started" in KNOWN_EVENT_NAMES
+    assert "plan.started" in KNOWN_EVENT_NAMES
+    assert "phase.advanced" in KNOWN_EVENT_NAMES
 
 
 # ---------------------------------------------------------------------------

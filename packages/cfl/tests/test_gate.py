@@ -286,6 +286,9 @@ def test_known_gate_types_exported():
     assert "impl-review" in KNOWN_GATE_TYPES
     assert "shipping-gate" in KNOWN_GATE_TYPES
     assert "verdict-assembly" in KNOWN_GATE_TYPES
+    assert "define-quality" in KNOWN_GATE_TYPES
+    assert "plan-validation" in KNOWN_GATE_TYPES
+    assert "define-signoff" in KNOWN_GATE_TYPES
 
 
 def test_valid_gate_verdicts_exported():

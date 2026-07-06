@@ -33,6 +33,14 @@ KNOWN_EVENT_NAMES: frozenset[str] = frozenset(
         "set.applied",
         "session.compacted",
         "dispatch.compacted",
+        "define.started",
+        "define.discovery-complete",
+        "define.design-written",
+        "define.signed-off",
+        "plan.started",
+        "plan.tasks-written",
+        "plan.approved",
+        "phase.advanced",
     }
 )
 

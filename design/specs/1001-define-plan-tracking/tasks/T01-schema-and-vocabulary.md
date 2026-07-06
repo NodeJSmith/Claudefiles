@@ -1,7 +1,7 @@
 ---
 task_id: "T01"
 title: "Add phase column migration and vocabulary extensions"
-status: "planned"
+status: "done"
 depends_on: []
 implements: ["FR#2", "FR#6", "FR#7", "FR#8", "FR#9"]
 ---
