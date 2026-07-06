@@ -6,6 +6,7 @@ Implements:
   run_complete — mark run completed, clear active_run_id
   run_stop    — stop run (user decision), clear active_run_id
   run_resume  — resume a stopped run, re-set active_run_id
+  run_advance_phase — forward-only phase transition (define -> plan -> orchestrate)
 """
 
 import json
@@ -24,6 +25,7 @@ from cfl.session import SESSION_ID_ENV_VAR, auto_join_session
 STALE_RUN_HOURS: int = 4
 GIT_SUBPROCESS_TIMEOUT_SECONDS: int = 10
 INTERVENTION_STATUSES: frozenset[str] = frozenset({"failed", "blocked", "stopped"})
+PHASE_ORDER: dict[str, int] = {"define": 0, "plan": 1, "orchestrate": 2}
 
 
 def run_start(
@@ -31,16 +33,19 @@ def run_start(
     spec_id: int,
     feature_dir: str,
     *,
+    phase: str = "orchestrate",
     base_commit: str | None = None,
     tmpdir: str | None = None,
     visual_mode: str | None = None,
     dev_server_url: str | None = None,
 ) -> None:
-    """Begin a new orchestration run.
+    """Begin a new run.
 
     Single BEGIN IMMEDIATE transaction:
     - Guard: error run_already_active / run_stale if active_run_id IS NOT NULL
-    - Discover tasks from feature_dir/tasks/T*.md, sort by task_id naturally
+    - When phase='orchestrate': discover tasks from feature_dir/tasks/T*.md,
+      sort by task_id naturally, error no_tasks if none found
+    - When phase is 'define' or 'plan': task discovery is skipped entirely
     - INSERT runs row, INSERT tasks rows, UPDATE specs, INSERT run.started event
     - Session auto-join after commit
     """
@@ -50,21 +55,11 @@ def run_start(
     if spec_row["active_run_id"] is not None:
         _guard_active_run(conn, spec_row["active_run_id"])
 
-    tasks = _discover_tasks(feature_dir)
-    if not tasks:
-        output_module.emit_error(
-            f"No T*.md files in {feature_dir}/tasks/.",
-            code="no_tasks",
-            hint="Create task files with mine-plan first.",
-        )
+    tasks: list[dict] = []
+    if phase == "orchestrate":
+        tasks = _discover_tasks_or_error(feature_dir)
 
-    if base_commit is None:
-        base_commit = _get_head_commit()
-        if base_commit == "unknown":
-            output_module.emit_warning(
-                "Could not resolve HEAD commit; base_commit set to 'unknown'.",
-                code="base_commit_unknown",
-            )
+    base_commit = _resolve_base_commit(base_commit)
 
     conn.execute("BEGIN IMMEDIATE")
     try:
@@ -78,17 +73,13 @@ def run_start(
 
         cwd = os.getcwd()
         cursor = conn.execute(
-            """INSERT INTO runs (spec_id, base_commit, status, visual_mode, dev_server_url, tmpdir, cwd, started_at)
-               VALUES (?, ?, 'running', ?, ?, ?, ?, datetime('now'))""",
-            (spec_id, base_commit, visual_mode, dev_server_url, tmpdir, cwd),
+            """INSERT INTO runs (spec_id, base_commit, status, phase, visual_mode, dev_server_url, tmpdir, cwd, started_at)
+               VALUES (?, ?, 'running', ?, ?, ?, ?, ?, datetime('now'))""",
+            (spec_id, base_commit, phase, visual_mode, dev_server_url, tmpdir, cwd),
         )
         run_id = cursor.lastrowid
 
-        for task in tasks:
-            conn.execute(
-                "INSERT INTO tasks (run_id, task_id, title, status) VALUES (?, ?, ?, 'pending')",
-                (run_id, task["task_id"], task["title"]),
-            )
+        _insert_task_rows(conn, run_id, tasks)
 
         conn.execute(
             "UPDATE specs SET active_run_id=?, status='in_progress' WHERE id=?",
@@ -105,6 +96,7 @@ def run_start(
                         "feature_dir": feature_dir,
                         "base_commit": base_commit,
                         "task_count": len(tasks),
+                        "phase": phase,
                     }
                 ),
             ),
@@ -207,6 +199,7 @@ def run_status(
             "spec_slug": spec_slug,
             "feature_dir": feature_dir,
             "status": run_row["status"],
+            "phase": run_row["phase"],
             "base_commit": run_row["base_commit"],
             "cwd": run_row["cwd"],
             "tmpdir": run_row["tmpdir"],
@@ -466,6 +459,127 @@ def run_resume(
     )
 
 
+def run_advance_phase(
+    conn: sqlite3.Connection,
+    run_id: int,
+    spec_id: int,
+    feature_dir: str,
+    target_phase: str,
+    *,
+    base_commit: str | None = None,
+    tmpdir: str | None = None,
+    visual_mode: str | None = None,
+    dev_server_url: str | None = None,
+) -> None:
+    """Advance a run's phase forward: define -> plan -> orchestrate.
+
+    Forward-only transition guarded by PHASE_ORDER. A same-phase call is
+    idempotent tolerance: it emits a warning rather than an error. Advancing
+    to orchestrate discovers task files from disk and inserts task rows —
+    the same discovery run_start performs — and refreshes base_commit (so
+    the define/plan commits don't leak into orchestrate's post-execution
+    diff), tmpdir, visual_mode, and dev_server_url, which are only known at
+    orchestrate time.
+
+    Task discovery and base_commit resolution (filesystem glob, `git
+    rev-parse` subprocess) run before BEGIN IMMEDIATE, same as run_start,
+    so the exclusive write lock isn't held across that I/O. The phase read
+    used to decide whether this call is actually entering orchestrate is
+    re-verified under the lock before any write, closing the TOCTOU window.
+    """
+    if target_phase not in PHASE_ORDER:
+        output_module.emit_error(
+            f"Invalid phase '{target_phase}'. Must be one of: "
+            f"{', '.join(PHASE_ORDER)}.",
+            code="invalid_phase",
+        )
+
+    prelim_row = conn.execute("SELECT phase FROM runs WHERE id=?", (run_id,)).fetchone()
+    prelim_phase = prelim_row["phase"] if prelim_row else None
+
+    tasks: list[dict] = []
+    entering_orchestrate = (
+        target_phase == "orchestrate"
+        and prelim_phase is not None
+        and PHASE_ORDER[target_phase] > PHASE_ORDER[prelim_phase]
+    )
+    if entering_orchestrate:
+        tasks = _discover_tasks_or_error(feature_dir)
+        base_commit = _resolve_base_commit(base_commit)
+
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        _guard_run_spec_ownership(conn, run_id, spec_id)
+
+        run_row = conn.execute(
+            "SELECT phase FROM runs WHERE id=?", (run_id,)
+        ).fetchone()
+        current_phase = run_row["phase"]
+
+        if PHASE_ORDER[target_phase] < PHASE_ORDER[current_phase]:
+            conn.execute("ROLLBACK")
+            output_module.emit_error(
+                f"Cannot move run {run_id} backward from phase "
+                f"'{current_phase}' to '{target_phase}'.",
+                code="phase_regression",
+            )
+            raise AssertionError("unreachable: emit_error always exits")
+
+        if target_phase == current_phase:
+            conn.execute("ROLLBACK")
+            output_module.emit_warning(
+                f"Run {run_id} is already in phase '{target_phase}'.",
+                code="phase_already_current",
+            )
+            return
+
+        if target_phase == "orchestrate":
+            _insert_task_rows(conn, run_id, tasks)
+
+            conn.execute(
+                """UPDATE runs SET phase=?, base_commit=?, tmpdir=?, visual_mode=?, dev_server_url=?
+                   WHERE id=?""",
+                (
+                    target_phase,
+                    base_commit,
+                    tmpdir,
+                    visual_mode,
+                    dev_server_url,
+                    run_id,
+                ),
+            )
+        else:
+            conn.execute("UPDATE runs SET phase=? WHERE id=?", (target_phase, run_id))
+
+        conn.execute(
+            """INSERT INTO events (run_id, event, data, created_at)
+               VALUES (?, 'phase.advanced', ?, datetime('now'))""",
+            (
+                run_id,
+                json.dumps({"from_phase": current_phase, "to_phase": target_phase}),
+            ),
+        )
+
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+    auto_join_session(conn, run_id)
+
+    result: dict = {
+        "run_id": run_id,
+        "phase": target_phase,
+        "from_phase": current_phase,
+        "to_phase": target_phase,
+    }
+    if target_phase == "orchestrate":
+        result["task_count"] = len(tasks)
+        result["tasks"] = [t["task_id"] for t in tasks]
+
+    output_module.emit(result)
+
+
 def _guard_active_run(conn: sqlite3.Connection, existing_run_id: int) -> None:
     """Error with run_stale or run_already_active depending on recency of events."""
     interval = f"-{STALE_RUN_HOURS} hours"
@@ -488,16 +602,22 @@ def _guard_active_run(conn: sqlite3.Connection, existing_run_id: int) -> None:
         )
     else:
         run_row = conn.execute(
-            "SELECT started_at FROM runs WHERE id=?", (existing_run_id,)
+            "SELECT started_at, phase FROM runs WHERE id=?", (existing_run_id,)
         ).fetchone()
         started_at = (
             output_module.to_iso(run_row["started_at"]) if run_row else "unknown"
         )
+        phase = run_row["phase"] if run_row else "orchestrate"
+        resume_skill = {
+            "define": "/mine-define",
+            "plan": "/mine-plan",
+            "orchestrate": "/mine-orchestrate",
+        }.get(phase, "/mine-orchestrate")
         output_module.emit_error(
             f"Run {existing_run_id} started {started_at}. "
-            "Resume with `/mine-orchestrate`, or `cfl run stop` first.",
+            f"Resume with `{resume_skill}`, or `cfl run stop` first.",
             code="run_already_active",
-            hint="Resume with `/mine-orchestrate`, or `cfl run stop` first.",
+            hint=f"Resume with `{resume_skill}`, or `cfl run stop` first.",
         )
 
 
@@ -528,6 +648,48 @@ def _discover_tasks(feature_dir: str) -> list[dict]:
 
     tasks.sort(key=lambda t: _task_id_sort_key(t["task_id"]))
     return tasks
+
+
+def _discover_tasks_or_error(feature_dir: str) -> list[dict]:
+    """Discover tasks, emit_error(no_tasks) if none found.
+
+    Shared by run_start and run_advance_phase. Both callers run this before
+    opening a write transaction, so a no_tasks exit never needs to unwind an
+    open transaction.
+    """
+    tasks = _discover_tasks(feature_dir)
+    if not tasks:
+        output_module.emit_error(
+            f"No T*.md files in {feature_dir}/tasks/.",
+            code="no_tasks",
+            hint="Create task files with mine-plan first.",
+        )
+    return tasks
+
+
+def _resolve_base_commit(base_commit: str | None) -> str:
+    """Return base_commit as given, or resolve HEAD; emit_warning if HEAD is unresolvable.
+
+    Shared by run_start and run_advance_phase.
+    """
+    if base_commit is not None:
+        return base_commit
+    resolved = _get_head_commit()
+    if resolved == "unknown":
+        output_module.emit_warning(
+            "Could not resolve HEAD commit; base_commit set to 'unknown'.",
+            code="base_commit_unknown",
+        )
+    return resolved
+
+
+def _insert_task_rows(conn: sqlite3.Connection, run_id: int, tasks: list[dict]) -> None:
+    """Insert one pending tasks row per discovered task. Shared by run_start and run_advance_phase."""
+    for task in tasks:
+        conn.execute(
+            "INSERT INTO tasks (run_id, task_id, title, status) VALUES (?, ?, ?, 'pending')",
+            (run_id, task["task_id"], task["title"]),
+        )
 
 
 def _task_id_sort_key(task_id: str) -> int:

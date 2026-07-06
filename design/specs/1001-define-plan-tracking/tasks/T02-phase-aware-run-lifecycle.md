@@ -1,7 +1,7 @@
 ---
 task_id: "T02"
 title: "Add phase-aware run start, advance-phase, and status"
-status: "planned"
+status: "done"
 depends_on: ["T01"]
 implements: ["FR#1", "FR#3", "FR#4", "FR#5", "FR#10", "FR#13", "AC#1", "AC#2", "AC#3", "AC#4", "AC#6", "AC#7", "AC#8"]
 ---

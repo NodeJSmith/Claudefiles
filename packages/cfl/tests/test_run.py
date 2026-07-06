@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from cfl.run import (
+    run_advance_phase,
     run_complete,
     run_resume,
     run_start,
@@ -106,6 +107,9 @@ def test_run_start_creates_runs_row_and_task_rows(db_conn, tmp_path, capsys):
     assert data["task_count"] == 5
     assert data["base_commit"] == "abc1234"
 
+    # Default phase is orchestrate
+    assert run_row["phase"] == "orchestrate"
+
 
 def test_run_start_emits_run_started_event(db_conn, tmp_path):
     """run_start implicitly inserts a run.started event (FR#21)."""
@@ -120,10 +124,11 @@ def test_run_start_emits_run_started_event(db_conn, tmp_path):
         "SELECT id FROM runs WHERE spec_id=?", (spec_id,)
     ).fetchone()
     event = db_conn.execute(
-        "SELECT event FROM events WHERE run_id=?", (run_row["id"],)
+        "SELECT event, data FROM events WHERE run_id=?", (run_row["id"],)
     ).fetchone()
     assert event is not None
     assert event["event"] == "run.started"
+    assert json.loads(event["data"])["phase"] == "orchestrate"
 
 
 # ---------------------------------------------------------------------------
@@ -289,6 +294,7 @@ def test_run_status_returns_all_fields_with_correct_derivation(
     data = json.loads(capsys.readouterr().out)
     assert data["exists"] is True
     assert data["run_id"] == run_id
+    assert data["phase"] == "orchestrate"
     assert len(data["tasks"]) == 5
     assert data["last_completed"] == "T02"
     assert data["current_task"] == "T03"
@@ -564,6 +570,382 @@ def test_run_start_ac12_task_count_in_db(db_conn, tmp_path):
         "SELECT COUNT(*) AS cnt FROM tasks WHERE run_id=?", (run_row["id"],)
     ).fetchone()["cnt"]
     assert count == 5
+
+
+# ---------------------------------------------------------------------------
+# run_start: phase-aware task discovery
+# ---------------------------------------------------------------------------
+
+
+def test_run_start_phase_define_skips_task_discovery(db_conn, tmp_path, capsys):
+    """run_start(phase='define') skips task discovery even with no task files."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+    # No task files created at all — an orchestrate-phase start would error.
+
+    run_start(
+        db_conn,
+        spec_id,
+        _feature_dir(tmp_path, 1, "my-feature"),
+        phase="define",
+        base_commit="abc",
+    )
+
+    data = json.loads(capsys.readouterr().out)
+    assert data["task_count"] == 0
+
+    run_row = db_conn.execute(
+        "SELECT phase FROM runs WHERE spec_id=?", (spec_id,)
+    ).fetchone()
+    assert run_row["phase"] == "define"
+
+    task_count = db_conn.execute("SELECT COUNT(*) AS cnt FROM tasks").fetchone()["cnt"]
+    assert task_count == 0
+
+
+def test_run_start_phase_plan_skips_task_discovery(db_conn, tmp_path, capsys):
+    """run_start(phase='plan') skips task discovery even with no task files."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+    # No task files created at all — an orchestrate-phase start would error.
+
+    run_start(
+        db_conn,
+        spec_id,
+        _feature_dir(tmp_path, 1, "my-feature"),
+        phase="plan",
+        base_commit="abc",
+    )
+
+    data = json.loads(capsys.readouterr().out)
+    assert data["task_count"] == 0
+
+    run_row = db_conn.execute(
+        "SELECT phase FROM runs WHERE spec_id=?", (spec_id,)
+    ).fetchone()
+    assert run_row["phase"] == "plan"
+
+    task_count = db_conn.execute("SELECT COUNT(*) AS cnt FROM tasks").fetchone()["cnt"]
+    assert task_count == 0
+
+
+def test_run_start_default_phase_orchestrate(db_conn, tmp_path, capsys):
+    """run_start without phase= discovers tasks and defaults to orchestrate."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+    tasks_dir = _tasks_dir(tmp_path, 1, "my-feature")
+    _make_task_file(tasks_dir, "T01", "Task 1")
+    _make_task_file(tasks_dir, "T02", "Task 2")
+
+    run_start(
+        db_conn, spec_id, _feature_dir(tmp_path, 1, "my-feature"), base_commit="abc"
+    )
+
+    data = json.loads(capsys.readouterr().out)
+    assert data["task_count"] == 2
+
+    run_row = db_conn.execute(
+        "SELECT phase FROM runs WHERE spec_id=?", (spec_id,)
+    ).fetchone()
+    assert run_row["phase"] == "orchestrate"
+
+
+# ---------------------------------------------------------------------------
+# run_advance_phase
+# ---------------------------------------------------------------------------
+
+
+def test_run_advance_phase_rejects_invalid_phase(db_conn, tmp_path, capsys):
+    """run_advance_phase(target_phase='bogus') errors with invalid_phase."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+    run_start(
+        db_conn,
+        spec_id,
+        _feature_dir(tmp_path, 1, "my-feature"),
+        phase="define",
+        base_commit="abc",
+    )
+    run_row = db_conn.execute(
+        "SELECT id FROM runs WHERE spec_id=?", (spec_id,)
+    ).fetchone()
+    run_id = run_row["id"]
+    capsys.readouterr()
+
+    with pytest.raises(SystemExit) as exc_info:
+        run_advance_phase(
+            db_conn, run_id, spec_id, _feature_dir(tmp_path, 1, "my-feature"), "bogus"
+        )
+    assert exc_info.value.code == 1
+
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "invalid_phase"
+
+    # Phase unchanged
+    unchanged_run = db_conn.execute(
+        "SELECT phase FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert unchanged_run["phase"] == "define"
+
+
+def test_run_advance_phase_define_to_plan(db_conn, tmp_path, capsys):
+    """run_advance_phase(target_phase='plan') on a define-phase run updates phase and emits event."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+    run_start(
+        db_conn,
+        spec_id,
+        _feature_dir(tmp_path, 1, "my-feature"),
+        phase="define",
+        base_commit="abc",
+    )
+    run_row = db_conn.execute(
+        "SELECT id FROM runs WHERE spec_id=?", (spec_id,)
+    ).fetchone()
+    run_id = run_row["id"]
+    capsys.readouterr()  # consume run_start output
+
+    run_advance_phase(
+        db_conn, run_id, spec_id, _feature_dir(tmp_path, 1, "my-feature"), "plan"
+    )
+
+    updated_run = db_conn.execute(
+        "SELECT phase FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert updated_run["phase"] == "plan"
+
+    event = db_conn.execute(
+        "SELECT data FROM events WHERE run_id=? AND event='phase.advanced'",
+        (run_id,),
+    ).fetchone()
+    assert event is not None
+    event_data = json.loads(event["data"])
+    assert event_data["from_phase"] == "define"
+    assert event_data["to_phase"] == "plan"
+
+    data = json.loads(capsys.readouterr().out)
+    assert data["phase"] == "plan"
+    assert data["from_phase"] == "define"
+    assert data["to_phase"] == "plan"
+
+
+def test_run_advance_phase_plan_to_orchestrate_loads_tasks(db_conn, tmp_path, capsys):
+    """run_advance_phase(target_phase='orchestrate') discovers task files and creates task rows."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+    run_start(
+        db_conn,
+        spec_id,
+        _feature_dir(tmp_path, 1, "my-feature"),
+        phase="plan",
+        base_commit="abc",
+    )
+    run_row = db_conn.execute(
+        "SELECT id FROM runs WHERE spec_id=?", (spec_id,)
+    ).fetchone()
+    run_id = run_row["id"]
+    capsys.readouterr()  # consume run_start output
+
+    tasks_dir = _tasks_dir(tmp_path, 1, "my-feature")
+    _make_task_file(tasks_dir, "T01", "Task 1")
+    _make_task_file(tasks_dir, "T02", "Task 2")
+    _make_task_file(tasks_dir, "T03", "Task 3")
+
+    run_advance_phase(
+        db_conn,
+        run_id,
+        spec_id,
+        _feature_dir(tmp_path, 1, "my-feature"),
+        "orchestrate",
+    )
+
+    count = db_conn.execute(
+        "SELECT COUNT(*) AS cnt FROM tasks WHERE run_id=?", (run_id,)
+    ).fetchone()["cnt"]
+    assert count == 3
+
+    updated_run = db_conn.execute(
+        "SELECT phase FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert updated_run["phase"] == "orchestrate"
+
+    data = json.loads(capsys.readouterr().out)
+    assert data["task_count"] == 3
+    assert data["tasks"] == ["T01", "T02", "T03"]
+
+
+def test_run_advance_phase_orchestrate_errors_no_tasks(db_conn, tmp_path, capsys):
+    """run_advance_phase(target_phase='orchestrate') errors no_tasks when no task files exist; phase unchanged."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+    run_start(
+        db_conn,
+        spec_id,
+        _feature_dir(tmp_path, 1, "my-feature"),
+        phase="plan",
+        base_commit="abc",
+    )
+    run_row = db_conn.execute(
+        "SELECT id FROM runs WHERE spec_id=?", (spec_id,)
+    ).fetchone()
+    run_id = run_row["id"]
+    capsys.readouterr()  # consume run_start output
+
+    # No tasks/ directory created — discovery must fail before any write.
+
+    with pytest.raises(SystemExit) as exc_info:
+        run_advance_phase(
+            db_conn,
+            run_id,
+            spec_id,
+            _feature_dir(tmp_path, 1, "my-feature"),
+            "orchestrate",
+        )
+    assert exc_info.value.code == 1
+
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "no_tasks"
+
+    # Phase unchanged
+    unchanged_run = db_conn.execute(
+        "SELECT phase FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert unchanged_run["phase"] == "plan"
+
+
+def test_run_advance_phase_rejects_backward_plan_to_define(db_conn, tmp_path, capsys):
+    """run_advance_phase(target_phase='define') on a plan-phase run errors with phase_regression."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+    run_start(
+        db_conn,
+        spec_id,
+        _feature_dir(tmp_path, 1, "my-feature"),
+        phase="plan",
+        base_commit="abc",
+    )
+    run_row = db_conn.execute(
+        "SELECT id FROM runs WHERE spec_id=?", (spec_id,)
+    ).fetchone()
+    run_id = run_row["id"]
+    capsys.readouterr()
+
+    with pytest.raises(SystemExit) as exc_info:
+        run_advance_phase(
+            db_conn, run_id, spec_id, _feature_dir(tmp_path, 1, "my-feature"), "define"
+        )
+    assert exc_info.value.code == 1
+
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "phase_regression"
+
+    # Phase unchanged
+    unchanged_run = db_conn.execute(
+        "SELECT phase FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert unchanged_run["phase"] == "plan"
+
+
+def test_run_advance_phase_rejects_backward_orchestrate_to_plan(
+    db_conn, tmp_path, capsys
+):
+    """run_advance_phase(target_phase='plan') on an orchestrate-phase run errors with phase_regression."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+    _make_task_file(_tasks_dir(tmp_path, 1, "my-feature"), "T01", "Task 1")
+    run_start(
+        db_conn, spec_id, _feature_dir(tmp_path, 1, "my-feature"), base_commit="abc"
+    )
+    run_row = db_conn.execute(
+        "SELECT id FROM runs WHERE spec_id=?", (spec_id,)
+    ).fetchone()
+    run_id = run_row["id"]
+    capsys.readouterr()
+
+    with pytest.raises(SystemExit) as exc_info:
+        run_advance_phase(
+            db_conn, run_id, spec_id, _feature_dir(tmp_path, 1, "my-feature"), "plan"
+        )
+    assert exc_info.value.code == 1
+
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "phase_regression"
+
+
+def test_run_advance_phase_same_phase_warns(db_conn, tmp_path, capsys):
+    """run_advance_phase(target_phase=<current phase>) is idempotent — warning, not error."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+    run_start(
+        db_conn,
+        spec_id,
+        _feature_dir(tmp_path, 1, "my-feature"),
+        phase="plan",
+        base_commit="abc",
+    )
+    run_row = db_conn.execute(
+        "SELECT id FROM runs WHERE spec_id=?", (spec_id,)
+    ).fetchone()
+    run_id = run_row["id"]
+    capsys.readouterr()
+
+    run_advance_phase(
+        db_conn, run_id, spec_id, _feature_dir(tmp_path, 1, "my-feature"), "plan"
+    )
+
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "phase_already_current"
+
+    # Phase unchanged
+    unchanged_run = db_conn.execute(
+        "SELECT phase FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert unchanged_run["phase"] == "plan"
+
+
+def test_run_advance_phase_orchestrate_refreshes_base_commit(db_conn, tmp_path, capsys):
+    """run_advance_phase(target_phase='orchestrate') refreshes base_commit from the call."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+    run_start(
+        db_conn,
+        spec_id,
+        _feature_dir(tmp_path, 1, "my-feature"),
+        phase="define",
+        base_commit="old",
+    )
+    run_row = db_conn.execute(
+        "SELECT id FROM runs WHERE spec_id=?", (spec_id,)
+    ).fetchone()
+    run_id = run_row["id"]
+    capsys.readouterr()
+
+    _make_task_file(_tasks_dir(tmp_path, 1, "my-feature"), "T01", "Task 1")
+
+    run_advance_phase(
+        db_conn,
+        run_id,
+        spec_id,
+        _feature_dir(tmp_path, 1, "my-feature"),
+        "orchestrate",
+        base_commit="new",
+    )
+
+    updated_run = db_conn.execute(
+        "SELECT base_commit FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert updated_run["base_commit"] == "new"
+
+
+def test_run_status_includes_phase(db_conn, tmp_path, capsys):
+    """run_status output includes the run's current phase."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+    run_start(
+        db_conn,
+        spec_id,
+        _feature_dir(tmp_path, 1, "my-feature"),
+        phase="define",
+        base_commit="abc",
+    )
+    run_row = db_conn.execute(
+        "SELECT id FROM runs WHERE spec_id=?", (spec_id,)
+    ).fetchone()
+    run_id = run_row["id"]
+    capsys.readouterr()
+
+    run_status(db_conn, run_id, spec_id, 1, "my-feature", "design/specs/001-my-feature")
+
+    data = json.loads(capsys.readouterr().out)
+    assert data["phase"] == "define"
 
 
 # ---------------------------------------------------------------------------
