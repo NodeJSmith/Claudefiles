@@ -20,7 +20,7 @@ Task files encode literal file paths and pointers. If the branch is behind the d
 
 ---
 
-## Phase 1: Read the Design Doc
+## Initialize Plan Tracking
 
 ### Locate the design doc
 
@@ -39,13 +39,68 @@ Sort by modification time, take the most recent. Then confirm:
 ```
 AskUserQuestion:
   question: "Found design.md at <path>. Generate task files from this?"
-  header: "Confirm design doc"
+  header: "Design doc"
   multiSelect: false
   options:
     - label: "Yes — use this design doc"
     - label: "No — let me specify the path"
       description: "Tell me the correct path and I'll use that"
 ```
+
+### Identify the feature directory
+
+The feature directory is `design/specs/NNN-<slug>/` containing the design.md. All task files will be written to `<feature_dir>/tasks/`. Create the `tasks/` subdirectory if it doesn't exist. Extract `<spec_number>` (`NNN`, without zero-padding) from the directory name — every `cfl` call in this skill from here on threads it through.
+
+### Initialize plan tracking
+
+Check whether cfl already tracks this spec:
+
+```bash
+cfl spec status --spec <spec_number>
+```
+
+- If this succeeds (spec data is returned), cfl tracking is available for this spec. Continue below.
+- If this errors with `spec_not_found`, this directory predates cfl lifecycle tracking (created before cfl existed, or by a `mine-define` run that itself predates tracking) and cfl cannot adopt it after the fact. Tell the user: "This directory predates cfl lifecycle tracking — proceeding without cfl tracking for this session." **cfl tracking is inactive for this run** — skip every `cfl` call for the remainder of this run (the rest of this section, and every dispatch/event/gate call in Phases 3 through 6). Each of those sections notes this same condition — re-check it before running any `cfl` command, since a resumed session may re-enter at any phase.
+
+**Why `<spec_number>` must be threaded through:** `cfl` commands resolve the current spec from the working directory by default — they glob `design/specs/*/tasks/T*.md` first, falling back to bare `design/specs/*/` only when no repo-wide task files exist at all. Until Phase 3 writes task files, this spec has no `tasks/` directory, so it's invisible to that glob; if any *other* spec directory in the repo still has task files — a common state, not an edge case — CWD-based resolution silently attaches to that unrelated spec instead, misattributing this run's entire lifecycle history. Passing `--spec <spec_number>` on every subsequent `cfl` call removes the ambiguity. From here on, every `cfl spec`, `cfl run`, `cfl gate`, `cfl dispatch`, and `cfl event` call in this skill appends `--spec <spec_number>` (the one exception is `cfl dispatch end <id>`, which resolves entirely from the dispatch id and takes no `--spec`) — unless cfl tracking is inactive per the branch above, in which case all such calls are skipped instead.
+
+Determine the run state for this spec:
+
+```bash
+cfl run status --spec <spec_number>
+```
+
+Branch on the result:
+
+- `"exists": true` and `"phase": "define"` — advance to plan phase:
+
+```bash
+cfl run advance-phase plan --spec <spec_number>
+cfl event plan.started --spec <spec_number>
+```
+
+- `"exists": true` and `"phase": "plan"` — already in plan phase. Resume; no new run needed. Emit `cfl event plan.started --spec <spec_number>` only on the first entry into mine-plan for this run — skip it on subsequent invocations (e.g., a new session resuming an in-progress plan run).
+
+- `"exists": true` and `"phase": "orchestrate"` — the run has already advanced past plan. This shouldn't happen in normal flow (phase advances are forward-only and orchestrate never hands back to plan). Warn the user: "This spec's run has already advanced to the orchestrate phase — proceeding without further plan-phase tracking." **cfl tracking is inactive for the remainder of this run** — apply the same skip rule as the "predates cfl tracking" branch above.
+
+- `"exists": false` — no active run. Try resuming a stopped run:
+
+```bash
+cfl run resume --spec <spec_number>
+```
+
+If resume succeeds, run `cfl run status --spec <spec_number>` to read the resumed run's phase (the resume response itself doesn't include it), then branch as above: if the phase is `define`, advance to `plan` (as above, including the `plan.started` event); if already `plan`, proceed without re-emitting the event.
+
+If resume errors with `no_stopped_run`, create a new run:
+
+```bash
+cfl run start --phase plan --base-commit $(git rev-parse --short HEAD) --spec <spec_number>
+cfl event plan.started --spec <spec_number>
+```
+
+---
+
+## Phase 1: Read the Design Doc
 
 ### Extract key information
 
@@ -93,10 +148,6 @@ AskUserQuestion:
 
 After all questions are answered (or skipped), briefly summarize the resolutions before continuing to Phase 2:
 > Resolved open questions: Q1 → Option A, Q2 → Option B, Q3 → skipped. Proceeding to generate task files.
-
-### Identify the feature directory
-
-The feature directory is `design/specs/NNN-<slug>/` containing the design.md. All task files will be written to `<feature_dir>/tasks/`. Create the `tasks/` subdirectory if it doesn't exist.
 
 ---
 
@@ -264,6 +315,16 @@ implements: ["FR#1", "FR#3", "AC#7"]
 - Do NOT include tasks for Non-goals
 - Do NOT include cleanup or "nice to have" work not in the design
 
+### Record tasks written
+
+After context.md and all `T*.md` files are written to disk. Skip if cfl tracking is inactive for this run (see Initialize Plan Tracking):
+
+```bash
+cfl event plan.tasks-written --data '{"task_count": <N>}' --spec <spec_number>
+```
+
+Where `<N>` is the number of task files generated.
+
 ---
 
 ## Phase 3.5: Validation Gate
@@ -271,6 +332,14 @@ implements: ["FR#1", "FR#3", "AC#7"]
 After writing all task files and context.md, dispatch a validation subagent with fresh context to independently verify traceability and correctness. This subagent does NOT inherit the planner's interpretation.
 
 ### Dispatch the validator
+
+Before dispatching, record the dispatch. Skip this call (and the dispatch-end call below) if cfl tracking is inactive for this run (see Initialize Plan Tracking):
+
+```bash
+cfl dispatch plan-validator --agent-type general-purpose --model sonnet --spec <spec_number>
+```
+
+Record the `dispatch_id` from the output.
 
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-plan/validator-prompt.md` to get the validator instructions.
 
@@ -293,6 +362,14 @@ Write your validation report to: <absolute path to tasks/.validation-report.md>
 
 The subagent reads the design doc and all task files independently (fresh context). It writes the report to `<feature_dir>/tasks/.validation-report.md`.
 
+### Record validator dispatch end
+
+After the validator subagent completes. Skip if cfl tracking is inactive for this run:
+
+```bash
+cfl dispatch end <dispatch_id>
+```
+
 **Cross-check:** After the subagent completes, verify that the traceability matrix row count matches the FR/AC identifier count from Phase 1. If the counts diverge, re-run the validator — the subagent may have dropped or hallucinated identifiers.
 
 ### Present validation results
@@ -306,6 +383,14 @@ Read the validation report. Then present:
 5. **Warnings** — vague criteria, weak references, format issues
 
 Note the path to `.validation-report.md` so the user can inspect the full traceability matrix if desired.
+
+### Record validation gate
+
+Skip if cfl tracking is inactive for this run:
+
+```bash
+cfl gate plan-validation --verdict <PASS|FAIL> --spec <spec_number>
+```
 
 If verdict is FAIL, ask the user:
 
@@ -329,13 +414,23 @@ If PASS (with or without warnings), proceed to Phase 4 automatically.
 
 ## Phase 4: Commit Task Files
 
-After the validation gate passes, run schema validation (frontmatter fields, ID format, dependency references — complementary to Phase 3.5's traceability check) and commit:
+After the validation gate passes, run schema validation (frontmatter fields, ID format, dependency references — complementary to Phase 3.5's traceability check). Skip this validation step (and its gate below) if cfl tracking is inactive for this run — `cfl spec validate` requires a DB row for the spec regardless of `--spec`, so there is no workaround for a spec that predates cfl tracking; proceed directly to committing below.
 
 ```bash
-cfl spec validate
+cfl spec validate --spec <spec_number>
 ```
 
-Auto-resolves to the current spec from CWD. If multiple specs have task files present, use `cfl --spec NNN spec validate` where NNN is the spec number (`--spec` is a root-level flag). If validation reports errors, fix the task files before committing. Warnings are informational — do not block on them.
+If validation reports errors, fix the task files before committing. Warnings are informational — do not block on them.
+
+### Record spec-validate gate
+
+Skip if cfl tracking is inactive for this run:
+
+```bash
+cfl gate plan-spec-validate --verdict <v> --spec <spec_number>
+```
+
+Verdict mapping: clean output → PASS, warnings → WARN, errors → FAIL.
 
 Then commit:
 
@@ -351,6 +446,14 @@ If git operations fail (not a repo, nothing to commit), note it and continue.
 ## Phase 5: Review
 
 ### Dispatch reviewer subagent
+
+Before dispatching, record the dispatch. Skip this call (and the dispatch-end call below) if cfl tracking is inactive for this run:
+
+```bash
+cfl dispatch plan-reviewer --agent-type general-purpose --model sonnet --spec <spec_number>
+```
+
+Record the `dispatch_id` from the output.
 
 Run `get-skill-tmpdir mine-plan` and use `<dir>/review.md` for the review output.
 
@@ -378,6 +481,14 @@ Write your complete structured review to: <temp file path>
 
 The subagent will write the review to the temp file.
 
+### Record reviewer dispatch end
+
+After the reviewer subagent completes. Skip if cfl tracking is inactive for this run:
+
+```bash
+cfl dispatch end <dispatch_id>
+```
+
 ### Present findings
 
 Read the temp file. Format the results clearly:
@@ -388,11 +499,29 @@ Read the temp file. Format the results clearly:
 4. **Blocking issues** — if verdict is FAIL or ABANDON
 5. **Suggestions** — non-blocking notes, if any
 
+### Record review gate
+
+Skip if cfl tracking is inactive for this run:
+
+```bash
+cfl gate plan-review --verdict <v> --spec <spec_number>
+```
+
+Verdict mapping: reviewer PASS → PASS, reviewer FAIL → FAIL, reviewer ABANDON → FAIL.
+
 ---
 
 ## Phase 5.5: Fine-Toothed Comb Review
 
 The task files are now the plan's output. Comb the design doc and the task files **together** one last time — an open-ended pass, no checklist, no rubric. This is distinct from the Phase 3.5 traceability gate and the Phase 5 review checklist: it catches the design and tasks reading as inconsistent, inaccurate, or thin once taken in as a whole (a task that drifted from the design's intent, a design decision no task honors, terminology that diverged between the two).
+
+Before dispatching, record the dispatch. Skip this call (and the dispatch-end/gate calls below) if cfl tracking is inactive for this run:
+
+```bash
+cfl dispatch plan-comb --agent-type fine-toothed-comb --model sonnet --spec <spec_number>
+```
+
+Record the `dispatch_id` from the output.
 
 Dispatch the `fine-toothed-comb` agent (see `${CLAUDE_CONFIG_DIR:-~/.claude}/agents/fine-toothed-comb.md`):
 
@@ -408,6 +537,15 @@ Agent:
 
     Define blocking as: an inconsistency, inaccuracy, or gap between the design and tasks that would mislead implementation.
 ```
+
+After the comb completes, record the dispatch end and the gate. This verdict reflects the comb subagent's own findings classification, recorded immediately from its report — not the user's downstream proceed/re-review decision, which the "Comb gate" step below handles separately:
+
+```bash
+cfl dispatch end <dispatch_id>
+cfl gate plan-comb --verdict <v> --spec <spec_number>
+```
+
+Verdict mapping: no findings → PASS, minor findings accepted → WARN, blocking findings → FAIL.
 
 ### Comb gate
 
@@ -458,6 +596,25 @@ AskUserQuestion:
       description: "Blocking issues found — regenerate task files with reviewer notes"
     - label: "Abandon"
       description: "Mark the design as abandoned and stop"
+```
+
+### Record approval gate
+
+After the user's choice above. Skip if cfl tracking is inactive for this run:
+
+```bash
+cfl gate plan-approval --verdict <v> --spec <spec_number>
+```
+
+Verdict mapping:
+- "Approve as-is" / "Approve with suggestions" → PASS
+- "Revise the plan" → WARN (loop continues; re-emit on each revision cycle)
+- "Abandon" → FAIL
+
+Only when the verdict is PASS, also emit:
+
+```bash
+cfl event plan.approved --spec <spec_number>
 ```
 
 ### On "Approve as-is"

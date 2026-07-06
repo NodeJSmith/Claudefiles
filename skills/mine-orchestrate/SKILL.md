@@ -30,11 +30,11 @@ Run state persists in the cfl SQLite DB across sessions. Per-task temp artifacts
 
 ### Check for existing run (resume detection)
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/resume-protocol.md` and follow it. If an active run exists, the protocol either resumes at Phase 2 or restarts fresh; if no active run exists, proceed to "Branch staleness pre-flight" below.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/resume-protocol.md` and follow it. If an active run exists in `orchestrate` phase, the protocol either resumes at Phase 2 or restarts fresh. If an active run exists in `define` or `plan` phase, the protocol either sets `advance_from_prior_phase` and falls through to "Branch staleness pre-flight" below, or stops the run and exits. If no active run exists, proceed to "Branch staleness pre-flight" below.
 
 ### Branch staleness pre-flight
 
-**Skip on resume**: if the resume-protocol above resumed an existing run at Phase 2, do NOT run this check — work is already in progress against the run's `base_commit`, and rebasing now would invalidate it. This runs only on a fresh run or a restart-fresh (the resume protocol stopped the stale run and is starting over).
+**Skip on resume**: if the resume-protocol above resumed an existing run at Phase 2, do NOT run this check — work is already in progress against the run's `base_commit`, and rebasing now would invalidate it. This runs on a fresh run, a restart-fresh (the resume protocol stopped the stale run and is starting over), or when advancing from a prior phase (`advance_from_prior_phase` is set) — skipped only when resuming an in-progress orchestrate run at Phase 2.
 
 A 12-hour run that stamps its `base_commit` onto a stale base will conflict late. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/staleness-preflight.md` and follow it in **gate** mode, with this stakes sentence: "Starting orchestrate now bases the whole run on stale code." On Abort, stop without starting a run.
 
@@ -74,7 +74,7 @@ Read all `<feature_dir>/tasks/T*.md` files in order. For each task, extract:
 - `title`
 - `depends_on`
 
-**Ordering note**: The tmpdir must exist before `cfl run start`. Obtain it via `get-skill-tmpdir mine-orchestrate` before calling `cfl run start`, then use it in the `--tmpdir` argument.
+**Ordering note**: The tmpdir must exist before `cfl run start` or `cfl run advance-phase orchestrate`. Obtain it via `get-skill-tmpdir mine-orchestrate` before either call, then use it in the `--tmpdir` argument.
 
 ### Dev server check (visual verification)
 
@@ -112,7 +112,7 @@ If a dev server was found (`visual_mode` is `enabled`), verify vision capability
 
 ### Initialize orchestration run via cfl
 
-After Phase 0 completes (feature directory found, design doc and task files read, dev server check done, vision check done), record the base commit and start the run via `cfl`.
+After Phase 0 completes (feature directory found, design doc and task files read, dev server check done, vision check done), record the base commit and initialize the run via `cfl`. Which command to call depends on what the resume-protocol found at the top of Phase 0:
 
 **Timing: capture `base_commit` BEFORE any task execution begins.** This is the snapshot of HEAD before the orchestrator modifies any files, so that `git diff --name-only <base_commit> HEAD` after execution shows exactly what changed.
 
@@ -122,13 +122,25 @@ First, get the base commit:
 git rev-parse --short HEAD
 ```
 
-Then start the run:
+**If `advance_from_prior_phase` is set** (resume-protocol found a run in `define` or `plan` phase and the user chose "Advance to orchestrate"):
+
+```bash
+cfl run advance-phase orchestrate --base-commit <sha> --tmpdir <tmpdir> [--visual-mode <enabled|skipped_no_server|skipped_no_vision>] [--dev-server-url <url>]
+```
+
+This advances the existing run to orchestrate phase, discovers and loads task files into the DB (same task discovery `cfl run start` does today), refreshes `base_commit` to the current HEAD (so define/plan commits don't appear in the post-execution diff), and sets `tmpdir`/`visual_mode`/`dev_server_url`. Unlike `cfl run start`, this output does **not** echo back `tmpdir`, `base_commit`, `spec_id`, or `started_at` — it returns only `run_id`, `phase`, `from_phase`, `to_phase`, `task_count`, `tasks`. Use the `tmpdir` and `base_commit` values already obtained above (via `get-skill-tmpdir` and `git rev-parse`) rather than reading them back from this output.
+
+**If no run exists** (fresh start, no prior define/plan — resume-protocol returned `{"exists": false}`):
 
 ```bash
 cfl run start --base-commit <sha> --tmpdir <tmpdir> [--visual-mode <enabled|skipped_no_server|skipped_no_vision>] [--dev-server-url <url>]
 ```
 
-`cfl run start` reads task files from disk, creates the run and all task rows atomically in the DB, and emits the `run.started` event internally. No separate trail-log call is needed. The `tmpdir` field from the JSON output is the canonical tmpdir for this run.
+This is the existing behavior — creates a new run, discovers tasks, inserts task rows.
+
+**If a run exists in `orchestrate` phase** (handled entirely by resume-protocol): the run is already active with tasks loaded and `cfl run resume` was already called. Proceed directly to Phase 2 — do not call `cfl run start` or `cfl run advance-phase` here.
+
+Either `cfl run start` or `cfl run advance-phase orchestrate` reads task files from disk, creates/updates the run and all task rows atomically in the DB, and emits the corresponding event (`run.started` or `phase.advanced`) internally. No separate trail-log call is needed. The tmpdir value obtained via `get-skill-tmpdir` earlier in this phase (not re-read from either command's JSON output — `cfl run advance-phase orchestrate` doesn't return one) is the canonical tmpdir for this run.
 
 The active run is resolved from the DB for all subsequent `cfl` calls — no path argument required.
 
@@ -218,7 +230,7 @@ If a command file contains the sentinel value (`no test suite` / `no lint tools`
 
 ### Step 3: Create per-task subdirectory
 
-Use the run-level tmpdir from `cfl run start` output (`tmpdir` field from Phase 0). Do NOT call `get-skill-tmpdir` here — it creates a new directory each time, orphaning previous task evidence.
+Use the run-level tmpdir obtained via `get-skill-tmpdir` in Phase 0 (before either `cfl run start` or `cfl run advance-phase orchestrate`). Do NOT call `get-skill-tmpdir` here — it creates a new directory each time, orphaning previous task evidence.
 
 Create a per-task subdirectory: `<dir>/<task_id>/` (e.g., `<dir>/t01/`). Use these paths for subagent outputs within the subdirectory:
 - Executor output: `<dir>/<task_id>/executor.md`

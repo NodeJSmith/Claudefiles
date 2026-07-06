@@ -49,6 +49,49 @@ Do NOT share the classification with the user — use it only to calibrate how m
 
 Derive a preliminary `<slug>`: a kebab-case identifier from the request (e.g. `user-auth`, `payment-flow`, `csv-export`). Maximum 40 characters.
 
+### Initialize tracking
+
+After deriving the slug:
+
+1. If `$ARGUMENTS` pointed to an existing `design/specs/NNN-*/` directory, extract `NNN` and check whether cfl already has a row for it:
+
+```bash
+cfl spec status --spec <NNN>
+```
+
+- If this succeeds (spec data is returned), a spec already exists in cfl for this directory. Skip `cfl spec init`. Set the feature directory directly to the existing `design/specs/NNN-slug/` path — do not rely on `spec init` output, since it will not run. Set `<spec_number>` to `NNN`.
+- If this errors with `spec_not_found`, the directory predates cfl tracking and cfl cannot currently adopt it: `cfl spec init` always assigns the next available number and creates a brand-new directory (`mkdir(exist_ok=False)`), so it cannot register this pre-existing `NNN` or reuse its directory. **Do not fall through to `cfl spec init <slug>`** — doing so would silently create an unrelated, wrongly-numbered duplicate directory. Instead, tell the user: "This directory predates cfl lifecycle tracking and can't be adopted automatically — proceeding without cfl tracking for this session." Continue the rest of Phase 1 using the existing directory as the feature directory. **No `<spec_number>` is set in this branch** — skip every `cfl` call for the remainder of this run (Phase 1's run-state step below, and all later dispatch/event/gate calls in Phases 2-6). Each of those sections below notes this same condition — re-check it before running any `cfl` command, since a resumed session may re-enter at any phase.
+
+If `$ARGUMENTS` did not point to an existing spec directory, run:
+
+```bash
+cfl spec init <slug>
+```
+
+Record the `dir` field from the output as the feature directory and the `number` field as `<spec_number>`.
+
+**Why `<spec_number>` must be threaded through:** `cfl` commands resolve the current spec from the working directory by default — they glob `design/specs/*/tasks/T*.md` first, falling back to bare `design/specs/*/` only when no repo-wide task files exist at all. A freshly created spec has no `tasks/` directory yet (that's created later by `mine-plan`), so it's invisible to that glob. If any *other* spec directory in the repo still has task files — a common state, not an edge case — CWD-based resolution silently attaches to that unrelated spec instead, misattributing this run's entire lifecycle history. Passing `--spec <spec_number>` on every subsequent `cfl` call removes the ambiguity. From here on, every `cfl run`, `cfl gate`, `cfl dispatch`, and `cfl event` call in this skill appends `--spec <spec_number>` (the one exception is `cfl dispatch end <id>`, which resolves entirely from the dispatch id and takes no `--spec`) — unless cfl tracking was disabled per the "predates cfl tracking" branch above, in which case all such calls are skipped instead.
+
+2. Determine run state:
+
+```bash
+cfl run status --spec <spec_number>
+```
+
+- If the output has `"exists": true` — an active run exists. Resume it (no new run needed). Record the `run_id` for subsequent cfl calls.
+- If the output has `"exists": false` — try resuming a stopped run:
+
+```bash
+cfl run resume --spec <spec_number>
+```
+
+If this succeeds, the stopped run is now active again with its original run_id and phase preserved. If it errors with `no_stopped_run`, create a new run:
+
+```bash
+cfl run start --phase define --base-commit $(git rev-parse --short HEAD) --spec <spec_number>
+cfl event define.started --spec <spec_number>
+```
+
 ---
 
 ## Phase 1.5: Codebase Reconnaissance (moderate+ only)
@@ -335,6 +378,14 @@ If the user asks to change examples, note the changes. Don't re-confirm — proc
 
 If Phase 1.5 found no meaningful conventions to extract (e.g., greenfield project, no similar code exists), skip this step and note: "No convention examples to extract — the codebase has no similar patterns to reference."
 
+### Record discovery completion
+
+Skip if cfl tracking was disabled in Phase 1 (no `<spec_number>` set).
+
+```bash
+cfl event define.discovery-complete --spec <spec_number>
+```
+
 ---
 
 ## Phase 3: Investigate
@@ -361,6 +412,14 @@ If a potential match is found, **always confirm with the user before reusing**:
 
 Run `get-skill-tmpdir mine-define-research` and use `<dir>/brief.md` as the research brief destination.
 
+Before dispatching, record the dispatch. Skip this call (and the dispatch-end call below) if cfl tracking was disabled in Phase 1 (no `<spec_number>` set):
+
+```bash
+cfl dispatch researcher --agent-type researcher --model opus --spec <spec_number>
+```
+
+Record the `dispatch_id` from the output.
+
 Launch `Agent(subagent_type: "researcher")` with this prompt:
 
 ```
@@ -380,20 +439,23 @@ Write your research brief to: <temp file path>
 
 After the agent completes, **verify the output**: read the temp file and check that it exists and contains the `# Research Brief:` header. If missing or malformed, inform the user and offer to retry or proceed with manual investigation.
 
+### Record researcher dispatch end
+
+After the researcher subagent completes:
+
+```bash
+cfl dispatch end <dispatch_id>
+```
+
+Skip this section (and the dispatch record above) if the researcher was not dispatched (trivial features, or existing research brief reused) or if cfl tracking was disabled in Phase 1.
+
 ---
 
 ## Phase 4: Write design.md
 
-### Initialize the feature directory
+### Write to the feature directory
 
-If `$ARGUMENTS` pointed to an existing `design/specs/NNN-*/` directory (checked in Phase 1), reuse that as `feature_dir` — do not create a new one.
-
-Otherwise, run:
-```bash
-cfl spec init <slug>
-```
-
-Use the preliminary slug from Phase 1 (refine it if the user's answers suggest a better name). Record the `dir` field from the output as the feature directory.
+The feature directory was created in Phase 1's "Initialize tracking" step. Write design.md to `<feature_dir>/design.md`.
 
 ### Design context check
 
@@ -558,6 +620,14 @@ Write the design doc to `<feature_dir>/design.md`:
 
 Populate each section from the research brief, discovery answers, and codebase reconnaissance. Be specific — reference actual file paths, class names, and patterns found during investigation.
 
+### Record design doc written
+
+After the design doc is written to disk. Skip if cfl tracking was disabled in Phase 1 (no `<spec_number>` set):
+
+```bash
+cfl event define.design-written --spec <spec_number>
+```
+
 ---
 
 ## Phase 5: Quality Validation
@@ -586,11 +656,29 @@ Validate the design doc against this checklist:
 
 For any item that fails: **FAIL** — block and revise before proceeding. Report results as a compact list.
 
+### Record quality gate
+
+Skip if cfl tracking was disabled in Phase 1 (no `<spec_number>` set):
+
+```bash
+cfl gate define-quality --verdict <PASS|FAIL> --spec <spec_number>
+```
+
+Where verdict is PASS if all 19 checks passed, FAIL if any blocked.
+
 ---
 
 ## Phase 5.5: Fine-Toothed Comb Review
 
 After the structured checklist passes and before sign-off, comb the design doc one more time. This is an open-ended pass — no checklist, no rubric — and it catches what a checklist can't: the doc reading as inconsistent, inaccurate, or thin once you take it in as a whole. It complements Phase 5, it does not replace it.
+
+Before dispatching, record the dispatch. Skip this call (and the dispatch-end/gate calls below) if cfl tracking was disabled in Phase 1 (no `<spec_number>` set):
+
+```bash
+cfl dispatch define-comb --agent-type fine-toothed-comb --model sonnet --spec <spec_number>
+```
+
+Record the `dispatch_id` from the output.
 
 Dispatch the `fine-toothed-comb` agent (see `${CLAUDE_CONFIG_DIR:-~/.claude}/agents/fine-toothed-comb.md`):
 
@@ -605,6 +693,15 @@ Agent:
 
     Define blocking as: an inconsistency, inaccuracy, or gap that would mislead planning or implementation.
 ```
+
+After the comb completes, record the dispatch end and the gate:
+
+```bash
+cfl dispatch end <dispatch_id>
+cfl gate define-comb --verdict <v> --spec <spec_number>
+```
+
+Verdict mapping: no findings → PASS, minor findings accepted → WARN, blocking findings → FAIL.
 
 ### Comb gate
 
@@ -639,6 +736,28 @@ AskUserQuestion:
       description: "Design doc saved as draft; pick it up later"
 ```
 
+### Record sign-off gate
+
+Skip both calls below if cfl tracking was disabled in Phase 1 (no `<spec_number>` set). Always record the gate:
+
+```bash
+cfl gate define-signoff --verdict <v> --spec <spec_number>
+```
+
+Verdict mapping:
+- "Approve — proceed to planning" → PASS
+- "Revise — I have changes" → WARN (loop continues; re-emit on each revision cycle)
+- "Save and stop" → SKIPPED
+- "Gap-close first" → no gate emitted (gap-close runs, then re-enters sign-off)
+
+Only when the verdict is PASS (approved), also emit the sign-off event:
+
+```bash
+cfl event define.signed-off --spec <spec_number>
+```
+
+On Revise, Save-and-stop, or Gap-close, do **not** run the `cfl event` command above — no decision was finalized.
+
 ### On "Gap-close first"
 
 Invoke: `/mine-gap-close <design-doc-path>`
@@ -646,6 +765,8 @@ Invoke: `/mine-gap-close <design-doc-path>`
 After gap-close completes, loop back to the sign-off gate above.
 
 ### On "Approve"
+
+Record the sign-off gate with verdict `PASS` and emit `cfl event define.signed-off` (see "Record sign-off gate" above).
 
 Update design.md `**Status:**` from `draft` to `approved`.
 
@@ -669,8 +790,12 @@ If "Yes": invoke `/mine-plan <feature_dir>` directly.
 
 ### On "Revise"
 
+Record the sign-off gate with verdict `WARN` (see "Record sign-off gate" above — no event emitted).
+
 Ask what to change. Apply the edits to the design doc. Re-run the quality validation. Present for sign-off again.
 
 ### On "Save and stop"
+
+Record the sign-off gate with verdict `SKIPPED` (see "Record sign-off gate" above — no event emitted).
 
 Confirm: "Design doc saved as draft at `<feature_dir>`. Resume with `/mine-define` later."

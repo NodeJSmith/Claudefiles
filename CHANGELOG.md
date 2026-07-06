@@ -4,6 +4,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-07-06
 
+### Added
+
+- `cfl run advance-phase` — a single run now spans define→plan→orchestrate; `mine-define` and `mine-plan` emit lifecycle events, gates, and dispatches through `cfl` instead of a single spec-lifecycle call each, and `cfl run status` reports the current phase. (#442)
+
 ### Changed
 
 - `mine-comb` gate — blocking-findings prompt now offers an "Accept and proceed" escape hatch after 2 fix-and-re-comb cycles, and design-decision findings (as opposed to clear corrections) must be surfaced to the user via `AskUserQuestion` before being applied during "Fix and re-review". (#441)

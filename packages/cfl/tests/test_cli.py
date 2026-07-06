@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from cfl.cli import app, cmd_dispatch_end, handle_event
+from cfl.cli import app, cmd_dispatch_end, handle_event, run_app
 
 
 # ---------------------------------------------------------------------------
@@ -30,6 +30,11 @@ def test_app_registers_all_expected_commands():
     }
     assert expected_commands <= registered
     assert registered - expected_commands <= {"--help", "-h", "--version"}
+
+
+def test_run_app_registers_advance_phase():
+    registered = set(run_app._commands.keys())
+    assert "advance-phase" in registered
 
 
 # ---------------------------------------------------------------------------
