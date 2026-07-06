@@ -127,4 +127,4 @@ To: `run start/status/complete/stop/resume/advance-phase`
 - The `_spec_override` global is set by the meta launcher and is available to all command functions.
 
 ## Verify
-- [ ] AC#5: After running `cfl run start --phase define`, emitting define events, `cfl run advance-phase plan`, emitting plan events, `cfl run advance-phase orchestrate`, and emitting orchestrate events — `cfl event list` shows events from all three phases in chronological order under the same run_id
+- [ ] AC#5: After running `cfl run start --phase define`, emitting define events, `cfl run advance-phase plan`, emitting plan events, `cfl run advance-phase orchestrate`, and emitting orchestrate events — `cfl event list` shows events from all three phases under the same run_id

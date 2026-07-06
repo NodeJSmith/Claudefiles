@@ -86,7 +86,7 @@ In Phase 3 ("Investigate"), after the researcher subagent completes and its outp
 After the researcher subagent completes, record the dispatch:
 
 ```bash
-cfl dispatch researcher --agent-type researcher --model sonnet
+cfl dispatch researcher --agent-type researcher --model opus
 ```
 
 Record the `dispatch_id` from the output. Then:
@@ -156,6 +156,8 @@ Verdict mapping:
 - "Revise — I have changes" → WARN (loop continues; re-emit on each revision cycle)
 - "Save and stop" → SKIPPED
 - "Gap-close first" → no gate emitted (gap-close runs, then re-enters sign-off)
+
+Only emit `cfl event define.signed-off` when the verdict is PASS (approved). On Revise, Save-and-stop, or Gap-close, the event is not emitted — no decision was finalized.
 ```
 
 ## Focus

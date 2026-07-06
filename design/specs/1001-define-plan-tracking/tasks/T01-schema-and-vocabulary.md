@@ -50,7 +50,7 @@ Add 8 new event names to `KNOWN_EVENT_NAMES` (lines 13-37):
 - `plan.approved`
 - `phase.advanced`
 
-Group them visually after the existing entries, before `cfl.invoked`.
+Group them visually after the existing orchestrate-phase entries (after `dispatch.compacted`).
 
 ### gate.py changes
 

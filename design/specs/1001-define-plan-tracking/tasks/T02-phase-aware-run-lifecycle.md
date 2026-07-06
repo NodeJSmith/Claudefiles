@@ -103,7 +103,7 @@ At lines 489-501 (the "active run" hint), read the run's phase to provide a phas
 - `plan` phase: hint references mine-plan  
 - `orchestrate` phase: hint references mine-orchestrate (existing behavior)
 
-Query: `SELECT phase FROM runs WHERE id=?` using `existing_run_id`.
+Query: `SELECT phase FROM runs WHERE id=?` using `existing_run_id`. Note: the hint text appears in **two** string literals in `_guard_active_run` — the primary `emit_error` message (first arg) and the `hint=` keyword argument. Both must be updated together to avoid an internally inconsistent error message.
 
 ### test_run.py: Update existing tests
 
@@ -131,7 +131,9 @@ Add these tests after the existing ones, following the same patterns (use `_make
 
 5. `test_run_advance_phase_plan_to_orchestrate_loads_tasks`: Create spec, start run with `phase="plan"`, write task files to disk. Call `run_advance_phase(...)` with `target_phase="orchestrate"`. Assert: task rows created, runs row has `phase="orchestrate"`.
 
-6. `test_run_advance_phase_rejects_backward`: Create spec, start run with `phase="plan"`. Call `run_advance_phase(...)` with `target_phase="define"`. Assert: SystemExit with error code `phase_regression`.
+6. `test_run_advance_phase_rejects_backward_plan_to_define`: Create spec, start run with `phase="plan"`. Call `run_advance_phase(...)` with `target_phase="define"`. Assert: SystemExit with error code `phase_regression`.
+
+6b. `test_run_advance_phase_rejects_backward_orchestrate_to_plan`: Create spec, start run with `phase="orchestrate"` (with task files). Call `run_advance_phase(...)` with `target_phase="plan"`. Assert: SystemExit with error code `phase_regression`.
 
 7. `test_run_advance_phase_same_phase_warns`: Create spec, start run with `phase="plan"`. Call `run_advance_phase(...)` with `target_phase="plan"`. Assert: no SystemExit, warning emitted to stderr.
 

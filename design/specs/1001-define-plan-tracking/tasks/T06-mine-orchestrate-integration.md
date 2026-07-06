@@ -92,4 +92,4 @@ Both `cfl run start` and `cfl run advance-phase orchestrate` produce the same ou
 - The `post-execution-pipeline.md` (which calls `cfl run status`) is unaffected — the new `phase` field is additive and the pipeline doesn't depend on it.
 
 ## Verify
-- [ ] AC#5: After a full mine-define→mine-plan→mine-orchestrate flow, `cfl event list` shows events from all three phases in chronological order under the same run_id — the orchestrate phase uses the same run_id created by mine-define, advanced through plan by mine-plan
+- [ ] AC#5: After a full mine-define→mine-plan→mine-orchestrate flow, `cfl event list` shows events from all three phases under the same run_id — the orchestrate phase uses the same run_id created by mine-define, advanced through plan by mine-plan
