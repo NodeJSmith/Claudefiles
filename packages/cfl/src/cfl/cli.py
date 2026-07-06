@@ -20,6 +20,7 @@ from cfl.event import list_events, record_event
 from cfl.gate import VALID_GATE_VERDICTS, record_gate
 from cfl.resolve import resolve_context, resolve_spec, try_resolve_active_run_id
 from cfl.run import (
+    run_advance_phase,
     run_complete,
     run_resume,
     run_start,
@@ -182,6 +183,13 @@ def cmd_spec_next_number() -> None:
 @run_app.command(name="start", help_epilogue=help_text.RUN_START)
 def cmd_run_start(
     *,
+    phase: Annotated[
+        Literal["define", "plan", "orchestrate"] | None,
+        Parameter(
+            name=["--phase"],
+            help="Pipeline phase (define, plan, orchestrate). Defaults to orchestrate.",
+        ),
+    ] = None,
     base_commit: Annotated[
         str | None,
         Parameter(
@@ -211,6 +219,7 @@ def cmd_run_start(
             conn,
             spec_ctx.spec_id,
             spec_ctx.feature_dir,
+            phase=phase or "orchestrate",
             base_commit=base_commit,
             tmpdir=tmpdir,
             visual_mode=visual_mode,
@@ -290,6 +299,55 @@ def cmd_run_resume(
             conn, spec_override=_spec_override, require_active_run=False
         )
         run_resume(conn, spec_ctx.spec_id, run_id=run_id)
+
+
+@run_app.command(name="advance-phase", help_epilogue=help_text.RUN_ADVANCE_PHASE)
+def cmd_run_advance_phase(
+    target_phase: Annotated[
+        Literal["define", "plan", "orchestrate"],
+        Parameter(help="Target phase to advance to"),
+    ],
+    *,
+    base_commit: Annotated[
+        str | None,
+        Parameter(
+            name=["--base-commit"],
+            help="Base commit SHA (refreshed when advancing to orchestrate)",
+        ),
+    ] = None,
+    tmpdir: Annotated[
+        str | None,
+        Parameter(help="Ephemeral /tmp path (set when advancing to orchestrate)"),
+    ] = None,
+    visual_mode: Annotated[
+        Literal["enabled", "skipped_no_server", "skipped_no_vision"] | None,
+        Parameter(
+            name=["--visual-mode"],
+            help="Visual review mode (set when advancing to orchestrate)",
+        ),
+    ] = None,
+    dev_server_url: Annotated[
+        str | None,
+        Parameter(
+            name=["--dev-server-url"],
+            help="Dev server URL (set when advancing to orchestrate)",
+        ),
+    ] = None,
+) -> None:
+    """Advance the active run to the next pipeline phase."""
+    with db_connection() as conn:
+        ctx = resolve_context(conn, spec_override=_spec_override)
+        run_advance_phase(
+            conn,
+            ctx["active_run_id"],
+            ctx["spec_id"],
+            ctx["feature_dir"],
+            target_phase,
+            base_commit=base_commit,
+            tmpdir=tmpdir,
+            visual_mode=visual_mode,
+            dev_server_url=dev_server_url,
+        )
 
 
 # ---------------------------------------------------------------------------

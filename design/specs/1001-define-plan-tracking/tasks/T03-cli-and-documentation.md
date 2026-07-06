@@ -1,7 +1,7 @@
 ---
 task_id: "T03"
 title: "Add CLI --phase flag, advance-phase command, and docs"
-status: "planned"
+status: "done"
 depends_on: ["T02"]
 implements: ["AC#5"]
 ---

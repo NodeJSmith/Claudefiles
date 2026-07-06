@@ -21,8 +21,16 @@ Examples:
 RUN_START = """\
 Examples:
   cfl run start
+  cfl run start --phase define
+  cfl run start --phase plan --base-commit abc1234
   cfl run start --visual-mode enabled --dev-server-url http://localhost:3000
   cfl run start --base-commit abc1234 --tmpdir /tmp/cfl-run-42"""
+
+RUN_ADVANCE_PHASE = """\
+Examples:
+  cfl run advance-phase plan
+  cfl run advance-phase orchestrate --base-commit abc1234 --tmpdir /tmp/cfl-run-42
+  cfl run advance-phase orchestrate --visual-mode enabled --dev-server-url http://localhost:3000"""
 
 RUN_STOP = """\
 Examples:
