@@ -20,15 +20,15 @@ Determine what to comb and whether there's a reference to comb against:
 If the target is ambiguous (no path given, several candidates), ask the user which artifact and whether there's a reference — one focused `AskUserQuestion`, then proceed.
 
 **Pick the model:**
-- Default: dispatch the agent on its declared model (`sonnet`) — right for docs, briefs, plans.
-- Combing a large **implementation diff** against a design: override to `model: opus[1m]`. The `[1m]` suffix is required (subagents don't inherit the parent's 1m window). A holistic comb that compacts mid-review misses the cross-cutting gaps it exists to catch. For diffs so large that design + diff still exceeds ~900k tokens, comb by file group and reconcile.
+- Default: dispatch the agent on its declared model (`sonnet`) — right for docs, briefs, plans, and implementation diffs. Sonnet 5 has a 1M context window, which handles large diffs without compaction risk.
+- For diffs so large that design + diff exceeds ~900k tokens, comb by file group and reconcile.
 
 ## Phase 2: Dispatch the comb
 
 ```
 Agent:
   subagent_type: fine-toothed-comb
-  model: sonnet          # or opus[1m] for a large implementation diff
+  model: sonnet
   prompt: |
     <For a single artifact:>
     Read this <artifact type>: <path>

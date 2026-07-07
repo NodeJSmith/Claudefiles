@@ -31,26 +31,26 @@ Read and execute `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-review/scope-detec
 
 After Phase 1 resolves the changed-file list, count the changed files.
 
-- **~10 or fewer changed files:** proceed directly to Phase 2 with a single dispatch per checker (current behavior unchanged).
-- **More than ~10 changed files:** partition the changed-file list into balanced batches before dispatching. Batching rules:
-  - Divide the file list into batches of ~10 files each, balanced by count (e.g., 23 files → three batches of 8, 8, 7 — never leave a batch empty).
+- **~30 or fewer changed files:** proceed directly to Phase 2 with a single dispatch per checker.
+- **More than ~30 changed files:** partition the changed-file list into balanced batches before dispatching. Batching rules:
+  - Divide the file list into batches of ~30 files each, balanced by count (e.g., 70 files → three batches of 24, 23, 23 — never leave a batch empty).
   - Group by directory where it falls out naturally, but count-balance takes priority over directory grouping.
   - **Critical invariant:** chunk WITHIN each checker — dispatch each checker once per batch so every file still receives all three lenses. Never split files across checkers (that would drop each file from three lenses to one). For K batches, the total dispatch count is 3×K (each of the three checkers runs K times), and each file appears in exactly one batch but that batch goes to all three checkers.
 
-In **path mode**, apply the same rule: if more than ~10 files are listed, partition them into balanced batches and dispatch each checker once per batch, following the same critical invariant.
+In **path mode**, apply the same rule: if more than ~30 files are listed, partition them into balanced batches and dispatch each checker once per batch, following the same critical invariant.
 
 ## Phase 2: Dispatch Three Parallel Checkers
 
-**For ~10 or fewer changed files (single dispatch; same in path mode):** Launch all three agents **in a single message** so they run in parallel. Adapt the prompts based on the mode detected in Phase 1. (Existing behavior — no change.)
+**For ~30 or fewer changed files (single dispatch; same in path mode):** Launch all three agents **in a single message** so they run in parallel. Adapt the prompts based on the mode detected in Phase 1.
 
-**For more than ~10 changed files (batched dispatch):** Process batches sequentially — for each batch, launch its three checkers in a single message so they run in parallel. (Performance note: when there are only a few batches reading disjoint files, you may instead launch all 3×K agents at once.) After all batches complete, merge each checker's findings across its batches (concatenate, preserving file:line references) into one combined findings set per checker — so Phase 3 receives exactly three findings sets (one per checker), just as in the single-dispatch case.
+**For more than ~30 changed files (batched dispatch):** Process batches sequentially — for each batch, launch its three checkers in a single message so they run in parallel. (Performance note: when there are only a few batches reading disjoint files, you may instead launch all 3×K agents at once.) After all batches complete, merge each checker's findings across its batches (concatenate, preserving file:line references) into one combined findings set per checker — so Phase 3 receives exactly three findings sets (one per checker), just as in the single-dispatch case.
 
 ### Diff mode prompts
 
 One prompt per checker, below. The scope line depends on the dispatch mode chosen in Phase 1.5:
 
-- **Single dispatch** (≤10 files): use the `[DIFF MODE] Run: <diff command>` line as written — each checker reads all changed files.
-- **Batched dispatch** (>10 files): dispatch the same prompt once per batch, per checker, with that scope line replaced by `[DIFF MODE — BATCH] Files in this batch: <file list for this batch>`.
+- **Single dispatch** (≤30 files): use the `[DIFF MODE] Run: <diff command>` line as written — each checker reads all changed files.
+- **Batched dispatch** (>30 files): dispatch the same prompt once per batch, per checker, with that scope line replaced by `[DIFF MODE — BATCH] Files in this batch: <file list for this batch>`.
 
 Everything else in each prompt — the category list and the "read each file IN FULL" mandate — is identical across both modes; do not duplicate or reword it per mode.
 
@@ -132,7 +132,7 @@ Work through all ten checklist categories for every file. Do not skip
 categories. Do not decide something is "not worth mentioning."
 ```
 
-For **batched dispatch** in path mode (>10 files), use the same three prompts above, dispatched once per batch per checker, with `[PATH MODE] Files: <file list>` replaced by `[PATH MODE — BATCH] Files in this batch: <file list for this batch>`.
+For **batched dispatch** in path mode (>30 files), use the same three prompts above, dispatched once per batch per checker, with `[PATH MODE] Files: <file list>` replaced by `[PATH MODE — BATCH] Files in this batch: <file list for this batch>`.
 
 ## Phase 3: Consolidate and Present
 

@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-07-07
+
+### Changed
+
+- Update model references from Sonnet 4.6 to Sonnet 5 across `performance.md` and all agent frontmatter. Raise `mine-clean-code` and `mine-simplify` batching thresholds (10→30 and 8→20 files). Remove `opus[1m]` override from `mine-comb` for large implementation diffs. Reframe context-motivated language in `decomposition-discipline.md` and `post-execution-pipeline.md`. (#444)
+
 ## 2026-07-06
 
 ### Added
