@@ -1,6 +1,6 @@
 ---
 name: issue-refiner
-model: sonnet  # claude-sonnet-4-6 as of 2026-04-06
+model: sonnet  # claude-sonnet-5 as of 2026-07-07
 description: Enriches GitHub issues with acceptance criteria, edge cases, technical considerations, and NFRs. Use before assigning work or when an issue lacks sufficient detail.
 tools: ["Read", "Grep", "Glob", "Bash"]
 ---

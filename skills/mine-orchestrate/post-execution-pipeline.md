@@ -210,7 +210,7 @@ cfl gate final-review --verdict <PASS|WARN|FAIL> --data '{"findings_fixed": <N>}
 
 This is the last content review before shipping. Unlike impl-review's structured checklist (Step 2), this is open-ended: does the **finished implementation faithfully and thoroughly realize the design** — is every FR and AC actually implemented, did anything get silently dropped, did any behavior drift from what the design specified? Running it last means it reviews the settled code, after clean-code edits.
 
-**Scope tip.** Feed the branch diff, not full file contents — instruct the subagent to run the diff itself (keeps noise out of the orchestrator's context and focuses the review on what changed). For very large diffs, chunk by file group and reconcile.
+**Scope tip.** This is the most context-heavy subagent in the pipeline. Feed the branch diff, not full file contents — instruct the subagent to run the diff itself (keeps the diff out of the orchestrator's context). For very large diffs, chunk by file group and reconcile.
 
 Record the dispatch and capture its ID:
 

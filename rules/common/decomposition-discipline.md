@@ -22,7 +22,7 @@ Before implementing a feature, answer five decomposition questions. A dimension 
 
 4. **Smallest safe decomposition.** Can this be split into smaller independently-landable units? If one worker is best, name why. If multiple workers make sense, each gets a specific scope (file paths, named data shape, success criteria).
 
-5. **Per-task target files.** For each unit of work, name the files it creates, reads, modifies, or deletes (change verb + path). This list is the executor's reading scope — it replaces surface exploration and keeps the work focused. No file-count threshold applies; list every file, even for large mechanical changes.
+5. **Per-task target files.** For each unit of work, name the files it creates, reads, modifies, or deletes (change verb + path). This list is the executor's reading scope — it replaces surface exploration and keeps the reading scope small. No file-count threshold applies; list every file, even for large mechanical changes.
 
 ## When to Write It
 
