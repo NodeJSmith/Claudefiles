@@ -51,10 +51,10 @@ Resolve the user's answer (typed via Other) back through Step 2b.
 
 Count the resolved files.
 
-- **~8 or fewer files:** a single batch — dispatch one `code-judo-reviewer` over the whole list. A single batch is best: the agent sees every file at once, so cross-file structural moves (collapse two modules, route callers past a layer) are visible.
-- **More than ~8 files:** partition into batches. Batching rules:
-  - Target ~8 files per batch. Judo agents read every file in full plus sibling/caller context, so keep batches smaller than `mine-clean-code`'s ~10.
-  - **Group by directory/module first**, then count-balance within that. Unlike style checks, structural simplification is mostly cross-file *within a module* — keeping a module's files in one batch preserves those moves. Only split a single directory across batches when it alone exceeds ~12 files.
+- **~20 or fewer files:** a single batch — dispatch one `code-judo-reviewer` over the whole list. A single batch is best: the agent sees every file at once, so cross-file structural moves (collapse two modules, route callers past a layer) are visible.
+- **More than ~20 files:** partition into batches. Batching rules:
+  - Target ~20 files per batch. Judo agents read every file in full plus sibling/caller context, so keep batches smaller than `mine-clean-code`'s ~30.
+  - **Group by directory/module first**, then count-balance within that. Unlike style checks, structural simplification is mostly cross-file *within a module* — keeping a module's files in one batch preserves those moves. Only split a single directory across batches when it alone exceeds ~30 files.
   - Each file appears in exactly one batch; one `code-judo-reviewer` runs per batch. Total dispatch count = number of batches.
 
 **Cross-batch limitation (state it to the user when batching):** a simplification that spans two batches (e.g., a layer in module A made redundant by module B) can be missed. For a thorough pass on a bounded target, prefer a scope small enough to fit one batch.

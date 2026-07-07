@@ -5,7 +5,7 @@ tool: claude  # harness-only: model selection and the agent-model registry are C
 # Model Selection
 
 **Haiku 4.5** — Lightweight/worker agents, frequent invocation, 3x cost savings
-**Sonnet 4.6** — Main development work, orchestration, complex coding
+**Sonnet 5** — Main development work, orchestration, complex coding
 **Opus 4.8** — Deep reasoning, architecture decisions, research
 
 ## Context Window (CRITICAL)
