@@ -1,6 +1,6 @@
 # Post-Execution Review Pipeline (Phase 3)
 
-After all tasks are processed (or user chose "Stop here"), run a review pipeline. Steps 1–5.7 are automatic (no user prompts unless blocking issues are found). The user is prompted at the impl-review gate (if blocking), the implementation comb gate (if blocking), or the final shipping gate.
+After all tasks are processed (or user chose "Stop here"), run a review pipeline. Steps 1–5.5 are automatic (no user prompts unless blocking issues are found). The user is prompted at the impl-review gate (if blocking), the implementation comb gate (if blocking), or the final shipping gate.
 
 **All subagents in Phase 3 MUST run in foreground** (never set `run_in_background: true`). Several steps spawn their own parallel child subagents internally, which only works in foreground execution.
 
@@ -206,15 +206,7 @@ Record the gate result:
 cfl gate final-review --verdict <PASS|WARN|FAIL> --data '{"findings_fixed": <N>}'
 ```
 
-## Step 5.5: Trail audit (automatic)
-
-Orchestration events are now stored in the cfl SQLite DB — no `trail.tsv` file exists. Record the gate as SKIPPED (DB-based event audit is available via `cfl` queries but has no automated structural-integrity checker in this version):
-
-```bash
-cfl gate trail-audit --verdict SKIPPED --data '{"reason": "events auditable via cfl DB"}'
-```
-
-## Step 5.7: Implementation fine-toothed comb (final holistic pass, gates on blocking findings)
+## Step 5.5: Implementation fine-toothed comb (final holistic pass, gates on blocking findings)
 
 This is the last content review before shipping. Unlike impl-review's structured checklist (Step 2), this is open-ended: does the **finished implementation faithfully and thoroughly realize the design** — is every FR and AC actually implemented, did anything get silently dropped, did any behavior drift from what the design specified? Running it last means it reviews the settled code, after clean-code edits.
 
