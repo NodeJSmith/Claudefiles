@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-07-07
+
+### Changed
+
+- `mine-clean-code` and `mine-simplify` batching thresholds raised (10→30 and 8→20 files respectively), and `mine-comb` no longer overrides to `opus[1m]` for large implementation diffs — reflects Sonnet 5's 1M context window. (#444)
+
 ## 2026-07-06
 
 ### Added
