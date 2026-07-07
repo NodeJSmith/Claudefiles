@@ -8,7 +8,7 @@ user-invocable: true
 
 A one-off, open-ended holistic review of an artifact — a brief, design doc, plan, spec, or an implementation against the design it was built from. It is **not** a checklist or rubric: it takes the artifact in as a whole and surfaces what a structured pass can't — the doc reading as inconsistent, inaccurate, or thin; a requirement silently dropped; behavior that drifted from intent.
 
-This is the standalone form of the comb that `mine-define` (Phase 5.5), `mine-plan` (Phase 5.5), and `mine-orchestrate` (Step 5.7) run inside their workflows. Reach for this skill to comb something those workflows didn't produce — a brief written by hand, a design from elsewhere, an implementation whose design lives in a doc.
+This is the standalone form of the comb that `mine-define` (Phase 5.5), `mine-plan` (Phase 5.5), and `mine-orchestrate` (Step 5.5) run inside their workflows. Reach for this skill to comb something those workflows didn't produce — a brief written by hand, a design from elsewhere, an implementation whose design lives in a doc.
 
 ## Phase 1: Resolve the target
 
