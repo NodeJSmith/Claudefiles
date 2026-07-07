@@ -1,6 +1,6 @@
 # Post-Execution Review Pipeline (Phase 3)
 
-After all tasks are processed (or user chose "Stop here"), run a review pipeline. Steps 1–5.7 are automatic (no user prompts unless blocking issues are found). The user is prompted at the impl-review gate (if blocking), the implementation comb gate (if blocking), or the final shipping gate.
+After all tasks are processed (or user chose "Stop here"), run a review pipeline. Steps 1–5.5 are automatic (no user prompts unless blocking issues are found). The user is prompted at the impl-review gate (if blocking), the implementation comb gate (if blocking), or the final shipping gate.
 
 **All subagents in Phase 3 MUST run in foreground** (never set `run_in_background: true`). Several steps spawn their own parallel child subagents internally, which only works in foreground execution.
 
