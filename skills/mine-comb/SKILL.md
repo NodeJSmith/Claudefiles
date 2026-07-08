@@ -57,7 +57,7 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply i
 
 - **`<header>`**: `Comb`
 - **`minor_blocks`**: `true` — the user invoked this to make a call on what it finds, so surface minor findings too
-- **`<proceed_label>` / `<proceed_description>`**: `Accept and finish` / "Accept the findings as-is; I'm done here"
+- **`<proceed_label>` / `<proceed_description>`**: `Fix and finish` / "Fix the findings but skip the next comb — I'm done here"
 - **`<re_review_instructions>`**: apply the fixes to the combed artifact (only the listed findings — don't expand scope), then re-comb from the top
 
-On a clean comb (or once findings are accepted/fixed), report the final result to the user: the summary and any accepted findings.
+On a clean comb (or once findings are fixed), report the final result to the user: the summary and any remaining minor findings.

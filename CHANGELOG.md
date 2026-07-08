@@ -8,6 +8,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 - `mine-orchestrate` Step 12 findings fix loop — early exit and re-trigger now key on reviewer verdict (PASS/WARN/FAIL) instead of findings count, so informational findings attached to a PASS no longer waste fixer passes on already-clean tasks. (#445)
 
+### Changed
+
+- Comb gate exit options (`mine-comb`, `mine-define`, `mine-plan`) now always fix findings before proceeding instead of allowing them to be accepted as-is; the only remaining choice is whether to re-comb after fixing. (#446)
+
 ## 2026-07-07
 
 ### Changed

@@ -2,7 +2,7 @@
 
 The shared gate applied after a `fine-toothed-comb` agent returns. Callers (`mine-comb`, `mine-define`, `mine-plan`, `mine-orchestrate`) read this file and instantiate the parameters below. One source of truth for the gate's central invariant:
 
-> **A comb that surfaces issues is never cleared by acknowledgement — only by a fresh run that comes back clean (or with minor findings the user accepts).**
+> **A comb that surfaces issues is never cleared by acknowledgement — only by a fresh run that comes back clean (or by fixing the findings and proceeding without re-combing).**
 
 Acknowledging a finding and moving on is not allowed. The only ways past a blocking finding are: fix it and re-comb, or stop.
 
@@ -10,7 +10,7 @@ Acknowledging a finding and moving on is not allowed. The only ways past a block
 
 - **`<header>`** — the `AskUserQuestion` header chip, e.g. `Design comb`, `Plan comb`, `Impl comb`. Keep it ≤12 chars — the chip truncates past that.
 - **`minor_blocks`** — `true` if minor findings should ask the user (cheap-to-fix artifacts: designs, plans); `false` if minor findings are noted and the caller proceeds without asking (a finished implementation shouldn't block shipping on polish).
-- **`<proceed_label>` / `<proceed_description>`** — the "accept the minor findings and continue" option, named for the caller's next step (e.g. `Proceed to sign-off`, `Proceed to the gate`). **Required only when `minor_blocks` is `true`** — when `minor_blocks` is `false` the minor-findings prompt never fires, so omit it.
+- **`<proceed_label>` / `<proceed_description>`** — the "fix and move on" option, named for the caller's next step (e.g. `Proceed to sign-off`, `Proceed to the gate`). Fixes the current findings but skips the re-comb. **Required only when `minor_blocks` is `true`** — when `minor_blocks` is `false` the minor-findings prompt never fires, so omit it.
 - **`<re_review_instructions>`** — what "Fix and re-review" does in this context: which files may be edited, any scope restriction, and (for implementation combs) the subagent dispatch to apply the fix. The re-comb always re-runs the comb from the top.
 - **`<blocking_question>`** *(optional)* — overrides the blocking-findings question text when the caller needs context-specific wording (e.g. "before shipping"). Defaults to the standard string below. The options and the no-acknowledgement rule are never overridable.
 
@@ -56,12 +56,13 @@ AskUserQuestion:
       description: "Halt and address issues manually"
 ```
 
-**Diminishing returns (3rd+ run):** After 2 fix-and-re-comb cycles, significant issues should be resolved. If the comb still reports blocking findings on run 3 or later, add a third option to the blocking-findings prompt — `label: "Accept and proceed"`, `description: "Two fix cycles have passed — remaining findings are likely diminishing returns"` — and change the question text to note the run count (e.g. "run 3", "run 4"). This gives the user an exit from a loop that is no longer earning its keep, without silently lowering the bar.
+**Diminishing returns (3rd+ run):** After 2 fix-and-re-comb cycles, significant issues should be resolved. If the comb still reports blocking findings on run 3 or later, add a third option to the blocking-findings prompt — `label: "Fix and finish"`, `description: "Fix these findings but skip the next comb — two cycles is enough"` — and change the question text to note the run count (e.g. "run 3", "run 4"). This gives the user an exit from a loop that is no longer earning its keep, without silently lowering the bar.
 
 ## On the user's choice
 
 - **Fix and re-review** — apply `<re_review_instructions>`, then re-run the comb from the top (re-dispatch the agent). Loop until the comb returns no blocking findings.
 
   **Design decisions:** Before applying each fix, classify it — is this a clear correction (inconsistency, typo, gap with an obvious fill) or does it require a design decision (multiple valid approaches, a trade-off between competing concerns, or the finding questions a deliberate choice)? Clear corrections: apply directly. Design decisions: surface to the user via `AskUserQuestion` before applying — present the finding, the options you see, and your recommendation. Do not make design decisions autonomously. The comb surfaces gaps; the user decides how to fill them.
-- **`<proceed_label>`** — accept the minor findings and continue to the next step.
+- **Fix and finish** *(3rd+ run only)* — apply `<re_review_instructions>` for the current findings, then proceed without re-running the comb.
+- **`<proceed_label>`** — fix the current findings, then continue to the next step without re-running the comb.
 - **Stop** — halt; the user addresses issues manually. Leave any checkpoint in place.
