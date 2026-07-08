@@ -709,7 +709,7 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply i
 
 - **`<header>`**: `Design comb`
 - **`minor_blocks`**: `true`
-- **`<proceed_label>` / `<proceed_description>`**: `Proceed to sign-off` / "Accept the minor findings and continue"
+- **`<proceed_label>` / `<proceed_description>`**: `Proceed to sign-off` / "Fix the minor findings and continue without re-combing"
 - **`<re_review_instructions>`**: apply the fixes to the design doc, then re-run this phase from the top
 
 The "No findings" path proceeds to Phase 6 silently.

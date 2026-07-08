@@ -553,7 +553,7 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply i
 
 - **`<header>`**: `Plan comb`
 - **`minor_blocks`**: `true`
-- **`<proceed_label>` / `<proceed_description>`**: `Proceed to the gate` / "Accept the minor findings and continue"
+- **`<proceed_label>` / `<proceed_description>`**: `Proceed to the gate` / "Fix the minor findings and continue without re-combing"
 - **`<re_review_instructions>`**: apply the fixes to the design doc and/or task files, then re-run this phase from the top. Restrict task file edits to the same cosmetic-vs-substantive rule as Phase 6's "Approve with suggestions" — substantive task changes require re-running task generation from Phase 2.
 
 The "No findings" path proceeds to Phase 6 silently.
