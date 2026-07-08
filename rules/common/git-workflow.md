@@ -22,7 +22,7 @@ Before your first commit in a repo during a session, check for a pre-commit conf
 
 **ALWAYS run `code-reviewer`, `integration-reviewer`, and `wtf-reviewer` before committing code changes.** All three run in parallel on the final diff.
 
-Exceptions: documentation-only changes or explicit user skip.
+Exceptions: documentation-only changes (READMEs, changelogs, comments) or explicit user skip. Skill files, rules, agent prompts, and CLAUDE.md are **not** documentation-only — they are instructions that affect agent behavior and must be reviewed. `/mine-review` routes these to instruction-mode reviewers automatically.
 
 ### Code Reviewer Loop
 

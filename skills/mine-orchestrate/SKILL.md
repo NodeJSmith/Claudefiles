@@ -506,7 +506,7 @@ cfl gate visual-review <task_id> --verdict <PASS|WARN|FAIL|SKIPPED> --data '{"sc
 
 ### Step 12: Review findings fix loop
 
-When the canonical verdict line for the code reviewer or integration reviewer from Step 8 has a verdict of WARN or FAIL, read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/findings-fix-loop.md` and follow it. A PASS verdict — regardless of its findings count — does not trigger the loop; informational findings attached to a PASS are observations, not defects requiring a fixer pass.
+When the canonical verdict line for the code reviewer or integration reviewer from Step 8 has a verdict of WARN or FAIL, read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/findings-fix-loop.md` and follow it. A PASS verdict does not trigger the loop, regardless of its findings count. Informational findings attached to a PASS are observations, not defects requiring a fixer pass.
 
 Spec and visual findings do **not** trigger this loop — a spec WARN routes to the Step 10 WARN loop, a spec FAIL routes to Step 16, and visual findings feed Step 14 directly.
 
@@ -572,7 +572,7 @@ Gate based on verdict:
 
 **PASS or WARN** — auto-continue to the next task. Display the summary but do not ask for confirmation. Proceed to Step 17 (WIP commit + cfl task verdict). Do NOT record the verdict here — `cfl task verdict` in Step 17b records it after the WIP commit succeeds, ensuring the commit SHA is captured.
 
-Note: by this point, spec reviewer WARNs have been addressed by Step 10 and all code/integration findings have been resolved by Step 12. A PASS verdict may include a note like `(3 auto-fixed)` — this means findings were raised and resolved. A WARN verdict means something genuinely unresolved remains (visual issues, pre-existing test failures, unresolved lint regressions).
+Note: by this point, spec reviewer WARNs have been addressed by Step 10. Code/integration findings, if the Step 8 verdict was WARN or FAIL, have been through the Step 12 fixer loop. A PASS verdict with only informational findings never enters Step 12. A verdict note like `(3 auto-fixed)` means findings were raised and resolved by the fixer loop. A WARN verdict means something genuinely unresolved remains (visual issues, pre-existing test failures, unresolved lint regressions).
 
 **FAIL or non-architectural BLOCKED** — ask the user:
 ```

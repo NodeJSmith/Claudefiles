@@ -1,12 +1,12 @@
 # Findings Fix Loop (Step 12)
 
-**Precondition:** This loop runs when at least one of the Step 8 canonical verdict lines for the code reviewer or integration reviewer has a verdict of WARN or FAIL. A PASS verdict does not trigger the loop regardless of its findings count — informational findings attached to a PASS are observations, not defects requiring a fixer pass. Spec and visual findings do not trigger this loop — a spec WARN routes to the Step 10 WARN loop, a spec FAIL routes to Step 16, and visual findings feed Step 14 directly.
+**Precondition:** This loop runs when at least one of the Step 8 canonical verdict lines for the code reviewer or integration reviewer has a verdict of WARN or FAIL. A PASS verdict does not trigger the loop regardless of its findings count. The verdict is the reviewer's categorical judgment; the count is metadata. Triggering on count previously caused non-convergence: each re-review found different informational observations, producing a non-zero count on a PASS that burned fixer passes without progress. Treat verdict as authoritative, count as informational. Spec and visual findings do not trigger this loop. A spec WARN routes to the Step 10 WARN loop, a spec FAIL routes to Step 16, and visual findings feed Step 14 directly.
 
 **Core principle — no cross-agent finding-ID matching:** The defer-vs-unresolved classification that feeds the gate must happen inside a fixer subagent that read the latest review. The orchestrator never reconstructs deferred-vs-unresolved from counts, IDs, or cross-pass comparison. Detection stays with the independent code and integration reviewers; classification stays in one fixer context that has the review in front of it. This mirrors today's orchestrator-as-fixer behavior and is the invariant that keeps the gate faithful across the dispatched-fixer split.
 
 **Iteration budget:** The initial Step 8 review counts as iteration 1. At most **2 code-changing fixer passes** follow (3 review iterations total, matching today's limit). The loop exits in one of two ways:
 
-- **Early exit** — a re-review after a fixer pass returns a PASS verdict on both reviewers (regardless of findings count — a PASS with informational findings is clean).
+- **Early exit** — a re-review after a fixer pass returns a PASS verdict on both reviewers. A PASS with informational findings is clean, regardless of findings count.
 - **Budget exhausted** — both fixer passes ran and the latest re-review still has a WARN or FAIL verdict on either reviewer; a single **classify-mode** fixer pass then runs as a terminal, non-mutating dispatch to produce the final ledger. It applies no fixes and does **not** count against the 2-pass budget.
 
 Each fixer dispatch is a single pass — do not loop inside the fixer subagent itself.
@@ -91,7 +91,7 @@ The fixer ends its response with a one-line summary: `fixed: N, deferred: M, unr
    cfl dispatch end <integration_reviewer_dispatch_id>
    ```
 5. Extract the canonical verdict lines from the freshened review files (last line matching `^\*\*Verdict:\*\*`, same pattern as Step 8).
-6. **If both reviewers return a PASS verdict → early exit. Skip to the Gate section (terminal state A).** A PASS with informational findings counts as clean — do not continue the loop because of a non-zero findings count on a PASS verdict.
+6. **If both reviewers return a PASS verdict → early exit. Skip to the Gate section (terminal state A).** A PASS with informational findings counts as clean. Do not continue the loop because of a non-zero findings count on a PASS verdict.
 
 **Iteration 3 — Fixer pass 2 (if either reviewer returned WARN or FAIL after iteration 2):**
 
@@ -114,7 +114,7 @@ If the iteration 3 re-review still has a WARN or FAIL verdict on either reviewer
 
 The loop reaches the gate in one of two terminal states.
 
-**Terminal state A — clean re-review (early exit).** A re-review after a fixer pass returned a PASS verdict on both reviewers. The independent reviewers are authoritative for detection, so the **fixer gate result is PASS**. Informational findings attached to a PASS verdict do not affect the gate — a PASS means the reviewer judged the code acceptable. Read the latest `<dir>/<task_id>/fix-ledger.md` only to count the `fixed` rows for the `(N auto-fixed)` note and to carry forward any `deferred(reason)` rows for Step 14/15. A stale `unresolved` row left in a ledger written *before* the clean re-review does **not** FAIL the task — the independent re-review supersedes it.
+**Terminal state A — clean re-review (early exit).** A re-review after a fixer pass returned a PASS verdict on both reviewers. The independent reviewers are authoritative for detection, so the **fixer gate result is PASS**. Informational findings attached to a PASS verdict do not affect the gate. A PASS means the reviewer judged the code acceptable. Read the latest `<dir>/<task_id>/fix-ledger.md` only to count the `fixed` rows for the `(N auto-fixed)` note and to carry forward any `deferred(reason)` rows for Step 14/15. A stale `unresolved` row left in a ledger written *before* the clean re-review does **not** FAIL the task — the independent re-review supersedes it.
 
 **Terminal state B — budget exhausted (classify-mode ledger).** Both fixer passes ran and the latest re-review still returned a WARN or FAIL verdict on either reviewer, so the classify-mode pass wrote the terminal ledger against that latest review. Read the terminal ledger:
 

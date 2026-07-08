@@ -6,7 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Fixed
 
-- `mine-orchestrate` Step 12 findings fix loop — early exit and re-trigger now key on reviewer verdict (PASS/WARN/FAIL) instead of findings count, so informational findings attached to a PASS no longer keep the loop spinning without converging. (#445)
+- `mine-orchestrate` Step 12 findings fix loop — early exit and re-trigger now key on reviewer verdict (PASS/WARN/FAIL) instead of findings count, so informational findings attached to a PASS no longer waste fixer passes on already-clean tasks. (#445)
 
 ## 2026-07-07
 

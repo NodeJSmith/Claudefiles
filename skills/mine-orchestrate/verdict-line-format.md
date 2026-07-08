@@ -36,7 +36,7 @@ No line in any reviewer's report may begin with `**Verdict:**` except the single
 
 `N` is the count of findings **introduced by this change**. Pre-existing issues — flagged separately under a `## Pre-existing Issues` header — are excluded from the count.
 
-The count is informational — it tells the orchestrator how many findings the reviewer raised, but the fixer loop triggers on verdict (WARN or FAIL), not on the count. A PASS with `findings: N` does not trigger the fixer. Spec and visual carry no count because their findings never trigger the fixer — they route by verdict word alone.
+The count is informational. It tells the orchestrator how many findings the reviewer raised, but the fixer loop triggers on verdict (WARN or FAIL), not on the count. A PASS with `findings: N` does not trigger the fixer. Spec and visual carry no count because their findings never trigger the fixer; they route by verdict word alone.
 
 ## Extraction Contract
 
