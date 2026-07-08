@@ -2,7 +2,7 @@
 
 The shared gate applied after a `fine-toothed-comb` agent returns. Callers (`mine-comb`, `mine-define`, `mine-plan`, `mine-orchestrate`) read this file and instantiate the parameters below. One source of truth for the gate's central invariant:
 
-> **A comb that surfaces issues is never cleared by acknowledgement — only by a fresh run that comes back clean (or with minor findings the user accepts).**
+> **A comb that surfaces issues is never cleared by acknowledgement — only by a fresh run that comes back clean (or by fixing the findings and proceeding without re-combing).**
 
 Acknowledging a finding and moving on is not allowed. The only ways past a blocking finding are: fix it and re-comb, or stop.
 
