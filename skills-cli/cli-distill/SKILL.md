@@ -75,4 +75,4 @@ Fix each accepted finding. After all changes:
 
 1. Run existing tests if present — detect the runner (`pytest` for Python, `go test` for Go, `npm test`/`jest`/`vitest` for Node/TS, `bats` for shell). Use `timeout 300` on all invocations.
 2. Verify the simplified interface still covers all use cases
-3. Summarize changes made and suggest `/mine-challenge` if the scope was large
+3. Summarize changes made
