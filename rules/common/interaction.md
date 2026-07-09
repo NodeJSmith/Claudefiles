@@ -20,13 +20,6 @@ When a task needs structured planning, launch the Agent tool with
 planner's output to the user via `AskUserQuestion` for approval before
 executing.
 
-## Suggest /mine-challenge
-
-Before committing to non-trivial designs, specs, new skills, rule changes, or
-workflow modifications, suggest running `/mine-challenge` if the user hasn't
-already. Works on any artifact — code, specs, designs, briefs, skill files.
-One-line mention, not a gate — the user decides whether to run it.
-
 ## Progress Tracking
 
 Use TaskCreate to track multi-step tasks. The todo list reveals out-of-order
