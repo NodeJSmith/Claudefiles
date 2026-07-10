@@ -1,3 +1,9 @@
+---
+audience: personal tool
+developers: solo
+data-sensitivity: internal
+---
+
 # CLAUDE.md
 
 A personal Claude Code configuration repository — skills, commands, agents, rules, and hooks that symlink into `$CLAUDE_CONFIG_DIR` (defaults to `~/.claude/`).
