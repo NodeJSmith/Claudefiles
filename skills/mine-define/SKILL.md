@@ -24,6 +24,31 @@ $ARGUMENTS — optional initial description or path. Can be:
 
 Before investigating the codebase, confirm the branch contains the latest default branch — designing against stale code produces a design with stale references that compound downstream (plan inherits them, then orchestrate). Read `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/staleness-preflight.md` and follow it in **soft** mode, with this stakes sentence: "Designing against stale code can carry into the plan and the run."
 
+### Project context check
+
+Check the project's CLAUDE.md for frontmatter containing `audience`, `developers`, and `data-sensitivity` fields (see `rules/common/project-context.md`). If present, note the values — they calibrate discovery questions, architecture recommendations, and the Phase 3.5 tradeoff assessment.
+
+If no project context frontmatter is found, suggest adding it:
+
+> No project context found in CLAUDE.md. A few lines of frontmatter helps me calibrate my advice — for example, skipping enterprise patterns for a personal tool. Can you tell me:
+> 1. **Audience** — who uses this? (e.g., self-hosted personal tool, internal tool, open-source library, B2B SaaS, consumer app)
+> 2. **Developers** — who works on it? (solo, small team, large team)
+> 3. **Data sensitivity** — what kind of data? (personal, internal, regulated)
+
+If the user provides values, add the frontmatter to the project's CLAUDE.md. If the file already has content starting with `# `, prepend the frontmatter block before the first heading:
+
+```yaml
+---
+audience: <value>
+developers: <value>
+data-sensitivity: <value>
+---
+```
+
+If the file already has a frontmatter block (lines starting and ending with `---`), add the three fields to the existing block rather than creating a second one.
+
+Note the values for use throughout this run. If the user declines, proceed without — do not ask again.
+
 ### Understand the initial request
 
 If $ARGUMENTS points to a `design/specs/NNN-*/` directory, check for existing `design.md` and read it if present (the header fields — `**Status:**`, `**Scope-mode:**` — are needed for resume detection in later phases). If a `brief.md` from a prior `/mine-grill` session exists, read it and use its Key Decisions, Scope Boundaries, and Open Questions as starting context — skip any discovery questions the brief already answers.
@@ -448,6 +473,33 @@ cfl dispatch end <dispatch_id>
 ```
 
 Skip this section (and the dispatch record above) if the researcher was not dispatched (trivial features, or existing research brief reused) or if cfl tracking was disabled in Phase 1.
+
+---
+
+## Phase 3.5: Blind Spot Self-Assessment
+
+**Skip for trivial features.**
+
+After all information gathering is complete (discovery, codebase reconnaissance, research) and before writing the design doc, surface your own uncertainty. This is not the Phase 2 completeness self-check (which asks "could I write each section?") — this is epistemic: where is your understanding weakest, and what might you not be seeing at all.
+
+Present to the user:
+
+> Before I write the design doc, three things I want to surface:
+>
+> **What I'm least confident about:**
+> [List 2-5 specific areas where your understanding is thin, your assumptions are unverified, or you took something at face value without investigating. Be concrete — "I assumed the auth middleware passes user context downstream but didn't verify" not "I'm not sure about auth."]
+>
+> **What might be missing from the picture:**
+> [List 1-3 concerns, adjacent effects, or perspectives that haven't come up yet — including things you noticed during investigation but chose not to pursue. This covers both things that never surfaced and things you actively deprioritized. "I saw that the notification module also subscribes to these events but didn't investigate whether our change affects that path" not "there might be edge cases."]
+>
+> **Tradeoffs of the current direction:**
+> [List 1-3 known costs or constraints that the approach we've been discussing imposes. Not defects — legitimate tradeoffs where the chosen direction makes something else harder, forecloses a future option, or accepts a known limitation. "This approach means we'll maintain two serialization paths until the v1 API is retired" not "this might have issues."]
+>
+> Do you have concerns about any of these?
+
+If the user wants to address items: investigate or ask follow-up questions as needed, then present the updated assessment. If the user says to proceed, note unaddressed items in the design doc's Open Questions section.
+
+The value of this step is that it catches a different class of gap than the structured checklist — things where the information gathering itself had blind spots, not things where a template section is unfilled. The tradeoff probe catches a third class: known costs the user hasn't explicitly accepted.
 
 ---
 
