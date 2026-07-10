@@ -4,7 +4,6 @@
 # If missing, checks a state file for deferral/suppression before prompting.
 # No set -euo pipefail — cosmetic hook; failure should not block session start.
 
-# --- Locate CLAUDE.md ---
 claude_md=""
 for candidate in "./CLAUDE.md" "./claude.md"; do
   if [ -f "$candidate" ]; then
@@ -15,9 +14,7 @@ done
 
 [ -z "$claude_md" ] && exit 0
 
-# --- Check if frontmatter already has all three fields ---
 has_field() {
-  # Only match within YAML frontmatter starting at line 1
   awk 'NR==1 && $0=="---" {p=1; next} p && $0=="---" {exit} p' "$claude_md" | grep -q "^${1}:"
 }
 
@@ -25,13 +22,11 @@ if has_field audience && has_field developers && has_field data-sensitivity; the
   exit 0
 fi
 
-# --- Derive project state dir ---
 # Mirrors Claude Code's internal project-dir encoding: replace / and . with -
 config_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 project_dir="$config_dir/projects/$(pwd | tr '/.' '--')"
 state_file="$project_dir/project-meta-prompt.json"
 
-# --- Check state file ---
 command -v python3 > /dev/null 2>&1 || exit 0
 
 if [ -f "$state_file" ]; then
@@ -57,7 +52,6 @@ except (OSError, json.JSONDecodeError):
   fi
 fi
 
-# --- Emit prompt ---
 cat << PROMPT
 This project's CLAUDE.md is missing project context metadata (audience, developers, data-sensitivity). These fields calibrate agent advice — without them, skills like mine-challenge default to enterprise-grade suggestions that may not fit the project.
 
@@ -73,49 +67,13 @@ options:
   - label: "Never ask again"
     description: "Permanently suppress this prompt for this project"
 
-If "Yes": ask three follow-up questions using AskUserQuestion, one per field. Options below must stay in sync with rules/common/project-context.md:
-
-audience:
-  header: "Audience"
-  question: "Who uses this software?"
-  options:
-    - label: "Personal tool"
-      description: "Built for yourself. Enterprise patterns are overkill."
-    - label: "Internal tool"
-      description: "Used within a team or org. Conventions > polish."
-    - label: "Open-source library"
-      description: "External consumers. API stability, docs, semver matter."
-    - label: "B2B SaaS / consumer app"
-      description: "Production service with real users. Reliability and scale matter."
-
-developers:
-  header: "Developers"
-  question: "Who works on this codebase?"
-  options:
-    - label: "Solo"
-      description: "One person. No ownership boundaries or team conventions."
-    - label: "Small team (2-5)"
-      description: "Shared understanding matters. Clear conventions."
-    - label: "Large team (6+)"
-      description: "Strict conventions, documentation, explicit module interfaces."
-
-data-sensitivity:
-  header: "Data"
-  question: "What kind of data flows through this system?"
-  options:
-    - label: "Personal"
-      description: "Your own data. No compliance burden."
-    - label: "Internal"
-      description: "Business data within an org. Reasonable security, no regulatory burden."
-    - label: "Regulated"
-      description: "PII, financial, health data. Security and audit trails are non-negotiable."
-
-After collecting answers, update the CLAUDE.md frontmatter with the values (using the lowercase slug form: "personal tool", "solo", "personal", etc.). If the user picks "Other" for any field, use their custom text as-is.
+If "Yes": read rules/common/project-context.md for the axis definitions. For each axis (audience, developers, data-sensitivity), present the options from that file using AskUserQuestion — one question per axis, with header/labels/descriptions matching the documented values. Write the user's chosen values into CLAUDE.md frontmatter using the canonical slug form from project-context.md. If the user picks "Other" for any field, use their custom text as-is.
 
 Then delete the state file at $state_file unless it contains "status": "suppressed".
 
-If "Not right now": write/update the state file ($state_file) with escalating deferral. Tiers are [3, 7, 14, 30] days. Read the current tier from the file (default 0), bump by 1 (cap at index 3), and write:
-  {"status": "deferred", "tier": <new_tier>, "prompt_after": "<today + days[new_tier] days>"}
+If "Not right now": write/update the state file ($state_file) with escalating deferral.
+Deferral schedule (days): 3, 7, 14, 30. Read the current tier from the file (default 0), bump by 1 (cap at last index), and write:
+  {"status": "deferred", "tier": <new_tier>, "prompt_after": "<today + schedule[new_tier] days>"}
 
 If "Never ask again": write to $state_file:
   {"status": "suppressed"}
