@@ -24,31 +24,6 @@ $ARGUMENTS — optional initial description or path. Can be:
 
 Before investigating the codebase, confirm the branch contains the latest default branch — designing against stale code produces a design with stale references that compound downstream (plan inherits them, then orchestrate). Read `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/staleness-preflight.md` and follow it in **soft** mode, with this stakes sentence: "Designing against stale code can carry into the plan and the run."
 
-### Project context check
-
-Check the project's CLAUDE.md for frontmatter containing `audience`, `developers`, and `data-sensitivity` fields (see `rules/common/project-context.md`). If present, note the values — they calibrate discovery questions, architecture recommendations, and the Phase 3.5 tradeoff assessment.
-
-If no project context frontmatter is found, suggest adding it:
-
-> No project context found in CLAUDE.md. A few lines of frontmatter helps me calibrate my advice — for example, skipping enterprise patterns for a personal tool. Can you tell me:
-> 1. **Audience** — who uses this? (e.g., self-hosted personal tool, internal tool, open-source library, B2B SaaS, consumer app)
-> 2. **Developers** — who works on it? (solo, small team, large team)
-> 3. **Data sensitivity** — what kind of data? (personal, internal, regulated)
-
-If the user provides values, add the frontmatter to the project's CLAUDE.md. If the file already has content starting with `# `, prepend the frontmatter block before the first heading:
-
-```yaml
----
-audience: <value>
-developers: <value>
-data-sensitivity: <value>
----
-```
-
-If the file already has a frontmatter block (lines starting and ending with `---`), add the three fields to the existing block rather than creating a second one.
-
-Note the values for use throughout this run. If the user declines, proceed without — do not ask again.
-
 ### Understand the initial request
 
 If $ARGUMENTS points to a `design/specs/NNN-*/` directory, check for existing `design.md` and read it if present (the header fields — `**Status:**`, `**Scope-mode:**` — are needed for resume detection in later phases). If a `brief.md` from a prior `/mine-grill` session exists, read it and use its Key Decisions, Scope Boundaries, and Open Questions as starting context — skip any discovery questions the brief already answers.

@@ -4,7 +4,7 @@ tool: claude, codex, antigravity
 
 # Project Context
 
-Projects can declare structured metadata in their CLAUDE.md frontmatter that calibrates how skills, reviewers, and critics assess the work. Without this, agents default to enterprise-grade advice — suggesting RBAC for a personal CLI tool, rate limiting for a self-hosted single-user app, horizontal scaling for a hobby project.
+Projects can declare structured metadata in their CLAUDE.md frontmatter that calibrates how agents assess the work. Currently wired into `mine-challenge` critic dispatch; other skills and reviewers inherit the values via CLAUDE.md context. Without this metadata, agents default to enterprise-grade advice — suggesting RBAC for a personal CLI tool, rate limiting for a self-hosted single-user app, horizontal scaling for a hobby project.
 
 ## Format
 
@@ -32,7 +32,7 @@ data-sensitivity: personal
 - `large team` — 6+ people. Strict conventions, documentation, and explicit interfaces between modules.
 
 **data-sensitivity** — what kind of data flows through the system.
-- `personal` — the developer's own data. Input validation is good practice, not a compliance requirement.
+- `personal` — the developer's own data. No compliance burden; skip PII handling, audit trails, and regulatory patterns.
 - `internal` — business data within an org. Reasonable security, but no regulatory burden.
 - `regulated` — PII, financial, health, or other data subject to compliance requirements. Security and audit trails are non-negotiable.
 
@@ -43,10 +43,8 @@ When reviewing, challenging, or designing for a project:
 1. Check the project's CLAUDE.md for frontmatter. If present, calibrate advice to match.
 2. A `personal tool` with `solo` developer does not need: RBAC, rate limiting, horizontal scaling, comprehensive audit logging, multi-tenant isolation, or enterprise error handling patterns. It does need: correctness, clear code, and reasonable error messages.
 3. A `B2B SaaS` with `large team` and `regulated` data needs all of those things.
-4. When a finding would be valid for an enterprise project but not for the declared context, skip it — do not surface it with a caveat.
+4. Must-tier invariants (see `invariants.md`) always surface regardless of project context — calibration adjusts framing and priority, never suppression of Must-tier items. For Should/Consider-tier findings, skip those that would only matter for a different audience or scale.
 
 ## When It's Missing
 
 Do not assume enterprise defaults when project context is absent. Look for signals in the codebase (single-user config, no auth layer, personal dotfiles patterns) before defaulting to high-rigor advice. When genuinely uncertain, ask rather than over-prescribing.
-
-Skills that run structured discovery (like mine-define) should suggest adding project context when it's missing.
