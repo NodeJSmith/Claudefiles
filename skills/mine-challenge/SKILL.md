@@ -149,6 +149,7 @@ If the generic persona directory is missing or empty, stop with: "Cannot launch 
 - Triage rationale for why this critic was selected
 - Focus instruction if `--focus` was provided: "The user is specifically concerned about: <focus>. Weight your analysis toward this concern."
 - If re-challenge: "This is a re-challenge after fixes were applied. Focus on: (1) whether the fixes were thorough, (2) whether fixes introduced new problems, (3) issues missed in the first round."
+- Project context if available: check the project's CLAUDE.md for frontmatter with `audience`, `developers`, and `data-sensitivity` fields. If present, include: "Project context: audience is <audience>, <developers> developer(s), data sensitivity is <data-sensitivity>. Calibrate your findings to this context — skip findings that would only matter for a different audience or scale." If absent, do not fabricate context — omit this line.
 - Output path: `<tmpdir>/<persona-slug>-report.md`
 - Critic rules:
   1. **Cite evidence for every claim** — `file:line` for codebase claims; canonical URL for external patterns
