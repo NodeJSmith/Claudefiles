@@ -8,6 +8,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 - Project context metadata convention (`audience`, `developers`, `data-sensitivity` in CLAUDE.md frontmatter) to calibrate agent advice to project scale; wired into `mine-challenge` critic dispatch, with a `SessionStart` hook that prompts to fill it in when missing. (#449)
 - `mine-define` Phase 3.5 — blind spot self-assessment surfaces the agent's own uncertainty and known tradeoffs before writing the design doc. (#449)
+- Apply the project context metadata convention to this repo's own CLAUDE.md (`audience: personal tool`, `developers: solo`, `data-sensitivity: internal`), calibrating reviewers and skills to Claudefiles' own solo/personal-tool scope. (#450)
 
 ## 2026-07-08
 
