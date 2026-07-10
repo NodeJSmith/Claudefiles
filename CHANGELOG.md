@@ -2,6 +2,13 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-07-10
+
+### Added
+
+- Project context metadata convention (`audience`, `developers`, `data-sensitivity` in CLAUDE.md frontmatter) to calibrate agent advice to project scale; wired into `mine-challenge` critic dispatch, with a `SessionStart` hook that prompts to fill it in when missing. (#449)
+- `mine-define` Phase 3.5 — blind spot self-assessment surfaces the agent's own uncertainty and known tradeoffs before writing the design doc. (#449)
+
 ## 2026-07-08
 
 ### Fixed
