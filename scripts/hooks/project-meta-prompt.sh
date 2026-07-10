@@ -27,7 +27,8 @@ fi
 
 # --- Derive project state dir ---
 # Mirrors Claude Code's internal project-dir encoding: replace / and . with -
-project_dir="$HOME/.claude/projects/$(pwd | tr '/.' '--')"
+config_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+project_dir="$config_dir/projects/$(pwd | tr '/.' '--')"
 state_file="$project_dir/project-meta-prompt.json"
 
 # --- Check state file ---
@@ -40,7 +41,7 @@ try:
     d = json.load(open(sys.argv[1]))
     print(d.get('status', ''), d.get('prompt_after', ''))
 except (OSError, json.JSONDecodeError):
-    print(' ')
+    print('', '')
 " "$state_file" 2> /dev/null)
 
   if [ "$status" = "suppressed" ]; then
@@ -49,6 +50,7 @@ except (OSError, json.JSONDecodeError):
 
   if [ "$status" = "deferred" ]; then
     today=$(date +%Y-%m-%d)
+    # Lexicographic comparison works because YYYY-MM-DD is zero-padded
     if [ -n "$prompt_after" ] && [[ "$today" < "$prompt_after" ]]; then
       exit 0
     fi
@@ -71,7 +73,7 @@ options:
   - label: "Never ask again"
     description: "Permanently suppress this prompt for this project"
 
-If "Yes": ask three follow-up questions using AskUserQuestion, one per field, with these options:
+If "Yes": ask three follow-up questions using AskUserQuestion, one per field. Options below must stay in sync with rules/common/project-context.md:
 
 audience:
   header: "Audience"
@@ -112,11 +114,9 @@ After collecting answers, update the CLAUDE.md frontmatter with the values (usin
 
 Then delete the state file at $state_file unless it contains "status": "suppressed".
 
-If "Not right now": write/update the state file with escalating deferral. Tiers are [3, 7, 14, 30] days. Read the current tier from the file (default 0), bump by 1 (cap at index 3), and write:
+If "Not right now": write/update the state file ($state_file) with escalating deferral. Tiers are [3, 7, 14, 30] days. Read the current tier from the file (default 0), bump by 1 (cap at index 3), and write:
   {"status": "deferred", "tier": <new_tier>, "prompt_after": "<today + days[new_tier] days>"}
 
-If "Never ask again": write:
+If "Never ask again": write to $state_file:
   {"status": "suppressed"}
-
-STATE_FILE: $state_file
 PROMPT

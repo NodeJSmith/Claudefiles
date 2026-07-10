@@ -20,6 +20,8 @@ data-sensitivity: personal
 
 ### Axes
 
+<!-- Option labels here are duplicated in scripts/hooks/project-meta-prompt.sh — update both when changing -->
+
 **audience** — who uses this software. The single biggest calibration signal.
 - `personal tool` / `self-hosted personal tool` — built for the developer. Enterprise patterns are overkill.
 - `internal tool` — used within a team or org. Conventions matter more than polish.
