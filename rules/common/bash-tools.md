@@ -13,7 +13,6 @@ tool: claude  # harness-only: the Bash/Read/Grep/Edit tool mapping is Claude-Cod
 | `find` / `ls` | `Glob` |
 | `sed` / `awk` (edits) | `Edit` |
 | `echo >` / heredoc | `Write` |
-| DOCX / PPTX / XLSX files | `uvx markitdown <file>` (converts to readable markdown) |
 
 ## Scripting Opportunities
 
