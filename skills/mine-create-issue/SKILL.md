@@ -49,7 +49,7 @@ Launch one subagent (`model: sonnet`, `subagent_type: general-purpose`):
 > **Type:** <classified type>
 > **Description:** <user's description + any follow-up answers>
 >
-> Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-create-issue/worker.md` for the complete workflow. Follow every step.
+> Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-create-issue/worker.md` for the complete workflow. Follow every step. Do NOT use the Skill tool — the instructions are in worker.md, not a skill.
 
 The subagent returns the issue URL, or an error message if something blocked it.
 
