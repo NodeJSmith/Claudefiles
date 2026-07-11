@@ -718,14 +718,14 @@ Agent:
 
     Go over it with a fine-toothed comb and make sure it's accurate, consistent, and thorough. Report anything you find.
 
-    Define blocking as: an inconsistency, inaccuracy, or gap that would mislead planning or implementation.
+    Define blocking as: a direct inconsistency or inaccuracy that would mislead planning or implementation. A section that could be more detailed is minor, not blocking — only flag a gap as blocking when the missing information has no reasonable default and would force the implementer to guess.
 ```
 
 After the comb completes, record the dispatch end and the gate:
 
 ```bash
 cfl dispatch end <dispatch_id>
-cfl gate define-comb --verdict <v> --spec <spec_number>
+cfl gate define-comb --verdict <v> --spec <spec_number> --data '{"blocking": <N>, "minor": <M>}'
 ```
 
 Verdict mapping: no findings → PASS, minor findings accepted → WARN, blocking findings → FAIL.
@@ -735,8 +735,7 @@ Verdict mapping: no findings → PASS, minor findings accepted → WARN, blockin
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply it with:
 
 - **`<header>`**: `Design comb`
-- **`minor_blocks`**: `true`
-- **`<proceed_label>` / `<proceed_description>`**: `Proceed to sign-off` / "Fix the minor findings and continue without re-combing"
+- **`minor_blocks`**: `false` — minor findings are noted for sign-off but do not block
 - **`<re_review_instructions>`**: apply the fixes to the design doc, then re-run this phase from the top
 
 The "No findings" path proceeds to Phase 6 silently.

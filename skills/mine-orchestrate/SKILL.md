@@ -254,7 +254,7 @@ Before launching the executor, read the task's objective and subtasks to determi
 After selecting the agent type, record the dispatch and capture its ID:
 
 ```bash
-cfl dispatch executor <task_id> --agent-type <selected_agent_type> --routing-reason "<matched rule or 'default general-purpose'>"
+cfl dispatch executor <task_id> --agent-type <selected_agent_type> --model <model from agent frontmatter, or sonnet for general-purpose> --routing-reason "<matched rule or 'default general-purpose'>"
 ```
 
 Parse `dispatch_id` from the JSON output — it is required for `cfl dispatch end` after the executor returns.
@@ -363,9 +363,9 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/spec-reviewer-prom
 Before launching, record three dispatches and capture their IDs:
 
 ```bash
-cfl dispatch spec-reviewer <task_id> --agent-type general-purpose
-cfl dispatch code-reviewer <task_id> --agent-type code-reviewer
-cfl dispatch integration-reviewer <task_id> --agent-type integration-reviewer
+cfl dispatch spec-reviewer <task_id> --agent-type general-purpose --model sonnet
+cfl dispatch code-reviewer <task_id> --agent-type code-reviewer --model sonnet
+cfl dispatch integration-reviewer <task_id> --agent-type integration-reviewer --model sonnet
 ```
 
 Parse `dispatch_id` from each JSON response — needed for `cfl dispatch end` after each returns.
@@ -432,8 +432,8 @@ cfl dispatch end <integration_reviewer_dispatch_id>
 Extract each reviewer's canonical verdict line from its report file — do **not** read the report bodies:
 
 - Spec: Grep `<dir>/<task_id>/spec-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract PASS / WARN / FAIL
-- Code: Grep `<dir>/<task_id>/code-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract PASS / WARN / FAIL and the findings count N from `(findings: N)`
-- Integration: Grep `<dir>/<task_id>/integration-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract PASS / WARN / FAIL and the findings count N
+- Code: Grep `<dir>/<task_id>/code-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract PASS / WARN / FAIL, the total findings count N, and per-severity counts (critical: C, high: H, medium: M, low: L) from the parenthetical
+- Integration: Grep `<dir>/<task_id>/integration-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract the same fields
 
 Record these three verdict lines (the extracted text, not the file contents) for use by Steps 12, 13, and 14. If a line is absent from a required reviewer's file, treat that reviewer as failed and re-run it.
 
@@ -441,8 +441,8 @@ Record the three gate results:
 
 ```bash
 cfl gate spec-review <task_id> --verdict <PASS|WARN|FAIL>
-cfl gate code-review <task_id> --verdict <PASS|WARN|FAIL> --data '{"findings": <N>}'
-cfl gate integration-review <task_id> --verdict <PASS|WARN|FAIL> --data '{"findings": <N>}'
+cfl gate code-review <task_id> --verdict <PASS|WARN|FAIL> --data '{"findings": <N>, "critical": <C>, "high": <H>, "medium": <M>, "low": <L>}'
+cfl gate integration-review <task_id> --verdict <PASS|WARN|FAIL> --data '{"findings": <N>, "critical": <C>, "high": <H>, "medium": <M>, "low": <L>}'
 ```
 
 ### Step 9: Test and lint gate
@@ -632,4 +632,4 @@ After the gate, continue with the next task in sequence. Track: done (PASS), war
 
 ## Phase 3: Post-Execution Review Pipeline
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/post-execution-pipeline.md` and follow it. Covers: verdict summary table, implementation review gate, cross-file consistency review, clean code check (auto-fix), implementation fine-toothed comb (final holistic pass), and shipping gate.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/post-execution-pipeline.md` and follow it. Covers: verdict summary table, implementation review gate, cross-file consistency review, clean code check (auto-fix), final review pass, and shipping gate.

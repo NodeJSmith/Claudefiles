@@ -535,14 +535,14 @@ Agent:
 
     Go over the design file and the corresponding tasks with a fine-toothed comb, making sure that they are all consistent, accurate, and thorough. Report anything you find.
 
-    Define blocking as: an inconsistency, inaccuracy, or gap between the design and tasks that would mislead implementation.
+    Define blocking as: a direct inconsistency or inaccuracy between the design and tasks that would mislead implementation. A task that could be more detailed is minor, not blocking — only flag a gap as blocking when the missing information has no reasonable default and would force the implementer to guess.
 ```
 
 After the comb completes, record the dispatch end and the gate. This verdict reflects the comb subagent's own findings classification, recorded immediately from its report — not the user's downstream proceed/re-review decision, which the "Comb gate" step below handles separately:
 
 ```bash
 cfl dispatch end <dispatch_id>
-cfl gate plan-comb --verdict <v> --spec <spec_number>
+cfl gate plan-comb --verdict <v> --spec <spec_number> --data '{"blocking": <N>, "minor": <M>}'
 ```
 
 Verdict mapping: no findings → PASS, minor findings accepted → WARN, blocking findings → FAIL.
@@ -552,8 +552,7 @@ Verdict mapping: no findings → PASS, minor findings accepted → WARN, blockin
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply it with:
 
 - **`<header>`**: `Plan comb`
-- **`minor_blocks`**: `true`
-- **`<proceed_label>` / `<proceed_description>`**: `Proceed to the gate` / "Fix the minor findings and continue without re-combing"
+- **`minor_blocks`**: `false` — minor findings are noted for the gate but do not block
 - **`<re_review_instructions>`**: apply the fixes to the design doc and/or task files, then re-run this phase from the top. Restrict task file edits to the same cosmetic-vs-substantive rule as Phase 6's "Approve with suggestions" — substantive task changes require re-running task generation from Phase 2.
 
 The "No findings" path proceeds to Phase 6 silently.

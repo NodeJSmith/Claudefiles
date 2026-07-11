@@ -97,7 +97,7 @@ GP_SIGNATURES: list[tuple[str, str]] = [
     # caliper v2 renamed the unit task -> Work Package; older runs use that wording.
     ("spec-reviewer", "independently verifying a completed Work Package"),
     ("impl-review-fix", "Fix only the listed blocking issues"),
-    ("comb-fix", "Fix only the listed design-fidelity gaps"),
+    ("comb-fix", "Fix only the listed design-fidelity gaps"),  # historical: impl-comb removed from pipeline
     # The rendered dispatch says "executing" (the implementer-prompt heading reads
     # "implementing", but the orchestrator's prompt does not — match the live text).
     # Checked last: the fix subagents embed the implementer prompt.

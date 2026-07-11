@@ -1,6 +1,6 @@
 # Post-Execution Review Pipeline (Phase 3)
 
-After all tasks are processed (or user chose "Stop here"), run a review pipeline. Steps 1–5.5 are automatic (no user prompts unless blocking issues are found). The user is prompted at the impl-review gate (if blocking), the implementation comb gate (if blocking), or the final shipping gate.
+After all tasks are processed (or user chose "Stop here"), run a review pipeline. Steps 1–5 are automatic (no user prompts unless blocking issues are found). The user is prompted at the impl-review gate (if blocking) or the final shipping gate.
 
 **All subagents in Phase 3 MUST run in foreground** (never set `run_in_background: true`). Several steps spawn their own parallel child subagents internally, which only works in foreground execution.
 
@@ -62,7 +62,7 @@ AskUserQuestion:
 **On "Address fixes":**
 1. Record the dispatch and capture its ID:
    ```bash
-   cfl dispatch impl-fixer --agent-type general-purpose
+   cfl dispatch impl-fixer --agent-type general-purpose --model sonnet
    ```
 2. Dispatch a fresh `general-purpose` subagent with `model: sonnet` and: the impl-review findings, the relevant file paths, the design doc path (`<feature_dir>/design.md` — instruct the subagent to read it directly), all task files from `<feature_dir>/tasks/` (for per-task constraints and Review Guidance), accumulated spec-reviewer outputs, `implementer-prompt.md` content (as `## Implementer instructions`), `retry-prompt.md` content (as `## Retry instructions`), and `tdd.md` content. Populate the `## Previous review feedback` template with: "Impl-review: <absolute path to impl-review findings file>". Instruct: "Fix only the listed blocking issues. Do not expand scope beyond these findings. Respect the Review Guidance constraints from each task."
 3. After the subagent completes: `cfl dispatch end <dispatch_id>`
@@ -90,7 +90,7 @@ Use the `base_commit` from the run status read in Step 1.
 Record the dispatch and capture its ID:
 
 ```bash
-cfl dispatch cross-file-reviewer --agent-type integration-reviewer
+cfl dispatch cross-file-reviewer --agent-type integration-reviewer --model sonnet
 ```
 
 Launch `Agent(subagent_type: "integration-reviewer")` with all changed files. Add this focus instruction to the prompt:
@@ -108,7 +108,7 @@ After the reviewer completes: `cfl dispatch end <dispatch_id>`
 Record the gate result:
 
 ```bash
-cfl gate cross-file-review --verdict <PASS|WARN|FAIL> --data '{"findings": <N>}'
+cfl gate cross-file-review --verdict <PASS|WARN|FAIL> --data '{"findings": <N>, "critical": <C>, "high": <H>, "medium": <M>, "low": <L>}'
 ```
 
 If the integration-reviewer returns FAIL, surface the blocking issues to the user with an "Address" / "Stop here" gate (same pattern as the impl-review gate). If PASS or WARN, note any suggestions and continue to Step 4 (Clean code check).
@@ -120,7 +120,7 @@ After the cross-file consistency review passes, run a clean code check on the en
 Record the dispatch and capture its ID:
 
 ```bash
-cfl dispatch clean-code-executor --agent-type general-purpose
+cfl dispatch clean-code-executor --agent-type general-purpose --model sonnet
 ```
 
 Launch a single `general-purpose` subagent with `model: sonnet` and this prompt. (The analysis is done by `mine-clean-code`'s three Sonnet checkers; this wrapper only invokes the skill and applies the unambiguous fixes — leaving anything that needs architectural judgment noted, not fixed — so it does not need Opus.)
@@ -181,8 +181,8 @@ Use the `base_commit` from the run status read in Step 1.
 Record both dispatches and capture their IDs:
 
 ```bash
-cfl dispatch final-code-reviewer --agent-type code-reviewer
-cfl dispatch final-integration-reviewer --agent-type integration-reviewer
+cfl dispatch final-code-reviewer --agent-type code-reviewer --model sonnet
+cfl dispatch final-integration-reviewer --agent-type integration-reviewer --model sonnet
 ```
 
 Launch both reviewers in a single message (parallel):
@@ -206,63 +206,13 @@ Record the gate result:
 cfl gate final-review --verdict <PASS|WARN|FAIL> --data '{"findings_fixed": <N>}'
 ```
 
-## Step 5.5: Implementation fine-toothed comb (final holistic pass, gates on blocking findings)
-
-This is the last content review before shipping. Unlike impl-review's structured checklist (Step 2), this is open-ended: does the **finished implementation faithfully and thoroughly realize the design** — is every FR and AC actually implemented, did anything get silently dropped, did any behavior drift from what the design specified? Running it last means it reviews the settled code, after clean-code edits.
-
-**Scope tip.** This is the most context-heavy subagent in the pipeline. Feed the branch diff, not full file contents — instruct the subagent to run the diff itself (keeps the diff out of the orchestrator's context). For very large diffs, chunk by file group and reconcile.
-
-Record the dispatch and capture its ID:
-
-```bash
-cfl dispatch impl-comb --agent-type fine-toothed-comb
-```
-
-Dispatch the `fine-toothed-comb` agent (see `${CLAUDE_CONFIG_DIR:-~/.claude}/agents/fine-toothed-comb.md`):
-
-```
-Agent:
-  subagent_type: fine-toothed-comb
-  model: sonnet
-  prompt: |
-    Read this design file: <feature_dir>/design.md
-    Read all task files in: <feature_dir>/tasks/
-
-    Then get the full implementation diff:
-
-    git diff "$(git-branch-base)"...HEAD
-
-    Go over the implementation against the design with a fine-toothed comb, making sure it's consistent, accurate, and thorough — every functional requirement and acceptance criterion in the design is actually implemented, nothing was silently dropped, and no behavior drifted from what the design specified. Report anything you find.
-
-    Define blocking as: a requirement not met, behavior that drifted from the design, or an inconsistency that makes the implementation wrong relative to the design.
-```
-
-After the agent completes: `cfl dispatch end <dispatch_id>`
-
-### Comb gate
-
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply it with:
-
-- **`<header>`**: `Impl comb`
-- **`minor_blocks`**: `false` — note any minor findings for the shipping gate and proceed to Step 6; a finished implementation doesn't block shipping on polish.
-- **`<blocking_question>`**: "Implementation comb found blocking design-fidelity gaps: <summary>. These must be resolved before shipping."
-- **`<re_review_instructions>`**: dispatch a `general-purpose` subagent with `model: sonnet`, passing the comb findings, the design doc path (`<feature_dir>/design.md`), the task files from `<feature_dir>/tasks/`, and the affected file paths. Instruct: "Fix only the listed design-fidelity gaps. Do not expand scope beyond these findings. After fixing, run the test suite: `<contents of <dir>/test-command.txt>`." After it completes, re-run this step's comb from the top.
-
-The gate's "Stop" leaves the run active — for this caller that means do **not** call `cfl run complete`; the user can resume later.
-
-Record the gate result:
-
-```bash
-cfl gate impl-comb --verdict <PASS|WARN|FAIL> --data '{"blocking": <N>, "minor": <N>}'
-```
-
 ## Step 6: Shipping gate
 
 Present the final gate with impl-review and cross-file review results:
 
 ```
 AskUserQuestion:
-  question: "All tasks complete. Implementation review: <PASS + any non-blocking suggestions summary>. Cross-file review: <PASS/WARN + any notes>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Final review: <clean / N findings fixed>. Implementation comb: <clean — or N minor noted — or N blocking resolved>. What next?"
+  question: "All tasks complete. Implementation review: <PASS + any non-blocking suggestions summary>. Cross-file review: <PASS/WARN + any notes>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Final review: <clean / N findings fixed>. What next?"
   header: "Ship"
   multiSelect: false
   options:

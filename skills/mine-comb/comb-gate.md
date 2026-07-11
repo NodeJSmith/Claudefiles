@@ -8,7 +8,7 @@ Acknowledging a finding and moving on is not allowed. The only ways past a block
 
 ## Parameters the caller supplies
 
-- **`<header>`** — the `AskUserQuestion` header chip, e.g. `Design comb`, `Plan comb`, `Impl comb`. Keep it ≤12 chars — the chip truncates past that.
+- **`<header>`** — the `AskUserQuestion` header chip, e.g. `Design comb`, `Plan comb`, `Comb`. Keep it ≤12 chars — the chip truncates past that.
 - **`minor_blocks`** — `true` if minor findings should ask the user (cheap-to-fix artifacts: designs, plans); `false` if minor findings are noted and the caller proceeds without asking (a finished implementation shouldn't block shipping on polish).
 - **`<proceed_label>` / `<proceed_description>`** — the "fix and move on" option, named for the caller's next step (e.g. `Proceed to sign-off`, `Proceed to the gate`). Fixes the current findings but skips the re-comb. **Required only when `minor_blocks` is `true`** — when `minor_blocks` is `false` the minor-findings prompt never fires, so omit it.
 - **`<re_review_instructions>`** — what "Fix and re-review" does in this context: which files may be edited, any scope restriction, and (for implementation combs) the subagent dispatch to apply the fix. The re-comb always re-runs the comb from the top.

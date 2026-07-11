@@ -7,7 +7,7 @@ Single source of truth for the canonical verdict line emitted by all four review
 ### Code and integration reviewers
 
 ```
-**Verdict:** PASS | WARN | FAIL (findings: N)
+**Verdict:** PASS | WARN | FAIL (findings: N, critical: C, high: H, medium: M, low: L)
 ```
 
 ### Spec and visual reviewers
@@ -34,9 +34,9 @@ No line in any reviewer's report may begin with `**Verdict:**` except the single
 
 ## Findings Count (code and integration only)
 
-`N` is the count of findings **introduced by this change**. Pre-existing issues — flagged separately under a `## Pre-existing Issues` header — are excluded from the count.
+`N` is the total count of findings **introduced by this change**. `C`, `H`, `M`, `L` are the per-severity counts (critical, high, medium, low). Pre-existing issues — flagged separately under a `## Pre-existing Issues` header — are excluded from all counts. The per-severity counts must sum to `N`.
 
-The count is informational. It tells the orchestrator how many findings the reviewer raised, but the fixer loop triggers on verdict (WARN or FAIL), not on the count. A PASS with `findings: N` does not trigger the fixer. Spec and visual carry no count because their findings never trigger the fixer; they route by verdict word alone.
+The counts are informational. They tell the orchestrator what the reviewer found, but the fixer loop triggers on verdict (WARN or FAIL), not on the counts. A PASS with `findings: N` does not trigger the fixer. Spec and visual carry no count because their findings never trigger the fixer; they route by verdict word alone.
 
 ## Extraction Contract
 
@@ -44,7 +44,7 @@ Consumers take the **last line matching** `^\*\*Verdict:\*\*` in the reviewer's 
 
 Parsing is per-reviewer-type:
 
-- Code/integration: last line matching `^\*\*Verdict:\*\*` and containing `(findings:` — extract verdict word and N
+- Code/integration: last line matching `^\*\*Verdict:\*\*` and containing `(findings:` — extract verdict word, N, and per-severity counts C/H/M/L
 - Spec: last line matching `^\*\*Verdict:\*\*` — extract PASS / WARN / FAIL
 - Visual: last line matching `^\*\*Verdict:\*\*` — extract PASS / WARN / FAIL
 
