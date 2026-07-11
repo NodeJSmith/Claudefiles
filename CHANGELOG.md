@@ -4,13 +4,19 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-07-11
 
+### Added
+
+- New `PreToolUse` hook (`subagent-model-default.sh`) injects `model: sonnet` on `Agent` dispatches to built-in types (`general-purpose`, `Explore`, `Plan`, `claude`, unspecified) that have no `model:` frontmatter and would otherwise silently inherit the parent session's (often Opus) model; overrides are logged to `~/.local/share/claudefiles/model-overrides.jsonl`. (#453)
+
 ### Changed
 
 - `mine-orchestrate` pipeline — removed the implementation fine-toothed-comb gate (data across 18 runs showed a 0% catch rate after the upstream code-review/integration-review/fixer loop); narrowed the comb's "blocking" definition across `mine-define`/`mine-plan`/`mine-comb` so vague completeness gaps are minor instead of forcing a rework loop. (#452)
+- `install.py` now runs `claude plugin update` on every install when the `ccrecall` plugin is already tracked, instead of skipping — machines pick up marketplace updates automatically. (#453)
 
 ### Fixed
 
 - `cfl` telemetry — dispatch calls across `mine-orchestrate` now record their model, `session_uuid` is actually persisted, and reviewer verdict lines carry per-severity finding counts instead of a flat total. (#452)
+- Removed stale `/ccrecall:ccr-tokens` references from `ONBOARDING.md` and `REFERENCE.md` — that skill was retired but the docs still advertised it. (#453)
 
 ## 2026-07-10
 

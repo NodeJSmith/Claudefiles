@@ -30,7 +30,7 @@ The base (pipeline workflow) always installs. On a first install the wizard asks
 
 **Hooks** — event-driven scripts that run before or after tool calls (pytest safety guard, sudo handling, tmux session naming). Background infrastructure you don't think about.
 
-**Plugins** — third-party Claude Code plugins bundled via `settings.json`. These register automatically when settings are merged, so you get them without manual setup. Currently: `ccrecall` (conversation memory — recall, resume, token insights).
+**Plugins** — third-party Claude Code plugins bundled via `settings.json`. These register automatically when settings are merged, so you get them without manual setup. Currently: `ccrecall` (conversation memory — recall, resume).
 
 **Bundles** — use-case packages. The base bundle gives you the pipeline. Optional bundles add capabilities: frontend design, CLI tooling, engineering specialists, and extra planning agents. (Conversation memory used to be a bundle — it's now the `ccrecall` plugin.)
 

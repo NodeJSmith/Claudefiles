@@ -57,7 +57,7 @@ Keep this lightweight — aim for 2-3 file reads, up to 6 if conventions are spl
 
 This subagent returns its findings as its result message (no file output needed — the main skill reads the return value).
 
-### Subagent B: Web Research (`subagent_type: general-purpose`)
+### Subagent B: Web Research (`subagent_type: general-purpose`, `model: sonnet`)
 
 This is the PRIMARY phase. Replace `<topic>` with the exact topic from Phase 1 before dispatching. The subagent prompt must include:
 

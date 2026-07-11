@@ -8,6 +8,8 @@ tool: claude  # harness-only: model selection and the agent-model registry are C
 **Sonnet 5** — Main development work, orchestration, complex coding
 **Opus 4.8** — Deep reasoning, architecture decisions, research
 
+A PreToolUse hook (`subagent-model-default.sh`) enforces model defaults on Agent dispatches. Built-in agent types (`general-purpose`, `Explore`, `Plan`, `claude`, empty) have no model frontmatter and inherit the parent model — typically Opus. The hook injects `model: sonnet` for these types when no model is specified. When the hook fires, it injects an `additionalContext` message — relay that to the user so they know the override happened. Overrides are logged to `~/.local/share/claudefiles/model-overrides.jsonl`.
+
 ## Context Window (CRITICAL)
 
 A PreToolUse hook (`context-tier.sh`, part of the personal Dotfiles setup) injects context usage tiers when they change and re-injects periodically (every 25 tool calls) to keep guidance fresh. Follow the guidance in those messages. When no tier message is present, do not invent context pressure — any unprompted claim about context usage ("building up," "getting low," suggesting compaction) is a fabrication.
@@ -62,3 +64,7 @@ Each agent file in `agents/` declares its model in YAML frontmatter. When updati
 - `skills/mine-create-issue/SKILL.md` — `model: sonnet` for investigation, drafting, and creation worker subagent
 - `skills/mine-mockup/SKILL.md` — `model: sonnet` for mockup generation worker subagent
 - `skills/mine-review/SKILL.md` — `model: sonnet` for instruction-mode reviewers (consistency/completeness, instruction quality, writing quality)
+- `skills/mine-address-pr-issues/SKILL.md` — `model: sonnet` for fix subagents
+- `skills/mine-brainstorm/SKILL.md` — `model: sonnet` for thinker subagents
+- `skills/mine-prior-art/SKILL.md` — `model: sonnet` for web research subagent
+- `skills/mine-visual-qa/SKILL.md` — `model: sonnet` for screenshotter and analysis subagents

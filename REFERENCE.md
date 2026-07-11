@@ -78,9 +78,9 @@ Full component tables for Claudefiles. For context on what each component type d
 | `cli-harden` | CLI edge-case hardening — resilience against hostile inputs, signals, terminal quirks, and partial failures |
 | `cli-output` | CLI output design — table formatting, color semantics, verbosity, progress, human vs machine output |
 
-Conversation memory (recall, token insights, resume) now ships as the external
+Conversation memory (recall, resume) now ships as the external
 [`ccrecall`](https://github.com/NodeJSmith/claude-code-recall) plugin (`/ccrecall:ccr-recall`,
-`/ccrecall:ccr-tokens`, `/ccrecall:ccr-resume`) — see [Plugins](#plugins) — not as a Claudefiles bundle.
+`/ccrecall:ccr-resume`) — see [Plugins](#plugins) — not as a Claudefiles bundle.
 
 ## Commands
 
@@ -179,6 +179,7 @@ Event-driven scripts that run before/after tool calls.
 | `project-meta-prompt.sh` | SessionStart | Prompts to fill project context metadata (audience, developers, data-sensitivity) in CLAUDE.md — escalating deferral with suppression option |
 | `sudo-poll.sh` | PreToolUse (Bash) | Deny-then-poll for sudo — detects cached credentials or waits 30s for user to `sudo -v` in another pane |
 | `subagent-compaction-check.sh` | PostToolUse (Agent) | Detect subagent context compaction — warns the orchestrator when a subagent hit its context window limit mid-task |
+| `subagent-model-default.sh` | PreToolUse (Agent) | Enforce model defaults on Agent dispatches — injects `model: sonnet` for built-in types lacking frontmatter, logs to `~/.local/share/claudefiles/model-overrides.jsonl` |
 | `tmux-drift-check.sh` | PreToolUse (*) | Periodically remind Claude to verify tmux session name alignment with current work (every 30 calls) |
 | `secrets-check.sh` | Git pre-commit | Block commits containing secrets, tokens, or dangerous files — 44 patterns (29 regex + 15 filename), truncated output, `SKIP_SECRETS_CHECK=1` override |
 
@@ -192,7 +193,7 @@ Third-party Claude Code plugins pre-configured via `extraKnownMarketplaces` and 
 
 | Plugin | Marketplace | Description |
 |--------|-------------|-------------|
-| `ccrecall` | `claude-code-recall` (`NodeJSmith/claude-code-recall`) | Conversation memory — session DB + recall/resume/token-insights skills (`/ccrecall:ccr-recall`, `/ccrecall:ccr-resume`, `/ccrecall:ccr-tokens`) and the SessionStart/SessionEnd/Stop memory hooks. Requires the `ccrecall` PyPI package (installed by `install.py`) for its hook binaries and CLI. |
+| `ccrecall` | `claude-code-recall` (`NodeJSmith/claude-code-recall`) | Conversation memory — session DB + recall/resume skills (`/ccrecall:ccr-recall`, `/ccrecall:ccr-resume`) and the SessionStart/SessionEnd/Stop memory hooks. Requires the `ccrecall` PyPI package (installed by `install.py`) for its hook binaries and CLI. |
 
 To add a plugin: add its marketplace to `extraKnownMarketplaces` and enable it in `enabledPlugins` in `settings.json`, then document it here and in ONBOARDING.md.
 

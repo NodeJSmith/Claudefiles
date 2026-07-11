@@ -751,14 +751,11 @@ def ccrecall_plugin_installed(claude_bin: str) -> bool:
 
 
 def ensure_ccrecall_plugin(console: Console) -> int:
-    """Register the ccrecall plugin: add its marketplace, then install it. Returns errors.
+    """Register and update the ccrecall plugin. Returns errors.
 
-    The plugin auto-syncs from enabledPlugins in settings.json at session start, but that
-    sync leaves no tracked install record (so `claude plugin update` won't see it). This
-    makes the install explicit. The underlying commands are idempotent (both no-op when
-    already present), but not silently — they reprint progress and refetch the marketplace
-    on every run. So we check `claude plugin list` first and skip the work entirely once
-    the plugin is a tracked install.
+    First install: adds the marketplace, then installs the plugin. Subsequent runs:
+    runs `claude plugin update` to pull the latest from the marketplace repo and rebuild
+    the cache (stale cache entries from older versions are replaced automatically).
 
     claude is resolved with shutil.which, never the bare name: the interactive `claude`
     shell function launches `--bare`, which skips plugin sync. shutil.which sees only real
@@ -775,9 +772,14 @@ def ensure_ccrecall_plugin(console: Console) -> int:
         return errors
 
     if ccrecall_plugin_installed(claude_bin):
-        console.print(
-            f"  Plugin already installed: {CCRECALL_PLUGIN_REF} [dim](skipping)[/dim]"
-        )
+        console.print(f"  Updating plugin: {CCRECALL_PLUGIN_REF}...")
+        ok, detail = run_claude_plugin(claude_bin, ["update", CCRECALL_PLUGIN_REF])
+        if not ok:
+            console.print(
+                f"  [yellow]Warning: plugin update failed ({detail})[/yellow]"
+            )
+        else:
+            console.print(f"  Plugin up to date: {CCRECALL_PLUGIN_REF}")
         return errors
 
     # Marketplace add failing is non-fatal — it's already-known on every machine past the
