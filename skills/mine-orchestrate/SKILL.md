@@ -270,7 +270,7 @@ For **first-pass execution**, include only `implementer-prompt.md` in the `## Im
 
 For **retries** (WARN fix loop and FAIL retry), include **both** files: `implementer-prompt.md` in `## Implementer instructions` (task execution contract — subtask sequencing, deviation classification, visual verification) and `retry-prompt.md` as an additional `## Retry instructions` section below it (verify-before-implement posture, YAGNI check, push-back protocol, and previous review feedback).
 
-Launch a subagent of the type selected in Step 4 with `model: sonnet` and this prompt (fill in bracketed values):
+Launch a subagent of the type selected in Step 4 with the same `--model` value used in Step 4's `cfl dispatch` call and this prompt (fill in bracketed values):
 
 ```
 You are executing a single task from an implementation plan.

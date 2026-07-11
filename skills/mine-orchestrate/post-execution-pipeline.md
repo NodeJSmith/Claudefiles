@@ -203,8 +203,10 @@ If either reviewer finds CRITICAL or HIGH issues, fix them inline (auto-fix unam
 Record the gate result:
 
 ```bash
-cfl gate final-review --verdict <PASS|WARN|FAIL> --data '{"findings_fixed": <N>}'
+cfl gate final-review --verdict <PASS|WARN|FAIL> --data '{"findings_fixed": <N>, "remaining": <M>, "remaining_severities": {"medium": <Me>, "low": <L>}}'
 ```
+
+Populate the `--data` values by parsing the canonical `**Verdict:**` lines from `<dir>/final-code-review.md` and `<dir>/final-integration-review.md` (extraction contract: last line matching `^\*\*Verdict:\*\*` containing `(findings:` — see `verdict-line-format.md`). `remaining` is the sum of MEDIUM + LOW findings across both reviewers after the fix loop.
 
 ## Step 6: Shipping gate
 
@@ -212,7 +214,7 @@ Present the final gate with impl-review and cross-file review results:
 
 ```
 AskUserQuestion:
-  question: "All tasks complete. Implementation review: <PASS + any non-blocking suggestions summary>. Cross-file review: <PASS/WARN + any notes>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Final review: <clean / N findings fixed>. What next?"
+  question: "All tasks complete. Implementation review: <PASS + any non-blocking suggestions summary>. Cross-file review: <PASS/WARN + any notes>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Final review: <verdict — N fixed; M remaining at medium/low — or 'all clean'>. What next?"
   header: "Ship"
   multiSelect: false
   options:
@@ -233,6 +235,8 @@ cfl gate shipping-gate --verdict <PASS|WARN|FAIL> --data '{"choice": "<ship|chal
 (PASS for "Ship via /mine-ship", WARN for "Challenge first", FAIL for "Stop here")
 
 Read `<dir>/clean-code-summary.md` to populate the `Clean code check:` field in the question above.
+
+Read the canonical `**Verdict:**` lines from `<dir>/final-code-review.md` and `<dir>/final-integration-review.md` to populate the `Final review:` field. Use the same values recorded in the `cfl gate final-review` call above.
 
 **On "Ship via /mine-ship":** Invoke `/mine-ship`.
 
