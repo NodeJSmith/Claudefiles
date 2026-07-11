@@ -178,11 +178,11 @@ End with an **Assessment**:
 ```text
 ### Assessment
 **Strengths:** [what works well — 1-3 sentences]
-**Verdict:** PASS | WARN | FAIL (findings: N)
+**Verdict:** PASS | WARN | FAIL (findings: N, critical: C, high: H, medium: M, low: L)
 **Reasoning:** [1-2 sentences — technical, not performative]
 ```
 
-`N` = count of CRITICAL + HIGH + MEDIUM + LOW findings introduced by this change. Do not include findings listed under "Pre-existing (not introduced by this PR)". Use `N = 0` when there are no new findings.
+`N` = total count of CRITICAL + HIGH + MEDIUM + LOW findings introduced by this change. `C`, `H`, `M`, `L` = per-severity counts. Do not include findings listed under "Pre-existing (not introduced by this PR)". Use `N = 0, critical: 0, high: 0, medium: 0, low: 0` when there are no new findings.
 
 ## Verdict Criteria
 
@@ -197,7 +197,7 @@ End with an **Assessment**:
 
 When the dispatch prompt contains the **exact literal token** `CONCISE-RETURN-MODE` **and** provides an output file path, enter concise-return mode:
 - Write the full report to the provided output file path
-- Return **only the canonical verdict line** (`**Verdict:** PASS | WARN | FAIL (findings: N)`) as your final message
+- Return **only the canonical verdict line** (`**Verdict:** PASS | WARN | FAIL (findings: N, critical: C, high: H, medium: M, low: L)`) as your final message
 
 In all other cases — including when no output file path is provided — return the full report as your final message. This is the unconditional default. Callers such as `/mine-review`, `/mine-ship`, `/mine-commit-push`, `/mine-build`, and `/mine-address-pr-issues` do not supply the token and always receive the full report.
 

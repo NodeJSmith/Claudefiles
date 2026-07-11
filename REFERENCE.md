@@ -19,7 +19,7 @@ Full component tables for Claudefiles. For context on what each component type d
 | `mine-create-pr` | Review branch changes and create a PR on GitHub or Azure DevOps |
 | `mine-debug` | Systematic debugging — 4-phase root-cause investigation with escalation protocol and error tracking |
 | `mine-decompose` | Codebase decomposition analysis — finds split opportunities using Git behavioral signals and structural metrics, proposes concrete splits with ROI-based prioritization |
-| `mine-comb` | One-off fine-toothed comb — open-ended holistic review of a brief, design, plan, or implementation-against-design; dispatches the fine-toothed-comb agent and runs the comb gate. Standalone form of the comb inside mine-define/mine-plan/mine-orchestrate |
+| `mine-comb` | One-off fine-toothed comb — open-ended holistic review of a brief, design, plan, or implementation-against-design; dispatches the fine-toothed-comb agent and runs the comb gate. Standalone form of the comb inside mine-define/mine-plan |
 | `mine-define` | Proportional discovery + codebase investigation + architecture interrogation → design.md with one sign-off gate |
 | `mine-elevate` | Surfaces upward improvements to a subsystem through three generator lenses (friction/v2, latent peer-adoption, maximalist provocation) — each candidate annotated with cost and the case against, ordered by signal, never filtered. A menu, not a mandate; the inverse of mine-simplify/mine-decompose |
 | `mine-eval-repo` | Evaluate a third-party GitHub repo before adopting it — test coverage, code quality, maintenance health, bus factor |

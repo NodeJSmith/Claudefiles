@@ -6,10 +6,11 @@ Implements:
 """
 
 import json
+import os
 import sqlite3
 
 import cfl.output as output_module
-from cfl.session import read_context_pct
+from cfl.session import SESSION_ID_ENV_VAR, read_context_pct
 
 
 def record_dispatch(
@@ -28,13 +29,24 @@ def record_dispatch(
     Atomically INSERTs into dispatches and emits task.dispatched (when task_id
     is set) or review.dispatched (when task_id is None) into events.
     """
+    session_uuid = os.environ.get(SESSION_ID_ENV_VAR)
+
     conn.execute("BEGIN IMMEDIATE")
     try:
         cursor = conn.execute(
             """INSERT INTO dispatches
-               (run_id, task_id, gate_id, role, agent_type, model, routing_reason, dispatched_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-            (run_id, task_id, gate_id, role, agent_type, model, routing_reason),
+               (run_id, task_id, gate_id, role, agent_type, model, routing_reason, session_uuid, dispatched_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+            (
+                run_id,
+                task_id,
+                gate_id,
+                role,
+                agent_type,
+                model,
+                routing_reason,
+                session_uuid,
+            ),
         )
         dispatch_id = cursor.lastrowid
 

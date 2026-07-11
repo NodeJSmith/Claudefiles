@@ -263,10 +263,10 @@ After all findings, print a summary table:
 | Parallel drift       | PASS / N issue(s)               |
 | Abstraction inconsistency | PASS / N issue(s)          |
 
-**Verdict:** PASS | WARN | FAIL (findings: N)
+**Verdict:** PASS | WARN | FAIL (findings: N, critical: C, high: H, medium: M, low: L)
 ```
 
-`N` = count of all findings listed in the dimension table above, introduced by this change. Do not count findings listed under `## Pre-existing Issues`. Use `N = 0` when the table shows only PASS rows.
+`N` = total count of all findings listed in the dimension table above, introduced by this change. `C`, `H`, `M`, `L` = per-severity counts. Do not count findings listed under `## Pre-existing Issues`. Use `N = 0, critical: 0, high: 0, medium: 0, low: 0` when the table shows only PASS rows.
 
 **Verdict criteria:**
 - **FAIL**: Any DUPLICATE, MISPLACED, DESIGN_VIOLATION, UNRESOLVED, or PARALLEL_DRIFT finding
@@ -294,7 +294,7 @@ Do not include them in the verdict. Don't block a PR for debt that predates it.
 
 When the dispatch prompt contains the **exact literal token** `CONCISE-RETURN-MODE` **and** provides an output file path, enter concise-return mode:
 - Write the full report to the provided output file path
-- Return **only the canonical verdict line** (`**Verdict:** PASS | WARN | FAIL (findings: N)`) as your final message
+- Return **only the canonical verdict line** (`**Verdict:** PASS | WARN | FAIL (findings: N, critical: C, high: H, medium: M, low: L)`) as your final message
 
 In all other cases — including when no output file path is provided — return the full report as your final message. This is the unconditional default. Callers such as `/mine-review`, `/mine-ship`, `/mine-commit-push`, `/mine-build`, and `/mine-address-pr-issues` do not supply the token and always receive the full report.
 

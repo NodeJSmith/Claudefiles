@@ -40,12 +40,12 @@ Classify every finding:
 - **blocking** — an inconsistency, inaccuracy, drift, or gap that would mislead whoever acts on this next, or make the artifact wrong relative to its reference. When the caller gives a context-specific definition of blocking, use it.
 - **minor** — a nitpick or optional polish that does not threaten correctness or fidelity.
 
-Do not inflate severity to seem thorough, and do not soften a real gap to minor to avoid blocking. If you are genuinely unsure whether something is blocking, say so in the finding and lean blocking — the gate exists to surface it, not to auto-fix it.
+Do not inflate severity to seem thorough, and do not soften a real gap to minor to avoid blocking. If you are genuinely unsure whether something is blocking, say so in the finding and lean minor — a false block creates a rework loop that costs more than a false pass that surfaces during execution.
 
 **Verify "behavior is wrong" claims against the running system before reporting them blocking.** This applies when you are combing an implementation and have the code and a runnable test suite in front of you. There are two shapes of blocking finding, and they need different evidence:
 
 - **A requirement is missing or dropped** (the design specifies X, the diff has no X). Reading is sufficient — report it; there is nothing to run.
-- **Existing behavior is incorrect** (you claim a code path coerces wrong, returns the wrong status, breaks a test, etc.). This is the false-positive-prone shape: it rests on a mental model of runtime behavior that is easy to get wrong. Before reporting it blocking, confirm it — trace the actual call path the value takes (not the one you assume), and where a test names the behavior, run it. If the suite is green against the code you're calling wrong, or the real path differs from your assumption, the claim is refuted: drop it or downgrade to a noted observation, and say what you checked. Lean-blocking-when-unsure does not license shipping an unverified runtime claim you had the tools to check.
+- **Existing behavior is incorrect** (you claim a code path coerces wrong, returns the wrong status, breaks a test, etc.). This is the false-positive-prone shape: it rests on a mental model of runtime behavior that is easy to get wrong. Before reporting it blocking, confirm it — trace the actual call path the value takes (not the one you assume), and where a test names the behavior, run it. If the suite is green against the code you're calling wrong, or the real path differs from your assumption, the claim is refuted: drop it or downgrade to a noted observation, and say what you checked. Leaning minor when unsure does not license skipping verification you had the tools to run.
 
 ## Output format
 

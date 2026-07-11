@@ -19,21 +19,18 @@ post-verification* verdict and is archived/deleted on ship, so it both
 undercounts (dedup, downgrades) and disappears. The agent JSONL is the
 complete, durable, per-run source.
 
-For the fine-toothed-comb specifically, runs are split by caller mode:
-`impl` (the end-of-orchestration implementation-vs-design pass) vs `other`
-(design/plan/brief combs), because they have very different base rates.
+The fine-toothed-comb is used for design and plan combs (the implementation
+comb was removed from the pipeline — historical impl-comb data remains in the DB).
 
 Usage:
   agent-stats                         # summary table across all agent types
   agent-stats --type fine-toothed-comb        # detailed report for one type
-  agent-stats --type fine-toothed-comb --impl-only
   agent-stats --type fine-toothed-comb --findings   # dump blocking finding text
   agent-stats --type code-reviewer --json
   agent-stats --since 2026-06-01       # only runs whose file mtime is on/after
 
 Options:
   --type NAME      Restrict to one agentType; print a detailed report.
-  --impl-only      Comb only: keep just the orchestrate impl-vs-design pass.
   --findings       Print the Blocking section text for each blocking run.
   --since DATE     Only runs modified on/after DATE (YYYY-MM-DD).
   --projects DIR   Override the projects root (default: $CLAUDE_CONFIG_DIR/projects
@@ -53,21 +50,9 @@ import sys
 from glob import glob
 from pathlib import Path
 
-# Signature text the orchestrate Step 5.7 dispatch puts in the comb's prompt.
-# Used to tell the implementation comb apart from design/plan/brief combs.
-IMPL_COMB_SIGNATURES = (
-    "against the design with a fine-toothed comb",
-    "every functional requirement and acceptance",
-)
-
 # Sonnet's auto-compaction fires around here (measured 167k–176k; the floor is
 # the conservative threshold). See the subagent-baseline-trim research / spec 031.
 AUTO_COMPACT_TOKEN_THRESHOLD = 167_000
-
-# Only the comb is split by caller mode (impl-vs-design pass vs design/plan/brief
-# comb) because the two have very different base rates. Other agent types report
-# as a single group.
-MODE_SPLIT_TYPES = {"fine-toothed-comb"}
 
 # Shown wherever a stat has no underlying data (empty denominator, no token usage).
 NO_DATA = "—"
@@ -175,8 +160,7 @@ def collect_db(
 
         # Map unified DB verdicts (PASS/WARN/FAIL/SKIPPED) to agent-stats terms.
         # Counts come from gate_data where the gate type stores them:
-        #   impl-comb → {"blocking": N, "minor": N}
-        #   code-review, integration-review → {"findings": N} (all findings, not split)
+        #   code-review, integration-review → {"findings": N, "critical": C, ...}
         verdict_raw = row["verdict"] or "SKIPPED"
         if verdict_raw in ("PASS", "SKIPPED"):
             verdict, blk, mnr = "clean", 0, 0
@@ -203,8 +187,6 @@ def collect_db(
                 else 0,
                 # peak: raw token count not stored; 0 excludes this record from peak stats.
                 "peak": 0,
-                # impl: true when this is the orchestrate impl-vs-design comb pass.
-                "impl": row["gate_type"] == "impl-comb",
                 "jsonl": "",
                 "report": "",
             }
@@ -273,41 +255,23 @@ def message_text(msg: dict) -> str:
 
 def scan_run(jsonl: str) -> dict:
     """Single pass over a run's JSONL for everything we report: compaction
-    count, peak turn tokens, comb impl-mode signature, and the final
-    assistant message's text (the agent's report, which carries `## Summary`)."""
+    count, peak turn tokens, and the final assistant message's text (the
+    agent's report, which carries `## Summary`)."""
     compactions = 0
     peak = 0
-    impl_sig = False
     report = ""
     try:
         with open(jsonl, encoding="utf-8") as fh:
             for raw in fh:
                 if '"compact_boundary"' in raw:
                     compactions += 1
-                # Keep usage turns (peak), assistant turns (report), and user
-                # turns (impl-mode signature below). The '"user"' arm is
-                # load-bearing: drop it and the impl_sig check never sees the
-                # dispatch prompt.
-                if (
-                    '"usage"' not in raw
-                    and '"assistant"' not in raw
-                    and '"user"' not in raw
-                ):
+                if '"usage"' not in raw and '"assistant"' not in raw:
                     continue
                 try:
                     obj = json.loads(raw)
                 except ValueError:
                     continue
                 msg = obj.get("message", {}) or {}
-                # The impl-mode signature lives in the orchestrate Step 5.7
-                # dispatch prompt, which arrives as a user message. Match the full
-                # signature there — not substrings anywhere in the transcript — so
-                # reviewed text or the comb's own report can't misbucket a
-                # design/plan/brief comb run as impl.
-                if not impl_sig and msg.get("role") == "user":
-                    prompt = message_text(msg)
-                    if all(s in prompt for s in IMPL_COMB_SIGNATURES):
-                        impl_sig = True
                 # Peak = total turn tokens (input context + this turn's output).
                 # Output is included deliberately: it rolls into the next turn's
                 # input, so total is the better compaction-risk proxy. Evidence:
@@ -331,7 +295,6 @@ def scan_run(jsonl: str) -> dict:
     return {
         "compactions": compactions,
         "peak": peak,
-        "impl_sig": impl_sig,
         "report": report,
     }
 
@@ -383,7 +346,6 @@ def collect(
                 "minor": mnr,
                 "compactions": scan["compactions"],
                 "peak": scan["peak"],
-                "impl": scan["impl_sig"],
                 "jsonl": jsonl,
                 "report": report,
             }
@@ -424,11 +386,6 @@ def report_one_type(runs: list[dict], agent_type: str, show_findings: bool) -> N
     print(f"  peak tokens: {peak_line(runs)}\n")
 
     groups = [("all", runs)]
-    if agent_type in MODE_SPLIT_TYPES:
-        groups = [
-            ("impl (orchestrate vs design)", [r for r in runs if r["impl"]]),
-            ("other (design/plan/brief)", [r for r in runs if not r["impl"]]),
-        ]
 
     for label, grp in groups:
         if not grp:
@@ -458,9 +415,8 @@ def report_one_type(runs: list[dict], agent_type: str, show_findings: bool) -> N
         note = f", {db_only} DB-sourced (no text)" if db_only else ""
         print(f"=== blocking-finding text ({len(text_blockers)} runs{note}) ===")
         for r in sorted(text_blockers, key=lambda r: -(r["blocking"] or 0)):
-            mode = "impl" if r["impl"] else "other"
             print(
-                f"\n--- [{r['project']}] {mode}  "
+                f"\n--- [{r['project']}]  "
                 f"{r['blocking']} blocking, {r['minor'] or 0} minor ---"
             )
             body = blocking_section(r["report"]) or r["report"]
@@ -499,11 +455,6 @@ def main() -> int:
     )
     p.add_argument("--type", help="restrict to one agentType (detailed report)")
     p.add_argument(
-        "--impl-only",
-        action="store_true",
-        help="comb only: keep just the orchestrate impl-vs-design pass",
-    )
-    p.add_argument(
         "--findings",
         action="store_true",
         help="print Blocking section text for each blocking run",
@@ -517,15 +468,6 @@ def main() -> int:
         print(
             "--findings requires --type (findings are only dumped in the "
             "per-type report)",
-            file=sys.stderr,
-        )
-        return 1
-
-    if args.impl_only and args.type not in MODE_SPLIT_TYPES:
-        allowed = ", ".join(sorted(MODE_SPLIT_TYPES))
-        print(
-            f"--impl-only requires --type {allowed} (only mode-split types "
-            "carry the impl-vs-design pass)",
             file=sys.stderr,
         )
         return 1
@@ -564,9 +506,6 @@ def main() -> int:
     jsonl_records = collect(root, args.type, since, skip_keys=skip_keys)
     runs = jsonl_records + db_records
 
-    if args.impl_only:
-        runs = [r for r in runs if r["impl"]]
-
     if not runs:
         print("no matching subagent runs found", file=sys.stderr)
         return 1
@@ -583,7 +522,6 @@ def main() -> int:
                     "minor",
                     "compactions",
                     "peak",
-                    "impl",
                     "desc",
                 )
             }

@@ -63,7 +63,7 @@ The fixer ends its response with a one-line summary: `fixed: N, deferred: M, unr
 
 1. Record the fixer dispatch and capture its ID:
    ```bash
-   cfl dispatch fixer <task_id> --agent-type general-purpose
+   cfl dispatch fixer <task_id> --agent-type general-purpose --model sonnet
    ```
    Parse `dispatch_id` from the JSON output. Dispatch the fixer subagent (normal pass) with the Step 8 review file paths and the current changed-files list. After the fixer completes:
    ```bash
@@ -78,8 +78,8 @@ The fixer ends its response with a one-line summary: `fixed: N, deferred: M, unr
    Union the result with the in-context changed-files list (deduplicated). Update `<dir>/<task_id>/changed-files.txt`.
 4. Record dispatches for both re-reviewers and capture their IDs:
    ```bash
-   cfl dispatch code-reviewer <task_id> --agent-type code-reviewer
-   cfl dispatch integration-reviewer <task_id> --agent-type integration-reviewer
+   cfl dispatch code-reviewer <task_id> --agent-type code-reviewer --model sonnet
+   cfl dispatch integration-reviewer <task_id> --agent-type integration-reviewer --model sonnet
    ```
    Re-dispatch the code reviewer and integration reviewer **in parallel** with the `CONCISE-RETURN-MODE` sentinel and output file paths — using the same agent types as Step 8 (`subagent_type: "code-reviewer"` and `subagent_type: "integration-reviewer"`), not `general-purpose`:
    - Each dispatch prompt must contain the **exact literal token** `CONCISE-RETURN-MODE` (verbatim) **and** an output file path — both conditions required to activate concise return (see `verdict-line-format.md`)
@@ -95,7 +95,7 @@ The fixer ends its response with a one-line summary: `fixed: N, deferred: M, unr
 
 **Iteration 3 — Fixer pass 2 (if either reviewer returned WARN or FAIL after iteration 2):**
 
-1. Record the fixer dispatch (`cfl dispatch fixer <task_id> --agent-type general-purpose`), capture `dispatch_id`. Dispatch the fixer subagent (normal pass) with the freshened review file paths from the iteration 2 re-review and the updated changed-files list. After completion: `cfl dispatch end <dispatch_id>`.
+1. Record the fixer dispatch (`cfl dispatch fixer <task_id> --agent-type general-purpose --model sonnet`), capture `dispatch_id`. Dispatch the fixer subagent (normal pass) with the freshened review file paths from the iteration 2 re-review and the updated changed-files list. After completion: `cfl dispatch end <dispatch_id>`.
 2. The fixer writes `<dir>/<task_id>/fix-ledger.md` (overwrites the previous ledger).
 3. Re-capture changed files (same as above). Update `<dir>/<task_id>/changed-files.txt`.
 4. Record dispatches for both re-reviewers (`cfl dispatch code-reviewer/integration-reviewer <task_id>`), capture IDs. Re-dispatch in parallel (same concise dispatch as iteration 2 step 4). After completion: `cfl dispatch end` for each.
@@ -106,7 +106,7 @@ The fixer ends its response with a one-line summary: `fixed: N, deferred: M, unr
 
 If the iteration 3 re-review still has a WARN or FAIL verdict on either reviewer:
 
-1. Record the classify-mode fixer dispatch (`cfl dispatch fixer <task_id> --agent-type general-purpose`), capture `dispatch_id`. Dispatch the fixer subagent in **classify-mode** with the iteration 3 re-review file paths and the updated changed-files list. After completion: `cfl dispatch end <dispatch_id>`.
+1. Record the classify-mode fixer dispatch (`cfl dispatch fixer <task_id> --agent-type general-purpose --model sonnet`), capture `dispatch_id`. Dispatch the fixer subagent in **classify-mode** with the iteration 3 re-review file paths and the updated changed-files list. After completion: `cfl dispatch end <dispatch_id>`.
 2. The fixer reads the latest reviews, classifies every remaining finding as `fixed`, `deferred(reason)`, or `unresolved`, and writes `<dir>/<task_id>/fix-ledger.md` (overwrites). **No code changes.**
 3. Do not re-dispatch reviewers after the classify-mode pass. The terminal ledger now reflects the latest review's findings. Proceed to the Gate section (terminal state B).
 
