@@ -55,6 +55,8 @@ fi
 cat << PROMPT
 This project's CLAUDE.md is missing project context metadata (audience, developers, data-sensitivity). These fields calibrate agent advice — without them, skills like mine-challenge default to enterprise-grade suggestions that may not fit the project.
 
+IMPORTANT: You MUST present this question to the user via AskUserQuestion and wait for their response. Do NOT choose an option on behalf of the user — do NOT silently defer or suppress without their explicit input.
+
 Ask the user if they'd like to fill these in now using AskUserQuestion with these exact options:
 
 header: "Project meta"
