@@ -1,6 +1,7 @@
 ---
 name: fine-toothed-comb
 model: sonnet
+effort: medium
 description: Open-ended holistic reviewer — reads an artifact (design, plan, brief, or an implementation against its design) as a whole and reports inconsistency, inaccuracy, drift, and thinness that a structured checklist can't catch. Classifies findings blocking vs minor. Complements structured-checklist gates; does not replace them.
 tools: ["Read", "Grep", "Glob", "Bash"]
 ---

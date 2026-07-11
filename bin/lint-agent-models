@@ -23,10 +23,13 @@ PERFORMANCE_MD = ROOT / "rules" / "common" / "performance.md"
 AGENTS_DIR = ROOT / "agents"
 INSTALL_PY = ROOT / "install.py"
 
-AGENT_BULLET = re.compile(r"^- `(agents/[^`]+)` — (haiku|sonnet|opus)\b")
+AGENT_BULLET = re.compile(
+    r"^- `(agents/[^`]+)` — (haiku|sonnet|opus)(?:,\s*(low|medium|high|xhigh|max))?\b"
+)
 SKILL_BULLET = re.compile(r"^- `(skills/[^`]+)` — (.+)$")
 MODEL_TOKEN = re.compile(r"`model: (\w+)`")
 FRONTMATTER_MODEL = re.compile(r"^model:\s*(\w+)", re.MULTILINE)
+FRONTMATTER_EFFORT = re.compile(r"^effort:\s*(\w+)", re.MULTILINE)
 # Bundle agent tuples are flat `agents=("a", "b", ...)` literals — no nested
 # parens — so `[^)]*` reliably captures each tuple body. Parsing the source
 # (vs importing install.py) keeps this hook stdlib-only; install.py pulls in
@@ -55,15 +58,15 @@ def main() -> int:
         print(f"lint-agent-models: {PERFORMANCE_MD} not found", file=sys.stderr)
         return 1
 
-    agent_declarations: dict[str, str] = {}
+    agent_declarations: dict[str, tuple[str, str | None]] = {}
     skill_declarations: dict[str, set[str]] = {}
     for line in perf_text.splitlines():
         if m := AGENT_BULLET.match(line):
-            agent_declarations[m.group(1)] = m.group(2)
+            agent_declarations[m.group(1)] = (m.group(2), m.group(3))
         elif m := SKILL_BULLET.match(line):
             skill_declarations[m.group(1)] = set(MODEL_TOKEN.findall(m.group(2)))
 
-    for rel_path, listed_model in agent_declarations.items():
+    for rel_path, (listed_model, listed_effort) in agent_declarations.items():
         path = ROOT / rel_path
         if not path.exists():
             errors.append(f"listed but missing: {rel_path}")
@@ -77,6 +80,14 @@ def main() -> int:
         elif fm_match.group(1) != listed_model:
             errors.append(
                 f"{rel_path}: frontmatter says {fm_match.group(1)}, list says {listed_model}"
+            )
+        fm_effort = FRONTMATTER_EFFORT.search(fm)
+        fm_effort_val = fm_effort.group(1) if fm_effort else None
+        if listed_effort != fm_effort_val:
+            errors.append(
+                f"{rel_path}: effort mismatch — "
+                f"frontmatter says {fm_effort_val or '(none)'}, "
+                f"list says {listed_effort or '(none)'}"
             )
 
     agent_stems = {p.stem for p in AGENTS_DIR.glob("*.md")}

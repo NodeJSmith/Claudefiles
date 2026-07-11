@@ -1,6 +1,7 @@
 ---
 name: engineering-frontend-developer
 model: sonnet  # claude-sonnet-5 as of 2026-07-07
+effort: medium
 description: Expert frontend developer specializing in React/Vue/Angular/Svelte, TypeScript, accessible UI implementation, and Core Web Vitals optimization. Builds responsive, performant web applications.
 color: cyan
 emoji: 🖥️

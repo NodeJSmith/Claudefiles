@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 # PreToolUse hook: enforce model defaults on Agent dispatches
 #
-# Agent types with model: in their .md frontmatter resolve correctly.
-# Built-in types (general-purpose, Explore, Plan, claude) have no
-# frontmatter, so they inherit the parent session's model — typically
-# Opus. This hook catches those and injects model: sonnet.
+# Agent types with model:/effort: in their .md frontmatter resolve
+# correctly. Built-in types (general-purpose, Explore, Plan, claude)
+# have no frontmatter, so they inherit the parent session's model —
+# typically Opus. This hook catches those and injects model: sonnet.
+#
+# Note: effort cannot be injected via updatedInput (the Agent tool
+# schema has no effort parameter). Built-in agent types inherit the
+# parent session's effortLevel. Agents with .md frontmatter get
+# effort: medium from their files.
 #
 # Requires: jq (silently passes through if unavailable — no override,
 # no log entry, no error). Verify jq is installed if overrides stop

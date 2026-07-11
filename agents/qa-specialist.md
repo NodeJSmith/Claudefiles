@@ -1,6 +1,7 @@
 ---
 name: qa-specialist
 model: sonnet  # claude-sonnet-5 as of 2026-07-07
+effort: medium
 description: Adversarial QA engineer — finds defects via systematic and exploratory testing. Use after implementation, before PR, or when test coverage is thin.
 tools: ["Read", "Grep", "Glob", "Bash"]
 ---

@@ -1,6 +1,7 @@
 ---
 name: code-reviewer
 model: sonnet  # claude-sonnet-5 as of 2026-07-07 — do not downgrade; pre-commit safety gate
+effort: medium
 description: Expert code reviewer for correctness, security, and Claude Code skill files (SKILL.md conventions, bash safety, phase structure). Use for all code changes. MUST BE USED for code review.
 tools: ["Read", "Grep", "Glob", "Bash"]
 ---

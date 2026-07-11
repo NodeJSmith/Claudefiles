@@ -12,11 +12,13 @@ All notable changes to this Claudefiles repository are documented here.
 
 - `mine-orchestrate` pipeline — removed the implementation fine-toothed-comb gate (data across 18 runs showed a 0% catch rate after the upstream code-review/integration-review/fixer loop); narrowed the comb's "blocking" definition across `mine-define`/`mine-plan`/`mine-comb` so vague completeness gaps are minor instead of forcing a rework loop. (#452)
 - `install.py` now runs `claude plugin update` on every install when the `ccrecall` plugin is already tracked, instead of skipping — machines pick up marketplace updates automatically. (#453)
+- All Sonnet agent files now declare `effort: medium` in frontmatter, reducing subagent output verbosity while preserving quality; `bin/lint-agent-models` validates the setting alongside `model:`. (#454)
 
 ### Fixed
 
 - `cfl` telemetry — dispatch calls across `mine-orchestrate` now record their model, `session_uuid` is actually persisted, and reviewer verdict lines carry per-severity finding counts instead of a flat total. (#452)
 - Removed stale `/ccrecall:ccr-tokens` references from `ONBOARDING.md` and `REFERENCE.md` — that skill was retired but the docs still advertised it. (#453)
+- `sudo-poll.sh` no longer false-positives on remote commands like `ssh host "sudo ..."`; also added a per-command `CLAUDE_SUDO_SKIP=1` prefix to bypass the hook for a single invocation. (#454)
 
 ## 2026-07-10
 
