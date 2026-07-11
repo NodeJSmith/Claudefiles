@@ -64,9 +64,10 @@ Create a unique temp directory:
 1. Run: `get-skill-tmpdir mine-visual-qa`
 2. Note the directory path (e.g., `/tmp/claude-mine-visual-qa-a8Kx3Q`)
 
-Launch a single `general-purpose` agent. Its job is capturing screenshots — page views first, then interactive element states. Nothing else.
+Launch a single `general-purpose` agent (`model: sonnet`). Its job is capturing screenshots — page views first, then interactive element states. Nothing else.
 
 **Agent type**: `general-purpose`
+**Model**: `sonnet`
 **Output file**: `<dir>/walkthrough.md`
 **Screenshot directory**: `<dir>/screenshots/`
 **Run in background**: `true`
@@ -158,7 +159,7 @@ After the Screenshotter completes, read its output file and glob for `<dir>/scre
 
 **Zero-screenshot gate**: If no `.png` files exist, stop. Report the failure to the user — do not launch analysis agents on nothing. Common causes: Playwright MCP disconnected, the app requires authentication, or the dev server went down. If `walkthrough.md` exists, read it for clues about what went wrong.
 
-Launch the following `general-purpose` agents with `run_in_background: true`. Each sees the same screenshots through a different lens.
+Launch the following `general-purpose` agents with `model: sonnet`, `run_in_background: true`. Each sees the same screenshots through a different lens.
 
 ### Agent 1: First-Impressions Reviewer
 

@@ -63,7 +63,7 @@ Each thinker writes to a fixed filename inside this directory:
 - `<dir>/moonshot.md`
 - `<dir>/wildcard.md`
 
-Launch all four as parallel Task calls with `subagent_type: general-purpose`. Each thinker:
+Launch all four as parallel Task calls with `subagent_type: general-purpose`, `model: sonnet`. Each thinker:
 - Receives the topic, constraints, prior attempts, and any codebase context
 - Generates **3–5 ideas** from their lens
 - Writes their full unfiltered output to their assigned temp file
