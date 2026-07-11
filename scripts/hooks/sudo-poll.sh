@@ -53,8 +53,16 @@ fi
 
 COMMAND=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty')
 
-# Not a sudo command — no opinion, pass through
-if ! printf '%s' "$COMMAND" | grep -q 'sudo '; then
+# Strip quoted strings so checks below ignore content inside quotes
+# (e.g., ssh host "sudo ..." or ssh host "CLAUDE_SUDO_SKIP=1 sudo ...")
+UNQUOTED=$(printf '%s' "$COMMAND" | sed -e 's/"[^"]*"//g' -e "s/'[^']*'//g")
+
+# Per-command escape hatch: CLAUDE_SUDO_SKIP=1 prefixed on the command text
+if printf '%s' "$UNQUOTED" | grep -qE '(^|[;&|] *)CLAUDE_SUDO_SKIP=1[[:space:]]'; then
+  exit 0
+fi
+
+if ! printf '%s' "$UNQUOTED" | grep -q 'sudo '; then
   exit 0
 fi
 
