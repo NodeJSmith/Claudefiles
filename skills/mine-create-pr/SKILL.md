@@ -14,7 +14,7 @@ Launch one subagent (`model: sonnet`, `subagent_type: general-purpose`):
 
 > Create a PR for the current branch.
 >
-> Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-create-pr/worker.md` for the complete workflow. Follow every step in order.
+> Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-create-pr/worker.md` for the complete workflow. Follow every step in order. Do NOT use the Skill tool — the instructions are in worker.md, not a skill.
 
 The subagent returns the PR URL, or an error message if something blocked it (unsupported platform, branch not pushed, PR already exists with its URL).
 

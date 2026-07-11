@@ -10,6 +10,10 @@ All notable changes to this Claudefiles repository are documented here.
 - `mine-define` Phase 3.5 — blind spot self-assessment surfaces the agent's own uncertainty and known tradeoffs before writing the design doc. (#449)
 - Apply the project context metadata convention to this repo's own CLAUDE.md (`audience: personal tool`, `developers: solo`, `data-sensitivity: internal`), calibrating reviewers and skills to Claudefiles' own solo/personal-tool scope. (#450)
 
+### Fixed
+
+- `mine-create-pr`, `mine-create-issue`, and `mine-mockup` dispatched subagents no longer recursively spawn nested agents — the subagent prompt now explicitly forbids using the Skill tool, since a subagent invoking the parent skill would re-trigger the same dispatch instructions. (#451)
+
 ## 2026-07-08
 
 ### Fixed
