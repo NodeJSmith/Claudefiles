@@ -738,7 +738,7 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply i
 - **`minor_blocks`**: `false` — minor findings are noted for sign-off but do not block
 - **`<re_review_instructions>`**: apply the fixes to the design doc, then re-run this phase from the top
 
-The "No findings" path proceeds to Phase 6 silently.
+Phase 6 does not begin until the comb gate resolves. The "No findings" path proceeds to Phase 6 silently.
 
 ---
 
