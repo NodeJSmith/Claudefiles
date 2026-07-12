@@ -148,8 +148,6 @@ Coding guidelines in `rules/common/` that load automatically and shape how Claud
 
 Deselecting a category whose rules are referenced by a kept rule prints a warning but does not block — the references are prose pointers, not requirements.
 
-**Codex disposition.** Each rule's `tool:` frontmatter lists which assistants it applies to (`tool: claude, codex, antigravity` for portable rules; `tool: claude` for Claude-Code-harness-specific ones — capabilities routing, the review-agent gate, and the bash-tools/command-output/sudo/tmux/worktrees/git-workflow helpers). `codex-rules-sync` includes a rule in the global `~/.codex/AGENTS.md` only when its list contains `codex`; the default is fail-closed (no `tool:` key → Claude-only). For the current breakdown, run `codex-rules-sync --list` — the frontmatter is the single source of truth.
-
 Optional bundle capabilities files (install with their bundle): `capabilities-impeccable.md` (Frontend), `capabilities-cli.md` (CLI).
 
 ## References
@@ -224,7 +222,6 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `git-default-branch` | Print the default branch name for the current repo |
 | `git-platform` | Detect git hosting platform (`github`, `ado`, or `unknown`) from remote URL |
 | `cfl` | Orchestration state store CLI backed by a durable SQLite DB (`~/.local/share/claudefiles/cfl.db`). Replaces `spec-helper` and `trail-log`. Subcommands: `spec init/validate/status/set-status/next-number` (spec lifecycle), `run start/status/complete/stop/resume/advance-phase` (run lifecycle), `task start/update/verdict/block` (task state), `gate` (record gate results), `dispatch`/`dispatch end` (record subagent dispatches), `event` (append to audit trail), `session end/compacted` (session lifecycle hooks), `archive` (archive completed specs), `set` (direct field access for crash recovery). JSON output by default; `--text` for human-readable. |
-| `codex-rules-sync` | Generates the global Codex `~/.codex/AGENTS.md` from `rules/common/*.md`, concatenating the rules whose `tool:` frontmatter lists `codex`. `--list` prints the include/exclude breakdown without writing. Run by `install.py` after the symlink phase; skips silently if Codex isn't installed |
 | `opencode-sync` | Syncs Claudefiles config to OpenCode (`~/.config/opencode`) via OpenPackage (`opkg`). Stages a clean copy, runs `opkg install --platforms opencode`, then remaps Claude model names to OpenAI equivalents and strips Claude-specific color fields. `--dry-run`, `--verbose`, `--allow-worktree`. Not wired into `install.py` — intended to be called from Dotfiles |
 | `lint-agent-models` | Agent registry drift lint — checks every `agents/*.md` is listed in performance.md (with matching model) and registered in an install.py bundle, so no agent ships uninstalled |
 | `lint-cli-conventions` | Drift prevention lint — verifies `--help` handling in bin/ scripts and capabilities-core.md CLI Tools sync |

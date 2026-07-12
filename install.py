@@ -47,7 +47,6 @@ UNINSTALL_TIMEOUT = 30
 PYPI_INSTALL_TIMEOUT = 300
 PLUGIN_TIMEOUT = 120
 UV_LIST_TIMEOUT = 10
-CODEX_SYNC_TIMEOUT = 30
 GIT_TIMEOUT = 5
 UV_NOT_FOUND_MSG = "uv not found — install via https://docs.astral.sh/uv/"
 
@@ -1333,46 +1332,10 @@ def do_install(
     resolve_stale_symlinks(
         claude_dir, repo_dir, bin_dir, console, interactive=interactive
     )
-    generate_codex_rules(repo_dir, console)
-
     console.print(
         f"\n[green]Claudefiles installed to {claude_dir}[/green] ({total_links} symlinks)"
     )
     return errors
-
-
-def generate_codex_rules(repo_dir: Path, console: Console) -> None:
-    """Materialize the global Codex AGENTS.md from the portable rules.
-
-    Runs after the symlink phase so the generated file reflects the rules just
-    installed. The generator exits 0 both when it writes and when it skips (Codex
-    not installed), so this call is safe to make unconditionally and is non-fatal to
-    the install — Codex rules are an add-on, not core install state. A non-zero exit
-    means Codex *is* installed and generation actually failed (empty result, write
-    error): that is surfaced in red, distinct from the benign skip, so it isn't lost
-    under the green success banner. See design/specs/032-codex-agents-rules.
-    """
-    script = repo_dir / "bin" / "codex-rules-sync"
-    try:
-        result = subprocess.run(
-            [sys.executable, str(script)],
-            capture_output=True,
-            text=True,
-            timeout=CODEX_SYNC_TIMEOUT,
-        )
-    except (OSError, subprocess.TimeoutExpired) as e:
-        console.print(
-            f"  [red]Codex rules FAILED: codex-rules-sync could not run: {e}[/red]"
-        )
-        return
-    summary = result.stdout.strip() or result.stderr.strip()
-    if result.returncode == 0:
-        if summary:
-            console.print(f"  {summary}")
-    else:
-        console.print(
-            f"  [red]Codex rules FAILED — global AGENTS.md not updated: {summary}[/red]"
-        )
 
 
 def do_uninstall(repo_dir: Path, claude_dir: Path, config: dict) -> None:

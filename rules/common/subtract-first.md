@@ -1,5 +1,5 @@
 ---
-tool: claude, codex, antigravity
+tool: claude, antigravity
 ---
 
 # Subtract Before You Add
