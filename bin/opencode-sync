@@ -23,8 +23,11 @@ declare -A MODEL_MAP=(
 OPKG_VERSION="0.11.3"
 
 OPENCODE_CONFIG="$HOME/.config/opencode"
-SYNC_SHA_FILE="$OPENCODE_CONFIG/.claudefiles-sync-sha"
 CLAUDEFILES="${CLAUDEFILES_DIR:-$HOME/Claudefiles}"
+
+# Tracks which Claudefiles commit was last synced to OpenCode.
+SYNC_SHA_FILE="$OPENCODE_CONFIG/.claudefiles-sync-sha"
+SHA_DISPLAY_LEN=12
 
 # Dirs excluded from staging: .claude/ (causes opkg platform misdetection),
 # VCS/caches (.git, __pycache__, node_modules, .venv), and Python packaging/dev
@@ -192,25 +195,32 @@ postprocess_config() {
   fi
 }
 
+# --- Sync status check --------------------------------------------------------
+
+check_sync_status() {
+  local current_sha stored_sha
+  current_sha=$(git -C "$CLAUDEFILES" rev-parse HEAD 2> /dev/null) || die "Not a git repo: $CLAUDEFILES"
+  stored_sha=$(cat "$SYNC_SHA_FILE" 2> /dev/null) || stored_sha=""
+  if [[ "$current_sha" == "$stored_sha" ]]; then
+    printf 'Up-to-date (synced at %s)\n' "${current_sha:0:$SHA_DISPLAY_LEN}"
+    return 0
+  elif [[ -z "$stored_sha" ]]; then
+    printf 'Never synced (current HEAD: %s)\n' "${current_sha:0:$SHA_DISPLAY_LEN}"
+    return 1
+  else
+    printf 'Stale (synced at %s, current HEAD: %s)\n' "${stored_sha:0:$SHA_DISPLAY_LEN}" "${current_sha:0:$SHA_DISPLAY_LEN}"
+    return 1
+  fi
+}
+
 # --- Main ---------------------------------------------------------------------
 
 main() {
   parse_args "$@"
 
   if $check_only; then
-    local current_sha stored_sha
-    current_sha=$(git -C "$CLAUDEFILES" rev-parse HEAD 2> /dev/null) || die "Not a git repo: $CLAUDEFILES"
-    stored_sha=$(cat "$SYNC_SHA_FILE" 2> /dev/null) || stored_sha=""
-    if [[ "$current_sha" == "$stored_sha" ]]; then
-      printf 'Up-to-date (synced at %s)\n' "${current_sha:0:12}"
-      return 0
-    elif [[ -z "$stored_sha" ]]; then
-      printf 'Never synced (current HEAD: %s)\n' "${current_sha:0:12}"
-      return 1
-    else
-      printf 'Stale (synced at %s, current HEAD: %s)\n' "${stored_sha:0:12}" "${current_sha:0:12}"
-      return 1
-    fi
+    check_sync_status
+    return $?
   fi
 
   check_deps
