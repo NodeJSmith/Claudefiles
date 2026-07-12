@@ -1,0 +1,217 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Sync Claudefiles config to OpenCode via OpenPackage.
+#
+# Workflow:
+#   1. Create a temp copy of Claudefiles without .claude/ (triggers opkg misdetection)
+#   2. Run opkg install targeting opencode platform
+#   3. Remap Claude model names to OpenAI equivalents
+#
+# Requires: opkg (npm install -g opkg)
+
+# --- Configuration -----------------------------------------------------------
+
+# Model mapping: Claude tier → OpenAI model ID
+# Update these when switching to newer OpenAI models.
+declare -A MODEL_MAP=(
+  [opus]="openai/gpt-5.5"
+  [sonnet]="openai/gpt-5.4"
+  [haiku]="openai/gpt-5.4-mini"
+)
+
+# Where OpenCode reads global config
+OPENCODE_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
+
+# Source repo
+CLAUDEFILES="${CLAUDEFILES_DIR:-$HOME/Claudefiles}"
+
+# --- Helpers ------------------------------------------------------------------
+
+die() {
+  printf '%s\n' "$1" >&2
+  exit 1
+}
+
+check_deps() {
+  command -v opkg > /dev/null 2>&1 || die "opkg not found. Install: npm install -g opkg"
+}
+
+in_worktree() {
+  # Detect if running from a git worktree checkout. Syncing from a worktree
+  # would overwrite live ~/.config/opencode with in-progress branch state.
+  [[ "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" == *"/.claude/worktrees/"* ]]
+}
+
+# Remap model fields in a directory.
+# $1: directory to scan
+# $2: "anchored" for frontmatter-only (^model: X$) or "inline" for any occurrence
+remap_models() {
+  local dir="$1" mode="$2"
+  local count=0
+
+  for claude_model in "${!MODEL_MAP[@]}"; do
+    local openai_model="${MODEL_MAP[$claude_model]}"
+    local grep_pattern sed_pattern
+
+    if [[ "$mode" == "anchored" ]]; then
+      # Agent frontmatter: exact line match
+      grep_pattern="^model: ${claude_model}$"
+      sed_pattern="s#^model: ${claude_model}\$#model: ${openai_model}#"
+    else
+      # Skill files: inline references (e.g. "model: sonnet" in prose)
+      grep_pattern="model: ${claude_model}"
+      sed_pattern="s#model: ${claude_model}#model: ${openai_model}#g"
+    fi
+
+    while IFS= read -r -d '' file; do
+      sed -i "$sed_pattern" "$file"
+      count=$((count + 1))
+    done < <(grep -rlZ "$grep_pattern" "$dir" 2> /dev/null || true)
+  done
+
+  printf '%d' "$count"
+}
+
+# --- Main ---------------------------------------------------------------------
+
+main() {
+  check_deps
+
+  local dry_run=false
+  local verbose=false
+  local allow_worktree=false
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --dry-run | -n)
+        dry_run=true
+        shift
+        ;;
+      --verbose | -v)
+        verbose=true
+        shift
+        ;;
+      --allow-worktree)
+        allow_worktree=true
+        shift
+        ;;
+      --help | -h)
+        printf 'Usage: opencode-sync [--dry-run] [--verbose] [--allow-worktree]\n\n'
+        printf 'Sync Claudefiles to OpenCode config via OpenPackage.\n\n'
+        printf 'Options:\n'
+        printf '  --dry-run, -n       Show what would be installed without writing\n'
+        printf '  --verbose, -v       Show opkg output\n'
+        printf '  --allow-worktree    Permit running from a worktree checkout\n'
+        exit 0
+        ;;
+      *) die "Unknown option: $1" ;;
+    esac
+  done
+
+  if ! $allow_worktree && in_worktree; then
+    die "Refusing to sync from a worktree (would overwrite live config with branch state). Use --allow-worktree to override."
+  fi
+
+  [[ -d "$CLAUDEFILES" ]] || die "Claudefiles not found at $CLAUDEFILES"
+
+  # Temp copy without .claude/ (causes opkg platform misdetection) and dirs
+  # that aren't config (packages, tests, design are Python/dev-only).
+  OPENCODE_SYNC_TMPDIR=$(mktemp -d "${CLAUDE_CODE_TMPDIR:-/tmp}/opencode-sync-XXXXXX")
+  trap 'rm -rf "${OPENCODE_SYNC_TMPDIR:-}"' EXIT
+  local tmpdir="$OPENCODE_SYNC_TMPDIR"
+
+  # Remove previous install so deleted skills/agents don't linger as orphans
+  if opkg list -g --cwd "$HOME" 2> /dev/null | grep -q "claudefiles"; then
+    $verbose && printf 'Removing previous claudefiles install...\n'
+    if ! $dry_run; then
+      opkg uninstall claudefiles -g --cwd "$HOME" > /dev/null 2>&1 || true
+    fi
+  fi
+
+  $verbose && printf 'Staging clean copy to %s...\n' "$tmpdir"
+  rsync -a --exclude='.claude' --exclude='__pycache__' \
+    --exclude='node_modules' --exclude='.git' \
+    --exclude='packages' --exclude='tests' \
+    --exclude='design' --exclude='.venv' \
+    "$CLAUDEFILES/" "$tmpdir/claudefiles/"
+
+  # Remove rules that reference Claude-specific features with no OpenCode equivalent
+  rm -f "$tmpdir/claudefiles/rules/common/sudo.md" \
+    "$tmpdir/claudefiles/rules/common/tmux.md"
+
+  # Inject an OpenCode-specific compatibility rule
+  cat > "$tmpdir/claudefiles/rules/common/opencode-compat.md" << 'RULE'
+---
+tool: opencode
+---
+
+# OpenCode Compatibility
+
+This configuration was developed for Claude Code and adapted for OpenCode. Most rules, skills, and agents work as-is. Where a specific instruction references a Claude Code feature that doesn't exist in OpenCode, use the OpenCode equivalent:
+
+- "AskUserQuestion tool" → use OpenCode's interactive prompting
+- "Agent tool with subagent_type" → use OpenCode's agent dispatch
+- "Skill tool" → use OpenCode's skill invocation (slash commands)
+- "Read/Write/Edit/Grep/Glob tools" → use OpenCode's file tools
+- "TaskCreate/TaskUpdate" → use OpenCode's task tracking if available
+- "${CLAUDE_CONFIG_DIR:-~/.claude}" paths → ~/.config/opencode
+- "PreToolUse/PostToolUse hooks" → OpenCode plugins (tool.execute.before)
+- "settings.json" → opencode.json
+
+When an instruction is clearly inapplicable (e.g., references a hook that doesn't exist), skip it silently rather than erroring.
+RULE
+
+  # Build opkg args
+  local -a opkg_args=(
+    install "$tmpdir/claudefiles"
+    --platforms opencode
+    --cwd "$HOME"
+    -g
+    --force
+  )
+  $dry_run && opkg_args+=(--dry-run)
+
+  $verbose && printf 'Running: opkg %s\n' "${opkg_args[*]}"
+
+  local opkg_output
+  if ! opkg_output=$(opkg "${opkg_args[@]}" 2>&1); then
+    printf '%s\n' "$opkg_output" >&2
+    die "opkg install failed"
+  fi
+
+  if $verbose; then
+    printf '%s\n' "$opkg_output"
+  else
+    printf '%s\n' "$opkg_output" | grep -E "^✓|Installed files:|No files" || true
+  fi
+
+  if $dry_run; then
+    printf '\n[dry-run] Would remap models:\n'
+    for claude_model in "${!MODEL_MAP[@]}"; do
+      printf '  model: %s → model: %s\n' "$claude_model" "${MODEL_MAP[$claude_model]}"
+    done
+    return 0
+  fi
+
+  # Strip invalid color fields (OpenCode only accepts hex #RRGGBB or semantic names)
+  if [[ -d "$OPENCODE_CONFIG/agents" ]]; then
+    sed -i '/^color: \(teal\|green\|orange\|cyan\|red\|blue\|purple\|yellow\|pink\|white\|black\)$/d' "$OPENCODE_CONFIG/agents"/*.md 2> /dev/null || true
+  fi
+
+  # Remap model fields
+  if [[ -d "$OPENCODE_CONFIG/agents" ]]; then
+    local agent_count
+    agent_count=$(remap_models "$OPENCODE_CONFIG/agents" "anchored")
+    printf 'Remapped models in %d agent file(s)\n' "$agent_count"
+  fi
+
+  if [[ -d "$OPENCODE_CONFIG/skills" ]]; then
+    local skill_count
+    skill_count=$(remap_models "$OPENCODE_CONFIG/skills" "inline")
+    printf 'Remapped models in %d skill file(s)\n' "$skill_count"
+  fi
+
+  printf 'Done. OpenCode config updated at %s\n' "$OPENCODE_CONFIG"
+}
+
+main "$@"
