@@ -4,6 +4,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-07-12
 
+### Added
+
+- New `bin/opencode-sync` script syncs Claudefiles config into OpenCode's `~/.config/opencode` via OpenPackage (`opkg`), remapping Claude model tiers to OpenAI equivalents and stripping Claude-specific fields; not wired into `install.py`, intended for Dotfiles integration. (#459)
+
 ### Fixed
 
 - `cfl` dispatch telemetry now actually gets recorded — the PostToolUse stats hook keys sidecar files by `cfl_dispatch_id` (embedded in the subagent prompt) instead of `session_id`+`tool_use_id`, since agents can't introspect their own `tool_use_id` at runtime and the old scheme left all telemetry NULL. (#458)
