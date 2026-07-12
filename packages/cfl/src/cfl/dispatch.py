@@ -2,7 +2,7 @@
 
 Implements:
   record_dispatch — INSERT dispatches + emit task.dispatched or review.dispatched event
-  end_dispatch    — UPDATE dispatches SET completed_at + optional telemetry from stats file
+  end_dispatch    — UPDATE dispatches SET completed_at + telemetry from stats file
 """
 
 import json
@@ -89,17 +89,14 @@ def record_dispatch(
     )
 
 
-def _read_stats_file(
-    session_uuid: str | None, tool_use_id: str | None
-) -> dict[str, int | str]:
+def _read_stats_file(dispatch_id: int) -> dict[str, int | str]:
     """Read and delete the stats sidecar file written by the PostToolUse hook.
 
-    Returns a dict with any of: tokens_in, tokens_out, compactions, jsonl_path.
-    Returns empty dict if no file found or fields missing.
+    Stats files are keyed by dispatch_id (the hook extracts cfl_dispatch_id
+    from the subagent prompt). Returns a dict with any of: tool_use_id,
+    tokens_in, tokens_out, compactions, jsonl_path.
     """
-    if not session_uuid or not tool_use_id:
-        return {}
-    stats_file = STATS_DIR / f"{session_uuid}-{tool_use_id}.json"
+    stats_file = STATS_DIR / f"{dispatch_id}.json"
     if not stats_file.exists():
         return {}
     try:
@@ -115,24 +112,21 @@ def _read_stats_file(
 def end_dispatch(
     conn: sqlite3.Connection,
     dispatch_id: int,
-    *,
-    tool_use_id: str | None = None,
 ) -> None:
-    """Mark a dispatch as completed by setting completed_at.
+    """Mark a dispatch as completed and populate telemetry from the stats sidecar.
 
-    If tool_use_id is provided, also writes it to the row and attempts to read
-    a stats sidecar file (written by the PostToolUse hook) to populate telemetry
-    columns (tokens_in, tokens_out, compactions, jsonl_path).
+    The PostToolUse hook writes a stats file keyed by dispatch_id (extracted
+    from cfl_dispatch_id in the subagent prompt). This function reads that
+    file and populates token usage, compaction count, JSONL path, and
+    tool_use_id on the dispatch row.
 
     Exits 1 with dispatch_not_found if the dispatch_id does not exist.
     Exits 1 with already_ended if completed_at is already set.
     """
-    session_uuid = os.environ.get(SESSION_ID_ENV_VAR)
-
     conn.execute("BEGIN IMMEDIATE")
     try:
         row = conn.execute(
-            "SELECT id, completed_at, role, task_id, session_uuid FROM dispatches WHERE id=?",
+            "SELECT id, completed_at, role, task_id FROM dispatches WHERE id=?",
             (dispatch_id,),
         ).fetchone()
         if row is None:
@@ -152,8 +146,7 @@ def end_dispatch(
             )
             raise AssertionError("unreachable: emit_error always exits")
 
-        # Prefer the session that created the dispatch (stats file is named with it)
-        stats = _read_stats_file(row["session_uuid"] or session_uuid, tool_use_id)
+        stats = _read_stats_file(dispatch_id)
 
         conn.execute(
             """UPDATE dispatches SET
@@ -165,7 +158,7 @@ def end_dispatch(
                 jsonl_path=COALESCE(?, jsonl_path)
             WHERE id=?""",
             (
-                tool_use_id,
+                stats.get("tool_use_id"),
                 stats.get("tokens_in"),
                 stats.get("tokens_out"),
                 stats.get("compactions"),

@@ -178,7 +178,7 @@ Event-driven scripts that run before/after tool calls.
 | `tmux-remind.sh` | SessionStart | Reminds Claude to rename the tmux session |
 | `project-meta-prompt.sh` | SessionStart | Prompts to fill project context metadata (audience, developers, data-sensitivity) in CLAUDE.md — escalating deferral with suppression option |
 | `sudo-poll.sh` | PreToolUse (Bash) | Deny-then-poll for sudo — detects cached credentials or waits 30s for user to `sudo -v` in another pane |
-| `dispatch-stats.sh` | PostToolUse (Agent) | Write telemetry sidecar (tokens, compactions, JSONL path) for `cfl dispatch end --tool-use-id` correlation — auto-reaps files >1h old |
+| `dispatch-stats.sh` | PostToolUse (Agent) | Write telemetry sidecar (tokens, compactions, JSONL path) keyed by `cfl_dispatch_id` extracted from the subagent prompt — auto-reaps files >1h old |
 | `subagent-compaction-check.sh` | PostToolUse (Agent) | Detect subagent context compaction — warns the orchestrator when a subagent hit its context window limit mid-task |
 | `subagent-model-default.sh` | PreToolUse (Agent) | Enforce model defaults on Agent dispatches — injects `model: sonnet` for built-in types lacking frontmatter, logs to `~/.local/share/claudefiles/model-overrides.jsonl` |
 | `tmux-drift-check.sh` | PreToolUse (*) | Periodically remind Claude to verify tmux session name alignment with current work (every 30 calls) |
