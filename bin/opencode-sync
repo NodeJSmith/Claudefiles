@@ -37,14 +37,13 @@ check_deps() {
   command -v npx > /dev/null 2>&1 || die "npx not found. Install Node.js."
 }
 
+# Version-pinned to avoid silent upgrades when running against $HOME config.
 opkg() {
-  npx --yes opkg "$@"
+  npx --yes opkg@0.11.3 "$@"
 }
 
 in_worktree() {
-  # Detect if running from a git worktree checkout. Syncing from a worktree
-  # would overwrite live ~/.config/opencode with in-progress branch state.
-  [[ "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" == *"/.claude/worktrees/"* ]]
+  [[ "$(cd "$CLAUDEFILES" 2> /dev/null && pwd)" == *"/.claude/worktrees/"* ]]
 }
 
 # Remap model fields in a directory.
@@ -54,16 +53,18 @@ remap_models() {
   local dir="$1" mode="$2"
   local count=0
 
+  if [[ "$mode" != "anchored" && "$mode" != "inline" ]]; then
+    die "remap_models: unknown mode '$mode' (expected 'anchored' or 'inline')"
+  fi
+
   for claude_model in "${!MODEL_MAP[@]}"; do
     local openai_model="${MODEL_MAP[$claude_model]}"
     local grep_pattern sed_pattern
 
     if [[ "$mode" == "anchored" ]]; then
-      # Agent frontmatter: exact line match
       grep_pattern="^model: ${claude_model}$"
       sed_pattern="s#^model: ${claude_model}\$#model: ${openai_model}#"
     else
-      # Skill files: inline references (e.g. "model: sonnet" in prose)
       grep_pattern="model: ${claude_model}"
       sed_pattern="s#model: ${claude_model}#model: ${openai_model}#g"
     fi
@@ -77,26 +78,24 @@ remap_models() {
   printf '%d' "$count"
 }
 
-# --- Main ---------------------------------------------------------------------
+# --- Argument parsing ---------------------------------------------------------
 
-main() {
-  check_deps
-
-  local dry_run=false
-  local verbose=false
-  local allow_worktree=false
+parse_args() {
+  DRY_RUN=false
+  VERBOSE=false
+  ALLOW_WORKTREE=false
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --dry-run | -n)
-        dry_run=true
+        DRY_RUN=true
         shift
         ;;
       --verbose | -v)
-        verbose=true
+        VERBOSE=true
         shift
         ;;
       --allow-worktree)
-        allow_worktree=true
+        ALLOW_WORKTREE=true
         shift
         ;;
       --help | -h)
@@ -111,39 +110,27 @@ main() {
       *) die "Unknown option: $1" ;;
     esac
   done
+}
 
-  if ! $allow_worktree && in_worktree; then
-    die "Refusing to sync from a worktree (would overwrite live config with branch state). Use --allow-worktree to override."
-  fi
+# --- Staging ------------------------------------------------------------------
 
-  [[ -d "$CLAUDEFILES" ]] || die "Claudefiles not found at $CLAUDEFILES"
+stage_config() {
+  local tmpdir="$1"
 
-  # Temp copy without .claude/ (causes opkg platform misdetection) and dirs
-  # that aren't config (packages, tests, design are Python/dev-only).
-  OPENCODE_SYNC_TMPDIR=$(mktemp -d "${CLAUDE_CODE_TMPDIR:-/tmp}/opencode-sync-XXXXXX")
-  trap 'rm -rf "${OPENCODE_SYNC_TMPDIR:-}"' EXIT
-  local tmpdir="$OPENCODE_SYNC_TMPDIR"
+  $VERBOSE && printf 'Staging clean copy to %s...\n' "$tmpdir"
 
-  # Remove previous install so deleted skills/agents don't linger as orphans
-  if opkg list -g --cwd "$HOME" 2> /dev/null | grep -q "claudefiles"; then
-    $verbose && printf 'Removing previous claudefiles install...\n'
-    if ! $dry_run; then
-      opkg uninstall claudefiles -g --cwd "$HOME" > /dev/null 2>&1 || true
-    fi
-  fi
-
-  $verbose && printf 'Staging clean copy to %s...\n' "$tmpdir"
+  # Copy Claudefiles excluding: .claude/ (causes opkg platform misdetection),
+  # .git/__pycache__/node_modules/.venv (VCS and caches), and
+  # packages/tests/design (Python packaging and dev artifacts, not agent config).
   rsync -a --exclude='.claude' --exclude='__pycache__' \
     --exclude='node_modules' --exclude='.git' \
     --exclude='packages' --exclude='tests' \
     --exclude='design' --exclude='.venv' \
     "$CLAUDEFILES/" "$tmpdir/claudefiles/"
 
-  # Remove rules that reference Claude-specific features with no OpenCode equivalent
   rm -f "$tmpdir/claudefiles/rules/common/sudo.md" \
     "$tmpdir/claudefiles/rules/common/tmux.md"
 
-  # Inject an OpenCode-specific compatibility rule
   cat > "$tmpdir/claudefiles/rules/common/opencode-compat.md" << 'RULE'
 ---
 tool: opencode
@@ -164,45 +151,16 @@ This configuration was developed for Claude Code and adapted for OpenCode. Most 
 
 When an instruction is clearly inapplicable (e.g., references a hook that doesn't exist), skip it silently rather than erroring.
 RULE
+}
 
-  # Build opkg args
-  local -a opkg_args=(
-    install "$tmpdir/claudefiles"
-    --platforms opencode
-    --cwd "$HOME"
-    -g
-    --force
-  )
-  $dry_run && opkg_args+=(--dry-run)
+# --- Post-install processing --------------------------------------------------
 
-  $verbose && printf 'Running: opkg %s\n' "${opkg_args[*]}"
-
-  local opkg_output
-  if ! opkg_output=$(opkg "${opkg_args[@]}" 2>&1); then
-    printf '%s\n' "$opkg_output" >&2
-    die "opkg install failed"
-  fi
-
-  if $verbose; then
-    printf '%s\n' "$opkg_output"
-  else
-    printf '%s\n' "$opkg_output" | grep -E "^✓|Installed files:|No files" || true
-  fi
-
-  if $dry_run; then
-    printf '\n[dry-run] Would remap models:\n'
-    for claude_model in "${!MODEL_MAP[@]}"; do
-      printf '  model: %s → model: %s\n' "$claude_model" "${MODEL_MAP[$claude_model]}"
-    done
-    return 0
-  fi
-
-  # Strip invalid color fields (OpenCode only accepts hex #RRGGBB or semantic names)
+postprocess_config() {
+  # Strip color frontmatter — OpenCode doesn't use it.
   if [[ -d "$OPENCODE_CONFIG/agents" ]]; then
-    sed -i '/^color: \(teal\|green\|orange\|cyan\|red\|blue\|purple\|yellow\|pink\|white\|black\)$/d' "$OPENCODE_CONFIG/agents"/*.md 2> /dev/null || true
+    sed -i '/^color: /d' "$OPENCODE_CONFIG/agents"/*.md 2> /dev/null || true
   fi
 
-  # Remap model fields
   if [[ -d "$OPENCODE_CONFIG/agents" ]]; then
     local agent_count
     agent_count=$(remap_models "$OPENCODE_CONFIG/agents" "anchored")
@@ -214,6 +172,73 @@ RULE
     skill_count=$(remap_models "$OPENCODE_CONFIG/skills" "inline")
     printf 'Remapped models in %d skill file(s)\n' "$skill_count"
   fi
+}
+
+# --- Main ---------------------------------------------------------------------
+
+main() {
+  check_deps
+  parse_args "$@"
+
+  if ! $ALLOW_WORKTREE && in_worktree; then
+    die "Refusing to sync from a worktree (would overwrite live config with branch state). Use --allow-worktree to override."
+  fi
+
+  [[ -d "$CLAUDEFILES" ]] || die "Claudefiles not found at $CLAUDEFILES"
+
+  OPENCODE_SYNC_TMPDIR=$(mktemp -d "${CLAUDE_CODE_TMPDIR:-/tmp}/opencode-sync-XXXXXX")
+  trap 'rm -rf "${OPENCODE_SYNC_TMPDIR:-}"' EXIT
+  local tmpdir="$OPENCODE_SYNC_TMPDIR"
+
+  # Uninstall previous install so deleted skills/agents don't linger as orphans.
+  # If the subsequent install fails, the user reruns — no automatic rollback.
+  if opkg list -g --cwd "$HOME" 2> /dev/null | grep -qw "claudefiles"; then
+    $VERBOSE && printf 'Removing previous claudefiles install...\n'
+    if ! $DRY_RUN; then
+      opkg uninstall claudefiles -g --cwd "$HOME" > /dev/null 2>&1 || true
+    fi
+  fi
+
+  stage_config "$tmpdir"
+
+  local -a opkg_args=(
+    install "$tmpdir/claudefiles"
+    --platforms opencode
+    --cwd "$HOME"
+    -g
+    --force
+  )
+  $DRY_RUN && opkg_args+=(--dry-run)
+
+  $VERBOSE && printf 'Running: opkg %s\n' "${opkg_args[*]}"
+
+  local opkg_output
+  if ! opkg_output=$(opkg "${opkg_args[@]}" 2>&1); then
+    printf '%s\n' "$opkg_output" >&2
+    die "opkg install failed"
+  fi
+
+  if $VERBOSE; then
+    printf '%s\n' "$opkg_output"
+  else
+    local filtered
+    filtered=$(printf '%s\n' "$opkg_output" | grep -E "^✓|Installed files:|No files" || true)
+    if [[ -n "$filtered" ]]; then
+      printf '%s\n' "$filtered"
+    else
+      printf '%s\n' "$opkg_output"
+    fi
+  fi
+
+  if $DRY_RUN; then
+    printf '\n[dry-run] Configured model remaps (applied post-install):\n'
+    for claude_model in "${!MODEL_MAP[@]}"; do
+      printf '  model: %s → model: %s\n' "$claude_model" "${MODEL_MAP[$claude_model]}"
+    done
+    return 0
+  fi
+
+  postprocess_config
 
   printf 'Done. OpenCode config updated at %s\n' "$OPENCODE_CONFIG"
 }
