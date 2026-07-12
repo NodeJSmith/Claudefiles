@@ -89,7 +89,9 @@ def record_dispatch(
     )
 
 
-def _read_stats_file(session_uuid: str | None, tool_use_id: str | None) -> dict:
+def _read_stats_file(
+    session_uuid: str | None, tool_use_id: str | None
+) -> dict[str, int | str]:
     """Read and delete the stats sidecar file written by the PostToolUse hook.
 
     Returns a dict with any of: tokens_in, tokens_out, compactions, jsonl_path.
@@ -124,7 +126,6 @@ def end_dispatch(
     Exits 1 with already_ended if completed_at is already set.
     """
     session_uuid = os.environ.get(SESSION_ID_ENV_VAR)
-    stats = _read_stats_file(session_uuid, tool_use_id)
 
     conn.execute("BEGIN IMMEDIATE")
     try:
@@ -148,6 +149,8 @@ def end_dispatch(
                 hint="Use `cfl run status` to inspect dispatch state.",
             )
             raise AssertionError("unreachable: emit_error always exits")
+
+        stats = _read_stats_file(session_uuid, tool_use_id)
 
         conn.execute(
             """UPDATE dispatches SET

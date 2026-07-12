@@ -70,7 +70,7 @@ The fixer ends its response with a one-line summary: `fixed: N, deferred: M, unr
    ```
    Parse `dispatch_id` from the JSON output. Dispatch the fixer subagent (normal pass) with the Step 8 review file paths and the current changed-files list. After the fixer completes:
    ```bash
-   cfl dispatch end <dispatch_id>
+   cfl dispatch end <dispatch_id> --tool-use-id <tool_use_id>
    ```
 2. The fixer reads the reviews in its own context, applies fixes, and writes `<dir>/<task_id>/fix-ledger.md`.
 3. Re-capture changed files (the fixer may have touched additional files):
@@ -91,18 +91,18 @@ The fixer ends its response with a one-line summary: `fixed: N, deferred: M, unr
    - Pass the same "Task scope boundary" block used in Step 8 (remaining task IDs, titles, targets)
    After both reviewers complete:
    ```bash
-   cfl dispatch end <code_reviewer_dispatch_id>
-   cfl dispatch end <integration_reviewer_dispatch_id>
+   cfl dispatch end <code_reviewer_dispatch_id> --tool-use-id <code_reviewer_tool_use_id>
+   cfl dispatch end <integration_reviewer_dispatch_id> --tool-use-id <integration_reviewer_tool_use_id>
    ```
 5. Extract the canonical verdict lines from the freshened review files (last line matching `^\*\*Verdict:\*\*`, same pattern as Step 8).
 6. **If both reviewers return a PASS verdict → early exit. Skip to the Gate section (terminal state A).** A PASS with informational findings counts as clean. Do not continue the loop because of a non-zero findings count on a PASS verdict.
 
 **Iteration 3 — Fixer pass 2 (if either reviewer returned WARN or FAIL after iteration 2):**
 
-1. Record the fixer dispatch (`cfl dispatch fixer <task_id> --agent-type general-purpose --model sonnet`), capture `dispatch_id`. Dispatch the fixer subagent (normal pass) with the freshened review file paths from the iteration 2 re-review and the updated changed-files list. After completion: `cfl dispatch end <dispatch_id>`.
+1. Record the fixer dispatch (`cfl dispatch fixer <task_id> --agent-type general-purpose --model sonnet`), capture `dispatch_id`. Dispatch the fixer subagent (normal pass) with the freshened review file paths from the iteration 2 re-review and the updated changed-files list. After completion: `cfl dispatch end <dispatch_id> --tool-use-id <tool_use_id>`.
 2. The fixer writes `<dir>/<task_id>/fix-ledger.md` (overwrites the previous ledger).
 3. Re-capture changed files (same as above). Update `<dir>/<task_id>/changed-files.txt`.
-4. Record dispatches for both re-reviewers (`cfl dispatch code-reviewer/integration-reviewer <task_id>`), capture IDs. Re-dispatch in parallel (same concise dispatch as iteration 2 step 4, including the scope boundary block). After completion: `cfl dispatch end` for each.
+4. Record dispatches for both re-reviewers (`cfl dispatch code-reviewer/integration-reviewer <task_id>`), capture IDs. Re-dispatch in parallel (same concise dispatch as iteration 2 step 4, including the scope boundary block). After completion: `cfl dispatch end <id> --tool-use-id <tool_use_id>` for each.
 5. Extract canonical verdict lines.
 6. **If both reviewers return a PASS verdict → early exit. Skip to the Gate section (terminal state A).** A PASS with informational findings counts as clean.
 
@@ -110,7 +110,7 @@ The fixer ends its response with a one-line summary: `fixed: N, deferred: M, unr
 
 If the iteration 3 re-review still has a WARN or FAIL verdict on either reviewer:
 
-1. Record the classify-mode fixer dispatch (`cfl dispatch fixer <task_id> --agent-type general-purpose --model sonnet`), capture `dispatch_id`. Dispatch the fixer subagent in **classify-mode** with the iteration 3 re-review file paths and the updated changed-files list. After completion: `cfl dispatch end <dispatch_id>`.
+1. Record the classify-mode fixer dispatch (`cfl dispatch fixer <task_id> --agent-type general-purpose --model sonnet`), capture `dispatch_id`. Dispatch the fixer subagent in **classify-mode** with the iteration 3 re-review file paths and the updated changed-files list. After completion: `cfl dispatch end <dispatch_id> --tool-use-id <tool_use_id>`.
 2. The fixer reads the latest reviews, classifies every remaining finding as `fixed`, `deferred(reason)`, or `unresolved`, and writes `<dir>/<task_id>/fix-ledger.md` (overwrites). **No code changes.**
 3. Do not re-dispatch reviewers after the classify-mode pass. The terminal ledger now reflects the latest review's findings. Proceed to the Gate section (terminal state B).
 

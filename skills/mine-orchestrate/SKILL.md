@@ -258,7 +258,7 @@ After selecting the agent type, record the dispatch and capture its ID:
 cfl dispatch executor <task_id> --agent-type <selected_agent_type> --model <model from agent frontmatter, or sonnet for general-purpose> --routing-reason "<matched rule or 'default general-purpose'>"
 ```
 
-Parse `dispatch_id` from the JSON output — it is required for `cfl dispatch end` after the executor returns.
+Parse `dispatch_id` from the JSON output — it is required for `cfl dispatch end` after the executor returns. When calling `cfl dispatch end`, also pass `--tool-use-id <id>` where `<id>` is the `tool_use_id` of the Agent tool call that launched the subagent (available from the tool_use content block metadata). This enables automatic telemetry capture from a PostToolUse hook.
 
 ### Step 5: Launch executor subagent
 
@@ -323,7 +323,7 @@ Save screenshots to: <absolute path: dir>/<task_id>/>
 Wait for the subagent to complete. Then mark the dispatch as done:
 
 ```bash
-cfl dispatch end <dispatch_id>
+cfl dispatch end <dispatch_id> --tool-use-id <tool_use_id>
 ```
 
 ### Step 6: Capture changed files
@@ -456,9 +456,9 @@ Write your review to: <absolute path: dir>/<task_id>/integration-review.md>
 Wait for all three to complete. Mark all three dispatches done:
 
 ```bash
-cfl dispatch end <spec_reviewer_dispatch_id>
-cfl dispatch end <code_reviewer_dispatch_id>
-cfl dispatch end <integration_reviewer_dispatch_id>
+cfl dispatch end <spec_reviewer_dispatch_id> --tool-use-id <spec_reviewer_tool_use_id>
+cfl dispatch end <code_reviewer_dispatch_id> --tool-use-id <code_reviewer_tool_use_id>
+cfl dispatch end <integration_reviewer_dispatch_id> --tool-use-id <integration_reviewer_tool_use_id>
 ```
 
 Extract each reviewer's canonical verdict line from its report file — do **not** read the report bodies:

@@ -65,7 +65,7 @@ AskUserQuestion:
    cfl dispatch impl-fixer --agent-type general-purpose --model sonnet
    ```
 2. Dispatch a fresh `general-purpose` subagent with `model: sonnet` and: the impl-review findings, the relevant file paths, the design doc path (`<feature_dir>/design.md` — instruct the subagent to read it directly), all task files from `<feature_dir>/tasks/` (for per-task constraints and Review Guidance), accumulated spec-reviewer outputs, `implementer-prompt.md` content (as `## Implementer instructions`), `retry-prompt.md` content (as `## Retry instructions`), and `tdd.md` content. Populate the `## Previous review feedback` template with: "Impl-review: <absolute path to impl-review findings file>". Instruct: "Fix only the listed blocking issues. Do not expand scope beyond these findings. Respect the Review Guidance constraints from each task."
-3. After the subagent completes: `cfl dispatch end <dispatch_id>`
+3. After the subagent completes: `cfl dispatch end <dispatch_id> --tool-use-id <tool_use_id>`
 4. Re-run the project test suite (using `<dir>/test-command.txt`). If tests fail: surface the failure prominently in the next gate prompt (which offers "Address fixes" or "Stop here" — there is no "Accept and ship" option at this gate) with a note identifying the test failures.
 5. Re-run `code-reviewer` and `integration-reviewer` on the fix diff in parallel (both in a single message)
 6. Re-run `/mine-implementation-review <feature_dir>`
@@ -103,7 +103,7 @@ Launch `Agent(subagent_type: "integration-reviewer")` with all changed files. In
 > - **Hard-coded values that should be parameterized**: artifact names or paths that appear as literals but should vary by context (e.g., iteration suffixes)
 > - **Worked examples using invalid contract values**: examples that show values not in the canonical vocabulary
 
-After the reviewer completes: `cfl dispatch end <dispatch_id>`
+After the reviewer completes: `cfl dispatch end <dispatch_id> --tool-use-id <tool_use_id>`
 
 Record the gate result:
 
@@ -159,7 +159,7 @@ The first line of the summary file MUST be: `<!-- HEAD: <git rev-parse --short H
 Wait for the subagent to complete. Mark the dispatch done:
 
 ```bash
-cfl dispatch end <dispatch_id>
+cfl dispatch end <dispatch_id> --tool-use-id <tool_use_id>
 ```
 
 Read `<dir>/clean-code-summary.md` to see what was fixed and what remains. Note any unfixed findings for the shipping gate. Record the gate result:
@@ -194,8 +194,8 @@ Launch both reviewers in a single message (parallel):
 After both complete, mark dispatches done:
 
 ```bash
-cfl dispatch end <final_code_reviewer_dispatch_id>
-cfl dispatch end <final_integration_reviewer_dispatch_id>
+cfl dispatch end <final_code_reviewer_dispatch_id> --tool-use-id <tool_use_id>
+cfl dispatch end <final_integration_reviewer_dispatch_id> --tool-use-id <tool_use_id>
 ```
 
 If either reviewer finds CRITICAL or HIGH issues, fix them inline (auto-fix unambiguous issues, re-run both reviewers, max 2 iterations). MEDIUM and LOW findings are noted for the shipping gate but do not block.
