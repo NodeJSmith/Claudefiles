@@ -261,14 +261,13 @@ def test_end_dispatch_writes_tool_use_id(db_conn, capsys):
 
 def test_end_dispatch_reads_stats_file(db_conn, capsys, monkeypatch, tmp_path):
     """end_dispatch reads stats sidecar and populates telemetry columns."""
-    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    dispatch_id = _make_dispatch(db_conn, run_id)
-    _ = capsys.readouterr()
-
-    # Set up the stats file
     session_uuid = "test-session-uuid"
     tool_use_id = "toolu_xyz789"
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", session_uuid)
+
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+    dispatch_id = _make_dispatch(db_conn, run_id)
+    _ = capsys.readouterr()
 
     import cfl.dispatch as dispatch_mod
 

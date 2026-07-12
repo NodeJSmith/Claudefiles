@@ -194,8 +194,8 @@ Launch both reviewers in a single message (parallel):
 After both complete, mark dispatches done:
 
 ```bash
-cfl dispatch end <final_code_reviewer_dispatch_id> --tool-use-id <tool_use_id>
-cfl dispatch end <final_integration_reviewer_dispatch_id> --tool-use-id <tool_use_id>
+cfl dispatch end <final_code_reviewer_dispatch_id> --tool-use-id <final_code_reviewer_tool_use_id>
+cfl dispatch end <final_integration_reviewer_dispatch_id> --tool-use-id <final_integration_reviewer_tool_use_id>
 ```
 
 If either reviewer finds CRITICAL or HIGH issues, fix them inline (auto-fix unambiguous issues, re-run both reviewers, max 2 iterations). MEDIUM and LOW findings are noted for the shipping gate but do not block.

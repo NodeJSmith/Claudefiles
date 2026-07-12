@@ -23,19 +23,19 @@ fi
 
 input="$(cat || true)"
 
-session_id="$(printf '%s' "$input" | jq -r '.session_id // empty' 2> /dev/null)" || true
+# Extract all fields in one jq invocation (tab-separated)
+_fields="$(printf '%s' "$input" | jq -r '[
+  (.session_id // ""),
+  (.tool_use_id // ""),
+  (.tool_response.usage.input_tokens // 0 | tostring),
+  (.tool_response.usage.output_tokens // 0 | tostring),
+  (.tool_response.agentId // ""),
+  (.transcript_path // "")
+] | join("\t")' 2> /dev/null)" || exit 0
+
+IFS=$'\t' read -r session_id tool_use_id tokens_in tokens_out agent_id transcript_path <<< "$_fields"
 [ -z "$session_id" ] && exit 0
-
-tool_use_id="$(printf '%s' "$input" | jq -r '.tool_use_id // empty' 2> /dev/null)" || true
 [ -z "$tool_use_id" ] && exit 0
-
-# Extract token usage from tool_response.usage (already computed by Claude Code)
-tokens_in="$(printf '%s' "$input" | jq -r '.tool_response.usage.input_tokens // 0' 2> /dev/null)" || true
-tokens_out="$(printf '%s' "$input" | jq -r '.tool_response.usage.output_tokens // 0' 2> /dev/null)" || true
-
-# Find the subagent JSONL via agentId
-agent_id="$(printf '%s' "$input" | jq -r '.tool_response.agentId // empty' 2> /dev/null)" || true
-transcript_path="$(printf '%s' "$input" | jq -r '.transcript_path // empty' 2> /dev/null)" || true
 
 compactions=0
 jsonl_path=""
@@ -68,6 +68,7 @@ find "$stats_dir" -name "*.json" -mmin +60 -delete 2> /dev/null || true
 
 stats_file="$stats_dir/${session_id}-${tool_use_id}.json"
 
+tmp_file="$stats_dir/.tmp-${session_id}-${tool_use_id}.json"
 jq -cn \
   --argjson tokens_in "${tokens_in:-0}" \
   --argjson tokens_out "${tokens_out:-0}" \
@@ -78,6 +79,6 @@ jq -cn \
     tokens_out: $tokens_out,
     compactions: $compactions,
     jsonl_path: $jsonl_path
-  }' > "$stats_file" 2> /dev/null || exit 0
+  }' > "$tmp_file" 2> /dev/null && mv "$tmp_file" "$stats_file" 2> /dev/null || exit 0
 
 exit 0

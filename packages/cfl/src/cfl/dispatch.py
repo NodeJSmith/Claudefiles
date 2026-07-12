@@ -104,6 +104,8 @@ def _read_stats_file(
         return {}
     try:
         data = json.loads(stats_file.read_text())
+        if not isinstance(data, dict):
+            return {}
         stats_file.unlink()
         return data
     except (json.JSONDecodeError, OSError):
@@ -130,7 +132,7 @@ def end_dispatch(
     conn.execute("BEGIN IMMEDIATE")
     try:
         row = conn.execute(
-            "SELECT id, completed_at, role, task_id FROM dispatches WHERE id=?",
+            "SELECT id, completed_at, role, task_id, session_uuid FROM dispatches WHERE id=?",
             (dispatch_id,),
         ).fetchone()
         if row is None:
@@ -150,7 +152,8 @@ def end_dispatch(
             )
             raise AssertionError("unreachable: emit_error always exits")
 
-        stats = _read_stats_file(session_uuid, tool_use_id)
+        # Prefer the session that created the dispatch (stats file is named with it)
+        stats = _read_stats_file(row["session_uuid"] or session_uuid, tool_use_id)
 
         conn.execute(
             """UPDATE dispatches SET
