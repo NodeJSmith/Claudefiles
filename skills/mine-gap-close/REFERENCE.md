@@ -175,6 +175,8 @@ When the user answers a gap question, convert the answer into artifact content u
 
 **Format:** Match the artifact's existing AC style. If no style exists, use concise declarative statements with a clear precondition, action, and outcome. Given/When/Then is one valid format but not required.
 
+**Constraint:** Every AC must be verifiable by running a local command (test, lint, grep, script, or hitting a locally-reachable service). Do not write ACs that require observing CI pipeline status, GitHub Actions output, post-merge behavior, or PR review state. Those are process gates, not acceptance criteria.
+
 **Multiple criteria:** add each as a separate item under the section, matching the existing style (bullets, numbered items, or bare blocks).
 
 **Edit tool example** (the single worked example for all patterns — the others follow the same `old_string`/`new_string` mechanics):

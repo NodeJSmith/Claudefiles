@@ -307,7 +307,7 @@ implements: ["FR#1", "FR#3", "AC#7"]
 - **Target Files**: Required. One entry per file with a change verb (`create`, `modify`, `read`, `delete`). The design's `## Impact → Changed Files` inventory seeds the create/modify/delete entries when present; `read` references (and anything the inventory omits) come from Phase 2 codebase exploration. Do not leave empty or write "as discussed". File lists matter; counts do not — list every file, even for large mechanical changes.
 - **Prompt**: Self-contained. Name exact file paths (absolute or repo-relative). Reference design doc sections by heading name. Reference visual artifacts by path. Do not say "as discussed" or assume context from earlier phases. Must be completable by a fresh subagent.
 - **Focus**: Ground truth from Phase 2 exploration. Exact file paths, class names, existing patterns to follow, gotchas. What would break if done wrong.
-- **Verify**: Binary checklist only. Each item must start with `- [ ] FR#N:` or `- [ ] AC#N:` followed by a concrete, observable criterion. "The endpoint returns 200" not "the feature works". Every `implements` identifier must have exactly one Verify item.
+- **Verify**: Binary checklist only. Each item must start with `- [ ] FR#N:` or `- [ ] AC#N:` followed by a concrete, observable criterion. "The endpoint returns 200" not "the feature works". Every `implements` identifier must have exactly one Verify item. Each criterion must be verifiable by the executor running a local command. If an AC requires observing CI pipeline status, GitHub Actions output, or post-merge behavior, omit it from Verify. The executor has no way to observe these, so they get marked CONTESTED and stall the pipeline for manual resolution. The validator (Phase 3.5) catches any that slip through.
 
 ### Scope rules
 
@@ -380,7 +380,8 @@ Read the validation report. Then present:
 2. **Coverage summary** — e.g., "22/22 FRs mapped, 10/10 ACs mapped" (counts only — the full matrix is in `.validation-report.md` if needed)
 3. **Coverage gaps** — any FRs/ACs with no implementing task (only the gaps, not the full matrix)
 4. **Contradictions** — any conflicts between task prompts and the design doc
-5. **Warnings** — vague criteria, weak references, format issues
+5. **Non-local criteria** — any Verify items requiring CI, post-merge, or external-pipeline observation (these should not be ACs)
+6. **Warnings** — vague criteria, weak references, format issues
 
 Note the path to `.validation-report.md` so the user can inspect the full traceability matrix if desired.
 

@@ -27,6 +27,8 @@ When $ARGUMENTS resolves to existing files or directories that have no uncommitt
 
 Read and execute `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-review/scope-detection.md` (shared with `mine-review`). It resolves $ARGUMENTS to either **diff mode** (a diff command) or **path mode** (a file list), with scope-narrowing guards.
 
+**Code files only.** After resolving the file list, filter out non-code files (`.md` and other prose/instruction files). The three checkers (LLM patterns, deferred debt, style hygiene) are designed for code, not instruction prose. If all files in scope are non-code, inform the user ("No code files in scope — clean-code review only applies to code. Use `/mine-review` for instruction files.") and stop.
+
 ## Phase 1.5: Determine Batching
 
 After Phase 1 resolves the changed-file list, count the changed files.

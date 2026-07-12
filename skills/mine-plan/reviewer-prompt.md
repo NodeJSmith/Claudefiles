@@ -23,8 +23,8 @@ Required sections: `## Problem & Motivation`, `## Visual Artifacts`, `## Key Dec
 Look for: missing section headings; sections that contain only a placeholder or the heading itself; Key Decisions that don't match the design doc's Architecture section; Convention Examples that don't match the design doc's Convention Examples section.
 
 ### 5. Verify section quality
-Are Verify criteria concrete and binary? Can each item be verified without reading the code?
-Look for: vague items like "the feature works", "tests pass", "renders correctly"; items that describe intent rather than observable outcome; Verify items that reference FR/AC identifiers not in the task's `implements` field.
+Are Verify criteria concrete and binary? Can each item be verified by an executor running a local command?
+Look for: vague items like "the feature works", "tests pass", "renders correctly"; items that describe intent rather than observable outcome; Verify items that reference FR/AC identifiers not in the task's `implements` field; non-local criteria requiring CI pipeline status, GitHub Actions output, post-merge observation, or PR review state (the executor cannot observe these).
 
 ### 6. Summary accuracy
 Does each task's Summary accurately describe what the task builds — consistent with its Prompt and the design doc?

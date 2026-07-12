@@ -8,6 +8,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 - New `bin/opencode-sync` script syncs Claudefiles config into OpenCode's `~/.config/opencode` via OpenPackage (`opkg`), remapping Claude model tiers to OpenAI equivalents and stripping Claude-specific fields; not wired into `install.py`, intended for Dotfiles integration. (#459)
 
+### Changed
+
+- `mine-define`, `mine-gap-close`, and `mine-plan` now reject acceptance criteria that require observing CI pipeline status, GitHub Actions output, post-merge behavior, or PR review state — those are process gates, not locally-verifiable ACs, and previously stalled orchestration runs with CONTESTED items an executor has no way to check. (#460)
+
 ### Fixed
 
 - `cfl` dispatch telemetry now actually gets recorded — the PostToolUse stats hook keys sidecar files by `cfl_dispatch_id` (embedded in the subagent prompt) instead of `session_id`+`tool_use_id`, since agents can't introspect their own `tool_use_id` at runtime and the old scheme left all telemetry NULL. (#458)
