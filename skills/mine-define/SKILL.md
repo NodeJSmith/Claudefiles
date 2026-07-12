@@ -540,8 +540,10 @@ Write the design doc to `<feature_dir>/design.md`:
 
 ## Acceptance Criteria
 
-- **AC#1** [Measurable, observable outcome — independently verifiable]
+- **AC#1** [Measurable, observable outcome — verifiable by running a local command]
 - **AC#2** [Each entry tests one outcome; map to one or more FR#N identifiers where relevant]
+
+[Each AC must be verifiable by an executor running commands in the local repo: tests, linters, grep, scripts, or hitting locally-reachable services. Criteria that require observing CI pipeline status, GitHub Actions output, post-merge behavior, or PR review state are process gates, not acceptance criteria. An executor has no way to observe these, so they get marked CONTESTED and stall the pipeline for manual resolution. Describe them in Dependencies and Assumptions instead.]
 
 ## Visual Artifacts
 
@@ -640,6 +642,7 @@ Write the design doc to `<feature_dir>/design.md`:
 - No `[NEEDS CLARIFICATION]` markers — if you don't know, ask before writing
 - Functional Requirements use canonical identifier format `FR#N` where N is a positive integer (e.g., `FR#1`, `FR#2`). Identifiers must be unique within the document. Each FR describes exactly one testable behavior — do not bundle multiple behaviors into a single entry
 - Acceptance Criteria use canonical identifier format `AC#N` where N is a positive integer (e.g., `AC#1`, `AC#2`). Identifiers must be unique within the document
+- Acceptance Criteria must be verifiable by running a local command (test, lint, grep, script, or hitting a locally-reachable service). Criteria that require CI pipeline status, GitHub Actions job output, post-merge observation, or PR review state are not ACs. Move them to Dependencies and Assumptions
 - Visual Artifacts section is optional — include it only when visual references exist; omit the section entirely otherwise
 - Key Constraints section is required — include it even if no feature-specific prohibitions emerged (mark it empty with a note rather than omitting)
 
@@ -680,6 +683,7 @@ Validate the design doc against this checklist:
 17. Test Strategy identifies existing tests to adapt (with file paths), new coverage needed (mapped to FR#N), and tests to remove — or states N/A for repos with no test infrastructure
 18. Documentation Updates lists specific artifacts with specific changes needed, or explicitly states none are required — a vague "update docs" without naming artifacts is a FAIL
 19. Implementation Preferences contains only decisions explicitly surfaced during discovery — speculatively filled entries (not traceable to a user answer or codebase finding) are a FAIL. Section states "No specific implementation preferences — follow codebase conventions." when none were identified
+20. Every Acceptance Criterion is verifiable by running a local command (test, lint, grep, script, or hitting a locally-reachable service). Criteria requiring CI pipeline status, GitHub Actions output, post-merge observation, or PR review state are a FAIL (move to Dependencies and Assumptions)
 
 For any item that fails: **FAIL** — block and revise before proceeding. Report results as a compact list.
 
@@ -691,7 +695,7 @@ Skip if cfl tracking was disabled in Phase 1 (no `<spec_number>` set):
 cfl gate define-quality --verdict <PASS|FAIL> --spec <spec_number>
 ```
 
-Where verdict is PASS if all 19 checks passed, FAIL if any blocked.
+Where verdict is PASS if all 20 checks passed, FAIL if any blocked.
 
 ---
 
