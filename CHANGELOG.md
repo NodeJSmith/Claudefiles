@@ -11,6 +11,7 @@ All notable changes to this Claudefiles repository are documented here.
 ### Changed
 
 - `mine-define`, `mine-gap-close`, and `mine-plan` now reject acceptance criteria that require observing CI pipeline status, GitHub Actions output, post-merge behavior, or PR review state — those are process gates, not locally-verifiable ACs, and previously stalled orchestration runs with CONTESTED items an executor has no way to check. (#460)
+- `bin/opencode-sync` gains a `--check` flag that reports whether OpenCode is in sync with the current Claudefiles commit (exit 0=current, 1=stale) without running the full `opkg install` pipeline. (#461)
 
 ### Fixed
 
