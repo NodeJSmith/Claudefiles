@@ -2,15 +2,18 @@
 
 Implements:
   record_dispatch — INSERT dispatches + emit task.dispatched or review.dispatched event
-  end_dispatch    — UPDATE dispatches SET completed_at
+  end_dispatch    — UPDATE dispatches SET completed_at + optional telemetry from stats file
 """
 
 import json
 import os
 import sqlite3
+from pathlib import Path
 
 import cfl.output as output_module
 from cfl.session import SESSION_ID_ENV_VAR, read_context_pct
+
+STATS_DIR = Path(os.environ.get("CLAUDE_CODE_TMPDIR", "/tmp")) / "cfl-dispatch-stats"
 
 
 def record_dispatch(
@@ -86,12 +89,43 @@ def record_dispatch(
     )
 
 
-def end_dispatch(conn: sqlite3.Connection, dispatch_id: int) -> None:
+def _read_stats_file(session_uuid: str | None, tool_use_id: str | None) -> dict:
+    """Read and delete the stats sidecar file written by the PostToolUse hook.
+
+    Returns a dict with any of: tokens_in, tokens_out, compactions, jsonl_path.
+    Returns empty dict if no file found or fields missing.
+    """
+    if not session_uuid or not tool_use_id:
+        return {}
+    stats_file = STATS_DIR / f"{session_uuid}-{tool_use_id}.json"
+    if not stats_file.exists():
+        return {}
+    try:
+        data = json.loads(stats_file.read_text())
+        stats_file.unlink()
+        return data
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def end_dispatch(
+    conn: sqlite3.Connection,
+    dispatch_id: int,
+    *,
+    tool_use_id: str | None = None,
+) -> None:
     """Mark a dispatch as completed by setting completed_at.
+
+    If tool_use_id is provided, also writes it to the row and attempts to read
+    a stats sidecar file (written by the PostToolUse hook) to populate telemetry
+    columns (tokens_in, tokens_out, compactions, jsonl_path).
 
     Exits 1 with dispatch_not_found if the dispatch_id does not exist.
     Exits 1 with already_ended if completed_at is already set.
     """
+    session_uuid = os.environ.get(SESSION_ID_ENV_VAR)
+    stats = _read_stats_file(session_uuid, tool_use_id)
+
     conn.execute("BEGIN IMMEDIATE")
     try:
         row = conn.execute(
@@ -116,8 +150,22 @@ def end_dispatch(conn: sqlite3.Connection, dispatch_id: int) -> None:
             raise AssertionError("unreachable: emit_error always exits")
 
         conn.execute(
-            "UPDATE dispatches SET completed_at=datetime('now') WHERE id=?",
-            (dispatch_id,),
+            """UPDATE dispatches SET
+                completed_at=datetime('now'),
+                tool_use_id=COALESCE(?, tool_use_id),
+                tokens_in=COALESCE(?, tokens_in),
+                tokens_out=COALESCE(?, tokens_out),
+                compactions=COALESCE(?, compactions),
+                jsonl_path=COALESCE(?, jsonl_path)
+            WHERE id=?""",
+            (
+                tool_use_id,
+                stats.get("tokens_in"),
+                stats.get("tokens_out"),
+                stats.get("compactions"),
+                stats.get("jsonl_path"),
+                dispatch_id,
+            ),
         )
         conn.execute("COMMIT")
     except Exception:
@@ -125,14 +173,18 @@ def end_dispatch(conn: sqlite3.Connection, dispatch_id: int) -> None:
         raise
 
     ended = conn.execute(
-        "SELECT completed_at FROM dispatches WHERE id=?", (dispatch_id,)
+        "SELECT completed_at, tokens_in, tokens_out, compactions FROM dispatches WHERE id=?",
+        (dispatch_id,),
     ).fetchone()
 
-    output_module.emit(
-        {
-            "dispatch_id": dispatch_id,
-            "role": row["role"],
-            "task_id": row["task_id"],
-            "completed_at": output_module.to_iso(ended["completed_at"]),
-        }
-    )
+    result = {
+        "dispatch_id": dispatch_id,
+        "role": row["role"],
+        "task_id": row["task_id"],
+        "completed_at": output_module.to_iso(ended["completed_at"]),
+    }
+    if ended["tokens_in"] is not None:
+        result["tokens_in"] = ended["tokens_in"]
+        result["tokens_out"] = ended["tokens_out"]
+        result["compactions"] = ended["compactions"]
+    output_module.emit(result)
