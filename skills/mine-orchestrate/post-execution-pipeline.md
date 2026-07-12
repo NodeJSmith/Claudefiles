@@ -4,6 +4,8 @@ After all tasks are processed (or user chose "Stop here"), run a review pipeline
 
 **All subagents in Phase 3 MUST run in foreground** (never set `run_in_background: true`). Several steps spawn their own parallel child subagents internally, which only works in foreground execution.
 
+**Telemetry:** Every subagent prompt in Phase 3 must include `cfl_dispatch_id: <dispatch_id>` (the ID from the `cfl dispatch` call that preceded it). This enables automatic token/compaction tracking via a PostToolUse hook.
+
 ## Step 1: Summary (automatic)
 
 Present a verdict table. **Read the run state via `cfl run status`** and build the table from the `tasks` array:
@@ -64,8 +66,8 @@ AskUserQuestion:
    ```bash
    cfl dispatch impl-fixer --agent-type general-purpose --model sonnet
    ```
-2. Dispatch a fresh `general-purpose` subagent with `model: sonnet` and: the impl-review findings, the relevant file paths, the design doc path (`<feature_dir>/design.md` — instruct the subagent to read it directly), all task files from `<feature_dir>/tasks/` (for per-task constraints and Review Guidance), accumulated spec-reviewer outputs, `implementer-prompt.md` content (as `## Implementer instructions`), `retry-prompt.md` content (as `## Retry instructions`), and `tdd.md` content. Populate the `## Previous review feedback` template with: "Impl-review: <absolute path to impl-review findings file>". Instruct: "Fix only the listed blocking issues. Do not expand scope beyond these findings. Respect the Review Guidance constraints from each task."
-3. After the subagent completes: `cfl dispatch end <dispatch_id> --tool-use-id <tool_use_id>`
+2. Dispatch a fresh `general-purpose` subagent with `model: sonnet` and: `cfl_dispatch_id: <dispatch_id>` (from the preceding `cfl dispatch` call), the impl-review findings, the relevant file paths, the design doc path (`<feature_dir>/design.md` — instruct the subagent to read it directly), all task files from `<feature_dir>/tasks/` (for per-task constraints and Review Guidance), accumulated spec-reviewer outputs, `implementer-prompt.md` content (as `## Implementer instructions`), `retry-prompt.md` content (as `## Retry instructions`), and `tdd.md` content. Populate the `## Previous review feedback` template with: "Impl-review: <absolute path to impl-review findings file>". Instruct: "Fix only the listed blocking issues. Do not expand scope beyond these findings. Respect the Review Guidance constraints from each task."
+3. After the subagent completes: `cfl dispatch end <dispatch_id>`
 4. Re-run the project test suite (using `<dir>/test-command.txt`). If tests fail: surface the failure prominently in the next gate prompt (which offers "Address fixes" or "Stop here" — there is no "Accept and ship" option at this gate) with a note identifying the test failures.
 5. Re-run `code-reviewer` and `integration-reviewer` on the fix diff in parallel (both in a single message)
 6. Re-run `/mine-implementation-review <feature_dir>`
@@ -93,7 +95,7 @@ Record the dispatch and capture its ID:
 cfl dispatch cross-file-reviewer --agent-type integration-reviewer --model sonnet
 ```
 
-Launch `Agent(subagent_type: "integration-reviewer")` with all changed files. Include the design doc path (`<feature_dir>/design.md`) so the reviewer can verify terminology and pattern choices against design decisions. Add this focus instruction to the prompt:
+Launch `Agent(subagent_type: "integration-reviewer")` with all changed files. Include `cfl_dispatch_id: <dispatch_id>` (from the preceding `cfl dispatch` call) and the design doc path (`<feature_dir>/design.md`) so the reviewer can verify terminology and pattern choices against design decisions. Add this focus instruction to the prompt:
 
 > In addition to your standard checklist (duplication, convention drift, misplacement, orphaned code, design violations), pay special attention to **cross-file consistency** across the full diff:
 > - **Terminology drift**: same concept described with different words across files (e.g., "verb" vs "execution outcome" for the same trigger condition)
@@ -103,7 +105,7 @@ Launch `Agent(subagent_type: "integration-reviewer")` with all changed files. In
 > - **Hard-coded values that should be parameterized**: artifact names or paths that appear as literals but should vary by context (e.g., iteration suffixes)
 > - **Worked examples using invalid contract values**: examples that show values not in the canonical vocabulary
 
-After the reviewer completes: `cfl dispatch end <dispatch_id> --tool-use-id <tool_use_id>`
+After the reviewer completes: `cfl dispatch end <dispatch_id>`
 
 Record the gate result:
 
@@ -154,12 +156,14 @@ Read for architecture context when evaluating whether a fix is safe.
 Write a summary of what you fixed and what you left unfixed to: <dir>/clean-code-summary.md
 
 The first line of the summary file MUST be: `<!-- HEAD: <git rev-parse --short HEAD> -->` — this allows mine-ship to detect that the clean-code check already ran at this commit.
+
+cfl_dispatch_id: <dispatch_id>
 ```
 
 Wait for the subagent to complete. Mark the dispatch done:
 
 ```bash
-cfl dispatch end <dispatch_id> --tool-use-id <tool_use_id>
+cfl dispatch end <dispatch_id>
 ```
 
 Read `<dir>/clean-code-summary.md` to see what was fixed and what remains. Note any unfixed findings for the shipping gate. Record the gate result:
@@ -187,15 +191,15 @@ cfl dispatch final-integration-reviewer --agent-type integration-reviewer --mode
 
 Launch both reviewers in a single message (parallel):
 
-**Code reviewer** (`subagent_type: "code-reviewer"`): review all changed files, write to `<dir>/final-code-review.md`.
+**Code reviewer** (`subagent_type: "code-reviewer"`): include `cfl_dispatch_id: <final_code_reviewer_dispatch_id>`, review all changed files, write to `<dir>/final-code-review.md`.
 
-**Integration reviewer** (`subagent_type: "integration-reviewer"`): review all changed files, write to `<dir>/final-integration-review.md`.
+**Integration reviewer** (`subagent_type: "integration-reviewer"`): include `cfl_dispatch_id: <final_integration_reviewer_dispatch_id>`, review all changed files, write to `<dir>/final-integration-review.md`.
 
 After both complete, mark dispatches done:
 
 ```bash
-cfl dispatch end <final_code_reviewer_dispatch_id> --tool-use-id <final_code_reviewer_tool_use_id>
-cfl dispatch end <final_integration_reviewer_dispatch_id> --tool-use-id <final_integration_reviewer_tool_use_id>
+cfl dispatch end <final_code_reviewer_dispatch_id>
+cfl dispatch end <final_integration_reviewer_dispatch_id>
 ```
 
 If either reviewer finds CRITICAL or HIGH issues, fix them inline (auto-fix unambiguous issues, re-run both reviewers, max 2 iterations). MEDIUM and LOW findings are noted for the shipping gate but do not block.

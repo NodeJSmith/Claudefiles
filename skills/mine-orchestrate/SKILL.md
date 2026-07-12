@@ -258,7 +258,7 @@ After selecting the agent type, record the dispatch and capture its ID:
 cfl dispatch executor <task_id> --agent-type <selected_agent_type> --model <model from agent frontmatter, or sonnet for general-purpose> --routing-reason "<matched rule or 'default general-purpose'>"
 ```
 
-Parse `dispatch_id` from the JSON output — it is required for `cfl dispatch end` after the executor returns. When calling `cfl dispatch end`, also pass `--tool-use-id <id>` where `<id>` is the `tool_use_id` of the Agent tool call that launched the subagent (available from the tool_use content block metadata). This enables automatic telemetry capture from a PostToolUse hook.
+Parse `dispatch_id` from the JSON output — it is required for `cfl dispatch end` after the executor returns, and must be included in the subagent prompt for telemetry correlation (see below).
 
 ### Step 5: Launch executor subagent
 
@@ -315,6 +315,8 @@ using the canonical test command) and re-reading the file you just edited remain
 <If visual_mode is not "enabled">: Visual verification is SKIPPED for this run (<visual_mode reason>). Do not attempt screenshot capture. Report "SKIPPED — <reason> (orchestrator)" in your visual verification output.
 <Otherwise>: Dev server detected at <URL>. Proceed with visual verification if the task specifies scenarios.
 
+cfl_dispatch_id: <dispatch_id>
+
 Write your structured result to: <absolute path: dir>/<task_id>/executor.md>
 Capture any test/lint output you run to: <absolute path: dir>/<task_id>/test-output.log> and <absolute path: dir>/<task_id>/lint-output.log>
 Save screenshots to: <absolute path: dir>/<task_id>/>
@@ -323,7 +325,7 @@ Save screenshots to: <absolute path: dir>/<task_id>/>
 Wait for the subagent to complete. Then mark the dispatch as done:
 
 ```bash
-cfl dispatch end <dispatch_id> --tool-use-id <tool_use_id>
+cfl dispatch end <dispatch_id>
 ```
 
 ### Step 6: Capture changed files
@@ -408,6 +410,8 @@ Use this to distinguish valid cross-task touches (fixing an import the executor 
 
 CONCISE-RETURN-MODE
 
+cfl_dispatch_id: <spec_reviewer_dispatch_id>
+
 Write your structured review to: <absolute path: dir>/<task_id>/spec-review.md>
 ```
 
@@ -415,6 +419,8 @@ Write your structured review to: <absolute path: dir>/<task_id>/spec-review.md>
 
 ```
 CONCISE-RETURN-MODE
+
+cfl_dispatch_id: <code_reviewer_dispatch_id>
 
 Review these changed files: <changed file list from Step 6>
 
@@ -450,15 +456,17 @@ Only flag issues that fall within THIS task's scope. The following tasks handle 
 
 If a finding concerns code that is explicitly listed as a later task's target, skip it. When uncertain whether something is in-scope, include it — false negatives are worse than false positives.
 
+cfl_dispatch_id: <integration_reviewer_dispatch_id>
+
 Write your review to: <absolute path: dir>/<task_id>/integration-review.md>
 ```
 
 Wait for all three to complete. Mark all three dispatches done:
 
 ```bash
-cfl dispatch end <spec_reviewer_dispatch_id> --tool-use-id <spec_reviewer_tool_use_id>
-cfl dispatch end <code_reviewer_dispatch_id> --tool-use-id <code_reviewer_tool_use_id>
-cfl dispatch end <integration_reviewer_dispatch_id> --tool-use-id <integration_reviewer_tool_use_id>
+cfl dispatch end <spec_reviewer_dispatch_id>
+cfl dispatch end <code_reviewer_dispatch_id>
+cfl dispatch end <integration_reviewer_dispatch_id>
 ```
 
 Extract each reviewer's canonical verdict line from its report file — do **not** read the report bodies:

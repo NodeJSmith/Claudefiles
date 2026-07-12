@@ -3,9 +3,11 @@
 #
 # After each Agent tool invocation, extracts token usage from the hook input
 # and compaction count from the subagent's JSONL, then writes a stats file
-# that `cfl dispatch end --tool-use-id` picks up automatically.
+# keyed by cfl_dispatch_id (extracted from the subagent prompt).
 #
-# Stats file: ${CLAUDE_CODE_TMPDIR:-/tmp}/cfl-dispatch-stats/<session_id>-<tool_use_id>.json
+# Stats file: ${CLAUDE_CODE_TMPDIR:-/tmp}/cfl-dispatch-stats/<dispatch_id>.json
+#
+# Non-orchestrate Agent calls (no cfl_dispatch_id in prompt) are silently skipped.
 #
 # Hook wiring (settings.json):
 #   "PostToolUse": [{
@@ -25,17 +27,16 @@ input="$(cat || true)"
 
 # Extract all fields in one jq invocation (tab-separated)
 _fields="$(printf '%s' "$input" | jq -r '[
-  (.session_id // ""),
   (.tool_use_id // ""),
   (.tool_response.usage.input_tokens // 0 | tostring),
   (.tool_response.usage.output_tokens // 0 | tostring),
   (.tool_response.agentId // ""),
-  (.transcript_path // "")
+  (.transcript_path // ""),
+  ((.tool_input.prompt // "") | capture("cfl_dispatch_id: (?<id>[0-9]+)") // {} | .id // "")
 ] | join("\t")' 2> /dev/null)" || exit 0
 
-IFS=$'\t' read -r session_id tool_use_id tokens_in tokens_out agent_id transcript_path <<< "$_fields"
-[ -z "$session_id" ] && exit 0
-[ -z "$tool_use_id" ] && exit 0
+IFS=$'\t' read -r tool_use_id tokens_in tokens_out agent_id transcript_path dispatch_id <<< "$_fields"
+[ -z "$dispatch_id" ] && exit 0
 
 compactions=0
 jsonl_path=""
@@ -45,7 +46,6 @@ if [ -n "$agent_id" ] && [ -n "$transcript_path" ]; then
   candidate="$subagent_dir/agent-${agent_id}.jsonl"
   if [ -f "$candidate" ]; then
     jsonl_path="$candidate"
-    # Count real compact_boundary events (same validation as subagent-compaction-check.sh)
     compactions="$(grep '"compact_boundary"' "$candidate" 2> /dev/null | python3 -c "
 import sys, json
 count = 0
@@ -61,20 +61,21 @@ print(count)
   fi
 fi
 
-# Write stats file (reap stale files >1h old on each invocation)
+# Write stats file keyed by dispatch_id (reap stale files >1h old)
 stats_dir="${CLAUDE_CODE_TMPDIR:-/tmp}/cfl-dispatch-stats"
 mkdir -p "$stats_dir" 2> /dev/null || exit 0
 find "$stats_dir" -name "*.json" -mmin +60 -delete 2> /dev/null || true
 
-stats_file="$stats_dir/${session_id}-${tool_use_id}.json"
-
-tmp_file="$stats_dir/.tmp-${session_id}-${tool_use_id}.json"
+stats_file="$stats_dir/${dispatch_id}.json"
+tmp_file="$stats_dir/.tmp-${dispatch_id}.json"
 jq -cn \
+  --arg tool_use_id "$tool_use_id" \
   --argjson tokens_in "${tokens_in:-0}" \
   --argjson tokens_out "${tokens_out:-0}" \
   --argjson compactions "$compactions" \
   --arg jsonl_path "$jsonl_path" \
   '{
+    tool_use_id: (if $tool_use_id == "" then null else $tool_use_id end),
     tokens_in: $tokens_in,
     tokens_out: $tokens_out,
     compactions: $compactions,

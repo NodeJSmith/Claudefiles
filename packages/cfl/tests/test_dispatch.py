@@ -241,30 +241,14 @@ def test_end_dispatch_already_ended_exits_1(db_conn, capsys):
 
 
 # ---------------------------------------------------------------------------
-# Dispatch end — telemetry from stats file
+# Dispatch end — telemetry from stats file (keyed by dispatch_id)
 # ---------------------------------------------------------------------------
 
 
-def test_end_dispatch_writes_tool_use_id(db_conn, capsys):
-    """end_dispatch stores tool_use_id when provided."""
-    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    dispatch_id = _make_dispatch(db_conn, run_id)
-    _ = capsys.readouterr()
-
-    end_dispatch(db_conn, dispatch_id, tool_use_id="toolu_abc123")
-
-    row = db_conn.execute(
-        "SELECT tool_use_id FROM dispatches WHERE id=?", (dispatch_id,)
-    ).fetchone()
-    assert row["tool_use_id"] == "toolu_abc123"
-
-
-def test_end_dispatch_reads_stats_file(db_conn, capsys, monkeypatch, tmp_path):
-    """end_dispatch reads stats sidecar and populates telemetry columns."""
-    session_uuid = "test-session-uuid"
-    tool_use_id = "toolu_xyz789"
-    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", session_uuid)
-
+def test_end_dispatch_reads_stats_file_by_dispatch_id(
+    db_conn, capsys, monkeypatch, tmp_path
+):
+    """end_dispatch reads stats sidecar keyed by dispatch_id and populates telemetry columns."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
     dispatch_id = _make_dispatch(db_conn, run_id)
     _ = capsys.readouterr()
@@ -273,36 +257,33 @@ def test_end_dispatch_reads_stats_file(db_conn, capsys, monkeypatch, tmp_path):
 
     monkeypatch.setattr(dispatch_mod, "STATS_DIR", tmp_path)
 
-    stats_file = tmp_path / f"{session_uuid}-{tool_use_id}.json"
+    stats_file = tmp_path / f"{dispatch_id}.json"
     stats_file.write_text(
         json.dumps(
             {
+                "tool_use_id": "toolu_abc123",
                 "tokens_in": 5000,
                 "tokens_out": 1200,
-                "cache_read": 4500,
-                "cache_create": 100,
                 "compactions": 1,
                 "jsonl_path": "/tmp/agent-abc.jsonl",
             }
         )
     )
 
-    end_dispatch(db_conn, dispatch_id, tool_use_id=tool_use_id)
+    end_dispatch(db_conn, dispatch_id)
 
     row = db_conn.execute(
-        "SELECT tokens_in, tokens_out, compactions, jsonl_path, tool_use_id FROM dispatches WHERE id=?",
+        "SELECT tool_use_id, tokens_in, tokens_out, compactions, jsonl_path FROM dispatches WHERE id=?",
         (dispatch_id,),
     ).fetchone()
+    assert row["tool_use_id"] == "toolu_abc123"
     assert row["tokens_in"] == 5000
     assert row["tokens_out"] == 1200
     assert row["compactions"] == 1
     assert row["jsonl_path"] == "/tmp/agent-abc.jsonl"
-    assert row["tool_use_id"] == tool_use_id
 
-    # Stats file should be deleted after reading
     assert not stats_file.exists()
 
-    # Output should include telemetry
     out = json.loads(capsys.readouterr().out)
     assert out["tokens_in"] == 5000
     assert out["tokens_out"] == 1200
@@ -310,18 +291,16 @@ def test_end_dispatch_reads_stats_file(db_conn, capsys, monkeypatch, tmp_path):
 
 
 def test_end_dispatch_no_stats_file_still_works(db_conn, capsys, monkeypatch, tmp_path):
-    """end_dispatch works normally when no stats file exists."""
+    """end_dispatch works normally when no stats file exists (non-orchestrate dispatches)."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
     dispatch_id = _make_dispatch(db_conn, run_id)
     _ = capsys.readouterr()
-
-    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "no-such-session")
 
     import cfl.dispatch as dispatch_mod
 
     monkeypatch.setattr(dispatch_mod, "STATS_DIR", tmp_path)
 
-    end_dispatch(db_conn, dispatch_id, tool_use_id="toolu_missing")
+    end_dispatch(db_conn, dispatch_id)
 
     row = db_conn.execute(
         "SELECT completed_at, tokens_in, tool_use_id FROM dispatches WHERE id=?",
@@ -329,4 +308,4 @@ def test_end_dispatch_no_stats_file_still_works(db_conn, capsys, monkeypatch, tm
     ).fetchone()
     assert row["completed_at"] is not None
     assert row["tokens_in"] is None
-    assert row["tool_use_id"] == "toolu_missing"
+    assert row["tool_use_id"] is None
