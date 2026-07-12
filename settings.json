@@ -67,6 +67,11 @@
             "type": "command",
             "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/subagent-compaction-check.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
             "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/dispatch-stats.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
+            "timeout": 5000
           }
         ]
       }

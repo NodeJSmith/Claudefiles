@@ -73,6 +73,7 @@ Read all `<feature_dir>/tasks/T*.md` files in order. For each task, extract:
 - `task_id`
 - `title`
 - `depends_on`
+- `target_files` — the file paths from the task's `## Target Files` section (create/modify/delete entries only; exclude read-only entries). Used to build the "Task scope boundary" block for reviewers.
 
 **Ordering note**: The tmpdir must exist before `cfl run start` or `cfl run advance-phase orchestrate`. Obtain it via `get-skill-tmpdir mine-orchestrate` before either call, then use it in the `--tmpdir` argument.
 
@@ -257,7 +258,7 @@ After selecting the agent type, record the dispatch and capture its ID:
 cfl dispatch executor <task_id> --agent-type <selected_agent_type> --model <model from agent frontmatter, or sonnet for general-purpose> --routing-reason "<matched rule or 'default general-purpose'>"
 ```
 
-Parse `dispatch_id` from the JSON output — it is required for `cfl dispatch end` after the executor returns.
+Parse `dispatch_id` from the JSON output — it is required for `cfl dispatch end` after the executor returns. When calling `cfl dispatch end`, also pass `--tool-use-id <id>` where `<id>` is the `tool_use_id` of the Agent tool call that launched the subagent (available from the tool_use content block metadata). This enables automatic telemetry capture from a PostToolUse hook.
 
 ### Step 5: Launch executor subagent
 
@@ -322,7 +323,7 @@ Save screenshots to: <absolute path: dir>/<task_id>/>
 Wait for the subagent to complete. Then mark the dispatch as done:
 
 ```bash
-cfl dispatch end <dispatch_id>
+cfl dispatch end <dispatch_id> --tool-use-id <tool_use_id>
 ```
 
 ### Step 6: Capture changed files
@@ -393,6 +394,15 @@ Read the design doc directly for supplemental architecture context.
 
 Read this file when you need to: (1) check CONTESTED markers, (2) compare the executor's stated Verify section for dropped criteria, (3) read the executor's visual verification output for the plan audit (section 6 of your instructions), or (4) understand the executor's stated rationale for a decision. Do not use it as a substitute for reading the actual code.
 
+## Task scope boundary
+
+You are reviewing task <task_id> ("<task title>") in a multi-task execution. The following tasks handle their own concerns:
+
+<For each remaining (not-yet-completed) task after the current one, emit one line using that task's write-scope target files (create/modify/delete only, not read):>
+- <task_id>: <title> — targets: <comma-separated list of create/modify/delete files from that task's "## Target Files" section, or "unspecified" if the task has no Target Files section>
+
+Use this to distinguish valid cross-task touches (fixing an import the executor broke in a later task's file) from unauthorized scope expansion.
+
 ## Spec reviewer instructions
 <full spec-reviewer-prompt.md content>
 
@@ -408,6 +418,17 @@ CONCISE-RETURN-MODE
 
 Review these changed files: <changed file list from Step 6>
 
+## Task scope boundary
+
+You are reviewing task <task_id> ("<task title>") in a multi-task execution.
+
+Only flag issues that fall within THIS task's scope. The following tasks handle their own concerns — do NOT flag issues that are explicitly assigned to them:
+
+<For each remaining (not-yet-completed) task after the current one, emit one line using that task's write-scope target files (create/modify/delete only, not read):>
+- <task_id>: <title> — targets: <comma-separated list of create/modify/delete files from that task's "## Target Files" section, or "unspecified" if the task has no Target Files section>
+
+If a finding concerns code that is explicitly listed as a later task's target, skip it. When uncertain whether something is in-scope, include it — false negatives are worse than false positives.
+
 Write your review to: <absolute path: dir>/<task_id>/code-review.md>
 ```
 
@@ -418,15 +439,26 @@ CONCISE-RETURN-MODE
 
 Review these changed files: <changed file list from Step 6>
 
+## Task scope boundary
+
+You are reviewing task <task_id> ("<task title>") in a multi-task execution.
+
+Only flag issues that fall within THIS task's scope. The following tasks handle their own concerns — do NOT flag issues that are explicitly assigned to them:
+
+<For each remaining (not-yet-completed) task after the current one, emit one line using that task's write-scope target files (create/modify/delete only, not read):>
+- <task_id>: <title> — targets: <comma-separated list of create/modify/delete files from that task's "## Target Files" section, or "unspecified" if the task has no Target Files section>
+
+If a finding concerns code that is explicitly listed as a later task's target, skip it. When uncertain whether something is in-scope, include it — false negatives are worse than false positives.
+
 Write your review to: <absolute path: dir>/<task_id>/integration-review.md>
 ```
 
 Wait for all three to complete. Mark all three dispatches done:
 
 ```bash
-cfl dispatch end <spec_reviewer_dispatch_id>
-cfl dispatch end <code_reviewer_dispatch_id>
-cfl dispatch end <integration_reviewer_dispatch_id>
+cfl dispatch end <spec_reviewer_dispatch_id> --tool-use-id <spec_reviewer_tool_use_id>
+cfl dispatch end <code_reviewer_dispatch_id> --tool-use-id <code_reviewer_tool_use_id>
+cfl dispatch end <integration_reviewer_dispatch_id> --tool-use-id <integration_reviewer_tool_use_id>
 ```
 
 Extract each reviewer's canonical verdict line from its report file — do **not** read the report bodies:

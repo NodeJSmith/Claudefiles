@@ -543,10 +543,15 @@ def cmd_dispatch(
 @dispatch_app.command(name="end", help_epilogue=help_text.DISPATCH_END)
 def cmd_dispatch_end(
     dispatch_id: Annotated[int, Parameter(help="Dispatch ID to mark as completed")],
+    *,
+    tool_use_id: Annotated[
+        str | None,
+        Parameter(name="--tool-use-id", help="Agent tool_use_id for stats correlation"),
+    ] = None,
 ) -> None:
     """Mark a dispatch as completed."""
     with db_connection() as conn:
-        end_dispatch(conn, dispatch_id)
+        end_dispatch(conn, dispatch_id, tool_use_id=tool_use_id)
 
 
 # ---------------------------------------------------------------------------
