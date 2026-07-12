@@ -67,6 +67,8 @@ If the design doc does not specify verifiable interface contracts, data model sh
 - Was any functionality added beyond the task spec?
 - If yes: is it a valid deviation (bug fix, security gap) or unauthorized scope expansion?
 
+**Sibling task context:** If a "Task scope boundary" section is present in your prompt, use it to distinguish scope creep from valid cross-task touch. A file listed as a later task's target that the executor touched only to fix an import or type error it introduced is a valid deviation, not scope expansion.
+
 ### 6. Visual verification plan audit
 
 If the task contains a `## Visual Verification` section with scenarios:

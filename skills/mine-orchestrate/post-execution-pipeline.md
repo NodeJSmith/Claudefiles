@@ -93,7 +93,7 @@ Record the dispatch and capture its ID:
 cfl dispatch cross-file-reviewer --agent-type integration-reviewer --model sonnet
 ```
 
-Launch `Agent(subagent_type: "integration-reviewer")` with all changed files. Add this focus instruction to the prompt:
+Launch `Agent(subagent_type: "integration-reviewer")` with all changed files. Include the design doc path (`<feature_dir>/design.md`) so the reviewer can verify terminology and pattern choices against design decisions. Add this focus instruction to the prompt:
 
 > In addition to your standard checklist (duplication, convention drift, misplacement, orphaned code, design violations), pay special attention to **cross-file consistency** across the full diff:
 > - **Terminology drift**: same concept described with different words across files (e.g., "verb" vs "execution outcome" for the same trigger condition)

@@ -21,7 +21,9 @@ Include in the fixer's prompt:
 - Path to `<dir>/<task_id>/code-review.md`
 - Path to `<dir>/<task_id>/integration-review.md`
 - Path to the design doc for this task
+- Path to the task spec (`<feature_dir>/tasks/<task_id>.md`) — so the fixer can verify whether findings contradict a task instruction without spelunking
 - The changed-files list (file paths, one per line — pass the list inline, not as a file path)
+- The task scope boundary (same block passed to reviewers in Step 8 — remaining task IDs, titles, and target files)
 
 Pass review and design doc as **paths** so the fixer reads them in its own ephemeral context. Do not pass file contents into the orchestrator's context.
 
@@ -34,6 +36,7 @@ The fixer prompt must include:
 > **For each finding (CRITICAL, HIGH, MEDIUM, LOW — all severities):**
 > - **Auto-fix** when the correct solution is unambiguous (clear bugs, missing type annotations, style violations, naming drift, orphaned code, undefined references, simple security issues)
 > - **Defer** when the fix requires architectural judgment or business context
+> - **Defer** when the finding targets code/files explicitly listed in a later task's scope boundary — mark as `deferred(later-task: <task_id>)`
 
 ### Classify-mode pass (budget exhausted, findings remain)
 
@@ -85,6 +88,7 @@ The fixer ends its response with a one-line summary: `fixed: N, deferred: M, unr
    - Each dispatch prompt must contain the **exact literal token** `CONCISE-RETURN-MODE` (verbatim) **and** an output file path — both conditions required to activate concise return (see `verdict-line-format.md`)
    - Output paths: `<dir>/<task_id>/code-review.md` and `<dir>/<task_id>/integration-review.md` (overwrite)
    - Pass the refreshed changed-files list in each dispatch
+   - Pass the same "Task scope boundary" block used in Step 8 (remaining task IDs, titles, targets)
    After both reviewers complete:
    ```bash
    cfl dispatch end <code_reviewer_dispatch_id>
@@ -98,7 +102,7 @@ The fixer ends its response with a one-line summary: `fixed: N, deferred: M, unr
 1. Record the fixer dispatch (`cfl dispatch fixer <task_id> --agent-type general-purpose --model sonnet`), capture `dispatch_id`. Dispatch the fixer subagent (normal pass) with the freshened review file paths from the iteration 2 re-review and the updated changed-files list. After completion: `cfl dispatch end <dispatch_id>`.
 2. The fixer writes `<dir>/<task_id>/fix-ledger.md` (overwrites the previous ledger).
 3. Re-capture changed files (same as above). Update `<dir>/<task_id>/changed-files.txt`.
-4. Record dispatches for both re-reviewers (`cfl dispatch code-reviewer/integration-reviewer <task_id>`), capture IDs. Re-dispatch in parallel (same concise dispatch as iteration 2 step 4). After completion: `cfl dispatch end` for each.
+4. Record dispatches for both re-reviewers (`cfl dispatch code-reviewer/integration-reviewer <task_id>`), capture IDs. Re-dispatch in parallel (same concise dispatch as iteration 2 step 4, including the scope boundary block). After completion: `cfl dispatch end` for each.
 5. Extract canonical verdict lines.
 6. **If both reviewers return a PASS verdict → early exit. Skip to the Gate section (terminal state A).** A PASS with informational findings counts as clean.
 

@@ -73,6 +73,7 @@ Read all `<feature_dir>/tasks/T*.md` files in order. For each task, extract:
 - `task_id`
 - `title`
 - `depends_on`
+- `target_files` — the file paths from the task's `## Target Files` section (create/modify/delete entries only; exclude read-only entries). Used to build the "Task scope boundary" block for reviewers.
 
 **Ordering note**: The tmpdir must exist before `cfl run start` or `cfl run advance-phase orchestrate`. Obtain it via `get-skill-tmpdir mine-orchestrate` before either call, then use it in the `--tmpdir` argument.
 
@@ -393,6 +394,15 @@ Read the design doc directly for supplemental architecture context.
 
 Read this file when you need to: (1) check CONTESTED markers, (2) compare the executor's stated Verify section for dropped criteria, (3) read the executor's visual verification output for the plan audit (section 6 of your instructions), or (4) understand the executor's stated rationale for a decision. Do not use it as a substitute for reading the actual code.
 
+## Task scope boundary
+
+You are reviewing task <task_id> ("<task title>") in a multi-task execution. The following tasks handle their own concerns:
+
+<For each remaining (not-yet-completed) task after the current one, emit one line using that task's write-scope target files (create/modify/delete only, not read):>
+- <task_id>: <title> — targets: <comma-separated list of create/modify/delete files from that task's "## Target Files" section, or "unspecified" if the task has no Target Files section>
+
+Use this to distinguish valid cross-task touches (fixing an import the executor broke in a later task's file) from unauthorized scope expansion.
+
 ## Spec reviewer instructions
 <full spec-reviewer-prompt.md content>
 
@@ -408,6 +418,17 @@ CONCISE-RETURN-MODE
 
 Review these changed files: <changed file list from Step 6>
 
+## Task scope boundary
+
+You are reviewing task <task_id> ("<task title>") in a multi-task execution.
+
+Only flag issues that fall within THIS task's scope. The following tasks handle their own concerns — do NOT flag issues that are explicitly assigned to them:
+
+<For each remaining (not-yet-completed) task after the current one, emit one line using that task's write-scope target files (create/modify/delete only, not read):>
+- <task_id>: <title> — targets: <comma-separated list of create/modify/delete files from that task's "## Target Files" section, or "unspecified" if the task has no Target Files section>
+
+If a finding concerns code that is explicitly listed as a later task's target, skip it. When uncertain whether something is in-scope, include it — false negatives are worse than false positives.
+
 Write your review to: <absolute path: dir>/<task_id>/code-review.md>
 ```
 
@@ -417,6 +438,17 @@ Write your review to: <absolute path: dir>/<task_id>/code-review.md>
 CONCISE-RETURN-MODE
 
 Review these changed files: <changed file list from Step 6>
+
+## Task scope boundary
+
+You are reviewing task <task_id> ("<task title>") in a multi-task execution.
+
+Only flag issues that fall within THIS task's scope. The following tasks handle their own concerns — do NOT flag issues that are explicitly assigned to them:
+
+<For each remaining (not-yet-completed) task after the current one, emit one line using that task's write-scope target files (create/modify/delete only, not read):>
+- <task_id>: <title> — targets: <comma-separated list of create/modify/delete files from that task's "## Target Files" section, or "unspecified" if the task has no Target Files section>
+
+If a finding concerns code that is explicitly listed as a later task's target, skip it. When uncertain whether something is in-scope, include it — false negatives are worse than false positives.
 
 Write your review to: <absolute path: dir>/<task_id>/integration-review.md>
 ```
