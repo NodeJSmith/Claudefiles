@@ -22,7 +22,7 @@ declare -A MODEL_MAP=(
 
 OPKG_VERSION="0.11.3"
 
-OPENCODE_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
+OPENCODE_CONFIG="$HOME/.config/opencode"
 CLAUDEFILES="${CLAUDEFILES_DIR:-$HOME/Claudefiles}"
 
 # Dirs excluded from staging: .claude/ (causes opkg platform misdetection),
@@ -45,6 +45,7 @@ die() {
 
 check_deps() {
   command -v npx > /dev/null 2>&1 || die "npx not found. Install Node.js."
+  command -v rsync > /dev/null 2>&1 || die "rsync not found. Install rsync."
 }
 
 # Wraps the external opkg command via npx — shadows the name so all call sites
@@ -54,7 +55,10 @@ opkg() {
 }
 
 in_worktree() {
-  [[ "$(cd "$CLAUDEFILES" 2> /dev/null && pwd)" == *"/.claude/worktrees/"* ]]
+  local git_dir common_dir
+  git_dir=$(cd "$CLAUDEFILES" 2> /dev/null && git rev-parse --absolute-git-dir 2> /dev/null) || return 1
+  common_dir=$(cd "$CLAUDEFILES" 2> /dev/null && git rev-parse --git-common-dir 2> /dev/null) || return 1
+  [[ "$git_dir" != "$common_dir" ]]
 }
 
 # Remap model fields in a directory.
