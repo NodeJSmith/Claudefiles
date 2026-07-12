@@ -8,7 +8,7 @@ set -euo pipefail
 #   2. Run opkg install targeting opencode platform
 #   3. Remap Claude model names to OpenAI equivalents
 #
-# Requires: opkg (npm install -g opkg)
+# Requires: npx (comes with Node.js)
 
 # --- Configuration -----------------------------------------------------------
 
@@ -34,7 +34,11 @@ die() {
 }
 
 check_deps() {
-  command -v opkg > /dev/null 2>&1 || die "opkg not found. Install: npm install -g opkg"
+  command -v npx > /dev/null 2>&1 || die "npx not found. Install Node.js."
+}
+
+opkg() {
+  npx --yes opkg "$@"
 }
 
 in_worktree() {
