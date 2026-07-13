@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-07-13
+
+### Added
+
+- New `model-the-domain` rule in `rules/common/` — encodes reaching for a data structure (state machine, typed object, discriminated union, lookup table) instead of scattering domain logic across conditionals and synced booleans; wired into `install.py`'s `style` category and cross-referenced from `coding-style.md` and `invariants.md`. (#462)
+
 ## 2026-07-12
 
 ### Added
