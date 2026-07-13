@@ -209,7 +209,7 @@ RULE_CATEGORIES: dict[str, RuleCategory] = {
     ),
     "style": RuleCategory(
         label="Code structure & style",
-        description="coding-style, reader-load, laziness, subtract-first, redesign, refactoring discipline",
+        description="coding-style, reader-load, laziness, subtract-first, redesign, refactoring discipline, model-the-domain",
         files=(
             "coding-style.md",
             "reader-load.md",
@@ -217,6 +217,7 @@ RULE_CATEGORIES: dict[str, RuleCategory] = {
             "subtract-first.md",
             "redesign-from-first-principles.md",
             "refactoring-discipline.md",
+            "model-the-domain.md",
         ),
     ),
     "languages": RuleCategory(
