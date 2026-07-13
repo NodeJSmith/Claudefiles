@@ -83,7 +83,7 @@ Log at decision points and actions, not at every step. Use warnings for unexpect
 
 ## Data Structures First
 
-Get the data shape right before writing logic. The right shape makes downstream code obvious. Define core types early, trace every access pattern, and choose structures that match the dominant paths. A data-structure change late is a rewrite; early, it is a one-line diff.
+Get the data shape right before writing logic. The right shape makes downstream code obvious. Define core types early, trace every access pattern, and choose structures that match the dominant paths. A data-structure change late is a rewrite; early, it is a one-line diff. See also `model-the-domain.md` for which structure to reach for when conditionals are the smell.
 
 Use dataclasses when a structure is passed between multiple methods or stored. Don't introduce them for intermediate values within a single method.
 
