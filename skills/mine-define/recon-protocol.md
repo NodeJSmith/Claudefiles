@@ -17,7 +17,7 @@ Before asking the user questions, silently explore the codebase for context rele
 
 ## Code example extraction
 
-While exploring, collect **3-5 concrete code snippets** that represent the codebase's conventions for the kind of work this feature involves. These are real code from the repo — not prose descriptions of patterns.
+While exploring, look for **concrete code snippets** (aim for 3-5) that represent the codebase's conventions for the kind of work this feature involves. These are real code from the repo — not prose descriptions of patterns. If the codebase has no meaningful conventions to extract (greenfield project, no similar code exists), record none and note the absence — downstream phases handle the zero-examples case.
 
 **What to extract:**
 - A function or class that follows the naming/structure conventions the new code should match
