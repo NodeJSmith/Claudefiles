@@ -2,6 +2,16 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-07-15
+
+### Added
+
+- New `instruction-quality-reviewer` and `writing-quality-reviewer` agents carry the checklist logic that `mine-review` used to inline, following the comb model where dispatched agents own their own instructions. (#465)
+
+### Changed
+
+- `mine-review` and `mine-clean-code` prompts collapsed to scope-only one-liners now that dispatched agents carry their own checklists — `mine-review` 244 → 101 lines, `mine-clean-code` 264 → 101 lines. (#465)
+
 ## 2026-07-13
 
 ### Added
