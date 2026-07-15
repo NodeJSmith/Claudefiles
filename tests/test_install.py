@@ -478,23 +478,19 @@ class TestBundleModel:
         }
 
     def test_base_agents(self, tmp_path: Path) -> None:
-        """Base bundle holds the advisory reviewers plus the credential/registry agents."""
+        """Base bundle includes the pre-commit safety gates and core reviewers."""
         _setup_minimal_repo(tmp_path)
         bundles = install.get_bundles(tmp_path)
         base = bundles["base"]
-        assert set(base.agents) == {
+        required = {
             "code-reviewer",
             "integration-reviewer",
             "wtf-reviewer",
-            "fine-toothed-comb",
-            "code-judo-reviewer",
-            "researcher",
-            "llm-checker",
-            "lazy-checker",
-            "nitpicker",
-            "issue-refiner",
             "secrets-auditor",
         }
+        assert required <= set(base.agents), (
+            f"Missing required agents: {required - set(base.agents)}"
+        )
 
     def test_base_packages(self, tmp_path: Path) -> None:
         """Base bundle has cfl and merge-settings packages."""

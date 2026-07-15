@@ -41,11 +41,11 @@ If batched: merge each checker's findings across its batches before consolidatio
 
 ### Cross-checker duplicates
 
-When two checkers flag the same file:line, note cross-signal but keep both in their respective sections — the checkers represent different quality dimensions.
+Because the checkers represent different quality dimensions, when two checkers flag the same file:line, keep both in their respective sections but note the cross-signal.
 
 ### Validity assessment
 
-Apply the protocol from `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`.
+Apply the protocol from `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`: findings are valid by default; flagging one as likely invalid requires a concrete evidence trail.
 
 ### Report
 
