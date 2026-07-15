@@ -52,6 +52,8 @@ Each agent file in `agents/` declares its model in YAML frontmatter. When updati
 - `agents/visual-diff.md` — sonnet, medium
 - `agents/wtf-reviewer.md` — sonnet, medium (pre-commit readability gate; do not downgrade model)
 - `agents/fine-toothed-comb.md` — sonnet, medium
+- `agents/instruction-quality-reviewer.md` — sonnet, medium
+- `agents/writing-quality-reviewer.md` — sonnet, medium
 - `agents/engineering-frontend-developer.md` — sonnet, medium
 - `agents/engineering-backend-developer.md` — sonnet, medium
 - `agents/engineering-data-engineer.md` — sonnet, medium
@@ -69,7 +71,6 @@ Each agent file in `agents/` declares its model in YAML frontmatter. When updati
 - `skills/mine-create-pr/SKILL.md` — `model: sonnet` for PR creation worker subagent
 - `skills/mine-create-issue/SKILL.md` — `model: sonnet` for investigation, drafting, and creation worker subagent
 - `skills/mine-mockup/SKILL.md` — `model: sonnet` for mockup generation worker subagent
-- `skills/mine-review/SKILL.md` — `model: sonnet` for instruction-mode reviewers (consistency/completeness, instruction quality, writing quality)
 - `skills/mine-address-pr-issues/SKILL.md` — `model: sonnet` for fix subagents
 - `skills/mine-brainstorm/SKILL.md` — `model: sonnet` for thinker subagents
 - `skills/mine-prior-art/SKILL.md` — `model: sonnet` for web research subagent
