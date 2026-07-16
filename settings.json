@@ -1,7 +1,6 @@
 {
   "permissions": {
     "allow": [
-      "Write(//tmp/**)",
       "Edit(//tmp/**)",
       "Bash(cfl:*)",
       "Bash(get-skill-tmpdir:*)",
