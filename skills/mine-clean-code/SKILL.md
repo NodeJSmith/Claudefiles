@@ -66,7 +66,7 @@ Organize by checker, not severity. Summary table:
 **Likely-invalid:** N
 ```
 
-Then checker sections with grouped findings. Each finding includes the proposed fix — the specific code change that would be applied. The user decides what to fix based on seeing both the problem and the proposed edit. Likely-invalid findings in a separate section with Claimed/Actually/Why-invalid fields.
+Then checker sections with grouped findings. Each finding includes the proposed fix — the specific edit that would be applied. The user decides what to fix based on seeing both the problem and the proposed edit. Likely-invalid findings in a separate section with Claimed/Actually/Why-invalid fields.
 
 When invoked from `mine-orchestrate`, write `clean-code-summary.md` with `<!-- HEAD: <short-sha> -->` header followed by a narrative of what was fixed and what was left.
 
@@ -81,7 +81,7 @@ AskUserQuestion:
   multiSelect: false
   options:
     - label: "Fix all"
-      description: "Apply the proposed fixes listed above across all checkers"
+      description: "Apply the proposed fixes listed above across all checkers, then re-read the modified content"
     - label: "Fix one checker's findings"
       description: "Pick a single checker to clean up now"
     - label: "Note and move on"

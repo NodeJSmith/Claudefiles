@@ -74,7 +74,7 @@ Organize by severity, not by reviewer. Report header:
 
 Source labels — code mode: `Code`, `Integration`, `Readability`. Instruction mode: `Consistency`, `Instruction`, `Writing`.
 
-Findings in severity-grouped tables (`### Critical / High`, `### Medium`, `### Low`). Each finding includes the proposed fix — the specific code change that would be applied. The user decides what to fix based on seeing both the problem and the proposed edit. Likely-invalid findings in a separate section with Claimed/Actually/Why-invalid fields.
+Findings in severity-grouped tables (`### Critical / High`, `### Medium`, `### Low`). Each finding includes the proposed fix — the specific edit that would be applied. The user decides what to fix based on seeing both the problem and the proposed edit. Likely-invalid findings in a separate section with Claimed/Actually/Why-invalid fields.
 
 ### Next steps
 
@@ -85,7 +85,7 @@ AskUserQuestion:
   multiSelect: false
   options:
     - label: "Fix all"
-      description: "Apply the proposed fixes listed above, highest severity down"
+      description: "Apply the proposed fixes listed above, highest severity down, then re-read the modified content"
     - label: "Fix critical/high only"
       description: "Address blockers, leave medium/low for later"
     - label: "Note and move on"
