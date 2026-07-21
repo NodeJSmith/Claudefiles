@@ -51,6 +51,7 @@ EOF
 
 set -uo pipefail
 
+# Bound the fetch so a reachable-but-slow host can't wedge an unattended caller.
 FETCH_TIMEOUT_SECONDS=15
 
 emit_json=0
@@ -66,6 +67,7 @@ for arg in "$@"; do
   esac
 done
 
+# Must be inside a git repo with an origin remote.
 if ! git rev-parse --git-dir > /dev/null 2>&1; then
   echo "fatal: not a git repository" >&2
   exit 1
@@ -76,6 +78,8 @@ if ! git remote get-url origin > /dev/null 2>&1; then
 fi
 
 default=$(git-default-branch --no-network 2> /dev/null) || default=""
+# git-default-branch exits non-zero when it can't decide; fall back to the
+# network resolver, and let the emptiness check below report a hard failure.
 if [[ -z "$default" ]]; then
   default=$(git-default-branch 2> /dev/null) || default=""
 fi
@@ -86,6 +90,14 @@ fi
 
 current=$(git branch --show-current 2> /dev/null) || current=""
 
+# Fetch the default branch so the comparison reflects the real remote state.
+# A hung credential/host prompt is worse than a stale answer here, so never
+# prompt — fail fast and fall through to the last-known remote-tracking ref.
+# fetch_ok==0 means the ahead count is NOT backed by a fresh fetch (network
+# failure or --no-fetch); callers reading JSON treat it as "freshness unknown".
+# GIT_TERMINAL_PROMPT=0 handles an *unreachable* host; `timeout` (when present)
+# handles a *reachable-but-slow* one — a stalled socket or hanging proxy would
+# otherwise wedge an unattended caller indefinitely.
 fetch_ok=1
 if ((do_fetch)); then
   fetch_cmd=(git fetch --quiet origin "$default")
@@ -94,6 +106,7 @@ if ((do_fetch)); then
     fetch_ok=0
   fi
 else
+  # --no-fetch: no fetch attempted, so freshness is unverified — same flag, deliberate skip.
   fetch_ok=0
 fi
 fetch_ok_json=$( ((fetch_ok)) && echo true || echo false)
