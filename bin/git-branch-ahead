@@ -1,24 +1,17 @@
 #!/usr/bin/env bash
-# Report whether the current branch is missing commits from the default branch.
+# Report how many commits the current branch has ahead of the default branch.
 #
-# Catches the "I forgot to pull latest main before starting" mistake: it
-# fetches the default branch from origin and counts how many commits HEAD is
-# behind it. A long unattended run (e.g. a 12-hour orchestrate) that starts on
-# a stale base only discovers the staleness when work conflicts — this surfaces
-# it in the first second instead.
+# Ahead count = commits reachable from HEAD but not from origin/<default>,
+# i.e. `git rev-list --count origin/<default>..HEAD`.
 #
-# Behind count = commits reachable from origin/<default> but not from HEAD,
-# i.e. `git rev-list --count HEAD..origin/<default>`.
+# Mirror of `git-branch-behind` — same resolution, same flags, opposite
+# direction. See git-branch-behind for design rationale (fetch timeout,
+# graceful degradation, exit codes).
 #
-# Degrades gracefully: if the fetch fails (offline, unreachable host), it does
-# NOT block — it reports against the last-known remote-tracking ref and sets
-# fetch_ok=false so the caller can say "couldn't verify upstream".
+# Depends on `git-default-branch` for the default branch name, unless
+# --default is given to skip that resolution.
 #
-# Depends on `git-default-branch` for the default branch name (unless
-# --default is given to skip that resolution); expects a bare branch name on
-# stdout (e.g. "main"), which becomes base_ref "origin/<name>".
-#
-# Usage: git-branch-behind [--json] [--no-fetch] [--default <branch>]
+# Usage: git-branch-ahead [--json] [--no-fetch] [--default <branch>]
 #
 # Options:
 #   --json               Emit a JSON object instead of a human-readable line.
@@ -27,21 +20,20 @@
 #                        one via git-default-branch.
 #
 # Exit codes:
-#   0   up to date (behind == 0), or could not verify (fetch failed AND no
-#       local remote-tracking ref to compare against — reported, not fatal)
-#   10  behind (behind > 0) — distinct code so shell callers can branch on it
+#   0   up to date (ahead == 0), or could not verify
+#   10  ahead (ahead > 0)
 #   1   hard error: not a git repo, no origin remote, or default unresolvable
 
 [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && {
   cat << 'EOF'
-Usage: git-branch-behind [--json] [--no-fetch] [--default <branch>]
+Usage: git-branch-ahead [--json] [--no-fetch] [--default <branch>]
 
-Report whether the current branch is missing commits from the default branch
-(i.e. you forgot to pull/rebase latest before starting work).
+Report how many commits the current branch has ahead of the default branch
+(i.e. commits unique to this branch relative to the default).
 
-Fetches the default branch from origin, then counts how many commits HEAD is
-behind origin/<default>. Does not block on a failed fetch — reports against the
-last-known state and flags that the remote could not be reached.
+Fetches the default branch from origin, then counts how many commits HEAD has
+ahead of origin/<default>. Does not block on a failed fetch — reports against
+the last-known state and flags that the remote could not be reached.
 
 Options:
   --json               Emit a JSON object instead of a human-readable line.
@@ -53,13 +45,13 @@ Options:
 
 Exit codes:
   0   up to date (or could not verify)
-  10  behind by one or more commits
+  10  ahead by one or more commits
   1   not a git repo / no origin / default branch unresolvable
 
 Examples:
-  git-branch-behind                 # "up to date with origin/main"
-  git-branch-behind --json          # {"behind":3,"default_branch":"main",...}
-  git-branch-behind && echo fresh   # exit 0 only when up to date
+  git-branch-ahead                 # "up to date with origin/main"
+  git-branch-ahead --json          # {"ahead":3,"default_branch":"main",...}
+  git-branch-ahead && echo clean   # exit 0 only when up to date
 EOF
   exit 0
 }
@@ -87,14 +79,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --default)
       if [[ $# -lt 2 ]]; then
-        echo "git-branch-behind: --default requires an argument" >&2
+        echo "git-branch-ahead: --default requires an argument" >&2
         exit 1
       fi
       default_override="$2"
       shift 2
       ;;
     *)
-      echo "git-branch-behind: unknown argument: $1" >&2
+      echo "git-branch-ahead: unknown argument: $1" >&2
       exit 1
       ;;
   esac
@@ -130,7 +122,7 @@ current=$(git branch --show-current 2> /dev/null) || current=""
 # Fetch the default branch so the comparison reflects the real remote state.
 # A hung credential/host prompt is worse than a stale answer here, so never
 # prompt — fail fast and fall through to the last-known remote-tracking ref.
-# fetch_ok==0 means the behind count is NOT backed by a fresh fetch (network
+# fetch_ok==0 means the ahead count is NOT backed by a fresh fetch (network
 # failure or --no-fetch); callers reading JSON treat it as "freshness unknown".
 # GIT_TERMINAL_PROMPT=0 handles an *unreachable* host; `timeout` (when present)
 # handles a *reachable-but-slow* one — a stalled socket or hanging proxy would
@@ -146,14 +138,12 @@ else
   # --no-fetch: no fetch attempted, so freshness is unverified — same flag, deliberate skip.
   fetch_ok=0
 fi
-# "true"/"false" string, ready for the JSON output below.
 fetch_ok_json=$( ((fetch_ok)) && echo true || echo false)
 
 base_ref="origin/$default"
 if ! git rev-parse --verify --quiet "$base_ref" > /dev/null 2>&1; then
-  # No remote-tracking ref at all (never fetched, brand-new clone offline).
   if ((emit_json)); then
-    printf '{"current":"%s","default_branch":"%s","base_ref":null,"behind":null,"fetch_ok":%s,"up_to_date":null}\n' \
+    printf '{"current":"%s","default_branch":"%s","base_ref":null,"ahead":null,"fetch_ok":%s,"up_to_date":null}\n' \
       "$(json_escape "$current")" "$(json_escape "$default")" "$fetch_ok_json"
   else
     suffix=""
@@ -163,16 +153,16 @@ if ! git rev-parse --verify --quiet "$base_ref" > /dev/null 2>&1; then
   exit 0
 fi
 
-behind=$(git rev-list --count "HEAD..${base_ref}" 2> /dev/null) || behind=""
-if [[ -z "$behind" ]]; then
-  echo "fatal: could not compute commits behind $base_ref" >&2
+ahead=$(git rev-list --count "${base_ref}..HEAD" 2> /dev/null) || ahead=""
+if [[ -z "$ahead" ]]; then
+  echo "fatal: could not compute commits ahead of $base_ref" >&2
   exit 1
 fi
 
 if ((emit_json)); then
-  up_to_date=$([[ "$behind" -eq 0 ]] && echo true || echo false)
-  printf '{"current":"%s","default_branch":"%s","base_ref":"%s","behind":%d,"fetch_ok":%s,"up_to_date":%s}\n' \
-    "$(json_escape "$current")" "$(json_escape "$default")" "$(json_escape "$base_ref")" "$behind" "$fetch_ok_json" "$up_to_date"
+  up_to_date=$([[ "$ahead" -eq 0 ]] && echo true || echo false)
+  printf '{"current":"%s","default_branch":"%s","base_ref":"%s","ahead":%d,"fetch_ok":%s,"up_to_date":%s}\n' \
+    "$(json_escape "$current")" "$(json_escape "$default")" "$(json_escape "$base_ref")" "$ahead" "$fetch_ok_json" "$up_to_date"
 else
   suffix=""
   if ((!fetch_ok)); then
@@ -182,13 +172,13 @@ else
       suffix=" (local refs only; --no-fetch)"
     fi
   fi
-  if [[ "$behind" -eq 0 ]]; then
+  if [[ "$ahead" -eq 0 ]]; then
     echo "up to date with $base_ref${suffix}"
   else
-    plural=$([[ "$behind" -eq 1 ]] && echo commit || echo commits)
-    echo "behind $base_ref by $behind $plural${suffix}"
+    plural=$([[ "$ahead" -eq 1 ]] && echo commit || echo commits)
+    echo "$ahead $plural ahead of $base_ref${suffix}"
   fi
 fi
 
-[[ "$behind" -gt 0 ]] && exit 10
+[[ "$ahead" -gt 0 ]] && exit 10
 exit 0

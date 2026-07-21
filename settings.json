@@ -81,6 +81,15 @@
         "hooks": [
           {
             "type": "command",
+            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/git-session-info.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
+            "timeout": 5000
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/tmux-remind.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
             "timeout": 5000
           }

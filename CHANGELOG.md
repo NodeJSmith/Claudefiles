@@ -2,6 +2,16 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-07-21
+
+### Added
+
+- New `SessionStart` hook (`git-session-info.sh`) shows worktree, branch, default branch, and ahead/behind status at session start; new `git-branch-ahead` tool reports commits ahead of the default branch, mirroring `git-branch-behind`. (#467)
+
+### Changed
+
+- `mine-review` and `mine-clean-code` now show each finding's proposed fix directly in the presentation table, so "Fix all" is no longer a blind commitment. (#467)
+
 ## 2026-07-15
 
 ### Added
