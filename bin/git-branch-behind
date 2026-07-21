@@ -14,14 +14,17 @@
 # NOT block — it reports against the last-known remote-tracking ref and sets
 # fetch_ok=false so the caller can say "couldn't verify upstream".
 #
-# Depends on `git-default-branch` for the default branch name; expects a bare
-# branch name on stdout (e.g. "main"), which becomes base_ref "origin/<name>".
+# Depends on `git-default-branch` for the default branch name (unless
+# --default is given to skip that resolution); expects a bare branch name on
+# stdout (e.g. "main"), which becomes base_ref "origin/<name>".
 #
-# Usage: git-branch-behind [--json] [--no-fetch]
+# Usage: git-branch-behind [--json] [--no-fetch] [--default <branch>]
 #
 # Options:
-#   --json       Emit a JSON object instead of a human-readable line.
-#   --no-fetch   Skip the network fetch; compare against local refs only.
+#   --json               Emit a JSON object instead of a human-readable line.
+#   --no-fetch           Skip the network fetch; compare against local refs only.
+#   --default <branch>   Use this branch as the default instead of resolving
+#                        one via git-default-branch.
 #
 # Exit codes:
 #   0   up to date (behind == 0), or could not verify (fetch failed AND no
@@ -31,7 +34,7 @@
 
 [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && {
   cat << 'EOF'
-Usage: git-branch-behind [--json] [--no-fetch]
+Usage: git-branch-behind [--json] [--no-fetch] [--default <branch>]
 
 Report whether the current branch is missing commits from the default branch
 (i.e. you forgot to pull/rebase latest before starting work).
@@ -41,8 +44,12 @@ behind origin/<default>. Does not block on a failed fetch — reports against th
 last-known state and flags that the remote could not be reached.
 
 Options:
-  --json       Emit a JSON object instead of a human-readable line.
-  --no-fetch   Skip the network fetch; compare against local refs only.
+  --json               Emit a JSON object instead of a human-readable line.
+  --no-fetch           Skip the network fetch; compare against local refs only.
+  --default <branch>   Use this branch as the default instead of resolving
+                        one via git-default-branch. Lets a caller that already
+                        knows the default (e.g. a session hook) avoid a second,
+                        possibly-divergent resolution.
 
 Exit codes:
   0   up to date (or could not verify)
@@ -59,17 +66,35 @@ EOF
 
 set -uo pipefail
 
+# Escape a value for embedding in a JSON string (backslash, then quote).
+json_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+
 # Bound the fetch so a reachable-but-slow host can't wedge an unattended caller.
 FETCH_TIMEOUT_SECONDS=15
 
 emit_json=0
 do_fetch=1
-for arg in "$@"; do
-  case "$arg" in
-    --json) emit_json=1 ;;
-    --no-fetch) do_fetch=0 ;;
+default_override=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --json)
+      emit_json=1
+      shift
+      ;;
+    --no-fetch)
+      do_fetch=0
+      shift
+      ;;
+    --default)
+      if [[ $# -lt 2 ]]; then
+        echo "git-branch-behind: --default requires an argument" >&2
+        exit 1
+      fi
+      default_override="$2"
+      shift 2
+      ;;
     *)
-      echo "git-branch-behind: unknown argument: $arg" >&2
+      echo "git-branch-behind: unknown argument: $1" >&2
       exit 1
       ;;
   esac
@@ -85,11 +110,15 @@ if ! git remote get-url origin > /dev/null 2>&1; then
   exit 1
 fi
 
-default=$(git-default-branch --no-network 2> /dev/null) || default=""
-# git-default-branch exits non-zero when it can't decide; fall back to the
-# network resolver, and let the emptiness check below report a hard failure.
-if [[ -z "$default" ]]; then
-  default=$(git-default-branch 2> /dev/null) || default=""
+if [[ -n "$default_override" ]]; then
+  default="$default_override"
+else
+  default=$(git-default-branch --no-network 2> /dev/null) || default=""
+  # git-default-branch exits non-zero when it can't decide; fall back to the
+  # network resolver, and let the emptiness check below report a hard failure.
+  if [[ -z "$default" ]]; then
+    default=$(git-default-branch 2> /dev/null) || default=""
+  fi
 fi
 if [[ -z "$default" ]]; then
   echo "fatal: could not determine default branch for 'origin'" >&2
@@ -125,7 +154,7 @@ if ! git rev-parse --verify --quiet "$base_ref" > /dev/null 2>&1; then
   # No remote-tracking ref at all (never fetched, brand-new clone offline).
   if ((emit_json)); then
     printf '{"current":"%s","default_branch":"%s","base_ref":null,"behind":null,"fetch_ok":%s,"up_to_date":null}\n' \
-      "$current" "$default" "$fetch_ok_json"
+      "$(json_escape "$current")" "$(json_escape "$default")" "$fetch_ok_json"
   else
     suffix=""
     [[ -n "$current" ]] && suffix=" (on $current)"
@@ -143,7 +172,7 @@ fi
 if ((emit_json)); then
   up_to_date=$([[ "$behind" -eq 0 ]] && echo true || echo false)
   printf '{"current":"%s","default_branch":"%s","base_ref":"%s","behind":%d,"fetch_ok":%s,"up_to_date":%s}\n' \
-    "$current" "$default" "$base_ref" "$behind" "$fetch_ok_json" "$up_to_date"
+    "$(json_escape "$current")" "$(json_escape "$default")" "$(json_escape "$base_ref")" "$behind" "$fetch_ok_json" "$up_to_date"
 else
   suffix=""
   if ((!fetch_ok)); then

@@ -78,7 +78,7 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "branch diff stats", "what changed on this branch" | `git-branch-diff-stat` |
 | "changed files on this branch", "branch diff file names" | `git-branch-diff-files` |
 | "base branch", "what branch did this come from" | `git-branch-base` |
-| "how far ahead am I", "unpushed commits", "commits ahead of main" | `git-branch-ahead` |
+| "how far ahead am I", "commits not on main", "commits ahead of main" | `git-branch-ahead` |
 | "am I behind main", "did I forget to pull", "is my branch stale", "behind default branch" | `git-branch-behind` |
 | "detect git platform", "github or ado" | `git-platform` |
 | "validate agent files", "check skill schema" | `agnix-check` |

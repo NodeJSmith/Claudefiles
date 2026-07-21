@@ -26,8 +26,8 @@ fi
 # git-branch-ahead/behind exit 10 when ahead/behind > 0 — no || here,
 # since that would wipe the captured output on the interesting case.
 if [ -n "$default" ]; then
-  ahead_json=$(git-branch-ahead --no-fetch --json 2> /dev/null)
-  behind_json=$(git-branch-behind --no-fetch --json 2> /dev/null)
+  ahead_json=$(git-branch-ahead --no-fetch --json --default "$default" 2> /dev/null)
+  behind_json=$(git-branch-behind --no-fetch --json --default "$default" 2> /dev/null)
 
   ahead=""
   behind=""

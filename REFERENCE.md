@@ -218,8 +218,8 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `gh-pr-resolve-thread` | Resolve one or more PR review threads by GraphQL ID |
 | `gh-pr-threads` | List everything on a PR needing a response — inline threads plus review-summary findings and conversation comments (CodeRabbit out-of-diff comments included; status noise filtered). `--json` emits `{pr, threads, reviewComments, issueComments}`; `--all` includes resolved threads; paginated |
 | `git-branch-base` | Print the base ref for the current branch — closest remote branch, with default branch fallback |
-| `git-branch-ahead` | Report how many commits the branch is ahead of the default branch (unpushed work); fetches origin with a timeout, degrades offline. Mirror of `git-branch-behind`. Depends on `git-default-branch` |
-| `git-branch-behind` | Report how many commits the branch is behind the default branch (forgot-to-pull pre-flight); fetches origin with a timeout, degrades offline. Depends on `git-default-branch` |
+| `git-branch-ahead` | Report how many commits the branch is ahead of the default branch (commits unique to this branch); fetches origin with a timeout, degrades offline. Mirror of `git-branch-behind`. Depends on `git-default-branch`, or pass `--default <branch>` to skip that resolution |
+| `git-branch-behind` | Report how many commits the branch is behind the default branch (forgot-to-pull pre-flight); fetches origin with a timeout, degrades offline. Depends on `git-default-branch`, or pass `--default <branch>` to skip that resolution |
 | `git-branch-diff-files` | Print changed file names for current branch vs its base (uses git-branch-base) |
 | `git-branch-diff-stat` | Print `git diff --stat` for current branch vs its base (uses git-branch-base) |
 | `git-branch-log` | Print `git log --oneline` for current branch vs its base (uses git-branch-base) |
