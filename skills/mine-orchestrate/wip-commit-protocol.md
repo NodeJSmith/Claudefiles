@@ -1,6 +1,6 @@
 # WIP Commit Protocol (Step 17)
 
-**This step runs only for PASS or WARN verdicts.** For FAIL, BLOCKED, or user-chosen "Stop here" / "Fix and retry" outcomes, skip this step entirely — no WIP commit is created and no verdict is recorded.
+**This step runs only for PASS or WARN verdicts.** For FAIL, BLOCKED, or user-chosen "Stop here" / "Fix review findings" outcomes, skip this step entirely — no WIP commit is created and no verdict is recorded.
 
 ## 17a: Update task status and create WIP commit
 

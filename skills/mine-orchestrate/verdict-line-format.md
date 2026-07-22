@@ -13,7 +13,7 @@ Single source of truth for the canonical verdict line emitted by all four review
 ### Spec and visual reviewers
 
 ```
-**Verdict:** PASS | WARN | FAIL      ← spec-reviewer
+**Verdict:** PASS | FAIL             ← spec-reviewer
 **Verdict:** PASS | WARN | FAIL      ← visual-reviewer
 ```
 
@@ -23,7 +23,7 @@ All reviewers use a normalized vocabulary aligned with the `cfl gate` verdict se
 
 | Reviewer | Verdict values |
 |---|---|
-| `spec-reviewer-prompt.md` | PASS / WARN / FAIL |
+| `spec-reviewer-prompt.md` | PASS / FAIL |
 | `agents/code-reviewer.md` | PASS / WARN / FAIL |
 | `agents/integration-reviewer.md` | PASS / WARN / FAIL |
 | `visual-reviewer-prompt.md` | PASS / WARN / FAIL |
@@ -45,7 +45,7 @@ Consumers take the **last line matching** `^\*\*Verdict:\*\*` in the reviewer's 
 Parsing is per-reviewer-type:
 
 - Code/integration: last line matching `^\*\*Verdict:\*\*` and containing `(findings:` — extract verdict word, N, and per-severity counts C/H/M/L
-- Spec: last line matching `^\*\*Verdict:\*\*` — extract PASS / WARN / FAIL
+- Spec: last line matching `^\*\*Verdict:\*\*` — extract PASS / FAIL
 - Visual: last line matching `^\*\*Verdict:\*\*` — extract PASS / WARN / FAIL
 
 ## Concise-Return Mode
