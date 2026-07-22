@@ -34,6 +34,7 @@ VERDICT_PREFIX = "**Verdict:**"
 
 # Allowed verdict words per reviewer type (aligned with cfl gate vocabulary)
 ALLOWED_VERDICTS_STANDARD = {"PASS", "WARN", "FAIL"}
+ALLOWED_VERDICTS_BINARY = {"PASS", "FAIL"}
 
 REVIEWER_ALLOWED_VERDICTS: dict[Path, set[str]] = {
     ROOT / "agents" / "code-reviewer.md": ALLOWED_VERDICTS_STANDARD,
@@ -41,7 +42,7 @@ REVIEWER_ALLOWED_VERDICTS: dict[Path, set[str]] = {
     ROOT
     / "skills"
     / "mine-orchestrate"
-    / "spec-reviewer-prompt.md": ALLOWED_VERDICTS_STANDARD,
+    / "spec-reviewer-prompt.md": ALLOWED_VERDICTS_BINARY,
     ROOT
     / "skills"
     / "mine-orchestrate"

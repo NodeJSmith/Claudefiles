@@ -269,7 +269,7 @@ Read these files:
 
 For **first-pass execution**, include only `implementer-prompt.md` in the `## Implementer instructions` slot.
 
-For **retries** (WARN fix loop and FAIL retry), include **both** files: `implementer-prompt.md` in `## Implementer instructions` (task execution contract — subtask sequencing, deviation classification, visual verification) and `retry-prompt.md` as an additional `## Retry instructions` section below it (verify-before-implement posture, YAGNI check, push-back protocol, and previous review feedback).
+For **retries** (spec fix loop and FAIL retry), include **both** files: `implementer-prompt.md` in `## Implementer instructions` (task execution contract — subtask sequencing, deviation classification, visual verification) and `retry-prompt.md` as an additional `## Retry instructions` section below it (verify-before-implement posture, YAGNI check, push-back protocol, and previous review feedback).
 
 Launch a subagent of the type selected in Step 4 with the same `--model` value used in Step 4's `cfl dispatch` call and this prompt (fill in bracketed values):
 
@@ -471,7 +471,7 @@ cfl dispatch end <integration_reviewer_dispatch_id>
 
 Extract each reviewer's canonical verdict line from its report file — do **not** read the report bodies:
 
-- Spec: Grep `<dir>/<task_id>/spec-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract PASS / WARN / FAIL
+- Spec: Grep `<dir>/<task_id>/spec-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract PASS / FAIL
 - Code: Grep `<dir>/<task_id>/code-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract PASS / WARN / FAIL, the total findings count N, and per-severity counts (critical: C, high: H, medium: M, low: L) from the parenthetical
 - Integration: Grep `<dir>/<task_id>/integration-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract the same fields
 
@@ -480,7 +480,7 @@ Record these three verdict lines (the extracted text, not the file contents) for
 Record the three gate results:
 
 ```bash
-cfl gate spec-review <task_id> --verdict <PASS|WARN|FAIL>
+cfl gate spec-review <task_id> --verdict <PASS|FAIL>
 cfl gate code-review <task_id> --verdict <PASS|WARN|FAIL> --data '{"findings": <N>, "critical": <C>, "high": <H>, "medium": <M>, "low": <L>}'
 cfl gate integration-review <task_id> --verdict <PASS|WARN|FAIL> --data '{"findings": <N>, "critical": <C>, "high": <H>, "medium": <M>, "low": <L>}'
 ```
@@ -524,14 +524,14 @@ cfl gate test-gate <task_id> --verdict <PASS|FAIL|SKIPPED> --data '{"total": <N>
 cfl gate lint-gate <task_id> --verdict <PASS|WARN|SKIPPED> --data '{"commands": [<per-command results>]}'
 ```
 
-### Step 10: WARN fix loop (if spec reviewer returned WARN)
+### Step 10: Spec fix loop (if spec reviewer returned FAIL)
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/warn-fix-loop.md` and follow it.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/spec-fix-loop.md` and follow it.
 
-If the WARN fix loop ran and a retry was attempted, emit a retry event after the loop completes:
+If the spec fix loop ran and a retry was attempted, emit a retry event after the loop completes:
 
 ```bash
-cfl event task.retried <task_id> --data '{"reason": "WARN classification: <fixable|structural>; retry decision: <retried|skipped>", "iteration": <N>}'
+cfl event task.retried <task_id> --data '{"reason": "spec FAIL auto-fix", "iteration": <N>}'
 ```
 
 ### Step 11: Visual reviewer (conditional)
@@ -548,7 +548,7 @@ cfl gate visual-review <task_id> --verdict <PASS|WARN|FAIL|SKIPPED> --data '{"sc
 
 When the canonical verdict line for the code reviewer or integration reviewer from Step 8 has a verdict of WARN or FAIL, read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/findings-fix-loop.md` and follow it. A PASS verdict does not trigger the loop, regardless of its findings count. Informational findings attached to a PASS are observations, not defects requiring a fixer pass.
 
-Spec and visual findings do **not** trigger this loop — a spec WARN routes to the Step 10 WARN loop, a spec FAIL routes to Step 16, and visual findings feed Step 14 directly.
+Spec and visual findings do **not** trigger this loop — a spec FAIL routes to the Step 10 spec fix loop, and visual findings feed Step 14 directly.
 
 The fix loop handles cfl event emission, changed-files re-capture, and the gate decision internally — it produces a **fixer gate result** of PASS or FAIL (per its terminal-state-A/B logic in `findings-fix-loop.md`). Record that result; do **not** route on it here. Continue to Step 13 regardless. The fixer gate result is one input to the Step 14 verdict assembly (the single authoritative gate), which Step 15 presents and Step 16 acts on. If the loop was not triggered, there is no fixer gate result and Step 14 treats code/integration as clean.
 
@@ -571,7 +571,6 @@ If `test-gate.md` or `lint-gate.md` is missing, record `SKIPPED — gate output 
 Derive the canonical task verdict from all reviewer outputs. This is the single authoritative assembly point — Step 15 presents this verdict and Step 16 gates on it.
 
 **FAIL** if any of the following:
-- Spec reviewer returned FAIL
 - Visual reviewer returned FAIL (not WARN [INFRA])
 - The Step 12 findings fix loop returned a FAIL fixer gate result (its terminal ledger has `unresolved` rows under terminal state B — the loop computes this in `findings-fix-loop.md`). Consume that result; do **not** re-derive it by re-reading the raw ledger here, which would mis-FAIL an early-exit (terminal state A) task whose stale `unresolved` rows the clean re-review already superseded
 - Test gate detected regressions (previously-passing tests now fail)
@@ -595,7 +594,7 @@ Present a summary:
 ```
 **<task_id>: <title> — <overall verdict>**
 
-Spec review: PASS|WARN|FAIL
+Spec review: PASS|FAIL
 Visual: PASS (N scenarios)|WARN|FAIL|SKIPPED|N/A
 Code review: PASS|WARN|FAIL (N iterations) — NEVER "N/A" or "skipped"
 Integration review: PASS|WARN|FAIL — NEVER "N/A" or "skipped"
@@ -612,7 +611,7 @@ Gate based on verdict:
 
 **PASS or WARN** — auto-continue to the next task. Display the summary but do not ask for confirmation. Proceed to Step 17 (WIP commit + cfl task verdict). Do NOT record the verdict here — `cfl task verdict` in Step 17b records it after the WIP commit succeeds, ensuring the commit SHA is captured.
 
-Note: by this point, spec reviewer WARNs have been addressed by Step 10. Code/integration findings, if the Step 8 verdict was WARN or FAIL, have been through the Step 12 fixer loop. A PASS verdict with only informational findings never enters Step 12. A verdict note like `(3 auto-fixed)` means findings were raised and resolved by the fixer loop. A WARN verdict means something genuinely unresolved remains (visual issues, pre-existing test failures, unresolved lint regressions).
+Note: by this point, spec FAILs have been through the Step 10 auto-fix loop. Code/integration findings, if the Step 8 verdict was WARN or FAIL, have been through the Step 12 fixer loop. A PASS verdict with only informational findings never enters Step 12. A verdict note like `(3 auto-fixed)` means findings were raised and resolved by the fixer loop. A WARN verdict means something genuinely unresolved remains (visual issues, pre-existing test failures, unresolved lint regressions).
 
 **FAIL or non-architectural BLOCKED** — ask the user:
 ```
@@ -621,8 +620,8 @@ AskUserQuestion:
   header: "<task_id> gate"
   multiSelect: false
   options:
-    - label: "Fix and retry this task"
-      description: "Re-run the executor with the reviewer's notes"
+    - label: "Fix review findings"
+      description: "Send an executor to address the reviewer's findings — reads existing code and fixes only what was flagged"
     - label: "Mark as blocked and skip"
       description: "Record the blocker and move to the next task"
     - label: "Stop here"
@@ -631,7 +630,7 @@ AskUserQuestion:
 
 For FAIL/BLOCKED gate outcomes, **update the task status** before taking the gate action (so resume returns to this task instead of skipping it). Then:
 
-- **Fix and retry**: update status to `fixing`:
+- **Fix review findings**: update status to `fixing`:
   ```bash
   cfl task update <task_id> --status fixing
   ```
@@ -658,7 +657,7 @@ AskUserQuestion:
       description: "Pause execution; resume after the plan is updated"
 ```
 
-Do not offer "Fix and retry" or "skip" for architectural blocks — retrying without a plan change will produce the same result.
+Do not offer "Fix review findings" or "skip" for architectural blocks — retrying without a plan change will produce the same result.
 
 ### Step 17: WIP commit and verdict recording
 

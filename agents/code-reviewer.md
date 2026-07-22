@@ -121,6 +121,7 @@ The standard diagnostic tools above (ruff, pyright, bandit, etc.) have their own
 - **Every finding must include a fix** — show corrected code, not just the problem
 - **Don't mark nitpicks as CRITICAL** — severity inflation makes reviews useless. See Nitpick Gravity in Lead-Judgment Self-Check
 - **Don't review whitespace-only changes, renames, or auto-generated files** — skip silently
+- **Don't flag formatter-fixable issues** — if `ruff format`, `prettier`, or the project's formatter would auto-fix it, it's not a review finding. The executor runs lint/format before finishing; the Step 9 gate catches regressions. Review logic and correctness, not formatting.
 - **Pre-existing issues**: flag separately as "Pre-existing (not introduced by this PR)" — don't block on debt that predates the change
 - **MEDIUM in test code** is lower priority than MEDIUM in production code
 

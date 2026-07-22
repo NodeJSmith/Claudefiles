@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-07-22
+
+### Changed
+
+- `mine-orchestrate` spec reviewer now returns binary PASS/FAIL instead of PASS/WARN/FAIL — cosmetic gaps (edge-case test coverage, doc gaps, over-delivery) are noted but no longer block PASS. A new spec fix loop attempts one auto-fix on FAIL before escalating to the user. (#468)
+
 ## 2026-07-21
 
 ### Added
