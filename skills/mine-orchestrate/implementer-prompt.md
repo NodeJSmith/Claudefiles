@@ -89,10 +89,15 @@ Every criterion must receive one of these two verdicts. Do not leave any criteri
 
 A CONTESTED verdict does not stop execution — complete all Prompt instructions regardless. The orchestrator will present CONTESTED criteria to the user for resolution before proceeding to the spec reviewer.
 
+## Lint/Format Before Finishing
+
+Before writing the result to the output file, run the project's lint/format commands (provided in the `## Lint command` section of your prompt). Fix any issues they surface. This ensures reviewers see clean code and don't waste findings on formatter-fixable issues.
+
 ## Self-Review Checklist Before Returning
 
 Check each item before writing the result to the output file:
 
+- [ ] Lint/format commands ran clean (or issues fixed)
 - [ ] Targeted tests for this change pass (TDD run, output captured to log); full-suite verification is the Step 9 gate's job
 - [ ] All Verify criteria are evaluated (DONE or CONTESTED — none left blank or silently dropped)
 - [ ] No files were changed outside what the task's Prompt instructions describe (unless bug fix — note it)
