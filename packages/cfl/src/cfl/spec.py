@@ -186,6 +186,12 @@ def spec_adopt(conn: sqlite3.Connection, directory: str) -> None:
     number = int(m.group(1))
     slug = m.group(2)
 
+    if number < 1:
+        output_module.emit_error(
+            f"Spec number must be positive (got {number}).",
+            code="invalid_number",
+        )
+
     if not _SLUG_RE.match(slug):
         output_module.emit_error(
             f"Invalid slug in directory name: {slug!r}. "

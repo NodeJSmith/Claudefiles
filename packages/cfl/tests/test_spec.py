@@ -266,6 +266,21 @@ def test_spec_adopt_does_not_affect_auto_increment(tmp_path, monkeypatch, db_con
     assert rows[1]["number"] == 51
 
 
+def test_spec_adopt_rejects_zero_number(tmp_path, monkeypatch, db_conn):
+    """spec_adopt exits 1 when directory number is zero."""
+    init_repo_with_remote(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / "design" / "specs" / "000-my-feature").mkdir(parents=True)
+
+    with pytest.raises(SystemExit) as exc_info:
+        spec_adopt(db_conn, "design/specs/000-my-feature")
+    assert exc_info.value.code == 1
+
+    row = db_conn.execute("SELECT * FROM specs").fetchone()
+    assert row is None
+
+
 def test_spec_adopt_rejects_invalid_slug(tmp_path, monkeypatch, db_conn):
     """spec_adopt exits 1 when directory slug contains invalid characters."""
     init_repo_with_remote(tmp_path)
