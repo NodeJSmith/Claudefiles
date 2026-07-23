@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from cfl.spec import (
+    spec_adopt,
     spec_init,
     spec_next_number,
     spec_set_status,
@@ -179,6 +180,154 @@ def test_spec_init_explicit_number_does_not_affect_auto_increment(
     rows = db_conn.execute("SELECT number, slug FROM specs ORDER BY number").fetchall()
     assert rows[0]["number"] == 50
     assert rows[1]["number"] == 51
+
+
+# ---------------------------------------------------------------------------
+# spec_adopt
+# ---------------------------------------------------------------------------
+
+
+def test_spec_adopt_registers_existing_directory(
+    tmp_path, monkeypatch, db_conn, capsys
+):
+    """spec_adopt inserts a DB row for a pre-existing directory without calling mkdir."""
+    init_repo_with_remote(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / "design" / "specs" / "035-my-feature").mkdir(parents=True)
+
+    spec_adopt(db_conn, "design/specs/035-my-feature")
+
+    row = db_conn.execute(
+        "SELECT number, slug, status, repo_url FROM specs WHERE slug='my-feature'"
+    ).fetchone()
+    assert row is not None
+    assert row["number"] == 35
+    assert row["slug"] == "my-feature"
+    assert row["status"] == "draft"
+    assert row["repo_url"] == REMOTE_URL
+
+    data = json.loads(capsys.readouterr().out)
+    assert data["number"] == 35
+    assert data["slug"] == "my-feature"
+    assert data["dir"] == "design/specs/035-my-feature"
+    assert isinstance(data["spec_id"], int)
+
+
+def test_spec_adopt_errors_when_directory_missing(tmp_path, monkeypatch, db_conn):
+    """spec_adopt exits 1 when the target directory does not exist."""
+    init_repo_with_remote(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(SystemExit) as exc_info:
+        spec_adopt(db_conn, "design/specs/035-my-feature")
+    assert exc_info.value.code == 1
+
+    row = db_conn.execute("SELECT * FROM specs").fetchone()
+    assert row is None
+
+
+def test_spec_adopt_errors_on_invalid_dir_name(tmp_path, monkeypatch, db_conn):
+    """spec_adopt exits 1 when directory name doesn't match NNN-slug format."""
+    init_repo_with_remote(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / "design" / "specs" / "my-feature").mkdir(parents=True)
+
+    with pytest.raises(SystemExit) as exc_info:
+        spec_adopt(db_conn, "design/specs/my-feature")
+    assert exc_info.value.code == 1
+
+
+def test_spec_adopt_errors_when_number_already_taken(tmp_path, monkeypatch, db_conn):
+    """spec_adopt exits 1 when the spec number is already in the DB."""
+    init_repo_with_remote(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    spec_init(db_conn, "first-feature")  # takes number 1
+    (tmp_path / "design" / "specs" / "001-duplicate").mkdir(parents=True)
+
+    with pytest.raises(SystemExit) as exc_info:
+        spec_adopt(db_conn, "design/specs/001-duplicate")
+    assert exc_info.value.code == 1
+
+
+def test_spec_adopt_does_not_affect_auto_increment(tmp_path, monkeypatch, db_conn):
+    """After adopting spec 50, the next auto-assigned number is 51."""
+    init_repo_with_remote(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / "design" / "specs" / "050-adopted").mkdir(parents=True)
+    spec_adopt(db_conn, "design/specs/050-adopted")
+    spec_init(db_conn, "next-auto")
+
+    rows = db_conn.execute("SELECT number, slug FROM specs ORDER BY number").fetchall()
+    assert rows[0]["number"] == 50
+    assert rows[1]["number"] == 51
+
+
+def test_spec_adopt_rejects_invalid_slug(tmp_path, monkeypatch, db_conn):
+    """spec_adopt exits 1 when directory slug contains invalid characters."""
+    init_repo_with_remote(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / "design" / "specs" / "035-My_Feature").mkdir(parents=True)
+
+    with pytest.raises(SystemExit) as exc_info:
+        spec_adopt(db_conn, "design/specs/035-My_Feature")
+    assert exc_info.value.code == 1
+
+    row = db_conn.execute("SELECT * FROM specs").fetchone()
+    assert row is None
+
+
+def test_spec_adopt_rejects_non_padded_number(tmp_path, monkeypatch, db_conn):
+    """spec_adopt exits 1 when directory number is not zero-padded to 3 digits."""
+    init_repo_with_remote(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / "design" / "specs" / "7-my-feature").mkdir(parents=True)
+
+    with pytest.raises(SystemExit) as exc_info:
+        spec_adopt(db_conn, "design/specs/7-my-feature")
+    assert exc_info.value.code == 1
+
+
+def test_spec_adopt_rejects_path_outside_design_specs(tmp_path, monkeypatch, db_conn):
+    """spec_adopt exits 1 when directory is not under design/specs/."""
+    init_repo_with_remote(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / "other" / "035-my-feature").mkdir(parents=True)
+
+    with pytest.raises(SystemExit) as exc_info:
+        spec_adopt(db_conn, "other/035-my-feature")
+    assert exc_info.value.code == 1
+
+
+def test_spec_adopt_rejects_absolute_path(tmp_path, monkeypatch, db_conn):
+    """spec_adopt exits 1 when given an absolute path."""
+    init_repo_with_remote(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    abs_path = str(tmp_path / "design" / "specs" / "035-my-feature")
+    (tmp_path / "design" / "specs" / "035-my-feature").mkdir(parents=True)
+
+    with pytest.raises(SystemExit) as exc_info:
+        spec_adopt(db_conn, abs_path)
+    assert exc_info.value.code == 1
+
+
+def test_spec_adopt_rejects_nested_path(tmp_path, monkeypatch, db_conn):
+    """spec_adopt exits 1 when directory is nested deeper than design/specs/NNN-slug."""
+    init_repo_with_remote(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / "design" / "specs" / "sub" / "035-my-feature").mkdir(parents=True)
+
+    with pytest.raises(SystemExit) as exc_info:
+        spec_adopt(db_conn, "design/specs/sub/035-my-feature")
+    assert exc_info.value.code == 1
 
 
 # ---------------------------------------------------------------------------

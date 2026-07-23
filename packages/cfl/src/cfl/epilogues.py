@@ -13,6 +13,10 @@ Examples:
   cfl spec init my-feature
   cfl spec init my-feature --number 35"""
 
+SPEC_ADOPT = """\
+Examples:
+  cfl spec adopt design/specs/035-my-feature"""
+
 SPEC_SET_STATUS = """\
 Examples:
   cfl spec set-status approved
