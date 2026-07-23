@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-07-23
+
+### Added
+
+- New `cfl spec adopt <directory>` command registers a pre-existing spec directory in the DB without creating it on disk — closes the gap where specs created before `cfl` tracking existed had no way to be brought under tracking. (#469)
+
 ## 2026-07-22
 
 ### Changed
