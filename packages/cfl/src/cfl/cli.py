@@ -31,6 +31,7 @@ from cfl.run import (
 from cfl.session import SESSION_ID_ENV_VAR, end_session, record_compaction
 from cfl.spec import (
     SETTABLE_STATUSES,
+    spec_adopt,
     spec_init,
     spec_next_number,
     spec_set_status,
@@ -146,6 +147,20 @@ def cmd_spec_init(
     """Create a new spec in the DB and on disk."""
     with db_connection() as conn:
         spec_init(conn, slug, number=number)
+
+
+@spec_app.command(name="adopt", help_epilogue=help_text.SPEC_ADOPT)
+def cmd_spec_adopt(
+    directory: Annotated[
+        str,
+        Parameter(
+            help="Path to existing spec directory (e.g. design/specs/035-my-feature)"
+        ),
+    ],
+) -> None:
+    """Register a pre-existing spec directory in the DB (no mkdir)."""
+    with db_connection() as conn:
+        spec_adopt(conn, directory)
 
 
 @spec_app.command(name="validate")

@@ -1,7 +1,8 @@
 """Spec lifecycle commands for cfl.
 
-Implements the five spec subcommands:
+Implements the six spec subcommands:
   spec_init        — create a DB row and disk directory for a new spec
+  spec_adopt       — register a pre-existing spec directory in the DB (no mkdir)
   spec_validate    — validate task file frontmatter against canonical schema
   spec_status      — query spec state and run history
   spec_set_status  — transition spec status (external callers only)
@@ -21,11 +22,56 @@ from cfl.resolve import get_git_root, resolve_repo_url, resolve_spec
 _TASK_ID_RE: re.Pattern[str] = re.compile(r"^T\d+$")
 _IMPLEMENTS_RE: re.Pattern[str] = re.compile(r"^(FR|AC)#[1-9]\d*$")
 _SLUG_RE: re.Pattern[str] = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+_DIR_NAME_RE: re.Pattern[str] = re.compile(r"^(\d+)-(.+)$")
 _REQUIRED_FIELDS: frozenset[str] = frozenset(
     {"task_id", "title", "status", "depends_on", "implements"}
 )
 SETTABLE_STATUSES: frozenset[str] = frozenset({"draft", "approved", "abandoned"})
 _TERMINAL_SPEC_STATUSES: frozenset[str] = frozenset({"archived", "abandoned"})
+
+
+def _resolve_git_context() -> tuple[str, str, Path]:
+    """Resolve repo_url, git_root, and repo_root. Shared by spec_init and spec_adopt."""
+    repo_url = resolve_repo_url()
+    git_root = get_git_root()
+    if git_root is None:
+        output_module.emit_error(
+            "Not inside a git repository (or git is not installed).",
+            code="not_a_git_repo",
+        )
+    return repo_url, git_root, Path(git_root)
+
+
+def _insert_spec(
+    conn: sqlite3.Connection,
+    number: int,
+    slug: str,
+    repo_url: str,
+    *,
+    hint: str | None = None,
+) -> int:
+    """Insert a spec row inside an existing BEGIN IMMEDIATE transaction.
+
+    Checks that the number is not already taken. Returns spec_id.
+    On conflict, rolls back and calls emit_error (which raises SystemExit).
+    """
+    existing = conn.execute(
+        "SELECT id FROM specs WHERE repo_url=? AND number=?",
+        (repo_url, number),
+    ).fetchone()
+    if existing is not None:
+        conn.execute("ROLLBACK")
+        output_module.emit_error(
+            f"Spec {number:03d} already exists in this repo.",
+            code="number_taken",
+            hint=hint,
+        )
+    cursor = conn.execute(
+        """INSERT INTO specs (number, slug, repo_url, status, created_at)
+           VALUES (?, ?, ?, 'draft', datetime('now'))""",
+        (number, slug, repo_url),
+    )
+    return cursor.lastrowid
 
 
 def spec_init(
@@ -49,14 +95,7 @@ def spec_init(
             code="invalid_slug",
         )
 
-    repo_url = resolve_repo_url()
-    git_root = get_git_root()
-    if git_root is None:
-        output_module.emit_error(
-            "Not inside a git repository (or git is not installed).",
-            code="not_a_git_repo",
-        )
-    repo_root = Path(git_root)
+    repo_url, _, repo_root = _resolve_git_context()
 
     conn.execute("BEGIN IMMEDIATE")
     try:
@@ -67,27 +106,17 @@ def spec_init(
                     f"Spec number must be positive (got {number}).",
                     code="invalid_number",
                 )
-            existing = conn.execute(
-                "SELECT id FROM specs WHERE repo_url=? AND number=?",
-                (repo_url, number),
-            ).fetchone()
-            if existing is not None:
-                conn.execute("ROLLBACK")
-                output_module.emit_error(
-                    f"Spec {number:03d} already exists in this repo.",
-                    code="number_taken",
-                    hint="Use a different --number or omit to auto-assign.",
-                )
             next_num = number
         else:
             next_num = _next_spec_number(conn, repo_url)
 
-        cursor = conn.execute(
-            """INSERT INTO specs (number, slug, repo_url, status, created_at)
-               VALUES (?, ?, ?, 'draft', datetime('now'))""",
-            (next_num, slug, repo_url),
+        spec_id = _insert_spec(
+            conn,
+            next_num,
+            slug,
+            repo_url,
+            hint="Use a different --number or omit to auto-assign.",
         )
-        spec_id = cursor.lastrowid
         conn.execute("COMMIT")
     except Exception:
         conn.execute("ROLLBACK")
@@ -111,6 +140,93 @@ def spec_init(
             "number": next_num,
             "slug": slug,
             "dir": dir_rel,
+            "spec_id": spec_id,
+        }
+    )
+
+
+def spec_adopt(conn: sqlite3.Connection, directory: str) -> None:
+    """Register a pre-existing spec directory in the DB without creating it on disk.
+
+    Validates in order: path is relative and a direct child of design/specs/,
+    directory name matches NNN-slug format, slug passes _SLUG_RE, number is
+    zero-padded to 3 digits, directory exists on disk, number is not already
+    taken. Inserts a DB row with status='draft'.
+
+    Emits JSON with number, slug, dir, spec_id.
+    Exits 1 if any validation fails.
+    """
+    if Path(directory).is_absolute():
+        output_module.emit_error(
+            f"Directory must be a relative path (got: {directory!r}).",
+            code="invalid_dir_path",
+            hint="Use a repo-relative path like design/specs/035-my-feature.",
+        )
+
+    parts = Path(directory).parts
+    if len(parts) != 3 or parts[0] != "design" or parts[1] != "specs":
+        output_module.emit_error(
+            f"Directory must be a direct child of design/specs/ (got: {directory!r}).",
+            code="invalid_dir_path",
+            hint="Expected a path like design/specs/035-my-feature.",
+        )
+
+    repo_url, _, repo_root = _resolve_git_context()
+    dir_path = repo_root / directory
+    dir_name = dir_path.name
+
+    m = _DIR_NAME_RE.match(dir_name)
+    if not m:
+        output_module.emit_error(
+            f"Directory name must match NNN-slug format (got: {dir_name!r}).",
+            code="invalid_dir_name",
+            hint="Expected a directory like design/specs/035-my-feature.",
+        )
+
+    number = int(m.group(1))
+    slug = m.group(2)
+
+    if number < 1:
+        output_module.emit_error(
+            f"Spec number must be positive (got {number}).",
+            code="invalid_number",
+        )
+
+    if not _SLUG_RE.match(slug):
+        output_module.emit_error(
+            f"Invalid slug in directory name: {slug!r}. "
+            "Use lowercase letters, numbers, and hyphens.",
+            code="invalid_slug",
+        )
+
+    canonical_name = f"{number:03d}-{slug}"
+    if dir_name != canonical_name:
+        output_module.emit_error(
+            f"Directory name must use zero-padded format "
+            f"(got: {dir_name!r}, expected: {canonical_name!r}).",
+            code="invalid_dir_name",
+        )
+
+    if not dir_path.is_dir():
+        output_module.emit_error(
+            f"Directory does not exist: {directory}",
+            code="dir_not_found",
+            hint="Use `cfl spec init <slug>` to create a new spec.",
+        )
+
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        spec_id = _insert_spec(conn, number, slug, repo_url)
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+    output_module.emit(
+        {
+            "number": number,
+            "slug": slug,
+            "dir": directory,
             "spec_id": spec_id,
         }
     )
