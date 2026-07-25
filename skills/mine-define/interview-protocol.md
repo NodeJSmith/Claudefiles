@@ -48,15 +48,17 @@ The remaining questions are shaped by the selected scope mode. Prefix each AskUs
 
 3. **Scope boundary:**
 
-Mode-specific framing:
-- **Expand**: "What's phase 1 vs phase 2? What should we build now, and what's a natural follow-on?"
-- **Hold**: "Anything I should explicitly NOT include? (e.g., 'no admin UI', 'skip migration for now'). 'None' is a perfectly good answer."
-- **Reduce**: "What can we cut entirely? What's the absolute minimum that ships value?"
+Before asking, use the Phase 1.5 codebase findings and the user's problem/success answers to form concrete scope proposals. The user should react to your ideas, not generate them from scratch.
+
+Mode-specific approach:
+- **Expand**: Propose 2-3 specific adjacent improvements or enhancements you spotted in the codebase that would complement the core feature. Frame as "phase 1 vs phase 2" — what to build now vs what's a natural follow-on.
+- **Hold**: Propose specific exclusions based on what the codebase could support but the stated scope doesn't need. Frame as "I'd leave these out — agree?"
+- **Reduce**: Propose specific pieces that could be cut or deferred, based on which parts have the most codebase complexity or are least central to the stated success criteria.
 
 ```
 AskUserQuestion:
-  question: "<mode-specific question above>"
-  header: "[<mode>] Non-goals"
+  question: "Based on the codebase and what you've described, here's how I'd draw the scope boundary:\n\n<your concrete proposals — what's in, what's out, what could be deferred>\n\nDoes this match what you had in mind, or should I adjust?"
+  header: "[<mode>] Scope"
 ```
 
 4. **Primary user flow:**
@@ -68,33 +70,39 @@ AskUserQuestion:
 ```
 
 Mode-specific follow-up (ask only the one matching the selected mode):
-- **Expand only:** "Are there adjacent flows or related scenarios we should include?"
+- **Expand only:** Propose specific adjacent flows or scenarios you identified in the codebase — "I also see [X] and [Y] that could benefit from this. Worth including?"
 - **Hold:** skip — no follow-up
-- **Reduce only:** "Which of these steps could be manual or deferred for now?"
+- **Reduce only:** Propose specific steps from their flow that could be manual or deferred — "Steps [X] and [Y] look like they could be manual for now. Agree?"
 
 ## Ask for complex features only
 
 5. **Edge cases:**
 
+Before asking, use Phase 1.5 findings, the user's described flow, and the scope boundary to identify specific edge cases and failure modes. Propose them concretely — the user confirms, cuts, or adds.
+
 ```
 AskUserQuestion:
-  question: "What are the important edge cases or failure modes?"
+  question: "Here are the edge cases and failure modes I see:\n\n<your concrete list — specific scenarios, not categories>\n\nAnything missing or wrong here?"
   header: "[<mode>] Edge cases"
 ```
 
 6. **Dependencies:**
 
+Before asking, list the external systems, services, and integration points Phase 1.5 found in the affected code. Propose what you found — the user confirms or adds what's missing.
+
 ```
 AskUserQuestion:
-  question: "What external systems, services, or teams does this touch?"
+  question: "From the codebase, this touches:\n\n<your concrete list — specific systems, APIs, services found in Phase 1.5>\n\nAnything else I'm missing?"
   header: "[<mode>] Deps"
 ```
 
 7. **Security / access:**
 
+Before asking, check Phase 1.5 findings for existing auth patterns, data sensitivity, and access boundaries in the affected code. Propose what you found — the user confirms or corrects.
+
 ```
 AskUserQuestion:
-  question: "Who should and shouldn't have access? Any data sensitivity concerns?"
+  question: "Based on the existing code, here's what I see for access and data sensitivity:\n\n<your concrete assessment — existing auth patterns, data flows, sensitivity level>\n\nAnything I'm misjudging?"
   header: "[<mode>] Security"
 ```
 
@@ -108,25 +116,25 @@ AskUserQuestion:
 
 9. **Rollback / reversibility:**
 
+Before asking, assess rollback from the change shape — schema migrations, config changes, new endpoints, data format changes all have different rollback profiles. Propose a rollback assessment — the user confirms or corrects.
+
 ```
 AskUserQuestion:
-  question: "If this goes wrong, what does rollback or recovery look like?"
+  question: "Here's my read on rollback for this change:\n\n<your concrete assessment — what's reversible, what isn't, what needs a migration plan>\n\nDoes that match your sense of the risk?"
   header: "[<mode>] Rollback"
 ```
 
 ## Implementation preferences (moderate+ only)
 
-After the tier-appropriate problem-space questions, surface concrete implementation decisions before they become implicit defaults:
+After the tier-appropriate problem-space questions, surface concrete implementation decisions before they become implicit defaults. Use Phase 1.5 findings to identify what the codebase already uses in the affected area and propose following those conventions — the user confirms or overrides.
 
 ```
 AskUserQuestion:
-  question: "Are there specific implementation preferences I should lock in — frameworks, libraries, patterns, conventions, or tooling choices? For example: CLI framework, logging approach, serialization format, auth pattern, config management."
+  question: "For implementation, I'd follow what the codebase already does:\n\n<your concrete list — specific frameworks, libraries, patterns, conventions found in Phase 1.5 that apply to this feature>\n\nAnything you'd override or add?"
   header: "[<mode>] Impl prefs"
 ```
 
-If the user names preferences, record them for the Implementation Preferences section of design.md. If they say "no" or "follow conventions", note that and move on.
-
-This question is deliberately open-ended rather than a checklist — the relevant details vary by feature type. The examples prime the user to think about the category of decision without limiting it to a fixed set.
+If the user names overrides, record them for the Implementation Preferences section of design.md. If they confirm the defaults, note that and move on.
 
 ## Adaptive follow-up (all complexity levels)
 
