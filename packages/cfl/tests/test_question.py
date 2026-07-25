@@ -231,6 +231,31 @@ def test_list_questions_respects_limit(db_conn, capsys):
 
 
 # ---------------------------------------------------------------------------
+# list_questions — invalid status / limit — exit 2
+# ---------------------------------------------------------------------------
+
+
+def test_list_questions_invalid_status_exits_2(db_conn, capsys):
+    """list_questions exits 2 for unknown status strings."""
+    with pytest.raises(SystemExit) as exc_info:
+        list_questions(db_conn, status="answered")
+    assert exc_info.value.code == 2
+
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "invalid_status"
+
+
+def test_list_questions_negative_limit_exits_2(db_conn, capsys):
+    """list_questions exits 2 for a negative limit (SQLite treats it as unlimited)."""
+    with pytest.raises(SystemExit) as exc_info:
+        list_questions(db_conn, limit=-1)
+    assert exc_info.value.code == 2
+
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "invalid_limit"
+
+
+# ---------------------------------------------------------------------------
 # Vocabulary constants are exported
 # ---------------------------------------------------------------------------
 

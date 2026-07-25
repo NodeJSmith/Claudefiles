@@ -105,7 +105,24 @@ def list_questions(
     run_id: int | None = None,
     limit: int = 50,
 ) -> None:
-    """Query questions with optional filters."""
+    """Query questions with optional filters.
+
+    Exits 2 for invalid status or a negative limit.
+    """
+    if status is not None and status not in VALID_STATUSES:
+        output_module.emit_error(
+            f"Unknown status '{status}'. Use: {', '.join(sorted(VALID_STATUSES))}.",
+            code="invalid_status",
+            exit_code=2,
+        )
+
+    if limit < 0:
+        output_module.emit_error(
+            f"Invalid limit '{limit}'. Must be non-negative.",
+            code="invalid_limit",
+            exit_code=2,
+        )
+
     conditions: list[str] = []
     params: list[str | int] = []
 

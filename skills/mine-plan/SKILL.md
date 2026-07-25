@@ -47,8 +47,6 @@ AskUserQuestion:
       description: "Tell me the correct path and I'll use that"
 ```
 
-Record (skip if $ARGUMENTS was provided directly, or if cfl tracking is inactive): `cfl question mine-plan design-doc --status <asked|skipped> --answer "<selected option>" --spec <spec_number>`
-
 ### Identify the feature directory
 
 The feature directory is `design/specs/NNN-<slug>/` containing the design.md. All task files will be written to `<feature_dir>/tasks/`. Create the `tasks/` subdirectory if it doesn't exist. Extract `<spec_number>` (`NNN`, without zero-padding) from the directory name — every `cfl` call in this skill from here on threads it through.
@@ -100,6 +98,10 @@ cfl run start --phase plan --base-commit $(git rev-parse --short HEAD) --spec <s
 cfl event plan.started --spec <spec_number>
 ```
 
+### Record design doc selection
+
+Record (skip if $ARGUMENTS was provided directly, or if cfl tracking is inactive): `cfl question mine-plan design-doc --status <asked|skipped> --answer "<selected option>" --spec <spec_number>`
+
 ---
 
 ## Phase 1: Read the Design Doc
@@ -146,13 +148,13 @@ AskUserQuestion:
       description: "Exit now so you can revise the doc before generating tasks"
 ```
 
-3. **Record the decision** — after the user answers, note it (e.g., "Q2 resolved: will use Option B"). If the user selects "Stop", exit immediately. If cfl tracking is active, record each question (topic: `open-question`):
+3. **Record the decision** — after the user answers, record it immediately (e.g., "Q2 resolved: will use Option B"). If cfl tracking is active, record each question (topic: `open-question`):
 
 ```bash
 cfl question mine-plan open-question --status <asked|skipped> --answer "<selected option>" --spec <spec_number>
 ```
 
-Where status is `asked` if the user chose an option or skipped the question interactively, and the answer captures which option was selected (including "Skip" or "Stop").
+Where status is `asked` if the user chose an option or skipped the question interactively, and the answer captures which option was selected (including "Skip" or "Stop"). If the user selected "Stop", exit after recording.
 
 After all questions are answered (or skipped), briefly summarize the resolutions before continuing to Phase 2:
 > Resolved open questions: Q1 → Option A, Q2 → Option B, Q3 → skipped. Proceeding to generate task files.

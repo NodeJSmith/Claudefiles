@@ -153,7 +153,6 @@ Valid topics: {_QUESTION_TOPICS_LIST}
 Examples:
   cfl question mine-define scope-mode --status asked --answer "Hold — make this bulletproof"
   cfl question mine-define edge-cases --status skipped
-  cfl question mine-grill pain-point --status asked --answer "logging is unreliable"
 """
 
 QUESTION_LIST = """\

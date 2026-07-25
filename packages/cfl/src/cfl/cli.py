@@ -983,8 +983,15 @@ def _parse_argv_for_telemetry(
 
     # Grouped commands have a subcommand as the second positional.
     # Leaf commands (gate, archive, stop-orphans, set) don't.
+    # `question` is a special case: its only real subcommand is `list`
+    # (e.g. `cfl question list`). `cfl question <skill> <topic>` is the
+    # recording form, so `<skill>` must not be grouped as a subcommand.
     command = raw_positionals[0] if raw_positionals else ""
-    if len(raw_positionals) > 1 and command in _GROUPED_COMMANDS:
+    if (
+        len(raw_positionals) > 1
+        and command in _GROUPED_COMMANDS
+        and (command != "question" or raw_positionals[1] == "list")
+    ):
         command = f"{command} {raw_positionals[1]}"
         positional_args = raw_positionals[2:]
     else:

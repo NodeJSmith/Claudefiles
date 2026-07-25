@@ -232,9 +232,9 @@ AskUserQuestion:
       description: "Tell me what's wrong (including scope mode) and I'll adjust"
 ```
 
-If "No", ask what's wrong and revise your understanding, then confirm again.
+Record immediately after user responds: `cfl question mine-define confirm-intent --status asked --answer "<Yes or No>" --spec <spec_number>`
 
-Record: `cfl question mine-define confirm-intent --status asked --answer "<Yes or No>" --spec <spec_number>`
+If "No", ask what's wrong and revise your understanding, then confirm again (re-recording the new response).
 
 ## Caller perspective (topic: `caller-view`) — API/module designs only
 
