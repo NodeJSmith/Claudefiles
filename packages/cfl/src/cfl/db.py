@@ -9,7 +9,7 @@ import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-SCHEMA_VERSION: int = 3
+SCHEMA_VERSION: int = 4
 CFL_DB_ENV_VAR: str = "CFL_DB"
 DEFAULT_DB_PATH: str = "~/.local/share/claudefiles/cfl.db"
 BUSY_TIMEOUT_MS: int = 5000
@@ -21,6 +21,20 @@ MIGRATIONS: dict[int, list[str]] = {
     3: [
         "ALTER TABLE runs ADD COLUMN phase TEXT DEFAULT 'orchestrate'"
         " CHECK(phase IN ('define', 'plan', 'orchestrate'))"
+    ],
+    4: [
+        """CREATE TABLE IF NOT EXISTS questions (
+            id          INTEGER PRIMARY KEY,
+            run_id      INTEGER NOT NULL REFERENCES runs(id),
+            skill       TEXT NOT NULL,
+            topic       TEXT NOT NULL,
+            status      TEXT NOT NULL CHECK(status IN ('asked', 'skipped')),
+            answer      TEXT,
+            context_pct INTEGER,
+            created_at  TEXT NOT NULL
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_questions_run ON questions(run_id)",
+        "CREATE INDEX IF NOT EXISTS idx_questions_skill ON questions(skill)",
     ],
 }
 
@@ -150,6 +164,20 @@ _SCHEMA_STATEMENTS: list[str] = [
         UNIQUE(run_id, session_id)
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS questions (
+        id          INTEGER PRIMARY KEY,
+        run_id      INTEGER NOT NULL REFERENCES runs(id),
+        skill       TEXT NOT NULL,
+        topic       TEXT NOT NULL,
+        status      TEXT NOT NULL CHECK(status IN ('asked', 'skipped')),
+        answer      TEXT,
+        context_pct INTEGER,
+        created_at  TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_questions_run ON questions(run_id)",
+    "CREATE INDEX IF NOT EXISTS idx_questions_skill ON questions(skill)",
     """
     CREATE TABLE IF NOT EXISTS schema_version (
         version     INTEGER PRIMARY KEY,

@@ -5,7 +5,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).parent.parent
 SCRIPT = REPO_ROOT / "bin" / "lint-verdict-line"
 SUBPROCESS_TIMEOUT_SECONDS = 10
@@ -22,6 +21,7 @@ def test_lint_verdict_line_passes_current_repo() -> None:
         text=True,
         cwd=REPO_ROOT,
         timeout=SUBPROCESS_TIMEOUT_SECONDS,
+        check=False,
     )
 
     assert result.returncode == 0

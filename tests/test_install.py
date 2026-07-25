@@ -17,7 +17,7 @@ from rich.console import Console
 # so prepend its directory before importing it.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import install  # noqa: E402
+import install
 
 # Base bundle packages, derived from the live bundle definition so this value
 # cannot drift from install.py. Used as the already-installed set in tests not
@@ -1668,9 +1668,9 @@ class TestConfigLock:
                 side_effect=itertools.chain([100.0], itertools.repeat(111.0)),
             ),
             patch("install.time.sleep"),
+            pytest.raises(RuntimeError, match="Could not acquire lock"),
         ):
-            with pytest.raises(RuntimeError, match="Could not acquire lock"):
-                lock.__enter__()
+            lock.__enter__()
 
     def test_acquires_and_releases(self, tmp_path: Path) -> None:
         cfg_path = tmp_path / "config.json"

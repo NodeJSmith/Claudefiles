@@ -7,6 +7,7 @@ Separated from cli.py to keep the command definitions readable.
 from cfl.direct import ENTITY_COLUMNS
 from cfl.event import KNOWN_EVENT_NAMES
 from cfl.gate import KNOWN_GATE_TYPES
+from cfl.question import KNOWN_SKILLS, KNOWN_TOPICS
 
 SPEC_INIT = """\
 Examples:
@@ -142,3 +143,20 @@ SESSION_COMPACTED = """\
 Examples:
   cfl session compacted
   cfl session compacted --context-pct 85"""
+
+_QUESTION_SKILLS_LIST = ", ".join(sorted(KNOWN_SKILLS))
+_QUESTION_TOPICS_LIST = ", ".join(sorted(KNOWN_TOPICS))
+QUESTION = f"""\
+Valid skills: {_QUESTION_SKILLS_LIST}
+Valid topics: {_QUESTION_TOPICS_LIST}
+
+Examples:
+  cfl question mine-define scope-mode --status asked --answer "Hold — make this bulletproof"
+  cfl question mine-define edge-cases --status skipped
+"""
+
+QUESTION_LIST = """\
+Examples:
+  cfl question list
+  cfl question list --skill mine-define --status skipped
+  cfl question list --topic scope-mode --run 5"""
