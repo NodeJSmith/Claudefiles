@@ -18,8 +18,13 @@ from cfl.direct import VALID_ENTITIES, parse_field_args, set_field
 from cfl.dispatch import end_dispatch, record_dispatch
 from cfl.event import list_events, record_event
 from cfl.gate import VALID_GATE_VERDICTS, record_gate
-from cfl.question import VALID_STATUSES as VALID_QUESTION_STATUSES
-from cfl.question import list_questions, record_question
+from cfl.question import (
+    VALID_STATUSES as VALID_QUESTION_STATUSES,
+)
+from cfl.question import (
+    list_questions,
+    record_question,
+)
 from cfl.resolve import resolve_context, resolve_spec, try_resolve_active_run_id
 from cfl.run import (
     run_advance_phase,
@@ -766,7 +771,7 @@ def cmd_question(
     ],
     topic: Annotated[
         str,
-        Parameter(help="Question topic (e.g. scope-mode, edge-cases, non-goals)"),
+        Parameter(help="Question topic (e.g. scope-mode, edge-cases, open-question)"),
     ],
     *,
     status: Annotated[

@@ -133,9 +133,9 @@ def list_questions(
 
     questions = []
     for r in rows:
-        q = dict(r)
-        if q.get("created_at"):
-            q["created_at"] = output_module.to_iso(q["created_at"])
-        questions.append(q)
+        question = dict(r)
+        if question.get("created_at"):
+            question["created_at"] = output_module.to_iso(question["created_at"])
+        questions.append(question)
 
     output_module.emit({"count": len(questions), "questions": questions})
