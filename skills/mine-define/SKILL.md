@@ -294,9 +294,17 @@ AskUserQuestion:
       description: "Design doc saved as draft; pick it up later"
 ```
 
-### Record sign-off gate
+### Record sign-off question and gate
 
-Skip both calls below if cfl tracking was disabled in Phase 1 (no `<spec_number>` set). Always record the gate:
+Skip all `cfl` calls below if cfl tracking was disabled in Phase 1 (no `<spec_number>` set).
+
+Record the question:
+
+```bash
+cfl question mine-define sign-off --status asked --answer "<selected option>" --spec <spec_number>
+```
+
+Always record the gate:
 
 ```bash
 cfl gate define-signoff --verdict <v> --spec <spec_number>

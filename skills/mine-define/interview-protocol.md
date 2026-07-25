@@ -4,9 +4,18 @@
 
 This phase combines problem discovery (what to build) with architecture interrogation (how to build it) into a single proportional flow. Questions are ordered from problem space to solution space.
 
+## Question tracking
+
+After each fixed question below is asked or skipped, record it via `cfl question`. Skip all `cfl question` calls if cfl tracking was disabled in Phase 1 (no `<spec_number>` set).
+
+- **Asked:** `cfl question mine-define <topic> --status asked --answer "<selected option or summary>" --spec <spec_number>`
+- **Skipped** (complexity tier, conditional skip, or already answered): `cfl question mine-define <topic> --status skipped --spec <spec_number>`
+
+The `<topic>` for each question is noted in parentheses below (e.g., `(topic: problem)`).
+
 ## Always ask (all complexity levels)
 
-1. **Problem grounding** (skip if already clear from the request):
+1. **Problem grounding** (topic: `problem`) — skip if already clear from the request:
 
 ```
 AskUserQuestion:
@@ -14,7 +23,9 @@ AskUserQuestion:
   header: "Problem"
 ```
 
-2. **Success definition:**
+After the user answers (or if skipped because the problem was already clear), record: `cfl question mine-define problem --status <asked|skipped> [--answer "<summary>"] --spec <spec_number>`
+
+2. **Success definition** (topic: `success`):
 
 ```
 AskUserQuestion:
@@ -22,9 +33,11 @@ AskUserQuestion:
   header: "Success"
 ```
 
+Record: `cfl question mine-define success --status asked --answer "<summary>" --spec <spec_number>`
+
 ## Scope mode selection (moderate+ only)
 
-After the user answers problem grounding and success definition, present a scope mode selection. Skip for trivial features — trivial features are always `hold` (use this value when writing the `**Scope-mode:**` header in Phase 4). On resume from an existing feature directory, check the design doc header for a `**Scope-mode:**` field — if present, skip re-asking and announce the recovered mode.
+After the user answers problem grounding and success definition, present a scope mode selection (topic: `scope-mode`). Skip for trivial features — trivial features are always `hold` (use this value when writing the `**Scope-mode:**` header in Phase 4). On resume from an existing feature directory, check the design doc header for a `**Scope-mode:**` field — if present, skip re-asking and announce the recovered mode.
 
 ```
 AskUserQuestion:
@@ -42,11 +55,13 @@ AskUserQuestion:
 
 Where `[X]` is the user's answer to problem grounding (or a one-sentence paraphrase of the stated problem if Q1 was skipped) and `[Y]` is their answer to success definition.
 
+Record: `cfl question mine-define scope-mode --status <asked|skipped> --answer "<selected mode>" --spec <spec_number>`
+
 ## Ask for moderate and complex features
 
 The remaining questions are shaped by the selected scope mode. Prefix each AskUserQuestion header with the mode — e.g., `[Expand] Non-goals`, `[Hold] User flow`, `[Reduce] Edge cases` — so the mode is visible on every interaction turn.
 
-3. **Scope boundary:**
+3. **Scope boundary** (topic: `scope`):
 
 Before asking, use the Phase 1.5 codebase findings and the user's problem/success answers to form concrete scope proposals. The user should react to your ideas, not generate them from scratch.
 
@@ -61,7 +76,9 @@ AskUserQuestion:
   header: "[<mode>] Scope"
 ```
 
-4. **Primary user flow:**
+Record: `cfl question mine-define scope --status asked --answer "<summary>" --spec <spec_number>`
+
+4. **Primary user flow** (topic: `user-flow`):
 
 ```
 AskUserQuestion:
@@ -74,9 +91,11 @@ Mode-specific follow-up (ask only the one matching the selected mode):
 - **Hold:** skip — no follow-up
 - **Reduce only:** Propose specific steps from their flow that could be manual or deferred — "Steps [X] and [Y] look like they could be manual for now. Agree?"
 
+Record: `cfl question mine-define user-flow --status asked --answer "<summary>" --spec <spec_number>`
+
 ## Ask for complex features only
 
-5. **Edge cases:**
+5. **Edge cases** (topic: `edge-cases`):
 
 Before asking, use Phase 1.5 findings, the user's described flow, and the scope boundary to identify specific edge cases and failure modes. Propose them concretely — the user confirms, cuts, or adds.
 
@@ -86,7 +105,9 @@ AskUserQuestion:
   header: "[<mode>] Edge cases"
 ```
 
-6. **Dependencies:**
+Record (or skipped if not complex): `cfl question mine-define edge-cases --status <asked|skipped> [--answer "<summary>"] --spec <spec_number>`
+
+6. **Dependencies** (topic: `deps`):
 
 Before asking, list the external systems, services, and integration points Phase 1.5 found in the affected code. Propose what you found — the user confirms or adds what's missing.
 
@@ -96,7 +117,9 @@ AskUserQuestion:
   header: "[<mode>] Deps"
 ```
 
-7. **Security / access:**
+Record (or skipped if not complex): `cfl question mine-define deps --status <asked|skipped> [--answer "<summary>"] --spec <spec_number>`
+
+7. **Security / access** (topic: `security`):
 
 Before asking, check Phase 1.5 findings for existing auth patterns, data sensitivity, and access boundaries in the affected code. Propose what you found — the user confirms or corrects.
 
@@ -106,7 +129,9 @@ AskUserQuestion:
   header: "[<mode>] Security"
 ```
 
-8. **Performance:**
+Record (or skipped if not complex): `cfl question mine-define security --status <asked|skipped> [--answer "<summary>"] --spec <spec_number>`
+
+8. **Performance** (topic: `perf`):
 
 ```
 AskUserQuestion:
@@ -114,7 +139,9 @@ AskUserQuestion:
   header: "[<mode>] Perf"
 ```
 
-9. **Rollback / reversibility:**
+Record (or skipped if not complex): `cfl question mine-define perf --status <asked|skipped> [--answer "<summary>"] --spec <spec_number>`
+
+9. **Rollback / reversibility** (topic: `rollback`):
 
 Before asking, assess rollback from the change shape — schema migrations, config changes, new endpoints, data format changes all have different rollback profiles. Propose a rollback assessment — the user confirms or corrects.
 
@@ -124,9 +151,11 @@ AskUserQuestion:
   header: "[<mode>] Rollback"
 ```
 
+Record (or skipped if not complex): `cfl question mine-define rollback --status <asked|skipped> [--answer "<summary>"] --spec <spec_number>`
+
 ## Implementation preferences (moderate+ only)
 
-After the tier-appropriate problem-space questions, surface concrete implementation decisions before they become implicit defaults. Use Phase 1.5 findings to identify what the codebase already uses in the affected area and propose following those conventions — the user confirms or overrides.
+After the tier-appropriate problem-space questions, surface concrete implementation decisions (topic: `impl-prefs`) before they become implicit defaults. Use Phase 1.5 findings to identify what the codebase already uses in the affected area and propose following those conventions — the user confirms or overrides.
 
 ```
 AskUserQuestion:
@@ -135,6 +164,8 @@ AskUserQuestion:
 ```
 
 If the user names overrides, record them for the Implementation Preferences section of design.md. If they confirm the defaults, note that and move on.
+
+Record (or skipped if trivial): `cfl question mine-define impl-prefs --status <asked|skipped> [--answer "<summary>"] --spec <spec_number>`
 
 ## Adaptive follow-up (all complexity levels)
 
@@ -177,7 +208,7 @@ For each gap found, ask the user — one question at a time, same as adaptive fo
 
 When every section can be written from what you know, proceed. Do not announce this check to the user — it's an internal quality pass, not a visible gate. The user sees only any additional questions it generates.
 
-## Confirm intent summary
+## Confirm intent summary (topic: `confirm-intent`)
 
 Before proceeding, present a structured summary starting with the pain point. Include the scope mode so the user can detect drift before the design doc is written.
 
@@ -203,7 +234,9 @@ AskUserQuestion:
 
 If "No", ask what's wrong and revise your understanding, then confirm again.
 
-## Caller perspective (API/module designs only)
+Record: `cfl question mine-define confirm-intent --status asked --answer "<Yes or No>" --spec <spec_number>`
+
+## Caller perspective (topic: `caller-view`) — API/module designs only
 
 If the artifact being designed is an API, module, library, or public interface (not a workflow, feature, or internal refactor), insert this step before proceeding.
 
@@ -218,6 +251,8 @@ AskUserQuestion:
 The user's answer becomes the spec. When the call-site ergonomics conflict with the type definitions later, reconcile types to match the caller's perspective — not the reverse. Hold these call sites internally; they'll inform the Architecture section and be included as examples in Phase 4.
 
 If the user already provided call-site examples during discovery (e.g., in their problem description or flow walkthrough), skip this step and note: "Using the call sites you described earlier as the design anchor."
+
+Record (or skipped if not an API design): `cfl question mine-define caller-view --status <asked|skipped> [--answer "<summary>"] --spec <spec_number>`
 
 ## Existing code leverage (moderate+ only)
 

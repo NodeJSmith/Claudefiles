@@ -18,6 +18,8 @@ from cfl.direct import VALID_ENTITIES, parse_field_args, set_field
 from cfl.dispatch import end_dispatch, record_dispatch
 from cfl.event import list_events, record_event
 from cfl.gate import VALID_GATE_VERDICTS, record_gate
+from cfl.question import VALID_STATUSES as VALID_QUESTION_STATUSES
+from cfl.question import list_questions, record_question
 from cfl.resolve import resolve_context, resolve_spec, try_resolve_active_run_id
 from cfl.run import (
     run_advance_phase,
@@ -56,7 +58,7 @@ _VALID_TASK_STATUSES = sorted(
 _FLAG = Parameter(negative=[])
 
 # Keep in sync with sub-App registrations (spec_app, run_app, etc.) below.
-_GROUPED_COMMANDS = {"spec", "run", "task", "dispatch", "event", "session"}
+_GROUPED_COMMANDS = {"spec", "run", "task", "dispatch", "event", "session", "question"}
 
 # ---------------------------------------------------------------------------
 # App hierarchy
@@ -94,6 +96,13 @@ app.command(event_app)
 
 session_app = App(name="session", help="Session lifecycle commands.")
 app.command(session_app)
+
+question_app = App(
+    name="question",
+    help="Discovery question tracking.",
+    help_epilogue=help_text.QUESTION,
+)
+app.command(question_app)
 
 # ---------------------------------------------------------------------------
 # Global options via meta launcher
@@ -741,6 +750,82 @@ def cmd_session_compacted(
                 "event_id": event_id,
                 "context_pct_before": context_pct,
             }
+        )
+
+
+# ---------------------------------------------------------------------------
+# question commands
+# ---------------------------------------------------------------------------
+
+
+@question_app.default
+def cmd_question(
+    skill: Annotated[
+        str,
+        Parameter(help="Skill name (mine-define, mine-grill, mine-plan)"),
+    ],
+    topic: Annotated[
+        str,
+        Parameter(help="Question topic (e.g. scope-mode, edge-cases, non-goals)"),
+    ],
+    *,
+    status: Annotated[
+        str,
+        Parameter(
+            help=f"Question status ({', '.join(sorted(VALID_QUESTION_STATUSES))})"
+        ),
+    ],
+    answer: Annotated[
+        str | None,
+        Parameter(help="User's selected answer (option label or free text)"),
+    ] = None,
+) -> None:
+    """Record a discovery question as asked or skipped."""
+    with db_connection() as conn:
+        ctx = resolve_context(conn, spec_override=_spec_override)
+        record_question(
+            conn,
+            ctx["active_run_id"],
+            skill,
+            topic,
+            status=status,
+            answer=answer,
+        )
+
+
+@question_app.command(name="list", help_epilogue=help_text.QUESTION_LIST)
+def cmd_question_list(
+    *,
+    skill: Annotated[
+        str | None,
+        Parameter(help="Filter by skill name"),
+    ] = None,
+    topic: Annotated[
+        str | None,
+        Parameter(help="Filter by topic"),
+    ] = None,
+    status: Annotated[
+        str | None,
+        Parameter(help="Filter by status (asked/skipped)"),
+    ] = None,
+    run_id: Annotated[
+        int | None,
+        Parameter(name=["--run"], help="Filter by run ID"),
+    ] = None,
+    limit: Annotated[
+        int,
+        Parameter(help="Max rows to return"),
+    ] = 50,
+) -> None:
+    """List recorded questions."""
+    with db_connection() as conn:
+        list_questions(
+            conn,
+            skill=skill,
+            topic=topic,
+            status=status,
+            run_id=run_id,
+            limit=limit,
         )
 
 

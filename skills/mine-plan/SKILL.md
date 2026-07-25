@@ -34,7 +34,7 @@ If $ARGUMENTS is empty:
 Glob: design/specs/*/design.md
 ```
 
-Sort by modification time, take the most recent. Then confirm:
+Sort by modification time, take the most recent. Then confirm (topic: `design-doc`):
 
 ```
 AskUserQuestion:
@@ -46,6 +46,8 @@ AskUserQuestion:
     - label: "No — let me specify the path"
       description: "Tell me the correct path and I'll use that"
 ```
+
+Record (skip if $ARGUMENTS was provided directly, or if cfl tracking is inactive): `cfl question mine-plan design-doc --status <asked|skipped> --answer "<selected option>" --spec <spec_number>`
 
 ### Identify the feature directory
 
@@ -144,7 +146,13 @@ AskUserQuestion:
       description: "Exit now so you can revise the doc before generating tasks"
 ```
 
-3. **Record the decision** — after the user answers, note it (e.g., "Q2 resolved: will use Option B"). If the user selects "Stop", exit immediately.
+3. **Record the decision** — after the user answers, note it (e.g., "Q2 resolved: will use Option B"). If the user selects "Stop", exit immediately. If cfl tracking is active, record each question (topic: `open-question`):
+
+```bash
+cfl question mine-plan open-question --status <asked|skipped> --answer "<selected option>" --spec <spec_number>
+```
+
+Where status is `asked` if the user chose an option or skipped the question interactively, and the answer captures which option was selected (including "Skip" or "Stop").
 
 After all questions are answered (or skipped), briefly summarize the resolutions before continuing to Phase 2:
 > Resolved open questions: Q1 → Option A, Q2 → Option B, Q3 → skipped. Proceeding to generate task files.
@@ -444,9 +452,17 @@ AskUserQuestion:
       description: "Mark the design as abandoned and stop"
 ```
 
-### Record approval gate
+### Record approval question and gate
 
-After the user's choice above. Skip if cfl tracking is inactive for this run:
+After the user's choice above. Skip all `cfl` calls below if cfl tracking is inactive for this run.
+
+Record the question (topic: `plan-approval`):
+
+```bash
+cfl question mine-plan plan-approval --status asked --answer "<selected option>" --spec <spec_number>
+```
+
+Record the gate:
 
 ```bash
 cfl gate plan-approval --verdict <v> --spec <spec_number>

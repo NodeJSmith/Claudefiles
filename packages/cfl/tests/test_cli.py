@@ -24,6 +24,7 @@ def test_app_registers_all_expected_commands():
         "dispatch",
         "event",
         "session",
+        "question",
         "archive",
         "stop-orphans",
         "set",
