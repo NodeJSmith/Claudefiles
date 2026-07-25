@@ -4,6 +4,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-07-25
 
+### Added
+
+- New `cfl question` command tracks which `mine-define` and `mine-plan` interview questions were asked vs skipped, and the user's selected answer, in a new `questions` table (schema v4). (#471)
+
 ### Changed
 
 - `mine-define` interview questions (scope, edge cases, dependencies, security, rollback, implementation preferences) now propose concrete answers drawn from Phase 1.5 codebase findings for the user to confirm, cut, or correct, instead of asking the user to generate answers from scratch. (#470)
