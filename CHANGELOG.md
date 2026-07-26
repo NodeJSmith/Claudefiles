@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-07-26
+
+### Changed
+
+- `mine-create-pr` now detects whether the target repo expects a conventional-commit type prefix on PR titles (checking merged PR history, with config-file corroboration as fallback) and requires the prefix when the convention is in use — prevents CI failures in squash-merge repos that generate changelogs from PR titles. (#473)
+
 ## 2026-07-25
 
 ### Added
