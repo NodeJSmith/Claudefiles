@@ -284,8 +284,8 @@ AskUserQuestion:
   header: "Sign-off"
   multiSelect: false
   options:
-    - label: "Gap-close first"
-      description: "Run /mine-gap-close on the design doc to fill completeness gaps"
+    - label: "Challenge first"
+      description: "Run /mine-challenge on the design doc to stress-test it before committing"
     - label: "Approve — proceed to planning"
       description: "Hand off to /mine-plan to generate task files"
     - label: "Revise — I have changes"
@@ -314,7 +314,7 @@ Verdict mapping:
 - "Approve — proceed to planning" → PASS
 - "Revise — I have changes" → WARN (loop continues; re-emit on each revision cycle)
 - "Save and stop" → SKIPPED
-- "Gap-close first" → no gate emitted (gap-close runs, then re-enters sign-off)
+- "Challenge first" → no gate emitted (challenge runs, then re-enters sign-off)
 
 Only when the verdict is PASS (approved), also emit the sign-off event:
 
@@ -322,13 +322,13 @@ Only when the verdict is PASS (approved), also emit the sign-off event:
 cfl event define.signed-off --spec <spec_number>
 ```
 
-On Revise, Save-and-stop, or Gap-close, do **not** run the `cfl event` command above — no decision was finalized.
+On Revise, Save-and-stop, or Challenge, do **not** run the `cfl event` command above — no decision was finalized.
 
-### On "Gap-close first"
+### On "Challenge first"
 
-Invoke: `/mine-gap-close <design-doc-path>`
+Invoke: `/mine-challenge <design-doc-path>`
 
-After gap-close completes, loop back to the sign-off gate above.
+After challenge completes (it resolves findings inline as a standalone caller), loop back to the sign-off gate above.
 
 ### On "Approve"
 
