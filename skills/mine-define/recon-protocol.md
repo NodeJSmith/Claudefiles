@@ -7,6 +7,7 @@ Before asking the user questions, silently explore the codebase for context rele
 - Conventions the codebase already follows for similar work
 - Integration points, data models, or APIs the feature would touch
 - Test files covering code that will be modified or replaced — note what they test and whether they'll break
+- **Test infrastructure** — what testing layers the repo supports (unit, integration, E2E). Look for: test runner config (pytest.ini, vitest.config, playwright.config, cypress.config), fixture/factory patterns, test directories at different layers (tests/unit/, tests/integration/, tests/e2e/), CI test jobs that run different suites. Record which layers exist and which have no infrastructure.
 - Code or patterns being superseded if this is a migration or refactor — these become replacement targets in the design doc
 - Anything that narrows the design space or resolves potential questions
 - **Structural simplification opportunities** — existing complexity in the affected area that could be simplified before building on top. Bolt-on conditionals, duplicated helpers, state machines that could be data transformations. Note these for the Architecture section — the design should incorporate the simplification rather than layer new code over existing complexity.

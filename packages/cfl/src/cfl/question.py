@@ -26,6 +26,7 @@ KNOWN_TOPICS: frozenset[str] = frozenset(
         "security",
         "perf",
         "rollback",
+        "test-reqs",
         "impl-prefs",
         "confirm-intent",
         "caller-view",

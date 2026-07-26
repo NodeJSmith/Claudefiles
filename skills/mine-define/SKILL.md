@@ -223,7 +223,7 @@ Skip if cfl tracking was disabled in Phase 1 (no `<spec_number>` set):
 cfl gate define-quality --verdict <PASS|FAIL> --spec <spec_number>
 ```
 
-Where verdict is PASS if all 20 checks passed, FAIL if any blocked.
+Where verdict is PASS if all checks passed, FAIL if any blocked.
 
 ---
 

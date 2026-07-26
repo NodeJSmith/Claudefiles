@@ -97,6 +97,9 @@ Write the design doc to `<feature_dir>/design.md` using this template:
 
 [For repos with no test infrastructure, replace the entire Test Strategy section (including all subsection headings below) with a single line: "N/A — no test infrastructure in this repo."]
 
+### Required Test Types
+[Which testing layers this change requires, confirmed during discovery. State each required layer with its justification tied to the change shape. Note any gaps where a useful layer has no repo infrastructure. For trivial features (no Phase 1.5 recon), state the required layer(s) from direct inspection of the changed files. Example: "Unit (new validator logic — single module), Integration (API→DB flow — crosses service boundary). Gap: no E2E infrastructure; frontend+backend interaction is untested."]
+
 ### Existing Tests to Adapt
 [Test files that will break or need updating due to this change, with file paths and what specifically needs to change. Sourced from Phase 1.5 test survey. If none, state "No existing tests affected."]
 
@@ -142,7 +145,7 @@ Write the design doc to `<feature_dir>/design.md` using this template:
 | Non-goals | Frame as "what's phase 2 vs phase 1?" | As-is | Explicitly list cut items with rationale — mine-plan uses Non-goals as exclusions |
 | Implementation Preferences | Include extensibility-oriented tooling decisions; note stretch choices | Concrete decisions from discovery only | Only decisions critical to the minimum build |
 | Replacement Targets | Items being replaced in this change — note candidates for future replacement in Architecture | Only items being replaced in this change | Only items being replaced — defer others to follow-up |
-| Test Strategy | Include stretch coverage goals; test adjacent behaviors | Cover all FRs; adapt all affected tests | Minimum tests for core FRs; note deferred coverage |
+| Test Strategy | Include stretch coverage goals; consider additional testing layers beyond what the change shape strictly requires; test adjacent behaviors | Cover all FRs at the layers the change shape requires; adapt all affected tests | Minimum tests for core FRs at the essential layer(s) only; note deferred coverage and deferred layers |
 | Alternatives | Include the ambitious alternative even if not chosen | Standard alternatives | Include "do nothing" and "manual workaround" as alternatives |
 
 ## Section Rules

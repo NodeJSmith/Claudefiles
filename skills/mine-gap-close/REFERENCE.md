@@ -104,14 +104,15 @@ Items complement mine-define's Phase 5 quality validation — the quality valida
 
 | ID | Severity | Gap question | Target section |
 |----|----------|-------------|----------------|
-| DD-14 | Blocker | Does the Test Strategy identify specific existing test files that will break or need updating (with file paths), or explicitly state none are affected? | Test Strategy > Existing Tests to Adapt |
-| DD-15 | Should-address | Does the New Test Coverage subsection map new behaviors to Functional Requirements (FR#N)? | Test Strategy > New Test Coverage |
+| DD-14 | Blocker | Does the Required Test Types subsection state which testing layers are required, with justification tied to the change shape? Are infrastructure gaps noted for any required layer the repo doesn't support? | Test Strategy > Required Test Types |
+| DD-15 | Blocker | Does the Test Strategy identify specific existing test files that will break or need updating (with file paths), or explicitly state none are affected? | Test Strategy > Existing Tests to Adapt |
+| DD-16 | Should-address | Does the New Test Coverage subsection map new behaviors to Functional Requirements (FR#N)? | Test Strategy > New Test Coverage |
 
 ### Impact
 
 | ID | Severity | Gap question | Target section |
 |----|----------|-------------|----------------|
-| DD-16 | Should-address | Does the Impact section identify behavioral invariants — existing behaviors that must not change? | Impact > Behavioral Invariants |
+| DD-17 | Should-address | Does the Impact section identify behavioral invariants — existing behaviors that must not change? | Impact > Behavioral Invariants |
 
 ---
 
