@@ -328,7 +328,7 @@ On Revise, Save-and-stop, or Challenge, do **not** run the `cfl event` command a
 
 Invoke: `/mine-challenge <design-doc-path>`
 
-After challenge completes (it resolves findings inline as a standalone caller), loop back to the sign-off gate above.
+After challenge completes (it resolves findings inline as a standalone caller), re-run Phase 5 (quality validation) against the potentially modified design doc, then loop back to the sign-off gate above with refreshed results.
 
 ### On "Approve"
 
