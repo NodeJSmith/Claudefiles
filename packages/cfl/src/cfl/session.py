@@ -11,8 +11,24 @@ import sqlite3
 from pathlib import Path
 
 SESSION_ID_ENV_VAR: str = "CLAUDE_CODE_SESSION_ID"
-MODEL_ENV_VAR: str = "CLAUDE_MODEL"
 CONTEXT_SIDECAR_TEMPLATE: str = "/tmp/claude-context-{session_id}.meta"
+
+_MODEL_SHORT = re.compile(r"(haiku|sonnet|opus|fable)", re.IGNORECASE)
+
+
+def _read_sidecar(session_id: str | None = None) -> str | None:
+    """Read the raw sidecar content for the given session.
+
+    Falls back to $CLAUDE_CODE_SESSION_ID. Returns None when unavailable.
+    """
+    if session_id is None:
+        session_id = os.environ.get(SESSION_ID_ENV_VAR)
+    if session_id is None:
+        return None
+    try:
+        return Path(CONTEXT_SIDECAR_TEMPLATE.format(session_id=session_id)).read_text()
+    except OSError:
+        return None
 
 
 def read_context_pct(session_id: str | None = None) -> int | None:
@@ -21,19 +37,34 @@ def read_context_pct(session_id: str | None = None) -> int | None:
     Uses the provided session_id, falling back to $CLAUDE_CODE_SESSION_ID.
     Returns None if no session_id is available, the file is missing, or malformed.
     """
-    if session_id is None:
-        session_id = os.environ.get(SESSION_ID_ENV_VAR)
-    if session_id is None:
+    content = _read_sidecar(session_id)
+    if content is None:
         return None
+    m = re.search(r"pct=(\d+)", content)
+    return int(m.group(1)) if m else None
 
-    sidecar_path = Path(CONTEXT_SIDECAR_TEMPLATE.format(session_id=session_id))
-    try:
-        content = sidecar_path.read_text()
-        m = re.search(r"pct=(\d+)", content)
+
+def _normalize_model(raw: str) -> str:
+    """Extract the short model family (haiku/sonnet/opus/fable) from any model string."""
+    m = _MODEL_SHORT.search(raw)
+    return m.group(1).lower() if m else raw
+
+
+def read_model(session_id: str | None = None) -> str | None:
+    """Read the current model from the sidecar file, falling back to $ANTHROPIC_MODEL.
+
+    The sidecar's `model=` line (written by claude-context-writer) reflects the
+    live model and updates on mid-session switches. $ANTHROPIC_MODEL is the
+    startup default and does not track switches.
+    """
+    content = _read_sidecar(session_id)
+    if content is not None:
+        m = re.search(r"model=(.+)", content)
         if m:
-            return int(m.group(1))
-    except (OSError, ValueError):
-        pass
+            return _normalize_model(m.group(1).strip())
+    raw = os.environ.get("ANTHROPIC_MODEL")
+    if raw:
+        return _normalize_model(raw)
     return None
 
 
@@ -48,7 +79,7 @@ def auto_join_session(conn: sqlite3.Connection, run_id: int | None) -> str | Non
     if session_id is None or run_id is None:
         return None
 
-    model = os.environ.get(MODEL_ENV_VAR)
+    model = read_model(session_id)
     context_pct = read_context_pct()
 
     conn.execute(
