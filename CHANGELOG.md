@@ -4,9 +4,17 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-07-26
 
+### Added
+
+- `mine-define` now surveys test infrastructure during recon and asks the user to confirm required test layers (unit/integration/E2E) before writing the design doc's Test Strategy, noting any layer the repo can't support as a gap; `mine-plan` threads the confirmed layers into task Verify sections. (#474)
+
 ### Changed
 
 - `mine-create-pr` now detects whether the target repo expects a conventional-commit type prefix on PR titles (checking merged PR history, with config-file corroboration as fallback) and requires the prefix when the convention is in use — prevents CI failures in squash-merge repos that generate changelogs from PR titles. (#473)
+
+### Removed
+
+- `mine-gap-close` is removed — folded into `mine-challenge`, which is now the only completeness/quality review path for design docs; `mine-define`'s sign-off gate now offers "Challenge first" instead of "Gap-close first". (#474)
 
 ## 2026-07-25
 

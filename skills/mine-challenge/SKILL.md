@@ -18,7 +18,6 @@ $ARGUMENTS — optional scope:
 **Optional arguments** (extracted from the beginning of $ARGUMENTS only — stop at first non-flag token):
 - `--focus="<area>"` — steer critics; also forces any specialist whose filename slug prefix-matches (≥6 chars, case-insensitive, single word only)
 - `--target-type=<type>` — override heuristic classification. Values: `code`, `frontend-code`, `spec`, `design-doc`, `brief`, `skill-file`, `agent-file`, `rule`, `docs`, `research`, `other`
-- `--findings-out=<path>` — deterministic output path (structured callers only, e.g., mine-define). Overwrites without warning.
 - `--mode=passthrough` — present summary only; skip inline resolution (mine-brainstorm, mine-research)
 - `--no-specialists` — triage selects from generic personas only
 - `--cap=N` — finding cap (default 7). CRITICAL and HIGH are never capped.
@@ -68,9 +67,8 @@ Classify target type — use `--target-type` if provided, otherwise:
 ### Re-challenge detection
 
 Check for a prior challenge run before dispatching triage:
-1. If `--findings-out` provided: check whether that file exists and starts with `# Challenge Findings` + `**Format-version:**`. If yes → re-challenge.
-2. Otherwise: look for `challenge-results*.md` or `challenge-findings*.md` in the target's directory with the same validation check.
-3. Fallback: if conversation context shows a prior challenge against this target → re-challenge.
+1. Look for `challenge-results*.md` or `challenge-findings*.md` in the target's directory. Check whether the file starts with `# Challenge Findings` + `**Format-version:**`. If yes → re-challenge.
+2. Fallback: if conversation context shows a prior challenge against this target → re-challenge.
 
 Note re-challenge status in context for Phase 2 critic selection.
 
@@ -171,7 +169,7 @@ The synthesis subagent receives:
 - Triage rationale and `target_summary`
 - Target type
 - Cap value (from `--cap`, default 7)
-- Output path: `--findings-out` path if provided, otherwise `<tmpdir>/challenge-results.md`
+- Output path: `<tmpdir>/challenge-results.md`
 - Contents of `<tmpdir>/validation-warnings.md` if it exists
 - The full synthesis procedure below
 
@@ -208,9 +206,7 @@ Read the findings file. Announce: "Specialists selected: [names from triage]" an
 
 **If `--mode=passthrough`**: present a one-paragraph summary (count by severity, likely-invalid count, top takeaway). Return. Do not execute anything.
 
-**If `--findings-out` provided (structured mode)**: auto-apply all `resolution: Auto-apply, status: pending` findings directly via Edit tool. Update `status: applied` in findings file for each. Skip interactive prompts. Write "Challenge complete — findings written to `<path>`. Returning to caller." Return.
-
-**If standalone mode** (direct user invocation, mine-grill caller):
+**If standalone mode** (direct user invocation, or caller like mine-grill/mine-define):
 
 Read and follow the Inline Resolution Flow in `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md` exactly. After all findings are processed, report: "Applied N findings. M skipped. K overflow (use `--verbose` to see all). L flagged as likely invalid." List critic report paths and findings file path.
 
@@ -227,16 +223,13 @@ If `--verbose`: also present overflow findings (status: overflow) after the main
 
 ## Known Callers
 
-Structured callers (pass `--findings-out`, read findings file per `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/caller-protocol.md`):
-- `skills/mine-define/SKILL.md`
-
 Passthrough callers (pass `--mode=passthrough`):
 - `skills/mine-research/SKILL.md`
 - `skills/mine-brainstorm/SKILL.md`
 
 Standalone callers (full inline resolution flow):
 - `skills/mine-grill/SKILL.md`
-- `skills/mine-gap-close/SKILL.md`
+- `skills/mine-define/SKILL.md` (Phase 6 sign-off gate — "Challenge first" option)
 
 Inline-revision callers (invoke challenge, read findings in-context, revise own proposal):
 - `skills-impeccable/i-adapt/SKILL.md`, `skills-impeccable/i-animate/SKILL.md`, `skills-impeccable/i-bolder/SKILL.md`

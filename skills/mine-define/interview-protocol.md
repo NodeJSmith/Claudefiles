@@ -153,6 +153,28 @@ AskUserQuestion:
 
 Record (or skipped if not complex): `cfl question mine-define rollback --status <asked|skipped> [--answer "<summary>"] --spec <spec_number>`
 
+## Test requirements (moderate+ only)
+
+After the tier-appropriate problem-space questions, propose test requirements based on Phase 1.5 findings (topic: `test-reqs`). Use the test infrastructure survey from recon and the change's shape to recommend which testing layers are needed.
+
+**Assessment logic:**
+- Identify which testing layers the repo actually supports (from Phase 1.5: test runner configs, existing test directories, CI jobs)
+- Match the change shape to testing layers — a change can require multiple layers (union all that match):
+  - Single module/function changes → unit tests
+  - Cross-module changes, data flow across boundaries, service interactions → integration tests (in addition to unit tests for the individual modules)
+  - Changes spanning frontend + backend, or user-facing workflows → E2E tests (in addition to lower layers; only if the repo has E2E infrastructure)
+- If the repo lacks infrastructure for a recommended layer, note it as a gap rather than requiring it
+
+Present the proposal with evidence from the repo:
+
+```
+AskUserQuestion:
+  question: "Based on what I found in the codebase, here's what I'd require for testing:\n\n**Repo supports:** <layers found — e.g., unit (pytest), integration (pytest + fixtures in tests/integration/), no E2E infrastructure>\n\n**This change needs:**\n<your recommendations with reasoning — e.g., 'Unit tests for the new validator logic (single-module change)' / 'Integration tests for the API→DB flow (crosses service boundary)'>\n\n<if a useful layer is missing: '**Gap:** No E2E infrastructure exists. This change touches frontend + backend — consider whether to add E2E setup or accept the coverage gap.'>\n\nDoes this match your expectations?"
+  header: "[<mode>] Test reqs"
+```
+
+Record (or skipped if trivial): `cfl question mine-define test-reqs --status <asked|skipped> [--answer "<summary>"] --spec <spec_number>`
+
 ## Implementation preferences (moderate+ only)
 
 After the tier-appropriate problem-space questions, surface concrete implementation decisions (topic: `impl-prefs`) before they become implicit defaults. Use Phase 1.5 findings to identify what the codebase already uses in the affected area and propose following those conventions — the user confirms or overrides.
@@ -202,7 +224,7 @@ Common gaps that survive the structured questions:
 - Architecture: the approach is clear but specific technology/library choices aren't locked in
 - Edge Cases: the happy path is defined but failure modes weren't discussed
 - Migration: data changes are implied but the migration strategy wasn't addressed
-- Test Strategy: what to test is clear but how (fixtures, mocking approach, test data) isn't
+- Test Strategy: required test types were confirmed but how to implement them (fixtures, mocking approach, test data) isn't clear for this repo's patterns
 
 For each gap found, ask the user — one question at a time, same as adaptive follow-ups. Do not ask about sections the codebase already answers (from Phase 1.5) or sections that are genuinely N/A for this feature.
 
