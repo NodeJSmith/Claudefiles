@@ -47,7 +47,6 @@ UNINSTALL_TIMEOUT = 30
 PYPI_INSTALL_TIMEOUT = 300
 PLUGIN_TIMEOUT = 120
 UV_LIST_TIMEOUT = 10
-CODEX_SYNC_TIMEOUT = 30
 GIT_TIMEOUT = 5
 UV_NOT_FOUND_MSG = "uv not found — install via https://docs.astral.sh/uv/"
 
@@ -115,6 +114,8 @@ def get_bundles(repo_dir: Path) -> dict[str, Bundle]:
                 "integration-reviewer",
                 "wtf-reviewer",
                 "fine-toothed-comb",
+                "instruction-quality-reviewer",
+                "writing-quality-reviewer",
                 "code-judo-reviewer",
                 "researcher",
                 "llm-checker",
@@ -210,7 +211,7 @@ RULE_CATEGORIES: dict[str, RuleCategory] = {
     ),
     "style": RuleCategory(
         label="Code structure & style",
-        description="coding-style, reader-load, laziness, subtract-first, redesign, refactoring discipline",
+        description="coding-style, reader-load, laziness, subtract-first, redesign, refactoring discipline, model-the-domain",
         files=(
             "coding-style.md",
             "reader-load.md",
@@ -218,6 +219,7 @@ RULE_CATEGORIES: dict[str, RuleCategory] = {
             "subtract-first.md",
             "redesign-from-first-principles.md",
             "refactoring-discipline.md",
+            "model-the-domain.md",
         ),
     ),
     "languages": RuleCategory(
@@ -751,14 +753,11 @@ def ccrecall_plugin_installed(claude_bin: str) -> bool:
 
 
 def ensure_ccrecall_plugin(console: Console) -> int:
-    """Register the ccrecall plugin: add its marketplace, then install it. Returns errors.
+    """Register and update the ccrecall plugin. Returns errors.
 
-    The plugin auto-syncs from enabledPlugins in settings.json at session start, but that
-    sync leaves no tracked install record (so `claude plugin update` won't see it). This
-    makes the install explicit. The underlying commands are idempotent (both no-op when
-    already present), but not silently — they reprint progress and refetch the marketplace
-    on every run. So we check `claude plugin list` first and skip the work entirely once
-    the plugin is a tracked install.
+    First install: adds the marketplace, then installs the plugin. Subsequent runs:
+    runs `claude plugin update` to pull the latest from the marketplace repo and rebuild
+    the cache (stale cache entries from older versions are replaced automatically).
 
     claude is resolved with shutil.which, never the bare name: the interactive `claude`
     shell function launches `--bare`, which skips plugin sync. shutil.which sees only real
@@ -775,9 +774,14 @@ def ensure_ccrecall_plugin(console: Console) -> int:
         return errors
 
     if ccrecall_plugin_installed(claude_bin):
-        console.print(
-            f"  Plugin already installed: {CCRECALL_PLUGIN_REF} [dim](skipping)[/dim]"
-        )
+        console.print(f"  Updating plugin: {CCRECALL_PLUGIN_REF}...")
+        ok, detail = run_claude_plugin(claude_bin, ["update", CCRECALL_PLUGIN_REF])
+        if not ok:
+            console.print(
+                f"  [yellow]Warning: plugin update failed ({detail})[/yellow]"
+            )
+        else:
+            console.print(f"  Plugin up to date: {CCRECALL_PLUGIN_REF}")
         return errors
 
     # Marketplace add failing is non-fatal — it's already-known on every machine past the
@@ -1331,46 +1335,10 @@ def do_install(
     resolve_stale_symlinks(
         claude_dir, repo_dir, bin_dir, console, interactive=interactive
     )
-    generate_codex_rules(repo_dir, console)
-
     console.print(
         f"\n[green]Claudefiles installed to {claude_dir}[/green] ({total_links} symlinks)"
     )
     return errors
-
-
-def generate_codex_rules(repo_dir: Path, console: Console) -> None:
-    """Materialize the global Codex AGENTS.md from the portable rules.
-
-    Runs after the symlink phase so the generated file reflects the rules just
-    installed. The generator exits 0 both when it writes and when it skips (Codex
-    not installed), so this call is safe to make unconditionally and is non-fatal to
-    the install — Codex rules are an add-on, not core install state. A non-zero exit
-    means Codex *is* installed and generation actually failed (empty result, write
-    error): that is surfaced in red, distinct from the benign skip, so it isn't lost
-    under the green success banner. See design/specs/032-codex-agents-rules.
-    """
-    script = repo_dir / "bin" / "codex-rules-sync"
-    try:
-        result = subprocess.run(
-            [sys.executable, str(script)],
-            capture_output=True,
-            text=True,
-            timeout=CODEX_SYNC_TIMEOUT,
-        )
-    except (OSError, subprocess.TimeoutExpired) as e:
-        console.print(
-            f"  [red]Codex rules FAILED: codex-rules-sync could not run: {e}[/red]"
-        )
-        return
-    summary = result.stdout.strip() or result.stderr.strip()
-    if result.returncode == 0:
-        if summary:
-            console.print(f"  {summary}")
-    else:
-        console.print(
-            f"  [red]Codex rules FAILED — global AGENTS.md not updated: {summary}[/red]"
-        )
 
 
 def do_uninstall(repo_dir: Path, claude_dir: Path, config: dict) -> None:

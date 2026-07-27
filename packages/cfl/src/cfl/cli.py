@@ -18,6 +18,13 @@ from cfl.direct import VALID_ENTITIES, parse_field_args, set_field
 from cfl.dispatch import end_dispatch, record_dispatch
 from cfl.event import list_events, record_event
 from cfl.gate import VALID_GATE_VERDICTS, record_gate
+from cfl.question import (
+    VALID_STATUSES as VALID_QUESTION_STATUSES,
+)
+from cfl.question import (
+    list_questions,
+    record_question,
+)
 from cfl.resolve import resolve_context, resolve_spec, try_resolve_active_run_id
 from cfl.run import (
     run_advance_phase,
@@ -31,6 +38,7 @@ from cfl.run import (
 from cfl.session import SESSION_ID_ENV_VAR, end_session, record_compaction
 from cfl.spec import (
     SETTABLE_STATUSES,
+    spec_adopt,
     spec_init,
     spec_next_number,
     spec_set_status,
@@ -55,7 +63,7 @@ _VALID_TASK_STATUSES = sorted(
 _FLAG = Parameter(negative=[])
 
 # Keep in sync with sub-App registrations (spec_app, run_app, etc.) below.
-_GROUPED_COMMANDS = {"spec", "run", "task", "dispatch", "event", "session"}
+_GROUPED_COMMANDS = {"spec", "run", "task", "dispatch", "event", "session", "question"}
 
 # ---------------------------------------------------------------------------
 # App hierarchy
@@ -93,6 +101,13 @@ app.command(event_app)
 
 session_app = App(name="session", help="Session lifecycle commands.")
 app.command(session_app)
+
+question_app = App(
+    name="question",
+    help="Discovery question tracking.",
+    help_epilogue=help_text.QUESTION,
+)
+app.command(question_app)
 
 # ---------------------------------------------------------------------------
 # Global options via meta launcher
@@ -146,6 +161,20 @@ def cmd_spec_init(
     """Create a new spec in the DB and on disk."""
     with db_connection() as conn:
         spec_init(conn, slug, number=number)
+
+
+@spec_app.command(name="adopt", help_epilogue=help_text.SPEC_ADOPT)
+def cmd_spec_adopt(
+    directory: Annotated[
+        str,
+        Parameter(
+            help="Path to existing spec directory (e.g. design/specs/035-my-feature)"
+        ),
+    ],
+) -> None:
+    """Register a pre-existing spec directory in the DB (no mkdir)."""
+    with db_connection() as conn:
+        spec_adopt(conn, directory)
 
 
 @spec_app.command(name="validate")
@@ -730,6 +759,82 @@ def cmd_session_compacted(
 
 
 # ---------------------------------------------------------------------------
+# question commands
+# ---------------------------------------------------------------------------
+
+
+@question_app.default
+def cmd_question(
+    skill: Annotated[
+        str,
+        Parameter(help="Skill name (mine-define, mine-grill, mine-plan)"),
+    ],
+    topic: Annotated[
+        str,
+        Parameter(help="Question topic (e.g. scope-mode, edge-cases, open-question)"),
+    ],
+    *,
+    status: Annotated[
+        str,
+        Parameter(
+            help=f"Question status ({', '.join(sorted(VALID_QUESTION_STATUSES))})"
+        ),
+    ],
+    answer: Annotated[
+        str | None,
+        Parameter(help="User's selected answer (option label or free text)"),
+    ] = None,
+) -> None:
+    """Record a discovery question as asked or skipped."""
+    with db_connection() as conn:
+        ctx = resolve_context(conn, spec_override=_spec_override)
+        record_question(
+            conn,
+            ctx["active_run_id"],
+            skill,
+            topic,
+            status=status,
+            answer=answer,
+        )
+
+
+@question_app.command(name="list", help_epilogue=help_text.QUESTION_LIST)
+def cmd_question_list(
+    *,
+    skill: Annotated[
+        str | None,
+        Parameter(help="Filter by skill name"),
+    ] = None,
+    topic: Annotated[
+        str | None,
+        Parameter(help="Filter by topic"),
+    ] = None,
+    status: Annotated[
+        str | None,
+        Parameter(help="Filter by status (asked/skipped)"),
+    ] = None,
+    run_id: Annotated[
+        int | None,
+        Parameter(name=["--run"], help="Filter by run ID"),
+    ] = None,
+    limit: Annotated[
+        int,
+        Parameter(help="Max rows to return"),
+    ] = 50,
+) -> None:
+    """List recorded questions."""
+    with db_connection() as conn:
+        list_questions(
+            conn,
+            skill=skill,
+            topic=topic,
+            status=status,
+            run_id=run_id,
+            limit=limit,
+        )
+
+
+# ---------------------------------------------------------------------------
 # archive (leaf on root app)
 # ---------------------------------------------------------------------------
 
@@ -878,8 +983,15 @@ def _parse_argv_for_telemetry(
 
     # Grouped commands have a subcommand as the second positional.
     # Leaf commands (gate, archive, stop-orphans, set) don't.
+    # `question` is a special case: its only real subcommand is `list`
+    # (e.g. `cfl question list`). `cfl question <skill> <topic>` is the
+    # recording form, so `<skill>` must not be grouped as a subcommand.
     command = raw_positionals[0] if raw_positionals else ""
-    if len(raw_positionals) > 1 and command in _GROUPED_COMMANDS:
+    if (
+        len(raw_positionals) > 1
+        and command in _GROUPED_COMMANDS
+        and (command != "question" or raw_positionals[1] == "list")
+    ):
         command = f"{command} {raw_positionals[1]}"
         positional_args = raw_positionals[2:]
     else:

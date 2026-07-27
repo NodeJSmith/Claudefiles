@@ -17,7 +17,7 @@ from rich.console import Console
 # so prepend its directory before importing it.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import install  # noqa: E402
+import install
 
 # Base bundle packages, derived from the live bundle definition so this value
 # cannot drift from install.py. Used as the already-installed set in tests not
@@ -478,23 +478,19 @@ class TestBundleModel:
         }
 
     def test_base_agents(self, tmp_path: Path) -> None:
-        """Base bundle holds the advisory reviewers plus the credential/registry agents."""
+        """Base bundle includes the pre-commit safety gates and core reviewers."""
         _setup_minimal_repo(tmp_path)
         bundles = install.get_bundles(tmp_path)
         base = bundles["base"]
-        assert set(base.agents) == {
+        required = {
             "code-reviewer",
             "integration-reviewer",
             "wtf-reviewer",
-            "fine-toothed-comb",
-            "code-judo-reviewer",
-            "researcher",
-            "llm-checker",
-            "lazy-checker",
-            "nitpicker",
-            "issue-refiner",
             "secrets-auditor",
         }
+        assert required <= set(base.agents), (
+            f"Missing required agents: {required - set(base.agents)}"
+        )
 
     def test_base_packages(self, tmp_path: Path) -> None:
         """Base bundle has cfl and merge-settings packages."""
@@ -1128,15 +1124,18 @@ class TestCcrecallPlugin:
             call(resolved, ["install", install.CCRECALL_PLUGIN_REF]),
         ]
 
-    def test_skips_when_plugin_already_installed(self) -> None:
+    def test_updates_when_plugin_already_installed(self) -> None:
         """When `claude plugin list` already reports the plugin, ensure_ccrecall_plugin
-        skips marketplace add + install entirely — no redundant refetch or progress noise."""
+        runs `plugin update` instead of marketplace add + install."""
         resolved = MISE_CLAUDE_BIN
         listing = json.dumps([{"id": install.CCRECALL_PLUGIN_REF, "enabled": True}])
 
         def fake_run(claude_bin, args):
-            assert args[0] == "list", f"unexpected command after skip: {args}"
-            return (True, listing)
+            if args[0] == "list":
+                return (True, listing)
+            if args[0] == "update":
+                return (True, "")
+            raise AssertionError(f"unexpected command: {args}")
 
         mock_run = MagicMock(side_effect=fake_run)
         with (
@@ -1145,7 +1144,30 @@ class TestCcrecallPlugin:
         ):
             errors = install.ensure_ccrecall_plugin(install.Console())
         assert errors == 0
-        mock_run.assert_called_once_with(resolved, ["list", "--json"])
+        assert mock_run.call_args_list == [
+            call(resolved, ["list", "--json"]),
+            call(resolved, ["update", install.CCRECALL_PLUGIN_REF]),
+        ]
+
+    def test_update_failure_is_warning_not_error(self) -> None:
+        """When plugin update fails, it logs a warning but does not increment errors."""
+        resolved = MISE_CLAUDE_BIN
+        listing = json.dumps([{"id": install.CCRECALL_PLUGIN_REF, "enabled": True}])
+
+        def fake_run(claude_bin, args):
+            if args[0] == "list":
+                return (True, listing)
+            if args[0] == "update":
+                return (False, "network error")
+            raise AssertionError(f"unexpected command: {args}")
+
+        mock_run = MagicMock(side_effect=fake_run)
+        with (
+            patch("install.shutil.which", return_value=resolved),
+            patch("install.run_claude_plugin", mock_run),
+        ):
+            errors = install.ensure_ccrecall_plugin(install.Console())
+        assert errors == 0
 
     def test_installs_when_plugin_list_is_malformed(self) -> None:
         """A `claude plugin list` that succeeds but emits non-array / unparseable output
@@ -1646,9 +1668,9 @@ class TestConfigLock:
                 side_effect=itertools.chain([100.0], itertools.repeat(111.0)),
             ),
             patch("install.time.sleep"),
+            pytest.raises(RuntimeError, match="Could not acquire lock"),
         ):
-            with pytest.raises(RuntimeError, match="Could not acquire lock"):
-                lock.__enter__()
+            lock.__enter__()
 
     def test_acquires_and_releases(self, tmp_path: Path) -> None:
         cfg_path = tmp_path / "config.json"

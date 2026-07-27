@@ -3,8 +3,7 @@
 # Findings Protocol
 
 Defines the findings file format used by challenge and other tools that
-produce, consume, or reference findings, including structured callers such as
-mine-define and mine-audit.
+produce, consume, or reference findings.
 
 ## Findings File Format
 
@@ -76,6 +75,14 @@ match 1:1 with findings — no gaps.
 
 `Structural` · `Approach-now` · `Approach-later` · `Fragility` · `Gap`
 
+## Design-level Field
+
+`Yes` — the finding targets the artifact itself (a missing requirement, an untestable AC, a structural inconsistency). Resolution should be applied to the target document.
+
+`No` — the finding targets implementation concerns that should be addressed during build, not in the design artifact. Flag for implementers rather than editing the document.
+
+When critics disagree, `Yes` wins — design-level issues are harder to fix later.
+
 ## Status and Overflow Fields
 
 The synthesis subagent writes these fields before challenge returns; the inline
@@ -120,8 +127,9 @@ Findings are capped before presentation to prevent overwhelming the user:
 - **TENSION**: Shown only when no CRITICAL/HIGH findings exist; otherwise
   overflow
 
-Overflow findings are written to the findings file with `status: overflow` so
-callers can inspect them. They are not presented during inline resolution.
+Overflow findings are written to the findings file with `status: overflow` for
+the record. They are not presented during inline resolution but can be viewed
+with `--verbose`.
 
 ## Validity Assessment
 

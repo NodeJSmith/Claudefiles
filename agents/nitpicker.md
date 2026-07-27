@@ -1,6 +1,7 @@
 ---
 name: nitpicker
 model: sonnet
+effort: medium
 description: Hyper-critical style and hygiene reviewer — flags every instance of messy code with no severity filter. Use for exhaustive style and formatting review. Complements llm-checker (training-bias patterns) and lazy-checker (deferred debt patterns).
 tools: ["Read", "Grep", "Glob", "Bash"]
 ---

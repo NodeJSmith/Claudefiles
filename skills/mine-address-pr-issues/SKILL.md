@@ -207,7 +207,7 @@ get-skill-tmpdir mine-address-pr
 
 ### Fix each logical group (serial)
 
-For each group from the plan, launch a **general-purpose subagent** with:
+For each group from the plan, launch a **general-purpose subagent** (`model: sonnet`) with:
 - The review comment(s) to address (bodies, file paths, line numbers)
 - The approved proposed fix from the plan (what the user agreed to)
 - For `[DECISION NEEDED]` items: the resolved decision

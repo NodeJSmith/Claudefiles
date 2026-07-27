@@ -120,6 +120,25 @@ Flag each vague item:
 - T01 Verify FR#2: "The feature works" is not binary-verifiable; needs a concrete, observable criterion
 ```
 
+### Non-Local Verification Criteria
+
+A Verify item is non-local when it cannot be checked by the executor running a command in the local repo. These criteria should not exist as ACs in the design doc (they are process gates, not acceptance criteria), but if they leaked through, flag them here.
+
+Examples of non-local criteria:
+- "CI jobs must report success on this PR"
+- "GitHub Actions workflow triggers correctly"
+- "Post-build link checker (new CI job) finds zero broken links"
+- "After the PR is merged, release-please creates a release"
+- "CodeRabbit review passes"
+
+These describe post-push, post-merge, or CI-pipeline behavior that the executor has no way to observe. The executor will mark them CONTESTED, forcing the user to manually approve.
+
+Flag each non-local item under `## Non-Local Criteria` in the report:
+```
+## Non-Local Criteria
+- T06 Verify AC#4: "CI jobs must report success on this PR" — requires observing GitHub Actions status — not locally verifiable. Remove from AC list; note in Dependencies and Assumptions or Key Constraints instead.
+```
+
 ### Visual Artifact Coverage
 
 Check: does the design doc mention any visual artifacts (mockup paths, screenshot references, linked images)?
@@ -162,7 +181,7 @@ Write a structured report to the output path provided. Use this exact format:
 ## Verdict: PASS | FAIL
 
 > PASS — all FRs and ACs are covered, no contradictions, all Verify items are concrete.
-> FAIL — N coverage gaps, M contradictions, K warnings. Review required before execution.
+> FAIL — N coverage gaps, M contradictions, K non-local criteria. Review required before execution.
 
 ## Traceability Matrix
 
@@ -184,6 +203,12 @@ Write a structured report to the output path provided. Use this exact format:
 
 (Write "None." if no contradictions found.)
 
+## Non-Local Criteria
+
+- T{NN} Verify AC#N: "<criterion text>" — requires <what external system> — not locally verifiable
+
+(Write "None." if all Verify criteria are locally verifiable.)
+
 ## Warnings
 
 - <warning description>
@@ -192,8 +217,8 @@ Write a structured report to the output path provided. Use this exact format:
 ```
 
 **Verdict determination**:
-- `PASS` — zero coverage gaps, zero contradictions, and context.md has all five required sections with non-empty content. `## Convention Examples` is optional and does not block approval, but if present must contain code snippets or "None" (not an empty heading). Warnings do not block approval.
-- `FAIL` — one or more coverage gaps OR contradictions OR missing/empty context.md sections.
+- `PASS` — zero coverage gaps, zero contradictions, zero non-local criteria, and context.md has all five required sections with non-empty content. `## Convention Examples` is optional and does not block approval, but if present must contain code snippets or "None" (not an empty heading). Warnings do not block approval.
+- `FAIL` — one or more coverage gaps OR contradictions OR non-local criteria OR missing/empty context.md sections.
 
 ---
 

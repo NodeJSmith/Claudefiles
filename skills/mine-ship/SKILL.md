@@ -22,6 +22,8 @@ Follow **all steps in `mine-commit-push`** exactly (read `${CLAUDE_CONFIG_DIR:-~
 
 ### Phase 1.5 — Clean Code Gate
 
+**Skip this phase if the branch diff contains only instruction files (`.md`).** Clean-code checkers are for code, not prose. Instruction files are already covered by mine-review's instruction-mode reviewers in Phase 1.
+
 After Phase 1 completes (changes committed and pushed), check for a prior clean-code run:
 
 ```bash

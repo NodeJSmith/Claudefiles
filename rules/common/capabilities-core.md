@@ -22,7 +22,6 @@ tool: claude  # harness-only: skill/command routing tables are Claude-Code dispa
 | "scan issues", "what issues are open", "triage issues", "classify issues by complexity", "assess issue complexity", "find quick wins", "which issues are small", "batch issue assessment" | `/mine-issues-triage` |
 | "brainstorm options", "generate ideas", "explore ideas", "what are our options" | `/mine-brainstorm` |
 | "challenge this", "challenge this design", "challenge this code", "poke holes in this", "what's wrong with this approach", "ask the critics", "see what the critics say", "run it by the critics" | `/mine-challenge` |
-| "close gaps in this design", "fill gaps in the spec", "lightweight design review", "gap-close this doc", "completeness review" | `/mine-gap-close` |
 | "comb this", "fine-toothed comb", "comb this brief", "comb this design", "go over this with a fine-toothed comb", "comb the implementation against the design", "check this for consistency", "is this design consistent and complete" | `/mine-comb` |
 | "debug this", "investigate this failure", "systematic debugging", "why is this failing", "stop retrying and investigate" | `/mine-debug` |
 | "audit the codebase", "find tech debt", "health check" | `/mine-audit` |
@@ -78,6 +77,7 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "branch diff stats", "what changed on this branch" | `git-branch-diff-stat` |
 | "changed files on this branch", "branch diff file names" | `git-branch-diff-files` |
 | "base branch", "what branch did this come from" | `git-branch-base` |
+| "how far ahead am I", "commits not on main", "commits ahead of main" | `git-branch-ahead` |
 | "am I behind main", "did I forget to pull", "is my branch stale", "behind default branch" | `git-branch-behind` |
 | "detect git platform", "github or ado" | `git-platform` |
 | "validate agent files", "check skill schema" | `agnix-check` |

@@ -1,6 +1,6 @@
 # Findings Fix Loop (Step 12)
 
-**Precondition:** This loop runs when at least one of the Step 8 canonical verdict lines for the code reviewer or integration reviewer has a verdict of WARN or FAIL. A PASS verdict does not trigger the loop regardless of its findings count. The verdict is the reviewer's categorical judgment; the count is metadata. Triggering on count previously caused non-convergence: each re-review found different informational observations, producing a non-zero count on a PASS that burned fixer passes without progress. Treat verdict as authoritative, count as informational. Spec and visual findings do not trigger this loop. A spec WARN routes to the Step 10 WARN loop, a spec FAIL routes to Step 16, and visual findings feed Step 14 directly.
+**Precondition:** This loop runs when at least one of the Step 8 canonical verdict lines for the code reviewer or integration reviewer has a verdict of WARN or FAIL. A PASS verdict does not trigger the loop regardless of its findings count. The verdict is the reviewer's categorical judgment; the count is metadata. Triggering on count previously caused non-convergence: each re-review found different informational observations, producing a non-zero count on a PASS that burned fixer passes without progress. Treat verdict as authoritative, count as informational. Spec and visual findings do not trigger this loop. A spec FAIL routes to the Step 10 spec fix loop, and visual findings feed Step 14 directly.
 
 **Core principle — no cross-agent finding-ID matching:** The defer-vs-unresolved classification that feeds the gate must happen inside a fixer subagent that read the latest review. The orchestrator never reconstructs deferred-vs-unresolved from counts, IDs, or cross-pass comparison. Detection stays with the independent code and integration reviewers; classification stays in one fixer context that has the review in front of it. This mirrors today's orchestrator-as-fixer behavior and is the invariant that keeps the gate faithful across the dispatched-fixer split.
 
@@ -11,6 +11,8 @@
 
 Each fixer dispatch is a single pass — do not loop inside the fixer subagent itself.
 
+**Telemetry:** Every subagent prompt in this loop (fixers and re-reviewers) must include `cfl_dispatch_id: <dispatch_id>` (the ID from the `cfl dispatch` call that preceded it). This enables automatic token/compaction tracking via a PostToolUse hook.
+
 ## Fixer Subagent
 
 For each pass (normal or classify-mode), dispatch a `general-purpose` subagent with `model: sonnet`.
@@ -18,10 +20,13 @@ For each pass (normal or classify-mode), dispatch a `general-purpose` subagent w
 ### Inputs
 
 Include in the fixer's prompt:
+- `cfl_dispatch_id: <dispatch_id>` (the ID from the preceding `cfl dispatch` call)
 - Path to `<dir>/<task_id>/code-review.md`
 - Path to `<dir>/<task_id>/integration-review.md`
 - Path to the design doc for this task
+- Path to the task spec (`<feature_dir>/tasks/<task_id>.md`) — so the fixer can verify whether findings contradict a task instruction without spelunking
 - The changed-files list (file paths, one per line — pass the list inline, not as a file path)
+- The task scope boundary (same block passed to reviewers in Step 8 — remaining task IDs, titles, and target files)
 
 Pass review and design doc as **paths** so the fixer reads them in its own ephemeral context. Do not pass file contents into the orchestrator's context.
 
@@ -34,6 +39,7 @@ The fixer prompt must include:
 > **For each finding (CRITICAL, HIGH, MEDIUM, LOW — all severities):**
 > - **Auto-fix** when the correct solution is unambiguous (clear bugs, missing type annotations, style violations, naming drift, orphaned code, undefined references, simple security issues)
 > - **Defer** when the fix requires architectural judgment or business context
+> - **Defer** when the finding targets code/files explicitly listed in a later task's scope boundary — mark as `deferred(later-task: <task_id>)`
 
 ### Classify-mode pass (budget exhausted, findings remain)
 
@@ -83,8 +89,10 @@ The fixer ends its response with a one-line summary: `fixed: N, deferred: M, unr
    ```
    Re-dispatch the code reviewer and integration reviewer **in parallel** with the `CONCISE-RETURN-MODE` sentinel and output file paths — using the same agent types as Step 8 (`subagent_type: "code-reviewer"` and `subagent_type: "integration-reviewer"`), not `general-purpose`:
    - Each dispatch prompt must contain the **exact literal token** `CONCISE-RETURN-MODE` (verbatim) **and** an output file path — both conditions required to activate concise return (see `verdict-line-format.md`)
+   - Each dispatch prompt must include `cfl_dispatch_id: <dispatch_id>` (the ID from its preceding `cfl dispatch` call)
    - Output paths: `<dir>/<task_id>/code-review.md` and `<dir>/<task_id>/integration-review.md` (overwrite)
    - Pass the refreshed changed-files list in each dispatch
+   - Pass the same "Task scope boundary" block used in Step 8 (remaining task IDs, titles, targets)
    After both reviewers complete:
    ```bash
    cfl dispatch end <code_reviewer_dispatch_id>
@@ -98,7 +106,7 @@ The fixer ends its response with a one-line summary: `fixed: N, deferred: M, unr
 1. Record the fixer dispatch (`cfl dispatch fixer <task_id> --agent-type general-purpose --model sonnet`), capture `dispatch_id`. Dispatch the fixer subagent (normal pass) with the freshened review file paths from the iteration 2 re-review and the updated changed-files list. After completion: `cfl dispatch end <dispatch_id>`.
 2. The fixer writes `<dir>/<task_id>/fix-ledger.md` (overwrites the previous ledger).
 3. Re-capture changed files (same as above). Update `<dir>/<task_id>/changed-files.txt`.
-4. Record dispatches for both re-reviewers (`cfl dispatch code-reviewer/integration-reviewer <task_id>`), capture IDs. Re-dispatch in parallel (same concise dispatch as iteration 2 step 4). After completion: `cfl dispatch end` for each.
+4. Record dispatches for both re-reviewers (`cfl dispatch code-reviewer/integration-reviewer <task_id>`), capture IDs. Re-dispatch in parallel (same concise dispatch as iteration 2 step 4, including the scope boundary block). After completion: `cfl dispatch end <id>` for each.
 5. Extract canonical verdict lines.
 6. **If both reviewers return a PASS verdict → early exit. Skip to the Gate section (terminal state A).** A PASS with informational findings counts as clean.
 

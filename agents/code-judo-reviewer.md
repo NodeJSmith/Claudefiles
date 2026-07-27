@@ -1,6 +1,7 @@
 ---
 name: code-judo-reviewer
 model: sonnet
+effort: medium
 description: Structural simplification reviewer — hunts aggressively for dramatic simplification moves. Advisory reviewer (does not block commits). Complements code-reviewer (correctness), integration-reviewer (fit), and wtf-reviewer (readability).
 tools: ["Read", "Grep", "Glob", "Bash"]
 ---

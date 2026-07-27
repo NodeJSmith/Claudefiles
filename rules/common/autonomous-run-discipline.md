@@ -1,5 +1,5 @@
 ---
-tool: claude, codex, antigravity
+tool: claude, antigravity
 ---
 
 # Autonomous Run Discipline

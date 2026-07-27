@@ -1,6 +1,7 @@
 ---
 name: testing-reality-checker
 model: sonnet  # claude-sonnet-5 as of 2026-07-07 — do not downgrade; pre-ship safety gate
+effort: medium
 description: Adversarial pre-ship gate — defaults to "NEEDS WORK", requires overwhelming visual evidence for production readiness. Uses Playwright MCP for screenshot capture across devices.
 color: red
 emoji: 🧐

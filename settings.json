@@ -1,7 +1,6 @@
 {
   "permissions": {
     "allow": [
-      "Write(//tmp/**)",
       "Edit(//tmp/**)",
       "Bash(cfl:*)",
       "Bash(get-skill-tmpdir:*)",
@@ -47,6 +46,16 @@
             "timeout": 2000
           }
         ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/subagent-model-default.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
+            "timeout": 2000
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -57,12 +66,26 @@
             "type": "command",
             "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/subagent-compaction-check.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
             "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/dispatch-stats.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
+            "timeout": 5000
           }
         ]
       }
     ],
     "PreCompact": [],
     "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/git-session-info.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
+            "timeout": 5000
+          }
+        ]
+      },
       {
         "hooks": [
           {

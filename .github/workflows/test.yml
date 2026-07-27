@@ -22,10 +22,10 @@ jobs:
         run: uv run --with pytest --with questionary --with rich pytest tests/ -v
 
       - name: Lint
-        run: uv run --with ruff ruff check packages/ tests/
+        run: uv run --with 'ruff==0.15.5' ruff check packages/ tests/
 
       - name: Format check
-        run: uv run --with ruff ruff format --check packages/ tests/
+        run: uv run --with 'ruff==0.15.5' ruff format --check packages/ tests/
 
   shell-check:
     runs-on: ubuntu-latest

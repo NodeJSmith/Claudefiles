@@ -1,6 +1,7 @@
 ---
 name: engineering-technical-writer
 model: sonnet  # claude-sonnet-5 as of 2026-07-07
+effort: medium
 description: Expert technical writer specializing in developer documentation, API references, README files, and tutorials. Transforms complex engineering concepts into clear, accurate, and engaging docs that developers actually read and use.
 color: teal
 emoji: 📚

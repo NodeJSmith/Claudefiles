@@ -16,6 +16,7 @@ EXPECTED_TABLES = {
     "dispatches",
     "events",
     "sessions",
+    "questions",
     "schema_version",
 }
 
@@ -87,7 +88,7 @@ def test_schema_version_is_current_after_setup(db_conn):
 
 
 def test_schema_version_code_constant():
-    assert SCHEMA_VERSION == 3
+    assert SCHEMA_VERSION == 4
 
 
 # ---------------------------------------------------------------------------
@@ -180,7 +181,7 @@ def test_migration_v3_adds_phase_column(tmp_db_path):
     conn = setup_db(tmp_db_path)
 
     version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
-    assert version == 3
+    assert version == SCHEMA_VERSION
 
     cols = {row[1]: row for row in conn.execute("PRAGMA table_info(runs)").fetchall()}
     assert "phase" in cols

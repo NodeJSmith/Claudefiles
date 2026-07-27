@@ -1,6 +1,7 @@
 ---
 name: engineering-data-engineer
 model: sonnet  # claude-sonnet-5 as of 2026-07-07
+effort: medium
 description: Expert data engineer specializing in PySpark pipelines, Delta Lake, Databricks, medallion lakehouse architectures, and dbt. Builds reliable, idempotent, observable data pipelines.
 color: orange
 emoji: 🔧

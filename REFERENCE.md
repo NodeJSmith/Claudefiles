@@ -23,7 +23,6 @@ Full component tables for Claudefiles. For context on what each component type d
 | `mine-define` | Proportional discovery + codebase investigation + architecture interrogation → design.md with one sign-off gate |
 | `mine-elevate` | Surfaces upward improvements to a subsystem through three generator lenses (friction/v2, latent peer-adoption, maximalist provocation) — each candidate annotated with cost and the case against, ordered by signal, never filtered. A menu, not a mandate; the inverse of mine-simplify/mine-decompose |
 | `mine-eval-repo` | Evaluate a third-party GitHub repo before adopting it — test coverage, code quality, maintenance health, bus factor |
-| `mine-gap-close` | Conversational completeness review — surveys artifacts against per-type checklists, triages gaps by severity, fills them one question at a time |
 | `mine-grill` | Multi-angle interrogation of a raw idea — product, design, engineering, scope, and adversarial lenses. Produces a brief.md that feeds into /mine-define |
 | `mine-how` | Interactive subsystem explanation — complexity-adaptive walkthroughs grounded in actual code, with mandatory accuracy review |
 | `mine-document` | Durable subsystem explanation — architectural-altitude write-up that survives code churn, anchored to components and flows rather than line numbers |
@@ -78,9 +77,9 @@ Full component tables for Claudefiles. For context on what each component type d
 | `cli-harden` | CLI edge-case hardening — resilience against hostile inputs, signals, terminal quirks, and partial failures |
 | `cli-output` | CLI output design — table formatting, color semantics, verbosity, progress, human vs machine output |
 
-Conversation memory (recall, token insights, resume) now ships as the external
+Conversation memory (recall, resume) now ships as the external
 [`ccrecall`](https://github.com/NodeJSmith/claude-code-recall) plugin (`/ccrecall:ccr-recall`,
-`/ccrecall:ccr-tokens`, `/ccrecall:ccr-resume`) — see [Plugins](#plugins) — not as a Claudefiles bundle.
+`/ccrecall:ccr-resume`) — see [Plugins](#plugins) — not as a Claudefiles bundle.
 
 ## Commands
 
@@ -102,6 +101,7 @@ Conversation memory (recall, token insights, resume) now ships as the external
 | `code-judo-reviewer` | Structural simplification reviewer — hunts aggressively for simplification moves; advisory, does not block commits |
 | `code-reviewer` | Expert code reviewer — PEP 8, type hints, security, performance |
 | `fine-toothed-comb` | Open-ended holistic reviewer — reads an artifact (or an artifact against a reference) as a whole and reports inconsistency, inaccuracy, drift, and thinness a checklist can't catch; classifies findings blocking vs minor |
+| `instruction-quality-reviewer` | Instruction quality reviewer — assesses skill files, rules, and agent prompts against five quality dimensions |
 | `integration-reviewer` | Codebase integration reviewer — duplication, misplacement, convention drift, orphaned code, design violations |
 | `issue-refiner` | Enrich GitHub issues with acceptance criteria, edge cases, technical considerations, and NFRs |
 | `lazy-checker` | Deferred-debt reviewer — flags lazy code patterns, deferred decisions, and shortcuts that accumulate into real debt |
@@ -109,6 +109,7 @@ Conversation memory (recall, token insights, resume) now ships as the external
 | `nitpicker` | Hyper-critical style reviewer — flags magic numbers, scattered constants, nested ternaries, dead code, and naming inconsistencies with no severity filter |
 | `researcher` | Autonomous codebase research and feasibility analysis with parallel subagents and web research |
 | `secrets-auditor` | Read-only credential scanner — scans staged diff and working tree for secrets, tokens, and credentials |
+| `writing-quality-reviewer` | Writing quality reviewer for instruction files — detects AI prose patterns, voice issues, and mechanical writing |
 | `wtf-reviewer` | Readability and maintainability reviewer — finds code that works but will confuse a developer reading it a month from now |
 
 ### Engineering Specialists — Engineering bundle
@@ -138,7 +139,7 @@ Coding guidelines in `rules/common/` that load automatically and shape how Claud
 | Category | Installer key | Rule files |
 |----------|---------------|-----------|
 | Core (always installed) | — | `capabilities-core`, `interaction`, `invariants`, `performance`, `worktrees` |
-| Code structure & style | `style` | `coding-style`, `reader-load`, `laziness-protocol`, `subtract-first`, `redesign-from-first-principles`, `refactoring-discipline` |
+| Code structure & style | `style` | `coding-style`, `reader-load`, `laziness-protocol`, `subtract-first`, `redesign-from-first-principles`, `refactoring-discipline`, `model-the-domain` |
 | Languages | `languages` | `python` |
 | Git workflow | `workflow` | `commit-conventions`, `git-workflow`, `sequence-verifiable-units` |
 | Planning & execution | `planning` | `decomposition-discipline`, `outcome-oriented-execution`, `autonomous-run-discipline`, `pause-safely`, `exhaust-the-design-space`, `experience-first`, `build-the-lever`, `encode-lessons-in-structure` |
@@ -147,8 +148,6 @@ Coding guidelines in `rules/common/` that load automatically and shape how Claud
 | Environment & tooling | `environment` | `bash-tools`, `command-output`, `sudo`, `tmux` |
 
 Deselecting a category whose rules are referenced by a kept rule prints a warning but does not block — the references are prose pointers, not requirements.
-
-**Codex disposition.** Each rule's `tool:` frontmatter lists which assistants it applies to (`tool: claude, codex, antigravity` for portable rules; `tool: claude` for Claude-Code-harness-specific ones — capabilities routing, the review-agent gate, and the bash-tools/command-output/sudo/tmux/worktrees/git-workflow helpers). `codex-rules-sync` includes a rule in the global `~/.codex/AGENTS.md` only when its list contains `codex`; the default is fail-closed (no `tool:` key → Claude-only). For the current breakdown, run `codex-rules-sync --list` — the frontmatter is the single source of truth.
 
 Optional bundle capabilities files (install with their bundle): `capabilities-impeccable.md` (Frontend), `capabilities-cli.md` (CLI).
 
@@ -175,10 +174,13 @@ Event-driven scripts that run before/after tool calls.
 
 | Hook | Event | Description |
 |------|-------|-------------|
+| `git-session-info.sh` | SessionStart | Display git context — worktree, branch, default branch, ahead/behind. Override default branch with `CLAUDE_GIT_DEFAULT_BRANCH` |
 | `tmux-remind.sh` | SessionStart | Reminds Claude to rename the tmux session |
 | `project-meta-prompt.sh` | SessionStart | Prompts to fill project context metadata (audience, developers, data-sensitivity) in CLAUDE.md — escalating deferral with suppression option |
 | `sudo-poll.sh` | PreToolUse (Bash) | Deny-then-poll for sudo — detects cached credentials or waits 30s for user to `sudo -v` in another pane |
+| `dispatch-stats.sh` | PostToolUse (Agent) | Write telemetry sidecar (tokens, compactions, JSONL path) keyed by `cfl_dispatch_id` extracted from the subagent prompt — auto-reaps files >1h old |
 | `subagent-compaction-check.sh` | PostToolUse (Agent) | Detect subagent context compaction — warns the orchestrator when a subagent hit its context window limit mid-task |
+| `subagent-model-default.sh` | PreToolUse (Agent) | Enforce model defaults on Agent dispatches — injects `model: sonnet` for built-in types lacking frontmatter, logs to `~/.local/share/claudefiles/model-overrides.jsonl` |
 | `tmux-drift-check.sh` | PreToolUse (*) | Periodically remind Claude to verify tmux session name alignment with current work (every 30 calls) |
 | `secrets-check.sh` | Git pre-commit | Block commits containing secrets, tokens, or dangerous files — 44 patterns (29 regex + 15 filename), truncated output, `SKIP_SECRETS_CHECK=1` override |
 
@@ -192,7 +194,7 @@ Third-party Claude Code plugins pre-configured via `extraKnownMarketplaces` and 
 
 | Plugin | Marketplace | Description |
 |--------|-------------|-------------|
-| `ccrecall` | `claude-code-recall` (`NodeJSmith/claude-code-recall`) | Conversation memory — session DB + recall/resume/token-insights skills (`/ccrecall:ccr-recall`, `/ccrecall:ccr-resume`, `/ccrecall:ccr-tokens`) and the SessionStart/SessionEnd/Stop memory hooks. Requires the `ccrecall` PyPI package (installed by `install.py`) for its hook binaries and CLI. |
+| `ccrecall` | `claude-code-recall` (`NodeJSmith/claude-code-recall`) | Conversation memory — session DB + recall/resume skills (`/ccrecall:ccr-recall`, `/ccrecall:ccr-resume`) and the SessionStart/SessionEnd/Stop memory hooks. Requires the `ccrecall` PyPI package (installed by `install.py`) for its hook binaries and CLI. |
 
 To add a plugin: add its marketplace to `extraKnownMarketplaces` and enable it in `enabledPlugins` in `settings.json`, then document it here and in ONBOARDING.md.
 
@@ -215,14 +217,15 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `gh-pr-resolve-thread` | Resolve one or more PR review threads by GraphQL ID |
 | `gh-pr-threads` | List everything on a PR needing a response — inline threads plus review-summary findings and conversation comments (CodeRabbit out-of-diff comments included; status noise filtered). `--json` emits `{pr, threads, reviewComments, issueComments}`; `--all` includes resolved threads; paginated |
 | `git-branch-base` | Print the base ref for the current branch — closest remote branch, with default branch fallback |
-| `git-branch-behind` | Report how many commits the branch is behind the default branch (forgot-to-pull pre-flight); fetches origin with a timeout, degrades offline. Depends on `git-default-branch` |
+| `git-branch-ahead` | Report how many commits the branch is ahead of the default branch (commits unique to this branch); fetches origin with a timeout, degrades offline. Mirror of `git-branch-behind`. Depends on `git-default-branch`, or pass `--default <branch>` to skip that resolution |
+| `git-branch-behind` | Report how many commits the branch is behind the default branch (forgot-to-pull pre-flight); fetches origin with a timeout, degrades offline. Depends on `git-default-branch`, or pass `--default <branch>` to skip that resolution |
 | `git-branch-diff-files` | Print changed file names for current branch vs its base (uses git-branch-base) |
 | `git-branch-diff-stat` | Print `git diff --stat` for current branch vs its base (uses git-branch-base) |
 | `git-branch-log` | Print `git log --oneline` for current branch vs its base (uses git-branch-base) |
 | `git-default-branch` | Print the default branch name for the current repo |
 | `git-platform` | Detect git hosting platform (`github`, `ado`, or `unknown`) from remote URL |
-| `cfl` | Orchestration state store CLI backed by a durable SQLite DB (`~/.local/share/claudefiles/cfl.db`). Replaces `spec-helper` and `trail-log`. Subcommands: `spec init/validate/status/set-status/next-number` (spec lifecycle), `run start/status/complete/stop/resume/advance-phase` (run lifecycle), `task start/update/verdict/block` (task state), `gate` (record gate results), `dispatch`/`dispatch end` (record subagent dispatches), `event` (append to audit trail), `session end/compacted` (session lifecycle hooks), `archive` (archive completed specs), `set` (direct field access for crash recovery). JSON output by default; `--text` for human-readable. |
-| `codex-rules-sync` | Generates the global Codex `~/.codex/AGENTS.md` from `rules/common/*.md`, concatenating the rules whose `tool:` frontmatter lists `codex`. `--list` prints the include/exclude breakdown without writing. Run by `install.py` after the symlink phase; skips silently if Codex isn't installed |
+| `cfl` | Orchestration state store CLI backed by a durable SQLite DB (`~/.local/share/claudefiles/cfl.db`). Replaces `spec-helper` and `trail-log`. Subcommands: `spec init/adopt/validate/status/set-status/next-number` (spec lifecycle), `run start/status/complete/stop/resume/advance-phase` (run lifecycle), `task start/update/verdict/block` (task state), `gate` (record gate results), `dispatch`/`dispatch end` (record subagent dispatches), `event` (append to audit trail), `session end/compacted` (session lifecycle hooks), `archive` (archive completed specs), `set` (direct field access for crash recovery). JSON output by default; `--text` for human-readable. |
+| `opencode-sync` | Syncs Claudefiles config to OpenCode (`~/.config/opencode`) via OpenPackage (`opkg`). Stages a clean copy, runs `opkg install --platforms opencode`, then remaps Claude model names to OpenAI equivalents and strips Claude-specific color fields. Records the synced commit SHA; `--check` reports whether a re-sync is needed (exit 0=current, 1=stale). `--dry-run`, `--verbose`, `--allow-worktree`, `--check`. Not wired into `install.py` — intended to be called from Dotfiles |
 | `lint-agent-models` | Agent registry drift lint — checks every `agents/*.md` is listed in performance.md (with matching model) and registered in an install.py bundle, so no agent ships uninstalled |
 | `lint-cli-conventions` | Drift prevention lint — verifies `--help` handling in bin/ scripts and capabilities-core.md CLI Tools sync |
 | `lint-verdict-line` | Reviewer verdict-line conformance lint — reads the four mine-orchestrate reviewer files and verifies each specifies the canonical `**Verdict:**` line (with `(findings: N)` for code/integration, without for spec/visual), and rejects stale verdict vocabulary in active review contracts so CFL-aligned verdicts do not drift |

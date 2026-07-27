@@ -34,7 +34,7 @@ If $ARGUMENTS is empty:
 Glob: design/specs/*/design.md
 ```
 
-Sort by modification time, take the most recent. Then confirm:
+Sort by modification time, take the most recent. Then confirm (topic: `design-doc`):
 
 ```
 AskUserQuestion:
@@ -98,6 +98,10 @@ cfl run start --phase plan --base-commit $(git rev-parse --short HEAD) --spec <s
 cfl event plan.started --spec <spec_number>
 ```
 
+### Record design doc selection
+
+Record (skip if $ARGUMENTS was provided directly, or if cfl tracking is inactive): `cfl question mine-plan design-doc --status <asked|skipped> --answer "<selected option>" --spec <spec_number>`
+
 ---
 
 ## Phase 1: Read the Design Doc
@@ -112,7 +116,7 @@ Read the doc fully. Extract and record:
 - **Impact / Changed Files** — modules and files named in the design (under the `### Changed Files` subsection of `## Impact`). Also note any `### Behavioral Invariants` — existing behaviors that must not change.
 - **Replacement Targets** — code or patterns being intentionally replaced (if section exists). Tasks should remove or migrate these, not preserve them alongside new code.
 - **Open questions** — collect any that are non-empty
-- **Test Strategy** — testing approach, structured as three subsections: `### Existing Tests to Adapt` (test files that will break), `### New Test Coverage` (behaviors needing tests, mapped to FR#N), and `### Tests to Remove` (obsolete tests). If the design doc's Test Strategy states N/A (no test infrastructure), tasks should use "N/A — no test infrastructure in this repo" for their Verify sections rather than inventing test requirements.
+- **Test Strategy** — testing approach, structured as four subsections: `### Required Test Types` (which testing layers this change needs, with justification and infrastructure gaps), `### Existing Tests to Adapt` (test files that will break), `### New Test Coverage` (behaviors needing tests, mapped to FR#N), and `### Tests to Remove` (obsolete tests). Required Test Types constrains each task's Verify section — a task producing integration-test-worthy changes must include integration tests, not just unit tests. If the design doc's Test Strategy states N/A (no test infrastructure), tasks should use "N/A — no test infrastructure in this repo" for their Verify sections rather than inventing test requirements.
 - **Numbered FRs** — every functional requirement with identifier format `FR#N` (e.g., `FR#1`, `FR#13`). Record the complete list of FR identifiers.
 - **Numbered ACs** — every acceptance criterion with identifier format `AC#N` (e.g., `AC#1`, `AC#19`). Record the complete list of AC identifiers.
 - **Visual Artifacts** — any mockup paths, screenshot references, or linked visual assets mentioned in the doc.
@@ -144,7 +148,13 @@ AskUserQuestion:
       description: "Exit now so you can revise the doc before generating tasks"
 ```
 
-3. **Record the decision** — after the user answers, note it (e.g., "Q2 resolved: will use Option B"). If the user selects "Stop", exit immediately.
+3. **Record the decision** — after the user answers, record it immediately (e.g., "Q2 resolved: will use Option B"). If cfl tracking is active, record each question (topic: `open-question`):
+
+```bash
+cfl question mine-plan open-question --status <asked|skipped> --answer "<selected option>" --spec <spec_number>
+```
+
+Where status is `asked` if the user chose an option or skipped the question interactively, and the answer captures which option was selected (including "Skip" or "Stop"). If the user selected "Stop", exit after recording.
 
 After all questions are answered (or skipped), briefly summarize the resolutions before continuing to Phase 2:
 > Resolved open questions: Q1 → Option A, Q2 → Option B, Q3 → skipped. Proceeding to generate task files.
@@ -153,167 +163,13 @@ After all questions are answered (or skipped), briefly summarize the resolutions
 
 ## Phase 2: Explore the Codebase Concretely
 
-**Use Glob, Grep, and Read only — no Bash for exploration.**
-
-Ground the tasks in reality before writing:
-
-1. **Find exact file paths** — for every module, class, or function named in the design, run Glob to get the real path. Record each one.
-
-2. **Locate test infrastructure**
-   - Test directories: `Glob: tests/**/*.py` or equivalent
-   - Fixtures: `Grep: conftest.py`
-   - CI test command: read `.github/workflows/*.yml`, `noxfile.py`, `tox.ini`, or `Makefile` (whichever applies)
-
-3. **Find existing patterns to follow**
-   - Naming conventions (read 2–3 similar files)
-   - Module structure (read `__init__.py` or index files)
-   - Abstractions already in use
-
-4. **Note gotchas**
-   - Shared state or global singletons
-   - Circular import risks
-   - Files imported by many modules (high blast radius)
-
-5. **Reverse-dependency gap check** — search the full codebase for files that depend on what's changing but aren't listed in the design doc's Impact section. This catches dependencies the design doc missed entirely. Skip this step if the design doc has neither an Impact section nor an Architecture / Proposed Approach section.
-
-   **Identify what's changing**: Read the design doc's Architecture section (or Proposed Approach — whichever heading is used). For each sentence that describes adding, modifying, removing, or renaming something, extract the specific identifier — function name, class name, type name, API endpoint, database table, config key, or component name.
-
-   **Search**: Grep the codebase for each identifier. Filter out files already listed in the Impact section — those are known. For each match outside the Impact list, assess whether it represents a genuine dependency that would break or need updating. Classify each gap:
-   - **Tests** — test files that assert on changed behavior, UI structure, or API responses
-   - **Callers** — code that calls functions/methods whose signatures are changing
-   - **Validators/guards** — validation logic or type guards referencing changed values
-   - **CSS/layout** — stylesheets that assume the affected component's DOM structure
-   - **Documentation** — docs or docstrings describing the behavior being changed
-   - **Real-time paths** — WebSocket handlers, event listeners, or polling loops that reference changed modules
-   - **Generated code** — TypeScript types, OpenAPI schemas, or codegen artifacts derived from changed files
-   - **Type aliases** — discriminated unions, re-exports, or barrel files referencing changed types
-   - **SQL views/indexes** — views or indexes on columns being changed
-   - **Data structures** — code assuming the shape of data produced by changed modules
-
-   Skip categories that don't apply to the project (e.g., SQL for a frontend-only repo, CSS for a backend service). Note which categories were searched and which were skipped.
-
-   Record each gap found with: the category, the file path and line, what it depends on, and what would break.
-
-### Present gap-check results
-
-After step 5, if gaps were found, present them grouped by category. Include all gaps in tasks by default — add Focus items to address each one (update the test, fix the caller, regenerate the types, etc.). After Phase 3, update the design.md Impact section with a gap-check comment listing each gap and which task addresses it: `<!-- Gap check [date]: N gaps included — gap1 (file:line) → T02 Focus item 3, gap2 → T03 Focus item 5, ... -->`.
-
-Then briefly summarize what was included so the user can push back on any false positives before committing.
-
-If no gaps were found, report: "Gap check clean — no unlisted dependencies found." Proceed to Phase 3.
-
-Do NOT guess file paths. If Glob returns no match, note it explicitly.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-plan/exploration-protocol.md` and follow it.
 
 ---
 
 ## Phase 3: Write Task Files
 
-### Step 3a: Generate context.md
-
-Before writing task files, generate the master context file at `<feature_dir>/tasks/context.md`. This file provides shared context for all executor subagents.
-
-```markdown
-# Context: <Feature Name>
-
-## Problem & Motivation
-<Synthesized from the design doc's Problem section. What is broken, missing, or needs improvement. Why it matters. 3-6 sentences.>
-
-## Visual Artifacts
-<List every mockup path, screenshot reference, or visual asset mentioned in the design doc. Include the file path and a one-line description of what it depicts. If no visual artifacts exist, write "None.">
-
-## Key Decisions
-<The key architecture decisions and their rationale, drawn from the design doc's Architecture/Proposed Approach section. Numbered list. Include tradeoffs accepted.>
-
-## Constraints & Anti-Patterns
-<Explicit technical or design constraints from the design doc. Things the executor must NOT do. Non-goals. Common mistakes to avoid.>
-
-## Design Doc References
-<Section headings from the design doc that are relevant to this feature, with a one-line description of each. Format: "## Section Name — what it covers".>
-
-## Convention Examples
-<If the design doc has a "Convention Examples" section, copy it here verbatim — these are real code snippets from the codebase that implementers must follow. If the design doc has no Convention Examples section, write "None — no convention examples captured during discovery.">
-```
-
-### Step 3b: Write task files
-
-Decompose the design into tasks (minimum 3). Each task represents a distinct, independently reviewable unit of work that a single executor subagent can complete in one session. Let the design's complexity determine the count — don't artificially constrain it.
-
-**Task sizing rules:**
-- Too small: a single file edit with no design decisions → merge with adjacent task
-- Too large: more than one architectural boundary, or > ~500 lines of new/changed code → split
-- Ideal: one component, one service, one data migration, one integration point
-
-**Task ordering rules:**
-- Tasks that create foundational types/interfaces come first
-- Tasks that implement against those interfaces come later
-- Unit tests must live in the same task as the code they test — never in a separate task
-- Integration tests may live in a subsequent task, but that task must come after all tasks containing the units under test
-- No task may depend on outputs from a task with a higher ID unless explicitly noted in `depends_on`
-
-**FR/AC coverage rule:**
-- Every FR and AC extracted in Phase 1 must appear in at least one task's `implements` field
-- Every item in `implements` must also have a corresponding Verify criterion
-
-### Task file location
-
-Write each task to: `<feature_dir>/tasks/T{NN}-{slug}.md`
-
-Where NN is zero-padded (T01, T02, etc.) and slug is a short kebab-case description derived from the task title.
-
-Example: `tasks/T01-data-model.md`, `tasks/T02-api-endpoints.md`
-
-### Task file format
-
-```markdown
----
-task_id: "T01"
-title: "<imperative description>"
-status: "planned"
-depends_on: []
-implements: ["FR#1", "FR#3", "AC#7"]
----
-
-## Summary
-<Human-readable plain-language description. What this task builds and why. 3-8 lines max.>
-
-## Target Files
-<Required. List every file this task creates, reads, modifies, or deletes — one entry per file, labeled with the change verb. The design's `## Impact → Changed Files` inventory seeds the create/modify/delete entries when present; `read` references (and anything the inventory omits) are derived from Phase 2 codebase exploration.>
-
-- create: `path/to/new_file.py`
-- modify: `path/to/existing_file.py`
-- read: `path/to/reference_file.md`
-- delete: `path/to/removed_file.py`
-
-## Prompt
-<Self-contained instructions. What to build, what files to touch, what patterns to follow. References specific design doc sections and visual artifacts by path. Must be complete enough for a fresh executor subagent with only context.md and this task file.>
-
-## Focus
-<Domain-specific context for this executor. Relevant patterns, gotchas, blast-radius notes from Phase 2 exploration. What to watch out for. Gaps found in the reverse-dependency check that this task addresses.>
-
-## Verify
-<Binary checklist. Each item references a specific FR or AC. Every item in the `implements` field must have a corresponding Verify criterion.>
-- [ ] FR#1: <description of what is verifiable>
-- [ ] FR#3: <description of what is verifiable>
-- [ ] AC#7: <description of what is verifiable>
-```
-
-### Field rules
-
-- **task_id**: Format `T{NN}` zero-padded. Must be unique across all tasks.
-- **title**: Imperative verb phrase ("Add data model for user preferences"). Max 60 chars.
-- **depends_on**: List task IDs this task must wait for (e.g., `["T01"]`). Empty array if none.
-- **implements**: List every FR#N and AC#N this task directly addresses. Must be non-empty. Every listed identifier must also appear in the Verify section.
-- **Summary**: Plain language, no code blocks. What the executor will build and why it matters. 3-8 lines.
-- **Target Files**: Required. One entry per file with a change verb (`create`, `modify`, `read`, `delete`). The design's `## Impact → Changed Files` inventory seeds the create/modify/delete entries when present; `read` references (and anything the inventory omits) come from Phase 2 codebase exploration. Do not leave empty or write "as discussed". File lists matter; counts do not — list every file, even for large mechanical changes.
-- **Prompt**: Self-contained. Name exact file paths (absolute or repo-relative). Reference design doc sections by heading name. Reference visual artifacts by path. Do not say "as discussed" or assume context from earlier phases. Must be completable by a fresh subagent.
-- **Focus**: Ground truth from Phase 2 exploration. Exact file paths, class names, existing patterns to follow, gotchas. What would break if done wrong.
-- **Verify**: Binary checklist only. Each item must start with `- [ ] FR#N:` or `- [ ] AC#N:` followed by a concrete, observable criterion. "The endpoint returns 200" not "the feature works". Every `implements` identifier must have exactly one Verify item.
-
-### Scope rules
-
-- Only implement what is in the design doc's Architecture/Proposed Approach
-- Do NOT include tasks for Non-goals
-- Do NOT include cleanup or "nice to have" work not in the design
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-plan/task-format.md` for the context.md template, task file template, field rules, decomposition rules, and scope rules. Write context.md first, then all T*.md files.
 
 ### Record tasks written
 
@@ -380,7 +236,8 @@ Read the validation report. Then present:
 2. **Coverage summary** — e.g., "22/22 FRs mapped, 10/10 ACs mapped" (counts only — the full matrix is in `.validation-report.md` if needed)
 3. **Coverage gaps** — any FRs/ACs with no implementing task (only the gaps, not the full matrix)
 4. **Contradictions** — any conflicts between task prompts and the design doc
-5. **Warnings** — vague criteria, weak references, format issues
+5. **Non-local criteria** — any Verify items requiring CI, post-merge, or external-pipeline observation (these should not be ACs)
+6. **Warnings** — vague criteria, weak references, format issues
 
 Note the path to `.validation-report.md` so the user can inspect the full traceability matrix if desired.
 
@@ -555,7 +412,7 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply i
 - **`minor_blocks`**: `false` — minor findings are noted for the gate but do not block
 - **`<re_review_instructions>`**: apply the fixes to the design doc and/or task files, then re-run this phase from the top. Restrict task file edits to the same cosmetic-vs-substantive rule as Phase 6's "Approve with suggestions" — substantive task changes require re-running task generation from Phase 2.
 
-The "No findings" path proceeds to Phase 6 silently.
+Phase 6 does not begin until the comb gate resolves. The "No findings" path proceeds to Phase 6 silently.
 
 ---
 
@@ -597,9 +454,17 @@ AskUserQuestion:
       description: "Mark the design as abandoned and stop"
 ```
 
-### Record approval gate
+### Record approval question and gate
 
-After the user's choice above. Skip if cfl tracking is inactive for this run:
+After the user's choice above. Skip all `cfl` calls below if cfl tracking is inactive for this run.
+
+Record the question (topic: `plan-approval`):
+
+```bash
+cfl question mine-plan plan-approval --status asked --answer "<selected option>" --spec <spec_number>
+```
+
+Record the gate:
 
 ```bash
 cfl gate plan-approval --verdict <v> --spec <spec_number>

@@ -30,7 +30,7 @@ The base (pipeline workflow) always installs. On a first install the wizard asks
 
 **Hooks** — event-driven scripts that run before or after tool calls (pytest safety guard, sudo handling, tmux session naming). Background infrastructure you don't think about.
 
-**Plugins** — third-party Claude Code plugins bundled via `settings.json`. These register automatically when settings are merged, so you get them without manual setup. Currently: `ccrecall` (conversation memory — recall, resume, token insights).
+**Plugins** — third-party Claude Code plugins bundled via `settings.json`. These register automatically when settings are merged, so you get them without manual setup. Currently: `ccrecall` (conversation memory — recall, resume).
 
 **Bundles** — use-case packages. The base bundle gives you the pipeline. Optional bundles add capabilities: frontend design, CLI tooling, engineering specialists, and extra planning agents. (Conversation memory used to be a bundle — it's now the `ccrecall` plugin.)
 
@@ -185,8 +185,6 @@ cfl event               # append a free-form event to the audit trail
 **Choosing rule categories** — every rule in `rules/common/` loads into Claude's context each session, so the installer lets you install only the categories you need. A small **Core** set (capabilities routing, interaction style, invariants, agent dispatch, model selection, worktree safety) always installs. Everything else — language conventions, testing discipline, planning rules, and so on — is grouped into opt-out categories: selected by default, but you can drop the ones that don't fit your stack (a Python-only user might skip nothing, a backend-only user might drop frontend rules). Run `uv run install.py --reconfigure` to change the selection. If a rule you keep references one you dropped, the installer warns but installs anyway — the references are pointers, not hard dependencies. See the Rules table in [REFERENCE.md](REFERENCE.md) for the categories and their files.
 
 **Add your own rules** — drop a `.md` file straight into `$CLAUDE_CONFIG_DIR/rules/common/` (defaults to `~/.claude/rules/common/`) and it loads automatically next session, no installer step. If you add it to the repo's `rules/common/` instead (so it's version-controlled), re-run `uv run install.py` to symlink it.
-
-**Codex CLI also gets the rules** — if you run OpenAI Codex CLI on the same machine, `install.py` generates a global `~/.codex/AGENTS.md` from the portable rules (via `codex-rules-sync`), so Codex is governed by the same always-on behavioral rules as Claude Code. Each rule's `tool:` frontmatter decides where it goes: portable rules carry `tool: claude, codex, antigravity`, while Claude-Code-harness-specific ones (skill routing, the code-review gate, tmux/sudo helpers) carry `tool: claude` and are excluded — they'd only mislead a tool that can't act on them. The default is fail-closed (a rule with no `tool:` key stays Claude-only), and the step skips silently if Codex isn't installed. Run `codex-rules-sync --list` to see the breakdown.
 
 **Add your own skills** — `/mine-write-skill` walks you through requirements, drafts the `SKILL.md`, validates a quality checklist, and wires the routing entry. The result lands in `skills/` ready to install.
 

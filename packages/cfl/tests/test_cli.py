@@ -6,7 +6,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from cfl.cli import app, cmd_dispatch_end, handle_event, run_app
+from cfl.cli import (
+    _parse_argv_for_telemetry,
+    app,
+    cmd_dispatch_end,
+    handle_event,
+    run_app,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -24,6 +30,7 @@ def test_app_registers_all_expected_commands():
         "dispatch",
         "event",
         "session",
+        "question",
         "archive",
         "stop-orphans",
         "set",
@@ -166,6 +173,50 @@ def test_dispatch_create_calls_record_dispatch_with_role_and_task_id(monkeypatch
     assert call.args[2] == "executor"  # role
     assert call.kwargs["task_id"] == "T01"
     assert call.kwargs["agent_type"] == "code-reviewer"
+
+
+# ---------------------------------------------------------------------------
+# _parse_argv_for_telemetry: grouped command detection
+# ---------------------------------------------------------------------------
+
+
+def test_parse_argv_groups_known_subcommand():
+    """A grouped command like `spec status` groups the subcommand."""
+    command, positional_args, flags = _parse_argv_for_telemetry(["spec", "status"])
+    assert command == "spec status"
+    assert positional_args == []
+    assert flags == {}
+
+
+def test_parse_argv_question_list_groups_as_subcommand():
+    """`question list` is the one real subcommand of `question` and groups."""
+    command, positional_args, flags = _parse_argv_for_telemetry(
+        ["question", "list", "--skill", "mine-define"]
+    )
+    assert command == "question list"
+    assert positional_args == []
+    assert flags == {"skill": "mine-define"}
+
+
+def test_parse_argv_question_skill_topic_does_not_group():
+    """`question <skill> <topic>` is the recording form — skill must not be
+    treated as a subcommand."""
+    command, positional_args, flags = _parse_argv_for_telemetry(
+        ["question", "mine-define", "scope-mode", "--status", "asked"]
+    )
+    assert command == "question"
+    assert positional_args == ["mine-define", "scope-mode"]
+    assert flags == {"status": "asked"}
+
+
+def test_parse_argv_question_mine_grill_does_not_group():
+    """Regression: `question mine-grill <topic>` previously grouped `mine-grill`
+    as a fake subcommand."""
+    command, positional_args, _ = _parse_argv_for_telemetry(
+        ["question", "mine-grill", "pain-point", "--status", "asked"]
+    )
+    assert command == "question"
+    assert positional_args == ["mine-grill", "pain-point"]
 
 
 def test_dispatch_create_without_task_id_passes_none(monkeypatch):

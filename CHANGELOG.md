@@ -2,16 +2,100 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-07-26
+
+### Added
+
+- `mine-define` now surveys test infrastructure during recon and asks the user to confirm required test layers (unit/integration/E2E) before writing the design doc's Test Strategy, noting any layer the repo can't support as a gap; `mine-plan` threads the confirmed layers into task Verify sections. (#474)
+
+### Changed
+
+- `mine-create-pr` now detects whether the target repo expects a conventional-commit type prefix on PR titles (checking merged PR history, with config-file corroboration as fallback) and requires the prefix when the convention is in use — prevents CI failures in squash-merge repos that generate changelogs from PR titles. (#473)
+
+### Removed
+
+- `mine-gap-close` is removed — folded into `mine-challenge`, which is now the only completeness/quality review path for design docs; `mine-define`'s sign-off gate now offers "Challenge first" instead of "Gap-close first". (#474)
+
+## 2026-07-25
+
+### Added
+
+- New `cfl question` command tracks which `mine-define` and `mine-plan` interview questions were asked vs skipped, and the user's selected answer, in a new `questions` table (schema v4). (#471)
+
+### Changed
+
+- `mine-define` interview questions (scope, edge cases, dependencies, security, rollback, implementation preferences) now propose concrete answers drawn from Phase 1.5 codebase findings for the user to confirm, cut, or correct, instead of asking the user to generate answers from scratch. (#470)
+
+## 2026-07-23
+
+### Added
+
+- New `cfl spec adopt <directory>` command registers a pre-existing spec directory in the DB without creating it on disk — closes the gap where specs created before `cfl` tracking existed had no way to be brought under tracking. (#469)
+
+## 2026-07-22
+
+### Changed
+
+- `mine-orchestrate` spec reviewer now returns binary PASS/FAIL instead of PASS/WARN/FAIL — cosmetic gaps (edge-case test coverage, doc gaps, over-delivery) are noted but no longer block PASS. A new spec fix loop attempts one auto-fix on FAIL before escalating to the user. (#468)
+
+## 2026-07-21
+
+### Added
+
+- New `SessionStart` hook (`git-session-info.sh`) shows worktree, branch, default branch, and ahead/behind status at session start; new `git-branch-ahead` tool reports commits ahead of the default branch, mirroring `git-branch-behind`. (#467)
+
+### Changed
+
+- `mine-review` and `mine-clean-code` now show each finding's proposed fix directly in the presentation table, so "Fix all" is no longer a blind commitment. (#467)
+
+## 2026-07-15
+
+### Added
+
+- New `instruction-quality-reviewer` and `writing-quality-reviewer` agents carry the checklist logic that `mine-review` used to inline, following the comb model where dispatched agents own their own instructions. (#465)
+
+### Changed
+
+- `mine-review` and `mine-clean-code` prompts collapsed to scope-only one-liners now that dispatched agents carry their own checklists — `mine-review` 244 → 101 lines, `mine-clean-code` 264 → 101 lines. (#465)
+
+## 2026-07-13
+
+### Added
+
+- New `model-the-domain` rule in `rules/common/` — encodes reaching for a data structure (state machine, typed object, discriminated union, lookup table) instead of scattering domain logic across conditionals and synced booleans; wired into `install.py`'s `style` category and cross-referenced from `coding-style.md` and `invariants.md`. (#462)
+
+## 2026-07-12
+
+### Added
+
+- New `bin/opencode-sync` script syncs Claudefiles config into OpenCode's `~/.config/opencode` via OpenPackage (`opkg`), remapping Claude model tiers to OpenAI equivalents and stripping Claude-specific fields; not wired into `install.py`, intended for Dotfiles integration. (#459)
+
+### Changed
+
+- `mine-define`, `mine-gap-close`, and `mine-plan` now reject acceptance criteria that require observing CI pipeline status, GitHub Actions output, post-merge behavior, or PR review state — those are process gates, not locally-verifiable ACs, and previously stalled orchestration runs with CONTESTED items an executor has no way to check. (#460)
+- `bin/opencode-sync` gains a `--check` flag that reports whether OpenCode is in sync with the current Claudefiles commit (exit 0=current, 1=stale) without running the full `opkg install` pipeline. (#461)
+
+### Fixed
+
+- `cfl` dispatch telemetry now actually gets recorded — the PostToolUse stats hook keys sidecar files by `cfl_dispatch_id` (embedded in the subagent prompt) instead of `session_id`+`tool_use_id`, since agents can't introspect their own `tool_use_id` at runtime and the old scheme left all telemetry NULL. (#458)
+
 ## 2026-07-11
+
+### Added
+
+- New `PreToolUse` hook (`subagent-model-default.sh`) injects `model: sonnet` on `Agent` dispatches to built-in types (`general-purpose`, `Explore`, `Plan`, `claude`, unspecified) that have no `model:` frontmatter and would otherwise silently inherit the parent session's (often Opus) model; overrides are logged to `~/.local/share/claudefiles/model-overrides.jsonl`. (#453)
 
 ### Changed
 
 - `mine-orchestrate` pipeline — removed the implementation fine-toothed-comb gate (data across 18 runs showed a 0% catch rate after the upstream code-review/integration-review/fixer loop); narrowed the comb's "blocking" definition across `mine-define`/`mine-plan`/`mine-comb` so vague completeness gaps are minor instead of forcing a rework loop. (#452)
+- `install.py` now runs `claude plugin update` on every install when the `ccrecall` plugin is already tracked, instead of skipping — machines pick up marketplace updates automatically. (#453)
+- All Sonnet agent files now declare `effort: medium` in frontmatter, reducing subagent output verbosity while preserving quality; `bin/lint-agent-models` validates the setting alongside `model:`. (#454)
 
 ### Fixed
 
 - `cfl` telemetry — dispatch calls across `mine-orchestrate` now record their model, `session_uuid` is actually persisted, and reviewer verdict lines carry per-severity finding counts instead of a flat total. (#452)
-
+- Removed stale `/ccrecall:ccr-tokens` references from `ONBOARDING.md` and `REFERENCE.md` — that skill was retired but the docs still advertised it. (#453)
+- `sudo-poll.sh` no longer false-positives on remote commands like `ssh host "sudo ..."`; also added a per-command `CLAUDE_SUDO_SKIP=1` prefix to bypass the hook for a single invocation. (#454)
 ## 2026-07-10
 
 ### Added
@@ -19,6 +103,10 @@ All notable changes to this Claudefiles repository are documented here.
 - Project context metadata convention (`audience`, `developers`, `data-sensitivity` in CLAUDE.md frontmatter) to calibrate agent advice to project scale; wired into `mine-challenge` critic dispatch, with a `SessionStart` hook that prompts to fill it in when missing. (#449)
 - `mine-define` Phase 3.5 — blind spot self-assessment surfaces the agent's own uncertainty and known tradeoffs before writing the design doc. (#449)
 - Apply the project context metadata convention to this repo's own CLAUDE.md (`audience: personal tool`, `developers: solo`, `data-sensitivity: internal`), calibrating reviewers and skills to Claudefiles' own solo/personal-tool scope. (#450)
+
+### Fixed
+
+- `mine-create-pr`, `mine-create-issue`, and `mine-mockup` dispatched subagents no longer recursively spawn nested agents — the subagent prompt now explicitly forbids using the Skill tool, since a subagent invoking the parent skill would re-trigger the same dispatch instructions. (#451)
 
 ## 2026-07-08
 

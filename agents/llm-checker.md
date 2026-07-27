@@ -1,6 +1,7 @@
 ---
 name: llm-checker
 model: sonnet
+effort: medium
 description: LLM training-bias pattern detector — finds structural patterns from tutorial/library training data applied to application code. Use for code quality reviews focused on context-blindness and over-engineering. Complements code-reviewer (correctness) and lazy-checker (deferred debt).
 tools: ["Read", "Grep", "Glob", "Bash"]
 ---

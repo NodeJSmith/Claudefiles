@@ -51,6 +51,8 @@ The hook only detects the `sudo` keyword. Other privilege escalation mechanisms 
 
 Set these in your shell profile or a per-machine settings layer — not in the repo's committed `settings.json` (that would disable the hook for all machines).
 
+**Per-command skip:** Prefix a single command with `CLAUDE_SUDO_SKIP=1` to bypass the hook for that invocation only (e.g., `CLAUDE_SUDO_SKIP=1 sudo apt install -y foo`). Unlike the env var form, this does not persist across commands. The hook strips quoted strings before checking, so `CLAUDE_SUDO_SKIP=1` inside quotes (e.g., in an ssh command string) is ignored.
+
 ## Fallback: Script Generation
 
 For complex multi-step operations (5+ sudo commands, phased execution, or when you need a reviewable artifact), generate a script instead. This is the exception, not the default.

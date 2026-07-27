@@ -35,6 +35,7 @@ def run_hook(
         text=True,
         env=env,
         timeout=timeout,
+        check=False,
     )
 
 
@@ -102,6 +103,7 @@ def _run_drift_check(
             capture_output=True,
             text=True,
             env=env,
+            check=False,
         )
     finally:
         if stub_ctx is not None:
@@ -198,6 +200,7 @@ class TestTmuxDriftCheckNoTmux:
             capture_output=True,
             text=True,
             env=env,
+            check=False,
         )
         assert result.returncode == 0
         assert result.stdout.strip() == ""
@@ -215,6 +218,7 @@ class TestTmuxDriftCheckInvalidSessionId:
             capture_output=True,
             text=True,
             env=env,
+            check=False,
         )
         assert result.returncode == 0
         assert result.stdout.strip() == ""
@@ -228,6 +232,7 @@ class TestTmuxDriftCheckInvalidSessionId:
             capture_output=True,
             text=True,
             env=env,
+            check=False,
         )
         assert result.returncode == 0
         assert result.stdout.strip() == ""
@@ -241,6 +246,7 @@ class TestTmuxDriftCheckInvalidSessionId:
             capture_output=True,
             text=True,
             env=env,
+            check=False,
         )
         assert result.returncode == 0
         assert result.stdout.strip() == ""
