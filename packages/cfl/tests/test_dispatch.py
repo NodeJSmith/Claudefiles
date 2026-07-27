@@ -77,7 +77,7 @@ def test_record_dispatch_outputs_json_with_required_fields(db_conn, capsys):
 
 
 def test_record_dispatch_stores_optional_fields(db_conn, capsys):
-    """record_dispatch stores model, gate_id, and routing_reason when provided."""
+    """record_dispatch stores model and gate_id when provided."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
     _insert_task(db_conn, run_id, "T01")
 
@@ -88,7 +88,6 @@ def test_record_dispatch_stores_optional_fields(db_conn, capsys):
         task_id="T01",
         agent_type="code-reviewer",
         model="sonnet",
-        routing_reason="frontend task matched rule",
     )
 
     dispatch = db_conn.execute(
@@ -96,7 +95,6 @@ def test_record_dispatch_stores_optional_fields(db_conn, capsys):
         (run_id,),
     ).fetchone()
     assert dispatch["model"] == "sonnet"
-    assert dispatch["routing_reason"] == "frontend task matched rule"
 
 
 def test_record_dispatch_run_level_no_task_id(db_conn, capsys):
@@ -132,7 +130,6 @@ def test_record_dispatch_emits_task_dispatched_for_task_level(db_conn, capsys):
         "executor",
         task_id="T01",
         agent_type="engineering-frontend-developer",
-        routing_reason="rule matched",
     )
 
     event = db_conn.execute(
@@ -144,7 +141,6 @@ def test_record_dispatch_emits_task_dispatched_for_task_level(db_conn, capsys):
     event_data = json.loads(event["data"])
     assert event_data["role"] == "executor"
     assert event_data["agent_type"] == "engineering-frontend-developer"
-    assert event_data["routing_reason"] == "rule matched"
     assert "dispatch_id" in event_data
 
 

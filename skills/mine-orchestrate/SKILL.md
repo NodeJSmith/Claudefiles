@@ -255,7 +255,7 @@ Before launching the executor, read the task's objective and subtasks to determi
 After selecting the agent type, record the dispatch and capture its ID:
 
 ```bash
-cfl dispatch executor <task_id> --agent-type <selected_agent_type> --model <model from agent frontmatter, or sonnet for general-purpose> --routing-reason "<matched rule or 'default general-purpose'>"
+cfl dispatch executor <task_id> --agent-type <selected_agent_type> --model <model from agent frontmatter, or sonnet for general-purpose>
 ```
 
 Parse `dispatch_id` from the JSON output — it is required for `cfl dispatch end` after the executor returns, and must be included in the subagent prompt for telemetry correlation (see below).
@@ -356,8 +356,10 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/contested-criteria
 For each CONTESTED criterion resolved (accept or reject), emit an event:
 
 ```bash
-cfl event task.contested <task_id> --data '{"criterion": "<criterion text>", "decision": "<accept|reject>", "rationale": "<rationale>"}'
+cfl event task.contested <task_id> --data '{"criterion": "<criterion text>", "decision": "accept", "rationale": "<rationale>"}'
 ```
+
+Use `"decision": "accept"` when the user accepts the criterion as met, `"decision": "reject"` when the user requires it to be satisfied. Always use exactly `accept` or `reject` — do not use variants like `accept_removal` or `defer_to_T02`; put that nuance in the `rationale` field.
 
 ### Step 8: Parallel review pass
 
@@ -477,12 +479,12 @@ Extract each reviewer's canonical verdict line from its report file — do **not
 
 Record these three verdict lines (the extracted text, not the file contents) for use by Steps 12, 13, and 14. If a line is absent from a required reviewer's file, treat that reviewer as failed and re-run it.
 
-Record the three gate results:
+Record the three gate results. For `--detail`, write a one-line summary of what the reviewer found (e.g., "unused import in api.py, missing docstring on public method") — leave empty only when PASS with zero findings:
 
 ```bash
-cfl gate spec-review <task_id> --verdict <PASS|FAIL> --data '{"findings": <N>, "critical": <C>, "high": <H>, "medium": <M>, "low": <L>}'
-cfl gate code-review <task_id> --verdict <PASS|WARN|FAIL> --data '{"findings": <N>, "critical": <C>, "high": <H>, "medium": <M>, "low": <L>}'
-cfl gate integration-review <task_id> --verdict <PASS|WARN|FAIL> --data '{"findings": <N>, "critical": <C>, "high": <H>, "medium": <M>, "low": <L>}'
+cfl gate spec-review <task_id> --verdict <PASS|FAIL> --data '{"findings": <N>, "critical": <C>, "high": <H>, "medium": <M>, "low": <L>}' --detail "<summary>"
+cfl gate code-review <task_id> --verdict <PASS|WARN|FAIL> --data '{"findings": <N>, "critical": <C>, "high": <H>, "medium": <M>, "low": <L>}' --detail "<summary>"
+cfl gate integration-review <task_id> --verdict <PASS|WARN|FAIL> --data '{"findings": <N>, "critical": <C>, "high": <H>, "medium": <M>, "low": <L>}' --detail "<summary>"
 ```
 
 ### Step 9: Test and lint gate
@@ -499,7 +501,7 @@ After the parallel reviews complete (regardless of verdicts), re-run the project
 4. **Compare against baseline when available**: if a valid baseline exists and any test that passed in the baseline now fails, this is a **regression**. Record regressions explicitly in `<dir>/<task_id>/test-gate.md`. If no baseline is available, record that regression detection could not be performed and list current failures as informational only — do not classify them as regressions.
 5. **Record the test result** in the per-task temp directory: `<dir>/<task_id>/test-gate.md` with the command used, whether it came from `test-command.txt` or fallback discovery, output summary, baseline status, and regression list.
 
-**Test verdict impact**: If regressions are detected from a valid baseline comparison (previously-passing tests now fail), the test gate overrides the task verdict to FAIL regardless of other reviewer results — regressions must be fixed before proceeding. Pre-existing test failures (tests that also failed in the baseline) are informational and do not block. If no baseline is available, do not fail the task on regression grounds alone.
+**Test verdict impact**: If regressions are detected from a valid baseline comparison (previously-passing tests now fail), check whether all regressing tests are in files owned by a later task (compare failing test file paths against the `target_files` in subsequent task files). If **all** regressions are downstream-scoped, the test gate is **WARN** (not FAIL) — record `"note": "all N regressions scoped to <task_ids>"` in the gate data and skip the fixer cycle for these regressions. They will be resolved when the owning task executes. If **any** regression is in a file owned by the current or a prior task, the test gate is **FAIL** and the fixer cycle runs as normal. Pre-existing test failures (tests that also failed in the baseline) are informational and do not block. If no baseline is available, do not fail the task on regression grounds alone.
 
 #### Lint gate
 

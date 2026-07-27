@@ -271,25 +271,7 @@ If PASS (with or without warnings), proceed to Phase 4 automatically.
 
 ## Phase 4: Commit Task Files
 
-After the validation gate passes, run schema validation (frontmatter fields, ID format, dependency references — complementary to Phase 3.5's traceability check). Skip this validation step (and its gate below) if cfl tracking is inactive for this run — `cfl spec validate` requires a DB row for the spec regardless of `--spec`, so there is no workaround for a spec that predates cfl tracking; proceed directly to committing below.
-
-```bash
-cfl spec validate --spec <spec_number>
-```
-
-If validation reports errors, fix the task files before committing. Warnings are informational — do not block on them.
-
-### Record spec-validate gate
-
-Skip if cfl tracking is inactive for this run:
-
-```bash
-cfl gate plan-spec-validate --verdict <v> --spec <spec_number>
-```
-
-Verdict mapping: clean output → PASS, warnings → WARN, errors → FAIL.
-
-Then commit:
+After the validation gate passes, commit the task files:
 
 ```bash
 git add design/specs/<feature>/tasks/
@@ -402,7 +384,7 @@ cfl dispatch end <dispatch_id>
 cfl gate plan-comb --verdict <v> --spec <spec_number> --data '{"blocking": <N>, "minor": <M>}'
 ```
 
-Verdict mapping: no findings → PASS, minor findings accepted → WARN, blocking findings → FAIL.
+Verdict mapping — apply mechanically from the `blocking` count in the comb's summary, do not downgrade based on your own severity assessment: `blocking` = 0 and no minor → PASS, `blocking` = 0 and minor > 0 → WARN, `blocking` > 0 → FAIL.
 
 ### Comb gate
 

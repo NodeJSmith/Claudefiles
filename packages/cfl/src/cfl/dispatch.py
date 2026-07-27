@@ -25,7 +25,6 @@ def record_dispatch(
     agent_type: str,
     model: str | None = None,
     gate_id: int | None = None,
-    routing_reason: str | None = None,
 ) -> None:
     """Record a subagent dispatch.
 
@@ -38,8 +37,8 @@ def record_dispatch(
     try:
         cursor = conn.execute(
             """INSERT INTO dispatches
-               (run_id, task_id, gate_id, role, agent_type, model, routing_reason, session_uuid, dispatched_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+               (run_id, task_id, gate_id, role, agent_type, model, session_uuid, dispatched_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
             (
                 run_id,
                 task_id,
@@ -47,7 +46,6 @@ def record_dispatch(
                 role,
                 agent_type,
                 model,
-                routing_reason,
                 session_uuid,
             ),
         )
@@ -58,7 +56,6 @@ def record_dispatch(
             {
                 "role": role,
                 "agent_type": agent_type,
-                "routing_reason": routing_reason,
                 "dispatch_id": dispatch_id,
             }
         )

@@ -549,10 +549,6 @@ def cmd_dispatch(
             name=["--gate-id"], help="Gate this dispatch serves (NULL for executor)"
         ),
     ] = None,
-    routing_reason: Annotated[
-        str | None,
-        Parameter(name=["--routing-reason"], help="Why this agent type was selected"),
-    ] = None,
 ) -> None:
     """Record a subagent dispatch."""
     with db_connection() as conn:
@@ -565,7 +561,6 @@ def cmd_dispatch(
             agent_type=agent_type,
             model=model,
             gate_id=gate_id,
-            routing_reason=routing_reason,
         )
 
 
