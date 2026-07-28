@@ -145,6 +145,14 @@ Either `cfl run start` or `cfl run advance-phase orchestrate` reads task files f
 
 The active run is resolved from the DB for all subsequent `cfl` calls — no path argument required.
 
+### Snapshot plan metadata
+
+After the run is started or advanced (including resume — the command is idempotent), capture structured metadata from the design doc and task files. This records FR/AC text, task dependencies, target files, and verify criteria counts — a one-time snapshot of the plan before execution begins. Skip if cfl tracking is inactive.
+
+```bash
+cfl run snapshot --spec <spec_number>
+```
+
 ---
 
 ## Phase 1: Parse Tasks and Select Start Point

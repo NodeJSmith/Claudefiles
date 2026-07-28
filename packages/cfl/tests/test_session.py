@@ -75,7 +75,7 @@ def test_auto_join_creates_session_row(spec_and_run, db_conn, monkeypatch):
     """When CLAUDE_CODE_SESSION_ID is set, inserts a sessions row."""
     _, run_id = spec_and_run
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "ses-test-abc")
-    monkeypatch.delenv("CLAUDE_MODEL", raising=False)
+    monkeypatch.delenv("ANTHROPIC_MODEL", raising=False)
 
     result = auto_join_session(db_conn, run_id)
 

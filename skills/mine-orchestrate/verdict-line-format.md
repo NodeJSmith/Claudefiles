@@ -44,7 +44,8 @@ Consumers take the **last line matching** `^\*\*Verdict:\*\*` in the reviewer's 
 
 Parsing is per-reviewer-type:
 
-- Code/integration/spec: last line matching `^\*\*Verdict:\*\*` and containing `(findings:` — extract verdict word, N, and per-severity counts C/H/M/L
+- Code/integration: last line matching `^\*\*Verdict:\*\*` and containing `(findings:` — extract verdict word, N, and per-severity counts C/H/M/L
+- Spec: last line matching `^\*\*Verdict:\*\*` — extract PASS / FAIL
 - Visual: last line matching `^\*\*Verdict:\*\*` — extract PASS / WARN / FAIL
 
 ## Concise-Return Mode

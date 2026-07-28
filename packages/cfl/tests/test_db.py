@@ -88,7 +88,7 @@ def test_schema_version_is_current_after_setup(db_conn):
 
 
 def test_schema_version_code_constant():
-    assert SCHEMA_VERSION == 4
+    assert SCHEMA_VERSION == 5
 
 
 # ---------------------------------------------------------------------------

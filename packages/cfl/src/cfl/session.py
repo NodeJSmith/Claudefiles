@@ -71,7 +71,7 @@ def read_model(session_id: str | None = None) -> str | None:
 def auto_join_session(conn: sqlite3.Connection, run_id: int | None) -> str | None:
     """Register the current Claude Code session for this run.
 
-    Reads $CLAUDE_CODE_SESSION_ID and $CLAUDE_MODEL from the environment.
+    Reads $CLAUDE_CODE_SESSION_ID from the environment and resolves the model via read_model().
     Idempotent — second call for the same (run_id, session_id) is a no-op via INSERT OR IGNORE.
     Returns session_id if registered, None if CLAUDE_CODE_SESSION_ID is not set or run_id is None.
     """

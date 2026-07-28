@@ -23,7 +23,7 @@ AskUserQuestion:
   header: "Problem"
 ```
 
-After the user answers (or if skipped because the problem was already clear), record: `cfl question mine-define problem --status <asked|skipped> [--answer "<summary>"] --spec <spec_number>`
+After the user answers (or if skipped because the problem was already clear), proceed to the next question.
 
 2. **Success definition** (topic: `success`):
 
@@ -129,7 +129,7 @@ AskUserQuestion:
   header: "[<mode>] Security"
 ```
 
-Record (or skipped if not complex): `cfl question mine-define security --status <asked|skipped> [--answer "<summary>"] --spec <spec_number>`
+Proceed to the next question.
 
 8. **Performance** (topic: `perf`):
 
@@ -274,7 +274,7 @@ The user's answer becomes the spec. When the call-site ergonomics conflict with 
 
 If the user already provided call-site examples during discovery (e.g., in their problem description or flow walkthrough), skip this step and note: "Using the call sites you described earlier as the design anchor."
 
-Record (or skipped if not an API design): `cfl question mine-define caller-view --status <asked|skipped> [--answer "<summary>"] --spec <spec_number>`
+Proceed to existing code leverage.
 
 ## Existing code leverage (moderate+ only)
 

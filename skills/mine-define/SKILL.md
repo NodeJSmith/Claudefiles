@@ -260,7 +260,7 @@ Phase 6 does not begin until the comb gate resolves. The "No findings" path proc
 
 ## Phase 6: Sign-Off Gate
 
-Present the design doc path followed by the quality checklist results, then:
+Present the design doc path, then:
 
 ```
 AskUserQuestion:

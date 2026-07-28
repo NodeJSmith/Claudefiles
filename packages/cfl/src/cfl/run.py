@@ -12,8 +12,8 @@ Implements:
 import json
 import os
 import re
-import stat
 import sqlite3
+import stat
 import subprocess
 from pathlib import Path
 
@@ -646,7 +646,7 @@ def _discover_tasks(feature_dir: str) -> list[dict]:
             )
         tasks.append({"task_id": str(task_id), "title": str(title)})
 
-    tasks.sort(key=lambda t: _task_id_sort_key(t["task_id"]))
+    tasks.sort(key=lambda t: task_id_sort_key(t["task_id"]))
     return tasks
 
 
@@ -695,7 +695,7 @@ def _insert_task_rows(conn: sqlite3.Connection, run_id: int, tasks: list[dict]) 
         )
 
 
-def _task_id_sort_key(task_id: str) -> int:
+def task_id_sort_key(task_id: str) -> int:
     """Extract numeric portion of task_id for natural sort (T01→1, T10→10)."""
     m = re.match(r"T(\d+)", task_id, re.IGNORECASE)
     return int(m.group(1)) if m else 0

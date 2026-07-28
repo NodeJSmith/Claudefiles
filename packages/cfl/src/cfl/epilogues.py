@@ -103,7 +103,7 @@ DISPATCH = """\
 Examples:
   cfl dispatch executor T01 --agent-type engineering-backend-developer --model sonnet
   cfl dispatch reviewer T01 --agent-type code-reviewer --gate-id 5
-  cfl dispatch reviewer --agent-type integration-reviewer --routing-reason "Phase 3"
+  cfl dispatch reviewer --agent-type integration-reviewer --gate-id 3
 """
 
 DISPATCH_END = """\

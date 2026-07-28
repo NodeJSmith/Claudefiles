@@ -36,6 +36,7 @@ from cfl.run import (
     stop_orphans,
 )
 from cfl.session import SESSION_ID_ENV_VAR, end_session, record_compaction
+from cfl.snapshot import snapshot_plan
 from cfl.spec import (
     SETTABLE_STATUSES,
     spec_adopt,
@@ -383,6 +384,14 @@ def cmd_run_advance_phase(
             visual_mode=visual_mode,
             dev_server_url=dev_server_url,
         )
+
+
+@run_app.command(name="snapshot")
+def cmd_run_snapshot() -> None:
+    """Snapshot plan metadata (design doc + task files) for the active run."""
+    with db_connection() as conn:
+        ctx = resolve_context(conn, spec_override=_spec_override)
+        snapshot_plan(conn, ctx["active_run_id"], ctx["feature_dir"])
 
 
 # ---------------------------------------------------------------------------
