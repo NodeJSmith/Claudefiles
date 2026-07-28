@@ -556,8 +556,11 @@ def test_run_start_ac12_task_count_in_db(db_conn, tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_run_start_phase_define_skips_task_discovery(db_conn, tmp_path, capsys):
-    """run_start(phase='define') skips task discovery even with no task files."""
+@pytest.mark.parametrize("phase", ["sketch", "define", "plan"])
+def test_run_start_non_orchestrate_phase_skips_task_discovery(
+    phase, db_conn, tmp_path, capsys
+):
+    """run_start(phase=<non-orchestrate>) skips task discovery even with no task files."""
     spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
     # No task files created at all — an orchestrate-phase start would error.
 
@@ -565,7 +568,7 @@ def test_run_start_phase_define_skips_task_discovery(db_conn, tmp_path, capsys):
         db_conn,
         spec_id,
         feature_dir(tmp_path, 1, "my-feature"),
-        phase="define",
+        phase=phase,
         base_commit="abc",
     )
 
@@ -575,31 +578,7 @@ def test_run_start_phase_define_skips_task_discovery(db_conn, tmp_path, capsys):
     run_row = db_conn.execute(
         "SELECT phase FROM runs WHERE spec_id=?", (spec_id,)
     ).fetchone()
-    assert run_row["phase"] == "define"
-
-    task_count = db_conn.execute("SELECT COUNT(*) AS cnt FROM tasks").fetchone()["cnt"]
-    assert task_count == 0
-
-
-def test_run_start_phase_sketch_skips_task_discovery(db_conn, tmp_path, capsys):
-    """run_start(phase='sketch') skips task discovery even with no task files."""
-    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
-
-    run_start(
-        db_conn,
-        spec_id,
-        feature_dir(tmp_path, 1, "my-feature"),
-        phase="sketch",
-        base_commit="abc",
-    )
-
-    data = json.loads(capsys.readouterr().out)
-    assert data["task_count"] == 0
-
-    run_row = db_conn.execute(
-        "SELECT phase FROM runs WHERE spec_id=?", (spec_id,)
-    ).fetchone()
-    assert run_row["phase"] == "sketch"
+    assert run_row["phase"] == phase
 
     task_count = db_conn.execute("SELECT COUNT(*) AS cnt FROM tasks").fetchone()["cnt"]
     assert task_count == 0
@@ -639,31 +618,6 @@ def test_run_advance_phase_sketch_to_orchestrate(db_conn, tmp_path, capsys):
         "SELECT COUNT(*) AS cnt FROM tasks WHERE run_id=?", (run_id,)
     ).fetchone()["cnt"]
     assert count == 2
-
-
-def test_run_start_phase_plan_skips_task_discovery(db_conn, tmp_path, capsys):
-    """run_start(phase='plan') skips task discovery even with no task files."""
-    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
-    # No task files created at all — an orchestrate-phase start would error.
-
-    run_start(
-        db_conn,
-        spec_id,
-        feature_dir(tmp_path, 1, "my-feature"),
-        phase="plan",
-        base_commit="abc",
-    )
-
-    data = json.loads(capsys.readouterr().out)
-    assert data["task_count"] == 0
-
-    run_row = db_conn.execute(
-        "SELECT phase FROM runs WHERE spec_id=?", (spec_id,)
-    ).fetchone()
-    assert run_row["phase"] == "plan"
-
-    task_count = db_conn.execute("SELECT COUNT(*) AS cnt FROM tasks").fetchone()["cnt"]
-    assert task_count == 0
 
 
 def test_run_start_default_phase_orchestrate(db_conn, tmp_path, capsys):
