@@ -312,7 +312,7 @@ On Revise, Save-and-stop, or Challenge, do **not** run the `cfl event` command a
 
 Invoke: `/mine-challenge <design-doc-path>`
 
-After challenge completes (it resolves findings inline as a standalone caller), re-run Phase 5 (quality validation) against the potentially modified design doc, then loop back to the sign-off gate above with refreshed results.
+After challenge completes (it resolves findings inline as a standalone caller), re-run Phase 5 (Fine-Toothed Comb Review) against the potentially modified design doc, then loop back to the sign-off gate above with refreshed results.
 
 ### On "Approve"
 
@@ -342,7 +342,7 @@ If "Yes": invoke `/mine-plan <feature_dir>` directly.
 
 Record the sign-off gate with verdict `WARN` (see "Record sign-off gate" above — no event emitted).
 
-Ask what to change. Apply the edits to the design doc. Re-run the quality validation. Present for sign-off again.
+Ask what to change. Apply the edits to the design doc. Re-run the Fine-Toothed Comb Review. Present for sign-off again.
 
 ### On "Save and stop"
 

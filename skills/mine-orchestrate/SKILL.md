@@ -481,7 +481,7 @@ cfl dispatch end <integration_reviewer_dispatch_id>
 
 Extract each reviewer's canonical verdict line from its report file — do **not** read the report bodies:
 
-- Spec: Grep `<dir>/<task_id>/spec-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract PASS / FAIL, the total findings count N, and per-severity counts (critical: C, high: H, medium: M, low: L) from the parenthetical
+- Spec: Grep `<dir>/<task_id>/spec-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract PASS / FAIL
 - Code: Grep `<dir>/<task_id>/code-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract PASS / WARN / FAIL, the total findings count N, and per-severity counts (critical: C, high: H, medium: M, low: L) from the parenthetical
 - Integration: Grep `<dir>/<task_id>/integration-review.md` for the last line matching `^\*\*Verdict:\*\*` — extract the same fields
 
@@ -490,7 +490,7 @@ Record these three verdict lines (the extracted text, not the file contents) for
 Record the three gate results. For `--detail`, write a one-line summary of what the reviewer found (e.g., "unused import in api.py, missing docstring on public method") — leave empty only when PASS with zero findings:
 
 ```bash
-cfl gate spec-review <task_id> --verdict <PASS|FAIL> --data '{"findings": <N>, "critical": <C>, "high": <H>, "medium": <M>, "low": <L>}' --detail "<summary>"
+cfl gate spec-review <task_id> --verdict <PASS|FAIL> --detail "<summary>"
 cfl gate code-review <task_id> --verdict <PASS|WARN|FAIL> --data '{"findings": <N>, "critical": <C>, "high": <H>, "medium": <M>, "low": <L>}' --detail "<summary>"
 cfl gate integration-review <task_id> --verdict <PASS|WARN|FAIL> --data '{"findings": <N>, "critical": <C>, "high": <H>, "medium": <M>, "low": <L>}' --detail "<summary>"
 ```
@@ -530,7 +530,7 @@ After the parallel reviews complete (regardless of verdicts), re-run the project
 After both gates complete, record their results:
 
 ```bash
-cfl gate test-gate <task_id> --verdict <PASS|FAIL|SKIPPED> --data '{"total": <N>, "passed": <N>, "failed": <N>, "regressions": <N>}'
+cfl gate test-gate <task_id> --verdict <PASS|WARN|FAIL|SKIPPED> --data '{"total": <N>, "passed": <N>, "failed": <N>, "regressions": <N>}'
 cfl gate lint-gate <task_id> --verdict <PASS|WARN|SKIPPED> --data '{"commands": [<per-command results>]}'
 ```
 
@@ -583,11 +583,12 @@ Derive the canonical task verdict from all reviewer outputs. This is the single 
 **FAIL** if any of the following:
 - Visual reviewer returned FAIL (not WARN [INFRA])
 - The Step 12 findings fix loop returned a FAIL fixer gate result (its terminal ledger has `unresolved` rows under terminal state B — the loop computes this in `findings-fix-loop.md`). Consume that result; do **not** re-derive it by re-reading the raw ledger here, which would mis-FAIL an early-exit (terminal state A) task whose stale `unresolved` rows the clean re-review already superseded
-- Test gate detected regressions (previously-passing tests now fail)
+- Test gate returned FAIL (regressions in current or prior task's files — downstream-only regressions are WARN, not FAIL)
 
 **WARN** if not FAIL and any of these **unresolved** conditions remain:
 - Visual reviewer returned WARN or WARN [INFRA]
 - Visual reviewer returned SKIPPED when `visual_mode` is `enabled` (visual review was expected but the reviewer/executor reported a per-task or per-scenario skip). Do not count SKIPPED toward WARN when `visual_mode` is not `enabled` — visual review was intentionally not requested.
+- Test gate returned WARN (all regressions downstream-scoped)
 - Test gate has pre-existing failures (no regressions)
 - Lint gate detected regressions that remain unresolved (the review findings fix loop may incidentally fix some lint issues, but does not target lint specifically)
 

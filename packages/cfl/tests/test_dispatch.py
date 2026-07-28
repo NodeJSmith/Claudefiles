@@ -95,6 +95,7 @@ def test_record_dispatch_stores_optional_fields(db_conn, capsys):
         (run_id,),
     ).fetchone()
     assert dispatch["model"] == "sonnet"
+    assert dispatch["routing_reason"] is None
 
 
 def test_record_dispatch_run_level_no_task_id(db_conn, capsys):

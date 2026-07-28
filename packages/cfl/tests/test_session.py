@@ -90,10 +90,14 @@ def test_auto_join_creates_session_row(spec_and_run, db_conn, monkeypatch):
 
 
 def test_auto_join_captures_model_from_anthropic_model(
-    spec_and_run, db_conn, monkeypatch
+    spec_and_run, db_conn, monkeypatch, tmp_path
 ):
     """Model field is populated from $ANTHROPIC_MODEL (normalized to short name)."""
     _, run_id = spec_and_run
+    monkeypatch.setattr(
+        "cfl.session.CONTEXT_SIDECAR_TEMPLATE",
+        str(tmp_path / "claude-context-{session_id}.meta"),
+    )
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "ses-model-test")
     monkeypatch.setenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929")
 

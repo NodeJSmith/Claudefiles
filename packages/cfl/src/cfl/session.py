@@ -27,7 +27,7 @@ def _read_sidecar(session_id: str | None = None) -> str | None:
         return None
     try:
         return Path(CONTEXT_SIDECAR_TEMPLATE.format(session_id=session_id)).read_text()
-    except OSError:
+    except (OSError, UnicodeError):
         return None
 
 

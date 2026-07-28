@@ -136,15 +136,6 @@ def snapshot_plan(
             code="dir_not_found",
         )
 
-    existing = conn.execute(
-        "SELECT id FROM plan_snapshots WHERE run_id=?", (run_id,)
-    ).fetchone()
-    if existing:
-        output_module.emit(
-            {"snapshot_id": existing["id"], "run_id": run_id, "skipped": True}
-        )
-        return
-
     design_path = feature_path / "design.md"
     reqs = _parse_requirements(design_path)
 
@@ -162,6 +153,16 @@ def snapshot_plan(
 
     conn.execute("BEGIN IMMEDIATE")
     try:
+        existing = conn.execute(
+            "SELECT id FROM plan_snapshots WHERE run_id=?", (run_id,)
+        ).fetchone()
+        if existing:
+            conn.execute("COMMIT")
+            output_module.emit(
+                {"snapshot_id": existing["id"], "run_id": run_id, "skipped": True}
+            )
+            return
+
         cursor = conn.execute(
             """INSERT INTO plan_snapshots
                (run_id, fr_count, ac_count, task_count, scope_mode,

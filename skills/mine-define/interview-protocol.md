@@ -15,7 +15,7 @@ The `<topic>` for each question is noted in parentheses below (e.g., `(topic: pr
 
 ## Always ask (all complexity levels)
 
-1. **Problem grounding** (topic: `problem`) — skip if already clear from the request:
+1. **Problem grounding** — skip if already clear from the request:
 
 ```
 AskUserQuestion:
@@ -119,7 +119,7 @@ AskUserQuestion:
 
 Record (or skipped if not complex): `cfl question mine-define deps --status <asked|skipped> [--answer "<summary>"] --spec <spec_number>`
 
-7. **Security / access** (topic: `security`):
+7. **Security / access**:
 
 Before asking, check Phase 1.5 findings for existing auth patterns, data sensitivity, and access boundaries in the affected code. Propose what you found — the user confirms or corrects.
 
@@ -258,7 +258,7 @@ Record immediately after user responds: `cfl question mine-define confirm-intent
 
 If "No", ask what's wrong and revise your understanding, then confirm again (re-recording the new response).
 
-## Caller perspective (topic: `caller-view`) — API/module designs only
+## Caller perspective — API/module designs only
 
 If the artifact being designed is an API, module, library, or public interface (not a workflow, feature, or internal refactor), insert this step before proceeding.
 
