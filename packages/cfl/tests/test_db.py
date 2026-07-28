@@ -229,9 +229,15 @@ def test_migration_v6_rebuilds_runs_with_fk_data(tmp_db_path):
             id INTEGER PRIMARY KEY, spec_id INTEGER NOT NULL REFERENCES specs(id),
             base_commit TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'running',
             visual_mode TEXT, dev_server_url TEXT, tmpdir TEXT, cwd TEXT,
-            phase TEXT DEFAULT 'orchestrate' CHECK(phase IN ('define', 'plan', 'orchestrate')),
             started_at TEXT NOT NULL, ended_at TEXT
         )"""
+    )
+    # Mirror migration 3's real history: 'phase' was added via ALTER TABLE ADD
+    # COLUMN, which SQLite always appends at the physical end of the row
+    # (after ended_at), not at the position it appears in the logical schema.
+    conn.execute(
+        "ALTER TABLE runs ADD COLUMN phase TEXT DEFAULT 'orchestrate'"
+        " CHECK(phase IN ('define', 'plan', 'orchestrate'))"
     )
     conn.execute("CREATE INDEX idx_runs_spec ON runs(spec_id)")
     conn.execute(

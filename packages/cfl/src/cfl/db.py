@@ -83,7 +83,14 @@ MIGRATIONS: dict[int, list[str]] = {
             started_at      TEXT NOT NULL,
             ended_at        TEXT
         )""",
-        """INSERT INTO runs_new SELECT * FROM runs""",
+        """INSERT INTO runs_new (
+            id, spec_id, base_commit, status, visual_mode, dev_server_url,
+            tmpdir, cwd, phase, started_at, ended_at
+        )
+        SELECT
+            id, spec_id, base_commit, status, visual_mode, dev_server_url,
+            tmpdir, cwd, phase, started_at, ended_at
+        FROM runs""",
         "DROP TABLE runs",
         "ALTER TABLE runs_new RENAME TO runs",
         "CREATE INDEX IF NOT EXISTS idx_runs_spec ON runs(spec_id)",
@@ -374,13 +381,18 @@ def _apply_migrations(conn: sqlite3.Connection, current_version: int) -> None:
                 sql = stmt.strip()
                 if sql:
                     conn.execute(sql)
+            if fk_off:
+                violations = conn.execute("PRAGMA foreign_key_check").fetchall()
+                if violations:
+                    raise RuntimeError(
+                        f"Migration {version} left foreign key violations: {violations}"
+                    )
             conn.execute(
                 "INSERT INTO schema_version(version, applied_at) VALUES(?, datetime('now'))",
                 (version,),
             )
             conn.execute("COMMIT")
             if fk_off:
-                conn.execute("PRAGMA foreign_key_check")
                 conn.execute("PRAGMA foreign_keys=ON")
         except Exception:
             conn.execute("ROLLBACK")
