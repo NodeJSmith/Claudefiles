@@ -4,7 +4,7 @@ The shared gate applied after a `fine-toothed-comb` agent returns. Callers (`min
 
 > **A comb that surfaces issues is never cleared by acknowledgement — only by a fresh run that comes back clean (or by fixing the findings and proceeding without re-combing).**
 
-Acknowledging a finding and moving on is not allowed. The only ways past a blocking finding are: fix it and re-comb, or stop.
+Acknowledging a finding and moving on is not allowed. The only ways past a blocking finding are: fix it and re-comb, stop, or — once diminishing returns kick in on the 3rd+ run (see below) — fix it and proceed without another comb.
 
 ## Parameters the caller supplies
 

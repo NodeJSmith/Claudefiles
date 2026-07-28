@@ -157,7 +157,7 @@ Tell the user:
 
 > Starting structured workflow — lightweight design + task files, then orchestrate with full execution gates.
 
-**Auto-continue between steps.** Execute mine-sketch's phases inline. The user should only be interrupted for the handoff gate (approve / revise / stop).
+**Auto-continue between steps.** Execute mine-sketch's phases inline. The user is only interrupted for mine-sketch's own clarification questions (asked when something is genuinely uncertain), its escalation check (if the codebase scan surfaces unexpected complexity), and the handoff gate (approve / revise / stop).
 
 Follow `/mine-sketch` phases for this request. Pass the change description as the argument. mine-sketch handles design.md, task file creation, comb review, and the handoff to mine-orchestrate internally.
 

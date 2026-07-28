@@ -23,9 +23,7 @@ If $ARGUMENTS is empty, ask:
 
 > What would you like to build or change?
 
-If $ARGUMENTS points to an existing `design/specs/NNN-*/` directory, check for `design.md` — if present and has `**Mode:** sketch`, this is a resume. Read it and skip to Phase 3 (task breakdown).
-
-Otherwise, paraphrase the request in one sentence to confirm understanding.
+If $ARGUMENTS does not point to an existing spec directory, paraphrase the request in one sentence to confirm understanding.
 
 ### Initialize CFL tracking
 
@@ -69,6 +67,12 @@ cfl run start --phase sketch --base-commit $(git rev-parse --short HEAD) --spec 
 cfl event sketch.started --spec <spec_number>
 ```
 
+### Check for resume
+
+If $ARGUMENTS pointed to an existing spec directory, check that directory for `design.md` — if present and has `**Mode:** sketch`, this is a resume. Read it and skip directly to Phase 3 (task breakdown); `<spec_number>` and `run_id` are already set from the sections above, so `cfl` calls in Phases 3-5 work normally. Skip the rest of Phase 1 and all of Phase 2.
+
+Otherwise, continue to the codebase scan below.
+
 ### Quick codebase scan
 
 Read 3-8 files relevant to the change. Focus on:
@@ -77,6 +81,31 @@ Read 3-8 files relevant to the change. Focus on:
 - Test files that cover the area
 
 This replaces the full researcher dispatch. Keep it fast — you're looking for conventions and constraints, not doing deep investigation.
+
+### Escalation check
+
+If the scan reveals more than expected, stop and ask before designing. Concrete signals:
+- The change touches more services/packages than the request implied (cross-system dependencies you didn't expect).
+- It requires modifying a shared or foundational module with many callers.
+- It surfaces an architectural question with no single obvious answer (unclear interfaces, competing approaches).
+
+If any apply:
+
+```
+AskUserQuestion:
+  question: "The codebase scan found more complexity than expected — <one-sentence finding>. How should we proceed?"
+  header: "Escalate?"
+  multiSelect: false
+  options:
+    - label: "Upgrade to full caliper"
+      description: "Stop here — invoke /mine-define for a full investigation and design"
+    - label: "Continue with sketch"
+      description: "Proceed with the lighter sketch despite the finding"
+```
+
+On "Upgrade to full caliper": tell the user to invoke `/mine-define` and stop.
+
+On "Continue with sketch": proceed to Phase 2 as normal.
 
 ---
 
