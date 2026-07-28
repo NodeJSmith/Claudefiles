@@ -100,19 +100,21 @@ What's encouraging: the existing task file format (T*.md with frontmatter, Targe
 No tool in the surveyed space has formally solved graduated ceremony — this would be novel. But the components are well-validated:
 
 1. **Keep task files as the output format** — the evidence for structured task artifacts improving execution quality is strong. Don't invent a new lighter format; write the same T*.md the orchestrator already consumes.
-2. **Skip the design doc** — for moderate tasks, the design decisions are few enough to capture directly in context.md + task file prompts rather than a separate design.md.
-3. **Skip researcher dispatch and comb review** — inline codebase exploration (a quick read, not a subagent) is sufficient for well-understood territory.
+2. **Keep design.md, but make it lightweight** — a short doc with FRs/ACs and an Approach section, not the full design doc's Architecture/Alternatives/Implementation Preferences sections. It's still the artifact that task files trace their FR/AC identifiers back to, and the one the comb review and handoff gate operate on — cutting it would remove the traceability anchor the rest of the pipeline depends on.
+3. **Skip researcher dispatch, keep comb review** — inline codebase exploration (a quick read, not a subagent) is sufficient for well-understood territory, but the comb still runs on design.md + task files before handoff since it's the only check catching drift between them.
 4. **Consider graduation as a spectrum, not a third binary mode** — the number of task files and depth of each Prompt section can scale with task size without changing the format or the orchestrator.
 5. **Keep the separation of planning and execution** — even at the lightest tier, the planner should not also be the executor. The planning pass writes task files; the executor (or orchestrator) consumes them.
 
 ## Sources
 
 ### Reference implementations
+
 - https://github.com/github/spec-kit — Full spec-to-implementation pipeline (closest analog to existing workflow)
 - https://docs.roocode.com/features/boomerang-tasks — Recursive task decomposition via orchestrator mode
 - https://github.com/shinpr/codex-workflows — Community multi-agent workflow layered on Codex CLI
 
 ### Blog posts & writeups
+
 - https://crabtalk.ai/blog/plans-vs-tasks-agent-design (mirror: https://openwalrus.xyz/blog/plans-vs-tasks-agent-design) — Cross-tool survey of planning in 5 production coding agents
 - https://www.augmentcode.com/blog/how-we-built-tasklist — Augment Code's typed task object design
 - https://spring.io/blog/2026/01/20/spring-ai-agentic-patterns-3-todowrite/ — Analysis of Claude Code's TodoWrite as lightweight task tracking
@@ -120,6 +122,7 @@ No tool in the surveyed space has formally solved graduated ceremony — this wo
 - https://voicetree.io/blog/complexity-threshold — Complexity threshold / quality cliff argument
 
 ### Documentation & standards
+
 - https://claudelog.com/mechanics/plan-mode/ — Claude Code Plan Mode mechanics
 - https://cursor.com/blog/plan-mode — Cursor Plan Mode
 - https://aider.chat/docs/usage/modes.html — Aider Architect Mode
@@ -127,8 +130,10 @@ No tool in the surveyed space has formally solved graduated ceremony — this wo
 - https://developers.openai.com/codex/learn/best-practices — Codex CLI best practices / AGENTS.md pattern
 
 ### Research papers
+
 - https://arxiv.org/html/2604.12147v1 — "From Plan to Action: How Well Do Agents Follow the Plan?" (+40pp success with explicit plans)
 - https://arxiv.org/pdf/2606.22678 — RigorBench: engineering process discipline benchmark
 
 ### Community / issues
+
 - https://github.com/anthropics/claude-code/issues/6968 — Claude Code TodoWrite system prompt trigger language
