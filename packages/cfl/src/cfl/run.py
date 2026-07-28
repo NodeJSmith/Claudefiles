@@ -474,8 +474,11 @@ def run_advance_phase(
 ) -> None:
     """Advance a run's phase forward: sketch|define -> plan -> orchestrate.
 
-    Forward-only transition guarded by PHASE_ORDER. A same-phase call is
-    idempotent tolerance: it emits a warning rather than an error. Advancing
+    Forward-only transition guarded by PHASE_ORDER. sketch and define share
+    rank 0 as alternative entry points, not sequential steps, so a lateral
+    move between them (either direction) is rejected with phase_regression
+    rather than silently allowed. A same-phase call is idempotent tolerance:
+    it emits a warning rather than an error. Advancing
     to orchestrate discovers task files from disk and inserts task rows —
     the same discovery run_start performs — and refreshes base_commit (so
     the define/plan commits don't leak into orchestrate's post-execution
@@ -522,6 +525,15 @@ def run_advance_phase(
             output_module.emit_error(
                 f"Cannot move run {run_id} backward from phase "
                 f"'{current_phase}' to '{target_phase}'.",
+                code="phase_regression",
+            )
+            raise AssertionError("unreachable: emit_error always exits")
+
+        if {current_phase, target_phase} == {"sketch", "define"}:
+            conn.execute("ROLLBACK")
+            output_module.emit_error(
+                f"Cannot move run {run_id} between alternative entry phases "
+                f"'{current_phase}' and '{target_phase}'.",
                 code="phase_regression",
             )
             raise AssertionError("unreachable: emit_error always exits")

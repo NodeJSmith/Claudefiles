@@ -838,6 +838,39 @@ def test_run_advance_phase_rejects_backward_orchestrate_to_plan(
     assert err["code"] == "phase_regression"
 
 
+def test_run_advance_phase_rejects_sketch_to_define_lateral_move(
+    db_conn, tmp_path, capsys
+):
+    """run_advance_phase(target_phase='define') on a sketch-phase run errors with
+    phase_regression — sketch and define are alternative entry points, not
+    transitionable phases, even though they share PHASE_ORDER rank 0."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+    run_start(
+        db_conn,
+        spec_id,
+        feature_dir(tmp_path, 1, "my-feature"),
+        phase="sketch",
+        base_commit="abc",
+    )
+    run_id = get_run_id(db_conn, spec_id)
+    capsys.readouterr()
+
+    with pytest.raises(SystemExit) as exc_info:
+        run_advance_phase(
+            db_conn, run_id, spec_id, feature_dir(tmp_path, 1, "my-feature"), "define"
+        )
+    assert exc_info.value.code == 1
+
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "phase_regression"
+
+    # Phase unchanged
+    unchanged_run = db_conn.execute(
+        "SELECT phase FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert unchanged_run["phase"] == "sketch"
+
+
 def test_run_advance_phase_same_phase_warns(db_conn, tmp_path, capsys):
     """run_advance_phase(target_phase=<current phase>) is idempotent — warning, not error."""
     spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
