@@ -45,6 +45,7 @@ tool: claude  # harness-only: skill/command routing tables are Claude-Code dispa
 | "grill me on this", "poke holes in my idea", "help me think this through", "what am I not thinking about" | `/mine-grill` |
 | "interview this idea", "spec this out", "help me define what I want to build", "interviewer" | `/mine-define` |
 | "specify this feature", "write a spec", "define requirements" | `/mine-define` |
+| "sketch this out", "sketch this feature", "lightweight plan", "quick design and tasks", "structured but lightweight" | `/mine-sketch` |
 | "build this", "implement this", "make this change", "start a feature" | `/mine-build` |
 | "design this change", "write a design doc", "investigate before planning" | `/mine-define` |
 | "draft a plan", "create work packages", "generate WPs", "create task files" | `/mine-plan` |

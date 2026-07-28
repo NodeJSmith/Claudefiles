@@ -40,6 +40,10 @@ KNOWN_EVENT_NAMES: frozenset[str] = frozenset(
         "plan.started",
         "plan.tasks-written",
         "plan.approved",
+        "sketch.started",
+        "sketch.design-written",
+        "sketch.tasks-written",
+        "sketch.approved",
         "phase.advanced",
     }
 )

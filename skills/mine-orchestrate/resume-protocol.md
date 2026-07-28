@@ -33,6 +33,10 @@ AskUserQuestion:
 - **"Stop the run"**: Call `cfl run stop --reason "user chose stop — needs mine-plan"` and exit.
 - **"I already have task files"**: Set an internal flag `advance_from_prior_phase = true`. Do NOT call `cfl run advance-phase` here — tmpdir, visual_mode, and dev_server_url are not yet resolved. Fall through to the remainder of Phase 0's setup steps in SKILL.md (branch staleness pre-flight, feature directory discovery, design doc read, task file read, dev server check, vision capability check), then act on the flag at the "Initialize orchestration run via cfl" step.
 
+**If phase is `"sketch"`** (task files should exist from mine-sketch):
+
+Set an internal flag `advance_from_prior_phase = true`. Do NOT call `cfl run advance-phase` here — tmpdir, visual_mode, and dev_server_url are not yet resolved. Fall through to the remainder of Phase 0's setup steps in SKILL.md, then act on the flag at the "Initialize orchestration run via cfl" step. (No prompt — mine-sketch's handoff gate already confirmed the user wants to proceed.)
+
 **If phase is `"plan"`** (task files should exist from mine-plan):
 
 ```

@@ -88,7 +88,7 @@ def test_schema_version_is_current_after_setup(db_conn):
 
 
 def test_schema_version_code_constant():
-    assert SCHEMA_VERSION == 5
+    assert SCHEMA_VERSION == 6
 
 
 # ---------------------------------------------------------------------------
@@ -208,6 +208,101 @@ def test_migration_v3_adds_phase_column(tmp_db_path):
             " VALUES(?, 'def456', 'bogus', datetime('now'))",
             (spec_id,),
         )
+
+    conn.close()
+
+
+def test_migration_v6_rebuilds_runs_with_fk_data(tmp_db_path):
+    """Migration v6 (table rebuild for sketch phase) succeeds when FK-referencing rows exist."""
+    conn = sqlite3.connect(tmp_db_path, isolation_level=None)
+    conn.execute("PRAGMA foreign_keys=ON")
+    # Build a v5 schema with the phase column (from migration 3) but without 'sketch' in CHECK.
+    conn.execute(
+        """CREATE TABLE specs (
+            id INTEGER PRIMARY KEY, number INTEGER NOT NULL, slug TEXT NOT NULL,
+            repo_url TEXT NOT NULL, repo_path TEXT, status TEXT NOT NULL DEFAULT 'draft',
+            active_run_id INTEGER, created_at TEXT NOT NULL, UNIQUE(repo_url, number)
+        )"""
+    )
+    conn.execute(
+        """CREATE TABLE runs (
+            id INTEGER PRIMARY KEY, spec_id INTEGER NOT NULL REFERENCES specs(id),
+            base_commit TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'running',
+            visual_mode TEXT, dev_server_url TEXT, tmpdir TEXT, cwd TEXT,
+            started_at TEXT NOT NULL, ended_at TEXT
+        )"""
+    )
+    # Mirror migration 3's real history: 'phase' was added via ALTER TABLE ADD
+    # COLUMN, which SQLite always appends at the physical end of the row
+    # (after ended_at), not at the position it appears in the logical schema.
+    conn.execute(
+        "ALTER TABLE runs ADD COLUMN phase TEXT DEFAULT 'orchestrate'"
+        " CHECK(phase IN ('define', 'plan', 'orchestrate'))"
+    )
+    conn.execute("CREATE INDEX idx_runs_spec ON runs(spec_id)")
+    conn.execute(
+        """CREATE TABLE tasks (
+            id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES runs(id),
+            task_id TEXT NOT NULL, title TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending', verdict TEXT,
+            verdict_detail TEXT, commit_sha TEXT, started_at TEXT, ended_at TEXT,
+            UNIQUE(run_id, task_id)
+        )"""
+    )
+    conn.execute(
+        """CREATE TABLE events (
+            id INTEGER PRIMARY KEY, run_id INTEGER REFERENCES runs(id),
+            task_id TEXT, event TEXT NOT NULL, detail TEXT, data TEXT,
+            context_pct INTEGER, created_at TEXT NOT NULL
+        )"""
+    )
+    conn.execute(
+        """CREATE TABLE schema_version (
+            version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL
+        )"""
+    )
+    conn.execute(
+        "INSERT INTO schema_version(version, applied_at) VALUES (5, datetime('now'))"
+    )
+    # Seed data that creates FK references to runs.
+    conn.execute(
+        "INSERT INTO specs(id, number, slug, repo_url, active_run_id, created_at)"
+        " VALUES(1, 1, 'feat', 'https://github.com/test/repo.git', 1, datetime('now'))"
+    )
+    conn.execute(
+        "INSERT INTO runs(id, spec_id, base_commit, phase, started_at)"
+        " VALUES(1, 1, 'abc123', 'define', datetime('now'))"
+    )
+    conn.execute(
+        "INSERT INTO tasks(run_id, task_id, title) VALUES(1, 'T01', 'First task')"
+    )
+    conn.execute(
+        "INSERT INTO events(run_id, event, created_at)"
+        " VALUES(1, 'run.started', datetime('now'))"
+    )
+    conn.close()
+
+    # setup_db should succeed — migration 6 rebuilds runs with FK data present.
+    conn = setup_db(tmp_db_path)
+
+    version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
+    assert version == SCHEMA_VERSION
+
+    # 'sketch' is now a valid phase value.
+    conn.execute(
+        "INSERT INTO runs(spec_id, base_commit, phase, started_at)"
+        " VALUES(1, 'def456', 'sketch', datetime('now'))"
+    )
+    sketch_phase = conn.execute(
+        "SELECT phase FROM runs WHERE base_commit='def456'"
+    ).fetchone()[0]
+    assert sketch_phase == "sketch"
+
+    # Existing data survived the rebuild.
+    run_count = conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0]
+    assert run_count == 2
+    task_count = conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
+    assert task_count == 1
 
     conn.close()
 

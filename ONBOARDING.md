@@ -44,7 +44,7 @@ Start with whatever problem you have right now.
 The base is enough. Before every commit, code-reviewer, integration-reviewer, and wtf-reviewer run automatically. For an on-demand review of your current branch: `/mine-review`. For a style and debt check: `/mine-clean-code`. For prose quality (PR descriptions, docs, commit messages): `/mine-humanize`. To comb a brief, design, plan, or implementation for consistency, accuracy, and drift: `/mine-comb`. Included in base — no extra bundles needed.
 
 **"I want structured planning for complex features"**
-The base is enough. The full pipeline is `/mine-define` (produces a `design.md`) → `/mine-plan` (generates task files) → `/mine-orchestrate` (executes them with reviewer loops) → `/mine-ship` (commits, pushes, opens the PR). Start with `/mine-grill` to sharpen a raw idea first. Included in base.
+The base is enough. For moderate tasks (multiple files, real decisions, well-understood territory): `/mine-sketch` produces a lightweight design + task files and hands off to orchestrate. For complex features (ambiguous, cross-system, needs deep investigation): the full pipeline is `/mine-define` → `/mine-plan` → `/mine-orchestrate` → `/mine-ship`. `/mine-build` routes between these automatically. Start with `/mine-grill` to sharpen a raw idea first. Included in base.
 
 **"I want to brainstorm and challenge ideas"**
 The base is enough. `/mine-brainstorm` runs four parallel thinkers and ranks ideas. `/mine-grill` interrogates a rough idea across product, engineering, and adversarial lenses. `/mine-challenge` assumes your approach is wrong and argues for better. Included in base.

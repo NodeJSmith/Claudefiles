@@ -9,11 +9,14 @@ import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-SCHEMA_VERSION: int = 5
+SCHEMA_VERSION: int = 6
 CFL_DB_ENV_VAR: str = "CFL_DB"
 DEFAULT_DB_PATH: str = "~/.local/share/claudefiles/cfl.db"
 BUSY_TIMEOUT_MS: int = 5000
 WSL_MOUNT_PREFIX: str = "/mnt/"
+
+# Migrations that rebuild FK-referenced tables and need foreign_keys=OFF around the transaction.
+_FK_UNSAFE_MIGRATIONS: set[int] = {6}
 
 # Migration DDL strings, keyed by the target version they produce.
 MIGRATIONS: dict[int, list[str]] = {
@@ -63,6 +66,35 @@ MIGRATIONS: dict[int, list[str]] = {
         "CREATE INDEX IF NOT EXISTS idx_plan_snapshots_run ON plan_snapshots(run_id)",
         "CREATE INDEX IF NOT EXISTS idx_task_snapshots_run ON task_snapshots(run_id)",
     ],
+    6: [
+        """CREATE TABLE runs_new (
+            id              INTEGER PRIMARY KEY,
+            spec_id         INTEGER NOT NULL REFERENCES specs(id),
+            base_commit     TEXT NOT NULL,
+            status          TEXT NOT NULL DEFAULT 'running'
+                CHECK(status IN ('running', 'completed', 'stopped')),
+            visual_mode     TEXT
+                CHECK(visual_mode IN ('enabled', 'skipped_no_server', 'skipped_no_vision') OR visual_mode IS NULL),
+            dev_server_url  TEXT,
+            tmpdir          TEXT,
+            cwd             TEXT,
+            phase           TEXT DEFAULT 'orchestrate'
+                CHECK(phase IN ('sketch', 'define', 'plan', 'orchestrate')),
+            started_at      TEXT NOT NULL,
+            ended_at        TEXT
+        )""",
+        """INSERT INTO runs_new (
+            id, spec_id, base_commit, status, visual_mode, dev_server_url,
+            tmpdir, cwd, phase, started_at, ended_at
+        )
+        SELECT
+            id, spec_id, base_commit, status, visual_mode, dev_server_url,
+            tmpdir, cwd, phase, started_at, ended_at
+        FROM runs""",
+        "DROP TABLE runs",
+        "ALTER TABLE runs_new RENAME TO runs",
+        "CREATE INDEX IF NOT EXISTS idx_runs_spec ON runs(spec_id)",
+    ],
 }
 
 _SCHEMA_STATEMENTS: list[str] = [
@@ -93,7 +125,7 @@ _SCHEMA_STATEMENTS: list[str] = [
         tmpdir          TEXT,
         cwd             TEXT,
         phase           TEXT DEFAULT 'orchestrate'
-            CHECK(phase IN ('define', 'plan', 'orchestrate')),
+            CHECK(phase IN ('sketch', 'define', 'plan', 'orchestrate')),
         started_at      TEXT NOT NULL,
         ended_at        TEXT
     )
@@ -332,6 +364,9 @@ def _apply_migrations(conn: sqlite3.Connection, current_version: int) -> None:
         migration_sql = MIGRATIONS.get(version)
         if migration_sql is None:
             raise RuntimeError(f"No migration defined for version {version}")
+        fk_off = version in _FK_UNSAFE_MIGRATIONS
+        if fk_off:
+            conn.execute("PRAGMA foreign_keys=OFF")
         conn.execute("BEGIN IMMEDIATE")
         try:
             # Re-check inside the write lock to handle concurrent migrators
@@ -339,16 +374,28 @@ def _apply_migrations(conn: sqlite3.Connection, current_version: int) -> None:
             actual = row[0] if row and row[0] is not None else 0
             if actual >= version:
                 conn.execute("ROLLBACK")
+                if fk_off:
+                    conn.execute("PRAGMA foreign_keys=ON")
                 continue
             for stmt in migration_sql:
                 sql = stmt.strip()
                 if sql:
                     conn.execute(sql)
+            if fk_off:
+                violations = conn.execute("PRAGMA foreign_key_check").fetchall()
+                if violations:
+                    raise RuntimeError(
+                        f"Migration {version} left foreign key violations: {violations}"
+                    )
             conn.execute(
                 "INSERT INTO schema_version(version, applied_at) VALUES(?, datetime('now'))",
                 (version,),
             )
             conn.execute("COMMIT")
+            if fk_off:
+                conn.execute("PRAGMA foreign_keys=ON")
         except Exception:
             conn.execute("ROLLBACK")
+            if fk_off:
+                conn.execute("PRAGMA foreign_keys=ON")
             raise

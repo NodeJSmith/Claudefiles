@@ -556,8 +556,11 @@ def test_run_start_ac12_task_count_in_db(db_conn, tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_run_start_phase_define_skips_task_discovery(db_conn, tmp_path, capsys):
-    """run_start(phase='define') skips task discovery even with no task files."""
+@pytest.mark.parametrize("phase", ["sketch", "define", "plan"])
+def test_run_start_non_orchestrate_phase_skips_task_discovery(
+    phase, db_conn, tmp_path, capsys
+):
+    """run_start(phase=<non-orchestrate>) skips task discovery even with no task files."""
     spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
     # No task files created at all — an orchestrate-phase start would error.
 
@@ -565,7 +568,7 @@ def test_run_start_phase_define_skips_task_discovery(db_conn, tmp_path, capsys):
         db_conn,
         spec_id,
         feature_dir(tmp_path, 1, "my-feature"),
-        phase="define",
+        phase=phase,
         base_commit="abc",
     )
 
@@ -575,35 +578,46 @@ def test_run_start_phase_define_skips_task_discovery(db_conn, tmp_path, capsys):
     run_row = db_conn.execute(
         "SELECT phase FROM runs WHERE spec_id=?", (spec_id,)
     ).fetchone()
-    assert run_row["phase"] == "define"
+    assert run_row["phase"] == phase
 
     task_count = db_conn.execute("SELECT COUNT(*) AS cnt FROM tasks").fetchone()["cnt"]
     assert task_count == 0
 
 
-def test_run_start_phase_plan_skips_task_discovery(db_conn, tmp_path, capsys):
-    """run_start(phase='plan') skips task discovery even with no task files."""
+def test_run_advance_phase_sketch_to_orchestrate(db_conn, tmp_path, capsys):
+    """run_advance_phase from sketch directly to orchestrate discovers tasks."""
     spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
-    # No task files created at all — an orchestrate-phase start would error.
-
     run_start(
         db_conn,
         spec_id,
         feature_dir(tmp_path, 1, "my-feature"),
-        phase="plan",
+        phase="sketch",
         base_commit="abc",
     )
+    run_id = get_run_id(db_conn, spec_id)
+    capsys.readouterr()
 
-    data = json.loads(capsys.readouterr().out)
-    assert data["task_count"] == 0
+    tasks_dir = spec_tasks_dir(tmp_path, 1, "my-feature")
+    make_task_file(tasks_dir, "T01", "Task 1")
+    make_task_file(tasks_dir, "T02", "Task 2")
 
-    run_row = db_conn.execute(
-        "SELECT phase FROM runs WHERE spec_id=?", (spec_id,)
+    run_advance_phase(
+        db_conn,
+        run_id,
+        spec_id,
+        feature_dir(tmp_path, 1, "my-feature"),
+        "orchestrate",
+    )
+
+    updated_run = db_conn.execute(
+        "SELECT phase FROM runs WHERE id=?", (run_id,)
     ).fetchone()
-    assert run_row["phase"] == "plan"
+    assert updated_run["phase"] == "orchestrate"
 
-    task_count = db_conn.execute("SELECT COUNT(*) AS cnt FROM tasks").fetchone()["cnt"]
-    assert task_count == 0
+    count = db_conn.execute(
+        "SELECT COUNT(*) AS cnt FROM tasks WHERE run_id=?", (run_id,)
+    ).fetchone()["cnt"]
+    assert count == 2
 
 
 def test_run_start_default_phase_orchestrate(db_conn, tmp_path, capsys):
@@ -822,6 +836,39 @@ def test_run_advance_phase_rejects_backward_orchestrate_to_plan(
 
     err = json.loads(capsys.readouterr().err)
     assert err["code"] == "phase_regression"
+
+
+def test_run_advance_phase_rejects_sketch_to_define_lateral_move(
+    db_conn, tmp_path, capsys
+):
+    """run_advance_phase(target_phase='define') on a sketch-phase run errors with
+    phase_regression — sketch and define are alternative entry points, not
+    transitionable phases, even though they share PHASE_ORDER rank 0."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+    run_start(
+        db_conn,
+        spec_id,
+        feature_dir(tmp_path, 1, "my-feature"),
+        phase="sketch",
+        base_commit="abc",
+    )
+    run_id = get_run_id(db_conn, spec_id)
+    capsys.readouterr()
+
+    with pytest.raises(SystemExit) as exc_info:
+        run_advance_phase(
+            db_conn, run_id, spec_id, feature_dir(tmp_path, 1, "my-feature"), "define"
+        )
+    assert exc_info.value.code == 1
+
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "phase_regression"
+
+    # Phase unchanged
+    unchanged_run = db_conn.execute(
+        "SELECT phase FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert unchanged_run["phase"] == "sketch"
 
 
 def test_run_advance_phase_same_phase_warns(db_conn, tmp_path, capsys):

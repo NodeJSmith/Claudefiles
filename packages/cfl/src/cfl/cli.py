@@ -55,7 +55,7 @@ from cfl.task import (
     task_verdict,
 )
 
-PhaseStr = Literal["define", "plan", "orchestrate"]
+PhaseStr = Literal["sketch", "define", "plan", "orchestrate"]
 
 _VALID_TASK_STATUSES = sorted(
     {s for targets in TASK_UPDATE_TRANSITIONS.values() for s in targets}
@@ -223,7 +223,7 @@ def cmd_run_start(
         PhaseStr | None,
         Parameter(
             name=["--phase"],
-            help="Pipeline phase (define, plan, orchestrate). Defaults to orchestrate.",
+            help="Pipeline phase (sketch, define, plan, orchestrate). Defaults to orchestrate.",
         ),
     ] = None,
     base_commit: Annotated[

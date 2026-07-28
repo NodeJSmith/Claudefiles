@@ -2,6 +2,17 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-07-28
+
+### Added
+
+- New `/mine-sketch` skill bridges direct implementation and the full caliper workflow — produces a lightweight `design.md` (with FRs/ACs) and task files in one pass for well-understood multi-file work, then hands off to `mine-orchestrate`. (#476)
+
+### Changed
+
+- `mine-build`'s routing gate now offers a third "Structured" tier alongside Simple and Complex, routing moderate-complexity work to `/mine-sketch`. (#476)
+- `cfl` adds a `sketch` pipeline phase (schema v6), a `sketch-comb` gate, and `sketch.*` events, ranked alongside `define` in phase ordering since sketch and define are alternative entry points rather than sequential steps. (#476)
+
 ## 2026-07-27
 
 ### Added

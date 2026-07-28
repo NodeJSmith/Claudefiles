@@ -6,7 +6,7 @@ Implements:
   run_complete — mark run completed, clear active_run_id
   run_stop    — stop run (user decision), clear active_run_id
   run_resume  — resume a stopped run, re-set active_run_id
-  run_advance_phase — forward-only phase transition (define -> plan -> orchestrate)
+  run_advance_phase — forward-only phase transition (sketch|define -> plan -> orchestrate)
 """
 
 import json
@@ -25,7 +25,8 @@ from cfl.session import SESSION_ID_ENV_VAR, auto_join_session
 STALE_RUN_HOURS: int = 4
 GIT_SUBPROCESS_TIMEOUT_SECONDS: int = 10
 INTERVENTION_STATUSES: frozenset[str] = frozenset({"failed", "blocked", "stopped"})
-PHASE_ORDER: dict[str, int] = {"define": 0, "plan": 1, "orchestrate": 2}
+# sketch and define share rank 0: they are alternative entry points, not sequential steps.
+PHASE_ORDER: dict[str, int] = {"sketch": 0, "define": 0, "plan": 1, "orchestrate": 2}
 
 
 def run_start(
@@ -45,7 +46,7 @@ def run_start(
     - Guard: error run_already_active / run_stale if active_run_id IS NOT NULL
     - When phase='orchestrate': discover tasks from feature_dir/tasks/T*.md,
       sort by task_id naturally, error no_tasks if none found
-    - When phase is 'define' or 'plan': task discovery is skipped entirely
+    - When phase is 'sketch', 'define', or 'plan': task discovery is skipped entirely
     - INSERT runs row, INSERT tasks rows, UPDATE specs, INSERT run.started event
     - Session auto-join after commit
     """
@@ -471,10 +472,13 @@ def run_advance_phase(
     visual_mode: str | None = None,
     dev_server_url: str | None = None,
 ) -> None:
-    """Advance a run's phase forward: define -> plan -> orchestrate.
+    """Advance a run's phase forward: sketch|define -> plan -> orchestrate.
 
-    Forward-only transition guarded by PHASE_ORDER. A same-phase call is
-    idempotent tolerance: it emits a warning rather than an error. Advancing
+    Forward-only transition guarded by PHASE_ORDER. sketch and define share
+    rank 0 as alternative entry points, not sequential steps, so a lateral
+    move between them (either direction) is rejected with phase_regression
+    rather than silently allowed. A same-phase call is idempotent tolerance:
+    it emits a warning rather than an error. Advancing
     to orchestrate discovers task files from disk and inserts task rows —
     the same discovery run_start performs — and refreshes base_commit (so
     the define/plan commits don't leak into orchestrate's post-execution
@@ -521,6 +525,15 @@ def run_advance_phase(
             output_module.emit_error(
                 f"Cannot move run {run_id} backward from phase "
                 f"'{current_phase}' to '{target_phase}'.",
+                code="phase_regression",
+            )
+            raise AssertionError("unreachable: emit_error always exits")
+
+        if {current_phase, target_phase} == {"sketch", "define"}:
+            conn.execute("ROLLBACK")
+            output_module.emit_error(
+                f"Cannot move run {run_id} between alternative entry phases "
+                f"'{current_phase}' and '{target_phase}'.",
                 code="phase_regression",
             )
             raise AssertionError("unreachable: emit_error always exits")
@@ -609,6 +622,7 @@ def _guard_active_run(conn: sqlite3.Connection, existing_run_id: int) -> None:
         )
         phase = run_row["phase"] if run_row else "orchestrate"
         resume_skill = {
+            "sketch": "/mine-sketch",
             "define": "/mine-define",
             "plan": "/mine-plan",
             "orchestrate": "/mine-orchestrate",
