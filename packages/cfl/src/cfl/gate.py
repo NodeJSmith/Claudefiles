@@ -31,6 +31,7 @@ KNOWN_GATE_TYPES: frozenset[str] = frozenset(
         "plan-review",
         "plan-comb",
         "plan-approval",
+        "sketch-comb",
     }
 )
 

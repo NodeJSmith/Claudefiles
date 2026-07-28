@@ -581,6 +581,66 @@ def test_run_start_phase_define_skips_task_discovery(db_conn, tmp_path, capsys):
     assert task_count == 0
 
 
+def test_run_start_phase_sketch_skips_task_discovery(db_conn, tmp_path, capsys):
+    """run_start(phase='sketch') skips task discovery even with no task files."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    run_start(
+        db_conn,
+        spec_id,
+        feature_dir(tmp_path, 1, "my-feature"),
+        phase="sketch",
+        base_commit="abc",
+    )
+
+    data = json.loads(capsys.readouterr().out)
+    assert data["task_count"] == 0
+
+    run_row = db_conn.execute(
+        "SELECT phase FROM runs WHERE spec_id=?", (spec_id,)
+    ).fetchone()
+    assert run_row["phase"] == "sketch"
+
+    task_count = db_conn.execute("SELECT COUNT(*) AS cnt FROM tasks").fetchone()["cnt"]
+    assert task_count == 0
+
+
+def test_run_advance_phase_sketch_to_orchestrate(db_conn, tmp_path, capsys):
+    """run_advance_phase from sketch directly to orchestrate discovers tasks."""
+    spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)
+    run_start(
+        db_conn,
+        spec_id,
+        feature_dir(tmp_path, 1, "my-feature"),
+        phase="sketch",
+        base_commit="abc",
+    )
+    run_id = get_run_id(db_conn, spec_id)
+    capsys.readouterr()
+
+    tasks_dir = spec_tasks_dir(tmp_path, 1, "my-feature")
+    make_task_file(tasks_dir, "T01", "Task 1")
+    make_task_file(tasks_dir, "T02", "Task 2")
+
+    run_advance_phase(
+        db_conn,
+        run_id,
+        spec_id,
+        feature_dir(tmp_path, 1, "my-feature"),
+        "orchestrate",
+    )
+
+    updated_run = db_conn.execute(
+        "SELECT phase FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert updated_run["phase"] == "orchestrate"
+
+    count = db_conn.execute(
+        "SELECT COUNT(*) AS cnt FROM tasks WHERE run_id=?", (run_id,)
+    ).fetchone()["cnt"]
+    assert count == 2
+
+
 def test_run_start_phase_plan_skips_task_discovery(db_conn, tmp_path, capsys):
     """run_start(phase='plan') skips task discovery even with no task files."""
     spec_id = insert_spec_no_run(db_conn, 1, "my-feature", REMOTE_URL)

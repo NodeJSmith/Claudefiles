@@ -60,7 +60,8 @@ If prior analysis exists, the specify and research steps are likely already cove
 ### Complexity signal
 
 - **Simple** — touches 1–3 files, clear approach, no design uncertainty, no cross-system impact
-- **Complex** — touches multiple modules, has design uncertainty, crosses system boundaries, or has unclear implementation approach
+- **Structured** — touches multiple files, real design decisions, but well-understood territory (no deep ambiguity or cross-system unknowns)
+- **Complex** — crosses system boundaries, has significant design uncertainty, requires deep investigation, or high blast radius
 
 ### Present routing options
 
@@ -68,12 +69,14 @@ If **no prior analysis** detected:
 
 ```
 AskUserQuestion:
-  question: "How should we approach this? (Complexity signal: <Simple|Complex>)"
+  question: "How should we approach this? (Complexity signal: <Simple|Structured|Complex>)"
   header: "Workflow"
   multiSelect: false
   options:
     - label: "Simple — implement directly"
       description: "Explore, implement, code-review, then offer to ship"
+    - label: "Structured — sketch + orchestrate"
+      description: "Lightweight design.md + task files → orchestrate with full execution gates"
     - label: "Complex — full caliper workflow"
       description: "define → plan → orchestrate → ship"
 ```
@@ -82,12 +85,14 @@ If **prior analysis detected** (findings, plan, or critique already in context):
 
 ```
 AskUserQuestion:
-  question: "Prior analysis detected — findings and/or a plan already exist. How should we proceed? (Complexity signal: <Simple|Complex>)"
+  question: "Prior analysis detected — findings and/or a plan already exist. How should we proceed? (Complexity signal: <Simple|Structured|Complex>)"
   header: "Workflow"
   multiSelect: false
   options:
     - label: "Simple — implement directly"
       description: "Explore, implement, code-review, then offer to ship"
+    - label: "Structured — sketch + orchestrate"
+      description: "Lightweight design.md + task files → orchestrate with full execution gates"
     - label: "Accelerated — lightweight define phase"
       description: "Formalize findings into design.md (skip research — already done) → plan → orchestrate → ship"
     - label: "Full caliper workflow"
@@ -101,6 +106,7 @@ AskUserQuestion:
 | "The findings are the spec — skip define" | Findings identify problems; specs define success criteria, scope boundaries, and non-goals. Don't silently skip the define phase — use the routing gate to offer the accelerated path. If the user selects the accelerated path, that's the legitimate workflow. |
 | "This is small enough to skip the caliper workflow" | The routing gate exists for this judgment. If you chose "Complex" or the user chose caliper, every phase runs. Don't downgrade mid-flight because individual tasks look simple. |
 | "Prior analysis already covers research" | Prior analysis covers the *problem space*. Design-phase research covers the *solution space* — interfaces, constraints, existing patterns. Skip only when the accelerated path was explicitly selected and the analysis genuinely mapped the codebase. |
+| "This is Structured but feels Complex" | If you discover significant ambiguity during the sketch's codebase scan (cross-system dependencies you didn't expect, unclear interfaces), tell the user rather than expanding the sketch into a full investigation. The user can decide to upgrade to full caliper. |
 | "Just do the simple version — user said so" | Agreeing to narrow scope without reading the affected backend code is how architectural blockers surface during challenge instead of during planning. Before confirming a narrowed scope, verify the simple version is feasible in the implementation layer. If it isn't, return to the routing gate and present the complexity finding to the user before proceeding. |
 
 ---
@@ -142,6 +148,18 @@ AskUserQuestion:
 If "Fix issues and re-review": address CRITICAL and HIGH issues, then re-launch the code-reviewer subagent and present findings again. Offer the same gate.
 
 If "Ship via /mine-ship": invoke `/mine-ship`.
+
+---
+
+### Path D — Structured: Sketch + Orchestrate
+
+Tell the user:
+
+> Starting structured workflow — lightweight design + task files, then orchestrate with full execution gates.
+
+**Auto-continue between steps.** Execute mine-sketch's phases inline. The user should only be interrupted for the handoff gate (approve / revise / stop).
+
+Follow `/mine-sketch` phases for this request. Pass the change description as the argument. mine-sketch handles design.md, task file creation, comb review, and the handoff to mine-orchestrate internally.
 
 ---
 

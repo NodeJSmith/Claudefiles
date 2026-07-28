@@ -6,7 +6,7 @@ Implements:
   run_complete — mark run completed, clear active_run_id
   run_stop    — stop run (user decision), clear active_run_id
   run_resume  — resume a stopped run, re-set active_run_id
-  run_advance_phase — forward-only phase transition (define -> plan -> orchestrate)
+  run_advance_phase — forward-only phase transition (sketch|define -> plan -> orchestrate)
 """
 
 import json
@@ -25,7 +25,8 @@ from cfl.session import SESSION_ID_ENV_VAR, auto_join_session
 STALE_RUN_HOURS: int = 4
 GIT_SUBPROCESS_TIMEOUT_SECONDS: int = 10
 INTERVENTION_STATUSES: frozenset[str] = frozenset({"failed", "blocked", "stopped"})
-PHASE_ORDER: dict[str, int] = {"define": 0, "plan": 1, "orchestrate": 2}
+# sketch and define share rank 0: they are alternative entry points, not sequential steps.
+PHASE_ORDER: dict[str, int] = {"sketch": 0, "define": 0, "plan": 1, "orchestrate": 2}
 
 
 def run_start(
@@ -45,7 +46,7 @@ def run_start(
     - Guard: error run_already_active / run_stale if active_run_id IS NOT NULL
     - When phase='orchestrate': discover tasks from feature_dir/tasks/T*.md,
       sort by task_id naturally, error no_tasks if none found
-    - When phase is 'define' or 'plan': task discovery is skipped entirely
+    - When phase is 'sketch', 'define', or 'plan': task discovery is skipped entirely
     - INSERT runs row, INSERT tasks rows, UPDATE specs, INSERT run.started event
     - Session auto-join after commit
     """
@@ -471,7 +472,7 @@ def run_advance_phase(
     visual_mode: str | None = None,
     dev_server_url: str | None = None,
 ) -> None:
-    """Advance a run's phase forward: define -> plan -> orchestrate.
+    """Advance a run's phase forward: sketch|define -> plan -> orchestrate.
 
     Forward-only transition guarded by PHASE_ORDER. A same-phase call is
     idempotent tolerance: it emits a warning rather than an error. Advancing
@@ -609,6 +610,7 @@ def _guard_active_run(conn: sqlite3.Connection, existing_run_id: int) -> None:
         )
         phase = run_row["phase"] if run_row else "orchestrate"
         resume_skill = {
+            "sketch": "/mine-sketch",
             "define": "/mine-define",
             "plan": "/mine-plan",
             "orchestrate": "/mine-orchestrate",
