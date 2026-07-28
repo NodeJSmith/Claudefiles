@@ -22,9 +22,18 @@ if has_field audience && has_field developers && has_field data-sensitivity; the
   exit 0
 fi
 
-# Mirrors Claude Code's internal project-dir encoding: replace / and . with -
+# State file — per-repo, mirrors Claude Code's internal project-dir encoding.
+# Keyed on the shared .git dir (via git-common-dir) rather than pwd, so a
+# worktree's answer persists at the main clone's project dir instead of the
+# worktree's own path — which is deleted once the worktree's task is done.
 config_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-project_dir="$config_dir/projects/$(pwd | tr '/.' '--')"
+git_common_dir=$(git rev-parse --git-common-dir 2> /dev/null)
+if [ -n "$git_common_dir" ]; then
+  repo_key=$(cd "$(dirname "$git_common_dir")" && pwd)
+else
+  repo_key=$(pwd)
+fi
+project_dir="$config_dir/projects/$(echo "$repo_key" | tr '/.' '--')"
 state_file="$project_dir/project-meta-prompt.json"
 
 command -v python3 > /dev/null 2>&1 || exit 0

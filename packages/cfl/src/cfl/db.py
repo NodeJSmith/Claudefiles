@@ -9,7 +9,7 @@ import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-SCHEMA_VERSION: int = 4
+SCHEMA_VERSION: int = 5
 CFL_DB_ENV_VAR: str = "CFL_DB"
 DEFAULT_DB_PATH: str = "~/.local/share/claudefiles/cfl.db"
 BUSY_TIMEOUT_MS: int = 5000
@@ -35,6 +35,33 @@ MIGRATIONS: dict[int, list[str]] = {
         )""",
         "CREATE INDEX IF NOT EXISTS idx_questions_run ON questions(run_id)",
         "CREATE INDEX IF NOT EXISTS idx_questions_skill ON questions(skill)",
+    ],
+    5: [
+        """CREATE TABLE IF NOT EXISTS plan_snapshots (
+            id              INTEGER PRIMARY KEY,
+            run_id          INTEGER NOT NULL UNIQUE REFERENCES runs(id),
+            fr_count        INTEGER NOT NULL,
+            ac_count        INTEGER NOT NULL,
+            task_count       INTEGER NOT NULL,
+            scope_mode      TEXT,
+            complexity_tier TEXT,
+            requirements    TEXT NOT NULL,
+            created_at      TEXT NOT NULL
+        )""",
+        """CREATE TABLE IF NOT EXISTS task_snapshots (
+            id              INTEGER PRIMARY KEY,
+            run_id          INTEGER NOT NULL REFERENCES runs(id),
+            task_id         TEXT NOT NULL,
+            title           TEXT NOT NULL,
+            implements      TEXT NOT NULL,
+            depends_on      TEXT NOT NULL,
+            target_files    TEXT NOT NULL,
+            verify_count    INTEGER NOT NULL,
+            UNIQUE(run_id, task_id),
+            FOREIGN KEY (run_id, task_id) REFERENCES tasks(run_id, task_id)
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_plan_snapshots_run ON plan_snapshots(run_id)",
+        "CREATE INDEX IF NOT EXISTS idx_task_snapshots_run ON task_snapshots(run_id)",
     ],
 }
 
@@ -118,7 +145,7 @@ _SCHEMA_STATEMENTS: list[str] = [
         agent_type      TEXT NOT NULL,
         model           TEXT,
         spawn_depth     INTEGER DEFAULT 1,
-        routing_reason  TEXT,
+        routing_reason  TEXT,  -- vestigial: write path removed, kept for existing data
         dispatched_at   TEXT NOT NULL,
         completed_at    TEXT,
         compactions     INTEGER,
@@ -178,6 +205,35 @@ _SCHEMA_STATEMENTS: list[str] = [
     """,
     "CREATE INDEX IF NOT EXISTS idx_questions_run ON questions(run_id)",
     "CREATE INDEX IF NOT EXISTS idx_questions_skill ON questions(skill)",
+    """
+    CREATE TABLE IF NOT EXISTS plan_snapshots (
+        id              INTEGER PRIMARY KEY,
+        run_id          INTEGER NOT NULL UNIQUE REFERENCES runs(id),
+        fr_count        INTEGER NOT NULL,
+        ac_count        INTEGER NOT NULL,
+        task_count       INTEGER NOT NULL,
+        scope_mode      TEXT,
+        complexity_tier TEXT,
+        requirements    TEXT NOT NULL,
+        created_at      TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS task_snapshots (
+        id              INTEGER PRIMARY KEY,
+        run_id          INTEGER NOT NULL REFERENCES runs(id),
+        task_id         TEXT NOT NULL,
+        title           TEXT NOT NULL,
+        implements      TEXT NOT NULL,
+        depends_on      TEXT NOT NULL,
+        target_files    TEXT NOT NULL,
+        verify_count    INTEGER NOT NULL,
+        UNIQUE(run_id, task_id),
+        FOREIGN KEY (run_id, task_id) REFERENCES tasks(run_id, task_id)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_plan_snapshots_run ON plan_snapshots(run_id)",
+    "CREATE INDEX IF NOT EXISTS idx_task_snapshots_run ON task_snapshots(run_id)",
     """
     CREATE TABLE IF NOT EXISTS schema_version (
         version     INTEGER PRIMARY KEY,

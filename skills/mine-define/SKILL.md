@@ -211,25 +211,9 @@ cfl event define.design-written --spec <spec_number>
 
 ---
 
-## Phase 5: Quality Validation
+## Phase 5: Fine-Toothed Comb Review
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-define/quality-checklist.md` and validate the design doc against it.
-
-### Record quality gate
-
-Skip if cfl tracking was disabled in Phase 1 (no `<spec_number>` set):
-
-```bash
-cfl gate define-quality --verdict <PASS|FAIL> --spec <spec_number>
-```
-
-Where verdict is PASS if all checks passed, FAIL if any blocked.
-
----
-
-## Phase 5.5: Fine-Toothed Comb Review
-
-After the structured checklist passes and before sign-off, comb the design doc one more time. This is an open-ended pass — no checklist, no rubric — and it catches what a checklist can't: the doc reading as inconsistent, inaccurate, or thin once you take it in as a whole. It complements Phase 5, it does not replace it.
+Comb the design doc before sign-off. This is an open-ended pass — no checklist, no rubric — and it catches what a checklist can't: the doc reading as inconsistent, inaccurate, or thin once you take it in as a whole.
 
 Before dispatching, record the dispatch. Skip this call (and the dispatch-end/gate calls below) if cfl tracking was disabled in Phase 1 (no `<spec_number>` set):
 
@@ -260,7 +244,7 @@ cfl dispatch end <dispatch_id>
 cfl gate define-comb --verdict <v> --spec <spec_number> --data '{"blocking": <N>, "minor": <M>}'
 ```
 
-Verdict mapping: no findings → PASS, minor findings accepted → WARN, blocking findings → FAIL.
+Verdict mapping — apply mechanically from the `blocking` count in the comb's summary, do not downgrade based on your own severity assessment: `blocking` = 0 and no minor → PASS, `blocking` = 0 and minor > 0 → WARN, `blocking` > 0 → FAIL.
 
 ### Comb gate
 
@@ -276,7 +260,7 @@ Phase 6 does not begin until the comb gate resolves. The "No findings" path proc
 
 ## Phase 6: Sign-Off Gate
 
-Present the design doc path followed by the quality checklist results, then:
+Present the design doc path, then:
 
 ```
 AskUserQuestion:
@@ -328,7 +312,7 @@ On Revise, Save-and-stop, or Challenge, do **not** run the `cfl event` command a
 
 Invoke: `/mine-challenge <design-doc-path>`
 
-After challenge completes (it resolves findings inline as a standalone caller), re-run Phase 5 (quality validation) against the potentially modified design doc, then loop back to the sign-off gate above with refreshed results.
+After challenge completes (it resolves findings inline as a standalone caller), re-run Phase 5 (Fine-Toothed Comb Review) against the potentially modified design doc, then loop back to the sign-off gate above with refreshed results.
 
 ### On "Approve"
 
@@ -358,7 +342,7 @@ If "Yes": invoke `/mine-plan <feature_dir>` directly.
 
 Record the sign-off gate with verdict `WARN` (see "Record sign-off gate" above — no event emitted).
 
-Ask what to change. Apply the edits to the design doc. Re-run the quality validation. Present for sign-off again.
+Ask what to change. Apply the edits to the design doc. Re-run the Fine-Toothed Comb Review. Present for sign-off again.
 
 ### On "Save and stop"
 

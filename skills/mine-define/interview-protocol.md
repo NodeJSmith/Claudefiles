@@ -15,7 +15,7 @@ The `<topic>` for each question is noted in parentheses below (e.g., `(topic: pr
 
 ## Always ask (all complexity levels)
 
-1. **Problem grounding** (topic: `problem`) — skip if already clear from the request:
+1. **Problem grounding** — skip if already clear from the request:
 
 ```
 AskUserQuestion:
@@ -23,7 +23,7 @@ AskUserQuestion:
   header: "Problem"
 ```
 
-After the user answers (or if skipped because the problem was already clear), record: `cfl question mine-define problem --status <asked|skipped> [--answer "<summary>"] --spec <spec_number>`
+After the user answers (or if skipped because the problem was already clear), proceed to the next question.
 
 2. **Success definition** (topic: `success`):
 
@@ -119,7 +119,7 @@ AskUserQuestion:
 
 Record (or skipped if not complex): `cfl question mine-define deps --status <asked|skipped> [--answer "<summary>"] --spec <spec_number>`
 
-7. **Security / access** (topic: `security`):
+7. **Security / access**:
 
 Before asking, check Phase 1.5 findings for existing auth patterns, data sensitivity, and access boundaries in the affected code. Propose what you found — the user confirms or corrects.
 
@@ -129,7 +129,7 @@ AskUserQuestion:
   header: "[<mode>] Security"
 ```
 
-Record (or skipped if not complex): `cfl question mine-define security --status <asked|skipped> [--answer "<summary>"] --spec <spec_number>`
+Proceed to the next question.
 
 8. **Performance** (topic: `perf`):
 
@@ -258,7 +258,7 @@ Record immediately after user responds: `cfl question mine-define confirm-intent
 
 If "No", ask what's wrong and revise your understanding, then confirm again (re-recording the new response).
 
-## Caller perspective (topic: `caller-view`) — API/module designs only
+## Caller perspective — API/module designs only
 
 If the artifact being designed is an API, module, library, or public interface (not a workflow, feature, or internal refactor), insert this step before proceeding.
 
@@ -274,7 +274,7 @@ The user's answer becomes the spec. When the call-site ergonomics conflict with 
 
 If the user already provided call-site examples during discovery (e.g., in their problem description or flow walkthrough), skip this step and note: "Using the call sites you described earlier as the design anchor."
 
-Record (or skipped if not an API design): `cfl question mine-define caller-view --status <asked|skipped> [--answer "<summary>"] --spec <spec_number>`
+Proceed to existing code leverage.
 
 ## Existing code leverage (moderate+ only)
 

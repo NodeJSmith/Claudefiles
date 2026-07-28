@@ -16,20 +16,17 @@ KNOWN_SKILLS: frozenset[str] = frozenset({"mine-define", "mine-grill", "mine-pla
 KNOWN_TOPICS: frozenset[str] = frozenset(
     {
         # mine-define
-        "problem",
         "success",
         "scope-mode",
         "scope",
         "user-flow",
         "edge-cases",
         "deps",
-        "security",
         "perf",
         "rollback",
         "test-reqs",
         "impl-prefs",
         "confirm-intent",
-        "caller-view",
         "sign-off",
         # mine-plan
         "design-doc",

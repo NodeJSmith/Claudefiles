@@ -75,7 +75,7 @@ def test_auto_join_creates_session_row(spec_and_run, db_conn, monkeypatch):
     """When CLAUDE_CODE_SESSION_ID is set, inserts a sessions row."""
     _, run_id = spec_and_run
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "ses-test-abc")
-    monkeypatch.delenv("CLAUDE_MODEL", raising=False)
+    monkeypatch.delenv("ANTHROPIC_MODEL", raising=False)
 
     result = auto_join_session(db_conn, run_id)
 
@@ -89,18 +89,24 @@ def test_auto_join_creates_session_row(spec_and_run, db_conn, monkeypatch):
     assert row["run_id"] == run_id
 
 
-def test_auto_join_captures_model_from_env(spec_and_run, db_conn, monkeypatch):
-    """Model field is populated from CLAUDE_MODEL env var when set."""
+def test_auto_join_captures_model_from_anthropic_model(
+    spec_and_run, db_conn, monkeypatch, tmp_path
+):
+    """Model field is populated from $ANTHROPIC_MODEL (normalized to short name)."""
     _, run_id = spec_and_run
+    monkeypatch.setattr(
+        "cfl.session.CONTEXT_SIDECAR_TEMPLATE",
+        str(tmp_path / "claude-context-{session_id}.meta"),
+    )
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "ses-model-test")
-    monkeypatch.setenv("CLAUDE_MODEL", "claude-sonnet-4-5")
+    monkeypatch.setenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929")
 
     auto_join_session(db_conn, run_id)
 
     row = db_conn.execute(
         "SELECT model FROM sessions WHERE session_id=?", ("ses-model-test",)
     ).fetchone()
-    assert row["model"] == "claude-sonnet-4-5"
+    assert row["model"] == "sonnet"
 
 
 def test_auto_join_is_idempotent(spec_and_run, db_conn, monkeypatch):

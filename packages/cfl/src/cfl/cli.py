@@ -36,6 +36,7 @@ from cfl.run import (
     stop_orphans,
 )
 from cfl.session import SESSION_ID_ENV_VAR, end_session, record_compaction
+from cfl.snapshot import snapshot_plan
 from cfl.spec import (
     SETTABLE_STATUSES,
     spec_adopt,
@@ -385,6 +386,14 @@ def cmd_run_advance_phase(
         )
 
 
+@run_app.command(name="snapshot")
+def cmd_run_snapshot() -> None:
+    """Snapshot plan metadata (design doc + task files) for the active run."""
+    with db_connection() as conn:
+        ctx = resolve_context(conn, spec_override=_spec_override)
+        snapshot_plan(conn, ctx["active_run_id"], ctx["feature_dir"])
+
+
 # ---------------------------------------------------------------------------
 # task commands
 # ---------------------------------------------------------------------------
@@ -549,10 +558,6 @@ def cmd_dispatch(
             name=["--gate-id"], help="Gate this dispatch serves (NULL for executor)"
         ),
     ] = None,
-    routing_reason: Annotated[
-        str | None,
-        Parameter(name=["--routing-reason"], help="Why this agent type was selected"),
-    ] = None,
 ) -> None:
     """Record a subagent dispatch."""
     with db_connection() as conn:
@@ -565,7 +570,6 @@ def cmd_dispatch(
             agent_type=agent_type,
             model=model,
             gate_id=gate_id,
-            routing_reason=routing_reason,
         )
 
 

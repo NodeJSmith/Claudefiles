@@ -46,14 +46,14 @@ def test_record_question_outputs_json(db_conn, capsys):
     """record_question emits JSON with question_id, run_id, skill, topic, status."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
 
-    record_question(db_conn, run_id, "mine-define", "problem", status="asked")
+    record_question(db_conn, run_id, "mine-define", "success", status="asked")
 
     out = json.loads(capsys.readouterr().out)
     assert "question_id" in out
     assert isinstance(out["question_id"], int)
     assert out["run_id"] == run_id
     assert out["skill"] == "mine-define"
-    assert out["topic"] == "problem"
+    assert out["topic"] == "success"
     assert out["status"] == "asked"
 
 
@@ -74,7 +74,7 @@ def test_record_question_multiple_per_run(db_conn, capsys):
     """Multiple questions can be recorded for the same run."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
 
-    record_question(db_conn, run_id, "mine-define", "problem", status="asked")
+    record_question(db_conn, run_id, "mine-define", "success", status="asked")
     _ = capsys.readouterr()
     record_question(db_conn, run_id, "mine-define", "success", status="asked")
     _ = capsys.readouterr()
@@ -96,7 +96,7 @@ def test_record_question_unknown_skill_warns(db_conn, capsys):
     """record_question emits a warning for unknown skill but still writes."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
 
-    record_question(db_conn, run_id, "unknown-skill", "problem", status="asked")
+    record_question(db_conn, run_id, "unknown-skill", "success", status="asked")
 
     captured = capsys.readouterr()
     assert "unknown_skill" in captured.err
@@ -132,7 +132,7 @@ def test_record_question_invalid_status_exits_2(db_conn, capsys):
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
 
     with pytest.raises(SystemExit) as exc_info:
-        record_question(db_conn, run_id, "mine-define", "problem", status="answered")
+        record_question(db_conn, run_id, "mine-define", "success", status="answered")
     assert exc_info.value.code == 2
 
     err = json.loads(capsys.readouterr().err)
@@ -144,7 +144,7 @@ def test_record_question_all_valid_statuses_accepted(db_conn, capsys):
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
 
     for status in sorted(VALID_STATUSES):
-        record_question(db_conn, run_id, "mine-define", "problem", status=status)
+        record_question(db_conn, run_id, "mine-define", "success", status=status)
         _ = capsys.readouterr()
 
 
@@ -157,7 +157,7 @@ def test_list_questions_returns_all(db_conn, capsys):
     """list_questions returns all questions when no filters applied."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
 
-    record_question(db_conn, run_id, "mine-define", "problem", status="asked")
+    record_question(db_conn, run_id, "mine-define", "success", status="asked")
     _ = capsys.readouterr()
     record_question(db_conn, run_id, "mine-define", "success", status="asked")
     _ = capsys.readouterr()
@@ -172,7 +172,7 @@ def test_list_questions_filter_by_skill(db_conn, capsys):
     """list_questions filters by skill."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
 
-    record_question(db_conn, run_id, "mine-define", "problem", status="asked")
+    record_question(db_conn, run_id, "mine-define", "success", status="asked")
     _ = capsys.readouterr()
     record_question(db_conn, run_id, "mine-grill", "pain-point", status="asked")
     _ = capsys.readouterr()
@@ -188,7 +188,7 @@ def test_list_questions_filter_by_status(db_conn, capsys):
     """list_questions filters by status."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
 
-    record_question(db_conn, run_id, "mine-define", "problem", status="asked")
+    record_question(db_conn, run_id, "mine-define", "success", status="asked")
     _ = capsys.readouterr()
     record_question(db_conn, run_id, "mine-define", "edge-cases", status="skipped")
     _ = capsys.readouterr()
@@ -204,7 +204,7 @@ def test_list_questions_filter_by_topic(db_conn, capsys):
     """list_questions filters by topic."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
 
-    record_question(db_conn, run_id, "mine-define", "problem", status="asked")
+    record_question(db_conn, run_id, "mine-define", "success", status="asked")
     _ = capsys.readouterr()
     record_question(db_conn, run_id, "mine-define", "scope-mode", status="asked")
     _ = capsys.readouterr()
@@ -220,7 +220,7 @@ def test_list_questions_respects_limit(db_conn, capsys):
     """list_questions honors the limit parameter."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
 
-    for topic in ["problem", "success", "scope-mode"]:
+    for topic in ["success", "scope-mode", "edge-cases"]:
         record_question(db_conn, run_id, "mine-define", topic, status="asked")
         _ = capsys.readouterr()
 
