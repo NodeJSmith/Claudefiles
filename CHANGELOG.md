@@ -2,6 +2,22 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-07-27
+
+### Added
+
+- New `cfl run snapshot` command captures plan metadata (FR/AC text, scope mode, complexity, task dependencies/target files/verify counts) from the design doc and task files into new `plan_snapshots`/`task_snapshots` tables (schema v5); wired into `mine-orchestrate` right after run start/resume. (#475)
+
+### Changed
+
+- `cfl gate spec-review` now records findings/severity counts and a `--detail` summary, matching code-review and integration-review gates; `task.contested` events are normalized to `accept`/`reject` decisions, with nuance pushed into `rationale`; orchestrate test gate now WARNs (instead of FAILs) on regressions confined to a not-yet-executed downstream task's files. (#475)
+- Removed the `define-quality` and `plan-spec-validate` gates and their checklists — the fine-toothed comb review already covers what they checked; also removed `routing_reason` from `cfl dispatch` and the `problem`/`security`/`caller-view` question topics from `mine-define`'s tracking as unused telemetry. (#475)
+
+### Fixed
+
+- `cfl` session rows now correctly capture the active model — `auto_join_session` was reading an env var Claude Code never sets; it now reads the live model from the statusLine sidecar, falling back to `$ANTHROPIC_MODEL`. (#475)
+- `project-meta-prompt.sh` now keys its per-repo answer on the shared `.git` dir instead of `pwd`, so a worktree's audience/developers/data-sensitivity answer persists at the main clone instead of vanishing when the worktree is removed. (#475)
+
 ## 2026-07-26
 
 ### Added
