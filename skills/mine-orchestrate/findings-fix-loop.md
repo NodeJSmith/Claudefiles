@@ -137,7 +137,7 @@ The loop reaches the gate in one of two terminal states.
 **Terminal state B — budget exhausted (classify-mode ledger).** Both fixer passes ran and the latest re-review still returned a WARN or FAIL verdict on either reviewer, so the classify-mode pass wrote the terminal ledger against that latest review. Read the terminal ledger:
 
 - **Any `unresolved` row → the fixer gate result is FAIL.**
-- **No `unresolved` rows and every non-later-task deferred row includes `known-issue: KI-###` (only `fixed` and/or valid `deferred`, or an empty ledger) → the fixer gate result is PASS.** Count the `fixed` rows; carry a `(N auto-fixed)` note forward for Step 14/15.
+- **No `unresolved` rows and every non-later-task deferred row includes an artifact-backed `known-issue: KI-###` reference (only `fixed` and/or valid `deferred`, or an empty ledger) → the fixer gate result is PASS.** For each referenced ID, read `<feature_dir>/known-issues.md` and verify the ID exists as an entry that records the corresponding finding. Missing, malformed, or fabricated IDs do not satisfy the row; classify that row as `unresolved`, making the fixer gate result FAIL. Count the `fixed` rows; carry a `(N auto-fixed)` note forward for Step 14/15.
 
 In both states the orchestrator reads only the ledger (for counts, classification, and known-issue IDs) and the canonical verdict lines — never a review report body, and it never matches findings across agents. The ledger is the sole input for the FAIL determination. **AC#6 holds:** every finding the latest review reported is recorded in the ledger as `fixed`, valid `deferred(reason)`, or (in state B) `unresolved` — none are silently skipped.
 

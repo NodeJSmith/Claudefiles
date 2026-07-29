@@ -215,7 +215,7 @@ cfl dispatch end <final_code_reviewer_dispatch_id>
 cfl dispatch end <final_integration_reviewer_dispatch_id>
 ```
 
-If either reviewer finds CRITICAL or HIGH issues, fix them inline (auto-fix unambiguous issues, re-run both reviewers, max 2 iterations). If any CRITICAL or HIGH findings remain after those iterations, record `final-review` as FAIL, surface the findings to the user, and do not proceed to the shipping gate. Do not downgrade CRITICAL/HIGH findings into known issues.
+If either reviewer finds CRITICAL or HIGH issues, fix them inline (auto-fix unambiguous issues, re-run both reviewers, max 2 iterations). After each iteration that changes the branch, re-run the project test suite using `<dir>/test-command.txt` (skip and record `SKIPPED: no test suite` if that file contains the sentinel `no test suite`) and re-run lint using `<dir>/lint-command.txt` (skip and record `SKIPPED: no lint tools` if that file contains the sentinel `no lint tools`). Append a `Final-review retest` section to `<dir>/clean-code-summary.md` with the refreshed HEAD, test result, and lint result before evaluating the next final-review result or allowing `final-review` to pass; Step 6 reads that summary for the shipping prompt. If tests or lint fail after a final-review fix iteration, record `final-review` as FAIL, surface the failure to the user, and do not proceed to the shipping gate. If any CRITICAL or HIGH findings remain after those iterations, record `final-review` as FAIL, surface the findings to the user, and do not proceed to the shipping gate. Do not downgrade CRITICAL/HIGH findings into known issues.
 
 MEDIUM and LOW findings do not block, but they must not vanish: for each real remaining MEDIUM/LOW finding, either fix it, reject it as invalid/non-actionable with rationale in the review summary, or record it in `<feature_dir>/known-issues.md` using `known-issues-protocol.md`.
 
@@ -261,7 +261,7 @@ cfl gate shipping-gate --verdict <PASS|WARN|FAIL> --data '{"choice": "<ship|chal
 
 Read `<dir>/clean-code-summary.md` to populate the `Clean code check:` field in the question above.
 
-Read the canonical `**Verdict:**` lines from `<dir>/final-code-review.md` and `<dir>/final-integration-review.md` to populate the `Final review:` field. Use the same values recorded in the `cfl gate final-review` call above.
+Read the canonical `**Verdict:**` lines from `<dir>/final-code-review.md` and `<dir>/final-integration-review.md` to populate the `Final review:` field. Use the same values recorded in the `cfl gate final-review` call above. If `<dir>/clean-code-summary.md` contains a `Final-review retest` section, include its refreshed test/lint status in the `Final review:` field so the shipping prompt reflects the gates that ran after final-review auto-fixes.
 
 Read the known issues summary from Step 5.5 to populate the `Known issues:` field.
 
