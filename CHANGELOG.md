@@ -6,7 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Added
 
-- `mine-orchestrate` now records real issues that are intentionally left unfixed in a durable per-feature `known-issues.md`, preserving context for faithful ports, behavior-change risks, out-of-scope fixes, blocked work, and decision-dependent follow-ups.
+- `mine-orchestrate` now records real issues that are intentionally left unfixed in a durable per-feature `known-issues.md`, preserving context for faithful ports, behavior-change risks, out-of-scope fixes, blocked work, and decision-dependent follow-ups. (#477)
 - New `/mine-sketch` skill bridges direct implementation and the full caliper workflow — produces a lightweight `design.md` (with FRs/ACs) and task files in one pass for well-understood multi-file work, then hands off to `mine-orchestrate`. (#476)
 
 ### Changed
