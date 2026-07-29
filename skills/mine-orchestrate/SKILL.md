@@ -69,9 +69,9 @@ Read `<feature_dir>/design.md` to understand the overall architecture and constr
 
 ### Known issues artifact
 
-Known issues discovered during orchestration are recorded durably in `<feature_dir>/known-issues.md`. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md` before the first task reaches any review/fix decision that may defer a real issue.
+Known issues discovered during orchestration are recorded durably using `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md`. Read that protocol before the first task reaches any review/fix decision that may defer a real issue.
 
-Do not create `known-issues.md` preemptively. Create it only when a qualifying issue is intentionally left unfixed.
+Do not create the known-issues artifact preemptively. Create it only when a qualifying issue is intentionally left unfixed.
 
 ### Read all task files
 

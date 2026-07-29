@@ -229,7 +229,7 @@ Populate the `--data` values by parsing the canonical `**Verdict:**` lines from 
 
 ## Step 5.5: Known issues summary (automatic)
 
-Read `<feature_dir>/known-issues.md` if it exists. Count entries with `Status: open` and capture their `KI-###` titles. If the file does not exist, the count is 0.
+Read the known-issues artifact defined by `known-issues-protocol.md` if it exists. Count open entries using the protocol's status field and capture their IDs and titles. If the file does not exist, the count is 0.
 
 Use this summary in the shipping gate. Do not treat open known issues as a failed gate by themselves — the point is durable disclosure and follow-up, not blocking faithful ports or intentionally scoped work.
 

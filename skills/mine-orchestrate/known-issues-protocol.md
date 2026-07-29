@@ -10,6 +10,8 @@ Record known issues in the feature directory:
 <feature_dir>/known-issues.md
 ```
 
+This protocol is the canonical source for the artifact name, entry ID format, status field, source labels, and qualifying reasons. Other orchestration files should reference this protocol instead of redefining the schema.
+
 Create the file on first use. Use this header:
 
 ```md
