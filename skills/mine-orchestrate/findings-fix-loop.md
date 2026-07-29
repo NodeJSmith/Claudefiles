@@ -24,7 +24,9 @@ Include in the fixer's prompt:
 - Path to `<dir>/<task_id>/code-review.md`
 - Path to `<dir>/<task_id>/integration-review.md`
 - Path to the design doc for this task
-- Path to the task spec (`<feature_dir>/tasks/<task_id>.md`) — so the fixer can verify whether findings contradict a task instruction without spelunking
+- Path to the actual current task spec file discovered in Phase 0 (do not reconstruct it from `task_id`; task filenames may include descriptive suffixes) — so the fixer can verify whether findings contradict a task instruction without spelunking
+- Path to the durable known issues file (`<feature_dir>/known-issues.md`) — create only when needed
+- Path to `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md`
 - The changed-files list (file paths, one per line — pass the list inline, not as a file path)
 - The task scope boundary (same block passed to reviewers in Step 8 — remaining task IDs, titles, and target files)
 
@@ -40,12 +42,16 @@ The fixer prompt must include:
 > - **Auto-fix** when the correct solution is unambiguous (clear bugs, missing type annotations, style violations, naming drift, orphaned code, undefined references, simple security issues)
 > - **Defer** when the fix requires architectural judgment or business context
 > - **Defer** when the finding targets code/files explicitly listed in a later task's scope boundary — mark as `deferred(later-task: <task_id>)`
+>
+> During normal fixer passes, do not write `<feature_dir>/known-issues.md` yet. Mark non-later-task deferrals as `deferred(<reason>; pending terminal classification)` and let the independent re-review decide whether the finding still exists. Durable known-issue recording happens only in the terminal classify-mode pass, against the latest review.
 
 ### Classify-mode pass (budget exhausted, findings remain)
 
 When running the terminal classify-mode pass, add to the fixer prompt:
 
 > **This is a classify-only pass. Apply no code changes.** Read the review files and classify every finding in the ledger only.
+>
+> For every deferred finding that is **not** `deferred(later-task: <task_id>)`, read `known-issues-protocol.md` and record the issue in `<feature_dir>/known-issues.md` before treating it as acceptable. Use the protocol's qualifying criteria; if the issue does not qualify, classify it as `unresolved` instead of silently deferring it. Faithful-port bugs are valid known issues when fixing them would break port fidelity.
 
 ### The ledger
 
@@ -53,11 +59,15 @@ After processing all findings, the fixer writes `<dir>/<task_id>/fix-ledger.md`,
 
 ```
 [SEVERITY] file:line — fixed: <what was done>
-[SEVERITY] file:line — deferred(<reason>)
+[SEVERITY] file:line — deferred(<reason>; known-issue: KI-###)
+[SEVERITY] file:line — deferred(<reason>; pending terminal classification)
+[SEVERITY] file:line — deferred(later-task: <task_id>)
 [SEVERITY] file:line — unresolved: <brief description>
 ```
 
-Rows are descriptive. They are not keyed by a cross-agent finding ID and are never matched across passes or agents. The orchestrator reads only the row classifications (`fixed`, `deferred`, `unresolved`) — it never reads a review body and never compares ledger rows against prior-pass ledgers.
+Rows are descriptive. They are not keyed by a cross-agent finding ID and are never matched across passes or agents. The orchestrator reads only the row classifications (`fixed`, `deferred`, `unresolved`) and any `known-issue: KI-###` references for the task summary — it never reads a review body and never compares ledger rows against prior-pass ledgers.
+
+In terminal state B, non-later-task deferred rows must include a `known-issue: KI-###` reference. A terminal deferred row without either `later-task: <task_id>` or `known-issue: KI-###` is invalid and counts as `unresolved` for the gate. `pending terminal classification` is allowed only in ledgers from normal fixer passes that are followed by re-review.
 
 The fixer ends its response with a one-line summary: `fixed: N, deferred: M, unresolved: K`
 
@@ -115,27 +125,27 @@ The fixer ends its response with a one-line summary: `fixed: N, deferred: M, unr
 If the iteration 3 re-review still has a WARN or FAIL verdict on either reviewer:
 
 1. Record the classify-mode fixer dispatch (`cfl dispatch fixer <task_id> --agent-type general-purpose --model sonnet`), capture `dispatch_id`. Dispatch the fixer subagent in **classify-mode** with the iteration 3 re-review file paths and the updated changed-files list. After completion: `cfl dispatch end <dispatch_id>`.
-2. The fixer reads the latest reviews, classifies every remaining finding as `fixed`, `deferred(reason)`, or `unresolved`, and writes `<dir>/<task_id>/fix-ledger.md` (overwrites). **No code changes.**
+2. The fixer reads the latest reviews, classifies every remaining finding as `fixed`, `deferred(reason)` with required known-issue recording for non-later-task deferrals, or `unresolved`, and writes `<dir>/<task_id>/fix-ledger.md` (overwrites). **No code changes.** It may edit `<feature_dir>/known-issues.md` because that is documentation of the classification, not a code fix.
 3. Do not re-dispatch reviewers after the classify-mode pass. The terminal ledger now reflects the latest review's findings. Proceed to the Gate section (terminal state B).
 
 ## Gate
 
 The loop reaches the gate in one of two terminal states.
 
-**Terminal state A — clean re-review (early exit).** A re-review after a fixer pass returned a PASS verdict on both reviewers. The independent reviewers are authoritative for detection, so the **fixer gate result is PASS**. Informational findings attached to a PASS verdict do not affect the gate. A PASS means the reviewer judged the code acceptable. Read the latest `<dir>/<task_id>/fix-ledger.md` only to count the `fixed` rows for the `(N auto-fixed)` note and to carry forward any `deferred(reason)` rows for Step 14/15. A stale `unresolved` row left in a ledger written *before* the clean re-review does **not** FAIL the task — the independent re-review supersedes it.
+**Terminal state A — clean re-review (early exit).** A re-review after a fixer pass returned a PASS verdict on both reviewers. The independent reviewers are authoritative for detection, so the **fixer gate result is PASS**. Informational findings attached to a PASS verdict do not affect the gate. A PASS means the reviewer judged the code acceptable. Read the latest `<dir>/<task_id>/fix-ledger.md` only to count the `fixed` rows for the `(N auto-fixed)` note. Do **not** carry forward deferred rows or known-issue IDs from this stale ledger; the clean re-review supersedes the earlier finding set. A stale `unresolved` row left in a ledger written *before* the clean re-review does **not** FAIL the task.
 
 **Terminal state B — budget exhausted (classify-mode ledger).** Both fixer passes ran and the latest re-review still returned a WARN or FAIL verdict on either reviewer, so the classify-mode pass wrote the terminal ledger against that latest review. Read the terminal ledger:
 
 - **Any `unresolved` row → the fixer gate result is FAIL.**
-- **No `unresolved` rows (only `fixed` and/or `deferred`, or an empty ledger) → the fixer gate result is PASS.** Count the `fixed` rows; carry a `(N auto-fixed)` note forward for Step 14/15.
+- **No `unresolved` rows and every non-later-task deferred row includes an artifact-backed `known-issue: KI-###` reference (only `fixed` and/or valid `deferred`, or an empty ledger) → the fixer gate result is PASS.** For each referenced ID, read `<feature_dir>/known-issues.md` and verify the ID exists as an entry that records the corresponding finding. Missing, malformed, or fabricated IDs do not satisfy the row; classify that row as `unresolved`, making the fixer gate result FAIL. Count the `fixed` rows; carry a `(N auto-fixed)` note forward for Step 14/15.
 
-In both states the orchestrator reads only the ledger (for counts and classification) and the canonical verdict lines — never a review report body, and it never matches findings across agents. The ledger is the sole input for the FAIL determination. **AC#6 holds:** every finding the latest review reported is recorded in the ledger as `fixed`, `deferred(reason)`, or (in state B) `unresolved` — none are silently skipped.
+In both states the orchestrator reads only the ledger (for counts, classification, and known-issue IDs) and the canonical verdict lines — never a review report body, and it never matches findings across agents. The ledger is the sole input for the FAIL determination. **AC#6 holds:** every finding the latest review reported is recorded in the ledger as `fixed`, valid `deferred(reason)`, or (in state B) `unresolved` — none are silently skipped.
 
 After the gate evaluation, the changed-files list in `<dir>/<task_id>/changed-files.txt` is current from the last loop re-capture. This is the list used by Step 17a (commit). The classify-mode terminal pass makes no code changes, so no additional re-capture is needed after it.
 
 ## Event Logging
 
-After the loop completes (gate decided), emit a fix event with the counts from the terminal ledger (or from the fixer's one-line summary return). Iteration count = number of review passes run (2 after one fixer cycle, 3 after two fixer cycles):
+After the loop completes (gate decided), emit a fix event with the counts from the terminal ledger (or from the fixer's one-line summary return). For terminal state A, count only fixed rows; deferred/unresolved rows in the stale ledger do not carry forward. Iteration count = number of review passes run (2 after one fixer cycle, 3 after two fixer cycles):
 
 ```bash
 cfl event task.fixed <task_id> --data '{"fixed": <N>, "deferred": <M>, "unresolved": <K>, "iteration": <iteration count>}'

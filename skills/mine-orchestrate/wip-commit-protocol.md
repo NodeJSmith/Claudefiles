@@ -50,8 +50,10 @@ cfl task verdict <task_id> <PASS|WARN> --commit <SHA from Step 17a> [--detail "<
 
 Always add `--detail` when the verdict includes context:
 - **PASS with auto-fixes**: `PASS --detail "3 auto-fixed"` — findings were raised and resolved
+- **PASS with known issues**: `PASS --detail "known issues: KI-001, KI-002"` — real issues were intentionally left unfixed and recorded durably
+- **PASS with auto-fixes and known issues**: `PASS --detail "3 auto-fixed; known issues: KI-001"`
 - **WARN**: `WARN --detail "visual skipped"` — something genuinely unresolved remains
 
 The `--data` JSON captures the per-reviewer breakdown for audit purposes. `last_completed` is derived from task statuses in the DB — no separate update needed.
 
-Resolved findings (all auto-fixed, nothing remaining) produce PASS with a detail note, not WARN.
+Resolved findings (all auto-fixed, nothing remaining) and intentional deferrals recorded as known issues produce PASS with a detail note, not WARN.
