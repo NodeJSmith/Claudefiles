@@ -67,6 +67,12 @@ AskUserQuestion:
 
 Read `<feature_dir>/design.md` to understand the overall architecture and constraints. This is the spec reviewer's reference document.
 
+### Known issues artifact
+
+Known issues discovered during orchestration are recorded durably in `<feature_dir>/known-issues.md`. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md` before the first task reaches any review/fix decision that may defer a real issue.
+
+Do not create `known-issues.md` preemptively. Create it only when a qualifying issue is intentionally left unfixed.
+
 ### Read all task files
 
 Read all `<feature_dir>/tasks/T*.md` files in order. For each task, extract:
@@ -253,6 +259,7 @@ Create a per-task subdirectory: `<dir>/<task_id>/` (e.g., `<dir>/t01/`). Use the
 - Test output log: `<dir>/<task_id>/test-output.log`
 - Lint output log: `<dir>/<task_id>/lint-output.log`
 - Screenshots: `<dir>/<task_id>/before-*.png`, `<dir>/<task_id>/after-*.png`
+- Durable known issues: `<feature_dir>/known-issues.md` (feature artifact, created only when needed; not stored in tmpdir)
 
 Per-task subdirectories preserve evidence across the full orchestration run. This allows post-hoc review, retry debugging, and screenshot comparison across tasks.
 
@@ -560,7 +567,7 @@ When the canonical verdict line for the code reviewer or integration reviewer fr
 
 Spec and visual findings do **not** trigger this loop — a spec FAIL routes to the Step 10 spec fix loop, and visual findings feed Step 14 directly.
 
-The fix loop handles cfl event emission, changed-files re-capture, and the gate decision internally — it produces a **fixer gate result** of PASS or FAIL (per its terminal-state-A/B logic in `findings-fix-loop.md`). Record that result; do **not** route on it here. Continue to Step 13 regardless. The fixer gate result is one input to the Step 14 verdict assembly (the single authoritative gate), which Step 15 presents and Step 16 acts on. If the loop was not triggered, there is no fixer gate result and Step 14 treats code/integration as clean.
+The fix loop handles cfl event emission, changed-files re-capture, known-issues recording for qualifying non-later-task deferrals, and the gate decision internally — it produces a **fixer gate result** of PASS or FAIL (per its terminal-state-A/B logic in `findings-fix-loop.md`). Record that result; do **not** route on it here. Continue to Step 13 regardless. The fixer gate result is one input to the Step 14 verdict assembly (the single authoritative gate), which Step 15 presents and Step 16 acts on. If the loop was not triggered, there is no fixer gate result and Step 14 treats code/integration as clean.
 
 ### Step 13: Review gate
 
@@ -594,7 +601,7 @@ Derive the canonical task verdict from all reviewer outputs. This is the single 
 
 WARN is reserved for genuinely unresolved items. Always include a parenthetical note explaining what remains: e.g., `WARN (visual skipped)`, `WARN (2 pre-existing test failures)`.
 
-**PASS** if all reviewers clean and no unresolved issues. If findings were raised and fixed or deferred by the fixer loop, the verdict is **PASS** with a note from the fixer gate result's `(N auto-fixed)` count carried back from Step 12 (not a fresh ledger read) — e.g., `PASS (3 auto-fixed)`. Deferred and resolved findings do not downgrade the verdict to WARN.
+**PASS** if all reviewers clean and no unresolved issues. If findings were raised and fixed or deferred by the fixer loop, the verdict is **PASS** with a note from the fixer gate result's `(N auto-fixed)` count carried back from Step 12 (not a fresh ledger read) — e.g., `PASS (3 auto-fixed)`. Deferred and resolved findings do not downgrade the verdict to WARN when non-later-task deferrals have been recorded in `<feature_dir>/known-issues.md` per `known-issues-protocol.md`.
 
 The verdict is recorded via `cfl task verdict` in Step 17b (after the WIP commit) — that single call captures the verdict, commit SHA, reviewer breakdown, and emits the `task.verdict` event and verdict-assembly gate atomically.
 
@@ -609,11 +616,12 @@ Spec review: PASS|FAIL
 Visual: PASS (N scenarios)|WARN|FAIL|SKIPPED|N/A
 Code review: PASS|WARN|FAIL (N iterations) — NEVER "N/A" or "skipped"
 Integration review: PASS|WARN|FAIL — NEVER "N/A" or "skipped"
-Test gate: PASS (N tests)|FAIL (N failures — see test-gate.md)|SKIPPED
+Test gate: PASS (N tests)|WARN (N downstream-scoped regressions)|FAIL (N failures — see test-gate.md)|SKIPPED
 Lint gate: PASS|WARN (N regressions)|SKIPPED
 
 [Any deviations noted]
 [Any WARN or FAIL details]
+[Known issues recorded this task, if any]
 ```
 
 ### Step 16: Gate decision
@@ -622,7 +630,7 @@ Gate based on verdict:
 
 **PASS or WARN** — auto-continue to the next task. Display the summary but do not ask for confirmation. Proceed to Step 17 (WIP commit + cfl task verdict). Do NOT record the verdict here — `cfl task verdict` in Step 17b records it after the WIP commit succeeds, ensuring the commit SHA is captured.
 
-Note: by this point, spec FAILs have been through the Step 10 auto-fix loop. Code/integration findings, if the Step 8 verdict was WARN or FAIL, have been through the Step 12 fixer loop. A PASS verdict with only informational findings never enters Step 12. A verdict note like `(3 auto-fixed)` means findings were raised and resolved by the fixer loop. A WARN verdict means something genuinely unresolved remains (visual issues, pre-existing test failures, unresolved lint regressions).
+Note: by this point, spec FAILs have been through the Step 10 auto-fix loop. Code/integration findings, if the Step 8 verdict was WARN or FAIL, have been through the Step 12 fixer loop. A PASS verdict with only informational findings never enters Step 12. A verdict note like `(3 auto-fixed)` means findings were raised and resolved by the fixer loop. A known issue note means a real issue was intentionally left unfixed and recorded durably. A WARN verdict means something genuinely unresolved remains (visual issues, downstream-scoped test regressions, pre-existing test failures, unresolved lint regressions).
 
 **FAIL or non-architectural BLOCKED** — ask the user:
 ```

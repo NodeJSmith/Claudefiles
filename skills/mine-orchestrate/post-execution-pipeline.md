@@ -19,7 +19,7 @@ Present a verdict table. **Read the run state via `cfl run status`** and build t
 ...
 ```
 
-Use `tasks[].verdict` and `tasks[].verdict_detail` fields. PASS with a detail note means findings were raised and resolved. WARN means something genuinely unresolved remains.
+Use `tasks[].verdict` and `tasks[].verdict_detail` fields. PASS with a detail note means findings were raised and either resolved or recorded as durable known issues. WARN means something genuinely unresolved remains.
 
 ## Step 2: Implementation review (automatic, gates on blocking issues)
 
@@ -31,7 +31,7 @@ Read the review output. Extract the verdict (PASS, FAIL, or ABANDON) and any sug
 cfl gate impl-review --verdict <PASS|FAIL> --detail "<brief summary>"
 ```
 
-**If impl-review returns PASS** — note any non-blocking suggestions to surface later. Continue to Step 3 automatically.
+**If impl-review returns PASS** — note any non-blocking suggestions to surface later. If a suggestion identifies a real issue that should not be fixed in this run, record it using `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md`. Continue to Step 3 automatically.
 
 **If impl-review returns ABANDON** — hard stop. ABANDON means the implementation is unrecoverable and requires a design rethink, not a code fix. Do not offer "Address fixes":
 
@@ -113,7 +113,19 @@ Record the gate result:
 cfl gate cross-file-review --verdict <PASS|WARN|FAIL> --data '{"findings": <N>, "critical": <C>, "high": <H>, "medium": <M>, "low": <L>}'
 ```
 
-If the integration-reviewer returns FAIL, surface the blocking issues to the user with an "Address" / "Stop here" gate (same pattern as the impl-review gate). If PASS or WARN, note any suggestions and continue to Step 4 (Clean code check).
+If the integration-reviewer returns FAIL, surface the blocking issues to the user with an "Address" / "Stop here" gate. On "Address": record a fresh fixer dispatch and capture its ID:
+
+```bash
+cfl dispatch cross-file-fixer --agent-type general-purpose --model sonnet
+```
+
+Then dispatch a `general-purpose` fixer with `model: sonnet`, `cfl_dispatch_id: <cross_file_fixer_dispatch_id>`, the cross-file review findings, changed file paths, design doc path, task files, and the instruction: "Fix only the listed cross-file consistency issues; do not expand scope." After it completes:
+
+```bash
+cfl dispatch end <cross_file_fixer_dispatch_id>
+```
+
+Then re-run the project test suite using `<dir>/test-command.txt`, re-run the cross-file integration review, and record the updated `cross-file-review` gate. Repeat with the same warning-after-3-rounds policy as the impl-review gate, or stop if the user chooses "Stop here". If PASS or WARN, note any suggestions. If a suggestion identifies a real issue that should not be fixed in this run, record it using `known-issues-protocol.md`. Continue to Step 4 (Clean code check).
 
 ## Step 4: Clean code check (automatic)
 
@@ -132,9 +144,9 @@ You are running a comprehensive stylistic quality review on a completed feature 
 
 ## Branch diff
 
-Run this to get the scope:
+Run this to get the scope. Use the orchestration run's recorded base commit from Step 1, not the branch base:
 
-git diff "$(git-branch-base)"...HEAD --name-only
+git diff --name-only <base_commit> HEAD
 
 ## Task
 
@@ -145,8 +157,9 @@ After the findings are reported:
 1. When mine-clean-code asks "What would you like to do with these findings?", choose "Fix all"
 2. Fix ALL findings that have unambiguous solutions — obvious-comment removal, dead helper removal, naming improvements, scattered constants, hardcoded values that should be configurable, copy-paste extraction, etc.
 3. For findings that require architectural judgment or could change behavior in subtle ways (e.g., collapsing an abstraction stack, restructuring an error hierarchy), leave them unfixed and note them in your summary
-4. After fixing, run the project's test suite to verify no regressions: <contents of <dir>/test-command.txt>
-5. If tests pass, run lint using <contents of <dir>/lint-command.txt>. If that file contains the sentinel "no lint tools", skip this step.
+4. For every real unfixed finding that should not be fixed in this orchestration run, read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md` and append a qualifying entry to `<feature_dir>/known-issues.md`. If it does not qualify as a known issue, explain why it was rejected as invalid/non-actionable in the summary instead of silently dropping it
+5. After fixing, run the project's test suite to verify no regressions: <contents of <dir>/test-command.txt>
+6. If tests pass, run lint using <contents of <dir>/lint-command.txt>. If that file contains the sentinel "no lint tools", skip this step.
 
 ## Design doc path
 <absolute path to <feature_dir>/design.md>
@@ -166,7 +179,7 @@ Wait for the subagent to complete. Mark the dispatch done:
 cfl dispatch end <dispatch_id>
 ```
 
-Read `<dir>/clean-code-summary.md` to see what was fixed and what remains. Note any unfixed findings for the shipping gate. Record the gate result:
+Read `<dir>/clean-code-summary.md` to see what was fixed and what remains. Note any unfixed findings for the shipping gate, including any `KI-###` entries created. Record the gate result:
 
 ```bash
 cfl gate clean-code --verdict <PASS|WARN> --data '{"fixed": <N>, "unfixed": <M>}'
@@ -202,7 +215,9 @@ cfl dispatch end <final_code_reviewer_dispatch_id>
 cfl dispatch end <final_integration_reviewer_dispatch_id>
 ```
 
-If either reviewer finds CRITICAL or HIGH issues, fix them inline (auto-fix unambiguous issues, re-run both reviewers, max 2 iterations). MEDIUM and LOW findings are noted for the shipping gate but do not block.
+If either reviewer finds CRITICAL or HIGH issues, fix them inline (auto-fix unambiguous issues, re-run both reviewers, max 2 iterations). If any CRITICAL or HIGH findings remain after those iterations, record `final-review` as FAIL, surface the findings to the user, and do not proceed to the shipping gate. Do not downgrade CRITICAL/HIGH findings into known issues.
+
+MEDIUM and LOW findings do not block, but they must not vanish: for each real remaining MEDIUM/LOW finding, either fix it, reject it as invalid/non-actionable with rationale in the review summary, or record it in `<feature_dir>/known-issues.md` using `known-issues-protocol.md`.
 
 Record the gate result:
 
@@ -210,7 +225,13 @@ Record the gate result:
 cfl gate final-review --verdict <PASS|WARN|FAIL> --data '{"findings_fixed": <N>, "remaining": <M>, "remaining_severities": {"medium": <Me>, "low": <L>}}'
 ```
 
-Populate the `--data` values by parsing the canonical `**Verdict:**` lines from `<dir>/final-code-review.md` and `<dir>/final-integration-review.md` (extraction contract: last line matching `^\*\*Verdict:\*\*` containing `(findings:` — see `verdict-line-format.md`). `remaining` is the sum of MEDIUM + LOW findings across both reviewers after the fix loop.
+Populate the `--data` values by parsing the canonical `**Verdict:**` lines from `<dir>/final-code-review.md` and `<dir>/final-integration-review.md` (extraction contract: last line matching `^\*\*Verdict:\*\*` containing `(findings:` — see `verdict-line-format.md`). `remaining` is the sum of MEDIUM + LOW findings across both reviewers after the fix loop. Include known-issue IDs for recorded remaining findings in the gate detail.
+
+## Step 5.5: Known issues summary (automatic)
+
+Read `<feature_dir>/known-issues.md` if it exists. Count entries with `Status: open` and capture their `KI-###` titles. If the file does not exist, the count is 0.
+
+Use this summary in the shipping gate. Do not treat open known issues as a failed gate by themselves — the point is durable disclosure and follow-up, not blocking faithful ports or intentionally scoped work.
 
 ## Step 6: Shipping gate
 
@@ -218,7 +239,7 @@ Present the final gate with impl-review and cross-file review results:
 
 ```
 AskUserQuestion:
-  question: "All tasks complete. Implementation review: <PASS + any non-blocking suggestions summary>. Cross-file review: <PASS/WARN + any notes>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Final review: <verdict — N fixed; M remaining at medium/low — or 'all clean'>. What next?"
+  question: "All tasks complete. Implementation review: <PASS + any non-blocking suggestions summary>. Cross-file review: <PASS/WARN + any notes>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Final review: <verdict — N fixed; M remaining at medium/low — or 'all clean'>. Known issues: <0 open | N open: KI-001 title; KI-002 title>. What next?"
   header: "Ship"
   multiSelect: false
   options:
@@ -241,6 +262,8 @@ cfl gate shipping-gate --verdict <PASS|WARN|FAIL> --data '{"choice": "<ship|chal
 Read `<dir>/clean-code-summary.md` to populate the `Clean code check:` field in the question above.
 
 Read the canonical `**Verdict:**` lines from `<dir>/final-code-review.md` and `<dir>/final-integration-review.md` to populate the `Final review:` field. Use the same values recorded in the `cfl gate final-review` call above.
+
+Read the known issues summary from Step 5.5 to populate the `Known issues:` field.
 
 **On "Ship via /mine-ship":** Invoke `/mine-ship`.
 

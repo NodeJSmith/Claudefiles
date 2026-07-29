@@ -31,7 +31,7 @@ Full component tables for Claudefiles. For context on what each component type d
 | `mine-issues-triage` | Batch codebase-aware issue triage — parallel Haiku subagents assess actual complexity and effort by reading the code, not just titles |
 | `mine-mockup` | Generate self-contained HTML mockup files — reads `design/context.md` for consistent styling, delivers to a session temp directory |
 | `mine-mutation-test` | Mutation testing — intentionally break code to verify tests catch real bugs |
-| `mine-orchestrate` | Execute task files one-by-one with parallel spec/code/integration reviewer pass; post-execution implementation review |
+| `mine-orchestrate` | Execute task files one-by-one with parallel spec/code/integration review, durable known-issue recording for intentional non-later-task deferrals, and post-execution implementation review |
 | `mine-plan` | Design doc → task files (T01, T02, …) with FR/AC traceability, validation gate, and 10-point traceability review + approve/revise/abandon gate |
 | `mine-prior-art` | Survey how others solve a problem — web-first research for mid-design architectural questions |
 | `mine-research` | Interactive research workflow — gathers user intent, dispatches the researcher agent, presents the brief |

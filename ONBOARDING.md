@@ -108,7 +108,7 @@ Takes the `design.md` and breaks it into concrete task files (`T01.md`, `T02.md`
 /mine-orchestrate
 ```
 
-Executes task files one by one. For each task, it runs code-reviewer, integration-reviewer, and wtf-reviewer in parallel on the diff. Findings are fixed before moving to the next task. A post-execution implementation review checks the full diff at the end.
+Executes task files one by one. For each task, it runs spec, code, and integration review in parallel on the diff, with test/lint/visual gates as applicable. Findings are fixed before moving to the next task. Real issues that should not be fixed during the run, such as faithful-port behavior that must stay unchanged, are recorded in `known-issues.md` beside the feature design; later-task handoffs stay in the task flow instead of becoming known issues. A post-execution implementation review checks the full diff at the end.
 
 *What you get:* the feature implemented, reviewed, and verified — ready to ship.
 
