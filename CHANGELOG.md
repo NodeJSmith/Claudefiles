@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-07-30
+
+### Added
+
+- Added an OpenCode integration roadmap defining the target architecture, model enforcement, compatibility workstreams, and completion criteria for native support. (#479)
+
 ## 2026-07-29
 
 ### Fixed

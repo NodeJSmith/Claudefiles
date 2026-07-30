@@ -190,6 +190,8 @@ cfl event               # append a free-form event to the audit trail
 
 **Settings** — edit `settings.json` in the repo root, then run `claude-merge-settings` to write `$CLAUDE_CONFIG_DIR/settings.json`. It merges the repo's shared settings with a per-machine `$CLAUDE_CONFIG_DIR/settings.machine.json`, so each box can keep its own permissions, env vars, and hook tweaks without touching the version-controlled config. When you re-run the merge, it detects permissions you granted at runtime and offers to promote them into the machine file so they survive. Only the layers that actually exist are applied.
 
+**OpenCode support** — `opencode-sync` currently provides provisional compatibility by installing skills and agents and remapping model IDs. Restart OpenCode after syncing so it reloads configuration-time files. OpenCode can also discover the original Claude artifacts, so apparent success does not yet prove the generated OpenCode copy is self-sufficient. The native-support roadmap starts with isolated configuration tests, then adds platform-specific dispatch, instruction loading, model enforcement, and plugins. See [design/opencode-integration-roadmap.md](design/opencode-integration-roadmap.md) for the planned spec sequence and the constraints future OpenCode work must preserve.
+
 **Removing things** — run `uv run install.py --reconfigure` and deselect the bundle or rule category. For an individual rule file within a category you otherwise want, delete the symlink from `$CLAUDE_CONFIG_DIR/rules/common/` or remove the source file.
 
 ## Reference
