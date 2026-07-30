@@ -12,7 +12,7 @@ This document defines the target architecture and the sequence of independently 
 
 - Synced rules are not necessarily loaded as OpenCode instructions.
 - Claude-specific dispatch syntax remains in skills, including `Agent`, `subagent_type`, per-dispatch models, background execution, and worktree isolation.
-- Named agent models are remapped, but OpenCode built-in subagents can still inherit the primary session model.
+- Agent model remapping is only partially reliable today: some generated named agents can still keep Claude tier names instead of OpenAI model IDs, and OpenCode built-in subagents can still inherit the primary session model.
 - Claude Code shell hooks are not OpenCode plugins and do not run in OpenCode.
 - Claude-specific paths and interaction syntax remain in many workflows.
 - OpenCode's Claude compatibility fallback can conceal missing or broken generated artifacts.
