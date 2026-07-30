@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-07-29
+
+### Fixed
+
+- `opencode-sync`'s worktree detection compared an absolute path against a relative one, so it always misdetected the main checkout as a worktree and silently refused to sync — OpenCode's config had never actually synced. (#478)
+
 ## 2026-07-28
 
 ### Added
