@@ -61,7 +61,12 @@ opkg() {
 in_worktree() {
   local git_dir common_dir
   git_dir=$(cd "$CLAUDEFILES" 2> /dev/null && git rev-parse --absolute-git-dir 2> /dev/null) || return 1
-  common_dir=$(cd "$CLAUDEFILES" 2> /dev/null && git rev-parse --git-common-dir 2> /dev/null) || return 1
+  # --path-format=absolute forces an absolute path; plain --git-common-dir
+  # returns a *relative* path when run from the repo root (but absolute from
+  # a worktree), so comparing it against --absolute-git-dir here silently
+  # misdetects the main repo as a worktree. Do not revert to the plain form.
+  common_dir=$(cd "$CLAUDEFILES" 2> /dev/null && git rev-parse --path-format=absolute --git-common-dir 2> /dev/null) ||
+    die "Unable to determine git common dir (requires git >= 2.31); refusing to sync"
   [[ "$git_dir" != "$common_dir" ]]
 }
 
