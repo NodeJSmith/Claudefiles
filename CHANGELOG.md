@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-08-01
+
+### Added
+
+- New `PostToolUse` hook captures every Bash command to a local SQLite database (`~/.local/share/claudefiles/bash-history.db`) for later pattern-mining — command text, cwd, project, description, and output preview. (#480)
+
 ## 2026-07-30
 
 ### Added
