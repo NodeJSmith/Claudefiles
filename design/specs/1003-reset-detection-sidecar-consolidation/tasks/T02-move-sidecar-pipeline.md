@@ -1,7 +1,7 @@
 ---
 task_id: "T02"
 title: "Move sidecar producers and context-tier consumer from Dotfiles to Claudefiles"
-status: "planned"
+status: "done"
 depends_on: []
 implements: ["FR#4", "FR#5", "FR#6", "AC#3", "AC#4", "AC#5"]
 ---
