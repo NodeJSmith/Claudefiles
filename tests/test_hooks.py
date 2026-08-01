@@ -655,11 +655,14 @@ class TestBashHistoryCapture:
                     "session_id": "test-session",
                     "tool_use_id": _fake_tool_use_id(),
                     "cwd": "/tmp",
+                    "hook_event_name": "PostToolUseFailure",
                     "tool_input": {
                         "command": "bad-command",
                         "description": "Run bad command",
                     },
                     "error": "command not found: bad-command",
+                    "is_interrupt": False,
+                    "duration_ms": 42,
                 }
             )
             result = run_hook(
@@ -675,6 +678,99 @@ class TestBashHistoryCapture:
             assert row["command"] == "bad-command"
             assert row["status"] == "error"
             assert "command not found" in row["output_preview"]
+            assert row["hook_event"] == "PostToolUseFailure"
+            assert row["duration_ms"] == 42
+            assert row["is_interrupt"] == 0
+
+    def test_captures_interrupted_command(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "test.db")
+            stdin = json.dumps(
+                {
+                    "session_id": "test-session",
+                    "tool_use_id": _fake_tool_use_id(),
+                    "cwd": "/tmp",
+                    "hook_event_name": "PostToolUseFailure",
+                    "tool_input": {"command": "sleep 999"},
+                    "error": "interrupted",
+                    "is_interrupt": True,
+                    "duration_ms": 1500,
+                }
+            )
+            run_hook(
+                BASH_HISTORY_HOOK,
+                stdin,
+                tmpdir,
+                extra_env={"CLAUDE_BASH_HISTORY_DB": db_path},
+            )
+            rows = _query_db(db_path, "SELECT * FROM commands")
+            assert len(rows) == 1
+            assert rows[0]["is_interrupt"] == 1
+            assert rows[0]["duration_ms"] == 1500
+
+    def test_captures_duration_on_success(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "test.db")
+            stdin = json.dumps(
+                {
+                    "session_id": "test-session",
+                    "tool_use_id": _fake_tool_use_id(),
+                    "cwd": "/tmp",
+                    "hook_event_name": "PostToolUse",
+                    "tool_input": {"command": "echo hi"},
+                    "tool_response": {"stdout": "hi\n"},
+                    "duration_ms": 85,
+                }
+            )
+            run_hook(
+                BASH_HISTORY_HOOK,
+                stdin,
+                tmpdir,
+                extra_env={"CLAUDE_BASH_HISTORY_DB": db_path},
+            )
+            rows = _query_db(db_path, "SELECT * FROM commands")
+            assert len(rows) == 1
+            assert rows[0]["hook_event"] == "PostToolUse"
+            assert rows[0]["duration_ms"] == 85
+            assert rows[0]["is_interrupt"] == 0
+
+    def test_migrates_existing_db(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "test.db")
+            conn = sqlite3.connect(db_path)
+            conn.executescript(
+                """
+                CREATE TABLE commands (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    captured_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+                    session_id TEXT NOT NULL,
+                    tool_use_id TEXT NOT NULL UNIQUE,
+                    cwd TEXT,
+                    transcript_path TEXT,
+                    project_slug TEXT,
+                    command TEXT NOT NULL,
+                    description TEXT,
+                    timeout_ms INTEGER,
+                    is_background INTEGER NOT NULL DEFAULT 0,
+                    status TEXT,
+                    output_length INTEGER,
+                    output_preview TEXT
+                );
+                """
+            )
+            conn.close()
+            stdin = _make_bash_history_payload()
+            run_hook(
+                BASH_HISTORY_HOOK,
+                stdin,
+                tmpdir,
+                extra_env={"CLAUDE_BASH_HISTORY_DB": db_path},
+            )
+            rows = _query_db(
+                db_path, "SELECT hook_event, duration_ms, is_interrupt FROM commands"
+            )
+            assert len(rows) == 1
+            assert rows[0]["is_interrupt"] == 0
 
     def test_skips_non_dict_payload(self):
         with tempfile.TemporaryDirectory() as tmpdir:

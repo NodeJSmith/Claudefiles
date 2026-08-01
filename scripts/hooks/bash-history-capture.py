@@ -42,7 +42,10 @@ CREATE TABLE IF NOT EXISTS commands (
     is_background INTEGER NOT NULL DEFAULT 0,
     status TEXT,
     output_length INTEGER,
-    output_preview TEXT
+    output_preview TEXT,
+    hook_event TEXT,
+    duration_ms INTEGER,
+    is_interrupt INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_commands_session ON commands(session_id);
@@ -50,6 +53,12 @@ CREATE INDEX IF NOT EXISTS idx_commands_captured_at ON commands(captured_at);
 CREATE INDEX IF NOT EXISTS idx_commands_cwd ON commands(cwd);
 CREATE INDEX IF NOT EXISTS idx_commands_project ON commands(project_slug);
 """
+
+MIGRATIONS = [
+    "ALTER TABLE commands ADD COLUMN hook_event TEXT",
+    "ALTER TABLE commands ADD COLUMN duration_ms INTEGER",
+    "ALTER TABLE commands ADD COLUMN is_interrupt INTEGER NOT NULL DEFAULT 0",
+]
 
 
 def extract_project_slug(transcript_path: str | None) -> str | None:
@@ -127,14 +136,20 @@ def main() -> None:
                 os.chmod(DB_PATH, DB_FILE_MODE)
 
             conn.executescript(SCHEMA)
+            for migration in MIGRATIONS:
+                try:
+                    conn.execute(migration)
+                except sqlite3.OperationalError:
+                    pass
 
             conn.execute(
                 """
                 INSERT OR IGNORE INTO commands (
                     session_id, tool_use_id, cwd, transcript_path, project_slug,
                     command, description, timeout_ms, is_background,
-                    status, output_length, output_preview
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    status, output_length, output_preview,
+                    hook_event, duration_ms, is_interrupt
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     session_id,
@@ -149,6 +164,9 @@ def main() -> None:
                     "error" if is_failure else tool_response.get("status"),
                     len(output_text),
                     output_preview,
+                    payload.get("hook_event_name"),
+                    payload.get("duration_ms"),
+                    1 if payload.get("is_interrupt") else 0,
                 ),
             )
             conn.commit()
