@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""PostToolUse hook: captures Bash commands to a SQLite database.
+"""PostToolUse/PostToolUseFailure hook: captures Bash commands to SQLite.
 
 Reads the hook JSON payload from stdin and stores command metadata
 in ~/.local/share/claudefiles/bash-history.db for later pattern analysis.
+Handles both successful and failed tool invocations.
 """
 
 import json
@@ -21,8 +22,8 @@ DB_PATH = Path(
 OUTPUT_PREVIEW_LENGTH = 500
 DB_DIR_MODE = 0o700
 DB_FILE_MODE = 0o600
-SQLITE_CONNECT_TIMEOUT_S = 5.0
-SQLITE_BUSY_TIMEOUT_MS = 3000
+SQLITE_CONNECT_TIMEOUT_S = 1.0
+SQLITE_BUSY_TIMEOUT_MS = 1000
 # WSL2 mounts Windows drives via 9p at /mnt/, which breaks SQLite WAL locking
 WSL_MOUNT_PREFIX = "/mnt/"
 
@@ -83,16 +84,33 @@ def main() -> None:
     except (json.JSONDecodeError, EOFError):
         return
 
-    tool_input = payload.get("tool_input", {})
-    tool_response = payload.get("tool_response", {})
+    if not isinstance(payload, dict):
+        return
+
+    session_id = payload.get("session_id")
+    tool_use_id = payload.get("tool_use_id")
+    if not session_id or not tool_use_id:
+        return
+
+    tool_input = payload.get("tool_input")
+    tool_input = tool_input if isinstance(tool_input, dict) else {}
+    tool_response = payload.get("tool_response")
+    tool_response = tool_response if isinstance(tool_response, dict) else {}
+    tool_error = payload.get("error")
 
     command = tool_input.get("command")
     if not command:
         return
 
+    is_failure = tool_error is not None
+
     try:
         transcript_path = payload.get("transcript_path")
-        output_text = extract_output(tool_response)
+
+        if is_failure:
+            output_text = str(tool_error) if tool_error else ""
+        else:
+            output_text = extract_output(tool_response)
         output_preview = output_text[:OUTPUT_PREVIEW_LENGTH] if output_text else None
 
         DB_PATH.parent.mkdir(parents=True, exist_ok=True, mode=DB_DIR_MODE)
@@ -119,8 +137,8 @@ def main() -> None:
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    payload.get("session_id", ""),
-                    payload.get("tool_use_id", ""),
+                    session_id,
+                    tool_use_id,
                     payload.get("cwd"),
                     transcript_path,
                     extract_project_slug(transcript_path),
@@ -128,7 +146,7 @@ def main() -> None:
                     tool_input.get("description"),
                     tool_input.get("timeout"),
                     1 if tool_input.get("run_in_background") else 0,
-                    tool_response.get("status"),
+                    "error" if is_failure else tool_response.get("status"),
                     len(output_text),
                     output_preview,
                 ),
