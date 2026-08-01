@@ -123,6 +123,10 @@ def main() -> None:
         output_preview = output_text[:OUTPUT_PREVIEW_LENGTH] if output_text else None
 
         DB_PATH.parent.mkdir(parents=True, exist_ok=True, mode=DB_DIR_MODE)
+        # mkdir's mode= is umask-masked and is a no-op if the dir already existed,
+        # so this runs every call (unlike the one-time file chmod below) to correct
+        # dirs left over from before this fix shipped
+        os.chmod(DB_PATH.parent, DB_DIR_MODE)
 
         is_new_db = not DB_PATH.exists()
         real_path = os.path.realpath(DB_PATH)
