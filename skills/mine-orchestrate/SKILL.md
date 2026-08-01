@@ -689,7 +689,7 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/wip-commit-protoco
 After Step 17 records the verdict but before starting the next task, check whether context usage warrants a proactive reset. **Skip this check if the current task is the last task** (Phase 3 follows instead — resetting before the post-execution pipeline would lose its cross-task view).
 
 ```bash
-source ~/bin/orchestrator/rc-lib.sh
+source "$(dirname "$(command -v rc-send-ready)")/rc-lib-reset.sh"
 pct=$(rc_sidecar_state_for_cwd "$(git rev-parse --show-toplevel)" | sed -n 's/^pct=//p')
 echo "context_pct=${pct:-unknown}"
 ```
