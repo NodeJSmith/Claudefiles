@@ -3,7 +3,9 @@
 #
 # Launched by mine-orchestrate at task boundaries when context usage exceeds
 # the configured threshold. Waits for the session to go idle, sends /clear,
-# waits for the welcome banner, then re-invokes /mine-orchestrate to resume.
+# waits for the clear-ready sentinel written by the SessionStart hook
+# (scripts/hooks/clear-ready-sentinel.sh), then re-invokes /mine-orchestrate
+# to resume.
 #
 # Usage: orchestrate-self-reset <tmux-session> [feature-dir]
 #
@@ -13,9 +15,13 @@
 #
 # Environment:
 #   ORCHESTRATE_RESET_CLEAR_TIMEOUT  — seconds to wait for idle before /clear (default: 120)
-#   ORCHESTRATE_RESET_BANNER_TIMEOUT — seconds to wait for welcome banner (default: 30)
+#   ORCHESTRATE_RESET_BANNER_TIMEOUT — seconds to wait for the clear-ready sentinel (default: 30)
 #   ORCHESTRATE_RESET_RESUME_TIMEOUT — seconds to wait for /mine-orchestrate submit (default: 30)
-#   ORCHESTRATE_RESET_TMPDIR         — directory for marker and log files (default: /tmp)
+#   ORCHESTRATE_RESET_TMPDIR         — directory for marker and log files (default: /tmp).
+#                                      Does NOT affect the sentinel file, which is always
+#                                      under /tmp — see clear-ready-sentinel.sh, a SessionStart
+#                                      hook running in a separate process with no route to
+#                                      this variable's value.
 
 set -euo pipefail
 
@@ -33,6 +39,10 @@ feature_dir="${2:-}"
 : "${ORCHESTRATE_RESET_TMPDIR:=/tmp}"
 marker="${ORCHESTRATE_RESET_TMPDIR}/claude-orchestrate-auto-reset-${session}.marker"
 log="${ORCHESTRATE_RESET_TMPDIR}/orchestrate-self-reset-${session}.log"
+# Always /tmp — must match clear-ready-sentinel.sh's hardcoded path, which
+# has no route to a caller-supplied ORCHESTRATE_RESET_TMPDIR override (see
+# header comment above).
+sentinel="/tmp/claude-clear-ready-${session}.sentinel"
 
 : "${ORCHESTRATE_RESET_CLEAR_TIMEOUT:=120}"
 : "${ORCHESTRATE_RESET_BANNER_TIMEOUT:=30}"
@@ -53,6 +63,10 @@ log_msg "Starting self-reset for session=$session feature_dir=${feature_dir:-<au
 touch "$marker"
 log_msg "Marker written: $marker"
 
+# Clear any stale sentinel from a previous reset before sending /clear, so a
+# leftover file from an earlier run can't be mistaken for this run's signal.
+rm -f "$sentinel"
+
 # Step 1: Wait for idle + send /clear.
 # Extended timeout — the current mine-orchestrate turn is ending but Claude
 # may still be composing its final response.
@@ -61,24 +75,23 @@ RC_SEND_READY_TIMEOUT="$ORCHESTRATE_RESET_CLEAR_TIMEOUT" rc-send-ready "$session
   fail "could not send /clear (timed out or session gone)"
 log_msg "/clear submitted"
 
-# Step 2: Wait for the welcome banner before sending the resume command.
-# /clear wipes the screen; the welcome box takes a moment to draw. The pane
-# flickers empty before the banner renders — an empty capture is NOT settled.
+# Step 2: Wait for the clear-ready sentinel before sending the resume command.
+# The SessionStart hook (clear-ready-sentinel.sh) fires once /clear has fully
+# reset the session and writes this file — an authoritative, event-driven
+# signal instead of scraping pane content for a banner string that can drift
+# or disappear across TUI versions.
 deadline=$(($(date +%s) + ORCHESTRATE_RESET_BANNER_TIMEOUT))
 while true; do
   if [ "$(date +%s)" -ge "$deadline" ]; then
-    fail "timed out waiting for welcome banner"
+    fail "timed out waiting for clear-ready sentinel"
   fi
-  content=$(tmux capture-pane -p -t "$session" -J -S -20 2> /dev/null) || {
-    sleep 1
-    continue
-  }
-  if printf '%s' "$content" | grep -qF "Welcome to Claude Code"; then
+  if [ -f "$sentinel" ]; then
     break
   fi
   sleep 1
 done
-log_msg "Welcome banner detected"
+log_msg "Clear-ready sentinel detected"
+rm -f "$sentinel"
 
 # Step 3: Send /mine-orchestrate to resume.
 resume_cmd="/mine-orchestrate"

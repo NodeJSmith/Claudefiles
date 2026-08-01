@@ -134,6 +134,16 @@
             "timeout": 5000
           }
         ]
+      },
+      {
+        "matcher": "clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/clear-ready-sentinel.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
+            "timeout": 5000
+          }
+        ]
       }
     ],
     "SessionEnd": [],
