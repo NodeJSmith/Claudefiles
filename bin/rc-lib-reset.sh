@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# rc-lib-reset.sh — minimal subset of rc-lib.sh for the orchestrate-self-reset
-# relay and context-tier reading. Copied wholesale from the remote-control repo
+# rc-lib-reset.sh — minimal subset of rc-lib.sh for rc-send-ready's cwd-based
+# sidecar lookup. Copied wholesale from the remote-control repo
 # (~/bin/orchestrator/rc-lib.sh) to remove the external dependency. The full
 # rc-lib.sh carries registry, repo-resolver, and worktree-path helpers that
 # this feature does not use.

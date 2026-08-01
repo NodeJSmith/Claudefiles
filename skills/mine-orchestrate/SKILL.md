@@ -22,7 +22,7 @@ If context compaction occurs mid-orchestration (new session, context window rese
 2. Run `cfl run status` to recover full orchestration state (task list with statuses, `last_completed`, `current_task`, `tmpdir`, `base_commit`)
 3. Re-invoke `/mine-orchestrate <feature_dir>` — the resume detection in Phase 0 will pick up where you left off
 
-**Automatic resets:** At each task boundary, the context reset check (between Step 17 and "Loop to next task") reads context % from the sidecar. If it exceeds `${ORCHESTRATE_RESET_PCT:-40}` and tasks remain, it launches `orchestrate-self-reset` via `setsid` (new process group, survives past the launching turn) and exits. The relay waits for idle, sends `/clear`, then re-invokes `/mine-orchestrate`. A session-scoped marker file (`/tmp/claude-orchestrate-auto-reset-<session>.marker`) tells the resume protocol to auto-resume without prompting. The reset log is at `/tmp/orchestrate-self-reset-<session>.log`.
+**Automatic resets:** At each task boundary, the context reset check (between Step 17 and "Loop to next task") reads context % from the current session's own sidecar. If it exceeds `${ORCHESTRATE_RESET_PCT:-40}` and tasks remain, and a tmux session name plus the relay tools (`orchestrate-self-reset`, `rc-send-ready`) are all available, it launches `orchestrate-self-reset` via `setsid` (new process group, survives past the launching turn) and exits. If any of those preconditions are missing, the reset is skipped and orchestration continues normally. The relay waits for idle, sends `/clear`, then re-invokes `/mine-orchestrate`. A session-scoped marker file (`${ORCHESTRATE_RESET_TMPDIR:-/tmp}/claude-orchestrate-auto-reset-<session>.marker`) tells the resume protocol to auto-resume without prompting. The reset log is at `${ORCHESTRATE_RESET_TMPDIR:-/tmp}/orchestrate-self-reset-<session>.log`.
 
 Run state persists in the cfl SQLite DB across sessions. Per-task temp artifacts (executor output, review files, screenshots) may be lost if `/tmp` was cleared between sessions — the resume path handles this gracefully by skipping review-file checks for already-completed tasks.
 
@@ -689,23 +689,30 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/wip-commit-protoco
 After Step 17 records the verdict but before starting the next task, check whether context usage warrants a proactive reset. **Skip this check if the current task is the last task** (Phase 3 follows instead — resetting before the post-execution pipeline would lose its cross-task view).
 
 ```bash
-source "$(dirname "$(command -v rc-send-ready)")/rc-lib-reset.sh"
-pct=$(rc_sidecar_state_for_cwd "$(git rev-parse --show-toplevel)" | sed -n 's/^pct=//p')
+pct=$(sed -n 's/^pct=//p' "/tmp/claude-context-${CLAUDE_CODE_SESSION_ID}.meta" 2>/dev/null)
 echo "context_pct=${pct:-unknown}"
 ```
 
 If `pct` is a number and >= `${ORCHESTRATE_RESET_PCT:-40}`, and there are remaining tasks after this one:
 
-1. Determine the tmux session name and launch the self-reset relay in a new process group (so it survives after this turn ends):
+1. Determine the tmux session name, confirm the relay tools are on PATH, and launch the self-reset relay in a new process group (so it survives after this turn ends) only if all three checks pass:
    ```bash
-   session_name="$(tmux display-message -p '#S')"
-   setsid orchestrate-self-reset "$session_name" "<feature_dir>" >> "/tmp/orchestrate-self-reset-${session_name}.log" 2>&1 &
+   session_name="$(tmux display-message -p '#S' 2>/dev/null || echo "")"
+   if [ -n "$session_name" ] && command -v orchestrate-self-reset >/dev/null 2>&1 && command -v rc-send-ready >/dev/null 2>&1; then
+     setsid orchestrate-self-reset "$session_name" "<feature_dir>" >> "${ORCHESTRATE_RESET_TMPDIR:-/tmp}/orchestrate-self-reset-${session_name}.log" 2>&1 &
+     reset_launched=true
+   else
+     reset_launched=false
+   fi
+   echo "reset_launched=$reset_launched"
    ```
 
-2. Tell the user:
-   > Context at **\<pct>%**. Auto-resetting — will resume at the next task after **\<last completed task ID>** in a fresh session.
+2. If `reset_launched=true`, tell the user:
+   > Context at **`<pct>`%**. Auto-resetting — will resume at the next task after **`<last completed task ID>`** in a fresh session.
 
-3. **Exit the skill immediately.** Do not start the next task or enter Phase 3. The relay will send `/clear` once this turn ends, then re-invoke `/mine-orchestrate` to resume via the resume protocol.
+3. If `reset_launched=true`, **exit the skill immediately.** Do not start the next task or enter Phase 3. The relay will send `/clear` once this turn ends, then re-invoke `/mine-orchestrate` to resume via the resume protocol.
+
+4. If `reset_launched=false` (no tmux session, or `orchestrate-self-reset`/`rc-send-ready` not on PATH), skip the reset and continue normally — do not tell the user about a reset that won't happen, and do not exit the skill.
 
 If `pct` is below the threshold, unknown, or this is the last task, continue normally.
 
