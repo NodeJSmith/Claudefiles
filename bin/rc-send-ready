@@ -31,28 +31,17 @@
 
 set -euo pipefail
 
-MINE="$(cd "$(dirname "$0")" && pwd)"
+script_dir="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=./rc-lib-reset.sh
 # shellcheck disable=SC1091
-source "$MINE/rc-lib-reset.sh"
+source "$script_dir/rc-lib-reset.sh"
 
 usage() {
-  printf 'Usage: rc-send-ready [--no-wait] <tmux-session> <keys...>\n' >&2
+  printf 'Usage: rc-send-ready <tmux-session> <keys...>\n' >&2
   exit "${1:-1}"
 }
 
 [ "${1:-}" = "--help" ] && usage 0
-
-# --no-wait: skip the readiness wait and submit immediately. rc-send uses this to
-# queue a message into a (possibly busy) child — it lands behind the current turn
-# instead of waiting for idle, so the user sees it sooner. The submit+verify below
-# still runs, so a dropped Enter is still retried.
-nowait=0
-if [ "${1:-}" = "--no-wait" ]; then
-  nowait=1
-  shift
-fi
-
 [ $# -lt 2 ] && usage
 
 tmux_session="$1"
@@ -109,59 +98,57 @@ input_pending() {
   printf '%s' "$snap" | grep -F '❯' | tail -1 | grep -qF -- "$keys"
 }
 
-# ── Wait for a settled, idle pane (unless --no-wait) ──────────────────────────
-if [ "$nowait" -eq 0 ]; then
-  deadline=$(($(date +%s) + RC_SEND_READY_TIMEOUT))
-  prev=""
+reset_streak() {
   have_prev=0
+  prev=""
+  sleep "$RC_SEND_READY_INTERVAL"
+}
 
-  # Resolve the target pane's worktree cwd once for the sidecar fast-path below.
-  # Empty for a non-Claude pane or an unknown session → the fast-path no-ops.
-  target_cwd="$(tmux display -p -t "$tmux_session" '#{pane_current_path}' 2> /dev/null || true)"
-  target_cwd="${target_cwd%/}"
+# ── Wait for a settled, idle pane ─────────────────────────────────────────────
+deadline=$(($(date +%s) + RC_SEND_READY_TIMEOUT))
+prev=""
+have_prev=0
 
-  while true; do
-    if [ "$(date +%s)" -ge "$deadline" ]; then
-      printf 'rc-send-ready: timed out waiting for session %q to be ready\n' \
-        "$tmux_session" >&2
-      exit 1
-    fi
+# Resolve the target pane's worktree cwd once for the sidecar fast-path below.
+# Empty for a non-Claude pane or an unknown session → the fast-path no-ops.
+target_cwd="$(tmux display -p -t "$tmux_session" '#{pane_current_path}' 2> /dev/null || true)"
+target_cwd="${target_cwd%/}"
 
-    # Sidecar fast-path: a fresh working/needs-attention record defers injection
-    # without a capture. Reset the stability streak so once it clears we still
-    # require two fresh settled captures before submitting.
-    if sidecar_defers; then
-      have_prev=0
-      prev=""
-      sleep "$RC_SEND_READY_INTERVAL"
-      continue
-    fi
+while true; do
+  if [ "$(date +%s)" -ge "$deadline" ]; then
+    printf 'rc-send-ready: timed out waiting for session %q to be ready\n' \
+      "$tmux_session" >&2
+    exit 1
+  fi
 
-    # A failed capture (dead/unknown pane) is not idle — reset the streak and wait.
-    if ! content=$(capture_pane); then
-      have_prev=0
-      prev=""
-      sleep "$RC_SEND_READY_INTERVAL"
-      continue
-    fi
+  # Sidecar fast-path: a fresh working/needs-attention record defers injection
+  # without a capture. Reset the stability streak so once it clears we still
+  # require two fresh settled captures before submitting.
+  if sidecar_defers; then
+    reset_streak
+    continue
+  fi
 
-    # Busy → reset the stability streak; we must not type mid-generation.
-    if rc_is_busy "$content"; then
-      have_prev=0
-      prev=""
-      sleep "$RC_SEND_READY_INTERVAL"
-      continue
-    fi
+  # A failed capture (dead/unknown pane) is not idle — reset the streak and wait.
+  if ! content=$(capture_pane); then
+    reset_streak
+    continue
+  fi
 
-    # Non-busy: ready once two consecutive captures match (the screen has settled).
-    if [ "$have_prev" -eq 1 ] && [ "$content" = "$prev" ]; then
-      break
-    fi
-    prev="$content"
-    have_prev=1
-    sleep "$RC_SEND_READY_INTERVAL"
-  done
-fi
+  # Busy → reset the stability streak; we must not type mid-generation.
+  if rc_is_busy "$content"; then
+    reset_streak
+    continue
+  fi
+
+  # Non-busy: ready once two consecutive captures match (the screen has settled).
+  if [ "$have_prev" -eq 1 ] && [ "$content" = "$prev" ]; then
+    break
+  fi
+  prev="$content"
+  have_prev=1
+  sleep "$RC_SEND_READY_INTERVAL"
+done
 
 # ── Submit and confirm ────────────────────────────────────────────────────────
 # Separate literal-text and Enter keystrokes (a combined `send-keys "$keys" Enter`
@@ -183,7 +170,7 @@ tmux send-keys -t "$tmux_session" -l "$keys"
 # would interrupt the running turn. A failed capture (pane gone) also skips Escape.
 case "$keys" in
   /*)
-    if pane_content=$(capture_pane) && ! rc_is_busy "$pane_content"; then
+    if content=$(capture_pane) && ! rc_is_busy "$content"; then
       tmux send-keys -t "$tmux_session" Escape
     fi
     ;;

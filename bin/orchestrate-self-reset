@@ -15,6 +15,7 @@
 #   ORCHESTRATE_RESET_CLEAR_TIMEOUT  — seconds to wait for idle before /clear (default: 120)
 #   ORCHESTRATE_RESET_BANNER_TIMEOUT — seconds to wait for welcome banner (default: 30)
 #   ORCHESTRATE_RESET_RESUME_TIMEOUT — seconds to wait for /mine-orchestrate submit (default: 30)
+#   ORCHESTRATE_RESET_TMPDIR         — directory for marker and log files (default: /tmp)
 
 set -euo pipefail
 
@@ -28,14 +29,22 @@ usage() {
 
 session="$1"
 feature_dir="${2:-}"
-marker="/tmp/claude-orchestrate-auto-reset-${session}.marker"
-log="/tmp/orchestrate-self-reset-${session}.log"
+
+: "${ORCHESTRATE_RESET_TMPDIR:=/tmp}"
+marker="${ORCHESTRATE_RESET_TMPDIR}/claude-orchestrate-auto-reset-${session}.marker"
+log="${ORCHESTRATE_RESET_TMPDIR}/orchestrate-self-reset-${session}.log"
 
 : "${ORCHESTRATE_RESET_CLEAR_TIMEOUT:=120}"
 : "${ORCHESTRATE_RESET_BANNER_TIMEOUT:=30}"
 : "${ORCHESTRATE_RESET_RESUME_TIMEOUT:=30}"
 
 log_msg() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*" >> "$log"; }
+
+fail() {
+  rm -f "$marker"
+  log_msg "FAILED: $1"
+  exit 1
+}
 
 log_msg "Starting self-reset for session=$session feature_dir=${feature_dir:-<auto>}"
 
@@ -48,11 +57,8 @@ log_msg "Marker written: $marker"
 # Extended timeout — the current mine-orchestrate turn is ending but Claude
 # may still be composing its final response.
 log_msg "Waiting for idle, then sending /clear..."
-RC_SEND_READY_TIMEOUT="$ORCHESTRATE_RESET_CLEAR_TIMEOUT" rc-send-ready "$session" "/clear" || {
-  rm -f "$marker"
-  log_msg "FAILED: could not send /clear (timed out or session gone)"
-  exit 1
-}
+RC_SEND_READY_TIMEOUT="$ORCHESTRATE_RESET_CLEAR_TIMEOUT" rc-send-ready "$session" "/clear" ||
+  fail "could not send /clear (timed out or session gone)"
 log_msg "/clear submitted"
 
 # Step 2: Wait for the welcome banner before sending the resume command.
@@ -61,9 +67,7 @@ log_msg "/clear submitted"
 deadline=$(($(date +%s) + ORCHESTRATE_RESET_BANNER_TIMEOUT))
 while true; do
   if [ "$(date +%s)" -ge "$deadline" ]; then
-    log_msg "FAILED: timed out waiting for welcome banner"
-    rm -f "$marker"
-    exit 1
+    fail "timed out waiting for welcome banner"
   fi
   content=$(tmux capture-pane -p -t "$session" -J -S -20 2> /dev/null) || {
     sleep 1
@@ -81,9 +85,6 @@ resume_cmd="/mine-orchestrate"
 [ -n "$feature_dir" ] && resume_cmd="/mine-orchestrate $feature_dir"
 
 log_msg "Sending: $resume_cmd"
-RC_SEND_READY_TIMEOUT="$ORCHESTRATE_RESET_RESUME_TIMEOUT" rc-send-ready "$session" "$resume_cmd" || {
-  rm -f "$marker"
-  log_msg "FAILED: could not send resume command"
-  exit 1
-}
+RC_SEND_READY_TIMEOUT="$ORCHESTRATE_RESET_RESUME_TIMEOUT" rc-send-ready "$session" "$resume_cmd" ||
+  fail "could not send resume command"
 log_msg "Resume command submitted — self-reset complete"
