@@ -1,0 +1,199 @@
+#!/usr/bin/env bash
+# rc-send-ready <tmux-session> <keys...>
+# Readiness-gated send-keys primitive for Claude Code TUI panes.
+#
+# Waits until the target pane is settled and idle, then submits the keys and
+# confirms the submission landed. Never injects keystrokes while the pane is busy.
+#
+# Exits 0 once the keys are submitted (input line cleared).
+# Exits non-zero if the pane never becomes ready within the timeout, or if the
+# Enter never lands after the bounded retries (so callers can detect a failed submit).
+#
+# Environment:
+#   RC_SEND_READY_TIMEOUT         — seconds to wait for readiness (default: 30)
+#   RC_SEND_READY_INTERVAL        — poll interval in seconds (default: 1)
+#   RC_SEND_READY_SUBMIT_RESENDS  — max Enter resends while confirming submit
+#                                   (default: 10)
+#
+# Readiness = NOT busy AND STABLE. The old "empty pane or shell-prompt char"
+# heuristic doesn't fit Claude's TUI — an idle Claude pane ends in its status
+# footer (not a ">" prompt) and a freshly-cleared/booting pane flickers empty
+# before rendering its welcome box. Sending into that window dropped the Enter.
+# So instead we require two consecutive identical non-busy captures: a settled
+# screen. A busy pane (spinner / "esc to interrupt") or a failed capture resets
+# the stability streak so we keep waiting.
+#
+# Submission = literal text, then — for a slash command on a non-busy pane — Escape
+# to dismiss the slash-command autocomplete popup, then Enter as a SEPARATE
+# keystroke (a combined `send-keys "$keys" Enter` can drop the Enter on a
+# just-rendered screen), then verify the Claude input line ("❯ …") cleared and
+# resend Enter if it didn't.
+
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=./rc-lib-reset.sh
+# shellcheck disable=SC1091
+source "$script_dir/rc-lib-reset.sh"
+
+usage() {
+  printf 'Usage: rc-send-ready <tmux-session> <keys...>\n' >&2
+  exit "${1:-1}"
+}
+
+[ "${1:-}" = "--help" ] && usage 0
+[ $# -lt 2 ] && usage
+
+tmux_session="$1"
+shift
+keys="$*"
+
+: "${RC_SEND_READY_TIMEOUT:=30}"
+: "${RC_SEND_READY_INTERVAL:=1}"
+: "${RC_SEND_READY_SUBMIT_RESENDS:=10}"
+
+# capture_pane — print the last ~10 visible lines (joined), or fail non-zero.
+capture_pane() {
+  tmux capture-pane -p -t "$tmux_session" -J -S -10 2> /dev/null
+}
+
+# Busy detection lives in rc-lib-reset.sh as rc_is_busy. Its role here: a
+# backstop, not the primary gate. The readiness wait settles only on two identical
+# consecutive captures, and a generating footer's timer/token counter ticks every
+# second so it never settles. rc_is_busy catches the same-second edge and gates
+# the submit-time Escape (don't interrupt a live turn).
+
+# sidecar_defers — true (0) when the target's status sidecar (written by the
+# claude-status-writer hook) reports a FRESH `working` or `needs-attention` state.
+# Such a record DEFERS injection: we keep waiting rather than type into a mid-turn
+# pane or onto a permission/elicitation prompt (a static screen the stability gate
+# would otherwise settle on and submit into). Any other value — idle, missing, or
+# stale (ts older than RC_STATUS_FRESH_SECS) — returns false so the two-capture
+# stability gate, the final and non-negotiable safety, decides. The sidecar can
+# only DEFER an injection, never authorize one the gate would reject.
+# Empty target_cwd (a non-Claude pane or an unknown session) means no sidecar
+# applies → never defers.
+sidecar_defers() {
+  [ -n "$target_cwd" ] || return 1
+  local rec state ts age k v
+  rec="$(rc_sidecar_state_for_cwd "$target_cwd" 2> /dev/null)" || return 1
+  state=""
+  ts=""
+  while IFS='=' read -r k v; do
+    case "$k" in state) state="$v" ;; ts) ts="$v" ;; esac
+  done < <(printf '%s\n' "$rec")
+  case "$state" in working | needs-attention) ;; *) return 1 ;; esac
+  case "${ts:-}" in '' | *[!0-9]*) return 1 ;; esac
+  age=$(($(date +%s) - ts))
+  [ "$age" -lt "$RC_STATUS_FRESH_SECS" ]
+}
+
+# input_pending — heuristic: 0 (true) while our command still sits on Claude's
+# input line. That line is the BOTTOM-most "❯" line (echoes of past commands sit
+# above it; the status footer below has no "❯"), so `grep -F '❯' | tail -1`
+# isolates it. A failed capture (pane gone) reads as not-pending — give up cleanly.
+input_pending() {
+  local snap
+  snap=$(capture_pane) || return 1
+  printf '%s' "$snap" | grep -F '❯' | tail -1 | grep -qF -- "$keys"
+}
+
+reset_streak() {
+  have_prev=0
+  prev=""
+  sleep "$RC_SEND_READY_INTERVAL"
+}
+
+# ── Wait for a settled, idle pane ─────────────────────────────────────────────
+deadline=$(($(date +%s) + RC_SEND_READY_TIMEOUT))
+prev=""
+have_prev=0
+
+# Resolve the target pane's worktree cwd once for the sidecar fast-path below.
+# Empty for a non-Claude pane or an unknown session → the fast-path no-ops.
+target_cwd="$(tmux display -p -t "$tmux_session" '#{pane_current_path}' 2> /dev/null || true)"
+target_cwd="${target_cwd%/}"
+
+while true; do
+  if [ "$(date +%s)" -ge "$deadline" ]; then
+    printf 'rc-send-ready: timed out waiting for session %q to be ready\n' \
+      "$tmux_session" >&2
+    exit 1
+  fi
+
+  # Sidecar fast-path: a fresh working/needs-attention record defers injection
+  # without a capture. Reset the stability streak so once it clears we still
+  # require two fresh settled captures before submitting.
+  if sidecar_defers; then
+    reset_streak
+    continue
+  fi
+
+  # A failed capture (dead/unknown pane) is not idle — reset the streak and wait.
+  if ! content=$(capture_pane); then
+    reset_streak
+    continue
+  fi
+
+  # Busy → reset the stability streak; we must not type mid-generation.
+  if rc_is_busy "$content"; then
+    reset_streak
+    continue
+  fi
+
+  # Non-busy: ready once two consecutive captures match (the screen has settled).
+  if [ "$have_prev" -eq 1 ] && [ "$content" = "$prev" ]; then
+    break
+  fi
+  prev="$content"
+  have_prev=1
+  sleep "$RC_SEND_READY_INTERVAL"
+done
+
+# ── Submit and confirm ────────────────────────────────────────────────────────
+# Separate literal-text and Enter keystrokes (a combined `send-keys "$keys" Enter`
+# can drop the Enter on a just-rendered screen).
+tmux send-keys -t "$tmux_session" -l "$keys"
+
+# Typing a slash command on an idle Claude pane opens its slash-command
+# autocomplete popup. A following Enter lands on that popup — it submits the
+# *highlighted* bare command and drops any trailing argument ("/mine-issues 10" →
+# "/mine-issues"). Escape closes the popup while keeping the typed text (verified on
+# the live TUI), so the next Enter submits the full line. Keystrokes are delivered
+# in order, so the Escape is processed after the text and before the Enter
+# regardless of render lag.
+#
+# Only for slash commands ("/…"): they are the sole trigger for the popup, so
+# limiting Escape to them keeps it away from plain-text relays and the zsh-pane
+# "cc -w" send (rc-spawn), where a stray Escape would act as a readline meta-prefix.
+# And only when the pane is not busy: no popup appears mid-generation, and Escape
+# would interrupt the running turn. A failed capture (pane gone) also skips Escape.
+case "$keys" in
+  /*)
+    if content=$(capture_pane) && ! rc_is_busy "$content"; then
+      tmux send-keys -t "$tmux_session" Escape
+    fi
+    ;;
+esac
+
+tmux send-keys -t "$tmux_session" Enter
+
+# Resend Enter until the input line clears (the Enter occasionally doesn't land on
+# a freshly-rendered screen — or the launched command is itself slow to produce
+# output). Each resend is verified on the next pass — including the last —
+# so we exit non-zero if it never clears rather than reporting a false success.
+# Bounded at RC_SEND_READY_SUBMIT_RESENDS resends (default 10, i.e. ~10s at the
+# default interval).
+resends=0
+while
+  sleep "$RC_SEND_READY_INTERVAL"
+  input_pending
+do
+  if [ "$resends" -ge "$RC_SEND_READY_SUBMIT_RESENDS" ]; then
+    printf 'rc-send-ready: %q may not have submitted (input still pending after %d resends)\n' \
+      "$keys" "$resends" >&2
+    exit 1
+  fi
+  tmux send-keys -t "$tmux_session" Enter
+  resends=$((resends + 1))
+done

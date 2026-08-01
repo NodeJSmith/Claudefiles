@@ -7,6 +7,11 @@ All notable changes to this Claudefiles repository are documented here.
 ### Added
 
 - New `PostToolUse` hook captures every Bash command to a local SQLite database (`~/.local/share/claudefiles/bash-history.db`) for later pattern-mining — command text, cwd, project, description, and output preview. (#480)
+- `mine-orchestrate` now automatically resets context at task boundaries when usage crosses a configurable threshold (default 40%), instead of relying on unplanned mid-task compaction — a background relay (`orchestrate-self-reset`) sends `/clear` and re-invokes `/mine-orchestrate`, auto-resuming without prompting. (#481)
+
+### Changed
+
+- `bin/rc-send-ready` and a minimal `rc-lib.sh` subset are now vendored into `bin/`, so the auto-reset feature no longer depends on the external remote-control repo being installed. (#481)
 
 ## 2026-07-30
 

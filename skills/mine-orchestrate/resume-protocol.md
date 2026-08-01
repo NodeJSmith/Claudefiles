@@ -62,7 +62,33 @@ Extract all fields from the JSON. Then determine staleness: check whether `base_
 
 Count the completed tasks from the `tasks` array (those with `status: "done"`) and the total tasks count.
 
-Present the resume prompt:
+### Auto-reset detection
+
+Before presenting the resume/restart prompt, check for the auto-reset marker left by `orchestrate-self-reset`. The marker is scoped by tmux session name to prevent cross-session collisions:
+
+```bash
+auto_reset=false
+session_name="$(tmux display-message -p '#S' 2>/dev/null || echo "")"
+marker="${ORCHESTRATE_RESET_TMPDIR:-/tmp}/claude-orchestrate-auto-reset-${session_name}.marker"
+if [ -n "$session_name" ] && [ -f "$marker" ]; then
+  mtime="$(stat -c %Y "$marker" 2>/dev/null || stat -f %m "$marker" 2>/dev/null)"
+  age=$(( $(date +%s) - mtime ))
+  if [ "$age" -lt 300 ]; then
+    auto_reset=true
+  fi
+  rm -f "$marker"
+fi
+echo "auto_reset=$auto_reset"
+```
+
+If `auto_reset=true`:
+- Skip the "Resume or restart" AskUserQuestion below
+- Take the **resume** path directly (same steps as "On resume" below)
+- Tell the user: "Auto-resuming after context reset — continuing from the next task after **`<last_completed>`**."
+
+If `auto_reset=false` or the marker was stale (>5 minutes old), present the prompt as normal.
+
+### Present the resume prompt
 
 ```
 AskUserQuestion:

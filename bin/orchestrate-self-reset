@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+# orchestrate-self-reset — background relay for automatic mine-orchestrate context resets.
+#
+# Launched by mine-orchestrate at task boundaries when context usage exceeds
+# the configured threshold. Waits for the session to go idle, sends /clear,
+# waits for the welcome banner, then re-invokes /mine-orchestrate to resume.
+#
+# Usage: orchestrate-self-reset <tmux-session> [feature-dir]
+#
+# If feature-dir is provided, passes it as the argument to /mine-orchestrate.
+# Otherwise invokes /mine-orchestrate with no arguments (relies on cfl run
+# status for feature dir discovery).
+#
+# Environment:
+#   ORCHESTRATE_RESET_CLEAR_TIMEOUT  — seconds to wait for idle before /clear (default: 120)
+#   ORCHESTRATE_RESET_BANNER_TIMEOUT — seconds to wait for welcome banner (default: 30)
+#   ORCHESTRATE_RESET_RESUME_TIMEOUT — seconds to wait for /mine-orchestrate submit (default: 30)
+#   ORCHESTRATE_RESET_TMPDIR         — directory for marker and log files (default: /tmp)
+
+set -euo pipefail
+
+usage() {
+  printf 'Usage: orchestrate-self-reset <tmux-session> [feature-dir]\n' >&2
+  exit "${1:-1}"
+}
+
+[ "${1:-}" = "--help" ] && usage 0
+[ $# -ge 1 ] || usage
+
+session="$1"
+feature_dir="${2:-}"
+
+: "${ORCHESTRATE_RESET_TMPDIR:=/tmp}"
+marker="${ORCHESTRATE_RESET_TMPDIR}/claude-orchestrate-auto-reset-${session}.marker"
+log="${ORCHESTRATE_RESET_TMPDIR}/orchestrate-self-reset-${session}.log"
+
+: "${ORCHESTRATE_RESET_CLEAR_TIMEOUT:=120}"
+: "${ORCHESTRATE_RESET_BANNER_TIMEOUT:=30}"
+: "${ORCHESTRATE_RESET_RESUME_TIMEOUT:=30}"
+
+log_msg() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*" >> "$log"; }
+
+fail() {
+  rm -f "$marker"
+  log_msg "FAILED: $1"
+  exit 1
+}
+
+log_msg "Starting self-reset for session=$session feature_dir=${feature_dir:-<auto>}"
+
+# Write the auto-reset marker — the fresh session's resume protocol reads it
+# to skip the "Resume from TX?" prompt and auto-resume.
+touch "$marker"
+log_msg "Marker written: $marker"
+
+# Step 1: Wait for idle + send /clear.
+# Extended timeout — the current mine-orchestrate turn is ending but Claude
+# may still be composing its final response.
+log_msg "Waiting for idle, then sending /clear..."
+RC_SEND_READY_TIMEOUT="$ORCHESTRATE_RESET_CLEAR_TIMEOUT" rc-send-ready "$session" "/clear" ||
+  fail "could not send /clear (timed out or session gone)"
+log_msg "/clear submitted"
+
+# Step 2: Wait for the welcome banner before sending the resume command.
+# /clear wipes the screen; the welcome box takes a moment to draw. The pane
+# flickers empty before the banner renders — an empty capture is NOT settled.
+deadline=$(($(date +%s) + ORCHESTRATE_RESET_BANNER_TIMEOUT))
+while true; do
+  if [ "$(date +%s)" -ge "$deadline" ]; then
+    fail "timed out waiting for welcome banner"
+  fi
+  content=$(tmux capture-pane -p -t "$session" -J -S -20 2> /dev/null) || {
+    sleep 1
+    continue
+  }
+  if printf '%s' "$content" | grep -qF "Welcome to Claude Code"; then
+    break
+  fi
+  sleep 1
+done
+log_msg "Welcome banner detected"
+
+# Step 3: Send /mine-orchestrate to resume.
+resume_cmd="/mine-orchestrate"
+[ -n "$feature_dir" ] && resume_cmd="/mine-orchestrate $feature_dir"
+
+log_msg "Sending: $resume_cmd"
+RC_SEND_READY_TIMEOUT="$ORCHESTRATE_RESET_RESUME_TIMEOUT" rc-send-ready "$session" "$resume_cmd" ||
+  fail "could not send resume command"
+log_msg "Resume command submitted — self-reset complete"
