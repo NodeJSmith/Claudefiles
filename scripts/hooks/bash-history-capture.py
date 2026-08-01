@@ -19,6 +19,12 @@ DB_PATH = Path(
 )
 
 OUTPUT_PREVIEW_LENGTH = 500
+DB_DIR_MODE = 0o700
+DB_FILE_MODE = 0o600
+SQLITE_CONNECT_TIMEOUT_S = 5.0
+SQLITE_BUSY_TIMEOUT_MS = 3000
+# WSL2 mounts Windows drives via 9p at /mnt/, which breaks SQLite WAL locking
+WSL_MOUNT_PREFIX = "/mnt/"
 
 SCHEMA = """\
 CREATE TABLE IF NOT EXISTS commands (
@@ -89,46 +95,45 @@ def main() -> None:
         output_text = extract_output(tool_response)
         output_preview = output_text[:OUTPUT_PREVIEW_LENGTH] if output_text else None
 
-        DB_PATH.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True, mode=DB_DIR_MODE)
 
         is_new_db = not DB_PATH.exists()
         real_path = os.path.realpath(DB_PATH)
-        journal_mode = "DELETE" if real_path.startswith("/mnt/") else "WAL"
+        journal_mode = "DELETE" if real_path.startswith(WSL_MOUNT_PREFIX) else "WAL"
 
-        conn = sqlite3.connect(str(DB_PATH), timeout=5.0)
-        conn.execute(f"PRAGMA journal_mode={journal_mode}")
-        conn.execute("PRAGMA busy_timeout=3000")
+        with sqlite3.connect(str(DB_PATH), timeout=SQLITE_CONNECT_TIMEOUT_S) as conn:
+            conn.execute(f"PRAGMA journal_mode={journal_mode}")
+            conn.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
 
-        if is_new_db:
-            os.chmod(DB_PATH, 0o600)
+            if is_new_db:
+                os.chmod(DB_PATH, DB_FILE_MODE)
 
-        conn.executescript(SCHEMA)
+            conn.executescript(SCHEMA)
 
-        conn.execute(
-            """
-            INSERT OR IGNORE INTO commands (
-                session_id, tool_use_id, cwd, transcript_path, project_slug,
-                command, description, timeout_ms, is_background,
-                status, output_length, output_preview
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                payload.get("session_id", ""),
-                payload.get("tool_use_id", ""),
-                payload.get("cwd"),
-                transcript_path,
-                extract_project_slug(transcript_path),
-                command,
-                tool_input.get("description"),
-                tool_input.get("timeout"),
-                1 if tool_input.get("run_in_background") else 0,
-                tool_response.get("status"),
-                len(output_text),
-                output_preview,
-            ),
-        )
-        conn.commit()
-        conn.close()
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO commands (
+                    session_id, tool_use_id, cwd, transcript_path, project_slug,
+                    command, description, timeout_ms, is_background,
+                    status, output_length, output_preview
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    payload.get("session_id", ""),
+                    payload.get("tool_use_id", ""),
+                    payload.get("cwd"),
+                    transcript_path,
+                    extract_project_slug(transcript_path),
+                    command,
+                    tool_input.get("description"),
+                    tool_input.get("timeout"),
+                    1 if tool_input.get("run_in_background") else 0,
+                    tool_response.get("status"),
+                    len(output_text),
+                    output_preview,
+                ),
+            )
+            conn.commit()
     except (sqlite3.Error, OSError):
         return
 

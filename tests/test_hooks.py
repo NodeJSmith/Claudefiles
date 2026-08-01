@@ -455,6 +455,10 @@ class TestCompactionHookNoSubagentDir:
 # ---------------------------------------------------------------------------
 
 
+def _fake_tool_use_id() -> str:
+    return f"toolu_{uuid.uuid4().hex[:12]}"
+
+
 def _make_bash_history_payload(
     session_id: str = "test-session",
     tool_use_id: str | None = None,
@@ -474,7 +478,7 @@ def _make_bash_history_payload(
     return json.dumps(
         {
             "session_id": session_id,
-            "tool_use_id": tool_use_id or f"toolu_{uuid.uuid4().hex[:12]}",
+            "tool_use_id": tool_use_id or _fake_tool_use_id(),
             "cwd": cwd,
             "transcript_path": transcript_path,
             "hook_event_name": "PostToolUse",
@@ -568,7 +572,7 @@ class TestBashHistoryCapture:
     def test_deduplicates_by_tool_use_id(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "test.db")
-            fixed_id = f"toolu_{uuid.uuid4().hex[:12]}"
+            fixed_id = _fake_tool_use_id()
             for cmd in ["first", "second"]:
                 stdin = _make_bash_history_payload(
                     tool_use_id=fixed_id,
