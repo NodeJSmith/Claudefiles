@@ -49,6 +49,18 @@ The base is enough. For moderate tasks (multiple files, real decisions, well-und
 **"I want to brainstorm and challenge ideas"**
 The base is enough. `/mine-brainstorm` runs four parallel thinkers and ranks ideas. `/mine-grill` interrogates a rough idea across product, engineering, and adversarial lenses. `/mine-challenge` assumes your approach is wrong and argues for better. Included in base.
 
+**"I want to chart a big, foggy effort that spans sessions"**
+The base is enough. `/mine-wayfinder` charts a multi-session effort as a map of decision tickets on the issue tracker, resolved through progressive discovery instead of one upfront plan. Included in base.
+
+**"I want a persistent workspace for learning a topic"**
+The base is enough. `/mine-teach` sets up a stateful learning workspace — mission, lessons, learning records, and zone-of-proximal-development tracking — that carries across sessions instead of restarting from zero each time. Included in base.
+
+**"I want to keep terminology and decisions straight during design conversations"**
+The base is enough. `/mine-domain-model` maintains a `CONTEXT.md` glossary and ADRs as you talk through a design, challenging fuzzy language and cross-referencing the code as it goes. Included in base.
+
+**"I want to turn raw notes into a finished piece of writing"**
+The base is enough. `/mine-fragments` interviews you grill-style to capture raw material with no structure imposed; `/mine-shape` then builds it into an article paragraph by paragraph, or `/mine-beats` assembles it into a branching journey of beats. Both structuring skills enforce grounding discipline — terms get introduced before they're used. Included in base.
+
 **"I want frontend design help"**
 Add the **Frontend** bundle. You get the Impeccable UI design skills for audit (`/i-audit`), layout (`/i-layout`), typography (`/i-typeset`), color systems (`/i-colorize`), and more. Start with `/i-teach-impeccable` to set up design context, then pick the skill that matches your current problem.
 
