@@ -6,6 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Added
 
+- Ported 6 skills from Matt Pocock's `mattpocock/skills` repo: `mine-domain-model` (CONTEXT.md glossary and ADR maintenance), `mine-wayfinder` (multi-session effort charting via GitHub map issues), `mine-teach` (stateful learning workspaces), and a writing pipeline (`mine-fragments`, `mine-shape`, `mine-beats`). (#482)
 - New `PostToolUse` hook captures every Bash command to a local SQLite database (`~/.local/share/claudefiles/bash-history.db`) for later pattern-mining — command text, cwd, project, description, and output preview. (#480)
 - `mine-orchestrate` now automatically resets context at task boundaries when usage crosses a configurable threshold (default 40%), instead of relying on unplanned mid-task compaction — a background relay (`orchestrate-self-reset`) sends `/clear` and re-invokes `/mine-orchestrate`, auto-resuming without prompting. (#481)
 
