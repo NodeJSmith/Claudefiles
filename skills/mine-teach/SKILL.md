@@ -13,7 +13,7 @@ The user has asked to learn something. This is a stateful request — they inten
 Check the current directory for `MISSION.md` before doing anything else.
 
 - **No `MISSION.md`, or it's empty** — this is a first run. Ask why the user wants to learn the topic (see [The Mission](#the-mission)) before writing any file — and per [Teaching Workspace](#teaching-workspace), confirm the directory itself before that first write.
-- **`MISSION.md` exists** — this is a returning session. Read `MISSION.md`, `RESOURCES.md`, and `learning-records/` (if present), state briefly where the user left off, then propose the next lesson using [Zone of Proximal Development](#zone-of-proximal-development).
+- **`MISSION.md` exists** — this is a returning session. Read `MISSION.md`, then `RESOURCES.md` and `learning-records/` if they exist yet (both are created lazily, so an early returning session may not have either), state briefly where the user left off, then propose the next lesson using [Zone of Proximal Development](#zone-of-proximal-development).
 
 ## Teaching Workspace
 
@@ -37,7 +37,7 @@ Treat the current directory as a teaching workspace. Before creating any file he
 - **`MISSION.md`** — the *reason* the user is interested in the topic. Grounds all teaching. Format in [The Mission](#the-mission).
 - **`RESOURCES.md`** — high-quality resources to ground teaching in contextual knowledge or acquire wisdom. Format in [Knowledge](#knowledge).
 - **`learning-records/*.md`** — non-obvious lessons and key insights, loosely equivalent to architecture decision records. Titled `0001-<kebab-case-name>.md`, incrementing. Used to calculate the zone of proximal development. Format in [Zone of Proximal Development](#zone-of-proximal-development).
-- **`lessons/*.html`** — the primary unit of teaching. A lesson is a single, self-contained HTML file that teaches one tightly-scoped thing tied to the mission. Titled `0001-<kebab-case-name>.html`, incrementing.
+- **`lessons/*.html`** — the primary unit of teaching. A lesson teaches one tightly-scoped thing tied to the mission, with no network dependency (see [Lessons](#lessons) for what "self-contained" means here). Titled `0001-<kebab-case-name>.html`, incrementing.
 - **`reference/*.html`** — compressed learnings distilled from lessons: cheat sheets, reference algorithms, syntax, glossaries. Designed for quick lookup, not narrative reading.
 - **`assets/*`** — reusable components shared across lessons: stylesheets, quiz widgets, simulators, diagram helpers. See [Assets](#assets).
 - **`NOTES.md`** — a scratchpad for the user's preferences and working notes on how they want to be taught.
@@ -71,9 +71,9 @@ Fluency gives an illusory sense of mastery; storage strength is the real goal. D
 
 ## Lessons
 
-A lesson is the main artifact — the unit in which knowledge and skills reach the user. Each lesson is one self-contained HTML file, saved to `./lessons/` and titled `0001-<kebab-case-name>.html`.
+A lesson is the main artifact — the unit in which knowledge and skills reach the user. Each lesson is an HTML file, saved to `./lessons/` and titled `0001-<kebab-case-name>.html`.
 
-**Self-contained means self-contained.** No CDN links — no Tailwind CDN, no external font or script loads, no network dependency of any kind. Inline all CSS and JS directly in the file. A lesson opened offline, months later, must render exactly as it did the day it was written.
+**Self-contained means no network dependency, not no local links.** No CDN links — no Tailwind CDN, no external font or script loads, no dependency on the internet at all. Inline any CSS or JS that isn't already a shared workspace component; for shared components, use relative-path links to `./assets/` instead of duplicating them (see [Assets](#assets)). The portable unit is the whole teaching workspace — `lessons/`, `assets/`, and `reference/` kept together — not each HTML file in isolation. Keep the workspace directory intact: a lesson opened offline, months later, must still render exactly as it did the day it was written.
 
 A lesson should be **beautiful** — clean, readable typography and layout, in the spirit of Tufte — since the user will return to it later to review.
 
