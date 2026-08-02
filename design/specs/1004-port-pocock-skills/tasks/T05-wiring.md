@@ -1,7 +1,7 @@
 ---
 task_id: "T05"
 title: "add trigger phrases to capabilities-core.md and entries to REFERENCE.md"
-status: "planned"
+status: "done"
 depends_on: ["T01", "T02", "T03", "T04"]
 implements: ["FR#7", "FR#8", "AC#5", "AC#6"]
 ---

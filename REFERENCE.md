@@ -10,6 +10,7 @@ Full component tables for Claudefiles. For context on what each component type d
 |-------|-------------|
 | `mine-address-pr-issues` | Triage and resolve PR blockers — review comments, merge conflicts, and failing CI |
 | `mine-audit` | Systematic codebase health audit — surfaces aging code, brittle designs, missing tests, and accumulated debt, ranked by impact |
+| `mine-beats` | Writing exploit (beat-by-beat) — assemble raw material into a journey of beats with choose-your-own-adventure branching and grounding discipline |
 | `mine-brainstorm` | Open-ended idea generation with four parallel thinkers — divergent ideas ranked by user-chosen criteria, with handoff to research or planning |
 | `mine-build` | Single entry point — routes between direct implementation, structured sketch (sketch → orchestrate), and the full caliper workflow (define → plan → orchestrate → ship) |
 | `mine-challenge` | Adversarial review using 3 generic + up to 2 domain-specialist critics — assumes the target is wrong, finds out why, argues for better. Pre-flight catches surface issues and validates architecture before launching critics; reduces to 2 critics on re-challenges. Works on code, specs, designs, briefs, skill files, docs |
@@ -21,8 +22,10 @@ Full component tables for Claudefiles. For context on what each component type d
 | `mine-decompose` | Codebase decomposition analysis — finds split opportunities using Git behavioral signals and structural metrics, proposes concrete splits with ROI-based prioritization |
 | `mine-comb` | One-off fine-toothed comb — open-ended holistic review of a brief, design, plan, or implementation-against-design; dispatches the fine-toothed-comb agent and runs the comb gate. Standalone form of the comb inside mine-define/mine-plan |
 | `mine-define` | Proportional discovery + codebase investigation + architecture interrogation → design.md with one sign-off gate |
+| `mine-domain-model` | Active domain glossary — maintain CONTEXT.md and ADRs during design conversations, challenge fuzzy language, cross-reference code |
 | `mine-elevate` | Surfaces upward improvements to a subsystem through three generator lenses (friction/v2, latent peer-adoption, maximalist provocation) — each candidate annotated with cost and the case against, ordered by signal, never filtered. A menu, not a mandate; the inverse of mine-simplify/mine-decompose |
 | `mine-eval-repo` | Evaluate a third-party GitHub repo before adopting it — test coverage, code quality, maintenance health, bus factor |
+| `mine-fragments` | Writing explore — interview the user grill-style to surface raw fragments, appended to a markdown file with no structure imposed |
 | `mine-grill` | Multi-angle interrogation of a raw idea — product, design, engineering, scope, and adversarial lenses. Produces a brief.md that feeds into /mine-define |
 | `mine-how` | Interactive subsystem explanation — complexity-adaptive walkthroughs grounded in actual code, with mandatory accuracy review |
 | `mine-document` | Durable subsystem explanation — architectural-altitude write-up that survives code churn, anchored to components and flows rather than line numbers |
@@ -36,11 +39,14 @@ Full component tables for Claudefiles. For context on what each component type d
 | `mine-prior-art` | Survey how others solve a problem — web-first research for mid-design architectural questions |
 | `mine-research` | Interactive research workflow — gathers user intent, dispatches the researcher agent, presents the brief |
 | `mine-review` | Comprehensive branch review — dispatches code/integration/readability reviewers for code changes, or consistency/instruction-quality/writing-quality reviewers for instruction files; consolidates findings into one prioritized report |
+| `mine-shape` | Writing exploit (paragraph-by-paragraph) — shape raw material into an article with grounding discipline and collaborative construction |
 | `mine-ship` | Commit, push, and create a PR in one step |
 | `mine-simplify` | Codebase-scoped structural simplification — fans out parallel `code-judo-reviewer` agents over a file/dir/repo, consolidates dramatic simplification moves into one impact-ranked report. On-demand alternative to baking structural review into every orchestrate run |
 | `mine-sketch` | Lightweight structured planning — produces design.md (with FRs/ACs) + task files in one pass, then hands off to mine-orchestrate. Bridges the gap between direct implementation and full caliper ceremony |
+| `mine-teach` | Structured learning — stateful workspace with mission, lessons, learning records, reference docs, and zone-of-proximal-development tracking |
 | `mine-tool-gaps` | Surface missing CLI functionality and unscripted recurring patterns by mining session history for workarounds |
 | `mine-visual-qa` | Live visual QA — Playwright captures screenshots, then two agents analyze them with structural separation (one sees each page in isolation, the other sees all pages at once) |
+| `mine-wayfinder` | Multi-session decision mapping — chart foggy efforts as a map of decision tickets on the issue tracker, resolve via progressive discovery |
 | `mine-write-skill` | Guided skill creation — gathers requirements, drafts SKILL.md, validates quality checklist, auto-wires routing |
 
 ### Frontend Design Skills (`i-*`) — Frontend bundle

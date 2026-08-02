@@ -39,15 +39,18 @@ tool: claude  # harness-only: skill/command routing tables are Claude-Code dispa
 | "evaluate this repo", "should I use this library" | `/mine-eval-repo` |
 | "how does X work", "walk me through", "explain this subsystem", "explain how", "trace the flow" | `/mine-how` |
 | "document how X works", "write up how this works", "durable explanation", "explain this for the docs", "document this subsystem" | `/mine-document` |
+| "teach me", "learn about", "study this", "lesson on", "help me learn", "tutorial on" | `/mine-teach` |
 | "why is this code like this", "why does this exist", "why was this built this way", "decision rationale", "what's the history behind" | `/mine-why` |
 | "mutation test", "do my tests actually catch bugs" | `/mine-mutation-test` |
 | "find tool gaps", "session archaeology", "missing cli features" | `/mine-tool-gaps` |
 | "grill me on this", "poke holes in my idea", "help me think this through", "what am I not thinking about" | `/mine-grill` |
+| "domain model", "glossary", "sharpen terminology", "define this term", "what does X mean in this codebase", "ubiquitous language" | `/mine-domain-model` |
 | "interview this idea", "spec this out", "help me define what I want to build", "interviewer" | `/mine-define` |
 | "specify this feature", "write a spec", "define requirements" | `/mine-define` |
 | "sketch this out", "sketch this feature", "lightweight plan", "quick design and tasks", "structured but lightweight" | `/mine-sketch` |
 | "build this", "implement this", "make this change", "start a feature" | `/mine-build` |
 | "design this change", "write a design doc", "investigate before planning" | `/mine-define` |
+| "wayfinder", "chart this effort", "too big for one session", "multi-session plan", "foggy effort", "progressive discovery" | `/mine-wayfinder` |
 | "draft a plan", "create work packages", "generate WPs", "create task files" | `/mine-plan` |
 | "review this plan", "check the plan", "plan review" | `/mine-plan` |
 | "execute the plan", "orchestrate implementation", "start executing" | `/mine-orchestrate` |
@@ -60,6 +63,9 @@ tool: claude  # harness-only: skill/command routing tables are Claude-Code dispa
 | "simplify this codebase", "find simplification opportunities", "where can I simplify", "code judo this", "judo this module", "find structural simplifications", "what can I collapse", "reduce complexity in this code" | `/mine-simplify` |
 | "what would a v2 look like", "how would we rebuild this", "next iteration of this design", "what improvements are we skipping", "what would a mature version look like", "what are we not considering here", "how would we make this more robust", "sophistication ceiling", "elevate this subsystem" | `/mine-elevate` |
 | "humanize this", "unslop this", "de-slop this", "fix AI writing", "remove AI tells", "clean up AI prose" | `/mine-humanize` |
+| "mine fragments", "explore writing", "raw material", "capture fragments", "start writing", "gather raw material for an article" | `/mine-fragments` |
+| "shape this article", "write paragraph by paragraph", "shape this writing", "structure this material" | `/mine-shape` |
+| "write in beats", "beat by beat", "choose your own adventure writing", "journey-style article" | `/mine-beats` |
 
 ## CLI Tools
 
