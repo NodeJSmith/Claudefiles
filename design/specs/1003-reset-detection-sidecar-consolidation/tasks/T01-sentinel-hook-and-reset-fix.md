@@ -40,7 +40,7 @@ Modify `bin/orchestrate-self-reset` to replace the banner-grep polling loop (Ste
 
 2. **Replace Step 2** (the `while true` loop that greps for "Welcome to Claude Code" or "Claude Code v"): poll for the sentinel file instead:
    ```
-   deadline=$(($(date +%s) + ORCHESTRATE_RESET_BANNER_TIMEOUT))
+   deadline=$(($(date +%s) + ORCHESTRATE_RESET_SENTINEL_TIMEOUT))
    while true; do
      if [ "$(date +%s)" -ge "$deadline" ]; then
        fail "timed out waiting for clear-ready sentinel"
@@ -84,6 +84,6 @@ Add it to the existing `"SessionStart"` array alongside the other entries.
 
 - [ ] FR#1: `bin/orchestrate-self-reset` contains no `grep` for banner text (no "Welcome to Claude Code", no "Claude Code v")
 - [ ] FR#2: `scripts/hooks/clear-ready-sentinel.sh` exists, is executable, reads session_id from stdin JSON, detects tmux session name, writes sentinel to `/tmp/claude-clear-ready-<session>.sentinel`
-- [ ] FR#3: `bin/orchestrate-self-reset` polls for the sentinel file with `ORCHESTRATE_RESET_BANNER_TIMEOUT` as timeout, cleans up the file after detection
+- [ ] FR#3: `bin/orchestrate-self-reset` polls for the sentinel file with `ORCHESTRATE_RESET_SENTINEL_TIMEOUT` as timeout, cleans up the file after detection
 - [ ] AC#1: `grep -c "grep.*Claude Code\|grep.*Welcome" bin/orchestrate-self-reset` returns 0
 - [ ] AC#2: `jq '.hooks.SessionStart[] | select(.matcher == "clear")' settings.json` returns the sentinel hook entry

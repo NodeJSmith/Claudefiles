@@ -15,7 +15,7 @@
 #
 # Environment:
 #   ORCHESTRATE_RESET_CLEAR_TIMEOUT  — seconds to wait for idle before /clear (default: 120)
-#   ORCHESTRATE_RESET_BANNER_TIMEOUT — seconds to wait for the clear-ready sentinel (default: 30)
+#   ORCHESTRATE_RESET_SENTINEL_TIMEOUT — seconds to wait for the clear-ready sentinel (default: 30)
 #   ORCHESTRATE_RESET_RESUME_TIMEOUT — seconds to wait for /mine-orchestrate submit (default: 30)
 #   ORCHESTRATE_RESET_TMPDIR         — directory for marker and log files (default: /tmp).
 #                                      Does NOT affect the sentinel file, which is always
@@ -45,7 +45,7 @@ log="${ORCHESTRATE_RESET_TMPDIR}/orchestrate-self-reset-${session}.log"
 sentinel="/tmp/claude-clear-ready-${session}.sentinel"
 
 : "${ORCHESTRATE_RESET_CLEAR_TIMEOUT:=120}"
-: "${ORCHESTRATE_RESET_BANNER_TIMEOUT:=30}"
+: "${ORCHESTRATE_RESET_SENTINEL_TIMEOUT:=30}"
 : "${ORCHESTRATE_RESET_RESUME_TIMEOUT:=30}"
 
 log_msg() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*" >> "$log"; }
@@ -80,7 +80,7 @@ log_msg "/clear submitted"
 # reset the session and writes this file — an authoritative, event-driven
 # signal instead of scraping pane content for a banner string that can drift
 # or disappear across TUI versions.
-deadline=$(($(date +%s) + ORCHESTRATE_RESET_BANNER_TIMEOUT))
+deadline=$(($(date +%s) + ORCHESTRATE_RESET_SENTINEL_TIMEOUT))
 while true; do
   if [ "$(date +%s)" -ge "$deadline" ]; then
     fail "timed out waiting for clear-ready sentinel"
