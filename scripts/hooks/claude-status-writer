@@ -61,7 +61,7 @@ set -o nounset -o pipefail
 
 payload="$(cat || true)"
 
-# Nothing to do without a payload or jq; exit cleanly (FR#8).
+# Nothing to do without a payload or jq; exit cleanly.
 [ -n "$payload" ] || exit 0
 command -v jq > /dev/null 2>&1 || exit 0
 
