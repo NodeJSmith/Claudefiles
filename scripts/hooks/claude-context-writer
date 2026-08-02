@@ -9,11 +9,13 @@
 # behavioral guidance based on context usage tiers.
 #
 # A single sidecar file is written (atomically, best-effort):
-#   /tmp/claude-context-<sid>.meta — two-line key=value file with:
+#   /tmp/claude-context-<sid>.meta — key=value file with:
 #                                      pct=<int>
 #                                      cwd=<path>
+#                                      model=<model-id>
 #                                    pct read by the context-tier.sh hook;
-#                                    cwd read by child-context-check to join on worktree path
+#                                    cwd read by child-context-check to join on worktree path;
+#                                    model read by cfl's session.read_model()
 #
 # Usage in settings.json (or settings.local.json / settings.machine.json):
 #   "statusLine": {
