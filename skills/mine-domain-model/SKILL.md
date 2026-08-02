@@ -14,8 +14,8 @@ Actively build and sharpen the project's domain model as you design. This is the
 /
 ├── CONTEXT.md
 └── design/
-    ├── adr-0001-event-sourced-orders.md
-    └── adr-0002-postgres-for-write-model.md
+    ├── adr-001-event-sourced-orders.md
+    └── adr-002-postgres-for-write-model.md
 ```
 
 `CONTEXT.md` lives at the repo root. Create files lazily — only when you have something to write. If no `CONTEXT.md` exists, create one when the first term is resolved, using the format in [context-format.md](./context-format.md). If no `design/` directory exists, create it when the first ADR is needed, using the format in [adr-format.md](./adr-format.md).
