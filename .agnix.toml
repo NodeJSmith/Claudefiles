@@ -17,4 +17,13 @@ disabled_rules = [
   #         mirroring the rules/common/ convention. Skills reference these
   #         files by their installed path under ${CLAUDE_CONFIG_DIR}/references/.
   "AS-013",
+
+  # CC-HK-004: agnix 0.16.5 doesn't recognize that SessionStart and SessionEnd
+  #            support a matcher (session-start/end reason, e.g. "clear") per
+  #            https://code.claude.com/docs/en/hooks.md — it flags these as
+  #            "non-tool events must not have a matcher field", which is wrong
+  #            for these two. (Notification/Stop/UserPromptSubmit genuinely
+  #            don't support matchers — settings.json avoids adding dead ones
+  #            there instead of relying on this disable.)
+  "CC-HK-004",
 ]

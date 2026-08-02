@@ -1,4 +1,5 @@
-"""Integration tests for hook scripts (tmux-drift, compaction, bash-history).
+"""Integration tests for hook scripts (tmux-drift, claude-status-writer,
+compaction, bash-history).
 
 Each test crafts JSON input matching the PreToolUse/PostToolUse schema, invokes
 the hook via subprocess.run, and asserts on exit code and stdout.
@@ -287,6 +288,93 @@ class TestTmuxDriftCheckHeartbeatConfig:
             assert result.stdout.strip() == ""  # 6 < 30 default
         finally:
             _cleanup_drift(sid)
+
+
+# ---------------------------------------------------------------------------
+# claude-status-writer tests: SessionStart/clear -> state=cleared
+#
+# Only the new SessionStart/clear behavior is covered here, not the writer's
+# pre-existing busy/idle derivation (UserPromptSubmit/PreToolUse/PostToolUse/
+# Stop/Notification/SessionEnd) — that ported-verbatim logic remains untested
+# in this repo per known-issues.md KI-004.
+# ---------------------------------------------------------------------------
+
+STATUS_WRITER_HOOK = REPO_ROOT / "scripts" / "hooks" / "claude-status-writer"
+
+
+def _run_status_writer(stdin: str, meta_dir: Path) -> subprocess.CompletedProcess:
+    env = os.environ.copy()
+    env["RC_STATUS_META_DIR"] = str(meta_dir)
+    return subprocess.run(
+        [str(STATUS_WRITER_HOOK)],
+        input=stdin,
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+
+
+def _read_meta(meta_dir: Path, sid: str) -> dict[str, str]:
+    p = meta_dir / f"claude-status-{sid}.meta"
+    result: dict[str, str] = {}
+    for line in p.read_text().splitlines():
+        k, _, v = line.partition("=")
+        result[k] = v
+    return result
+
+
+class TestStatusWriterSessionStartClear:
+    """SessionStart with source=clear writes state=cleared, cwd, and a fresh ts."""
+
+    def test_source_clear_writes_state_cleared(self, tmp_path):
+        sid = f"status-clear-{uuid.uuid4().hex[:8]}"
+        stdin = json.dumps(
+            {
+                "hook_event_name": "SessionStart",
+                "session_id": sid,
+                "source": "clear",
+                "cwd": "/home/jessica/example-repo",
+            }
+        )
+        result = _run_status_writer(stdin, tmp_path)
+        assert result.returncode == 0
+
+        meta = _read_meta(tmp_path, sid)
+        assert meta["state"] == "cleared"
+        assert meta["cwd"] == "/home/jessica/example-repo"
+        assert meta["ts"].isdigit()
+
+
+class TestStatusWriterSessionStartOtherSource:
+    """SessionStart with any other source is a silent no-op — this hook only
+    treats /clear as the readiness signal orchestrate-self-reset polls for.
+    """
+
+    def test_source_startup_silent(self, tmp_path):
+        sid = f"status-startup-{uuid.uuid4().hex[:8]}"
+        stdin = json.dumps(
+            {"hook_event_name": "SessionStart", "session_id": sid, "source": "startup"}
+        )
+        result = _run_status_writer(stdin, tmp_path)
+        assert result.returncode == 0
+        assert not (tmp_path / f"claude-status-{sid}.meta").exists()
+
+    def test_source_resume_silent(self, tmp_path):
+        sid = f"status-resume-{uuid.uuid4().hex[:8]}"
+        stdin = json.dumps(
+            {"hook_event_name": "SessionStart", "session_id": sid, "source": "resume"}
+        )
+        result = _run_status_writer(stdin, tmp_path)
+        assert result.returncode == 0
+        assert not (tmp_path / f"claude-status-{sid}.meta").exists()
+
+    def test_missing_source_silent(self, tmp_path):
+        sid = f"status-nosource-{uuid.uuid4().hex[:8]}"
+        stdin = json.dumps({"hook_event_name": "SessionStart", "session_id": sid})
+        result = _run_status_writer(stdin, tmp_path)
+        assert result.returncode == 0
+        assert not (tmp_path / f"claude-status-{sid}.meta").exists()
 
 
 def _make_compaction_input(session_id: str, transcript_path: str) -> str:

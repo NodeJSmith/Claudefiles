@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+# claude-status-writer — lifecycle-hook writer that records a session's busy/idle
+# state to a per-session status sidecar.
+#
+# A deliberate sibling of claude-context-writer: both are Claudefiles-owned producers
+# in scripts/hooks/ that run on every session, so this one matches its sibling's
+# conventions — session-id path-traversal guard, atomic tmp-in-same-dir + mv write,
+# /tmp default (the hook, like the statusLine, runs outside Claude Code's sandbox
+# and may lack CLAUDE_CODE_TMPDIR), and the "no set -e, best-effort, never disrupt
+# the session" shape. It reads the hook JSON from stdin, derives state, writes
+# /tmp/claude-status-<sid>.meta atomically, and exits 0.
+#
+# Sidecar format mirrors claude-context-<sid>.meta (newline key=value):
+#   state=working
+#   cwd=/home/jessica/source/hassette/.claude/worktrees/1094
+#   sid=abc123
+#   event=Stop
+#   ts=1750533041
+#   bg=1:shell
+#   crons=0
+#
+# State derivation by hook event:
+#   UserPromptSubmit / PreToolUse / PostToolUse → working (only fire mid-turn)
+#   Stop          → idle if background_tasks empty/absent, else working
+#   Notification  → needs-attention (permission_prompt / elicitation_dialog only)
+#   SessionStart  → cleared (source=="clear" only; settings.json's matcher:"clear"
+#                   already restricts which SessionStart invocations reach this
+#                   script, but the source check makes that gate self-contained
+#                   rather than relying on the hook wiring alone)
+#   SessionEnd    → remove the sidecar
+#
+# The SessionStart/clear case is orchestrate-self-reset's post-/clear readiness
+# signal: it polls rc_sidecar_state_for_cwd (bin/rc-lib-reset.sh) for a fresh
+# state=cleared record on the target pane's cwd instead of a bespoke sentinel
+# file, joining through the cwd key this producer already writes on every event.
+#
+# `bg` summarizes background_tasks as <count>:<distinct types> (e.g. 2:shell,subagent),
+# or 0 when none; `crons` is the session_crons count. Both default to 0 when absent
+# (graceful pre-v2.1.145 / task-registry-unreachable handling).
+#
+# Installed as an async hook (UserPromptSubmit/PreToolUse/PostToolUse/Stop/
+# Notification/SessionEnd) in Claudefiles' settings.json.
+#
+# Environment:
+#   RC_STATUS_META_DIR — output dir for sidecars (default /tmp; tests override it)
+
+case "${1:-}" in
+  -h | --help)
+    echo "Usage: claude-status-writer   (reads hook JSON on stdin, writes a status sidecar)"
+    echo ""
+    echo "Lifecycle-hook writer for the remote-control orchestrator's busy/idle signal."
+    echo "Reads the hook payload from stdin and writes /tmp/claude-status-<sid>.meta."
+    exit 0
+    ;;
+esac
+
+# No set -e — a hook must never disrupt the session. Best-effort, exit 0 always.
+set -o nounset -o pipefail
+
+: "${RC_STATUS_META_DIR:=/tmp}"
+
+payload="$(cat || true)"
+
+# Nothing to do without a payload or jq; exit cleanly.
+[ -n "$payload" ] || exit 0
+command -v jq > /dev/null 2>&1 || exit 0
+
+# Extract every field in one jq pass. background_tasks/session_crons are present
+# only on Stop (and only on Claude Code >= v2.1.145); `// []` degrades gracefully.
+# All refs below use ${var:-default} because eval may not have set them on the
+# jq-failure path under nounset.
+eval "$(printf '%s' "$payload" | jq -r '
+  def safe(f): f // "";
+  "_event="  + (safe(.hook_event_name) | @sh) +
+  " _sid="   + (safe(.session_id) | @sh) +
+  " _cwd="   + (safe(.cwd) | @sh) +
+  " _source=" + (safe(.source) | @sh) +
+  " _ntype=" + (safe(.notification_type) | @sh) +
+  " _bgn="   + ((.background_tasks // [] | length) | tostring | @sh) +
+  " _bgt="   + ((.background_tasks // [] | map(.type) | unique | join(",")) | @sh) +
+  " _crons=" + ((.session_crons // [] | length) | tostring | @sh)
+' 2> /dev/null)" 2> /dev/null || exit 0
+
+# Guard against path traversal — session_id should be a UUID; reject / or .
+# This is also the real recovery gate for a jq failure: on bad/empty JSON the
+# command substitution is empty, `eval ""` returns 0 (so the `|| exit 0` above
+# does NOT fire), and the `_*` vars stay unset — an unset _sid is caught here.
+# Do not remove this guard.
+case "${_sid:-}" in '' | *[/.]*) exit 0 ;; esac
+
+_bgn="${_bgn:-0}"
+_crons="${_crons:-0}"
+case "$_bgn" in '' | *[!0-9]*) _bgn=0 ;; esac
+
+# A SessionEnd removes the sidecar and is done.
+if [ "${_event:-}" = "SessionEnd" ]; then
+  rm -f "${RC_STATUS_META_DIR}/claude-status-${_sid}.meta" 2> /dev/null || true
+  exit 0
+fi
+
+# Derive the state to write. Unknown / non-status events write nothing.
+case "${_event:-}" in
+  UserPromptSubmit | PreToolUse | PostToolUse)
+    _state="working"
+    ;;
+  Stop)
+    if [ "$_bgn" -gt 0 ]; then _state="working"; else _state="idle"; fi
+    ;;
+  Notification)
+    case "${_ntype:-}" in
+      permission_prompt | elicitation_dialog) _state="needs-attention" ;;
+      *) exit 0 ;; # other notifications aren't a busy/idle signal
+    esac
+    ;;
+  SessionStart)
+    case "${_source:-}" in
+      clear) _state="cleared" ;;
+      *) exit 0 ;; # startup/resume/compact aren't the self-reset readiness signal
+    esac
+    ;;
+  *)
+    exit 0
+    ;;
+esac
+
+# bg = <count>:<distinct types>, or 0 when none.
+if [ "$_bgn" -gt 0 ]; then
+  _bg="${_bgn}:${_bgt:-}"
+else
+  _bg="0"
+fi
+
+_ts="$(date +%s)"
+_target="${RC_STATUS_META_DIR}/claude-status-${_sid}.meta"
+_tmp="${_target}.tmp"
+{
+  printf 'state=%s\n' "$_state"
+  printf 'cwd=%s\n' "${_cwd:-}"
+  printf 'sid=%s\n' "$_sid"
+  printf 'event=%s\n' "${_event:-}"
+  printf 'ts=%s\n' "$_ts"
+  printf 'bg=%s\n' "$_bg"
+  printf 'crons=%s\n' "$_crons"
+} > "$_tmp" 2> /dev/null && mv -f "$_tmp" "$_target" 2> /dev/null || true
+
+exit 0

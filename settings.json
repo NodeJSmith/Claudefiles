@@ -25,6 +25,12 @@
     "ccrecall@claude-code-recall": true
   },
   "includeGitInstructions": false,
+  "statusLine": {
+    "type": "command",
+    "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/claude-context-writer\"; d=\"$HOME/bin/mine/starship-claude\"; [ -x \"$f\" ] || exit 0; [ -x \"$d\" ] && exec \"$f\" \"$d\" || exec \"$f\"'",
+    "padding": 0,
+    "refreshInterval": 5
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -42,8 +48,18 @@
         "hooks": [
           {
             "type": "command",
+            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/context-tier.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
+            "timeout": 2000
+          },
+          {
+            "type": "command",
             "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/tmux-drift-check.sh\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
             "timeout": 2000
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/claude-status-writer\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
+            "async": true
           }
         ]
       },
@@ -81,6 +97,16 @@
             "type": "command",
             "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/bash-history-capture.py\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
             "timeout": 3000
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/claude-status-writer\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
+            "async": true
           }
         ]
       }
@@ -134,10 +160,63 @@
             "timeout": 5000
           }
         ]
+      },
+      {
+        "matcher": "clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/claude-status-writer\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
+            "async": true
+          }
+        ]
       }
     ],
-    "SessionEnd": [],
-    "Stop": []
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/claude-status-writer\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/claude-status-writer\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/claude-status-writer\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/claude-status-writer\"; [ -x \"$f\" ] && exec \"$f\" || exit 0'",
+            "async": true
+          }
+        ]
+      }
+    ]
   },
   "env": {}
 }
