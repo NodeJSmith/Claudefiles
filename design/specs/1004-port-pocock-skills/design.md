@@ -64,8 +64,8 @@ user-invocable: true
 - Issue tracker operations → `gh-issue` CLI preferred; raw `gh` acceptable for operations `gh-issue` doesn't cover (e.g., assignment)
 
 **Side file strategy:**
-- mine-domain-model: context-format.md, adr-format.md as side files (adapted from Pocock's, not fetched)
-- mine-teach: mission-format.md, learning-record-format.md, resources-format.md as side files
+- mine-domain-model: format templates delivered as inline sections within SKILL.md ("CONTEXT.md Format", "ADR Format"), not separate side files (adapted from Pocock's, not fetched)
+- mine-teach: format templates delivered as inline sections within SKILL.md ("MISSION.md Format", "Learning Record Format", "RESOURCES.md Format"), not separate side files
 - Others: single SKILL.md, no side files needed
 
 **Grouping in capabilities-core.md:**
@@ -78,14 +78,9 @@ user-invocable: true
 
 ## Changed Files
 
-- create: `skills/mine-domain-model/SKILL.md` — main skill file
-- create: `skills/mine-domain-model/context-format.md` — glossary format template
-- create: `skills/mine-domain-model/adr-format.md` — ADR format template
+- create: `skills/mine-domain-model/SKILL.md` — main skill file (includes CONTEXT.md and ADR format templates as inline sections)
 - create: `skills/mine-wayfinder/SKILL.md` — main skill file
-- create: `skills/mine-teach/SKILL.md` — main skill file
-- create: `skills/mine-teach/mission-format.md` — mission format template
-- create: `skills/mine-teach/learning-record-format.md` — learning record format template
-- create: `skills/mine-teach/resources-format.md` — resources format template
+- create: `skills/mine-teach/SKILL.md` — main skill file (includes MISSION.md, learning record, and RESOURCES.md format templates as inline sections)
 - create: `skills/mine-fragments/SKILL.md` — main skill file
 - create: `skills/mine-shape/SKILL.md` — main skill file
 - create: `skills/mine-beats/SKILL.md` — main skill file
