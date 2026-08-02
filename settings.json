@@ -27,7 +27,7 @@
   "includeGitInstructions": false,
   "statusLine": {
     "type": "command",
-    "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/claude-context-writer\"; [ -x \"$f\" ] && exec \"$f\" ~/bin/mine/starship-claude || exit 0'",
+    "command": "bash -c 'f=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/claude-context-writer\"; d=\"$HOME/bin/mine/starship-claude\"; [ -x \"$f\" ] || exit 0; [ -x \"$d\" ] && exec \"$f\" \"$d\" || exec \"$f\"'",
     "padding": 0,
     "refreshInterval": 5
   },
