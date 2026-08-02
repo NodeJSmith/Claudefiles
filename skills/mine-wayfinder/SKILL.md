@@ -10,11 +10,11 @@ A loose idea has arrived — too big for one agent session, and wrapped in fog: 
 
 The destination varies per effort, and naming it is the first act of charting — it shapes every ticket. It might be a spec to hand off and iterate on, a decision to lock before planning starts, or a change made in place like a data-structure migration. The map is domain-agnostic — engineering work, research, whatever fits the shape.
 
-## Plan, don't do
+## Plan, Don't Do
 
 Wayfinder is **planning** by default: each ticket resolves a decision, and the map is done when the way is clear — nothing left to decide before someone goes and does the thing. The pull to just do the work is usually the signal you've reached the edge of the map and it's time to hand off. An effort can override this in its **Notes** — carrying execution into the map itself — but absent that, produce decisions, not deliverables.
 
-## Refer by name
+## Refer by Name
 
 Every map and ticket is an issue, so it has a **name** — its title. In everything the human reads — narration, the map's Decisions-so-far — refer to it by that name, never by a bare id, number, or slug. A wall of `#42, #43, #44` is illegible; names read at a glance. The id and URL don't vanish — a name wraps its link — but they ride *inside* the name, never stand in for it.
 
@@ -68,7 +68,7 @@ Each ticket carries a `wayfinder:<type>` label — one of `research`, `prototype
 
 A session **claims** a ticket by assigning it to the dev driving the map, **first**, before any work, so concurrent sessions skip it. That assignee _is_ the claim: an open, unassigned ticket is unclaimed.
 
-Blocking uses the tracker's **native** dependency relationship — essential because it renders the frontier _visually_ in the tracker's own UI, so the human sees what's takeable without opening the map. A ticket is **unblocked** when every ticket blocking it is closed; the **frontier** is the open, unblocked, unclaimed children — the edge of the known.
+Blocking uses the tracker's **native** dependency relationship — essential because it renders the frontier _visually_ in the tracker's own UI, so the human sees what's takeable without opening the map. A ticket is **unblocked** when every ticket blocking it is closed; the **frontier** is the set of open, unblocked, unclaimed children — the edge of the known.
 
 The answer isn't part of the body — it's recorded on resolution (see [Work through the map](#work-through-the-map)). Assets created while resolving a ticket are linked from the issue, not pasted in.
 
@@ -81,7 +81,7 @@ Every ticket is either **HITL** — human in the loop, worked *with* a human who
 - **Grilling** (HITL): Conversation via `/mine-grill` and `/mine-domain-model`, one question at a time. The default case.
 - **Task** (HITL or AFK): Manual work that must happen before a *decision* can be made — nothing to decide, prototype, or research, but the discussion is blocked until it's done. Signing up for a service so its API can be judged, provisioning access, moving data so its shape can be seen. This is the one type that *does* rather than decides — and it earns its place by unblocking a decision, not by delivering the destination. The agent drives it alone where it can (AFK); otherwise it hands the human a precise checklist (HITL). Resolved when the work is done; the answer records what was done and any resulting facts (credentials location, new URLs, row counts) later tickets depend on.
 
-## Fog of war
+## Fog of War
 
 The map is _deliberately_ incomplete: don't chart what you can't yet see. Beyond the live tickets lies the **fog of war** — the dim view of decisions and investigations you can tell are coming but can't yet pin down, because they hang on questions still open. Resolving a ticket clears the fog ahead of it, graduating whatever's now specifiable into fresh tickets — one at a time, until the way to the destination is clear and no tickets remain.
 
@@ -94,7 +94,7 @@ The map's **Not yet specified** section is where that dim view is written down: 
 
 **Not yet specified** excludes what's already decided (Decisions so far), what's already a live ticket, and what's out of scope (the next section).
 
-## Out of scope
+## Out of Scope
 
 Fog only ever gathers _toward_ the destination. The destination fixes the scope, so work beyond it is **out of scope** — it isn't fog, and it doesn't belong in **Not yet specified**. It gets its own **Out of scope** section on the map: work you've consciously ruled out of _this_ effort. Scope, not sharpness, lands it here.
 
@@ -112,10 +112,10 @@ All map and ticket operations go through `gh-issue` (a thin passthrough to `gh i
 
 ```bash
 gh label create "wayfinder:map" --color 5319e7 --description "Wayfinder map issue" 2>/dev/null || true
-gh label create "wayfinder:research" --color 5319e7 2>/dev/null || true
-gh label create "wayfinder:prototype" --color 5319e7 2>/dev/null || true
-gh label create "wayfinder:grilling" --color 5319e7 2>/dev/null || true
-gh label create "wayfinder:task" --color 5319e7 2>/dev/null || true
+gh label create "wayfinder:research" --color 0e8a16 2>/dev/null || true
+gh label create "wayfinder:prototype" --color 1d76db 2>/dev/null || true
+gh label create "wayfinder:grilling" --color fbca04 2>/dev/null || true
+gh label create "wayfinder:task" --color d93f0b 2>/dev/null || true
 ```
 
 **Create the map:**

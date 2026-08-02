@@ -18,9 +18,9 @@ Treat the current directory as a teaching workspace. The state of the user's lea
 ├── RESOURCES.md
 ├── NOTES.md
 ├── learning-records/
-│   └── 0001-<dash-case-name>.md
+│   └── 0001-<kebab-case-name>.md
 ├── lessons/
-│   └── 0001-<dash-case-name>.html
+│   └── 0001-<kebab-case-name>.html
 ├── reference/
 │   └── *.html
 └── assets/
@@ -29,8 +29,8 @@ Treat the current directory as a teaching workspace. The state of the user's lea
 
 - **`MISSION.md`** — the *reason* the user is interested in the topic. Grounds all teaching. Use the format in [mission-format.md](./mission-format.md).
 - **`RESOURCES.md`** — high-quality resources to ground teaching in contextual knowledge or acquire wisdom. Use the format in [resources-format.md](./resources-format.md).
-- **`learning-records/*.md`** — non-obvious lessons and key insights, loosely equivalent to architecture decision records. Titled `0001-<dash-case-name>.md`, incrementing. Used to calculate the zone of proximal development. Use the format in [learning-record-format.md](./learning-record-format.md).
-- **`lessons/*.html`** — the primary unit of teaching. A lesson is a single, self-contained HTML file that teaches one tightly-scoped thing tied to the mission. Titled `0001-<dash-case-name>.html`, incrementing.
+- **`learning-records/*.md`** — non-obvious lessons and key insights, loosely equivalent to architecture decision records. Titled `0001-<kebab-case-name>.md`, incrementing. Used to calculate the zone of proximal development. Use the format in [learning-record-format.md](./learning-record-format.md).
+- **`lessons/*.html`** — the primary unit of teaching. A lesson is a single, self-contained HTML file that teaches one tightly-scoped thing tied to the mission. Titled `0001-<kebab-case-name>.html`, incrementing.
 - **`reference/*.html`** — compressed learnings distilled from lessons: cheat sheets, reference algorithms, syntax, glossaries. Designed for quick lookup, not narrative reading.
 - **`assets/*`** — reusable components shared across lessons: stylesheets, quiz widgets, simulators, diagram helpers. See [Assets](#assets).
 - **`NOTES.md`** — a scratchpad for the user's preferences and working notes on how they want to be taught.
@@ -64,7 +64,7 @@ Fluency gives an illusory sense of mastery; storage strength is the real goal. D
 
 ## Lessons
 
-A lesson is the main artifact — the unit in which knowledge and skills reach the user. Each lesson is one self-contained HTML file, saved to `./lessons/` and titled `0001-<dash-case-name>.html`.
+A lesson is the main artifact — the unit in which knowledge and skills reach the user. Each lesson is one self-contained HTML file, saved to `./lessons/` and titled `0001-<kebab-case-name>.html`.
 
 **Self-contained means self-contained.** No CDN links — no Tailwind CDN, no external font or script loads, no network dependency of any kind. Inline all CSS and JS directly in the file. A lesson opened offline, months later, must render exactly as it did the day it was written.
 

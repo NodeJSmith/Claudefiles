@@ -1,9 +1,9 @@
 # Learning Record Format
 
-Learning records live in `./learning-records/`, one file per record, named `NNNN-dash-case-name.md` (4-digit sequential number, incrementing, kebab-case slug). They capture non-obvious lessons and key insights — loosely equivalent to architecture decision records, but for what the user has learned rather than what a team decided.
+Learning records live in `./learning-records/`, one file per record, named `NNNN-kebab-case-name.md` (4-digit sequential number, incrementing, kebab-case slug). They capture non-obvious lessons and key insights — loosely equivalent to architecture decision records, but for what the user has learned rather than what a team decided.
 
 ```markdown
-# NNNN — <Title>
+# NNNN: <Title>
 
 **Date:** YYYY-MM-DD
 **Lesson:** <which lesson this came from>

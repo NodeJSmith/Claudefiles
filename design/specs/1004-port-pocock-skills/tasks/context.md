@@ -15,4 +15,4 @@ Six skills from Matt Pocock's `mattpocock/skills` repo fill capability gaps in t
 - Do NOT reference Pocock's original skill names (/grilling, /research, /prototype, /domain-modeling) in any skill file
 - Do NOT fetch Pocock's format side files — create adapted versions from the SKILL.md descriptions
 - All 6 skills use `user-invocable: true` — this repo does not use `disable-model-invocation` (that's a Pocock convention, not ours)
-- Source material for adaptation is in the scratchpad at `/home/jessica/.claude/projects/-home-jessica-Claudefiles--claude-worktrees-pocock/9a39fb56-843d-49c9-8096-1e19af566e0d/tool-results/b0bjwrfbb.txt`
+- Source material for adaptation was fetched into a session-scoped scratchpad file during discovery (not committed to the repo) — see the individual task prompts (T01-T04) for the section headers to search for within it

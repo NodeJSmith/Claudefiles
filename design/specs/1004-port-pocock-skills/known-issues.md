@@ -22,3 +22,26 @@ Add a short mention of the 6 new skills to ONBOARDING.md's "Choose Your Path" (o
 
 Acceptance criteria:
 - ONBOARDING.md references at least mine-wayfinder, mine-teach, mine-domain-model, and the writing pipeline (mine-fragments/mine-shape/mine-beats) in a way a new adopter would discover them.
+
+## KI-002: Duplicated procedural boilerplate across the writing pipeline skills
+
+Status: open
+Source: clean-code
+Reason not fixed now: out-of-scope
+Observed in: T04, clean-code (llm-checker, lazy-checker)
+Affected files:
+- skills/mine-fragments/SKILL.md
+- skills/mine-shape/SKILL.md
+- skills/mine-beats/SKILL.md
+
+Issue:
+Two paragraphs of near-identical procedural instruction are copy-pasted across all three writing-pipeline skills, differing only by skill name and output filename: (1) the "no path given → run `get-skill-tmpdir <skill>`, write to `<dir>/article.md` (or `fragments.md`), tell the user, don't rely on remembering it since the session may not persist" instruction, and (2) the "raw material file is read-only to this skill" line (shared verbatim between mine-shape and mine-beats). `mine-shape` and `mine-beats` additionally duplicate their entire Grounding section verbatim (prerequisite/introduced/term model, `block` vs `beat` substituted) — that duplication is already self-flagged in both files ("duplicated (not shared) by design ... if you change the grounding model here, update the other file too"), so the maintenance-sync risk is at least documented, but the tmpdir/read-only paragraphs are not.
+
+Why deferred:
+`design/specs/1004-port-pocock-skills/design.md`'s Approach section explicitly decided: "Others: single SKILL.md, no side files needed" for mine-fragments/mine-shape/mine-beats — i.e., the writing pipeline was deliberately scoped without a shared side file (unlike mine-domain-model and mine-teach, which do use side files for their shared templates). Extracting the duplicated paragraphs into a shared reference file would reverse that explicit design decision, which needs a decision from the user rather than a clean-code pass silently introducing a new side file mid-review.
+
+Recommended follow-up:
+If the duplication becomes a real maintenance burden (a rule changes and one of the three copies gets missed), revisit the "no side files" decision for this pipeline — e.g. a small `writing-pipeline-conventions.md` side file referenced by all three skills, covering the tmpdir/output-path rule, the read-only-raw-material rule, and (if desired) the currently-duplicated Grounding section.
+
+Acceptance criteria:
+- Either the duplication is consolidated into a shared reference file linked from all three skills, or a deliberate decision to keep them separate is recorded (e.g. in design.md) with rationale.

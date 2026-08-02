@@ -14,8 +14,8 @@ Actively build and sharpen the project's domain model as you design. This is the
 /
 ├── CONTEXT.md
 └── design/
-    ├── adr-001-event-sourced-orders.md
-    └── adr-002-postgres-for-write-model.md
+    ├── adr-0001-event-sourced-orders.md
+    └── adr-0002-postgres-for-write-model.md
 ```
 
 `CONTEXT.md` lives at the repo root. Create files lazily — only when you have something to write. If no `CONTEXT.md` exists, create one when the first term is resolved, using the format in [context-format.md](./context-format.md). If no `design/` directory exists, create it when the first ADR is needed, using the format in [adr-format.md](./adr-format.md).
@@ -38,7 +38,7 @@ When domain relationships are being discussed, stress-test them with specific sc
 
 When the user states how something works, check whether the code agrees. If you find a contradiction, surface it: "Your code cancels entire Orders, but you just said partial cancellation is possible — which is right?"
 
-### Update CONTEXT.md inline
+### Update `CONTEXT.md` inline
 
 When a term is resolved, update `CONTEXT.md` right there. Don't batch these up — capture them as they happen. Use the format in [context-format.md](./context-format.md).
 

@@ -18,7 +18,7 @@ If the user did not say where to save the article, run `get-skill-tmpdir mine-sh
 
 ---
 
-## The loop
+## The Loop
 
 1. **Read the pile.** Read the input file in full. Form a sense of what's in it.
 2. **Establish the prerequisites.** Settle with the user what the reader knows walking in — the concepts that are **grounded** from the start. Everything else must be grounded by a block before a later block can lean on it. See [Grounding](#grounding).
@@ -38,11 +38,11 @@ A concept gets grounded one of two ways:
 - **Prerequisite** — grounded before the opening. The reader brings it. Fixed at the start.
 - **Introduced** — a block establishes it, and from then on it's grounded for the rest of the article.
 
-Keep a running list of what's grounded. When you ask "what does the reader need to hear next?", an ungrounded concept the next move needs is itself the answer: ground it first — here or in an earlier block — or you can't make the move. This is the gap-naming of [Pulling from the pile](#pulling-from-the-pile) one level up: there the pile is missing material; here the article is missing a foundation.
+Keep a running list of what's grounded. When you ask "what does the reader need to hear next?", an ungrounded concept the next move needs is itself the answer: ground it first — here or in an earlier block — or you can't make the move. This is the gap-naming of [Pulling from the Pile](#pulling-from-the-pile) one level up: there the pile is missing material; here the article is missing a foundation.
 
 The lever is what you make a prerequisite versus what you ground inside the article. Demand too much up front and you shut readers out; ground too much inside and the opening drowns in definitions. Settle it with the user when you establish prerequisites.
 
-## Conversational feel
+## Conversational Feel
 
 This is a grilling session inverted. In exploration, the question was "what are you actually noticing?" Here it's "what is this article actually arguing, and in what order does the reader need to hear it?" Push back. Refuse to let weak transitions slide. If a paragraph doesn't earn its place, cut it.
 
@@ -54,13 +54,13 @@ Specific moves to keep using:
 - "This sentence is doing two jobs — split it or pick one."
 - "The opening promised X. We've drifted to Y. Either re-thread it or change the opening."
 
-## Pulling from the pile
+## Pulling from the Pile
 
 Treat the raw material as a quarry, not a script. Pull a fragment, rework it to fit the surrounding paragraph, and place it. A fragment may be split across multiple paragraphs, merged with another, or paraphrased. The pile's job is to be mined; the article's job is to read as one voice.
 
 If the pile lacks something the article needs, name the gap explicitly: "We need an example here and the pile doesn't have one — give me one now or we cut this section."
 
-## Format arguments to actually have
+## Format Arguments to Actually Have
 
 When choosing how to render a block, weigh these tradeoffs out loud with the user, not silently:
 
@@ -70,12 +70,12 @@ When choosing how to render a block, weigh these tradeoffs out loud with the use
 - **Quote vs. paraphrase.** Quote when the original wording is the point. Paraphrase when only the idea matters.
 - **Code block vs. inline code.** Multi-line, runnable, or illustrative → block. Single token or identifier → inline.
 
-## Writing rhythm
+## Writing Rhythm
 
 Append to the article file as each block is agreed. Re-read the file from disk before every write — the user may have edited between turns. Never overwrite blindly. If the user wants a paragraph rewritten, edit that specific paragraph in place; leave the rest alone.
 
-## Out of scope
+## Out of Scope
 
-- Mining for new fragments that aren't in the pile (handle gaps as in [Pulling from the pile](#pulling-from-the-pile)) — run `mine-fragments` first if the pile is thin.
+- Mining for new fragments that aren't in the pile (handle gaps as in [Pulling from the Pile](#pulling-from-the-pile)) — run `mine-fragments` first if the pile is thin.
 - Editing the raw material file.
 - Publishing, formatting for a specific platform, or adding frontmatter the user didn't ask for.

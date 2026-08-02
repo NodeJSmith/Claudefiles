@@ -18,7 +18,7 @@ If the user did not say where to save the article, run `get-skill-tmpdir mine-be
 
 ---
 
-## The loop
+## The Loop
 
 1. **Establish the prerequisites.** Before any beats, settle with the user what the audience already knows walking in — the concepts that are **grounded** from the start. Everything else must be grounded by a beat before a later beat can use it. See [Grounding](#grounding).
 2. Write 2–3 candidate **starting beats**, drawn from the raw material. Each is a different entry point into the article. Each may only lean on grounded concepts; note what new concepts each one grounds. Show the user the beats before writing to the article file. The user picks one. Preview what beats that pick unlocks — as if the user is seeing a little way down the path.
@@ -43,7 +43,7 @@ This is what shapes the choose-your-own-adventure. A candidate beat is only reac
 
 The big lever is what you make a prerequisite versus what you ground inside the piece. Demand too much up front and you shut out readers who don't have it; ground too much inside and the early beats drown in definitions. Settle this with the user when you establish prerequisites, and revisit it whenever a tempting beat turns out to require a concept nothing has grounded yet — the fix is either a grounding beat before it, or promoting the concept to a prerequisite.
 
-## What is a beat
+## What Is a Beat
 
 A beat is one move in the journey. It does one thing — sets a scene, lands a point, asks a question, drops an aside, twists the angle. Then it stops, leaving the reader at a place where the next beat can pivot.
 
@@ -55,15 +55,15 @@ A beat is sized by what it needs:
 
 If a "beat" needs five paragraphs and three subheadings, it's not a beat — it's two beats glued together. Split it.
 
-## Pulling from the pile
+## Pulling from the Pile
 
 Pull material from the raw pile to populate each beat. You can paraphrase, split, recombine, or quote. The pile is a quarry.
 
-## Ending the journey
+## Ending the Journey
 
 The article ends when the journey is complete — not when the pile is empty. Most piles will have leftover fragments that don't make it in. That is fine; that is the point of having more raw material than you need.
 
-## Writing rhythm
+## Writing Rhythm
 
 - Append one beat at a time. Never write ahead.
 - Re-read the article file from disk before every write. Preserve user edits absolutely.

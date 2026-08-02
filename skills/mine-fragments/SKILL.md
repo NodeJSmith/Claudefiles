@@ -14,7 +14,7 @@ $ARGUMENTS — optional path to the fragments file. If a path is provided, use i
 
 ---
 
-## Getting started
+## Getting Started
 
 Capture fragments from the very first thing the user says, including the initial prompt — do not wait for a formal kickoff.
 
@@ -24,7 +24,7 @@ Then run the interview: ask questions that widen what the user is noticing, foll
 
 ---
 
-## What is a fragment
+## What Is a Fragment
 
 A fragment is any piece of text that might survive into the final article. It must be _readable by the author_ — the author can tell what it means — but it does not need to define its terms or be comprehensible to a cold reader. The bar is "is this a piece of good writing?", not "is this a self-contained argument?"
 
@@ -43,7 +43,7 @@ Of these, the leading word is the most valuable fragment to land. It is load-bea
 
 The novelist's diary is the model: years of unstructured noticings that later get mined for raw material. Fragments are noticings.
 
-## File format
+## File Format
 
 ```markdown
 # Working title
@@ -72,7 +72,7 @@ A reaction to it.
 
 Fragments are separated by a horizontal rule (`\n---\n`). No headings inside the body. No tags. No order beyond the order they were added.
 
-## Writing rhythm
+## Writing Rhythm
 
 Append silently. Don't ask permission for each fragment. Mention what you added in passing ("adding that"), but don't interrupt the conversation with save dialogs.
 
