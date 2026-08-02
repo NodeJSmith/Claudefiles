@@ -24,7 +24,7 @@ The map is a single issue, labelled `wayfinder:map` — the canonical artifact. 
 
 The map is an **index**, not a store. It lists the decisions made and points at the tickets that hold their detail; a decision lives in exactly one place — its ticket — so the map never restates it, only gists it and links.
 
-**Tracker:** this skill uses `gh-issue` (a thin wrapper over `gh issue` — see [Tracker Operations](#tracker-operations)) for every map and ticket operation. If the repo has no GitHub Issues enabled, fall back to the local-markdown tracker described in that section instead.
+**Tracker:** this skill uses `gh-issue` (a thin wrapper over `gh issue` — see [Tracker Operations](#tracker-operations)) for every map and ticket operation. If the repo has no GitHub remote or Issues disabled, stop and ask the user how to track the effort — don't invent a parallel tracker.
 
 ### The map body
 
@@ -104,9 +104,7 @@ Ruling something out of scope is a scoping act, not a step on the route. When a 
 
 ## Tracker Operations
 
-### GitHub Issues (default)
-
-All map and ticket operations go through `gh-issue` (a thin passthrough to `gh issue` that upgrades to bot-token auth when available — see the "GitHub tool notes" in `rules/common/capabilities-core.md`). Confirm the repo has Issues enabled with `gh-issue overview` before charting; if it errors, use the [local-markdown fallback](#local-markdown-fallback-no-github-issues) instead.
+All map and ticket operations go through `gh-issue` (a thin passthrough to `gh issue` that upgrades to bot-token auth when available — see the "GitHub tool notes" in `rules/common/capabilities-core.md`). Confirm the repo has Issues enabled with `gh api repos/{owner}/{repo} --jq .has_issues` before charting — `gh-issue overview` always exits 0 even when Issues are disabled, so it can't be used for this check; if the API call returns `false` or errors, stop and ask the user how to track the effort.
 
 **Labels** (`wayfinder:map`, `wayfinder:research`, `wayfinder:prototype`, `wayfinder:grilling`, `wayfinder:task`) must exist before they're used. Create any missing ones once per repo:
 
@@ -160,43 +158,6 @@ gh-issue list --state open --json number,title,labels,assignees,parent,blockedBy
     and (.blockedBy.nodes | map(select(.state != "CLOSED")) | length) == 0)]'
 ```
 
-### Local-markdown fallback (no GitHub Issues)
-
-When `gh-issue overview` fails (Issues disabled, or no GitHub remote at all), track the map and tickets as files under `.scratch/<effort-slug>/`:
-
-```
-.scratch/<effort-slug>/
-├── map.md
-└── tickets/
-    ├── 001-<slug>.md
-    └── 002-<slug>.md
-```
-
-`map.md` holds exactly the [map body](#the-map-body) template.
-
-Each ticket file has frontmatter plus the question body:
-
-```markdown
----
-id: 001
-title: <ticket title>
-type: research | prototype | grilling | task
-status: open | closed
-assignee: none | self
-blocked_by: []
----
-
-## Question
-
-<the decision or investigation this ticket resolves>
-
-## Resolution
-
-<filled in on close>
-```
-
-Ticket ids are zero-padded, incrementing integers assigned at creation. "Claim" sets `assignee: self`; "close" sets `status: closed` and fills in `## Resolution`. Blocking is the `blocked_by` frontmatter list of ids; a ticket is unblocked when every id in `blocked_by` points at a `status: closed` ticket. The frontier is every ticket file with `status: open`, `assignee: none`, and an empty or fully-closed `blocked_by` — found by grepping frontmatter across `tickets/`, same role the JSON query plays on GitHub.
-
 ## Invocation
 
 Two modes. Either way, **never resolve more than one ticket per session** — with the exception of research tickets.
@@ -206,20 +167,33 @@ Two modes. Either way, **never resolve more than one ticket per session** — wi
 User invokes with a loose idea.
 
 1. **Name the destination.** Run `/mine-grill` and `/mine-domain-model` to pin down what this map is finding its way to — the spec, decision, or change. The destination fixes the scope, so it's settled first.
-2. **Map the frontier.** Grill again, **breadth-first** this time: fan out across the whole space rather than deep on any one thread, surfacing the open decisions and the first steps takeable now. **If this surfaces no fog** — the way to the destination is already clear, the whole journey small enough for one session — you don't need a map. Stop and ask the user how they'd like to proceed.
+2. **Map the frontier.** Grill again, **breadth-first** this time: fan out across the whole space rather than deep on any one thread, surfacing the open decisions and the first steps takeable now. **If this surfaces no fog** — the way to the destination is already clear, the whole journey small enough for one session — you don't need a map. Stop and ask:
+
+```
+AskUserQuestion:
+  question: "The frontier surfaced no fog — the way to the destination looks clear enough for one session. How do you want to proceed?"
+  header: "Wayfinder"
+  multiSelect: false
+  options:
+    - label: "Handle it directly, no map"
+      description: "Skip wayfinder — the effort is small enough to just do now"
+    - label: "Chart it as a map anyway"
+      description: "Still worth tracking as tickets, even though it's small"
+```
 3. **Create the map** (label `wayfinder:map`): Destination and Notes filled in, Decisions-so-far empty, the fog sketched into **Not yet specified**.
-4. **Create the tickets you can specify now** as child issues of the map (parented at creation via `--parent`) — then wire blocking edges in a **second pass**, once every new ticket's number is known. Everything you can't yet specify stays in the fog — the **Not yet specified** section.
-5. **Fire the research subagents.** For each `research` ticket you just created, dispatch the `researcher` agent directly — not `/mine-research`, whose Phase 1/Phase 3 `AskUserQuestion` gates require a human that isn't there for an AFK dispatch. Derive the agent's input-contract fields (Proposal, Motivation, Flexibility, Constraints) from the ticket's own title and body, and default Depth to `normal` unless the ticket specifies otherwise. Fire every research ticket's agent in parallel; this now genuinely runs AFK, since `researcher` (unlike `/mine-research`) has no interactive gates. Point Output file path at a throwaway `research/<name>` branch, then append a context pointer to the ticket linking that file.
-6. Stop — charting is one session's work; it hand-resolves nothing.
+4. **Create the tickets you can specify now** as child issues of the map (parented at creation via `--parent`) — then wire blocking edges in a **second pass**, once every new ticket's number is known. Before ending the session, re-fetch the new tickets and confirm every intended blocking edge landed — an interrupted second pass leaves tickets that look unblocked but shouldn't be. Everything you can't yet specify stays in the fog — the **Not yet specified** section.
+5. **Fire the research subagents.** For each `research` ticket you just created, dispatch the `researcher` agent directly — not `/mine-research`, whose Phase 1/Phase 3 `AskUserQuestion` gates require a human that isn't there for an AFK dispatch. Derive the agent's input-contract fields (Proposal, Motivation, Flexibility, Constraints) from the ticket's own title and body, and default Depth to `normal` unless the ticket specifies otherwise. Fire every research ticket's agent in parallel; this now genuinely runs AFK, since `researcher` (unlike `/mine-research`) has no interactive gates. Point Output file path at `design/research/<ticket-slug>/research.md`, committed — the same durable convention `mine-prior-art`, `mine-define`, `mine-research`, and `mine-why` use (a topic directory holding a fixed `research.md`, matching the `design/research/*/research.md` glob `mine-define` and `mine-why` already scan for prior research) — then append a context pointer to the ticket linking that file. After each dispatch completes, verify the output file exists and contains the `# Research Brief:` header (same check `mine-define` uses); on failure, post a comment on the ticket noting the dispatch failed rather than leaving it silently unresolved.
+6. **Report back.** Tell the user the frontier size (how many tickets are now takeable), list them by name, and give the map's link. Stop — charting is one session's work; it hand-resolves nothing.
 
 ### Work through the map
 
-User invokes with a map (URL, number, or local `.scratch/<effort-slug>/` path). A ticket is **optional** — without one, you pick the next decision, not the user.
+User invokes with a map (URL or number). If no map is named, first look for one: `gh issue list --label "wayfinder:map" --state open --json number,title,url`, and ask the user which to resume if more than one is open. A ticket is **optional** — without one, you pick the next decision, not the user.
 
 1. Load the **map** — the low-res view, not every ticket body.
-2. Choose the ticket. If the user named one, use it. Otherwise take the first frontier ticket in order (see [Query the frontier](#github-issues-default) or its local-markdown equivalent). **Claim it**: assign it to yourself before any work.
+2. Choose the ticket. If the user named one, use it. Otherwise take the first frontier ticket in order (see [Query the frontier](#tracker-operations)). **Claim it**: assign it to yourself before any work.
 3. Resolve it — **zoom as needed**: fetch the full body of any related or closed ticket on demand; invoke the skills the `## Notes` block names. If in doubt, use `/mine-grill` and `/mine-domain-model`.
 4. Record the resolution: post the answer as a **resolution comment**, **close** the issue, and **append a context pointer** to the map's Decisions-so-far.
 5. Add newly-surfaced tickets (create-then-wire); graduate any fog the answer has made specifiable, clearing each graduated patch from **Not yet specified** so it lives only as its new ticket. If the answer reveals a ticket — this one or another — sits beyond the destination, **rule it out of scope** rather than resolving it on the route. If the decision invalidates other parts of the map, update or delete those tickets.
+6. **Report back.** Tell the user what was resolved, the current frontier size, and the map's link. If the frontier is now empty, say plainly that the destination is reached and suggest the natural next step (e.g., handing the map off to `/mine-define`).
 
 The user may run unblocked tickets in parallel, so expect other sessions to be editing the tracker concurrently.

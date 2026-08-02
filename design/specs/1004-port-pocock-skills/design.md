@@ -1,7 +1,7 @@
 # Design: Port Pocock Skills
 
 **Date:** 2026-08-01
-**Status:** draft
+**Status:** archived
 **Mode:** sketch
 
 ## Problem

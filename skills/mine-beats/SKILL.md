@@ -10,7 +10,7 @@ user-invocable: true
 
 ## Arguments
 
-$ARGUMENTS — path to the raw material file. If empty, ask the user for it.
+$ARGUMENTS — path to the raw material file. If empty, ask the user for it — and mention `/mine-fragments` as the typical way to produce one, if they don't have raw material yet. If a given path doesn't resolve, say so explicitly and offer the same suggestion rather than surfacing a raw tool error.
 
 The raw material file is treated as the input pile — anything from a tidy list of fragments to a wall of unstructured prose to a transcript. The format does not matter. Read it end-to-end before doing anything else. **Do not edit the raw material file — it is read-only to this skill.**
 
