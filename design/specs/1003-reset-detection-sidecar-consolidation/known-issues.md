@@ -9,10 +9,10 @@ Source: T03 (integration-review, iteration 3)
 Reason not fixed now: out-of-scope
 Observed in: T03, commits 67f5da4 / c9d38f9 (Dotfiles repo)
 Affected files:
-- /home/jessica/Dotfiles/CLAUDE.md:139
-- /home/jessica/Dotfiles/CLAUDE.md:204
-- /home/jessica/Dotfiles/CLAUDE.md:205
-- /home/jessica/Dotfiles/CLAUDE.md:294
+- ~/Dotfiles/CLAUDE.md:139
+- ~/Dotfiles/CLAUDE.md:204
+- ~/Dotfiles/CLAUDE.md:205
+- ~/Dotfiles/CLAUDE.md:294
 
 Issue:
 CLAUDE.md still describes `tools/context-tier.sh`, `tools/claude-context-writer`, and
@@ -44,7 +44,7 @@ Source: clean-code (lazy-checker, nitpicker)
 Reason not fixed now: out-of-scope
 Observed in: commit 8c21c96; count revised after challenge (see below)
 Affected files:
-- /home/jessica/Claudefiles/.claude/worktrees/reset-orchestration-context-issues/settings.json
+- settings.json
 
 Issue:
 The `bash -c 'f="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/<name>"; [ -x "$f" ] && exec "$f" ... || exit 0'`
@@ -85,10 +85,10 @@ Source: clean-code (nitpicker); revised by `/mine-challenge` (structural-minimal
 Reason not fixed now: out-of-scope
 Observed in: commit 8c21c96; revised in the challenge-driven redesign
 Affected files:
-- /home/jessica/Claudefiles/.claude/worktrees/reset-orchestration-context-issues/bin/orchestrate-self-reset
-- /home/jessica/Claudefiles/.claude/worktrees/reset-orchestration-context-issues/scripts/hooks/claude-context-writer
-- /home/jessica/Claudefiles/.claude/worktrees/reset-orchestration-context-issues/scripts/hooks/claude-status-writer
-- /home/jessica/Claudefiles/.claude/worktrees/reset-orchestration-context-issues/scripts/hooks/context-tier.sh
+- bin/orchestrate-self-reset
+- scripts/hooks/claude-context-writer
+- scripts/hooks/claude-status-writer
+- scripts/hooks/context-tier.sh
 
 Issue (original, at commit 8c21c96):
 Two related patterns were duplicated as literal strings/logic rather than shared code:
@@ -133,9 +133,9 @@ Source: final-integration-review
 Reason not fixed now: out-of-scope
 Observed in: commit 17ebc05
 Affected files:
-- /home/jessica/Claudefiles/.claude/worktrees/reset-orchestration-context-issues/scripts/hooks/claude-context-writer
-- /home/jessica/Claudefiles/.claude/worktrees/reset-orchestration-context-issues/scripts/hooks/claude-status-writer
-- /home/jessica/Claudefiles/.claude/worktrees/reset-orchestration-context-issues/scripts/hooks/context-tier.sh
+- scripts/hooks/claude-context-writer
+- scripts/hooks/claude-status-writer
+- scripts/hooks/context-tier.sh
 
 Issue:
 `claude-context-writer`, `claude-status-writer`, and `context-tier.sh` were moved into this
@@ -176,7 +176,7 @@ Source: `/mine-challenge` (structural-minimalist)
 Reason not fixed now: out-of-scope
 Observed in: challenge run on commit a6f888f
 Affected files:
-- /home/jessica/Claudefiles/.claude/worktrees/reset-orchestration-context-issues/scripts/hooks/context-tier.sh
+- scripts/hooks/context-tier.sh
 
 Issue:
 `context-tier.sh` tracks one logical piece of per-session state — last-announced tier and
