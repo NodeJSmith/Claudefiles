@@ -186,7 +186,6 @@
     ],
     "Stop": [
       {
-        "matcher": "",
         "hooks": [
           {
             "type": "command",
@@ -198,7 +197,6 @@
     ],
     "UserPromptSubmit": [
       {
-        "matcher": "",
         "hooks": [
           {
             "type": "command",
@@ -210,7 +208,6 @@
     ],
     "Notification": [
       {
-        "matcher": "permission_prompt|elicitation_dialog",
         "hooks": [
           {
             "type": "command",
