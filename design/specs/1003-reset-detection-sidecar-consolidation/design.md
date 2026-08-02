@@ -1,8 +1,16 @@
 # Design: Fix post-clear detection and consolidate sidecar pipeline
 
 **Date:** 2026-08-01
-**Status:** draft
+**Status:** archived
 **Mode:** sketch
+
+**Revised 2026-08-02:** The post-clear detection mechanism below (FR#1-3, AC#1-2, "Post-clear
+sentinel hook") describes the originally-implemented `clear-ready-sentinel.sh` approach.
+`/mine-challenge` found it duplicated an existing cwd-joined sidecar lookup
+(`rc_sidecar_state_for_cwd` in `bin/rc-lib-reset.sh`, already used by `rc-send-ready`) and
+recommended folding readiness detection into that existing mechanism instead of a bespoke
+sentinel file. This section was updated in place to describe what was actually built; see
+`known-issues.md` KI-003 for the before/after and rationale.
 
 ## Problem
 
@@ -24,9 +32,9 @@
 
 ## Functional Requirements
 
-- **FR#1** After `/clear` completes, `orchestrate-self-reset` detects readiness via a sentinel file written by a SessionStart hook, not by grepping tmux pane content
-- **FR#2** A new SessionStart hook with `matcher: "clear"` writes a sentinel file (`/tmp/claude-clear-ready-<session-name>.sentinel`) when the session finishes clearing
-- **FR#3** `orchestrate-self-reset` polls for the sentinel file with a configurable timeout, then cleans it up before sending the resume command
+- **FR#1** After `/clear` completes, `orchestrate-self-reset` detects readiness via an authoritative, event-driven signal, not by grepping tmux pane content
+- **FR#2** A `SessionStart`/`matcher: "clear"` hook writes a `state=cleared` record readable by cwd when the session finishes clearing
+- **FR#3** `orchestrate-self-reset` polls for that record with a configurable timeout before sending the resume command
 - **FR#4** `claude-context-writer` lives in Claudefiles at `scripts/hooks/claude-context-writer` and is registered in Claudefiles' `settings.json` via the statusLine config
 - **FR#5** `claude-status-writer` lives in Claudefiles at `scripts/hooks/claude-status-writer` and is registered in Claudefiles' `settings.json` hooks
 - **FR#6** `context-tier.sh` lives in Claudefiles at `scripts/hooks/context-tier.sh` and is registered in Claudefiles' `settings.json` hooks
@@ -34,8 +42,8 @@
 
 ## Acceptance Criteria
 
-- **AC#1** (FR#1, FR#2, FR#3) `orchestrate-self-reset` no longer contains any `grep` for banner text; it polls for a sentinel file; a timeout fallback exists
-- **AC#2** (FR#2) Claudefiles `settings.json` contains a SessionStart hook entry with `"matcher": "clear"` pointing to the sentinel-writer script
+- **AC#1** (FR#1, FR#2, FR#3) `orchestrate-self-reset` no longer contains any `grep` for banner text; it polls `rc_sidecar_state_for_cwd` for `state=cleared`; a timeout fallback exists
+- **AC#2** (FR#2) Claudefiles `settings.json` contains a SessionStart hook entry with `"matcher": "clear"` pointing to `claude-status-writer`
 - **AC#3** (FR#4) Claudefiles `settings.json` contains a `statusLine` entry pointing to `claude-context-writer` at its new Claudefiles path
 - **AC#4** (FR#5) Claudefiles `settings.json` contains hook entries for `claude-status-writer` on UserPromptSubmit, PreToolUse, PostToolUse, Stop, Notification, SessionEnd — matching the current Dotfiles registrations
 - **AC#5** (FR#6) Claudefiles `settings.json` contains a PreToolUse hook entry with `matcher: "*"` for `context-tier.sh` at its new Claudefiles path
@@ -45,21 +53,32 @@
 
 ## Approach
 
-### Post-clear sentinel hook
+### Post-clear readiness via the existing status sidecar (revised — see note at top)
 
-Create `scripts/hooks/clear-ready-sentinel.sh`. On SessionStart with matcher=clear, it reads the hook JSON payload's `session_id`, derives the tmux session name (or uses a configurable mapping), and writes `/tmp/claude-clear-ready-<tmux-session>.sentinel`. The tmux session name is the key — `orchestrate-self-reset` knows the tmux session name but not the Claude session UUID.
+`claude-status-writer` (scripts/hooks/claude-status-writer) already gets a `SessionStart` hook
+registration under `settings.json`'s `matcher: "clear"`. On that event it extracts `.source` from
+the hook JSON payload and, when `source == "clear"`, writes `state=cleared` into the same
+`claude-status-<sid>.meta` sidecar it already writes for every other lifecycle event — including
+the `cwd` field it already writes on every event, which is the join key the rest of this
+mechanism uses.
 
-The sentinel script needs to map from `session_id` to tmux session name. Two options:
-1. Read the tmux session name from the environment or a sidecar file keyed by session_id
-2. Write the sentinel keyed by session_id and have `orchestrate-self-reset` discover the session_id
+`orchestrate-self-reset` resolves its pane's cwd once (`tmux display -p -t "$session"
+'#{pane_current_path}'` — the same call `rc-send-ready` already makes), then after sending
+`/clear` polls `rc_sidecar_state_for_cwd` (`bin/rc-lib-reset.sh`, already sourced by
+`rc-send-ready`) for a `state=cleared` record on that cwd with a `ts` at or after the moment
+`/clear` was sent — rejecting a stale pre-clear record rather than accepting whatever was last
+written. `rc_sidecar_state_for_cwd`'s existing "newest ts wins across matching files" merge logic
+handles the case where `/clear` preserves `session_id` (the sidecar file is simply overwritten in
+place) with no extra code.
 
-Option 1 is cleaner. The hook runs inside the Claude process, which is inside a tmux pane. The script can detect its own tmux session via `tmux display-message -p '#{session_name}'` (available because the process is inside tmux). This is reliable and doesn't require any external mapping.
+No new hook script, no sentinel file, no session_id-to-tmux-session-name mapping problem — the
+cwd-based join `rc-send-ready` already relies on solves the same problem this feature originally
+solved a second time.
 
-Update `orchestrate-self-reset`:
-- Before sending `/clear`, delete any stale sentinel for this tmux session
-- After `/clear` is sent (via `rc-send-ready`), poll for the sentinel file instead of grepping pane content
-- On sentinel detected: clean up the file, proceed to send the resume command
-- On timeout: fail with a descriptive message (same as today, just a different mechanism)
+`orchestrate-self-reset`'s `fail()` also writes a failure marker
+(`claude-orchestrate-reset-failed-<session>.marker`) on any failure path, surfaced by
+`resume-protocol.md`'s marker check on the next session start — added during the same revision so
+a stalled/failed reset doesn't sit silently invisible now that the fail-open banner-grep is gone.
 
 ### Sidecar pipeline move
 
@@ -88,12 +107,11 @@ The `claude-merge-settings` tool layers Claudefiles settings first, then Dotfile
 ## Changed Files
 
 **Claudefiles (this worktree):**
-- create: `scripts/hooks/clear-ready-sentinel.sh` — new SessionStart hook that writes sentinel file on /clear
-- modify: `bin/orchestrate-self-reset` — replace banner grep with sentinel polling
+- modify: `bin/orchestrate-self-reset` — replace banner grep with `rc_sidecar_state_for_cwd` polling (revised from an initial sentinel-file design; see note at top)
 - create: `scripts/hooks/claude-context-writer` — moved from Dotfiles `tools/claude-context-writer`
-- create: `scripts/hooks/claude-status-writer` — moved from Dotfiles `tools/claude-status-writer`
+- create: `scripts/hooks/claude-status-writer` — moved from Dotfiles `tools/claude-status-writer`; gained a `SessionStart`/`source=clear` case during the revision above
 - create: `scripts/hooks/context-tier.sh` — moved from Dotfiles `tools/context-tier.sh`
-- modify: `settings.json` — add statusLine config, status-writer hooks, context-tier hook, clear-sentinel hook
+- modify: `settings.json` — add statusLine config, status-writer hooks (including SessionStart/clear), context-tier hook
 
 **Dotfiles (main checkout):**
 - delete: `tools/claude-context-writer`

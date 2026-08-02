@@ -42,18 +42,23 @@ Acceptance criteria:
 Status: open
 Source: clean-code (lazy-checker, nitpicker)
 Reason not fixed now: out-of-scope
-Observed in: commit 8c21c96
+Observed in: commit 8c21c96; count revised after challenge (see below)
 Affected files:
 - /home/jessica/Claudefiles/.claude/worktrees/reset-orchestration-context-issues/settings.json
 
 Issue:
 The `bash -c 'f="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/hooks/<name>"; [ -x "$f" ] && exec "$f" ... || exit 0'`
-wrapper is repeated verbatim across every hook entry in `settings.json` — 17+ copies after this
-branch, which adds 8 more (`context-tier.sh` once, `claude-status-writer` six times across
-PreToolUse/PostToolUse/SessionEnd/Stop/UserPromptSubmit/Notification, `clear-ready-sentinel.sh`
-once). Each copy varies only in script name, args, matcher, and timeout/async — a hand-authored
-transform with no shared template, so a stray typo or missing guard in one copy is easy to miss
-in review.
+wrapper is repeated verbatim across every hook entry in `settings.json` — 16+ copies after this
+branch, which adds 7 more (`context-tier.sh` once, `claude-status-writer` seven times across
+PreToolUse/PostToolUse/SessionEnd/Stop/UserPromptSubmit/Notification/SessionStart-clear). Each
+copy varies only in script name, args, matcher, and timeout/async — a hand-authored transform
+with no shared template, so a stray typo or missing guard in one copy is easy to miss in review.
+
+Revised after `/mine-challenge`: the original count (8 new copies) included a `clear-ready-sentinel.sh`
+SessionStart registration. That registration no longer exists — the redesign adopted from the
+challenge (see KI-003) repoints that event at `claude-status-writer`'s existing wrapper instead of
+introducing a distinct script/registration, trimming this branch's net-new distinct wrapper count
+from 8 to 7. No action needed on the templating question itself; this is just an updated count.
 
 Why deferred:
 Introducing a generator/templating step for `settings.json` (per `build-the-lever.md`, this
@@ -73,51 +78,53 @@ Acceptance criteria:
 - A documented decision exists (built, or explicitly declined with rationale) on whether
   `settings.json` hook entries should be generated rather than hand-duplicated.
 
-## KI-003: Sentinel path format and atomic-write pattern duplicated across 5 hook/bin scripts
+## KI-003: Atomic-write pattern duplicated across hook/bin scripts
 
-Status: open
-Source: clean-code (nitpicker)
+Status: open (sentinel-path duplication resolved by deletion — see below)
+Source: clean-code (nitpicker); revised by `/mine-challenge` (structural-minimalist)
 Reason not fixed now: out-of-scope
-Observed in: commit 8c21c96
+Observed in: commit 8c21c96; revised in the challenge-driven redesign
 Affected files:
 - /home/jessica/Claudefiles/.claude/worktrees/reset-orchestration-context-issues/bin/orchestrate-self-reset
-- /home/jessica/Claudefiles/.claude/worktrees/reset-orchestration-context-issues/scripts/hooks/clear-ready-sentinel.sh
 - /home/jessica/Claudefiles/.claude/worktrees/reset-orchestration-context-issues/scripts/hooks/claude-context-writer
 - /home/jessica/Claudefiles/.claude/worktrees/reset-orchestration-context-issues/scripts/hooks/claude-status-writer
 - /home/jessica/Claudefiles/.claude/worktrees/reset-orchestration-context-issues/scripts/hooks/context-tier.sh
 
-Issue:
-Two related patterns are duplicated as literal strings/logic rather than shared code:
-(1) the sentinel filename format `/tmp/claude-clear-ready-<session>.sentinel` is
+Issue (original, at commit 8c21c96):
+Two related patterns were duplicated as literal strings/logic rather than shared code:
+(1) the sentinel filename format `/tmp/claude-clear-ready-<session>.sentinel` was
 independently interpolated in both `orchestrate-self-reset` and `clear-ready-sentinel.sh`
 (and reconstructed a third time in `tests/test_hooks.py`'s `_sentinel_path` helper), with only
 cross-referencing comments — not code — keeping the two in sync; (2) the "write to `<file>.tmp`,
-then `mv -f` into place, best-effort with `2>/dev/null || true`" atomic-write idiom is
+then `mv -f` into place, best-effort with `2>/dev/null || true`" atomic-write idiom was
 independently re-implemented in `clear-ready-sentinel.sh`, `claude-context-writer`,
 `claude-status-writer`, and `context-tier.sh` with no shared helper function.
 
-Why deferred:
-Three of the four files with the atomic-write duplication (`claude-context-writer`,
-`claude-status-writer`, `context-tier.sh`) were copied verbatim from Dotfiles per this
-feature's explicit design decision to preserve behavior exactly during the repo move
-(design.md "Sidecar pipeline move") — editing them to source a shared helper would break that
-fidelity constraint. The sentinel-path duplication between `orchestrate-self-reset` and
-`clear-ready-sentinel.sh` was a discussed, deliberate design tradeoff (design.md "Post-clear
-sentinel hook": the hook has no route to the caller's `ORCHESTRATE_RESET_TMPDIR`, hence the
-hardcoded `/tmp` path on both sides) rather than an oversight. Introducing a shared bash
-library sourced across `bin/` scripts and `scripts/hooks/` hook scripts is a structural change
-beyond this feature's approved scope.
+Resolved by challenge: rather than adding a `sentinel_path()` helper to keep the sentinel-path
+duplication in sync (the originally recommended follow-up — treats the symptom), `/mine-challenge`
+identified that the sentinel mechanism itself duplicated an existing cwd-joined sidecar lookup
+(`rc_sidecar_state_for_cwd` in `bin/rc-lib-reset.sh`, already used by `rc-send-ready`).
+`clear-ready-sentinel.sh` was deleted; `orchestrate-self-reset` now polls `rc_sidecar_state_for_cwd`
+for a `state=cleared` record written by `claude-status-writer`'s new SessionStart/clear case,
+joined by `cwd` — the join key the pipeline already standardized on. This removes the sentinel-path
+duplication entirely (no sentinel path exists anymore) rather than synchronizing two copies of it.
+
+Remaining (why still deferred): the atomic-write idiom is still duplicated — now across
+`claude-context-writer`, `claude-status-writer`, `context-tier.sh` (all three still frozen for
+port fidelity per design.md "Sidecar pipeline move") plus one new instance in
+`orchestrate-self-reset`'s `fail()` (the failure marker added alongside this redesign). The three
+ported files remain out of scope for the reason stated originally. The new instance in
+`orchestrate-self-reset` is not fidelity-constrained, but at a single 3-line block it doesn't
+clear the threshold for its own shared helper.
 
 Recommended follow-up:
 If/when the ported files are ever revisited for their own reasons (no longer frozen for
-fidelity), consider a small sourced library (e.g. `scripts/hooks/lib/atomic-write.sh` and a
-`sentinel_path <session>` helper) shared by `orchestrate-self-reset`, `clear-ready-sentinel.sh`,
-and the sidecar writers, so the format string and write idiom live in one place.
+fidelity), consider a small sourced library (e.g. `scripts/hooks/lib/atomic-write.sh`) shared by
+`orchestrate-self-reset` and the three sidecar writers, so the write idiom lives in one place.
 
 Acceptance criteria:
-- A documented decision exists on whether to introduce shared bash helpers for the
-  atomic-write idiom and sentinel path format, made independently of this feature's
-  fidelity-to-port constraint.
+- A documented decision exists on whether to introduce a shared bash helper for the
+  atomic-write idiom, made independently of this feature's fidelity-to-port constraint.
 
 ## KI-004: No Claudefiles-local test coverage for ported sidecar scripts
 
@@ -151,12 +158,46 @@ and T03 to Dotfiles-side cleanup — neither task named porting tests as in scop
 
 Recommended follow-up:
 Decide whether these three scripts should get native `tests/test_hooks.py` coverage in this
-repo (matching the convention now established for `clear-ready-sentinel.sh`), or whether
-relying on Dotfiles' test suites (which still exist and still pass, just in a different repo)
-is an accepted permanent arrangement. If porting, follow the `TestClearReadySentinel*` class
-structure added in this same feature as the template.
+repo, or whether relying on Dotfiles' test suites (which still exist and still pass, just in a
+different repo) is an accepted permanent arrangement. If porting, follow the
+`TestStatusWriterSessionStartClear` class structure added in this same feature's challenge
+revision as the template — note that class only covers the new SessionStart/clear case, not
+`claude-status-writer`'s pre-existing busy/idle derivation, which this KI still tracks.
 
 Acceptance criteria:
 - A documented decision exists on whether `claude-context-writer`, `claude-status-writer`,
   and `context-tier.sh` need native pytest coverage in the Claudefiles repo, independent of
   this feature's scope.
+
+## KI-005: `context-tier.sh` maintains two per-session sidecar files for one piece of state
+
+Status: open
+Source: `/mine-challenge` (structural-minimalist)
+Reason not fixed now: out-of-scope
+Observed in: challenge run on commit a6f888f
+Affected files:
+- /home/jessica/Claudefiles/.claude/worktrees/reset-orchestration-context-issues/scripts/hooks/context-tier.sh
+
+Issue:
+`context-tier.sh` tracks one logical piece of per-session state — last-announced tier and
+calls-since-then — but stores it as two separate `/tmp` files (`tier_file`, `counter_file`),
+each with its own read, temp-file, and atomic `mv`. Every tool invocation in every session does
+two file reads, and firing writes two separate write-rename pairs, purely because the two
+related values were never combined into one record.
+
+Why deferred:
+`context-tier.sh` is one of three files explicitly "copied verbatim" from Dotfiles for port
+fidelity per design.md ("Sidecar pipeline move"). Fixing this now means editing ported-verbatim
+behavior in a commit meant to be a mechanical relocation — the same reasoning KI-002/KI-003
+already apply to the other two ported files.
+
+Recommended follow-up:
+Merge `tier_file`/`counter_file` into one `key=value` sidecar, parsed the same way
+`claude-status-writer` already parses its multi-key file. Same-file, same-behavior change — no
+cross-repo or cross-consumer impact, since nothing outside this script reads either file. Low
+risk given that scope, so this is a reasonable one to pick up independent of the broader
+port-fidelity question the other two ported files raise.
+
+Acceptance criteria:
+- A documented decision exists on whether `context-tier.sh`'s two sidecar files should be
+  merged into one, made independently of this feature's fidelity-to-port constraint.

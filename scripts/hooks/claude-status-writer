@@ -23,7 +23,16 @@
 #   UserPromptSubmit / PreToolUse / PostToolUse → working (only fire mid-turn)
 #   Stop          → idle if background_tasks empty/absent, else working
 #   Notification  → needs-attention (permission_prompt / elicitation_dialog only)
+#   SessionStart  → cleared (source=="clear" only; settings.json's matcher:"clear"
+#                   already restricts which SessionStart invocations reach this
+#                   script, but the source check makes that gate self-contained
+#                   rather than relying on the hook wiring alone)
 #   SessionEnd    → remove the sidecar
+#
+# The SessionStart/clear case is orchestrate-self-reset's post-/clear readiness
+# signal: it polls rc_sidecar_state_for_cwd (bin/rc-lib-reset.sh) for a fresh
+# state=cleared record on the target pane's cwd instead of a bespoke sentinel
+# file, joining through the cwd key this producer already writes on every event.
 #
 # `bg` summarizes background_tasks as <count>:<distinct types> (e.g. 2:shell,subagent),
 # or 0 when none; `crons` is the session_crons count. Both default to 0 when absent
@@ -65,6 +74,7 @@ eval "$(printf '%s' "$payload" | jq -r '
   "_event="  + (safe(.hook_event_name) | @sh) +
   " _sid="   + (safe(.session_id) | @sh) +
   " _cwd="   + (safe(.cwd) | @sh) +
+  " _source=" + (safe(.source) | @sh) +
   " _ntype=" + (safe(.notification_type) | @sh) +
   " _bgn="   + ((.background_tasks // [] | length) | tostring | @sh) +
   " _bgt="   + ((.background_tasks // [] | map(.type) | unique | join(",")) | @sh) +
@@ -100,6 +110,12 @@ case "${_event:-}" in
     case "${_ntype:-}" in
       permission_prompt | elicitation_dialog) _state="needs-attention" ;;
       *) exit 0 ;; # other notifications aren't a busy/idle signal
+    esac
+    ;;
+  SessionStart)
+    case "${_source:-}" in
+      clear) _state="cleared" ;;
+      *) exit 0 ;; # startup/resume/compact aren't the self-reset readiness signal
     esac
     ;;
   *)

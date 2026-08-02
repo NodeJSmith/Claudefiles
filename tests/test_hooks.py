@@ -1,4 +1,4 @@
-"""Integration tests for hook scripts (tmux-drift, clear-ready-sentinel,
+"""Integration tests for hook scripts (tmux-drift, claude-status-writer,
 compaction, bash-history).
 
 Each test crafts JSON input matching the PreToolUse/PostToolUse schema, invokes
@@ -7,7 +7,6 @@ the hook via subprocess.run, and asserts on exit code and stdout.
 
 import json
 import os
-import shutil
 import sqlite3
 import subprocess
 import tempfile
@@ -292,292 +291,90 @@ class TestTmuxDriftCheckHeartbeatConfig:
 
 
 # ---------------------------------------------------------------------------
-# clear-ready-sentinel.sh tests
+# claude-status-writer tests: SessionStart/clear -> state=cleared
+#
+# Only the new SessionStart/clear behavior is covered here, not the writer's
+# pre-existing busy/idle derivation (UserPromptSubmit/PreToolUse/PostToolUse/
+# Stop/Notification/SessionEnd) — that ported-verbatim logic remains untested
+# in this repo per known-issues.md KI-004.
 # ---------------------------------------------------------------------------
 
-SENTINEL_HOOK = REPO_ROOT / "scripts" / "hooks" / "clear-ready-sentinel.sh"
+STATUS_WRITER_HOOK = REPO_ROOT / "scripts" / "hooks" / "claude-status-writer"
 
 
-def _sentinel_session_name(test_name: str) -> str:
-    return f"clear-ready-test-{test_name}-{uuid.uuid4().hex[:8]}"
+def _run_status_writer(stdin: str, meta_dir: Path) -> subprocess.CompletedProcess:
+    env = os.environ.copy()
+    env["RC_STATUS_META_DIR"] = str(meta_dir)
+    return subprocess.run(
+        [str(STATUS_WRITER_HOOK)],
+        input=stdin,
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
 
 
-def _sentinel_path(session_name: str) -> Path:
-    return Path(f"/tmp/claude-clear-ready-{session_name}.sentinel")
+def _read_meta(meta_dir: Path, sid: str) -> dict[str, str]:
+    p = meta_dir / f"claude-status-{sid}.meta"
+    result: dict[str, str] = {}
+    for line in p.read_text().splitlines():
+        k, _, v = line.partition("=")
+        result[k] = v
+    return result
 
 
-def _cleanup_sentinel(session_name: str) -> None:
-    for suffix in ("", ".tmp"):
-        p = Path(f"/tmp/claude-clear-ready-{session_name}.sentinel{suffix}")
-        if p.exists():
-            p.unlink()
+class TestStatusWriterSessionStartClear:
+    """SessionStart with source=clear writes state=cleared, cwd, and a fresh ts."""
 
-
-def _make_minimal_bin_dir(tmpdir: Path, session_name: str, include_jq: bool) -> Path:
-    """Build a minimal PATH dir with just the binaries the hook needs.
-
-    Always includes bash (for the `#!/usr/bin/env bash` shebang), cat, date,
-    mv, and a tmux stub that echoes `session_name`. jq is included only when
-    `include_jq` is True, so tests can simulate jq being absent from PATH
-    without disturbing resolution of the other binaries the script needs.
-    """
-    bin_dir = tmpdir / "bin"
-    bin_dir.mkdir(exist_ok=True)
-    for tool in ("bash", "cat", "date", "mv"):
-        real = shutil.which(tool)
-        assert real, f"{tool} not found on system PATH"
-        (bin_dir / tool).symlink_to(real)
-    if include_jq:
-        real_jq = shutil.which("jq")
-        assert real_jq, "jq not found on system PATH"
-        (bin_dir / "jq").symlink_to(real_jq)
-    _make_tmux_stub(bin_dir, session_name)
-    return bin_dir
-
-
-def _make_failing_tmux_stub(bin_dir: Path, mode: str) -> Path:
-    """Overwrite the tmux stub in bin_dir to simulate `display-message` failing.
-
-    mode="nonzero_exit": tmux exits nonzero (e.g. detached pane, no server) --
-        distinct from TMUX being unset entirely: TMUX is still non-empty, so
-        the hook reaches the `tmux display-message` call before failing.
-    mode="empty_output": tmux exits 0 but prints an empty session name.
-    """
-    stub = bin_dir / "tmux"
-    if mode == "nonzero_exit":
-        stub.write_text("#!/usr/bin/env bash\nexit 1\n")
-    elif mode == "empty_output":
-        stub.write_text('#!/usr/bin/env bash\necho ""\n')
-    else:
-        raise ValueError(f"unknown mode: {mode}")
-    stub.chmod(0o755)
-    return stub
-
-
-def _run_clear_ready_sentinel(
-    stdin: str,
-    session_name: str,
-    include_jq: bool = True,
-    in_tmux: bool = True,
-    tmux_stub_dir: Path | None = None,
-) -> subprocess.CompletedProcess:
-    with tempfile.TemporaryDirectory() as tmpdir:
-        bin_dir = tmux_stub_dir or _make_minimal_bin_dir(
-            Path(tmpdir), session_name, include_jq
+    def test_source_clear_writes_state_cleared(self, tmp_path):
+        sid = f"status-clear-{uuid.uuid4().hex[:8]}"
+        stdin = json.dumps(
+            {
+                "hook_event_name": "SessionStart",
+                "session_id": sid,
+                "source": "clear",
+                "cwd": "/home/jessica/example-repo",
+            }
         )
-        env = {"PATH": str(bin_dir)}
-        if in_tmux:
-            env["TMUX"] = "/tmp/tmux-stub,1,0"
-        return subprocess.run(
-            [str(SENTINEL_HOOK)],
-            input=stdin,
-            capture_output=True,
-            text=True,
-            env=env,
-            check=False,
-        )
+        result = _run_status_writer(stdin, tmp_path)
+        assert result.returncode == 0
+
+        meta = _read_meta(tmp_path, sid)
+        assert meta["state"] == "cleared"
+        assert meta["cwd"] == "/home/jessica/example-repo"
+        assert meta["ts"].isdigit()
 
 
-class TestClearReadySentinelHappyPath:
-    """Hook writes a sentinel file keyed by tmux session name on valid input."""
-
-    def test_creates_sentinel_with_session_id_and_timestamp(self):
-        session_name = _sentinel_session_name("happy")
-        try:
-            stdin = json.dumps({"session_id": "abc123"})
-            result = _run_clear_ready_sentinel(stdin, session_name)
-            assert result.returncode == 0
-
-            sentinel = _sentinel_path(session_name)
-            assert sentinel.exists()
-            lines = sentinel.read_text().strip().split("\n")
-            assert lines[0] == "session_id=abc123"
-            assert lines[1].startswith("timestamp=")
-            assert lines[1].split("=", 1)[1].isdigit()
-        finally:
-            _cleanup_sentinel(session_name)
-
-
-class TestClearReadySentinelNoTmux:
-    """Hook exits silently when not inside tmux, before writing anything."""
-
-    def test_no_tmux_no_sentinel(self):
-        session_name = _sentinel_session_name("no_tmux")
-        try:
-            stdin = json.dumps({"session_id": "abc123"})
-            result = _run_clear_ready_sentinel(stdin, session_name, in_tmux=False)
-            assert result.returncode == 0
-            assert result.stdout.strip() == ""
-            assert not _sentinel_path(session_name).exists()
-        finally:
-            _cleanup_sentinel(session_name)
-
-
-class TestClearReadySentinelTmuxCommandFails:
-    """Hook is a silent no-op when TMUX is set but `tmux display-message`
-    fails or returns an empty session name.
-
-    Distinct from TestClearReadySentinelNoTmux (TMUX unset entirely): here
-    TMUX is non-empty, so the hook passes the first guard and reaches the
-    `tmux display-message` call itself, which then fails or comes back empty
-    (e.g. a detached pane or other unusual tmux state).
+class TestStatusWriterSessionStartOtherSource:
+    """SessionStart with any other source is a silent no-op — this hook only
+    treats /clear as the readiness signal orchestrate-self-reset polls for.
     """
 
-    def test_tmux_command_fails_silent(self):
-        session_name = _sentinel_session_name("tmux_fail")
-        try:
-            stdin = json.dumps({"session_id": "abc123"})
-            with tempfile.TemporaryDirectory() as tmpdir:
-                bin_dir = _make_minimal_bin_dir(
-                    Path(tmpdir), session_name, include_jq=True
-                )
-                _make_failing_tmux_stub(bin_dir, "nonzero_exit")
-                result = _run_clear_ready_sentinel(
-                    stdin, session_name, tmux_stub_dir=bin_dir
-                )
-            assert result.returncode == 0
-            assert not _sentinel_path(session_name).exists()
-        finally:
-            _cleanup_sentinel(session_name)
+    def test_source_startup_silent(self, tmp_path):
+        sid = f"status-startup-{uuid.uuid4().hex[:8]}"
+        stdin = json.dumps(
+            {"hook_event_name": "SessionStart", "session_id": sid, "source": "startup"}
+        )
+        result = _run_status_writer(stdin, tmp_path)
+        assert result.returncode == 0
+        assert not (tmp_path / f"claude-status-{sid}.meta").exists()
 
-    def test_tmux_returns_empty_session_name_silent(self):
-        session_name = _sentinel_session_name("tmux_empty")
-        try:
-            stdin = json.dumps({"session_id": "abc123"})
-            with tempfile.TemporaryDirectory() as tmpdir:
-                bin_dir = _make_minimal_bin_dir(
-                    Path(tmpdir), session_name, include_jq=True
-                )
-                _make_failing_tmux_stub(bin_dir, "empty_output")
-                result = _run_clear_ready_sentinel(
-                    stdin, session_name, tmux_stub_dir=bin_dir
-                )
-            assert result.returncode == 0
-            assert not _sentinel_path(session_name).exists()
-        finally:
-            _cleanup_sentinel(session_name)
+    def test_source_resume_silent(self, tmp_path):
+        sid = f"status-resume-{uuid.uuid4().hex[:8]}"
+        stdin = json.dumps(
+            {"hook_event_name": "SessionStart", "session_id": sid, "source": "resume"}
+        )
+        result = _run_status_writer(stdin, tmp_path)
+        assert result.returncode == 0
+        assert not (tmp_path / f"claude-status-{sid}.meta").exists()
 
-
-class TestClearReadySentinelMissingJq:
-    """Hook is a silent no-op when jq is not on PATH."""
-
-    def test_jq_missing_silent(self):
-        session_name = _sentinel_session_name("no_jq")
-        try:
-            stdin = json.dumps({"session_id": "abc123"})
-            result = _run_clear_ready_sentinel(stdin, session_name, include_jq=False)
-            assert result.returncode == 0
-            assert result.stdout.strip() == ""
-            assert not _sentinel_path(session_name).exists()
-        finally:
-            _cleanup_sentinel(session_name)
-
-
-class TestClearReadySentinelPathTraversal:
-    """Hook rejects path-unsafe session_id and session_name values."""
-
-    def test_slash_in_session_id_silent(self):
-        session_name = _sentinel_session_name("sid_slash")
-        try:
-            stdin = json.dumps({"session_id": "../../etc/passwd"})
-            result = _run_clear_ready_sentinel(stdin, session_name)
-            assert result.returncode == 0
-            assert not _sentinel_path(session_name).exists()
-        finally:
-            _cleanup_sentinel(session_name)
-
-    def test_dot_in_session_id_silent(self):
-        session_name = _sentinel_session_name("sid_dot")
-        try:
-            stdin = json.dumps({"session_id": "foo.bar"})
-            result = _run_clear_ready_sentinel(stdin, session_name)
-            assert result.returncode == 0
-            assert not _sentinel_path(session_name).exists()
-        finally:
-            _cleanup_sentinel(session_name)
-
-    def test_slash_in_session_name_silent(self):
-        """Guard blocks a '/'-containing session_name even when the nested
-        parent directory the slash would create already exists on disk.
-
-        Without precreating that directory, a session_name like
-        "prefix/bad" resolves to /tmp/claude-clear-ready-prefix/bad.sentinel
-        -- whose parent directory never exists, so the write to it fails
-        (silently, via `2>/dev/null`) for that reason alone. In that setup,
-        the test would pass identically whether or not the guard clause
-        exists, so it would prove nothing about the guard. Precreating the
-        parent directory here removes that confound: the directory is
-        writable throughout, so an absent sentinel can only be explained by
-        the guard rejecting the session_name outright.
-
-        Verified empirically (see cfl_dispatch_id 1605): with the guard
-        clause temporarily deleted from a copy of the script and this same
-        parent directory precreated, the write succeeds and produces a
-        sentinel file at the nested path. With the guard restored, the
-        write is blocked and the directory stays empty.
-        """
-        suffix = uuid.uuid4().hex[:8]
-        session_prefix = f"clear-ready-test-name_slash-{suffix}"
-        bad_session_name = f"{session_prefix}/bad"
-        parent_dir = Path(f"/tmp/claude-clear-ready-{session_prefix}")
-        parent_dir.mkdir(parents=True, exist_ok=True)
-        try:
-            stdin = json.dumps({"session_id": "abc123"})
-            with tempfile.TemporaryDirectory() as tmpdir:
-                bin_dir = _make_minimal_bin_dir(
-                    Path(tmpdir), bad_session_name, include_jq=True
-                )
-                result = _run_clear_ready_sentinel(
-                    stdin, bad_session_name, tmux_stub_dir=bin_dir
-                )
-            assert result.returncode == 0
-            assert not _sentinel_path(bad_session_name).exists()
-            # The parent directory was writable the whole time, so an empty
-            # directory here proves the guard blocked the write.
-            assert list(parent_dir.iterdir()) == []
-        finally:
-            shutil.rmtree(parent_dir, ignore_errors=True)
-            _cleanup_sentinel(bad_session_name)
-
-    def test_dot_in_session_name_silent(self):
-        bad_session_name = f"clear-ready-test-name_dot-{uuid.uuid4().hex[:8]}.bad"
-        try:
-            stdin = json.dumps({"session_id": "abc123"})
-            with tempfile.TemporaryDirectory() as tmpdir:
-                bin_dir = _make_minimal_bin_dir(
-                    Path(tmpdir), bad_session_name, include_jq=True
-                )
-                result = _run_clear_ready_sentinel(
-                    stdin, bad_session_name, tmux_stub_dir=bin_dir
-                )
-            assert result.returncode == 0
-            assert not _sentinel_path(bad_session_name).exists()
-        finally:
-            _cleanup_sentinel(bad_session_name)
-
-
-class TestClearReadySentinelMissingSessionId:
-    """Hook is a silent no-op when session_id is absent or empty."""
-
-    def test_missing_session_id_key_silent(self):
-        session_name = _sentinel_session_name("sid_missing")
-        try:
-            stdin = json.dumps({})
-            result = _run_clear_ready_sentinel(stdin, session_name)
-            assert result.returncode == 0
-            assert not _sentinel_path(session_name).exists()
-        finally:
-            _cleanup_sentinel(session_name)
-
-    def test_empty_session_id_silent(self):
-        session_name = _sentinel_session_name("sid_empty")
-        try:
-            stdin = json.dumps({"session_id": ""})
-            result = _run_clear_ready_sentinel(stdin, session_name)
-            assert result.returncode == 0
-            assert not _sentinel_path(session_name).exists()
-        finally:
-            _cleanup_sentinel(session_name)
+    def test_missing_source_silent(self, tmp_path):
+        sid = f"status-nosource-{uuid.uuid4().hex[:8]}"
+        stdin = json.dumps({"hook_event_name": "SessionStart", "session_id": sid})
+        result = _run_status_writer(stdin, tmp_path)
+        assert result.returncode == 0
+        assert not (tmp_path / f"claude-status-{sid}.meta").exists()
 
 
 def _make_compaction_input(session_id: str, transcript_path: str) -> str:

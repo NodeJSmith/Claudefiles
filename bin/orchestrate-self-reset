@@ -3,8 +3,10 @@
 #
 # Launched by mine-orchestrate at task boundaries when context usage exceeds
 # the configured threshold. Waits for the session to go idle, sends /clear,
-# waits for the clear-ready sentinel written by the SessionStart hook
-# (scripts/hooks/clear-ready-sentinel.sh), then re-invokes /mine-orchestrate
+# waits for a fresh state=cleared record from claude-status-writer's
+# SessionStart/clear case (scripts/hooks/claude-status-writer), joined to this
+# pane by cwd via rc_sidecar_state_for_cwd (bin/rc-lib-reset.sh — the same
+# cwd-based join rc-send-ready already uses), then re-invokes /mine-orchestrate
 # to resume.
 #
 # Usage: orchestrate-self-reset <tmux-session> [feature-dir]
@@ -15,15 +17,21 @@
 #
 # Environment:
 #   ORCHESTRATE_RESET_CLEAR_TIMEOUT  — seconds to wait for idle before /clear (default: 120)
-#   ORCHESTRATE_RESET_SENTINEL_TIMEOUT — seconds to wait for the clear-ready sentinel (default: 30)
+#   ORCHESTRATE_RESET_STATE_TIMEOUT — seconds to wait for the clear-ready state (default: 30)
 #   ORCHESTRATE_RESET_RESUME_TIMEOUT — seconds to wait for /mine-orchestrate submit (default: 30)
 #   ORCHESTRATE_RESET_TMPDIR         — directory for marker and log files (default: /tmp).
-#                                      Does NOT affect the sentinel file, which is always
-#                                      under /tmp — see clear-ready-sentinel.sh, a SessionStart
-#                                      hook running in a separate process with no route to
-#                                      this variable's value.
+#                                      Does NOT affect the status sidecar, which
+#                                      claude-status-writer always writes under
+#                                      RC_STATUS_META_DIR (default /tmp) — a
+#                                      SessionStart hook running in a separate
+#                                      process with no route to this variable.
 
 set -euo pipefail
+
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=./rc-lib-reset.sh
+# shellcheck disable=SC1091
+source "$script_dir/rc-lib-reset.sh"
 
 usage() {
   printf 'Usage: orchestrate-self-reset <tmux-session> [feature-dir]\n' >&2
@@ -38,60 +46,89 @@ feature_dir="${2:-}"
 
 : "${ORCHESTRATE_RESET_TMPDIR:=/tmp}"
 marker="${ORCHESTRATE_RESET_TMPDIR}/claude-orchestrate-auto-reset-${session}.marker"
+failed_marker="${ORCHESTRATE_RESET_TMPDIR}/claude-orchestrate-reset-failed-${session}.marker"
 log="${ORCHESTRATE_RESET_TMPDIR}/orchestrate-self-reset-${session}.log"
-# Always /tmp — must match clear-ready-sentinel.sh's hardcoded path, which
-# has no route to a caller-supplied ORCHESTRATE_RESET_TMPDIR override (see
-# header comment above).
-sentinel="/tmp/claude-clear-ready-${session}.sentinel"
 
 : "${ORCHESTRATE_RESET_CLEAR_TIMEOUT:=120}"
-: "${ORCHESTRATE_RESET_SENTINEL_TIMEOUT:=30}"
+: "${ORCHESTRATE_RESET_STATE_TIMEOUT:=30}"
 : "${ORCHESTRATE_RESET_RESUME_TIMEOUT:=30}"
 
 log_msg() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*" >> "$log"; }
 
 fail() {
   rm -f "$marker"
+  # Best-effort, non-fatal: the marker write's own failure must never mask
+  # the real failure reason being logged/exited below.
+  {
+    printf 'reason=%s\n' "$1"
+    printf 'timestamp=%s\n' "$(date +%H:%M:%S)"
+  } > "${failed_marker}.tmp" 2> /dev/null && mv -f "${failed_marker}.tmp" "$failed_marker" 2> /dev/null || true
   log_msg "FAILED: $1"
   exit 1
 }
 
 log_msg "Starting self-reset for session=$session feature_dir=${feature_dir:-<auto>}"
 
+# Clear any stale failure marker from a previous run — this run's own outcome
+# should be the only thing resume-protocol.md's failure check can see.
+rm -f "$failed_marker"
+
 # Write the auto-reset marker — the fresh session's resume protocol reads it
 # to skip the "Resume from TX?" prompt and auto-resume.
 touch "$marker"
 log_msg "Marker written: $marker"
 
-# Clear any stale sentinel from a previous reset before sending /clear, so a
-# leftover file from an earlier run can't be mistaken for this run's signal.
-rm -f "$sentinel"
+# Resolve the pane's cwd once — the join key for the status sidecar lookup
+# below, same pattern rc-send-ready already uses. Stable across /clear (a
+# tmux pane's cwd doesn't change just because the Claude session inside it
+# resets), so resolving it now vs. after /clear makes no difference.
+target_cwd="$(tmux display -p -t "$session" '#{pane_current_path}' 2> /dev/null || true)"
+target_cwd="${target_cwd%/}"
+[ -n "$target_cwd" ] || fail "could not resolve pane cwd for session $session"
 
 # Step 1: Wait for idle + send /clear.
 # Extended timeout — the current mine-orchestrate turn is ending but Claude
 # may still be composing its final response.
 log_msg "Waiting for idle, then sending /clear..."
+clear_sent_ts="$(date +%s)"
 RC_SEND_READY_TIMEOUT="$ORCHESTRATE_RESET_CLEAR_TIMEOUT" rc-send-ready "$session" "/clear" ||
   fail "could not send /clear (timed out or session gone)"
 log_msg "/clear submitted"
 
-# Step 2: Wait for the clear-ready sentinel before sending the resume command.
-# The SessionStart hook (clear-ready-sentinel.sh) fires once /clear has fully
-# reset the session and writes this file — an authoritative, event-driven
+# Step 2: Wait for a fresh state=cleared record before sending the resume
+# command. claude-status-writer's SessionStart/clear case fires once /clear
+# has fully reset the session and writes it — an authoritative, event-driven
 # signal instead of scraping pane content for a banner string that can drift
-# or disappear across TUI versions.
-deadline=$(($(date +%s) + ORCHESTRATE_RESET_SENTINEL_TIMEOUT))
+# or disappear across TUI versions. Requiring ts >= clear_sent_ts rejects a
+# stale pre-clear record for this cwd (e.g. from a session_id that survived
+# the clear) rather than accepting whatever was last written.
+#
+# rc_sidecar_state_for_cwd joins on cwd alone, not session_id — accepted here
+# because this script assumes one orchestrator session per worktree/cwd (the
+# expected mine-orchestrate usage). If a second, unrelated Claude Code session
+# ever ran against this same cwd concurrently, its state=cleared record could
+# satisfy this poll instead of this run's own. Not guarded against; a
+# per-run nonce would require threading a value into claude-status-writer's
+# payload that isn't part of the hook's stdin JSON today.
+deadline=$(($(date +%s) + ORCHESTRATE_RESET_STATE_TIMEOUT))
 while true; do
   if [ "$(date +%s)" -ge "$deadline" ]; then
-    fail "timed out waiting for clear-ready sentinel"
+    fail "timed out waiting for clear-ready state"
   fi
-  if [ -f "$sentinel" ]; then
+  state="" ts=""
+  while IFS='=' read -r k v; do
+    case "$k" in
+      state) state="$v" ;;
+      ts) ts="$v" ;;
+    esac
+  done < <(rc_sidecar_state_for_cwd "$target_cwd")
+  case "${ts:-}" in '' | *[!0-9]*) ts=0 ;; esac
+  if [ "$state" = "cleared" ] && [ "$ts" -ge "$clear_sent_ts" ]; then
     break
   fi
   sleep 1
 done
-log_msg "Clear-ready sentinel detected"
-rm -f "$sentinel"
+log_msg "Clear-ready state detected"
 
 # Step 3: Send /mine-orchestrate to resume.
 resume_cmd="/mine-orchestrate"
