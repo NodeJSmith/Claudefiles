@@ -1,7 +1,7 @@
 ---
 task_id: "T03"
 title: "create mine-teach skill with format side files"
-status: "planned"
+status: "done"
 depends_on: []
 implements: ["FR#3", "FR#9", "AC#1", "AC#4", "AC#7"]
 ---
