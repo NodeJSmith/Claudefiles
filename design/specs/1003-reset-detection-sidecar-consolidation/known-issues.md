@@ -118,3 +118,45 @@ Acceptance criteria:
 - A documented decision exists on whether to introduce shared bash helpers for the
   atomic-write idiom and sentinel path format, made independently of this feature's
   fidelity-to-port constraint.
+
+## KI-004: No Claudefiles-local test coverage for ported sidecar scripts
+
+Status: open
+Source: final-integration-review
+Reason not fixed now: out-of-scope
+Observed in: commit 17ebc05
+Affected files:
+- /home/jessica/Claudefiles/.claude/worktrees/reset-orchestration-context-issues/scripts/hooks/claude-context-writer
+- /home/jessica/Claudefiles/.claude/worktrees/reset-orchestration-context-issues/scripts/hooks/claude-status-writer
+- /home/jessica/Claudefiles/.claude/worktrees/reset-orchestration-context-issues/scripts/hooks/context-tier.sh
+
+Issue:
+`claude-context-writer`, `claude-status-writer`, and `context-tier.sh` were moved into this
+repo's `scripts/hooks/` (T02), but their behavioral test coverage (`tools/test-context-tier.py`,
+`orchestrator/bin/test-claude-status-writer.sh`) still lives in the Dotfiles repo, not this
+one. Every sibling script in `scripts/hooks/` — including the new `clear-ready-sentinel.sh`,
+which this same feature added test coverage for during the implementation-review fix pass —
+has a corresponding pytest class in this repo's `tests/test_hooks.py`; these three do not.
+This repo's own CI (`.github/workflows/test.yml`) never exercises these three scripts, since
+their tests are not part of this repo's suite.
+
+Why deferred:
+`design.md`'s "Test suite" section explicitly anticipated this could go either way ("If the
+test file moves to Claudefiles, update its path references. If it stays in Dotfiles ...
+it should still pass"), and T03's executor made the deliberate choice to keep the tests in
+Dotfiles (repointing them to reference the new Claudefiles path) rather than duplicating them
+here. Porting two full test suites (27 + 30 tests) into this repo now would be a substantial
+scope expansion beyond this feature's approved task list, which scoped T02 to "copy verbatim"
+and T03 to Dotfiles-side cleanup — neither task named porting tests as in scope.
+
+Recommended follow-up:
+Decide whether these three scripts should get native `tests/test_hooks.py` coverage in this
+repo (matching the convention now established for `clear-ready-sentinel.sh`), or whether
+relying on Dotfiles' test suites (which still exist and still pass, just in a different repo)
+is an accepted permanent arrangement. If porting, follow the `TestClearReadySentinel*` class
+structure added in this same feature as the template.
+
+Acceptance criteria:
+- A documented decision exists on whether `claude-context-writer`, `claude-status-writer`,
+  and `context-tier.sh` need native pytest coverage in the Claudefiles repo, independent of
+  this feature's scope.
