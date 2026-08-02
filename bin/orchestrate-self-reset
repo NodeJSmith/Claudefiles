@@ -64,6 +64,15 @@ fail() {
     printf 'timestamp=%s\n' "$(date +%H:%M:%S)"
   } > "${failed_marker}.tmp" 2> /dev/null && mv -f "${failed_marker}.tmp" "$failed_marker" 2> /dev/null || true
   log_msg "FAILED: $1"
+  # Best-effort: the marker above is only read by resume-protocol.md, which
+  # only runs on the next /mine-orchestrate invocation — nothing guarantees
+  # that happens automatically after a silent relay failure. Inject a visible
+  # notice into the target pane itself so the user isn't left staring at a
+  # silently-stuck or freshly-cleared prompt with no explanation. A short
+  # 5s timeout (vs. the other call sites' longer, situation-tuned values)
+  # keeps a doomed notification (e.g. pane already gone) from delaying this
+  # already-failing exit path by rc-send-ready's full 30s default.
+  RC_SEND_READY_TIMEOUT=5 rc-send-ready "$session" "⚠️ orchestrate-self-reset failed: $1 (see $log)" > /dev/null 2>&1 || true
   exit 1
 }
 

@@ -80,6 +80,12 @@ solved a second time.
 `resume-protocol.md`'s marker check on the next session start — added during the same revision so
 a stalled/failed reset doesn't sit silently invisible now that the fail-open banner-grep is gone.
 
+**Revised (PR #483 review):** the marker alone only surfaces on the *next* `/mine-orchestrate`
+invocation, which nothing guarantees happens automatically after a silent relay failure. `fail()`
+now also sends a best-effort `rc-send-ready` notice into the target pane directly, so the failure
+is visible immediately rather than only on the next manual invocation. Both mechanisms write the
+same failure reason; if one is changed, check the other stays in sync.
+
 ### Sidecar pipeline move
 
 Copy `claude-context-writer`, `claude-status-writer`, and `context-tier.sh` from Dotfiles to Claudefiles `scripts/hooks/`. These are standalone bash scripts with no dependencies beyond `jq` (already required by other hooks).
