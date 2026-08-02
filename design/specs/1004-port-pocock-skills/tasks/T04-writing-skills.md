@@ -1,7 +1,7 @@
 ---
 task_id: "T04"
 title: "create mine-fragments, mine-shape, and mine-beats skills"
-status: "planned"
+status: "done"
 depends_on: []
 implements: ["FR#4", "FR#5", "FR#6", "FR#9", "AC#1", "AC#7"]
 ---
