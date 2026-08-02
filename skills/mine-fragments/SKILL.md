@@ -1,6 +1,6 @@
 ---
 name: mine-fragments
-description: "Use when the user says: \"mine fragments\", \"explore writing\", \"raw material\", \"capture fragments\", \"start writing\", \"brainstorm an article\", or wants to mine raw ideas before committing to structure."
+description: "Use when the user says: \"mine fragments\", \"explore writing\", \"raw material\", \"capture fragments\", \"start writing\", \"gather raw material for an article\", or wants to mine raw ideas before committing to structure."
 user-invocable: true
 ---
 

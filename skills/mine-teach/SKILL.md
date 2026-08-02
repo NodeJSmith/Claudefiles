@@ -1,6 +1,6 @@
 ---
 name: mine-teach
-description: "Use when the user says: \"teach me\", \"learn about\", \"study\", \"lesson on\", \"help me learn\", \"tutorial on\", or wants structured learning over multiple sessions."
+description: "Use when the user says: \"teach me\", \"learn about\", \"study this\", \"lesson on\", \"help me learn\", \"tutorial on\", or wants structured learning over multiple sessions."
 user-invocable: true
 ---
 

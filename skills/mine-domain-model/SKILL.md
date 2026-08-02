@@ -1,6 +1,6 @@
 ---
 name: mine-domain-model
-description: "Use when the user says: \"domain model\", \"glossary\", \"sharpen terminology\", \"define this term\", \"what does X mean in this codebase\", or wants to pin down domain terminology, record an architectural decision, or when another skill needs to maintain the domain model."
+description: "Use when the user says: \"domain model\", \"glossary\", \"sharpen terminology\", \"define this term\", \"what does X mean in this codebase\", \"ubiquitous language\", or wants to pin down domain terminology, record an architectural decision, or when another skill needs to maintain the domain model."
 user-invocable: true
 ---
 

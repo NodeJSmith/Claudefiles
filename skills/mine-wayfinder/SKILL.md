@@ -1,6 +1,6 @@
 ---
 name: mine-wayfinder
-description: "Use when the user says: \"wayfinder\", \"chart this effort\", \"too big for one session\", \"multi-session plan\", \"foggy effort\", or has a large uncertain effort that needs progressive discovery before planning."
+description: "Use when the user says: \"wayfinder\", \"chart this effort\", \"too big for one session\", \"multi-session plan\", \"foggy effort\", \"progressive discovery\", or has a large uncertain effort that needs progressive discovery before planning."
 user-invocable: true
 ---
 
