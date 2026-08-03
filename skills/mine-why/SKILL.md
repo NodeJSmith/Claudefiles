@@ -49,9 +49,9 @@ Run `get-skill-tmpdir mine-why` to establish `<dir>`.
 
 ## Phase 2: Gather Evidence
 
-Dispatch 5 parallel evidence-gathering agents. Each searches one category and writes findings to its own temp file. Null results are first-class evidence — "no issues found referencing this code" is a finding, not a failure.
+Dispatch 6 parallel evidence-gathering agents. Each searches one category and writes findings to its own temp file. Null results are first-class evidence — "no issues found referencing this code" is a finding, not a failure.
 
-All agents use `subagent_type: "Explore"` (Haiku, read-only).
+All agents use `subagent_type: "general-purpose"`, `model: "haiku"`.
 
 ### Agent 1: Version Control History
 
@@ -158,6 +158,26 @@ Format:
 - If no tests reference this code, state that clearly
 ```
 
+### Agent 6: Conversation History
+
+```
+Search past Claude Code conversations for discussions relevant to this code.
+
+Target: <file path(s) and line range(s)>
+Question: <the user's question>
+
+Instructions:
+1. Run: ccrecall --json search-messages -q "<the user's question, or the target's key terms>" -n 8
+2. Review each matched exchange for direct discussion of why this code is shaped this way — a decision being debated, a tradeoff being weighed, a bug being diagnosed, a constraint being explained out loud
+3. For a promising match whose snippet is too short to judge on its own, run `ccrecall tail <session_uuid>` to read more surrounding context
+4. Write findings to <dir>/evidence-conversations.md
+
+Format:
+- List each relevant exchange: session date, project, key excerpt, what it reveals about the rationale
+- Note whether the conversation explicitly settled the decision, versus just touching the topic in passing
+- If no relevant conversations are found, state that clearly — this history is often thin, or the decision predates the tracked conversation history
+```
+
 ## Phase 3: Synthesize
 
 After all evidence agents complete, dispatch a synthesis agent:
@@ -169,7 +189,7 @@ Agent(subagent_type: "general-purpose", model: "sonnet")
 Synthesis prompt:
 
 ```
-Synthesize evidence from five sources into a confidence-calibrated explanation
+Synthesize evidence from six sources into a confidence-calibrated explanation
 of why code is shaped the way it is.
 
 Question: <the user's question>
@@ -181,11 +201,12 @@ Evidence files (read each in full):
 - <dir>/evidence-design.md
 - <dir>/evidence-rules.md
 - <dir>/evidence-tests.md
+- <dir>/evidence-conversations.md
 
 Instructions:
-1. Read all five evidence files
+1. Read all six evidence files
 2. For each claim about rationale, assign a confidence level:
-   - HIGH — multiple independent sources agree (e.g., commit message + design doc + test comment)
+   - HIGH — multiple independent sources agree (e.g., commit message + design doc + test comment, or a conversation that explicitly settled it plus a matching commit)
    - MEDIUM — one source provides direct evidence (e.g., only a commit message, but it's clear)
    - LOW — evidence is indirect (e.g., a test implies a constraint but doesn't state it)
    - UNKNOWN — no evidence found; state this explicitly rather than speculating
@@ -221,4 +242,4 @@ Rules:
 
 Read `<dir>/synthesis.md` and present it conversationally in the main context. Do not write files or produce artifacts.
 
-If all aspects are UNKNOWN, say so directly: "I searched git history, issues, PRs, design docs, rules, comments, and tests — none of them explain this decision. The rationale appears to be undocumented."
+If all aspects are UNKNOWN, say so directly: "I searched git history, issues, PRs, design docs, rules, comments, tests, and past conversations — none of them explain this decision. The rationale appears to be undocumented."

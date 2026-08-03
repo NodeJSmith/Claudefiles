@@ -26,40 +26,26 @@ fi
 # Keyed on the shared .git dir (via git-common-dir) rather than pwd, so a
 # worktree's answer persists at the main clone's project dir instead of the
 # worktree's own path — which is deleted once the worktree's task is done.
+# -P (physical) so a symlinked path segment above the repo resolves to the
+# same key project-docs-check.sh would compute for the same repo — keep
+# these two hooks' canonicalization in lockstep.
 config_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 git_common_dir=$(git rev-parse --git-common-dir 2> /dev/null)
 if [ -n "$git_common_dir" ]; then
-  repo_key=$(cd "$(dirname "$git_common_dir")" && pwd)
+  repo_key=$(cd "$(dirname "$git_common_dir")" && pwd -P)
 else
-  repo_key=$(pwd)
+  repo_key=$(pwd -P)
 fi
 project_dir="$config_dir/projects/$(echo "$repo_key" | tr '/.' '--')"
 state_file="$project_dir/project-meta-prompt.json"
 
 command -v python3 > /dev/null 2>&1 || exit 0
 
-if [ -f "$state_file" ]; then
-  read -r status prompt_after < <(python3 -c "
-import json, sys
-try:
-    d = json.load(open(sys.argv[1]))
-    print(d.get('status', ''), d.get('prompt_after', ''))
-except (OSError, json.JSONDecodeError):
-    print('', '')
-" "$state_file" 2> /dev/null)
+hook_dir="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/defer-suppress.sh
+source "$hook_dir/lib/defer-suppress.sh" || exit 0
 
-  if [ "$status" = "suppressed" ]; then
-    exit 0
-  fi
-
-  if [ "$status" = "deferred" ]; then
-    today=$(date +%Y-%m-%d)
-    # Lexicographic comparison works because YYYY-MM-DD is zero-padded
-    if [ -n "$prompt_after" ] && [[ "$today" < "$prompt_after" ]]; then
-      exit 0
-    fi
-  fi
-fi
+defer_suppress_should_skip "$state_file" && exit 0
 
 cat << PROMPT
 This project's CLAUDE.md is missing project context metadata (audience, developers, data-sensitivity). These fields calibrate agent advice — without them, skills like mine-challenge default to enterprise-grade suggestions that may not fit the project.

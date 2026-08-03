@@ -187,7 +187,7 @@ cfl gate clean-code --verdict <PASS|WARN> --data '{"fixed": <N>, "unfixed": <M>}
 
 ## Step 5: Final review pass (automatic)
 
-After the clean code fixes, run a final `code-reviewer` and `integration-reviewer` pass in parallel on the full branch diff to catch any issues introduced by the auto-fix subagent.
+After the clean code fixes, run a final `code-reviewer` and `integration-reviewer` pass in parallel on the full branch diff — to catch issues introduced by the auto-fix subagent, and to catch anything a per-task review couldn't see (a review scoped to one task at a time can miss issues that only appear across the full diff).
 
 ```bash
 git diff --name-only <base_commit> HEAD
@@ -202,11 +202,11 @@ cfl dispatch final-code-reviewer --agent-type code-reviewer --model sonnet
 cfl dispatch final-integration-reviewer --agent-type integration-reviewer --model sonnet
 ```
 
-Launch both reviewers in a single message (parallel):
+Launch both reviewers in a single message (parallel), with the `CONCISE-RETURN-MODE` sentinel and output file paths (same activation contract used by the findings fix loop — see `verdict-line-format.md`):
 
-**Code reviewer** (`subagent_type: "code-reviewer"`): include `cfl_dispatch_id: <final_code_reviewer_dispatch_id>`, review all changed files, write to `<dir>/final-code-review.md`.
+**Code reviewer** (`subagent_type: "code-reviewer"`): include `cfl_dispatch_id: <final_code_reviewer_dispatch_id>`, review all changed files, write to `<dir>/final/code-review.md`.
 
-**Integration reviewer** (`subagent_type: "integration-reviewer"`): include `cfl_dispatch_id: <final_integration_reviewer_dispatch_id>`, review all changed files, write to `<dir>/final-integration-review.md`.
+**Integration reviewer** (`subagent_type: "integration-reviewer"`): include `cfl_dispatch_id: <final_integration_reviewer_dispatch_id>`, review all changed files, write to `<dir>/final/integration-review.md`.
 
 After both complete, mark dispatches done:
 
@@ -215,17 +215,29 @@ cfl dispatch end <final_code_reviewer_dispatch_id>
 cfl dispatch end <final_integration_reviewer_dispatch_id>
 ```
 
-If either reviewer finds CRITICAL or HIGH issues, fix them inline (auto-fix unambiguous issues, re-run both reviewers, max 2 iterations). After each iteration that changes the branch, re-run the project test suite using `<dir>/test-command.txt` (skip and record `SKIPPED: no test suite` if that file contains the sentinel `no test suite`) and re-run lint using `<dir>/lint-command.txt` (skip and record `SKIPPED: no lint tools` if that file contains the sentinel `no lint tools`). Append a `Final-review retest` section to `<dir>/clean-code-summary.md` with the refreshed HEAD, test result, and lint result before evaluating the next final-review result or allowing `final-review` to pass; Step 6 reads that summary for the shipping prompt. If tests or lint fail after a final-review fix iteration, record `final-review` as FAIL, surface the failure to the user, and do not proceed to the shipping gate. If any CRITICAL or HIGH findings remain after those iterations, record `final-review` as FAIL, surface the findings to the user, and do not proceed to the shipping gate. Do not downgrade CRITICAL/HIGH findings into known issues.
+Extract the canonical verdict lines (last line matching `^\*\*Verdict:\*\*` in each file).
 
-MEDIUM and LOW findings do not block, but they must not vanish: for each real remaining MEDIUM/LOW finding, either fix it, reject it as invalid/non-actionable with rationale in the review summary, or record it in `<feature_dir>/known-issues.md` using `known-issues-protocol.md`.
+**If both reviewers return PASS:** no fixer loop needed — a PASS with informational findings is clean regardless of count. Treat this as `fixed: 0, deferred: 0, unresolved: 0` and go straight to the retest step below.
+
+**If either reviewer returns WARN or FAIL:** read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/findings-fix-loop.md` and follow it with:
+- `<scope_id>` = `final`
+- `<scope_dir>` = `<dir>/final` (this step's review files already live here)
+- Changed-files method: recompute fresh each iteration by unioning `git diff --name-only <base_commit> HEAD` with `git diff --name-only HEAD` and `git ls-files --others --exclude-standard` (uncommitted fixer edits stay in the working tree until shipping) — no `changed-files.txt`
+- No "Task scope boundary" block — every finding is in scope; there is no later task to defer to
+- Design doc path: `<feature_dir>/design.md`
+- Task file paths: all files under `<feature_dir>/tasks/`
+
+This applies the same fix/defer policy to every finding regardless of severity (CRITICAL, HIGH, MEDIUM, LOW) that the WP-time loop uses at Step 12 — nothing is allowed to just sit as an informational note at this point either. The loop's own Gate section determines the fixer gate result: FAIL if any `unresolved` row remains in the terminal ledger, PASS otherwise (every finding fixed, or deferred with a recorded known-issue ID). Use that result as-is below — do not re-derive it from a fresh ledger read.
+
+**Retest (both branches):** After the loop resolves (or immediately, if both initial reviewers passed), re-run the project test suite using `<dir>/test-command.txt` (skip and record `SKIPPED: no test suite` if that file contains the sentinel `no test suite`) and lint using `<dir>/lint-command.txt` (skip and record `SKIPPED: no lint tools` if that file contains the sentinel `no lint tools`). Append a `Final-review retest` section to `<dir>/clean-code-summary.md` with the refreshed HEAD, test result, and lint result — Step 6 reads that summary for the shipping prompt. A test or lint failure makes the `final-review` gate **FAIL** regardless of the ledger outcome — a fixer pass that leaves the suite broken is not a clean final state.
 
 Record the gate result:
 
 ```bash
-cfl gate final-review --verdict <PASS|WARN|FAIL> --data '{"findings_fixed": <N>, "remaining": <M>, "remaining_severities": {"medium": <Me>, "low": <L>}}'
+cfl gate final-review --verdict <PASS|FAIL> --data '{"fixed": <N>, "deferred": <M>, "unresolved": <K>}'
 ```
 
-Populate the `--data` values by parsing the canonical `**Verdict:**` lines from `<dir>/final-code-review.md` and `<dir>/final-integration-review.md` (extraction contract: last line matching `^\*\*Verdict:\*\*` containing `(findings:` — see `verdict-line-format.md`). `remaining` is the sum of MEDIUM + LOW findings across both reviewers after the fix loop. Include known-issue IDs for recorded remaining findings in the gate detail.
+`fixed`/`deferred`/`unresolved` come from the terminal ledger (`0/0/0` if no loop ran). Any `unresolved` finding at any severity, or a retest failure, makes this gate FAIL — there is no "proceed anyway" here, same as the WP-time gate. Surface the specifics (unresolved findings, or the test/lint failure) to the user and do not proceed to the shipping gate.
 
 ## Step 5.5: Known issues summary (automatic)
 
@@ -239,7 +251,7 @@ Present the final gate with impl-review and cross-file review results:
 
 ```
 AskUserQuestion:
-  question: "All tasks complete. Implementation review: <PASS + any non-blocking suggestions summary>. Cross-file review: <PASS/WARN + any notes>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Final review: <verdict — N fixed; M remaining at medium/low — or 'all clean'>. Known issues: <0 open | N open: KI-001 title; KI-002 title>. What next?"
+  question: "All tasks complete. Implementation review: <PASS + any non-blocking suggestions summary>. Cross-file review: <PASS/WARN + any notes>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Final review: <PASS — N fixed, M deferred to known issues — or 'all clean'>. Known issues: <0 open | N open: KI-001 title; KI-002 title>. What next?"
   header: "Ship"
   multiSelect: false
   options:
@@ -261,7 +273,7 @@ cfl gate shipping-gate --verdict <PASS|WARN|FAIL> --data '{"choice": "<ship|chal
 
 Read `<dir>/clean-code-summary.md` to populate the `Clean code check:` field in the question above.
 
-Read the canonical `**Verdict:**` lines from `<dir>/final-code-review.md` and `<dir>/final-integration-review.md` to populate the `Final review:` field. Use the same values recorded in the `cfl gate final-review` call above. If `<dir>/clean-code-summary.md` contains a `Final-review retest` section, include its refreshed test/lint status in the `Final review:` field so the shipping prompt reflects the gates that ran after final-review auto-fixes.
+Use the `fixed`/`deferred`/`unresolved` counts recorded in the `cfl gate final-review` call above to populate the `Final review:` field — by the time this step runs, that gate is PASS (a FAIL would have stopped the pipeline before reaching here). If `<dir>/clean-code-summary.md` contains a `Final-review retest` section, include its refreshed test/lint status in the `Final review:` field so the shipping prompt reflects the gates that ran after final-review auto-fixes.
 
 Read the known issues summary from Step 5.5 to populate the `Known issues:` field.
 
