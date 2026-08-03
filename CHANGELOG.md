@@ -13,6 +13,10 @@ All notable changes to this Claudefiles repository are documented here.
 - `mine-how`, `mine-document`, and `mine-why` now search past conversations via ccrecall as part of investigation, and use `general-purpose` subagents instead of `Explore` so scratch-file writes are possible. (#484)
 - `staleness-preflight` now resolves rebase conflicts directly instead of aborting unconditionally, only asking the user when a conflict needs product judgment. (#484)
 
+### Removed
+
+- Reverted `mine-orchestrate`'s automatic context reset at task boundaries (#481, #483) — the background-relay approach (`orchestrate-self-reset`, `rc-send-ready`, `rc-lib-reset.sh`, the `SessionStart`/clear case in `claude-status-writer`) turned out unreliable in practice. `mine-orchestrate` now relies on manual/unplanned compaction handling only, same as before #481.
+
 ### Fixed
 
 - `mine-orchestrate`'s final whole-branch review pass now re-verifies MEDIUM/LOW findings the same way the per-task loop already does, closing a gap where those findings only had to "not vanish" per the fixer's own self-report. (#484)
