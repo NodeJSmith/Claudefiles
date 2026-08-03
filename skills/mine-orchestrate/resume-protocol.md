@@ -62,54 +62,6 @@ Extract all fields from the JSON. Then determine staleness: check whether `base_
 
 Count the completed tasks from the `tasks` array (those with `status: "done"`) and the total tasks count.
 
-### Auto-reset detection
-
-Before presenting the resume/restart prompt, check for the auto-reset marker (and, if absent or stale, a failure marker) left by `orchestrate-self-reset`. Both are scoped by tmux session name to prevent cross-session collisions. Run this as a single Bash call — `session_name` must not be resolved in one call and reused in another, since shell state does not persist across separate Bash tool invocations:
-
-```bash
-auto_reset=false
-reset_failed=false
-session_name="$(tmux display-message -p '#S' 2>/dev/null || echo "")"
-marker="${ORCHESTRATE_RESET_TMPDIR:-/tmp}/claude-orchestrate-auto-reset-${session_name}.marker"
-if [ -n "$session_name" ] && [ -f "$marker" ]; then
-  mtime="$(stat -c %Y "$marker" 2>/dev/null || stat -f %m "$marker" 2>/dev/null)"
-  age=$(( $(date +%s) - mtime ))
-  if [ "$age" -lt 300 ]; then
-    auto_reset=true
-  fi
-  rm -f "$marker"
-fi
-
-# orchestrate-self-reset writes this instead of the auto-reset marker when the relay itself
-# fails (couldn't send /clear, timed out waiting for the clear-ready state, or couldn't submit
-# the resume command) — check it whenever auto_reset didn't fire, so a stalled/failed reset
-# isn't silently mistaken for a clean session start.
-if [ "$auto_reset" = false ]; then
-  failed_marker="${ORCHESTRATE_RESET_TMPDIR:-/tmp}/claude-orchestrate-reset-failed-${session_name}.marker"
-  if [ -n "$session_name" ] && [ -f "$failed_marker" ]; then
-    reset_failed=true
-    reason="" failed_at=""
-    while IFS='=' read -r k v; do
-      case "$k" in
-        reason) reason="$v" ;;
-        timestamp) failed_at="$v" ;;
-      esac
-    done < "$failed_marker"
-    rm -f "$failed_marker"
-  fi
-fi
-echo "auto_reset=$auto_reset reset_failed=$reset_failed reason=${reason:-} failed_at=${failed_at:-}"
-```
-
-If `auto_reset=true`:
-- Skip the "Resume or restart" AskUserQuestion below
-- Take the **resume** path directly (same steps as "On resume" below)
-- Tell the user: "Auto-resuming after context reset — continuing from the next task after **`<last_completed>`**."
-
-If `reset_failed=true`, tell the user before presenting the normal resume prompt: "The last auto-reset attempt failed at **`<failed_at>`**: `<reason>`." Then continue to the normal "Present the resume prompt" step below — the failure doesn't change resume/restart logic, it just makes sure a silent stall isn't mistaken for a clean session start.
-
-If `auto_reset=false` and `reset_failed=false` (the marker was stale, >5 minutes old, or neither marker exists), present the prompt as normal.
-
 ### Present the resume prompt
 
 ```

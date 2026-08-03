@@ -245,9 +245,9 @@ cfl gate final-review --verdict <PASS|FAIL> --data '{"fixed": <N>, "deferred": <
 
 Read the known-issues artifact defined by `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md` if it exists. Capture every entry's ID, title, status, and `Run:` field. If the file does not exist, there is nothing to summarize or walk through — skip Step 5.6 and treat the shipping gate's known issues field as `0 open`.
 
-Split entries with `Status: open` into two groups by comparing each entry's `Run:` field against the current `run_id` (from `cfl run status`, read fresh here — durable across the automatic context-reset/`/clear` cycle, unlike an in-context list):
+Split entries with `Status: open` into two groups by comparing each entry's `Run:` field against the current `run_id` (from `cfl run status`, read fresh here — durable across a mid-run session boundary, unlike an in-context list):
 
-- **New this run** — open entries whose `Run:` matches the current `run_id`. Because `run_id` is the same across an automatic mid-run context-reset (the resumed session is still the same orchestrate run, just a fresh conversation), this correctly includes entries recorded in an earlier session of this run before a reset — Step 5.6 runs exactly once, at the true end of Phase 3, so those entries reach the individual walkthrough here rather than skipping it.
+- **New this run** — open entries whose `Run:` matches the current `run_id`. Because `run_id` is the same across a mid-run session boundary (resume after context compaction, a manual `/clear`, or a crash/restart — the resumed session is still the same orchestrate run, just a fresh conversation), this correctly includes entries recorded in an earlier session of this run before the boundary — Step 5.6 runs exactly once, at the true end of Phase 3, so those entries reach the individual walkthrough here rather than skipping it.
 - **Backlog** — open entries whose `Run:` doesn't match: recorded during a genuinely earlier, already-completed orchestrate run on this same feature.
 
 ## Step 5.6: Known issues walkthrough (automatic gate)

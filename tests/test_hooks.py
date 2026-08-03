@@ -7,6 +7,8 @@ the hook via subprocess.run, and asserts on exit code and stdout.
 
 import json
 import os
+import shlex
+import shutil
 import sqlite3
 import subprocess
 import tempfile
@@ -289,93 +291,6 @@ class TestTmuxDriftCheckHeartbeatConfig:
             assert result.stdout.strip() == ""  # 6 < 30 default
         finally:
             _cleanup_drift(sid)
-
-
-# ---------------------------------------------------------------------------
-# claude-status-writer tests: SessionStart/clear -> state=cleared
-#
-# Only the new SessionStart/clear behavior is covered here, not the writer's
-# pre-existing busy/idle derivation (UserPromptSubmit/PreToolUse/PostToolUse/
-# Stop/Notification/SessionEnd) — that ported-verbatim logic remains untested
-# in this repo per known-issues.md KI-004.
-# ---------------------------------------------------------------------------
-
-STATUS_WRITER_HOOK = REPO_ROOT / "scripts" / "hooks" / "claude-status-writer"
-
-
-def _run_status_writer(stdin: str, meta_dir: Path) -> subprocess.CompletedProcess:
-    env = os.environ.copy()
-    env["RC_STATUS_META_DIR"] = str(meta_dir)
-    return subprocess.run(
-        [str(STATUS_WRITER_HOOK)],
-        input=stdin,
-        capture_output=True,
-        text=True,
-        env=env,
-        check=False,
-    )
-
-
-def _read_meta(meta_dir: Path, sid: str) -> dict[str, str]:
-    p = meta_dir / f"claude-status-{sid}.meta"
-    result: dict[str, str] = {}
-    for line in p.read_text().splitlines():
-        k, _, v = line.partition("=")
-        result[k] = v
-    return result
-
-
-class TestStatusWriterSessionStartClear:
-    """SessionStart with source=clear writes state=cleared, cwd, and a fresh ts."""
-
-    def test_source_clear_writes_state_cleared(self, tmp_path):
-        sid = f"status-clear-{uuid.uuid4().hex[:8]}"
-        stdin = json.dumps(
-            {
-                "hook_event_name": "SessionStart",
-                "session_id": sid,
-                "source": "clear",
-                "cwd": "/home/jessica/example-repo",
-            }
-        )
-        result = _run_status_writer(stdin, tmp_path)
-        assert result.returncode == 0
-
-        meta = _read_meta(tmp_path, sid)
-        assert meta["state"] == "cleared"
-        assert meta["cwd"] == "/home/jessica/example-repo"
-        assert meta["ts"].isdigit()
-
-
-class TestStatusWriterSessionStartOtherSource:
-    """SessionStart with any other source is a silent no-op — this hook only
-    treats /clear as the readiness signal orchestrate-self-reset polls for.
-    """
-
-    def test_source_startup_silent(self, tmp_path):
-        sid = f"status-startup-{uuid.uuid4().hex[:8]}"
-        stdin = json.dumps(
-            {"hook_event_name": "SessionStart", "session_id": sid, "source": "startup"}
-        )
-        result = _run_status_writer(stdin, tmp_path)
-        assert result.returncode == 0
-        assert not (tmp_path / f"claude-status-{sid}.meta").exists()
-
-    def test_source_resume_silent(self, tmp_path):
-        sid = f"status-resume-{uuid.uuid4().hex[:8]}"
-        stdin = json.dumps(
-            {"hook_event_name": "SessionStart", "session_id": sid, "source": "resume"}
-        )
-        result = _run_status_writer(stdin, tmp_path)
-        assert result.returncode == 0
-        assert not (tmp_path / f"claude-status-{sid}.meta").exists()
-
-    def test_missing_source_silent(self, tmp_path):
-        sid = f"status-nosource-{uuid.uuid4().hex[:8]}"
-        stdin = json.dumps({"hook_event_name": "SessionStart", "session_id": sid})
-        result = _run_status_writer(stdin, tmp_path)
-        assert result.returncode == 0
-        assert not (tmp_path / f"claude-status-{sid}.meta").exists()
 
 
 def _make_compaction_input(session_id: str, transcript_path: str) -> str:
@@ -796,6 +711,330 @@ class TestDocsCheckSymlinkNoHang:
                 # and the state key wasn't built by concatenating the two.
                 assert str(repo) in message
                 assert str(linked_base) not in message
+            finally:
+                linked_base.unlink()
+
+
+class TestDocsCheckStateKeyReanchorsThroughSymlinkedWorktree:
+    """Coverage: the defer/suppress state file for a project touched inside a
+    worktree — reached through a symlinked path segment — must key on the
+    main repo's stable path, not the worktree's own (deleted-on-cleanup) path.
+
+    No prior test exercised the worktree re-anchoring branch under a symlink
+    at all (TestDocsCheckSymlinkNoHang only covers the walk-up loop's own
+    termination, not this state-key computation). This pins the intended
+    behavior of the `git rev-parse --show-prefix`-based re-anchor.
+    """
+
+    def test_state_key_uses_main_repo_not_worktree(self):
+        with (
+            tempfile.TemporaryDirectory() as real_base,
+            tempfile.TemporaryDirectory() as tmpdir,
+            tempfile.TemporaryDirectory() as config_dir,
+        ):
+            real_base = Path(real_base).resolve()
+            main_repo = real_base / "mainrepo"
+            main_repo.mkdir()
+            _git_init(main_repo)
+
+            worktree = real_base / "mainrepo-wt"
+            subprocess.run(
+                ["git", "worktree", "add", "-q", "-b", "wtbranch", str(worktree)],
+                cwd=main_repo,
+                check=True,
+            )
+
+            linked_base = real_base.parent / f"linked-{uuid.uuid4().hex[:8]}"
+            linked_base.symlink_to(real_base)
+            try:
+                sid = f"docs-{uuid.uuid4().hex[:8]}"
+                file_path = linked_base / "mainrepo-wt" / "f.py"
+                (worktree / "f.py").write_text("")
+
+                result = _run_docs_check(sid, file_path, tmpdir, config_dir)
+
+                assert result.returncode == 0
+                message = json.loads(result.stdout)["hookSpecificOutput"][
+                    "additionalContext"
+                ]
+                # state_file lives under the main repo's project directory,
+                # not the worktree's — and never under the symlinked path.
+                assert "docs-check.json" in message
+                assert str(main_repo).replace("/", "-").replace(".", "-") in message
+                assert str(worktree).replace("/", "-").replace(".", "-") not in message
+                assert str(linked_base) not in message
+            finally:
+                linked_base.unlink()
+
+
+def _make_git_shim(
+    shim_dir: Path, real_git: str, physical_toplevel: str, alias_toplevel: str
+) -> Path:
+    """Write a git shim that lies about `--show-toplevel` for one specific
+    physical path, returning a textually different (but same-target) alias
+    path instead. Every other invocation execs the real git unchanged.
+
+    This manufactures the exact divergence the old state-key computation was
+    vulnerable to (comparing --show-toplevel's raw output against a pwd -P'd
+    path) without relying on a symlinked *file path*, which the hook's own
+    `pwd -P` canonicalization of `dir` neutralizes before git ever runs.
+    """
+    shim = shim_dir / "git"
+    shim.write_text(
+        f"""#!/usr/bin/env bash
+REAL_GIT={shlex.quote(real_git)}
+PHYSICAL={shlex.quote(physical_toplevel)}
+ALIAS={shlex.quote(alias_toplevel)}
+
+has_rev_parse=0
+has_show_toplevel=0
+for arg in "$@"; do
+  case "$arg" in
+    rev-parse) has_rev_parse=1 ;;
+    --show-toplevel) has_show_toplevel=1 ;;
+  esac
+done
+
+if [ "$has_rev_parse" = 1 ] && [ "$has_show_toplevel" = 1 ]; then
+  real_answer="$("$REAL_GIT" "$@")"
+  rc=$?
+  if [ "$real_answer" = "$PHYSICAL" ]; then
+    printf '%s\\n' "$ALIAS"
+    exit 0
+  fi
+  printf '%s\\n' "$real_answer"
+  exit $rc
+fi
+
+exec "$REAL_GIT" "$@"
+"""
+    )
+    shim.chmod(0o755)
+    return shim
+
+
+def _make_show_prefix_failure_shim(
+    shim_dir: Path, real_git: str, target_cwd: str
+) -> Path:
+    """Write a git shim that makes `git rev-parse --show-prefix` fail (no
+    output, nonzero exit) when invoked with cwd == target_cwd. Every other
+    invocation — including --show-prefix run from anywhere else, and
+    --show-toplevel / --git-common-dir from target_cwd itself — execs the
+    real git unchanged.
+
+    Manufactures the exact failure the guard in project-docs-check.sh
+    (~lines 130-141) exists to handle: an empty/failed --show-prefix result
+    for a project_root that is a subproject, not the repo root.
+    """
+    shim = shim_dir / "git"
+    shim.write_text(
+        f"""#!/usr/bin/env bash
+REAL_GIT={shlex.quote(real_git)}
+TARGET_CWD={shlex.quote(target_cwd)}
+
+has_rev_parse=0
+has_show_prefix=0
+for arg in "$@"; do
+  case "$arg" in
+    rev-parse) has_rev_parse=1 ;;
+    --show-prefix) has_show_prefix=1 ;;
+  esac
+done
+
+if [ "$has_rev_parse" = 1 ] && [ "$has_show_prefix" = 1 ] && [ "$(pwd -P)" = "$TARGET_CWD" ]; then
+  exit 1
+fi
+
+exec "$REAL_GIT" "$@"
+"""
+    )
+    shim.chmod(0o755)
+    return shim
+
+
+class TestDocsCheckStateKeyShowPrefixFailureFallsBackToUnanchoredKey:
+    """Regression: when `git rev-parse --show-prefix` fails or returns empty
+    for a subproject (project_root != repo_root), the guard added in
+    project-docs-check.sh (~lines 130-141) must fall back to the unanchored
+    project_root key.
+
+    Without the guard, an empty `rel` collapses
+    `state_key="${main_repo_root}${rel:+/${rel%/}}"` to exactly
+    main_repo_root — silently aliasing this subproject's defer/suppress
+    state onto the repo root's own state file, and colliding with any other
+    subproject that hits the same failure. The guard's `else` branch instead
+    falls back to `state_key="$project_root"`, keeping the subproject's
+    state file distinct.
+    """
+
+    def test_show_prefix_failure_falls_back_to_project_root_key(self):
+        with (
+            tempfile.TemporaryDirectory() as repo_base,
+            tempfile.TemporaryDirectory() as tmpdir,
+            tempfile.TemporaryDirectory() as config_dir,
+            tempfile.TemporaryDirectory() as shim_base,
+        ):
+            repo = (Path(repo_base).resolve()) / "repo"
+            repo.mkdir()
+            _git_init(repo)
+
+            # project_root resolves to this subproject via the marker walk-up
+            # loop (package.json found immediately) — it is NOT repo_root, so
+            # the guard's `[ "$project_root" = "$repo_root" ]` escape hatch
+            # does not apply and the empty-`rel` fallback is the only thing
+            # standing between this and a collapsed state key.
+            sub_proj = repo / "sub" / "proj"
+            sub_proj.mkdir(parents=True)
+            (sub_proj / "package.json").write_text("{}")
+            (sub_proj / "f.py").write_text("")
+
+            real_git = shutil.which("git")
+            assert real_git is not None, "git must be on PATH to build the shim"
+
+            shim_dir = Path(shim_base)
+            _make_show_prefix_failure_shim(shim_dir, real_git, str(sub_proj))
+
+            sid = f"docs-{uuid.uuid4().hex[:8]}"
+            file_path = sub_proj / "f.py"
+
+            env = os.environ.copy()
+            env["PATH"] = str(shim_dir) + ":" + env.get("PATH", "")
+            env["CLAUDE_CODE_TMPDIR"] = tmpdir
+            env["CLAUDE_CONFIG_DIR"] = str(config_dir)
+
+            result = subprocess.run(
+                [str(DOCS_CHECK_HOOK)],
+                input=_make_docs_check_input(sid, file_path),
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=6,
+                check=False,
+            )
+
+            assert result.returncode == 0
+            message = json.loads(result.stdout)["hookSpecificOutput"][
+                "additionalContext"
+            ]
+
+            # New (guarded) code: rel is empty and project_root != repo_root,
+            # so state_key falls back to the unanchored project_root — the
+            # full sub/proj path is encoded into the state file's directory.
+            unanchored_state_file = str(
+                Path(config_dir)
+                / "projects"
+                / str(sub_proj).replace("/", "-").replace(".", "-")
+                / "docs-check.json"
+            )
+            # Old (unconditional) code: state_key collapses to bare
+            # main_repo_root ("${rel:+...}" contributes nothing when rel is
+            # empty) — the state file directory would encode only the repo
+            # root, dropping the sub/proj offset entirely.
+            anchored_state_file = str(
+                Path(config_dir)
+                / "projects"
+                / str(repo).replace("/", "-").replace(".", "-")
+                / "docs-check.json"
+            )
+
+            assert unanchored_state_file in message
+            assert anchored_state_file not in message
+
+
+class TestDocsCheckStateKeyMismatchedToplevelFormatting:
+    """Regression: the state-key computation must not depend on
+    `git rev-parse --show-toplevel`'s raw output textually matching the
+    pwd -P'd project_root.
+
+    TestDocsCheckStateKeyReanchorsThroughSymlinkedWorktree places a symlink
+    above the worktree, but the hook canonicalizes the touched file's
+    directory with `pwd -P` *before* invoking git — so `--show-toplevel`,
+    run from that already-physical cwd, returns the same physical path on
+    both the old and new code. No textual divergence occurs, so that test
+    cannot distinguish the two implementations (it passes unchanged against
+    the pre-fix script).
+
+    This test manufactures the divergence directly with a git shim that
+    returns a textually different (but same-target) toplevel path — the
+    exact scenario `--show-prefix` was introduced to be immune to, since it
+    never compares against `--show-toplevel`'s output at all.
+    """
+
+    def test_state_key_survives_toplevel_alias_mismatch(self):
+        with (
+            tempfile.TemporaryDirectory() as real_base,
+            tempfile.TemporaryDirectory() as tmpdir,
+            tempfile.TemporaryDirectory() as config_dir,
+            tempfile.TemporaryDirectory() as shim_base,
+        ):
+            real_base = Path(real_base).resolve()
+            main_repo = real_base / "mainrepo"
+            main_repo.mkdir()
+            _git_init(main_repo)
+
+            worktree = real_base / "mainrepo-wt"
+            subprocess.run(
+                ["git", "worktree", "add", "-q", "-b", "wtbranch", str(worktree)],
+                cwd=main_repo,
+                check=True,
+            )
+
+            # project_root resolves via the marker branch of the walk-up
+            # loop (package.json found immediately), independent of
+            # repo_root's value.
+            sub_proj = worktree / "sub" / "proj"
+            sub_proj.mkdir(parents=True)
+            (sub_proj / "package.json").write_text("{}")
+            (sub_proj / "f.py").write_text("")
+
+            # A plausible alternate alias path for the worktree — not the
+            # physical path git or pwd -P would ever report.
+            linked_base = real_base.parent / f"linked-{uuid.uuid4().hex[:8]}"
+            linked_base.symlink_to(real_base)
+            try:
+                real_git = shutil.which("git")
+                assert real_git is not None, "git must be on PATH to build the shim"
+
+                shim_dir = Path(shim_base)
+                alias_worktree = linked_base / "mainrepo-wt"
+                _make_git_shim(shim_dir, real_git, str(worktree), str(alias_worktree))
+
+                sid = f"docs-{uuid.uuid4().hex[:8]}"
+                file_path = sub_proj / "f.py"
+
+                env = os.environ.copy()
+                env["PATH"] = str(shim_dir) + ":" + env.get("PATH", "")
+                env["CLAUDE_CODE_TMPDIR"] = tmpdir
+                env["CLAUDE_CONFIG_DIR"] = str(config_dir)
+
+                result = subprocess.run(
+                    [str(DOCS_CHECK_HOOK)],
+                    input=_make_docs_check_input(sid, file_path),
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    timeout=6,
+                    check=False,
+                )
+
+                assert result.returncode == 0
+                message = json.loads(result.stdout)["hookSpecificOutput"][
+                    "additionalContext"
+                ]
+
+                # New code: state_key = main_repo_root + the sub/proj offset,
+                # computed via --show-prefix — immune to the shimmed
+                # --show-toplevel value.
+                reanchored_key = str(main_repo / "sub" / "proj")
+                reanchored_fragment = reanchored_key.replace("/", "-").replace(".", "-")
+                # Old code: the textual case-match against the shimmed
+                # (alias) --show-toplevel value fails, so it falls through
+                # to the worktree-local, session-ephemeral key instead.
+                worktree_fragment = str(sub_proj).replace("/", "-").replace(".", "-")
+
+                assert reanchored_fragment in message
+                assert worktree_fragment not in message
+                assert str(alias_worktree) not in message
             finally:
                 linked_base.unlink()
 

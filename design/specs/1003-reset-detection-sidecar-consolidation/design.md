@@ -1,7 +1,10 @@
 # Design: Fix post-clear detection and consolidate sidecar pipeline
 
 **Date:** 2026-08-01
-**Status:** archived
+**Status:** archived (reverted 2026-08-03 — see CHANGELOG.md "Removed"; the underlying
+`mine-orchestrate` auto-reset feature this design supported (#481) proved unreliable in
+practice and was pulled entirely, taking this post-clear detection mechanism with it. The
+unrelated sidecar-pipeline-move-to-Claudefiles portion (FR#4-6) was kept.)
 **Mode:** sketch
 
 **Revised 2026-08-02:** The post-clear detection mechanism below (FR#1-3, AC#1-2, "Post-clear
@@ -54,6 +57,12 @@ sentinel file. This section was updated in place to describe what was actually b
 ## Approach
 
 ### Post-clear readiness via the existing status sidecar (revised — see note at top)
+
+**Reverted 2026-08-03:** everything below this point, through the end of this subsection,
+describes the mechanism as it existed before the revert — `claude-status-writer` no longer has
+a `SessionStart` hook registration, `orchestrate-self-reset`/`rc-send-ready`/`rc-lib-reset.sh` no
+longer exist, and none of the described polling/marker/notification behavior runs anymore. Kept
+verbatim below as historical record of what was built.
 
 `claude-status-writer` (scripts/hooks/claude-status-writer) already gets a `SessionStart` hook
 registration under `settings.json`'s `matcher: "clear"`. On that event it extracts `.source` from
