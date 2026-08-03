@@ -127,14 +127,13 @@ if [ -n "${main_repo_root:-}" ]; then
   # path, instead of re-anchoring to main_repo_root. --show-prefix asks
   # git for the same offset directly, sidestepping the comparison
   # entirely.
-  rel="$(cd "$project_root" && git rev-parse --show-prefix 2> /dev/null)"
-  # An empty $rel is only a valid "at the repo root" answer when project_root
-  # actually IS repo_root. If --show-prefix failed or returned empty for a
-  # project_root that is a subproject (not the repo root), re-anchoring would
-  # silently alias that subproject onto main_repo_root's own state file,
-  # collapsing multiple projects' defer/suppress state together — fall back
-  # to the unanchored project_root key instead.
-  if [ -n "$rel" ] || [ "$project_root" = "$repo_root" ]; then
+  # An empty $rel is a valid "at the working-tree root" answer only when
+  # --show-prefix itself succeeded. If it failed, re-anchoring would silently
+  # alias a subproject onto main_repo_root's own state file, collapsing
+  # multiple projects' defer/suppress state together — fall back to the
+  # unanchored project_root key instead. The exit status distinguishes the two
+  # cases, so no textual path comparison against repo_root is needed here.
+  if rel="$(cd "$project_root" && git rev-parse --show-prefix 2> /dev/null)"; then
     state_key="${main_repo_root}${rel:+/${rel%/}}"
   else
     state_key="$project_root"
