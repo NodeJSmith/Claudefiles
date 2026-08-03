@@ -587,7 +587,7 @@ class TestDocsCheckPromptsWhenMissing:
             tempfile.TemporaryDirectory() as tmpdir,
             tempfile.TemporaryDirectory() as config_dir,
         ):
-            repo = Path(repo)
+            repo = Path(repo).resolve()
             project = repo / "services" / "api"
             project.mkdir(parents=True)
             (project / "package.json").write_text("{}")
@@ -639,7 +639,7 @@ class TestDocsCheckDedup:
             tempfile.TemporaryDirectory() as tmpdir,
             tempfile.TemporaryDirectory() as config_dir,
         ):
-            repo = Path(repo)
+            repo = Path(repo).resolve()
             project = repo / "services" / "api"
             project.mkdir(parents=True)
             (project / "package.json").write_text("{}")
@@ -667,7 +667,7 @@ class TestDocsCheckSuppressedState:
             tempfile.TemporaryDirectory() as tmpdir,
             tempfile.TemporaryDirectory() as config_dir,
         ):
-            repo = Path(repo)
+            repo = Path(repo).resolve()
             project = repo / "services" / "api"
             project.mkdir(parents=True)
             (project / "package.json").write_text("{}")
@@ -689,6 +689,74 @@ class TestDocsCheckSuppressedState:
             assert result.returncode == 0
             assert result.stdout.strip() == ""
 
+    def test_silent_when_deferred_with_future_prompt_after(self):
+        with (
+            tempfile.TemporaryDirectory() as repo,
+            tempfile.TemporaryDirectory() as tmpdir,
+            tempfile.TemporaryDirectory() as config_dir,
+        ):
+            repo = Path(repo).resolve()
+            project = repo / "services" / "api"
+            project.mkdir(parents=True)
+            (project / "package.json").write_text("{}")
+            _git_init(repo)
+
+            encoded = str(project).replace("/", "-").replace(".", "-")
+            state_dir = Path(config_dir) / "projects" / encoded
+            state_dir.mkdir(parents=True)
+            future = subprocess.run(
+                ["date", "-d", "+1 day", "+%Y-%m-%d"],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
+            (state_dir / "docs-check.json").write_text(
+                json.dumps({"status": "deferred", "tier": 1, "prompt_after": future})
+            )
+
+            sid = f"docs-{uuid.uuid4().hex[:8]}"
+            file_path = project / "main.py"
+            file_path.write_text("")
+
+            result = _run_docs_check(sid, file_path, tmpdir, config_dir)
+
+            assert result.returncode == 0
+            assert result.stdout.strip() == ""
+
+    def test_prompts_when_deferred_with_past_prompt_after(self):
+        with (
+            tempfile.TemporaryDirectory() as repo,
+            tempfile.TemporaryDirectory() as tmpdir,
+            tempfile.TemporaryDirectory() as config_dir,
+        ):
+            repo = Path(repo).resolve()
+            project = repo / "services" / "api"
+            project.mkdir(parents=True)
+            (project / "package.json").write_text("{}")
+            _git_init(repo)
+
+            encoded = str(project).replace("/", "-").replace(".", "-")
+            state_dir = Path(config_dir) / "projects" / encoded
+            state_dir.mkdir(parents=True)
+            past = subprocess.run(
+                ["date", "-d", "-1 day", "+%Y-%m-%d"],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
+            (state_dir / "docs-check.json").write_text(
+                json.dumps({"status": "deferred", "tier": 1, "prompt_after": past})
+            )
+
+            sid = f"docs-{uuid.uuid4().hex[:8]}"
+            file_path = project / "main.py"
+            file_path.write_text("")
+
+            result = _run_docs_check(sid, file_path, tmpdir, config_dir)
+
+            assert result.returncode == 0
+            assert "AskUserQuestion" in result.stdout
+
 
 class TestDocsCheckSymlinkNoHang:
     """Regression: touching a project through a symlinked path must not hang.
@@ -705,7 +773,7 @@ class TestDocsCheckSymlinkNoHang:
             tempfile.TemporaryDirectory() as tmpdir,
             tempfile.TemporaryDirectory() as config_dir,
         ):
-            real_base = Path(real_base)
+            real_base = Path(real_base).resolve()
             repo = real_base / "repo"
             (repo / "sub" / "proj").mkdir(parents=True)
             _git_init(repo)
