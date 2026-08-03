@@ -189,7 +189,7 @@ Agent(subagent_type: "general-purpose", model: "sonnet")
 Synthesis prompt:
 
 ```
-Synthesize evidence from five sources into a confidence-calibrated explanation
+Synthesize evidence from six sources into a confidence-calibrated explanation
 of why code is shaped the way it is.
 
 Question: <the user's question>
