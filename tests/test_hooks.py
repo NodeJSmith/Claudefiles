@@ -800,6 +800,58 @@ class TestDocsCheckSymlinkNoHang:
                 linked_base.unlink()
 
 
+class TestDocsCheckStateKeyReanchorsThroughSymlinkedWorktree:
+    """Coverage: the defer/suppress state file for a project touched inside a
+    worktree — reached through a symlinked path segment — must key on the
+    main repo's stable path, not the worktree's own (deleted-on-cleanup) path.
+
+    No prior test exercised the worktree re-anchoring branch under a symlink
+    at all (TestDocsCheckSymlinkNoHang only covers the walk-up loop's own
+    termination, not this state-key computation). This pins the intended
+    behavior of the `git rev-parse --show-prefix`-based re-anchor.
+    """
+
+    def test_state_key_uses_main_repo_not_worktree(self):
+        with (
+            tempfile.TemporaryDirectory() as real_base,
+            tempfile.TemporaryDirectory() as tmpdir,
+            tempfile.TemporaryDirectory() as config_dir,
+        ):
+            real_base = Path(real_base).resolve()
+            main_repo = real_base / "mainrepo"
+            main_repo.mkdir()
+            _git_init(main_repo)
+
+            worktree = real_base / "mainrepo-wt"
+            subprocess.run(
+                ["git", "worktree", "add", "-q", "-b", "wtbranch", str(worktree)],
+                cwd=main_repo,
+                check=True,
+            )
+
+            linked_base = real_base.parent / f"linked-{uuid.uuid4().hex[:8]}"
+            linked_base.symlink_to(real_base)
+            try:
+                sid = f"docs-{uuid.uuid4().hex[:8]}"
+                file_path = linked_base / "mainrepo-wt" / "f.py"
+                (worktree / "f.py").write_text("")
+
+                result = _run_docs_check(sid, file_path, tmpdir, config_dir)
+
+                assert result.returncode == 0
+                message = json.loads(result.stdout)["hookSpecificOutput"][
+                    "additionalContext"
+                ]
+                # state_file lives under the main repo's project directory,
+                # not the worktree's — and never under the symlinked path.
+                assert "docs-check.json" in message
+                assert str(main_repo).replace("/", "-") in message
+                assert str(worktree).replace("/", "-") not in message
+                assert str(linked_base) not in message
+            finally:
+                linked_base.unlink()
+
+
 # ---------------------------------------------------------------------------
 # bash-history-capture.py tests
 # ---------------------------------------------------------------------------

@@ -17,11 +17,11 @@
 #
 # Defer/suppress state (read side shared via lib/defer-suppress.sh) uses the
 # same escalating pattern as project-meta-prompt.sh, but keyed on the
-# project root's path rather than the repo's git-common-dir, since a
+# project root's path *offset from* the repo's git-common-dir, since a
 # monorepo has multiple independent project roots. The re-anchoring below
-# additionally preserves the project's offset *within* the worktree (not
-# just "which repo"), which project-meta-prompt.sh doesn't need since it
-# only ever keys on the repo root itself.
+# additionally preserves the project's offset *within* the repo (not just
+# "which repo"), which project-meta-prompt.sh doesn't need since it only
+# ever keys on the repo root itself.
 #
 # Hook wiring (settings.json):
 #   "PostToolUse": [{
@@ -114,28 +114,21 @@ if [ -n "$git_common_dir" ]; then
   # -P (physical) — kept in lockstep with project-meta-prompt.sh's identical
   # canonicalization of the same git-common-dir-derived value.
   main_repo_root="$(cd "$(dirname -- "$git_common_dir")" && pwd -P)" || main_repo_root=""
-  worktree_root="$repo_root"
-  if [ "$main_repo_root" != "$worktree_root" ]; then
-    # Preserve the project's offset within the worktree (e.g. services/api)
-    # so the state lands at the equivalent subpath under the main clone,
-    # not at the main clone's root. Guard the prefix strip — if
-    # project_root somehow isn't literally under worktree_root (shouldn't
-    # happen given the -P canonicalization above, but path resolution across
-    # filesystems/mounts can still surprise), fall back to project_root
-    # itself rather than concatenating two unrelated paths.
-    # Explicit separator in the second branch — a bare "*" glob would also
-    # match a sibling path like "$worktree_root-other" that merely shares a
-    # string prefix, not a real directory-boundary match.
-    case "$project_root" in
-      "$worktree_root" | "$worktree_root"/*)
-        rel="${project_root#"$worktree_root"}"
-        state_key="${main_repo_root}${rel}"
-        ;;
-      *) state_key="$project_root" ;;
-    esac
-  else
-    state_key="$project_root"
-  fi
+fi
+if [ -n "${main_repo_root:-}" ]; then
+  # git-computed prefix (e.g. "services/api/") rather than manually
+  # string-stripping a "$worktree_root" prefix off project_root. The old
+  # manual approach compared project_root (pwd -P canonicalized above)
+  # against repo_root (raw `git rev-parse --show-toplevel` output, never
+  # run through pwd -P) — when those two disagreed textually on the same
+  # physical directory (e.g. a symlinked path segment upstream of the
+  # repo), the prefix match silently failed and fell through to
+  # state_key="$project_root", the worktree-local (session-ephemeral)
+  # path, instead of re-anchoring to main_repo_root. --show-prefix asks
+  # git for the same offset directly, sidestepping the comparison
+  # entirely.
+  rel="$(cd "$project_root" && git rev-parse --show-prefix 2> /dev/null)"
+  state_key="${main_repo_root}${rel:+/${rel%/}}"
 else
   state_key="$project_root"
 fi

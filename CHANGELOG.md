@@ -16,6 +16,7 @@ All notable changes to this Claudefiles repository are documented here.
 ### Fixed
 
 - `mine-orchestrate`'s final whole-branch review pass now re-verifies MEDIUM/LOW findings the same way the per-task loop already does, closing a gap where those findings only had to "not vanish" per the fixer's own self-report. (#484)
+- `project-docs-check.sh`'s defer/suppress state now keys on `git rev-parse --show-prefix` instead of manually string-stripping the worktree root off the project path — the manual approach could silently fall back to the worktree's own (session-ephemeral) path instead of the main clone's stable path when the two paths disagreed textually on the same physical directory.
 
 ## 2026-08-01
 

@@ -51,6 +51,17 @@ Edit `settings.json` in this repo — **never** write directly to `$CLAUDE_CONFI
 2. `~/Dotfiles/config/claude/settings.json`
 3. `$CLAUDE_CONFIG_DIR/settings.machine.json`
 
+## Hook State File Paths
+
+Hook scripts under `scripts/hooks/` that persist state keyed on "this project" (defer/suppress files, escalating-deferral timestamps, etc.) must key on the repo's **stable, main-clone identity** — not on whatever path the session happened to reach it through. A worktree's own path (e.g. `.claude/worktrees/<branch>`) is deleted once the worktree's task is done; a state file keyed on it is written once and never read again.
+
+This has recurred more than once (`project-meta-prompt.sh` needed this fix; `project-docs-check.sh` reintroduced a version of it later) because the naive approach — compare `git rev-parse --show-toplevel`'s output against a `pwd -P`'d directory, then string-strip a prefix — is fragile: the two can disagree textually on the same physical directory (symlinks, mount aliasing, or any other canonicalization mismatch between an uncanonicalized git output and a canonicalized shell path), and the failure mode is silent — it falls through to the worktree-local path instead of erroring.
+
+**Correct pattern** (see `project-meta-prompt.sh` and `project-docs-check.sh`):
+- Resolve the stable root via `git rev-parse --git-common-dir`, then `dirname` + `cd` + `pwd -P` on the result — this always resolves to the main clone's root, worktree or not.
+- If the state key needs to preserve an offset below the repo root (e.g. a monorepo subproject), get that offset from `git rev-parse --show-prefix` run at the subproject directory — **not** by string-stripping one path against another. `--show-prefix` is git's own authoritative answer to "where am I relative to the toplevel," so it can't disagree with itself.
+- Guard the fallback: if the stable-root computation fails or returns empty, fall back explicitly rather than silently using a partially-computed value.
+
 ## Making Changes
 
 - After adding directories under `agents/`, `skills/`, `skills-impeccable/`, `skills-cli/`, `commands/`, or `scripts/hooks/` — re-run `uv run install.py`
