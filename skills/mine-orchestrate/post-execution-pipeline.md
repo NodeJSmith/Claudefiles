@@ -222,7 +222,7 @@ Extract the canonical verdict lines (last line matching `^\*\*Verdict:\*\*` in e
 **If either reviewer returns WARN or FAIL:** read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/findings-fix-loop.md` and follow it with:
 - `<scope_id>` = `final`
 - `<scope_dir>` = `<dir>/final` (this step's review files already live here)
-- Changed-files method: recompute fresh each iteration via `git diff --name-only <base_commit> HEAD` — no incremental union, no `changed-files.txt`
+- Changed-files method: recompute fresh each iteration by unioning `git diff --name-only <base_commit> HEAD` with `git diff --name-only HEAD` and `git ls-files --others --exclude-standard` (uncommitted fixer edits stay in the working tree until shipping) — no `changed-files.txt`
 - No "Task scope boundary" block — every finding is in scope; there is no later task to defer to
 - Design doc path: `<feature_dir>/design.md`
 - Task file paths: all files under `<feature_dir>/tasks/`
