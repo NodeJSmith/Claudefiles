@@ -51,7 +51,7 @@ Even when an issue otherwise qualifies above, check user impact before recording
 
 **Disqualified from `deferred(reason)` — classify as `unresolved` instead** when any of these hold:
 
-- User-visible breakage with no explanation surfaced to the user (the app appears hung, broken, or non-functional with no error message, log, or status indicating why).
+- User-visible breakage with no explanation surfaced to the user (the app appears hung, broken, or non-functional with no user-visible error message or status indicating why — an internal log the user never sees does not count as an explanation).
 - Silent data loss or corruption.
 - A security or auth exposure.
 - The core workflow is blocked entirely, for all users — not an edge case or a degraded-but-usable path.
@@ -88,7 +88,7 @@ A subagent (e.g. the Step 4 clean-code-executor) cannot ask this question itself
 1. Record the dispatch and capture its ID: `cfl dispatch severity-fixer --agent-type general-purpose --model sonnet`
 2. Dispatch a `general-purpose` subagent (`model: sonnet`, `cfl_dispatch_id: <dispatch_id>`) scoped to only this one finding — its description, affected files, and the instruction "fix only this; do not expand scope."
 3. After it completes: `cfl dispatch end <dispatch_id>`
-4. Record a reviewer dispatch (`cfl dispatch severity-review --agent-type code-reviewer --model sonnet`), capture `review_dispatch_id`, and run `code-reviewer` once on the changed files with `cfl_dispatch_id: <review_dispatch_id>`; after it completes: `cfl dispatch end <review_dispatch_id>`. (Single-pass `code-reviewer` only, not the full `findings-fix-loop.md` rigor — this fix targets one already-identified, already-scoped issue rather than an open-ended review, so the cross-file consistency check `integration-reviewer` adds isn't needed.) **FAIL or WARN:** tell the user the fix attempt failed and re-raise this same Severity Escalation prompt rather than silently proceeding — do not loop automatically. **PASS:** re-run the project test suite (`<dir>/test-command.txt`) and, unless it contains the "no lint tools" sentinel, lint (`<dir>/lint-command.txt`). If both pass, the finding is resolved and nothing gets recorded in `known-issues.md` — resume the pipeline step that raised this prompt. If either fails, treat this the same as a code-reviewer FAIL: tell the user the fix attempt introduced a regression and re-raise this same Severity Escalation prompt rather than silently proceeding.
+4. Record a reviewer dispatch (`cfl dispatch severity-review --agent-type code-reviewer --model sonnet`), capture `review_dispatch_id`, and run `code-reviewer` once on the changed files with `cfl_dispatch_id: <review_dispatch_id>`; after it completes: `cfl dispatch end <review_dispatch_id>`. (Single-pass `code-reviewer` only, not the full `findings-fix-loop.md` rigor — this fix targets one already-identified, already-scoped issue rather than an open-ended review, so the cross-file consistency check `integration-reviewer` adds isn't needed.) **FAIL or WARN:** tell the user the fix attempt failed and re-raise this same Severity Escalation prompt rather than silently proceeding — do not loop automatically. **PASS:** re-run the project test suite (`<dir>/test-command.txt`, skip and treat as passing if it contains the sentinel `no test suite`) and lint (`<dir>/lint-command.txt`, skip and treat as passing if it contains the sentinel `no lint tools`). If both pass (or are skipped via their sentinels), the finding is resolved and nothing gets recorded in `known-issues.md` — resume the pipeline step that raised this prompt. If either fails, treat this the same as a code-reviewer FAIL: tell the user the fix attempt introduced a regression and re-raise this same Severity Escalation prompt rather than silently proceeding.
 
 **On "Stop here":** Leave the run active; do not call `cfl run complete`. The pipeline step that raised this prompt does not continue automatically — the user resumes later via `/mine-orchestrate`.
 
@@ -133,7 +133,7 @@ Keep entries concise. They should be detailed enough for a later agent to act wi
 Before a task or final review treats a real unfixed issue as acceptable, it must be in one of these states:
 
 - Fixed in code.
-- Rejected as invalid with rationale in the relevant review/fix summary.
+- Rejected as invalid with rationale in the relevant review/fix summary — the fixer-loop ledger's formal `rejected(reason)` row (`findings-fix-loop.md`) is this state.
 - Deferred only to a later task that still owns the relevant files.
 - Recorded in `<feature_dir>/known-issues.md`.
 

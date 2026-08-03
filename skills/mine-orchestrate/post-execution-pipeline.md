@@ -68,7 +68,7 @@ AskUserQuestion:
    ```
 2. Dispatch a fresh `general-purpose` subagent with `model: sonnet` and: `cfl_dispatch_id: <dispatch_id>` (from the preceding `cfl dispatch` call), the impl-review findings, the relevant file paths, the design doc path (`<feature_dir>/design.md` — instruct the subagent to read it directly), all task files from `<feature_dir>/tasks/` (for per-task constraints and Review Guidance), accumulated spec-reviewer outputs, `implementer-prompt.md` content (as `## Implementer instructions`), `retry-prompt.md` content (as `## Retry instructions`), and `tdd.md` content. Populate the `## Previous review feedback` template with: "Impl-review: <absolute path to impl-review findings file>". Instruct: "Fix only the listed blocking issues. Do not expand scope beyond these findings. Respect the Review Guidance constraints from each task."
 3. After the subagent completes: `cfl dispatch end <dispatch_id>`
-4. Re-run the project test suite (using `<dir>/test-command.txt`). If tests fail: surface the failure prominently in the next gate prompt (which offers "Address fixes" or "Stop here" — there is no "Accept and ship" option at this gate) with a note identifying the test failures.
+4. Re-run the project test suite (using `<dir>/test-command.txt`; skip and treat as passing if that file contains the sentinel `no test suite`). If tests fail: surface the failure prominently in the next gate prompt (which offers "Address fixes" or "Stop here" — there is no "Accept and ship" option at this gate) with a note identifying the test failures.
 5. Re-run `code-reviewer` and `integration-reviewer` on the fix diff in parallel (both in a single message)
 6. Re-run `/mine-implementation-review <feature_dir>`
 7. If it now returns PASS, record the updated gate and continue to Step 3:
@@ -125,7 +125,7 @@ Then dispatch a `general-purpose` fixer with `model: sonnet`, `cfl_dispatch_id: 
 cfl dispatch end <cross_file_fixer_dispatch_id>
 ```
 
-Then re-run the project test suite using `<dir>/test-command.txt`, re-run the cross-file integration review, and record the updated `cross-file-review` gate. Repeat with the same warning-after-3-rounds policy as the impl-review gate, or stop if the user chooses "Stop here". If PASS or WARN, note any suggestions. If a suggestion identifies a real issue that should not be fixed in this run, read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md`, check the qualifying criteria and the Severity Gate, and record it (with `Run: <run_id>` from Step 1) only if it passes both — raise the protocol's **Severity Escalation** `AskUserQuestion` right now if it trips the gate, same as Step 2, and follow its "Fix now"/"Stop here"/"Ship anyway" mechanics. Continue to Step 4 (Clean code check) only if no escalation was needed, or it resolved via "Fix now" or "Ship anyway" — not if the user chose "Stop here".
+Then re-run the project test suite using `<dir>/test-command.txt` (skip and treat as passing if that file contains the sentinel `no test suite`), re-run the cross-file integration review, and record the updated `cross-file-review` gate. Repeat with the same warning-after-3-rounds policy as the impl-review gate, or stop if the user chooses "Stop here". If PASS or WARN, note any suggestions. If a suggestion identifies a real issue that should not be fixed in this run, read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md`, check the qualifying criteria and the Severity Gate, and record it (with `Run: <run_id>` from Step 1) only if it passes both — raise the protocol's **Severity Escalation** `AskUserQuestion` right now if it trips the gate, same as Step 2, and follow its "Fix now"/"Stop here"/"Ship anyway" mechanics. Continue to Step 4 (Clean code check) only if no escalation was needed, or it resolved via "Fix now" or "Ship anyway" — not if the user chose "Stop here".
 
 ## Step 4: Clean code check (automatic)
 
@@ -159,8 +159,8 @@ After the findings are reported:
 3. For findings that require architectural judgment or could change behavior in subtle ways (e.g., collapsing an abstraction stack, restructuring an error hierarchy), leave them unfixed and note them in your summary
 4. For every real unfixed finding that should not be fixed in this orchestration run, read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md`, check the qualifying criteria. If it doesn't qualify, explain why in the summary instead (rejected as invalid/non-actionable) so it isn't silently dropped.
 5. For every finding that qualifies, also check the Severity Gate. If it passes, append an entry to `<feature_dir>/known-issues.md` with `Run: <run_id>` (the value passed into this prompt). **You cannot ask the user directly — do not record an entry for a finding that trips the Severity Gate (user-visible breakage with no explanation, silent data loss, security exposure, or the core workflow blocked entirely).** Instead, add it to a `## SEVERE — needs immediate attention` section at the top of the summary with the same detail a known-issues entry would have; the orchestrator raises the protocol's Severity Escalation prompt to the user after reading this file.
-6. After fixing, run the project's test suite to verify no regressions: <contents of <dir>/test-command.txt>
-7. If tests pass, run lint using <contents of <dir>/lint-command.txt>. If that file contains the sentinel "no lint tools", skip this step.
+6. After fixing, run the project's test suite to verify no regressions: <contents of <dir>/test-command.txt>. If that file contains the sentinel "no test suite", skip this step.
+7. If tests pass or were skipped, run lint using <contents of <dir>/lint-command.txt>. If that file contains the sentinel "no lint tools", skip this step.
 
 ## Design doc path
 <absolute path to <feature_dir>/design.md>
@@ -219,7 +219,7 @@ cfl dispatch end <final_integration_reviewer_dispatch_id>
 
 Extract the canonical verdict lines (last line matching `^\*\*Verdict:\*\*` in each file).
 
-**If both reviewers return PASS:** no fixer loop needed — a PASS with informational findings is clean regardless of count. Treat this as `fixed: 0, deferred: 0, unresolved: 0` and go straight to the retest step below.
+**If both reviewers return PASS:** no fixer loop needed — a PASS with informational findings is clean regardless of count. Treat this as `fixed: 0, deferred: 0, rejected: 0, unresolved: 0` and go straight to the retest step below.
 
 **If either reviewer returns WARN or FAIL:** read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/findings-fix-loop.md` and follow it with:
 - `<scope_id>` = `final`
@@ -236,10 +236,10 @@ This applies the same fix/defer policy to every finding regardless of severity (
 Record the gate result:
 
 ```bash
-cfl gate final-review --verdict <PASS|FAIL> --data '{"fixed": <N>, "deferred": <M>, "unresolved": <K>}'
+cfl gate final-review --verdict <PASS|FAIL> --data '{"fixed": <N>, "deferred": <M>, "rejected": <R>, "unresolved": <K>}'
 ```
 
-`fixed`/`deferred`/`unresolved` come from the terminal ledger (`0/0/0` if no loop ran). Any `unresolved` finding at any severity, or a retest failure, makes this gate FAIL — there is no "proceed anyway" here, same as the WP-time gate. Surface the specifics (unresolved findings, or the test/lint failure) to the user and do not proceed to the shipping gate.
+`fixed`/`deferred`/`rejected`/`unresolved` come from the terminal ledger (`0/0/0/0` if no loop ran). Any `unresolved` finding at any severity, or a retest failure, makes this gate FAIL — there is no "proceed anyway" here, same as the WP-time gate. Surface the specifics (unresolved findings, or the test/lint failure) to the user and do not proceed to the shipping gate.
 
 ## Step 5.5: Known issues summary (automatic)
 
@@ -270,7 +270,7 @@ AskUserQuestion:
       description: "Keep it recorded in known-issues.md as open for later"
 ```
 
-- **Fix now:** record the dispatch (`cfl dispatch known-issue-fixer --agent-type general-purpose --model sonnet`), capture `dispatch_id`, then dispatch a `general-purpose` subagent (`model: sonnet`, `cfl_dispatch_id: <dispatch_id>`) scoped to only this entry's `Affected files` and `Recommended follow-up`. After it completes: `cfl dispatch end <dispatch_id>`. Then record a reviewer dispatch (`cfl dispatch known-issue-review --agent-type code-reviewer --model sonnet`), capture `review_dispatch_id`, and run `code-reviewer` once on the changed files with `cfl_dispatch_id: <review_dispatch_id>`; after it completes: `cfl dispatch end <review_dispatch_id>`. (Single-pass `code-reviewer` only, not the full `findings-fix-loop.md` rigor — this fix targets one already-identified, already-scoped issue rather than an open-ended review, so the cross-file consistency check `integration-reviewer` adds isn't needed.) On FAIL or WARN, or if a subsequent test/lint retest fails, treat the fix attempt as failed: tell the user what went wrong, leave the entry's `Status:` as `open`, and re-raise this same three-option `AskUserQuestion` for the entry (Fix now / File as GitHub issue / Leave deferred) rather than silently stalling — do not proceed to Step 6 until the user responds again. A retried "Fix now" dispatches a fresh subagent scoped the same way; it sees the current (possibly still-broken) state of the affected files and can build on or revert the prior attempt as it judges appropriate. On a clean code-reviewer PASS, re-run the project test suite using `<dir>/test-command.txt` and, if it contains no "no lint tools" sentinel, lint using `<dir>/lint-command.txt` — the same rigor bar Step 4's clean-code fixer uses. If both pass, update the entry's `Status:` line to `resolved — fixed during known issues walkthrough` and leave the rest of the entry as history.
+- **Fix now:** record the dispatch (`cfl dispatch known-issue-fixer --agent-type general-purpose --model sonnet`), capture `dispatch_id`, then dispatch a `general-purpose` subagent (`model: sonnet`, `cfl_dispatch_id: <dispatch_id>`) scoped to only this entry's `Affected files` and `Recommended follow-up`. After it completes: `cfl dispatch end <dispatch_id>`. Then record a reviewer dispatch (`cfl dispatch known-issue-review --agent-type code-reviewer --model sonnet`), capture `review_dispatch_id`, and run `code-reviewer` once on the changed files with `cfl_dispatch_id: <review_dispatch_id>`; after it completes: `cfl dispatch end <review_dispatch_id>`. (Single-pass `code-reviewer` only, not the full `findings-fix-loop.md` rigor — this fix targets one already-identified, already-scoped issue rather than an open-ended review, so the cross-file consistency check `integration-reviewer` adds isn't needed.) On FAIL or WARN, or if a subsequent test/lint retest fails, treat the fix attempt as failed: tell the user what went wrong, leave the entry's `Status:` as `open`, and re-raise this same three-option `AskUserQuestion` for the entry (Fix now / File as GitHub issue / Leave deferred) rather than silently stalling — do not proceed to Step 6 until the user responds again. A retried "Fix now" dispatches a fresh subagent scoped the same way; it sees the current (possibly still-broken) state of the affected files and can build on or revert the prior attempt as it judges appropriate. On a clean code-reviewer PASS, re-run the project test suite using `<dir>/test-command.txt` (skip and treat as passing if that file contains the sentinel `no test suite`) and lint using `<dir>/lint-command.txt` (skip and treat as passing if that file contains the sentinel `no lint tools`) — the same rigor bar Step 4's clean-code fixer uses. If both pass (or are skipped via their sentinels), update the entry's `Status:` line to `resolved — fixed during known issues walkthrough` and leave the rest of the entry as history.
 - **File as GitHub issue:** run `gh-issue create` (see `${CLAUDE_CONFIG_DIR:-~/.claude}/rules/common/git-workflow.md` — Issue Creation Conventions) using the entry's title and body content, then update the entry's `Status:` line to `filed (#<issue-number>)`.
 - **Leave deferred:** no change; `Status: open` stands.
 
@@ -298,7 +298,7 @@ Present the final gate with impl-review and cross-file review results:
 
 ```
 AskUserQuestion:
-  question: "All tasks complete. Implementation review: <PASS + any non-blocking suggestions summary>. Cross-file review: <PASS/WARN + any notes>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Final review: <PASS — N fixed, M deferred to known issues — or 'all clean'>. Known issues: <0 open | N still open: KI-001 title; KI-002 title>. What next?"
+  question: "All tasks complete. Implementation review: <PASS + any non-blocking suggestions summary>. Cross-file review: <PASS/WARN + any notes>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Final review: <PASS — N fixed, M deferred to known issues, R rejected — or 'all clean'>. Known issues: <0 open | N still open: KI-001 title; KI-002 title>. What next?"
   header: "Ship"
   multiSelect: false
   options:
@@ -320,7 +320,7 @@ cfl gate shipping-gate --verdict <PASS|WARN|FAIL> --data '{"choice": "<ship|chal
 
 Read `<dir>/clean-code-summary.md` to populate the `Clean code check:` field in the question above.
 
-Use the `fixed`/`deferred`/`unresolved` counts recorded in the `cfl gate final-review` call above to populate the `Final review:` field — by the time this step runs, that gate is PASS (a FAIL would have stopped the pipeline before reaching here). If `<dir>/clean-code-summary.md` contains a `Final-review retest` section, include its refreshed test/lint status in the `Final review:` field so the shipping prompt reflects the gates that ran after final-review auto-fixes.
+Use the `fixed`/`deferred`/`rejected`/`unresolved` counts recorded in the `cfl gate final-review` call above to populate the `Final review:` field — by the time this step runs, that gate is PASS (a FAIL would have stopped the pipeline before reaching here). If `<dir>/clean-code-summary.md` contains a `Final-review retest` section, include its refreshed test/lint status in the `Final review:` field so the shipping prompt reflects the gates that ran after final-review auto-fixes.
 
 Use the post-walkthrough recount from the start of this step (not the pre-walkthrough Step 5.5 split) to populate the `Known issues:` field.
 
