@@ -565,7 +565,7 @@ cfl gate visual-review <task_id> --verdict <PASS|WARN|FAIL|SKIPPED> --data '{"sc
 
 ### Step 12: Review findings fix loop
 
-When the canonical verdict line for the code reviewer or integration reviewer from Step 8 has a verdict of WARN or FAIL, read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/findings-fix-loop.md` and follow it. A PASS verdict does not trigger the loop, regardless of its findings count. Informational findings attached to a PASS are observations, not defects requiring a fixer pass.
+When the canonical verdict line for the code reviewer or integration reviewer from Step 8 has a verdict of WARN or FAIL, read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/findings-fix-loop.md` and follow it at **WP scope** (`<scope_id>`/`<task_id>` = this task's ID, `<scope_dir>` = `<dir>/<task_id>`; the file is scope-agnostic and also serves the final branch-wide pass at Step 5 of the post-execution pipeline). A PASS verdict does not trigger the loop, regardless of its findings count. Informational findings attached to a PASS are observations, not defects requiring a fixer pass.
 
 Spec and visual findings do **not** trigger this loop — a spec FAIL routes to the Step 10 spec fix loop, and visual findings feed Step 14 directly.
 
