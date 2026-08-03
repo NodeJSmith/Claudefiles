@@ -30,8 +30,12 @@ After Phase 1 completes (changes committed and pushed), check for a prior clean-
 find /tmp -maxdepth 2 -name 'clean-code-summary.md' -path '*/claude-mine-orchestrate-*' 2>/dev/null | xargs -r ls -t 2>/dev/null | head -5
 ```
 
-- For each match (most recent first), read its first line and check if it contains the current HEAD SHA (`git rev-parse --short HEAD`). If any match, skip this phase with a note: "Stylistic review already completed."
-- If no files found or no SHA match, run `/mine-clean-code` on the branch diff. Note: prior-run detection only applies when mine-orchestrate ran mine-clean-code. Manual mine-clean-code runs are not detected.
+For each match, most recent first, read its first line's recorded SHA (`<!-- HEAD: <sha> -->`) and check it against the current HEAD (`git rev-parse --short HEAD`):
+
+- **Exact match** — skip this phase with the note: "Stylistic review already completed."
+- **No exact match** — run `git diff --name-only <recorded-sha> HEAD`. If that command fails (the recorded SHA doesn't resolve here — e.g. a stale match from an unrelated repo sharing `/tmp`, or history rewritten since), treat this candidate as not satisfying and move to the next match. If it succeeds and every changed file is one a style check wouldn't evaluate — a lockfile (`*.lock`, `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `go.sum`) or a `known-issues.md` (any path) — skip this phase with the note: "Only lockfile/known-issues changes since the last stylistic review — skipping."
+
+If no candidate satisfies either condition, run `/mine-clean-code` on the branch diff. Note: prior-run detection only applies when mine-orchestrate ran mine-clean-code. Manual mine-clean-code runs are not detected.
 
 When mine-clean-code presents its own next-steps prompt ("What would you like to do with these findings?"), choose "Note and move on" — this phase handles the fix/skip/stop decision.
 
