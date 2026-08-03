@@ -30,6 +30,7 @@ For each pass (normal or classify-mode), dispatch a `general-purpose` subagent w
 
 Include in the fixer's prompt:
 - `cfl_dispatch_id: <dispatch_id>` (the ID from the preceding `cfl dispatch` call)
+- `run_id` — the `run_id` field from `cfl run status`, so any known-issues.md entry the fixer records carries `Run: <run_id>` (see `known-issues-protocol.md`). **WP scope:** call `cfl run status` fresh right before assembling these inputs, every time — do not reuse a value read earlier in the task loop. This loop is invoked once per task across potentially many tasks, and the automatic context-reset/`/clear` cycle (`SKILL.md`, "Automatic resets") can land between any two of them, so a value carried in conversational memory cannot be trusted; a fresh `cfl run status` call is a cheap DB read that is always correct regardless of reset history. **Final scope:** reuse the `run_id` from Step 1's `cfl run status` call in `post-execution-pipeline.md` — the final pass runs once, with no reset boundary inside it, so re-querying isn't necessary.
 - Path to `<scope_dir>/code-review.md`
 - Path to `<scope_dir>/integration-review.md`
 - Path to the design doc for this feature
@@ -60,7 +61,7 @@ When running the terminal classify-mode pass, add to the fixer prompt:
 
 > **This is a classify-only pass. Apply no code changes.** Read the review files and classify every finding in the ledger only.
 >
-> For every deferred finding that is **not** `deferred(later-task: <task_id>)`, read `known-issues-protocol.md` and record the issue in `<feature_dir>/known-issues.md` before treating it as acceptable. Use the protocol's qualifying criteria; if the issue does not qualify, classify it as `unresolved` instead of silently deferring it. Faithful-port bugs are valid known issues when fixing them would break port fidelity.
+> For every deferred finding that is **not** `deferred(later-task: <task_id>)`, read `known-issues-protocol.md` and check both the qualifying criteria and the Severity Gate before recording the issue in `<feature_dir>/known-issues.md`. If it fails either — doesn't qualify, or trips the Severity Gate (user-visible breakage with no explanation, silent data loss, security exposure, or the core workflow blocked entirely) — classify it as `unresolved` instead of silently deferring it; the invoker's gate (Step 16 for WP scope, the `final-review` gate for the final scope) is what puts the decision in front of the user, not this pass. Faithful-port bugs are valid known issues when fixing them would break port fidelity, unless the bug is itself severe enough to trip the Severity Gate. When an issue does qualify and clears the Severity Gate, include `Run: <run_id>` (the value passed into this prompt) in the entry.
 
 ### The ledger
 
