@@ -7,6 +7,7 @@ All notable changes to this Claudefiles repository are documented here.
 ### Added
 
 - New `PostToolUse` hook (`project-docs-check.sh`) checks for a non-empty `docs/` on the first edit to each project in a session and offers to run `/mine-document` if missing, mirroring `project-meta-prompt.sh`'s escalating-deferral pattern. (#484)
+- `mine-orchestrate`'s known-issues protocol adds a Severity Gate that blocks silent deferral of user-blocking issues (undisclosed breakage, data loss, security exposure, fully-blocked workflows), and a Step 5.6 walkthrough that surfaces each new known issue individually before shipping instead of just a count buried in the shipping prompt. (#485)
 
 ### Changed
 

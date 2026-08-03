@@ -19,7 +19,7 @@ $ARGUMENTS — path to a feature directory (`design/specs/NNN-feature/`) or a sp
 If context compaction occurs mid-orchestration (new session, context window reset), resume by:
 
 1. Run `/mine-status` for quick orientation (branch, last commit, errors)
-2. Run `cfl run status` to recover full orchestration state (task list with statuses, `last_completed`, `current_task`, `tmpdir`, `base_commit`)
+2. Run `cfl run status` to recover full orchestration state (task list with statuses, `last_completed`, `current_task`, `tmpdir`, `base_commit`, `run_id`)
 3. Re-invoke `/mine-orchestrate <feature_dir>` — the resume detection in Phase 0 will pick up where you left off
 
 Run state persists in the cfl SQLite DB across sessions. Per-task temp artifacts (executor output, review files, screenshots) may be lost if `/tmp` was cleared between sessions — the resume path handles this gracefully by skipping review-file checks for already-completed tasks.
@@ -69,9 +69,9 @@ Read `<feature_dir>/design.md` to understand the overall architecture and constr
 
 ### Known issues artifact
 
-Known issues discovered during orchestration are recorded durably using `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md`. Read that protocol before the first task reaches any review/fix decision that may defer a real issue.
+Known issues discovered during orchestration are recorded durably using `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md`. Read that protocol before the first task reaches any review/fix decision that may defer a real issue. The protocol's Severity Gate is what stops severe, user-blocking issues from being recorded as a silent deferral: at the fixer-loop call sites it forces an `unresolved` classification into the existing gate machinery, and at the direct-suggestion call sites (no fixer loop involved) it raises a dedicated Severity Escalation prompt instead — see the protocol for the exact mechanics at each site. Either way, a human decides explicitly rather than an agent unilaterally deciding an issue is fine to bury in a file.
 
-Do not create the known-issues artifact preemptively. Create it only when a qualifying issue is intentionally left unfixed.
+Do not create the known-issues artifact preemptively. Create it only when a qualifying issue is intentionally left unfixed. Every entry must carry `Run: <run_id>` (the current `cfl run status` `run_id`) — this is what lets `post-execution-pipeline.md` Step 5.6 tell entries recorded during this orchestration run apart from backlog from an earlier run, and it survives the automatic context-reset/`/clear` cycle below (a plain in-context list would not).
 
 ### Read all task files
 
