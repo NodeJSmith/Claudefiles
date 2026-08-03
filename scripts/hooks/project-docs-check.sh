@@ -128,7 +128,17 @@ if [ -n "${main_repo_root:-}" ]; then
   # git for the same offset directly, sidestepping the comparison
   # entirely.
   rel="$(cd "$project_root" && git rev-parse --show-prefix 2> /dev/null)"
-  state_key="${main_repo_root}${rel:+/${rel%/}}"
+  # An empty $rel is only a valid "at the repo root" answer when project_root
+  # actually IS repo_root. If --show-prefix failed or returned empty for a
+  # project_root that is a subproject (not the repo root), re-anchoring would
+  # silently alias that subproject onto main_repo_root's own state file,
+  # collapsing multiple projects' defer/suppress state together — fall back
+  # to the unanchored project_root key instead.
+  if [ -n "$rel" ] || [ "$project_root" = "$repo_root" ]; then
+    state_key="${main_repo_root}${rel:+/${rel%/}}"
+  else
+    state_key="$project_root"
+  fi
 else
   state_key="$project_root"
 fi
