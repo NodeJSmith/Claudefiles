@@ -88,7 +88,7 @@ A subagent (e.g. the Step 4 clean-code-executor) cannot ask this question itself
 1. Record the dispatch and capture its ID: `cfl dispatch severity-fixer --agent-type general-purpose --model sonnet`
 2. Dispatch a `general-purpose` subagent (`model: sonnet`, `cfl_dispatch_id: <dispatch_id>`) scoped to only this one finding — its description, affected files, and the instruction "fix only this; do not expand scope."
 3. After it completes: `cfl dispatch end <dispatch_id>`
-4. Run `code-reviewer` once on the changed files. **FAIL:** tell the user the fix attempt failed and re-raise this same Severity Escalation prompt rather than silently proceeding — do not loop automatically. **PASS:** re-run the project test suite (`<dir>/test-command.txt`) and, unless it contains the "no lint tools" sentinel, lint (`<dir>/lint-command.txt`); on a clean result the finding is resolved and nothing gets recorded in `known-issues.md` — resume the pipeline step that raised this prompt.
+4. Record a reviewer dispatch (`cfl dispatch severity-review --agent-type code-reviewer --model sonnet`), capture `review_dispatch_id`, and run `code-reviewer` once on the changed files with `cfl_dispatch_id: <review_dispatch_id>`; after it completes: `cfl dispatch end <review_dispatch_id>`. (Single-pass `code-reviewer` only, not the full `findings-fix-loop.md` rigor — this fix targets one already-identified, already-scoped issue rather than an open-ended review, so the cross-file consistency check `integration-reviewer` adds isn't needed.) **FAIL or WARN:** tell the user the fix attempt failed and re-raise this same Severity Escalation prompt rather than silently proceeding — do not loop automatically. **PASS:** re-run the project test suite (`<dir>/test-command.txt`) and, unless it contains the "no lint tools" sentinel, lint (`<dir>/lint-command.txt`). If both pass, the finding is resolved and nothing gets recorded in `known-issues.md` — resume the pipeline step that raised this prompt. If either fails, treat this the same as a code-reviewer FAIL: tell the user the fix attempt introduced a regression and re-raise this same Severity Escalation prompt rather than silently proceeding.
 
 **On "Stop here":** Leave the run active; do not call `cfl run complete`. The pipeline step that raised this prompt does not continue automatically — the user resumes later via `/mine-orchestrate`.
 
@@ -121,6 +121,8 @@ Recommended follow-up:
 Acceptance criteria:
 - <how to know the follow-up resolved it>
 ```
+
+`Status:` starts as `open` and moves to one of: `resolved — fixed during known issues walkthrough` (Step 5.6 "Fix now" in `post-execution-pipeline.md`), `filed (#<issue-number>)` (Step 5.6 "File as GitHub issue"), or stays `open` (Step 5.6 "Leave deferred", or no walkthrough decision yet).
 
 Keep entries concise. They should be detailed enough for a later agent to act without reconstructing the orchestration context.
 
