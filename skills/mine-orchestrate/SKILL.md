@@ -19,7 +19,7 @@ $ARGUMENTS — path to a feature directory (`design/specs/NNN-feature/`) or a sp
 If context compaction occurs mid-orchestration (new session, context window reset), resume by:
 
 1. Run `/mine-status` for quick orientation (branch, last commit, errors)
-2. Run `cfl run status` to recover full orchestration state (task list with statuses, `last_completed`, `current_task`, `tmpdir`, `base_commit`)
+2. Run `cfl run status` to recover full orchestration state (task list with statuses, `last_completed`, `current_task`, `tmpdir`, `base_commit`, `run_id`)
 3. Re-invoke `/mine-orchestrate <feature_dir>` — the resume detection in Phase 0 will pick up where you left off
 
 **Automatic resets:** At each task boundary, the context reset check (between Step 17 and "Loop to next task") reads context % from the current session's own sidecar. If it exceeds `${ORCHESTRATE_RESET_PCT:-40}` and tasks remain, and a tmux session name plus the relay tools (`orchestrate-self-reset`, `rc-send-ready`) are all available, it launches `orchestrate-self-reset` via `setsid` (new process group, survives past the launching turn) and exits. If any of those preconditions are missing, the reset is skipped and orchestration continues normally. The relay waits for idle, sends `/clear`, then re-invokes `/mine-orchestrate`. A session-scoped marker file (`${ORCHESTRATE_RESET_TMPDIR:-/tmp}/claude-orchestrate-auto-reset-<session>.marker`) tells the resume protocol to auto-resume without prompting. The reset log is at `${ORCHESTRATE_RESET_TMPDIR:-/tmp}/orchestrate-self-reset-<session>.log`.
@@ -71,9 +71,9 @@ Read `<feature_dir>/design.md` to understand the overall architecture and constr
 
 ### Known issues artifact
 
-Known issues discovered during orchestration are recorded durably using `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md`. Read that protocol before the first task reaches any review/fix decision that may defer a real issue.
+Known issues discovered during orchestration are recorded durably using `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md`. Read that protocol before the first task reaches any review/fix decision that may defer a real issue. The protocol's Severity Gate is what stops severe, user-blocking issues from being recorded as a silent deferral: at the fixer-loop call sites it forces an `unresolved` classification into the existing gate machinery, and at the direct-suggestion call sites (no fixer loop involved) it raises a dedicated Severity Escalation prompt instead — see the protocol for the exact mechanics at each site. Either way, a human decides explicitly rather than an agent unilaterally deciding an issue is fine to bury in a file.
 
-Do not create the known-issues artifact preemptively. Create it only when a qualifying issue is intentionally left unfixed.
+Do not create the known-issues artifact preemptively. Create it only when a qualifying issue is intentionally left unfixed. Every entry must carry `Run: <run_id>` (the current `cfl run status` `run_id`) — this is what lets `post-execution-pipeline.md` Step 5.6 tell entries recorded during this orchestration run apart from backlog from an earlier run, and it survives the automatic context-reset/`/clear` cycle below (a plain in-context list would not).
 
 ### Read all task files
 

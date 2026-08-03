@@ -30,6 +30,7 @@ For each pass (normal or classify-mode), dispatch a `general-purpose` subagent w
 
 Include in the fixer's prompt:
 - `cfl_dispatch_id: <dispatch_id>` (the ID from the preceding `cfl dispatch` call)
+- `run_id` — the `run_id` field from `cfl run status`, so any known-issues.md entry the fixer records carries `Run: <run_id>` (see `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md`). **WP scope:** call `cfl run status` fresh right before assembling these inputs, every time — do not reuse a value read earlier in the task loop. This loop is invoked once per task across potentially many tasks, and the automatic context-reset/`/clear` cycle (`SKILL.md`, "Automatic resets") can land between any two of them, so a value carried in conversational memory cannot be trusted; a fresh `cfl run status` call is a cheap DB read that is always correct regardless of reset history. **Final scope:** reuse the `run_id` from Step 1's `cfl run status` call in `post-execution-pipeline.md` — the final pass runs once, with no reset boundary inside it, so re-querying isn't necessary.
 - Path to `<scope_dir>/code-review.md`
 - Path to `<scope_dir>/integration-review.md`
 - Path to the design doc for this feature
@@ -60,7 +61,7 @@ When running the terminal classify-mode pass, add to the fixer prompt:
 
 > **This is a classify-only pass. Apply no code changes.** Read the review files and classify every finding in the ledger only.
 >
-> For every deferred finding that is **not** `deferred(later-task: <task_id>)`, read `known-issues-protocol.md` and record the issue in `<feature_dir>/known-issues.md` before treating it as acceptable. Use the protocol's qualifying criteria; if the issue does not qualify, classify it as `unresolved` instead of silently deferring it. Faithful-port bugs are valid known issues when fixing them would break port fidelity.
+> For every deferred finding that is **not** `deferred(later-task: <task_id>)`, read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md` and check the qualifying criteria first. If the finding doesn't qualify — invalid after verify-before-fix, already fixed, or one of the protocol's "Do not record" cases — classify it as `rejected(<one-line reason>)`; this is a complete outcome, not a gate failure. If it qualifies, check the Severity Gate before recording the issue in `<feature_dir>/known-issues.md`: if it trips the gate (user-visible breakage with no explanation, silent data loss, security exposure, or the core workflow blocked entirely), classify it as `unresolved` instead of silently deferring it — the invoker's gate (Step 16 for WP scope, the `final-review` gate for the final scope) is what puts the decision in front of the user, not this pass. Faithful-port bugs are valid known issues when fixing them would break port fidelity, unless the bug is itself severe enough to trip the Severity Gate. When an issue qualifies and clears the Severity Gate, include `Run: <run_id>` (the value passed into this prompt) in the entry.
 
 ### The ledger
 
@@ -71,14 +72,15 @@ After processing all findings, the fixer writes `<scope_dir>/fix-ledger.md`, **o
 [SEVERITY] file:line — deferred(<reason>; known-issue: KI-###)
 [SEVERITY] file:line — deferred(<reason>; pending terminal classification)
 [SEVERITY] file:line — deferred(later-task: <task_id>)   # WP scope only
+[SEVERITY] file:line — rejected(<reason>)
 [SEVERITY] file:line — unresolved: <brief description>
 ```
 
-Rows are descriptive. They are not keyed by a cross-agent finding ID and are never matched across passes or agents. The orchestrator reads only the row classifications (`fixed`, `deferred`, `unresolved`) and any `known-issue: KI-###` references for the task/final summary — it never reads a review body and never compares ledger rows against prior-pass ledgers.
+Rows are descriptive. They are not keyed by a cross-agent finding ID and are never matched across passes or agents. The orchestrator reads only the row classifications (`fixed`, `deferred`, `rejected`, `unresolved`) and any `known-issue: KI-###` references for the task/final summary — it never reads a review body and never compares ledger rows against prior-pass ledgers.
 
 In terminal state B, non-later-task deferred rows must include a `known-issue: KI-###` reference. A terminal deferred row without either `later-task: <task_id>` (WP scope only) or `known-issue: KI-###` is invalid and counts as `unresolved` for the gate. `pending terminal classification` is allowed only in ledgers from normal fixer passes that are followed by re-review.
 
-The fixer ends its response with a one-line summary: `fixed: N, deferred: M, unresolved: K`
+The fixer ends its response with a one-line summary: `fixed: N, deferred: M, rejected: R, unresolved: K`
 
 ## Loop
 
@@ -132,7 +134,7 @@ The fixer ends its response with a one-line summary: `fixed: N, deferred: M, unr
 If the iteration 3 re-review still has a WARN or FAIL verdict on either reviewer:
 
 1. Record the classify-mode fixer dispatch (`cfl dispatch fixer <task_id> --agent-type general-purpose --model sonnet` for WP scope, `cfl dispatch fixer --agent-type general-purpose --model sonnet` for final scope), capture `dispatch_id`. Dispatch the fixer subagent in **classify-mode** with the iteration 3 re-review file paths and the updated changed-files list. After completion: `cfl dispatch end <dispatch_id>`.
-2. The fixer reads the latest reviews, classifies every remaining finding as `fixed`, `deferred(reason)` with required known-issue recording for non-later-task deferrals, or `unresolved`, and writes `<scope_dir>/fix-ledger.md` (overwrites). **No code changes.** It may edit `<feature_dir>/known-issues.md` because that is documentation of the classification, not a code fix.
+2. The fixer reads the latest reviews, classifies every remaining finding as `fixed`, `deferred(reason)` with required known-issue recording for non-later-task deferrals, `rejected(reason)` for findings that don't qualify per `known-issues-protocol.md`, or `unresolved`, and writes `<scope_dir>/fix-ledger.md` (overwrites). **No code changes.** It may edit `<feature_dir>/known-issues.md` because that is documentation of the classification, not a code fix.
 3. Do not re-dispatch reviewers after the classify-mode pass. The terminal ledger now reflects the latest review's findings. Proceed to the Gate section (terminal state B).
 
 ## Gate
@@ -144,19 +146,19 @@ The loop reaches the gate in one of two terminal states.
 **Terminal state B — budget exhausted (classify-mode ledger).** Both fixer passes ran and the latest re-review still returned a WARN or FAIL verdict on either reviewer, so the classify-mode pass wrote the terminal ledger against that latest review. Read the terminal ledger:
 
 - **Any `unresolved` row → the fixer gate result is FAIL.**
-- **No `unresolved` rows and every non-later-task deferred row includes an artifact-backed `known-issue: KI-###` reference (only `fixed` and/or valid `deferred`, or an empty ledger) → the fixer gate result is PASS.** For each referenced ID, read `<feature_dir>/known-issues.md` and verify the ID exists as an entry that records the corresponding finding. Missing, malformed, or fabricated IDs do not satisfy the row; classify that row as `unresolved`, making the fixer gate result FAIL. Count the `fixed` rows; carry a `(N auto-fixed)` note forward.
+- **No `unresolved` rows and every non-later-task deferred row includes an artifact-backed `known-issue: KI-###` reference (only `fixed`, `rejected`, and/or valid `deferred`, or an empty ledger) → the fixer gate result is PASS.** For each referenced ID, read `<feature_dir>/known-issues.md` and verify the ID exists as an entry that records the corresponding finding. Missing, malformed, or fabricated IDs do not satisfy the row; classify that row as `unresolved`, making the fixer gate result FAIL. Count the `fixed` rows; carry a `(N auto-fixed)` note forward.
 
-In both states the orchestrator reads only the ledger (for counts, classification, and known-issue IDs) and the canonical verdict lines — never a review report body, and it never matches findings across agents. The ledger is the sole input for the FAIL determination. **AC#6 holds** (originally a WP-scope acceptance criterion in spec 034; the same discipline now applies at the final scope too): every finding the latest review reported is recorded in the ledger as `fixed`, valid `deferred(reason)`, or (in state B) `unresolved` — none are silently skipped, at any severity, in any scope.
+In both states the orchestrator reads only the ledger (for counts, classification, and known-issue IDs) and the canonical verdict lines — never a review report body, and it never matches findings across agents. The ledger is the sole input for the FAIL determination. **AC#6 holds** (originally a WP-scope acceptance criterion in spec 034; the same discipline now applies at the final scope too): every finding the latest review reported is recorded in the ledger as `fixed`, valid `deferred(reason)`, `rejected(reason)`, or (in state B) `unresolved` — none are silently skipped, at any severity, in any scope.
 
 After the gate evaluation, the changed-files list is current from the last loop re-capture (`<scope_dir>/changed-files.txt` for WP scope; the last `git diff` for final scope). WP scope: this is the list used by Step 17a (commit). The classify-mode terminal pass makes no code changes, so no additional re-capture is needed after it.
 
 ## Event Logging
 
-After the loop completes (gate decided), emit a fix event with the counts from the terminal ledger (or from the fixer's one-line summary return). For terminal state A, count only fixed rows; deferred/unresolved rows in the stale ledger do not carry forward. Iteration count = number of review passes run (2 after one fixer cycle, 3 after two fixer cycles):
+After the loop completes (gate decided), emit a fix event with the counts from the terminal ledger (or from the fixer's one-line summary return). For terminal state A, count only fixed rows; deferred/rejected/unresolved rows in the stale ledger do not carry forward. Iteration count = number of review passes run (2 after one fixer cycle, 3 after two fixer cycles):
 
 ```bash
-cfl event task.fixed <task_id> --data '{"fixed": <N>, "deferred": <M>, "unresolved": <K>, "iteration": <iteration count>}'   # WP scope
-cfl event review.fixed --data '{"fixed": <N>, "deferred": <M>, "unresolved": <K>, "iteration": <iteration count>}'             # final scope — no task_id; this is a run-level event
+cfl event task.fixed <task_id> --data '{"fixed": <N>, "deferred": <M>, "rejected": <R>, "unresolved": <K>, "iteration": <iteration count>}'   # WP scope
+cfl event review.fixed --data '{"fixed": <N>, "deferred": <M>, "rejected": <R>, "unresolved": <K>, "iteration": <iteration count>}'             # final scope — no task_id; this is a run-level event
 ```
 
 Return the **fixer gate result** (PASS or FAIL, plus the `(N auto-fixed)` count or the `unresolved` reasons) to the invoker. WP scope: the orchestrator continues to Step 13 regardless and folds this result into the single Step 14 verdict assembly (the single authoritative gate); this loop does **not** route to Step 16 itself — the `(N auto-fixed)` note surfaces in Step 15, and a FAIL fixer gate result becomes a Step 14 FAIL, which Step 16 then gates. Final scope: the invoker (Step 5) records the fixer gate result directly as the `final-review` gate verdict.
