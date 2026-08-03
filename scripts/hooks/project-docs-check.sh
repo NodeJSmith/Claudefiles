@@ -111,7 +111,9 @@ if [ -n "$git_common_dir" ]; then
     /*) : ;;
     *) git_common_dir="$project_root/$git_common_dir" ;;
   esac
-  main_repo_root="$(cd "$(dirname "$git_common_dir")" && pwd)"
+  # -P (physical) — kept in lockstep with project-meta-prompt.sh's identical
+  # canonicalization of the same git-common-dir-derived value.
+  main_repo_root="$(cd "$(dirname -- "$git_common_dir")" && pwd -P)" || main_repo_root=""
   worktree_root="$repo_root"
   if [ "$main_repo_root" != "$worktree_root" ]; then
     # Preserve the project's offset within the worktree (e.g. services/api)
@@ -162,7 +164,7 @@ options:
   - label: "Never ask again"
     description: "Permanently suppress this prompt for this project"
 
-If "Yes": invoke /mine-document with \$ARGUMENTS set to '$project_root' (its own Phase 1 will ask where to write and what to cover). Then delete the state file at $state_file unless it contains "status": "suppressed".
+If "Yes": invoke /mine-document with \$ARGUMENTS describing the subject as "the '$project_root' project" (its own Phase 1 will ask what to cover). /mine-document's own directory question computes a path relative to the current session, which is the monorepo root here, not this subproject — when it asks where to write, choose "docs/ directory" but override the computed path so the document is written under '$project_root/docs/' (create that directory if it doesn't exist), not under the monorepo root's docs/. Then delete the state file at $state_file unless it contains "status": "suppressed".
 
 If "Not right now": write/update the state file ($state_file) with escalating deferral.
 Deferral schedule (days): 3, 7, 14, 30. Read the current tier from the file (default 0), bump by 1 (cap at last index), and write:

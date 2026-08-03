@@ -26,12 +26,15 @@ fi
 # Keyed on the shared .git dir (via git-common-dir) rather than pwd, so a
 # worktree's answer persists at the main clone's project dir instead of the
 # worktree's own path — which is deleted once the worktree's task is done.
+# -P (physical) so a symlinked path segment above the repo resolves to the
+# same key project-docs-check.sh would compute for the same repo — keep
+# these two hooks' canonicalization in lockstep.
 config_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 git_common_dir=$(git rev-parse --git-common-dir 2> /dev/null)
 if [ -n "$git_common_dir" ]; then
-  repo_key=$(cd "$(dirname "$git_common_dir")" && pwd)
+  repo_key=$(cd "$(dirname "$git_common_dir")" && pwd -P)
 else
-  repo_key=$(pwd)
+  repo_key=$(pwd -P)
 fi
 project_dir="$config_dir/projects/$(echo "$repo_key" | tr '/.' '--')"
 state_file="$project_dir/project-meta-prompt.json"
