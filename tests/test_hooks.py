@@ -17,6 +17,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).parent.parent
 COMPACTION_HOOK = REPO_ROOT / "scripts" / "hooks" / "subagent-compaction-check.sh"
 BASH_HISTORY_HOOK = REPO_ROOT / "scripts" / "hooks" / "bash-history-capture.py"
+DOCS_CHECK_HOOK = REPO_ROOT / "scripts" / "hooks" / "project-docs-check.sh"
 
 
 def run_hook(
@@ -536,6 +537,199 @@ class TestCompactionHookNoSubagentDir:
 
             assert result.returncode == 0
             assert result.stdout.strip() == ""
+
+
+# ---------------------------------------------------------------------------
+# project-docs-check.sh tests
+# ---------------------------------------------------------------------------
+
+
+def _git_init(path: Path) -> None:
+    subprocess.run(["git", "init", "-q"], cwd=path, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@test.com"], cwd=path, check=True
+    )
+    subprocess.run(["git", "config", "user.name", "test"], cwd=path, check=True)
+    subprocess.run(["git", "add", "-A"], cwd=path, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "init", "--allow-empty"], cwd=path, check=True
+    )
+
+
+def _make_docs_check_input(session_id: str, file_path: Path) -> str:
+    return json.dumps(
+        {"session_id": session_id, "tool_input": {"file_path": str(file_path)}}
+    )
+
+
+def _run_docs_check(
+    session_id: str,
+    file_path: Path,
+    tmpdir: str,
+    config_dir: str,
+    timeout: int = 6,
+) -> subprocess.CompletedProcess:
+    return run_hook(
+        DOCS_CHECK_HOOK,
+        _make_docs_check_input(session_id, file_path),
+        tmpdir,
+        extra_env={"CLAUDE_CONFIG_DIR": config_dir},
+        timeout=timeout,
+    )
+
+
+class TestDocsCheckPromptsWhenMissing:
+    """Hook prompts when a touched project has no docs/ directory."""
+
+    def test_prompts_for_undocumented_project(self):
+        with (
+            tempfile.TemporaryDirectory() as repo,
+            tempfile.TemporaryDirectory() as tmpdir,
+            tempfile.TemporaryDirectory() as config_dir,
+        ):
+            repo = Path(repo)
+            project = repo / "services" / "api"
+            project.mkdir(parents=True)
+            (project / "package.json").write_text("{}")
+            _git_init(repo)
+
+            sid = f"docs-{uuid.uuid4().hex[:8]}"
+            file_path = project / "main.py"
+            file_path.write_text("")
+
+            result = _run_docs_check(sid, file_path, tmpdir, config_dir)
+
+            assert result.returncode == 0
+            assert "AskUserQuestion" in result.stdout
+            assert str(project) in result.stdout
+
+
+class TestDocsCheckSilentWhenDocsPresent:
+    """Hook is silent when the project already has a non-empty docs/ directory."""
+
+    def test_silent_when_documented(self):
+        with (
+            tempfile.TemporaryDirectory() as repo,
+            tempfile.TemporaryDirectory() as tmpdir,
+            tempfile.TemporaryDirectory() as config_dir,
+        ):
+            repo = Path(repo)
+            project = repo / "services" / "web"
+            (project / "docs").mkdir(parents=True)
+            (project / "package.json").write_text("{}")
+            (project / "docs" / "overview.md").write_text("# Web docs")
+            _git_init(repo)
+
+            sid = f"docs-{uuid.uuid4().hex[:8]}"
+            file_path = project / "index.js"
+            file_path.write_text("")
+
+            result = _run_docs_check(sid, file_path, tmpdir, config_dir)
+
+            assert result.returncode == 0
+            assert result.stdout.strip() == ""
+
+
+class TestDocsCheckDedup:
+    """Second touch of the same project in the same session stays silent."""
+
+    def test_dedup_within_session(self):
+        with (
+            tempfile.TemporaryDirectory() as repo,
+            tempfile.TemporaryDirectory() as tmpdir,
+            tempfile.TemporaryDirectory() as config_dir,
+        ):
+            repo = Path(repo)
+            project = repo / "services" / "api"
+            project.mkdir(parents=True)
+            (project / "package.json").write_text("{}")
+            _git_init(repo)
+
+            sid = f"docs-{uuid.uuid4().hex[:8]}"
+            file_a = project / "a.py"
+            file_a.write_text("")
+            file_b = project / "b.py"
+            file_b.write_text("")
+
+            result1 = _run_docs_check(sid, file_a, tmpdir, config_dir)
+            assert "AskUserQuestion" in result1.stdout
+
+            result2 = _run_docs_check(sid, file_b, tmpdir, config_dir)
+            assert result2.stdout.strip() == ""
+
+
+class TestDocsCheckSuppressedState:
+    """Hook stays silent once a project's state file is suppressed."""
+
+    def test_silent_when_suppressed(self):
+        with (
+            tempfile.TemporaryDirectory() as repo,
+            tempfile.TemporaryDirectory() as tmpdir,
+            tempfile.TemporaryDirectory() as config_dir,
+        ):
+            repo = Path(repo)
+            project = repo / "services" / "api"
+            project.mkdir(parents=True)
+            (project / "package.json").write_text("{}")
+            _git_init(repo)
+
+            encoded = str(project).replace("/", "-").replace(".", "-")
+            state_dir = Path(config_dir) / "projects" / encoded
+            state_dir.mkdir(parents=True)
+            (state_dir / "docs-check.json").write_text(
+                json.dumps({"status": "suppressed"})
+            )
+
+            sid = f"docs-{uuid.uuid4().hex[:8]}"
+            file_path = project / "main.py"
+            file_path.write_text("")
+
+            result = _run_docs_check(sid, file_path, tmpdir, config_dir)
+
+            assert result.returncode == 0
+            assert result.stdout.strip() == ""
+
+
+class TestDocsCheckSymlinkNoHang:
+    """Regression: touching a project through a symlinked path must not hang.
+
+    The walk-up loop previously compared a logical path (preserving symlinks)
+    against `git rev-parse --show-toplevel`'s physically-resolved output —
+    when a symlink sat above the repo with no project marker in between, the
+    two never matched and the loop spun until the hook's external timeout.
+    """
+
+    def test_symlinked_path_does_not_hang(self):
+        with (
+            tempfile.TemporaryDirectory() as real_base,
+            tempfile.TemporaryDirectory() as tmpdir,
+            tempfile.TemporaryDirectory() as config_dir,
+        ):
+            real_base = Path(real_base)
+            repo = real_base / "repo"
+            (repo / "sub" / "proj").mkdir(parents=True)
+            _git_init(repo)
+
+            linked_base = real_base.parent / f"linked-{uuid.uuid4().hex[:8]}"
+            linked_base.symlink_to(real_base)
+            try:
+                sid = f"docs-{uuid.uuid4().hex[:8]}"
+                (repo / "sub" / "proj" / "f.py").write_text("")
+                file_path = linked_base / "repo" / "sub" / "proj" / "f.py"
+
+                result = _run_docs_check(sid, file_path, tmpdir, config_dir, timeout=6)
+
+                assert result.returncode == 0
+                message = json.loads(result.stdout)["hookSpecificOutput"][
+                    "additionalContext"
+                ]
+                # The canonicalized (physical) path is used, not the symlinked one —
+                # proves the walk-up loop terminated against the same path git did,
+                # and the state key wasn't built by concatenating the two.
+                assert str(repo) in message
+                assert str(linked_base) not in message
+            finally:
+                linked_base.unlink()
 
 
 # ---------------------------------------------------------------------------
