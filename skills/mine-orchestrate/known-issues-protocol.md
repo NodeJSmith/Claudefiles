@@ -126,7 +126,7 @@ Acceptance criteria:
 
 Keep entries concise. They should be detailed enough for a later agent to act without reconstructing the orchestration context.
 
-`Run: <run_id>` is the `run_id` field from `cfl run status` (also returned by `cfl run start` / `cfl run advance-phase orchestrate`) — the same run persists across the automatic context-reset/`/clear` cycle described in `SKILL.md`'s "Context reset check", so this field, not conversational memory, is what the Step 5.6 walkthrough uses to tell entries recorded in this orchestration run apart from backlog left over from an earlier run on the same feature. Every writer of a known-issues entry (fixer subagents and the orchestrator's own direct recordings) must read the current `run_id` and include it.
+`Run: <run_id>` is the `run_id` field from `cfl run status` (also returned by `cfl run start` / `cfl run advance-phase orchestrate`) — the same run persists across a mid-run session boundary (resume after context compaction, a manual `/clear`, or a crash/restart), so this field, not conversational memory, is what the Step 5.6 walkthrough uses to tell entries recorded in this orchestration run apart from backlog left over from an earlier run on the same feature. Every writer of a known-issues entry (fixer subagents and the orchestrator's own direct recordings) must read the current `run_id` and include it.
 
 ## Gate Rule
 
