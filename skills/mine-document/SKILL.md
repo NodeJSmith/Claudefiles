@@ -89,6 +89,16 @@ Default to complex when uncertain.
 
 ## Phase 2: Investigate
 
+### Check prior conversations
+
+Run:
+
+```bash
+ccrecall --json search-messages -q "<the subject>" -n 5
+```
+
+If it returns relevant matches, condense them into a short digest (what was discussed, when) to pass along as `<prior-context>` — useful for the "Key decisions and invariants" section, since rationale is often discussed in conversation and never written into a commit or doc. If nothing relevant comes back, skip this — don't pad the prompt with a null result.
+
 ### Simple path
 
 Dispatch one agent:
@@ -104,6 +114,7 @@ Write a durable subsystem explanation based on actual code.
 
 Subject: <the user's subject>
 [If <prior-content> exists] Prior version of this document (preserve manually-added material that the investigation still supports): <prior-content>
+[If <prior-context> exists] A past conversation touched on this — verify it against current code before relying on it, don't trust it blindly: <prior-context>
 
 Instructions:
 1. Find the relevant files using Grep and Glob
@@ -178,6 +189,7 @@ Synthesize explorer findings into a durable subsystem explanation.
 
 Subject: <the user's subject>
 [If <prior-content> exists] Prior version of this document (preserve manually-added material that the investigation still supports): <prior-content>
+[If <prior-context> exists] A past conversation touched on this — verify it against current code before relying on it, don't trust it blindly: <prior-context>
 
 Explorer findings (read each file):
 <list of explorer-N.md paths>

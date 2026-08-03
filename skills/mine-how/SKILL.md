@@ -51,6 +51,16 @@ When uncertain, default to complex — parallel explorers are cheap and produce 
 
 ## Phase 2: Investigate
 
+### Check prior conversations
+
+Before dispatching investigation agents, run:
+
+```bash
+ccrecall --json search-messages -q "<the user's question>" -n 5
+```
+
+If it returns relevant matches, condense them into a short digest (what was discussed, when) to pass along as `<prior-context>`. If nothing relevant comes back, skip this — don't pad the prompt with a null result.
+
 ### Simple path
 
 Dispatch one agent:
@@ -65,6 +75,7 @@ Prompt:
 Answer this question about the codebase by reading the actual code:
 
 Question: <the user's question>
+[If <prior-context> exists] A past conversation touched on this — verify it against current code before relying on it, don't trust it blindly: <prior-context>
 
 Instructions:
 1. Find the relevant files using Grep and Glob
@@ -90,7 +101,7 @@ First, decompose the question into 2-4 investigation angles. Each angle should c
 Dispatch 2-4 parallel explorer agents:
 
 ```
-Agent(subagent_type: "Explore", model: "haiku")  # for each angle
+Agent(subagent_type: "general-purpose", model: "haiku")  # for each angle
 ```
 
 Each explorer prompt:
@@ -126,6 +137,7 @@ Synthesis prompt:
 Synthesize explorer findings into a single narrative explanation.
 
 Question: <the user's question>
+[If <prior-context> exists] A past conversation touched on this — verify it against current code before relying on it, don't trust it blindly: <prior-context>
 
 Explorer findings (read each file):
 <list of explorer-N.md paths>
