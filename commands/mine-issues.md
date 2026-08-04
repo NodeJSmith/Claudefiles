@@ -23,8 +23,8 @@ Read `$ISSUE_TRACKER`.
 - **No arguments provided**: Try to infer an issue key from the current branch name before asking.
   1. Run `git branch --show-current`.
   2. Judge whether the branch name unambiguously names an issue. For `gh`, recognize the same patterns as `skills/mine-create-pr/worker.md`'s closing-keyword detection: a leading number (`123-fix-thing`), `issue-N`/`issue/N`, or `fix/N-description`, `feat/N-description`, `chore/N-description`, etc. For `jira`, a leading project-prefixed key (`PROJ-123-fix-thing` → `PROJ-123`). Don't infer from a number that's more plausibly a date, version, or something unrelated (e.g. `2026-08-cleanup`).
-  3. **If a key is inferred**: say so (e.g. "Inferred issue #123 from the branch name — deep diving.") and use it as the sole argument, continuing to Phase 3. If the lookup in Phase 3 fails (issue doesn't exist), fall back to step 4 instead of surfacing a raw tool error.
-  4. **If no key is inferred, or the inferred key's lookup failed**: ask the user which issue to deep-dive (e.g. "No issue key in the branch name — which issue should I look at? (or say 'triage' to run a batch scan instead)"). If they give a key, use it as the sole argument and continue to Phase 3. If they ask for triage, run `/mine-issues-triage`.
+  3. **If a key is inferred**: say so (e.g. "Inferred issue #123 from the branch name — deep diving.") and use it as the sole argument, continuing to Phase 3. If the Phase 3 subagent returns `LOOKUP_FAILED` (issue doesn't exist), fall back to step 4 instead of surfacing a raw tool error.
+  4. **If no key is inferred, or the inferred key's lookup failed**: ask the user which issue to deep-dive. For `gh`, mention the batch-scan fallback: "No issue key in the branch name — which issue should I look at? (or say 'triage' to run a batch scan instead)" and run `/mine-issues-triage` if they ask for it. For `jira`, omit the triage offer — `mine-issues-triage` only supports GitHub — and just ask: "No issue key in the branch name — which issue should I look at?" If they give a key, use it as the sole argument and continue to Phase 3.
 
 ## Phase 3: Deep Dive (Subagent)
 
@@ -35,6 +35,8 @@ For **each** issue key in the arguments, launch a **Task subagent** (`subagent_t
 >
 > **If `$ISSUE_TRACKER` is `jira`:**
 > Run `jira issue view <KEY> --comments 5 --plain` to get the full issue.
+>
+> If the lookup command fails or reports the issue does not exist, return exactly `LOOKUP_FAILED` and nothing else.
 >
 > Then scan the codebase for files and areas mentioned in or related to the issue (grep for keywords, check referenced file paths, look at relevant modules).
 >
