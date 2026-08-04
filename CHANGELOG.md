@@ -8,6 +8,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 - `/mine-issues` with no arguments now tries to infer an issue key from the current branch name before falling back to asking the user, instead of always kicking off a full triage scan. (#487)
 
+### Fixed
+
+- `project-docs-check.sh` no longer false-positive-nags about projects documented under a different convention than a literal `docs/` directory — when its fast-path check is inconclusive, Claude now searches the repo for existing docs before deciding to prompt. It also no longer interrupts mid-task: the prompt is now held for a natural pause (task done, about to commit) instead of firing synchronously on the edit that triggered it. (#488)
+
 ## 2026-08-03
 
 ### Added
