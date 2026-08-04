@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-08-04
+
+### Changed
+
+- `/mine-issues` with no arguments now tries to infer an issue key from the current branch name before falling back to asking the user, instead of always kicking off a full triage scan. (#487)
+
 ## 2026-08-03
 
 ### Added
