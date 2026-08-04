@@ -94,7 +94,7 @@ Conversation memory (recall, resume) now ships as the external
 |---------|-------------|
 | `mine-end-of-day` | Capture session state as a handoff file for morning pickup |
 | `mine-good-morning` | Read the handoff, orient, and resume yesterday's work |
-| `mine-issues` | Deep-dive issues by key, or scan and pick |
+| `mine-issues` | Deep-dive issues by key, inferring one from the branch name if none given |
 | `mine-permissions-audit` | Analyze frequent permission prompts and recommend allow-list entries |
 | `mine-pre-compact` | Generate a focused /compact prompt preserving what matters |
 | `mine-status` | Quick orientation — branch, tasks, errors, last commit |
