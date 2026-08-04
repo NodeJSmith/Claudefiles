@@ -4,10 +4,22 @@
 # Session cwd is always the monorepo root, so "which project" can't be known
 # at SessionStart — it only becomes clear once a file gets touched. On each
 # Edit/Write, this walks up from the touched file to the nearest project
-# boundary marker (or the repo root, if none) and checks whether that project
-# has a docs/ directory with real content. If not, and unless deferred or
-# suppressed for that project, it injects an interactive prompt offering to
-# run /mine-document there.
+# boundary marker (or the repo root, if none). It then does a cheap literal
+# check for that project's own docs/ directory — a fast path for the obvious
+# "yes, this is documented" case — and if that's inconclusive, hands the
+# question to Claude to actually look around before deciding whether to nag.
+# A hardcoded second guess at file-naming/location conventions (a flat
+# repo-root docs/document-<slug>.md, a README, whatever a given repo does)
+# would just be trading one blind spot for another; Claude searching the repo
+# handles any convention, not just the one this hook happens to know about.
+# If nothing turns up — and the project isn't already deferred, suppressed,
+# or marked resolved from a prior session's search — Claude is told to hold
+# off on interrupting: a brief one-line note now, with the actual interactive
+# prompt saved for a natural pause (task done, about to commit, user moving
+# on) rather than firing mid-edit on top of whatever it was doing. A
+# "pending_ask" marker is written to the state file the moment that decision
+# is made, so a promised-but-not-yet-asked prompt survives even if the
+# instruction itself falls out of context before the pause arrives.
 #
 # Session dedup: ${CLAUDE_CODE_TMPDIR:-/tmp}/claude-docs-check-<session_id>.txt
 #   One line per project root already handled this session (docs found,
@@ -92,8 +104,9 @@ touch "$session_cache" 2> /dev/null || exit 0
 grep -qxF "$project_root" "$session_cache" 2> /dev/null && exit 0
 printf '%s\n' "$project_root" >> "$session_cache" 2> /dev/null
 
-# Docs check — docs/ must exist and be non-empty. A bare README.md at the
-# project root doesn't count; this is about real documentation, not a stub.
+# Fast-path docs check — see header comment. A non-empty docs/ dir right at
+# the project root is an unambiguous yes; anything else falls through to
+# Claude's judgment below rather than a second bash-side guess.
 docs_dir="$project_root/docs"
 if [ -d "$docs_dir" ] && [ -n "$(find "$docs_dir" -mindepth 1 -print -quit 2> /dev/null)" ]; then
   exit 0
@@ -152,12 +165,17 @@ defer_suppress_should_skip "$state_file" && exit 0
 
 message="$(
   cat << PROMPT
-Project '$project_root' doesn't have real documentation in docs/ yet (checked because a file inside it was just edited). IMPORTANT: You MUST present this via AskUserQuestion and wait for the user's response — do NOT choose an option or proceed on their behalf.
+A file inside project '$project_root' was just edited. It has no docs/ directory of its own, but that doesn't mean it's undocumented — this repo may cover it under a different convention (a flat file at the repo root's docs/, a substantive README, a doc elsewhere named after the project, etc.).
+
+Step 1 — search: look for documentation that already substantively covers this project before assuming there is none. A stub or a one-line README doesn't count; real coverage does.
+
+- If you find real documentation covering it, write {"status": "resolved"} to $state_file (so future sessions don't repeat this search) and do nothing further — no prompt needed, no need to mention this check to the user.
+- If you don't find anything, do NOT interrupt what you're doing to ask about it right now. Write {"status": "pending_ask"} to $state_file — a durable marker that a prompt is owed, in case this instruction falls out of context before you get to ask (long session, compaction, etc.); if a future session finds "pending_ask" here, treat it exactly like finding nothing (re-run this same check). If $state_file already exists and has a "tier" field (from a prior deferral cycle), carry it forward into the pending_ask object — {"status": "pending_ask", "tier": <existing tier>} — instead of dropping it; otherwise omit "tier". This keeps the escalation schedule below intact if the user defers again. Then, the next time you produce a text response to the user (not another tool call), add one short, non-blocking note (e.g. "(unrelated: '$project_root' isn't documented yet — I'll check in about that before we wrap up here)") and keep going with the actual work. Hold the question below for a natural pause instead: right before you report the current task/request as complete, immediately before creating a git commit, or whenever the user's own message signals they're moving on to something else. At that point — but not before — IMPORTANT: you MUST present it via AskUserQuestion and wait for the user's response — do NOT choose an option or proceed on their behalf, and do NOT let it quietly drop; raise it before the exchange ends. Once asked, handle the answer per the branches below, which also replace the "pending_ask" marker with the outcome's own state.
 
 Ask using AskUserQuestion with these exact options:
 
 header: "Project docs"
-question: "'$project_root' doesn't have a docs/ directory with real content yet. Want to generate one with /mine-document?"
+question: "'$project_root' doesn't appear to have real documentation yet. Want to generate some with /mine-document?"
 options:
   - label: "Yes, document it"
     description: "Run /mine-document scoped to this project"
@@ -166,7 +184,7 @@ options:
   - label: "Never ask again"
     description: "Permanently suppress this prompt for this project"
 
-If "Yes": invoke /mine-document with \$ARGUMENTS describing the subject as "the '$project_root' project" (its own Phase 1 will ask what to cover). /mine-document's own directory question computes a path relative to the current session, which is the monorepo root here, not this subproject — when it asks where to write, choose "docs/ directory" but override the computed path so the document is written under '$project_root/docs/' (create that directory if it doesn't exist), not under the monorepo root's docs/. Then delete the state file at $state_file unless it contains "status": "suppressed".
+If "Yes": invoke /mine-document with \$ARGUMENTS describing the subject as "the '$project_root' project" (its own Phase 1 will ask what to cover). When it asks where to write the doc, decide the location the same way you decided this in Step 1's search: if this repo already documents other projects somewhere (per-project docs/ folders, a flat repo-root docs/document-<slug>.md, or anything else), put this doc in the same place, following the same naming. If no such precedent exists anywhere in the repo, choose "docs/ directory" and let /mine-document use its own default path — that resolves relative to the current session's cwd (this monorepo's root), not '$project_root'. Then delete the state file at $state_file unless it contains "status": "suppressed".
 
 If "Not right now": write/update the state file ($state_file) with escalating deferral.
 Deferral schedule (days): 3, 7, 14, 30. Read the current tier from the file (default 0), bump by 1 (cap at last index), and write:

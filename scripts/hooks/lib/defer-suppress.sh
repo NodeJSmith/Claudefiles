@@ -5,6 +5,17 @@
 # State file format:
 #   {"status": "suppressed"}
 #   {"status": "deferred", "tier": <int>, "prompt_after": "<YYYY-MM-DD>"}
+#   {"status": "resolved"}
+#
+# "resolved" is for callers whose check can be satisfied by something other
+# than the user's answer to the prompt -- e.g. project-docs-check.sh writes
+# it when Claude's own search finds the condition (docs already exist) was
+# already true, so future sessions skip re-running that search. Skip effect
+# is identical to "suppressed"; kept as a separate value so a human reading
+# the state file can tell "the condition was already met" apart from "the
+# user said stop asking." Same permanence caveat as "suppressed": if the
+# docs this was resolved against get deleted, nothing re-checks until the
+# state file is removed.
 #
 # Usage (caller sources this, then):
 #   defer_suppress_should_skip "$state_file" && exit 0
@@ -30,7 +41,9 @@ except (OSError, json.JSONDecodeError):
     print('', '')
 " "$state_file" 2> /dev/null)
 
-  [ "$status" = "suppressed" ] && return 0
+  case "$status" in
+    suppressed | resolved) return 0 ;;
+  esac
 
   if [ "$status" = "deferred" ]; then
     local today
