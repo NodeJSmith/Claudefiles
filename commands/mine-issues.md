@@ -22,7 +22,7 @@ Read `$ISSUE_TRACKER`.
 - **Arguments provided**: Continue to Phase 3 (Deep Dive).
 - **No arguments provided**: Try to infer an issue key from the current branch name before asking.
   1. Run `git branch --show-current`.
-  2. Judge whether the branch name unambiguously names an issue — a leading number for `gh` (`123-fix-thing` → `123`), or a leading project-prefixed key for `jira` (`PROJ-123-fix-thing` → `PROJ-123`). Don't infer from a number that's more plausibly a date, version, or something unrelated (e.g. `2026-08-cleanup`).
+  2. Judge whether the branch name unambiguously names an issue. For `gh`, recognize the same patterns as `skills/mine-create-pr/worker.md`'s closing-keyword detection: a leading number (`123-fix-thing`), `issue-N`/`issue/N`, or `fix/N-description`, `feat/N-description`, `chore/N-description`, etc. For `jira`, a leading project-prefixed key (`PROJ-123-fix-thing` → `PROJ-123`). Don't infer from a number that's more plausibly a date, version, or something unrelated (e.g. `2026-08-cleanup`).
   3. **If a key is inferred**: say so (e.g. "Inferred issue #123 from the branch name — deep diving.") and use it as the sole argument, continuing to Phase 3. If the lookup in Phase 3 fails (issue doesn't exist), fall back to step 4 instead of surfacing a raw tool error.
   4. **If no key is inferred, or the inferred key's lookup failed**: ask the user which issue to deep-dive (e.g. "No issue key in the branch name — which issue should I look at? (or say 'triage' to run a batch scan instead)"). If they give a key, use it as the sole argument and continue to Phase 3. If they ask for triage, run `/mine-issues-triage`.
 
