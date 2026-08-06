@@ -179,7 +179,7 @@ Skip this section (and the dispatch record above) if the researcher was not disp
 
 ## Phase 3.5: Blind Spot Self-Assessment (moderate+ only)
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-define/blind-spot-protocol.md` and follow it.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-define/blind-spot-protocol.md` and follow it. It triages your own uncertainty into five dispositions — probe with a subagent, extend the design, decide yourself, ask the user, or note — dispatches the probes automatically, and emits the `define-blindspot` gate. Its closed gaps, decisions, confirmed facts, and still-open items feed Phase 4.
 
 ---
 
@@ -199,7 +199,9 @@ If the work touches frontend (CSS, components, layouts, styles), check for desig
 
 ### Write design.md
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-define/design-template.md` and use it as the template. Populate each section from the research brief, discovery answers, and codebase reconnaissance. Be specific — reference actual file paths, class names, and patterns found during investigation.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-define/design-template.md` and use it as the template. Populate each section from the research brief, discovery answers, codebase reconnaissance, and the Phase 3.5 blind-spot results. Be specific — reference actual file paths, class names, and patterns found during investigation.
+
+If Phase 3.5 ran (moderate+ only), carry its results forward explicitly: state anything a probe confirmed as fact with its evidence, not as a hedged assumption; write out the sections its Extend items identified as missing; record each Ask answer and each Decide with the option chosen and the alternative rejected; fold refutations into the affected sections; and put every Note, every INCONCLUSIVE probe, and every Ask the user answered with "Leave open" into Open Questions with what was already tried.
 
 ### Record design doc written
 

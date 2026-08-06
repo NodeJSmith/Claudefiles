@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-08-06
+
+### Changed
+
+- `mine-define`'s Phase 3.5 blind-spot step no longer just asks the user about self-assessed uncertainty — it triages each item to Probe (settle via subagent), Extend, Decide, Ask, or Note, dispatching all Probes in parallel. Cuts misclassification from 36% to 8.3% against a 121-item calibration corpus, and adds a `define-blindspot` gate so `agent-stats` can measure whether it earns its cost. (#490)
+
 ## 2026-08-04
 
 ### Changed
