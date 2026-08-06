@@ -7,6 +7,7 @@ All notable changes to this Claudefiles repository are documented here.
 ### Changed
 
 - `mine-define`'s Phase 3.5 blind-spot step no longer just asks the user about self-assessed uncertainty — it triages each item to Probe (settle via subagent), Extend, Decide, Ask, or Note, dispatching all Probes in parallel. Cuts misclassification from 36% to 8.3% against a 121-item calibration corpus, and adds a `define-blindspot` gate so `agent-stats` can measure whether it earns its cost. (#490)
+- `mine-plan` Phase 1 now writes each resolved open question back into `design.md` immediately instead of only recording it in conversation, and drops the "Skip — treat as accepted uncertainty" option in favor of resolving, accepting as a documented risk, or deferring to a task's `## Focus`. Phase 6 now re-reads the doc and blocks approval if `## Open Questions` isn't actually empty, enforcing an invariant the template always stated but nothing checked. (#493)
 
 ## 2026-08-04
 
