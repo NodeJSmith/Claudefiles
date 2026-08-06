@@ -126,6 +126,12 @@ Read the doc fully. Extract and record:
 
 If open questions exist, walk through each one interactively before proceeding. First, count all open questions and record the total as M — you need this before asking the first one.
 
+Entries already marked `**Deferred to implementation**` were handled by an earlier run of this phase; do not re-prompt on them and do not count them toward M. They are waiting on Phase 3, not on the user.
+
+**Every question must leave this phase with an owner**, written into a file rather than into the conversation. Most clear out of Open Questions here; ones deferred to implementation stay in the section, marked, until Phase 3 hands them to a task file. Either way the section is empty by plan approval, and Phase 6 checks.
+
+Owned does not mean confidently answered. A risk taken deliberately and a question that cannot be settled until the code exists are both legitimate outcomes; they just land in different places. What is not allowed is an entry nobody handled, which is what happens when a resolution is recorded in conversation and never written back to the doc.
+
 For each open question:
 
 1. **Analyze the question** — read the surrounding context in the design doc to infer the most reasonable answer. Identify exactly 2 substantive resolution options and pick the one you'd recommend.
@@ -142,22 +148,32 @@ AskUserQuestion:
       description: "RECOMMENDED — <one sentence why>"
     - label: "<Option B>"
       description: "<tradeoff or implication>"
-    - label: "Skip — treat as accepted uncertainty"
-      description: "Leave this unresolved and proceed; the tasks will note the ambiguity"
+    - label: "Defer to implementation"
+      description: "Can't be settled until the code exists; attach it to the task that hits it"
     - label: "Stop — I'll update the design doc first"
       description: "Exit now so you can revise the doc before generating tasks"
 ```
 
-3. **Record the decision** — after the user answers, record it immediately (e.g., "Q2 resolved: will use Option B"). If cfl tracking is active, record each question (topic: `open-question`):
+If the honest choice is to accept the uncertainty rather than resolve it, say so in one of the two substantive options ("Accept <X> as a known risk, mitigated by <Y>") rather than offering a bare skip. An accepted risk is a decision with an owner; a skip is an entry nobody handled.
+
+3. **Discharge it in the doc** — edit `design.md` immediately, before moving to the next question. Do not batch this to the end; a question answered but not written down is the failure this step exists to prevent.
+
+   - **Resolved** (Option A or B, an answer): write the decision into the design section it affects — Architecture, Test Strategy, Implementation Preferences, whichever the question was about. Then delete the entry from Open Questions.
+   - **Accepted** (Option A or B, a risk taken): write it into `## Dependencies and Assumptions` with its mitigation. Then delete the entry from Open Questions.
+   - **Deferred**: rewrite the entry in place as `**Deferred to implementation** — <what the implementer must determine, and what to do with each answer>`. **Do not delete it yet.** It stays in Open Questions until Phase 3 writes it into the owning task's `## Focus`, because until that task file exists there is nowhere durable for it to live, and Phase 2 sits in between. Deleting it here would lose it if the session is interrupted — the same failure this step exists to prevent, one phase later.
+
+   Never delete an entry before its destination exists. Resolved and Accepted write into `design.md` in the same edit, so they clear immediately; Deferred cannot.
+
+   If cfl tracking is active, record each question (topic: `open-question`):
 
 ```bash
-cfl question mine-plan open-question --status <asked|skipped> --answer "<selected option>" --spec <spec_number>
+cfl question mine-plan open-question --status asked --answer "<selected option>" --spec <spec_number>
 ```
 
-Where status is `asked` if the user chose an option or skipped the question interactively, and the answer captures which option was selected (including "Skip" or "Stop"). If the user selected "Stop", exit after recording.
+Status is always `asked` here — every path through this flow, including "Defer to implementation", is the user answering. `--answer` carries which one they chose. (`skipped` means a question was never put to them, which no longer happens in this phase.) If the user selected "Stop", record it and exit — the doc keeps its Open Questions section intact for them to revise.
 
-After all questions are answered (or skipped), briefly summarize the resolutions before continuing to Phase 2:
-> Resolved open questions: Q1 → Option A, Q2 → Option B, Q3 → skipped. Proceeding to generate task files.
+When every question has been handled, re-read `design.md` rather than assuming the edits landed. Open Questions should now contain nothing except entries marked `**Deferred to implementation**`, which Phase 3 clears. Then summarize before continuing to Phase 2:
+> Handled all open questions: Q1 → resolved into Architecture, Q2 → accepted as a known risk in Dependencies and Assumptions, Q3 → deferred to whichever task touches the parser. One deferred entry remains in the doc until its task file exists. Proceeding to generate task files.
 
 ---
 
@@ -170,6 +186,34 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-plan/exploration-protocol.md` 
 ## Phase 3: Write Task Files
 
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-plan/task-format.md` for the context.md template, task file template, field rules, decomposition rules, and scope rules. Write context.md first, then all T*.md files.
+
+### Land the deferred open questions
+
+If Phase 1 left any entry in Open Questions marked `**Deferred to implementation**`, finish the handoff now that task files exist. For each one:
+
+1. Pick the task whose Target Files cover the affected area.
+2. Write it into that task's `## Focus`: what the implementer must determine, and what to do with each answer.
+3. Delete the entry from the design doc's Open Questions.
+
+Do this in that order — the entry only leaves `design.md` once it exists in a task file.
+
+If no task plausibly owns a deferred question, do not force it into the nearest one and do not drop it. That means either the plan is missing work or the question was misfiled during Phase 1. Stop and ask:
+
+```
+AskUserQuestion:
+  question: "<Quote the deferred question> — no task in this plan covers it. How should it land?"
+  header: "Unowned Q"
+  multiSelect: false
+  options:
+    - label: "Add a task for it"
+      description: "The plan is missing work; I'll write a task that owns this and re-run validation"
+    - label: "Accept it as a known risk"
+      description: "Not implementation work after all; record it in Dependencies and Assumptions and clear the entry"
+    - label: "Stop — I'll revise the design"
+      description: "Exit so you can rework the doc before planning continues"
+```
+
+Apply the choice before continuing to Phase 3.5: a new task means re-running task generation for it, an accepted risk means writing it into `## Dependencies and Assumptions` and deleting the entry. Do not proceed with the entry still sitting in Open Questions — Phase 6 would block on it anyway, several phases later.
 
 ### Record tasks written
 
@@ -271,10 +315,10 @@ If PASS (with or without warnings), proceed to Phase 4 automatically.
 
 ## Phase 4: Commit Task Files
 
-After the validation gate passes, commit the task files:
+After the validation gate passes, commit the task files together with the design doc — Phases 1 and 3 both edited `design.md` while discharging open questions, and those edits belong in the same commit as the tasks that now own them:
 
 ```bash
-git add design/specs/<feature>/tasks/
+git add design/specs/<feature>/tasks/ design/specs/<feature>/design.md
 git commit -m "feat: add task files for NNN-<slug>"
 ```
 
@@ -399,6 +443,19 @@ Phase 6 does not begin until the comb gate resolves. The "No findings" path proc
 ---
 
 ## Phase 6: Gate
+
+### Open Questions check
+
+Before presenting the gate, re-read the design doc's `## Open Questions` section. It must be empty — every entry was discharged in Phase 1 (resolved into a design section, accepted as a risk, or deferred onto a task's `## Focus`).
+
+If entries remain, do not present the approval options yet. Either something between Phase 1 and here failed to write back, or a question was added after Phase 1 ran. Show the user what is still sitting there, then clear each one — noting that task files already exist and are committed by this point, so the routes differ slightly from Phase 1:
+
+- **Resolved or Accepted** — same as Phase 1: write it into the design section it affects or into `## Dependencies and Assumptions`, then delete the entry.
+- **Deferred** — the owning task file already exists, so edit its `## Focus` directly rather than waiting on Phase 3, then delete the entry. Commit the task-file edit alongside the design-doc edit. Adding a Focus line changes no `implements`, `Target Files`, or `Verify` content, so this does not require re-running the Phase 3.5 or Phase 5.5 gates.
+
+This is the only enforcement point for the invariant, which is why it re-reads the file rather than trusting Phase 1 and Phase 3 did their jobs. Historically the section was never empty at approval precisely because resolutions lived in conversation and no step ever checked the doc.
+
+### Approval options
 
 If the reviewer's output includes non-blocking suggestions, present "Approve with suggestions" as the first (recommended) option. If there are no suggestions (clean PASS), omit it and show "Approve as-is" first.
 
