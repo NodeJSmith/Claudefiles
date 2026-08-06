@@ -88,7 +88,7 @@ def test_schema_version_is_current_after_setup(db_conn):
 
 
 def test_schema_version_code_constant():
-    assert SCHEMA_VERSION == 6
+    assert SCHEMA_VERSION == 7
 
 
 # ---------------------------------------------------------------------------
@@ -256,6 +256,15 @@ def test_migration_v6_rebuilds_runs_with_fk_data(tmp_db_path):
             context_pct INTEGER, created_at TEXT NOT NULL
         )"""
     )
+    # questions arrived in migration 4, so a genuine v5 database has it.
+    conn.execute(
+        """CREATE TABLE questions (
+            id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES runs(id),
+            skill TEXT NOT NULL, topic TEXT NOT NULL,
+            status TEXT NOT NULL CHECK(status IN ('asked', 'skipped')),
+            answer TEXT, context_pct INTEGER, created_at TEXT NOT NULL
+        )"""
+    )
     conn.execute(
         """CREATE TABLE schema_version (
             version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL
@@ -303,6 +312,92 @@ def test_migration_v6_rebuilds_runs_with_fk_data(tmp_db_path):
     assert run_count == 2
     task_count = conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
     assert task_count == 1
+
+    conn.close()
+
+
+def test_migration_v7_adds_disposition_to_populated_questions(tmp_db_path):
+    """Migration v7 adds disposition to a questions table that already has rows.
+
+    SQLite does not re-validate existing rows against a CHECK added via ALTER
+    TABLE, so the pre-existing rows must survive with disposition NULL.
+    """
+    conn = sqlite3.connect(tmp_db_path, isolation_level=None)
+    conn.execute(
+        """CREATE TABLE specs (
+            id INTEGER PRIMARY KEY, number INTEGER NOT NULL, slug TEXT NOT NULL,
+            repo_url TEXT NOT NULL, repo_path TEXT, status TEXT NOT NULL DEFAULT 'draft',
+            active_run_id INTEGER, created_at TEXT NOT NULL, UNIQUE(repo_url, number)
+        )"""
+    )
+    conn.execute(
+        """CREATE TABLE runs (
+            id INTEGER PRIMARY KEY, spec_id INTEGER NOT NULL REFERENCES specs(id),
+            base_commit TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'running',
+            visual_mode TEXT, dev_server_url TEXT, tmpdir TEXT, cwd TEXT,
+            phase TEXT DEFAULT 'orchestrate',
+            started_at TEXT NOT NULL, ended_at TEXT
+        )"""
+    )
+    conn.execute(
+        """CREATE TABLE questions (
+            id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES runs(id),
+            skill TEXT NOT NULL, topic TEXT NOT NULL,
+            status TEXT NOT NULL CHECK(status IN ('asked', 'skipped')),
+            answer TEXT, context_pct INTEGER, created_at TEXT NOT NULL
+        )"""
+    )
+    conn.execute(
+        """CREATE TABLE schema_version (
+            version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL
+        )"""
+    )
+    conn.execute(
+        "INSERT INTO schema_version(version, applied_at) VALUES (6, datetime('now'))"
+    )
+    conn.execute(
+        "INSERT INTO specs(id, number, slug, repo_url, created_at)"
+        " VALUES(1, 1, 'feat', 'https://github.com/test/repo.git', datetime('now'))"
+    )
+    conn.execute(
+        "INSERT INTO runs(id, spec_id, base_commit, started_at)"
+        " VALUES(1, 1, 'abc123', datetime('now'))"
+    )
+    # Pre-existing rows of both statuses, recorded before disposition existed.
+    conn.execute(
+        "INSERT INTO questions(run_id, skill, topic, status, answer, created_at)"
+        " VALUES(1, 'mine-plan', 'open-question', 'asked',"
+        " 'Defer to implementation', datetime('now'))"
+    )
+    conn.execute(
+        "INSERT INTO questions(run_id, skill, topic, status, created_at)"
+        " VALUES(1, 'mine-define', 'edge-cases', 'skipped', datetime('now'))"
+    )
+    conn.close()
+
+    conn = setup_db(tmp_db_path)
+
+    version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
+    assert version == SCHEMA_VERSION
+
+    rows = conn.execute(
+        "SELECT status, answer, disposition FROM questions ORDER BY id"
+    ).fetchall()
+    assert len(rows) == 2
+    assert rows[0]["answer"] == "Defer to implementation"
+    assert all(r["disposition"] is None for r in rows)
+
+    # The new CHECK is live on writes.
+    conn.execute(
+        "INSERT INTO questions(run_id, skill, topic, status, disposition, created_at)"
+        " VALUES(1, 'mine-plan', 'open-question', 'asked', 'deferred', datetime('now'))"
+    )
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(
+            "INSERT INTO questions(run_id, skill, topic, status, disposition, created_at)"
+            " VALUES(1, 'mine-plan', 'open-question', 'skipped', 'deferred',"
+            " datetime('now'))"
+        )
 
     conn.close()
 

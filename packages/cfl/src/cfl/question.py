@@ -4,6 +4,20 @@ Records which interview/discovery questions were asked vs skipped across
 mine-define and mine-plan runs, with the user's selected answer.
 mine-grill vocabulary is declared for forward compatibility but not yet wired
 (grill has no cfl run).
+
+Status and disposition are separate axes. Status is about the asking: was the
+question put to the user at all. Disposition is about the answering: which file
+the user's decision was written into. Every disposition names a destination —
+`resolved` into a design section, `accepted` into Dependencies and Assumptions,
+`deferred` into a task's Focus. A question whose answer has no destination has
+no disposition: most interview questions, where the answer simply is the design,
+and the path where the user stops the run rather than answering (the halt itself
+is already recorded as `runs.status='stopped'`).
+
+Rows are append-only, and topics are not per-question identifiers — a run that
+triages five open questions writes five rows all topicked `open-question`. So a
+count of `deferred` rows is a count of deferral decisions, not of questions
+currently deferred, and there is no way to ask the latter from this table alone.
 """
 
 import sqlite3
@@ -40,6 +54,8 @@ KNOWN_TOPICS: frozenset[str] = frozenset(
 
 VALID_STATUSES: frozenset[str] = frozenset({"asked", "skipped"})
 
+VALID_DISPOSITIONS: frozenset[str] = frozenset({"resolved", "accepted", "deferred"})
+
 
 def record_question(
     conn: sqlite3.Connection,
@@ -49,11 +65,13 @@ def record_question(
     *,
     status: str,
     answer: str | None = None,
+    disposition: str | None = None,
 ) -> None:
     """Record a discovery question as asked or skipped.
 
     Warns for unknown skill or topic but still writes.
-    Exits 2 for invalid status.
+    Exits 2 for invalid status, invalid disposition, or a disposition on a
+    skipped question.
     """
     if skill not in KNOWN_SKILLS:
         output_module.emit_warning(
@@ -74,12 +92,30 @@ def record_question(
             exit_code=2,
         )
 
+    if disposition is not None:
+        if disposition not in VALID_DISPOSITIONS:
+            output_module.emit_error(
+                f"Unknown disposition '{disposition}'."
+                f" Use: {', '.join(sorted(VALID_DISPOSITIONS))}.",
+                code="invalid_disposition",
+                exit_code=2,
+            )
+        if status != "asked":
+            output_module.emit_error(
+                f"Disposition '{disposition}' requires --status asked."
+                " A skipped question was never put to the user, so its answer"
+                " has nowhere to land.",
+                code="disposition_without_ask",
+                exit_code=2,
+            )
+
     context_pct = read_context_pct()
 
     cursor = conn.execute(
-        """INSERT INTO questions (run_id, skill, topic, status, answer, context_pct, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, datetime('now'))""",
-        (run_id, skill, topic, status, answer, context_pct),
+        """INSERT INTO questions
+             (run_id, skill, topic, status, disposition, answer, context_pct, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+        (run_id, skill, topic, status, disposition, answer, context_pct),
     )
     question_id = cursor.lastrowid
 
@@ -90,6 +126,7 @@ def record_question(
             "skill": skill,
             "topic": topic,
             "status": status,
+            "disposition": disposition,
         }
     )
 
@@ -100,17 +137,26 @@ def list_questions(
     skill: str | None = None,
     topic: str | None = None,
     status: str | None = None,
+    disposition: str | None = None,
     run_id: int | None = None,
     limit: int = 50,
 ) -> None:
     """Query questions with optional filters.
 
-    Exits 2 for invalid status or a negative limit.
+    Exits 2 for invalid status, invalid disposition, or a negative limit.
     """
     if status is not None and status not in VALID_STATUSES:
         output_module.emit_error(
             f"Unknown status '{status}'. Use: {', '.join(sorted(VALID_STATUSES))}.",
             code="invalid_status",
+            exit_code=2,
+        )
+
+    if disposition is not None and disposition not in VALID_DISPOSITIONS:
+        output_module.emit_error(
+            f"Unknown disposition '{disposition}'."
+            f" Use: {', '.join(sorted(VALID_DISPOSITIONS))}.",
+            code="invalid_disposition",
             exit_code=2,
         )
 
@@ -133,6 +179,9 @@ def list_questions(
     if status is not None:
         conditions.append("status = ?")
         params.append(status)
+    if disposition is not None:
+        conditions.append("disposition = ?")
+        params.append(disposition)
     if run_id is not None:
         conditions.append("run_id = ?")
         params.append(run_id)
@@ -141,7 +190,8 @@ def list_questions(
     params.append(limit)
 
     rows = conn.execute(
-        "SELECT id, run_id, skill, topic, status, answer, context_pct, created_at"
+        "SELECT id, run_id, skill, topic, status, disposition, answer,"
+        " context_pct, created_at"
         f" FROM questions{where} ORDER BY id DESC LIMIT ?",
         params,
     ).fetchall()

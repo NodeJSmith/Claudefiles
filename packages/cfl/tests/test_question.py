@@ -1,12 +1,14 @@
 """Tests for cfl.question — discovery question tracking."""
 
 import json
+import sqlite3
 
 import pytest
 
 from cfl.question import (
     KNOWN_SKILLS,
     KNOWN_TOPICS,
+    VALID_DISPOSITIONS,
     VALID_STATUSES,
     list_questions,
     record_question,
@@ -149,6 +151,148 @@ def test_record_question_all_valid_statuses_accepted(db_conn, capsys):
 
 
 # ---------------------------------------------------------------------------
+# disposition
+# ---------------------------------------------------------------------------
+
+
+def test_record_question_stores_disposition(db_conn, capsys):
+    """record_question persists disposition alongside status."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_question(
+        db_conn,
+        run_id,
+        "mine-plan",
+        "open-question",
+        status="asked",
+        answer="Defer to implementation",
+        disposition="deferred",
+    )
+
+    row = db_conn.execute(
+        "SELECT status, disposition FROM questions WHERE run_id=?", (run_id,)
+    ).fetchone()
+    assert row["status"] == "asked"
+    assert row["disposition"] == "deferred"
+
+
+def test_record_question_disposition_defaults_to_null(db_conn, capsys):
+    """Questions recorded without a disposition store NULL, not a placeholder."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_question(db_conn, run_id, "mine-define", "success", status="asked")
+
+    row = db_conn.execute(
+        "SELECT disposition FROM questions WHERE run_id=?", (run_id,)
+    ).fetchone()
+    assert row["disposition"] is None
+
+
+def test_record_question_emits_disposition(db_conn, capsys):
+    """record_question includes disposition in its JSON output."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_question(
+        db_conn,
+        run_id,
+        "mine-plan",
+        "open-question",
+        status="asked",
+        disposition="accepted",
+    )
+
+    out = json.loads(capsys.readouterr().out)
+    assert out["disposition"] == "accepted"
+
+
+def test_record_question_all_valid_dispositions_accepted(db_conn, capsys):
+    """Every declared disposition is writable."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    for disposition in sorted(VALID_DISPOSITIONS):
+        record_question(
+            db_conn,
+            run_id,
+            "mine-plan",
+            "open-question",
+            status="asked",
+            disposition=disposition,
+        )
+        _ = capsys.readouterr()
+
+    count = db_conn.execute(
+        "SELECT COUNT(*) AS cnt FROM questions WHERE disposition IS NOT NULL"
+    ).fetchone()["cnt"]
+    assert count == len(VALID_DISPOSITIONS)
+
+
+def test_record_question_invalid_disposition_exits_2(db_conn, capsys):
+    """record_question exits 2 for an unknown disposition."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    with pytest.raises(SystemExit) as exc_info:
+        record_question(
+            db_conn,
+            run_id,
+            "mine-plan",
+            "open-question",
+            status="asked",
+            disposition="punted",
+        )
+    assert exc_info.value.code == 2
+
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "invalid_disposition"
+
+
+def test_record_question_disposition_on_skipped_exits_2(db_conn, capsys):
+    """A skipped question was never asked, so it cannot carry a disposition."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    with pytest.raises(SystemExit) as exc_info:
+        record_question(
+            db_conn,
+            run_id,
+            "mine-define",
+            "edge-cases",
+            status="skipped",
+            disposition="deferred",
+        )
+    assert exc_info.value.code == 2
+
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "disposition_without_ask"
+
+
+def test_schema_rejects_disposition_on_skipped(db_conn):
+    """The status/disposition invariant is enforced in SQL, not only in Python."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    with pytest.raises(sqlite3.IntegrityError):
+        db_conn.execute(
+            "INSERT INTO questions"
+            " (run_id, skill, topic, status, disposition, created_at)"
+            " VALUES (?, 'mine-plan', 'open-question', 'skipped', 'deferred',"
+            " datetime('now'))",
+            (run_id,),
+        )
+
+
+def test_schema_rejects_unknown_disposition(db_conn):
+    """The disposition vocabulary is enforced in SQL, not only in Python."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    with pytest.raises(sqlite3.IntegrityError):
+        db_conn.execute(
+            "INSERT INTO questions"
+            " (run_id, skill, topic, status, disposition, created_at)"
+            " VALUES (?, 'mine-plan', 'open-question', 'asked', 'punted',"
+            " datetime('now'))",
+            (run_id,),
+        )
+
+
+# ---------------------------------------------------------------------------
 # list_questions
 # ---------------------------------------------------------------------------
 
@@ -198,6 +342,97 @@ def test_list_questions_filter_by_status(db_conn, capsys):
     out = json.loads(capsys.readouterr().out)
     assert out["count"] == 1
     assert out["questions"][0]["topic"] == "edge-cases"
+
+
+def test_list_questions_filter_by_disposition(db_conn, capsys):
+    """list_questions filters by disposition — the metric this column exists for."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    for disposition in ["resolved", "deferred", "accepted"]:
+        record_question(
+            db_conn,
+            run_id,
+            "mine-plan",
+            "open-question",
+            status="asked",
+            disposition=disposition,
+        )
+        _ = capsys.readouterr()
+
+    list_questions(db_conn, disposition="deferred")
+
+    out = json.loads(capsys.readouterr().out)
+    assert out["count"] == 1
+    assert out["questions"][0]["disposition"] == "deferred"
+
+
+def test_list_questions_status_asked_includes_dispositioned(db_conn, capsys):
+    """Disposition is orthogonal — a deferred question still counts as asked."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_question(db_conn, run_id, "mine-define", "success", status="asked")
+    _ = capsys.readouterr()
+    record_question(
+        db_conn,
+        run_id,
+        "mine-plan",
+        "open-question",
+        status="asked",
+        disposition="deferred",
+    )
+    _ = capsys.readouterr()
+
+    list_questions(db_conn, status="asked")
+
+    out = json.loads(capsys.readouterr().out)
+    assert out["count"] == 2
+
+
+def test_disposition_count_counts_decisions_not_questions(db_conn, capsys):
+    """A re-dispositioned question adds a row rather than replacing one.
+
+    Topics are not per-question identifiers, so a count of `deferred` rows is a
+    count of deferral decisions. mine-plan Phase 3 can revisit a Phase 1
+    deferral, and both rows stand.
+    """
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+
+    record_question(
+        db_conn,
+        run_id,
+        "mine-plan",
+        "open-question",
+        status="asked",
+        disposition="deferred",
+        answer="Defer to implementation",
+    )
+    _ = capsys.readouterr()
+    record_question(
+        db_conn,
+        run_id,
+        "mine-plan",
+        "open-question",
+        status="asked",
+        disposition="accepted",
+        answer="Unowned in Phase 3 — Accept it as a known risk",
+    )
+    _ = capsys.readouterr()
+
+    list_questions(db_conn, topic="open-question")
+
+    out = json.loads(capsys.readouterr().out)
+    assert out["count"] == 2
+    assert [q["disposition"] for q in out["questions"]] == ["accepted", "deferred"]
+
+
+def test_list_questions_invalid_disposition_exits_2(db_conn, capsys):
+    """list_questions exits 2 for an unknown disposition."""
+    with pytest.raises(SystemExit) as exc_info:
+        list_questions(db_conn, disposition="punted")
+    assert exc_info.value.code == 2
+
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "invalid_disposition"
 
 
 def test_list_questions_filter_by_topic(db_conn, capsys):
@@ -279,3 +514,8 @@ def test_known_topics_exported():
 def test_valid_statuses_exported():
     """VALID_STATUSES contains asked and skipped."""
     assert VALID_STATUSES == frozenset({"asked", "skipped"})
+
+
+def test_valid_dispositions_exported():
+    """Every disposition names a destination file; outcomes without one are NULL."""
+    assert VALID_DISPOSITIONS == frozenset({"resolved", "accepted", "deferred"})

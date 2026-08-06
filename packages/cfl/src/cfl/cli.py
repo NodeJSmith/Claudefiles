@@ -22,6 +22,7 @@ from cfl.question import (
     VALID_STATUSES as VALID_QUESTION_STATUSES,
 )
 from cfl.question import (
+    VALID_DISPOSITIONS,
     list_questions,
     record_question,
 )
@@ -784,6 +785,13 @@ def cmd_question(
             help=f"Question status ({', '.join(sorted(VALID_QUESTION_STATUSES))})"
         ),
     ],
+    disposition: Annotated[
+        str | None,
+        Parameter(
+            help="Where the answer landed"
+            f" ({', '.join(sorted(VALID_DISPOSITIONS))}); requires --status asked"
+        ),
+    ] = None,
     answer: Annotated[
         str | None,
         Parameter(help="User's selected answer (option label or free text)"),
@@ -799,6 +807,7 @@ def cmd_question(
             topic,
             status=status,
             answer=answer,
+            disposition=disposition,
         )
 
 
@@ -817,6 +826,12 @@ def cmd_question_list(
         str | None,
         Parameter(help="Filter by status (asked/skipped)"),
     ] = None,
+    disposition: Annotated[
+        str | None,
+        Parameter(
+            help=f"Filter by disposition ({', '.join(sorted(VALID_DISPOSITIONS))})"
+        ),
+    ] = None,
     run_id: Annotated[
         int | None,
         Parameter(name=["--run"], help="Filter by run ID"),
@@ -833,6 +848,7 @@ def cmd_question_list(
             skill=skill,
             topic=topic,
             status=status,
+            disposition=disposition,
             run_id=run_id,
             limit=limit,
         )
