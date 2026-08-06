@@ -164,13 +164,18 @@ If the honest choice is to accept the uncertainty rather than resolve it, say so
 
    Never delete an entry before its destination exists. Resolved and Accepted write into `design.md` in the same edit, so they clear immediately; Deferred cannot.
 
-   If cfl tracking is active, record each question (topic: `open-question`):
+   If cfl tracking is active, record each question (topic: `open-question`) with the disposition matching where you just landed it:
 
 ```bash
-cfl question mine-plan open-question --status asked --answer "<selected option>" --spec <spec_number>
+cfl question mine-plan open-question --status asked --disposition <resolved|accepted|deferred> \
+    --answer "<selected option>" --spec <spec_number>
 ```
 
-Status is always `asked` here — every path through this flow, including "Defer to implementation", is the user answering. `--answer` carries which one they chose. (`skipped` means a question was never put to them, which no longer happens in this phase.) If the user selected "Stop", record it and exit — the doc keeps its Open Questions section intact for them to revise.
+Status is always `asked` here — every path through this flow, including "Defer to implementation", is the user answering. `--answer` carries which one they chose. (`skipped` means a question was never put to them, which no longer happens in this phase.)
+
+`--disposition` is the separate question of which file the answer went into, so it must name the edit you just made: `resolved` for a decision written into a design section, `accepted` for a risk written into Dependencies and Assumptions, `deferred` for an entry left marked in Open Questions for Phase 3. Record it in the same step as the edit rather than from memory afterward — the disposition is a claim about the doc, and the two disagreeing is worse than no record at all.
+
+If the user selected "Stop", omit `--disposition` — nothing was written anywhere — then record the answer and exit. The doc keeps its Open Questions section intact for them to revise.
 
 When every question has been handled, re-read `design.md` rather than assuming the edits landed. Open Questions should now contain nothing except entries marked `**Deferred to implementation**`, which Phase 3 clears. Then summarize before continuing to Phase 2:
 > Handled all open questions: Q1 → resolved into Architecture, Q2 → accepted as a known risk in Dependencies and Assumptions, Q3 → deferred to whichever task touches the parser. One deferred entry remains in the doc until its task file exists. Proceeding to generate task files.
@@ -197,6 +202,8 @@ If Phase 1 left any entry in Open Questions marked `**Deferred to implementation
 
 Do this in that order — the entry only leaves `design.md` once it exists in a task file.
 
+**Record nothing in cfl for this path.** Phase 1 already recorded the deferral, and a task claiming the question is that decision being carried out, not a new one. Adding a second `--disposition deferred` row here would count the same deferral twice and inflate the only number the disposition column exists to produce. The unowned branch below does record a row, because there the Phase 1 decision turned out to be wrong and a new one gets made.
+
 If no task plausibly owns a deferred question, do not force it into the nearest one and do not drop it. That means either the plan is missing work or the question was misfiled during Phase 1. Stop and ask:
 
 ```
@@ -214,6 +221,15 @@ AskUserQuestion:
 ```
 
 Apply the choice before continuing to Phase 3.5: a new task means re-running task generation for it, an accepted risk means writing it into `## Dependencies and Assumptions` and deleting the entry. Do not proceed with the entry still sitting in Open Questions — Phase 6 would block on it anyway, several phases later.
+
+Phase 1 already recorded this question as `deferred`, which was true then. Where it ends up now is a second fact, so record it as its own row. Skip if cfl tracking is inactive for this run (see Initialize Plan Tracking):
+
+```bash
+cfl question mine-plan open-question --status asked --disposition <accepted|deferred> \
+    --answer "Unowned in Phase 3 — <selected option>" --spec <spec_number>
+```
+
+Use `deferred` again if a new task took it, `accepted` if it became a known risk, and omit `--disposition` on exit. Both rows stand — the table records decisions as they were made, not a current state per question.
 
 ### Record tasks written
 

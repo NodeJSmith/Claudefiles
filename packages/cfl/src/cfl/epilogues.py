@@ -7,7 +7,7 @@ Separated from cli.py to keep the command definitions readable.
 from cfl.direct import ENTITY_COLUMNS
 from cfl.event import KNOWN_EVENT_NAMES
 from cfl.gate import KNOWN_GATE_TYPES
-from cfl.question import KNOWN_SKILLS, KNOWN_TOPICS
+from cfl.question import KNOWN_SKILLS, KNOWN_TOPICS, VALID_DISPOSITIONS
 
 SPEC_INIT = """\
 Examples:
@@ -146,17 +146,26 @@ Examples:
 
 _QUESTION_SKILLS_LIST = ", ".join(sorted(KNOWN_SKILLS))
 _QUESTION_TOPICS_LIST = ", ".join(sorted(KNOWN_TOPICS))
+_QUESTION_DISPOSITIONS_LIST = ", ".join(sorted(VALID_DISPOSITIONS))
 QUESTION = f"""\
 Valid skills: {_QUESTION_SKILLS_LIST}
 Valid topics: {_QUESTION_TOPICS_LIST}
+Valid dispositions: {_QUESTION_DISPOSITIONS_LIST}
+
+Status is whether the question was put to the user; disposition is which file
+their answer was written into. Most questions need only a status — an answer
+with no destination has no disposition.
 
 Examples:
   cfl question mine-define scope-mode --status asked --answer "Hold — make this bulletproof"
   cfl question mine-define edge-cases --status skipped
+  cfl question mine-plan open-question --status asked --disposition deferred \\
+      --answer "Defer to implementation"
 """
 
 QUESTION_LIST = """\
 Examples:
   cfl question list
   cfl question list --skill mine-define --status skipped
+  cfl question list --disposition deferred
   cfl question list --topic scope-mode --run 5"""

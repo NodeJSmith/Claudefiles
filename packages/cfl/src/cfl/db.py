@@ -9,7 +9,7 @@ import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-SCHEMA_VERSION: int = 6
+SCHEMA_VERSION: int = 7
 CFL_DB_ENV_VAR: str = "CFL_DB"
 DEFAULT_DB_PATH: str = "~/.local/share/claudefiles/cfl.db"
 BUSY_TIMEOUT_MS: int = 5000
@@ -94,6 +94,16 @@ MIGRATIONS: dict[int, list[str]] = {
         "DROP TABLE runs",
         "ALTER TABLE runs_new RENAME TO runs",
         "CREATE INDEX IF NOT EXISTS idx_runs_spec ON runs(spec_id)",
+    ],
+    # Existing rows are not revalidated against a CHECK added via ALTER TABLE,
+    # so they survive with disposition NULL. Keep this constraint identical to
+    # the questions DDL in _SCHEMA_STATEMENTS — they are the same end state
+    # reached by two paths.
+    7: [
+        "ALTER TABLE questions ADD COLUMN disposition TEXT"
+        " CHECK(disposition IS NULL OR ("
+        "   disposition IN ('resolved', 'accepted', 'deferred')"
+        "   AND status = 'asked'))"
     ],
 }
 
@@ -230,6 +240,13 @@ _SCHEMA_STATEMENTS: list[str] = [
         skill       TEXT NOT NULL,
         topic       TEXT NOT NULL,
         status      TEXT NOT NULL CHECK(status IN ('asked', 'skipped')),
+        -- Which file the answer was written into. NULL when the answer had no
+        -- destination, which is most questions. A disposition implies the
+        -- question was actually put to the user, hence the status clause.
+        disposition TEXT
+            CHECK(disposition IS NULL OR (
+                disposition IN ('resolved', 'accepted', 'deferred')
+                AND status = 'asked')),
         answer      TEXT,
         context_pct INTEGER,
         created_at  TEXT NOT NULL
