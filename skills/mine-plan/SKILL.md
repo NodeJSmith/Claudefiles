@@ -202,6 +202,8 @@ If Phase 1 left any entry in Open Questions marked `**Deferred to implementation
 
 Do this in that order — the entry only leaves `design.md` once it exists in a task file.
 
+**Record nothing in cfl for this path.** Phase 1 already recorded the deferral, and a task claiming the question is that decision being carried out, not a new one. Adding a second `--disposition deferred` row here would count the same deferral twice and inflate the only number the disposition column exists to produce. The unowned branch below does record a row, because there the Phase 1 decision turned out to be wrong and a new one gets made.
+
 If no task plausibly owns a deferred question, do not force it into the nearest one and do not drop it. That means either the plan is missing work or the question was misfiled during Phase 1. Stop and ask:
 
 ```
@@ -220,7 +222,7 @@ AskUserQuestion:
 
 Apply the choice before continuing to Phase 3.5: a new task means re-running task generation for it, an accepted risk means writing it into `## Dependencies and Assumptions` and deleting the entry. Do not proceed with the entry still sitting in Open Questions — Phase 6 would block on it anyway, several phases later.
 
-Phase 1 already recorded this question as `deferred`, which was true then. Where it ends up now is a second fact, so record it as its own row:
+Phase 1 already recorded this question as `deferred`, which was true then. Where it ends up now is a second fact, so record it as its own row. Skip if cfl tracking is inactive for this run (see Initialize Plan Tracking):
 
 ```bash
 cfl question mine-plan open-question --status asked --disposition <accepted|deferred> \
