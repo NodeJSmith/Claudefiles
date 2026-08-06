@@ -61,7 +61,7 @@ Write the design doc to `<feature_dir>/design.md` using this template:
 
 ## Dependencies and Assumptions
 
-[External systems, teams, data sources this depends on.]
+[External systems, teams, data sources this depends on. Also the home for risks accepted deliberately rather than resolved — state the risk and its mitigation. `mine-plan` Phase 1 lands accepted open questions here.]
 
 ## Architecture
 
@@ -126,7 +126,11 @@ Write the design doc to `<feature_dir>/design.md` using this template:
 
 ## Open Questions
 
-[Unresolved items that need answers before or during implementation. Must be empty before plan approval.]
+[Unresolved items that need answers before or during implementation.
+
+This section must be **empty** by the time `mine-plan` reaches plan approval. Empty does not mean every question got a confident answer — it means every entry moved somewhere with an owner: into the design section it affects, into `## Dependencies and Assumptions` as a deliberately accepted risk, or onto the task file that will resolve it. `mine-plan` Phase 1 runs that discharge and owns the details.
+
+Write each entry so someone other than you can act on it. An entry still sitting here at plan approval is one nobody owns.]
 ```
 
 ## Content Rules

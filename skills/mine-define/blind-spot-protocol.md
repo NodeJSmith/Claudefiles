@@ -226,6 +226,8 @@ Report in this order, so what changed comes first and what didn't comes last:
 
 **Every one of these carries into Phase 4.** Refutations get folded into the sections they invalidate. The user's answers get written in as decisions, with the option they chose. An answer you collected and never recorded is the same as never having asked. Your own Decides get recorded with the alternative you rejected and why. Extended gaps become the sections you wrote. Confirmed facts get stated with their evidence rather than hedged. Only item 6 goes to Open Questions.
 
+Open Questions is a holding area, not a destination. `mine-plan` Phase 1 discharges every entry before plan approval and the section must be empty by then, so write each one so someone else can act on it. An INCONCLUSIVE probe usually discharges by deferring onto the task that hits it — say what you already tried, so that task does not repeat it.
+
 If a refutation invalidates the direction rather than a detail, stop and say so before writing design.md. That is a return to investigation, not a line in a section.
 
 Record the gate. Skip if cfl tracking was disabled in Phase 1:
