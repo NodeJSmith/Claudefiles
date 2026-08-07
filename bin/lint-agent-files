@@ -59,12 +59,16 @@ def iter_markdown_files(root: Path) -> list[Path]:
     return sorted(path for path in root.rglob("*.md") if not is_excluded_path(path))
 
 
+FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---(?:\n|\Z)", re.DOTALL)
+
+
 def parse_frontmatter(text: str) -> str | None:
-    # Splitting on "---" yields ["", frontmatter, body] for a well-formed file.
-    parts = text.split("---", 2)
-    if len(parts) < 3 or not text.startswith("---"):
+    # Delimiters must occupy their own line — a "---" embedded in prose or a
+    # malformed opener like "---invalid" must not satisfy the match.
+    match = FRONTMATTER_RE.match(text)
+    if match is None:
         return None
-    return parts[1]
+    return match.group(1)
 
 
 def check_skill(path: Path, root: Path) -> list[str]:
@@ -175,8 +179,13 @@ def main() -> int:
         skill_count += 1
         errors.extend(check_skill(path, root))
 
-    agents_dir = root / "agents"
-    if agents_dir.is_dir():
+    agents_dirs = [root / "agents"]
+    if root.name == "agents":
+        agents_dirs.append(root)
+
+    for agents_dir in agents_dirs:
+        if not agents_dir.is_dir():
+            continue
         for path in sorted(agents_dir.glob("*.md")):
             agent_count += 1
             errors.extend(check_agent(path, root))

@@ -179,3 +179,45 @@ def test_cli_reports_multiple_errors_and_exits_nonzero(tmp_path: Path) -> None:
 
     assert result.returncode == 1
     assert "Use when..." in result.stderr
+
+
+def test_malformed_opening_delimiter_not_treated_as_frontmatter(tmp_path: Path) -> None:
+    path = tmp_path / "CLAUDE.md"
+    path.write_text(
+        '---invalid\nname: x\ndescription: "Use when testing."\n---\nbody\n'
+    )
+
+    module = _load_script()
+    fm = module["parse_frontmatter"](path.read_text())
+
+    assert fm is None
+
+
+def test_embedded_triple_dash_does_not_satisfy_closing_delimiter(
+    tmp_path: Path,
+) -> None:
+    # A "---" appearing mid-body must not substitute for a missing closing
+    # delimiter on its own line.
+    text = "---\nname: x\ndescription: has --- embedded, no real closer\nbody\n"
+
+    module = _load_script()
+    fm = module["parse_frontmatter"](text)
+
+    assert fm is None
+
+
+def test_agents_dir_passed_directly_is_scanned(tmp_path: Path) -> None:
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir()
+    (agents_dir / "broken.md").write_text("---\nname: broken\n---\nbody\n")
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), str(agents_dir)],
+        capture_output=True,
+        text=True,
+        timeout=SUBPROCESS_TIMEOUT_SECONDS,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "missing required 'description' field" in result.stderr
