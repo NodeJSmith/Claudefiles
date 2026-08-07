@@ -14,6 +14,7 @@ from cfl.resolve import (
 )
 from tests.helpers import (
     REMOTE_URL,
+    git_env,
     init_repo_with_remote,
     insert_spec_no_run,
     insert_spec_with_run,
@@ -27,23 +28,32 @@ from tests.helpers import (
 
 def _init_repo_no_remote(path: Path) -> str:
     """Create a git repo without a remote, with one commit. Returns root commit SHA."""
-    subprocess.run(["git", "init"], capture_output=True, check=True, cwd=path)
+    env = git_env()
+    subprocess.run(["git", "init"], capture_output=True, check=True, cwd=path, env=env)
     subprocess.run(
         ["git", "config", "user.email", "test@example.com"],
         capture_output=True,
         check=True,
         cwd=path,
+        env=env,
     )
     subprocess.run(
         ["git", "config", "user.name", "Test User"],
         capture_output=True,
         check=True,
         cwd=path,
+        env=env,
     )
     (path / ".gitkeep").write_text("")
-    subprocess.run(["git", "add", "."], capture_output=True, check=True, cwd=path)
     subprocess.run(
-        ["git", "commit", "-m", "init"], capture_output=True, check=True, cwd=path
+        ["git", "add", "."], capture_output=True, check=True, cwd=path, env=env
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "init"],
+        capture_output=True,
+        check=True,
+        cwd=path,
+        env=env,
     )
     result = subprocess.run(
         ["git", "rev-list", "--max-parents=0", "HEAD"],
@@ -51,6 +61,7 @@ def _init_repo_no_remote(path: Path) -> str:
         text=True,
         check=True,
         cwd=path,
+        env=env,
     )
     return result.stdout.strip()
 

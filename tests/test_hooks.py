@@ -460,15 +460,82 @@ class TestCompactionHookNoSubagentDir:
 
 
 def _git_init(path: Path) -> None:
-    subprocess.run(["git", "init", "-q"], cwd=path, check=True)
+    # Strip GIT_* vars (GIT_DIR, GIT_WORK_TREE, ...) so these commands always
+    # target the temp repo at `path` regardless of the ambient invocation
+    # context. Without this, running the suite from inside a git hook (e.g.
+    # prek's pre-push hook, which sets GIT_DIR for its own invocation) makes
+    # git resolve GIT_DIR instead of `cwd` and silently commit into the real
+    # outer repo.
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    subprocess.run(["git", "init", "-q"], cwd=path, check=True, env=env)
     subprocess.run(
-        ["git", "config", "user.email", "test@test.com"], cwd=path, check=True
+        ["git", "config", "user.email", "test@test.com"],
+        cwd=path,
+        check=True,
+        env=env,
     )
-    subprocess.run(["git", "config", "user.name", "test"], cwd=path, check=True)
-    subprocess.run(["git", "add", "-A"], cwd=path, check=True)
     subprocess.run(
-        ["git", "commit", "-q", "-m", "init", "--allow-empty"], cwd=path, check=True
+        ["git", "config", "user.name", "test"], cwd=path, check=True, env=env
     )
+    subprocess.run(["git", "add", "-A"], cwd=path, check=True, env=env)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "init", "--allow-empty"],
+        cwd=path,
+        check=True,
+        env=env,
+    )
+
+
+def test_git_init_ignores_leaked_git_dir_env() -> None:
+    """A leaked GIT_DIR/GIT_WORK_TREE (e.g. this suite running inside prek's
+    pre-push hook, which sets GIT_DIR for its own invocation) must not make
+    _git_init operate on that outer repo instead of its intended `path`."""
+    with (
+        tempfile.TemporaryDirectory() as outer,
+        tempfile.TemporaryDirectory() as target,
+    ):
+        outer_path = Path(outer).resolve()
+        target_path = Path(target).resolve()
+        # Verification queries below must resolve `outer_path` regardless of
+        # ambient GIT_* pollution too — otherwise, run for real inside a git
+        # hook, both queries would read the *ambient* repo's HEAD instead of
+        # outer_path's, making the before/after comparison trivially equal
+        # (and the test worthless) whether or not the fix under test works.
+        clean_env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+
+        _git_init(outer_path)
+        outer_head_before = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=outer_path,
+            check=True,
+            capture_output=True,
+            text=True,
+            env=clean_env,
+        ).stdout.strip()
+
+        saved = {k: os.environ.get(k) for k in ("GIT_DIR", "GIT_WORK_TREE")}
+        try:
+            os.environ["GIT_DIR"] = str(outer_path / ".git")
+            os.environ["GIT_WORK_TREE"] = str(outer_path)
+            _git_init(target_path)
+        finally:
+            for key, value in saved.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
+        outer_head_after = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=outer_path,
+            check=True,
+            capture_output=True,
+            text=True,
+            env=clean_env,
+        ).stdout.strip()
+
+        assert outer_head_after == outer_head_before
+        assert (target_path / ".git").is_dir()
 
 
 def _make_docs_check_input(session_id: str, file_path: Path) -> str:
@@ -742,6 +809,7 @@ class TestDocsCheckStateKeyReanchorsThroughSymlinkedWorktree:
                 ["git", "worktree", "add", "-q", "-b", "wtbranch", str(worktree)],
                 cwd=main_repo,
                 check=True,
+                env={k: v for k, v in os.environ.items() if not k.startswith("GIT_")},
             )
 
             linked_base = real_base.parent / f"linked-{uuid.uuid4().hex[:8]}"
@@ -977,6 +1045,7 @@ class TestDocsCheckStateKeyMismatchedToplevelFormatting:
                 ["git", "worktree", "add", "-q", "-b", "wtbranch", str(worktree)],
                 cwd=main_repo,
                 check=True,
+                env={k: v for k, v in os.environ.items() if not k.startswith("GIT_")},
             )
 
             # project_root resolves via the marker branch of the walk-up

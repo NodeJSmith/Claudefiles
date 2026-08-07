@@ -4,6 +4,7 @@ These centralise the spec/run insertion pattern so that schema changes need
 to be updated in exactly one place.
 """
 
+import os
 import sqlite3
 import subprocess
 from pathlib import Path
@@ -12,26 +13,40 @@ from pathlib import Path
 REMOTE_URL = "https://github.com/test/repo.git"
 
 
+def git_env() -> dict[str, str]:
+    """Environment for git subprocess calls in test fixtures, with GIT_* vars
+    stripped so they always target the intended `cwd` regardless of the
+    ambient invocation context. Without this, running the suite from inside
+    a git hook (e.g. prek's pre-push hook, which sets GIT_DIR for its own
+    invocation) makes git resolve GIT_DIR instead of `cwd` and silently
+    commit into the real outer repo."""
+    return {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+
+
 def init_repo_with_remote(path: Path, remote_url: str = REMOTE_URL) -> None:
     """Create a git repo with a named remote in path."""
-    subprocess.run(["git", "init"], capture_output=True, check=True, cwd=path)
+    env = git_env()
+    subprocess.run(["git", "init"], capture_output=True, check=True, cwd=path, env=env)
     subprocess.run(
         ["git", "config", "user.email", "test@example.com"],
         capture_output=True,
         check=True,
         cwd=path,
+        env=env,
     )
     subprocess.run(
         ["git", "config", "user.name", "Test User"],
         capture_output=True,
         check=True,
         cwd=path,
+        env=env,
     )
     subprocess.run(
         ["git", "remote", "add", "origin", remote_url],
         capture_output=True,
         check=True,
         cwd=path,
+        env=env,
     )
 
 
