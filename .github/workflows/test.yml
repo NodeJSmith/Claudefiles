@@ -6,12 +6,17 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   prek:
     name: prek (lint, format, agent-file checks)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: jdx/mise-action@v2
       - run: prek run --all-files --stage pre-commit
 
@@ -20,5 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: jdx/mise-action@v2
       - run: mise run 'test:*'
