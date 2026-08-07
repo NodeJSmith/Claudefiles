@@ -104,7 +104,7 @@ ruff format .
 bandit -r .
 pip-audit
 pytest
-agnix .   # when reviewing agents/, skills/, or commands/ changes
+lint-agent-files .   # when reviewing agents/, skills/, or commands/ changes
 ```
 
 ## Batching Verification Scripts (IMPORTANT)

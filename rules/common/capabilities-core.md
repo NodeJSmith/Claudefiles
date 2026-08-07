@@ -87,7 +87,7 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "how far ahead am I", "commits not on main", "commits ahead of main" | `git-branch-ahead` |
 | "am I behind main", "did I forget to pull", "is my branch stale", "behind default branch" | `git-branch-behind` |
 | "detect git platform", "github or ado" | `git-platform` |
-| "validate agent files", "check skill schema" | `agnix-check` |
+| "validate agent files", "check skill schema" | `lint-agent-files` |
 | "is this gate earning its keep", "how often does X subagent catch issues", "how often does the comb compact", "subagent effectiveness stats", "agent stats" | `agent-stats` |
 | "orchestrate run cost", "where do the token dollars go", "cost of orchestrate", "how much does a mine-orchestrate run cost", "cost by role and model", "is this gate worth the cost" | `orchestrate-cost` |
 | "spec status", "run status", "orchestration status", "what tasks are left" | `cfl run status` |

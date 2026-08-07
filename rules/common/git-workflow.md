@@ -8,13 +8,13 @@ Claude-Code-specific git workflow. Tool-agnostic git and commit hygiene lives in
 
 ## Pre-commit Hook Validation
 
-Before your first commit in a repo during a session, check for a pre-commit config:
+Before your first commit in a repo during a session, check for a hook config. Repos may use either runner — check `prek.toml` first, since `pre-commit` cannot read prek's native TOML format:
 
-1. **Detect config** — `Read(<repo-root>/.pre-commit-config.yaml)` (also check `.yml`). If neither exists, skip.
-2. **Check if pre-commit is installed** — `pre-commit --version`. If missing, prompt user to install.
-3. **Determine hook types** — scan config for `default_install_hook_types:`, `stages:`, `default_stages:`.
+1. **Detect config and runner** — `Read(<repo-root>/prek.toml)`. If present, runner is `prek` — stop here. Otherwise `Read(<repo-root>/.pre-commit-config.yaml)` (also check `.yml`); if present, runner is `pre-commit`, unless the top of the file is a comment stating it's managed by prek instead (prek can also read this YAML format; a repo that hasn't migrated to prek's native TOML yet may still run prek against it — rare, but the comment is an explicit, unambiguous signal when it occurs). If neither file exists, skip.
+2. **Check if the runner is installed** — `prek --version` or `pre-commit --version` as appropriate. If missing, prompt user to install (`mise use prek` covers prek).
+3. **Determine hook types** — scan config for `default_install_hook_types:`, `stages:`, `default_stages:` (YAML), or `stages = [...]` per-hook (prek's TOML).
 4. **Check if hooks are installed** — first check `git config --get core.hooksPath`; if unset, use `git rev-parse --git-common-dir` + `/hooks`. Test for each hook type file.
-5. **Install missing hooks** — `pre-commit install` (or `--hook-type` for each missing type).
+5. **Install missing hooks** — `prek install -t <type>` or `pre-commit install -t <type>` for each missing type.
 
 **Worktree note:** When `core.hooksPath` is not set, all worktrees share `.git/hooks/` via `git-common-dir`.
 

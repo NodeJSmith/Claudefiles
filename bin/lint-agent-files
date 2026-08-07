@@ -1,0 +1,199 @@
+#!/usr/bin/env python3
+"""Validate SKILL.md/agent frontmatter and catch hardcoded username paths.
+
+Replaces the agnix npm dependency. agnix ships ~230 rules covering surface
+this repo never enforced (prompt-engineering style advice, MCP/hooks/memory
+linting for formats this repo doesn't use) — of that catalog, CI only ever
+gated on a handful of structural checks plus one escalated warning. This
+script implements exactly that subset, stdlib-only, with no npm install step.
+
+Checks:
+  Skills (**/SKILL.md):
+    - frontmatter present, between '---' markers
+    - `name` field present
+    - `description` field present
+    - name is 1-64 chars of lowercase letters, digits, and hyphens
+    - name matches the parent directory name
+    - description contains a "Use when..." trigger phrase
+      (description must be a single-line scalar — this repo's convention
+      throughout; a YAML block scalar spanning multiple lines is not parsed
+      and will read as an empty description)
+  Agents (agents/*.md):
+    - frontmatter present, between '---' markers
+    - `name` field present
+    - `description` field present
+  All Markdown files in the tree:
+    - no hardcoded '/home/<realname>/' path (tilde paths and the generic
+      '/home/user/' placeholder are fine — only a real username is a
+      portability bug)
+
+Usage:
+  lint-agent-files [PATH]     # defaults to .
+
+Exit 0 on success, 1 with details on failure.
+"""
+
+import argparse
+import re
+import sys
+from pathlib import Path
+
+EXCLUDED_DIR_NAMES = {".git", "node_modules", ".venv", "__pycache__"}
+
+NAME_RE = re.compile(r"^name:\s*(.+?)\s*$", re.MULTILINE)
+DESCRIPTION_RE = re.compile(r"^description:\s*(.*?)\s*$", re.MULTILINE)
+KEBAB_CASE_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+USE_WHEN_RE = re.compile(r"use when", re.IGNORECASE)
+# Matches /home/<realname>/ where <realname> is not the generic "user"
+# placeholder — tilde paths (~/.claude/) never match this pattern at all.
+# Requires a trailing slash and a lowercase username, so a bare `/home/jessica`
+# with no following path segment, or a capitalized username, is not caught.
+ABSOLUTE_USERNAME_PATH_RE = re.compile(r"/home/(?!user(?:/|$))[a-z][a-z0-9_-]+/")
+
+
+def is_excluded_path(path: Path) -> bool:
+    return not EXCLUDED_DIR_NAMES.isdisjoint(path.parts)
+
+
+def iter_markdown_files(root: Path) -> list[Path]:
+    return sorted(path for path in root.rglob("*.md") if not is_excluded_path(path))
+
+
+def parse_frontmatter(text: str) -> str | None:
+    # Splitting on "---" yields ["", frontmatter, body] for a well-formed file.
+    parts = text.split("---", 2)
+    if len(parts) < 3 or not text.startswith("---"):
+        return None
+    return parts[1]
+
+
+def check_skill(path: Path, root: Path) -> list[str]:
+    rel = path.relative_to(root)
+    errors: list[str] = []
+
+    try:
+        text = path.read_text()
+    except OSError as exc:
+        return [f"{rel}: cannot read file: {exc}"]
+
+    fm = parse_frontmatter(text)
+    if fm is None:
+        return [f"{rel}: SKILL.md must have YAML frontmatter between --- markers"]
+
+    name_match = NAME_RE.search(fm)
+    if not name_match:
+        errors.append(f"{rel}: frontmatter is missing required 'name' field")
+    else:
+        name = name_match.group(1).strip("\"'")
+        if not KEBAB_CASE_RE.match(name) or not (1 <= len(name) <= 64):
+            errors.append(
+                f"{rel}: name '{name}' must be 1-64 characters of lowercase"
+                " letters, digits, and hyphens"
+            )
+        if name != path.parent.name:
+            errors.append(
+                f"{rel}: name '{name}' must match parent directory '{path.parent.name}'"
+            )
+
+    description_match = DESCRIPTION_RE.search(fm)
+    if not description_match:
+        errors.append(f"{rel}: frontmatter is missing required 'description' field")
+    elif not USE_WHEN_RE.search(description_match.group(1)):
+        errors.append(
+            f"{rel}: description should include a 'Use when...' trigger phrase"
+        )
+
+    return errors
+
+
+def check_agent(path: Path, root: Path) -> list[str]:
+    rel = path.relative_to(root)
+    errors: list[str] = []
+
+    try:
+        text = path.read_text()
+    except OSError as exc:
+        return [f"{rel}: cannot read file: {exc}"]
+
+    fm = parse_frontmatter(text)
+    if fm is None:
+        return [f"{rel}: agent file must have YAML frontmatter between --- markers"]
+
+    if not NAME_RE.search(fm):
+        errors.append(f"{rel}: frontmatter is missing required 'name' field")
+    if not DESCRIPTION_RE.search(fm):
+        errors.append(f"{rel}: frontmatter is missing required 'description' field")
+
+    return errors
+
+
+def check_hardcoded_paths(path: Path, root: Path) -> list[str]:
+    rel = path.relative_to(root)
+
+    try:
+        text = path.read_text()
+    except OSError as exc:
+        return [f"{rel}: cannot read file: {exc}"]
+
+    errors = []
+    for line_no, line in enumerate(text.splitlines(), start=1):
+        match = ABSOLUTE_USERNAME_PATH_RE.search(line)
+        if match:
+            errors.append(
+                f"{rel}:{line_no}: hard-coded absolute path '{match.group(0)}'"
+                " — use a tilde path (~/.claude/) or a generic placeholder"
+                " (/home/user/) instead"
+            )
+    return errors
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Validate SKILL.md/agent frontmatter and catch hardcoded username paths.",
+        epilog="Examples:\n"
+        "  lint-agent-files              # check current directory\n"
+        "  lint-agent-files skills/      # check a specific path\n",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "path", nargs="?", default=".", help="Path to check (default: .)"
+    )
+    args = parser.parse_args()
+
+    root = Path(args.path).resolve()
+    if not root.is_dir():
+        print(f"lint-agent-files: {root} is not a directory", file=sys.stderr)
+        return 1
+
+    errors: list[str] = []
+    skill_count = 0
+    agent_count = 0
+
+    for path in root.rglob("SKILL.md"):
+        if is_excluded_path(path):
+            continue
+        skill_count += 1
+        errors.extend(check_skill(path, root))
+
+    agents_dir = root / "agents"
+    if agents_dir.is_dir():
+        for path in sorted(agents_dir.glob("*.md")):
+            agent_count += 1
+            errors.extend(check_agent(path, root))
+
+    for path in iter_markdown_files(root):
+        errors.extend(check_hardcoded_paths(path, root))
+
+    if errors:
+        print("lint-agent-files: found issues:", file=sys.stderr)
+        for error in errors:
+            print(f"  - {error}", file=sys.stderr)
+        print(f"\n{len(errors)} error(s)", file=sys.stderr)
+        return 1
+
+    print(f"lint-agent-files: {skill_count} skill(s), {agent_count} agent(s) OK")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,32 @@
+# Repo-scoped mise config: tool versions for CI (uv, prek) and per-package
+# test tasks. prek.toml's pre-push hooks call these tasks directly rather
+# than wrapping a `cd`, since each package has its own venv and `dir` here
+# resolves relative to THIS file regardless of the caller's cwd.
+#
+# Wildcards run matching tasks in parallel:
+#   mise run 'test:*'   every suite in the repo
+#
+# Gating a new package means adding a task here and a hook line in prek.toml.
+
+[tools]
+uv = "latest"
+prek = "latest"
+
+[tasks."test:cfl"]
+description = "pytest for packages/cfl"
+dir = "packages/cfl"
+run = "uv run --group dev pytest"
+
+[tasks."test:ado-api"]
+description = "pytest for packages/ado-api"
+dir = "packages/ado-api"
+run = "uv run --group dev pytest"
+
+[tasks."test:merge-settings"]
+description = "pytest for packages/merge-settings"
+dir = "packages/merge-settings"
+run = "uv run --group dev pytest"
+
+[tasks."test:root"]
+description = "pytest for tests/ (install.py and repo-level hooks)"
+run = "uv run --with pytest --with questionary --with rich pytest tests/"
