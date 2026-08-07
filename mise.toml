@@ -21,8 +21,8 @@
 # same bug.
 
 [tools]
-uv = "latest"
-prek = "latest"
+uv = "0.12.1"
+prek = "0.4.12"
 
 [tasks."test:cfl"]
 description = "pytest for packages/cfl"
