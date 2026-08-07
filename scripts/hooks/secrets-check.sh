@@ -8,7 +8,7 @@
 #   cp scripts/hooks/secrets-check.sh <repo>/.git/hooks/pre-commit
 #   chmod +x <repo>/.git/hooks/pre-commit
 #
-# Or with pre-commit framework (.pre-commit-config.yaml):
+# Or with the pre-commit framework (.pre-commit-config.yaml):
 #   - repo: local
 #     hooks:
 #       - id: secrets-check
@@ -16,6 +16,16 @@
 #         entry: scripts/hooks/secrets-check.sh
 #         language: script
 #         stages: [pre-commit]
+#
+# Or with prek (prek.toml):
+#   [[repos]]
+#   repo = "local"
+#   [[repos.hooks]]
+#   id = "secrets-check"
+#   name = "secrets-check"
+#   entry = "scripts/hooks/secrets-check.sh"
+#   language = "script"
+#   stages = ["pre-commit"]
 #
 # Override: SKIP_SECRETS_CHECK=1 git commit -m "..."
 #   Use only when the match is a known false positive.

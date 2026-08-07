@@ -6,34 +6,26 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
+  prek:
+    name: prek (lint, format, agent-file checks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@v2
+      - run: prek run --all-files --stage pre-commit
+
   test:
+    name: pytest (all packages + root)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: astral-sh/setup-uv@v5
-
-      - name: Run cfl tests
-        working-directory: packages/cfl
-        run: uv run --group dev pytest -v
-
-      - name: Run root tests
-        run: uv run --with pytest --with questionary --with rich pytest tests/ -v
-
-      - name: Lint
-        run: uv run --with 'ruff==0.15.5' ruff check packages/ tests/
-
-      - name: Format check
-        run: uv run --with 'ruff==0.15.5' ruff format --check packages/ tests/
-
-  shell-check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pre-commit/action@v3.0.1
         with:
-          extra_args: shellcheck --all-files
-      - uses: pre-commit/action@v3.0.1
-        with:
-          extra_args: shfmt --all-files
+          persist-credentials: false
+      - uses: jdx/mise-action@v2
+      - run: mise run 'test:*'

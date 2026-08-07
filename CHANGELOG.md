@@ -2,6 +2,17 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-08-07
+
+### Changed
+
+- Dropped the `agnix` npm dependency in favor of `bin/lint-agent-files`, a stdlib-only reimplementation of the subset of agnix's ~230 rules this repo actually enforced — no more npm install step in CI. (#495)
+- Migrated the git hook framework from `pre-commit` to `prek`: fast stdlib-only checks at the pre-commit stage, per-package pytest at pre-push via mise tasks. `ado-api` and `merge-settings` now have CI test coverage for the first time, gated alongside `cfl` and the root test suite. (#495)
+
+### Fixed
+
+- Test fixtures that spawn `git init`/`git commit` in a fresh temp directory no longer inherit leaked `GIT_*` environment variables (from an enclosing git hook invocation), which could previously cause them to operate on the real outer repo instead of their intended temp directory. (#495)
+
 ## 2026-08-06
 
 ### Changed

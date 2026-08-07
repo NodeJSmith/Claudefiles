@@ -1,0 +1,157 @@
+# Managed with prek (https://github.com/j178/prek), installed via mise. Install
+# the hooks on a fresh clone with `prek install -t pre-commit -t pre-push`;
+# run everything manually with `prek run --all-files`.
+#
+# Layout: fast, repo-wide checks run at pre-commit; per-package pytest runs at
+# pre-push, because those cost seconds rather than milliseconds and nothing
+# they catch is worth paying for on every commit.
+#
+# The pytest hooks call mise tasks rather than wrapping a `cd`. Each package
+# has its own venv, so pytest must run from inside that package — see
+# mise.toml, where `dir` handles it. Gating a new package is one task there
+# plus one hook line here.
+#:schema https://www.schemastore.org/prek.json
+
+minimum_prek_version = "0.4.0"
+
+# =============================================================================
+# Builtin hooks — Rust-native, no environment to build, effectively free.
+# Scoped to python/toml/yaml deliberately: trailing whitespace is significant
+# in Markdown (two spaces = hard line break), and skill/rule Markdown carries
+# intentional trailing-space patterns that shouldn't get rewritten.
+# =============================================================================
+
+[[repos]]
+repo = "builtin"
+hooks = [
+  { id = "trailing-whitespace", types_or = ["python", "toml", "yaml"], stages = ["pre-commit"] },
+  { id = "end-of-file-fixer", types_or = ["python", "toml", "yaml"], stages = ["pre-commit"] },
+  { id = "mixed-line-ending", types_or = ["python", "toml", "yaml"], stages = ["pre-commit"] },
+  { id = "check-merge-conflict", stages = ["pre-commit"] },
+  { id = "detect-private-key", stages = ["pre-commit"] },
+]
+
+# =============================================================================
+# Ruff — whole repo (packages/ and tests/).
+#
+# Order matters: check --fix can reorder imports and leave the file
+# unformatted, so format runs after it.
+# =============================================================================
+
+[[repos]]
+repo = "https://github.com/astral-sh/ruff-pre-commit"
+rev = "v0.15.5"
+hooks = [
+  { id = "ruff-check", args = ["--fix"], types = ["python"], stages = ["pre-commit"] },
+  { id = "ruff-format", types = ["python"], stages = ["pre-commit"] },
+]
+
+# =============================================================================
+# Shell — scripts under bin/ and scripts/hooks/.
+# =============================================================================
+
+[[repos]]
+repo = "https://github.com/shellcheck-py/shellcheck-py"
+rev = "v0.11.0.1"
+hooks = [
+  { id = "shellcheck", args = ["--severity=warning"], stages = ["pre-commit"] },
+]
+
+[[repos]]
+repo = "https://github.com/scop/pre-commit-shfmt"
+rev = "v3.12.0-2"
+hooks = [
+  { id = "shfmt", args = ["-i", "2", "-ci", "-sr", "-d"], stages = ["pre-commit"] },
+]
+
+# =============================================================================
+# Local hooks — drift lints at pre-commit (stdlib-only, milliseconds), pytest
+# suites at pre-push (own venv, seconds). pass_filenames is off for all of
+# them; `files` only decides *whether* the hook fires — the pytest hooks below
+# run the whole suite (not just changed files) when any file under their
+# `files` pattern changed anywhere in the range being pushed.
+# =============================================================================
+
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "lint-cli-conventions"
+name = "CLI convention lint"
+entry = "bin/lint-cli-conventions"
+language = "system"
+pass_filenames = false
+always_run = true
+stages = ["pre-commit"]
+
+[[repos.hooks]]
+id = "lint-agent-models"
+name = "Agent registry sync (models + install.py)"
+entry = "bin/lint-agent-models"
+language = "system"
+pass_filenames = false
+always_run = true
+stages = ["pre-commit"]
+
+[[repos.hooks]]
+id = "lint-verdict-line"
+name = "Reviewer verdict-line conformance"
+entry = "bin/lint-verdict-line"
+language = "system"
+pass_filenames = false
+always_run = true
+stages = ["pre-commit"]
+
+[[repos.hooks]]
+id = "lint-agent-files"
+name = "Skill/agent frontmatter + hardcoded path lint"
+entry = "bin/lint-agent-files"
+language = "system"
+pass_filenames = false
+always_run = true
+stages = ["pre-commit"]
+
+[[repos.hooks]]
+id = "secrets-check"
+name = "secrets-check"
+entry = "scripts/hooks/secrets-check.sh"
+language = "script"
+pass_filenames = false
+always_run = true
+stages = ["pre-commit"]
+
+[[repos.hooks]]
+id = "test-cfl"
+name = "pytest (cfl)"
+entry = "mise run test:cfl"
+language = "system"
+files = "^packages/cfl/"
+pass_filenames = false
+stages = ["pre-push"]
+
+[[repos.hooks]]
+id = "test-ado-api"
+name = "pytest (ado-api)"
+entry = "mise run test:ado-api"
+language = "system"
+files = "^packages/ado-api/"
+pass_filenames = false
+stages = ["pre-push"]
+
+[[repos.hooks]]
+id = "test-merge-settings"
+name = "pytest (merge-settings)"
+entry = "mise run test:merge-settings"
+language = "system"
+files = "^packages/merge-settings/"
+pass_filenames = false
+stages = ["pre-push"]
+
+[[repos.hooks]]
+id = "test-root"
+name = "pytest (tests/)"
+entry = "mise run test:root"
+language = "system"
+files = '^(tests/|bin/|scripts/hooks/|install\.py$)'
+pass_filenames = false
+stages = ["pre-push"]

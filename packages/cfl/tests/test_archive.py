@@ -8,7 +8,7 @@ import pytest
 
 from cfl.archive import _stamp_design_md, archive_spec
 from cfl.db import setup_db
-from tests.helpers import REMOTE_URL, insert_spec_with_run, insert_task
+from tests.helpers import REMOTE_URL, git_env, insert_spec_with_run, insert_task
 
 
 # ---------------------------------------------------------------------------
@@ -34,35 +34,46 @@ def git_repo(tmp_path):
 
     Returns the repo root Path.
     """
-    subprocess.run(["git", "init"], capture_output=True, check=True, cwd=tmp_path)
+    env = git_env()
+    subprocess.run(
+        ["git", "init"], capture_output=True, check=True, cwd=tmp_path, env=env
+    )
     subprocess.run(
         ["git", "config", "user.email", "test@example.com"],
         capture_output=True,
         check=True,
         cwd=tmp_path,
+        env=env,
     )
     subprocess.run(
         ["git", "config", "user.name", "Test User"],
         capture_output=True,
         check=True,
         cwd=tmp_path,
+        env=env,
     )
     subprocess.run(
         ["git", "remote", "add", "origin", REMOTE_URL],
         capture_output=True,
         check=True,
         cwd=tmp_path,
+        env=env,
     )
     # Initial commit so HEAD exists.
     (tmp_path / "README.md").write_text("init\n")
     subprocess.run(
-        ["git", "add", "README.md"], capture_output=True, check=True, cwd=tmp_path
+        ["git", "add", "README.md"],
+        capture_output=True,
+        check=True,
+        cwd=tmp_path,
+        env=env,
     )
     subprocess.run(
         ["git", "commit", "-m", "init"],
         capture_output=True,
         check=True,
         cwd=tmp_path,
+        env=env,
     )
     return tmp_path
 
@@ -76,6 +87,7 @@ def _make_feature(
     write_design_md: bool = True,
 ) -> Path:
     """Create a feature dir with tasks/ and an optional design.md, staged in git."""
+    env = git_env()
     feature_dir = git_repo / "design" / "specs" / f"{number:03d}-{slug}"
     tasks_dir = feature_dir / "tasks"
     tasks_dir.mkdir(parents=True)
@@ -89,6 +101,7 @@ def _make_feature(
             capture_output=True,
             check=True,
             cwd=git_repo,
+            env=env,
         )
 
     if write_design_md:
@@ -99,6 +112,7 @@ def _make_feature(
             capture_output=True,
             check=True,
             cwd=git_repo,
+            env=env,
         )
 
     subprocess.run(
@@ -106,23 +120,30 @@ def _make_feature(
         capture_output=True,
         check=True,
         cwd=git_repo,
+        env=env,
     )
     return feature_dir
 
 
 def _add_legacy_artifacts(git_repo: Path, feature_dir: Path) -> None:
     """Add trail.tsv, trail-audit.md, .gitignore and commit them."""
+    env = git_env()
     for name in ("trail.tsv", "trail-audit.md", ".gitignore"):
         p = feature_dir / name
         p.write_text(f"legacy {name}\n")
         subprocess.run(
-            ["git", "add", str(p)], capture_output=True, check=True, cwd=git_repo
+            ["git", "add", str(p)],
+            capture_output=True,
+            check=True,
+            cwd=git_repo,
+            env=env,
         )
     subprocess.run(
         ["git", "commit", "-m", "add legacy artifacts"],
         capture_output=True,
         check=True,
         cwd=git_repo,
+        env=env,
     )
 
 
@@ -309,14 +330,20 @@ def test_archive_untracked_tasks_warns_but_does_not_crash(
 
     design = feature_dir / "design.md"
     design.write_text("# Design\n\n**Status:** in_progress\n\nBody.\n")
+    env = git_env()
     subprocess.run(
-        ["git", "add", str(design)], capture_output=True, check=True, cwd=git_repo
+        ["git", "add", str(design)],
+        capture_output=True,
+        check=True,
+        cwd=git_repo,
+        env=env,
     )
     subprocess.run(
         ["git", "commit", "-m", "add design"],
         capture_output=True,
         check=True,
         cwd=git_repo,
+        env=env,
     )
 
     spec_id, run_id = insert_spec_with_run(db_conn, 35, "my-feature", REMOTE_URL)

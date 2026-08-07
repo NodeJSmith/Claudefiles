@@ -204,7 +204,7 @@ On subsequent tasks and retries, skip — the baselines from the first task appl
 2. **Discover lint/format command(s)** using this discovery order:
    1. **CLAUDE.md** — "Lint", "Formatting", or "Code Quality" section
    2. **CI configuration** — `.github/workflows/`, `.gitlab-ci.yml`; extract lint/format/typecheck steps
-   3. **Pre-commit config** — `.pre-commit-config.yaml` or `.pre-commit-config.yml`; if present, note it but do NOT use `pre-commit run --all-files` as the lint command. Pre-commit hooks run automatically at commit time (Step 17) — extract the individual tools from the config instead (e.g., `ruff check .`, `pyright`, `eslint .`)
+   3. **Pre-commit config** — `prek.toml`, `.pre-commit-config.yaml`, or `.pre-commit-config.yml`; if present, note it but do NOT use `prek run --all-files` / `pre-commit run --all-files` as the lint command. These hooks run automatically at commit time (Step 17) — extract the individual tools from the config instead (e.g., `ruff check .`, `pyright`, `eslint .`)
    4. **Task runners** — `pyproject.toml` scripts, `Makefile`, `package.json` scripts (look for `lint`, `format`, `check`, `typecheck` targets)
    5. **Conventions** — Python: `ruff check .` + `pyright`. TypeScript: `tsc --noEmit` + `eslint .`
    6. **Ask the user** if unclear

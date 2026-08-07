@@ -24,17 +24,20 @@ The base bundle (full pipeline) always installs. The wizard asks about optional 
 
 ## Local Development
 
-For contributing to this repo, install the shell linting tools:
+For contributing to this repo, install the shell linting tools and [`mise`](https://mise.jdx.dev/):
 
 - [`shellcheck`](https://github.com/koalaman/shellcheck) — shell script static analysis
 - [`shfmt`](https://github.com/mvdan/sh) — shell script formatter
-- [`pre-commit`](https://pre-commit.com/) — git hook framework
+- [`mise`](https://mise.jdx.dev/getting-started.html) — installs [`prek`](https://github.com/j178/prek), the git hook runner, and runs the per-package test tasks
 
 Then install the hooks:
 
 ```bash
-pre-commit install
+mise install
+mise exec -- prek install -t pre-commit -t pre-push
 ```
+
+Run everything manually with `prek run --all-files`, or just the test suites with `mise run 'test:*'`.
 
 ## License
 
