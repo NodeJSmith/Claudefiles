@@ -7,6 +7,18 @@
 #   mise run 'test:*'   every suite in the repo
 #
 # Gating a new package means adding a task here and a hook line in prek.toml.
+#
+# `env -u GIT_...` on every task: when these run via prek's pre-push hook,
+# git sets GIT_DIR/GIT_PREFIX (and friends) in the hook's own environment,
+# and that leaks into everything the hook spawns. Test fixtures that create
+# their own temp git repos inherit it too, so a bare `git commit` inside a
+# fixture resolves GIT_DIR instead of its intended `cwd` and silently
+# commits into the real outer repo instead — confirmed to happen for real
+# during development of this config (recovered via `git reset --hard`).
+# Stripping these here, once, at the point where prek hands off to pytest,
+# is the actual fix — patching every git-touching test fixture and library
+# call individually is not, since the next one added would reintroduce the
+# same bug.
 
 [tools]
 uv = "latest"
@@ -15,18 +27,18 @@ prek = "latest"
 [tasks."test:cfl"]
 description = "pytest for packages/cfl"
 dir = "packages/cfl"
-run = "uv run --group dev pytest"
+run = "env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX uv run --group dev pytest"
 
 [tasks."test:ado-api"]
 description = "pytest for packages/ado-api"
 dir = "packages/ado-api"
-run = "uv run --group dev pytest"
+run = "env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX uv run --group dev pytest"
 
 [tasks."test:merge-settings"]
 description = "pytest for packages/merge-settings"
 dir = "packages/merge-settings"
-run = "uv run --group dev pytest"
+run = "env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX uv run --group dev pytest"
 
 [tasks."test:root"]
 description = "pytest for tests/ (install.py and repo-level hooks)"
-run = "uv run --with pytest --with questionary --with rich pytest tests/"
+run = "env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX uv run --with pytest --with questionary --with rich pytest tests/"
