@@ -19,7 +19,11 @@ def git_env() -> dict[str, str]:
     ambient invocation context. Without this, running the suite from inside
     a git hook (e.g. prek's pre-push hook, which sets GIT_DIR for its own
     invocation) makes git resolve GIT_DIR instead of `cwd` and silently
-    commit into the real outer repo."""
+    commit into the real outer repo.
+
+    Same fix as _git_env() in tests/test_hooks.py (repo root) — kept
+    separate (not shared) because that's a different installable package
+    with no shared test-utils dependency between the two."""
     return {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
 
 

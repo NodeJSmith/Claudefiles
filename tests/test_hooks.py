@@ -459,14 +459,22 @@ class TestCompactionHookNoSubagentDir:
 # ---------------------------------------------------------------------------
 
 
+def _git_env() -> dict[str, str]:
+    """Environment for git subprocess calls in test fixtures, with GIT_* vars
+    stripped so they always target the intended `cwd` regardless of the
+    ambient invocation context. Without this, running the suite from inside
+    a git hook (e.g. prek's pre-push hook, which sets GIT_DIR for its own
+    invocation) makes git resolve GIT_DIR instead of `cwd` and silently
+    commit into the real outer repo.
+
+    Same fix as git_env() in packages/cfl/tests/helpers.py — kept separate
+    (not shared) because this is a different installable package with no
+    shared test-utils dependency between the two."""
+    return {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+
+
 def _git_init(path: Path) -> None:
-    # Strip GIT_* vars (GIT_DIR, GIT_WORK_TREE, ...) so these commands always
-    # target the temp repo at `path` regardless of the ambient invocation
-    # context. Without this, running the suite from inside a git hook (e.g.
-    # prek's pre-push hook, which sets GIT_DIR for its own invocation) makes
-    # git resolve GIT_DIR instead of `cwd` and silently commit into the real
-    # outer repo.
-    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    env = _git_env()
     subprocess.run(["git", "init", "-q"], cwd=path, check=True, env=env)
     subprocess.run(
         ["git", "config", "user.email", "test@test.com"],
@@ -501,7 +509,7 @@ def test_git_init_ignores_leaked_git_dir_env() -> None:
         # hook, both queries would read the *ambient* repo's HEAD instead of
         # outer_path's, making the before/after comparison trivially equal
         # (and the test worthless) whether or not the fix under test works.
-        clean_env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        clean_env = _git_env()
 
         _git_init(outer_path)
         outer_head_before = subprocess.run(
@@ -809,7 +817,7 @@ class TestDocsCheckStateKeyReanchorsThroughSymlinkedWorktree:
                 ["git", "worktree", "add", "-q", "-b", "wtbranch", str(worktree)],
                 cwd=main_repo,
                 check=True,
-                env={k: v for k, v in os.environ.items() if not k.startswith("GIT_")},
+                env=_git_env(),
             )
 
             linked_base = real_base.parent / f"linked-{uuid.uuid4().hex[:8]}"
@@ -1045,7 +1053,7 @@ class TestDocsCheckStateKeyMismatchedToplevelFormatting:
                 ["git", "worktree", "add", "-q", "-b", "wtbranch", str(worktree)],
                 cwd=main_repo,
                 check=True,
-                env={k: v for k, v in os.environ.items() if not k.startswith("GIT_")},
+                env=_git_env(),
             )
 
             # project_root resolves via the marker branch of the walk-up
