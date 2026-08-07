@@ -34,7 +34,7 @@ Then install the hooks:
 
 ```bash
 mise install
-prek install -t pre-commit -t pre-push
+mise exec -- prek install -t pre-commit -t pre-push
 ```
 
 Run everything manually with `prek run --all-files`, or just the test suites with `mise run 'test:*'`.
