@@ -13,10 +13,11 @@ Everywhere below, `<task_id>` in a path means `<scope_id>`/`<scope_dir>` generic
 
 **Core principle — no cross-agent finding-ID matching:** The defer-vs-unresolved classification that feeds the gate must happen inside a fixer subagent that read the latest review. The orchestrator never reconstructs deferred-vs-unresolved from counts, IDs, or cross-pass comparison. Detection stays with the independent code and integration reviewers; classification stays in one fixer context that has the review in front of it. This mirrors today's orchestrator-as-fixer behavior and is the invariant that keeps the gate faithful across the dispatched-fixer split.
 
-**Iteration budget:** The scope's initial review pass (already completed by the invoker before this loop starts) counts as iteration 1. At most **2 code-changing fixer passes** follow (3 review iterations total). The loop exits in one of two ways:
+**Iteration budget:** The scope's initial review pass (already completed by the invoker before this loop starts) counts as iteration 1. At most **2 code-changing fixer passes** follow (3 review iterations total, when both passes actually change files). The loop exits in one of three ways:
 
 - **Early exit** — a re-review after a fixer pass returns a PASS verdict on both reviewers. A PASS with informational findings is clean, regardless of findings count.
-- **Budget exhausted** — both fixer passes ran and the latest re-review still has a WARN or FAIL verdict on either reviewer; a single **classify-mode** fixer pass then runs as a terminal, non-mutating dispatch to produce the final ledger. It applies no fixes and does **not** count against the 2-pass budget.
+- **No-op short-circuit** — a fixer pass leaves the code content byte-identical to what it started with (verified via a content fingerprint — see "Content fingerprint" below — not the ledger's self-report and not the changed-files list, which is name-only and won't detect a fixer editing a file that was already dirty going in). Re-reviewing byte-identical code cannot surface new information: any finding the fixer left in place still exists by definition, since nothing removed the pattern that triggered it. Re-dispatching reviewers at that point is a coin-flip on reviewer non-determinism, not verification. Skip the reviewer re-dispatch for that iteration and go straight to the classify-mode terminal pass, feeding it the review files the no-op fixer pass just processed (still current, since nothing changed). This consumes only the fixer-pass slot it ran in — if pass 1 was the no-op, pass 2 never runs — and the resulting classify-mode dispatch does not itself count against the 2-pass budget, same as the budget-exhausted route below.
+- **Budget exhausted** — both fixer passes ran (each changing at least one file) and the latest re-review still has a WARN or FAIL verdict on either reviewer; a single **classify-mode** fixer pass then runs as a terminal, non-mutating dispatch to produce the final ledger. It applies no fixes and does **not** count against the 2-pass budget.
 
 Each fixer dispatch is a single pass — do not loop inside the fixer subagent itself.
 
@@ -55,7 +56,7 @@ The fixer prompt must include:
 >
 > During normal fixer passes, do not write `<feature_dir>/known-issues.md` yet. Mark non-later-task deferrals as `deferred(<reason>; pending terminal classification)` and let the independent re-review decide whether the finding still exists. Durable known-issue recording happens only in the terminal classify-mode pass, against the latest review.
 
-### Classify-mode pass (budget exhausted, findings remain)
+### Classify-mode pass (no-op short-circuit or budget exhausted)
 
 When running the terminal classify-mode pass, add to the fixer prompt:
 
@@ -82,13 +83,25 @@ In terminal state B, non-later-task deferred rows must include a `known-issue: K
 
 The fixer ends its response with a one-line summary: `fixed: N, deferred: M, rejected: R, unresolved: K`
 
+### Content fingerprint (no-op detection)
+
+The no-op check in the Loop below needs to know whether a fixer pass changed any file's *content* — not just whether a file's path appears in the changed-files set. Both scopes' changed-files lists are name-only: WP scope unions paths incrementally, final scope diffs against a fixed base commit each iteration. Because a fixer's edits almost always land in a file the executor or a prior fixer pass already touched — the normal case, not an edge case — the changed-files list stays identical before and after a fixer pass even when that pass made real edits. Comparing changed-files lists would silently misclassify those passes as no-ops and skip review of a real change.
+
+Instead, immediately before dispatching each normal-mode fixer pass, capture a content fingerprint of the current worktree state:
+
+```bash
+{ git diff HEAD; git ls-files --others --exclude-standard -z | xargs -0 -I{} git hash-object "{}"; } | sha256sum
+```
+
+Save the result to `<scope_dir>/fingerprint-pre-passN.txt` (`N` = 1 or 2). After the fixer pass completes, recompute the identical command. The no-op check (Loop, iteration 2 step 4 and iteration 3 step 4) compares these two fingerprint values — never the changed-files list.
+
 ## Loop
 
 **Iteration 1** is the scope's initial review pass, already completed by the invoker before this loop starts. The canonical verdict lines and findings counts are already extracted. Proceed to iteration 2.
 
 **Iteration 2 — Fixer pass 1:**
 
-1. Record the fixer dispatch and capture its ID:
+1. Capture the pre-pass content fingerprint (see "Content fingerprint" above) and save it to `<scope_dir>/fingerprint-pre-pass1.txt`. Then record the fixer dispatch and capture its ID:
    ```bash
    cfl dispatch fixer <task_id> --agent-type general-purpose --model sonnet   # WP scope
    cfl dispatch fixer --agent-type general-purpose --model sonnet            # final scope — no task_id positional
@@ -98,8 +111,9 @@ The fixer ends its response with a one-line summary: `fixed: N, deferred: M, rej
    cfl dispatch end <dispatch_id>
    ```
 2. The fixer reads the reviews in its own context, applies fixes, and writes `<scope_dir>/fix-ledger.md`.
-3. Re-capture changed files using the scope's defined method (see Scope-agnostic above). Update `<scope_dir>/changed-files.txt` (WP scope) or recompute fresh (final scope).
-4. Record dispatches for both re-reviewers and capture their IDs:
+3. Re-capture changed files using the scope's defined method (see Scope-agnostic above). Update `<scope_dir>/changed-files.txt` (WP scope) or recompute fresh (final scope). This list feeds the reviewer re-dispatch and eventual commit scope — it is not used for the no-op check in step 4.
+4. **No-op check.** Recompute the content fingerprint (same command as step 1) and compare it against `<scope_dir>/fingerprint-pre-pass1.txt`. If identical — the fixer made zero content changes — skip steps 5–7 below. Go directly to the classify-mode terminal pass, passing it the **iteration-1 review files** (`<scope_dir>/code-review.md` and `<scope_dir>/integration-review.md`, still current since nothing changed) in place of a fresh re-review. Proceed to the Gate as terminal state B. Fixer pass 2 does not run.
+5. Record dispatches for both re-reviewers and capture their IDs:
    ```bash
    cfl dispatch code-reviewer <task_id> --agent-type code-reviewer --model sonnet             # WP scope
    cfl dispatch integration-reviewer <task_id> --agent-type integration-reviewer --model sonnet  # WP scope
@@ -117,25 +131,26 @@ The fixer ends its response with a one-line summary: `fixed: N, deferred: M, rej
    cfl dispatch end <code_reviewer_dispatch_id>
    cfl dispatch end <integration_reviewer_dispatch_id>
    ```
-5. Extract the canonical verdict lines from the freshened review files (last line matching `^\*\*Verdict:\*\*`, same pattern as the initial pass).
-6. **If both reviewers return a PASS verdict → early exit. Skip to the Gate section (terminal state A).** A PASS with informational findings counts as clean. Do not continue the loop because of a non-zero findings count on a PASS verdict.
+6. Extract the canonical verdict lines from the freshened review files (last line matching `^\*\*Verdict:\*\*`, same pattern as the initial pass).
+7. **If both reviewers return a PASS verdict → early exit. Skip to the Gate section (terminal state A).** A PASS with informational findings counts as clean. Do not continue the loop because of a non-zero findings count on a PASS verdict.
 
 **Iteration 3 — Fixer pass 2 (if either reviewer returned WARN or FAIL after iteration 2):**
 
-1. Record the fixer dispatch (`cfl dispatch fixer <task_id> --agent-type general-purpose --model sonnet` for WP scope, `cfl dispatch fixer --agent-type general-purpose --model sonnet` for final scope), capture `dispatch_id`. Dispatch the fixer subagent (normal pass) with the freshened review file paths from the iteration 2 re-review and the updated changed-files list. After completion: `cfl dispatch end <dispatch_id>`.
+1. Capture the pre-pass content fingerprint (same command as iteration 2 step 1) and save it to `<scope_dir>/fingerprint-pre-pass2.txt`. Then record the fixer dispatch (`cfl dispatch fixer <task_id> --agent-type general-purpose --model sonnet` for WP scope, `cfl dispatch fixer --agent-type general-purpose --model sonnet` for final scope), capture `dispatch_id`. Dispatch the fixer subagent (normal pass) with the freshened review file paths from the iteration 2 re-review and the updated changed-files list. After completion: `cfl dispatch end <dispatch_id>`.
 2. The fixer writes `<scope_dir>/fix-ledger.md` (overwrites the previous ledger).
-3. Re-capture changed files (same method as iteration 2 step 3).
-4. Record dispatches for both re-reviewers (`cfl dispatch code-reviewer/integration-reviewer <task_id>` for WP scope, omitting `<task_id>` for final scope), capture IDs. Re-dispatch in parallel (same concise dispatch as iteration 2 step 4, including the scope boundary block for WP scope). After completion: `cfl dispatch end <id>` for each.
-5. Extract canonical verdict lines.
-6. **If both reviewers return a PASS verdict → early exit. Skip to the Gate section (terminal state A).** A PASS with informational findings counts as clean.
+3. Re-capture changed files (same method as iteration 2 step 3). Not used for the no-op check in step 4.
+4. **No-op check.** Recompute the content fingerprint and compare it against `<scope_dir>/fingerprint-pre-pass2.txt`. If identical, skip steps 5–7 below. Go directly to the classify-mode terminal pass, passing it the **iteration-2 re-review files** (still current since nothing changed). Proceed to the Gate as terminal state B.
+5. Record dispatches for both re-reviewers (`cfl dispatch code-reviewer/integration-reviewer <task_id>` for WP scope, omitting `<task_id>` for final scope), capture IDs. Re-dispatch in parallel (same concise dispatch as iteration 2 step 5, including the scope boundary block for WP scope). After completion: `cfl dispatch end <id>` for each.
+6. Extract canonical verdict lines.
+7. **If both reviewers return a PASS verdict → early exit. Skip to the Gate section (terminal state A).** A PASS with informational findings counts as clean.
 
-**Budget exhausted — classify-mode terminal pass:**
+**Classify-mode terminal pass:**
 
-If the iteration 3 re-review still has a WARN or FAIL verdict on either reviewer:
+Reached one of three ways: iteration 2's no-op check, iteration 3's no-op check, or budget exhausted (both fixer passes ran and the iteration 3 re-review still has a WARN or FAIL verdict on either reviewer). "The applicable review" below means whichever review files that route fed in: iteration 1's initial review after a pass-1 no-op, iteration 2's re-review after a pass-2 no-op, or iteration 3's re-review when budget is exhausted.
 
-1. Record the classify-mode fixer dispatch (`cfl dispatch fixer <task_id> --agent-type general-purpose --model sonnet` for WP scope, `cfl dispatch fixer --agent-type general-purpose --model sonnet` for final scope), capture `dispatch_id`. Dispatch the fixer subagent in **classify-mode** with the iteration 3 re-review file paths and the updated changed-files list. After completion: `cfl dispatch end <dispatch_id>`.
-2. The fixer reads the latest reviews, classifies every remaining finding as `fixed`, `deferred(reason)` with required known-issue recording for non-later-task deferrals, `rejected(reason)` for findings that don't qualify per `known-issues-protocol.md`, or `unresolved`, and writes `<scope_dir>/fix-ledger.md` (overwrites). **No code changes.** It may edit `<feature_dir>/known-issues.md` because that is documentation of the classification, not a code fix.
-3. Do not re-dispatch reviewers after the classify-mode pass. The terminal ledger now reflects the latest review's findings. Proceed to the Gate section (terminal state B).
+1. Record the classify-mode fixer dispatch (`cfl dispatch fixer <task_id> --agent-type general-purpose --model sonnet` for WP scope, `cfl dispatch fixer --agent-type general-purpose --model sonnet` for final scope), capture `dispatch_id`. Dispatch the fixer subagent in **classify-mode** with the applicable review file paths and the current changed-files list. After completion: `cfl dispatch end <dispatch_id>`.
+2. The fixer reads the applicable reviews, classifies every remaining finding as `fixed`, `deferred(reason)` with required known-issue recording for non-later-task deferrals, `rejected(reason)` for findings that don't qualify per `known-issues-protocol.md`, or `unresolved`, and writes `<scope_dir>/fix-ledger.md` (overwrites). **No code changes.** It may edit `<feature_dir>/known-issues.md` because that is documentation of the classification, not a code fix.
+3. Do not re-dispatch reviewers after the classify-mode pass. The terminal ledger now reflects the applicable review's findings. Proceed to the Gate section (terminal state B).
 
 ## Gate
 
@@ -143,7 +158,7 @@ The loop reaches the gate in one of two terminal states.
 
 **Terminal state A — clean re-review (early exit).** A re-review after a fixer pass returned a PASS verdict on both reviewers. The independent reviewers are authoritative for detection, so the **fixer gate result is PASS**. Informational findings attached to a PASS verdict do not affect the gate. A PASS means the reviewer judged the code acceptable. Read the latest `<scope_dir>/fix-ledger.md` only to count the `fixed` rows for the `(N auto-fixed)` note. Do **not** carry forward deferred rows or known-issue IDs from this stale ledger; the clean re-review supersedes the earlier finding set. A stale `unresolved` row left in a ledger written *before* the clean re-review does **not** FAIL the gate.
 
-**Terminal state B — budget exhausted (classify-mode ledger).** Both fixer passes ran and the latest re-review still returned a WARN or FAIL verdict on either reviewer, so the classify-mode pass wrote the terminal ledger against that latest review. Read the terminal ledger:
+**Terminal state B — classify-mode ledger (no-op short-circuit or budget exhausted).** Reached either because a fixer pass left the code content-identical to what it started with (no-op short-circuit, verified via content fingerprint — see the Iteration budget and Loop sections) or because both fixer passes ran and the latest re-review still returned a WARN or FAIL verdict on either reviewer (budget exhausted). Either way, the classify-mode pass wrote the terminal ledger against the applicable review. Read the terminal ledger:
 
 - **Any `unresolved` row → the fixer gate result is FAIL.**
 - **No `unresolved` rows and every non-later-task deferred row includes an artifact-backed `known-issue: KI-###` reference (only `fixed`, `rejected`, and/or valid `deferred`, or an empty ledger) → the fixer gate result is PASS.** For each referenced ID, read `<feature_dir>/known-issues.md` and verify the ID exists as an entry that records the corresponding finding. Missing, malformed, or fabricated IDs do not satisfy the row; classify that row as `unresolved`, making the fixer gate result FAIL. Count the `fixed` rows; carry a `(N auto-fixed)` note forward.
@@ -154,7 +169,11 @@ After the gate evaluation, the changed-files list is current from the last loop 
 
 ## Event Logging
 
-After the loop completes (gate decided), emit a fix event with the counts from the terminal ledger (or from the fixer's one-line summary return). For terminal state A, count only fixed rows; deferred/rejected/unresolved rows in the stale ledger do not carry forward. Iteration count = number of review passes run (2 after one fixer cycle, 3 after two fixer cycles):
+After the loop completes (gate decided), emit a fix event with the counts from the terminal ledger (or from the fixer's one-line summary return). For terminal state A, count only fixed rows; deferred/rejected/unresolved rows in the stale ledger do not carry forward. Iteration count = number of review passes actually run:
+
+- **1** — a no-op short-circuit fired after fixer pass 1 (no re-review ran)
+- **2** — a re-review ran exactly once (an early exit after fixer pass 1, or a no-op short-circuit after fixer pass 2)
+- **3** — re-reviews ran after both fixer passes
 
 ```bash
 cfl event task.fixed <task_id> --data '{"fixed": <N>, "deferred": <M>, "rejected": <R>, "unresolved": <K>, "iteration": <iteration count>}'   # WP scope
