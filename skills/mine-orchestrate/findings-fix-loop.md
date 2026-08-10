@@ -90,8 +90,24 @@ The no-op check in the Loop below needs to know whether a fixer pass changed any
 Instead, immediately before dispatching each normal-mode fixer pass, capture a content fingerprint of the current worktree state:
 
 ```bash
-{ git diff HEAD; git ls-files --others --exclude-standard -z | xargs -0 -I{} git hash-object "{}"; } | sha256sum
+{
+  git diff HEAD
+  # untracked files: pair each blob's content hash with its path and executable
+  # bit, so a rename or an executable-bit toggle changes the output too — a bare
+  # content hash alone would miss both
+  git ls-files --others --exclude-standard -z | while IFS= read -r -d '' f; do
+    mode=-
+    [ -x "$f" ] && mode=x
+    printf '%s %s %s\n' "$(git hash-object "$f")" "$mode" "$f"
+  done
+} | {
+  # the outer { } is required here too: it feeds the whole piped stream to
+  # whichever hash command runs, instead of wiring stdin to sha256sum alone
+  command -v sha256sum >/dev/null 2>&1 && sha256sum || shasum -a 256
+}
 ```
+
+`sha256sum` is unavailable on a standard macOS install (this skill's environment-detection commands elsewhere already fall back for macOS — see the `ss`/`lsof` pair in `SKILL.md`); fall back to `shasum -a 256` when it's missing.
 
 Save the result to `<scope_dir>/fingerprint-pre-passN.txt` (`N` = 1 or 2). After the fixer pass completes, recompute the identical command. The no-op check (Loop, iteration 2 step 4 and iteration 3 step 4) compares these two fingerprint values — never the changed-files list.
 
