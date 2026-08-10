@@ -66,21 +66,18 @@ AskUserQuestion:
       description: "Pause; I'll address findings manually"
 ```
 
-**On "Address fixes":**
-1. Record the dispatch and capture its ID:
-   ```bash
-   cfl dispatch impl-fixer --agent-type general-purpose --model sonnet
-   ```
-2. Dispatch a fresh `general-purpose` subagent with `model: sonnet` and `cfl_dispatch_id: <dispatch_id>` (from the preceding dispatch), the impl-review findings, relevant paths, `<feature_dir>/design.md`, all task files (for per-task constraints), accumulated spec reviews, `implementer-prompt.md`, `retry-prompt.md`, and `tdd.md`. Populate `## Previous review feedback` with `Impl-review: <absolute path>`. Instruct: "Fix only the listed blocking issues. Do not expand scope beyond these findings. Respect each task's constraints."
-3. After the subagent completes: `cfl dispatch end <dispatch_id>`
-4. Re-run the project test suite (using `<dir>/test-command.txt`; skip and treat as passing if that file contains the sentinel `no test suite`). If tests fail: surface the failure prominently in the next gate prompt (which offers "Address fixes" or "Stop here" — there is no "Accept and ship" option at this gate) with a note identifying the test failures.
-5. Re-run `code-reviewer` and `integration-reviewer` on the fix diff in parallel (both in a single message)
-6. Re-run `/mine-implementation-review <feature_dir>`
-7. If it now returns PASS, record the updated gate and continue to Step 3:
-   ```bash
-   cfl gate impl-review --verdict PASS --detail "<summary>"
-   ```
-8. "Address fixes" remains available across iterations — the user decides when to stop. Starting with the 3rd round, prepend a warning to the gate question: "Multiple rounds have not resolved the blocking issues — consider stopping to investigate the root cause before continuing." Do not remove the option; the user may have context (e.g., knowing the next iteration targets a different layer) that justifies continuing.
+**On "Address fixes":** follow the shared blocking-review fixer protocol below with these
+implementation-review inputs and verification steps:
+
+- Record `cfl dispatch impl-fixer --agent-type general-purpose --model sonnet`, then dispatch a
+  fresh `general-purpose` subagent with `model: sonnet`, the preceding `cfl_dispatch_id`, the
+  impl-review findings, relevant paths, `<feature_dir>/design.md`, all task files (for per-task
+  constraints), accumulated spec reviews, `implementer-prompt.md`, `retry-prompt.md`, and `tdd.md`.
+  Populate `## Previous review feedback` with `Impl-review: <absolute path>`. Instruct: "Fix only
+  the listed blocking issues. Do not expand scope beyond these findings. Respect each task's
+  constraints." Re-run `code-reviewer` and `integration-reviewer` in parallel, then
+  `/mine-implementation-review <feature_dir>`. On PASS, record
+  `cfl gate impl-review --verdict PASS --detail "<summary>"` and continue to Step 3.
 
 **On "Stop here":** Leave the run active. The user can resume later. Do not call `cfl run complete`.
 
@@ -118,19 +115,52 @@ Record the gate result:
 cfl gate cross-file-review --verdict <PASS|WARN|FAIL> --data '{"findings": <N>, "critical": <C>, "high": <H>, "medium": <M>, "low": <L>}'
 ```
 
-If the integration-reviewer returns FAIL, surface the blocking issues to the user with an "Address" / "Stop here" gate. On "Address": record a fresh fixer dispatch and capture its ID:
+If the integration-reviewer returns FAIL, prompt the user:
+
+```
+AskUserQuestion:
+  question: "Cross-file review found blocking issues: <summary of blocking issues>. What next?"
+  header: "Cross-file gate"
+  multiSelect: false
+  options:
+    - label: "Address fixes"
+      description: "Dispatch a fixer for the listed cross-file consistency issues, then re-review"
+    - label: "Stop here"
+      description: "Pause; I'll address findings manually"
+```
+
+On "Address fixes", follow the shared blocking-review fixer protocol below with these cross-file-review inputs and verification steps:
 
 ```bash
 cfl dispatch cross-file-fixer --agent-type general-purpose --model sonnet
 ```
 
-Then dispatch a `general-purpose` fixer with `model: sonnet`, `cfl_dispatch_id: <cross_file_fixer_dispatch_id>`, the cross-file review findings, changed file paths, design doc path, task files, and the instruction: "Fix only the listed cross-file consistency issues; do not expand scope." After it completes:
+- Dispatch a `general-purpose` fixer with `model: sonnet`, `cfl_dispatch_id: <cross_file_fixer_dispatch_id>`,
+  the cross-file review findings, changed file paths, design doc path, task files, and the
+  instruction: "Fix only the listed cross-file consistency issues; do not expand scope." Re-run
+  the cross-file integration review and record the updated gate:
+  `cfl gate cross-file-review --verdict <PASS|WARN|FAIL> --data '{"findings": <N>, "critical": <C>, "high": <H>, "medium": <M>, "low": <L>}'`.
+  If PASS or WARN, note suggestions and apply the existing known-issues protocol and Severity
+  Escalation mechanics, including its "Fix now"/"Stop here"/"Ship anyway" choices, before
+  continuing to Step 4. Do not continue if the user chooses "Stop here".
 
-```bash
-cfl dispatch end <cross_file_fixer_dispatch_id>
-```
+### Shared blocking-review fixer protocol
 
-Then re-run the project test suite using `<dir>/test-command.txt` (skip and treat as passing if that file contains the sentinel `no test suite`), re-run the cross-file integration review, and record the updated `cross-file-review` gate. Repeat with the same warning-after-3-rounds policy as the impl-review gate, or stop if the user chooses "Stop here". If PASS or WARN, note any suggestions. If a suggestion identifies a real issue that should not be fixed in this run, read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md`, check the qualifying criteria and the Severity Gate, and record it (with `Run: <run_id>` from Step 1) only if it passes both — raise the protocol's **Severity Escalation** `AskUserQuestion` right now if it trips the gate, same as Step 2, and follow its "Fix now"/"Stop here"/"Ship anyway" mechanics. Continue to Step 4 (Clean code check) only if no escalation was needed, or it resolved via "Fix now" or "Ship anyway" — not if the user chose "Stop here".
+For either blocking gate, after recording the fixer dispatch:
+
+1. Dispatch the fresh fixer with the gate-specific inputs above and the preceding dispatch ID.
+2. After it completes, run `cfl dispatch end <dispatch_id>`, then re-run the project test suite
+   using `<dir>/test-command.txt`; skip and treat it as passing when
+   the file contains `no test suite`. Surface test failures prominently in the next gate prompt,
+   which offers only "Address fixes" and "Stop here".
+3. Re-run the gate-specific reviewers and gate review described above. If the gate passes, continue
+   with the next phase. Otherwise, re-raise that gate's existing
+   "Address"/"Stop here" choice. "Address fixes" remains available across iterations; starting
+   with the 3rd round, prepend: "Multiple rounds have not resolved the blocking issues — consider
+   stopping to investigate the root cause before continuing." Do not remove the option.
+
+On "Stop here" from either blocking gate, leave the run active; the user can resume later. Do not
+call `cfl run complete`.
 
 ## Step 4: Clean code check (automatic)
 

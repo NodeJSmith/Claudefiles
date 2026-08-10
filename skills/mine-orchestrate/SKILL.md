@@ -30,7 +30,7 @@ Run state persists in the cfl SQLite DB across sessions. Per-task temp artifacts
 
 ### Check for existing run (resume detection)
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/resume-protocol.md` and follow it. If an active run exists in `orchestrate` phase, the protocol either resumes at Phase 2 or restarts fresh. If an active run exists in `define` or `plan` phase, the protocol either sets `advance_from_prior_phase` and falls through to "Branch staleness pre-flight" below, or stops the run and exits. If no active run exists, proceed to "Branch staleness pre-flight" below.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/resume-protocol.md` and follow it. If an active run exists in `orchestrate` phase, the protocol either resumes at Phase 2 or restarts fresh. If an active run exists in `define`, `plan`, or `sketch` phase, the protocol either sets `advance_from_prior_phase` and falls through to "Branch staleness pre-flight" below, or stops the run and exits. If no active run exists, proceed to "Branch staleness pre-flight" below.
 
 ### Branch staleness pre-flight
 
@@ -129,7 +129,7 @@ First, get the base commit:
 git rev-parse --short HEAD
 ```
 
-**If `advance_from_prior_phase` is set** (resume-protocol found a run in `define` or `plan` phase and the user chose "Advance to orchestrate"):
+**If `advance_from_prior_phase` is set** (resume-protocol found a run in `define`, `plan`, or `sketch` phase and the user chose to advance to orchestrate):
 
 ```bash
 cfl run advance-phase orchestrate --base-commit <sha> --tmpdir <tmpdir> [--visual-mode <enabled|skipped_no_server|skipped_no_vision>] [--dev-server-url <url>]
@@ -631,7 +631,7 @@ For FAIL/BLOCKED gate outcomes, **update the task status** before taking the gat
   ```bash
   cfl task update <task_id> --status fixing
   ```
-  Re-run from Step 4 (which includes Step 5 executor + Step 6 file capture + Step 6b reviewing transition) using the Step 5 retry composition: `implementer-prompt.md` as the executor contract plus `retry-prompt.md` as the retry-specific instructions. Populate the `## Previous review feedback` template in `retry-prompt.md` with reviewer file paths based on which steps were reached: spec reviewer always; code reviewer and integration reviewer if Step 12 was reached; visual reviewer if it ran. Pass N/A for any reviewer that didn't reach its step. The executor reads these files directly — do not inline or truncate the reviewer output. Only provide the most recent attempt's reviewer file paths.
+  Re-run from Step 4 (which includes Step 5 executor + Step 6 file capture + Step 6b reviewing transition) using the Step 5 retry composition: `implementer-prompt.md` as the executor contract plus `retry-prompt.md` as the retry-specific instructions. Populate the `## Previous review feedback` template in `retry-prompt.md` with reviewer file paths based on which steps were reached: spec reviewer always; code reviewer and integration reviewer if Step 12 was reached; visual reviewer if it ran. Omit reviewers that didn't reach their step; include only paths that are present. The executor reads these files directly — do not inline or truncate the reviewer output. Only provide the most recent attempt's reviewer file paths.
 - **Mark as blocked and skip**: record the block with a reason:
   ```bash
   cfl task block <task_id> --reason "<blocker description>"

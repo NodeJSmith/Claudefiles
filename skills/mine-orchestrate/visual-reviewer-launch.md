@@ -19,6 +19,14 @@ If no `.png` files are found, distinguish the cause:
 - Executor reported all scenarios as SKIPPED → Visual = SKIPPED with executor's reasons
 - Dev server was available, scenarios existed, but no screenshots → Visual = FAIL "executor did not capture screenshots despite dev server being available"
 
+Before launching, record a dispatch and capture its ID:
+
+```bash
+cfl dispatch visual-reviewer <task_id> --agent-type general-purpose --model sonnet
+```
+
+Parse `dispatch_id` from the JSON response for the prompt and the completion call.
+
 Launch a `general-purpose` subagent with `model: sonnet`:
 
 ```
@@ -36,10 +44,16 @@ You are reviewing screenshots from a frontend task implementation.
 ## Visual reviewer instructions
 <full visual-reviewer-prompt.md content>
 
+cfl_dispatch_id: <visual_reviewer_dispatch_id>
+
 Write your review to: <absolute path: dir>/<task_id>/visual-review.md>
 ```
 
-Wait for the subagent to complete. Read the visual reviewer output file.
+Wait for the subagent to complete. Read the visual reviewer output file. Then close the dispatch:
+
+```bash
+cfl dispatch end <visual_reviewer_dispatch_id>
+```
 
 **Fallback:** Empty or unparseable output with available screenshots is FAIL. If the executor reported
 all scenarios SKIPPED and there are no screenshots, use SKIPPED with the executor's reasons. If the

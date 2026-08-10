@@ -1,7 +1,7 @@
 # Design: Simplify Mine-Orchestrate Prose
 
 **Date:** 2026-08-09
-**Status:** approved
+**Status:** archived
 **Mode:** sketch
 
 ## Problem

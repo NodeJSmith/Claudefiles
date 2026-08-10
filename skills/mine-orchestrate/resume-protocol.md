@@ -14,7 +14,7 @@ cfl run status
 
 ### Phase check
 
-When the user chooses to continue a prior `define` or `plan` run, set `advance_from_prior_phase = true`, do **not** call `cfl run advance-phase` yet, and fall through to the rest of SKILL.md Phase 0. Act on the flag only at "Initialize orchestration run via cfl," after tmpdir, visual_mode, and dev_server_url are resolved.
+When the user chooses to continue a prior `define`, `plan`, or `sketch` run, set `advance_from_prior_phase = true`, do **not** call `cfl run advance-phase` yet, and fall through to the rest of SKILL.md Phase 0. Act on the flag only at "Initialize orchestration run via cfl," after tmpdir, visual_mode, and dev_server_url are resolved.
 
 **If phase is `"define"`** (no task files exist yet — mine-plan has not run):
 
@@ -35,7 +35,22 @@ AskUserQuestion:
 - **"Stop the run"**: Call `cfl run stop --reason "user chose stop — needs mine-plan"` and exit.
 - **"I already have task files"**: Set `advance_from_prior_phase = true` and continue Phase 0.
 
-**If phase is `"sketch"`**: treat it like any unsupported prior-phase caller contract. Stop and tell the user to resume from the owning workflow instead of advancing into orchestrate from here.
+**If phase is `"sketch"`** (task files should exist from mine-sketch):
+
+```
+AskUserQuestion:
+  question: "An active run exists in sketch phase (from mine-sketch). Advance to orchestrate to begin task execution?"
+  header: "Advance?"
+  multiSelect: false
+  options:
+    - label: "Advance to orchestrate"
+      description: "Load task files and begin execution"
+    - label: "Stop the run"
+      description: "Stop this run; the spec remains in sketch phase"
+```
+
+- **"Advance to orchestrate"**: Set `advance_from_prior_phase = true` and continue Phase 0.
+- **"Stop the run"**: Call `cfl run stop --reason "user chose stop at phase advance"` and exit.
 
 **If phase is `"plan"`** (task files should exist from mine-plan):
 
@@ -81,8 +96,8 @@ If `base_commit` no longer exists, append " (base commit is gone — branch may 
 **On resume:**
 - Restore these fields from run status: `feature_dir`, `tmpdir`, `tmpdir_exists`, `visual_mode`, `dev_server_url`, `base_commit`, `started_at`, `tasks`, `last_completed`, `current_task`. Do not rely on conversational memory for `run_id`; `findings-fix-loop.md` re-queries it when needed.
 - Verify `tmpdir` exists (use the `tmpdir_exists` field). If it does not, run `get-skill-tmpdir mine-orchestrate` to create a new one and note that subagent outputs from prior tasks are gone (code changes are in git; verdicts are in the DB)
-- Re-read `<feature_dir>/design.md` and all `<feature_dir>/tasks/T*.md` files (they may have been edited between sessions)
-- **Stale verdict check**: For each task that has a PASS verdict in the `tasks` array, check whether the task file was modified after the run's `started_at` timestamp: `git log --since="<started_at>" --oneline -- <feature_dir>/tasks/<task_id>.md`. If the file was modified, surface a warning: "<task_id> was edited since its PASS verdict — the verdict may no longer be valid." Skip tasks with no verdict yet (unstarted) — edits to unstarted tasks are expected between sessions. This does not require a hard stop, just visibility before proceeding.
+- Re-read `<feature_dir>/design.md` and all `<feature_dir>/tasks/T*.md` files (they may have been edited between sessions), retaining each task's actual file path alongside its `task_id`.
+- **Stale verdict check**: For each task that has a PASS verdict in the `tasks` array, resolve its real task file path from the task files read above before invoking `git log`. Then check whether it was modified after the run's `started_at` timestamp: `git log --since="<started_at>" --oneline -- <resolved_task_file_path>`. If the file was modified, surface a warning: "<task_id> was edited since its PASS verdict — the verdict may no longer be valid." Skip tasks with no verdict yet (unstarted) — edits to unstarted tasks are expected between sessions. This does not require a hard stop, just visibility before proceeding.
 - **Test baseline check**: If `<dir>/test-baseline.md` is missing (tmpdir was cleared), warn: "Test baseline from prior session is gone — regression detection will be unavailable for resumed tasks. Pre-existing test failures cannot be distinguished from regressions." Do not re-capture (the codebase has changed since baseline).
 - **Dev server re-verify**: If `visual_mode` is `enabled` and `dev_server_url` is set, ping the stored URL to verify it's still reachable. If unreachable, re-run the Phase 0 dev server detection (port scan → user prompt). If `dev_server_url` is empty or `"none"`, set `visual_mode` to `skipped_no_server` unless the user re-probes.
 - Skip the rest of Phase 0; feature discovery/design/task reads are handled by the restore, and dev server state was re-verified above.

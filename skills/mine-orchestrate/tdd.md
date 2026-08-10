@@ -62,12 +62,5 @@ None of these are acceptable permanent states. Fix them.
 
 ## Parallel Execution
 
-Before using `-n auto`, verify `pytest-xdist` is installed: run `pip show pytest-xdist` (or `uv pip show pytest-xdist`, `poetry show pytest-xdist`, etc. depending on the project's package manager) — a zero exit code means installed. If not installed, use serial execution and note it in the output.
-
-Use `-n auto` for test suites with 50+ tests. Only run serially when:
-- `pytest-xdist` is not installed
-- Debugging a specific failure
-- The suite has fewer than 50 tests
-- A known isolation issue is actively being fixed
-
-If xdist fails but serial passes → isolation bug → fix it.
+Use the orchestrator-supplied canonical test command unchanged. If parallel execution
+exposes an isolation bug, fix shared state rather than weakening the test command.

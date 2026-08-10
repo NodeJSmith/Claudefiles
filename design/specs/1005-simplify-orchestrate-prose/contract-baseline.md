@@ -93,6 +93,8 @@ Dispatch commands:
 - `cfl dispatch spec-reviewer <task_id> --agent-type general-purpose --model sonnet`
 - `cfl dispatch code-reviewer <task_id> --agent-type code-reviewer --model sonnet`
 - `cfl dispatch integration-reviewer <task_id> --agent-type integration-reviewer --model sonnet`
+- `cfl dispatch visual-reviewer <task_id> --agent-type general-purpose --model sonnet`
+- `cfl dispatch end <visual_reviewer_dispatch_id>`
 - `cfl dispatch impl-fixer --agent-type general-purpose --model sonnet`
 - `cfl dispatch cross-file-reviewer --agent-type integration-reviewer --model sonnet`
 - `cfl dispatch cross-file-fixer --agent-type general-purpose --model sonnet`
@@ -335,9 +337,9 @@ Command used for the final measurement: `wc -l skills/mine-orchestrate/*.md`
 
 | Measure | Before T01 | After T04 | Result |
 |---|---:|---:|---|
-| Total orchestration Markdown lines | 2449 | 2337 | 112 lines removed (4.6%) |
+| Total orchestration Markdown lines | 2449 | 2389 | 60 lines removed (2.4%) |
 | Long-line reflow used as the reduction | no | no | reduction is from deleted/replaced duplicated prose |
-| AC#5 target (`>=15%`) | 2449 | 2081 or fewer required | **CONTESTED: inherited target is not met** |
+| AC#5 target (`>=15%`) | 2449 | 2389 | **CONTESTED: inherited target is not met** |
 
 The final audit found and fixed four real contract issues: optional task sections are now treated as
 optional (`Summary`/`Focus`), the post-execution fixer prompt no longer references the absent
@@ -351,8 +353,8 @@ configured visual review model remains `sonnet`, so no model change was required
 |---|---|---|---|
 | Phases and numbered steps | Phase 0, 1, 2, 3; task steps 1-17; Phase 3 1-7 | Retained | No phase or step removal; optional-section wording only changed. |
 | Commands and command families | All `cfl run`, `cfl task`, `cfl dispatch`, `cfl event`, and `cfl gate` families | Retained | Search and manual comparison found no command-family removal. |
-| Dispatch telemetry | `cfl_dispatch_id`, foreground Phase 3, `run_id`, dispatch-end pairing | Retained | Payload and dispatch requirements remain represented. |
-| Prompt payloads | Executor, retry, spec, code/integration, visual, and Phase 3 payload fields | Retained | Isolated prompts retain required paths, IDs, commands, and output files; retry adds Visual reviewer label. |
+| Dispatch telemetry | `cfl_dispatch_id`, foreground Phase 3, `run_id`, dispatch-end pairing | Retained | Every reviewer dispatch, including visual review, carries an ID and has a paired end call. |
+| Prompt payloads | Executor, retry, spec, code/integration, visual, and Phase 3 payload fields | Retained | Isolated prompts retain required paths, IDs, commands, and output files; visual review now carries its dispatch ID; retry adds Visual reviewer label. |
 | Gates and artifacts | Test/lint/visual/reviewer/fixer/shipping gates and all listed paths | Retained | No gate or artifact name was removed. |
 | Reviewers and verdicts | Executor, spec, code, integration, visual; PASS/WARN/FAIL/SKIPPED rules | Retained | Canonical verdict owner and lint pass; visual `WARN [INFRA]` is now explicit per existing behavior. |
 | Known-issue fields and fingerprint paths | Full schema, `Run`, severity gate, and `fingerprint-pre-passN.txt` | Retained | No field, path, or terminal ledger rule changed. |
