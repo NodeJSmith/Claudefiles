@@ -26,19 +26,25 @@ Use `tasks[].verdict` and `tasks[].verdict_detail` fields. PASS with a detail no
 
 Invoke `/mine-implementation-review <feature_dir>` automatically. The skill presents findings and returns — no user gate (the orchestrator handles all gate logic).
 
-Read the review output. Extract PASS, FAIL, or ABANDON plus suggestions/blockers; ABANDON maps to
-FAIL for the gate:
-
-```bash
-cfl gate impl-review --verdict <PASS|FAIL> --detail "<brief summary>"
-```
+Read the review output. Extract PASS, FAIL, or ABANDON plus suggestions/blockers. Record the gate
+result after handling the applicable outcome below; ABANDON maps to FAIL for the gate.
 
 **If impl-review returns PASS** — retain non-blocking suggestions for later. For a real deferred
 suggestion, use `known-issues-protocol.md` and its Severity Gate: record it with `Run: <run_id>`
 only when both permit; otherwise raise its Severity Escalation prompt and follow that prompt. Only
-continue automatically when no escalation is needed or it resolves with "Fix now"/"Ship anyway".
+continue automatically when no escalation is needed or it resolves with "Ship anyway". On "Fix
+now", re-run impl-review and repeat Step 2 with that result; do not record the pre-fix result or
+continue to Step 3. After this PASS handling completes, record:
+
+```bash
+cfl gate impl-review --verdict PASS --detail "<brief summary>"
+```
 
 **If impl-review returns ABANDON** — hard stop. ABANDON means the implementation is unrecoverable and requires a design rethink, not a code fix. Do not offer "Address fixes":
+
+```bash
+cfl gate impl-review --verdict FAIL --detail "<brief summary>"
+```
 
 ```
 AskUserQuestion:
@@ -53,6 +59,10 @@ AskUserQuestion:
 ```
 
 **If impl-review returns FAIL** — prompt the user:
+
+```bash
+cfl gate impl-review --verdict FAIL --detail "<brief summary>"
+```
 
 ```
 AskUserQuestion:
@@ -76,8 +86,8 @@ implementation-review inputs and verification steps:
   Populate `## Previous review feedback` with `Impl-review: <absolute path>`. Instruct: "Fix only
   the listed blocking issues. Do not expand scope beyond these findings. Respect each task's
   constraints." Re-run `code-reviewer` and `integration-reviewer` in parallel, then
-  `/mine-implementation-review <feature_dir>`. On PASS, record
-  `cfl gate impl-review --verdict PASS --detail "<summary>"` and continue to Step 3.
+  `/mine-implementation-review <feature_dir>`. Repeat Step 2 with its result; continue to Step 3
+  only after its PASS handling completes.
 
 **On "Stop here":** Leave the run active. The user can resume later. Do not call `cfl run complete`.
 
@@ -109,11 +119,23 @@ Launch `Agent(subagent_type: "integration-reviewer")` with all changed files. In
 
 After the reviewer completes: `cfl dispatch end <dispatch_id>`
 
+Before recording a PASS or WARN result, handle each genuine non-blocking suggestion: apply the
+known-issues protocol to each real deferred suggestion, recording it only when it qualifies and
+passes the Severity Gate. If the Severity Gate trips, raise its Severity Escalation prompt and
+follow its "Fix now"/"Stop here"/"Ship anyway" mechanics. On "Fix now", re-run the full cross-file
+integration review, then repeat this PASS/WARN handling with the new result. Do not continue if
+the user chooses "Stop here".
+
 Record the gate result:
 
 ```bash
 cfl gate cross-file-review --verdict <PASS|WARN|FAIL> --data '{"findings": <N>, "critical": <C>, "high": <H>, "medium": <M>, "low": <L>}'
 ```
+
+After the PASS/WARN handling above, record PASS when every suggestion was fixed, rejected, or
+recorded as a known issue. Record WARN only for a non-actionable reviewer note that is not a real
+issue and must remain visible in the shipping summary. Do not continue while a genuine untracked
+issue remains.
 
 If the integration-reviewer returns FAIL, prompt the user:
 
@@ -138,11 +160,8 @@ cfl dispatch cross-file-fixer --agent-type general-purpose --model sonnet
 - Dispatch a `general-purpose` fixer with `model: sonnet`, `cfl_dispatch_id: <cross_file_fixer_dispatch_id>`,
   the cross-file review findings, changed file paths, design doc path, task files, and the
   instruction: "Fix only the listed cross-file consistency issues; do not expand scope." Re-run
-  the cross-file integration review and record the updated gate:
-  `cfl gate cross-file-review --verdict <PASS|WARN|FAIL> --data '{"findings": <N>, "critical": <C>, "high": <H>, "medium": <M>, "low": <L>}'`.
-  If PASS or WARN, note suggestions and apply the existing known-issues protocol and Severity
-  Escalation mechanics, including its "Fix now"/"Stop here"/"Ship anyway" choices, before
-  continuing to Step 4. Do not continue if the user chooses "Stop here".
+  the cross-file integration review, then repeat the PASS/WARN/FAIL handling above before
+  continuing to Step 4.
 
 ### Shared blocking-review fixer protocol
 
@@ -153,11 +172,13 @@ For either blocking gate, after recording the fixer dispatch:
    using `<dir>/test-command.txt`; skip and treat it as passing when
    the file contains `no test suite`. Surface test failures prominently in the next gate prompt,
    which offers only "Address fixes" and "Stop here".
-3. Re-run the gate-specific reviewers and gate review described above. If the gate passes, continue
-   with the next phase. Otherwise, re-raise that gate's existing
-   "Address"/"Stop here" choice. "Address fixes" remains available across iterations; starting
-   with the 3rd round, prepend: "Multiple rounds have not resolved the blocking issues — consider
-   stopping to investigate the root cause before continuing." Do not remove the option.
+3. Re-run the gate-specific reviewers and gate review described above. If an implementation-review
+   rerun returns ABANDON, use the Step 2 ABANDON hard-stop and do not offer another "Address fixes"
+   cycle. Otherwise, if the gate passes, continue with the next phase. If it does not, re-raise that
+   gate's existing "Address"/"Stop here" choice. "Address fixes" remains available across
+   iterations; starting with the 3rd round, prepend: "Multiple rounds have not resolved the
+   blocking issues — consider stopping to investigate the root cause before continuing." Do not
+   remove the option.
 
 On "Stop here" from either blocking gate, leave the run active; the user can resume later. Do not
 call `cfl run complete`.
@@ -216,7 +237,7 @@ Wait for the subagent to complete. Mark the dispatch done:
 cfl dispatch end <dispatch_id>
 ```
 
-Read `<dir>/clean-code-summary.md` to see what was fixed and what remains. Note any unfixed findings for the shipping gate. If the summary has a `## SEVERE — needs immediate attention` section, raise the `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md` **Severity Escalation** `AskUserQuestion` for each item in it now, before recording the gate result below, and follow its "Fix now"/"Stop here"/"Ship anyway" mechanics — do not record the gate result or continue to Step 5 if the user chose "Stop here". Record the gate result:
+Read `<dir>/clean-code-summary.md` to see what was fixed and what remains. Note any unfixed findings for the shipping gate. If the summary has a `## SEVERE — needs immediate attention` section, raise the `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md` **Severity Escalation** `AskUserQuestion` for each item in it now, before recording the gate result below, and follow its "Fix now"/"Stop here"/"Ship anyway" mechanics. On "Fix now", re-run this Step 4 clean-code check and repeat this summary handling with the refreshed summary. Do not record the gate result or continue to Step 5 if the user chooses "Stop here". Record the gate result:
 
 ```bash
 cfl gate clean-code --verdict <PASS|WARN> --data '{"fixed": <N>, "unfixed": <M>}'
