@@ -2,7 +2,9 @@
 
 ## Check for existing run
 
-If `$ARGUMENTS` is non-empty, resolve the feature directory using the same logic as SKILL.md Phase 0's "Find the feature directory" step. Do **not** ask for confirmation yet. If `$ARGUMENTS` is empty, query the run state first — do not run the normal most-recent-task discovery until the status says a fresh discovery is appropriate:
+If `$ARGUMENTS` is non-empty, resolve the feature directory using the same logic as SKILL.md Phase
+0's "Find the feature directory" step, but do **not** ask for confirmation yet. Always query run
+state before fresh-start discovery:
 
 ```bash
 cfl run status
@@ -10,7 +12,13 @@ cfl run status
 
 **If it returns `{"exists": false}`** — proceed to "Find the feature directory" and continue the normal fresh-start flow. This is the point at which an empty `$ARGUMENTS` may use the most-recent-task discovery.
 
-**If it returns run data (`"exists": true`)** — read the `"phase"` field from the output before doing anything else. For an active run with empty `$ARGUMENTS`, set `feature_dir` to the status response's stored `feature_dir` and carry that value into Phase 0. Do not perform most-recent-task discovery. An active `orchestrate` run uses the stored directory during resume; a prior `define`, `plan`, or `sketch` run uses it after the user chooses to continue/advance. If the stored value is missing, stop and report that the run state cannot identify its feature directory rather than guessing from task files.
+**If it returns run data (`"exists": true`)** — read the `"phase"` field before doing anything else.
+Set `feature_dir` to the status response's stored `feature_dir` and carry that value into Phase 0.
+If `$ARGUMENTS` resolved to a different directory, stop and report the active-run mismatch rather
+than bypassing or replacing that run. Do not perform most-recent-task discovery. An active
+`orchestrate` run uses the stored directory during resume; a prior `define`, `plan`, or `sketch` run
+uses it after the user chooses to continue/advance. If the stored value is missing, stop and report
+that the run state cannot identify its feature directory rather than guessing from task files.
 
 ### Phase check
 

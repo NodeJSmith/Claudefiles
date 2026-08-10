@@ -4,7 +4,7 @@ Durable issues discovered during orchestration that were intentionally not fixed
 
 ## KI-001: Duplicate Phase 3 blocking-review mechanics
 
-Status: resolved — fixed during known issues walkthrough
+Status: resolved — shared blocking-review lifecycle introduced
 Run: 66
 Source: clean-code
 Reason not fixed now: needs-decision
@@ -44,4 +44,4 @@ Recommended follow-up:
 Define the stable contract anchors for each canonical protocol, then expand the table-driven checks deliberately.
 
 Acceptance criteria:
-- Contract tests protect stable protocol requirements without coupling ordinary wording changes to test edits.
+- Contract tests protect headings, commands, schemas, option labels, and artifact paths without coupling ordinary explanatory wording to test edits.

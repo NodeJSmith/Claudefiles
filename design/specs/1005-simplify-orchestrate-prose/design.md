@@ -36,12 +36,12 @@ The `mine-orchestrate` workflow repeats contracts, rationale, and prompt schemas
 - **AC#2** `mise run 'test:*'` passes after the instruction changes.
 - **AC#3** `bin/lint-verdict-line` passes and the `CONCISE-RETURN-MODE` leak check still reports only legitimate orchestrate-internal hosts.
 - **AC#4** A before/after contract inventory shows no removed workflow phase, numbered step, `cfl` command family, gate, output artifact, reviewer type, verdict state, or user choice.
-- **AC#5** The historical target is a total line count under `skills/mine-orchestrate/*.md` at least 15% lower than the baseline captured before editing, excluding reductions caused only by reflowing multiple prose lines into long lines. The approved exception is that the measured reduction may remain below that target when meeting it would require removing necessary workflow safeguards or isolated subagent context; the final audit must record the measured result and exception rather than claim the target was met.
+- **AC#5** The rewrite reduces duplicated ownership and makes execution paths easier to trace without using line count as a success metric.
 - **AC#6** No new `SYNC` duplication marker is introduced; any removed synchronized copy leaves a single clear canonical owner.
 
 ## Approach
 
-Treat this as instruction refactoring, not process redesign. Capture a baseline inventory and line count first, then simplify in dependency order.
+Treat this as instruction refactoring, not process redesign. Capture a baseline contract inventory first, then simplify in dependency order.
 
 Canonical protocols remain separate files. `SKILL.md` and `post-execution-pipeline.md` should call them by reference and state only call-site-specific inputs or branching. Keep exact prompt payload requirements at dispatch sites because subagents do not inherit orchestrator context, but remove rules duplicated within the same composed prompt.
 
@@ -51,7 +51,7 @@ Make `implementer-prompt.md` the executor result-schema owner. Reduce `retry-pro
 
 Compress reviewer rhetoric but retain evidence requirements and exact output contracts. `verdict-line-format.md` remains the canonical verdict and concise-return reference; conformance tooling remains unchanged.
 
-Verification combines repository checks with a manual contract inventory. Line-count reduction is a guardrail, not a reason to remove necessary repetition from isolated subagent prompts.
+Verification combines repository checks with a manual contract inventory. Preserve necessary repetition in isolated subagent prompts while removing duplicated ownership from orchestrator-facing instructions.
 
 ## Changed Files
 

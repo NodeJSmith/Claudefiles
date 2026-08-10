@@ -9,6 +9,24 @@ subagent prompt includes the immediately preceding dispatch's `cfl_dispatch_id`.
 succeeds, always attempt its matching `cfl dispatch end` on success or failure. Preserve any
 launch/wait error as the primary failure; report cleanup failure separately.
 
+For every Phase 3 review described as covering the full branch, recompute the scope immediately
+before dispatch by unioning and deduplicating these three lists:
+
+```bash
+git diff --name-only <base_commit> HEAD
+git diff --name-only HEAD
+git ls-files --others --exclude-standard
+```
+
+This includes committed task changes plus uncommitted and untracked fixer changes. Use the
+`base_commit` from the run status read in Step 1.
+
+Before the first Phase 3 dispatch, create its report directories:
+
+```bash
+mkdir -p <dir>/impl-fix <dir>/cross-file <dir>/final
+```
+
 ## Step 1: Summary (automatic)
 
 Present a verdict table. **Read the run state via `cfl run status`** and build the table from the `tasks` array:
@@ -95,8 +113,10 @@ implementation-review inputs and verification steps:
   cfl dispatch impl-fix-integration-reviewer --agent-type integration-reviewer --model sonnet
   ```
 
-  Launch both in one foreground message (never `run_in_background: true`), with the same
-  changed-file scope and `CONCISE-RETURN-MODE`/output-file contract as the Phase 3 review pass.
+  Launch both in one foreground message (never `run_in_background: true`) on the current full-branch
+  scope defined above. Include `CONCISE-RETURN-MODE`; the code reviewer writes
+  `<dir>/impl-fix/code-review.md` and the integration reviewer writes
+  `<dir>/impl-fix/integration-review.md`.
   Include `cfl_dispatch_id: <impl_fix_code_reviewer_dispatch_id>` in the code-reviewer prompt and
   `cfl_dispatch_id: <impl_fix_integration_reviewer_dispatch_id>` in the integration-reviewer
   prompt. After both return:
@@ -106,30 +126,26 @@ implementation-review inputs and verification steps:
   cfl dispatch end <impl_fix_integration_reviewer_dispatch_id>
   ```
 
+  Read both report files and extract their canonical verdict lines. Do not rerun implementation
+  review until both pass; route any blocking findings through the gate's Address fixes / Stop here
+  choice and process non-blocking findings under the normal Phase 3 known-issues rules.
   Then record the implementation-review re-run dispatch and launch the implementation-review
-  subagent in the foreground with `cfl_dispatch_id: <impl_review_rerun_dispatch_id>` in its
-  prompt. End it after completion, then repeat Step 2 with its result; continue to Step 3 only
-  after its PASS handling completes:
+  subagent in the foreground with `cfl_dispatch_id: <impl_review_rerun_dispatch_id>` in its prompt.
+  Preserve `/mine-implementation-review <feature_dir>`'s design/task inputs, review scope, and
+  output artifact. End it after completion, then repeat Step 2 with its result; continue to Step 3
+  only after its PASS handling completes:
 
   ```bash
   cfl dispatch impl-review-rerun --agent-type general-purpose --model sonnet
   cfl dispatch end <impl_review_rerun_dispatch_id>
   ```
 
-  Preserve `/mine-implementation-review <feature_dir>`'s existing design/task inputs, review
-  scope, and output artifact.
-
 **On "Stop here":** Leave the run active. The user can resume later. Do not call `cfl run complete`.
 
 ## Step 3: Cross-file consistency review (automatic)
 
-After impl-review passes, run an `integration-reviewer` subagent on the **full branch diff** (not per-task). This catches cross-file consistency issues that per-task reviews miss because they only see one task's changes at a time.
-
-```bash
-git diff --name-only <base_commit> HEAD
-```
-
-Use the `base_commit` from the run status read in Step 1.
+After impl-review passes, run an `integration-reviewer` subagent on the current full-branch scope
+defined above. This catches cross-file consistency issues that per-task reviews miss.
 
 Record the dispatch and capture its ID:
 
@@ -137,7 +153,11 @@ Record the dispatch and capture its ID:
 cfl dispatch cross-file-reviewer --agent-type integration-reviewer --model sonnet
 ```
 
-Launch `Agent(subagent_type: "integration-reviewer")` with all changed files. Include `cfl_dispatch_id: <dispatch_id>` (from the preceding `cfl dispatch` call) and the design doc path (`<feature_dir>/design.md`) so the reviewer can verify terminology and pattern choices against design decisions. Add this focus instruction to the prompt:
+Launch `Agent(subagent_type: "integration-reviewer")` with all changed files. Include
+`CONCISE-RETURN-MODE`, output path `<dir>/cross-file/review.md`, `cfl_dispatch_id: <dispatch_id>`
+(from the preceding `cfl dispatch` call), and the design doc path (`<feature_dir>/design.md`) so the
+reviewer can verify terminology and pattern choices against design decisions. Add this focus
+instruction to the prompt:
 
 > In addition to your standard checklist (duplication, convention drift, misplacement, orphaned code, design violations), pay special attention to **cross-file consistency** across the full diff:
 > - **Terminology drift**: same concept described with different words across files (e.g., "verb" vs "execution outcome" for the same trigger condition)
@@ -147,7 +167,8 @@ Launch `Agent(subagent_type: "integration-reviewer")` with all changed files. In
 > - **Hard-coded values that should be parameterized**: artifact names or paths that appear as literals but should vary by context (e.g., iteration suffixes)
 > - **Worked examples using invalid contract values**: examples that show values not in the canonical vocabulary
 
-After the reviewer completes: `cfl dispatch end <dispatch_id>`
+After the reviewer completes: `cfl dispatch end <dispatch_id>`. Read
+`<dir>/cross-file/review.md` and extract its canonical verdict line before handling the result.
 
 Before recording a PASS or WARN result, handle each genuine non-blocking suggestion: apply the
 known-issues protocol to each real deferred suggestion, recording it only when it qualifies and
@@ -199,26 +220,25 @@ cfl dispatch cross-file-fixer --agent-type general-purpose --model sonnet
   ```
 
   Launch one foreground `integration-reviewer` subagent (never `run_in_background: true`) on the
-  full branch diff, preserving the existing cross-file reviewer scope, focus checklist, design
-  doc path, and changed-file calculation. Include
+  current full-branch scope, preserving the existing focus checklist and design doc path. Include
+  `CONCISE-RETURN-MODE`, write the report to `<dir>/cross-file/review.md`, and include
   `cfl_dispatch_id: <cross_file_reviewer_rerun_dispatch_id>` in its prompt. After it completes:
 
   ```bash
   cfl dispatch end <cross_file_reviewer_rerun_dispatch_id>
   ```
 
-  Then repeat the PASS/WARN/FAIL handling above before continuing to Step 4.
+  Read `<dir>/cross-file/review.md`, extract its canonical verdict line, then repeat the
+  PASS/WARN/FAIL handling above before continuing to Step 4.
 
 ### Shared blocking-review fixer protocol
 
 For either blocking gate, after recording the fixer dispatch:
 
-The shared protocol owns only fixer lifecycle and verification: dispatch the fixer with the
-preceding ID, end it, run the canonical test and lint commands (or honor their skip sentinels),
-and present the existing Address fixes / Stop here prompt for a verification failure. Each gate
-still owns its own re-review dispatch, reviewer prompt and output artifact, dispatch end call,
-verdict extraction, and PASS/WARN/FAIL or ABANDON handling. A passing shared verification never
-counts as a passing gate and never replaces that gate's re-review.
+The shared protocol owns only fixer lifecycle and verification. Each gate owns its re-review,
+report artifacts, verdict extraction, and PASS/WARN/FAIL or ABANDON handling. Passing shared
+verification returns control to the gate-specific instructions above; it never counts as a passing
+gate.
 
 1. Dispatch the fresh fixer with the gate-specific inputs above and the preceding dispatch ID.
 2. After it completes, run `cfl dispatch end <dispatch_id>`, then run the project test suite
@@ -231,20 +251,20 @@ counts as a passing gate and never replaces that gate's re-review.
     prominently at the same gate prompt, which offers only "Address fixes" and "Stop here". Do not
     re-review until tests pass or are skipped and lint passes, skips, has no regressions, or has a
     missing baseline with a zero exit.
-3. Re-run the gate-specific reviewers and gate review described above. If an implementation-review
-   rerun returns ABANDON, use the Step 2 ABANDON hard-stop and do not offer another "Address fixes"
-   cycle. Otherwise, if the gate passes, continue with the next phase. If it does not, re-raise that
-   gate's existing "Address"/"Stop here" choice. "Address fixes" remains available across
-   iterations; starting with the 3rd round, prepend: "Multiple rounds have not resolved the
-   blocking issues — consider stopping to investigate the root cause before continuing." Do not
-   remove the option.
+3. Return to the gate-specific re-review instructions above. If an implementation-review rerun
+   returns ABANDON, use the Step 2 ABANDON hard-stop and do not offer another "Address fixes" cycle.
+   If a re-review remains blocking, re-raise that gate's existing Address fixes / Stop here choice.
+   Starting with the 3rd round, prepend: "Multiple rounds have not resolved the blocking issues —
+   consider stopping to investigate the root cause before continuing." Do not remove Address fixes.
 
 On "Stop here" from either blocking gate, leave the run active; the user can resume later. Do not
 call `cfl run complete`.
 
 ## Step 4: Clean code check (automatic)
 
-After the cross-file consistency review passes, run a clean code check on the entire branch diff. This catches LLM training-bias patterns, deferred-debt shortcuts, and style hygiene issues that correctness and integration reviewers don't target.
+After the cross-file consistency review passes, run a clean code check on the current full-branch
+scope. This catches LLM training-bias patterns, deferred-debt shortcuts, and style hygiene issues
+that correctness and integration reviewers do not target.
 
 Record the dispatch and capture its ID:
 
@@ -259,9 +279,11 @@ You are running a comprehensive stylistic quality review on a completed feature 
 
 ## Branch diff
 
-Run this to get the scope. Use the orchestration run's recorded base commit from Step 1, not the branch base:
+Review these files from the current full-branch scope:
 
-git diff --name-only <base_commit> HEAD
+<paste the deduplicated output of the three scope commands here>
+
+The orchestration run's recorded base commit is: <base_commit>
 
 ## Task
 
@@ -304,13 +326,9 @@ cfl gate clean-code --verdict <PASS|WARN> --data '{"fixed": <N>, "unfixed": <M>}
 
 ## Step 5: Final review pass (automatic)
 
-After the clean code fixes, run a final `code-reviewer` and `integration-reviewer` pass in parallel on the full branch diff — to catch issues introduced by the auto-fix subagent, and to catch anything a per-task review couldn't see (a review scoped to one task at a time can miss issues that only appear across the full diff).
-
-```bash
-git diff --name-only <base_commit> HEAD
-```
-
-Use the `base_commit` from the run status read in Step 1.
+After the clean code fixes, recompute the current full-branch scope and run a final `code-reviewer`
+and `integration-reviewer` pass in parallel. This catches auto-fix regressions and issues visible
+only across tasks.
 
 Record both dispatches and capture their IDs:
 

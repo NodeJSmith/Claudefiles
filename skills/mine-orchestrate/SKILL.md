@@ -156,7 +156,7 @@ The active run is resolved from the DB for all subsequent `cfl` calls — no pat
 
 ### Snapshot plan metadata
 
-After the run is started or advanced (including resume — the command is idempotent), capture structured metadata from the design doc and task files. This records FR/AC text, task dependencies, target files, and verify criteria counts — a one-time snapshot of the plan before execution begins. Skip if cfl tracking is inactive.
+After a fresh run is started or a prior phase is advanced, capture structured metadata from the design doc and task files. This records FR/AC text, task dependencies, target files, and verify criteria counts — a one-time snapshot of the plan before execution begins. Skip if cfl tracking is inactive; resumed orchestrate runs jump directly to Phase 2 and retain their existing snapshot.
 
 ```bash
 cfl run snapshot --spec <spec_number>

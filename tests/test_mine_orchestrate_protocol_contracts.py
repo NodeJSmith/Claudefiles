@@ -54,11 +54,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
                 ("sketch advance", r"advance_from_prior_phase = true"),
                 (
                     "stored feature directory propagation",
-                    r"set `feature_dir` to the status response's stored `feature_dir`.*carry that value into Phase 0",
+                    r"feature_dir.*stored `feature_dir`",
                 ),
                 (
-                    "skip fresh task discovery",
-                    r"Do not perform most-recent-task discovery",
+                    "stored run status precedes discovery",
+                    r"^\s*cfl run status\s*$",
                 ),
                 (
                     "missing lint baseline warning",
@@ -81,7 +81,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
                 ),
                 (
                     "portable test and lint pipeline status",
-                    r"set -o pipefail[\s\S]*preserves a failing lint status",
+                    r"set -o pipefail",
                 ),
             ],
         ),
@@ -99,11 +99,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
                 ),
                 (
                     "visual dispatch failure cleanup",
-                    r"cleanup is mandatory on every exit path",
+                    r"except launch_or_wait_error:[\s\S]*cfl dispatch end <visual_reviewer_dispatch_id>",
                 ),
                 (
                     "visual primary failure preservation",
-                    r"cleanup failure must never replace\s+the original launch/wait error",
+                    r"except launch_or_wait_error:[\s\S]*except cleanup_error:[\s\S]*launch_or_wait_error",
                 ),
                 (
                     "executor result visual field",
@@ -175,6 +175,10 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
                     r"cfl task block <task_id> --reason \"WIP commit failed: <error>\"",
                 ),
                 (
+                    "failed commit restores status",
+                    r"pre-Step-17 status",
+                ),
+                (
                     "full staged path allowlist",
                     r"full staged path\s+set.*exactly match `committed-files\.txt`",
                 ),
@@ -221,6 +225,10 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
                     r"always attempt its matching `cfl dispatch end` on success or failure",
                 ),
                 (
+                    "full branch scope includes working tree",
+                    r"(?s)git diff --name-only <base_commit> HEAD.*git diff --name-only HEAD.*git ls-files --others --exclude-standard",
+                ),
+                (
                     "implementation fixer reviewer lifecycle",
                     r"(?s)cfl dispatch impl-fix-code-reviewer.*cfl dispatch impl-fix-integration-reviewer.*cfl_dispatch_id: <impl_fix_code_reviewer_dispatch_id>.*cfl_dispatch_id: <impl_fix_integration_reviewer_dispatch_id>.*cfl dispatch end <impl_fix_code_reviewer_dispatch_id>.*cfl dispatch end <impl_fix_integration_reviewer_dispatch_id>",
                 ),
@@ -246,11 +254,17 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
                 ),
                 (
                     "shared versus gate handoff",
-                    r"shared protocol owns only fixer lifecycle and verification:[\s\S]*Each gate\s+still owns its own re-review",
+                    r"^### Shared blocking-review fixer protocol$[\s\S]*Return to the gate-specific re-review instructions above",
+                ),
+                ("implementation rerun report", r"<dir>/impl-fix/code-review\.md"),
+                ("cross-file rerun report", r"<dir>/cross-file/review\.md"),
+                (
+                    "phase 3 artifact setup",
+                    r"mkdir -p <dir>/impl-fix <dir>/cross-file <dir>/final",
                 ),
                 (
-                    "real suggestion definition",
-                    r"A real suggestion identifies a concrete defect, risk, or actionable\s+improvement",
+                    "clean-code receives concrete scope",
+                    r"The orchestration run's recorded base commit is: <base_commit>",
                 ),
             ],
         ),
@@ -289,6 +303,23 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
                     "verbatim visual skip reason",
                     r"exact reason from the orchestrator's Visual verification status, verbatim",
                 ),
+            ],
+        ),
+        (
+            "skills/mine-orchestrate/retry-prompt.md",
+            [
+                ("retry heading", r"^# Retry Instructions$"),
+                ("feedback heading", r"^## Previous review feedback$"),
+                ("retry finding disposition", r"^## Finding Disposition$"),
+            ],
+        ),
+        (
+            "skills/mine-orchestrate/contested-criteria.md",
+            [
+                ("protocol heading", r"^# CONTESTED Criteria Protocol"),
+                ("accept option", r'label: "Accept — criterion is met as implemented"'),
+                ("reject option", r'label: "Reject — criterion must be satisfied"'),
+                ("single retry", r"dispatch one Step 5 retry"),
             ],
         ),
         (

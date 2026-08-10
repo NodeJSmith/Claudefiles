@@ -4,7 +4,9 @@
 
 ## 17a: Update task status and create WIP commit
 
-Update the task file frontmatter to `status: done` before committing.
+Before editing, record the task file's current frontmatter status. Update it to `status: done`
+before staging so the WIP commit preserves the durable task artifact. Runtime state remains
+nonterminal until `cfl task verdict` succeeds in Step 17b.
 
 Re-capture the changed file list immediately before staging to ensure it includes any files modified by the code-reviewer auto-fix loop or integration-reviewer feedback:
 
@@ -30,9 +32,9 @@ cmp -s <dir>/<task_id>/committed-files.sorted.txt <dir>/<task_id>/staged-files.s
 
 Review the cached diff for only the task's committed-file paths. The full staged path
 set, not a pathspec-filtered view, must exactly match `committed-files.txt`; if `cmp`
-fails, report the unexpected staged paths, block the task, and do not commit. Unrelated
-staged or unstaged worktree files are outside this task's scope and must not affect the
-no-changes decision.
+fails, write the recorded pre-Step-17 status back to the task file and restage it, report the
+unexpected staged paths, block the task, and do not commit. Unrelated staged or unstaged worktree
+files are outside this task's scope and must not affect the no-changes decision.
 
 ```bash
 git commit -m "WIP: <task_id> -- <task title>"
@@ -56,8 +58,9 @@ git rev-parse --short HEAD
 ```
 
 **If `git commit` fails** for any reason while the task-scoped cached diff is
-non-empty (including hooks, identity, or other repository errors), preserve the
-failure, record the task as blocked, and stop:
+non-empty (including hooks, identity, or other repository errors), write the recorded pre-Step-17
+status back to the task file and restage that task file so the worktree and index agree. Preserve
+the failure, record the task as blocked, and stop:
 
 ```bash
 cfl task block <task_id> --reason "WIP commit failed: <error>"
