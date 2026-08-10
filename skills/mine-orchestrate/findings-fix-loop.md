@@ -102,7 +102,7 @@ Instead, immediately before dispatching each normal-mode fixer pass, capture a c
 set -o pipefail  # so a later `exit 1` (a read/hash failure) fails the whole pipe below, not just its own stage
 {
   git diff HEAD || exit 1
-  untracked=$(mktemp) || exit 1
+  untracked=$(mktemp "${TMPDIR:-/tmp}/mine-orchestrate.XXXXXXXXXX") || exit 1
   trap 'rm -f -- "$untracked"' EXIT
   git ls-files --others --exclude-standard -z >"$untracked" || exit 1
   # untracked files: pair each entry's identity with its path and a one-char
@@ -127,7 +127,13 @@ set -o pipefail  # so a later `exit 1` (a read/hash failure) fails the whole pip
 } | {
   # the outer { } is required here too: it feeds the whole piped stream to
   # whichever hash command runs, instead of wiring stdin to sha256sum alone
-  command -v sha256sum >/dev/null 2>&1 && sha256sum || shasum -a 256
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256
+  else
+    exit 1
+  fi
 }
 ```
 

@@ -12,7 +12,7 @@ the task specification, not the executor result schema.
 
 Discover screenshots by Globbing the per-task temp directory:
 
-```
+```text
 Glob: <dir>/<task_id>/*.png
 ```
 
@@ -70,7 +70,7 @@ cfl dispatch end <visual_reviewer_dispatch_id>
 
 Equivalent failure handling:
 
-```
+```text
 try:
   launch subagent
   wait for completion

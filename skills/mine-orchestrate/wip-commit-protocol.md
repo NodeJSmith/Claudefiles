@@ -21,7 +21,8 @@ Stage with `--pathspec-from-file` and `git -C`:
 
 ```bash
 git -C <repo_root> add --all --pathspec-from-file=<dir>/<task_id>/committed-files.txt
-git -C <repo_root> diff --cached --name-status --pathspec-from-file=<dir>/<task_id>/committed-files.txt
+committed_files=("${(@f)$(sed '/^$/d' <dir>/<task_id>/committed-files.txt)}")
+git -C <repo_root> diff --cached --name-status -- "${committed_files[@]}"
 git -C <repo_root> diff --cached --name-only > <dir>/<task_id>/staged-files.txt
 sort <dir>/<task_id>/committed-files.txt > <dir>/<task_id>/committed-files.sorted.txt
 sort <dir>/<task_id>/staged-files.txt > <dir>/<task_id>/staged-files.sorted.txt
@@ -36,15 +37,12 @@ fails, write the recorded pre-Step-17 status back to the task file and restage i
 unexpected staged paths, block the task, and do not commit. Unrelated staged or unstaged worktree
 files are outside this task's scope and must not affect the no-changes decision.
 
-```bash
-git commit -m "WIP: <task_id> -- <task title>"
-```
-
 If the task-scoped cached diff is empty, confirm it with the same committed-file
 path list and record `no-changes`; do not run `git commit`. For example:
 
 ```bash
-git -C <repo_root> diff --cached --quiet --pathspec-from-file=<dir>/<task_id>/committed-files.txt
+committed_files=("${(@f)$(sed '/^$/d' <dir>/<task_id>/committed-files.txt)}")
+git -C <repo_root> diff --cached --quiet -- "${committed_files[@]}"
 ```
 
 This scoped empty-diff result is the only case that permits `no-changes` in the
@@ -54,6 +52,7 @@ If the task-scoped cached diff is non-empty, run the commit. If the commit
 succeeds, capture the new HEAD SHA immediately:
 
 ```bash
+git commit -m "WIP: <task_id> -- <task title>"
 git rev-parse --short HEAD
 ```
 

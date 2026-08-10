@@ -197,7 +197,11 @@ cfl task start <task_id>
 
 ### Step 2: Discover and confirm test + lint commands, capture baselines (first task only)
 
-On the first task of this orchestration run (no baseline exists yet), discover the project's test and lint/format commands, confirm them with the user, and capture baselines before the executor modifies any code.
+On the first task of this orchestration run (no baseline exists and no corresponding
+`<dir>/*-baseline-unavailable` marker exists), discover the project's test and lint/format
+commands, confirm them with the user, and capture baselines before the executor modifies any code.
+An unavailable marker means a resumed modified worktree lost its original baseline; never recapture
+from that state.
 
 On subsequent tasks and retries, skip — the baselines from the first task apply to the entire run (they reflect the pre-orchestration state).
 
@@ -496,12 +500,15 @@ After the parallel reviews complete (regardless of verdicts), re-run the project
 
 #### Test gate
 
-Use the Step 2 baseline and `<dir>/test-command.txt` from the repository root. Fall back to
-`references/common/testing.md` only when the command file is missing or empty. If the command file
-contains the exact sentinel `no test suite`, skip the gate; do not use discovery fallback. For each
-test command, tee raw output to `<dir>/<task_id>/test-output.log` and capture the command's actual
-exit status by enabling `set -o pipefail` before the pipeline, rather than accepting the status of
-`tee`. A skipped baseline skips the gate. A missing baseline is `NO BASELINE —
+Use the Step 2 baseline and `<dir>/test-command.txt` from the repository root. If the canonical
+command file is missing or empty after Step 2 discovery, stop the task as blocked; do not record a
+test-gate verdict and do not rediscover a
+different command. If the command file contains the exact sentinel `no test suite`, skip the gate.
+Before the command loop, truncate `<dir>/<task_id>/test-output.log` once. For each test command,
+append a separator and raw output with `tee -a`, and capture the command's actual exit status by
+enabling `set -o pipefail` before the pipeline, rather than accepting the status of `tee`. A skipped
+baseline skips the gate. A missing baseline, or a persisted `<dir>/test-baseline-unavailable`
+marker, is `NO BASELINE —
 cannot detect regressions`, not a regression. Compare valid baselines and record the command, source,
 summary, baseline status, and regressions in `test-gate.md`.
 
@@ -509,10 +516,13 @@ summary, baseline status, and regressions in `test-gate.md`.
 
 #### Lint gate
 
-Load each command from `<dir>/lint-command.txt`; a `no lint tools` sentinel skips the gate. Tee each
+Load each command from `<dir>/lint-command.txt`; if the canonical file is missing or empty after
+Step 2 discovery, stop the task as blocked rather than recording a lint-gate verdict or
+rediscovering commands. A `no lint tools` sentinel
+skips the gate. Tee each
 command (append) to `<dir>/<task_id>/lint-output.log` with `set -o pipefail` enabled, so the pipeline
 preserves a failing lint status instead of reporting `tee`'s status. A missing baseline is
-`NO BASELINE — cannot detect regressions`.
+`NO BASELINE — cannot detect regressions`; treat `<dir>/lint-baseline-unavailable` the same way.
 Compare exit code and error count per command: a new failure or increased count is a regression;
 an equal or smaller pre-existing failure is informational. Record commands, exits, comparisons,
 new errors, and overall status in `lint-gate.md`.

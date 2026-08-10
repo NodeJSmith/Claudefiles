@@ -62,7 +62,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
                 ),
                 (
                     "missing lint baseline warning",
-                    r"Lint baseline from prior session is gone.*nonzero lint exit will block fixer re-review",
+                    r"Lint baseline from prior session is gone.*not classified as a regression without a valid baseline",
                 ),
                 (
                     "sketch stop choice",
@@ -154,7 +154,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
                 ),
                 (
                     "scoped cached diff",
-                    r"git -C <repo_root> diff --cached --quiet --pathspec-from-file=<dir>/<task_id>/committed-files\.txt",
+                    r'git -C <repo_root> diff --cached --quiet -- "\$\{committed_files\[@\]\}"',
                 ),
                 (
                     "no changes scope",
@@ -246,11 +246,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
                 ),
                 (
                     "blocking fixer reviewer gate",
-                    r"Do not\s+re-review until tests pass or are skipped and lint passes,\s+skips, has no regressions, or has a\s+missing baseline with a zero exit",
+                    r"Do not\s+re-review until tests pass or are skipped and lint passes, skips, has no regressions, or has a\s+no valid baseline for regression comparison",
                 ),
                 (
-                    "missing lint baseline fails closed",
-                    r"With a missing baseline, a zero lint exit passes\s+but any nonzero exit blocks re-review",
+                    "missing lint baseline is unclassified",
+                    r"With a missing baseline or persisted\s+`lint-baseline-unavailable` marker, record `NO BASELINE`",
                 ),
                 (
                     "shared versus gate handoff",
@@ -354,7 +354,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
                 (
                     "canonical task sections",
                     r"task's `Prompt` section and `Summary` if present",
-                )
+                ),
+                (
+                    "per-scenario infrastructure warning",
+                    r"report the scenario as \*\*WARN \[INFRA\]\*\*",
+                ),
             ],
         ),
     ],

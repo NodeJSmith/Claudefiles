@@ -103,9 +103,13 @@ implementation-review inputs and verification steps:
   fresh `general-purpose` subagent with `model: sonnet`, the preceding `cfl_dispatch_id`, the
   impl-review findings, relevant paths, `<feature_dir>/design.md`, all task files (for per-task
   constraints), accumulated spec reviews, `implementer-prompt.md`, `retry-prompt.md`, and `tdd.md`.
-  Populate `## Previous review feedback` with `Impl-review: <absolute path>`. Instruct: "Fix only
-  the listed blocking issues. Do not expand scope beyond these findings. Respect each task's
-  constraints." After the shared verification protocol below passes, record both reviewer
+  Populate `## Previous review feedback` with every report that caused the current retry:
+  `Impl-review: <absolute path>` on the first attempt, then also
+  `Code re-review: <dir>/impl-fix/code-review.md` and
+  `Integration re-review: <dir>/impl-fix/integration-review.md` after either re-review blocks.
+  Pass only reports from the latest round. Instruct: "Fix only the listed blocking issues. Do not
+  expand scope beyond these findings. Respect each task's constraints." After the shared
+  verification protocol below passes, record both reviewer
   dispatches before launching either reviewer:
 
   ```bash
@@ -246,11 +250,12 @@ gate.
     `no test suite`. If tests pass or are skipped, run lint using `<dir>/lint-command.txt`; skip
     and treat it as passing when the file contains `no lint tools`. Compare lint failures to the
     Phase 2 `<dir>/lint-baseline.md`: only new failures or increased error counts block re-review;
-    unchanged baseline failures are informational. With a missing baseline, a zero lint exit passes
-    but any nonzero exit blocks re-review. Surface test failures or blocking lint regressions
+    unchanged baseline failures are informational. With a missing baseline or persisted
+    `lint-baseline-unavailable` marker, record `NO BASELINE`; do not classify a nonzero exit alone
+    as a regression. Surface test failures or blocking lint regressions
     prominently at the same gate prompt, which offers only "Address fixes" and "Stop here". Do not
     re-review until tests pass or are skipped and lint passes, skips, has no regressions, or has a
-    missing baseline with a zero exit.
+    no valid baseline for regression comparison.
 3. Return to the gate-specific re-review instructions above. If an implementation-review rerun
    returns ABANDON, use the Step 2 ABANDON hard-stop and do not offer another "Address fixes" cycle.
    If a re-review remains blocking, re-raise that gate's existing Address fixes / Stop here choice.
@@ -403,7 +408,12 @@ AskUserQuestion:
       description: "Keep it recorded in known-issues.md as open for later"
 ```
 
-- **Fix now:** record the dispatch (`cfl dispatch known-issue-fixer --agent-type general-purpose --model sonnet`), capture `dispatch_id`, then dispatch a `general-purpose` subagent (`model: sonnet`, `cfl_dispatch_id: <dispatch_id>`) scoped to only this entry's `Affected files` and `Recommended follow-up`. After it completes: `cfl dispatch end <dispatch_id>`. Then record a reviewer dispatch (`cfl dispatch known-issue-review --agent-type code-reviewer --model sonnet`), capture `review_dispatch_id`, and run `code-reviewer` once on the changed files with `cfl_dispatch_id: <review_dispatch_id>`; after it completes: `cfl dispatch end <review_dispatch_id>`. (Single-pass `code-reviewer` only, not the full `findings-fix-loop.md` rigor — this fix targets one already-identified, already-scoped issue rather than an open-ended review, so the cross-file consistency check `integration-reviewer` adds isn't needed.) On FAIL or WARN, or if a subsequent test/lint retest fails, treat the fix attempt as failed: tell the user what went wrong, leave the entry's `Status:` as `open`, and re-raise this same three-option `AskUserQuestion` for the entry (Fix now / File as GitHub issue / Leave deferred) rather than silently stalling — do not proceed to Step 6 until the user responds again. A retried "Fix now" dispatches a fresh subagent scoped the same way; it sees the current (possibly still-broken) state of the affected files and can build on or revert the prior attempt as it judges appropriate. On a clean code-reviewer PASS, re-run the project test suite using `<dir>/test-command.txt` (skip and treat as passing if that file contains the sentinel `no test suite`) and lint using `<dir>/lint-command.txt` (skip and treat as passing if that file contains the sentinel `no lint tools`) — the same rigor bar Step 4's clean-code fixer uses. If both pass (or are skipped via their sentinels), update the entry's `Status:` line to `resolved — fixed during known issues walkthrough` and leave the rest of the entry as history.
+- **Fix now:** record the dispatch (`cfl dispatch known-issue-fixer --agent-type general-purpose --model sonnet`), capture `dispatch_id`, then dispatch a `general-purpose` subagent (`model: sonnet`, `cfl_dispatch_id: <dispatch_id>`) scoped to only this entry's `Affected files` and `Recommended follow-up`. After it completes: `cfl dispatch end <dispatch_id>`. Then record a reviewer dispatch (`cfl dispatch known-issue-review --agent-type code-reviewer --model sonnet`), capture `review_dispatch_id`, and run `code-reviewer` once on the changed files with `cfl_dispatch_id: <review_dispatch_id>`; after it completes: `cfl dispatch end <review_dispatch_id>`. (Single-pass `code-reviewer` only, not the full `findings-fix-loop.md` rigor — this fix targets one already-identified, already-scoped issue rather than an open-ended review, so the cross-file consistency check `integration-reviewer` adds isn't needed.) On FAIL or WARN, or if a subsequent test/lint retest fails, treat the fix attempt as failed: tell the user what went wrong, leave the entry's `Status:` as `open`, and re-raise this same three-option `AskUserQuestion` for the entry (Fix now / File as GitHub issue / Leave deferred) rather than silently stalling — do not proceed to Step 6 until the user responds again. A retried "Fix now" dispatches a fresh subagent scoped the same way; it sees the current (possibly still-broken) state of the affected files and can build on or revert the prior attempt as it judges appropriate. On a clean code-reviewer PASS, re-run the project test suite using `<dir>/test-command.txt` (skip and treat as passing if that file contains the sentinel `no test suite`) and lint using `<dir>/lint-command.txt` (skip and treat as passing if that file contains the sentinel `no lint tools`) — the same rigor bar Step 4's clean-code fixer uses. Keep the entry open until the full-branch gate below passes.
+  After a successful targeted review and test/lint retest, re-run the complete Step 5 final-review
+  gate on the refreshed full-branch scope. Only after that gate passes, update the entry's
+  `Status:` line to `resolved — fixed during known issues walkthrough` and continue to the next
+  entry or Step 6. If the gate fails, leave the entry open and re-raise this entry's three-option
+  prompt. The refreshed gate replaces the stale recorded result and finding counts.
 - **File as GitHub issue:** run `gh-issue create` (see `${CLAUDE_CONFIG_DIR:-~/.claude}/rules/common/git-workflow.md` — Issue Creation Conventions) using the entry's title and body content, then update the entry's `Status:` line to `filed (#<issue-number>)`.
 - **Leave deferred:** no change; `Status: open` stands.
 
