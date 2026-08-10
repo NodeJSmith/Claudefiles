@@ -90,16 +90,28 @@ The no-op check in the Loop below needs to know whether a fixer pass changed any
 Instead, immediately before dispatching each normal-mode fixer pass, capture a content fingerprint of the current worktree state:
 
 ```bash
+set -o pipefail  # so a later `exit 1` (a read/hash failure) fails the whole pipe below, not just its own stage
 {
-  git diff HEAD
-  # untracked files: pair each blob's content hash with its path and executable
-  # bit, so a rename or an executable-bit toggle changes the output too — a bare
-  # content hash alone would miss both
-  git ls-files --others --exclude-standard -z | while IFS= read -r -d '' f; do
-    mode=-
-    [ -x "$f" ] && mode=x
-    printf '%s %s %s\n' "$(git hash-object "$f")" "$mode" "$f"
-  done
+  git diff HEAD || exit 1
+  # untracked files: pair each entry's identity with its path and a one-char
+  # type marker (`-` regular, `x` executable, `l` symlink), so a rename or a
+  # mode change also changes the output — bare content hashing alone would miss both
+  while IFS= read -r -d '' f; do
+    if [ -L "$f" ]; then
+      # hash the symlink's `readlink` value (what Git actually stores for it), not
+      # its referent's content — `git hash-object` follows the link and would hash
+      # the wrong thing, and fails outright on a dangling symlink. `readlink` itself
+      # doesn't dereference, so it succeeds even on a dangling target; its `|| exit 1`
+      # is the same generic fail-closed guard used throughout, not a symlink-specific one
+      link=$(readlink "$f") || exit 1
+      printf '%s l %s\n' "$link" "$f"
+    else
+      hash=$(git hash-object "$f") || exit 1
+      mode=-
+      [ -x "$f" ] && mode=x
+      printf '%s %s %s\n' "$hash" "$mode" "$f"
+    fi
+  done < <(git ls-files --others --exclude-standard -z)
 } | {
   # the outer { } is required here too: it feeds the whole piped stream to
   # whichever hash command runs, instead of wiring stdin to sha256sum alone
@@ -109,7 +121,9 @@ Instead, immediately before dispatching each normal-mode fixer pass, capture a c
 
 `sha256sum` is unavailable on a standard macOS install (this skill's environment-detection commands elsewhere already fall back for macOS — see the `ss`/`lsof` pair in `SKILL.md`); fall back to `shasum -a 256` when it's missing.
 
-Save the result to `<scope_dir>/fingerprint-pre-passN.txt` (`N` = 1 or 2). After the fixer pass completes, recompute the identical command. The no-op check (Loop, iteration 2 step 4 and iteration 3 step 4) compares these two fingerprint values — never the changed-files list.
+Every step above that reads or hashes something exits non-zero on failure instead of silently producing a fingerprint from incomplete data — this value gates whether review gets skipped, so a wrong-but-plausible fingerprint is worse than an outright failure.
+
+Save the result to `<scope_dir>/fingerprint-pre-passN.txt` (`N` = 1 or 2). After the fixer pass completes, recompute the identical command. The no-op check (Loop, iteration 2 step 4 and iteration 3 step 4) compares these two fingerprint values — never the changed-files list. **If either capture exits non-zero, the fingerprint could not be trusted — do not treat this as a no-op.** Skip straight to the reviewer re-dispatch for that iteration (the same path taken when the fingerprints simply differ), so a failed capture fails toward re-review rather than toward silently skipping it.
 
 ## Loop
 
@@ -128,7 +142,7 @@ Save the result to `<scope_dir>/fingerprint-pre-passN.txt` (`N` = 1 or 2). After
    ```
 2. The fixer reads the reviews in its own context, applies fixes, and writes `<scope_dir>/fix-ledger.md`.
 3. Re-capture changed files using the scope's defined method (see Scope-agnostic above). Update `<scope_dir>/changed-files.txt` (WP scope) or recompute fresh (final scope). This list feeds the reviewer re-dispatch and eventual commit scope — it is not used for the no-op check in step 4.
-4. **No-op check.** Recompute the content fingerprint (same command as step 1) and compare it against `<scope_dir>/fingerprint-pre-pass1.txt`. If identical — the fixer made zero content changes — skip steps 5–7 below. Go directly to the classify-mode terminal pass, passing it the **iteration-1 review files** (`<scope_dir>/code-review.md` and `<scope_dir>/integration-review.md`, still current since nothing changed) in place of a fresh re-review. Proceed to the Gate as terminal state B. Fixer pass 2 does not run.
+4. **No-op check.** Recompute the content fingerprint (same command as step 1) and compare it against `<scope_dir>/fingerprint-pre-pass1.txt`. If identical — the fixer made zero content changes — skip steps 5–7 below. Go directly to the classify-mode terminal pass, passing it the **iteration-1 review files** (`<scope_dir>/code-review.md` and `<scope_dir>/integration-review.md`, still current since nothing changed) in place of a fresh re-review. Proceed to the Gate as terminal state B. Fixer pass 2 does not run. If the recompute itself fails (non-zero exit — see the fail-closed note in "Content fingerprint" above), that is **not** identical — proceed to step 5 as if the fingerprints differed.
 5. Record dispatches for both re-reviewers and capture their IDs:
    ```bash
    cfl dispatch code-reviewer <task_id> --agent-type code-reviewer --model sonnet             # WP scope
@@ -155,7 +169,7 @@ Save the result to `<scope_dir>/fingerprint-pre-passN.txt` (`N` = 1 or 2). After
 1. Capture the pre-pass content fingerprint (same command as iteration 2 step 1) and save it to `<scope_dir>/fingerprint-pre-pass2.txt`. Then record the fixer dispatch (`cfl dispatch fixer <task_id> --agent-type general-purpose --model sonnet` for WP scope, `cfl dispatch fixer --agent-type general-purpose --model sonnet` for final scope), capture `dispatch_id`. Dispatch the fixer subagent (normal pass) with the freshened review file paths from the iteration 2 re-review and the updated changed-files list. After completion: `cfl dispatch end <dispatch_id>`.
 2. The fixer writes `<scope_dir>/fix-ledger.md` (overwrites the previous ledger).
 3. Re-capture changed files (same method as iteration 2 step 3). Not used for the no-op check in step 4.
-4. **No-op check.** Recompute the content fingerprint and compare it against `<scope_dir>/fingerprint-pre-pass2.txt`. If identical, skip steps 5–7 below. Go directly to the classify-mode terminal pass, passing it the **iteration-2 re-review files** (still current since nothing changed). Proceed to the Gate as terminal state B.
+4. **No-op check.** Recompute the content fingerprint and compare it against `<scope_dir>/fingerprint-pre-pass2.txt`. If identical, skip steps 5–7 below. Go directly to the classify-mode terminal pass, passing it the **iteration-2 re-review files** (still current since nothing changed). Proceed to the Gate as terminal state B. If the recompute itself fails (non-zero exit — see the fail-closed note in "Content fingerprint" above), that is **not** identical — proceed to step 5 as if the fingerprints differed.
 5. Record dispatches for both re-reviewers (`cfl dispatch code-reviewer/integration-reviewer <task_id>` for WP scope, omitting `<task_id>` for final scope), capture IDs. Re-dispatch in parallel (same concise dispatch as iteration 2 step 5, including the scope boundary block for WP scope). After completion: `cfl dispatch end <id>` for each.
 6. Extract canonical verdict lines.
 7. **If both reviewers return a PASS verdict → early exit. Skip to the Gate section (terminal state A).** A PASS with informational findings counts as clean.
