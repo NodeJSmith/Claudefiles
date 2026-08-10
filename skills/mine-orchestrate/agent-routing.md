@@ -3,11 +3,10 @@
 Match WP content against this table to select the executor agent type. **First match wins** — stop at the first row that applies. More-specific rows are listed first.
 
 <!-- SYNC CHECKLIST — when adding a new specialist agent:
-  1. Add a row to this table (WP content signals → subagent_type)
-  2. Add a row to references/common/agents.md (user intent → subagent_type)
-  3. Create the agent definition in agents/<name>.md with executor note
-  4. Add to SKILL.md Step 3 routing table reference (if using a new subagent_type)
-  Signal wording differs intentionally: this table uses WP content signals; agents.md uses user intent phrases.
+  1. Add a row here (WP content signals → subagent_type)
+  2. Add the matching intent row to references/common/agents.md
+  3. Create agents/<name>.md with the executor note
+  4. Update the SKILL.md routing reference if the subagent_type is new
 -->
 
 | WP content signals | Use `subagent_type` |
@@ -19,4 +18,4 @@ Match WP content against this table to select the executor agent type. **First m
 | API docs, README, tutorials, developer documentation | `engineering-technical-writer` |
 | Database schema, migrations, query optimization, ORM setup | `general-purpose` |
 
-If the WP doesn't clearly match any row, use `general-purpose` (the default). When in doubt, prefer `general-purpose` — a wrong specialist is worse than a capable generalist.
+If the WP does not clearly match a row, use `general-purpose`. When in doubt, prefer `general-purpose`.
