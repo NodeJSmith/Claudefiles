@@ -286,7 +286,7 @@ For **first-pass execution**, include only `implementer-prompt.md` in the `## Im
 
 For **retries** (spec fix loop and FAIL retry), include **both** files: `implementer-prompt.md` in `## Implementer instructions` (task execution contract — subtask sequencing, deviation classification, visual verification) and `retry-prompt.md` as an additional `## Retry instructions` section below it (verify-before-implement posture, YAGNI check, push-back protocol, and previous review feedback).
 
-Launch a subagent of the type selected in Step 4 with the same `--model` value used in Step 4's `cfl dispatch` call and this prompt (fill in bracketed values):
+Launch the selected agent with the same model as the dispatch and this prompt (fill in bracketed values):
 
 ```
 You are executing a single task from an implementation plan.
@@ -318,13 +318,7 @@ Read the design doc directly for architecture context. Pay special attention to 
 <contents of <dir>/lint-command.txt, or "no lint tools" if SKIPPED>
 
 ## Output capture
-Capture raw test/lint command output to the per-task log files (`test-output.log` / `lint-output.log`,
-concrete paths given on the output lines at the end of this prompt) rather than inlining full output into your result.
-Summarize results inline (e.g., "12 passed, 0 failed"); keep the full logs in the files.
-
-Do NOT re-run the full test suite mid-task to verify that an edit landed — the Step 9 gate
-re-runs the full suite as the real verification gate. The TDD cycle for the change (red/green/refactor
-using the canonical test command) and re-reading the file you just edited remain expected.
+Use the output-capture and no-mid-task-full-suite rules in `implementer-prompt.md`.
 
 ## Visual verification status
 <If visual_mode is not "enabled">: Visual verification is SKIPPED for this run (<visual_mode reason>). Do not attempt screenshot capture. Report "SKIPPED — <reason> (orchestrator)" in your visual verification output.
@@ -337,7 +331,7 @@ Capture any test/lint output you run to: <absolute path: dir>/<task_id>/test-out
 Save screenshots to: <absolute path: dir>/<task_id>/>
 ```
 
-Wait for the subagent to complete. Then mark the dispatch as done:
+Wait for the subagent, then mark the dispatch done:
 
 ```bash
 cfl dispatch end <dispatch_id>
@@ -390,7 +384,8 @@ cfl dispatch integration-reviewer <task_id> --agent-type integration-reviewer --
 
 Parse `dispatch_id` from each JSON response — needed for `cfl dispatch end` after each returns.
 
-Launch **all three reviewers in parallel** (three Agent tool calls in a single message):
+Launch all three reviewers in parallel (three Agent tool calls in a single message). Every prompt
+below includes the shared scope boundary shown in the first prompt.
 
 **Subagent 1 — Spec reviewer** (`subagent_type: "general-purpose"`, `model: sonnet`):
 
@@ -414,13 +409,10 @@ Read the design doc directly for supplemental architecture context.
 Read this file when you need to: (1) check CONTESTED markers, (2) compare the executor's stated Verify section for dropped criteria, (3) read the executor's visual verification output for the plan audit (section 6 of your instructions), or (4) understand the executor's stated rationale for a decision. Do not use it as a substitute for reading the actual code.
 
 ## Task scope boundary
-
-You are reviewing task <task_id> ("<task title>") in a multi-task execution. The following tasks handle their own concerns:
-
-<For each remaining (not-yet-completed) task after the current one, emit one line using that task's write-scope target files (create/modify/delete only, not read):>
-- <task_id>: <title> — targets: <comma-separated list of create/modify/delete files from that task's "## Target Files" section, or "unspecified" if the task has no Target Files section>
-
-Use this to distinguish valid cross-task touches (fixing an import the executor broke in a later task's file) from unauthorized scope expansion.
+Only flag issues in this task's scope. Later tasks own these targets; do not flag findings
+explicitly assigned to them:
+<one line per remaining task: <task_id>: <title> — targets: <create/modify/delete paths>>
+When uncertain whether a finding is in scope, include it.
 
 ## Spec reviewer instructions
 <full spec-reviewer-prompt.md content>
@@ -439,18 +431,17 @@ CONCISE-RETURN-MODE
 
 cfl_dispatch_id: <code_reviewer_dispatch_id>
 
-Review these changed files: <changed file list from Step 6>
-
 ## Task scope boundary
 
 You are reviewing task <task_id> ("<task title>") in a multi-task execution.
 
 Only flag issues that fall within THIS task's scope. The following tasks handle their own concerns — do NOT flag issues that are explicitly assigned to them:
 
-<For each remaining (not-yet-completed) task after the current one, emit one line using that task's write-scope target files (create/modify/delete only, not read):>
-- <task_id>: <title> — targets: <comma-separated list of create/modify/delete files from that task's "## Target Files" section, or "unspecified" if the task has no Target Files section>
+<one line per remaining task: <task_id>: <title> — targets: <create/modify/delete paths>>
 
-If a finding concerns code that is explicitly listed as a later task's target, skip it. When uncertain whether something is in-scope, include it — false negatives are worse than false positives.
+If a finding concerns code that is explicitly listed in a later task's target, skip it. When uncertain whether something is in-scope, include it — false negatives are worse than false positives.
+
+Review these changed files: <changed file list from Step 6>
 
 Write your review to: <absolute path: dir>/<task_id>/code-review.md>
 ```
@@ -468,10 +459,9 @@ You are reviewing task <task_id> ("<task title>") in a multi-task execution.
 
 Only flag issues that fall within THIS task's scope. The following tasks handle their own concerns — do NOT flag issues that are explicitly assigned to them:
 
-<For each remaining (not-yet-completed) task after the current one, emit one line using that task's write-scope target files (create/modify/delete only, not read):>
-- <task_id>: <title> — targets: <comma-separated list of create/modify/delete files from that task's "## Target Files" section, or "unspecified" if the task has no Target Files section>
+<one line per remaining task: <task_id>: <title> — targets: <create/modify/delete paths>>
 
-If a finding concerns code that is explicitly listed as a later task's target, skip it. When uncertain whether something is in-scope, include it — false negatives are worse than false positives.
+If a finding concerns code that is explicitly listed in a later task's target, skip it. When uncertain whether something is in-scope, include it — false negatives are worse than false positives.
 
 cfl_dispatch_id: <integration_reviewer_dispatch_id>
 
@@ -653,7 +643,7 @@ For FAIL/BLOCKED gate outcomes, **update the task status** before taking the gat
   ```bash
   cfl task update <task_id> --status fixing
   ```
-  Re-run from Step 4 (which includes Step 5 executor + Step 6 file capture + Step 6b reviewing transition) using `retry-prompt.md` as the base prompt (instead of `implementer-prompt.md`). Populate the `## Previous review feedback` template in `retry-prompt.md` with reviewer file paths based on which steps were reached: spec reviewer always; code reviewer and integration reviewer if Step 12 was reached; visual reviewer if it ran. Pass N/A for any reviewer that didn't reach its step. The executor reads these files directly — do not inline or truncate the reviewer output. Only provide the most recent attempt's reviewer file paths.
+  Re-run from Step 4 (which includes Step 5 executor + Step 6 file capture + Step 6b reviewing transition) using the Step 5 retry composition: `implementer-prompt.md` as the executor contract plus `retry-prompt.md` as the retry-specific instructions. Populate the `## Previous review feedback` template in `retry-prompt.md` with reviewer file paths based on which steps were reached: spec reviewer always; code reviewer and integration reviewer if Step 12 was reached; visual reviewer if it ran. Pass N/A for any reviewer that didn't reach its step. The executor reads these files directly — do not inline or truncate the reviewer output. Only provide the most recent attempt's reviewer file paths.
 - **Mark as blocked and skip**: record the block with a reason:
   ```bash
   cfl task block <task_id> --reason "<blocker description>"

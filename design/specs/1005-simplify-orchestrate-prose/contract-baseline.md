@@ -305,3 +305,26 @@ T04 should compare the completed workflow against this baseline for:
 - Unchanged prompt payload requirements for isolated subagents
 - Unchanged artifact names, schemas, user-choice prompts, retry ceilings/policies, and state transitions
 - No removed real sync contract without a clear canonical owner
+
+## T02 comparison
+
+Compared `SKILL.md`, `post-execution-pipeline.md`, and `findings-fix-loop.md` against the inventory
+above after T02 edits.
+
+| Inventory area | Comparison result |
+|---|---|
+| Phases and numbered steps | Retained: Phase 0, Phase 1, all Phase 2 steps including 6b, and Phase 3 delegation. |
+| Commands, dispatches, gates, and telemetry | Retained: command syntax, reviewer/fixer agent types, foreground execution, dispatch IDs, `run_id`, gate payloads, and dispatch-end pairing. |
+| Artifacts and prompt payloads | Retained: task/review/gate artifacts, command files, logs, screenshots, known-issues paths, isolated prompt inputs, concrete code/integration reviewer scope boundaries, and output paths. |
+| Verdicts and state transitions | Retained: reviewer vocabulary, task assembly, retry/block/stop choices, fixer terminal states, ledger rules, and run completion behavior. |
+| Findings fixer loop | Retained: WP/final scope matrix, exact fingerprint command, before/after comparison, both no-op exits, two normal passes with pass-dependent latest review inputs, classify-only terminal dispatch, reviewer parallelism, ledger validation, and iteration counts 1/2/3. |
+| User choices and post-execution paths | Retained: implementation/cross-file/known-issue/shipping prompts, automatic reviews, retesting, shipping choices, and completion conditions. |
+
+### Retained redundancy rationale
+
+- Isolated subagent payloads still name their required paths, sentinels, dispatch IDs, and output
+  files because dispatched agents do not inherit orchestrator context.
+- Exact shell commands remain beside the fingerprint and gate decisions because a plausible
+  execution error there would change no-op detection or terminal routing.
+- Terminal ledger invariants, known-issue validation, and user-choice blocks remain explicit at
+  their gates because references alone could make a skipped action look valid during execution.

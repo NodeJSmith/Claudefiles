@@ -1,7 +1,7 @@
 ---
 task_id: "T02"
 title: "Simplify the core orchestrator workflow"
-status: "planned"
+status: "done"
 depends_on: ["T01"]
 implements: ["FR#1", "FR#3", "FR#6", "AC#4"]
 ---

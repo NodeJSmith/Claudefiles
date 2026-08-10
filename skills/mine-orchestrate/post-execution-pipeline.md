@@ -1,10 +1,11 @@
 # Post-Execution Review Pipeline (Phase 3)
 
-After all tasks are processed (or user chose "Stop here"), run a review pipeline. Steps 1–5 are automatic (no user prompts unless blocking issues are found). The user is prompted at the impl-review gate (if blocking) or the final shipping gate.
+After all tasks are processed (or the user chose "Stop here"), run this pipeline. Steps 1–5 are
+automatic except for blocking gates; prompt the user at implementation and cross-file blocking
+gates, severity escalations, the known-issues walkthrough, and the shipping gate.
 
-**All subagents in Phase 3 MUST run in foreground** (never set `run_in_background: true`). Several steps spawn their own parallel child subagents internally, which only works in foreground execution.
-
-**Telemetry:** Every subagent prompt in Phase 3 must include `cfl_dispatch_id: <dispatch_id>` (the ID from the `cfl dispatch` call that preceded it). This enables automatic token/compaction tracking via a PostToolUse hook.
+Phase 3 subagents always run in the foreground: never set `run_in_background: true`. Every
+subagent prompt includes the immediately preceding dispatch's `cfl_dispatch_id`.
 
 ## Step 1: Summary (automatic)
 
@@ -25,13 +26,17 @@ Use `tasks[].verdict` and `tasks[].verdict_detail` fields. PASS with a detail no
 
 Invoke `/mine-implementation-review <feature_dir>` automatically. The skill presents findings and returns — no user gate (the orchestrator handles all gate logic).
 
-Read the review output. Extract the verdict (PASS, FAIL, or ABANDON) and any suggestions or blocking issues. Record the gate result (ABANDON maps to FAIL):
+Read the review output. Extract PASS, FAIL, or ABANDON plus suggestions/blockers; ABANDON maps to
+FAIL for the gate:
 
 ```bash
 cfl gate impl-review --verdict <PASS|FAIL> --detail "<brief summary>"
 ```
 
-**If impl-review returns PASS** — note any non-blocking suggestions to surface later. If a suggestion identifies a real issue that should not be fixed in this run, read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md`, check the qualifying criteria and the Severity Gate, and record it (with `Run: <run_id>`, using the `run_id` read in Step 1) only if it passes both. If it trips the Severity Gate, raise the protocol's **Severity Escalation** `AskUserQuestion` right now instead of recording and moving on — follow that prompt's own "Fix now"/"Stop here"/"Ship anyway" mechanics. Continue to Step 3 automatically only if no escalation was needed, or the escalation resolved via "Fix now" or "Ship anyway" — not if the user chose "Stop here".
+**If impl-review returns PASS** — retain non-blocking suggestions for later. For a real deferred
+suggestion, use `known-issues-protocol.md` and its Severity Gate: record it with `Run: <run_id>`
+only when both permit; otherwise raise its Severity Escalation prompt and follow that prompt. Only
+continue automatically when no escalation is needed or it resolves with "Fix now"/"Ship anyway".
 
 **If impl-review returns ABANDON** — hard stop. ABANDON means the implementation is unrecoverable and requires a design rethink, not a code fix. Do not offer "Address fixes":
 
