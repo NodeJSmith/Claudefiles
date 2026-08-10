@@ -1,8 +1,8 @@
 # Visual Reviewer Launch (Step 11)
 
-**Only run if the task contains a `## Visual Verification` section with scenarios.** If the task has no visual verification section, skip to Step 12 (Visual line in Step 15 shows N/A).
+Run only when the task has a `## Visual Verification` section with scenarios; otherwise skip to Step 12 and report N/A.
 
-**If `visual_mode` is not `enabled`** (no dev server or no vision model, decided in Phase 0), skip entirely. Set Visual to SKIPPED with note "<visual_mode reason> (orchestrator)" and proceed to Step 12.
+If `visual_mode` is not `enabled`, skip and set Visual to SKIPPED with note "<visual_mode reason> (orchestrator)".
 
 Read `<dir>/<task_id>/executor.md` and extract the `## Visual Verification` section — this content goes into `## Executor visual output` in the subagent prompt below.
 
@@ -12,14 +12,14 @@ Discover screenshots by Globbing the per-task temp directory:
 Glob: <dir>/<task_id>/*.png
 ```
 
-Vision capability was already verified in Phase 0 — no per-task re-check needed.
+Vision capability was verified in Phase 0; do not re-check it per task.
 
 If no `.png` files are found, distinguish the cause:
 - `visual_mode` not `enabled` → SKIPPED (should not reach here — step short-circuits above)
 - Executor reported all scenarios as SKIPPED → Visual = SKIPPED with executor's reasons
 - Dev server was available, scenarios existed, but no screenshots → Visual = FAIL "executor did not capture screenshots despite dev server being available"
 
-Launch a `general-purpose` subagent with `model: sonnet` (vision capability required):
+Launch a `general-purpose` subagent with `model: sonnet`:
 
 ```
 You are reviewing screenshots from a frontend task implementation.
@@ -41,7 +41,8 @@ Write your review to: <absolute path: dir>/<task_id>/visual-review.md>
 
 Wait for the subagent to complete. Read the visual reviewer output file.
 
-**Fallback:** If output is empty or unparseable: dev server available + screenshots exist → FAIL "visual reviewer failed to produce output despite available screenshots." No screenshots (executor SKIPPED) → WARN "visual verification inconclusive."
+**Fallback:** Empty or unparseable output with available screenshots is FAIL. If the executor skipped and
+there are no screenshots, use WARN "visual verification inconclusive."
 
 **Visual verdict impact:**
 

@@ -2,18 +2,11 @@
 
 Reference for the executor subagent. Follow this during every task that involves code changes.
 
-## Test Discovery
+## Canonical Commands
 
-Before running any test, find the correct command. Never guess. Follow this discovery order (from `references/common/testing.md`):
-
-1. **CLAUDE.md** — look for a "Test Execution" or "Testing" section; if present, use that command
-2. **CI config** — `.github/workflows/*.yml`, `.gitlab-ci.yml` — use the exact command CI uses
-3. **Task runners** — `noxfile.py`, `tox.ini`, `Makefile`, `pyproject.toml` scripts
-4. **Documentation** — README, CONTRIBUTING
-5. **Ask** — if nothing found, use AskUserQuestion before running anything
-6. **Fallback** — `pytest` (or equivalent) as last resort
-
-Never run `pytest` directly without first completing the full discovery cascade.
+Use the test and lint commands supplied by the orchestrator from `<dir>/test-command.txt` and
+`<dir>/lint-command.txt`; do not rediscover or guess alternatives. If a required command is
+missing or unrunnable, report `BLOCKED`.
 
 ## Test Co-location
 

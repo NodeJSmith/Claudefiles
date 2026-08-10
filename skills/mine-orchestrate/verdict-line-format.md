@@ -72,13 +72,14 @@ grep -rl CONCISE-RETURN-MODE skills commands
 
 The sentinel may appear **only in orchestrate-internal files**. It must **never** appear in a path-less or non-orchestrate caller such as `mine-ship`, `mine-commit-push`, `mine-review`, `mine-build`, or `mine-address-pr-issues`.
 
-The grep should return exactly these five legitimate hosts:
+The grep should return exactly these six legitimate hosts:
 
 - `skills/mine-orchestrate/verdict-line-format.md`
 - `skills/mine-orchestrate/spec-reviewer-prompt.md`
 - `skills/mine-orchestrate/visual-reviewer-prompt.md`
 - `skills/mine-orchestrate/findings-fix-loop.md`
 - `skills/mine-orchestrate/SKILL.md`
+- `skills/mine-orchestrate/post-execution-pipeline.md`
 The agent files `agents/code-reviewer.md` and `agents/integration-reviewer.md` also legitimately contain the token, but they are outside `skills/` and `commands/`. Any other grep result is a leak.
 
 ## Conformance Check
