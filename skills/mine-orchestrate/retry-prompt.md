@@ -41,7 +41,7 @@ Do not be deferential: explain plainly when a suggestion is wrong, unsafe, or un
 **Findings files to read:**
 - <label>: <file path>
   (one line per file; add only files that are present)
-  Known labels: "Spec reviewer", "Code reviewer", "Integration reviewer",
+   Known labels: "Spec reviewer", "Code reviewer", "Integration reviewer", "Visual reviewer",
   "Test gate", "Impl-review", "Challenge critics (filtered)" (challenge findings per findings-protocol.md)
 
 Read each file in full before proceeding.

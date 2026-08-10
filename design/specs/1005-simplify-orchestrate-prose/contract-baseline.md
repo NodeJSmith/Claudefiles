@@ -328,3 +328,45 @@ above after T02 edits.
   execution error there would change no-op detection or terminal routing.
 - Terminal ledger invariants, known-issue validation, and user-choice blocks remain explicit at
   their gates because references alone could make a skipped action look valid during execution.
+
+## T04 final audit
+
+Command used for the final measurement: `wc -l skills/mine-orchestrate/*.md`
+
+| Measure | Before T01 | After T04 | Result |
+|---|---:|---:|---|
+| Total orchestration Markdown lines | 2449 | 2337 | 112 lines removed (4.6%) |
+| Long-line reflow used as the reduction | no | no | reduction is from deleted/replaced duplicated prose |
+| AC#5 target (`>=15%`) | 2449 | 2081 or fewer required | **CONTESTED: inherited target is not met** |
+
+The final audit found and fixed four real contract issues: optional task sections are now treated as
+optional (`Summary`/`Focus`), the post-execution fixer prompt no longer references the absent
+`Review Guidance` section, visual scenario output includes `WARN [INFRA]`, and visual no-screenshot
+fallback precedence is deterministic. Retry feedback also names the `Visual reviewer` host. The
+configured visual review model remains `sonnet`, so no model change was required.
+
+### Before/after contract inventory
+
+| Contract category | Before | After | Evidence / explanation |
+|---|---|---|---|
+| Phases and numbered steps | Phase 0, 1, 2, 3; task steps 1-17; Phase 3 1-7 | Retained | No phase or step removal; optional-section wording only changed. |
+| Commands and command families | All `cfl run`, `cfl task`, `cfl dispatch`, `cfl event`, and `cfl gate` families | Retained | Search and manual comparison found no command-family removal. |
+| Dispatch telemetry | `cfl_dispatch_id`, foreground Phase 3, `run_id`, dispatch-end pairing | Retained | Payload and dispatch requirements remain represented. |
+| Prompt payloads | Executor, retry, spec, code/integration, visual, and Phase 3 payload fields | Retained | Isolated prompts retain required paths, IDs, commands, and output files; retry adds Visual reviewer label. |
+| Gates and artifacts | Test/lint/visual/reviewer/fixer/shipping gates and all listed paths | Retained | No gate or artifact name was removed. |
+| Reviewers and verdicts | Executor, spec, code, integration, visual; PASS/WARN/FAIL/SKIPPED rules | Retained | Canonical verdict owner and lint pass; visual `WARN [INFRA]` is now explicit per existing behavior. |
+| Known-issue fields and fingerprint paths | Full schema, `Run`, severity gate, and `fingerprint-pre-passN.txt` | Retained | No field, path, or terminal ledger rule changed. |
+| User choices | Resume, command, visual, retry, known-issue, and shipping choices | Retained | No option label or branch was removed. |
+| Retry limits and transitions | Visual probe, spec retry, fixer budget, review rounds, task/run states | Retained | No ceiling, transition, or terminal outcome changed. |
+| `SYNC` contracts | Reviewer verdict owner, isolated retry guidance, routing checklist | Retained | No new marker; existing markers still identify canonical owners. |
+| `CONCISE-RETURN-MODE` hosts | Six legitimate `skills/mine-orchestrate` hosts | Retained | `grep -rl` returns exactly the six documented paths. |
+
+### Verification results
+
+| Check | Result |
+|---|---|
+| `bin/lint-verdict-line` | PASS |
+| `grep -rl CONCISE-RETURN-MODE skills commands` | PASS; exactly six documented hosts |
+| `uv run prek run --all-files` | PASS |
+| `uv run pytest` | BLOCKED by missing `pytest` executable in this checkout |
+| `mise run 'test:*'` | See T04 executor log; authoritative test attempt |

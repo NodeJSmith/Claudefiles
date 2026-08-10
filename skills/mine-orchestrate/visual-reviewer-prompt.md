@@ -49,7 +49,7 @@ First, check against the scenario's Setup specification:
 - If the scenario says "50+ rows" but the screenshot shows 3 rows, that's a WARN — the scenario wasn't properly exercised
 - If the scenario says "375px viewport" but the screenshot is clearly desktop-width, that's a WARN
 
-Second, independently judge whether the state is rich enough to exercise the task's changes — regardless of what the scenario or executor claims. Read the task's Summary section. Does the screenshot show a UI state where the task's changes would be visually distinguishable from a no-op? If the task adds pagination but the screenshot shows 3 rows (no pagination needed), that's a WARN even if the scenario didn't specify a row count.
+Second, independently judge whether the state is rich enough to exercise the task's changes — regardless of what the scenario or executor claims. Read the task's Summary or objective text. Does the screenshot show a UI state where the task's changes would be visually distinguishable from a no-op? If the task adds pagination but the screenshot shows 3 rows (no pagination needed), that's a WARN even if the scenario didn't specify a row count.
 
 ### Per-Scenario Verdicts
 
@@ -74,7 +74,7 @@ Write your review to the temp file path provided:
 **Scenarios:**
 
 ### Scenario 1: <page> — <setup summary>
-**Scenario verdict:** PASS | WARN | FAIL | SKIPPED
+**Scenario verdict:** PASS | WARN | WARN [INFRA] | FAIL | SKIPPED
 **Verify criteria met:**
 - <criterion>: YES | NO | PARTIAL — <what you observed>
 **Unintended changes:** [none] OR [description of regression]

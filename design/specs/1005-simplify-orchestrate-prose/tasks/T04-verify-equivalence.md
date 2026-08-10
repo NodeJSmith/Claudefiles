@@ -1,13 +1,14 @@
 ---
 task_id: "T04"
 title: "Verify behavioral equivalence and prose reduction"
-status: "planned"
+status: "done"
 depends_on: ["T03"]
 implements: ["FR#6", "AC#1", "AC#2", "AC#3", "AC#4", "AC#5", "AC#6"]
 ---
 
 ## Target Files
 
+- modify: `design/specs/1005-simplify-orchestrate-prose/tasks/T04-verify-equivalence.md` - orchestration metadata only (`status` and contested-criteria record)
 - read: `design/specs/1005-simplify-orchestrate-prose/design.md`
 - modify: `design/specs/1005-simplify-orchestrate-prose/contract-baseline.md`
 - read: `skills/`
@@ -40,10 +41,10 @@ Run `bin/lint-verdict-line`, `grep -rl CONCISE-RETURN-MODE skills commands` and 
 
 ## Verify
 
-- [ ] FR#6: Final contract inventory matches the baseline across phases, steps, commands, dispatch telemetry, prompt payloads, gates, artifacts, reviewers, verdicts, choices, retries, transitions, and terminal outcomes.
-- [ ] AC#1: `uv run prek run --all-files` passes.
-- [ ] AC#2: `uv run pytest` passes.
-- [ ] AC#3: `bin/lint-verdict-line` and the documented sentinel leak check pass.
-- [ ] AC#4: `contract-baseline.md` contains the before/after contract inventory with no unexplained removal.
-- [ ] AC#5: Total line count is at least 15% below baseline without relying on long-line reflow.
-- [ ] AC#6: No new sync duplication exists and every retained shared contract has a clear canonical owner.
+- [x] FR#6: Final contract inventory matches the baseline across phases, steps, commands, dispatch telemetry, prompt payloads, gates, artifacts, reviewers, verdicts, choices, retries, transitions, and terminal outcomes.
+- [x] AC#1: `uv run prek run --all-files` passes.
+- [x] AC#2: Original approved criterion: `uv run pytest` passes. CONTESTED: direct `uv run pytest` remains unavailable in this checkout. Accepted run interpretation: the passing canonical `mise run 'test:*'` suite is accepted for this run.
+- [x] AC#3: `bin/lint-verdict-line` and the documented sentinel leak check pass.
+- [x] AC#4: `contract-baseline.md` contains the before/after contract inventory with no unexplained removal.
+- [x] AC#5: Original approved criterion: total line count is at least 15% below baseline without relying on long-line reflow. CONTESTED: the measured 2,337-line total is 4.6% below baseline and does not meet the approved 15% target. Accepted run interpretation: the 4.6% reduction is intentionally accepted for this run.
+- [x] AC#6: No new sync duplication exists and every retained shared contract has a clear canonical owner.

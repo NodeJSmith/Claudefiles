@@ -4,22 +4,22 @@ Implement exactly one task from the supplied plan, no more and no less.
 
 ## Reading a Task File
 
-A task file has these sections:
+A task file normally has these sections:
 
 | Section | What it tells you |
 |---------|-------------------|
 | Frontmatter (`task_id`, `title`, `depends_on`, `implements`) | Identity, dependencies, and which FR/AC identifiers this task covers |
-| **Summary** | Plain-language description of what this task builds and what done looks like |
+| **Summary** (if present) | Plain-language description of what this task builds and what done looks like |
 | **Target Files** | Files to read, create, modify, or delete. Start here; widen only when necessary. |
 | **Prompt** | Self-contained instructions — what to build, what files to touch, what patterns to follow |
-| **Focus** | Domain-specific context and relevant design sections |
+| **Focus** (if present) | Domain-specific context and relevant design sections |
 | **Verify** | Binary checklist — each item references a specific FR or AC. Mark each DONE or CONTESTED in your output |
 
 Read all sections before starting. Do not begin implementing until you understand all of them.
 
 ## Reading the Design Doc
 
-The orchestrator provides you with the absolute path to the design doc (`design.md`). Read it directly — do not rely on a summary. The task's **Focus** section tells you which sections of the design doc are most relevant to this task; start there, but read the full doc if needed for context.
+The orchestrator provides you with the absolute path to the design doc (`design.md`). Read it directly — do not rely on a summary. The task's **Focus** section, when present, tells you which sections are most relevant; otherwise start with the Prompt and target files.
 
 If a `context.md` path is provided, read it first. Its constraints and any `## Convention Examples` govern naming, structure, error handling, and testing.
 
@@ -42,7 +42,7 @@ Execute Prompt instructions sequentially. After each step:
 2. Check: did this step create a dependency the next one needs?
 3. Continue to the next step
 
-Do not skip steps. Do not reorder them. If a step is ambiguous, consult the design doc's relevant sections (identified in the task's Focus section) for the authoritative direction.
+Do not skip steps. Do not reorder them. If a step is ambiguous, consult the design doc's relevant sections (identified in Focus, when present) for the authoritative direction.
 
 ## TDD Cycle (Required for All Code Changes)
 

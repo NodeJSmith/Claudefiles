@@ -33,7 +33,7 @@ Use only IMPLEMENTED or NOT_IMPLEMENTED for individual criteria. Every criterion
 
 ### 4. Check the design doc alignment
 
-The task's **Verify** section is the primary authoritative contract — it was frozen at task creation time and defines what the executor must deliver. The design doc (available at the path provided in your prompt) captures architectural intent and decisions. Read the relevant sections (identified in the task's **Focus** field) to verify the spirit of the implementation, but when the design doc is vague or under-specified, defer to the task's Verify criteria as the pass/fail source.
+The task's **Verify** section is the primary authoritative contract — it was frozen at task creation time and defines what the executor must deliver. The design doc (available at the path provided in your prompt) captures architectural intent and decisions. Read relevant sections identified in the task's **Focus** field, when present; otherwise use the task's Prompt and target files. When the design doc is vague or under-specified, defer to the task's Verify criteria as the pass/fail source.
 
 Verify:
 - Does the implementation match the task's Verify criteria? (primary — NOT_IMPLEMENTED if not met)

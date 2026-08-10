@@ -200,20 +200,14 @@ On subsequent tasks and retries, skip — the baselines from the first task appl
 
 #### Discovery
 
-1. **Discover test command(s)** using the discovery order from `references/common/testing.md`.
-2. **Discover lint/format command(s)** using this discovery order:
-   1. **CLAUDE.md** — "Lint", "Formatting", or "Code Quality" section
-   2. **CI configuration** — `.github/workflows/`, `.gitlab-ci.yml`; extract lint/format/typecheck steps
-   3. **Pre-commit config** — `prek.toml`, `.pre-commit-config.yaml`, or `.pre-commit-config.yml`; if present, note it but do NOT use `prek run --all-files` / `pre-commit run --all-files` as the lint command. These hooks run automatically at commit time (Step 17) — extract the individual tools from the config instead (e.g., `ruff check .`, `pyright`, `eslint .`)
-   4. **Task runners** — `pyproject.toml` scripts, `Makefile`, `package.json` scripts (look for `lint`, `format`, `check`, `typecheck` targets)
-   5. **Conventions** — Python: `ruff check .` + `pyright`. TypeScript: `tsc --noEmit` + `eslint .`
-   6. **Ask the user** if unclear
-
-For projects spanning multiple stacks (e.g., Python backend + TypeScript frontend), discover commands for **each stack**. A monorepo with `backend/` and `frontend/` needs both `cd backend && pytest` and `cd frontend && npm test`, and both `cd backend && ruff check .` and `cd frontend && tsc --noEmit`.
+1. Discover test commands using `references/common/testing.md`.
+2. Discover lint/format commands in this order: `CLAUDE.md`; CI config; pre-commit config
+   (note hooks, but extract their tools rather than using `prek run --all-files`); task runners;
+   language conventions. Ask the user if unclear. Discover commands for every stack in a monorepo.
 
 #### User confirmation
 
-Present both the discovered test and lint commands for confirmation:
+Present both command sets for confirmation:
 
 ```
 AskUserQuestion:
@@ -227,7 +221,7 @@ AskUserQuestion:
       description: "I'll provide the right commands"
 ```
 
-If the user corrects, use their commands instead. Re-present for confirmation after corrections until the user confirms.
+If corrected, re-present until confirmed.
 
 #### Record and baseline
 
@@ -235,13 +229,14 @@ Record the confirmed commands:
 - Test command(s) → `<dir>/test-command.txt` — one command per line; this canonical file is passed to all executors and test gates to prevent discovery drift
 - Lint command(s) → `<dir>/lint-command.txt` — one command per line
 
-If no test suite is discoverable and the user confirms none exists, write `no test suite` to `<dir>/test-command.txt`. If no lint tools are discoverable and the user confirms none exist, write `no lint tools` to `<dir>/lint-command.txt`.
+If the user confirms no suite or tools exist, write `no test suite` or `no lint tools` to the
+corresponding command file.
 
 Run both suites and record baselines:
 - Test baseline → `<dir>/test-baseline.md` (note which tests pass and which fail)
 - Lint baseline → `<dir>/lint-baseline.md` (record per command: the exact command line, exit code, and error count — these are compared by the lint gate in Step 9 to detect regressions)
 
-If a command file contains the sentinel value (`no test suite` / `no lint tools`), record `SKIPPED: <reason>` in the corresponding baseline file and skip that baseline run.
+If a command file contains a sentinel, record `SKIPPED: <reason>` in its baseline and skip that run.
 
 ### Step 3: Create per-task subdirectory
 
@@ -297,7 +292,7 @@ You are executing a single task from an implementation plan.
 ## Design doc path
 <absolute path to <feature_dir>/design.md>
 
-Read the design doc directly for architecture context. Pay special attention to the sections referenced in the task's Focus section.
+Read the design doc directly for architecture context. Pay special attention to sections referenced in the task's Focus section, when present.
 
 ## Master context path
 <absolute path to <feature_dir>/tasks/context.md, if it exists; omit this section if the file does not exist>
@@ -498,29 +493,22 @@ After the parallel reviews complete (regardless of verdicts), re-run the project
 
 #### Test gate
 
-1. **Use the test baseline** from Step 2 (captured before the first executor ran).
-   - If the baseline is `SKIPPED: no test suite`, skip the test gate and record `SKIPPED` in `test-gate.md`.
-   - If `<dir>/test-baseline.md` is missing or unreadable (e.g., tmpdir was cleared before resume), do **not** treat this as a regression signal. Continue with the test re-run, but record `NO BASELINE — cannot detect regressions` in `test-gate.md`.
-2. **Load the canonical test command** from `<dir>/test-command.txt` (created in Step 2 to prevent discovery drift). Treat that file as the primary source of truth. Run from the repository root. Only fall back to the discovery order from `references/common/testing.md` if `test-command.txt` is missing, empty, or contains `no test suite`.
-3. **Run the test command**, piping raw output via `tee` to `<dir>/<task_id>/test-output.log`. Keep only a short summary (e.g., the last 20 lines of the captured log) in the orchestrator's context.
-4. **Compare against baseline when available**: if a valid baseline exists and any test that passed in the baseline now fails, this is a **regression**. Record regressions explicitly in `<dir>/<task_id>/test-gate.md`. If no baseline is available, record that regression detection could not be performed and list current failures as informational only — do not classify them as regressions.
-5. **Record the test result** in the per-task temp directory: `<dir>/<task_id>/test-gate.md` with the command used, whether it came from `test-command.txt` or fallback discovery, output summary, baseline status, and regression list.
+Use the Step 2 baseline and `<dir>/test-command.txt` from the repository root, teeing raw output to
+`<dir>/<task_id>/test-output.log`; fall back to `references/common/testing.md` only when the file is
+missing, empty, or says `no test suite`. A skipped baseline skips the gate. A missing baseline is
+`NO BASELINE — cannot detect regressions`, not a regression. Compare valid baselines and record the
+command, source, summary, baseline status, and regressions in `test-gate.md`.
 
 **Test verdict impact**: If regressions are detected from a valid baseline comparison (previously-passing tests now fail), check whether all regressing tests are in files owned by a later task (compare failing test file paths against the `target_files` in subsequent task files). If **all** regressions are downstream-scoped, the test gate is **WARN** (not FAIL) — record `"note": "all N regressions scoped to <task_ids>"` in the gate data and skip the fixer cycle for these regressions. They will be resolved when the owning task executes. If **any** regression is in a file owned by the current or a prior task, the test gate is **FAIL** and the fixer cycle runs as normal. Pre-existing test failures (tests that also failed in the baseline) are informational and do not block. If no baseline is available, do not fail the task on regression grounds alone.
 
 #### Lint gate
 
-1. **Load the canonical lint command(s)** from `<dir>/lint-command.txt` (created in Step 2).
-   - If the lint command is `no lint tools`, skip the lint gate and record `SKIPPED` in `lint-gate.md`.
-   - If `<dir>/lint-baseline.md` is missing or unreadable, record `NO BASELINE — cannot detect regressions` in `lint-gate.md`.
-2. **Run each lint command**, piping raw output via `tee -a` to `<dir>/<task_id>/lint-output.log` (append so multiple commands accumulate in one log). Keep only a short summary (e.g., the last 20 lines) in the orchestrator's context. Capture each command's **real** exit code with `${PIPESTATUS[0]}` immediately after its pipeline (or run with `set -o pipefail`) — `tee` otherwise reports its own exit status (almost always 0) and masks a non-zero lint exit, defeating the exit-code regression check in bullet 3. If multiple commands (one per line in `lint-command.txt`), run each separately and record per-command results and exit codes.
-3. **Compare against baseline per command**: for each lint command, compare the exit code and error count against the baseline:
-   - **Exit code regression**: command passed (exit 0) in baseline, now fails (exit non-zero) → regression
-   - **Error count regression**: command had N errors in baseline, now has >N errors → regression (new errors introduced)
-   - **Pre-existing failures**: command already failed in baseline with the same or fewer errors → informational only
-   
-   Record regressions in `<dir>/<task_id>/lint-gate.md` with the specific command, baseline error count, current error count, and new error messages.
-4. **Record the result** in `<dir>/<task_id>/lint-gate.md` with: each command and its exit code, baseline comparison (pass/regress/pre-existing per command), new errors introduced (if any), and overall lint gate status.
+Load each command from `<dir>/lint-command.txt`; a `no lint tools` sentinel skips the gate. Tee each
+command (append) to `<dir>/<task_id>/lint-output.log` and capture its real exit code with
+`${PIPESTATUS[0]}` or `pipefail`. A missing baseline is `NO BASELINE — cannot detect regressions`.
+Compare exit code and error count per command: a new failure or increased count is a regression;
+an equal or smaller pre-existing failure is informational. Record commands, exits, comparisons,
+new errors, and overall status in `lint-gate.md`.
 
 **Lint verdict impact**: Lint regressions (checks that passed in the baseline now fail) contribute WARN to the task verdict. The executor should address lint issues proactively; if they don't, regressions surface as WARN at the verdict assembly and are reported in Step 15. Lint regressions do not independently FAIL the task. Pre-existing lint failures do not contribute to the verdict.
 

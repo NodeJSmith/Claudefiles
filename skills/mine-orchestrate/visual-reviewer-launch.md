@@ -41,8 +41,10 @@ Write your review to: <absolute path: dir>/<task_id>/visual-review.md>
 
 Wait for the subagent to complete. Read the visual reviewer output file.
 
-**Fallback:** Empty or unparseable output with available screenshots is FAIL. If the executor skipped and
-there are no screenshots, use WARN "visual verification inconclusive."
+**Fallback:** Empty or unparseable output with available screenshots is FAIL. If the executor reported
+all scenarios SKIPPED and there are no screenshots, use SKIPPED with the executor's reasons. If the
+executor output is empty/unparseable and no screenshots exist, use WARN [INFRA] "visual verification
+inconclusive."
 
 **Visual verdict impact:**
 
