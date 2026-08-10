@@ -67,7 +67,7 @@ Handles Pattern 5 from the design doc. Find `--agent-type general-purpose --mode
 
 `remap_agent_models(agents_dir: Path, dry_run: bool) -> int`
 
-Separate pass that runs after dispatch rewrite. Reads each `.md` file in `agents_dir`, finds the frontmatter block (between the first two `---` markers), and replaces anchored `model: <claude_tier>` lines with `model: <openai_model_id>` using TIER_MAP. Does not touch body content — the dispatch rewriter already handled body content. Returns count of files modified.
+Separate pass that runs after dispatch rewrite. Reads each `.md` file in `agents_dir`, finds the frontmatter block (between the first two `---` markers), and replaces Claude tier names in `model:` lines with provider-qualified model IDs from TIER_MAP. **Must handle trailing inline comments** — most agent files have lines like `model: sonnet  # claude-sonnet-5 as of 2026-07-07 — do not downgrade; pre-commit safety gate`. Match `model: <tier>` at line start with optional trailing content (whitespace + `#` comment), replace only the tier name while preserving the comment. Does not touch body content — the dispatch rewriter already handled body content. Returns count of files modified.
 
 ### Orchestration function
 
@@ -92,7 +92,7 @@ The pipeline order per the design: opkg install → color strip → dispatch rew
   - `skills/mine-how/SKILL.md` line 69: `Agent(subagent_type: "general-purpose", model: "sonnet")`
   - `skills/mine-orchestrate/known-issues-protocol.md` line 88: `cfl dispatch ... --agent-type general-purpose --model sonnet`
   - `skills/mine-review/SKILL.md` line 41: `subagent_type: "code-reviewer"` (named agent, no model to strip on this particular line — but other named dispatches may have inline `model:`)
-- The model remap only needs to handle the three Claude tier names (`sonnet`, `haiku`, `opus`) in anchored frontmatter `model:` lines. After opkg installs the agents, their frontmatter still has Claude tier names — this pass converts them to provider-qualified IDs.
+- The model remap only needs to handle the three Claude tier names (`sonnet`, `haiku`, `opus`) in anchored frontmatter `model:` lines. After opkg installs the agents, their frontmatter still has Claude tier names — this pass converts them to provider-qualified IDs. **Critical:** 12 of 13 agent files have trailing inline comments on their `model:` line (e.g., `model: sonnet  # claude-sonnet-5 as of 2026-07-07 — do not downgrade; pre-commit safety gate`). A regex matching `^model: sonnet$` (end-of-line anchor) will silently skip these. Use a pattern like `^model:\s*<tier>\b(.*)$` to capture and preserve the trailing content.
 - Agent body content may contain `model:` in prose/examples (e.g., explaining what model to use). The dispatch rewriter handles these via pattern matching; the model remap must NOT touch body content or it would corrupt prose.
 - The `resolve()` function is the single routing decision point — both passes call it. This is the architectural invariant from Key Constraints.
 

@@ -28,11 +28,12 @@ Find the `opencode-sync` entry in the bin scripts table (currently at line 239).
 - Still not wired into `install.py`
 - Reference to the roadmap for remaining work
 
-Add a new section or entry documenting the SQLite child-session verification query. This query is run manually after exercising a workflow to verify model routing:
+Add a new section or entry documenting the SQLite child-session verification query. **Before documenting, verify the actual schema** by running `sqlite3 ~/.local/share/opencode/opencode.db '.schema sessions' '.schema agents'` (or equivalent) — the column names below are provisional and must be confirmed against the real database. The query is run manually after exercising a workflow to verify model routing:
 
 ```sql
 -- Run against ~/.local/share/opencode/opencode.db
 -- Open with PRAGMA busy_timeout = 5000 to avoid lock contention
+-- IMPORTANT: verify column names against actual schema before documenting
 SELECT s.id, s.model_id, a.name as agent_name
 FROM sessions s
 LEFT JOIN agents a ON s.agent_id = a.id
@@ -41,7 +42,7 @@ ORDER BY s.created_at DESC
 LIMIT 20;
 ```
 
-Document this as a manual verification step, not an automated sync subcommand.
+Document this as a manual verification step, not an automated sync subcommand. If the real schema differs from the query above, update the query to match before writing it into REFERENCE.md.
 
 ### ONBOARDING.md
 

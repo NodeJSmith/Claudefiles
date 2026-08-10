@@ -46,7 +46,7 @@ After the full pipeline (dispatch rewrite → model remap → worker generation 
 
 ### 4. Collision detection — `check_collisions(config_dir: Path, generated_keys: set[str])`
 
-Read `config_dir / "opencode.jsonc"` (if it exists). Parse it as JSON (strip `//` comments first — JSONC allows them). Check if any `agent` keys in `opencode.jsonc` collide with the keys the generated `config.json` contains. If collisions exist, print a warning listing the colliding keys and advising removal.
+Read `config_dir / "opencode.jsonc"` (if it exists). Parse it as JSON after stripping JSONC `//` comments — but use a string-aware stripper, not a naive per-line `//` truncation. A naive strip corrupts URLs inside string values (e.g., `"$schema": "https://opencode.ai/config.json"` becomes `"$schema": "https:` — invalid JSON). Strip `//` only when it appears outside of a quoted string context. A minimal approach: iterate characters tracking whether you're inside a `"..."` string (handling `\"` escapes), and only strip `//` when outside quotes. Check if any `agent` keys in `opencode.jsonc` collide with the keys the generated `config.json` contains. If collisions exist, print a warning listing the colliding keys and advising removal.
 
 Track warning state via the `collision_keys` field in the unified sync state file (`.claudefiles-sync-state.json`, defined in point 6 below) — store the sorted list of colliding key names. If the collision set hasn't changed since the last warning, don't re-warn. If the set changes (collision added or removed), re-warn. This prevents nagging on every sync for a known collision the user hasn't addressed yet, while still re-triggering when the situation changes.
 
@@ -81,10 +81,11 @@ Wire collision detection and foreign config handling into `main()` at the approp
 ## Focus
 
 - The lint's pattern list must be derived from or share definitions with the dispatch rewriter (T03). The design's Key Constraints section states: "One shared pattern table prevents drift between the rewriter and its safety net." Practically, this means the lint should call the same regex patterns the rewriter uses to detect matches, rather than defining its own set.
-- The JSONC parser for `opencode.jsonc` only needs to handle `//` line comments (the format OpenCode uses). A full JSONC parser isn't needed — strip `//` comments from lines and parse as JSON.
+- The JSONC parser for `opencode.jsonc` must be string-aware when stripping `//` comments. A naive per-line strip corrupts URLs in string values — the actual `opencode.jsonc` starts with `"$schema": "https://opencode.ai/config.json"`. Use a character-level scan that tracks quote context.
 - The collision state tracking prevents nagging: if the user knows about the collision and hasn't fixed it, don't repeat the warning every sync. But if the collision set changes (they fixed one, or a new one appeared), re-warn.
 - The sync state file migration (`.claudefiles-sync-sha` → `.claudefiles-sync-state.json`) is a one-time operation. After migration, the old file is deleted.
 - The foreign config backup file is `config.json.foreign.bak` (not `config.json.bak` — that's the regular pre-overwrite backup from T02's atomic write).
+- **Known lint false positives:** The literal `general-purpose` check will flag prose occurrences in synced skill files that the dispatch rewriter didn't touch (no paired `model:` or `--model`). Known instances in the current repo include `skills/mine-visual-qa/SKILL.md` ("Launch a single `general-purpose` agent"), `skills/mine-orchestrate/agent-routing.md` (table cell + prose), `commands/mine-permissions-audit.md` ("`Task(general-purpose)`"). The design doc's Edge Cases section states these are "accepted false positives — deliberate over-sensitivity; reword the source text if one appears." This remedy (editing Claude Code source files) is a manual developer action outside the sync script's scope, not an automated modification — the Goal "Claude Code source files are never modified" constrains the sync script, not manual cleanup. AC#7 ("exits 0 after a clean sync") presupposes that prose false positives have been addressed in the source. The initial lint run after this spec ships will have known failures; those are addressed by rewording the source files and re-syncing.
 
 ## Verify
 
@@ -92,7 +93,7 @@ Wire collision detection and foreign config handling into `main()` at the approp
 - [ ] FR#11: `opencode-sync --lint-only` reports warnings for `isolation: "worktree"` and `run_in_background` in synced skills
 - [ ] FR#13: `opencode-sync` prints a warning when `opencode.jsonc` contains `agent` keys that shadow generated `config.json` entries
 - [ ] FR#16: When `config.json` exists with content not matching the recorded hash, it's backed up to `config.json.foreign.bak` with a warning
-- [ ] AC#7: `opencode-sync --lint-only` exits 0 after a clean sync
+- [ ] AC#7: `opencode-sync --lint-only` exits 0 after a clean sync (note: prose `general-purpose` false positives in source files must be resolved first — see Focus)
 - [ ] AC#8: `opencode-sync --lint-only` exits non-zero when a synced skill is manually edited to re-introduce `model: sonnet` with `subagent_type: general-purpose`
 - [ ] AC#13: `opencode-sync --lint-only` reports warnings for `isolation: "worktree"` and `run_in_background`
 - [ ] AC#15: `opencode-sync` prints a warning when `opencode.jsonc` contains shadowing `agent` keys

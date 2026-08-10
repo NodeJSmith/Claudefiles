@@ -240,7 +240,7 @@ Claude Code built-in types (`Explore`, `Plan`, `general-purpose`, `claude`) have
 
 **Bare dispatch (no model):** `subagent_type: general-purpose` with no `model:` clause → `subagent_type: worker-standard` (FR#15), mirroring the Claude-side default where the model hook injects sonnet.
 
-The rewriter processes synced skill, command, and agent body files (frontmatter excluded) after opkg install. It matches on Claude tier names (`sonnet`, `haiku`, `opus`) in body content and removes the `model:` clause entirely. The model remap is a separate pass that runs after dispatch rewrite and operates only on agent frontmatter (anchored `model:` lines) — it replaces Claude tier names with provider-qualified model IDs without touching body content. The dispatch rewriter replaces the old script's inline body remap; the frontmatter remap replaces its anchored remap.
+The rewriter processes synced skill, command, and agent body files (frontmatter excluded) after opkg install. It matches on Claude tier names (`sonnet`, `haiku`, `opus`) in body content and removes the `model:` clause entirely. The model remap is a separate pass that runs after dispatch rewrite and operates only on agent frontmatter (anchored `model:` lines, which may have trailing inline comments like `# claude-sonnet-5 as of 2026-07-07`) — it replaces Claude tier names with provider-qualified model IDs while preserving any trailing comment, without touching body content. The dispatch rewriter replaces the old script's inline body remap; the frontmatter remap replaces its anchored remap.
 
 Order: opkg install → color strip → dispatch rewrite (skills + commands + agent bodies) → model remap (agent frontmatter only, anchored) → worker agent generation → config.json generation → lint.
 
