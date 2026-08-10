@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-08-09
+
+### Changed
+
+- `mine-orchestrate`'s fixer/reviewer loop now short-circuits when a fixer pass leaves the code content-identical to what it started with — detected via a content fingerprint rather than the changed-files list, which won't catch a fixer editing an already-dirty file. Skips the redundant reviewer re-dispatch and routes straight to the classify-mode terminal pass instead. (#496)
+
 ## 2026-08-07
 
 ### Changed
