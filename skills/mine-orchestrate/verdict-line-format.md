@@ -19,7 +19,9 @@ Single source of truth for the canonical verdict line emitted by all four review
 
 ## Verdict Vocabulary
 
-All reviewers use vocabulary aligned with the `cfl gate` verdict set: `PASS`, `WARN`, `FAIL`, `SKIPPED`.
+Reviewer verdicts use `PASS`, `WARN`, or `FAIL`, as permitted by each reviewer's parser contract.
+`SKIPPED` is not a generic reviewer verdict: it is a task or gate state produced without a
+reviewer verdict, such as when visual verification is short-circuited by the orchestrator.
 
 | Reviewer | Verdict values |
 |---|---|

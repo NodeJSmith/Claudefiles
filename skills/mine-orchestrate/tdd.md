@@ -5,8 +5,10 @@ Reference for the executor subagent. Follow this during every task that involves
 ## Canonical Commands
 
 Use the test and lint commands supplied by the orchestrator from `<dir>/test-command.txt` and
-`<dir>/lint-command.txt`; do not rediscover or guess alternatives. If a required command is
-missing or unrunnable, report `BLOCKED`.
+`<dir>/lint-command.txt`; do not rediscover or guess alternatives. `no test suite` and
+`no lint tools` are canonical skip sentinels: record the corresponding check as `SKIPPED` and
+continue. If a required command file is missing, empty, or another command is unrunnable, report
+`BLOCKED`.
 
 ## Test Co-location
 

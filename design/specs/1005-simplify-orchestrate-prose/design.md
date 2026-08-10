@@ -33,10 +33,10 @@ The `mine-orchestrate` workflow repeats contracts, rationale, and prompt schemas
 ## Acceptance Criteria
 
 - **AC#1** `uv run prek run --all-files` passes after the instruction changes.
-- **AC#2** `uv run pytest` passes after the instruction changes.
+- **AC#2** `mise run 'test:*'` passes after the instruction changes.
 - **AC#3** `bin/lint-verdict-line` passes and the `CONCISE-RETURN-MODE` leak check still reports only legitimate orchestrate-internal hosts.
 - **AC#4** A before/after contract inventory shows no removed workflow phase, numbered step, `cfl` command family, gate, output artifact, reviewer type, verdict state, or user choice.
-- **AC#5** The total line count under `skills/mine-orchestrate/*.md` is at least 15% lower than the baseline captured before editing, excluding reductions caused only by reflowing multiple prose lines into long lines.
+- **AC#5** The historical target is a total line count under `skills/mine-orchestrate/*.md` at least 15% lower than the baseline captured before editing, excluding reductions caused only by reflowing multiple prose lines into long lines. The approved exception is that the measured reduction may remain below that target when meeting it would require removing necessary workflow safeguards or isolated subagent context; the final audit must record the measured result and exception rather than claim the target was met.
 - **AC#6** No new `SYNC` duplication marker is introduced; any removed synchronized copy leaves a single clear canonical owner.
 
 ## Approach

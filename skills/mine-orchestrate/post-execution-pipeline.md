@@ -5,7 +5,9 @@ automatic except for blocking gates; prompt the user at implementation and cross
 gates, severity escalations, the known-issues walkthrough, and the shipping gate.
 
 Phase 3 subagents always run in the foreground: never set `run_in_background: true`. Every
-subagent prompt includes the immediately preceding dispatch's `cfl_dispatch_id`.
+subagent prompt includes the immediately preceding dispatch's `cfl_dispatch_id`. After a dispatch
+succeeds, always attempt its matching `cfl dispatch end` on success or failure. Preserve any
+launch/wait error as the primary failure; report cleanup failure separately.
 
 ## Step 1: Summary (automatic)
 
@@ -85,9 +87,37 @@ implementation-review inputs and verification steps:
   constraints), accumulated spec reviews, `implementer-prompt.md`, `retry-prompt.md`, and `tdd.md`.
   Populate `## Previous review feedback` with `Impl-review: <absolute path>`. Instruct: "Fix only
   the listed blocking issues. Do not expand scope beyond these findings. Respect each task's
-  constraints." Re-run `code-reviewer` and `integration-reviewer` in parallel, then
-  `/mine-implementation-review <feature_dir>`. Repeat Step 2 with its result; continue to Step 3
-  only after its PASS handling completes.
+  constraints." After the shared verification protocol below passes, record both reviewer
+  dispatches before launching either reviewer:
+
+  ```bash
+  cfl dispatch impl-fix-code-reviewer --agent-type code-reviewer --model sonnet
+  cfl dispatch impl-fix-integration-reviewer --agent-type integration-reviewer --model sonnet
+  ```
+
+  Launch both in one foreground message (never `run_in_background: true`), with the same
+  changed-file scope and `CONCISE-RETURN-MODE`/output-file contract as the Phase 3 review pass.
+  Include `cfl_dispatch_id: <impl_fix_code_reviewer_dispatch_id>` in the code-reviewer prompt and
+  `cfl_dispatch_id: <impl_fix_integration_reviewer_dispatch_id>` in the integration-reviewer
+  prompt. After both return:
+
+  ```bash
+  cfl dispatch end <impl_fix_code_reviewer_dispatch_id>
+  cfl dispatch end <impl_fix_integration_reviewer_dispatch_id>
+  ```
+
+  Then record the implementation-review re-run dispatch and launch the implementation-review
+  subagent in the foreground with `cfl_dispatch_id: <impl_review_rerun_dispatch_id>` in its
+  prompt. End it after completion, then repeat Step 2 with its result; continue to Step 3 only
+  after its PASS handling completes:
+
+  ```bash
+  cfl dispatch impl-review-rerun --agent-type general-purpose --model sonnet
+  cfl dispatch end <impl_review_rerun_dispatch_id>
+  ```
+
+  Preserve `/mine-implementation-review <feature_dir>`'s existing design/task inputs, review
+  scope, and output artifact.
 
 **On "Stop here":** Leave the run active. The user can resume later. Do not call `cfl run complete`.
 
@@ -132,14 +162,16 @@ Record the gate result:
 cfl gate cross-file-review --verdict <PASS|WARN|FAIL> --data '{"findings": <N>, "critical": <C>, "high": <H>, "medium": <M>, "low": <L>}'
 ```
 
-After the PASS/WARN handling above, record PASS when every suggestion was fixed, rejected, or
-recorded as a known issue. Record WARN only for a non-actionable reviewer note that is not a real
-issue and must remain visible in the shipping summary. Do not continue while a genuine untracked
-issue remains.
+After the PASS/WARN handling above, record PASS when every real suggestion was fixed, rejected, or
+recorded as a known issue. A real suggestion identifies a concrete defect, risk, or actionable
+improvement that can change the implementation or its verification. A non-actionable reviewer
+note is an observation without a concrete defect or available action; it may remain visible in the
+shipping summary but does not require a known-issue entry. Record WARN only for such a note. Do not
+continue while a genuine untracked issue remains.
 
 If the integration-reviewer returns FAIL, prompt the user:
 
-```
+```yaml
 AskUserQuestion:
   question: "Cross-file review found blocking issues: <summary of blocking issues>. What next?"
   header: "Cross-file gate"
@@ -159,19 +191,46 @@ cfl dispatch cross-file-fixer --agent-type general-purpose --model sonnet
 
 - Dispatch a `general-purpose` fixer with `model: sonnet`, `cfl_dispatch_id: <cross_file_fixer_dispatch_id>`,
   the cross-file review findings, changed file paths, design doc path, task files, and the
-  instruction: "Fix only the listed cross-file consistency issues; do not expand scope." Re-run
-  the cross-file integration review, then repeat the PASS/WARN/FAIL handling above before
-  continuing to Step 4.
+  instruction: "Fix only the listed cross-file consistency issues; do not expand scope." After
+  the shared verification protocol below passes, record the re-review dispatch:
+
+  ```bash
+  cfl dispatch cross-file-reviewer-rerun --agent-type integration-reviewer --model sonnet
+  ```
+
+  Launch one foreground `integration-reviewer` subagent (never `run_in_background: true`) on the
+  full branch diff, preserving the existing cross-file reviewer scope, focus checklist, design
+  doc path, and changed-file calculation. Include
+  `cfl_dispatch_id: <cross_file_reviewer_rerun_dispatch_id>` in its prompt. After it completes:
+
+  ```bash
+  cfl dispatch end <cross_file_reviewer_rerun_dispatch_id>
+  ```
+
+  Then repeat the PASS/WARN/FAIL handling above before continuing to Step 4.
 
 ### Shared blocking-review fixer protocol
 
 For either blocking gate, after recording the fixer dispatch:
 
+The shared protocol owns only fixer lifecycle and verification: dispatch the fixer with the
+preceding ID, end it, run the canonical test and lint commands (or honor their skip sentinels),
+and present the existing Address fixes / Stop here prompt for a verification failure. Each gate
+still owns its own re-review dispatch, reviewer prompt and output artifact, dispatch end call,
+verdict extraction, and PASS/WARN/FAIL or ABANDON handling. A passing shared verification never
+counts as a passing gate and never replaces that gate's re-review.
+
 1. Dispatch the fresh fixer with the gate-specific inputs above and the preceding dispatch ID.
-2. After it completes, run `cfl dispatch end <dispatch_id>`, then re-run the project test suite
-   using `<dir>/test-command.txt`; skip and treat it as passing when
-   the file contains `no test suite`. Surface test failures prominently in the next gate prompt,
-   which offers only "Address fixes" and "Stop here".
+2. After it completes, run `cfl dispatch end <dispatch_id>`, then run the project test suite
+    using `<dir>/test-command.txt`; skip and treat it as passing when the file contains
+    `no test suite`. If tests pass or are skipped, run lint using `<dir>/lint-command.txt`; skip
+    and treat it as passing when the file contains `no lint tools`. Compare lint failures to the
+    Phase 2 `<dir>/lint-baseline.md`: only new failures or increased error counts block re-review;
+    unchanged baseline failures are informational. With a missing baseline, a zero lint exit passes
+    but any nonzero exit blocks re-review. Surface test failures or blocking lint regressions
+    prominently at the same gate prompt, which offers only "Address fixes" and "Stop here". Do not
+    re-review until tests pass or are skipped and lint passes, skips, has no regressions, or has a
+    missing baseline with a zero exit.
 3. Re-run the gate-specific reviewers and gate review described above. If an implementation-review
    rerun returns ABANDON, use the Step 2 ABANDON hard-stop and do not offer another "Address fixes"
    cycle. Otherwise, if the gate passes, continue with the next phase. If it does not, re-raise that

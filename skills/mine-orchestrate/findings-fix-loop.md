@@ -102,6 +102,9 @@ Instead, immediately before dispatching each normal-mode fixer pass, capture a c
 set -o pipefail  # so a later `exit 1` (a read/hash failure) fails the whole pipe below, not just its own stage
 {
   git diff HEAD || exit 1
+  untracked=$(mktemp) || exit 1
+  trap 'rm -f -- "$untracked"' EXIT
+  git ls-files --others --exclude-standard -z >"$untracked" || exit 1
   # untracked files: pair each entry's identity with its path and a one-char
   # type marker (`-` regular, `x` executable, `l` symlink), so a rename or a
   # mode change also changes the output — bare content hashing alone would miss both
@@ -120,7 +123,7 @@ set -o pipefail  # so a later `exit 1` (a read/hash failure) fails the whole pip
       [ -x "$f" ] && mode=x
       printf '%s %s %s\n' "$hash" "$mode" "$f"
     fi
-  done < <(git ls-files --others --exclude-standard -z)
+  done <"$untracked"
 } | {
   # the outer { } is required here too: it feeds the whole piped stream to
   # whichever hash command runs, instead of wiring stdin to sha256sum alone
@@ -153,9 +156,9 @@ Parse `dispatch_id` from the JSON output. Dispatch the fixer subagent (normal pa
    ```bash
    cfl dispatch end <dispatch_id>
    ```
-2. The fixer reads the reviews in its own context, applies fixes, and writes `<scope_dir>/fix-ledger.md`.
-3. Re-capture changed files using the scope's defined method (see Scope matrix above). Update `<scope_dir>/changed-files.txt` (WP scope) or recompute fresh (final scope). This list feeds the reviewer re-dispatch and eventual commit scope — it is not used for the no-op check in step 4.
-4. **No-op check.** Recompute the content fingerprint (same command as step 1) and compare it against `<scope_dir>/fingerprint-pre-pass${pass}.txt`. If identical — the fixer made zero content changes — skip steps 5–7 below. Go directly to the classify-mode terminal pass, passing it the **latest review files** (`<scope_dir>/code-review.md` and `<scope_dir>/integration-review.md`) from the current loop state: the initial review files on pass 1, or the pass-1 re-review files on pass 2. Proceed to the Gate as terminal state B. A no-op on pass 1 ends the loop, so pass 2 does not run. If the recompute itself fails (non-zero exit — see the fail-closed note in "Content fingerprint" above), that is **not** identical — proceed to step 5 as if the fingerprints differed.
+1. The fixer reads the reviews in its own context, applies fixes, and writes `<scope_dir>/fix-ledger.md`.
+1. Re-capture changed files using the scope's defined method (see Scope matrix above). Update `<scope_dir>/changed-files.txt` (WP scope) or recompute fresh (final scope). This list feeds the reviewer re-dispatch and eventual commit scope — it is not used for the no-op check in step 4.
+1. **No-op check.** Recompute the content fingerprint (same command as step 1) and compare it against `<scope_dir>/fingerprint-pre-pass${pass}.txt`. If identical — the fixer made zero content changes — skip steps 5–7 below. Go directly to the classify-mode terminal pass, passing it the **latest review files** (`<scope_dir>/code-review.md` and `<scope_dir>/integration-review.md`) from the current loop state: the initial review files on pass 1, or the pass-1 re-review files on pass 2. Proceed to the Gate as terminal state B. A no-op on pass 1 ends the loop, so pass 2 does not run. If the recompute itself fails (non-zero exit — see the fail-closed note in "Content fingerprint" above), that is **not** identical — proceed to step 5 as if the fingerprints differed.
 5. Record dispatches for both re-reviewers and capture their IDs:
    ```bash
    cfl dispatch code-reviewer <task_id> --agent-type code-reviewer --model sonnet             # WP scope

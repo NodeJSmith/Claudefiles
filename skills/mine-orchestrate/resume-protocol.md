@@ -2,19 +2,19 @@
 
 ## Check for existing run
 
-Before anything else, resolve the feature directory from `$ARGUMENTS` using the same logic as SKILL.md Phase 0's "Find the feature directory" step. Do **not** ask for confirmation yet. Then run:
+If `$ARGUMENTS` is non-empty, resolve the feature directory using the same logic as SKILL.md Phase 0's "Find the feature directory" step. Do **not** ask for confirmation yet. If `$ARGUMENTS` is empty, query the run state first — do not run the normal most-recent-task discovery until the status says a fresh discovery is appropriate:
 
 ```bash
 cfl run status
 ```
 
-**If it returns `{"exists": false}`** — proceed to "Find the feature directory" and continue the normal fresh-start flow.
+**If it returns `{"exists": false}`** — proceed to "Find the feature directory" and continue the normal fresh-start flow. This is the point at which an empty `$ARGUMENTS` may use the most-recent-task discovery.
 
-**If it returns run data (`"exists": true`)** — read the `"phase"` field from the output before doing anything else.
+**If it returns run data (`"exists": true`)** — read the `"phase"` field from the output before doing anything else. For an active run with empty `$ARGUMENTS`, set `feature_dir` to the status response's stored `feature_dir` and carry that value into Phase 0. Do not perform most-recent-task discovery. An active `orchestrate` run uses the stored directory during resume; a prior `define`, `plan`, or `sketch` run uses it after the user chooses to continue/advance. If the stored value is missing, stop and report that the run state cannot identify its feature directory rather than guessing from task files.
 
 ### Phase check
 
-When the user chooses to continue a prior `define`, `plan`, or `sketch` run, set `advance_from_prior_phase = true`, do **not** call `cfl run advance-phase` yet, and fall through to the rest of SKILL.md Phase 0. Act on the flag only at "Initialize orchestration run via cfl," after tmpdir, visual_mode, and dev_server_url are resolved.
+When the user chooses to continue a prior `define`, `plan`, or `sketch` run, preserve the status-derived `feature_dir`, set `advance_from_prior_phase = true`, do **not** call `cfl run advance-phase` yet, and fall through to the rest of SKILL.md Phase 0 using that directory. Act on the flag only at "Initialize orchestration run via cfl," after tmpdir, visual_mode, and dev_server_url are resolved.
 
 **If phase is `"define"`** (no task files exist yet — mine-plan has not run):
 
@@ -99,6 +99,7 @@ If `base_commit` no longer exists, append " (base commit is gone — branch may 
 - Re-read `<feature_dir>/design.md` and all `<feature_dir>/tasks/T*.md` files (they may have been edited between sessions), retaining each task's actual file path alongside its `task_id`.
 - **Stale verdict check**: For each task that has a PASS verdict in the `tasks` array, resolve its real task file path from the task files read above before invoking `git log`. Then check whether it was modified after the run's `started_at` timestamp: `git log --since="<started_at>" --oneline -- <resolved_task_file_path>`. If the file was modified, surface a warning: "<task_id> was edited since its PASS verdict — the verdict may no longer be valid." Skip tasks with no verdict yet (unstarted) — edits to unstarted tasks are expected between sessions. This does not require a hard stop, just visibility before proceeding.
 - **Test baseline check**: If `<dir>/test-baseline.md` is missing (tmpdir was cleared), warn: "Test baseline from prior session is gone — regression detection will be unavailable for resumed tasks. Pre-existing test failures cannot be distinguished from regressions." Do not re-capture (the codebase has changed since baseline).
+- **Lint baseline check**: If `<dir>/lint-baseline.md` is missing, warn: "Lint baseline from prior session is gone — a nonzero lint exit will block fixer re-review because pre-existing failures cannot be distinguished from regressions." Do not re-capture.
 - **Dev server re-verify**: If `visual_mode` is `enabled` and `dev_server_url` is set, ping the stored URL to verify it's still reachable. If unreachable, re-run the Phase 0 dev server detection (port scan → user prompt). If `dev_server_url` is empty or `"none"`, set `visual_mode` to `skipped_no_server` unless the user re-probes.
 - Skip the rest of Phase 0; feature discovery/design/task reads are handled by the restore, and dev server state was re-verified above.
 - **Determine start point**: If `current_task` is set, resume from that task. Otherwise, skip through `last_completed` and start from the next task.

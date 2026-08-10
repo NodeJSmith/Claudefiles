@@ -40,11 +40,14 @@ A 12-hour run that stamps its `base_commit` onto a stale base will conflict late
 
 ### Find the feature directory
 
-If $ARGUMENTS points to a `design/specs/NNN-*/` directory, use it directly.
+If `resume-protocol.md` already set `feature_dir` from an active run, use it directly. Skip fresh
+discovery and confirmation.
 
-If $ARGUMENTS points to a `T*.md` file, the feature directory is two levels up.
+Otherwise, if $ARGUMENTS points to a `design/specs/NNN-*/` directory, use it directly.
 
-If $ARGUMENTS is empty:
+Otherwise, if $ARGUMENTS points to a `T*.md` file, the feature directory is two levels up.
+
+Otherwise, if $ARGUMENTS is empty:
 
 ```
 Glob: design/specs/*/tasks/T*.md
@@ -79,7 +82,7 @@ Read all `<feature_dir>/tasks/T*.md` files in order. For each task, extract:
 - `task_id`
 - `title`
 - `depends_on`
-- `target_files` — the file paths from the task's `## Target Files` section (create/modify/delete entries only; exclude read-only entries). Used to build the "Task scope boundary" block for reviewers.
+- `target_files` — the file paths from the task's `## Target Files` section (create/modify/delete entries only; exclude read-only entries). If a task omits `## Target Files`, use `target_files: unspecified`; reviewer scope boundaries render this as `targets: unspecified`. Used to build the "Task scope boundary" block for reviewers.
 
 **Ordering note**: The tmpdir must exist before `cfl run start` or `cfl run advance-phase orchestrate`. Obtain it via `get-skill-tmpdir mine-orchestrate` before either call, then use it in the `--tmpdir` argument.
 
@@ -406,7 +409,7 @@ Read this file when you need to: (1) check CONTESTED markers, (2) compare the ex
 ## Task scope boundary
 Only flag issues in this task's scope. Later tasks own these targets; do not flag findings
 explicitly assigned to them:
-<one line per remaining task: <task_id>: <title> — targets: <create/modify/delete paths>>
+<one line per remaining task: <task_id>: <title> — targets: <create/modify/delete paths, or unspecified>>
 When uncertain whether a finding is in scope, include it.
 
 ## Spec reviewer instructions
@@ -432,7 +435,7 @@ You are reviewing task <task_id> ("<task title>") in a multi-task execution.
 
 Only flag issues that fall within THIS task's scope. The following tasks handle their own concerns — do NOT flag issues that are explicitly assigned to them:
 
-<one line per remaining task: <task_id>: <title> — targets: <create/modify/delete paths>>
+<one line per remaining task: <task_id>: <title> — targets: <create/modify/delete paths, or unspecified>>
 
 If a finding concerns code that is explicitly listed in a later task's target, skip it. When uncertain whether something is in-scope, include it — false negatives are worse than false positives.
 
@@ -454,7 +457,7 @@ You are reviewing task <task_id> ("<task title>") in a multi-task execution.
 
 Only flag issues that fall within THIS task's scope. The following tasks handle their own concerns — do NOT flag issues that are explicitly assigned to them:
 
-<one line per remaining task: <task_id>: <title> — targets: <create/modify/delete paths>>
+<one line per remaining task: <task_id>: <title> — targets: <create/modify/delete paths, or unspecified>>
 
 If a finding concerns code that is explicitly listed in a later task's target, skip it. When uncertain whether something is in-scope, include it — false negatives are worse than false positives.
 
@@ -493,19 +496,23 @@ After the parallel reviews complete (regardless of verdicts), re-run the project
 
 #### Test gate
 
-Use the Step 2 baseline and `<dir>/test-command.txt` from the repository root, teeing raw output to
-`<dir>/<task_id>/test-output.log`; fall back to `references/common/testing.md` only when the file is
-missing, empty, or says `no test suite`. A skipped baseline skips the gate. A missing baseline is
-`NO BASELINE — cannot detect regressions`, not a regression. Compare valid baselines and record the
-command, source, summary, baseline status, and regressions in `test-gate.md`.
+Use the Step 2 baseline and `<dir>/test-command.txt` from the repository root. Fall back to
+`references/common/testing.md` only when the command file is missing or empty. If the command file
+contains the exact sentinel `no test suite`, skip the gate; do not use discovery fallback. For each
+test command, tee raw output to `<dir>/<task_id>/test-output.log` and capture the command's actual
+exit status by enabling `set -o pipefail` before the pipeline, rather than accepting the status of
+`tee`. A skipped baseline skips the gate. A missing baseline is `NO BASELINE —
+cannot detect regressions`, not a regression. Compare valid baselines and record the command, source,
+summary, baseline status, and regressions in `test-gate.md`.
 
 **Test verdict impact**: If regressions are detected from a valid baseline comparison (previously-passing tests now fail), check whether all regressing tests are in files owned by a later task (compare failing test file paths against the `target_files` in subsequent task files). If **all** regressions are downstream-scoped, the test gate is **WARN** (not FAIL) — record `"note": "all N regressions scoped to <task_ids>"` in the gate data and skip the fixer cycle for these regressions. They will be resolved when the owning task executes. If **any** regression is in a file owned by the current or a prior task, the test gate is **FAIL** and the fixer cycle runs as normal. Pre-existing test failures (tests that also failed in the baseline) are informational and do not block. If no baseline is available, do not fail the task on regression grounds alone.
 
 #### Lint gate
 
 Load each command from `<dir>/lint-command.txt`; a `no lint tools` sentinel skips the gate. Tee each
-command (append) to `<dir>/<task_id>/lint-output.log` and capture its real exit code with
-`${PIPESTATUS[0]}` or `pipefail`. A missing baseline is `NO BASELINE — cannot detect regressions`.
+command (append) to `<dir>/<task_id>/lint-output.log` with `set -o pipefail` enabled, so the pipeline
+preserves a failing lint status instead of reporting `tee`'s status. A missing baseline is
+`NO BASELINE — cannot detect regressions`.
 Compare exit code and error count per command: a new failure or increased count is a regression;
 an equal or smaller pre-existing failure is informational. Record commands, exits, comparisons,
 new errors, and overall status in `lint-gate.md`.
@@ -631,7 +638,7 @@ For FAIL/BLOCKED gate outcomes, **update the task status** before taking the gat
   ```bash
   cfl task update <task_id> --status fixing
   ```
-  Re-run from Step 4 (which includes Step 5 executor + Step 6 file capture + Step 6b reviewing transition) using the Step 5 retry composition: `implementer-prompt.md` as the executor contract plus `retry-prompt.md` as the retry-specific instructions. Populate the `## Previous review feedback` template in `retry-prompt.md` with reviewer file paths based on which steps were reached: spec reviewer always; code reviewer and integration reviewer if Step 12 was reached; visual reviewer if it ran. Omit reviewers that didn't reach their step; include only paths that are present. The executor reads these files directly — do not inline or truncate the reviewer output. Only provide the most recent attempt's reviewer file paths.
+  Re-run from Step 4 (which includes Step 5 executor + Step 6 file capture + Step 6b reviewing transition) using the Step 5 retry composition: `implementer-prompt.md` as the executor contract plus `retry-prompt.md` as the retry-specific instructions. Populate the `## Previous review feedback` template in `retry-prompt.md` with only existing paths from the newest attempt: always include the spec reviewer; include code and integration reviewer reports whenever Step 8 produced them, regardless of whether Step 12 ran; include the visual reviewer report when it ran; and include `test-gate.md` after a failed test gate. Omit absent or unreached reports. The executor reads these files directly — do not inline or truncate the reviewer output.
 - **Mark as blocked and skip**: record the block with a reason:
   ```bash
   cfl task block <task_id> --reason "<blocker description>"

@@ -30,7 +30,7 @@ Pause and answer these before touching any file:
 1. **Ambiguous terms** — is any step in the task's Prompt section unclear or ambiguous? (e.g., "update the handler" — which handler? what change?) If yes, note the ambiguity and your resolution.
 2. **Convention check** — if `context.md` was provided, which examples are most relevant to this task? Note the patterns you'll follow (e.g., "service function structure from `src/services/user.py`"). If no `context.md` was provided, skip.
 3. **Missing context** — do you need to read any file not mentioned in the task's Prompt to understand the existing code? (e.g., a base class, a config schema, a test fixture) If yes, read it now.
-4. **Supplied commands** — can the canonical test and lint commands in this prompt run? Do not discover replacements. If a required command is missing or unrunnable, write `BLOCKED: <test|lint> command is unrunnable — <reason>` to the output file and stop.
+4. **Supplied commands** — can the canonical test and lint commands in this prompt run? Do not discover replacements. The exact sentinels `no test suite` and `no lint tools` are valid orchestrator decisions: skip that check and continue, recording `SKIPPED: <sentinel>` in the result. If a required command is missing or unrunnable for another reason, write `BLOCKED: <test|lint> command is unrunnable — <reason>` to the output file and stop.
 
 Record the answers in `Pre-implementation decisions`. Unresolved ambiguity with no reasonable inference from the design doc is BLOCKED.
 
@@ -91,13 +91,16 @@ A CONTESTED verdict does not stop execution — complete all Prompt instructions
 
 ## Lint/Format Before Finishing
 
-Before writing the result, run every supplied lint/format command and fix issues they surface.
+Before writing the result, run every supplied lint/format command. Fix findings introduced by
+this task. Report pre-existing failures as informational in the result and do not modify unrelated
+baseline debt.
 
 ## Self-Review Checklist Before Returning
 
 Check each item before writing the result to the output file:
 
-- [ ] Lint/format commands ran clean (or issues fixed)
+- [ ] Lint/format commands ran clean, task-introduced findings were fixed, and pre-existing failures
+      were reported as informational without modifying unrelated baseline debt
 - [ ] Targeted tests for this change pass (TDD run, output captured to log); full-suite verification is the Step 9 gate's job
 - [ ] All Verify criteria are evaluated (DONE or CONTESTED — none left blank or silently dropped)
 - [ ] No files were changed outside what the task's Prompt instructions describe (unless bug fix — note it)
@@ -112,7 +115,7 @@ Follow `references/common/frontend.md` (Workflow section) for general screenshot
 
 ### Dev server requirement
 
-The orchestrator checks for a running dev server before execution begins and communicates the result in your prompt's "Visual verification status" section. If visual verification is SKIPPED for this run, skip all visual capture and write `**Visual verification:** SKIPPED — no dev server (orchestrator)` in your output. If a dev server URL is provided, use it for all screenshot captures.
+The orchestrator checks for a running dev server before execution begins and communicates the result in your prompt's "Visual verification status" section. If visual verification is SKIPPED for this run, skip all visual capture and write `**Visual verification:** SKIPPED — <the exact reason from the orchestrator's Visual verification status, verbatim> (orchestrator)` in your output. Do not replace the supplied reason with a hardcoded one. If a dev server URL is provided, use it for all screenshot captures.
 
 ### Before implementation
 

@@ -19,31 +19,60 @@ Stage with `--pathspec-from-file` and `git -C`:
 
 ```bash
 git -C <repo_root> add --all --pathspec-from-file=<dir>/<task_id>/committed-files.txt
-git -C <repo_root> status --short
+git -C <repo_root> diff --cached --name-status --pathspec-from-file=<dir>/<task_id>/committed-files.txt
+git -C <repo_root> diff --cached --name-only > <dir>/<task_id>/staged-files.txt
+sort <dir>/<task_id>/committed-files.txt > <dir>/<task_id>/committed-files.sorted.txt
+sort <dir>/<task_id>/staged-files.txt > <dir>/<task_id>/staged-files.sorted.txt
+cmp -s <dir>/<task_id>/committed-files.sorted.txt <dir>/<task_id>/staged-files.sorted.txt
 ```
 
 `--all` is required so deletions and renames in the file list stage correctly; `--pathspec-from-file` keeps staging scoped to the listed paths.
 
-Review `git status` to confirm only expected files are staged.
+Review the cached diff for only the task's committed-file paths. The full staged path
+set, not a pathspec-filtered view, must exactly match `committed-files.txt`; if `cmp`
+fails, report the unexpected staged paths, block the task, and do not commit. Unrelated
+staged or unstaged worktree files are outside this task's scope and must not affect the
+no-changes decision.
 
 ```bash
 git commit -m "WIP: <task_id> -- <task title>"
 ```
 
-If the commit succeeds, capture the new HEAD SHA:
+If the task-scoped cached diff is empty, confirm it with the same committed-file
+path list and record `no-changes`; do not run `git commit`. For example:
+
+```bash
+git -C <repo_root> diff --cached --quiet --pathspec-from-file=<dir>/<task_id>/committed-files.txt
+```
+
+This scoped empty-diff result is the only case that permits `no-changes` in the
+verdict. Do not use repo-wide `git status` to make this decision.
+
+If the task-scoped cached diff is non-empty, run the commit. If the commit
+succeeds, capture the new HEAD SHA immediately:
 
 ```bash
 git rev-parse --short HEAD
 ```
 
-**If `git commit` fails** (for example, nothing to commit), note the failure and use `no-changes` as the commit value in the verdict block.
+**If `git commit` fails** for any reason while the task-scoped cached diff is
+non-empty (including hooks, identity, or other repository errors), preserve the
+failure, record the task as blocked, and stop:
+
+```bash
+cfl task block <task_id> --reason "WIP commit failed: <error>"
+```
+
+Do not record a PASS or WARN verdict and do not use `no-changes` for a genuine
+commit failure.
 
 ## 17b: Record task verdict via cfl
 
-Record the task verdict via `cfl`. Step 17a MUST complete first because the commit SHA goes into this command:
+Record the task verdict via `cfl`. Step 17a MUST complete first because its result, either
+the new commit SHA or the confirmed `no-changes` value, goes into this command:
 
 ```bash
-cfl task verdict <task_id> <PASS|WARN> --commit <SHA from Step 17a> [--detail "<explanation>"] --data '{"spec": "<v>", "code": "<v>", "integration": "<v>", "test": "<v>", "lint": "<v>", "visual": "<v>"}'
+cfl task verdict <task_id> <PASS|WARN> --commit <SHA from Step 17a|no-changes> [--detail "<explanation>"] --data '{"spec": "<v>", "code": "<v>", "integration": "<v>", "test": "<v>", "lint": "<v>", "visual": "<v>"}'
 ```
 
 Add `--detail` whenever the verdict includes context:

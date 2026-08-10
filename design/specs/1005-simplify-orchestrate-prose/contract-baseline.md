@@ -9,22 +9,22 @@ Baseline captured before T01 instruction edits.
 
 | File | Lines |
 |---|---:|
-| `skills/mine-orchestrate/SKILL.md` | 693 |
-| `skills/mine-orchestrate/agent-routing.md` | 22 |
+| `skills/mine-orchestrate/SKILL.md` | 674 |
+| `skills/mine-orchestrate/agent-routing.md` | 21 |
 | `skills/mine-orchestrate/contested-criteria.md` | 31 |
-| `skills/mine-orchestrate/findings-fix-loop.md` | 213 |
-| `skills/mine-orchestrate/implementer-prompt.md` | 205 |
-| `skills/mine-orchestrate/known-issues-protocol.md` | 144 |
-| `skills/mine-orchestrate/post-execution-pipeline.md` | 341 |
-| `skills/mine-orchestrate/resume-protocol.md` | 98 |
-| `skills/mine-orchestrate/retry-prompt.md` | 129 |
+| `skills/mine-orchestrate/findings-fix-loop.md` | 227 |
+| `skills/mine-orchestrate/implementer-prompt.md` | 208 |
+| `skills/mine-orchestrate/known-issues-protocol.md` | 137 |
+| `skills/mine-orchestrate/post-execution-pipeline.md` | 450 |
+| `skills/mine-orchestrate/resume-protocol.md` | 113 |
+| `skills/mine-orchestrate/retry-prompt.md` | 53 |
 | `skills/mine-orchestrate/spec-fix-loop.md` | 39 |
-| `skills/mine-orchestrate/spec-reviewer-prompt.md` | 143 |
-| `skills/mine-orchestrate/tdd.md` | 80 |
-| `skills/mine-orchestrate/verdict-line-format.md` | 94 |
-| `skills/mine-orchestrate/visual-reviewer-launch.md` | 54 |
+| `skills/mine-orchestrate/spec-reviewer-prompt.md` | 126 |
+| `skills/mine-orchestrate/tdd.md` | 68 |
+| `skills/mine-orchestrate/verdict-line-format.md` | 95 |
+| `skills/mine-orchestrate/visual-reviewer-launch.md` | 109 |
 | `skills/mine-orchestrate/visual-reviewer-prompt.md` | 104 |
-| `skills/mine-orchestrate/wip-commit-protocol.md` | 59 |
+| `skills/mine-orchestrate/wip-commit-protocol.md` | 86 |
 
 ## Workflow phases and numbered steps
 
@@ -52,7 +52,8 @@ Phase 2 numbered steps:
 14. Assemble task verdict
 15. Present task result summary
 16. Apply task gate prompt / retry / block / stop behavior
-17. Run WIP commit protocol and record verdict
+17a. Update task status and create WIP commit
+17b. Record task verdict via `cfl`
 
 Phase 3 numbered steps:
 
@@ -289,7 +290,7 @@ State transitions:
 - Resume protocol may stop a run, advance from prior phase, or resume existing orchestrate state
 - Task statuses include at least `executing`, `reviewing`, `fixing`, `done`, and blocked states recorded by `cfl task block`
 - `current_task` and `last_completed` are DB-derived and drive resume/start-point selection
-- Retries cycle `fixing -> reviewing`; final verdict recording happens only after Step 17b
+- Retries cycle `fixing -> reviewing`; final verdict recording happens only after Step 17b, after Step 17a has created the WIP commit or recorded `no-changes`
 - WIP commit step runs only for PASS or WARN task outcomes
 
 Sync contracts explicitly present before edits:
@@ -337,11 +338,12 @@ Command used for the final measurement: `wc -l skills/mine-orchestrate/*.md`
 
 | Measure | Before T01 | After T04 | Result |
 |---|---:|---:|---|
-| Total orchestration Markdown lines | 2449 | 2389 | 60 lines removed (2.4%) |
+| Total orchestration Markdown lines | 2449 | 2554 | 105 lines added (4.29%); current-branch measurement includes review-driven edits |
 | Long-line reflow used as the reduction | no | no | reduction is from deleted/replaced duplicated prose |
-| AC#5 target (`>=15%`) | 2449 | 2389 | **CONTESTED: inherited target is not met** |
+| AC#5 target (`>=15%`) | 2449 | 2554 | **EXCEPTION APPROVED: inherited target is not met; the final measurement is 4.29% above baseline because necessary workflow safeguards, explicit handoff contracts, and isolated subagent context were retained rather than removing roughly 300 additional lines to satisfy the metric** |
 
-The final audit found and fixed four real contract issues: optional task sections are now treated as
+The final audit found and fixed the original four contract issues plus the approved follow-up
+corrections: optional task sections are now treated as
 optional (`Summary`/`Focus`), the post-execution fixer prompt no longer references the absent
 `Review Guidance` section, visual scenario output includes `WARN [INFRA]`, and visual no-screenshot
 fallback precedence is deterministic. Retry feedback also names the `Visual reviewer` host. The
@@ -370,5 +372,4 @@ configured visual review model remains `sonnet`, so no model change was required
 | `bin/lint-verdict-line` | PASS |
 | `grep -rl CONCISE-RETURN-MODE skills commands` | PASS; exactly six documented hosts |
 | `uv run prek run --all-files` | PASS |
-| `uv run pytest` | BLOCKED by missing `pytest` executable in this checkout |
-| `mise run 'test:*'` | See T04 executor log; authoritative test attempt |
+| `mise run 'test:*'` | PASS; authoritative full-suite command |

@@ -4,7 +4,11 @@ Run only when the task has a `## Visual Verification` section with scenarios; ot
 
 If `visual_mode` is not `enabled`, skip and set Visual to SKIPPED with note "<visual_mode reason> (orchestrator)".
 
-Read `<dir>/<task_id>/executor.md` and extract the `## Visual Verification` section — this content goes into `## Executor visual output` in the subagent prompt below.
+Read `<dir>/<task_id>/executor.md` and extract the `**Visual verification:**`
+field/block from its `## Task result` output — this content goes into `## Executor
+visual output` in the subagent prompt below. Do not look for a separate
+`## Visual Verification` heading in the executor output; that heading belongs to
+the task specification, not the executor result schema.
 
 Discover screenshots by Globbing the per-task temp directory:
 
@@ -36,7 +40,7 @@ You are reviewing screenshots from a frontend task implementation.
 <full T*.md content — especially the Visual Verification table>
 
 ## Executor visual output
-<the Visual verification section from the executor's result>
+<the **Visual verification:** field/block from the executor's ## Task result>
 
 ## Screenshot files to examine
 <list each .png file path discovered by Glob>
@@ -49,10 +53,44 @@ cfl_dispatch_id: <visual_reviewer_dispatch_id>
 Write your review to: <absolute path: dir>/<task_id>/visual-review.md>
 ```
 
-Wait for the subagent to complete. Read the visual reviewer output file. Then close the dispatch:
+The dispatch is active from the successful dispatch command until the matching end command.
+After dispatch succeeds, cleanup is mandatory on every exit path. Launch or wait failures
+are fatal: preserve the original error, attempt to end the dispatch, and then report or
+re-raise that original error. A completed subagent with a missing, unreadable, empty, or
+unparseable output is not a launch/wait failure: attempt cleanup, note any cleanup failure
+separately, and continue to the fallback verdict below. A cleanup failure must never replace
+the original launch/wait error or change the fallback verdict for a completed subagent.
+
+On the successful path, wait for the subagent to complete, read the visual reviewer output
+file, and then close the dispatch:
 
 ```bash
 cfl dispatch end <visual_reviewer_dispatch_id>
+```
+
+Equivalent failure handling:
+
+```
+try:
+  launch subagent
+  wait for completion
+except launch_or_wait_error:
+  try:
+    cfl dispatch end <visual_reviewer_dispatch_id>
+  except cleanup_error:
+    report cleanup_error as additional cleanup failure
+  report or re-raise launch_or_wait_error
+else:
+  try:
+    read and parse visual-review.md
+  except missing_unreadable_empty_or_unparseable_output:
+    record completed-output fallback
+  finally:
+    try:
+      cfl dispatch end <visual_reviewer_dispatch_id>
+    except cleanup_error:
+      report cleanup_error as additional cleanup failure
+  apply the fallback verdict below when output was not usable
 ```
 
 **Fallback:** Empty or unparseable output with available screenshots is FAIL. If the executor reported
