@@ -35,6 +35,7 @@ KNOWN_TOPICS: frozenset[str] = frozenset(
         "scope",
         "user-flow",
         "edge-cases",
+        "lifecycle",
         "deps",
         "perf",
         "rollback",

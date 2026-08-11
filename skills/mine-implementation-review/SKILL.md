@@ -10,7 +10,7 @@ Post-execution quality gate. After `/mine-orchestrate` finishes, this reviews th
 
 ## Arguments
 
-$ARGUMENTS — path to a feature directory (`design/specs/NNN-feature/`) or a `design.md` file. If empty, find the most recently modified `design/specs/*/design.md` and confirm before proceeding.
+$ARGUMENTS — path to a feature directory (`design/specs/NNN-feature/`) or a `design.md` file. The caller may append `--test-command-file <path>` to provide a previously confirmed canonical test command. If empty, find the most recently modified `design/specs/*/design.md` and confirm before proceeding.
 
 ---
 
@@ -18,11 +18,13 @@ $ARGUMENTS — path to a feature directory (`design/specs/NNN-feature/`) or a `d
 
 ### Locate the feature directory
 
-If $ARGUMENTS points to a `design/specs/NNN-*/` directory, use it directly.
+First parse `$ARGUMENTS`: extract the optional `--test-command-file <path>` pair, then treat the remaining single positional argument as `<feature_path>`. Reject unknown flags, a missing flag value, or more than one positional argument instead of guessing.
 
-If $ARGUMENTS points to a `design.md` file, the feature directory is one level up.
+If `<feature_path>` points to a `design/specs/NNN-*/` directory, use it directly.
 
-If $ARGUMENTS is empty:
+If `<feature_path>` points to a `design.md` file, the feature directory is one level up.
+
+If `<feature_path>` is empty:
 
 ```
 Glob: design/specs/*/design.md
@@ -77,6 +79,8 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-implementation-review/reviewer
 
 ### Launch review subagent
 
+If `--test-command-file <path>` was provided, read that file and use its exact non-empty contents. Do not rediscover or substitute a different command. If the path is missing, unreadable, or empty, stop and report the broken handoff. When no path was provided, follow `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/testing.md` to discover and confirm the canonical command. If no test command exists, use `no test suite`.
+
 Launch a general-purpose subagent with `model: sonnet`. Pass this prompt (fill in bracketed values):
 
 ```
@@ -90,6 +94,9 @@ You are reviewing a completed caliper v2 feature implementation.
 
 ## Changed files
 <for each changed file: filename header + full content>
+
+## Canonical test command
+<discovered command, or `no test suite`>
 
 ## Your instructions
 <full reviewer-prompt.md content>

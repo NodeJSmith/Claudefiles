@@ -44,6 +44,12 @@ Write the design doc to `<feature_dir>/design.md` using this template:
 
 [Boundary conditions, error states, unusual inputs.]
 
+## Operational Lifecycle
+
+[Conditional section — include only when the feature owns resumable work state across invocations, such as a background worker, batch/backfill, scheduler, queue consumer, or persistent retry state around an external provider/subprocess. Define: what proves one run and the overall workload complete; the concrete event that makes each failure eligible again; retry limits/backoff/cost bounds; states requiring explicit user action and how they reset; user-visible progress, exclusion, success, failure, and blocked accounting; behavior across repeated invocations with unchanged state; and the realistic population or repeated-run scenario that validates convergence and reporting. Omit entirely when the feature has no such operational lifecycle.]
+
+[Express every applicable lifecycle outcome as an FR#N or AC#N below. This keeps lifecycle behavior traceable into task `implements` and Verify criteria; this section explains the model but does not replace numbered requirements.]
+
 ## Acceptance Criteria
 
 - **AC#1** [Measurable, observable outcome — verifiable by running a local command]
@@ -104,7 +110,7 @@ Write the design doc to `<feature_dir>/design.md` using this template:
 [Test files that will break or need updating due to this change, with file paths and what specifically needs to change. Sourced from Phase 1.5 test survey. If none, state "No existing tests affected."]
 
 ### New Test Coverage
-[New behaviors that need tests. Map to Functional Requirements (FR#N) where possible. Identify which testing layer (unit, integration, E2E) each behavior needs.]
+[New behaviors that need tests. Map to Functional Requirements (FR#N) where possible. Identify which testing layer (unit, integration, E2E) each behavior needs. When Operational Lifecycle is present, include repeated transient failure, user-action-required or terminal failure, retry bounds, recovery/reset, mixed realistic populations, and completion/status accounting as applicable; isolated single-transition tests do not prove convergence.]
 
 ### Tests to Remove
 [Tests for functionality being removed or replaced. Reference Replacement Targets where applicable. If none, state "No tests to remove."]

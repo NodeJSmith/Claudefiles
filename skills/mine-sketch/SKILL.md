@@ -69,7 +69,7 @@ cfl event sketch.started --spec <spec_number>
 
 ### Check for resume
 
-If $ARGUMENTS pointed to an existing spec directory, check that directory for `design.md` — if present and has `**Mode:** sketch`, this is a resume. Read it and skip directly to Phase 3 (task breakdown); `<spec_number>` and `run_id` are already set from the sections above, so `cfl` calls in Phases 3-5 work normally. Skip the rest of Phase 1 and all of Phase 2.
+If $ARGUMENTS pointed to an existing spec directory, check that directory for `design.md` — if present and has `**Mode:** sketch`, this is a resume. Read it before skipping Phase 2. If the feature owns resumable work state across invocations but the design lacks `## Operational Lifecycle` or any required lifecycle decision, run Phase 2's mandatory lifecycle clarification and update the design first. Otherwise skip directly to Phase 3 (task breakdown); `<spec_number>` and `run_id` are already set from the sections above, so `cfl` calls in Phases 3-5 work normally. Skip the rest of Phase 1 and all remaining Phase 2 work.
 
 Otherwise, continue to the codebase scan below.
 
@@ -114,6 +114,8 @@ On "Continue with sketch": proceed to Phase 2 as normal.
 ### Clarify (if needed)
 
 Ask 1-2 questions **only** if something is genuinely uncertain and would change the design. Skip if the approach is obvious from the codebase scan.
+
+One clarification is mandatory when the change owns resumable work state across invocations. Propose and confirm: completion, retry eligibility and bounds, user-action recovery or deliberately terminal states, repeated-run convergence, visible accounting, and a realistic local validation scenario. If those decisions cannot stay lightweight, upgrade to `/mine-define` rather than guessing.
 
 ### Write design.md
 
@@ -180,6 +182,7 @@ implements: ["FR#1", "AC#1"]
 
 - **Minimum tasks: 1.** Let the work's complexity determine the count. Single-task sketches are fine for focused changes.
 - **Every FR and AC** from the design doc must appear in at least one task's `implements` field and have a corresponding Verify criterion.
+- **Operational lifecycle verification**: When the design contains `## Operational Lifecycle`, responsible tasks must verify repeated failure, bounded retry/termination, user-action recovery or deliberately terminal behavior, and visible population accounting through assembled repeated-run tests. Isolated status-transition tests are insufficient.
 - **Target Files are required** — they drive the orchestrator's scope boundaries and reviewer injection.
 - **Prompt must be self-contained** — a fresh subagent with only context.md and the task file must be able to execute it.
 - **Task ordering**: foundational types before consumers. No task may depend on outputs from a higher-numbered task.
@@ -216,6 +219,7 @@ Agent:
     Go over them with a fine-toothed comb. Check:
     - Design and tasks are consistent (no contradictions, no drift)
     - Every FR/AC is covered by at least one task's implements + Verify
+    - When Operational Lifecycle is present, tasks verify assembled repeated-run behavior, retry bounds/termination, recovery or deliberately terminal states, and visible accounting
     - Target Files are complete (no file referenced in Prompt but missing from Target Files)
     - Prompts are self-contained (no "as discussed" or assumed context)
 
