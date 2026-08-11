@@ -1,7 +1,7 @@
 ---
 task_id: "T03"
 title: "Implement dispatch rewriter and model remap"
-status: "planned"
+status: "done"
 depends_on: ["T02"]
 implements: ["FR#4", "FR#5", "FR#9", "FR#14", "FR#15", "AC#5", "AC#6", "AC#9", "AC#11", "AC#16", "AC#17"]
 ---

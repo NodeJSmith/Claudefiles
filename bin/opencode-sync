@@ -14,8 +14,8 @@ Requires: npx (comes with Node.js)
 
 This is being built incrementally against design/specs/1006-oc-native-agents.
 T01 laid the script skeleton; T02 added worker agent + config.json generation
-(TIER_MAP-driven). Remaining stub points in main():
-  - T03: dispatch rewrite, model remap
+(TIER_MAP-driven); T03 added the dispatch rewriter and frontmatter model remap.
+Remaining stub point in main():
   - T04: compatibility lint (--lint-only), collision detection, foreign config backup
 """
 
@@ -286,6 +286,26 @@ def run_opkg(staged_dir: Path, *, dry_run: bool, verbose: bool) -> str:
     return output
 
 
+def _split_frontmatter(content: str) -> tuple[str, str]:
+    """Split a leading YAML frontmatter block (between the first two `---`
+    lines) off from the rest of the file. Returns (frontmatter_incl_markers,
+    body); if there's no frontmatter block, returns ("", content) unchanged.
+    """
+    lines = content.splitlines(keepends=True)
+    if not lines or lines[0].strip() != "---":
+        return "", content
+
+    end_idx = None
+    for i in range(1, len(lines)):
+        if lines[i].strip() == "---":
+            end_idx = i
+            break
+    if end_idx is None:
+        return "", content
+
+    return "".join(lines[: end_idx + 1]), "".join(lines[end_idx + 1 :])
+
+
 def strip_color_fields(agents_dir: Path) -> None:
     """Remove `color: ` lines from agent frontmatter (FR#10).
 
@@ -296,24 +316,21 @@ def strip_color_fields(agents_dir: Path) -> None:
         return
 
     for md_file in sorted(agents_dir.glob("*.md")):
-        lines = md_file.read_text().splitlines(keepends=True)
-        if not lines or lines[0].strip() != "---":
+        content = md_file.read_text()
+        frontmatter, body = _split_frontmatter(content)
+        if not frontmatter:
             continue
 
-        end_idx = None
-        for i in range(1, len(lines)):
-            if lines[i].strip() == "---":
-                end_idx = i
-                break
-        if end_idx is None:
-            continue
-
-        frontmatter = [
-            line for line in lines[1:end_idx] if not line.startswith("color: ")
-        ]
-        new_lines = lines[:1] + frontmatter + lines[end_idx:]
-        if new_lines != lines:
-            md_file.write_text("".join(new_lines))
+        # fm_lines[0] and fm_lines[-1] are the `---` markers themselves.
+        fm_lines = frontmatter.splitlines(keepends=True)
+        new_fm_lines = (
+            fm_lines[:1]
+            + [line for line in fm_lines[1:-1] if not line.startswith("color: ")]
+            + fm_lines[-1:]
+        )
+        new_content = "".join(new_fm_lines) + body
+        if new_content != content:
+            md_file.write_text(new_content)
 
 
 def check_sync_status(claudefiles: Path, sync_sha_file: Path) -> bool:
@@ -448,6 +465,387 @@ def generate_config(config_dir: Path, dry_run: bool) -> None:
         raise
 
 
+class _Unresolved:
+    """Sentinel type for resolve()'s "leave this match unrewritten" return value."""
+
+
+# Returned by resolve() for a `general-purpose` dispatch whose tier has no worker
+# mapping (currently only `opus`) — callers leave the original text untouched so
+# the T04 lint can flag it as a residual pattern instead of it silently becoming
+# a dangling `general` dispatch.
+UNRESOLVED = _Unresolved()
+
+# Claude Code built-in agent types with no OpenCode equivalent name -> lowercase
+# OpenCode built-in they map to. `general-purpose` is handled separately in
+# resolve() because it routes through TIER_MAP (tier-dependent), not a fixed name.
+BUILTIN_CASE_MAP = {
+    "Explore": "explore",
+    "Plan": "plan",
+    "claude": "general",
+}
+
+# Matches a `subagent_type:` clause, optionally wrapped in a single matching pair
+# of backtick and/or quote characters: `subagent_type: general-purpose`,
+# subagent_type: "code-reviewer", `subagent_type: "code-reviewer"`. The `type`
+# group is greedy over word/hyphen characters, so a longer identifier that merely
+# starts with a built-in name (`claude-code-guide`) is captured whole and never
+# equals the bare built-in name — word-boundary safety (FR#14) falls out of this
+# for free, no explicit \b needed.
+SUBAGENT_TYPE_RE = re.compile(
+    r"(?P<btopen>`)?"
+    r"subagent_type:\s*"
+    r"(?P<qopen>[\"'])?"
+    r"(?P<type>[A-Za-z][A-Za-z0-9_-]*)"
+    r"(?(qopen)(?P=qopen))"
+    r"(?(btopen)`)"
+)
+
+# Matches a bare Claude Code built-in type name with no `subagent_type:` label
+# at all — Pattern 2's "Launch a `general-purpose` subagent with `model:
+# sonnet`" prose shape, plus the same phrase unwrapped ("Launch a
+# general-purpose subagent...") or wrapped in markdown bold whose closing `**`
+# lands after trailing words ("**general-purpose subagent**") rather than
+# immediately after the type name -- no wrap-symmetry is required, only that
+# whatever precedes/follows isn't a word or hyphen character, so it isolates
+# just the type word either way. Deliberately restricted to the four known
+# literal names (not open to arbitrary quoted words) so it can't misfire on
+# unrelated text. The lookaround boundaries (rather than `\b`) are what make
+# FR#14 hold: `\b` treats `-` as a boundary, so a naive `\bclaude\b` would
+# match the "claude" prefix of "claude-code-guide"; `(?<![\w-])`/`(?![\w-])`
+# correctly treat the hyphen as part of the word, requiring the whole
+# compound to equal one of the four literal names exactly.
+BARE_BUILTIN_RE = re.compile(
+    r"(?<![\w-])(?P<type>general-purpose|Explore|Plan|claude)(?![\w-])"
+)
+
+# Matches a `model:` clause naming a Claude tier, with the same backtick/quote-
+# wrapping flexibility as SUBAGENT_TYPE_RE.
+MODEL_RE = re.compile(
+    r"(?P<btopen>`)?"
+    r"model:\s*"
+    r"(?P<qopen>[\"'])?"
+    r"(?P<tier>sonnet|haiku|opus)\b"
+    r"(?(qopen)(?P=qopen))"
+    r"(?(btopen)`)"
+)
+
+# Matches a line that consists of *only* a `model:` clause (plus optional list/
+# blockquote leader and surrounding whitespace) — used to detect the adjacent-
+# line pairing shape where `subagent_type:` and `model:` sit on separate lines,
+# e.g. a YAML-ish `Agent:` block or a two-bullet list.
+STANDALONE_MODEL_RE = re.compile(
+    r"^(?P<lead>[\s>*-]*)"
+    r"(?P<btopen>`)?model:\s*(?P<qopen>[\"'])?(?P<tier>sonnet|haiku|opus)\b"
+    r"(?(qopen)(?P=qopen))(?(btopen)`)"
+    r"\s*$"
+)
+
+# Matches `--agent-type <type>` with an optional trailing `--model <tier>` (the
+# cfl dispatch CLI shape, Pattern 5).
+CLI_DISPATCH_RE = re.compile(
+    r"--agent-type\s+(?P<type>[A-Za-z][A-Za-z0-9_-]*)"
+    r"(?:\s+--model\s+(?P<tier>sonnet|haiku|opus)\b)?"
+)
+
+# Matches a Claude tier name anchored at the start of a frontmatter `model:`
+# line, capturing any trailing content (typically an inline `# ...` comment) so
+# remap_agent_models() can preserve it.
+FRONTMATTER_MODEL_RE = re.compile(r"^model:\s*(sonnet|haiku|opus)\b(.*)$")
+
+
+def resolve(
+    agent_type: str, model_tier: str | None
+) -> tuple[str, str | None] | _Unresolved:
+    """Route a (subagent_type, model tier) dispatch pair to its OpenCode equivalent.
+
+    The single shared routing decision point for both rewrite passes (prose and
+    CLI) — the dispatch rewriter changes `subagent_type`, not just `model` text
+    (context.md Key Decision #3).
+
+    Returns `(new_agent_type, new_model)` where `new_model` is always `None`
+    (OpenCode's Task tool has no per-call model parameter, so the model clause
+    is always dropped). Returns UNRESOLVED when `agent_type` is `general-purpose`
+    and its tier has no worker mapping — see UNRESOLVED's docstring.
+    """
+    if agent_type == "general-purpose":
+        tier = model_tier if model_tier is not None else "sonnet"  # FR#15 default
+        tier_entry = TIER_MAP.get(tier)
+        if tier_entry is None or tier_entry["worker"] is None:
+            return UNRESOLVED
+        return (tier_entry["worker"], None)
+
+    if agent_type in BUILTIN_CASE_MAP:
+        return (BUILTIN_CASE_MAP[agent_type], None)
+
+    return (agent_type, None)
+
+
+def _split_eol(line: str) -> tuple[str, str]:
+    """Split a line (as produced by splitlines(keepends=True)) into its body and
+    line-ending suffix, so the ending can be preserved through regex rewrites.
+    """
+    for eol in ("\r\n", "\n", "\r"):
+        if line.endswith(eol):
+            return line[: -len(eol)], eol
+    return line, ""
+
+
+def _apply_edits(text: str, edits: list[tuple[int, int, str]]) -> str:
+    """Apply non-overlapping (start, end, replacement) spans to text in one pass."""
+    for start, end, replacement in sorted(edits, key=lambda e: e[0], reverse=True):
+        text = text[:start] + replacement + text[end:]
+    return text
+
+
+def _removal_span_for_model(line: str, model_match: re.Match) -> tuple[int, int]:
+    """Extend a `model:` clause's match span to also swallow whatever connects it
+    to the neighboring `subagent_type:` reference, so removing it doesn't leave a
+    dangling separator behind. Tries, in order: a preceding `, `, a preceding
+    ` with ` (the common "subagent with `model: sonnet`" prose connector), a
+    following `, `. Falls back to the bare clause span if none apply.
+    """
+    start, end = model_match.span()
+    pre_comma = re.search(r",\s*$", line[:start])
+    if pre_comma:
+        return pre_comma.start(), end
+    pre_with = re.search(r"\s+with\s+$", line[:start])
+    if pre_with:
+        return pre_with.start(), end
+    post_comma = re.match(r"\s*,\s*", line[end:])
+    if post_comma:
+        return start, end + post_comma.end()
+    return start, end
+
+
+def _rewrite_line(line: str) -> str:
+    """Rewrite every `subagent_type:`/bare-builtin dispatch reference on a single
+    line, pairing at most one with a same-line `model:` clause. Bare builtin
+    mentions (Pattern 2, no `subagent_type:` label) are only rewritten when
+    paired with a model clause — unpaired, they're ordinary prose mentions and
+    are left for the T04 lint to flag. When a `model:` clause is present but a
+    given type match isn't the one paired with it (e.g. a second mention of the
+    same dispatch earlier on the line), that match is also left unrewritten
+    rather than guessing which mention the model clause belongs to.
+    """
+    subagent_matches = list(SUBAGENT_TYPE_RE.finditer(line))
+    # BARE_BUILTIN_RE has no `subagent_type:` anchor, so it also matches the type
+    # word inside a SUBAGENT_TYPE_RE match (e.g. the "general-purpose" in
+    # "subagent_type: general-purpose"). Drop any bare match already covered by
+    # a subagent_type match to avoid processing the same token twice.
+    bare_matches = [
+        m
+        for m in BARE_BUILTIN_RE.finditer(line)
+        if not any(
+            sm.start() <= m.start() and m.end() <= sm.end() for sm in subagent_matches
+        )
+    ]
+    type_matches = sorted(
+        [*subagent_matches, *bare_matches],
+        key=lambda m: m.start(),
+    )
+    if not type_matches:
+        return line
+
+    model_match = MODEL_RE.search(line)
+    paired_match = None
+    if model_match is not None:
+        preceding = [m for m in type_matches if m.end() <= model_match.start()]
+        paired_match = preceding[-1] if preceding else type_matches[-1]
+
+    edits: list[tuple[int, int, str]] = []
+    paired_resolved = False
+    for m in type_matches:
+        is_paired = model_match is not None and m is paired_match
+        if not is_paired and (m.re is BARE_BUILTIN_RE or model_match is not None):
+            # Unpaired bare mention (ordinary prose), or a labeled mention that
+            # lost the pairing to another match on the same line -- leave both
+            # as-is rather than applying the FR#15 default to a mention that
+            # actually has a model clause elsewhere on the line.
+            continue
+
+        result = resolve(
+            m.group("type"), model_match.group("tier") if is_paired else None
+        )
+        if result is UNRESOLVED:
+            continue
+        new_type, _ = result
+        if is_paired:
+            paired_resolved = True
+        if new_type != m.group("type"):
+            edits.append((m.start("type"), m.end("type"), new_type))
+
+    if model_match is not None and paired_resolved:
+        edits.append((*_removal_span_for_model(line, model_match), ""))
+
+    return _apply_edits(line, edits)
+
+
+def rewrite_dispatches_prose(content: str) -> str:
+    """Pass 1: rewrite Patterns 1-4 and Cases 6-7 (prose and YAML-ish dispatch
+    shapes). Handles same-line pairing via _rewrite_line() and the adjacent-line
+    pairing shape (`subagent_type:` / `model:` on consecutive lines) by peeking
+    one line ahead and, on a match, dropping the model-only line entirely.
+
+    Adjacent-line pairing is forward-only: it only recognizes a `subagent_type:`
+    line followed by a standalone `model:` line, not the reverse order. A
+    `model:` line preceding `subagent_type:` is left untouched and the
+    `subagent_type:` line falls back to the FR#15 default tier.
+    """
+    lines = content.splitlines(keepends=True)
+    out: list[str] = []
+    i = 0
+    n = len(lines)
+    while i < n:
+        line = lines[i]
+        body, eol = _split_eol(line)
+
+        type_matches = list(SUBAGENT_TYPE_RE.finditer(body))
+        if type_matches and MODEL_RE.search(body) is None and i + 1 < n:
+            next_body, _next_eol = _split_eol(lines[i + 1])
+            standalone = STANDALONE_MODEL_RE.match(next_body)
+            if standalone is not None:
+                target = type_matches[-1]
+                result = resolve(target.group("type"), standalone.group("tier"))
+                if result is UNRESOLVED:
+                    # Leave both lines untouched -- don't fall through to
+                    # _rewrite_line() below, which would treat this as a bare
+                    # dispatch (no model on this line) and apply the FR#15
+                    # default instead of respecting the unmapped tier.
+                    out.append(line)
+                    out.append(lines[i + 1])
+                    i += 2
+                    continue
+                new_type, _ = result
+                new_body = body
+                if new_type != target.group("type"):
+                    new_body = _apply_edits(
+                        body, [(target.start("type"), target.end("type"), new_type)]
+                    )
+                out.append(new_body + eol)
+                i += 2  # drop the standalone model-only line
+                continue
+
+        out.append(_rewrite_line(body) + eol)
+        i += 1
+
+    return "".join(out)
+
+
+def rewrite_dispatches_cli(content: str) -> str:
+    """Pass 2: rewrite `--agent-type <type> [--model <tier>]` (Pattern 5, the
+    `cfl dispatch` CLI shape), including the bare `--agent-type general-purpose`
+    dispatch with no `--model` flag at all (FR#15).
+    """
+
+    def _sub(m: re.Match) -> str:
+        result = resolve(m.group("type"), m.group("tier"))
+        if result is UNRESOLVED:
+            return m.group(0)
+        new_type, _ = result
+        return f"--agent-type {new_type}"
+
+    return CLI_DISPATCH_RE.sub(_sub, content)
+
+
+def remap_agent_models(agents_dir: Path, dry_run: bool) -> int:
+    """Replace Claude tier names in agent frontmatter `model:` lines with
+    provider-qualified TIER_MAP model IDs (separate pass, frontmatter only — the
+    dispatch rewriter already handled body content). Preserves trailing inline
+    comments (e.g. `# claude-sonnet-5 as of 2026-07-07 — do not downgrade`).
+
+    Returns the number of files modified (or that would be modified, in
+    dry-run mode).
+    """
+    if not agents_dir.is_dir():
+        return 0
+
+    modified = 0
+    for md_file in sorted(agents_dir.glob("*.md")):
+        frontmatter, body = _split_frontmatter(md_file.read_text())
+        if not frontmatter:
+            continue
+
+        fm_lines = frontmatter.splitlines(keepends=True)
+        changed = False
+        new_fm_lines = list(fm_lines)
+        # fm_lines[0] and fm_lines[-1] are the `---` markers themselves.
+        for i in range(1, len(fm_lines) - 1):
+            line_body, eol = _split_eol(fm_lines[i])
+            m = FRONTMATTER_MODEL_RE.match(line_body)
+            if m is None:
+                continue
+            tier_entry = TIER_MAP.get(m.group(1))
+            if tier_entry is None:
+                continue
+            new_line_body = f"model: {tier_entry['model']}{m.group(2)}"
+            if new_line_body != line_body:
+                new_fm_lines[i] = new_line_body + eol
+                changed = True
+
+        if not changed:
+            continue
+
+        modified += 1
+        if dry_run:
+            print(f"[dry-run] would remap model in {md_file}")
+        else:
+            md_file.write_text("".join(new_fm_lines) + body)
+
+    return modified
+
+
+def _rewrite_dispatch_file(
+    md_file: Path, dry_run: bool, *, split_frontmatter: bool
+) -> int:
+    """Apply both dispatch rewrite passes to one file's body content (frontmatter
+    excluded when split_frontmatter is set, for agent files). Returns 1 if the
+    file changed (or would change, in dry-run mode), else 0.
+    """
+    original = md_file.read_text()
+    frontmatter, body = (
+        _split_frontmatter(original) if split_frontmatter else ("", original)
+    )
+
+    new_body = rewrite_dispatches_cli(rewrite_dispatches_prose(body))
+    new_content = frontmatter + new_body
+    if new_content == original:
+        return 0
+
+    if dry_run:
+        print(f"[dry-run] would rewrite dispatches in {md_file}")
+    else:
+        md_file.write_text(new_content)
+    return 1
+
+
+def rewrite_all_dispatches(config_dir: Path, dry_run: bool) -> int:
+    """Apply the dispatch rewriter to every synced skill, command, and agent
+    file. Skill and command files are rewritten whole; agent files have their
+    frontmatter excluded (body content only — the model remap is a separate
+    pass over agent frontmatter).
+
+    Returns the number of files modified (or that would be modified, in
+    dry-run mode).
+    """
+    modified = 0
+
+    for subdir_name in ("skills", "commands"):
+        subdir = config_dir / subdir_name
+        if not subdir.is_dir():
+            continue
+        for md_file in sorted(subdir.rglob("*.md")):
+            modified += _rewrite_dispatch_file(
+                md_file, dry_run, split_frontmatter=False
+            )
+
+    agents_dir = config_dir / "agents"
+    if agents_dir.is_dir():
+        for md_file in sorted(agents_dir.glob("*.md")):
+            modified += _rewrite_dispatch_file(md_file, dry_run, split_frontmatter=True)
+
+    return modified
+
+
 def lint_only() -> int:
     """Run the compatibility lint without syncing. Stub — filled in by T04."""
     print("Lint not yet implemented — nothing to check (stub, see T04).")
@@ -529,16 +927,21 @@ def main() -> int:
         if not args.dry_run:
             strip_color_fields(OPENCODE_CONFIG / "agents")
 
-        # T03: dispatch rewrite (skills + commands + agent bodies)
-        # T03: model remap (agent frontmatter, TIER_MAP-driven, anchored)
+        dispatch_modified = rewrite_all_dispatches(
+            OPENCODE_CONFIG, dry_run=args.dry_run
+        )
+        remap_modified = remap_agent_models(
+            OPENCODE_CONFIG / "agents", dry_run=args.dry_run
+        )
+
         generate_worker_agents(OPENCODE_CONFIG / "agents", dry_run=args.dry_run)
         generate_config(OPENCODE_CONFIG, dry_run=args.dry_run)
         # T04: compatibility lint, run automatically at the end of sync
 
         if args.dry_run:
             print(
-                "\n[dry-run] Dispatch rewrite and model remap are not yet "
-                "implemented in this build (see T03) — no-op."
+                f"\n[dry-run] Dispatch rewrite: {dispatch_modified} file(s) would "
+                f"change. Model remap: {remap_modified} file(s) would change."
             )
             return 0
 
