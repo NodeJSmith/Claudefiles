@@ -314,6 +314,99 @@ def test_archive_closes_active_run(db_conn, git_repo, monkeypatch):
     assert data["via"] == "archive"
 
 
+def test_archive_errors_on_uncommitted_task_change(db_conn, git_repo, monkeypatch):
+    """archive_spec refuses to archive when a tracked task file has uncommitted edits.
+
+    Regression test: previously the DB was committed (spec archived, run
+    completed) before git rm ran, so a dirty task file would crash *after*
+    the spec was already marked archived — and every retry hit the same git
+    rm failure since the file was still dirty, leaving the spec permanently
+    stuck in an archived-but-not-cleaned-up state.
+    """
+    monkeypatch.chdir(git_repo)
+    feature_dir = _make_feature(git_repo, 35, "my-feature", ["T01", "T02"])
+    tasks_dir = feature_dir / "tasks"
+    (tasks_dir / "T02.md").write_text("uncommitted edit\n")
+
+    spec_id, run_id = insert_spec_with_run(db_conn, 35, "my-feature", REMOTE_URL)
+    _insert_done_tasks(db_conn, run_id, ["T01", "T02"])
+
+    with pytest.raises(SystemExit) as exc_info:
+        archive_spec(db_conn, spec_override="035")
+    assert exc_info.value.code == 1
+
+    # Nothing changed: spec still in_progress, run still open, files still present.
+    spec_row = db_conn.execute(
+        "SELECT status, active_run_id FROM specs WHERE id=?", (spec_id,)
+    ).fetchone()
+    assert spec_row["status"] == "in_progress"
+    assert spec_row["active_run_id"] == run_id
+
+    run_row = db_conn.execute(
+        "SELECT status FROM runs WHERE id=?", (run_id,)
+    ).fetchone()
+    assert run_row["status"] == "running"
+
+    assert tasks_dir.exists()
+    assert (tasks_dir / "T02.md").read_text() == "uncommitted edit\n"
+
+
+def test_archive_uncommitted_change_error_names_cause_and_fix(
+    db_conn, git_repo, capsys, monkeypatch
+):
+    """Error output names the dirty file and how to resolve it."""
+    monkeypatch.chdir(git_repo)
+    feature_dir = _make_feature(git_repo, 35, "my-feature", ["T01"])
+    (feature_dir / "tasks" / "T01.md").write_text("uncommitted edit\n")
+
+    _spec_id, run_id = insert_spec_with_run(db_conn, 35, "my-feature", REMOTE_URL)
+    insert_task(db_conn, run_id, "T01", status="done")
+
+    with pytest.raises(SystemExit):
+        archive_spec(db_conn, spec_override="035")
+
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "uncommitted_changes"
+    assert "design/specs/035-my-feature/tasks/T01.md" in err["error"]
+    assert "git checkout" in err["hint"]
+    assert "cfl archive" in err["hint"]
+
+
+def test_archive_errors_on_uncommitted_legacy_artifact_change(
+    db_conn, git_repo, monkeypatch
+):
+    """archive_spec also refuses when a legacy artifact (e.g. trail.tsv) is dirty."""
+    monkeypatch.chdir(git_repo)
+    feature_dir = _make_feature(git_repo, 35, "my-feature", ["T01"])
+    _add_legacy_artifacts(git_repo, feature_dir)
+    (feature_dir / "trail.tsv").write_text("uncommitted edit\n")
+
+    spec_id, run_id = insert_spec_with_run(db_conn, 35, "my-feature", REMOTE_URL)
+    insert_task(db_conn, run_id, "T01", status="done")
+
+    with pytest.raises(SystemExit):
+        archive_spec(db_conn, spec_override="035")
+
+    spec_row = db_conn.execute(
+        "SELECT status FROM specs WHERE id=?", (spec_id,)
+    ).fetchone()
+    assert spec_row["status"] == "in_progress"
+    assert (feature_dir / "trail.tsv").exists()
+
+
+def test_archive_dry_run_errors_on_uncommitted_changes(db_conn, git_repo, monkeypatch):
+    """--dry-run also surfaces the uncommitted-changes error rather than a false would_archive."""
+    monkeypatch.chdir(git_repo)
+    feature_dir = _make_feature(git_repo, 35, "my-feature", ["T01"])
+    (feature_dir / "tasks" / "T01.md").write_text("uncommitted edit\n")
+
+    _spec_id, run_id = insert_spec_with_run(db_conn, 35, "my-feature", REMOTE_URL)
+    insert_task(db_conn, run_id, "T01", status="done")
+
+    with pytest.raises(SystemExit):
+        archive_spec(db_conn, spec_override="035", dry_run=True)
+
+
 def test_archive_untracked_tasks_warns_but_does_not_crash(
     db_conn, git_repo, capsys, monkeypatch
 ):
