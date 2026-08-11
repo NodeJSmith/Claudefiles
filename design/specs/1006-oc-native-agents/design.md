@@ -369,7 +369,7 @@ Generated (not committed, produced at runtime by sync):
 
 - **OpenCode runtime:** After sync + restart, all subagent dispatches route through named workers instead of inheriting the primary model. This is the intended behavioral change.
 - **OpenCode config:** `config.json` is a new file that didn't exist before. Users who manually inspect their OpenCode config need to know about the two-file split.
-- **Existing opencode.jsonc:** The manual `agent` overrides from the July 30 quick fix become redundant. The user should remove them after the first sync — `opencode.jsonc` wins over `config.json` in the merge order, so stale pins in `opencode.jsonc` would silently override the TIER_MAP-driven values in `config.json`. The sync should emit a one-time warning if it detects `agent` keys in `opencode.jsonc` that collide with generated `config.json` keys.
+- **Existing opencode.jsonc:** The manual `agent` overrides from the July 30 quick fix become redundant. The user should remove them after the first sync — `opencode.jsonc` wins over `config.json` in the merge order, so stale pins in `opencode.jsonc` would silently override the TIER_MAP-driven values in `config.json`. The sync emits a warning on every run while it detects `agent` keys in `opencode.jsonc` that collide with generated `config.json` keys (FR#13).
 
 ## Open Questions
 

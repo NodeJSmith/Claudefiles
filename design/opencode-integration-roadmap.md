@@ -141,7 +141,7 @@ Scope:
 
 Exit condition: a primary session using an expensive model cannot accidentally dispatch routine work to an equally expensive inherited model through an approved workflow.
 
-**Status: Complete** — shipped in PR #<N> (opencode-sync Python rewrite with worker agents, config.json model enforcement, dispatch rewriter, and compatibility lint). Two originally-scoped items were dropped: permission.task allowlists (FR#8 removed — blanket allow in opencode.jsonc makes per-agent gating inert) and deprecated tool declaration replacement (no applicable declarations identified).
+**Status: Complete** — shipped in PR `#503` (opencode-sync Python rewrite with worker agents, config.json model enforcement, dispatch rewriter, and compatibility lint). Two originally-scoped items were dropped: permission.task allowlists (FR#8 removed — blanket allow in opencode.jsonc makes per-agent gating inert) and deprecated tool declaration replacement (no applicable declarations identified).
 
 ### 3. Skill Compatibility Adapter
 
