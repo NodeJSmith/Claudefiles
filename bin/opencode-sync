@@ -12,14 +12,15 @@ Workflow:
 
 Requires: npx (comes with Node.js)
 
-This is being built incrementally against design/specs/1006-oc-native-agents.
-T01 laid the script skeleton; T02 added worker agent + config.json generation
-(TIER_MAP-driven); T03 added the dispatch rewriter and frontmatter model remap.
-Remaining stub point in main():
-  - T04: compatibility lint (--lint-only), collision detection, foreign config backup
+Built incrementally against design/specs/1006-oc-native-agents: T01 laid the
+script skeleton; T02 added worker agent + config.json generation
+(TIER_MAP-driven); T03 added the dispatch rewriter and frontmatter model
+remap; T04 added the compatibility lint (--lint-only), opencode.jsonc
+collision detection, and foreign config.json backup.
 """
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -27,6 +28,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 from typing import NoReturn
 
@@ -34,10 +36,15 @@ OPKG_VERSION = "0.11.3"
 
 OPENCODE_CONFIG = Path.home() / ".config" / "opencode"
 
-# Tracks which Claudefiles commit was last synced to OpenCode. T01 preserves the
-# bash script's plain-text SHA file; FR#16 replaces this with a unified JSON state
-# file in a later task (T04), including a one-time migration.
+# Legacy plain-text SHA file from the original bash script. FR#16 replaces this
+# with a unified JSON state file; load_sync_state() migrates the old file into
+# the new one on first read and deletes it (one-time).
 SYNC_SHA_FILE = OPENCODE_CONFIG / ".claudefiles-sync-sha"
+
+# Unified sync state (FR#16): commit SHA, generated config.json hash (for
+# foreign-config detection), collision-warning state (FR#13), and this script's
+# own hash (so an uncommitted TIER_MAP edit still marks the install stale).
+SYNC_STATE_FILE = OPENCODE_CONFIG / ".claudefiles-sync-state.json"
 SHA_DISPLAY_LEN = 12
 
 # Dirs excluded from staging: .claude/ (causes opkg platform misdetection),
@@ -333,19 +340,139 @@ def strip_color_fields(agents_dir: Path) -> None:
             md_file.write_text(new_content)
 
 
-def check_sync_status(claudefiles: Path, sync_sha_file: Path) -> bool:
-    """Print sync status and return True if the OpenCode install is current."""
+def _sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _empty_sync_state() -> dict:
+    return {
+        "sync_sha": None,
+        "config_hash": None,
+        "collision_keys": [],
+        "sync_script_hash": None,
+    }
+
+
+def load_sync_state(
+    state_file: Path, legacy_sha_file: Path, *, dry_run: bool = False
+) -> dict:
+    """Load the unified sync state (FR#16).
+
+    One-time migration: if the old plain-text SHA file exists and the new
+    JSON state file doesn't, read the SHA out of it, write the new state
+    file, and delete the old one. If neither exists, returns a state dict
+    with empty/None fields (first-ever sync).
+
+    dry_run suppresses the migration write/unlink (still returns the
+    migrated dict in memory) -- `opencode-sync --dry-run` must not touch
+    the filesystem, and the legacy-file migration is a write like any
+    other. Callers that don't pass dry_run (e.g. --check) still migrate
+    eagerly, since --check is a read of state, not a modification of
+    installed output.
+    """
+    if state_file.exists():
+        try:
+            return json.loads(state_file.read_text())
+        except json.JSONDecodeError:
+            print(
+                f"WARNING: {state_file} is corrupt (invalid JSON); "
+                "treating as never-synced.",
+                file=sys.stderr,
+            )
+            return _empty_sync_state()
+
+    if legacy_sha_file.exists():
+        migrated = {
+            "sync_sha": legacy_sha_file.read_text().strip(),
+            "config_hash": None,
+            "collision_keys": [],
+            "sync_script_hash": None,
+        }
+        if not dry_run:
+            write_sync_state(state_file, migrated)
+            legacy_sha_file.unlink()
+        return migrated
+
+    return _empty_sync_state()
+
+
+def _atomic_write_json(
+    target: Path, content: str, *, backup: Path | None = None
+) -> None:
+    """Write `content` to `target` atomically: tempfile in the same directory
+    (keeps the final os.replace() on the same filesystem) -> json.load()
+    validation -> optional pre-replace backup of the existing file ->
+    os.replace() into place. The tempfile is removed on any exception.
+
+    Shared by generate_config() and write_sync_state() -- both write a JSON
+    file that must never be left truncated or invalid: a malformed
+    config.json silently wipes all three global OpenCode config files
+    (OpenCode's single-fallback error handler in loadGlobal()), and a
+    truncated sync state file would fail every subsequent invocation until
+    manually removed.
+    """
+    fd, tmp_path_str = tempfile.mkstemp(
+        prefix=f".{target.name}.", suffix=".tmp", dir=target.parent
+    )
+    tmp_path = Path(tmp_path_str)
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(content)
+
+        with tmp_path.open() as f:
+            json.load(f)  # validate before it ever becomes the live file
+
+        if backup is not None and target.exists():
+            shutil.copy2(target, backup)
+
+        os.replace(tmp_path, target)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise
+
+
+def write_sync_state(state_file: Path, state: dict) -> None:
+    """Write the sync state atomically -- mirrors generate_config()'s write
+    path via the shared _atomic_write_json() helper. An interrupted plain
+    write could leave the state file truncated, and load_sync_state() would
+    then fail every subsequent invocation until the file is manually
+    removed.
+    """
+    state_file.parent.mkdir(parents=True, exist_ok=True)
+    content = json.dumps(state, indent=2) + "\n"
+    _atomic_write_json(state_file, content)
+
+
+def check_sync_status(
+    claudefiles: Path, state_file: Path, legacy_sha_file: Path
+) -> bool:
+    """Print sync status and return True if the OpenCode install is current.
+
+    Current requires both the Claudefiles commit SHA and this script's own
+    hash to match the recorded state — a TIER_MAP edit changes the script's
+    hash even before it's committed, so hash drift alone is enough to mark
+    the install stale (script rewrite section, context.md decision #6).
+    """
     current_sha = _git_rev_parse(claudefiles, ["HEAD"])
     if current_sha is None:
         die(f"Not a git repo: {claudefiles}")
+    current_script_hash = _sha256_file(Path(__file__).resolve())
 
-    stored_sha = sync_sha_file.read_text().strip() if sync_sha_file.exists() else ""
+    state = load_sync_state(state_file, legacy_sha_file)
+    stored_sha = state.get("sync_sha")
+    stored_script_hash = state.get("sync_script_hash")
 
-    if current_sha == stored_sha:
+    if stored_sha == current_sha and stored_script_hash == current_script_hash:
         print(f"Up-to-date (synced at {current_sha[:SHA_DISPLAY_LEN]})")
         return True
     if not stored_sha:
         print(f"Never synced (current HEAD: {current_sha[:SHA_DISPLAY_LEN]})")
+        return False
+    if stored_sha == current_sha:
+        print(
+            f"Stale (opencode-sync itself changed since last sync at "
+            f"{stored_sha[:SHA_DISPLAY_LEN]})"
+        )
         return False
     print(
         f"Stale (synced at {stored_sha[:SHA_DISPLAY_LEN]}, "
@@ -444,25 +571,7 @@ def generate_config(config_dir: Path, dry_run: bool) -> None:
         return
 
     config_dir.mkdir(parents=True, exist_ok=True)
-
-    fd, tmp_path_str = tempfile.mkstemp(
-        prefix=".config.json.", suffix=".tmp", dir=config_dir
-    )
-    tmp_path = Path(tmp_path_str)
-    try:
-        with os.fdopen(fd, "w") as f:
-            f.write(content)
-
-        with tmp_path.open() as f:
-            json.load(f)  # validate before it ever becomes the live file
-
-        if target.exists():
-            shutil.copy2(target, config_dir / "config.json.bak")
-
-        os.replace(tmp_path, target)
-    except BaseException:
-        tmp_path.unlink(missing_ok=True)
-        raise
+    _atomic_write_json(target, content, backup=config_dir / "config.json.bak")
 
 
 class _Unresolved:
@@ -551,6 +660,13 @@ CLI_DISPATCH_RE = re.compile(
 # line, capturing any trailing content (typically an inline `# ...` comment) so
 # remap_agent_models() can preserve it.
 FRONTMATTER_MODEL_RE = re.compile(r"^model:\s*(sonnet|haiku|opus)\b(.*)$")
+
+# Lint-only patterns (FR#11) for unsupported platform semantics — warnings,
+# not errors, since OpenCode simply can't honor these rather than the source
+# being wrong. Not shared with the rewriter, which has no reason to touch
+# either construct.
+ISOLATION_WORKTREE_RE = re.compile(r"""isolation:\s*["']worktree["']""")
+RUN_IN_BACKGROUND_RE = re.compile(r"run_in_background")
 
 
 def resolve(
@@ -818,6 +934,31 @@ def _rewrite_dispatch_file(
     return 1
 
 
+def _walk_synced_md_files(config_dir: Path) -> Iterator[tuple[Path, bool]]:
+    """Enumerate every synced skill, command, and agent `.md` file, in the
+    fixed walk order the dispatch rewriter and the lint both depend on:
+    `skills/` and `commands/` (recursive, whole file) first, then `agents/`
+    (top-level only, frontmatter split out).
+
+    Yields `(path, split_frontmatter)` — the single source of truth for
+    "which files, which subset counts as frontmatter." `rewrite_all_dispatches`
+    and `_lint_targets` both build on this instead of each independently
+    encoding the same three-branch walk, which is exactly the class of bug
+    T03 needed two rounds of fixes to eliminate.
+    """
+    for subdir_name in ("skills", "commands"):
+        subdir = config_dir / subdir_name
+        if not subdir.is_dir():
+            continue
+        for md_file in sorted(subdir.rglob("*.md")):
+            yield md_file, False
+
+    agents_dir = config_dir / "agents"
+    if agents_dir.is_dir():
+        for md_file in sorted(agents_dir.glob("*.md")):
+            yield md_file, True
+
+
 def rewrite_all_dispatches(config_dir: Path, dry_run: bool) -> int:
     """Apply the dispatch rewriter to every synced skill, command, and agent
     file. Skill and command files are rewritten whole; agent files have their
@@ -828,28 +969,287 @@ def rewrite_all_dispatches(config_dir: Path, dry_run: bool) -> int:
     dry-run mode).
     """
     modified = 0
-
-    for subdir_name in ("skills", "commands"):
-        subdir = config_dir / subdir_name
-        if not subdir.is_dir():
-            continue
-        for md_file in sorted(subdir.rglob("*.md")):
-            modified += _rewrite_dispatch_file(
-                md_file, dry_run, split_frontmatter=False
-            )
-
-    agents_dir = config_dir / "agents"
-    if agents_dir.is_dir():
-        for md_file in sorted(agents_dir.glob("*.md")):
-            modified += _rewrite_dispatch_file(md_file, dry_run, split_frontmatter=True)
-
+    for md_file, split_frontmatter in _walk_synced_md_files(config_dir):
+        modified += _rewrite_dispatch_file(
+            md_file, dry_run, split_frontmatter=split_frontmatter
+        )
     return modified
 
 
-def lint_only() -> int:
-    """Run the compatibility lint without syncing. Stub — filled in by T04."""
-    print("Lint not yet implemented — nothing to check (stub, see T04).")
+def _lint_targets(config_dir: Path) -> list[tuple[Path, str, int]]:
+    """Enumerate (file_path, content, line_offset) targets for run_lint().
+
+    Walks the same file set as rewrite_all_dispatches() via
+    _walk_synced_md_files(): skill and command files are scanned whole
+    (their frontmatter has no model fields to false-positive on); agent
+    files have frontmatter excluded (it contains remapped provider-qualified
+    model IDs, which would false-positive on the residual-tier-name check).
+    line_offset is the number of lines excluded from the front of the file,
+    so callers can report line numbers that match the file on disk rather
+    than the truncated body.
+    """
+    targets: list[tuple[Path, str, int]] = []
+    for md_file, split_frontmatter in _walk_synced_md_files(config_dir):
+        content = md_file.read_text()
+        if split_frontmatter:
+            frontmatter, body = _split_frontmatter(content)
+            targets.append((md_file, body, frontmatter.count("\n")))
+        else:
+            targets.append((md_file, content, 0))
+    return targets
+
+
+def _lint_content(
+    path: Path,
+    content: str,
+    line_offset: int,
+    errors: list[str],
+    warnings: list[str],
+) -> None:
+    """Scan one file's content for lint findings (FR#6, FR#11), appending
+    "path:line: description" entries to errors/warnings in place.
+
+    Reuses the dispatch rewriter's own pattern constants (SUBAGENT_TYPE_RE,
+    BARE_BUILTIN_RE, MODEL_RE, STANDALONE_MODEL_RE, CLI_DISPATCH_RE) rather
+    than redefining matching regexes, so the lint's notion of "a residual
+    dispatch" can't drift from what the rewriter actually rewrites
+    (context.md decision #6 / design "Key Constraints").
+    """
+    lines = content.splitlines()
+
+    for i, line in enumerate(lines):
+        lineno = i + 1 + line_offset
+        next_line = lines[i + 1] if i + 1 < len(lines) else None
+        paired_with_model = MODEL_RE.search(line) is not None or (
+            next_line is not None and STANDALONE_MODEL_RE.match(next_line) is not None
+        )
+
+        subagent_matches = [
+            m
+            for m in SUBAGENT_TYPE_RE.finditer(line)
+            if m.group("type") == "general-purpose"
+        ]
+        if subagent_matches and paired_with_model:
+            errors.append(
+                f"{path}:{lineno}: residual `subagent_type: general-purpose` "
+                "paired with `model:`"
+            )
+
+        # BARE_BUILTIN_RE also matches the type word inside a SUBAGENT_TYPE_RE
+        # match (e.g. the "general-purpose" in "subagent_type: general-purpose")
+        # -- drop matches already covered above so the same token isn't
+        # reported by both checks.
+        bare_matches = [
+            m
+            for m in BARE_BUILTIN_RE.finditer(line)
+            if m.group("type") == "general-purpose"
+            and not any(
+                sm.start() <= m.start() and m.end() <= sm.end()
+                for sm in subagent_matches
+            )
+        ]
+        if bare_matches and paired_with_model:
+            errors.append(
+                f"{path}:{lineno}: residual backtick-quoted `general-purpose` "
+                "paired with `model:`"
+            )
+
+        for m in CLI_DISPATCH_RE.finditer(line):
+            if m.group("type") == "general-purpose" and m.group("tier") is not None:
+                errors.append(
+                    f"{path}:{lineno}: residual `--agent-type general-purpose "
+                    f"--model {m.group('tier')}`"
+                )
+
+        for m in MODEL_RE.finditer(line):
+            errors.append(f"{path}:{lineno}: residual `model: {m.group('tier')}`")
+
+        if "general-purpose" in line:
+            errors.append(f"{path}:{lineno}: literal `general-purpose`")
+
+        if ISOLATION_WORKTREE_RE.search(line):
+            warnings.append(
+                f'{path}:{lineno}: `isolation: "worktree"` has no OpenCode equivalent'
+            )
+        if RUN_IN_BACKGROUND_RE.search(line):
+            warnings.append(
+                f"{path}:{lineno}: `run_in_background` is unsupported (experimental in OpenCode)"
+            )
+
+
+def run_lint(config_dir: Path) -> tuple[list[str], list[str]]:
+    """Scan synced output under config_dir for residual Claude-only dispatch
+    constructs (errors) and unsupported platform semantics (warnings) —
+    FR#6, FR#11. Returns (errors, warnings); warnings never affect the exit
+    code.
+    """
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    for path, content, line_offset in _lint_targets(config_dir):
+        _lint_content(path, content, line_offset, errors, warnings)
+
+    return errors, warnings
+
+
+def report_lint(errors: list[str], warnings: list[str]) -> int:
+    """Print a lint report and return the exit code (0 clean, 1 on errors)."""
+    for warning in warnings:
+        print(f"WARNING: {warning}")
+    for error in errors:
+        print(f"ERROR: {error}", file=sys.stderr)
+
+    if errors:
+        print(
+            f"\nLint failed: {len(errors)} error(s), {len(warnings)} warning(s).",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"Lint clean: 0 errors, {len(warnings)} warning(s).")
     return 0
+
+
+def _strip_jsonc_comments(text: str) -> str:
+    """Strip `//` line comments from JSONC text, tracking quoted-string
+    context so a `//` inside a string value (e.g. the `https://` in
+    `"$schema": "https://opencode.ai/config.json"`) is left alone.
+
+    A naive per-line `line.split("//")[0]` truncation corrupts any URL in a
+    string value into invalid JSON — this walks character by character
+    instead, only treating `//` as a comment starter when outside a `"..."`
+    string (honoring `\\"` escapes so an escaped quote doesn't end the string
+    early).
+    """
+    out: list[str] = []
+    in_string = False
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
+
+        if in_string:
+            out.append(ch)
+            if ch == "\\" and i + 1 < n:
+                out.append(text[i + 1])
+                i += 2
+                continue
+            if ch == '"':
+                in_string = False
+            i += 1
+            continue
+
+        if ch == '"':
+            in_string = True
+            out.append(ch)
+            i += 1
+            continue
+
+        if ch == "/" and i + 1 < n and text[i + 1] == "/":
+            while i < n and text[i] not in "\r\n":
+                i += 1
+            continue
+
+        out.append(ch)
+        i += 1
+
+    return "".join(out)
+
+
+def check_collisions(
+    config_dir: Path,
+    generated_keys: set[str],
+    sync_state: dict,
+    *,
+    verbose: bool = False,
+) -> None:
+    """Warn when opencode.jsonc's `agent` keys shadow generated config.json
+    entries (FR#13) — e.g. the July 30 quick-fix pins the user hasn't
+    cleaned up since config.json started covering the same ground.
+
+    Nagging suppression: the current collision set is compared against
+    sync_state["collision_keys"] from the previous run. Only re-warns when
+    the set changes (a collision fixed, or a new one appeared) -- a known,
+    unaddressed collision doesn't repeat the warning on every sync.
+    sync_state is mutated in place with the current set; the caller persists
+    it via write_sync_state().
+    """
+    jsonc_path = config_dir / "opencode.jsonc"
+    if not jsonc_path.is_file():
+        sync_state["collision_keys"] = []
+        return
+
+    try:
+        data = json.loads(_strip_jsonc_comments(jsonc_path.read_text()))
+    except (json.JSONDecodeError, OSError):
+        # A malformed opencode.jsonc is the user's problem to fix, not
+        # something opencode-sync should crash over -- skip this run's
+        # collision check and leave the previously recorded state as-is.
+        # Note: the stripper only handles `//` line comments, not `/* */`
+        # block comments -- a block comment here will land in this branch.
+        if verbose:
+            print(
+                f"Could not parse {jsonc_path} for collision check "
+                "(invalid JSON/JSONC) -- skipping.",
+                file=sys.stderr,
+            )
+        return
+
+    jsonc_agent_keys = set(data.get("agent") or {}) if isinstance(data, dict) else set()
+    collisions = sorted(jsonc_agent_keys & generated_keys)
+    previous = sync_state.get("collision_keys", [])
+
+    if collisions != previous and collisions:
+        print(
+            "WARNING: opencode.jsonc `agent` keys shadow generated config.json "
+            f"entries: {', '.join(collisions)}. config.json now pins these "
+            "models -- remove the corresponding entries from opencode.jsonc's "
+            "`agent` block.",
+            file=sys.stderr,
+        )
+    elif collisions != previous and verbose:
+        print("Previously-colliding opencode.jsonc `agent` keys are now resolved.")
+
+    sync_state["collision_keys"] = collisions
+
+
+def handle_foreign_config(
+    config_dir: Path, sync_state: dict, *, dry_run: bool = False
+) -> None:
+    """Detect a pre-existing config.json this sync didn't write (FR#16).
+
+    Compares the on-disk file's hash against sync_state["config_hash"] (set
+    after the previous generate_config() write). A missing or mismatched
+    hash means the file is foreign or hand-edited: back it up to
+    config.json.foreign.bak and warn, before generate_config() overwrites
+    it. No in-file ownership marker is used -- an unknown top-level key
+    could fail OpenCode's config schema validation (context.md decision #9).
+    """
+    target = config_dir / "config.json"
+    if not target.is_file():
+        return
+
+    if _sha256_file(target) == sync_state.get("config_hash"):
+        return
+
+    backup = config_dir / "config.json.foreign.bak"
+
+    if dry_run:
+        print(f"[dry-run] would back up foreign/hand-edited {target} to {backup}")
+        return
+
+    shutil.copy2(target, backup)
+    print(
+        f"WARNING: {target} was not written by the last opencode-sync run "
+        f"(foreign or hand-edited). Backed up to {backup} before overwriting.",
+        file=sys.stderr,
+    )
+
+
+def lint_only() -> int:
+    """Run the compatibility lint directly against installed output,
+    skipping staging/opkg/rewriting (FR#6)."""
+    return report_lint(*run_lint(OPENCODE_CONFIG))
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -887,7 +1287,7 @@ def main() -> int:
 
     if args.check:
         claudefiles = get_claudefiles_dir()
-        current = check_sync_status(claudefiles, SYNC_SHA_FILE)
+        current = check_sync_status(claudefiles, SYNC_STATE_FILE, SYNC_SHA_FILE)
         return 0 if current else 1
 
     if args.lint_only:
@@ -905,6 +1305,8 @@ def main() -> int:
 
     if not claudefiles.is_dir():
         die(f"Claudefiles not found at {claudefiles}")
+
+    sync_state = load_sync_state(SYNC_STATE_FILE, SYNC_SHA_FILE, dry_run=args.dry_run)
 
     tmp_root = os.environ.get("CLAUDE_CODE_TMPDIR", tempfile.gettempdir())
     with tempfile.TemporaryDirectory(
@@ -935,8 +1337,26 @@ def main() -> int:
         )
 
         generate_worker_agents(OPENCODE_CONFIG / "agents", dry_run=args.dry_run)
+
+        handle_foreign_config(OPENCODE_CONFIG, sync_state, dry_run=args.dry_run)
         generate_config(OPENCODE_CONFIG, dry_run=args.dry_run)
-        # T04: compatibility lint, run automatically at the end of sync
+        if not args.dry_run:
+            sync_state["config_hash"] = _sha256_file(OPENCODE_CONFIG / "config.json")
+            # Persisted immediately, independent of the lint-gated write below.
+            # generate_config() has already overwritten config.json on disk by
+            # this point regardless of what lint finds later, so config_hash
+            # must be persisted right away too -- otherwise a failed-lint run
+            # leaves the on-disk state's config_hash stale relative to the
+            # actual file, and the next invocation's handle_foreign_config()
+            # mistakes this sync's own output for a foreign/hand-edited file.
+            write_sync_state(SYNC_STATE_FILE, sync_state)
+
+        check_collisions(
+            OPENCODE_CONFIG,
+            set(build_agent_config()),
+            sync_state,
+            verbose=args.verbose,
+        )
 
         if args.dry_run:
             print(
@@ -945,11 +1365,29 @@ def main() -> int:
             )
             return 0
 
+        # Lint runs against the just-installed output, not the pre-sync state
+        # -- meaningless in --dry-run mode, since nothing above actually wrote
+        # anything.
+        lint_errors, lint_warnings = run_lint(OPENCODE_CONFIG)
+        lint_exit = report_lint(lint_errors, lint_warnings)
+        if lint_exit != 0:
+            print(
+                "Installed files left in place -- extend the pattern table or "
+                "fix the source file, then re-sync.",
+                file=sys.stderr,
+            )
+            return lint_exit
+
+        # sync_sha/sync_script_hash are only persisted once lint has actually
+        # passed -- otherwise a later `--check` would report "up-to-date" for
+        # a sync that exited non-zero with residual dispatch patterns still
+        # installed.
         current_sha = _git_rev_parse(claudefiles, ["HEAD"])
         if current_sha is None:
             die(f"Not a git repo: {claudefiles}")
-        SYNC_SHA_FILE.parent.mkdir(parents=True, exist_ok=True)
-        SYNC_SHA_FILE.write_text(current_sha + "\n")
+        sync_state["sync_sha"] = current_sha
+        sync_state["sync_script_hash"] = _sha256_file(Path(__file__).resolve())
+        write_sync_state(SYNC_STATE_FILE, sync_state)
 
         print(f"Done. OpenCode config updated at {OPENCODE_CONFIG}")
         return 0
