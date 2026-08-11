@@ -69,7 +69,7 @@ cfl event sketch.started --spec <spec_number>
 
 ### Check for resume
 
-If $ARGUMENTS pointed to an existing spec directory, check that directory for `design.md` — if present and has `**Mode:** sketch`, this is a resume. Read it and skip directly to Phase 3 (task breakdown); `<spec_number>` and `run_id` are already set from the sections above, so `cfl` calls in Phases 3-5 work normally. Skip the rest of Phase 1 and all of Phase 2.
+If $ARGUMENTS pointed to an existing spec directory, check that directory for `design.md` — if present and has `**Mode:** sketch`, this is a resume. Read it before skipping Phase 2. If the feature owns resumable work state across invocations but the design lacks `## Operational Lifecycle` or any required lifecycle decision, run Phase 2's mandatory lifecycle clarification and update the design first. Otherwise skip directly to Phase 3 (task breakdown); `<spec_number>` and `run_id` are already set from the sections above, so `cfl` calls in Phases 3-5 work normally. Skip the rest of Phase 1 and all remaining Phase 2 work.
 
 Otherwise, continue to the codebase scan below.
 

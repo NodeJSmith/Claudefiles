@@ -122,7 +122,7 @@ Flag each vague item:
 
 ### Operational Lifecycle Coverage
 
-If the design contains `## Operational Lifecycle`, check that the responsible tasks include concrete Verify criteria for the applicable repeated-failure, retry-bound/termination, explicit-action or terminal reset, recovery, and user-visible accounting outcomes. A set of isolated one-transition tests does not cover the assembled lifecycle. Record every missing lifecycle outcome under `## Coverage Gaps`; these gaps block approval. Do not apply this check when the design omits the section.
+If the design contains `## Operational Lifecycle`, check that the responsible tasks include concrete Verify criteria for the applicable repeated-failure, retry-bound/termination, user-action recovery, deliberately terminal states, and user-visible accounting outcomes. A set of isolated one-transition tests does not cover the assembled lifecycle. Record every missing lifecycle outcome under `## Coverage Gaps`; these gaps block approval. Do not apply this check when the design omits the section.
 
 ### Non-Local Verification Criteria
 

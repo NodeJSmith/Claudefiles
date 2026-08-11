@@ -17,7 +17,7 @@ The `<topic>` for each question is noted in parentheses below (e.g., `(topic: pr
 
 1. **Problem grounding** — skip if already clear from the request:
 
-```
+```yaml
 AskUserQuestion:
   question: "What problem does this solve? Who experiences it?"
   header: "Problem"
@@ -112,7 +112,7 @@ AskUserQuestion:
   header: "Lifecycle"
 ```
 
-For moderate features, record after the confirmation: `cfl question mine-define lifecycle --status asked --answer "<summary>" --spec <spec_number>`. For complex features, record after the edge-cases answer that includes the lifecycle confirmation. If no operational lifecycle applies, record `--status skipped` before continuing.
+For moderate features, record after the confirmation: `cfl question mine-define lifecycle --status asked --answer "<summary>" --spec <spec_number>`. For complex features, record both the edge-cases answer and `cfl question mine-define lifecycle --status asked --answer "<summary>" --spec <spec_number>` after the combined confirmation. If no operational lifecycle applies, record `--status skipped` before continuing.
 
 ## Ask for complex features only
 

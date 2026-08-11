@@ -26,7 +26,7 @@ Look for: missing section headings; sections that contain only a placeholder or 
 Are Verify criteria concrete and binary? Can each item be verified by an executor running a local command?
 Look for: vague items like "the feature works", "tests pass", "renders correctly"; items that describe intent rather than observable outcome; Verify items that reference FR/AC identifiers not in the task's `implements` field; non-local criteria requiring CI pipeline status, GitHub Actions output, post-merge observation, or PR review state (the executor cannot observe these).
 
-If the design contains `## Operational Lifecycle`, verify that the responsible tasks cover the applicable repeated-failure, retry-bound/termination, explicit-action or terminal reset, recovery, and user-visible accounting outcomes. A collection of one-transition unit tests is not a substitute for an assembled lifecycle test. Do not apply this check when the design omits the section.
+If the design contains `## Operational Lifecycle`, verify that the responsible tasks cover the applicable repeated-failure, retry-bound/termination, user-action recovery, deliberately terminal states, and user-visible accounting outcomes. A collection of one-transition unit tests is not a substitute for an assembled lifecycle test. Do not apply this check when the design omits the section.
 
 ### 6. Summary accuracy
 Does each task's Summary accurately describe what the task builds — consistent with its Prompt and the design doc?
