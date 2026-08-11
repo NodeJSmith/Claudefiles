@@ -141,6 +141,8 @@ Scope:
 
 Exit condition: a primary session using an expensive model cannot accidentally dispatch routine work to an equally expensive inherited model through an approved workflow.
 
+**Status: Complete** — shipped in PR #<N> (opencode-sync Python rewrite with worker agents, config.json model enforcement, dispatch rewriter, and compatibility lint). Two originally-scoped items were dropped: permission.task allowlists (FR#8 removed — blanket allow in opencode.jsonc makes per-agent gating inert) and deprecated tool declaration replacement (no applicable declarations identified).
+
 ### 3. Skill Compatibility Adapter
 
 Replace broad textual substitutions with a structured, testable platform adapter.
@@ -158,6 +160,8 @@ Scope:
 - classify remaining skills as portable, adapter-required, or harness-specific.
 
 Exit condition: generated OpenCode skills contain no unsupported Claude dispatch constructs, and the vertical-slice workflow completes with its intended instruction policy, named agents, and model routing active.
+
+**Status: Partially complete** — dispatch rewriting and the compatibility lint shipped in the Spec 2 PR. Remaining: interactive question syntax conversion, vertical-slice-first validation, and skill classification as portable/adapter-required/harness-specific.
 
 ### 4. Instructions and Runtime Plugins
 
