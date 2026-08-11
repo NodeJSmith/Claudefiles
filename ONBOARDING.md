@@ -202,9 +202,23 @@ cfl event               # append a free-form event to the audit trail
 
 **Settings** — edit `settings.json` in the repo root, then run `claude-merge-settings` to write `$CLAUDE_CONFIG_DIR/settings.json`. It merges the repo's shared settings with a per-machine `$CLAUDE_CONFIG_DIR/settings.machine.json`, so each box can keep its own permissions, env vars, and hook tweaks without touching the version-controlled config. When you re-run the merge, it detects permissions you granted at runtime and offers to promote them into the machine file so they survive. Only the layers that actually exist are applied.
 
-**OpenCode support** — `opencode-sync` currently provides provisional compatibility by installing skills and agents and remapping model IDs. Restart OpenCode after syncing so it reloads configuration-time files. OpenCode can also discover the original Claude artifacts, so apparent success does not yet prove the generated OpenCode copy is self-sufficient. The native-support roadmap starts with isolated configuration tests, then adds platform-specific dispatch, instruction loading, model enforcement, and plugins. See [design/opencode-integration-roadmap.md](design/opencode-integration-roadmap.md) for the planned spec sequence and the constraints future OpenCode work must preserve.
-
 **Removing things** — run `uv run install.py --reconfigure` and deselect the bundle or rule category. For an individual rule file within a category you otherwise want, delete the symlink from `$CLAUDE_CONFIG_DIR/rules/common/` or remove the source file.
+
+## OpenCode Support
+
+`opencode-sync` provides provisional compatibility for running Claudefiles skills and agents inside [OpenCode](https://opencode.ai) instead of Claude Code. It installs skills and agents, generates two worker agents (`worker-standard`, `worker-lightweight`), and rewrites synced dispatch patterns (`subagent_type: general-purpose` + `model: <tier>`) to route through those named workers instead of an inherited model.
+
+Model routing is enforced in two files: a generated `config.json` pins the model for both worker agents and OpenCode's built-in agents (`general`, `plan`, `explore`, `scout`), while `opencode.jsonc` stays entirely user-managed and is never written by the sync — OpenCode deep-merges `config.json` below `opencode.jsonc`, so anything you set by hand there always wins (see [REFERENCE.md's OpenCode Sync section](REFERENCE.md#opencode-sync) for the full three-file merge order, including `opencode.json`).
+
+If you applied the July 30 quick-fix `agent` pins directly in `opencode.jsonc`, remove them after your first sync with this version — `config.json` now covers the same ground and a stale `opencode.jsonc` entry would silently shadow it.
+
+```bash
+opencode-sync --lint-only   # check synced output for residual Claude-only dispatch constructs
+```
+
+`--lint-only` also runs automatically at the end of every sync. Restart OpenCode after syncing so it reloads configuration-time files. OpenCode can also discover the original Claude artifacts, so apparent success does not yet prove the generated OpenCode copy is self-sufficient — this is still provisional compatibility.
+
+The native-support roadmap's Spec 2 (native agents and model enforcement) is now complete; Spec 3 (skill compatibility adapter) is partially complete — dispatch rewriting and the lint shipped, but interactive question syntax conversion and skill classification remain. See [design/opencode-integration-roadmap.md](design/opencode-integration-roadmap.md) for the full spec sequence and the constraints future OpenCode work must preserve.
 
 ## Reference
 

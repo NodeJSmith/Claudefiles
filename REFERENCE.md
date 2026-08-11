@@ -236,11 +236,46 @@ CLI tools in `bin/`, symlinked into `~/.local/bin/` by the installer.
 | `git-default-branch` | Print the default branch name for the current repo |
 | `git-platform` | Detect git hosting platform (`github`, `ado`, or `unknown`) from remote URL |
 | `cfl` | Orchestration state store CLI backed by a durable SQLite DB (`~/.local/share/claudefiles/cfl.db`). Replaces `spec-helper` and `trail-log`. Subcommands: `spec init/adopt/validate/status/set-status/next-number` (spec lifecycle), `run start/status/complete/stop/resume/advance-phase` (run lifecycle), `task start/update/verdict/block` (task state), `gate` (record gate results), `dispatch`/`dispatch end` (record subagent dispatches), `event` (append to audit trail), `session end/compacted` (session lifecycle hooks), `archive` (archive completed specs), `set` (direct field access for crash recovery). JSON output by default; `--text` for human-readable. |
-| `opencode-sync` | Canonical entry point for provisional Claudefiles compatibility in OpenCode (`~/.config/opencode`) via OpenPackage (`opkg`). Stages a clean copy, runs `opkg install --platforms opencode`, then remaps Claude model names to OpenAI equivalents and strips Claude-specific color fields. Restart OpenCode after syncing. It does not yet translate all Claude-specific dispatch or hook behavior, and Claude fallback can conceal incomplete generated artifacts; see `design/opencode-integration-roadmap.md`. Records the synced commit SHA; `--check` reports whether a re-sync is needed (exit 0=current, 1=stale). `--dry-run`, `--verbose`, `--allow-worktree`, `--check`. Not wired into `install.py` — intended to be called from Dotfiles |
+| `opencode-sync` | Python script (`uv run --script`, stdlib-only) that syncs Claudefiles to OpenCode config (`~/.config/opencode`) via OpenPackage (`opkg`). Stages a clean copy, runs `opkg install --platforms opencode`, rewrites skill/command/agent dispatch patterns to OpenCode-native worker roles, remaps agent frontmatter model tiers to provider-qualified model IDs, generates worker agents plus a model-enforcing `config.json`, and lints for residual Claude-only constructs. Provisional compatibility — see [OpenCode Sync](#opencode-sync) below and `design/opencode-integration-roadmap.md` for remaining work. `--dry-run`, `--verbose`, `--allow-worktree`, `--check` (sync freshness, exit 0=current/1=stale), `--lint-only` (compatibility lint against the live install, no sync), `--check-source` (compatibility lint against this repo's own skills/commands/agents via a scratch-copy rewrite+lint pass — no live install or opkg/npx needed; wired into `prek.toml` as a blocking pre-commit hook). Not wired into `install.py` — intended to be called from Dotfiles |
 | `lint-agent-files` | SKILL.md/agent frontmatter lint — required `name`/`description` fields, kebab-case skill names matching their parent directory, a "Use when..." trigger phrase in every skill description, and no hardcoded `/home/<realname>/` paths anywhere in the tree |
 | `lint-agent-models` | Agent registry drift lint — checks every `agents/*.md` is listed in performance.md (with matching model) and registered in an install.py bundle, so no agent ships uninstalled |
 | `lint-cli-conventions` | Drift prevention lint — verifies `--help` handling in bin/ scripts and capabilities-core.md CLI Tools sync |
 | `lint-verdict-line` | Reviewer verdict-line conformance lint — reads the four mine-orchestrate reviewer files and verifies each specifies the canonical `**Verdict:**` line (with `(findings: N)` for code/integration, without for spec/visual), and rejects stale verdict vocabulary in active review contracts so CFL-aligned verdicts do not drift |
+
+A row that doesn't fit a single table cell gets a `###` subsection immediately below the table, expanding on that row — the format switch below is intentional, not a stray doc.
+
+### OpenCode Sync
+
+`opencode-sync` generates model routing for OpenCode subagents in addition to copying skills/agents/rules. A single `TIER_MAP` dict (in the script) drives three generated artifacts, so model tiers can't drift between them:
+
+- **Worker agents** — `~/.config/opencode/agents/worker-standard.md` (sonnet-equivalent, `openai/gpt-5.6-terra`) and `worker-lightweight.md` (haiku-equivalent, `openai/gpt-5.6-luna`). There is no `worker-deep`/opus-tier worker — no `general-purpose` dispatch currently uses opus; the lint flags one if it appears.
+- **Dispatch rewriting** — synced skill, command, and agent body content is rewritten so `subagent_type: general-purpose` + `model: <tier>` becomes a named worker dispatch (`worker-standard`/`worker-lightweight`), Claude Code built-ins (`Explore`, `Plan`, `claude`) map to their lowercase OpenCode equivalents (`explore`, `plan`, `general`), and named-agent dispatches (e.g. `code-reviewer`) keep their `subagent_type` but have any inline `model:` override stripped (they already carry a model in frontmatter). OpenCode's Task tool has no per-call `model` parameter, so every rewrite drops the `model:` clause — routing happens through the named agent instead.
+- **`config.json`** — generated at `~/.config/opencode/config.json`, written atomically (temp file → `json.load()` validation → `.bak` of the previous file → `os.replace()`). Pins the model for every TIER_MAP builtin (`general`, `plan`, `explore`, `scout`) and worker (`worker-standard`, `worker-lightweight`) at the config level, not just in agent frontmatter — this guards against the frontmatter-ignored failure mode reported in OpenCode issues #17870/#35126, so even if an agent's `model:` frontmatter is ignored, the config-level pin is the fallback. Also sets `subagent_depth: 3` (depth 2 covers the deepest current workflow, executor → reviewer; depth 3 leaves one level of headroom). Never writes `opencode.jsonc` — OpenCode deep-merges `config.json` (lowest) < `opencode.json` < `opencode.jsonc` (highest), so user-managed settings in `opencode.jsonc` always win on conflict. If `opencode.jsonc` still has the July 30 quick-fix `agent` block pinning `general`/`explore`/`scout`, remove it after the first sync with this version — those entries now shadow (and are made redundant by) `config.json`; `opencode-sync` warns on every sync while it detects the overlap (FR#13).
+- **Compatibility lint (`--lint-only` / `--check-source`)** — shares the same pattern table as the rewriter (in-process, same script) so the two can't drift apart. Scans synced `skills/`, `commands/`, and agent body content (frontmatter excluded — it legitimately contains remapped model IDs) for residual `general-purpose` dispatches, unrewritten `model: sonnet|haiku|opus` clauses (case-insensitive, tolerant of markdown bold-wrapped labels like `**Model**:` and backtick-only-around-the-value forms), and any literal `general-purpose` string. Also warns (non-fatal) on `isolation: "worktree"` and `run_in_background`, which OpenCode can't honor. `--lint-only` runs automatically at the end of every sync — a lint failure exits the sync non-zero but leaves installed files in place; the remedy is fixing the source skill/pattern table and re-syncing, not uninstalling. `--check-source` runs the same checks against this repo's own source instead (see above) and is the mechanism `prek.toml`'s `lint-opencode-sync` hook runs at commit time.
+  - **Suppressing an accepted false positive:** the literal-`general-purpose` check is a blunt catch-all — it can't distinguish an unrewritten dispatch (a real gap) from ordinary prose that legitimately names the identifier (a routing table value, a cautionary note). Rewording the latter to dodge the check risks making the documentation factually wrong (e.g. a routing table that no longer states the actual value to pass `--agent-type`). For an acknowledged false positive, add a trailing `<!-- opencode-sync: ok -->` comment on the same line instead — the lint skips any line containing it. `grep -rn 'opencode-sync: ok'` lists every acknowledged instance.
+
+#### Verification: child-session model routing
+
+Model enforcement above is config-level, not something you can `grep` for after the fact — the real proof is what model a dispatched child session actually used. After exercising a workflow (e.g. running `mine-orchestrate` or any skill that dispatches subagents) in OpenCode, run this manually against the live session database:
+
+```sql
+-- Run against ~/.local/share/opencode/opencode.db
+-- Open read-only with PRAGMA busy_timeout = 5000 to avoid lock contention
+-- if OpenCode is still running (sqlite3 example below):
+--   sqlite3 "file:$HOME/.local/share/opencode/opencode.db?mode=ro"
+PRAGMA busy_timeout = 5000;
+SELECT id,
+       agent,
+       json_extract(model, '$.id') AS model_id,
+       parent_id,
+       datetime(time_created / 1000, 'unixepoch') AS created
+FROM session
+WHERE parent_id IS NOT NULL
+ORDER BY time_created DESC
+LIMIT 20;
+```
+
+There is no separate `agents` table — the `session` table itself carries the agent name (`agent` column, e.g. `worker-standard`, `code-reviewer`, `general`) and the resolved model as a JSON blob (`model` column, e.g. `{"id":"gpt-5.6-terra","providerID":"openai","variant":"default"}`); `json_extract` pulls out the model ID for readability. `parent_id IS NOT NULL` filters to child (dispatched) sessions only. This is a manual verification step for spot-checking after a sync or a workflow run — not an `opencode-sync` subcommand.
 
 ## Packages
 

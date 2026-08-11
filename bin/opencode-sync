@@ -1,167 +1,119 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = []
+# ///
+"""Sync Claudefiles config to OpenCode via OpenPackage.
 
-# Sync Claudefiles config to OpenCode via OpenPackage.
-#
-# Workflow:
-#   1. Create a temp copy of Claudefiles without .claude/ (triggers opkg misdetection)
-#   2. Run opkg install targeting opencode platform
-#   3. Remap Claude model names to OpenAI equivalents
-#
-# Requires: npx (comes with Node.js)
+Workflow:
+  1. Create a temp copy of Claudefiles without .claude/ (triggers opkg misdetection)
+  2. Run opkg install targeting the opencode platform
+  3. Strip Claude-specific frontmatter fields that have no OpenCode equivalent
 
-# --- Configuration -----------------------------------------------------------
+Requires: npx (comes with Node.js)
 
-# Model mapping: Claude tier → OpenAI model ID
-# Update these when switching to newer OpenAI models.
-declare -A MODEL_MAP=(
-  [opus]="openai/gpt-5.5"
-  [sonnet]="openai/gpt-5.4"
-  [haiku]="openai/gpt-5.4-mini"
-)
+Built incrementally against design/specs/1006-oc-native-agents: T01 laid the
+script skeleton; T02 added worker agent + config.json generation
+(TIER_MAP-driven); T03 added the dispatch rewriter and frontmatter model
+remap; T04 added the compatibility lint (--lint-only), opencode.jsonc
+collision detection, and foreign config.json backup.
+"""
 
-OPKG_VERSION="0.11.3"
+import argparse
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from collections.abc import Iterator
+from pathlib import Path
+from typing import NoReturn
 
-OPENCODE_CONFIG="$HOME/.config/opencode"
-CLAUDEFILES="${CLAUDEFILES_DIR:-$HOME/Claudefiles}"
+OPKG_VERSION = "0.11.3"
+OPKG_PACKAGE_NAME = "claudefiles"
+OPKG_TIMEOUT_SECONDS = 120
 
-# Tracks which Claudefiles commit was last synced to OpenCode.
-SYNC_SHA_FILE="$OPENCODE_CONFIG/.claudefiles-sync-sha"
-SHA_DISPLAY_LEN=12
+OPENCODE_CONFIG = Path.home() / ".config" / "opencode"
+
+# Unified sync state (FR#16): commit SHA, generated config.json hash (for
+# foreign-config detection), and this script's own hash (so an uncommitted
+# TIER_MAP edit still marks the install stale). The opencode.jsonc collision
+# check (FR#13) warns fresh every run instead of persisting state here -- see
+# check_collisions().
+SYNC_STATE_FILE = OPENCODE_CONFIG / ".claudefiles-sync-state.json"
+SHA_DISPLAY_LEN = 12
+
+# Filename/suffix constants for the generated config.json and its backups,
+# shared by generate_config() and handle_foreign_config() so the two writers
+# of/around the same file can't drift on what it's called.
+CONFIG_JSON_FILENAME = "config.json"
+CONFIG_BACKUP_SUFFIX = ".bak"
+FOREIGN_BACKUP_SUFFIX = ".foreign.bak"
+TMP_FILE_SUFFIX = ".tmp"
 
 # Dirs excluded from staging: .claude/ (causes opkg platform misdetection),
 # VCS/caches (.git, __pycache__, node_modules, .venv), and Python packaging/dev
 # artifacts (packages, tests, design) that aren't agent config.
-EXCLUDE_DIRS=(.claude __pycache__ node_modules .git packages tests design .venv)
+EXCLUDE_DIRS = {
+    ".claude",
+    "__pycache__",
+    "node_modules",
+    ".git",
+    "packages",
+    "tests",
+    "design",
+    ".venv",
+}
 
 # Rules that reference Claude-specific harness features with no OpenCode equivalent.
-HARNESS_ONLY_RULES=(sudo.md tmux.md)
+HARNESS_ONLY_RULES = ["sudo.md", "tmux.md"]
 
 # Opkg output lines to surface in non-verbose mode (coupled to opkg's format).
-OPKG_SUCCESS_PATTERN="^✓|Installed files:|No files"
+OPKG_SUCCESS_PATTERN = re.compile(r"^✓|Installed files:|No files")
 
-# --- Helpers ------------------------------------------------------------------
-
-die() {
-  printf '%s\n' "$1" >&2
-  exit 1
+# Single source of truth for model routing: drives worker agent generation,
+# config.json generation, and (T03) dispatch rewriting. `opus` has no worker
+# entry because no `general-purpose` dispatches currently use opus tier — the
+# lint (T04) catches it if one appears. `plan` sits in the sonnet row
+# deliberately: Claude Code's model-default hook runs `Plan` at sonnet, and
+# pinning it at haiku/luna would be a silent tier downgrade.
+TIER_MAP = {
+    "opus": {
+        "model": "openai/gpt-5.6-sol",
+        "worker": None,
+        "worker_description": None,
+        "builtins": [],
+    },
+    "sonnet": {
+        "model": "openai/gpt-5.6-terra",
+        "worker": "worker-standard",
+        "worker_description": "Standard worker for implementation, review, and synthesis tasks",
+        "builtins": ["general", "plan"],
+    },
+    "haiku": {
+        "model": "openai/gpt-5.6-luna",
+        "worker": "worker-lightweight",
+        "worker_description": "Lightweight worker for triage, mechanical analysis, and low-cost tasks",
+        "builtins": ["explore", "scout"],
+    },
 }
 
-check_deps() {
-  command -v npx > /dev/null 2>&1 || die "npx not found. Install Node.js."
-  command -v rsync > /dev/null 2>&1 || die "rsync not found. Install rsync."
-}
-
-# Wraps the external opkg command via npx — shadows the name so all call sites
-# read naturally as `opkg install ...` etc.
-opkg() {
-  npx --yes "opkg@${OPKG_VERSION}" "$@"
-}
-
-in_worktree() {
-  local git_dir common_dir
-  git_dir=$(cd "$CLAUDEFILES" 2> /dev/null && git rev-parse --absolute-git-dir 2> /dev/null) || return 1
-  # --path-format=absolute forces an absolute path; plain --git-common-dir
-  # returns a *relative* path when run from the repo root (but absolute from
-  # a worktree), so comparing it against --absolute-git-dir here silently
-  # misdetects the main repo as a worktree. Do not revert to the plain form.
-  common_dir=$(cd "$CLAUDEFILES" 2> /dev/null && git rev-parse --path-format=absolute --git-common-dir 2> /dev/null) ||
-    die "Unable to determine git common dir (requires git >= 2.31); refusing to sync"
-  [[ "$git_dir" != "$common_dir" ]]
-}
-
-# Remap model fields in a directory.
-# $1: directory to scan
-# $2: "anchored" for frontmatter-only (^model: X$) or "inline" for any occurrence
-remap_models() {
-  local dir="$1" mode="$2"
-  local count=0
-
-  if [[ "$mode" != "anchored" && "$mode" != "inline" ]]; then
-    die "remap_models: unknown mode '$mode' (expected 'anchored' or 'inline')"
-  fi
-
-  for claude_model in "${!MODEL_MAP[@]}"; do
-    local openai_model="${MODEL_MAP[$claude_model]}"
-    local grep_pattern sed_pattern
-
-    if [[ "$mode" == "anchored" ]]; then
-      grep_pattern="^model: ${claude_model}$"
-      sed_pattern="s#^model: ${claude_model}\$#model: ${openai_model}#"
-    else
-      grep_pattern="model: ${claude_model}"
-      sed_pattern="s#model: ${claude_model}#model: ${openai_model}#g"
-    fi
-
-    while IFS= read -r -d '' file; do
-      sed -i "$sed_pattern" "$file"
-      count=$((count + 1))
-    done < <(grep -rlZ "$grep_pattern" "$dir" 2> /dev/null || true)
-  done
-
-  printf '%d' "$count"
-}
-
-# --- Argument parsing (sets runtime flags: lowercase to distinguish from config)
-
-parse_args() {
-  dry_run=false
-  verbose=false
-  allow_worktree=false
-  check_only=false
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --dry-run | -n)
-        dry_run=true
-        shift
-        ;;
-      --verbose | -v)
-        verbose=true
-        shift
-        ;;
-      --allow-worktree)
-        allow_worktree=true
-        shift
-        ;;
-      --check)
-        check_only=true
-        shift
-        ;;
-      --help | -h)
-        printf 'Usage: opencode-sync [--dry-run] [--verbose] [--allow-worktree] [--check]\n\n'
-        printf 'Sync Claudefiles to OpenCode config via OpenPackage.\n\n'
-        printf 'Options:\n'
-        printf '  --dry-run, -n       Show what would be installed without writing\n'
-        printf '  --verbose, -v       Show opkg output\n'
-        printf '  --allow-worktree    Permit running from a worktree checkout\n'
-        printf '  --check             Check if sync is up-to-date (exit 0=current, 1=stale)\n'
-        exit 0
-        ;;
-      *) die "Unknown option: $1" ;;
-    esac
-  done
-}
-
-# --- Staging ------------------------------------------------------------------
-
-stage_config() {
-  local tmpdir="$1"
-
-  $verbose && printf 'Staging clean copy to %s...\n' "$tmpdir"
-
-  local exclude_args=()
-  for dir in "${EXCLUDE_DIRS[@]}"; do
-    exclude_args+=("--exclude=$dir")
-  done
-
-  rsync -a "${exclude_args[@]}" "$CLAUDEFILES/" "$tmpdir/claudefiles/"
-
-  for rule in "${HARNESS_ONLY_RULES[@]}"; do
-    rm -f "$tmpdir/claudefiles/rules/common/$rule"
-  done
-
-  cat > "$tmpdir/claudefiles/rules/common/opencode-compat.md" << 'RULE'
+WORKER_AGENT_TEMPLATE = """---
+name: {name}
+mode: subagent
+model: {model}
+description: {description}
 ---
+"""
+
+# Depth 2 covers the deepest current workflow (executor -> reviewer); depth 3
+# provides one level of headroom for future three-level workflows (FR#7).
+SUBAGENT_DEPTH = 3
+
+OPENCODE_COMPAT_RULE = """---
 tool: opencode
 ---
 
@@ -179,120 +131,1518 @@ This configuration was developed for Claude Code and adapted for OpenCode. Most 
 - "settings.json" → opencode.json
 
 When an instruction is clearly inapplicable (e.g., references a hook that doesn't exist), skip it silently rather than erroring.
-RULE
+"""
+
+
+def die(message: str) -> NoReturn:
+    print(message, file=sys.stderr)
+    sys.exit(1)
+
+
+def get_claudefiles_dir() -> Path:
+    return Path(os.environ.get("CLAUDEFILES_DIR", str(Path.home() / "Claudefiles")))
+
+
+def check_deps() -> None:
+    if shutil.which("npx") is None:
+        die("npx not found. Install Node.js.")
+
+
+# Vars git sets on every hook invocation (pre-commit, prek's hook-impl) to
+# pin the hook to the repo/worktree/index that triggered it. Confirmed
+# empirically that their presence breaks cwd-based discovery: with GIT_DIR
+# set, `git -C bin rev-parse --show-toplevel` returns `bin` itself instead
+# of walking up to the real repo root -- once GIT_DIR is explicit, git treats
+# cwd as the work tree root rather than discovering it. Every call site here
+# passes an explicit directory it wants resolved *from*, so ambient hook
+# environment must never be allowed to override that.
+_GIT_ENV_OVERRIDE_VARS = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_PREFIX",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_COMMON_DIR",
+)
+
+
+def _git_rev_parse(claudefiles: Path, args: list[str]) -> str | None:
+    """Run `git rev-parse <args>` in claudefiles. Returns stripped stdout, or
+    None on failure. Strips _GIT_ENV_OVERRIDE_VARS from the subprocess
+    environment first -- see that constant's comment.
+    """
+    env = {k: v for k, v in os.environ.items() if k not in _GIT_ENV_OVERRIDE_VARS}
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", *args],
+            cwd=claudefiles,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=env,
+        )
+    except OSError:
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
+def in_worktree(claudefiles: Path) -> bool:
+    """Detect if claudefiles is a git worktree (not the main working tree).
+
+    --path-format=absolute forces an absolute path; plain --git-common-dir returns a
+    *relative* path when run from the repo root (but absolute from a worktree), so
+    comparing it against --absolute-git-dir here silently misdetects the main repo as
+    a worktree. Do not revert to the plain form.
+
+    Both git subprocess calls die() on failure rather than returning False --
+    this guard exists specifically to prevent overwriting live config with
+    branch state, so when the check itself can't run (git missing from PATH,
+    permission error, etc.) the safe default is refusing to sync, not
+    silently assuming "not a worktree" and proceeding.
+    """
+    git_dir = _git_rev_parse(claudefiles, ["--absolute-git-dir"])
+    if git_dir is None:
+        die("Unable to determine git dir; refusing to sync")
+    common_dir = _git_rev_parse(
+        claudefiles, ["--path-format=absolute", "--git-common-dir"]
+    )
+    if common_dir is None:
+        die(
+            "Unable to determine git common dir (requires git >= 2.31); refusing to sync"
+        )
+    return git_dir != common_dir
+
+
+def _script_repo_root() -> str | None:
+    """Resolve the git repo root containing this script file (not
+    get_claudefiles_dir(), which answers a different question -- see
+    callers: check_source() and _warn_on_worktree_mismatch() below). Both
+    need "what repo is the running script actually in," and share this one
+    resolution so they can't drift apart on how they answer it.
+    """
+    return _git_rev_parse(Path(__file__).resolve().parent, ["--show-toplevel"])
+
+
+def _warn_on_worktree_mismatch(claudefiles: Path) -> None:
+    """Warn (non-fatal) when --allow-worktree is used and this script's own
+    repo disagrees with the content it's about to sync.
+
+    --allow-worktree exists to let a developer test an in-progress
+    opencode-sync change from its own worktree. That only works if the
+    running script and the content it syncs (CLAUDEFILES_DIR) resolve to the
+    same repo -- otherwise the two identities silently drift apart (this
+    repo's CLAUDE.md names this exact bug class: a state key resolved from a
+    worktree-local identity diverging from the identity it's supposed to
+    travel with).
+    """
+    script_root = _script_repo_root()
+    if script_root is not None and Path(script_root).resolve() != claudefiles.resolve():
+        print(
+            f"WARNING: running script from {script_root}, but syncing "
+            f"content from {claudefiles} -- these are different repos/"
+            "worktrees. If you meant to test this worktree's own "
+            "changes, set CLAUDEFILES_DIR accordingly.",
+            file=sys.stderr,
+        )
+
+
+def stage_config(claudefiles: Path, tmpdir: Path, *, verbose: bool = False) -> Path:
+    """Create a clean staging copy of claudefiles under tmpdir. Returns the staged dir."""
+    staged = tmpdir / OPKG_PACKAGE_NAME
+    if verbose:
+        print(f"Staging clean copy to {staged}...")
+
+    def ignore(_dir: str, names: list[str]) -> set[str]:
+        return {n for n in names if n in EXCLUDE_DIRS}
+
+    shutil.copytree(claudefiles, staged, ignore=ignore)
+
+    for rule in HARNESS_ONLY_RULES:
+        (staged / "rules" / "common" / rule).unlink(missing_ok=True)
+
+    compat_path = staged / "rules" / "common" / "opencode-compat.md"
+    compat_path.parent.mkdir(parents=True, exist_ok=True)
+    compat_path.write_text(OPENCODE_COMPAT_RULE)
+
+    return staged
+
+
+def _run_opkg_best_effort(args: list[str]) -> subprocess.CompletedProcess[str] | None:
+    """Run an opkg subcommand via npx, returning None on timeout/OSError instead of
+    raising. Shared by opkg_list_includes_claudefiles() and uninstall_previous(),
+    which both treat opkg failures as non-fatal (list failure -> caller decides how
+    to handle "unknown state"; uninstall failure -> the subsequent install still
+    runs). Not shared with run_opkg(), which fails loudly (die()) instead -- a
+    mismatched error-handling mode isn't worth folding into one helper.
+    """
+    try:
+        return subprocess.run(
+            [
+                "npx",
+                "--yes",
+                f"opkg@{OPKG_VERSION}",
+                *args,
+                "-g",
+                "--cwd",
+                str(Path.home()),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=OPKG_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+
+
+def opkg_list_includes_claudefiles() -> bool | None:
+    """Check whether `opkg list` reports claudefiles as installed.
+
+    Returns None (rather than False) when the check itself couldn't run
+    (timeout, OSError, non-zero exit) -- collapsing "checked, found nothing"
+    and "couldn't check" into the same False previously let a transient opkg
+    failure silently skip the pre-install orphan cleanup with no signal that
+    anything was skipped.
+    """
+    result = _run_opkg_best_effort(["list"])
+    if result is None or result.returncode != 0:
+        return None
+    return re.search(rf"\b{OPKG_PACKAGE_NAME}\b", result.stdout) is not None
+
+
+def uninstall_previous() -> None:
+    """Best-effort uninstall of the previous claudefiles opkg install. Failures are ignored —
+    if this fails, the subsequent install still runs; the user reruns on any real problem.
+    """
+    _run_opkg_best_effort(["uninstall", OPKG_PACKAGE_NAME])
+
+
+def run_opkg(
+    staged_dir: Path, *, dry_run: bool, verbose: bool, home_override: Path | None = None
+) -> str:
+    """Invoke `opkg install` on the staged directory via npx. Exits non-zero on failure.
+
+    `home_override`, when given, redirects the install to a scratch home
+    directory instead of the real one: `--cwd` points at it and `HOME` is set
+    in the subprocess env, so `opkg -g` (which resolves "global" via `HOME`)
+    writes under `<home_override>/.config/opencode` rather than the live
+    config. The install always runs for real in that mode (no `--dry-run`)
+    since the scratch directory is disposable -- this is how dry-run preview
+    gets an accurate look at what would be installed, without touching the
+    real config. `dry_run` still controls `--dry-run` for the real install
+    path exactly as before, independent of `home_override`.
+    """
+    args = [
+        "npx",
+        "--yes",
+        f"opkg@{OPKG_VERSION}",
+        "install",
+        str(staged_dir),
+        "--platforms",
+        "opencode",
+        "--cwd",
+        str(home_override) if home_override is not None else str(Path.home()),
+        "-g",
+        "--force",
+    ]
+    if dry_run and home_override is None:
+        args.append("--dry-run")
+
+    if verbose:
+        print(f"Running: {' '.join(args)}")
+
+    env = (
+        {**os.environ, "HOME": str(home_override)}
+        if home_override is not None
+        else None
+    )
+
+    try:
+        result = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            timeout=OPKG_TIMEOUT_SECONDS,
+            check=False,
+            env=env,
+        )
+    except subprocess.TimeoutExpired:
+        die(f"opkg install timed out after {OPKG_TIMEOUT_SECONDS}s")
+    except OSError as exc:
+        die(f"Failed to run opkg: {exc}")
+
+    if result.returncode != 0:
+        print(result.stderr, file=sys.stderr)
+        die("opkg install failed")
+
+    output = result.stdout
+    if verbose:
+        print(output)
+        return output
+
+    filtered = "\n".join(
+        line for line in output.splitlines() if OPKG_SUCCESS_PATTERN.search(line)
+    )
+    print(filtered if filtered else output)
+    return output
+
+
+def _split_frontmatter(content: str) -> tuple[str, str]:
+    """Split a leading YAML frontmatter block (between the first two `---`
+    lines) off from the rest of the file. Returns (frontmatter_incl_markers,
+    body); if there's no frontmatter block, returns ("", content) unchanged.
+    """
+    lines = content.splitlines(keepends=True)
+    if not lines or lines[0].strip() != "---":
+        return "", content
+
+    end_idx = None
+    for i in range(1, len(lines)):
+        if lines[i].strip() == "---":
+            end_idx = i
+            break
+    if end_idx is None:
+        return "", content
+
+    return "".join(lines[: end_idx + 1]), "".join(lines[end_idx + 1 :])
+
+
+def process_agent_frontmatter(agents_dir: Path, *, dry_run: bool) -> int:
+    """Strip `color:` fields (FR#10) and remap Claude tier names to
+    provider-qualified model IDs in agent frontmatter, in one pass per file.
+
+    Both transforms touch only frontmatter over the same file set (agent
+    `.md` files) with no data dependency between them or on the dispatch
+    rewriter, which runs on body content only for agent files -- so there's
+    no reason to pay for two separate read/split/write cycles per file.
+
+    Only lines between the opening pair of `---` markers are touched — body
+    content (which may legitimately contain the word "color", or Claude tier
+    names inside skill dispatch prose) is left alone. Preserves trailing
+    inline comments on `model:` lines (e.g. `# claude-sonnet-5 as of
+    2026-07-07 — do not downgrade`).
+
+    Returns the number of files modified (or that would be modified, in
+    dry-run mode).
+    """
+    if not agents_dir.is_dir():
+        return 0
+
+    modified = 0
+    for md_file in sorted(agents_dir.glob("*.md")):
+        content = md_file.read_text()
+        frontmatter, body = _split_frontmatter(content)
+        if not frontmatter:
+            continue
+
+        # fm_lines[0] and fm_lines[-1] are the `---` markers themselves.
+        fm_lines = frontmatter.splitlines(keepends=True)
+        new_fm_lines = (
+            fm_lines[:1]
+            + [line for line in fm_lines[1:-1] if not line.startswith("color: ")]
+            + fm_lines[-1:]
+        )
+
+        for i in range(1, len(new_fm_lines) - 1):
+            line_body, eol = _split_eol(new_fm_lines[i])
+            m = FRONTMATTER_MODEL_RE.match(line_body)
+            if m is None:
+                continue
+            tier_entry = TIER_MAP.get(m.group(1))
+            if tier_entry is None:
+                continue
+            new_line_body = f"model: {tier_entry['model']}{m.group(2)}"
+            if new_line_body != line_body:
+                new_fm_lines[i] = new_line_body + eol
+
+        new_content = "".join(new_fm_lines) + body
+        if new_content == content:
+            continue
+
+        modified += 1
+        if dry_run:
+            print(f"[dry-run] would update frontmatter in {md_file}")
+        else:
+            _atomic_write_text(md_file, new_content)
+
+    return modified
+
+
+def _sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _empty_sync_state() -> dict:
+    return {
+        "sync_sha": None,
+        "config_hash": None,
+        "sync_script_hash": None,
+    }
+
+
+def load_sync_state(state_file: Path) -> dict:
+    """Load the unified sync state (FR#16). Returns a state dict with
+    empty/None fields if the file doesn't exist (first-ever sync).
+    """
+    if not state_file.exists():
+        return _empty_sync_state()
+
+    try:
+        return json.loads(state_file.read_text())
+    except json.JSONDecodeError:
+        print(
+            f"WARNING: {state_file} is corrupt (invalid JSON); "
+            "treating as never-synced.",
+            file=sys.stderr,
+        )
+        return _empty_sync_state()
+
+
+def _atomic_write(target: Path, data: bytes, *, mode: int | None = None) -> None:
+    """Write `data` to `target` atomically: tempfile in the same directory
+    (keeps the final os.replace() on the same filesystem) -> fsync ->
+    os.replace() into place. The tempfile is removed on any exception.
+
+    The fsync matters: os.replace() only guarantees the rename itself is
+    atomic (no torn file mid-rename), not that the new content has actually
+    reached disk. Without it, an unclean shutdown between the write and the
+    kernel's next background flush can still leave the replaced file
+    truncated or stale after reboot -- silently defeating the reason this
+    helper exists (see _atomic_write_json).
+
+    `mode` (e.g. `target.stat().st_mode` when replacing an existing file
+    like a backup copy) is applied to the tempfile before the replace, since
+    mkstemp() otherwise creates it 0600 regardless of what the file being
+    replaced was set to -- without this, backups written through this helper
+    silently drop the original file's permissions instead of preserving them
+    the way `shutil.copy2` did.
+    """
+    fd, tmp_path_str = tempfile.mkstemp(
+        prefix=f".{target.name}.", suffix=TMP_FILE_SUFFIX, dir=target.parent
+    )
+    tmp_path = Path(tmp_path_str)
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+        if mode is not None:
+            os.chmod(tmp_path, mode)
+        os.replace(tmp_path, target)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise
+
+
+def _atomic_write_text(target: Path, content: str) -> None:
+    """Write `content` to `target` atomically (see _atomic_write) -- for the
+    plain-text .md files this script rewrites in place (dispatch rewrite,
+    frontmatter processing, worker agent generation), which get the same
+    crash-safety as config.json and the sync state file.
+    """
+    _atomic_write(target, content.encode())
+
+
+def _atomic_write_json(
+    target: Path, content: str, *, backup: Path | None = None
+) -> None:
+    """Write `content` to `target` atomically (see _atomic_write) after
+    validating it as JSON, optionally backing up the existing file first.
+
+    Shared by generate_config() and write_sync_state() -- both write a JSON
+    file that must never be left truncated or invalid: a malformed
+    config.json silently wipes all three global OpenCode config files
+    (OpenCode's single-fallback error handler in loadGlobal()), and a
+    truncated sync state file would fail every subsequent invocation until
+    manually removed. The backup also goes through _atomic_write -- a crash
+    mid-backup would otherwise leave the rollback copy itself truncated,
+    corrupting the safety net at exactly the moment it might be needed.
+    """
+    json.loads(content)  # validate before it ever becomes the live file
+
+    if backup is not None and target.exists():
+        _atomic_write(backup, target.read_bytes(), mode=target.stat().st_mode)
+
+    _atomic_write(target, content.encode())
+
+
+def write_sync_state(state_file: Path, state: dict) -> None:
+    """Write the sync state atomically -- mirrors generate_config()'s write
+    path via the shared _atomic_write_json() helper. An interrupted plain
+    write could leave the state file truncated, and load_sync_state() would
+    then fail every subsequent invocation until the file is manually
+    removed.
+    """
+    state_file.parent.mkdir(parents=True, exist_ok=True)
+    content = json.dumps(state, indent=2) + "\n"
+    _atomic_write_json(state_file, content)
+
+
+def check_sync_status(claudefiles: Path, state_file: Path) -> bool:
+    """Print sync status and return True if the OpenCode install is current.
+
+    Current requires both the Claudefiles commit SHA and this script's own
+    hash to match the recorded state — a TIER_MAP edit changes the script's
+    hash even before it's committed, so hash drift alone is enough to mark
+    the install stale (script rewrite section, context.md decision #6).
+    """
+    current_sha = _git_rev_parse(claudefiles, ["HEAD"])
+    if current_sha is None:
+        die(f"Not a git repo: {claudefiles}")
+    current_script_hash = _sha256_file(Path(__file__).resolve())
+
+    state = load_sync_state(state_file)
+    stored_sha = state.get("sync_sha")
+    stored_script_hash = state.get("sync_script_hash")
+
+    if stored_sha == current_sha and stored_script_hash == current_script_hash:
+        print(f"Up-to-date (synced at {current_sha[:SHA_DISPLAY_LEN]})")
+        return True
+    if not stored_sha:
+        print(f"Never synced (current HEAD: {current_sha[:SHA_DISPLAY_LEN]})")
+        return False
+    if stored_sha == current_sha:
+        print(
+            f"Stale (opencode-sync itself changed since last sync at "
+            f"{stored_sha[:SHA_DISPLAY_LEN]})"
+        )
+        return False
+    print(
+        f"Stale (synced at {stored_sha[:SHA_DISPLAY_LEN]}, "
+        f"current HEAD: {current_sha[:SHA_DISPLAY_LEN]})"
+    )
+    return False
+
+
+def generate_worker_agents(agents_dir: Path, *, dry_run: bool) -> list[str]:
+    """Generate worker-*.md agent files under agents_dir from TIER_MAP (FR#1).
+
+    Before writing, deletes any existing worker-*.md whose basename doesn't
+    correspond to a current TIER_MAP `worker` value — prevents orphaned worker
+    agents from lingering after a tier rename. In dry-run mode, prints what
+    would be generated/removed without touching the filesystem.
+
+    Returns the list of worker agent names generated.
+    """
+    current_workers = {
+        tier["worker"] for tier in TIER_MAP.values() if tier["worker"] is not None
+    }
+
+    if agents_dir.is_dir():
+        for existing in sorted(agents_dir.glob("worker-*.md")):
+            if existing.stem in current_workers:
+                continue
+            if dry_run:
+                print(f"[dry-run] would remove orphaned worker agent: {existing}")
+            else:
+                existing.unlink()
+
+    generated = []
+    for tier in TIER_MAP.values():
+        worker = tier["worker"]
+        if worker is None:
+            continue
+
+        content = WORKER_AGENT_TEMPLATE.format(
+            name=worker, model=tier["model"], description=tier["worker_description"]
+        )
+        target = agents_dir / f"{worker}.md"
+
+        if dry_run:
+            print(f"[dry-run] would write {target}:\n{content}")
+        else:
+            agents_dir.mkdir(parents=True, exist_ok=True)
+            _atomic_write_text(target, content)
+
+        generated.append(worker)
+
+    return generated
+
+
+def build_agent_config() -> dict[str, dict[str, str]]:
+    """Build the `agent` mapping of config.json from TIER_MAP.
+
+    Every builtin and worker in TIER_MAP maps to that tier's model. Pinning
+    both the built-in subagents and the generated workers at config level (not
+    just frontmatter) guards against the frontmatter-ignored failure mode
+    (issues #17870/#35126).
+    """
+    agent_config: dict[str, dict[str, str]] = {}
+    for tier in TIER_MAP.values():
+        for builtin in tier["builtins"]:
+            agent_config[builtin] = {"model": tier["model"]}
+        if tier["worker"] is not None:
+            agent_config[tier["worker"]] = {"model": tier["model"]}
+    return agent_config
+
+
+def generate_config(config_dir: Path, *, dry_run: bool) -> str:
+    """Generate config.json with model pins and subagent_depth (FR#2, FR#7).
+
+    Written atomically: temp file in the same directory (keeps the final
+    os.replace() on the same filesystem) -> json validation -> existing
+    file backed up to config.json.bak -> fsync -> os.replace() into place. A
+    malformed config.json would silently wipe all three global config files
+    due to OpenCode's single-fallback error handler in loadGlobal().
+
+    Returns the generated content string, so the caller can hash it
+    in-memory (main() persists this as sync_state["config_hash"]) instead of
+    re-reading the file back from disk -- re-reading would leave a window
+    where a crash between the write and the re-read causes the next run's
+    handle_foreign_config() to mistake this sync's own valid output for a
+    hand-edited file.
+    """
+    config = {
+        "$schema": "https://opencode.ai/config.json",
+        "agent": build_agent_config(),
+        "subagent_depth": SUBAGENT_DEPTH,
+    }
+    content = json.dumps(config, indent=2) + "\n"
+    target = config_dir / CONFIG_JSON_FILENAME
+
+    if dry_run:
+        print(f"[dry-run] would write {target}:\n{content}")
+        return content
+
+    config_dir.mkdir(parents=True, exist_ok=True)
+    _atomic_write_json(
+        target,
+        content,
+        backup=config_dir / f"{CONFIG_JSON_FILENAME}{CONFIG_BACKUP_SUFFIX}",
+    )
+    return content
+
+
+# Claude Code built-in agent types with no OpenCode equivalent name -> lowercase
+# OpenCode built-in they map to. `general-purpose` is handled separately in
+# resolve() because it routes through TIER_MAP (tier-dependent), not a fixed name.
+BUILTIN_CASE_MAP = {
+    "Explore": "explore",
+    "Plan": "plan",
+    "claude": "general",
 }
 
-# --- Post-install processing --------------------------------------------------
+# Matches a `subagent_type:` clause, optionally wrapped in a single matching pair
+# of backtick and/or quote characters: `subagent_type: general-purpose`,
+# subagent_type: "code-reviewer", `subagent_type: "code-reviewer"`. The `type`
+# group is greedy over word/hyphen characters, so a longer identifier that merely
+# starts with a built-in name (`claude-code-guide`) is captured whole and never
+# equals the bare built-in name — word-boundary safety (FR#14) falls out of this
+# for free, no explicit \b needed.
+SUBAGENT_TYPE_RE = re.compile(
+    r"(?P<btopen>`)?"
+    r"subagent_type:\s*"
+    r"(?P<qopen>[\"'])?"
+    r"(?P<type>[A-Za-z][A-Za-z0-9_-]*)"
+    r"(?(qopen)(?P=qopen))"
+    r"(?(btopen)`)"
+)
 
-postprocess_config() {
-  if [[ -d "$OPENCODE_CONFIG/agents" ]]; then
-    sed -i '/^color: /d' "$OPENCODE_CONFIG/agents"/*.md 2> /dev/null || true
+# Matches a bare Claude Code built-in type name with no `subagent_type:` label
+# at all — Pattern 2's "Launch a `general-purpose` subagent with `model:
+# sonnet`" prose shape, plus the same phrase unwrapped ("Launch a
+# general-purpose subagent...") or wrapped in markdown bold whose closing `**`
+# lands after trailing words ("**general-purpose subagent**") rather than
+# immediately after the type name -- no wrap-symmetry is required, only that
+# whatever precedes/follows isn't a word or hyphen character, so it isolates
+# just the type word either way. Deliberately restricted to the four known
+# literal names (not open to arbitrary quoted words) so it can't misfire on
+# unrelated text. The lookaround boundaries (rather than `\b`) are what make
+# FR#14 hold: `\b` treats `-` as a boundary, so a naive `\bclaude\b` would
+# match the "claude" prefix of "claude-code-guide"; `(?<![\w-])`/`(?![\w-])`
+# correctly treat the hyphen as part of the word, requiring the whole
+# compound to equal one of the four literal names exactly.
+BARE_BUILTIN_RE = re.compile(
+    r"(?<![\w-])(?P<type>general-purpose|Explore|Plan|claude)(?![\w-])"
+)
 
-    local agent_count
-    agent_count=$(remap_models "$OPENCODE_CONFIG/agents" "anchored")
-    printf 'Remapped models in %d agent file(s)\n' "$agent_count"
-  fi
+# Matches a `model:` clause naming a Claude tier, tolerant of: backticks around
+# the whole clause (`model: sonnet`), backticks around just the tier value
+# (model: `sonnet`), markdown bold around the word itself (**Model**: sonnet,
+# the bold-label dispatch shape used by e.g. **Agent type**: X / **Model**: Y),
+# and case (Model:, MODEL:). Without this tolerance, a bold-labeled or
+# value-only-backticked `model:` clause is invisible to this check -- for a
+# *named* (non-general-purpose) agent, that clause would leak through to
+# synced OpenCode output completely unflagged, since the catch-all literal
+# `general-purpose` check has nothing to catch in that case.
+MODEL_RE = re.compile(
+    r"(?P<btopen>`)?"
+    r"(?:\*\*)?model(?:\*\*)?:\s*"
+    r"(?P<vbtopen>`)?"
+    r"(?P<qopen>[\"'])?"
+    r"(?P<tier>sonnet|haiku|opus)\b"
+    r"(?(qopen)(?P=qopen))"
+    r"(?(vbtopen)`)"
+    r"(?(btopen)`)",
+    re.IGNORECASE,
+)
 
-  if [[ -d "$OPENCODE_CONFIG/skills" ]]; then
-    local skill_count
-    skill_count=$(remap_models "$OPENCODE_CONFIG/skills" "inline")
-    printf 'Remapped models in %d skill file(s)\n' "$skill_count"
-  fi
-}
+# Matches a line that consists of *only* a `model:` clause (plus optional list/
+# blockquote leader and surrounding whitespace) — used to detect the adjacent-
+# line pairing shape where `subagent_type:` and `model:` sit on separate lines,
+# e.g. a YAML-ish `Agent:` block or a two-bullet list. Same tolerance as
+# MODEL_RE (see above).
+STANDALONE_MODEL_RE = re.compile(
+    r"^(?P<lead>[\s>*-]*)"
+    r"(?P<btopen>`)?(?:\*\*)?model(?:\*\*)?:\s*"
+    r"(?P<vbtopen>`)?(?P<qopen>[\"'])?(?P<tier>sonnet|haiku|opus)\b"
+    r"(?(qopen)(?P=qopen))(?(vbtopen)`)(?(btopen)`)"
+    r"\s*$",
+    re.IGNORECASE,
+)
 
-# --- Sync status check --------------------------------------------------------
+# Matches `--agent-type <type>` with an optional trailing `--model <tier>` (the
+# cfl dispatch CLI shape, Pattern 5).
+CLI_DISPATCH_RE = re.compile(
+    r"--agent-type\s+(?P<type>[A-Za-z][A-Za-z0-9_-]*)"
+    r"(?:\s+--model\s+(?P<tier>sonnet|haiku|opus)\b)?"
+)
 
-check_sync_status() {
-  local current_sha stored_sha
-  current_sha=$(git -C "$CLAUDEFILES" rev-parse HEAD 2> /dev/null) || die "Not a git repo: $CLAUDEFILES"
-  stored_sha=$(cat "$SYNC_SHA_FILE" 2> /dev/null) || stored_sha=""
-  if [[ "$current_sha" == "$stored_sha" ]]; then
-    printf 'Up-to-date (synced at %s)\n' "${current_sha:0:$SHA_DISPLAY_LEN}"
-    return 0
-  elif [[ -z "$stored_sha" ]]; then
-    printf 'Never synced (current HEAD: %s)\n' "${current_sha:0:$SHA_DISPLAY_LEN}"
+# Matches a Claude tier name anchored at the start of a frontmatter `model:`
+# line, capturing any trailing content (typically an inline `# ...` comment) so
+# process_agent_frontmatter() can preserve it.
+FRONTMATTER_MODEL_RE = re.compile(r"^model:\s*(sonnet|haiku|opus)\b(.*)$")
+
+# Lint-only patterns (FR#11) for unsupported platform semantics — warnings,
+# not errors, since OpenCode simply can't honor these rather than the source
+# being wrong. Not shared with the rewriter, which has no reason to touch
+# either construct.
+ISOLATION_WORKTREE_RE = re.compile(r"""isolation:\s*["']worktree["']""")
+RUN_IN_BACKGROUND_RE = re.compile(r"run_in_background")
+
+# Explicit per-line suppression for the lint's blunt literal-`general-purpose`
+# check, which can't distinguish an unrewritten dispatch (a real gap) from
+# ordinary prose that legitimately names the identifier (a routing table
+# value, a cautionary note) -- rewording the latter to dodge the check would
+# make the documentation factually wrong (a reader following it would type
+# the wrong subagent_type). A source author adds this marker on the same
+# line, once, to record "this occurrence was checked and is intentional" --
+# greppable (`grep -rn 'opencode-sync: ok'`) rather than silently accepted.
+LINT_SUPPRESS_RE = re.compile(r"<!--\s*opencode-sync:\s*ok\s*-->")
+
+
+def resolve(agent_type: str, model_tier: str | None) -> tuple[str, str | None] | None:
+    """Route a (subagent_type, model tier) dispatch pair to its OpenCode equivalent.
+
+    The single shared routing decision point for both rewrite passes (prose and
+    CLI) — the dispatch rewriter changes `subagent_type`, not just `model` text
+    (context.md Key Decision #3).
+
+    Returns `(new_agent_type, new_model)` where `new_model` is always `None`
+    (OpenCode's Task tool has no per-call model parameter, so the model clause
+    is always dropped). Returns bare `None` when `agent_type` is `general-purpose`
+    and its tier has no worker mapping (currently only `opus`) — callers leave
+    the original text untouched so the T04 lint can flag it as a residual
+    pattern instead of it silently becoming a dangling `general` dispatch.
+    """
+    if agent_type == "general-purpose":
+        tier = model_tier if model_tier is not None else "sonnet"  # FR#15 default
+        tier_entry = TIER_MAP.get(tier)
+        if tier_entry is None or tier_entry["worker"] is None:
+            return None
+        return (tier_entry["worker"], None)
+
+    if agent_type in BUILTIN_CASE_MAP:
+        return (BUILTIN_CASE_MAP[agent_type], None)
+
+    return (agent_type, None)
+
+
+def _split_eol(line: str) -> tuple[str, str]:
+    """Split a line (as produced by splitlines(keepends=True)) into its body and
+    line-ending suffix, so the ending can be preserved through regex rewrites.
+    """
+    for eol in ("\r\n", "\n", "\r"):
+        if line.endswith(eol):
+            return line[: -len(eol)], eol
+    return line, ""
+
+
+def _apply_edits(text: str, edits: list[tuple[int, int, str]]) -> str:
+    """Apply non-overlapping (start, end, replacement) spans to text in one pass."""
+    for start, end, replacement in sorted(edits, key=lambda e: e[0], reverse=True):
+        text = text[:start] + replacement + text[end:]
+    return text
+
+
+def _removal_span_for_model(line: str, model_match: re.Match) -> tuple[int, int]:
+    """Extend a `model:` clause's match span to also swallow whatever connects it
+    to the neighboring `subagent_type:` reference, so removing it doesn't leave a
+    dangling separator behind. Tries, in order: a preceding `, `, a preceding
+    ` with ` (the common "subagent with `model: sonnet`" prose connector), a
+    following `, `. Falls back to the bare clause span if none apply.
+    """
+    start, end = model_match.span()
+    pre_comma = re.search(r",\s*$", line[:start])
+    if pre_comma:
+        return pre_comma.start(), end
+    pre_with = re.search(r"\s+with\s+$", line[:start])
+    if pre_with:
+        return pre_with.start(), end
+    post_comma = re.match(r"\s*,\s*", line[end:])
+    if post_comma:
+        return start, end + post_comma.end()
+    return start, end
+
+
+def _rewrite_line(line: str) -> str:
+    """Rewrite every `subagent_type:`/bare-builtin dispatch reference on a single
+    line, pairing at most one with a same-line `model:` clause. Bare builtin
+    mentions (Pattern 2, no `subagent_type:` label) are only rewritten when
+    paired with a model clause — unpaired, they're ordinary prose mentions and
+    are left for the T04 lint to flag. When a `model:` clause is present but a
+    given type match isn't the one paired with it (e.g. a second mention of the
+    same dispatch earlier on the line), that match is also left unrewritten
+    rather than guessing which mention the model clause belongs to.
+    """
+    subagent_matches = list(SUBAGENT_TYPE_RE.finditer(line))
+    # BARE_BUILTIN_RE has no `subagent_type:` anchor, so it also matches the type
+    # word inside a SUBAGENT_TYPE_RE match (e.g. the "general-purpose" in
+    # "subagent_type: general-purpose"). Drop any bare match already covered by
+    # a subagent_type match to avoid processing the same token twice.
+    bare_matches = [
+        m
+        for m in BARE_BUILTIN_RE.finditer(line)
+        if not any(
+            sm.start() <= m.start() and m.end() <= sm.end() for sm in subagent_matches
+        )
+    ]
+    type_matches = sorted(
+        [*subagent_matches, *bare_matches],
+        key=lambda m: m.start(),
+    )
+    if not type_matches:
+        return line
+
+    model_match = MODEL_RE.search(line)
+    paired_match = None
+    if model_match is not None:
+        preceding = [m for m in type_matches if m.end() <= model_match.start()]
+        paired_match = preceding[-1] if preceding else type_matches[-1]
+
+    edits: list[tuple[int, int, str]] = []
+    paired_resolved = False
+    for m in type_matches:
+        is_paired = model_match is not None and m is paired_match
+        if not is_paired and (m.re is BARE_BUILTIN_RE or model_match is not None):
+            # Unpaired bare mention (ordinary prose), or a labeled mention that
+            # lost the pairing to another match on the same line -- leave both
+            # as-is rather than applying the FR#15 default to a mention that
+            # actually has a model clause elsewhere on the line.
+            continue
+
+        result = resolve(
+            m.group("type"), model_match.group("tier") if is_paired else None
+        )
+        if result is None:
+            continue
+        new_type, _ = result
+        if is_paired:
+            paired_resolved = True
+        if new_type != m.group("type"):
+            edits.append((m.start("type"), m.end("type"), new_type))
+
+    if model_match is not None and paired_resolved:
+        edits.append((*_removal_span_for_model(line, model_match), ""))
+
+    return _apply_edits(line, edits)
+
+
+def rewrite_dispatches_prose(content: str) -> str:
+    """Pass 1: rewrite Patterns 1-4 and Cases 6-7 (prose and YAML-ish dispatch
+    shapes). Handles same-line pairing via _rewrite_line() and the adjacent-line
+    pairing shape (`subagent_type:` / `model:` on consecutive lines) by peeking
+    one line ahead and, on a match, dropping the model-only line entirely.
+
+    Adjacent-line pairing is forward-only: it only recognizes a `subagent_type:`
+    line followed by a standalone `model:` line, not the reverse order. A
+    `model:` line preceding `subagent_type:` is left untouched and the
+    `subagent_type:` line falls back to the FR#15 default tier.
+    """
+    lines = content.splitlines(keepends=True)
+    out: list[str] = []
+    i = 0
+    n = len(lines)
+    while i < n:
+        line = lines[i]
+        body, eol = _split_eol(line)
+
+        type_matches = list(SUBAGENT_TYPE_RE.finditer(body))
+        if type_matches and MODEL_RE.search(body) is None and i + 1 < n:
+            next_body, _next_eol = _split_eol(lines[i + 1])
+            standalone = STANDALONE_MODEL_RE.match(next_body)
+            if standalone is not None:
+                target = type_matches[-1]
+                result = resolve(target.group("type"), standalone.group("tier"))
+                if result is None:
+                    # Leave both lines untouched -- don't fall through to
+                    # _rewrite_line() below, which would treat this as a bare
+                    # dispatch (no model on this line) and apply the FR#15
+                    # default instead of respecting the unmapped tier.
+                    out.append(line)
+                    out.append(lines[i + 1])
+                    i += 2
+                    continue
+                new_type, _ = result
+                new_body = body
+                if new_type != target.group("type"):
+                    new_body = _apply_edits(
+                        body, [(target.start("type"), target.end("type"), new_type)]
+                    )
+                out.append(new_body + eol)
+                i += 2  # drop the standalone model-only line
+                continue
+
+        out.append(_rewrite_line(body) + eol)
+        i += 1
+
+    return "".join(out)
+
+
+def rewrite_dispatches_cli(content: str) -> str:
+    """Pass 2: rewrite `--agent-type <type> [--model <tier>]` (Pattern 5, the
+    `cfl dispatch` CLI shape), including the bare `--agent-type general-purpose`
+    dispatch with no `--model` flag at all (FR#15).
+    """
+
+    def _sub(m: re.Match) -> str:
+        result = resolve(m.group("type"), m.group("tier"))
+        if result is None:
+            return m.group(0)
+        new_type, _ = result
+        return f"--agent-type {new_type}"
+
+    return CLI_DISPATCH_RE.sub(_sub, content)
+
+
+def _rewrite_dispatch_file(
+    md_file: Path, dry_run: bool, *, split_frontmatter: bool
+) -> int:
+    """Apply both dispatch rewrite passes to one file's body content (frontmatter
+    excluded when split_frontmatter is set, for agent files). Returns 1 if the
+    file changed (or would change, in dry-run mode), else 0.
+    """
+    original = md_file.read_text()
+    frontmatter, body = (
+        _split_frontmatter(original) if split_frontmatter else ("", original)
+    )
+
+    new_body = rewrite_dispatches_cli(rewrite_dispatches_prose(body))
+    new_content = frontmatter + new_body
+    if new_content == original:
+        return 0
+
+    if dry_run:
+        print(f"[dry-run] would rewrite dispatches in {md_file}")
+    else:
+        _atomic_write_text(md_file, new_content)
     return 1
-  else
-    printf 'Stale (synced at %s, current HEAD: %s)\n' "${stored_sha:0:$SHA_DISPLAY_LEN}" "${current_sha:0:$SHA_DISPLAY_LEN}"
-    return 1
-  fi
-}
 
-# --- Main ---------------------------------------------------------------------
 
-main() {
-  parse_args "$@"
+def _walk_synced_md_files(config_dir: Path) -> Iterator[tuple[Path, bool]]:
+    """Enumerate every synced skill, command, and agent `.md` file, in the
+    fixed walk order the dispatch rewriter and the lint both depend on:
+    `skills/` and `commands/` (recursive, whole file) first, then `agents/`
+    (top-level only, frontmatter split out).
 
-  if $check_only; then
-    check_sync_status
-    return $?
-  fi
+    Yields `(path, split_frontmatter)` — the single source of truth for
+    "which files, which subset counts as frontmatter." `rewrite_all_dispatches`
+    and `_lint_targets` both build on this instead of each independently
+    encoding the same three-branch walk, which is exactly the class of bug
+    T03 needed two rounds of fixes to eliminate.
+    """
+    for subdir_name in ("skills", "commands"):
+        subdir = config_dir / subdir_name
+        if not subdir.is_dir():
+            continue
+        for md_file in sorted(subdir.rglob("*.md")):
+            yield md_file, False
 
-  check_deps
+    agents_dir = config_dir / "agents"
+    if agents_dir.is_dir():
+        for md_file in sorted(agents_dir.glob("*.md")):
+            yield md_file, True
 
-  if ! $allow_worktree && in_worktree; then
-    die "Refusing to sync from a worktree (would overwrite live config with branch state). Use --allow-worktree to override."
-  fi
 
-  [[ -d "$CLAUDEFILES" ]] || die "Claudefiles not found at $CLAUDEFILES"
+def rewrite_all_dispatches(config_dir: Path, *, dry_run: bool) -> int:
+    """Apply the dispatch rewriter to every synced skill, command, and agent
+    file. Skill and command files are rewritten whole; agent files have their
+    frontmatter excluded (body content only — the model remap is a separate
+    pass over agent frontmatter).
 
-  OPENCODE_SYNC_TMPDIR=$(mktemp -d "${CLAUDE_CODE_TMPDIR:-/tmp}/opencode-sync-XXXXXX")
-  trap 'rm -rf "${OPENCODE_SYNC_TMPDIR:-}"' EXIT
-  local tmpdir="$OPENCODE_SYNC_TMPDIR"
+    Returns the number of files modified (or that would be modified, in
+    dry-run mode).
+    """
+    modified = 0
+    for md_file, split_frontmatter in _walk_synced_md_files(config_dir):
+        modified += _rewrite_dispatch_file(
+            md_file, dry_run, split_frontmatter=split_frontmatter
+        )
+    return modified
 
-  # Uninstall previous install so deleted skills/agents don't linger as orphans.
-  # If the subsequent install fails, the user reruns — no automatic rollback.
-  if opkg list -g --cwd "$HOME" 2> /dev/null | grep -qw "claudefiles"; then
-    $verbose && printf 'Removing previous claudefiles install...\n'
-    if ! $dry_run; then
-      opkg uninstall claudefiles -g --cwd "$HOME" > /dev/null 2>&1 || true
-    fi
-  fi
 
-  stage_config "$tmpdir"
+def _lint_targets(config_dir: Path) -> list[tuple[Path, str, int]]:
+    """Enumerate (file_path, content, line_offset) targets for run_lint().
 
-  local -a opkg_args=(
-    install "$tmpdir/claudefiles"
-    --platforms opencode
-    --cwd "$HOME"
-    -g
-    --force
-  )
-  $dry_run && opkg_args+=(--dry-run)
+    Walks the same file set as rewrite_all_dispatches() via
+    _walk_synced_md_files(): skill and command files are scanned whole
+    (their frontmatter has no model fields to false-positive on); agent
+    files have frontmatter excluded (it contains remapped provider-qualified
+    model IDs, which would false-positive on the residual-tier-name check).
+    line_offset is the number of lines excluded from the front of the file,
+    so callers can report line numbers that match the file on disk rather
+    than the truncated body.
+    """
+    targets: list[tuple[Path, str, int]] = []
+    for md_file, split_frontmatter in _walk_synced_md_files(config_dir):
+        content = md_file.read_text()
+        if split_frontmatter:
+            frontmatter, body = _split_frontmatter(content)
+            targets.append((md_file, body, frontmatter.count("\n")))
+        else:
+            targets.append((md_file, content, 0))
+    return targets
 
-  $verbose && printf 'Running: opkg %s\n' "${opkg_args[*]}"
 
-  local opkg_output
-  if ! opkg_output=$(opkg "${opkg_args[@]}" 2>&1); then
-    printf '%s\n' "$opkg_output" >&2
-    die "opkg install failed"
-  fi
+def _lint_content(
+    path: Path,
+    content: str,
+    line_offset: int,
+    errors: list[str],
+    warnings: list[str],
+) -> None:
+    """Scan one file's content for lint findings (FR#6, FR#11), appending
+    "path:line: description" entries to errors/warnings in place.
 
-  if $verbose; then
-    printf '%s\n' "$opkg_output"
-  else
-    local filtered
-    filtered=$(printf '%s\n' "$opkg_output" | grep -E "$OPKG_SUCCESS_PATTERN" || true)
-    if [[ -n "$filtered" ]]; then
-      printf '%s\n' "$filtered"
-    else
-      printf '%s\n' "$opkg_output"
-    fi
-  fi
+    Reuses the dispatch rewriter's own pattern constants (SUBAGENT_TYPE_RE,
+    BARE_BUILTIN_RE, MODEL_RE, STANDALONE_MODEL_RE, CLI_DISPATCH_RE) rather
+    than redefining matching regexes, so the lint's notion of "a residual
+    dispatch" can't drift from what the rewriter actually rewrites
+    (context.md decision #6 / design "Key Constraints").
 
-  if $dry_run; then
-    printf '\n[dry-run] Configured model remaps (applied post-install):\n'
-    for claude_model in "${!MODEL_MAP[@]}"; do
-      printf '  model: %s → model: %s\n' "$claude_model" "${MODEL_MAP[$claude_model]}"
-    done
+    A line containing LINT_SUPPRESS_RE is skipped entirely (no errors or
+    warnings), for acknowledged prose false positives.
+    """
+    lines = content.splitlines()
+
+    for i, line in enumerate(lines):
+        if LINT_SUPPRESS_RE.search(line):
+            continue
+
+        lineno = i + 1 + line_offset
+        next_line = lines[i + 1] if i + 1 < len(lines) else None
+        paired_with_model = MODEL_RE.search(line) is not None or (
+            next_line is not None and STANDALONE_MODEL_RE.match(next_line) is not None
+        )
+
+        subagent_matches = [
+            m
+            for m in SUBAGENT_TYPE_RE.finditer(line)
+            if m.group("type") == "general-purpose"
+        ]
+        if subagent_matches and paired_with_model:
+            errors.append(
+                f"{path}:{lineno}: residual `subagent_type: general-purpose` "
+                "paired with `model:`"
+            )
+
+        # BARE_BUILTIN_RE also matches the type word inside a SUBAGENT_TYPE_RE
+        # match (e.g. the "general-purpose" in "subagent_type: general-purpose")
+        # -- drop matches already covered above so the same token isn't
+        # reported by both checks.
+        bare_matches = [
+            m
+            for m in BARE_BUILTIN_RE.finditer(line)
+            if m.group("type") == "general-purpose"
+            and not any(
+                sm.start() <= m.start() and m.end() <= sm.end()
+                for sm in subagent_matches
+            )
+        ]
+        if bare_matches and paired_with_model:
+            errors.append(
+                f"{path}:{lineno}: residual backtick-quoted `general-purpose` "
+                "paired with `model:`"
+            )
+
+        for m in CLI_DISPATCH_RE.finditer(line):
+            if m.group("type") == "general-purpose" and m.group("tier") is not None:
+                errors.append(
+                    f"{path}:{lineno}: residual `--agent-type general-purpose "
+                    f"--model {m.group('tier')}`"
+                )
+
+        for m in MODEL_RE.finditer(line):
+            errors.append(f"{path}:{lineno}: residual `model: {m.group('tier')}`")
+
+        if "general-purpose" in line:
+            errors.append(f"{path}:{lineno}: literal `general-purpose`")
+
+        if ISOLATION_WORKTREE_RE.search(line):
+            warnings.append(
+                f'{path}:{lineno}: `isolation: "worktree"` has no OpenCode equivalent'
+            )
+        if RUN_IN_BACKGROUND_RE.search(line):
+            warnings.append(
+                f"{path}:{lineno}: `run_in_background` is unsupported (experimental in OpenCode)"
+            )
+
+
+def run_lint(config_dir: Path) -> tuple[list[str], list[str]]:
+    """Scan synced output under config_dir for residual Claude-only dispatch
+    constructs (errors) and unsupported platform semantics (warnings) —
+    FR#6, FR#11. Returns (errors, warnings); warnings never affect the exit
+    code.
+    """
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    for path, content, line_offset in _lint_targets(config_dir):
+        _lint_content(path, content, line_offset, errors, warnings)
+
+    return errors, warnings
+
+
+def report_lint(errors: list[str], warnings: list[str]) -> int:
+    """Print a lint report and return the exit code (0 clean, 1 on errors)."""
+    for warning in warnings:
+        print(f"WARNING: {warning}")
+    for error in errors:
+        print(f"ERROR: {error}", file=sys.stderr)
+
+    if errors:
+        print(
+            f"\nLint failed: {len(errors)} error(s), {len(warnings)} warning(s).",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"Lint clean: 0 errors, {len(warnings)} warning(s).")
     return 0
-  fi
 
-  postprocess_config
 
-  git -C "$CLAUDEFILES" rev-parse HEAD > "$SYNC_SHA_FILE"
+def _strip_jsonc_comments(text: str) -> str:
+    """Strip `//` line comments and `/* */` block comments from JSONC text,
+    tracking quoted-string context so a `//` or `/*` inside a string value
+    (e.g. the `https://` in `"$schema": "https://opencode.ai/config.json"`)
+    is left alone.
 
-  printf 'Done. OpenCode config updated at %s\n' "$OPENCODE_CONFIG"
-}
+    A naive per-line `line.split("//")[0]` truncation corrupts any URL in a
+    string value into invalid JSON — this walks character by character
+    instead, only treating `//` and `/*` as comment starters when outside a
+    `"..."` string (honoring `\\"` escapes so an escaped quote doesn't end
+    the string early). Newlines inside a stripped block comment are kept in
+    the output so line numbers stay stable for any future line-precision use.
+    """
+    out: list[str] = []
+    in_string = False
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
 
-main "$@"
+        if in_string:
+            out.append(ch)
+            if ch == "\\" and i + 1 < n:
+                out.append(text[i + 1])
+                i += 2
+                continue
+            if ch == '"':
+                in_string = False
+            i += 1
+            continue
+
+        if ch == '"':
+            in_string = True
+            out.append(ch)
+            i += 1
+            continue
+
+        if ch == "/" and i + 1 < n and text[i + 1] == "/":
+            while i < n and text[i] not in "\r\n":
+                i += 1
+            continue
+
+        if ch == "/" and i + 1 < n and text[i + 1] == "*":
+            i += 2
+            while i < n and not (text[i] == "*" and i + 1 < n and text[i + 1] == "/"):
+                if text[i] in "\r\n":
+                    out.append(text[i])
+                i += 1
+            i += 2
+            continue
+
+        out.append(ch)
+        i += 1
+
+    return "".join(out)
+
+
+def check_collisions(
+    config_dir: Path,
+    generated_keys: set[str],
+    *,
+    verbose: bool = False,
+) -> None:
+    """Warn when opencode.jsonc's `agent` keys shadow generated config.json
+    entries (FR#13) — e.g. the July 30 quick-fix pins the user hasn't
+    cleaned up since config.json started covering the same ground.
+
+    Warns on every sync while a collision exists -- no nagging-suppression
+    state. That state existed purely to silence a warning about a problem
+    the design already frames as a one-time cleanup (design.md FR#13, "the
+    user should remove the `agent` block from opencode.jsonc" after the
+    first sync); persisting it added a 44-line hand-rolled JSONC parser's
+    worth of permanent machinery, an admitted block-comment gap, and the
+    trigger condition for a since-filed state-persistence bug -- for a
+    scenario with no expected ongoing recurrence.
+    """
+    jsonc_path = config_dir / "opencode.jsonc"
+    if not jsonc_path.is_file():
+        return
+
+    try:
+        data = json.loads(_strip_jsonc_comments(jsonc_path.read_text()))
+    except (json.JSONDecodeError, OSError):
+        # A malformed opencode.jsonc is the user's problem to fix, not
+        # something opencode-sync should crash over -- skip this run's
+        # collision check. _strip_jsonc_comments() handles both `//` line
+        # and `/* */` block comments, so landing here means the file has an
+        # actual syntax error (or isn't readable), not an unhandled comment
+        # style.
+        if verbose:
+            print(
+                f"Could not parse {jsonc_path} for collision check "
+                "(invalid JSON/JSONC) -- skipping.",
+                file=sys.stderr,
+            )
+        return
+
+    jsonc_agent_keys = set(data.get("agent") or {}) if isinstance(data, dict) else set()
+    collisions = sorted(jsonc_agent_keys & generated_keys)
+
+    if collisions:
+        print(
+            "WARNING: opencode.jsonc `agent` keys shadow generated config.json "
+            f"entries: {', '.join(collisions)}. config.json now pins these "
+            "models -- remove the corresponding entries from opencode.jsonc's "
+            "`agent` block.",
+            file=sys.stderr,
+        )
+
+
+def handle_foreign_config(
+    config_dir: Path, sync_state: dict, *, dry_run: bool = False
+) -> None:
+    """Detect a pre-existing config.json this sync didn't write (FR#16).
+
+    Compares the on-disk file's hash against sync_state["config_hash"] (set
+    after the previous generate_config() write). A missing or mismatched
+    hash means the file changed by some means other than a clean sync --
+    most likely a hand edit, but also reachable if a previous run crashed
+    between writing config.json and persisting its hash (main() does these
+    as two separate steps). Either way: back it up to config.json.foreign.bak
+    and warn, before generate_config() overwrites it. No in-file ownership
+    marker is used -- an unknown top-level key could fail OpenCode's config
+    schema validation (context.md decision #9).
+    """
+    target = config_dir / CONFIG_JSON_FILENAME
+    if not target.is_file():
+        return
+
+    if _sha256_file(target) == sync_state.get("config_hash"):
+        return
+
+    backup = config_dir / f"{CONFIG_JSON_FILENAME}{FOREIGN_BACKUP_SUFFIX}"
+
+    if dry_run:
+        print(f"[dry-run] would back up changed {target} to {backup}")
+        return
+
+    _atomic_write(backup, target.read_bytes(), mode=target.stat().st_mode)
+    print(
+        f"WARNING: {target} changed since the last opencode-sync run "
+        "(possibly hand-edited, possibly an interrupted previous run). "
+        f"Backed up to {backup} before overwriting.",
+        file=sys.stderr,
+    )
+
+
+def lint_only() -> int:
+    """Run the compatibility lint directly against installed output,
+    skipping staging/opkg/rewriting (FR#6)."""
+    return report_lint(*run_lint(OPENCODE_CONFIG))
+
+
+def check_source_dispatch_patterns(claudefiles: Path) -> tuple[list[str], list[str]]:
+    """Verify the dispatch rewriter's pattern table covers every dispatch
+    shape currently present in this repo's own skills/commands/agents,
+    without a live OpenCode install or opkg/npx.
+
+    Returns the same `(errors, warnings)` shape as run_lint() -- both feed
+    directly into report_lint() (see lint_only() and check_source() below),
+    so a future change to either function's return shape must update both.
+
+    Copies those three directories to a scratch tempdir, runs the same
+    rewrite + frontmatter passes the real sync uses, then lints the
+    transformed output. This is what `--check-source` (a CI-friendly gate;
+    see prek.toml) runs -- it exercises the actual rewriter, not a snapshot
+    of what it's expected to do, so a new dispatch shape that the pattern
+    table doesn't cover fails the gate instead of shipping silently until
+    someone next runs a real sync. `LINT_SUPPRESS_RE`-marked lines (ordinary
+    prose that legitimately names an identifier, not a missed dispatch) are
+    exempted by the lint itself.
+
+    Returns a single synthetic error (not a raised exception, so the caller's
+    report_lint() still prints and exits non-zero the normal way) if none of
+    the three directories exist -- silently scanning nothing would otherwise
+    report a false-positive clean pass.
+    """
+    with tempfile.TemporaryDirectory(
+        prefix="opencode-sync-source-check-"
+    ) as tmpdir_str:
+        scratch = Path(tmpdir_str)
+        found_any = False
+        for subdir_name in ("skills", "commands", "agents"):
+            src = claudefiles / subdir_name
+            if src.is_dir():
+                shutil.copytree(src, scratch / subdir_name)
+                found_any = True
+
+        if not found_any:
+            return (
+                [
+                    f"No skills/, commands/, or agents/ directory found under {claudefiles}"
+                ],
+                [],
+            )
+
+        rewrite_all_dispatches(scratch, dry_run=False)
+        process_agent_frontmatter(scratch / "agents", dry_run=False)
+
+        return run_lint(scratch)
+
+
+def check_source() -> int:
+    """Entry point for `--check-source` (FR#6 extension): lint the rewriter's
+    coverage of this repo's own dispatch patterns, not a live install.
+
+    Uses the repo containing this script file (_script_repo_root()), not
+    get_claudefiles_dir() -- the latter is a runtime concept for a real sync
+    (where to install FROM, keyed by CLAUDEFILES_DIR/home-dir) that has no
+    reason to agree with "the repo this script and its CI checkout live in."
+    In GitHub Actions, for instance, the checkout lands under the workspace
+    path, not $HOME -- get_claudefiles_dir()'s ~/Claudefiles default would
+    silently check the wrong (or nonexistent) directory.
+    """
+    script_root = _script_repo_root()
+    if script_root is None:
+        die("Unable to determine this script's repo root; refusing to check-source")
+    return report_lint(*check_source_dispatch_patterns(Path(script_root)))
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="opencode-sync",
+        description="Sync Claudefiles to OpenCode config via OpenPackage.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        "-n",
+        action="store_true",
+        help="Show what would be installed without writing",
+    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Show opkg output")
+    parser.add_argument(
+        "--allow-worktree",
+        action="store_true",
+        help="Permit running from a worktree checkout",
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Check if sync is up-to-date (exit 0=current, 1=stale)",
+    )
+    parser.add_argument(
+        "--lint-only",
+        action="store_true",
+        help="Run the compatibility lint without syncing (exit 0=clean, non-zero=residual patterns)",
+    )
+    parser.add_argument(
+        "--check-source",
+        action="store_true",
+        help=(
+            "Verify the dispatch rewriter covers every pattern in this repo's "
+            "own skills/commands/agents, without a live OpenCode install "
+            "(exit 0=clean, non-zero=uncovered dispatch shape)"
+        ),
+    )
+    return parser.parse_args(argv)
+
+
+def main() -> int:
+    args = parse_args()
+
+    if args.check:
+        claudefiles = get_claudefiles_dir()
+        current = check_sync_status(claudefiles, SYNC_STATE_FILE)
+        return 0 if current else 1
+
+    if args.lint_only:
+        return lint_only()
+
+    if args.check_source:
+        return check_source()
+
+    check_deps()
+
+    claudefiles = get_claudefiles_dir()
+
+    if not args.allow_worktree and in_worktree(claudefiles):
+        die(
+            "Refusing to sync from a worktree (would overwrite live config with "
+            "branch state). Use --allow-worktree to override."
+        )
+
+    if args.allow_worktree:
+        _warn_on_worktree_mismatch(claudefiles)
+
+    if not claudefiles.is_dir():
+        die(f"Claudefiles not found at {claudefiles}")
+
+    sync_state = load_sync_state(SYNC_STATE_FILE)
+
+    tmp_root = os.environ.get("CLAUDE_CODE_TMPDIR", tempfile.gettempdir())
+    with tempfile.TemporaryDirectory(
+        prefix="opencode-sync-", dir=tmp_root
+    ) as tmpdir_str:
+        tmpdir = Path(tmpdir_str)
+
+        # Uninstall previous install so deleted skills/agents don't linger as orphans.
+        # If the subsequent install fails, the user reruns — no automatic rollback.
+        previously_installed = opkg_list_includes_claudefiles()
+        if previously_installed is None:
+            print(
+                "WARNING: Could not verify previous install state (opkg list "
+                "failed); skipping orphan cleanup this run.",
+                file=sys.stderr,
+            )
+        elif previously_installed:
+            if args.verbose:
+                print("Removing previous claudefiles install...")
+            if not args.dry_run:
+                uninstall_previous()
+
+        staged = stage_config(claudefiles, tmpdir, verbose=args.verbose)
+
+        if args.dry_run:
+            # A dry-run `opkg install` never writes the staged content into
+            # OPENCODE_CONFIG (it just prints what it would do), so scanning
+            # OPENCODE_CONFIG below would inspect whatever the *last real
+            # sync* left behind, not the staged content being previewed here.
+            # Redirect a real (non-dry-run) install to a disposable scratch
+            # home instead -- `opkg -g` resolves "global" via `HOME`, so
+            # pointing HOME at scratch makes it install under
+            # `<scratch>/.config/opencode` and never touches the real config.
+            # Seed the scratch config from the live one first so the preview
+            # reflects an overlay (like a real sync) rather than a blank
+            # slate, and so unrelated files (e.g. a hand-edited
+            # opencode.jsonc) are present for handle_foreign_config()/
+            # generate_config() to reason about correctly.
+            preview_home = tmpdir / "dry-run-preview-home"
+            preview_config = preview_home / ".config" / "opencode"
+            if OPENCODE_CONFIG.is_dir():
+                shutil.copytree(OPENCODE_CONFIG, preview_config)
+            else:
+                preview_config.mkdir(parents=True, exist_ok=True)
+
+            run_opkg(
+                staged, dry_run=False, verbose=args.verbose, home_override=preview_home
+            )
+
+            dispatch_modified = rewrite_all_dispatches(preview_config, dry_run=True)
+            frontmatter_modified = process_agent_frontmatter(
+                preview_config / "agents", dry_run=True
+            )
+            generate_worker_agents(preview_config / "agents", dry_run=True)
+            handle_foreign_config(preview_config, sync_state, dry_run=True)
+            generate_config(preview_config, dry_run=True)
+        else:
+            run_opkg(staged, dry_run=False, verbose=args.verbose)
+
+            dispatch_modified = rewrite_all_dispatches(OPENCODE_CONFIG, dry_run=False)
+            frontmatter_modified = process_agent_frontmatter(
+                OPENCODE_CONFIG / "agents", dry_run=False
+            )
+
+            generate_worker_agents(OPENCODE_CONFIG / "agents", dry_run=False)
+
+            handle_foreign_config(OPENCODE_CONFIG, sync_state, dry_run=False)
+            config_content = generate_config(OPENCODE_CONFIG, dry_run=False)
+            # Hashed from the in-memory content generate_config() just wrote,
+            # not re-read from disk -- a re-read would leave a crash window
+            # between write and read where the next invocation's
+            # handle_foreign_config() mistakes this sync's own output for a
+            # foreign/hand-edited file.
+            sync_state["config_hash"] = hashlib.sha256(
+                config_content.encode()
+            ).hexdigest()
+            # Persisted immediately, independent of the lint-gated write below.
+            # generate_config() has already overwritten config.json on disk by
+            # this point regardless of what lint finds later, so config_hash
+            # must be persisted right away too -- otherwise a failed-lint run
+            # leaves the on-disk state's config_hash stale relative to the
+            # actual file, and the next invocation's handle_foreign_config()
+            # mistakes this sync's own output for a foreign/hand-edited file.
+            write_sync_state(SYNC_STATE_FILE, sync_state)
+
+        # Stays pointed at the real OPENCODE_CONFIG in both modes -- this is
+        # inspecting the user's actual hand-edited opencode.jsonc for a
+        # real-world warning, not previewing staged content.
+        check_collisions(
+            OPENCODE_CONFIG,
+            set(build_agent_config()),
+            verbose=args.verbose,
+        )
+
+        if args.dry_run:
+            print(
+                f"\n[dry-run] Dispatch rewrite: {dispatch_modified} file(s) would "
+                f"change. Frontmatter update (color strip + model remap): "
+                f"{frontmatter_modified} file(s) would change."
+            )
+            return 0
+
+        # Lint runs against the just-installed output, not the pre-sync state
+        # -- meaningless in --dry-run mode, since nothing above actually wrote
+        # anything.
+        lint_errors, lint_warnings = run_lint(OPENCODE_CONFIG)
+        lint_exit = report_lint(lint_errors, lint_warnings)
+        if lint_exit != 0:
+            print(
+                "Installed files left in place -- extend the pattern table or "
+                "fix the source file, then re-sync.",
+                file=sys.stderr,
+            )
+            return lint_exit
+
+        # sync_sha/sync_script_hash are only persisted once lint has actually
+        # passed -- otherwise a later `--check` would report "up-to-date" for
+        # a sync that exited non-zero with residual dispatch patterns still
+        # installed.
+        current_sha = _git_rev_parse(claudefiles, ["HEAD"])
+        if current_sha is None:
+            die(f"Not a git repo: {claudefiles}")
+        sync_state["sync_sha"] = current_sha
+        sync_state["sync_script_hash"] = _sha256_file(Path(__file__).resolve())
+        write_sync_state(SYNC_STATE_FILE, sync_state)
+
+        print(f"Done. OpenCode config updated at {OPENCODE_CONFIG}")
+        return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -118,7 +118,7 @@ If the user starts the server, announce "Checking for dev server..." and re-prob
 
 If a dev server was found (`visual_mode` is `enabled`), verify vision capability by reading one PNG file from a previous run or a test image. If the Read tool can interpret image contents, vision is available — keep `visual_mode` as `enabled`. If vision is unavailable (Read returns binary data or errors), set `visual_mode` to `skipped_no_vision`. This check runs once at Phase 0, not per-task.
 
-**Known limitation**: This check validates the orchestrator's vision capability. The visual reviewer subagent is launched with `model: sonnet` (which has vision), so capability should match. If model routing changes, this check may provide false assurance — the fallback at Step 11 (missing/empty visual reviewer output → FAIL) handles subagent-side failures.
+**Known limitation**: This check validates the orchestrator's vision capability. The visual reviewer subagent is launched at the sonnet tier (which has vision), so capability should match. If model routing changes, this check may provide false assurance — the fallback at Step 11 (missing/empty visual reviewer output → FAIL) handles subagent-side failures.
 
 ### Initialize orchestration run via cfl
 
@@ -267,12 +267,12 @@ Per-task subdirectories preserve evidence across the full orchestration run. Thi
 
 ### Step 4: Select executor agent type
 
-Before launching the executor, read the task's objective and subtasks to determine if a specialized agent is a better fit than `general-purpose`. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/agent-routing.md` for the routing table. First match wins — stop at the first row that applies.
+Before launching the executor, read the task's objective and subtasks to determine if a specialized agent is a better fit than `general-purpose`. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/agent-routing.md` for the routing table. First match wins — stop at the first row that applies. <!-- opencode-sync: ok -->
 
 After selecting the agent type, record the dispatch and capture its ID:
 
 ```bash
-cfl dispatch executor <task_id> --agent-type <selected_agent_type> --model <model from agent frontmatter, or sonnet for general-purpose>
+cfl dispatch executor <task_id> --agent-type <selected_agent_type> --model <model from agent frontmatter, or sonnet as fallback>
 ```
 
 Parse `dispatch_id` from the JSON output — it is required for `cfl dispatch end` after the executor returns, and must be included in the subagent prompt for telemetry correlation (see below).

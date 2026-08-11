@@ -64,13 +64,10 @@ Create a unique temp directory:
 1. Run: `get-skill-tmpdir mine-visual-qa`
 2. Note the directory path (e.g., `/tmp/claude-mine-visual-qa-a8Kx3Q`)
 
-Launch a single `general-purpose` agent. Its job is capturing screenshots — page views first, then interactive element states. Nothing else.
+Launch a single `general-purpose` agent with `model: sonnet`, `run_in_background: true`. Its job is capturing screenshots — page views first, then interactive element states. Nothing else.
 
-**Agent type**: `general-purpose`
-**Model**: `sonnet`
 **Output file**: `<dir>/walkthrough.md`
 **Screenshot directory**: `<dir>/screenshots/`
-**Run in background**: `true`
 
 Substitute `<VIEWPORT_INSTRUCTION>` based on the flags:
 
