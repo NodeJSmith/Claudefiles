@@ -1,6 +1,8 @@
 """Contract guards for canonical mine-orchestrate protocol files."""
 
+import os
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -157,6 +159,18 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
                     r'git -C <repo_root> diff --cached --quiet -- "\$\{committed_files\[@\]\}"',
                 ),
                 (
+                    "Bash execution contract",
+                    r"Run the following block through the Bash tool",
+                ),
+                (
+                    "rename-aware staged path normalization",
+                    r"diff --cached --name-status --find-renames -z",
+                ),
+                (
+                    "rename-aware changed path capture",
+                    r"diff --name-status --find-renames -z HEAD \| emit_changed_paths",
+                ),
+                (
                     "no changes scope",
                     r"Do not use repo-wide `git status` to make this decision",
                 ),
@@ -180,7 +194,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
                 ),
                 (
                     "full staged path allowlist",
-                    r"full staged path\s+set.*exactly match `committed-files\.txt`",
+                    r"full staged\s+path allowlist[\s\S]*old and new paths[\s\S]*`committed-files\.txt`",
                 ),
                 (
                     "unexpected staged paths block",
@@ -375,3 +389,44 @@ def test_protocol_contract_file_contains_required_anchors(
     ]
 
     assert missing == [], f"{relative_path} is missing contract anchor(s): {missing}"
+
+
+def test_wip_commit_path_normalization_handles_staged_rename(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "Test",
+        "GIT_AUTHOR_EMAIL": "test@example.com",
+        "GIT_COMMITTER_NAME": "Test",
+        "GIT_COMMITTER_EMAIL": "test@example.com",
+    }
+
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True, env=env)
+    (repo / "old.txt").write_text("content\n")
+    subprocess.run(["git", "add", "old.txt"], cwd=repo, check=True, env=env)
+    subprocess.run(["git", "commit", "-qm", "initial"], cwd=repo, check=True, env=env)
+    subprocess.run(["git", "mv", "old.txt", "new.txt"], cwd=repo, check=True, env=env)
+
+    command = r"""
+emit_changed_paths() {
+  while IFS= read -r -d '' status; do
+    case "$status" in
+      R*) IFS= read -r -d '' old_path; IFS= read -r -d '' new_path; printf '%s\n%s\n' "$old_path" "$new_path" ;;
+      *) IFS= read -r -d '' path; printf '%s\n' "$path" ;;
+    esac
+  done
+}
+git diff --name-status --find-renames -z HEAD | emit_changed_paths | sort
+git diff --cached --name-status --find-renames -z | emit_changed_paths | sort
+"""
+    result = subprocess.run(
+        ["bash", "-c", command],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert result.stdout.splitlines() == ["new.txt", "old.txt", "new.txt", "old.txt"]
