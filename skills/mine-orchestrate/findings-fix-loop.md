@@ -1,13 +1,22 @@
 # Findings Fix Loop
 
-**Scope-agnostic:** This loop runs identically whether the scope is a single task (Step 12) or the whole branch diff (Step 5 of the post-execution pipeline, the "final" pass). The invoker supplies:
+**Scope matrix:** The loop is identical for a work package (WP) and the final branch pass. The
+invoker supplies the following call-site values once:
 
-- `<scope_id>` — a short label used only in prose/paths below: the task ID (e.g. `T04`) for a task, or `final` for the branch-wide pass
-- `<scope_dir>` — where review/ledger files live: `<dir>/<task_id>` for a task, `<dir>/final` for the branch-wide pass
-- How to (re)capture the changed-files list: WP scope unions executor + fixer changes incrementally in `<scope_dir>/changed-files.txt`; final scope recomputes fresh each iteration by unioning `git diff --name-only <base_commit> HEAD` (committed per-task work) with `git diff --name-only HEAD` and `git ls-files --others --exclude-standard` (the current fixer pass's edits, which stay uncommitted in the working tree until shipping — same two commands SKILL.md:353-354 uses for WP scope's initial capture)
-- Whether the "Task scope boundary" block and the `later-task` deferral bucket apply — **WP scope only**. The final scope has no later task to bound against; every finding is in-scope, and every final-scope deferral must qualify as a known issue in the terminal pass.
+| Input | WP scope | Final scope |
+|---|---|---|
+| `<scope_id>` / `<scope_dir>` | task ID / `<dir>/<task_id>` | `final` / `<dir>/final` |
+| dispatch/event task argument | include `<task_id>` | omit it; use run-level events |
+| changed files | Union executor and fixer changes into `<scope_dir>/changed-files.txt` | Recompute each iteration: `git diff --name-only <base_commit> HEAD`, `git diff --name-only HEAD`, and `git ls-files --others --exclude-standard` |
+| task boundary / later-task deferral | include remaining task targets; allowed | omit; every finding is in scope |
+| task files | current task spec | all files under `<feature_dir>/tasks/` |
 
-Everywhere below, `<task_id>` in a path means `<scope_id>`/`<scope_dir>` generically. **`cfl dispatch`/`cfl event` calls are different** — they take an *optional* `task_id` positional, and its presence vs. absence is what selects `task.*` vs `review.*` event names (cfl's own convention, already used by Step 3's cross-file-reviewer dispatch). WP scope passes the task ID as that positional; final scope **omits the positional entirely** — it is not passed as the literal string `final`. Each `cfl dispatch`/`cfl event` line below is written for both scopes explicitly.
+The final changed-files list stays uncommitted until shipping; the WP initial capture uses the same
+two working-tree commands in `SKILL.md` Step 6.
+
+Paths below use `<scope_id>`/`<scope_dir>` generically. `cfl dispatch` and `cfl event` take an
+optional task positional: pass the task ID for WP scope and omit it for final scope; never pass
+`final` as that positional.
 
 **Precondition:** This loop runs when at least one canonical verdict line from the scope's initial review pass (Step 8 for a task; Step 5's initial code-reviewer/integration-reviewer dispatch for the final pass) has a verdict of WARN or FAIL. A PASS verdict does not trigger the loop regardless of its findings count. The verdict is the reviewer's categorical judgment; the count is metadata. Triggering on count previously caused non-convergence: each re-review found different informational observations, producing a non-zero count on a PASS that burned fixer passes without progress. Treat verdict as authoritative, count as informational. Spec and visual findings do not trigger this loop — WP scope only; the final pass has no spec or visual review. A spec FAIL routes to the Step 10 spec fix loop, and visual findings feed Step 14 directly.
 
@@ -93,6 +102,9 @@ Instead, immediately before dispatching each normal-mode fixer pass, capture a c
 set -o pipefail  # so a later `exit 1` (a read/hash failure) fails the whole pipe below, not just its own stage
 {
   git diff HEAD || exit 1
+  untracked=$(mktemp "${TMPDIR:-/tmp}/mine-orchestrate.XXXXXXXXXX") || exit 1
+  trap 'rm -f -- "$untracked"' EXIT
+  git ls-files --others --exclude-standard -z >"$untracked" || exit 1
   # untracked files: pair each entry's identity with its path and a one-char
   # type marker (`-` regular, `x` executable, `l` symlink), so a rename or a
   # mode change also changes the output — bare content hashing alone would miss both
@@ -111,11 +123,17 @@ set -o pipefail  # so a later `exit 1` (a read/hash failure) fails the whole pip
       [ -x "$f" ] && mode=x
       printf '%s %s %s\n' "$hash" "$mode" "$f"
     fi
-  done < <(git ls-files --others --exclude-standard -z)
+  done <"$untracked"
 } | {
   # the outer { } is required here too: it feeds the whole piped stream to
   # whichever hash command runs, instead of wiring stdin to sha256sum alone
-  command -v sha256sum >/dev/null 2>&1 && sha256sum || shasum -a 256
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256
+  else
+    exit 1
+  fi
 }
 ```
 
@@ -123,26 +141,30 @@ set -o pipefail  # so a later `exit 1` (a read/hash failure) fails the whole pip
 
 Every step above that reads or hashes something exits non-zero on failure instead of silently producing a fingerprint from incomplete data — this value gates whether review gets skipped, so a wrong-but-plausible fingerprint is worse than an outright failure.
 
-Save the result to `<scope_dir>/fingerprint-pre-passN.txt` (`N` = 1 or 2). After the fixer pass completes, recompute the identical command. The no-op check (Loop, iteration 2 step 4 and iteration 3 step 4) compares these two fingerprint values — never the changed-files list. **If either capture exits non-zero, the fingerprint could not be trusted — do not treat this as a no-op.** Skip straight to the reviewer re-dispatch for that iteration (the same path taken when the fingerprints simply differ), so a failed capture fails toward re-review rather than toward silently skipping it.
+Save the result to `<scope_dir>/fingerprint-pre-passN.txt` (`N` = 1 or 2). After the fixer pass completes, recompute the identical command. The no-op check in the bounded algorithm compares these values — never the changed-files list. **If either capture exits non-zero, the fingerprint could not be trusted — do not treat this as a no-op.** Skip straight to reviewer re-dispatch for that pass, so a failed capture fails toward re-review rather than silently skipping it.
 
 ## Loop
 
 **Iteration 1** is the scope's initial review pass, already completed by the invoker before this loop starts. The canonical verdict lines and findings counts are already extracted. Proceed to iteration 2.
 
-**Iteration 2 — Fixer pass 1:**
+**Normal fixer algorithm (at most two passes):**
 
-1. Capture the pre-pass content fingerprint (see "Content fingerprint" above) and save it to `<scope_dir>/fingerprint-pre-pass1.txt`. Then record the fixer dispatch and capture its ID:
+For `pass` in `1, 2`, perform the bounded sequence below with the latest review files. The
+initial invoker review is iteration 1; a classify-mode dispatch is terminal and does not consume
+this budget.
+
+1. Capture the pre-pass content fingerprint (see "Content fingerprint" above) and save it to `<scope_dir>/fingerprint-pre-pass${pass}.txt`. Then record the fixer dispatch and capture its ID:
    ```bash
    cfl dispatch fixer <task_id> --agent-type general-purpose --model sonnet   # WP scope
    cfl dispatch fixer --agent-type general-purpose --model sonnet            # final scope — no task_id positional
    ```
-   Parse `dispatch_id` from the JSON output. Dispatch the fixer subagent (normal pass) with the iteration-1 review file paths and the current changed-files list. After the fixer completes:
+Parse `dispatch_id` from the JSON output. Dispatch the fixer subagent (normal pass) with the latest review file paths from the current loop state — the initial review files on pass 1, or the pass-1 re-review files on pass 2 — and the current changed-files list. After the fixer completes:
    ```bash
    cfl dispatch end <dispatch_id>
    ```
-2. The fixer reads the reviews in its own context, applies fixes, and writes `<scope_dir>/fix-ledger.md`.
-3. Re-capture changed files using the scope's defined method (see Scope-agnostic above). Update `<scope_dir>/changed-files.txt` (WP scope) or recompute fresh (final scope). This list feeds the reviewer re-dispatch and eventual commit scope — it is not used for the no-op check in step 4.
-4. **No-op check.** Recompute the content fingerprint (same command as step 1) and compare it against `<scope_dir>/fingerprint-pre-pass1.txt`. If identical — the fixer made zero content changes — skip steps 5–7 below. Go directly to the classify-mode terminal pass, passing it the **iteration-1 review files** (`<scope_dir>/code-review.md` and `<scope_dir>/integration-review.md`, still current since nothing changed) in place of a fresh re-review. Proceed to the Gate as terminal state B. Fixer pass 2 does not run. If the recompute itself fails (non-zero exit — see the fail-closed note in "Content fingerprint" above), that is **not** identical — proceed to step 5 as if the fingerprints differed.
+1. The fixer reads the reviews in its own context, applies fixes, and writes `<scope_dir>/fix-ledger.md`.
+1. Re-capture changed files using the scope's defined method (see Scope matrix above). Update `<scope_dir>/changed-files.txt` (WP scope) or recompute fresh (final scope). This list feeds the reviewer re-dispatch and eventual commit scope — it is not used for the no-op check in step 4.
+1. **No-op check.** Recompute the content fingerprint (same command as step 1) and compare it against `<scope_dir>/fingerprint-pre-pass${pass}.txt`. If identical — the fixer made zero content changes — skip steps 5–7 below. Go directly to the classify-mode terminal pass, passing it the **latest review files** (`<scope_dir>/code-review.md` and `<scope_dir>/integration-review.md`) from the current loop state: the initial review files on pass 1, or the pass-1 re-review files on pass 2. Proceed to the Gate as terminal state B. A no-op on pass 1 ends the loop, so pass 2 does not run. If the recompute itself fails (non-zero exit — see the fail-closed note in "Content fingerprint" above), that is **not** identical — proceed to step 5 as if the fingerprints differed.
 5. Record dispatches for both re-reviewers and capture their IDs:
    ```bash
    cfl dispatch code-reviewer <task_id> --agent-type code-reviewer --model sonnet             # WP scope
@@ -164,19 +186,17 @@ Save the result to `<scope_dir>/fingerprint-pre-passN.txt` (`N` = 1 or 2). After
 6. Extract the canonical verdict lines from the freshened review files (last line matching `^\*\*Verdict:\*\*`, same pattern as the initial pass).
 7. **If both reviewers return a PASS verdict → early exit. Skip to the Gate section (terminal state A).** A PASS with informational findings counts as clean. Do not continue the loop because of a non-zero findings count on a PASS verdict.
 
-**Iteration 3 — Fixer pass 2 (if either reviewer returned WARN or FAIL after iteration 2):**
-
-1. Capture the pre-pass content fingerprint (same command as iteration 2 step 1) and save it to `<scope_dir>/fingerprint-pre-pass2.txt`. Then record the fixer dispatch (`cfl dispatch fixer <task_id> --agent-type general-purpose --model sonnet` for WP scope, `cfl dispatch fixer --agent-type general-purpose --model sonnet` for final scope), capture `dispatch_id`. Dispatch the fixer subagent (normal pass) with the freshened review file paths from the iteration 2 re-review and the updated changed-files list. After completion: `cfl dispatch end <dispatch_id>`.
-2. The fixer writes `<scope_dir>/fix-ledger.md` (overwrites the previous ledger).
-3. Re-capture changed files (same method as iteration 2 step 3). Not used for the no-op check in step 4.
-4. **No-op check.** Recompute the content fingerprint and compare it against `<scope_dir>/fingerprint-pre-pass2.txt`. If identical, skip steps 5–7 below. Go directly to the classify-mode terminal pass, passing it the **iteration-2 re-review files** (still current since nothing changed). Proceed to the Gate as terminal state B. If the recompute itself fails (non-zero exit — see the fail-closed note in "Content fingerprint" above), that is **not** identical — proceed to step 5 as if the fingerprints differed.
-5. Record dispatches for both re-reviewers (`cfl dispatch code-reviewer/integration-reviewer <task_id>` for WP scope, omitting `<task_id>` for final scope), capture IDs. Re-dispatch in parallel (same concise dispatch as iteration 2 step 5, including the scope boundary block for WP scope). After completion: `cfl dispatch end <id>` for each.
-6. Extract canonical verdict lines.
-7. **If both reviewers return a PASS verdict → early exit. Skip to the Gate section (terminal state A).** A PASS with informational findings counts as clean.
+If pass 1 changes content but its re-review is still WARN or FAIL, repeat steps 1–7 as pass 2,
+saving `fingerprint-pre-pass2.txt` and using the pass-1 re-review files. After pass 2, if either
+reviewer is still WARN or FAIL, proceed to classify mode as budget exhausted. The no-op branch for
+pass 2 uses the same short circuit and terminal state B as pass 1.
 
 **Classify-mode terminal pass:**
 
-Reached one of three ways: iteration 2's no-op check, iteration 3's no-op check, or budget exhausted (both fixer passes ran and the iteration 3 re-review still has a WARN or FAIL verdict on either reviewer). "The applicable review" below means whichever review files that route fed in: iteration 1's initial review after a pass-1 no-op, iteration 2's re-review after a pass-2 no-op, or iteration 3's re-review when budget is exhausted.
+Reached one of three ways: pass 1's no-op check, pass 2's no-op check, or budget exhaustion
+(both fixer passes changed content and the pass-2 re-review still has WARN or FAIL). "The
+applicable review" means the initial review after a pass-1 no-op, the pass-1 re-review after a
+pass-2 no-op, or the pass-2 re-review when the budget is exhausted.
 
 1. Record the classify-mode fixer dispatch (`cfl dispatch fixer <task_id> --agent-type general-purpose --model sonnet` for WP scope, `cfl dispatch fixer --agent-type general-purpose --model sonnet` for final scope), capture `dispatch_id`. Dispatch the fixer subagent in **classify-mode** with the applicable review file paths and the current changed-files list. After completion: `cfl dispatch end <dispatch_id>`.
 2. The fixer reads the applicable reviews, classifies every remaining finding as `fixed`, `deferred(reason)` with required known-issue recording for non-later-task deferrals, `rejected(reason)` for findings that don't qualify per `known-issues-protocol.md`, or `unresolved`, and writes `<scope_dir>/fix-ledger.md` (overwrites). **No code changes.** It may edit `<feature_dir>/known-issues.md` because that is documentation of the classification, not a code fix.

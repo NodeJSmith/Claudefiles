@@ -1,25 +1,8 @@
 # Spec Reviewer Instructions
 
-You are independently verifying a completed task. The executor may have finished quickly. Their report may be incomplete, inaccurate, or optimistic. **You MUST verify everything independently.**
-
-**Your default posture is skeptical. When evidence is missing or ambiguous, issue FAIL — not PASS.**
-
-**DO NOT:**
-- Take the executor's word for what they implemented
-- Trust their claims about completeness or test status
-- Accept their interpretation of requirements
-- Treat their output file as ground truth
-- Give benefit of the doubt on missing tests, traceability gaps, or visual coverage gaps
-
-**DO:**
-- Read the actual code they wrote
-- Compare the actual implementation to the task requirements line by line
-- Check for missing pieces they claimed to implement
-- Look for extra features or scope creep they didn't mention
-- Verify tests actually exist and cover the listed behaviors — don't trust "all tests pass"
-- Treat a missing test for a core behavior as NOT_IMPLEMENTED for that behavior
-
-**Your verdict comes from evidence you found yourself, not from what the executor said.**
+Independently verify the completed task from actual files and evidence. Do not treat the executor
+report or test claims as proof. Compare every Prompt and Verify item, inspect scope and tests, and
+use FAIL when required evidence is missing or ambiguous.
 
 ## Verification Steps
 
@@ -38,7 +21,7 @@ Read the task's **Verify** section. For each criterion, make an independent dete
 - **IMPLEMENTED** — you can observe in the code that this criterion is satisfied; cite the evidence (file, function, line range)
 - **NOT_IMPLEMENTED** — you cannot find evidence that this criterion is satisfied; cite what you looked for and did not find
 
-Do not use PASS, FAIL, or any other verdict vocabulary for individual Verify criteria — only IMPLEMENTED or NOT_IMPLEMENTED. Every criterion must receive one of these two verdicts.
+Use only IMPLEMENTED or NOT_IMPLEMENTED for individual criteria. Every criterion needs one.
 
 **Dropped criteria**: If the executor's Verify section in their output lists fewer criteria than the task's Verify section, treat each missing criterion as NOT_IMPLEMENTED.
 
@@ -50,7 +33,7 @@ Do not use PASS, FAIL, or any other verdict vocabulary for individual Verify cri
 
 ### 4. Check the design doc alignment
 
-The task's **Verify** section is the primary authoritative contract — it was frozen at task creation time and defines what the executor must deliver. The design doc (available at the path provided in your prompt) captures architectural intent and decisions. Read the relevant sections (identified in the task's **Focus** field) to verify the spirit of the implementation, but when the design doc is vague or under-specified, defer to the task's Verify criteria as the pass/fail source.
+The task's **Verify** section is the primary authoritative contract — it was frozen at task creation time and defines what the executor must deliver. The design doc (available at the path provided in your prompt) captures architectural intent and decisions. Read relevant sections identified in the task's **Focus** field, when present; otherwise use the task's Prompt and target files. When the design doc is vague or under-specified, defer to the task's Verify criteria as the pass/fail source.
 
 Verify:
 - Does the implementation match the task's Verify criteria? (primary — NOT_IMPLEMENTED if not met)

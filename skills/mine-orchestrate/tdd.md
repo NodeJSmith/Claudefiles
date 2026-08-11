@@ -2,18 +2,13 @@
 
 Reference for the executor subagent. Follow this during every task that involves code changes.
 
-## Test Discovery
+## Canonical Commands
 
-Before running any test, find the correct command. Never guess. Follow this discovery order (from `references/common/testing.md`):
-
-1. **CLAUDE.md** — look for a "Test Execution" or "Testing" section; if present, use that command
-2. **CI config** — `.github/workflows/*.yml`, `.gitlab-ci.yml` — use the exact command CI uses
-3. **Task runners** — `noxfile.py`, `tox.ini`, `Makefile`, `pyproject.toml` scripts
-4. **Documentation** — README, CONTRIBUTING
-5. **Ask** — if nothing found, use AskUserQuestion before running anything
-6. **Fallback** — `pytest` (or equivalent) as last resort
-
-Never run `pytest` directly without first completing the full discovery cascade.
+Use the test and lint commands supplied by the orchestrator from `<dir>/test-command.txt` and
+`<dir>/lint-command.txt`; do not rediscover or guess alternatives. `no test suite` and
+`no lint tools` are canonical skip sentinels: record the corresponding check as `SKIPPED` and
+continue. If a required command file is missing, empty, or another command is unrunnable, report
+`BLOCKED`.
 
 ## Test Co-location
 
@@ -69,12 +64,5 @@ None of these are acceptable permanent states. Fix them.
 
 ## Parallel Execution
 
-Before using `-n auto`, verify `pytest-xdist` is installed: run `pip show pytest-xdist` (or `uv pip show pytest-xdist`, `poetry show pytest-xdist`, etc. depending on the project's package manager) — a zero exit code means installed. If not installed, use serial execution and note it in the output.
-
-Use `-n auto` for test suites with 50+ tests. Only run serially when:
-- `pytest-xdist` is not installed
-- Debugging a specific failure
-- The suite has fewer than 50 tests
-- A known isolation issue is actively being fixed
-
-If xdist fails but serial passes → isolation bug → fix it.
+Use the orchestrator-supplied canonical test command unchanged. If parallel execution
+exposes an isolation bug, fix shared state rather than weakening the test command.

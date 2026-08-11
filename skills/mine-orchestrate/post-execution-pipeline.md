@@ -1,10 +1,31 @@
 # Post-Execution Review Pipeline (Phase 3)
 
-After all tasks are processed (or user chose "Stop here"), run a review pipeline. Steps 1–5 are automatic (no user prompts unless blocking issues are found). The user is prompted at the impl-review gate (if blocking) or the final shipping gate.
+After all tasks are processed (or the user chose "Stop here"), run this pipeline. Steps 1–5 are
+automatic except for blocking gates; prompt the user at implementation and cross-file blocking
+gates, severity escalations, the known-issues walkthrough, and the shipping gate.
 
-**All subagents in Phase 3 MUST run in foreground** (never set `run_in_background: true`). Several steps spawn their own parallel child subagents internally, which only works in foreground execution.
+Phase 3 subagents always run in the foreground: never set `run_in_background: true`. Every
+subagent prompt includes the immediately preceding dispatch's `cfl_dispatch_id`. After a dispatch
+succeeds, always attempt its matching `cfl dispatch end` on success or failure. Preserve any
+launch/wait error as the primary failure; report cleanup failure separately.
 
-**Telemetry:** Every subagent prompt in Phase 3 must include `cfl_dispatch_id: <dispatch_id>` (the ID from the `cfl dispatch` call that preceded it). This enables automatic token/compaction tracking via a PostToolUse hook.
+For every Phase 3 review described as covering the full branch, recompute the scope immediately
+before dispatch by unioning and deduplicating these three lists:
+
+```bash
+git diff --name-only <base_commit> HEAD
+git diff --name-only HEAD
+git ls-files --others --exclude-standard
+```
+
+This includes committed task changes plus uncommitted and untracked fixer changes. Use the
+`base_commit` from the run status read in Step 1.
+
+Before the first Phase 3 dispatch, create its report directories:
+
+```bash
+mkdir -p <dir>/impl-fix <dir>/cross-file <dir>/final
+```
 
 ## Step 1: Summary (automatic)
 
@@ -25,15 +46,25 @@ Use `tasks[].verdict` and `tasks[].verdict_detail` fields. PASS with a detail no
 
 Invoke `/mine-implementation-review <feature_dir>` automatically. The skill presents findings and returns — no user gate (the orchestrator handles all gate logic).
 
-Read the review output. Extract the verdict (PASS, FAIL, or ABANDON) and any suggestions or blocking issues. Record the gate result (ABANDON maps to FAIL):
+Read the review output. Extract PASS, FAIL, or ABANDON plus suggestions/blockers. Record the gate
+result after handling the applicable outcome below; ABANDON maps to FAIL for the gate.
+
+**If impl-review returns PASS** — retain non-blocking suggestions for later. For a real deferred
+suggestion, use `known-issues-protocol.md` and its Severity Gate: record it with `Run: <run_id>`
+only when both permit; otherwise raise its Severity Escalation prompt and follow that prompt. Only
+continue automatically when no escalation is needed or it resolves with "Ship anyway". On "Fix
+now", re-run impl-review and repeat Step 2 with that result; do not record the pre-fix result or
+continue to Step 3. After this PASS handling completes, record:
 
 ```bash
-cfl gate impl-review --verdict <PASS|FAIL> --detail "<brief summary>"
+cfl gate impl-review --verdict PASS --detail "<brief summary>"
 ```
 
-**If impl-review returns PASS** — note any non-blocking suggestions to surface later. If a suggestion identifies a real issue that should not be fixed in this run, read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md`, check the qualifying criteria and the Severity Gate, and record it (with `Run: <run_id>`, using the `run_id` read in Step 1) only if it passes both. If it trips the Severity Gate, raise the protocol's **Severity Escalation** `AskUserQuestion` right now instead of recording and moving on — follow that prompt's own "Fix now"/"Stop here"/"Ship anyway" mechanics. Continue to Step 3 automatically only if no escalation was needed, or the escalation resolved via "Fix now" or "Ship anyway" — not if the user chose "Stop here".
-
 **If impl-review returns ABANDON** — hard stop. ABANDON means the implementation is unrecoverable and requires a design rethink, not a code fix. Do not offer "Address fixes":
+
+```bash
+cfl gate impl-review --verdict FAIL --detail "<brief summary>"
+```
 
 ```
 AskUserQuestion:
@@ -49,6 +80,10 @@ AskUserQuestion:
 
 **If impl-review returns FAIL** — prompt the user:
 
+```bash
+cfl gate impl-review --verdict FAIL --detail "<brief summary>"
+```
+
 ```
 AskUserQuestion:
   question: "Implementation review found blocking issues: <summary of blocking issues>. What next?"
@@ -61,33 +96,60 @@ AskUserQuestion:
       description: "Pause; I'll address findings manually"
 ```
 
-**On "Address fixes":**
-1. Record the dispatch and capture its ID:
-   ```bash
-   cfl dispatch impl-fixer --agent-type general-purpose --model sonnet
-   ```
-2. Dispatch a fresh `general-purpose` subagent with `model: sonnet` and: `cfl_dispatch_id: <dispatch_id>` (from the preceding `cfl dispatch` call), the impl-review findings, the relevant file paths, the design doc path (`<feature_dir>/design.md` — instruct the subagent to read it directly), all task files from `<feature_dir>/tasks/` (for per-task constraints and Review Guidance), accumulated spec-reviewer outputs, `implementer-prompt.md` content (as `## Implementer instructions`), `retry-prompt.md` content (as `## Retry instructions`), and `tdd.md` content. Populate the `## Previous review feedback` template with: "Impl-review: <absolute path to impl-review findings file>". Instruct: "Fix only the listed blocking issues. Do not expand scope beyond these findings. Respect the Review Guidance constraints from each task."
-3. After the subagent completes: `cfl dispatch end <dispatch_id>`
-4. Re-run the project test suite (using `<dir>/test-command.txt`; skip and treat as passing if that file contains the sentinel `no test suite`). If tests fail: surface the failure prominently in the next gate prompt (which offers "Address fixes" or "Stop here" — there is no "Accept and ship" option at this gate) with a note identifying the test failures.
-5. Re-run `code-reviewer` and `integration-reviewer` on the fix diff in parallel (both in a single message)
-6. Re-run `/mine-implementation-review <feature_dir>`
-7. If it now returns PASS, record the updated gate and continue to Step 3:
-   ```bash
-   cfl gate impl-review --verdict PASS --detail "<summary>"
-   ```
-8. "Address fixes" remains available across iterations — the user decides when to stop. Starting with the 3rd round, prepend a warning to the gate question: "Multiple rounds have not resolved the blocking issues — consider stopping to investigate the root cause before continuing." Do not remove the option; the user may have context (e.g., knowing the next iteration targets a different layer) that justifies continuing.
+**On "Address fixes":** follow the shared blocking-review fixer protocol below with these
+implementation-review inputs and verification steps:
+
+- Record `cfl dispatch impl-fixer --agent-type general-purpose --model sonnet`, then dispatch a
+  fresh `general-purpose` subagent with `model: sonnet`, the preceding `cfl_dispatch_id`, the
+  impl-review findings, relevant paths, `<feature_dir>/design.md`, all task files (for per-task
+  constraints), accumulated spec reviews, `implementer-prompt.md`, `retry-prompt.md`, and `tdd.md`.
+  Populate `## Previous review feedback` with every report that caused the current retry:
+  `Impl-review: <absolute path>` on the first attempt, then also
+  `Code re-review: <dir>/impl-fix/code-review.md` and
+  `Integration re-review: <dir>/impl-fix/integration-review.md` after either re-review blocks.
+  Pass only reports from the latest round. Instruct: "Fix only the listed blocking issues. Do not
+  expand scope beyond these findings. Respect each task's constraints." After the shared
+  verification protocol below passes, record both reviewer
+  dispatches before launching either reviewer:
+
+  ```bash
+  cfl dispatch impl-fix-code-reviewer --agent-type code-reviewer --model sonnet
+  cfl dispatch impl-fix-integration-reviewer --agent-type integration-reviewer --model sonnet
+  ```
+
+  Launch both in one foreground message (never `run_in_background: true`) on the current full-branch
+  scope defined above. Include `CONCISE-RETURN-MODE`; the code reviewer writes
+  `<dir>/impl-fix/code-review.md` and the integration reviewer writes
+  `<dir>/impl-fix/integration-review.md`.
+  Include `cfl_dispatch_id: <impl_fix_code_reviewer_dispatch_id>` in the code-reviewer prompt and
+  `cfl_dispatch_id: <impl_fix_integration_reviewer_dispatch_id>` in the integration-reviewer
+  prompt. After both return:
+
+  ```bash
+  cfl dispatch end <impl_fix_code_reviewer_dispatch_id>
+  cfl dispatch end <impl_fix_integration_reviewer_dispatch_id>
+  ```
+
+  Read both report files and extract their canonical verdict lines. Do not rerun implementation
+  review until both pass; route any blocking findings through the gate's Address fixes / Stop here
+  choice and process non-blocking findings under the normal Phase 3 known-issues rules.
+  Then record the implementation-review re-run dispatch and launch the implementation-review
+  subagent in the foreground with `cfl_dispatch_id: <impl_review_rerun_dispatch_id>` in its prompt.
+  Preserve `/mine-implementation-review <feature_dir>`'s design/task inputs, review scope, and
+  output artifact. End it after completion, then repeat Step 2 with its result; continue to Step 3
+  only after its PASS handling completes:
+
+  ```bash
+  cfl dispatch impl-review-rerun --agent-type general-purpose --model sonnet
+  cfl dispatch end <impl_review_rerun_dispatch_id>
+  ```
 
 **On "Stop here":** Leave the run active. The user can resume later. Do not call `cfl run complete`.
 
 ## Step 3: Cross-file consistency review (automatic)
 
-After impl-review passes, run an `integration-reviewer` subagent on the **full branch diff** (not per-task). This catches cross-file consistency issues that per-task reviews miss because they only see one task's changes at a time.
-
-```bash
-git diff --name-only <base_commit> HEAD
-```
-
-Use the `base_commit` from the run status read in Step 1.
+After impl-review passes, run an `integration-reviewer` subagent on the current full-branch scope
+defined above. This catches cross-file consistency issues that per-task reviews miss.
 
 Record the dispatch and capture its ID:
 
@@ -95,7 +157,11 @@ Record the dispatch and capture its ID:
 cfl dispatch cross-file-reviewer --agent-type integration-reviewer --model sonnet
 ```
 
-Launch `Agent(subagent_type: "integration-reviewer")` with all changed files. Include `cfl_dispatch_id: <dispatch_id>` (from the preceding `cfl dispatch` call) and the design doc path (`<feature_dir>/design.md`) so the reviewer can verify terminology and pattern choices against design decisions. Add this focus instruction to the prompt:
+Launch `Agent(subagent_type: "integration-reviewer")` with all changed files. Include
+`CONCISE-RETURN-MODE`, output path `<dir>/cross-file/review.md`, `cfl_dispatch_id: <dispatch_id>`
+(from the preceding `cfl dispatch` call), and the design doc path (`<feature_dir>/design.md`) so the
+reviewer can verify terminology and pattern choices against design decisions. Add this focus
+instruction to the prompt:
 
 > In addition to your standard checklist (duplication, convention drift, misplacement, orphaned code, design violations), pay special attention to **cross-file consistency** across the full diff:
 > - **Terminology drift**: same concept described with different words across files (e.g., "verb" vs "execution outcome" for the same trigger condition)
@@ -105,7 +171,15 @@ Launch `Agent(subagent_type: "integration-reviewer")` with all changed files. In
 > - **Hard-coded values that should be parameterized**: artifact names or paths that appear as literals but should vary by context (e.g., iteration suffixes)
 > - **Worked examples using invalid contract values**: examples that show values not in the canonical vocabulary
 
-After the reviewer completes: `cfl dispatch end <dispatch_id>`
+After the reviewer completes: `cfl dispatch end <dispatch_id>`. Read
+`<dir>/cross-file/review.md` and extract its canonical verdict line before handling the result.
+
+Before recording a PASS or WARN result, handle each genuine non-blocking suggestion: apply the
+known-issues protocol to each real deferred suggestion, recording it only when it qualifies and
+passes the Severity Gate. If the Severity Gate trips, raise its Severity Escalation prompt and
+follow its "Fix now"/"Stop here"/"Ship anyway" mechanics. On "Fix now", re-run the full cross-file
+integration review, then repeat this PASS/WARN handling with the new result. Do not continue if
+the user chooses "Stop here".
 
 Record the gate result:
 
@@ -113,23 +187,89 @@ Record the gate result:
 cfl gate cross-file-review --verdict <PASS|WARN|FAIL> --data '{"findings": <N>, "critical": <C>, "high": <H>, "medium": <M>, "low": <L>}'
 ```
 
-If the integration-reviewer returns FAIL, surface the blocking issues to the user with an "Address" / "Stop here" gate. On "Address": record a fresh fixer dispatch and capture its ID:
+After the PASS/WARN handling above, record PASS when every real suggestion was fixed, rejected, or
+recorded as a known issue. A real suggestion identifies a concrete defect, risk, or actionable
+improvement that can change the implementation or its verification. A non-actionable reviewer
+note is an observation without a concrete defect or available action; it may remain visible in the
+shipping summary but does not require a known-issue entry. Record WARN only for such a note. Do not
+continue while a genuine untracked issue remains.
+
+If the integration-reviewer returns FAIL, prompt the user:
+
+```yaml
+AskUserQuestion:
+  question: "Cross-file review found blocking issues: <summary of blocking issues>. What next?"
+  header: "Cross-file gate"
+  multiSelect: false
+  options:
+    - label: "Address fixes"
+      description: "Dispatch a fixer for the listed cross-file consistency issues, then re-review"
+    - label: "Stop here"
+      description: "Pause; I'll address findings manually"
+```
+
+On "Address fixes", follow the shared blocking-review fixer protocol below with these cross-file-review inputs and verification steps:
 
 ```bash
 cfl dispatch cross-file-fixer --agent-type general-purpose --model sonnet
 ```
 
-Then dispatch a `general-purpose` fixer with `model: sonnet`, `cfl_dispatch_id: <cross_file_fixer_dispatch_id>`, the cross-file review findings, changed file paths, design doc path, task files, and the instruction: "Fix only the listed cross-file consistency issues; do not expand scope." After it completes:
+- Dispatch a `general-purpose` fixer with `model: sonnet`, `cfl_dispatch_id: <cross_file_fixer_dispatch_id>`,
+  the cross-file review findings, changed file paths, design doc path, task files, and the
+  instruction: "Fix only the listed cross-file consistency issues; do not expand scope." After
+  the shared verification protocol below passes, record the re-review dispatch:
 
-```bash
-cfl dispatch end <cross_file_fixer_dispatch_id>
-```
+  ```bash
+  cfl dispatch cross-file-reviewer-rerun --agent-type integration-reviewer --model sonnet
+  ```
 
-Then re-run the project test suite using `<dir>/test-command.txt` (skip and treat as passing if that file contains the sentinel `no test suite`), re-run the cross-file integration review, and record the updated `cross-file-review` gate. Repeat with the same warning-after-3-rounds policy as the impl-review gate, or stop if the user chooses "Stop here". If PASS or WARN, note any suggestions. If a suggestion identifies a real issue that should not be fixed in this run, read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md`, check the qualifying criteria and the Severity Gate, and record it (with `Run: <run_id>` from Step 1) only if it passes both — raise the protocol's **Severity Escalation** `AskUserQuestion` right now if it trips the gate, same as Step 2, and follow its "Fix now"/"Stop here"/"Ship anyway" mechanics. Continue to Step 4 (Clean code check) only if no escalation was needed, or it resolved via "Fix now" or "Ship anyway" — not if the user chose "Stop here".
+  Launch one foreground `integration-reviewer` subagent (never `run_in_background: true`) on the
+  current full-branch scope, preserving the existing focus checklist and design doc path. Include
+  `CONCISE-RETURN-MODE`, write the report to `<dir>/cross-file/review.md`, and include
+  `cfl_dispatch_id: <cross_file_reviewer_rerun_dispatch_id>` in its prompt. After it completes:
+
+  ```bash
+  cfl dispatch end <cross_file_reviewer_rerun_dispatch_id>
+  ```
+
+  Read `<dir>/cross-file/review.md`, extract its canonical verdict line, then repeat the
+  PASS/WARN/FAIL handling above before continuing to Step 4.
+
+### Shared blocking-review fixer protocol
+
+For either blocking gate, after recording the fixer dispatch:
+
+The shared protocol owns only fixer lifecycle and verification. Each gate owns its re-review,
+report artifacts, verdict extraction, and PASS/WARN/FAIL or ABANDON handling. Passing shared
+verification returns control to the gate-specific instructions above; it never counts as a passing
+gate.
+
+1. Dispatch the fresh fixer with the gate-specific inputs above and the preceding dispatch ID.
+2. After it completes, run `cfl dispatch end <dispatch_id>`, then run the project test suite
+    using `<dir>/test-command.txt`; skip and treat it as passing when the file contains
+    `no test suite`. If tests pass or are skipped, run lint using `<dir>/lint-command.txt`; skip
+    and treat it as passing when the file contains `no lint tools`. Compare lint failures to the
+    Phase 2 `<dir>/lint-baseline.md`: only new failures or increased error counts block re-review;
+    unchanged baseline failures are informational. With a missing baseline or persisted
+    `lint-baseline-unavailable` marker, record `NO BASELINE`; do not classify a nonzero exit alone
+    as a regression. Surface test failures or blocking lint regressions
+    prominently at the same gate prompt, which offers only "Address fixes" and "Stop here". Do not
+    re-review until tests pass or are skipped and lint passes, skips, has no regressions, or has a
+    no valid baseline for regression comparison.
+3. Return to the gate-specific re-review instructions above. If an implementation-review rerun
+   returns ABANDON, use the Step 2 ABANDON hard-stop and do not offer another "Address fixes" cycle.
+   If a re-review remains blocking, re-raise that gate's existing Address fixes / Stop here choice.
+   Starting with the 3rd round, prepend: "Multiple rounds have not resolved the blocking issues —
+   consider stopping to investigate the root cause before continuing." Do not remove Address fixes.
+
+On "Stop here" from either blocking gate, leave the run active; the user can resume later. Do not
+call `cfl run complete`.
 
 ## Step 4: Clean code check (automatic)
 
-After the cross-file consistency review passes, run a clean code check on the entire branch diff. This catches LLM training-bias patterns, deferred-debt shortcuts, and style hygiene issues that correctness and integration reviewers don't target.
+After the cross-file consistency review passes, run a clean code check on the current full-branch
+scope. This catches LLM training-bias patterns, deferred-debt shortcuts, and style hygiene issues
+that correctness and integration reviewers do not target.
 
 Record the dispatch and capture its ID:
 
@@ -144,9 +284,11 @@ You are running a comprehensive stylistic quality review on a completed feature 
 
 ## Branch diff
 
-Run this to get the scope. Use the orchestration run's recorded base commit from Step 1, not the branch base:
+Review these files from the current full-branch scope:
 
-git diff --name-only <base_commit> HEAD
+<paste the deduplicated output of the three scope commands here>
+
+The orchestration run's recorded base commit is: <base_commit>
 
 ## Task
 
@@ -181,7 +323,7 @@ Wait for the subagent to complete. Mark the dispatch done:
 cfl dispatch end <dispatch_id>
 ```
 
-Read `<dir>/clean-code-summary.md` to see what was fixed and what remains. Note any unfixed findings for the shipping gate. If the summary has a `## SEVERE — needs immediate attention` section, raise the `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md` **Severity Escalation** `AskUserQuestion` for each item in it now, before recording the gate result below, and follow its "Fix now"/"Stop here"/"Ship anyway" mechanics — do not record the gate result or continue to Step 5 if the user chose "Stop here". Record the gate result:
+Read `<dir>/clean-code-summary.md` to see what was fixed and what remains. Note any unfixed findings for the shipping gate. If the summary has a `## SEVERE — needs immediate attention` section, raise the `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md` **Severity Escalation** `AskUserQuestion` for each item in it now, before recording the gate result below, and follow its "Fix now"/"Stop here"/"Ship anyway" mechanics. On "Fix now", re-run this Step 4 clean-code check and repeat this summary handling with the refreshed summary. Do not record the gate result or continue to Step 5 if the user chooses "Stop here". Record the gate result:
 
 ```bash
 cfl gate clean-code --verdict <PASS|WARN> --data '{"fixed": <N>, "unfixed": <M>}'
@@ -189,13 +331,9 @@ cfl gate clean-code --verdict <PASS|WARN> --data '{"fixed": <N>, "unfixed": <M>}
 
 ## Step 5: Final review pass (automatic)
 
-After the clean code fixes, run a final `code-reviewer` and `integration-reviewer` pass in parallel on the full branch diff — to catch issues introduced by the auto-fix subagent, and to catch anything a per-task review couldn't see (a review scoped to one task at a time can miss issues that only appear across the full diff).
-
-```bash
-git diff --name-only <base_commit> HEAD
-```
-
-Use the `base_commit` from the run status read in Step 1.
+After the clean code fixes, recompute the current full-branch scope and run a final `code-reviewer`
+and `integration-reviewer` pass in parallel. This catches auto-fix regressions and issues visible
+only across tasks.
 
 Record both dispatches and capture their IDs:
 
@@ -270,7 +408,12 @@ AskUserQuestion:
       description: "Keep it recorded in known-issues.md as open for later"
 ```
 
-- **Fix now:** record the dispatch (`cfl dispatch known-issue-fixer --agent-type general-purpose --model sonnet`), capture `dispatch_id`, then dispatch a `general-purpose` subagent (`model: sonnet`, `cfl_dispatch_id: <dispatch_id>`) scoped to only this entry's `Affected files` and `Recommended follow-up`. After it completes: `cfl dispatch end <dispatch_id>`. Then record a reviewer dispatch (`cfl dispatch known-issue-review --agent-type code-reviewer --model sonnet`), capture `review_dispatch_id`, and run `code-reviewer` once on the changed files with `cfl_dispatch_id: <review_dispatch_id>`; after it completes: `cfl dispatch end <review_dispatch_id>`. (Single-pass `code-reviewer` only, not the full `findings-fix-loop.md` rigor — this fix targets one already-identified, already-scoped issue rather than an open-ended review, so the cross-file consistency check `integration-reviewer` adds isn't needed.) On FAIL or WARN, or if a subsequent test/lint retest fails, treat the fix attempt as failed: tell the user what went wrong, leave the entry's `Status:` as `open`, and re-raise this same three-option `AskUserQuestion` for the entry (Fix now / File as GitHub issue / Leave deferred) rather than silently stalling — do not proceed to Step 6 until the user responds again. A retried "Fix now" dispatches a fresh subagent scoped the same way; it sees the current (possibly still-broken) state of the affected files and can build on or revert the prior attempt as it judges appropriate. On a clean code-reviewer PASS, re-run the project test suite using `<dir>/test-command.txt` (skip and treat as passing if that file contains the sentinel `no test suite`) and lint using `<dir>/lint-command.txt` (skip and treat as passing if that file contains the sentinel `no lint tools`) — the same rigor bar Step 4's clean-code fixer uses. If both pass (or are skipped via their sentinels), update the entry's `Status:` line to `resolved — fixed during known issues walkthrough` and leave the rest of the entry as history.
+- **Fix now:** record the dispatch (`cfl dispatch known-issue-fixer --agent-type general-purpose --model sonnet`), capture `dispatch_id`, then dispatch a `general-purpose` subagent (`model: sonnet`, `cfl_dispatch_id: <dispatch_id>`) scoped to only this entry's `Affected files` and `Recommended follow-up`. After it completes: `cfl dispatch end <dispatch_id>`. Then record a reviewer dispatch (`cfl dispatch known-issue-review --agent-type code-reviewer --model sonnet`), capture `review_dispatch_id`, and run `code-reviewer` once on the changed files with `cfl_dispatch_id: <review_dispatch_id>`; after it completes: `cfl dispatch end <review_dispatch_id>`. (Single-pass `code-reviewer` only, not the full `findings-fix-loop.md` rigor — this fix targets one already-identified, already-scoped issue rather than an open-ended review, so the cross-file consistency check `integration-reviewer` adds isn't needed.) On FAIL or WARN, or if a subsequent test/lint retest fails, treat the fix attempt as failed: tell the user what went wrong, leave the entry's `Status:` as `open`, and re-raise this same three-option `AskUserQuestion` for the entry (Fix now / File as GitHub issue / Leave deferred) rather than silently stalling — do not proceed to Step 6 until the user responds again. A retried "Fix now" dispatches a fresh subagent scoped the same way; it sees the current (possibly still-broken) state of the affected files and can build on or revert the prior attempt as it judges appropriate. On a clean code-reviewer PASS, re-run the project test suite using `<dir>/test-command.txt` (skip and treat as passing if that file contains the sentinel `no test suite`) and lint using `<dir>/lint-command.txt` (skip and treat as passing if that file contains the sentinel `no lint tools`) — the same rigor bar Step 4's clean-code fixer uses. Keep the entry open until the full-branch gate below passes.
+  After a successful targeted review and test/lint retest, re-run the complete Step 5 final-review
+  gate on the refreshed full-branch scope. Only after that gate passes, update the entry's
+  `Status:` line to `resolved — fixed during known issues walkthrough` and continue to the next
+  entry or Step 6. If the gate fails, leave the entry open and re-raise this entry's three-option
+  prompt. The refreshed gate replaces the stale recorded result and finding counts.
 - **File as GitHub issue:** run `gh-issue create` (see `${CLAUDE_CONFIG_DIR:-~/.claude}/rules/common/git-workflow.md` — Issue Creation Conventions) using the entry's title and body content, then update the entry's `Status:` line to `filed (#<issue-number>)`.
 - **Leave deferred:** no change; `Status: open` stands.
 

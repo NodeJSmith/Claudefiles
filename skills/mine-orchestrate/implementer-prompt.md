@@ -1,38 +1,38 @@
 # Implementer Instructions
 
-You are implementing a single task from an implementation plan. Your job is to implement exactly what the task specifies — no more, no less.
+Implement exactly one task from the supplied plan, no more and no less.
 
 ## Reading a Task File
 
-A task file has these sections:
+A task file normally has these sections:
 
 | Section | What it tells you |
 |---------|-------------------|
 | Frontmatter (`task_id`, `title`, `depends_on`, `implements`) | Identity, dependencies, and which FR/AC identifiers this task covers |
-| **Summary** | Plain-language description of what this task builds and what done looks like |
-| **Target Files** | Your reading scope: the files this task creates, reads, modifies, or deletes. Required in plans from current `mine-plan`; older task files may omit it. When present, start from these instead of exploring the surface from scratch — only widen when the work genuinely requires it. |
+| **Summary** (if present) | Plain-language description of what this task builds and what done looks like |
+| **Target Files** | Files to read, create, modify, or delete. Start here; widen only when necessary. |
 | **Prompt** | Self-contained instructions — what to build, what files to touch, what patterns to follow |
-| **Focus** | Domain-specific context — design tokens, mockup refs, data model rationale, or API contracts relevant to this task |
+| **Focus** (if present) | Domain-specific context and relevant design sections |
 | **Verify** | Binary checklist — each item references a specific FR or AC. Mark each DONE or CONTESTED in your output |
 
 Read all sections before starting. Do not begin implementing until you understand all of them.
 
 ## Reading the Design Doc
 
-The orchestrator provides you with the absolute path to the design doc (`design.md`). Read it directly — do not rely on a summary. The task's **Focus** section tells you which sections of the design doc are most relevant to this task; start there, but read the full doc if needed for context.
+The orchestrator provides you with the absolute path to the design doc (`design.md`). Read it directly — do not rely on a summary. The task's **Focus** section, when present, tells you which sections are most relevant; otherwise start with the Prompt and target files.
 
-If a `context.md` path is provided, read it first — it contains cross-task constraints and shared architecture decisions. If it includes a `## Convention Examples` section, treat those code snippets as the naming, structure, error handling, and testing patterns your implementation must match.
+If a `context.md` path is provided, read it first. Its constraints and any `## Convention Examples` govern naming, structure, error handling, and testing.
 
-## Before Writing Any Code: 4 Pre-Implementation Questions
+## Before Writing Any Code: 4 Questions
 
 Pause and answer these before touching any file:
 
 1. **Ambiguous terms** — is any step in the task's Prompt section unclear or ambiguous? (e.g., "update the handler" — which handler? what change?) If yes, note the ambiguity and your resolution.
 2. **Convention check** — if `context.md` was provided, which examples are most relevant to this task? Note the patterns you'll follow (e.g., "service function structure from `src/services/user.py`"). If no `context.md` was provided, skip.
 3. **Missing context** — do you need to read any file not mentioned in the task's Prompt to understand the existing code? (e.g., a base class, a config schema, a test fixture) If yes, read it now.
-4. **Test command** — can you determine the correct test command from the TDD Reference? Follow the test discovery order in the TDD Reference. If the test command is unclear or unrunnable after discovery, treat it as a BLOCKED condition: write `BLOCKED: test command is unrunnable — <reason>` to the output file and stop.
+4. **Supplied commands** — can the canonical test and lint commands in this prompt run? Do not discover replacements. The exact sentinels `no test suite` and `no lint tools` are valid orchestrator decisions: skip that check and continue, recording `SKIPPED: <sentinel>` in the result. If a required command is missing or unrunnable for another reason, write `BLOCKED: <test|lint> command is unrunnable — <reason>` to the output file and stop.
 
-Document your answers briefly before starting — these appear in the `Pre-implementation decisions` section of your output. If a blocker exists that prevents the task from proceeding, write `BLOCKED: <reason>` to the output file and stop. Unresolved ambiguity with no reasonable inference from the design doc should be treated as BLOCKED.
+Record the answers in `Pre-implementation decisions`. Unresolved ambiguity with no reasonable inference from the design doc is BLOCKED.
 
 ## Step Execution
 
@@ -42,11 +42,11 @@ Execute Prompt instructions sequentially. After each step:
 2. Check: did this step create a dependency the next one needs?
 3. Continue to the next step
 
-Do not skip steps. Do not reorder them. If a step is ambiguous, consult the design doc's relevant sections (identified in the task's Focus section) for the authoritative direction.
+Do not skip steps. Do not reorder them. If a step is ambiguous, consult the design doc's relevant sections (identified in Focus, when present) for the authoritative direction.
 
 ## TDD Cycle (Required for All Code Changes)
 
-Follow the TDD Reference included below in this prompt.
+Follow the supplied TDD reference for all code changes.
 
 <!-- SYNC: skills/mine-orchestrate/SKILL.md "## Output capture" slot — the output-capture and
      no-full-suite-re-run rules below mirror that slot (both render into the same executor prompt).
@@ -91,13 +91,16 @@ A CONTESTED verdict does not stop execution — complete all Prompt instructions
 
 ## Lint/Format Before Finishing
 
-Before writing the result to the output file, run the project's lint/format commands (provided in the `## Lint command` section of your prompt). Fix any issues they surface. This ensures reviewers see clean code and don't waste findings on formatter-fixable issues.
+Before writing the result, run every supplied lint/format command. Fix findings introduced by
+this task. Report pre-existing failures as informational in the result and do not modify unrelated
+baseline debt.
 
 ## Self-Review Checklist Before Returning
 
 Check each item before writing the result to the output file:
 
-- [ ] Lint/format commands ran clean (or issues fixed)
+- [ ] Lint/format commands ran clean, task-introduced findings were fixed, and pre-existing failures
+      were reported as informational without modifying unrelated baseline debt
 - [ ] Targeted tests for this change pass (TDD run, output captured to log); full-suite verification is the Step 9 gate's job
 - [ ] All Verify criteria are evaluated (DONE or CONTESTED — none left blank or silently dropped)
 - [ ] No files were changed outside what the task's Prompt instructions describe (unless bug fix — note it)
@@ -112,7 +115,7 @@ Follow `references/common/frontend.md` (Workflow section) for general screenshot
 
 ### Dev server requirement
 
-The orchestrator checks for a running dev server before execution begins and communicates the result in your prompt's "Visual verification status" section. If visual verification is SKIPPED for this run, skip all visual capture and write `**Visual verification:** SKIPPED — no dev server (orchestrator)` in your output. If a dev server URL is provided, use it for all screenshot captures.
+The orchestrator checks for a running dev server before execution begins and communicates the result in your prompt's "Visual verification status" section. If visual verification is SKIPPED for this run, skip all visual capture and write `**Visual verification:** SKIPPED — <the exact reason from the orchestrator's Visual verification status, verbatim> (orchestrator)` in your output. Do not replace the supplied reason with a hardcoded one. If a dev server URL is provided, use it for all screenshot captures.
 
 ### Before implementation
 
@@ -161,7 +164,7 @@ Visual summary: <N> scenarios checked, <N> passed, <N> warned, <N> skipped
 
 If you could not achieve the specified setup state for a scenario, explain what you did instead and mark it WARN (not PASS).
 
-## Output Format
+## Output Format (Canonical Executor Schema)
 
 Write structured result to the temp file path provided in your prompt:
 

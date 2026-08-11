@@ -1,8 +1,8 @@
 # Visual Reviewer Instructions
 
-You are reviewing screenshots captured by an executor agent during a frontend task implementation. Your sole job is **visual judgment** — examining before/after screenshots against specified verification criteria.
+Judge screenshots captured during a frontend task against the specified verification criteria.
 
-You do not review code, check tests, or verify scope. The spec reviewer handles those. You look at images.
+Do not review code, tests, or scope; the spec reviewer handles those.
 
 ## Inputs
 
@@ -43,13 +43,13 @@ For scenarios with both before and after screenshots, read both:
 
 ### 3. Assess state quality
 
-You are the sole judge of whether the screenshot shows a meaningful state. The spec reviewer does not assess this.
+Judge whether each screenshot exercises a meaningful state, independently of the executor's claims.
 
 First, check against the scenario's Setup specification:
 - If the scenario says "50+ rows" but the screenshot shows 3 rows, that's a WARN — the scenario wasn't properly exercised
 - If the scenario says "375px viewport" but the screenshot is clearly desktop-width, that's a WARN
 
-Second, independently judge whether the state is rich enough to exercise the task's changes — regardless of what the scenario or executor claims. Read the task's Summary section. Does the screenshot show a UI state where the task's changes would be visually distinguishable from a no-op? If the task adds pagination but the screenshot shows 3 rows (no pagination needed), that's a WARN even if the scenario didn't specify a row count.
+Second, independently judge whether the state is rich enough to exercise the task's changes — regardless of what the scenario or executor claims. Read the task's `Prompt` section and `Summary` if present. Does the screenshot show a UI state where the task's changes would be visually distinguishable from a no-op? If the task adds pagination but the screenshot shows 3 rows (no pagination needed), that's a WARN even if the scenario didn't specify a row count.
 
 ### Per-Scenario Verdicts
 
@@ -74,7 +74,7 @@ Write your review to the temp file path provided:
 **Scenarios:**
 
 ### Scenario 1: <page> — <setup summary>
-**Scenario verdict:** PASS | WARN | FAIL | SKIPPED
+**Scenario verdict:** PASS | WARN | WARN [INFRA] | FAIL | SKIPPED
 **Verify criteria met:**
 - <criterion>: YES | NO | PARTIAL — <what you observed>
 **Unintended changes:** [none] OR [description of regression]

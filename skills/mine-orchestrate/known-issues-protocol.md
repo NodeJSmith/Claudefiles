@@ -1,6 +1,6 @@
 # Known Issues Protocol
 
-Use this protocol when orchestration discovers a real issue that should not be fixed during the current run. The goal is to preserve intentional deferrals as durable feature context, not to create a dumping ground for every reviewer note.
+Use this when orchestration confirms a real issue and intentionally leaves it unfixed in the current run.
 
 ## Durable Artifact
 
@@ -10,7 +10,7 @@ Record known issues in the feature directory:
 <feature_dir>/known-issues.md
 ```
 
-This protocol is the canonical source for the artifact name, entry ID format, status field, source labels, and qualifying reasons. Other orchestration files should reference this protocol instead of redefining the schema.
+This file is the canonical source for the artifact name, entry ID format, status field, source labels, qualifying reasons, Severity Gate, and entry schema.
 
 Create the file on first use. Use this header:
 
@@ -28,7 +28,6 @@ Record an issue only when all are true:
 - The issue should not be fixed during this orchestration run.
 - The reason for not fixing it is durable context someone will need later.
 - There is a plausible follow-up action or decision.
-
 Common qualifying reasons:
 
 - `faithful-port`: fixing it would make the port diverge from the source behavior.
@@ -36,7 +35,6 @@ Common qualifying reasons:
 - `behavior-change`: fixing it could change externally visible behavior.
 - `needs-decision`: fixing it requires product, architecture, or business context.
 - `blocked`: fixing it depends on an external dependency, upstream change, or migration.
-
 Do **not** record:
 
 - Findings rejected as invalid after checking the code.
@@ -47,7 +45,7 @@ Do **not** record:
 
 ## Severity Gate
 
-Even when an issue otherwise qualifies above, check user impact before recording it as a silent deferral. A known issue is read by a human who chooses to open the file later — an issue with severe, immediate user impact cannot depend on someone remembering to look.
+Before recording a silent deferral, check user impact.
 
 **Disqualified from `deferred(reason)` — classify as `unresolved` instead** when any of these hold:
 
@@ -56,17 +54,16 @@ Even when an issue otherwise qualifies above, check user impact before recording
 - A security or auth exposure.
 - The core workflow is blocked entirely, for all users — not an edge case or a degraded-but-usable path.
 
-`unresolved` is not a demand to fix it in this pass — it means an agent cannot be the one to decide this gets silently deferred. What happens next depends on where the trip occurs:
+`unresolved` means an agent cannot silently defer the issue. Route it based on the call site:
 
-- **Fixer-loop classify-mode pass, WP scope** (`findings-fix-loop.md`, invoked from `SKILL.md` Step 12): the `unresolved` row FAILs the fixer gate, which folds into the Step 14 verdict and the Step 16 gate — `AskUserQuestion` with "Fix review findings" / "Mark as blocked and skip" / "Stop here". This is the required checkpoint; a human decides explicitly, including the option to ship without fixing it now.
-- **Fixer-loop classify-mode pass, final scope** (`post-execution-pipeline.md` Step 5): the `unresolved` row FAILs the `final-review` gate. There is no "proceed anyway" option at this gate (see Step 5) — the pipeline halts before the shipping gate until the user addresses it directly in conversation.
-- **Direct-suggestion sites that don't go through the fixer loop at all** (`post-execution-pipeline.md` Steps 2, 3, and 4 — impl-review suggestions, cross-file-review suggestions, and clean-code findings): these have no ledger and no existing gate to fall back on, so use the **Severity Escalation** prompt below instead of writing a plain summary note.
-
-This check runs everywhere a finding is about to be written to `known-issues.md` as a plain deferral — not only the classify-mode pass. The qualifying reasons above (`faithful-port`, `out-of-scope`, etc.) still apply normally to findings that don't trip this gate — including faithful-port findings, unless the port bug itself is severe enough to trip it.
+- **WP-scope fixer-loop classify pass** (`findings-fix-loop.md`, invoked from `SKILL.md` Step 12): an `unresolved` row FAILs the fixer gate and flows into Step 14 and Step 16, where the user chooses `Fix review findings`, `Mark as blocked and skip`, or `Stop here`.
+- **Final-scope fixer-loop classify pass** (`post-execution-pipeline.md` Step 5): an `unresolved` row FAILs the `final-review` gate. There is no proceed-anyway path here.
+- **Direct-suggestion sites outside the fixer loop** (`post-execution-pipeline.md` Steps 2, 3, and 4): raise the Severity Escalation prompt below instead of writing a plain deferral.
+Run this check everywhere a finding is about to be written as a plain deferral.
 
 ## Severity Escalation
 
-For call sites with no existing fixer-loop gate to route through (`post-execution-pipeline.md` Steps 2, 3, and 4), a Severity Gate trip gets asked immediately, in the same turn it's found — not batched into the end-of-run known issues walkthrough, which is exactly the "wrote it to a file and moved on" failure mode this gate exists to prevent:
+For call sites with no fixer-loop gate (`post-execution-pipeline.md` Steps 2, 3, and 4), ask immediately:
 
 ```
 AskUserQuestion:
@@ -82,17 +79,15 @@ AskUserQuestion:
       description: "I understand the risk — record it as a known issue and continue (this is now an explicit human decision, not a silent deferral)"
 ```
 
-A subagent (e.g. the Step 4 clean-code-executor) cannot ask this question itself — it flags the trip distinctly in its output (do not silently record it as a plain deferral) and the orchestrator raises this prompt after reading that output.
+A subagent cannot ask this question itself. It must flag the trip distinctly in its output, and the orchestrator raises the prompt.
 
 **On "Fix now":**
 1. Record the dispatch and capture its ID: `cfl dispatch severity-fixer --agent-type general-purpose --model sonnet`
-2. Dispatch a `general-purpose` subagent (`model: sonnet`, `cfl_dispatch_id: <dispatch_id>`) scoped to only this one finding — its description, affected files, and the instruction "fix only this; do not expand scope."
+2. Dispatch a `general-purpose` subagent (`model: sonnet`, `cfl_dispatch_id: <dispatch_id>`) scoped to only this finding, its description, affected files, and the instruction `fix only this; do not expand scope.`
 3. After it completes: `cfl dispatch end <dispatch_id>`
-4. Record a reviewer dispatch (`cfl dispatch severity-review --agent-type code-reviewer --model sonnet`), capture `review_dispatch_id`, and run `code-reviewer` once on the changed files with `cfl_dispatch_id: <review_dispatch_id>`; after it completes: `cfl dispatch end <review_dispatch_id>`. (Single-pass `code-reviewer` only, not the full `findings-fix-loop.md` rigor — this fix targets one already-identified, already-scoped issue rather than an open-ended review, so the cross-file consistency check `integration-reviewer` adds isn't needed.) **FAIL or WARN:** tell the user the fix attempt failed and re-raise this same Severity Escalation prompt rather than silently proceeding — do not loop automatically. **PASS:** re-run the project test suite (`<dir>/test-command.txt`, skip and treat as passing if it contains the sentinel `no test suite`) and lint (`<dir>/lint-command.txt`, skip and treat as passing if it contains the sentinel `no lint tools`). If both pass (or are skipped via their sentinels), the finding is resolved and nothing gets recorded in `known-issues.md` — resume the pipeline step that raised this prompt. If either fails, treat this the same as a code-reviewer FAIL: tell the user the fix attempt introduced a regression and re-raise this same Severity Escalation prompt rather than silently proceeding.
-
-**On "Stop here":** Leave the run active; do not call `cfl run complete`. The pipeline step that raised this prompt does not continue automatically — the user resumes later via `/mine-orchestrate`.
-
-**On "Ship anyway":** record the finding in `known-issues.md` with `Run: <run_id>` (same requirement as every other entry — see Entry Format below) and note in its `Why deferred:` field that the user explicitly accepted the risk after being shown the Severity Gate trip. Only after this choice may the finding be recorded at all; the pipeline step that raised this prompt then continues automatically.
+4. Record a reviewer dispatch (`cfl dispatch severity-review --agent-type code-reviewer --model sonnet`), capture `review_dispatch_id`, and run `code-reviewer` once on the changed files with `cfl_dispatch_id: <review_dispatch_id>`; after it completes: `cfl dispatch end <review_dispatch_id>`. **FAIL or WARN:** tell the user the fix attempt failed and re-raise this same prompt; do not loop automatically. **PASS:** re-run the project test suite (`<dir>/test-command.txt`, skip and treat as passing if it contains `no test suite`) and lint (`<dir>/lint-command.txt`, skip and treat as passing if it contains `no lint tools`). If both pass or are skipped, the finding is resolved, nothing is recorded in `known-issues.md`, and the pipeline resumes at the step that raised this prompt. That call site owns any broader gate rerun required after the change. If either targeted check fails, treat it like a code-reviewer FAIL and re-raise this prompt.
+**On "Stop here":** Leave the run active; do not call `cfl run complete`.
+**On "Ship anyway":** record the finding in `known-issues.md` with `Run: <run_id>` and note in `Why deferred:` that the user explicitly accepted the risk after seeing the Severity Gate trip. Only after this choice may the finding be recorded.
 
 ## Entry Format
 
@@ -122,23 +117,21 @@ Acceptance criteria:
 - <how to know the follow-up resolved it>
 ```
 
-`Status:` starts as `open` and moves to one of: `resolved — fixed during known issues walkthrough` (Step 5.6 "Fix now" in `post-execution-pipeline.md`), `filed (#<issue-number>)` (Step 5.6 "File as GitHub issue"), or stays `open` (Step 5.6 "Leave deferred", or no walkthrough decision yet).
-
-Keep entries concise. They should be detailed enough for a later agent to act without reconstructing the orchestration context.
-
-`Run: <run_id>` is the `run_id` field from `cfl run status` (also returned by `cfl run start` / `cfl run advance-phase orchestrate`) — the same run persists across a mid-run session boundary (resume after context compaction, a manual `/clear`, or a crash/restart), so this field, not conversational memory, is what the Step 5.6 walkthrough uses to tell entries recorded in this orchestration run apart from backlog left over from an earlier run on the same feature. Every writer of a known-issues entry (fixer subagents and the orchestrator's own direct recordings) must read the current `run_id` and include it.
+`Status:` starts as `open` and moves to one of: `resolved — fixed during known issues walkthrough`, `filed (#<issue-number>)`, or stays `open`.
+Keep entries concise but actionable.
+`Run: <run_id>` comes from `cfl run status`. Every known-issues writer must read the current `run_id` and include it so Step 5.6 can distinguish entries recorded in this run from backlog left by earlier runs on the same feature.
 
 ## Gate Rule
 
 Before a task or final review treats a real unfixed issue as acceptable, it must be in one of these states:
 
 - Fixed in code.
-- Rejected as invalid with rationale in the relevant review/fix summary — the fixer-loop ledger's formal `rejected(reason)` row (`findings-fix-loop.md`) is this state.
+- Rejected as invalid with rationale in the relevant review/fix summary; the fixer-loop ledger's formal `rejected(reason)` row (`findings-fix-loop.md`) is this state.
 - Deferred only to a later task that still owns the relevant files.
 - Recorded in `<feature_dir>/known-issues.md`.
 
-An intentional deferral recorded in `known-issues.md` does not by itself downgrade a task from PASS to WARN. WARN remains reserved for unresolved execution conditions such as visual uncertainty, regressions, or lint/test issues that still need attention in this run.
+An intentional deferral recorded in `known-issues.md` does not by itself downgrade a task from PASS to WARN.
 
 ## Shipping Summary
 
-Before the shipping gate, `post-execution-pipeline.md` Step 5.5/5.6 reads `<feature_dir>/known-issues.md`, splits `Status: open` entries into "recorded this run" (`Run:` matches the current `run_id`) versus backlog from an earlier run, and walks the user through each this-run entry individually (Fix now / File as GitHub issue / Leave deferred) plus an opt-in rollup for the backlog — see that file for the full walkthrough. The Step 6 shipping prompt then surfaces the post-walkthrough open count and titles so the user can choose whether to ship with whatever follow-ups remain.
+Before the shipping gate, `post-execution-pipeline.md` Step 5.5/5.6 reads `<feature_dir>/known-issues.md`, splits `Status: open` entries into this-run vs backlog using `Run:`, walks each this-run entry individually, and then surfaces the remaining open count and titles at the shipping gate.

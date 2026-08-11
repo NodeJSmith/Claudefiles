@@ -30,7 +30,7 @@ Run state persists in the cfl SQLite DB across sessions. Per-task temp artifacts
 
 ### Check for existing run (resume detection)
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/resume-protocol.md` and follow it. If an active run exists in `orchestrate` phase, the protocol either resumes at Phase 2 or restarts fresh. If an active run exists in `define` or `plan` phase, the protocol either sets `advance_from_prior_phase` and falls through to "Branch staleness pre-flight" below, or stops the run and exits. If no active run exists, proceed to "Branch staleness pre-flight" below.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/resume-protocol.md` and follow it. If an active run exists in `orchestrate` phase, the protocol either resumes at Phase 2 or restarts fresh. If an active run exists in `define`, `plan`, or `sketch` phase, the protocol either sets `advance_from_prior_phase` and falls through to "Branch staleness pre-flight" below, or stops the run and exits. If no active run exists, proceed to "Branch staleness pre-flight" below.
 
 ### Branch staleness pre-flight
 
@@ -40,11 +40,14 @@ A 12-hour run that stamps its `base_commit` onto a stale base will conflict late
 
 ### Find the feature directory
 
-If $ARGUMENTS points to a `design/specs/NNN-*/` directory, use it directly.
+If `resume-protocol.md` already set `feature_dir` from an active run, use it directly. Skip fresh
+discovery and confirmation.
 
-If $ARGUMENTS points to a `T*.md` file, the feature directory is two levels up.
+Otherwise, if $ARGUMENTS points to a `design/specs/NNN-*/` directory, use it directly.
 
-If $ARGUMENTS is empty:
+Otherwise, if $ARGUMENTS points to a `T*.md` file, the feature directory is two levels up.
+
+Otherwise, if $ARGUMENTS is empty:
 
 ```
 Glob: design/specs/*/tasks/T*.md
@@ -79,7 +82,7 @@ Read all `<feature_dir>/tasks/T*.md` files in order. For each task, extract:
 - `task_id`
 - `title`
 - `depends_on`
-- `target_files` — the file paths from the task's `## Target Files` section (create/modify/delete entries only; exclude read-only entries). Used to build the "Task scope boundary" block for reviewers.
+- `target_files` — the file paths from the task's `## Target Files` section (create/modify/delete entries only; exclude read-only entries). If a task omits `## Target Files`, use `target_files: unspecified`; reviewer scope boundaries render this as `targets: unspecified`. Used to build the "Task scope boundary" block for reviewers.
 
 **Ordering note**: The tmpdir must exist before `cfl run start` or `cfl run advance-phase orchestrate`. Obtain it via `get-skill-tmpdir mine-orchestrate` before either call, then use it in the `--tmpdir` argument.
 
@@ -129,7 +132,7 @@ First, get the base commit:
 git rev-parse --short HEAD
 ```
 
-**If `advance_from_prior_phase` is set** (resume-protocol found a run in `define` or `plan` phase and the user chose "Advance to orchestrate"):
+**If `advance_from_prior_phase` is set** (resume-protocol found a run in `define`, `plan`, or `sketch` phase and the user chose to advance to orchestrate):
 
 ```bash
 cfl run advance-phase orchestrate --base-commit <sha> --tmpdir <tmpdir> [--visual-mode <enabled|skipped_no_server|skipped_no_vision>] [--dev-server-url <url>]
@@ -153,7 +156,7 @@ The active run is resolved from the DB for all subsequent `cfl` calls — no pat
 
 ### Snapshot plan metadata
 
-After the run is started or advanced (including resume — the command is idempotent), capture structured metadata from the design doc and task files. This records FR/AC text, task dependencies, target files, and verify criteria counts — a one-time snapshot of the plan before execution begins. Skip if cfl tracking is inactive.
+After a fresh run is started or a prior phase is advanced, capture structured metadata from the design doc and task files. This records FR/AC text, task dependencies, target files, and verify criteria counts — a one-time snapshot of the plan before execution begins. Skip if cfl tracking is inactive; resumed orchestrate runs jump directly to Phase 2 and retain their existing snapshot.
 
 ```bash
 cfl run snapshot --spec <spec_number>
@@ -194,26 +197,24 @@ cfl task start <task_id>
 
 ### Step 2: Discover and confirm test + lint commands, capture baselines (first task only)
 
-On the first task of this orchestration run (no baseline exists yet), discover the project's test and lint/format commands, confirm them with the user, and capture baselines before the executor modifies any code.
+On the first task of this orchestration run (no baseline exists and no corresponding
+`<dir>/*-baseline-unavailable` marker exists), discover the project's test and lint/format
+commands, confirm them with the user, and capture baselines before the executor modifies any code.
+An unavailable marker means a resumed modified worktree lost its original baseline; never recapture
+from that state.
 
 On subsequent tasks and retries, skip — the baselines from the first task apply to the entire run (they reflect the pre-orchestration state).
 
 #### Discovery
 
-1. **Discover test command(s)** using the discovery order from `references/common/testing.md`.
-2. **Discover lint/format command(s)** using this discovery order:
-   1. **CLAUDE.md** — "Lint", "Formatting", or "Code Quality" section
-   2. **CI configuration** — `.github/workflows/`, `.gitlab-ci.yml`; extract lint/format/typecheck steps
-   3. **Pre-commit config** — `prek.toml`, `.pre-commit-config.yaml`, or `.pre-commit-config.yml`; if present, note it but do NOT use `prek run --all-files` / `pre-commit run --all-files` as the lint command. These hooks run automatically at commit time (Step 17) — extract the individual tools from the config instead (e.g., `ruff check .`, `pyright`, `eslint .`)
-   4. **Task runners** — `pyproject.toml` scripts, `Makefile`, `package.json` scripts (look for `lint`, `format`, `check`, `typecheck` targets)
-   5. **Conventions** — Python: `ruff check .` + `pyright`. TypeScript: `tsc --noEmit` + `eslint .`
-   6. **Ask the user** if unclear
-
-For projects spanning multiple stacks (e.g., Python backend + TypeScript frontend), discover commands for **each stack**. A monorepo with `backend/` and `frontend/` needs both `cd backend && pytest` and `cd frontend && npm test`, and both `cd backend && ruff check .` and `cd frontend && tsc --noEmit`.
+1. Discover test commands using `references/common/testing.md`.
+2. Discover lint/format commands in this order: `CLAUDE.md`; CI config; pre-commit config
+   (note hooks, but extract their tools rather than using `prek run --all-files`); task runners;
+   language conventions. Ask the user if unclear. Discover commands for every stack in a monorepo.
 
 #### User confirmation
 
-Present both the discovered test and lint commands for confirmation:
+Present both command sets for confirmation:
 
 ```
 AskUserQuestion:
@@ -227,7 +228,7 @@ AskUserQuestion:
       description: "I'll provide the right commands"
 ```
 
-If the user corrects, use their commands instead. Re-present for confirmation after corrections until the user confirms.
+If corrected, re-present until confirmed.
 
 #### Record and baseline
 
@@ -235,13 +236,14 @@ Record the confirmed commands:
 - Test command(s) → `<dir>/test-command.txt` — one command per line; this canonical file is passed to all executors and test gates to prevent discovery drift
 - Lint command(s) → `<dir>/lint-command.txt` — one command per line
 
-If no test suite is discoverable and the user confirms none exists, write `no test suite` to `<dir>/test-command.txt`. If no lint tools are discoverable and the user confirms none exist, write `no lint tools` to `<dir>/lint-command.txt`.
+If the user confirms no suite or tools exist, write `no test suite` or `no lint tools` to the
+corresponding command file.
 
 Run both suites and record baselines:
 - Test baseline → `<dir>/test-baseline.md` (note which tests pass and which fail)
 - Lint baseline → `<dir>/lint-baseline.md` (record per command: the exact command line, exit code, and error count — these are compared by the lint gate in Step 9 to detect regressions)
 
-If a command file contains the sentinel value (`no test suite` / `no lint tools`), record `SKIPPED: <reason>` in the corresponding baseline file and skip that baseline run.
+If a command file contains a sentinel, record `SKIPPED: <reason>` in its baseline and skip that run.
 
 ### Step 3: Create per-task subdirectory
 
@@ -286,7 +288,7 @@ For **first-pass execution**, include only `implementer-prompt.md` in the `## Im
 
 For **retries** (spec fix loop and FAIL retry), include **both** files: `implementer-prompt.md` in `## Implementer instructions` (task execution contract — subtask sequencing, deviation classification, visual verification) and `retry-prompt.md` as an additional `## Retry instructions` section below it (verify-before-implement posture, YAGNI check, push-back protocol, and previous review feedback).
 
-Launch a subagent of the type selected in Step 4 with the same `--model` value used in Step 4's `cfl dispatch` call and this prompt (fill in bracketed values):
+Launch the selected agent with the same model as the dispatch and this prompt (fill in bracketed values):
 
 ```
 You are executing a single task from an implementation plan.
@@ -297,7 +299,7 @@ You are executing a single task from an implementation plan.
 ## Design doc path
 <absolute path to <feature_dir>/design.md>
 
-Read the design doc directly for architecture context. Pay special attention to the sections referenced in the task's Focus section.
+Read the design doc directly for architecture context. Pay special attention to sections referenced in the task's Focus section, when present.
 
 ## Master context path
 <absolute path to <feature_dir>/tasks/context.md, if it exists; omit this section if the file does not exist>
@@ -318,13 +320,7 @@ Read the design doc directly for architecture context. Pay special attention to 
 <contents of <dir>/lint-command.txt, or "no lint tools" if SKIPPED>
 
 ## Output capture
-Capture raw test/lint command output to the per-task log files (`test-output.log` / `lint-output.log`,
-concrete paths given on the output lines at the end of this prompt) rather than inlining full output into your result.
-Summarize results inline (e.g., "12 passed, 0 failed"); keep the full logs in the files.
-
-Do NOT re-run the full test suite mid-task to verify that an edit landed — the Step 9 gate
-re-runs the full suite as the real verification gate. The TDD cycle for the change (red/green/refactor
-using the canonical test command) and re-reading the file you just edited remain expected.
+Use the output-capture and no-mid-task-full-suite rules in `implementer-prompt.md`.
 
 ## Visual verification status
 <If visual_mode is not "enabled">: Visual verification is SKIPPED for this run (<visual_mode reason>). Do not attempt screenshot capture. Report "SKIPPED — <reason> (orchestrator)" in your visual verification output.
@@ -337,7 +333,7 @@ Capture any test/lint output you run to: <absolute path: dir>/<task_id>/test-out
 Save screenshots to: <absolute path: dir>/<task_id>/>
 ```
 
-Wait for the subagent to complete. Then mark the dispatch as done:
+Wait for the subagent, then mark the dispatch done:
 
 ```bash
 cfl dispatch end <dispatch_id>
@@ -390,7 +386,8 @@ cfl dispatch integration-reviewer <task_id> --agent-type integration-reviewer --
 
 Parse `dispatch_id` from each JSON response — needed for `cfl dispatch end` after each returns.
 
-Launch **all three reviewers in parallel** (three Agent tool calls in a single message):
+Launch all three reviewers in parallel (three Agent tool calls in a single message). Every prompt
+below includes the shared scope boundary shown in the first prompt.
 
 **Subagent 1 — Spec reviewer** (`subagent_type: "general-purpose"`, `model: sonnet`):
 
@@ -414,13 +411,10 @@ Read the design doc directly for supplemental architecture context.
 Read this file when you need to: (1) check CONTESTED markers, (2) compare the executor's stated Verify section for dropped criteria, (3) read the executor's visual verification output for the plan audit (section 6 of your instructions), or (4) understand the executor's stated rationale for a decision. Do not use it as a substitute for reading the actual code.
 
 ## Task scope boundary
-
-You are reviewing task <task_id> ("<task title>") in a multi-task execution. The following tasks handle their own concerns:
-
-<For each remaining (not-yet-completed) task after the current one, emit one line using that task's write-scope target files (create/modify/delete only, not read):>
-- <task_id>: <title> — targets: <comma-separated list of create/modify/delete files from that task's "## Target Files" section, or "unspecified" if the task has no Target Files section>
-
-Use this to distinguish valid cross-task touches (fixing an import the executor broke in a later task's file) from unauthorized scope expansion.
+Only flag issues in this task's scope. Later tasks own these targets; do not flag findings
+explicitly assigned to them:
+<one line per remaining task: <task_id>: <title> — targets: <create/modify/delete paths, or unspecified>>
+When uncertain whether a finding is in scope, include it.
 
 ## Spec reviewer instructions
 <full spec-reviewer-prompt.md content>
@@ -439,18 +433,17 @@ CONCISE-RETURN-MODE
 
 cfl_dispatch_id: <code_reviewer_dispatch_id>
 
-Review these changed files: <changed file list from Step 6>
-
 ## Task scope boundary
 
 You are reviewing task <task_id> ("<task title>") in a multi-task execution.
 
 Only flag issues that fall within THIS task's scope. The following tasks handle their own concerns — do NOT flag issues that are explicitly assigned to them:
 
-<For each remaining (not-yet-completed) task after the current one, emit one line using that task's write-scope target files (create/modify/delete only, not read):>
-- <task_id>: <title> — targets: <comma-separated list of create/modify/delete files from that task's "## Target Files" section, or "unspecified" if the task has no Target Files section>
+<one line per remaining task: <task_id>: <title> — targets: <create/modify/delete paths, or unspecified>>
 
-If a finding concerns code that is explicitly listed as a later task's target, skip it. When uncertain whether something is in-scope, include it — false negatives are worse than false positives.
+If a finding concerns code that is explicitly listed in a later task's target, skip it. When uncertain whether something is in-scope, include it — false negatives are worse than false positives.
+
+Review these changed files: <changed file list from Step 6>
 
 Write your review to: <absolute path: dir>/<task_id>/code-review.md>
 ```
@@ -468,10 +461,9 @@ You are reviewing task <task_id> ("<task title>") in a multi-task execution.
 
 Only flag issues that fall within THIS task's scope. The following tasks handle their own concerns — do NOT flag issues that are explicitly assigned to them:
 
-<For each remaining (not-yet-completed) task after the current one, emit one line using that task's write-scope target files (create/modify/delete only, not read):>
-- <task_id>: <title> — targets: <comma-separated list of create/modify/delete files from that task's "## Target Files" section, or "unspecified" if the task has no Target Files section>
+<one line per remaining task: <task_id>: <title> — targets: <create/modify/delete paths, or unspecified>>
 
-If a finding concerns code that is explicitly listed as a later task's target, skip it. When uncertain whether something is in-scope, include it — false negatives are worse than false positives.
+If a finding concerns code that is explicitly listed in a later task's target, skip it. When uncertain whether something is in-scope, include it — false negatives are worse than false positives.
 
 cfl_dispatch_id: <integration_reviewer_dispatch_id>
 
@@ -508,29 +500,32 @@ After the parallel reviews complete (regardless of verdicts), re-run the project
 
 #### Test gate
 
-1. **Use the test baseline** from Step 2 (captured before the first executor ran).
-   - If the baseline is `SKIPPED: no test suite`, skip the test gate and record `SKIPPED` in `test-gate.md`.
-   - If `<dir>/test-baseline.md` is missing or unreadable (e.g., tmpdir was cleared before resume), do **not** treat this as a regression signal. Continue with the test re-run, but record `NO BASELINE — cannot detect regressions` in `test-gate.md`.
-2. **Load the canonical test command** from `<dir>/test-command.txt` (created in Step 2 to prevent discovery drift). Treat that file as the primary source of truth. Run from the repository root. Only fall back to the discovery order from `references/common/testing.md` if `test-command.txt` is missing, empty, or contains `no test suite`.
-3. **Run the test command**, piping raw output via `tee` to `<dir>/<task_id>/test-output.log`. Keep only a short summary (e.g., the last 20 lines of the captured log) in the orchestrator's context.
-4. **Compare against baseline when available**: if a valid baseline exists and any test that passed in the baseline now fails, this is a **regression**. Record regressions explicitly in `<dir>/<task_id>/test-gate.md`. If no baseline is available, record that regression detection could not be performed and list current failures as informational only — do not classify them as regressions.
-5. **Record the test result** in the per-task temp directory: `<dir>/<task_id>/test-gate.md` with the command used, whether it came from `test-command.txt` or fallback discovery, output summary, baseline status, and regression list.
+Use the Step 2 baseline and `<dir>/test-command.txt` from the repository root. If the canonical
+command file is missing or empty after Step 2 discovery, stop the task as blocked; do not record a
+test-gate verdict and do not rediscover a
+different command. If the command file contains the exact sentinel `no test suite`, skip the gate.
+Before the command loop, truncate `<dir>/<task_id>/test-output.log` once. For each test command,
+append a separator and raw output with `tee -a`, and capture the command's actual exit status by
+enabling `set -o pipefail` before the pipeline, rather than accepting the status of `tee`. A skipped
+baseline skips the gate. A missing baseline, or a persisted `<dir>/test-baseline-unavailable`
+marker, is `NO BASELINE —
+cannot detect regressions`, not a regression. Compare valid baselines and record the command, source,
+summary, baseline status, and regressions in `test-gate.md`.
 
 **Test verdict impact**: If regressions are detected from a valid baseline comparison (previously-passing tests now fail), check whether all regressing tests are in files owned by a later task (compare failing test file paths against the `target_files` in subsequent task files). If **all** regressions are downstream-scoped, the test gate is **WARN** (not FAIL) — record `"note": "all N regressions scoped to <task_ids>"` in the gate data and skip the fixer cycle for these regressions. They will be resolved when the owning task executes. If **any** regression is in a file owned by the current or a prior task, the test gate is **FAIL** and the fixer cycle runs as normal. Pre-existing test failures (tests that also failed in the baseline) are informational and do not block. If no baseline is available, do not fail the task on regression grounds alone.
 
 #### Lint gate
 
-1. **Load the canonical lint command(s)** from `<dir>/lint-command.txt` (created in Step 2).
-   - If the lint command is `no lint tools`, skip the lint gate and record `SKIPPED` in `lint-gate.md`.
-   - If `<dir>/lint-baseline.md` is missing or unreadable, record `NO BASELINE — cannot detect regressions` in `lint-gate.md`.
-2. **Run each lint command**, piping raw output via `tee -a` to `<dir>/<task_id>/lint-output.log` (append so multiple commands accumulate in one log). Keep only a short summary (e.g., the last 20 lines) in the orchestrator's context. Capture each command's **real** exit code with `${PIPESTATUS[0]}` immediately after its pipeline (or run with `set -o pipefail`) — `tee` otherwise reports its own exit status (almost always 0) and masks a non-zero lint exit, defeating the exit-code regression check in bullet 3. If multiple commands (one per line in `lint-command.txt`), run each separately and record per-command results and exit codes.
-3. **Compare against baseline per command**: for each lint command, compare the exit code and error count against the baseline:
-   - **Exit code regression**: command passed (exit 0) in baseline, now fails (exit non-zero) → regression
-   - **Error count regression**: command had N errors in baseline, now has >N errors → regression (new errors introduced)
-   - **Pre-existing failures**: command already failed in baseline with the same or fewer errors → informational only
-   
-   Record regressions in `<dir>/<task_id>/lint-gate.md` with the specific command, baseline error count, current error count, and new error messages.
-4. **Record the result** in `<dir>/<task_id>/lint-gate.md` with: each command and its exit code, baseline comparison (pass/regress/pre-existing per command), new errors introduced (if any), and overall lint gate status.
+Load each command from `<dir>/lint-command.txt`; if the canonical file is missing or empty after
+Step 2 discovery, stop the task as blocked rather than recording a lint-gate verdict or
+rediscovering commands. A `no lint tools` sentinel
+skips the gate. Tee each
+command (append) to `<dir>/<task_id>/lint-output.log` with `set -o pipefail` enabled, so the pipeline
+preserves a failing lint status instead of reporting `tee`'s status. A missing baseline is
+`NO BASELINE — cannot detect regressions`; treat `<dir>/lint-baseline-unavailable` the same way.
+Compare exit code and error count per command: a new failure or increased count is a regression;
+an equal or smaller pre-existing failure is informational. Record commands, exits, comparisons,
+new errors, and overall status in `lint-gate.md`.
 
 **Lint verdict impact**: Lint regressions (checks that passed in the baseline now fail) contribute WARN to the task verdict. The executor should address lint issues proactively; if they don't, regressions surface as WARN at the verdict assembly and are reported in Step 15. Lint regressions do not independently FAIL the task. Pre-existing lint failures do not contribute to the verdict.
 
@@ -653,7 +648,7 @@ For FAIL/BLOCKED gate outcomes, **update the task status** before taking the gat
   ```bash
   cfl task update <task_id> --status fixing
   ```
-  Re-run from Step 4 (which includes Step 5 executor + Step 6 file capture + Step 6b reviewing transition) using `retry-prompt.md` as the base prompt (instead of `implementer-prompt.md`). Populate the `## Previous review feedback` template in `retry-prompt.md` with reviewer file paths based on which steps were reached: spec reviewer always; code reviewer and integration reviewer if Step 12 was reached; visual reviewer if it ran. Pass N/A for any reviewer that didn't reach its step. The executor reads these files directly — do not inline or truncate the reviewer output. Only provide the most recent attempt's reviewer file paths.
+  Re-run from Step 4 (which includes Step 5 executor + Step 6 file capture + Step 6b reviewing transition) using the Step 5 retry composition: `implementer-prompt.md` as the executor contract plus `retry-prompt.md` as the retry-specific instructions. Populate the `## Previous review feedback` template in `retry-prompt.md` with only existing paths from the newest attempt: always include the spec reviewer; include code and integration reviewer reports whenever Step 8 produced them, regardless of whether Step 12 ran; include the visual reviewer report when it ran; and include `test-gate.md` after a failed test gate. Omit absent or unreached reports. The executor reads these files directly — do not inline or truncate the reviewer output.
 - **Mark as blocked and skip**: record the block with a reason:
   ```bash
   cfl task block <task_id> --reason "<blocker description>"
