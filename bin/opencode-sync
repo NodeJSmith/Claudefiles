@@ -264,6 +264,7 @@ def stage_config(claudefiles: Path, tmpdir: Path, *, verbose: bool = False) -> P
         (staged / "rules" / "common" / rule).unlink(missing_ok=True)
 
     compat_path = staged / "rules" / "common" / "opencode-compat.md"
+    compat_path.parent.mkdir(parents=True, exist_ok=True)
     compat_path.write_text(OPENCODE_COMPAT_RULE)
 
     return staged
@@ -1204,15 +1205,17 @@ def report_lint(errors: list[str], warnings: list[str]) -> int:
 
 
 def _strip_jsonc_comments(text: str) -> str:
-    """Strip `//` line comments from JSONC text, tracking quoted-string
-    context so a `//` inside a string value (e.g. the `https://` in
-    `"$schema": "https://opencode.ai/config.json"`) is left alone.
+    """Strip `//` line comments and `/* */` block comments from JSONC text,
+    tracking quoted-string context so a `//` or `/*` inside a string value
+    (e.g. the `https://` in `"$schema": "https://opencode.ai/config.json"`)
+    is left alone.
 
     A naive per-line `line.split("//")[0]` truncation corrupts any URL in a
     string value into invalid JSON — this walks character by character
-    instead, only treating `//` as a comment starter when outside a `"..."`
-    string (honoring `\\"` escapes so an escaped quote doesn't end the string
-    early).
+    instead, only treating `//` and `/*` as comment starters when outside a
+    `"..."` string (honoring `\\"` escapes so an escaped quote doesn't end
+    the string early). Newlines inside a stripped block comment are kept in
+    the output so line numbers stay stable for any future line-precision use.
     """
     out: list[str] = []
     in_string = False
@@ -1241,6 +1244,15 @@ def _strip_jsonc_comments(text: str) -> str:
         if ch == "/" and i + 1 < n and text[i + 1] == "/":
             while i < n and text[i] not in "\r\n":
                 i += 1
+            continue
+
+        if ch == "/" and i + 1 < n and text[i + 1] == "*":
+            i += 2
+            while i < n and not (text[i] == "*" and i + 1 < n and text[i + 1] == "/"):
+                if text[i] in "\r\n":
+                    out.append(text[i])
+                i += 1
+            i += 2
             continue
 
         out.append(ch)
@@ -1277,9 +1289,10 @@ def check_collisions(
     except (json.JSONDecodeError, OSError):
         # A malformed opencode.jsonc is the user's problem to fix, not
         # something opencode-sync should crash over -- skip this run's
-        # collision check. Note: the stripper only handles `//` line
-        # comments, not `/* */` block comments -- a block comment here will
-        # land in this branch.
+        # collision check. _strip_jsonc_comments() handles both `//` line
+        # and `/* */` block comments, so landing here means the file has an
+        # actual syntax error (or isn't readable), not an unhandled comment
+        # style.
         if verbose:
             print(
                 f"Could not parse {jsonc_path} for collision check "
