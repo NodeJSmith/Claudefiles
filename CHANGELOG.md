@@ -4,6 +4,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-08-11
 
+### Changed
+
+- `mine-define`, `mine-sketch`, `mine-plan`, and implementation review now require resumable workflows to define and verify their full operational lifecycle, including bounded retries, recovery, convergence, and visible status accounting. (#504)
+
 ### Added
 
 - `opencode-sync` now generates named worker agents (`worker-standard`, `worker-lightweight`) and rewrites synced skill/command/agent dispatch lines to route through them, backstopped by a generated `config.json` that pins model tiers at the config level in case an agent's frontmatter `model:` is ignored. A new compatibility lint (`--lint-only`, `--check-source`) catches residual Claude-only dispatch constructs; `--check-source` runs as a blocking pre-commit hook. (#503)
