@@ -44,7 +44,7 @@ Use `tasks[].verdict` and `tasks[].verdict_detail` fields. PASS with a detail no
 
 ## Step 2: Implementation review (automatic, gates on blocking issues)
 
-Invoke `/mine-implementation-review <feature_dir>` automatically. The skill presents findings and returns — no user gate (the orchestrator handles all gate logic).
+Invoke `/mine-implementation-review <feature_dir> --test-command-file <dir>/test-command.txt` automatically. The skill presents findings and returns — no user gate (the orchestrator handles all gate logic).
 
 Read the review output. Extract PASS, FAIL, or ABANDON plus suggestions/blockers. Record the gate
 result after handling the applicable outcome below; ABANDON maps to FAIL for the gate.
@@ -135,8 +135,7 @@ implementation-review inputs and verification steps:
   choice and process non-blocking findings under the normal Phase 3 known-issues rules.
   Then record the implementation-review re-run dispatch and launch the implementation-review
   subagent in the foreground with `cfl_dispatch_id: <impl_review_rerun_dispatch_id>` in its prompt.
-  Preserve `/mine-implementation-review <feature_dir>`'s design/task inputs, review scope, and
-  output artifact. End it after completion, then repeat Step 2 with its result; continue to Step 3
+  Preserve `/mine-implementation-review <feature_dir> --test-command-file <dir>/test-command.txt`'s design/task inputs, review scope, canonical test command, and output artifact. End it after completion, then repeat Step 2 with its result; continue to Step 3
   only after its PASS handling completes:
 
   ```bash

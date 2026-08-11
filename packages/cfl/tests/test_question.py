@@ -506,6 +506,7 @@ def test_known_topics_exported():
     """KNOWN_TOPICS contains expected topics from all skills."""
     assert "scope-mode" in KNOWN_TOPICS
     assert "edge-cases" in KNOWN_TOPICS
+    assert "lifecycle" in KNOWN_TOPICS
     assert "pain-point" in KNOWN_TOPICS
     assert "open-question" in KNOWN_TOPICS
     assert "sign-off" in KNOWN_TOPICS

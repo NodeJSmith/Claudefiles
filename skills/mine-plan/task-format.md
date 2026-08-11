@@ -80,6 +80,7 @@ implements: ["FR#1", "FR#3", "AC#7"]
 - **Prompt**: Self-contained. Name exact file paths (absolute or repo-relative). Reference design doc sections by heading name. Reference visual artifacts by path. Do not say "as discussed" or assume context from earlier phases. Must be completable by a fresh subagent.
 - **Focus**: Ground truth from Phase 2 exploration. Exact file paths, class names, existing patterns to follow, gotchas. What would break if done wrong. Also the home for any open question Phase 1 deferred to implementation — state what the implementer must determine and what to do with each answer, so the uncertainty travels with the work instead of sitting in the design doc unowned.
 - **Verify**: Binary checklist only. Each item must start with `- [ ] FR#N:` or `- [ ] AC#N:` followed by a concrete, observable criterion. "The endpoint returns 200" not "the feature works". Every `implements` identifier must have exactly one Verify item. Each criterion must be verifiable by the executor running a local command. If an AC requires observing CI pipeline status, GitHub Actions output, or post-merge behavior, omit it from Verify. The executor has no way to observe these, so they get marked CONTESTED and stall the pipeline for manual resolution. The validator (Phase 3.5) catches any that slip through.
+- **Operational lifecycle verification**: When the design contains `## Operational Lifecycle`, the task or tasks implementing it must carry Verify criteria for the applicable lifecycle outcomes: repeated failure, bounded retry/termination, user-action states and their recovery path, deliberately terminal states, and user-visible population accounting. Use deterministic local fakes where a live provider is unsuitable. A test that exercises only one status transition is insufficient. Do not invent this requirement when the design omits the section.
 
 ### Decomposition rules
 
@@ -95,6 +96,7 @@ Decompose the design into tasks (minimum 3). Each task represents a distinct, in
 - Tasks that implement against those interfaces come later
 - Unit tests must live in the same task as the code they test — never in a separate task
 - Integration tests may live in a subsequent task, but that task must come after all tasks containing the units under test
+- Operational lifecycle integration tests may share a task with the worker or live in a subsequent task after all lifecycle components; they must exercise the assembled repeated-run behavior rather than isolated status helpers
 - No task may depend on outputs from a task with a higher ID unless explicitly noted in `depends_on`
 
 **FR/AC coverage rule:**

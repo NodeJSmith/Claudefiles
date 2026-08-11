@@ -93,6 +93,27 @@ Mode-specific follow-up (ask only the one matching the selected mode):
 
 Record: `cfl question mine-define user-flow --status asked --answer "<summary>" --spec <spec_number>`
 
+## Operational lifecycle (moderate+ only, conditional)
+
+Before the tier-specific questions, check whether the change owns resumable work state across invocations — for example a background worker, batch/backfill, scheduler, queue consumer, or persistent retry state around an external provider/subprocess. If it does, run the operational-lifecycle probe below even when the feature is moderate. If it does not, skip it.
+
+Resolve these questions rather than merely naming failure statuses:
+- What makes a failed item eligible again, and which failures require explicit user action or `--force`?
+- What bounds retry frequency, attempts, elapsed time, and cost?
+- How do repeated invocations terminate or converge when the dependency stays unhealthy?
+- What progress, exclusion, success, failure, and blocked counts can the user see without inspecting storage?
+- What realistic population or repeated-run scenario demonstrates that behavior?
+
+Include the concrete proposed answers in the edge-cases question for complex features. For moderate features, ask this confirmation directly before test requirements:
+
+```
+AskUserQuestion:
+  question: "This workflow persists work across runs. I propose this operational lifecycle:\n\n<concrete answers to retry eligibility, bounds, convergence, visible accounting, and realistic validation>\n\nDoes this match your expectations?"
+  header: "Lifecycle"
+```
+
+For moderate features, record after the confirmation: `cfl question mine-define lifecycle --status asked --answer "<summary>" --spec <spec_number>`. For complex features, record after the edge-cases answer that includes the lifecycle confirmation. If no operational lifecycle applies, record `--status skipped` before continuing.
+
 ## Ask for complex features only
 
 5. **Edge cases** (topic: `edge-cases`):
@@ -163,6 +184,7 @@ After the tier-appropriate problem-space questions, propose test requirements ba
   - Single module/function changes → unit tests
   - Cross-module changes, data flow across boundaries, service interactions → integration tests (in addition to unit tests for the individual modules)
   - Changes spanning frontend + backend, or user-facing workflows → E2E tests (in addition to lower layers; only if the repo has E2E infrastructure)
+  - Workflows that own resumable work state across invocations → lifecycle tests that exercise repeated invocations, persistent failure and recovery, bounded termination, and user-visible accounting (usually integration tests with deterministic fakes; do not accept isolated single-transition tests as sufficient)
 - If the repo lacks infrastructure for a recommended layer, note it as a gap rather than requiring it
 
 Present the proposal with evidence from the repo:
