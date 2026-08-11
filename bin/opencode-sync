@@ -12,14 +12,15 @@ Workflow:
 
 Requires: npx (comes with Node.js)
 
-This is the script skeleton (T01 of design/specs/1006-oc-native-agents). Later
-tasks plug into the marked stub points in main():
-  - T02: worker agent generation, config.json generation
+This is being built incrementally against design/specs/1006-oc-native-agents.
+T01 laid the script skeleton; T02 added worker agent + config.json generation
+(TIER_MAP-driven). Remaining stub points in main():
   - T03: dispatch rewrite, model remap
   - T04: compatibility lint (--lint-only), collision detection, foreign config backup
 """
 
 import argparse
+import json
 import os
 import re
 import shutil
@@ -58,6 +59,44 @@ HARNESS_ONLY_RULES = ["sudo.md", "tmux.md"]
 
 # Opkg output lines to surface in non-verbose mode (coupled to opkg's format).
 OPKG_SUCCESS_PATTERN = re.compile(r"^✓|Installed files:|No files")
+
+# Single source of truth for model routing: drives worker agent generation,
+# config.json generation, and (T03) dispatch rewriting. `opus` has no worker
+# entry because no `general-purpose` dispatches currently use opus tier — the
+# lint (T04) catches it if one appears. `plan` sits in the sonnet row
+# deliberately: Claude Code's model-default hook runs `Plan` at sonnet, and
+# pinning it at haiku/luna would be a silent tier downgrade.
+TIER_MAP = {
+    "opus": {"model": "openai/gpt-5.6-sol", "worker": None, "builtins": []},
+    "sonnet": {
+        "model": "openai/gpt-5.6-terra",
+        "worker": "worker-standard",
+        "builtins": ["general", "plan"],
+    },
+    "haiku": {
+        "model": "openai/gpt-5.6-luna",
+        "worker": "worker-lightweight",
+        "builtins": ["explore", "scout"],
+    },
+}
+
+# Descriptions for generated worker agents. Keyed by TIER_MAP `worker` value.
+WORKER_DESCRIPTIONS = {
+    "worker-standard": "Standard worker for implementation, review, and synthesis tasks",
+    "worker-lightweight": "Lightweight worker for triage, mechanical analysis, and low-cost tasks",
+}
+
+WORKER_AGENT_TEMPLATE = """---
+name: {name}
+mode: subagent
+model: {model}
+description: {description}
+---
+"""
+
+# Depth 2 covers the deepest current workflow (executor -> reviewer); depth 3
+# provides one level of headroom for future three-level workflows (FR#7).
+SUBAGENT_DEPTH = 3
 
 OPENCODE_COMPAT_RULE = """---
 tool: opencode
@@ -298,6 +337,117 @@ def check_sync_status(claudefiles: Path, sync_sha_file: Path) -> bool:
     return False
 
 
+def generate_worker_agents(agents_dir: Path, dry_run: bool) -> list[str]:
+    """Generate worker-*.md agent files under agents_dir from TIER_MAP (FR#1).
+
+    Before writing, deletes any existing worker-*.md whose basename doesn't
+    correspond to a current TIER_MAP `worker` value — prevents orphaned worker
+    agents from lingering after a tier rename. In dry-run mode, prints what
+    would be generated/removed without touching the filesystem.
+
+    Returns the list of worker agent names generated.
+    """
+    current_workers = {
+        tier["worker"] for tier in TIER_MAP.values() if tier["worker"] is not None
+    }
+
+    if agents_dir.is_dir():
+        for existing in sorted(agents_dir.glob("worker-*.md")):
+            if existing.stem in current_workers:
+                continue
+            if dry_run:
+                print(f"[dry-run] would remove orphaned worker agent: {existing}")
+            else:
+                existing.unlink()
+
+    generated = []
+    for tier_name, tier in TIER_MAP.items():
+        worker = tier["worker"]
+        if worker is None:
+            continue
+
+        description = WORKER_DESCRIPTIONS.get(worker)
+        if description is None:
+            die(
+                f"No description defined for worker agent {worker!r} (tier {tier_name!r})"
+            )
+
+        content = WORKER_AGENT_TEMPLATE.format(
+            name=worker, model=tier["model"], description=description
+        )
+        target = agents_dir / f"{worker}.md"
+
+        if dry_run:
+            print(f"[dry-run] would write {target}:\n{content}")
+        else:
+            agents_dir.mkdir(parents=True, exist_ok=True)
+            target.write_text(content)
+
+        generated.append(worker)
+
+    return generated
+
+
+def build_agent_config() -> dict[str, dict[str, str]]:
+    """Build the `agent` mapping of config.json from TIER_MAP.
+
+    Every builtin and worker in TIER_MAP maps to that tier's model. Pinning
+    both the built-in subagents and the generated workers at config level (not
+    just frontmatter) guards against the frontmatter-ignored failure mode
+    (issues #17870/#35126).
+    """
+    agent_config: dict[str, dict[str, str]] = {}
+    for tier in TIER_MAP.values():
+        for builtin in tier["builtins"]:
+            agent_config[builtin] = {"model": tier["model"]}
+        if tier["worker"] is not None:
+            agent_config[tier["worker"]] = {"model": tier["model"]}
+    return agent_config
+
+
+def generate_config(config_dir: Path, dry_run: bool) -> None:
+    """Generate config.json with model pins and subagent_depth (FR#2, FR#7).
+
+    Written atomically: temp file in the same directory (keeps the final
+    os.replace() on the same filesystem) -> json.load() validation -> existing
+    file backed up to config.json.bak -> os.replace() into place. A malformed
+    config.json would silently wipe all three global config files due to
+    OpenCode's single-fallback error handler in loadGlobal().
+    """
+    config = {
+        "$schema": "https://opencode.ai/config.json",
+        "agent": build_agent_config(),
+        "subagent_depth": SUBAGENT_DEPTH,
+    }
+    content = json.dumps(config, indent=2) + "\n"
+    target = config_dir / "config.json"
+
+    if dry_run:
+        print(f"[dry-run] would write {target}:\n{content}")
+        return
+
+    config_dir.mkdir(parents=True, exist_ok=True)
+
+    fd, tmp_path_str = tempfile.mkstemp(
+        prefix=".config.json.", suffix=".tmp", dir=config_dir
+    )
+    tmp_path = Path(tmp_path_str)
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(content)
+
+        with tmp_path.open() as f:
+            json.load(f)  # validate before it ever becomes the live file
+
+        if target.exists():
+            shutil.copy2(target, config_dir / "config.json.bak")
+
+        os.replace(tmp_path, target)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise
+
+
 def lint_only() -> int:
     """Run the compatibility lint without syncing. Stub — filled in by T04."""
     print("Lint not yet implemented — nothing to check (stub, see T04).")
@@ -376,21 +526,21 @@ def main() -> int:
 
         run_opkg(staged, dry_run=args.dry_run, verbose=args.verbose)
 
-        if args.dry_run:
-            print(
-                "\n[dry-run] Dispatch rewrite, model remap, worker agent generation, "
-                "and config.json generation are not yet implemented in this build "
-                "(see T02/T03) — no-op."
-            )
-            return 0
-
-        strip_color_fields(OPENCODE_CONFIG / "agents")
+        if not args.dry_run:
+            strip_color_fields(OPENCODE_CONFIG / "agents")
 
         # T03: dispatch rewrite (skills + commands + agent bodies)
         # T03: model remap (agent frontmatter, TIER_MAP-driven, anchored)
-        # T02: worker agent generation (worker-standard.md, worker-lightweight.md)
-        # T02: config.json generation (built-in + worker model pins, subagent_depth)
+        generate_worker_agents(OPENCODE_CONFIG / "agents", dry_run=args.dry_run)
+        generate_config(OPENCODE_CONFIG, dry_run=args.dry_run)
         # T04: compatibility lint, run automatically at the end of sync
+
+        if args.dry_run:
+            print(
+                "\n[dry-run] Dispatch rewrite and model remap are not yet "
+                "implemented in this build (see T03) — no-op."
+            )
+            return 0
 
         current_sha = _git_rev_parse(claudefiles, ["HEAD"])
         if current_sha is None:

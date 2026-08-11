@@ -1,7 +1,7 @@
 ---
 task_id: "T02"
 title: "Add TIER_MAP, worker agent generation, and config.json generation"
-status: "planned"
+status: "done"
 depends_on: ["T01"]
 implements: ["FR#1", "FR#2", "FR#7", "AC#1", "AC#2", "AC#3"]
 ---
