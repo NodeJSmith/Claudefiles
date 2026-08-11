@@ -1,7 +1,7 @@
 # Design: OpenCode Native Agents and Skill Dispatch Adapter
 
 **Date:** 2026-08-10
-**Status:** draft
+**Status:** archived
 **Scope-mode:** hold
 **Research:** Research briefs at scratchpad: `opencode-subagent-research.md`, `opencode-task-source.md`, `opencode-config-layering.md`
 
@@ -64,10 +64,10 @@ A July 30 quick fix manually pinned the three built-in subagents (`general`, `ex
 - **FR#10** `opencode-sync` strips Claude-specific `color:` frontmatter fields from synced agent files (preserving existing behavior from the bash script)
 - **FR#11** The compatibility lint flags unsupported platform semantics in synced output: `isolation: "worktree"` directives and `run_in_background` parameters that OpenCode cannot honor — these are surfaced as warnings, not silently dropped
 - ~~**FR#12**~~ **Removed** — canary test dropped. The atomic write + validation (FR#2) is sufficient protection against malformed config. A runtime canary that writes to `config.json` on every `--check` would reintroduce the corruption risk it's meant to detect
-- **FR#13** `opencode-sync` warns when `opencode.jsonc` contains `agent` keys that collide with generated `config.json` keys (stale July 30 quick-fix pins). Warning state is tracked per-key-set in the sync state file (the unified JSON state file that replaces the old plain-text `SYNC_SHA_FILE` — see FR#16) — removing and re-adding a collision re-triggers the warning; a fixed collision stops nagging
+- **FR#13** `opencode-sync` warns when `opencode.jsonc` contains `agent` keys that collide with generated `config.json` keys (stale July 30 quick-fix pins). Warns on every sync while the collision exists — no persisted suppression state. (Revised post-launch: the original design tracked warning state per-key-set in the sync state file to avoid repeat nagging; that state added a 44-line hand-rolled JSONC parser's worth of permanent machinery, an admitted block-comment gap, and was the trigger condition for a since-filed bug, all to silence a warning about a scenario the design itself frames as one-time cleanup. Removed in favor of the simpler always-warn behavior.)
 - **FR#14** `opencode-sync` maps Claude Code built-in agent types (`Explore` → `explore`, `Plan` → `plan`, `claude` → `general`) to their lowercase OpenCode equivalents and strips any inline `model:` override — these built-ins are pinned in `config.json`, not via frontmatter. All built-in name matches are word-boundary anchored: `claude` must never match `claude-code-guide`, and `Plan` must never match `Planner` or prose uses of "planning"
 - **FR#15** The rewriter maps `subagent_type: general-purpose` dispatches that have **no** `model:` clause to `subagent_type: worker-standard` — mirroring the Claude Code default, where the model-default hook injects sonnet for model-less `general-purpose` dispatches
-- **FR#16** `opencode-sync` records the hash of the `config.json` it generates in a unified JSON sync state file (`.claudefiles-sync-state.json`, replacing the old plain-text `.claudefiles-sync-sha`). This state file also holds the commit SHA, the sync script's own hash, and collision-warning state (FR#13). On a later sync, if `~/.config/opencode/config.json` exists but its hash doesn't match the recorded one (a foreign or hand-edited file), the sync backs it up to `config.json.foreign.bak` and prints a prominent warning before overwriting. No in-file ownership marker is used — an unknown top-level key could fail OpenCode's config schema validation
+- **FR#16** `opencode-sync` records the hash of the `config.json` it generates in a unified JSON sync state file (`.claudefiles-sync-state.json`). This state file also holds the commit SHA and the sync script's own hash. On a later sync, if `~/.config/opencode/config.json` exists but its hash doesn't match the recorded one (a foreign or hand-edited file), the sync backs it up to `config.json.foreign.bak` and prints a warning before overwriting. No in-file ownership marker is used — an unknown top-level key could fail OpenCode's config schema validation. (Revised post-launch: the original design also migrated a legacy plain-text `.claudefiles-sync-sha` file from the old bash script into this JSON state file on first read. That migration was one-time machinery for a single historical transition — it forced a `dry_run` parameter onto the state-loading function purely to suppress the migration's write/unlink during `--dry-run` — and was removed. The file is now simply ignored by the script rather than migrated — anyone whose install still has it (confirmed absent on the maintainer's own machine) can delete `~/.config/opencode/.claudefiles-sync-sha` manually as harmless cleanup, but leaving it in place has no effect.)
 
 ## Edge Cases
 
@@ -251,7 +251,7 @@ Order: opkg install → color strip → dispatch rewrite (skills + commands + ag
 - `stage_config()` → Python with `shutil`/`pathlib`
 - `remap_models()` → Python regex with the unified `TIER_MAP`
 - `postprocess_config()` → color field stripping + dispatch rewriting (skills + commands) + model remapping (agent frontmatter only, anchored) + worker agent generation + config.json generation + lint invocation
-- `check_sync_status()` → SHA comparison logic reading from a unified JSON state file (`.claudefiles-sync-state.json`, replacing the old plain-text `.claudefiles-sync-sha`), with the hash input extended to include `bin/opencode-sync` itself — so a TIER_MAP edit marks the install stale. One-time migration reads the old file, creates the new state file, and deletes the old one
+- `check_sync_status()` → SHA comparison logic reading from a unified JSON state file (`.claudefiles-sync-state.json`), with the hash input extended to include `bin/opencode-sync` itself — so a TIER_MAP edit marks the install stale. (The old plain-text `.claudefiles-sync-sha` file's one-time migration into this format was later removed — see FR#16.)
 - `opkg()` wrapper → `subprocess.run(["npx", ...], timeout=120)` (explicit timeout per the "Timeouts on External Calls" invariant)
 
 ### Compatibility lint

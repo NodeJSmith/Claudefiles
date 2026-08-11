@@ -112,6 +112,15 @@ always_run = true
 stages = ["pre-commit"]
 
 [[repos.hooks]]
+id = "lint-opencode-sync"
+name = "OpenCode dispatch pattern coverage"
+entry = "bin/opencode-sync --check-source"
+language = "system"
+pass_filenames = false
+always_run = true
+stages = ["pre-commit"]
+
+[[repos.hooks]]
 id = "secrets-check"
 name = "secrets-check"
 entry = "scripts/hooks/secrets-check.sh"

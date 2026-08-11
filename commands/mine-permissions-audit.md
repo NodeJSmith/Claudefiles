@@ -71,7 +71,7 @@ Categorize remaining patterns into:
 - **Recommend with note**: `python3:*`, `pip:*`, `npm:*` — broadly useful but can run arbitrary code
 - **Flag as risky**: `rm:*`, `sudo:*`, anything destructive — mention but don't recommend
 
-**Task tools** — `Task(Explore)`, `Task(general-purpose)`, etc. These are generally safe to allow.
+**Task tools** — `Task(Explore)`, `Task(general-purpose)`, etc. These are generally safe to allow. <!-- opencode-sync: ok -->
 
 ### Prioritize by signal strength
 

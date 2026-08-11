@@ -16,6 +16,6 @@ Match WP content against this table to select the executor agent type. **First m
 | PySpark, Delta Lake, DeltaTable, cloudFiles/Auto Loader, medallion layers (raw/bronze/silver/gold), dbt models, Databricks workflows | `engineering-data-engineer` |
 | FastAPI, REST API endpoints, Pydantic request/response models, async backend service | `engineering-backend-developer` |
 | API docs, README, tutorials, developer documentation | `engineering-technical-writer` |
-| Database schema, migrations, query optimization, ORM setup | `general-purpose` |
+| Database schema, migrations, query optimization, ORM setup | `general-purpose` <!-- opencode-sync: ok --> |
 
-If the WP does not clearly match a row, use `general-purpose`. When in doubt, prefer `general-purpose`.
+If the WP does not clearly match a row, use `general-purpose`. When in doubt, prefer `general-purpose`. <!-- opencode-sync: ok -->

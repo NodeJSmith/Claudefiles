@@ -172,7 +172,7 @@ Parse `dispatch_id` from the JSON output. Dispatch the fixer subagent (normal pa
    cfl dispatch code-reviewer --agent-type code-reviewer --model sonnet                        # final scope
    cfl dispatch integration-reviewer --agent-type integration-reviewer --model sonnet           # final scope
    ```
-   Re-dispatch the code reviewer and integration reviewer **in parallel** with the `CONCISE-RETURN-MODE` sentinel and output file paths — using the same agent types as the initial pass (`subagent_type: "code-reviewer"` and `subagent_type: "integration-reviewer"`), not `general-purpose`:
+   Re-dispatch the code reviewer and integration reviewer **in parallel** with the `CONCISE-RETURN-MODE` sentinel and output file paths — using the same agent types as the initial pass (`subagent_type: "code-reviewer"` and `subagent_type: "integration-reviewer"`), not `general-purpose`: <!-- opencode-sync: ok -->
    - Each dispatch prompt must contain the **exact literal token** `CONCISE-RETURN-MODE` (verbatim) **and** an output file path — both conditions required to activate concise return (see `verdict-line-format.md`)
    - Each dispatch prompt must include `cfl_dispatch_id: <dispatch_id>` (the ID from its preceding `cfl dispatch` call)
    - Output paths: `<scope_dir>/code-review.md` and `<scope_dir>/integration-review.md` (overwrite)
