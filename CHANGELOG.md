@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-08-11
+
+### Fixed
+
+- `cfl archive` no longer strands a spec permanently marked archived when `tasks/` or its legacy scaffolding artifacts have uncommitted changes — it now blocks with a clear error before the DB commit instead of failing the `git rm` step after the spec is already marked done. (#502)
+
 ## 2026-08-09
 
 ### Changed

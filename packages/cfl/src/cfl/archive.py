@@ -3,14 +3,21 @@
 Implements archive_spec() — archives a completed spec by:
 1. Resolving the spec (auto or --spec).
 2. Verifying all tasks have status='done' in the DB.
-3. Closing the active run (if any) and marking the spec archived in the DB.
-4. Running git rm to remove tasks/ and legacy scaffolding.
-5. Stamping **Status:** archived in design.md.
+3. Verifying tasks/ and the legacy scaffolding artifacts have no uncommitted
+   changes (the git rm in step 5 would otherwise fail).
+4. Closing the active run (if any) and marking the spec archived in the DB.
+5. Running git rm to remove tasks/ and legacy scaffolding.
+6. Stamping **Status:** archived in design.md.
 
 The DB is committed before any filesystem changes so that a failed git rm or
-stamp does not leave the spec in an unretryable state. A spec archived in
-the DB but with files still present can be recovered by removing the files
-manually or by re-running the command.
+stamp does not leave the spec in an unretryable state. That guarantee doesn't
+hold on its own: plain `git rm` refuses (non-zero exit, nothing removed) the
+moment any target file has a local or staged modification, and nothing about
+that fixes itself on retry. Step 3 exists to catch that case before the DB
+commit, so a dirty file blocks the archive cleanly instead of leaving the
+spec marked archived while tasks/ is still on disk. A spec archived in the
+DB but with files still present for some other reason can be recovered by
+removing the files manually or by re-running the command.
 """
 
 import json
@@ -25,6 +32,7 @@ from cfl.resolve import get_git_root, resolve_spec
 
 GIT_SUBPROCESS_TIMEOUT_SECONDS: int = 30
 ARCHIVED_STATUS_LINE: str = "\n**Status:** archived\n"
+LEGACY_ARTIFACTS: tuple[str, ...] = ("trail.tsv", "trail-audit.md", ".gitignore")
 
 # Regex that matches **Status:** <word> in the header section of design.md.
 _STATUS_PATTERN = re.compile(r"\*\*Status:\*\*\s*\w+")
@@ -55,6 +63,22 @@ def archive_spec(
             hint="Complete orchestration before archiving.",
         )
 
+    git_root = get_git_root()
+    dirty = _find_dirty_paths(git_root, feature_dir)
+    if dirty:
+        listed = ", ".join(dirty)
+        output_module.emit_error(
+            f"Cannot archive {spec_slug}: uncommitted changes in {listed}. "
+            "git rm refuses to remove files with local or staged modifications, "
+            "which would leave the spec marked archived while these files are "
+            "still on disk.",
+            code="uncommitted_changes",
+            hint=(
+                "Commit the changes (`git add` + `git commit`) or discard them "
+                f"(`git checkout -- {' '.join(dirty)}`), then re-run `cfl archive`."
+            ),
+        )
+
     task_count = _count_tasks(conn, spec_id, spec_ctx.active_run_id)
 
     if dry_run:
@@ -68,7 +92,7 @@ def archive_spec(
         )
         return
 
-    # Step 1: Commit the DB first so a failed filesystem cleanup is retryable.
+    # Commit the DB first so a failed filesystem cleanup is retryable.
     # (A DB-archived spec with files still present can be re-run; a git-rm-
     # completed spec with a failed DB write requires manual DB repair.)
     active_run_id = spec_ctx.active_run_id
@@ -93,12 +117,11 @@ def archive_spec(
         conn.execute("ROLLBACK")
         raise
 
-    git_root = get_git_root()
     tasks_dir_rel = f"{feature_dir}/tasks"
     _git_rm_ignore_unmatch(git_root, tasks_dir_rel, recursive=True)
 
-    # Step 3: Remove legacy scaffolding (ignore-unmatch — may not exist).
-    for artifact in ("trail.tsv", "trail-audit.md", ".gitignore"):
+    # Remove legacy scaffolding (ignore-unmatch — may not exist).
+    for artifact in LEGACY_ARTIFACTS:
         artifact_rel = f"{feature_dir}/{artifact}"
         _git_rm_ignore_unmatch(git_root, artifact_rel)
 
@@ -168,27 +191,72 @@ def _count_tasks(
     ).fetchone()["cnt"]
 
 
-def _git_rm(git_root: str | None, rel_path: str, *, recursive: bool = False) -> None:
-    """Remove a path via git rm. Raises RuntimeError on failure."""
+def _run_git(
+    git_root: str | None, args: list[str], *, on_timeout: str
+) -> subprocess.CompletedProcess[str]:
+    """Run git with the given args, capturing output. Raises RuntimeError on timeout.
+
+    Does not check returncode — callers interpret exit status themselves, since
+    what counts as failure differs (git diff: any non-zero; git rm
+    --ignore-unmatch: only match failures, not "would remove nothing").
+    """
     cmd = ["git"]
     if git_root:
         cmd += ["-C", git_root]
-    cmd += ["rm", "-q", "-f"]
-    if recursive:
-        cmd.append("-r")
-    cmd.append(rel_path)
+    cmd += args
 
     try:
-        proc = subprocess.run(
+        return subprocess.run(
             cmd,
             capture_output=True,
             text=True,
             timeout=GIT_SUBPROCESS_TIMEOUT_SECONDS,
+            check=False,
         )
     except subprocess.TimeoutExpired:
+        raise RuntimeError(on_timeout) from None
+
+
+def _find_dirty_paths(git_root: str | None, feature_dir: str) -> list[str]:
+    """Return paths archive_spec() is about to git-rm that have uncommitted changes.
+
+    Covers tasks/ and the legacy scaffolding artifacts — the same paths passed
+    to git rm later in archive_spec(). Any local or staged modification under
+    these paths would make plain `git rm` refuse (non-zero exit, nothing
+    removed), so this runs before the DB transaction commits.
+    """
+    rel_paths = [f"{feature_dir}/tasks"] + [
+        f"{feature_dir}/{artifact}" for artifact in LEGACY_ARTIFACTS
+    ]
+    proc = _run_git(
+        git_root,
+        ["diff", "--name-only", "HEAD", "--", *rel_paths],
+        on_timeout=(
+            f"git diff timed out after {GIT_SUBPROCESS_TIMEOUT_SECONDS}s "
+            "while checking for uncommitted changes."
+        ),
+    )
+
+    if proc.returncode != 0:
         raise RuntimeError(
-            f"git rm timed out after {GIT_SUBPROCESS_TIMEOUT_SECONDS}s for {rel_path}."
-        ) from None
+            f"git diff failed while checking for uncommitted changes: {proc.stderr.strip()}"
+        )
+
+    return [line for line in proc.stdout.splitlines() if line]
+
+
+def _git_rm(git_root: str | None, rel_path: str, *, recursive: bool = False) -> None:
+    """Remove a path via git rm. Raises RuntimeError on failure."""
+    args = ["rm", "-q", "-f"]
+    if recursive:
+        args.append("-r")
+    args.append(rel_path)
+
+    proc = _run_git(
+        git_root,
+        args,
+        on_timeout=f"git rm timed out after {GIT_SUBPROCESS_TIMEOUT_SECONDS}s for {rel_path}.",
+    )
 
     if proc.returncode != 0:
         stderr = proc.stderr.strip()
@@ -199,25 +267,16 @@ def _git_rm_ignore_unmatch(
     git_root: str | None, rel_path: str, *, recursive: bool = False
 ) -> None:
     """Remove a path via git rm --ignore-unmatch. Silently succeeds if not tracked."""
-    cmd = ["git"]
-    if git_root:
-        cmd += ["-C", git_root]
-    cmd += ["rm", "-q", "--ignore-unmatch"]
+    args = ["rm", "-q", "--ignore-unmatch"]
     if recursive:
-        cmd.append("-r")
-    cmd.append(rel_path)
+        args.append("-r")
+    args.append(rel_path)
 
-    try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=GIT_SUBPROCESS_TIMEOUT_SECONDS,
-        )
-    except subprocess.TimeoutExpired:
-        raise RuntimeError(
-            f"git rm timed out after {GIT_SUBPROCESS_TIMEOUT_SECONDS}s for {rel_path}."
-        ) from None
+    proc = _run_git(
+        git_root,
+        args,
+        on_timeout=f"git rm timed out after {GIT_SUBPROCESS_TIMEOUT_SECONDS}s for {rel_path}.",
+    )
 
     if proc.returncode != 0:
         raise RuntimeError(f"git rm failed for {rel_path}: {proc.stderr.strip()}")
