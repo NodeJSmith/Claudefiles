@@ -1,7 +1,7 @@
 ---
 task_id: "T01"
 title: "Rewrite opencode-sync skeleton from bash to Python"
-status: "planned"
+status: "done"
 depends_on: []
 implements: ["FR#3", "FR#10", "AC#4", "AC#10", "AC#12"]
 ---
@@ -13,6 +13,8 @@ Rewrite `bin/opencode-sync` from bash to Python, preserving the existing CLI int
 ## Target Files
 
 - modify: `bin/opencode-sync` — full rewrite from bash to Python
+- read: `bin/opencode-sync` — existing bash script (source of behavior to port)
+- read: `design/specs/1006-oc-native-agents/design.md` — FR#3, FR#10, Architecture sections
 
 ## Prompt
 

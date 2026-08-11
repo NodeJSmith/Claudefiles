@@ -78,3 +78,5 @@ The REFERENCE.md update must document `config.json` content and the `subagent_de
 ## Verify
 
 - [ ] FR#2: REFERENCE.md documents config.json content including `subagent_depth` and the SQLite verification query (verifiable: `grep -q 'subagent_depth' REFERENCE.md` and `grep -q 'PRAGMA busy_timeout' REFERENCE.md`)
+- [ ] ONBOARDING.md mentions config.json/opencode.jsonc split and worker agents (verifiable: `grep -q 'config.json' ONBOARDING.md && grep -q 'worker' ONBOARDING.md`)
+- [ ] Roadmap marks Spec 2 complete and Spec 3 partially complete (verifiable: `grep -q 'Status: Complete' design/opencode-integration-roadmap.md && grep -q 'Partially complete' design/opencode-integration-roadmap.md`)

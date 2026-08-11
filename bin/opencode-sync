@@ -1,167 +1,65 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = []
+# ///
+"""Sync Claudefiles config to OpenCode via OpenPackage.
 
-# Sync Claudefiles config to OpenCode via OpenPackage.
-#
-# Workflow:
-#   1. Create a temp copy of Claudefiles without .claude/ (triggers opkg misdetection)
-#   2. Run opkg install targeting opencode platform
-#   3. Remap Claude model names to OpenAI equivalents
-#
-# Requires: npx (comes with Node.js)
+Workflow:
+  1. Create a temp copy of Claudefiles without .claude/ (triggers opkg misdetection)
+  2. Run opkg install targeting the opencode platform
+  3. Strip Claude-specific frontmatter fields that have no OpenCode equivalent
 
-# --- Configuration -----------------------------------------------------------
+Requires: npx (comes with Node.js)
 
-# Model mapping: Claude tier → OpenAI model ID
-# Update these when switching to newer OpenAI models.
-declare -A MODEL_MAP=(
-  [opus]="openai/gpt-5.5"
-  [sonnet]="openai/gpt-5.4"
-  [haiku]="openai/gpt-5.4-mini"
-)
+This is the script skeleton (T01 of design/specs/1006-oc-native-agents). Later
+tasks plug into the marked stub points in main():
+  - T02: worker agent generation, config.json generation
+  - T03: dispatch rewrite, model remap
+  - T04: compatibility lint (--lint-only), collision detection, foreign config backup
+"""
 
-OPKG_VERSION="0.11.3"
+import argparse
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from typing import NoReturn
 
-OPENCODE_CONFIG="$HOME/.config/opencode"
-CLAUDEFILES="${CLAUDEFILES_DIR:-$HOME/Claudefiles}"
+OPKG_VERSION = "0.11.3"
 
-# Tracks which Claudefiles commit was last synced to OpenCode.
-SYNC_SHA_FILE="$OPENCODE_CONFIG/.claudefiles-sync-sha"
-SHA_DISPLAY_LEN=12
+OPENCODE_CONFIG = Path.home() / ".config" / "opencode"
+
+# Tracks which Claudefiles commit was last synced to OpenCode. T01 preserves the
+# bash script's plain-text SHA file; FR#16 replaces this with a unified JSON state
+# file in a later task (T04), including a one-time migration.
+SYNC_SHA_FILE = OPENCODE_CONFIG / ".claudefiles-sync-sha"
+SHA_DISPLAY_LEN = 12
 
 # Dirs excluded from staging: .claude/ (causes opkg platform misdetection),
 # VCS/caches (.git, __pycache__, node_modules, .venv), and Python packaging/dev
 # artifacts (packages, tests, design) that aren't agent config.
-EXCLUDE_DIRS=(.claude __pycache__ node_modules .git packages tests design .venv)
+EXCLUDE_DIRS = {
+    ".claude",
+    "__pycache__",
+    "node_modules",
+    ".git",
+    "packages",
+    "tests",
+    "design",
+    ".venv",
+}
 
 # Rules that reference Claude-specific harness features with no OpenCode equivalent.
-HARNESS_ONLY_RULES=(sudo.md tmux.md)
+HARNESS_ONLY_RULES = ["sudo.md", "tmux.md"]
 
 # Opkg output lines to surface in non-verbose mode (coupled to opkg's format).
-OPKG_SUCCESS_PATTERN="^✓|Installed files:|No files"
+OPKG_SUCCESS_PATTERN = re.compile(r"^✓|Installed files:|No files")
 
-# --- Helpers ------------------------------------------------------------------
-
-die() {
-  printf '%s\n' "$1" >&2
-  exit 1
-}
-
-check_deps() {
-  command -v npx > /dev/null 2>&1 || die "npx not found. Install Node.js."
-  command -v rsync > /dev/null 2>&1 || die "rsync not found. Install rsync."
-}
-
-# Wraps the external opkg command via npx — shadows the name so all call sites
-# read naturally as `opkg install ...` etc.
-opkg() {
-  npx --yes "opkg@${OPKG_VERSION}" "$@"
-}
-
-in_worktree() {
-  local git_dir common_dir
-  git_dir=$(cd "$CLAUDEFILES" 2> /dev/null && git rev-parse --absolute-git-dir 2> /dev/null) || return 1
-  # --path-format=absolute forces an absolute path; plain --git-common-dir
-  # returns a *relative* path when run from the repo root (but absolute from
-  # a worktree), so comparing it against --absolute-git-dir here silently
-  # misdetects the main repo as a worktree. Do not revert to the plain form.
-  common_dir=$(cd "$CLAUDEFILES" 2> /dev/null && git rev-parse --path-format=absolute --git-common-dir 2> /dev/null) ||
-    die "Unable to determine git common dir (requires git >= 2.31); refusing to sync"
-  [[ "$git_dir" != "$common_dir" ]]
-}
-
-# Remap model fields in a directory.
-# $1: directory to scan
-# $2: "anchored" for frontmatter-only (^model: X$) or "inline" for any occurrence
-remap_models() {
-  local dir="$1" mode="$2"
-  local count=0
-
-  if [[ "$mode" != "anchored" && "$mode" != "inline" ]]; then
-    die "remap_models: unknown mode '$mode' (expected 'anchored' or 'inline')"
-  fi
-
-  for claude_model in "${!MODEL_MAP[@]}"; do
-    local openai_model="${MODEL_MAP[$claude_model]}"
-    local grep_pattern sed_pattern
-
-    if [[ "$mode" == "anchored" ]]; then
-      grep_pattern="^model: ${claude_model}$"
-      sed_pattern="s#^model: ${claude_model}\$#model: ${openai_model}#"
-    else
-      grep_pattern="model: ${claude_model}"
-      sed_pattern="s#model: ${claude_model}#model: ${openai_model}#g"
-    fi
-
-    while IFS= read -r -d '' file; do
-      sed -i "$sed_pattern" "$file"
-      count=$((count + 1))
-    done < <(grep -rlZ "$grep_pattern" "$dir" 2> /dev/null || true)
-  done
-
-  printf '%d' "$count"
-}
-
-# --- Argument parsing (sets runtime flags: lowercase to distinguish from config)
-
-parse_args() {
-  dry_run=false
-  verbose=false
-  allow_worktree=false
-  check_only=false
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --dry-run | -n)
-        dry_run=true
-        shift
-        ;;
-      --verbose | -v)
-        verbose=true
-        shift
-        ;;
-      --allow-worktree)
-        allow_worktree=true
-        shift
-        ;;
-      --check)
-        check_only=true
-        shift
-        ;;
-      --help | -h)
-        printf 'Usage: opencode-sync [--dry-run] [--verbose] [--allow-worktree] [--check]\n\n'
-        printf 'Sync Claudefiles to OpenCode config via OpenPackage.\n\n'
-        printf 'Options:\n'
-        printf '  --dry-run, -n       Show what would be installed without writing\n'
-        printf '  --verbose, -v       Show opkg output\n'
-        printf '  --allow-worktree    Permit running from a worktree checkout\n'
-        printf '  --check             Check if sync is up-to-date (exit 0=current, 1=stale)\n'
-        exit 0
-        ;;
-      *) die "Unknown option: $1" ;;
-    esac
-  done
-}
-
-# --- Staging ------------------------------------------------------------------
-
-stage_config() {
-  local tmpdir="$1"
-
-  $verbose && printf 'Staging clean copy to %s...\n' "$tmpdir"
-
-  local exclude_args=()
-  for dir in "${EXCLUDE_DIRS[@]}"; do
-    exclude_args+=("--exclude=$dir")
-  done
-
-  rsync -a "${exclude_args[@]}" "$CLAUDEFILES/" "$tmpdir/claudefiles/"
-
-  for rule in "${HARNESS_ONLY_RULES[@]}"; do
-    rm -f "$tmpdir/claudefiles/rules/common/$rule"
-  done
-
-  cat > "$tmpdir/claudefiles/rules/common/opencode-compat.md" << 'RULE'
----
+OPENCODE_COMPAT_RULE = """---
 tool: opencode
 ---
 
@@ -179,120 +77,330 @@ This configuration was developed for Claude Code and adapted for OpenCode. Most 
 - "settings.json" → opencode.json
 
 When an instruction is clearly inapplicable (e.g., references a hook that doesn't exist), skip it silently rather than erroring.
-RULE
-}
+"""
 
-# --- Post-install processing --------------------------------------------------
 
-postprocess_config() {
-  if [[ -d "$OPENCODE_CONFIG/agents" ]]; then
-    sed -i '/^color: /d' "$OPENCODE_CONFIG/agents"/*.md 2> /dev/null || true
+def die(message: str) -> NoReturn:
+    print(message, file=sys.stderr)
+    sys.exit(1)
 
-    local agent_count
-    agent_count=$(remap_models "$OPENCODE_CONFIG/agents" "anchored")
-    printf 'Remapped models in %d agent file(s)\n' "$agent_count"
-  fi
 
-  if [[ -d "$OPENCODE_CONFIG/skills" ]]; then
-    local skill_count
-    skill_count=$(remap_models "$OPENCODE_CONFIG/skills" "inline")
-    printf 'Remapped models in %d skill file(s)\n' "$skill_count"
-  fi
-}
+def get_claudefiles_dir() -> Path:
+    return Path(os.environ.get("CLAUDEFILES_DIR", str(Path.home() / "Claudefiles")))
 
-# --- Sync status check --------------------------------------------------------
 
-check_sync_status() {
-  local current_sha stored_sha
-  current_sha=$(git -C "$CLAUDEFILES" rev-parse HEAD 2> /dev/null) || die "Not a git repo: $CLAUDEFILES"
-  stored_sha=$(cat "$SYNC_SHA_FILE" 2> /dev/null) || stored_sha=""
-  if [[ "$current_sha" == "$stored_sha" ]]; then
-    printf 'Up-to-date (synced at %s)\n' "${current_sha:0:$SHA_DISPLAY_LEN}"
+def check_deps() -> None:
+    if shutil.which("npx") is None:
+        die("npx not found. Install Node.js.")
+
+
+def _git_rev_parse(claudefiles: Path, args: list[str]) -> str | None:
+    """Run `git rev-parse <args>` in claudefiles. Returns stripped stdout, or None on failure."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", *args],
+            cwd=claudefiles,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
+def in_worktree(claudefiles: Path) -> bool:
+    """Detect if claudefiles is a git worktree (not the main working tree).
+
+    --path-format=absolute forces an absolute path; plain --git-common-dir returns a
+    *relative* path when run from the repo root (but absolute from a worktree), so
+    comparing it against --absolute-git-dir here silently misdetects the main repo as
+    a worktree. Do not revert to the plain form.
+    """
+    git_dir = _git_rev_parse(claudefiles, ["--absolute-git-dir"])
+    if git_dir is None:
+        return False
+    common_dir = _git_rev_parse(
+        claudefiles, ["--path-format=absolute", "--git-common-dir"]
+    )
+    if common_dir is None:
+        die(
+            "Unable to determine git common dir (requires git >= 2.31); refusing to sync"
+        )
+    return git_dir != common_dir
+
+
+def stage_config(claudefiles: Path, tmpdir: Path, *, verbose: bool = False) -> Path:
+    """Create a clean staging copy of claudefiles under tmpdir. Returns the staged dir."""
+    staged = tmpdir / "claudefiles"
+    if verbose:
+        print(f"Staging clean copy to {staged}...")
+
+    def ignore(_dir: str, names: list[str]) -> set[str]:
+        return {n for n in names if n in EXCLUDE_DIRS}
+
+    shutil.copytree(claudefiles, staged, ignore=ignore)
+
+    for rule in HARNESS_ONLY_RULES:
+        (staged / "rules" / "common" / rule).unlink(missing_ok=True)
+
+    compat_path = staged / "rules" / "common" / "opencode-compat.md"
+    compat_path.write_text(OPENCODE_COMPAT_RULE)
+
+    return staged
+
+
+def opkg_list_includes_claudefiles() -> bool:
+    try:
+        result = subprocess.run(
+            [
+                "npx",
+                "--yes",
+                f"opkg@{OPKG_VERSION}",
+                "list",
+                "-g",
+                "--cwd",
+                str(Path.home()),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+    if result.returncode != 0:
+        return False
+    return re.search(r"\bclaudefiles\b", result.stdout) is not None
+
+
+def uninstall_previous() -> None:
+    """Best-effort uninstall of the previous claudefiles opkg install. Failures are ignored —
+    if this fails, the subsequent install still runs; the user reruns on any real problem.
+    """
+    try:
+        subprocess.run(
+            [
+                "npx",
+                "--yes",
+                f"opkg@{OPKG_VERSION}",
+                "uninstall",
+                "claudefiles",
+                "-g",
+                "--cwd",
+                str(Path.home()),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+
+
+def run_opkg(staged_dir: Path, *, dry_run: bool, verbose: bool) -> str:
+    """Invoke `opkg install` on the staged directory via npx. Exits non-zero on failure."""
+    args = [
+        "npx",
+        "--yes",
+        f"opkg@{OPKG_VERSION}",
+        "install",
+        str(staged_dir),
+        "--platforms",
+        "opencode",
+        "--cwd",
+        str(Path.home()),
+        "-g",
+        "--force",
+    ]
+    if dry_run:
+        args.append("--dry-run")
+
+    if verbose:
+        print(f"Running: {' '.join(args)}")
+
+    try:
+        result = subprocess.run(
+            args, capture_output=True, text=True, timeout=120, check=False
+        )
+    except subprocess.TimeoutExpired:
+        die("opkg install timed out after 120s")
+    except OSError as exc:
+        die(f"Failed to run opkg: {exc}")
+
+    if result.returncode != 0:
+        print(result.stderr, file=sys.stderr)
+        die("opkg install failed")
+
+    output = result.stdout
+    if verbose:
+        print(output)
+        return output
+
+    filtered = "\n".join(
+        line for line in output.splitlines() if OPKG_SUCCESS_PATTERN.search(line)
+    )
+    print(filtered if filtered else output)
+    return output
+
+
+def strip_color_fields(agents_dir: Path) -> None:
+    """Remove `color: ` lines from agent frontmatter (FR#10).
+
+    Only lines between the opening pair of `---` markers are touched — body content
+    (which may legitimately contain the word "color") is left alone.
+    """
+    if not agents_dir.is_dir():
+        return
+
+    for md_file in sorted(agents_dir.glob("*.md")):
+        lines = md_file.read_text().splitlines(keepends=True)
+        if not lines or lines[0].strip() != "---":
+            continue
+
+        end_idx = None
+        for i in range(1, len(lines)):
+            if lines[i].strip() == "---":
+                end_idx = i
+                break
+        if end_idx is None:
+            continue
+
+        frontmatter = [
+            line for line in lines[1:end_idx] if not line.startswith("color: ")
+        ]
+        new_lines = lines[:1] + frontmatter + lines[end_idx:]
+        if new_lines != lines:
+            md_file.write_text("".join(new_lines))
+
+
+def check_sync_status(claudefiles: Path, sync_sha_file: Path) -> bool:
+    """Print sync status and return True if the OpenCode install is current."""
+    current_sha = _git_rev_parse(claudefiles, ["HEAD"])
+    if current_sha is None:
+        die(f"Not a git repo: {claudefiles}")
+
+    stored_sha = sync_sha_file.read_text().strip() if sync_sha_file.exists() else ""
+
+    if current_sha == stored_sha:
+        print(f"Up-to-date (synced at {current_sha[:SHA_DISPLAY_LEN]})")
+        return True
+    if not stored_sha:
+        print(f"Never synced (current HEAD: {current_sha[:SHA_DISPLAY_LEN]})")
+        return False
+    print(
+        f"Stale (synced at {stored_sha[:SHA_DISPLAY_LEN]}, "
+        f"current HEAD: {current_sha[:SHA_DISPLAY_LEN]})"
+    )
+    return False
+
+
+def lint_only() -> int:
+    """Run the compatibility lint without syncing. Stub — filled in by T04."""
+    print("Lint not yet implemented — nothing to check (stub, see T04).")
     return 0
-  elif [[ -z "$stored_sha" ]]; then
-    printf 'Never synced (current HEAD: %s)\n' "${current_sha:0:$SHA_DISPLAY_LEN}"
-    return 1
-  else
-    printf 'Stale (synced at %s, current HEAD: %s)\n' "${stored_sha:0:$SHA_DISPLAY_LEN}" "${current_sha:0:$SHA_DISPLAY_LEN}"
-    return 1
-  fi
-}
 
-# --- Main ---------------------------------------------------------------------
 
-main() {
-  parse_args "$@"
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="opencode-sync",
+        description="Sync Claudefiles to OpenCode config via OpenPackage.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        "-n",
+        action="store_true",
+        help="Show what would be installed without writing",
+    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Show opkg output")
+    parser.add_argument(
+        "--allow-worktree",
+        action="store_true",
+        help="Permit running from a worktree checkout",
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Check if sync is up-to-date (exit 0=current, 1=stale)",
+    )
+    parser.add_argument(
+        "--lint-only",
+        action="store_true",
+        help="Run the compatibility lint without syncing (exit 0=clean, non-zero=residual patterns)",
+    )
+    return parser.parse_args(argv)
 
-  if $check_only; then
-    check_sync_status
-    return $?
-  fi
 
-  check_deps
+def main() -> int:
+    args = parse_args()
 
-  if ! $allow_worktree && in_worktree; then
-    die "Refusing to sync from a worktree (would overwrite live config with branch state). Use --allow-worktree to override."
-  fi
+    if args.check:
+        claudefiles = get_claudefiles_dir()
+        current = check_sync_status(claudefiles, SYNC_SHA_FILE)
+        return 0 if current else 1
 
-  [[ -d "$CLAUDEFILES" ]] || die "Claudefiles not found at $CLAUDEFILES"
+    if args.lint_only:
+        return lint_only()
 
-  OPENCODE_SYNC_TMPDIR=$(mktemp -d "${CLAUDE_CODE_TMPDIR:-/tmp}/opencode-sync-XXXXXX")
-  trap 'rm -rf "${OPENCODE_SYNC_TMPDIR:-}"' EXIT
-  local tmpdir="$OPENCODE_SYNC_TMPDIR"
+    check_deps()
 
-  # Uninstall previous install so deleted skills/agents don't linger as orphans.
-  # If the subsequent install fails, the user reruns — no automatic rollback.
-  if opkg list -g --cwd "$HOME" 2> /dev/null | grep -qw "claudefiles"; then
-    $verbose && printf 'Removing previous claudefiles install...\n'
-    if ! $dry_run; then
-      opkg uninstall claudefiles -g --cwd "$HOME" > /dev/null 2>&1 || true
-    fi
-  fi
+    claudefiles = get_claudefiles_dir()
 
-  stage_config "$tmpdir"
+    if not args.allow_worktree and in_worktree(claudefiles):
+        die(
+            "Refusing to sync from a worktree (would overwrite live config with "
+            "branch state). Use --allow-worktree to override."
+        )
 
-  local -a opkg_args=(
-    install "$tmpdir/claudefiles"
-    --platforms opencode
-    --cwd "$HOME"
-    -g
-    --force
-  )
-  $dry_run && opkg_args+=(--dry-run)
+    if not claudefiles.is_dir():
+        die(f"Claudefiles not found at {claudefiles}")
 
-  $verbose && printf 'Running: opkg %s\n' "${opkg_args[*]}"
+    tmp_root = os.environ.get("CLAUDE_CODE_TMPDIR", tempfile.gettempdir())
+    with tempfile.TemporaryDirectory(
+        prefix="opencode-sync-", dir=tmp_root
+    ) as tmpdir_str:
+        tmpdir = Path(tmpdir_str)
 
-  local opkg_output
-  if ! opkg_output=$(opkg "${opkg_args[@]}" 2>&1); then
-    printf '%s\n' "$opkg_output" >&2
-    die "opkg install failed"
-  fi
+        # Uninstall previous install so deleted skills/agents don't linger as orphans.
+        # If the subsequent install fails, the user reruns — no automatic rollback.
+        if opkg_list_includes_claudefiles():
+            if args.verbose:
+                print("Removing previous claudefiles install...")
+            if not args.dry_run:
+                uninstall_previous()
 
-  if $verbose; then
-    printf '%s\n' "$opkg_output"
-  else
-    local filtered
-    filtered=$(printf '%s\n' "$opkg_output" | grep -E "$OPKG_SUCCESS_PATTERN" || true)
-    if [[ -n "$filtered" ]]; then
-      printf '%s\n' "$filtered"
-    else
-      printf '%s\n' "$opkg_output"
-    fi
-  fi
+        staged = stage_config(claudefiles, tmpdir, verbose=args.verbose)
 
-  if $dry_run; then
-    printf '\n[dry-run] Configured model remaps (applied post-install):\n'
-    for claude_model in "${!MODEL_MAP[@]}"; do
-      printf '  model: %s → model: %s\n' "$claude_model" "${MODEL_MAP[$claude_model]}"
-    done
-    return 0
-  fi
+        run_opkg(staged, dry_run=args.dry_run, verbose=args.verbose)
 
-  postprocess_config
+        if args.dry_run:
+            print(
+                "\n[dry-run] Dispatch rewrite, model remap, worker agent generation, "
+                "and config.json generation are not yet implemented in this build "
+                "(see T02/T03) — no-op."
+            )
+            return 0
 
-  git -C "$CLAUDEFILES" rev-parse HEAD > "$SYNC_SHA_FILE"
+        strip_color_fields(OPENCODE_CONFIG / "agents")
 
-  printf 'Done. OpenCode config updated at %s\n' "$OPENCODE_CONFIG"
-}
+        # T03: dispatch rewrite (skills + commands + agent bodies)
+        # T03: model remap (agent frontmatter, TIER_MAP-driven, anchored)
+        # T02: worker agent generation (worker-standard.md, worker-lightweight.md)
+        # T02: config.json generation (built-in + worker model pins, subagent_depth)
+        # T04: compatibility lint, run automatically at the end of sync
 
-main "$@"
+        current_sha = _git_rev_parse(claudefiles, ["HEAD"])
+        if current_sha is None:
+            die(f"Not a git repo: {claudefiles}")
+        SYNC_SHA_FILE.parent.mkdir(parents=True, exist_ok=True)
+        SYNC_SHA_FILE.write_text(current_sha + "\n")
+
+        print(f"Done. OpenCode config updated at {OPENCODE_CONFIG}")
+        return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
