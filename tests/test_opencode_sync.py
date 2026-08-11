@@ -1,16 +1,22 @@
 """Tests for bin/opencode-sync.
 
-Covers two PR #503 review fixes:
+Covers three PR #503 review fixes:
 - `_strip_jsonc_comments()` now strips `/* */` block comments (not just `//`
   line comments), so `check_collisions()` no longer silently skips the FR#13
   shadowing warning when opencode.jsonc has a block comment.
 - `stage_config()` creates `rules/common/` before writing the compat rule,
   instead of raising FileNotFoundError when the source tree lacks it.
+- `run_opkg()` accepts an optional `home_override` that redirects the opkg
+  install to a scratch HOME (via `--cwd` + the `HOME` env var) instead of
+  the real one, and always installs for real (never appends `--dry-run`) in
+  that mode -- this is what lets `--dry-run` preview the staged content
+  instead of scanning stale output from the last real sync.
 """
 
 import json
 import runpy
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -139,3 +145,86 @@ def test_stage_config_creates_missing_rules_common_dir(tmp_path: Path) -> None:
     compat_path = staged / "rules" / "common" / "opencode-compat.md"
     assert compat_path.is_file()
     assert "OpenCode Compatibility" in compat_path.read_text()
+
+
+def _fake_completed_process(stdout: str = "ok\n") -> SimpleNamespace:
+    return SimpleNamespace(returncode=0, stdout=stdout, stderr="")
+
+
+def test_run_opkg_home_override_redirects_cwd_and_env_and_omits_dry_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With `home_override` set, the install must target the scratch home
+    (via both `--cwd` and the `HOME` env var passed to subprocess.run) and
+    must never pass `--dry-run` -- the scratch dir is disposable, so the
+    install always runs for real regardless of the `dry_run` argument. This
+    is the mechanism the dry-run preview relies on to see accurate staged
+    content instead of scanning the last real sync's stale output.
+    """
+    module = _load_script()
+    run_opkg = module["run_opkg"]
+    subprocess_module = module["subprocess"]
+
+    scratch_home = tmp_path / "scratch-home"
+    calls = []
+
+    def fake_run(args, **kwargs):
+        calls.append((args, kwargs))
+        return _fake_completed_process()
+
+    monkeypatch.setattr(subprocess_module, "run", fake_run)
+
+    # dry_run=True is passed deliberately -- home_override must still
+    # suppress --dry-run, proving the two controls are independent.
+    run_opkg(
+        tmp_path / "staged",
+        dry_run=True,
+        verbose=False,
+        home_override=scratch_home,
+    )
+
+    assert len(calls) == 1
+    args, kwargs = calls[0]
+    assert "--dry-run" not in args
+    cwd_index = args.index("--cwd")
+    assert args[cwd_index + 1] == str(scratch_home)
+    assert kwargs["env"]["HOME"] == str(scratch_home)
+
+
+def test_run_opkg_without_home_override_matches_prior_behavior(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression guard: with `home_override` omitted (the default), the
+    call must be identical to before the fix -- `--cwd` is the real home,
+    no `env=` override is applied (subprocess inherits the ambient
+    environment), and `--dry-run` is appended solely based on `dry_run`.
+    """
+    module = _load_script()
+    run_opkg = module["run_opkg"]
+    subprocess_module = module["subprocess"]
+    real_home = module["Path"].home()
+
+    calls = []
+
+    def fake_run(args, **kwargs):
+        calls.append((args, kwargs))
+        return _fake_completed_process()
+
+    monkeypatch.setattr(subprocess_module, "run", fake_run)
+
+    run_opkg(tmp_path / "staged", dry_run=True, verbose=False)
+    run_opkg(tmp_path / "staged", dry_run=False, verbose=False)
+
+    assert len(calls) == 2
+
+    dry_run_args, dry_run_kwargs = calls[0]
+    assert "--dry-run" in dry_run_args
+    cwd_index = dry_run_args.index("--cwd")
+    assert dry_run_args[cwd_index + 1] == str(real_home)
+    assert dry_run_kwargs["env"] is None
+
+    real_run_args, real_run_kwargs = calls[1]
+    assert "--dry-run" not in real_run_args
+    cwd_index = real_run_args.index("--cwd")
+    assert real_run_args[cwd_index + 1] == str(real_home)
+    assert real_run_kwargs["env"] is None

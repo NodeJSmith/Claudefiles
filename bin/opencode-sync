@@ -320,8 +320,21 @@ def uninstall_previous() -> None:
     _run_opkg_best_effort(["uninstall", OPKG_PACKAGE_NAME])
 
 
-def run_opkg(staged_dir: Path, *, dry_run: bool, verbose: bool) -> str:
-    """Invoke `opkg install` on the staged directory via npx. Exits non-zero on failure."""
+def run_opkg(
+    staged_dir: Path, *, dry_run: bool, verbose: bool, home_override: Path | None = None
+) -> str:
+    """Invoke `opkg install` on the staged directory via npx. Exits non-zero on failure.
+
+    `home_override`, when given, redirects the install to a scratch home
+    directory instead of the real one: `--cwd` points at it and `HOME` is set
+    in the subprocess env, so `opkg -g` (which resolves "global" via `HOME`)
+    writes under `<home_override>/.config/opencode` rather than the live
+    config. The install always runs for real in that mode (no `--dry-run`)
+    since the scratch directory is disposable -- this is how dry-run preview
+    gets an accurate look at what would be installed, without touching the
+    real config. `dry_run` still controls `--dry-run` for the real install
+    path exactly as before, independent of `home_override`.
+    """
     args = [
         "npx",
         "--yes",
@@ -331,15 +344,21 @@ def run_opkg(staged_dir: Path, *, dry_run: bool, verbose: bool) -> str:
         "--platforms",
         "opencode",
         "--cwd",
-        str(Path.home()),
+        str(home_override) if home_override is not None else str(Path.home()),
         "-g",
         "--force",
     ]
-    if dry_run:
+    if dry_run and home_override is None:
         args.append("--dry-run")
 
     if verbose:
         print(f"Running: {' '.join(args)}")
+
+    env = (
+        {**os.environ, "HOME": str(home_override)}
+        if home_override is not None
+        else None
+    )
 
     try:
         result = subprocess.run(
@@ -348,6 +367,7 @@ def run_opkg(staged_dir: Path, *, dry_run: bool, verbose: bool) -> str:
             text=True,
             timeout=OPKG_TIMEOUT_SECONDS,
             check=False,
+            env=env,
         )
     except subprocess.TimeoutExpired:
         die(f"opkg install timed out after {OPKG_TIMEOUT_SECONDS}s")
@@ -1518,20 +1538,50 @@ def main() -> int:
 
         staged = stage_config(claudefiles, tmpdir, verbose=args.verbose)
 
-        run_opkg(staged, dry_run=args.dry_run, verbose=args.verbose)
+        if args.dry_run:
+            # A dry-run `opkg install` never writes the staged content into
+            # OPENCODE_CONFIG (it just prints what it would do), so scanning
+            # OPENCODE_CONFIG below would inspect whatever the *last real
+            # sync* left behind, not the staged content being previewed here.
+            # Redirect a real (non-dry-run) install to a disposable scratch
+            # home instead -- `opkg -g` resolves "global" via `HOME`, so
+            # pointing HOME at scratch makes it install under
+            # `<scratch>/.config/opencode` and never touches the real config.
+            # Seed the scratch config from the live one first so the preview
+            # reflects an overlay (like a real sync) rather than a blank
+            # slate, and so unrelated files (e.g. a hand-edited
+            # opencode.jsonc) are present for handle_foreign_config()/
+            # generate_config() to reason about correctly.
+            preview_home = tmpdir / "dry-run-preview-home"
+            preview_config = preview_home / ".config" / "opencode"
+            if OPENCODE_CONFIG.is_dir():
+                shutil.copytree(OPENCODE_CONFIG, preview_config)
+            else:
+                preview_config.mkdir(parents=True, exist_ok=True)
 
-        dispatch_modified = rewrite_all_dispatches(
-            OPENCODE_CONFIG, dry_run=args.dry_run
-        )
-        frontmatter_modified = process_agent_frontmatter(
-            OPENCODE_CONFIG / "agents", dry_run=args.dry_run
-        )
+            run_opkg(
+                staged, dry_run=False, verbose=args.verbose, home_override=preview_home
+            )
 
-        generate_worker_agents(OPENCODE_CONFIG / "agents", dry_run=args.dry_run)
+            dispatch_modified = rewrite_all_dispatches(preview_config, dry_run=True)
+            frontmatter_modified = process_agent_frontmatter(
+                preview_config / "agents", dry_run=True
+            )
+            generate_worker_agents(preview_config / "agents", dry_run=True)
+            handle_foreign_config(preview_config, sync_state, dry_run=True)
+            generate_config(preview_config, dry_run=True)
+        else:
+            run_opkg(staged, dry_run=False, verbose=args.verbose)
 
-        handle_foreign_config(OPENCODE_CONFIG, sync_state, dry_run=args.dry_run)
-        config_content = generate_config(OPENCODE_CONFIG, dry_run=args.dry_run)
-        if not args.dry_run:
+            dispatch_modified = rewrite_all_dispatches(OPENCODE_CONFIG, dry_run=False)
+            frontmatter_modified = process_agent_frontmatter(
+                OPENCODE_CONFIG / "agents", dry_run=False
+            )
+
+            generate_worker_agents(OPENCODE_CONFIG / "agents", dry_run=False)
+
+            handle_foreign_config(OPENCODE_CONFIG, sync_state, dry_run=False)
+            config_content = generate_config(OPENCODE_CONFIG, dry_run=False)
             # Hashed from the in-memory content generate_config() just wrote,
             # not re-read from disk -- a re-read would leave a crash window
             # between write and read where the next invocation's
@@ -1549,6 +1599,9 @@ def main() -> int:
             # mistakes this sync's own output for a foreign/hand-edited file.
             write_sync_state(SYNC_STATE_FILE, sync_state)
 
+        # Stays pointed at the real OPENCODE_CONFIG in both modes -- this is
+        # inspecting the user's actual hand-edited opencode.jsonc for a
+        # real-world warning, not previewing staged content.
         check_collisions(
             OPENCODE_CONFIG,
             set(build_agent_config()),
