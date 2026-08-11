@@ -191,6 +191,32 @@ def _count_tasks(
     ).fetchone()["cnt"]
 
 
+def _run_git(
+    git_root: str | None, args: list[str], *, on_timeout: str
+) -> subprocess.CompletedProcess[str]:
+    """Run git with the given args, capturing output. Raises RuntimeError on timeout.
+
+    Does not check returncode — callers interpret exit status themselves, since
+    what counts as failure differs (git diff: any non-zero; git rm
+    --ignore-unmatch: only match failures, not "would remove nothing").
+    """
+    cmd = ["git"]
+    if git_root:
+        cmd += ["-C", git_root]
+    cmd += args
+
+    try:
+        return subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=GIT_SUBPROCESS_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(on_timeout) from None
+
+
 def _find_dirty_paths(git_root: str | None, feature_dir: str) -> list[str]:
     """Return paths archive_spec() is about to git-rm that have uncommitted changes.
 
@@ -202,24 +228,14 @@ def _find_dirty_paths(git_root: str | None, feature_dir: str) -> list[str]:
     rel_paths = [f"{feature_dir}/tasks"] + [
         f"{feature_dir}/{artifact}" for artifact in LEGACY_ARTIFACTS
     ]
-    cmd = ["git"]
-    if git_root:
-        cmd += ["-C", git_root]
-    cmd += ["diff", "--name-only", "HEAD", "--", *rel_paths]
-
-    try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=GIT_SUBPROCESS_TIMEOUT_SECONDS,
-            check=False,
-        )
-    except subprocess.TimeoutExpired:
-        raise RuntimeError(
+    proc = _run_git(
+        git_root,
+        ["diff", "--name-only", "HEAD", "--", *rel_paths],
+        on_timeout=(
             f"git diff timed out after {GIT_SUBPROCESS_TIMEOUT_SECONDS}s "
             "while checking for uncommitted changes."
-        ) from None
+        ),
+    )
 
     if proc.returncode != 0:
         raise RuntimeError(
@@ -231,25 +247,16 @@ def _find_dirty_paths(git_root: str | None, feature_dir: str) -> list[str]:
 
 def _git_rm(git_root: str | None, rel_path: str, *, recursive: bool = False) -> None:
     """Remove a path via git rm. Raises RuntimeError on failure."""
-    cmd = ["git"]
-    if git_root:
-        cmd += ["-C", git_root]
-    cmd += ["rm", "-q", "-f"]
+    args = ["rm", "-q", "-f"]
     if recursive:
-        cmd.append("-r")
-    cmd.append(rel_path)
+        args.append("-r")
+    args.append(rel_path)
 
-    try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=GIT_SUBPROCESS_TIMEOUT_SECONDS,
-        )
-    except subprocess.TimeoutExpired:
-        raise RuntimeError(
-            f"git rm timed out after {GIT_SUBPROCESS_TIMEOUT_SECONDS}s for {rel_path}."
-        ) from None
+    proc = _run_git(
+        git_root,
+        args,
+        on_timeout=f"git rm timed out after {GIT_SUBPROCESS_TIMEOUT_SECONDS}s for {rel_path}.",
+    )
 
     if proc.returncode != 0:
         stderr = proc.stderr.strip()
@@ -260,25 +267,16 @@ def _git_rm_ignore_unmatch(
     git_root: str | None, rel_path: str, *, recursive: bool = False
 ) -> None:
     """Remove a path via git rm --ignore-unmatch. Silently succeeds if not tracked."""
-    cmd = ["git"]
-    if git_root:
-        cmd += ["-C", git_root]
-    cmd += ["rm", "-q", "--ignore-unmatch"]
+    args = ["rm", "-q", "--ignore-unmatch"]
     if recursive:
-        cmd.append("-r")
-    cmd.append(rel_path)
+        args.append("-r")
+    args.append(rel_path)
 
-    try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=GIT_SUBPROCESS_TIMEOUT_SECONDS,
-        )
-    except subprocess.TimeoutExpired:
-        raise RuntimeError(
-            f"git rm timed out after {GIT_SUBPROCESS_TIMEOUT_SECONDS}s for {rel_path}."
-        ) from None
+    proc = _run_git(
+        git_root,
+        args,
+        on_timeout=f"git rm timed out after {GIT_SUBPROCESS_TIMEOUT_SECONDS}s for {rel_path}.",
+    )
 
     if proc.returncode != 0:
         raise RuntimeError(f"git rm failed for {rel_path}: {proc.stderr.strip()}")

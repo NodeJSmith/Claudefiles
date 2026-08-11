@@ -6,9 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from cfl.archive import _stamp_design_md, archive_spec
+from cfl.archive import LEGACY_ARTIFACTS, _stamp_design_md, archive_spec
 from cfl.db import setup_db
 from tests.helpers import REMOTE_URL, git_env, insert_spec_with_run, insert_task
+
+DIRTY_CONTENT = "uncommitted edit\n"
 
 
 # ---------------------------------------------------------------------------
@@ -128,7 +130,7 @@ def _make_feature(
 def _add_legacy_artifacts(git_repo: Path, feature_dir: Path) -> None:
     """Add trail.tsv, trail-audit.md, .gitignore and commit them."""
     env = git_env()
-    for name in ("trail.tsv", "trail-audit.md", ".gitignore"):
+    for name in LEGACY_ARTIFACTS:
         p = feature_dir / name
         p.write_text(f"legacy {name}\n")
         subprocess.run(
@@ -211,7 +213,7 @@ def test_archive_removes_legacy_artifacts(db_conn, git_repo, capsys, monkeypatch
 
     archive_spec(db_conn, spec_override="035")
 
-    for name in ("trail.tsv", "trail-audit.md", ".gitignore"):
+    for name in LEGACY_ARTIFACTS:
         assert not (feature_dir / name).exists(), f"{name} should have been removed"
 
 
@@ -326,7 +328,7 @@ def test_archive_errors_on_uncommitted_task_change(db_conn, git_repo, monkeypatc
     monkeypatch.chdir(git_repo)
     feature_dir = _make_feature(git_repo, 35, "my-feature", ["T01", "T02"])
     tasks_dir = feature_dir / "tasks"
-    (tasks_dir / "T02.md").write_text("uncommitted edit\n")
+    (tasks_dir / "T02.md").write_text(DIRTY_CONTENT)
 
     spec_id, run_id = insert_spec_with_run(db_conn, 35, "my-feature", REMOTE_URL)
     _insert_done_tasks(db_conn, run_id, ["T01", "T02"])
@@ -348,7 +350,7 @@ def test_archive_errors_on_uncommitted_task_change(db_conn, git_repo, monkeypatc
     assert run_row["status"] == "running"
 
     assert tasks_dir.exists()
-    assert (tasks_dir / "T02.md").read_text() == "uncommitted edit\n"
+    assert (tasks_dir / "T02.md").read_text() == DIRTY_CONTENT
 
 
 def test_archive_uncommitted_change_error_names_cause_and_fix(
@@ -357,7 +359,7 @@ def test_archive_uncommitted_change_error_names_cause_and_fix(
     """Error output names the dirty file and how to resolve it."""
     monkeypatch.chdir(git_repo)
     feature_dir = _make_feature(git_repo, 35, "my-feature", ["T01"])
-    (feature_dir / "tasks" / "T01.md").write_text("uncommitted edit\n")
+    (feature_dir / "tasks" / "T01.md").write_text(DIRTY_CONTENT)
 
     _spec_id, run_id = insert_spec_with_run(db_conn, 35, "my-feature", REMOTE_URL)
     insert_task(db_conn, run_id, "T01", status="done")
@@ -379,7 +381,7 @@ def test_archive_errors_on_uncommitted_legacy_artifact_change(
     monkeypatch.chdir(git_repo)
     feature_dir = _make_feature(git_repo, 35, "my-feature", ["T01"])
     _add_legacy_artifacts(git_repo, feature_dir)
-    (feature_dir / "trail.tsv").write_text("uncommitted edit\n")
+    (feature_dir / "trail.tsv").write_text(DIRTY_CONTENT)
 
     spec_id, run_id = insert_spec_with_run(db_conn, 35, "my-feature", REMOTE_URL)
     insert_task(db_conn, run_id, "T01", status="done")
@@ -398,7 +400,7 @@ def test_archive_dry_run_errors_on_uncommitted_changes(db_conn, git_repo, monkey
     """--dry-run also surfaces the uncommitted-changes error rather than a false would_archive."""
     monkeypatch.chdir(git_repo)
     feature_dir = _make_feature(git_repo, 35, "my-feature", ["T01"])
-    (feature_dir / "tasks" / "T01.md").write_text("uncommitted edit\n")
+    (feature_dir / "tasks" / "T01.md").write_text(DIRTY_CONTENT)
 
     _spec_id, run_id = insert_spec_with_run(db_conn, 35, "my-feature", REMOTE_URL)
     insert_task(db_conn, run_id, "T01", status="done")
