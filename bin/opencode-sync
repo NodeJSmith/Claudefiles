@@ -33,6 +33,8 @@ from pathlib import Path
 from typing import NoReturn
 
 OPKG_VERSION = "0.11.3"
+OPKG_PACKAGE_NAME = "claudefiles"
+OPKG_TIMEOUT_SECONDS = 120
 
 OPENCODE_CONFIG = Path.home() / ".config" / "opencode"
 
@@ -46,6 +48,14 @@ SYNC_SHA_FILE = OPENCODE_CONFIG / ".claudefiles-sync-sha"
 # own hash (so an uncommitted TIER_MAP edit still marks the install stale).
 SYNC_STATE_FILE = OPENCODE_CONFIG / ".claudefiles-sync-state.json"
 SHA_DISPLAY_LEN = 12
+
+# Filename/suffix constants for the generated config.json and its backups,
+# shared by generate_config() and handle_foreign_config() so the two writers
+# of/around the same file can't drift on what it's called.
+CONFIG_JSON_FILENAME = "config.json"
+CONFIG_BACKUP_SUFFIX = ".bak"
+FOREIGN_BACKUP_SUFFIX = ".foreign.bak"
+TMP_FILE_SUFFIX = ".tmp"
 
 # Dirs excluded from staging: .claude/ (causes opkg platform misdetection),
 # VCS/caches (.git, __pycache__, node_modules, .venv), and Python packaging/dev
@@ -180,7 +190,7 @@ def in_worktree(claudefiles: Path) -> bool:
 
 def stage_config(claudefiles: Path, tmpdir: Path, *, verbose: bool = False) -> Path:
     """Create a clean staging copy of claudefiles under tmpdir. Returns the staged dir."""
-    staged = tmpdir / "claudefiles"
+    staged = tmpdir / OPKG_PACKAGE_NAME
     if verbose:
         print(f"Staging clean copy to {staged}...")
 
@@ -198,53 +208,46 @@ def stage_config(claudefiles: Path, tmpdir: Path, *, verbose: bool = False) -> P
     return staged
 
 
-def opkg_list_includes_claudefiles() -> bool:
+def _run_opkg_best_effort(args: list[str]) -> subprocess.CompletedProcess[str] | None:
+    """Run an opkg subcommand via npx, returning None on timeout/OSError instead of
+    raising. Shared by opkg_list_includes_claudefiles() and uninstall_previous(),
+    which both treat opkg failures as non-fatal (list failure -> assume nothing
+    installed; uninstall failure -> the subsequent install still runs). Not shared
+    with run_opkg(), which fails loudly (die()) instead -- a mismatched error-handling
+    mode isn't worth folding into one helper.
+    """
     try:
-        result = subprocess.run(
+        return subprocess.run(
             [
                 "npx",
                 "--yes",
                 f"opkg@{OPKG_VERSION}",
-                "list",
+                *args,
                 "-g",
                 "--cwd",
                 str(Path.home()),
             ],
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=OPKG_TIMEOUT_SECONDS,
             check=False,
         )
     except (subprocess.TimeoutExpired, OSError):
+        return None
+
+
+def opkg_list_includes_claudefiles() -> bool:
+    result = _run_opkg_best_effort(["list"])
+    if result is None or result.returncode != 0:
         return False
-    if result.returncode != 0:
-        return False
-    return re.search(r"\bclaudefiles\b", result.stdout) is not None
+    return re.search(rf"\b{OPKG_PACKAGE_NAME}\b", result.stdout) is not None
 
 
 def uninstall_previous() -> None:
     """Best-effort uninstall of the previous claudefiles opkg install. Failures are ignored —
     if this fails, the subsequent install still runs; the user reruns on any real problem.
     """
-    try:
-        subprocess.run(
-            [
-                "npx",
-                "--yes",
-                f"opkg@{OPKG_VERSION}",
-                "uninstall",
-                "claudefiles",
-                "-g",
-                "--cwd",
-                str(Path.home()),
-            ],
-            capture_output=True,
-            text=True,
-            timeout=120,
-            check=False,
-        )
-    except (subprocess.TimeoutExpired, OSError):
-        pass
+    _run_opkg_best_effort(["uninstall", OPKG_PACKAGE_NAME])
 
 
 def run_opkg(staged_dir: Path, *, dry_run: bool, verbose: bool) -> str:
@@ -270,10 +273,14 @@ def run_opkg(staged_dir: Path, *, dry_run: bool, verbose: bool) -> str:
 
     try:
         result = subprocess.run(
-            args, capture_output=True, text=True, timeout=120, check=False
+            args,
+            capture_output=True,
+            text=True,
+            timeout=OPKG_TIMEOUT_SECONDS,
+            check=False,
         )
     except subprocess.TimeoutExpired:
-        die("opkg install timed out after 120s")
+        die(f"opkg install timed out after {OPKG_TIMEOUT_SECONDS}s")
     except OSError as exc:
         die(f"Failed to run opkg: {exc}")
 
@@ -412,7 +419,7 @@ def _atomic_write_json(
     manually removed.
     """
     fd, tmp_path_str = tempfile.mkstemp(
-        prefix=f".{target.name}.", suffix=".tmp", dir=target.parent
+        prefix=f".{target.name}.", suffix=TMP_FILE_SUFFIX, dir=target.parent
     )
     tmp_path = Path(tmp_path_str)
     try:
@@ -481,7 +488,7 @@ def check_sync_status(
     return False
 
 
-def generate_worker_agents(agents_dir: Path, dry_run: bool) -> list[str]:
+def generate_worker_agents(agents_dir: Path, *, dry_run: bool) -> list[str]:
     """Generate worker-*.md agent files under agents_dir from TIER_MAP (FR#1).
 
     Before writing, deletes any existing worker-*.md whose basename doesn't
@@ -549,7 +556,7 @@ def build_agent_config() -> dict[str, dict[str, str]]:
     return agent_config
 
 
-def generate_config(config_dir: Path, dry_run: bool) -> None:
+def generate_config(config_dir: Path, *, dry_run: bool) -> None:
     """Generate config.json with model pins and subagent_depth (FR#2, FR#7).
 
     Written atomically: temp file in the same directory (keeps the final
@@ -564,25 +571,19 @@ def generate_config(config_dir: Path, dry_run: bool) -> None:
         "subagent_depth": SUBAGENT_DEPTH,
     }
     content = json.dumps(config, indent=2) + "\n"
-    target = config_dir / "config.json"
+    target = config_dir / CONFIG_JSON_FILENAME
 
     if dry_run:
         print(f"[dry-run] would write {target}:\n{content}")
         return
 
     config_dir.mkdir(parents=True, exist_ok=True)
-    _atomic_write_json(target, content, backup=config_dir / "config.json.bak")
+    _atomic_write_json(
+        target,
+        content,
+        backup=config_dir / f"{CONFIG_JSON_FILENAME}{CONFIG_BACKUP_SUFFIX}",
+    )
 
-
-class _Unresolved:
-    """Sentinel type for resolve()'s "leave this match unrewritten" return value."""
-
-
-# Returned by resolve() for a `general-purpose` dispatch whose tier has no worker
-# mapping (currently only `opus`) — callers leave the original text untouched so
-# the T04 lint can flag it as a residual pattern instead of it silently becoming
-# a dangling `general` dispatch.
-UNRESOLVED = _Unresolved()
 
 # Claude Code built-in agent types with no OpenCode equivalent name -> lowercase
 # OpenCode built-in they map to. `general-purpose` is handled separately in
@@ -669,9 +670,7 @@ ISOLATION_WORKTREE_RE = re.compile(r"""isolation:\s*["']worktree["']""")
 RUN_IN_BACKGROUND_RE = re.compile(r"run_in_background")
 
 
-def resolve(
-    agent_type: str, model_tier: str | None
-) -> tuple[str, str | None] | _Unresolved:
+def resolve(agent_type: str, model_tier: str | None) -> tuple[str, str | None] | None:
     """Route a (subagent_type, model tier) dispatch pair to its OpenCode equivalent.
 
     The single shared routing decision point for both rewrite passes (prose and
@@ -680,14 +679,16 @@ def resolve(
 
     Returns `(new_agent_type, new_model)` where `new_model` is always `None`
     (OpenCode's Task tool has no per-call model parameter, so the model clause
-    is always dropped). Returns UNRESOLVED when `agent_type` is `general-purpose`
-    and its tier has no worker mapping — see UNRESOLVED's docstring.
+    is always dropped). Returns bare `None` when `agent_type` is `general-purpose`
+    and its tier has no worker mapping (currently only `opus`) — callers leave
+    the original text untouched so the T04 lint can flag it as a residual
+    pattern instead of it silently becoming a dangling `general` dispatch.
     """
     if agent_type == "general-purpose":
         tier = model_tier if model_tier is not None else "sonnet"  # FR#15 default
         tier_entry = TIER_MAP.get(tier)
         if tier_entry is None or tier_entry["worker"] is None:
-            return UNRESOLVED
+            return None
         return (tier_entry["worker"], None)
 
     if agent_type in BUILTIN_CASE_MAP:
@@ -782,7 +783,7 @@ def _rewrite_line(line: str) -> str:
         result = resolve(
             m.group("type"), model_match.group("tier") if is_paired else None
         )
-        if result is UNRESOLVED:
+        if result is None:
             continue
         new_type, _ = result
         if is_paired:
@@ -822,7 +823,7 @@ def rewrite_dispatches_prose(content: str) -> str:
             if standalone is not None:
                 target = type_matches[-1]
                 result = resolve(target.group("type"), standalone.group("tier"))
-                if result is UNRESOLVED:
+                if result is None:
                     # Leave both lines untouched -- don't fall through to
                     # _rewrite_line() below, which would treat this as a bare
                     # dispatch (no model on this line) and apply the FR#15
@@ -855,7 +856,7 @@ def rewrite_dispatches_cli(content: str) -> str:
 
     def _sub(m: re.Match) -> str:
         result = resolve(m.group("type"), m.group("tier"))
-        if result is UNRESOLVED:
+        if result is None:
             return m.group(0)
         new_type, _ = result
         return f"--agent-type {new_type}"
@@ -863,7 +864,7 @@ def rewrite_dispatches_cli(content: str) -> str:
     return CLI_DISPATCH_RE.sub(_sub, content)
 
 
-def remap_agent_models(agents_dir: Path, dry_run: bool) -> int:
+def remap_agent_models(agents_dir: Path, *, dry_run: bool) -> int:
     """Replace Claude tier names in agent frontmatter `model:` lines with
     provider-qualified TIER_MAP model IDs (separate pass, frontmatter only — the
     dispatch rewriter already handled body content). Preserves trailing inline
@@ -959,7 +960,7 @@ def _walk_synced_md_files(config_dir: Path) -> Iterator[tuple[Path, bool]]:
             yield md_file, True
 
 
-def rewrite_all_dispatches(config_dir: Path, dry_run: bool) -> int:
+def rewrite_all_dispatches(config_dir: Path, *, dry_run: bool) -> int:
     """Apply the dispatch rewriter to every synced skill, command, and agent
     file. Skill and command files are rewritten whole; agent files have their
     frontmatter excluded (body content only — the model remap is a separate
@@ -1225,14 +1226,14 @@ def handle_foreign_config(
     it. No in-file ownership marker is used -- an unknown top-level key
     could fail OpenCode's config schema validation (context.md decision #9).
     """
-    target = config_dir / "config.json"
+    target = config_dir / CONFIG_JSON_FILENAME
     if not target.is_file():
         return
 
     if _sha256_file(target) == sync_state.get("config_hash"):
         return
 
-    backup = config_dir / "config.json.foreign.bak"
+    backup = config_dir / f"{CONFIG_JSON_FILENAME}{FOREIGN_BACKUP_SUFFIX}"
 
     if dry_run:
         print(f"[dry-run] would back up foreign/hand-edited {target} to {backup}")
