@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-08-12
+
+### Added
+
+- `opencode-sync` can now generate thin slash-command bridges for selected skills, keeping native OpenCode skill loading as the canonical workflow while making common workflows directly invocable. (#505)
+
 ## 2026-08-11
 
 ### Changed
