@@ -150,6 +150,7 @@ Replace broad textual substitutions with a structured, testable platform adapter
 Scope:
 
 - convert Claude agent dispatch to named OpenCode task dispatch;
+- generate thin slash-command bridges only for selected user-facing skills, without copying skill bodies or falling back to Claude skill paths;
 - convert interactive question syntax and platform paths;
 - express parallel read-only dispatch using OpenCode-supported calls;
 - route workflow model intent through named agents rather than task-local model fields;

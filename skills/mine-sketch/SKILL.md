@@ -2,6 +2,7 @@
 name: mine-sketch
 description: "Use when the user says: \"sketch this out\", \"sketch this feature\", \"lightweight plan\", \"quick design and tasks\", or wants structured planning without full caliper ceremony. Produces a lightweight design.md + task files for mine-orchestrate."
 user-invocable: true
+opencode-command: true
 ---
 
 # Sketch

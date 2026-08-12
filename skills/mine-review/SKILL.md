@@ -2,6 +2,7 @@
 name: mine-review
 description: "Use when the user says: \"review my changes\", \"run the reviewers\", \"code and integration review\", \"readability review\", \"maintainability review\", \"sniff test this\", \"WTF check\", \"code smells\", \"is this code any good\", \"fresh eyes on this branch\", \"review this directory\", \"check this module\", \"review this skill\", \"review these instructions\". Dispatches three parallel reviewers — code, integration, and a readability pass for code; consistency, instruction quality, and writing quality for instruction files — and consolidates findings into one prioritized report."
 user-invocable: true
+opencode-command: true
 ---
 
 # Technical Review

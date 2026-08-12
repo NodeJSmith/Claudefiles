@@ -2,6 +2,7 @@
 name: mine-comb
 description: "Use when the user says: \"comb this\", \"fine-toothed comb\", \"comb this brief\", \"comb this design\", \"go over this with a fine-toothed comb\", \"comb the implementation against the design\", \"check this for consistency\", \"is this design consistent and complete\". Open-ended holistic review of an artifact (or an artifact against a reference) — catches inconsistency, inaccuracy, drift, and thinness a checklist can't. The one-off form of the comb baked into mine-define, mine-plan, and mine-orchestrate."
 user-invocable: true
+opencode-command: true
 ---
 
 # Fine-Toothed Comb

@@ -2,6 +2,7 @@
 name: mine-challenge
 description: "Use when the user says: \"challenge this\", \"poke holes in this\", or \"what's wrong with this approach\". Adversarial review with triage-driven critic selection, parallel critics (1–3 on first run; max 2 on re-challenges). Assumes the target is wrong, finds out why, and argues for a better approach."
 user-invocable: true
+opencode-command: true
 ---
 
 # Challenge

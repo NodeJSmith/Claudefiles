@@ -2,6 +2,7 @@
 name: mine-plan
 description: "Use when the user says: \"draft a plan\", \"create work packages\", \"generate WPs\", \"review this plan\", or \"check the plan\". Turns a design doc into task files and validates them against a traceability-focused checklist."
 user-invocable: true
+opencode-command: true
 ---
 
 # Plan
