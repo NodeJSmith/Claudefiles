@@ -12,7 +12,7 @@ OpenCode separates reusable agent skills from user-facing slash commands. The qu
 
 ## How We Do It Today
 
-This repo installs native skills through OpenPackage and separately has generated slash wrappers in the live OpenCode config. Those wrappers tell the model to load the corresponding skill, but also include a Claude-path fallback that can conceal broken native registration. The wrapper generator itself is not in this repository.
+This repo installs native skills through OpenPackage, and `bin/opencode-sync` generates slash wrappers in the live OpenCode config during synchronization. Earlier wrappers included a Claude-path fallback that could conceal broken native registration; generated wrappers now load only the corresponding native skill.
 
 ## Patterns Found
 
@@ -44,7 +44,7 @@ This repo installs native skills through OpenPackage and separately has generate
 
 - Assuming every `SKILL.md` automatically creates `/skill-name` in OpenCode.
 - Copying the skill body into the command instead of loading the canonical skill.
-- Falling back to `~/.claude/skills`, which defeats proof of native OpenCode operation.
+- Falling back to `${CLAUDE_CONFIG_DIR:-~/.claude}/skills`, which defeats proof of native OpenCode operation.
 - Treating a desktop UI issue that exposed skills in command autocomplete as a stable contract.
 
 ## Emerging Trends
@@ -53,7 +53,7 @@ Agent Skills is converging on portable `SKILL.md` metadata and progressive discl
 
 ## Relevance to Us
 
-The native skill installation is aligned with OpenCode and with mature integrations such as Superpowers. Generating wrappers for selected user-facing workflows is defensible, but generating one for every skill is not established ecosystem practice. The current live wrapper is thicker than necessary because it repeats the description, adds explanatory ceremony, and includes a Claude fallback.
+The native skill installation is aligned with OpenCode and with mature integrations such as Superpowers. Generating wrappers for selected user-facing workflows is defensible, but generating one for every skill is not established ecosystem practice. Earlier live wrappers were thicker than necessary because they repeated the description, added explanatory ceremony, and included a Claude fallback; current generated wrappers omit those additions.
 
 ## Recommendation
 

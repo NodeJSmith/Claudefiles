@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).parent.parent
 SCRIPT = REPO_ROOT / "bin" / "lint-agent-files"
 SUBPROCESS_TIMEOUT_SECONDS = 30
@@ -125,13 +127,16 @@ def test_skill_description_without_trigger_phrase(tmp_path: Path) -> None:
     assert any("Use when..." in e for e in errors)
 
 
-def test_skill_opencode_command_accepts_boolean_values(tmp_path: Path) -> None:
+@pytest.mark.parametrize("value", ["true", "false"])
+def test_skill_opencode_command_accepts_boolean_values(
+    tmp_path: Path, value: str
+) -> None:
     path = _write_skill(
         tmp_path, "valid-command", "valid-command", '"Use when testing."'
     )
     path.write_text(
         '---\nname: valid-command\ndescription: "Use when testing."\n'
-        "opencode-command: true\n---\nbody\n"
+        f"opencode-command: {value}\n---\nbody\n"
     )
 
     module = _load_script()
