@@ -125,6 +125,47 @@ def test_skill_description_without_trigger_phrase(tmp_path: Path) -> None:
     assert any("Use when..." in e for e in errors)
 
 
+def test_skill_opencode_command_accepts_boolean_values(tmp_path: Path) -> None:
+    path = _write_skill(
+        tmp_path, "valid-command", "valid-command", '"Use when testing."'
+    )
+    path.write_text(
+        '---\nname: valid-command\ndescription: "Use when testing."\n'
+        "opencode-command: true\n---\nbody\n"
+    )
+
+    module = _load_script()
+    assert module["check_skill"](path, tmp_path) == []
+
+
+def test_skill_opencode_command_rejects_non_boolean_value(tmp_path: Path) -> None:
+    path = _write_skill(tmp_path, "bad-command", "bad-command", '"Use when testing."')
+    path.write_text(
+        '---\nname: bad-command\ndescription: "Use when testing."\n'
+        "opencode-command: yes\n---\nbody\n"
+    )
+
+    module = _load_script()
+    errors = module["check_skill"](path, tmp_path)
+
+    assert any("'opencode-command' field must be true or false" in e for e in errors)
+
+
+def test_skill_opencode_command_rejects_duplicate_fields(tmp_path: Path) -> None:
+    path = _write_skill(
+        tmp_path, "duplicate-command", "duplicate-command", '"Use when testing."'
+    )
+    path.write_text(
+        '---\nname: duplicate-command\ndescription: "Use when testing."\n'
+        "opencode-command: true\nopencode-command: false\n---\nbody\n"
+    )
+
+    module = _load_script()
+    errors = module["check_skill"](path, tmp_path)
+
+    assert any("duplicate 'opencode-command' fields" in e for e in errors)
+
+
 def test_agent_missing_name_field(tmp_path: Path) -> None:
     path = _write_agent(tmp_path, "no-name.md", "", "")
     path.write_text('---\ndescription: "an agent"\n---\nbody\n')

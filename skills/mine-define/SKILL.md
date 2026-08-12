@@ -2,6 +2,7 @@
 name: mine-define
 description: "Use when the user says: \"spec this out\", \"help me define what I want to build\", \"interview me about this idea\", \"design this change\", \"write a design doc\", or needs to define WHAT and HOW to build something. Proportional discovery interview + codebase investigation → design.md."
 user-invocable: true
+opencode-command: true
 ---
 
 # Define

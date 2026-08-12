@@ -206,7 +206,9 @@ cfl event               # append a free-form event to the audit trail
 
 ## OpenCode Support
 
-`opencode-sync` provides provisional compatibility for running Claudefiles skills and agents inside [OpenCode](https://opencode.ai) instead of Claude Code. It installs skills and agents, generates two worker agents (`worker-standard`, `worker-lightweight`), and rewrites synced dispatch patterns (`subagent_type: general-purpose` + `model: <tier>`) to route through those named workers instead of an inherited model.
+`opencode-sync` provides provisional compatibility for running Claudefiles skills and agents inside [OpenCode](https://opencode.ai) instead of Claude Code. It installs native skills and agents, generates two worker agents (`worker-standard`, `worker-lightweight`), and rewrites synced dispatch patterns (`subagent_type: general-purpose` + `model: <tier>`) to route through those named workers instead of an inherited model.
+
+OpenCode loads skills through its native skill tool; unlike Claude Code, it does not automatically expose every skill as a slash command. The sync generates thin `/` wrappers only for a curated set of frequently invoked workflows. Standalone files under `commands/`, such as `/mine-issues`, remain direct commands rather than skill wrappers.
 
 Model routing is enforced in two files: a generated `config.json` pins the model for both worker agents and OpenCode's built-in agents (`general`, `plan`, `explore`, `scout`), while `opencode.jsonc` stays entirely user-managed and is never written by the sync — OpenCode deep-merges `config.json` below `opencode.jsonc`, so anything you set by hand there always wins (see [REFERENCE.md's OpenCode Sync section](REFERENCE.md#opencode-sync) for the full three-file merge order, including `opencode.json`).
 

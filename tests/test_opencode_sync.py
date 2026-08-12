@@ -228,3 +228,130 @@ def test_run_opkg_without_home_override_matches_prior_behavior(
     cwd_index = real_run_args.index("--cwd")
     assert real_run_args[cwd_index + 1] == str(real_home)
     assert real_run_kwargs["env"] is None
+
+
+def test_uninstall_previous_home_override_targets_scratch_home(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _load_script()
+    uninstall = module["uninstall_previous"]
+    subprocess_module = module["subprocess"]
+    calls = []
+
+    def fake_run(args, **kwargs):
+        calls.append((args, kwargs))
+        return _fake_completed_process()
+
+    monkeypatch.setattr(subprocess_module, "run", fake_run)
+    scratch_home = tmp_path / "scratch-home"
+
+    uninstall(home_override=scratch_home)
+
+    assert len(calls) == 1
+    args, kwargs = calls[0]
+    assert args[3:5] == ["uninstall", "claudefiles"]
+    assert args[args.index("--cwd") + 1] == str(scratch_home)
+    assert kwargs["env"]["HOME"] == str(scratch_home)
+
+
+def test_generate_skill_commands_writes_only_selected_available_skills(
+    tmp_path: Path,
+) -> None:
+    module = _load_script()
+    generate = module["generate_skill_commands"]
+
+    config_dir = tmp_path / "opencode"
+    for name, opencode_command in (("mine-review", True), ("mine-debug", False)):
+        skill_dir = config_dir / "skills" / name
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            f"---\nname: {name}\nopencode-command: "
+            f"{'true' if opencode_command else 'false'}\n---\n"
+        )
+
+    generated = generate(config_dir, dry_run=False)
+
+    assert generated == ["mine-review"]
+    wrapper = (config_dir / "commands" / "mine-review.md").read_text()
+    assert "Load the `mine-review` skill using the native skill tool" in wrapper
+    assert "$ARGUMENTS" in wrapper
+    assert ".claude/skills" not in wrapper
+    assert not (config_dir / "commands" / "mine-debug.md").exists()
+
+
+def test_generate_skill_commands_prunes_owned_wrappers_but_preserves_commands(
+    tmp_path: Path,
+) -> None:
+    module = _load_script()
+    generate = module["generate_skill_commands"]
+
+    config_dir = tmp_path / "opencode"
+    commands_dir = config_dir / "commands"
+    commands_dir.mkdir(parents=True)
+    legacy_marker = module["LEGACY_SKILL_COMMAND_MARKER"]
+    (commands_dir / "mine-debug.md").write_text(f"{legacy_marker}\nold wrapper\n")
+    standalone = commands_dir / "mine-issues.md"
+    standalone.write_text("---\ndescription: Deep-dive issues\n---\nactual workflow\n")
+
+    generate(config_dir, dry_run=False)
+
+    assert not (commands_dir / "mine-debug.md").exists()
+    assert standalone.exists()
+    assert "actual workflow" in standalone.read_text()
+
+
+def test_generate_skill_commands_does_not_overwrite_non_generated_collision(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    module = _load_script()
+    generate = module["generate_skill_commands"]
+
+    config_dir = tmp_path / "opencode"
+    skill_dir = config_dir / "skills" / "mine-review"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text(
+        "---\nname: mine-review\nopencode-command: true\n---\n"
+    )
+    commands_dir = config_dir / "commands"
+    commands_dir.mkdir()
+    command = commands_dir / "mine-review.md"
+    command.write_text("hand-written command\n")
+
+    generated = generate(config_dir, dry_run=False)
+
+    assert generated == []
+    assert command.read_text() == "hand-written command\n"
+    assert "not overwriting non-generated command" in capsys.readouterr().err
+
+
+def test_generate_skill_commands_skips_duplicate_frontmatter(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    module = _load_script()
+    generate = module["generate_skill_commands"]
+    skill_dir = tmp_path / "opencode" / "skills" / "mine-review"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text(
+        "---\nname: mine-review\nopencode-command: true\nopencode-command: false\n---\n"
+    )
+
+    assert generate(tmp_path / "opencode", dry_run=False) == []
+    assert "skipping invalid opencode-command frontmatter" in capsys.readouterr().err
+
+
+def test_rewrite_model_less_builtin_subagent_type() -> None:
+    module = _load_script()
+
+    rewritten = module["rewrite_dispatches_prose"](
+        "Launch subagent_type: Explore to inspect the code.\n"
+    )
+
+    assert rewritten == "Launch subagent_type: explore to inspect the code.\n"
+
+    rewritten = module["rewrite_dispatches_prose"](
+        "Launch subagent_type: Bash to inspect project history.\n"
+    )
+
+    assert rewritten == (
+        "Launch subagent_type: worker-lightweight to inspect project history.\n"
+    )

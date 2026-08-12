@@ -38,15 +38,17 @@ AskUserQuestion:
 
 ```
 AskUserQuestion:
-  question: "Should this be user-invocable (slash command) or a reference skill (loaded by other skills only)?"
+  question: "Should this be user-invocable in Claude Code or a reference skill loaded by other skills only?"
   header: "Invocability"
   multiSelect: false
   options:
     - label: "User-invocable"
-      description: "Can be called directly via /mine-<name>"
+      description: "Can be called directly via /mine-<name> in Claude Code"
     - label: "Reference only"
       description: "Loaded by other skills, not directly callable"
 ```
+
+If the skill is user-invocable, ask separately whether it is commonly invoked by name in OpenCode. Set `opencode-command: true` only when a dedicated OpenCode `/mine-<name>` bridge is worth the command-menu surface; otherwise omit it and rely on native skill discovery.
 
 Then explore the codebase for related skills, patterns, or existing work that should inform the new skill's design.
 

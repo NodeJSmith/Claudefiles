@@ -2,6 +2,7 @@
 name: mine-orchestrate
 description: "Use when the user says: \"execute the plan\", \"orchestrate implementation\", or \"start executing\". Runs tasks task-by-task with implementer + reviewer subagent loop."
 user-invocable: true
+opencode-command: true
 ---
 
 # Orchestrate
