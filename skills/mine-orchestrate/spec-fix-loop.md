@@ -28,7 +28,7 @@ AskUserQuestion:
 
 If the user chose **"Try again"**, run one more executor cycle (Steps 2–9). If the spec reviewer returns FAIL again, re-present the same options (do not narrow to only block/stop — the user may want to retry with a stronger model).
 
-If the user chose **"Try again with stronger model"**: same as "Try again" but override the executor's model to the opus tier.
+If the user chose **"Try again with stronger model"**: same as "Try again" but override the executor's model to the opus tier. On a platform with no per-call model override (e.g. OpenCode), dispatch `<the same subagent_type Step 4 selected>-opus` instead — the generated stronger-tier variant of that same executor — rather than trying to pass a model parameter that platform can't honor.
 
 If the user chose **"Mark as blocked and skip"** (via Other): `cfl task block <task_id> --reason "FAIL persisted after auto-fix"`.
 

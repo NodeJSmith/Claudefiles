@@ -648,7 +648,7 @@ For FAIL/BLOCKED gate outcomes, **update the task status** before taking the gat
   cfl task update <task_id> --status fixing
   ```
   Re-run from Step 4 (which includes Step 5 executor + Step 6 file capture + Step 6b reviewing transition) using the Step 5 retry composition: `implementer-prompt.md` as the executor contract plus `retry-prompt.md` as the retry-specific instructions. Populate the `## Previous review feedback` template in `retry-prompt.md` with only existing paths from the newest attempt: always include the spec reviewer; include code and integration reviewer reports whenever Step 8 produced them, regardless of whether Step 12 ran; include the visual reviewer report when it ran; and include `test-gate.md` after a failed test gate. Omit absent or unreached reports. The executor reads these files directly — do not inline or truncate the reviewer output.
-- **Try again with stronger model**: same as "Try again" but override the executor's model to the opus tier. <!-- opencode-sync: ok -->
+- **Try again with stronger model**: same as "Try again" but override the executor's model to the opus tier. On a platform with no per-call model override (e.g. OpenCode), dispatch `<the same subagent_type Step 4 selected>-opus` instead — the generated stronger-tier variant of that same executor — rather than trying to pass a model parameter that platform can't honor. <!-- opencode-sync: ok -->
 - **"Mark as blocked and skip"** (via Other): record the block with a reason:
   ```bash
   cfl task block <task_id> --reason "<blocker description>"
