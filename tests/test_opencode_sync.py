@@ -11,9 +11,18 @@ Covers three PR #503 review fixes:
   the real one, and always installs for real (never appends `--dry-run`) in
   that mode -- this is what lets `--dry-run` preview the staged content
   instead of scanning stale output from the last real sync.
+
+Also covers PR #506 review fixes: `resolve()` routes an opus-tier dispatch
+to `worker-opus` (or a `SPECIALIST_AGENTS` entry's own `<name>-opus` variant)
+regardless of the original `agent_type`; `generate_specialist_opus_variants()`
+generates those variants with the specialist's prompt preserved and safely
+scoped orphan cleanup (`GENERATED_FILE_MARKER`-gated); `build_agent_config()`
+only pins config.json entries for variants actually generated; and
+`SPECIALIST_AGENTS` is cross-checked against `agent-routing.md`'s table.
 """
 
 import json
+import re
 import runpy
 from pathlib import Path
 from types import SimpleNamespace
@@ -346,18 +355,23 @@ def test_resolve_general_purpose_opus_routes_to_worker_opus() -> None:
     assert resolve("general-purpose", "opus") == ("worker-opus", None)
 
 
-def test_resolve_named_specialist_opus_routes_to_worker_opus() -> None:
+def test_resolve_specialist_opus_routes_to_own_variant_not_generic_worker() -> None:
     """An escalated retry ("Try again with stronger model") keeps the same
     executor `subagent_type` the original dispatch selected -- which may be
-    a named specialist agent (e.g. engineering-backend-developer), not
-    general-purpose. OpenCode has no per-call model override, so the only
-    way to actually reach Sol is to route to worker-opus regardless of the
-    original type -- an opus tier override always wins.
+    a SPECIALIST_AGENTS entry (e.g. engineering-backend-developer), not
+    general-purpose. Routing it to the generic worker-opus would reach Sol
+    but silently drop the specialist's own prompt (FastAPI/Pydantic
+    conventions, etc.) -- it must route to its own `<name>-opus` variant
+    instead, which generate_specialist_opus_variants() generates with that
+    prompt preserved.
     """
     module = _load_script()
     resolve = module["resolve"]
 
-    assert resolve("engineering-backend-developer", "opus") == ("worker-opus", None)
+    assert resolve("engineering-backend-developer", "opus") == (
+        "engineering-backend-developer-opus",
+        None,
+    )
 
 
 def test_resolve_builtin_opus_routes_to_worker_opus_not_builtin_map() -> None:
@@ -365,6 +379,116 @@ def test_resolve_builtin_opus_routes_to_worker_opus_not_builtin_map() -> None:
     resolve = module["resolve"]
 
     assert resolve("Explore", "opus") == ("worker-opus", None)
+
+
+def test_specialist_agents_matches_agent_routing_table() -> None:
+    """SPECIALIST_AGENTS (bin/opencode-sync) must list exactly the named
+    executor agent types skills/mine-orchestrate/agent-routing.md's routing
+    table can select, minus general-purpose (which routes through TIER_MAP,
+    not SPECIALIST_AGENTS). agent-routing.md's own SYNC CHECKLIST documents
+    updating SPECIALIST_AGENTS as a manual step when adding a specialist --
+    this test is the runtime check backing that instruction, so a specialist
+    added to one list and not the other fails here instead of silently
+    falling back to the generic worker-opus on an escalated retry.
+    """
+    module = _load_script()
+    specialist_agents = set(module["SPECIALIST_AGENTS"])
+
+    routing_table = (
+        REPO_ROOT / "skills" / "mine-orchestrate" / "agent-routing.md"
+    ).read_text()
+    row_re = re.compile(r"^\|.*\|\s*`([a-z][a-z0-9_-]*)`(?:, `model: \w+`)?\s*\|\s*$")
+    routed_types = {
+        match.group(1)
+        for match in (row_re.match(line) for line in routing_table.splitlines())
+        if match is not None
+    }
+    routed_types.discard("general-purpose")
+
+    assert routed_types == specialist_agents
+
+
+def test_build_agent_config_only_includes_actually_generated_variants() -> None:
+    """build_agent_config() must take the actually-generated variant list, not
+    re-derive it from SPECIALIST_AGENTS -- a specialist source file can be
+    legitimately missing at sync time (generate_specialist_opus_variants()
+    warns and skips it), and pinning a config.json entry for a name with no
+    corresponding `<name>-opus.md` on disk would be a dead reference.
+    """
+    module = _load_script()
+    build_agent_config = module["build_agent_config"]
+
+    config = build_agent_config(["engineering-backend-developer-opus"])
+
+    assert config["engineering-backend-developer-opus"] == {
+        "model": "openai/gpt-5.6-sol",
+        "effort": "high",
+    }
+    assert "engineering-frontend-developer-opus" not in config
+
+
+def test_generate_specialist_opus_variants_copies_prompt_with_swapped_frontmatter(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    module = _load_script()
+    generate = module["generate_specialist_opus_variants"]
+    specialist_agents = module["SPECIALIST_AGENTS"]
+    generated_file_marker = module["GENERATED_FILE_MARKER"]
+    name = specialist_agents[0]
+
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir()
+    (agents_dir / f"{name}.md").write_text(
+        f"---\nname: {name}\nmodel: openai/gpt-5.6-terra\neffort: medium\n"
+        "description: A specialist.\n---\n\n# Specialist body\n\nDo the thing.\n"
+    )
+
+    generated = generate(agents_dir, dry_run=False)
+
+    assert generated == [f"{name}-opus"]
+    variant = (agents_dir / f"{name}-opus.md").read_text()
+    assert f"name: {name}-opus" in variant
+    assert "model: openai/gpt-5.6-sol" in variant
+    assert "effort: medium" in variant
+    assert "description: A specialist." in variant
+    assert generated_file_marker in variant
+    assert "# Specialist body" in variant
+    assert "Do the thing." in variant
+
+    warnings = capsys.readouterr().err
+    for missing in specialist_agents[1:]:
+        assert missing in warnings
+
+
+def test_generate_specialist_opus_variants_removes_own_orphan_but_not_foreign_file(
+    tmp_path: Path,
+) -> None:
+    """Orphan cleanup must only remove `*-opus.md` files this function itself
+    wrote (marked with GENERATED_FILE_MARKER) -- `*-opus.md` is a generic
+    suffix a user could plausibly reuse for their own hand-authored OpenCode
+    subagent, unlike `worker-*.md` (a prefix namespace this repo exclusively
+    owns). Pattern-matching the name alone, with no ownership check, would
+    silently delete a file this function never wrote.
+    """
+    module = _load_script()
+    generate = module["generate_specialist_opus_variants"]
+    generated_file_marker = module["GENERATED_FILE_MARKER"]
+
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir()
+    (agents_dir / "worker-opus.md").write_text("---\nname: worker-opus\n---\n")
+    (agents_dir / "foreign-hand-authored-opus.md").write_text(
+        "---\nname: foreign-hand-authored-opus\n---\nA user's own subagent.\n"
+    )
+    (agents_dir / "renamed-specialist-opus.md").write_text(
+        f"---\nname: renamed-specialist-opus\n---\n{generated_file_marker}\n"
+    )
+
+    generate(agents_dir, dry_run=False)
+
+    assert (agents_dir / "worker-opus.md").exists()
+    assert (agents_dir / "foreign-hand-authored-opus.md").exists()
+    assert not (agents_dir / "renamed-specialist-opus.md").exists()
 
 
 def test_rewrite_general_purpose_opus_dispatch_routes_to_worker_opus() -> None:
