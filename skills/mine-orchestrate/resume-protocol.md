@@ -92,8 +92,10 @@ Report status and resume automatically — do not prompt the user:
 If `base_commit` no longer exists (branch was rebased or history rewritten), it cannot be left as a dead reference: `findings-fix-loop.md` and `post-execution-pipeline.md` both run `git diff --name-only <base_commit> HEAD` unconditionally later, which fails with git exit 128 (`fatal: bad object`) against a pruned commit and can stall the run or silently drop branch-wide scope from reviews. Establish a replacement baseline instead of merely warning:
 
 ```bash
-git merge-base $(git-default-branch) HEAD
+git merge-base origin/$(git-default-branch) HEAD
 ```
+
+Use the remote-tracking ref, not the bare branch name — a feature worktree commonly has `origin/<default>` without a local branch of the same name checked out anywhere, and `git-default-branch` only prints the name, not a ref guaranteed to resolve locally (its own `--help` examples consume it the same way: `origin/$(git-default-branch)`).
 
 Write the result back so every later read sees the new baseline:
 
@@ -130,6 +132,6 @@ Report this to the user instead of silently continuing.
   If `status` is already `"running"` — re-entry after context compaction or a manual `/clear`, with no intervening `cfl run stop` — skip this call entirely. `cfl run resume` requires a `stopped` run and errors `run_already_active` otherwise; the run is already active in the DB, so there is nothing to resume.
 - Jump directly to Phase 2 (skip Phase 1 entirely).
 
-**On restart (via "Other" if the user explicitly asks):**
+**On restart (if the user explicitly asks to discard the active run instead of resuming it):** auto-resume above shows no prompt with an "Other" option to select — this path is reached only if the user says so directly, in their own words, mid- or pre-resume.
 - Stop the current run: `cfl run stop --reason "user chose restart fresh"`
 - Proceed with the "Find the feature directory" step in SKILL.md Phase 0
