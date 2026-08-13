@@ -825,6 +825,14 @@ def generate_specialist_opus_variants(agents_dir: Path, *, dry_run: bool) -> lis
         content = "".join(new_fm_lines) + f"\n{GENERATED_FILE_MARKER}\n" + body
         target = agents_dir / f"{name}-opus.md"
 
+        if target.is_file() and GENERATED_FILE_MARKER not in target.read_text():
+            print(
+                f"WARNING: {target} exists and isn't owned by opencode-sync -- "
+                f"skipping {name}-opus.md to avoid overwriting a hand-authored file",
+                file=sys.stderr,
+            )
+            continue
+
         if dry_run:
             print(f"[dry-run] would write {target}")
         else:

@@ -460,6 +460,70 @@ def test_generate_specialist_opus_variants_copies_prompt_with_swapped_frontmatte
         assert missing in warnings
 
 
+def test_generate_specialist_opus_variants_skips_foreign_file_at_target_path(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The orphan-cleanup loop already protects a hand-authored `<name>-opus.md`
+    from deletion when its base specialist has no source (see the orphan test
+    below) -- but that protection is separate from the write step. Without an
+    equal ownership check at write time, a hand-authored file that collides by
+    name with a *current* specialist's variant would be silently destroyed on
+    every sync, since the write is otherwise unconditional.
+    """
+    module = _load_script()
+    generate = module["generate_specialist_opus_variants"]
+    specialist_agents = module["SPECIALIST_AGENTS"]
+    name = specialist_agents[0]
+
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir()
+    (agents_dir / f"{name}.md").write_text(
+        f"---\nname: {name}\nmodel: openai/gpt-5.6-terra\neffort: medium\n"
+        "description: A specialist.\n---\n\n# Specialist body\n\nDo the thing.\n"
+    )
+    foreign_content = "---\nname: hand-authored\n---\nA user's own subagent.\n"
+    (agents_dir / f"{name}-opus.md").write_text(foreign_content)
+
+    generated = generate(agents_dir, dry_run=False)
+
+    assert generated == []
+    assert (agents_dir / f"{name}-opus.md").read_text() == foreign_content
+    warnings = capsys.readouterr().err
+    assert f"{name}-opus.md" in warnings
+    assert "hand-authored" in warnings.lower()
+
+
+def test_generate_specialist_opus_variants_overwrites_own_prior_variant(
+    tmp_path: Path,
+) -> None:
+    """A file the function itself generated on a prior sync (marked with
+    GENERATED_FILE_MARKER) must still be refreshed on the next sync -- the
+    write-time ownership check must not block legitimate regeneration.
+    """
+    module = _load_script()
+    generate = module["generate_specialist_opus_variants"]
+    specialist_agents = module["SPECIALIST_AGENTS"]
+    generated_file_marker = module["GENERATED_FILE_MARKER"]
+    name = specialist_agents[0]
+
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir()
+    (agents_dir / f"{name}.md").write_text(
+        f"---\nname: {name}\nmodel: openai/gpt-5.6-terra\neffort: medium\n"
+        "description: A specialist.\n---\n\n# Specialist body\n\nDo the thing.\n"
+    )
+    (agents_dir / f"{name}-opus.md").write_text(
+        f"---\nname: {name}-opus\n---\n{generated_file_marker}\nStale prompt.\n"
+    )
+
+    generated = generate(agents_dir, dry_run=False)
+
+    assert generated == [f"{name}-opus"]
+    variant = (agents_dir / f"{name}-opus.md").read_text()
+    assert "Stale prompt." not in variant
+    assert "# Specialist body" in variant
+
+
 def test_generate_specialist_opus_variants_removes_own_orphan_but_not_foreign_file(
     tmp_path: Path,
 ) -> None:
