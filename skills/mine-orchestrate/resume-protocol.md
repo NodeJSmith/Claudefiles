@@ -26,7 +26,7 @@ When the user chooses to continue a prior `define`, `plan`, or `sketch` run, pre
 
 **If phase is `"define"`** (no task files exist yet — mine-plan has not run):
 
-Do not present the "Resume from task X" / "Restart fresh" options below — there are no tasks to resume from, and advancing to orchestrate would fail (`no_tasks` error).
+Do not auto-resume — there are no tasks to resume from, and advancing to orchestrate would fail (`no_tasks` error).
 
 ```
 AskUserQuestion:
@@ -77,29 +77,19 @@ AskUserQuestion:
 - **"Advance to orchestrate"**: Set `advance_from_prior_phase = true` and continue Phase 0.
 - **"Stop the run"**: Call `cfl run stop --reason "user chose stop at phase advance"` and exit.
 
-**If phase is `"orchestrate"`** — proceed with the existing resume/restart logic below.
+**If phase is `"orchestrate"`** — auto-resume below.
 
-### Resume or restart (orchestrate-phase runs only)
+### Auto-resume (orchestrate-phase runs only)
 
-Extract all fields from the JSON. Then check whether `base_commit` still exists with `git cat-file -e <base_commit>`. If it is gone, default to `Restart fresh`.
+Extract all fields from the JSON. Then check whether `base_commit` still exists with `git cat-file -e <base_commit>`.
 
 Count the completed tasks from the `tasks` array (those with `status: "done"`) and the total tasks count.
 
-### Present the resume prompt
+Report status and resume automatically — do not prompt the user:
 
-```
-AskUserQuestion:
-  question: "Found orchestration run from <started_at>. <N> of <M> tasks completed (<comma-separated list of task_ids and their verdicts from tasks[].task_id and tasks[].verdict, e.g. 'T01: PASS, T02: WARN'>). Resume or restart?"
-  header: "Resume"
-  multiSelect: false
-  options:
-    - label: "Resume from <next task ID after last_completed>"
-      description: "Continue where we left off — screenshots: <visual_mode value: 'enabled', 'skipped_no_server', or 'skipped_no_vision'>"
-    - label: "Restart fresh"
-      description: "Stop the current run and start from the beginning"
-```
+> Resuming orchestration run from <started_at>. <N> of <M> tasks completed (<comma-separated list of task_ids and their verdicts from tasks[].task_id and tasks[].verdict, e.g. 'T01: PASS, T02: WARN'>). Picking up from <next task ID after last_completed>. Screenshots: <visual_mode value>.
 
-If `base_commit` no longer exists, append " (base commit is gone — branch may have been rebased)" to the "Restart fresh" label and make it the default selection.
+If `base_commit` no longer exists (branch was rebased), warn: "Base commit is gone — branch may have been rebased. Regression detection may be unreliable." Continue resuming — do not stop or prompt.
 
 **On resume:**
 - Restore these fields from run status: `feature_dir`, `tmpdir`, `tmpdir_exists`, `visual_mode`, `dev_server_url`, `base_commit`, `started_at`, `tasks`, `last_completed`, `current_task`. Do not rely on conversational memory for `run_id`; `findings-fix-loop.md` re-queries it when needed.
@@ -117,6 +107,6 @@ If `base_commit` no longer exists, append " (base commit is gone — branch may 
   ```
 - Jump directly to Phase 2 (skip Phase 1 entirely).
 
-**On restart:**
+**On restart (via "Other" if the user explicitly asks):**
 - Stop the current run: `cfl run stop --reason "user chose restart fresh"`
 - Proceed with the "Find the feature directory" step in SKILL.md Phase 0

@@ -31,11 +31,11 @@ Run state persists in the cfl SQLite DB across sessions. Per-task temp artifacts
 
 ### Check for existing run (resume detection)
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/resume-protocol.md` and follow it. If an active run exists in `orchestrate` phase, the protocol either resumes at Phase 2 or restarts fresh. If an active run exists in `define`, `plan`, or `sketch` phase, the protocol either sets `advance_from_prior_phase` and falls through to "Branch staleness pre-flight" below, or stops the run and exits. If no active run exists, proceed to "Branch staleness pre-flight" below.
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/resume-protocol.md` and follow it. If an active run exists in `orchestrate` phase, the protocol auto-resumes at Phase 2. If an active run exists in `define`, `plan`, or `sketch` phase, the protocol either sets `advance_from_prior_phase` and falls through to "Branch staleness pre-flight" below, or stops the run and exits. If no active run exists, proceed to "Branch staleness pre-flight" below.
 
 ### Branch staleness pre-flight
 
-**Skip on resume**: if the resume-protocol above resumed an existing run at Phase 2, do NOT run this check — work is already in progress against the run's `base_commit`, and rebasing now would invalidate it. This runs on a fresh run, a restart-fresh (the resume protocol stopped the stale run and is starting over), or when advancing from a prior phase (`advance_from_prior_phase` is set) — skipped only when resuming an in-progress orchestrate run at Phase 2.
+**Skip on resume**: if the resume-protocol above resumed an existing run at Phase 2, do NOT run this check — work is already in progress against the run's `base_commit`, and rebasing now would invalidate it. This runs on a fresh run or when advancing from a prior phase (`advance_from_prior_phase` is set) — skipped only when resuming an in-progress orchestrate run at Phase 2.
 
 A 12-hour run that stamps its `base_commit` onto a stale base will conflict late. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/staleness-preflight.md` and follow it in **gate** mode, with this stakes sentence: "Starting orchestrate now bases the whole run on stale code." On Abort, stop without starting a run.
 
@@ -635,26 +635,25 @@ AskUserQuestion:
   header: "<task_id> gate"
   multiSelect: false
   options:
-    - label: "Fix review findings"
-      description: "Send an executor to address the reviewer's findings — reads existing code and fixes only what was flagged"
-    - label: "Mark as blocked and skip"
-      description: "Record the blocker and move to the next task"
-    - label: "Stop here"
-      description: "Pause execution; resume later with /mine-orchestrate"
+    - label: "Try again"
+      description: "Re-run the executor to address the reviewer's findings with the same model"
+    - label: "Try again with stronger model"
+      description: "Re-run the executor using the opus/sol tier model"
 ```
 
 For FAIL/BLOCKED gate outcomes, **update the task status** before taking the gate action (so resume returns to this task instead of skipping it). Then:
 
-- **Fix review findings**: update status to `fixing`:
+- **Try again**: update status to `fixing`:
   ```bash
   cfl task update <task_id> --status fixing
   ```
   Re-run from Step 4 (which includes Step 5 executor + Step 6 file capture + Step 6b reviewing transition) using the Step 5 retry composition: `implementer-prompt.md` as the executor contract plus `retry-prompt.md` as the retry-specific instructions. Populate the `## Previous review feedback` template in `retry-prompt.md` with only existing paths from the newest attempt: always include the spec reviewer; include code and integration reviewer reports whenever Step 8 produced them, regardless of whether Step 12 ran; include the visual reviewer report when it ran; and include `test-gate.md` after a failed test gate. Omit absent or unreached reports. The executor reads these files directly — do not inline or truncate the reviewer output.
-- **Mark as blocked and skip**: record the block with a reason:
+- **Try again with stronger model**: same as "Try again" but override the executor's model to the opus tier. <!-- opencode-sync: ok -->
+- **"Mark as blocked and skip"** (via Other): record the block with a reason:
   ```bash
   cfl task block <task_id> --reason "<blocker description>"
   ```
-- **Stop here**: stop the run (the task stays in its current state; `current_task` derives correctly on resume):
+- **"Stop here"** (via Other): stop the run (the task stays in its current state; `current_task` derives correctly on resume):
   ```bash
   cfl run stop --at-task <task_id> --reason "user chose stop at task gate"
   ```
@@ -672,7 +671,7 @@ AskUserQuestion:
       description: "Pause execution; resume after the plan is updated"
 ```
 
-Do not offer "Fix review findings" or "skip" for architectural blocks — retrying without a plan change will produce the same result.
+Do not offer "Try again" or "skip" for architectural blocks — retrying without a plan change will produce the same result.
 
 ### Step 17: WIP commit and verdict recording
 

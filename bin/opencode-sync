@@ -83,18 +83,21 @@ OPKG_SUCCESS_PATTERN = re.compile(r"^✓|Installed files:|No files")
 TIER_MAP = {
     "opus": {
         "model": "openai/gpt-5.6-sol",
+        "effort": "high",
         "worker": None,
         "worker_description": None,
         "builtins": [],
     },
     "sonnet": {
         "model": "openai/gpt-5.6-terra",
+        "effort": "high",
         "worker": "worker-standard",
         "worker_description": "Standard worker for implementation, review, and synthesis tasks",
         "builtins": ["general", "plan"],
     },
     "haiku": {
         "model": "openai/gpt-5.6-luna",
+        "effort": "medium",
         "worker": "worker-lightweight",
         "worker_description": "Lightweight worker for triage, mechanical analysis, and low-cost tasks",
         "builtins": ["explore", "scout"],
@@ -780,17 +783,18 @@ def generate_skill_commands(config_dir: Path, *, dry_run: bool) -> list[str]:
 def build_agent_config() -> dict[str, dict[str, str]]:
     """Build the `agent` mapping of config.json from TIER_MAP.
 
-    Every builtin and worker in TIER_MAP maps to that tier's model. Pinning
-    both the built-in subagents and the generated workers at config level (not
-    just frontmatter) guards against the frontmatter-ignored failure mode
-    (issues #17870/#35126).
+    Every builtin and worker in TIER_MAP maps to that tier's model and effort
+    level. Pinning both the built-in subagents and the generated workers at
+    config level (not just frontmatter) guards against the frontmatter-ignored
+    failure mode (issues #17870/#35126).
     """
     agent_config: dict[str, dict[str, str]] = {}
     for tier in TIER_MAP.values():
+        entry = {"model": tier["model"], "effort": tier["effort"]}
         for builtin in tier["builtins"]:
-            agent_config[builtin] = {"model": tier["model"]}
+            agent_config[builtin] = dict(entry)
         if tier["worker"] is not None:
-            agent_config[tier["worker"]] = {"model": tier["model"]}
+            agent_config[tier["worker"]] = dict(entry)
     return agent_config
 
 

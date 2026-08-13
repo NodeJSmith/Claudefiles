@@ -20,19 +20,19 @@ AskUserQuestion:
   header: "<task_id> gate"
   multiSelect: false
   options:
-    - label: "Fix review findings"
-      description: "Send another executor to address the spec reviewer's findings"
-    - label: "Mark as blocked and skip"
-      description: "Record the gap and move to the next task"
-    - label: "Stop here"
-      description: "Pause execution; resume later with /mine-orchestrate"
+    - label: "Try again"
+      description: "Re-run the executor to address the spec reviewer's findings with the same model"
+    - label: "Try again with stronger model"
+      description: "Re-run the executor using the opus/sol tier model"
 ```
 
-If the user chose **"Fix review findings"**, run one more executor cycle (Steps 2–9). If the spec reviewer returns FAIL again, present only `Mark as blocked and skip` and `Stop here`.
+If the user chose **"Try again"**, run one more executor cycle (Steps 2–9). If the spec reviewer returns FAIL again, re-present the same options (do not narrow to only block/stop — the user may want to retry with a stronger model).
 
-If the user chose **"Mark as blocked and skip"**: `cfl task block <task_id> --reason "FAIL persisted after auto-fix"`.
+If the user chose **"Try again with stronger model"**: same as "Try again" but override the executor's model to the opus tier.
 
-If the user chose **"Stop here"**: `cfl run stop --at-task <task_id> --reason "user chose stop at spec FAIL persistence prompt"`.
+If the user chose **"Mark as blocked and skip"** (via Other): `cfl task block <task_id> --reason "FAIL persisted after auto-fix"`.
+
+If the user chose **"Stop here"** (via Other): `cfl run stop --at-task <task_id> --reason "user chose stop at spec FAIL persistence prompt"`.
 
 This loop stays within one task execution. The task cycles `fixing -> reviewing`. `last_completed` and the task verdict do not update during retries; `cfl task verdict` in Step 17b does that.
 
