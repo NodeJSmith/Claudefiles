@@ -30,6 +30,7 @@ Your job is distinct from `code-reviewer`, which checks correctness (types, secu
 | 8 | **Unresolved references** | HIGH | Code references an identifier that doesn't exist in the codebase |
 | 9 | **Parallel drift** | HIGH | Two implementations of the same concept that can diverge independently |
 | 10 | **Abstraction inconsistency** | MEDIUM | Sibling files at different abstraction levels — some use shared utilities, others inline the same logic |
+| 11 | **Unhandled variant** | HIGH | New enum/union/status value added but not handled by all consumers of the parent type |
 
 ---
 
@@ -93,7 +94,7 @@ Read each changed file in full.
 
 ### Step 3: Explore Codebase Context
 
-For each changed file, do bounded exploration. Total budget: **5 sibling reads + 8 grep searches** across all files.
+For each changed file, do bounded exploration. Total budget: **5 sibling reads + 10 grep searches** across all files (the variant-tracing greps below count toward this budget).
 
 **Sibling exploration:**
 - Glob `<same_directory>/*` to see what lives nearby
@@ -119,6 +120,12 @@ For each changed file, do bounded exploration. Total budget: **5 sibling reads +
 - Collect the new import statements added in the diff
 - For each new cross-module import, check whether sibling files also import from that module
 - If siblings don't, flag as potentially unexpected coupling
+
+**Variant tracing (only when the diff adds a new enum/union/status value):**
+- Identify the parent type (the enum class, union type alias, or status field) the new value belongs to
+- Grep for the parent type name across the codebase to find all consumers (switch/match statements, if-chains, dict lookups, filter predicates, UI renderers)
+- For each consumer: does it handle the new value explicitly, or does it have a genuine catch-all? Read the consumer file if needed (counts toward the sibling read budget)
+- Pay special attention to: UI status badges/colors, action predicates, filter/sort logic, bulk commands, test factories, and API serialization — these are the most common places where a missing handler silently degrades
 
 ---
 
@@ -182,6 +189,14 @@ Work through each dimension. Record findings with evidence. If a dimension has n
 - Also flag: a new file that re-implements from scratch what sibling files achieve by composing existing helpers
 - This is distinct from Duplication (#1) — duplication is identical code; abstraction inconsistency is *equivalent behavior* at different levels of abstraction
 
+#### 11. Unhandled variant
+- The diff adds a new value to an enum, literal union, status field, or discriminated type → check whether **all consumers** handle it
+- Grep for the parent type name (the enum class, the union type alias, the status field name) across the codebase — not just the changed files
+- For each consumer found: does it have an explicit branch for the new value, or a genuine catch-all that handles it correctly? An `else` branch that assumes only the previous variants is not a valid catch-all.
+- Common consumer locations to check: UI rendering (badges, icons, colors), action predicates (canStart, canStop, canReload), filters/sorting, sidebar/rollup aggregations, bulk commands, test factories and mock builders, API serialization
+- Also check: does every emitter/producer of the parent type have a code path that produces the new value when appropriate? A new status that can never be emitted is dead code.
+- This dimension fires **only** when the diff introduces a new variant — if no new enum member, literal, or status value was added, mark as N/A
+
 </checklist>
 
 ---
@@ -243,6 +258,12 @@ Group findings by severity (CRITICAL first), then by file.
   Siblings use: <shared utility or pattern — cite a specific file>
   This file: <inlines equivalent logic instead>
   Fix: use <existing utility> like sibling files do
+
+[UNHANDLED_VARIANT] path/to/consumer.py:<line>
+  New variant: <enum/type>.<value> (added in path/to/definition.py)
+  Consumer: <function or component that switches on the type>
+  Missing: no branch for <value> — <what happens instead (silent fallthrough, wrong default, crash)>
+  Fix: add explicit handling for <value>
 ```
 
 After all findings, print a summary table:
@@ -263,6 +284,7 @@ After all findings, print a summary table:
 | Unresolved refs      | PASS / N issue(s)               |
 | Parallel drift       | PASS / N issue(s)               |
 | Abstraction inconsistency | PASS / N issue(s)          |
+| Unhandled variant    | PASS / N issue(s) / N/A    |
 
 **Verdict:** PASS | WARN | FAIL (findings: N, critical: C, high: H, medium: M, low: L)
 ```
@@ -270,7 +292,7 @@ After all findings, print a summary table:
 `N` = total count of all findings listed in the dimension table above, introduced by this change. `C`, `H`, `M`, `L` = per-severity counts. Do not count findings listed under `## Pre-existing Issues`. Use `N = 0, critical: 0, high: 0, medium: 0, low: 0` when the table shows only PASS rows.
 
 **Verdict criteria:**
-- **FAIL**: Any DUPLICATE, MISPLACED, DESIGN_VIOLATION, UNRESOLVED, or PARALLEL_DRIFT finding
+- **FAIL**: Any DUPLICATE, MISPLACED, DESIGN_VIOLATION, UNRESOLVED, PARALLEL_DRIFT, or UNHANDLED_VARIANT finding
 - **WARN**: INCONSISTENT, NAMING, COUPLED, ORPHANED, or ABSTRACTION_DRIFT findings
 - **PASS**: No findings across all dimensions
 

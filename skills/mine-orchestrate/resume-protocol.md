@@ -26,7 +26,7 @@ When the user chooses to continue a prior `define`, `plan`, or `sketch` run, pre
 
 **If phase is `"define"`** (no task files exist yet — mine-plan has not run):
 
-Do not present the "Resume from task X" / "Restart fresh" options below — there are no tasks to resume from, and advancing to orchestrate would fail (`no_tasks` error).
+Do not auto-resume — there are no tasks to resume from, and advancing to orchestrate would fail (`no_tasks` error).
 
 ```
 AskUserQuestion:
@@ -77,29 +77,43 @@ AskUserQuestion:
 - **"Advance to orchestrate"**: Set `advance_from_prior_phase = true` and continue Phase 0.
 - **"Stop the run"**: Call `cfl run stop --reason "user chose stop at phase advance"` and exit.
 
-**If phase is `"orchestrate"`** — proceed with the existing resume/restart logic below.
+**If phase is `"orchestrate"`** — auto-resume below.
 
-### Resume or restart (orchestrate-phase runs only)
+### Auto-resume (orchestrate-phase runs only)
 
-Extract all fields from the JSON. Then check whether `base_commit` still exists with `git cat-file -e <base_commit>`. If it is gone, default to `Restart fresh`.
+Extract all fields from the JSON. Then check whether `base_commit` still exists with `git cat-file -e <base_commit>`.
 
 Count the completed tasks from the `tasks` array (those with `status: "done"`) and the total tasks count.
 
-### Present the resume prompt
+Report status and resume automatically — do not prompt the user:
 
-```
-AskUserQuestion:
-  question: "Found orchestration run from <started_at>. <N> of <M> tasks completed (<comma-separated list of task_ids and their verdicts from tasks[].task_id and tasks[].verdict, e.g. 'T01: PASS, T02: WARN'>). Resume or restart?"
-  header: "Resume"
-  multiSelect: false
-  options:
-    - label: "Resume from <next task ID after last_completed>"
-      description: "Continue where we left off — screenshots: <visual_mode value: 'enabled', 'skipped_no_server', or 'skipped_no_vision'>"
-    - label: "Restart fresh"
-      description: "Stop the current run and start from the beginning"
+> Resuming orchestration run from <started_at>. <N> of <M> tasks completed (<comma-separated list of task_ids and their verdicts from tasks[].task_id and tasks[].verdict, e.g. 'T01: PASS, T02: WARN'>). Picking up from <next task ID after last_completed>. Screenshots: <visual_mode value>.
+
+If `base_commit` no longer exists (branch was rebased or history rewritten), it cannot be left as a dead reference: `findings-fix-loop.md` and `post-execution-pipeline.md` both run `git diff --name-only <base_commit> HEAD` unconditionally later, which fails with git exit 128 (`fatal: bad object`) against a pruned commit and can stall the run or silently drop branch-wide scope from reviews. Establish a replacement baseline instead of merely warning:
+
+```bash
+git merge-base origin/$(git-default-branch) HEAD
 ```
 
-If `base_commit` no longer exists, append " (base commit is gone — branch may have been rebased)" to the "Restart fresh" label and make it the default selection.
+Use the remote-tracking ref, not the bare branch name — a feature worktree commonly has `origin/<default>` without a local branch of the same name checked out anywhere, and `git-default-branch` only prints the name, not a ref guaranteed to resolve locally (its own `--help` examples consume it the same way: `origin/$(git-default-branch)`).
+
+Write the result back so every later read sees the new baseline:
+
+```bash
+cfl set run <run_id> base_commit=<new_base_commit>
+```
+
+Warn: "Base commit was gone — branch may have been rebased. Replaced with merge-base against the default branch (<new_base_commit>); diffs may include some already-reviewed commits from before the rebase." Continue resuming — do not stop or prompt.
+
+From this point on, `<new_base_commit>` **is** `base_commit` for the rest of this resume — including the "Restore these fields" step below, which otherwise would carry forward the stale value from the `cfl run status` response read before this replacement happened. The `cfl set` call above updated the DB for future reads (e.g. a later session), but this session already has the run status JSON in hand and must not reuse its now-dead `base_commit` field.
+
+If `git-default-branch` or `git merge-base` itself fails (e.g. the default branch is also unreachable), a valid baseline cannot be established — stop rather than resume against a dead reference:
+
+```bash
+cfl run stop --reason "base_commit gone and no replacement baseline could be established"
+```
+
+Report this to the user instead of silently continuing.
 
 **On resume:**
 - Restore these fields from run status: `feature_dir`, `tmpdir`, `tmpdir_exists`, `visual_mode`, `dev_server_url`, `base_commit`, `started_at`, `tasks`, `last_completed`, `current_task`. Do not rely on conversational memory for `run_id`; `findings-fix-loop.md` re-queries it when needed.
@@ -111,12 +125,13 @@ If `base_commit` no longer exists, append " (base commit is gone — branch may 
 - **Dev server re-verify**: If `visual_mode` is `enabled` and `dev_server_url` is set, ping the stored URL to verify it's still reachable. If unreachable, re-run the Phase 0 dev server detection (port scan → user prompt). If `dev_server_url` is empty or `"none"`, set `visual_mode` to `skipped_no_server` unless the user re-probes.
 - Skip the rest of Phase 0; feature discovery/design/task reads are handled by the restore, and dev server state was re-verified above.
 - **Determine start point**: If `current_task` is set, resume from that task. Otherwise, skip through `last_completed` and start from the next task.
-- **Resume the run** to emit the `run.resumed` event:
+- **Resume the run**, but only if its `status` (from the run status JSON) is `"stopped"`:
   ```bash
   cfl run resume
   ```
+  If `status` is already `"running"` — re-entry after context compaction or a manual `/clear`, with no intervening `cfl run stop` — skip this call entirely. `cfl run resume` requires a `stopped` run and errors `run_already_active` otherwise; the run is already active in the DB, so there is nothing to resume.
 - Jump directly to Phase 2 (skip Phase 1 entirely).
 
-**On restart:**
+**On restart (if the user explicitly asks to discard the active run instead of resuming it):** auto-resume above shows no prompt with an "Other" option to select — this path is reached only if the user says so directly, in their own words, mid- or pre-resume.
 - Stop the current run: `cfl run stop --reason "user chose restart fresh"`
 - Proceed with the "Find the feature directory" step in SKILL.md Phase 0

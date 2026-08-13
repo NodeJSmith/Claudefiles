@@ -39,8 +39,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
                 ("run status command", r"^\s*cfl run status\s*$"),
                 ("phase advance branch", r"Advance to orchestrate"),
                 (
-                    "resume choice shape",
-                    r"Resume from <next task ID after last_completed>",
+                    "resume status report",
+                    r"Picking up from <next task ID after last_completed>",
                 ),
                 ("resume command", r"^\s*cfl run resume\s*$"),
                 (
@@ -139,9 +139,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
                     r"changed-files.*deduplicated.*reviewers must see all touched files",
                 ),
                 ("fixing transition", r"fixing.*reviewing"),
-                ("retry gate fix choice", r'label: "Fix review findings"'),
-                ("retry gate block choice", r'label: "Mark as blocked and skip"'),
-                ("retry gate stop choice", r'label: "Stop here"'),
+                ("retry gate retry choice", r'label: "Try again"'),
+                (
+                    "retry gate model escalation choice",
+                    r'label: "Try again with stronger model"',
+                ),
                 ("block command", r"cfl task block <task_id> --reason"),
             ],
         ),

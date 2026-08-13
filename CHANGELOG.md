@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-08-13
+
+### Changed
+
+- Task File Cleanup in `git-workflow.md` now leads with an explicit "no output → nothing to do" branch, so agents that find no task files hit an unambiguous skip instruction before reaching the archive logic. (#506)
+
 ## 2026-08-12
 
 ### Added
