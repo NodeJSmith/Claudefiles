@@ -346,6 +346,27 @@ def test_resolve_general_purpose_opus_routes_to_worker_opus() -> None:
     assert resolve("general-purpose", "opus") == ("worker-opus", None)
 
 
+def test_resolve_named_specialist_opus_routes_to_worker_opus() -> None:
+    """An escalated retry ("Try again with stronger model") keeps the same
+    executor `subagent_type` the original dispatch selected -- which may be
+    a named specialist agent (e.g. engineering-backend-developer), not
+    general-purpose. OpenCode has no per-call model override, so the only
+    way to actually reach Sol is to route to worker-opus regardless of the
+    original type -- an opus tier override always wins.
+    """
+    module = _load_script()
+    resolve = module["resolve"]
+
+    assert resolve("engineering-backend-developer", "opus") == ("worker-opus", None)
+
+
+def test_resolve_builtin_opus_routes_to_worker_opus_not_builtin_map() -> None:
+    module = _load_script()
+    resolve = module["resolve"]
+
+    assert resolve("Explore", "opus") == ("worker-opus", None)
+
+
 def test_rewrite_general_purpose_opus_dispatch_routes_to_worker_opus() -> None:
     """The opus TIER_MAP entry's `worker: None` used to make resolve() return
     bare `None` for this pairing, leaving `general-purpose` + `model: opus`

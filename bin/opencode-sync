@@ -956,7 +956,21 @@ def resolve(agent_type: str, model_tier: str | None) -> tuple[str, str | None] |
     future tier added without a worker would hit this path. Callers leave the
     original text untouched so the T04 lint can flag it as a residual pattern
     instead of it silently becoming a dangling `general` dispatch.
+
+    An explicit `opus` tier always wins and routes to `worker-opus`,
+    regardless of `agent_type` — including a named specialist agent (e.g.
+    `engineering-backend-developer`) or a Claude built-in. OpenCode has no
+    per-call model override, so a named agent can't be re-dispatched at a
+    stronger model on its own frontmatter; `worker-opus` is the only way to
+    actually reach Sol for an escalated retry (mine-orchestrate's "Try again
+    with stronger model"), whatever the original executor type was.
     """
+    if model_tier == "opus":
+        tier_entry = TIER_MAP["opus"]
+        if tier_entry["worker"] is None:
+            return None
+        return (tier_entry["worker"], None)
+
     if agent_type == "general-purpose":
         tier = model_tier if model_tier is not None else "sonnet"  # FR#15 default
         tier_entry = TIER_MAP.get(tier)
