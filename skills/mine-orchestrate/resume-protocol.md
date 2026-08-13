@@ -89,7 +89,27 @@ Report status and resume automatically — do not prompt the user:
 
 > Resuming orchestration run from <started_at>. <N> of <M> tasks completed (<comma-separated list of task_ids and their verdicts from tasks[].task_id and tasks[].verdict, e.g. 'T01: PASS, T02: WARN'>). Picking up from <next task ID after last_completed>. Screenshots: <visual_mode value>.
 
-If `base_commit` no longer exists (branch was rebased), warn: "Base commit is gone — branch may have been rebased. Regression detection may be unreliable." Continue resuming — do not stop or prompt.
+If `base_commit` no longer exists (branch was rebased or history rewritten), it cannot be left as a dead reference: `findings-fix-loop.md` and `post-execution-pipeline.md` both run `git diff --name-only <base_commit> HEAD` unconditionally later, which fails with git exit 128 (`fatal: bad object`) against a pruned commit and can stall the run or silently drop branch-wide scope from reviews. Establish a replacement baseline instead of merely warning:
+
+```bash
+git merge-base $(git-default-branch) HEAD
+```
+
+Write the result back so every later read sees the new baseline:
+
+```bash
+cfl set run <run_id> base_commit=<new_base_commit>
+```
+
+Warn: "Base commit was gone — branch may have been rebased. Replaced with merge-base against the default branch (<new_base_commit>); diffs may include some already-reviewed commits from before the rebase." Continue resuming — do not stop or prompt.
+
+If `git-default-branch` or `git merge-base` itself fails (e.g. the default branch is also unreachable), a valid baseline cannot be established — stop rather than resume against a dead reference:
+
+```bash
+cfl run stop --reason "base_commit gone and no replacement baseline could be established"
+```
+
+Report this to the user instead of silently continuing.
 
 **On resume:**
 - Restore these fields from run status: `feature_dir`, `tmpdir`, `tmpdir_exists`, `visual_mode`, `dev_server_url`, `base_commit`, `started_at`, `tasks`, `last_completed`, `current_task`. Do not rely on conversational memory for `run_id`; `findings-fix-loop.md` re-queries it when needed.
