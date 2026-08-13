@@ -149,7 +149,7 @@ cfl run start --base-commit <sha> --tmpdir <tmpdir> [--visual-mode <enabled|skip
 
 This is the existing behavior — creates a new run, discovers tasks, inserts task rows.
 
-**If a run exists in `orchestrate` phase** (handled entirely by resume-protocol): the run is already active with tasks loaded and `cfl run resume` was already called. Proceed directly to Phase 2 — do not call `cfl run start` or `cfl run advance-phase` here.
+**If a run exists in `orchestrate` phase** (handled entirely by resume-protocol): the run is already active with tasks loaded — resume-protocol already called `cfl run resume` if the run's status was `stopped`, or left it running as-is if it was already `running`. Proceed directly to Phase 2 — do not call `cfl run start` or `cfl run advance-phase` here.
 
 Either `cfl run start` or `cfl run advance-phase orchestrate` reads task files from disk, creates/updates the run and all task rows atomically in the DB, and emits the corresponding event (`run.started` or `phase.advanced`) internally. No separate trail-log call is needed. The tmpdir value obtained via `get-skill-tmpdir` earlier in this phase (not re-read from either command's JSON output — `cfl run advance-phase orchestrate` doesn't return one) is the canonical tmpdir for this run.
 

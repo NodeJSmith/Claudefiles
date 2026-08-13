@@ -121,10 +121,11 @@ Report this to the user instead of silently continuing.
 - **Dev server re-verify**: If `visual_mode` is `enabled` and `dev_server_url` is set, ping the stored URL to verify it's still reachable. If unreachable, re-run the Phase 0 dev server detection (port scan → user prompt). If `dev_server_url` is empty or `"none"`, set `visual_mode` to `skipped_no_server` unless the user re-probes.
 - Skip the rest of Phase 0; feature discovery/design/task reads are handled by the restore, and dev server state was re-verified above.
 - **Determine start point**: If `current_task` is set, resume from that task. Otherwise, skip through `last_completed` and start from the next task.
-- **Resume the run** to emit the `run.resumed` event:
+- **Resume the run**, but only if its `status` (from the run status JSON) is `"stopped"`:
   ```bash
   cfl run resume
   ```
+  If `status` is already `"running"` — re-entry after context compaction or a manual `/clear`, with no intervening `cfl run stop` — skip this call entirely. `cfl run resume` requires a `stopped` run and errors `run_already_active` otherwise; the run is already active in the DB, so there is nothing to resume.
 - Jump directly to Phase 2 (skip Phase 1 entirely).
 
 **On restart (via "Other" if the user explicitly asks):**
