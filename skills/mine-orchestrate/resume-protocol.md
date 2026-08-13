@@ -103,6 +103,8 @@ cfl set run <run_id> base_commit=<new_base_commit>
 
 Warn: "Base commit was gone — branch may have been rebased. Replaced with merge-base against the default branch (<new_base_commit>); diffs may include some already-reviewed commits from before the rebase." Continue resuming — do not stop or prompt.
 
+From this point on, `<new_base_commit>` **is** `base_commit` for the rest of this resume — including the "Restore these fields" step below, which otherwise would carry forward the stale value from the `cfl run status` response read before this replacement happened. The `cfl set` call above updated the DB for future reads (e.g. a later session), but this session already has the run status JSON in hand and must not reuse its now-dead `base_commit` field.
+
 If `git-default-branch` or `git merge-base` itself fails (e.g. the default branch is also unreachable), a valid baseline cannot be established — stop rather than resume against a dead reference:
 
 ```bash
