@@ -75,17 +75,15 @@ HARNESS_ONLY_RULES = ["sudo.md", "tmux.md"]
 OPKG_SUCCESS_PATTERN = re.compile(r"^✓|Installed files:|No files")
 
 # Single source of truth for model routing: drives worker agent generation,
-# config.json generation, and (T03) dispatch rewriting. `opus` has no worker
-# entry because no `general-purpose` dispatches currently use opus tier — the
-# lint (T04) catches it if one appears. `plan` sits in the sonnet row
-# deliberately: Claude Code's model-default hook runs `Plan` at sonnet, and
-# pinning it at haiku/luna would be a silent tier downgrade.
+# config.json generation, and (T03) dispatch rewriting. `plan` sits in the
+# sonnet row deliberately: Claude Code's model-default hook runs `Plan` at
+# sonnet, and pinning it at haiku/luna would be a silent tier downgrade.
 TIER_MAP = {
     "opus": {
         "model": "openai/gpt-5.6-sol",
         "effort": "high",
-        "worker": None,
-        "worker_description": None,
+        "worker": "worker-opus",
+        "worker_description": "Strongest-tier worker for escalated retries after a weaker model failed",
         "builtins": [],
     },
     "sonnet": {
@@ -954,9 +952,10 @@ def resolve(agent_type: str, model_tier: str | None) -> tuple[str, str | None] |
     Returns `(new_agent_type, new_model)` where `new_model` is always `None`
     (OpenCode's Task tool has no per-call model parameter, so the model clause
     is always dropped). Returns bare `None` when `agent_type` is `general-purpose`
-    and its tier has no worker mapping (currently only `opus`) — callers leave
-    the original text untouched so the T04 lint can flag it as a residual
-    pattern instead of it silently becoming a dangling `general` dispatch.
+    and its tier has no worker mapping — every current tier has one, but a
+    future tier added without a worker would hit this path. Callers leave the
+    original text untouched so the T04 lint can flag it as a residual pattern
+    instead of it silently becoming a dangling `general` dispatch.
     """
     if agent_type == "general-purpose":
         tier = model_tier if model_tier is not None else "sonnet"  # FR#15 default

@@ -339,6 +339,30 @@ def test_generate_skill_commands_skips_duplicate_frontmatter(
     assert "skipping invalid opencode-command frontmatter" in capsys.readouterr().err
 
 
+def test_resolve_general_purpose_opus_routes_to_worker_opus() -> None:
+    module = _load_script()
+    resolve = module["resolve"]
+
+    assert resolve("general-purpose", "opus") == ("worker-opus", None)
+
+
+def test_rewrite_general_purpose_opus_dispatch_routes_to_worker_opus() -> None:
+    """The opus TIER_MAP entry's `worker: None` used to make resolve() return
+    bare `None` for this pairing, leaving `general-purpose` + `model: opus`
+    dispatches (e.g. mine-orchestrate's "Try again with stronger model" retry)
+    unrewritten -- so on synced OpenCode installs the retry silently stayed on
+    the sonnet-equivalent worker instead of reaching Sol. worker-opus closes
+    that gap.
+    """
+    module = _load_script()
+
+    rewritten = module["rewrite_dispatches_prose"](
+        "Launch subagent_type: general-purpose, model: opus for the retry.\n"
+    )
+
+    assert rewritten == "Launch subagent_type: worker-opus for the retry.\n"
+
+
 def test_rewrite_model_less_builtin_subagent_type() -> None:
     module = _load_script()
 
