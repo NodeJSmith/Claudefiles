@@ -53,9 +53,13 @@ When creating issues with `gh-issue create`, match the conventions already in us
 
 When in doubt about which milestone or labels to use, ask the user.
 
-## Task File Cleanup (BLOCKING)
+## Task File Cleanup
 
-Before committing changes (whether via `/mine-ship`, `/mine-commit-push`, `/mine-create-pr`, or a manual commit), check for task files via `find design/specs -path '*/tasks/T*.md' -print -quit 2>/dev/null`. If task files exist, run `cfl archive --dry-run`. If the output has `"status": "would_archive"`, run `cfl archive` to remove `tasks/` directories and set `**Status:** archived` in the preserved `design.md` — then include those deletions in the commit. Do not ask — just archive and commit the cleanup alongside the other changes. If no task files exist or `design/specs/` doesn't exist, skip silently.
+Before committing changes (whether via `/mine-ship`, `/mine-commit-push`, `/mine-create-pr`, or a manual commit), check for task files via `find design/specs -path '*/tasks/T*.md' -print -quit 2>/dev/null`.
+
+**No output → nothing to do.** If the `find` prints nothing (no task files exist, or `design/specs/` doesn't exist), skip this section entirely and continue with the commit. This is the common case — most commits have no spec work to clean up.
+
+**Output → archive before committing.** If task files exist, run `cfl archive --dry-run`. If the output has `"status": "would_archive"`, run `cfl archive` to remove `tasks/` directories and set `**Status:** archived` in the preserved `design.md` — then include those deletions in the commit. Do not ask — just archive and commit the cleanup alongside the other changes.
 
 Task files must never reach a PR. Git history preserves the full content.
 
