@@ -491,6 +491,39 @@ def test_generate_specialist_opus_variants_removes_own_orphan_but_not_foreign_fi
     assert not (agents_dir / "renamed-specialist-opus.md").exists()
 
 
+def test_generate_specialist_opus_variants_removes_stale_variant_when_source_gone(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A name staying in SPECIALIST_AGENTS is not enough to keep its prior-sync
+    variant alive -- if the specialist's own source file disappears (curated
+    sync, stale entry not yet cleaned up), the stale <name>-opus.md must be
+    pruned too, not preserved indefinitely just because the base name still
+    matches the list. Left alive, it would never be regenerated (generation
+    warns and skips a missing source) and would carry no config.json pin
+    (build_agent_config only pins the actually-generated list) -- a stale,
+    unpinned, but still dispatchable-by-name file.
+    """
+    module = _load_script()
+    generate = module["generate_specialist_opus_variants"]
+    specialist_agents = module["SPECIALIST_AGENTS"]
+    generated_file_marker = module["GENERATED_FILE_MARKER"]
+    name = specialist_agents[0]
+
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir()
+    # No {name}.md source file written -- simulates it having disappeared
+    # since the prior sync that generated this variant.
+    (agents_dir / f"{name}-opus.md").write_text(
+        f"---\nname: {name}-opus\n---\n{generated_file_marker}\nStale prompt.\n"
+    )
+
+    generated = generate(agents_dir, dry_run=False)
+
+    assert generated == []
+    assert not (agents_dir / f"{name}-opus.md").exists()
+    assert name in capsys.readouterr().err
+
+
 def test_rewrite_general_purpose_opus_dispatch_routes_to_worker_opus() -> None:
     """The opus TIER_MAP entry's `worker: None` used to make resolve() return
     bare `None` for this pairing, leaving `general-purpose` + `model: opus`

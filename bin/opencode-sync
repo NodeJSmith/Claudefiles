@@ -743,14 +743,16 @@ def generate_specialist_opus_variants(agents_dir: Path, *, dry_run: bool) -> lis
     variant keeps the specialist's full behavior at a stronger model.
 
     Before writing, removes any existing `<name>-opus.md` that (a) isn't a
-    current SPECIALIST_AGENTS entry or worker-opus.md (owned by
-    generate_worker_agents, not this function), AND (b) carries
-    GENERATED_FILE_MARKER — the same ownership stamp generate_skill_commands()
-    uses, added to every file this function writes. `*-opus.md` is a generic
-    suffix a user could plausibly reuse for their own hand-authored OpenCode
-    subagent (unlike `worker-*.md`, a prefix namespace this repo exclusively
-    owns), so pattern-matching the name alone isn't enough to prove
-    ownership — the marker check is what makes deletion safe.
+    SPECIALIST_AGENTS entry whose source file currently exists (checked
+    against disk, not just the static list — see `has_source` below) or
+    worker-opus.md (owned by generate_worker_agents, not this function), AND
+    (b) carries GENERATED_FILE_MARKER — the same ownership stamp
+    generate_skill_commands() uses, added to every file this function
+    writes. `*-opus.md` is a generic suffix a user could plausibly reuse for
+    their own hand-authored OpenCode subagent (unlike `worker-*.md`, a
+    prefix namespace this repo exclusively owns), so pattern-matching the
+    name alone isn't enough to prove ownership — the marker check is what
+    makes deletion safe.
 
     Returns the list of variant names generated (specialist files that
     weren't found on disk are skipped with a warning, not an error, since a
@@ -761,12 +763,24 @@ def generate_specialist_opus_variants(agents_dir: Path, *, dry_run: bool) -> lis
         tier["worker"] for tier in TIER_MAP.values() if tier["worker"] is not None
     }
 
+    # Checked against disk up front, not just SPECIALIST_AGENTS membership --
+    # a name can stay listed after its source file disappears (curated sync,
+    # stale entry), and the orphan-cleanup loop below must not keep a stale
+    # prior-sync variant alive forever just because its base name is still in
+    # the list. That variant would never update again (generation below warns
+    # and skips it) and would carry no config.json pin (build_agent_config
+    # only pins the actually-generated list) -- a stale, unpinned, but still
+    # dispatchable-by-name file.
+    has_source = {
+        name for name in SPECIALIST_AGENTS if (agents_dir / f"{name}.md").is_file()
+    }
+
     if agents_dir.is_dir():
         for existing in sorted(agents_dir.glob("*-opus.md")):
             if existing.stem in worker_names:
                 continue
             base = existing.stem[: -len("-opus")]
-            if base in SPECIALIST_AGENTS:
+            if base in has_source:
                 continue
             if GENERATED_FILE_MARKER not in existing.read_text():
                 continue
@@ -781,7 +795,7 @@ def generate_specialist_opus_variants(agents_dir: Path, *, dry_run: bool) -> lis
     generated = []
     for name in SPECIALIST_AGENTS:
         source = agents_dir / f"{name}.md"
-        if not source.is_file():
+        if name not in has_source:
             print(
                 f"WARNING: specialist agent {source} not found -- skipping "
                 f"{name}-opus.md (agent not installed, or SPECIALIST_AGENTS is stale)",
