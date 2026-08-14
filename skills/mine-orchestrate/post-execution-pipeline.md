@@ -436,6 +436,8 @@ If "Review them," walk through each backlog entry with the same three-option Ask
 
 Re-read `<feature_dir>/known-issues.md` (statuses may have changed in Step 5.6) and recount entries with `Status: open` for the shipping gate's known issues field.
 
+Before presenting the shipping gate, check whether `<feature_dir>/design.md` contains a `## Smoke Test` section. If it does, include the "Run smoke test" option below. If not, omit it.
+
 Present the final gate with impl-review and cross-file review results:
 
 ```
@@ -446,6 +448,8 @@ AskUserQuestion:
   options:
     - label: "Ship via /mine-ship"
       description: "Commit, push, and open a PR"
+    - label: "Run smoke test"
+      description: "Surface the design's smoke test for interactive verification before shipping"
     - label: "Challenge first"
       description: "Run /mine-challenge on the branch diff before shipping"
     - label: "Stop here"
@@ -455,10 +459,10 @@ AskUserQuestion:
 After the user selects, record the shipping gate result:
 
 ```bash
-cfl gate shipping-gate --verdict <PASS|WARN|FAIL> --data '{"choice": "<ship|challenge|stop>"}'
+cfl gate shipping-gate --verdict <PASS|WARN|FAIL> --data '{"choice": "<ship|smoke-test|challenge|stop>"}'
 ```
 
-(PASS for "Ship via /mine-ship", WARN for "Challenge first", FAIL for "Stop here")
+(PASS for "Ship via /mine-ship", WARN for "Run smoke test" or "Challenge first", FAIL for "Stop here"). "Run smoke test" records WARN before looping back; the terminal choice (ship/challenge/stop) re-records the gate with the final verdict.
 
 Read `<dir>/clean-code-summary.md` to populate the `Clean code check:` field in the question above.
 
@@ -467,6 +471,24 @@ Use the `fixed`/`deferred`/`rejected`/`unresolved` counts recorded in the `cfl g
 Use the post-walkthrough recount from the start of this step (not the pre-walkthrough Step 5.5 split) to populate the `Known issues:` field.
 
 **On "Ship via /mine-ship":** Invoke `/mine-ship`.
+
+**On "Run smoke test":** Read the `## Smoke Test` section from `<feature_dir>/design.md` and present its content to the user — the verification surface, scenario, and success criteria. The user runs the described scenario interactively (in the current session or another terminal). Then ask:
+
+```
+AskUserQuestion:
+  question: "Did the smoke test pass?"
+  header: "Smoke test"
+  multiSelect: false
+  options:
+    - label: "Pass"
+      description: "Smoke test succeeded — return to the shipping gate"
+    - label: "Fail — needs fixing"
+      description: "Investigate and fix the failure, then re-run the smoke test"
+```
+
+On **Pass**: re-present the shipping gate without the "Run smoke test" option — it has been satisfied.
+
+On **Fail**: the feature is broken end-to-end. Investigate the failure with the user and fix the issue. If the fix modified implementation code (not just configuration or test data), re-run Steps 2–5 (implementation review through final review) before re-presenting the shipping gate — those prior gate results are stale after code changes. Re-present the shipping gate with the "Run smoke test" option still available so the user can re-verify after the fix.
 
 **On "Challenge first":** Tell the user to run `/mine-challenge` on the changed files. After challenge completes and the user is satisfied, they can run `/mine-ship` directly.
 
