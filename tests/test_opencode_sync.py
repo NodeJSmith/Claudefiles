@@ -37,6 +37,17 @@ def _load_script() -> dict:
     return runpy.run_path(str(SCRIPT))
 
 
+def _write_specialist_source(agents_dir: Path, name: str) -> None:
+    """Write a minimal specialist agent file used as generate_specialist_
+    opus_variants()'s input fixture across multiple tests -- kept in one
+    place so a fourth caller doesn't need its own copy of the frontmatter.
+    """
+    (agents_dir / f"{name}.md").write_text(
+        f"---\nname: {name}\nmodel: openai/gpt-5.6-terra\neffort: medium\n"
+        "description: A specialist.\n---\n\n# Specialist body\n\nDo the thing.\n"
+    )
+
+
 def test_strip_jsonc_comments_removes_block_comment() -> None:
     module = _load_script()
     strip = module["_strip_jsonc_comments"]
@@ -421,8 +432,8 @@ def test_build_agent_config_only_includes_actually_generated_variants() -> None:
     config = build_agent_config(["engineering-backend-developer-opus"])
 
     assert config["engineering-backend-developer-opus"] == {
-        "model": "openai/gpt-5.6-sol",
-        "effort": "high",
+        "model": module["TIER_MAP"]["opus"]["model"],
+        "effort": module["TIER_MAP"]["opus"]["effort"],
     }
     assert "engineering-frontend-developer-opus" not in config
 
@@ -438,17 +449,15 @@ def test_generate_specialist_opus_variants_copies_prompt_with_swapped_frontmatte
 
     agents_dir = tmp_path / "agents"
     agents_dir.mkdir()
-    (agents_dir / f"{name}.md").write_text(
-        f"---\nname: {name}\nmodel: openai/gpt-5.6-terra\neffort: medium\n"
-        "description: A specialist.\n---\n\n# Specialist body\n\nDo the thing.\n"
-    )
+    _write_specialist_source(agents_dir, name)
 
     generated = generate(agents_dir, dry_run=False)
 
     assert generated == [f"{name}-opus"]
     variant = (agents_dir / f"{name}-opus.md").read_text()
     assert f"name: {name}-opus" in variant
-    assert "model: openai/gpt-5.6-sol" in variant
+    opus_model = module["TIER_MAP"]["opus"]["model"]
+    assert f"model: {opus_model}" in variant
     # The variant exists to escalate reasoning depth along with the model --
     # copying the base specialist's `effort: medium` verbatim would silently
     # cap it below the opus tier's effort, defeating the escalation.
@@ -482,10 +491,7 @@ def test_generate_specialist_opus_variants_skips_foreign_file_at_target_path(
 
     agents_dir = tmp_path / "agents"
     agents_dir.mkdir()
-    (agents_dir / f"{name}.md").write_text(
-        f"---\nname: {name}\nmodel: openai/gpt-5.6-terra\neffort: medium\n"
-        "description: A specialist.\n---\n\n# Specialist body\n\nDo the thing.\n"
-    )
+    _write_specialist_source(agents_dir, name)
     foreign_content = "---\nname: hand-authored\n---\nA user's own subagent.\n"
     (agents_dir / f"{name}-opus.md").write_text(foreign_content)
 
@@ -513,10 +519,7 @@ def test_generate_specialist_opus_variants_overwrites_own_prior_variant(
 
     agents_dir = tmp_path / "agents"
     agents_dir.mkdir()
-    (agents_dir / f"{name}.md").write_text(
-        f"---\nname: {name}\nmodel: openai/gpt-5.6-terra\neffort: medium\n"
-        "description: A specialist.\n---\n\n# Specialist body\n\nDo the thing.\n"
-    )
+    _write_specialist_source(agents_dir, name)
     (agents_dir / f"{name}-opus.md").write_text(
         f"---\nname: {name}-opus\n---\n{generated_file_marker}\nStale prompt.\n"
     )

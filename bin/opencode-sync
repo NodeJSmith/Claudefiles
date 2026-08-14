@@ -817,18 +817,24 @@ def generate_specialist_opus_variants(agents_dir: Path, *, dry_run: bool) -> lis
             )
             continue
 
+        field_overrides = {
+            "name:": f"name: {name}-opus",
+            "model:": f"model: {opus_model}",
+            "effort:": f"effort: {opus_effort}",
+        }
         fm_lines = frontmatter.splitlines(keepends=True)
         new_fm_lines = []
         for line in fm_lines:
             line_body, eol = _split_eol(line)
-            if line_body.startswith("name:"):
-                new_fm_lines.append(f"name: {name}-opus{eol}")
-            elif line_body.startswith("model:"):
-                new_fm_lines.append(f"model: {opus_model}{eol}")
-            elif line_body.startswith("effort:"):
-                new_fm_lines.append(f"effort: {opus_effort}{eol}")
-            else:
-                new_fm_lines.append(line)
+            override = next(
+                (
+                    v
+                    for prefix, v in field_overrides.items()
+                    if line_body.startswith(prefix)
+                ),
+                None,
+            )
+            new_fm_lines.append(f"{override}{eol}" if override is not None else line)
 
         content = "".join(new_fm_lines) + f"\n{GENERATED_FILE_MARKER}\n" + body
         target = agents_dir / f"{name}-opus.md"
