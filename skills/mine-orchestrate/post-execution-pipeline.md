@@ -459,10 +459,10 @@ AskUserQuestion:
 After the user selects, record the shipping gate result:
 
 ```bash
-cfl gate shipping-gate --verdict <PASS|WARN|FAIL> --data '{"choice": "<ship|challenge|stop>"}'
+cfl gate shipping-gate --verdict <PASS|WARN|FAIL> --data '{"choice": "<ship|smoke-test|challenge|stop>"}'
 ```
 
-(PASS for "Ship via /mine-ship", WARN for "Challenge first", FAIL for "Stop here")
+(PASS for "Ship via /mine-ship", WARN for "Run smoke test" or "Challenge first", FAIL for "Stop here"). "Run smoke test" records WARN before looping back; the terminal choice (ship/challenge/stop) re-records the gate with the final verdict.
 
 Read `<dir>/clean-code-summary.md` to populate the `Clean code check:` field in the question above.
 
@@ -472,7 +472,23 @@ Use the post-walkthrough recount from the start of this step (not the pre-walkth
 
 **On "Ship via /mine-ship":** Invoke `/mine-ship`.
 
-**On "Run smoke test":** Read the `## Smoke Test` section from `<feature_dir>/design.md` and present its content to the user — the verification surface, scenario, and success criteria. The user runs the described scenario interactively (in the current session or another terminal). After they confirm the result, re-present the shipping gate without the "Run smoke test" option — it has been exercised.
+**On "Run smoke test":** Read the `## Smoke Test` section from `<feature_dir>/design.md` and present its content to the user — the verification surface, scenario, and success criteria. The user runs the described scenario interactively (in the current session or another terminal). Then ask:
+
+```
+AskUserQuestion:
+  question: "Did the smoke test pass?"
+  header: "Smoke test"
+  multiSelect: false
+  options:
+    - label: "Pass"
+      description: "Smoke test succeeded — return to the shipping gate"
+    - label: "Fail — needs fixing"
+      description: "Investigate and fix the failure, then re-run the smoke test"
+```
+
+On **Pass**: re-present the shipping gate without the "Run smoke test" option — it has been satisfied.
+
+On **Fail**: the feature is broken end-to-end. Investigate the failure with the user, fix the issue, then re-present the shipping gate with the "Run smoke test" option still available so they can re-verify after the fix.
 
 **On "Challenge first":** Tell the user to run `/mine-challenge` on the changed files. After challenge completes and the user is satisfied, they can run `/mine-ship` directly.
 

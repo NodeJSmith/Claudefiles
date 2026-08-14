@@ -6,7 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Added
 
-- `mine-define`, `mine-sketch`, `mine-plan`, and implementation review now support a conditional `## Smoke Test` section, distinct from Test Strategy — it proves the assembled feature works end-to-end rather than proving individual behaviors are correct. A design with this section but no task carrying a `- [ ] Smoke:` Verify item that was actually run is a blocking coverage gap at plan review, plan validation, and implementation review. (#511)
+- `mine-define` and `mine-sketch` design templates now support a conditional `## Smoke Test` section for features with a runnable surface. The orchestration shipping gate surfaces it as an interactive option — the user runs the scenario and confirms the result before shipping. (#511)
 
 ## 2026-08-13
 
