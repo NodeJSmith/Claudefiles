@@ -124,10 +124,6 @@ Flag each vague item:
 
 If the design contains `## Operational Lifecycle`, check that the responsible tasks include concrete Verify criteria for the applicable repeated-failure, retry-bound/termination, user-action recovery, deliberately terminal states, and user-visible accounting outcomes. A set of isolated one-transition tests does not cover the assembled lifecycle. Record every missing lifecycle outcome under `## Coverage Gaps`; these gaps block approval. Do not apply this check when the design omits the section.
 
-### Smoke Test Coverage
-
-If the design contains `## Smoke Test`, check that at least one task's Verify section includes a `- [ ] Smoke:` item that exercises the feature end-to-end. The smoke test item should refine the design's approximate scenario into executable local commands. If the design has a Smoke Test section but no task carries a `Smoke:` Verify item, record it under `## Coverage Gaps` — this blocks approval. Do not apply this check when the design omits the section.
-
 ### Non-Local Verification Criteria
 
 A Verify item is non-local when it cannot be checked by the executor running a command in the local repo. These criteria should not exist as ACs in the design doc (they are process gates, not acceptance criteria), but if they leaked through, flag them here.
@@ -189,7 +185,7 @@ Write a structured report to the output path provided. Use this exact format:
 ## Verdict: PASS | FAIL
 
 > PASS — all FRs and ACs are covered, no contradictions, all Verify items are concrete.
-> FAIL — N coverage gaps (including operational lifecycle and smoke test gaps), M contradictions, K non-local criteria. Review required before execution.
+> FAIL — N coverage gaps (including operational lifecycle gaps), M contradictions, K non-local criteria. Review required before execution.
 
 ## Traceability Matrix
 
@@ -225,8 +221,8 @@ Write a structured report to the output path provided. Use this exact format:
 ```
 
 **Verdict determination**:
-- `PASS` — zero coverage gaps (including operational lifecycle and smoke test gaps), zero contradictions, zero non-local criteria, and context.md has all five required sections with non-empty content. `## Convention Examples` is optional and does not block approval, but if present must contain code snippets or "None" (not an empty heading). Warnings do not block approval.
-- `FAIL` — one or more coverage gaps, including operational lifecycle or smoke test gaps, OR contradictions OR non-local criteria OR missing/empty context.md sections.
+- `PASS` — zero coverage gaps (including operational lifecycle gaps), zero contradictions, zero non-local criteria, and context.md has all five required sections with non-empty content. `## Convention Examples` is optional and does not block approval, but if present must contain code snippets or "None" (not an empty heading). Warnings do not block approval.
+- `FAIL` — one or more coverage gaps, including operational lifecycle gaps, OR contradictions OR non-local criteria OR missing/empty context.md sections.
 
 ---
 

@@ -28,8 +28,6 @@ Look for: vague items like "the feature works", "tests pass", "renders correctly
 
 If the design contains `## Operational Lifecycle`, verify that the responsible tasks cover the applicable repeated-failure, retry-bound/termination, user-action recovery, deliberately terminal states, and user-visible accounting outcomes. A collection of one-transition unit tests is not a substitute for an assembled lifecycle test. Do not apply this check when the design omits the section.
 
-If the design contains `## Smoke Test`, verify that at least one task (typically the final one) includes a `- [ ] Smoke:` Verify item that exercises the feature end-to-end, refining the design's scenario into executable local commands. Do not apply this check when the design omits the section.
-
 ### 6. Summary accuracy
 Does each task's Summary accurately describe what the task builds — consistent with its Prompt and the design doc?
 Look for: summaries that describe a different feature than the Prompt; summaries that overstate or understate scope; summaries that omit a major component the Prompt will build; interpretive drift between Summary and the FRs listed in `implements`.

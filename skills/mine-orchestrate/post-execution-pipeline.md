@@ -436,6 +436,8 @@ If "Review them," walk through each backlog entry with the same three-option Ask
 
 Re-read `<feature_dir>/known-issues.md` (statuses may have changed in Step 5.6) and recount entries with `Status: open` for the shipping gate's known issues field.
 
+Before presenting the shipping gate, check whether `<feature_dir>/design.md` contains a `## Smoke Test` section. If it does, include the "Run smoke test" option below. If not, omit it.
+
 Present the final gate with impl-review and cross-file review results:
 
 ```
@@ -446,6 +448,8 @@ AskUserQuestion:
   options:
     - label: "Ship via /mine-ship"
       description: "Commit, push, and open a PR"
+    - label: "Run smoke test"
+      description: "Surface the design's smoke test for interactive verification before shipping"
     - label: "Challenge first"
       description: "Run /mine-challenge on the branch diff before shipping"
     - label: "Stop here"
@@ -467,6 +471,8 @@ Use the `fixed`/`deferred`/`rejected`/`unresolved` counts recorded in the `cfl g
 Use the post-walkthrough recount from the start of this step (not the pre-walkthrough Step 5.5 split) to populate the `Known issues:` field.
 
 **On "Ship via /mine-ship":** Invoke `/mine-ship`.
+
+**On "Run smoke test":** Read the `## Smoke Test` section from `<feature_dir>/design.md` and present its content to the user — the verification surface, scenario, and success criteria. The user runs the described scenario interactively (in the current session or another terminal). After they confirm the result, re-present the shipping gate without the "Run smoke test" option — it has been exercised.
 
 **On "Challenge first":** Tell the user to run `/mine-challenge` on the changed files. After challenge completes and the user is satisfied, they can run `/mine-ship` directly.
 
