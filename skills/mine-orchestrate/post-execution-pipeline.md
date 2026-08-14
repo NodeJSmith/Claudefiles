@@ -488,7 +488,7 @@ AskUserQuestion:
 
 On **Pass**: re-present the shipping gate without the "Run smoke test" option — it has been satisfied.
 
-On **Fail**: the feature is broken end-to-end. Investigate the failure with the user, fix the issue, then re-present the shipping gate with the "Run smoke test" option still available so they can re-verify after the fix.
+On **Fail**: the feature is broken end-to-end. Investigate the failure with the user and fix the issue. If the fix modified implementation code (not just configuration or test data), re-run Steps 2–5 (implementation review through final review) before re-presenting the shipping gate — those prior gate results are stale after code changes. Re-present the shipping gate with the "Run smoke test" option still available so the user can re-verify after the fix.
 
 **On "Challenge first":** Tell the user to run `/mine-challenge` on the changed files. After challenge completes and the user is satisfied, they can run `/mine-ship` directly.
 
