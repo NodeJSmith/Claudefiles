@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-08-14
+
+### Added
+
+- New `logging.md` rule replaces the single-paragraph logging blurb in `coding-style.md` with role-based conventions (library vs. CLI vs. unattended process), mandatory coverage points to prevent dark operations, a level-selection decision tree, and structured-context guidance. (#512)
+
 ## 2026-08-13
 
 ### Changed
