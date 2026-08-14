@@ -95,7 +95,7 @@ TIER_MAP = {
     },
     "haiku": {
         "model": "openai/gpt-5.6-luna",
-        "effort": "medium",
+        "effort": "high",
         "worker": "worker-lightweight",
         "worker_description": "Lightweight worker for triage, mechanical analysis, and low-cost tasks",
         "builtins": ["explore", "scout"],
@@ -737,10 +737,15 @@ def generate_specialist_opus_variants(agents_dir: Path, *, dry_run: bool) -> lis
     Must run after `process_agent_frontmatter()` (and after opkg has
     installed the specialist agent files) -- reads each specialist's
     already-synced, already-frontmatter-processed file and copies its body
-    verbatim into a new file whose `name`/`model` frontmatter lines are
-    swapped to the opus-tier variant. Every other frontmatter field
-    (`effort`, `description`, `tools`, etc.) is preserved as-is, so the
-    variant keeps the specialist's full behavior at a stronger model.
+    verbatim into a new file whose `name`/`model`/`effort` frontmatter lines
+    are swapped to the opus tier's values (`TIER_MAP["opus"]`). `effort` must
+    be rewritten here, not left to config.json's `agent` map, because
+    OpenCode resolves an agent's own frontmatter ahead of a config.json
+    override of the same name -- copying the specialist's effort verbatim
+    would silently cap the variant below the opus tier's effort regardless of
+    what config.json says. Every other frontmatter field (`description`,
+    `tools`, etc.) is preserved as-is, so the variant keeps the specialist's
+    full behavior at a stronger model.
 
     Before writing, removes any existing `<name>-opus.md` that (a) isn't a
     SPECIALIST_AGENTS entry whose source file currently exists (checked
@@ -792,6 +797,7 @@ def generate_specialist_opus_variants(agents_dir: Path, *, dry_run: bool) -> lis
                 existing.unlink()
 
     opus_model = TIER_MAP["opus"]["model"]
+    opus_effort = TIER_MAP["opus"]["effort"]
     generated = []
     for name in SPECIALIST_AGENTS:
         source = agents_dir / f"{name}.md"
@@ -811,16 +817,24 @@ def generate_specialist_opus_variants(agents_dir: Path, *, dry_run: bool) -> lis
             )
             continue
 
+        field_overrides = {
+            "name:": f"name: {name}-opus",
+            "model:": f"model: {opus_model}",
+            "effort:": f"effort: {opus_effort}",
+        }
         fm_lines = frontmatter.splitlines(keepends=True)
         new_fm_lines = []
         for line in fm_lines:
             line_body, eol = _split_eol(line)
-            if line_body.startswith("name:"):
-                new_fm_lines.append(f"name: {name}-opus{eol}")
-            elif line_body.startswith("model:"):
-                new_fm_lines.append(f"model: {opus_model}{eol}")
-            else:
-                new_fm_lines.append(line)
+            override = next(
+                (
+                    v
+                    for prefix, v in field_overrides.items()
+                    if line_body.startswith(prefix)
+                ),
+                None,
+            )
+            new_fm_lines.append(f"{override}{eol}" if override is not None else line)
 
         content = "".join(new_fm_lines) + f"\n{GENERATED_FILE_MARKER}\n" + body
         target = agents_dir / f"{name}-opus.md"

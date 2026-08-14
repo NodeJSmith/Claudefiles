@@ -1,7 +1,7 @@
 ---
 name: writing-quality-reviewer
 model: sonnet
-effort: medium
+effort: high
 description: Writing quality reviewer for instruction files — detects AI prose patterns, voice issues, and mechanical writing. Complements instruction-quality-reviewer (substance) and fine-toothed-comb (consistency).
 tools: ["Read", "Grep", "Glob", "Bash"]
 ---

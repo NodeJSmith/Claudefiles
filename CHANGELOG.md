@@ -8,6 +8,16 @@ All notable changes to this Claudefiles repository are documented here.
 
 - `mine-define` and `mine-sketch` design templates now support a conditional `## Smoke Test` section for features with a runnable surface. The orchestration shipping gate surfaces it as an interactive option — the user runs the scenario and confirms the result before shipping. (#511)
 - New `logging.md` rule replaces the single-paragraph logging blurb in `coding-style.md` with role-based conventions (library vs. CLI vs. unattended process), mandatory coverage points to prevent dark operations, a level-selection decision tree, and structured-context guidance. (#512)
+
+### Changed
+
+- Every agent's `effort:` floor raised to `high` (was `medium` for most Sonnet-tier agents, deliberately, to offset Sonnet 5's extra verbosity). `high` is a floor, not a ceiling — some agents may move to `xhigh` later. (#513)
+
+### Fixed
+
+- `bin/opencode-sync`'s specialist opus-variant generator now rewrites `effort:` frontmatter to the opus tier's value instead of copying the base specialist's effort verbatim — OpenCode resolves an agent's own frontmatter ahead of `config.json`'s override, so the copied effort was silently capping opus-tier retries below their intended reasoning depth. (#513)
+- `agents/researcher.md` and `agents/secrets-auditor.md` now declare `effort: high` — previously they had no effort setting at all on either the Claude or OpenCode side. (#513)
+
 ## 2026-08-13
 
 ### Changed

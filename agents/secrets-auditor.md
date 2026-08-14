@@ -1,6 +1,7 @@
 ---
 name: secrets-auditor
 model: haiku
+effort: high
 description: Read-only credential scanner — scans staged diff and working tree for secrets, tokens, and credentials. Groups findings by severity (Blocker/Review/Clear).
 tools: ["Read", "Grep", "Glob", "Bash"]
 ---
