@@ -7,7 +7,7 @@ All notable changes to this Claudefiles repository are documented here.
 ### Added
 
 - `mine-define` and `mine-sketch` design templates now support a conditional `## Smoke Test` section for features with a runnable surface. The orchestration shipping gate surfaces it as an interactive option — the user runs the scenario and confirms the result before shipping. (#511)
-
+- New `logging.md` rule replaces the single-paragraph logging blurb in `coding-style.md` with role-based conventions (library vs. CLI vs. unattended process), mandatory coverage points to prevent dark operations, a level-selection decision tree, and structured-context guidance. (#512)
 ## 2026-08-13
 
 ### Changed

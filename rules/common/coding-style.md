@@ -79,7 +79,7 @@ Don't add decorated comment blocks between methods. If the class needs section h
 
 ## Logging
 
-Log at decision points and actions, not at every step. Use warnings for unexpected state, info for actions taken. Don't log routine state reads or echo every variable.
+Full conventions — where to log (role-based: library vs CLI vs unattended), what to log (mandatory coverage points, dark operation prevention), level selection (decision tree, `exception()` vs `error()`), and structured context — live in `logging.md`.
 
 ## Data Structures First
 
