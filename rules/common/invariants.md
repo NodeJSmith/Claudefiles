@@ -88,6 +88,10 @@ Concurrent access to shared mutable state: first ask whether sharing is necessar
 When launching 2+ subagents that write to the git working directory in parallel, each must use `isolation: "worktree"`. A shared working directory with concurrent writers destroys changes via index races and pre-commit hook stash collisions.
 **Defined in:** `references/common/agents.md`
 
+#### Library Code Never Configures Logging
+A module imported by other code calls `logging.getLogger()` and nothing else. Never `basicConfig()`, a handler, or `setLevel()`. Configuration is the importing application's job, done once at its entry point.
+**Defined in:** `rules/common/logging.md`
+
 ### Should
 
 #### Test Co-location
@@ -118,6 +122,10 @@ Before restructuring, capture current behavior with a characterization test. Typ
 #### Exit Condition Before Iterating
 Define done as a checkable predicate before the first iteration of a long-running task.
 **Defined in:** `rules/common/autonomous-run-discipline.md`
+
+#### No Dark Operations
+Every error recovery path (`except` that doesn't re-raise) and external I/O boundary (API call, DB query, file operation) must log its outcome on failure. If a failure path emits no signal, it's a dark operation — invisible until the downstream symptom surfaces.
+**Defined in:** `rules/common/logging.md`
 
 #### Verify Review Findings Before Accepting
 When code review findings arrive, verify each against the actual code before implementing. Reviewers make mistakes. Grep for suggested abstractions — if no callers exist outside the changed files, skip it.
