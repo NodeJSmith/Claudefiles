@@ -77,6 +77,8 @@ Does the test suite actually cover the implementation? This is a high-severity c
 
 **Operational lifecycle rule:** If the design contains `## Operational Lifecycle`, inspect the assembled workflow and its tests across repeated invocations. Verify the applicable retry bounds/termination, persistent failure and explicit-action states, recovery/reset behavior, and user-visible progress/exclusion/failure accounting. If the supplied canonical test command is `no test suite`, report the required lifecycle scenarios as unverified; otherwise run it exactly. If running it is impractical, do not invent a narrower substitute. Mocked single status transitions or a synthetic output-quality fixture alone are insufficient evidence. Missing, failing, or locally unexercisable tests for a lifecycle behavior required by the design are FAIL-level, not WARN-level; name the unverified scenario and infrastructure gap in the blocking issue. A lifecycle feature whose design explicitly accepts missing local test infrastructure may proceed only if that accepted risk is recorded in `Dependencies and Assumptions`; otherwise the gap blocks release. Do not apply this rule when the design omits the section.
 
+**Smoke test rule:** If the design contains `## Smoke Test`, check that the executor's output shows the smoke test was executed and its success criteria were met. A `- [ ] Smoke:` Verify item that was not exercised (no command output, no observable result) is FAIL-level. Do not apply this rule when the design omits the section.
+
 **Verdict rule:** A FAIL on item 7 (test coverage) always produces FAIL, never PASS, regardless of whether the reviewer considers the gap minor.
 
 ## Output Format

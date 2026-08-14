@@ -43,6 +43,10 @@ Write the design doc to `<feature_dir>/design.md` using this template:
 
 [Conditional section — include only when the sketch accepts an external dependency or an explicit verification gap. State the accepted risk and mitigation. For an Operational Lifecycle with no local test infrastructure, record that limitation here; otherwise omit this section.]
 
+## Smoke Test
+
+[Conditional section — include when the feature has a runnable surface (CLI, API, pipeline, UI, background service). Omit for library code, refactors, or internal restructuring. Describe: what you will observe, a concrete scenario (input → expected output), and what success looks like. Commands may be approximate — describe the shape rather than guessing flags.]
+
 ## Changed Files
 
 [List each file with its change verb (create / modify / delete) and a one-line note on what changes.]

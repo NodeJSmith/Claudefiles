@@ -115,6 +115,14 @@ Write the design doc to `<feature_dir>/design.md` using this template:
 ### Tests to Remove
 [Tests for functionality being removed or replaced. Reference Replacement Targets where applicable. If none, state "No tests to remove."]
 
+## Smoke Test
+
+[Conditional section — include when the feature has a runnable surface: CLI command, API endpoint, data pipeline, UI workflow, background service. Omit for pure library code, refactors, type-only changes, or internal restructuring with no user-facing entry point.
+
+Describe the verification surface (what you will observe — terminal output, HTTP response, database state, UI behavior), a concrete scenario (input and expected output), and what success looks like. Exact commands may be approximate if the feature doesn't exist yet — describe the shape ("run the new CLI subcommand with a test input file and expect tabular output on stdout with exit code 0") rather than guessing flags that haven't been designed. The plan refines these into executable steps; the implementer runs them after the final task.
+
+This is distinct from Test Strategy: tests prove individual behaviors are correct; the smoke test proves the assembled feature works end-to-end as a user would experience it.]
+
 ## Documentation Updates
 
 [Specific documentation artifacts that need updating alongside this change. Consider: README, CHANGELOG, API docs, CLI help text, configuration docs, rules files, capabilities/trigger-phrase files. List each artifact with the specific change needed. If none, state "No documentation updates required."]
@@ -142,7 +150,7 @@ Write each entry so someone other than you can act on it. An entry still sitting
 ## Content Rules
 
 - Requirements sections (Problem, Goals, User Scenarios, Functional Requirements, Edge Cases, Acceptance Criteria) describe observable behaviors — what the system does, not how it's built. Naming the domain is fine ("pytest", "webhook", "CLI flag"); dictating implementation steps is not ("use subprocess.Popen", "add a column to the X table")
-- Architecture, Implementation Preferences, Replacement Targets, Migration, Alternatives, Test Strategy, Documentation Updates, and Impact contain implementation details
+- Architecture, Implementation Preferences, Replacement Targets, Migration, Alternatives, Test Strategy, Smoke Test, Documentation Updates, and Impact contain implementation details
 - Architecture must reference existing code from the **Existing code leverage** table. For any sub-problem marked `Full — reuse as-is`, confirm reuse or justify diverging. For `Partial`, explain what was extended.
 
 ## Scope Mode Effects
@@ -156,6 +164,7 @@ Write each entry so someone other than you can act on it. An entry still sitting
 | Implementation Preferences | Include extensibility-oriented tooling decisions; note stretch choices | Concrete decisions from discovery only | Only decisions critical to the minimum build |
 | Replacement Targets | Items being replaced in this change — note candidates for future replacement in Architecture | Only items being replaced in this change | Only items being replaced — defer others to follow-up |
 | Test Strategy | Include stretch coverage goals; consider additional testing layers beyond what the change shape strictly requires; test adjacent behaviors | Cover all FRs at the layers the change shape requires; adapt all affected tests | Minimum tests for core FRs at the essential layer(s) only; note deferred coverage and deferred layers |
+| Smoke Test | Include stretch scenarios and secondary surfaces beyond the happy path | Core happy-path scenario only | Minimum viable proof — single command, single assertion |
 | Alternatives | Include the ambitious alternative even if not chosen | Standard alternatives | Include "do nothing" and "manual workaround" as alternatives |
 
 ## Section Rules
