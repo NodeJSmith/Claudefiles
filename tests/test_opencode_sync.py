@@ -449,7 +449,12 @@ def test_generate_specialist_opus_variants_copies_prompt_with_swapped_frontmatte
     variant = (agents_dir / f"{name}-opus.md").read_text()
     assert f"name: {name}-opus" in variant
     assert "model: openai/gpt-5.6-sol" in variant
-    assert "effort: medium" in variant
+    # The variant exists to escalate reasoning depth along with the model --
+    # copying the base specialist's `effort: medium` verbatim would silently
+    # cap it below the opus tier's effort, defeating the escalation.
+    opus_effort = module["TIER_MAP"]["opus"]["effort"]
+    assert f"effort: {opus_effort}" in variant
+    assert "effort: medium" not in variant
     assert "description: A specialist." in variant
     assert generated_file_marker in variant
     assert "# Specialist body" in variant

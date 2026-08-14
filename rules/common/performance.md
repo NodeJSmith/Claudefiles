@@ -12,7 +12,11 @@ A PreToolUse hook (`subagent-model-default.sh`) enforces model defaults on Agent
 
 ## Effort Level Policy
 
-All Sonnet agent files declare `effort: medium` in frontmatter. Sonnet 5 produces ~1.7x more output tokens than Sonnet 4.6 at the same effort level and ~2.6x more than Opus 4.6 — medium effort reduces this verbosity while preserving quality on the tasks subagents handle (review, analysis, generation). The parent session runs at `high` (set in `settings.machine.json`); subagents don't need the same depth.
+Every agent file declares an explicit `effort:` in frontmatter — no agent ships without one, and nothing runs below `high`. `lint-agent-models` enforces the declaration by cross-checking frontmatter against the list below; there's no separate mechanism enforcing the floor itself, so a new agent file must set `effort: high` (or stronger) by hand at creation time.
+
+All agent files — Sonnet, Opus, and Haiku alike — currently declare `effort: high`, matching OpenCode's `TIER_MAP` for the corresponding tier (`bin/opencode-sync`). `high` is a floor, not a ceiling: some agents may move to `xhigh` later as that gets evaluated per-agent. When that happens, update both the frontmatter and this list's declared value together, or `lint-agent-models` will flag the mismatch.
+
+This supersedes an earlier policy that ran Sonnet agents at `effort: medium` to offset Sonnet 5's verbosity (~1.7x more output tokens than Sonnet 4.6 at the same effort level). The verbosity tradeoff still exists; it's just no longer the deciding factor for this fleet. The parent session runs at `high` (set in `settings.machine.json`).
 
 **Gap:** Built-in agent types (`general-purpose`, `Explore`, `Plan`, `claude`) have no frontmatter, so they inherit the parent session's effort level (`high`). The Agent tool schema has no `effort` parameter, so the model-default hook cannot inject it. These types already get downgraded to Sonnet by the hook, which limits the cost impact.
 
@@ -36,29 +40,29 @@ Use Sonnet instead of Haiku when any of these apply:
 Each agent file in `agents/` declares its model in YAML frontmatter. When updating model policy, check all locations. The agent-file list below is validated against frontmatter by `bin/lint-agent-models` (pre-commit hook) — a mismatch, missing entry, or stale entry fails the commit.
 
 **Agent files:**
-- `agents/code-judo-reviewer.md` — sonnet, medium
-- `agents/code-reviewer.md` — sonnet, medium (pre-commit safety gate; do not downgrade model)
-- `agents/integration-reviewer.md` — sonnet, medium (pre-commit safety gate; do not downgrade model)
-- `agents/lazy-checker.md` — sonnet, medium
-- `agents/llm-checker.md` — sonnet, medium
-- `agents/nitpicker.md` — sonnet, medium
-- `agents/testing-reality-checker.md` — sonnet, medium (pre-ship safety gate; do not downgrade model)
-- `agents/researcher.md` — opus
-- `agents/secrets-auditor.md` — haiku
-- `agents/planner.md` — sonnet, medium
-- `agents/architect.md` — sonnet, medium
-- `agents/qa-specialist.md` — sonnet, medium
-- `agents/issue-refiner.md` — sonnet, medium
-- `agents/visual-diff.md` — sonnet, medium
-- `agents/wtf-reviewer.md` — sonnet, medium (pre-commit readability gate; do not downgrade model)
-- `agents/fine-toothed-comb.md` — sonnet, medium
-- `agents/instruction-quality-reviewer.md` — sonnet, medium
-- `agents/writing-quality-reviewer.md` — sonnet, medium
-- `agents/engineering-frontend-developer.md` — sonnet, medium
-- `agents/engineering-backend-developer.md` — sonnet, medium
-- `agents/engineering-data-engineer.md` — sonnet, medium
-- `agents/engineering-technical-writer.md` — sonnet, medium
-- `agents/engineering-sre.md` — sonnet, medium
+- `agents/code-judo-reviewer.md` — sonnet, high
+- `agents/code-reviewer.md` — sonnet, high (pre-commit safety gate; do not downgrade model)
+- `agents/integration-reviewer.md` — sonnet, high (pre-commit safety gate; do not downgrade model)
+- `agents/lazy-checker.md` — sonnet, high
+- `agents/llm-checker.md` — sonnet, high
+- `agents/nitpicker.md` — sonnet, high
+- `agents/testing-reality-checker.md` — sonnet, high (pre-ship safety gate; do not downgrade model)
+- `agents/researcher.md` — opus, high
+- `agents/secrets-auditor.md` — haiku, high
+- `agents/planner.md` — sonnet, high
+- `agents/architect.md` — sonnet, high
+- `agents/qa-specialist.md` — sonnet, high
+- `agents/issue-refiner.md` — sonnet, high
+- `agents/visual-diff.md` — sonnet, high
+- `agents/wtf-reviewer.md` — sonnet, high (pre-commit readability gate; do not downgrade model)
+- `agents/fine-toothed-comb.md` — sonnet, high
+- `agents/instruction-quality-reviewer.md` — sonnet, high
+- `agents/writing-quality-reviewer.md` — sonnet, high
+- `agents/engineering-frontend-developer.md` — sonnet, high
+- `agents/engineering-backend-developer.md` — sonnet, high
+- `agents/engineering-data-engineer.md` — sonnet, high
+- `agents/engineering-technical-writer.md` — sonnet, high
+- `agents/engineering-sre.md` — sonnet, high
 
 **Skill files with inline model declarations** (not governed by agent frontmatter):
 - `skills/mine-challenge/SKILL.md` — `model: haiku` for triage subagent, `model: sonnet` for critic and synthesis subagents
