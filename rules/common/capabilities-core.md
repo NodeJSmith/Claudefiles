@@ -90,6 +90,7 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "validate agent files", "check skill schema" | `lint-agent-files` |
 | "is this gate earning its keep", "how often does X subagent catch issues", "how often does the comb compact", "subagent effectiveness stats", "agent stats" | `agent-stats` |
 | "orchestrate run cost", "where do the token dollars go", "cost of orchestrate", "how much does a mine-orchestrate run cost", "cost by role and model", "is this gate worth the cost" | `orchestrate-cost` |
+| "did the opencode sync actually work", "are subagents running at the right effort", "check subagent variants", "did the variant resolve", "audit opencode variants" | `opencode-variant-audit` |
 | "spec status", "run status", "orchestration status", "what tasks are left" | `cfl run status` |
 | "query orchestration data", "pipeline effectiveness", "gate blocking rate" | `cfl` |
 | "cancel builds", "cancel pipeline runs", "list ADO builds" | `ado-api builds` |
