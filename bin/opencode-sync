@@ -1683,15 +1683,64 @@ def check_instruction_globs(config_dir: Path) -> list[str]:
     return errors
 
 
+def _config_json_pins(config_dir: Path) -> dict[str, dict[str, str]]:
+    """Map agent name -> its `variant` and `model` pins from config.json.
+
+    The generated `worker-*.md` files carry their variant here rather than in
+    frontmatter (build_agent_config() writes it), so an agent file with no
+    `variant:` line is only a fault when config.json doesn't cover it either.
+    TIER_MAP builtins (`general`, `plan`, `explore`, `scout`) are pinned in the
+    same config but have no agent file at all, so they never reach the caller's
+    glob loop -- the list comprehension over TIER_MAP.items() covers those.
+    An unreadable config.json yields an empty map: the "declares no variant"
+    errors that follow name the affected agents, which is what a reader needs
+    to look at anyway.
+
+    Both keys are carried, not just the variant: a variant with no sibling
+    model pin is silently dropped (build_agent_config()'s docstring has the
+    mechanism), so the caller needs the model too before it can tell whether a
+    config rescue actually rescues anything.
+    """
+    config_path = config_dir / "config.json"
+    if not config_path.is_file():
+        return {}
+    try:
+        data = json.loads(config_path.read_text())
+    except (OSError, ValueError):
+        return {}
+    agents = data.get("agent")
+    if not isinstance(agents, dict):
+        return {}
+    return {
+        name: {
+            key: entry[key]
+            for key in ("variant", "model")
+            if isinstance(entry.get(key), str)
+        }
+        for name, entry in agents.items()
+        if isinstance(entry, dict)
+    }
+
+
 def check_variant_names(config_dir: Path) -> list[str]:
     """Return an error per `variant` OpenCode would resolve to nothing.
 
-    Checks both places a variant name enters the sync: TIER_MAP (which
-    build_agent_config() copies into config.json) and the `variant:` lines
-    process_agent_frontmatter() writes into synced agent files. Agent-level
-    variant resolution drops an unknown name silently -- the same failure mode
-    as the `effort` key, so catching it needs a check that runs on every sync
-    rather than only under pytest.
+    Checks the three places a variant reaches (or fails to reach) OpenCode:
+    TIER_MAP (which build_agent_config() copies into config.json), the
+    `variant:` lines process_agent_frontmatter() writes into synced agent
+    files, and agents that end up declaring no variant at all in either place.
+
+    That last case matters as much as a misspelled one: agent-level variant
+    resolution treats an absent name exactly like an unknown one, dropping the
+    agent to the provider default. An agent that silently loses its variant is
+    the same failure the `effort` -> `variant` fix closed, so checking only for
+    invalid-but-present names would leave the original bug reachable.
+
+    A resolvable name is still not enough on its own: a variant with no
+    `model:` pin beside it, in frontmatter or config.json, is dropped just as
+    silently (build_agent_config()'s docstring has the mechanism). The same
+    argument that makes an absent name worth flagging makes a model-less
+    variant worth flagging, so _agent_variant_errors() checks for both.
     """
     errors = [
         f"TIER_MAP[{tier!r}] has variant {entry['variant']!r}, which OpenCode "
@@ -1704,19 +1753,82 @@ def check_variant_names(config_dir: Path) -> list[str]:
     if not agents_dir.is_dir():
         return errors
 
+    config_pins = _config_json_pins(config_dir)
+
     for md_file in sorted(agents_dir.glob("*.md")):
         frontmatter, _ = _split_frontmatter(md_file.read_text())
-        for line in frontmatter.splitlines():
-            if not line.startswith("variant:"):
-                continue
-            name = line[len("variant:") :].split("#", 1)[0].strip()
-            if name not in OPENCODE_VARIANTS:
-                errors.append(
-                    f"{md_file}: `variant: {name}` is not a name OpenCode "
-                    f"resolves, so the agent silently falls back to the "
-                    f"provider default. Expected one of: "
-                    f"{sorted(OPENCODE_VARIANTS)}."
-                )
+        # A frontmatter-less .md in agents/ is not an agent definition -- a
+        # README, a notes file, something hand-dropped into the live config
+        # dir. process_agent_frontmatter() skips those for the same reason;
+        # without this, "declares no variant" fires on a file that was never
+        # claiming to be an agent, failing the blocking pre-commit gate.
+        if not frontmatter:
+            continue
+        errors.extend(
+            _agent_variant_errors(
+                md_file, frontmatter, config_pins.get(md_file.stem, {})
+            )
+        )
+    return errors
+
+
+def _agent_variant_errors(
+    md_file: Path, frontmatter: str, pins: dict[str, str]
+) -> list[str]:
+    """Return every variant fault for one synced agent file.
+
+    A name fault and a missing model pin are independent -- neither fix makes
+    the other unnecessary -- so both are reported when both hold rather than
+    the second waiting for a rerun after the first is cleared. The one
+    short-circuit is an agent with no variant anywhere: with nothing to
+    resolve, a missing model pin is moot rather than a second fault, so that
+    case returns alone.
+    """
+    declared = [
+        line[len("variant:") :].split("#", 1)[0].strip()
+        for line in frontmatter.splitlines()
+        if line.startswith("variant:")
+    ]
+    pinned = pins.get("variant")
+
+    if not declared and pinned is None:
+        return [
+            f"{md_file}: declares no `variant:`, and config.json pins none "
+            f"for {md_file.stem!r} either -- the agent runs at the provider "
+            f"default instead of its intended reasoning effort. Expected one "
+            f"of: {sorted(OPENCODE_VARIANTS)}."
+        ]
+
+    errors = [
+        f"{md_file}: `variant: {name}` is not a name OpenCode resolves, so "
+        f"the agent silently falls back to the provider default. Expected "
+        f"one of: {sorted(OPENCODE_VARIANTS)}."
+        for name in declared
+        if name not in OPENCODE_VARIANTS
+    ]
+    if not declared and pinned not in OPENCODE_VARIANTS:
+        errors.append(
+            f"{md_file}: declares no `variant:`, and config.json pins "
+            f"{pinned!r} for {md_file.stem!r}, which OpenCode does not "
+            f"resolve. Expected one of: {sorted(OPENCODE_VARIANTS)}."
+        )
+
+    # Not FRONTMATTER_MODEL_RE: that matches the unrewritten tier names
+    # (`sonnet`/`haiku`/`opus`), and by the time a file is linted its model
+    # line has already been rewritten to a provider-qualified id. Presence is
+    # all that matters here -- whether the id itself resolves is the model
+    # registry's question, not this check's.
+    has_model = (
+        any(line.startswith("model:") for line in frontmatter.splitlines())
+        or "model" in pins
+    )
+    if not has_model:
+        errors.append(
+            f"{md_file}: has a variant but no `model:` -- neither its "
+            f"frontmatter nor config.json pins one for {md_file.stem!r}. "
+            f"OpenCode only honors a variant when the agent pins the model it "
+            f"resolves against, so this one is dropped to the provider default."
+        )
     return errors
 
 

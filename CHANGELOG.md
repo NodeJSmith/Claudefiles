@@ -4,10 +4,15 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-08-15
 
+### Added
+
+- `bin/opencode-variant-audit` — reads `opencode.db` read-only and reports whether dispatched subagents actually *resolved* their reasoning variant or fell back to the provider default. The static lint can only prove the config offers a variant; this proves OpenCode used it. The verdict rests on the `default` sentinel alone — validating the recorded name against a variant vocabulary would only misreport model families that publish their own reasoning-effort names. (#515)
+
 ### Fixed
 
 - `bin/opencode-sync` now emits OpenCode's `variant` key instead of `effort` — `effort` isn't a field OpenCode's `AgentConfig` schema recognizes, so every named subagent was silently falling back to the provider's default reasoning effort regardless of `TIER_MAP`. (#514)
 - Rules synced into `<config>/rules/` are now loaded — `config.json`'s `instructions` array previously had nothing pointing at them, so they reached disk but were never read by OpenCode. (#514)
+- `opencode-sync`'s variant lint now fails on an agent that declares no `variant:` at all, not just one naming something unresolvable — OpenCode treats an absent variant exactly like an unknown one, so the previous check left the original `effort:` bug reachable by simply dropping the key. Agent files with no frontmatter (a `README.md` in `agents/`) are skipped rather than failed. The lint also now requires a `model:` pin beside any variant — OpenCode only honors a variant when the agent pins the model it resolves against, so a model-less variant is dropped just as silently. (#515)
 
 ## 2026-08-14
 

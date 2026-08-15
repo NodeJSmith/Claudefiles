@@ -686,6 +686,213 @@ def test_check_variant_names_clean_on_real_tier_map(tmp_path: Path) -> None:
     assert module["check_variant_names"](tmp_path) == []
 
 
+def test_check_variant_names_flags_agent_declaring_no_variant(
+    tmp_path: Path,
+) -> None:
+    """An agent with no `variant:` anywhere falls back to the provider default
+    just as silently as one with a misspelled name -- checking only
+    invalid-but-present names would leave the original `effort` bug reachable
+    by simply dropping the key.
+    """
+    module = _load_script()
+
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    (agents / "silent.md").write_text("---\nmodel: x\n---\n\nbody\n")
+
+    errors = module["check_variant_names"](tmp_path)
+
+    assert len(errors) == 1
+    assert "silent.md" in errors[0]
+    assert "no `variant:`" in errors[0]
+
+
+def test_check_variant_names_ignores_frontmatter_less_markdown(
+    tmp_path: Path,
+) -> None:
+    """A .md file with no frontmatter isn't an agent definition, so the
+    missing-variant check must skip it rather than claim a README "runs at the
+    provider default". process_agent_frontmatter() already skips these; the
+    lint has to agree, or an ordinary `agents/README.md` fails the blocking
+    --check-source gate and every sync against the live config directory.
+    """
+    module = _load_script()
+
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    (agents / "README.md").write_text("# Agents directory\n\nconventions doc\n")
+
+    assert module["check_variant_names"](tmp_path) == []
+
+
+def test_check_variant_names_accepts_frontmatter_gap_pinned_by_config_json(
+    tmp_path: Path,
+) -> None:
+    """Worker agents and TIER_MAP builtins carry their variant in config.json,
+    not frontmatter, so the missing-variant check must consult it before
+    failing -- otherwise every sync errors on the workers it just generated.
+    """
+    module = _load_script()
+
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    (agents / "worker-standard.md").write_text("---\nmodel: x\n---\n\nbody\n")
+    (tmp_path / "config.json").write_text(
+        json.dumps({"agent": {"worker-standard": {"model": "x", "variant": "high"}}})
+    )
+
+    assert module["check_variant_names"](tmp_path) == []
+
+
+def test_check_variant_names_flags_unresolvable_config_json_variant(
+    tmp_path: Path,
+) -> None:
+    """A config.json pin is only a rescue when OpenCode can resolve it."""
+    module = _load_script()
+
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    (agents / "worker-standard.md").write_text("---\nmodel: x\n---\n\nbody\n")
+    (tmp_path / "config.json").write_text(
+        json.dumps({"agent": {"worker-standard": {"model": "x", "variant": "turbo"}}})
+    )
+
+    errors = module["check_variant_names"](tmp_path)
+
+    assert len(errors) == 1
+    assert "turbo" in errors[0]
+
+
+def test_check_variant_names_flags_config_variant_with_no_model_pin(
+    tmp_path: Path,
+) -> None:
+    """A config.json variant is a rescue only when a model is pinned beside it.
+
+    OpenCode computes `same = ag.model && ...` and looks the variant up only
+    when that holds, so a variant with no model beside it is dropped to the
+    provider default -- the exact failure this check exists to catch, reached
+    through the rescue path rather than the frontmatter one.
+    """
+    module = _load_script()
+
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    (agents / "worker-standard.md").write_text("---\ndescription: w\n---\n\nbody\n")
+    (tmp_path / "config.json").write_text(
+        json.dumps({"agent": {"worker-standard": {"variant": "high"}}})
+    )
+
+    errors = module["check_variant_names"](tmp_path)
+
+    assert len(errors) == 1
+    assert "worker-standard" in errors[0]
+    assert "`model:`" in errors[0]
+
+
+def test_check_variant_names_flags_frontmatter_variant_with_no_model(
+    tmp_path: Path,
+) -> None:
+    """A resolvable `variant:` still needs a model pin to take effect.
+
+    process_agent_frontmatter() drops an `effort:` line whose file has no
+    tier-resolvable `model:` for this reason; a `variant:` written directly
+    into a source file bypasses that path, so the lint has to hold the same
+    invariant.
+    """
+    module = _load_script()
+
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    (agents / "orphan.md").write_text("---\nvariant: high\n---\n\nbody\n")
+
+    errors = module["check_variant_names"](tmp_path)
+
+    assert len(errors) == 1
+    assert "orphan.md" in errors[0]
+    assert "no `model:`" in errors[0]
+
+
+def test_check_variant_names_reports_name_and_model_faults_independently(
+    tmp_path: Path,
+) -> None:
+    """Both faults surface at once rather than one hiding behind the other.
+
+    Fixing the name doesn't supply a model and fixing the model doesn't fix
+    the name, so reporting only the first would send the reader back for a
+    second lint cycle to discover the second.
+    """
+    module = _load_script()
+
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    (agents / "both.md").write_text("---\nvariant: turbo\n---\n\nbody\n")
+
+    errors = module["check_variant_names"](tmp_path)
+
+    assert len(errors) == 2
+    assert any("turbo" in e for e in errors)
+    assert any("no `model:`" in e for e in errors)
+
+
+def test_check_variant_names_reports_config_name_and_model_faults_together(
+    tmp_path: Path,
+) -> None:
+    """The config-rescue path reports both faults too -- it must not chain
+    them behind an `elif` while the frontmatter path reports both.
+    """
+    module = _load_script()
+
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    (agents / "worker-standard.md").write_text("---\ndescription: w\n---\n\nbody\n")
+    (tmp_path / "config.json").write_text(
+        json.dumps({"agent": {"worker-standard": {"variant": "turbo"}}})
+    )
+
+    errors = module["check_variant_names"](tmp_path)
+
+    assert len(errors) == 2
+    assert any("turbo" in e for e in errors)
+    assert any("no `model:`" in e for e in errors)
+
+
+def test_check_variant_names_missing_variant_does_not_also_flag_model(
+    tmp_path: Path,
+) -> None:
+    """With no variant anywhere there is nothing to resolve, so a missing
+    model pin is moot -- reporting it as a second fault would be noise.
+    """
+    module = _load_script()
+
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    (agents / "bare.md").write_text("---\ndescription: b\n---\n\nbody\n")
+
+    errors = module["check_variant_names"](tmp_path)
+
+    assert len(errors) == 1
+    assert "no `variant:`" in errors[0]
+
+
+def test_check_variant_names_accepts_model_pinned_only_by_config_json(
+    tmp_path: Path,
+) -> None:
+    """The model may come from either side, so a frontmatter file carrying
+    neither key is clean when config.json pins both -- the model check must not
+    fire on the generated workers it was written to protect.
+    """
+    module = _load_script()
+
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    (agents / "worker-standard.md").write_text("---\ndescription: w\n---\n\nbody\n")
+    (tmp_path / "config.json").write_text(
+        json.dumps({"agent": {"worker-standard": {"model": "x", "variant": "high"}}})
+    )
+
+    assert module["check_variant_names"](tmp_path) == []
+
+
 def test_run_lint_surfaces_variant_errors(tmp_path: Path) -> None:
     """check_variant_names() must be wired into run_lint(), not merely defined
     -- OPENCODE_VARIANTS previously documented a guard only pytest enforced.

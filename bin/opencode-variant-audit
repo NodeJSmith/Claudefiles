@@ -1,0 +1,265 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = []
+# ///
+"""Runtime audit: did dispatched OpenCode subagents resolve their reasoning variant?
+
+`opencode-sync --lint-only` proves the config *offers* a resolvable variant to
+every agent. Only opencode.db proves OpenCode *resolved* one. Those are
+different claims, and a regression can satisfy the first while failing the
+second -- OpenCode drops an unknown or absent variant name silently and falls
+back to the provider default, which is the bug the `effort:` -> `variant:` fix
+closed (a discarded key left every subagent at the provider's default effort).
+
+The fingerprint is a dispatched session recording variant "default". Note the
+asymmetry: "default" is unremarkable on a primary (TUI-configured) session, so
+the `parent_id IS NOT NULL` filter is what makes the signal mean anything.
+
+Usage:
+  opencode-variant-audit                # sessions from the last 30 minutes
+  opencode-variant-audit --since 120    # widen the window
+  opencode-variant-audit --all          # every dispatched session on record
+  opencode-variant-audit --json         # machine-readable
+
+Exit codes:
+  0  every dispatched subagent in the window resolved a real variant
+  1  at least one fell back to the provider default
+  2  usage error or opencode.db unreadable
+  3  no dispatched subagent sessions in the window (nothing to audit)
+"""
+
+import argparse
+import contextlib
+import json
+import os
+import sqlite3
+import sys
+import time
+from pathlib import Path
+from urllib.parse import quote
+
+DEFAULT_DB = Path.home() / ".local" / "share" / "opencode" / "opencode.db"
+DEFAULT_WINDOW_MINUTES = 30
+BUSY_TIMEOUT_MS = 5000
+
+EXIT_OK = 0
+EXIT_FELL_BACK = 1
+EXIT_UNAVAILABLE = 2
+EXIT_NOTHING_TO_AUDIT = 3
+
+# `session.time_created` is epoch milliseconds, not seconds -- the manual query
+# documented in REFERENCE.md divides by 1000 before `datetime(..., 'unixepoch')`
+# for the same reason.
+MS_PER_SECOND = 1000
+
+# Stand-in for a column the schema allows to be NULL. `model` is a JSON blob
+# whose fields are absent on some rows; `agent` is nullable outright.
+UNKNOWN = "?"
+
+
+def fetch_subagent_sessions(db_path: Path, cutoff_ms: int) -> list[sqlite3.Row]:
+    """Return dispatched-subagent session rows created after cutoff_ms.
+
+    Opened read-only (`mode=ro`): opencode.db is the live store of a running
+    editor and can be many gigabytes, so an audit must never be the reason it
+    changes. busy_timeout lets a concurrent write finish instead of failing
+    the read outright. The path is percent-encoded because SQLite parses this
+    as a URI -- a literal `#` or `?` in it would otherwise truncate the path
+    and silently open (or fail on) the wrong file.
+
+    Deliberately not filtered on `agent IS NOT NULL`: the column is nullable,
+    and a dispatched session with no agent name is an anomaly the audit should
+    show rather than quietly drop from its own totals.
+    """
+    uri = f"file:{quote(str(db_path))}?mode=ro"
+    with contextlib.closing(sqlite3.connect(uri, uri=True)) as conn:
+        conn.row_factory = sqlite3.Row
+        conn.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
+        return conn.execute(
+            """
+            SELECT agent,
+                   json_extract(model, '$.id') AS model_id,
+                   json_extract(model, '$.variant') AS variant
+              FROM session
+             WHERE parent_id IS NOT NULL
+               AND time_created > ?
+             ORDER BY time_created DESC
+            """,
+            (cutoff_ms,),
+        ).fetchall()
+
+
+def classify(variant: str | None) -> tuple[bool, str]:
+    """Return (resolved, human-readable reason) for one session's variant.
+
+    `"default"` is the failure sentinel, not a variant name: OpenCode writes it
+    when agent-level resolution found nothing to resolve and dropped to the
+    provider default. On a dispatched session that means the agent's declared
+    reasoning effort never took effect -- see the module docstring for why the
+    same value is unremarkable on a primary session.
+
+    Any other name counts as resolved, and is deliberately not checked against
+    opencode-sync's OPENCODE_VARIANTS. OpenCode rewrites a name it rejected to
+    `"default"` before persisting it, so a name that survives is one it already
+    accepted; and each model family's variant ids come from its own models.dev
+    `reasoning_options`, so validating against our gpt-5.6 list would fail
+    other families that resolved perfectly. Name validation belongs in
+    opencode-sync's static lint instead, which checks what *we* pin for *our*
+    models -- this is the single place that reasoning is written down.
+
+    Verified against OpenCode v1.18.18:
+    `packages/opencode/src/session/prompt.ts:654` (resolution drops an unknown
+    name to `undefined`), `:685` (persists `info.model.variant ?? "default"`),
+    and `effortVariants()` in `packages/opencode/src/provider/transform.ts`
+    (ids come from `reasoning_options[].values`, typed as arbitrary strings).
+    """
+    if variant is None:
+        return False, "no variant recorded — fell back to provider default"
+    if variant == "default":
+        return False, "fell back to provider default"
+    return True, "ok"
+
+
+def audit_rows(rows: list[sqlite3.Row]) -> list[dict]:
+    """Classify each session row into a render-ready record."""
+    audited = []
+    for row in rows:
+        resolved, reason = classify(row["variant"])
+        audited.append(
+            {
+                "agent": row["agent"],
+                "model": row["model_id"],
+                "variant": row["variant"],
+                "resolved": resolved,
+                "reason": reason,
+            }
+        )
+    return audited
+
+
+def render_json(audited: list[dict], window: str) -> None:
+    fell_back = [entry for entry in audited if not entry["resolved"]]
+    print(
+        json.dumps(
+            {
+                "window": window,
+                "audited": len(audited),
+                "fell_back": len(fell_back),
+                "sessions": audited,
+            },
+            indent=2,
+        )
+    )
+
+
+def render_table(audited: list[dict], window: str) -> None:
+    print(f"Dispatched subagent sessions ({window}):\n")
+
+    if not audited:
+        print("  none found — launch a subagent in OpenCode, then re-run")
+        return
+
+    print(f"  {'AGENT':<34} {'MODEL':<18} {'VARIANT':<14} RESULT")
+    for entry in audited:
+        print(
+            f"  {entry['agent'] or UNKNOWN:<34} {entry['model'] or UNKNOWN:<18} "
+            f"{entry['variant'] or UNKNOWN:<14} {entry['reason']}"
+        )
+
+    fell_back = [entry for entry in audited if not entry["resolved"]]
+    print()
+    if fell_back:
+        print(
+            f"FAIL: {len(fell_back)} of {len(audited)} dispatched subagent(s) "
+            "ran at the provider default.\n"
+            "      Re-run opencode-sync, then start a NEW OpenCode session "
+            "before auditing again."
+        )
+    else:
+        print("PASS: every dispatched subagent resolved a real variant")
+
+
+def window_minutes(value: str) -> int:
+    """argparse type for --since, so a bad value is a usage error (exit 2 via
+    argparse) rather than something main() has to hand-check."""
+    minutes = int(value)
+    if minutes < 0:
+        raise argparse.ArgumentTypeError("expected a non-negative number of minutes")
+    return minutes
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="opencode-variant-audit",
+        description=(
+            "Audit whether dispatched OpenCode subagents resolved a real "
+            "reasoning variant, or silently fell back to the provider default."
+        ),
+        epilog=(
+            "Typical use: after a sync, start a NEW OpenCode session (config is "
+            "read at startup), launch any subagent, then run this."
+        ),
+    )
+    # Mutually exclusive rather than letting one silently win: asking for both a
+    # window and "everything" is a contradiction worth surfacing, not resolving.
+    scope = parser.add_mutually_exclusive_group()
+    scope.add_argument(
+        "--since",
+        type=window_minutes,
+        default=DEFAULT_WINDOW_MINUTES,
+        metavar="MINUTES",
+        help=f"only audit sessions from the last MINUTES (default: {DEFAULT_WINDOW_MINUTES})",
+    )
+    scope.add_argument(
+        "--all",
+        action="store_true",
+        help="audit every dispatched subagent session on record",
+    )
+    parser.add_argument(
+        "--json", action="store_true", help="emit JSON instead of a table"
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=Path(os.environ.get("OPENCODE_DB", DEFAULT_DB)),
+        help="path to opencode.db (env: OPENCODE_DB)",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+
+    if not args.db.is_file():
+        print(f"opencode.db not found at {args.db}", file=sys.stderr)
+        return EXIT_UNAVAILABLE
+
+    if args.all:
+        cutoff_ms, window = 0, "all recorded sessions"
+    else:
+        cutoff_ms = (int(time.time()) - args.since * 60) * MS_PER_SECOND
+        window = f"last {args.since}m"
+
+    try:
+        rows = fetch_subagent_sessions(args.db, cutoff_ms)
+    except sqlite3.Error as exc:
+        # Distinct from EXIT_FELL_BACK on purpose: "the tool broke" and "a real
+        # regression was found" must not share an exit code.
+        print(f"Reading {args.db} failed: {exc}", file=sys.stderr)
+        return EXIT_UNAVAILABLE
+
+    audited = audit_rows(rows)
+
+    if args.json:
+        render_json(audited, window)
+    else:
+        render_table(audited, window)
+
+    if not audited:
+        return EXIT_NOTHING_TO_AUDIT
+    return EXIT_FELL_BACK if any(not e["resolved"] for e in audited) else EXIT_OK
+
+
+if __name__ == "__main__":
+    sys.exit(main())
