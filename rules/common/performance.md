@@ -14,7 +14,9 @@ A PreToolUse hook (`subagent-model-default.sh`) enforces model defaults on Agent
 
 Every agent file declares an explicit `effort:` in frontmatter — no agent ships without one, and nothing runs below `high`. `lint-agent-models` enforces the declaration by cross-checking frontmatter against the list below; there's no separate mechanism enforcing the floor itself, so a new agent file must set `effort: high` (or stronger) by hand at creation time.
 
-All agent files — Sonnet, Opus, and Haiku alike — currently declare `effort: high`, matching OpenCode's `TIER_MAP` for the corresponding tier (`bin/opencode-sync`). `high` is a floor, not a ceiling: some agents may move to `xhigh` later as that gets evaluated per-agent. When that happens, update both the frontmatter and this list's declared value together, or `lint-agent-models` will flag the mismatch.
+All agent files — Sonnet, Opus, and Haiku alike — currently declare `effort: high`, matching the `variant` OpenCode's `TIER_MAP` assigns the corresponding tier (`bin/opencode-sync`). `high` is a floor, not a ceiling: some agents may move to `xhigh` later as that gets evaluated per-agent. When that happens, update both the frontmatter and this list's declared value together, or `lint-agent-models` will flag the mismatch.
+
+`effort:` is the Claude Code key and stays that in source. OpenCode has no such key — its equivalent is `variant:`, and it accepts unknown agent keys silently rather than rejecting them, so an `effort:` that reached OpenCode would look configured while every agent ran at the provider default. `opencode-sync`'s `process_agent_frontmatter()` rewrites the key during sync and sources its value from `TIER_MAP`, so raising a tier's reasoning level for OpenCode means editing `TIER_MAP`, not the agent files.
 
 This supersedes an earlier policy that ran Sonnet agents at `effort: medium` to offset Sonnet 5's verbosity (~1.7x more output tokens than Sonnet 4.6 at the same effort level). The verbosity tradeoff still exists; it's just no longer the deciding factor for this fleet. The parent session runs at `high` (set in `settings.machine.json`).
 

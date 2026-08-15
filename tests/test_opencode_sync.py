@@ -41,9 +41,13 @@ def _write_specialist_source(agents_dir: Path, name: str) -> None:
     """Write a minimal specialist agent file used as generate_specialist_
     opus_variants()'s input fixture across multiple tests -- kept in one
     place so a fourth caller doesn't need its own copy of the frontmatter.
+
+    Carries `variant:`, not Claude's `effort:`: process_agent_frontmatter()
+    runs first in the real pipeline and has already rewritten that key by the
+    time generate_specialist_opus_variants() reads the file.
     """
     (agents_dir / f"{name}.md").write_text(
-        f"---\nname: {name}\nmodel: openai/gpt-5.6-terra\neffort: medium\n"
+        f"---\nname: {name}\nmodel: openai/gpt-5.6-terra\nvariant: medium\n"
         "description: A specialist.\n---\n\n# Specialist body\n\nDo the thing.\n"
     )
 
@@ -433,9 +437,373 @@ def test_build_agent_config_only_includes_actually_generated_variants() -> None:
 
     assert config["engineering-backend-developer-opus"] == {
         "model": module["TIER_MAP"]["opus"]["model"],
-        "effort": module["TIER_MAP"]["opus"]["effort"],
+        "variant": module["TIER_MAP"]["opus"]["variant"],
     }
     assert "engineering-frontend-developer-opus" not in config
+
+
+def test_generate_config_points_instructions_at_synced_rules(tmp_path: Path) -> None:
+    """Rules that opkg puts on disk are inert unless `instructions` names them.
+
+    OpenCode's only other global instruction source is the first existing of
+    `[<config>/AGENTS.md, ~/.claude/CLAUDE.md]`; nothing globs `<config>/rules/`.
+    """
+    module = _load_script()
+
+    content = module["generate_config"](
+        tmp_path, dry_run=False, specialist_opus_variants=[]
+    )
+    config = json.loads(content)
+
+    assert config["instructions"] == [str(tmp_path / "rules/common/*.md")]
+
+
+def test_build_instructions_never_uses_recursive_glob() -> None:
+    """For an absolute pattern OpenCode globs `basename` inside `dirname` and
+    does not recurse, so a `**` entry matches nothing -- silently, which is
+    indistinguishable from having no rules at all.
+    """
+    module = _load_script()
+
+    for entry in module["build_instructions"](Path("/tmp/oc")):
+        assert "**" not in entry, f"{entry} will silently match nothing"
+        assert entry.endswith("*.md")
+
+
+def test_check_instruction_globs_flags_uncovered_rules_directory(
+    tmp_path: Path,
+) -> None:
+    """A new rules subdirectory that INSTRUCTION_DIRS doesn't cover must fail
+    the lint rather than shipping rules nothing ever loads.
+    """
+    module = _load_script()
+    covered = tmp_path / "rules" / "common"
+    covered.mkdir(parents=True)
+    (covered / "a.md").write_text("# covered\n")
+    uncovered = tmp_path / "rules" / "personal"
+    uncovered.mkdir()
+    (uncovered / "b.md").write_text("# uncovered\n")
+
+    errors = module["check_instruction_globs"](tmp_path)
+
+    assert len(errors) == 1
+    assert "rules/personal" in errors[0]
+    assert "INSTRUCTION_DIRS" in errors[0]
+
+
+def test_check_instruction_globs_clean_when_every_rules_dir_covered(
+    tmp_path: Path,
+) -> None:
+    module = _load_script()
+    covered = tmp_path / "rules" / "common"
+    covered.mkdir(parents=True)
+    (covered / "a.md").write_text("# covered\n")
+
+    assert module["check_instruction_globs"](tmp_path) == []
+
+
+def test_check_instruction_globs_ignores_directory_with_no_rules(
+    tmp_path: Path,
+) -> None:
+    """An empty or purely structural directory has nothing to load, so
+    flagging it would fail syncs over a non-problem.
+    """
+    module = _load_script()
+    (tmp_path / "rules" / "common").mkdir(parents=True)
+    (tmp_path / "rules" / "scratch").mkdir()
+
+    assert module["check_instruction_globs"](tmp_path) == []
+
+
+def _write_rule(path: Path, tool_line: str | None) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    frontmatter = f"---\n{tool_line}\n---\n" if tool_line else ""
+    path.write_text(f"{frontmatter}# {path.stem}\n")
+
+
+def test_stage_config_drops_only_excluded_rules(tmp_path: Path) -> None:
+    """Include is the default: OPENCODE_COMPAT_RULE translates Claude-only
+    references, so only rules that are actively wrong for OpenCode are
+    withheld. Deriving this from `tool:` frontmatter instead excluded seven
+    rules OpenCode wants -- that marker answers "does this go to Antigravity?"
+    """
+    module = _load_script()
+
+    claudefiles = tmp_path / "claudefiles"
+    rules = claudefiles / "rules" / "common"
+    # Marked harness-only for Antigravity's benefit, but wanted by OpenCode.
+    _write_rule(rules / "git-workflow.md", "tool: claude  # harness-only: agents")
+    _write_rule(rules / "capabilities-core.md", "tool: claude  # harness-only: skills")
+    _write_rule(rules / "performance.md", "tool: claude  # harness-only: registry")
+    _write_rule(rules / "sudo.md", "tool: claude  # harness-only: hook")
+    _write_rule(rules / "tmux.md", "tool: claude  # harness-only: helper")
+
+    tmpdir = tmp_path / "staging"
+    tmpdir.mkdir()
+    staged = module["stage_config"](claudefiles, tmpdir)
+
+    staged_rules = staged / "rules" / "common"
+    assert (staged_rules / "git-workflow.md").is_file()
+    assert (staged_rules / "capabilities-core.md").is_file()
+    for excluded in ("performance.md", "sudo.md", "tmux.md"):
+        assert not (staged_rules / excluded).exists()
+    # The compat rule is written after exclusion and must survive it.
+    assert (staged_rules / "opencode-compat.md").is_file()
+
+
+def test_opencode_marked_rule_is_never_excluded(tmp_path: Path) -> None:
+    """A rule explicitly marked `tool: opencode` -- as the generated compat
+    rule is -- must sync. The frontmatter-derived filter dropped exactly this.
+    """
+    module = _load_script()
+
+    claudefiles = tmp_path / "claudefiles"
+    _write_rule(claudefiles / "rules" / "common" / "compat-ish.md", "tool: opencode")
+
+    tmpdir = tmp_path / "staging"
+    tmpdir.mkdir()
+    staged = module["stage_config"](claudefiles, tmpdir)
+
+    assert (staged / "rules" / "common" / "compat-ish.md").is_file()
+
+
+def test_real_repo_stages_every_rule_but_the_excluded(tmp_path: Path) -> None:
+    """Guards the actual repo: exactly OPENCODE_EXCLUDED_RULES is withheld."""
+    module = _load_script()
+    repo = Path(__file__).resolve().parent.parent
+
+    tmpdir = tmp_path / "staging"
+    tmpdir.mkdir()
+    staged = module["stage_config"](repo, tmpdir)
+
+    excluded = set(module["OPENCODE_EXCLUDED_RULES"])
+    for source in sorted((repo / "rules").rglob("*.md")):
+        relative = source.relative_to(repo / "rules").as_posix()
+        staged_file = staged / "rules" / relative
+        if relative in excluded:
+            assert not staged_file.exists(), f"{relative} should not sync"
+        else:
+            assert staged_file.is_file(), f"{relative} should sync but did not"
+
+
+def test_apply_rule_exclusions_reports_stale_entry(tmp_path: Path) -> None:
+    """A renamed rule silently starts syncing unless the stale entry surfaces."""
+    module = _load_script()
+
+    rules = tmp_path / "rules" / "common"
+    _write_rule(rules / "sudo.md", "tool: claude")
+
+    missing = module["apply_rule_exclusions"](tmp_path / "rules")
+
+    assert not (rules / "sudo.md").exists()
+    assert "common/performance.md" in missing
+    assert "common/tmux.md" in missing
+
+
+def test_check_source_gate_flags_stale_exclusion(tmp_path: Path) -> None:
+    """The pre-commit gate fails on an exclusion entry matching no file."""
+    module = _load_script()
+
+    claudefiles = tmp_path / "claudefiles"
+    (claudefiles / "agents").mkdir(parents=True)
+    (claudefiles / "agents" / "a.md").write_text("---\nmodel: sonnet\n---\n\nbody\n")
+    _write_rule(claudefiles / "rules" / "common" / "keeps.md", "tool: claude")
+
+    errors, _ = module["check_source_dispatch_patterns"](claudefiles)
+
+    assert any("OPENCODE_EXCLUDED_RULES" in e for e in errors)
+
+
+def test_check_source_gate_sees_uncovered_rules_directory(tmp_path: Path) -> None:
+    """The `--check-source` pre-commit gate must be able to fail on an
+    uncovered rules directory. It stages only skills/commands/agents, so
+    before this fix check_instruction_globs() short-circuited on the missing
+    rules/ and the gate reported clean no matter what.
+    """
+    module = _load_script()
+
+    claudefiles = tmp_path / "claudefiles"
+    (claudefiles / "skills").mkdir(parents=True)
+    (claudefiles / "agents").mkdir()
+    (claudefiles / "agents" / "a.md").write_text("---\nmodel: sonnet\n---\n\nbody\n")
+    _write_rule(
+        claudefiles / "rules" / "common" / "covered.md", "tool: claude, antigravity"
+    )
+    _write_rule(
+        claudefiles / "rules" / "personal" / "uncovered.md",
+        "tool: claude, antigravity",
+    )
+
+    errors, _ = module["check_source_dispatch_patterns"](claudefiles)
+
+    glob_errors = [e for e in errors if "instructions` glob" in e]
+    assert len(glob_errors) == 1, f"gate did not flag the uncovered dir: {errors}"
+    assert "rules/personal" in glob_errors[0]
+
+
+def test_check_source_gate_judges_the_tree_that_ships(tmp_path: Path) -> None:
+    """A rules directory left empty by the exclusions needs no `instructions`
+    glob, so the gate must not demand one -- it has to judge the same tree
+    stage_config() produces, not the raw source.
+    """
+    module = _load_script()
+
+    claudefiles = tmp_path / "claudefiles"
+    (claudefiles / "agents").mkdir(parents=True)
+    (claudefiles / "agents" / "a.md").write_text("---\nmodel: sonnet\n---\n\nbody\n")
+    for relative in module["OPENCODE_EXCLUDED_RULES"]:
+        _write_rule(claudefiles / "rules" / relative, "tool: claude")
+
+    errors, _ = module["check_source_dispatch_patterns"](claudefiles)
+
+    assert [e for e in errors if "instructions` glob" in e] == []
+
+
+def test_check_variant_names_flags_unresolvable_agent_variant(
+    tmp_path: Path,
+) -> None:
+    """An unknown `variant:` resolves to nothing and drops the agent to the
+    provider default -- the same silent failure as the old `effort` key, so it
+    must fail the lint rather than only a test.
+    """
+    module = _load_script()
+
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    (agents / "good.md").write_text("---\nmodel: x\nvariant: high\n---\n\nbody\n")
+    (agents / "bad.md").write_text("---\nmodel: x\nvariant: highest\n---\n\nbody\n")
+
+    errors = module["check_variant_names"](tmp_path)
+
+    assert len(errors) == 1
+    assert "bad.md" in errors[0]
+    assert "highest" in errors[0]
+
+
+def test_check_variant_names_clean_on_real_tier_map(tmp_path: Path) -> None:
+    module = _load_script()
+
+    assert module["check_variant_names"](tmp_path) == []
+
+
+def test_run_lint_surfaces_variant_errors(tmp_path: Path) -> None:
+    """check_variant_names() must be wired into run_lint(), not merely defined
+    -- OPENCODE_VARIANTS previously documented a guard only pytest enforced.
+    """
+    module = _load_script()
+
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    (agents / "bad.md").write_text("---\nmodel: x\nvariant: turbo\n---\n\nbody\n")
+
+    errors, _ = module["run_lint"](tmp_path)
+
+    assert any("turbo" in e for e in errors)
+
+
+def test_tier_map_variants_are_names_opencode_resolves() -> None:
+    """Every TIER_MAP `variant` must be a name OpenCode can resolve.
+
+    Agent-level variant resolution drops any name missing from the model's
+    synthesized `variants` map without warning, so a typo here reproduces the
+    exact bug the `effort` -> `variant` rename fixed: config that looks
+    correct while every subagent silently runs at the provider default.
+    """
+    module = _load_script()
+
+    for tier_name, tier in module["TIER_MAP"].items():
+        assert tier["variant"] in module["OPENCODE_VARIANTS"], (
+            f"TIER_MAP[{tier_name!r}]['variant'] = {tier['variant']!r} is not a "
+            "reasoning-effort name OpenCode accepts"
+        )
+
+
+def test_build_agent_config_never_emits_claude_effort_key() -> None:
+    """`effort` is Claude Code's key. OpenCode's AgentConfig has no such
+    field and does not reject unknown ones, so emitting it is a silent no-op
+    that leaves every agent at the provider's default reasoning effort.
+    """
+    module = _load_script()
+
+    config = module["build_agent_config"](["engineering-backend-developer-opus"])
+
+    assert config, "expected at least one pinned agent entry"
+    for name, entry in config.items():
+        assert "effort" not in entry, f"{name} still pins the ignored `effort` key"
+        assert entry["variant"] in module["OPENCODE_VARIANTS"]
+        # A variant only applies when the agent's own model is the resolved
+        # one, so the two must always ship together.
+        assert entry["model"], f"{name} pins a variant with no sibling model"
+
+
+def test_process_agent_frontmatter_rewrites_effort_to_tier_variant(
+    tmp_path: Path,
+) -> None:
+    """Claude's `effort:` becomes OpenCode's `variant:`, valued from the tier
+    the `model:` line names -- the same way the tier supplies the model ID.
+    """
+    module = _load_script()
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir()
+    (agents_dir / "reviewer.md").write_text(
+        "---\nname: reviewer\nmodel: sonnet\neffort: high\n"
+        "color: blue\ndescription: A reviewer.\n---\n\n# Body\n"
+    )
+
+    modified = module["process_agent_frontmatter"](agents_dir, dry_run=False)
+
+    result = (agents_dir / "reviewer.md").read_text()
+    sonnet = module["TIER_MAP"]["sonnet"]
+    assert modified == 1
+    assert f"variant: {sonnet['variant']}\n" in result
+    assert "effort:" not in result
+    assert f"model: {sonnet['model']}\n" in result
+    assert "color:" not in result
+    assert "# Body" in result
+
+
+def test_process_agent_frontmatter_rewrites_effort_declared_before_model(
+    tmp_path: Path,
+) -> None:
+    """The tier is resolved in its own pass, so an `effort:` line above the
+    `model:` line still picks up the right variant instead of being dropped.
+    """
+    module = _load_script()
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir()
+    (agents_dir / "reviewer.md").write_text(
+        "---\neffort: high\nname: reviewer\nmodel: haiku\n---\n\n# Body\n"
+    )
+
+    module["process_agent_frontmatter"](agents_dir, dry_run=False)
+
+    result = (agents_dir / "reviewer.md").read_text()
+    assert f"variant: {module['TIER_MAP']['haiku']['variant']}\n" in result
+    assert "effort:" not in result
+
+
+def test_process_agent_frontmatter_drops_unresolvable_effort_with_warning(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """With no tier-resolvable `model:`, the intended variant is unknowable.
+
+    Passing `effort:` through would leave a key OpenCode ignores while
+    implying a reasoning level the agent isn't getting -- the failure mode
+    this whole rename exists to remove. Drop it and say so.
+    """
+    module = _load_script()
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir()
+    (agents_dir / "orphan.md").write_text(
+        "---\nname: orphan\nmodel: openai/gpt-5.6-terra\neffort: high\n---\n\n# Body\n"
+    )
+
+    module["process_agent_frontmatter"](agents_dir, dry_run=False)
+
+    result = (agents_dir / "orphan.md").read_text()
+    assert "effort:" not in result
+    assert "variant:" not in result
+    assert "orphan.md" in capsys.readouterr().err
 
 
 def test_generate_specialist_opus_variants_copies_prompt_with_swapped_frontmatter(
@@ -459,11 +827,11 @@ def test_generate_specialist_opus_variants_copies_prompt_with_swapped_frontmatte
     opus_model = module["TIER_MAP"]["opus"]["model"]
     assert f"model: {opus_model}" in variant
     # The variant exists to escalate reasoning depth along with the model --
-    # copying the base specialist's `effort: medium` verbatim would silently
-    # cap it below the opus tier's effort, defeating the escalation.
-    opus_effort = module["TIER_MAP"]["opus"]["effort"]
-    assert f"effort: {opus_effort}" in variant
-    assert "effort: medium" not in variant
+    # copying the base specialist's `variant: medium` verbatim would silently
+    # cap it below the opus tier's reasoning effort, defeating the escalation.
+    opus_variant = module["TIER_MAP"]["opus"]["variant"]
+    assert f"variant: {opus_variant}" in variant
+    assert "variant: medium" not in variant
     assert "description: A specialist." in variant
     assert generated_file_marker in variant
     assert "# Specialist body" in variant
