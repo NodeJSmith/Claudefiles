@@ -2,6 +2,13 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-08-15
+
+### Fixed
+
+- `bin/opencode-sync` now emits OpenCode's `variant` key instead of `effort` — `effort` isn't a field OpenCode's `AgentConfig` schema recognizes, so every named subagent was silently falling back to the provider's default reasoning effort regardless of `TIER_MAP`. (#514)
+- Rules synced into `<config>/rules/` are now loaded — `config.json`'s `instructions` array previously had nothing pointing at them, so they reached disk but were never read by OpenCode. (#514)
+
 ## 2026-08-14
 
 ### Added
