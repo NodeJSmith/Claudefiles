@@ -25,7 +25,7 @@ Usage:
 Exit codes:
   0  every dispatched subagent in the window resolved a real variant
   1  at least one fell back to the provider default
-  2  usage error, opencode.db unreadable, or the variant vocabulary unloadable
+  2  usage error or opencode.db unreadable
   3  no dispatched subagent sessions in the window (nothing to audit)
 """
 
@@ -33,7 +33,6 @@ import argparse
 import contextlib
 import json
 import os
-import runpy
 import sqlite3
 import sys
 import time
@@ -57,24 +56,6 @@ MS_PER_SECOND = 1000
 # Stand-in for a column the schema allows to be NULL. `model` is a JSON blob
 # whose fields are absent on some rows; `agent` is nullable outright.
 UNKNOWN = "?"
-
-
-def load_known_variants() -> frozenset[str]:
-    """Read OPENCODE_VARIANTS from opencode-sync rather than restating it.
-
-    A second hand-maintained copy of this vocabulary is exactly the silent
-    drift this tool exists to catch: if opencode-sync gained a variant name
-    that a local copy here didn't know, the audit would report a correctly
-    resolved variant as a failure. Loading the frozenset from its single source
-    of truth makes that class of drift unrepresentable rather than merely
-    documented. `run_name` keeps opencode-sync's `__main__` guard from firing.
-    """
-    script = Path(__file__).resolve().parent / "opencode-sync"
-    namespace = runpy.run_path(str(script), run_name="_opencode_variant_audit")
-    variants = namespace["OPENCODE_VARIANTS"]
-    if not isinstance(variants, frozenset) or not variants:
-        raise ValueError("OPENCODE_VARIANTS is not a non-empty frozenset")
-    return variants
 
 
 def fetch_subagent_sessions(db_path: Path, cutoff_ms: int) -> list[sqlite3.Row]:
@@ -109,7 +90,7 @@ def fetch_subagent_sessions(db_path: Path, cutoff_ms: int) -> list[sqlite3.Row]:
         ).fetchall()
 
 
-def classify(variant: str | None, known: frozenset[str]) -> tuple[bool, str]:
+def classify(variant: str | None) -> tuple[bool, str]:
     """Return (resolved, human-readable reason) for one session's variant.
 
     `"default"` is the failure sentinel, not a variant name: OpenCode writes it
@@ -117,21 +98,34 @@ def classify(variant: str | None, known: frozenset[str]) -> tuple[bool, str]:
     provider default. On a dispatched session that means the agent's declared
     reasoning effort never took effect -- see the module docstring for why the
     same value is unremarkable on a primary session.
+
+    Any other name counts as resolved, and is deliberately not checked against
+    opencode-sync's OPENCODE_VARIANTS. OpenCode rewrites a name it rejected to
+    `"default"` before persisting it, so a name that survives is one it already
+    accepted; and each model family's variant ids come from its own models.dev
+    `reasoning_options`, so validating against our gpt-5.6 list would fail
+    other families that resolved perfectly. Name validation belongs in
+    opencode-sync's static lint instead, which checks what *we* pin for *our*
+    models -- this is the single place that reasoning is written down.
+
+    Verified against OpenCode v1.18.18:
+    `packages/opencode/src/session/prompt.ts:654` (resolution drops an unknown
+    name to `undefined`), `:685` (persists `info.model.variant ?? "default"`),
+    and `effortVariants()` in `packages/opencode/src/provider/transform.ts`
+    (ids come from `reasoning_options[].values`, typed as arbitrary strings).
     """
     if variant is None:
         return False, "no variant recorded — fell back to provider default"
     if variant == "default":
         return False, "fell back to provider default"
-    if variant not in known:
-        return False, f"unresolvable variant (not one of {sorted(known)})"
     return True, "ok"
 
 
-def audit_rows(rows: list[sqlite3.Row], known: frozenset[str]) -> list[dict]:
+def audit_rows(rows: list[sqlite3.Row]) -> list[dict]:
     """Classify each session row into a render-ready record."""
     audited = []
     for row in rows:
-        resolved, reason = classify(row["variant"], known)
+        resolved, reason = classify(row["variant"])
         audited.append(
             {
                 "agent": row["agent"],
@@ -241,15 +235,6 @@ def main(argv: list[str] | None = None) -> int:
         print(f"opencode.db not found at {args.db}", file=sys.stderr)
         return EXIT_UNAVAILABLE
 
-    try:
-        known = load_known_variants()
-    except (OSError, KeyError, ValueError) as exc:
-        print(
-            f"Could not load OPENCODE_VARIANTS from opencode-sync: {exc}",
-            file=sys.stderr,
-        )
-        return EXIT_UNAVAILABLE
-
     if args.all:
         cutoff_ms, window = 0, "all recorded sessions"
     else:
@@ -264,7 +249,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Reading {args.db} failed: {exc}", file=sys.stderr)
         return EXIT_UNAVAILABLE
 
-    audited = audit_rows(rows, known)
+    audited = audit_rows(rows)
 
     if args.json:
         render_json(audited, window)

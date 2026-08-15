@@ -1,9 +1,9 @@
 """Tests for bin/opencode-variant-audit.
 
 The tool's whole job is telling a real variant-resolution regression apart from
-a healthy sync, so the classification table and the single-source-of-truth
-loading are the two things worth locking down: a wrong verdict here would
-either hide the bug it exists to catch or cry wolf about a working config.
+a healthy sync, so the classification table is the thing worth locking down: a
+wrong verdict here would either hide the bug it exists to catch or cry wolf
+about a working config.
 """
 
 import runpy
@@ -13,7 +13,6 @@ from pathlib import Path
 import pytest
 
 SCRIPT = Path(__file__).resolve().parent.parent / "bin" / "opencode-variant-audit"
-SYNC_SCRIPT = Path(__file__).resolve().parent.parent / "bin" / "opencode-sync"
 
 
 def _load_script() -> dict:
@@ -39,9 +38,6 @@ def _make_db(path: Path, rows: list[tuple]) -> None:
         conn.close()
 
 
-KNOWN = frozenset({"none", "low", "medium", "high", "xhigh", "max"})
-
-
 @pytest.mark.parametrize(
     ("variant", "expected_resolved"),
     [
@@ -52,26 +48,30 @@ KNOWN = frozenset({"none", "low", "medium", "high", "xhigh", "max"})
         ("none", True),
         ("default", False),
         (None, False),
-        ("turbo", False),
     ],
 )
 def test_classify_verdicts(variant: str | None, expected_resolved: bool) -> None:
     module = _load_script()
 
-    resolved, reason = module["classify"](variant, KNOWN)
+    resolved, reason = module["classify"](variant)
 
     assert resolved is expected_resolved
     assert reason
 
 
-def test_load_known_variants_matches_opencode_sync() -> None:
-    """The audit must not carry its own copy of the variant vocabulary -- a
-    second list is the drift this tool exists to catch.
+@pytest.mark.parametrize("variant", ["minimal", "thinking", "ultra"])
+def test_classify_accepts_foreign_model_family_variants(variant: str) -> None:
+    """A name outside the gpt-5.6 vocabulary is a PASS, not a failure.
+
+    `classify()`'s docstring carries the reasoning and the upstream citations;
+    the short version is that OpenCode rewrites a name it rejected to
+    "default", so any name that survives is one it already accepted.
     """
     module = _load_script()
-    sync = runpy.run_path(str(SYNC_SCRIPT), run_name="_test_opencode_variant_audit")
 
-    assert module["load_known_variants"]() == sync["OPENCODE_VARIANTS"]
+    resolved, _ = module["classify"](variant)
+
+    assert resolved is True
 
 
 def test_fetch_excludes_primary_sessions(tmp_path: Path) -> None:

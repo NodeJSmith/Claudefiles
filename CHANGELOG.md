@@ -6,7 +6,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Added
 
-- `bin/opencode-variant-audit` — reads `opencode.db` read-only and reports whether dispatched subagents actually *resolved* their reasoning variant or fell back to the provider default. The static lint can only prove the config offers a variant; this proves OpenCode used it. Loads the valid-variant vocabulary from `opencode-sync` rather than restating it, so the two can't drift. (#515)
+- `bin/opencode-variant-audit` — reads `opencode.db` read-only and reports whether dispatched subagents actually *resolved* their reasoning variant or fell back to the provider default. The static lint can only prove the config offers a variant; this proves OpenCode used it. The verdict rests on the `default` sentinel alone — validating the recorded name against a variant vocabulary would only misreport model families that publish their own reasoning-effort names. (#515)
 
 ### Fixed
 
