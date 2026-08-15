@@ -68,8 +68,40 @@ EXCLUDE_DIRS = {
     ".venv",
 }
 
-# Rules that reference Claude-specific harness features with no OpenCode equivalent.
-HARNESS_ONLY_RULES = ["sudo.md", "tmux.md"]
+# Rules that must not reach OpenCode, as paths under `rules/`. Everything else
+# syncs: OPENCODE_COMPAT_RULE's translation table exists precisely so a rule
+# naming a Claude-only tool gets mapped or skipped by the agent rather than
+# withheld. Include is therefore the safer default -- a wrongly included rule
+# is skipped, a wrongly excluded one is silently missing.
+#
+# Do NOT derive this from `tool:` frontmatter: that marker answers "does this
+# go to Antigravity?" (`claude` vs `claude, antigravity`) and says nothing
+# about OpenCode. Filtering on it excluded seven rules -- capabilities-core,
+# command-output, git-workflow, interaction, bash-tools, worktrees -- that
+# OpenCode does want, and would have dropped a file marked `tool: opencode`.
+#
+# The entries below are the narrow set that is actively wrong rather than
+# merely inapplicable: performance.md names the Claude model IDs this sync
+# deliberately remaps, and the other two document Claude-harness hooks.
+# check_excluded_rules() fails the lint if an entry stops matching a real
+# file, since a rename would silently re-admit it.
+OPENCODE_EXCLUDED_RULES = (
+    "common/performance.md",
+    "common/sudo.md",
+    "common/tmux.md",
+)
+
+# Synced directories whose `.md` files config.json's `instructions` array
+# loads, relative to the OpenCode config dir. One entry per directory: for an
+# absolute pattern OpenCode globs `basename` within `dirname` and does not
+# recurse, so `rules/**/*.md` would match nothing. check_instruction_globs()
+# fails the lint if a synced rules directory is missing from this list.
+INSTRUCTION_DIRS = ("rules/common",)
+
+# Root under the config dir that INSTRUCTION_DIRS is expected to cover --
+# separate from the tuple above so the coverage check has something to scan
+# without re-deriving a common prefix from the entries.
+INSTRUCTION_ROOT = "rules"
 
 # Opkg output lines to surface in non-verbose mode (coupled to opkg's format).
 OPKG_SUCCESS_PATTERN = re.compile(r"^✓|Installed files:|No files")
@@ -78,29 +110,48 @@ OPKG_SUCCESS_PATTERN = re.compile(r"^✓|Installed files:|No files")
 # config.json generation, and (T03) dispatch rewriting. `plan` sits in the
 # sonnet row deliberately: Claude Code's model-default hook runs `Plan` at
 # sonnet, and pinning it at haiku/luna would be a silent tier downgrade.
+#
+# `variant` -- NOT `effort`. OpenCode's AgentConfig schema
+# (https://opencode.ai/config.json) has no `effort` key, and AgentConfig does
+# not set `additionalProperties: false`, so an `effort` entry is accepted and
+# silently discarded: every subagent then falls back to the OpenAI provider
+# default of `reasoningEffort: "medium"` (transform.ts's gpt-5 branch). This
+# script emitted `effort` until 2026-08-14; the tell was that every named
+# subagent in opencode.db had an empty `variant` field while only the
+# TUI-configured primary agent carried one.
 TIER_MAP = {
     "opus": {
         "model": "openai/gpt-5.6-sol",
-        "effort": "high",
+        "variant": "high",
         "worker": "worker-opus",
         "worker_description": "Strongest-tier worker for escalated retries after a weaker model failed",
         "builtins": [],
     },
     "sonnet": {
         "model": "openai/gpt-5.6-terra",
-        "effort": "high",
+        "variant": "high",
         "worker": "worker-standard",
         "worker_description": "Standard worker for implementation, review, and synthesis tasks",
         "builtins": ["general", "plan"],
     },
     "haiku": {
         "model": "openai/gpt-5.6-luna",
-        "effort": "high",
+        "variant": "high",
         "worker": "worker-lightweight",
         "worker_description": "Lightweight worker for triage, mechanical analysis, and low-cost tasks",
         "builtins": ["explore", "scout"],
     },
 }
+
+# Reasoning-effort names OpenCode accepts as a model variant, from the
+# `reasoning_options` entry models.dev publishes for the gpt-5.6 family.
+# OpenCode synthesizes `model.variants` from that list at runtime
+# (ProviderTransform.reasoningVariants), and agent-level variant resolution
+# drops any name missing from it (`ag.variant && full?.variants?.[ag.variant]`
+# in session/prompt.ts) -- silently, exactly like the `effort` key did.
+# check_variant_names() fails the lint on any TIER_MAP entry or rewritten
+# `variant:` line naming something outside this set.
+OPENCODE_VARIANTS = frozenset({"none", "low", "medium", "high", "xhigh", "max"})
 
 # Named specialist agents mine-orchestrate's Step 4 can select as an executor
 # (skills/mine-orchestrate/agent-routing.md's `subagent_type` column, minus
@@ -295,6 +346,23 @@ def _warn_on_worktree_mismatch(claudefiles: Path) -> None:
         )
 
 
+def apply_rule_exclusions(rules_root: Path) -> list[str]:
+    """Delete OPENCODE_EXCLUDED_RULES from a staged `rules/` tree.
+
+    Returns the entries that matched no file. An unmatched entry means the
+    source rule was renamed or moved, which silently re-admits it to the sync
+    -- callers surface that rather than ignoring it.
+    """
+    missing = []
+    for relative in OPENCODE_EXCLUDED_RULES:
+        target = rules_root / relative
+        if target.is_file():
+            target.unlink()
+        else:
+            missing.append(relative)
+    return missing
+
+
 def stage_config(claudefiles: Path, tmpdir: Path, *, verbose: bool = False) -> Path:
     """Create a clean staging copy of claudefiles under tmpdir. Returns the staged dir."""
     staged = tmpdir / OPKG_PACKAGE_NAME
@@ -306,8 +374,12 @@ def stage_config(claudefiles: Path, tmpdir: Path, *, verbose: bool = False) -> P
 
     shutil.copytree(claudefiles, staged, ignore=ignore)
 
-    for rule in HARNESS_ONLY_RULES:
-        (staged / "rules" / "common" / rule).unlink(missing_ok=True)
+    for relative in apply_rule_exclusions(staged / "rules"):
+        print(
+            f"WARNING: OPENCODE_EXCLUDED_RULES lists rules/{relative}, which no "
+            "longer exists -- if it was renamed, update the list or it now syncs",
+            file=sys.stderr,
+        )
 
     compat_path = staged / "rules" / "common" / "opencode-compat.md"
     compat_path.parent.mkdir(parents=True, exist_ok=True)
@@ -480,19 +552,29 @@ def _split_frontmatter(content: str) -> tuple[str, str]:
 
 
 def process_agent_frontmatter(agents_dir: Path, *, dry_run: bool) -> int:
-    """Strip `color:` fields (FR#10) and remap Claude tier names to
-    provider-qualified model IDs in agent frontmatter, in one pass per file.
+    """Strip `color:` fields (FR#10), remap Claude tier names to
+    provider-qualified model IDs, and rewrite Claude's `effort:` key to
+    OpenCode's `variant:`, in one pass per file.
 
-    Both transforms touch only frontmatter over the same file set (agent
+    All three transforms touch only frontmatter over the same file set (agent
     `.md` files) with no data dependency between them or on the dispatch
     rewriter, which runs on body content only for agent files -- so there's
-    no reason to pay for two separate read/split/write cycles per file.
+    no reason to pay for three separate read/split/write cycles per file.
 
     Only lines between the opening pair of `---` markers are touched — body
     content (which may legitimately contain the word "color", or Claude tier
     names inside skill dispatch prose) is left alone. Preserves trailing
     inline comments on `model:` lines (e.g. `# claude-sonnet-5 as of
     2026-07-07 — do not downgrade`).
+
+    `effort:` is Claude Code's key and means nothing to OpenCode (see
+    TIER_MAP's note); the tier's `variant` replaces its value the same way
+    the tier's `model` replaces `sonnet`/`haiku`/`opus` -- TIER_MAP is
+    authoritative for OpenCode routing, so a source-side effort value never
+    overrides it. An `effort:` line whose file has no tier-resolvable
+    `model:` is dropped with a warning rather than passed through: leaving a
+    key OpenCode ignores would imply a reasoning level the agent isn't
+    actually getting.
 
     Returns the number of files modified (or that would be modified, in
     dry-run mode).
@@ -515,17 +597,42 @@ def process_agent_frontmatter(agents_dir: Path, *, dry_run: bool) -> int:
             + fm_lines[-1:]
         )
 
-        for i in range(1, len(new_fm_lines) - 1):
-            line_body, eol = _split_eol(new_fm_lines[i])
+        # Resolve the tier up front: `effort:` may sit either side of
+        # `model:` in a source file, and its replacement value comes from the
+        # tier the model line names.
+        tier_entry = None
+        for line in new_fm_lines[1:-1]:
+            m = FRONTMATTER_MODEL_RE.match(_split_eol(line)[0])
+            if m is not None:
+                tier_entry = TIER_MAP.get(m.group(1))
+                break
+
+        rewritten: list[str] = []
+        for line in new_fm_lines[1:-1]:
+            line_body, eol = _split_eol(line)
+
+            if line_body.startswith("effort:"):
+                if tier_entry is None:
+                    print(
+                        f"WARNING: dropping `{line_body}` from {md_file} -- no "
+                        "tier-resolvable `model:` line, so the intended OpenCode "
+                        "variant is unknown (agent will use the provider default)",
+                        file=sys.stderr,
+                    )
+                    continue
+                rewritten.append(f"variant: {tier_entry['variant']}{eol}")
+                continue
+
+            # tier_entry came from this same line: duplicate `model:` keys are
+            # invalid YAML, so the first pass's match is necessarily this one.
             m = FRONTMATTER_MODEL_RE.match(line_body)
-            if m is None:
+            if m is not None and tier_entry is not None:
+                rewritten.append(f"model: {tier_entry['model']}{m.group(2)}{eol}")
                 continue
-            tier_entry = TIER_MAP.get(m.group(1))
-            if tier_entry is None:
-                continue
-            new_line_body = f"model: {tier_entry['model']}{m.group(2)}"
-            if new_line_body != line_body:
-                new_fm_lines[i] = new_line_body + eol
+
+            rewritten.append(line)
+
+        new_fm_lines = new_fm_lines[:1] + rewritten + new_fm_lines[-1:]
 
         new_content = "".join(new_fm_lines) + body
         if new_content == content:
@@ -737,13 +844,13 @@ def generate_specialist_opus_variants(agents_dir: Path, *, dry_run: bool) -> lis
     Must run after `process_agent_frontmatter()` (and after opkg has
     installed the specialist agent files) -- reads each specialist's
     already-synced, already-frontmatter-processed file and copies its body
-    verbatim into a new file whose `name`/`model`/`effort` frontmatter lines
-    are swapped to the opus tier's values (`TIER_MAP["opus"]`). `effort` must
-    be rewritten here, not left to config.json's `agent` map, because
-    OpenCode resolves an agent's own frontmatter ahead of a config.json
-    override of the same name -- copying the specialist's effort verbatim
-    would silently cap the variant below the opus tier's effort regardless of
-    what config.json says. Every other frontmatter field (`description`,
+    verbatim into a new file whose `name`/`model`/`variant` frontmatter lines
+    are swapped to the opus tier's values (`TIER_MAP["opus"]`). `variant`
+    must be swapped here, not left to
+    config.json's `agent` map, because OpenCode resolves an agent's own
+    frontmatter ahead of a config.json override of the same name -- copying
+    the specialist's variant verbatim would silently cap reasoning below the
+    opus tier regardless of what config.json says. Every other frontmatter field (`description`,
     `tools`, etc.) is preserved as-is, so the variant keeps the specialist's
     full behavior at a stronger model.
 
@@ -797,7 +904,7 @@ def generate_specialist_opus_variants(agents_dir: Path, *, dry_run: bool) -> lis
                 existing.unlink()
 
     opus_model = TIER_MAP["opus"]["model"]
-    opus_effort = TIER_MAP["opus"]["effort"]
+    opus_variant = TIER_MAP["opus"]["variant"]
     generated = []
     for name in SPECIALIST_AGENTS:
         source = agents_dir / f"{name}.md"
@@ -817,10 +924,13 @@ def generate_specialist_opus_variants(agents_dir: Path, *, dry_run: bool) -> lis
             )
             continue
 
+        # `variant:`, not `effort:` -- process_agent_frontmatter() has already
+        # rewritten the source specialist's Claude-side `effort:` line by the
+        # time this runs, so the key to override here is the rewritten one.
         field_overrides = {
             "name:": f"name: {name}-opus",
             "model:": f"model: {opus_model}",
-            "effort:": f"effort: {opus_effort}",
+            "variant:": f"variant: {opus_variant}",
         }
         fm_lines = frontmatter.splitlines(keepends=True)
         new_fm_lines = []
@@ -929,12 +1039,18 @@ def generate_skill_commands(config_dir: Path, *, dry_run: bool) -> list[str]:
     return generated
 
 
-def build_agent_config(specialist_opus_variants: list[str]) -> dict[str, dict[str, str]]:
+def build_agent_config(
+    specialist_opus_variants: list[str],
+) -> dict[str, dict[str, str]]:
     """Build the `agent` mapping of config.json from TIER_MAP and the
     specialist opus variants that were actually generated.
 
-    Every builtin and worker in TIER_MAP maps to its tier's model and effort
-    level. `specialist_opus_variants` must be the list generate_specialist_
+    Every builtin and worker in TIER_MAP maps to its tier's model and variant
+    (reasoning effort). Both must be set on the same entry: OpenCode only
+    honors an agent's `variant` when the resolved model matches the agent's
+    own configured model (`same` in session/prompt.ts's variant resolution),
+    so a variant without a sibling model pin is silently dropped.
+    `specialist_opus_variants` must be the list generate_specialist_
     opus_variants() actually returned (not SPECIALIST_AGENTS itself) -- a
     specialist source file can be legitimately missing at sync time, in
     which case no `<name>-opus.md` was written, and pinning a config.json
@@ -945,7 +1061,7 @@ def build_agent_config(specialist_opus_variants: list[str]) -> dict[str, dict[st
     """
     agent_config: dict[str, dict[str, str]] = {}
     for tier in TIER_MAP.values():
-        entry = {"model": tier["model"], "effort": tier["effort"]}
+        entry = {"model": tier["model"], "variant": tier["variant"]}
         for builtin in tier["builtins"]:
             agent_config[builtin] = dict(entry)
         if tier["worker"] is not None:
@@ -953,7 +1069,7 @@ def build_agent_config(specialist_opus_variants: list[str]) -> dict[str, dict[st
 
     opus_entry = {
         "model": TIER_MAP["opus"]["model"],
-        "effort": TIER_MAP["opus"]["effort"],
+        "variant": TIER_MAP["opus"]["variant"],
     }
     for variant_name in specialist_opus_variants:
         agent_config[variant_name] = dict(opus_entry)
@@ -961,10 +1077,36 @@ def build_agent_config(specialist_opus_variants: list[str]) -> dict[str, dict[st
     return agent_config
 
 
+def build_instructions(config_dir: Path) -> list[str]:
+    """Build the `instructions` list of config.json: the synced shared rules.
+
+    Without this, the rules opkg installs under `<config>/rules/` are inert.
+    OpenCode discovers global instructions from exactly two places
+    (session/instruction.ts): its `instructions` config array, and the first
+    existing entry of `[<config>/AGENTS.md, ~/.claude/CLAUDE.md]` -- note the
+    `break`, so a present AGENTS.md means the Claude file is never read
+    either. Nothing globs `<config>/rules/`. This script shipped those rules
+    to disk and left them unloaded until 2026-08-14.
+
+    One glob per directory, never `**`: for an absolute path OpenCode globs
+    only `basename(pattern)` within `dirname(pattern)`, so a recursive
+    pattern silently matches nothing. Add a line here when a rules
+    subdirectory is added, and see check_instruction_globs() -- which fails
+    the sync if a synced rules directory has no glob covering it -- rather
+    than relying on remembering to.
+
+    Paths are derived from `config_dir` rather than the OPENCODE_CONFIG
+    constant so the isolated-home tests generate config pointing at their own
+    scratch rules, not the live install's.
+    """
+    return [str(config_dir / directory / "*.md") for directory in INSTRUCTION_DIRS]
+
+
 def generate_config(
     config_dir: Path, *, dry_run: bool, specialist_opus_variants: list[str]
 ) -> str:
-    """Generate config.json with model pins and subagent_depth (FR#2, FR#7).
+    """Generate config.json with model pins, rule instructions, and
+    subagent_depth (FR#2, FR#7).
 
     Written atomically: temp file in the same directory (keeps the final
     os.replace() on the same filesystem) -> json validation -> existing
@@ -986,6 +1128,7 @@ def generate_config(
     config = {
         "$schema": "https://opencode.ai/config.json",
         "agent": build_agent_config(specialist_opus_variants),
+        "instructions": build_instructions(config_dir),
         "subagent_depth": SUBAGENT_DEPTH,
     }
     content = json.dumps(config, indent=2) + "\n"
@@ -1507,17 +1650,90 @@ def _lint_content(
             )
 
 
+def check_instruction_globs(config_dir: Path) -> list[str]:
+    """Return an error per synced rules directory no `instructions` glob covers.
+
+    A rule that reaches disk but not the `instructions` array is invisible to
+    OpenCode while looking installed -- the failure mode that left every rule
+    in `<config>/rules/common/` unloaded. Since `instructions` globs one
+    directory at a time (see build_instructions()), adding a rules
+    subdirectory silently under-covers the array unless INSTRUCTION_DIRS
+    grows with it. This turns that silence into a lint error.
+
+    Only directories that directly contain a `.md` file count: an empty or
+    purely structural directory has nothing to load and shouldn't fail a sync.
+    """
+    root = config_dir / INSTRUCTION_ROOT
+    if not root.is_dir():
+        return []
+
+    covered = {config_dir / directory for directory in INSTRUCTION_DIRS}
+    errors = []
+    for candidate in sorted(root.rglob("*")):
+        if not candidate.is_dir() or candidate in covered:
+            continue
+        if not any(candidate.glob("*.md")):
+            continue
+        relative = candidate.relative_to(config_dir)
+        errors.append(
+            f"{candidate}: synced rules directory has no `instructions` glob -- "
+            f'its rules are on disk but never loaded. Add "{relative}" to '
+            "INSTRUCTION_DIRS in bin/opencode-sync."
+        )
+    return errors
+
+
+def check_variant_names(config_dir: Path) -> list[str]:
+    """Return an error per `variant` OpenCode would resolve to nothing.
+
+    Checks both places a variant name enters the sync: TIER_MAP (which
+    build_agent_config() copies into config.json) and the `variant:` lines
+    process_agent_frontmatter() writes into synced agent files. Agent-level
+    variant resolution drops an unknown name silently -- the same failure mode
+    as the `effort` key, so catching it needs a check that runs on every sync
+    rather than only under pytest.
+    """
+    errors = [
+        f"TIER_MAP[{tier!r}] has variant {entry['variant']!r}, which OpenCode "
+        f"does not resolve. Expected one of: {sorted(OPENCODE_VARIANTS)}."
+        for tier, entry in TIER_MAP.items()
+        if entry["variant"] not in OPENCODE_VARIANTS
+    ]
+
+    agents_dir = config_dir / "agents"
+    if not agents_dir.is_dir():
+        return errors
+
+    for md_file in sorted(agents_dir.glob("*.md")):
+        frontmatter, _ = _split_frontmatter(md_file.read_text())
+        for line in frontmatter.splitlines():
+            if not line.startswith("variant:"):
+                continue
+            name = line[len("variant:") :].split("#", 1)[0].strip()
+            if name not in OPENCODE_VARIANTS:
+                errors.append(
+                    f"{md_file}: `variant: {name}` is not a name OpenCode "
+                    f"resolves, so the agent silently falls back to the "
+                    f"provider default. Expected one of: "
+                    f"{sorted(OPENCODE_VARIANTS)}."
+                )
+    return errors
+
+
 def run_lint(config_dir: Path) -> tuple[list[str], list[str]]:
     """Scan synced output under config_dir for residual Claude-only dispatch
-    constructs (errors) and unsupported platform semantics (warnings) —
-    FR#6, FR#11. Returns (errors, warnings); warnings never affect the exit
-    code.
+    constructs (errors), rules directories no `instructions` glob covers
+    (errors), and unsupported platform semantics (warnings) — FR#6, FR#11.
+    Returns (errors, warnings); warnings never affect the exit code.
     """
     errors: list[str] = []
     warnings: list[str] = []
 
     for path, content, line_offset in _lint_targets(config_dir):
         _lint_content(path, content, line_offset, errors, warnings)
+
+    errors.extend(check_instruction_globs(config_dir))
+    errors.extend(check_variant_names(config_dir))
 
     return errors, warnings
 
@@ -1736,10 +1952,31 @@ def check_source_dispatch_patterns(claudefiles: Path) -> tuple[list[str], list[s
                 [],
             )
 
+        # `rules/` is not dispatch-linted (_walk_synced_md_files skips it), but
+        # check_instruction_globs() returns nothing at all when `rules/` is
+        # absent -- so without this copy the gate stayed clean no matter how
+        # many rules directories went uncovered, blind to the exact miss it was
+        # added to catch. Not part of found_any: a repo with rules/ but none of
+        # the three dispatch directories still has nothing to check.
+        stale_exclusions: list[str] = []
+        rules_src = claudefiles / "rules"
+        if rules_src.is_dir():
+            shutil.copytree(rules_src, scratch / "rules")
+            # Mirror stage_config()'s exclusions, or the gate judges coverage
+            # of a tree that never ships.
+            stale_exclusions = apply_rule_exclusions(scratch / "rules")
+
         rewrite_all_dispatches(scratch, dry_run=False)
         process_agent_frontmatter(scratch / "agents", dry_run=False)
 
-        return run_lint(scratch)
+        errors, warnings = run_lint(scratch)
+        errors.extend(
+            f"OPENCODE_EXCLUDED_RULES lists rules/{relative}, which does not "
+            "exist. A renamed or moved rule silently starts syncing to "
+            "OpenCode -- update the entry in bin/opencode-sync."
+            for relative in stale_exclusions
+        )
+        return errors, warnings
 
 
 def check_source() -> int:

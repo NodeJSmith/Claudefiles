@@ -10,7 +10,7 @@ This document defines the target architecture and the sequence of independently 
 
 `bin/opencode-sync` stages the repository, invokes OpenPackage for the OpenCode platform, and post-processes installed files. It currently provides useful distribution but has important limits:
 
-- Synced rules are not necessarily loaded as OpenCode instructions.
+- Synced shared rules are loaded through `instructions` (Spec 4, partial); personal rules from Dotfiles are still neither synced nor loaded.
 - Claude-specific dispatch syntax remains in skills, including `Agent`, `subagent_type`, per-dispatch models, background execution, and worktree isolation.
 - Agent model remapping is only partially reliable today: some generated named agents can still keep Claude tier names instead of OpenAI model IDs, and OpenCode built-in subagents can still inherit the primary session model.
 - Claude Code shell hooks are not OpenCode plugins and do not run in OpenCode.
@@ -143,6 +143,8 @@ Exit condition: a primary session using an expensive model cannot accidentally d
 
 **Status: Complete** — shipped in PR `#503` (opencode-sync Python rewrite with worker agents, config.json model enforcement, dispatch rewriter, and compatibility lint). Two originally-scoped items were dropped: permission.task allowlists (FR#8 removed — blanket allow in opencode.jsonc makes per-agent gating inert) and deprecated tool declaration replacement (no applicable declarations identified).
 
+**Correction (2026-08-14):** model pinning worked, but the reasoning-effort half of this spec did not. Both config.json and agent frontmatter emitted `effort`, which is Claude Code's key — OpenCode's `AgentConfig` has no such field and does not set `additionalProperties: false`, so it was accepted and discarded, leaving every named subagent at the OpenAI provider default of `reasoningEffort: "medium"` from the day this shipped. The key is `variant`, now used throughout. The generalizable lesson for the remaining specs: **OpenCode silently ignores unknown agent-config keys, so "the config looks right" is not evidence it took effect.** Verify against the published schema at `https://opencode.ai/config.json`, and confirm from observed child-session state — `variant` is recorded per assistant message in `~/.local/share/opencode/opencode.db`, which is what exposed this. Spec 1's exit condition already asked for exactly that observation and would have caught it.
+
 ### 3. Skill Compatibility Adapter
 
 Replace broad textual substitutions with a structured, testable platform adapter.
@@ -179,6 +181,15 @@ Scope:
 - document each Claude hook as ported, replaced by configuration, intentionally unsupported, or deferred.
 
 Exit condition: OpenCode receives the intended global behavior instructions, and every installed plugin preserves a documented behavior with automated coverage.
+
+**Status: Partially complete** — shared rules now load. `generate_config()` emits an `instructions` array covering the synced `rules/` directories, and a lint error fires when a synced rules directory has no glob covering it. Two constraints found while implementing, which later work here must respect:
+
+- `instructions` globs one directory at a time. For an absolute pattern OpenCode globs `basename` inside `dirname` with no recursion, so `rules/**/*.md` matches nothing — silently. Hence one entry per directory plus the coverage lint.
+- A generated global `AGENTS.md` **suppresses** `~/.claude/CLAUDE.md` rather than stacking with it. OpenCode picks the first existing entry of `[<config>/AGENTS.md, ~/.claude/CLAUDE.md]` and `break`s (`session/instruction.ts`). The same first-match-wins rule applies to the project-level `AGENTS.md` → `CLAUDE.md` → `CONTEXT.md` walk-up. Anything the Claude file was relied on to carry has to move into `AGENTS.md` or `instructions` explicitly.
+
+Remaining: personal rules from Dotfiles (see below), runtime plugins, and the Claude-hook disposition table.
+
+**Deferred — personal rules.** `~/.claude/rules/personal/` (machines, capabilities, capabilities-base, mcp-tools, python-packaging) is not synced and is not covered by `instructions`. It sources from Dotfiles rather than Claudefiles, so wiring it needs a decision this spec should make explicitly: whether `opencode-sync` grows a cross-repo staging source, or `instructions` points directly at the Claude install's copy (which couples OpenCode to that install). Note that `tool:` frontmatter is *not* the filter to reach for here, despite the surface resemblance: it records Antigravity portability, not OpenCode compatibility, and a rule being a Claude-dispatch routing table does not by itself mean OpenCode should not see it — `capabilities-core.md` is exactly such a table and does sync, because the dispatch rewriter and `opencode-compat.md`'s translation table between them make it usable. Exclusion is an explicit, deliberately short list (`OPENCODE_EXCLUDED_RULES`) covering rules that are actively wrong for OpenCode rather than merely inapplicable. Whichever of the five personal rules meet that bar get added there when staging reaches them.
 
 ### 5. End-to-End Hardening and Documentation
 
