@@ -686,6 +686,83 @@ def test_check_variant_names_clean_on_real_tier_map(tmp_path: Path) -> None:
     assert module["check_variant_names"](tmp_path) == []
 
 
+def test_check_variant_names_flags_agent_declaring_no_variant(
+    tmp_path: Path,
+) -> None:
+    """An agent with no `variant:` anywhere falls back to the provider default
+    just as silently as one with a misspelled name -- checking only
+    invalid-but-present names would leave the original `effort` bug reachable
+    by simply dropping the key.
+    """
+    module = _load_script()
+
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    (agents / "silent.md").write_text("---\nmodel: x\n---\n\nbody\n")
+
+    errors = module["check_variant_names"](tmp_path)
+
+    assert len(errors) == 1
+    assert "silent.md" in errors[0]
+    assert "no `variant:`" in errors[0]
+
+
+def test_check_variant_names_ignores_frontmatter_less_markdown(
+    tmp_path: Path,
+) -> None:
+    """A .md file with no frontmatter isn't an agent definition, so the
+    missing-variant check must skip it rather than claim a README "runs at the
+    provider default". process_agent_frontmatter() already skips these; the
+    lint has to agree, or an ordinary `agents/README.md` fails the blocking
+    --check-source gate and every sync against the live config directory.
+    """
+    module = _load_script()
+
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    (agents / "README.md").write_text("# Agents directory\n\nconventions doc\n")
+
+    assert module["check_variant_names"](tmp_path) == []
+
+
+def test_check_variant_names_accepts_frontmatter_gap_pinned_by_config_json(
+    tmp_path: Path,
+) -> None:
+    """Worker agents and TIER_MAP builtins carry their variant in config.json,
+    not frontmatter, so the missing-variant check must consult it before
+    failing -- otherwise every sync errors on the workers it just generated.
+    """
+    module = _load_script()
+
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    (agents / "worker-standard.md").write_text("---\nmodel: x\n---\n\nbody\n")
+    (tmp_path / "config.json").write_text(
+        json.dumps({"agent": {"worker-standard": {"model": "x", "variant": "high"}}})
+    )
+
+    assert module["check_variant_names"](tmp_path) == []
+
+
+def test_check_variant_names_flags_unresolvable_config_json_variant(
+    tmp_path: Path,
+) -> None:
+    """A config.json pin is only a rescue when OpenCode can resolve it."""
+    module = _load_script()
+
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    (agents / "worker-standard.md").write_text("---\nmodel: x\n---\n\nbody\n")
+    (tmp_path / "config.json").write_text(
+        json.dumps({"agent": {"worker-standard": {"model": "x", "variant": "turbo"}}})
+    )
+
+    errors = module["check_variant_names"](tmp_path)
+
+    assert len(errors) == 1
+    assert "turbo" in errors[0]
+
+
 def test_run_lint_surfaces_variant_errors(tmp_path: Path) -> None:
     """check_variant_names() must be wired into run_lint(), not merely defined
     -- OPENCODE_VARIANTS previously documented a guard only pytest enforced.
