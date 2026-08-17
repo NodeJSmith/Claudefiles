@@ -121,6 +121,15 @@ always_run = true
 stages = ["pre-commit"]
 
 [[repos.hooks]]
+id = "lint-opencode-sync-orphans"
+name = "OpenCode sync orphan definitions"
+entry = "bin/opencode-sync --check-orphans"
+language = "system"
+pass_filenames = false
+always_run = true
+stages = ["pre-commit"]
+
+[[repos.hooks]]
 id = "secrets-check"
 name = "secrets-check"
 entry = "scripts/hooks/secrets-check.sh"

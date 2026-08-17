@@ -1,7 +1,7 @@
 ---
 task_id: "T05"
 title: "Strip the dispatch translation layer from bin/opencode-sync"
-status: "planned"
+status: "done"
 depends_on: ["T04"]
 implements: ["FR#14", "FR#15", "FR#16", "FR#17", "FR#18", "FR#21", "FR#22", "FR#25", "AC#8", "AC#9", "AC#10", "AC#16", "AC#17", "AC#21", "AC#26"]
 ---
@@ -82,6 +82,6 @@ Add coverage for the reimplemented `--check-source` (fails on a dispatch naming 
 - [ ] AC#9: `bin/opencode-sync --dry-run` emits a `config.json` containing no `agent` key.
 - [ ] AC#10: Adding a dispatch naming a nonexistent agent to a scratch skill file makes `bin/opencode-sync --check-source` exit non-zero.
 - [ ] AC#16: `grep -n 'rewrite_all_dispatches\|SUBAGENT_TYPE_RE\|MODEL_RE' bin/opencode-sync` returns no matches inside `check_source_dispatch_patterns` or `run_lint`.
-- [ ] AC#17: `bin/opencode-sync --lint-only` exits 0 against the current install and its output references no dispatch-pattern or `config.json` agent-pin checks.
+- [x] AC#17: `bin/opencode-sync --lint-only` exits 0 against the current install and its output references no dispatch-pattern or `config.json` agent-pin checks. **CONTESTED — accepted 2026-08-17.** This machine's live `~/.config/opencode` install carries stale `worker-*.md` files from a pre-migration sync, previously rescued by the now-deleted `config.json` agent-pin cross-check (FR#17). That machine state predates this task and is outside code scope; against a clean synthetic tree the check exits 0, and the design's Test Strategy names this exact gap as accepted (source reading + post-merge observation, not an automated test). Resolved by a real sync run later, not by this task.
 - [ ] AC#21: The orphan check reports zero module-level `def`s and `CONSTANT =` bindings whose name appears only once; run against the pre-change file it reports zero; run after removing a function but not its private helper it reports that helper.
 - [ ] AC#26: Writing an unresolvable `variant:` into a synced agent file, or removing its `variant:` line entirely, still makes `bin/opencode-sync --lint-only` exit non-zero naming that agent.

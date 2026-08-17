@@ -268,7 +268,7 @@ Per-task subdirectories preserve evidence across the full orchestration run. Thi
 
 ### Step 4: Select executor agent type
 
-Before launching the executor, read the task's objective and subtasks to determine if a specialized agent is a better fit than the `standard-worker` fallback. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/agent-routing.md` for the routing table. First match wins — stop at the first row that applies. <!-- opencode-sync: ok -->
+Before launching the executor, read the task's objective and subtasks to determine if a specialized agent is a better fit than the `standard-worker` fallback. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/agent-routing.md` for the routing table. First match wins — stop at the first row that applies.
 
 After selecting the agent type, record the dispatch and capture its ID:
 
