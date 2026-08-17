@@ -1,7 +1,7 @@
 ---
 task_id: "T02"
 title: "Write the OpenCode plugin that populates agent, command, instructions"
-status: "planned"
+status: "done"
 depends_on: ["T01"]
 implements: ["FR#1", "FR#2", "FR#3", "FR#4", "FR#5", "FR#6", "FR#9"]
 ---
