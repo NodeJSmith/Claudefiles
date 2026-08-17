@@ -203,7 +203,7 @@ Run the fine-toothed comb on the design doc and task files together.
 Skip the cfl dispatch/gate calls below if cfl tracking was disabled in Phase 1 (no `<spec_number>` set). The comb itself still runs regardless.
 
 ```bash
-cfl dispatch sketch-comb --agent-type fine-toothed-comb --model sonnet --spec <spec_number>
+cfl dispatch sketch-comb --agent-type fine-toothed-comb --spec <spec_number>
 ```
 
 Record the `dispatch_id`.
@@ -211,7 +211,6 @@ Record the `dispatch_id`.
 ```
 Agent:
   subagent_type: fine-toothed-comb
-  model: sonnet
   prompt: |
     Read this design file and its task files:
     - Design: <design_doc_path>

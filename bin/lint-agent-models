@@ -1,13 +1,34 @@
-#!/usr/bin/env python3
-"""Validate that every agent is registered in its declaration sites.
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
+"""Generate and validate the two artifacts derived from agent frontmatter.
 
-Checks against agents/*.md frontmatter and the install.py bundles:
-  1. Every agent listed in performance.md exists and its model matches frontmatter.
-  2. Every agents/*.md file appears in the performance.md list (no undeclared agents).
-  3. Every listed skill file exists and contains each `model: X` it declares.
-  4. Every agents/*.md file is registered in exactly one install.py bundle, and
-     every agent named in a bundle has a matching file. This is what prevents an
-     agent shipping uninstalled — present in the repo and docs but never symlinked.
+Each agent's own frontmatter (`agents/*.md`) is the single declaration site
+for its model, effort, tools, description, and bundle membership. Two other
+files carry a *generated* view of that same data, produced by this script:
+
+  - `rules/common/performance.md`'s "Agent files:" bullet list
+  - `install.py`'s per-bundle `agents=(...)` tuples
+
+This script is both the generator and the pre-commit gate:
+
+  - `bin/lint-agent-models`          check mode (default, the pre-commit
+                                      hook): reject any agent file missing a
+                                      required frontmatter field, regenerate
+                                      both artifacts in memory, and fail if
+                                      either diverges from what is on disk.
+  - `bin/lint-agent-models --write`  regenerate both artifacts and save them.
+
+Generation runs one way, outward from frontmatter -- never the reverse.
+Agent files are never written by this script.
+
+Parses install.py's source with regexes rather than importing it, to stay
+stdlib-only: install.py pulls in rich/questionary that the pre-commit
+environment does not provide. Bundle agent tuples are flat
+`agents=("a", "b", ...)` literals with no nested parens, which is what makes
+a non-greedy `[^)]*` capture reliable -- generated output must preserve that
+flatness or this script stops being able to re-read what it wrote.
 
 Wired as a repo:local pre-commit hook. Exit 0 on success, 1 with details.
 """
@@ -15,131 +36,356 @@ Wired as a repo:local pre-commit hook. Exit 0 on success, 1 with details.
 import argparse
 import re
 import sys
-from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PERFORMANCE_MD = ROOT / "rules" / "common" / "performance.md"
-AGENTS_DIR = ROOT / "agents"
-INSTALL_PY = ROOT / "install.py"
 
-AGENT_BULLET = re.compile(
-    r"^- `(agents/[^`]+)` — (haiku|sonnet|opus)(?:,\s*(low|medium|high|xhigh|max))?\b"
+REQUIRED_FIELDS = ("model", "effort", "tools", "description", "bundle")
+
+# Every agent's `tools:` list must be a superset of this floor (design.md
+# AC#19) -- the fleet-wide widening this script's callers migrated to
+# treats per-agent restriction as a fiction not worth re-litigating per
+# file, so every agent gets the same baseline plus whatever it needs on top.
+TOOLS_BASELINE = ("Read", "Write", "Edit", "Bash", "Grep", "Glob")
+
+# Detects a bare `tools:` line with nothing after it -- block-style YAML
+# (`tools:\n  - Read\n  - Write`). FIELD_PATTERNS["tools"] only matches
+# flow-style (`tools: ["Read", "Write"]`), so without this a block-style
+# list would otherwise be misreported as a *missing* required field rather
+# than a present-but-wrong-format one.
+TOOLS_BLOCK_STYLE_RE = re.compile(r"^tools:\s*$", re.MULTILINE)
+
+# `model:` gets its own pattern (rather than a generic one from the loop below)
+# because it is the only field whose trailing `# ...` comment carries meaning
+# this script reads: an em-dash-separated annotation such as "do not
+# downgrade; pre-commit safety gate" (agents/code-reviewer.md:3). Plain
+# version-stamp comments ("# claude-sonnet-5 as of 2026-07-07") have no
+# em dash and produce no annotation.
+MODEL_LINE_RE = re.compile(
+    r"^model:\s*(?P<model>\w+)(?:\s*#\s*(?P<comment>.*))?$", re.MULTILINE
 )
-SKILL_BULLET = re.compile(r"^- `(skills/[^`]+)` — (.+)$")
-MODEL_TOKEN = re.compile(r"`model: (\w+)`")
-FRONTMATTER_MODEL = re.compile(r"^model:\s*(\w+)", re.MULTILINE)
-FRONTMATTER_EFFORT = re.compile(r"^effort:\s*(\w+)", re.MULTILINE)
-# Bundle agent tuples are flat `agents=("a", "b", ...)` literals — no nested
-# parens — so `[^)]*` reliably captures each tuple body. Parsing the source
-# (vs importing install.py) keeps this hook stdlib-only; install.py pulls in
-# rich/questionary that the pre-commit env does not provide.
-INSTALL_AGENTS_TUPLE = re.compile(r"agents=\(([^)]*)\)", re.DOTALL)
-INSTALL_AGENT_NAME = re.compile(r"""["']([^"']+)["']""")
+FIELD_PATTERNS: dict[str, re.Pattern[str]] = {
+    "model": MODEL_LINE_RE,
+    "effort": re.compile(r"^effort:\s*(?P<value>\w+)\s*$", re.MULTILINE),
+    # The gap before the value is `[ \t]*`, not `\s*` -- `\s` matches
+    # newlines too, which let this cross onto the next line and capture a
+    # block-style list's first item ("- Read") as a bogus single-line value
+    # instead of failing to match. Restricting the gap to same-line
+    # whitespace makes block-style correctly fail to match here, so it is
+    # reported as missing rather than silently misparsed.
+    "tools": re.compile(r"^tools:[ \t]*(?P<value>.+\S)\s*$", re.MULTILINE),
+    "description": re.compile(r"^description:\s*(?P<value>.+\S)\s*$", re.MULTILINE),
+    "bundle": re.compile(r"^bundle:\s*(?P<value>\S+)\s*$", re.MULTILINE),
+}
+
+# Bundle agent tuples are flat `agents=("a", "b", ...)` literals -- no nested
+# parens -- so `[^)]*` reliably captures each tuple body (see module
+# docstring). BUNDLE_KEY_RE matches the `"<key>": Bundle(` line that opens
+# each bundle's dataclass literal in install.py's get_bundles(); pairing it
+# with AGENTS_TUPLE_RE by document order is how a tuple gets attributed to
+# the bundle key it belongs to (there is no other structural marker).
+BUNDLE_KEY_RE = re.compile(r'^\s*"([\w-]+)":\s*Bundle\(\s*$', re.MULTILINE)
+AGENTS_TUPLE_RE = re.compile(r"agents=\(([^)]*)\)", re.DOTALL)
+
+PERF_REGION_START = (
+    "<!-- GENERATED BY bin/lint-agent-models -- DO NOT EDIT MANUALLY. "
+    "Run `bin/lint-agent-models --write` to regenerate. -->"
+)
+PERF_REGION_END = "<!-- END GENERATED -->"
+
+INSTALL_REGION_START = (
+    "# GENERATED BY bin/lint-agent-models -- DO NOT EDIT MANUALLY. "
+    "Run `bin/lint-agent-models --write` to regenerate."
+)
+INSTALL_REGION_END = "# END GENERATED"
+# install.py's literal nesting for a bundle's `agents=(` tuple: dict -> Bundle(
+# -> agents=( is 3 levels of 4-space indent (12) for the closing paren, plus one
+# more level (16) for each item inside it. If install.py's bundle-dict nesting
+# ever changes depth, these two constants must change with it -- there is no
+# mechanism that derives them from the actual file.
+INSTALL_ITEM_INDENT = " " * 16
+INSTALL_CLOSE_INDENT = " " * 12
 
 
-def parse_frontmatter(text: str) -> str:
+@dataclass(frozen=True)
+class AgentInfo:
+    stem: str
+    model: str
+    effort: str
+    bundle: str
+    annotation: str | None
+
+
+def split_frontmatter(text: str) -> str:
     # Splitting on "---" yields ["", frontmatter, body] for a well-formed file.
     parts = text.split("---", 2)
     return parts[1] if len(parts) >= 3 and text.startswith("---") else ""
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Validate that every agents/*.md is listed in performance.md (with matching model) and registered in an install.py bundle.",
-        epilog="Reads performance.md, install.py, and agents/*.md from the repo root. Exit 0 = in sync.",
-    )
-    parser.parse_args()
+def load_agents(agents_dir: Path) -> tuple[list[AgentInfo], list[str]]:
+    """Parse every agents/*.md frontmatter into an AgentInfo, or an error.
 
+    Returns (agents, errors). A file missing a required field is excluded
+    from `agents` -- there is nothing complete to generate from -- and
+    reported in `errors`, naming both the file and the missing field(s)
+    (FR#23).
+    """
+    agents: list[AgentInfo] = []
     errors: list[str] = []
-    try:
-        perf_text = PERFORMANCE_MD.read_text()
-    except FileNotFoundError:
-        print(f"lint-agent-models: {PERFORMANCE_MD} not found", file=sys.stderr)
-        return 1
+    for path in sorted(agents_dir.glob("*.md")):
+        fm = split_frontmatter(path.read_text())
+        missing = [f for f in REQUIRED_FIELDS if not FIELD_PATTERNS[f].search(fm)]
 
-    agent_declarations: dict[str, tuple[str, str | None]] = {}
-    skill_declarations: dict[str, set[str]] = {}
-    for line in perf_text.splitlines():
-        if m := AGENT_BULLET.match(line):
-            agent_declarations[m.group(1)] = (m.group(2), m.group(3))
-        elif m := SKILL_BULLET.match(line):
-            skill_declarations[m.group(1)] = set(MODEL_TOKEN.findall(m.group(2)))
-
-    for rel_path, (listed_model, listed_effort) in agent_declarations.items():
-        path = ROOT / rel_path
-        if not path.exists():
-            errors.append(f"listed but missing: {rel_path}")
+        if "tools" in missing and TOOLS_BLOCK_STYLE_RE.search(fm):
+            errors.append(
+                f"agents/{path.name}: `tools:` uses block-style YAML; this "
+                'repo requires flow-style (tools: ["Read", "Write", ...]) '
+                "so lint-agent-models can parse it"
+            )
             continue
-        fm = parse_frontmatter(path.read_text())
-        fm_match = FRONTMATTER_MODEL.search(fm)
-        if not fm_match:
-            errors.append(
-                f"{rel_path}: no `model:` in frontmatter (listed as {listed_model})"
-            )
-        elif fm_match.group(1) != listed_model:
-            errors.append(
-                f"{rel_path}: frontmatter says {fm_match.group(1)}, list says {listed_model}"
-            )
-        fm_effort = FRONTMATTER_EFFORT.search(fm)
-        fm_effort_val = fm_effort.group(1) if fm_effort else None
-        if listed_effort != fm_effort_val:
-            errors.append(
-                f"{rel_path}: effort mismatch — "
-                f"frontmatter says {fm_effort_val or '(none)'}, "
-                f"list says {listed_effort or '(none)'}"
-            )
 
-    agent_stems = {p.stem for p in AGENTS_DIR.glob("*.md")}
-    for stem in sorted(agent_stems):
-        if f"agents/{stem}.md" not in agent_declarations:
-            errors.append(f"not in performance.md list: agents/{stem}.md")
-
-    # install.py registration: an agent must be in exactly one bundle, or the
-    # installer never symlinks it and it ships uninstalled (the failure that
-    # left code-judo-reviewer and secrets-auditor present-but-unusable).
-    try:
-        install_text = INSTALL_PY.read_text()
-    except FileNotFoundError:
-        print(f"lint-agent-models: {INSTALL_PY} not found", file=sys.stderr)
-        return 1
-    registered = Counter(
-        name
-        for body in INSTALL_AGENTS_TUPLE.findall(install_text)
-        for name in INSTALL_AGENT_NAME.findall(body)
-    )
-    for stem in sorted(agent_stems):
-        if stem not in registered:
-            errors.append(f"not registered in any install.py bundle: agents/{stem}.md")
-    for name in sorted(set(registered) - agent_stems):
-        errors.append(f"install.py registers a missing agent: {name}")
-    for name in sorted(n for n, count in registered.items() if count > 1):
-        errors.append(f"registered in multiple install.py bundles: {name}")
-
-    # Skill declarations are prose instructions ("dispatch with model: sonnet"),
-    # not structured frontmatter, so this check is deliberately looser than the
-    # agent check above: substring presence, not parsed-field comparison.
-    for rel_path, models in skill_declarations.items():
-        path = ROOT / rel_path
-        if not path.exists():
-            errors.append(f"listed but missing: {rel_path}")
+        if missing:
+            errors.append(
+                f"agents/{path.name}: missing required frontmatter field(s): "
+                f"{', '.join(missing)}"
+            )
             continue
-        text = path.read_text()
-        for model in models:
-            if f"model: {model}" not in text:
-                errors.append(
-                    f"{rel_path}: declared `model: {model}` not found in file"
-                )
 
+        model_match = MODEL_LINE_RE.search(fm)
+        assert model_match is not None  # guaranteed by the `missing` check above
+        model = model_match.group("model")
+        comment = (model_match.group("comment") or "").strip()
+        annotation = comment.split("—", 1)[1].strip() if "—" in comment else None
+
+        effort_match = FIELD_PATTERNS["effort"].search(fm)
+        bundle_match = FIELD_PATTERNS["bundle"].search(fm)
+        assert effort_match is not None and bundle_match is not None
+        effort = effort_match.group("value")
+        bundle = bundle_match.group("value")
+
+        tools_match = FIELD_PATTERNS["tools"].search(fm)
+        assert tools_match is not None  # guaranteed: not missing, not block-style
+        tool_names = set(re.findall(r'"([^"]+)"', tools_match.group("value")))
+        missing_baseline = [t for t in TOOLS_BASELINE if t not in tool_names]
+        if missing_baseline:
+            errors.append(
+                f"agents/{path.name}: tools: missing baseline tool(s): "
+                f"{', '.join(missing_baseline)}"
+            )
+            continue
+
+        agents.append(
+            AgentInfo(
+                stem=path.stem,
+                model=model,
+                effort=effort,
+                bundle=bundle,
+                annotation=annotation,
+            )
+        )
+
+    return agents, errors
+
+
+def render_performance_block(agents: list[AgentInfo]) -> str:
+    """Render the "Agent files:" bullet list, sorted by stem for determinism."""
+    lines = [PERF_REGION_START]
+    for agent in sorted(agents, key=lambda a: a.stem):
+        line = f"- `agents/{agent.stem}.md` — {agent.model}, {agent.effort}"
+        if agent.annotation:
+            line += f" ({agent.annotation})"
+        lines.append(line)
+    lines.append(PERF_REGION_END)
+    return "\n".join(lines)
+
+
+def replace_marked_region(
+    text: str, start_marker: str, end_marker: str, new_body: str
+) -> str | None:
+    """Replace the text between (and including) start_marker/end_marker.
+
+    Returns None if either marker is missing from `text` -- the caller
+    treats that as an error rather than silently doing nothing, since a file
+    missing its generated-region markers can't be regenerated into.
+    """
+    start_idx = text.find(start_marker)
+    if start_idx == -1:
+        return None
+    end_idx = text.find(end_marker, start_idx)
+    if end_idx == -1:
+        return None
+    end_idx += len(end_marker)
+    return text[:start_idx] + new_body + text[end_idx:]
+
+
+def find_bundle_tuple_spans(install_text: str) -> dict[str, tuple[int, int]]:
+    """Map each bundle key to the (start, end) span of its `agents=(...)` body.
+
+    Walks bundle-key headers and `agents=(...)` tuples in document order,
+    attributing each tuple to the most recently seen key. Bundles with no
+    `agents=` field (e.g. frontend, cli) are simply absent from the result.
+    """
+    events: list[tuple[int, str, str | tuple[int, int]]] = []
+    for m in BUNDLE_KEY_RE.finditer(install_text):
+        events.append((m.start(), "key", m.group(1)))
+    for m in AGENTS_TUPLE_RE.finditer(install_text):
+        events.append((m.start(), "tuple", m.span(1)))
+    events.sort(key=lambda e: e[0])
+
+    spans: dict[str, tuple[int, int]] = {}
+    current_key: str | None = None
+    for _, kind, payload in events:
+        if kind == "key":
+            assert isinstance(payload, str)
+            current_key = payload
+        elif current_key is not None:
+            assert isinstance(payload, tuple)
+            spans[current_key] = payload
+    return spans
+
+
+def render_install_tuple_body(names: list[str]) -> str:
+    lines = [f"{INSTALL_ITEM_INDENT}{INSTALL_REGION_START}"]
+    lines += [f'{INSTALL_ITEM_INDENT}"{name}",' for name in sorted(names)]
+    lines.append(f"{INSTALL_ITEM_INDENT}{INSTALL_REGION_END}")
+    return "\n" + "\n".join(lines) + "\n" + INSTALL_CLOSE_INDENT
+
+
+def regenerate_install_py(
+    install_text: str, agents: list[AgentInfo]
+) -> tuple[str | None, list[str]]:
+    """Return (new_text, errors). new_text is None when errors is non-empty."""
+    spans = find_bundle_tuple_spans(install_text)
+    grouped: dict[str, list[str]] = {}
+    for agent in agents:
+        grouped.setdefault(agent.bundle, []).append(agent.stem)
+
+    errors = [
+        f"install.py: bundle '{bundle}' (declared by agents/{stems[0]}.md"
+        + (f" and {len(stems) - 1} more" if len(stems) > 1 else "")
+        + ") has no `agents=(...)` tuple to generate into"
+        for bundle, stems in sorted(grouped.items())
+        if bundle not in spans
+    ]
     if errors:
-        print("lint-agent-models: agent registry is out of sync:", file=sys.stderr)
+        return None, errors
+
+    new_text = install_text
+    for bundle, (start, end) in sorted(
+        spans.items(), key=lambda kv: kv[1][0], reverse=True
+    ):
+        new_text = (
+            new_text[:start]
+            + render_install_tuple_body(grouped.get(bundle, []))
+            + new_text[end:]
+        )
+    return new_text, []
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Generate/validate rules/common/performance.md's agent list and "
+            "install.py's bundle tuples from agents/*.md frontmatter."
+        ),
+        epilog=(
+            "Default: check mode -- diff the generated artifacts against disk and "
+            "fail on divergence or incomplete frontmatter. --write: regenerate and save."
+        ),
+    )
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=ROOT,
+        help="Repo root (default: this script's repo)",
+    )
+    parser.add_argument(
+        "--write",
+        action="store_true",
+        help="Write regenerated artifacts to disk instead of only checking them",
+    )
+    args = parser.parse_args(argv)
+
+    root: Path = args.root
+    agents_dir = root / "agents"
+    performance_md = root / "rules" / "common" / "performance.md"
+    install_py = root / "install.py"
+
+    agents, errors = load_agents(agents_dir)
+    if errors:
+        print("lint-agent-models: incomplete agent frontmatter:", file=sys.stderr)
         for e in errors:
             print(f"  - {e}", file=sys.stderr)
         return 1
 
+    try:
+        perf_text = performance_md.read_text()
+    except FileNotFoundError:
+        print(f"lint-agent-models: {performance_md} not found", file=sys.stderr)
+        return 1
+    try:
+        install_text = install_py.read_text()
+    except FileNotFoundError:
+        print(f"lint-agent-models: {install_py} not found", file=sys.stderr)
+        return 1
+
+    new_perf_text = replace_marked_region(
+        perf_text, PERF_REGION_START, PERF_REGION_END, render_performance_block(agents)
+    )
+    if new_perf_text is None:
+        print(
+            f"lint-agent-models: {performance_md} is missing the generated-region markers",
+            file=sys.stderr,
+        )
+        return 1
+
+    new_install_text, install_errors = regenerate_install_py(install_text, agents)
+    if install_errors:
+        print(
+            "lint-agent-models: cannot generate install.py bundle tuples:",
+            file=sys.stderr,
+        )
+        for e in install_errors:
+            print(f"  - {e}", file=sys.stderr)
+        return 1
+    assert new_install_text is not None
+
+    changed = [
+        p
+        for p, old, new in (
+            (performance_md, perf_text, new_perf_text),
+            (install_py, install_text, new_install_text),
+        )
+        if old != new
+    ]
+
+    if args.write:
+        if new_perf_text != perf_text:
+            performance_md.write_text(new_perf_text)
+        if new_install_text != install_text:
+            install_py.write_text(new_install_text)
+        where = (
+            f" -- wrote {', '.join(str(p.relative_to(root)) for p in changed)}"
+            if changed
+            else " -- already up to date"
+        )
+        print(f"lint-agent-models: regenerated from {len(agents)} agent files{where}")
+        return 0
+
+    if changed:
+        print("lint-agent-models: generated artifacts are stale:", file=sys.stderr)
+        for p in changed:
+            print(
+                f"  - {p.relative_to(root)} does not match agents/*.md frontmatter "
+                "-- run `bin/lint-agent-models --write`",
+                file=sys.stderr,
+            )
+        return 1
+
     print(
-        f"lint-agent-models: {len(agent_stems)} agents registered in install.py + "
-        f"performance.md, {len(skill_declarations)} skill declarations in sync"
+        f"lint-agent-models: {len(agents)} agents in sync across frontmatter, "
+        "performance.md, and install.py"
     )
     return 0
 

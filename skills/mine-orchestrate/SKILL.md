@@ -268,12 +268,12 @@ Per-task subdirectories preserve evidence across the full orchestration run. Thi
 
 ### Step 4: Select executor agent type
 
-Before launching the executor, read the task's objective and subtasks to determine if a specialized agent is a better fit than `general-purpose`. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/agent-routing.md` for the routing table. First match wins — stop at the first row that applies. <!-- opencode-sync: ok -->
+Before launching the executor, read the task's objective and subtasks to determine if a specialized agent is a better fit than the `standard-worker` fallback. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/agent-routing.md` for the routing table. First match wins — stop at the first row that applies.
 
 After selecting the agent type, record the dispatch and capture its ID:
 
 ```bash
-cfl dispatch executor <task_id> --agent-type <selected_agent_type> --model <model from agent frontmatter, or sonnet as fallback>
+cfl dispatch executor <task_id> --agent-type <selected_agent_type>
 ```
 
 Parse `dispatch_id` from the JSON output — it is required for `cfl dispatch end` after the executor returns, and must be included in the subagent prompt for telemetry correlation (see below).
@@ -289,7 +289,7 @@ For **first-pass execution**, include only `implementer-prompt.md` in the `## Im
 
 For **retries** (spec fix loop and FAIL retry), include **both** files: `implementer-prompt.md` in `## Implementer instructions` (task execution contract — subtask sequencing, deviation classification, visual verification) and `retry-prompt.md` as an additional `## Retry instructions` section below it (verify-before-implement posture, YAGNI check, push-back protocol, and previous review feedback).
 
-Launch the selected agent with the same model as the dispatch and this prompt (fill in bracketed values):
+Launch the selected agent with this prompt (fill in bracketed values):
 
 ```
 You are executing a single task from an implementation plan.
@@ -375,14 +375,12 @@ Use `"decision": "accept"` when the user accepts the criterion as met, `"decisio
 
 ### Step 8: Parallel review pass
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/spec-reviewer-prompt.md`.
-
 Before launching, record three dispatches and capture their IDs:
 
 ```bash
-cfl dispatch spec-reviewer <task_id> --agent-type general-purpose --model sonnet
-cfl dispatch code-reviewer <task_id> --agent-type code-reviewer --model sonnet
-cfl dispatch integration-reviewer <task_id> --agent-type integration-reviewer --model sonnet
+cfl dispatch spec-reviewer <task_id> --agent-type spec-reviewer
+cfl dispatch code-reviewer <task_id> --agent-type code-reviewer
+cfl dispatch integration-reviewer <task_id> --agent-type integration-reviewer
 ```
 
 Parse `dispatch_id` from each JSON response — needed for `cfl dispatch end` after each returns.
@@ -390,7 +388,7 @@ Parse `dispatch_id` from each JSON response — needed for `cfl dispatch end` af
 Launch all three reviewers in parallel (three Agent tool calls in a single message). Every prompt
 below includes the shared scope boundary shown in the first prompt.
 
-**Subagent 1 — Spec reviewer** (`subagent_type: "general-purpose"`, `model: sonnet`):
+**Subagent 1 — Spec reviewer** (`subagent_type: spec-reviewer`):
 
 ```
 You are independently verifying a completed task.
@@ -416,9 +414,6 @@ Only flag issues in this task's scope. Later tasks own these targets; do not fla
 explicitly assigned to them:
 <one line per remaining task: <task_id>: <title> — targets: <create/modify/delete paths, or unspecified>>
 When uncertain whether a finding is in scope, include it.
-
-## Spec reviewer instructions
-<full spec-reviewer-prompt.md content>
 
 CONCISE-RETURN-MODE
 
@@ -637,8 +632,10 @@ AskUserQuestion:
   options:
     - label: "Try again"
       description: "Re-run the executor to address the reviewer's findings with the same model"
-    - label: "Try again with stronger model"
-      description: "Re-run the executor using the opus/sol tier model"
+    - label: "Mark as blocked and skip"
+      description: "Record the block with a reason and move on"
+    - label: "Stop here"
+      description: "Pause the run at this task"
 ```
 
 For FAIL/BLOCKED gate outcomes, **update the task status** before taking the gate action (so resume returns to this task instead of skipping it). Then:
@@ -648,12 +645,11 @@ For FAIL/BLOCKED gate outcomes, **update the task status** before taking the gat
   cfl task update <task_id> --status fixing
   ```
   Re-run from Step 4 (which includes Step 5 executor + Step 6 file capture + Step 6b reviewing transition) using the Step 5 retry composition: `implementer-prompt.md` as the executor contract plus `retry-prompt.md` as the retry-specific instructions. Populate the `## Previous review feedback` template in `retry-prompt.md` with only existing paths from the newest attempt: always include the spec reviewer; include code and integration reviewer reports whenever Step 8 produced them, regardless of whether Step 12 ran; include the visual reviewer report when it ran; and include `test-gate.md` after a failed test gate. Omit absent or unreached reports. The executor reads these files directly — do not inline or truncate the reviewer output.
-- **Try again with stronger model**: same as "Try again" but override the executor's model to the opus tier. On a platform with no per-call model override (e.g. OpenCode), dispatch the generated stronger-tier variant instead of trying to pass a model parameter that platform can't honor: `<the same subagent_type Step 4 selected>-opus` for a named specialist (e.g. `engineering-backend-developer-opus`), or `worker-opus` when Step 4 selected `general-purpose` — there is no `general-purpose-opus`/`worker-standard-opus` variant. <!-- opencode-sync: ok -->
-- **"Mark as blocked and skip"** (via Other): record the block with a reason:
+- **"Mark as blocked and skip"**: record the block with a reason:
   ```bash
   cfl task block <task_id> --reason "<blocker description>"
   ```
-- **"Stop here"** (via Other): stop the run (the task stays in its current state; `current_task` derives correctly on resume):
+- **"Stop here"**: stop the run (the task stays in its current state; `current_task` derives correctly on resume):
   ```bash
   cfl run stop --at-task <task_id> --reason "user chose stop at task gate"
   ```

@@ -7,11 +7,6 @@ Match WP content against this table to select the executor agent type. **First m
   2. Add the matching intent row to references/common/agents.md
   3. Create agents/<name>.md with the executor note
   4. Update the SKILL.md routing reference if the subagent_type is new
-  5. Add the subagent_type to SPECIALIST_AGENTS in bin/opencode-sync, so an
-     opus-tier "Try again with stronger model" retry of this agent on a
-     synced OpenCode install gets its own opus variant (with this agent's
-     full prompt preserved) instead of silently falling back to the generic
-     worker-opus and losing its domain-specific instructions.
 -->
 
 | WP content signals | Use `subagent_type` |
@@ -21,6 +16,6 @@ Match WP content against this table to select the executor agent type. **First m
 | PySpark, Delta Lake, DeltaTable, cloudFiles/Auto Loader, medallion layers (raw/bronze/silver/gold), dbt models, Databricks workflows | `engineering-data-engineer` |
 | FastAPI, REST API endpoints, Pydantic request/response models, async backend service | `engineering-backend-developer` |
 | API docs, README, tutorials, developer documentation | `engineering-technical-writer` |
-| Database schema, migrations, query optimization, ORM setup | `general-purpose`, `model: sonnet` |
+| Database schema, migrations, query optimization, ORM setup | `standard-worker` |
 
-If the WP does not clearly match a row, use `general-purpose`, `model: sonnet`.
+If the WP does not clearly match a row, use `standard-worker`.

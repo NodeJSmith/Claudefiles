@@ -10,7 +10,7 @@ Dispatches a subagent to handle the entire PR workflow: platform detection, diff
 
 ## Execute
 
-Launch one subagent (`model: sonnet`, `subagent_type: general-purpose`):
+Launch one subagent (`subagent_type: standard-worker`):
 
 > Create a PR for the current branch.
 >

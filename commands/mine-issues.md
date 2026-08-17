@@ -28,7 +28,7 @@ Read `$ISSUE_TRACKER`.
 
 ## Phase 3: Deep Dive (Subagent)
 
-For **each** issue key in the arguments, launch a **Task subagent** (`subagent_type: Explore`, `model: haiku`) with this prompt:
+For **each** issue key in the arguments, launch a **Task subagent** (`subagent_type: light-worker`) with this prompt:
 
 > **If `$ISSUE_TRACKER` is `gh`:**
 > Run `gh-issue view <N> --json title,body,comments,labels,assignees,milestone` to get the full issue.

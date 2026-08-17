@@ -25,8 +25,9 @@ What it does:
   - Attributes cost per (role, model): subagents from their own JSONLs; the
     orchestrator loop from the parent session's windowed turns, split into a band of
     own-generation (output) vs absorbed-context (input/cache it merely received).
-  - Disambiguates the shared `general-purpose` agentType into real roles (executor,
-    spec-reviewer, the fix subagents, ...) by a dispatch-prompt signature.
+  - Disambiguates the generic worker agentTypes (`standard-worker`, `light-worker`, and
+    `general-purpose` for pre-migration history) into real roles (executor, the fix
+    subagents, ...) by a dispatch-prompt signature.
   - Buckets runs by pipeline fingerprint (the model assigned to each role whose model
     has actually varied across history) so model-assignment drift is visible and the
     tool can't silently go stale.
@@ -61,10 +62,11 @@ from whenever import Date
 
 # --- Run-boundary markers (durable, in the parent-session JSONL as Bash commands) ---
 # NOTE: keep in sync with bin/orchestrate-concise-probe, which duplicates these
-# markers and the transcript-parsing helpers. Each tool is a self-contained
-# single-file PEP 723 uv-script, so the shared logic is duplicated by design
-# rather than factored into a sibling module. A grep for either filename surfaces
-# both maintenance sites.
+# markers, the transcript-parsing helpers, and the agent-*.meta.json glob/load
+# loop (this file's attribute_subagents(), that file's scan_session()). Each
+# tool is a self-contained single-file PEP 723 uv-script, so the shared logic
+# is duplicated by design rather than factored into a sibling module. A grep
+# for either filename surfaces both maintenance sites.
 START_MARKER = "orchestrate run started"
 RESUME_MARKER = "resuming from checkpoint"
 
@@ -82,10 +84,15 @@ BASE_COMMIT_RE = re.compile(
     r'(?:--base-commit\s+|base_commit["\s:=]+)([0-9a-f]{6,40})\b'
 )
 
-# general-purpose is shared by many orchestrate roles. Resolve by a distinctive
-# substring of the dispatch prompt (the subagent's first user message). ORDER MATTERS:
-# the fix subagents embed the full implementer-prompt, so the generic executor
-# signature must be checked LAST or every fix run misbuckets as an executor.
+# A generic worker agentType (standard-worker, light-worker; general-purpose for JSONLs
+# predating the T04 named-agent migration) is shared by many orchestrate roles. Resolve
+# by a distinctive substring of the dispatch prompt (the subagent's first user message).
+# ORDER MATTERS: the fix subagents embed the full implementer-prompt, so the generic
+# executor signature must be checked LAST or every fix run misbuckets as an executor.
+# spec-reviewer's entries here are for pre-T04 JSONLs only: post-migration it dispatches
+# as its own named agentType (see ORCHESTRATE_TYPES) and resolve_role() never reaches
+# this table for it — but a pre-migration JSONL has agentType "general-purpose" and
+# needs a signature match here or its cost silently drops out of the totals.
 GP_SIGNATURES: list[tuple[str, str]] = [
     (
         "clean-code",
@@ -93,11 +100,11 @@ GP_SIGNATURES: list[tuple[str, str]] = [
     ),
     ("trail-audit", "auditing the structural integrity of the decision trail"),
     ("impl-review", "reviewing a completed feature implementation against its design"),
+    ("impl-review-fix", "Fix only the listed blocking issues"),
+    ("comb-fix", "Fix only the listed design-fidelity gaps"),  # historical: impl-comb removed from pipeline
     ("spec-reviewer", "You are independently verifying a completed task"),
     # caliper v2 renamed the unit task -> Work Package; older runs use that wording.
     ("spec-reviewer", "independently verifying a completed Work Package"),
-    ("impl-review-fix", "Fix only the listed blocking issues"),
-    ("comb-fix", "Fix only the listed design-fidelity gaps"),  # historical: impl-comb removed from pipeline
     # The rendered dispatch says "executing" (the implementer-prompt heading reads
     # "implementing", but the orchestrator's prompt does not — match the live text).
     # Checked last: the fix subagents embed the implementer prompt.
@@ -105,11 +112,12 @@ GP_SIGNATURES: list[tuple[str, str]] = [
     ("executor", "executing a single Work Package from an implementation plan"),
 ]
 
-# Named (non-general-purpose) agentTypes that mine-orchestrate dispatches. A run's
-# parent session can also run *other* skills (challenge critics, doc reviewers, the
-# engineering-* agents, ...) whose subagents share the same session window — those are
-# NOT orchestrate cost. Restricting to the design's §4 role taxonomy excludes them.
-# code-reviewer / integration-reviewer are shared with other skills, but within an
+# Named (non-generic-worker) agentTypes that mine-orchestrate dispatches, resolved to a
+# role directly with no prompt-signature matching needed. A run's parent session can
+# also run *other* skills (challenge critics, doc reviewers, the engineering-* agents,
+# ...) whose subagents share the same session window — those are NOT orchestrate cost.
+# Restricting to the design's §4 role taxonomy excludes them. code-reviewer /
+# integration-reviewer / spec-reviewer are shared with other skills, but within an
 # orchestrate run window they are overwhelmingly orchestrate's own (window assumption).
 ORCHESTRATE_TYPES = frozenset(
     {
@@ -117,8 +125,14 @@ ORCHESTRATE_TYPES = frozenset(
         "integration-reviewer",
         "wtf-reviewer",
         "fine-toothed-comb",
+        "spec-reviewer",
     }
 )
+
+# agentTypes with no fixed role of their own — resolved by GP_SIGNATURES prompt
+# matching instead of returned as-is. general-purpose is kept for JSONLs predating the
+# T04 named-agent migration; standard-worker/light-worker are its replacements.
+GENERIC_WORKER_TYPES = frozenset({"general-purpose", "standard-worker", "light-worker"})
 
 NO_DATA = "—"
 
@@ -129,8 +143,12 @@ _COMMIT_PREFIX_LEN = 8
 
 # Roles that the JSONL path prefixes with "gp:" (via resolve_role → GP_SIGNATURES).
 # DB dispatches store the bare canonical name; normalise to the gp:-prefixed form before
-# mixing the two sources so aggregation/counting sees one vocabulary.
-_GP_ROLES = frozenset(role for role, _sig in GP_SIGNATURES)
+# mixing the two sources so aggregation/counting sees one vocabulary. Exclude
+# ORCHESTRATE_TYPES: spec-reviewer is in GP_SIGNATURES only for pre-T04 JSONL
+# fallback matching, but a DB row's role is always the literal dispatched name
+# (see cfl dispatch calls), never signature-matched — a DB row with
+# role="spec-reviewer" must stay bare, not get relabeled "gp:spec-reviewer".
+_GP_ROLES = frozenset(role for role, _sig in GP_SIGNATURES) - ORCHESTRATE_TYPES
 
 # --- cfl DB support ---
 # DB path logic replicated inline (this is a PEP 723 standalone script, not part of the
@@ -307,11 +325,11 @@ def first_ts(path: str) -> str:
 def resolve_role(agent_type: str, prompt: str) -> str | None:
     """Map a subagent to an orchestrate role, or None if it is not an orchestrate
     subagent (another skill sharing the session window). Named types are kept only if
-    they are in the orchestrate taxonomy; general-purpose is kept only if its dispatch
-    prompt matches a known orchestrate signature."""
+    they are in the orchestrate taxonomy; a generic worker type (GENERIC_WORKER_TYPES)
+    is kept only if its dispatch prompt matches a known orchestrate signature."""
     if agent_type in ORCHESTRATE_TYPES:
         return agent_type
-    if agent_type == "general-purpose":
+    if agent_type in GENERIC_WORKER_TYPES:
         for role, sig in GP_SIGNATURES:
             if sig in prompt:
                 return f"gp:{role}"

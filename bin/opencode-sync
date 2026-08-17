@@ -12,14 +12,18 @@ Workflow:
 
 Requires: npx (comes with Node.js)
 
-Built incrementally against design/specs/1006-oc-native-agents: T01 laid the
-script skeleton; T02 added worker agent + config.json generation
-(TIER_MAP-driven); T03 added the dispatch rewriter and frontmatter model
-remap; T04 added the compatibility lint (--lint-only), opencode.jsonc
-collision detection, and foreign config.json backup.
+Built incrementally against design/specs/1006-oc-native-agents, then reduced
+by design/specs/1008-opencode-named-roles: every dispatch now names a real
+agent file directly, so this script no longer synthesizes worker agents or
+opus escalation variants, and no longer rewrites dispatch syntax in synced
+content -- there is nothing left to translate. What remains is frontmatter
+model remap (`process_agent_frontmatter`), skill-command bridge generation,
+config.json/rules sync, and the compatibility lint (`--lint-only`,
+`--check-source`).
 """
 
 import argparse
+import ast
 import hashlib
 import json
 import os
@@ -40,9 +44,7 @@ OPENCODE_CONFIG = Path.home() / ".config" / "opencode"
 
 # Unified sync state (FR#16): commit SHA, generated config.json hash (for
 # foreign-config detection), and this script's own hash (so an uncommitted
-# TIER_MAP edit still marks the install stale). The opencode.jsonc collision
-# check (FR#13) warns fresh every run instead of persisting state here -- see
-# check_collisions().
+# TIER_MAP edit still marks the install stale).
 SYNC_STATE_FILE = OPENCODE_CONFIG / ".claudefiles-sync-state.json"
 SHA_DISPLAY_LEN = 12
 
@@ -106,10 +108,9 @@ INSTRUCTION_ROOT = "rules"
 # Opkg output lines to surface in non-verbose mode (coupled to opkg's format).
 OPKG_SUCCESS_PATTERN = re.compile(r"^✓|Installed files:|No files")
 
-# Single source of truth for model routing: drives worker agent generation,
-# config.json generation, and (T03) dispatch rewriting. `plan` sits in the
-# sonnet row deliberately: Claude Code's model-default hook runs `Plan` at
-# sonnet, and pinning it at haiku/luna would be a silent tier downgrade.
+# Single source of truth for model routing: drives frontmatter remap
+# (`process_agent_frontmatter()` maps a synced agent's Claude tier name to
+# a provider-qualified model ID and its `effort` to an OpenCode `variant`).
 #
 # `variant` -- NOT `effort`. OpenCode's AgentConfig schema
 # (https://opencode.ai/config.json) has no `effort` key, and AgentConfig does
@@ -123,23 +124,14 @@ TIER_MAP = {
     "opus": {
         "model": "openai/gpt-5.6-sol",
         "variant": "high",
-        "worker": "worker-opus",
-        "worker_description": "Strongest-tier worker for escalated retries after a weaker model failed",
-        "builtins": [],
     },
     "sonnet": {
         "model": "openai/gpt-5.6-terra",
         "variant": "high",
-        "worker": "worker-standard",
-        "worker_description": "Standard worker for implementation, review, and synthesis tasks",
-        "builtins": ["general", "plan"],
     },
     "haiku": {
         "model": "openai/gpt-5.6-luna",
         "variant": "high",
-        "worker": "worker-lightweight",
-        "worker_description": "Lightweight worker for triage, mechanical analysis, and low-cost tasks",
-        "builtins": ["explore", "scout"],
     },
 }
 
@@ -153,39 +145,12 @@ TIER_MAP = {
 # `variant:` line naming something outside this set.
 OPENCODE_VARIANTS = frozenset({"none", "low", "medium", "high", "xhigh", "max"})
 
-# Named specialist agents mine-orchestrate's Step 4 can select as an executor
-# (skills/mine-orchestrate/agent-routing.md's `subagent_type` column, minus
-# `general-purpose`, which routes through TIER_MAP instead). An opus-tier
-# retry of one of these ("Try again with stronger model") needs its own
-# prompt body carried into a stronger-model variant -- routing it to the
-# generic `worker-opus` would reach Sol but silently drop every
-# domain-specific instruction the specialist's prompt carries.
-# generate_specialist_opus_variants() copies each already-synced specialist
-# file into a `<name>-opus.md` sibling with the model pinned to the opus
-# tier; resolve() routes a specialist + opus pairing there instead of to
-# worker-opus. Update this list when agent-routing.md's SYNC CHECKLIST step 5
-# says to.
-SPECIALIST_AGENTS = [
-    "engineering-backend-developer",
-    "engineering-frontend-developer",
-    "engineering-data-engineer",
-    "engineering-technical-writer",
-]
-
-WORKER_AGENT_TEMPLATE = """---
-name: {name}
-mode: subagent
-model: {model}
-description: {description}
----
-"""
-
 # Ownership stamp shared by every file this script generates and later needs
-# to safely prune as an orphan (skill-command wrappers, specialist opus
-# variants) -- not scoped to skill commands despite the historical name
-# match on LEGACY_SKILL_COMMAND_MARKER below, which genuinely is
-# command-specific (a prior generator's marker, kept only so its old output
-# is still recognized as prunable).
+# to safely prune as an orphan (skill-command wrappers) -- not scoped to
+# skill commands despite the historical name match on
+# LEGACY_SKILL_COMMAND_MARKER below, which genuinely is command-specific (a
+# prior generator's marker, kept only so its old output is still recognized
+# as prunable).
 GENERATED_FILE_MARKER = "<!-- GENERATED BY opencode-sync -- DO NOT EDIT MANUALLY. -->"
 LEGACY_SKILL_COMMAND_MARKER = (
     "<!-- GENERATED BY opencode-skills-commands-sync — DO NOT EDIT MANUALLY. -->"
@@ -432,7 +397,7 @@ def opkg_list_includes_claudefiles() -> bool | None:
 
 
 def uninstall_previous(*, home_override: Path | None = None) -> None:
-    """Best-effort uninstall of the previous claudefiles opkg install. Failures are ignored —
+    """Best-effort uninstall of the previous claudefiles opkg install. Failures are ignored --
     if this fails, the subsequent install still runs; the user reruns on any real problem.
     """
     if home_override is None:
@@ -561,7 +526,7 @@ def process_agent_frontmatter(agents_dir: Path, *, dry_run: bool) -> int:
     rewriter, which runs on body content only for agent files -- so there's
     no reason to pay for three separate read/split/write cycles per file.
 
-    Only lines between the opening pair of `---` markers are touched — body
+    Only lines between the opening pair of `---` markers are touched -- body
     content (which may legitimately contain the word "color", or Claude tier
     names inside skill dispatch prose) is left alone. Preserves trailing
     inline comments on `model:` lines (e.g. `# claude-sonnet-5 as of
@@ -761,7 +726,7 @@ def check_sync_status(claudefiles: Path, state_file: Path) -> bool:
     """Print sync status and return True if the OpenCode install is current.
 
     Current requires both the Claudefiles commit SHA and this script's own
-    hash to match the recorded state — a TIER_MAP edit changes the script's
+    hash to match the recorded state -- a TIER_MAP edit changes the script's
     hash even before it's committed, so hash drift alone is enough to mark
     the install stale (script rewrite section, context.md decision #6).
     """
@@ -791,180 +756,6 @@ def check_sync_status(claudefiles: Path, state_file: Path) -> bool:
         f"current HEAD: {current_sha[:SHA_DISPLAY_LEN]})"
     )
     return False
-
-
-def generate_worker_agents(agents_dir: Path, *, dry_run: bool) -> list[str]:
-    """Generate worker-*.md agent files under agents_dir from TIER_MAP (FR#1).
-
-    Before writing, deletes any existing worker-*.md whose basename doesn't
-    correspond to a current TIER_MAP `worker` value — prevents orphaned worker
-    agents from lingering after a tier rename. In dry-run mode, prints what
-    would be generated/removed without touching the filesystem.
-
-    Returns the list of worker agent names generated.
-    """
-    current_workers = {
-        tier["worker"] for tier in TIER_MAP.values() if tier["worker"] is not None
-    }
-
-    if agents_dir.is_dir():
-        for existing in sorted(agents_dir.glob("worker-*.md")):
-            if existing.stem in current_workers:
-                continue
-            if dry_run:
-                print(f"[dry-run] would remove orphaned worker agent: {existing}")
-            else:
-                existing.unlink()
-
-    generated = []
-    for tier in TIER_MAP.values():
-        worker = tier["worker"]
-        if worker is None:
-            continue
-
-        content = WORKER_AGENT_TEMPLATE.format(
-            name=worker, model=tier["model"], description=tier["worker_description"]
-        )
-        target = agents_dir / f"{worker}.md"
-
-        if dry_run:
-            print(f"[dry-run] would write {target}:\n{content}")
-        else:
-            agents_dir.mkdir(parents=True, exist_ok=True)
-            _atomic_write_text(target, content)
-
-        generated.append(worker)
-
-    return generated
-
-
-def generate_specialist_opus_variants(agents_dir: Path, *, dry_run: bool) -> list[str]:
-    """Generate `<name>-opus.md` variants for SPECIALIST_AGENTS.
-
-    Must run after `process_agent_frontmatter()` (and after opkg has
-    installed the specialist agent files) -- reads each specialist's
-    already-synced, already-frontmatter-processed file and copies its body
-    verbatim into a new file whose `name`/`model`/`variant` frontmatter lines
-    are swapped to the opus tier's values (`TIER_MAP["opus"]`). `variant`
-    must be swapped here, not left to
-    config.json's `agent` map, because OpenCode resolves an agent's own
-    frontmatter ahead of a config.json override of the same name -- copying
-    the specialist's variant verbatim would silently cap reasoning below the
-    opus tier regardless of what config.json says. Every other frontmatter field (`description`,
-    `tools`, etc.) is preserved as-is, so the variant keeps the specialist's
-    full behavior at a stronger model.
-
-    Before writing, removes any existing `<name>-opus.md` that (a) isn't a
-    SPECIALIST_AGENTS entry whose source file currently exists (checked
-    against disk, not just the static list — see `has_source` below) or
-    worker-opus.md (owned by generate_worker_agents, not this function), AND
-    (b) carries GENERATED_FILE_MARKER — the same ownership stamp
-    generate_skill_commands() uses, added to every file this function
-    writes. `*-opus.md` is a generic suffix a user could plausibly reuse for
-    their own hand-authored OpenCode subagent (unlike `worker-*.md`, a
-    prefix namespace this repo exclusively owns), so pattern-matching the
-    name alone isn't enough to prove ownership — the marker check is what
-    makes deletion safe.
-
-    Returns the list of variant names generated (specialist files that
-    weren't found on disk are skipped with a warning, not an error, since a
-    curated-skill sync or a stale SPECIALIST_AGENTS entry can legitimately
-    leave one absent).
-    """
-    worker_names = {
-        tier["worker"] for tier in TIER_MAP.values() if tier["worker"] is not None
-    }
-
-    # Checked against disk up front, not just SPECIALIST_AGENTS membership --
-    # a name can stay listed after its source file disappears (curated sync,
-    # stale entry), and the orphan-cleanup loop below must not keep a stale
-    # prior-sync variant alive forever just because its base name is still in
-    # the list. That variant would never update again (generation below warns
-    # and skips it) and would carry no config.json pin (build_agent_config
-    # only pins the actually-generated list) -- a stale, unpinned, but still
-    # dispatchable-by-name file.
-    has_source = {
-        name for name in SPECIALIST_AGENTS if (agents_dir / f"{name}.md").is_file()
-    }
-
-    if agents_dir.is_dir():
-        for existing in sorted(agents_dir.glob("*-opus.md")):
-            if existing.stem in worker_names:
-                continue
-            base = existing.stem[: -len("-opus")]
-            if base in has_source:
-                continue
-            if GENERATED_FILE_MARKER not in existing.read_text():
-                continue
-            if dry_run:
-                print(
-                    f"[dry-run] would remove orphaned specialist opus variant: {existing}"
-                )
-            else:
-                existing.unlink()
-
-    opus_model = TIER_MAP["opus"]["model"]
-    opus_variant = TIER_MAP["opus"]["variant"]
-    generated = []
-    for name in SPECIALIST_AGENTS:
-        source = agents_dir / f"{name}.md"
-        if name not in has_source:
-            print(
-                f"WARNING: specialist agent {source} not found -- skipping "
-                f"{name}-opus.md (agent not installed, or SPECIALIST_AGENTS is stale)",
-                file=sys.stderr,
-            )
-            continue
-
-        frontmatter, body = _split_frontmatter(source.read_text())
-        if not frontmatter:
-            print(
-                f"WARNING: {source} has no frontmatter -- skipping {name}-opus.md",
-                file=sys.stderr,
-            )
-            continue
-
-        # `variant:`, not `effort:` -- process_agent_frontmatter() has already
-        # rewritten the source specialist's Claude-side `effort:` line by the
-        # time this runs, so the key to override here is the rewritten one.
-        field_overrides = {
-            "name:": f"name: {name}-opus",
-            "model:": f"model: {opus_model}",
-            "variant:": f"variant: {opus_variant}",
-        }
-        fm_lines = frontmatter.splitlines(keepends=True)
-        new_fm_lines = []
-        for line in fm_lines:
-            line_body, eol = _split_eol(line)
-            override = next(
-                (
-                    v
-                    for prefix, v in field_overrides.items()
-                    if line_body.startswith(prefix)
-                ),
-                None,
-            )
-            new_fm_lines.append(f"{override}{eol}" if override is not None else line)
-
-        content = "".join(new_fm_lines) + f"\n{GENERATED_FILE_MARKER}\n" + body
-        target = agents_dir / f"{name}-opus.md"
-
-        if target.is_file() and GENERATED_FILE_MARKER not in target.read_text():
-            print(
-                f"WARNING: {target} exists and isn't owned by opencode-sync -- "
-                f"skipping {name}-opus.md to avoid overwriting a hand-authored file",
-                file=sys.stderr,
-            )
-            continue
-
-        if dry_run:
-            print(f"[dry-run] would write {target}")
-        else:
-            _atomic_write_text(target, content)
-
-        generated.append(f"{name}-opus")
-
-    return generated
 
 
 def generate_skill_commands(config_dir: Path, *, dry_run: bool) -> list[str]:
@@ -1039,44 +830,6 @@ def generate_skill_commands(config_dir: Path, *, dry_run: bool) -> list[str]:
     return generated
 
 
-def build_agent_config(
-    specialist_opus_variants: list[str],
-) -> dict[str, dict[str, str]]:
-    """Build the `agent` mapping of config.json from TIER_MAP and the
-    specialist opus variants that were actually generated.
-
-    Every builtin and worker in TIER_MAP maps to its tier's model and variant
-    (reasoning effort). Both must be set on the same entry: OpenCode only
-    honors an agent's `variant` when the resolved model matches the agent's
-    own configured model (`same` in session/prompt.ts's variant resolution),
-    so a variant without a sibling model pin is silently dropped.
-    `specialist_opus_variants` must be the list generate_specialist_
-    opus_variants() actually returned (not SPECIALIST_AGENTS itself) -- a
-    specialist source file can be legitimately missing at sync time, in
-    which case no `<name>-opus.md` was written, and pinning a config.json
-    entry for a name with no corresponding file on disk would be a dead
-    reference. Pinning all of these at config level (not just frontmatter)
-    guards against the frontmatter-ignored failure mode (issues
-    #17870/#35126).
-    """
-    agent_config: dict[str, dict[str, str]] = {}
-    for tier in TIER_MAP.values():
-        entry = {"model": tier["model"], "variant": tier["variant"]}
-        for builtin in tier["builtins"]:
-            agent_config[builtin] = dict(entry)
-        if tier["worker"] is not None:
-            agent_config[tier["worker"]] = dict(entry)
-
-    opus_entry = {
-        "model": TIER_MAP["opus"]["model"],
-        "variant": TIER_MAP["opus"]["variant"],
-    }
-    for variant_name in specialist_opus_variants:
-        agent_config[variant_name] = dict(opus_entry)
-
-    return agent_config
-
-
 def build_instructions(config_dir: Path) -> list[str]:
     """Build the `instructions` list of config.json: the synced shared rules.
 
@@ -1102,11 +855,9 @@ def build_instructions(config_dir: Path) -> list[str]:
     return [str(config_dir / directory / "*.md") for directory in INSTRUCTION_DIRS]
 
 
-def generate_config(
-    config_dir: Path, *, dry_run: bool, specialist_opus_variants: list[str]
-) -> str:
-    """Generate config.json with model pins, rule instructions, and
-    subagent_depth (FR#2, FR#7).
+def generate_config(config_dir: Path, *, dry_run: bool) -> str:
+    """Generate config.json with rule instructions and subagent_depth
+    (FR#7, FR#17).
 
     Written atomically: temp file in the same directory (keeps the final
     os.replace() on the same filesystem) -> json validation -> existing
@@ -1114,9 +865,17 @@ def generate_config(
     malformed config.json would silently wipe all three global config files
     due to OpenCode's single-fallback error handler in loadGlobal().
 
-    `specialist_opus_variants` is passed through to build_agent_config() --
-    see its docstring for why this must be the actually-generated list, not
-    SPECIALIST_AGENTS itself.
+    Carries no `agent` key (FR#17): OpenCode resolves every agent's model
+    and reasoning variant from that agent's own frontmatter
+    (`process_agent_frontmatter()` writes the provider-qualified `model:`
+    and `variant:` lines), so a config-level pin duplicates what frontmatter
+    already declares. The prior config-level pinning existed to guard
+    against a "frontmatter is ignored" failure mode that turned out to be
+    misattributed -- issues #17870/#35126 describe subagents inheriting the
+    *parent's* active model, not frontmatter being ignored, and #35126 was
+    closed with the maintainer confirming frontmatter is honored through the
+    task tool (design/specs/1008-opencode-named-roles/design.md, Dependencies
+    and Assumptions).
 
     Returns the generated content string, so the caller can hash it
     in-memory (main() persists this as sync_state["config_hash"]) instead of
@@ -1127,7 +886,6 @@ def generate_config(
     """
     config = {
         "$schema": "https://opencode.ai/config.json",
-        "agent": build_agent_config(specialist_opus_variants),
         "instructions": build_instructions(config_dir),
         "subagent_depth": SUBAGENT_DEPTH,
     }
@@ -1147,165 +905,58 @@ def generate_config(
     return content
 
 
-# Claude Code built-in agent types with no OpenCode equivalent name -> lowercase
-# OpenCode built-in they map to. `general-purpose` is handled separately in
-# resolve() because it routes through TIER_MAP (tier-dependent), not a fixed name.
-BUILTIN_CASE_MAP = {
-    "Explore": "explore",
-    "Plan": "plan",
-    "claude": "general",
-    "Bash": "worker-lightweight",
-}
-
-# Matches a `subagent_type:` clause, optionally wrapped in a single matching pair
-# of backtick and/or quote characters: `subagent_type: general-purpose`,
-# subagent_type: "code-reviewer", `subagent_type: "code-reviewer"`. The `type`
-# group is greedy over word/hyphen characters, so a longer identifier that merely
-# starts with a built-in name (`claude-code-guide`) is captured whole and never
-# equals the bare built-in name — word-boundary safety (FR#14) falls out of this
-# for free, no explicit \b needed.
-SUBAGENT_TYPE_RE = re.compile(
-    r"(?P<btopen>`)?"
-    r"subagent_type:\s*"
-    r"(?P<qopen>[\"'])?"
-    r"(?P<type>[A-Za-z][A-Za-z0-9_-]*)"
-    r"(?(qopen)(?P=qopen))"
-    r"(?(btopen)`)"
-)
-
-# Matches a bare Claude Code built-in type name with no `subagent_type:` label
-# at all — Pattern 2's "Launch a `general-purpose` subagent with `model:
-# sonnet`" prose shape, plus the same phrase unwrapped ("Launch a
-# general-purpose subagent...") or wrapped in markdown bold whose closing `**`
-# lands after trailing words ("**general-purpose subagent**") rather than
-# immediately after the type name -- no wrap-symmetry is required, only that
-# whatever precedes/follows isn't a word or hyphen character, so it isolates
-# just the type word either way. Deliberately restricted to the four known
-# literal names (not open to arbitrary quoted words) so it can't misfire on
-# unrelated text. The lookaround boundaries (rather than `\b`) are what make
-# FR#14 hold: `\b` treats `-` as a boundary, so a naive `\bclaude\b` would
-# match the "claude" prefix of "claude-code-guide"; `(?<![\w-])`/`(?![\w-])`
-# correctly treat the hyphen as part of the word, requiring the whole
-# compound to equal one of the four literal names exactly.
-BARE_BUILTIN_RE = re.compile(
-    r"(?<![\w-])(?P<type>general-purpose|Explore|Plan|claude)(?![\w-])"
-)
-
-# Matches a `model:` clause naming a Claude tier, tolerant of: backticks around
-# the whole clause (`model: sonnet`), backticks around just the tier value
-# (model: `sonnet`), markdown bold around the word itself (**Model**: sonnet,
-# the bold-label dispatch shape used by e.g. **Agent type**: X / **Model**: Y),
-# and case (Model:, MODEL:). Without this tolerance, a bold-labeled or
-# value-only-backticked `model:` clause is invisible to this check -- for a
-# *named* (non-general-purpose) agent, that clause would leak through to
-# synced OpenCode output completely unflagged, since the catch-all literal
-# `general-purpose` check has nothing to catch in that case.
-MODEL_RE = re.compile(
-    r"(?P<btopen>`)?"
-    r"(?:\*\*)?model(?:\*\*)?:\s*"
-    r"(?P<vbtopen>`)?"
-    r"(?P<qopen>[\"'])?"
-    r"(?P<tier>sonnet|haiku|opus)\b"
-    r"(?(qopen)(?P=qopen))"
-    r"(?(vbtopen)`)"
-    r"(?(btopen)`)",
-    re.IGNORECASE,
-)
-
-# Matches a line that consists of *only* a `model:` clause (plus optional list/
-# blockquote leader and surrounding whitespace) — used to detect the adjacent-
-# line pairing shape where `subagent_type:` and `model:` sit on separate lines,
-# e.g. a YAML-ish `Agent:` block or a two-bullet list. Same tolerance as
-# MODEL_RE (see above).
-STANDALONE_MODEL_RE = re.compile(
-    r"^(?P<lead>[\s>*-]*)"
-    r"(?P<btopen>`)?(?:\*\*)?model(?:\*\*)?:\s*"
-    r"(?P<vbtopen>`)?(?P<qopen>[\"'])?(?P<tier>sonnet|haiku|opus)\b"
-    r"(?(qopen)(?P=qopen))(?(vbtopen)`)(?(btopen)`)"
-    r"\s*$",
-    re.IGNORECASE,
-)
-
-# Matches `--agent-type <type>` with an optional trailing `--model <tier>` (the
-# cfl dispatch CLI shape, Pattern 5).
-CLI_DISPATCH_RE = re.compile(
-    r"--agent-type\s+(?P<type>[A-Za-z][A-Za-z0-9_-]*)"
-    r"(?:\s+--model\s+(?P<tier>sonnet|haiku|opus)\b)?"
-)
-
 # Matches a Claude tier name anchored at the start of a frontmatter `model:`
 # line, capturing any trailing content (typically an inline `# ...` comment) so
 # process_agent_frontmatter() can preserve it.
 FRONTMATTER_MODEL_RE = re.compile(r"^model:\s*(sonnet|haiku|opus)\b(.*)$")
 
-# Lint-only patterns (FR#11) for unsupported platform semantics — warnings,
-# not errors, since OpenCode simply can't honor these rather than the source
-# being wrong. Not shared with the rewriter, which has no reason to touch
-# either construct.
+# Lint-only patterns for unsupported platform semantics -- warnings, not
+# errors, since OpenCode simply can't honor these rather than the source
+# being wrong.
 ISOLATION_WORKTREE_RE = re.compile(r"""isolation:\s*["']worktree["']""")
 RUN_IN_BACKGROUND_RE = re.compile(r"run_in_background")
 
-# Explicit per-line suppression for the lint's blunt literal-`general-purpose`
-# check, which can't distinguish an unrewritten dispatch (a real gap) from
-# ordinary prose that legitimately names the identifier (a routing table
-# value, a cautionary note) -- rewording the latter to dodge the check would
-# make the documentation factually wrong (a reader following it would type
-# the wrong subagent_type). A source author adds this marker on the same
-# line, once, to record "this occurrence was checked and is intentional" --
-# greppable (`grep -rn 'opencode-sync: ok'`) rather than silently accepted.
-LINT_SUPPRESS_RE = re.compile(r"<!--\s*opencode-sync:\s*ok\s*-->")
+# Matches a `subagent_type:` clause naming the dispatched agent, optionally
+# wrapped in a single matching pair of backtick and/or quote characters:
+# `subagent_type: code-reviewer`, subagent_type: "code-reviewer". Used by
+# check_source_dispatch_patterns() (FR#18) to verify every dispatched name
+# has a file in agents/ -- unlike the dispatch-translation regexes this
+# replaces, there is no model-tier pairing logic here, because a dispatch no
+# longer carries one.
+DISPATCH_NAME_RE = re.compile(
+    r"(?P<btopen>`)?"
+    r"subagent_type:\s*"
+    r"(?P<qopen>[\"'])?"
+    r"(?P<name>[A-Za-z][A-Za-z0-9_-]*)"
+    r"(?(qopen)(?P=qopen))"
+    r"(?(btopen)`)"
+)
 
+# Matches the `cfl dispatch <role> --agent-type <name>` telemetry-form
+# dispatch shape -- the second of the three dispatch shapes named in this
+# migration's design as in-scope for FR#18's validity gate (the third,
+# bare-prose mentions with no `subagent_type:` or `--agent-type` literal, is
+# a documented, permanent gap -- see design.md's Dependencies and
+# Assumptions). Unlike `DISPATCH_NAME_RE`, `--agent-type` is unambiguously a
+# dispatch (no prose-vs-mention disambiguation problem), so no backtick/quote
+# wrapping needs to be tolerated.
+DISPATCH_AGENT_TYPE_FLAG_RE = re.compile(
+    r"--agent-type\s+(?P<name>[A-Za-z][A-Za-z0-9_-]*)"
+)
 
-def resolve(agent_type: str, model_tier: str | None) -> tuple[str, str | None] | None:
-    """Route a (subagent_type, model tier) dispatch pair to its OpenCode equivalent.
-
-    The single shared routing decision point for both rewrite passes (prose and
-    CLI) — the dispatch rewriter changes `subagent_type`, not just `model` text
-    (context.md Key Decision #3).
-
-    Returns `(new_agent_type, new_model)` where `new_model` is always `None`
-    (OpenCode's Task tool has no per-call model parameter, so the model clause
-    is always dropped). Returns bare `None` when `agent_type` is `general-purpose`
-    and its tier has no worker mapping — every current tier has one, but a
-    future tier added without a worker would hit this path. Callers leave the
-    original text untouched so the T04 lint can flag it as a residual pattern
-    instead of it silently becoming a dangling `general` dispatch.
-
-    An explicit `opus` tier always wins, regardless of `agent_type` —
-    OpenCode has no per-call model override, so a named agent can't be
-    re-dispatched at a stronger model on its own frontmatter. A
-    SPECIALIST_AGENTS type routes to its own `<name>-opus` variant (generated
-    by generate_specialist_opus_variants()), preserving that specialist's
-    full prompt at the opus tier. Any other `agent_type` (`general-purpose`,
-    a Claude built-in, or a named agent outside SPECIALIST_AGENTS) routes to
-    the generic `worker-opus` — the only way to actually reach Sol for an
-    escalated retry (mine-orchestrate's "Try again with stronger model")
-    when there's no dedicated variant to preserve.
-    """
-    if model_tier == "opus":
-        if agent_type in SPECIALIST_AGENTS:
-            return (f"{agent_type}-opus", None)
-        tier_entry = TIER_MAP["opus"]
-        if tier_entry["worker"] is None:
-            return None
-        return (tier_entry["worker"], None)
-
-    if agent_type == "general-purpose":
-        tier = model_tier if model_tier is not None else "sonnet"  # FR#15 default
-        tier_entry = TIER_MAP.get(tier)
-        if tier_entry is None or tier_entry["worker"] is None:
-            return None
-        return (tier_entry["worker"], None)
-
-    if agent_type in BUILTIN_CASE_MAP:
-        return (BUILTIN_CASE_MAP[agent_type], None)
-
-    return (agent_type, None)
+# Matches a residual `model:` clause naming a Claude tier at a dispatch site
+# (FR#2's invariant, checked at commit time by check_source_dispatch_patterns()
+# rather than left to AC#2's external grep alone). Model tier belongs in the
+# agent's own frontmatter now, not the call site.
+DISPATCH_MODEL_CLAUSE_RE = re.compile(
+    r"(?:\*\*)?model(?:\*\*)?:\s*[`\"']?(sonnet|haiku|opus)\b", re.IGNORECASE
+)
 
 
 def _split_eol(line: str) -> tuple[str, str]:
     """Split a line (as produced by splitlines(keepends=True)) into its body and
-    line-ending suffix, so the ending can be preserved through regex rewrites.
+    line-ending suffix, so the ending can be preserved through in-place
+    frontmatter rewrites (see process_agent_frontmatter()).
     """
     for eol in ("\r\n", "\n", "\r"):
         if line.endswith(eol):
@@ -1313,198 +964,16 @@ def _split_eol(line: str) -> tuple[str, str]:
     return line, ""
 
 
-def _apply_edits(text: str, edits: list[tuple[int, int, str]]) -> str:
-    """Apply non-overlapping (start, end, replacement) spans to text in one pass."""
-    for start, end, replacement in sorted(edits, key=lambda e: e[0], reverse=True):
-        text = text[:start] + replacement + text[end:]
-    return text
-
-
-def _removal_span_for_model(line: str, model_match: re.Match) -> tuple[int, int]:
-    """Extend a `model:` clause's match span to also swallow whatever connects it
-    to the neighboring `subagent_type:` reference, so removing it doesn't leave a
-    dangling separator behind. Tries, in order: a preceding `, `, a preceding
-    ` with ` (the common "subagent with `model: sonnet`" prose connector), a
-    following `, `. Falls back to the bare clause span if none apply.
-    """
-    start, end = model_match.span()
-    pre_comma = re.search(r",\s*$", line[:start])
-    if pre_comma:
-        return pre_comma.start(), end
-    pre_with = re.search(r"\s+with\s+$", line[:start])
-    if pre_with:
-        return pre_with.start(), end
-    post_comma = re.match(r"\s*,\s*", line[end:])
-    if post_comma:
-        return start, end + post_comma.end()
-    return start, end
-
-
-def _rewrite_line(line: str) -> str:
-    """Rewrite every `subagent_type:`/bare-builtin dispatch reference on a single
-    line, pairing at most one with a same-line `model:` clause. Bare builtin
-    mentions (Pattern 2, no `subagent_type:` label) are only rewritten when
-    paired with a model clause — unpaired, they're ordinary prose mentions and
-    are left for the T04 lint to flag. When a `model:` clause is present but a
-    given type match isn't the one paired with it (e.g. a second mention of the
-    same dispatch earlier on the line), that match is also left unrewritten
-    rather than guessing which mention the model clause belongs to.
-    """
-    subagent_matches = list(SUBAGENT_TYPE_RE.finditer(line))
-    # BARE_BUILTIN_RE has no `subagent_type:` anchor, so it also matches the type
-    # word inside a SUBAGENT_TYPE_RE match (e.g. the "general-purpose" in
-    # "subagent_type: general-purpose"). Drop any bare match already covered by
-    # a subagent_type match to avoid processing the same token twice.
-    bare_matches = [
-        m
-        for m in BARE_BUILTIN_RE.finditer(line)
-        if not any(
-            sm.start() <= m.start() and m.end() <= sm.end() for sm in subagent_matches
-        )
-    ]
-    type_matches = sorted(
-        [*subagent_matches, *bare_matches],
-        key=lambda m: m.start(),
-    )
-    if not type_matches:
-        return line
-
-    model_match = MODEL_RE.search(line)
-    paired_match = None
-    if model_match is not None:
-        preceding = [m for m in type_matches if m.end() <= model_match.start()]
-        paired_match = preceding[-1] if preceding else type_matches[-1]
-
-    edits: list[tuple[int, int, str]] = []
-    paired_resolved = False
-    for m in type_matches:
-        is_paired = model_match is not None and m is paired_match
-        if not is_paired and (m.re is BARE_BUILTIN_RE or model_match is not None):
-            # Unpaired bare mention (ordinary prose), or a labeled mention that
-            # lost the pairing to another match on the same line -- leave both
-            # as-is rather than applying the FR#15 default to a mention that
-            # actually has a model clause elsewhere on the line.
-            continue
-
-        result = resolve(
-            m.group("type"), model_match.group("tier") if is_paired else None
-        )
-        if result is None:
-            continue
-        new_type, _ = result
-        if is_paired:
-            paired_resolved = True
-        if new_type != m.group("type"):
-            edits.append((m.start("type"), m.end("type"), new_type))
-
-    if model_match is not None and paired_resolved:
-        edits.append((*_removal_span_for_model(line, model_match), ""))
-
-    return _apply_edits(line, edits)
-
-
-def rewrite_dispatches_prose(content: str) -> str:
-    """Pass 1: rewrite Patterns 1-4 and Cases 6-7 (prose and YAML-ish dispatch
-    shapes). Handles same-line pairing via _rewrite_line() and the adjacent-line
-    pairing shape (`subagent_type:` / `model:` on consecutive lines) by peeking
-    one line ahead and, on a match, dropping the model-only line entirely.
-
-    Adjacent-line pairing is forward-only: it only recognizes a `subagent_type:`
-    line followed by a standalone `model:` line, not the reverse order. A
-    `model:` line preceding `subagent_type:` is left untouched and the
-    `subagent_type:` line falls back to the FR#15 default tier.
-    """
-    lines = content.splitlines(keepends=True)
-    out: list[str] = []
-    i = 0
-    n = len(lines)
-    while i < n:
-        line = lines[i]
-        body, eol = _split_eol(line)
-
-        type_matches = list(SUBAGENT_TYPE_RE.finditer(body))
-        if type_matches and MODEL_RE.search(body) is None and i + 1 < n:
-            next_body, _next_eol = _split_eol(lines[i + 1])
-            standalone = STANDALONE_MODEL_RE.match(next_body)
-            if standalone is not None:
-                target = type_matches[-1]
-                result = resolve(target.group("type"), standalone.group("tier"))
-                if result is None:
-                    # Leave both lines untouched -- don't fall through to
-                    # _rewrite_line() below, which would treat this as a bare
-                    # dispatch (no model on this line) and apply the FR#15
-                    # default instead of respecting the unmapped tier.
-                    out.append(line)
-                    out.append(lines[i + 1])
-                    i += 2
-                    continue
-                new_type, _ = result
-                new_body = body
-                if new_type != target.group("type"):
-                    new_body = _apply_edits(
-                        body, [(target.start("type"), target.end("type"), new_type)]
-                    )
-                out.append(new_body + eol)
-                i += 2  # drop the standalone model-only line
-                continue
-
-        out.append(_rewrite_line(body) + eol)
-        i += 1
-
-    return "".join(out)
-
-
-def rewrite_dispatches_cli(content: str) -> str:
-    """Pass 2: rewrite `--agent-type <type> [--model <tier>]` (Pattern 5, the
-    `cfl dispatch` CLI shape), including the bare `--agent-type general-purpose`
-    dispatch with no `--model` flag at all (FR#15).
-    """
-
-    def _sub(m: re.Match) -> str:
-        result = resolve(m.group("type"), m.group("tier"))
-        if result is None:
-            return m.group(0)
-        new_type, _ = result
-        return f"--agent-type {new_type}"
-
-    return CLI_DISPATCH_RE.sub(_sub, content)
-
-
-def _rewrite_dispatch_file(
-    md_file: Path, dry_run: bool, *, split_frontmatter: bool
-) -> int:
-    """Apply both dispatch rewrite passes to one file's body content (frontmatter
-    excluded when split_frontmatter is set, for agent files). Returns 1 if the
-    file changed (or would change, in dry-run mode), else 0.
-    """
-    original = md_file.read_text()
-    frontmatter, body = (
-        _split_frontmatter(original) if split_frontmatter else ("", original)
-    )
-
-    new_body = rewrite_dispatches_cli(rewrite_dispatches_prose(body))
-    new_content = frontmatter + new_body
-    if new_content == original:
-        return 0
-
-    if dry_run:
-        print(f"[dry-run] would rewrite dispatches in {md_file}")
-    else:
-        _atomic_write_text(md_file, new_content)
-    return 1
-
-
 def _walk_synced_md_files(config_dir: Path) -> Iterator[tuple[Path, bool]]:
-    """Enumerate every synced skill, command, and agent `.md` file, in the
-    fixed walk order the dispatch rewriter and the lint both depend on:
-    `skills/` and `commands/` (recursive, whole file) first, then `agents/`
-    (top-level only, frontmatter split out).
+    """Enumerate every synced skill, command, and agent `.md` file, in a
+    fixed walk order: `skills/` and `commands/` (recursive, whole file)
+    first, then `agents/` (top-level only, frontmatter split out).
 
-    Yields `(path, split_frontmatter)` — the single source of truth for
-    "which files, which subset counts as frontmatter." `rewrite_all_dispatches`
-    and `_lint_targets` both build on this instead of each independently
-    encoding the same three-branch walk, which is exactly the class of bug
-    T03 needed two rounds of fixes to eliminate.
+    Yields `(path, split_frontmatter)` -- the single source of truth for
+    "which files, which subset counts as frontmatter." `_lint_targets()`
+    builds on this rather than independently encoding the same three-branch
+    walk, which is exactly the class of bug a prior dispatch-rewriter/lint
+    split needed two rounds of fixes to eliminate.
     """
     for subdir_name in ("skills", "commands"):
         subdir = config_dir / subdir_name
@@ -1519,34 +988,15 @@ def _walk_synced_md_files(config_dir: Path) -> Iterator[tuple[Path, bool]]:
             yield md_file, True
 
 
-def rewrite_all_dispatches(config_dir: Path, *, dry_run: bool) -> int:
-    """Apply the dispatch rewriter to every synced skill, command, and agent
-    file. Skill and command files are rewritten whole; agent files have their
-    frontmatter excluded (body content only — the model remap is a separate
-    pass over agent frontmatter).
-
-    Returns the number of files modified (or that would be modified, in
-    dry-run mode).
-    """
-    modified = 0
-    for md_file, split_frontmatter in _walk_synced_md_files(config_dir):
-        modified += _rewrite_dispatch_file(
-            md_file, dry_run, split_frontmatter=split_frontmatter
-        )
-    return modified
-
-
 def _lint_targets(config_dir: Path) -> list[tuple[Path, str, int]]:
     """Enumerate (file_path, content, line_offset) targets for run_lint().
 
-    Walks the same file set as rewrite_all_dispatches() via
-    _walk_synced_md_files(): skill and command files are scanned whole
-    (their frontmatter has no model fields to false-positive on); agent
-    files have frontmatter excluded (it contains remapped provider-qualified
-    model IDs, which would false-positive on the residual-tier-name check).
-    line_offset is the number of lines excluded from the front of the file,
-    so callers can report line numbers that match the file on disk rather
-    than the truncated body.
+    Walks the file set via _walk_synced_md_files(): skill and command files
+    are scanned whole; agent files have frontmatter excluded (it contains
+    remapped provider-qualified model IDs, which have no bearing on the
+    warnings _lint_content() looks for). line_offset is the number of lines
+    excluded from the front of the file, so callers can report line numbers
+    that match the file on disk rather than the truncated body.
     """
     targets: list[tuple[Path, str, int]] = []
     for md_file, split_frontmatter in _walk_synced_md_files(config_dir):
@@ -1563,82 +1013,23 @@ def _lint_content(
     path: Path,
     content: str,
     line_offset: int,
-    errors: list[str],
     warnings: list[str],
 ) -> None:
-    """Scan one file's content for lint findings (FR#6, FR#11), appending
-    "path:line: description" entries to errors/warnings in place.
+    """Scan one file's content for unsupported-platform-semantics warnings,
+    appending "path:line: description" entries to `warnings` in place
+    (FR#22).
 
-    Reuses the dispatch rewriter's own pattern constants (SUBAGENT_TYPE_RE,
-    BARE_BUILTIN_RE, MODEL_RE, STANDALONE_MODEL_RE, CLI_DISPATCH_RE) rather
-    than redefining matching regexes, so the lint's notion of "a residual
-    dispatch" can't drift from what the rewriter actually rewrites
-    (context.md decision #6 / design "Key Constraints").
-
-    A line containing LINT_SUPPRESS_RE is skipped entirely (no errors or
-    warnings), for acknowledged prose false positives.
+    The dispatch-residue error checks this function used to run are gone:
+    with no rewriter, there is nothing for "a residual dispatch" to mean --
+    every dispatch site names a real agent at the source (checked at commit
+    time by check_source_dispatch_patterns() instead). What is left is
+    purely informational: constructs OpenCode can't honor at all, which no
+    amount of correct dispatch syntax fixes.
     """
     lines = content.splitlines()
 
     for i, line in enumerate(lines):
-        if LINT_SUPPRESS_RE.search(line):
-            continue
-
         lineno = i + 1 + line_offset
-        next_line = lines[i + 1] if i + 1 < len(lines) else None
-        paired_with_model = MODEL_RE.search(line) is not None or (
-            next_line is not None and STANDALONE_MODEL_RE.match(next_line) is not None
-        )
-
-        subagent_matches = [
-            m
-            for m in SUBAGENT_TYPE_RE.finditer(line)
-            if m.group("type") == "general-purpose"
-        ]
-        if subagent_matches and paired_with_model:
-            errors.append(
-                f"{path}:{lineno}: residual `subagent_type: general-purpose` "
-                "paired with `model:`"
-            )
-
-        for match in SUBAGENT_TYPE_RE.finditer(line):
-            if match.group("type") in BUILTIN_CASE_MAP:
-                errors.append(
-                    f"{path}:{lineno}: residual Claude built-in "
-                    f"`subagent_type: {match.group('type')}`"
-                )
-
-        # BARE_BUILTIN_RE also matches the type word inside a SUBAGENT_TYPE_RE
-        # match (e.g. the "general-purpose" in "subagent_type: general-purpose")
-        # -- drop matches already covered above so the same token isn't
-        # reported by both checks.
-        bare_matches = [
-            m
-            for m in BARE_BUILTIN_RE.finditer(line)
-            if m.group("type") == "general-purpose"
-            and not any(
-                sm.start() <= m.start() and m.end() <= sm.end()
-                for sm in subagent_matches
-            )
-        ]
-        if bare_matches and paired_with_model:
-            errors.append(
-                f"{path}:{lineno}: residual backtick-quoted `general-purpose` "
-                "paired with `model:`"
-            )
-
-        for m in CLI_DISPATCH_RE.finditer(line):
-            if m.group("type") == "general-purpose" and m.group("tier") is not None:
-                errors.append(
-                    f"{path}:{lineno}: residual `--agent-type general-purpose "
-                    f"--model {m.group('tier')}`"
-                )
-
-        for m in MODEL_RE.finditer(line):
-            errors.append(f"{path}:{lineno}: residual `model: {m.group('tier')}`")
-
-        if "general-purpose" in line:
-            errors.append(f"{path}:{lineno}: literal `general-purpose`")
 
         if ISOLATION_WORKTREE_RE.search(line):
             warnings.append(
@@ -1683,62 +1074,28 @@ def check_instruction_globs(config_dir: Path) -> list[str]:
     return errors
 
 
-def _config_json_pins(config_dir: Path) -> dict[str, dict[str, str]]:
-    """Map agent name -> its `variant` and `model` pins from config.json.
-
-    The generated `worker-*.md` files carry their variant here rather than in
-    frontmatter (build_agent_config() writes it), so an agent file with no
-    `variant:` line is only a fault when config.json doesn't cover it either.
-    TIER_MAP builtins (`general`, `plan`, `explore`, `scout`) are pinned in the
-    same config but have no agent file at all, so they never reach the caller's
-    glob loop -- the list comprehension over TIER_MAP.items() covers those.
-    An unreadable config.json yields an empty map: the "declares no variant"
-    errors that follow name the affected agents, which is what a reader needs
-    to look at anyway.
-
-    Both keys are carried, not just the variant: a variant with no sibling
-    model pin is silently dropped (build_agent_config()'s docstring has the
-    mechanism), so the caller needs the model too before it can tell whether a
-    config rescue actually rescues anything.
-    """
-    config_path = config_dir / "config.json"
-    if not config_path.is_file():
-        return {}
-    try:
-        data = json.loads(config_path.read_text())
-    except (OSError, ValueError):
-        return {}
-    agents = data.get("agent")
-    if not isinstance(agents, dict):
-        return {}
-    return {
-        name: {
-            key: entry[key]
-            for key in ("variant", "model")
-            if isinstance(entry.get(key), str)
-        }
-        for name, entry in agents.items()
-        if isinstance(entry, dict)
-    }
-
-
 def check_variant_names(config_dir: Path) -> list[str]:
     """Return an error per `variant` OpenCode would resolve to nothing.
 
-    Checks the three places a variant reaches (or fails to reach) OpenCode:
-    TIER_MAP (which build_agent_config() copies into config.json), the
-    `variant:` lines process_agent_frontmatter() writes into synced agent
-    files, and agents that end up declaring no variant at all in either place.
+    Narrowed to the two places a variant still reaches (or fails to reach)
+    OpenCode after config-level agent pinning was removed (FR#17): TIER_MAP,
+    and the `variant:` lines process_agent_frontmatter() writes into synced
+    agent files. config.json no longer carries an `agent` map to
+    cross-check against, so the helper that used to read it for this check
+    is gone too.
 
-    That last case matters as much as a misspelled one: agent-level variant
-    resolution treats an absent name exactly like an unknown one, dropping the
-    agent to the provider default. An agent that silently loses its variant is
-    the same failure the `effort` -> `variant` fix closed, so checking only for
-    invalid-but-present names would leave the original bug reachable.
+    An agent declaring no variant at all matters as much as a misspelled
+    one: agent-level variant resolution treats an absent name exactly like
+    an unknown one, dropping the agent to the provider default. An agent
+    that silently loses its variant is the same failure the `effort` ->
+    `variant` fix closed (issue #514), so checking only for
+    invalid-but-present names would leave that bug reachable -- this guard
+    stays even though the config-level cross-check it used to also run
+    does not.
 
     A resolvable name is still not enough on its own: a variant with no
-    `model:` pin beside it, in frontmatter or config.json, is dropped just as
-    silently (build_agent_config()'s docstring has the mechanism). The same
+    `model:` pin beside it in frontmatter is dropped just as silently
+    (process_agent_frontmatter()'s docstring has the mechanism). The same
     argument that makes an absent name worth flagging makes a model-less
     variant worth flagging, so _agent_variant_errors() checks for both.
     """
@@ -1753,8 +1110,6 @@ def check_variant_names(config_dir: Path) -> list[str]:
     if not agents_dir.is_dir():
         return errors
 
-    config_pins = _config_json_pins(config_dir)
-
     for md_file in sorted(agents_dir.glob("*.md")):
         frontmatter, _ = _split_frontmatter(md_file.read_text())
         # A frontmatter-less .md in agents/ is not an agent definition -- a
@@ -1764,17 +1119,11 @@ def check_variant_names(config_dir: Path) -> list[str]:
         # claiming to be an agent, failing the blocking pre-commit gate.
         if not frontmatter:
             continue
-        errors.extend(
-            _agent_variant_errors(
-                md_file, frontmatter, config_pins.get(md_file.stem, {})
-            )
-        )
+        errors.extend(_agent_variant_errors(md_file, frontmatter))
     return errors
 
 
-def _agent_variant_errors(
-    md_file: Path, frontmatter: str, pins: dict[str, str]
-) -> list[str]:
+def _agent_variant_errors(md_file: Path, frontmatter: str) -> list[str]:
     """Return every variant fault for one synced agent file.
 
     A name fault and a missing model pin are independent -- neither fix makes
@@ -1789,14 +1138,12 @@ def _agent_variant_errors(
         for line in frontmatter.splitlines()
         if line.startswith("variant:")
     ]
-    pinned = pins.get("variant")
 
-    if not declared and pinned is None:
+    if not declared:
         return [
-            f"{md_file}: declares no `variant:`, and config.json pins none "
-            f"for {md_file.stem!r} either -- the agent runs at the provider "
-            f"default instead of its intended reasoning effort. Expected one "
-            f"of: {sorted(OPENCODE_VARIANTS)}."
+            f"{md_file}: declares no `variant:` -- the agent runs at the "
+            f"provider default instead of its intended reasoning effort. "
+            f"Expected one of: {sorted(OPENCODE_VARIANTS)}."
         ]
 
     errors = [
@@ -1806,43 +1153,34 @@ def _agent_variant_errors(
         for name in declared
         if name not in OPENCODE_VARIANTS
     ]
-    if not declared and pinned not in OPENCODE_VARIANTS:
-        errors.append(
-            f"{md_file}: declares no `variant:`, and config.json pins "
-            f"{pinned!r} for {md_file.stem!r}, which OpenCode does not "
-            f"resolve. Expected one of: {sorted(OPENCODE_VARIANTS)}."
-        )
 
     # Not FRONTMATTER_MODEL_RE: that matches the unrewritten tier names
     # (`sonnet`/`haiku`/`opus`), and by the time a file is linted its model
     # line has already been rewritten to a provider-qualified id. Presence is
     # all that matters here -- whether the id itself resolves is the model
     # registry's question, not this check's.
-    has_model = (
-        any(line.startswith("model:") for line in frontmatter.splitlines())
-        or "model" in pins
-    )
+    has_model = any(line.startswith("model:") for line in frontmatter.splitlines())
     if not has_model:
         errors.append(
-            f"{md_file}: has a variant but no `model:` -- neither its "
-            f"frontmatter nor config.json pins one for {md_file.stem!r}. "
-            f"OpenCode only honors a variant when the agent pins the model it "
-            f"resolves against, so this one is dropped to the provider default."
+            f"{md_file}: has a variant but no `model:` -- OpenCode only "
+            f"honors a variant when the agent's own frontmatter pins the "
+            f"model it resolves against, so this one is dropped to the "
+            f"provider default."
         )
     return errors
 
 
 def run_lint(config_dir: Path) -> tuple[list[str], list[str]]:
-    """Scan synced output under config_dir for residual Claude-only dispatch
-    constructs (errors), rules directories no `instructions` glob covers
-    (errors), and unsupported platform semantics (warnings) — FR#6, FR#11.
-    Returns (errors, warnings); warnings never affect the exit code.
+    """Scan synced output under config_dir for rules directories no
+    `instructions` glob covers (errors), unresolvable agent variants
+    (errors), and unsupported platform semantics (warnings). Returns
+    (errors, warnings); warnings never affect the exit code.
     """
     errors: list[str] = []
     warnings: list[str] = []
 
     for path, content, line_offset in _lint_targets(config_dir):
-        _lint_content(path, content, line_offset, errors, warnings)
+        _lint_content(path, content, line_offset, warnings)
 
     errors.extend(check_instruction_globs(config_dir))
     errors.extend(check_variant_names(config_dir))
@@ -1866,116 +1204,6 @@ def report_lint(errors: list[str], warnings: list[str]) -> int:
 
     print(f"Lint clean: 0 errors, {len(warnings)} warning(s).")
     return 0
-
-
-def _strip_jsonc_comments(text: str) -> str:
-    """Strip `//` line comments and `/* */` block comments from JSONC text,
-    tracking quoted-string context so a `//` or `/*` inside a string value
-    (e.g. the `https://` in `"$schema": "https://opencode.ai/config.json"`)
-    is left alone.
-
-    A naive per-line `line.split("//")[0]` truncation corrupts any URL in a
-    string value into invalid JSON — this walks character by character
-    instead, only treating `//` and `/*` as comment starters when outside a
-    `"..."` string (honoring `\\"` escapes so an escaped quote doesn't end
-    the string early). Newlines inside a stripped block comment are kept in
-    the output so line numbers stay stable for any future line-precision use.
-    """
-    out: list[str] = []
-    in_string = False
-    i = 0
-    n = len(text)
-    while i < n:
-        ch = text[i]
-
-        if in_string:
-            out.append(ch)
-            if ch == "\\" and i + 1 < n:
-                out.append(text[i + 1])
-                i += 2
-                continue
-            if ch == '"':
-                in_string = False
-            i += 1
-            continue
-
-        if ch == '"':
-            in_string = True
-            out.append(ch)
-            i += 1
-            continue
-
-        if ch == "/" and i + 1 < n and text[i + 1] == "/":
-            while i < n and text[i] not in "\r\n":
-                i += 1
-            continue
-
-        if ch == "/" and i + 1 < n and text[i + 1] == "*":
-            i += 2
-            while i < n and not (text[i] == "*" and i + 1 < n and text[i + 1] == "/"):
-                if text[i] in "\r\n":
-                    out.append(text[i])
-                i += 1
-            i += 2
-            continue
-
-        out.append(ch)
-        i += 1
-
-    return "".join(out)
-
-
-def check_collisions(
-    config_dir: Path,
-    generated_keys: set[str],
-    *,
-    verbose: bool = False,
-) -> None:
-    """Warn when opencode.jsonc's `agent` keys shadow generated config.json
-    entries (FR#13) — e.g. the July 30 quick-fix pins the user hasn't
-    cleaned up since config.json started covering the same ground.
-
-    Warns on every sync while a collision exists -- no nagging-suppression
-    state. That state existed purely to silence a warning about a problem
-    the design already frames as a one-time cleanup (design.md FR#13, "the
-    user should remove the `agent` block from opencode.jsonc" after the
-    first sync); persisting it added a 44-line hand-rolled JSONC parser's
-    worth of permanent machinery, an admitted block-comment gap, and the
-    trigger condition for a since-filed state-persistence bug -- for a
-    scenario with no expected ongoing recurrence.
-    """
-    jsonc_path = config_dir / "opencode.jsonc"
-    if not jsonc_path.is_file():
-        return
-
-    try:
-        data = json.loads(_strip_jsonc_comments(jsonc_path.read_text()))
-    except (json.JSONDecodeError, OSError):
-        # A malformed opencode.jsonc is the user's problem to fix, not
-        # something opencode-sync should crash over -- skip this run's
-        # collision check. _strip_jsonc_comments() handles both `//` line
-        # and `/* */` block comments, so landing here means the file has an
-        # actual syntax error (or isn't readable), not an unhandled comment
-        # style.
-        if verbose:
-            print(
-                f"Could not parse {jsonc_path} for collision check "
-                "(invalid JSON/JSONC) -- skipping.",
-                file=sys.stderr,
-            )
-        return
-
-    jsonc_agent_keys = set(data.get("agent") or {}) if isinstance(data, dict) else set()
-    collisions = sorted(jsonc_agent_keys & generated_keys)
-
-    if collisions:
-        print(
-            "WARNING: opencode.jsonc `agent` keys shadow generated config.json "
-            f"entries: {', '.join(collisions)}. config.json now pins these "
-            "models -- remove the corresponding entries from opencode.jsonc's "
-            "`agent` block.",
-            file=sys.stderr,
-        )
 
 
 def handle_foreign_config(
@@ -2022,78 +1250,126 @@ def lint_only() -> int:
 
 
 def check_source_dispatch_patterns(claudefiles: Path) -> tuple[list[str], list[str]]:
-    """Verify the dispatch rewriter's pattern table covers every dispatch
-    shape currently present in this repo's own skills/commands/agents,
-    without a live OpenCode install or opkg/npx.
+    """Verify every dispatch in this repo's own skills/commands/agents names
+    an agent with a file in agents/, and that no dispatch site carries a
+    raw Claude tier `model:` clause (FR#18, FR#21).
+
+    Covers both the `subagent_type:` clause form (DISPATCH_NAME_RE) and the
+    `cfl dispatch ... --agent-type <name>` telemetry form
+    (DISPATCH_AGENT_TYPE_FLAG_RE). Bare-prose mentions of an agent name with
+    neither literal present are not checked -- see design.md's Dependencies
+    and Assumptions for why that shape is a documented, permanent gap rather
+    than an oversight.
+
+    With no dispatch rewriter, this reads source directly instead of
+    staging a scratch tree and rewriting it first -- there is nothing to
+    rewrite, and nothing residual to compare against what a rewriter would
+    have produced. The one thing that still needs a scratch copy is
+    `rules/`: apply_rule_exclusions() mutates the tree it is given (it
+    deletes matched files), so it cannot run against the live source tree
+    without deleting real files. Everything else here only reads.
 
     Returns the same `(errors, warnings)` shape as run_lint() -- both feed
     directly into report_lint() (see lint_only() and check_source() below),
     so a future change to either function's return shape must update both.
-
-    Copies those three directories to a scratch tempdir, runs the same
-    rewrite + frontmatter passes the real sync uses, then lints the
-    transformed output. This is what `--check-source` (a CI-friendly gate;
-    see prek.toml) runs -- it exercises the actual rewriter, not a snapshot
-    of what it's expected to do, so a new dispatch shape that the pattern
-    table doesn't cover fails the gate instead of shipping silently until
-    someone next runs a real sync. `LINT_SUPPRESS_RE`-marked lines (ordinary
-    prose that legitimately names an identifier, not a missed dispatch) are
-    exempted by the lint itself.
+    Warnings always come back empty: the isolation/run_in_background
+    checks that populate them live in _lint_content(), which judges synced
+    OpenCode output, not this repo's own source.
 
     Returns a single synthetic error (not a raised exception, so the caller's
     report_lint() still prints and exits non-zero the normal way) if none of
-    the three directories exist -- silently scanning nothing would otherwise
-    report a false-positive clean pass.
+    skills/, commands/, or agents/ exist -- silently scanning nothing would
+    otherwise report a false-positive clean pass.
     """
-    with tempfile.TemporaryDirectory(
-        prefix="opencode-sync-source-check-"
-    ) as tmpdir_str:
-        scratch = Path(tmpdir_str)
-        found_any = False
-        for subdir_name in ("skills", "commands", "agents"):
-            src = claudefiles / subdir_name
-            if src.is_dir():
-                shutil.copytree(src, scratch / subdir_name)
-                found_any = True
+    warnings: list[str] = []
 
-        if not found_any:
-            return (
-                [
-                    f"No skills/, commands/, or agents/ directory found under {claudefiles}"
-                ],
-                [],
-            )
+    found_any = any(
+        (claudefiles / name).is_dir() for name in ("skills", "commands", "agents")
+    )
+    if not found_any:
+        return (
+            [f"No skills/, commands/, or agents/ directory found under {claudefiles}"],
+            warnings,
+        )
 
-        # `rules/` is not dispatch-linted (_walk_synced_md_files skips it), but
-        # check_instruction_globs() returns nothing at all when `rules/` is
-        # absent -- so without this copy the gate stayed clean no matter how
-        # many rules directories went uncovered, blind to the exact miss it was
-        # added to catch. Not part of found_any: a repo with rules/ but none of
-        # the three dispatch directories still has nothing to check.
-        stale_exclusions: list[str] = []
-        rules_src = claudefiles / "rules"
-        if rules_src.is_dir():
-            shutil.copytree(rules_src, scratch / "rules")
+    agents_dir = claudefiles / "agents"
+    known_agents = (
+        {p.stem for p in agents_dir.glob("*.md")} if agents_dir.is_dir() else set()
+    )
+
+    errors: list[str] = []
+    for subdir_name in ("skills", "commands", "agents"):
+        subdir = claudefiles / subdir_name
+        if not subdir.is_dir():
+            continue
+        for md_file in sorted(subdir.rglob("*.md")):
+            content = md_file.read_text()
+            # An agent file's own frontmatter is FR#7's declaration site, not
+            # a dispatch site -- its `model:` line legitimately names a
+            # Claude tier (agents/researcher.md is the only agent file with
+            # real dispatches, and they live in its body). Exclude
+            # frontmatter here the same way _lint_targets() does for synced
+            # output, or every agent file's own declaration trips the
+            # residual-model-clause check on itself.
+            line_offset = 0
+            if subdir_name == "agents":
+                frontmatter, content = _split_frontmatter(content)
+                line_offset = frontmatter.count("\n")
+            for i, line in enumerate(content.splitlines()):
+                lineno = i + 1 + line_offset
+                for match in DISPATCH_NAME_RE.finditer(line):
+                    name = match.group("name")
+                    if name not in known_agents:
+                        errors.append(
+                            f"{md_file}:{lineno}: dispatch names {name!r}, which "
+                            "has no file in agents/"
+                        )
+                for match in DISPATCH_AGENT_TYPE_FLAG_RE.finditer(line):
+                    name = match.group("name")
+                    if name not in known_agents:
+                        errors.append(
+                            f"{md_file}:{lineno}: --agent-type names {name!r}, "
+                            "which has no file in agents/"
+                        )
+                for match in DISPATCH_MODEL_CLAUSE_RE.finditer(line):
+                    errors.append(
+                        f"{md_file}:{lineno}: residual `model: {match.group(1)}` "
+                        "tier clause at a dispatch site -- model tier belongs in "
+                        "the agent's own frontmatter, not the call site"
+                    )
+
+    # `rules/` is not dispatch-scanned above (the loop only covers
+    # skills/commands/agents), but check_instruction_globs() returns nothing
+    # at all when `rules/` is absent -- so without this copy the gate stayed
+    # clean no matter how many rules directories went uncovered, blind to the
+    # exact miss it was added to catch. Not part of found_any: a repo with
+    # rules/ but none of the three dispatch directories still has nothing to
+    # check above.
+    rules_src = claudefiles / "rules"
+    if rules_src.is_dir():
+        with tempfile.TemporaryDirectory(
+            prefix="opencode-sync-rules-check-"
+        ) as tmpdir_str:
+            scratch_root = Path(tmpdir_str)
+            scratch_rules = scratch_root / "rules"
+            shutil.copytree(rules_src, scratch_rules)
             # Mirror stage_config()'s exclusions, or the gate judges coverage
             # of a tree that never ships.
-            stale_exclusions = apply_rule_exclusions(scratch / "rules")
+            stale_exclusions = apply_rule_exclusions(scratch_rules)
+            errors.extend(
+                f"OPENCODE_EXCLUDED_RULES lists rules/{relative}, which does not "
+                "exist. A renamed or moved rule silently starts syncing to "
+                "OpenCode -- update the entry in bin/opencode-sync."
+                for relative in stale_exclusions
+            )
+            errors.extend(check_instruction_globs(scratch_root))
 
-        rewrite_all_dispatches(scratch, dry_run=False)
-        process_agent_frontmatter(scratch / "agents", dry_run=False)
-
-        errors, warnings = run_lint(scratch)
-        errors.extend(
-            f"OPENCODE_EXCLUDED_RULES lists rules/{relative}, which does not "
-            "exist. A renamed or moved rule silently starts syncing to "
-            "OpenCode -- update the entry in bin/opencode-sync."
-            for relative in stale_exclusions
-        )
-        return errors, warnings
+    return errors, warnings
 
 
 def check_source() -> int:
-    """Entry point for `--check-source` (FR#6 extension): lint the rewriter's
-    coverage of this repo's own dispatch patterns, not a live install.
+    """Entry point for `--check-source`: verify this repo's own dispatch
+    sites resolve, not a live install (FR#18, FR#21).
 
     Uses the repo containing this script file (_script_repo_root()), not
     get_claudefiles_dir() -- the latter is a runtime concept for a real sync
@@ -2107,6 +1383,76 @@ def check_source() -> int:
     if script_root is None:
         die("Unable to determine this script's repo root; refusing to check-source")
     return report_lint(*check_source_dispatch_patterns(Path(script_root)))
+
+
+def find_orphaned_definitions(source: str) -> list[str]:
+    """Return the name of every module-level function or ALL_CAPS constant
+    binding in `source` whose name appears exactly once in the file -- on
+    its own definition line and nowhere else (FR#25).
+
+    Scoped to module-level `def`/`async def` statements and top-level
+    assignments whose single target is an ALL_CAPS name (this repo's
+    constant-naming convention, e.g. `TIER_MAP`, `GENERATED_FILE_MARKER`) --
+    not every assignment, which would also flag ordinary locals; those never
+    reach this loop because only `tree.body` (module-level statements) is
+    walked, not nested function bodies.
+
+    Counts raw substring occurrences of the name across the whole file
+    (including comments and docstrings), not just executable references. A
+    docstring that still mentions a deleted function's name by way of
+    explaining why it was removed will therefore not flag that function as
+    orphaned if the name reappears there -- a deliberate lean towards fewer
+    false positives, since the purpose of this check is catching a helper
+    nobody looked at again, not enforcing that every reference is a live
+    call.
+    """
+    tree = ast.parse(source)
+    names: list[str] = []
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            names.append(node.name)
+        elif isinstance(node, ast.Assign) and len(node.targets) == 1:
+            target = node.targets[0]
+            if isinstance(target, ast.Name) and target.id.isupper():
+                names.append(target.id)
+
+    orphans = []
+    for name in names:
+        if len(re.findall(rf"\b{re.escape(name)}\b", source)) <= 1:
+            orphans.append(name)
+    return orphans
+
+
+def check_orphans(script_path: Path) -> list[str]:
+    """Return every orphaned module-level definition in `script_path`.
+
+    Thin filesystem wrapper around find_orphaned_definitions() so the
+    name-counting logic stays independently testable against synthetic
+    source rather than requiring a real file on disk.
+    """
+    return find_orphaned_definitions(script_path.read_text())
+
+
+def check_orphans_entry() -> int:
+    """Entry point for `--check-orphans`: fail if this script itself
+    contains a stranded module-level definition (FR#25).
+
+    Enumerating each deletion wave's removal targets by hand has repeatedly
+    missed one (see design/specs/1008-opencode-named-roles/design.md,
+    Architecture: "What leaves bin/opencode-sync") -- this replaces that
+    hand-kept list with a mechanism the next deletion wave gets for free.
+    """
+    orphans = check_orphans(Path(__file__).resolve())
+    for name in orphans:
+        print(
+            f"ERROR: {name!r} is defined but never referenced elsewhere in this file",
+            file=sys.stderr,
+        )
+    if orphans:
+        print(f"\n{len(orphans)} orphaned definition(s) found.", file=sys.stderr)
+        return 1
+    print("No orphaned definitions found.")
+    return 0
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -2140,9 +1486,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--check-source",
         action="store_true",
         help=(
-            "Verify the dispatch rewriter covers every pattern in this repo's "
-            "own skills/commands/agents, without a live OpenCode install "
-            "(exit 0=clean, non-zero=uncovered dispatch shape)"
+            "Verify every dispatch in this repo's own skills/commands/agents "
+            "names an agent with a file in agents/, without a live OpenCode "
+            "install (exit 0=clean, non-zero=unresolvable dispatch)"
+        ),
+    )
+    parser.add_argument(
+        "--check-orphans",
+        action="store_true",
+        help=(
+            "Fail if this script contains a module-level def or CONSTANT = "
+            "binding referenced nowhere but its own definition line "
+            "(exit 0=clean, non-zero=orphan found)"
         ),
     )
     return parser.parse_args(argv)
@@ -2161,6 +1516,9 @@ def main() -> int:
 
     if args.check_source:
         return check_source()
+
+    if args.check_orphans:
+        return check_orphans_entry()
 
     check_deps()
 
@@ -2187,7 +1545,7 @@ def main() -> int:
         tmpdir = Path(tmpdir_str)
 
         # Uninstall previous install so deleted skills/agents don't linger as orphans.
-        # If the subsequent install fails, the user reruns — no automatic rollback.
+        # If the subsequent install fails, the user reruns -- no automatic rollback.
         previously_installed = opkg_list_includes_claudefiles()
         if previously_installed is None:
             print(
@@ -2233,49 +1591,22 @@ def main() -> int:
                 staged, dry_run=False, verbose=args.verbose, home_override=preview_home
             )
 
-            dispatch_modified = rewrite_all_dispatches(preview_config, dry_run=True)
-            # Written for real (dry_run=False) into the disposable preview_config
-            # scratch copy, not just reported -- generate_specialist_opus_variants()
-            # below reads these files back off disk, and it must see the
-            # frontmatter-processed content (color stripped, tier name remapped)
-            # a real sync would leave, not the raw pre-processing source. Mirrors
-            # run_opkg(..., home_override=preview_home) above: dry-run accuracy for
-            # a read-dependent downstream step comes from doing the upstream step
-            # for real against scratch, not from skipping it.
             frontmatter_modified = process_agent_frontmatter(
                 preview_config / "agents", dry_run=False
             )
-            generate_worker_agents(preview_config / "agents", dry_run=True)
-            specialist_variants = generate_specialist_opus_variants(
-                preview_config / "agents", dry_run=True
-            )
             generate_skill_commands(preview_config, dry_run=True)
             handle_foreign_config(preview_config, sync_state, dry_run=True)
-            generate_config(
-                preview_config,
-                dry_run=True,
-                specialist_opus_variants=specialist_variants,
-            )
+            generate_config(preview_config, dry_run=True)
         else:
             run_opkg(staged, dry_run=False, verbose=args.verbose)
 
-            dispatch_modified = rewrite_all_dispatches(OPENCODE_CONFIG, dry_run=False)
             frontmatter_modified = process_agent_frontmatter(
-                OPENCODE_CONFIG / "agents", dry_run=False
-            )
-
-            generate_worker_agents(OPENCODE_CONFIG / "agents", dry_run=False)
-            specialist_variants = generate_specialist_opus_variants(
                 OPENCODE_CONFIG / "agents", dry_run=False
             )
             generate_skill_commands(OPENCODE_CONFIG, dry_run=False)
 
             handle_foreign_config(OPENCODE_CONFIG, sync_state, dry_run=False)
-            config_content = generate_config(
-                OPENCODE_CONFIG,
-                dry_run=False,
-                specialist_opus_variants=specialist_variants,
-            )
+            config_content = generate_config(OPENCODE_CONFIG, dry_run=False)
             # Hashed from the in-memory content generate_config() just wrote,
             # not re-read from disk -- a re-read would leave a crash window
             # between write and read where the next invocation's
@@ -2293,19 +1624,9 @@ def main() -> int:
             # mistakes this sync's own output for a foreign/hand-edited file.
             write_sync_state(SYNC_STATE_FILE, sync_state)
 
-        # Stays pointed at the real OPENCODE_CONFIG in both modes -- this is
-        # inspecting the user's actual hand-edited opencode.jsonc for a
-        # real-world warning, not previewing staged content.
-        check_collisions(
-            OPENCODE_CONFIG,
-            set(build_agent_config(specialist_variants)),
-            verbose=args.verbose,
-        )
-
         if args.dry_run:
             print(
-                f"\n[dry-run] Dispatch rewrite: {dispatch_modified} file(s) would "
-                f"change. Frontmatter update (color strip + model remap): "
+                f"\n[dry-run] Frontmatter update (color strip + model remap): "
                 f"{frontmatter_modified} file(s) would change."
             )
             return 0
@@ -2317,8 +1638,7 @@ def main() -> int:
         lint_exit = report_lint(lint_errors, lint_warnings)
         if lint_exit != 0:
             print(
-                "Installed files left in place -- extend the pattern table or "
-                "fix the source file, then re-sync.",
+                "Installed files left in place -- fix the source file, then re-sync.",
                 file=sys.stderr,
             )
             return lint_exit

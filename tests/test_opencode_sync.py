@@ -1,28 +1,25 @@
 """Tests for bin/opencode-sync.
 
-Covers three PR #503 review fixes:
-- `_strip_jsonc_comments()` now strips `/* */` block comments (not just `//`
-  line comments), so `check_collisions()` no longer silently skips the FR#13
-  shadowing warning when opencode.jsonc has a block comment.
-- `stage_config()` creates `rules/common/` before writing the compat rule,
-  instead of raising FileNotFoundError when the source tree lacks it.
-- `run_opkg()` accepts an optional `home_override` that redirects the opkg
-  install to a scratch HOME (via `--cwd` + the `HOME` env var) instead of
-  the real one, and always installs for real (never appends `--dry-run`) in
-  that mode -- this is what lets `--dry-run` preview the staged content
-  instead of scanning stale output from the last real sync.
+Covers a PR #503 review fix (`stage_config()` creates `rules/common/`
+before writing the compat rule, instead of raising FileNotFoundError when
+the source tree lacks it) and a `run_opkg()` behavior: it accepts an
+optional `home_override` that redirects the opkg install to a scratch HOME
+(via `--cwd` + the `HOME` env var) instead of the real one, and always
+installs for real (never appends `--dry-run`) in that mode -- this is what
+lets `--dry-run` preview the staged content instead of scanning stale
+output from the last real sync.
 
-Also covers PR #506 review fixes: `resolve()` routes an opus-tier dispatch
-to `worker-opus` (or a `SPECIALIST_AGENTS` entry's own `<name>-opus` variant)
-regardless of the original `agent_type`; `generate_specialist_opus_variants()`
-generates those variants with the specialist's prompt preserved and safely
-scoped orphan cleanup (`GENERATED_FILE_MARKER`-gated); `build_agent_config()`
-only pins config.json entries for variants actually generated; and
-`SPECIALIST_AGENTS` is cross-checked against `agent-routing.md`'s table.
+Reduced by design/specs/1008-opencode-named-roles (T05): every dispatch now
+names a real agent file directly, so worker generation, opus-variant
+generation, dispatch rewriting, `resolve()` routing, the dispatch-
+translation regexes, and config-level agent pinning (`build_agent_config()`,
+`_config_json_pins()`, `check_collisions()`) all lost their subject and
+their tests went with them. `check_variant_names()` was narrowed rather
+than removed -- see the `test_check_variant_names_*` tests below, most of
+which still apply.
 """
 
 import json
-import re
 import runpy
 from pathlib import Path
 from types import SimpleNamespace
@@ -35,117 +32,6 @@ SCRIPT = REPO_ROOT / "bin" / "opencode-sync"
 
 def _load_script() -> dict:
     return runpy.run_path(str(SCRIPT))
-
-
-def _write_specialist_source(agents_dir: Path, name: str) -> None:
-    """Write a minimal specialist agent file used as generate_specialist_
-    opus_variants()'s input fixture across multiple tests -- kept in one
-    place so a fourth caller doesn't need its own copy of the frontmatter.
-
-    Carries `variant:`, not Claude's `effort:`: process_agent_frontmatter()
-    runs first in the real pipeline and has already rewritten that key by the
-    time generate_specialist_opus_variants() reads the file.
-    """
-    (agents_dir / f"{name}.md").write_text(
-        f"---\nname: {name}\nmodel: openai/gpt-5.6-terra\nvariant: medium\n"
-        "description: A specialist.\n---\n\n# Specialist body\n\nDo the thing.\n"
-    )
-
-
-def test_strip_jsonc_comments_removes_block_comment() -> None:
-    module = _load_script()
-    strip = module["_strip_jsonc_comments"]
-
-    text = '{\n  /* a block comment */\n  "agent": {}\n}\n'
-    stripped = strip(text)
-
-    assert "/*" not in stripped
-    assert "*/" not in stripped
-    assert json.loads(stripped) == {"agent": {}}
-
-
-def test_strip_jsonc_comments_block_comment_with_string_lookalikes_not_corrupted() -> (
-    None
-):
-    """A block comment's own contents (quotes, `//`) must not leak into the
-    parser's string/comment tracking -- and a genuine JSON string containing
-    `//` right after the comment must survive untouched.
-    """
-    module = _load_script()
-    strip = module["_strip_jsonc_comments"]
-
-    text = (
-        "{\n"
-        '  /* see https://example.com and "quoted text" // not a real comment */\n'
-        '  "$schema": "https://opencode.ai/config.json",\n'
-        '  "agent": {"foo": "bar"}\n'
-        "}\n"
-    )
-    stripped = strip(text)
-
-    data = json.loads(stripped)
-    assert data["$schema"] == "https://opencode.ai/config.json"
-    assert data["agent"] == {"foo": "bar"}
-
-
-def test_strip_jsonc_comments_preserves_slash_star_inside_real_string() -> None:
-    """A `/*`/`*/` sequence inside an actual JSON string value (not a
-    comment) must not be treated as a block-comment delimiter.
-    """
-    module = _load_script()
-    strip = module["_strip_jsonc_comments"]
-
-    text = '{"note": "use /* not a comment */ here"}'
-    stripped = strip(text)
-
-    assert json.loads(stripped) == {"note": "use /* not a comment */ here"}
-
-
-def test_check_collisions_warns_when_jsonc_has_block_comment(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """Before the fix, a block comment made json.loads() raise inside
-    check_collisions(), which silently returned in non-verbose mode -- so a
-    real `agent` key collision went unwarned. After the fix the file parses
-    and the FR#13 warning fires.
-    """
-    module = _load_script()
-    check_collisions = module["check_collisions"]
-
-    config_dir = tmp_path / "opencode-config"
-    config_dir.mkdir()
-    (config_dir / "opencode.jsonc").write_text(
-        "{\n"
-        "  /* stale pin from the July 30 quick-fix, never cleaned up */\n"
-        '  "agent": {\n'
-        '    "some-agent": "opencode/some-model"\n'
-        "  }\n"
-        "}\n"
-    )
-
-    check_collisions(config_dir, {"some-agent"}, verbose=False)
-
-    captured = capsys.readouterr()
-    assert "some-agent" in captured.err
-    assert "WARNING" in captured.err
-
-
-def test_check_collisions_no_warning_without_collision(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    module = _load_script()
-    check_collisions = module["check_collisions"]
-
-    config_dir = tmp_path / "opencode-config"
-    config_dir.mkdir()
-    (config_dir / "opencode.jsonc").write_text(
-        '{\n  /* nothing shadowed here */\n  "agent": {}\n}\n'
-    )
-
-    check_collisions(config_dir, {"unrelated-agent"}, verbose=False)
-
-    captured = capsys.readouterr()
-    assert captured.err == ""
 
 
 def test_stage_config_creates_missing_rules_common_dir(tmp_path: Path) -> None:
@@ -363,85 +249,6 @@ def test_generate_skill_commands_skips_duplicate_frontmatter(
     assert "skipping invalid opencode-command frontmatter" in capsys.readouterr().err
 
 
-def test_resolve_general_purpose_opus_routes_to_worker_opus() -> None:
-    module = _load_script()
-    resolve = module["resolve"]
-
-    assert resolve("general-purpose", "opus") == ("worker-opus", None)
-
-
-def test_resolve_specialist_opus_routes_to_own_variant_not_generic_worker() -> None:
-    """An escalated retry ("Try again with stronger model") keeps the same
-    executor `subagent_type` the original dispatch selected -- which may be
-    a SPECIALIST_AGENTS entry (e.g. engineering-backend-developer), not
-    general-purpose. Routing it to the generic worker-opus would reach Sol
-    but silently drop the specialist's own prompt (FastAPI/Pydantic
-    conventions, etc.) -- it must route to its own `<name>-opus` variant
-    instead, which generate_specialist_opus_variants() generates with that
-    prompt preserved.
-    """
-    module = _load_script()
-    resolve = module["resolve"]
-
-    assert resolve("engineering-backend-developer", "opus") == (
-        "engineering-backend-developer-opus",
-        None,
-    )
-
-
-def test_resolve_builtin_opus_routes_to_worker_opus_not_builtin_map() -> None:
-    module = _load_script()
-    resolve = module["resolve"]
-
-    assert resolve("Explore", "opus") == ("worker-opus", None)
-
-
-def test_specialist_agents_matches_agent_routing_table() -> None:
-    """SPECIALIST_AGENTS (bin/opencode-sync) must list exactly the named
-    executor agent types skills/mine-orchestrate/agent-routing.md's routing
-    table can select, minus general-purpose (which routes through TIER_MAP,
-    not SPECIALIST_AGENTS). agent-routing.md's own SYNC CHECKLIST documents
-    updating SPECIALIST_AGENTS as a manual step when adding a specialist --
-    this test is the runtime check backing that instruction, so a specialist
-    added to one list and not the other fails here instead of silently
-    falling back to the generic worker-opus on an escalated retry.
-    """
-    module = _load_script()
-    specialist_agents = set(module["SPECIALIST_AGENTS"])
-
-    routing_table = (
-        REPO_ROOT / "skills" / "mine-orchestrate" / "agent-routing.md"
-    ).read_text()
-    row_re = re.compile(r"^\|.*\|\s*`([a-z][a-z0-9_-]*)`(?:, `model: \w+`)?\s*\|\s*$")
-    routed_types = {
-        match.group(1)
-        for match in (row_re.match(line) for line in routing_table.splitlines())
-        if match is not None
-    }
-    routed_types.discard("general-purpose")
-
-    assert routed_types == specialist_agents
-
-
-def test_build_agent_config_only_includes_actually_generated_variants() -> None:
-    """build_agent_config() must take the actually-generated variant list, not
-    re-derive it from SPECIALIST_AGENTS -- a specialist source file can be
-    legitimately missing at sync time (generate_specialist_opus_variants()
-    warns and skips it), and pinning a config.json entry for a name with no
-    corresponding `<name>-opus.md` on disk would be a dead reference.
-    """
-    module = _load_script()
-    build_agent_config = module["build_agent_config"]
-
-    config = build_agent_config(["engineering-backend-developer-opus"])
-
-    assert config["engineering-backend-developer-opus"] == {
-        "model": module["TIER_MAP"]["opus"]["model"],
-        "variant": module["TIER_MAP"]["opus"]["variant"],
-    }
-    assert "engineering-frontend-developer-opus" not in config
-
-
 def test_generate_config_points_instructions_at_synced_rules(tmp_path: Path) -> None:
     """Rules that opkg puts on disk are inert unless `instructions` names them.
 
@@ -450,12 +257,23 @@ def test_generate_config_points_instructions_at_synced_rules(tmp_path: Path) -> 
     """
     module = _load_script()
 
-    content = module["generate_config"](
-        tmp_path, dry_run=False, specialist_opus_variants=[]
-    )
+    content = module["generate_config"](tmp_path, dry_run=False)
     config = json.loads(content)
 
     assert config["instructions"] == [str(tmp_path / "rules/common/*.md")]
+
+
+def test_generate_config_emits_no_agent_key(tmp_path: Path) -> None:
+    """config.json carries no `agent` key (FR#17, AC#9) -- OpenCode resolves
+    every agent's model and reasoning variant from that agent's own
+    frontmatter, so config-level pinning would only duplicate it.
+    """
+    module = _load_script()
+
+    content = module["generate_config"](tmp_path, dry_run=False)
+    config = json.loads(content)
+
+    assert "agent" not in config
 
 
 def test_build_instructions_never_uses_recursive_glob() -> None:
@@ -659,6 +477,131 @@ def test_check_source_gate_judges_the_tree_that_ships(tmp_path: Path) -> None:
     assert [e for e in errors if "instructions` glob" in e] == []
 
 
+def test_check_source_gate_flags_dispatch_naming_nonexistent_agent(
+    tmp_path: Path,
+) -> None:
+    """FR#18/AC#10: a dispatch naming an agent with no file in agents/ fails
+    the gate -- the reimplemented check's whole job, now that there is no
+    rewriter to translate a stale name into a real one.
+    """
+    module = _load_script()
+
+    claudefiles = tmp_path / "claudefiles"
+    agents = claudefiles / "agents"
+    agents.mkdir(parents=True)
+    (agents / "code-reviewer.md").write_text(
+        "---\nname: code-reviewer\nmodel: x\n---\n\nbody\n"
+    )
+    skills = claudefiles / "skills"
+    skills.mkdir()
+    (skills / "example.md").write_text(
+        "Launch subagent_type: nonexistent-agent for this task.\n"
+    )
+
+    errors, _ = module["check_source_dispatch_patterns"](claudefiles)
+
+    assert any("nonexistent-agent" in e for e in errors)
+
+
+def test_check_source_gate_passes_on_dispatch_naming_real_agent(
+    tmp_path: Path,
+) -> None:
+    """The mirror case: a dispatch naming an agent that does have a file in
+    agents/ raises no error.
+    """
+    module = _load_script()
+
+    claudefiles = tmp_path / "claudefiles"
+    agents = claudefiles / "agents"
+    agents.mkdir(parents=True)
+    (agents / "code-reviewer.md").write_text(
+        "---\nname: code-reviewer\nmodel: x\n---\n\nbody\n"
+    )
+    skills = claudefiles / "skills"
+    skills.mkdir()
+    (skills / "example.md").write_text(
+        "Launch subagent_type: code-reviewer for this task.\n"
+    )
+
+    errors, _ = module["check_source_dispatch_patterns"](claudefiles)
+
+    assert errors == []
+
+
+def test_check_source_gate_flags_agent_type_flag_naming_nonexistent_agent(
+    tmp_path: Path,
+) -> None:
+    """The `cfl dispatch ... --agent-type <name>` telemetry-form dispatch is
+    a distinct shape from `subagent_type:` and was silently unchecked --
+    this shape is unambiguously a dispatch (no prose-vs-mention
+    disambiguation problem), so the gate must catch it too.
+    """
+    module = _load_script()
+
+    claudefiles = tmp_path / "claudefiles"
+    agents = claudefiles / "agents"
+    agents.mkdir(parents=True)
+    (agents / "code-reviewer.md").write_text(
+        "---\nname: code-reviewer\nmodel: x\n---\n\nbody\n"
+    )
+    skills = claudefiles / "skills"
+    skills.mkdir()
+    (skills / "example.md").write_text(
+        "cfl dispatch foo --agent-type nonexistent-agent\n"
+    )
+
+    errors, _ = module["check_source_dispatch_patterns"](claudefiles)
+
+    assert any("nonexistent-agent" in e for e in errors)
+
+
+def test_check_source_gate_passes_on_agent_type_flag_naming_real_agent(
+    tmp_path: Path,
+) -> None:
+    """The mirror case: `--agent-type` naming an agent that does have a file
+    in agents/ raises no error.
+    """
+    module = _load_script()
+
+    claudefiles = tmp_path / "claudefiles"
+    agents = claudefiles / "agents"
+    agents.mkdir(parents=True)
+    (agents / "code-reviewer.md").write_text(
+        "---\nname: code-reviewer\nmodel: x\n---\n\nbody\n"
+    )
+    skills = claudefiles / "skills"
+    skills.mkdir()
+    (skills / "example.md").write_text("cfl dispatch foo --agent-type code-reviewer\n")
+
+    errors, _ = module["check_source_dispatch_patterns"](claudefiles)
+
+    assert errors == []
+
+
+def test_check_source_gate_flags_residual_model_clause(tmp_path: Path) -> None:
+    """FR#18's second half: a raw `model:` tier clause at a dispatch site is
+    also an error -- model tier now lives only in the agent's own
+    frontmatter.
+    """
+    module = _load_script()
+
+    claudefiles = tmp_path / "claudefiles"
+    agents = claudefiles / "agents"
+    agents.mkdir(parents=True)
+    (agents / "code-reviewer.md").write_text(
+        "---\nname: code-reviewer\nmodel: x\n---\n\nbody\n"
+    )
+    skills = claudefiles / "skills"
+    skills.mkdir()
+    (skills / "example.md").write_text(
+        "Launch subagent_type: code-reviewer, model: sonnet for this task.\n"
+    )
+
+    errors, _ = module["check_source_dispatch_patterns"](claudefiles)
+
+    assert any("model: sonnet" in e for e in errors)
+
+
 def test_check_variant_names_flags_unresolvable_agent_variant(
     tmp_path: Path,
 ) -> None:
@@ -725,70 +668,6 @@ def test_check_variant_names_ignores_frontmatter_less_markdown(
     assert module["check_variant_names"](tmp_path) == []
 
 
-def test_check_variant_names_accepts_frontmatter_gap_pinned_by_config_json(
-    tmp_path: Path,
-) -> None:
-    """Worker agents and TIER_MAP builtins carry their variant in config.json,
-    not frontmatter, so the missing-variant check must consult it before
-    failing -- otherwise every sync errors on the workers it just generated.
-    """
-    module = _load_script()
-
-    agents = tmp_path / "agents"
-    agents.mkdir()
-    (agents / "worker-standard.md").write_text("---\nmodel: x\n---\n\nbody\n")
-    (tmp_path / "config.json").write_text(
-        json.dumps({"agent": {"worker-standard": {"model": "x", "variant": "high"}}})
-    )
-
-    assert module["check_variant_names"](tmp_path) == []
-
-
-def test_check_variant_names_flags_unresolvable_config_json_variant(
-    tmp_path: Path,
-) -> None:
-    """A config.json pin is only a rescue when OpenCode can resolve it."""
-    module = _load_script()
-
-    agents = tmp_path / "agents"
-    agents.mkdir()
-    (agents / "worker-standard.md").write_text("---\nmodel: x\n---\n\nbody\n")
-    (tmp_path / "config.json").write_text(
-        json.dumps({"agent": {"worker-standard": {"model": "x", "variant": "turbo"}}})
-    )
-
-    errors = module["check_variant_names"](tmp_path)
-
-    assert len(errors) == 1
-    assert "turbo" in errors[0]
-
-
-def test_check_variant_names_flags_config_variant_with_no_model_pin(
-    tmp_path: Path,
-) -> None:
-    """A config.json variant is a rescue only when a model is pinned beside it.
-
-    OpenCode computes `same = ag.model && ...` and looks the variant up only
-    when that holds, so a variant with no model beside it is dropped to the
-    provider default -- the exact failure this check exists to catch, reached
-    through the rescue path rather than the frontmatter one.
-    """
-    module = _load_script()
-
-    agents = tmp_path / "agents"
-    agents.mkdir()
-    (agents / "worker-standard.md").write_text("---\ndescription: w\n---\n\nbody\n")
-    (tmp_path / "config.json").write_text(
-        json.dumps({"agent": {"worker-standard": {"variant": "high"}}})
-    )
-
-    errors = module["check_variant_names"](tmp_path)
-
-    assert len(errors) == 1
-    assert "worker-standard" in errors[0]
-    assert "`model:`" in errors[0]
-
-
 def test_check_variant_names_flags_frontmatter_variant_with_no_model(
     tmp_path: Path,
 ) -> None:
@@ -834,28 +713,6 @@ def test_check_variant_names_reports_name_and_model_faults_independently(
     assert any("no `model:`" in e for e in errors)
 
 
-def test_check_variant_names_reports_config_name_and_model_faults_together(
-    tmp_path: Path,
-) -> None:
-    """The config-rescue path reports both faults too -- it must not chain
-    them behind an `elif` while the frontmatter path reports both.
-    """
-    module = _load_script()
-
-    agents = tmp_path / "agents"
-    agents.mkdir()
-    (agents / "worker-standard.md").write_text("---\ndescription: w\n---\n\nbody\n")
-    (tmp_path / "config.json").write_text(
-        json.dumps({"agent": {"worker-standard": {"variant": "turbo"}}})
-    )
-
-    errors = module["check_variant_names"](tmp_path)
-
-    assert len(errors) == 2
-    assert any("turbo" in e for e in errors)
-    assert any("no `model:`" in e for e in errors)
-
-
 def test_check_variant_names_missing_variant_does_not_also_flag_model(
     tmp_path: Path,
 ) -> None:
@@ -872,25 +729,6 @@ def test_check_variant_names_missing_variant_does_not_also_flag_model(
 
     assert len(errors) == 1
     assert "no `variant:`" in errors[0]
-
-
-def test_check_variant_names_accepts_model_pinned_only_by_config_json(
-    tmp_path: Path,
-) -> None:
-    """The model may come from either side, so a frontmatter file carrying
-    neither key is clean when config.json pins both -- the model check must not
-    fire on the generated workers it was written to protect.
-    """
-    module = _load_script()
-
-    agents = tmp_path / "agents"
-    agents.mkdir()
-    (agents / "worker-standard.md").write_text("---\ndescription: w\n---\n\nbody\n")
-    (tmp_path / "config.json").write_text(
-        json.dumps({"agent": {"worker-standard": {"model": "x", "variant": "high"}}})
-    )
-
-    assert module["check_variant_names"](tmp_path) == []
 
 
 def test_run_lint_surfaces_variant_errors(tmp_path: Path) -> None:
@@ -923,24 +761,6 @@ def test_tier_map_variants_are_names_opencode_resolves() -> None:
             f"TIER_MAP[{tier_name!r}]['variant'] = {tier['variant']!r} is not a "
             "reasoning-effort name OpenCode accepts"
         )
-
-
-def test_build_agent_config_never_emits_claude_effort_key() -> None:
-    """`effort` is Claude Code's key. OpenCode's AgentConfig has no such
-    field and does not reject unknown ones, so emitting it is a silent no-op
-    that leaves every agent at the provider's default reasoning effort.
-    """
-    module = _load_script()
-
-    config = module["build_agent_config"](["engineering-backend-developer-opus"])
-
-    assert config, "expected at least one pinned agent entry"
-    for name, entry in config.items():
-        assert "effort" not in entry, f"{name} still pins the ignored `effort` key"
-        assert entry["variant"] in module["OPENCODE_VARIANTS"]
-        # A variant only applies when the agent's own model is the resolved
-        # one, so the two must always ship together.
-        assert entry["model"], f"{name} pins a variant with no sibling model"
 
 
 def test_process_agent_frontmatter_rewrites_effort_to_tier_variant(
@@ -1013,194 +833,107 @@ def test_process_agent_frontmatter_drops_unresolvable_effort_with_warning(
     assert "orphan.md" in capsys.readouterr().err
 
 
-def test_generate_specialist_opus_variants_copies_prompt_with_swapped_frontmatter(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    module = _load_script()
-    generate = module["generate_specialist_opus_variants"]
-    specialist_agents = module["SPECIALIST_AGENTS"]
-    generated_file_marker = module["GENERATED_FILE_MARKER"]
-    name = specialist_agents[0]
-
-    agents_dir = tmp_path / "agents"
-    agents_dir.mkdir()
-    _write_specialist_source(agents_dir, name)
-
-    generated = generate(agents_dir, dry_run=False)
-
-    assert generated == [f"{name}-opus"]
-    variant = (agents_dir / f"{name}-opus.md").read_text()
-    assert f"name: {name}-opus" in variant
-    opus_model = module["TIER_MAP"]["opus"]["model"]
-    assert f"model: {opus_model}" in variant
-    # The variant exists to escalate reasoning depth along with the model --
-    # copying the base specialist's `variant: medium` verbatim would silently
-    # cap it below the opus tier's reasoning effort, defeating the escalation.
-    opus_variant = module["TIER_MAP"]["opus"]["variant"]
-    assert f"variant: {opus_variant}" in variant
-    assert "variant: medium" not in variant
-    assert "description: A specialist." in variant
-    assert generated_file_marker in variant
-    assert "# Specialist body" in variant
-    assert "Do the thing." in variant
-
-    warnings = capsys.readouterr().err
-    for missing in specialist_agents[1:]:
-        assert missing in warnings
-
-
-def test_generate_specialist_opus_variants_skips_foreign_file_at_target_path(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """The orphan-cleanup loop already protects a hand-authored `<name>-opus.md`
-    from deletion when its base specialist has no source (see the orphan test
-    below) -- but that protection is separate from the write step. Without an
-    equal ownership check at write time, a hand-authored file that collides by
-    name with a *current* specialist's variant would be silently destroyed on
-    every sync, since the write is otherwise unconditional.
+def test_find_orphaned_definitions_clean_when_helper_is_referenced() -> None:
+    """FR#25/AC#21: a module-level function whose name reappears elsewhere in
+    the file (its caller) is not an orphan.
     """
     module = _load_script()
-    generate = module["generate_specialist_opus_variants"]
-    specialist_agents = module["SPECIALIST_AGENTS"]
-    name = specialist_agents[0]
+    find_orphaned = module["find_orphaned_definitions"]
 
-    agents_dir = tmp_path / "agents"
-    agents_dir.mkdir()
-    _write_specialist_source(agents_dir, name)
-    foreign_content = "---\nname: hand-authored\n---\nA user's own subagent.\n"
-    (agents_dir / f"{name}-opus.md").write_text(foreign_content)
+    # `run` is referenced by the `__main__` epilogue, same as the real
+    # script's own `def main(): ...` / `sys.exit(main())` pattern -- without
+    # it, `run` itself would appear on only its own definition line and get
+    # flagged too, which would defeat the point of this "clean" case.
+    source = (
+        "def helper():\n"
+        "    return 1\n"
+        "\n"
+        "\n"
+        "def run():\n"
+        "    return helper()\n"
+        "\n"
+        "\n"
+        'if __name__ == "__main__":\n'
+        "    run()\n"
+    )
 
-    generated = generate(agents_dir, dry_run=False)
-
-    assert generated == []
-    assert (agents_dir / f"{name}-opus.md").read_text() == foreign_content
-    warnings = capsys.readouterr().err
-    assert f"{name}-opus.md" in warnings
-    assert "hand-authored" in warnings.lower()
+    assert find_orphaned(source) == []
 
 
-def test_generate_specialist_opus_variants_overwrites_own_prior_variant(
-    tmp_path: Path,
-) -> None:
-    """A file the function itself generated on a prior sync (marked with
-    GENERATED_FILE_MARKER) must still be refreshed on the next sync -- the
-    write-time ownership check must not block legitimate regeneration.
+def test_find_orphaned_definitions_flags_stranded_helper() -> None:
+    """AC#21's second scenario: removing a function but not its private
+    helper leaves the helper referenced nowhere but its own definition line
+    -- the exact shape this check exists to catch.
     """
     module = _load_script()
-    generate = module["generate_specialist_opus_variants"]
-    specialist_agents = module["SPECIALIST_AGENTS"]
-    generated_file_marker = module["GENERATED_FILE_MARKER"]
-    name = specialist_agents[0]
+    find_orphaned = module["find_orphaned_definitions"]
 
-    agents_dir = tmp_path / "agents"
-    agents_dir.mkdir()
-    _write_specialist_source(agents_dir, name)
-    (agents_dir / f"{name}-opus.md").write_text(
-        f"---\nname: {name}-opus\n---\n{generated_file_marker}\nStale prompt.\n"
+    source = (
+        "def _stranded_helper():\n"
+        "    return 1\n"
+        "\n"
+        "\n"
+        "def run():\n"
+        "    return 2\n"
+        "\n"
+        "\n"
+        'if __name__ == "__main__":\n'
+        "    run()\n"
     )
 
-    generated = generate(agents_dir, dry_run=False)
-
-    assert generated == [f"{name}-opus"]
-    variant = (agents_dir / f"{name}-opus.md").read_text()
-    assert "Stale prompt." not in variant
-    assert "# Specialist body" in variant
+    assert find_orphaned(source) == ["_stranded_helper"]
 
 
-def test_generate_specialist_opus_variants_removes_own_orphan_but_not_foreign_file(
-    tmp_path: Path,
-) -> None:
-    """Orphan cleanup must only remove `*-opus.md` files this function itself
-    wrote (marked with GENERATED_FILE_MARKER) -- `*-opus.md` is a generic
-    suffix a user could plausibly reuse for their own hand-authored OpenCode
-    subagent, unlike `worker-*.md` (a prefix namespace this repo exclusively
-    owns). Pattern-matching the name alone, with no ownership check, would
-    silently delete a file this function never wrote.
+def test_find_orphaned_definitions_flags_unreferenced_constant() -> None:
+    """The check also covers ALL_CAPS module-level constant bindings, not
+    just function defs.
     """
     module = _load_script()
-    generate = module["generate_specialist_opus_variants"]
-    generated_file_marker = module["GENERATED_FILE_MARKER"]
+    find_orphaned = module["find_orphaned_definitions"]
 
-    agents_dir = tmp_path / "agents"
-    agents_dir.mkdir()
-    (agents_dir / "worker-opus.md").write_text("---\nname: worker-opus\n---\n")
-    (agents_dir / "foreign-hand-authored-opus.md").write_text(
-        "---\nname: foreign-hand-authored-opus\n---\nA user's own subagent.\n"
+    source = (
+        'UNUSED_CONSTANT = "x"\n'
+        "\n"
+        "\n"
+        "def run():\n"
+        "    return 1\n"
+        "\n"
+        "\n"
+        'if __name__ == "__main__":\n'
+        "    run()\n"
     )
-    (agents_dir / "renamed-specialist-opus.md").write_text(
-        f"---\nname: renamed-specialist-opus\n---\n{generated_file_marker}\n"
-    )
 
-    generate(agents_dir, dry_run=False)
-
-    assert (agents_dir / "worker-opus.md").exists()
-    assert (agents_dir / "foreign-hand-authored-opus.md").exists()
-    assert not (agents_dir / "renamed-specialist-opus.md").exists()
+    assert find_orphaned(source) == ["UNUSED_CONSTANT"]
 
 
-def test_generate_specialist_opus_variants_removes_stale_variant_when_source_gone(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """A name staying in SPECIALIST_AGENTS is not enough to keep its prior-sync
-    variant alive -- if the specialist's own source file disappears (curated
-    sync, stale entry not yet cleaned up), the stale <name>-opus.md must be
-    pruned too, not preserved indefinitely just because the base name still
-    matches the list. Left alive, it would never be regenerated (generation
-    warns and skips a missing source) and would carry no config.json pin
-    (build_agent_config only pins the actually-generated list) -- a stale,
-    unpinned, but still dispatchable-by-name file.
+def test_find_orphaned_definitions_ignores_local_assignments() -> None:
+    """Only module-level statements are walked -- an ordinary local variable
+    inside a function body (even an ALL_CAPS one) is not a definition site
+    this check has any opinion about.
     """
     module = _load_script()
-    generate = module["generate_specialist_opus_variants"]
-    specialist_agents = module["SPECIALIST_AGENTS"]
-    generated_file_marker = module["GENERATED_FILE_MARKER"]
-    name = specialist_agents[0]
+    find_orphaned = module["find_orphaned_definitions"]
 
-    agents_dir = tmp_path / "agents"
-    agents_dir.mkdir()
-    # No {name}.md source file written -- simulates it having disappeared
-    # since the prior sync that generated this variant.
-    (agents_dir / f"{name}-opus.md").write_text(
-        f"---\nname: {name}-opus\n---\n{generated_file_marker}\nStale prompt.\n"
+    source = (
+        "def run():\n"
+        "    LOCAL = 1\n"
+        "    return LOCAL\n"
+        "\n"
+        "\n"
+        'if __name__ == "__main__":\n'
+        "    run()\n"
     )
 
-    generated = generate(agents_dir, dry_run=False)
-
-    assert generated == []
-    assert not (agents_dir / f"{name}-opus.md").exists()
-    assert name in capsys.readouterr().err
+    assert find_orphaned(source) == []
 
 
-def test_rewrite_general_purpose_opus_dispatch_routes_to_worker_opus() -> None:
-    """The opus TIER_MAP entry's `worker: None` used to make resolve() return
-    bare `None` for this pairing, leaving `general-purpose` + `model: opus`
-    dispatches (e.g. mine-orchestrate's "Try again with stronger model" retry)
-    unrewritten -- so on synced OpenCode installs the retry silently stayed on
-    the sonnet-equivalent worker instead of reaching Sol. worker-opus closes
-    that gap.
+def test_check_orphans_clean_against_the_real_script() -> None:
+    """Running the checker against the real, current bin/opencode-sync
+    reports zero orphans -- a regression guard that fires the moment a
+    future deletion wave leaves a stranded helper behind, the same failure
+    mode enumerating removal targets by hand has repeatedly missed.
     """
     module = _load_script()
+    check_orphans = module["check_orphans"]
 
-    rewritten = module["rewrite_dispatches_prose"](
-        "Launch subagent_type: general-purpose, model: opus for the retry.\n"
-    )
-
-    assert rewritten == "Launch subagent_type: worker-opus for the retry.\n"
-
-
-def test_rewrite_model_less_builtin_subagent_type() -> None:
-    module = _load_script()
-
-    rewritten = module["rewrite_dispatches_prose"](
-        "Launch subagent_type: Explore to inspect the code.\n"
-    )
-
-    assert rewritten == "Launch subagent_type: explore to inspect the code.\n"
-
-    rewritten = module["rewrite_dispatches_prose"](
-        "Launch subagent_type: Bash to inspect project history.\n"
-    )
-
-    assert rewritten == (
-        "Launch subagent_type: worker-lightweight to inspect project history.\n"
-    )
+    assert check_orphans(SCRIPT) == []

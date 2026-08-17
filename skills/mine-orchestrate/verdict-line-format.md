@@ -25,7 +25,7 @@ reviewer verdict, such as when visual verification is short-circuited by the orc
 
 | Reviewer | Verdict values |
 |---|---|
-| `spec-reviewer-prompt.md` | PASS / FAIL |
+| `agents/spec-reviewer.md` | PASS / FAIL |
 | `agents/code-reviewer.md` | PASS / WARN / FAIL |
 | `agents/integration-reviewer.md` | PASS / WARN / FAIL |
 | `visual-reviewer-prompt.md` | PASS / WARN / FAIL |
@@ -74,15 +74,15 @@ grep -rl CONCISE-RETURN-MODE skills commands
 
 The sentinel may appear **only in orchestrate-internal files**. It must **never** appear in a path-less or non-orchestrate caller such as `mine-ship`, `mine-commit-push`, `mine-review`, `mine-build`, or `mine-address-pr-issues`.
 
-The grep should return exactly these six legitimate hosts:
+The grep should return exactly these five legitimate hosts:
 
 - `skills/mine-orchestrate/verdict-line-format.md`
-- `skills/mine-orchestrate/spec-reviewer-prompt.md`
 - `skills/mine-orchestrate/visual-reviewer-prompt.md`
 - `skills/mine-orchestrate/findings-fix-loop.md`
 - `skills/mine-orchestrate/SKILL.md`
 - `skills/mine-orchestrate/post-execution-pipeline.md`
-The agent files `agents/code-reviewer.md` and `agents/integration-reviewer.md` also legitimately contain the token, but they are outside `skills/` and `commands/`. Any other grep result is a leak.
+
+The agent files `agents/code-reviewer.md`, `agents/integration-reviewer.md`, and `agents/spec-reviewer.md` also legitimately contain the token, but they are outside `skills/` and `commands/`. Any other grep result is a leak.
 
 ## Conformance Check
 

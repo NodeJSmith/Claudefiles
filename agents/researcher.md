@@ -3,7 +3,8 @@ name: researcher
 model: opus
 effort: high
 description: Autonomous codebase research and feasibility analysis. Explores code with parallel subagents, conducts web research, and writes a structured research brief.
-tools: ["Read", "Grep", "Glob", "Bash", "Write", "WebSearch", "WebFetch", "Task"]
+tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "WebSearch", "WebFetch", "Task"]
+bundle: base
 ---
 
 # Researcher Agent
@@ -65,7 +66,7 @@ Everything else — architecture mapping, pattern identification, dependency tra
 
 ## Phase 1: Explore the Codebase
 
-Launch **parallel Explore subagents** to map the codebase through the lens of the proposal.
+Launch **parallel worker subagents** to map the codebase through the lens of the proposal.
 
 ### Subagent count and depth
 
@@ -79,7 +80,7 @@ Scale exploration based on the **Depth** field from the caller (default: `normal
 
 Adapt subagent focus to the proposal — not every proposal needs all 4 subagent types.
 
-#### Subagent 1: Architecture & Data Flow (`subagent_type: Explore`)
+#### Subagent 1: Architecture & Data Flow (`subagent_type: standard-worker`)
 
 - Map the overall structure (directory tree, module boundaries)
 - Trace how data currently flows through the system:
@@ -90,7 +91,7 @@ Adapt subagent focus to the proposal — not every proposal needs all 4 subagent
 - Identify the current "data layer" — even if it's just dictionaries in memory or JSON files
 - Look for existing abstractions (repositories, services, data access objects) that relate to the proposal
 
-#### Subagent 2: Pattern & Convention Analysis (`subagent_type: Explore`)
+#### Subagent 2: Pattern & Convention Analysis (`subagent_type: standard-worker`)
 
 - What patterns does the codebase already use? (MVC, service layer, event-driven, etc.)
 - What's the error handling strategy?
@@ -98,7 +99,7 @@ Adapt subagent focus to the proposal — not every proposal needs all 4 subagent
 - What's the testing approach? (unit, integration, mocking strategy)
 - Look specifically for patterns related to the proposal
 
-#### Subagent 3: Integration Surface (`subagent_type: Explore`)
+#### Subagent 3: Integration Surface (`subagent_type: standard-worker`)
 
 - Identify the specific files/modules that would need to change
 - Count and categorize the touch points:
@@ -108,7 +109,7 @@ Adapt subagent focus to the proposal — not every proposal needs all 4 subagent
 - Flag areas where the change would conflict with existing patterns
 - Identify the riskiest integration points (high fan-in code that many things depend on)
 
-#### Subagent 4: Dependencies & History (`subagent_type: Explore`)
+#### Subagent 4: Dependencies & History (`subagent_type: standard-worker`)
 
 - Check current project dependencies (`pyproject.toml`, `package.json`, `requirements.txt`, etc.)
 - Identify what new dependencies the proposal would require

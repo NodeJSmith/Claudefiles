@@ -61,8 +61,7 @@ Split the issue list into batches of `<batch-size>`. For each batch, launch a Ha
 
 ### Subagent specification
 
-- `subagent_type: general-purpose`
-- `model: haiku`
+- `subagent_type: light-worker`
 
 Each subagent receives this prompt (substitute `<issues>`, `<batch_number>`, `<tmpdir>`):
 

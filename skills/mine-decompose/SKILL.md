@@ -39,7 +39,7 @@ Run `get-skill-tmpdir mine-decompose` to create a temp directory.
 
 **Squash-merge caveat**: If `git log --oneline | head -50` shows mostly single-commit merges (squash-merge workflow), note this in the report. Change coupling data is diluted — functions bundled in the same PR appear coupled even when they aren't. The behavioral signals are still directionally useful if PRs are reasonably focused, but lean harder on structural signals for ranking when the history is squash-heavy.
 
-Launch **two subagents in parallel** (both `subagent_type: general-purpose`, `model: haiku`). See REFERENCE.md for full prompt templates — substitute the actual `<tmpdir>` path, `<scope>`, and `<concern_filter>` into each template before dispatching.
+Launch **two subagents in parallel** (both `subagent_type: light-worker`). See REFERENCE.md for full prompt templates — substitute the actual `<tmpdir>` path, `<scope>`, and `<concern_filter>` into each template before dispatching.
 
 Each subagent writes structured output to the tmpdir — the orchestrator reads both files in Phase 3 and joins on file path.
 

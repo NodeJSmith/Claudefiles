@@ -47,7 +47,7 @@ If the topic is clear but ambiguous across domains (e.g., "memory management" co
 1. Run `get-skill-tmpdir mine-prior-art` to get a temp directory. Note the exact path — you'll need it after subagents complete.
 2. Launch **two subagents in parallel**:
 
-### Subagent A: Local Context (`subagent_type: Explore`)
+### Subagent A: Local Context (`subagent_type: standard-worker`)
 
 Gather comparison context from the current codebase:
 - How does the codebase handle the topic today (if at all)?
@@ -58,7 +58,7 @@ Keep this lightweight — aim for 2-3 file reads, up to 6 if conventions are spl
 
 This subagent returns its findings as its result message (no file output needed — the main skill reads the return value).
 
-### Subagent B: Web Research (`subagent_type: general-purpose`, `model: sonnet`)
+### Subagent B: Web Research (`subagent_type: standard-worker`)
 
 This is the PRIMARY phase. Replace `<topic>` with the exact topic from Phase 1 before dispatching. The subagent prompt must include:
 

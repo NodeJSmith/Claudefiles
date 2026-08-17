@@ -7,6 +7,7 @@ color: green
 emoji: ⚡
 vibe: Builds Python APIs that are fast, typed, testable, and boring in the best way.
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
+bundle: engineering
 ---
 
 # Backend Developer Agent

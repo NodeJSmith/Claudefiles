@@ -56,7 +56,7 @@ Before recording a silent deferral, check user impact.
 
 `unresolved` means an agent cannot silently defer the issue. Route it based on the call site:
 
-- **WP-scope fixer-loop classify pass** (`findings-fix-loop.md`, invoked from `SKILL.md` Step 12): an `unresolved` row FAILs the fixer gate and flows into Step 14 and Step 16, where the user chooses `Try again`, `Try again with stronger model`, or types `Mark as blocked and skip` / `Stop here` via Other.
+- **WP-scope fixer-loop classify pass** (`findings-fix-loop.md`, invoked from `SKILL.md` Step 12): an `unresolved` row FAILs the fixer gate and flows into Step 14 and Step 16, where the user chooses `Try again`, `Mark as blocked and skip`, or `Stop here`.
 - **Final-scope fixer-loop classify pass** (`post-execution-pipeline.md` Step 5): an `unresolved` row FAILs the `final-review` gate. There is no proceed-anyway path here.
 - **Direct-suggestion sites outside the fixer loop** (`post-execution-pipeline.md` Steps 2, 3, and 4): raise the Severity Escalation prompt below instead of writing a plain deferral.
 Run this check everywhere a finding is about to be written as a plain deferral.
@@ -82,10 +82,10 @@ AskUserQuestion:
 A subagent cannot ask this question itself. It must flag the trip distinctly in its output, and the orchestrator raises the prompt.
 
 **On "Fix now":**
-1. Record the dispatch and capture its ID: `cfl dispatch severity-fixer --agent-type general-purpose --model sonnet`
-2. Dispatch a `general-purpose` subagent (`model: sonnet`, `cfl_dispatch_id: <dispatch_id>`) scoped to only this finding, its description, affected files, and the instruction `fix only this; do not expand scope.`
+1. Record the dispatch and capture its ID: `cfl dispatch severity-fixer --agent-type standard-worker`
+2. Dispatch a `standard-worker` subagent (`cfl_dispatch_id: <dispatch_id>`) scoped to only this finding, its description, affected files, and the instruction `fix only this; do not expand scope.`
 3. After it completes: `cfl dispatch end <dispatch_id>`
-4. Record a reviewer dispatch (`cfl dispatch severity-review --agent-type code-reviewer --model sonnet`), capture `review_dispatch_id`, and run `code-reviewer` once on the changed files with `cfl_dispatch_id: <review_dispatch_id>`; after it completes: `cfl dispatch end <review_dispatch_id>`. **FAIL or WARN:** tell the user the fix attempt failed and re-raise this same prompt; do not loop automatically. **PASS:** re-run the project test suite (`<dir>/test-command.txt`, skip and treat as passing if it contains `no test suite`) and lint (`<dir>/lint-command.txt`, skip and treat as passing if it contains `no lint tools`). If both pass or are skipped, the finding is resolved, nothing is recorded in `known-issues.md`, and the pipeline resumes at the step that raised this prompt. That call site owns any broader gate rerun required after the change. If either targeted check fails, treat it like a code-reviewer FAIL and re-raise this prompt.
+4. Record a reviewer dispatch (`cfl dispatch severity-review --agent-type code-reviewer`), capture `review_dispatch_id`, and run `code-reviewer` once on the changed files with `cfl_dispatch_id: <review_dispatch_id>`; after it completes: `cfl dispatch end <review_dispatch_id>`. **FAIL or WARN:** tell the user the fix attempt failed and re-raise this same prompt; do not loop automatically. **PASS:** re-run the project test suite (`<dir>/test-command.txt`, skip and treat as passing if it contains `no test suite`) and lint (`<dir>/lint-command.txt`, skip and treat as passing if it contains `no lint tools`). If both pass or are skipped, the finding is resolved, nothing is recorded in `known-issues.md`, and the pipeline resumes at the step that raised this prompt. That call site owns any broader gate rerun required after the change. If either targeted check fails, treat it like a code-reviewer FAIL and re-raise this prompt.
 **On "Stop here":** Leave the run active; do not call `cfl run complete`.
 **On "Ship anyway":** record the finding in `known-issues.md` with `Run: <run_id>` and note in `Why deferred:` that the user explicitly accepted the risk after seeing the Severity Gate trip. Only after this choice may the finding be recorded.
 

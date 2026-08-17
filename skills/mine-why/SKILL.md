@@ -51,7 +51,7 @@ Run `get-skill-tmpdir mine-why` to establish `<dir>`.
 
 Dispatch 6 parallel evidence-gathering agents. Each searches one category and writes findings to its own temp file. Null results are first-class evidence — "no issues found referencing this code" is a finding, not a failure.
 
-All agents use `subagent_type: "general-purpose"`, `model: "haiku"`.
+All agents use `subagent_type: "light-worker"`.
 
 ### Agent 1: Version Control History
 
@@ -183,7 +183,7 @@ Format:
 After all evidence agents complete, dispatch a synthesis agent:
 
 ```
-Agent(subagent_type: "general-purpose", model: "sonnet")
+Agent(subagent_type: "standard-worker")
 ```
 
 Synthesis prompt:

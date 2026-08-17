@@ -42,7 +42,7 @@ Ask only what's missing from the description. Skip questions the user already an
 
 ## Execute
 
-Launch one subagent (`model: sonnet`, `subagent_type: general-purpose`):
+Launch one subagent (`subagent_type: standard-worker`):
 
 > Create an issue for this codebase.
 >

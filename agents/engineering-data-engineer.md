@@ -7,6 +7,7 @@ color: orange
 emoji: 🔧
 vibe: Builds the pipelines that turn raw data into trusted, analytics-ready assets.
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
+bundle: engineering
 ---
 
 # Data Engineer Agent

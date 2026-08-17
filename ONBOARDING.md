@@ -24,7 +24,7 @@ The base (pipeline workflow) always installs. On a first install the wizard asks
 
 **Commands** — lightweight slash commands for daily tasks (`/mine-status`, `/mine-end-of-day`). Quicker than skills, no multi-step flow.
 
-**Agents** — specialized subagents dispatched by skills (code-reviewer, researcher, planner). You don't invoke these directly; skills launch them when needed.
+**Agents** — specialized subagents dispatched by skills (code-reviewer, researcher, planner). A dispatch always names an agent directly — there's no separate model parameter at the call site. Each agent's own frontmatter (in `agents/`) declares its model, effort, tools, description, and bundle in one place, so retuning an agent's model touches only that file. You don't invoke agents directly; skills launch them when needed.
 
 **Rules** — coding guidelines that load automatically. They shape how Claude writes code, handles git, runs tests, and approaches security. Always active, no invocation needed.
 
@@ -206,21 +206,19 @@ cfl event               # append a free-form event to the audit trail
 
 ## OpenCode Support
 
-`opencode-sync` provides provisional compatibility for running Claudefiles skills and agents inside [OpenCode](https://opencode.ai) instead of Claude Code. It installs native skills and agents, generates three worker agents (`worker-standard`, `worker-lightweight`, `worker-opus`), and rewrites synced dispatch patterns (`subagent_type: general-purpose` + `model: <tier>`) to route through those named workers instead of an inherited model. A `model: opus` retry of a named specialist agent (e.g. `engineering-backend-developer`) instead routes to that specialist's own generated opus variant, so an escalated retry keeps the specialist's prompt rather than falling back to a generic worker.
+`opencode-sync` provides provisional compatibility for running Claudefiles skills and agents inside [OpenCode](https://opencode.ai) instead of Claude Code. It installs native skills and agents, then remaps each synced agent's frontmatter — the Claude tier name on `model:` becomes a provider-qualified model ID, and `effort:` becomes OpenCode's `variant:` key. Since a dispatch already names a real agent file on both harnesses (see Key Concepts, above), there's nothing to rewrite in skill, command, or agent body content — every agent, worker and specialist alike, is a real file that syncs and resolves the same way on both harnesses.
 
 OpenCode loads skills through its native skill tool; unlike Claude Code, it does not automatically expose every skill as a slash command. The sync generates thin `/` wrappers only for a curated set of frequently invoked workflows. Standalone files under `commands/`, such as `/mine-issues`, remain direct commands rather than skill wrappers.
 
-Model routing is enforced in two files: a generated `config.json` pins the model for the worker agents, specialist opus variants, and OpenCode's built-in agents (`general`, `plan`, `explore`, `scout`), while `opencode.jsonc` stays entirely user-managed and is never written by the sync — OpenCode deep-merges `config.json` below `opencode.jsonc`, so anything you set by hand there always wins (see [REFERENCE.md's OpenCode Sync section](REFERENCE.md#opencode-sync) for the full three-file merge order, including `opencode.json`).
-
-If you applied the July 30 quick-fix `agent` pins directly in `opencode.jsonc`, remove them after your first sync with this version — `config.json` now covers the same ground and a stale `opencode.jsonc` entry would silently shadow it.
+Model routing lives entirely in each agent's own synced frontmatter — there is no config-level agent pinning. A generated `config.json` carries only the shared-rule `instructions` glob and `subagent_depth`; it has no `agent` key. `opencode.jsonc` stays entirely user-managed and is never written by the sync (see [REFERENCE.md's OpenCode Sync section](REFERENCE.md#opencode-sync) for the full merge order).
 
 ```bash
-opencode-sync --lint-only   # check synced output for residual Claude-only dispatch constructs
+opencode-sync --lint-only   # check the live install for unresolvable agent variants and unsupported constructs
 ```
 
 `--lint-only` also runs automatically at the end of every sync. Restart OpenCode after syncing so it reloads configuration-time files. OpenCode can also discover the original Claude artifacts, so apparent success does not yet prove the generated OpenCode copy is self-sufficient — this is still provisional compatibility.
 
-The native-support roadmap's Spec 2 (native agents and model enforcement) is now complete; Spec 3 (skill compatibility adapter) is partially complete — dispatch rewriting and the lint shipped, but interactive question syntax conversion and skill classification remain. See [design/opencode-integration-roadmap.md](design/opencode-integration-roadmap.md) for the full spec sequence and the constraints future OpenCode work must preserve.
+The native-support roadmap's Spec 2 (native agents and model enforcement) is complete; `design/specs/1008-opencode-named-roles` closed most of Spec 3 (skill compatibility adapter) by removing the need for dispatch rewriting in the first place — every dispatch already names a real agent at the source. Interactive question syntax conversion and skill classification remain open. See [design/opencode-integration-roadmap.md](design/opencode-integration-roadmap.md) for the full spec sequence and the constraints future OpenCode work must preserve.
 
 ## Reference
 

@@ -26,7 +26,7 @@ Before launching subagents, fetch repo metadata with `gh`:
 gh repo view <owner/repo> --json name,description,createdAt,updatedAt,pushedAt,stargazerCount,forkCount,issues,pullRequests,licenseInfo,primaryLanguage,languages,defaultBranchRef,isArchived,isFork
 ```
 
-### Subagent 1: Project History & Maintenance (`subagent_type: Bash`)
+### Subagent 1: Project History & Maintenance (`subagent_type: standard-worker`)
 
 Run git commands to assess project health over time:
 
@@ -38,7 +38,7 @@ Run git commands to assess project health over time:
 - **Contributors**: `git shortlog -sne --all` — count of contributors, concentration of commits (bus factor)
 - **Bot commits**: look for dependabot, renovate, semantic-release-bot, AI agents (jules, copilot, devin) — what proportion of commits are automated or AI-generated?
 
-### Subagent 2: Test Coverage & CI (`subagent_type: Explore`)
+### Subagent 2: Test Coverage & CI (`subagent_type: standard-worker`)
 
 - **Test files**: find test directories and files, count them relative to source files
 - **Test framework**: identify what's used (jest, pytest, mocha, go test, etc.)
@@ -47,7 +47,7 @@ Run git commands to assess project health over time:
 - **CI/CD**: read workflow files (.github/workflows/, .gitlab-ci.yml, etc.) — what runs on PR/push? Is there a test matrix? Security scanning?
 - **Test quality signals**: are tests just checking that functions exist, or do they test behavior with meaningful assertions and edge cases?
 
-### Subagent 3: Code Quality (`subagent_type: Explore`)
+### Subagent 3: Code Quality (`subagent_type: standard-worker`)
 
 - **File structure**: how is the project organized? Is it modular or monolithic?
 - **Largest files**: identify files over 400 lines — are they god files or reasonably large?
@@ -64,7 +64,7 @@ Run git commands to assess project health over time:
 - **Documentation**: README quality, inline docs, API documentation
 - **Security basics**: secrets in code? Input validation? Dependency audit results?
 
-### Subagent 4: API & Design (`subagent_type: Explore`)
+### Subagent 4: API & Design (`subagent_type: standard-worker`)
 
 - **Public API surface**: what does the user actually interact with? Is it clean and well-defined?
 - **Error handling**: how does the project handle and communicate errors?

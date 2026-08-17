@@ -34,7 +34,7 @@ Each fixer dispatch is a single pass — do not loop inside the fixer subagent i
 
 ## Fixer Subagent
 
-For each pass (normal or classify-mode), dispatch a `general-purpose` subagent with `model: sonnet`.
+For each pass (normal or classify-mode), dispatch a `standard-worker` subagent.
 
 ### Inputs
 
@@ -155,8 +155,8 @@ this budget.
 
 1. Capture the pre-pass content fingerprint (see "Content fingerprint" above) and save it to `<scope_dir>/fingerprint-pre-pass${pass}.txt`. Then record the fixer dispatch and capture its ID:
    ```bash
-   cfl dispatch fixer <task_id> --agent-type general-purpose --model sonnet   # WP scope
-   cfl dispatch fixer --agent-type general-purpose --model sonnet            # final scope — no task_id positional
+   cfl dispatch fixer <task_id> --agent-type standard-worker   # WP scope
+   cfl dispatch fixer --agent-type standard-worker            # final scope — no task_id positional
    ```
 Parse `dispatch_id` from the JSON output. Dispatch the fixer subagent (normal pass) with the latest review file paths from the current loop state — the initial review files on pass 1, or the pass-1 re-review files on pass 2 — and the current changed-files list. After the fixer completes:
    ```bash
@@ -167,12 +167,12 @@ Parse `dispatch_id` from the JSON output. Dispatch the fixer subagent (normal pa
 1. **No-op check.** Recompute the content fingerprint (same command as step 1) and compare it against `<scope_dir>/fingerprint-pre-pass${pass}.txt`. If identical — the fixer made zero content changes — skip steps 5–7 below. Go directly to the classify-mode terminal pass, passing it the **latest review files** (`<scope_dir>/code-review.md` and `<scope_dir>/integration-review.md`) from the current loop state: the initial review files on pass 1, or the pass-1 re-review files on pass 2. Proceed to the Gate as terminal state B. A no-op on pass 1 ends the loop, so pass 2 does not run. If the recompute itself fails (non-zero exit — see the fail-closed note in "Content fingerprint" above), that is **not** identical — proceed to step 5 as if the fingerprints differed.
 5. Record dispatches for both re-reviewers and capture their IDs:
    ```bash
-   cfl dispatch code-reviewer <task_id> --agent-type code-reviewer --model sonnet             # WP scope
-   cfl dispatch integration-reviewer <task_id> --agent-type integration-reviewer --model sonnet  # WP scope
-   cfl dispatch code-reviewer --agent-type code-reviewer --model sonnet                        # final scope
-   cfl dispatch integration-reviewer --agent-type integration-reviewer --model sonnet           # final scope
+   cfl dispatch code-reviewer <task_id> --agent-type code-reviewer             # WP scope
+   cfl dispatch integration-reviewer <task_id> --agent-type integration-reviewer  # WP scope
+   cfl dispatch code-reviewer --agent-type code-reviewer                        # final scope
+   cfl dispatch integration-reviewer --agent-type integration-reviewer           # final scope
    ```
-   Re-dispatch the code reviewer and integration reviewer **in parallel** with the `CONCISE-RETURN-MODE` sentinel and output file paths — using the same agent types as the initial pass (`subagent_type: "code-reviewer"` and `subagent_type: "integration-reviewer"`), not `general-purpose`: <!-- opencode-sync: ok -->
+   Re-dispatch the code reviewer and integration reviewer **in parallel** with the `CONCISE-RETURN-MODE` sentinel and output file paths — using the same agent types as the initial pass (`subagent_type: "code-reviewer"` and `subagent_type: "integration-reviewer"`), not `standard-worker`:
    - Each dispatch prompt must contain the **exact literal token** `CONCISE-RETURN-MODE` (verbatim) **and** an output file path — both conditions required to activate concise return (see `verdict-line-format.md`)
    - Each dispatch prompt must include `cfl_dispatch_id: <dispatch_id>` (the ID from its preceding `cfl dispatch` call)
    - Output paths: `<scope_dir>/code-review.md` and `<scope_dir>/integration-review.md` (overwrite)
@@ -198,7 +198,7 @@ Reached one of three ways: pass 1's no-op check, pass 2's no-op check, or budget
 applicable review" means the initial review after a pass-1 no-op, the pass-1 re-review after a
 pass-2 no-op, or the pass-2 re-review when the budget is exhausted.
 
-1. Record the classify-mode fixer dispatch (`cfl dispatch fixer <task_id> --agent-type general-purpose --model sonnet` for WP scope, `cfl dispatch fixer --agent-type general-purpose --model sonnet` for final scope), capture `dispatch_id`. Dispatch the fixer subagent in **classify-mode** with the applicable review file paths and the current changed-files list. After completion: `cfl dispatch end <dispatch_id>`.
+1. Record the classify-mode fixer dispatch (`cfl dispatch fixer <task_id> --agent-type standard-worker` for WP scope, `cfl dispatch fixer --agent-type standard-worker` for final scope), capture `dispatch_id`. Dispatch the fixer subagent in **classify-mode** with the applicable review file paths and the current changed-files list. After completion: `cfl dispatch end <dispatch_id>`.
 2. The fixer reads the applicable reviews, classifies every remaining finding as `fixed`, `deferred(reason)` with required known-issue recording for non-later-task deferrals, `rejected(reason)` for findings that don't qualify per `known-issues-protocol.md`, or `unresolved`, and writes `<scope_dir>/fix-ledger.md` (overwrites). **No code changes.** It may edit `<feature_dir>/known-issues.md` because that is documentation of the classification, not a code fix.
 3. Do not re-dispatch reviewers after the classify-mode pass. The terminal ledger now reflects the applicable review's findings. Proceed to the Gate section (terminal state B).
 

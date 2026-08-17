@@ -104,7 +104,7 @@ If it returns relevant matches, condense them into a short digest (what was disc
 Dispatch one agent:
 
 ```
-Agent(subagent_type: "general-purpose", model: "sonnet")
+Agent(subagent_type: "standard-worker")
 ```
 
 Prompt:
@@ -151,7 +151,7 @@ Decompose the question into 2-4 investigation angles. Each angle should cover a 
 Dispatch 2-4 parallel explorer agents:
 
 ```
-Agent(subagent_type: "general-purpose", model: "haiku")  # for each angle
+Agent(subagent_type: "light-worker")  # for each angle
 ```
 
 Each explorer prompt:
@@ -179,7 +179,7 @@ Stay focused on your angle — other explorers are covering other aspects.
 After all explorers complete, dispatch a synthesis agent:
 
 ```
-Agent(subagent_type: "general-purpose", model: "sonnet")
+Agent(subagent_type: "standard-worker")
 ```
 
 Synthesis prompt:
@@ -225,7 +225,7 @@ This replaces `/mine-how`'s line-level accuracy review with a structural coheren
 Dispatch a review agent:
 
 ```
-Agent(subagent_type: "general-purpose", model: "sonnet")
+Agent(subagent_type: "standard-worker")
 ```
 
 Review prompt:

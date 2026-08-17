@@ -23,7 +23,7 @@ Look for design context (checked in order, first match wins): `design/context.md
 
 ## Execute
 
-Launch one subagent (`model: sonnet`, `subagent_type: general-purpose`):
+Launch one subagent (`subagent_type: standard-worker`):
 
 > Generate an HTML mockup.
 >

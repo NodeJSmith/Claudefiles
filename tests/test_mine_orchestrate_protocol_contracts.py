@@ -25,7 +25,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
                 ("severity gate", r"^## Severity Gate$"),
                 (
                     "severity fixer dispatch",
-                    r"cfl dispatch severity-fixer --agent-type general-purpose --model sonnet",
+                    r"cfl dispatch severity-fixer --agent-type standard-worker",
                 ),
                 ("run ID field", r"^Run: <run_id>$"),
                 ("entry schema", r"^## Entry Format$"),
@@ -141,8 +141,12 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
                 ("fixing transition", r"fixing.*reviewing"),
                 ("retry gate retry choice", r'label: "Try again"'),
                 (
-                    "retry gate model escalation choice",
-                    r'label: "Try again with stronger model"',
+                    "retry gate block choice",
+                    r'label: "Mark as blocked and skip"',
+                ),
+                (
+                    "retry gate stop choice",
+                    r'label: "Stop here"',
                 ),
                 ("block command", r"cfl task block <task_id> --reason"),
             ],
@@ -361,7 +365,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
                     r"React, Vue, Angular, CSS.*engineering-frontend-developer",
                 ),
                 ("backend route", r"FastAPI.*engineering-backend-developer"),
-                ("fallback route", r"general-purpose"),
+                ("fallback route", r"standard-worker"),
             ],
         ),
         (
@@ -404,11 +408,14 @@ def test_wip_commit_path_normalization_handles_staged_rename(tmp_path: Path) -> 
         "GIT_COMMITTER_EMAIL": "test@example.com",
     }
 
-    subprocess.run(["git", "init", "-q"], cwd=repo, check=True, env=env)
+    def run_git(*args: str) -> None:
+        subprocess.run(["git", *args], cwd=repo, check=True, env=env)
+
+    run_git("init", "-q")
     (repo / "old.txt").write_text("content\n")
-    subprocess.run(["git", "add", "old.txt"], cwd=repo, check=True, env=env)
-    subprocess.run(["git", "commit", "-qm", "initial"], cwd=repo, check=True, env=env)
-    subprocess.run(["git", "mv", "old.txt", "new.txt"], cwd=repo, check=True, env=env)
+    run_git("add", "old.txt")
+    run_git("commit", "-qm", "initial")
+    run_git("mv", "old.txt", "new.txt")
 
     command = r"""
 emit_changed_paths() {

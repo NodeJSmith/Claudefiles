@@ -86,7 +86,7 @@ stages = ["pre-commit"]
 
 [[repos.hooks]]
 id = "lint-agent-models"
-name = "Agent registry sync (models + install.py)"
+name = "Agent metadata generation + staleness check (performance.md + install.py)"
 entry = "bin/lint-agent-models"
 language = "system"
 pass_filenames = false
@@ -115,6 +115,15 @@ stages = ["pre-commit"]
 id = "lint-opencode-sync"
 name = "OpenCode dispatch pattern coverage"
 entry = "bin/opencode-sync --check-source"
+language = "system"
+pass_filenames = false
+always_run = true
+stages = ["pre-commit"]
+
+[[repos.hooks]]
+id = "lint-opencode-sync-orphans"
+name = "OpenCode sync orphan definitions"
+entry = "bin/opencode-sync --check-orphans"
 language = "system"
 pass_filenames = false
 always_run = true
