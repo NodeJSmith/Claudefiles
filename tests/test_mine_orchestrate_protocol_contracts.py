@@ -141,8 +141,12 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
                 ("fixing transition", r"fixing.*reviewing"),
                 ("retry gate retry choice", r'label: "Try again"'),
                 (
-                    "retry gate model escalation choice",
-                    r'label: "Try again with stronger model"',
+                    "retry gate block choice",
+                    r'label: "Mark as blocked and skip"',
+                ),
+                (
+                    "retry gate stop choice",
+                    r'label: "Stop here"',
                 ),
                 ("block command", r"cfl task block <task_id> --reason"),
             ],

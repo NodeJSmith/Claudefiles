@@ -56,7 +56,7 @@ Before recording a silent deferral, check user impact.
 
 `unresolved` means an agent cannot silently defer the issue. Route it based on the call site:
 
-- **WP-scope fixer-loop classify pass** (`findings-fix-loop.md`, invoked from `SKILL.md` Step 12): an `unresolved` row FAILs the fixer gate and flows into Step 14 and Step 16, where the user chooses `Try again`, `Try again with stronger model`, or types `Mark as blocked and skip` / `Stop here` via Other.
+- **WP-scope fixer-loop classify pass** (`findings-fix-loop.md`, invoked from `SKILL.md` Step 12): an `unresolved` row FAILs the fixer gate and flows into Step 14 and Step 16, where the user chooses `Try again`, `Mark as blocked and skip`, or `Stop here`.
 - **Final-scope fixer-loop classify pass** (`post-execution-pipeline.md` Step 5): an `unresolved` row FAILs the `final-review` gate. There is no proceed-anyway path here.
 - **Direct-suggestion sites outside the fixer loop** (`post-execution-pipeline.md` Steps 2, 3, and 4): raise the Severity Escalation prompt below instead of writing a plain deferral.
 Run this check everywhere a finding is about to be written as a plain deferral.

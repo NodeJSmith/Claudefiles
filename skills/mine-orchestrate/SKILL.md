@@ -632,8 +632,10 @@ AskUserQuestion:
   options:
     - label: "Try again"
       description: "Re-run the executor to address the reviewer's findings with the same model"
-    - label: "Try again with stronger model"
-      description: "Re-run the executor using the opus/sol tier model"
+    - label: "Mark as blocked and skip"
+      description: "Record the block with a reason and move on"
+    - label: "Stop here"
+      description: "Pause the run at this task"
 ```
 
 For FAIL/BLOCKED gate outcomes, **update the task status** before taking the gate action (so resume returns to this task instead of skipping it). Then:
@@ -643,12 +645,11 @@ For FAIL/BLOCKED gate outcomes, **update the task status** before taking the gat
   cfl task update <task_id> --status fixing
   ```
   Re-run from Step 4 (which includes Step 5 executor + Step 6 file capture + Step 6b reviewing transition) using the Step 5 retry composition: `implementer-prompt.md` as the executor contract plus `retry-prompt.md` as the retry-specific instructions. Populate the `## Previous review feedback` template in `retry-prompt.md` with only existing paths from the newest attempt: always include the spec reviewer; include code and integration reviewer reports whenever Step 8 produced them, regardless of whether Step 12 ran; include the visual reviewer report when it ran; and include `test-gate.md` after a failed test gate. Omit absent or unreached reports. The executor reads these files directly — do not inline or truncate the reviewer output.
-- **Try again with stronger model**: same as "Try again" but override the executor's model to the opus tier. On a platform with no per-call model override (e.g. OpenCode), dispatch the generated stronger-tier variant instead of trying to pass a model parameter that platform can't honor: `<the same subagent_type Step 4 selected>-opus` for a named specialist (e.g. `engineering-backend-developer-opus`), or `worker-opus` when Step 4 selected `general-purpose` — there is no `general-purpose-opus`/`worker-standard-opus` variant. <!-- opencode-sync: ok -->
-- **"Mark as blocked and skip"** (via Other): record the block with a reason:
+- **"Mark as blocked and skip"**: record the block with a reason:
   ```bash
   cfl task block <task_id> --reason "<blocker description>"
   ```
-- **"Stop here"** (via Other): stop the run (the task stays in its current state; `current_task` derives correctly on resume):
+- **"Stop here"**: stop the run (the task stays in its current state; `current_task` derives correctly on resume):
   ```bash
   cfl run stop --at-task <task_id> --reason "user chose stop at task gate"
   ```

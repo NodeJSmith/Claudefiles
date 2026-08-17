@@ -1,7 +1,7 @@
 ---
 task_id: "T03"
 title: "Remove the stronger-model escalation and reshape the gate prompts"
-status: "planned"
+status: "done"
 depends_on: ["T01"]
 implements: ["FR#13", "FR#28", "AC#11", "AC#27"]
 ---
