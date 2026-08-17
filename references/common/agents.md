@@ -42,13 +42,15 @@ Multiple `Agent` tool calls in a **single message** = parallel execution. Only s
 
 ### Subagent Types
 
+A dispatch names an agent — nothing else. There is no `general-purpose` or `Explore` type, and no separate `model:` tier clause at the call site: every agent's model, effort, and tools are declared once, in that agent's own frontmatter (`agents/*.md`), and a name that resolves on Claude Code resolves identically on OpenCode.
+
 | Need | `subagent_type` |
 |------|----------------|
-| Read code, search, analyze | `Explore` (fast, Haiku, read-only) |
-| Full autonomy (write, run, search) | `general-purpose` |
-| Domain-specific review | Named agent (e.g., `code-reviewer`) |
+| A role a named specialist already covers (review, research, planning, etc.) | That specialist (e.g., `code-reviewer`, `researcher`, `spec-reviewer`) |
+| A generic dispatch with no fixed methodology, low-complexity/high-volume | `light-worker` (haiku) |
+| A generic dispatch with no fixed methodology, everything else | `standard-worker` (sonnet) |
 
-Default to `Explore` unless the subagent needs to write files, run commands, or search the web.
+Check the agent roster in `agents/` for a specialist whose role matches the work first. Only when none fits, pick the worker matching the tier the work needs — the caller supplies the full task methodology in its prompt either way. The read-only/write-capable split this table used to encode is also gone: `tools:` grants broad access fleet-wide, so "does it need to write files, run commands, or search the web" no longer selects anything.
 
 ### Context & Output
 

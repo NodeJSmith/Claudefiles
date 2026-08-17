@@ -1,7 +1,7 @@
 ---
 task_id: "T06"
 title: "Update the documentation set and verify the end state"
-status: "planned"
+status: "done"
 depends_on: ["T02", "T05"]
 implements: ["AC#13", "AC#14"]
 ---

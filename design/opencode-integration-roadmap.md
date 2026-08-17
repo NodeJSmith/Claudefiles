@@ -143,6 +143,8 @@ Exit condition: a primary session using an expensive model cannot accidentally d
 
 **Status: Complete** — shipped in PR `#503` (opencode-sync Python rewrite with worker agents, config.json model enforcement, dispatch rewriter, and compatibility lint). Two originally-scoped items were dropped: permission.task allowlists (FR#8 removed — blanket allow in opencode.jsonc makes per-agent gating inert) and deprecated tool declaration replacement (no applicable declarations identified).
 
+**Correction (`design/specs/1008-opencode-named-roles`):** the generated worker agents, specialist opus variants, dispatch rewriter, and config-level agent pinning this PR shipped are gone. Every dispatch now names a real agent file that both harnesses resolve identically, so `light-worker`/`standard-worker` are hand-written files in `agents/` rather than sync-time generated output, there is no `-opus` variant of any specialist (the "Try again with stronger model" escalation this machinery existed to serve was removed with it), and `config.json` carries no `agent` key — model and reasoning-variant enforcement live entirely in each agent's own synced frontmatter. `bin/opencode-sync` sheds the functions that did this generation and rewriting; see `design/specs/1008-opencode-named-roles/design.md`'s Architecture and Replacement Targets sections for the full removal list.
+
 **Correction (2026-08-14):** model pinning worked, but the reasoning-effort half of this spec did not. Both config.json and agent frontmatter emitted `effort`, which is Claude Code's key — OpenCode's `AgentConfig` has no such field and does not set `additionalProperties: false`, so it was accepted and discarded, leaving every named subagent at the OpenAI provider default of `reasoningEffort: "medium"` from the day this shipped. The key is `variant`, now used throughout. The generalizable lesson for the remaining specs: **OpenCode silently ignores unknown agent-config keys, so "the config looks right" is not evidence it took effect.** Verify against the published schema at `https://opencode.ai/config.json`, and confirm from observed child-session state — `variant` is recorded per assistant message in `~/.local/share/opencode/opencode.db`, which is what exposed this. Spec 1's exit condition already asked for exactly that observation and would have caught it.
 
 ### 3. Skill Compatibility Adapter
@@ -164,7 +166,7 @@ Scope:
 
 Exit condition: generated OpenCode skills contain no unsupported Claude dispatch constructs, and the vertical-slice workflow completes with its intended instruction policy, named agents, and model routing active.
 
-**Status: Partially complete** — dispatch rewriting and the compatibility lint shipped in the Spec 2 PR. Remaining: interactive question syntax conversion, vertical-slice-first validation, and skill classification as portable/adapter-required/harness-specific.
+**Status: Partially complete.** The compatibility lint shipped in the Spec 2 PR. The first bullet — "convert Claude agent dispatch to named OpenCode task dispatch" — is satisfied differently than written: `design/specs/1008-opencode-named-roles` removed the need for conversion by making every dispatch in shared content name a real agent file at the source, on both harnesses, with no per-harness mapping and no dispatch rewriter to keep in sync. There is nothing left to convert. Remaining: interactive question syntax conversion, vertical-slice-first validation, and skill classification as portable/adapter-required/harness-specific.
 
 ### 4. Instructions and Runtime Plugins
 
@@ -221,6 +223,10 @@ Scope:
 - integrate dispatch and run telemetry with the existing orchestration store.
 
 Until this ships, OpenCode workflows must serialize write-capable subagents.
+
+**Correction (`design/specs/1008-opencode-named-roles` investigation):** this workstream's premise that worktree isolation does not exist in OpenCode is stale. OpenCode ships a worktree workspace adapter (`packages/opencode/src/control-plane/adapters/worktree.ts`) and exposes `experimental_workspace.register()` for registering isolated workspaces. This workstream's scope should be re-evaluated against that adapter before being planned as new orchestration infrastructure — the isolated-worktree mechanism it set out to build may already exist upstream, in experimental form.
+
+Separately, the `run_in_background` warning `_lint_content()` emits (see [REFERENCE.md's OpenCode Sync section](../REFERENCE.md#opencode-sync)) is not a permanent limitation either: background subagents are supported behind `OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true` (`packages/opencode/src/tool/task.ts:98-100`). Both are experimental surfaces (Non-Goals of `1008-opencode-named-roles` excludes `experimental.*` hooks generally), so neither correction changes today's serialize-write-capable-subagents guidance on its own — they change what a future spec has available to build on.
 
 ## Cross-Spec Invariants
 
