@@ -19,8 +19,9 @@ Usage:
   orchestrate-concise-probe --json                 # machine-readable output
 
 Reviewer identification:
-  Named agentType:  code-reviewer, integration-reviewer
-  General-purpose:  spec-reviewer (by dispatch signature), visual-reviewer (by dispatch signature)
+  Named agentType:  code-reviewer, integration-reviewer, spec-reviewer
+  Generic worker:   visual-reviewer (by dispatch signature, dispatched as standard-worker;
+                     general-purpose for JSONLs predating the T04 named-agent migration)
 
 Compliance rule:
   A reviewer dispatch is COMPLIANT if its final assistant message is a single non-empty
@@ -43,13 +44,16 @@ from glob import glob
 from pathlib import Path
 
 # --- Reviewer identification -------------------------------------------------
-REVIEWER_TYPES = frozenset({"code-reviewer", "integration-reviewer"})
+REVIEWER_TYPES = frozenset({"code-reviewer", "integration-reviewer", "spec-reviewer"})
 
-# General-purpose subagents that are orchestrate reviewers, keyed by dispatch signature.
+# Generic worker agentTypes with no fixed role of their own — resolved by
+# REVIEWER_GP_SIGS prompt matching instead of returned as-is. general-purpose is kept
+# for JSONLs predating the T04 named-agent migration; standard-worker is its replacement.
+GENERIC_WORKER_TYPES = frozenset({"general-purpose", "standard-worker"})
+
+# Generic-worker subagents that are orchestrate reviewers, keyed by dispatch signature.
 # Order matters: list more specific signatures before shorter ones.
 REVIEWER_GP_SIGS: list[tuple[str, str]] = [
-    ("spec-reviewer", "You are independently verifying a completed task"),
-    ("spec-reviewer", "independently verifying a completed Work Package"),
     ("visual-reviewer", "You are reviewing screenshots captured by an executor agent"),
 ]
 
@@ -75,7 +79,7 @@ VERDICT_PREFIX = "**Verdict:**"
 #
 # Drift surface: this literal also lives at every dispatch and reviewer site the probe
 # reads at runtime — skills/mine-orchestrate/{SKILL.md, findings-fix-loop.md,
-# spec-reviewer-prompt.md, visual-reviewer-prompt.md} and agents/{code,integration}-reviewer.md.
+# visual-reviewer-prompt.md} and agents/{code,integration,spec}-reviewer.md.
 # Renaming the sentinel at any of those without updating this constant makes the gate match
 # nothing, so the probe silently scores zero dispatches with no error. Keep in sync; the
 # leak check (verdict-line-format.md §64) keeps it out of path-less callers.
@@ -162,7 +166,7 @@ def resolve_reviewer_role(agent_type: str, dispatch: str) -> str | None:
     """Return the reviewer role name, or None if this is not an orchestrate reviewer."""
     if agent_type in REVIEWER_TYPES:
         return agent_type
-    if agent_type == "general-purpose":
+    if agent_type in GENERIC_WORKER_TYPES:
         for role, sig in REVIEWER_GP_SIGS:
             if sig in dispatch:
                 return role

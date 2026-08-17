@@ -268,12 +268,12 @@ Per-task subdirectories preserve evidence across the full orchestration run. Thi
 
 ### Step 4: Select executor agent type
 
-Before launching the executor, read the task's objective and subtasks to determine if a specialized agent is a better fit than `general-purpose`. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/agent-routing.md` for the routing table. First match wins — stop at the first row that applies. <!-- opencode-sync: ok -->
+Before launching the executor, read the task's objective and subtasks to determine if a specialized agent is a better fit than the `standard-worker` fallback. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/agent-routing.md` for the routing table. First match wins — stop at the first row that applies. <!-- opencode-sync: ok -->
 
 After selecting the agent type, record the dispatch and capture its ID:
 
 ```bash
-cfl dispatch executor <task_id> --agent-type <selected_agent_type> --model <model from agent frontmatter, or sonnet as fallback>
+cfl dispatch executor <task_id> --agent-type <selected_agent_type>
 ```
 
 Parse `dispatch_id` from the JSON output — it is required for `cfl dispatch end` after the executor returns, and must be included in the subagent prompt for telemetry correlation (see below).
@@ -289,7 +289,7 @@ For **first-pass execution**, include only `implementer-prompt.md` in the `## Im
 
 For **retries** (spec fix loop and FAIL retry), include **both** files: `implementer-prompt.md` in `## Implementer instructions` (task execution contract — subtask sequencing, deviation classification, visual verification) and `retry-prompt.md` as an additional `## Retry instructions` section below it (verify-before-implement posture, YAGNI check, push-back protocol, and previous review feedback).
 
-Launch the selected agent with the same model as the dispatch and this prompt (fill in bracketed values):
+Launch the selected agent with this prompt (fill in bracketed values):
 
 ```
 You are executing a single task from an implementation plan.
@@ -379,8 +379,8 @@ Before launching, record three dispatches and capture their IDs:
 
 ```bash
 cfl dispatch spec-reviewer <task_id> --agent-type spec-reviewer
-cfl dispatch code-reviewer <task_id> --agent-type code-reviewer --model sonnet
-cfl dispatch integration-reviewer <task_id> --agent-type integration-reviewer --model sonnet
+cfl dispatch code-reviewer <task_id> --agent-type code-reviewer
+cfl dispatch integration-reviewer <task_id> --agent-type integration-reviewer
 ```
 
 Parse `dispatch_id` from each JSON response — needed for `cfl dispatch end` after each returns.

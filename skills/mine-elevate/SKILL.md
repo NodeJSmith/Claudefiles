@@ -54,7 +54,7 @@ Resolve the user's answer — the module or files they name (typically via the f
 
 ## Phase 2: Generate (three lenses, in parallel)
 
-Read REFERENCE.md. Dispatch **three generator subagents in a single message** (parallel; `model: sonnet`, `subagent_type: general-purpose`; read-only, no worktree isolation). One per lens — **Friction**, **Latent**, **Maximalist**. Each receives: the subsystem file list, **only its own** lens block from REFERENCE.md verbatim, the candidate record format from REFERENCE.md, and an output path `<tmpdir>/<lens>-candidates.md`. There is no cap on candidate count — quality over count.
+Read REFERENCE.md. Dispatch **three generator subagents in a single message** (parallel; `subagent_type: standard-worker`; read-only, no worktree isolation). One per lens — **Friction**, **Latent**, **Maximalist**. Each receives: the subsystem file list, **only its own** lens block from REFERENCE.md verbatim, the candidate record format from REFERENCE.md, and an output path `<tmpdir>/<lens>-candidates.md`. There is no cap on candidate count — quality over count.
 
 Keep the generators isolated: each receives **only its own** lens block and the subsystem — never another generator's prompt or output file. If one lens sees another's restraint, the maximalist lens regresses to the cautious mean.
 
@@ -64,7 +64,7 @@ After they complete, verify each output file exists and is non-empty.
 
 ## Phase 3: Annotate (one independent judge)
 
-Dispatch **one** judge subagent (`model: sonnet`, `subagent_type: general-purpose`) — not three. One judge over the whole set keeps cost and the case-against *calibrated* across lenses. It runs in a context separate from every generator, which is what preserves no-self-grading.
+Dispatch **one** judge subagent (`subagent_type: standard-worker`) — not three. One judge over the whole set keeps cost and the case-against *calibrated* across lenses. It runs in a context separate from every generator, which is what preserves no-self-grading.
 
 It receives: all three candidate files, the subsystem files, the judge prompt from REFERENCE.md, and output path `<tmpdir>/annotated.md`. Its job is to add **Cost** and **Case against** to every candidate — including arguing against ideas it doubts — and to add nothing else. It must not drop, merge away, or reorder candidates.
 

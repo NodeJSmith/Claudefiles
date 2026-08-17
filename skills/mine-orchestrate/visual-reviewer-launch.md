@@ -26,12 +26,12 @@ If no `.png` files are found, distinguish the cause:
 Before launching, record a dispatch and capture its ID:
 
 ```bash
-cfl dispatch visual-reviewer <task_id> --agent-type general-purpose --model sonnet
+cfl dispatch visual-reviewer <task_id> --agent-type standard-worker
 ```
 
 Parse `dispatch_id` from the JSON response for the prompt and the completion call.
 
-Launch a `general-purpose` subagent with `model: sonnet`:
+Launch a `standard-worker` subagent:
 
 ```
 You are reviewing screenshots from a frontend task implementation.

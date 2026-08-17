@@ -25,8 +25,9 @@ What it does:
   - Attributes cost per (role, model): subagents from their own JSONLs; the
     orchestrator loop from the parent session's windowed turns, split into a band of
     own-generation (output) vs absorbed-context (input/cache it merely received).
-  - Disambiguates the shared `general-purpose` agentType into real roles (executor,
-    spec-reviewer, the fix subagents, ...) by a dispatch-prompt signature.
+  - Disambiguates the generic worker agentTypes (`standard-worker`, `light-worker`, and
+    `general-purpose` for pre-migration history) into real roles (executor, the fix
+    subagents, ...) by a dispatch-prompt signature.
   - Buckets runs by pipeline fingerprint (the model assigned to each role whose model
     has actually varied across history) so model-assignment drift is visible and the
     tool can't silently go stale.
@@ -82,10 +83,13 @@ BASE_COMMIT_RE = re.compile(
     r'(?:--base-commit\s+|base_commit["\s:=]+)([0-9a-f]{6,40})\b'
 )
 
-# general-purpose is shared by many orchestrate roles. Resolve by a distinctive
-# substring of the dispatch prompt (the subagent's first user message). ORDER MATTERS:
-# the fix subagents embed the full implementer-prompt, so the generic executor
-# signature must be checked LAST or every fix run misbuckets as an executor.
+# A generic worker agentType (standard-worker, light-worker; general-purpose for JSONLs
+# predating the T04 named-agent migration) is shared by many orchestrate roles. Resolve
+# by a distinctive substring of the dispatch prompt (the subagent's first user message).
+# ORDER MATTERS: the fix subagents embed the full implementer-prompt, so the generic
+# executor signature must be checked LAST or every fix run misbuckets as an executor.
+# spec-reviewer is NOT here: post-migration it dispatches as its own named agentType
+# (see ORCHESTRATE_TYPES) and resolve_role() never reaches this table for it.
 GP_SIGNATURES: list[tuple[str, str]] = [
     (
         "clean-code",
@@ -93,9 +97,6 @@ GP_SIGNATURES: list[tuple[str, str]] = [
     ),
     ("trail-audit", "auditing the structural integrity of the decision trail"),
     ("impl-review", "reviewing a completed feature implementation against its design"),
-    ("spec-reviewer", "You are independently verifying a completed task"),
-    # caliper v2 renamed the unit task -> Work Package; older runs use that wording.
-    ("spec-reviewer", "independently verifying a completed Work Package"),
     ("impl-review-fix", "Fix only the listed blocking issues"),
     ("comb-fix", "Fix only the listed design-fidelity gaps"),  # historical: impl-comb removed from pipeline
     # The rendered dispatch says "executing" (the implementer-prompt heading reads
@@ -105,11 +106,12 @@ GP_SIGNATURES: list[tuple[str, str]] = [
     ("executor", "executing a single Work Package from an implementation plan"),
 ]
 
-# Named (non-general-purpose) agentTypes that mine-orchestrate dispatches. A run's
-# parent session can also run *other* skills (challenge critics, doc reviewers, the
-# engineering-* agents, ...) whose subagents share the same session window — those are
-# NOT orchestrate cost. Restricting to the design's §4 role taxonomy excludes them.
-# code-reviewer / integration-reviewer are shared with other skills, but within an
+# Named (non-generic-worker) agentTypes that mine-orchestrate dispatches, resolved to a
+# role directly with no prompt-signature matching needed. A run's parent session can
+# also run *other* skills (challenge critics, doc reviewers, the engineering-* agents,
+# ...) whose subagents share the same session window — those are NOT orchestrate cost.
+# Restricting to the design's §4 role taxonomy excludes them. code-reviewer /
+# integration-reviewer / spec-reviewer are shared with other skills, but within an
 # orchestrate run window they are overwhelmingly orchestrate's own (window assumption).
 ORCHESTRATE_TYPES = frozenset(
     {
@@ -117,8 +119,14 @@ ORCHESTRATE_TYPES = frozenset(
         "integration-reviewer",
         "wtf-reviewer",
         "fine-toothed-comb",
+        "spec-reviewer",
     }
 )
+
+# agentTypes with no fixed role of their own — resolved by GP_SIGNATURES prompt
+# matching instead of returned as-is. general-purpose is kept for JSONLs predating the
+# T04 named-agent migration; standard-worker/light-worker are its replacements.
+GENERIC_WORKER_TYPES = frozenset({"general-purpose", "standard-worker", "light-worker"})
 
 NO_DATA = "—"
 
@@ -307,11 +315,11 @@ def first_ts(path: str) -> str:
 def resolve_role(agent_type: str, prompt: str) -> str | None:
     """Map a subagent to an orchestrate role, or None if it is not an orchestrate
     subagent (another skill sharing the session window). Named types are kept only if
-    they are in the orchestrate taxonomy; general-purpose is kept only if its dispatch
-    prompt matches a known orchestrate signature."""
+    they are in the orchestrate taxonomy; a generic worker type (GENERIC_WORKER_TYPES)
+    is kept only if its dispatch prompt matches a known orchestrate signature."""
     if agent_type in ORCHESTRATE_TYPES:
         return agent_type
-    if agent_type == "general-purpose":
+    if agent_type in GENERIC_WORKER_TYPES:
         for role, sig in GP_SIGNATURES:
             if sig in prompt:
                 return f"gp:{role}"

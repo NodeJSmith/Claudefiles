@@ -110,7 +110,7 @@ Omit any empty bucket. If nothing landed on Probe, show the ledger anyway and go
 Record the dispatches first — **one call per Probe**, not one for the batch. Skip these `cfl` calls if tracking was disabled in Phase 1 (no `<spec_number>` set):
 
 ```bash
-cfl dispatch blind-spot-probe --agent-type general-purpose --model sonnet --spec <spec_number>
+cfl dispatch blind-spot-probe --agent-type standard-worker --spec <spec_number>
 ```
 
 Each call returns its own `dispatch_id`. Write down the pairing before launching any probe — a plain `<claim, dispatch_id>` list in your working notes is enough, and the ledger you just showed already numbers the claims. The probes come back in whatever order they finish, so an ID you cannot map back to a claim ends the wrong dispatch. Call `cfl dispatch end <dispatch_id>` as each probe returns, using that claim's ID.
@@ -119,8 +119,7 @@ Dispatch every Probe in a single message so they run in parallel, one Agent bloc
 
 ```
 Agent:
-  subagent_type: general-purpose
-  model: sonnet
+  subagent_type: standard-worker
   prompt: |
     Settle one factual claim. Report what you find; do not fix anything.
 

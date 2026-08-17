@@ -81,7 +81,7 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-implementation-review/reviewer
 
 If `--test-command-file <path>` was provided, read that file and use its exact non-empty contents. Do not rediscover or substitute a different command. If the path is missing, unreadable, or empty, stop and report the broken handoff. When no path was provided, follow `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/testing.md` to discover and confirm the canonical command. If no test command exists, use `no test suite`.
 
-Launch a general-purpose subagent with `model: sonnet`. Pass this prompt (fill in bracketed values):
+Launch a `standard-worker` subagent. Pass this prompt (fill in bracketed values):
 
 ```
 You are reviewing a completed caliper v2 feature implementation.

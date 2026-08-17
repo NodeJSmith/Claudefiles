@@ -29,7 +29,6 @@ If the target is ambiguous (no path given, several candidates), ask the user whi
 ```
 Agent:
   subagent_type: fine-toothed-comb
-  model: sonnet
   prompt: |
     <For a single artifact:>
     Read this <artifact type>: <path>

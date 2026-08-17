@@ -75,7 +75,7 @@ Note re-challenge status in context for Phase 2 critic selection.
 
 ### Dispatch Haiku triage subagent
 
-**Dispatch a single triage subagent** (`model: haiku`, `subagent_type: general-purpose`). Pass:
+**Dispatch a single triage subagent** (`subagent_type: light-worker`). Pass:
 - Full target content (or file paths to read)
 - Target type classification
 - Re-challenge flag (`yes` / `no`)
@@ -141,7 +141,7 @@ If the generic persona directory is missing or empty, stop with: "Cannot launch 
 
 ### Dispatch critics in parallel
 
-**Issue ALL critic Agent tool calls in a single response message.** Each uses `model: sonnet`, `subagent_type: general-purpose`, NOT `run_in_background`. Each critic receives:
+**Issue ALL critic Agent tool calls in a single response message.** Each uses `subagent_type: standard-worker`, NOT `run_in_background`. Each critic receives:
 - Target content (file paths to read, or inline text)
 - Target type and `target_summary` from triage
 - Full persona content (Persona, Characteristic question, Focus bullets)
@@ -163,7 +163,7 @@ After all critics complete, verify each output file exists and has ≥500 bytes.
 
 ## Phase 3: Synthesize + Classify
 
-**Dispatch synthesis as a separate subagent** (`model: sonnet`, `subagent_type: general-purpose`) for fresh context.
+**Dispatch synthesis as a separate subagent** (`subagent_type: standard-worker`) for fresh context.
 
 The synthesis subagent receives:
 - All critic report paths (`<tmpdir>/<slug>-report.md` for each critic)

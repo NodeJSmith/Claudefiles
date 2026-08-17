@@ -99,8 +99,8 @@ AskUserQuestion:
 **On "Address fixes":** follow the shared blocking-review fixer protocol below with these
 implementation-review inputs and verification steps:
 
-- Record `cfl dispatch impl-fixer --agent-type general-purpose --model sonnet`, then dispatch a
-  fresh `general-purpose` subagent with `model: sonnet`, the preceding `cfl_dispatch_id`, the
+- Record `cfl dispatch impl-fixer --agent-type standard-worker`, then dispatch a
+  fresh `standard-worker` subagent with the preceding `cfl_dispatch_id`, the
   impl-review findings, relevant paths, `<feature_dir>/design.md`, all task files (for per-task
   constraints), accumulated spec reviews, `implementer-prompt.md`, `retry-prompt.md`, and `tdd.md`.
   Populate `## Previous review feedback` with every report that caused the current retry:
@@ -113,8 +113,8 @@ implementation-review inputs and verification steps:
   dispatches before launching either reviewer:
 
   ```bash
-  cfl dispatch impl-fix-code-reviewer --agent-type code-reviewer --model sonnet
-  cfl dispatch impl-fix-integration-reviewer --agent-type integration-reviewer --model sonnet
+  cfl dispatch impl-fix-code-reviewer --agent-type code-reviewer
+  cfl dispatch impl-fix-integration-reviewer --agent-type integration-reviewer
   ```
 
   Launch both in one foreground message (never `run_in_background: true`) on the current full-branch
@@ -139,7 +139,7 @@ implementation-review inputs and verification steps:
   only after its PASS handling completes:
 
   ```bash
-  cfl dispatch impl-review-rerun --agent-type general-purpose --model sonnet
+  cfl dispatch impl-review-rerun --agent-type standard-worker
   cfl dispatch end <impl_review_rerun_dispatch_id>
   ```
 
@@ -153,7 +153,7 @@ defined above. This catches cross-file consistency issues that per-task reviews 
 Record the dispatch and capture its ID:
 
 ```bash
-cfl dispatch cross-file-reviewer --agent-type integration-reviewer --model sonnet
+cfl dispatch cross-file-reviewer --agent-type integration-reviewer
 ```
 
 Launch `Agent(subagent_type: "integration-reviewer")` with all changed files. Include
@@ -210,16 +210,16 @@ AskUserQuestion:
 On "Address fixes", follow the shared blocking-review fixer protocol below with these cross-file-review inputs and verification steps:
 
 ```bash
-cfl dispatch cross-file-fixer --agent-type general-purpose --model sonnet
+cfl dispatch cross-file-fixer --agent-type standard-worker
 ```
 
-- Dispatch a `general-purpose` fixer with `model: sonnet`, `cfl_dispatch_id: <cross_file_fixer_dispatch_id>`,
+- Dispatch a `standard-worker` fixer with `cfl_dispatch_id: <cross_file_fixer_dispatch_id>`,
   the cross-file review findings, changed file paths, design doc path, task files, and the
   instruction: "Fix only the listed cross-file consistency issues; do not expand scope." After
   the shared verification protocol below passes, record the re-review dispatch:
 
   ```bash
-  cfl dispatch cross-file-reviewer-rerun --agent-type integration-reviewer --model sonnet
+  cfl dispatch cross-file-reviewer-rerun --agent-type integration-reviewer
   ```
 
   Launch one foreground `integration-reviewer` subagent (never `run_in_background: true`) on the
@@ -273,10 +273,10 @@ that correctness and integration reviewers do not target.
 Record the dispatch and capture its ID:
 
 ```bash
-cfl dispatch clean-code-executor --agent-type general-purpose --model sonnet
+cfl dispatch clean-code-executor --agent-type standard-worker
 ```
 
-Launch a single `general-purpose` subagent with `model: sonnet` and this prompt. (The analysis is done by `mine-clean-code`'s three Sonnet checkers; this wrapper only invokes the skill and applies the unambiguous fixes — leaving anything that needs architectural judgment noted, not fixed — so it does not need Opus.)
+Launch a single `standard-worker` subagent with this prompt. (The analysis is done by `mine-clean-code`'s three Sonnet checkers; this wrapper only invokes the skill and applies the unambiguous fixes — leaving anything that needs architectural judgment noted, not fixed — so it does not need Opus.)
 
 ```
 You are running a comprehensive stylistic quality review on a completed feature branch.
@@ -337,8 +337,8 @@ only across tasks.
 Record both dispatches and capture their IDs:
 
 ```bash
-cfl dispatch final-code-reviewer --agent-type code-reviewer --model sonnet
-cfl dispatch final-integration-reviewer --agent-type integration-reviewer --model sonnet
+cfl dispatch final-code-reviewer --agent-type code-reviewer
+cfl dispatch final-integration-reviewer --agent-type integration-reviewer
 ```
 
 Launch both reviewers in a single message (parallel), with the `CONCISE-RETURN-MODE` sentinel and output file paths (same activation contract used by the findings fix loop — see `verdict-line-format.md`):
@@ -407,7 +407,7 @@ AskUserQuestion:
       description: "Keep it recorded in known-issues.md as open for later"
 ```
 
-- **Fix now:** record the dispatch (`cfl dispatch known-issue-fixer --agent-type general-purpose --model sonnet`), capture `dispatch_id`, then dispatch a `general-purpose` subagent (`model: sonnet`, `cfl_dispatch_id: <dispatch_id>`) scoped to only this entry's `Affected files` and `Recommended follow-up`. After it completes: `cfl dispatch end <dispatch_id>`. Then record a reviewer dispatch (`cfl dispatch known-issue-review --agent-type code-reviewer --model sonnet`), capture `review_dispatch_id`, and run `code-reviewer` once on the changed files with `cfl_dispatch_id: <review_dispatch_id>`; after it completes: `cfl dispatch end <review_dispatch_id>`. (Single-pass `code-reviewer` only, not the full `findings-fix-loop.md` rigor — this fix targets one already-identified, already-scoped issue rather than an open-ended review, so the cross-file consistency check `integration-reviewer` adds isn't needed.) On FAIL or WARN, or if a subsequent test/lint retest fails, treat the fix attempt as failed: tell the user what went wrong, leave the entry's `Status:` as `open`, and re-raise this same three-option `AskUserQuestion` for the entry (Fix now / File as GitHub issue / Leave deferred) rather than silently stalling — do not proceed to Step 6 until the user responds again. A retried "Fix now" dispatches a fresh subagent scoped the same way; it sees the current (possibly still-broken) state of the affected files and can build on or revert the prior attempt as it judges appropriate. On a clean code-reviewer PASS, re-run the project test suite using `<dir>/test-command.txt` (skip and treat as passing if that file contains the sentinel `no test suite`) and lint using `<dir>/lint-command.txt` (skip and treat as passing if that file contains the sentinel `no lint tools`) — the same rigor bar Step 4's clean-code fixer uses. Keep the entry open until the full-branch gate below passes.
+- **Fix now:** record the dispatch (`cfl dispatch known-issue-fixer --agent-type standard-worker`), capture `dispatch_id`, then dispatch a `standard-worker` subagent (`cfl_dispatch_id: <dispatch_id>`) scoped to only this entry's `Affected files` and `Recommended follow-up`. After it completes: `cfl dispatch end <dispatch_id>`. Then record a reviewer dispatch (`cfl dispatch known-issue-review --agent-type code-reviewer`), capture `review_dispatch_id`, and run `code-reviewer` once on the changed files with `cfl_dispatch_id: <review_dispatch_id>`; after it completes: `cfl dispatch end <review_dispatch_id>`. (Single-pass `code-reviewer` only, not the full `findings-fix-loop.md` rigor — this fix targets one already-identified, already-scoped issue rather than an open-ended review, so the cross-file consistency check `integration-reviewer` adds isn't needed.) On FAIL or WARN, or if a subsequent test/lint retest fails, treat the fix attempt as failed: tell the user what went wrong, leave the entry's `Status:` as `open`, and re-raise this same three-option `AskUserQuestion` for the entry (Fix now / File as GitHub issue / Leave deferred) rather than silently stalling — do not proceed to Step 6 until the user responds again. A retried "Fix now" dispatches a fresh subagent scoped the same way; it sees the current (possibly still-broken) state of the affected files and can build on or revert the prior attempt as it judges appropriate. On a clean code-reviewer PASS, re-run the project test suite using `<dir>/test-command.txt` (skip and treat as passing if that file contains the sentinel `no test suite`) and lint using `<dir>/lint-command.txt` (skip and treat as passing if that file contains the sentinel `no lint tools`) — the same rigor bar Step 4's clean-code fixer uses. Keep the entry open until the full-branch gate below passes.
   After a successful targeted review and test/lint retest, re-run the complete Step 5 final-review
   gate on the refreshed full-branch scope. Only after that gate passes, update the entry's
   `Status:` line to `resolved — fixed during known issues walkthrough` and continue to the next

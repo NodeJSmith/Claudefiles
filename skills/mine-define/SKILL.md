@@ -142,7 +142,7 @@ Run `get-skill-tmpdir mine-define-research` and use `<dir>/brief.md` as the rese
 Before dispatching, record the dispatch. Skip this call (and the dispatch-end call below) if cfl tracking was disabled in Phase 1 (no `<spec_number>` set):
 
 ```bash
-cfl dispatch researcher --agent-type researcher --model opus --spec <spec_number>
+cfl dispatch researcher --agent-type researcher --spec <spec_number>
 ```
 
 Record the `dispatch_id` from the output.
@@ -221,7 +221,7 @@ Comb the design doc before sign-off. This is an open-ended pass — no checklist
 Before dispatching, record the dispatch. Skip this call (and the dispatch-end/gate calls below) if cfl tracking was disabled in Phase 1 (no `<spec_number>` set):
 
 ```bash
-cfl dispatch define-comb --agent-type fine-toothed-comb --model sonnet --spec <spec_number>
+cfl dispatch define-comb --agent-type fine-toothed-comb --spec <spec_number>
 ```
 
 Record the `dispatch_id` from the output.
@@ -231,7 +231,6 @@ Dispatch the `fine-toothed-comb` agent (see `${CLAUDE_CONFIG_DIR:-~/.claude}/age
 ```
 Agent:
   subagent_type: fine-toothed-comb
-  model: sonnet
   prompt: |
     Read this design file: <design_doc_path>
 

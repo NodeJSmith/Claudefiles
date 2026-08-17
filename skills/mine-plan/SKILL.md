@@ -254,14 +254,14 @@ After writing all task files and context.md, dispatch a validation subagent with
 Before dispatching, record the dispatch. Skip this call (and the dispatch-end call below) if cfl tracking is inactive for this run (see Initialize Plan Tracking):
 
 ```bash
-cfl dispatch plan-validator --agent-type general-purpose --model sonnet --spec <spec_number>
+cfl dispatch plan-validator --agent-type standard-worker --spec <spec_number>
 ```
 
 Record the `dispatch_id` from the output.
 
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-plan/validator-prompt.md` to get the validator instructions.
 
-Launch a `general-purpose` subagent with `model: sonnet`. Pass this prompt (fill in the bracketed values):
+Launch a `standard-worker` subagent. Pass this prompt (fill in the bracketed values):
 
 ```
 You are a plan validation agent. Your job is to independently verify that a set of task files correctly and completely covers the requirements in a design document.
@@ -351,7 +351,7 @@ If git operations fail (not a repo, nothing to commit), note it and continue.
 Before dispatching, record the dispatch. Skip this call (and the dispatch-end call below) if cfl tracking is inactive for this run:
 
 ```bash
-cfl dispatch plan-reviewer --agent-type general-purpose --model sonnet --spec <spec_number>
+cfl dispatch plan-reviewer --agent-type standard-worker --spec <spec_number>
 ```
 
 Record the `dispatch_id` from the output.
@@ -360,7 +360,7 @@ Run `get-skill-tmpdir mine-plan` and use `<dir>/review.md` for the review output
 
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-plan/reviewer-prompt.md` to get the checklist content.
 
-Launch a general-purpose subagent with `model: sonnet`. Pass this prompt (fill in the bracketed values from the files you read):
+Launch a `standard-worker` subagent. Pass this prompt (fill in the bracketed values from the files you read):
 
 ```
 You are reviewing an implementation design and its task files.
@@ -419,7 +419,7 @@ The task files are now the plan's output. Comb the design doc and the task files
 Before dispatching, record the dispatch. Skip this call (and the dispatch-end/gate calls below) if cfl tracking is inactive for this run:
 
 ```bash
-cfl dispatch plan-comb --agent-type fine-toothed-comb --model sonnet --spec <spec_number>
+cfl dispatch plan-comb --agent-type fine-toothed-comb --spec <spec_number>
 ```
 
 Record the `dispatch_id` from the output.
@@ -429,7 +429,6 @@ Dispatch the `fine-toothed-comb` agent (see `${CLAUDE_CONFIG_DIR:-~/.claude}/age
 ```
 Agent:
   subagent_type: fine-toothed-comb
-  model: sonnet
   prompt: |
     Read this design file: <design_doc_path>
     Read all task files in: <feature_dir>/tasks/

@@ -25,7 +25,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
                 ("severity gate", r"^## Severity Gate$"),
                 (
                     "severity fixer dispatch",
-                    r"cfl dispatch severity-fixer --agent-type general-purpose --model sonnet",
+                    r"cfl dispatch severity-fixer --agent-type standard-worker",
                 ),
                 ("run ID field", r"^Run: <run_id>$"),
                 ("entry schema", r"^## Entry Format$"),
@@ -365,7 +365,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
                     r"React, Vue, Angular, CSS.*engineering-frontend-developer",
                 ),
                 ("backend route", r"FastAPI.*engineering-backend-developer"),
-                ("fallback route", r"general-purpose"),
+                ("fallback route", r"standard-worker"),
             ],
         ),
         (

@@ -1,7 +1,7 @@
 ---
 task_id: "T04"
 title: "Migrate every dispatch site to name a real agent"
-status: "planned"
+status: "done"
 depends_on: ["T01", "T03"]
 implements: ["FR#1", "FR#2", "FR#4", "FR#20", "FR#24", "AC#1", "AC#2", "AC#15", "AC#20", "AC#24"]
 ---
