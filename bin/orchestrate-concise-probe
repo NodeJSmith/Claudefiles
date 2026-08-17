@@ -19,9 +19,11 @@ Usage:
   orchestrate-concise-probe --json                 # machine-readable output
 
 Reviewer identification:
-  Named agentType:  code-reviewer, integration-reviewer, spec-reviewer
+  Named agentType:  code-reviewer, integration-reviewer, spec-reviewer (post-T04 JSONLs)
   Generic worker:   visual-reviewer (by dispatch signature, dispatched as standard-worker;
-                     general-purpose for JSONLs predating the T04 named-agent migration)
+                     general-purpose for JSONLs predating the T04 named-agent migration);
+                     spec-reviewer (by dispatch signature, general-purpose only, for JSONLs
+                     predating the T04 named-agent migration)
 
 Compliance rule:
   A reviewer dispatch is COMPLIANT if its final assistant message is a single non-empty
@@ -52,8 +54,12 @@ REVIEWER_TYPES = frozenset({"code-reviewer", "integration-reviewer", "spec-revie
 GENERIC_WORKER_TYPES = frozenset({"general-purpose", "standard-worker"})
 
 # Generic-worker subagents that are orchestrate reviewers, keyed by dispatch signature.
-# Order matters: list more specific signatures before shorter ones.
+# spec-reviewer's entries here are for pre-T04 JSONLs only — post-migration it dispatches
+# as its own named agentType and REVIEWER_TYPES above catches it first. Order matters:
+# list more specific signatures before shorter ones.
 REVIEWER_GP_SIGS: list[tuple[str, str]] = [
+    ("spec-reviewer", "You are independently verifying a completed task"),
+    ("spec-reviewer", "independently verifying a completed Work Package"),
     ("visual-reviewer", "You are reviewing screenshots captured by an executor agent"),
 ]
 

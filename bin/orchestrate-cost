@@ -89,8 +89,10 @@ BASE_COMMIT_RE = re.compile(
 # by a distinctive substring of the dispatch prompt (the subagent's first user message).
 # ORDER MATTERS: the fix subagents embed the full implementer-prompt, so the generic
 # executor signature must be checked LAST or every fix run misbuckets as an executor.
-# spec-reviewer is NOT here: post-migration it dispatches as its own named agentType
-# (see ORCHESTRATE_TYPES) and resolve_role() never reaches this table for it.
+# spec-reviewer's entries here are for pre-T04 JSONLs only: post-migration it dispatches
+# as its own named agentType (see ORCHESTRATE_TYPES) and resolve_role() never reaches
+# this table for it — but a pre-migration JSONL has agentType "general-purpose" and
+# needs a signature match here or its cost silently drops out of the totals.
 GP_SIGNATURES: list[tuple[str, str]] = [
     (
         "clean-code",
@@ -100,6 +102,9 @@ GP_SIGNATURES: list[tuple[str, str]] = [
     ("impl-review", "reviewing a completed feature implementation against its design"),
     ("impl-review-fix", "Fix only the listed blocking issues"),
     ("comb-fix", "Fix only the listed design-fidelity gaps"),  # historical: impl-comb removed from pipeline
+    ("spec-reviewer", "You are independently verifying a completed task"),
+    # caliper v2 renamed the unit task -> Work Package; older runs use that wording.
+    ("spec-reviewer", "independently verifying a completed Work Package"),
     # The rendered dispatch says "executing" (the implementer-prompt heading reads
     # "implementing", but the orchestrator's prompt does not — match the live text).
     # Checked last: the fix subagents embed the implementer prompt.
@@ -138,8 +143,12 @@ _COMMIT_PREFIX_LEN = 8
 
 # Roles that the JSONL path prefixes with "gp:" (via resolve_role → GP_SIGNATURES).
 # DB dispatches store the bare canonical name; normalise to the gp:-prefixed form before
-# mixing the two sources so aggregation/counting sees one vocabulary.
-_GP_ROLES = frozenset(role for role, _sig in GP_SIGNATURES)
+# mixing the two sources so aggregation/counting sees one vocabulary. Exclude
+# ORCHESTRATE_TYPES: spec-reviewer is in GP_SIGNATURES only for pre-T04 JSONL
+# fallback matching, but a DB row's role is always the literal dispatched name
+# (see cfl dispatch calls), never signature-matched — a DB row with
+# role="spec-reviewer" must stay bare, not get relabeled "gp:spec-reviewer".
+_GP_ROLES = frozenset(role for role, _sig in GP_SIGNATURES) - ORCHESTRATE_TYPES
 
 # --- cfl DB support ---
 # DB path logic replicated inline (this is a PEP 723 standalone script, not part of the
