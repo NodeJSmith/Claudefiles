@@ -1,7 +1,7 @@
 ---
 task_id: "T04"
 title: "Delete the disk-write machinery from bin/opencode-sync"
-status: "planned"
+status: "done"
 depends_on: ["T02", "T03"]
 implements: ["FR#11", "FR#12", "FR#13", "FR#14", "FR#15", "FR#16", "FR#17", "FR#18", "FR#21", "FR#23", "FR#24", "AC#7", "AC#8", "AC#9", "AC#12", "AC#18", "AC#19", "AC#22"]
 ---
