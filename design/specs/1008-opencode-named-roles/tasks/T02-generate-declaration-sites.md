@@ -1,7 +1,7 @@
 ---
 task_id: "T02"
 title: "Generate performance.md and install.py from agent frontmatter"
-status: "planned"
+status: "done"
 depends_on: ["T01"]
 implements: ["FR#8", "FR#9", "FR#10", "FR#11", "FR#23", "FR#29", "AC#6", "AC#7", "AC#18", "AC#22", "AC#28"]
 ---
