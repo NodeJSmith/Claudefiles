@@ -408,11 +408,14 @@ def test_wip_commit_path_normalization_handles_staged_rename(tmp_path: Path) -> 
         "GIT_COMMITTER_EMAIL": "test@example.com",
     }
 
-    subprocess.run(["git", "init", "-q"], cwd=repo, check=True, env=env)
+    def run_git(*args: str) -> None:
+        subprocess.run(["git", *args], cwd=repo, check=True, env=env)
+
+    run_git("init", "-q")
     (repo / "old.txt").write_text("content\n")
-    subprocess.run(["git", "add", "old.txt"], cwd=repo, check=True, env=env)
-    subprocess.run(["git", "commit", "-qm", "initial"], cwd=repo, check=True, env=env)
-    subprocess.run(["git", "mv", "old.txt", "new.txt"], cwd=repo, check=True, env=env)
+    run_git("add", "old.txt")
+    run_git("commit", "-qm", "initial")
+    run_git("mv", "old.txt", "new.txt")
 
     command = r"""
 emit_changed_paths() {

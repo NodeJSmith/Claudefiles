@@ -80,18 +80,23 @@ FORBIDDEN_VOCAB_PATTERNS = {
 }
 
 
-def check_reviewer(path: Path, expects_count: bool) -> list[str]:
-    errors: list[str] = []
-    rel = path.relative_to(ROOT)
-
+def _read_text_safe(path: Path, rel: Path) -> tuple[str | None, list[str]]:
+    """Read a file's text, returning (None, [error]) on any read failure."""
     try:
-        text = path.read_text()
+        return path.read_text(), []
     except FileNotFoundError:
-        return [f"{rel}: file not found"]
+        return None, [f"{rel}: file not found"]
     except OSError as exc:
-        return [f"{rel}: cannot read file: {exc}"]
+        return None, [f"{rel}: cannot read file: {exc}"]
     except UnicodeDecodeError as exc:
-        return [f"{rel}: file is not valid UTF-8: {exc}"]
+        return None, [f"{rel}: file is not valid UTF-8: {exc}"]
+
+
+def check_reviewer(path: Path, expects_count: bool) -> list[str]:
+    rel = path.relative_to(ROOT)
+    text, errors = _read_text_safe(path, rel)
+    if text is None:
+        return errors
 
     verdict_lines = [
         line for line in text.splitlines() if line.startswith(VERDICT_PREFIX)
@@ -144,17 +149,10 @@ def check_reviewer(path: Path, expects_count: bool) -> list[str]:
 def check_forbidden_vocab(path: Path) -> list[str]:
     """Reject stale verdict vocabulary in active prompt contracts."""
     rel = path.relative_to(ROOT)
+    text, errors = _read_text_safe(path, rel)
+    if text is None:
+        return errors
 
-    try:
-        text = path.read_text()
-    except FileNotFoundError:
-        return [f"{rel}: file not found"]
-    except OSError as exc:
-        return [f"{rel}: cannot read file: {exc}"]
-    except UnicodeDecodeError as exc:
-        return [f"{rel}: file is not valid UTF-8: {exc}"]
-
-    errors: list[str] = []
     for pattern, hint in FORBIDDEN_VOCAB_PATTERNS.items():
         for match in re.finditer(pattern, text):
             line_no = text.count("\n", 0, match.start()) + 1

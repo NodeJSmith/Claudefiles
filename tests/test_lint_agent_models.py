@@ -71,7 +71,7 @@ def _write_agent(
     fields = {
         "model": f"model: {model}{model_comment}",
         "effort": f"effort: {effort}",
-        "tools": 'tools: ["Read"]',
+        "tools": 'tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]',
         "description": f"description: {stem} test agent.",
         "bundle": f"bundle: {bundle}",
     }
@@ -197,6 +197,64 @@ def test_completeness_check_names_missing_field(
     assert result == 1
     assert "agents/foo.md" in output.err
     assert missing_field in output.err
+
+
+def test_baseline_check_names_missing_tool(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """AC#19: every agent's `tools:` list must be a superset of the fleet
+    baseline. A file that narrows below it fails the gate, naming the file
+    and the specific missing tool(s) -- rather than passing silently just
+    because `tools:` is present.
+    """
+    _build_fixture_repo(tmp_path)
+    (tmp_path / "agents" / "foo.md").write_text(
+        (tmp_path / "agents" / "foo.md")
+        .read_text()
+        .replace(
+            'tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]',
+            'tools: ["Read", "Grep", "Glob"]',
+        )
+    )
+    module = _load_script()
+
+    result = module["main"](["--root", str(tmp_path)])
+    output = capsys.readouterr()
+
+    assert result == 1
+    assert "agents/foo.md" in output.err
+    assert "Write" in output.err
+    assert "Edit" in output.err
+    assert "Bash" in output.err
+
+
+def test_block_style_tools_rejected_with_distinct_message(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """A `tools:` list reformatted to block-style YAML is present, not
+    missing -- FIELD_PATTERNS["tools"] only matches flow-style, so without a
+    dedicated check this would misreport a valid field as absent. The error
+    message must say so distinctly rather than reusing the generic
+    "missing required frontmatter field(s)" wording.
+    """
+    _build_fixture_repo(tmp_path)
+    (tmp_path / "agents" / "foo.md").write_text(
+        (tmp_path / "agents" / "foo.md")
+        .read_text()
+        .replace(
+            'tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]',
+            "tools:\n  - Read\n  - Write\n  - Edit\n  - Bash\n  - Grep\n  - Glob",
+        )
+    )
+    module = _load_script()
+
+    result = module["main"](["--root", str(tmp_path)])
+    output = capsys.readouterr()
+
+    assert result == 1
+    assert "agents/foo.md" in output.err
+    assert "block-style" in output.err
+    assert "missing required frontmatter field(s): tools" not in output.err
 
 
 def test_write_mode_reports_up_to_date_when_nothing_changed(

@@ -66,7 +66,7 @@ Everything else — architecture mapping, pattern identification, dependency tra
 
 ## Phase 1: Explore the Codebase
 
-Launch **parallel Explore subagents** to map the codebase through the lens of the proposal.
+Launch **parallel worker subagents** to map the codebase through the lens of the proposal.
 
 ### Subagent count and depth
 

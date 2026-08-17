@@ -62,10 +62,11 @@ from whenever import Date
 
 # --- Run-boundary markers (durable, in the parent-session JSONL as Bash commands) ---
 # NOTE: keep in sync with bin/orchestrate-concise-probe, which duplicates these
-# markers and the transcript-parsing helpers. Each tool is a self-contained
-# single-file PEP 723 uv-script, so the shared logic is duplicated by design
-# rather than factored into a sibling module. A grep for either filename surfaces
-# both maintenance sites.
+# markers, the transcript-parsing helpers, and the agent-*.meta.json glob/load
+# loop (this file's attribute_subagents(), that file's scan_session()). Each
+# tool is a self-contained single-file PEP 723 uv-script, so the shared logic
+# is duplicated by design rather than factored into a sibling module. A grep
+# for either filename surfaces both maintenance sites.
 START_MARKER = "orchestrate run started"
 RESUME_MARKER = "resuming from checkpoint"
 

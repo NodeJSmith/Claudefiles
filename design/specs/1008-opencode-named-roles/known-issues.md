@@ -4,7 +4,7 @@ Durable issues discovered during orchestration that were intentionally not fixed
 
 ## KI-001: standard-worker's WebSearch/WebFetch grant undocumented in Dependencies and Assumptions
 
-Status: open
+Status: resolved — fixed during known issues walkthrough
 Run: 93
 Source: T04
 Reason not fixed now: out-of-scope
@@ -45,3 +45,50 @@ and `mine-challenge:31` require them, following the same format used for the
 Acceptance criteria:
 - `design.md`'s Dependencies and Assumptions section names `agents/standard-worker.md`'s
   `WebSearch`/`WebFetch` grant and the three consuming sites.
+
+## KI-002: main() and check_source_dispatch_patterns()/check_source() remain long after this migration's rewrite
+
+Status: filed (#517)
+Run: 93
+Source: clean-code
+Reason not fixed now: out-of-scope
+Observed in: clean-code review of run 93 (nitpicker checker)
+Affected files:
+- bin/opencode-sync
+
+Issue:
+`main()` (`bin/opencode-sync:1506-1661`, ~156 lines) interleaves CLI-flag branching,
+dry-run staging with a disposable scratch home, real-install staging, frontmatter
+processing, config generation, lint gating, and sync-state persistence in one function
+body, with no docstring to offset the line count (unlike most other functions in this
+file). `check_source_dispatch_patterns()` (`bin/opencode-sync:1252-1369`, ~117 lines,
+well-commented) does three distinct things: directory-presence validation, per-file
+dispatch/model-clause scanning, and a separate scratch-copy rules-coverage check tacked
+on at the end. Both functions were substantially rewritten by this migration itself
+(FR#21/FR#22, `check_source()` at :1370 replaced the scratch-tree rewrite-then-lint
+approach with a direct source assertion) but the rewrite did not also split them into
+smaller units.
+
+Why deferred:
+Both functions have real side effects (disposable scratch homes, config generation,
+lint gating that pre-commit hooks depend on) and multi-branch control flow. Splitting
+them into extracted helpers without changing behavior is a genuine refactor, not a
+mechanical style fix — it needs a characterization test pinning current behavior first
+(per this repo's refactoring-discipline rule) and is a bigger unit of work than a
+clean-code pass should absorb inside an already-large migration. The design doc's
+Replacement Targets mandated *what* gets deleted and *that* these two functions get
+reimplemented, not a further internal decomposition of the result, so extracting
+helpers now would expand past the design's approved scope.
+
+Recommended follow-up:
+Pin current behavior (`--check-source`/`--dry-run`/`--check` CLI contracts already
+covered by `tests/test_opencode_sync.py`), then extract `main()`'s dry-run and
+real-sync branches into two named helpers (e.g. `_do_dry_run_preview()` /
+`_do_real_sync()`), and split `check_source_dispatch_patterns()`'s rules-coverage tail
+into its own helper. Re-run the full opencode-sync test suite after each extraction.
+
+Acceptance criteria:
+- `main()` in `bin/opencode-sync` is under ~80 lines with its dry-run and real-sync
+  paths extracted to named helpers.
+- `check_source_dispatch_patterns()` no longer performs rules-coverage checking inline.
+- `tests/test_opencode_sync.py` passes unchanged (behavior-preserving refactor).

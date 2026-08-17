@@ -43,6 +43,19 @@ ROOT = Path(__file__).resolve().parent.parent
 
 REQUIRED_FIELDS = ("model", "effort", "tools", "description", "bundle")
 
+# Every agent's `tools:` list must be a superset of this floor (design.md
+# AC#19) -- the fleet-wide widening this script's callers migrated to
+# treats per-agent restriction as a fiction not worth re-litigating per
+# file, so every agent gets the same baseline plus whatever it needs on top.
+TOOLS_BASELINE = ("Read", "Write", "Edit", "Bash", "Grep", "Glob")
+
+# Detects a bare `tools:` line with nothing after it -- block-style YAML
+# (`tools:\n  - Read\n  - Write`). FIELD_PATTERNS["tools"] only matches
+# flow-style (`tools: ["Read", "Write"]`), so without this a block-style
+# list would otherwise be misreported as a *missing* required field rather
+# than a present-but-wrong-format one.
+TOOLS_BLOCK_STYLE_RE = re.compile(r"^tools:\s*$", re.MULTILINE)
+
 # `model:` gets its own pattern (rather than a generic one from the loop below)
 # because it is the only field whose trailing `# ...` comment carries meaning
 # this script reads: an em-dash-separated annotation such as "do not
@@ -55,7 +68,13 @@ MODEL_LINE_RE = re.compile(
 FIELD_PATTERNS: dict[str, re.Pattern[str]] = {
     "model": MODEL_LINE_RE,
     "effort": re.compile(r"^effort:\s*(?P<value>\w+)\s*$", re.MULTILINE),
-    "tools": re.compile(r"^tools:\s*(?P<value>.+\S)\s*$", re.MULTILINE),
+    # The gap before the value is `[ \t]*`, not `\s*` -- `\s` matches
+    # newlines too, which let this cross onto the next line and capture a
+    # block-style list's first item ("- Read") as a bogus single-line value
+    # instead of failing to match. Restricting the gap to same-line
+    # whitespace makes block-style correctly fail to match here, so it is
+    # reported as missing rather than silently misparsed.
+    "tools": re.compile(r"^tools:[ \t]*(?P<value>.+\S)\s*$", re.MULTILINE),
     "description": re.compile(r"^description:\s*(?P<value>.+\S)\s*$", re.MULTILINE),
     "bundle": re.compile(r"^bundle:\s*(?P<value>\S+)\s*$", re.MULTILINE),
 }
@@ -80,6 +99,11 @@ INSTALL_REGION_START = (
     "Run `bin/lint-agent-models --write` to regenerate."
 )
 INSTALL_REGION_END = "# END GENERATED"
+# install.py's literal nesting for a bundle's `agents=(` tuple: dict -> Bundle(
+# -> agents=( is 3 levels of 4-space indent (12) for the closing paren, plus one
+# more level (16) for each item inside it. If install.py's bundle-dict nesting
+# ever changes depth, these two constants must change with it -- there is no
+# mechanism that derives them from the actual file.
 INSTALL_ITEM_INDENT = " " * 16
 INSTALL_CLOSE_INDENT = " " * 12
 
@@ -112,6 +136,15 @@ def load_agents(agents_dir: Path) -> tuple[list[AgentInfo], list[str]]:
     for path in sorted(agents_dir.glob("*.md")):
         fm = split_frontmatter(path.read_text())
         missing = [f for f in REQUIRED_FIELDS if not FIELD_PATTERNS[f].search(fm)]
+
+        if "tools" in missing and TOOLS_BLOCK_STYLE_RE.search(fm):
+            errors.append(
+                f"agents/{path.name}: `tools:` uses block-style YAML; this "
+                'repo requires flow-style (tools: ["Read", "Write", ...]) '
+                "so lint-agent-models can parse it"
+            )
+            continue
+
         if missing:
             errors.append(
                 f"agents/{path.name}: missing required frontmatter field(s): "
@@ -130,6 +163,17 @@ def load_agents(agents_dir: Path) -> tuple[list[AgentInfo], list[str]]:
         assert effort_match is not None and bundle_match is not None
         effort = effort_match.group("value")
         bundle = bundle_match.group("value")
+
+        tools_match = FIELD_PATTERNS["tools"].search(fm)
+        assert tools_match is not None  # guaranteed: not missing, not block-style
+        tool_names = set(re.findall(r'"([^"]+)"', tools_match.group("value")))
+        missing_baseline = [t for t in TOOLS_BASELINE if t not in tool_names]
+        if missing_baseline:
+            errors.append(
+                f"agents/{path.name}: tools: missing baseline tool(s): "
+                f"{', '.join(missing_baseline)}"
+            )
+            continue
 
         agents.append(
             AgentInfo(

@@ -528,6 +528,56 @@ def test_check_source_gate_passes_on_dispatch_naming_real_agent(
     assert errors == []
 
 
+def test_check_source_gate_flags_agent_type_flag_naming_nonexistent_agent(
+    tmp_path: Path,
+) -> None:
+    """The `cfl dispatch ... --agent-type <name>` telemetry-form dispatch is
+    a distinct shape from `subagent_type:` and was silently unchecked --
+    this shape is unambiguously a dispatch (no prose-vs-mention
+    disambiguation problem), so the gate must catch it too.
+    """
+    module = _load_script()
+
+    claudefiles = tmp_path / "claudefiles"
+    agents = claudefiles / "agents"
+    agents.mkdir(parents=True)
+    (agents / "code-reviewer.md").write_text(
+        "---\nname: code-reviewer\nmodel: x\n---\n\nbody\n"
+    )
+    skills = claudefiles / "skills"
+    skills.mkdir()
+    (skills / "example.md").write_text(
+        "cfl dispatch foo --agent-type nonexistent-agent\n"
+    )
+
+    errors, _ = module["check_source_dispatch_patterns"](claudefiles)
+
+    assert any("nonexistent-agent" in e for e in errors)
+
+
+def test_check_source_gate_passes_on_agent_type_flag_naming_real_agent(
+    tmp_path: Path,
+) -> None:
+    """The mirror case: `--agent-type` naming an agent that does have a file
+    in agents/ raises no error.
+    """
+    module = _load_script()
+
+    claudefiles = tmp_path / "claudefiles"
+    agents = claudefiles / "agents"
+    agents.mkdir(parents=True)
+    (agents / "code-reviewer.md").write_text(
+        "---\nname: code-reviewer\nmodel: x\n---\n\nbody\n"
+    )
+    skills = claudefiles / "skills"
+    skills.mkdir()
+    (skills / "example.md").write_text("cfl dispatch foo --agent-type code-reviewer\n")
+
+    errors, _ = module["check_source_dispatch_patterns"](claudefiles)
+
+    assert errors == []
+
+
 def test_check_source_gate_flags_residual_model_clause(tmp_path: Path) -> None:
     """FR#18's second half: a raw `model:` tier clause at a dispatch site is
     also an error -- model tier now lives only in the agent's own

@@ -397,7 +397,7 @@ def opkg_list_includes_claudefiles() -> bool | None:
 
 
 def uninstall_previous(*, home_override: Path | None = None) -> None:
-    """Best-effort uninstall of the previous claudefiles opkg install. Failures are ignored —
+    """Best-effort uninstall of the previous claudefiles opkg install. Failures are ignored --
     if this fails, the subsequent install still runs; the user reruns on any real problem.
     """
     if home_override is None:
@@ -526,7 +526,7 @@ def process_agent_frontmatter(agents_dir: Path, *, dry_run: bool) -> int:
     rewriter, which runs on body content only for agent files -- so there's
     no reason to pay for three separate read/split/write cycles per file.
 
-    Only lines between the opening pair of `---` markers are touched — body
+    Only lines between the opening pair of `---` markers are touched -- body
     content (which may legitimately contain the word "color", or Claude tier
     names inside skill dispatch prose) is left alone. Preserves trailing
     inline comments on `model:` lines (e.g. `# claude-sonnet-5 as of
@@ -726,7 +726,7 @@ def check_sync_status(claudefiles: Path, state_file: Path) -> bool:
     """Print sync status and return True if the OpenCode install is current.
 
     Current requires both the Claudefiles commit SHA and this script's own
-    hash to match the recorded state — a TIER_MAP edit changes the script's
+    hash to match the recorded state -- a TIER_MAP edit changes the script's
     hash even before it's committed, so hash drift alone is enough to mark
     the install stale (script rewrite section, context.md decision #6).
     """
@@ -910,7 +910,7 @@ def generate_config(config_dir: Path, *, dry_run: bool) -> str:
 # process_agent_frontmatter() can preserve it.
 FRONTMATTER_MODEL_RE = re.compile(r"^model:\s*(sonnet|haiku|opus)\b(.*)$")
 
-# Lint-only patterns for unsupported platform semantics — warnings, not
+# Lint-only patterns for unsupported platform semantics -- warnings, not
 # errors, since OpenCode simply can't honor these rather than the source
 # being wrong.
 ISOLATION_WORKTREE_RE = re.compile(r"""isolation:\s*["']worktree["']""")
@@ -932,6 +932,18 @@ DISPATCH_NAME_RE = re.compile(
     r"(?(btopen)`)"
 )
 
+# Matches the `cfl dispatch <role> --agent-type <name>` telemetry-form
+# dispatch shape -- the second of the three dispatch shapes named in this
+# migration's design as in-scope for FR#18's validity gate (the third,
+# bare-prose mentions with no `subagent_type:` or `--agent-type` literal, is
+# a documented, permanent gap -- see design.md's Dependencies and
+# Assumptions). Unlike `DISPATCH_NAME_RE`, `--agent-type` is unambiguously a
+# dispatch (no prose-vs-mention disambiguation problem), so no backtick/quote
+# wrapping needs to be tolerated.
+DISPATCH_AGENT_TYPE_FLAG_RE = re.compile(
+    r"--agent-type\s+(?P<name>[A-Za-z][A-Za-z0-9_-]*)"
+)
+
 # Matches a residual `model:` clause naming a Claude tier at a dispatch site
 # (FR#2's invariant, checked at commit time by check_source_dispatch_patterns()
 # rather than left to AC#2's external grep alone). Model tier belongs in the
@@ -939,8 +951,6 @@ DISPATCH_NAME_RE = re.compile(
 DISPATCH_MODEL_CLAUSE_RE = re.compile(
     r"(?:\*\*)?model(?:\*\*)?:\s*[`\"']?(sonnet|haiku|opus)\b", re.IGNORECASE
 )
-
-
 
 
 def _split_eol(line: str) -> tuple[str, str]:
@@ -959,7 +969,7 @@ def _walk_synced_md_files(config_dir: Path) -> Iterator[tuple[Path, bool]]:
     fixed walk order: `skills/` and `commands/` (recursive, whole file)
     first, then `agents/` (top-level only, frontmatter split out).
 
-    Yields `(path, split_frontmatter)` — the single source of truth for
+    Yields `(path, split_frontmatter)` -- the single source of truth for
     "which files, which subset counts as frontmatter." `_lint_targets()`
     builds on this rather than independently encoding the same three-branch
     walk, which is exactly the class of bug a prior dispatch-rewriter/lint
@@ -1244,6 +1254,13 @@ def check_source_dispatch_patterns(claudefiles: Path) -> tuple[list[str], list[s
     an agent with a file in agents/, and that no dispatch site carries a
     raw Claude tier `model:` clause (FR#18, FR#21).
 
+    Covers both the `subagent_type:` clause form (DISPATCH_NAME_RE) and the
+    `cfl dispatch ... --agent-type <name>` telemetry form
+    (DISPATCH_AGENT_TYPE_FLAG_RE). Bare-prose mentions of an agent name with
+    neither literal present are not checked -- see design.md's Dependencies
+    and Assumptions for why that shape is a documented, permanent gap rather
+    than an oversight.
+
     With no dispatch rewriter, this reads source directly instead of
     staging a scratch tree and rewriting it first -- there is nothing to
     rewrite, and nothing residual to compare against what a rewriter would
@@ -1306,6 +1323,13 @@ def check_source_dispatch_patterns(claudefiles: Path) -> tuple[list[str], list[s
                         errors.append(
                             f"{md_file}:{lineno}: dispatch names {name!r}, which "
                             "has no file in agents/"
+                        )
+                for match in DISPATCH_AGENT_TYPE_FLAG_RE.finditer(line):
+                    name = match.group("name")
+                    if name not in known_agents:
+                        errors.append(
+                            f"{md_file}:{lineno}: --agent-type names {name!r}, "
+                            "which has no file in agents/"
                         )
                 for match in DISPATCH_MODEL_CLAUSE_RE.finditer(line):
                     errors.append(
@@ -1421,8 +1445,7 @@ def check_orphans_entry() -> int:
     orphans = check_orphans(Path(__file__).resolve())
     for name in orphans:
         print(
-            f"ERROR: {name!r} is defined but never referenced elsewhere in "
-            "this file",
+            f"ERROR: {name!r} is defined but never referenced elsewhere in this file",
             file=sys.stderr,
         )
     if orphans:
@@ -1522,7 +1545,7 @@ def main() -> int:
         tmpdir = Path(tmpdir_str)
 
         # Uninstall previous install so deleted skills/agents don't linger as orphans.
-        # If the subsequent install fails, the user reruns — no automatic rollback.
+        # If the subsequent install fails, the user reruns -- no automatic rollback.
         previously_installed = opkg_list_includes_claudefiles()
         if previously_installed is None:
             print(
@@ -1615,8 +1638,7 @@ def main() -> int:
         lint_exit = report_lint(lint_errors, lint_warnings)
         if lint_exit != 0:
             print(
-                "Installed files left in place -- fix the source file, then "
-                "re-sync.",
+                "Installed files left in place -- fix the source file, then re-sync.",
                 file=sys.stderr,
             )
             return lint_exit

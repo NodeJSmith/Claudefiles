@@ -85,9 +85,9 @@ Dispatch the research to a `researcher` agent. This runs the heavy codebase expl
 
 1. Run `get-skill-tmpdir mine-research` to get a temp directory.
 2. Determine the **research depth** from Phase 1 answers:
-   - **Quick** — user said "Decided" + narrow scope (single module or specific technology question). Use 2 Explore subagents, focus on feasibility of the chosen approach.
-   - **Normal** (default) — user said "Leaning" or moderate scope. Use 3-4 Explore subagents.
-   - **Deep** — user said "Exploring" + broad scope (architecture, migration, multiple systems). Use 4 Explore subagents + web research.
+   - **Quick** — user said "Decided" + narrow scope (single module or specific technology question). Use 2 worker subagents, focus on feasibility of the chosen approach.
+   - **Normal** (default) — user said "Leaning" or moderate scope. Use 3-4 worker subagents.
+   - **Deep** — user said "Exploring" + broad scope (architecture, migration, multiple systems). Use 4 worker subagents + web research.
    - **If scope is unclear** from Phase 1 answers, default to **Normal** regardless of Flexibility.
 3. Launch `Agent(subagent_type: "researcher")` with a prompt containing:
    - The proposal (from $ARGUMENTS or user input)

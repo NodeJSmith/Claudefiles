@@ -58,14 +58,16 @@ REVIEWER_GP_SIGS: list[tuple[str, str]] = [
 ]
 
 # --- Run-boundary markers --------------------------------------------------
-# NOTE: duplicated from bin/orchestrate-cost (the run-delimiting markers and the
-# message_text / first_user_text / first_ts / projects_root helpers below).
-# Kept duplicated deliberately so each tool stays a self-contained single-file
-# PEP 723 uv-script (no sibling-module coupling at install/run time). The cost is
-# this drift surface: keep these in sync with bin/orchestrate-cost — the marker
-# strings mirror mine-orchestrate's trail-log calls and drift silently if renamed
-# in only one place. (A shared bin/ module is technically importable; the
-# single-file property is the reason it is not used.)
+# NOTE: duplicated from bin/orchestrate-cost (the run-delimiting markers, the
+# message_text / first_user_text / first_ts / projects_root helpers below, and
+# the agent-*.meta.json glob/load loop in this file's scan_session() /
+# that file's attribute_subagents()). Kept duplicated deliberately so each tool
+# stays a self-contained single-file PEP 723 uv-script (no sibling-module
+# coupling at install/run time). The cost is this drift surface: keep these in
+# sync with bin/orchestrate-cost — the marker strings mirror mine-orchestrate's
+# trail-log calls and drift silently if renamed in only one place. (A shared
+# bin/ module is technically importable; the single-file property is the
+# reason it is not used.)
 START_MARKER = "orchestrate run started"
 RESUME_MARKER = "resuming from checkpoint"
 CHECKPOINT_FEATURE_RE = re.compile(r"checkpoint-init\s+(\d{2,}[A-Za-z0-9_-]+)")

@@ -54,7 +54,7 @@ Resolve the user's answer — the module or files they name (typically via the f
 
 ## Phase 2: Generate (three lenses, in parallel)
 
-Read REFERENCE.md. Dispatch **three generator subagents in a single message** (parallel; `subagent_type: standard-worker`; read-only, no worktree isolation). One per lens — **Friction**, **Latent**, **Maximalist**. Each receives: the subsystem file list, **only its own** lens block from REFERENCE.md verbatim, the candidate record format from REFERENCE.md, and an output path `<tmpdir>/<lens>-candidates.md`. There is no cap on candidate count — quality over count.
+Read REFERENCE.md. Dispatch **three generator subagents in a single message** (parallel; `subagent_type: standard-worker`; no worktree isolation needed — each writes only to its own `<tmpdir>/<lens>-candidates.md`, never to the git working directory). One per lens — **Friction**, **Latent**, **Maximalist**. Each receives: the subsystem file list, **only its own** lens block from REFERENCE.md verbatim, the candidate record format from REFERENCE.md, and an output path `<tmpdir>/<lens>-candidates.md`. There is no cap on candidate count — quality over count.
 
 Keep the generators isolated: each receives **only its own** lens block and the subsystem — never another generator's prompt or output file. If one lens sees another's restraint, the maximalist lens regresses to the cautious mean.
 
