@@ -1,7 +1,7 @@
 ---
 task_id: "T03"
 title: "Move the surviving checks into --check-source"
-status: "planned"
+status: "done"
 depends_on: ["T01"]
 implements: ["FR#8", "FR#23", "FR#27", "AC#5"]
 ---

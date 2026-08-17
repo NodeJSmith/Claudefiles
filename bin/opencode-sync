@@ -70,40 +70,47 @@ EXCLUDE_DIRS = {
     ".venv",
 }
 
-# Rules that must not reach OpenCode, as paths under `rules/`. Everything else
-# syncs: OPENCODE_COMPAT_RULE's translation table exists precisely so a rule
-# naming a Claude-only tool gets mapped or skipped by the agent rather than
-# withheld. Include is therefore the safer default -- a wrongly included rule
-# is skipped, a wrongly excluded one is silently missing.
-#
-# Do NOT derive this from `tool:` frontmatter: that marker answers "does this
-# go to Antigravity?" (`claude` vs `claude, antigravity`) and says nothing
-# about OpenCode. Filtering on it excluded seven rules -- capabilities-core,
-# command-output, git-workflow, interaction, bash-tools, worktrees -- that
-# OpenCode does want, and would have dropped a file marked `tool: opencode`.
-#
-# The entries below are the narrow set that is actively wrong rather than
-# merely inapplicable: performance.md names the Claude model IDs this sync
-# deliberately remaps, and the other two document Claude-harness hooks.
-# check_excluded_rules() fails the lint if an entry stops matching a real
-# file, since a rename would silently re-admit it.
-OPENCODE_EXCLUDED_RULES = (
-    "common/performance.md",
-    "common/sudo.md",
-    "common/tmux.md",
-)
+# Path to the shared data file relative to this script's own repo root
+# (never get_claudefiles_dir() -- see _load_config_data()).
+CONFIG_DATA_RELATIVE_PATH = Path("opencode") / "config-data.json"
 
-# Synced directories whose `.md` files config.json's `instructions` array
-# loads, relative to the OpenCode config dir. One entry per directory: for an
-# absolute pattern OpenCode globs `basename` within `dirname` and does not
-# recurse, so `rules/**/*.md` would match nothing. check_instruction_globs()
-# fails the lint if a synced rules directory is missing from this list.
-INSTRUCTION_DIRS = ("rules/common",)
 
-# Root under the config dir that INSTRUCTION_DIRS is expected to cover --
-# separate from the tuple above so the coverage check has something to scan
-# without re-deriving a common prefix from the entries.
-INSTRUCTION_ROOT = "rules"
+def _load_config_data() -> dict:
+    """Load opencode/config-data.json: the single source of truth for model
+    routing (`tier_map`), allowed reasoning-effort variant names
+    (`variants`), rules withheld from OpenCode (`excluded_rules`), and the
+    rules subdirectories `cfg.instructions` must name (`instruction_dirs`)
+    (FR#27). Read fresh on every call rather than cached at import time --
+    this is a `bin/` CLI script invoked once per process, not a hot path,
+    and a stale in-memory copy across a long-lived call is a worse failure
+    mode than a few extra file reads.
+
+    Resolved relative to this script's own repo root (_script_repo_root(),
+    the same resolution check_source() uses) rather than
+    get_claudefiles_dir(): the two can disagree (CLAUDEFILES_DIR pointed at
+    a different checkout than the one running this script), and this data
+    belongs to the script's own repo, not whatever content a real sync
+    happens to be pointed at.
+
+    Formerly `OPENCODE_EXCLUDED_RULES` and `INSTRUCTION_DIRS` were Python
+    tuple literals hand-copied from this same data -- a hand-copy is
+    exactly what FR#27 forbids, since the two copies can silently drift.
+    Both are gone; every caller loads through this function instead.
+    """
+    repo_root = _script_repo_root()
+    if repo_root is None:
+        die(
+            "Unable to determine this script's repo root; cannot load "
+            f"{CONFIG_DATA_RELATIVE_PATH}"
+        )
+    config_data_path = Path(repo_root) / CONFIG_DATA_RELATIVE_PATH
+    try:
+        return json.loads(config_data_path.read_text())
+    except OSError as exc:
+        die(f"Unable to read {config_data_path}: {exc}")
+    except json.JSONDecodeError as exc:
+        die(f"{config_data_path} is not valid JSON: {exc}")
+
 
 # Opkg output lines to surface in non-verbose mode (coupled to opkg's format).
 OPKG_SUCCESS_PATTERN = re.compile(r"^✓|Installed files:|No files")
@@ -311,21 +318,23 @@ def _warn_on_worktree_mismatch(claudefiles: Path) -> None:
         )
 
 
-def apply_rule_exclusions(rules_root: Path) -> list[str]:
-    """Delete OPENCODE_EXCLUDED_RULES from a staged `rules/` tree.
+def find_unmatched_rule_exclusions(rules_root: Path) -> list[str]:
+    """Return every `excluded_rules` entry (opencode/config-data.json) that
+    matches no file under `rules_root`, without touching the filesystem.
 
-    Returns the entries that matched no file. An unmatched entry means the
-    source rule was renamed or moved, which silently re-admits it to the sync
-    -- callers surface that rather than ignoring it.
+    Non-mutating: there is no staged tree left to delete from -- the plugin
+    filters exclusions at runtime, and this now runs only as a commit-time
+    check (FR#8) against the repo's own `rules/` tree. Formerly named
+    `apply_rule_exclusions()` and deleted matched files as a side effect of
+    staging; stage_config() below does that unlinking inline now, since it
+    is the only remaining caller that needs it.
+
+    An unmatched entry means the source rule was renamed or moved, which
+    would silently re-admit it to the sync -- callers surface that rather
+    than ignoring it.
     """
-    missing = []
-    for relative in OPENCODE_EXCLUDED_RULES:
-        target = rules_root / relative
-        if target.is_file():
-            target.unlink()
-        else:
-            missing.append(relative)
-    return missing
+    excluded = _load_config_data()["excluded_rules"]
+    return [relative for relative in excluded if not (rules_root / relative).is_file()]
 
 
 def stage_config(claudefiles: Path, tmpdir: Path, *, verbose: bool = False) -> Path:
@@ -339,12 +348,23 @@ def stage_config(claudefiles: Path, tmpdir: Path, *, verbose: bool = False) -> P
 
     shutil.copytree(claudefiles, staged, ignore=ignore)
 
-    for relative in apply_rule_exclusions(staged / "rules"):
-        print(
-            f"WARNING: OPENCODE_EXCLUDED_RULES lists rules/{relative}, which no "
-            "longer exists -- if it was renamed, update the list or it now syncs",
-            file=sys.stderr,
-        )
+    # find_unmatched_rule_exclusions() no longer deletes files (it is a
+    # non-mutating commit-time check now -- see its docstring), so this
+    # function does its own unlinking. stage_config() and everything under
+    # it is removed outright in design/specs/1007's next task (T04), so a
+    # short inline loop is the right amount of durability to build here.
+    staged_rules = staged / "rules"
+    for relative in _load_config_data()["excluded_rules"]:
+        target = staged_rules / relative
+        if target.is_file():
+            target.unlink()
+        else:
+            print(
+                f"WARNING: opencode/config-data.json's excluded_rules lists "
+                f"rules/{relative}, which no longer exists -- if it was "
+                "renamed, update the entry or it now syncs",
+                file=sys.stderr,
+            )
 
     compat_path = staged / "rules" / "common" / "opencode-compat.md"
     compat_path.parent.mkdir(parents=True, exist_ok=True)
@@ -843,16 +863,19 @@ def build_instructions(config_dir: Path) -> list[str]:
 
     One glob per directory, never `**`: for an absolute path OpenCode globs
     only `basename(pattern)` within `dirname(pattern)`, so a recursive
-    pattern silently matches nothing. Add a line here when a rules
-    subdirectory is added, and see check_instruction_globs() -- which fails
-    the sync if a synced rules directory has no glob covering it -- rather
-    than relying on remembering to.
+    pattern silently matches nothing. Add an entry to `instruction_dirs` in
+    opencode/config-data.json when a rules subdirectory is added, and see
+    check_instruction_directory_coverage() -- which fails `--check-source`
+    if a rules subdirectory has no entry in that list -- rather than relying
+    on remembering to.
 
     Paths are derived from `config_dir` rather than the OPENCODE_CONFIG
     constant so the isolated-home tests generate config pointing at their own
-    scratch rules, not the live install's.
+    scratch rules, not the live install's. The directory list itself comes
+    from the shared data file (FR#27), not a module constant.
     """
-    return [str(config_dir / directory / "*.md") for directory in INSTRUCTION_DIRS]
+    instruction_dirs = _load_config_data()["instruction_dirs"]
+    return [str(config_dir / directory / "*.md") for directory in instruction_dirs]
 
 
 def generate_config(config_dir: Path, *, dry_run: bool) -> str:
@@ -910,9 +933,11 @@ def generate_config(config_dir: Path, *, dry_run: bool) -> str:
 # process_agent_frontmatter() can preserve it.
 FRONTMATTER_MODEL_RE = re.compile(r"^model:\s*(sonnet|haiku|opus)\b(.*)$")
 
-# Lint-only patterns for unsupported platform semantics -- warnings, not
-# errors, since OpenCode simply can't honor these rather than the source
-# being wrong.
+# Patterns for unsupported platform semantics -- warnings, not errors, since
+# OpenCode simply can't honor these rather than the source being wrong.
+# Scanned by check_source_dispatch_patterns() (FR#23) over this repo's own
+# skills/commands/agents, not over installed output -- these flag a property
+# of the source.
 ISOLATION_WORKTREE_RE = re.compile(r"""isolation:\s*["']worktree["']""")
 RUN_IN_BACKGROUND_RE = re.compile(r"run_in_background")
 
@@ -1015,61 +1040,69 @@ def _lint_content(
     line_offset: int,
     warnings: list[str],
 ) -> None:
-    """Scan one file's content for unsupported-platform-semantics warnings,
-    appending "path:line: description" entries to `warnings` in place
-    (FR#22).
+    """Formerly scanned one file's content for unsupported-platform-semantics
+    warnings (`isolation: "worktree"`, `run_in_background`), appending
+    "path:line: description" entries to `warnings` in place.
 
-    The dispatch-residue error checks this function used to run are gone:
-    with no rewriter, there is nothing for "a residual dispatch" to mean --
-    every dispatch site names a real agent at the source (checked at commit
-    time by check_source_dispatch_patterns() instead). What is left is
-    purely informational: constructs OpenCode can't honor at all, which no
-    amount of correct dispatch syntax fixes.
+    Retired (T03): those two checks moved into
+    check_source_dispatch_patterns(), which flags the same platform
+    semantics against this repo's own source instead of installed output.
+    This function is a no-op now, kept only because run_lint() (removed
+    outright in T04, along with the installed-file lint it belongs to)
+    still calls it.
     """
-    lines = content.splitlines()
-
-    for i, line in enumerate(lines):
-        lineno = i + 1 + line_offset
-
-        if ISOLATION_WORKTREE_RE.search(line):
-            warnings.append(
-                f'{path}:{lineno}: `isolation: "worktree"` has no OpenCode equivalent'
-            )
-        if RUN_IN_BACKGROUND_RE.search(line):
-            warnings.append(
-                f"{path}:{lineno}: `run_in_background` is unsupported (experimental in OpenCode)"
-            )
 
 
-def check_instruction_globs(config_dir: Path) -> list[str]:
-    """Return an error per synced rules directory no `instructions` glob covers.
+def check_instruction_directory_coverage(rules_root: Path) -> list[str]:
+    """Return an error per subdirectory under `rules_root` that the shared
+    instruction-directory list (opencode/config-data.json's
+    `instruction_dirs`) does not name.
 
-    A rule that reaches disk but not the `instructions` array is invisible to
-    OpenCode while looking installed -- the failure mode that left every rule
-    in `<config>/rules/common/` unloaded. Since `instructions` globs one
-    directory at a time (see build_instructions()), adding a rules
-    subdirectory silently under-covers the array unless INSTRUCTION_DIRS
-    grows with it. This turns that silence into a lint error.
+    Retargeted (T03) from "is every synced rules directory covered by an
+    `instructions` glob in config.json" -- a question about disk transport
+    this script no longer performs -- to "is every subdirectory under this
+    repo's own `rules/` named in the shared instruction-directory list": the
+    plugin (opencode/claudefiles.ts) reads `~/.claude/rules/{common,
+    personal}` directly and emits explicit `instructions` paths, not globs,
+    so there is nothing left to glob. A rules subdirectory this repo (or
+    Dotfiles, via the live install) adds but the shared list doesn't name
+    still reaches disk but is invisible to `cfg.instructions` -- this turns
+    that silence into a commit-time error instead.
+
+    `rules_root` is the root itself (e.g. `claudefiles/"rules"`), not its
+    parent -- the caller no longer needs a separate INSTRUCTION_ROOT
+    constant to derive it, since there is exactly one caller and it already
+    has the path in hand.
 
     Only directories that directly contain a `.md` file count: an empty or
-    purely structural directory has nothing to load and shouldn't fail a sync.
+    purely structural directory has nothing to load and shouldn't fail the
+    check.
+
+    Scoped to this repo's own `rules/` tree, not a live `~/.claude/rules/`
+    install: pointing this commit-time gate at a live install would break
+    check_source()'s reproducible-on-a-fresh-checkout contract (see its
+    docstring). This repo's `rules/` has only `common/` -- `rules/personal/`
+    exists solely as five Dotfiles symlinks in the installed union, so this
+    check cannot see it. Accepted limitation, recorded in design.md's
+    Dependencies and Assumptions.
     """
-    root = config_dir / INSTRUCTION_ROOT
-    if not root.is_dir():
+    if not rules_root.is_dir():
         return []
 
-    covered = {config_dir / directory for directory in INSTRUCTION_DIRS}
+    instruction_dirs = _load_config_data()["instruction_dirs"]
+    covered = {rules_root.parent / directory for directory in instruction_dirs}
     errors = []
-    for candidate in sorted(root.rglob("*")):
+    for candidate in sorted(rules_root.rglob("*")):
         if not candidate.is_dir() or candidate in covered:
             continue
         if not any(candidate.glob("*.md")):
             continue
-        relative = candidate.relative_to(config_dir)
+        relative = candidate.relative_to(rules_root.parent)
         errors.append(
-            f"{candidate}: synced rules directory has no `instructions` glob -- "
-            f'its rules are on disk but never loaded. Add "{relative}" to '
-            "INSTRUCTION_DIRS in bin/opencode-sync."
+            f"{candidate}: synced rules directory has no entry in the shared "
+            "instruction-directory list -- its rules are on disk but never "
+            f'loaded. Add "{relative}" to instruction_dirs in '
+            "opencode/config-data.json."
         )
     return errors
 
@@ -1171,10 +1204,11 @@ def _agent_variant_errors(md_file: Path, frontmatter: str) -> list[str]:
 
 
 def run_lint(config_dir: Path) -> tuple[list[str], list[str]]:
-    """Scan synced output under config_dir for rules directories no
-    `instructions` glob covers (errors), unresolvable agent variants
-    (errors), and unsupported platform semantics (warnings). Returns
-    (errors, warnings); warnings never affect the exit code.
+    """Scan synced output under config_dir for rules directories missing
+    from the shared instruction-directory list (errors), unresolvable agent
+    variants (errors), and unsupported platform semantics (warnings; retired
+    -- see _lint_content()). Returns (errors, warnings); warnings never
+    affect the exit code.
     """
     errors: list[str] = []
     warnings: list[str] = []
@@ -1182,7 +1216,7 @@ def run_lint(config_dir: Path) -> tuple[list[str], list[str]]:
     for path, content, line_offset in _lint_targets(config_dir):
         _lint_content(path, content, line_offset, warnings)
 
-    errors.extend(check_instruction_globs(config_dir))
+    errors.extend(check_instruction_directory_coverage(config_dir / "rules"))
     errors.extend(check_variant_names(config_dir))
 
     return errors, warnings
@@ -1251,8 +1285,12 @@ def lint_only() -> int:
 
 def check_source_dispatch_patterns(claudefiles: Path) -> tuple[list[str], list[str]]:
     """Verify every dispatch in this repo's own skills/commands/agents names
-    an agent with a file in agents/, and that no dispatch site carries a
-    raw Claude tier `model:` clause (FR#18, FR#21).
+    an agent with a file in agents/, that no dispatch site carries a raw
+    Claude tier `model:` clause, that this repo's own `rules/` tree agrees
+    with opencode/config-data.json's `excluded_rules` and
+    `instruction_dirs` lists, and that every `tier_map` entry in that same
+    shared file names a variant OpenCode resolves (FR#8, FR#18, FR#21,
+    FR#23, FR#27).
 
     Covers both the `subagent_type:` clause form (DISPATCH_NAME_RE) and the
     `cfl dispatch ... --agent-type <name>` telemetry form
@@ -1261,20 +1299,24 @@ def check_source_dispatch_patterns(claudefiles: Path) -> tuple[list[str], list[s
     and Assumptions for why that shape is a documented, permanent gap rather
     than an oversight.
 
+    Also collects warnings for Claude-only dispatch semantics OpenCode
+    cannot honor (`isolation: "worktree"`, `run_in_background`), scanned
+    over the same three directories -- moved here (T03) from the retired
+    installed-file lint's _lint_content(), since these are a property of
+    the source, not of a disk-synced copy.
+
     With no dispatch rewriter, this reads source directly instead of
     staging a scratch tree and rewriting it first -- there is nothing to
     rewrite, and nothing residual to compare against what a rewriter would
-    have produced. The one thing that still needs a scratch copy is
-    `rules/`: apply_rule_exclusions() mutates the tree it is given (it
-    deletes matched files), so it cannot run against the live source tree
-    without deleting real files. Everything else here only reads.
+    have produced. `rules/` used to need a scratch copy because
+    apply_rule_exclusions() deleted matched files as a side effect; its
+    replacement, find_unmatched_rule_exclusions(), only reads, so
+    it and check_instruction_directory_coverage() both run directly against
+    `claudefiles / "rules"` now.
 
     Returns the same `(errors, warnings)` shape as run_lint() -- both feed
     directly into report_lint() (see lint_only() and check_source() below),
     so a future change to either function's return shape must update both.
-    Warnings always come back empty: the isolation/run_in_background
-    checks that populate them live in _lint_content(), which judges synced
-    OpenCode output, not this repo's own source.
 
     Returns a single synthetic error (not a raised exception, so the caller's
     report_lint() still prints and exits non-zero the normal way) if none of
@@ -1337,32 +1379,49 @@ def check_source_dispatch_patterns(claudefiles: Path) -> tuple[list[str], list[s
                         "tier clause at a dispatch site -- model tier belongs in "
                         "the agent's own frontmatter, not the call site"
                     )
+                if ISOLATION_WORKTREE_RE.search(line):
+                    warnings.append(
+                        f'{md_file}:{lineno}: `isolation: "worktree"` has no '
+                        "OpenCode equivalent"
+                    )
+                if RUN_IN_BACKGROUND_RE.search(line):
+                    warnings.append(
+                        f"{md_file}:{lineno}: `run_in_background` is unsupported "
+                        "(experimental in OpenCode)"
+                    )
 
     # `rules/` is not dispatch-scanned above (the loop only covers
-    # skills/commands/agents), but check_instruction_globs() returns nothing
-    # at all when `rules/` is absent -- so without this copy the gate stayed
-    # clean no matter how many rules directories went uncovered, blind to the
-    # exact miss it was added to catch. Not part of found_any: a repo with
-    # rules/ but none of the three dispatch directories still has nothing to
-    # check above.
+    # skills/commands/agents), but check_instruction_directory_coverage()
+    # returns nothing at all when `rules/` is absent -- so without this
+    # block the gate stayed clean no matter how many rules directories went
+    # uncovered, blind to the exact miss it was added to catch. Not part of
+    # found_any: a repo with rules/ but none of the three dispatch
+    # directories still has nothing to check above.
     rules_src = claudefiles / "rules"
     if rules_src.is_dir():
-        with tempfile.TemporaryDirectory(
-            prefix="opencode-sync-rules-check-"
-        ) as tmpdir_str:
-            scratch_root = Path(tmpdir_str)
-            scratch_rules = scratch_root / "rules"
-            shutil.copytree(rules_src, scratch_rules)
-            # Mirror stage_config()'s exclusions, or the gate judges coverage
-            # of a tree that never ships.
-            stale_exclusions = apply_rule_exclusions(scratch_rules)
-            errors.extend(
-                f"OPENCODE_EXCLUDED_RULES lists rules/{relative}, which does not "
-                "exist. A renamed or moved rule silently starts syncing to "
-                "OpenCode -- update the entry in bin/opencode-sync."
-                for relative in stale_exclusions
+        errors.extend(
+            f"opencode/config-data.json's excluded_rules lists rules/{relative}, "
+            "which does not exist. A renamed or moved rule silently starts "
+            "syncing to OpenCode -- update the entry in opencode/config-data.json."
+            for relative in find_unmatched_rule_exclusions(rules_src)
+        )
+        errors.extend(check_instruction_directory_coverage(rules_src))
+
+    # Pure data check (FR#27): every variant a tier resolves to must be one
+    # OpenCode itself resolves, the same failure mode `check_variant_names()`
+    # used to guard in synced agent files (bug #514) -- now checked against
+    # the shared data file directly, since the tier map is authored there
+    # and nowhere else reachable at commit time.
+    config_data = _load_config_data()
+    allowed_variants = set(config_data["variants"])
+    for tier, entry in config_data["tier_map"].items():
+        variant = entry["variant"]
+        if variant not in allowed_variants:
+            errors.append(
+                f"opencode/config-data.json's tier_map[{tier!r}] has variant "
+                f"{variant!r}, which is not in the allowed variants list. "
+                f"Expected one of: {sorted(allowed_variants)}."
             )
-            errors.extend(check_instruction_globs(scratch_root))
 
     return errors, warnings
 

@@ -254,13 +254,20 @@ def test_generate_config_points_instructions_at_synced_rules(tmp_path: Path) -> 
 
     OpenCode's only other global instruction source is the first existing of
     `[<config>/AGENTS.md, ~/.claude/CLAUDE.md]`; nothing globs `<config>/rules/`.
+
+    `instructions` now has two entries -- opencode/config-data.json's
+    `instruction_dirs` names both `rules/common` and `rules/personal` (T01
+    added the second entry over the original single-directory constant).
     """
     module = _load_script()
 
     content = module["generate_config"](tmp_path, dry_run=False)
     config = json.loads(content)
 
-    assert config["instructions"] == [str(tmp_path / "rules/common/*.md")]
+    assert config["instructions"] == [
+        str(tmp_path / "rules/common/*.md"),
+        str(tmp_path / "rules/personal/*.md"),
+    ]
 
 
 def test_generate_config_emits_no_agent_key(tmp_path: Path) -> None:
@@ -288,49 +295,55 @@ def test_build_instructions_never_uses_recursive_glob() -> None:
         assert entry.endswith("*.md")
 
 
-def test_check_instruction_globs_flags_uncovered_rules_directory(
+def test_check_instruction_directory_coverage_flags_uncovered_rules_directory(
     tmp_path: Path,
 ) -> None:
-    """A new rules subdirectory that INSTRUCTION_DIRS doesn't cover must fail
-    the lint rather than shipping rules nothing ever loads.
+    """A new rules subdirectory the shared instruction-directory list
+    (opencode/config-data.json) doesn't name must fail the check rather than
+    shipping rules nothing ever loads. Retargeted (T03) to take the `rules/`
+    root directly, not a config dir + INSTRUCTION_ROOT.
     """
     module = _load_script()
-    covered = tmp_path / "rules" / "common"
+    rules_root = tmp_path / "rules"
+    covered = rules_root / "common"
     covered.mkdir(parents=True)
     (covered / "a.md").write_text("# covered\n")
-    uncovered = tmp_path / "rules" / "personal"
+    uncovered = rules_root / "other"
     uncovered.mkdir()
     (uncovered / "b.md").write_text("# uncovered\n")
 
-    errors = module["check_instruction_globs"](tmp_path)
+    errors = module["check_instruction_directory_coverage"](rules_root)
 
     assert len(errors) == 1
-    assert "rules/personal" in errors[0]
-    assert "INSTRUCTION_DIRS" in errors[0]
+    assert "rules/other" in errors[0]
+    assert "instruction_dirs" in errors[0]
+    assert "opencode/config-data.json" in errors[0]
 
 
-def test_check_instruction_globs_clean_when_every_rules_dir_covered(
+def test_check_instruction_directory_coverage_clean_when_every_rules_dir_covered(
     tmp_path: Path,
 ) -> None:
     module = _load_script()
-    covered = tmp_path / "rules" / "common"
+    rules_root = tmp_path / "rules"
+    covered = rules_root / "common"
     covered.mkdir(parents=True)
     (covered / "a.md").write_text("# covered\n")
 
-    assert module["check_instruction_globs"](tmp_path) == []
+    assert module["check_instruction_directory_coverage"](rules_root) == []
 
 
-def test_check_instruction_globs_ignores_directory_with_no_rules(
+def test_check_instruction_directory_coverage_ignores_directory_with_no_rules(
     tmp_path: Path,
 ) -> None:
     """An empty or purely structural directory has nothing to load, so
-    flagging it would fail syncs over a non-problem.
+    flagging it would fail the check over a non-problem.
     """
     module = _load_script()
-    (tmp_path / "rules" / "common").mkdir(parents=True)
-    (tmp_path / "rules" / "scratch").mkdir()
+    rules_root = tmp_path / "rules"
+    (rules_root / "common").mkdir(parents=True)
+    (rules_root / "scratch").mkdir()
 
-    assert module["check_instruction_globs"](tmp_path) == []
+    assert module["check_instruction_directory_coverage"](rules_root) == []
 
 
 def _write_rule(path: Path, tool_line: str | None) -> None:
@@ -344,6 +357,13 @@ def test_stage_config_drops_only_excluded_rules(tmp_path: Path) -> None:
     references, so only rules that are actively wrong for OpenCode are
     withheld. Deriving this from `tool:` frontmatter instead excluded seven
     rules OpenCode wants -- that marker answers "does this go to Antigravity?"
+
+    Only `common/sudo.md` is withheld now (T03: stage_config() reads
+    opencode/config-data.json's `excluded_rules`, which T01 already shrank
+    to that one entry -- design.md, Key Decisions #8). performance.md and
+    tmux.md's exclusion rationale went stale post-1008, so this test's
+    original three-entry exclusion set no longer matches reality; updated
+    rather than left to assert a behavior that no longer holds.
     """
     module = _load_script()
 
@@ -363,8 +383,9 @@ def test_stage_config_drops_only_excluded_rules(tmp_path: Path) -> None:
     staged_rules = staged / "rules" / "common"
     assert (staged_rules / "git-workflow.md").is_file()
     assert (staged_rules / "capabilities-core.md").is_file()
-    for excluded in ("performance.md", "sudo.md", "tmux.md"):
-        assert not (staged_rules / excluded).exists()
+    assert (staged_rules / "performance.md").is_file()
+    assert (staged_rules / "tmux.md").is_file()
+    assert not (staged_rules / "sudo.md").exists()
     # The compat rule is written after exclusion and must survive it.
     assert (staged_rules / "opencode-compat.md").is_file()
 
@@ -386,7 +407,9 @@ def test_opencode_marked_rule_is_never_excluded(tmp_path: Path) -> None:
 
 
 def test_real_repo_stages_every_rule_but_the_excluded(tmp_path: Path) -> None:
-    """Guards the actual repo: exactly OPENCODE_EXCLUDED_RULES is withheld."""
+    """Guards the actual repo: exactly opencode/config-data.json's
+    excluded_rules is withheld.
+    """
     module = _load_script()
     repo = Path(__file__).resolve().parent.parent
 
@@ -394,7 +417,10 @@ def test_real_repo_stages_every_rule_but_the_excluded(tmp_path: Path) -> None:
     tmpdir.mkdir()
     staged = module["stage_config"](repo, tmpdir)
 
-    excluded = set(module["OPENCODE_EXCLUDED_RULES"])
+    # OPENCODE_EXCLUDED_RULES no longer exists as a module constant (T03) --
+    # this test still exercises stage_config(), so it reads the same shared
+    # list stage_config() itself now loads from.
+    excluded = set(module["_load_config_data"]()["excluded_rules"])
     for source in sorted((repo / "rules").rglob("*.md")):
         relative = source.relative_to(repo / "rules").as_posix()
         staged_file = staged / "rules" / relative
@@ -404,18 +430,53 @@ def test_real_repo_stages_every_rule_but_the_excluded(tmp_path: Path) -> None:
             assert staged_file.is_file(), f"{relative} should sync but did not"
 
 
-def test_apply_rule_exclusions_reports_stale_entry(tmp_path: Path) -> None:
-    """A renamed rule silently starts syncing unless the stale entry surfaces."""
+def test_excluded_rules_shrinks_to_one_entry_and_no_longer_filters_performance_or_tmux(
+    tmp_path: Path,
+) -> None:
+    """The exclusion list loaded from opencode/config-data.json shrank from
+    three entries to one (design.md, Key Decisions #8): performance.md's and
+    tmux.md's exclusion rationale went stale post-1008, and only
+    common/sudo.md remains -- with no hook firing under OpenCode, a bare
+    `sudo` hits a passwordless prompt with no TTY and hangs. This is the
+    behavior change users actually feel, so it needs its own assertion
+    rather than riding along on the other exclusion tests, none of which
+    check the count.
+    """
+    module = _load_script()
+    excluded = module["_load_config_data"]()["excluded_rules"]
+
+    assert excluded == ["common/sudo.md"]
+    assert "common/performance.md" not in excluded
+    assert "common/tmux.md" not in excluded
+
+    claudefiles = tmp_path / "claudefiles"
+    for name in ("sudo.md", "performance.md", "tmux.md"):
+        _write_rule(claudefiles / "rules" / "common" / name, "tool: claude")
+
+    tmpdir = tmp_path / "staging"
+    tmpdir.mkdir()
+    staged = module["stage_config"](claudefiles, tmpdir)
+
+    staged_rules = staged / "rules" / "common"
+    assert not (staged_rules / "sudo.md").exists()
+    assert (staged_rules / "performance.md").is_file()
+    assert (staged_rules / "tmux.md").is_file()
+
+
+def test_find_unmatched_rule_exclusions_reports_stale_entry(tmp_path: Path) -> None:
+    """A renamed rule silently starts syncing unless the stale entry
+    surfaces. Non-mutating (T03) -- unlike its predecessor
+    apply_rule_exclusions(), it must not delete the file it did match.
+    """
     module = _load_script()
 
     rules = tmp_path / "rules" / "common"
-    _write_rule(rules / "sudo.md", "tool: claude")
+    _write_rule(rules / "keeps.md", "tool: claude")
 
-    missing = module["apply_rule_exclusions"](tmp_path / "rules")
+    missing = module["find_unmatched_rule_exclusions"](tmp_path / "rules")
 
-    assert not (rules / "sudo.md").exists()
-    assert "common/performance.md" in missing
-    assert "common/tmux.md" in missing
+    assert missing == ["common/sudo.md"]
+    assert (rules / "keeps.md").is_file()
 
 
 def test_check_source_gate_flags_stale_exclusion(tmp_path: Path) -> None:
@@ -429,14 +490,21 @@ def test_check_source_gate_flags_stale_exclusion(tmp_path: Path) -> None:
 
     errors, _ = module["check_source_dispatch_patterns"](claudefiles)
 
-    assert any("OPENCODE_EXCLUDED_RULES" in e for e in errors)
+    assert any("config-data.json" in e and "common/sudo.md" in e for e in errors), (
+        errors
+    )
 
 
 def test_check_source_gate_sees_uncovered_rules_directory(tmp_path: Path) -> None:
     """The `--check-source` pre-commit gate must be able to fail on an
-    uncovered rules directory. It stages only skills/commands/agents, so
-    before this fix check_instruction_globs() short-circuited on the missing
-    rules/ and the gate reported clean no matter what.
+    uncovered rules directory. It reads this repo's own `rules/` tree
+    directly rather than a staged copy, so this proves the coverage check
+    is wired into check_source_dispatch_patterns() and not just defined.
+
+    Uses `rules/other`, not `rules/personal` -- the real
+    opencode/config-data.json now names both `rules/common` and
+    `rules/personal`, so `rules/personal` is no longer an uncovered
+    directory to test against.
     """
     module = _load_script()
 
@@ -448,33 +516,15 @@ def test_check_source_gate_sees_uncovered_rules_directory(tmp_path: Path) -> Non
         claudefiles / "rules" / "common" / "covered.md", "tool: claude, antigravity"
     )
     _write_rule(
-        claudefiles / "rules" / "personal" / "uncovered.md",
+        claudefiles / "rules" / "other" / "uncovered.md",
         "tool: claude, antigravity",
     )
 
     errors, _ = module["check_source_dispatch_patterns"](claudefiles)
 
-    glob_errors = [e for e in errors if "instructions` glob" in e]
-    assert len(glob_errors) == 1, f"gate did not flag the uncovered dir: {errors}"
-    assert "rules/personal" in glob_errors[0]
-
-
-def test_check_source_gate_judges_the_tree_that_ships(tmp_path: Path) -> None:
-    """A rules directory left empty by the exclusions needs no `instructions`
-    glob, so the gate must not demand one -- it has to judge the same tree
-    stage_config() produces, not the raw source.
-    """
-    module = _load_script()
-
-    claudefiles = tmp_path / "claudefiles"
-    (claudefiles / "agents").mkdir(parents=True)
-    (claudefiles / "agents" / "a.md").write_text("---\nmodel: sonnet\n---\n\nbody\n")
-    for relative in module["OPENCODE_EXCLUDED_RULES"]:
-        _write_rule(claudefiles / "rules" / relative, "tool: claude")
-
-    errors, _ = module["check_source_dispatch_patterns"](claudefiles)
-
-    assert [e for e in errors if "instructions` glob" in e] == []
+    coverage_errors = [e for e in errors if "instruction_dirs" in e]
+    assert len(coverage_errors) == 1, f"gate did not flag the uncovered dir: {errors}"
+    assert "rules/other" in coverage_errors[0]
 
 
 def test_check_source_gate_flags_dispatch_naming_nonexistent_agent(
@@ -746,21 +796,51 @@ def test_run_lint_surfaces_variant_errors(tmp_path: Path) -> None:
     assert any("turbo" in e for e in errors)
 
 
-def test_tier_map_variants_are_names_opencode_resolves() -> None:
-    """Every TIER_MAP `variant` must be a name OpenCode can resolve.
+def test_check_source_gate_flags_tier_map_variant_opencode_does_not_resolve(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Every opencode/config-data.json `tier_map` entry's `variant` must be a
+    name in that same file's `variants` list, checked by
+    check_source_dispatch_patterns() (T03) so `--check-source` exits non-zero
+    on a bad one.
 
-    Agent-level variant resolution drops any name missing from the model's
-    synthesized `variants` map without warning, so a typo here reproduces the
-    exact bug the `effort` -> `variant` rename fixed: config that looks
-    correct while every subagent silently runs at the provider default.
+    Formerly `test_tier_map_variants_are_names_opencode_resolves`, which
+    asserted this property directly against the in-script `TIER_MAP` and
+    `OPENCODE_VARIANTS` constants. Those constants are gone from this
+    script's routing role in FR#27's shared-data design -- `tier_map` and
+    `variants` are authored once, in opencode/config-data.json, so this is
+    where the check has to live now. Agent-level variant resolution drops
+    any name missing from the model's synthesized `variants` map without
+    warning, so an unresolvable name here reproduces the exact bug the
+    `effort` -> `variant` rename fixed (#514): config that looks correct
+    while every subagent silently runs at the provider default.
     """
     module = _load_script()
 
-    for tier_name, tier in module["TIER_MAP"].items():
-        assert tier["variant"] in module["OPENCODE_VARIANTS"], (
-            f"TIER_MAP[{tier_name!r}]['variant'] = {tier['variant']!r} is not a "
-            "reasoning-effort name OpenCode accepts"
-        )
+    claudefiles = tmp_path / "claudefiles"
+    agents = claudefiles / "agents"
+    agents.mkdir(parents=True)
+    (agents / "a.md").write_text("---\nmodel: x\n---\n\nbody\n")
+
+    # runpy.run_path() returns a *copy* of the executed namespace, not the
+    # live one -- module["check_source_dispatch_patterns"].__globals__ is a
+    # different dict than `module` itself (confirmed empirically), so a
+    # replacement has to land in that live __globals__ dict or the function's
+    # own lookup of `_load_config_data` never sees it.
+    monkeypatch.setitem(
+        module["check_source_dispatch_patterns"].__globals__,
+        "_load_config_data",
+        lambda: {
+            "tier_map": {"sonnet": {"model": "openai/x", "variant": "turbo"}},
+            "variants": ["none", "low", "medium", "high", "xhigh", "max"],
+            "excluded_rules": [],
+            "instruction_dirs": ["rules/common"],
+        },
+    )
+
+    errors, _ = module["check_source_dispatch_patterns"](claudefiles)
+
+    assert any("turbo" in e and "tier_map" in e for e in errors), errors
 
 
 def test_process_agent_frontmatter_rewrites_effort_to_tier_variant(
