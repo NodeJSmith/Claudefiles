@@ -65,10 +65,13 @@ Each agent file in `agents/` declares its model in YAML frontmatter. When updati
 - `agents/engineering-data-engineer.md` — sonnet, high
 - `agents/engineering-technical-writer.md` — sonnet, high
 - `agents/engineering-sre.md` — sonnet, high
+- `agents/light-worker.md` — haiku, high
+- `agents/standard-worker.md` — sonnet, high
+- `agents/spec-reviewer.md` — sonnet, high
 
 **Skill files with inline model declarations** (not governed by agent frontmatter):
 - `skills/mine-challenge/SKILL.md` — `model: haiku` for triage subagent, `model: sonnet` for critic and synthesis subagents
-- `skills/mine-orchestrate/SKILL.md` — executor uses model from Step 4 routing (agent frontmatter, defaulting to `sonnet` for general-purpose); `model: sonnet` for reviewer subagents
+- `skills/mine-orchestrate/SKILL.md` — executor uses model from Step 4 routing (agent frontmatter, defaulting to `sonnet` for general-purpose); code and integration reviewers dispatch via `--model sonnet`, spec reviewer via its own agent pin
 - `skills/mine-orchestrate/post-execution-pipeline.md` — `model: sonnet` for the clean code check subagent
 - `skills/mine-plan/SKILL.md` — `model: sonnet` for review subagent
 - `skills/mine-implementation-review/SKILL.md` — `model: sonnet` for review subagent

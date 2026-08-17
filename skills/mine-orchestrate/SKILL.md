@@ -375,12 +375,10 @@ Use `"decision": "accept"` when the user accepts the criterion as met, `"decisio
 
 ### Step 8: Parallel review pass
 
-Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/spec-reviewer-prompt.md`.
-
 Before launching, record three dispatches and capture their IDs:
 
 ```bash
-cfl dispatch spec-reviewer <task_id> --agent-type general-purpose --model sonnet
+cfl dispatch spec-reviewer <task_id> --agent-type spec-reviewer
 cfl dispatch code-reviewer <task_id> --agent-type code-reviewer --model sonnet
 cfl dispatch integration-reviewer <task_id> --agent-type integration-reviewer --model sonnet
 ```
@@ -390,7 +388,7 @@ Parse `dispatch_id` from each JSON response — needed for `cfl dispatch end` af
 Launch all three reviewers in parallel (three Agent tool calls in a single message). Every prompt
 below includes the shared scope boundary shown in the first prompt.
 
-**Subagent 1 — Spec reviewer** (`subagent_type: "general-purpose"`, `model: sonnet`):
+**Subagent 1 — Spec reviewer** (`subagent_type: spec-reviewer`):
 
 ```
 You are independently verifying a completed task.
@@ -416,9 +414,6 @@ Only flag issues in this task's scope. Later tasks own these targets; do not fla
 explicitly assigned to them:
 <one line per remaining task: <task_id>: <title> — targets: <create/modify/delete paths, or unspecified>>
 When uncertain whether a finding is in scope, include it.
-
-## Spec reviewer instructions
-<full spec-reviewer-prompt.md content>
 
 CONCISE-RETURN-MODE
 

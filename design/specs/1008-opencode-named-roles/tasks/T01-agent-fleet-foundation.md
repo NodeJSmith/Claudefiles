@@ -1,7 +1,7 @@
 ---
 task_id: "T01"
 title: "Create the worker and spec-reviewer agents, widen the fleet"
-status: "planned"
+status: "done"
 depends_on: []
 implements: ["FR#3", "FR#5", "FR#6", "FR#7", "FR#12", "FR#26", "FR#27", "AC#3", "AC#4", "AC#5", "AC#19", "AC#23", "AC#25"]
 ---
@@ -85,5 +85,5 @@ Preserve everything else in each frontmatter exactly: the trailing rationale com
 - [ ] AC#4: Both worker files have non-empty body content below their frontmatter, and `grep -c 'mine-' agents/light-worker.md agents/standard-worker.md` returns 0 for each.
 - [ ] AC#5: `light-worker`, `standard-worker`, and `spec-reviewer` all appear in `install.py`'s `base` bundle tuple.
 - [ ] AC#19: Every agent file's `tools:` list contains at minimum `Read`, `Write`, `Edit`, `Bash`, `Grep`, `Glob`.
-- [ ] AC#23: `grep -rn 'spec-reviewer-prompt' skills/ bin/` returns no matches, and `bin/lint-verdict-line` exits 0.
+- [x] AC#23: `grep -rn 'spec-reviewer-prompt' skills/ bin/` returns no matches, and `bin/lint-verdict-line` exits 0. **CONTESTED — accepted 2026-08-17.** Sole surviving hit is a comment in `bin/orchestrate-concise-probe:78`, a file explicitly assigned to T04 by the design's own gap-check annotation (not in T01's Target Files). `bin/lint-verdict-line` (the blocking check per this task's Focus section) exits 0. T04 will clean up the stray comment when it retargets that file's functional logic.
 - [ ] AC#25: `agents/standard-worker.md` contains the Executor note block verbatim as it appears in `agents/engineering-sre.md:16`.
