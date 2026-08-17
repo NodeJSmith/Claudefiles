@@ -2,6 +2,13 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-08-17
+
+### Changed
+
+- Every subagent dispatch across skills, commands, and agents now names a real agent file directly instead of `subagent_type: general-purpose` plus a separate `model:` tier clause — model, effort, and tools live once in that agent's own frontmatter. Added hand-written `light-worker` and `standard-worker` agents, replacing `opencode-sync`'s sync-time-generated workers and opus-variant escalation, and removed the dispatch-rewrite translation layer from `bin/opencode-sync` entirely. (#518)
+- `bin/lint-agent-models` now also validates `cfl dispatch --agent-type <name>` call sites (not just `subagent_type:` clauses) and enforces a tools baseline (Read/Write/Edit/Bash/Grep/Glob) on every agent. (#518)
+
 ## 2026-08-15
 
 ### Added
