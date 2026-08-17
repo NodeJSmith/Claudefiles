@@ -18,7 +18,7 @@ Build the agent fleet that every later task depends on. Three agents are created
 - delete: `skills/mine-orchestrate/spec-reviewer-prompt.md`
 - modify: `agents/architect.md`, `agents/code-judo-reviewer.md`, `agents/code-reviewer.md`, `agents/engineering-backend-developer.md`, `agents/engineering-data-engineer.md`, `agents/engineering-frontend-developer.md`, `agents/engineering-sre.md`, `agents/engineering-technical-writer.md`, `agents/fine-toothed-comb.md`, `agents/instruction-quality-reviewer.md`, `agents/integration-reviewer.md`, `agents/issue-refiner.md`, `agents/lazy-checker.md`, `agents/llm-checker.md`, `agents/nitpicker.md`, `agents/planner.md`, `agents/qa-specialist.md`, `agents/researcher.md`, `agents/secrets-auditor.md`, `agents/testing-reality-checker.md`, `agents/visual-diff.md`, `agents/writing-quality-reviewer.md`, `agents/wtf-reviewer.md` — add `bundle:`, widen `tools:`
 - modify: `agents/secrets-auditor.md` — additionally, delete both read-only claims (frontmatter description `:5`, body `:9`)
-- modify: `skills/mine-orchestrate/SKILL.md` — the two `spec-reviewer-prompt.md` references at `:378` and `:421`
+- modify: `skills/mine-orchestrate/SKILL.md` — four lines: the `Read spec-reviewer-prompt.md` instruction (`:378`), the `cfl dispatch spec-reviewer <task_id> --agent-type general-purpose --model sonnet` telemetry record (`:383`), the dispatch itself (`:393`, `subagent_type: "general-purpose"`, `model: sonnet`), and the `<full spec-reviewer-prompt.md content>` placeholder (`:421`)
 - modify: `skills/mine-orchestrate/verdict-line-format.md` — the table row at `:28` and the hosts-list entry at `:80`
 - modify: `bin/lint-verdict-line` — three hardcoded paths at `:29`, `:42-46`, `:62`
 - modify: `rules/common/performance.md` — hand-add the three new agents to the declaration list
@@ -44,7 +44,7 @@ Each body states only the dispatch discipline every caller relies on: write outp
 
 Create `agents/spec-reviewer.md` with frontmatter (`model: sonnet`, `effort: high`, `description:`, widened `tools:`, `bundle: base`) and the full contents of `skills/mine-orchestrate/spec-reviewer-prompt.md` as its body. This is a move, not a copy — delete the prompt file. Then retarget every reference to the deleted path:
 
-- `skills/mine-orchestrate/SKILL.md:378` (a `Read` instruction) and `:421` (a `<full spec-reviewer-prompt.md content>` placeholder). The dispatch itself becomes `subagent_type: spec-reviewer` supplying only per-run context; the skill no longer inlines the methodology.
+- `skills/mine-orchestrate/SKILL.md`, four lines. `:378` is a `Read` instruction and `:421` a `<full spec-reviewer-prompt.md content>` placeholder — both go, because the skill no longer inlines the methodology. `:393` is the dispatch itself (`subagent_type: "general-purpose"`, `model: sonnet`) and becomes `subagent_type: spec-reviewer` with no model clause, supplying only per-run context. `:383` is its `cfl dispatch` telemetry record (`--agent-type general-purpose --model sonnet`) and becomes `--agent-type spec-reviewer` with no `--model`. Migrating these two here rather than leaving them to T04 is deliberate: FR#26 is this task's requirement, and `spec-reviewer` is the agent this task creates.
 - `skills/mine-orchestrate/verdict-line-format.md:28` (verdict-vocabulary table row) and `:80` (the legitimate-hosts list).
 - `bin/lint-verdict-line` at `:29` (`REVIEWERS_WITHOUT_COUNT`), `:42-46` (the `REVIEWER_ALLOWED_VERDICTS` key), and `:62` (`ACTIVE_CONTRACT_FILES`).
 
@@ -78,7 +78,7 @@ Preserve everything else in each frontmatter exactly: the trailing rationale com
 - [ ] FR#5: Both worker bodies state each of the three dispatch-discipline points (write output to the caller's named path, cite evidence for findings, stay inside the assigned scope), and neither names a specific skill or workflow step — `grep -c 'mine-' agents/light-worker.md agents/standard-worker.md` returns 0 for each.
 - [ ] FR#6: `light-worker`, `standard-worker`, and `spec-reviewer` all declare `bundle: base`.
 - [ ] FR#7: Every file in `agents/` declares all five of `model`, `effort`, `tools`, `description`, and `bundle` in its frontmatter.
-- [ ] FR#12: Every agent's `tools:` list contains at minimum `Read`, `Write`, `Edit`, `Bash`, `Grep`, `Glob`, and `grep -rin 'read-only' agents/` returns no match claiming an agent cannot write.
+- [ ] FR#12: Every agent's `tools:` list contains at minimum `Read`, `Write`, `Edit`, `Bash`, `Grep`, `Glob`, and `grep -rin 'read-only' agents/` returns zero matches — the only two occurrences today are the `secrets-auditor` claims at `:5` and `:9` that this task deletes.
 - [ ] FR#26: `agents/spec-reviewer.md` carries the former prompt file's methodology; `skills/mine-orchestrate/spec-reviewer-prompt.md` is deleted; `bin/lint-verdict-line` exits 0.
 - [ ] FR#27: `agents/standard-worker.md` contains the Executor note block byte-identical to `agents/engineering-sre.md:16`.
 - [ ] AC#3: `agents/light-worker.md` and `agents/standard-worker.md` exist declaring `haiku` and `sonnet`, and no file exists in `agents/` named `triager`, `analyzer`, `critic`, `synthesizer`, `ideator`, `judge`, `reviewer`, `writer`, or `implementer`.

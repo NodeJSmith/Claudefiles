@@ -78,7 +78,12 @@ Promotion to a specialist can change a site's tier, and that is accepted — but
 
 **Verified counts to check your enumeration against** (as of planning): 25 files contain `general-purpose`; 24 files carry 34 `model: <tier>` clause occurrences; 9 files carry 32 `cfl dispatch --model` occurrences; 9 `Explore` dispatch sites across 4 files (`agents/researcher.md` ×4, `skills/mine-eval-repo/SKILL.md` ×3, `skills/mine-prior-art/SKILL.md` ×1, `commands/mine-issues.md` ×1). A materially different count means your grep differs from the ones above — reconcile before editing.
 
-**`commands/mine-permissions-audit.md:74` needs a content change, not just a marker removal.** It reads "Task tools — `Task(Explore)`, `Task(general-purpose)`, etc." Both named dispatch targets stop existing, so the line's meaning is what is stale.
+**Two prose mentions need a content change, not just a marker removal.** Both name `general-purpose` as a bare word with no `subagent_type`, no `model:` clause, and no `agent-type` argument — so none of this task's four greps, and none of its Verify criteria, will catch either one. Find them by hand:
+
+- `commands/mine-permissions-audit.md:74` reads "Task tools — `Task(Explore)`, `Task(general-purpose)`, etc." Both named targets stop existing, so the line's meaning is what is stale.
+- `skills/mine-orchestrate/SKILL.md:271` reads "determine if a specialized agent is a better fit than `general-purpose`". Reword to name the fallback worker (`standard-worker`) instead. T05 removes this line's `<!-- opencode-sync: ok -->` marker; the sentence itself is yours.
+
+`grep -rn 'general-purpose' skills skills-cli skills-impeccable commands agents` returning zero at the end of this task is the check that catches both.
 
 **T03 already deleted the escalation text**, which removed two `general-purpose` occurrences (`SKILL.md:651`, `spec-fix-loop.md:31`). Your enumeration will therefore return fewer sites than the design's Problem section states. That is expected, not a discrepancy.
 
