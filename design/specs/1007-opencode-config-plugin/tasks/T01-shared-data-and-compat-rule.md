@@ -1,7 +1,7 @@
 ---
 task_id: "T01"
 title: "Create the shared data file and the compatibility rule"
-status: "planned"
+status: "done"
 depends_on: []
 implements: ["FR#7", "FR#10", "FR#27"]
 ---
