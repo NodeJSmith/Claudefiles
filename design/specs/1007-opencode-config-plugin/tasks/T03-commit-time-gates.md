@@ -3,7 +3,7 @@ task_id: "T03"
 title: "Move the surviving checks into --check-source"
 status: "planned"
 depends_on: ["T01"]
-implements: ["FR#8", "FR#23", "AC#5"]
+implements: ["FR#8", "FR#23", "FR#27", "AC#5"]
 ---
 
 ## Summary
@@ -37,9 +37,13 @@ That change makes the scratch-copy dance in `check_source_dispatch_patterns()` u
 
 Note that `check_source_dispatch_patterns()`'s docstring currently promises "Warnings always come back empty" (`:1275-1277`). That stops being true here — update it. `report_lint()` (`:1191`) already handles a non-empty warnings list, so no caller changes.
 
-Do **not** widen the scan to `skills-cli/` or `skills-impeccable/`. Every current occurrence lives under `skills/` (`mine-visual-qa/SKILL.md`, `mine-challenge/SKILL.md`, `mine-issues-triage/SKILL.md`, `mine-orchestrate/post-execution-pipeline.md`), so no scope change is needed — and widening this function's scan would also widen its unrelated dispatch-name enforcement, which is a separate shipped contract.
+Do **not** widen the scan to `skills-cli/` or `skills-impeccable/`. Every current occurrence lives under `skills/` — 7 matching lines across 4 files (`mine-visual-qa/SKILL.md`, `mine-challenge/SKILL.md`, `mine-issues-triage/SKILL.md`, `mine-orchestrate/post-execution-pipeline.md`), so no scope change is needed — and widening this function's scan would also widen its unrelated dispatch-name enforcement, which is a separate shipped contract.
 
-**5. Tests.** In `tests/test_opencode_sync.py`, adapt rather than delete:
+**5. Give the shared variant-name list a consumer.** Add a check to `check_source_dispatch_patterns()` that every `variant` in the shared file's tier map is a member of the shared file's allowed-variant list, erroring on any that is not.
+
+This is a pure data check over `opencode/config-data.json` — no live install, no filesystem walk — and it is what keeps that list from becoming dead weight. `check_variant_names()` (`:1077`), which T04 deletes, validated `variant:` lines written into *synced agent files*; those no longer exist. But the underlying failure it guarded is still reachable: OpenCode drops an agent-level variant it does not recognize, silently, exactly as the `effort` key did before 2026-08-14 (bug #514). With the tier map now the only place a variant is authored, validating it at commit time is the whole guard, and it costs three lines.
+
+**6. Tests.** In `tests/test_opencode_sync.py`, adapt rather than delete:
 - `test_apply_rule_exclusions_reports_stale_entry` (`:407`) — same assertion, non-mutating signature, and add a positive assertion that the matched file is **still present** afterward.
 - `test_check_source_gate_flags_stale_exclusion` (`:421`) — this is AC#5's test. Keep it.
 - `test_check_source_gate_sees_uncovered_rules_directory` (`:435`), `test_check_instruction_globs_*` (`:291`, `:312`, `:323`) — retarget to the repo-source tree.
@@ -47,6 +51,8 @@ Do **not** widen the scan to `skills-cli/` or `skills-impeccable/`. Every curren
 - `test_stage_config_drops_only_excluded_rules` (`:342`), `test_opencode_marked_rule_is_never_excluded` (`:372`), `test_real_repo_stages_every_rule_but_the_excluded` (`:388`) — these assert on `stage_config()`, which T04 deletes. Leave them alone in this task; T04 owns their removal.
 
 Add a test that the exclusion list loaded from `opencode/config-data.json` has exactly one entry and that a rule named `common/performance.md` or `common/tmux.md` is **not** filtered out — the shrink from three entries to one is the behavior change users will feel, and nothing else asserts it.
+
+Add a test for the variant check from step 5: a tier map entry naming a variant outside the allowed list makes `--check-source` exit non-zero. Adapt `test_tier_map_variants_are_names_opencode_resolves` (`:749`) rather than writing from scratch — it asserts exactly this property today against the in-script constants, and T04 would otherwise delete it along with `TIER_MAP`.
 
 ## Focus
 
@@ -63,5 +69,6 @@ Gap-check item this task addresses: gap 6 (above) and gap 7 — the instruction-
 ## Verify
 
 - [ ] FR#8: renaming `rules/common/sudo.md` in a scratch copy of the repo and running `--check-source` against it exits non-zero with a message naming the unmatched exclusion entry; restoring the name makes it exit 0.
-- [ ] FR#23: `rg -n 'ISOLATION_WORKTREE_RE|RUN_IN_BACKGROUND_RE' bin/opencode-sync` shows both regexes referenced from `check_source_dispatch_patterns()` and no longer from `_lint_content()`; running `--check-source` against the repo emits warnings for the four known occurrences under `skills/` and still exits 0.
+- [ ] FR#27: `bin/opencode-sync` reads the exclusion list, the instruction-directory list, and the allowed-variant list from `opencode/config-data.json` rather than from module constants — `rg -n 'OPENCODE_EXCLUDED_RULES|INSTRUCTION_DIRS' bin/opencode-sync` returns no assignment, and `--check-source` exits non-zero when a tier map entry names a variant outside the shared allowed list.
+- [ ] FR#23: `rg -n 'ISOLATION_WORKTREE_RE|RUN_IN_BACKGROUND_RE' bin/opencode-sync` shows both regexes referenced from `check_source_dispatch_patterns()` and no longer from `_lint_content()`; running `--check-source` against the repo emits warnings for the 7 known occurrences (across 4 files) under `skills/` and still exits 0.
 - [ ] AC#5: covered by a test in `tests/test_opencode_sync.py` that renames the excluded rule in a `tmp_path` repo copy and asserts a non-zero exit naming the entry — `mise run test:root` passes.

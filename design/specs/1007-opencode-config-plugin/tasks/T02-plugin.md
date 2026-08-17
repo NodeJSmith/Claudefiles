@@ -26,12 +26,12 @@ Write `opencode/claudefiles.ts` exporting an OpenCode plugin with a single `conf
 
 Resolve the install root as `~/.claude` — read `$CLAUDE_CONFIG_DIR` first and fall back to `path.join(os.homedir(), ".claude")`. **Never read `~/Claudefiles` or `~/Dotfiles`.** `~/.claude` is the union of both repos as installed; either repo alone is strictly less complete (Dotfiles owns eleven skills and all five personal rules). This is a Key Constraint in the design doc, not a preference.
 
-Load `opencode/config-data.json` for every shared value — the tier map, the exclusion list, the skill-command template, and the instruction-directory list. Resolve its path relative to the plugin file's own location (`import.meta.url`), not relative to the config dir or the cwd: the plugin reaches `~/.config/opencode/claudefiles.ts` as a symlink into this repo, so a sibling-relative lookup is what finds the repo copy. **Define none of these values as literals in the plugin** — AC#22 greps for exactly that.
+Load `opencode/config-data.json` for every shared value — the tier map, the exclusion list, the skill-command template and its separate description string, and the instruction-directory list. Resolve its path relative to the plugin file's own location (`import.meta.url`), not relative to the config dir or the cwd: the plugin reaches `~/.config/opencode/claudefiles.ts` as a symlink into this repo, so a sibling-relative lookup is what finds the repo copy. **Define none of these values as literals in the plugin** — AC#22 greps for exactly that.
 
 Populate three keys and no others:
 
 **`cfg.agent`** (FR#1, FR#2, FR#3) — one entry per `*.md` file directly under `<root>/agents/`. Key the entry by the file's stem. For each file, split frontmatter by line scan and build:
-- `model`: the tier map's `model` for the frontmatter's `model:` tier name (`sonnet`/`haiku`/`opus`). The remap is load-bearing, not legacy plumbing: `ConfigAgentV1.Info` types `model` as `Schema.optional(Schema.String)` with no format validation and `Provider.parseModel()` splits on `/` (`provider/provider.ts:1997-2003`), so passing `sonnet` through unchanged yields `providerID: "sonnet"`, `modelID: ""` — a nonexistent model, silently.
+- `model`: the tier map's `model` for the frontmatter's `model:` tier name (`sonnet`/`haiku`/`opus`). **Most agent files carry a trailing inline comment on that line** — e.g. `model: sonnet  # claude-sonnet-5 as of 2026-07-07 — do not downgrade; pre-commit safety gate`. Match the tier as a word and ignore the rest of the line; a naive split-on-colon-and-take-the-remainder yields `sonnet  # claude-sonnet-5 as of...` and finds no tier map entry. The Python side handled this explicitly (`FRONTMATTER_MODEL_RE`, `bin/opencode-sync:908-911`, whose docstring calls out preserving the trailing comment). The remap is load-bearing, not legacy plumbing: `ConfigAgentV1.Info` types `model` as `Schema.optional(Schema.String)` with no format validation and `Provider.parseModel()` splits on `/` (`provider/provider.ts:1997-2003`), so passing `sonnet` through unchanged yields `providerID: "sonnet"`, `modelID: ""` — a nonexistent model, silently.
 - `variant`: the tier map's `variant` for the same tier.
 - `description`: the frontmatter's `description` field.
 - `prompt`: the file body — everything after the closing frontmatter delimiter.
@@ -39,7 +39,16 @@ Populate three keys and no others:
 
 Skip any agent file you cannot read, and any whose `model:` tier is not in the tier map, rather than emitting a malformed entry. An entry with an empty prompt is worse than an absent one (design doc, Edge Cases — "A symlink dangles"). Emitting a bare tier name as `model` is worse still.
 
-**`cfg.command`** (FR#4) — one entry per `<root>/skills/*/SKILL.md` whose frontmatter declares `opencode-command: true`. Key by the skill directory name. Set `template` to the shared skill-command template with `{name}` substituted, and `description` to something naming the skill. Match only `SKILL.md`; do not glob `**/*.md` under `skills/`. `skills/mine-write-skill/REFERENCE.md` contains the string `opencode-command: true|false` as documentation and must not produce a command. Match `opencode-command` in frontmatter only, and match the value strictly — `true|false` is not `true`. Thirteen skills currently qualify.
+**`cfg.command`** (FR#4) — one entry per `<root>/skills/*/SKILL.md` whose **frontmatter** declares `opencode-command: true`. Key by the skill directory name. Set `template` to the shared skill-command template with `{name}` substituted, and `description` to the shared skill-command description with `{name}` substituted. Both come from `opencode/config-data.json`; invent neither.
+
+`template` and `description` are independent fields here and nothing parses one out of the other. `packages/opencode/src/command/index.ts:90-102` reads `command.template` and `command.description` straight off the config entry — unlike the disk loader (`packages/opencode/src/config/command.ts`), which runs `ConfigMarkdown.parse()` and splits a `.md` file's frontmatter into `description` and its body into `template`. That is why T01 stored the two separately. Do not concatenate them, and do not put frontmatter delimiters into `template` — they would appear verbatim in the model's prompt.
+
+Three separate filters are all load-bearing here, and dropping any one inflates the count:
+- Match only `SKILL.md`; do not glob `**/*.md` under `skills/`. `skills/mine-write-skill/REFERENCE.md` contains `opencode-command: true|false` as documentation.
+- Match inside the frontmatter block only, never the body. `skills/mine-write-skill/SKILL.md:51` contains the literal `opencode-command: true` in prose telling skill authors when to set it — that file's frontmatter has no such field and it must **not** produce a command.
+- Match the value strictly: `true|false` is not `true`.
+
+**Twelve** skills currently qualify: `mine-address-pr-issues`, `mine-challenge`, `mine-clean-code`, `mine-comb`, `mine-define`, `mine-eval-repo`, `mine-orchestrate`, `mine-plan`, `mine-prior-art`, `mine-review`, `mine-ship`, `mine-sketch`. If you get 13 or 14, one of the three filters is missing.
 
 **`cfg.instructions`** (FR#5, FR#6, FR#9) — an array of explicit absolute file paths (not glob patterns), one per `.md` file in each directory named by the shared instruction-directory list, minus any whose `<dir>/<name>.md` matches an exclusion-list entry. Append the path to the compatibility rule as installed by T05's bootstrap. Preserve whatever `cfg.instructions` already holds rather than replacing it.
 
@@ -59,8 +68,8 @@ Verify by writing a throwaway harness (scratchpad, not committed) that imports t
 
 **Ground-truth counts to assert against** (from Phase 2 exploration, re-derive rather than trusting these if they drift):
 - `~/.claude/agents/` — 26 files.
-- Skills declaring `opencode-command: true` — 13: `mine-address-pr-issues`, `mine-challenge`, `mine-clean-code`, `mine-comb`, `mine-define`, `mine-eval-repo`, `mine-orchestrate`, `mine-plan`, `mine-prior-art`, `mine-review`, `mine-ship`, `mine-sketch`, `mine-write-skill`.
-- `~/.claude/rules/common/` — 34 files; one (`sudo.md`) is excluded, so 33 reach `instructions`.
+- Skills declaring `opencode-command: true` **in frontmatter** — 12 (see the Prompt for the list and for the two decoy files that make a bare grep return 14).
+- `~/.claude/rules/common/` — **36** files in the live install, not the 34 this repo's own `rules/common/` tracks. `install.py` also symlinks `capabilities-cli.md` and `capabilities-impeccable.md` in from `skills-cli/` and `skills-impeccable/` when those bundles are selected, so the installed directory is bundle-conditional and is a superset of the repo tree. Read the live directory; do not derive the count from the repo. One file (`sudo.md`) is excluded, so 35 reach `instructions` on this machine.
 - `~/.claude/rules/personal/` — exactly 5, all symlinks into `~/Dotfiles/config/claude/rules/personal/`: `capabilities-base.md`, `capabilities.md`, `machines.md`, `mcp-tools.md`, `python-packaging.md`. These are the roadmap `:194` closure — if they are missing from your output, the main point of the task is unmet.
 
 **Everything under `~/.claude/` is symlinks.** Use APIs that follow them (`fs.readdirSync` + `fs.readFileSync` do; a `withFileTypes` check for `isFile()` does **not** — a symlink reports `isSymbolicLink()`, not `isFile()`). Getting this wrong yields zero agents and zero rules with no error.
@@ -76,7 +85,7 @@ Verify by writing a throwaway harness (scratchpad, not committed) that imports t
 - [ ] FR#1: a Node harness invoking the plugin's `config()` on an empty object produces a `cfg.agent` entry for every `*.md` file directly under `~/.claude/agents/` — entry count equals the file count (26 at time of writing), keyed by file stem.
 - [ ] FR#2: every `cfg.agent` entry's `model` matches `openai/gpt-5.6-{sol,terra,luna}` and its `variant` is `high`, with the specific triple matching the tier named in that agent's own frontmatter; no entry's `model` is a bare `sonnet`/`haiku`/`opus`.
 - [ ] FR#3: for at least two agents of differing tiers, the entry's `prompt` equals that file's content after the closing frontmatter delimiter and its `description` equals the frontmatter `description` value — compared byte-for-byte in the harness.
-- [ ] FR#4: `cfg.command` has exactly one entry per `SKILL.md` declaring `opencode-command: true` (13), each `template` being the shared template with `{name}` substituted; no entry exists for `mine-write-skill/REFERENCE.md`.
+- [ ] FR#4: `cfg.command` has exactly 12 entries, one per `SKILL.md` whose **frontmatter** declares `opencode-command: true`, each `template` being the shared template with `{name}` substituted and containing no `---` delimiter, and each `description` being the shared description with `{name}` substituted; no `mine-write-skill` entry exists (its body prose and its `REFERENCE.md` both contain the string and must not match).
 - [ ] FR#5: `cfg.instructions` contains an explicit absolute path for every `.md` file in `~/.claude/rules/common/` and `~/.claude/rules/personal/`, including all five personal rules; no entry contains a `*` or `**` glob character.
 - [ ] FR#6: no `cfg.instructions` entry ends in `sudo.md`.
 - [ ] FR#9: `cfg.instructions` contains the compatibility rule's installed path.

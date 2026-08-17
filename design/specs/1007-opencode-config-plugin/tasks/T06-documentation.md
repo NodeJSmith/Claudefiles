@@ -21,6 +21,7 @@ Nothing in this task changes behavior. Its gate is `prek run --all-files`.
 - modify: `rules/common/performance.md`
 - modify: `bin/opencode-variant-audit`
 - modify: `skills/mine-write-skill/REFERENCE.md`
+- read: `skills/mine-write-skill/SKILL.md` (line 51 — check whether its wording needs the same fix; it likely does not)
 - read: `design/specs/1007-opencode-config-plugin/design.md` (Documentation Updates; Dependencies and Assumptions)
 - read: `bin/opencode-sync`
 - read: `opencode/claudefiles.ts`
