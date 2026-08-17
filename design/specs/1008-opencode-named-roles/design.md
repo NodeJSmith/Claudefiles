@@ -1,7 +1,7 @@
 # Design: Named Agents as the Single Dispatch Concept
 
 **Date:** 2026-08-16
-**Status:** draft
+**Status:** approved
 **Scope-mode:** hold
 **Research:** `design/research/2026-08-16-opencode-plugin-viability/research.md` (background context — this spec emerged from that investigation but addresses a prerequisite, not the plugin itself)
 
