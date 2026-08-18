@@ -535,16 +535,29 @@ def _write_agent(agents_dir: Path, stem: str) -> None:
     (agents_dir / f"{stem}.md").write_text("---\nmodel: sonnet\n---\n\nbody\n")
 
 
-def _fake_opencode_run(failing_stems: set[str]):
+def _fake_opencode_run(
+    failing_stems: set[str], pure_resolving_stems: set[str] = frozenset()
+):
     """Fake replacement for subprocess.run() that reports success for every
     `opencode debug agent <name>` invocation except the given stems -- the
     boundary-fake pattern the TDD reference calls for, so no test in this
     file ever shells out to the real opencode binary.
+
+    `--pure`-aware: a `--pure` call succeeds only for stems listed in
+    `pure_resolving_stems`, which defaults to empty -- matching the
+    healthy-plugin shape (the plugin resolves the agent; disk alone, with
+    the plugin disabled, cannot) so every pre-existing caller of this fake
+    keeps passing without having to know `--pure` exists. A test that wants
+    to simulate the stale-disk-file failure mode (--pure ALSO succeeding for
+    an agent whose normal check succeeds) passes the stem explicitly.
     """
 
     def fake_run(cmd, **kwargs):
-        stem = cmd[-1]
-        returncode = 1 if stem in failing_stems else 0
+        stem = cmd[3]
+        if "--pure" in cmd:
+            returncode = 0 if stem in pure_resolving_stems else 1
+        else:
+            returncode = 1 if stem in failing_stems else 0
         return subprocess.CompletedProcess(cmd, returncode, stdout="", stderr="")
 
     return fake_run
@@ -584,6 +597,36 @@ def test_prune_is_a_noop_on_an_already_pruned_dir(tmp_path: Path) -> None:
     config_dir.mkdir()
 
     assert module["prune"](config_dir) == []
+
+
+def test_prune_removes_a_symlinked_tree_without_crashing(tmp_path: Path) -> None:
+    """shutil.rmtree() raises OSError on a symlink to a directory, and
+    Path.exists() reports False for a dangling symlink -- silently skipping
+    it and leaving it in place. Either shape can happen if a manual setup
+    left one of the four pruned names as a symlink under config_dir. prune()
+    must unlink the link itself instead of crashing or silently leaving it.
+    """
+    module = _load_script()
+
+    config_dir = tmp_path / "opencode-config"
+    config_dir.mkdir()
+
+    real_tree = tmp_path / "real-agents"
+    real_tree.mkdir()
+    (real_tree / "x.md").write_text("stub\n")
+    (config_dir / "agents").symlink_to(real_tree)
+
+    dangling_target = tmp_path / "does-not-exist"
+    (config_dir / "skills").symlink_to(dangling_target)
+
+    removed = module["prune"](config_dir)
+
+    assert set(removed) == {"agents", "skills"}
+    assert not (config_dir / "agents").is_symlink()
+    assert not (config_dir / "skills").is_symlink()
+    # The symlink's target survives -- unlink() removes only the link.
+    assert real_tree.is_dir()
+    assert (real_tree / "x.md").is_file()
 
 
 def test_verify_exits_zero_when_every_agent_resolves(
@@ -668,6 +711,153 @@ def test_verify_reports_missing_opencode_binary_as_a_distinct_failure(
 
     assert exit_code != 0
     assert "PATH" in captured.err
+
+
+def test_verify_fails_when_pure_check_also_resolves_a_stale_disk_agent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """The reviewer's stale-disk-file scenario: `opencode debug agent <name>`
+    resolves (returncode 0), but so does `opencode debug agent <name>
+    --pure`. `--pure` disables only the plugin (OpenCode's
+    cli/cmd/debug/index.ts:66), not its native `{agent,agents}/**/*.md` disk
+    scan (config/agent.ts) -- so a `--pure` success alongside a normal-check
+    success proves the entry came from a leftover file on disk (e.g. from
+    the old copy-based sync, never pruned), not the plugin. --verify must
+    fail this case, not report success just because the normal check passed
+    (design.md AC#2).
+    """
+    module = _load_script()
+
+    agents_dir = tmp_path / "agents"
+    _write_agent(agents_dir, "stale")
+
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/opencode")
+    monkeypatch.setattr(
+        subprocess, "run", _fake_opencode_run(set(), pure_resolving_stems={"stale"})
+    )
+
+    exit_code = module["verify"](agents_dir, None)
+    captured = capsys.readouterr()
+
+    assert exit_code != 0
+    assert "'stale'" in captured.err
+    assert "stale disk" in captured.err
+    assert "--pure" in captured.err
+
+
+def test_verify_passes_when_normal_resolves_but_pure_check_does_not(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Healthy-plugin shape: `opencode debug agent <name>` resolves and
+    `--pure` does not -- disk alone, with the plugin disabled, can't produce
+    the same result. This is what a real, working plugin looks like and
+    must not be flagged as the stale-disk failure mode.
+    """
+    module = _load_script()
+
+    agents_dir = tmp_path / "agents"
+    _write_agent(agents_dir, "healthy")
+
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/opencode")
+    monkeypatch.setattr(subprocess, "run", _fake_opencode_run(set()))
+
+    assert module["verify"](agents_dir, None) == 0
+
+
+def test_verify_treats_a_timed_out_pure_check_as_a_failure_not_a_pass(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """A hang on the `--pure` disambiguation probe must not be silently read
+    as "disk alone couldn't resolve it, so the plugin is healthy" --
+    `_agent_resolves()` returns None (not False) on timeout precisely so
+    this case stays distinguishable from that legitimate pass. The normal
+    check still succeeds; only the second, `--pure` call times out.
+    """
+    module = _load_script()
+
+    agents_dir = tmp_path / "agents"
+    _write_agent(agents_dir, "slow")
+
+    def fake_run(cmd, **kwargs):
+        if "--pure" in cmd:
+            raise subprocess.TimeoutExpired(cmd, kwargs.get("timeout", 0))
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/opencode")
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    exit_code = module["verify"](agents_dir, None)
+    captured = capsys.readouterr()
+
+    assert exit_code != 0
+    assert "'slow'" in captured.err
+    assert "inconclusive" in captured.err
+    assert "timed out" in captured.err
+
+
+def test_verify_reports_plain_non_resolution_distinctly_from_stale_disk(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """The pre-existing failure mode -- the agent does not resolve at all --
+    must still be reported as "did not resolve", not the stale-disk message.
+    The `--pure` check only runs (and only matters) once the normal check
+    has already succeeded; a normal-check failure short-circuits before it.
+    """
+    module = _load_script()
+
+    agents_dir = tmp_path / "agents"
+    _write_agent(agents_dir, "broken")
+
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/opencode")
+    monkeypatch.setattr(subprocess, "run", _fake_opencode_run({"broken"}))
+
+    exit_code = module["verify"](agents_dir, None)
+    captured = capsys.readouterr()
+
+    assert exit_code != 0
+    assert "'broken'" in captured.err
+    assert "did not resolve" in captured.err
+    assert "stale disk" not in captured.err
+
+
+def test_verify_fails_on_an_empty_agents_dir_instead_of_a_vacuous_pass(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """An agents_dir that exists but has zero *.md files must not report "0
+    agent(s) resolved" as success -- nothing was actually checked, the same
+    false-pass shape the missing-binary branch already guards against.
+    """
+    module = _load_script()
+
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir()
+
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/opencode")
+    monkeypatch.setattr(subprocess, "run", _fake_opencode_run(set()))
+
+    exit_code = module["verify"](agents_dir, None)
+    captured = capsys.readouterr()
+
+    assert exit_code != 0
+    assert "no agent files found" in captured.err
+
+
+def test_verify_with_explicit_name_ignores_the_empty_dir_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The empty-sweep guard only applies to the sweep-all-agents path (name
+    is None) -- passing an explicit name has nothing to sweep, so an empty
+    (or nonexistent) agents_dir must not block a single named check.
+    """
+    module = _load_script()
+
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir()
+
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/opencode")
+    monkeypatch.setattr(subprocess, "run", _fake_opencode_run(set()))
+
+    assert module["verify"](agents_dir, "a") == 0
 
 
 def test_bootstrap_twice_is_idempotent(
@@ -826,7 +1016,9 @@ def test_prek_verify_hook_is_not_always_run() -> None:
     assert hook.get("always_run") is not True
 
 
-def test_prek_verify_hook_skips_gracefully_when_opencode_binary_is_absent() -> None:
+def test_prek_verify_hook_skips_gracefully_when_opencode_binary_is_absent(
+    tmp_path: Path,
+) -> None:
     """CI runs `prek run --all-files`, which matches this hook's `files`
     pattern against the whole repo regardless of the actual diff, so it
     fires on every CI run -- but `opencode` is never installed in CI
@@ -839,10 +1031,18 @@ def test_prek_verify_hook_skips_gracefully_when_opencode_binary_is_absent() -> N
     hook = _find_verify_hook()
     argv = shlex.split(hook["entry"])
 
+    # A directory containing nothing but a symlink to the real bash --
+    # guaranteed empty of `opencode`, unlike a real system PATH entry such
+    # as /usr/bin, which could contain it (e.g. a system package). The
+    # script's `#!/usr/bin/env bash` shebang still needs bash resolvable
+    # on PATH to execute at all.
+    empty_path_dir = tmp_path / "empty-bin"
+    empty_path_dir.mkdir()
+    (empty_path_dir / "bash").symlink_to(shutil.which("bash"))
     result = subprocess.run(
         argv,
         cwd=REPO_ROOT,
-        env={"PATH": "/usr/bin:/bin"},
+        env={"PATH": str(empty_path_dir)},
         capture_output=True,
         text=True,
         timeout=10,

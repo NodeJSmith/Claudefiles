@@ -49,15 +49,20 @@ from typing import NoReturn
 CONFIG_JSON_FILENAME = "config.json"
 TMP_FILE_SUFFIX = ".tmp"
 
-# The OpenCode config dir --bootstrap/--prune target by default: Path.home()
-# / ".config" / "opencode", no XDG_CONFIG_HOME override -- the same
-# resolution opencode/claudefiles.ts's own OPENCODE_CONFIG_DIR constant
-# uses. The two must never diverge: --bootstrap's symlink targets are what
-# the plugin actually reads from at this exact path. Reintroduced here after
-# T04's executor found this constant stranded with no caller at that point
-# (see design.md's Impact/Changed Files gap check) -- --bootstrap and
-# --prune are the callers now.
-OPENCODE_CONFIG = Path.home() / ".config" / "opencode"
+# The OpenCode config dir --bootstrap/--prune target by default:
+# XDG_CONFIG_HOME/opencode when that variable is set, falling back to
+# ~/.config/opencode otherwise -- the same resolution
+# opencode/claudefiles.ts's own OPENCODE_CONFIG_DIR constant uses (OpenCode
+# itself honors XDG_CONFIG_HOME for its own config path). The two must never
+# diverge: --bootstrap's symlink targets are what the plugin actually reads
+# from at this exact path. Reintroduced here after T04's executor found this
+# constant stranded with no caller at that point (see design.md's
+# Impact/Changed Files gap check) -- --bootstrap and --prune are the callers
+# now.
+OPENCODE_CONFIG = (
+    Path(os.environ.get("XDG_CONFIG_HOME", "").strip() or (Path.home() / ".config"))
+    / "opencode"
+)
 
 # Path to the shared data file relative to this script's own repo root
 # (see _load_config_data()).
@@ -770,10 +775,22 @@ def prune(config_dir: Path) -> list[str]:
     node_modules/ (OpenCode auto-installs @opencode-ai/plugin there and the
     plugin needs it), config.json, and any other files present. Returns the
     tree names actually removed, so the CLI entry point can report them.
+
+    Checks `target.is_symlink()` before `target.exists()`: `Path.exists()`
+    follows symlinks and reports False for a dangling one, which would
+    silently skip removing it, and `shutil.rmtree()` raises OSError on a
+    symlink to a directory rather than removing the link -- either shape can
+    happen if a manual setup left one of these four names as a symlink under
+    `config_dir`. `unlink()` removes the link itself (dangling or not)
+    without following it into whatever it points at.
     """
     removed = []
     for name in PRUNED_TREE_NAMES:
         target = config_dir / name
+        if target.is_symlink():
+            target.unlink()
+            removed.append(name)
+            continue
         if not target.exists():
             continue
         shutil.rmtree(target)
@@ -803,15 +820,30 @@ def _resolve_opencode_binary() -> str | None:
     return shutil.which("opencode")
 
 
-def _agent_resolves(opencode_bin: str, name: str) -> bool:
-    """Shell out to `opencode debug agent <name>` and report whether it
-    resolved. VERIFY_SUBPROCESS_TIMEOUT guards against a hung opencode
-    process hanging whatever called verify() (--bootstrap's tail, or the
-    pre-commit hook, FR#28) forever.
+def _agent_resolves(opencode_bin: str, name: str, *, pure: bool = False) -> bool | None:
+    """Shell out to `opencode debug agent <name>` (optionally with `--pure`)
+    and report whether it resolved. VERIFY_SUBPROCESS_TIMEOUT guards against
+    a hung opencode process hanging whatever called verify() (--bootstrap's
+    tail, or the pre-commit hook, FR#28) forever. Returns None on timeout --
+    distinct from False -- so a caller can tell "checked and failed" apart
+    from "never got an answer" rather than treating a hang as a clean
+    negative (see _agent_verification_failure()'s handling of the `--pure`
+    probe: a timeout there must not read as "plugin is healthy").
+
+    `--pure` disables plugin loading (OpenCode's cli/cmd/debug/index.ts:66:
+    "external plugins disabled (--pure)") but NOT OpenCode's own native
+    `{agent,agents}/**/*.md` disk scan (config/agent.ts) -- design.md's
+    `--pure` probe table established this as the proof that a resolving
+    agent came from the plugin rather than a leftover file on disk (AC#2).
+    _agent_verification_failure() below is what actually interprets a
+    `pure=True` result; this function only runs the one subprocess call.
     """
+    cmd = [opencode_bin, "debug", "agent", name]
+    if pure:
+        cmd.append("--pure")
     try:
         result = subprocess.run(
-            [opencode_bin, "debug", "agent", name],
+            cmd,
             capture_output=True,
             text=True,
             timeout=VERIFY_SUBPROCESS_TIMEOUT,
@@ -819,12 +851,54 @@ def _agent_resolves(opencode_bin: str, name: str) -> bool:
         )
     except subprocess.TimeoutExpired:
         print(
-            f"ERROR: `opencode debug agent {name}` timed out after "
-            f"{VERIFY_SUBPROCESS_TIMEOUT}s",
+            f"ERROR: `{' '.join(cmd)}` timed out after {VERIFY_SUBPROCESS_TIMEOUT}s",
             file=sys.stderr,
         )
-        return False
+        return None
     return result.returncode == 0
+
+
+def _agent_verification_failure(opencode_bin: str, name: str) -> str | None:
+    """Classify one agent against both of --verify's failure modes. Returns
+    None if the agent genuinely resolves through the plugin, or a message
+    fragment (appended after the agent's repr by verify()) describing how it
+    failed.
+
+    Two subprocess calls, not one: the normal check alone cannot tell "the
+    plugin resolved this" apart from "a stale file on disk resolved this
+    with the plugin never loading at all". `--pure` disables only the
+    plugin (see _agent_resolves()'s docstring), so on a machine that ran the
+    old copy-based sync and never ran --prune, leftover `*.md` files under
+    `~/.config/opencode/agents/` can make the normal check pass even with a
+    completely broken plugin. Only when the normal check succeeds AND the
+    `--pure` check ALSO succeeds is that the stale-disk case; a `--pure`
+    failure alongside a normal-check success is the healthy, expected shape
+    (the plugin resolved it, disk alone can't).
+
+    A timeout on either probe (`_agent_resolves()` returning None) is
+    treated as a failure, not silently passed through as "not stale" --
+    `_agent_resolves()` already printed the timeout's own ERROR line, so
+    this only needs to make the None distinguishable from the healthy
+    `--pure`-failed case in verify()'s summary.
+    """
+    normal = _agent_resolves(opencode_bin, name)
+    if normal is None:
+        return "verification inconclusive -- normal check timed out"
+    if not normal:
+        return "did not resolve"
+    pure = _agent_resolves(opencode_bin, name, pure=True)
+    if pure is None:
+        return "verification inconclusive -- `--pure` check timed out"
+    if pure:
+        return (
+            "resolved via a stale disk copy, not the plugin -- "
+            f"`opencode debug agent {name} --pure` also succeeded, which "
+            "disables only the plugin (not OpenCode's native disk scan "
+            "under ~/.config/opencode/agents/); the plugin may be "
+            "completely broken while stale files mask the failure. Run "
+            "`opencode-sync --prune`."
+        )
+    return None
 
 
 def verify(agents_dir: Path, name: str | None) -> int:
@@ -839,7 +913,16 @@ def verify(agents_dir: Path, name: str | None) -> int:
     so a broken plugin yields a session with no Claudefiles agents and no
     message anywhere else. Everything about --bootstrap's and the
     pre-commit hook's value depends on this actually failing when it
-    should.
+    should -- including the stale-disk-file case
+    _agent_verification_failure() detects: an agent resolving `opencode
+    debug agent <name>` is not proof the plugin loaded it, since OpenCode's
+    native disk scan can resolve the same name from a leftover file with the
+    plugin never running at all (design.md AC#2).
+
+    An empty sweep (agents_dir exists but has zero *.md files) is also
+    treated as a failure, not a vacuous pass -- the same false-pass shape
+    the missing-binary branch above already guards against. Only applies to
+    the sweep-all-agents path; a single named check has nothing to sweep.
     """
     opencode_bin = _resolve_opencode_binary()
     if opencode_bin is None:
@@ -857,15 +940,26 @@ def verify(agents_dir: Path, name: str | None) -> int:
             print(f"ERROR: {agents_dir} is not a directory", file=sys.stderr)
             return 1
         stems = sorted(p.stem for p in agents_dir.glob("*.md"))
+        if not stems:
+            print(
+                f"ERROR: no agent files found under {agents_dir} -- nothing "
+                "was verified",
+                file=sys.stderr,
+            )
+            return 1
 
-    failed = [stem for stem in stems if not _agent_resolves(opencode_bin, stem)]
+    failures: dict[str, str] = {}
+    for stem in stems:
+        reason = _agent_verification_failure(opencode_bin, stem)
+        if reason is not None:
+            failures[stem] = reason
 
-    for stem in failed:
-        print(f"ERROR: agent {stem!r} did not resolve", file=sys.stderr)
+    for stem, reason in failures.items():
+        print(f"ERROR: agent {stem!r} {reason}", file=sys.stderr)
 
-    if failed:
+    if failures:
         print(
-            f"\n{len(failed)}/{len(stems)} agent(s) failed to resolve.",
+            f"\n{len(failures)}/{len(stems)} agent(s) failed to resolve.",
             file=sys.stderr,
         )
         return 1
