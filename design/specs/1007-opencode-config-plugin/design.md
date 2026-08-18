@@ -1,7 +1,7 @@
 # Design: OpenCode Config Plugin — Runtime Generation from the Live Install
 
 **Date:** 2026-08-17
-**Status:** approved
+**Status:** archived
 **Scope-mode:** hold
 **Research:** `design/research/2026-08-16-opencode-plugin-viability/research.md` (Track 2; its Track 1 half stays out of scope)
 
