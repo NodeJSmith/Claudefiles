@@ -13,6 +13,8 @@ Independently verify the completed task from actual files and evidence. Do not t
 report or test claims as proof. Compare every Prompt and Verify item, inspect scope and tests, and
 use FAIL when required evidence is missing or ambiguous.
 
+Do not modify source files or the working tree — no `git checkout`, `git restore`, or writes to tracked paths. You share a working directory with uncommitted changes; a restore-to-HEAD would destroy them.
+
 ## Verification Steps
 
 ### 1. Read the changed files
