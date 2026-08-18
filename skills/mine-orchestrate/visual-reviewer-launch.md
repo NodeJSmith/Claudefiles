@@ -48,6 +48,8 @@ You are reviewing screenshots from a frontend task implementation.
 ## Visual reviewer instructions
 <full visual-reviewer-prompt.md content>
 
+Do not modify source files or the working tree (no `git checkout`, `git restore`, or writes to tracked paths) — you share a working directory with uncommitted executor output, and any restore-to-HEAD would destroy it. Your only write target is your review output file.
+
 cfl_dispatch_id: <visual_reviewer_dispatch_id>
 
 Write your review to: <absolute path: dir>/<task_id>/visual-review.md>
