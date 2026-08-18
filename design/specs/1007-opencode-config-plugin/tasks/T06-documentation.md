@@ -1,7 +1,7 @@
 ---
 task_id: "T06"
 title: "Update documentation and amend the roadmap"
-status: "planned"
+status: "done"
 depends_on: ["T05"]
 implements: ["AC#17"]
 ---

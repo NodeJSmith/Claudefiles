@@ -1260,6 +1260,11 @@ def do_install(
     shadowed: list[tuple[Path, Path]] = []
 
     bundles = get_bundles(repo_dir)
+    # opencode/claudefiles.ts reads these three directories directly from the
+    # live install (design/specs/1007-opencode-config-plugin) -- their layout
+    # and each file's frontmatter shape are a two-consumer contract, not a
+    # Claude-Code-only detail. No behavior here changes for that; it changes
+    # what breaking this layout costs.
     skills_dest = claude_dir / "skills"
     agents_dest = claude_dir / "agents"
     rules_common_dest = claude_dir / "rules" / "common"

@@ -37,7 +37,7 @@ $ARGUMENTS — <what arguments it accepts, or "none">
 
 - `mine-*` prefix for first-party skills
 - Frontmatter fields: `name`, `description`, `user-invocable`, and optional `opencode-command`
-- `opencode-command: true` generates a thin OpenCode slash-command bridge. Use it only when users should routinely invoke the skill by name; otherwise omit it or set it to `false` and rely on native skill discovery.
+- `opencode-command: true` adds a thin OpenCode slash-command bridge, built in memory by the OpenCode plugin at session start — not a generated file. Use it only when users should routinely invoke the skill by name; otherwise omit it or set it to `false` and rely on native skill discovery.
 - Description: starts with "Use when..." trigger phrases, ends with a summary of what it produces
 - Phases are numbered with descriptive names
 - Use `AskUserQuestion` for every user interaction point — explicit header and options

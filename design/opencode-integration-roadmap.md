@@ -8,21 +8,19 @@ This document defines the target architecture and the sequence of independently 
 
 ## Current State
 
-`bin/opencode-sync` stages the repository, invokes OpenPackage for the OpenCode platform, and post-processes installed files. It currently provides useful distribution but has important limits:
+A plugin (`opencode/claudefiles.ts`, symlinked into `~/.config/opencode/claudefiles.ts`) reads the live `~/.claude/` install at OpenCode session start and populates `cfg.agent`, `cfg.command`, and `cfg.instructions` in memory — see `design/specs/1007-opencode-config-plugin`. `bin/opencode-sync --bootstrap` installs the plugin symlink, the compatibility rule, and `config.json`; `--verify` proves every agent resolves through the live install; `--prune` removes generated trees left over from the prior copy-based sync. This closed the two largest gaps in that prior design — a second on-disk copy that shadowed OpenCode's native skill scan, and personal rules from Dotfiles that were never wired in at all — but real limits remain:
 
-- Synced shared rules are loaded through `instructions` (Spec 4, partial); personal rules from Dotfiles are still neither synced nor loaded.
 - Claude-specific dispatch syntax remains in skills, including `Agent`, `subagent_type`, per-dispatch models, background execution, and worktree isolation.
-- Agent model remapping is only partially reliable today: some generated named agents can still keep Claude tier names instead of OpenAI model IDs, and OpenCode built-in subagents can still inherit the primary session model.
 - Claude Code shell hooks are not OpenCode plugins and do not run in OpenCode.
 - Claude-specific paths and interaction syntax remain in many workflows.
-- OpenCode's Claude compatibility fallback can conceal missing or broken generated artifacts.
-- There is no isolated integration test proving which configuration OpenCode loaded or which model a child session used.
+- Editing an agent, skill, or rule only takes effect in a fresh OpenCode process — `config()` runs once per process and its result is cached, so a running `opencode serve` needs a restart to pick up a change.
+- There is no automated integration test that runs OpenCode in an isolated fixture home and proves the agent, skill, and rule set it loaded, or which model a child session used; both are verified by hand today via `--verify` and `bin/opencode-variant-audit`.
 
-The existing sync should therefore be treated as provisional compatibility, not feature parity.
+The existing support should therefore be treated as provisional compatibility, not feature parity.
 
 ## Ownership
 
-`bin/opencode-sync` is the canonical user-facing entry point for generating, installing, upgrading, and pruning OpenCode artifacts. Future specs may replace OpenPackage or move implementation into helper modules, but they should preserve this command as the supported control plane unless a later design explicitly migrates it. `install.py` remains the Claude Code installer; it may advertise or invoke OpenCode setup only after the OpenCode path can preserve machine-local configuration safely.
+`bin/opencode-sync` is the canonical user-facing entry point for bootstrapping, verifying, and pruning OpenCode's connection to the live Claude install (`--bootstrap`, `--verify`, `--prune`). Future specs may move implementation into helper modules, but they should preserve this command as the supported control plane unless a later design explicitly migrates it. `install.py` remains the Claude Code installer; it may advertise or invoke OpenCode setup only after the OpenCode path can preserve machine-local configuration safely.
 
 The OpenCode generator owns version-controlled policy, generated agents, generated skills, instruction wiring, and first-party plugins. Machine-local provider credentials, MCP servers, permissions, and UI preferences are inputs or overlays that generation must preserve, not generated artifacts to overwrite. The first spec must choose and document the concrete overlay mechanism.
 
@@ -50,7 +48,7 @@ Shared content should remain shared where the two harnesses express the same beh
 - hook and plugin event models;
 - execution isolation and concurrency guarantees.
 
-The OpenCode output must be valid on its own. It must not rely on OpenCode silently falling back to files under `~/.claude`.
+OpenCode intentionally reads the live install at `~/.claude` rather than producing standalone output. **Reversed by `design/specs/1007-opencode-config-plugin`:** the fallback is already how 37 skills reach OpenCode today; the invariant's original purpose was preventing a *copy* from concealing broken generation, and there is no copy left to conceal anything; and reading `~/.claude` is the only way to deliver Dotfiles' contribution — eleven skills and all five personal rules. OpenCode now depends on `install.py` having run before it starts.
 
 ## Guiding Principles
 
@@ -87,9 +85,9 @@ Good plugin candidates include safety guards, dispatch telemetry, selected sessi
 
 The integration must define which OpenCode artifacts are generated and how machine-local settings survive regeneration. Multiple sibling config files must not serve as an undocumented overlay mechanism. The chosen mechanism should be explicit, testable, and documented.
 
-### Tests must isolate OpenCode from Claude fallback
+### Tests must prove the live install resolves correctly
 
-Integration tests must use a temporary OpenCode home/configuration and disable Claude-compatible prompt and skill fallback. Otherwise, a test may pass because OpenCode loaded the original Claude artifact rather than the generated OpenCode artifact.
+**Reversed by `design/specs/1007-opencode-config-plugin`:** OpenCode intentionally reads `~/.claude` — Claude-compatible fallback is the transport, not a confound to isolate against. A test that disabled it would be testing something the design depends on, not proving anything about correctness. The meaningful check is `bin/opencode-sync --verify` (every agent resolves through the live install) plus `bin/opencode-variant-audit` (it resolved with the intended model and reasoning variant), not fallback-disabled isolation.
 
 ## Minimum Supported Workflows
 
@@ -104,6 +102,8 @@ The roadmap is not complete after proving only a synthetic example. At minimum, 
 - commit and PR workflows through `mine-commit-push` and `mine-create-pr`.
 
 The compatibility inventory may classify other skills as portable, adapter-required, or intentionally Claude-only. Any intentionally unsupported skill must be excluded from generated OpenCode discovery and listed in the capability matrix. A later spec may update the named representatives when workflows are renamed or replaced, but it must preserve equivalent coverage of implementation, review, research, planning, orchestration, and shipping.
+
+**No mechanism today.** Going to a native scan (`design/specs/1007-opencode-config-plugin`) forecloses staging-time filtering — there is no longer a copy step where an excluded skill could be dropped before OpenCode sees it. Workstream 3's skill-classification bullet below (portable, adapter-required, or harness-specific) is what would produce the list this exclusion needs. The curated-symlink-farm option in that spec's Alternatives Considered — a directory of symlinks to allowed skills, pointing `skills.paths` at it instead of the live `~/.claude/skills` — is the way back to enforcing it, if it's ever needed.
 
 ## Workstream Sequence
 
@@ -143,7 +143,9 @@ Exit condition: a primary session using an expensive model cannot accidentally d
 
 **Status: Complete** — shipped in PR `#503` (opencode-sync Python rewrite with worker agents, config.json model enforcement, dispatch rewriter, and compatibility lint). Two originally-scoped items were dropped: permission.task allowlists (FR#8 removed — blanket allow in opencode.jsonc makes per-agent gating inert) and deprecated tool declaration replacement (no applicable declarations identified).
 
-**Correction (`design/specs/1008-opencode-named-roles`):** the generated worker agents, specialist opus variants, dispatch rewriter, and config-level agent pinning this PR shipped are gone. Every dispatch now names a real agent file that both harnesses resolve identically, so `light-worker`/`standard-worker` are hand-written files in `agents/` rather than sync-time generated output, there is no `-opus` variant of any specialist (the "Try again with stronger model" escalation this machinery existed to serve was removed with it), and `config.json` carries no `agent` key — model and reasoning-variant enforcement live entirely in each agent's own synced frontmatter. `bin/opencode-sync` sheds the functions that did this generation and rewriting; see `design/specs/1008-opencode-named-roles/design.md`'s Architecture and Replacement Targets sections for the full removal list.
+**Correction (`design/specs/1008-opencode-named-roles`):** the generated worker agents, specialist opus variants, dispatch rewriter, and config-level agent pinning this PR shipped are gone. Every dispatch now names a real agent file that both harnesses resolve identically, so `light-worker`/`standard-worker` are hand-written files in `agents/` rather than sync-time generated output, there is no `-opus` variant of any specialist (the "Try again with stronger model" escalation this machinery existed to serve was removed with it), and `config.json` carries no `agent` key — model and reasoning-variant enforcement live entirely in each agent's own frontmatter. `bin/opencode-sync` sheds the functions that did this generation and rewriting; see `design/specs/1008-opencode-named-roles/design.md`'s Architecture and Replacement Targets sections for the full removal list.
+
+**Correction (`design/specs/1007-opencode-config-plugin`):** "synced" is no longer accurate either. Nothing is synced after this — `process_agent_frontmatter()`, the function that performed the sync-time rewrite the sentence above originally described, is deleted. The tier-to-model/variant transform now happens at OpenCode session start: a plugin reads `~/.claude/agents/*.md` live and builds `cfg.agent` in memory, so frontmatter is read live and transformed in memory rather than rewritten to disk.
 
 **Correction (2026-08-14):** model pinning worked, but the reasoning-effort half of this spec did not. Both config.json and agent frontmatter emitted `effort`, which is Claude Code's key — OpenCode's `AgentConfig` has no such field and does not set `additionalProperties: false`, so it was accepted and discarded, leaving every named subagent at the OpenAI provider default of `reasoningEffort: "medium"` from the day this shipped. The key is `variant`, now used throughout. The generalizable lesson for the remaining specs: **OpenCode silently ignores unknown agent-config keys, so "the config looks right" is not evidence it took effect.** Verify against the published schema at `https://opencode.ai/config.json`, and confirm from observed child-session state — `variant` is recorded per assistant message in `~/.local/share/opencode/opencode.db`, which is what exposed this. Spec 1's exit condition already asked for exactly that observation and would have caught it.
 
@@ -191,7 +193,7 @@ Exit condition: OpenCode receives the intended global behavior instructions, and
 
 Remaining: personal rules from Dotfiles (see below), runtime plugins, and the Claude-hook disposition table.
 
-**Deferred — personal rules.** `~/.claude/rules/personal/` (machines, capabilities, capabilities-base, mcp-tools, python-packaging) is not synced and is not covered by `instructions`. It sources from Dotfiles rather than Claudefiles, so wiring it needs a decision this spec should make explicitly: whether `opencode-sync` grows a cross-repo staging source, or `instructions` points directly at the Claude install's copy (which couples OpenCode to that install). Note that `tool:` frontmatter is *not* the filter to reach for here, despite the surface resemblance: it records Antigravity portability, not OpenCode compatibility, and a rule being a Claude-dispatch routing table does not by itself mean OpenCode should not see it — `capabilities-core.md` is exactly such a table and does sync, because the dispatch rewriter and `opencode-compat.md`'s translation table between them make it usable. Exclusion is an explicit, deliberately short list (`OPENCODE_EXCLUDED_RULES`) covering rules that are actively wrong for OpenCode rather than merely inapplicable. Whichever of the five personal rules meet that bar get added there when staging reaches them.
+**Resolved by `design/specs/1007-opencode-config-plugin`.** `~/.claude/rules/personal/` (machines, capabilities, capabilities-base, mcp-tools, python-packaging) now reaches OpenCode: the plugin's `cfg.instructions` build reads `~/.claude/rules/{common,personal}/*.md` directly at session start, choosing the second of this entry's two original options — pointing `instructions` at the Claude install's copy, which couples OpenCode to that install having been run. `tool:` frontmatter remained the wrong filter throughout, for the reason already given here: it records Antigravity portability, not OpenCode compatibility, and `capabilities-core.md` is a Claude-dispatch routing table that OpenCode still needs to see — every dispatch in it already names a real agent file (spec 1008), and `opencode-compat.md` supplies the remaining translation. Exclusion is now a single entry, `common/sudo.md`, held in `opencode/config-data.json` — the version-controlled data file both `bin/opencode-sync` and the plugin read, replacing the `OPENCODE_EXCLUDED_RULES` Python constant this entry originally named. `performance.md` and `tmux.md` were dropped from that list: both rationales went stale after spec 1008.
 
 ### 5. End-to-End Hardening and Documentation
 
@@ -233,7 +235,7 @@ Separately, the `run_in_background` warning `_lint_content()` emits (see [REFERE
 Every spec in this roadmap must preserve these properties:
 
 - Claude Code behavior must not regress merely to simplify OpenCode support.
-- OpenCode artifacts must work with Claude fallback disabled.
+- OpenCode artifacts intentionally depend on the live Claude install at `~/.claude` rather than working with Claude fallback disabled — reversed by `design/specs/1007-opencode-config-plugin`; see Target Architecture.
 - Routine subagent work must use an explicitly configured non-SOTA model.
 - Expensive models must be attached only to named roles with a documented justification.
 - Read-only and write-capable agents must have permissions matching their responsibility.
