@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-08-18
+
+### Fixed
+
+- `mine-orchestrate` now commits executor output before launching reviewer subagents — reviewers share the working directory and may run `git checkout` as part of a verification probe, which previously reverted uncommitted executor changes to HEAD. (#519)
+
 ## 2026-08-17
 
 ### Changed
