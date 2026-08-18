@@ -226,8 +226,7 @@ def _atomic_write(target: Path, data: bytes) -> None:
 
 
 def generate_config(config_dir: Path) -> str:
-    """Generate config.json declaring the plugin and subagent_depth (FR#7,
-    FR#17).
+    """Generate config.json declaring the plugin and subagent_depth (FR#17).
 
     Carries no `agent` key: OpenCode resolves every agent's model and
     reasoning variant from that agent's own frontmatter, mediated by the

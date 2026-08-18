@@ -80,7 +80,7 @@ function loadConfigData(): ConfigData | undefined {
   }
 }
 
-// Mirrors bin/opencode-sync's _split_frontmatter() (bin/opencode-sync:499-516):
+// Mirrors bin/opencode-sync's _split_frontmatter() (bin/opencode-sync:181-198):
 // a line scan for the frontmatter block between the first two `---` lines,
 // deliberately not a YAML parser. Returns [frontmatter-incl-delimiters, body];
 // [ "", content ] when there is no frontmatter block.
@@ -104,8 +104,10 @@ function splitFrontmatter(content: string): [string, string] {
 // line, ignoring any trailing content -- most agent files carry a trailing
 // inline comment on that line (e.g. "model: sonnet  # ... do not
 // downgrade"), and a naive split-on-colon would capture the comment as part
-// of the tier name and fail every tier-map lookup. Mirrors
-// FRONTMATTER_MODEL_RE (bin/opencode-sync:911).
+// of the tier name and fail every tier-map lookup. This used to mirror
+// bin/opencode-sync's FRONTMATTER_MODEL_RE, but that constant was retired
+// when the Python-side validation it backed was removed; the equivalent
+// model-tier parsing now lives only in this file.
 function parseModelTier(frontmatter: string): string | undefined {
   const match = frontmatter.match(/^model:\s*(sonnet|haiku|opus)\b/m);
   return match ? match[1] : undefined;
@@ -116,13 +118,13 @@ function parseFrontmatterField(frontmatter: string, field: string): string | und
   return match ? match[1].trim() : undefined;
 }
 
-// Mirrors OPENCODE_COMMAND_RE's validation (bin/opencode-sync:170-172,
-// 776-787): collect every `opencode-command:` line found *within the
-// frontmatter block only* (never the body -- skills/mine-write-skill/SKILL.md
-// discusses the field in prose at line 51, and its REFERENCE.md documents it
-// as "true|false", both of which must not produce a command). Select only
-// when there is exactly one such line and its value is the literal string
-// "true" -- "true|false" is not "true".
+// Mirrors validation bin/opencode-sync used to perform via OPENCODE_COMMAND_RE
+// before that constant was retired: collect every `opencode-command:` line
+// found *within the frontmatter block only* (never the body --
+// skills/mine-write-skill/SKILL.md discusses the field in prose at line 51,
+// and its REFERENCE.md documents it as "true|false", both of which must not
+// produce a command). Select only when there is exactly one such line and its
+// value is the literal string "true" -- "true|false" is not "true".
 function isSkillCommand(frontmatter: string): boolean {
   const re = /^opencode-command:\s*(\S.*?)\s*$/gm;
   const values: string[] = [];
@@ -131,6 +133,22 @@ function isSkillCommand(frontmatter: string): boolean {
     values.push(match[1]);
   }
   return values.length === 1 && values[0] === "true";
+}
+
+// Shared by every cfg.* builder below: each reads a live ~/.claude
+// subdirectory that may not exist (an unselected bundle, a stale
+// CLAUDE_CONFIG_DIR) and must degrade to "nothing found" rather than throw --
+// a throw here is invisible to the caller (see module docstring), so the
+// failure has to be logged here instead. Returns undefined on failure so
+// each caller decides its own empty-result shape (an empty object to merge,
+// or `continue` to the next instruction directory).
+function readDirLogged(dir: string, label: string): string[] | undefined {
+  try {
+    return readdirSync(dir);
+  } catch (err) {
+    console.error(`claudefiles plugin: cannot read ${label} ${dir}: ${String(err)}`);
+    return undefined;
+  }
 }
 
 // cfg.agent: one entry per *.md file directly under <claudeRoot>/agents/,
@@ -144,17 +162,12 @@ function buildAgents(claudeRoot: string, tierMap: Record<string, TierEntry>): Re
   const agentsDir = join(claudeRoot, "agents");
   const agents: Record<string, AgentEntry> = {};
 
-  let names: string[];
-  try {
-    names = readdirSync(agentsDir);
-  } catch (err) {
-    console.error(`claudefiles plugin: cannot read agents dir ${agentsDir}: ${String(err)}`);
-    return agents;
-  }
+  const names = readDirLogged(agentsDir, "agents dir");
+  if (names === undefined) return agents;
 
   for (const name of names) {
     if (!name.endsWith(".md")) continue;
-    const stem = name.slice(0, -3);
+    const stem = name.slice(0, -".md".length);
     const filePath = join(agentsDir, name);
 
     let content: string;
@@ -202,13 +215,8 @@ function buildCommands(
   const skillsDir = join(claudeRoot, "skills");
   const commands: Record<string, CommandEntry> = {};
 
-  let names: string[];
-  try {
-    names = readdirSync(skillsDir);
-  } catch (err) {
-    console.error(`claudefiles plugin: cannot read skills dir ${skillsDir}: ${String(err)}`);
-    return commands;
-  }
+  const names = readDirLogged(skillsDir, "skills dir");
+  if (names === undefined) return commands;
 
   for (const name of names) {
     // Match only SKILL.md, never **/*.md under skills/ -- REFERENCE.md files
@@ -258,13 +266,8 @@ function buildInstructions(
     // vocabularies match on the same key.
     const dirKey = dir.startsWith("rules/") ? dir.slice("rules/".length) : dir;
 
-    let names: string[];
-    try {
-      names = readdirSync(absDir);
-    } catch (err) {
-      console.error(`claudefiles plugin: cannot read instructions dir ${absDir}: ${String(err)}`);
-      continue;
-    }
+    const names = readDirLogged(absDir, "instructions dir");
+    if (names === undefined) continue;
 
     for (const name of names) {
       if (!name.endsWith(".md")) continue;
