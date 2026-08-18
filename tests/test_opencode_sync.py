@@ -65,7 +65,33 @@ def test_generate_config_emits_exactly_three_keys(tmp_path: Path) -> None:
     config = json.loads(content)
 
     assert set(config.keys()) == {"$schema", "plugin", "subagent_depth"}
-    assert config["plugin"] == ["claudefiles.ts"]
+    assert config["plugin"] == ["./claudefiles.ts"]
+
+
+def test_generate_config_plugin_spec_is_path_like(tmp_path: Path) -> None:
+    """OpenCode's loader only treats a plugin spec as a file path when it
+    starts with "file://", ".", or is itself absolute
+    (packages/opencode/src/plugin/shared.ts's isPathPluginSpec(), reference
+    clone at ~/source/opencode, commit 3fd77ae, matching the installed
+    1.18.18 binary). A bare filename like "claudefiles.ts" falls through to
+    npm-package resolution instead, and OpenCode silently attempts (and
+    fails) to `npm install` a package of that name -- the plugin's config()
+    hook then never runs, so every agent, skill-command bridge, and
+    instruction it supplies silently disappears from a live session. This
+    regression test pins the classifier's own rule directly rather than a
+    specific string, so it still catches the bug if the emitted spec is ever
+    changed to some other non-path-like form.
+    """
+    module = _load_script()
+
+    content = module["generate_config"](tmp_path)
+    config = json.loads(content)
+
+    spec = config["plugin"][0]
+    assert spec.startswith(("file://", ".")) or Path(spec).is_absolute(), (
+        f"plugin spec {spec!r} is not path-like per OpenCode's isPathPluginSpec() -- "
+        "OpenCode will treat it as an npm package name and the plugin will never load"
+    )
 
 
 def test_generate_config_never_touches_opencode_jsonc(tmp_path: Path) -> None:

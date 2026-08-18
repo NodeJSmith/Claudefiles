@@ -1,7 +1,7 @@
 ---
 task_id: "T07"
 title: "Bootstrap the live install and run the smoke test"
-status: "planned"
+status: "done"
 depends_on: ["T06"]
 implements: ["AC#1", "AC#2", "AC#3", "AC#4", "AC#6", "AC#14", "AC#15", "AC#16", "AC#23"]
 ---

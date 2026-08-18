@@ -240,9 +240,17 @@ def generate_config(config_dir: Path) -> str:
     is honored through the task tool (design/specs/1008-opencode-named-roles/
     design.md, Dependencies and Assumptions).
 
-    `plugin` names the symlinked claudefiles.ts by its bare filename --
-    path-like plugin specs resolve relative to the declaring config file, so
-    no absolute path is needed here.
+    `plugin` names the symlinked claudefiles.ts with a `./` prefix.
+    OpenCode's loader (packages/opencode/src/plugin/shared.ts's
+    isPathPluginSpec()) only treats a spec as a file path when it starts with
+    "file://", ".", or is itself absolute; a bare filename like
+    "claudefiles.ts" falls through to the npm-package resolution branch
+    instead and OpenCode silently attempts (and fails) to `npm install` a
+    package of that name, so the plugin's config() hook never runs. The `./`
+    prefix is still resolved relative to the declaring config file (per
+    resolvePluginSpec() in packages/opencode/src/config/plugin.ts), so no
+    absolute path is needed -- just a spec that OpenCode's own classifier
+    recognizes as path-like.
 
     Written atomically via _atomic_write(): a malformed config.json
     collapses all three global OpenCode config files to empty (OpenCode's
@@ -257,7 +265,7 @@ def generate_config(config_dir: Path) -> str:
     """
     config = {
         "$schema": "https://opencode.ai/config.json",
-        "plugin": ["claudefiles.ts"],
+        "plugin": ["./claudefiles.ts"],
         "subagent_depth": SUBAGENT_DEPTH,
     }
     content = json.dumps(config, indent=2) + "\n"
