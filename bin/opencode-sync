@@ -21,6 +21,15 @@ agents/) name a real agent file, flags unsupported platform semantics
 (`opencode/config-data.json`) and this repo's own `rules/` tree agree.
 `--check-orphans` fails if this script itself contains a module-level `def`
 or `CONSTANT =` binding referenced nowhere but its own definition line.
+
+`--bootstrap` symlinks the plugin and the compatibility rule into the
+OpenCode config dir, writes `config.json`, then runs the full `--verify`
+sweep as its final step. `--prune` removes the previously-installed
+`agents/`, `skills/`, `commands/`, and `rules/` trees from the config dir.
+`--verify` shells out to `opencode debug agent` for every agent under
+`~/.claude/agents/` (or just one, given a name) and fails loudly if any
+does not resolve -- the only detection mechanism this architecture has,
+since OpenCode swallows both plugin-load and `config()` exceptions.
 """
 
 import argparse
@@ -28,6 +37,7 @@ import ast
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -38,6 +48,16 @@ from typing import NoReturn
 # assertion elsewhere can't drift on what it's called.
 CONFIG_JSON_FILENAME = "config.json"
 TMP_FILE_SUFFIX = ".tmp"
+
+# The OpenCode config dir --bootstrap/--prune target by default: Path.home()
+# / ".config" / "opencode", no XDG_CONFIG_HOME override -- the same
+# resolution opencode/claudefiles.ts's own OPENCODE_CONFIG_DIR constant
+# uses. The two must never diverge: --bootstrap's symlink targets are what
+# the plugin actually reads from at this exact path. Reintroduced here after
+# T04's executor found this constant stranded with no caller at that point
+# (see design.md's Impact/Changed Files gap check) -- --bootstrap and
+# --prune are the callers now.
+OPENCODE_CONFIG = Path.home() / ".config" / "opencode"
 
 # Path to the shared data file relative to this script's own repo root
 # (see _load_config_data()).
@@ -598,6 +618,255 @@ def check_orphans_entry() -> int:
     return 0
 
 
+# Trees --prune removes wholesale from the OpenCode config dir. See prune()
+# for the "100% generated output" assumption this list rests on.
+PRUNED_TREE_NAMES = ("agents", "skills", "commands", "rules")
+
+# Timeout (seconds) for each `opencode debug agent <name>` subprocess in
+# verify() -- a hung opencode process must not hang --bootstrap's
+# verification tail (FR#26) or the pre-commit hook (FR#28) forever.
+VERIFY_SUBPROCESS_TIMEOUT = 30.0
+
+# Matches the filename literal passed to COMPAT_RULE_PATH's join() call in
+# opencode/claudefiles.ts (`join(OPENCODE_CONFIG_DIR, "opencode-compat.md")`),
+# so resolve_compat_rule_filename() below reads the plugin's own path
+# instead of a second hardcoded copy of "opencode-compat.md" that could
+# silently drift from it (FR#9).
+COMPAT_RULE_FILENAME_RE = re.compile(
+    r'COMPAT_RULE_PATH\s*=\s*join\(OPENCODE_CONFIG_DIR,\s*"([^"]+)"\)'
+)
+
+# Sentinel distinguishing "--verify not passed at all" from "--verify passed
+# with no agent name" (which argparse represents as None via `const=None`).
+# A plain default of None would make those two states indistinguishable.
+VERIFY_NOT_REQUESTED = object()
+
+
+def resolve_claude_root() -> Path:
+    """Resolve ~/.claude/, honoring CLAUDE_CONFIG_DIR the same way
+    opencode/claudefiles.ts's own resolveClaudeRoot() does. Both sides must
+    agree on where the live install lives -- --verify (and --bootstrap's
+    verification tail) has to check the same agents/ directory the plugin
+    actually reads at session start, or a pass here proves nothing about
+    what OpenCode will see.
+    """
+    override = os.environ.get("CLAUDE_CONFIG_DIR", "").strip()
+    if override:
+        return Path(override)
+    return Path.home() / ".claude"
+
+
+def resolve_compat_rule_filename(repo_root: Path) -> str:
+    """Extract the compat-rule filename from opencode/claudefiles.ts's
+    COMPAT_RULE_PATH literal (FR#9), rather than hardcoding
+    "opencode-compat.md" a second time here and trusting the two files never
+    drift apart. If the plugin's join() call is ever rewritten in a form
+    this regex doesn't recognize, that is exactly the kind of silent
+    divergence FR#9 exists to prevent -- fail loudly instead of guessing at
+    a filename.
+    """
+    plugin_path = repo_root / "opencode" / "claudefiles.ts"
+    try:
+        content = plugin_path.read_text()
+    except OSError as exc:
+        die(f"Unable to read {plugin_path}: {exc}")
+    match = COMPAT_RULE_FILENAME_RE.search(content)
+    if match is None:
+        die(
+            f"Unable to find COMPAT_RULE_PATH's filename literal in {plugin_path} "
+            "-- bootstrap cannot determine where to symlink opencode/opencode-compat.md"
+        )
+    return match.group(1)
+
+
+def _symlink_idempotent(source: Path, target: Path) -> None:
+    """Create `target` as a symlink to `source`. Idempotent (FR#25): a
+    target that is already a symlink resolving to the same source is a
+    no-op success, so re-running --bootstrap after a plugin edit is a no-op
+    rather than a duplicate or an error. A target that exists as a real
+    file, or as a symlink to something else, is a conflict worth failing
+    loudly on rather than silently clobbering.
+    """
+    if target.is_symlink():
+        if target.resolve() == source.resolve():
+            return
+        die(
+            f"{target} is a symlink to {target.resolve()}, not {source} -- "
+            "refusing to overwrite an unrelated symlink"
+        )
+    if target.exists():
+        die(f"{target} already exists and is not a symlink -- refusing to overwrite it")
+    target.symlink_to(source)
+
+
+def bootstrap(config_dir: Path, repo_root: Path) -> int:
+    """--bootstrap: symlink the plugin and the compatibility rule into
+    `config_dir`, write config.json, then run the full --verify sweep as the
+    final step and return its exit code (FR#25, FR#26).
+
+    Symlinks, not copies (FR#22): editing the plugin needs no reinstall.
+    Order is symlink-then-write-config-then-verify: config.json must
+    declare the plugin (generate_config()) before the verify tail runs, or
+    the tail checks a config that doesn't load the plugin yet and reports a
+    false failure unrelated to the plugin itself.
+
+    The verify tail always checks resolve_claude_root()/"agents" -- the real
+    live agent install -- never `config_dir`, even when `config_dir` is a
+    scratch directory under test: bootstrapping targets the *config dir*,
+    but --verify's job is proving whether the agents currently on disk
+    resolve through whatever plugin config.json now declares.
+    """
+    config_dir.mkdir(parents=True, exist_ok=True)
+
+    plugin_source = repo_root / "opencode" / "claudefiles.ts"
+    _symlink_idempotent(plugin_source, config_dir / "claudefiles.ts")
+
+    compat_filename = resolve_compat_rule_filename(repo_root)
+    compat_source = repo_root / "opencode" / "opencode-compat.md"
+    _symlink_idempotent(compat_source, config_dir / compat_filename)
+
+    generate_config(config_dir)
+
+    return verify(resolve_claude_root() / "agents", None)
+
+
+def bootstrap_entry() -> int:
+    """Entry point for --bootstrap: bootstrap the real OpenCode config dir
+    (OPENCODE_CONFIG) from this script's own repo.
+    """
+    repo_root = _script_repo_root()
+    if repo_root is None:
+        die("Unable to determine this script's repo root; refusing to bootstrap")
+    return bootstrap(OPENCODE_CONFIG, Path(repo_root))
+
+
+def prune(config_dir: Path) -> list[str]:
+    """--prune: remove `config_dir`'s `agents/`, `skills/`, `commands/`, and
+    `rules/` trees wholesale (FR#19) -- including the seven orphaned agents
+    (worker-lightweight, worker-standard, worker-opus, and four
+    engineering-*-opus) that survive from before spec 1008 deleted the
+    machinery that generated them.
+
+    Wholesale, unlike the old generate_skill_commands(), which deleted only
+    marker-tagged files and explicitly preserved source commands. Safe ONLY
+    on the assumption that these four directories are 100% generated output
+    today -- confirmed by the design's accounting (33 agents installed
+    against 26 real) but NOT enforced by anything in this function.
+    OpenCode natively scans these same directories for user-authored
+    content, so a hand-dropped native agent added after this ships would be
+    indistinguishable from generated output and silently deleted by a later
+    --prune. If that ever becomes a real workflow, this needs marker-based
+    selectivity or a dry-run default -- neither is built now (design.md,
+    Edge Cases).
+
+    Leaves everything else in `config_dir` untouched -- opencode.jsonc,
+    node_modules/ (OpenCode auto-installs @opencode-ai/plugin there and the
+    plugin needs it), config.json, and any other files present. Returns the
+    tree names actually removed, so the CLI entry point can report them.
+    """
+    removed = []
+    for name in PRUNED_TREE_NAMES:
+        target = config_dir / name
+        if not target.exists():
+            continue
+        shutil.rmtree(target)
+        removed.append(name)
+    return removed
+
+
+def prune_entry() -> int:
+    """Entry point for --prune: remove the previously-installed trees from
+    the real OpenCode config dir (OPENCODE_CONFIG) and report which were
+    present.
+    """
+    removed = prune(OPENCODE_CONFIG)
+    if removed:
+        print(f"Removed: {', '.join(removed)}")
+    else:
+        print("Nothing to prune.")
+    return 0
+
+
+def _resolve_opencode_binary() -> str | None:
+    """Resolve the `opencode` binary from PATH. None if not found -- a
+    distinct failure from "an agent did not resolve" (see verify()): a
+    missing binary means nothing was actually checked, and reporting it as
+    a pass would be a false pass.
+    """
+    return shutil.which("opencode")
+
+
+def _agent_resolves(opencode_bin: str, name: str) -> bool:
+    """Shell out to `opencode debug agent <name>` and report whether it
+    resolved. VERIFY_SUBPROCESS_TIMEOUT guards against a hung opencode
+    process hanging whatever called verify() (--bootstrap's tail, or the
+    pre-commit hook, FR#28) forever.
+    """
+    try:
+        result = subprocess.run(
+            [opencode_bin, "debug", "agent", name],
+            capture_output=True,
+            text=True,
+            timeout=VERIFY_SUBPROCESS_TIMEOUT,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        print(
+            f"ERROR: `opencode debug agent {name}` timed out after "
+            f"{VERIFY_SUBPROCESS_TIMEOUT}s",
+            file=sys.stderr,
+        )
+        return False
+    return result.returncode == 0
+
+
+def verify(agents_dir: Path, name: str | None) -> int:
+    """--verify: check that agent(s) resolve through the live OpenCode
+    config (FR#20). With `name` None, checks every `*.md` file under
+    `agents_dir` (resolve_claude_root()/"agents" in production); with a
+    name, checks only that one. Names every failing agent rather than
+    stopping at the first -- the point is not hiding how much is broken.
+
+    This is the only detection mechanism this architecture has (design.md,
+    Edge Cases): OpenCode swallows both plugin-load and config() exceptions,
+    so a broken plugin yields a session with no Claudefiles agents and no
+    message anywhere else. Everything about --bootstrap's and the
+    pre-commit hook's value depends on this actually failing when it
+    should.
+    """
+    opencode_bin = _resolve_opencode_binary()
+    if opencode_bin is None:
+        print(
+            "ERROR: `opencode` binary not found on PATH -- cannot verify agent "
+            "resolution",
+            file=sys.stderr,
+        )
+        return 1
+
+    if name is not None:
+        stems = [name]
+    else:
+        if not agents_dir.is_dir():
+            print(f"ERROR: {agents_dir} is not a directory", file=sys.stderr)
+            return 1
+        stems = sorted(p.stem for p in agents_dir.glob("*.md"))
+
+    failed = [stem for stem in stems if not _agent_resolves(opencode_bin, stem)]
+
+    for stem in failed:
+        print(f"ERROR: agent {stem!r} did not resolve", file=sys.stderr)
+
+    if failed:
+        print(
+            f"\n{len(failed)}/{len(stems)} agent(s) failed to resolve.",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"{len(stems)} agent(s) resolved.")
+    return 0
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="opencode-sync",
@@ -621,6 +890,36 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "(exit 0=clean, non-zero=orphan found)"
         ),
     )
+    parser.add_argument(
+        "--bootstrap",
+        action="store_true",
+        help=(
+            "Symlink the plugin and compatibility rule into the OpenCode "
+            "config dir, write config.json, then run the full --verify "
+            "sweep (exit 0=clean, non-zero=any step failed)"
+        ),
+    )
+    parser.add_argument(
+        "--prune",
+        action="store_true",
+        help=(
+            "Remove the previously-installed agents/, skills/, commands/, "
+            "and rules/ trees from the OpenCode config dir, including the "
+            "seven orphaned agents"
+        ),
+    )
+    parser.add_argument(
+        "--verify",
+        nargs="?",
+        default=VERIFY_NOT_REQUESTED,
+        const=None,
+        metavar="AGENT",
+        help=(
+            "Check that agent(s) resolve via `opencode debug agent`: every "
+            "file under ~/.claude/agents/ with no argument, or just AGENT "
+            "(exit 0=all resolve, non-zero=any failed)"
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -633,8 +932,18 @@ def main() -> int:
     if args.check_orphans:
         return check_orphans_entry()
 
+    if args.bootstrap:
+        return bootstrap_entry()
+
+    if args.prune:
+        return prune_entry()
+
+    if args.verify is not VERIFY_NOT_REQUESTED:
+        return verify(resolve_claude_root() / "agents", args.verify)
+
     print(
-        "No action requested. Use --check-source or --check-orphans.",
+        "No action requested. Use --bootstrap, --prune, --verify, "
+        "--check-source, or --check-orphans.",
         file=sys.stderr,
     )
     return 1

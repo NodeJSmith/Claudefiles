@@ -1,7 +1,7 @@
 ---
 task_id: "T05"
 title: "Add --bootstrap, --prune, and --verify plus the prek hook"
-status: "planned"
+status: "done"
 depends_on: ["T04"]
 implements: ["FR#19", "FR#20", "FR#22", "FR#25", "FR#26", "FR#28", "AC#10", "AC#11", "AC#13", "AC#20", "AC#21", "AC#24"]
 ---
