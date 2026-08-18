@@ -33,4 +33,8 @@ if ! command -v opencode > /dev/null 2>&1; then
   exit 0
 fi
 
-exec bin/opencode-sync --verify
+# Each `opencode debug agent` subprocess is bounded individually (30s, via
+# VERIFY_SUBPROCESS_TIMEOUT), but with ~26+ agent files run serially, nothing
+# bounded the sweep as a whole -- a slow or hung opencode binary could hold
+# a commit for several minutes. Bound the total run time too.
+exec timeout "${VERIFY_TOTAL_TIMEOUT:-120}" bin/opencode-sync --verify
