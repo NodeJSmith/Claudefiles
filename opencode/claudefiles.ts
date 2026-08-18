@@ -58,15 +58,20 @@ const PLUGIN_DIR = dirname(fileURLToPath(import.meta.url));
 const CONFIG_DATA_PATH = join(PLUGIN_DIR, "config-data.json");
 
 // The OpenCode config dir, resolved the same way bin/opencode-sync's
-// OPENCODE_CONFIG constant does (Path.home() / ".config" / "opencode", no
-// XDG_CONFIG_HOME override). T05's --bootstrap must symlink
-// opencode/opencode-compat.md to exactly this path for FR#9 to hold.
-const OPENCODE_CONFIG_DIR = join(homedir(), ".config", "opencode");
+// OPENCODE_CONFIG constant does (XDG_CONFIG_HOME/opencode when that
+// variable is set, falling back to ~/.config/opencode otherwise) --
+// OpenCode itself honors XDG_CONFIG_HOME for its own config path. T05's
+// --bootstrap must symlink opencode/opencode-compat.md to exactly this
+// path for FR#9 to hold.
+const OPENCODE_CONFIG_DIR = join(
+  process.env.XDG_CONFIG_HOME?.trim() || join(homedir(), ".config"),
+  "opencode",
+);
 const COMPAT_RULE_PATH = join(OPENCODE_CONFIG_DIR, "opencode-compat.md");
 
 function resolveClaudeRoot(): string {
-  const override = process.env.CLAUDE_CONFIG_DIR;
-  if (override && override.trim() !== "") return override;
+  const override = process.env.CLAUDE_CONFIG_DIR?.trim();
+  if (override) return override;
   return join(homedir(), ".claude");
 }
 
