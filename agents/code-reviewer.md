@@ -103,7 +103,7 @@ LLMs pattern-match to "production-ready" training examples and over-apply enterp
 ```bash
 pyright .
 ruff check .
-ruff format .
+ruff format --check .
 bandit -r .
 pip-audit
 pytest
