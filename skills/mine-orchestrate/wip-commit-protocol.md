@@ -8,7 +8,13 @@ Before editing, record the task file's current frontmatter status. Update it to 
 before staging so the WIP commit preserves the durable task artifact. Runtime state remains
 nonterminal until `cfl task verdict` succeeds in Step 17b.
 
-Re-capture the changed file list immediately before staging to ensure it includes any files modified by the code-reviewer auto-fix loop or integration-reviewer feedback. Run this block through the Bash tool; normalize each detected rename to its old and new paths:
+Re-capture the changed file list immediately before staging to ensure it includes any files modified
+by the code-reviewer auto-fix loop or integration-reviewer feedback. When a protective commit
+exists (Step 6c created one), diff against the pre-task SHA from
+`<dir>/<task_id>/pre-task-sha.txt` — HEAD is the protective commit and would miss the executor's
+original changes in the diff. When no protective commit exists, diff against HEAD as before.
+
+Run this block through the Bash tool; normalize each detected rename to its old and new paths:
 
 ```bash
 emit_changed_paths() {
@@ -27,21 +33,50 @@ emit_changed_paths() {
   done
 }
 
+diff_base="HEAD"
+if [ -f <dir>/<task_id>/pre-task-sha.txt ]; then
+  diff_base="$(cat <dir>/<task_id>/pre-task-sha.txt)"
+fi
+
 {
-  git -C <repo_root> diff --name-status --find-renames -z HEAD | emit_changed_paths
+  git -C <repo_root> diff --name-status --find-renames -z "$diff_base" | emit_changed_paths
   git -C <repo_root> ls-files --others --exclude-standard
 } | sort -u > <dir>/<task_id>/committed-files.txt
 ```
 
 Do **not** use `git add -A`.
 
-Run the following block through the Bash tool. Stage with `--pathspec-from-file` and `git -C`:
+Run the following block through the Bash tool. Set `diff_base` the same way as the re-capture
+block (pre-task SHA when available, HEAD otherwise) — `diff --cached` must compare against the
+same base, or the staged-vs-committed comparison will false-alarm on files already in a protective
+commit. Stage with `--pathspec-from-file` and `git -C`:
 
 ```bash
+emit_changed_paths() {
+  while IFS= read -r -d '' status; do
+    case "$status" in
+      R*)
+        IFS= read -r -d '' old_path
+        IFS= read -r -d '' new_path
+        printf '%s\n%s\n' "$old_path" "$new_path"
+        ;;
+      *)
+        IFS= read -r -d '' path
+        printf '%s\n' "$path"
+        ;;
+    esac
+  done
+}
+
+diff_base="HEAD"
+if [ -f <dir>/<task_id>/pre-task-sha.txt ]; then
+  diff_base="$(cat <dir>/<task_id>/pre-task-sha.txt)"
+fi
+
 git -C <repo_root> add --all --pathspec-from-file=<dir>/<task_id>/committed-files.txt
 readarray -t committed_files < <(sed '/^$/d' <dir>/<task_id>/committed-files.txt)
-git -C <repo_root> diff --cached --name-status -- "${committed_files[@]}"
-git -C <repo_root> diff --cached --name-status --find-renames -z | emit_changed_paths \
+git -C <repo_root> diff --cached --name-status "$diff_base" -- "${committed_files[@]}"
+git -C <repo_root> diff --cached --name-status --find-renames -z "$diff_base" | emit_changed_paths \
   > <dir>/<task_id>/staged-files.txt
 sort <dir>/<task_id>/committed-files.txt > <dir>/<task_id>/committed-files.sorted.txt
 sort <dir>/<task_id>/staged-files.txt > <dir>/<task_id>/staged-files.sorted.txt
@@ -61,19 +96,30 @@ If the task-scoped cached diff is empty, confirm it with the same committed-file
 path list and record `no-changes`; do not run `git commit`. For example:
 
 ```bash
+diff_base="HEAD"
+if [ -f <dir>/<task_id>/pre-task-sha.txt ]; then
+  diff_base="$(cat <dir>/<task_id>/pre-task-sha.txt)"
+fi
 readarray -t committed_files < <(sed '/^$/d' <dir>/<task_id>/committed-files.txt)
-git -C <repo_root> diff --cached --quiet -- "${committed_files[@]}"
+git -C <repo_root> diff --cached --quiet "$diff_base" -- "${committed_files[@]}"
 ```
 
 This scoped empty-diff result is the only case that permits `no-changes` in the
 verdict. Do not use repo-wide `git status` to make this decision.
 
-If the task-scoped cached diff is non-empty, run the commit. If the commit
+If the task-scoped cached diff is non-empty, run the commit. When a protective commit exists
+(HEAD differs from the pre-task SHA in `<dir>/<task_id>/pre-task-sha.txt`), amend it to fold in
+fix-loop changes and the task-file status update. Otherwise create a new commit. If the commit
 succeeds, capture the new HEAD SHA immediately:
 
 ```bash
-git commit -m "WIP: <task_id> -- <task title>"
-git rev-parse --short HEAD
+if [ -f <dir>/<task_id>/pre-task-sha.txt ] && \
+   [ "$(git -C <repo_root> rev-parse --short HEAD)" != "$(cat <dir>/<task_id>/pre-task-sha.txt)" ]; then
+    git -C <repo_root> commit --amend -m "WIP: <task_id> -- <task title>"
+else
+    git -C <repo_root> commit -m "WIP: <task_id> -- <task title>"
+fi
+git -C <repo_root> rev-parse --short HEAD
 ```
 
 **If `git commit` fails** for any reason while the task-scoped cached diff is

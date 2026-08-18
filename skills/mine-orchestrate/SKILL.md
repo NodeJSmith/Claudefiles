@@ -361,6 +361,40 @@ cfl task update <task_id> --status reviewing
 
 This marks the boundary between implementation (executor) and verification (reviewers). The `reviewing` state is a precondition for `cfl task verdict` (Step 17b) and for `cfl task update --status fixing` (fix loops).
 
+### Step 6c: Protective WIP commit
+
+The executor's output is uncommitted. Reviewer subagents launched in Step 8 share the working
+directory and may run `git checkout` or similar commands during verification probes (e.g., testing
+a runtime guard by patching a file then restoring it). When the restore uses
+`git checkout -- <file>`, it reverts the file to HEAD — destroying uncommitted executor changes.
+Committing before review makes HEAD include the executor's work, neutralizing this.
+
+**First attempt** (no `<dir>/<task_id>/pre-task-sha.txt` exists) — save the current HEAD as the
+pre-task baseline:
+
+```bash
+git -C <repo_root> rev-parse --short HEAD > <dir>/<task_id>/pre-task-sha.txt
+```
+
+**Retry** (`pre-task-sha.txt` already exists from a prior attempt) — collapse the previous
+protective commit so the retry's changes replace it cleanly:
+
+```bash
+git -C <repo_root> reset --soft "$(cat <dir>/<task_id>/pre-task-sha.txt)"
+```
+
+**Then stage and commit** (both cases):
+
+```bash
+git -C <repo_root> add --all --pathspec-from-file=<dir>/<task_id>/changed-files.txt
+git -C <repo_root> commit -m "wip: <task_id> -- <title> (pre-review)"
+```
+
+If the commit fails (empty executor output), continue without a protective commit — Step 17
+handles the no-changes case. The pre-task SHA file must still be written on first attempt.
+
+Step 17a uses the pre-task SHA to diff and amends this commit with any additional fix-loop changes.
+
 ### Step 7: CONTESTED criteria resolution
 
 Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/contested-criteria.md` and follow it. This must happen before the spec reviewer runs — the spec reviewer receives the possibly-updated verification criteria after CONTESTED items are resolved.
