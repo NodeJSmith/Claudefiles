@@ -213,11 +213,12 @@ OpenCode loads skills through its native skill tool; unlike Claude Code, it does
 Model routing lives entirely in each agent's own frontmatter, read live and transformed by the plugin — there is no config-level agent pinning. A generated `config.json` carries only the plugin declaration and `subagent_depth`; it has no `agent` key. `opencode.jsonc` stays entirely user-managed and is never written by the plugin or `bin/opencode-sync` (see [REFERENCE.md's OpenCode Sync section](REFERENCE.md#opencode-sync) for the full merge order).
 
 ```bash
+opencode-sync --prune       # once, if upgrading from the old copy-based sync: remove the stale generated tree
 opencode-sync --bootstrap   # symlink the plugin and compatibility rule, write config.json, then verify
 opencode-sync --verify      # re-check that every agent resolves through the live install
 ```
 
-`--bootstrap` runs the full `--verify` sweep automatically as its final step. Editing an agent, skill, or rule takes effect in the next OpenCode **process** — `config()` runs once per process and its result is cached, so a running `opencode serve` needs a restart, not just a new session. OpenCode discovering the live Claude artifacts is the delivery mechanism, not a confound: there's no separate generated copy anymore for a passing check to have missed.
+Existing users upgrading from the prior copy-based sync need that `--prune` step once, to clear out the stale generated files and orphaned agents it left behind — `--bootstrap` does not do this for you, it only sets up the new plugin-based path. `--bootstrap` runs the full `--verify` sweep automatically as its final step. Editing an agent, skill, or rule takes effect in the next OpenCode **process** — `config()` runs once per process and its result is cached, so a running `opencode serve` needs a restart, not just a new session. OpenCode discovering the live Claude artifacts is the delivery mechanism, not a confound: there's no separate generated copy anymore for a passing check to have missed.
 
 The native-support roadmap's Spec 2 (native agents and model enforcement) is complete; `design/specs/1008-opencode-named-roles` closed most of Spec 3 (skill compatibility adapter) by removing the need for dispatch rewriting in the first place, and `design/specs/1007-opencode-config-plugin` replaced the copy-to-disk transport with this plugin. Interactive question syntax conversion and skill classification remain open. See [design/opencode-integration-roadmap.md](design/opencode-integration-roadmap.md) for the full spec sequence and the constraints future OpenCode work must preserve.
 
