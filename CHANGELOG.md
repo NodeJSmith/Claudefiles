@@ -2,6 +2,16 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-08-18
+
+### Changed
+
+- `bin/opencode-sync` no longer stages a copy of the repo to disk. An OpenCode plugin (`opencode/claudefiles.ts`) now reads the live `~/.claude/` install directly at session start, fixing 41 duplicate-skill-name warnings caused by the stale staged copy shadowing OpenCode's native skill scan, removing 7 orphaned generated agents with no source file, and wiring personal rules from Dotfiles into OpenCode for the first time. `opencode-sync` gains `--bootstrap`, `--prune`, and `--verify`; `--check` and `--lint-only` are removed. (#521)
+
+### Fixed
+
+- Editing a skill, agent, or rule now takes effect in the next OpenCode process with no sync command required (a running `opencode serve` still needs a restart — `config()` is cached per process, not per session). (#521)
+
 ## 2026-08-17
 
 ### Changed
