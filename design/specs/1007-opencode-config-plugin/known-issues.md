@@ -4,7 +4,7 @@ Durable issues discovered during orchestration that were intentionally not fixed
 
 ## KI-001: `check_source_dispatch_patterns()` exceeds the file's own function-size and nesting guidelines
 
-Status: open
+Status: filed (#517)
 Run: 91
 Source: clean-code
 Reason not fixed now: out-of-scope
