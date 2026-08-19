@@ -4,25 +4,25 @@ description: Deep-dive issues by key, inferring one from the branch name if none
 
 # Issues Command
 
-Deep-dive specific issues by key. If no keys are given, infer one from the current branch name, or ask. Supports GitHub (`gh`) and Jira (`jira`) via the `$ISSUE_TRACKER` env var.
+Deep-dive specific issues by key. If no keys are given, infer one from the current branch name, or ask. Works with whatever issue tracker Claude has tools for, signaled by the `$ISSUE_TRACKER` env var.
 
 ## Arguments
 
-$ARGUMENTS — zero or more issue keys. GitHub: `123 456`. Jira: `PROJ-123 PROJ-456`. If none provided, infer a key from the branch name, or ask.
+$ARGUMENTS — zero or more issue keys, in whatever format the configured tracker uses (e.g. `123 456` for a numeric tracker, `PROJ-123 PROJ-456` for a project-prefixed tracker). If none provided, infer a key from the branch name, or ask.
 
 ## Phase 1: Tool Detection
 
 Read `$ISSUE_TRACKER`.
 
-- If **unset or empty**: tell the user `$ISSUE_TRACKER is not configured. Set it to "gh" or "jira" in your context var file.` and **stop**.
-- If set to something other than `gh` or `jira`: tell the user `Unsupported ISSUE_TRACKER value: "$ISSUE_TRACKER". Expected "gh" or "jira".` and **stop**.
+- If **unset or empty**: tell the user `$ISSUE_TRACKER is not configured. Set it in your context var file.` and **stop**.
+- If set to any value: proceed — use whatever tool matches that tracker.
 
 ## Phase 2: Route
 
 - **Arguments provided**: Continue to Phase 3 (Deep Dive).
 - **No arguments provided**: Try to infer an issue key from the current branch name before asking.
   1. Run `git branch --show-current`.
-  2. Judge whether the branch name unambiguously names an issue. For `gh`, recognize the same patterns as `skills/mine-create-pr/worker.md`'s closing-keyword detection: a leading number (`123-fix-thing`), `issue-N`/`issue/N`, or `fix/N-description`, `feat/N-description`, `chore/N-description`, etc. For `jira`, a leading project-prefixed key (`PROJ-123-fix-thing` → `PROJ-123`). Don't infer from a number that's more plausibly a date, version, or something unrelated (e.g. `2026-08-cleanup`).
+  2. Judge whether the branch name unambiguously names an issue, in whatever key format the configured tracker uses. For a numeric tracker like GitHub, recognize the same patterns as `skills/mine-create-pr/worker.md`'s closing-keyword detection: a leading number (`123-fix-thing`), `issue-N`/`issue/N`, or `fix/N-description`, `feat/N-description`, `chore/N-description`, etc. For a project-prefixed tracker like Jira, a leading project-prefixed key (`PROJ-123-fix-thing` → `PROJ-123`). Don't infer from a number that's more plausibly a date, version, or something unrelated (e.g. `2026-08-cleanup`).
   3. **If a key is inferred**: say so (e.g. "Inferred issue #123 from the branch name — deep diving.") and use it as the sole argument, continuing to Phase 3. If the Phase 3 subagent returns `LOOKUP_FAILED` (issue doesn't exist), fall back to step 4 instead of surfacing a raw tool error.
   4. **If no key is inferred, or the inferred key's lookup failed**: ask the user which issue to deep-dive: "No issue key in the branch name — which issue should I look at?" If they give a key, use it as the sole argument and continue to Phase 3.
 
@@ -30,13 +30,9 @@ Read `$ISSUE_TRACKER`.
 
 For **each** issue key in the arguments, launch a **Task subagent** (`subagent_type: light-worker`) with this prompt:
 
-> **If `$ISSUE_TRACKER` is `gh`:**
-> Run `gh-issue view <N> --json title,body,comments,labels,assignees,milestone` to get the full issue.
+> Fetch the full issue for key <KEY> from the project's issue tracker (`$ISSUE_TRACKER`) — title, body, comments, labels/tags, assignees, and milestone/sprint if applicable.
 >
-> **If `$ISSUE_TRACKER` is `jira`:**
-> Run `jira issue view <KEY> --comments 5 --plain` to get the full issue.
->
-> If the lookup command fails or reports the issue does not exist, return exactly `LOOKUP_FAILED` and nothing else.
+> If the lookup fails or reports the issue does not exist, return exactly `LOOKUP_FAILED` and nothing else.
 >
 > Then scan the codebase for files and areas mentioned in or related to the issue (grep for keywords, check referenced file paths, look at relevant modules).
 >

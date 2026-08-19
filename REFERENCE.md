@@ -109,7 +109,7 @@ Conversation memory (recall, resume) now ships as the external
 | `fine-toothed-comb` | Open-ended holistic reviewer — reads an artifact (or an artifact against a reference) as a whole and reports inconsistency, inaccuracy, drift, and thinness a checklist can't catch; classifies findings blocking vs minor |
 | `instruction-quality-reviewer` | Instruction quality reviewer — assesses skill files, rules, and agent prompts against five quality dimensions |
 | `integration-reviewer` | Codebase integration reviewer — duplication, misplacement, convention drift, orphaned code, design violations |
-| `issue-refiner` | Enrich GitHub issues with acceptance criteria, edge cases, technical considerations, and NFRs |
+| `issue-refiner` | Enrich issues with acceptance criteria, edge cases, technical considerations, and NFRs |
 | `lazy-checker` | Deferred-debt reviewer — flags lazy code patterns, deferred decisions, and shortcuts that accumulate into real debt |
 | `light-worker` | Lightweight generic worker (haiku) for triage, batch classification, and other high-volume, low-complexity dispatches — the caller supplies the full task methodology in its prompt |
 | `llm-checker` | LLM-bias reviewer — detects training-bias patterns and code smells introduced by LLM-generated code |

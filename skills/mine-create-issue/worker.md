@@ -1,6 +1,6 @@
 # Create Issue — Worker Instructions
 
-You receive an issue description, type, and any additional context the user provided. Your job: investigate the codebase, draft a complete issue, create it on GitHub, and return the URL.
+You receive an issue description, type, and any additional context the user provided. Your job: investigate the codebase, draft a complete issue, create it in the project's issue tracker, and return the URL.
 
 ## Step 1: Investigate
 
@@ -72,7 +72,7 @@ Short, specific, imperative mood. Include the component/area when it helps:
 
 ## Step 3: Create
 
-1. Run `gh-issue overview` to see available labels and milestones.
+1. Check the repo's issue conventions — available labels, milestones, and usage patterns.
 
 2. **Labels:** Match the issue type to existing labels:
    - bug → "bug" label (if it exists)
@@ -81,14 +81,9 @@ Short, specific, imperative mood. Include the component/area when it helps:
 
 3. **Milestones:** If >50% of recent issues have milestones, pick the milestone that fits the work's scope.
 
-4. Run `get-skill-tmpdir mine-create-issue` — note the path.
+4. Optionally run `get-skill-tmpdir mine-create-issue` and write the issue body to `<tmpdir>/issue-body.md` first — this avoids shell escaping issues with multi-line bodies.
 
-5. Write the issue body to `<tmpdir>/issue-body.md`.
-
-6. Create the issue:
-   ```bash
-   gh-issue create --title "<title>" --body-file <tmpdir>/issue-body.md [--label "<label>"] [--milestone "<name>"]
-   ```
+5. Create the issue with the title and body from Step 2. Apply labels and a milestone based on what you found above.
 
 ## Step 4: Return
 

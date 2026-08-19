@@ -6,7 +6,7 @@ user-invocable: true
 
 # Create Issue
 
-Codebase-aware issue creation. Dispatches a subagent to investigate the code, draft a structured issue, and create it on GitHub.
+Codebase-aware issue creation. Dispatches a subagent to investigate the code, draft a structured issue, and create it in the project's issue tracker.
 
 To enrich an existing issue, use the `issue-refiner` agent instead.
 
