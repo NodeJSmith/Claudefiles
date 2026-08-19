@@ -13,6 +13,7 @@ All notable changes to this Claudefiles repository are documented here.
 ### Changed
 
 - `ado-api` no longer imports `rhyme_constants` — the build-tag helpers it needs are vendored into `ado_api/tags.py`, so the package installs and runs standalone at any org. `builds approve` gains an explicit `--branch` override, matching every sibling branch-filtering command, with no change to its default behavior. (#522)
+- Skills, rules, and agents that touch issue trackers (`mine-create-issue`, `mine-issues`, `mine-wayfinder`, `issue-refiner`, `git-workflow.md`) now describe intent instead of hardcoding GitHub-specific commands, so they work on any tracker signaled by `$ISSUE_TRACKER`. Removed `mine-issues-triage`, which only ever supported GitHub. (#524)
 
 ### Fixed
 
