@@ -1,7 +1,7 @@
 ---
 task_id: "T05"
 title: "Update Claudefiles skills and docs for the changed ado-api command surface"
-status: "planned"
+status: "done"
 depends_on: ["T01"]
 implements: ["FR#7"]
 ---

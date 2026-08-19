@@ -99,6 +99,10 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "list ADO PR threads", "create ADO PR thread", "reply to ADO PR comment" | `ado-api pr threads` |
 | "approve ADO builds", "list pending approvals" | `ado-api builds approve` |
 | "create ADO work item", "link work item to PR" | `ado-api work-item` |
+| "retry the prod stage", "re-run a build stage", "requeue a failed stage" | `ado-api builds retry-stage` |
+| "find builds that missed prod", "what deployed to stage but not prod", "missed prod deploys" | `ado-api builds missed-prod` |
+| "build step timeline", "which step failed in this build", "list build run steps" | `ado-api builds steps` |
+| "register a pipeline in ADO", "create a build validation policy" | `ado-api pipeline` |
 
 ### GitHub tool notes
 
