@@ -72,10 +72,8 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 
 | User says something like... | Run |
 |---|---|
-| "view issue", "create issue", "list issues", "edit issue", "filter issues by milestone", "repo issue conventions" | `gh-issue` |
-| "list PR threads", "unresolved comments" | `gh-pr-threads` |
-| "reply to PR comment", "respond to review" | `gh-pr-reply` |
-| "resolve PR thread", "mark thread resolved" | `gh-pr-resolve-thread` |
+| "view issue", "create issue", "list issues", "edit issue", "filter issues by milestone", "repo issue conventions", "create a work item", "link a work item to a PR" | Use the project's issue tracker CLI, determined by `$ISSUE_TRACKER` / `git-platform` |
+| "list PR threads", "unresolved comments", "reply to PR comment", "respond to review", "resolve PR thread", "mark thread resolved", "create a PR thread" | Use the project's PR thread tool, determined by `$ISSUE_TRACKER` / `git-platform` |
 | "rename tmux session", "new tmux session" | `claude-tmux` |
 | "merge settings", "apply settings" | `claude-merge-settings` |
 | "default branch name" | `git-default-branch` |
@@ -95,15 +93,13 @@ Purpose-built scripts in `~/.local/bin/`. **Use these instead of raw shell comma
 | "cancel builds", "cancel pipeline runs", "list ADO builds" | `ado-api builds` |
 | "build logs", "CI logs", "why did the build fail" | `ado-api logs` |
 | "create ADO PR", "list ADO PRs", "show ADO PR" | `ado-api pr` |
-| "list ADO PR threads", "create ADO PR thread", "reply to ADO PR comment" | `ado-api pr threads` |
 | "approve ADO builds", "list pending approvals" | `ado-api builds approve` |
-| "create ADO work item", "link work item to PR" | `ado-api work-item` |
 | "retry the prod stage", "re-run a build stage", "requeue a failed stage" | `ado-api builds retry-stage` |
 | "find builds that missed prod", "what deployed to stage but not prod", "missed prod deploys" | `ado-api builds missed-prod` |
 | "build step timeline", "which step failed in this build", "list build run steps" | `ado-api builds steps` |
 | "register a pipeline in ADO", "create a build validation policy" | `ado-api pipeline` |
 
-### GitHub tool notes
+### GitHub tool reference
 
 - **Bot-token auth**: only `gh-issue` upgrades to bot identity when `gh-app-token` is installed and `GITHUB_APP_ID` is set (falling back to your personal token otherwise). All PR operations use your personal identity so PR authorship and review replies stay attributable to you — `gh pr create`, `gh-pr-reply`, and `gh-pr-resolve-thread` never touch the bot token; `gh-pr-threads` is read-only.
 - **Thread workflow**: Run `gh-pr-threads --json <pr>` → extract `.threads[].id` (`PRRT_...` values) → pass to `gh-pr-reply --resolve` or `gh-pr-resolve-thread`. Only `.threads` are resolvable; `.reviewComments` and `.issueComments` are informational (reply with a normal PR comment).
