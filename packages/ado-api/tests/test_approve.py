@@ -9,6 +9,7 @@ from ado_api.az_client import AdoApiError, AdoConfig, AdoContext
 from ado_api.commands.approve import (
     _approve_one,
     _build_approval_map,
+    _builds_url,
     _format_waiting,
     cmd_builds_approve,
     cmd_builds_approve_list,
@@ -84,6 +85,32 @@ class TestBuildApprovalMap:
 
     def test_empty_approvals(self) -> None:
         assert _build_approval_map([]) == {}
+
+
+class TestBuildsUrl:
+    """The approvals-scoped builds URL used when listing pending approvals.
+
+    ``_builds_url`` is distinct from ``commands.builds._builds_url`` (a plain base
+    URL) — this one adds ``statusFilter``/``branchName`` and is the one FR#8's
+    ``--branch`` override threads through.
+    """
+
+    @patch("ado_api.commands.approve._get_default_branch", return_value="master")
+    def test_omitted_branch_falls_back_to_default_branch(
+        self, mock_default: MagicMock
+    ) -> None:
+        """Regression guard: with no branch given, behavior matches the pre-FR#8 URL."""
+        ctx = _make_ctx()
+        url = _builds_url(ctx)
+        assert "branchName=refs/heads/master" in url
+        mock_default.assert_called_once()
+
+    @patch("ado_api.commands.approve._get_default_branch")
+    def test_explicit_branch_overrides_default(self, mock_default: MagicMock) -> None:
+        ctx = _make_ctx()
+        url = _builds_url(ctx, branch="release/x")
+        assert "branchName=refs/heads/release/x" in url
+        mock_default.assert_not_called()
 
 
 class TestApproveOne:
@@ -418,3 +445,18 @@ class TestResolvePrIdsToBuilds:
         build_ids = resolve_pr_ids_to_builds(ctx, ["49752"])
 
         assert sorted(build_ids) == [1001, 1002]
+
+    @patch("ado_api.commands.approve._list_builds")
+    def test_tag_lookup_carries_no_branch_filter(self, mock_list: MagicMock) -> None:
+        """FR#8: the ID path resolves builds by tag only — ``--branch`` must not narrow it.
+
+        ``resolve_pr_ids_to_builds`` takes no branch parameter at all, so this is
+        structurally true regardless of what the caller passes for ``--branch``.
+        """
+        mock_list.return_value = [{"id": 1001}]
+        ctx = _make_ctx()
+
+        resolve_pr_ids_to_builds(ctx, ["49752"])
+
+        for call in mock_list.call_args_list:
+            assert "branch" not in call.kwargs

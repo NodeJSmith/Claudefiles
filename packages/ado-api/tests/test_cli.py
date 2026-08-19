@@ -246,6 +246,7 @@ class TestProjectFlag:
         captured = capsys.readouterr()
         assert "approve" in captured.out
         assert "--yes" in captured.out or "-y" in captured.out
+        assert "--branch" in captured.out
 
     def test_builds_approve_routes_with_build_ids(self) -> None:
         """builds approve -b 1001 1002 -y --json routes to approve handler."""

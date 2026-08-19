@@ -110,6 +110,12 @@ def cli_builds_approve(
         bool,
         Parameter(name=["--build", "-b"], help="IDs are Build IDs (default: PR IDs)"),
     ] = False,
+    branch: Annotated[
+        str | None,
+        Parameter(
+            help="Branch to filter pending approvals by (listing only; ignored when approving specific IDs)"
+        ),
+    ] = None,
     yes: Annotated[
         bool, Parameter(name=["--yes", "-y"], help="Skip confirmation prompt")
     ] = False,
@@ -123,7 +129,7 @@ def cli_builds_approve(
     """
     ado_ctx = make_ado_context(ctx, repo=None)
     if not ids:
-        cmd_builds_approve_list(ado_ctx, as_json=ctx.json_mode)
+        cmd_builds_approve_list(ado_ctx, as_json=ctx.json_mode, branch=branch)
         return
 
     all_builds = (

@@ -33,8 +33,8 @@ def _approvals_url(ctx: AdoContext) -> str:
     )
 
 
-def _builds_url(ctx: AdoContext) -> str:
-    branch = _get_default_branch()
+def _builds_url(ctx: AdoContext, branch: str | None = None) -> str:
+    branch = branch if branch else _get_default_branch()
     return (
         f"{ctx.config.base_url}/_apis/build/builds"
         f"?api-version={ADO_API_VERSION}"
@@ -69,9 +69,11 @@ def _build_approval_map(approvals: list[dict[str, Any]]) -> dict[int, dict[str, 
     return result
 
 
-def _get_in_progress_builds(ctx: AdoContext) -> list[dict[str, Any]]:
-    """Fetch in-progress builds on the default branch."""
-    url = _builds_url(ctx)
+def _get_in_progress_builds(
+    ctx: AdoContext, branch: str | None = None
+) -> list[dict[str, Any]]:
+    """Fetch in-progress builds on the given branch (default branch when omitted)."""
+    url = _builds_url(ctx, branch=branch)
     data = call_ado_api("GET", url, pat=ctx.pat)
     return data.get("value", [])
 
@@ -160,6 +162,7 @@ def cmd_builds_approve_list(
     ctx: AdoContext,
     *,
     as_json: bool = False,
+    branch: str | None = None,
 ) -> None:
     """List pending pipeline approvals with build context."""
     print("Fetching pending approvals...", file=sys.stderr)
@@ -170,7 +173,7 @@ def cmd_builds_approve_list(
         return
 
     print("Fetching in-progress builds...", file=sys.stderr)
-    builds = _get_in_progress_builds(ctx)
+    builds = _get_in_progress_builds(ctx, branch=branch)
     approval_map = _build_approval_map(approvals)
 
     rows: list[dict[str, Any]] = []

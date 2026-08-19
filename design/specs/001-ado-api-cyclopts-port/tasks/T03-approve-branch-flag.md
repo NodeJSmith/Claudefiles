@@ -1,7 +1,7 @@
 ---
 task_id: "T03"
 title: "Add an explicit --branch flag to builds approve"
-status: "planned"
+status: "done"
 depends_on: ["T01"]
 implements: ["FR#8"]
 ---
