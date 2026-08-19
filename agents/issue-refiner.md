@@ -21,7 +21,10 @@ You receive an issue number or URL. Your job is to:
 
 ### 1. Read the Issue
 
-Check `$ISSUE_TRACKER` (e.g., `echo $ISSUE_TRACKER`) to know which platform's tools to use, then fetch the issue's title, body, labels, and comments from the project's issue tracker.
+Check `$ISSUE_TRACKER` (e.g., `echo $ISSUE_TRACKER`) to know which platform's tools to use.
+
+- If **unset or empty**: tell the user `$ISSUE_TRACKER is not configured. Set it in your context var file.` and **stop**.
+- If **set**: fetch the issue's title, body, labels, and comments from the project's issue tracker. If the lookup fails or reports the issue does not exist, tell the user the fetch failed and **stop** — do not proceed to Steps 2-4 without a successfully loaded issue.
 
 Understand:
 - What's being asked (the feature, bug, or task)
@@ -90,11 +93,15 @@ Omit any section that would just be empty boilerplate. Only add sections that ge
 
 ### 5. Update the Issue
 
-Update the issue body in place with the preserved original description plus the enriched sections appended below it. Writing the combined body to a temp file first (`get-skill-tmpdir issue-refiner`) avoids shell escaping issues with multi-line content.
+Re-fetch the issue body fresh immediately before updating — do not reuse the copy loaded in Step 1. Another user may have edited the issue while you were exploring the codebase and drafting sections in Steps 2-4; applying the enrichment to a stale body would overwrite their intervening edit. Apply the enrichment (the divider plus structured sections from Step 4) on top of this fresh body.
+
+Writing the combined body to a temp file first (`get-skill-tmpdir issue-refiner`) avoids shell escaping issues with multi-line content.
+
+Confirm the update call succeeded before moving to Step 6. If it fails, tell the user the update failed and **stop** — do not proceed to Step 6 as if the enrichment landed.
 
 ### 6. Report Back
 
-Summarize what you added:
+Only after confirming the Step 5 update succeeded, summarize what you added:
 - Which sections were added and why
 - Any gaps that couldn't be filled without more information
 - Any codebase findings that informed the enrichment
