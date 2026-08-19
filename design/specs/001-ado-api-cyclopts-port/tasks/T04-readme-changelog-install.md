@@ -1,7 +1,7 @@
 ---
 task_id: "T04"
 title: "Write the package README and CHANGELOG, and prove the package installs standalone"
-status: "planned"
+status: "done"
 depends_on: ["T02", "T03"]
 implements: ["FR#6"]
 ---
