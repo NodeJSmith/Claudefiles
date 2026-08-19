@@ -149,7 +149,7 @@ Run `get-skill-tmpdir mine-audit` and write `<tmpdir>/audit-results.md` using th
 
 **Options:**
 - **A** *(recommended)*: Build the fix via `/mine-build`
-- **B**: File as issue — track in GitHub for future work
+- **B**: File as issue — track for future work
 - **C**: Skip — noted, no action this session
 
 **Why A:** [one-sentence rationale specific to this finding]
@@ -165,7 +165,7 @@ Follow `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.
 
 Audit findings use the User-directed model with explicit option letters (A/B/C). Present each finding one at a time via AskUserQuestion:
 - **`A`** (or `fix`) — invoke `/mine-build` with the finding's description as the argument. For structural/architectural problems, `/mine-build` will assess complexity and route to direct implementation or the full caliper workflow.
-- **`B`** — create a GitHub issue via `gh-issue create` for this finding
+- **`B`** — create an issue in the project's issue tracker for this finding
 - **`C`** (or `skip`) — noted in session summary, no action
 
 **Multiple findings selected for build**: if several findings are being addressed via `/mine-build`, suggest an order of attack — highest impact first, dependency-aware (e.g., fix the circular dependency before refactoring the modules caught in the cycle).
