@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-08-19
+
+### Fixed
+
+- The rebase dirty-tree guard in `staleness-preflight.md` now classifies changed paths instead of always stopping to ask: untracked files under an already-known feature directory are auto-committed as the run's own output, while modifications to tracked files or paths outside a resolved feature directory still require confirmation. Also fixes a routing bug where a mixed dirty set could bypass an Abort answer. (#523)
+
 ## 2026-08-18
 
 ### Changed
