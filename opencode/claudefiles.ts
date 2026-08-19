@@ -69,10 +69,17 @@ const OPENCODE_CONFIG_DIR = join(
 );
 const COMPAT_RULE_PATH = join(OPENCODE_CONFIG_DIR, "opencode-compat.md");
 
+// Single declaration site for the default root, shared by resolveClaudeRoot()
+// (falls back to it) and buildCommands() (compares against it to detect a
+// CLAUDE_CONFIG_DIR override) -- two independent join(homedir(), ".claude")
+// calls would encode the same fact twice with nothing to catch them drifting
+// apart if the default ever changed.
+const DEFAULT_CLAUDE_ROOT = join(homedir(), ".claude");
+
 function resolveClaudeRoot(): string {
   const override = process.env.CLAUDE_CONFIG_DIR?.trim();
   if (override) return override;
-  return join(homedir(), ".claude");
+  return DEFAULT_CLAUDE_ROOT;
 }
 
 function loadConfigData(): ConfigData | undefined {
@@ -212,11 +219,29 @@ function buildAgents(claudeRoot: string, tierMap: Record<string, TierEntry>): Re
 // frontmatter declares opencode-command: true. Three filters are all
 // load-bearing (see isSkillCommand and the SKILL.md-only glob below) --
 // dropping any one of them inflates the count past the true 12.
+//
+// Skipped entirely when claudeRoot is not the default ~/.claude: OpenCode's
+// own native skill scan (skill/index.ts:187-193) is hardcoded to
+// ~/.claude/skills and does not honor CLAUDE_CONFIG_DIR, so a command built
+// from a custom root would tell the skill tool to load a skill OpenCode can
+// never find there -- a silent, broken command rather than an absent one.
+// Pointing cfg.skills.paths at the custom root instead was already
+// probe-verified as racy (design.md, Dependencies and Assumptions), so
+// degrading to no commands is the only reliable option here.
 function buildCommands(
   claudeRoot: string,
   template: string,
   description: string,
 ): Record<string, CommandEntry> {
+  if (claudeRoot !== DEFAULT_CLAUDE_ROOT) {
+    console.error(
+      `claudefiles plugin: skipping cfg.command generation -- CLAUDE_CONFIG_DIR overrides the ` +
+        `default root (${DEFAULT_CLAUDE_ROOT}), but OpenCode's native skill scan only ever reads ` +
+        `that default path, so generated commands would reference skills it can never resolve`,
+    );
+    return {};
+  }
+
   const skillsDir = join(claudeRoot, "skills");
   const commands: Record<string, CommandEntry> = {};
 

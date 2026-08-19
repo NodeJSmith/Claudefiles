@@ -110,7 +110,7 @@ Spec 1008 already removed the largest reason the copy-to-disk design existed: wi
 
 - **AC#1** With the plugin active, `opencode debug agent <name>` resolves for every file in `~/.claude/agents/`, and its output shows a `providerID`/`modelID` pair and a `variant` rather than a bare Claude tier name. (FR#1, FR#2, FR#3)
 - **AC#2** `opencode debug agent <name> --pure` fails for the same agent, proving the entry came from the plugin and not from a file on disk. (FR#1, FR#13)
-- **AC#3** `GET /command` on a running `opencode serve` returns one entry per skill declaring `opencode-command: true`. (FR#4)
+- **AC#3** `GET /command` on a running `opencode serve` returns one entry per skill declaring `opencode-command: true`, when `CLAUDE_CONFIG_DIR` is unset or equals the default `~/.claude` — see Dependencies and Assumptions for the override case, where `buildCommands()` returns none. (FR#4)
 - **AC#4** `opencode debug config` lists every non-excluded file under `~/.claude/rules/common/` and `~/.claude/rules/personal/` in `instructions`, and does not list `sudo.md`. (FR#5, FR#6, FR#7)
 - **AC#5** Renaming `rules/common/sudo.md` in a scratch copy of the repo makes `--check-source` exit non-zero naming the unmatched exclusion entry. (FR#8)
 - **AC#6** The compatibility rule's path appears in `instructions`, and the file contains the `mcp__<server>__<tool>` → `<server>_<tool>` mapping. (FR#9, FR#10)
@@ -154,6 +154,8 @@ Spec 1008 already removed the largest reason the copy-to-disk design existed: wi
   | `cfg.skills.paths` | `opencode debug skill` | absent in all but one of ~16 runs, with the hook confirmed firing on every run | absent |
 
   The `skills.paths` failure is **racy, not deterministic** — one run in roughly sixteen did pick it up, and skill counts varied run to run. A surface that works occasionally is more dangerous than one that never works, which is why FR-level design routes around it entirely rather than retrying.
+
+- **`buildCommands()` skips entirely when `CLAUDE_CONFIG_DIR` overrides the default `~/.claude` root.** OpenCode's native skill scan (`skill/index.ts:187-193`) is hardcoded to `~/.claude/skills` and does not honor `CLAUDE_CONFIG_DIR`, so generating `cfg.command` entries from a non-default root would produce commands that tell the skill tool to load skills OpenCode can never discover there — silently broken rather than absent. Pointing `cfg.skills.paths` at the custom root instead was already ruled out immediately above as racy, so `buildCommands()` returns an empty commands map and logs via `console.error` whenever `resolveClaudeRoot()` does not resolve to the default path.
 
 - **The declared-dependency theory does not predict which surfaces work.** `Agent.node` lists `Plugin.node` in its deps (`agent/agent.ts:450`) and works; `Command.node` does not (`command/index.ts:175`) and works anyway; `Skill.node` does not (`skill/index.ts:351`) and does not work. The probe is the authority here, not the layer graph. Any future surface must be probed the same way before being relied on.
 
