@@ -93,6 +93,11 @@ Format:
 - List each relevant issue/PR: number, title, key excerpt from body/comments
 - Note if an issue explicitly explains the design decision
 - If no issues or PRs reference this code, state that clearly
+- If `$ISSUE_TRACKER` is unset or empty, or the tracker search fails for another
+  reason, write that fact as the finding instead of an empty or ambiguous
+  result — e.g., "`$ISSUE_TRACKER` not configured — could not search issues/PRs"
+  or "issue/PR search failed: <reason>". This is the same null-result pattern
+  as above, applied to the case where the search couldn't run at all.
 ```
 
 ### Agent 3: Design Docs and Research
