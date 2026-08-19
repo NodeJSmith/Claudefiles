@@ -35,12 +35,8 @@ shape exists (a later task in this migration).
 from unittest.mock import MagicMock, patch
 
 import pytest
-from ado_api.az_client import AdoConfig
 from ado_api.cli import main
-
-_FAKE_CONFIG = AdoConfig(
-    organization="https://dev.azure.com/testorg", project="TestProject"
-)
+from tests.conftest import FAKE_CLI_CONFIG as _FAKE_CONFIG
 
 
 def _dispatch(argv: list[str]) -> None:

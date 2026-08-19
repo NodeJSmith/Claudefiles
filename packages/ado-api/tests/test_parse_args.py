@@ -19,10 +19,7 @@ from ado_api.cli.commands.builds import cli_builds_missed_prod
 from ado_api.cli.context import AdoCliContext
 from ado_api.cli.limits import MAX_VARIADIC_ITEMS
 from ado_api.commands.pipeline import IdentifierKind
-
-_FAKE_CONFIG = AdoConfig(
-    organization="https://dev.azure.com/testorg", project="TestProject"
-)
+from tests.conftest import FAKE_CLI_CONFIG as _FAKE_CONFIG
 
 
 class TestBuildsRetryStageSelectionGroup:

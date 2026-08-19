@@ -1,55 +1,14 @@
 """Tests for ado_api.commands.logs — log content reading (selection + issues/tail/head/grep)."""
 
 import json
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from ado_api.az_client import AdoConfig, AdoContext
 from ado_api.commands.logs import cmd_logs_read
 from ado_api.formatting import format_duration
+from tests.conftest import FAKE_CTX, _make_timeline_record
 
 # ── Fixtures ──────────────────────────────────────────────────────────
-
-FAKE_CONFIG = AdoConfig(
-    organization="https://dev.azure.com/myorg", project="My Project"
-)
-FAKE_PAT = "fake-pat-token"
-FAKE_CTX = AdoContext(config=FAKE_CONFIG, pat=FAKE_PAT)
-
-
-def _make_timeline_record(
-    *,
-    order: int = 1,
-    record_type: str = "Task",
-    name: str = "Build",
-    result: str = "succeeded",
-    log_id: int | None = 10,
-    error_count: int = 0,
-    warning_count: int = 0,
-    start_time: str | None = "2026-03-13T10:00:00Z",
-    finish_time: str | None = "2026-03-13T10:01:30Z",
-    issues: list[dict[str, str]] | None = None,
-) -> dict[str, Any]:
-    record: dict[str, Any] = {
-        "order": order,
-        "type": record_type,
-        "name": name,
-        "result": result,
-        "errorCount": error_count,
-        "warningCount": warning_count,
-        "startTime": start_time,
-        "finishTime": finish_time,
-    }
-    if log_id is not None:
-        record["log"] = {"id": log_id}
-    if issues is not None:
-        record["issues"] = issues
-    return record
-
-
-def _timeline_response(*records: dict[str, Any]) -> dict[str, Any]:
-    return {"records": list(records)}
 
 
 class TestLogsReadNoSelector:

@@ -16,7 +16,13 @@ from typing import Any, cast
 
 from ado_api.az_client import ADO_API_VERSION, AdoApiError, AdoContext, call_ado_api
 from ado_api.commands.builds import _get_default_branch, _list_builds
-from ado_api.formatting import aligned_table, json_output
+from ado_api.formatting import (
+    aligned_table,
+    json_output,
+    parse_iso_timestamp,
+    split_duration_seconds,
+    summarize_counts,
+)
 from ado_api.tags import pr_tag_variants
 
 # A re-run stage (``builds retry-stage``) drops its build back to ``notStarted``
@@ -83,13 +89,12 @@ def _format_waiting(iso_timestamp: str | None) -> str:
     if not iso_timestamp:
         return "-"
     try:
-        dt = datetime.fromisoformat(iso_timestamp.replace("Z", "+00:00"))
+        dt = parse_iso_timestamp(iso_timestamp)
         delta = datetime.now(UTC) - dt
         total_seconds = int(delta.total_seconds())
         if total_seconds < 0:
             return "-"
-        hours, remainder = divmod(total_seconds, 3600)
-        minutes, _ = divmod(remainder, 60)
+        hours, minutes, _ = split_duration_seconds(total_seconds)
         if hours > 0:
             return f"{hours}h{minutes}m"
         return f"{minutes}m"
@@ -300,14 +305,14 @@ def cmd_builds_approve(
         return
 
     # Summary
-    parts = []
-    if results["approved"]:
-        parts.append(f"Approved: {results['approved']}")
-    if results["already_approved"]:
-        parts.append(f"Already approved: {results['already_approved']}")
-    if results["failed"]:
-        parts.append(f"Failed: {results['failed']}")
-    print(f"\n{', '.join(parts)}")
+    summary = summarize_counts(
+        [
+            ("Approved", results["approved"]),
+            ("Already approved", results["already_approved"]),
+            ("Failed", results["failed"]),
+        ]
+    )
+    print(f"\n{summary}")
 
     if failed_ids:
         # Write failed IDs to temp file for deterministic retry

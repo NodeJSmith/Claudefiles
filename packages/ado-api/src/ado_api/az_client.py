@@ -284,7 +284,13 @@ def _should_retry_http_error(exc: BaseException) -> bool:
     return isinstance(exc, urllib.error.URLError)
 
 
-def _call_ado_api_inner(
+@retry(
+    retry=retry_if_exception(_should_retry_http_error),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=8),
+    reraise=True,
+)
+def _call_ado_api_with_retry(
     method: str,
     url: str,
     *,
@@ -292,7 +298,7 @@ def _call_ado_api_inner(
     data: dict[str, Any] | list[Any] | None = None,
     content_type: str = "application/json",
 ) -> Any:
-    """Inner function that performs the actual HTTP call (retryable)."""
+    """Perform the HTTP call to ADO, retrying on transient failures."""
     headers = {
         **build_auth_header(pat),
         "Content-Type": content_type,
@@ -316,26 +322,6 @@ def _call_ado_api_inner(
             snippet = response_body[:200].replace("\n", " ").strip()
             msg = f"ADO API {method} {url} returned non-JSON response: {snippet}"
             raise AdoApiError(msg) from None
-
-
-@retry(
-    retry=retry_if_exception(_should_retry_http_error),
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=2, max=8),
-    reraise=True,
-)
-def _call_ado_api_with_retry(
-    method: str,
-    url: str,
-    *,
-    pat: str,
-    data: dict[str, Any] | list[Any] | None = None,
-    content_type: str = "application/json",
-) -> Any:
-    """Wrapper with retry logic."""
-    return _call_ado_api_inner(
-        method, url, pat=pat, data=data, content_type=content_type
-    )
 
 
 def call_ado_api(
@@ -384,16 +370,6 @@ def call_ado_api(
         raise AdoApiError(msg) from exc
 
 
-def _call_ado_api_text_inner(method: str, url: str, *, pat: str) -> str:
-    """Inner function that performs the actual HTTP call for text responses (retryable)."""
-    headers = build_auth_header(pat)
-    req = urllib.request.Request(url, method=method, headers=headers)  # noqa: S310
-
-    # Let exceptions bubble up for retry predicate to inspect
-    with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT_SECONDS) as resp:  # noqa: S310
-        return resp.read().decode()
-
-
 @retry(
     retry=retry_if_exception(_should_retry_http_error),
     stop=stop_after_attempt(3),
@@ -401,8 +377,13 @@ def _call_ado_api_text_inner(method: str, url: str, *, pat: str) -> str:
     reraise=True,
 )
 def _call_ado_api_text_with_retry(method: str, url: str, *, pat: str) -> str:
-    """Wrapper with retry logic."""
-    return _call_ado_api_text_inner(method, url, pat=pat)
+    """Perform the HTTP call to ADO for a text response, retrying on transient failures."""
+    headers = build_auth_header(pat)
+    req = urllib.request.Request(url, method=method, headers=headers)  # noqa: S310
+
+    # Let exceptions bubble up for retry predicate to inspect
+    with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT_SECONDS) as resp:  # noqa: S310
+        return resp.read().decode()
 
 
 def call_ado_api_text(

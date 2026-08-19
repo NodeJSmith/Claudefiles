@@ -30,13 +30,9 @@ from ado_api.cli import (
     main,
 )
 from rich.console import Console
+from tests.conftest import FAKE_CLI_CONFIG as _FAKE_CONFIG
 
 _GOLDEN_DIR = Path(__file__).parent / "golden"
-
-
-_FAKE_CONFIG = AdoConfig(
-    organization="https://dev.azure.com/testorg", project="TestProject"
-)
 
 
 def render_help(path: list[str]) -> str:

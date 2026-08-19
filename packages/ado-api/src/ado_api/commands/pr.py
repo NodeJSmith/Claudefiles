@@ -6,7 +6,7 @@ from typing import Any
 
 from ado_api.az_client import ADO_API_VERSION, AdoApiError, AdoContext, call_ado_api
 from ado_api.commands.work_item import _create_work_item
-from ado_api.formatting import json_output, truncate, tsv_table
+from ado_api.formatting import json_output, summarize_counts, truncate, tsv_table
 from ado_api.git import GitError, get_current_branch
 
 VALID_THREAD_STATUSES = frozenset(
@@ -86,10 +86,16 @@ def detect_pr_id(ctx: AdoContext) -> int:
     sys.exit(1)
 
 
-def _pr_to_row(pr: dict[str, Any]) -> tuple[str, ...]:
-    """Convert a PR API response to a TSV row."""
+def _short_refs(pr: dict[str, Any]) -> tuple[str, str]:
+    """Return a PR's (source, target) branch names with ``refs/heads/`` stripped."""
     source = pr.get("sourceRefName", "").removeprefix("refs/heads/")
     target = pr.get("targetRefName", "").removeprefix("refs/heads/")
+    return source, target
+
+
+def _pr_to_row(pr: dict[str, Any]) -> tuple[str, ...]:
+    """Convert a PR API response to a TSV row."""
+    source, target = _short_refs(pr)
     author = pr.get("createdBy", {}).get("uniqueName", "")
     return (
         str(pr.get("pullRequestId", "")),
@@ -103,8 +109,7 @@ def _pr_to_row(pr: dict[str, Any]) -> tuple[str, ...]:
 
 def _pr_to_dict(pr: dict[str, Any]) -> dict[str, Any]:
     """Convert a PR API response to a simplified dict for JSON output."""
-    source = pr.get("sourceRefName", "").removeprefix("refs/heads/")
-    target = pr.get("targetRefName", "").removeprefix("refs/heads/")
+    source, target = _short_refs(pr)
     return {
         "id": pr.get("pullRequestId"),
         "title": pr.get("title"),
@@ -173,8 +178,7 @@ def cmd_pr_show(
     if as_json:
         json_output(_pr_to_dict(pr))
     else:
-        source = pr.get("sourceRefName", "").removeprefix("refs/heads/")
-        target = pr.get("targetRefName", "").removeprefix("refs/heads/")
+        source, target = _short_refs(pr)
         author = pr.get("createdBy", {}).get("uniqueName", "")
         draft = " [DRAFT]" if pr.get("isDraft") else ""
         print(f"#{pr.get('pullRequestId')}  {pr.get('title')}{draft}")
@@ -490,15 +494,11 @@ def cmd_pr_resolve(
             print(f"Thread #{tid}: failed — {exc}", file=sys.stderr)
 
     # Summary
-    parts = []
-    if resolved:
-        parts.append(f"Resolved: {resolved}")
-    if skipped:
-        parts.append(f"Skipped: {skipped}")
-    if failed:
-        parts.append(f"Failed: {failed}")
-    if parts:
-        print(f"\n{', '.join(parts)}")
+    summary = summarize_counts(
+        [("Resolved", resolved), ("Skipped", skipped), ("Failed", failed)]
+    )
+    if summary:
+        print(f"\n{summary}")
 
     if failed:
         sys.exit(1)

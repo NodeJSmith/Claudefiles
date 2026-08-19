@@ -5,7 +5,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from ado_api.az_client import AdoApiError, AdoConfig, AdoContext
+from ado_api.az_client import AdoApiError
 from ado_api.commands.retry_stage import (
     _STAGE_STATE_RETRY,
     Action,
@@ -19,15 +19,7 @@ from ado_api.commands.retry_stage import (
     fetch_build_refs,
     resolve_tag_selection,
 )
-
-
-def _make_ctx() -> AdoContext:
-    return AdoContext(
-        config=AdoConfig(
-            organization="https://dev.azure.com/TestOrg", project="TestProject"
-        ),
-        pat="fake-pat",
-    )
+from tests.conftest import _make_ctx
 
 
 def _make_build(build_id: int, pipeline_name: str) -> BuildRef:

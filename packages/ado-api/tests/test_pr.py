@@ -5,7 +5,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from ado_api.az_client import AdoApiError, AdoConfig, AdoContext
+from ado_api.az_client import AdoApiError
 from ado_api.commands.pr import (
     _get_pr_artifact_id,
     _link_work_item_to_pr,
@@ -27,14 +27,9 @@ from ado_api.commands.pr import (
     detect_pr_id,
 )
 from ado_api.git import GitError
+from tests.conftest import FAKE_CTX_WITH_REPO as FAKE_CTX
 
 # ── Fixtures ──────────────────────────────────────────────────────────
-
-FAKE_CONFIG = AdoConfig(
-    organization="https://dev.azure.com/myorg", project="My Project"
-)
-FAKE_PAT = "fake-pat-token"
-FAKE_CTX = AdoContext(config=FAKE_CONFIG, pat=FAKE_PAT, repo="my-repo")
 
 
 FAKE_ARTIFACT_ID = "vstfs:///Git/PullRequestId/proj-id%2Frepo-id%2F42"

@@ -17,12 +17,8 @@ import io
 from unittest.mock import MagicMock, patch
 
 import pytest
-from ado_api.az_client import AdoConfig
 from ado_api.cli import main
-
-_FAKE_CONFIG = AdoConfig(
-    organization="https://dev.azure.com/testorg", project="TestProject"
-)
+from tests.conftest import FAKE_CLI_CONFIG as _FAKE_CONFIG
 
 _get_pat_patch = patch("ado_api.az_client.get_pat", return_value="fake-pat")
 _get_ado_config_patch = patch(

@@ -1,23 +1,18 @@
 """Tests for ado_api.commands.builds — build list, cancel, cancel-by-tag, and timeline steps."""
 
 import json
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from ado_api.az_client import AdoConfig, AdoContext
 from ado_api.commands.builds import (
     cmd_builds_cancel,
     cmd_builds_cancel_by_tag,
     cmd_builds_list,
     cmd_builds_steps,
 )
+from tests.conftest import FAKE_CTX, _make_timeline_record, _timeline_response
 
 # ── Sample data ──────────────────────────────────────────────────────────
-
-FAKE_CONFIG = AdoConfig(organization="https://dev.azure.com/myorg", project="MyProject")
-FAKE_PAT = "fake-pat-token"
-FAKE_CTX = AdoContext(config=FAKE_CONFIG, pat=FAKE_PAT)
 
 
 _SAMPLE_BUILDS = [
@@ -36,40 +31,6 @@ _SAMPLE_BUILDS = [
         "tags": ["abc123", "nightly"],
     },
 ]
-
-
-def _make_timeline_record(
-    *,
-    order: int = 1,
-    record_type: str = "Task",
-    name: str = "Build",
-    result: str = "succeeded",
-    log_id: int | None = 10,
-    error_count: int = 0,
-    warning_count: int = 0,
-    start_time: str | None = "2026-03-13T10:00:00Z",
-    finish_time: str | None = "2026-03-13T10:01:30Z",
-    issues: list[dict[str, str]] | None = None,
-) -> dict[str, Any]:
-    record: dict[str, Any] = {
-        "order": order,
-        "type": record_type,
-        "name": name,
-        "result": result,
-        "errorCount": error_count,
-        "warningCount": warning_count,
-        "startTime": start_time,
-        "finishTime": finish_time,
-    }
-    if log_id is not None:
-        record["log"] = {"id": log_id}
-    if issues is not None:
-        record["issues"] = issues
-    return record
-
-
-def _timeline_response(*records: dict[str, Any]) -> dict[str, Any]:
-    return {"records": list(records)}
 
 
 class TestBuildsListBasic:

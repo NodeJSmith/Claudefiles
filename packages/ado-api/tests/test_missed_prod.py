@@ -12,6 +12,7 @@ from ado_api.commands.missed_prod import (
     _parse_tags,
     cmd_builds_missed_prod,
 )
+from tests.conftest import _make_ctx
 
 
 def _make_build(
@@ -236,15 +237,6 @@ class TestClassifyBuilds:
 
 
 # ── cmd_builds_missed_prod (integration) ────────────────────────────────
-
-
-def _make_ctx() -> AdoContext:
-    return AdoContext(
-        config=AdoConfig(
-            organization="https://dev.azure.com/TestOrg", project="TestProject"
-        ),
-        pat="fake-pat",
-    )
 
 
 @patch("ado_api.commands.missed_prod._get_default_branch", return_value="master")
