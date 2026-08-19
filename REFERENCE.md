@@ -31,7 +31,6 @@ Full component tables for Claudefiles. For context on what each component type d
 | `mine-document` | Durable subsystem explanation — architectural-altitude write-up that survives code churn, anchored to components and flows rather than line numbers |
 | `mine-humanize` | Edit prose to remove AI writing patterns and add human voice — analyzes first, then surgical edits or full rewrite. Two-pass editing, text-type aware. Prose complement to mine-clean-code |
 | `mine-why` | Decision archaeology — reconstructs historical rationale from git history, issues, design docs, rules, comments, and tests with confidence calibration |
-| `mine-issues-triage` | Batch codebase-aware issue triage — parallel Haiku subagents assess actual complexity and effort by reading the code, not just titles |
 | `mine-mockup` | Generate self-contained HTML mockup files — reads `design/context.md` for consistent styling, delivers to a session temp directory |
 | `mine-mutation-test` | Mutation testing — intentionally break code to verify tests catch real bugs |
 | `mine-orchestrate` | Execute task files one-by-one with parallel spec/code/integration review, durable known-issue recording for intentional non-later-task deferrals, and post-execution implementation review |

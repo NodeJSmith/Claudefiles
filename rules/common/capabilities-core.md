@@ -19,7 +19,6 @@ tool: claude  # harness-only: skill/command routing tables are Claude-Code dispa
 | "address PR comments", "fix review feedback", "fix failing CI", "resolve merge conflicts" | `/mine-address-pr-issues` |
 | "show issue", "investigate this issue" | `/mine-issues` |
 | "create an issue", "file an issue", "open an issue", "write an issue", "new issue for this" | `/mine-create-issue` |
-| "scan issues", "what issues are open", "triage issues", "classify issues by complexity", "assess issue complexity", "find quick wins", "which issues are small", "batch issue assessment" | `/mine-issues-triage` |
 | "brainstorm options", "generate ideas", "explore ideas", "what are our options" | `/mine-brainstorm` |
 | "challenge this", "challenge this design", "challenge this code", "poke holes in this", "what's wrong with this approach", "ask the critics", "see what the critics say", "run it by the critics" | `/mine-challenge` |
 | "comb this", "fine-toothed comb", "comb this brief", "comb this design", "go over this with a fine-toothed comb", "comb the implementation against the design", "check this for consistency", "is this design consistent and complete" | `/mine-comb` |
