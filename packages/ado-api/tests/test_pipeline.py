@@ -201,7 +201,10 @@ class TestResolveAgentQueueId:
         assert _resolve_agent_queue_id(FAKE_CTX) == 521
 
         assert mock_api.call_args_list[0].kwargs["pat"] == FAKE_CTX.pat
-        assert mock_api.call_args_list[1].kwargs["pat"] == "aad-token"
+        # The AAD fallback token must go through bearer_token (sent as Bearer),
+        # never through pat= (which call_ado_api always sends as Basic auth).
+        assert "pat" not in mock_api.call_args_list[1].kwargs
+        assert mock_api.call_args_list[1].kwargs["bearer_token"] == "aad-token"
 
     @patch("ado_api.commands.pipeline.call_ado_api")
     @patch("ado_api.commands.pipeline.get_aad_token", return_value=None)
@@ -358,6 +361,32 @@ class TestFindDefinitionByName:
         mock_api.return_value = {"value": [{"id": 1, "name": "Pipeline-A-extra"}]}
 
         assert _find_definition_by_name(FAKE_CTX, "Pipeline-A") is None
+
+    @patch("ado_api.commands.pipeline.call_ado_api")
+    def test_name_with_space_is_url_encoded(self, mock_api: MagicMock) -> None:
+        """A literal space in the URL raises urllib.error.InvalidURL before the
+        request is even sent -- the name must be percent-encoded in the query.
+        """
+        mock_api.return_value = {"value": [{"id": 1, "name": "My Pipeline"}]}
+
+        assert _find_definition_by_name(FAKE_CTX, "My Pipeline") == {
+            "id": 1,
+            "name": "My Pipeline",
+        }
+
+        url = mock_api.call_args[0][1]
+        assert " " not in url
+        assert "name=My%20Pipeline" in url
+
+    @patch("ado_api.commands.pipeline.call_ado_api")
+    def test_name_with_ampersand_is_url_encoded(self, mock_api: MagicMock) -> None:
+        """An unencoded '&' would be parsed as a query-parameter separator."""
+        mock_api.return_value = {"value": [{"id": 1, "name": "Build & Deploy"}]}
+
+        _find_definition_by_name(FAKE_CTX, "Build & Deploy")
+
+        url = mock_api.call_args[0][1]
+        assert "name=Build%20%26%20Deploy" in url
 
 
 class TestGetBuildDefinitionId:

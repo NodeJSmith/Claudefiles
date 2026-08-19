@@ -494,7 +494,11 @@ def cmd_builds_retry_stage(
     progress lines go to stderr — so the output stays pipeable into ``jq``.
     """
     if not refs:
-        print("No builds matched.")
+        _report(
+            [],
+            as_json=as_json,
+            summary="No builds matched.",
+        )
         return
 
     refs = _apply_exclusions(refs, exclude or [])

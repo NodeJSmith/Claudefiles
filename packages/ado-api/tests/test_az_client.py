@@ -165,6 +165,19 @@ class TestBuildAuthHeader:
         decoded = base64.b64decode(encoded_value).decode()
         assert decoded == ":testpat"
 
+    def test_build_auth_header_bearer_token(self) -> None:
+        """An AAD access token must be sent as Bearer, not Basic-encoded like a PAT."""
+        header = build_auth_header(bearer_token="aad-access-token")
+        assert header == {"Authorization": "Bearer aad-access-token"}
+
+    def test_build_auth_header_bearer_takes_priority_over_pat(self) -> None:
+        header = build_auth_header("some-pat", bearer_token="aad-access-token")
+        assert header == {"Authorization": "Bearer aad-access-token"}
+
+    def test_build_auth_header_requires_pat_or_bearer(self) -> None:
+        with pytest.raises(ValueError, match="requires either pat or bearer_token"):
+            build_auth_header()
+
 
 class TestAdoConfig:
     """AdoConfig frozen dataclass and URL encoding."""
@@ -523,3 +536,129 @@ class TestCallAdoApiRetry:
         result = call_ado_api_text("GET", "https://example.com/api/log", pat="fake")
         assert result == "log content"
         assert mock_urlopen.call_count == 2
+
+    @patch("ado_api.az_client.urllib.request.urlopen")
+    def test_call_ado_api_get_is_retried_on_503(self, mock_urlopen: MagicMock) -> None:
+        """A GET is retried on a transient error -- baseline this POST test is compared against."""
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b'{"ok": true}'
+        mock_resp.__enter__ = lambda _self: mock_resp
+        mock_resp.__exit__ = MagicMock(return_value=False)
+
+        error_503 = urllib.error.HTTPError(
+            url="https://example.com/api",
+            code=503,
+            msg="Service Unavailable",
+            hdrs={},
+            fp=None,
+        )
+        mock_urlopen.side_effect = [error_503, mock_resp]
+
+        result = call_ado_api("GET", "https://example.com/api", pat="fake")
+        assert result == {"ok": True}
+        assert mock_urlopen.call_count == 2
+
+    @patch("ado_api.az_client.urllib.request.urlopen")
+    def test_call_ado_api_post_is_not_retried_on_503(
+        self, mock_urlopen: MagicMock
+    ) -> None:
+        """POST creates a resource -- a transient error must fail immediately, not
+        risk creating a duplicate PR/comment/work item by retrying.
+        """
+        error_503 = urllib.error.HTTPError(
+            url="https://example.com/api",
+            code=503,
+            msg="Service Unavailable",
+            hdrs={},
+            fp=None,
+        )
+        mock_urlopen.side_effect = [error_503]
+
+        with pytest.raises(AdoApiError, match="503"):
+            call_ado_api("POST", "https://example.com/api", pat="fake", data={})
+
+        assert mock_urlopen.call_count == 1
+
+    @patch("ado_api.az_client.urllib.request.urlopen")
+    def test_call_ado_api_patch_is_retried_on_503(
+        self, mock_urlopen: MagicMock
+    ) -> None:
+        """PATCH is treated as idempotent in this package -- every call site sets a
+        resource to a fixed target state, so retry is safe.
+        """
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b'{"ok": true}'
+        mock_resp.__enter__ = lambda _self: mock_resp
+        mock_resp.__exit__ = MagicMock(return_value=False)
+
+        error_503 = urllib.error.HTTPError(
+            url="https://example.com/api",
+            code=503,
+            msg="Service Unavailable",
+            hdrs={},
+            fp=None,
+        )
+        mock_urlopen.side_effect = [error_503, mock_resp]
+
+        result = call_ado_api(
+            "PATCH", "https://example.com/api", pat="fake", data={"status": "x"}
+        )
+        assert result == {"ok": True}
+        assert mock_urlopen.call_count == 2
+
+
+class TestCallAdoApiBearerToken:
+    """AAD-fallback calls must authenticate with Bearer, not Basic PAT auth."""
+
+    @patch("ado_api.az_client.urllib.request.urlopen")
+    def test_bearer_token_sends_bearer_auth_header(
+        self, mock_urlopen: MagicMock
+    ) -> None:
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b'{"value": []}'
+        mock_resp.__enter__ = lambda _self: mock_resp
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_resp
+
+        call_ado_api("GET", "https://example.com/api", bearer_token="aad-access-token")
+
+        request = mock_urlopen.call_args[0][0]
+        assert request.get_header("Authorization") == "Bearer aad-access-token"
+
+    @patch("ado_api.az_client.urllib.request.urlopen")
+    def test_bearer_token_does_not_call_get_pat(
+        self, mock_urlopen: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Passing bearer_token must skip PAT resolution entirely."""
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b'{"value": []}'
+        mock_resp.__enter__ = lambda _self: mock_resp
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_resp
+
+        def _fail_get_pat() -> str:
+            raise AssertionError(
+                "get_pat() should not be called when bearer_token is given"
+            )
+
+        monkeypatch.setattr("ado_api.az_client.get_pat", _fail_get_pat)
+
+        call_ado_api("GET", "https://example.com/api", bearer_token="aad-access-token")
+
+    @patch("ado_api.az_client.urllib.request.urlopen")
+    def test_bearer_token_sends_bearer_auth_header_on_text_variant(
+        self, mock_urlopen: MagicMock
+    ) -> None:
+        """call_ado_api_text mirrors call_ado_api's bearer_token support."""
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b"plain text body"
+        mock_resp.__enter__ = lambda _self: mock_resp
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_resp
+
+        call_ado_api_text(
+            "GET", "https://example.com/api", bearer_token="aad-access-token"
+        )
+
+        request = mock_urlopen.call_args[0][0]
+        assert request.get_header("Authorization") == "Bearer aad-access-token"

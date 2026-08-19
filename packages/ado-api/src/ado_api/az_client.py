@@ -205,11 +205,22 @@ def get_aad_token() -> str | None:
     return result.stdout.strip() or None
 
 
-def build_auth_header(pat: str) -> dict[str, str]:
+def build_auth_header(
+    pat: str | None = None, *, bearer_token: str | None = None
+) -> dict[str, str]:
     """Build HTTP Authorization header for ADO REST API.
 
-    ADO expects Basic auth with ``:pat`` (colon-prefixed PAT) base64-encoded.
+    ADO expects Basic auth with ``:pat`` (colon-prefixed PAT) base64-encoded for a
+    PAT. An AAD access token (from ``az login``, see :func:`get_aad_token`) must be
+    sent as ``Bearer <token>`` instead -- ADO silently rejects an AAD token sent as
+    Basic auth, which breaks the AAD-fallback flow that exists specifically because
+    a PAT lacks a scope.
     """
+    if bearer_token is not None:
+        return {"Authorization": f"Bearer {bearer_token}"}
+    if pat is None:
+        msg = "build_auth_header requires either pat or bearer_token"
+        raise ValueError(msg)
     encoded = base64.b64encode(f":{pat}".encode()).decode()
     return {"Authorization": f"Basic {encoded}"}
 
@@ -284,23 +295,28 @@ def _should_retry_http_error(exc: BaseException) -> bool:
     return isinstance(exc, urllib.error.URLError)
 
 
-@retry(
-    retry=retry_if_exception(_should_retry_http_error),
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=2, max=8),
-    reraise=True,
-)
-def _call_ado_api_with_retry(
+# POST creates a new resource on every call (new PR, comment, work item, pipeline).
+# A transient failure that already landed server-side before the client saw the
+# response would create a duplicate if retried. GET/PATCH/PUT/DELETE are retried —
+# every PATCH call site in this package sets a resource to a fixed target state
+# (status, retry-a-stage), which is safe to repeat. POST is the only method excluded.
+_NON_IDEMPOTENT_METHODS = frozenset({"POST"})
+
+
+def _perform_ado_http_call(
     method: str,
     url: str,
     *,
-    pat: str,
+    pat: str | None = None,
+    bearer_token: str | None = None,
     data: dict[str, Any] | list[Any] | None = None,
     content_type: str = "application/json",
 ) -> Any:
-    """Perform the HTTP call to ADO, retrying on transient failures."""
+    """Perform a single HTTP call to ADO. No retry -- used directly for non-idempotent
+    methods (POST) and wrapped with @retry (below) for idempotent ones.
+    """
     headers = {
-        **build_auth_header(pat),
+        **build_auth_header(pat, bearer_token=bearer_token),
         "Content-Type": content_type,
     }
 
@@ -310,7 +326,6 @@ def _call_ado_api_with_retry(
 
     req = urllib.request.Request(url, method=method, headers=headers, data=body_bytes)  # noqa: S310
 
-    # Let exceptions bubble up for retry predicate to inspect
     with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT_SECONDS) as resp:  # noqa: S310
         response_body = resp.read().decode()
         if not response_body:
@@ -324,20 +339,58 @@ def _call_ado_api_with_retry(
             raise AdoApiError(msg) from None
 
 
+@retry(
+    retry=retry_if_exception(_should_retry_http_error),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=8),
+    reraise=True,
+)
+def _call_ado_api_with_retry(
+    method: str,
+    url: str,
+    *,
+    pat: str | None = None,
+    bearer_token: str | None = None,
+    data: dict[str, Any] | list[Any] | None = None,
+    content_type: str = "application/json",
+) -> Any:
+    """Perform the HTTP call to ADO, retrying on transient failures.
+
+    Only reachable for methods in ``call_ado_api``'s idempotent path -- POST goes
+    through :func:`_perform_ado_http_call` directly, with no retry.
+    """
+    # Let exceptions bubble up for retry predicate to inspect
+    return _perform_ado_http_call(
+        method,
+        url,
+        pat=pat,
+        bearer_token=bearer_token,
+        data=data,
+        content_type=content_type,
+    )
+
+
 def call_ado_api(
     method: str,
     url: str,
     *,
     pat: str | None = None,
+    bearer_token: str | None = None,
     data: dict[str, Any] | list[Any] | None = None,
     content_type: str = "application/json",
 ) -> Any:
     """Make an authenticated REST API call to Azure DevOps.
 
     Args:
-        method: HTTP method (GET, POST, PATCH, etc.)
+        method: HTTP method (GET, POST, PATCH, etc.). Automatic retry on transient
+            failures applies to every method except POST -- POST creates a new
+            resource on each call, so retrying it risks creating a duplicate.
         url: Full API URL.
-        pat: Personal Access Token. Resolved via ``get_pat()`` if not provided.
+        pat: Personal Access Token. Resolved via ``get_pat()`` if not provided and
+            *bearer_token* is not given either.
+        bearer_token: An AAD access token (from :func:`get_aad_token`), sent as
+            ``Authorization: Bearer <token>`` instead of PAT Basic auth. Mutually
+            exclusive with *pat* -- pass this instead of *pat*, not alongside it.
         data: JSON body for POST/PATCH requests (dict or list).
         content_type: Content-Type header value (default ``application/json``).
 
@@ -347,12 +400,26 @@ def call_ado_api(
     Raises:
         AdoApiError: If the API call fails.
     """
-    if pat is None:
+    if pat is None and bearer_token is None:
         pat = get_pat()
 
     try:
+        if method.upper() in _NON_IDEMPOTENT_METHODS:
+            return _perform_ado_http_call(
+                method,
+                url,
+                pat=pat,
+                bearer_token=bearer_token,
+                data=data,
+                content_type=content_type,
+            )
         return _call_ado_api_with_retry(
-            method, url, pat=pat, data=data, content_type=content_type
+            method,
+            url,
+            pat=pat,
+            bearer_token=bearer_token,
+            data=data,
+            content_type=content_type,
         )
     except urllib.error.HTTPError as exc:
         error_body = exc.read().decode() if exc.fp else ""
@@ -370,20 +437,31 @@ def call_ado_api(
         raise AdoApiError(msg) from exc
 
 
+def _perform_ado_http_text_call(
+    method: str, url: str, *, pat: str | None = None, bearer_token: str | None = None
+) -> str:
+    """Perform a single HTTP call to ADO for a text response. No retry -- used
+    directly for non-idempotent methods and wrapped with @retry (below) otherwise.
+    """
+    headers = build_auth_header(pat, bearer_token=bearer_token)
+    req = urllib.request.Request(url, method=method, headers=headers)  # noqa: S310
+
+    with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT_SECONDS) as resp:  # noqa: S310
+        return resp.read().decode()
+
+
 @retry(
     retry=retry_if_exception(_should_retry_http_error),
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=2, max=8),
     reraise=True,
 )
-def _call_ado_api_text_with_retry(method: str, url: str, *, pat: str) -> str:
+def _call_ado_api_text_with_retry(
+    method: str, url: str, *, pat: str | None = None, bearer_token: str | None = None
+) -> str:
     """Perform the HTTP call to ADO for a text response, retrying on transient failures."""
-    headers = build_auth_header(pat)
-    req = urllib.request.Request(url, method=method, headers=headers)  # noqa: S310
-
     # Let exceptions bubble up for retry predicate to inspect
-    with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT_SECONDS) as resp:  # noqa: S310
-        return resp.read().decode()
+    return _perform_ado_http_text_call(method, url, pat=pat, bearer_token=bearer_token)
 
 
 def call_ado_api_text(
@@ -391,15 +469,20 @@ def call_ado_api_text(
     url: str,
     *,
     pat: str | None = None,
+    bearer_token: str | None = None,
 ) -> str:
     """Make an authenticated REST API call that returns plain text.
 
     Used for log content endpoints which return ``text/plain`` instead of JSON.
 
     Args:
-        method: HTTP method (typically GET).
+        method: HTTP method (typically GET). Automatic retry on transient failures
+            applies to every method except POST, same as :func:`call_ado_api`.
         url: Full API URL.
-        pat: Personal Access Token. Resolved via ``get_pat()`` if not provided.
+        pat: Personal Access Token. Resolved via ``get_pat()`` if not provided and
+            *bearer_token* is not given either.
+        bearer_token: An AAD access token, sent as ``Authorization: Bearer <token>``
+            instead of PAT Basic auth. Mutually exclusive with *pat*.
 
     Returns:
         Response body as a string.
@@ -407,11 +490,17 @@ def call_ado_api_text(
     Raises:
         AdoApiError: If the API call fails.
     """
-    if pat is None:
+    if pat is None and bearer_token is None:
         pat = get_pat()
 
     try:
-        return _call_ado_api_text_with_retry(method, url, pat=pat)
+        if method.upper() in _NON_IDEMPOTENT_METHODS:
+            return _perform_ado_http_text_call(
+                method, url, pat=pat, bearer_token=bearer_token
+            )
+        return _call_ado_api_text_with_retry(
+            method, url, pat=pat, bearer_token=bearer_token
+        )
     except urllib.error.HTTPError as exc:
         error_body = exc.read().decode() if exc.fp else ""
         msg = f"ADO API {method} {url} failed ({exc.code}): {error_body or str(exc)}"

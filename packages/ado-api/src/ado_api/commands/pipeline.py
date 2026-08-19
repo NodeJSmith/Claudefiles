@@ -3,6 +3,7 @@
 import sys
 from enum import StrEnum, auto
 from typing import Any
+from urllib.parse import quote
 
 from ado_api.az_client import (
     ADO_API_VERSION,
@@ -103,7 +104,7 @@ def _list_queues(ctx: AdoContext, url: str) -> list[dict[str, Any]]:
             ) from pat_exc
 
         try:
-            return call_ado_api("GET", url, pat=token).get("value", [])
+            return call_ado_api("GET", url, bearer_token=token).get("value", [])
         except AdoApiError as aad_exc:
             raise _queue_error(
                 f"neither credential can list agent queues.\nPAT attempt: {pat_exc}\nAAD attempt: {aad_exc}",
@@ -149,7 +150,7 @@ def _find_definition_by_name(ctx: AdoContext, name: str) -> dict[str, Any] | Non
     The definitions endpoint's ``name`` filter supports wildcards, so results are
     filtered to an exact (case-insensitive) name match to avoid prefix false positives.
     """
-    url = f"{_pipeline_url(ctx)}?name={name}&{API_PARAMETER}"
+    url = f"{_pipeline_url(ctx)}?name={quote(name, safe='')}&{API_PARAMETER}"
     response = call_ado_api("GET", url, pat=ctx.pat)
     for definition in response.get("value", []):
         if definition.get("name", "").casefold() == name.casefold():

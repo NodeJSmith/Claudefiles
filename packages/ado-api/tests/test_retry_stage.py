@@ -231,6 +231,19 @@ class TestCmdBuildsRetryStage:
 
         assert "No builds matched." in capsys.readouterr().out
 
+    def test_empty_selection_json_emits_valid_json(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """--json with no matching builds must still print parseable JSON, not the
+        plain-text 'No builds matched.' message -- that breaks jq consumption on
+        the (normal) empty-result case.
+        """
+        cmd_builds_retry_stage(_make_ctx(), [], stage="prod", yes=True, as_json=True)
+
+        captured = capsys.readouterr()
+        assert "No builds matched." not in captured.out
+        assert json.loads(captured.out) == []
+
     @patch("ado_api.commands.retry_stage.call_ado_api")
     def test_nothing_eligible(
         self, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]

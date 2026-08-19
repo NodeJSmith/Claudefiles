@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from ado_api.az_client import AdoApiError
 from ado_api.commands.pr import (
+    _fetch_prs_matching_author,
     _get_pr_artifact_id,
     _link_work_item_to_pr,
     _run_az_pr_work_item,
@@ -224,6 +225,75 @@ class TestPrList:
         # Header only
         assert len(lines) == 1
         assert "ID" in lines[0]
+
+    @patch("ado_api.commands.pr.call_ado_api")
+    def test_pr_list_author_not_dropped_beyond_first_page(
+        self,
+        mock_api: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """A naive $top-then-filter would silently drop this match: the author's
+        only PR sits on the second page, past a first page full of other authors.
+        """
+        monkeypatch.setattr("ado_api.commands.pr._AUTHOR_SEARCH_PAGE_SIZE", 2)
+        mock_api.side_effect = [
+            _pr_list_response(
+                _make_pr(pr_id=1, author="jdoe@example.com", title="Other PR 1"),
+                _make_pr(pr_id=2, author="jdoe@example.com", title="Other PR 2"),
+            ),
+            _pr_list_response(
+                _make_pr(pr_id=3, author="jsmith@example.com", title="My PR"),
+            ),
+        ]
+
+        cmd_pr_list(FAKE_CTX, author="jsmith", top=5)
+
+        assert mock_api.call_count == 2
+        first_url = mock_api.call_args_list[0][0][1]
+        second_url = mock_api.call_args_list[1][0][1]
+        assert "$skip=0" in first_url
+        assert "$skip=2" in second_url
+
+        captured = capsys.readouterr()
+        assert "My PR" in captured.out
+        assert "Other PR 1" not in captured.out
+        assert "Other PR 2" not in captured.out
+
+    @patch("ado_api.commands.pr.call_ado_api")
+    def test_fetch_prs_matching_author_stops_at_top(
+        self, mock_api: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Once enough matches are found, stop paging rather than scanning further."""
+        monkeypatch.setattr("ado_api.commands.pr._AUTHOR_SEARCH_PAGE_SIZE", 2)
+        mock_api.return_value = _pr_list_response(
+            _make_pr(pr_id=1, author="jsmith@example.com", title="Match 1"),
+            _make_pr(pr_id=2, author="jsmith@example.com", title="Match 2"),
+        )
+
+        result = _fetch_prs_matching_author(
+            FAKE_CTX, status="active", author="jsmith", top=1
+        )
+
+        assert len(result) == 1
+        assert mock_api.call_count == 1
+
+    @patch("ado_api.commands.pr.call_ado_api")
+    def test_fetch_prs_matching_author_stops_when_page_exhausted(
+        self, mock_api: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A page shorter than the page size means no more results exist -- stop."""
+        monkeypatch.setattr("ado_api.commands.pr._AUTHOR_SEARCH_PAGE_SIZE", 5)
+        mock_api.return_value = _pr_list_response(
+            _make_pr(pr_id=1, author="jdoe@example.com", title="Other"),
+        )
+
+        result = _fetch_prs_matching_author(
+            FAKE_CTX, status="active", author="jsmith", top=10
+        )
+
+        assert result == []
+        assert mock_api.call_count == 1
 
 
 # ── pr show ──────────────────────────────────────────────────────────

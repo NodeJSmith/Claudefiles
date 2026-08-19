@@ -17,6 +17,14 @@ _LIST_HEADERS = ("ID", "TITLE", "SOURCE", "TARGET", "STATUS", "AUTHOR")
 
 _DEFAULT_TOP = 50
 
+# ADO's PR list API has no server-side filter for a display-name/uniqueName
+# substring (only `searchCriteria.creatorId`, a GUID), so an `--author` search has
+# to page through results and filter client-side. These bound how much a single
+# `--author` search will scan: page size per request, and a hard cap on pages so a
+# repo with no matches for the given author can't turn into an unbounded scan.
+_AUTHOR_SEARCH_PAGE_SIZE = 100
+_AUTHOR_SEARCH_MAX_PAGES = 20
+
 
 _THREAD_HEADERS = ("ID", "STATUS", "AUTHOR", "CONTENT")
 
@@ -135,6 +143,44 @@ def _matches_author(pr: dict[str, Any], author: str) -> bool:
     return author_lower in unique_name or author_lower in display_name
 
 
+def _fetch_prs_matching_author(
+    ctx: AdoContext, *, status: str, author: str, top: int
+) -> list[dict[str, Any]]:
+    """Page through PRs, applying the author filter before truncating to *top*.
+
+    Filtering the ``--top`` page instead of the full result set can silently drop
+    an author's PRs when other authors' PRs fill the first page. Paging server-side
+    ``$top``/``$skip`` and filtering as pages arrive fixes that without requiring a
+    server-side author filter this API doesn't offer for a substring match.
+    """
+    matches: list[dict[str, Any]] = []
+    skip = 0
+    pages_fetched = 0
+    for _ in range(_AUTHOR_SEARCH_MAX_PAGES):
+        url = (
+            f"{_pr_base_url(ctx)}?searchCriteria.status={status}"
+            f"&$top={_AUTHOR_SEARCH_PAGE_SIZE}&$skip={skip}"
+            f"&api-version={ADO_API_VERSION}"
+        )
+        data = call_ado_api("GET", url, pat=ctx.pat)
+        page: list[dict[str, Any]] = data.get("value", [])
+        pages_fetched += 1
+        if not page:
+            break
+        matches.extend(pr for pr in page if _matches_author(pr, author))
+        if len(matches) >= top or len(page) < _AUTHOR_SEARCH_PAGE_SIZE:
+            break
+        skip += _AUTHOR_SEARCH_PAGE_SIZE
+    else:
+        print(
+            f"Warning: stopped after {_AUTHOR_SEARCH_MAX_PAGES} pages "
+            f"({pages_fetched * _AUTHOR_SEARCH_PAGE_SIZE} PRs); more PRs may exist for "
+            "this author. Narrow --status or increase the search window.",
+            file=sys.stderr,
+        )
+    return matches[:top]
+
+
 def cmd_pr_list(
     ctx: AdoContext,
     *,
@@ -144,13 +190,12 @@ def cmd_pr_list(
     as_json: bool = False,
 ) -> None:
     """List pull requests for the repository."""
-    url = f"{_pr_base_url(ctx)}?searchCriteria.status={status}&$top={top}&api-version={ADO_API_VERSION}"
-
-    data = call_ado_api("GET", url, pat=ctx.pat)
-    prs: list[dict[str, Any]] = data.get("value", [])
-
     if author is not None:
-        prs = [pr for pr in prs if _matches_author(pr, author)]
+        prs = _fetch_prs_matching_author(ctx, status=status, author=author, top=top)
+    else:
+        url = f"{_pr_base_url(ctx)}?searchCriteria.status={status}&$top={top}&api-version={ADO_API_VERSION}"
+        data = call_ado_api("GET", url, pat=ctx.pat)
+        prs = data.get("value", [])
 
     if as_json:
         json_output([_pr_to_dict(pr) for pr in prs])
