@@ -1,7 +1,7 @@
 ---
 task_id: "T02"
 title: "Re-apply --body-file / --description-file (with stdin) on the cyclopts CLI layer"
-status: "planned"
+status: "done"
 depends_on: ["T01"]
 implements: ["FR#4", "FR#5"]
 ---

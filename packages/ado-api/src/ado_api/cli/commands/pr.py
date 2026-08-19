@@ -15,6 +15,7 @@ from ado_api.cli.context import (
     _get_repo_or_exit,
     _get_repo_or_none,
     make_ado_context,
+    resolve_file_text,
 )
 from ado_api.cli.limits import variadic_limit_validator
 from ado_api.commands.pr import _DEFAULT_TOP as _DEFAULT_LIST_TOP
@@ -87,6 +88,9 @@ def cli_pr_create(
     title: str,
     *,
     description: Annotated[str | None, Parameter(allow_leading_hyphen=True)] = None,
+    description_file: Annotated[
+        str | None, Parameter(name="--description-file", allow_leading_hyphen=True)
+    ] = None,
     source: Annotated[
         str | None, Parameter(name=["--source", "--source-branch"])
     ] = None,
@@ -97,11 +101,14 @@ def cli_pr_create(
     ctx: AdoCliContextParam = DEFAULT_CLI_CONTEXT,
 ) -> None:
     """Create a pull request."""
+    resolved_description = resolve_file_text(
+        description, description_file, "description"
+    )
     ado_ctx = make_ado_context(ctx, repo=_get_repo_or_exit())
     cmd_pr_create(
         ado_ctx,
         title,
-        description=description,
+        description=resolved_description,
         source=source,
         target=target,
         draft=draft,
@@ -114,17 +121,23 @@ def cli_pr_update(
     *,
     title: str | None = None,
     description: str | None = None,
+    description_file: Annotated[
+        str | None, Parameter(name="--description-file", allow_leading_hyphen=True)
+    ] = None,
     status: Annotated[str | None, Parameter(validator=_validate_update_status)] = None,
     draft: bool | None = None,
     ctx: AdoCliContextParam = DEFAULT_CLI_CONTEXT,
 ) -> None:
     """Update a pull request."""
+    resolved_description = resolve_file_text(
+        description, description_file, "description"
+    )
     ado_ctx = make_ado_context(ctx, repo=_get_repo_or_exit())
     cmd_pr_update(
         ado_ctx,
         pr_id,
         title=title,
-        description=description,
+        description=resolved_description,
         status=status,
         draft=draft,
         as_json=ctx.json_mode,
@@ -145,26 +158,41 @@ def cli_pr_threads(
 def cli_pr_thread_add(
     pr_id: int | None = None,
     *,
-    body: Annotated[str, Parameter(allow_leading_hyphen=True)],
+    body: Annotated[str | None, Parameter(allow_leading_hyphen=True)] = None,
+    body_file: Annotated[
+        str | None, Parameter(name="--body-file", allow_leading_hyphen=True)
+    ] = None,
     ctx: AdoCliContextParam = DEFAULT_CLI_CONTEXT,
 ) -> None:
     """Add a new comment thread on a pull request."""
+    resolved_body = resolve_file_text(body, body_file, "body", required=True)
     ado_ctx = make_ado_context(ctx, repo=_get_repo_or_exit())
-    cmd_pr_thread_add(ado_ctx, pr_id, body=body, as_json=ctx.json_mode)
+    cmd_pr_thread_add(ado_ctx, pr_id, body=resolved_body, as_json=ctx.json_mode)
 
 
 def cli_pr_reply(
     pr_id: int,
     thread_id: int,
-    body: Annotated[str, Parameter(allow_leading_hyphen=True)],
+    body: Annotated[str | None, Parameter(allow_leading_hyphen=True)] = None,
     *,
+    body_file: Annotated[
+        str | None, Parameter(name="--body-file", allow_leading_hyphen=True)
+    ] = None,
     parent_id: Annotated[int | None, Parameter(name="--parent")] = None,
     ctx: AdoCliContextParam = DEFAULT_CLI_CONTEXT,
 ) -> None:
     """Reply to a PR thread."""
+    resolved_body = resolve_file_text(
+        body, body_file, "body", required=True, inline_name="<body>"
+    )
     ado_ctx = make_ado_context(ctx, repo=_get_repo_or_exit())
     cmd_pr_reply(
-        ado_ctx, pr_id, thread_id, body, parent_id=parent_id, as_json=ctx.json_mode
+        ado_ctx,
+        pr_id,
+        thread_id,
+        resolved_body,
+        parent_id=parent_id,
+        as_json=ctx.json_mode,
     )
 
 
@@ -247,10 +275,16 @@ def cli_pr_work_item_create(
     area: str | None = None,
     iteration: str | None = None,
     description: str | None = None,
+    description_file: Annotated[
+        str | None, Parameter(name="--description-file", allow_leading_hyphen=True)
+    ] = None,
     fields: Annotated[list[str] | None, Parameter(allow_leading_hyphen=True)] = None,
     ctx: AdoCliContextParam = DEFAULT_CLI_CONTEXT,
 ) -> None:
     """Create a work item and link it to a pull request."""
+    resolved_description = resolve_file_text(
+        description, description_file, "description"
+    )
     ado_ctx = make_ado_context(ctx, repo=_get_repo_or_exit())
     cmd_pr_work_item_create(
         ado_ctx,
@@ -261,6 +295,6 @@ def cli_pr_work_item_create(
         assigned_to=assigned_to,
         area=area,
         iteration=iteration,
-        description=description,
+        description=resolved_description,
         fields=fields,
     )
