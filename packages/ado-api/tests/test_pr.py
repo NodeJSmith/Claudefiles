@@ -37,6 +37,9 @@ FAKE_PAT = "fake-pat-token"
 FAKE_CTX = AdoContext(config=FAKE_CONFIG, pat=FAKE_PAT, repo="my-repo")
 
 
+FAKE_ARTIFACT_ID = "vstfs:///Git/PullRequestId/proj-id%2Frepo-id%2F42"
+
+
 def _make_pr(
     *,
     pr_id: int = 1001,
@@ -193,16 +196,23 @@ class TestPrList:
         assert "searchCriteria.status=completed" in url
 
     @patch("ado_api.commands.pr.call_ado_api")
-    def test_pr_list_author_param(
+    def test_pr_list_author_filters_client_side(
         self,
         mock_api: MagicMock,
+        capsys: pytest.CaptureFixture[str],
     ) -> None:
-        mock_api.return_value = _pr_list_response()
+        mock_api.return_value = _pr_list_response(
+            _make_pr(pr_id=1, author="jsmith@example.com", title="My PR"),
+            _make_pr(pr_id=2, author="jdoe@example.com", title="Other PR"),
+        )
 
         cmd_pr_list(FAKE_CTX, author="jsmith")
 
         url = mock_api.call_args[0][1]
-        assert "searchCriteria.creatorId=jsmith" in url
+        assert "creatorId" not in url
+        captured = capsys.readouterr()
+        assert "My PR" in captured.out
+        assert "Other PR" not in captured.out
 
     @patch("ado_api.commands.pr.call_ado_api")
     def test_pr_list_empty(
@@ -456,6 +466,45 @@ class TestPrUpdate:
         call_kwargs = mock_api.call_args
         body = call_kwargs[1]["data"]
         assert body == {"title": "New Title", "description": "New Desc"}
+
+    @patch("ado_api.commands.pr.call_ado_api")
+    def test_pr_update_draft_true(
+        self,
+        mock_api: MagicMock,
+    ) -> None:
+        mock_api.return_value = _make_pr(pr_id=42, is_draft=True)
+
+        cmd_pr_update(FAKE_CTX, 42, draft=True)
+
+        body = mock_api.call_args[1]["data"]
+        assert body == {"isDraft": True}
+
+    @patch("ado_api.commands.pr.call_ado_api")
+    def test_pr_update_draft_false(
+        self,
+        mock_api: MagicMock,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        mock_api.return_value = _make_pr(pr_id=42, is_draft=False)
+
+        cmd_pr_update(FAKE_CTX, 42, draft=False)
+
+        body = mock_api.call_args[1]["data"]
+        assert body == {"isDraft": False}
+        captured = capsys.readouterr()
+        assert "Updated PR #42" in captured.out
+
+    @patch("ado_api.commands.pr.call_ado_api")
+    def test_pr_update_draft_with_other_fields(
+        self,
+        mock_api: MagicMock,
+    ) -> None:
+        mock_api.return_value = _make_pr(pr_id=42)
+
+        cmd_pr_update(FAKE_CTX, 42, title="Ready", draft=False)
+
+        body = mock_api.call_args[1]["data"]
+        assert body == {"title": "Ready", "isDraft": False}
 
 
 # ── Thread fixtures ──────────────────────────────────────────────────
@@ -1146,9 +1195,6 @@ class TestPrWorkItemList:
 
 
 # ── _get_pr_artifact_id ──────────────────────────────────────────────
-
-
-FAKE_ARTIFACT_ID = "vstfs:///Git/PullRequestId/proj-id%2Frepo-id%2F42"
 
 
 class TestGetPrArtifactId:

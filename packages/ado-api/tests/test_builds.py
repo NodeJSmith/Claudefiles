@@ -1,6 +1,7 @@
-"""Tests for ado_api.commands.builds — build list, cancel, and cancel-by-tag."""
+"""Tests for ado_api.commands.builds — build list, cancel, cancel-by-tag, and timeline steps."""
 
 import json
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -9,6 +10,7 @@ from ado_api.commands.builds import (
     cmd_builds_cancel,
     cmd_builds_cancel_by_tag,
     cmd_builds_list,
+    cmd_builds_steps,
 )
 
 # ── Sample data ──────────────────────────────────────────────────────────
@@ -16,6 +18,7 @@ from ado_api.commands.builds import (
 FAKE_CONFIG = AdoConfig(organization="https://dev.azure.com/myorg", project="MyProject")
 FAKE_PAT = "fake-pat-token"
 FAKE_CTX = AdoContext(config=FAKE_CONFIG, pat=FAKE_PAT)
+
 
 _SAMPLE_BUILDS = [
     {
@@ -33,6 +36,40 @@ _SAMPLE_BUILDS = [
         "tags": ["abc123", "nightly"],
     },
 ]
+
+
+def _make_timeline_record(
+    *,
+    order: int = 1,
+    record_type: str = "Task",
+    name: str = "Build",
+    result: str = "succeeded",
+    log_id: int | None = 10,
+    error_count: int = 0,
+    warning_count: int = 0,
+    start_time: str | None = "2026-03-13T10:00:00Z",
+    finish_time: str | None = "2026-03-13T10:01:30Z",
+    issues: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
+    record: dict[str, Any] = {
+        "order": order,
+        "type": record_type,
+        "name": name,
+        "result": result,
+        "errorCount": error_count,
+        "warningCount": warning_count,
+        "startTime": start_time,
+        "finishTime": finish_time,
+    }
+    if log_id is not None:
+        record["log"] = {"id": log_id}
+    if issues is not None:
+        record["issues"] = issues
+    return record
+
+
+def _timeline_response(*records: dict[str, Any]) -> dict[str, Any]:
+    return {"records": list(records)}
 
 
 class TestBuildsListBasic:
@@ -227,3 +264,99 @@ class TestBuildsCancelByTag:
 
         captured = capsys.readouterr()
         assert "No in-progress builds" in captured.out
+
+
+class TestBuildsStepsBasic:
+    """builds steps — basic TSV output with all columns."""
+
+    @patch("ado_api.commands.builds.call_ado_api")
+    def test_builds_steps_basic(
+        self,
+        mock_api: MagicMock,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        mock_api.return_value = _timeline_response(
+            _make_timeline_record(order=1, name="Build", result="succeeded", log_id=10),
+            _make_timeline_record(
+                order=2, name="Test", result="failed", log_id=11, error_count=2
+            ),
+        )
+
+        cmd_builds_steps(FAKE_CTX, 100)
+
+        captured = capsys.readouterr()
+        lines = captured.out.strip().split("\n")
+        # Header + 2 data rows
+        assert len(lines) == 3
+        assert "ORDER" in lines[0]
+        assert "TYPE" in lines[0]
+        assert "NAME" in lines[0]
+        assert "Build" in lines[1]
+        assert "Test" in lines[2]
+
+    @patch("ado_api.commands.builds.call_ado_api")
+    def test_builds_steps_json(
+        self,
+        mock_api: MagicMock,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        mock_api.return_value = _timeline_response(
+            _make_timeline_record(order=1, name="Build"),
+        )
+
+        cmd_builds_steps(FAKE_CTX, 100, as_json=True)
+
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert isinstance(data, list)
+        assert data[0]["name"] == "Build"
+
+
+class TestBuildsStepsFailedFilter:
+    """builds steps --failed — only show failed and succeededWithIssues."""
+
+    @patch("ado_api.commands.builds.call_ado_api")
+    def test_builds_steps_failed_filter(
+        self,
+        mock_api: MagicMock,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        mock_api.return_value = _timeline_response(
+            _make_timeline_record(order=1, name="Good", result="succeeded"),
+            _make_timeline_record(order=2, name="Bad", result="failed"),
+            _make_timeline_record(order=3, name="Warn", result="succeededWithIssues"),
+            _make_timeline_record(order=4, name="Skip", result="skipped"),
+        )
+
+        cmd_builds_steps(FAKE_CTX, 100, failed=True)
+
+        captured = capsys.readouterr()
+        lines = captured.out.strip().split("\n")
+        # Header + 2 matching rows
+        assert len(lines) == 3
+        assert "Bad" in lines[1]
+        assert "Warn" in lines[2]
+
+
+class TestBuildsStepsTypeFilter:
+    """builds steps --type Task — filter by record type."""
+
+    @patch("ado_api.commands.builds.call_ado_api")
+    def test_builds_steps_type_filter(
+        self,
+        mock_api: MagicMock,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        mock_api.return_value = _timeline_response(
+            _make_timeline_record(order=1, name="Phase", record_type="Phase"),
+            _make_timeline_record(order=2, name="Build", record_type="Task"),
+        )
+
+        cmd_builds_steps(FAKE_CTX, 100, record_type="Task")
+
+        captured = capsys.readouterr()
+        lines = captured.out.strip().split("\n")
+        # Header + 1 matching row
+        assert len(lines) == 2
+        assert "Build" in lines[1]
+        assert "Phase" not in captured.out.split("\n", 1)[1]  # not in data rows

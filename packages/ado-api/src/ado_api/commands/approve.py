@@ -12,33 +12,41 @@ actually succeeded before treating it as "already approved."
 import sys
 import tempfile
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
-from ado_api.az_client import AdoApiError, AdoContext, call_ado_api
-from ado_api.commands.builds import _BUILDS_PATH, _get_default_branch
-from ado_api.formatting import json_output
+from ado_api.az_client import ADO_API_VERSION, AdoApiError, AdoContext, call_ado_api
+from ado_api.commands.builds import _get_default_branch, _list_builds
+from ado_api.formatting import aligned_table, json_output
+from ado_api.tags import pr_tag_variants
+
+# A re-run stage (``builds retry-stage``) drops its build back to ``notStarted``
+# while the new attempt waits on the gate, so ``inProgress`` alone hides every
+# requeued release. ``notStarted`` is a generic queued state, so this filter is
+# genuinely broader — safely, since callers intersect it with pending approvals
+# and a not-yet-started build has none to grant.
+_APPROVABLE_STATUSES = ("inProgress", "notStarted")
 
 
-_APPROVALS_PATH = ("_apis", "pipelines", "approvals")
-
-
-def _approvals_url(ctx: AdoContext, **extra_query: str) -> str:
-    return ctx.config.api_url(*_APPROVALS_PATH, **extra_query)
+def _approvals_url(ctx: AdoContext) -> str:
+    return (
+        f"{ctx.config.base_url}/_apis/pipelines/approvals?api-version={ADO_API_VERSION}"
+    )
 
 
 def _builds_url(ctx: AdoContext) -> str:
     branch = _get_default_branch()
-    return ctx.config.api_url(
-        *_BUILDS_PATH,
-        statusFilter="inProgress",
-        branchName=f"refs/heads/{branch}",
-        queryOrder="queueTimeDescending",
+    return (
+        f"{ctx.config.base_url}/_apis/build/builds"
+        f"?api-version={ADO_API_VERSION}"
+        f"&statusFilter={','.join(_APPROVABLE_STATUSES)}"
+        f"&branchName=refs/heads/{branch}"
+        f"&queryOrder=queueTimeDescending"
     )
 
 
 def _get_pending_approvals(ctx: AdoContext) -> list[dict[str, Any]]:
     """Fetch all pending pipeline approvals."""
-    url = _approvals_url(ctx, state="pending", **{"$expand": "steps"})
+    url = _approvals_url(ctx) + "&state=pending&$expand=steps"
     data = call_ado_api("GET", url, pat=ctx.pat)
     return data.get("value", [])
 
@@ -89,7 +97,7 @@ def _format_waiting(iso_timestamp: str | None) -> str:
 
 def _check_approval_state(ctx: AdoContext, approval_id: str) -> str | None:
     """GET the approval to check its current state. Returns status or None on error."""
-    url = _approvals_url(ctx, approvalIds=approval_id)
+    url = _approvals_url(ctx) + f"&approvalIds={approval_id}"
     try:
         data = call_ado_api("GET", url, pat=ctx.pat)
         approvals = data.get("value", [])
@@ -129,6 +137,23 @@ def _approve_one(
                 file=sys.stderr,
             )
         raise
+
+
+def resolve_pr_ids_to_builds(ctx: AdoContext, ids: list[str]) -> list[int]:
+    """Expand PR IDs to every tag spelling their builds may carry, and resolve to build IDs.
+
+    Builds are tagged under two historical formats (``pr=<id>`` and ``PR-<id>``) — see
+    :func:`ado_api.tags.pr_tag_variants` — so each PR ID is searched under both
+    variants and the resulting build IDs from every match are combined.
+    """
+    tag_variants = [tag for pr_arg in ids for tag in pr_tag_variants(pr_arg)]
+    builds_per_pr = [_list_builds(ctx, tags=tag) for tag in tag_variants]
+    return [
+        cast("int", build.get("id"))
+        for builds in builds_per_pr
+        for build in builds
+        if "id" in build
+    ]
 
 
 def cmd_builds_approve_list(
@@ -172,7 +197,8 @@ def cmd_builds_approve_list(
             }
         )
 
-    rows.sort(key=lambda r: (r["last_changed"] == "-", r["last_changed"]))
+    # Sort by waiting time — longest first (oldest lastChangedDate)
+    rows.sort(key=lambda r: r["last_changed"])
 
     if as_json:
         json_output(rows)
@@ -183,25 +209,17 @@ def cmd_builds_approve_list(
         return
 
     headers = ("BUILD", "PIPELINE", "BRANCH", "REQUESTED_BY", "WAITING")
-    col_widths = [
-        max(len(headers[i]), *(len(str(r[k])) for r in rows))
-        for i, k in enumerate(
-            ["build_id", "pipeline_name", "source_branch", "requested_for", "waiting"]
-        )
-    ]
-
-    header_line = "  ".join(h.ljust(w) for h, w in zip(headers, col_widths))
-    print(header_line)
-    print("  ".join("-" * w for w in col_widths))
-    for r in rows:
-        cells = [
+    table_rows = [
+        (
             str(r["build_id"]),
             r["pipeline_name"],
             r["source_branch"],
             r["requested_for"],
             r["waiting"],
-        ]
-        print("  ".join(c.ljust(w) for c, w in zip(cells, col_widths)))
+        )
+        for r in rows
+    ]
+    aligned_table(table_rows, headers=headers)
 
     print(f"\n{len(rows)} pending approval(s)")
 

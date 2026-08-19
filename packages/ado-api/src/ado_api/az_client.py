@@ -12,17 +12,33 @@ import base64
 import json
 import os
 import subprocess
+import sys
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from yarl import URL
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 ADO_API_VERSION = "7.1"
 
 _PAT_FILE = Path.home() / ".azure" / "azuredevops" / "personalAccessTokens"
+
+# First-party AAD application ID for Azure DevOps. Tokens issued for this resource
+# carry the signed-in user's full permissions, so they reach endpoints a PAT that
+# wasn't given the matching scope cannot (e.g. distributedtask/queues needs Agent
+# Pools (Read)). A PAT created with that scope reaches them too — this is a fallback.
+# This is a well-known Microsoft-assigned ID, not something we chose. To re-verify,
+# grep the az devops extension for the same value:
+#   grep -rn 499b84ac ~/.azure/cliextensions/azure-devops/azext_devops/dev/common/services.py
+_ADO_AAD_RESOURCE = "499b84ac-1321-427f-aa17-267ca6975798"
+
+# A cached token returns near-instantly, so this only bounds a broken az or network.
+_AZ_TIMEOUT_SECONDS = 30
+
+# Upstream failure text can be arbitrarily long; keep one line readable in a terminal.
+_MAX_REASON_CHARS = 200
 
 
 class AdoAuthError(Exception):
@@ -44,19 +60,15 @@ class AdoConfig:
     organization: str
     project: str
 
-    def api_url(self, *segments: str, **query: str) -> str:
-        """Build an ADO REST API URL with proper encoding.
+    @property
+    def project_encoded(self) -> str:
+        """URL-encoded project name (spaces become %20)."""
+        return self.project.replace(" ", "%20")
 
-        Segments are appended as path components after ``{org}/{project}``.
-        The ``api-version`` query parameter is always included.
-
-        Returns the URL as a string for use with :func:`call_ado_api`.
-        """
-        base = URL(self.organization) / self.project
-        for seg in segments:
-            base = base / seg
-        all_query = {"api-version": ADO_API_VERSION, **query}
-        return str(base.with_query(all_query))
+    @property
+    def base_url(self) -> str:
+        """Org + project prefix every project-scoped REST URL is built on."""
+        return f"{self.organization}/{self.project_encoded}"
 
 
 @dataclass(frozen=True)
@@ -129,6 +141,66 @@ def get_pat() -> str:
     raise AdoAuthError(msg)
 
 
+def _warn_az_token_failure(reason: str) -> None:
+    """Report why an AAD token could not be obtained, so the fallback isn't silent."""
+    print(f"az token lookup failed: {reason[:_MAX_REASON_CHARS]}", file=sys.stderr)
+
+
+def get_aad_token() -> str | None:
+    """Resolve an AAD access token for Azure DevOps from the local ``az login`` session.
+
+    A PAT only grants the scopes it was created with, and PATs are per-user — so
+    whether any given one covers an endpoint depends on who made it and how. An AAD
+    token sidesteps that: the az CLI mints it with the signed-in user's own
+    permissions, so no scope configuration is needed. Useful as a fallback when the
+    configured PAT happens to lack a scope, not because PATs can't work.
+
+    Every failure returns None so callers can fall back, which would otherwise
+    collapse three different causes — ``az`` missing, ``az`` hung, and not logged
+    in — into one misleading remedy. Each one reports its own reason to stderr.
+
+    Returns:
+        The access token, or None if ``az`` is unavailable or no login is active.
+        Callers are expected to fall back to the PAT.
+    """
+    # A cached token returns near-instantly; anything slower is a broken az install or
+    # network, and re-auth needs a browser this subprocess cannot drive. Keep the
+    # timeout short so a failure falls through to the PAT instead of looking like a hang.
+    try:
+        result = subprocess.run(
+            [
+                "az",
+                "account",
+                "get-access-token",
+                "--resource",
+                _ADO_AAD_RESOURCE,
+                "--query",
+                "accessToken",
+                "-o",
+                "tsv",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=_AZ_TIMEOUT_SECONDS,
+        )
+    except FileNotFoundError:
+        _warn_az_token_failure("az CLI not found on PATH")
+        return None
+    except subprocess.TimeoutExpired:
+        _warn_az_token_failure(f"az did not respond within {_AZ_TIMEOUT_SECONDS}s")
+        return None
+
+    if result.returncode != 0:
+        # az explains the real cause (expired login, network, wrong subscription) here.
+        reason = next(
+            reversed(result.stderr.strip().splitlines()), "az exited non-zero"
+        )
+        _warn_az_token_failure(reason)
+        return None
+    return result.stdout.strip() or None
+
+
 def build_auth_header(pat: str) -> dict[str, str]:
     """Build HTTP Authorization header for ADO REST API.
 
@@ -159,6 +231,10 @@ def get_ado_config() -> AdoConfig:
             text=True,
             check=False,
         )
+        if result.returncode != 0:
+            stderr_msg = result.stderr.strip() if result.stderr else "unknown error"
+            msg = f"az devops configure --list failed (exit {result.returncode}): {stderr_msg}"
+            raise AdoConfigError(msg)
         output = result.stdout
     except FileNotFoundError:
         msg = "az CLI not found. Run 'ado-api setup' for installation instructions."
@@ -194,6 +270,70 @@ def get_ado_config() -> AdoConfig:
     return AdoConfig(organization=organization, project=project)
 
 
+def _should_retry_http_error(exc: BaseException) -> bool:
+    """Predicate for tenacity retry: retry on transient HTTP errors and URLError."""
+    # HTTPError is a subclass of URLError, so check it first
+    if isinstance(exc, urllib.error.HTTPError):
+        # Retry only on transient HTTP status codes
+        return exc.code in (429, 500, 502, 503)
+    # URLError covers connection failures, DNS failures (but not HTTPError — checked above)
+    return isinstance(exc, urllib.error.URLError)
+
+
+def _call_ado_api_inner(
+    method: str,
+    url: str,
+    *,
+    pat: str,
+    data: dict[str, Any] | list[Any] | None = None,
+    content_type: str = "application/json",
+) -> Any:
+    """Inner function that performs the actual HTTP call (retryable)."""
+    headers = {
+        **build_auth_header(pat),
+        "Content-Type": content_type,
+    }
+
+    body_bytes: bytes | None = None
+    if data is not None:
+        body_bytes = json.dumps(data).encode()
+
+    req = urllib.request.Request(url, method=method, headers=headers, data=body_bytes)  # noqa: S310
+
+    # Let exceptions bubble up for retry predicate to inspect
+    with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
+        response_body = resp.read().decode()
+        if not response_body:
+            return None
+        try:
+            return json.loads(response_body)
+        except json.JSONDecodeError:
+            # Non-JSON response (e.g., HTML auth page from bad PAT)
+            snippet = response_body[:200].replace("\n", " ").strip()
+            msg = f"ADO API {method} {url} returned non-JSON response: {snippet}"
+            raise AdoApiError(msg) from None
+
+
+@retry(
+    retry=retry_if_exception(_should_retry_http_error),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=8),
+    reraise=True,
+)
+def _call_ado_api_with_retry(
+    method: str,
+    url: str,
+    *,
+    pat: str,
+    data: dict[str, Any] | list[Any] | None = None,
+    content_type: str = "application/json",
+) -> Any:
+    """Wrapper with retry logic."""
+    return _call_ado_api_inner(
+        method, url, pat=pat, data=data, content_type=content_type
+    )
+
+
 def call_ado_api(
     method: str,
     url: str,
@@ -220,29 +360,10 @@ def call_ado_api(
     if pat is None:
         pat = get_pat()
 
-    headers = {
-        **build_auth_header(pat),
-        "Content-Type": content_type,
-    }
-
-    body_bytes: bytes | None = None
-    if data is not None:
-        body_bytes = json.dumps(data).encode()
-
-    req = urllib.request.Request(url, method=method, headers=headers, data=body_bytes)
-
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            response_body = resp.read().decode()
-            if not response_body:
-                return None
-            try:
-                return json.loads(response_body)
-            except json.JSONDecodeError:
-                # Non-JSON response (e.g., HTML auth page from bad PAT)
-                snippet = response_body[:200].replace("\n", " ").strip()
-                msg = f"ADO API {method} {url} returned non-JSON response: {snippet}"
-                raise AdoApiError(msg) from None
+        return _call_ado_api_with_retry(
+            method, url, pat=pat, data=data, content_type=content_type
+        )
     except urllib.error.HTTPError as exc:
         error_body = exc.read().decode() if exc.fp else ""
         try:
@@ -257,6 +378,27 @@ def call_ado_api(
     except TimeoutError as exc:
         msg = f"ADO API {method} {url} timed out"
         raise AdoApiError(msg) from exc
+
+
+def _call_ado_api_text_inner(method: str, url: str, *, pat: str) -> str:
+    """Inner function that performs the actual HTTP call for text responses (retryable)."""
+    headers = build_auth_header(pat)
+    req = urllib.request.Request(url, method=method, headers=headers)  # noqa: S310
+
+    # Let exceptions bubble up for retry predicate to inspect
+    with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
+        return resp.read().decode()
+
+
+@retry(
+    retry=retry_if_exception(_should_retry_http_error),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=8),
+    reraise=True,
+)
+def _call_ado_api_text_with_retry(method: str, url: str, *, pat: str) -> str:
+    """Wrapper with retry logic."""
+    return _call_ado_api_text_inner(method, url, pat=pat)
 
 
 def call_ado_api_text(
@@ -283,13 +425,8 @@ def call_ado_api_text(
     if pat is None:
         pat = get_pat()
 
-    headers = build_auth_header(pat)
-
-    req = urllib.request.Request(url, method=method, headers=headers)
-
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            return resp.read().decode()
+        return _call_ado_api_text_with_retry(method, url, pat=pat)
     except urllib.error.HTTPError as exc:
         error_body = exc.read().decode() if exc.fp else ""
         msg = f"ADO API {method} {url} failed ({exc.code}): {error_body or str(exc)}"

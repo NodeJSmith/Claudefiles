@@ -3,10 +3,8 @@
 import sys
 from typing import Any
 
-from ado_api.az_client import AdoApiError, AdoContext, call_ado_api
+from ado_api.az_client import ADO_API_VERSION, AdoApiError, AdoContext, call_ado_api
 from ado_api.formatting import json_output, tsv_table
-
-_WIT_PATH = ("_apis", "wit", "workitems")
 
 
 def _parse_work_item_response(data: dict[str, Any]) -> dict[str, Any]:
@@ -91,7 +89,9 @@ def _create_work_item(
                     {"op": "add", "path": f"/fields/{key}", "value": value}
                 )
 
-    url = ctx.config.api_url(*_WIT_PATH, f"${type_name}")
+    # URL-encode the type name (e.g., "User Story" -> "User%20Story")
+    type_encoded = type_name.replace(" ", "%20")
+    url = f"{ctx.config.base_url}/_apis/wit/workitems/${type_encoded}?api-version={ADO_API_VERSION}"
 
     raw_response = call_ado_api(
         "POST",

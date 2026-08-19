@@ -1,6 +1,7 @@
 """Tests for ado_api.commands.approve — list pending and approve by build ID."""
 
 import json
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -11,6 +12,7 @@ from ado_api.commands.approve import (
     _format_waiting,
     cmd_builds_approve,
     cmd_builds_approve_list,
+    resolve_pr_ids_to_builds,
 )
 
 
@@ -29,8 +31,6 @@ class TestFormatWaiting:
         assert _format_waiting("not-a-date") == "-"
 
     def test_recent_timestamp_shows_minutes(self) -> None:
-        from datetime import UTC, datetime, timedelta
-
         recent = (datetime.now(UTC) - timedelta(minutes=15)).strftime(
             "%Y-%m-%dT%H:%M:%SZ"
         )
@@ -38,8 +38,6 @@ class TestFormatWaiting:
         assert "m" in result
 
     def test_old_timestamp_shows_hours(self) -> None:
-        from datetime import UTC, datetime, timedelta
-
         old = (datetime.now(UTC) - timedelta(hours=2, minutes=15)).strftime(
             "%Y-%m-%dT%H:%M:%SZ"
         )
@@ -352,3 +350,71 @@ class TestCmdBuildsApprove:
         with pytest.raises(SystemExit) as exc_info:
             cmd_builds_approve(ctx, [1001], yes=False)
         assert exc_info.value.code == 1
+
+
+class TestResolvePrIdsToBuilds:
+    """Tag-expansion logic relocated from cli_models/builds.py.
+
+    Redistributed from the deleted tests/test_cli_models.py's TestBuildsApprovePrIdNormalization
+    per design.md's Test Strategy — bare number, pr=/PR- prefix variants, multiple PRs, and
+    resolved-build-ID passthrough.
+    """
+
+    @patch("ado_api.commands.approve._list_builds")
+    def test_bare_number_searches_both_tag_variants(self, mock_list: MagicMock) -> None:
+        mock_list.return_value = [{"id": 1001}]
+        ctx = _make_ctx()
+
+        build_ids = resolve_pr_ids_to_builds(ctx, ["49752"])
+
+        assert mock_list.call_count == 2
+        tags_searched = [call.kwargs["tags"] for call in mock_list.call_args_list]
+        assert sorted(tags_searched) == ["PR-49752", "pr=49752"]
+        assert build_ids == [1001, 1001]
+
+    @patch("ado_api.commands.approve._list_builds")
+    def test_pr_equals_format_strips_prefix(self, mock_list: MagicMock) -> None:
+        """'pr=49752' strips the prefix and still searches both tag variants."""
+        mock_list.return_value = [{"id": 1001}]
+        ctx = _make_ctx()
+
+        resolve_pr_ids_to_builds(ctx, ["pr=49752"])
+
+        tags_searched = [call.kwargs["tags"] for call in mock_list.call_args_list]
+        assert sorted(tags_searched) == ["PR-49752", "pr=49752"]
+
+    @patch("ado_api.commands.approve._list_builds")
+    def test_pr_dash_format_strips_prefix(self, mock_list: MagicMock) -> None:
+        """'PR-49752' strips the prefix and still searches both tag variants."""
+        mock_list.return_value = [{"id": 1001}]
+        ctx = _make_ctx()
+
+        resolve_pr_ids_to_builds(ctx, ["PR-49752"])
+
+        tags_searched = [call.kwargs["tags"] for call in mock_list.call_args_list]
+        assert sorted(tags_searched) == ["PR-49752", "pr=49752"]
+
+    @patch("ado_api.commands.approve._list_builds")
+    def test_multiple_prs_each_generate_both_variants(
+        self, mock_list: MagicMock
+    ) -> None:
+        mock_list.return_value = [{"id": 1001}]
+        ctx = _make_ctx()
+
+        resolve_pr_ids_to_builds(ctx, ["100", "200"])
+
+        assert mock_list.call_count == 4
+        tags_searched = [call.kwargs["tags"] for call in mock_list.call_args_list]
+        assert sorted(tags_searched) == ["PR-100", "PR-200", "pr=100", "pr=200"]
+
+    @patch("ado_api.commands.approve._list_builds")
+    def test_resolved_build_ids_from_both_variants_combined(
+        self, mock_list: MagicMock
+    ) -> None:
+        """Build IDs from both tag-variant lookups are combined in the result."""
+        mock_list.side_effect = [[{"id": 1001}], [{"id": 1002}]]
+        ctx = _make_ctx()
+
+        build_ids = resolve_pr_ids_to_builds(ctx, ["49752"])
+
+        assert sorted(build_ids) == [1001, 1002]
