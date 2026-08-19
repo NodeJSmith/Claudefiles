@@ -5,11 +5,13 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from ado_api.az_client import AdoApiError
+from ado_api.az_client import AdoApiError, AdoContext
 from ado_api.commands.pr import (
     _fetch_prs_matching_author,
     _get_pr_artifact_id,
     _link_work_item_to_pr,
+    _pr_base_url,
+    _pr_list_base_url,
     _run_az_pr_work_item,
     _unlink_work_item_from_pr,
     cmd_pr_create,
@@ -28,7 +30,9 @@ from ado_api.commands.pr import (
     detect_pr_id,
 )
 from ado_api.git import GitError
-from tests.conftest import FAKE_CTX_WITH_REPO as FAKE_CTX
+
+from tests.conftest import FAKE_CONFIG, FAKE_PAT
+from tests.conftest import FAKE_CTX, FAKE_CTX_WITH_REPO
 
 # ── Fixtures ──────────────────────────────────────────────────────────
 
@@ -66,6 +70,27 @@ def _pr_list_response(*prs: dict[str, Any]) -> dict[str, Any]:
     return {"value": list(prs)}
 
 
+# ── _pr_base_url / _pr_list_base_url ────────────────────────────────
+
+
+class TestPrBaseUrl:
+    def test_pr_base_url_encodes_repo_with_space(self) -> None:
+        ctx = AdoContext(config=FAKE_CONFIG, pat=FAKE_PAT, repo="My Repo")
+        assert "repositories/My%20Repo/pullrequests" in _pr_base_url(ctx)
+
+    def test_pr_base_url_raises_without_repo(self) -> None:
+        with pytest.raises(ValueError, match="ctx.repo to be set"):
+            _pr_base_url(FAKE_CTX)
+
+    def test_pr_list_base_url_falls_back_to_project_wide_without_repo(self) -> None:
+        url = _pr_list_base_url(FAKE_CTX)
+        assert url == f"{FAKE_CTX.config.base_url}/_apis/git/pullrequests"
+
+    def test_pr_list_base_url_scopes_to_repo_when_present(self) -> None:
+        ctx = AdoContext(config=FAKE_CONFIG, pat=FAKE_PAT, repo="my-repo")
+        assert _pr_list_base_url(ctx) == _pr_base_url(ctx)
+
+
 # ── detect_pr_id ─────────────────────────────────────────────────────
 
 
@@ -82,13 +107,28 @@ class TestDetectPrId:
     ) -> None:
         mock_api.return_value = _pr_list_response(_make_pr(pr_id=42))
 
-        result = detect_pr_id(FAKE_CTX)
+        result = detect_pr_id(FAKE_CTX_WITH_REPO)
 
         assert result == 42
         captured = capsys.readouterr()
         assert "PR #42" in captured.err
-        assert "feature/x" in captured.err
-        assert "my-repo" in captured.err
+        url = mock_api.call_args[0][1]
+        assert "sourceRefName=refs/heads/feature/x" in url
+
+    @patch("ado_api.commands.pr.get_current_branch", return_value="feature/a&b")
+    @patch("ado_api.commands.pr.call_ado_api")
+    def test_branch_with_special_char_is_url_encoded(
+        self,
+        mock_api: MagicMock,
+        _mock_branch: MagicMock,
+    ) -> None:
+        mock_api.return_value = _pr_list_response(_make_pr(pr_id=42))
+
+        detect_pr_id(FAKE_CTX_WITH_REPO)
+
+        url = mock_api.call_args[0][1]
+        assert "refs/heads/feature/a&b" not in url
+        assert "refs/heads/feature/a%26b" in url
 
     @patch("ado_api.commands.pr.get_current_branch", return_value="feature/x")
     @patch("ado_api.commands.pr.call_ado_api")
@@ -101,7 +141,7 @@ class TestDetectPrId:
         mock_api.return_value = _pr_list_response()
 
         with pytest.raises(SystemExit) as exc_info:
-            detect_pr_id(FAKE_CTX)
+            detect_pr_id(FAKE_CTX_WITH_REPO)
         assert exc_info.value.code == 1
 
         captured = capsys.readouterr()
@@ -122,7 +162,7 @@ class TestDetectPrId:
         )
 
         with pytest.raises(SystemExit) as exc_info:
-            detect_pr_id(FAKE_CTX)
+            detect_pr_id(FAKE_CTX_WITH_REPO)
         assert exc_info.value.code == 1
 
         captured = capsys.readouterr()
@@ -150,7 +190,7 @@ class TestPrList:
             _make_pr(pr_id=2, title="Second PR"),
         )
 
-        cmd_pr_list(FAKE_CTX)
+        cmd_pr_list(FAKE_CTX_WITH_REPO)
 
         captured = capsys.readouterr()
         lines = captured.out.strip().split("\n")
@@ -171,7 +211,7 @@ class TestPrList:
             _make_pr(pr_id=1, title="First PR"),
         )
 
-        cmd_pr_list(FAKE_CTX, as_json=True)
+        cmd_pr_list(FAKE_CTX_WITH_REPO, as_json=True)
 
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -186,10 +226,43 @@ class TestPrList:
     ) -> None:
         mock_api.return_value = _pr_list_response()
 
-        cmd_pr_list(FAKE_CTX, status="completed")
+        cmd_pr_list(FAKE_CTX_WITH_REPO, status="completed")
 
         url = mock_api.call_args[0][1]
         assert "searchCriteria.status=completed" in url
+
+    @patch("ado_api.commands.pr.call_ado_api")
+    def test_pr_list_repo_name_with_space_is_url_encoded(
+        self,
+        mock_api: MagicMock,
+    ) -> None:
+        """A repo name with a space must not break the API URL's path segment."""
+        mock_api.return_value = _pr_list_response()
+        ctx = AdoContext(config=FAKE_CONFIG, pat=FAKE_PAT, repo="My Repo")
+
+        cmd_pr_list(ctx)
+
+        url = mock_api.call_args[0][1]
+        assert "repositories/My Repo/" not in url
+        assert "repositories/My%20Repo/" in url
+
+    @patch("ado_api.commands.pr.call_ado_api")
+    def test_pr_list_without_repo_uses_project_wide_endpoint(
+        self,
+        mock_api: MagicMock,
+    ) -> None:
+        """Without a repo (e.g. run outside a git directory), ``pr list`` must hit
+        ADO's project-wide "Get Pull Requests By Project" endpoint instead of
+        building a URL with a literal "None" repository segment.
+        """
+        mock_api.return_value = _pr_list_response(_make_pr(pr_id=1))
+
+        cmd_pr_list(FAKE_CTX)
+
+        url = mock_api.call_args[0][1]
+        assert "repositories/None" not in url
+        assert "repositories/" not in url
+        assert url.startswith(f"{FAKE_CTX.config.base_url}/_apis/git/pullrequests?")
 
     @patch("ado_api.commands.pr.call_ado_api")
     def test_pr_list_author_filters_client_side(
@@ -202,7 +275,7 @@ class TestPrList:
             _make_pr(pr_id=2, author="jdoe@example.com", title="Other PR"),
         )
 
-        cmd_pr_list(FAKE_CTX, author="jsmith")
+        cmd_pr_list(FAKE_CTX_WITH_REPO, author="jsmith")
 
         url = mock_api.call_args[0][1]
         assert "creatorId" not in url
@@ -218,7 +291,7 @@ class TestPrList:
     ) -> None:
         mock_api.return_value = _pr_list_response()
 
-        cmd_pr_list(FAKE_CTX)
+        cmd_pr_list(FAKE_CTX_WITH_REPO)
 
         captured = capsys.readouterr()
         lines = captured.out.strip().split("\n")
@@ -247,7 +320,7 @@ class TestPrList:
             ),
         ]
 
-        cmd_pr_list(FAKE_CTX, author="jsmith", top=5)
+        cmd_pr_list(FAKE_CTX_WITH_REPO, author="jsmith", top=5)
 
         assert mock_api.call_count == 2
         first_url = mock_api.call_args_list[0][0][1]
@@ -272,7 +345,7 @@ class TestPrList:
         )
 
         result = _fetch_prs_matching_author(
-            FAKE_CTX, status="active", author="jsmith", top=1
+            FAKE_CTX_WITH_REPO, status="active", author="jsmith", top=1
         )
 
         assert len(result) == 1
@@ -289,7 +362,7 @@ class TestPrList:
         )
 
         result = _fetch_prs_matching_author(
-            FAKE_CTX, status="active", author="jsmith", top=10
+            FAKE_CTX_WITH_REPO, status="active", author="jsmith", top=10
         )
 
         assert result == []
@@ -314,7 +387,7 @@ class TestPrShow:
             description="Some description",
         )
 
-        cmd_pr_show(FAKE_CTX, 42)
+        cmd_pr_show(FAKE_CTX_WITH_REPO, 42)
 
         captured = capsys.readouterr()
         assert "#42" in captured.out
@@ -329,7 +402,7 @@ class TestPrShow:
     ) -> None:
         mock_api.return_value = _make_pr(pr_id=42, title="My PR")
 
-        cmd_pr_show(FAKE_CTX, 42, as_json=True)
+        cmd_pr_show(FAKE_CTX_WITH_REPO, 42, as_json=True)
 
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -346,9 +419,9 @@ class TestPrShow:
     ) -> None:
         mock_api.return_value = _make_pr(pr_id=99, title="Auto PR")
 
-        cmd_pr_show(FAKE_CTX)
+        cmd_pr_show(FAKE_CTX_WITH_REPO)
 
-        mock_detect.assert_called_once_with(FAKE_CTX)
+        mock_detect.assert_called_once_with(FAKE_CTX_WITH_REPO)
         captured = capsys.readouterr()
         assert "#99" in captured.out
 
@@ -360,7 +433,7 @@ class TestPrShow:
     ) -> None:
         mock_api.return_value = _make_pr(pr_id=42, is_draft=True)
 
-        cmd_pr_show(FAKE_CTX, 42)
+        cmd_pr_show(FAKE_CTX_WITH_REPO, 42)
 
         captured = capsys.readouterr()
         assert "[DRAFT]" in captured.out
@@ -382,7 +455,7 @@ class TestPrCreate:
     ) -> None:
         mock_api.return_value = _make_pr(pr_id=50, title="New PR")
 
-        cmd_pr_create(FAKE_CTX, "New PR")
+        cmd_pr_create(FAKE_CTX_WITH_REPO, "New PR")
 
         # Verify body sent to API
         call_kwargs = mock_api.call_args
@@ -404,7 +477,7 @@ class TestPrCreate:
         mock_api.return_value = _make_pr(pr_id=51, title="Full PR", is_draft=True)
 
         cmd_pr_create(
-            FAKE_CTX,
+            FAKE_CTX_WITH_REPO,
             "Full PR",
             source="feature/z",
             target="develop",
@@ -433,7 +506,7 @@ class TestPrCreate:
     ) -> None:
         mock_api.return_value = _make_pr(pr_id=50, title="New PR")
 
-        cmd_pr_create(FAKE_CTX, "New PR", as_json=True)
+        cmd_pr_create(FAKE_CTX_WITH_REPO, "New PR", as_json=True)
 
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -449,7 +522,7 @@ class TestPrCreate:
     ) -> None:
         """Detached HEAD exits cleanly with --source suggestion."""
         with pytest.raises(SystemExit) as exc_info:
-            cmd_pr_create(FAKE_CTX, "New PR")
+            cmd_pr_create(FAKE_CTX_WITH_REPO, "New PR")
         assert exc_info.value.code == 1
 
         captured = capsys.readouterr()
@@ -471,7 +544,7 @@ class TestPrUpdate:
     ) -> None:
         mock_api.return_value = _make_pr(pr_id=42, title="Updated Title")
 
-        cmd_pr_update(FAKE_CTX, 42, title="Updated Title")
+        cmd_pr_update(FAKE_CTX_WITH_REPO, 42, title="Updated Title")
 
         call_kwargs = mock_api.call_args
         body = call_kwargs[1]["data"]
@@ -488,7 +561,7 @@ class TestPrUpdate:
     ) -> None:
         mock_api.return_value = _make_pr(pr_id=42, status="abandoned")
 
-        cmd_pr_update(FAKE_CTX, 42, status="abandoned")
+        cmd_pr_update(FAKE_CTX_WITH_REPO, 42, status="abandoned")
 
         call_kwargs = mock_api.call_args
         body = call_kwargs[1]["data"]
@@ -502,7 +575,7 @@ class TestPrUpdate:
     ) -> None:
         mock_api.return_value = _make_pr(pr_id=42, title="Updated")
 
-        cmd_pr_update(FAKE_CTX, 42, title="Updated", as_json=True)
+        cmd_pr_update(FAKE_CTX_WITH_REPO, 42, title="Updated", as_json=True)
 
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -513,7 +586,7 @@ class TestPrUpdate:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         with pytest.raises(SystemExit) as exc_info:
-            cmd_pr_update(FAKE_CTX, 42)
+            cmd_pr_update(FAKE_CTX_WITH_REPO, 42)
         assert exc_info.value.code == 1
 
         captured = capsys.readouterr()
@@ -526,7 +599,7 @@ class TestPrUpdate:
     ) -> None:
         mock_api.return_value = _make_pr(pr_id=42)
 
-        cmd_pr_update(FAKE_CTX, 42, title="New Title", description="New Desc")
+        cmd_pr_update(FAKE_CTX_WITH_REPO, 42, title="New Title", description="New Desc")
 
         call_kwargs = mock_api.call_args
         body = call_kwargs[1]["data"]
@@ -539,7 +612,7 @@ class TestPrUpdate:
     ) -> None:
         mock_api.return_value = _make_pr(pr_id=42, is_draft=True)
 
-        cmd_pr_update(FAKE_CTX, 42, draft=True)
+        cmd_pr_update(FAKE_CTX_WITH_REPO, 42, draft=True)
 
         body = mock_api.call_args[1]["data"]
         assert body == {"isDraft": True}
@@ -552,7 +625,7 @@ class TestPrUpdate:
     ) -> None:
         mock_api.return_value = _make_pr(pr_id=42, is_draft=False)
 
-        cmd_pr_update(FAKE_CTX, 42, draft=False)
+        cmd_pr_update(FAKE_CTX_WITH_REPO, 42, draft=False)
 
         body = mock_api.call_args[1]["data"]
         assert body == {"isDraft": False}
@@ -566,7 +639,7 @@ class TestPrUpdate:
     ) -> None:
         mock_api.return_value = _make_pr(pr_id=42)
 
-        cmd_pr_update(FAKE_CTX, 42, title="Ready", draft=False)
+        cmd_pr_update(FAKE_CTX_WITH_REPO, 42, title="Ready", draft=False)
 
         body = mock_api.call_args[1]["data"]
         assert body == {"title": "Ready", "isDraft": False}
@@ -631,7 +704,7 @@ class TestPrThreads:
             _make_thread(thread_id=3, status="active"),
         )
 
-        cmd_pr_threads(FAKE_CTX, 42)
+        cmd_pr_threads(FAKE_CTX_WITH_REPO, 42)
 
         captured = capsys.readouterr()
         assert "PR #42" in captured.err
@@ -651,7 +724,7 @@ class TestPrThreads:
             _make_thread(thread_id=2, status="fixed"),
         )
 
-        cmd_pr_threads(FAKE_CTX, 42, show_all=True)
+        cmd_pr_threads(FAKE_CTX_WITH_REPO, 42, show_all=True)
 
         captured = capsys.readouterr()
         assert "2 thread(s)" in captured.err
@@ -668,7 +741,7 @@ class TestPrThreads:
             _make_thread(thread_id=10, status="active"),
         )
 
-        cmd_pr_threads(FAKE_CTX, 42, as_json=True)
+        cmd_pr_threads(FAKE_CTX_WITH_REPO, 42, as_json=True)
 
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -708,7 +781,7 @@ class TestPrThreads:
             ),
         )
 
-        cmd_pr_threads(FAKE_CTX, 42, as_json=True)
+        cmd_pr_threads(FAKE_CTX_WITH_REPO, 42, as_json=True)
 
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -729,9 +802,9 @@ class TestPrThreads:
     ) -> None:
         mock_api.return_value = _thread_list_response()
 
-        cmd_pr_threads(FAKE_CTX)
+        cmd_pr_threads(FAKE_CTX_WITH_REPO)
 
-        mock_detect.assert_called_once_with(FAKE_CTX)
+        mock_detect.assert_called_once_with(FAKE_CTX_WITH_REPO)
         captured = capsys.readouterr()
         assert "PR #99" in captured.err
 
@@ -750,7 +823,7 @@ class TestPrThreadAdd:
     ) -> None:
         mock_api.return_value = _make_thread(thread_id=55)
 
-        cmd_pr_thread_add(FAKE_CTX, 42, body="New comment")
+        cmd_pr_thread_add(FAKE_CTX_WITH_REPO, 42, body="New comment")
 
         call_kwargs = mock_api.call_args
         assert call_kwargs[0][0] == "POST"
@@ -771,7 +844,7 @@ class TestPrThreadAdd:
     ) -> None:
         mock_api.return_value = _make_thread(thread_id=55)
 
-        cmd_pr_thread_add(FAKE_CTX, 42, body="New comment", as_json=True)
+        cmd_pr_thread_add(FAKE_CTX_WITH_REPO, 42, body="New comment", as_json=True)
 
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -786,9 +859,9 @@ class TestPrThreadAdd:
     ) -> None:
         mock_api.return_value = _make_thread(thread_id=55)
 
-        cmd_pr_thread_add(FAKE_CTX, body="Comment")
+        cmd_pr_thread_add(FAKE_CTX_WITH_REPO, body="Comment")
 
-        mock_detect.assert_called_once_with(FAKE_CTX)
+        mock_detect.assert_called_once_with(FAKE_CTX_WITH_REPO)
 
 
 # ── pr reply ────────────────────────────────────────────────────────
@@ -817,7 +890,7 @@ class TestPrReply:
         }
         mock_api.side_effect = [thread_with_comments, reply_response]
 
-        cmd_pr_reply(FAKE_CTX, 42, 10, "My reply")
+        cmd_pr_reply(FAKE_CTX_WITH_REPO, 42, 10, "My reply")
 
         # First call: GET thread to find last comment
         assert mock_api.call_args_list[0][0][0] == "GET"
@@ -844,7 +917,7 @@ class TestPrReply:
         }
         mock_api.return_value = reply_response
 
-        cmd_pr_reply(FAKE_CTX, 42, 10, "My reply", parent_id=3)
+        cmd_pr_reply(FAKE_CTX_WITH_REPO, 42, 10, "My reply", parent_id=3)
 
         # Should NOT fetch thread — only one API call (the POST)
         assert mock_api.call_count == 1
@@ -865,7 +938,7 @@ class TestPrReply:
         }
         mock_api.return_value = reply_response
 
-        cmd_pr_reply(FAKE_CTX, 42, 10, "My reply", parent_id=3, as_json=True)
+        cmd_pr_reply(FAKE_CTX_WITH_REPO, 42, 10, "My reply", parent_id=3, as_json=True)
 
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -882,7 +955,7 @@ class TestPrReply:
         mock_api.return_value = _make_thread(thread_id=10, comments=[])
 
         with pytest.raises(SystemExit) as exc_info:
-            cmd_pr_reply(FAKE_CTX, 42, 10, "My reply")
+            cmd_pr_reply(FAKE_CTX_WITH_REPO, 42, 10, "My reply")
         assert exc_info.value.code == 1
 
         captured = capsys.readouterr()
@@ -906,7 +979,7 @@ class TestPrResolve:
             {},  # PATCH response
         ]
 
-        cmd_pr_resolve(FAKE_CTX, 42, [10])
+        cmd_pr_resolve(FAKE_CTX_WITH_REPO, 42, [10])
 
         assert mock_api.call_count == 2
         assert mock_api.call_args_list[0][0][0] == "GET"
@@ -924,7 +997,7 @@ class TestPrResolve:
     ) -> None:
         mock_api.return_value = _make_thread(thread_id=10, status="fixed")
 
-        cmd_pr_resolve(FAKE_CTX, 42, [10])
+        cmd_pr_resolve(FAKE_CTX_WITH_REPO, 42, [10])
 
         # Only GET, no PATCH
         assert mock_api.call_count == 1
@@ -944,7 +1017,7 @@ class TestPrResolve:
             {},  # PATCH #11
         ]
 
-        cmd_pr_resolve(FAKE_CTX, 42, [10, 11])
+        cmd_pr_resolve(FAKE_CTX_WITH_REPO, 42, [10, 11])
 
         assert mock_api.call_count == 4
         captured = capsys.readouterr()
@@ -962,7 +1035,7 @@ class TestPrResolve:
             {},
         ]
 
-        cmd_pr_resolve(FAKE_CTX, 42, [10], status="wontFix")
+        cmd_pr_resolve(FAKE_CTX_WITH_REPO, 42, [10], status="wontFix")
 
         patch_data = mock_api.call_args_list[1][1]["data"]
         assert patch_data == {"status": "wontFix"}
@@ -974,7 +1047,7 @@ class TestPrResolve:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         with pytest.raises(SystemExit) as exc_info:
-            cmd_pr_resolve(FAKE_CTX, 42, [10], status="invalid")
+            cmd_pr_resolve(FAKE_CTX_WITH_REPO, 42, [10], status="invalid")
         assert exc_info.value.code == 1
 
         captured = capsys.readouterr()
@@ -1001,7 +1074,7 @@ class TestPrResolvePattern:
             ),
         )
 
-        cmd_pr_resolve_pattern(FAKE_CTX, 42, "typo")
+        cmd_pr_resolve_pattern(FAKE_CTX_WITH_REPO, 42, "typo")
 
         # Only GET threads — no PATCH calls
         assert mock_api.call_count == 1
@@ -1026,7 +1099,7 @@ class TestPrResolvePattern:
             {},  # PATCH response
         ]
 
-        cmd_pr_resolve_pattern(FAKE_CTX, 42, "typo", execute=True)
+        cmd_pr_resolve_pattern(FAKE_CTX_WITH_REPO, 42, "typo", execute=True)
 
         assert mock_api.call_count == 2
         assert mock_api.call_args_list[1][0][0] == "PATCH"
@@ -1055,7 +1128,7 @@ class TestPrResolvePattern:
             ),
         )
 
-        cmd_pr_resolve_pattern(FAKE_CTX, 42, r"Issue\s+#\d+")
+        cmd_pr_resolve_pattern(FAKE_CTX_WITH_REPO, 42, r"Issue\s+#\d+")
 
         captured = capsys.readouterr()
         assert "1 thread(s)" in captured.out
@@ -1075,7 +1148,7 @@ class TestPrResolvePattern:
             ),
         )
 
-        cmd_pr_resolve_pattern(FAKE_CTX, 42, "typo")
+        cmd_pr_resolve_pattern(FAKE_CTX_WITH_REPO, 42, "typo")
 
         captured = capsys.readouterr()
         assert "1 thread(s)" in captured.out
@@ -1099,7 +1172,7 @@ class TestPrResolvePattern:
             ),
         )
 
-        cmd_pr_resolve_pattern(FAKE_CTX, 42, "typo")
+        cmd_pr_resolve_pattern(FAKE_CTX_WITH_REPO, 42, "typo")
 
         captured = capsys.readouterr()
         assert "1 thread(s)" in captured.out
@@ -1123,7 +1196,7 @@ class TestPrResolvePattern:
         )
 
         # With first_comment=True, the second comment's match should be ignored
-        cmd_pr_resolve_pattern(FAKE_CTX, 42, "typo", first_comment=True)
+        cmd_pr_resolve_pattern(FAKE_CTX_WITH_REPO, 42, "typo", first_comment=True)
 
         captured = capsys.readouterr()
         assert "No active threads matching" in captured.err
@@ -1138,7 +1211,7 @@ class TestPrResolvePattern:
             _make_thread(thread_id=10, status="active"),
         )
 
-        cmd_pr_resolve_pattern(FAKE_CTX, 42, "nonexistent_pattern")
+        cmd_pr_resolve_pattern(FAKE_CTX_WITH_REPO, 42, "nonexistent_pattern")
 
         captured = capsys.readouterr()
         assert "No active threads matching" in captured.err
@@ -1148,7 +1221,7 @@ class TestPrResolvePattern:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         with pytest.raises(SystemExit) as exc_info:
-            cmd_pr_resolve_pattern(FAKE_CTX, 42, "test", status="bogus")
+            cmd_pr_resolve_pattern(FAKE_CTX_WITH_REPO, 42, "test", status="bogus")
         assert exc_info.value.code == 1
 
         captured = capsys.readouterr()
@@ -1185,7 +1258,7 @@ class TestPrWorkItemList:
             _make_work_item_ref(12346),
         )
 
-        cmd_pr_work_item_list(FAKE_CTX, 42, as_json=False)
+        cmd_pr_work_item_list(FAKE_CTX_WITH_REPO, 42, as_json=False)
 
         captured = capsys.readouterr()
         lines = captured.out.strip().split("\n")
@@ -1204,7 +1277,7 @@ class TestPrWorkItemList:
             _make_work_item_ref(12345),
         )
 
-        cmd_pr_work_item_list(FAKE_CTX, 42, as_json=True)
+        cmd_pr_work_item_list(FAKE_CTX_WITH_REPO, 42, as_json=True)
 
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -1222,9 +1295,9 @@ class TestPrWorkItemList:
     ) -> None:
         mock_api.return_value = _work_item_ref_response()
 
-        cmd_pr_work_item_list(FAKE_CTX, None, as_json=False)
+        cmd_pr_work_item_list(FAKE_CTX_WITH_REPO, None, as_json=False)
 
-        mock_detect.assert_called_once_with(FAKE_CTX)
+        mock_detect.assert_called_once_with(FAKE_CTX_WITH_REPO)
         # Verify API was called with detected PR ID
         call_url = mock_api.call_args[0][1]
         assert "/99/workitems" in call_url
@@ -1237,7 +1310,7 @@ class TestPrWorkItemList:
     ) -> None:
         mock_api.return_value = _work_item_ref_response()
 
-        cmd_pr_work_item_list(FAKE_CTX, 42, as_json=False)
+        cmd_pr_work_item_list(FAKE_CTX_WITH_REPO, 42, as_json=False)
 
         captured = capsys.readouterr()
         lines = captured.out.strip().split("\n")
@@ -1252,7 +1325,7 @@ class TestPrWorkItemList:
     ) -> None:
         mock_api.return_value = _work_item_ref_response()
 
-        cmd_pr_work_item_list(FAKE_CTX, 42, as_json=True)
+        cmd_pr_work_item_list(FAKE_CTX_WITH_REPO, 42, as_json=True)
 
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -1268,7 +1341,7 @@ class TestGetPrArtifactId:
     @patch("ado_api.commands.pr.call_ado_api")
     def test_returns_artifact_id_from_response(self, mock_api: MagicMock) -> None:
         mock_api.return_value = {"artifactId": FAKE_ARTIFACT_ID}
-        assert _get_pr_artifact_id(FAKE_CTX, 42) == FAKE_ARTIFACT_ID
+        assert _get_pr_artifact_id(FAKE_CTX_WITH_REPO, 42) == FAKE_ARTIFACT_ID
 
     @patch("ado_api.commands.pr.call_ado_api")
     def test_falls_back_to_constructed_id(self, mock_api: MagicMock) -> None:
@@ -1279,7 +1352,7 @@ class TestGetPrArtifactId:
                 "project": {"id": "proj-id"},
             }
         }
-        result = _get_pr_artifact_id(FAKE_CTX, 42)
+        result = _get_pr_artifact_id(FAKE_CTX_WITH_REPO, 42)
         assert result == "vstfs:///Git/PullRequestId/proj-id%2Frepo-id%2F42"
 
 
@@ -1292,7 +1365,7 @@ class TestLinkWorkItemToPr:
     @patch("ado_api.commands.pr.call_ado_api")
     def test_patches_work_item_with_artifact_link(self, mock_api: MagicMock) -> None:
         mock_api.return_value = {}
-        _link_work_item_to_pr(FAKE_CTX, 12345, FAKE_ARTIFACT_ID)
+        _link_work_item_to_pr(FAKE_CTX_WITH_REPO, 12345, FAKE_ARTIFACT_ID)
 
         mock_api.assert_called_once()
         call_args = mock_api.call_args
@@ -1309,13 +1382,13 @@ class TestLinkWorkItemToPr:
     def test_silently_succeeds_on_duplicate_relation(self, mock_api: MagicMock) -> None:
         mock_api.side_effect = AdoApiError("Relation already exists.")
         # Should not raise
-        _link_work_item_to_pr(FAKE_CTX, 12345, FAKE_ARTIFACT_ID)
+        _link_work_item_to_pr(FAKE_CTX_WITH_REPO, 12345, FAKE_ARTIFACT_ID)
 
     @patch("ado_api.commands.pr.call_ado_api")
     def test_reraises_other_errors(self, mock_api: MagicMock) -> None:
         mock_api.side_effect = AdoApiError("Access denied")
         with pytest.raises(AdoApiError, match="Access denied"):
-            _link_work_item_to_pr(FAKE_CTX, 12345, FAKE_ARTIFACT_ID)
+            _link_work_item_to_pr(FAKE_CTX_WITH_REPO, 12345, FAKE_ARTIFACT_ID)
 
 
 # ── _unlink_work_item_from_pr ───────────────────────────────────────
@@ -1337,7 +1410,7 @@ class TestUnlinkWorkItemFromPr:
             # PATCH to remove
             {},
         ]
-        _unlink_work_item_from_pr(FAKE_CTX, 12345, FAKE_ARTIFACT_ID)
+        _unlink_work_item_from_pr(FAKE_CTX_WITH_REPO, 12345, FAKE_ARTIFACT_ID)
 
         patch_call = mock_api.call_args_list[1]
         assert patch_call[0][0] == "PATCH"
@@ -1358,7 +1431,7 @@ class TestUnlinkWorkItemFromPr:
             },
             {},
         ]
-        _unlink_work_item_from_pr(FAKE_CTX, 12345, uppercase_url)
+        _unlink_work_item_from_pr(FAKE_CTX_WITH_REPO, 12345, uppercase_url)
 
         patch_call = mock_api.call_args_list[1]
         assert patch_call[1]["data"][0]["path"] == "/relations/0"
@@ -1367,13 +1440,13 @@ class TestUnlinkWorkItemFromPr:
     def test_raises_when_no_matching_relation(self, mock_api: MagicMock) -> None:
         mock_api.return_value = {"relations": []}
         with pytest.raises(AdoApiError, match="has no ArtifactLink relation"):
-            _unlink_work_item_from_pr(FAKE_CTX, 12345, FAKE_ARTIFACT_ID)
+            _unlink_work_item_from_pr(FAKE_CTX_WITH_REPO, 12345, FAKE_ARTIFACT_ID)
 
     @patch("ado_api.commands.pr.call_ado_api")
     def test_raises_when_relations_is_none(self, mock_api: MagicMock) -> None:
         mock_api.return_value = {"relations": None}
         with pytest.raises(AdoApiError, match="has no ArtifactLink relation"):
-            _unlink_work_item_from_pr(FAKE_CTX, 12345, FAKE_ARTIFACT_ID)
+            _unlink_work_item_from_pr(FAKE_CTX_WITH_REPO, 12345, FAKE_ARTIFACT_ID)
 
 
 # ── _run_az_pr_work_item (orchestrator) ─────────────────────────────
@@ -1392,11 +1465,11 @@ class TestRunAzPrWorkItem:
             "value": [{"id": "12345", "url": "https://dev.azure.com/..."}]
         }
 
-        result = _run_az_pr_work_item("add", 42, FAKE_CTX, [12345])
+        result = _run_az_pr_work_item("add", 42, FAKE_CTX_WITH_REPO, [12345])
 
         assert len(result) == 1
         assert result[0]["id"] == "12345"
-        mock_link.assert_called_once_with(FAKE_CTX, 12345, FAKE_ARTIFACT_ID)
+        mock_link.assert_called_once_with(FAKE_CTX_WITH_REPO, 12345, FAKE_ARTIFACT_ID)
 
     @patch("ado_api.commands.pr._unlink_work_item_from_pr")
     @patch("ado_api.commands.pr._get_pr_artifact_id", return_value=FAKE_ARTIFACT_ID)
@@ -1406,15 +1479,15 @@ class TestRunAzPrWorkItem:
     ) -> None:
         mock_api.return_value = {"value": []}
 
-        _run_az_pr_work_item("remove", 42, FAKE_CTX, [12345])
+        _run_az_pr_work_item("remove", 42, FAKE_CTX_WITH_REPO, [12345])
 
-        mock_unlink.assert_called_once_with(FAKE_CTX, 12345, FAKE_ARTIFACT_ID)
+        mock_unlink.assert_called_once_with(FAKE_CTX_WITH_REPO, 12345, FAKE_ARTIFACT_ID)
 
     @patch("ado_api.commands.pr._get_pr_artifact_id")
     def test_failure_raises_ado_api_error(self, mock_artifact: MagicMock) -> None:
         mock_artifact.side_effect = AdoApiError("PR not found")
         with pytest.raises(AdoApiError, match="PR not found"):
-            _run_az_pr_work_item("add", 42, FAKE_CTX, [99999])
+            _run_az_pr_work_item("add", 42, FAKE_CTX_WITH_REPO, [99999])
 
     @patch("ado_api.commands.pr._link_work_item_to_pr")
     @patch("ado_api.commands.pr._get_pr_artifact_id", return_value=FAKE_ARTIFACT_ID)
@@ -1424,7 +1497,7 @@ class TestRunAzPrWorkItem:
     ) -> None:
         mock_api.return_value = {"value": [{"id": "12345"}, {"id": "12346"}]}
 
-        result = _run_az_pr_work_item("add", 42, FAKE_CTX, [12345, 12346])
+        result = _run_az_pr_work_item("add", 42, FAKE_CTX_WITH_REPO, [12345, 12346])
 
         assert len(result) == 2
         assert mock_link.call_count == 2
@@ -1445,9 +1518,9 @@ class TestPrWorkItemAdd:
         """Test successful add of a single work item."""
         mock_run.return_value = [{"id": "12345", "url": "..."}]
 
-        cmd_pr_work_item_add(FAKE_CTX, 42, [12345], as_json=False)
+        cmd_pr_work_item_add(FAKE_CTX_WITH_REPO, 42, [12345], as_json=False)
 
-        mock_run.assert_called_once_with("add", 42, FAKE_CTX, [12345])
+        mock_run.assert_called_once_with("add", 42, FAKE_CTX_WITH_REPO, [12345])
         captured = capsys.readouterr()
         lines = captured.out.strip().split("\n")
         assert len(lines) == 2  # header + 1 data row
@@ -1464,7 +1537,7 @@ class TestPrWorkItemAdd:
         """Test JSON output for successful add."""
         mock_run.return_value = [{"id": "12345", "url": "..."}]
 
-        cmd_pr_work_item_add(FAKE_CTX, 42, [12345], as_json=True)
+        cmd_pr_work_item_add(FAKE_CTX_WITH_REPO, 42, [12345], as_json=True)
 
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -1484,7 +1557,7 @@ class TestPrWorkItemAdd:
             [{"id": "12346", "url": "..."}],
         ]
 
-        cmd_pr_work_item_add(FAKE_CTX, 42, [12345, 12346], as_json=False)
+        cmd_pr_work_item_add(FAKE_CTX_WITH_REPO, 42, [12345, 12346], as_json=False)
 
         assert mock_run.call_count == 2
         captured = capsys.readouterr()
@@ -1508,7 +1581,7 @@ class TestPrWorkItemAdd:
         ]
 
         with pytest.raises(SystemExit) as exc_info:
-            cmd_pr_work_item_add(FAKE_CTX, 42, [12345, 99999], as_json=False)
+            cmd_pr_work_item_add(FAKE_CTX_WITH_REPO, 42, [12345, 99999], as_json=False)
 
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
@@ -1532,7 +1605,7 @@ class TestPrWorkItemAdd:
         ]
 
         with pytest.raises(SystemExit) as exc_info:
-            cmd_pr_work_item_add(FAKE_CTX, 42, [12345, 99999], as_json=True)
+            cmd_pr_work_item_add(FAKE_CTX_WITH_REPO, 42, [12345, 99999], as_json=True)
 
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
@@ -1552,10 +1625,10 @@ class TestPrWorkItemAdd:
         """Test PR ID auto-detection."""
         mock_run.return_value = [{"id": "12345", "url": "..."}]
 
-        cmd_pr_work_item_add(FAKE_CTX, None, [12345], as_json=False)
+        cmd_pr_work_item_add(FAKE_CTX_WITH_REPO, None, [12345], as_json=False)
 
-        mock_detect.assert_called_once_with(FAKE_CTX)
-        mock_run.assert_called_once_with("add", 99, FAKE_CTX, [12345])
+        mock_detect.assert_called_once_with(FAKE_CTX_WITH_REPO)
+        mock_run.assert_called_once_with("add", 99, FAKE_CTX_WITH_REPO, [12345])
 
 
 # ── pr work-item-remove ─────────────────────────────────────────────────
@@ -1573,9 +1646,9 @@ class TestPrWorkItemRemove:
         """Test successful removal of a single work item."""
         mock_run.return_value = [{"id": "12345", "url": "..."}]
 
-        cmd_pr_work_item_remove(FAKE_CTX, 42, [12345], as_json=False)
+        cmd_pr_work_item_remove(FAKE_CTX_WITH_REPO, 42, [12345], as_json=False)
 
-        mock_run.assert_called_once_with("remove", 42, FAKE_CTX, [12345])
+        mock_run.assert_called_once_with("remove", 42, FAKE_CTX_WITH_REPO, [12345])
         captured = capsys.readouterr()
         lines = captured.out.strip().split("\n")
         assert len(lines) == 2  # header + 1 data row
@@ -1596,7 +1669,9 @@ class TestPrWorkItemRemove:
         ]
 
         with pytest.raises(SystemExit) as exc_info:
-            cmd_pr_work_item_remove(FAKE_CTX, 42, [12345, 99999], as_json=False)
+            cmd_pr_work_item_remove(
+                FAKE_CTX_WITH_REPO, 42, [12345, 99999], as_json=False
+            )
 
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
@@ -1649,7 +1724,7 @@ class TestPrWorkItemCreate:
         mock_link.return_value = [{"id": "12345", "url": "..."}]
 
         cmd_pr_work_item_create(
-            FAKE_CTX,
+            FAKE_CTX_WITH_REPO,
             42,
             "Fix the thing",
             "Task",
@@ -1666,7 +1741,7 @@ class TestPrWorkItemCreate:
         # Verify work item was created
         mock_create.assert_called_once()
         # Verify link was called with correct work item ID
-        mock_link.assert_called_once_with("add", 42, FAKE_CTX, [12345])
+        mock_link.assert_called_once_with("add", 42, FAKE_CTX_WITH_REPO, [12345])
 
         captured = capsys.readouterr()
         # Verify stderr shows work item ID
@@ -1694,7 +1769,7 @@ class TestPrWorkItemCreate:
         mock_link.return_value = [{"id": "12345", "url": "..."}]
 
         cmd_pr_work_item_create(
-            FAKE_CTX,
+            FAKE_CTX_WITH_REPO,
             42,
             "Fix the thing",
             "Task",
@@ -1723,7 +1798,7 @@ class TestPrWorkItemCreate:
 
         with pytest.raises(SystemExit) as exc_info:
             cmd_pr_work_item_create(
-                FAKE_CTX,
+                FAKE_CTX_WITH_REPO,
                 42,
                 "Fix the thing",
                 "Task",
@@ -1753,7 +1828,7 @@ class TestPrWorkItemCreate:
 
         with pytest.raises(SystemExit) as exc_info:
             cmd_pr_work_item_create(
-                FAKE_CTX,
+                FAKE_CTX_WITH_REPO,
                 42,
                 "Fix the thing",
                 "InvalidType",
@@ -1787,7 +1862,7 @@ class TestPrWorkItemCreate:
 
         with pytest.raises(SystemExit) as exc_info:
             cmd_pr_work_item_create(
-                FAKE_CTX,
+                FAKE_CTX_WITH_REPO,
                 42,
                 "Fix the thing",
                 "Task",
@@ -1823,7 +1898,7 @@ class TestPrWorkItemCreate:
         mock_link.return_value = [{"id": "12345", "url": "..."}]
 
         cmd_pr_work_item_create(
-            FAKE_CTX,
+            FAKE_CTX_WITH_REPO,
             None,  # Trigger auto-detection
             "Fix the thing",
             "Task",
@@ -1836,9 +1911,9 @@ class TestPrWorkItemCreate:
         )
 
         # Verify detect_pr_id was called
-        mock_detect.assert_called_once_with(FAKE_CTX)
+        mock_detect.assert_called_once_with(FAKE_CTX_WITH_REPO)
         # Verify link was called with detected PR ID
-        mock_link.assert_called_once_with("add", 99, FAKE_CTX, [12345])
+        mock_link.assert_called_once_with("add", 99, FAKE_CTX_WITH_REPO, [12345])
 
     @patch("ado_api.commands.pr._run_az_pr_work_item")
     @patch("ado_api.commands.pr._create_work_item")
@@ -1856,7 +1931,7 @@ class TestPrWorkItemCreate:
         mock_link.return_value = [{"id": "12345", "url": "..."}]
 
         cmd_pr_work_item_create(
-            FAKE_CTX,
+            FAKE_CTX_WITH_REPO,
             42,
             "Fix the thing",
             "Task",
@@ -1887,7 +1962,7 @@ class TestPrWorkItemCreate:
         mock_link.return_value = [{"id": "12345", "url": "..."}]
 
         cmd_pr_work_item_create(
-            FAKE_CTX,
+            FAKE_CTX_WITH_REPO,
             42,
             "Fix the thing",
             "Task",
@@ -1901,7 +1976,7 @@ class TestPrWorkItemCreate:
 
         # Verify all fields were passed to _create_work_item
         mock_create.assert_called_once_with(
-            FAKE_CTX,
+            FAKE_CTX_WITH_REPO,
             "Fix the thing",
             "Task",
             assigned_to="jsmith@example.com",

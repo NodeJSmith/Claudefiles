@@ -17,6 +17,7 @@ Missed builds are classified as:
 import sys
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from urllib.parse import quote
 
 from ado_api.az_client import ADO_API_VERSION, AdoApiError, AdoContext, call_ado_api
 from ado_api.commands.builds import _get_default_branch
@@ -47,10 +48,15 @@ def _builds_url(
     branch: str = "refs/heads/master",
     top: int = _DEFAULT_TOP,
 ) -> str:
+    """Build the builds-list query URL.
+
+    Unlike sibling modules, *branch* here already carries the ``refs/heads/``
+    prefix (see the default above) -- it is not prepended separately.
+    """
     return (
         f"{ctx.config.base_url}/_apis/build/builds"
         f"?api-version={ADO_API_VERSION}"
-        f"&branchName={branch}"
+        f"&branchName={quote(branch, safe='/')}"
         f"&statusFilter=completed"
         f"&$top={top}"
         f"&minTime={min_time}"
@@ -165,7 +171,7 @@ def _fetch_pr_titles(
     total = len(pr_ids)
     for idx, pr_id in enumerate(sorted(pr_ids), start=1):
         url = (
-            f"{ctx.config.base_url}/_apis/git/repositories/{ctx.repo}"
+            f"{ctx.config.base_url}/_apis/git/repositories/{quote(ctx.repo, safe='')}"
             f"/pullrequests/{pr_id}?api-version={ADO_API_VERSION}"
         )
         try:
@@ -278,7 +284,7 @@ def cmd_builds_missed_prod(
         }
         if m["pr_id"] and ctx.repo:
             row_links[4] = (
-                f"{ctx.config.base_url}/_git/{ctx.repo}/pullrequest/{m['pr_id']}"
+                f"{ctx.config.base_url}/_git/{quote(ctx.repo, safe='')}/pullrequest/{m['pr_id']}"
             )
         links.append(row_links)
 

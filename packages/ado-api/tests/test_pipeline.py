@@ -9,6 +9,7 @@ from ado_api.commands.pipeline import (
     MatchKind,
     _find_definition_by_name,
     _get_build_definition_id,
+    _get_repository_id,
     _resolve_agent_queue_id,
     cmd_pipeline_create,
     cmd_pipeline_validate,
@@ -19,6 +20,19 @@ FAKE_CTX = AdoContext(config=FAKE_CONFIG, pat="fake-pat-token", repo="my-repo")
 FAKE_CTX_NO_REPO = AdoContext(config=FAKE_CONFIG, pat="fake-pat-token", repo=None)
 
 _REPO_RESPONSE = {"id": "repo-guid-123"}
+
+
+class TestGetRepositoryId:
+    @patch("ado_api.commands.pipeline.call_ado_api")
+    def test_repo_name_with_space_is_url_encoded(self, mock_api: MagicMock) -> None:
+        mock_api.return_value = _REPO_RESPONSE
+
+        result = _get_repository_id(FAKE_CTX, "My Repo")
+
+        assert result == "repo-guid-123"
+        url = mock_api.call_args[0][1]
+        assert "repositories/My Repo?" not in url
+        assert "repositories/My%20Repo?" in url
 
 
 class TestPipelineCreate:

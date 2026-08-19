@@ -539,6 +539,30 @@ class TestWatchStages:
         assert results[0].result == WatchResult.FAILED
 
     @patch("ado_api.commands.retry_stage.time.sleep")
+    @patch("ado_api.commands.retry_stage.call_ado_api")
+    def test_succeeded_with_issues_is_terminal_and_reported_as_failed(
+        self, mock_api: MagicMock, mock_sleep: MagicMock
+    ) -> None:
+        """succeededWithIssues is a valid terminal result (stage deployed with
+        warnings). It must be recognized as done on the first poll, not treated
+        as still-running and polled until the timeout — and, consistent with
+        ``builds.py``'s ``_FAILED_RESULTS`` convention, reported as FAILED
+        (non-zero exit) rather than a plain success.
+        """
+        mock_api.return_value = _timeline(("prod", "completed", "succeededWithIssues"))
+        records = self._make_queued_records((1, "Pipeline-A"))
+
+        results = _watch_stages(
+            _make_ctx(), records, "prod", interval=1, timeout_minutes=1
+        )
+
+        assert len(results) == 1
+        assert results[0].result == WatchResult.FAILED
+        assert results[0].stage_result == "succeededWithIssues"
+        # Terminal on the first poll — only one sleep before the result lands.
+        mock_sleep.assert_called_once_with(1)
+
+    @patch("ado_api.commands.retry_stage.time.sleep")
     @patch("ado_api.commands.retry_stage.time.monotonic")
     @patch("ado_api.commands.retry_stage.call_ado_api")
     def test_polls_until_terminal(

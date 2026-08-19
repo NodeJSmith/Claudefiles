@@ -3,6 +3,7 @@
 import re
 import sys
 from typing import Any
+from urllib.parse import quote
 
 from ado_api.az_client import ADO_API_VERSION, AdoApiError, AdoContext, call_ado_api
 from ado_api.commands.work_item import _create_work_item
@@ -30,8 +31,30 @@ _THREAD_HEADERS = ("ID", "STATUS", "AUTHOR", "CONTENT")
 
 
 def _pr_base_url(ctx: AdoContext) -> str:
-    """Build the base URL for PR REST API calls."""
-    return f"{ctx.config.base_url}/_apis/git/repositories/{ctx.repo}/pullrequests"
+    """Build the base URL for PR REST API calls scoped to a specific repository.
+
+    Requires a resolved ``ctx.repo`` — every ``pr`` subcommand except ``pr list``
+    gets one via ``_get_repo_or_exit()`` before reaching this function. ``pr list``
+    uses :func:`_pr_list_base_url` instead so it can fall back to a project-wide
+    listing when there is no repo.
+    """
+    if ctx.repo is None:
+        msg = "_pr_base_url requires ctx.repo to be set for this operation."
+        raise ValueError(msg)
+    return f"{ctx.config.base_url}/_apis/git/repositories/{quote(ctx.repo, safe='')}/pullrequests"
+
+
+def _pr_list_base_url(ctx: AdoContext) -> str:
+    """Build the base URL for listing PRs.
+
+    Repository-scoped when ``ctx.repo`` is set. Falls back to ADO's project-wide
+    "Get Pull Requests By Project" endpoint when it isn't, since ``pr list`` is the
+    one ``pr`` subcommand that supports running outside a git repository (see
+    ``cli/commands/pr.py``'s ``cli_pr_list``, which uses ``_get_repo_or_none()``).
+    """
+    if ctx.repo is None:
+        return f"{ctx.config.base_url}/_apis/git/pullrequests"
+    return _pr_base_url(ctx)
 
 
 def _pr_url(ctx: AdoContext, pr_id: int) -> str:
@@ -57,7 +80,7 @@ def detect_pr_id(ctx: AdoContext) -> int:
     branch = get_current_branch()
     url = (
         f"{_pr_base_url(ctx)}"
-        f"?searchCriteria.sourceRefName=refs/heads/{branch}"
+        f"?searchCriteria.sourceRefName=refs/heads/{quote(branch, safe='/')}"
         f"&searchCriteria.status=active"
         f"&api-version={ADO_API_VERSION}"
     )
@@ -158,7 +181,7 @@ def _fetch_prs_matching_author(
     pages_fetched = 0
     for _ in range(_AUTHOR_SEARCH_MAX_PAGES):
         url = (
-            f"{_pr_base_url(ctx)}?searchCriteria.status={status}"
+            f"{_pr_list_base_url(ctx)}?searchCriteria.status={status}"
             f"&$top={_AUTHOR_SEARCH_PAGE_SIZE}&$skip={skip}"
             f"&api-version={ADO_API_VERSION}"
         )
@@ -193,7 +216,7 @@ def cmd_pr_list(
     if author is not None:
         prs = _fetch_prs_matching_author(ctx, status=status, author=author, top=top)
     else:
-        url = f"{_pr_base_url(ctx)}?searchCriteria.status={status}&$top={top}&api-version={ADO_API_VERSION}"
+        url = f"{_pr_list_base_url(ctx)}?searchCriteria.status={status}&$top={top}&api-version={ADO_API_VERSION}"
         data = call_ado_api("GET", url, pat=ctx.pat)
         prs = data.get("value", [])
 

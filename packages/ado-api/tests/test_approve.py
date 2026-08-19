@@ -112,6 +112,16 @@ class TestBuildsUrl:
         assert "branchName=refs/heads/release/x" in url
         mock_default.assert_not_called()
 
+    @patch("ado_api.commands.approve._get_default_branch")
+    def test_branch_with_special_char_is_url_encoded(
+        self, mock_default: MagicMock
+    ) -> None:
+        ctx = _make_ctx()
+        url = _builds_url(ctx, branch="feature/a&b")
+        assert "branchName=refs/heads/feature/a&b" not in url
+        assert "branchName=refs/heads/feature/a%26b" in url
+        mock_default.assert_not_called()
+
 
 class TestApproveOne:
     """Single approval execution with 500-as-already-approved quirk."""

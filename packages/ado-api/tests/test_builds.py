@@ -74,6 +74,49 @@ class TestBuildsListBasic:
         assert "statusFilter=inProgress" in url
 
     @patch("ado_api.commands.builds.call_ado_api")
+    def test_builds_list_branch_with_special_char_is_url_encoded(
+        self, mock_api: MagicMock
+    ) -> None:
+        mock_api.return_value = {"value": []}
+
+        cmd_builds_list(FAKE_CTX, branch="feature/a&b", as_json=False)
+
+        url = mock_api.call_args[0][1]
+        assert "refs/heads/feature/a&b" not in url
+        assert "refs/heads/feature/a%26b" in url
+
+    @patch("ado_api.commands.builds.call_ado_api")
+    def test_builds_list_tags_and_status_with_special_char_are_url_encoded(
+        self, mock_api: MagicMock
+    ) -> None:
+        mock_api.return_value = {"value": []}
+
+        cmd_builds_list(
+            FAKE_CTX, tags="release notes", status="in progress", as_json=False
+        )
+
+        url = mock_api.call_args[0][1]
+        assert "tagFilters=release notes" not in url
+        assert "statusFilter=in progress" not in url
+        assert "tagFilters=release%20notes" in url
+        assert "statusFilter=in%20progress" in url
+
+    @patch("ado_api.commands.builds.call_ado_api")
+    def test_builds_list_pr_tag_convention_keeps_equals_unencoded(
+        self, mock_api: MagicMock
+    ) -> None:
+        """The ``pr=49846`` tag convention (see tags.py) must survive encoding
+        unchanged — only characters that would corrupt the query string get
+        percent-encoded, not the ``=`` this codebase's own tags rely on.
+        """
+        mock_api.return_value = {"value": []}
+
+        cmd_builds_list(FAKE_CTX, tags="pr=49846", as_json=False)
+
+        url = mock_api.call_args[0][1]
+        assert "tagFilters=pr=49846" in url
+
+    @patch("ado_api.commands.builds.call_ado_api")
     def test_builds_list_json(
         self, mock_api: MagicMock, capsys: pytest.CaptureFixture[str]
     ) -> None:

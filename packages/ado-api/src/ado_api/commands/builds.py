@@ -3,6 +3,7 @@
 import subprocess
 import sys
 from typing import Any
+from urllib.parse import quote
 
 from ado_api.az_client import ADO_API_VERSION, AdoApiError, AdoContext, call_ado_api
 from ado_api.formatting import format_duration, json_output, tsv_table
@@ -63,11 +64,14 @@ def _list_builds(
     """Fetch builds from the REST API with optional filters."""
     url = f"{_builds_url(ctx)}?api-version={ADO_API_VERSION}&$top={top}"
     if tags:
-        url += f"&tagFilters={tags}"
+        # tagFilters is comma-delimited, and this codebase's own tag convention
+        # (see tags.py — "pr=49846") embeds an unencoded ``=`` inside a tag value,
+        # so both characters stay in the safe set alongside the default '/'.
+        url += f"&tagFilters={quote(tags, safe=',=')}"
     if branch:
-        url += f"&branchName=refs/heads/{branch}"
+        url += f"&branchName=refs/heads/{quote(branch, safe='/')}"
     if status:
-        url += f"&statusFilter={status}"
+        url += f"&statusFilter={quote(status, safe='')}"
 
     data = call_ado_api("GET", url, pat=ctx.pat)
     return data.get("value", [])

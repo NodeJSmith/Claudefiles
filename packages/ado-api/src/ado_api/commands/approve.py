@@ -13,6 +13,7 @@ import sys
 import tempfile
 from datetime import UTC, datetime
 from typing import Any, cast
+from urllib.parse import quote
 
 from ado_api.az_client import ADO_API_VERSION, AdoApiError, AdoContext, call_ado_api
 from ado_api.commands.builds import _get_default_branch, _list_builds
@@ -45,7 +46,7 @@ def _builds_url(ctx: AdoContext, branch: str | None = None) -> str:
         f"{ctx.config.base_url}/_apis/build/builds"
         f"?api-version={ADO_API_VERSION}"
         f"&statusFilter={','.join(_APPROVABLE_STATUSES)}"
-        f"&branchName=refs/heads/{branch}"
+        f"&branchName=refs/heads/{quote(branch, safe='/')}"
         f"&queryOrder=queueTimeDescending"
     )
 

@@ -340,6 +340,48 @@ class TestCmdBuildsMissedProd:
         assert "branchName=refs/heads/main" in url
 
     @patch("ado_api.commands.missed_prod.call_ado_api")
+    def test_branch_name_with_special_chars_is_url_encoded(
+        self, mock_api: MagicMock, _mb: MagicMock
+    ) -> None:
+        """A branch name with URL-significant characters (e.g. '&') must not corrupt the query string."""
+        mock_api.return_value = {"value": []}
+
+        cmd_builds_missed_prod(_make_ctx(), days=7, branch="feature/a&b", as_json=True)
+
+        url = mock_api.call_args[0][1]
+        assert "refs/heads/feature%2Fa%26b" not in url  # slash stays unencoded
+        assert "refs/heads/feature/a%26b" in url
+
+    @patch("ado_api.commands.missed_prod.call_ado_api")
+    def test_repo_name_with_space_in_web_link_is_url_encoded(
+        self, mock_api: MagicMock, _mb: MagicMock, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """The PR web-hyperlink built from ctx.repo must encode a repo name with a space."""
+        mock_api.return_value = {
+            "value": [
+                _make_build(
+                    100, "Pipeline-A", 1, ["stage-2026-04-01T10:00:00", "PR-10"]
+                ),
+            ],
+        }
+        ctx = AdoContext(
+            config=AdoConfig(
+                organization="https://dev.azure.com/TestOrg", project="TestProject"
+            ),
+            pat="fake-pat",
+            repo="My Repo",
+        )
+
+        with patch(
+            "ado_api.commands.missed_prod._fetch_pr_titles", return_value={"10": "x"}
+        ):
+            cmd_builds_missed_prod(ctx, days=14, as_json=False)
+
+        captured = capsys.readouterr()
+        assert "_git/My Repo/pullrequest/10" not in captured.out
+        assert "_git/My%20Repo/pullrequest/10" in captured.out
+
+    @patch("ado_api.commands.missed_prod.call_ado_api")
     def test_pagination_warning(
         self, mock_api: MagicMock, _mb: MagicMock, capsys: pytest.CaptureFixture[str]
     ) -> None:
@@ -531,3 +573,21 @@ class TestFetchPrTitles:
         )
         result = _fetch_pr_titles(ctx, {"10", "20"})
         assert len(result) == 1
+
+    @patch("ado_api.commands.missed_prod.call_ado_api")
+    def test_repo_name_with_space_is_url_encoded(self, mock_api: MagicMock) -> None:
+        """A repo name containing a space must not break the API URL's path segment."""
+        mock_api.return_value = {"title": "some PR"}
+        ctx = AdoContext(
+            config=AdoConfig(
+                organization="https://dev.azure.com/TestOrg", project="TestProject"
+            ),
+            pat="fake-pat",
+            repo="My Repo",
+        )
+
+        _fetch_pr_titles(ctx, {"10"})
+
+        url = mock_api.call_args[0][1]
+        assert "My Repo" not in url
+        assert "My%20Repo" in url

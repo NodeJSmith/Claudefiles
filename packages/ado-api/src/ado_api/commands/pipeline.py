@@ -48,7 +48,7 @@ def _build_validation_url(ctx: AdoContext) -> str:
 
 def _get_repository_id(ctx: AdoContext, repo: str) -> str:
     """Resolve a git repository name to its GUID (required for TfsGit definitions)."""
-    url = f"{_base_url(ctx)}/_apis/git/repositories/{repo}?{API_PARAMETER}"
+    url = f"{_base_url(ctx)}/_apis/git/repositories/{quote(repo, safe='')}?{API_PARAMETER}"
     response = call_ado_api("GET", url, pat=ctx.pat)
     return response["id"]
 

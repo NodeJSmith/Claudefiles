@@ -49,9 +49,20 @@ _HEADERS = ("BUILD", "PIPELINE", "STAGE_RESULT", "ACTION")
 
 # Stage results that mean the stage has finished running, whatever the outcome —
 # used to detect when a watched stage is done (as opposed to still in progress).
+# ``succeededWithIssues`` means the stage completed but with warnings — still
+# terminal, so it must be recognized immediately rather than polled to timeout.
+# It is deliberately NOT in ``_WATCH_SUCCESS_RESULTS`` below — see that comment.
 _STAGE_TERMINAL_RESULTS = frozenset(
-    {"succeeded", "failed", "canceled", "cancelled", "skipped"}
+    {"succeeded", "succeededWithIssues", "failed", "canceled", "cancelled", "skipped"}
 )
+
+# Terminal results reported as WatchResult.SUCCEEDED rather than FAILED.
+# ``succeededWithIssues`` is excluded on purpose: ``builds.py``'s
+# ``_FAILED_RESULTS`` already treats this ADO status as failure-adjacent
+# ("needs attention") for --failed-only filtering and log fetching, and this
+# watch path follows the same convention so a caller gating on exit code sees
+# a non-zero exit rather than a silent, indistinguishable success.
+_WATCH_SUCCESS_RESULTS = frozenset({"succeeded"})
 
 DEFAULT_WATCH_INTERVAL = 30
 DEFAULT_WATCH_TIMEOUT = 120
@@ -419,7 +430,7 @@ def _watch_stages(
             if state == "completed" and result in _STAGE_TERMINAL_RESULTS:
                 watch_result = (
                     WatchResult.SUCCEEDED
-                    if result == "succeeded"
+                    if result in _WATCH_SUCCESS_RESULTS
                     else WatchResult.FAILED
                 )
                 results.append(
