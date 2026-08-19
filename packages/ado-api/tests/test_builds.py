@@ -1,21 +1,19 @@
-"""Tests for ado_api.commands.builds — build list, cancel, and cancel-by-tag."""
+"""Tests for ado_api.commands.builds — build list, cancel, cancel-by-tag, and timeline steps."""
 
 import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-from ado_api.az_client import AdoConfig, AdoContext
 from ado_api.commands.builds import (
     cmd_builds_cancel,
     cmd_builds_cancel_by_tag,
     cmd_builds_list,
+    cmd_builds_steps,
 )
+from tests.conftest import FAKE_CTX, _make_timeline_record, _timeline_response
 
 # ── Sample data ──────────────────────────────────────────────────────────
 
-FAKE_CONFIG = AdoConfig(organization="https://dev.azure.com/myorg", project="MyProject")
-FAKE_PAT = "fake-pat-token"
-FAKE_CTX = AdoContext(config=FAKE_CONFIG, pat=FAKE_PAT)
 
 _SAMPLE_BUILDS = [
     {
@@ -74,6 +72,49 @@ class TestBuildsListBasic:
         url = mock_api.call_args[0][1]
         assert "branchName=refs/heads/master" in url
         assert "statusFilter=inProgress" in url
+
+    @patch("ado_api.commands.builds.call_ado_api")
+    def test_builds_list_branch_with_special_char_is_url_encoded(
+        self, mock_api: MagicMock
+    ) -> None:
+        mock_api.return_value = {"value": []}
+
+        cmd_builds_list(FAKE_CTX, branch="feature/a&b", as_json=False)
+
+        url = mock_api.call_args[0][1]
+        assert "refs/heads/feature/a&b" not in url
+        assert "refs/heads/feature/a%26b" in url
+
+    @patch("ado_api.commands.builds.call_ado_api")
+    def test_builds_list_tags_and_status_with_special_char_are_url_encoded(
+        self, mock_api: MagicMock
+    ) -> None:
+        mock_api.return_value = {"value": []}
+
+        cmd_builds_list(
+            FAKE_CTX, tags="release notes", status="in progress", as_json=False
+        )
+
+        url = mock_api.call_args[0][1]
+        assert "tagFilters=release notes" not in url
+        assert "statusFilter=in progress" not in url
+        assert "tagFilters=release%20notes" in url
+        assert "statusFilter=in%20progress" in url
+
+    @patch("ado_api.commands.builds.call_ado_api")
+    def test_builds_list_pr_tag_convention_keeps_equals_unencoded(
+        self, mock_api: MagicMock
+    ) -> None:
+        """The ``pr=49846`` tag convention (see tags.py) must survive encoding
+        unchanged — only characters that would corrupt the query string get
+        percent-encoded, not the ``=`` this codebase's own tags rely on.
+        """
+        mock_api.return_value = {"value": []}
+
+        cmd_builds_list(FAKE_CTX, tags="pr=49846", as_json=False)
+
+        url = mock_api.call_args[0][1]
+        assert "tagFilters=pr=49846" in url
 
     @patch("ado_api.commands.builds.call_ado_api")
     def test_builds_list_json(
@@ -227,3 +268,99 @@ class TestBuildsCancelByTag:
 
         captured = capsys.readouterr()
         assert "No in-progress builds" in captured.out
+
+
+class TestBuildsStepsBasic:
+    """builds steps — basic TSV output with all columns."""
+
+    @patch("ado_api.commands.builds.call_ado_api")
+    def test_builds_steps_basic(
+        self,
+        mock_api: MagicMock,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        mock_api.return_value = _timeline_response(
+            _make_timeline_record(order=1, name="Build", result="succeeded", log_id=10),
+            _make_timeline_record(
+                order=2, name="Test", result="failed", log_id=11, error_count=2
+            ),
+        )
+
+        cmd_builds_steps(FAKE_CTX, 100)
+
+        captured = capsys.readouterr()
+        lines = captured.out.strip().split("\n")
+        # Header + 2 data rows
+        assert len(lines) == 3
+        assert "ORDER" in lines[0]
+        assert "TYPE" in lines[0]
+        assert "NAME" in lines[0]
+        assert "Build" in lines[1]
+        assert "Test" in lines[2]
+
+    @patch("ado_api.commands.builds.call_ado_api")
+    def test_builds_steps_json(
+        self,
+        mock_api: MagicMock,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        mock_api.return_value = _timeline_response(
+            _make_timeline_record(order=1, name="Build"),
+        )
+
+        cmd_builds_steps(FAKE_CTX, 100, as_json=True)
+
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert isinstance(data, list)
+        assert data[0]["name"] == "Build"
+
+
+class TestBuildsStepsFailedFilter:
+    """builds steps --failed — only show failed and succeededWithIssues."""
+
+    @patch("ado_api.commands.builds.call_ado_api")
+    def test_builds_steps_failed_filter(
+        self,
+        mock_api: MagicMock,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        mock_api.return_value = _timeline_response(
+            _make_timeline_record(order=1, name="Good", result="succeeded"),
+            _make_timeline_record(order=2, name="Bad", result="failed"),
+            _make_timeline_record(order=3, name="Warn", result="succeededWithIssues"),
+            _make_timeline_record(order=4, name="Skip", result="skipped"),
+        )
+
+        cmd_builds_steps(FAKE_CTX, 100, failed=True)
+
+        captured = capsys.readouterr()
+        lines = captured.out.strip().split("\n")
+        # Header + 2 matching rows
+        assert len(lines) == 3
+        assert "Bad" in lines[1]
+        assert "Warn" in lines[2]
+
+
+class TestBuildsStepsTypeFilter:
+    """builds steps --type Task — filter by record type."""
+
+    @patch("ado_api.commands.builds.call_ado_api")
+    def test_builds_steps_type_filter(
+        self,
+        mock_api: MagicMock,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        mock_api.return_value = _timeline_response(
+            _make_timeline_record(order=1, name="Phase", record_type="Phase"),
+            _make_timeline_record(order=2, name="Build", record_type="Task"),
+        )
+
+        cmd_builds_steps(FAKE_CTX, 100, record_type="Task")
+
+        captured = capsys.readouterr()
+        lines = captured.out.strip().split("\n")
+        # Header + 1 matching row
+        assert len(lines) == 2
+        assert "Build" in lines[1]
+        assert "Phase" not in captured.out.split("\n", 1)[1]  # not in data rows

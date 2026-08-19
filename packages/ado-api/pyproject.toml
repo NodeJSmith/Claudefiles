@@ -4,13 +4,14 @@ requires = ["setuptools>=80"]
 
 [project]
 name = "ado-api"
-version = "0.1.0"
-description = "Azure DevOps CLI — builds, logs, and PR management"
-requires-python = ">=3.11"
+version = "0.2.0"
+description = "Azure DevOps CLI — builds, logs, pipelines, pull requests, and work items"
+readme = "README.md"
+requires-python = ">=3.12"
 dependencies = [
+    "cyclopts>=4.16",
     "pydantic>=2.0,<3",
-    "pydantic-settings>=2.5,<3",
-    "yarl>=1.18,<2",
+    "tenacity>=9.0,<10",
 ]
 
 [project.scripts]
@@ -19,6 +20,7 @@ ado-api = "ado_api.cli:main"
 [dependency-groups]
 dev = [
     "pytest>=8.0",
+    "pytest-cov>=7.0.0",
     "pytest-mock>=3.12.0,<4",
 ]
 
@@ -26,5 +28,8 @@ dev = [
 where = ["src"]
 
 [tool.pytest.ini_options]
+markers = [
+    "unit: pure function tests (fast)",
+]
 addopts = ["-p", "no:warnings"]
 testpaths = ["tests"]

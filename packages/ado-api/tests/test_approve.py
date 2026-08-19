@@ -1,6 +1,7 @@
 """Tests for ado_api.commands.approve — list pending and approve by build ID."""
 
 import json
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -8,9 +9,11 @@ from ado_api.az_client import AdoApiError, AdoConfig, AdoContext
 from ado_api.commands.approve import (
     _approve_one,
     _build_approval_map,
+    _builds_url,
     _format_waiting,
     cmd_builds_approve,
     cmd_builds_approve_list,
+    resolve_pr_ids_to_builds,
 )
 
 
@@ -29,8 +32,6 @@ class TestFormatWaiting:
         assert _format_waiting("not-a-date") == "-"
 
     def test_recent_timestamp_shows_minutes(self) -> None:
-        from datetime import UTC, datetime, timedelta
-
         recent = (datetime.now(UTC) - timedelta(minutes=15)).strftime(
             "%Y-%m-%dT%H:%M:%SZ"
         )
@@ -38,8 +39,6 @@ class TestFormatWaiting:
         assert "m" in result
 
     def test_old_timestamp_shows_hours(self) -> None:
-        from datetime import UTC, datetime, timedelta
-
         old = (datetime.now(UTC) - timedelta(hours=2, minutes=15)).strftime(
             "%Y-%m-%dT%H:%M:%SZ"
         )
@@ -86,6 +85,42 @@ class TestBuildApprovalMap:
 
     def test_empty_approvals(self) -> None:
         assert _build_approval_map([]) == {}
+
+
+class TestBuildsUrl:
+    """The approvals-scoped builds URL used when listing pending approvals.
+
+    ``_builds_url`` is distinct from ``commands.builds._builds_url`` (a plain base
+    URL) — this one adds ``statusFilter``/``branchName`` and is the one FR#8's
+    ``--branch`` override threads through.
+    """
+
+    @patch("ado_api.commands.approve._get_default_branch", return_value="master")
+    def test_omitted_branch_falls_back_to_default_branch(
+        self, mock_default: MagicMock
+    ) -> None:
+        """Regression guard: with no branch given, behavior matches the pre-FR#8 URL."""
+        ctx = _make_ctx()
+        url = _builds_url(ctx)
+        assert "branchName=refs/heads/master" in url
+        mock_default.assert_called_once()
+
+    @patch("ado_api.commands.approve._get_default_branch")
+    def test_explicit_branch_overrides_default(self, mock_default: MagicMock) -> None:
+        ctx = _make_ctx()
+        url = _builds_url(ctx, branch="release/x")
+        assert "branchName=refs/heads/release/x" in url
+        mock_default.assert_not_called()
+
+    @patch("ado_api.commands.approve._get_default_branch")
+    def test_branch_with_special_char_is_url_encoded(
+        self, mock_default: MagicMock
+    ) -> None:
+        ctx = _make_ctx()
+        url = _builds_url(ctx, branch="feature/a&b")
+        assert "branchName=refs/heads/feature/a&b" not in url
+        assert "branchName=refs/heads/feature/a%26b" in url
+        mock_default.assert_not_called()
 
 
 class TestApproveOne:
@@ -352,3 +387,86 @@ class TestCmdBuildsApprove:
         with pytest.raises(SystemExit) as exc_info:
             cmd_builds_approve(ctx, [1001], yes=False)
         assert exc_info.value.code == 1
+
+
+class TestResolvePrIdsToBuilds:
+    """Tag-expansion logic relocated from cli_models/builds.py.
+
+    Redistributed from the deleted tests/test_cli_models.py's TestBuildsApprovePrIdNormalization
+    per design.md's Test Strategy — bare number, pr=/PR- prefix variants, multiple PRs, and
+    resolved-build-ID passthrough.
+    """
+
+    @patch("ado_api.commands.approve._list_builds")
+    def test_bare_number_searches_both_tag_variants(self, mock_list: MagicMock) -> None:
+        mock_list.return_value = [{"id": 1001}]
+        ctx = _make_ctx()
+
+        build_ids = resolve_pr_ids_to_builds(ctx, ["49752"])
+
+        assert mock_list.call_count == 2
+        tags_searched = [call.kwargs["tags"] for call in mock_list.call_args_list]
+        assert sorted(tags_searched) == ["PR-49752", "pr=49752"]
+        assert build_ids == [1001, 1001]
+
+    @patch("ado_api.commands.approve._list_builds")
+    def test_pr_equals_format_strips_prefix(self, mock_list: MagicMock) -> None:
+        """'pr=49752' strips the prefix and still searches both tag variants."""
+        mock_list.return_value = [{"id": 1001}]
+        ctx = _make_ctx()
+
+        resolve_pr_ids_to_builds(ctx, ["pr=49752"])
+
+        tags_searched = [call.kwargs["tags"] for call in mock_list.call_args_list]
+        assert sorted(tags_searched) == ["PR-49752", "pr=49752"]
+
+    @patch("ado_api.commands.approve._list_builds")
+    def test_pr_dash_format_strips_prefix(self, mock_list: MagicMock) -> None:
+        """'PR-49752' strips the prefix and still searches both tag variants."""
+        mock_list.return_value = [{"id": 1001}]
+        ctx = _make_ctx()
+
+        resolve_pr_ids_to_builds(ctx, ["PR-49752"])
+
+        tags_searched = [call.kwargs["tags"] for call in mock_list.call_args_list]
+        assert sorted(tags_searched) == ["PR-49752", "pr=49752"]
+
+    @patch("ado_api.commands.approve._list_builds")
+    def test_multiple_prs_each_generate_both_variants(
+        self, mock_list: MagicMock
+    ) -> None:
+        mock_list.return_value = [{"id": 1001}]
+        ctx = _make_ctx()
+
+        resolve_pr_ids_to_builds(ctx, ["100", "200"])
+
+        assert mock_list.call_count == 4
+        tags_searched = [call.kwargs["tags"] for call in mock_list.call_args_list]
+        assert sorted(tags_searched) == ["PR-100", "PR-200", "pr=100", "pr=200"]
+
+    @patch("ado_api.commands.approve._list_builds")
+    def test_resolved_build_ids_from_both_variants_combined(
+        self, mock_list: MagicMock
+    ) -> None:
+        """Build IDs from both tag-variant lookups are combined in the result."""
+        mock_list.side_effect = [[{"id": 1001}], [{"id": 1002}]]
+        ctx = _make_ctx()
+
+        build_ids = resolve_pr_ids_to_builds(ctx, ["49752"])
+
+        assert sorted(build_ids) == [1001, 1002]
+
+    @patch("ado_api.commands.approve._list_builds")
+    def test_tag_lookup_carries_no_branch_filter(self, mock_list: MagicMock) -> None:
+        """FR#8: the ID path resolves builds by tag only — ``--branch`` must not narrow it.
+
+        ``resolve_pr_ids_to_builds`` takes no branch parameter at all, so this is
+        structurally true regardless of what the caller passes for ``--branch``.
+        """
+        mock_list.return_value = [{"id": 1001}]
+        ctx = _make_ctx()
+
+        resolve_pr_ids_to_builds(ctx, ["49752"])
+
+        for call in mock_list.call_args_list:
+            assert "branch" not in call.kwargs

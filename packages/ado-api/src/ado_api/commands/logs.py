@@ -1,242 +1,212 @@
-"""Log inspection commands — list timeline, fetch logs, extract errors, search."""
+"""Log content commands — read raw log text, selected by step name/failure/log ID.
+
+Timeline (per-run step) listing lives in ``commands/builds.py`` as ``cmd_builds_steps`` —
+this module is scoped to fetching and slicing/searching the raw log text those steps
+point to.
+"""
 
 import sys
 from typing import Any
 
-from ado_api.az_client import (
-    AdoContext,
-    call_ado_api,
-    call_ado_api_text,
+from ado_api.az_client import ADO_API_VERSION, AdoContext, call_ado_api_text
+from ado_api.commands.builds import (
+    _FAILED_RESULTS,
+    _fetch_timeline,
+    _record_log_id,
+    _record_to_dict,
 )
-from ado_api.commands.builds import _BUILDS_PATH
-from ado_api.formatting import format_duration, json_output, tsv_table
-
-_FAILED_RESULTS = frozenset({"failed", "succeededWithIssues"})
-
-_LIST_HEADERS = ("ORDER", "TYPE", "NAME", "RESULT", "LOG_ID", "ISSUES", "DURATION")
+from ado_api.formatting import json_output
 
 
-def _timeline_url(ctx: AdoContext, build_id: int) -> str:
-    return ctx.config.api_url(*_BUILDS_PATH, str(build_id), "timeline")
+def _log_url(ctx: AdoContext, build_id: int, log_id: int) -> str:
+    return f"{ctx.config.base_url}/_apis/build/builds/{build_id}/logs/{log_id}?api-version={ADO_API_VERSION}"
 
 
-def _log_url(ctx: AdoContext, build_id: int, log_id: int, **query: str) -> str:
-    return ctx.config.api_url(
-        *_BUILDS_PATH, str(build_id), "logs", str(log_id), **query
-    )
+def _fetch_log_lines(ctx: AdoContext, build_id: int, log_id: int) -> list[str]:
+    """Fetch a log's full text and split it into lines."""
+    url = _log_url(ctx, build_id, log_id)
+    content = call_ado_api_text("GET", url, pat=ctx.pat)
+    return content.splitlines()
 
 
-def _fetch_timeline(ctx: AdoContext, build_id: int) -> list[dict[str, Any]]:
-    """Fetch and return timeline records for a build, sorted by order."""
-    url = _timeline_url(ctx, build_id)
-    data = call_ado_api("GET", url, pat=ctx.pat)
-    records: list[dict[str, Any]] = data.get("records", [])
-    records.sort(key=lambda r: r.get("order", 0))
-    return records
+def _slice_lines(lines: list[str], *, tail: int | None, head: int | None) -> list[str]:
+    """Slice *lines* client-side for ``--tail``/``--head``. ``tail`` takes precedence if both given."""
+    if tail is not None:
+        return lines[-tail:]
+    if head is not None:
+        return lines[:head]
+    return lines
 
 
-def _record_log_id(record: dict[str, Any]) -> int | None:
-    log = record.get("log")
-    if log is None:
-        return None
-    return log.get("id")
+def _find_match_indices(lines: list[str], pattern: str) -> list[int]:
+    pattern_lower = pattern.lower()
+    return [i for i, line in enumerate(lines) if pattern_lower in line.lower()]
 
 
-def _record_to_row(record: dict[str, Any]) -> tuple[str, ...]:
-    log_id = _record_log_id(record)
+def _render_grep_matches(lines: list[str], pattern: str, context: int) -> list[str]:
+    """Render matched lines (with optional context window) as printable strings."""
+    matches = _find_match_indices(lines, pattern)
+    if not matches:
+        return []
+
+    output: list[str] = []
+    if context > 0:
+        printed: set[int] = set()
+        for pos, match_idx in enumerate(matches):
+            start = max(0, match_idx - context)
+            end = min(len(lines), match_idx + context + 1)
+            for i in range(start, end):
+                if i not in printed:
+                    printed.add(i)
+                    marker = ">>>" if i == match_idx else "   "
+                    output.append(f"  {marker} {lines[i]}")
+            if pos + 1 < len(matches):
+                next_start = max(0, matches[pos + 1] - context)
+                if end < next_start:
+                    output.append("  ...")
+    else:
+        output.extend(f"  {lines[match_idx]}" for match_idx in matches)
+    return output
+
+
+def _print_issues(record: dict[str, Any]) -> None:
+    """Print a step's error/warning counts and extracted issue list (from the timeline record, not log text)."""
     error_count = record.get("errorCount", 0)
     warning_count = record.get("warningCount", 0)
-    issues_str = f"E:{error_count} W:{warning_count}"
-    duration = format_duration(record.get("startTime"), record.get("finishTime"))
-    return (
-        str(record.get("order", "")),
-        str(record.get("type", "")),
-        str(record.get("name", "")),
-        str(record.get("result", "")),
-        str(log_id) if log_id is not None else "-",
-        issues_str,
-        duration,
-    )
+    print(f"  Errors: {error_count}  Warnings: {warning_count}")
+    for issue in record.get("issues", []):
+        issue_type = issue.get("type", "error")
+        message = issue.get("message") or ""
+        print(f"  [{issue_type}] {message}")
 
 
-def _record_to_dict(record: dict[str, Any]) -> dict[str, Any]:
-    log_id = _record_log_id(record)
-    return {
-        "order": record.get("order"),
-        "type": record.get("type"),
-        "name": record.get("name"),
-        "result": record.get("result"),
-        "log_id": log_id,
-        "error_count": record.get("errorCount", 0),
-        "warning_count": record.get("warningCount", 0),
-        "duration": format_duration(record.get("startTime"), record.get("finishTime")),
-    }
-
-
-def _filter_records(
+def _select_records(
     records: list[dict[str, Any]],
     *,
-    failed_only: bool = False,
-    record_type: str | None = None,
-) -> list[dict[str, Any]]:
-    filtered = records
-    if failed_only:
-        filtered = [r for r in filtered if r.get("result") in _FAILED_RESULTS]
-    if record_type is not None:
-        filtered = [r for r in filtered if r.get("type") == record_type]
-    return filtered
+    step: list[str] | None,
+    failed: bool,
+    log_id: int | None,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Resolve the selector axis (``--step``/``--failed``/``--log-id``) to a set of timeline records.
+
+    Selectors combine by union — each is an independent way of choosing steps to include,
+    not a filter narrowing a prior result. Returns the selected records in timeline order
+    (deduplicated) plus any ``--step`` substrings that matched nothing.
+    """
+    selected: dict[int, dict[str, Any]] = {}
+    unmatched_steps: list[str] = []
+
+    if step:
+        for pattern in step:
+            pattern_lower = pattern.lower()
+            matched_any = False
+            for idx, record in enumerate(records):
+                name = str(record.get("name", ""))
+                if pattern_lower in name.lower():
+                    selected[idx] = record
+                    matched_any = True
+            if not matched_any:
+                unmatched_steps.append(pattern)
+
+    if failed:
+        selected |= {
+            idx: record
+            for idx, record in enumerate(records)
+            if record.get("result") in _FAILED_RESULTS
+        }
+
+    if log_id is not None:
+        selected |= {
+            idx: record
+            for idx, record in enumerate(records)
+            if _record_log_id(record) == log_id
+        }
+
+    ordered = [selected[idx] for idx in sorted(selected)]
+    return ordered, unmatched_steps
 
 
-# ── Public command handlers ───────────────────────────────────────────
-
-
-def cmd_logs_list(
+def cmd_logs_read(
     ctx: AdoContext,
     build_id: int,
     *,
+    step: list[str] | None = None,
     failed: bool = False,
-    record_type: str | None = None,
-    as_json: bool = False,
-) -> None:
-    """List timeline steps for a build."""
-    records = _fetch_timeline(ctx, build_id)
-    records = _filter_records(records, failed_only=failed, record_type=record_type)
-
-    if as_json:
-        json_output([_record_to_dict(r) for r in records])
-    else:
-        rows = [_record_to_row(r) for r in records]
-        tsv_table(rows, headers=_LIST_HEADERS)
-
-
-def cmd_logs_get(
-    ctx: AdoContext,
-    build_id: int,
-    log_id: int,
-    *,
+    log_id: int | None = None,
+    issues: bool = False,
     tail: int | None = None,
     head: int | None = None,
-) -> None:
-    """Fetch raw log content for a specific log ID."""
-    extra: dict[str, str] = {}
-    if head is not None:
-        extra = {"startLine": "1", "endLine": str(head)}
-    url = _log_url(ctx, build_id, log_id, **extra)
-
-    content = call_ado_api_text("GET", url, pat=ctx.pat)
-
-    if tail is not None:
-        lines = content.splitlines()
-        lines = lines[-tail:]
-        print("\n".join(lines))
-    else:
-        sys.stdout.write(content)
-
-
-def cmd_logs_errors(
-    ctx: AdoContext,
-    build_id: int,
-    *,
-    with_log: int | None = None,
+    grep: str | None = None,
+    context: int = 0,
     as_json: bool = False,
 ) -> None:
-    """Extract error/warning messages from failed build steps."""
-    records = _fetch_timeline(ctx, build_id)
-    failed = [
-        r
-        for r in records
-        if r.get("result") in _FAILED_RESULTS
-        and (r.get("errorCount", 0) > 0 or r.get("warningCount", 0) > 0)
-    ]
+    """Read log content for build steps selected by ``--step``/``--failed``/``--log-id``.
 
-    if as_json:
-        json_output(
-            [_record_to_dict(r) | {"issues": r.get("issues", [])} for r in failed]
-        )
+    Content is controlled independently of selection: ``--issues`` prints the timeline's
+    extracted error/warning data, ``--tail``/``--head`` slice each selected step's raw log
+    text client-side, and ``--grep``/``--context`` search that text for a pattern. None,
+    some, or all of these may be combined; a selection with no content flags simply
+    announces which steps were selected.
+    """
+    records = _fetch_timeline(ctx, build_id)
+    selected, unmatched_steps = _select_records(
+        records, step=step, failed=failed, log_id=log_id
+    )
+
+    for pattern in unmatched_steps:
+        print(f"No steps matched --step '{pattern}'", file=sys.stderr)
+
+    if not selected:
+        if as_json:
+            json_output([])
         return
 
-    for record in failed:
+    needs_log = tail is not None or head is not None or grep is not None
+
+    if as_json:
+        payloads = []
+        for record in selected:
+            payload = _record_to_dict(record)
+            if issues:
+                payload["issues"] = record.get("issues", [])
+
+            record_log_id = payload.get("log_id")
+            if needs_log and record_log_id is not None:
+                lines = _fetch_log_lines(ctx, build_id, record_log_id)
+                if tail is not None or head is not None:
+                    payload["log_lines"] = _slice_lines(lines, tail=tail, head=head)
+                if grep is not None:
+                    payload["matches"] = [
+                        {"line_number": i, "text": lines[i]}
+                        for i in _find_match_indices(lines, grep)
+                    ]
+            payloads.append(payload)
+        json_output(payloads)
+        return
+
+    for record in selected:
         name = record.get("name", "Unknown")
         result = record.get("result", "")
         print(f"--- {name} ({result}) ---")
 
-        for issue in record.get("issues", []):
-            issue_type = issue.get("type", "error")
-            message = issue.get("message", "")
-            print(f"  [{issue_type}] {message}")
+        if issues:
+            _print_issues(record)
 
-        if with_log is not None:
-            record_log_id = _record_log_id(record)
-            if record_log_id is not None:
-                url = _log_url(ctx, build_id, record_log_id)
-                content = call_ado_api_text("GET", url, pat=ctx.pat)
-                lines = content.splitlines()
-                tail_lines = lines[-with_log:]
-                print(f"  --- log (last {len(tail_lines)} lines) ---")
-                for line in tail_lines:
-                    print(f"  {line}")
-
-        print()
-
-
-def cmd_logs_search(
-    ctx: AdoContext,
-    build_id: int,
-    pattern: str,
-    *,
-    step: str | None = None,
-    context: int = 0,
-) -> None:
-    """Search across build logs for a pattern."""
-    records = _fetch_timeline(ctx, build_id)
-
-    # Build list of (name, log_id) for steps that have logs
-    steps: list[tuple[str, int]] = []
-    for r in records:
-        r_log_id = _record_log_id(r)
-        if r_log_id is None:
-            continue
-        name = r.get("name", "Unknown")
-        if step is not None and step.lower() not in name.lower():
-            continue
-        steps.append((name, r_log_id))
-
-    pattern_lower = pattern.lower()
-
-    for step_name, s_log_id in steps:
-        url = _log_url(ctx, build_id, s_log_id)
-        content = call_ado_api_text("GET", url, pat=ctx.pat)
-        lines = content.splitlines()
-
-        # Find matching line indices
-        matches: list[int] = []
-        for i, line in enumerate(lines):
-            if pattern_lower in line.lower():
-                matches.append(i)
-
-        if not matches:
-            continue
-
-        print(f"--- {step_name} (log {s_log_id}) ---")
-
-        if context > 0:
-            # Collect ranges and merge overlapping
-            printed: set[int] = set()
-            for j, match_idx in enumerate(matches):
-                start = max(0, match_idx - context)
-                end = min(len(lines), match_idx + context + 1)
-                for i in range(start, end):
-                    if i not in printed:
-                        printed.add(i)
-                        marker = ">>>" if i == match_idx else "   "
-                        print(f"  {marker} {lines[i]}")
-                # Separator between disjoint ranges
-                if j < len(matches) - 1:
-                    next_start = max(0, matches[j + 1] - context)
-                    if end < next_start:
-                        print("  ...")
-        else:
-            for match_idx in matches:
-                print(f"  {lines[match_idx]}")
+        record_log_id = _record_log_id(record)
+        if needs_log:
+            if record_log_id is None:
+                print("  (no log attached to this step)")
+            else:
+                lines = _fetch_log_lines(ctx, build_id, record_log_id)
+                if tail is not None or head is not None:
+                    for line in _slice_lines(lines, tail=tail, head=head):
+                        print(f"  {line}")
+                if grep is not None:
+                    rendered = _render_grep_matches(lines, grep, context)
+                    if rendered:
+                        for out_line in rendered:
+                            print(out_line)
+                    else:
+                        print(f"  (no matches for '{grep}')")
 
         print()

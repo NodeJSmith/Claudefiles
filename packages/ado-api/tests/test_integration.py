@@ -11,12 +11,6 @@ from ado_api.cli import main
 _GOLDEN_DIR = Path(__file__).parent / "golden"
 
 
-def _normalize_whitespace(text: str) -> str:
-    """Strip trailing whitespace per line and ensure single trailing newline."""
-    lines = [line.rstrip() for line in text.splitlines()]
-    return "\n".join(lines) + "\n"
-
-
 _BUILDS_LIST_DATA = [
     {
         "id": 1001,
@@ -33,6 +27,12 @@ _BUILDS_LIST_DATA = [
         "tags": ["def5678"],
     },
 ]
+
+
+def _normalize_whitespace(text: str) -> str:
+    """Strip trailing whitespace per line and ensure single trailing newline."""
+    lines = [line.rstrip() for line in text.splitlines()]
+    return "\n".join(lines) + "\n"
 
 
 class TestBuildsListIntegration:
@@ -54,7 +54,8 @@ class TestBuildsListIntegration:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         mock_api.return_value = {"value": _BUILDS_LIST_DATA}
-        main(["builds", "list"])
+        with pytest.raises(SystemExit):
+            main(["builds", "list"])
 
         output = capsys.readouterr().out
         assert "1001" in output
@@ -77,7 +78,8 @@ class TestBuildsListIntegration:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         mock_api.return_value = {"value": _BUILDS_LIST_DATA}
-        main(["builds", "list", "--json", "--tags", "abc1234"])
+        with pytest.raises(SystemExit):
+            main(["builds", "list", "--json", "--tags", "abc1234"])
 
         result = json.loads(capsys.readouterr().out)
         assert isinstance(result, list)
@@ -95,7 +97,8 @@ class TestBuildsListIntegration:
         self, _mock_config: MagicMock, _mock_pat: MagicMock, mock_api: MagicMock
     ) -> None:
         mock_api.return_value = {"value": []}
-        main(["builds", "list", "--tags", "abc1234"])
+        with pytest.raises(SystemExit):
+            main(["builds", "list", "--tags", "abc1234"])
 
         url = mock_api.call_args[0][1]
         assert "tagFilters=abc1234" in url
@@ -123,19 +126,20 @@ class TestBuildsCancelIntegration:
             {"id": 1002, "status": "inProgress"},  # GET show
             None,  # PATCH cancel
         ]
-        main(["builds", "cancel", "1002"])
+        with pytest.raises(SystemExit):
+            main(["builds", "cancel", "1002"])
 
         output = capsys.readouterr().out
         assert "Cancelled 1002" in output
 
 
-class TestLogsListIntegration:
-    """Full CLI path: ado-api logs list <build-id>."""
+class TestBuildsStepsIntegration:
+    """Full CLI path: ado-api builds steps <build-id> — replaces the pre-migration logs list."""
 
-    @patch("ado_api.commands.logs.call_ado_api")
+    @patch("ado_api.commands.builds.call_ado_api")
     @patch("ado_api.az_client.get_pat")
     @patch("ado_api.az_client.get_ado_config")
-    def test_logs_list_tsv(
+    def test_builds_steps_tsv(
         self,
         mock_config: MagicMock,
         mock_pat: MagicMock,
@@ -161,20 +165,21 @@ class TestLogsListIntegration:
                 },
             ],
         }
-        main(["logs", "list", "12345"])
+        with pytest.raises(SystemExit):
+            main(["builds", "steps", "12345"])
 
         output = capsys.readouterr().out
         assert "Build" in output
         assert "succeeded" in output
 
 
-class TestLogsErrorsIntegration:
-    """Full CLI path: ado-api logs errors <build-id>."""
+class TestLogsReadIntegration:
+    """Full CLI path: ado-api logs read <build-id> --failed --issues — replaces logs errors."""
 
-    @patch("ado_api.commands.logs.call_ado_api")
+    @patch("ado_api.commands.builds.call_ado_api")
     @patch("ado_api.az_client.get_pat")
     @patch("ado_api.az_client.get_ado_config")
-    def test_logs_errors_full_cli(
+    def test_logs_read_failed_issues_full_cli(
         self,
         mock_config: MagicMock,
         mock_pat: MagicMock,
@@ -199,7 +204,8 @@ class TestLogsErrorsIntegration:
                 },
             ],
         }
-        main(["logs", "errors", "12345"])
+        with pytest.raises(SystemExit):
+            main(["logs", "read", "12345", "--failed", "--issues"])
 
         output = capsys.readouterr().out
         assert "Failing Step" in output
@@ -258,7 +264,8 @@ class TestPrThreadsIntegration:
                 },
             ],
         }
-        main(["pr", "threads", "123", "--json", "--all"])
+        with pytest.raises(SystemExit):
+            main(["pr", "threads", "123", "--json", "--all"])
 
         output = capsys.readouterr().out
         result = json.loads(output)
@@ -314,7 +321,8 @@ class TestPrThreadsIntegration:
                 },
             ],
         }
-        main(["pr", "threads", "123", "--json"])
+        with pytest.raises(SystemExit):
+            main(["pr", "threads", "123", "--json"])
 
         output = capsys.readouterr().out
         result = json.loads(output)
@@ -325,21 +333,21 @@ class TestPrThreadsIntegration:
 
 
 class TestMissingBuildId:
-    """ado-api logs list (no build-id) -> usage error."""
+    """ado-api builds steps (no build-id) -> usage error."""
 
     def test_missing_build_id(self) -> None:
         with pytest.raises(SystemExit) as exc_info:
-            main(["logs", "list"])
+            main(["builds", "steps"])
         assert exc_info.value.code != 0
 
 
 class TestNoCommandHelp:
-    """ado-api (no command) -> help text."""
+    """ado-api (no command) -> help text, exit 0 — changed from exit 1."""
 
     def test_no_command_shows_help(self, capsys: pytest.CaptureFixture[str]) -> None:
         with pytest.raises(SystemExit) as exc_info:
             main([])
-        assert exc_info.value.code == 1  # missing subcommand is a usage error
+        assert exc_info.value.code == 0
         assert "ado-api" in capsys.readouterr().out
 
 
@@ -422,7 +430,7 @@ class TestApprovePartialFailure:
         mock_api.side_effect = api_side_effect
 
         with pytest.raises(SystemExit) as exc_info:
-            main(["builds", "approve", "1001", "1002", "-y"])
+            main(["builds", "approve", "-b", "1001", "1002", "-y"])
 
         # Should exit 1 because one failed
         assert exc_info.value.code == 1
@@ -491,7 +499,8 @@ class TestResolveSkipsAlreadyResolved:
 
         mock_api.side_effect = api_side_effect
 
-        main(["pr", "resolve", "42", "100", "200"])
+        with pytest.raises(SystemExit):
+            main(["pr", "resolve", "42", "100", "200"])
 
         captured = capsys.readouterr()
         # Thread 100 reported as skipped on stderr
@@ -599,7 +608,17 @@ class TestWorkItemAddPartialFailure:
         mock_run.side_effect = run_side_effect
 
         with pytest.raises(SystemExit) as exc_info:
-            main(["pr", "work-item-add", "42", "--work-items", "100,200"])
+            main(
+                [
+                    "pr",
+                    "work-item-add",
+                    "42",
+                    "--work-items",
+                    "100",
+                    "--work-items",
+                    "200",
+                ]
+            )
 
         assert exc_info.value.code == 1
 
