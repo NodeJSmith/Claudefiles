@@ -120,7 +120,7 @@ def cli_pr_update(
     pr_id: int,
     *,
     title: str | None = None,
-    description: str | None = None,
+    description: Annotated[str | None, Parameter(allow_leading_hyphen=True)] = None,
     description_file: Annotated[
         str | None, Parameter(name="--description-file", allow_leading_hyphen=True)
     ] = None,
@@ -274,7 +274,7 @@ def cli_pr_work_item_create(
     assigned_to: Annotated[str | None, Parameter(name="--assigned-to")] = None,
     area: str | None = None,
     iteration: str | None = None,
-    description: str | None = None,
+    description: Annotated[str | None, Parameter(allow_leading_hyphen=True)] = None,
     description_file: Annotated[
         str | None, Parameter(name="--description-file", allow_leading_hyphen=True)
     ] = None,

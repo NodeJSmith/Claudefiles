@@ -56,6 +56,13 @@ def aligned_table(
         print(fmt_row(row, links[idx] if links else None))
 
 
+def truncate(text: str, max_len: int) -> str:
+    """Truncate *text* to *max_len*, adding an ellipsis if truncated."""
+    if len(text) <= max_len:
+        return text
+    return text[: max_len - 3] + "..."
+
+
 def tsv_table(rows: Sequence[Sequence[str]], headers: Sequence[str]) -> None:
     """Print a tab-separated table with *headers* and *rows* to stdout.
 

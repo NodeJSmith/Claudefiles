@@ -1,7 +1,7 @@
 # Design: Port the analytics ado-api (cyclopts) into Claudefiles
 
 **Date:** 2026-08-19
-**Status:** draft
+**Status:** archived
 **Mode:** sketch
 
 ## Problem

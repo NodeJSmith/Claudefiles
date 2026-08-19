@@ -1,9 +1,11 @@
 """Detect builds that deployed to stage but never made it to prod.
 
-Uses build tags (``stage=<timestamp>``, ``prod=<timestamp>``) set by
-``tag_pipeline_run.py`` during each deployment stage. A build is "missed"
-if it has a stage tag but no prod tag. Also accepts the legacy hyphenated
-format (``stage-<ts>``, ``prod-<ts>``) for builds tagged before the migration.
+Relies on Rhyme's build-tag conventions (``stage=<timestamp>``,
+``prod=<timestamp>``, plus the legacy hyphenated ``stage-<ts>``/``prod-<ts>``
+format for builds tagged before the migration — see ``ado_api.tags``). A
+build is "missed" if it has a stage tag but no prod tag. At an organization
+whose pipelines tag builds differently, this command is inert: it finds
+nothing rather than erroring, and prints a warning to that effect.
 
 Missed builds are classified as:
 - **ACTIONABLE** — no later build for the same pipeline reached prod,
@@ -18,7 +20,7 @@ from typing import Any
 
 from ado_api.az_client import ADO_API_VERSION, AdoApiError, AdoContext, call_ado_api
 from ado_api.commands.builds import _get_default_branch
-from ado_api.formatting import aligned_table, json_output
+from ado_api.formatting import aligned_table, json_output, truncate
 from ado_api.tags import DEPLOYMENT_TAG_PREFIXES, TAG_PR_RE, TAG_PROD_RE, TAG_STAGE_RE
 
 _HEADERS = (
@@ -177,13 +179,6 @@ def _fetch_pr_titles(
     return titles
 
 
-def _truncate(text: str, max_len: int = _MAX_DESCRIPTION_LEN) -> str:
-    """Truncate text to max_len, adding ellipsis if truncated."""
-    if len(text) <= max_len:
-        return text
-    return text[: max_len - 3] + "..."
-
-
 def cmd_builds_missed_prod(
     ctx: AdoContext,
     *,
@@ -216,7 +211,9 @@ def cmd_builds_missed_prod(
         for tag in b.get("tags", [])
     ):
         print(
-            "Warning: no builds have stage/prod tags. Check that tag_pipeline_run.py is running in CI.",
+            "Warning: no builds have stage/prod tags. This command depends on Rhyme's"
+            " `stage=`/`prod=` build-tag convention — it will find nothing at an org"
+            " that tags builds differently.",
             file=sys.stderr,
         )
 
@@ -261,7 +258,9 @@ def cmd_builds_missed_prod(
     links: list[dict[int, str]] = []
     for m in missed:
         pr_label = f"PR-{m['pr_id']}" if m["pr_id"] else "-"
-        description = _truncate(m["pr_title"]) if m["pr_title"] else "-"
+        description = (
+            truncate(m["pr_title"], _MAX_DESCRIPTION_LEN) if m["pr_title"] else "-"
+        )
         rows.append(
             (
                 m["status"],

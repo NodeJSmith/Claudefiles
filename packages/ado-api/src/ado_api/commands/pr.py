@@ -6,7 +6,7 @@ from typing import Any
 
 from ado_api.az_client import ADO_API_VERSION, AdoApiError, AdoContext, call_ado_api
 from ado_api.commands.work_item import _create_work_item
-from ado_api.formatting import json_output, tsv_table
+from ado_api.formatting import json_output, truncate, tsv_table
 from ado_api.git import GitError, get_current_branch
 
 VALID_THREAD_STATUSES = frozenset(
@@ -327,8 +327,7 @@ def _thread_to_row(thread: dict[str, Any]) -> tuple[str, ...]:
     content = content.replace("\n", " ").replace("\r", "")
     # Truncate long content for table display (CHECK BEFORE MERGE threads are
     # ~300 chars with the pipeline name at the end — preserve enough to identify them)
-    if len(content) > 350:
-        content = content[:347] + "..."
+    content = truncate(content, 350)
     return (
         str(thread.get("id", "")),
         str(thread.get("status", "")),
@@ -896,7 +895,7 @@ def cmd_pr_work_item_create(
         json_output(output)
     else:
         title_val = work_item.get("title") or ""
-        title_truncated = title_val[:57] + "..." if len(title_val) > 60 else title_val
+        title_truncated = truncate(title_val, 60)
         assigned_display = work_item.get("assignedTo") or "(unassigned)"
         rows = [
             [

@@ -1,6 +1,6 @@
 Usage: ado-api COMMAND [OPTIONS]
 
-Azure DevOps CLI — builds, logs, and PR management
+Azure DevOps CLI — builds, logs, pipelines, pull requests, and work items
 
 ╭─ Commands ───────────────────────────────────────────────────────────────────────────────────────╮
 │ builds                 Build operations                                                          │

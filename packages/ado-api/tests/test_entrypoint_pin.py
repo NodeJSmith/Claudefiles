@@ -1,8 +1,8 @@
 """Framework-agnostic entrypoint pin — drives ``main(argv)`` end to end.
 
 This is the port's regression guard for the CLI framework migration described in
-the ``041`` CLI-framework-migration design doc (see ``design/specs/`` in this repo,
-Test Strategy tier 3). It must land and pass against the CURRENT CLI implementation
+the source package's CLI-framework-migration design doc (Test Strategy tier 3).
+It must land and pass against the CURRENT CLI implementation
 before any of the new framework's code is written, and it must keep passing
 unchanged after the port — ``main``'s signature does not change across the
 migration.

@@ -52,7 +52,7 @@ _EXIT_CODE_API_ERROR = 5
 
 app = App(
     name="ado-api",
-    help="Azure DevOps CLI — builds, logs, and PR management",
+    help="Azure DevOps CLI — builds, logs, pipelines, pull requests, and work items",
 )
 
 builds_app = App(name="builds", help="Build operations")

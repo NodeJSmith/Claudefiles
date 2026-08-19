@@ -4,7 +4,7 @@ import sys
 from typing import Any
 
 from ado_api.az_client import ADO_API_VERSION, AdoApiError, AdoContext, call_ado_api
-from ado_api.formatting import json_output, tsv_table
+from ado_api.formatting import json_output, truncate, tsv_table
 
 
 def _parse_work_item_response(data: dict[str, Any]) -> dict[str, Any]:
@@ -149,7 +149,7 @@ def cmd_work_item_create(
     else:
         # TSV output: ID, TYPE, TITLE (truncated to 60), STATE, ASSIGNED_TO
         title_val = result.get("title") or ""
-        title_truncated = title_val[:57] + "..." if len(title_val) > 60 else title_val
+        title_truncated = truncate(title_val, 60)
         assigned_display = result.get("assignedTo") or "(unassigned)"
         rows = [
             [

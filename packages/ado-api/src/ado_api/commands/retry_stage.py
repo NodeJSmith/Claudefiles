@@ -25,7 +25,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from ado_api.az_client import ADO_API_VERSION, AdoApiError, AdoContext, call_ado_api
-from ado_api.commands.builds import _list_builds
+from ado_api.commands.builds import _list_builds, _timeline_url
 from ado_api.formatting import aligned_table, json_output
 from ado_api.tags import pr_tag_variants
 
@@ -120,10 +120,6 @@ class BuildRef(BaseModel):
 
 def _stage_url(ctx: AdoContext, build_id: int, stage_ref: str) -> str:
     return f"{ctx.config.base_url}/_apis/build/builds/{build_id}/stages/{stage_ref}?api-version={ADO_API_VERSION}"
-
-
-def _timeline_url(ctx: AdoContext, build_id: int) -> str:
-    return f"{ctx.config.base_url}/_apis/build/builds/{build_id}/timeline?api-version={ADO_API_VERSION}"
 
 
 def _build_url(ctx: AdoContext, build_id: int) -> str:

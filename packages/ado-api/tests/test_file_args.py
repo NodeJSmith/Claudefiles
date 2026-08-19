@@ -79,6 +79,17 @@ class TestPrCreateDescriptionFile:
         err = capsys.readouterr().err
         assert "cannot use both --description and --description-file" in err
 
+    @_get_ado_config_patch
+    @_get_pat_patch
+    @patch("ado_api.cli.commands.pr.cmd_pr_create")
+    def test_leading_hyphen_description_reaches_cmd(
+        self, mock_cmd: MagicMock, _pat: MagicMock, _cfg: MagicMock
+    ) -> None:
+        with pytest.raises(SystemExit) as exc_info:
+            main(["pr", "create", "Title", "--description", "-bulleted desc"])
+        assert exc_info.value.code == 0
+        assert mock_cmd.call_args.kwargs["description"] == "-bulleted desc"
+
 
 class TestPrUpdateDescriptionFile:
     """``pr update``'s ``--description-file`` graft (optional inline value)."""
@@ -116,6 +127,17 @@ class TestPrUpdateDescriptionFile:
         assert exc_info.value.code != 0
         err = capsys.readouterr().err
         assert "cannot use both --description and --description-file" in err
+
+    @_get_ado_config_patch
+    @_get_pat_patch
+    @patch("ado_api.cli.commands.pr.cmd_pr_update")
+    def test_leading_hyphen_description_reaches_cmd(
+        self, mock_cmd: MagicMock, _pat: MagicMock, _cfg: MagicMock
+    ) -> None:
+        with pytest.raises(SystemExit) as exc_info:
+            main(["pr", "update", "42", "--description", "-bulleted desc"])
+        assert exc_info.value.code == 0
+        assert mock_cmd.call_args.kwargs["description"] == "-bulleted desc"
 
 
 class TestPrWorkItemCreateDescriptionFile:
@@ -171,6 +193,29 @@ class TestPrWorkItemCreateDescriptionFile:
         err = capsys.readouterr().err
         assert "cannot use both --description and --description-file" in err
 
+    @_get_ado_config_patch
+    @_get_pat_patch
+    @patch("ado_api.cli.commands.pr.cmd_pr_work_item_create")
+    def test_leading_hyphen_description_reaches_cmd(
+        self, mock_cmd: MagicMock, _pat: MagicMock, _cfg: MagicMock
+    ) -> None:
+        with pytest.raises(SystemExit) as exc_info:
+            main(
+                [
+                    "pr",
+                    "work-item-create",
+                    "42",
+                    "--title",
+                    "Bug",
+                    "--type",
+                    "Bug",
+                    "--description",
+                    "-bulleted desc",
+                ]
+            )
+        assert exc_info.value.code == 0
+        assert mock_cmd.call_args.kwargs["description"] == "-bulleted desc"
+
 
 class TestWorkItemCreateDescriptionFile:
     """``work-item create``'s ``--description-file`` graft (optional inline value)."""
@@ -222,6 +267,28 @@ class TestWorkItemCreateDescriptionFile:
         assert exc_info.value.code != 0
         err = capsys.readouterr().err
         assert "cannot use both --description and --description-file" in err
+
+    @patch("ado_api.cli.commands.work_item.cmd_work_item_create")
+    def test_leading_hyphen_description_reaches_cmd(self, mock_cmd: MagicMock) -> None:
+        with (
+            _get_pat_patch,
+            _get_ado_config_patch,
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            main(
+                [
+                    "work-item",
+                    "create",
+                    "--title",
+                    "Bug",
+                    "--type",
+                    "Bug",
+                    "--description",
+                    "-bulleted desc",
+                ]
+            )
+        assert exc_info.value.code == 0
+        assert mock_cmd.call_args.kwargs["description"] == "-bulleted desc"
 
 
 class TestPrThreadAddBodyFile:

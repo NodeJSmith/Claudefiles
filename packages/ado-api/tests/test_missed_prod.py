@@ -10,7 +10,6 @@ from ado_api.commands.missed_prod import (
     _classify_builds,
     _fetch_pr_titles,
     _parse_tags,
-    _truncate,
     cmd_builds_missed_prod,
 )
 
@@ -487,27 +486,6 @@ class TestCmdBuildsMissedProd:
 
         captured = capsys.readouterr()
         assert "PR links and descriptions unavailable" in captured.err
-
-
-# ── _truncate ──────────────────────────────────────────────────────────────
-
-
-class TestTruncate:
-    def test_short_text_unchanged(self) -> None:
-        assert _truncate("hello", 60) == "hello"
-
-    def test_exact_length_unchanged(self) -> None:
-        text = "a" * 60
-        assert _truncate(text, 60) == text
-
-    def test_long_text_truncated_with_ellipsis(self) -> None:
-        text = "a" * 80
-        result = _truncate(text, 60)
-        assert len(result) == 60
-        assert result.endswith("...")
-
-    def test_empty_string(self) -> None:
-        assert _truncate("", 60) == ""
 
 
 # ── _fetch_pr_titles ──────────────────────────────────────────────────────

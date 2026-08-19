@@ -37,6 +37,10 @@ _ADO_AAD_RESOURCE = "499b84ac-1321-427f-aa17-267ca6975798"
 # A cached token returns near-instantly, so this only bounds a broken az or network.
 _AZ_TIMEOUT_SECONDS = 30
 
+# Bounds a single ADO REST call, separate from _AZ_TIMEOUT_SECONDS (the az CLI
+# subprocess call has its own, unrelated failure mode).
+_HTTP_TIMEOUT_SECONDS = 30
+
 # Upstream failure text can be arbitrarily long; keep one line readable in a terminal.
 _MAX_REASON_CHARS = 200
 
@@ -301,7 +305,7 @@ def _call_ado_api_inner(
     req = urllib.request.Request(url, method=method, headers=headers, data=body_bytes)  # noqa: S310
 
     # Let exceptions bubble up for retry predicate to inspect
-    with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
+    with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT_SECONDS) as resp:  # noqa: S310
         response_body = resp.read().decode()
         if not response_body:
             return None
@@ -386,7 +390,7 @@ def _call_ado_api_text_inner(method: str, url: str, *, pat: str) -> str:
     req = urllib.request.Request(url, method=method, headers=headers)  # noqa: S310
 
     # Let exceptions bubble up for retry predicate to inspect
-    with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
+    with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT_SECONDS) as resp:  # noqa: S310
         return resp.read().decode()
 
 
