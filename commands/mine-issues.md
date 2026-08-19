@@ -30,7 +30,7 @@ Read `$ISSUE_TRACKER`.
 
 For **each** issue key in the arguments, launch a **Task subagent** (`subagent_type: light-worker`) with this prompt:
 
-> Fetch the full issue for key <KEY> from the project's issue tracker (`$ISSUE_TRACKER`) — title, body, comments, labels/tags, assignees, and milestone/sprint if applicable.
+> Check `$ISSUE_TRACKER` (e.g., `echo $ISSUE_TRACKER`) to know which platform's tools to use, then fetch the full issue for key <KEY> from the project's issue tracker — title, body, comments, labels/tags, assignees, and milestone/sprint if applicable.
 >
 > If the lookup fails or reports the issue does not exist, return exactly `LOOKUP_FAILED` and nothing else.
 >

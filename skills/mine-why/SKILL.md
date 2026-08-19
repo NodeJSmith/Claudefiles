@@ -85,7 +85,7 @@ Question: <the user's question>
 
 Instructions:
 1. Extract keywords from the target (function names, class names, feature terms)
-2. Search the project's issues and PRs for those keywords
+2. Check `$ISSUE_TRACKER` (e.g., `echo $ISSUE_TRACKER`) to know which platform's tools to use, then search the project's issues and PRs for those keywords
 3. For promising matches, read the body and first few comments
 4. Write findings to <dir>/evidence-issues.md
 

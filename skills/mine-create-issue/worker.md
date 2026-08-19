@@ -72,7 +72,7 @@ Short, specific, imperative mood. Include the component/area when it helps:
 
 ## Step 3: Create
 
-1. Check the repo's issue conventions — available labels, milestones, and usage patterns.
+1. Check `$ISSUE_TRACKER` (e.g., `echo $ISSUE_TRACKER`) to know which platform's tools to use, then check the repo's issue conventions — available labels, milestones, and usage patterns.
 
 2. **Labels:** Match the issue type to existing labels:
    - bug → "bug" label (if it exists)

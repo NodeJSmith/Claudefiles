@@ -413,7 +413,7 @@ AskUserQuestion:
   `Status:` line to `resolved — fixed during known issues walkthrough` and continue to the next
   entry or Step 6. If the gate fails, leave the entry open and re-raise this entry's three-option
   prompt. The refreshed gate replaces the stale recorded result and finding counts.
-- **File as issue:** create an issue (see `${CLAUDE_CONFIG_DIR:-~/.claude}/rules/common/git-workflow.md` — Issue Creation Conventions) using the entry's title and body content, then update the entry's `Status:` line to `filed (#<issue-number>)`.
+- **File as issue:** create an issue (see `${CLAUDE_CONFIG_DIR:-~/.claude}/rules/common/git-workflow.md` — Issue Creation Conventions) using the entry's title and body content, then update the entry's `Status:` line to `filed (<issue-key>)`.
 - **Leave deferred:** no change; `Status: open` stands.
 
 **Backlog entries:** do not walk through these individually every run — that trains the user to reflexively dismiss the prompt. Instead, ask once:

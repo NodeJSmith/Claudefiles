@@ -21,7 +21,7 @@ You receive an issue number or URL. Your job is to:
 
 ### 1. Read the Issue
 
-Fetch the issue's title, body, labels, and comments from the project's issue tracker.
+Check `$ISSUE_TRACKER` (e.g., `echo $ISSUE_TRACKER`) to know which platform's tools to use, then fetch the issue's title, body, labels, and comments from the project's issue tracker.
 
 Understand:
 - What's being asked (the feature, bug, or task)

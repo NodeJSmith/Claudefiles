@@ -106,7 +106,7 @@ Ruling something out of scope is a scoping act, not a step on the route. When a 
 
 All map and ticket operations happen through the project's issue tracker. Confirm the project has an issue tracker configured (`$ISSUE_TRACKER` is set) before charting — if it isn't, stop and ask the user how to track the effort.
 
-**Labels:** Ensure these labels/tags exist in the tracker: `wayfinder:map`, `wayfinder:research`, `wayfinder:prototype`, `wayfinder:grilling`, `wayfinder:task`. Create any that are missing.
+**Labels:** Ensure these labels/tags exist in the tracker: `wayfinder:map`, `wayfinder:research`, `wayfinder:prototype`, `wayfinder:grilling`, `wayfinder:task`. Create any that are missing — verify each doesn't already exist before creating it, and don't suppress creation errors: a real failure (permissions, network) should not look identical to "already exists."
 
 **Create the map:** Create an issue with the map body, labeled `wayfinder:map`.
 
