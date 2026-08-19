@@ -583,8 +583,10 @@ class TestCallAdoApiRetry:
     def test_call_ado_api_patch_is_retried_on_503(
         self, mock_urlopen: MagicMock
     ) -> None:
-        """PATCH is treated as idempotent in this package -- every call site sets a
-        resource to a fixed target state, so retry is safe.
+        """PATCH is retried by default -- every call site except
+        _unlink_work_item_from_pr sets a resource to a fixed target state, so
+        retry is safe. See test_call_ado_api_patch_with_retry_safe_false_is_not_retried_on_503
+        for the opt-out.
         """
         mock_resp = MagicMock()
         mock_resp.read.return_value = b'{"ok": true}'
@@ -605,6 +607,59 @@ class TestCallAdoApiRetry:
         )
         assert result == {"ok": True}
         assert mock_urlopen.call_count == 2
+
+    @patch("ado_api.az_client.urllib.request.urlopen")
+    def test_call_ado_api_patch_with_retry_safe_false_is_not_retried_on_503(
+        self, mock_urlopen: MagicMock
+    ) -> None:
+        """retry_safe=False overrides the method-based default for a PATCH whose
+        body is not actually safe to repeat -- e.g. a JSON Patch ``remove`` by
+        array index, where a retry could remove a different element than the
+        original call targeted.
+        """
+        error_503 = urllib.error.HTTPError(
+            url="https://example.com/api",
+            code=503,
+            msg="Service Unavailable",
+            hdrs={},
+            fp=None,
+        )
+        mock_urlopen.side_effect = [error_503]
+
+        with pytest.raises(AdoApiError, match="503"):
+            call_ado_api(
+                "PATCH",
+                "https://example.com/api",
+                pat="fake",
+                data=[{"op": "remove", "path": "/relations/0"}],
+                retry_safe=False,
+            )
+
+        assert mock_urlopen.call_count == 1
+
+    @patch("ado_api.az_client.urllib.request.urlopen")
+    def test_call_ado_api_text_with_retry_safe_false_is_not_retried_on_503(
+        self, mock_urlopen: MagicMock
+    ) -> None:
+        """call_ado_api_text's retry_safe mirrors call_ado_api's -- no current
+        caller needs it (the only call site is a GET), but the opt-out exists
+        for symmetry if a future text-response call needs it.
+        """
+        error_503 = urllib.error.HTTPError(
+            url="https://example.com/api",
+            code=503,
+            msg="Service Unavailable",
+            hdrs={},
+            fp=None,
+        )
+        mock_urlopen.side_effect = [error_503]
+
+        with pytest.raises(AdoApiError, match="503"):
+            call_ado_api_text(
+                "PATCH", "https://example.com/api", pat="fake", retry_safe=False
+            )
+
+        assert mock_urlopen.call_count == 1
 
 
 class TestCallAdoApiBearerToken:

@@ -753,12 +753,16 @@ def _unlink_work_item_from_pr(
         }
     ]
     patch_url = f"{ctx.config.base_url}/_apis/wit/workitems/{work_item_id}?api-version={ADO_API_VERSION}"
+    # relation_index is only valid against the relations array as fetched above --
+    # a retry after a successful-but-unacknowledged first PATCH would remove
+    # whatever relation shifted into that slot instead. Not safe to retry.
     call_ado_api(
         "PATCH",
         patch_url,
         pat=ctx.pat,
         data=patch_body,
         content_type="application/json-patch+json",
+        retry_safe=False,
     )
 
 

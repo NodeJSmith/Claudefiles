@@ -297,9 +297,12 @@ def _should_retry_http_error(exc: BaseException) -> bool:
 
 # POST creates a new resource on every call (new PR, comment, work item, pipeline).
 # A transient failure that already landed server-side before the client saw the
-# response would create a duplicate if retried. GET/PATCH/PUT/DELETE are retried —
-# every PATCH call site in this package sets a resource to a fixed target state
-# (status, retry-a-stage), which is safe to repeat. POST is the only method excluded.
+# response would create a duplicate if retried. GET/PATCH/PUT/DELETE are retried
+# by default — every PATCH call site in this package sets a resource to a fixed
+# target state (status, retry-a-stage), which is safe to repeat, except where a
+# call opts out via retry_safe=False (see _unlink_work_item_from_pr's indexed
+# JSON Patch removal, which is not safe to repeat). POST is the only method
+# excluded by default.
 _NON_IDEMPOTENT_METHODS = frozenset({"POST"})
 
 
@@ -378,6 +381,7 @@ def call_ado_api(
     bearer_token: str | None = None,
     data: dict[str, Any] | list[Any] | None = None,
     content_type: str = "application/json",
+    retry_safe: bool = True,
 ) -> Any:
     """Make an authenticated REST API call to Azure DevOps.
 
@@ -393,6 +397,12 @@ def call_ado_api(
             exclusive with *pat* -- pass this instead of *pat*, not alongside it.
         data: JSON body for POST/PATCH requests (dict or list).
         content_type: Content-Type header value (default ``application/json``).
+        retry_safe: Whether a transient failure may be safely retried. Defaults to
+            ``True`` and is overridden by method (POST is never retried, regardless
+            of this flag). Pass ``False`` for an otherwise-idempotent method whose
+            body is not actually safe to repeat -- e.g. a JSON Patch ``remove`` by
+            array index, where a retry after a successful-but-unacknowledged first
+            call would operate on a stale index and remove the wrong element.
 
     Returns:
         Parsed JSON response.
@@ -404,7 +414,7 @@ def call_ado_api(
         pat = get_pat()
 
     try:
-        if method.upper() in _NON_IDEMPOTENT_METHODS:
+        if not retry_safe or method.upper() in _NON_IDEMPOTENT_METHODS:
             return _perform_ado_http_call(
                 method,
                 url,
@@ -470,6 +480,7 @@ def call_ado_api_text(
     *,
     pat: str | None = None,
     bearer_token: str | None = None,
+    retry_safe: bool = True,
 ) -> str:
     """Make an authenticated REST API call that returns plain text.
 
@@ -483,6 +494,11 @@ def call_ado_api_text(
             *bearer_token* is not given either.
         bearer_token: An AAD access token, sent as ``Authorization: Bearer <token>``
             instead of PAT Basic auth. Mutually exclusive with *pat*.
+        retry_safe: Whether a transient failure may be safely retried, same
+            meaning as :func:`call_ado_api`'s *retry_safe*. No current caller
+            of this function needs to pass ``False`` (its only call site is a
+            GET), but the parameter exists for symmetry so a future
+            non-idempotent text-response call has the same opt-out available.
 
     Returns:
         Response body as a string.
@@ -494,7 +510,7 @@ def call_ado_api_text(
         pat = get_pat()
 
     try:
-        if method.upper() in _NON_IDEMPOTENT_METHODS:
+        if not retry_safe or method.upper() in _NON_IDEMPOTENT_METHODS:
             return _perform_ado_http_text_call(
                 method, url, pat=pat, bearer_token=bearer_token
             )

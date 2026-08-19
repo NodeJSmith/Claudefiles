@@ -52,7 +52,7 @@ def _render_grep_matches(lines: list[str], pattern: str, context: int) -> list[s
     output: list[str] = []
     if context > 0:
         printed: set[int] = set()
-        for match_idx in matches:
+        for pos, match_idx in enumerate(matches):
             start = max(0, match_idx - context)
             end = min(len(lines), match_idx + context + 1)
             for i in range(start, end):
@@ -60,8 +60,8 @@ def _render_grep_matches(lines: list[str], pattern: str, context: int) -> list[s
                     printed.add(i)
                     marker = ">>>" if i == match_idx else "   "
                     output.append(f"  {marker} {lines[i]}")
-            if match_idx != matches[-1]:
-                next_start = max(0, matches[matches.index(match_idx) + 1] - context)
+            if pos + 1 < len(matches):
+                next_start = max(0, matches[pos + 1] - context)
                 if end < next_start:
                     output.append("  ...")
     else:
@@ -157,6 +157,8 @@ def cmd_logs_read(
         print(f"No steps matched --step '{pattern}'", file=sys.stderr)
 
     if not selected:
+        if as_json:
+            json_output([])
         return
 
     needs_log = tail is not None or head is not None or grep is not None

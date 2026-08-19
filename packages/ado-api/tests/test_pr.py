@@ -1418,6 +1418,10 @@ class TestUnlinkWorkItemFromPr:
         patch_body = patch_call[1]["data"]
         assert patch_body[0]["op"] == "remove"
         assert patch_body[0]["path"] == "/relations/1"
+        # Indexed removal is not safe to retry -- a retry after a successful-but-
+        # unacknowledged first call would target a stale index and could remove
+        # a different relation. Must opt out of the default retry-on-PATCH path.
+        assert patch_call[1]["retry_safe"] is False
 
     @patch("ado_api.commands.pr.call_ado_api")
     def test_matches_url_case_insensitively(self, mock_api: MagicMock) -> None:

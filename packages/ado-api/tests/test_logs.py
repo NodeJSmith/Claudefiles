@@ -4,7 +4,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-from ado_api.commands.logs import cmd_logs_read
+from ado_api.commands.logs import _render_grep_matches, cmd_logs_read
 from ado_api.formatting import format_duration
 from tests.conftest import FAKE_CTX, _make_timeline_record
 
@@ -85,6 +85,22 @@ class TestLogsReadStepSelector:
         captured = capsys.readouterr()
         assert "nonexistent" in captured.err
         assert captured.out == ""
+
+    @patch("ado_api.commands.logs._fetch_timeline")
+    def test_step_no_match_with_json_prints_empty_array(
+        self,
+        mock_fetch: MagicMock,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """--json with no matching records must still emit valid, parseable JSON."""
+        mock_fetch.return_value = [
+            _make_timeline_record(order=1, name="Build", log_id=10),
+        ]
+
+        cmd_logs_read(FAKE_CTX, 100, step=["nonexistent"], as_json=True)
+
+        captured = capsys.readouterr()
+        assert json.loads(captured.out) == []
 
 
 class TestLogsReadFailedSelector:
@@ -314,6 +330,43 @@ class TestLogsReadGrep:
         assert "line D" in captured.out
         assert "line A" not in captured.out
         assert "line E" not in captured.out
+
+    def test_render_grep_matches_many_matches_with_context(self) -> None:
+        """Regression pin for the enumerate()-based next-match lookup: with 20
+        widely-spaced matches (each block separated by "..."), the rendering must
+        still match what the old O(n^2) ``matches.index()`` lookup produced --
+        one marked match line plus its context per block, gaps joined by "...".
+        """
+        # 20 matches, 10 lines apart, each with 1 line of context on either side --
+        # gaps between blocks (8 lines) exceed the context window, so every block
+        # is separated by a "..." marker.
+        lines = []
+        for block in range(20):
+            base = block * 10
+            lines.extend(f"line {base + offset}" for offset in range(10))
+            lines[base + 5] = f"error {block}"
+
+        matches = _render_grep_matches(lines, "error", context=1)
+
+        marked = [line for line in matches if line.startswith("  >>>")]
+        assert len(marked) == 20
+        for block in range(20):
+            assert any(f"error {block}" in line for line in marked)
+        # 19 gaps between 20 blocks, each wide enough to trigger a separator.
+        assert matches.count("  ...") == 19
+
+    def test_render_grep_matches_adjacent_matches_merge_context(self) -> None:
+        """Matches close enough that their context windows overlap must render as
+        one continuous block with no "..." separator between them.
+        """
+        lines = ["error A", "middle", "error B"]
+
+        matches = _render_grep_matches(lines, "error", context=1)
+
+        assert "  ..." not in matches
+        assert any("error A" in line for line in matches)
+        assert any("error B" in line for line in matches)
+        assert any("middle" in line for line in matches)
 
 
 class TestLogsReadMultiStepAttachment:
