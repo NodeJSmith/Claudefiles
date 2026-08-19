@@ -11,6 +11,22 @@ from ado_api.commands.setup import (
     cmd_setup,
 )
 
+_GOOD_DEFAULTS = (
+    "name      value\n"
+    "--------  ----------------------------------------------------------------\n"
+    "defaults\n"
+    "organization  https://dev.azure.com/priorauthnow\n"
+    "project   Analytics Platform\n"
+)
+
+_NOT_SET_DEFAULTS = (
+    "name      value\n"
+    "--------  ----------------------------------------------------------------\n"
+    "defaults\n"
+    "organization  (not set)\n"
+    "project   (not set)\n"
+)
+
 
 def _completed(stdout: str = "", returncode: int = 0) -> MagicMock:
     result = MagicMock()
@@ -55,23 +71,6 @@ class TestHasDevopsExtension:
 
 
 # ── _has_defaults ────────────────────────────────────────────────────────
-
-
-_GOOD_DEFAULTS = (
-    "name      value\n"
-    "--------  ----------------------------------------------------------------\n"
-    "defaults\n"
-    "organization  https://dev.azure.com/myorg\n"
-    "project   My Project\n"
-)
-
-_NOT_SET_DEFAULTS = (
-    "name      value\n"
-    "--------  ----------------------------------------------------------------\n"
-    "defaults\n"
-    "organization  (not set)\n"
-    "project   (not set)\n"
-)
 
 
 class TestHasDefaults:
@@ -162,7 +161,7 @@ class TestCmdSetup:
             cmd_setup()
         out = capsys.readouterr().out
         assert "[missing] az CLI not found" in out
-        assert "Install" in out
+        assert "mise" in out
 
     @patch("ado_api.commands.setup._has_defaults", return_value=True)
     @patch("ado_api.commands.setup._has_devops_extension", return_value=False)

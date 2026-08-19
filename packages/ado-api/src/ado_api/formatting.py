@@ -13,6 +13,56 @@ def json_output(data: Any) -> None:
     sys.stdout.write("\n")
 
 
+def osc8(url: str, label: str) -> str:
+    """Wrap *label* in an OSC 8 hyperlink to *url*.
+
+    Terminals that support OSC 8 render a clickable link; others show just the label.
+    The returned string contains invisible escape sequences, so column width
+    calculations must use *label* length, not ``len()`` of the result.
+    """
+    return f"\x1b]8;;{url}\x1b\\{label}\x1b]8;;\x1b\\"
+
+
+def aligned_table(
+    rows: Sequence[Sequence[str]],
+    *,
+    headers: Sequence[str],
+    links: Sequence[dict[int, str]] | None = None,
+) -> None:
+    """Print a column-aligned table with *headers* and a separator rule.
+
+    *links* is an optional parallel sequence (one dict per row) mapping column
+    index to a URL.  Linked cells are wrapped in OSC 8 escapes but padded to the
+    same visual width as the plain label.
+
+    Use this for human-facing output where columns should line up; use
+    :func:`tsv_table` when the output is meant to be piped into ``cut``/``awk``.
+    """
+    all_rows = [tuple(headers), *(tuple(r) for r in rows)]
+    col_widths = [max(len(row[i]) for row in all_rows) for i in range(len(headers))]
+
+    def fmt_row(row: Sequence[str], row_links: dict[int, str] | None = None) -> str:
+        parts: list[str] = []
+        for i, (cell, width) in enumerate(zip(row, col_widths, strict=False)):
+            padded = cell.ljust(width)
+            if row_links and i in row_links:
+                padded = osc8(row_links[i], cell) + " " * (width - len(cell))
+            parts.append(padded)
+        return "  ".join(parts)
+
+    print(fmt_row(headers))
+    print("  ".join("-" * w for w in col_widths))
+    for idx, row in enumerate(rows):
+        print(fmt_row(row, links[idx] if links else None))
+
+
+def truncate(text: str, max_len: int) -> str:
+    """Truncate *text* to *max_len*, adding an ellipsis if truncated."""
+    if len(text) <= max_len:
+        return text
+    return text[: max_len - 3] + "..."
+
+
 def tsv_table(rows: Sequence[Sequence[str]], headers: Sequence[str]) -> None:
     """Print a tab-separated table with *headers* and *rows* to stdout.
 
@@ -24,6 +74,29 @@ def tsv_table(rows: Sequence[Sequence[str]], headers: Sequence[str]) -> None:
         print("\t".join(str(cell) for cell in row))
 
 
+def parse_iso_timestamp(iso_timestamp: str) -> datetime:
+    """Parse an ADO ``Z``-suffixed ISO-8601 timestamp into an aware datetime."""
+    return datetime.fromisoformat(iso_timestamp.replace("Z", "+00:00"))
+
+
+def split_duration_seconds(total_seconds: int) -> tuple[int, int, int]:
+    """Split a non-negative second count into ``(hours, minutes, seconds)``."""
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return hours, minutes, seconds
+
+
+def summarize_counts(labeled_counts: Sequence[tuple[str, int]]) -> str:
+    """Join non-zero ``(label, count)`` pairs into a ``"Label: N, Label: N"`` summary.
+
+    Pairs with a zero count are omitted. Returns an empty string if every count
+    is zero — callers that always have at least one non-zero count can print
+    unconditionally; others should guard on a non-empty result before printing.
+    """
+    parts = [f"{label}: {count}" for label, count in labeled_counts if count]
+    return ", ".join(parts)
+
+
 def format_duration(start_iso: str | None, finish_iso: str | None) -> str:
     """Convert ISO-8601 timestamps to human-readable duration.
 
@@ -33,15 +106,14 @@ def format_duration(start_iso: str | None, finish_iso: str | None) -> str:
     if start_iso is None or finish_iso is None:
         return "-"
 
-    start = datetime.fromisoformat(start_iso.replace("Z", "+00:00"))
-    finish = datetime.fromisoformat(finish_iso.replace("Z", "+00:00"))
+    start = parse_iso_timestamp(start_iso)
+    finish = parse_iso_timestamp(finish_iso)
     total_seconds = int((finish - start).total_seconds())
 
     if total_seconds < 0:
         return "-"
 
-    hours, remainder = divmod(total_seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
+    hours, minutes, seconds = split_duration_seconds(total_seconds)
 
     if hours > 0:
         return f"{hours}h{minutes}m"

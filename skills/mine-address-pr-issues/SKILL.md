@@ -144,7 +144,7 @@ Group related comments for efficient execution — e.g., all error-handling comm
 Fetch failure logs and categorize: test failures, lint/type errors, build errors, other.
 
 **GitHub:** `gh run view <run-id> --log-failed`
-**ADO:** `ado-api logs errors <build-id>` — fetches and filters failure logs. Run `ado-api logs --help` for full usage.
+**ADO:** `ado-api logs read <build-id> --failed --issues` — reads the failed step's log and filters to error/warning lines. Run `ado-api logs read --help` for full usage.
 
 ### Present the plan
 
@@ -320,7 +320,7 @@ Present a structured summary:
 **IMPORTANT**: Use these helper scripts instead of inline commands. They handle authentication, pagination, and output formatting.
 
 - **GitHub**: `gh-pr-threads`, `gh-pr-reply` (with `--resolve`), `git-platform` — run `--help` on each for usage
-- **ADO**: `ado-api pr` (show/list/create/update/threads/reply/resolve/resolve-pattern), `ado-api logs` (CI failure logs), `ado-api work-item` — run `ado-api --help` for usage
+- **ADO**: `ado-api pr` (show/list/create/update/threads/reply/resolve/resolve-pattern), `ado-api logs read` (CI failure logs), `ado-api work-item` — run `ado-api --help` for usage
 - **Platform**: `git-platform` — prints `github`, `ado`, or `unknown`
 
 ### Error handling

@@ -1,16 +1,21 @@
-usage: ado-api [-h] [--project {str,null}]
-               {builds,logs,pr,work-item,setup} ...
+Usage: ado-api COMMAND [OPTIONS]
 
-Azure DevOps CLI — builds, logs, and PR management.
+Azure DevOps CLI — builds, logs, pipelines, pull requests, and work items
 
-options:
-  -h, --help            show this help message and exit
-  --project {str,null}  Override ADO project (default: null)
-
-subcommands:
-  {builds,logs,pr,work-item,setup}
-    builds              Build operations
-    logs                Build log operations
-    pr                  Pull request operations
-    work-item           Work item operations
-    setup               Check and install az CLI prerequisites
+╭─ Commands ───────────────────────────────────────────────────────────────────────────────────────╮
+│ builds                 Build operations                                                          │
+│ logs                   Build log operations                                                      │
+│ pipeline               Pipeline operations                                                       │
+│ pr                     Pull request operations                                                   │
+│ setup                  Check and install az CLI prerequisites.                                   │
+│ work-item              Work item operations                                                      │
+│ --generate-completion  Print shell completion script to stdout.                                  │
+│ --help (-h)            Display this message and exit.                                            │
+│ --install-completion   Install shell completion to the standard path.                            │
+│ --version              Display application version.                                              │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Parameters ─────────────────────────────────────────────────────────────────────────────────────╮
+│ --json     Output as JSON. No effect on setup, pipeline create, or pipeline build-validate.      │
+│            [default: False]                                                                      │
+│ --project                                                                                        │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯

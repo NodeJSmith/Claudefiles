@@ -1,10 +1,12 @@
-usage: ado-api work-item [-h] {create} ...
+Usage: ado-api work-item COMMAND [OPTIONS]
 
-Work item operations.
+Work item operations
 
-options:
-  -h, --help  show this help message and exit
-
-subcommands:
-  {create}
-    create    Create a work item
+╭─ Commands ───────────────────────────────────────────────────────────────────────────────────────╮
+│ create  Create a work item.                                                                      │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Parameters ─────────────────────────────────────────────────────────────────────────────────────╮
+│ --json     Output as JSON. No effect on setup, pipeline create, or pipeline build-validate.      │
+│            [default: False]                                                                      │
+│ --project                                                                                        │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯

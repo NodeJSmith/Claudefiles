@@ -5,6 +5,8 @@ import shutil
 import subprocess
 import sys
 
+_MISE_AZ_SPEC = '"pipx:azure-cli" = { version = "2.84.0", uvx_args = "--prerelease=allow --python 3.12" }'
+
 
 def _run(cmd: list[str], *, check: bool = False) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, capture_output=True, text=True, check=check)
@@ -30,10 +32,8 @@ def _has_defaults() -> bool:
     has_project = False
     for line in output.splitlines():
         stripped = line.strip()
-        if stripped.startswith("organization"):
-            value = stripped.split(None, 1)[-1].strip("= ")
-            if value and value != "(not set)":
-                has_org = True
+        if stripped.startswith("organization") and "dev.azure.com" in stripped:
+            has_org = True
         elif stripped.startswith("project"):
             value = stripped.split(None, 1)[-1].strip("= ")
             if value and value != "(not set)":
@@ -60,8 +60,13 @@ def cmd_setup() -> None:
         all_ok = False
         print("  [missing] az CLI not found")
         print()
+        print("  Install via mise (recommended):")
+        print("    Add to your ~/.config/mise/config.toml under [tools]:")
+        print(f"    {_MISE_AZ_SPEC}")
+        print("    Then run: mise install")
+        print()
         print(
-            "  Install: https://learn.microsoft.com/en-us/cli/azure/install-azure-cli"
+            "  Or install manually: https://learn.microsoft.com/en-us/cli/azure/install-azure-cli"
         )
         print()
 
@@ -83,7 +88,7 @@ def cmd_setup() -> None:
             all_ok = False
             print("  [missing] az devops defaults not configured")
             print(
-                "    Run: az devops configure --defaults organization=<org-url> project='<project-name>'"
+                "    Run: az devops configure --defaults organization=https://dev.azure.com/YOUR-ORG project='Your Project'"
             )
             print()
 

@@ -2,11 +2,22 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+=======
+
 ## 2026-08-19
+
+### Added
+
+- `ado-api` ported from `analytics/packages/ado-api`'s cyclopts version, replacing the stale argparse-based fork. Adds `builds retry-stage`, `builds missed-prod`, `builds steps`, and `pipeline create/build-validate`, and adds `--description-file`/`--body-file` (with `-` for stdin) across `pr create`, `pr update`, `pr thread-add`, `pr reply`, `pr work-item-create`, and `work-item create` so multi-line markdown bodies survive instead of being mangled as shell arguments. (#522)
+
+### Changed
+
+- `ado-api` no longer imports `rhyme_constants` — the build-tag helpers it needs are vendored into `ado_api/tags.py`, so the package installs and runs standalone at any org. `builds approve` gains an explicit `--branch` override, matching every sibling branch-filtering command, with no change to its default behavior. (#522)
 
 ### Fixed
 
 - The rebase dirty-tree guard in `staleness-preflight.md` now classifies changed paths instead of always stopping to ask: untracked files under an already-known feature directory are auto-committed as the run's own output, while modifications to tracked files or paths outside a resolved feature directory still require confirmation. Also fixes a routing bug where a mixed dirty set could bypass an Abort answer. (#523)
+- `ado-api`'s `logs errors --with-log [N]` argparse optional-value-flag parse bug (misparsed when the flag preceded its positional build ID) is gone along with the mechanism that caused it — the cyclopts surface has no flag of that shape. (#522)
 
 ## 2026-08-18
 

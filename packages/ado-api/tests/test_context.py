@@ -1,71 +1,56 @@
-"""Tests for cli_context module — ContextVar threading and repo helpers."""
+"""Tests for ado_api.cli.context — AdoCliContext dataclass and repo-detection helpers."""
 
+import dataclasses
 import io
+import typing
 from unittest.mock import patch
 
 import pytest
-from ado_api.cli_context import (
-    _current_project,
+from ado_api.cli.context import (
+    DEFAULT_CLI_CONTEXT,
+    AdoCliContext,
+    AdoCliContextParam,
     _get_repo_or_exit,
     _get_repo_or_none,
-    _make_ctx,
     resolve_file_text,
 )
 from ado_api.git import GitError
 
 
-@pytest.fixture(autouse=True)
-def _reset_contextvar():
-    """Ensure ContextVar is at default before each test in this module."""
-    token = _current_project.set(None)
-    yield
-    _current_project.reset(token)
+class TestAdoCliContext:
+    def test_default_values(self):
+        ctx = AdoCliContext()
+        assert ctx.json_mode is False
+        assert ctx.project is None
 
+    def test_frozen(self):
+        ctx = AdoCliContext(json_mode=True)
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            ctx.json_mode = False  # type: ignore[misc]
 
-class TestMakeCtx:
-    """Tests for _make_ctx() ContextVar integration."""
+    def test_default_cli_context_is_falsy_flags(self):
+        assert DEFAULT_CLI_CONTEXT.json_mode is False
+        assert DEFAULT_CLI_CONTEXT.project is None
 
-    @patch("ado_api.cli_context.AdoContext.from_env")
-    def test_make_ctx_uses_contextvar(self, mock_from_env):
-        """When ContextVar is set, _make_ctx() passes project to AdoContext.from_env."""
-        token = _current_project.set("MyProject")
-        try:
-            _make_ctx()
-            mock_from_env.assert_called_once_with(project="MyProject", repo=None)
-        finally:
-            _current_project.reset(token)
+    def test_cli_context_param_type_alias(self):
+        args = typing.get_args(AdoCliContextParam)
+        assert args[0] is AdoCliContext
 
-    @patch("ado_api.cli_context.AdoContext.from_env")
-    def test_make_ctx_default_none(self, mock_from_env):
-        """Default project is None when ContextVar not set."""
-        _make_ctx()
-        mock_from_env.assert_called_once_with(project=None, repo=None)
-
-    @patch("ado_api.cli_context.AdoContext.from_env")
-    def test_make_ctx_passes_repo(self, mock_from_env):
-        """repo kwarg is forwarded to AdoContext.from_env."""
-        _make_ctx(repo="my-repo")
-        mock_from_env.assert_called_once_with(project=None, repo="my-repo")
-
-    @patch("ado_api.cli_context.AdoContext.from_env")
-    def test_contextvar_isolation(self, mock_from_env):
-        """Setting and resetting ContextVar doesn't leak across calls."""
-        token = _current_project.set("A")
-        _current_project.reset(token)
-
-        _make_ctx()
-        mock_from_env.assert_called_once_with(project=None, repo=None)
+    def test_custom_values(self):
+        ctx = AdoCliContext(json_mode=True, project="MyProject")
+        assert ctx.json_mode is True
+        assert ctx.project == "MyProject"
 
 
 class TestGetRepoOrExit:
     """Tests for _get_repo_or_exit()."""
 
-    @patch("ado_api.cli_context.get_repo_name", return_value="myrepo")
+    @patch("ado_api.cli.context.get_repo_name", return_value="myrepo")
     def test_get_repo_or_exit_success(self, _mock):
         """Returns repo name on success."""
         assert _get_repo_or_exit() == "myrepo"
 
-    @patch("ado_api.cli_context.get_repo_name", side_effect=GitError("no remote"))
+    @patch("ado_api.cli.context.get_repo_name", side_effect=GitError("no remote"))
     def test_get_repo_or_exit_failure(self, _mock):
         """Prints to stderr and exits with code 1 on GitError."""
         with pytest.raises(SystemExit) as exc_info:
@@ -76,12 +61,12 @@ class TestGetRepoOrExit:
 class TestGetRepoOrNone:
     """Tests for _get_repo_or_none()."""
 
-    @patch("ado_api.cli_context.get_repo_name", return_value="myrepo")
+    @patch("ado_api.cli.context.get_repo_name", return_value="myrepo")
     def test_get_repo_or_none_success(self, _mock):
         """Returns repo name on success."""
         assert _get_repo_or_none() == "myrepo"
 
-    @patch("ado_api.cli_context.get_repo_name", side_effect=GitError("no remote"))
+    @patch("ado_api.cli.context.get_repo_name", side_effect=GitError("no remote"))
     def test_get_repo_or_none_failure(self, _mock):
         """Returns None on GitError."""
         assert _get_repo_or_none() is None

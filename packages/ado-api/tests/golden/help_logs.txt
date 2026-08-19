@@ -1,13 +1,12 @@
-usage: ado-api logs [-h] {list,get,errors,search} ...
+Usage: ado-api logs COMMAND [OPTIONS]
 
-Build log operations.
+Build log operations
 
-options:
-  -h, --help            show this help message and exit
-
-subcommands:
-  {list,get,errors,search}
-    list                List timeline steps
-    get                 Fetch raw log content
-    errors              Show errors from failed steps
-    search              Search across build logs
+╭─ Commands ───────────────────────────────────────────────────────────────────────────────────────╮
+│ read  Read log content for steps selected by --step/--failed/--log-id.                           │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Parameters ─────────────────────────────────────────────────────────────────────────────────────╮
+│ --json     Output as JSON. No effect on setup, pipeline create, or pipeline build-validate.      │
+│            [default: False]                                                                      │
+│ --project                                                                                        │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯

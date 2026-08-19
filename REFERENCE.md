@@ -305,6 +305,6 @@ For the specific question "did subagents resolve their reasoning variant, or sil
 
 | Name | Description |
 |------|-------------|
-| `ado-api` | Azure DevOps CLI — builds, logs, PR management, work items, approvals |
+| `ado-api` | Azure DevOps CLI — builds, logs, PR management, work items, approvals, pipelines, stage retries |
 | `cfl` | Orchestration state store CLI — spec lifecycle, run management, task tracking, gate results, dispatch records, and audit events in a durable SQLite DB (`~/.local/share/claudefiles/cfl.db`) |
 | `merge-settings` | Three-layer settings merger (`claude-merge-settings` CLI) |

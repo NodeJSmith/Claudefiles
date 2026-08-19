@@ -5,20 +5,15 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from ado_api.az_client import AdoApiError, AdoConfig, AdoContext
+from ado_api.az_client import AdoApiError
 from ado_api.commands.work_item import (
     _create_work_item,
     _parse_work_item_response,
     cmd_work_item_create,
 )
+from tests.conftest import FAKE_CTX
 
 # ── Fixtures ──────────────────────────────────────────────────────────
-
-FAKE_CONFIG = AdoConfig(
-    organization="https://dev.azure.com/myorg", project="My Project"
-)
-FAKE_PAT = "fake-pat-token"
-FAKE_CTX = AdoContext(config=FAKE_CONFIG, pat=FAKE_PAT)
 
 
 def _make_work_item_response(

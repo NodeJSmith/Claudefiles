@@ -1,15 +1,10 @@
-Usage: ado-api builds COMMAND [OPTIONS]
+Usage: ado-api pipeline COMMAND [OPTIONS]
 
-Build operations
+Pipeline operations
 
 ╭─ Commands ───────────────────────────────────────────────────────────────────────────────────────╮
-│ approve        List or approve pending release approvals.                                        │
-│ cancel         Cancel one or more builds by ID.                                                  │
-│ cancel-by-tag  Cancel all in-progress builds matching a tag.                                     │
-│ list           List builds with optional tag/branch/status filters.                              │
-│ missed-prod    Find builds that deployed to stage but not prod.                                  │
-│ retry-stage    Re-run a stage (default prod) on completed builds, selected by ID or tag/PR.      │
-│ steps          List timeline steps for a specific build run.                                     │
+│ build-validate  Create a build validation policy on a branch (default: master).                  │
+│ create          Register a YAML pipeline in ADO.                                                 │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Parameters ─────────────────────────────────────────────────────────────────────────────────────╮
 │ --json     Output as JSON. No effect on setup, pipeline create, or pipeline build-validate.      │
