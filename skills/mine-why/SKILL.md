@@ -85,10 +85,9 @@ Question: <the user's question>
 
 Instructions:
 1. Extract keywords from the target (function names, class names, feature terms)
-2. Search issues: gh-issue list -R <repo> --state all --search "<keywords>" --limit 20
-3. Search PRs: gh pr list -R <repo> --state all --search "<keywords>" --limit 20
-4. For promising matches, read the body and first few comments
-5. Write findings to <dir>/evidence-issues.md
+2. Search the project's issues and PRs for those keywords
+3. For promising matches, read the body and first few comments
+4. Write findings to <dir>/evidence-issues.md
 
 Format:
 - List each relevant issue/PR: number, title, key excerpt from body/comments

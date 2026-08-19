@@ -24,7 +24,7 @@ The map is a single issue, labelled `wayfinder:map` — the canonical artifact. 
 
 The map is an **index**, not a store. It lists the decisions made and points at the tickets that hold their detail; a decision lives in exactly one place — its ticket — so the map never restates it, only gists it and links.
 
-**Tracker:** this skill uses `gh-issue` (a thin wrapper over `gh issue` — see [Tracker Operations](#tracker-operations)) for every map and ticket operation. If the repo has no GitHub remote or Issues disabled, stop and ask the user how to track the effort — don't invent a parallel tracker.
+**Tracker:** this skill tracks the map and its tickets as issues in the project's issue tracker — see [Tracker Operations](#tracker-operations) for every map and ticket operation. If `$ISSUE_TRACKER` is not set, stop and ask the user how to track the effort — don't invent a parallel tracker.
 
 ### The map body
 
@@ -104,65 +104,21 @@ Ruling something out of scope is a scoping act, not a step on the route. When a 
 
 ## Tracker Operations
 
-All map and ticket operations go through `gh-issue` (a thin passthrough to `gh issue` that upgrades to bot-token auth when available — see the "GitHub tool notes" in `rules/common/capabilities-core.md`). Confirm the repo has Issues enabled with `gh api repos/{owner}/{repo} --jq .has_issues` before charting — `gh-issue overview` always exits 0 even when Issues are disabled, so it can't be used for this check; if the API call returns `false` or errors, stop and ask the user how to track the effort.
+All map and ticket operations happen through the project's issue tracker. Confirm the project has an issue tracker configured (`$ISSUE_TRACKER` is set) before charting — if it isn't, stop and ask the user how to track the effort.
 
-**Labels** (`wayfinder:map`, `wayfinder:research`, `wayfinder:prototype`, `wayfinder:grilling`, `wayfinder:task`) must exist before they're used. Fetch existing label names once, then create only the ones missing — don't blanket-suppress `gh label create`'s stderr, or real failures (permissions, network, a malformed repo) look identical to "label already exists":
+**Labels:** Ensure these labels/tags exist in the tracker: `wayfinder:map`, `wayfinder:research`, `wayfinder:prototype`, `wayfinder:grilling`, `wayfinder:task`. Create any that are missing.
 
-```bash
-existing="$(gh label list --json name --jq '.[].name')"
-grep -qxF "wayfinder:map" <<<"$existing" || gh label create "wayfinder:map" --color 5319e7 --description "Wayfinder map issue"
-grep -qxF "wayfinder:research" <<<"$existing" || gh label create "wayfinder:research" --color 0e8a16
-grep -qxF "wayfinder:prototype" <<<"$existing" || gh label create "wayfinder:prototype" --color 1d76db
-grep -qxF "wayfinder:grilling" <<<"$existing" || gh label create "wayfinder:grilling" --color fbca04
-grep -qxF "wayfinder:task" <<<"$existing" || gh label create "wayfinder:task" --color d93f0b
-```
+**Create the map:** Create an issue with the map body, labeled `wayfinder:map`.
 
-**Create the map:**
+**Create a child ticket, wired to the map:** Create a child issue of the map issue, labeled with the ticket type (`wayfinder:<type>`).
 
-```bash
-gh-issue create --title "<destination title>" --label "wayfinder:map" --body "<map body>"
-```
+**Wire blocking edges (second pass):** Blocking between two tickets created in the same batch still needs both issue numbers to exist first, so wire it after both are created. Add blocking relationships between tickets where dependencies exist, using the tracker's native blocking/dependency feature so the frontier is visible in the tracker's own UI without opening the map.
 
-**Create a child ticket, wired to the map:** `gh issue create` supports native sub-issues via `--parent`, so a ticket is parented in the same call that creates it — no separate wiring step needed for parent/child:
+**Claim a ticket:** Assign yourself to the ticket, then verify you're the first assignee — assignment isn't guaranteed to be exclusive, so two concurrent sessions can both claim the same ticket and both believe they won. Claim under your own distinct identity, not a shared or service identity — if concurrent sessions all claim under the same identity, the first-assignee check can't tell them apart and the race-safety guarantee breaks. Do this every time you claim, whether claiming for manual work ([Work through the map](#work-through-the-map) step 2) or before dispatching a research agent ([Chart the map](#chart-the-map) step 5). If you're not the first assignee, someone else won the race — drop this ticket and pick a different one from the frontier instead of proceeding.
 
-```bash
-gh-issue create --title "<ticket title>" --label "wayfinder:<type>" --body "<question>" --parent <map-issue-number>
-```
+**Record the resolution and close:** Add the resolution as a comment, then close the ticket.
 
-**Wire blocking edges (second pass):** blocking between two tickets you're creating in the same batch still needs both issue numbers to exist first, so wire it after both are created:
-
-```bash
-gh-issue edit <blocked-ticket-number> --add-blocked-by <blocking-ticket-number>
-```
-
-This is GitHub's **native** blocking relationship (`gh` ≥2.90), so it renders in the tracker's own UI — the frontier is visible without opening the map.
-
-**Claim a ticket** — use raw `gh`, not `gh-issue`: `gh-issue` may run under a bot token when one is configured, and a claim must reflect the human driving the map, not the bot (the same reasoning `capabilities-core.md` documents for PR authorship). `--add-assignee` is additive, not exclusive, so two concurrent sessions can both add themselves to the same ticket and both believe they claimed it — verify after claiming, every time, whether claiming for manual work ([Work through the map](#work-through-the-map) step 2) or before dispatching a research agent ([Chart the map](#chart-the-map) step 5):
-
-```bash
-gh issue edit <ticket-number> --add-assignee @me
-me="$(gh api user --jq .login)"
-first="$(gh issue view <ticket-number> --json assignees --jq '.assignees[0].login')"
-[ "$me" = "$first" ] || echo "lost the claim race on <ticket-number> — pick a different ticket"
-```
-
-If you're not the first assignee, someone else won the race — drop this ticket and pick a different one from the frontier instead of proceeding.
-
-**Record the resolution and close:**
-
-```bash
-gh-issue comment <ticket-number> --body "<resolution answer>"
-gh-issue close <ticket-number>
-```
-
-**Query the frontier** (open, unblocked, unclaimed children of the map): fetch the map's children as JSON and filter with `jq`. Inspect one row's shape first (`blockedBy` is `{nodes: [...], totalCount: N}`; `parent` is `null` or `{number, title}`) before scripting a batch query, since exact field availability can vary by `gh` version:
-
-```bash
-gh-issue list --state open --json number,title,labels,assignees,parent,blockedBy --limit 100 \
-  --jq '[.[] | select(.parent.number == <map-issue-number>
-    and (.assignees | length) == 0
-    and (.blockedBy.nodes | map(select(.state != "CLOSED")) | length) == 0)]'
-```
+**Query the frontier** (open, unblocked, unclaimed children of the map): Query the tracker for open child issues of the map that have no assignee and no open blocking issues.
 
 ## Invocation
 
@@ -187,13 +143,13 @@ AskUserQuestion:
       description: "Still worth tracking as tickets, even though it's small"
 ```
 3. **Create the map** (label `wayfinder:map`): Destination and Notes filled in, Decisions-so-far empty, the fog sketched into **Not yet specified**.
-4. **Create the tickets you can specify now** as child issues of the map (parented at creation via `--parent`) — then wire blocking edges in a **second pass**, once every new ticket's number is known. Before ending the session, re-fetch the new tickets and confirm every intended blocking edge landed — an interrupted second pass leaves tickets that look unblocked but shouldn't be. Everything you can't yet specify stays in the fog — the **Not yet specified** section.
-5. **Fire the research subagents.** First, **claim every research ticket in this batch** (see [Claim a ticket](#tracker-operations)) — all of them, before any dispatch, so no other session grabs one mid-batch; drop any ticket that loses its claim race and proceed without it. For each claimed `research` ticket, dispatch the `researcher` agent directly — not `/mine-research`, whose Phase 1/Phase 3 `AskUserQuestion` gates require a human that isn't there for an AFK dispatch. Derive the agent's input-contract fields (Proposal, Motivation, Flexibility, Constraints) from the ticket's own title and body, and default Depth to `normal` unless the ticket specifies otherwise. Fire every research ticket's agent in parallel; this now genuinely runs AFK, since `researcher` (unlike `/mine-research`) has no interactive gates. Point Output file path at `design/research/<ticket-slug>/research.md`, committed — the same durable convention `mine-prior-art`, `mine-define`, `mine-research`, and `mine-why` use (a topic directory holding a fixed `research.md`, matching the `design/research/*/research.md` glob `mine-define` and `mine-why` already scan for prior research). After each dispatch completes, verify the output file exists and contains the `# Research Brief:` header (same check `mine-define` uses). **On success:** resolve the ticket exactly as [Work through the map step 4](#work-through-the-map) does — post a resolution comment summarizing the finding, close the ticket, and append a context pointer to the map's Decisions-so-far (re-fetching the map body fresh immediately before the append, per the note in that step — several research tickets in this batch may be writing to it in sequence). **On failure:** post a comment on the ticket noting the dispatch failed, and release the claim (`gh issue edit <ticket-number> --remove-assignee @me`) so a later session can retry it rather than finding it claimed and stuck.
+4. **Create the tickets you can specify now** as child issues of the map — then wire blocking edges in a **second pass**, once every new ticket's number is known. Before ending the session, re-fetch the new tickets and confirm every intended blocking edge landed — an interrupted second pass leaves tickets that look unblocked but shouldn't be. Everything you can't yet specify stays in the fog — the **Not yet specified** section.
+5. **Fire the research subagents.** First, **claim every research ticket in this batch** (see [Claim a ticket](#tracker-operations)) — all of them, before any dispatch, so no other session grabs one mid-batch; drop any ticket that loses its claim race and proceed without it. For each claimed `research` ticket, dispatch the `researcher` agent directly — not `/mine-research`, whose Phase 1/Phase 3 `AskUserQuestion` gates require a human that isn't there for an AFK dispatch. Derive the agent's input-contract fields (Proposal, Motivation, Flexibility, Constraints) from the ticket's own title and body, and default Depth to `normal` unless the ticket specifies otherwise. Fire every research ticket's agent in parallel; this now genuinely runs AFK, since `researcher` (unlike `/mine-research`) has no interactive gates. Point Output file path at `design/research/<ticket-slug>/research.md`, committed — the same durable convention `mine-prior-art`, `mine-define`, `mine-research`, and `mine-why` use (a topic directory holding a fixed `research.md`, matching the `design/research/*/research.md` glob `mine-define` and `mine-why` already scan for prior research). After each dispatch completes, verify the output file exists and contains the `# Research Brief:` header (same check `mine-define` uses). **On success:** resolve the ticket exactly as [Work through the map step 4](#work-through-the-map) does — post a resolution comment summarizing the finding, close the ticket, and append a context pointer to the map's Decisions-so-far (re-fetching the map body fresh immediately before the append, per the note in that step — several research tickets in this batch may be writing to it in sequence). **On failure:** post a comment on the ticket noting the dispatch failed, and release the claim (unassign yourself) so a later session can retry it rather than finding it claimed and stuck.
 6. **Report back.** Tell the user the frontier size (how many tickets are now takeable), list them by name, and give the map's link. Stop — charting is one session's work; it hand-resolves nothing.
 
 ### Work through the map
 
-User invokes with a map (URL or number). If no map is named, first look for one: `gh issue list --label "wayfinder:map" --state open --json number,title,url`, and ask the user which to resume if more than one is open. A ticket is **optional** — without one, you pick the next decision, not the user.
+User invokes with a map (URL or number). If no map is named, first look for one by querying the tracker for open issues labeled `wayfinder:map`, and ask the user which to resume if more than one is open. A ticket is **optional** — without one, you pick the next decision, not the user.
 
 1. Load the **map** — the low-res view, not every ticket body.
 2. Choose the ticket. If the user named one, use it. Otherwise take the first frontier ticket in order (see [Query the frontier](#tracker-operations)). **Claim it** (see [Claim a ticket](#tracker-operations)) before any work — if the race check shows someone else got there first, go back and pick a different frontier ticket.
