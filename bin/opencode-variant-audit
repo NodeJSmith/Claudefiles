@@ -5,12 +5,13 @@
 # ///
 """Runtime audit: did dispatched OpenCode subagents resolve their reasoning variant?
 
-`opencode-sync --lint-only` proves the config *offers* a resolvable variant to
-every agent. Only opencode.db proves OpenCode *resolved* one. Those are
-different claims, and a regression can satisfy the first while failing the
-second -- OpenCode drops an unknown or absent variant name silently and falls
-back to the provider default, which is the bug the `effort:` -> `variant:` fix
-closed (a discarded key left every subagent at the provider's default effort).
+`opencode-sync --verify` proves an agent *resolves* through the live install
+when probed directly. Only opencode.db proves a real dispatched session
+*resolved* the intended variant. Those are different claims, and a regression
+can satisfy the first while failing the second -- OpenCode drops an unknown or
+absent variant name silently and falls back to the provider default, which is
+the bug the `effort:` -> `variant:` fix closed (a discarded key left every
+subagent at the provider's default effort).
 
 The fingerprint is a dispatched session recording variant "default". Note the
 asymmetry: "default" is unremarkable on a primary (TUI-configured) session, so
@@ -100,13 +101,14 @@ def classify(variant: str | None) -> tuple[bool, str]:
     same value is unremarkable on a primary session.
 
     Any other name counts as resolved, and is deliberately not checked against
-    opencode-sync's OPENCODE_VARIANTS. OpenCode rewrites a name it rejected to
-    `"default"` before persisting it, so a name that survives is one it already
-    accepted; and each model family's variant ids come from its own models.dev
-    `reasoning_options`, so validating against our gpt-5.6 list would fail
-    other families that resolved perfectly. Name validation belongs in
-    opencode-sync's static lint instead, which checks what *we* pin for *our*
-    models -- this is the single place that reasoning is written down.
+    the `variants` list in opencode/config-data.json. OpenCode rewrites a name
+    it rejected to `"default"` before persisting it, so a name that survives is
+    one it already accepted; and each model family's variant ids come from its
+    own models.dev `reasoning_options`, so validating against our gpt-5.6 list
+    would fail other families that resolved perfectly. Name validation belongs
+    in opencode-sync's `--check-source` instead, which checks what *we* pin
+    for *our* models -- this is the single place that reasoning is written
+    down.
 
     Verified against OpenCode v1.18.18:
     `packages/opencode/src/session/prompt.ts:654` (resolution drops an unknown
@@ -173,8 +175,8 @@ def render_table(audited: list[dict], window: str) -> None:
         print(
             f"FAIL: {len(fell_back)} of {len(audited)} dispatched subagent(s) "
             "ran at the provider default.\n"
-            "      Re-run opencode-sync, then start a NEW OpenCode session "
-            "before auditing again."
+            "      Start a NEW OpenCode process (not just a new session) "
+            "before auditing again -- config() is cached per process."
         )
     else:
         print("PASS: every dispatched subagent resolved a real variant")
@@ -197,8 +199,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "reasoning variant, or silently fell back to the provider default."
         ),
         epilog=(
-            "Typical use: after a sync, start a NEW OpenCode session (config is "
-            "read at startup), launch any subagent, then run this."
+            "Typical use: start a NEW OpenCode process (config() is cached "
+            "per process, not per session), launch any subagent, then run "
+            "this."
         ),
     )
     # Mutually exclusive rather than letting one silently win: asking for both a

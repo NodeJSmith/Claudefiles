@@ -1,32 +1,50 @@
 """Tests for bin/opencode-sync.
 
-Covers a PR #503 review fix (`stage_config()` creates `rules/common/`
-before writing the compat rule, instead of raising FileNotFoundError when
-the source tree lacks it) and a `run_opkg()` behavior: it accepts an
-optional `home_override` that redirects the opkg install to a scratch HOME
-(via `--cwd` + the `HOME` env var) instead of the real one, and always
-installs for real (never appends `--dry-run`) in that mode -- this is what
-lets `--dry-run` preview the staged content instead of scanning stale
-output from the last real sync.
-
 Reduced by design/specs/1008-opencode-named-roles (T05): every dispatch now
 names a real agent file directly, so worker generation, opus-variant
 generation, dispatch rewriting, `resolve()` routing, the dispatch-
 translation regexes, and config-level agent pinning (`build_agent_config()`,
 `_config_json_pins()`, `check_collisions()`) all lost their subject and
-their tests went with them. `check_variant_names()` was narrowed rather
-than removed -- see the `test_check_variant_names_*` tests below, most of
-which still apply.
+their tests went with them.
+
+Reduced again by design/specs/1007-opencode-config-plugin (T04): OpenCode now
+reads `~/.claude/` directly through a plugin instead of this script staging a
+copy, invoking OpenPackage, rewriting frontmatter, generating skill-command
+wrappers, or tracking sync state -- so every test covering that transport
+machinery (`stage_config()`, `run_opkg()`, `uninstall_previous()`,
+`generate_skill_commands()`, `build_instructions()`,
+`process_agent_frontmatter()`, `check_variant_names()`, `run_lint()`) went
+with it. What remains: the commit-time gate (`check_source_dispatch_patterns()`
+and its `find_unmatched_rule_exclusions()`/
+`check_instruction_directory_coverage()` helpers), the orphan checker
+(`find_orphaned_definitions()`/`check_orphans()`), and the three-key
+`config.json` writer (`generate_config()`).
+
+Grown by design/specs/1007-opencode-config-plugin (T05): the construction
+half. `bootstrap()`/`bootstrap_entry()` symlink the plugin and compatibility
+rule into the config dir and write `config.json`, then run the full
+`--verify` sweep as their final step. `prune()`/`prune_entry()` remove the
+previously-installed `agents/`, `skills/`, `commands/`, `rules/` trees.
+`verify()` shells out to `opencode debug agent <name>` per agent -- faked
+via `monkeypatch.setattr(subprocess, "run", ...)` and
+`monkeypatch.setattr(shutil, "which", ...)` in every test below, never the
+real binary. The `--verify` pre-commit hook wired into `prek.toml` is
+checked by parsing the TOML directly, not by eye.
 """
 
 import json
+import re
 import runpy
+import shlex
+import shutil
+import subprocess
+import tomllib
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
 REPO_ROOT = Path(__file__).parent.parent
+PREK_TOML = REPO_ROOT / "prek.toml"
 SCRIPT = REPO_ROOT / "bin" / "opencode-sync"
 
 
@@ -34,303 +52,135 @@ def _load_script() -> dict:
     return runpy.run_path(str(SCRIPT))
 
 
-def test_stage_config_creates_missing_rules_common_dir(tmp_path: Path) -> None:
-    """Before the fix, a source tree with no rules/common/ made
-    compat_path.write_text() raise FileNotFoundError. After the fix,
-    stage_config() creates the directory first.
-    """
-    module = _load_script()
-    stage_config = module["stage_config"]
-
-    claudefiles = tmp_path / "claudefiles"
-    claudefiles.mkdir()
-    (claudefiles / "README.md").write_text("placeholder\n")
-    # Deliberately no "rules" directory at all.
-
-    tmpdir = tmp_path / "staging"
-    tmpdir.mkdir()
-
-    staged = stage_config(claudefiles, tmpdir)
-
-    compat_path = staged / "rules" / "common" / "opencode-compat.md"
-    assert compat_path.is_file()
-    assert "OpenCode Compatibility" in compat_path.read_text()
-
-
-def _fake_completed_process(stdout: str = "ok\n") -> SimpleNamespace:
-    return SimpleNamespace(returncode=0, stdout=stdout, stderr="")
-
-
-def test_run_opkg_home_override_redirects_cwd_and_env_and_omits_dry_run(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """With `home_override` set, the install must target the scratch home
-    (via both `--cwd` and the `HOME` env var passed to subprocess.run) and
-    must never pass `--dry-run` -- the scratch dir is disposable, so the
-    install always runs for real regardless of the `dry_run` argument. This
-    is the mechanism the dry-run preview relies on to see accurate staged
-    content instead of scanning the last real sync's stale output.
-    """
-    module = _load_script()
-    run_opkg = module["run_opkg"]
-    subprocess_module = module["subprocess"]
-
-    scratch_home = tmp_path / "scratch-home"
-    calls = []
-
-    def fake_run(args, **kwargs):
-        calls.append((args, kwargs))
-        return _fake_completed_process()
-
-    monkeypatch.setattr(subprocess_module, "run", fake_run)
-
-    # dry_run=True is passed deliberately -- home_override must still
-    # suppress --dry-run, proving the two controls are independent.
-    run_opkg(
-        tmp_path / "staged",
-        dry_run=True,
-        verbose=False,
-        home_override=scratch_home,
-    )
-
-    assert len(calls) == 1
-    args, kwargs = calls[0]
-    assert "--dry-run" not in args
-    cwd_index = args.index("--cwd")
-    assert args[cwd_index + 1] == str(scratch_home)
-    assert kwargs["env"]["HOME"] == str(scratch_home)
-
-
-def test_run_opkg_without_home_override_matches_prior_behavior(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Regression guard: with `home_override` omitted (the default), the
-    call must be identical to before the fix -- `--cwd` is the real home,
-    no `env=` override is applied (subprocess inherits the ambient
-    environment), and `--dry-run` is appended solely based on `dry_run`.
-    """
-    module = _load_script()
-    run_opkg = module["run_opkg"]
-    subprocess_module = module["subprocess"]
-    real_home = module["Path"].home()
-
-    calls = []
-
-    def fake_run(args, **kwargs):
-        calls.append((args, kwargs))
-        return _fake_completed_process()
-
-    monkeypatch.setattr(subprocess_module, "run", fake_run)
-
-    run_opkg(tmp_path / "staged", dry_run=True, verbose=False)
-    run_opkg(tmp_path / "staged", dry_run=False, verbose=False)
-
-    assert len(calls) == 2
-
-    dry_run_args, dry_run_kwargs = calls[0]
-    assert "--dry-run" in dry_run_args
-    cwd_index = dry_run_args.index("--cwd")
-    assert dry_run_args[cwd_index + 1] == str(real_home)
-    assert dry_run_kwargs["env"] is None
-
-    real_run_args, real_run_kwargs = calls[1]
-    assert "--dry-run" not in real_run_args
-    cwd_index = real_run_args.index("--cwd")
-    assert real_run_args[cwd_index + 1] == str(real_home)
-    assert real_run_kwargs["env"] is None
-
-
-def test_uninstall_previous_home_override_targets_scratch_home(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    module = _load_script()
-    uninstall = module["uninstall_previous"]
-    subprocess_module = module["subprocess"]
-    calls = []
-
-    def fake_run(args, **kwargs):
-        calls.append((args, kwargs))
-        return _fake_completed_process()
-
-    monkeypatch.setattr(subprocess_module, "run", fake_run)
-    scratch_home = tmp_path / "scratch-home"
-
-    uninstall(home_override=scratch_home)
-
-    assert len(calls) == 1
-    args, kwargs = calls[0]
-    assert args[3:5] == ["uninstall", "claudefiles"]
-    assert args[args.index("--cwd") + 1] == str(scratch_home)
-    assert kwargs["env"]["HOME"] == str(scratch_home)
-
-
-def test_generate_skill_commands_writes_only_selected_available_skills(
-    tmp_path: Path,
-) -> None:
-    module = _load_script()
-    generate = module["generate_skill_commands"]
-
-    config_dir = tmp_path / "opencode"
-    for name, opencode_command in (("mine-review", True), ("mine-debug", False)):
-        skill_dir = config_dir / "skills" / name
-        skill_dir.mkdir(parents=True)
-        (skill_dir / "SKILL.md").write_text(
-            f"---\nname: {name}\nopencode-command: "
-            f"{'true' if opencode_command else 'false'}\n---\n"
-        )
-
-    generated = generate(config_dir, dry_run=False)
-
-    assert generated == ["mine-review"]
-    wrapper = (config_dir / "commands" / "mine-review.md").read_text()
-    assert "Load the `mine-review` skill using the native skill tool" in wrapper
-    assert "$ARGUMENTS" in wrapper
-    assert ".claude/skills" not in wrapper
-    assert not (config_dir / "commands" / "mine-debug.md").exists()
-
-
-def test_generate_skill_commands_prunes_owned_wrappers_but_preserves_commands(
-    tmp_path: Path,
-) -> None:
-    module = _load_script()
-    generate = module["generate_skill_commands"]
-
-    config_dir = tmp_path / "opencode"
-    commands_dir = config_dir / "commands"
-    commands_dir.mkdir(parents=True)
-    legacy_marker = module["LEGACY_SKILL_COMMAND_MARKER"]
-    (commands_dir / "mine-debug.md").write_text(f"{legacy_marker}\nold wrapper\n")
-    standalone = commands_dir / "mine-issues.md"
-    standalone.write_text("---\ndescription: Deep-dive issues\n---\nactual workflow\n")
-
-    generate(config_dir, dry_run=False)
-
-    assert not (commands_dir / "mine-debug.md").exists()
-    assert standalone.exists()
-    assert "actual workflow" in standalone.read_text()
-
-
-def test_generate_skill_commands_does_not_overwrite_non_generated_collision(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    module = _load_script()
-    generate = module["generate_skill_commands"]
-
-    config_dir = tmp_path / "opencode"
-    skill_dir = config_dir / "skills" / "mine-review"
-    skill_dir.mkdir(parents=True)
-    (skill_dir / "SKILL.md").write_text(
-        "---\nname: mine-review\nopencode-command: true\n---\n"
-    )
-    commands_dir = config_dir / "commands"
-    commands_dir.mkdir()
-    command = commands_dir / "mine-review.md"
-    command.write_text("hand-written command\n")
-
-    generated = generate(config_dir, dry_run=False)
-
-    assert generated == []
-    assert command.read_text() == "hand-written command\n"
-    assert "not overwriting non-generated command" in capsys.readouterr().err
-
-
-def test_generate_skill_commands_skips_duplicate_frontmatter(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    module = _load_script()
-    generate = module["generate_skill_commands"]
-    skill_dir = tmp_path / "opencode" / "skills" / "mine-review"
-    skill_dir.mkdir(parents=True)
-    (skill_dir / "SKILL.md").write_text(
-        "---\nname: mine-review\nopencode-command: true\nopencode-command: false\n---\n"
-    )
-
-    assert generate(tmp_path / "opencode", dry_run=False) == []
-    assert "skipping invalid opencode-command frontmatter" in capsys.readouterr().err
-
-
-def test_generate_config_points_instructions_at_synced_rules(tmp_path: Path) -> None:
-    """Rules that opkg puts on disk are inert unless `instructions` names them.
-
-    OpenCode's only other global instruction source is the first existing of
-    `[<config>/AGENTS.md, ~/.claude/CLAUDE.md]`; nothing globs `<config>/rules/`.
-    """
-    module = _load_script()
-
-    content = module["generate_config"](tmp_path, dry_run=False)
-    config = json.loads(content)
-
-    assert config["instructions"] == [str(tmp_path / "rules/common/*.md")]
-
-
-def test_generate_config_emits_no_agent_key(tmp_path: Path) -> None:
-    """config.json carries no `agent` key (FR#17, AC#9) -- OpenCode resolves
+def test_generate_config_emits_exactly_three_keys(tmp_path: Path) -> None:
+    """config.json declares `$schema`, `plugin`, and `subagent_depth` and
+    nothing else (FR#17, AC#8) -- no `agent` key, since OpenCode resolves
     every agent's model and reasoning variant from that agent's own
-    frontmatter, so config-level pinning would only duplicate it.
+    frontmatter (mediated by the plugin's tier remap), so a config-level pin
+    would only duplicate it.
     """
     module = _load_script()
 
-    content = module["generate_config"](tmp_path, dry_run=False)
+    content = module["generate_config"](tmp_path)
     config = json.loads(content)
 
-    assert "agent" not in config
+    assert set(config.keys()) == {"$schema", "plugin", "subagent_depth"}
+    assert config["plugin"] == ["./claudefiles.ts"]
 
 
-def test_build_instructions_never_uses_recursive_glob() -> None:
-    """For an absolute pattern OpenCode globs `basename` inside `dirname` and
-    does not recurse, so a `**` entry matches nothing -- silently, which is
-    indistinguishable from having no rules at all.
+def test_generate_config_plugin_spec_is_path_like(tmp_path: Path) -> None:
+    """OpenCode's loader only treats a plugin spec as a file path when it
+    starts with "file://", ".", or is itself absolute
+    (packages/opencode/src/plugin/shared.ts's isPathPluginSpec(), reference
+    clone at ~/source/opencode, commit 3fd77ae, matching the installed
+    1.18.18 binary). A bare filename like "claudefiles.ts" falls through to
+    npm-package resolution instead, and OpenCode silently attempts (and
+    fails) to `npm install` a package of that name -- the plugin's config()
+    hook then never runs, so every agent, skill-command bridge, and
+    instruction it supplies silently disappears from a live session. This
+    regression test pins the classifier's own rule directly rather than a
+    specific string, so it still catches the bug if the emitted spec is ever
+    changed to some other non-path-like form.
     """
     module = _load_script()
 
-    for entry in module["build_instructions"](Path("/tmp/oc")):
-        assert "**" not in entry, f"{entry} will silently match nothing"
-        assert entry.endswith("*.md")
+    content = module["generate_config"](tmp_path)
+    config = json.loads(content)
+
+    spec = config["plugin"][0]
+    assert spec.startswith(("file://", ".")) or Path(spec).is_absolute(), (
+        f"plugin spec {spec!r} is not path-like per OpenCode's isPathPluginSpec() -- "
+        "OpenCode will treat it as an npm package name and the plugin will never load"
+    )
 
 
-def test_check_instruction_globs_flags_uncovered_rules_directory(
+def test_generate_config_never_touches_opencode_jsonc(tmp_path: Path) -> None:
+    """FR#18: opencode.jsonc is the machine-local overlay for `permission`
+    and `mcp`, owned by the user. generate_config() must never read, write,
+    or move it -- a pre-existing file's bytes staying identical is the proof.
+    """
+    module = _load_script()
+
+    jsonc_path = tmp_path / "opencode.jsonc"
+    original_bytes = b'{\n  // machine-local overrides\n  "permission": {},\n}\n'
+    jsonc_path.write_bytes(original_bytes)
+
+    module["generate_config"](tmp_path)
+
+    assert jsonc_path.read_bytes() == original_bytes
+
+
+def test_parse_args_rejects_removed_check_flag() -> None:
+    """FR#21/AC#12: `--check` reported sync staleness, a concept that no
+    longer exists now that OpenCode reads live files -- `--verify` (T05)
+    answers the question that replaces it.
+    """
+    module = _load_script()
+
+    with pytest.raises(SystemExit):
+        module["parse_args"](["--check"])
+
+
+def test_parse_args_rejects_removed_lint_only_flag() -> None:
+    """FR#23/AC#12: `--lint-only` ran the compatibility lint over installed
+    files, which no longer exist -- `--check-source` absorbed the one check
+    worth keeping.
+    """
+    module = _load_script()
+
+    with pytest.raises(SystemExit):
+        module["parse_args"](["--lint-only"])
+
+
+def test_check_instruction_directory_coverage_flags_uncovered_rules_directory(
     tmp_path: Path,
 ) -> None:
-    """A new rules subdirectory that INSTRUCTION_DIRS doesn't cover must fail
-    the lint rather than shipping rules nothing ever loads.
+    """A new rules subdirectory the shared instruction-directory list
+    (opencode/config-data.json) doesn't name must fail the check rather than
+    shipping rules nothing ever loads. Retargeted (T03) to take the `rules/`
+    root directly, not a config dir + INSTRUCTION_ROOT.
     """
     module = _load_script()
-    covered = tmp_path / "rules" / "common"
+    rules_root = tmp_path / "rules"
+    covered = rules_root / "common"
     covered.mkdir(parents=True)
     (covered / "a.md").write_text("# covered\n")
-    uncovered = tmp_path / "rules" / "personal"
+    uncovered = rules_root / "other"
     uncovered.mkdir()
     (uncovered / "b.md").write_text("# uncovered\n")
 
-    errors = module["check_instruction_globs"](tmp_path)
+    errors = module["check_instruction_directory_coverage"](rules_root)
 
     assert len(errors) == 1
-    assert "rules/personal" in errors[0]
-    assert "INSTRUCTION_DIRS" in errors[0]
+    assert "rules/other" in errors[0]
+    assert "instruction_dirs" in errors[0]
+    assert "opencode/config-data.json" in errors[0]
 
 
-def test_check_instruction_globs_clean_when_every_rules_dir_covered(
+def test_check_instruction_directory_coverage_clean_when_every_rules_dir_covered(
     tmp_path: Path,
 ) -> None:
     module = _load_script()
-    covered = tmp_path / "rules" / "common"
+    rules_root = tmp_path / "rules"
+    covered = rules_root / "common"
     covered.mkdir(parents=True)
     (covered / "a.md").write_text("# covered\n")
 
-    assert module["check_instruction_globs"](tmp_path) == []
+    assert module["check_instruction_directory_coverage"](rules_root) == []
 
 
-def test_check_instruction_globs_ignores_directory_with_no_rules(
+def test_check_instruction_directory_coverage_ignores_directory_with_no_rules(
     tmp_path: Path,
 ) -> None:
     """An empty or purely structural directory has nothing to load, so
-    flagging it would fail syncs over a non-problem.
+    flagging it would fail the check over a non-problem.
     """
     module = _load_script()
-    (tmp_path / "rules" / "common").mkdir(parents=True)
-    (tmp_path / "rules" / "scratch").mkdir()
+    rules_root = tmp_path / "rules"
+    (rules_root / "common").mkdir(parents=True)
+    (rules_root / "scratch").mkdir()
 
-    assert module["check_instruction_globs"](tmp_path) == []
+    assert module["check_instruction_directory_coverage"](rules_root) == []
 
 
 def _write_rule(path: Path, tool_line: str | None) -> None:
@@ -339,83 +189,19 @@ def _write_rule(path: Path, tool_line: str | None) -> None:
     path.write_text(f"{frontmatter}# {path.stem}\n")
 
 
-def test_stage_config_drops_only_excluded_rules(tmp_path: Path) -> None:
-    """Include is the default: OPENCODE_COMPAT_RULE translates Claude-only
-    references, so only rules that are actively wrong for OpenCode are
-    withheld. Deriving this from `tool:` frontmatter instead excluded seven
-    rules OpenCode wants -- that marker answers "does this go to Antigravity?"
+def test_find_unmatched_rule_exclusions_reports_stale_entry(tmp_path: Path) -> None:
+    """A renamed rule silently starts syncing unless the stale entry
+    surfaces. Non-mutating -- it must not delete the file it did match.
     """
-    module = _load_script()
-
-    claudefiles = tmp_path / "claudefiles"
-    rules = claudefiles / "rules" / "common"
-    # Marked harness-only for Antigravity's benefit, but wanted by OpenCode.
-    _write_rule(rules / "git-workflow.md", "tool: claude  # harness-only: agents")
-    _write_rule(rules / "capabilities-core.md", "tool: claude  # harness-only: skills")
-    _write_rule(rules / "performance.md", "tool: claude  # harness-only: registry")
-    _write_rule(rules / "sudo.md", "tool: claude  # harness-only: hook")
-    _write_rule(rules / "tmux.md", "tool: claude  # harness-only: helper")
-
-    tmpdir = tmp_path / "staging"
-    tmpdir.mkdir()
-    staged = module["stage_config"](claudefiles, tmpdir)
-
-    staged_rules = staged / "rules" / "common"
-    assert (staged_rules / "git-workflow.md").is_file()
-    assert (staged_rules / "capabilities-core.md").is_file()
-    for excluded in ("performance.md", "sudo.md", "tmux.md"):
-        assert not (staged_rules / excluded).exists()
-    # The compat rule is written after exclusion and must survive it.
-    assert (staged_rules / "opencode-compat.md").is_file()
-
-
-def test_opencode_marked_rule_is_never_excluded(tmp_path: Path) -> None:
-    """A rule explicitly marked `tool: opencode` -- as the generated compat
-    rule is -- must sync. The frontmatter-derived filter dropped exactly this.
-    """
-    module = _load_script()
-
-    claudefiles = tmp_path / "claudefiles"
-    _write_rule(claudefiles / "rules" / "common" / "compat-ish.md", "tool: opencode")
-
-    tmpdir = tmp_path / "staging"
-    tmpdir.mkdir()
-    staged = module["stage_config"](claudefiles, tmpdir)
-
-    assert (staged / "rules" / "common" / "compat-ish.md").is_file()
-
-
-def test_real_repo_stages_every_rule_but_the_excluded(tmp_path: Path) -> None:
-    """Guards the actual repo: exactly OPENCODE_EXCLUDED_RULES is withheld."""
-    module = _load_script()
-    repo = Path(__file__).resolve().parent.parent
-
-    tmpdir = tmp_path / "staging"
-    tmpdir.mkdir()
-    staged = module["stage_config"](repo, tmpdir)
-
-    excluded = set(module["OPENCODE_EXCLUDED_RULES"])
-    for source in sorted((repo / "rules").rglob("*.md")):
-        relative = source.relative_to(repo / "rules").as_posix()
-        staged_file = staged / "rules" / relative
-        if relative in excluded:
-            assert not staged_file.exists(), f"{relative} should not sync"
-        else:
-            assert staged_file.is_file(), f"{relative} should sync but did not"
-
-
-def test_apply_rule_exclusions_reports_stale_entry(tmp_path: Path) -> None:
-    """A renamed rule silently starts syncing unless the stale entry surfaces."""
     module = _load_script()
 
     rules = tmp_path / "rules" / "common"
-    _write_rule(rules / "sudo.md", "tool: claude")
+    _write_rule(rules / "keeps.md", "tool: claude")
 
-    missing = module["apply_rule_exclusions"](tmp_path / "rules")
+    missing = module["find_unmatched_rule_exclusions"](tmp_path / "rules")
 
-    assert not (rules / "sudo.md").exists()
-    assert "common/performance.md" in missing
-    assert "common/tmux.md" in missing
+    assert missing == ["common/sudo.md"]
+    assert (rules / "keeps.md").is_file()
 
 
 def test_check_source_gate_flags_stale_exclusion(tmp_path: Path) -> None:
@@ -429,14 +215,21 @@ def test_check_source_gate_flags_stale_exclusion(tmp_path: Path) -> None:
 
     errors, _ = module["check_source_dispatch_patterns"](claudefiles)
 
-    assert any("OPENCODE_EXCLUDED_RULES" in e for e in errors)
+    assert any("config-data.json" in e and "common/sudo.md" in e for e in errors), (
+        errors
+    )
 
 
 def test_check_source_gate_sees_uncovered_rules_directory(tmp_path: Path) -> None:
     """The `--check-source` pre-commit gate must be able to fail on an
-    uncovered rules directory. It stages only skills/commands/agents, so
-    before this fix check_instruction_globs() short-circuited on the missing
-    rules/ and the gate reported clean no matter what.
+    uncovered rules directory. It reads this repo's own `rules/` tree
+    directly rather than a staged copy, so this proves the coverage check
+    is wired into check_source_dispatch_patterns() and not just defined.
+
+    Uses `rules/other`, not `rules/personal` -- the real
+    opencode/config-data.json now names both `rules/common` and
+    `rules/personal`, so `rules/personal` is no longer an uncovered
+    directory to test against.
     """
     module = _load_script()
 
@@ -448,33 +241,15 @@ def test_check_source_gate_sees_uncovered_rules_directory(tmp_path: Path) -> Non
         claudefiles / "rules" / "common" / "covered.md", "tool: claude, antigravity"
     )
     _write_rule(
-        claudefiles / "rules" / "personal" / "uncovered.md",
+        claudefiles / "rules" / "other" / "uncovered.md",
         "tool: claude, antigravity",
     )
 
     errors, _ = module["check_source_dispatch_patterns"](claudefiles)
 
-    glob_errors = [e for e in errors if "instructions` glob" in e]
-    assert len(glob_errors) == 1, f"gate did not flag the uncovered dir: {errors}"
-    assert "rules/personal" in glob_errors[0]
-
-
-def test_check_source_gate_judges_the_tree_that_ships(tmp_path: Path) -> None:
-    """A rules directory left empty by the exclusions needs no `instructions`
-    glob, so the gate must not demand one -- it has to judge the same tree
-    stage_config() produces, not the raw source.
-    """
-    module = _load_script()
-
-    claudefiles = tmp_path / "claudefiles"
-    (claudefiles / "agents").mkdir(parents=True)
-    (claudefiles / "agents" / "a.md").write_text("---\nmodel: sonnet\n---\n\nbody\n")
-    for relative in module["OPENCODE_EXCLUDED_RULES"]:
-        _write_rule(claudefiles / "rules" / relative, "tool: claude")
-
-    errors, _ = module["check_source_dispatch_patterns"](claudefiles)
-
-    assert [e for e in errors if "instructions` glob" in e] == []
+    coverage_errors = [e for e in errors if "instruction_dirs" in e]
+    assert len(coverage_errors) == 1, f"gate did not flag the uncovered dir: {errors}"
+    assert "rules/other" in coverage_errors[0]
 
 
 def test_check_source_gate_flags_dispatch_naming_nonexistent_agent(
@@ -602,235 +377,51 @@ def test_check_source_gate_flags_residual_model_clause(tmp_path: Path) -> None:
     assert any("model: sonnet" in e for e in errors)
 
 
-def test_check_variant_names_flags_unresolvable_agent_variant(
-    tmp_path: Path,
+def test_check_source_gate_flags_tier_map_variant_opencode_does_not_resolve(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """An unknown `variant:` resolves to nothing and drops the agent to the
-    provider default -- the same silent failure as the old `effort` key, so it
-    must fail the lint rather than only a test.
+    """Every opencode/config-data.json `tier_map` entry's `variant` must be a
+    name in that same file's `variants` list, checked by
+    check_source_dispatch_patterns() (T03) so `--check-source` exits non-zero
+    on a bad one.
+
+    Formerly `test_tier_map_variants_are_names_opencode_resolves`, which
+    asserted this property directly against the in-script `TIER_MAP` and
+    `OPENCODE_VARIANTS` constants. Those constants are gone from this
+    script's routing role in FR#27's shared-data design -- `tier_map` and
+    `variants` are authored once, in opencode/config-data.json, so this is
+    where the check has to live now. Agent-level variant resolution drops
+    any name missing from the model's synthesized `variants` map without
+    warning, so an unresolvable name here reproduces the exact bug the
+    `effort` -> `variant` rename fixed (#514): config that looks correct
+    while every subagent silently runs at the provider default.
     """
     module = _load_script()
 
-    agents = tmp_path / "agents"
-    agents.mkdir()
-    (agents / "good.md").write_text("---\nmodel: x\nvariant: high\n---\n\nbody\n")
-    (agents / "bad.md").write_text("---\nmodel: x\nvariant: highest\n---\n\nbody\n")
+    claudefiles = tmp_path / "claudefiles"
+    agents = claudefiles / "agents"
+    agents.mkdir(parents=True)
+    (agents / "a.md").write_text("---\nmodel: x\n---\n\nbody\n")
 
-    errors = module["check_variant_names"](tmp_path)
-
-    assert len(errors) == 1
-    assert "bad.md" in errors[0]
-    assert "highest" in errors[0]
-
-
-def test_check_variant_names_clean_on_real_tier_map(tmp_path: Path) -> None:
-    module = _load_script()
-
-    assert module["check_variant_names"](tmp_path) == []
-
-
-def test_check_variant_names_flags_agent_declaring_no_variant(
-    tmp_path: Path,
-) -> None:
-    """An agent with no `variant:` anywhere falls back to the provider default
-    just as silently as one with a misspelled name -- checking only
-    invalid-but-present names would leave the original `effort` bug reachable
-    by simply dropping the key.
-    """
-    module = _load_script()
-
-    agents = tmp_path / "agents"
-    agents.mkdir()
-    (agents / "silent.md").write_text("---\nmodel: x\n---\n\nbody\n")
-
-    errors = module["check_variant_names"](tmp_path)
-
-    assert len(errors) == 1
-    assert "silent.md" in errors[0]
-    assert "no `variant:`" in errors[0]
-
-
-def test_check_variant_names_ignores_frontmatter_less_markdown(
-    tmp_path: Path,
-) -> None:
-    """A .md file with no frontmatter isn't an agent definition, so the
-    missing-variant check must skip it rather than claim a README "runs at the
-    provider default". process_agent_frontmatter() already skips these; the
-    lint has to agree, or an ordinary `agents/README.md` fails the blocking
-    --check-source gate and every sync against the live config directory.
-    """
-    module = _load_script()
-
-    agents = tmp_path / "agents"
-    agents.mkdir()
-    (agents / "README.md").write_text("# Agents directory\n\nconventions doc\n")
-
-    assert module["check_variant_names"](tmp_path) == []
-
-
-def test_check_variant_names_flags_frontmatter_variant_with_no_model(
-    tmp_path: Path,
-) -> None:
-    """A resolvable `variant:` still needs a model pin to take effect.
-
-    process_agent_frontmatter() drops an `effort:` line whose file has no
-    tier-resolvable `model:` for this reason; a `variant:` written directly
-    into a source file bypasses that path, so the lint has to hold the same
-    invariant.
-    """
-    module = _load_script()
-
-    agents = tmp_path / "agents"
-    agents.mkdir()
-    (agents / "orphan.md").write_text("---\nvariant: high\n---\n\nbody\n")
-
-    errors = module["check_variant_names"](tmp_path)
-
-    assert len(errors) == 1
-    assert "orphan.md" in errors[0]
-    assert "no `model:`" in errors[0]
-
-
-def test_check_variant_names_reports_name_and_model_faults_independently(
-    tmp_path: Path,
-) -> None:
-    """Both faults surface at once rather than one hiding behind the other.
-
-    Fixing the name doesn't supply a model and fixing the model doesn't fix
-    the name, so reporting only the first would send the reader back for a
-    second lint cycle to discover the second.
-    """
-    module = _load_script()
-
-    agents = tmp_path / "agents"
-    agents.mkdir()
-    (agents / "both.md").write_text("---\nvariant: turbo\n---\n\nbody\n")
-
-    errors = module["check_variant_names"](tmp_path)
-
-    assert len(errors) == 2
-    assert any("turbo" in e for e in errors)
-    assert any("no `model:`" in e for e in errors)
-
-
-def test_check_variant_names_missing_variant_does_not_also_flag_model(
-    tmp_path: Path,
-) -> None:
-    """With no variant anywhere there is nothing to resolve, so a missing
-    model pin is moot -- reporting it as a second fault would be noise.
-    """
-    module = _load_script()
-
-    agents = tmp_path / "agents"
-    agents.mkdir()
-    (agents / "bare.md").write_text("---\ndescription: b\n---\n\nbody\n")
-
-    errors = module["check_variant_names"](tmp_path)
-
-    assert len(errors) == 1
-    assert "no `variant:`" in errors[0]
-
-
-def test_run_lint_surfaces_variant_errors(tmp_path: Path) -> None:
-    """check_variant_names() must be wired into run_lint(), not merely defined
-    -- OPENCODE_VARIANTS previously documented a guard only pytest enforced.
-    """
-    module = _load_script()
-
-    agents = tmp_path / "agents"
-    agents.mkdir()
-    (agents / "bad.md").write_text("---\nmodel: x\nvariant: turbo\n---\n\nbody\n")
-
-    errors, _ = module["run_lint"](tmp_path)
-
-    assert any("turbo" in e for e in errors)
-
-
-def test_tier_map_variants_are_names_opencode_resolves() -> None:
-    """Every TIER_MAP `variant` must be a name OpenCode can resolve.
-
-    Agent-level variant resolution drops any name missing from the model's
-    synthesized `variants` map without warning, so a typo here reproduces the
-    exact bug the `effort` -> `variant` rename fixed: config that looks
-    correct while every subagent silently runs at the provider default.
-    """
-    module = _load_script()
-
-    for tier_name, tier in module["TIER_MAP"].items():
-        assert tier["variant"] in module["OPENCODE_VARIANTS"], (
-            f"TIER_MAP[{tier_name!r}]['variant'] = {tier['variant']!r} is not a "
-            "reasoning-effort name OpenCode accepts"
-        )
-
-
-def test_process_agent_frontmatter_rewrites_effort_to_tier_variant(
-    tmp_path: Path,
-) -> None:
-    """Claude's `effort:` becomes OpenCode's `variant:`, valued from the tier
-    the `model:` line names -- the same way the tier supplies the model ID.
-    """
-    module = _load_script()
-    agents_dir = tmp_path / "agents"
-    agents_dir.mkdir()
-    (agents_dir / "reviewer.md").write_text(
-        "---\nname: reviewer\nmodel: sonnet\neffort: high\n"
-        "color: blue\ndescription: A reviewer.\n---\n\n# Body\n"
+    # runpy.run_path() returns a *copy* of the executed namespace, not the
+    # live one -- module["check_source_dispatch_patterns"].__globals__ is a
+    # different dict than `module` itself (confirmed empirically), so a
+    # replacement has to land in that live __globals__ dict or the function's
+    # own lookup of `_load_config_data` never sees it.
+    monkeypatch.setitem(
+        module["check_source_dispatch_patterns"].__globals__,
+        "_load_config_data",
+        lambda: {
+            "tier_map": {"sonnet": {"model": "openai/x", "variant": "turbo"}},
+            "variants": ["none", "low", "medium", "high", "xhigh", "max"],
+            "excluded_rules": [],
+            "instruction_dirs": ["rules/common"],
+        },
     )
 
-    modified = module["process_agent_frontmatter"](agents_dir, dry_run=False)
+    errors, _ = module["check_source_dispatch_patterns"](claudefiles)
 
-    result = (agents_dir / "reviewer.md").read_text()
-    sonnet = module["TIER_MAP"]["sonnet"]
-    assert modified == 1
-    assert f"variant: {sonnet['variant']}\n" in result
-    assert "effort:" not in result
-    assert f"model: {sonnet['model']}\n" in result
-    assert "color:" not in result
-    assert "# Body" in result
-
-
-def test_process_agent_frontmatter_rewrites_effort_declared_before_model(
-    tmp_path: Path,
-) -> None:
-    """The tier is resolved in its own pass, so an `effort:` line above the
-    `model:` line still picks up the right variant instead of being dropped.
-    """
-    module = _load_script()
-    agents_dir = tmp_path / "agents"
-    agents_dir.mkdir()
-    (agents_dir / "reviewer.md").write_text(
-        "---\neffort: high\nname: reviewer\nmodel: haiku\n---\n\n# Body\n"
-    )
-
-    module["process_agent_frontmatter"](agents_dir, dry_run=False)
-
-    result = (agents_dir / "reviewer.md").read_text()
-    assert f"variant: {module['TIER_MAP']['haiku']['variant']}\n" in result
-    assert "effort:" not in result
-
-
-def test_process_agent_frontmatter_drops_unresolvable_effort_with_warning(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """With no tier-resolvable `model:`, the intended variant is unknowable.
-
-    Passing `effort:` through would leave a key OpenCode ignores while
-    implying a reasoning level the agent isn't getting -- the failure mode
-    this whole rename exists to remove. Drop it and say so.
-    """
-    module = _load_script()
-    agents_dir = tmp_path / "agents"
-    agents_dir.mkdir()
-    (agents_dir / "orphan.md").write_text(
-        "---\nname: orphan\nmodel: openai/gpt-5.6-terra\neffort: high\n---\n\n# Body\n"
-    )
-
-    module["process_agent_frontmatter"](agents_dir, dry_run=False)
-
-    result = (agents_dir / "orphan.md").read_text()
-    assert "effort:" not in result
-    assert "variant:" not in result
-    assert "orphan.md" in capsys.readouterr().err
+    assert any("turbo" in e and "tier_map" in e for e in errors), errors
 
 
 def test_find_orphaned_definitions_clean_when_helper_is_referenced() -> None:
@@ -937,3 +528,526 @@ def test_check_orphans_clean_against_the_real_script() -> None:
     check_orphans = module["check_orphans"]
 
     assert check_orphans(SCRIPT) == []
+
+
+def _write_agent(agents_dir: Path, stem: str) -> None:
+    agents_dir.mkdir(parents=True, exist_ok=True)
+    (agents_dir / f"{stem}.md").write_text("---\nmodel: sonnet\n---\n\nbody\n")
+
+
+def _fake_opencode_run(
+    failing_stems: set[str], pure_resolving_stems: set[str] = frozenset()
+):
+    """Fake replacement for subprocess.run() that reports success for every
+    `opencode debug agent <name>` invocation except the given stems -- the
+    boundary-fake pattern the TDD reference calls for, so no test in this
+    file ever shells out to the real opencode binary.
+
+    `--pure`-aware: a `--pure` call succeeds only for stems listed in
+    `pure_resolving_stems`, which defaults to empty -- matching the
+    healthy-plugin shape (the plugin resolves the agent; disk alone, with
+    the plugin disabled, cannot) so every pre-existing caller of this fake
+    keeps passing without having to know `--pure` exists. A test that wants
+    to simulate the stale-disk-file failure mode (--pure ALSO succeeding for
+    an agent whose normal check succeeds) passes the stem explicitly.
+    """
+
+    def fake_run(cmd, **kwargs):
+        stem = cmd[3]
+        if "--pure" in cmd:
+            returncode = 0 if stem in pure_resolving_stems else 1
+        else:
+            returncode = 1 if stem in failing_stems else 0
+        return subprocess.CompletedProcess(cmd, returncode, stdout="", stderr="")
+
+    return fake_run
+
+
+def test_prune_removes_all_four_trees_and_nothing_else(tmp_path: Path) -> None:
+    """FR#19/AC#10: agents/, skills/, commands/, rules/ are gone; a
+    pre-existing opencode.jsonc and node_modules/ (OpenCode auto-installs
+    @opencode-ai/plugin there) survive untouched.
+    """
+    module = _load_script()
+
+    config_dir = tmp_path / "opencode-config"
+    for name in ("agents", "skills", "commands", "rules"):
+        tree = config_dir / name
+        tree.mkdir(parents=True)
+        (tree / "x.md").write_text("stub\n")
+    (config_dir / "opencode.jsonc").write_text('{\n  "permission": {},\n}\n')
+    (config_dir / "node_modules" / "@opencode-ai" / "plugin").mkdir(parents=True)
+
+    removed = module["prune"](config_dir)
+
+    assert set(removed) == {"agents", "skills", "commands", "rules"}
+    for name in ("agents", "skills", "commands", "rules"):
+        assert not (config_dir / name).exists()
+    assert (config_dir / "opencode.jsonc").is_file()
+    assert (config_dir / "node_modules" / "@opencode-ai" / "plugin").is_dir()
+
+
+def test_prune_is_a_noop_on_an_already_pruned_dir(tmp_path: Path) -> None:
+    """A second --prune (or one against a dir that never had the trees) must
+    not raise -- prune() only removes what's present.
+    """
+    module = _load_script()
+
+    config_dir = tmp_path / "opencode-config"
+    config_dir.mkdir()
+
+    assert module["prune"](config_dir) == []
+
+
+def test_prune_removes_a_symlinked_tree_without_crashing(tmp_path: Path) -> None:
+    """shutil.rmtree() raises OSError on a symlink to a directory, and
+    Path.exists() reports False for a dangling symlink -- silently skipping
+    it and leaving it in place. Either shape can happen if a manual setup
+    left one of the four pruned names as a symlink under config_dir. prune()
+    must unlink the link itself instead of crashing or silently leaving it.
+    """
+    module = _load_script()
+
+    config_dir = tmp_path / "opencode-config"
+    config_dir.mkdir()
+
+    real_tree = tmp_path / "real-agents"
+    real_tree.mkdir()
+    (real_tree / "x.md").write_text("stub\n")
+    (config_dir / "agents").symlink_to(real_tree)
+
+    dangling_target = tmp_path / "does-not-exist"
+    (config_dir / "skills").symlink_to(dangling_target)
+
+    removed = module["prune"](config_dir)
+
+    assert set(removed) == {"agents", "skills"}
+    assert not (config_dir / "agents").is_symlink()
+    assert not (config_dir / "skills").is_symlink()
+    # The symlink's target survives -- unlink() removes only the link.
+    assert real_tree.is_dir()
+    assert (real_tree / "x.md").is_file()
+
+
+def test_verify_exits_zero_when_every_agent_resolves(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """FR#20/AC#11: --verify with no argument checks every file under the
+    given agents dir and exits zero when all resolve.
+    """
+    module = _load_script()
+
+    agents_dir = tmp_path / "agents"
+    _write_agent(agents_dir, "a")
+    _write_agent(agents_dir, "b")
+
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/opencode")
+    monkeypatch.setattr(subprocess, "run", _fake_opencode_run(set()))
+
+    assert module["verify"](agents_dir, None) == 0
+
+
+def test_verify_names_every_failing_agent_not_just_the_first(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """FR#20/AC#11: with two of three agents unresolvable, --verify exits
+    non-zero and names both -- not just the first one it hits.
+    """
+    module = _load_script()
+
+    agents_dir = tmp_path / "agents"
+    _write_agent(agents_dir, "a")
+    _write_agent(agents_dir, "b")
+    _write_agent(agents_dir, "c")
+
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/opencode")
+    monkeypatch.setattr(subprocess, "run", _fake_opencode_run({"a", "c"}))
+
+    exit_code = module["verify"](agents_dir, None)
+    captured = capsys.readouterr()
+
+    assert exit_code != 0
+    assert "'a'" in captured.err
+    assert "'c'" in captured.err
+    assert "'b'" not in captured.err
+
+
+def test_verify_with_explicit_name_checks_only_that_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """FR#20/AC#11: an explicit agent name narrows the check to just that
+    one -- "b" would fail if it were checked, but it isn't requested, so the
+    call passes.
+    """
+    module = _load_script()
+
+    agents_dir = tmp_path / "agents"
+    _write_agent(agents_dir, "a")
+    _write_agent(agents_dir, "b")
+
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/opencode")
+    monkeypatch.setattr(subprocess, "run", _fake_opencode_run({"b"}))
+
+    assert module["verify"](agents_dir, "a") == 0
+    assert module["verify"](agents_dir, "b") != 0
+
+
+def test_verify_reports_missing_opencode_binary_as_a_distinct_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """A missing `opencode` binary must not be silently treated as "0 agents
+    checked, 0 failed" (a false pass) -- it's a different failure than "an
+    agent didn't resolve" and must be reported as such.
+    """
+    module = _load_script()
+
+    agents_dir = tmp_path / "agents"
+    _write_agent(agents_dir, "a")
+
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+
+    exit_code = module["verify"](agents_dir, None)
+    captured = capsys.readouterr()
+
+    assert exit_code != 0
+    assert "PATH" in captured.err
+
+
+def test_verify_fails_when_pure_check_also_resolves_a_stale_disk_agent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """The reviewer's stale-disk-file scenario: `opencode debug agent <name>`
+    resolves (returncode 0), but so does `opencode debug agent <name>
+    --pure`. `--pure` disables only the plugin (OpenCode's
+    cli/cmd/debug/index.ts:66), not its native `{agent,agents}/**/*.md` disk
+    scan (config/agent.ts) -- so a `--pure` success alongside a normal-check
+    success proves the entry came from a leftover file on disk (e.g. from
+    the old copy-based sync, never pruned), not the plugin. --verify must
+    fail this case, not report success just because the normal check passed
+    (design.md AC#2).
+    """
+    module = _load_script()
+
+    agents_dir = tmp_path / "agents"
+    _write_agent(agents_dir, "stale")
+
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/opencode")
+    monkeypatch.setattr(
+        subprocess, "run", _fake_opencode_run(set(), pure_resolving_stems={"stale"})
+    )
+
+    exit_code = module["verify"](agents_dir, None)
+    captured = capsys.readouterr()
+
+    assert exit_code != 0
+    assert "'stale'" in captured.err
+    assert "stale disk" in captured.err
+    assert "--pure" in captured.err
+
+
+def test_verify_passes_when_normal_resolves_but_pure_check_does_not(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Healthy-plugin shape: `opencode debug agent <name>` resolves and
+    `--pure` does not -- disk alone, with the plugin disabled, can't produce
+    the same result. This is what a real, working plugin looks like and
+    must not be flagged as the stale-disk failure mode.
+    """
+    module = _load_script()
+
+    agents_dir = tmp_path / "agents"
+    _write_agent(agents_dir, "healthy")
+
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/opencode")
+    monkeypatch.setattr(subprocess, "run", _fake_opencode_run(set()))
+
+    assert module["verify"](agents_dir, None) == 0
+
+
+def test_verify_treats_a_timed_out_pure_check_as_a_failure_not_a_pass(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """A hang on the `--pure` disambiguation probe must not be silently read
+    as "disk alone couldn't resolve it, so the plugin is healthy" --
+    `_agent_resolves()` returns None (not False) on timeout precisely so
+    this case stays distinguishable from that legitimate pass. The normal
+    check still succeeds; only the second, `--pure` call times out.
+    """
+    module = _load_script()
+
+    agents_dir = tmp_path / "agents"
+    _write_agent(agents_dir, "slow")
+
+    def fake_run(cmd, **kwargs):
+        if "--pure" in cmd:
+            raise subprocess.TimeoutExpired(cmd, kwargs.get("timeout", 0))
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/opencode")
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    exit_code = module["verify"](agents_dir, None)
+    captured = capsys.readouterr()
+
+    assert exit_code != 0
+    assert "'slow'" in captured.err
+    assert "inconclusive" in captured.err
+    assert "timed out" in captured.err
+
+
+def test_verify_reports_plain_non_resolution_distinctly_from_stale_disk(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """The pre-existing failure mode -- the agent does not resolve at all --
+    must still be reported as "did not resolve", not the stale-disk message.
+    The `--pure` check only runs (and only matters) once the normal check
+    has already succeeded; a normal-check failure short-circuits before it.
+    """
+    module = _load_script()
+
+    agents_dir = tmp_path / "agents"
+    _write_agent(agents_dir, "broken")
+
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/opencode")
+    monkeypatch.setattr(subprocess, "run", _fake_opencode_run({"broken"}))
+
+    exit_code = module["verify"](agents_dir, None)
+    captured = capsys.readouterr()
+
+    assert exit_code != 0
+    assert "'broken'" in captured.err
+    assert "did not resolve" in captured.err
+    assert "stale disk" not in captured.err
+
+
+def test_verify_fails_on_an_empty_agents_dir_instead_of_a_vacuous_pass(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """An agents_dir that exists but has zero *.md files must not report "0
+    agent(s) resolved" as success -- nothing was actually checked, the same
+    false-pass shape the missing-binary branch already guards against.
+    """
+    module = _load_script()
+
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir()
+
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/opencode")
+    monkeypatch.setattr(subprocess, "run", _fake_opencode_run(set()))
+
+    exit_code = module["verify"](agents_dir, None)
+    captured = capsys.readouterr()
+
+    assert exit_code != 0
+    assert "no agent files found" in captured.err
+
+
+def test_verify_with_explicit_name_ignores_the_empty_dir_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The empty-sweep guard only applies to the sweep-all-agents path (name
+    is None) -- passing an explicit name has nothing to sweep, so an empty
+    (or nonexistent) agents_dir must not block a single named check.
+    """
+    module = _load_script()
+
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir()
+
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/opencode")
+    monkeypatch.setattr(subprocess, "run", _fake_opencode_run(set()))
+
+    assert module["verify"](agents_dir, "a") == 0
+
+
+def test_bootstrap_twice_is_idempotent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """FR#25/AC#20: running --bootstrap twice against a scratch config dir
+    leaves config.json and both symlink targets identical after the second
+    run as after the first, with exit 0 both times.
+    """
+    module = _load_script()
+
+    config_dir = tmp_path / "opencode-config"
+    claude_root = tmp_path / "claude-root"
+    _write_agent(claude_root / "agents", "a")
+
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(claude_root))
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/opencode")
+    monkeypatch.setattr(subprocess, "run", _fake_opencode_run(set()))
+
+    first_exit = module["bootstrap"](config_dir, REPO_ROOT)
+    first_config_bytes = (config_dir / "config.json").read_bytes()
+    plugin_target_1 = (config_dir / "claudefiles.ts").resolve()
+    compat_filename = module["resolve_compat_rule_filename"](REPO_ROOT)
+    compat_target_1 = (config_dir / compat_filename).resolve()
+
+    second_exit = module["bootstrap"](config_dir, REPO_ROOT)
+    second_config_bytes = (config_dir / "config.json").read_bytes()
+    plugin_target_2 = (config_dir / "claudefiles.ts").resolve()
+    compat_target_2 = (config_dir / compat_filename).resolve()
+
+    assert first_exit == 0
+    assert second_exit == 0
+    assert first_config_bytes == second_config_bytes
+    assert (
+        plugin_target_1
+        == plugin_target_2
+        == (REPO_ROOT / "opencode" / "claudefiles.ts").resolve()
+    )
+    assert (
+        compat_target_1
+        == compat_target_2
+        == (REPO_ROOT / "opencode" / "opencode-compat.md").resolve()
+    )
+
+
+def test_bootstrap_propagates_verification_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """FR#26/AC#21: --bootstrap against a config dir whose agent(s) fail
+    --verify's sweep exits non-zero and names the failing agent -- the tail
+    that catches a plugin regression at the one moment it's most likely to
+    have just been introduced.
+    """
+    module = _load_script()
+
+    config_dir = tmp_path / "opencode-config"
+    claude_root = tmp_path / "claude-root"
+    _write_agent(claude_root / "agents", "broken-agent")
+
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(claude_root))
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/opencode")
+    monkeypatch.setattr(subprocess, "run", _fake_opencode_run({"broken-agent"}))
+
+    exit_code = module["bootstrap"](config_dir, REPO_ROOT)
+    captured = capsys.readouterr()
+
+    assert exit_code != 0
+    assert "'broken-agent'" in captured.err
+
+
+def test_bootstrap_rejects_conflicting_non_symlink_at_plugin_target(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A real file already sitting at <config_dir>/claudefiles.ts (not a
+    symlink) is a conflict --bootstrap must fail loudly on, not clobber."""
+    module = _load_script()
+
+    config_dir = tmp_path / "opencode-config"
+    config_dir.mkdir()
+    (config_dir / "claudefiles.ts").write_text("// not a symlink\n")
+
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude-root"))
+
+    with pytest.raises(SystemExit):
+        module["bootstrap"](config_dir, REPO_ROOT)
+
+
+def test_bootstrap_rejects_symlink_pointing_at_unrelated_target(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """A stale symlink already sitting at <config_dir>/claudefiles.ts that
+    resolves to something other than opencode/claudefiles.ts (e.g. left
+    over from a previous plugin location) is a conflict --bootstrap must
+    fail loudly on, naming the unexpected target, rather than silently
+    repointing it."""
+    module = _load_script()
+
+    config_dir = tmp_path / "opencode-config"
+    config_dir.mkdir()
+    unrelated_target = tmp_path / "unrelated-file.ts"
+    unrelated_target.write_text("// not the real plugin\n")
+    (config_dir / "claudefiles.ts").symlink_to(unrelated_target)
+
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude-root"))
+
+    with pytest.raises(SystemExit):
+        module["bootstrap"](config_dir, REPO_ROOT)
+
+    captured = capsys.readouterr()
+    assert str(unrelated_target.resolve()) in captured.err
+
+
+def test_resolve_compat_rule_filename_reads_the_plugins_own_literal() -> None:
+    """FR#9: the compat-rule symlink's basename comes from
+    opencode/claudefiles.ts's own COMPAT_RULE_PATH literal, not a second
+    hardcoded guess in Python that could silently drift from it.
+    """
+    module = _load_script()
+
+    assert module["resolve_compat_rule_filename"](REPO_ROOT) == "opencode-compat.md"
+
+
+def _find_verify_hook() -> dict:
+    prek_config = tomllib.loads(PREK_TOML.read_text())
+    hooks = [
+        hook
+        for repo in prek_config["repos"]
+        for hook in repo.get("hooks", [])
+        if hook.get("id") == "verify-opencode-agents"
+    ]
+    assert len(hooks) == 1, f"expected exactly one --verify hook, found {hooks}"
+    return hooks[0]
+
+
+def test_prek_verify_hook_files_pattern_matches_plugin_and_shared_data_file() -> None:
+    """FR#28/AC#24: the hook's `files` pattern matches
+    opencode/claudefiles.ts and opencode/config-data.json, and does not
+    match unrelated paths.
+    """
+    hook = _find_verify_hook()
+    pattern = hook["files"]
+
+    assert re.search(pattern, "opencode/claudefiles.ts")
+    assert re.search(pattern, "opencode/config-data.json")
+    assert not re.search(pattern, "bin/opencode-sync")
+    assert not re.search(pattern, "opencode/opencode-compat.md")
+
+
+def test_prek_verify_hook_is_not_always_run() -> None:
+    """FR#28/AC#24: unlike the two existing lint-opencode-sync* hooks, the
+    --verify hook must not set always_run = true -- it starts an OpenCode
+    process and is too slow for every commit.
+    """
+    hook = _find_verify_hook()
+
+    assert hook.get("always_run") is not True
+
+
+def test_prek_verify_hook_skips_gracefully_when_opencode_binary_is_absent(
+    tmp_path: Path,
+) -> None:
+    """CI runs `prek run --all-files`, which matches this hook's `files`
+    pattern against the whole repo regardless of the actual diff, so it
+    fires on every CI run -- but `opencode` is never installed in CI
+    (design.md's Gap note: no automated harness runs OpenCode there). The
+    hook's own entry -- not verify()'s exit-non-zero-on-missing-binary
+    logic, which a developer invoking `bin/opencode-sync --verify` directly
+    still gets -- must detect the missing binary and skip with exit 0
+    rather than fail every CI run on an unrelated diff.
+    """
+    hook = _find_verify_hook()
+    argv = shlex.split(hook["entry"])
+
+    # A directory containing nothing but a symlink to the real bash --
+    # guaranteed empty of `opencode`, unlike a real system PATH entry such
+    # as /usr/bin, which could contain it (e.g. a system package). The
+    # script's `#!/usr/bin/env bash` shebang still needs bash resolvable
+    # on PATH to execute at all.
+    empty_path_dir = tmp_path / "empty-bin"
+    empty_path_dir.mkdir()
+    (empty_path_dir / "bash").symlink_to(shutil.which("bash"))
+    result = subprocess.run(
+        argv,
+        cwd=REPO_ROOT,
+        env={"PATH": str(empty_path_dir)},
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "opencode" in result.stderr.lower()

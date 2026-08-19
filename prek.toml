@@ -129,6 +129,30 @@ pass_filenames = false
 always_run = true
 stages = ["pre-commit"]
 
+# Not always_run, unlike the two lint-opencode-sync* hooks above: this one
+# starts a real OpenCode process (`opencode debug agent`) per agent, which
+# is too slow to pay on every commit. Scoped instead to the two files whose
+# edits can actually break agent resolution (FR#28) -- the plugin itself
+# and the shared tier-map/variant data it reads.
+#
+# Under `prek run --all-files` (what CI's `prek` job runs -- see
+# .github/workflows/test.yml), prek matches every hook's `files` regex
+# against the whole repo regardless of the actual diff, so this hook always
+# fires there even though `opencode` is never installed in CI (design.md's
+# Gap note: no automated harness runs OpenCode in CI; AC#14/AC#15 are
+# checked by hand). Guard the binary in scripts/hooks/verify-opencode-agents.sh
+# rather than in verify() itself -- a developer who runs `bin/opencode-sync
+# --verify` directly still gets the loud, non-zero "binary not found"
+# failure the task spec requires; only this wrapper skips gracefully.
+[[repos.hooks]]
+id = "verify-opencode-agents"
+name = "OpenCode agent resolution"
+entry = "scripts/hooks/verify-opencode-agents.sh"
+language = "script"
+pass_filenames = false
+files = '^opencode/(claudefiles\.ts|config-data\.json)$'
+stages = ["pre-commit"]
+
 [[repos.hooks]]
 id = "secrets-check"
 name = "secrets-check"

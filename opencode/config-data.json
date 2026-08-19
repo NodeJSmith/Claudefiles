@@ -1,0 +1,22 @@
+{
+  "$comment": "Single source of truth for model routing, shared by bin/opencode-sync and opencode/claudefiles.ts. tier_map values use OpenCode's `variant` key, NOT `effort` -- OpenCode's AgentConfig schema (https://opencode.ai/config.json) has no `effort` key and does not set `additionalProperties: false`, so an `effort` entry is accepted and silently discarded: every subagent then falls back to the OpenAI provider default of `reasoningEffort: \"medium\"` (transform.ts's gpt-5 branch). This script emitted `effort` until 2026-08-14; the tell was that every named subagent in opencode.db had an empty `variant` field while only the TUI-configured primary agent carried one. That is bug #514 -- do not reintroduce the `effort` key.",
+  "tier_map": {
+    "opus": {
+      "model": "openai/gpt-5.6-sol",
+      "variant": "high"
+    },
+    "sonnet": {
+      "model": "openai/gpt-5.6-terra",
+      "variant": "high"
+    },
+    "haiku": {
+      "model": "openai/gpt-5.6-luna",
+      "variant": "high"
+    }
+  },
+  "variants": ["none", "low", "medium", "high", "xhigh", "max"],
+  "excluded_rules": ["common/sudo.md"],
+  "skill_command_template": "Load the `{name}` skill using the native skill tool and follow it with these arguments:\n\n$ARGUMENTS",
+  "skill_command_description": "Load and run the {name} skill.",
+  "instruction_dirs": ["rules/common", "rules/personal"]
+}
