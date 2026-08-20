@@ -448,6 +448,49 @@ def test_resolve_finding_updates_disposition_and_stamps_resolved_at(db_conn, cap
     assert row["disposition"] == "applied"
     assert row["resolved_at"] is not None
 
+    emitted = json.loads(capsys.readouterr().out)
+    assert emitted["disposition"] == "applied"
+    assert emitted["resolved_at"] is not None
+
+
+def test_resolve_finding_emits_correct_resolved_at_when_li_shares_finding_num(
+    db_conn, capsys
+):
+    """resolve_finding's follow-up SELECT reads the presented row, not a
+    same-numbered likely-invalid row sharing (gate_id, finding_num)."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+    record_gate(db_conn, run_id, "sketch-challenge", verdict="FAIL")
+    gate_id = json.loads(capsys.readouterr().out)["gate_id"]
+    record_finding(
+        db_conn,
+        run_id,
+        gate_id,
+        "challenge",
+        5,
+        title="Likely false positive",
+        severity="MEDIUM",
+        visibility="likely-invalid",
+    )
+    record_finding(
+        db_conn,
+        run_id,
+        gate_id,
+        "challenge",
+        5,
+        title="Missing timeout",
+        severity="HIGH",
+        visibility="presented",
+        disposition="pending",
+    )
+    _ = capsys.readouterr()
+
+    updated = resolve_finding(db_conn, gate_id, 5, "applied")
+
+    assert updated == 1
+    emitted = json.loads(capsys.readouterr().out)
+    assert emitted["disposition"] == "applied"
+    assert emitted["resolved_at"] is not None
+
 
 def test_resolve_finding_returns_0_for_missing_finding_num(db_conn, capsys):
     """resolve_finding returns 0 when no finding matches gate_id/finding_num."""

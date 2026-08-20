@@ -31,6 +31,7 @@ def test_app_registers_all_expected_commands():
         "event",
         "session",
         "question",
+        "finding",
         "archive",
         "stop-orphans",
         "set",

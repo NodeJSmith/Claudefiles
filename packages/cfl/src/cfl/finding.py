@@ -345,12 +345,22 @@ def resolve_finding(
     )
     updated = cursor.rowcount
 
+    resolved_at = None
+    if updated:
+        row = conn.execute(
+            "SELECT resolved_at FROM findings"
+            " WHERE gate_id = ? AND finding_num = ? AND visibility = 'presented'",
+            (gate_id, finding_num),
+        ).fetchone()
+        resolved_at = row[0] if row else None
+
     output_module.emit(
         {
             "updated": updated,
             "gate_id": gate_id,
             "finding_num": finding_num,
             "disposition": disposition,
+            "resolved_at": resolved_at,
         }
     )
     return updated

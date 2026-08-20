@@ -1,7 +1,7 @@
 ---
 task_id: "T02"
 title: "Wire finding commands into CLI and epilogues"
-status: "planned"
+status: "done"
 depends_on: ["T01"]
 implements: ["FR#18", "FR#18a", "FR#19", "FR#25", "AC#7", "AC#8", "AC#9", "AC#20"]
 ---

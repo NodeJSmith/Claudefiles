@@ -6,6 +6,13 @@ Separated from cli.py to keep the command definitions readable.
 
 from cfl.direct import ENTITY_COLUMNS
 from cfl.event import KNOWN_EVENT_NAMES
+from cfl.finding import (
+    KNOWN_SEVERITIES,
+    VALID_VISIBILITIES,
+)
+from cfl.finding import (
+    VALID_DISPOSITIONS as VALID_FINDING_DISPOSITIONS,
+)
 from cfl.gate import KNOWN_GATE_TYPES
 from cfl.question import KNOWN_SKILLS, KNOWN_TOPICS, VALID_DISPOSITIONS
 
@@ -169,3 +176,37 @@ Examples:
   cfl question list --skill mine-define --status skipped
   cfl question list --disposition deferred
   cfl question list --topic scope-mode --run 5"""
+
+_FINDING_SEVERITIES_LIST = ", ".join(sorted(KNOWN_SEVERITIES))
+_FINDING_VISIBILITIES_LIST = ", ".join(sorted(VALID_VISIBILITIES))
+_FINDING_DISPOSITIONS_LIST = ", ".join(sorted(VALID_FINDING_DISPOSITIONS))
+
+FINDING_RECORD = f"""\
+Valid severities: {_FINDING_SEVERITIES_LIST}
+Valid visibilities: {_FINDING_VISIBILITIES_LIST}
+Valid dispositions: {_FINDING_DISPOSITIONS_LIST}
+
+Examples:
+  cfl finding record challenge 1 --title "Missing error handler" --severity HIGH \\
+      --visibility presented --disposition pending --gate-id 42
+  cfl finding record challenge 1 --title X --severity HIGH --visibility presented
+"""
+
+FINDING_RECORD_BATCH = """\
+Examples:
+  cfl finding record-batch --gate-id 42 --file /tmp/findings.json
+  cfl finding record-batch --gate-id 42 --file /tmp/findings.json --source challenge"""
+
+FINDING_LIST = f"""\
+Valid severities: {_FINDING_SEVERITIES_LIST}
+
+Examples:
+  cfl finding list
+  cfl finding list --source challenge --severity HIGH
+  cfl finding list --gate-id 42"""
+
+FINDING_RESOLVE = f"""\
+Valid dispositions: {_FINDING_DISPOSITIONS_LIST}
+
+Examples:
+  cfl finding resolve --gate-id 42 --finding-num 1 --disposition applied"""
