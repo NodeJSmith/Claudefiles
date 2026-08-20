@@ -2,18 +2,22 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
-=======
-
 ## 2026-08-20
 
 ### Added
 
-- Challenge now runs automatically at two points in every orchestrated path (`mine-define`, `mine-sketch`, `mine-orchestrate`) — once against the design artifact, once against the implemented branch — with no option to decline. `mine-orchestrate`'s shipping gate now dispatches challenge itself instead of telling the user to run it separately. (#527)
-- `cfl finding record`/`record-batch`/`list`/`resolve` durably record every challenge finding (severity, critic, target, gate, disposition) so a run's findings survive past its temp directory and can be queried later. (#527)
+- `mine-define` and `mine-sketch` now run a mandatory design-time challenge, and `mine-orchestrate` runs a mandatory ship-time challenge, with no option to decline either. `mine-orchestrate`'s shipping gate now dispatches challenge itself instead of telling the user to run it separately. (#527)
+- `cfl finding record` and `record-batch` persist challenge findings (severity, critic, target, gate, disposition) so a run's findings survive past its temp directory; `list` queries them and `resolve` records their disposition. (#527)
 
 ### Changed
 
-- `mine-sketch` gained an upgrade-to-caliper escape hatch: resolving a CRITICAL structural finding that reveals the sketch is the wrong vehicle now routes to `/mine-define` against the same `design.md` instead of forcing the lightweight path to absorb heavyweight rework. (#527)
+- `mine-sketch` now offers an upgrade-to-caliper choice after any CRITICAL challenge finding (including one that was applied) — the user can route to `/mine-define` against the same `design.md` instead of forcing the lightweight path to absorb heavyweight rework. (#527)
+
+### Fixed
+
+- `cfl finding record`/`record-batch` now derive `run_id` from the finding's `gate_id` instead of an ambiguous active-run lookup that silently returned `NULL` whenever more than one spec run was active in the repo. (#527)
+- `cfl finding resolve` no longer accepts `pending` as a resolution outcome or re-resolves an already-resolved finding, which previously let a retry silently overwrite an earlier `resolved_at`. (#527)
+- `mine-define`/`mine-sketch` resume now checks a `challenge.findings-persisted` event instead of the gate-recorded event, so a run interrupted between gate-recording and finding-persistence re-enters the challenge phase instead of silently skipping it. (#527)
 
 ## 2026-08-19
 
