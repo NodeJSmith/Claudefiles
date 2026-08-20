@@ -14,6 +14,7 @@ from cfl.finding import (
     record_finding_batch,
     resolve_finding,
 )
+
 from tests.helpers import REMOTE_URL, create_gate_returning_id, insert_spec_with_run
 
 # ---------------------------------------------------------------------------
@@ -530,6 +531,57 @@ def test_resolve_finding_invalid_disposition_exits_2(db_conn, capsys):
 
     err = json.loads(capsys.readouterr().err)
     assert err["code"] == "invalid_disposition"
+
+
+def test_resolve_finding_rejects_pending_disposition(db_conn, capsys):
+    """resolve_finding exits 2 for --disposition pending — a finding starts
+    pending; there is no resolution outcome that means "still pending"."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "sketch-challenge")
+
+    with pytest.raises(SystemExit) as exc_info:
+        resolve_finding(db_conn, gate_id, 1, "pending")
+    assert exc_info.value.code == 2
+
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "invalid_disposition"
+
+
+def test_resolve_finding_does_not_overwrite_already_resolved(db_conn, capsys):
+    """A retry (or a stray re-resolve) does not overwrite an already-set
+    disposition or clobber the first resolved_at."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "sketch-challenge")
+    record_finding(
+        db_conn,
+        run_id,
+        gate_id,
+        "challenge",
+        1,
+        title="Missing timeout",
+        severity="HIGH",
+        visibility="presented",
+        disposition="pending",
+    )
+    _ = capsys.readouterr()
+
+    first_updated = resolve_finding(db_conn, gate_id, 1, "applied")
+    assert first_updated == 1
+    first_row = db_conn.execute(
+        "SELECT disposition, resolved_at FROM findings WHERE gate_id=? AND finding_num=1",
+        (gate_id,),
+    ).fetchone()
+    _ = capsys.readouterr()
+
+    second_updated = resolve_finding(db_conn, gate_id, 1, "skipped")
+
+    assert second_updated == 0
+    second_row = db_conn.execute(
+        "SELECT disposition, resolved_at FROM findings WHERE gate_id=? AND finding_num=1",
+        (gate_id,),
+    ).fetchone()
+    assert second_row["disposition"] == "applied"
+    assert second_row["resolved_at"] == first_row["resolved_at"]
 
 
 # ---------------------------------------------------------------------------

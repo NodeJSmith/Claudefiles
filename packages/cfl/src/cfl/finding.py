@@ -37,6 +37,13 @@ VALID_FINDING_DISPOSITIONS: frozenset[str] = frozenset(
     {"pending", "applied", "skipped", "filed"}
 )
 
+# Dispositions resolve_finding() may set. Excludes "pending" — a finding
+# starts pending and resolve_finding() moves it to a terminal state; there
+# is no resolution outcome that means "still pending".
+TERMINAL_FINDING_DISPOSITIONS: frozenset[str] = frozenset(
+    {"applied", "skipped", "filed"}
+)
+
 VALID_DESIGN_LEVELS: frozenset[str] = frozenset({"Yes", "No"})
 
 REQUIRED_BATCH_FIELDS: tuple[str, ...] = (
@@ -366,24 +373,30 @@ def resolve_finding(
     finding_num: int,
     disposition: str,
 ) -> int:
-    """Update a presented finding's disposition and stamp resolved_at.
+    """Move a presented, pending finding to a terminal disposition and stamp
+    resolved_at.
 
-    Exits 2 for invalid disposition.
-    The `visibility = 'presented'` guard means an overflow or likely-invalid
-    finding is never resolved this way. Returns the updated row count (0 or
-    1) so the caller can detect a finding_num with no matching presented row.
+    Exits 2 for a non-terminal disposition (including "pending" — a finding
+    starts pending; there is no resolution outcome that means "still
+    pending").
+    The `visibility = 'presented'` and `disposition = 'pending'` guards mean
+    an overflow/likely-invalid finding, or one already resolved, is never
+    touched — a retry or a stray re-resolve can't clobber the first
+    resolved_at. Returns the updated row count (0 or 1) so the caller can
+    detect a finding_num with no matching pending-presented row.
     """
-    if disposition not in VALID_FINDING_DISPOSITIONS:
+    if disposition not in TERMINAL_FINDING_DISPOSITIONS:
         output_module.emit_error(
             f"Unknown disposition '{disposition}'."
-            f" Use: {', '.join(sorted(VALID_FINDING_DISPOSITIONS))}.",
+            f" Use: {', '.join(sorted(TERMINAL_FINDING_DISPOSITIONS))}.",
             code="invalid_disposition",
             exit_code=2,
         )
 
     cursor = conn.execute(
         """UPDATE findings SET disposition = ?, resolved_at = datetime('now')
-           WHERE gate_id = ? AND finding_num = ? AND visibility = 'presented'""",
+           WHERE gate_id = ? AND finding_num = ? AND visibility = 'presented'
+             AND disposition = 'pending'""",
         (disposition, gate_id, finding_num),
     )
     updated = cursor.rowcount

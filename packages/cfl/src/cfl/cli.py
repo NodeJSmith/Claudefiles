@@ -19,6 +19,7 @@ from cfl.dispatch import end_dispatch, record_dispatch
 from cfl.event import list_events, record_event
 from cfl.finding import (
     KNOWN_SEVERITIES,
+    TERMINAL_FINDING_DISPOSITIONS,
     VALID_DESIGN_LEVELS,
     VALID_FINDING_DISPOSITIONS,
     VALID_VISIBILITIES,
@@ -27,7 +28,7 @@ from cfl.finding import (
     record_finding_batch,
     resolve_finding,
 )
-from cfl.gate import VALID_GATE_VERDICTS, record_gate
+from cfl.gate import VALID_GATE_VERDICTS, record_gate, resolve_run_id_for_gate
 from cfl.question import (
     VALID_DISPOSITIONS,
     list_questions,
@@ -940,7 +941,11 @@ def cmd_finding_record(
 ) -> None:
     """Record a single finding."""
     with db_connection() as conn:
-        run_id = try_resolve_active_run_id(conn)
+        run_id = (
+            resolve_run_id_for_gate(conn, gate_id)
+            if gate_id is not None
+            else try_resolve_active_run_id(conn)
+        )
         record_finding(
             conn,
             run_id,
@@ -971,7 +976,7 @@ def cmd_finding_record_batch(
 ) -> None:
     """Write every finding in a JSON file for one gate in a single transaction."""
     with db_connection() as conn:
-        run_id = try_resolve_active_run_id(conn)
+        run_id = resolve_run_id_for_gate(conn, gate_id)
         record_finding_batch(conn, gate_id, file, source=source, run_id=run_id)
 
 
@@ -1016,11 +1021,11 @@ def cmd_finding_resolve(
     disposition: Annotated[
         str,
         Parameter(
-            help=f"Resolution outcome ({', '.join(sorted(VALID_FINDING_DISPOSITIONS))})"
+            help=f"Resolution outcome ({', '.join(sorted(TERMINAL_FINDING_DISPOSITIONS))})"
         ),
     ],
 ) -> None:
-    """Update a presented finding's disposition and stamp resolved_at."""
+    """Move a presented, pending finding to a terminal disposition and stamp resolved_at."""
     with db_connection() as conn:
         resolve_finding(conn, gate_id, finding_num, disposition)
 

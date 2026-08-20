@@ -3,10 +3,14 @@
 import json
 
 import pytest
+from cfl.gate import (
+    KNOWN_GATE_TYPES,
+    VALID_GATE_VERDICTS,
+    record_gate,
+    resolve_run_id_for_gate,
+)
 
-from cfl.gate import KNOWN_GATE_TYPES, VALID_GATE_VERDICTS, record_gate
 from tests.helpers import REMOTE_URL, insert_spec_with_run, insert_task
-
 
 # ---------------------------------------------------------------------------
 # Gate creation — basic happy path (FR#18, AC#18)
@@ -297,3 +301,24 @@ def test_known_gate_types_exported():
 def test_valid_gate_verdicts_exported():
     """VALID_GATE_VERDICTS contains PASS, WARN, FAIL, SKIPPED."""
     assert VALID_GATE_VERDICTS == frozenset({"PASS", "WARN", "FAIL", "SKIPPED"})
+
+
+# ---------------------------------------------------------------------------
+# resolve_run_id_for_gate
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_run_id_for_gate_returns_owning_run_id(db_conn, capsys):
+    """Looks up run_id from the gate row, authoritative regardless of how
+    many runs are active elsewhere in the repo."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+    record_gate(db_conn, run_id, "ship-challenge", verdict="PASS")
+    gate_id = json.loads(capsys.readouterr().out)["gate_id"]
+
+    assert resolve_run_id_for_gate(db_conn, gate_id) == run_id
+
+
+def test_resolve_run_id_for_gate_missing_gate_exits_2(db_conn):
+    with pytest.raises(SystemExit) as exc_info:
+        resolve_run_id_for_gate(db_conn, 999999)
+    assert exc_info.value.code == 2

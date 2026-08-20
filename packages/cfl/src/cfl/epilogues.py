@@ -8,6 +8,7 @@ from cfl.direct import ENTITY_COLUMNS
 from cfl.event import KNOWN_EVENT_NAMES
 from cfl.finding import (
     KNOWN_SEVERITIES,
+    TERMINAL_FINDING_DISPOSITIONS,
     VALID_FINDING_DISPOSITIONS,
     VALID_VISIBILITIES,
 )
@@ -178,6 +179,7 @@ Examples:
 _FINDING_SEVERITIES_LIST = ", ".join(sorted(KNOWN_SEVERITIES))
 _FINDING_VISIBILITIES_LIST = ", ".join(sorted(VALID_VISIBILITIES))
 _FINDING_DISPOSITIONS_LIST = ", ".join(sorted(VALID_FINDING_DISPOSITIONS))
+_TERMINAL_FINDING_DISPOSITIONS_LIST = ", ".join(sorted(TERMINAL_FINDING_DISPOSITIONS))
 
 FINDING_RECORD = f"""\
 Valid severities: {_FINDING_SEVERITIES_LIST}
@@ -203,7 +205,7 @@ Examples:
   cfl finding list --gate-id 42"""
 
 FINDING_RESOLVE = f"""\
-Valid dispositions: {_FINDING_DISPOSITIONS_LIST}
+Valid dispositions: {_TERMINAL_FINDING_DISPOSITIONS_LIST}
 
 Examples:
   cfl finding resolve --gate-id 42 --finding-num 1 --disposition applied"""
