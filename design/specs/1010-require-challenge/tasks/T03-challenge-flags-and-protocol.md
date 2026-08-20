@@ -3,7 +3,7 @@ task_id: "T03"
 title: "Add challenge flags, update protocol, and create shared recipe"
 status: "planned"
 depends_on: []
-implements: ["FR#13", "FR#14", "FR#15", "FR#16", "FR#23", "FR#11", "AC#12", "AC#13", "AC#14", "AC#16"]
+implements: ["FR#12", "FR#13", "FR#14", "FR#15", "FR#16", "FR#23", "FR#11", "AC#12", "AC#13", "AC#14", "AC#16"]
 ---
 
 ## Summary
@@ -28,6 +28,8 @@ In `skills/mine-challenge/SKILL.md`:
 - `--re-challenge` — mark this run as a re-challenge. Replaces the file-based detection.
 
 **Re-challenge detection** (lines 70-73): Delete step 1 entirely — the `challenge-results*.md` / `challenge-findings*.md` directory lookup. It looks for files in the target's directory, but challenge writes to a fresh `mktemp -d`, so the file is never where the check looks. It has never fired. Keep step 2 (the conversation-context fallback) and add: "If `--re-challenge` flag was provided → re-challenge."
+
+**Triage subagent dispatch** (around line 78-84): Add `--critics=N` value (if provided) to the "Pass:" list that enumerates what's given to the subagent, alongside the existing `--focus` and `--no-specialists` entries. Without this, the subagent has no way to know the target count.
 
 **Triage rules** (around line 108-112): Add a rule: "If `--critics=N` is provided: select exactly N critics. `--critics=N` overrides the re-challenge cap of 2."
 
@@ -148,6 +150,7 @@ In `skills/mine-audit/SKILL.md`, line 137: Change `Format-version: 3` to `Format
 - [ ] FR#16: `grep -n 'challenge-results\*' skills/mine-challenge/SKILL.md` returns nothing
 - [ ] FR#23: `skills/mine-challenge/findings-protocol.md` lists `filed` in its disposition table with distinct semantics from `skipped`
 - [ ] FR#11: `skills/mine-challenge/challenge-gate.md` names `blocking` and `minor` as required `--data` keys
+- [ ] FR#12: The challenge-gate recipe (step 5) records all findings for a gate via `cfl finding record-batch`
 - [ ] AC#12: The Arguments section documents both `--critics=N` and `--re-challenge`, and triage rules state the override
 - [ ] AC#13: `grep -n 'challenge-results\*' skills/mine-challenge/SKILL.md` returns nothing
 - [ ] AC#14: `findings-protocol.md` lists `filed` with distinct semantics from `skipped`

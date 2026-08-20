@@ -177,7 +177,7 @@ The ship-time position is load-bearing. Placing challenge after cross-file revie
 
 All three sites follow one procedure, extracted to `skills/mine-challenge/challenge-gate.md` on the model of `skills/mine-comb/comb-gate.md`. Caller-supplied parameters: gate type, target expression, critic-count flag (if pinned), and any site-specific post-resolution handling. The file owns the invariant that the other three would otherwise each restate — that this challenge is not declinable — plus the mechanical sequence:
 
-1. `cfl dispatch challenge --agent-type standard-worker` — record, capture `dispatch_id`
+1. `cfl dispatch <gate-type> --agent-type standard-worker` — record, capture `dispatch_id`
 2. Invoke `/mine-challenge <target> [--critics=N]` and let it resolve findings inline
 3. `cfl dispatch end <dispatch_id>`
 4. `cfl gate <gate-type> --verdict <v> --data '{...}'` — capture `gate_id` from the JSON
@@ -289,7 +289,7 @@ CLI wiring is four edits to `packages/cfl/src/cfl/cli.py`: add `"finding"` to `_
 
 ## Migration
 
-Schema migration 7 → 8 creates the `findings` table and its two indexes. Purely additive: no existing table is altered, no data is transformed, and no existing row is touched. A v7 database upgrades in place on the next `cfl` invocation via `_apply_migrations`.
+Schema migration 7 → 8 creates the `findings` table and its index. Purely additive: no existing table is altered, no data is transformed, and no existing row is touched. A v7 database upgrades in place on the next `cfl` invocation via `_apply_migrations`.
 
 Reversibility: dropping the table restores v7 behavior exactly, since nothing else reads it. There is no downgrade path in cfl and none is added — consistent with how migrations 2 through 7 were handled.
 

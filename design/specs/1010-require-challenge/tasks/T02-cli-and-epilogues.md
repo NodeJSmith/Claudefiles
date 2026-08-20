@@ -7,7 +7,7 @@ implements: ["FR#18", "FR#18a", "FR#19", "FR#25", "AC#7", "AC#8", "AC#9", "AC#20
 ---
 
 ## Summary
-Wire the `finding` module into the cfl CLI as a new sub-app with three named subcommands (`record`, `record-batch`, `list`, `resolve`), add help epilogues, update `_GROUPED_COMMANDS`, and update the existing CLI registration test. This makes `cfl finding record`, `cfl finding record-batch`, `cfl finding list`, and `cfl finding resolve` available from the command line.
+Wire the `finding` module into the cfl CLI as a new sub-app with four named subcommands (`record`, `record-batch`, `list`, `resolve`), add help epilogues, update `_GROUPED_COMMANDS`, and update the existing CLI registration test. This makes `cfl finding record`, `cfl finding record-batch`, `cfl finding list`, and `cfl finding resolve` available from the command line.
 
 ## Target Files
 
@@ -51,7 +51,7 @@ In `packages/cfl/src/cfl/cli.py`:
 
 **`cmd_finding_record`** (`@finding_app.command(name="record", help_epilogue=help_text.FINDING_RECORD)`):
 - Positional: `source` (str), `finding_num` (int)
-- Keyword flags: `--title` (str, required), `--severity` (str, required), `--visibility` (str, required), `--gate-id` (int | None), `--target` (str | None), `--finding-type` (str | None), `--design-level` (str | None), `--raised-by` (str | None), `--classification` (str | None), `--disposition` (str | None), `--why-it-matters` (str | None)
+- Keyword flags: `--title` (str, required), `--severity` (str, required), `--visibility` (str, required), `--gate-id` (int | None), `--target` (str | None), `--type` (str | None — maps to `finding_type` parameter, use `Parameter(name=["--type"])`), `--design-level` (str | None), `--raised-by` (str | None), `--classification` (str | None), `--disposition` (str | None), `--why-it-matters` (str | None)
 - Body: `with db_connection() as conn:` → `run_id = try_resolve_active_run_id(conn)` → `record_finding(conn, run_id, ...)`. Note: uses `try_resolve_active_run_id` (not `resolve_context`) because `run_id` is nullable.
 - Help strings interpolate frozensets: e.g., `f"Severity ({', '.join(sorted(KNOWN_SEVERITIES))})"`.
 - Use `Annotated[T, Parameter(...)]` for every parameter. Use `Parameter(name=["--gate-id"])` where the flag name differs from the Python identifier.

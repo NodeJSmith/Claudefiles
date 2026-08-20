@@ -3,7 +3,7 @@ task_id: "T04"
 title: "Integrate mandatory challenge into define, sketch, and orchestrate"
 status: "planned"
 depends_on: ["T03"]
-implements: ["FR#1", "FR#2", "FR#3", "FR#4", "FR#5", "FR#6", "FR#7", "FR#8", "FR#9", "FR#10", "FR#12", "AC#1", "AC#2", "AC#3", "AC#4", "AC#15"]
+implements: ["FR#1", "FR#2", "FR#3", "FR#4", "FR#5", "FR#6", "FR#7", "FR#8", "FR#9", "FR#10", "AC#1", "AC#2", "AC#3", "AC#4", "AC#15"]
 ---
 
 ## Summary
@@ -135,7 +135,7 @@ Step 4 does not begin until the challenge completes.
 3. Delete the "On 'Challenge first'" handler (line 493) entirely.
 4. Update the verdict-mapping parenthetical (line 465) to remove the "Challenge first" reference.
 
-**Update the shipping gate question text** (line 445): Add a challenge result field to the summary line. After "Clean code check: ..." and before "Known issues: ...", add: `Challenge: <PASS — no findings | WARN — N findings, all resolved | note naming any CRITICAL/HIGH with disposition: skipped>.`
+**Update the shipping gate question text** (line 445): Add a challenge result field to the summary line. Place it in step-chronological order — after "Cross-file review: ..." and before "Clean code check: ...", matching the pipeline execution sequence (Step 3 cross-file → Step 3.5 challenge → Step 4 clean-code). Add: `Challenge: <PASS — no findings | WARN — N findings, all resolved | note naming any CRITICAL/HIGH with disposition: skipped>.`
 
 ### 4. mine-build — rationalization and routing descriptions (SKILL.md)
 
@@ -149,6 +149,7 @@ In `skills/mine-build/SKILL.md`:
 **Routing option descriptions**: In the two AskUserQuestion blocks (lines 68-82 and 84-100), add a note to the Structured and Complex options that challenge is included. For example:
 - Structured: `"Lightweight design.md + task files → orchestrate with full execution gates (includes mandatory challenge)"`
 - Complex: `"define → plan → orchestrate → ship (includes mandatory challenge at design and ship time)"`
+- Accelerated (in the prior-analysis-detected block): `"Formalize findings into design.md (skip research — already done) → plan → orchestrate → ship (includes mandatory challenge)"`
 - Simple stays unchanged (no challenge).
 
 ### 5. git-workflow.md — mandate statement
@@ -190,7 +191,6 @@ In `REFERENCE.md`, find the `cfl` row (around line 240). Update the subcommand l
 - [ ] FR#8: Step 3.5 invokes `/mine-challenge` rather than instructing the user to run it
 - [ ] FR#9: `grep -c 'Challenge first' skills/mine-orchestrate/post-execution-pipeline.md` returns 0
 - [ ] FR#10: The shipping gate question text includes a challenge result field that names any CRITICAL/HIGH finding with `disposition: skipped`
-- [ ] FR#12: The challenge-gate recipe records one findings batch per challenge round via `cfl finding record-batch`
 - [ ] AC#1: `grep -c 'Challenge first' skills/mine-define/SKILL.md skills/mine-orchestrate/post-execution-pipeline.md` returns 0 for both files
 - [ ] AC#2: The Phase 5.5 heading sits between Phase 5 and Phase 6 in mine-define
 - [ ] AC#3: The Phase 4.5 heading sits between Phase 4 and Phase 5 in mine-sketch, and the invocation carries `--critics=2`

@@ -63,7 +63,7 @@ Docstring states the warn-versus-exit contract. Body order per convention:
 
 Reads a JSON file containing an array of finding objects. Each object has the same keys as `record_finding`'s parameters (minus `conn`, `run_id`, `gate_id`, `source` which are supplied by the caller). Writes all rows in a single `BEGIN IMMEDIATE` / `COMMIT` transaction. Returns the count of rows written. Emits a single JSON output with `{"batch_size": N, "gate_id": ..., "source": ...}`.
 
-The JSON file format: `[{"finding_num": 1, "title": "...", "severity": "HIGH", "visibility": "presented", ...}, ...]`. All validation from `record_finding` applies per-row — warn for open-vocabulary, error for closed-vocabulary. On a closed-vocabulary error, rollback the entire batch.
+The JSON file format: `[{"finding_num": 1, "title": "...", "severity": "HIGH", "visibility": "presented", ...}, ...]`. Validation is inlined in the batch loop (not delegated to `record_finding`, since that function calls `emit_error` which raises `SystemExit`). Apply the same tiers: warn for open-vocabulary columns (`source`, `severity`), validate and reject for closed-vocabulary columns (`visibility`, `disposition`, `design_level`). On a closed-vocabulary violation, rollback the entire batch and exit 2. The rollback `except` clause must catch `BaseException` (not `Exception`) if `SystemExit` is used, or validate before entering the transaction. Model the transaction on `record_gate`'s `BEGIN IMMEDIATE` / `COMMIT` / rollback pattern.
 
 **`list_findings(conn, *, source=None, severity=None, gate_id=None, run_id=None, limit=50)`**
 
