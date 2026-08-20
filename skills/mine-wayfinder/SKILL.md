@@ -124,16 +124,18 @@ grep -qxF "wayfinder:grilling" <<<"$existing" || gh label create "wayfinder:gril
 grep -qxF "wayfinder:task" <<<"$existing" || gh label create "wayfinder:task" --color d93f0b
 ```
 
-**Create the map:**
+**Bodies go in files, never in `--body`.** Map bodies and ticket questions are multi-line Markdown, routinely containing backticks and quotes; as a shell argument that content gets mangled, and command substitutions in it get evaluated. Run `get-skill-tmpdir mine-wayfinder` once per session, call the result `<dir>`, and stage every body there. This is the general rule from `rules/common/git-workflow.md` (Issue Creation Conventions), applied to each call below.
+
+**Create the map:** write the map body to `<dir>/map-body.md`, then:
 
 ```bash
-gh-issue create --title "<destination title>" --label "wayfinder:map" --body "<map body>"
+gh-issue create --title "<destination title>" --label "wayfinder:map" --body-file "<dir>/map-body.md"
 ```
 
-**Create a child ticket, wired to the map:** `gh issue create` supports native sub-issues via `--parent`, so a ticket is parented in the same call that creates it — no separate wiring step needed for parent/child:
+**Create a child ticket, wired to the map:** `gh issue create` supports native sub-issues via `--parent`, so a ticket is parented in the same call that creates it — no separate wiring step needed for parent/child. Write the question to `<dir>/ticket-<slug>.md` — one file per ticket, so a batch doesn't overwrite itself:
 
 ```bash
-gh-issue create --title "<ticket title>" --label "wayfinder:<type>" --body "<question>" --parent <map-issue-number>
+gh-issue create --title "<ticket title>" --label "wayfinder:<type>" --body-file "<dir>/ticket-<slug>.md" --parent <map-issue-number>
 ```
 
 **Wire blocking edges (second pass):** blocking between two tickets you're creating in the same batch still needs both issue numbers to exist first, so wire it after both are created:
@@ -161,8 +163,10 @@ A mismatch is a **stop**, not a warning to note and work past: someone else owns
 
 **Record the resolution and close:**
 
+Write the resolution to `<dir>/resolution-<ticket-number>.md` first — same reason as the creation calls:
+
 ```bash
-gh-issue comment <ticket-number> --body "<resolution answer>"
+gh-issue comment <ticket-number> --body-file "<dir>/resolution-<ticket-number>.md"
 gh-issue close <ticket-number>
 ```
 
