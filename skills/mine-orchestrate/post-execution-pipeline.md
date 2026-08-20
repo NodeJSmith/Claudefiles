@@ -278,7 +278,12 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/challenge-gate.md` a
 - **`<target>`**: `<dir>/challenge-changed-files.txt`
 - **`<critic_flag>`**: (empty — use triage default 1–3)
 - **`<re_challenge_flag>`**: (empty — first challenge in this run)
-- **`<post_resolution>`**: After the resolve loop in the challenge-gate recipe (its own step 6) completes, read the findings file and write `<dir>/challenge-summary.md` listing every CRITICAL or HIGH finding left with `disposition: skipped` (title + one-line why-it-matters each), or `No unresolved CRITICAL/HIGH findings.` if none. This pipeline's own Step 6 (Shipping gate) reads this file fresh rather than carrying the result in context — the same durable-artifact pattern Step 4's `clean-code-summary.md` and Step 5.5's `known-issues.md` already use.
+- **`<post_resolution>`**: After the resolve loop in the challenge-gate recipe (its own step 6) completes, read the findings file and write `<dir>/challenge-summary.md`:
+  - `**Verdict:** PASS` if the findings file has zero `## Finding N:` entries; `WARN` if it has findings but none CRITICAL/HIGH are left with `disposition: skipped`; `FAIL` if any CRITICAL/HIGH finding is left with `disposition: skipped`.
+  - `**Findings:** <N>` — the total `## Finding N:` count (excluding Likely Invalid).
+  - When Verdict is `FAIL`, list every CRITICAL or HIGH finding left with `disposition: skipped` (title + one-line why-it-matters each).
+
+  A bare `No unresolved CRITICAL/HIGH findings.` string (the prior format) can't distinguish "challenge found nothing" from "challenge found findings that were all resolved" — both produced identical text. The `Verdict`/`Findings` fields make that distinction explicit for Step 6 to report accurately. This pipeline's own Step 6 (Shipping gate) reads this file fresh rather than carrying the result in context — the same durable-artifact pattern Step 4's `clean-code-summary.md` and Step 5.5's `known-issues.md` already use.
 
 Step 4 does not begin until the challenge completes.
 
@@ -480,7 +485,7 @@ cfl gate shipping-gate --verdict <PASS|WARN|FAIL> --data '{"choice": "<ship|smok
 
 (PASS for "Ship via /mine-ship", WARN for "Run smoke test", FAIL for "Stop here"). "Run smoke test" records WARN before looping back; the terminal choice (ship/stop) re-records the gate with the final verdict.
 
-Read `<dir>/clean-code-summary.md` to populate the `Clean code check:` field in the question above. Read `<dir>/challenge-summary.md` (written by Step 3.5's `<post_resolution>`) to populate the `Challenge:` field — name any CRITICAL/HIGH finding it lists as left `disposition: skipped`, or report clean if it says `No unresolved CRITICAL/HIGH findings.`.
+Read `<dir>/clean-code-summary.md` to populate the `Clean code check:` field in the question above. Read `<dir>/challenge-summary.md` (written by Step 3.5's `<post_resolution>`) to populate the `Challenge:` field from its `Verdict`: `PASS` → "no findings", `WARN` → "N findings, all resolved" (using its `Findings` count), `FAIL` → name each listed CRITICAL/HIGH finding left `disposition: skipped`.
 
 Use the `fixed`/`deferred`/`rejected`/`unresolved` counts recorded in the `cfl gate final-review` call above to populate the `Final review:` field — by the time this step runs, that gate is PASS (a FAIL would have stopped the pipeline before reaching here). If `<dir>/clean-code-summary.md` contains a `Final-review retest` section, include its refreshed test/lint status in the `Final review:` field so the shipping prompt reflects the gates that ran after final-review auto-fixes.
 
