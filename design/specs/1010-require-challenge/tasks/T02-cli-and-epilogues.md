@@ -28,7 +28,6 @@ In `packages/cfl/src/cfl/cli.py`:
    ```python
    from cfl.finding import (
        KNOWN_SEVERITIES,
-       KNOWN_SOURCES,
        VALID_VISIBILITIES,
        VALID_DISPOSITIONS as VALID_FINDING_DISPOSITIONS,
        VALID_DESIGN_LEVELS,

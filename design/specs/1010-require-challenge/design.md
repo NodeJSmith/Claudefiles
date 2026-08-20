@@ -178,7 +178,7 @@ The ship-time position is load-bearing. Placing challenge after cross-file revie
 All three sites follow one procedure, extracted to `skills/mine-challenge/challenge-gate.md` on the model of `skills/mine-comb/comb-gate.md`. Caller-supplied parameters: gate type, target expression, critic-count flag (if pinned), and any site-specific post-resolution handling. The file owns the invariant that the other three would otherwise each restate — that this challenge is not declinable — plus the mechanical sequence:
 
 1. `cfl dispatch <gate-type> --agent-type standard-worker` — record, capture `dispatch_id`
-2. Invoke `/mine-challenge <target> [--critics=N]` and let it resolve findings inline
+2. Invoke `/mine-challenge [--critics=N] [--re-challenge] <target>` and let it resolve findings inline (flags before target — SKILL.md parses flags from the beginning of $ARGUMENTS only, stopping at the first non-flag token)
 3. `cfl dispatch end <dispatch_id>`
 4. `cfl gate <gate-type> --verdict <v> --data '{...}'` — capture `gate_id` from the JSON
 5. Read the findings file challenge reported, and emit one `cfl finding record-batch --gate-id <gate_id> --file <findings.json>` call that writes all findings in a single transaction, including likely-invalid entries

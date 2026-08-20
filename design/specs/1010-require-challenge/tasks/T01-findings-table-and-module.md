@@ -39,7 +39,6 @@ Create `packages/cfl/src/cfl/finding.py` modelled on `question.py`. Follow the c
 
 Define these frozensets at module level:
 - `KNOWN_SEVERITIES: frozenset[str]` = `{"CRITICAL", "HIGH", "MEDIUM", "TENSION"}` — open vocabulary, warn-tier
-- `KNOWN_SOURCES: frozenset[str]` = `{"challenge"}` — open vocabulary, warn-tier
 - `VALID_VISIBILITIES: frozenset[str]` = `{"presented", "overflow", "likely-invalid"}` — closed vocabulary, error-tier
 - `VALID_DISPOSITIONS: frozenset[str]` = `{"pending", "applied", "skipped", "filed"}` — closed vocabulary, error-tier
 - `VALID_DESIGN_LEVELS: frozenset[str]` = `{"Yes", "No"}` — closed vocabulary, error-tier
@@ -49,21 +48,22 @@ Implement these functions:
 **`record_finding(conn, run_id, gate_id, source, finding_num, *, title, severity, visibility, target=None, finding_type=None, design_level=None, raised_by=None, classification=None, disposition=None, why_it_matters=None)`**
 
 Docstring states the warn-versus-exit contract. Body order per convention:
-1. Warn for unknown `source` (naming known sources)
-2. Warn for unknown `severity` (naming known severities)
-3. Error (exit 2) for invalid `visibility`
-4. Error (exit 2) for invalid `disposition` (when not None)
-5. Error (exit 2) for invalid `design_level` (when not None)
-6. `context_pct = read_context_pct()`
-7. Single `conn.execute` INSERT — no explicit transaction (single-row write)
-8. `cursor.lastrowid` → `finding_id`
-9. `output_module.emit({"finding_id": ..., "run_id": ..., "gate_id": ..., "source": ..., "finding_num": ...})`
+1. Warn for unknown `severity` (naming known severities)
+2. Error (exit 2) for invalid `visibility`
+3. Error (exit 2) for invalid `disposition` (when not None)
+4. Error (exit 2) for invalid `design_level` (when not None)
+5. `context_pct = read_context_pct()`
+6. Single `conn.execute` INSERT — no explicit transaction (single-row write)
+7. `cursor.lastrowid` → `finding_id`
+8. `output_module.emit({"finding_id": ..., "run_id": ..., "gate_id": ..., "source": ..., "finding_num": ...})`
+
+Note: `source` has no validation — it is Free tier per the design's validation tiers table (`source`, `finding_type`, `classification` are unconstrained TEXT with no frozenset).
 
 **`record_finding_batch(conn, gate_id, findings_file, *, source, run_id=None)`**
 
 Reads a JSON file containing an array of finding objects. Each object has the same keys as `record_finding`'s parameters (minus `conn`, `run_id`, `gate_id`, `source` which are supplied by the caller). Writes all rows in a single `BEGIN IMMEDIATE` / `COMMIT` transaction. Returns the count of rows written. Emits a single JSON output with `{"batch_size": N, "gate_id": ..., "source": ...}`.
 
-The JSON file format: `[{"finding_num": 1, "title": "...", "severity": "HIGH", "visibility": "presented", ...}, ...]`. Validation is inlined in the batch loop (not delegated to `record_finding`, since that function calls `emit_error` which raises `SystemExit`). Apply the same tiers: warn for open-vocabulary columns (`source`, `severity`), validate and reject for closed-vocabulary columns (`visibility`, `disposition`, `design_level`). On a closed-vocabulary violation, rollback the entire batch and exit 2. The rollback `except` clause must catch `BaseException` (not `Exception`) if `SystemExit` is used, or validate before entering the transaction. Model the transaction on `record_gate`'s `BEGIN IMMEDIATE` / `COMMIT` / rollback pattern.
+The JSON file format: `[{"finding_num": 1, "title": "...", "severity": "HIGH", "visibility": "presented", ...}, ...]`. Validation is inlined in the batch loop (not delegated to `record_finding`, since that function calls `emit_error` which raises `SystemExit`). Apply the same tiers: warn for open-vocabulary columns (`severity`), validate and reject for closed-vocabulary columns (`visibility`, `disposition`, `design_level`). `source` is Free tier — no validation. On a closed-vocabulary violation, rollback the entire batch and exit 2. The rollback `except` clause must catch `BaseException` (not `Exception`) if `SystemExit` is used, or validate before entering the transaction. Model the transaction on `record_gate`'s `BEGIN IMMEDIATE` / `COMMIT` / rollback pattern.
 
 **`list_findings(conn, *, source=None, severity=None, gate_id=None, run_id=None, limit=50)`**
 
@@ -82,7 +82,6 @@ Add `"define-challenge"`, `"sketch-challenge"`, and `"ship-challenge"` to `KNOWN
 **test_finding.py** (new): Follow the patterns in `test_question.py` and `test_gate.py`:
 - `record_finding` writes a row with all columns populated; JSON output includes `finding_id`
 - Unknown `severity` warns to stderr and still writes (capture stderr)
-- Unknown `source` warns to stderr and still writes
 - Invalid `visibility` exits 2 and writes nothing
 - Invalid `disposition` exits 2 and writes nothing
 - Invalid `design_level` exits 2 and writes nothing

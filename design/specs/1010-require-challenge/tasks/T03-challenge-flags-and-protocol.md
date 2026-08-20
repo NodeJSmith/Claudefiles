@@ -41,6 +41,13 @@ Orchestration callers (mandatory, via challenge-gate.md):
 - `skills/mine-orchestrate/post-execution-pipeline.md` (Step 3.5 — ship-time challenge)
 ```
 
+**Phase 3 synthesis vocabulary** (lines 188-192, 214): Update the synthesis procedure to use the new field names from the protocol bump:
+- Line 188: `resolution: User-directed` → `classification: User-directed`
+- Line 190: `resolution: Auto-apply` → `classification: Auto-apply`
+- Line 192: `status: pending` → `disposition: pending`, `status: overflow` → `visibility: overflow`
+- Line 214: `status: overflow` → `visibility: overflow`
+These references drive what the synthesis subagent actually writes into the findings file. If they don't match the protocol, the challenge-gate recipe's step 5 parsing (which looks for `visibility` per finding to build the batch JSON) and the shipping gate's `disposition: skipped` lookup both break.
+
 **Format-version literal** (line 200): Change `Format-version: 3` to `Format-version: 4`.
 
 ### 2. Findings protocol (findings-protocol.md)
@@ -102,7 +109,7 @@ The shared gate applied after the challenge runs at a mandatory call site. Calle
    ```
    Capture `dispatch_id`. Note: `--spec` is not included here — callers thread it per their own convention (mine-define and mine-plan pass `--spec <spec_number>`; mine-orchestrate uses CWD-based resolution, matching the rest of `post-execution-pipeline.md`).
 
-2. Invoke `/mine-challenge <target> <critic_flag> <re_challenge_flag>` and let it resolve findings inline.
+2. Invoke `/mine-challenge <critic_flag> <re_challenge_flag> <target>` and let it resolve findings inline. Flags must come before the target — `SKILL.md:19` parses flags from the beginning of $ARGUMENTS only, stopping at the first non-flag token.
 
 3. Record dispatch end (skip if cfl tracking inactive):
    ```bash
