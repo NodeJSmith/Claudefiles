@@ -7,6 +7,14 @@ from unittest.mock import patch
 import pytest
 
 from cfl.db import SCHEMA_VERSION, db_connection, setup_db
+from tests.helpers import (
+    LEGACY_GATES_TABLE_SQL,
+    LEGACY_QUESTIONS_TABLE_SQL,
+    LEGACY_RUNS_WITH_PHASE_TABLE_SQL,
+    LEGACY_SPECS_TABLE_SQL,
+    LEGACY_TASKS_TABLE_SQL,
+    create_legacy_schema,
+)
 
 EXPECTED_TABLES = {
     "specs",
@@ -132,9 +140,10 @@ def test_migration_v3_adds_phase_column(tmp_db_path):
     # Step 1: hand-construct a v2 database — the real pre-migration schema,
     # before the phase column existed, pinned at schema_version=2.
     conn = sqlite3.connect(tmp_db_path, isolation_level=None)
-    conn.execute(
-        """
-        CREATE TABLE specs (
+    create_legacy_schema(
+        conn,
+        2,
+        """CREATE TABLE specs (
             id              INTEGER PRIMARY KEY,
             number          INTEGER NOT NULL,
             slug            TEXT NOT NULL,
@@ -145,12 +154,8 @@ def test_migration_v3_adds_phase_column(tmp_db_path):
             active_run_id   INTEGER,
             created_at      TEXT NOT NULL,
             UNIQUE(repo_url, number)
-        )
-        """
-    )
-    conn.execute(
-        """
-        CREATE TABLE runs (
+        )""",
+        """CREATE TABLE runs (
             id              INTEGER PRIMARY KEY,
             spec_id         INTEGER NOT NULL REFERENCES specs(id),
             base_commit     TEXT NOT NULL,
@@ -163,19 +168,7 @@ def test_migration_v3_adds_phase_column(tmp_db_path):
             cwd             TEXT,
             started_at      TEXT NOT NULL,
             ended_at        TEXT
-        )
-        """
-    )
-    conn.execute(
-        """
-        CREATE TABLE schema_version (
-            version     INTEGER PRIMARY KEY,
-            applied_at  TEXT NOT NULL
-        )
-        """
-    )
-    conn.execute(
-        "INSERT INTO schema_version(version, applied_at) VALUES (2, datetime('now'))"
+        )""",
     )
     conn.close()
 
@@ -220,61 +213,31 @@ def test_migration_v6_rebuilds_runs_with_fk_data(tmp_db_path):
     conn = sqlite3.connect(tmp_db_path, isolation_level=None)
     conn.execute("PRAGMA foreign_keys=ON")
     # Build a v5 schema with the phase column (from migration 3) but without 'sketch' in CHECK.
-    conn.execute(
-        """CREATE TABLE specs (
-            id INTEGER PRIMARY KEY, number INTEGER NOT NULL, slug TEXT NOT NULL,
-            repo_url TEXT NOT NULL, repo_path TEXT, status TEXT NOT NULL DEFAULT 'draft',
-            active_run_id INTEGER, created_at TEXT NOT NULL, UNIQUE(repo_url, number)
-        )"""
-    )
-    conn.execute(
+    create_legacy_schema(
+        conn,
+        5,
+        LEGACY_SPECS_TABLE_SQL,
         """CREATE TABLE runs (
             id INTEGER PRIMARY KEY, spec_id INTEGER NOT NULL REFERENCES specs(id),
             base_commit TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'running',
             visual_mode TEXT, dev_server_url TEXT, tmpdir TEXT, cwd TEXT,
             started_at TEXT NOT NULL, ended_at TEXT
-        )"""
-    )
-    # Mirror migration 3's real history: 'phase' was added via ALTER TABLE ADD
-    # COLUMN, which SQLite always appends at the physical end of the row
-    # (after ended_at), not at the position it appears in the logical schema.
-    conn.execute(
+        )""",
+        # Mirror migration 3's real history: 'phase' was added via ALTER TABLE
+        # ADD COLUMN, which SQLite always appends at the physical end of the
+        # row (after ended_at), not at the position it appears in the logical
+        # schema.
         "ALTER TABLE runs ADD COLUMN phase TEXT DEFAULT 'orchestrate'"
-        " CHECK(phase IN ('define', 'plan', 'orchestrate'))"
-    )
-    conn.execute("CREATE INDEX idx_runs_spec ON runs(spec_id)")
-    conn.execute(
-        """CREATE TABLE tasks (
-            id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES runs(id),
-            task_id TEXT NOT NULL, title TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'pending', verdict TEXT,
-            verdict_detail TEXT, commit_sha TEXT, started_at TEXT, ended_at TEXT,
-            UNIQUE(run_id, task_id)
-        )"""
-    )
-    conn.execute(
+        " CHECK(phase IN ('define', 'plan', 'orchestrate'))",
+        "CREATE INDEX idx_runs_spec ON runs(spec_id)",
+        LEGACY_TASKS_TABLE_SQL,
         """CREATE TABLE events (
             id INTEGER PRIMARY KEY, run_id INTEGER REFERENCES runs(id),
             task_id TEXT, event TEXT NOT NULL, detail TEXT, data TEXT,
             context_pct INTEGER, created_at TEXT NOT NULL
-        )"""
-    )
-    # questions arrived in migration 4, so a genuine v5 database has it.
-    conn.execute(
-        """CREATE TABLE questions (
-            id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES runs(id),
-            skill TEXT NOT NULL, topic TEXT NOT NULL,
-            status TEXT NOT NULL CHECK(status IN ('asked', 'skipped')),
-            answer TEXT, context_pct INTEGER, created_at TEXT NOT NULL
-        )"""
-    )
-    conn.execute(
-        """CREATE TABLE schema_version (
-            version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL
-        )"""
-    )
-    conn.execute(
-        "INSERT INTO schema_version(version, applied_at) VALUES (5, datetime('now'))"
+        )""",
+        # questions arrived in migration 4, so a genuine v5 database has it.
+        LEGACY_QUESTIONS_TABLE_SQL,
     )
     # Seed data that creates FK references to runs.
     conn.execute(
@@ -326,37 +289,12 @@ def test_migration_v7_adds_disposition_to_populated_questions(tmp_db_path):
     TABLE, so the pre-existing rows must survive with disposition NULL.
     """
     conn = sqlite3.connect(tmp_db_path, isolation_level=None)
-    conn.execute(
-        """CREATE TABLE specs (
-            id INTEGER PRIMARY KEY, number INTEGER NOT NULL, slug TEXT NOT NULL,
-            repo_url TEXT NOT NULL, repo_path TEXT, status TEXT NOT NULL DEFAULT 'draft',
-            active_run_id INTEGER, created_at TEXT NOT NULL, UNIQUE(repo_url, number)
-        )"""
-    )
-    conn.execute(
-        """CREATE TABLE runs (
-            id INTEGER PRIMARY KEY, spec_id INTEGER NOT NULL REFERENCES specs(id),
-            base_commit TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'running',
-            visual_mode TEXT, dev_server_url TEXT, tmpdir TEXT, cwd TEXT,
-            phase TEXT DEFAULT 'orchestrate',
-            started_at TEXT NOT NULL, ended_at TEXT
-        )"""
-    )
-    conn.execute(
-        """CREATE TABLE questions (
-            id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES runs(id),
-            skill TEXT NOT NULL, topic TEXT NOT NULL,
-            status TEXT NOT NULL CHECK(status IN ('asked', 'skipped')),
-            answer TEXT, context_pct INTEGER, created_at TEXT NOT NULL
-        )"""
-    )
-    conn.execute(
-        """CREATE TABLE schema_version (
-            version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL
-        )"""
-    )
-    conn.execute(
-        "INSERT INTO schema_version(version, applied_at) VALUES (6, datetime('now'))"
+    create_legacy_schema(
+        conn,
+        6,
+        LEGACY_SPECS_TABLE_SQL,
+        LEGACY_RUNS_WITH_PHASE_TABLE_SQL,
+        LEGACY_QUESTIONS_TABLE_SQL,
     )
     conn.execute(
         "INSERT INTO specs(id, number, slug, repo_url, created_at)"
@@ -414,40 +352,13 @@ def test_migration_v8_adds_findings_table(tmp_db_path):
     pre-existing runs and gates rows.
     """
     conn = sqlite3.connect(tmp_db_path, isolation_level=None)
-    conn.execute(
-        """CREATE TABLE specs (
-            id INTEGER PRIMARY KEY, number INTEGER NOT NULL, slug TEXT NOT NULL,
-            repo_url TEXT NOT NULL, repo_path TEXT, status TEXT NOT NULL DEFAULT 'draft',
-            active_run_id INTEGER, created_at TEXT NOT NULL, UNIQUE(repo_url, number)
-        )"""
-    )
-    conn.execute(
-        """CREATE TABLE runs (
-            id INTEGER PRIMARY KEY, spec_id INTEGER NOT NULL REFERENCES specs(id),
-            base_commit TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'running',
-            visual_mode TEXT, dev_server_url TEXT, tmpdir TEXT, cwd TEXT,
-            phase TEXT DEFAULT 'orchestrate',
-            started_at TEXT NOT NULL, ended_at TEXT
-        )"""
-    )
-    conn.execute(
-        """CREATE TABLE tasks (
-            id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES runs(id),
-            task_id TEXT NOT NULL, title TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'pending', verdict TEXT,
-            verdict_detail TEXT, commit_sha TEXT, started_at TEXT, ended_at TEXT,
-            UNIQUE(run_id, task_id)
-        )"""
-    )
-    conn.execute(
-        """CREATE TABLE gates (
-            id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES runs(id),
-            task_id TEXT, gate_type TEXT NOT NULL, iteration INTEGER NOT NULL DEFAULT 1,
-            verdict TEXT NOT NULL, detail TEXT, data TEXT, created_at TEXT NOT NULL,
-            UNIQUE(run_id, task_id, gate_type, iteration)
-        )"""
-    )
-    conn.execute(
+    create_legacy_schema(
+        conn,
+        7,
+        LEGACY_SPECS_TABLE_SQL,
+        LEGACY_RUNS_WITH_PHASE_TABLE_SQL,
+        LEGACY_TASKS_TABLE_SQL,
+        LEGACY_GATES_TABLE_SQL,
         """CREATE TABLE questions (
             id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES runs(id),
             skill TEXT NOT NULL, topic TEXT NOT NULL,
@@ -457,15 +368,7 @@ def test_migration_v8_adds_findings_table(tmp_db_path):
                     disposition IN ('resolved', 'accepted', 'deferred')
                     AND status = 'asked')),
             answer TEXT, context_pct INTEGER, created_at TEXT NOT NULL
-        )"""
-    )
-    conn.execute(
-        """CREATE TABLE schema_version (
-            version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL
-        )"""
-    )
-    conn.execute(
-        "INSERT INTO schema_version(version, applied_at) VALUES (7, datetime('now'))"
+        )""",
     )
     conn.execute(
         "INSERT INTO specs(id, number, slug, repo_url, created_at)"
@@ -543,14 +446,10 @@ def test_fresh_vs_migrated_findings_schema_convergence(tmp_db_path, tmp_path):
 
     migrated_path = str(tmp_path / "migrated.db")
     conn = sqlite3.connect(migrated_path, isolation_level=None)
-    conn.execute(
-        """CREATE TABLE specs (
-            id INTEGER PRIMARY KEY, number INTEGER NOT NULL, slug TEXT NOT NULL,
-            repo_url TEXT NOT NULL, repo_path TEXT, status TEXT NOT NULL DEFAULT 'draft',
-            active_run_id INTEGER, created_at TEXT NOT NULL, UNIQUE(repo_url, number)
-        )"""
-    )
-    conn.execute(
+    create_legacy_schema(
+        conn,
+        1,
+        LEGACY_SPECS_TABLE_SQL,
         """CREATE TABLE runs (
             id INTEGER PRIMARY KEY, spec_id INTEGER NOT NULL REFERENCES specs(id),
             base_commit TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'running'
@@ -559,32 +458,9 @@ def test_fresh_vs_migrated_findings_schema_convergence(tmp_db_path, tmp_path):
                 CHECK(visual_mode IN ('enabled', 'skipped_no_server', 'skipped_no_vision') OR visual_mode IS NULL),
             dev_server_url TEXT, tmpdir TEXT,
             started_at TEXT NOT NULL, ended_at TEXT
-        )"""
-    )
-    conn.execute(
-        """CREATE TABLE tasks (
-            id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES runs(id),
-            task_id TEXT NOT NULL, title TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'pending', verdict TEXT,
-            verdict_detail TEXT, commit_sha TEXT, started_at TEXT, ended_at TEXT,
-            UNIQUE(run_id, task_id)
-        )"""
-    )
-    conn.execute(
-        """CREATE TABLE gates (
-            id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES runs(id),
-            task_id TEXT, gate_type TEXT NOT NULL, iteration INTEGER NOT NULL DEFAULT 1,
-            verdict TEXT NOT NULL, detail TEXT, data TEXT, created_at TEXT NOT NULL,
-            UNIQUE(run_id, task_id, gate_type, iteration)
-        )"""
-    )
-    conn.execute(
-        """CREATE TABLE schema_version (
-            version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL
-        )"""
-    )
-    conn.execute(
-        "INSERT INTO schema_version(version, applied_at) VALUES (1, datetime('now'))"
+        )""",
+        LEGACY_TASKS_TABLE_SQL,
+        LEGACY_GATES_TABLE_SQL,
     )
     conn.close()
 

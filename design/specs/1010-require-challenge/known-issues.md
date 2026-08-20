@@ -4,7 +4,7 @@ Durable issues discovered during orchestration that were intentionally not fixed
 
 ## KI-001: Duplicated CREATE TABLE fixture DDL in test_db.py migration tests
 
-Status: open
+Status: resolved — fixed during known issues walkthrough
 Run: 105
 Source: clean-code
 Reason not fixed now: out-of-scope
