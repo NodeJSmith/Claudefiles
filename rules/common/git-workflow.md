@@ -43,6 +43,8 @@ Code review and challenge are **orthogonal quality gates** with different scopes
 
 A green code review does not mean challenge is unnecessary. A green test suite is necessary but not sufficient — tests verify expected behavior, not unexpected behavior.
 
+Challenge is mandatory in orchestration workflows (`mine-define`, `mine-sketch`, `mine-orchestrate`). It runs automatically at defined points and cannot be declined.
+
 ## Issue Creation Conventions
 
 When creating issues, match the conventions already in use in the repo:

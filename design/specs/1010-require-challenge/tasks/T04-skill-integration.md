@@ -1,7 +1,7 @@
 ---
 task_id: "T04"
 title: "Integrate mandatory challenge into define, sketch, and orchestrate"
-status: "planned"
+status: "done"
 depends_on: ["T03"]
 implements: ["FR#1", "FR#2", "FR#3", "FR#4", "FR#5", "FR#6", "FR#7", "FR#8", "FR#9", "FR#10", "AC#1", "AC#2", "AC#3", "AC#4", "AC#15"]
 ---

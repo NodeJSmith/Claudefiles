@@ -242,6 +242,43 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply i
 
 ---
 
+## Phase 4.5: Challenge
+
+Run the mandatory sketch-time challenge. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/challenge-gate.md` and follow it with:
+
+- **`<header>`**: `Challenge`
+- **`<gate_type>`**: `sketch-challenge`
+- **`<target>`**: `<design_doc_path>`
+- **`<critic_flag>`**: `--critics=2`
+- **`<re_challenge_flag>`**: (empty — first challenge in this run)
+- **`<post_resolution>`**: If any CRITICAL finding was produced (check the findings file), offer the upgrade-to-caliper choice before proceeding to Phase 5. See below.
+
+Skip the cfl dispatch/gate/finding calls if cfl tracking was disabled in Phase 1 (no `<spec_number>` set). The challenge itself still runs regardless.
+
+### CRITICAL escalation
+
+If any CRITICAL finding was produced by the challenge (regardless of its disposition — even if applied), present:
+
+```
+AskUserQuestion:
+  question: "The challenge found a CRITICAL structural issue. A sketch may not be the right vehicle for this change. Upgrade to the full caliper workflow?"
+  header: "Escalate?"
+  multiSelect: false
+  options:
+    - label: "Upgrade to full caliper"
+      description: "Stop here — invoke /mine-define for a full investigation and design"
+    - label: "Continue with sketch"
+      description: "Proceed with the sketch despite the CRITICAL finding"
+```
+
+On "Upgrade to full caliper": tell the user to invoke `/mine-define` and stop. The resolved findings have already improved `design.md`, which `/mine-define` picks up.
+
+On "Continue with sketch": proceed to Phase 5 (Handoff) as normal.
+
+Phase 5 does not begin until the challenge (and any escalation prompt) completes.
+
+---
+
 ## Phase 5: Handoff
 
 Present the design doc and task file paths to the user, then:

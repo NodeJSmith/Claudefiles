@@ -260,6 +260,25 @@ Phase 6 does not begin until the comb gate resolves. The "No findings" path proc
 
 ---
 
+## Phase 5.5: Challenge
+
+Run the mandatory design-time challenge. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/challenge-gate.md` and follow it with:
+
+- **`<header>`**: `Challenge`
+- **`<gate_type>`**: `define-challenge`
+- **`<target>`**: `<design_doc_path>`
+- **`<critic_flag>`**: (empty — use triage default 1–3)
+- **`<re_challenge_flag>`**: (empty — first challenge in this run)
+- **`<post_resolution>`**: none — proceed to Phase 6
+
+Skip the cfl dispatch/gate/finding calls if cfl tracking was disabled in Phase 1 (no `<spec_number>` set). The challenge itself still runs regardless.
+
+Skip this resume check too if cfl tracking was disabled in Phase 1 (no `<spec_number>`/`<run_id>` set) — the challenge itself still runs unconditionally in that case, same as a first run. Otherwise: if this is a resume and the challenge already ran in a prior session, skip this phase. Check via: `cfl event list --event review.gated --run <run_id>` — if any row's data contains `"gate_type": "define-challenge"`, the challenge already ran for this run. (`record_gate` emits a `review.gated` event for every run-level gate, with the gate type in its JSON data — `packages/cfl/src/cfl/gate.py:109-110`.)
+
+Phase 6 does not begin until the challenge completes.
+
+---
+
 ## Phase 6: Sign-Off Gate
 
 Present the design doc path, then:
@@ -270,8 +289,6 @@ AskUserQuestion:
   header: "Sign-off"
   multiSelect: false
   options:
-    - label: "Challenge first"
-      description: "Run /mine-challenge on the design doc to stress-test it before committing"
     - label: "Approve — proceed to planning"
       description: "Hand off to /mine-plan to generate task files"
     - label: "Revise — I have changes"
@@ -300,7 +317,6 @@ Verdict mapping:
 - "Approve — proceed to planning" → PASS
 - "Revise — I have changes" → WARN (loop continues; re-emit on each revision cycle)
 - "Save and stop" → SKIPPED
-- "Challenge first" → no gate emitted (challenge runs, then re-enters sign-off)
 
 Only when the verdict is PASS (approved), also emit the sign-off event:
 
@@ -308,13 +324,7 @@ Only when the verdict is PASS (approved), also emit the sign-off event:
 cfl event define.signed-off --spec <spec_number>
 ```
 
-On Revise, Save-and-stop, or Challenge, do **not** run the `cfl event` command above — no decision was finalized.
-
-### On "Challenge first"
-
-Invoke: `/mine-challenge <design-doc-path>`
-
-After challenge completes (it resolves findings inline as a standalone caller), re-run Phase 5 (Fine-Toothed Comb Review) against the potentially modified design doc, then loop back to the sign-off gate above with refreshed results.
+On Revise or Save-and-stop, do **not** run the `cfl event` command above — no decision was finalized.
 
 ### On "Approve"
 

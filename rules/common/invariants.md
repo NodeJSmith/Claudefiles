@@ -131,6 +131,10 @@ Every error recovery path (`except` that doesn't re-raise) and external I/O boun
 When code review findings arrive, verify each against the actual code before implementing. Reviewers make mistakes. Grep for suggested abstractions — if no callers exist outside the changed files, skip it.
 **Defined in:** `references/common/receiving-code-review.md`
 
+#### Mandatory Challenge in Orchestration
+Challenge runs at both design-time and ship-time in orchestration workflows. It is not offered as an option and cannot be skipped.
+**Defined in:** `rules/common/git-workflow.md`
+
 ### Consider
 
 These principles are defined in `rules/common/` files that are themselves always loaded — their full text is already in context, so this tier is just the scan list: **Laziness Protocol, Reader Load, Subtract Before You Add, Redesign from First Principles, Outcome-Oriented Execution, Encode Lessons in Structure, Exhaust the Design Space, Sequence Verifiable Units, Experience First, Baseline Before Optimizing, Decompose Before Implementing, No Default Underscore Prefixes, Build the Lever, Model the Domain**.
