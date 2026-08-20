@@ -12,7 +12,7 @@ Not a spec. Not a design doc. A thinking tool.
 
 ## Arguments
 
-$ARGUMENTS — the idea, issue, or problem to explore. Can be a description, a GitHub issue reference, or a path to an existing document.
+$ARGUMENTS — the idea, issue, or problem to explore. Can be a description, an issue reference, or a path to an existing document.
 
 ---
 

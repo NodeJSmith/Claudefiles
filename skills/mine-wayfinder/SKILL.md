@@ -24,7 +24,7 @@ The map is a single issue, labelled `wayfinder:map` — the canonical artifact. 
 
 The map is an **index**, not a store. It lists the decisions made and points at the tickets that hold their detail; a decision lives in exactly one place — its ticket — so the map never restates it, only gists it and links.
 
-**Tracker:** this skill tracks the map and its tickets as issues in the project's issue tracker — see [Tracker Operations](#tracker-operations) for every map and ticket operation. Wayfinder currently requires GitHub: charting and working the map lean on native sub-issues, native blocking edges, and assignee-based claim, and no other tracker exposes all three yet. If `$ISSUE_TRACKER` is not set, or is set to a tracker other than GitHub, stop and ask the user how to track the effort — don't invent a parallel tracker, and don't start a map on a tracker that can't carry it through.
+**Tracker:** this skill tracks the map and its tickets as issues in the project's issue tracker — see [Tracker Operations](#tracker-operations) for every map and ticket operation, and for the authoritative statement of the preflight gate. Wayfinder currently requires GitHub: charting and working the map lean on native sub-issues, native blocking edges, and assignee-based claim, and no other tracker exposes all three yet. It also requires a repo that can actually hold issues, and both are checked before charting. If either fails, stop and ask the user how to track the effort — don't invent a parallel tracker, and don't start a map on a repo that can't carry it through.
 
 ### The map body
 
@@ -104,7 +104,10 @@ Ruling something out of scope is a scoping act, not a step on the route. When a 
 
 ## Tracker Operations
 
-All map and ticket operations happen through the project's issue tracker. These operations assume GitHub's native sub-issues, native blocking/dependency edges, and assignee-based claim — Wayfinder doesn't yet know how to drive them on a tracker that lacks one. Confirm the project's issue tracker is GitHub before charting — if `$ISSUE_TRACKER` is not set, or is set to something other than GitHub, stop and ask the user how to track the effort rather than charting a map that would fail partway through.
+All map and ticket operations happen through the project's issue tracker. These operations assume GitHub's native sub-issues, native blocking/dependency edges, and assignee-based claim — Wayfinder doesn't yet know how to drive them on a tracker that lacks one. Two preflight checks, both before charting; either failing means stop and ask the user how to track the effort rather than charting a map that would fail partway through:
+
+1. **The tracker is GitHub** — `$ISSUE_TRACKER` is set to `gh`.
+2. **The repo has Issues enabled** — query the repo's own settings through the tracker's repo API, not an issue-listing command. An issue-list wrapper exits 0 on a repo with Issues turned off, so it can't tell "this repo has no issues yet" apart from "this repo can't have issues," and charting would only fail once it tried to create the map.
 
 **Labels:** Ensure these labels/tags exist in the tracker: `wayfinder:map`, `wayfinder:research`, `wayfinder:prototype`, `wayfinder:grilling`, `wayfinder:task`. Create any that are missing — verify each doesn't already exist before creating it, and don't suppress creation errors: a real failure (permissions, network) should not look identical to "already exists."
 
@@ -128,6 +131,7 @@ Two modes. Either way, **never resolve more than one ticket per session** — wi
 
 User invokes with a loose idea.
 
+0. **Run the preflight** — both checks in [Tracker Operations](#tracker-operations). Do this before step 1, not after: steps 1-2 spend real work grilling the idea, and there's no point paying for it on a repo that can't hold the map.
 1. **Name the destination.** Run `/mine-grill` and `/mine-domain-model` to pin down what this map is finding its way to — the spec, decision, or change. The destination fixes the scope, so it's settled first.
 2. **Map the frontier.** Grill again, **breadth-first** this time: fan out across the whole space rather than deep on any one thread, surfacing the open decisions and the first steps takeable now. **If this surfaces no fog** — the way to the destination is already clear, the whole journey small enough for one session — you don't need a map. Stop and ask:
 

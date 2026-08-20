@@ -19,12 +19,15 @@ You receive an issue number or URL. Your job is to:
 
 ## Steps
 
+You run as a dispatched subagent, so your final message goes to whatever dispatched you — not to a person. Wherever a step says to **stop**, end the run by returning a single line beginning `ERROR: ` that names what blocked you. Deciding what to tell the user, and whether to retry, belongs to the dispatcher.
+
 ### 1. Read the Issue
 
 Check `$ISSUE_TRACKER` (e.g., `echo $ISSUE_TRACKER`) to know which platform's tools to use.
 
-- If **unset or empty**: tell the user `$ISSUE_TRACKER is not configured. Set it in your context var file.` and **stop**.
-- If **set**: fetch the issue's title, body, labels, and comments from the project's issue tracker. If the lookup fails or reports the issue does not exist, tell the user the fetch failed and **stop** — do not proceed to Steps 2-4 without a successfully loaded issue.
+- If **unset or empty**: return `ERROR: $ISSUE_TRACKER is not configured. Set it in your context var file (e.g. gh, jira, clickup).` and **stop**.
+- If **set to a tracker you have no tools for**: return `ERROR: no tools available for issue tracker "<value>"` and **stop**. Don't guess at a tool and don't fall back to a different tracker — the tooling may simply live in a repo that isn't checked out here, which is the dispatcher's call to make.
+- Otherwise: fetch the issue's title, body, labels, and comments from the project's issue tracker. If the lookup fails or reports the issue does not exist, return `ERROR: could not load issue <key>: <reason>` and **stop** — do not proceed to Steps 2-4 without a successfully loaded issue.
 
 Understand:
 - What's being asked (the feature, bug, or task)
@@ -95,9 +98,9 @@ Omit any section that would just be empty boilerplate. Only add sections that ge
 
 Re-fetch the issue body fresh immediately before updating — do not reuse the copy loaded in Step 1. Another user may have edited the issue while you were exploring the codebase and drafting sections in Steps 2-4; applying the enrichment to a stale body would overwrite their intervening edit. Apply the enrichment (the divider plus structured sections from Step 4) on top of this fresh body.
 
-Writing the combined body to a temp file first (`get-skill-tmpdir issue-refiner`) avoids shell escaping issues with multi-line content.
+Run `get-skill-tmpdir issue-refiner`, write the combined body to `<dir>/body.md`, and pass that file to the tracker's body/description file flag (or its stdin equivalent). Using the file is mandatory, not optional — enriched bodies are multi-line Markdown, and passing one as a raw shell argument mangles quotes, backticks, and other metacharacters.
 
-Confirm the update call succeeded before moving to Step 6. If it fails, tell the user the update failed and **stop** — do not proceed to Step 6 as if the enrichment landed.
+Confirm the update call succeeded before moving to Step 6. If it fails, return `ERROR: enrichment could not be written back to <key>: <reason>` and **stop** — do not proceed to Step 6 as if the enrichment landed.
 
 ### 6. Report Back
 

@@ -14,8 +14,9 @@ $ARGUMENTS — zero or more issue keys, in whatever format the configured tracke
 
 Read `$ISSUE_TRACKER`.
 
-- If **unset or empty**: tell the user `$ISSUE_TRACKER is not configured. Set it in your context var file.` and **stop**.
-- If set to any value: proceed — use whatever tool matches that tracker.
+- If **unset or empty**: tell the user `$ISSUE_TRACKER is not configured. Set it in your context var file (e.g. gh, jira, clickup).` and **stop**.
+- If **set to a tracker you have no tools for**: say which tracker was configured, ask the user how to proceed, and **stop** — don't continue to Phase 2. Don't guess at a tool and don't fall back to a different tracker.
+- Otherwise: proceed — use whatever tool matches that tracker.
 
 ## Phase 2: Route
 
@@ -32,7 +33,7 @@ For **each** issue key in the arguments, launch a **Task subagent** (`subagent_t
 
 > Check `$ISSUE_TRACKER` (e.g., `echo $ISSUE_TRACKER`) to know which platform's tools to use, then fetch the full issue for key <KEY> from the project's issue tracker — title, body, comments, labels/tags, assignees, and milestone/sprint if applicable.
 >
-> If the lookup fails or reports the issue does not exist, return exactly `LOOKUP_FAILED` and nothing else.
+> If the issue does not exist, or the fetch fails for a reason specific to this one key, return exactly `LOOKUP_FAILED` and nothing else. Reserve `TRACKER_ERROR: <reason>` for the tracker itself being unusable — no tools for the configured tracker, auth rejected, tracker unreachable — since that condition would fail every key equally, not just this one. The caller's branch-name fallback only makes sense for a key that might be wrong, so don't report an unusable tracker as one.
 >
 > Then scan the codebase for files and areas mentioned in or related to the issue (grep for keywords, check referenced file paths, look at relevant modules).
 >
@@ -49,6 +50,10 @@ For **each** issue key in the arguments, launch a **Task subagent** (`subagent_t
 
 Launch subagents **in parallel** when multiple keys are provided. Display all structured summaries.
 
+If a subagent returns `TRACKER_ERROR`, surface the reason to the user and **stop** — an unusable tracker isn't fixed by asking for a different issue key, so don't fall through to Phase 2's branch-name fallback or to Phase 4.
+
+A `LOOKUP_FAILED` is per-key. In a multi-key run, name the key that failed and carry the summaries that did come back through to Phase 4 — one bad key shouldn't discard the others' work.
+
 ## Phase 4: Next Step (Main Context)
 
 Hand the deep-dive context off to the implementation pipeline. Use `AskUserQuestion`:
@@ -60,8 +65,8 @@ Hand the deep-dive context off to the implementation pipeline. Use `AskUserQuest
 Use the issue's **Estimated scope** from Phase 3 to recommend: small/medium → "Build it"; large or uncertain approach → mention "Research first" is worth considering. Phrase the recommendation, but let the user choose.
 
 **If the user picks "Build it":**
-1. **Branch naming reminder**: Check `git branch --show-current`. If the current branch name does not contain the issue number, remind the user:
-   > "When you create your working branch, include the issue number so the PR links back automatically — e.g., `git checkout -b 123-short-description` or `claude --worktree 123-short-description`."
+1. **Branch naming reminder**: Check `git branch --show-current`. If the current branch name does not contain the issue key, remind the user:
+   > "When you create your working branch, include the issue key so the work links back to the issue — e.g., `git checkout -b 123-short-description` or `claude --worktree 123-short-description`."
 2. Invoke `/mine-build`, passing the issue's structured summary (title, description, estimated scope, affected areas, suggested approach) as the change description.
 
 **If the user picks "Research first":** invoke `/mine-research`, passing the issue context as the proposal to investigate.
