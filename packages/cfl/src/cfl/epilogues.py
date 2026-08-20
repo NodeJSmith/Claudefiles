@@ -194,7 +194,6 @@ Examples:
 
 FINDING_RECORD_BATCH = """\
 Examples:
-  cfl finding record-batch --gate-id 42 --file /tmp/findings.json
   cfl finding record-batch --gate-id 42 --file /tmp/findings.json --source challenge"""
 
 FINDING_LIST = f"""\
