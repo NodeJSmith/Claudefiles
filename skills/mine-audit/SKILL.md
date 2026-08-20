@@ -140,6 +140,8 @@ Run `get-skill-tmpdir mine-audit` and write `<tmpdir>/audit-results.md` using th
 ## Finding 1: [concise title]
 **Severity:** CRITICAL | **Type:** Test Gap | **Raised-by:** Audit Analysis (1/1)
 **Classification:** User-directed
+**visibility:** presented
+**disposition:** pending
 
 **Problem:** [specific description with evidence — file names, line counts, churn data]
 
@@ -153,6 +155,10 @@ Run `get-skill-tmpdir mine-audit` and write `<tmpdir>/audit-results.md` using th
 - **C**: Skip — noted, no action this session
 
 **Why A:** [one-sentence rationale specific to this finding]
+
+## Likely Invalid
+
+<!-- Findings flagged by validity assessment. See findings-protocol.md's ### LI-N format. Omit this section entirely when Likely-invalid is 0. -->
 ```
 
 Use finding types from this vocabulary: `Test Gap` | `Structural` | `Coupling` | `Tech Debt` | `Pattern Drift`
