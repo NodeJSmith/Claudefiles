@@ -5,14 +5,16 @@ future, other producers — see `source`) across mine-define, mine-sketch, and
 mine-orchestrate runs. Models on `question.py`: findings are leaf telemetry,
 so `record_finding` emits no implicit event the way `record_gate` does.
 
-`severity` is open vocabulary — it is a producer's own taxonomy (challenge's
-CRITICAL/HIGH/MEDIUM/TENSION today; a future producer may use a different
-scale), so unknown values warn but still write, with no DDL `CHECK`.
+`severity`, `source`, and `classification` are open vocabulary — each is a
+producer's own taxonomy (challenge's CRITICAL/HIGH/MEDIUM/TENSION severities,
+`"challenge"` as the sole source today, Auto-apply/User-directed
+classifications), so unknown values warn but still write, with no DDL
+`CHECK` — matching the same warn-but-write pattern `gate.py`'s
+`KNOWN_GATE_TYPES` and `question.py`'s `KNOWN_SKILLS`/`KNOWN_TOPICS` use.
 `visibility`, `disposition`, and `design_level` are cfl's own vocabulary —
 closed, DDL-`CHECK`ed, and rejected outright on an unknown value.
-`source`, `finding_type`, and `classification` are unconstrained free text
-with no frozenset at all — single-producer columns where validation ceremony
-is premature.
+`finding_type` remains unconstrained free text with no frozenset — it has no
+stable taxonomy yet across producers.
 """
 
 import json
@@ -22,6 +24,10 @@ import cfl.output as output_module
 from cfl.session import read_context_pct
 
 KNOWN_SEVERITIES: frozenset[str] = frozenset({"CRITICAL", "HIGH", "MEDIUM", "TENSION"})
+
+KNOWN_SOURCES: frozenset[str] = frozenset({"challenge"})
+
+KNOWN_CLASSIFICATIONS: frozenset[str] = frozenset({"Auto-apply", "User-directed"})
 
 VALID_VISIBILITIES: frozenset[str] = frozenset(
     {"presented", "overflow", "likely-invalid"}
@@ -38,6 +44,18 @@ REQUIRED_BATCH_FIELDS: tuple[str, ...] = (
     "title",
     "severity",
     "visibility",
+    "raised_by",
+)
+
+# Required only for main findings (visibility 'presented' or 'overflow'), not
+# for 'likely-invalid' entries — the Likely Invalid section's template
+# (findings-protocol.md) carries no Type/Design-level/Classification/
+# Why-it-matters fields, so these would legitimately be absent there.
+MAIN_FINDING_REQUIRED_FIELDS: tuple[str, ...] = (
+    "finding_type",
+    "design_level",
+    "classification",
+    "why_it_matters",
 )
 
 
@@ -46,17 +64,33 @@ def validate_finding_fields(
     visibility: str | None,
     disposition: str | None,
     design_level: str | None,
+    source: str | None = None,
+    classification: str | None = None,
 ) -> None:
-    """Validate one finding's severity/visibility/disposition/design_level.
+    """Validate one finding's severity/visibility/disposition/design_level/source/classification.
 
-    Shared by record_finding and record_finding_batch so the four tiers of
-    validation are defined once. Warns for unknown severity but still
-    returns. Exits 2 for invalid visibility, disposition, or design_level.
+    Shared by record_finding and record_finding_batch so the six tiers of
+    validation are defined once. Warns for unknown severity, source, or
+    classification but still returns. Exits 2 for invalid visibility,
+    disposition, or design_level.
     """
     if severity not in KNOWN_SEVERITIES:
         output_module.emit_warning(
             f"Unknown severity '{severity}'. Known: {sorted(KNOWN_SEVERITIES)}",
             code="unknown_severity",
+        )
+
+    if source is not None and source not in KNOWN_SOURCES:
+        output_module.emit_warning(
+            f"Unknown source '{source}'. Known: {sorted(KNOWN_SOURCES)}",
+            code="unknown_source",
+        )
+
+    if classification is not None and classification not in KNOWN_CLASSIFICATIONS:
+        output_module.emit_warning(
+            f"Unknown classification '{classification}'."
+            f" Known: {sorted(KNOWN_CLASSIFICATIONS)}",
+            code="unknown_classification",
         )
 
     if visibility not in VALID_VISIBILITIES:
@@ -104,10 +138,17 @@ def record_finding(
 ) -> None:
     """Record a single finding.
 
-    Warns for unknown severity but still writes.
+    Warns for unknown severity, source, or classification but still writes.
     Exits 2 for invalid visibility, invalid disposition, or invalid design_level.
     """
-    validate_finding_fields(severity, visibility, disposition, design_level)
+    validate_finding_fields(
+        severity,
+        visibility,
+        disposition,
+        design_level,
+        source=source,
+        classification=classification,
+    )
 
     context_pct = read_context_pct()
 
@@ -194,9 +235,11 @@ def record_finding_batch(
                 exit_code=2,
             )
 
-        missing = [
-            field for field in REQUIRED_BATCH_FIELDS if finding.get(field) is None
-        ]
+        required_fields = REQUIRED_BATCH_FIELDS
+        if finding.get("visibility") != "likely-invalid":
+            required_fields = REQUIRED_BATCH_FIELDS + MAIN_FINDING_REQUIRED_FIELDS
+
+        missing = [field for field in required_fields if finding.get(field) is None]
         if missing:
             output_module.emit_error(
                 f"Finding is missing required field(s): {', '.join(missing)}",
@@ -209,6 +252,8 @@ def record_finding_batch(
             finding.get("visibility"),
             finding.get("disposition"),
             finding.get("design_level"),
+            source=source,
+            classification=finding.get("classification"),
         )
 
     context_pct = read_context_pct()

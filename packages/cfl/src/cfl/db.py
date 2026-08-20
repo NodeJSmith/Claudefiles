@@ -130,7 +130,8 @@ MIGRATIONS: dict[int, list[str]] = {
             why_it_matters TEXT,
             context_pct    INTEGER,
             resolved_at    TEXT,
-            created_at     TEXT NOT NULL
+            created_at     TEXT NOT NULL,
+            UNIQUE(gate_id, finding_num, visibility)
         )""",
         "CREATE INDEX IF NOT EXISTS idx_findings_run ON findings(run_id)",
     ],
@@ -305,7 +306,8 @@ _SCHEMA_STATEMENTS: list[str] = [
         why_it_matters TEXT,
         context_pct    INTEGER,
         resolved_at    TEXT,
-        created_at     TEXT NOT NULL
+        created_at     TEXT NOT NULL,
+        UNIQUE(gate_id, finding_num, visibility)
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_findings_run ON findings(run_id)",

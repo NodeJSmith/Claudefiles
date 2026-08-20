@@ -40,9 +40,26 @@ The shared gate applied after the challenge runs at a mandatory call site. Calle
    `blocking` = CRITICAL + HIGH count. `minor` = MEDIUM + TENSION count. The per-severity and per-disposition counts ride alongside as extra keys. Capture `gate_id` from the JSON output.
 
 5. Read the findings file challenge reported. Emit one batch call that writes all findings (skip if cfl tracking inactive):
-   The findings JSON file is constructed from the challenge findings markdown — parse each `## Finding N:` and each `### LI-N:` entry into a JSON object with the column fields. `visibility` is `presented` for main findings, `likely-invalid` for LI entries, `overflow` for overflow entries. Set every parsed finding object's `target` to the caller-supplied `<target>` value (the same value passed to `/mine-challenge` in step 2) — all findings from one gate examined the same artifact. Construct the JSON array (one object per parsed entry) and write it to a temp path via `get-skill-tmpdir` + Write tool before invoking the command below.
+   The findings JSON file is constructed from the challenge findings markdown — parse each `## Finding N:` and each `### LI-N:` entry into a JSON object using this canonical field-name mapping (markdown label → JSON key). Do not improvise other key names — a wrong key writes a silently-empty column, since only `finding_num`/`title`/`severity`/`visibility` are enforced as required.
+
+   | Markdown label (main `## Finding N:` entries) | JSON key |
+   |---|---|
+   | `N` (from the heading) | `finding_num` |
+   | `<title>` (from the heading) | `title` |
+   | `**Severity:**` | `severity` |
+   | `**Type:**` | `finding_type` |
+   | `**Design-level:**` | `design_level` |
+   | `**Classification:**` | `classification` |
+   | `**Raised-by:**` | `raised_by` |
+   | `**visibility:**` | `visibility` |
+   | `**disposition:**` | `disposition` |
+   | `**Why-it-matters:**` | `why_it_matters` |
+
+   `## Likely Invalid` entries (`### LI-N:`) use the same JSON keys with two differences: the `N` in `LI-N` maps to `finding_num` (its own sequence, independent of the main `## Finding N:` numbering — the two sequences can collide on the same integer, which is why `visibility` is part of the table's uniqueness constraint), and `**Original-severity:**` maps to `severity` (there is no separate `Original-severity` column). `Claimed`/`Actually`/`Why-invalid` have no corresponding columns and are not written, the same precedent as the protocol's `Evidence`/`Design-challenge` fields being deliberately excluded from the schema.
+
+   `visibility` is `presented` for main findings, `likely-invalid` for LI entries, `overflow` for overflow entries. Set every parsed finding object's `target` to the caller-supplied `<target>` value (the same value passed to `/mine-challenge` in step 2) — all findings from one gate examined the same artifact. Construct the JSON array (one object per parsed entry) and write it to a temp path via `get-skill-tmpdir` + Write tool before invoking the command below.
    ```bash
-   cfl finding record-batch --gate-id <gate_id> --file <findings_json_path>
+   cfl finding record-batch --gate-id <gate_id> --file <findings_json_path> --source challenge
    ```
 
 6. For each finding resolved during step 2 (disposition is `applied`, `skipped`, or `filed`), emit (skip if cfl tracking inactive):

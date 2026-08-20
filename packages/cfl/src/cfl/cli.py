@@ -969,9 +969,7 @@ def cmd_finding_record_batch(
         int, Parameter(name=["--gate-id"], help="Gate these findings were raised at")
     ],
     file: Annotated[str, Parameter(help="Path to a JSON array of finding objects")],
-    source: Annotated[
-        str, Parameter(help="Finding producer (e.g. challenge)")
-    ] = "challenge",
+    source: Annotated[str, Parameter(help="Finding producer (e.g. challenge)")],
 ) -> None:
     """Write every finding in a JSON file for one gate in a single transaction."""
     with db_connection() as conn:

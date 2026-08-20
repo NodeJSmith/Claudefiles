@@ -251,9 +251,15 @@ Run the mandatory sketch-time challenge. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/s
 - **`<target>`**: `<design_doc_path>`
 - **`<critic_flag>`**: `--critics=2`
 - **`<re_challenge_flag>`**: (empty — first challenge in this run)
-- **`<post_resolution>`**: If any CRITICAL finding was produced (check the findings file), offer the upgrade-to-caliper choice before proceeding to Phase 5. See below.
+- **`<post_resolution>`**: If any finding was applied to `design.md` (`disposition: applied` with `design-level: Yes`, including a TENSION finding's chosen side), re-run Phase 4 (the comb) against the now-edited design doc and task files together, then return to this point — do not re-run the challenge. Then, if any CRITICAL finding was produced (check the findings file), offer the upgrade-to-caliper choice before proceeding to Phase 5. See below.
 
 Skip the cfl dispatch/gate/finding calls if cfl tracking was disabled in Phase 1 (no `<spec_number>` set). The challenge itself still runs regardless.
+
+Skip this resume check too if cfl tracking was disabled in Phase 1 (no `<spec_number>`/`run_id` set) — the challenge itself still runs unconditionally in that case, same as a first run. Otherwise: if this is a resume and the challenge already ran in a prior session, skip this phase. Check via: `cfl event list --event review.gated --run <run_id>` — if any row's data contains `"gate_type": "sketch-challenge"`, the challenge already ran for this run.
+
+### Re-comb after design-doc edits
+
+If Phase 4.5 resolution edited `design.md`, re-running Phase 4 catches inconsistency the edit may have introduced between the doc and the task files — the same reasoning `mine-define`'s Phase 5.5 applies to its own comb. Skip this step entirely if no finding touched `design.md`.
 
 ### CRITICAL escalation
 

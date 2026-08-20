@@ -1,6 +1,7 @@
 """Tests for cfl.finding — challenge/review finding tracking."""
 
 import json
+import sqlite3
 
 import pytest
 
@@ -566,6 +567,11 @@ def test_record_finding_batch_writes_all_rows_in_one_transaction(
                     "severity": "HIGH",
                     "visibility": "presented",
                     "disposition": "pending",
+                    "finding_type": "Gap",
+                    "design_level": "No",
+                    "classification": "User-directed",
+                    "raised_by": "senior-engineer",
+                    "why_it_matters": "Unbounded external call can hang the run.",
                 },
                 {
                     "finding_num": 2,
@@ -573,12 +579,18 @@ def test_record_finding_batch_writes_all_rows_in_one_transaction(
                     "severity": "TENSION",
                     "visibility": "presented",
                     "disposition": "pending",
+                    "finding_type": "Fragility",
+                    "design_level": "Yes",
+                    "classification": "User-directed",
+                    "raised_by": "systems-architect",
+                    "why_it_matters": "Inconsistent terminology confuses future readers.",
                 },
                 {
                     "finding_num": 2,
                     "title": "Naming nit (LI)",
                     "severity": "TENSION",
                     "visibility": "likely-invalid",
+                    "raised_by": "systems-architect",
                 },
             ]
         )
@@ -600,6 +612,51 @@ def test_record_finding_batch_writes_all_rows_in_one_transaction(
     assert out["source"] == "challenge"
 
 
+def test_record_finding_batch_retry_rejected_by_unique_constraint(
+    db_conn, capsys, tmp_path
+):
+    """A retried record_finding_batch call with the same (gate_id, finding_num,
+    visibility) triple raises IntegrityError instead of duplicating rows."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+    record_gate(db_conn, run_id, "ship-challenge", verdict="FAIL")
+    gate_id = json.loads(capsys.readouterr().out)["gate_id"]
+
+    findings_file = tmp_path / "findings.json"
+    findings_file.write_text(
+        json.dumps(
+            [
+                {
+                    "finding_num": 1,
+                    "title": "Missing timeout",
+                    "severity": "HIGH",
+                    "visibility": "presented",
+                    "disposition": "pending",
+                    "finding_type": "Gap",
+                    "design_level": "No",
+                    "classification": "User-directed",
+                    "raised_by": "senior-engineer",
+                    "why_it_matters": "Unbounded external call can hang the run.",
+                },
+            ]
+        )
+    )
+
+    record_finding_batch(
+        db_conn, gate_id, str(findings_file), source="challenge", run_id=run_id
+    )
+    capsys.readouterr()
+
+    with pytest.raises(sqlite3.IntegrityError):
+        record_finding_batch(
+            db_conn, gate_id, str(findings_file), source="challenge", run_id=run_id
+        )
+
+    count = db_conn.execute(
+        "SELECT COUNT(*) AS cnt FROM findings WHERE gate_id=?", (gate_id,)
+    ).fetchone()["cnt"]
+    assert count == 1
+
+
 def test_record_finding_batch_rolls_back_on_validation_error(db_conn, capsys, tmp_path):
     """record_finding_batch writes nothing if any finding fails validation."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
@@ -615,12 +672,22 @@ def test_record_finding_batch_rolls_back_on_validation_error(db_conn, capsys, tm
                     "title": "Missing timeout",
                     "severity": "HIGH",
                     "visibility": "presented",
+                    "finding_type": "Gap",
+                    "design_level": "No",
+                    "classification": "User-directed",
+                    "raised_by": "senior-engineer",
+                    "why_it_matters": "Unbounded external call can hang the run.",
                 },
                 {
                     "finding_num": 2,
                     "title": "Bad visibility",
                     "severity": "HIGH",
                     "visibility": "bogus",
+                    "finding_type": "Gap",
+                    "design_level": "No",
+                    "classification": "User-directed",
+                    "raised_by": "senior-engineer",
+                    "why_it_matters": "Placeholder.",
                 },
             ]
         )
@@ -738,6 +805,87 @@ def test_record_finding_batch_missing_required_field_exits_2(db_conn, capsys, tm
         "SELECT COUNT(*) AS cnt FROM findings WHERE gate_id=?", (gate_id,)
     ).fetchone()["cnt"]
     assert count == 0
+
+
+def test_record_finding_batch_presented_finding_missing_main_field_exits_2(
+    db_conn, capsys, tmp_path
+):
+    """A presented/overflow finding missing a main-finding-only field (e.g.
+    raised_by mis-keyed, dropping finding_type) is rejected loudly instead of
+    silently writing a null column."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+    record_gate(db_conn, run_id, "ship-challenge", verdict="FAIL")
+    gate_id = json.loads(capsys.readouterr().out)["gate_id"]
+
+    findings_file = tmp_path / "findings.json"
+    findings_file.write_text(
+        json.dumps(
+            [
+                {
+                    "finding_num": 1,
+                    "title": "Missing timeout",
+                    "severity": "HIGH",
+                    "visibility": "presented",
+                    "design_level": "No",
+                    "classification": "User-directed",
+                    "raised_by": "senior-engineer",
+                    "why_it_matters": "Unbounded external call can hang the run.",
+                    # finding_type omitted — simulates a mis-keyed markdown parse
+                },
+            ]
+        )
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        record_finding_batch(
+            db_conn, gate_id, str(findings_file), source="challenge", run_id=run_id
+        )
+    assert exc_info.value.code == 2
+
+    err = json.loads(capsys.readouterr().err)
+    assert err["code"] == "invalid_findings_file"
+    assert "finding_type" in err["error"]
+
+    count = db_conn.execute(
+        "SELECT COUNT(*) AS cnt FROM findings WHERE gate_id=?", (gate_id,)
+    ).fetchone()["cnt"]
+    assert count == 0
+
+
+def test_record_finding_batch_likely_invalid_exempt_from_main_finding_fields(
+    db_conn, capsys, tmp_path
+):
+    """A likely-invalid entry writes successfully without finding_type,
+    design_level, classification, or why_it_matters — its Likely Invalid
+    template carries none of those fields."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+    record_gate(db_conn, run_id, "ship-challenge", verdict="FAIL")
+    gate_id = json.loads(capsys.readouterr().out)["gate_id"]
+
+    findings_file = tmp_path / "findings.json"
+    findings_file.write_text(
+        json.dumps(
+            [
+                {
+                    "finding_num": 1,
+                    "title": "Naming nit (LI)",
+                    "severity": "TENSION",
+                    "visibility": "likely-invalid",
+                    "raised_by": "systems-architect",
+                },
+            ]
+        )
+    )
+
+    written = record_finding_batch(
+        db_conn, gate_id, str(findings_file), source="challenge", run_id=run_id
+    )
+
+    assert written == 1
+    count = db_conn.execute(
+        "SELECT COUNT(*) AS cnt FROM findings WHERE gate_id=?", (gate_id,)
+    ).fetchone()["cnt"]
+    assert count == 1
 
 
 def test_record_finding_batch_non_list_json_exits_2(db_conn, capsys, tmp_path):
