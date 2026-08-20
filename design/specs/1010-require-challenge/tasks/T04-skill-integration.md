@@ -54,7 +54,8 @@ Phase 6 does not begin until the challenge completes.
 
 1. Delete the `"Challenge first"` option from the AskUserQuestion block (the option at line 273-274).
 2. Delete the verdict-mapping line for "Challenge first" at line 303.
-3. Delete the "On 'Challenge first'" handler section (lines 313-317) entirely.
+3. Update line 311 ("On Revise, Save-and-stop, or Challenge, do **not** run the `cfl event` command above") to remove the "or Challenge" reference — that option no longer exists.
+4. Delete the "On 'Challenge first'" handler section (lines 313-317) entirely.
 
 **Update the Revise handler** (around line 344): The existing text says "Re-run the Fine-Toothed Comb Review." Keep this — do NOT add challenge to the revise loop. FR#3 requires that Revise re-runs the comb without re-running challenge.
 
@@ -133,7 +134,7 @@ Step 4 does not begin until the challenge completes.
 1. Delete the `"Challenge first"` option from the AskUserQuestion block (line 453-454).
 2. Remove `challenge` from the `--data '{"choice": ...}'` enum literal in the gate recording line (line 462).
 3. Delete the "On 'Challenge first'" handler (line 493) entirely.
-4. Update the verdict-mapping parenthetical (line 465) to remove the "Challenge first" reference.
+4. Update the verdict-mapping parenthetical (line 465) to remove the "Challenge first" reference. Also update the sentence on the same line that reads "the terminal choice (ship/challenge/stop) re-records the gate" — remove "challenge" from that list since the option no longer exists.
 
 **Update the shipping gate question text** (line 445): Add a challenge result field to the summary line. Place it in step-chronological order — after "Cross-file review: ..." and before "Clean code check: ...", matching the pipeline execution sequence (Step 3 cross-file → Step 3.5 challenge → Step 4 clean-code). Add: `Challenge: <PASS — no findings | WARN — N findings, all resolved | note naming any CRITICAL/HIGH with disposition: skipped>.`
 

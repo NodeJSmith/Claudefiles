@@ -481,7 +481,7 @@ Shared and cross-cutting first.
 - create: `packages/cfl/src/cfl/finding.py` — `record_finding`, `list_findings`, and the `KNOWN_*`/`VALID_*` frozensets
 - modify: `packages/cfl/src/cfl/cli.py` — `_GROUPED_COMMANDS`, `finding_app` registration, imports, and the `record`/`list`/`resolve` command functions
 - modify: `packages/cfl/src/cfl/gate.py` — three new entries in `KNOWN_GATE_TYPES`
-- modify: `packages/cfl/src/cfl/epilogues.py` — `FINDING_RECORD`, `FINDING_LIST`, and `FINDING_RESOLVE` help epilogues (no bare group-level constant — that pattern exists only for `.default` sub-apps like `dispatch` and `question`)
+- modify: `packages/cfl/src/cfl/epilogues.py` — `FINDING_RECORD`, `FINDING_RECORD_BATCH`, `FINDING_LIST`, and `FINDING_RESOLVE` help epilogues (no bare group-level constant — that pattern exists only for `.default` sub-apps like `dispatch` and `question`)
 - create: `skills/mine-challenge/challenge-gate.md` — the shared recipe
 - modify: `skills/mine-challenge/SKILL.md` — two new flags, deleted detection branch, Known Callers replacement, `Format-version: 3` literal at line 200
 - modify: `skills/mine-challenge/findings-protocol.md` — `filed` status, format-version bump
