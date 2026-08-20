@@ -45,7 +45,7 @@ Run the mandatory design-time challenge. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/s
 
 Skip the cfl dispatch/gate/finding calls if cfl tracking was disabled in Phase 1 (no `<spec_number>` set). The challenge itself still runs regardless.
 
-If the define-challenge gate row already exists for the current run (check: the `define-challenge` gate was already recorded — e.g., on resume after the challenge already ran), skip this phase entirely and proceed to Phase 6.
+If this is a resume and the challenge already ran in a prior session, skip this phase. Check via: `cfl event list --event review.gated --run <run_id>` — if any row's data contains `"gate_type": "define-challenge"`, the challenge already ran for this run. (`record_gate` emits a `review.gated` event for every run-level gate, with the gate type in its JSON data — `packages/cfl/src/cfl/gate.py:106-108`.)
 
 Phase 6 does not begin until the challenge completes.
 ```
@@ -148,7 +148,7 @@ In `skills/mine-build/SKILL.md`:
 
 **Routing option descriptions**: In the two AskUserQuestion blocks (lines 68-82 and 84-100), add a note to the Structured and Complex options that challenge is included. For example:
 - Structured: `"Lightweight design.md + task files → orchestrate with full execution gates (includes mandatory challenge)"`
-- Complex: `"define → plan → orchestrate → ship (includes mandatory challenge at design and ship time)"`
+- Complex / Full caliper workflow (both blocks — the no-prior-analysis "Complex" option and the prior-analysis-detected "Full caliper workflow" option describe the same underlying path): `"define → plan → orchestrate → ship (includes mandatory challenge at design and ship time)"`
 - Accelerated (in the prior-analysis-detected block): `"Formalize findings into design.md (skip research — already done) → plan → orchestrate → ship (includes mandatory challenge)"`
 - Simple stays unchanged (no challenge).
 

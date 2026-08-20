@@ -65,6 +65,8 @@ Remove the `**overflow:** true | false` field — its information is now encoded
 
 **Add `filed` disposition**: In the status values table (now disposition values), add `filed` with semantics: "User chose to create a tracked issue rather than fix in-place. The issue is the durable record; the finding needs no further in-session attention." This is distinct from `skipped` (user declined to act) — `filed` means the user acted by creating an issue.
 
+**Finding Cap section** (around line 130): Update `"Overflow findings are written to the findings file with `status: overflow`"` to use `visibility: overflow` — this reference sits outside the main line ranges below and would be missed by a literal-minded edit.
+
 **Inline Resolution Flow** (lines 166-229): Update all `status` references to use the new field names:
 - Auto-apply: set `disposition: applied` (visibility is already `presented`)
 - User-directed: set `disposition: applied` for options, `disposition: skipped` for Skip, `disposition: filed` + create issue for File as issue
@@ -96,9 +98,9 @@ The shared gate applied after the challenge runs at a mandatory call site. Calle
 
 1. Record the dispatch (skip if cfl tracking is inactive for this run):
    ```bash
-   cfl dispatch <gate_type> --agent-type standard-worker --spec <spec_number>
+   cfl dispatch <gate_type> --agent-type standard-worker
    ```
-   Capture `dispatch_id`.
+   Capture `dispatch_id`. Note: `--spec` is not included here — callers thread it per their own convention (mine-define and mine-plan pass `--spec <spec_number>`; mine-orchestrate uses CWD-based resolution, matching the rest of `post-execution-pipeline.md`).
 
 2. Invoke `/mine-challenge <target> <critic_flag> <re_challenge_flag>` and let it resolve findings inline.
 
@@ -114,7 +116,7 @@ The shared gate applied after the challenge runs at a mandatory call site. Calle
 
    Record the gate (skip if cfl tracking inactive):
    ```bash
-   cfl gate <gate_type> --verdict <v> --data '{"blocking": <N>, "minor": <M>, "critical": <C>, "high": <H>, "medium": <Me>, "tension": <T>, "applied": <A>, "skipped": <S>, "filed": <F>}' --spec <spec_number>
+   cfl gate <gate_type> --verdict <v> --data '{"blocking": <N>, "minor": <M>, "critical": <C>, "high": <H>, "medium": <Me>, "tension": <T>, "applied": <A>, "skipped": <S>, "filed": <F>}'
    ```
    `blocking` = CRITICAL + HIGH count. `minor` = MEDIUM + TENSION count. The per-severity and per-disposition counts ride alongside as extra keys. Capture `gate_id` from the JSON output.
 

@@ -262,7 +262,7 @@ Body order follows `question.py:71-132` exactly: docstring stating the warn-vers
 
 CLI wiring is four edits to `packages/cfl/src/cfl/cli.py`: add `"finding"` to `_GROUPED_COMMANDS` (line 68), register `finding_app` after `question_app`, add the import block, and add the command functions. `record`, `list`, and `resolve` are **named** subcommands rather than `@finding_app.default`. This diverges from `question` and `dispatch` deliberately: using `.default` is what forced the documented special case in `_parse_argv_for_telemetry` (`cli.py:1004-1012`), and a named subcommand avoids reopening that scar.
 
-`--spec` is not declared by the command — it is threaded through the module-level `_spec_override` global that `app.meta.default` sets, and every command reads it via `resolve_context(conn, spec_override=_spec_override)`.
+`--spec` is not declared by the command — it is threaded through the module-level `_spec_override` global that `app.meta.default` sets. Most commands read it via `resolve_context(conn, spec_override=_spec_override)`. The finding commands are the exception: they use `try_resolve_active_run_id(conn)` instead, because `run_id` is nullable and `resolve_context` would error when no active run exists.
 
 ### Challenge's two flags
 
@@ -477,7 +477,7 @@ No tests to remove. Nothing currently covers the branches being deleted — whic
 
 Shared and cross-cutting first.
 
-- modify: `packages/cfl/src/cfl/db.py` — `SCHEMA_VERSION` to 8; `findings` DDL and indexes added to both `_SCHEMA_STATEMENTS` and `MIGRATIONS[8]`
+- modify: `packages/cfl/src/cfl/db.py` — `SCHEMA_VERSION` to 8; `findings` DDL and index added to both `_SCHEMA_STATEMENTS` and `MIGRATIONS[8]`
 - create: `packages/cfl/src/cfl/finding.py` — `record_finding`, `list_findings`, and the `KNOWN_*`/`VALID_*` frozensets
 - modify: `packages/cfl/src/cfl/cli.py` — `_GROUPED_COMMANDS`, `finding_app` registration, imports, and the `record`/`list`/`resolve` command functions
 - modify: `packages/cfl/src/cfl/gate.py` — three new entries in `KNOWN_GATE_TYPES`
