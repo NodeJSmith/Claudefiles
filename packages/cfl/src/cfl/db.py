@@ -9,7 +9,7 @@ import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-SCHEMA_VERSION: int = 7
+SCHEMA_VERSION: int = 8
 CFL_DB_ENV_VAR: str = "CFL_DB"
 DEFAULT_DB_PATH: str = "~/.local/share/claudefiles/cfl.db"
 BUSY_TIMEOUT_MS: int = 5000
@@ -104,6 +104,35 @@ MIGRATIONS: dict[int, list[str]] = {
         " CHECK(disposition IS NULL OR ("
         "   disposition IN ('resolved', 'accepted', 'deferred')"
         "   AND status = 'asked'))"
+    ],
+    # Purely additive: a net-new table with no predecessor. Keep this DDL
+    # identical to the findings block in _SCHEMA_STATEMENTS — they are the
+    # same end state reached by two paths.
+    8: [
+        """CREATE TABLE IF NOT EXISTS findings (
+            id             INTEGER PRIMARY KEY,
+            run_id         INTEGER REFERENCES runs(id),
+            gate_id        INTEGER REFERENCES gates(id),
+            source         TEXT NOT NULL,
+            finding_num    INTEGER NOT NULL,
+            title          TEXT NOT NULL,
+            target         TEXT,
+            severity       TEXT NOT NULL,
+            finding_type   TEXT,
+            design_level   TEXT
+                CHECK(design_level IS NULL OR design_level IN ('Yes', 'No')),
+            raised_by      TEXT,
+            classification TEXT,
+            visibility     TEXT NOT NULL
+                CHECK(visibility IN ('presented', 'overflow', 'likely-invalid')),
+            disposition    TEXT
+                CHECK(disposition IS NULL OR disposition IN ('pending', 'applied', 'skipped', 'filed')),
+            why_it_matters TEXT,
+            context_pct    INTEGER,
+            resolved_at    TEXT,
+            created_at     TEXT NOT NULL
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_findings_run ON findings(run_id)",
     ],
 }
 
@@ -254,6 +283,32 @@ _SCHEMA_STATEMENTS: list[str] = [
     """,
     "CREATE INDEX IF NOT EXISTS idx_questions_run ON questions(run_id)",
     "CREATE INDEX IF NOT EXISTS idx_questions_skill ON questions(skill)",
+    """
+    CREATE TABLE IF NOT EXISTS findings (
+        id             INTEGER PRIMARY KEY,
+        run_id         INTEGER REFERENCES runs(id),
+        gate_id        INTEGER REFERENCES gates(id),
+        source         TEXT NOT NULL,
+        finding_num    INTEGER NOT NULL,
+        title          TEXT NOT NULL,
+        target         TEXT,
+        severity       TEXT NOT NULL,
+        finding_type   TEXT,
+        design_level   TEXT
+            CHECK(design_level IS NULL OR design_level IN ('Yes', 'No')),
+        raised_by      TEXT,
+        classification TEXT,
+        visibility     TEXT NOT NULL
+            CHECK(visibility IN ('presented', 'overflow', 'likely-invalid')),
+        disposition    TEXT
+            CHECK(disposition IS NULL OR disposition IN ('pending', 'applied', 'skipped', 'filed')),
+        why_it_matters TEXT,
+        context_pct    INTEGER,
+        resolved_at    TEXT,
+        created_at     TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_findings_run ON findings(run_id)",
     """
     CREATE TABLE IF NOT EXISTS plan_snapshots (
         id              INTEGER PRIMARY KEY,

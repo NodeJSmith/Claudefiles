@@ -17,6 +17,9 @@ EXPECTED_TABLES = {
     "events",
     "sessions",
     "questions",
+    "plan_snapshots",
+    "task_snapshots",
+    "findings",
     "schema_version",
 }
 
@@ -88,7 +91,7 @@ def test_schema_version_is_current_after_setup(db_conn):
 
 
 def test_schema_version_code_constant():
-    assert SCHEMA_VERSION == 7
+    assert SCHEMA_VERSION == 8
 
 
 # ---------------------------------------------------------------------------
@@ -400,6 +403,200 @@ def test_migration_v7_adds_disposition_to_populated_questions(tmp_db_path):
         )
 
     conn.close()
+
+
+def test_migration_v8_adds_findings_table(tmp_db_path):
+    """Migration v8 adds the findings table to a populated v7 database.
+
+    Purely additive — no existing table is altered, so pre-existing rows in
+    specs, runs, tasks, gates, and questions must all survive untouched, and
+    the new table must accept its full column set including FKs to the
+    pre-existing runs and gates rows.
+    """
+    conn = sqlite3.connect(tmp_db_path, isolation_level=None)
+    conn.execute(
+        """CREATE TABLE specs (
+            id INTEGER PRIMARY KEY, number INTEGER NOT NULL, slug TEXT NOT NULL,
+            repo_url TEXT NOT NULL, repo_path TEXT, status TEXT NOT NULL DEFAULT 'draft',
+            active_run_id INTEGER, created_at TEXT NOT NULL, UNIQUE(repo_url, number)
+        )"""
+    )
+    conn.execute(
+        """CREATE TABLE runs (
+            id INTEGER PRIMARY KEY, spec_id INTEGER NOT NULL REFERENCES specs(id),
+            base_commit TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'running',
+            visual_mode TEXT, dev_server_url TEXT, tmpdir TEXT, cwd TEXT,
+            phase TEXT DEFAULT 'orchestrate',
+            started_at TEXT NOT NULL, ended_at TEXT
+        )"""
+    )
+    conn.execute(
+        """CREATE TABLE tasks (
+            id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES runs(id),
+            task_id TEXT NOT NULL, title TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending', verdict TEXT,
+            verdict_detail TEXT, commit_sha TEXT, started_at TEXT, ended_at TEXT,
+            UNIQUE(run_id, task_id)
+        )"""
+    )
+    conn.execute(
+        """CREATE TABLE gates (
+            id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES runs(id),
+            task_id TEXT, gate_type TEXT NOT NULL, iteration INTEGER NOT NULL DEFAULT 1,
+            verdict TEXT NOT NULL, detail TEXT, data TEXT, created_at TEXT NOT NULL,
+            UNIQUE(run_id, task_id, gate_type, iteration)
+        )"""
+    )
+    conn.execute(
+        """CREATE TABLE questions (
+            id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES runs(id),
+            skill TEXT NOT NULL, topic TEXT NOT NULL,
+            status TEXT NOT NULL CHECK(status IN ('asked', 'skipped')),
+            disposition TEXT
+                CHECK(disposition IS NULL OR (
+                    disposition IN ('resolved', 'accepted', 'deferred')
+                    AND status = 'asked')),
+            answer TEXT, context_pct INTEGER, created_at TEXT NOT NULL
+        )"""
+    )
+    conn.execute(
+        """CREATE TABLE schema_version (
+            version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL
+        )"""
+    )
+    conn.execute(
+        "INSERT INTO schema_version(version, applied_at) VALUES (7, datetime('now'))"
+    )
+    conn.execute(
+        "INSERT INTO specs(id, number, slug, repo_url, created_at)"
+        " VALUES(1, 1, 'feat', 'https://github.com/test/repo.git', datetime('now'))"
+    )
+    conn.execute(
+        "INSERT INTO runs(id, spec_id, base_commit, started_at)"
+        " VALUES(1, 1, 'abc123', datetime('now'))"
+    )
+    conn.execute(
+        "INSERT INTO tasks(run_id, task_id, title) VALUES(1, 'T01', 'First task')"
+    )
+    conn.execute(
+        "INSERT INTO gates(run_id, task_id, gate_type, verdict, created_at)"
+        " VALUES(1, 'T01', 'code-review', 'PASS', datetime('now'))"
+    )
+    conn.execute(
+        "INSERT INTO questions(run_id, skill, topic, status, created_at)"
+        " VALUES(1, 'mine-define', 'success', 'asked', datetime('now'))"
+    )
+    conn.close()
+
+    conn = setup_db(tmp_db_path)
+
+    version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
+    assert version == SCHEMA_VERSION
+
+    tables = {
+        row[0]
+        for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
+    }
+    assert "findings" in tables
+
+    assert conn.execute("SELECT COUNT(*) FROM specs").fetchone()[0] == 1
+    assert conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0] == 1
+    assert conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0] == 1
+    gate_row = conn.execute("SELECT id, gate_type FROM gates").fetchone()
+    assert gate_row["gate_type"] == "code-review"
+    question_row = conn.execute("SELECT topic FROM questions").fetchone()
+    assert question_row["topic"] == "success"
+
+    conn.execute(
+        """INSERT INTO findings
+             (run_id, gate_id, source, finding_num, title, target, severity,
+              finding_type, design_level, raised_by, classification, visibility,
+              disposition, why_it_matters, context_pct, resolved_at, created_at)
+           VALUES (1, ?, 'challenge', 1, 'Missing timeout', 'design.md', 'HIGH',
+                   'reliability', 'Yes', 'critic-1', 'User-directed', 'presented',
+                   'pending', 'Calls can hang forever', 42, NULL, datetime('now'))""",
+        (gate_row["id"],),
+    )
+    finding = conn.execute(
+        "SELECT title, severity, design_level, visibility FROM findings WHERE run_id=1"
+    ).fetchone()
+    assert finding["title"] == "Missing timeout"
+    assert finding["severity"] == "HIGH"
+    assert finding["design_level"] == "Yes"
+    assert finding["visibility"] == "presented"
+
+    conn.close()
+
+
+def test_fresh_vs_migrated_findings_schema_convergence(tmp_db_path, tmp_path):
+    """A freshly created database and a database migrated from v1 produce
+    identical `findings` schemas.
+
+    The `_SCHEMA_STATEMENTS`/`MIGRATIONS` duplication is hand-synced and was
+    previously enforced only by a comment.
+    """
+    fresh_conn = setup_db(tmp_db_path)
+    fresh_info = fresh_conn.execute("PRAGMA table_info(findings)").fetchall()
+    fresh_conn.close()
+
+    migrated_path = str(tmp_path / "migrated.db")
+    conn = sqlite3.connect(migrated_path, isolation_level=None)
+    conn.execute(
+        """CREATE TABLE specs (
+            id INTEGER PRIMARY KEY, number INTEGER NOT NULL, slug TEXT NOT NULL,
+            repo_url TEXT NOT NULL, repo_path TEXT, status TEXT NOT NULL DEFAULT 'draft',
+            active_run_id INTEGER, created_at TEXT NOT NULL, UNIQUE(repo_url, number)
+        )"""
+    )
+    conn.execute(
+        """CREATE TABLE runs (
+            id INTEGER PRIMARY KEY, spec_id INTEGER NOT NULL REFERENCES specs(id),
+            base_commit TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'running'
+                CHECK(status IN ('running', 'completed', 'stopped')),
+            visual_mode TEXT
+                CHECK(visual_mode IN ('enabled', 'skipped_no_server', 'skipped_no_vision') OR visual_mode IS NULL),
+            dev_server_url TEXT, tmpdir TEXT,
+            started_at TEXT NOT NULL, ended_at TEXT
+        )"""
+    )
+    conn.execute(
+        """CREATE TABLE tasks (
+            id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES runs(id),
+            task_id TEXT NOT NULL, title TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending', verdict TEXT,
+            verdict_detail TEXT, commit_sha TEXT, started_at TEXT, ended_at TEXT,
+            UNIQUE(run_id, task_id)
+        )"""
+    )
+    conn.execute(
+        """CREATE TABLE gates (
+            id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES runs(id),
+            task_id TEXT, gate_type TEXT NOT NULL, iteration INTEGER NOT NULL DEFAULT 1,
+            verdict TEXT NOT NULL, detail TEXT, data TEXT, created_at TEXT NOT NULL,
+            UNIQUE(run_id, task_id, gate_type, iteration)
+        )"""
+    )
+    conn.execute(
+        """CREATE TABLE schema_version (
+            version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL
+        )"""
+    )
+    conn.execute(
+        "INSERT INTO schema_version(version, applied_at) VALUES (1, datetime('now'))"
+    )
+    conn.close()
+
+    migrated_conn = setup_db(migrated_path)
+    migrated_version = migrated_conn.execute(
+        "SELECT MAX(version) FROM schema_version"
+    ).fetchone()[0]
+    assert migrated_version == SCHEMA_VERSION
+    migrated_info = migrated_conn.execute("PRAGMA table_info(findings)").fetchall()
+    migrated_conn.close()
+
+    assert fresh_info == migrated_info
 
 
 # ---------------------------------------------------------------------------

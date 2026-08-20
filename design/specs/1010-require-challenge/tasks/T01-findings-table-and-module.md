@@ -1,7 +1,7 @@
 ---
 task_id: "T01"
 title: "Add findings table, migration, and record/list/resolve module"
-status: "planned"
+status: "done"
 depends_on: []
 implements: ["FR#17", "FR#18", "FR#18a", "FR#19", "FR#20", "FR#21", "FR#22", "FR#25"]
 ---

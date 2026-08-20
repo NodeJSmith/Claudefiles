@@ -289,6 +289,9 @@ def test_known_gate_types_exported():
     assert "plan-validation" in KNOWN_GATE_TYPES
     assert "define-signoff" in KNOWN_GATE_TYPES
     assert "define-blindspot" in KNOWN_GATE_TYPES
+    assert "define-challenge" in KNOWN_GATE_TYPES
+    assert "sketch-challenge" in KNOWN_GATE_TYPES
+    assert "ship-challenge" in KNOWN_GATE_TYPES
 
 
 def test_valid_gate_verdicts_exported():
