@@ -127,14 +127,14 @@ AskUserQuestion:
     - label: "Build top opportunity"
       description: "Implement the highest-priority decomposition via /mine-build"
     - label: "File as issues"
-      description: "Create GitHub issues for the decomposition opportunities"
+      description: "Create issues for the decomposition opportunities"
     - label: "Save report"
       description: "Save to design/audits/ for future reference"
     - label: "Done"
       description: "Acknowledged — no action this session"
 ```
 
-If the user chooses "Build top opportunity", invoke `/mine-build` with a description of the decomposition. If "File as issues", create one issue per HIGH/MEDIUM opportunity via `gh-issue create`. If "Save report", copy to `design/audits/YYYY-MM-DD-decomposition/decomposition.md`.
+If the user chooses "Build top opportunity", invoke `/mine-build` with a description of the decomposition. If "File as issues", create one issue per HIGH/MEDIUM opportunity in the project's issue tracker. If "Save report", copy to `design/audits/YYYY-MM-DD-decomposition/decomposition.md`.
 
 ## What This Skill Does NOT Do
 

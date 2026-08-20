@@ -185,12 +185,12 @@ AskUserQuestion:
     - label: "Skip — defer to later"
       description: "Record this finding without acting on it"
     - label: "File as issue"
-      description: "Create a GitHub issue for this finding"
+      description: "Create an issue for this finding"
 ```
 
 Apply chosen option via Edit tool. Set `status: applied` for options,
-`status: skipped` for Skip, or `status: skipped` + create issue via
-`gh-issue create` for File as issue. Continue to next finding.
+`status: skipped` for Skip, or `status: skipped` + create an issue in the
+project's issue tracker for File as issue. Continue to next finding.
 
 **TENSION findings** (`Resolution: User-directed`, `Severity: TENSION`):
 
@@ -206,7 +206,7 @@ AskUserQuestion:
     - label: "Skip — defer to later"
       description: "Record this finding without acting on it"
     - label: "File as issue"
-      description: "Create a GitHub issue for this finding"
+      description: "Create an issue for this finding"
 ```
 
 Apply chosen side via Edit tool. Set `status: applied` and append

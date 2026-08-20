@@ -224,7 +224,7 @@ Hand off to `/mine-build` with the gap description. Do not draft code in this sk
 > "Handing off to `/mine-build` for `<gap name>`. This will assess complexity and route to the right implementation workflow."
 
 **Create issue:**
-Draft and file immediately using `gh-issue create`.
+Draft and file the issue immediately.
 
 1. Run `get-skill-tmpdir mine-tool-gaps-issue` to create a temp directory, then write the body to `<dir>/body.md`:
    ```markdown
@@ -247,10 +247,7 @@ Draft and file immediately using `gh-issue create`.
    Identified by /mine-tool-gaps on <date>.
    ```
 
-2. Create the issue:
-   ```bash
-   gh-issue create --title "<concise gap description>" --body-file "<dir>/body.md"
-   ```
+2. Create the issue in the project's issue tracker with the drafted title, passing `<dir>/body.md` to the tracker's `--body-file`/`--description-file` flag (or its stdin equivalent). Using the file is mandatory, not optional — the body above is multi-line Markdown with backticks in it, and passing that as a raw shell argument mangles quotes, backticks, and other metacharacters.
 
 **Update capabilities:**
 If the tool is missing from the appropriate `rules/common/capabilities-*.md` file or has a thin entry, offer to draft the section. Say what you'd add and ask for confirmation before writing.

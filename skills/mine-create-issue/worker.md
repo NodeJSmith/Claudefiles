@@ -1,6 +1,6 @@
 # Create Issue — Worker Instructions
 
-You receive an issue description, type, and any additional context the user provided. Your job: investigate the codebase, draft a complete issue, create it on GitHub, and return the URL.
+You receive an issue description, type, and any additional context the user provided. Your job: investigate the codebase, draft a complete issue, create it in the project's issue tracker, and return the URL.
 
 ## Step 1: Investigate
 
@@ -72,7 +72,10 @@ Short, specific, imperative mood. Include the component/area when it helps:
 
 ## Step 3: Create
 
-1. Run `gh-issue overview` to see available labels and milestones.
+1. Check `$ISSUE_TRACKER` (e.g., `echo $ISSUE_TRACKER`).
+   - If **unset or empty**: return `ERROR: $ISSUE_TRACKER is not configured. Set it in your context var file (e.g. gh, jira, clickup).` and stop.
+   - If **set to a tracker you have no tools for**: return `ERROR: no tools available for issue tracker "<value>"` and stop. Don't guess at a tool and don't fall back to a different tracker — the dispatching skill will ask the user how to proceed.
+   - Otherwise: use the matching tracker's tools, then check the repo's issue conventions — available labels, milestones, and usage patterns.
 
 2. **Labels:** Match the issue type to existing labels:
    - bug → "bug" label (if it exists)
@@ -81,14 +84,9 @@ Short, specific, imperative mood. Include the component/area when it helps:
 
 3. **Milestones:** If >50% of recent issues have milestones, pick the milestone that fits the work's scope.
 
-4. Run `get-skill-tmpdir mine-create-issue` — note the path.
+4. Run `get-skill-tmpdir mine-create-issue` and write the issue body from Step 2 to `<tmpdir>/issue-body.md`.
 
-5. Write the issue body to `<tmpdir>/issue-body.md`.
-
-6. Create the issue:
-   ```bash
-   gh-issue create --title "<title>" --body-file <tmpdir>/issue-body.md [--label "<label>"] [--milestone "<name>"]
-   ```
+5. Create the issue with the title from Step 2, passing `<tmpdir>/issue-body.md` to the tracker's `--body-file`/`--description-file` flag (or its stdin equivalent). Using the file is mandatory, not optional — issue bodies are multi-line Markdown, and passing one as a raw shell argument mangles quotes, backticks, and other metacharacters. Apply labels and a milestone based on what you found above.
 
 ## Step 4: Return
 

@@ -244,7 +244,7 @@ If "Challenge the top idea first" is selected: if the session was saved (houseke
 
 ### Creating issues
 
-If selected, create one issue per idea using `gh-issue create`.
+If selected, create one issue per idea in the project's issue tracker.
 
 **Execution order for housekeeping**: (1) create issues, (2) save the session, then proceed to the primary next step.
 

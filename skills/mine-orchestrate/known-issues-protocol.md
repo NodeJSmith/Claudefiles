@@ -117,7 +117,7 @@ Acceptance criteria:
 - <how to know the follow-up resolved it>
 ```
 
-`Status:` starts as `open` and moves to one of: `resolved — fixed during known issues walkthrough`, `filed (#<issue-number>)`, or stays `open`.
+`Status:` starts as `open` and moves to one of: `resolved — fixed during known issues walkthrough`, `filed (<issue-key>)`, or stays `open`.
 Keep entries concise but actionable.
 `Run: <run_id>` comes from `cfl run status`. Every known-issues writer must read the current `run_id` and include it so Step 5.6 can distinguish entries recorded in this run from backlog left by earlier runs on the same feature.
 

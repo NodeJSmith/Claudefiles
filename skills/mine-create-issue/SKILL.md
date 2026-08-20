@@ -6,7 +6,7 @@ user-invocable: true
 
 # Create Issue
 
-Codebase-aware issue creation. Dispatches a subagent to investigate the code, draft a structured issue, and create it on GitHub.
+Codebase-aware issue creation. Dispatches a subagent to investigate the code, draft a structured issue, and create it in the project's issue tracker.
 
 To enrich an existing issue, use the `issue-refiner` agent instead.
 
@@ -51,6 +51,6 @@ Launch one subagent (`subagent_type: standard-worker`):
 >
 > Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-create-issue/worker.md` for the complete workflow. Follow every step. Do NOT use the Skill tool — the instructions are in worker.md, not a skill.
 
-The subagent returns the issue URL, or an error message if something blocked it.
+The subagent returns the issue URL, or an `ERROR:` line if something blocked it.
 
-Present the result to the user.
+Present the result to the user. If the error says no tools are available for the configured tracker, ask the user how to proceed rather than retrying or picking a different tracker yourself — the tooling for that tracker may live in another repo on this machine.
