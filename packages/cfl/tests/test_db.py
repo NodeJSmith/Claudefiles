@@ -442,6 +442,10 @@ def test_fresh_vs_migrated_findings_schema_convergence(tmp_db_path, tmp_path):
     """
     fresh_conn = setup_db(tmp_db_path)
     fresh_info = fresh_conn.execute("PRAGMA table_info(findings)").fetchall()
+    fresh_indexes = fresh_conn.execute(
+        "SELECT name, sql FROM sqlite_master WHERE type='index'"
+        " AND tbl_name='findings' ORDER BY name"
+    ).fetchall()
     fresh_conn.close()
 
     migrated_path = str(tmp_path / "migrated.db")
@@ -470,9 +474,14 @@ def test_fresh_vs_migrated_findings_schema_convergence(tmp_db_path, tmp_path):
     ).fetchone()[0]
     assert migrated_version == SCHEMA_VERSION
     migrated_info = migrated_conn.execute("PRAGMA table_info(findings)").fetchall()
+    migrated_indexes = migrated_conn.execute(
+        "SELECT name, sql FROM sqlite_master WHERE type='index'"
+        " AND tbl_name='findings' ORDER BY name"
+    ).fetchall()
     migrated_conn.close()
 
     assert fresh_info == migrated_info
+    assert fresh_indexes == migrated_indexes
 
 
 # ---------------------------------------------------------------------------
