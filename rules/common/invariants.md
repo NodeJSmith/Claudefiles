@@ -132,7 +132,7 @@ When code review findings arrive, verify each against the actual code before imp
 **Defined in:** `references/common/receiving-code-review.md`
 
 #### Mandatory Challenge in Orchestration
-Challenge runs at both design-time and ship-time in orchestration workflows. It is not offered as an option and cannot be skipped.
+Challenge runs at design-time (`mine-define`), sketch-time (`mine-sketch`), and ship-time (`mine-orchestrate`) in orchestration workflows. It is not offered as an option and cannot be skipped.
 **Defined in:** `rules/common/git-workflow.md`
 
 ### Consider

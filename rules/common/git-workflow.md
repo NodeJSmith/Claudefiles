@@ -45,6 +45,8 @@ A green code review does not mean challenge is unnecessary. A green test suite i
 
 Challenge is mandatory in orchestration workflows (`mine-define`, `mine-sketch`, `mine-orchestrate`). It runs automatically at defined points and cannot be declined.
 
+The failure mode to watch for: offering the user a "skip the challenge" option to reduce friction, or treating a green code review plus a green test suite as sufficient and advancing to the next phase without it. Do not present challenge as a choice. If you are about to ask whether to run it, run it instead.
+
 ## Issue Creation Conventions
 
 When creating issues, match the conventions already in use in the repo:
