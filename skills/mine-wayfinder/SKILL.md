@@ -24,7 +24,7 @@ The map is a single issue, labelled `wayfinder:map` — the canonical artifact. 
 
 The map is an **index**, not a store. It lists the decisions made and points at the tickets that hold their detail; a decision lives in exactly one place — its ticket — so the map never restates it, only gists it and links.
 
-**Tracker:** this skill tracks the map and its tickets as issues in the project's issue tracker — see [Tracker Operations](#tracker-operations) for every map and ticket operation, and for the authoritative statement of the preflight gate. Wayfinder currently requires GitHub: charting and working the map lean on native sub-issues, native blocking edges, and assignee-based claim, and no other tracker exposes all three yet. It also requires a repo that can actually hold issues, and both are checked before charting. If either fails, stop and ask the user how to track the effort — don't invent a parallel tracker, and don't start a map on a repo that can't carry it through.
+**Tracker:** this skill tracks the map and its tickets as issues in the project's issue tracker — see [Tracker Operations](#tracker-operations) for every map and ticket operation, and for the authoritative statement of the preflight gate. Wayfinder currently requires GitHub: charting and working the map lean on native sub-issues, native blocking edges, and assignee-based claim, and no other tracker exposes all three yet. It also requires a repo that can actually hold issues, and both are checked before charting a map and again before resuming one. If either fails, stop and ask the user how to track the effort — don't invent a parallel tracker, and don't start a map on a repo that can't carry it through.
 
 ### The map body
 
@@ -108,7 +108,7 @@ Wayfinder is GitHub-only, so this section names GitHub tools directly rather tha
 
 Operations go through `gh-issue` (a thin passthrough to `gh issue` that upgrades to bot-token auth when available — see "GitHub tool reference" in `rules/common/capabilities-core.md`). Claiming is the one exception, and uses raw `gh`; see below.
 
-Two preflight checks, both before charting. Either failing means stop and ask the user how to track the effort rather than charting a map that would fail partway through:
+Two preflight checks. Both run before charting a new map and again before resuming an existing one — the answers are live state, not properties a past session can vouch for. Either failing means stop and ask the user how to track the effort rather than working a map that would fail partway through:
 
 1. **The tracker is GitHub** — `$ISSUE_TRACKER` is set to `gh`.
 2. **The repo has Issues enabled** — `gh api repos/{owner}/{repo} --jq .has_issues`. If it returns `false` or errors, stop. `gh-issue overview` always exits 0 even when Issues are disabled, so it cannot stand in for this check.
@@ -211,7 +211,7 @@ AskUserQuestion:
 
 User invokes with a map (URL or number). If no map is named, first look for one: `gh issue list --label "wayfinder:map" --state open --json number,title,url`, and ask the user which to resume if more than one is open. A ticket is **optional** — without one, you pick the next decision, not the user.
 
-0. **Run preflight check 1** — `$ISSUE_TRACKER` is set to `gh` (see [Tracker Operations](#tracker-operations)). Do this before looking for a map, not after: on a machine pointed at a different tracker, a map lookup by number resolves against the wrong system and can silently land on an unrelated issue, and steps 2-5 then attempt sub-issue, blocking-edge, and assignee operations that tracker doesn't have. Check 2 (Issues enabled) needs no rerun here — an existing map is proof of it.
+0. **Run the preflight** — both checks in [Tracker Operations](#tracker-operations). Do this before looking for a map, not after: on a machine pointed at a different tracker, a lookup by number resolves against the wrong system and can silently land on an unrelated issue, and steps 2-5 then attempt sub-issue, blocking-edge, and assignee operations that tracker doesn't have. Run check 2 here as well — an existing map proves only that Issues were enabled when it was charted, not that they still are, nor that this checkout still resolves to the repo holding it.
 1. Load the **map** — the low-res view, not every ticket body.
 2. Choose the ticket. If the user named one, use it. Otherwise take the first frontier ticket in order (see [Query the frontier](#tracker-operations)). **Claim it** (see [Claim a ticket](#tracker-operations)) before any work — if the race check shows someone else got there first, go back and pick a different frontier ticket.
 3. Resolve it — **zoom as needed**: fetch the full body of any related or closed ticket on demand; invoke the skills the `## Notes` block names. If in doubt, use `/mine-grill` and `/mine-domain-model`.
