@@ -16,14 +16,17 @@ The shared gate applied after the challenge runs at a mandatory call site. Calle
 ## The sequence
 
 1. Record the dispatch (skip if cfl tracking is inactive for this run):
+
    ```bash
    cfl dispatch <gate_type> --agent-type standard-worker
    ```
+
    Capture `dispatch_id`. Note: `--spec` is not included here — callers thread it per their own convention (mine-define and mine-plan pass `--spec <spec_number>`; mine-orchestrate uses CWD-based resolution, matching the rest of `post-execution-pipeline.md`).
 
 2. Invoke `/mine-challenge <critic_flag> <re_challenge_flag> <target>` and let it resolve findings inline. Flags must come before the target — `SKILL.md:19` parses flags from the beginning of $ARGUMENTS only, stopping at the first non-flag token.
 
 3. Record dispatch end (skip if cfl tracking inactive):
+
    ```bash
    cfl dispatch end <dispatch_id>
    ```
@@ -34,13 +37,15 @@ The shared gate applied after the challenge runs at a mandatory call site. Calle
    - Any CRITICAL or HIGH → FAIL
 
    Record the gate (skip if cfl tracking inactive):
+
    ```bash
    cfl gate <gate_type> --verdict <v> --data '{"blocking": <N>, "minor": <M>, "critical": <C>, "high": <H>, "medium": <Me>, "tension": <T>, "applied": <A>, "skipped": <S>, "filed": <F>}'
    ```
+
    `blocking` = CRITICAL + HIGH count. `minor` = MEDIUM + TENSION count. The per-severity and per-disposition counts ride alongside as extra keys. Capture `gate_id` from the JSON output.
 
 5. Read the findings file challenge reported. Emit one batch call that writes all findings (skip if cfl tracking inactive):
-   The findings JSON file is constructed from the challenge findings markdown — parse each `## Finding N:` and each `### LI-N:` entry into a JSON object using this canonical field-name mapping (markdown label → JSON key). Do not improvise other key names — a wrong key writes a silently-empty column, since only `finding_num`/`title`/`severity`/`visibility` are enforced as required.
+   The findings JSON file is constructed from the challenge findings markdown — parse each `## Finding N:` and each `### LI-N:` entry into a JSON object using this canonical field-name mapping (markdown label → JSON key). Do not improvise other key names — a wrong key silently produces a missing field rather than writing to the intended column. `record_finding_batch` enforces `finding_num`/`title`/`severity`/`visibility`/`raised_by` as required on every entry, plus `finding_type`/`design_level`/`classification`/`why_it_matters` on any entry whose `visibility` is not `likely-invalid`; a missing required field exits 2 with `invalid_findings_file` rather than writing a NULL column.
 
    | Markdown label (main `## Finding N:` entries) | JSON key |
    |---|---|
@@ -57,14 +62,24 @@ The shared gate applied after the challenge runs at a mandatory call site. Calle
 
    `## Likely Invalid` entries (`### LI-N:`) use the same JSON keys with two differences: the `N` in `LI-N` maps to `finding_num` (its own sequence, independent of the main `## Finding N:` numbering — the two sequences can collide on the same integer, which is why `visibility` is part of the table's uniqueness constraint), and `**Original-severity:**` maps to `severity` (there is no separate `Original-severity` column). `Claimed`/`Actually`/`Why-invalid` have no corresponding columns and are not written, the same precedent as the protocol's `Evidence`/`Design-challenge` fields being deliberately excluded from the schema.
 
-   `visibility` is `presented` for main findings, `likely-invalid` for LI entries, `overflow` for overflow entries. Set every parsed finding object's `target` to the caller-supplied `<target>` value (the same value passed to `/mine-challenge` in step 2) — all findings from one gate examined the same artifact. Construct the JSON array (one object per parsed entry) and write it to a temp path via `get-skill-tmpdir` + Write tool before invoking the command below.
+   Take `visibility` and `disposition` from each entry's own `**visibility:**`/`**disposition:**` markdown fields per the mapping table above — synthesis writes these explicitly on every entry (`SKILL.md` step 3 for in-cap and overflow findings, step 8 for entries moved to Likely Invalid). Only fall back to a section-based default when a field is genuinely absent: `visibility` is `presented` for a main finding, `likely-invalid` for an LI entry, `overflow` for an overflow entry; `disposition` is `pending` for a presented default and absent (NULL) for a likely-invalid or overflow default. Set every parsed finding object's `target` to the caller-supplied `<target>` value (the same value passed to `/mine-challenge` in step 2) — all findings from one gate examined the same artifact. Construct the JSON array (one object per parsed entry) and write it to a temp path via `get-skill-tmpdir` + Write tool before invoking the command below.
+
    ```bash
    cfl finding record-batch --gate-id <gate_id> --file <findings_json_path> --source challenge
    ```
 
 6. For each finding resolved during step 2 (disposition is `applied`, `skipped`, or `filed`), emit (skip if cfl tracking inactive):
+
    ```bash
    cfl finding resolve --gate-id <gate_id> --finding-num <N> --disposition <d>
    ```
 
-7. Run `<post_resolution>` — the caller's site-specific handling.
+7. Emit the persistence-complete marker (skip if cfl tracking inactive):
+
+   ```bash
+   cfl event challenge.findings-persisted --data '{"gate_type": "<gate_type>"}'
+   ```
+
+   The `review.gated` event from step 4 fires before findings are recorded — a resume check that treats it alone as "challenge already ran" can skip re-persisting findings if the run was interrupted between steps 4 and 6. `challenge.findings-persisted` fires only after step 6 completes, so it is the marker resume checks must use.
+
+8. Run `<post_resolution>` — the caller's site-specific handling.

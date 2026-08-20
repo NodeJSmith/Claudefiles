@@ -5,11 +5,10 @@ import os
 import sqlite3
 
 import pytest
-
 from cfl.db import setup_db
 from cfl.event import KNOWN_EVENT_NAMES, list_events, record_event
-from tests.helpers import REMOTE_URL, insert_spec_with_run, insert_task
 
+from tests.helpers import REMOTE_URL, insert_spec_with_run, insert_task
 
 # ---------------------------------------------------------------------------
 # Event creation (FR#20)
@@ -235,6 +234,7 @@ def test_known_event_names_exported():
     assert "define.started" in KNOWN_EVENT_NAMES
     assert "plan.started" in KNOWN_EVENT_NAMES
     assert "phase.advanced" in KNOWN_EVENT_NAMES
+    assert "challenge.findings-persisted" in KNOWN_EVENT_NAMES
 
 
 # ---------------------------------------------------------------------------

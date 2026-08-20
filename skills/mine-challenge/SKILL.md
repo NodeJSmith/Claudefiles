@@ -21,9 +21,9 @@ $ARGUMENTS — optional scope:
 - `--target-type=<type>` — override heuristic classification. Values: `code`, `frontend-code`, `spec`, `design-doc`, `brief`, `skill-file`, `agent-file`, `rule`, `docs`, `research`, `other`
 - `--mode=passthrough` — present summary only; skip inline resolution (mine-brainstorm, mine-research)
 - `--no-specialists` — triage selects from generic personas only
-- `--cap=N` — finding cap (default 7). CRITICAL and HIGH are never capped.
+- `--cap=N` — mode switch, not a numeric ceiling: `0` selects automation mode (see step 5); any nonzero value (default 7) selects default mode, where CRITICAL, HIGH, and MEDIUM are always presented and only TENSION can overflow. The specific nonzero value has no further effect — passing `--cap=3` behaves identically to the default `--cap=7`.
 - `--verbose` — show all findings including overflow
-- `--critics=N` — pin the critic count to exactly N. Overrides triage's default 1–3 range and the re-challenge cap of 2. When `--focus` forces a specialist, that specialist occupies one of the N slots rather than adding to them.
+- `--critics=N` — pin the critic count to exactly N, clamped to the number of eligible personas (12 total: 3 generic, 9 specialist — fewer if `--no-specialists` is also set). Overrides triage's default 1–3 range and the re-challenge cap of 2. When `--focus` forces a specialist, that specialist occupies one of the N slots rather than adding to them.
 - `--re-challenge` — mark this run as a re-challenge. Replaces the file-based detection.
 
 ## How to Analyze
@@ -103,14 +103,14 @@ Note re-challenge status in context for Phase 2 critic selection.
 - `workflow-ux.md` — Workflow & UX Critic: phase transitions, unhelpful defaults, unnecessary friction
 
 **Triage subagent instructions:** Return a JSON block with:
-- `critics`: array of 1–3 persona filenames (e.g., `["senior-engineer.md", "contract-caller.md"]`)
+- `critics`: array of persona filenames — 1–3 by default, or exactly N (clamped per the `--critics=N` rule below) when that flag is set (e.g., `["senior-engineer.md", "contract-caller.md"]`)
 - `rationale`: object mapping each filename to a one-sentence reason for selection
 - `target_summary`: one sentence describing what the target does
 
 **Triage rules:**
 - If `--no-specialists`: select only from generics
 - If `--focus` is a single word ≥6 chars that prefix-matches a specialist slug: always include that specialist
-- If `--critics=N` is provided: select exactly N critics. `--critics=N` overrides the re-challenge cap of 2.
+- If `--critics=N` is provided: select exactly N critics, clamped to the number of eligible personas (values above the catalog select every eligible persona instead; values below 1 are ignored). `--critics=N` overrides the re-challenge cap of 2.
 - If re-challenge (`yes`): select max 2 critics total
 - Otherwise: select 1–3 critics; include at least one generic unless the target is highly specialized
 - If triage returns zero critics: fall back to `senior-engineer.md`
@@ -192,14 +192,12 @@ The synthesis subagent receives:
    - `visibility`: `presented` for all in-cap findings; `overflow` for findings beyond the cap
    - `disposition`: `pending` for all in-cap findings; NULL for overflow findings
 4. **CRITICAL guard**: CRITICAL findings MUST always be classified as `classification: User-directed` regardless of the classification field from any critic or agreement level. This is a non-negotiable override — do not classify any CRITICAL finding as Auto-apply under any circumstances.
-5. **Cap enforcement:**
+5. **Cap enforcement** (`--cap` is a mode switch — 0 vs. nonzero — not a numeric ceiling; see the flag doc above):
    - If cap=0: pure automation mode — keep `classification: Auto-apply` findings as `disposition: pending` so Phase 4 applies them; mark `classification: User-directed` findings as `visibility: overflow`
-   - CRITICAL and HIGH: always included, never overflow (except User-directed findings when cap=0)
-   - TENSION: overflow if any CRITICAL or HIGH findings exist
-   - MEDIUM: always included, never overflow (except User-directed MEDIUM findings when cap=0)
+   - Otherwise (default mode, any nonzero cap): CRITICAL, HIGH, and MEDIUM are always included, never overflow. TENSION overflows if any CRITICAL or HIGH findings exist.
 6. **Copy presentation fields** from critic reports: `why-it-matters` (most concrete consequence statement), `evidence` (all file:line citations, deduped), `design-challenge` (strongest question). Write `not cited` for evidence when none; omit other fields when absent.
 7. **Write recommendation** for each User-directed finding (which option and why). For TENSION: write deciding-factor instead.
-8. **Validity assessment**: assess whether each finding holds up. Findings are valid by default — to flag one as likely invalid, you must provide concrete evidence: what the finding claims, what the code actually does, and why they conflict. Read the relevant code to verify claims. If you cannot articulate the evidence trail, the finding stays in the main list. Move likely-invalid findings to the `## Likely Invalid` section per the findings protocol; renumber the remaining findings to stay contiguous (no gaps in the `## Finding N:` sequence).
+8. **Validity assessment**: assess whether each finding holds up. Findings are valid by default — to flag one as likely invalid, you must provide concrete evidence: what the finding claims, what the code actually does, and why they conflict. Read the relevant code to verify claims. If you cannot articulate the evidence trail, the finding stays in the main list. Move likely-invalid findings to the `## Likely Invalid` section per the findings protocol; set each moved finding's `visibility` to `likely-invalid` and drop its `disposition` (omit the field — NULL). Renumber the remaining findings to stay contiguous (no gaps in the `## Finding N:` sequence).
 
 **Write findings file** to the output path using `Format-version: 4` header. Include `**Likely-invalid:** N` in the header block (even when 0). Format per `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`.
 

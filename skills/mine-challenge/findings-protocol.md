@@ -34,7 +34,7 @@ Each finding is a top-level section:
 **Classification:** Auto-apply | User-directed
 **Raised-by:** <critic-name>
 **visibility:** presented | overflow | likely-invalid  <!-- lowercase: runtime-written by synthesis, never changes -->
-**disposition:** pending | applied | skipped | filed  <!-- lowercase: runtime-written by synthesis/resolution -->
+**disposition:** pending | applied | skipped | filed  <!-- lowercase: runtime-written by synthesis/resolution; omit this line entirely for overflow and likely-invalid findings, which are NULL -->
 
 **Why-it-matters:** <consequence if left unfixed>
 
