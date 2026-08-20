@@ -33,7 +33,7 @@ VALID_VISIBILITIES: frozenset[str] = frozenset(
     {"presented", "overflow", "likely-invalid"}
 )
 
-VALID_DISPOSITIONS: frozenset[str] = frozenset(
+VALID_FINDING_DISPOSITIONS: frozenset[str] = frozenset(
     {"pending", "applied", "skipped", "filed"}
 )
 
@@ -57,6 +57,12 @@ MAIN_FINDING_REQUIRED_FIELDS: tuple[str, ...] = (
     "classification",
     "why_it_matters",
 )
+
+_INSERT_FINDING_SQL = """INSERT INTO findings
+         (run_id, gate_id, source, finding_num, title, target, severity,
+          finding_type, design_level, raised_by, classification, visibility,
+          disposition, why_it_matters, context_pct, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))"""
 
 
 def validate_finding_fields(
@@ -101,10 +107,10 @@ def validate_finding_fields(
             exit_code=2,
         )
 
-    if disposition is not None and disposition not in VALID_DISPOSITIONS:
+    if disposition is not None and disposition not in VALID_FINDING_DISPOSITIONS:
         output_module.emit_error(
             f"Unknown disposition '{disposition}'."
-            f" Use: {', '.join(sorted(VALID_DISPOSITIONS))}.",
+            f" Use: {', '.join(sorted(VALID_FINDING_DISPOSITIONS))}.",
             code="invalid_disposition",
             exit_code=2,
         )
@@ -153,11 +159,7 @@ def record_finding(
     context_pct = read_context_pct()
 
     cursor = conn.execute(
-        """INSERT INTO findings
-             (run_id, gate_id, source, finding_num, title, target, severity,
-              finding_type, design_level, raised_by, classification, visibility,
-              disposition, why_it_matters, context_pct, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+        _INSERT_FINDING_SQL,
         (
             run_id,
             gate_id,
@@ -262,11 +264,7 @@ def record_finding_batch(
     try:
         for finding in findings:
             conn.execute(
-                """INSERT INTO findings
-                     (run_id, gate_id, source, finding_num, title, target, severity,
-                      finding_type, design_level, raised_by, classification, visibility,
-                      disposition, why_it_matters, context_pct, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+                _INSERT_FINDING_SQL,
                 (
                     run_id,
                     gate_id,
@@ -375,10 +373,10 @@ def resolve_finding(
     finding is never resolved this way. Returns the updated row count (0 or
     1) so the caller can detect a finding_num with no matching presented row.
     """
-    if disposition not in VALID_DISPOSITIONS:
+    if disposition not in VALID_FINDING_DISPOSITIONS:
         output_module.emit_error(
             f"Unknown disposition '{disposition}'."
-            f" Use: {', '.join(sorted(VALID_DISPOSITIONS))}.",
+            f" Use: {', '.join(sorted(VALID_FINDING_DISPOSITIONS))}.",
             code="invalid_disposition",
             exit_code=2,
         )

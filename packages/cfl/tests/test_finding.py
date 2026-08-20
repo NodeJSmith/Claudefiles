@@ -7,16 +7,14 @@ import pytest
 from cfl.finding import (
     KNOWN_SEVERITIES,
     VALID_DESIGN_LEVELS,
-    VALID_DISPOSITIONS,
+    VALID_FINDING_DISPOSITIONS,
     VALID_VISIBILITIES,
     list_findings,
     record_finding,
     record_finding_batch,
     resolve_finding,
 )
-from cfl.gate import record_gate
-
-from tests.helpers import REMOTE_URL, insert_spec_with_run
+from tests.helpers import REMOTE_URL, create_gate_returning_id, insert_spec_with_run
 
 # ---------------------------------------------------------------------------
 # record_finding — happy path
@@ -26,8 +24,7 @@ from tests.helpers import REMOTE_URL, insert_spec_with_run
 def test_record_finding_creates_row_with_all_columns(db_conn, capsys):
     """record_finding inserts a findings row with every column populated."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    record_gate(db_conn, run_id, "sketch-challenge", verdict="FAIL")
-    gate_id = json.loads(capsys.readouterr().out)["gate_id"]
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "sketch-challenge")
 
     record_finding(
         db_conn,
@@ -69,8 +66,7 @@ def test_record_finding_creates_row_with_all_columns(db_conn, capsys):
 def test_record_finding_outputs_json_with_finding_id(db_conn, capsys):
     """record_finding emits JSON with finding_id, run_id, gate_id, source, finding_num."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    record_gate(db_conn, run_id, "sketch-challenge", verdict="FAIL")
-    gate_id = json.loads(capsys.readouterr().out)["gate_id"]
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "sketch-challenge")
 
     record_finding(
         db_conn,
@@ -95,8 +91,7 @@ def test_record_finding_outputs_json_with_finding_id(db_conn, capsys):
 def test_record_finding_gate_id_links_to_gate_row(db_conn, capsys):
     """A finding's gate_id resolves to a real row in gates."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    record_gate(db_conn, run_id, "ship-challenge", verdict="FAIL")
-    gate_id = json.loads(capsys.readouterr().out)["gate_id"]
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "ship-challenge")
 
     record_finding(
         db_conn,
@@ -371,10 +366,8 @@ def test_list_findings_filter_by_severity(db_conn, capsys):
 def test_list_findings_filter_by_gate_id(db_conn, capsys):
     """list_findings filters by gate_id."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    record_gate(db_conn, run_id, "sketch-challenge", verdict="FAIL")
-    gate_id_1 = json.loads(capsys.readouterr().out)["gate_id"]
-    record_gate(db_conn, run_id, "ship-challenge", verdict="FAIL")
-    gate_id_2 = json.loads(capsys.readouterr().out)["gate_id"]
+    gate_id_1 = create_gate_returning_id(db_conn, capsys, run_id, "sketch-challenge")
+    gate_id_2 = create_gate_returning_id(db_conn, capsys, run_id, "ship-challenge")
 
     record_finding(
         db_conn,
@@ -424,8 +417,7 @@ def test_list_findings_negative_limit_exits_2(db_conn, capsys):
 def test_resolve_finding_updates_disposition_and_stamps_resolved_at(db_conn, capsys):
     """resolve_finding updates disposition and sets resolved_at for a presented finding."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    record_gate(db_conn, run_id, "sketch-challenge", verdict="FAIL")
-    gate_id = json.loads(capsys.readouterr().out)["gate_id"]
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "sketch-challenge")
     record_finding(
         db_conn,
         run_id,
@@ -460,8 +452,7 @@ def test_resolve_finding_emits_correct_resolved_at_when_li_shares_finding_num(
     """resolve_finding's follow-up SELECT reads the presented row, not a
     same-numbered likely-invalid row sharing (gate_id, finding_num)."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    record_gate(db_conn, run_id, "sketch-challenge", verdict="FAIL")
-    gate_id = json.loads(capsys.readouterr().out)["gate_id"]
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "sketch-challenge")
     record_finding(
         db_conn,
         run_id,
@@ -496,8 +487,7 @@ def test_resolve_finding_emits_correct_resolved_at_when_li_shares_finding_num(
 def test_resolve_finding_returns_0_for_missing_finding_num(db_conn, capsys):
     """resolve_finding returns 0 when no finding matches gate_id/finding_num."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    record_gate(db_conn, run_id, "sketch-challenge", verdict="FAIL")
-    gate_id = json.loads(capsys.readouterr().out)["gate_id"]
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "sketch-challenge")
 
     updated = resolve_finding(db_conn, gate_id, 99, "applied")
 
@@ -507,8 +497,7 @@ def test_resolve_finding_returns_0_for_missing_finding_num(db_conn, capsys):
 def test_resolve_finding_does_not_resolve_likely_invalid(db_conn, capsys):
     """resolve_finding refuses to touch a likely-invalid finding."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    record_gate(db_conn, run_id, "sketch-challenge", verdict="FAIL")
-    gate_id = json.loads(capsys.readouterr().out)["gate_id"]
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "sketch-challenge")
     record_finding(
         db_conn,
         run_id,
@@ -533,8 +522,7 @@ def test_resolve_finding_does_not_resolve_likely_invalid(db_conn, capsys):
 def test_resolve_finding_invalid_disposition_exits_2(db_conn, capsys):
     """resolve_finding exits 2 for an unknown disposition."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    record_gate(db_conn, run_id, "sketch-challenge", verdict="FAIL")
-    gate_id = json.loads(capsys.readouterr().out)["gate_id"]
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "sketch-challenge")
 
     with pytest.raises(SystemExit) as exc_info:
         resolve_finding(db_conn, gate_id, 1, "punted")
@@ -554,8 +542,7 @@ def test_record_finding_batch_writes_all_rows_in_one_transaction(
 ):
     """record_finding_batch writes every finding from the JSON file."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    record_gate(db_conn, run_id, "ship-challenge", verdict="FAIL")
-    gate_id = json.loads(capsys.readouterr().out)["gate_id"]
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "ship-challenge")
 
     findings_file = tmp_path / "findings.json"
     findings_file.write_text(
@@ -618,8 +605,7 @@ def test_record_finding_batch_retry_rejected_by_unique_constraint(
     """A retried record_finding_batch call with the same (gate_id, finding_num,
     visibility) triple raises IntegrityError instead of duplicating rows."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    record_gate(db_conn, run_id, "ship-challenge", verdict="FAIL")
-    gate_id = json.loads(capsys.readouterr().out)["gate_id"]
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "ship-challenge")
 
     findings_file = tmp_path / "findings.json"
     findings_file.write_text(
@@ -660,8 +646,7 @@ def test_record_finding_batch_retry_rejected_by_unique_constraint(
 def test_record_finding_batch_rolls_back_on_validation_error(db_conn, capsys, tmp_path):
     """record_finding_batch writes nothing if any finding fails validation."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    record_gate(db_conn, run_id, "ship-challenge", verdict="FAIL")
-    gate_id = json.loads(capsys.readouterr().out)["gate_id"]
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "ship-challenge")
 
     findings_file = tmp_path / "findings.json"
     findings_file.write_text(
@@ -711,8 +696,7 @@ def test_record_finding_batch_rolls_back_on_validation_error(db_conn, capsys, tm
 def test_record_finding_batch_missing_file_exits_2(db_conn, capsys, tmp_path):
     """record_finding_batch exits 2 with invalid_findings_file for a missing path."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    record_gate(db_conn, run_id, "ship-challenge", verdict="FAIL")
-    gate_id = json.loads(capsys.readouterr().out)["gate_id"]
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "ship-challenge")
 
     missing_file = tmp_path / "does-not-exist.json"
 
@@ -734,8 +718,7 @@ def test_record_finding_batch_missing_file_exits_2(db_conn, capsys, tmp_path):
 def test_record_finding_batch_malformed_json_exits_2(db_conn, capsys, tmp_path):
     """record_finding_batch exits 2 with invalid_findings_file for malformed JSON."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    record_gate(db_conn, run_id, "ship-challenge", verdict="FAIL")
-    gate_id = json.loads(capsys.readouterr().out)["gate_id"]
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "ship-challenge")
 
     findings_file = tmp_path / "findings.json"
     findings_file.write_text("{not valid json")
@@ -758,8 +741,7 @@ def test_record_finding_batch_malformed_json_exits_2(db_conn, capsys, tmp_path):
 def test_record_finding_batch_non_dict_element_exits_2(db_conn, capsys, tmp_path):
     """record_finding_batch exits 2 with invalid_findings_file for a non-dict array element."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    record_gate(db_conn, run_id, "ship-challenge", verdict="FAIL")
-    gate_id = json.loads(capsys.readouterr().out)["gate_id"]
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "ship-challenge")
 
     findings_file = tmp_path / "findings.json"
     findings_file.write_text(json.dumps(["not-a-dict"]))
@@ -782,8 +764,7 @@ def test_record_finding_batch_non_dict_element_exits_2(db_conn, capsys, tmp_path
 def test_record_finding_batch_missing_required_field_exits_2(db_conn, capsys, tmp_path):
     """record_finding_batch exits 2 with invalid_findings_file when a finding lacks required fields."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    record_gate(db_conn, run_id, "ship-challenge", verdict="FAIL")
-    gate_id = json.loads(capsys.readouterr().out)["gate_id"]
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "ship-challenge")
 
     findings_file = tmp_path / "findings.json"
     findings_file.write_text(
@@ -814,8 +795,7 @@ def test_record_finding_batch_presented_finding_missing_main_field_exits_2(
     raised_by mis-keyed, dropping finding_type) is rejected loudly instead of
     silently writing a null column."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    record_gate(db_conn, run_id, "ship-challenge", verdict="FAIL")
-    gate_id = json.loads(capsys.readouterr().out)["gate_id"]
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "ship-challenge")
 
     findings_file = tmp_path / "findings.json"
     findings_file.write_text(
@@ -859,8 +839,7 @@ def test_record_finding_batch_likely_invalid_exempt_from_main_finding_fields(
     design_level, classification, or why_it_matters — its Likely Invalid
     template carries none of those fields."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    record_gate(db_conn, run_id, "ship-challenge", verdict="FAIL")
-    gate_id = json.loads(capsys.readouterr().out)["gate_id"]
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "ship-challenge")
 
     findings_file = tmp_path / "findings.json"
     findings_file.write_text(
@@ -891,8 +870,7 @@ def test_record_finding_batch_likely_invalid_exempt_from_main_finding_fields(
 def test_record_finding_batch_non_list_json_exits_2(db_conn, capsys, tmp_path):
     """record_finding_batch exits 2 with invalid_findings_file when JSON is not an array."""
     _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
-    record_gate(db_conn, run_id, "ship-challenge", verdict="FAIL")
-    gate_id = json.loads(capsys.readouterr().out)["gate_id"]
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "ship-challenge")
 
     findings_file = tmp_path / "findings.json"
     findings_file.write_text(json.dumps({"title": "not an array"}))
@@ -928,8 +906,10 @@ def test_valid_visibilities_exported():
 
 
 def test_valid_dispositions_exported():
-    """VALID_DISPOSITIONS contains the four resolution-time outcome values."""
-    assert VALID_DISPOSITIONS == frozenset({"pending", "applied", "skipped", "filed"})
+    """VALID_FINDING_DISPOSITIONS contains the four resolution-time outcome values."""
+    assert VALID_FINDING_DISPOSITIONS == frozenset(
+        {"pending", "applied", "skipped", "filed"}
+    )
 
 
 def test_valid_design_levels_exported():

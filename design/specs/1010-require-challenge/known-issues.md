@@ -40,3 +40,38 @@ Acceptance criteria:
 - `packages/cfl/tests/test_db.py` contains exactly one definition of the v7-schema DDL block.
 - All five migration/convergence tests that need a populated v7 database call the shared helper.
 - `mise run test:cfl` passes unchanged after the extraction.
+
+## KI-002: cli.py exceeds the repo's 800-line hard cap, worsened by this branch
+
+Status: open
+Run: 105
+Source: clean-code
+Reason not fixed now: out-of-scope
+Observed in: packages/cfl/src/cfl/cli.py
+Affected files:
+- packages/cfl/src/cfl/cli.py
+
+Issue:
+`cli.py` was already over `rules/common/coding-style.md`'s 800-line hard cap before this branch
+(1059 lines at base commit `61c3d87`) and this branch's new `finding` command group grows it further
+(1230 lines currently). The file already has a natural per-entity seam — `spec`, `run`, `task`,
+`dispatch`, `event`, `session`, `question` each register their own `@x_app.command` definitions
+inline in this one file rather than in their own `cfl.x` module — and this PR's `finding` group
+follows that same bolted-on pattern instead of splitting command registration out.
+
+Why deferred:
+Splitting `cli.py` into per-entity command modules is a structural refactor across every existing
+entity's command registration, not just the `finding` group this branch added — reorganizing the
+whole file's command-registration pattern is well outside this branch's T01-T05 scope (schema,
+CLI wiring for `finding`, challenge flags, skill integration, contract tests) and risks destabilizing
+command registration for entities this branch never touches.
+
+Recommended follow-up:
+Split `cli.py`'s command registration by entity, following the module-per-entity pattern the file's
+own logic modules already establish (`cfl.spec`, `cfl.run`, `cfl.task`, `cfl.finding`, etc.) — each
+module hosts its own `@x_app.command` definitions, and `cli.py` becomes a thin composition root that
+imports and registers each entity's command group.
+
+Acceptance criteria:
+- `packages/cfl/src/cfl/cli.py` is under the 800-line hard cap.
+- Every existing `cfl` subcommand continues to work identically (verified by the full `packages/cfl` test suite passing unchanged).

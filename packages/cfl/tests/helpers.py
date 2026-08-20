@@ -4,10 +4,13 @@ These centralise the spec/run insertion pattern so that schema changes need
 to be updated in exactly one place.
 """
 
+import json
 import os
 import sqlite3
 import subprocess
 from pathlib import Path
+
+from cfl.gate import record_gate
 
 
 REMOTE_URL = "https://github.com/test/repo.git"
@@ -75,6 +78,23 @@ def create_legacy_schema(
         "INSERT INTO schema_version(version, applied_at) VALUES (?, datetime('now'))",
         (schema_version,),
     )
+
+
+def create_gate_returning_id(
+    db_conn: sqlite3.Connection,
+    capsys,
+    run_id: int,
+    gate_type: str,
+    verdict: str = "FAIL",
+) -> int:
+    """Record a gate and return its gate_id, consuming the emitted JSON output.
+
+    Centralises the record_gate + capsys.readouterr() + json.loads pattern
+    that finding tests need on every setup, since findings always attach to
+    a gate row.
+    """
+    record_gate(db_conn, run_id, gate_type, verdict=verdict)
+    return json.loads(capsys.readouterr().out)["gate_id"]
 
 
 def git_env() -> dict[str, str]:

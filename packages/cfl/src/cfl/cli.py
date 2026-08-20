@@ -20,14 +20,12 @@ from cfl.event import list_events, record_event
 from cfl.finding import (
     KNOWN_SEVERITIES,
     VALID_DESIGN_LEVELS,
+    VALID_FINDING_DISPOSITIONS,
     VALID_VISIBILITIES,
     list_findings,
     record_finding,
     record_finding_batch,
     resolve_finding,
-)
-from cfl.finding import (
-    VALID_DISPOSITIONS as VALID_FINDING_DISPOSITIONS,
 )
 from cfl.gate import VALID_GATE_VERDICTS, record_gate
 from cfl.question import (

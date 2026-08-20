@@ -8,10 +8,8 @@ from cfl.direct import ENTITY_COLUMNS
 from cfl.event import KNOWN_EVENT_NAMES
 from cfl.finding import (
     KNOWN_SEVERITIES,
+    VALID_FINDING_DISPOSITIONS,
     VALID_VISIBILITIES,
-)
-from cfl.finding import (
-    VALID_DISPOSITIONS as VALID_FINDING_DISPOSITIONS,
 )
 from cfl.gate import KNOWN_GATE_TYPES
 from cfl.question import KNOWN_SKILLS, KNOWN_TOPICS, VALID_DISPOSITIONS
