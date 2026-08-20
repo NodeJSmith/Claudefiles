@@ -50,6 +50,7 @@ When creating issues, match the conventions already in use in the repo:
 1. **Check the repo's milestones, labels, and usage patterns** before creating issues. Check once per session or when switching repos; no need to re-check for each issue in a batch.
 2. **Assign a milestone** if >50% of recent issues have milestones — pick the milestone that fits the work's scope or timeline.
 3. **Apply labels** if >50% of recent issues have labels — use existing labels consistent with the repo's patterns. Don't invent new labels without asking.
+4. **Pass the body as a file, never as a shell argument.** Write the body to a temp file and hand that file to the tracker's `--body-file`/`--description-file` flag, or its stdin equivalent. Issue bodies are multi-line Markdown; interpolating one into a shell argument mangles quotes, backticks, and other metacharacters. This holds on every tracker — the flag's name changes, the requirement doesn't.
 
 When in doubt about which milestone or labels to use, ask the user.
 

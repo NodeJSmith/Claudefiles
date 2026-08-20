@@ -155,6 +155,7 @@ AskUserQuestion:
 
 User invokes with a map (URL or number). If no map is named, first look for one by querying the tracker for open issues labeled `wayfinder:map`, and ask the user which to resume if more than one is open. A ticket is **optional** — without one, you pick the next decision, not the user.
 
+0. **Run preflight check 1** — `$ISSUE_TRACKER` is set to `gh` (see [Tracker Operations](#tracker-operations)). Do this before looking for a map, not after: on a machine pointed at a different tracker, a map lookup by number resolves against the wrong system and can silently land on an unrelated issue, and steps 2-5 then attempt sub-issue, blocking-edge, and assignee operations that tracker doesn't have. Check 2 (Issues enabled) needs no rerun here — an existing map is proof of it.
 1. Load the **map** — the low-res view, not every ticket body.
 2. Choose the ticket. If the user named one, use it. Otherwise take the first frontier ticket in order (see [Query the frontier](#tracker-operations)). **Claim it** (see [Claim a ticket](#tracker-operations)) before any work — if the race check shows someone else got there first, go back and pick a different frontier ticket.
 3. Resolve it — **zoom as needed**: fetch the full body of any related or closed ticket on demand; invoke the skills the `## Notes` block names. If in doubt, use `/mine-grill` and `/mine-domain-model`.

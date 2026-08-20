@@ -102,7 +102,7 @@ These all have AskUserQuestion options labeled "Create a GitHub issue" or "File 
 - delete: `skills/mine-issues-triage/SKILL.md` — entire skill removed
 - modify: `REFERENCE.md` — remove mine-issues-triage entry
 - modify: `rules/common/capabilities-core.md` — merge GitHub/ADO rows, remove triage routing, consolidate tool notes
-- modify: `rules/common/git-workflow.md` — rewrite Issue Creation Conventions to use intent language
+- modify: `rules/common/git-workflow.md` — rewrite Issue Creation Conventions to use intent language, and add the body-as-file convention there once so every issue-creating skill inherits it
 - modify: `commands/mine-issues.md` — remove `$ISSUE_TRACKER` dispatch specifics and triage fallback, keep `$ISSUE_TRACKER` as platform signal
 - modify: `skills/mine-create-issue/SKILL.md` — remove "create it on GitHub" phrasing
 - modify: `skills/mine-create-issue/worker.md` — replace `gh-issue` commands with intent language

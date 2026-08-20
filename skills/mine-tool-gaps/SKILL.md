@@ -247,7 +247,7 @@ Draft and file the issue immediately.
    Identified by /mine-tool-gaps on <date>.
    ```
 
-2. Create the issue with the drafted title and body in the project's issue tracker.
+2. Create the issue in the project's issue tracker with the drafted title, passing `<dir>/body.md` to the tracker's `--body-file`/`--description-file` flag (or its stdin equivalent). Using the file is mandatory, not optional — the body above is multi-line Markdown with backticks in it, and passing that as a raw shell argument mangles quotes, backticks, and other metacharacters.
 
 **Update capabilities:**
 If the tool is missing from the appropriate `rules/common/capabilities-*.md` file or has a thin entry, offer to draft the section. Say what you'd add and ask for confirmation before writing.
