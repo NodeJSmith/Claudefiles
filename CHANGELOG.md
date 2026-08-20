@@ -4,6 +4,17 @@ All notable changes to this Claudefiles repository are documented here.
 
 =======
 
+## 2026-08-20
+
+### Added
+
+- Challenge now runs automatically at two points in every orchestrated path (`mine-define`, `mine-sketch`, `mine-orchestrate`) — once against the design artifact, once against the implemented branch — with no option to decline. `mine-orchestrate`'s shipping gate now dispatches challenge itself instead of telling the user to run it separately. (#527)
+- `cfl finding record`/`record-batch`/`list`/`resolve` durably record every challenge finding (severity, critic, target, gate, disposition) so a run's findings survive past its temp directory and can be queried later. (#527)
+
+### Changed
+
+- `mine-sketch` gained an upgrade-to-caliper escape hatch: resolving a CRITICAL structural finding that reveals the sketch is the wrong vehicle now routes to `/mine-define` against the same `design.md` instead of forcing the lightweight path to absorb heavyweight rework. (#527)
+
 ## 2026-08-19
 
 ### Added
