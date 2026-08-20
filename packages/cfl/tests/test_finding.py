@@ -4,7 +4,6 @@ import json
 import sqlite3
 
 import pytest
-
 from cfl.finding import (
     KNOWN_SEVERITIES,
     VALID_DESIGN_LEVELS,
@@ -16,6 +15,7 @@ from cfl.finding import (
     resolve_finding,
 )
 from cfl.gate import record_gate
+
 from tests.helpers import REMOTE_URL, insert_spec_with_run
 
 # ---------------------------------------------------------------------------
