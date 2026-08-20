@@ -134,12 +134,12 @@ Run `get-skill-tmpdir mine-audit` and write `<tmpdir>/audit-results.md` using th
 # Audit Findings
 **Target:** [project name or scope]
 **Date:** [today's date]
-**Format-version:** 3
+**Format-version:** 4
 **Likely-invalid:** <count>
 
 ## Finding 1: [concise title]
 **Severity:** CRITICAL | **Type:** Test Gap | **Raised-by:** Audit Analysis (1/1)
-**Resolution:** User-directed
+**Classification:** User-directed
 
 **Problem:** [specific description with evidence — file names, line counts, churn data]
 
@@ -161,7 +161,7 @@ The `(1/1)` in `Raised-by` is the single-source convention for non-critic-panel 
 
 ### Step 3: Follow findings protocol
 
-Follow `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md` for the findings file format and status field definitions.
+Follow `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md` for the findings file format and field definitions.
 
 Audit findings use the User-directed model with explicit option letters (A/B/C). Present each finding one at a time via AskUserQuestion:
 - **`A`** (or `fix`) — invoke `/mine-build` with the finding's description as the argument. For structural/architectural problems, `/mine-build` will assess complexity and route to direct implementation or the full caliper workflow.

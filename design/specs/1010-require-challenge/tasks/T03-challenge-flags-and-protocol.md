@@ -1,7 +1,7 @@
 ---
 task_id: "T03"
 title: "Add challenge flags, update protocol, and create shared recipe"
-status: "planned"
+status: "done"
 depends_on: []
 implements: ["FR#12", "FR#13", "FR#14", "FR#15", "FR#16", "FR#23", "FR#11", "AC#12", "AC#13", "AC#14", "AC#16"]
 ---

@@ -1,4 +1,4 @@
-<!-- findings-format-version: 3 -->
+<!-- findings-format-version: 4 -->
 
 # Findings Protocol
 
@@ -17,7 +17,7 @@ The canonical challenge header block:
 ```markdown
 # Challenge Findings
 
-**Format-version:** 3
+**Format-version:** 4
 **Target:** <file path or description>
 **Critics:** <comma-separated critic names>
 **Likely-invalid:** <count>
@@ -31,10 +31,10 @@ Each finding is a top-level section:
 **Severity:** CRITICAL | HIGH | MEDIUM | TENSION
 **Type:** <type>
 **Design-level:** Yes | No
-**Resolution:** Auto-apply | User-directed
+**Classification:** Auto-apply | User-directed
 **Raised-by:** <critic-name>
-**status:** pending | applied | overflow | skipped  <!-- lowercase: runtime-written by synthesis/resolution, not by critics -->
-**overflow:** true | false  <!-- lowercase: runtime-written -->
+**visibility:** presented | overflow | likely-invalid  <!-- lowercase: runtime-written by synthesis, never changes -->
+**disposition:** pending | applied | skipped | filed  <!-- lowercase: runtime-written by synthesis/resolution -->
 
 **Why-it-matters:** <consequence if left unfixed>
 
@@ -83,23 +83,33 @@ match 1:1 with findings — no gaps.
 
 When critics disagree, `Yes` wins — design-level issues are harder to fix later.
 
-## Status and Overflow Fields
+## Visibility and Disposition Fields
 
-The synthesis subagent writes these fields before challenge returns; the inline
-resolution phase updates `status` as findings are resolved.
+The synthesis subagent writes `visibility` once, before challenge returns; it
+never changes after that. `disposition` starts NULL or `pending` at synthesis
+and is updated by the inline resolution phase as findings are resolved.
 
-**`status`** values:
+**`visibility`** values — set once at synthesis, never changes:
+
+| Value | Meaning |
+|---|---|
+| `presented` | In scope for resolution |
+| `overflow` | Exceeded the cap; in file but not presented |
+| `likely-invalid` | Flagged by synthesis as likely invalid |
+
+**`disposition`** values — tracks resolution outcome; `pending` for findings
+that enter the resolution flow, then transitions to one of the terminal
+values below. NULL for `overflow` and `likely-invalid` findings, which never
+enter the resolution flow:
 
 | Value | Meaning |
 |---|---|
 | `pending` | In scope; awaits resolution |
 | `applied` | Resolution executed (auto-apply ran, or user chose an option) |
-| `overflow` | Exceeded the cap; in file but not presented |
 | `skipped` | User explicitly skipped during resolution |
+| `filed` | User chose to create a tracked issue rather than fix in-place. The issue is the durable record; the finding needs no further in-session attention. Distinct from `skipped` — `skipped` means the user declined to act, `filed` means the user acted by creating an issue. |
 
-**`overflow`** values: `false` = within cap (presented normally); `true` = exceeded cap (recorded for reference only).
-
-## Resolution Classification
+## Finding Classification
 
 The synthesis subagent classifies each finding as `Auto-apply` or
 `User-directed` using these criteria:
@@ -127,9 +137,9 @@ Findings are capped before presentation to prevent overwhelming the user:
 - **TENSION**: Shown only when no CRITICAL/HIGH findings exist; otherwise
   overflow
 
-Overflow findings are written to the findings file with `status: overflow` for
-the record. They are not presented during inline resolution but can be viewed
-with `--verbose`.
+Overflow findings are written to the findings file with `visibility: overflow`
+for the record. They are not presented during inline resolution but can be
+viewed with `--verbose`.
 
 ## Validity Assessment
 
@@ -167,10 +177,10 @@ and the finding must stay in the main list.
 After synthesis completes and the findings file is written, challenge resolves
 findings in cap order.
 
-**Auto-apply** (`Resolution: Auto-apply`, `status: pending`): Apply
-`better-approach` via Edit tool silently. Set `status: applied`. No prompt.
+**Auto-apply** (`Classification: Auto-apply`, `disposition: pending`): Apply
+`better-approach` via Edit tool silently. Set `disposition: applied`. No prompt.
 
-**User-directed** (`Resolution: User-directed`, `status: pending`): Emit one
+**User-directed** (`Classification: User-directed`, `disposition: pending`): Emit one
 AskUserQuestion per finding — do not batch:
 
 ```
@@ -188,11 +198,11 @@ AskUserQuestion:
       description: "Create an issue for this finding"
 ```
 
-Apply chosen option via Edit tool. Set `status: applied` for options,
-`status: skipped` for Skip, or `status: skipped` + create an issue in the
-project's issue tracker for File as issue. Continue to next finding.
+Apply chosen option via Edit tool. Set `disposition: applied` for options,
+`disposition: skipped` for Skip, or `disposition: filed` + create an issue in
+the project's issue tracker for File as issue. Continue to next finding.
 
-**TENSION findings** (`Resolution: User-directed`, `Severity: TENSION`):
+**TENSION findings** (`Classification: User-directed`, `Severity: TENSION`):
 
 ```
 AskUserQuestion:
@@ -209,9 +219,11 @@ AskUserQuestion:
       description: "Create an issue for this finding"
 ```
 
-Apply chosen side via Edit tool. Set `status: applied` and append
+Apply chosen side via Edit tool. Set `disposition: applied` and append
 `**Chosen:** side-a` or `**Chosen:** side-b` to the finding. For Skip, set
-`status: skipped`.
+`disposition: skipped`. For File as issue, set `disposition: filed` and
+create an issue in the project's issue tracker, same as the User-directed
+case.
 
 **After all main findings are resolved**, if the findings file contains a
 `## Likely Invalid` section with entries, present them:
