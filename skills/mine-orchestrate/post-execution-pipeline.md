@@ -278,7 +278,7 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/challenge-gate.md` a
 - **`<target>`**: `<dir>/challenge-changed-files.txt`
 - **`<critic_flag>`**: (empty — use triage default 1–3)
 - **`<re_challenge_flag>`**: (empty — first challenge in this run)
-- **`<post_resolution>`**: After step 6 of the recipe, read the findings file and note any CRITICAL or HIGH finding left with `disposition: skipped`. These will be named in the Step 6 shipping gate summary.
+- **`<post_resolution>`**: After the resolve loop in the challenge-gate recipe (its own step 6) completes, read the findings file and note any CRITICAL or HIGH finding left with `disposition: skipped`. These will be named in this pipeline's own Step 6 (Shipping gate) summary.
 
 Step 4 does not begin until the challenge completes.
 

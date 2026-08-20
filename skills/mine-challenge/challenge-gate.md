@@ -40,7 +40,7 @@ The shared gate applied after the challenge runs at a mandatory call site. Calle
    `blocking` = CRITICAL + HIGH count. `minor` = MEDIUM + TENSION count. The per-severity and per-disposition counts ride alongside as extra keys. Capture `gate_id` from the JSON output.
 
 5. Read the findings file challenge reported. Emit one batch call that writes all findings (skip if cfl tracking inactive):
-   The findings JSON file is constructed from the challenge findings markdown — parse each `## Finding N:` and each `### LI-N:` entry into a JSON object with the column fields. `visibility` is `presented` for main findings, `likely-invalid` for LI entries, `overflow` for overflow entries. Construct the JSON array (one object per parsed entry) and write it to a temp path via `get-skill-tmpdir` + Write tool before invoking the command below.
+   The findings JSON file is constructed from the challenge findings markdown — parse each `## Finding N:` and each `### LI-N:` entry into a JSON object with the column fields. `visibility` is `presented` for main findings, `likely-invalid` for LI entries, `overflow` for overflow entries. Set every parsed finding object's `target` to the caller-supplied `<target>` value (the same value passed to `/mine-challenge` in step 2) — all findings from one gate examined the same artifact. Construct the JSON array (one object per parsed entry) and write it to a temp path via `get-skill-tmpdir` + Write tool before invoking the command below.
    ```bash
    cfl finding record-batch --gate-id <gate_id> --file <findings_json_path>
    ```
