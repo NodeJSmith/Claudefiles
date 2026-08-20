@@ -24,7 +24,7 @@ Skills, rules, and agents hardcode specific issue tracker CLI commands (`gh-issu
 
 ## Functional Requirements
 
-- **FR#1** No skill, command, rule, or agent file references `gh-issue`, `gh issue`, `gh label`, `gh api repos`, or `gh pr list` as a command to run (except `mine-eval-repo`, `mine-create-pr`, `mine-address-pr-issues`, files under `bin/`, and the tool-reference documentation section of `capabilities-core.md`).
+- **FR#1** No skill, command, rule, or agent file references `gh-issue`, `gh issue`, `gh label`, `gh api repos`, or `gh pr list` as a command to run (except `mine-eval-repo`, `mine-create-pr`, `mine-address-pr-issues`, `mine-wayfinder`, files under `bin/`, and the tool-reference documentation section of `capabilities-core.md`). `mine-wayfinder` is exempt because FR#9 makes it GitHub-only: it has no portability to protect, and its correctness depends on which auth a call runs under and which flag creates an edge — detail that intent language cannot carry.
 - **FR#2** Skills that create issues (mine-create-issue, mine-challenge, mine-orchestrate, mine-brainstorm, mine-decompose, mine-audit, mine-tool-gaps) use intent language ("create an issue in the project's issue tracker") rather than tool-specific commands.
 - **FR#3** Skills that search/query issues (mine-why, mine-issues) use intent language ("search the project's issues and PRs") rather than tool-specific commands.
 - **FR#4** `$ISSUE_TRACKER` remains referenced where skills need to know which platform they're on, but is not used to dispatch to specific CLI commands within the skill text.
@@ -32,11 +32,11 @@ Skills, rules, and agents hardcode specific issue tracker CLI commands (`gh-issu
 - **FR#6** `capabilities-core.md` routing table merges GitHub and ADO issue/PR rows into unified intent-based entries where the trigger phrases are platform-neutral.
 - **FR#7** `git-workflow.md` Issue Creation Conventions section uses intent language instead of `gh-issue` commands.
 - **FR#8** `issue-refiner` agent description and instructions are platform-neutral (not GitHub-specific).
-- **FR#9** `mine-wayfinder` replaces `gh-issue` commands with intent language but stays GitHub-only — its map depends on native sub-issues, native blocking edges, and assignee-based claim, and no other tracker exposes all three. Its "no GitHub remote → stop" gate becomes a two-part preflight: `$ISSUE_TRACKER` is set to `gh`, and the repo has Issues enabled. This is the one file where intent language does not buy tracker portability (see Non-Goals).
+- **FR#9** `mine-wayfinder` stays GitHub-only and keeps its concrete `gh` / `gh-issue` invocations — its map depends on native sub-issues, native blocking edges, and assignee-based claim, and no other tracker exposes all three. Its "no GitHub remote → stop" gate becomes a two-part preflight: `$ISSUE_TRACKER` is set to `gh`, and the repo has Issues enabled. This is the one file where intent language buys no portability and costs real safety (see Non-Goals, and the note under FR#1).
 
 ## Acceptance Criteria
 
-- **AC#1** `grep -rn 'gh-issue\|gh issue\|gh label\|gh api repos\|gh pr list' skills/ rules/ agents/ commands/ | grep -v 'mine-eval-repo\|mine-create-pr\|mine-address-pr-issues\|capabilities-core.md'` returns zero matches. `capabilities-core.md` is excluded whole-file rather than by section because `grep` can't scope to a section; confirm by eye that its remaining hits all sit under "GitHub tool reference". Maps to FR#1.
+- **AC#1** `grep -rn 'gh-issue\|gh issue\|gh label\|gh api repos\|gh pr list' skills/ rules/ agents/ commands/ | grep -v 'mine-eval-repo\|mine-create-pr\|mine-address-pr-issues\|mine-wayfinder\|capabilities-core.md'` returns zero matches. `capabilities-core.md` is excluded whole-file rather than by section because `grep` can't scope to a section; confirm by eye that its remaining hits all sit under "GitHub tool reference". Maps to FR#1.
 - **AC#2** `mine-issues-triage` directory does not exist and is not referenced in any capabilities file or routing table. Maps to FR#5.
 - **AC#3** `capabilities-core.md` has no duplicate trigger phrases (e.g., "create issue" appearing in both a GitHub and ADO section). Maps to FR#6.
 - **AC#4** Every file that previously referenced `gh-issue create` now uses intent language that works regardless of `$ISSUE_TRACKER` value — except `mine-wayfinder`, which uses intent language but keeps a `gh`-only gate per FR#9. Maps to FR#2, FR#3, FR#9.
@@ -76,7 +76,11 @@ The "GitHub tool notes" section stays but is renamed to clarify it's tool-specif
 
 ### mine-wayfinder special handling
 
-Wayfinder is the most complex case. Its "Tracker Operations" section (lines 105-165) is essentially a GitHub API cookbook — label creation, sub-issue wiring, claim-race detection, frontier queries via `jq`. This level of detail is exactly what we want to stop prescribing. Replace the entire section with intent-level descriptions of what operations the wayfinder needs (create a map issue, create child tickets, wire blocking edges, claim tickets, query the frontier). Claude knows how to do these with `gh-issue` when on GitHub.
+Wayfinder is the most complex case, and the one where this design's default answer turns out to be wrong. Its "Tracker Operations" section is essentially a GitHub API cookbook — label creation, sub-issue wiring, claim-race detection, frontier queries via `jq`. The first pass replaced it with intent-level descriptions, on the theory that Claude can reach for the right commands itself.
+
+That cost two real safety properties, both caught in review. The Issues-enabled preflight (`gh api repos/{owner}/{repo} --jq .has_issues`) disappeared, because "check the tracker is reachable" doesn't imply it. And the claim step's requirement to use raw `gh` rather than `gh-issue` became "claim under your own identity" — which reads as satisfied by any ordinary claim, while `gh-issue` silently authenticates as the bot when a GitHub App is configured. That doesn't weaken the first-assignee race check, it inverts it: every session assigns the same bot identity, sees it first, and concludes it won.
+
+So the cookbook stays, and `mine-wayfinder` is exempted from FR#1. The general rule still holds everywhere else — intent language is right where portability is real. It fails here because wayfinder has no portability to protect (FR#9) and because the guarantee *is* the tool-specific detail: which auth a call runs under, which flag creates the edge. Naming the tool is what makes those checkable.
 
 The gate stays a gate. Wayfinder is the one skill intent language can't make portable — its map is built from GitHub's native sub-issues, native blocking edges, and assignee-based claim, and no other tracker exposes all three — so "no GitHub remote → stop" becomes a two-part preflight: `$ISSUE_TRACKER` is `gh`, and the repo has Issues enabled. The second half has to query the repo's own settings rather than list issues, since an issue-list wrapper exits 0 on a repo with Issues turned off.
 
@@ -107,7 +111,7 @@ These all have AskUserQuestion options labeled "Create a GitHub issue" or "File 
 - modify: `skills/mine-create-issue/SKILL.md` — remove "create it on GitHub" phrasing
 - modify: `skills/mine-create-issue/worker.md` — replace `gh-issue` commands with intent language
 - modify: `agents/issue-refiner.md` — make description and instructions platform-neutral
-- modify: `skills/mine-wayfinder/SKILL.md` — replace Tracker Operations cookbook with intent descriptions, change platform gate
+- modify: `skills/mine-wayfinder/SKILL.md` — keep the Tracker Operations cookbook (FR#1 exemption), replace the platform gate with the two-part preflight, and harden the claim check
 - modify: `skills/mine-challenge/findings-protocol.md` — "File as issue" label and resolution
 - modify: `skills/mine-orchestrate/post-execution-pipeline.md` — "File as issue" label and resolution
 - modify: `skills/mine-orchestrate/known-issues-protocol.md` — `filed (#<issue-number>)` → `filed (<issue-key>)`
