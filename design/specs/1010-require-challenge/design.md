@@ -1,7 +1,7 @@
 # Design: Mandatory Challenge in Orchestration Workflows
 
 **Date:** 2026-08-20
-**Status:** draft
+**Status:** approved
 **Scope-mode:** expand
 **Research:** `/tmp/claude-mine-define-research-AmZxKr/brief.md` (ephemeral — key findings inlined below)
 
