@@ -1,7 +1,7 @@
 ---
 task_id: "T05"
 title: "Add contract tests and verify all acceptance criteria"
-status: "planned"
+status: "done"
 depends_on: ["T01", "T02", "T03", "T04"]
 implements: ["FR#24", "AC#5", "AC#6", "AC#10", "AC#11", "AC#17", "AC#18", "AC#19"]
 ---
