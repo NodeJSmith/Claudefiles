@@ -26,7 +26,7 @@ than inline threads. Auto-generated walkthrough/summary noise is filtered out.
 
 Options:
   -R, --repo OWNER/REPO  Target a specific repository (default: current repo)
-  --json                 Emit a JSON object: {pr, threads, reviewComments, issueComments}
+  --json                 Emit a JSON object: {pr, threads, reactions, reviews, reviewComments, issueComments}
   --all                  Include resolved threads (default: unresolved only)
   -h, --help             Show this help message and exit
 
@@ -91,8 +91,15 @@ query(\$owner: String!, \$repo: String!, \$pr: Int!) {
     pullRequest(number: \$pr) {
       title
       url
+      reactions(first: 100) {
+        nodes {
+          content
+          user { login }
+          createdAt
+        }
+      }
       reviews(first: 100) {
-        pageInfo { hasNextPage }
+        pageInfo { hasNextPage endCursor }
         nodes {
           author { login __typename }
           state
@@ -195,13 +202,72 @@ pr_data=$(printf '%s' "$meta_response" | jq '.data.repository.pullRequest')
 pr_title=$(printf '%s' "$pr_data" | jq -r '.title')
 pr_url=$(printf '%s' "$pr_data" | jq -r '.url')
 
-# Warn if non-thread surfaces were truncated at 100 (no silent caps)
-if printf '%s' "$pr_data" | jq -e '.reviews.pageInfo.hasNextPage' > /dev/null 2>&1; then
-  echo "warning: PR has >100 reviews — review bodies beyond the first 100 are not shown" >&2
+# --- Paginate reviews (separate loop — independent cursor from threads) ---
+all_reviews=$(printf '%s' "$pr_data" | jq '.reviews.nodes')
+reviews_has_next=$(printf '%s' "$pr_data" | jq -r '.reviews.pageInfo.hasNextPage')
+
+if [[ "$reviews_has_next" == "true" ]]; then
+  reviews_cursor=$(printf '%s' "$pr_data" | jq -r '.reviews.pageInfo.endCursor')
+  while true; do
+    reviews_query=$(
+      cat << GRAPHQL
+query(\$owner: String!, \$repo: String!, \$pr: Int!) {
+  repository(owner: \$owner, name: \$repo) {
+    pullRequest(number: \$pr) {
+      reviews(first: 100, after: "${reviews_cursor}") {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          author { login __typename }
+          state
+          url
+          body
+          createdAt
+        }
+      }
+    }
+  }
+}
+GRAPHQL
+    )
+    reviews_resp=$(gh api graphql \
+      -f query="$reviews_query" \
+      -f owner="$repo_owner" \
+      -f repo="$repo_name" \
+      -F pr="$pr_number")
+
+    if printf '%s' "$reviews_resp" | jq -e '.errors' > /dev/null 2>&1; then
+      printf '%s' "$reviews_resp" | jq -r '.errors[0].message // "unknown GraphQL error"' >&2
+      break
+    fi
+
+    page_reviews=$(printf '%s' "$reviews_resp" | jq '.data.repository.pullRequest.reviews.nodes')
+    all_reviews=$(printf '%s\n%s' "$all_reviews" "$page_reviews" | jq -s 'add')
+
+    reviews_has_next=$(printf '%s' "$reviews_resp" | jq -r '.data.repository.pullRequest.reviews.pageInfo.hasNextPage')
+    reviews_cursor=$(printf '%s' "$reviews_resp" | jq -r '.data.repository.pullRequest.reviews.pageInfo.endCursor')
+    if [[ "$reviews_has_next" != "true" || -z "$reviews_cursor" || "$reviews_cursor" == "null" ]]; then
+      break
+    fi
+  done
 fi
+
+# Warn if comments were truncated (reviews are now fully paginated)
 if printf '%s' "$pr_data" | jq -e '.comments.pageInfo.hasNextPage' > /dev/null 2>&1; then
   echo "warning: PR has >100 conversation comments — comments beyond the first 100 are not shown" >&2
 fi
+
+# PR-level reactions (e.g. Codex adds 👀 when mid-review).
+pr_reactions=$(printf '%s' "$pr_data" | jq '
+  [.reactions.nodes[] | {user: .user.login, reaction: .content, createdAt: .createdAt}]')
+
+# Review status: per-reviewer latest state (APPROVED, CHANGES_REQUESTED, etc.)
+# so the caller can distinguish "reviewed with no findings" from "not reviewed yet."
+# Uses all_reviews (paginated) instead of pr_data.reviews.nodes (truncated).
+review_status=$(printf '%s' "$all_reviews" | jq '
+  [.[]
+   | {author: .author.login, state: .state, createdAt: .createdAt, url: .url}]
+  | group_by(.author)
+  | [.[] | sort_by(.createdAt) | last]')
 
 # Review bodies: keep human-authored summaries, or bot bodies carrying out-of-band
 # findings (CodeRabbit posts these in the body, not as inline threads). Drop
@@ -215,8 +281,8 @@ fi
 # (emoji/wording change across releases). The match below is deliberately tolerant
 # (bare phrases, no emoji, no counts); if CodeRabbit renames a section this is the
 # line to update.
-review_comments=$(printf '%s' "$pr_data" | jq '
-  [.reviews.nodes[]
+review_comments=$(printf '%s' "$all_reviews" | jq '
+  [.[]
    | select((.body | length) > 0)
    | select((.author.__typename == "User")
             or (.body | test("Outside diff range|Duplicate comments|Nitpick comments")))]')
@@ -247,9 +313,11 @@ if [[ "$output_json" == true ]]; then
     --arg title "$pr_title" \
     --arg url "$pr_url" \
     --slurpfile threads <(printf '%s' "$threads_json") \
+    --slurpfile reactions <(printf '%s' "$pr_reactions") \
+    --slurpfile reviews <(printf '%s' "$review_status") \
     --slurpfile reviewComments <(printf '%s' "$review_comments") \
     --slurpfile issueComments <(printf '%s' "$issue_comments") \
-    '{pr: {title: $title, url: $url}, threads: $threads[0], reviewComments: $reviewComments[0], issueComments: $issueComments[0]}'
+    '{pr: {title: $title, url: $url}, threads: $threads[0], reactions: $reactions[0], reviews: $reviews[0], reviewComments: $reviewComments[0], issueComments: $issueComments[0]}'
 else
   # Human-readable mode (original --jq behavior)
   if [[ "$show_all" == true ]]; then
@@ -287,6 +355,25 @@ else
       )
     '
   fi
+
+  # PR-level reactions — Codex adds 👀 mid-review, 👍 on approval.
+  printf '%s' "$pr_reactions" | jq -r '
+    def emoji: {"THUMBS_UP":"👍","THUMBS_DOWN":"👎","LAUGH":"😄","HOORAY":"🎉",
+                "CONFUSED":"😕","HEART":"❤️","ROCKET":"🚀","EYES":"👀"}[.] // .;
+    if length > 0 then
+      "── Reactions ──",
+      (.[] | "  @\(.user): \(.reaction | emoji)"),
+      ""
+    else empty end'
+
+  # Review status — shows each reviewer's latest verdict so the caller can
+  # distinguish "reviewed, no findings" from "review hasn't run yet."
+  printf '%s' "$review_status" | jq -r '
+    if length > 0 then
+      "── Review status ──",
+      (.[] | "  @\(.author): \(.state)"),
+      ""
+    else empty end'
 
   # Non-thread surfaces — not resolvable (no PRRT_ id; reply with a normal PR
   # comment, not a thread-resolve). Shown regardless of --all.

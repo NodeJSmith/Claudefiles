@@ -4,6 +4,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-08-21
 
+### Added
+
+- Agents now show `[Context: N%]` on `AskUserQuestion` prompts at major decision gates (shipping, known issues, task failure, review/challenge findings, clean code, comb) via the new `context-pct` tool, so the user can decide whether to continue or clear context and resume. (#530)
+
 ### Fixed
 
 - `gh-pr-threads --json` no longer raises E2BIG on PRs with 40+ review threads. (#529)
