@@ -235,6 +235,11 @@ GRAPHQL
       -f repo="$repo_name" \
       -F pr="$pr_number")
 
+    if printf '%s' "$reviews_resp" | jq -e '.errors' > /dev/null 2>&1; then
+      printf '%s' "$reviews_resp" | jq -r '.errors[0].message // "unknown GraphQL error"' >&2
+      break
+    fi
+
     page_reviews=$(printf '%s' "$reviews_resp" | jq '.data.repository.pullRequest.reviews.nodes')
     all_reviews=$(printf '%s\n%s' "$all_reviews" "$page_reviews" | jq -s 'add')
 
