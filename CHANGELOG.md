@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-08-21
+
+### Fixed
+
+- `gh-pr-threads --json` no longer raises E2BIG on PRs with 40+ review threads. (#529)
+
 ## 2026-08-20
 
 ### Added
