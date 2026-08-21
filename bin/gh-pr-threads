@@ -26,7 +26,7 @@ than inline threads. Auto-generated walkthrough/summary noise is filtered out.
 
 Options:
   -R, --repo OWNER/REPO  Target a specific repository (default: current repo)
-  --json                 Emit a JSON object: {pr, threads, reviewComments, issueComments}
+  --json                 Emit a JSON object: {pr, threads, reviews, reviewComments, issueComments}
   --all                  Include resolved threads (default: unresolved only)
   -h, --help             Show this help message and exit
 
@@ -203,6 +203,14 @@ if printf '%s' "$pr_data" | jq -e '.comments.pageInfo.hasNextPage' > /dev/null 2
   echo "warning: PR has >100 conversation comments — comments beyond the first 100 are not shown" >&2
 fi
 
+# Review status: per-reviewer latest state (APPROVED, CHANGES_REQUESTED, etc.)
+# so the caller can distinguish "reviewed with no findings" from "not reviewed yet."
+review_status=$(printf '%s' "$pr_data" | jq '
+  [.reviews.nodes[]
+   | {author: .author.login, state: .state, createdAt: .createdAt, url: .url}]
+  | group_by(.author)
+  | [.[] | sort_by(.createdAt) | last]')
+
 # Review bodies: keep human-authored summaries, or bot bodies carrying out-of-band
 # findings (CodeRabbit posts these in the body, not as inline threads). Drop
 # pointer-boilerplate ("Actionable comments posted: N" whose items are already
@@ -247,9 +255,10 @@ if [[ "$output_json" == true ]]; then
     --arg title "$pr_title" \
     --arg url "$pr_url" \
     --slurpfile threads <(printf '%s' "$threads_json") \
+    --slurpfile reviews <(printf '%s' "$review_status") \
     --slurpfile reviewComments <(printf '%s' "$review_comments") \
     --slurpfile issueComments <(printf '%s' "$issue_comments") \
-    '{pr: {title: $title, url: $url}, threads: $threads[0], reviewComments: $reviewComments[0], issueComments: $issueComments[0]}'
+    '{pr: {title: $title, url: $url}, threads: $threads[0], reviews: $reviews[0], reviewComments: $reviewComments[0], issueComments: $issueComments[0]}'
 else
   # Human-readable mode (original --jq behavior)
   if [[ "$show_all" == true ]]; then
@@ -287,6 +296,15 @@ else
       )
     '
   fi
+
+  # Review status — shows each reviewer's latest verdict so the caller can
+  # distinguish "reviewed, no findings" from "review hasn't run yet."
+  printf '%s' "$review_status" | jq -r '
+    if length > 0 then
+      "── Review status ──",
+      (.[] | "  @\(.author): \(.state)"),
+      ""
+    else empty end'
 
   # Non-thread surfaces — not resolvable (no PRRT_ id; reply with a normal PR
   # comment, not a thread-resolve). Shown regardless of --all.
