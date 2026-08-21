@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Output the current session's context window usage percentage.
+#
+# Reads the sidecar written by claude-context-writer. Uses
+# $CLAUDE_CODE_SESSION_ID when available (the normal case inside a Claude
+# Code session), falls back to an explicit argument.
+#
+# Exit silently (no output) when no sidecar is available — callers treat
+# empty output as "unknown."
+
+set -euo pipefail
+
+case "${1:-}" in
+  -h | --help)
+    echo "Usage: context-pct [session_id]"
+    echo ""
+    echo "Output the current session's context window usage percentage."
+    echo "Uses \$CLAUDE_CODE_SESSION_ID when available; accepts an explicit"
+    echo "session_id as override. Exits silently when no sidecar is found."
+    exit 0
+    ;;
+esac
+
+sid="${1:-${CLAUDE_CODE_SESSION_ID:-}}"
+
+if [ -n "$sid" ]; then
+  sidecar="/tmp/claude-context-${sid}.meta"
+else
+  exit 0
+fi
+
+[ -f "$sidecar" ] || exit 0
+
+pct="$(sed -n 's/^pct=//p' "$sidecar" 2> /dev/null)" || exit 0
+case "${pct:-}" in
+  '' | *[!0-9]*) exit 0 ;;
+esac
+
+printf '%s\n' "$pct"
