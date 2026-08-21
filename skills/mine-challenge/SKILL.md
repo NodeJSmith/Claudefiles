@@ -21,8 +21,10 @@ $ARGUMENTS — optional scope:
 - `--target-type=<type>` — override heuristic classification. Values: `code`, `frontend-code`, `spec`, `design-doc`, `brief`, `skill-file`, `agent-file`, `rule`, `docs`, `research`, `other`
 - `--mode=passthrough` — present summary only; skip inline resolution (mine-brainstorm, mine-research)
 - `--no-specialists` — triage selects from generic personas only
-- `--cap=N` — finding cap (default 7). CRITICAL and HIGH are never capped.
+- `--cap=N` — mode switch, not a numeric ceiling: `0` selects automation mode (see step 5); any nonzero value (default 7) selects default mode, where CRITICAL, HIGH, and MEDIUM are always presented and only TENSION can overflow. The specific nonzero value has no further effect — passing `--cap=3` behaves identically to the default `--cap=7`.
 - `--verbose` — show all findings including overflow
+- `--critics=N` — pin the critic count to exactly N, clamped to the number of eligible personas (12 total: 3 generic, 9 specialist — fewer if `--no-specialists` is also set). Overrides triage's default 1–3 range and the re-challenge cap of 2. When `--focus` forces a specialist, that specialist occupies one of the N slots rather than adding to them.
+- `--re-challenge` — mark this run as a re-challenge. Replaces the file-based detection.
 
 ## How to Analyze
 
@@ -32,9 +34,9 @@ DO use Read, Grep, Glob, `git log`/`git diff`. Use WebSearch to cite canonical p
 
 ## Finding Taxonomy
 
-Every finding gets: **severity** (CRITICAL / HIGH / MEDIUM / TENSION), **type** (Structural / Approach-now / Approach-later / Fragility / Gap), **design-level** (Yes / No), **resolution** (Auto-apply / User-directed).
+Every finding gets: **severity** (CRITICAL / HIGH / MEDIUM / TENSION), **type** (Structural / Approach-now / Approach-later / Fragility / Gap), **design-level** (Yes / No), **classification** (Auto-apply / User-directed).
 
-See `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md` for classification criteria, status/overflow fields, and the inline resolution flow.
+See `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md` for classification criteria, visibility/disposition fields, and the inline resolution flow.
 
 ## Phase 1: Triage
 
@@ -68,7 +70,7 @@ Classify target type — use `--target-type` if provided, otherwise:
 ### Re-challenge detection
 
 Check for a prior challenge run before dispatching triage:
-1. Look for `challenge-results*.md` or `challenge-findings*.md` in the target's directory. Check whether the file starts with `# Challenge Findings` + `**Format-version:**`. If yes → re-challenge.
+1. If `--re-challenge` flag was provided → re-challenge.
 2. Fallback: if conversation context shows a prior challenge against this target → re-challenge.
 
 Note re-challenge status in context for Phase 2 critic selection.
@@ -81,6 +83,7 @@ Note re-challenge status in context for Phase 2 critic selection.
 - Re-challenge flag (`yes` / `no`)
 - `--focus` value if provided
 - `--no-specialists` flag if provided
+- `--critics=N` value if provided
 - The persona catalog (name + one-line description from each frontmatter):
 
 **Generics:**
@@ -100,13 +103,14 @@ Note re-challenge status in context for Phase 2 critic selection.
 - `workflow-ux.md` — Workflow & UX Critic: phase transitions, unhelpful defaults, unnecessary friction
 
 **Triage subagent instructions:** Return a JSON block with:
-- `critics`: array of 1–3 persona filenames (e.g., `["senior-engineer.md", "contract-caller.md"]`)
+- `critics`: array of persona filenames — 1–3 by default, or exactly N (clamped per the `--critics=N` rule below) when that flag is set (e.g., `["senior-engineer.md", "contract-caller.md"]`)
 - `rationale`: object mapping each filename to a one-sentence reason for selection
 - `target_summary`: one sentence describing what the target does
 
 **Triage rules:**
 - If `--no-specialists`: select only from generics
 - If `--focus` is a single word ≥6 chars that prefix-matches a specialist slug: always include that specialist
+- If `--critics=N` is provided: select exactly N critics, clamped to the number of eligible personas (values above the catalog select every eligible persona instead; values below 1 are ignored). `--critics=N` overrides the re-challenge cap of 2.
 - If re-challenge (`yes`): select max 2 critics total
 - Otherwise: select 1–3 critics; include at least one generic unless the target is highly specialized
 - If triage returns zero critics: fall back to `senior-engineer.md`
@@ -153,7 +157,7 @@ If the generic persona directory is missing or empty, stop with: "Cannot launch 
 - Critic rules:
   1. **Cite evidence for every claim** — `file:line` for codebase claims; canonical URL for external patterns
   2. **Name the problem directly** — no hedging
-  3. **Propose a fix**: `Resolution: Auto-apply | User-directed` + one-sentence fix or options
+  3. **Propose a fix**: `Classification: Auto-apply | User-directed` + one-sentence fix or options
   4. **Tag each finding**: severity (CRITICAL/HIGH/MEDIUM/TENSION), type, design-level
   5. **Structure each finding**: `**Why it matters**`, `**Evidence**`, `**Design challenge**`
   6. **Include a Pushback section**: findings you anticipate other critics raising that you'd disagree with
@@ -184,20 +188,18 @@ The synthesis subagent receives:
    - `severity`: highest severity any critic assigned (must be CRITICAL / HIGH / MEDIUM / TENSION — reclassify non-contract values as MEDIUM)
    - `type`: type best describing the root cause
    - `design-level`: Yes wins when critics disagree
-   - `resolution`: Auto-apply only when ALL critics agree on the same fix AND it's localized and additive AND severity is not CRITICAL. Otherwise User-directed. When ambiguous, default User-directed.
-   - `status`: `pending` for all in-cap findings; `overflow` for findings beyond the cap
-   - `overflow`: `false` for in-cap findings; `true` for findings beyond the cap
-4. **CRITICAL guard**: CRITICAL findings MUST always be classified as `resolution: User-directed` regardless of the resolution field from any critic or agreement level. This is a non-negotiable override — do not classify any CRITICAL finding as Auto-apply under any circumstances.
-5. **Cap enforcement:**
-   - If cap=0: pure automation mode — keep `resolution: Auto-apply` findings as `status: pending` so Phase 4 applies them; mark `resolution: User-directed` findings as `status: overflow`
-   - CRITICAL and HIGH: always included, never overflow (except User-directed findings when cap=0)
-   - TENSION: overflow if any CRITICAL or HIGH findings exist
-   - MEDIUM: always included, never overflow (except User-directed MEDIUM findings when cap=0)
+   - `classification`: Auto-apply only when ALL critics agree on the same fix AND it's localized and additive AND severity is not CRITICAL. Otherwise User-directed. When ambiguous, default User-directed.
+   - `visibility`: `presented` for all in-cap findings; `overflow` for findings beyond the cap
+   - `disposition`: `pending` for all in-cap findings; NULL for overflow findings
+4. **CRITICAL guard**: CRITICAL findings MUST always be classified as `classification: User-directed` regardless of the classification field from any critic or agreement level. This is a non-negotiable override — do not classify any CRITICAL finding as Auto-apply under any circumstances.
+5. **Cap enforcement** (`--cap` is a mode switch — 0 vs. nonzero — not a numeric ceiling; see the flag doc above):
+   - If cap=0: pure automation mode — keep `classification: Auto-apply` findings as `disposition: pending` so Phase 4 applies them; mark `classification: User-directed` findings as `visibility: overflow`
+   - Otherwise (default mode, any nonzero cap): CRITICAL, HIGH, and MEDIUM are always included, never overflow. TENSION overflows if any CRITICAL or HIGH findings exist.
 6. **Copy presentation fields** from critic reports: `why-it-matters` (most concrete consequence statement), `evidence` (all file:line citations, deduped), `design-challenge` (strongest question). Write `not cited` for evidence when none; omit other fields when absent.
 7. **Write recommendation** for each User-directed finding (which option and why). For TENSION: write deciding-factor instead.
-8. **Validity assessment**: assess whether each finding holds up. Findings are valid by default — to flag one as likely invalid, you must provide concrete evidence: what the finding claims, what the code actually does, and why they conflict. Read the relevant code to verify claims. If you cannot articulate the evidence trail, the finding stays in the main list. Move likely-invalid findings to the `## Likely Invalid` section per the findings protocol; renumber the remaining findings to stay contiguous (no gaps in the `## Finding N:` sequence).
+8. **Validity assessment**: assess whether each finding holds up. Findings are valid by default — to flag one as likely invalid, you must provide concrete evidence: what the finding claims, what the code actually does, and why they conflict. Read the relevant code to verify claims. If you cannot articulate the evidence trail, the finding stays in the main list. Move likely-invalid findings to the `## Likely Invalid` section per the findings protocol; set each moved finding's `visibility` to `likely-invalid` and drop its `disposition` (omit the field — NULL). Renumber the remaining findings to stay contiguous (no gaps in the `## Finding N:` sequence).
 
-**Write findings file** to the output path using `Format-version: 3` header. Include `**Likely-invalid:** N` in the header block (even when 0). Format per `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`.
+**Write findings file** to the output path using `Format-version: 4` header. Include `**Likely-invalid:** N` in the header block (even when 0). Format per `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`.
 
 **After synthesis subagent completes:** Verify the findings file exists at the output path. If missing (subagent returned text instead of writing), extract findings from the returned text: if it starts with `# Challenge Findings` and contains `**Format-version:**` write as-is (verify `**Likely-invalid:**` line is present; inject `**Likely-invalid:** 0` after the `**Format-version:**` line if missing); if it contains `## Finding` headings inject the header block (including `**Likely-invalid:** 0`) then write; otherwise stop with "Error: synthesis subagent did not produce findings in a writable format — re-run `/mine-challenge`."
 
@@ -207,11 +209,11 @@ Read the findings file. Announce: "Specialists selected: [names from triage]" an
 
 **If `--mode=passthrough`**: present a one-paragraph summary (count by severity, likely-invalid count, top takeaway). Return. Do not execute anything.
 
-**If standalone mode** (direct user invocation, or caller like mine-grill/mine-define):
+**If standalone mode** (direct user invocation, mine-grill, or any caller not passing --mode=passthrough — includes orchestration callers driven via challenge-gate.md):
 
 Read and follow the Inline Resolution Flow in `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md` exactly. After all findings are processed, report: "Applied N findings. M skipped. K overflow (use `--verbose` to see all). L flagged as likely invalid." List critic report paths and findings file path.
 
-If `--verbose`: also present overflow findings (status: overflow) after the main flow, labeled as "Additional findings (beyond cap)".
+If `--verbose`: also present overflow findings (visibility: overflow) after the main flow, labeled as "Additional findings (beyond cap)".
 
 ## Principles
 
@@ -230,7 +232,11 @@ Passthrough callers (pass `--mode=passthrough`):
 
 Standalone callers (full inline resolution flow):
 - `skills/mine-grill/SKILL.md`
-- `skills/mine-define/SKILL.md` (Phase 6 sign-off gate — "Challenge first" option)
+
+Orchestration callers (mandatory, via challenge-gate.md):
+- `skills/mine-define/SKILL.md` (Phase 5.5 — design-time challenge)
+- `skills/mine-sketch/SKILL.md` (Phase 4.5 — sketch-time challenge with --critics=2)
+- `skills/mine-orchestrate/post-execution-pipeline.md` (Step 3.5 — ship-time challenge)
 
 Inline-revision callers (invoke challenge, read findings in-context, revise own proposal):
 - `skills-impeccable/i-adapt/SKILL.md`, `skills-impeccable/i-animate/SKILL.md`, `skills-impeccable/i-bolder/SKILL.md`

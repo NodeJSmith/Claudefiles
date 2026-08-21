@@ -5,15 +5,15 @@ from contextlib import contextmanager
 from unittest.mock import MagicMock
 
 import pytest
-
 from cfl.cli import (
     _parse_argv_for_telemetry,
     app,
     cmd_dispatch_end,
+    cmd_finding_record,
+    cmd_finding_record_batch,
     handle_event,
     run_app,
 )
-
 
 # ---------------------------------------------------------------------------
 # Command registration smoke test
@@ -31,6 +31,7 @@ def test_app_registers_all_expected_commands():
         "event",
         "session",
         "question",
+        "finding",
         "archive",
         "stop-orphans",
         "set",
@@ -245,3 +246,99 @@ def test_dispatch_create_without_task_id_passes_none(monkeypatch):
     assert call.args[2] == "impl-review"
     assert call.kwargs["task_id"] is None
     assert call.kwargs["agent_type"] == "integration-reviewer"
+
+
+# ---------------------------------------------------------------------------
+# finding record / record-batch: run_id derivation from gate_id
+# ---------------------------------------------------------------------------
+
+
+def test_finding_record_batch_derives_run_id_from_gate(monkeypatch):
+    """record-batch must derive run_id from the gate it's attached to, not
+    the ambiguous repo-wide active-run lookup (which returns None whenever
+    more than one run is active)."""
+    mock_record_batch = MagicMock()
+    mock_resolve_gate = MagicMock(return_value=42)
+    mock_active_run = MagicMock(return_value=None)
+
+    monkeypatch.setattr("cfl.cli.record_finding_batch", mock_record_batch)
+    monkeypatch.setattr("cfl.cli.resolve_run_id_for_gate", mock_resolve_gate)
+    monkeypatch.setattr("cfl.cli.try_resolve_active_run_id", mock_active_run)
+
+    @contextmanager
+    def conn_ok():
+        yield MagicMock()
+
+    monkeypatch.setattr("cfl.cli.db_connection", conn_ok)
+
+    cmd_finding_record_batch(gate_id=7, file="findings.json", source="challenge")
+
+    mock_resolve_gate.assert_called_once()
+    assert mock_resolve_gate.call_args.args[1] == 7
+    mock_active_run.assert_not_called()
+    mock_record_batch.assert_called_once()
+    assert mock_record_batch.call_args.kwargs["run_id"] == 42
+
+
+def test_finding_record_with_gate_id_derives_run_id_from_gate(monkeypatch):
+    """A single `finding record --gate-id N` derives run_id from the gate,
+    same as record-batch."""
+    mock_record = MagicMock()
+    mock_resolve_gate = MagicMock(return_value=42)
+    mock_active_run = MagicMock(return_value=None)
+
+    monkeypatch.setattr("cfl.cli.record_finding", mock_record)
+    monkeypatch.setattr("cfl.cli.resolve_run_id_for_gate", mock_resolve_gate)
+    monkeypatch.setattr("cfl.cli.try_resolve_active_run_id", mock_active_run)
+
+    @contextmanager
+    def conn_ok():
+        yield MagicMock()
+
+    monkeypatch.setattr("cfl.cli.db_connection", conn_ok)
+
+    cmd_finding_record(
+        "challenge",
+        1,
+        title="t",
+        severity="HIGH",
+        visibility="presented",
+        gate_id=7,
+    )
+
+    mock_resolve_gate.assert_called_once()
+    assert mock_resolve_gate.call_args.args[1] == 7
+    mock_active_run.assert_not_called()
+    mock_record.assert_called_once()
+    assert mock_record.call_args.args[1] == 42
+
+
+def test_finding_record_without_gate_id_falls_back_to_active_run(monkeypatch):
+    """A gate-less `finding record` (no --gate-id) keeps using the
+    repo-wide active-run lookup — there's no gate to derive it from."""
+    mock_record = MagicMock()
+    mock_resolve_gate = MagicMock()
+    mock_active_run = MagicMock(return_value=99)
+
+    monkeypatch.setattr("cfl.cli.record_finding", mock_record)
+    monkeypatch.setattr("cfl.cli.resolve_run_id_for_gate", mock_resolve_gate)
+    monkeypatch.setattr("cfl.cli.try_resolve_active_run_id", mock_active_run)
+
+    @contextmanager
+    def conn_ok():
+        yield MagicMock()
+
+    monkeypatch.setattr("cfl.cli.db_connection", conn_ok)
+
+    cmd_finding_record(
+        "challenge",
+        1,
+        title="t",
+        severity="HIGH",
+        visibility="presented",
+    )
+
+    mock_resolve_gate.assert_not_called()
+    mock_active_run.assert_called_once()
+    mock_record.assert_called_once()
+    assert mock_record.call_args.args[1] == 99

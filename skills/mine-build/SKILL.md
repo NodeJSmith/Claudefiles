@@ -76,9 +76,9 @@ AskUserQuestion:
     - label: "Simple — implement directly"
       description: "Explore, implement, code-review, then offer to ship"
     - label: "Structured — sketch + orchestrate"
-      description: "Lightweight design.md + task files → orchestrate with full execution gates"
+      description: "Lightweight design.md + task files → orchestrate with full execution gates (includes mandatory challenge at sketch and ship time)"
     - label: "Complex — full caliper workflow"
-      description: "define → plan → orchestrate → ship"
+      description: "define → plan → orchestrate → ship (includes mandatory challenge at design and ship time)"
 ```
 
 If **prior analysis detected** (findings, plan, or critique already in context):
@@ -92,11 +92,11 @@ AskUserQuestion:
     - label: "Simple — implement directly"
       description: "Explore, implement, code-review, then offer to ship"
     - label: "Structured — sketch + orchestrate"
-      description: "Lightweight design.md + task files → orchestrate with full execution gates"
+      description: "Lightweight design.md + task files → orchestrate with full execution gates (includes mandatory challenge at sketch and ship time)"
     - label: "Accelerated — lightweight define phase"
-      description: "Formalize findings into design.md (skip research — already done) → plan → orchestrate → ship"
+      description: "Formalize findings into design.md (skip research — already done) → plan → orchestrate → ship (includes mandatory challenge)"
     - label: "Full caliper workflow"
-      description: "define → plan → orchestrate → ship — start from scratch"
+      description: "define → plan → orchestrate → ship — start from scratch (includes mandatory challenge at design and ship time)"
 ```
 
 ### Routing Rationalizations
@@ -219,3 +219,4 @@ Then chain the following steps:
 | "I'll batch these issues and start the smallest first" | Multi-issue work still flows through design → plan → review → execute. Starting with "the easy one" bypasses the plan that sequences all of them. |
 | "We already did code review, we can ship" | Code review and challenge are orthogonal gates — see `rules/common/git-workflow.md`. One does not substitute for the other. |
 | "The user said 'start the workflow' — I'll run it all continuously" | Each caliper phase has its own decision gate. "Start the workflow" means begin Phase 1, not execute all phases as one atomic operation. Pause for user confirmation between design sign-off, plan review, and orchestration. |
+| "We can skip the challenge on this one" | Challenge is mandatory in Structured and Complex paths. It cannot be skipped. If the change is small enough to skip challenge, use the Simple path — which has no challenge because Path A doesn't route through orchestration. |

@@ -2,7 +2,8 @@
 
 After all tasks are processed (or the user chose "Stop here"), run this pipeline. Steps 1–5 are
 automatic except for blocking gates; prompt the user at implementation and cross-file blocking
-gates, severity escalations, the known-issues walkthrough, and the shipping gate.
+gates, the challenge gate's inline finding resolution, severity escalations, the known-issues
+walkthrough, and the shipping gate.
 
 Phase 3 subagents always run in the foreground: never set `run_in_background: true`. Every
 subagent prompt includes the immediately preceding dispatch's `cfl_dispatch_id`. After a dispatch
@@ -264,6 +265,28 @@ gate.
 On "Stop here" from either blocking gate, leave the run active; the user can resume later. Do not
 call `cfl run complete`.
 
+## Step 3.5: Challenge
+
+Run the mandatory ship-time challenge against the branch's changed files (automatic, gates on inline finding resolution).
+
+Compute the changed-files list using the full-branch scope defined above (`git diff --name-only <base_commit> HEAD`, `git diff --name-only HEAD`, `git ls-files --others --exclude-standard`). Write the deduplicated list to `<dir>/challenge-changed-files.txt`.
+
+Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/challenge-gate.md` and follow it with:
+
+- **`<header>`**: `Challenge`
+- **`<gate_type>`**: `ship-challenge`
+- **`<target>`**: `<dir>/challenge-changed-files.txt`
+- **`<critic_flag>`**: (empty — use triage default 1–3)
+- **`<re_challenge_flag>`**: (empty — first challenge in this run)
+- **`<post_resolution>`**: After the resolve loop in the challenge-gate recipe (its own step 6) completes, read the findings file and write `<dir>/challenge-summary.md`:
+  - `**Verdict:** PASS` if the findings file has zero `## Finding N:` entries; `WARN` if it has findings but none CRITICAL/HIGH are left with `disposition: skipped`; `FAIL` if any CRITICAL/HIGH finding is left with `disposition: skipped`.
+  - `**Findings:** <N>` — the total `## Finding N:` count (excluding Likely Invalid).
+  - When Verdict is `FAIL`, list every CRITICAL or HIGH finding left with `disposition: skipped` (title + one-line why-it-matters each).
+
+  A bare `No unresolved CRITICAL/HIGH findings.` string (the prior format) can't distinguish "challenge found nothing" from "challenge found findings that were all resolved" — both produced identical text. The `Verdict`/`Findings` fields make that distinction explicit for Step 6 to report accurately. This pipeline's own Step 6 (Shipping gate) reads this file fresh rather than carrying the result in context — the same durable-artifact pattern Step 4's `clean-code-summary.md` and Step 5.5's `known-issues.md` already use.
+
+Step 4 does not begin until the challenge completes.
+
 ## Step 4: Clean code check (automatic)
 
 After the cross-file consistency review passes, run a clean code check on the current full-branch
@@ -442,7 +465,7 @@ Present the final gate with impl-review and cross-file review results:
 
 ```
 AskUserQuestion:
-  question: "All tasks complete. Implementation review: <PASS + any non-blocking suggestions summary>. Cross-file review: <PASS/WARN + any notes>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Final review: <PASS — N fixed, M deferred to known issues, R rejected — or 'all clean'>. Known issues: <0 open | N still open: KI-001 title; KI-002 title>. What next?"
+  question: "All tasks complete. Implementation review: <PASS + any non-blocking suggestions summary>. Cross-file review: <PASS/WARN + any notes>. Challenge: <PASS — no findings | WARN — N findings, all resolved | note naming any CRITICAL/HIGH with disposition: skipped>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Final review: <PASS — N fixed, M deferred to known issues, R rejected — or 'all clean'>. Known issues: <0 open | N still open: KI-001 title; KI-002 title>. What next?"
   header: "Ship"
   multiSelect: false
   options:
@@ -450,8 +473,6 @@ AskUserQuestion:
       description: "Commit, push, and open a PR"
     - label: "Run smoke test"
       description: "Surface the design's smoke test for interactive verification before shipping"
-    - label: "Challenge first"
-      description: "Run /mine-challenge on the branch diff before shipping"
     - label: "Stop here"
       description: "Pause; I'll review manually"
 ```
@@ -459,12 +480,12 @@ AskUserQuestion:
 After the user selects, record the shipping gate result:
 
 ```bash
-cfl gate shipping-gate --verdict <PASS|WARN|FAIL> --data '{"choice": "<ship|smoke-test|challenge|stop>"}'
+cfl gate shipping-gate --verdict <PASS|WARN|FAIL> --data '{"choice": "<ship|smoke-test|stop>"}'
 ```
 
-(PASS for "Ship via /mine-ship", WARN for "Run smoke test" or "Challenge first", FAIL for "Stop here"). "Run smoke test" records WARN before looping back; the terminal choice (ship/challenge/stop) re-records the gate with the final verdict.
+(PASS for "Ship via /mine-ship", WARN for "Run smoke test", FAIL for "Stop here"). "Run smoke test" records WARN before looping back; the terminal choice (ship/stop) re-records the gate with the final verdict.
 
-Read `<dir>/clean-code-summary.md` to populate the `Clean code check:` field in the question above.
+Read `<dir>/clean-code-summary.md` to populate the `Clean code check:` field in the question above. Read `<dir>/challenge-summary.md` (written by Step 3.5's `<post_resolution>`) to populate the `Challenge:` field from its `Verdict`: `PASS` → "no findings", `WARN` → "N findings, all resolved" (using its `Findings` count), `FAIL` → name each listed CRITICAL/HIGH finding left `disposition: skipped`.
 
 Use the `fixed`/`deferred`/`rejected`/`unresolved` counts recorded in the `cfl gate final-review` call above to populate the `Final review:` field — by the time this step runs, that gate is PASS (a FAIL would have stopped the pipeline before reaching here). If `<dir>/clean-code-summary.md` contains a `Final-review retest` section, include its refreshed test/lint status in the `Final review:` field so the shipping prompt reflects the gates that ran after final-review auto-fixes.
 
@@ -489,8 +510,6 @@ AskUserQuestion:
 On **Pass**: re-present the shipping gate without the "Run smoke test" option — it has been satisfied.
 
 On **Fail**: the feature is broken end-to-end. Investigate the failure with the user and fix the issue. If the fix modified implementation code (not just configuration or test data), re-run Steps 2–5 (implementation review through final review) before re-presenting the shipping gate — those prior gate results are stale after code changes. Re-present the shipping gate with the "Run smoke test" option still available so the user can re-verify after the fix.
-
-**On "Challenge first":** Tell the user to run `/mine-challenge` on the changed files. After challenge completes and the user is satisfied, they can run `/mine-ship` directly.
 
 **On "Stop here":** Leave the run active. The user can resume later.
 

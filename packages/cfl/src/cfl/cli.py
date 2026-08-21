@@ -17,14 +17,25 @@ from cfl.db import db_connection, get_db_path
 from cfl.direct import VALID_ENTITIES, parse_field_args, set_field
 from cfl.dispatch import end_dispatch, record_dispatch
 from cfl.event import list_events, record_event
-from cfl.gate import VALID_GATE_VERDICTS, record_gate
-from cfl.question import (
-    VALID_STATUSES as VALID_QUESTION_STATUSES,
+from cfl.finding import (
+    KNOWN_SEVERITIES,
+    TERMINAL_FINDING_DISPOSITIONS,
+    VALID_DESIGN_LEVELS,
+    VALID_FINDING_DISPOSITIONS,
+    VALID_VISIBILITIES,
+    list_findings,
+    record_finding,
+    record_finding_batch,
+    resolve_finding,
 )
+from cfl.gate import VALID_GATE_VERDICTS, record_gate, resolve_run_id_for_gate
 from cfl.question import (
     VALID_DISPOSITIONS,
     list_questions,
     record_question,
+)
+from cfl.question import (
+    VALID_STATUSES as VALID_QUESTION_STATUSES,
 )
 from cfl.resolve import resolve_context, resolve_spec, try_resolve_active_run_id
 from cfl.run import (
@@ -65,7 +76,16 @@ _VALID_TASK_STATUSES = sorted(
 _FLAG = Parameter(negative=[])
 
 # Keep in sync with sub-App registrations (spec_app, run_app, etc.) below.
-_GROUPED_COMMANDS = {"spec", "run", "task", "dispatch", "event", "session", "question"}
+_GROUPED_COMMANDS = {
+    "spec",
+    "run",
+    "task",
+    "dispatch",
+    "event",
+    "session",
+    "question",
+    "finding",
+}
 
 # ---------------------------------------------------------------------------
 # App hierarchy
@@ -110,6 +130,12 @@ question_app = App(
     help_epilogue=help_text.QUESTION,
 )
 app.command(question_app)
+
+finding_app = App(
+    name="finding",
+    help="Review finding recording and querying.",
+)
+app.command(finding_app)
 
 # ---------------------------------------------------------------------------
 # Global options via meta launcher
@@ -852,6 +878,156 @@ def cmd_question_list(
             run_id=run_id,
             limit=limit,
         )
+
+
+# ---------------------------------------------------------------------------
+# finding commands
+# ---------------------------------------------------------------------------
+
+
+@finding_app.command(name="record", help_epilogue=help_text.FINDING_RECORD)
+def cmd_finding_record(
+    source: Annotated[str, Parameter(help="Finding producer (e.g. challenge)")],
+    finding_num: Annotated[int, Parameter(help="Finding number within its gate")],
+    *,
+    title: Annotated[str, Parameter(help="Short finding title")],
+    severity: Annotated[
+        str,
+        Parameter(help=f"Severity ({', '.join(sorted(KNOWN_SEVERITIES))})"),
+    ],
+    visibility: Annotated[
+        str,
+        Parameter(help=f"Visibility ({', '.join(sorted(VALID_VISIBILITIES))})"),
+    ],
+    gate_id: Annotated[
+        int | None,
+        Parameter(name=["--gate-id"], help="Gate this finding was raised at"),
+    ] = None,
+    target: Annotated[
+        str | None,
+        Parameter(help="Artifact examined (design doc path or changed-files list)"),
+    ] = None,
+    finding_type: Annotated[
+        str | None,
+        Parameter(name=["--type"], help="Producer's finding-type taxonomy"),
+    ] = None,
+    design_level: Annotated[
+        str | None,
+        Parameter(
+            name=["--design-level"],
+            help=f"Whether this is a design-level finding ({', '.join(sorted(VALID_DESIGN_LEVELS))})",
+        ),
+    ] = None,
+    raised_by: Annotated[
+        str | None,
+        Parameter(name=["--raised-by"], help="Critic or reviewer that raised it"),
+    ] = None,
+    classification: Annotated[
+        str | None,
+        Parameter(
+            help="Synthesis-time classification (e.g. Auto-apply, User-directed)"
+        ),
+    ] = None,
+    disposition: Annotated[
+        str | None,
+        Parameter(
+            help=f"Resolution outcome ({', '.join(sorted(VALID_FINDING_DISPOSITIONS))})"
+        ),
+    ] = None,
+    why_it_matters: Annotated[
+        str | None,
+        Parameter(name=["--why-it-matters"], help="Why this finding matters"),
+    ] = None,
+) -> None:
+    """Record a single finding."""
+    with db_connection() as conn:
+        run_id = (
+            resolve_run_id_for_gate(conn, gate_id)
+            if gate_id is not None
+            else try_resolve_active_run_id(conn)
+        )
+        record_finding(
+            conn,
+            run_id,
+            gate_id,
+            source,
+            finding_num,
+            title=title,
+            severity=severity,
+            visibility=visibility,
+            target=target,
+            finding_type=finding_type,
+            design_level=design_level,
+            raised_by=raised_by,
+            classification=classification,
+            disposition=disposition,
+            why_it_matters=why_it_matters,
+        )
+
+
+@finding_app.command(name="record-batch", help_epilogue=help_text.FINDING_RECORD_BATCH)
+def cmd_finding_record_batch(
+    *,
+    gate_id: Annotated[
+        int, Parameter(name=["--gate-id"], help="Gate these findings were raised at")
+    ],
+    file: Annotated[str, Parameter(help="Path to a JSON array of finding objects")],
+    source: Annotated[str, Parameter(help="Finding producer (e.g. challenge)")],
+) -> None:
+    """Write every finding in a JSON file for one gate in a single transaction."""
+    with db_connection() as conn:
+        run_id = resolve_run_id_for_gate(conn, gate_id)
+        record_finding_batch(conn, gate_id, file, source=source, run_id=run_id)
+
+
+@finding_app.command(name="list", help_epilogue=help_text.FINDING_LIST)
+def cmd_finding_list(
+    *,
+    source: Annotated[str | None, Parameter(help="Filter by finding producer")] = None,
+    severity: Annotated[
+        str | None,
+        Parameter(help=f"Filter by severity ({', '.join(sorted(KNOWN_SEVERITIES))})"),
+    ] = None,
+    gate_id: Annotated[
+        int | None, Parameter(name=["--gate-id"], help="Filter by gate ID")
+    ] = None,
+    run_id: Annotated[
+        int | None, Parameter(name=["--run"], help="Filter by run ID")
+    ] = None,
+    limit: Annotated[int, Parameter(help="Max rows to return")] = 50,
+) -> None:
+    """List recorded findings."""
+    with db_connection() as conn:
+        list_findings(
+            conn,
+            source=source,
+            severity=severity,
+            gate_id=gate_id,
+            run_id=run_id,
+            limit=limit,
+        )
+
+
+@finding_app.command(name="resolve", help_epilogue=help_text.FINDING_RESOLVE)
+def cmd_finding_resolve(
+    *,
+    gate_id: Annotated[
+        int, Parameter(name=["--gate-id"], help="Gate the finding belongs to")
+    ],
+    finding_num: Annotated[
+        int,
+        Parameter(name=["--finding-num"], help="Finding number within the gate"),
+    ],
+    disposition: Annotated[
+        str,
+        Parameter(
+            help=f"Resolution outcome ({', '.join(sorted(TERMINAL_FINDING_DISPOSITIONS))})"
+        ),
+    ],
+) -> None:
+    """Move a presented, pending finding to a terminal disposition and stamp resolved_at."""
+    with db_connection() as conn:
+        resolve_finding(conn, gate_id, finding_num, disposition)
 
 
 # ---------------------------------------------------------------------------

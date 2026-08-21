@@ -260,6 +260,25 @@ Phase 6 does not begin until the comb gate resolves. The "No findings" path proc
 
 ---
 
+## Phase 5.5: Challenge
+
+Run the mandatory design-time challenge. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/challenge-gate.md` and follow it with:
+
+- **`<header>`**: `Challenge`
+- **`<gate_type>`**: `define-challenge`
+- **`<target>`**: `<design_doc_path>`
+- **`<critic_flag>`**: (empty — use triage default 1–3)
+- **`<re_challenge_flag>`**: (empty — first challenge in this run)
+- **`<post_resolution>`**: if any finding was applied to `design.md` (`disposition: applied` with `design-level: Yes`, including a TENSION finding's chosen side), re-run Phase 5 (the comb) against the now-edited doc, then return to this point — do not re-run the challenge. If no finding touched `design.md` (all skipped, filed, design-level: No, or zero findings), proceed to Phase 6 directly.
+
+Skip the cfl dispatch/gate/finding calls if cfl tracking was disabled in Phase 1 (no `<spec_number>` set). The challenge itself still runs regardless.
+
+Skip this resume check too if cfl tracking was disabled in Phase 1 (no `<spec_number>`/`<run_id>` set) — the challenge itself still runs unconditionally in that case, same as a first run. Otherwise: if this is a resume and the challenge already ran in a prior session, skip this phase. Check via: `cfl event list --event challenge.findings-persisted --run <run_id>` — if any row's data contains `"gate_type": "define-challenge"`, the challenge already ran and its findings were persisted for this run. Do not use `review.gated` for this check — that event fires when the gate is recorded (`challenge-gate.md` step 4), which happens *before* findings are persisted and resolved (steps 5–6); a run interrupted between those steps would otherwise look "already ran" on resume and skip re-persisting its findings. `challenge.findings-persisted` fires only after persistence *and* `<post_resolution>` (the comb re-run) complete (`challenge-gate.md` step 8) — a run interrupted before then re-enters the whole phase on resume rather than skipping `<post_resolution>`'s work.
+
+Phase 6 does not begin until the challenge completes.
+
+---
+
 ## Phase 6: Sign-Off Gate
 
 Present the design doc path, then:
@@ -270,8 +289,6 @@ AskUserQuestion:
   header: "Sign-off"
   multiSelect: false
   options:
-    - label: "Challenge first"
-      description: "Run /mine-challenge on the design doc to stress-test it before committing"
     - label: "Approve — proceed to planning"
       description: "Hand off to /mine-plan to generate task files"
     - label: "Revise — I have changes"
@@ -300,7 +317,6 @@ Verdict mapping:
 - "Approve — proceed to planning" → PASS
 - "Revise — I have changes" → WARN (loop continues; re-emit on each revision cycle)
 - "Save and stop" → SKIPPED
-- "Challenge first" → no gate emitted (challenge runs, then re-enters sign-off)
 
 Only when the verdict is PASS (approved), also emit the sign-off event:
 
@@ -308,13 +324,7 @@ Only when the verdict is PASS (approved), also emit the sign-off event:
 cfl event define.signed-off --spec <spec_number>
 ```
 
-On Revise, Save-and-stop, or Challenge, do **not** run the `cfl event` command above — no decision was finalized.
-
-### On "Challenge first"
-
-Invoke: `/mine-challenge <design-doc-path>`
-
-After challenge completes (it resolves findings inline as a standalone caller), re-run Phase 5 (Fine-Toothed Comb Review) against the potentially modified design doc, then loop back to the sign-off gate above with refreshed results.
+On Revise or Save-and-stop, do **not** run the `cfl event` command above — no decision was finalized.
 
 ### On "Approve"
 

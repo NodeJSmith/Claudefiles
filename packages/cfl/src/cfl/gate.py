@@ -33,6 +33,9 @@ KNOWN_GATE_TYPES: frozenset[str] = frozenset(
         "plan-comb",
         "plan-approval",
         "sketch-comb",
+        "define-challenge",
+        "sketch-challenge",
+        "ship-challenge",
     }
 )
 
@@ -126,3 +129,21 @@ def record_gate(
             "iteration": iteration,
         }
     )
+
+
+def resolve_run_id_for_gate(conn: sqlite3.Connection, gate_id: int) -> int:
+    """Look up the run_id a gate belongs to.
+
+    gates.run_id is NOT NULL, so this is authoritative for gate-backed
+    findings — unlike the ambiguous repo-wide active-run lookup, which
+    returns None whenever more than one spec run is active for the repo.
+    Exits 2 if gate_id does not exist.
+    """
+    row = conn.execute("SELECT run_id FROM gates WHERE id = ?", (gate_id,)).fetchone()
+    if row is None:
+        output_module.emit_error(
+            f"Gate {gate_id} not found.",
+            code="gate_not_found",
+            exit_code=2,
+        )
+    return row["run_id"]

@@ -242,6 +242,49 @@ Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-comb/comb-gate.md` and apply i
 
 ---
 
+## Phase 4.5: Challenge
+
+Run the mandatory sketch-time challenge. Read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/challenge-gate.md` and follow it with:
+
+- **`<header>`**: `Challenge`
+- **`<gate_type>`**: `sketch-challenge`
+- **`<target>`**: `<design_doc_path>`
+- **`<critic_flag>`**: `--critics=2`
+- **`<re_challenge_flag>`**: (empty — first challenge in this run)
+- **`<post_resolution>`**: If any finding was applied to `design.md` (`disposition: applied` with `design-level: Yes`, including a TENSION finding's chosen side), re-run Phase 4 (the comb) against the now-edited design doc and task files together, then return to this point — do not re-run the challenge. Then, if any CRITICAL finding was produced (check the findings file), offer the upgrade-to-caliper choice before proceeding to Phase 5. See below.
+
+Skip the cfl dispatch/gate/finding calls if cfl tracking was disabled in Phase 1 (no `<spec_number>` set). The challenge itself still runs regardless.
+
+Skip this resume check too if cfl tracking was disabled in Phase 1 (no `<spec_number>`/`run_id` set) — the challenge itself still runs unconditionally in that case, same as a first run. Otherwise: if this is a resume and the challenge already ran in a prior session, skip this phase. Check via: `cfl event list --event challenge.findings-persisted --run <run_id>` — if any row's data contains `"gate_type": "sketch-challenge"`, the challenge already ran and its findings were persisted for this run. Do not use `review.gated` for this check — that event fires when the gate is recorded (`challenge-gate.md` step 4), which happens *before* findings are persisted and resolved (steps 5–6); a run interrupted between those steps would otherwise look "already ran" on resume and skip re-persisting its findings. `challenge.findings-persisted` fires only after persistence *and* `<post_resolution>` (the comb re-run and upgrade-to-caliper offer) complete (`challenge-gate.md` step 8) — a run interrupted before then re-enters the whole phase on resume rather than skipping `<post_resolution>`'s work.
+
+### Re-comb after design-doc edits
+
+If Phase 4.5 resolution edited `design.md`, re-running Phase 4 catches inconsistency the edit may have introduced between the doc and the task files — the same reasoning `mine-define`'s Phase 5.5 applies to its own comb. Skip this step entirely if no finding touched `design.md`.
+
+### CRITICAL escalation
+
+If any CRITICAL finding was produced by the challenge (regardless of its disposition — even if applied), present:
+
+```
+AskUserQuestion:
+  question: "The challenge found a CRITICAL structural issue. A sketch may not be the right vehicle for this change. Upgrade to the full caliper workflow?"
+  header: "Escalate?"
+  multiSelect: false
+  options:
+    - label: "Upgrade to full caliper"
+      description: "Stop here — invoke /mine-define for a full investigation and design"
+    - label: "Continue with sketch"
+      description: "Proceed with the sketch despite the CRITICAL finding"
+```
+
+On "Upgrade to full caliper": tell the user to invoke `/mine-define` and stop. The resolved findings have already improved `design.md`, which `/mine-define` picks up.
+
+On "Continue with sketch": proceed to Phase 5 (Handoff) as normal.
+
+Phase 5 does not begin until the challenge (and any escalation prompt) completes.
+
+---
+
 ## Phase 5: Handoff
 
 Present the design doc and task file paths to the user, then:
