@@ -1,6 +1,6 @@
 ---
 name: mine-review-pr
-description: "Use when the user says: \"review this PR\", \"review PR <number>\", \"review someone else's PR\", \"review the PR for <branch>\", \"review their branch\". Reviews another developer's open PR read-only — dispatches the standard reviewer trio, verifies findings against the real code and PR description, and optionally posts them as PR comment threads. Never edits code."
+description: "Use when the user says: \"review this PR\", \"review PR <number>\", \"review someone else's PR\", \"review the PR for <branch>\", \"review their branch\". Reviews another developer's open PR read-only — dispatches the standard reviewer trio, verifies findings against the current PR head, the real code, the PR description, and existing threads before presenting them, and optionally posts them as PR comment threads. Never edits code."
 user-invocable: true
 ---
 
@@ -35,6 +35,8 @@ AskUserQuestion:
    | Post thread | `gh pr comment <id> --body-file <file>` | `ado-api pr thread-add <id> --body-file <file>` |
 
 2. If given a URL, extract the PR number from it. GitHub URLs follow `github.com/<owner>/<repo>/pull/<number>`. ADO URLs follow `dev.azure.com/<org>/<project>/_git/<repo>/pullrequest/<number>`. If given a branch name, look up the PR for that branch (`gh pr list --head <branch> --json number` or `ado-api pr list --json` and match on source).
+
+   **URL repo mismatch check.** A URL also names a repository. Extract it (`<owner>/<repo>` for GitHub, `<org>/<project>/<repo>` for ADO). Run `git remote get-url origin` and normalize both sides to a bare `owner/repo` (or `org/project/repo`) tuple before comparing — strip the protocol/host and any trailing `.git`, so both `git@github.com:owner/repo.git` (SSH) and `https://github.com/owner/repo.git` (HTTPS) reduce to `owner/repo`; compare case-insensitively. If `origin` doesn't exist or the command errors, treat that as unknown rather than a mismatch and ask the user to confirm the target repo before proceeding. If the normalized values don't match, stop and tell the user — this worktree isn't checked out against that repo, and reusing its PR number against the wrong remote would review or comment on the wrong PR. Don't guess; a fresh worktree against the right remote is the fix.
 3. Fetch PR metadata. Extract: `source` branch, `target` branch, `title`, `author`, `description`, and `state`.
 4. **Check PR state.** If the PR is merged or closed/abandoned, warn the user and confirm before proceeding. A merged PR's source branch may already be deleted upstream.
 5. **Check PR author.** On GitHub, compare the PR's `author.login` against `gh api user --jq .login`. On ADO, compare against the `git config user.email` value (ADO PR metadata includes the author's email). If it is the user's own PR, say so and suggest `/mine-review` instead.
@@ -87,7 +89,7 @@ This is PR review of someone else's branch. You are reviewing, not fixing.
 
 Wait for all three completion notifications. Do not poll, and do not fabricate or predict results before they land.
 
-## Phase 3: Consolidate, categorize, and present
+## Phase 3: Consolidate and categorize
 
 ### Deduplicate
 
@@ -108,29 +110,30 @@ A finding that spans two buckets goes to whichever the repo's own conventions tr
 
 Fold nitpick-severity findings into an adjacent code-issue bucket or drop them. A readability nit posted as its own thread on someone else's PR reads as nagging.
 
-### Present the report
+## Phase 4: Verify every claim before presenting (do not skip)
 
-Use `mine-review`'s severity-grouped format, organized by severity, not by reviewer. Include the proposed bucket assignment for each finding so the user can see what would be posted.
+Reviewers read a diff, not the PR's own account of itself, and the PR may have moved since Phase 1. Before showing the user anything, re-check each surviving finding four ways:
 
-## Phase 4: Verify every claim before drafting (do not skip)
-
-Reviewers read a diff, not the PR's own account of itself. Before drafting comments, re-check each surviving finding three ways:
-
-1. **Against the code.** Read the actual current file, grep for the specific claim. Line numbers drift, duplicated blocks get fixed between diff and HEAD.
-2. **Against the PR description.** Re-read the description from Phase 0. A finding that frames something as "undisclosed" or "unexplained" is wrong if the PR description already says it. This is the most common false positive. Posting it tells the author their PR description wasn't read, which undermines every other finding.
-3. **Against existing threads.** Fetch existing PR threads (see Phase 0 table). Check for threads with the Claude attribution footer. Drop any finding that duplicates an already-posted thread. Only draft what is new or materially changed since the last review pass.
+1. **Against the current PR head.** Re-fetch the PR's head SHA — `gh pr view <id> --json headRefOid` (GitHub) or `ado-api pr show <id> --json`, reading `lastMergeSourceCommit.commitId` (ADO) — and compare to the HEAD pinned in Phase 1. If it changed, the author pushed while reviewers were running: tell the user, re-capture the diff (Phase 1 step 3), and re-run both Phase 2 (dispatch) and Phase 3 (consolidate and categorize) on the fresh output before resuming this phase. Don't verify or present findings against a stale diff, and don't resume verification on output that hasn't been deduplicated and bucketed yet.
+2. **Against the code.** Read the actual current file, grep for the specific claim. Line numbers drift, duplicated blocks get fixed between diff and HEAD.
+3. **Against the PR description.** Re-read the description from Phase 0. A finding that frames something as "undisclosed" or "unexplained" is wrong if the PR description already says it. This is the most common false positive. Posting it tells the author their PR description wasn't read, which undermines every other finding.
+4. **Against existing threads.** Fetch existing PR threads (see Phase 0 table), including resolved ones. A finding is a duplicate if it names the same file:line (or the same code construct, if line numbers drifted) and the same underlying concern as an existing thread — not merely the same general topic; two findings about different aspects of the same function are not duplicates. Drop findings that duplicate an unresolved thread. For a finding that duplicates a *resolved* thread, check it against step 2: if the underlying issue is still present in the code, treat it as unresolved despite the thread's status and keep it (the prior fix didn't fully land); otherwise drop it. Match against threads from any author — a concern already raised by a human reviewer or another bot is still a duplicate. The Claude attribution footer identifies this skill's own prior comments, for tracking re-review passes, not for gating which threads count toward dedup.
 
 Drop or reframe any claim that does not survive this check.
 
-## Phase 5: Draft comment threads
+## Phase 5: Present the report
 
-One draft per bucket/issue from Phase 3. Use the template and footer in `REFERENCE.md`. Write each draft body to a temp file under the skill tmpdir (one file per thread).
+Use `mine-review`'s severity-grouped format, organized by severity, not by reviewer. Include the proposed bucket assignment for each finding so the user can see what would be posted. Only findings that survived Phase 4 appear here.
+
+If nothing survived Phase 4 (nothing new since a prior pass, or the PR is genuinely clean), say so and stop here. No empty confirmation prompt.
+
+## Phase 6: Draft comment threads
+
+One draft per bucket/issue among the findings presented in Phase 5 (bucketed per Phase 3). Use the template and footer in `REFERENCE.md`. Write each draft body to a temp file under the skill tmpdir (one file per thread).
 
 Present every draft in one message before posting anything.
 
-## Phase 6: Confirm, then post
-
-If no findings survived Phase 4 (nothing new since a prior pass, or the PR is genuinely clean), say so and stop. No empty confirmation prompt.
+## Phase 7: Confirm, then post
 
 ```
 AskUserQuestion:

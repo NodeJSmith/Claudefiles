@@ -60,7 +60,7 @@ What makes this work:
 
 ## Why Phase 4 (verification) is mandatory
 
-Reviewers read a diff, not the PR. In practice this produces a specific, recurring failure: flagging a change as "silent" or "undisclosed" when the PR author already named it in the description. Posting that framing tells the author their description wasn't read, which undermines every other finding. Cross-checking against the description before drafting catches this.
+Reviewers read a diff, not the PR, and the PR may have moved since the diff was captured. In practice this produces specific, recurring failures: flagging a change as "silent" or "undisclosed" when the PR author already named it in the description, or drafting against a HEAD the author has since pushed past. Posting either tells the author their PR wasn't read, which undermines every other finding. Cross-checking against the current head, the code, and the description before presenting anything catches this.
 
 The same applies to line numbers and "this exists twice" claims. Diffs go stale as soon as a follow-up commit lands. Read the file at current HEAD, not the patch.
 
@@ -70,7 +70,7 @@ The same applies to line numbers and "this exists twice" claims. Diffs go stale 
 
 PRs evolve. Re-invoking this skill on the same PR after the author pushes changes is normal. You want to see if new commits addressed prior findings and whether new issues appeared.
 
-Phase 4 step 3 handles the dedup: fetch existing threads, match on the Claude footer, drop anything already posted. Only draft what is genuinely new or materially changed.
+Phase 4 step 4 handles the dedup: fetch existing threads, including resolved ones, and match on file:line plus the same underlying concern, not just the same general topic, regardless of author. A resolved thread whose issue still reproduces in the code is treated as unresolved. Only draft what is genuinely new or still unaddressed.
 
 ---
 
