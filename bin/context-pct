@@ -22,12 +22,12 @@ case "${1:-}" in
 esac
 
 sid="${1:-${CLAUDE_CODE_SESSION_ID:-}}"
+case "$sid" in '' | *[/.]*) exit 0 ;; esac
 
-if [ -n "$sid" ]; then
-  sidecar="/tmp/claude-context-${sid}.meta"
-else
-  exit 0
-fi
+# Sidecar path and parsing mirrors scripts/hooks/context-tier.sh — keep in
+# sync if the format changes. Hardcodes /tmp/ to match claude-context-writer,
+# which runs outside Claude Code's sandbox and cannot use CLAUDE_CODE_TMPDIR.
+sidecar="/tmp/claude-context-${sid}.meta"
 
 [ -f "$sidecar" ] || exit 0
 

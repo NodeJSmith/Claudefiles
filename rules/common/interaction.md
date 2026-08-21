@@ -75,7 +75,7 @@ or clear context and resume.
 questions, complexity routing) where context is nearly always low and the
 information adds noise.
 
-If `context-pct` returns empty, omit the prefix silently.
+If `context-pct` returns empty or fails to run, omit the prefix silently.
 
 ## Permissions
 
