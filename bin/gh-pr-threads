@@ -99,7 +99,7 @@ query(\$owner: String!, \$repo: String!, \$pr: Int!) {
         }
       }
       reviews(first: 100) {
-        pageInfo { hasNextPage }
+        pageInfo { hasNextPage endCursor }
         nodes {
           author { login __typename }
           state
@@ -202,10 +202,51 @@ pr_data=$(printf '%s' "$meta_response" | jq '.data.repository.pullRequest')
 pr_title=$(printf '%s' "$pr_data" | jq -r '.title')
 pr_url=$(printf '%s' "$pr_data" | jq -r '.url')
 
-# Warn if non-thread surfaces were truncated at 100 (no silent caps)
-if printf '%s' "$pr_data" | jq -e '.reviews.pageInfo.hasNextPage' > /dev/null 2>&1; then
-  echo "warning: PR has >100 reviews — review bodies beyond the first 100 are not shown" >&2
+# --- Paginate reviews (separate loop — independent cursor from threads) ---
+all_reviews=$(printf '%s' "$pr_data" | jq '.reviews.nodes')
+reviews_has_next=$(printf '%s' "$pr_data" | jq -r '.reviews.pageInfo.hasNextPage')
+
+if [[ "$reviews_has_next" == "true" ]]; then
+  reviews_cursor=$(printf '%s' "$pr_data" | jq -r '.reviews.pageInfo.endCursor')
+  while true; do
+    reviews_query=$(
+      cat << GRAPHQL
+query(\$owner: String!, \$repo: String!, \$pr: Int!) {
+  repository(owner: \$owner, name: \$repo) {
+    pullRequest(number: \$pr) {
+      reviews(first: 100, after: "${reviews_cursor}") {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          author { login __typename }
+          state
+          url
+          body
+          createdAt
+        }
+      }
+    }
+  }
+}
+GRAPHQL
+    )
+    reviews_resp=$(gh api graphql \
+      -f query="$reviews_query" \
+      -f owner="$repo_owner" \
+      -f repo="$repo_name" \
+      -F pr="$pr_number")
+
+    page_reviews=$(printf '%s' "$reviews_resp" | jq '.data.repository.pullRequest.reviews.nodes')
+    all_reviews=$(printf '%s\n%s' "$all_reviews" "$page_reviews" | jq -s 'add')
+
+    reviews_has_next=$(printf '%s' "$reviews_resp" | jq -r '.data.repository.pullRequest.reviews.pageInfo.hasNextPage')
+    reviews_cursor=$(printf '%s' "$reviews_resp" | jq -r '.data.repository.pullRequest.reviews.pageInfo.endCursor')
+    if [[ "$reviews_has_next" != "true" || -z "$reviews_cursor" || "$reviews_cursor" == "null" ]]; then
+      break
+    fi
+  done
 fi
+
+# Warn if comments were truncated (reviews are now fully paginated)
 if printf '%s' "$pr_data" | jq -e '.comments.pageInfo.hasNextPage' > /dev/null 2>&1; then
   echo "warning: PR has >100 conversation comments — comments beyond the first 100 are not shown" >&2
 fi
@@ -216,8 +257,9 @@ pr_reactions=$(printf '%s' "$pr_data" | jq '
 
 # Review status: per-reviewer latest state (APPROVED, CHANGES_REQUESTED, etc.)
 # so the caller can distinguish "reviewed with no findings" from "not reviewed yet."
-review_status=$(printf '%s' "$pr_data" | jq '
-  [.reviews.nodes[]
+# Uses all_reviews (paginated) instead of pr_data.reviews.nodes (truncated).
+review_status=$(printf '%s' "$all_reviews" | jq '
+  [.[]
    | {author: .author.login, state: .state, createdAt: .createdAt, url: .url}]
   | group_by(.author)
   | [.[] | sort_by(.createdAt) | last]')
@@ -234,8 +276,8 @@ review_status=$(printf '%s' "$pr_data" | jq '
 # (emoji/wording change across releases). The match below is deliberately tolerant
 # (bare phrases, no emoji, no counts); if CodeRabbit renames a section this is the
 # line to update.
-review_comments=$(printf '%s' "$pr_data" | jq '
-  [.reviews.nodes[]
+review_comments=$(printf '%s' "$all_reviews" | jq '
+  [.[]
    | select((.body | length) > 0)
    | select((.author.__typename == "User")
             or (.body | test("Outside diff range|Duplicate comments|Nitpick comments")))]')
