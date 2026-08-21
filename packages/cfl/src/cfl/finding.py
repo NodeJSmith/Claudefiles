@@ -72,6 +72,24 @@ _INSERT_FINDING_SQL = """INSERT INTO findings
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))"""
 
 
+def default_finding_disposition(
+    visibility: str | None, disposition: str | None
+) -> str | None:
+    """Default an omitted disposition to 'pending' for a presented finding.
+
+    Only 'presented' findings enter the resolution flow (see
+    resolve_finding()'s pending-only guard); 'overflow' and 'likely-invalid'
+    findings never do, so an omitted disposition stays NULL for those. An
+    explicit disposition (including an explicit 'pending') always wins. Not
+    to be confused with resolve_finding(), which transitions an existing
+    pending row to a terminal disposition — this function only fills in a
+    missing value at write time.
+    """
+    if disposition is None and visibility == "presented":
+        return "pending"
+    return disposition
+
+
 def validate_finding_fields(
     severity: str | None,
     visibility: str | None,
@@ -153,7 +171,11 @@ def record_finding(
 
     Warns for unknown severity, source, or classification but still writes.
     Exits 2 for invalid visibility, invalid disposition, or invalid design_level.
+    An omitted disposition defaults to 'pending' for a 'presented' finding —
+    see default_finding_disposition().
     """
+    disposition = default_finding_disposition(visibility, disposition)
+
     validate_finding_fields(
         severity,
         visibility,
@@ -214,7 +236,9 @@ def record_finding_batch(
     record_finding: unknown severity warns but still writes; an invalid
     visibility, disposition, or design_level anywhere in the array is
     validated before any row is written, so a violation rejects the whole
-    batch (exit 2) with no partial writes. Returns the number of rows written.
+    batch (exit 2) with no partial writes. An omitted disposition defaults to
+    'pending' for a 'presented' finding, same as record_finding — see
+    default_finding_disposition(). Returns the number of rows written.
 
     Exits 2 with invalid_findings_file if findings_file is missing, is not
     valid JSON, or does not parse to a JSON array.
@@ -236,6 +260,7 @@ def record_finding_batch(
             exit_code=2,
         )
 
+    resolved_dispositions: list[str | None] = []
     for finding in findings:
         if not isinstance(finding, dict):
             output_module.emit_error(
@@ -256,20 +281,24 @@ def record_finding_batch(
                 exit_code=2,
             )
 
+        disposition = default_finding_disposition(
+            finding.get("visibility"), finding.get("disposition")
+        )
         validate_finding_fields(
             finding.get("severity"),
             finding.get("visibility"),
-            finding.get("disposition"),
+            disposition,
             finding.get("design_level"),
             source=source,
             classification=finding.get("classification"),
         )
+        resolved_dispositions.append(disposition)
 
     context_pct = read_context_pct()
 
     conn.execute("BEGIN IMMEDIATE")
     try:
-        for finding in findings:
+        for finding, disposition in zip(findings, resolved_dispositions, strict=True):
             conn.execute(
                 _INSERT_FINDING_SQL,
                 (
@@ -285,7 +314,7 @@ def record_finding_batch(
                     finding.get("raised_by"),
                     finding.get("classification"),
                     finding.get("visibility"),
-                    finding.get("disposition"),
+                    disposition,
                     finding.get("why_it_matters"),
                     context_pct,
                 ),

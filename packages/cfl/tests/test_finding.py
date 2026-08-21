@@ -134,6 +134,56 @@ def test_record_finding_run_id_none_writes_successfully(db_conn, capsys):
     assert row["gate_id"] is None
 
 
+def test_record_finding_presented_disposition_defaults_to_pending(db_conn, capsys):
+    """A presented finding recorded without --disposition defaults to pending,
+    so it can later be transitioned by resolve_finding() (which only matches
+    'presented' rows still 'pending' — a NULL disposition can never resolve)."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "ship-challenge")
+
+    record_finding(
+        db_conn,
+        run_id,
+        gate_id,
+        "challenge",
+        1,
+        title="Missing timeout",
+        severity="HIGH",
+        visibility="presented",
+    )
+
+    row = db_conn.execute(
+        "SELECT disposition FROM findings WHERE gate_id=? AND finding_num=1",
+        (gate_id,),
+    ).fetchone()
+    assert row["disposition"] == "pending"
+
+
+def test_record_finding_overflow_disposition_stays_null_when_omitted(db_conn, capsys):
+    """An overflow finding recorded without --disposition stays NULL — the
+    pending default only applies to 'presented' findings, which are the only
+    visibility resolve_finding() ever touches."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "ship-challenge")
+
+    record_finding(
+        db_conn,
+        run_id,
+        gate_id,
+        "challenge",
+        1,
+        title="Naming nit",
+        severity="MEDIUM",
+        visibility="overflow",
+    )
+
+    row = db_conn.execute(
+        "SELECT disposition FROM findings WHERE gate_id=? AND finding_num=1",
+        (gate_id,),
+    ).fetchone()
+    assert row["disposition"] is None
+
+
 # ---------------------------------------------------------------------------
 # Open-vocabulary validation — severity warns but still writes
 # ---------------------------------------------------------------------------
@@ -649,6 +699,48 @@ def test_record_finding_batch_writes_all_rows_in_one_transaction(
     assert out["batch_size"] == 3
     assert out["gate_id"] == gate_id
     assert out["source"] == "challenge"
+
+
+def test_record_finding_batch_presented_disposition_defaults_to_pending(
+    db_conn, capsys, tmp_path
+):
+    """A presented entry with no 'disposition' key defaults to pending in the
+    written row — challenge-gate.md's step 5 relies on this: it always writes
+    disposition: pending for presented entries so step 6's resolve_finding()
+    (which only matches 'presented' rows still 'pending') can apply the real
+    terminal value and stamp resolved_at."""
+    _, run_id = insert_spec_with_run(db_conn, 1, "my-feature", REMOTE_URL)
+    gate_id = create_gate_returning_id(db_conn, capsys, run_id, "ship-challenge")
+
+    findings_file = tmp_path / "findings.json"
+    findings_file.write_text(
+        json.dumps(
+            [
+                {
+                    "finding_num": 1,
+                    "title": "Missing timeout",
+                    "severity": "HIGH",
+                    "visibility": "presented",
+                    "finding_type": "Gap",
+                    "design_level": "No",
+                    "classification": "User-directed",
+                    "raised_by": "senior-engineer",
+                    "why_it_matters": "Unbounded external call can hang the run.",
+                    # disposition omitted — matches challenge-gate.md step 5
+                },
+            ]
+        )
+    )
+
+    record_finding_batch(
+        db_conn, gate_id, str(findings_file), source="challenge", run_id=run_id
+    )
+
+    row = db_conn.execute(
+        "SELECT disposition FROM findings WHERE gate_id=? AND finding_num=1",
+        (gate_id,),
+    ).fetchone()
+    assert row["disposition"] == "pending"
 
 
 def test_record_finding_batch_retry_rejected_by_unique_constraint(

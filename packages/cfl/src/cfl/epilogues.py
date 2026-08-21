@@ -186,6 +186,10 @@ Valid severities: {_FINDING_SEVERITIES_LIST}
 Valid visibilities: {_FINDING_VISIBILITIES_LIST}
 Valid dispositions: {_FINDING_DISPOSITIONS_LIST}
 
+An omitted --disposition defaults to pending for --visibility presented (the
+only visibility that enters the resolution flow); it stays unset (NULL) for
+overflow and likely-invalid.
+
 Examples:
   cfl finding record challenge 1 --title "Missing error handler" --severity HIGH \\
       --visibility presented --disposition pending --gate-id 42
