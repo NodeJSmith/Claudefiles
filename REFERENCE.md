@@ -38,6 +38,7 @@ Full component tables for Claudefiles. For context on what each component type d
 | `mine-prior-art` | Survey how others solve a problem — web-first research for mid-design architectural questions |
 | `mine-research` | Interactive research workflow — gathers user intent, dispatches the researcher agent, presents the brief |
 | `mine-review` | Comprehensive branch review — dispatches code/integration/readability reviewers for code changes, or consistency/instruction-quality/writing-quality reviewers for instruction files; consolidates findings into one prioritized report |
+| `mine-review-pr` | Review someone else's open PR read-only — dispatches the reviewer trio against the PR diff, verifies findings against the code, PR description, and existing threads, then optionally posts new findings as comment threads (GitHub or ADO) |
 | `mine-shape` | Writing exploit (paragraph-by-paragraph) — shape raw material into an article with grounding discipline and collaborative construction |
 | `mine-ship` | Commit, push, and create a PR in one step |
 | `mine-simplify` | Codebase-scoped structural simplification — fans out parallel `code-judo-reviewer` agents over a file/dir/repo, consolidates dramatic simplification moves into one impact-ranked report. On-demand alternative to baking structural review into every orchestrate run |
