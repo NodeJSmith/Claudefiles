@@ -73,11 +73,13 @@ When invoked from `mine-orchestrate`, write `clean-code-summary.md` with `<!-- H
 
 ### Next steps
 
-If all CLEAN, congratulate and stop. Otherwise:
+If all CLEAN, congratulate and stop. Otherwise, present the gate below. This is a major
+gate (clean code gate result, see `interaction.md`) — run `context-pct` and prepend the
+result to the question:
 
 ```
 AskUserQuestion:
-  question: "What would you like to do with these findings?"
+  question: "[Context: N%] What would you like to do with these findings?"
   header: "Next steps"
   multiSelect: false
   options:

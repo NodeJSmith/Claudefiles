@@ -263,11 +263,11 @@ If Phase 4.5 resolution edited `design.md`, re-running Phase 4 catches inconsist
 
 ### CRITICAL escalation
 
-If any CRITICAL finding was produced by the challenge (regardless of its disposition — even if applied), present:
+If any CRITICAL finding was produced by the challenge (regardless of its disposition — even if applied), present the gate below. This is a major gate (challenge finding walkthrough, see `interaction.md`) — run `context-pct` and prepend the result to the question:
 
 ```
 AskUserQuestion:
-  question: "The challenge found a CRITICAL structural issue. A sketch may not be the right vehicle for this change. Upgrade to the full caliper workflow?"
+  question: "[Context: N%] The challenge found a CRITICAL structural issue. A sketch may not be the right vehicle for this change. Upgrade to the full caliper workflow?"
   header: "Escalate?"
   multiSelect: false
   options:
@@ -287,11 +287,12 @@ Phase 5 does not begin until the challenge (and any escalation prompt) completes
 
 ## Phase 5: Handoff
 
-Present the design doc and task file paths to the user, then:
+Present the design doc and task file paths to the user, then ask. This is a completion
+gate (see `interaction.md`) — run `context-pct` and prepend the result to the question:
 
 ```
 AskUserQuestion:
-  question: "Sketch complete — design.md and task files are ready. What next?"
+  question: "[Context: N%] Sketch complete — design.md and task files are ready. What next?"
   header: "Handoff"
   multiSelect: false
   options:

@@ -38,13 +38,15 @@ For each match, most recent first, read its first line's recorded SHA (`<!-- HEA
 
 If no candidate satisfies either condition, run `/mine-clean-code` on the branch diff. Note: prior-run detection only applies when mine-orchestrate ran mine-clean-code. Manual mine-clean-code runs are not detected.
 
-When mine-clean-code presents its own next-steps prompt ("What would you like to do with these findings?"), choose "Note and move on" — this phase handles the fix/skip/stop decision.
+When mine-clean-code presents its own next-steps prompt, choose "Note and move on" — this phase handles the fix/skip/stop decision.
 
-If mine-clean-code produces findings, present:
+If mine-clean-code produces findings, present the gate below. This is a major gate
+(clean code gate result, see `interaction.md`) — run `context-pct` and prepend the
+result to the question:
 
 ```
 AskUserQuestion:
-  question: "Stylistic review found findings. What next?"
+  question: "[Context: N%] Stylistic review found findings. What next?"
   header: "Clean code"
   multiSelect: false
   options:

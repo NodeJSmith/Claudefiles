@@ -26,11 +26,12 @@ Read the agent's `## Summary` line for the blocking/minor counts.
 
 **Only minor findings:**
 - If `minor_blocks` is `false`: note the minor findings for the downstream summary and proceed. No prompt.
-- If `minor_blocks` is `true`:
+- If `minor_blocks` is `true` (a major gate — comb pass/fix/escalate decision, see
+  `interaction.md` — so run `context-pct` and prepend the result to the question):
 
 ```
 AskUserQuestion:
-  question: "Fine-toothed comb found only minor issues: <summary>. How to proceed?"
+  question: "[Context: N%] Fine-toothed comb found only minor issues: <summary>. How to proceed?"
   header: "<header>"
   multiSelect: false
   options:
@@ -42,11 +43,11 @@ AskUserQuestion:
       description: "Halt and address issues manually"
 ```
 
-**Any blocking findings** (no proceed option offered while any remain — regardless of `minor_blocks`). Use the caller's `<blocking_question>` if one was supplied; otherwise use the default `question` shown here verbatim:
+**Any blocking findings** (no proceed option offered while any remain — regardless of `minor_blocks`). Use the caller's `<blocking_question>` if one was supplied; otherwise use the default `question` shown here verbatim. Same major-gate rule applies — prepend the `context-pct` result:
 
 ```
 AskUserQuestion:
-  question: "Fine-toothed comb found blocking issues: <summary>. These must be resolved before proceeding."
+  question: "[Context: N%] Fine-toothed comb found blocking issues: <summary>. These must be resolved before proceeding."
   header: "<header>"
   multiSelect: false
   options:

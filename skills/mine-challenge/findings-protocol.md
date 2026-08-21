@@ -181,11 +181,12 @@ findings in cap order.
 `better-approach` via Edit tool silently. Set `disposition: applied`. No prompt.
 
 **User-directed** (`Classification: User-directed`, `disposition: pending`): Emit one
-AskUserQuestion per finding — do not batch:
+AskUserQuestion per finding — do not batch. This is a major gate (finding walkthrough,
+see `interaction.md`) — run `context-pct` and prepend the result to the question:
 
 ```
 AskUserQuestion:
-  question: "Finding N/{total}: <title> (<severity>)"
+  question: "[Context: N%] Finding N/{total}: <title> (<severity>)"
   header: "<raised-by>"
   options:
     - label: "<Option A text> (Recommended)"
@@ -202,11 +203,12 @@ Apply chosen option via Edit tool. Set `disposition: applied` for options,
 `disposition: skipped` for Skip, or `disposition: filed` + create an issue in
 the project's issue tracker for File as issue. Continue to next finding.
 
-**TENSION findings** (`Classification: User-directed`, `Severity: TENSION`):
+**TENSION findings** (`Classification: User-directed`, `Severity: TENSION`). Same
+major-gate rule applies — prepend the `context-pct` result:
 
 ```
 AskUserQuestion:
-  question: "Finding N/{total}: <title> (TENSION) — <deciding-factor>"
+  question: "[Context: N%] Finding N/{total}: <title> (TENSION) — <deciding-factor>"
   header: "<raised-by>"
   options:
     - label: "Side A: <side-a summary>"

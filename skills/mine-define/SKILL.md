@@ -281,11 +281,12 @@ Phase 6 does not begin until the challenge completes.
 
 ## Phase 6: Sign-Off Gate
 
-Present the design doc path, then:
+Present the design doc path, then ask. This is a completion gate (see `interaction.md`) —
+run `context-pct` and prepend the result to the question:
 
 ```
 AskUserQuestion:
-  question: "Design doc complete. What next?"
+  question: "[Context: N%] Design doc complete. What next?"
   header: "Sign-off"
   multiSelect: false
   options:
@@ -334,11 +335,12 @@ Update design.md `**Status:**` from `draft` to `approved`.
 
 **If invoked inline by `mine-build`** (the user chose "Full caliper workflow" or "Accelerated"), skip the gate below and invoke `/mine-plan <feature_dir>` directly — `mine-build` handles the flow.
 
-**Otherwise**, ask:
+**Otherwise**, ask. This is a completion gate (see `interaction.md`) — run `context-pct`
+and prepend the result to the question:
 
 ```
 AskUserQuestion:
-  question: "Design doc approved. Proceed to generate task files?"
+  question: "[Context: N%] Design doc approved. Proceed to generate task files?"
   header: "Next step"
   multiSelect: false
   options:

@@ -8,11 +8,14 @@ grep -n "CONTESTED" <dir>/<task_id>/executor.md
 
 If there are no matches, proceed to Step 8.
 
-For each criterion, read its rationale from `<dir>/<task_id>/executor.md` and present it individually:
+For each criterion, read its rationale from `<dir>/<task_id>/executor.md` and present it
+individually. This decision gate carries the same weight as the other task-execution gates
+in `interaction.md`'s major-gate list — run `context-pct` and prepend the result to the
+question:
 
 ```
 AskUserQuestion:
-  question: "The executor marked a Verify criterion as CONTESTED in <task_id>: \"<criterion text>\"\n\nExecutor rationale: <rationale from executor output>\n\nTask file: <absolute path to task file>\nExecutor output: <absolute path: dir>/<task_id>/executor.md>"
+  question: "[Context: N%] The executor marked a Verify criterion as CONTESTED in <task_id>: \"<criterion text>\"\n\nExecutor rationale: <rationale from executor output>\n\nTask file: <absolute path to task file>\nExecutor output: <absolute path: dir>/<task_id>/executor.md>"
   header: "Contested"
   multiSelect: false
   options:

@@ -67,9 +67,12 @@ cfl gate impl-review --verdict PASS --detail "<brief summary>"
 cfl gate impl-review --verdict FAIL --detail "<brief summary>"
 ```
 
+This is a major gate (review finding walkthrough, see `interaction.md`) — run
+`context-pct` and prepend the result to the question:
+
 ```
 AskUserQuestion:
-  question: "Implementation review rated this ABANDON (unrecoverable — design rethink needed): <summary of blocking issues>."
+  question: "[Context: N%] Implementation review rated this ABANDON (unrecoverable — design rethink needed): <summary of blocking issues>."
   header: "Impl-review: ABANDON"
   multiSelect: false
   options:
@@ -85,9 +88,11 @@ AskUserQuestion:
 cfl gate impl-review --verdict FAIL --detail "<brief summary>"
 ```
 
+Same major-gate rule applies — prepend the `context-pct` result:
+
 ```
 AskUserQuestion:
-  question: "Implementation review found blocking issues: <summary of blocking issues>. What next?"
+  question: "[Context: N%] Implementation review found blocking issues: <summary of blocking issues>. What next?"
   header: "Impl-review gate"
   multiSelect: false
   options:
@@ -194,11 +199,13 @@ note is an observation without a concrete defect or available action; it may rem
 shipping summary but does not require a known-issue entry. Record WARN only for such a note. Do not
 continue while a genuine untracked issue remains.
 
-If the integration-reviewer returns FAIL, prompt the user:
+If the integration-reviewer returns FAIL, prompt the user. This is a major gate (review
+finding walkthrough, see `interaction.md`) — run `context-pct` and prepend the result to
+the question:
 
 ```yaml
 AskUserQuestion:
-  question: "Cross-file review found blocking issues: <summary of blocking issues>. What next?"
+  question: "[Context: N%] Cross-file review found blocking issues: <summary of blocking issues>. What next?"
   header: "Cross-file gate"
   multiSelect: false
   options:
@@ -318,7 +325,7 @@ Run /mine-clean-code on this branch. This dispatches three parallel checkers (ll
 
 After the findings are reported:
 
-1. When mine-clean-code asks "What would you like to do with these findings?", choose "Fix all"
+1. When mine-clean-code asks what to do with the findings, choose "Fix all"
 2. Fix ALL findings that have unambiguous solutions — obvious-comment removal, dead helper removal, naming improvements, scattered constants, hardcoded values that should be configurable, copy-paste extraction, etc.
 3. For findings that require architectural judgment or could change behavior in subtle ways (e.g., collapsing an abstraction stack, restructuring an error hierarchy), leave them unfixed and note them in your summary
 4. For every real unfixed finding that should not be fixed in this orchestration run, read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md`, check the qualifying criteria. If it doesn't qualify, explain why in the summary instead (rejected as invalid/non-actionable) so it isn't silently dropped.
@@ -414,11 +421,13 @@ Split entries with `Status: open` into two groups by comparing each entry's `Run
 
 Do not treat this as optional bookkeeping — this is the checkpoint that keeps deferred issues from becoming invisible. Run it before the shipping gate, not folded into it.
 
-**New-this-run entries:** for each one, ask individually (never batch these — see the "new this run" list from Step 5.5):
+**New-this-run entries:** for each one, ask individually (never batch these — see the "new
+this run" list from Step 5.5). This is a major gate (known issues walkthrough, see
+`interaction.md`) — run `context-pct` and prepend the result to the question:
 
 ```
 AskUserQuestion:
-  question: "<KI-ID>: <title>. <one-line issue summary from the entry's 'Issue:' field>. What next?"
+  question: "[Context: N%] <KI-ID>: <title>. <one-line issue summary from the entry's 'Issue:' field>. What next?"
   header: "Known issue"
   multiSelect: false
   options:
@@ -439,11 +448,13 @@ AskUserQuestion:
 - **File as issue:** create an issue (see `${CLAUDE_CONFIG_DIR:-~/.claude}/rules/common/git-workflow.md` — Issue Creation Conventions) using the entry's title and body content, then update the entry's `Status:` line to `filed (<issue-key>)`.
 - **Leave deferred:** no change; `Status: open` stands.
 
-**Backlog entries:** do not walk through these individually every run — that trains the user to reflexively dismiss the prompt. Instead, ask once:
+**Backlog entries:** do not walk through these individually every run — that trains the user
+to reflexively dismiss the prompt. Instead, ask once. Same major-gate rule applies — prepend
+the `context-pct` result:
 
 ```
 AskUserQuestion:
-  question: "<N> known issues from earlier runs on this feature are still open: <KI-001 title>, <KI-002 title>, ... . Review them now?"
+  question: "[Context: N%] <N> known issues from earlier runs on this feature are still open: <KI-001 title>, <KI-002 title>, ... . Review them now?"
   header: "Known issues backlog"
   multiSelect: false
   options:
@@ -461,11 +472,13 @@ Re-read `<feature_dir>/known-issues.md` (statuses may have changed in Step 5.6) 
 
 Before presenting the shipping gate, check whether `<feature_dir>/design.md` contains a `## Smoke Test` section. If it does, include the "Run smoke test" option below. If not, omit it.
 
-Present the final gate with impl-review and cross-file review results:
+Present the final gate with impl-review and cross-file review results. This is a
+shipping/completion gate (see `interaction.md`) — run `context-pct` and prepend the
+result to the question:
 
 ```
 AskUserQuestion:
-  question: "All tasks complete. Implementation review: <PASS + any non-blocking suggestions summary>. Cross-file review: <PASS/WARN + any notes>. Challenge: <PASS — no findings | WARN — N findings, all resolved | note naming any CRITICAL/HIGH with disposition: skipped>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Final review: <PASS — N fixed, M deferred to known issues, R rejected — or 'all clean'>. Known issues: <0 open | N still open: KI-001 title; KI-002 title>. What next?"
+  question: "[Context: N%] All tasks complete. Implementation review: <PASS + any non-blocking suggestions summary>. Cross-file review: <PASS/WARN + any notes>. Challenge: <PASS — no findings | WARN — N findings, all resolved | note naming any CRITICAL/HIGH with disposition: skipped>. Clean code check: <N fixed, M unfixed — or 'all clean'>. Final review: <PASS — N fixed, M deferred to known issues, R rejected — or 'all clean'>. Known issues: <0 open | N still open: KI-001 title; KI-002 title>. What next?"
   header: "Ship"
   multiSelect: false
   options:
@@ -493,11 +506,11 @@ Use the post-walkthrough recount from the start of this step (not the pre-walkth
 
 **On "Ship via /mine-ship":** Invoke `/mine-ship`.
 
-**On "Run smoke test":** Read the `## Smoke Test` section from `<feature_dir>/design.md` and present its content to the user — the verification surface, scenario, and success criteria. The user runs the described scenario interactively (in the current session or another terminal). Then ask:
+**On "Run smoke test":** Read the `## Smoke Test` section from `<feature_dir>/design.md` and present its content to the user — the verification surface, scenario, and success criteria. The user runs the described scenario interactively (in the current session or another terminal). Then ask. Same shipping-gate rule applies — prepend the `context-pct` result:
 
 ```
 AskUserQuestion:
-  question: "Did the smoke test pass?"
+  question: "[Context: N%] Did the smoke test pass?"
   header: "Smoke test"
   multiSelect: false
   options:
