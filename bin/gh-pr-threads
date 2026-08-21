@@ -239,13 +239,17 @@ if [[ "$output_json" == true ]]; then
   else
     threads_json=$(printf '%s' "$all_nodes" | jq '[.[] | select(.isResolved | not)]')
   fi
+  # --slurpfile (not --argjson) for these three: --argjson puts the whole
+  # blob on argv, which hits Linux's ~128 KiB MAX_ARG_STRLEN per-argument cap
+  # on PRs with many threads (E2BIG). --slurpfile reads via a pipe instead,
+  # wrapping each blob in a one-element array — hence the [0] indexing below.
   jq -n \
     --arg title "$pr_title" \
     --arg url "$pr_url" \
-    --argjson threads "$threads_json" \
-    --argjson reviewComments "$review_comments" \
-    --argjson issueComments "$issue_comments" \
-    '{pr: {title: $title, url: $url}, threads: $threads, reviewComments: $reviewComments, issueComments: $issueComments}'
+    --slurpfile threads <(printf '%s' "$threads_json") \
+    --slurpfile reviewComments <(printf '%s' "$review_comments") \
+    --slurpfile issueComments <(printf '%s' "$issue_comments") \
+    '{pr: {title: $title, url: $url}, threads: $threads[0], reviewComments: $reviewComments[0], issueComments: $issueComments[0]}'
 else
   # Human-readable mode (original --jq behavior)
   if [[ "$show_all" == true ]]; then
