@@ -79,9 +79,12 @@ Findings in severity-grouped tables (`### Critical / High`, `### Medium`, `### L
 
 ### Next steps
 
+This is a major gate (review/challenge finding walkthrough, see `interaction.md`) — run
+`context-pct` and prepend the result to the question:
+
 ```
 AskUserQuestion:
-  question: "What would you like to do with these findings?"
+  question: "[Context: N%] What would you like to do with these findings?"
   header: "Next steps"
   multiSelect: false
   options:

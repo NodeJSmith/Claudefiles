@@ -12,11 +12,13 @@
 6. **Re-run the parallel review pass (Step 8)** on the updated output.
 7. **Re-run the test and lint gate (Step 9)** on the updated code
 8. **If PASS after retry** → continue to Step 11 (visual reviewer), then Step 12 (review findings fix loop).
-9. **If still FAIL after 1 retry** → escalate to the user:
+9. **If still FAIL after 1 retry** → escalate to the user. This is a major gate (task
+   failure/blocked decision, see `interaction.md`) — run `context-pct` and prepend the
+   result to the question:
 
 ```
 AskUserQuestion:
-  question: "<task_id> failed spec review and the auto-fix didn't resolve it: <FAIL summary from spec reviewer>."
+  question: "[Context: N%] <task_id> failed spec review and the auto-fix didn't resolve it: <FAIL summary from spec reviewer>."
   header: "<task_id> gate"
   multiSelect: false
   options:

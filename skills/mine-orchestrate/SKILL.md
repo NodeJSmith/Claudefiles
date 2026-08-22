@@ -623,10 +623,12 @@ Gate based on verdict:
 
 Note: by this point, spec FAILs have been through the Step 10 auto-fix loop. Code/integration findings, if the Step 8 verdict was WARN or FAIL, have been through the Step 12 fixer loop. A PASS verdict with only informational findings never enters Step 12. A verdict note like `(3 auto-fixed)` means findings were raised and resolved by the fixer loop. A known issue note means a real issue was intentionally left unfixed and recorded durably. A WARN verdict means something genuinely unresolved remains (visual issues, downstream-scoped test regressions, pre-existing test failures, unresolved lint regressions).
 
-**FAIL or non-architectural BLOCKED** — ask the user:
+**FAIL or non-architectural BLOCKED** — ask the user. This is a major gate (task
+failure/blocked decision, see `interaction.md`) — run `context-pct` and prepend the
+result to the question:
 ```
 AskUserQuestion:
-  question: "<task_id> failed. What next?"
+  question: "[Context: N%] <task_id> failed. What next?"
   header: "<task_id> gate"
   multiSelect: false
   options:
@@ -654,10 +656,11 @@ For FAIL/BLOCKED gate outcomes, **update the task status** before taking the gat
   cfl run stop --at-task <task_id> --reason "user chose stop at task gate"
   ```
 
-**Architectural BLOCKED verdict only:**
+**Architectural BLOCKED verdict only** — same major-gate rule applies; prepend the
+`context-pct` result:
 ```
 AskUserQuestion:
-  question: "<task_id> is blocked on an architectural issue not covered by the plan. This requires a design change before retrying."
+  question: "[Context: N%] <task_id> is blocked on an architectural issue not covered by the plan. This requires a design change before retrying."
   header: "Architectural block"
   multiSelect: false
   options:

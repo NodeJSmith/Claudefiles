@@ -8,6 +8,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 - Agents now show `[Context: N%]` on `AskUserQuestion` prompts at major decision gates (shipping, known issues, task failure, review/challenge findings, clean code, comb) via the new `context-pct` tool, so the user can decide whether to continue or clear context and resume. (#530)
 
+### Changed
+
+- The `context-pct` prefix instruction is now baked directly into every major-gate `AskUserQuestion` template across mine-sketch, mine-define, mine-orchestrate, mine-challenge, mine-comb, mine-clean-code, and mine-ship, instead of relying on the agent to recall `interaction.md`'s standalone rule at each gate. (#532)
+
 ### Fixed
 
 - `gh-pr-threads --json` no longer raises E2BIG on PRs with 40+ review threads. (#529)
