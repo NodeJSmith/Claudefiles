@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-08-23
+
+### Added
+
+- `/mine-product` skill generates or refreshes a `product.md` for any repo — a standing artifact capturing type, users, purpose, usage patterns, boundaries, and reviewer invariants so critics and code reviewers get per-repo context right in every session. (#533)
+
 ## 2026-08-21
 
 ### Added

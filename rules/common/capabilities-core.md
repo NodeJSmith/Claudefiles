@@ -43,6 +43,7 @@ tool: claude  # harness-only: skill/command routing tables are Claude-Code dispa
 | "mutation test", "do my tests actually catch bugs" | `/mine-mutation-test` |
 | "find tool gaps", "session archaeology", "missing cli features" | `/mine-tool-gaps` |
 | "grill me on this", "poke holes in my idea", "help me think this through", "what am I not thinking about" | `/mine-grill` |
+| "create product context", "generate product.md", "set up product context", "document this product", "update product context" | `/mine-product` |
 | "domain model", "glossary", "sharpen terminology", "define this term", "what does X mean in this codebase", "ubiquitous language", "record an architectural decision" | `/mine-domain-model` |
 | "interview this idea", "spec this out", "help me define what I want to build", "interviewer" | `/mine-define` |
 | "specify this feature", "write a spec", "define requirements" | `/mine-define` |
