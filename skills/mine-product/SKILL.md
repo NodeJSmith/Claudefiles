@@ -2,7 +2,6 @@
 name: mine-product
 description: "Use when the user says: \"create product context\", \"generate product.md\", \"set up product context\", \"document this product\", or \"update product context\". Generates or refreshes a product.md for the current repo via inference + interview."
 user-invocable: true
-opencode-command: true
 ---
 
 # Product Context
@@ -15,10 +14,14 @@ Adapted from the [product.md open standard](https://product.md).
 
 ## Phase 1: Detect Mode
 
-Check whether `product.md` already exists at the repo root:
+Resolve the repo root first and use it for every path reference in this skill — `product.md` and `CLAUDE.md` are repo-root artifacts, and a session that starts in a subdirectory must not check or write them relative to the current working directory instead. Run `git rev-parse --show-toplevel` once, then use the printed path as a literal prefix in every subsequent command below (do not rely on a shell variable — it won't survive across separate Bash tool calls).
 
 ```bash
-test -f product.md && echo "exists" || echo "new"
+git rev-parse --show-toplevel
+```
+
+```bash
+test -f <repo-root>/product.md && echo "exists" || echo "new"
 ```
 
 - **exists** → this is a **refresh** run. Read the existing file. Proceed to Phase 2 with that content as the starting baseline.
@@ -32,38 +35,31 @@ Gather information from every available source before asking the user anything. 
 
 ### 2a. Repo structure
 
-Read these if they exist:
-- `README.md` — purpose, audience, usage examples
-- `CLAUDE.md` — any existing product or audience context
-- `pyproject.toml` / `package.json` / `Cargo.toml` — package description, entry points
+Read these from `<repo-root>` if they exist:
+- `<repo-root>/README.md` — purpose, audience, usage examples
+- `<repo-root>/CLAUDE.md` — any existing product or audience context
+- `<repo-root>/pyproject.toml` / `<repo-root>/package.json` / `<repo-root>/Cargo.toml` — package description, entry points
 
 ```bash
 # Identify the repo name
-basename $(git rev-parse --show-toplevel)
+basename <repo-root>
 ```
 
 ### 2b. Design files
 
-Use the Glob tool to find design docs:
+Use the Glob tool to find design docs, rooted at `<repo-root>`:
 
 ```
-Glob: design/**/*.md
+Glob: <repo-root>/design/**/*.md
 ```
 
 Read any design docs found — they often contain the clearest statement of what the product is and why.
 
-### 2c. GitHub issues and PRs
+### 2c. Issues and PRs
 
 Pull recent signal — what are users actually struggling with, asking for, and confused by? This is more reliable than documentation for understanding real usage.
 
-```bash
-# Recent issues — titles and labels are enough
-gh issue list --limit 40 --json number,title,labels,state 2>/dev/null
-
-# Recent PRs — titles and first 200 chars of body reveal what's being built and why
-gh pr list --limit 20 --state all --json number,title,body 2>/dev/null | \
-  jq '.[] | {number, title, body: (.body // "" | .[0:200])}' 2>/dev/null
-```
+Check `$ISSUE_TRACKER` for which tracker's tools to use, and run `git-platform` for which host's PR tools to use — a repo can file issues on one system while its PRs live on another, so don't assume `gh` covers both. Pull the last ~40 issues (titles and labels are enough) and the last ~20 PRs (titles and first 200 chars of body reveal what's being built and why) from whichever tools match. If `$ISSUE_TRACKER` is unset or unrecognized, or the PR host's tools aren't available, skip that half silently — this phase is best-effort inference, not a blocking check.
 
 Scan for patterns: recurring complaint types, common use cases mentioned, environments or configurations that come up repeatedly, things users expected to work that didn't.
 
@@ -71,7 +67,7 @@ Scan for patterns: recurring complaint types, common use cases mentioned, enviro
 
 Search past conversations for product-relevant context — decisions made, problems surfaced, things the user has explained about this codebase:
 
-Invoke `/ccr-recall` with a query targeting this repo's product context. Use the repo name and terms like "users", "framework", "API", "usage", "audience", "what it's for".
+Invoke `/ccrecall:ccr-recall` with a query targeting this repo's product context. Use the repo name and terms like "users", "framework", "API", "usage", "audience", "what it's for".
 
 ---
 
@@ -119,7 +115,7 @@ Key things that must be nailed down before writing:
 
 ## Phase 4: Write product.md
 
-Write to `<repo-root>/product.md`:
+Write to `<repo-root>/product.md`, using the repo root resolved in Phase 1:
 
 ```markdown
 # Product: <repo-name>
@@ -177,14 +173,14 @@ For **Reviewer Invariants**, write them as direct, unambiguous statements. Examp
 
 ## Phase 5: CLAUDE.md Integration
 
-Check whether `CLAUDE.md` exists and whether it already loads `product.md`:
+Check whether `CLAUDE.md` exists and whether it already loads `product.md`, using the same repo root resolved in Phase 1:
 
 ```bash
 # Check if CLAUDE.md exists
-test -f CLAUDE.md && echo "exists" || echo "missing"
+test -f <repo-root>/CLAUDE.md && echo "exists" || echo "missing"
 
 # If it exists, check for the @product.md loading line (not just a mention in a comment)
-grep -qE '^\s*@product\.md' CLAUDE.md 2>/dev/null && echo "loaded" || echo "not-loaded"
+grep -qE '^\s*@product\.md' <repo-root>/CLAUDE.md 2>/dev/null && echo "loaded" || echo "not-loaded"
 ```
 
 - **CLAUDE.md missing + not-loaded** → ask:
