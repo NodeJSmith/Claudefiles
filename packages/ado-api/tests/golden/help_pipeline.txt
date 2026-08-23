@@ -3,7 +3,7 @@ Usage: ado-api pipeline COMMAND [OPTIONS]
 Pipeline operations
 
 ╭─ Commands ───────────────────────────────────────────────────────────────────────────────────────╮
-│ build-validate  Create a build validation policy on a branch (default: master).                  │
+│ build-validate  Create a build validation policy on a branch.                                    │
 │ create          Register a YAML pipeline in ADO.                                                 │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Parameters ─────────────────────────────────────────────────────────────────────────────────────╮

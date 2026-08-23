@@ -1,9 +1,12 @@
 """Tests for ado_api.commands.pipeline — pipeline create and build validation."""
 
+from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
 import pytest
 from ado_api.az_client import AdoApiError, AdoConfig, AdoContext
+from ado_api.cli.commands.pipeline import cli_pipeline_validate
+from ado_api.cli.context import AdoCliContext
 from ado_api.commands.pipeline import (
     IdentifierKind,
     MatchKind,
@@ -618,3 +621,65 @@ class TestPipelineValidate:
         )
 
         assert mock_api.call_count == 2
+
+
+@contextmanager
+def _cli_pipeline_mocks():
+    """Stub repo detection and context creation for CLI-layer pipeline tests."""
+    with (
+        patch(
+            "ado_api.cli.commands.pipeline._get_repo_or_exit", return_value="my-repo"
+        ),
+        patch("ado_api.cli.commands.pipeline.make_ado_context", return_value=FAKE_CTX),
+    ):
+        yield
+
+
+class TestCliPipelineValidateBranchResolution:
+    """The CLI layer resolves ``--branch`` via ``_get_default_branch()`` when omitted."""
+
+    @patch("ado_api.commands.pipeline.call_ado_api")
+    @patch("ado_api.cli.commands.pipeline._get_default_branch", return_value="develop")
+    def test_omitted_branch_uses_default_branch(
+        self, mock_default: MagicMock, mock_api: MagicMock
+    ) -> None:
+        mock_api.side_effect = [
+            _REPO_RESPONSE,
+            {
+                "settings": {
+                    "buildDefinitionId": "99",
+                    "scope": [{"refName": "refs/heads/develop"}],
+                }
+            },
+        ]
+
+        with _cli_pipeline_mocks():
+            cli_pipeline_validate(builds=["99"], ctx=AdoCliContext())
+
+        mock_default.assert_called_once()
+        post_call = mock_api.call_args_list[-1]
+        data = post_call.kwargs["data"]
+        assert data["settings"]["scope"][0]["refName"] == "refs/heads/develop"
+
+    @patch("ado_api.commands.pipeline.call_ado_api")
+    @patch("ado_api.cli.commands.pipeline._get_default_branch")
+    def test_explicit_branch_overrides_default(
+        self, mock_default: MagicMock, mock_api: MagicMock
+    ) -> None:
+        mock_api.side_effect = [
+            _REPO_RESPONSE,
+            {
+                "settings": {
+                    "buildDefinitionId": "99",
+                    "scope": [{"refName": "refs/heads/main"}],
+                }
+            },
+        ]
+
+        with _cli_pipeline_mocks():
+            cli_pipeline_validate(builds=["99"], branch="main", ctx=AdoCliContext())
+
+        mock_default.assert_not_called()
+        post_call = mock_api.call_args_list[-1]
+        data = post_call.kwargs["data"]
+        assert data["settings"]["scope"][0]["refName"] == "refs/heads/main"

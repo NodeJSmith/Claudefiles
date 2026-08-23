@@ -16,6 +16,7 @@ from ado_api.cli.context import (
     _get_repo_or_exit,
     make_ado_context,
 )
+from ado_api.commands.builds import _get_default_branch
 from ado_api.commands.pipeline import (
     IdentifierKind,
     MatchKind,
@@ -69,7 +70,7 @@ def cli_pipeline_create(
 def cli_pipeline_validate(
     builds: list[str],
     *,
-    branch: str = "master",
+    branch: str | None = None,
     match_kind: Annotated[MatchKind, Parameter(name="--match-kind")] = MatchKind.Exact,
     identifier_kind: Annotated[
         IdentifierKind, Parameter(name="--identifier-kind")
@@ -79,15 +80,18 @@ def cli_pipeline_validate(
     path_filter: Annotated[list[str] | None, Parameter(name="--path-filter")] = None,
     ctx: AdoCliContextParam = DEFAULT_CLI_CONTEXT,
 ) -> None:
-    """Create a build validation policy on a branch (default: master).
+    """Create a build validation policy on a branch.
+
+    Defaults to the repository's default branch when ``--branch`` is not given.
 
     --json has no effect on this command.
     """
     ado_ctx = make_ado_context(ctx, repo=_get_repo_or_exit())
+    resolved_branch = branch if branch is not None else _get_default_branch()
     cmd_pipeline_validate(
         ctx=ado_ctx,
         builds=builds,
-        branch=branch,
+        branch=resolved_branch,
         match_kind=match_kind,
         identifier_kind=identifier_kind,
         is_enabled=is_enabled,

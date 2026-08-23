@@ -98,7 +98,8 @@ ado-api pipeline build-validate BUILDS... [--branch BRANCH]
 ```
 
 `pipeline create`'s branch auto-detects from git when omitted, falling back to `master` if detection
-fails. `pipeline build-validate`'s branch defaults to `master` outright. Queue lookup for `create`
+fails. `pipeline build-validate`'s branch defaults to the repository's default branch via
+`git-default-branch`. Queue lookup for `create`
 needs the Agent Pools (Read) PAT scope; without it, the command falls back to an `az login` AAD
 token.
 

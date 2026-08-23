@@ -266,9 +266,9 @@ def cmd_pipeline_validate(
 ) -> None:
     """Adds Build Validation Policy to a branch.
 
-    Build validation should target the default branch (master) — it gates PRs
-    merging *into* that branch. Targeting a feature branch locks it from pushes,
-    breaking the PR workflow.
+    Build validation should target the default branch — it gates PRs merging
+    *into* that branch. Targeting a feature branch locks it from pushes, breaking
+    the PR workflow.
     """
     if not ctx.repo:
         msg = "A repository is required to add build validation (run from within a git repo)."
@@ -277,7 +277,7 @@ def cmd_pipeline_validate(
     if "/" in branch:
         print(
             f"ERROR: --branch '{branch}' looks like a feature branch.\n"
-            f"Build validation policies should target the default branch (e.g. 'master').\n"
+            f"Build validation policies should target the default branch.\n"
             f"Applying to a feature branch locks it from pushes, breaking the PR workflow.",
             file=sys.stderr,
         )

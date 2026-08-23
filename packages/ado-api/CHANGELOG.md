@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-08-23
+
+- `pipeline build-validate`'s `--branch` no longer defaults to `master` outright; it now resolves the
+  repository's actual default branch via `_get_default_branch()` when omitted, matching `pipeline
+  create`'s existing auto-detection. Repos that default to `develop`, `main`, or anything else now get
+  a correctly targeted build validation policy instead of one silently pointed at `master`. (#534)
+
 ## 2026-08-19
 
 - **Breaking:** Port `ado-api` from the analytics monorepo into Claudefiles as a standalone package,
