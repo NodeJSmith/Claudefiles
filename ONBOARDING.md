@@ -61,6 +61,9 @@ The base is enough. `/mine-domain-model` maintains a `CONTEXT.md` glossary and A
 **"I want to turn raw notes into a finished piece of writing"**
 The base is enough. `/mine-fragments` interviews you grill-style to capture raw material with no structure imposed; `/mine-shape` then builds it into an article paragraph by paragraph, or `/mine-beats` assembles it into a branching journey of beats. Both structuring skills enforce grounding discipline — terms get introduced before they're used. Included in base.
 
+**"I need to write up technical research for my boss"**
+The base is enough. `/mine-writeup` turns investigation notes or dense working documents into a structured, scannable document for a specific audience. It interviews you on audience and outcome, locks scope before writing, and follows an answer-first template (bottom line, situation, findings, decisions, risks). Built-in editorial discipline keeps the agent from expanding scope or resisting cuts. Included in base.
+
 **"I want frontend design help"**
 Add the **Frontend** bundle. You get the Impeccable UI design skills for audit (`/i-audit`), layout (`/i-layout`), typography (`/i-typeset`), color systems (`/i-colorize`), and more. Start with `/i-teach-impeccable` to set up design context, then pick the skill that matches your current problem.
 

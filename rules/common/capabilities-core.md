@@ -66,6 +66,8 @@ tool: claude  # harness-only: skill/command routing tables are Claude-Code dispa
 | "mine fragments", "explore writing", "raw material", "capture fragments", "start writing an article", "gather raw material for an article" | `/mine-fragments` |
 | "shape this article", "write paragraph by paragraph", "shape this writing", "structure this material" | `/mine-shape` |
 | "write in beats", "beat by beat", "choose your own adventure writing", "journey-style article" | `/mine-beats` |
+| "write this up", "write up for my boss", "summarize this for leadership", "executive summary", "distill this research", "write a summary for leadership" | `/mine-writeup` |
+<!-- NOTE: "write up how this works" → mine-document (explain a subsystem). "write this up" → mine-writeup (distill research for an audience). -->
 
 ## CLI Tools
 

@@ -47,6 +47,7 @@ Full component tables for Claudefiles. For context on what each component type d
 | `mine-visual-qa` | Live visual QA — Playwright captures screenshots, then two agents analyze them with structural separation (one sees each page in isolation, the other sees all pages at once) |
 | `mine-wayfinder` | Multi-session decision mapping — chart foggy efforts as a map of decision tickets on the issue tracker, resolve via progressive discovery |
 | `mine-write-skill` | Guided skill creation — gathers requirements, drafts SKILL.md, validates quality checklist, auto-wires routing |
+| `mine-writeup` | Turn technical research or investigation notes into a structured, scannable document for a specific audience. Answer-first structure, scope lock, editorial discipline |
 
 ### Frontend Design Skills (`i-*`) — Frontend bundle
 
@@ -153,7 +154,7 @@ Coding guidelines in `rules/common/` that load automatically and shape how Claud
 | Git workflow | `workflow` | `commit-conventions`, `git-workflow`, `sequence-verifiable-units` |
 | Planning & execution | `planning` | `decomposition-discipline`, `outcome-oriented-execution`, `autonomous-run-discipline`, `pause-safely`, `exhaust-the-design-space`, `experience-first`, `build-the-lever`, `encode-lessons-in-structure` |
 | Verification & debugging | `verification` | `verification`, `debugging-discipline`, `performance-discipline` |
-| Authoring | `authoring` | `eval-discipline` |
+| Authoring | `authoring` | `eval-discipline`, `writing-discipline` |
 | Environment & tooling | `environment` | `bash-tools`, `command-output`, `sudo`, `tmux` |
 
 Deselecting a category whose rules are referenced by a kept rule prints a warning but does not block — the references are prose pointers, not requirements.

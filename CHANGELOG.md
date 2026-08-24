@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-08-24
+
+### Added
+
+- `/mine-writeup` skill turns technical research or dense working documents into an audience-readable writeup — locks scope with the user before writing, follows an answer-first structural template, and enforces editorial discipline against scope creep. Companion `writing-discipline` rule generalizes its So What/Forwarding/30-second tests to all prose tasks. (#535)
+
 ## 2026-08-23
 
 ### Added
