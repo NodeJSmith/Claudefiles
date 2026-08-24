@@ -13,7 +13,7 @@ This applies to any prose task: writeups, briefs, documentation, research summar
 - **The reader's question comes first.** Start with the answer, not the reasoning. A reader who knows the answer can choose to read the reasoning; a reader buried in reasoning may never reach the answer.
 - **Cut before you polish.** When a draft is too long, remove content. Do not compress. Compression keeps every idea but tightens the wording, so density goes up and clarity drops. Removal drops whole ideas, so what's left stays clear.
 - **One idea per paragraph.** If a paragraph is doing two things, split it or cut the weaker half.
-- **Earn every section.** A section that does not change what the reader knows or does after reading it does not belong. Apply the So What test: does this change a decision? If not, cut or demote to an appendix reference.
+- **Earn every section.** A section that does not change what the reader knows or does after reading it does not belong. For decision-oriented documents (writeups, briefs, proposals), apply the So What test: does this change a decision? For explanatory documents (subsystem docs, architecture write-ups), the test is broader: does this change the reader's mental model?
 - **Do not hedge to preserve coverage.** "This may or may not apply" is not a finding. Either state the finding and its confidence, or leave it out.
 - **Respect editorial direction.** When the user says to cut, shorten, or remove, do it. Do not argue, relocate to an appendix, summarize into a smaller section, or reintroduce the content elsewhere. The user knows their audience.
 

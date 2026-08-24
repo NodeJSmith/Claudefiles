@@ -71,9 +71,23 @@ Use the answers to calibrate depth, tone, and which sections to include. A one-p
 
 Before outlining, define the **closed-world scope**: what this writeup covers and what it does not. State it back to the user:
 
-> "Based on the source material and what you've told me, here's what I think belongs in the writeup: [list]. Everything else stays in the source docs. Sound right?"
+> "Based on the source material and what you've told me, here's what I think belongs in the writeup: [list]. Everything else stays in the source docs."
 
-The user may add or remove items. Once confirmed, the scope is locked. Do not add topics, sections, or findings outside this scope unless the user asks.
+Then confirm:
+
+```yaml
+AskUserQuestion:
+  question: "Does this scope look right? Add or remove items before I outline."
+  header: "Scope"
+  multiSelect: false
+  options:
+    - label: "Looks right"
+      description: "Lock the scope and proceed to outline"
+    - label: "Adjust"
+      description: "I'll tell you what to add or remove"
+```
+
+If "Adjust": apply the user's changes, then re-confirm. Once confirmed, the scope is locked. Do not add topics, sections, or findings outside this scope unless the user asks.
 
 ---
 
@@ -109,13 +123,27 @@ Table format: what needs deciding, who can decide it, what it gates. Ordered by 
 Only risks that could change the shape of the work. 3-5 items max. Each stated plainly: what could go wrong, why it matters, what to do about it.
 
 **7. Appendix pointer** (mandatory)
+One line pointing to the full source material for readers who want the evidence.
 
 The So What and Forwarding tests in section 3 are duplicated from `rules/common/writing-discipline.md` by design (this skill must be self-contained). If you change the tests here, update the other file too.
-One line pointing to the full source material for readers who want the evidence.
 
 ### Outline Approval
 
-Show the proposed outline as a bullet list with one-line descriptions of what each section will contain. The user approves, adjusts, or cuts sections before any prose is written.
+Show the proposed outline as a bullet list with one-line descriptions of what each section will contain.
+
+```yaml
+AskUserQuestion:
+  question: "Here's the outline. Approve, adjust, or cut sections before I start writing."
+  header: "Outline"
+  multiSelect: false
+  options:
+    - label: "Approved"
+      description: "Start writing section by section"
+    - label: "Adjust"
+      description: "I'll tell you what to change or cut"
+```
+
+If "Adjust": apply changes and re-confirm. No prose is written until the outline is approved.
 
 ---
 
