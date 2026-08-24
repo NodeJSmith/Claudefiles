@@ -276,8 +276,8 @@ RULE_CATEGORIES: dict[str, RuleCategory] = {
     ),
     "authoring": RuleCategory(
         label="Authoring",
-        description="Eval discipline (blinding candidates in evaluations)",
-        files=("eval-discipline.md",),
+        description="Eval discipline (blinding), writing discipline (editorial controls for prose)",
+        files=("eval-discipline.md", "writing-discipline.md"),
     ),
     "environment": RuleCategory(
         label="Environment & tooling",
