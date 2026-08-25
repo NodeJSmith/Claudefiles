@@ -72,7 +72,7 @@ Short, specific, imperative mood. Include the component/area when it helps:
 
 ## Step 3: Create
 
-1. Check `$ISSUE_TRACKER` (e.g., `echo $ISSUE_TRACKER`).
+1. Check `$ISSUE_TRACKER` (e.g., `printenv ISSUE_TRACKER`).
    - If **unset or empty**: return `ERROR: $ISSUE_TRACKER is not configured. Set it in your context var file (e.g. gh, jira, clickup).` and stop.
    - If **set to a tracker you have no tools for**: return `ERROR: no tools available for issue tracker "<value>"` and stop. Don't guess at a tool and don't fall back to a different tracker — the dispatching skill will ask the user how to proceed.
    - Otherwise: use the matching tracker's tools, then check the repo's issue conventions — available labels, milestones, and usage patterns.

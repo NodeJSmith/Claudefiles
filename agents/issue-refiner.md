@@ -23,7 +23,7 @@ You run as a dispatched subagent, so your final message goes to whatever dispatc
 
 ### 1. Read the Issue
 
-Check `$ISSUE_TRACKER` (e.g., `echo $ISSUE_TRACKER`) to know which platform's tools to use.
+Check `$ISSUE_TRACKER` (e.g., `printenv ISSUE_TRACKER`) to know which platform's tools to use.
 
 - If **unset or empty**: return `ERROR: $ISSUE_TRACKER is not configured. Set it in your context var file (e.g. gh, jira, clickup).` and **stop**.
 - If **set to a tracker you have no tools for**: return `ERROR: no tools available for issue tracker "<value>"` and **stop**. Don't guess at a tool and don't fall back to a different tracker — the tooling may simply live in a repo that isn't checked out here, which is the dispatcher's call to make.

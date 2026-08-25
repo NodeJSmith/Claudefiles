@@ -321,14 +321,14 @@ The orchestration run's recorded base commit is: <base_commit>
 
 ## Task
 
-Run /mine-clean-code on this branch. This dispatches three parallel checkers (llm-checker, lazy-checker, nitpicker) and consolidates their findings.
+Run /mine-clean-code on this branch. This dispatches three parallel checkers (llm-checker, lazy-checker, nitpicker), consolidates their findings, and tags each one in scope or out of scope of this PR's diff (its Scope classification step).
 
 After the findings are reported:
 
-1. When mine-clean-code asks what to do with the findings, choose "Fix all"
-2. Fix ALL findings that have unambiguous solutions — obvious-comment removal, dead helper removal, naming improvements, scattered constants, hardcoded values that should be configurable, copy-paste extraction, etc.
-3. For findings that require architectural judgment or could change behavior in subtle ways (e.g., collapsing an abstraction stack, restructuring an error hierarchy), leave them unfixed and note them in your summary
-4. For every real unfixed finding that should not be fixed in this orchestration run, read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md`, check the qualifying criteria. If it doesn't qualify, explain why in the summary instead (rejected as invalid/non-actionable) so it isn't silently dropped.
+1. Select whichever option mine-clean-code offers ("Fix in scope, file the rest", "Fix in scope, note the rest", or plain "Fix all" when it found no out-of-scope findings) — but regardless of which one you pick, **do not let mine-clean-code file an issue.** Behave as "Fix in scope, note the rest" in every case: fix in-scope findings only (with zero out-of-scope findings, "Fix all" and "fix in-scope only" are the same action), and skip mine-clean-code's own issue-filing procedure even when "file the rest" is the option shown. Point 4 below routes every deferral (in-scope-judgment or out-of-scope) through this run's `known-issues.md` instead, so filing happens once, at the Step 5.6 walkthrough, not at two separate checkpoints.
+2. Fix every **in-scope** finding that has an unambiguous solution — obvious-comment removal, dead helper removal, naming improvements, scattered constants, hardcoded values that should be configurable, copy-paste extraction, etc. Do not fix **out-of-scope** findings in this run.
+3. In-scope findings that require architectural judgment or could change behavior in subtle ways (e.g., collapsing an abstraction stack, restructuring an error hierarchy) stay unfixed too — note them in your summary alongside the out-of-scope ones
+4. For every unfixed finding — out-of-scope or judgment-deferred — that should not be fixed in this orchestration run, read `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-orchestrate/known-issues-protocol.md`, check the qualifying criteria. Out-of-scope findings default to `Reason not fixed now: out-of-scope`. If a finding doesn't qualify, explain why in the summary instead (rejected as invalid/non-actionable) so it isn't silently dropped.
 5. For every finding that qualifies, also check the Severity Gate. If it passes, append an entry to `<feature_dir>/known-issues.md` with `Run: <run_id>` (the value passed into this prompt). **You cannot ask the user directly — do not record an entry for a finding that trips the Severity Gate (user-visible breakage with no explanation, silent data loss, security exposure, or the core workflow blocked entirely).** Instead, add it to a `## SEVERE — needs immediate attention` section at the top of the summary with the same detail a known-issues entry would have; the orchestrator raises the protocol's Severity Escalation prompt to the user after reading this file.
 6. After fixing, run the project's test suite to verify no regressions: <contents of <dir>/test-command.txt>. If that file contains the sentinel "no test suite", skip this step.
 7. If tests pass or were skipped, run lint using <contents of <dir>/lint-command.txt>. If that file contains the sentinel "no lint tools", skip this step.
@@ -445,7 +445,9 @@ AskUserQuestion:
   `Status:` line to `resolved — fixed during known issues walkthrough` and continue to the next
   entry or Step 6. If the gate fails, leave the entry open and re-raise this entry's three-option
   prompt. The refreshed gate replaces the stale recorded result and finding counts.
-- **File as issue:** create an issue (see `${CLAUDE_CONFIG_DIR:-~/.claude}/rules/common/git-workflow.md` — Issue Creation Conventions) using the entry's title and body content, then update the entry's `Status:` line to `filed (<issue-key>)`.
+- **File as issue:** check `$ISSUE_TRACKER` (e.g., `printenv ISSUE_TRACKER`) to know which platform's tools to use — the same check every other `$ISSUE_TRACKER` consumer in this repo makes (e.g. `skills/mine-create-issue/worker.md` Step 3). Don't guess at a tool and don't fall back to a different tracker (e.g. the repo's own git-hosting platform) just because it's available — the configured tracker may differ from where the code lives.
+  - **If `$ISSUE_TRACKER` is unset/empty, or you have no tools for the tracker it names:** tell the user why filing isn't available (tracker unset, or no tools for the tracker it names) and re-raise this entry's three-option prompt (Fix now / File as issue / Leave deferred) unchanged — File as issue will simply hit this same message again if chosen, which is fine; don't strip it from the options.
+  - **Otherwise:** create an issue with the matching tool (see `${CLAUDE_CONFIG_DIR:-~/.claude}/rules/common/git-workflow.md` — Issue Creation Conventions) using the entry's title and body content, then update the entry's `Status:` line to `filed (<issue-key>)`.
 - **Leave deferred:** no change; `Status: open` stands.
 
 **Backlog entries:** do not walk through these individually every run — that trains the user

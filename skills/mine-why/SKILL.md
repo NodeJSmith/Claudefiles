@@ -85,7 +85,7 @@ Question: <the user's question>
 
 Instructions:
 1. Extract keywords from the target (function names, class names, feature terms)
-2. Search issues: check `$ISSUE_TRACKER` (e.g., `echo $ISSUE_TRACKER`) for which
+2. Search issues: check `$ISSUE_TRACKER` (e.g., `printenv ISSUE_TRACKER`) for which
    tracker's tools to use, then search the project's issues for those keywords
 3. Search PRs: run `git-platform` for which host's tools to use, then search that
    host's pull requests for the same keywords

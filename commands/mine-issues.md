@@ -31,7 +31,7 @@ Read `$ISSUE_TRACKER`.
 
 For **each** issue key in the arguments, launch a **Task subagent** (`subagent_type: light-worker`) with this prompt:
 
-> Check `$ISSUE_TRACKER` (e.g., `echo $ISSUE_TRACKER`) to know which platform's tools to use, then fetch the full issue for key <KEY> from the project's issue tracker — title, body, comments, labels/tags, assignees, and milestone/sprint if applicable.
+> Check `$ISSUE_TRACKER` (e.g., `printenv ISSUE_TRACKER`) to know which platform's tools to use, then fetch the full issue for key <KEY> from the project's issue tracker — title, body, comments, labels/tags, assignees, and milestone/sprint if applicable.
 >
 > If the issue does not exist, or the fetch fails for a reason specific to this one key, return exactly `LOOKUP_FAILED` and nothing else. Reserve `TRACKER_ERROR: <reason>` for the tracker itself being unusable — no tools for the configured tracker, auth rejected, tracker unreachable — since that condition would fail every key equally, not just this one. The caller's branch-name fallback only makes sense for a key that might be wrong, so don't report an unusable tracker as one.
 >
