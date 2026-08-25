@@ -481,3 +481,11 @@ Three questions raised during discovery are closed and recorded here so they are
 - *Whether the plugin should own `cfg.skills.paths`.* Closed by probe: racy, and unnecessary given the native scan.
 - *Whether to keep excluding `performance.md` and `tmux.md`.* Closed: both rationales are stale post-1008; only `sudo.md`'s survives, on the grounds that it hangs rather than merely misinforms.
 - *Whether `~/.claude/CLAUDE.md`'s suppression by `AGENTS.md` loses anything.* Closed by inspection: `CLAUDE.md` is ten lines whose entire content already appears in `AGENTS.md`.
+
+## Addendum
+
+### 2026-08-25: `cfg.command` gained a second source — `commands/*.md`
+
+FR#4 and AC#3 describe `cfg.command` as exhaustively "one entry per skill declaring `opencode-command: true`." That was incomplete from the start: this repo's own `commands/*.md` files (Claude Code's native slash-command directory — `mine-issues`, `mine-status`, `mine-end-of-day`, `mine-good-morning`, `mine-permissions-audit`, `mine-pre-compact`) were never read by the plugin at all, so `/mine-issues` silently didn't exist in OpenCode despite `ONBOARDING.md` claiming otherwise at the time.
+
+`opencode/claudefiles.ts` now adds `buildNativeCommands()`, which reads `<claudeRoot>/commands/*.md` directly (the file body is already a complete prompt, so it's used verbatim as the template rather than routed through the skill-bridge wrapper) and merges the result into `cfg.command` alongside the skill-bridge entries FR#4 describes, with a `console.error` collision warning if a name exists in both sources (native wins). `REFERENCE.md` and `ONBOARDING.md` were updated to describe both sources.
