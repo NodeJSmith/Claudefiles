@@ -57,13 +57,15 @@ Checkers read each changed file in full, so findings can land on lines the diff 
 
 Compute changed line ranges once per file with `<base diff command> -U0 -- <file>`, where `<base diff command>` is Phase 1's `git diff <base>...HEAD` or `git diff HEAD` — **not** the path-suffixed `<diff command>` a directory/file scope produces. Git only honors the first `--` as the pathspec separator, so appending `-U0 -- <file>` after an existing `-- <paths>` suffix would be parsed as a second, non-matching pathspec instead of scoping the diff, silently producing standard 3-line-context hunks instead of the exact 0-context ones this step needs.
 
-Read the `@@ -a,b +c,d @@` hunk headers — a finding is in scope when its line falls within one of the `+c,d` ranges (count defaults to 1 when omitted). Tag each finding inline by appending `(in scope)` or `(out of scope)` after its `file.ext:line` locator.
+Read the `@@ -a,b +c,d @@` hunk headers — a finding is in scope when its line falls within one of the `+c,d` ranges (count defaults to 1 when omitted), **or** when the finding's own description attributes it to a change made elsewhere in this diff (e.g., a helper newly dead because this diff deleted its last caller elsewhere in the file — the dead-code finding lands on the helper's unchanged definition, but the diff caused it). Judge the second case from what the finding's own text says caused it, not from line ranges and not from your own inference — this can't be checked mechanically, and only counts when the finding itself draws the causal link. Tag each finding inline by appending `(in scope)` or `(out of scope)` after its `file.ext:line` locator.
 
 Path mode has no PR to be in or out of — skip this classification and treat every finding as in scope.
 
 ### Validity assessment
 
 Apply the protocol from `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`: findings are valid by default; flagging one as likely invalid requires a concrete evidence trail.
+
+Likely-invalid findings move entirely into the report's Likely-invalid section (see below) and drop out of every other count — the per-checker Findings/Total numbers, and the in-scope/out-of-scope counts and checker sections — a finding that's both out-of-scope and likely-invalid is reported once, as likely-invalid. "Out of scope" (M, everywhere below) always means out-of-scope **and** not likely-invalid.
 
 ### Report
 
