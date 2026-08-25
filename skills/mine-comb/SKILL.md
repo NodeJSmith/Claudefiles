@@ -1,6 +1,6 @@
 ---
 name: mine-comb
-description: "Use when the user says: \"comb this\", \"fine-toothed comb\", \"comb this brief\", \"comb this design\", \"go over this with a fine-toothed comb\", \"comb the implementation against the design\", \"check this for consistency\", \"is this design consistent and complete\". Open-ended holistic review of an artifact (or an artifact against a reference) — catches inconsistency, inaccuracy, drift, and thinness a checklist can't. The one-off form of the comb baked into mine-define, mine-plan, and mine-orchestrate."
+description: "Use when the user says: \"comb this\", \"fine-toothed comb\", \"comb this brief\", \"comb this design\", \"go over this with a fine-toothed comb\", \"comb the implementation against the design\", \"check this for consistency\", \"is this design consistent and complete\". Open-ended holistic review of an artifact (or an artifact against a reference) — catches inconsistency, inaccuracy, drift, and thinness a checklist can't. The one-off form of the comb baked into mine-define, mine-plan, and mine-sketch."
 user-invocable: true
 opencode-command: true
 ---
@@ -9,7 +9,7 @@ opencode-command: true
 
 A one-off, open-ended holistic review of an artifact — a brief, design doc, plan, spec, or an implementation against the design it was built from. It is **not** a checklist or rubric: it takes the artifact in as a whole and surfaces what a structured pass can't — the doc reading as inconsistent, inaccurate, or thin; a requirement silently dropped; behavior that drifted from intent.
 
-This is the standalone form of the comb that `mine-define` (Phase 5.5), `mine-plan` (Phase 5.5), and `mine-orchestrate` (Step 5.5) run inside their workflows. Reach for this skill to comb something those workflows didn't produce — a brief written by hand, a design from elsewhere, an implementation whose design lives in a doc.
+This is the standalone form of the comb that `mine-define` (Phase 5.5), `mine-plan` (Phase 5.5), and `mine-sketch` (Phase 4) run inside their workflows. Reach for this skill to comb something those workflows didn't produce — a brief written by hand, a design from elsewhere, an implementation whose design lives in a doc.
 
 ## Phase 1: Resolve the target
 
