@@ -145,6 +145,17 @@ This is distinct from Test Strategy: tests prove individual behaviors are correc
 This section must be **empty** by the time `mine-plan` reaches plan approval. Empty does not mean every question got a confident answer — it means every entry moved somewhere with an owner: into the design section it affects, into `## Dependencies and Assumptions` as a deliberately accepted risk, or onto the task file that will resolve it. `mine-plan` Phase 1 runs that discharge and owns the details.
 
 Write each entry so someone other than you can act on it. An entry still sitting here at plan approval is one nobody owns.]
+
+## Addendum
+
+[Never written by `mine-define`, `mine-sketch`, or `mine-plan` — this section does not exist in a freshly generated design doc. It is appended later, by hand or by whichever session notices the divergence, and only once `**Status:**` has reached a terminal value (`archived` or `abandoned`). Before that point, `design.md` is still the active target and normal editing (Phase 1 discharge, plan revisions) applies instead.
+
+Once terminal, the sections above describe what was approved and, for `archived`, what actually got built. They are frozen — do not rewrite them to match reality that changed after the fact. When implementation drifts from what's written above in a way worth remembering, append a dated entry here instead:
+
+### YYYY-MM-DD: <one-line summary of what changed>
+<What diverged from the design above, and why.>
+
+Reviewers, challenge runs, and comb passes should treat drift against a terminal-status design doc as expected, not a finding — and should never propose editing the sections above to "correct" them.]
 ```
 
 ## Content Rules
@@ -176,6 +187,7 @@ Write each entry so someone other than you can act on it. An entry still sitting
 - Acceptance Criteria must be verifiable by running a local command (test, lint, grep, script, or hitting a locally-reachable service). Criteria that require CI pipeline status, GitHub Actions job output, post-merge observation, or PR review state are not ACs. Move them to Dependencies and Assumptions
 - Visual Artifacts section is optional — include it only when visual references exist; omit the section entirely otherwise
 - Key Constraints section is required — include it even if no feature-specific prohibitions emerged (mark it empty with a note rather than omitting)
+- Once `**Status:**` is terminal (`archived` or `abandoned`), treat the document as frozen — never edit body sections (Problem through Open Questions) to reflect later reality. New drift goes in `## Addendum` as a new dated entry, never as a rewrite of earlier sections.
 
 ## Count Handling
 

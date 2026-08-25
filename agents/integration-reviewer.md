@@ -92,6 +92,7 @@ Read each changed file in full.
 2. Glob for `design/specs/*/design.md`. If any exists, pick the most recently modified one whose directory name relates to the current branch name (slug match). If there's only one, use it.
 3. If a design.md is found, read it in full. Also read all task files (`tasks/T*.md` or `tasks/WP*.md`) in the same directory. These define the intended architecture — deviations are design violations.
 4. If no design.md is found, proceed without it and mark dimension 4 as N/A.
+5. If the design.md's `**Status:**` is `archived` or `abandoned`, also mark dimension 4 as N/A — a terminal-status design doc no longer constrains new work; treat it as settled history instead.
 
 ---
 
@@ -152,7 +153,7 @@ Work through each dimension. Record findings with evidence. If a dimension has n
 - Check: positional vs keyword-only args, return type style (dataclass / dict / tuple / Optional), error handling (raise vs return)
 - Only flag if there's a clear, consistent existing pattern to deviate from
 
-#### 4. Design violation (only if design.md found)
+#### 4. Design violation (only if design.md found and not terminal-status — see Step 2)
 - Does the design.md specify a pattern (repository, service layer, DI, etc.) the implementation ignores?
 - Does the implementation add files or modules not mentioned in the design?
 - Does it skip a layer the design prescribes?

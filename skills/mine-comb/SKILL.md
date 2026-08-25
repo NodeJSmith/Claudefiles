@@ -18,6 +18,8 @@ Determine what to comb and whether there's a reference to comb against:
 - **Single artifact** — the user points at one file or doc ("comb this brief"). Comb it for internal consistency, accuracy, and thoroughness.
 - **Artifact against a reference** — the user names both ("comb the implementation against the design", "do the tasks match the design"). Read the reference first, then comb the artifact for fidelity.
 
+If the reference is a `design.md` with a terminal `**Status:**` (`archived` or `abandoned`), tell the agent so in the dispatch prompt — see Phase 2. That doc is frozen; drift from it isn't something to reconcile.
+
 If the target is ambiguous (no path given, several candidates), ask the user which artifact and whether there's a reference — one focused `AskUserQuestion`, then proceed.
 
 **Pick the model:**
@@ -47,6 +49,12 @@ Agent:
     Define blocking as: an inconsistency, inaccuracy, gap, or drift that would
     mislead whoever acts on this next<, or make the artifact wrong relative to
     the reference — if a reference was given>.
+
+    <If the reference is a design.md with Status: archived or abandoned, add:>
+    The reference design.md is terminal-status (archived/abandoned): it's frozen,
+    documenting a past decision rather than a live spec. Do not report drift from
+    it as a finding, and do not suggest editing its body sections; note any
+    Addendum-worthy divergence separately, non-blocking.
 ```
 
 The agent classifies findings and returns a `## Summary` line plus grouped findings. (See `${CLAUDE_CONFIG_DIR:-~/.claude}/agents/fine-toothed-comb.md`.)

@@ -67,6 +67,8 @@ Classify target type — use `--target-type` if provided, otherwise:
 | `rule` | Files in `rules/`; convention/guideline definitions |
 | `other` | Nothing matches |
 
+**`design-doc` terminal-status caveat:** if the target's `**Status:**` is `archived` or `abandoned`, note it here for Phase 2 — the dispatch bullet list there tells critics not to flag drift from current code as a finding.
+
 ### Re-challenge detection
 
 Check for a prior challenge run before dispatching triage:
@@ -153,6 +155,7 @@ If the generic persona directory is missing or empty, stop with: "Cannot launch 
 - Focus instruction if `--focus` was provided: "The user is specifically concerned about: <focus>. Weight your analysis toward this concern."
 - If re-challenge: "This is a re-challenge after fixes were applied. Focus on: (1) whether the fixes were thorough, (2) whether fixes introduced new problems, (3) issues missed in the first round."
 - Project context if available: check the project's CLAUDE.md for frontmatter with `audience`, `developers`, and `data-sensitivity` fields. If present, include: "Project context: audience is <audience>, <developers> developer(s), data sensitivity is <data-sensitivity>. Calibrate your findings to this context — skip findings that would only matter for a different audience or scale." If absent, do not fabricate context — omit this line.
+- If target type is `design-doc` and the doc's `**Status:**` is `archived` or `abandoned`: "This design.md is frozen (Status: <status>) — it documents a past decision, not a live spec to keep synced with the code. Critique the decision as written, but do not flag drift from current code as a finding — that belongs in the doc's own `## Addendum` section, not this critique."
 - Output path: `<tmpdir>/<persona-slug>-report.md`
 - Critic rules:
   1. **Cite evidence for every claim** — `file:line` for codebase claims; canonical URL for external patterns

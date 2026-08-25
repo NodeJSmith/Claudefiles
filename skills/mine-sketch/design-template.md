@@ -50,6 +50,15 @@ Write the design doc to `<feature_dir>/design.md` using this template:
 ## Changed Files
 
 [List each file with its change verb (create / modify / delete) and a one-line note on what changes.]
+
+## Addendum
+
+[Never written at creation time — appended later, only once `**Status:**` reaches a terminal value (`archived` or `abandoned`). Once terminal, treat the sections above as settled — what was approved, and for `archived`, what got built. Don't rewrite them to match reality that changed after the fact. Append a dated entry instead:
+
+### YYYY-MM-DD: <one-line summary of what changed>
+<What diverged from the design above, and why.>
+
+Drift against a terminal-status design doc is expected, not a finding — reviewers, challenge, and comb should never propose editing the sections above to "correct" them.]
 ```
 
 ## Content Rules
@@ -59,3 +68,4 @@ Write the design doc to `<feature_dir>/design.md` using this template:
 - When `## Operational Lifecycle` applies, the numbered requirements must cover repeated failure, retry bounds/termination, recovery or deliberately terminal behavior, and visible accounting; isolated one-transition tests are insufficient.
 - The Approach section should reference actual file paths, class names, and patterns found during investigation.
 - No `[NEEDS CLARIFICATION]` markers — if you don't know, ask before writing.
+- Once `**Status:**` is terminal (`archived` or `abandoned`), never edit body sections to reflect later reality — append a dated entry to `## Addendum` instead.

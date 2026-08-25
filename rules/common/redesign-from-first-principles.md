@@ -16,3 +16,5 @@ When integrating a change, do not bolt it onto the existing design. Redesign as 
 4. Think about the redesign holistically, then deliver it incrementally.
 
 This is the anti-bolt-on principle. A bolted-on change is identifiable by its seams: adapter layers, special-case branches, and comments explaining why something "doesn't quite fit." A first-principles integration has no seams because the design accounts for the requirement naturally.
+
+**Exception — terminal-status design docs.** "Propagate through docs" does not extend to a `design.md` whose `**Status:**` is `archived` or `abandoned`. That file records what was approved and, once `archived`, what actually got built. It is frozen, not something to keep in sync. Do not rewrite its body sections to reflect a later redesign — if the divergence is worth recording, append a dated entry to its `## Addendum` section instead (see `skills/mine-define/design-template.md`).
