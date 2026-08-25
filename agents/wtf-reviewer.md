@@ -1,7 +1,7 @@
 ---
 name: wtf-reviewer
 model: sonnet  # claude-sonnet-5 as of 2026-07-07 — do not downgrade; pre-commit readability gate
-effort: high
+effort: medium
 description: Readability and maintainability reviewer — finds code that works but will confuse a developer reading it a month from now. Complements code-reviewer (correctness) and integration-reviewer (fit).
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
 bundle: base

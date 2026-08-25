@@ -7,7 +7,7 @@
     },
     "sonnet": {
       "model": "openai/gpt-5.6-terra",
-      "variant": "high"
+      "variant": "medium"
     },
     "haiku": {
       "model": "openai/gpt-5.6-luna",
