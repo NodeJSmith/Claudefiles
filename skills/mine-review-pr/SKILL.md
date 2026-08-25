@@ -45,14 +45,14 @@ AskUserQuestion:
 
 This skill expects to run from a review worktree (e.g. `review-pr-50058`). It fetches and checks out branches as needed. If the worktree is already on the source branch, no checkout is required.
 
-1. Fetch both the source and target branches:
+1. Fetch both the source and target branches. Single-quote the branch names — they come from someone else's PR and could contain shell metacharacters. Double quotes are not enough here: they still allow `$(...)`/backtick command substitution, which git's ref-name rules do not forbid:
    ```bash
-   git fetch origin <source-branch> <target-branch>
+   git fetch origin '<source-branch>' '<target-branch>'
    ```
 
-2. If HEAD does not match `origin/<source-branch>`, check `git status --porcelain` is clean, then switch:
+2. If HEAD does not match `origin/<source-branch>`, check `git status --porcelain` is clean, then switch to a detached checkout — this reviews the commit without touching any local branch, so a local branch that happens to share the source branch's name is never reset:
    ```bash
-   git checkout -B <source-branch> origin/<source-branch>
+   git checkout --detach 'origin/<source-branch>'
    ```
 
 3. Capture the diff:
@@ -60,8 +60,8 @@ This skill expects to run from a review worktree (e.g. `review-pr-50058`). It fe
    get-skill-tmpdir mine-review-pr
    ```
    ```bash
-   git diff origin/<target>...HEAD > <tmpdir>/diff.patch
-   git diff origin/<target>...HEAD --stat
+   git diff 'origin/<target>...HEAD' > <tmpdir>/diff.patch
+   git diff 'origin/<target>...HEAD' --stat
    git rev-parse HEAD
    ```
 
@@ -71,7 +71,7 @@ This skill expects to run from a review worktree (e.g. `review-pr-50058`). It fe
 
 ### Detect review mode
 
-Determine the file extensions in the diff via `git diff origin/<target>...HEAD --name-only`. A file is an **instruction file** if it has a `.md` extension. If ALL changed files are instruction files, use **instruction mode**. Otherwise use **code mode**.
+Determine the file extensions in the diff via `git diff 'origin/<target>...HEAD' --name-only`. A file is an **instruction file** if it has a `.md` extension. If ALL changed files are instruction files, use **instruction mode**. Otherwise use **code mode**.
 
 ### Dispatch
 
@@ -114,7 +114,7 @@ Fold nitpick-severity findings into an adjacent code-issue bucket or drop them. 
 
 Reviewers read a diff, not the PR's own account of itself, and the PR may have moved since Phase 1. Before showing the user anything, re-check each surviving finding four ways:
 
-1. **Against the current PR head.** Re-fetch the PR's head SHA — `gh pr view <id> --json headRefOid` (GitHub) or `ado-api pr show <id> --json`, reading `lastMergeSourceCommit.commitId` (ADO) — and compare to the HEAD pinned in Phase 1. If it changed, the author pushed while reviewers were running: tell the user, re-capture the diff (Phase 1 step 3), and re-run both Phase 2 (dispatch) and Phase 3 (consolidate and categorize) on the fresh output before resuming this phase. Don't verify or present findings against a stale diff, and don't resume verification on output that hasn't been deduplicated and bucketed yet.
+1. **Against the current PR head.** Re-fetch the PR's head SHA — `gh pr view <id> --json headRefOid` (GitHub) or `ado-api pr show <id> --json`, reading `lastMergeSourceCommit.commitId` (ADO) — and compare to the HEAD pinned in Phase 1. If it changed, the author pushed while reviewers were running: tell the user, redo Phase 1 steps 1–3 (re-fetch, re-checkout the new head, and re-capture the diff), and re-run both Phase 2 (dispatch) and Phase 3 (consolidate and categorize) on the fresh output before resuming this phase. Don't verify or present findings against a stale diff, and don't resume verification on output that hasn't been deduplicated and bucketed yet.
 2. **Against the code.** Read the actual current file, grep for the specific claim. Line numbers drift, duplicated blocks get fixed between diff and HEAD.
 3. **Against the PR description.** Re-read the description from Phase 0. A finding that frames something as "undisclosed" or "unexplained" is wrong if the PR description already says it. This is the most common false positive. Posting it tells the author their PR description wasn't read, which undermines every other finding.
 4. **Against existing threads.** Fetch existing PR threads (see Phase 0 table), including resolved ones. A finding is a duplicate if it names the same file:line (or the same code construct, if line numbers drifted) and the same underlying concern as an existing thread — not merely the same general topic; two findings about different aspects of the same function are not duplicates. Drop findings that duplicate an unresolved thread. For a finding that duplicates a *resolved* thread, check it against step 2: if the underlying issue is still present in the code, treat it as unresolved despite the thread's status and keep it (the prior fix didn't fully land); otherwise drop it. Match against threads from any author — a concern already raised by a human reviewer or another bot is still a duplicate. The Claude attribution footer identifies this skill's own prior comments, for tracking re-review passes, not for gating which threads count toward dedup.
