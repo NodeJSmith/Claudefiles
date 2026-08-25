@@ -28,6 +28,7 @@ All notable changes to this Claudefiles repository are documented here.
 
 ### Added
 
+- New `mine-review-pr` skill for reviewing someone else's open PR read-only (GitHub + ADO) — dispatches the reviewer trio against the diff, verifies findings against the code/description/existing threads, and posts them as PR comment threads only after explicit confirmation. (#531)
 - Agents now show `[Context: N%]` on `AskUserQuestion` prompts at major decision gates (shipping, known issues, task failure, review/challenge findings, clean code, comb) via the new `context-pct` tool, so the user can decide whether to continue or clear context and resume. (#530)
 
 ### Changed
