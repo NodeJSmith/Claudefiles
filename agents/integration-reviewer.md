@@ -1,7 +1,7 @@
 ---
 name: integration-reviewer
 model: sonnet  # claude-sonnet-5 as of 2026-07-07 — do not downgrade; pre-commit safety gate
-effort: high
+effort: medium
 description: Codebase integration reviewer — finds duplication, convention drift, misplacement, orphaned code, and design violations. Run in parallel with code-reviewer before every commit.
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
 bundle: base

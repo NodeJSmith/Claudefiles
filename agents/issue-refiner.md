@@ -1,7 +1,7 @@
 ---
 name: issue-refiner
 model: sonnet  # claude-sonnet-5 as of 2026-07-07
-effort: high
+effort: medium
 description: Enriches issues with acceptance criteria, edge cases, technical considerations, and NFRs. Use before assigning work or when an issue lacks sufficient detail.
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
 bundle: base

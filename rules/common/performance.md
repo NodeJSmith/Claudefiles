@@ -12,13 +12,13 @@ A PreToolUse hook (`subagent-model-default.sh`) enforces model defaults on Agent
 
 ## Effort Level Policy
 
-Every agent file declares an explicit `effort:` in frontmatter — no agent ships without one, and nothing runs below `high`. `lint-agent-models` enforces the declaration by rejecting any agent file whose frontmatter omits `effort:` (along with the other four required fields); there's no separate mechanism enforcing the floor itself, so a new agent file must set `effort: high` (or stronger) by hand at creation time.
+Every agent file declares an explicit `effort:` in frontmatter — no agent ships without one. `lint-agent-models` enforces the declaration by rejecting any agent file whose frontmatter omits `effort:` (along with the other four required fields), but it only checks that the field is present, not that its value matches the agent's tier default below — a new agent shipped with the wrong value passes lint silently.
 
-All agent files — Sonnet, Opus, and Haiku alike — currently declare `effort: high`, matching the `variant` OpenCode's tier map assigns the corresponding tier (`opencode/config-data.json`). `high` is a floor, not a ceiling: some agents may move to `xhigh` later as that gets evaluated per-agent. When that happens, update the frontmatter and run `bin/lint-agent-models --write` to regenerate the list below from it.
+Sonnet agents run at `effort: medium`. Opus and Haiku agents run at `effort: high`. These are current defaults, not ceilings — match a new agent's effort to its tier's current default unless there's a specific reason to diverge. To retune a role's effort, edit that agent's frontmatter, then run `bin/lint-agent-models --write` to regenerate the list below from it.
 
-`effort:` is the Claude Code key and stays that in source. OpenCode has no such key — its equivalent is `variant:`, and it accepts unknown agent keys silently rather than rejecting them, so an `effort:` that reached OpenCode would look configured while every agent ran at the provider default. Neither side rewrites agent files: an OpenCode plugin (`opencode/claudefiles.ts`) reads each agent's frontmatter live at OpenCode session start and resolves its Claude tier name to a model and `variant` through `opencode/config-data.json`'s `tier_map`, so raising a tier's reasoning level for OpenCode means editing that shared data file, not the agent files (`design/specs/1007-opencode-config-plugin`).
+`effort:` is the Claude Code key and stays that in source. OpenCode has no such key — its equivalent is `variant:`, and it accepts unknown agent keys silently rather than rejecting them, so an `effort:` that reached OpenCode would look configured while every agent ran at the provider default. Neither side rewrites agent files: an OpenCode plugin (`opencode/claudefiles.ts`) reads each agent's frontmatter live at OpenCode session start and resolves its Claude tier name to a model and `variant` through `opencode/config-data.json`'s `tier_map`, so raising or lowering a tier's reasoning level for OpenCode means editing that shared data file, not the agent files (`design/specs/1007-opencode-config-plugin`). `tier_map`'s per-tier `variant` values are kept matching the per-agent `effort:` defaults above.
 
-This supersedes an earlier policy that ran Sonnet agents at `effort: medium` to offset Sonnet 5's verbosity (~1.7x more output tokens than Sonnet 4.6 at the same effort level). The verbosity tradeoff still exists; it's just no longer the deciding factor for this fleet. The parent session runs at `high` (set in `settings.machine.json`).
+The parent session runs at `high` (set in `settings.machine.json`).
 
 **Gap:** Built-in agent types (`general-purpose`, `Explore`, `Plan`, `claude`) have no frontmatter, so they inherit the parent session's effort level (`high`). The Agent tool schema has no `effort` parameter, so the model-default hook cannot inject it. These types already get downgraded to Sonnet by the hook, which limits the cost impact.
 
@@ -41,32 +41,34 @@ Use Sonnet instead of Haiku when any of these apply:
 
 Each agent file in `agents/` declares its model, effort, tools, description, and bundle membership in its own YAML frontmatter — the single source of truth for agent metadata. The list below is generated from that frontmatter by `bin/lint-agent-models`, which also generates `install.py`'s per-bundle `agents=(...)` tuples from the same source. To retune a role's model, edit that agent's frontmatter, then run `bin/lint-agent-models --write` to regenerate this list and `install.py` together — no other file needs touching. `bin/lint-agent-models` (no flags, the pre-commit hook) fails the commit if either generated artifact has drifted from frontmatter, or if any agent file is missing a required field.
 
+The `(do not downgrade; ...)` annotations below are pulled from a trailing comment on each agent's `model:` frontmatter line — they protect the model tier (keep this agent on Sonnet, not Haiku), not the `effort` value shown next to it.
+
 **Agent files:**
 <!-- GENERATED BY bin/lint-agent-models -- DO NOT EDIT MANUALLY. Run `bin/lint-agent-models --write` to regenerate. -->
-- `agents/architect.md` — sonnet, high
-- `agents/code-judo-reviewer.md` — sonnet, high
-- `agents/code-reviewer.md` — sonnet, high (do not downgrade; pre-commit safety gate)
-- `agents/engineering-backend-developer.md` — sonnet, high
-- `agents/engineering-data-engineer.md` — sonnet, high
-- `agents/engineering-frontend-developer.md` — sonnet, high
-- `agents/engineering-sre.md` — sonnet, high
-- `agents/engineering-technical-writer.md` — sonnet, high
-- `agents/fine-toothed-comb.md` — sonnet, high
-- `agents/instruction-quality-reviewer.md` — sonnet, high
-- `agents/integration-reviewer.md` — sonnet, high (do not downgrade; pre-commit safety gate)
-- `agents/issue-refiner.md` — sonnet, high
-- `agents/lazy-checker.md` — sonnet, high
+- `agents/architect.md` — sonnet, medium
+- `agents/code-judo-reviewer.md` — sonnet, medium
+- `agents/code-reviewer.md` — sonnet, medium (do not downgrade; pre-commit safety gate)
+- `agents/engineering-backend-developer.md` — sonnet, medium
+- `agents/engineering-data-engineer.md` — sonnet, medium
+- `agents/engineering-frontend-developer.md` — sonnet, medium
+- `agents/engineering-sre.md` — sonnet, medium
+- `agents/engineering-technical-writer.md` — sonnet, medium
+- `agents/fine-toothed-comb.md` — sonnet, medium
+- `agents/instruction-quality-reviewer.md` — sonnet, medium
+- `agents/integration-reviewer.md` — sonnet, medium (do not downgrade; pre-commit safety gate)
+- `agents/issue-refiner.md` — sonnet, medium
+- `agents/lazy-checker.md` — sonnet, medium
 - `agents/light-worker.md` — haiku, high
-- `agents/llm-checker.md` — sonnet, high
-- `agents/nitpicker.md` — sonnet, high
-- `agents/planner.md` — sonnet, high
-- `agents/qa-specialist.md` — sonnet, high
+- `agents/llm-checker.md` — sonnet, medium
+- `agents/nitpicker.md` — sonnet, medium
+- `agents/planner.md` — sonnet, medium
+- `agents/qa-specialist.md` — sonnet, medium
 - `agents/researcher.md` — opus, high
 - `agents/secrets-auditor.md` — haiku, high
-- `agents/spec-reviewer.md` — sonnet, high
-- `agents/standard-worker.md` — sonnet, high
-- `agents/testing-reality-checker.md` — sonnet, high (do not downgrade; pre-ship safety gate)
-- `agents/visual-diff.md` — sonnet, high (vision required for screenshot comparison)
-- `agents/writing-quality-reviewer.md` — sonnet, high
-- `agents/wtf-reviewer.md` — sonnet, high (do not downgrade; pre-commit readability gate)
+- `agents/spec-reviewer.md` — sonnet, medium
+- `agents/standard-worker.md` — sonnet, medium
+- `agents/testing-reality-checker.md` — sonnet, medium (do not downgrade; pre-ship safety gate)
+- `agents/visual-diff.md` — sonnet, medium (vision required for screenshot comparison)
+- `agents/writing-quality-reviewer.md` — sonnet, medium
+- `agents/wtf-reviewer.md` — sonnet, medium (do not downgrade; pre-commit readability gate)
 <!-- END GENERATED -->
