@@ -70,7 +70,7 @@ const OPENCODE_CONFIG_DIR = join(
 const COMPAT_RULE_PATH = join(OPENCODE_CONFIG_DIR, "opencode-compat.md");
 
 // Single declaration site for the default root, shared by resolveClaudeRoot()
-// (falls back to it) and buildCommands() (compares against it to detect a
+// (falls back to it) and buildSkillCommands() (compares against it to detect a
 // CLAUDE_CONFIG_DIR override) -- two independent join(homedir(), ".claude")
 // calls would encode the same fact twice with nothing to catch them drifting
 // apart if the default ever changed.
@@ -215,10 +215,12 @@ function buildAgents(claudeRoot: string, tierMap: Record<string, TierEntry>): Re
   return agents;
 }
 
-// cfg.command: one entry per <claudeRoot>/skills/*/SKILL.md whose
-// frontmatter declares opencode-command: true. Three filters are all
+// cfg.command, skill-bridge half: one entry per <claudeRoot>/skills/*/SKILL.md
+// whose frontmatter declares opencode-command: true. Three filters are all
 // load-bearing (see isSkillCommand and the SKILL.md-only glob below) --
-// dropping any one of them inflates the count past the true 12.
+// dropping any one of them inflates the count past the true 12. Paired with
+// buildNativeCommands() below, which builds the other half of cfg.command
+// from this repo's own commands/*.md files.
 //
 // Skipped entirely when claudeRoot is not the default ~/.claude: OpenCode's
 // own native skill scan (skill/index.ts:187-193) is hardcoded to
@@ -228,7 +230,7 @@ function buildAgents(claudeRoot: string, tierMap: Record<string, TierEntry>): Re
 // Pointing cfg.skills.paths at the custom root instead was already
 // probe-verified as racy (design.md, Dependencies and Assumptions), so
 // degrading to no commands is the only reliable option here.
-function buildCommands(
+function buildSkillCommands(
   claudeRoot: string,
   template: string,
   description: string,
@@ -269,6 +271,47 @@ function buildCommands(
       template: template.replaceAll("{name}", name),
       description: description.replaceAll("{name}", name),
     };
+  }
+
+  return commands;
+}
+
+// cfg.command, native half: one entry per *.md file directly under
+// <claudeRoot>/commands/ -- Claude Code's own native slash-command
+// directory (mine-issues, mine-status, etc.). Unlike buildSkillCommands()'s
+// skill-bridge wrappers, a command file's body IS the full prompt already
+// (already written to forward $ARGUMENTS where it takes any), so this reads
+// it verbatim rather than wrapping it in skill_command_template. That also
+// means it carries none of buildSkillCommands()'s CLAUDE_CONFIG_DIR restriction:
+// the restriction there exists because a generated wrapper tells OpenCode's
+// skill tool to load a skill from OpenCode's own hardcoded ~/.claude/skills
+// scan, which a custom root can't redirect. A native command has no such
+// second hop -- the body is inlined directly from whatever root is
+// resolved, so it works under any CLAUDE_CONFIG_DIR override.
+function buildNativeCommands(claudeRoot: string): Record<string, CommandEntry> {
+  const commandsDir = join(claudeRoot, "commands");
+  const commands: Record<string, CommandEntry> = {};
+
+  const names = readDirLogged(commandsDir, "commands dir");
+  if (names === undefined) return commands;
+
+  for (const name of names) {
+    if (!name.endsWith(".md")) continue;
+    const stem = name.slice(0, -".md".length);
+    const filePath = join(commandsDir, name);
+
+    let content: string;
+    try {
+      content = readFileSync(filePath, "utf8");
+    } catch (err) {
+      console.error(`claudefiles plugin: skipping unreadable command file ${filePath}: ${String(err)}`);
+      continue;
+    }
+
+    const [frontmatter, body] = splitFrontmatter(content);
+    const description = parseFrontmatterField(frontmatter, "description") ?? "";
+
+    commands[stem] = { template: body, description };
   }
 
   return commands;
@@ -323,9 +366,31 @@ export const ClaudefilesPlugin: Plugin = async () => {
         ...buildAgents(claudeRoot, data.tier_map),
       };
 
+      const skillCommands = buildSkillCommands(
+        claudeRoot,
+        data.skill_command_template,
+        data.skill_command_description,
+      );
+      const nativeCommands = buildNativeCommands(claudeRoot);
+      // Logs the same collision the spread below resolves silently -- kept
+      // as one unit so a reader sees why an overlapping name is safe rather
+      // than tripping over a silent overwrite. Native must be spread last:
+      // that's what makes "the native command file wins" (the message
+      // below) true. If this order ever changes, that message goes stale
+      // with it.
+      for (const name of Object.keys(nativeCommands)) {
+        if (name in skillCommands) {
+          console.error(
+            `claudefiles plugin: commands/${name}.md collides with a skill declaring ` +
+              `opencode-command: true under the same name -- the native command file wins`,
+          );
+        }
+      }
+
       cfg.command = {
         ...(cfg.command ?? {}),
-        ...buildCommands(claudeRoot, data.skill_command_template, data.skill_command_description),
+        ...skillCommands,
+        ...nativeCommands,
       };
 
       cfg.instructions = [

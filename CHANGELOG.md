@@ -9,6 +9,10 @@ All notable changes to this Claudefiles repository are documented here.
 - `design.md` docs (`mine-define`, `mine-sketch`) gain an `## Addendum` section for recording drift once `**Status:**` reaches `archived` or `abandoned` — terminal-status docs are now frozen rather than kept in sync, and reviewers, `mine-challenge`, and `mine-comb` no longer flag their drift from current code as a finding. (#539)
 - `/mine-clean-code` now classifies diff-mode findings as in-scope or out-of-scope of the PR's own diff, and offers to fix in-scope findings while filing out-of-scope ones as a single follow-up issue via `$ISSUE_TRACKER`. `mine-orchestrate`'s post-execution pipeline routes all deferrals through the existing known-issues walkthrough instead. (#537)
 
+### Fixed
+
+- OpenCode's `cfg.command` now includes this repo's native `commands/*.md` files (`mine-issues`, `mine-status`, etc.), not just skills declaring `opencode-command: true` — those commands were silently missing from OpenCode despite `ONBOARDING.md` claiming otherwise. (#540)
+
 ### Changed
 
 - Sonnet agents' `effort:` floor reverted to `medium` (was `high` as of #513) to cut subagent cost; Opus and Haiku agents are unaffected. OpenCode's `tier_map` kept in sync. (#536)

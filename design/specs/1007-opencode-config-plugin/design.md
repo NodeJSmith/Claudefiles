@@ -67,7 +67,7 @@ Spec 1008 already removed the largest reason the copy-to-disk design existed: wi
 - **FR#1** A plugin registered in OpenCode's global config populates `cfg.agent` at session start from the agent files installed under `~/.claude/agents/`.
 - **FR#2** Each generated agent entry carries a provider-qualified model ID and a reasoning `variant`, resolved from the agent's Claude tier name through `TIER_MAP`.
 - **FR#3** An agent's prompt is that agent file's body, and its description is that agent file's `description` frontmatter field.
-- **FR#4** The plugin populates `cfg.command` with one entry per skill whose frontmatter declares `opencode-command: true`, discovered from the skills installed under `~/.claude/skills/`.
+- **FR#4** The plugin populates `cfg.command` with one entry per skill whose frontmatter declares `opencode-command: true`, discovered from the skills installed under `~/.claude/skills/`. Amended by the 2026-08-25 addendum: `cfg.command` also gains one entry per `<claudeRoot>/commands/*.md` file, merged in alongside the skill-bridge entries this requirement describes — see the addendum for the full second-source behavior.
 - **FR#5** The plugin populates `cfg.instructions` with the rule files installed under `~/.claude/rules/common/` and `~/.claude/rules/personal/`, as explicit file paths.
 - **FR#6** Rules named in the exclusion list are absent from `cfg.instructions`.
 - **FR#7** The exclusion list contains exactly one entry, `common/sudo.md`.
@@ -110,7 +110,7 @@ Spec 1008 already removed the largest reason the copy-to-disk design existed: wi
 
 - **AC#1** With the plugin active, `opencode debug agent <name>` resolves for every file in `~/.claude/agents/`, and its output shows a `providerID`/`modelID` pair and a `variant` rather than a bare Claude tier name. (FR#1, FR#2, FR#3)
 - **AC#2** `opencode debug agent <name> --pure` fails for the same agent, proving the entry came from the plugin and not from a file on disk. (FR#1, FR#13)
-- **AC#3** `GET /command` on a running `opencode serve` returns one entry per skill declaring `opencode-command: true`, when `CLAUDE_CONFIG_DIR` is unset or equals the default `~/.claude` — see Dependencies and Assumptions for the override case, where `buildCommands()` returns none. (FR#4)
+- **AC#3** `GET /command` on a running `opencode serve` returns one entry per skill declaring `opencode-command: true`, when `CLAUDE_CONFIG_DIR` is unset or equals the default `~/.claude` — see Dependencies and Assumptions for the override case, where `buildCommands()` returns none — plus one entry per `<claudeRoot>/commands/*.md` file, unconditionally. (FR#4; second source per the 2026-08-25 addendum)
 - **AC#4** `opencode debug config` lists every non-excluded file under `~/.claude/rules/common/` and `~/.claude/rules/personal/` in `instructions`, and does not list `sudo.md`. (FR#5, FR#6, FR#7)
 - **AC#5** Renaming `rules/common/sudo.md` in a scratch copy of the repo makes `--check-source` exit non-zero naming the unmatched exclusion entry. (FR#8)
 - **AC#6** The compatibility rule's path appears in `instructions`, and the file contains the `mcp__<server>__<tool>` → `<server>_<tool>` mapping. (FR#9, FR#10)
@@ -481,3 +481,11 @@ Three questions raised during discovery are closed and recorded here so they are
 - *Whether the plugin should own `cfg.skills.paths`.* Closed by probe: racy, and unnecessary given the native scan.
 - *Whether to keep excluding `performance.md` and `tmux.md`.* Closed: both rationales are stale post-1008; only `sudo.md`'s survives, on the grounds that it hangs rather than merely misinforms.
 - *Whether `~/.claude/CLAUDE.md`'s suppression by `AGENTS.md` loses anything.* Closed by inspection: `CLAUDE.md` is ten lines whose entire content already appears in `AGENTS.md`.
+
+## Addendum
+
+### 2026-08-25: `cfg.command` gained a second source — `commands/*.md`
+
+FR#4 and AC#3 describe `cfg.command` as exhaustively "one entry per skill declaring `opencode-command: true`." That was incomplete from the start: this repo's own `commands/*.md` files (Claude Code's native slash-command directory — `mine-issues`, `mine-status`, `mine-end-of-day`, `mine-good-morning`, `mine-permissions-audit`, `mine-pre-compact`) were never read by the plugin at all, so `/mine-issues` silently didn't exist in OpenCode despite `ONBOARDING.md` claiming otherwise at the time.
+
+`opencode/claudefiles.ts` now adds `buildNativeCommands()`, which reads `<claudeRoot>/commands/*.md` directly (the file body is already a complete prompt, so it's used verbatim as the template rather than routed through the skill-bridge wrapper) and merges the result into `cfg.command` alongside the skill-bridge entries FR#4 describes, with a `console.error` collision warning if a name exists in both sources (native wins). `REFERENCE.md` and `ONBOARDING.md` were updated to describe both sources.
