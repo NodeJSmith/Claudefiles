@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-08-25
+
+### Changed
+
+- Sonnet agents' `effort:` floor reverted to `medium` (was `high` as of #513) to cut subagent cost; Opus and Haiku agents are unaffected. OpenCode's `tier_map` kept in sync. (#536)
+
 ## 2026-08-24
 
 ### Added
