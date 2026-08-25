@@ -1,6 +1,6 @@
 ---
 name: mine-comb
-description: "Use when the user says: \"comb this\", \"fine-toothed comb\", \"comb this brief\", \"comb this design\", \"go over this with a fine-toothed comb\", \"comb the implementation against the design\", \"check this for consistency\", \"is this design consistent and complete\". Open-ended holistic review of an artifact (or an artifact against a reference) — catches inconsistency, inaccuracy, drift, and thinness a checklist can't. The one-off form of the comb baked into mine-define, mine-plan, and mine-orchestrate."
+description: "Use when the user says: \"comb this\", \"fine-toothed comb\", \"comb this brief\", \"comb this design\", \"go over this with a fine-toothed comb\", \"comb the implementation against the design\", \"check this for consistency\", \"is this design consistent and complete\". Open-ended holistic review of an artifact (or an artifact against a reference) — catches inconsistency, inaccuracy, drift, and thinness a checklist can't. The one-off form of the comb baked into mine-define, mine-plan, and mine-sketch."
 user-invocable: true
 opencode-command: true
 ---
@@ -9,7 +9,7 @@ opencode-command: true
 
 A one-off, open-ended holistic review of an artifact — a brief, design doc, plan, spec, or an implementation against the design it was built from. It is **not** a checklist or rubric: it takes the artifact in as a whole and surfaces what a structured pass can't — the doc reading as inconsistent, inaccurate, or thin; a requirement silently dropped; behavior that drifted from intent.
 
-This is the standalone form of the comb that `mine-define` (Phase 5.5), `mine-plan` (Phase 5.5), and `mine-orchestrate` (Step 5.5) run inside their workflows. Reach for this skill to comb something those workflows didn't produce — a brief written by hand, a design from elsewhere, an implementation whose design lives in a doc.
+This is the standalone form of the comb that `mine-define` (Phase 5.5), `mine-plan` (Phase 5.5), and `mine-sketch` (Phase 4) run inside their workflows. Reach for this skill to comb something those workflows didn't produce — a brief written by hand, a design from elsewhere, an implementation whose design lives in a doc.
 
 ## Phase 1: Resolve the target
 
@@ -17,6 +17,8 @@ Determine what to comb and whether there's a reference to comb against:
 
 - **Single artifact** — the user points at one file or doc ("comb this brief"). Comb it for internal consistency, accuracy, and thoroughness.
 - **Artifact against a reference** — the user names both ("comb the implementation against the design", "do the tasks match the design"). Read the reference first, then comb the artifact for fidelity.
+
+If the reference is a `design.md` with a terminal `**Status:**` (`archived` or `abandoned`), tell the agent so in the dispatch prompt — see Phase 2. That doc is frozen; drift from it isn't something to reconcile.
 
 If the target is ambiguous (no path given, several candidates), ask the user which artifact and whether there's a reference — one focused `AskUserQuestion`, then proceed.
 
@@ -47,6 +49,12 @@ Agent:
     Define blocking as: an inconsistency, inaccuracy, gap, or drift that would
     mislead whoever acts on this next<, or make the artifact wrong relative to
     the reference — if a reference was given>.
+
+    <If the reference is a design.md with Status: archived or abandoned, add:>
+    The reference design.md is terminal-status (archived/abandoned): it's frozen,
+    documenting a past decision rather than a live spec. Do not report drift from
+    it as a finding, and do not suggest editing its body sections; note any
+    Addendum-worthy divergence separately, non-blocking.
 ```
 
 The agent classifies findings and returns a `## Summary` line plus grouped findings. (See `${CLAUDE_CONFIG_DIR:-~/.claude}/agents/fine-toothed-comb.md`.)

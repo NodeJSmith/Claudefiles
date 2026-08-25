@@ -68,6 +68,8 @@ Before committing changes (whether via `/mine-ship`, `/mine-commit-push`, `/mine
 
 Task files must never reach a PR. Git history preserves the full content.
 
+Archiving freezes `design.md`. Once `**Status:**` is `archived`, drift between it and the code is expected, not a defect to fix by editing the doc — see the `## Addendum` convention in `skills/mine-define/design-template.md` (or `skills/mine-sketch/design-template.md`).
+
 ## Worktree Baseline Testing
 
 When you need to run tests against the default branch (e.g., to confirm a failure is new), do not stash and switch branches. If the main repo is already on the default branch, run the tests there directly using its path. The main repo is the worktree's parent — find it via `git -C <worktree> worktree list`.
