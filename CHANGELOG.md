@@ -4,6 +4,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 ## 2026-08-25
 
+### Added
+
+- `/mine-clean-code` now classifies diff-mode findings as in-scope or out-of-scope of the PR's own diff, and offers to fix in-scope findings while filing out-of-scope ones as a single follow-up issue via `$ISSUE_TRACKER`. `mine-orchestrate`'s post-execution pipeline routes all deferrals through the existing known-issues walkthrough instead. (#537)
+
 ### Changed
 
 - Sonnet agents' `effort:` floor reverted to `medium` (was `high` as of #513) to cut subagent cost; Opus and Haiku agents are unaffected. OpenCode's `tier_map` kept in sync. (#536)
