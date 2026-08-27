@@ -436,3 +436,56 @@ def test_git_changed_paths_handles_staged_rename_and_untracked(tmp_path: Path) -
 
     # --cached mode: only the staged rename, no untracked files.
     assert run_script("--cached") == ["new.txt", "old.txt"]
+
+
+def test_git_changed_paths_preserves_untracked_non_ascii_names(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "Test",
+        "GIT_AUTHOR_EMAIL": "test@example.com",
+        "GIT_COMMITTER_NAME": "Test",
+        "GIT_COMMITTER_EMAIL": "test@example.com",
+    }
+    script = REPO_ROOT / "bin" / "git-changed-paths"
+
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True, env=env)
+    (repo / "café.txt").write_text("content\n")
+
+    result = subprocess.run(
+        [str(script)],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    # git ls-files without -z would C-quote this as '"caf\303\251.txt"' —
+    # assert the raw, unquoted name comes through instead.
+    assert result.stdout.splitlines() == ["café.txt"]
+
+
+def test_git_changed_paths_rejects_repeated_dash_c(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "Test",
+        "GIT_AUTHOR_EMAIL": "test@example.com",
+        "GIT_COMMITTER_NAME": "Test",
+        "GIT_COMMITTER_EMAIL": "test@example.com",
+    }
+    script = REPO_ROOT / "bin" / "git-changed-paths"
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True, env=env)
+
+    result = subprocess.run(
+        [str(script), "-C", str(repo), "-C", str(repo)],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert result.returncode == 1
+    assert "-C given more than once" in result.stderr

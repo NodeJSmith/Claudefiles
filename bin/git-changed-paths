@@ -21,9 +21,12 @@
 #   <ref>        Ref to diff against. Defaults to HEAD.
 #
 # Exit codes:
-#   0  a git diff/ref error inside a valid repo (best-effort — yields fewer/no lines)
+#   0  success, or (worktree mode only) a bad ref — the diff fails but the
+#      untracked-files listing still succeeds, so the pipeline masks the
+#      failure and yields fewer/no lines (best-effort)
 #   1  usage error: unknown flag, or -C/ref given more than once
-#   >0 an invalid -C target propagates the underlying git failure (pipefail)
+#   >0 an invalid -C target (either mode) propagates the underlying git
+#      failure via pipefail; so does a bad ref, but only in --cached mode
 
 [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && {
   cat << 'EOF'
@@ -54,6 +57,7 @@ EOF
 set -uo pipefail
 
 repo_path="."
+repo_path_set=0
 cached=0
 ref="HEAD"
 ref_set=0
@@ -65,7 +69,12 @@ while [[ $# -gt 0 ]]; do
         echo "git-changed-paths: -C requires an argument" >&2
         exit 1
       }
+      ((repo_path_set)) && {
+        echo "git-changed-paths: -C given more than once" >&2
+        exit 1
+      }
       repo_path="$2"
+      repo_path_set=1
       shift 2
       ;;
     --cached)
@@ -109,6 +118,9 @@ if ((cached)); then
 else
   {
     git -C "$repo_path" diff --name-status --find-renames -z "$ref" 2> /dev/null | emit_changed_paths
-    git -C "$repo_path" ls-files --others --exclude-standard 2> /dev/null
+    # -z avoids C-quoting of non-ASCII names, same as the diff branch above.
+    git -C "$repo_path" ls-files --others --exclude-standard -z 2> /dev/null | while IFS= read -r -d '' path; do
+      printf '%s\n' "$path"
+    done
   }
 fi | LC_ALL=C sort -u
