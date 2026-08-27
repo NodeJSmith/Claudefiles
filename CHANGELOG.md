@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-08-27
+
+### Added
+
+- New `git-changed-paths` CLI: prints changed and untracked file paths, deduplicated and sorted, unioning worktree/staged diffs with untracked files and expanding renames to both old and new path. Extracted from `mine-orchestrate`'s WIP commit protocol, which now calls it instead of inlining the rename-normalization logic. (#541)
+
 ## 2026-08-25
 
 ### Added
