@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# Print changed and untracked file paths, deduplicated and sorted.
+#
+# Unions two sources: `git diff --name-status --find-renames` against a ref
+# (worktree changes, or `--cached` for staged changes) plus untracked files
+# via `git ls-files --others --exclude-standard` (worktree mode only —
+# untracked files staged via this same list already show up as additions in
+# a `--cached` diff, so unioning them again would be redundant). Renamed
+# files are expanded to both their old and new path so a caller that
+# pathspec-stages or reviews the result doesn't silently drop the old path.
+#
+# Use this instead of hand-rolling the diff -z / rename-parsing loop in
+# skills or agent prompts.
+#
+# Usage: git-changed-paths [-C <path>] [--cached] [<ref>]
+#
+# Options:
+#   -C <path>    Run as if git was started in <path> (same as git's own -C).
+#   --cached     Diff the index instead of the worktree; omits untracked
+#                files.
+#   <ref>        Ref to diff against. Defaults to HEAD.
+#
+# Exit codes:
+#   0  a git diff/ref error inside a valid repo (best-effort — yields fewer/no lines)
+#   1  usage error: unknown flag, or -C/ref given more than once
+#   >0 an invalid -C target propagates the underlying git failure (pipefail)
+
+[[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && {
+  cat << 'EOF'
+Usage: git-changed-paths [-C <path>] [--cached] [<ref>]
+
+Print changed and untracked file paths, one per line, deduplicated and
+sorted. Renamed files contribute both their old and new path.
+
+By default, diffs the worktree against <ref> (HEAD unless given) and unions
+in untracked files (git ls-files --others --exclude-standard). With --cached,
+diffs the index against <ref> instead and omits untracked files, since a
+file only staged via this same list already appears as an addition.
+
+Options:
+  -C <path>    Run as if started in <path>, like git's own -C. An invalid
+               path propagates the underlying git failure (nonzero exit).
+  --cached     Diff the index instead of the worktree.
+
+Examples:
+  git-changed-paths                       # worktree changes + untracked vs HEAD
+  git-changed-paths --cached              # staged changes vs HEAD
+  git-changed-paths -C ../other-worktree  # same, in another repo/worktree
+  git-changed-paths HEAD~3                # worktree changes vs 3 commits back
+EOF
+  exit 0
+}
+
+set -uo pipefail
+
+repo_path="."
+cached=0
+ref="HEAD"
+ref_set=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -C)
+      [[ $# -lt 2 ]] && {
+        echo "git-changed-paths: -C requires an argument" >&2
+        exit 1
+      }
+      repo_path="$2"
+      shift 2
+      ;;
+    --cached)
+      cached=1
+      shift
+      ;;
+    -*)
+      echo "git-changed-paths: unknown argument: $1" >&2
+      exit 1
+      ;;
+    *)
+      if ((ref_set)); then
+        echo "git-changed-paths: unexpected argument: $1" >&2
+        exit 1
+      fi
+      ref="$1"
+      ref_set=1
+      shift
+      ;;
+  esac
+done
+
+emit_changed_paths() {
+  while IFS= read -r -d '' status; do
+    case "$status" in
+      R*)
+        IFS= read -r -d '' old_path
+        IFS= read -r -d '' new_path
+        printf '%s\n%s\n' "$old_path" "$new_path"
+        ;;
+      *)
+        IFS= read -r -d '' path
+        printf '%s\n' "$path"
+        ;;
+    esac
+  done
+}
+
+if ((cached)); then
+  git -C "$repo_path" diff --cached --name-status --find-renames -z "$ref" 2> /dev/null | emit_changed_paths
+else
+  {
+    git -C "$repo_path" diff --name-status --find-renames -z "$ref" 2> /dev/null | emit_changed_paths
+    git -C "$repo_path" ls-files --others --exclude-standard 2> /dev/null
+  }
+fi | LC_ALL=C sort -u

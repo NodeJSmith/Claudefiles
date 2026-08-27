@@ -169,12 +169,12 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
                     r"Run the following block through the Bash tool",
                 ),
                 (
-                    "rename-aware staged path normalization",
-                    r"diff --cached --name-status --find-renames -z",
+                    "rename-aware staged path capture",
+                    r"git-changed-paths -C <repo_root> --cached",
                 ),
                 (
                     "rename-aware changed path capture",
-                    r"diff --name-status --find-renames -z HEAD \| emit_changed_paths",
+                    r"git-changed-paths -C <repo_root> >",
                 ),
                 (
                     "no changes scope",
@@ -397,7 +397,7 @@ def test_protocol_contract_file_contains_required_anchors(
     assert missing == [], f"{relative_path} is missing contract anchor(s): {missing}"
 
 
-def test_wip_commit_path_normalization_handles_staged_rename(tmp_path: Path) -> None:
+def test_git_changed_paths_handles_staged_rename_and_untracked(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
     env = {
@@ -407,35 +407,32 @@ def test_wip_commit_path_normalization_handles_staged_rename(tmp_path: Path) -> 
         "GIT_COMMITTER_NAME": "Test",
         "GIT_COMMITTER_EMAIL": "test@example.com",
     }
+    script = REPO_ROOT / "bin" / "git-changed-paths"
 
     def run_git(*args: str) -> None:
         subprocess.run(["git", *args], cwd=repo, check=True, env=env)
+
+    def run_script(*args: str) -> list[str]:
+        result = subprocess.run(
+            [str(script), *args],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        return result.stdout.splitlines()
 
     run_git("init", "-q")
     (repo / "old.txt").write_text("content\n")
     run_git("add", "old.txt")
     run_git("commit", "-qm", "initial")
     run_git("mv", "old.txt", "new.txt")
+    (repo / "extra.txt").write_text("untracked\n")
 
-    command = r"""
-emit_changed_paths() {
-  while IFS= read -r -d '' status; do
-    case "$status" in
-      R*) IFS= read -r -d '' old_path; IFS= read -r -d '' new_path; printf '%s\n%s\n' "$old_path" "$new_path" ;;
-      *) IFS= read -r -d '' path; printf '%s\n' "$path" ;;
-    esac
-  done
-}
-git diff --name-status --find-renames -z HEAD | emit_changed_paths | sort
-git diff --cached --name-status --find-renames -z | emit_changed_paths | sort
-"""
-    result = subprocess.run(
-        ["bash", "-c", command],
-        cwd=repo,
-        check=True,
-        capture_output=True,
-        text=True,
-        env=env,
-    )
+    # Default mode: worktree diff (the rename, already staged by `git mv`)
+    # unioned with the untracked file, deduplicated and sorted.
+    assert run_script() == ["extra.txt", "new.txt", "old.txt"]
 
-    assert result.stdout.splitlines() == ["new.txt", "old.txt", "new.txt", "old.txt"]
+    # --cached mode: only the staged rename, no untracked files.
+    assert run_script("--cached") == ["new.txt", "old.txt"]
