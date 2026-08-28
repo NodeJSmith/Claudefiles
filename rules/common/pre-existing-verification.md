@@ -12,7 +12,7 @@ A debugging session hit a test failure, `git stash push`'d its own uncommitted f
 
 ## The Rule
 
-Before writing "pre-existing," "baseline," "already broken," or "doesn't need fixing here" — in a report, a commit message, or a reply to the user — verify it against the actual default branch, not against whatever reference point is closest at hand (a stash, an orchestration run's `base_commit`, an earlier commit on this same branch, "the file before I touched it").
+When "pre-existing," "baseline," "already broken," or "doesn't need fixing here" is being used to claim a failure or issue predates the current change — in a report, a commit message, or a reply to the user — verify it against the actual default branch first, not against whatever reference point is closest at hand (a stash, an orchestration run's `base_commit`, an earlier commit on this same branch, "the file before I touched it"). This does not cover routine uses of "baseline" as a captured measurement snapshot unrelated to blame — an orchestration test/lint baseline, a screenshot baseline, a performance trace captured before an operation. Those aren't claims about the default branch and don't need this check.
 
 **Never mutate the current working tree or index to run this check.** No `git stash`, `git reset`, `git checkout <default-branch>`, or switching the worktree's branch — ever, for this purpose alone. This has cost real work before: a stash or reset done to "just peek at main" can lose uncommitted changes if something goes wrong on the way back. Every command below is read-only and never touches the working tree or index.
 
@@ -22,21 +22,25 @@ Before writing "pre-existing," "baseline," "already broken," or "doesn't need fi
 git -C <worktree> worktree list          # first entry is the main clone's path
 ```
 
-If that main clone is checked out to the default branch, `Read`/`Grep` the file there directly, or run:
+If that main clone is checked out to the default branch **and has a clean working tree** (check first — a dirty working tree means `Read`/`Grep` would show uncommitted edits, not the default-branch commit), `Read`/`Grep` the file there directly, or run:
 
 ```bash
-git -C <main_repo_path> show <path-relative-to-repo-root>
+git -C <main_repo_path> status --porcelain=v1 --untracked-files=all   # must be empty
+git -C <main_repo_path> show HEAD:<path-relative-to-repo-root>
 ```
 
-**Otherwise** — no separate main clone, or it's not on the default branch — use read-only plumbing against the resolved default-branch ref, from the current worktree, without switching anything. Use `git-default-branch`, not `git-branch-base`: `git-branch-base` resolves the *closest* branch (fewest commits ahead of HEAD) for diff-scoping purposes — on a stacked branch that's a parent feature branch, not main, which silently defeats this exact check.
+**Otherwise** — no separate main clone, it's not on the default branch, or its working tree is dirty — use read-only plumbing against the resolved default-branch ref, from the current worktree, without switching anything. Use `git-default-branch`, not `git-branch-base`: `git-branch-base` resolves the *closest* branch (fewest commits ahead of HEAD) for diff-scoping purposes — on a stacked branch that's a parent feature branch, not main, which silently defeats this exact check.
 
 ```bash
 git-default-branch                                                              # resolves the actual default branch name ("main", "master", whatever it is)
+git fetch origin "$(git-default-branch)" 2>/dev/null || true                   # refresh the remote-tracking ref before relying on it — read-only, doesn't touch the working tree. A failure here (offline, no origin) is not fatal: the diff/show fallbacks below still work against the last-known local ref
 git diff "origin/$(git-default-branch)" -- <path> 2>/dev/null || \
-  git diff "$(git-default-branch)" -- <path>                                    # empty output = genuinely unchanged since the default branch
+  git diff "$(git-default-branch)" -- <path>                                    # empty output = genuinely unchanged since the default branch, IF <path> is tracked (see caveat below)
 git show "origin/$(git-default-branch)":<path> 2>/dev/null || \
   git show "$(git-default-branch)":<path>                                       # read the file as it exists on the default branch
 ```
+
+If `<path>` is untracked (`git status --porcelain -- <path>` shows `??`), the `git diff` check above cannot tell you anything — `git diff` is silent for untracked paths regardless of whether they've "changed," so there is nothing on the default branch to compare against by definition. Treat it as unverified/new rather than "unchanged."
 
 If you have not run one of these, you do not get to say "pre-existing." Say what you actually verified instead — "not touched by my uncommitted edit," "unchanged since the start of this run," "present at an earlier commit on this branch" — each is a real, narrower claim, and none of them means the default branch.
 
