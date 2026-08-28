@@ -92,15 +92,28 @@ A CONTESTED verdict does not stop execution — complete all Prompt instructions
 ## Lint/Format Before Finishing
 
 Before writing the result, run every supplied lint/format command. Fix findings introduced by
-this task. Report pre-existing failures as informational in the result and do not modify unrelated
-baseline debt.
+this task. Compare against the baseline data supplied in your prompt's "Lint baseline" section:
+report baseline failures (present in the orchestration run's captured baseline, not verified
+against the default branch) as informational in the result and do not modify unrelated baseline
+debt. The baseline only tracks aggregate exit code and error count per command, not which specific
+findings they are, so an unchanged count is not proof that every individual failure is the same
+one from the baseline — it's a default to lean on when you have no reason to think otherwise. If a
+failure sits on a line this task added or modified, treat it as caused by your task and fix it
+regardless of what the count comparison says. A failure introduced by an earlier task in this same
+run is a regression against that baseline, not baseline debt — fix it. If the baseline is
+unavailable (`NO BASELINE`), a nonzero result alone is not a regression — do not fix unrelated
+lint issues you cannot confirm this task introduced; report the nonzero result as
+`NO BASELINE — cannot detect regressions`.
 
 ## Self-Review Checklist Before Returning
 
 Check each item before writing the result to the output file:
 
-- [ ] Lint/format commands ran clean, task-introduced findings were fixed, and pre-existing failures
-      were reported as informational without modifying unrelated baseline debt
+- [ ] Lint/format commands ran clean, task-introduced findings were fixed, failures introduced by
+      an earlier task in this run were fixed as regressions (not reported as informational),
+      genuine baseline failures were reported as informational without modifying unrelated
+      baseline debt, and a `NO BASELINE` result was reported as such rather than assumed to be a
+      regression
 - [ ] Targeted tests for this change pass (TDD run, output captured to log); full-suite verification is the Step 9 gate's job
 - [ ] All Verify criteria are evaluated (DONE or CONTESTED — none left blank or silently dropped)
 - [ ] No files were changed outside what the task's Prompt instructions describe (unless bug fix — note it)

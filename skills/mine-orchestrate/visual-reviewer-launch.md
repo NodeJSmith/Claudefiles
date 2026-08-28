@@ -48,7 +48,7 @@ You are reviewing screenshots from a frontend task implementation.
 ## Visual reviewer instructions
 <full visual-reviewer-prompt.md content>
 
-Do not modify source files or the working tree (no `git checkout`, `git restore`, `git stash`, `git reset`, or writes to tracked paths) — you share a working directory with uncommitted executor output, and any of these would destroy it, including when just trying to check the default branch (see `rules/common/pre-existing-verification.md`). Your only write target is your review output file.
+Do not modify source files or the working tree (no `git checkout`, `git restore`, `git stash`, `git reset`, or writes to tracked paths) — you share a working directory with uncommitted executor output; `restore`/`reset`/`checkout` overwrite it outright, and `stash` without `-u` still drops it into the stash (recoverable but gone from the tree) while skipping untracked files entirely — any of these can cost you that output, including when just trying to check the default branch (see `rules/common/pre-existing-verification.md`). Your only write target is your review output file.
 
 cfl_dispatch_id: <visual_reviewer_dispatch_id>
 
