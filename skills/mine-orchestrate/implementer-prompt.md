@@ -92,14 +92,14 @@ A CONTESTED verdict does not stop execution — complete all Prompt instructions
 ## Lint/Format Before Finishing
 
 Before writing the result, run every supplied lint/format command. Fix findings introduced by
-this task. Report pre-existing failures as informational in the result and do not modify unrelated
-baseline debt.
+this task. Report baseline failures (present before this task started, not verified against the
+default branch) as informational in the result and do not modify unrelated baseline debt.
 
 ## Self-Review Checklist Before Returning
 
 Check each item before writing the result to the output file:
 
-- [ ] Lint/format commands ran clean, task-introduced findings were fixed, and pre-existing failures
+- [ ] Lint/format commands ran clean, task-introduced findings were fixed, and baseline failures
       were reported as informational without modifying unrelated baseline debt
 - [ ] Targeted tests for this change pass (TDD run, output captured to log); full-suite verification is the Step 9 gate's job
 - [ ] All Verify criteria are evaluated (DONE or CONTESTED — none left blank or silently dropped)
