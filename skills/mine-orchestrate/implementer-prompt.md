@@ -95,11 +95,15 @@ Before writing the result, run every supplied lint/format command. Fix findings 
 this task. Compare against the baseline data supplied in your prompt's "Lint baseline" section:
 report baseline failures (present in the orchestration run's captured baseline, not verified
 against the default branch) as informational in the result and do not modify unrelated baseline
-debt. A failure introduced by an earlier task in this same run is a regression against that
-baseline, not baseline debt — fix it. If the baseline is unavailable (`NO BASELINE`), a nonzero
-result alone is not a regression — do not fix unrelated pre-existing lint issues you cannot
-confirm this task introduced; report the nonzero result as `NO BASELINE — cannot detect
-regressions`.
+debt. The baseline only tracks aggregate exit code and error count per command, not which specific
+findings they are, so an unchanged count is not proof that every individual failure is the same
+one from the baseline — it's a default to lean on when you have no reason to think otherwise. If a
+failure sits on a line this task added or modified, treat it as caused by your task and fix it
+regardless of what the count comparison says. A failure introduced by an earlier task in this same
+run is a regression against that baseline, not baseline debt — fix it. If the baseline is
+unavailable (`NO BASELINE`), a nonzero result alone is not a regression — do not fix unrelated
+pre-existing lint issues you cannot confirm this task introduced; report the nonzero result as
+`NO BASELINE — cannot detect regressions`.
 
 ## Self-Review Checklist Before Returning
 

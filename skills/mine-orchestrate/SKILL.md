@@ -325,8 +325,7 @@ Read the design doc directly for architecture context. Pay special attention to 
 ## Lint baseline
 <If a baseline is available>: Captured at run start.
 <contents of <dir>/lint-baseline.md, or "NO BASELINE — cannot detect regressions" if unavailable>
-<If a baseline is available>: Compare exit code and error count per command against this baseline (same rule Step 9's lint gate uses): a new failure or an increased error count is a regression — fix it; an equal-or-smaller failure count already present in the baseline is debt — report it as informational.
-<If NO BASELINE>: A nonzero result alone is not a regression without a valid baseline to compare against — do not fix unrelated pre-existing lint issues you cannot confirm this task introduced. Report any nonzero result as `NO BASELINE — cannot detect regressions` in the result, same as Step 9's lint gate.
+Use the baseline-comparison rules described under `implementer-prompt.md`'s "Lint/Format Before Finishing" section.
 
 ## Output capture
 Use the output-capture and no-mid-task-full-suite rules in `implementer-prompt.md`.
