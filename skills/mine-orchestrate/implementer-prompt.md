@@ -102,7 +102,7 @@ failure sits on a line this task added or modified, treat it as caused by your t
 regardless of what the count comparison says. A failure introduced by an earlier task in this same
 run is a regression against that baseline, not baseline debt — fix it. If the baseline is
 unavailable (`NO BASELINE`), a nonzero result alone is not a regression — do not fix unrelated
-pre-existing lint issues you cannot confirm this task introduced; report the nonzero result as
+lint issues you cannot confirm this task introduced; report the nonzero result as
 `NO BASELINE — cannot detect regressions`.
 
 ## Self-Review Checklist Before Returning
