@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-08-28
+
+### Added
+
+- `references/common/cli-ux.md` — cross-cutting CLI UX reference distilled from clig.dev, covering philosophy, signals, defaults, TTY detection, subcommand design, configuration precedence, env vars, secrets, future-proofing, and naming. Wired into the `invariants.md` Domain References table and loaded by `cli-audit` during full audits. (#543)
+
 ## 2026-08-27
 
 ### Added

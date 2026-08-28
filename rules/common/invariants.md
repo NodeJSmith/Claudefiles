@@ -172,6 +172,7 @@ When writing rules or skill files, apply proportionally: diagnostic questions ov
 | Processing code review findings | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/receiving-code-review.md` |
 | Writing rules or skill files | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/instruction-quality.md` |
 | API endpoints, auth handlers, user input | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/security.md` |
+| User-facing CLI tools: commands with flags, subcommands, help text, output design | `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/cli-ux.md` |
 
 ## Adding Invariants
 
