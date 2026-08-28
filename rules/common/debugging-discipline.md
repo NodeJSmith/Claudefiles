@@ -22,6 +22,10 @@ Form candidate hypotheses, then rule them out until one survives. On each pass, 
 
 When program state is unclear, add instrumentation or logging and read it as the code runs. Do not guess. Confirm the surviving mechanism with runtime evidence before designing a fix. A fix grounded on a plausible-but-unconfirmed cause can be unanimously wrong while the real cause sits one subsystem over.
 
+## Don't Call It Pre-existing Without Checking the Default Branch
+
+A failure that isn't obviously caused by your latest edit is not automatically "pre-existing" or "unrelated." It may have been introduced by an earlier commit in the same branch or session. Before ruling something out of scope, verify it against the actual default branch — see `pre-existing-verification.md`. A before/after comparison against a stash, a run's captured baseline, or an earlier commit on this branch answers a narrower question than "is this on the default branch," and reporting it as the broader claim is how a self-inflicted regression gets waved off as someone else's debt.
+
 ## Reproduce First
 
 A bug you cannot reproduce, you cannot prove fixed. If the bug will not reproduce directly, force it. Synthesize the trigger, tighten the conditions, or instrument until it fires. Do not hand reproduction to the user unless there is a specific, stated reason the available tools cannot reach the target.

@@ -127,6 +127,8 @@ After Phase 0 completes (feature directory found, design doc and task files read
 
 **Timing: capture `base_commit` BEFORE any task execution begins.** This is the snapshot of HEAD before the orchestrator modifies any files, so that `git diff --name-only <base_commit> HEAD` after execution shows exactly what changed.
 
+**`base_commit` is not the default branch.** It is HEAD at the moment this run started — a branch that already has commits ahead of `<default_branch>` (a resumed run, prior manual work) starts its `base_commit` there too. Anything unchanged since `base_commit` is "not introduced by this run," not "on the default branch." If a finding needs to be reported as pre-existing on the default branch rather than just pre-run, verify it separately against `git-default-branch` (not `git-branch-base`, which resolves the closest branch rather than the default one; read-only — never stash/reset/checkout to check this) — see `rules/common/pre-existing-verification.md`.
+
 First, get the base commit:
 
 ```bash
@@ -508,7 +510,7 @@ marker, is `NO BASELINE —
 cannot detect regressions`, not a regression. Compare valid baselines and record the command, source,
 summary, baseline status, and regressions in `test-gate.md`.
 
-**Test verdict impact**: If regressions are detected from a valid baseline comparison (previously-passing tests now fail), check whether all regressing tests are in files owned by a later task (compare failing test file paths against the `target_files` in subsequent task files). If **all** regressions are downstream-scoped, the test gate is **WARN** (not FAIL) — record `"note": "all N regressions scoped to <task_ids>"` in the gate data and skip the fixer cycle for these regressions. They will be resolved when the owning task executes. If **any** regression is in a file owned by the current or a prior task, the test gate is **FAIL** and the fixer cycle runs as normal. Pre-existing test failures (tests that also failed in the baseline) are informational and do not block. If no baseline is available, do not fail the task on regression grounds alone.
+**Test verdict impact**: If regressions are detected from a valid baseline comparison (previously-passing tests now fail), check whether all regressing tests are in files owned by a later task (compare failing test file paths against the `target_files` in subsequent task files). If **all** regressions are downstream-scoped, the test gate is **WARN** (not FAIL) — record `"note": "all N regressions scoped to <task_ids>"` in the gate data and skip the fixer cycle for these regressions. They will be resolved when the owning task executes. If **any** regression is in a file owned by the current or a prior task, the test gate is **FAIL** and the fixer cycle runs as normal. Baseline test failures (also failed at `base_commit` — not introduced by this run, not a verified default-branch claim) are informational and do not block. See `rules/common/pre-existing-verification.md`. If no baseline is available, do not fail the task on regression grounds alone.
 
 #### Lint gate
 
@@ -520,10 +522,10 @@ command (append) to `<dir>/<task_id>/lint-output.log` with `set -o pipefail` ena
 preserves a failing lint status instead of reporting `tee`'s status. A missing baseline is
 `NO BASELINE — cannot detect regressions`; treat `<dir>/lint-baseline-unavailable` the same way.
 Compare exit code and error count per command: a new failure or increased count is a regression;
-an equal or smaller pre-existing failure is informational. Record commands, exits, comparisons,
+an equal or smaller baseline failure is informational. Record commands, exits, comparisons,
 new errors, and overall status in `lint-gate.md`.
 
-**Lint verdict impact**: Lint regressions (checks that passed in the baseline now fail) contribute WARN to the task verdict. The executor should address lint issues proactively; if they don't, regressions surface as WARN at the verdict assembly and are reported in Step 15. Lint regressions do not independently FAIL the task. Pre-existing lint failures do not contribute to the verdict.
+**Lint verdict impact**: Lint regressions (checks that passed in the baseline now fail) contribute WARN to the task verdict. The executor should address lint issues proactively; if they don't, regressions surface as WARN at the verdict assembly and are reported in Step 15. Lint regressions do not independently FAIL the task. Baseline lint failures (present at `base_commit`, not verified against the default branch) do not contribute to the verdict.
 
 After both gates complete, record their results:
 
@@ -587,10 +589,10 @@ Derive the canonical task verdict from all reviewer outputs. This is the single 
 - Visual reviewer returned WARN or WARN [INFRA]
 - Visual reviewer returned SKIPPED when `visual_mode` is `enabled` (visual review was expected but the reviewer/executor reported a per-task or per-scenario skip). Do not count SKIPPED toward WARN when `visual_mode` is not `enabled` — visual review was intentionally not requested.
 - Test gate returned WARN (all regressions downstream-scoped)
-- Test gate has pre-existing failures (no regressions)
+- Test gate has baseline failures (no regressions)
 - Lint gate detected regressions that remain unresolved (the review findings fix loop may incidentally fix some lint issues, but does not target lint specifically)
 
-WARN is reserved for genuinely unresolved items. Always include a parenthetical note explaining what remains: e.g., `WARN (visual skipped)`, `WARN (2 pre-existing test failures)`.
+WARN is reserved for genuinely unresolved items. Always include a parenthetical note explaining what remains: e.g., `WARN (visual skipped)`, `WARN (2 baseline test failures)`.
 
 **PASS** if all reviewers clean and no unresolved issues. If findings were raised and fixed or deferred by the fixer loop, the verdict is **PASS** with a note from the fixer gate result's `(N auto-fixed)` count carried back from Step 12 (not a fresh ledger read) — e.g., `PASS (3 auto-fixed)`. Deferred and resolved findings do not downgrade the verdict to WARN when non-later-task deferrals have been recorded in `<feature_dir>/known-issues.md` per `known-issues-protocol.md`.
 
@@ -621,7 +623,7 @@ Gate based on verdict:
 
 **PASS or WARN** — auto-continue to the next task. Display the summary but do not ask for confirmation. Proceed to Step 17 (WIP commit + cfl task verdict). Do NOT record the verdict here — `cfl task verdict` in Step 17b records it after the WIP commit succeeds, ensuring the commit SHA is captured.
 
-Note: by this point, spec FAILs have been through the Step 10 auto-fix loop. Code/integration findings, if the Step 8 verdict was WARN or FAIL, have been through the Step 12 fixer loop. A PASS verdict with only informational findings never enters Step 12. A verdict note like `(3 auto-fixed)` means findings were raised and resolved by the fixer loop. A known issue note means a real issue was intentionally left unfixed and recorded durably. A WARN verdict means something genuinely unresolved remains (visual issues, downstream-scoped test regressions, pre-existing test failures, unresolved lint regressions).
+Note: by this point, spec FAILs have been through the Step 10 auto-fix loop. Code/integration findings, if the Step 8 verdict was WARN or FAIL, have been through the Step 12 fixer loop. A PASS verdict with only informational findings never enters Step 12. A verdict note like `(3 auto-fixed)` means findings were raised and resolved by the fixer loop. A known issue note means a real issue was intentionally left unfixed and recorded durably. A WARN verdict means something genuinely unresolved remains (visual issues, downstream-scoped test regressions, baseline test failures, unresolved lint regressions).
 
 **FAIL or non-architectural BLOCKED** — ask the user. This is a major gate (task
 failure/blocked decision, see `interaction.md`) — run `context-pct` and prepend the

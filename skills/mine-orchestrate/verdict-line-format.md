@@ -36,7 +36,7 @@ No line in any reviewer's report may begin with `**Verdict:**` except the single
 
 ## Findings Count (code and integration only)
 
-`N` is the total count of findings **introduced by this change**. `C`, `H`, `M`, `L` are the per-severity counts. Pre-existing issues, flagged separately under `## Pre-existing Issues`, are excluded. The per-severity counts must sum to `N`.
+`N` is the total count of findings **introduced by this change**. `C`, `H`, `M`, `L` are the per-severity counts. Pre-existing issues, flagged separately under `## Pre-existing Issues`, are excluded — but per each reviewer's own instructions, "pre-existing" there means verified against the actual default branch (`git-default-branch`, not `git-branch-base` — the latter resolves the closest branch, not necessarily the default one), not merely absent from the diff the reviewer was given. See `rules/common/pre-existing-verification.md`. The per-severity counts must sum to `N`.
 
 The counts are informational. The fixer loop triggers on verdict (`WARN` or `FAIL`), not on counts. A PASS with `findings: N` does not trigger the fixer. Spec and visual carry no count; they route by verdict word alone.
 
