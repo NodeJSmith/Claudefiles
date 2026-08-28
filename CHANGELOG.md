@@ -8,6 +8,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 - `references/common/cli-ux.md` — cross-cutting CLI UX reference distilled from clig.dev, covering philosophy, signals, defaults, TTY detection, subcommand design, configuration precedence, env vars, secrets, future-proofing, and naming. Wired into the `invariants.md` Domain References table and loaded by `cli-audit` during full audits. (#543)
 
+### Changed
+
+- `mine-orchestrate`'s executor self-check now requires a specific test per testable Verify criterion, not just passing tests — a test that runs without erroring or asserts something trivially true no longer counts as evidence. Criteria with no testable behavior are exempt, reusing `references/common/testing.md`'s existing Test Co-location exemptions. (#547)
+
 ## 2026-08-27
 
 ### Added
