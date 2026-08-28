@@ -25,8 +25,9 @@ Identify what to audit:
 
 ## Phase 2: Audit
 
-Read the REFERENCE.md for each sibling skill. If any file is not found, stop and report the missing path(s) to the user rather than proceeding without reference material.
+Read the REFERENCE.md for each sibling skill and the shared CLI UX reference. If any file is not found, stop and report the missing path(s) to the user rather than proceeding without reference material.
 
+- `${CLAUDE_CONFIG_DIR:-~/.claude}/references/common/cli-ux.md` — philosophy, exit codes, signals, config, env vars, secrets, future-proofing
 - `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/cli-harden/REFERENCE.md` — edge-case resilience
 - `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/cli-output/REFERENCE.md` — output design
 - `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/cli-clarify/REFERENCE.md` — message clarity
