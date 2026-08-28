@@ -33,12 +33,14 @@ git -C <main_repo_path> show HEAD:<path-relative-to-repo-root>
 
 ```bash
 git-default-branch                                                              # resolves the actual default branch name ("main", "master", whatever it is)
-git fetch origin "$(git-default-branch)" 2>/dev/null || true                   # refresh the remote-tracking ref before relying on it — read-only, doesn't touch the working tree. A failure here (offline, no origin) is not fatal: the diff/show fallbacks below still work against the last-known local ref
+git fetch origin "$(git-default-branch)"                                        # refresh the remote-tracking ref before relying on it — read-only; if this fails, don't stop, but see the caveat below
 git diff "origin/$(git-default-branch)" -- <path> 2>/dev/null || \
   git diff "$(git-default-branch)" -- <path>                                    # empty output = genuinely unchanged since the default branch, IF <path> is tracked (see caveat below)
 git show "origin/$(git-default-branch)":<path> 2>/dev/null || \
   git show "$(git-default-branch)":<path>                                       # read the file as it exists on the default branch
 ```
+
+If the `git fetch` fails (offline, no `origin`, no credentials), do not silently proceed as if verification succeeded — the diff/show commands will still run against whatever `origin/<branch>` last pointed to, which may be arbitrarily stale. Say so: "verified against the last-fetched default branch (fetch failed — ref may be stale)" is the honest, narrower claim, not "verified against the default branch."
 
 If `<path>` is untracked (`git status --porcelain -- <path>` shows `??`), the `git diff` check above cannot tell you anything — `git diff` is silent for untracked paths regardless of whether they've "changed," so there is nothing on the default branch to compare against by definition. Treat it as unverified/new rather than "unchanged."
 
