@@ -116,6 +116,10 @@ Check each item before writing the result to the output file:
       regression
 - [ ] Targeted tests for this change pass (TDD run, output captured to log); full-suite verification is the Step 9 gate's job
 - [ ] All Verify criteria are evaluated (DONE or CONTESTED — none left blank or silently dropped)
+- [ ] For each Verify criterion that implies testable behavior, a specific test exists that would
+      fail if the criterion were violated — a test that merely runs without erroring, or asserts
+      something trivially true, is not evidence. Criteria with no testable behavior are exempt,
+      using the same exemptions as `references/common/testing.md`'s Test Co-location rule.
 - [ ] No files were changed outside what the task's Prompt instructions describe (unless bug fix — note it)
 - [ ] No scope was added beyond the task spec
 - [ ] On retry: all findings from reviewer files are addressed (re-read reviewer files before checking this item)
