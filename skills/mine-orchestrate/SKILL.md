@@ -322,6 +322,11 @@ Read the design doc directly for architecture context. Pay special attention to 
 ## Lint command
 <contents of <dir>/lint-command.txt, or "no lint tools" if SKIPPED>
 
+## Lint baseline
+Captured at base_commit: <base_commit>
+<contents of <dir>/lint-baseline.md, or "no baseline captured" if unavailable>
+Compare exit code and error count per command against this baseline (same rule Step 9's lint gate uses): a new failure or an increased error count is a regression — fix it; an equal-or-smaller failure count already present at base_commit is baseline debt — report it as informational.
+
 ## Output capture
 Use the output-capture and no-mid-task-full-suite rules in `implementer-prompt.md`.
 

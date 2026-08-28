@@ -92,10 +92,11 @@ A CONTESTED verdict does not stop execution — complete all Prompt instructions
 ## Lint/Format Before Finishing
 
 Before writing the result, run every supplied lint/format command. Fix findings introduced by
-this task. Report baseline failures (present at the orchestration run's captured baseline —
-`base_commit` — not verified against the default branch) as informational in the result and do
-not modify unrelated baseline debt. A failure introduced by an earlier task in this same run is a
-regression against that baseline, not baseline debt — fix it.
+this task. Compare against the baseline data supplied in your prompt's "Lint baseline" section:
+report baseline failures (present at the orchestration run's captured baseline — `base_commit` —
+not verified against the default branch) as informational in the result and do not modify
+unrelated baseline debt. A failure introduced by an earlier task in this same run is a regression
+against that baseline, not baseline debt — fix it.
 
 ## Self-Review Checklist Before Returning
 
