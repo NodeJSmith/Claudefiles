@@ -323,9 +323,10 @@ Read the design doc directly for architecture context. Pay special attention to 
 <contents of <dir>/lint-command.txt, or "no lint tools" if SKIPPED>
 
 ## Lint baseline
-Captured at base_commit: <base_commit>
-<contents of <dir>/lint-baseline.md, or "no baseline captured" if unavailable>
-Compare exit code and error count per command against this baseline (same rule Step 9's lint gate uses): a new failure or an increased error count is a regression — fix it; an equal-or-smaller failure count already present at base_commit is baseline debt — report it as informational.
+<If a baseline is available>: Captured at run start.
+<contents of <dir>/lint-baseline.md, or "NO BASELINE — cannot detect regressions" if unavailable>
+<If a baseline is available>: Compare exit code and error count per command against this baseline (same rule Step 9's lint gate uses): a new failure or an increased error count is a regression — fix it; an equal-or-smaller failure count already present in the baseline is debt — report it as informational.
+<If NO BASELINE>: A nonzero result alone is not a regression without a valid baseline to compare against — do not fix unrelated pre-existing lint issues you cannot confirm this task introduced. Report any nonzero result as `NO BASELINE — cannot detect regressions` in the result, same as Step 9's lint gate.
 
 ## Output capture
 Use the output-capture and no-mid-task-full-suite rules in `implementer-prompt.md`.
@@ -515,7 +516,7 @@ marker, is `NO BASELINE —
 cannot detect regressions`, not a regression. Compare valid baselines and record the command, source,
 summary, baseline status, and regressions in `test-gate.md`.
 
-**Test verdict impact**: If regressions are detected from a valid baseline comparison (previously-passing tests now fail), check whether all regressing tests are in files owned by a later task (compare failing test file paths against the `target_files` in subsequent task files). If **all** regressions are downstream-scoped, the test gate is **WARN** (not FAIL) — record `"note": "all N regressions scoped to <task_ids>"` in the gate data and skip the fixer cycle for these regressions. They will be resolved when the owning task executes. If **any** regression is in a file owned by the current or a prior task, the test gate is **FAIL** and the fixer cycle runs as normal. Baseline test failures (also failed at `base_commit` — not introduced by this run, not a verified default-branch claim) are informational and do not block. See `rules/common/pre-existing-verification.md`. If no baseline is available, do not fail the task on regression grounds alone.
+**Test verdict impact**: If regressions are detected from a valid baseline comparison (previously-passing tests now fail), check whether all regressing tests are in files owned by a later task (compare failing test file paths against the `target_files` in subsequent task files). If **all** regressions are downstream-scoped, the test gate is **WARN** (not FAIL) — record `"note": "all N regressions scoped to <task_ids>"` in the gate data and skip the fixer cycle for these regressions. They will be resolved when the owning task executes. If **any** regression is in a file owned by the current or a prior task, the test gate is **FAIL** and the fixer cycle runs as normal. Baseline test failures (also failed in the captured baseline — not introduced by this run, not a verified default-branch claim) are informational and do not block. See `rules/common/pre-existing-verification.md`. If no baseline is available, do not fail the task on regression grounds alone.
 
 #### Lint gate
 
@@ -530,7 +531,7 @@ Compare exit code and error count per command: a new failure or increased count 
 an equal or smaller baseline failure is informational. Record commands, exits, comparisons,
 new errors, and overall status in `lint-gate.md`.
 
-**Lint verdict impact**: Lint regressions (checks that passed in the baseline now fail) contribute WARN to the task verdict. The executor should address lint issues proactively; if they don't, regressions surface as WARN at the verdict assembly and are reported in Step 15. Lint regressions do not independently FAIL the task. Baseline lint failures (present at `base_commit`, not verified against the default branch) do not contribute to the verdict.
+**Lint verdict impact**: Lint regressions (checks that passed in the baseline now fail) contribute WARN to the task verdict. The executor should address lint issues proactively; if they don't, regressions surface as WARN at the verdict assembly and are reported in Step 15. Lint regressions do not independently FAIL the task. Baseline lint failures (present in the captured baseline, not verified against the default branch) do not contribute to the verdict.
 
 After both gates complete, record their results:
 

@@ -93,19 +93,23 @@ A CONTESTED verdict does not stop execution — complete all Prompt instructions
 
 Before writing the result, run every supplied lint/format command. Fix findings introduced by
 this task. Compare against the baseline data supplied in your prompt's "Lint baseline" section:
-report baseline failures (present at the orchestration run's captured baseline — `base_commit` —
-not verified against the default branch) as informational in the result and do not modify
-unrelated baseline debt. A failure introduced by an earlier task in this same run is a regression
-against that baseline, not baseline debt — fix it.
+report baseline failures (present in the orchestration run's captured baseline, not verified
+against the default branch) as informational in the result and do not modify unrelated baseline
+debt. A failure introduced by an earlier task in this same run is a regression against that
+baseline, not baseline debt — fix it. If the baseline is unavailable (`NO BASELINE`), a nonzero
+result alone is not a regression — do not fix unrelated pre-existing lint issues you cannot
+confirm this task introduced; report the nonzero result as `NO BASELINE — cannot detect
+regressions`.
 
 ## Self-Review Checklist Before Returning
 
 Check each item before writing the result to the output file:
 
 - [ ] Lint/format commands ran clean, task-introduced findings were fixed, failures introduced by
-      an earlier task in this run were fixed as regressions (not reported as informational), and
-      genuine baseline failures (present at `base_commit`) were reported as informational without
-      modifying unrelated baseline debt
+      an earlier task in this run were fixed as regressions (not reported as informational),
+      genuine baseline failures were reported as informational without modifying unrelated
+      baseline debt, and a `NO BASELINE` result was reported as such rather than assumed to be a
+      regression
 - [ ] Targeted tests for this change pass (TDD run, output captured to log); full-suite verification is the Step 9 gate's job
 - [ ] All Verify criteria are evaluated (DONE or CONTESTED — none left blank or silently dropped)
 - [ ] No files were changed outside what the task's Prompt instructions describe (unless bug fix — note it)
