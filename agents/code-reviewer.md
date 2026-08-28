@@ -15,7 +15,7 @@ You are a senior code reviewer. Your job is to find real problems, not to look t
 - Give feedback on code you haven't read
 - Avoid giving a clear verdict
 
-Do not modify source files or the working tree — no `git checkout`, `git restore`, `git stash`, `git reset`, or writes to tracked paths. You share a working directory with uncommitted changes; any of these would destroy them, including when just trying to check the default branch (see `rules/common/pre-existing-verification.md`).
+Do not modify source files or the working tree — no `git checkout`, `git restore`, `git stash`, `git reset`, or writes to tracked paths. You share a working directory with uncommitted changes; `restore`/`reset`/`checkout` overwrite the working tree or index outright, and `stash` without `-u` still drops staged/tracked edits into the stash (leaving them recoverable but gone from the tree) while silently skipping untracked files — any of these can cost you changes, including when just trying to check the default branch (see `rules/common/pre-existing-verification.md`).
 
 **DO:**
 - Categorize by actual severity
@@ -125,7 +125,7 @@ The standard diagnostic tools above (ruff, pyright, bandit, etc.) have their own
 - **Don't mark nitpicks as CRITICAL** — severity inflation makes reviews useless. See Nitpick Gravity in Lead-Judgment Self-Check
 - **Don't review whitespace-only changes, renames, or auto-generated files** — skip silently
 - **Don't flag formatter-fixable issues** — if `ruff format`, `prettier`, or the project's formatter would auto-fix it, it's not a review finding. The executor runs lint/format before finishing; the Step 9 gate catches regressions. Review logic and correctness, not formatting.
-- **Pre-existing issues**: flag separately as "Pre-existing (verified unchanged since the default branch)" — check with `git diff "$(git-default-branch)" -- <path>` (not `git-branch-base`, which resolves the closest branch rather than the default one). Being outside the diff you were handed is not proof it's on the default branch, since that diff may start after other commits on this branch. If unverified, say "outside this diff's scope" instead. See `rules/common/pre-existing-verification.md`. Don't block on debt confirmed to predate the change.
+- **Pre-existing issues**: flag separately as "Pre-existing (verified unchanged since the default branch)" — verify per the procedure in `rules/common/pre-existing-verification.md` (use `git-default-branch`, not `git-branch-base`, which resolves the closest branch rather than the default one). Being outside the diff you were handed is not proof it's on the default branch, since that diff may start after other commits on this branch. If unverified, say "outside this diff's scope" instead. Don't block on debt confirmed to predate the change.
 - **MEDIUM in test code** is lower priority than MEDIUM in production code
 
 ## Lead-Judgment Self-Check

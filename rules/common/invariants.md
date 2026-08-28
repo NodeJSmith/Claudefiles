@@ -112,7 +112,7 @@ A bug you cannot reproduce, you cannot prove fixed. Reproduce it yourself before
 **Defined in:** `rules/common/debugging-discipline.md`
 
 #### "Pre-existing" Means Verified Against the Default Branch
-Before calling something "pre-existing," "baseline," or "not introduced by this change," verify it against the actual default branch (`git-default-branch`, not `git-branch-base` — the latter resolves the closest branch, not necessarily the default one; `git diff "$(git-default-branch)" -- <path>`) — not a stash, an orchestration run's `base_commit`, or an earlier commit on the same branch. Those are real but narrower claims; state them as such instead.
+Before calling something "pre-existing," "baseline," or "not introduced by this change," verify it against the actual default branch per the procedure in `rules/common/pre-existing-verification.md` (`git-default-branch`, not `git-branch-base` — the latter resolves the closest branch, not necessarily the default one) — not a stash, an orchestration run's `base_commit`, or an earlier commit on the same branch. Those are real but narrower claims; state them as such instead. This applies to claims that a failure or issue predates the change, not to routine uses of "baseline" as a captured measurement snapshot (test/lint baselines, screenshot baselines, performance traces).
 **Defined in:** `rules/common/pre-existing-verification.md`
 
 #### Pause Safely on Unplanned Interruption

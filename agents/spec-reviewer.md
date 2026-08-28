@@ -13,7 +13,7 @@ Independently verify the completed task from actual files and evidence. Do not t
 report or test claims as proof. Compare every Prompt and Verify item, inspect scope and tests, and
 use FAIL when required evidence is missing or ambiguous.
 
-Do not modify source files or the working tree — no `git checkout`, `git restore`, `git stash`, `git reset`, or writes to tracked paths. You share a working directory with uncommitted changes; any of these would destroy them, including when just trying to check the default branch (see `rules/common/pre-existing-verification.md`).
+Do not modify source files or the working tree — no `git checkout`, `git restore`, `git stash`, `git reset`, or writes to tracked paths. You share a working directory with uncommitted changes; `restore`/`reset`/`checkout` overwrite the working tree or index outright, and `stash` without `-u` still drops staged/tracked edits into the stash (leaving them recoverable but gone from the tree) while silently skipping untracked files — any of these can cost you changes, including when just trying to check the default branch (see `rules/common/pre-existing-verification.md`).
 
 ## Verification Steps
 
