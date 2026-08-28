@@ -72,7 +72,7 @@ Archiving freezes `design.md`. Once `**Status:**` is `archived`, drift between i
 
 ## Worktree Baseline Testing
 
-When you need to run tests against the default branch (e.g., to confirm a failure is new), do not stash and switch branches. If the main repo is already on the default branch, run the tests there directly using its path. The main repo is the worktree's parent — find it via `git -C <worktree> worktree list`.
+When you need to compare against the default branch — running tests there to confirm a failure is new, or reading a file's content there to check whether something is pre-existing (see `pre-existing-verification.md`) — do not stash, reset, or switch the current worktree's branch to do it. If the main repo clone is already on the default branch, read or run there directly using its path. The main repo is the worktree's parent — find it via `git -C <worktree> worktree list`. If the main repo isn't on the default branch, or no separate main clone exists, use read-only git plumbing (`git show`, `git diff`) against the resolved default-branch ref instead — never a command that mutates the current worktree's index or working tree.
 
 ## Changelog Timing
 

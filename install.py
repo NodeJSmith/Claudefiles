@@ -267,11 +267,12 @@ RULE_CATEGORIES: dict[str, RuleCategory] = {
     ),
     "verification": RuleCategory(
         label="Verification & debugging",
-        description="Verification before completion, debugging, performance discipline",
+        description="Verification before completion, debugging, performance discipline, pre-existing verification",
         files=(
             "verification.md",
             "debugging-discipline.md",
             "performance-discipline.md",
+            "pre-existing-verification.md",
         ),
     ),
     "authoring": RuleCategory(

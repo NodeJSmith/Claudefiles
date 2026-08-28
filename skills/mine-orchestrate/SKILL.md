@@ -127,6 +127,8 @@ After Phase 0 completes (feature directory found, design doc and task files read
 
 **Timing: capture `base_commit` BEFORE any task execution begins.** This is the snapshot of HEAD before the orchestrator modifies any files, so that `git diff --name-only <base_commit> HEAD` after execution shows exactly what changed.
 
+**`base_commit` is not the default branch.** It is HEAD at the moment this run started — a branch that already has commits ahead of `<default_branch>` (a resumed run, prior manual work) starts its `base_commit` there too. Anything unchanged since `base_commit` is "not introduced by this run," not "on the default branch." If a finding needs to be reported as pre-existing on the default branch rather than just pre-run, verify it separately against `git-default-branch` (not `git-branch-base`, which resolves the closest branch rather than the default one; read-only — never stash/reset/checkout to check this) — see `rules/common/pre-existing-verification.md`.
+
 First, get the base commit:
 
 ```bash

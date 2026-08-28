@@ -111,6 +111,10 @@ Every error path is explicitly handled or propagated. Silent catch-and-ignore hi
 A bug you cannot reproduce, you cannot prove fixed. Reproduce it yourself before designing a fix.
 **Defined in:** `rules/common/debugging-discipline.md`
 
+#### "Pre-existing" Means Verified Against the Default Branch
+Before calling something "pre-existing," "baseline," or "not introduced by this change," verify it against the actual default branch (`git-default-branch`, not `git-branch-base` — the latter resolves the closest branch, not necessarily the default one; `git diff "$(git-default-branch)" -- <path>`) — not a stash, an orchestration run's `base_commit`, or an earlier commit on the same branch. Those are real but narrower claims; state them as such instead.
+**Defined in:** `rules/common/pre-existing-verification.md`
+
 #### Pause Safely on Unplanned Interruption
 When mid-task work is interrupted unexpectedly: stop at an atomic boundary, commit with `wip:` prefix, write a resume note to `/tmp/<slug>-resume.md`, then report position to the user.
 **Defined in:** `rules/common/pause-safely.md`

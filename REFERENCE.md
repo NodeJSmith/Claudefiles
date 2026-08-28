@@ -154,7 +154,7 @@ Coding guidelines in `rules/common/` that load automatically and shape how Claud
 | Languages | `languages` | `python` |
 | Git workflow | `workflow` | `commit-conventions`, `git-workflow`, `sequence-verifiable-units` |
 | Planning & execution | `planning` | `decomposition-discipline`, `outcome-oriented-execution`, `autonomous-run-discipline`, `pause-safely`, `exhaust-the-design-space`, `experience-first`, `build-the-lever`, `encode-lessons-in-structure` |
-| Verification & debugging | `verification` | `verification`, `debugging-discipline`, `performance-discipline` |
+| Verification & debugging | `verification` | `verification`, `debugging-discipline`, `performance-discipline`, `pre-existing-verification` |
 | Authoring | `authoring` | `eval-discipline`, `writing-discipline` |
 | Environment & tooling | `environment` | `bash-tools`, `command-output`, `sudo`, `tmux` |
 
