@@ -29,6 +29,7 @@ tool: claude  # harness-only: skill/command routing tables are Claude-Code dispa
 | "prior art", "how do others do this", "what patterns exist", "industry standards for X" | `/mine-prior-art` |
 <!-- NOTE: "design this UI" = visual direction (i-teach-impeccable); "design this change" = architecture doc (design) -->
 | "mockup this UI", "show me what it looks like", "HTML mockup", "UI preview", "generate a mockup" | `/mine-mockup` |
+| "eli5", "explain like I'm 5", "eli5 this", "explain like I'm five", "dead-simple picture explainer" | `/mine-eli5` |
 | "visual QA", "screenshot review", "review the UI visually", "take screenshots and find issues", "UX review" | `/mine-visual-qa` |
 | "audit permissions", "reduce permission prompts" | `/mine-permissions-audit` |
 | "status", "where am I", "quick summary" | `/mine-status` |

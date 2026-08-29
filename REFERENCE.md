@@ -24,6 +24,7 @@ Full component tables for Claudefiles. For context on what each component type d
 | `mine-define` | Proportional discovery + codebase investigation + architecture interrogation → design.md with one sign-off gate |
 | `mine-domain-model` | Active domain glossary — maintain CONTEXT.md and ADRs during design conversations, challenge fuzzy language, cross-reference code |
 | `mine-elevate` | Surfaces upward improvements to a subsystem through three generator lenses (friction/v2, latent peer-adoption, maximalist provocation) — each candidate annotated with cost and the case against, ordered by signal, never filtered. A menu, not a mandate; the inverse of mine-simplify/mine-decompose |
+| `mine-eli5` | Explain a topic to someone who knows nothing about it via an HTML artifact — big pictures, few words, simplification never traded for accuracy |
 | `mine-eval-repo` | Evaluate a third-party GitHub repo before adopting it — test coverage, code quality, maintenance health, bus factor |
 | `mine-fragments` | Writing explore — interview the user grill-style to surface raw fragments, appended to a markdown file with no structure imposed |
 | `mine-grill` | Multi-angle interrogation of a raw idea — product, design, engineering, scope, and adversarial lenses. Produces a brief.md that feeds into /mine-define |
