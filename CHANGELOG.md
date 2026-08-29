@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-08-29
+
+### Added
+
+- `code-reviewer`, `integration-reviewer`, and `wtf-reviewer` now accumulate project-specific memory in `.claude/agent-memory/<agent>/MEMORY.md`, reducing repeated false positives and re-flagging of known intentional decisions across review sessions. (#548)
+
 ## 2026-08-28
 
 ### Added
