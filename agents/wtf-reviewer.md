@@ -14,7 +14,9 @@ Do not modify source files or the working tree — no `git checkout`, `git resto
 
 ## Memory
 
-After completing a review, create or update `.claude/agent-memory/wtf-reviewer/MEMORY.md` — but only if the entry is specific and recurring, not a one-off. This is the sole permitted write; the no-writes rule above applies to source files under review, not this memory file.
+Before starting, read `.claude/agent-memory/wtf-reviewer/MEMORY.md` if it exists — it contains project-specific readability patterns from past reviews in this codebase.
+
+After completing a review, create or update that file — but only if the entry is specific and recurring, not a one-off. This is the sole permitted write; the no-writes rule above applies to source files under review, not this memory file.
 
 **Worth recording:**
 - Recurring readability issues in this project (patterns that appear more than once)
