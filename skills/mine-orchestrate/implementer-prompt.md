@@ -116,6 +116,14 @@ Check each item before writing the result to the output file:
       regression
 - [ ] Targeted tests for this change pass (TDD run, output captured to log); full-suite verification is the Step 9 gate's job
 - [ ] All Verify criteria are evaluated (DONE or CONTESTED — none left blank or silently dropped)
+- [ ] For each Verify criterion that implies testable behavior, name and run a specific test whose
+      result is captured and that would fail if the criterion were violated — a test that merely
+      runs without erroring, or asserts something trivially true, is not evidence. Criteria with
+      no testable behavior are exempt, using the same exemptions as
+      `references/common/testing.md`'s Test Co-location rule. If the orchestrator supplied the
+      `no test suite` sentinel (Question 4), this item is exempt entirely — record
+      `SKIPPED: no test suite` as the DONE evidence for each affected criterion in the
+      **Verify section** of your output instead.
 - [ ] No files were changed outside what the task's Prompt instructions describe (unless bug fix — note it)
 - [ ] No scope was added beyond the task spec
 - [ ] On retry: all findings from reviewer files are addressed (re-read reviewer files before checking this item)
