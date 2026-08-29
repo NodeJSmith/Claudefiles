@@ -7,7 +7,7 @@ All notable changes to this Claudefiles repository are documented here.
 ### Added
 
 - `code-reviewer`, `integration-reviewer`, and `wtf-reviewer` now accumulate project-specific memory in `.claude/agent-memory/<agent>/MEMORY.md`, reducing repeated false positives and re-flagging of known intentional decisions across review sessions. (#548)
-
+- `/mine-eli5` skill explains a topic to someone with no background via the `Artifact` tool — big pictures, few words, instead of the dense bulleted-text explanations agents default to. Simplification trades detail for clarity, never accuracy for cuteness. (#549)
 ## 2026-08-28
 
 ### Added
