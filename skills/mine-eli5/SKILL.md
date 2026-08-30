@@ -11,3 +11,7 @@ Topic: $ARGUMENTS — if empty, ask the user what to explain.
 Explain the topic to someone who knows nothing about it, using the `Artifact` tool: big pictures, very few words. The default failure mode here is dense, bulleted text explanations — resist it. Cut words before adding detail, and use an actual visual element (diagram, icon, simple illustration) rather than prose styled to look visual.
 
 Keep the simplification honest: trade detail for clarity, never accuracy for cuteness. If the plain-language version would state something that isn't actually true, find a simpler-but-still-correct framing instead of a wrong one.
+
+Write the source HTML to the scratchpad directory, never into the working repo, before publishing it as the artifact.
+
+Before calling it done, verify the artifact actually renders as intended — read it back or view it rendered. Layout bugs (a percentage height resolving against the wrong box, say) are invisible in the source and obvious on screen, and for a picture explainer the picture is the whole point.
