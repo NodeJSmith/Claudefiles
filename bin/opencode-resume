@@ -1,0 +1,468 @@
+#!/usr/bin/env python3
+"""Extract a structured resume prompt from the most recent OpenCode session.
+
+Queries OpenCode's SQLite database to build a compact handoff document
+for continuing work in a fresh session. Outputs markdown to stdout.
+
+Usage:
+  opencode-resume                     # last session for cwd
+  opencode-resume --directory ~/proj  # last session for a specific dir
+  opencode-resume --session ses_xxx   # specific session by ID
+  opencode-resume --messages 10       # include last N message excerpts
+  opencode-resume --list              # list recent sessions, pick one
+"""
+
+import argparse
+import json
+import os
+import sqlite3
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from urllib.parse import quote
+
+DB_PATH = Path.home() / ".local" / "share" / "opencode" / "opencode.db"
+MAX_PROMPT_CHARS = 1500
+MAX_MESSAGE_CHARS = 800
+MAX_PATCH_ROWS = 500
+MAX_TOOL_ROWS = 2000
+TOP_FILES = 15
+TOP_TOOLS = 10
+DEFAULT_LIST_LIMIT = 10
+
+
+def connect(db_path: Path) -> sqlite3.Connection:
+    if not db_path.exists():
+        print(f"error: OpenCode database not found at {db_path}", file=sys.stderr)
+        sys.exit(1)
+    conn = sqlite3.connect(f"file:{quote(str(db_path))}?mode=ro", uri=True)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout = 5000")
+    return conn
+
+
+def find_session(
+    conn: sqlite3.Connection, directory: str | None, session_id: str | None
+) -> dict | None:
+    if session_id:
+        row = conn.execute(
+            "SELECT * FROM session WHERE id = ?", (session_id,)
+        ).fetchone()
+        return dict(row) if row else None
+
+    # OpenCode stores session.directory/project.worktree as absolute,
+    # symlink-resolved paths (FSUtil.resolve() = path.resolve() +
+    # realpath), so a relative --directory like "." or "../project" must
+    # be normalized the same way or it will never match.
+    directory = os.path.realpath(directory or os.getcwd())
+    # When invoked as a native OpenCode command, the invoking session's own
+    # time_updated is bumped by the command message that triggered this
+    # script, so it would otherwise outrank the session we actually want to
+    # resume. opencode/claudefiles.ts's shell.env hook sets this env var to
+    # the calling session's id so it can be excluded here.
+    exclude_id = os.environ.get("OPENCODE_SESSION_ID") or None
+    row = conn.execute(
+        """SELECT s.* FROM session s
+           WHERE s.parent_id IS NULL
+             AND s.directory = ?
+             AND s.time_archived IS NULL
+             AND (? IS NULL OR s.id != ?)
+           ORDER BY s.time_updated DESC
+           LIMIT 1""",
+        (directory, exclude_id, exclude_id),
+    ).fetchone()
+    if row:
+        return dict(row)
+
+    row = conn.execute(
+        """SELECT s.* FROM session s
+           JOIN project p ON s.project_id = p.id
+           WHERE s.parent_id IS NULL
+             AND p.worktree = ?
+             AND s.time_archived IS NULL
+             AND (? IS NULL OR s.id != ?)
+           ORDER BY s.time_updated DESC
+           LIMIT 1""",
+        (directory, exclude_id, exclude_id),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def list_sessions(
+    conn: sqlite3.Connection, directory: str | None, limit: int = DEFAULT_LIST_LIMIT
+) -> list[dict]:
+    # See find_session()'s comment above: OpenCode's directory/worktree
+    # columns are absolute and symlink-resolved, so a relative --directory
+    # needs the same realpath() normalization here too.
+    directory = os.path.realpath(directory or os.getcwd())
+    rows = conn.execute(
+        """SELECT s.id, s.title, s.directory, s.model, s.cost,
+                  s.time_created, s.time_updated
+             FROM session s
+            WHERE s.parent_id IS NULL
+              AND (s.directory = ? OR s.directory LIKE ? || '/%')
+              AND s.time_archived IS NULL
+            ORDER BY s.time_updated DESC
+            LIMIT ?""",
+        (directory, directory, limit),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_user_prompts(conn: sqlite3.Connection, session_id: str) -> dict:
+    msg_rows = conn.execute(
+        """SELECT m.id, m.time_created
+             FROM message m
+            WHERE m.session_id = ? AND json_extract(m.data, '$.role') = 'user'
+            ORDER BY m.time_created ASC, m.id ASC""",
+        (session_id,),
+    ).fetchall()
+
+    if not msg_rows:
+        return {"first": None, "last": None, "count": 0}
+
+    def extract_text(message_id: str) -> str:
+        parts = conn.execute(
+            """SELECT json_extract(data, '$.text') AS t
+                 FROM part
+                WHERE message_id = ? AND json_extract(data, '$.type') = 'text'
+                ORDER BY time_created ASC, id ASC""",
+            (message_id,),
+        ).fetchall()
+        return "\n".join(p["t"] for p in parts if p["t"])
+
+    first_text = extract_text(msg_rows[0]["id"])
+    last_text = extract_text(msg_rows[-1]["id"]) if len(msg_rows) > 1 else None
+
+    return {
+        "first": first_text[:MAX_PROMPT_CHARS] if first_text else None,
+        "first_truncated": len(first_text) > MAX_PROMPT_CHARS if first_text else False,
+        "last": last_text[:MAX_PROMPT_CHARS] if last_text else None,
+        "last_truncated": len(last_text) > MAX_PROMPT_CHARS if last_text else False,
+        "count": len(msg_rows),
+    }
+
+
+def get_files_touched(conn: sqlite3.Connection, session_id: str) -> list[dict]:
+    file_counts: dict[str, int] = {}
+
+    patch_rows = conn.execute(
+        """SELECT data FROM part
+            WHERE session_id = ? AND json_extract(data, '$.type') = 'patch'
+            LIMIT ?""",
+        (session_id, MAX_PATCH_ROWS),
+    ).fetchall()
+    for row in patch_rows:
+        data = json.loads(row["data"])
+        for path in data.get("files", []):
+            file_counts[path] = file_counts.get(path, 0) + 2
+
+    tool_rows = conn.execute(
+        """SELECT json_extract(data, '$.state.input.filePath') AS path,
+                  json_extract(data, '$.tool') AS tool
+             FROM part
+            WHERE session_id = ?
+              AND json_extract(data, '$.type') = 'tool'
+              AND json_extract(data, '$.tool') IN ('read', 'edit', 'write', 'apply_patch')
+              AND json_extract(data, '$.state.input.filePath') IS NOT NULL
+            LIMIT ?""",
+        (session_id, MAX_TOOL_ROWS),
+    ).fetchall()
+    for row in tool_rows:
+        weight = 2 if row["tool"] in ("edit", "write", "apply_patch") else 1
+        file_counts[row["path"]] = file_counts.get(row["path"], 0) + weight
+
+    sorted_files = sorted(file_counts.items(), key=lambda x: -x[1])
+    return [{"path": p, "score": s} for p, s in sorted_files[:TOP_FILES]]
+
+
+def get_tools_used(conn: sqlite3.Connection, session_id: str) -> list[dict]:
+    rows = conn.execute(
+        """SELECT json_extract(data, '$.tool') AS tool,
+                  json_extract(data, '$.state.status') AS status,
+                  COUNT(*) AS n
+             FROM part
+            WHERE session_id = ? AND json_extract(data, '$.type') = 'tool'
+            GROUP BY tool, status""",
+        (session_id,),
+    ).fetchall()
+
+    tools: dict[str, dict] = {}
+    for row in rows:
+        name = row["tool"]
+        if name not in tools:
+            tools[name] = {"name": name, "total": 0, "errors": 0}
+        tools[name]["total"] += row["n"]
+        if row["status"] and row["status"] != "completed":
+            tools[name]["errors"] += row["n"]
+
+    return sorted(tools.values(), key=lambda x: -x["total"])[:TOP_TOOLS]
+
+
+def get_todos(conn: sqlite3.Connection, session_id: str) -> list[dict]:
+    rows = conn.execute(
+        """SELECT content, status
+             FROM todo
+            WHERE session_id = ?
+            ORDER BY position ASC""",
+        (session_id,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_recent_messages(
+    conn: sqlite3.Connection, session_id: str, limit: int
+) -> list[dict]:
+    msg_rows = conn.execute(
+        """SELECT m.id, json_extract(m.data, '$.role') AS role, m.time_created
+             FROM message m
+            WHERE m.session_id = ?
+            ORDER BY m.time_created DESC, m.id DESC
+            LIMIT ?""",
+        (session_id, limit),
+    ).fetchall()
+
+    messages = []
+    for msg in reversed(msg_rows):
+        parts = conn.execute(
+            """SELECT json_extract(data, '$.type') AS type,
+                      json_extract(data, '$.text') AS text,
+                      json_extract(data, '$.tool') AS tool
+                 FROM part
+                WHERE message_id = ?
+                ORDER BY time_created ASC, id ASC""",
+            (msg["id"],),
+        ).fetchall()
+
+        text_parts = []
+        tool_names = []
+        for p in parts:
+            if p["type"] == "text" and p["text"]:
+                text_parts.append(p["text"][:MAX_MESSAGE_CHARS])
+            elif p["type"] == "tool" and p["tool"]:
+                tool_names.append(p["tool"])
+
+        messages.append(
+            {
+                "role": msg["role"],
+                "text": "\n".join(text_parts),
+                "tools": tool_names,
+            }
+        )
+    return messages
+
+
+def get_workspace(conn: sqlite3.Connection, workspace_id: str | None) -> dict | None:
+    if not workspace_id:
+        return None
+    row = conn.execute(
+        "SELECT * FROM workspace WHERE id = ?", (workspace_id,)
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def parse_model_id(model_value: str | dict | None) -> str:
+    if not model_value:
+        return ""
+    try:
+        m = json.loads(model_value) if isinstance(model_value, str) else model_value
+        return m.get("modelID") or m.get("id", "")
+    except (json.JSONDecodeError, TypeError):
+        return str(model_value)
+
+
+def format_time(epoch_ms: int) -> str:
+    dt = datetime.fromtimestamp(epoch_ms / 1000, tz=timezone.utc).astimezone()
+    return dt.strftime("%Y-%m-%d %H:%M")
+
+
+def format_duration(start_ms: int, end_ms: int) -> str:
+    secs = (end_ms - start_ms) / 1000
+    if secs < 60:
+        return f"{int(secs)}s"
+    if secs < 3600:
+        return f"{int(secs // 60)}m"
+    return f"{secs / 3600:.1f}h"
+
+
+def format_cost(cost: float) -> str:
+    if cost < 0.01:
+        return "<$0.01"
+    return f"${cost:.2f}"
+
+
+def format_resume(
+    session: dict,
+    workspace: dict | None,
+    prompts: dict,
+    files: list[dict],
+    tools: list[dict],
+    todos: list[dict],
+    messages: list[dict] | None,
+) -> str:
+    lines = ["# Session Resume", ""]
+
+    model_str = parse_model_id(session.get("model"))
+
+    lines.append(f"**Session:** `{session['id']}`")
+    lines.append(f"**Title:** {session['title']}")
+    lines.append(f"**Directory:** {session['directory']}")
+    if workspace and workspace.get("branch"):
+        lines.append(f"**Branch:** {workspace['branch']}")
+    if model_str:
+        lines.append(f"**Model:** {model_str}")
+    lines.append(
+        f"**Time:** {format_time(session['time_created'])} — {format_time(session['time_updated'])} ({format_duration(session['time_created'], session['time_updated'])})"
+    )
+    lines.append(f"**Cost:** {format_cost(session['cost'])}")
+    tok_in = session["tokens_input"] or 0
+    tok_out = session["tokens_output"] or 0
+    tok_reason = session["tokens_reasoning"] or 0
+    tokens_total = tok_in + tok_out + tok_reason
+    if tokens_total > 0:
+        lines.append(
+            f"**Tokens:** {tokens_total:,} (in: {tok_in:,}, out: {tok_out:,}, reasoning: {tok_reason:,})"
+        )
+    lines.append(f"**User messages:** {prompts['count']}")
+    lines.append("")
+
+    if prompts["first"]:
+        lines.append("## First Prompt")
+        lines.append("")
+        lines.append(prompts["first"])
+        if prompts["first_truncated"]:
+            lines.append("*(truncated)*")
+        lines.append("")
+
+    if prompts["last"]:
+        lines.append("## Last Prompt")
+        lines.append("")
+        lines.append(prompts["last"])
+        if prompts["last_truncated"]:
+            lines.append("*(truncated)*")
+        lines.append("")
+
+    if todos:
+        lines.append("## Todos")
+        lines.append("")
+        for t in todos:
+            icon = {"completed": "x", "in_progress": "~", "pending": " "}.get(
+                t["status"], " "
+            )
+            lines.append(f"- [{icon}] {t['content']}")
+        lines.append("")
+
+    if files:
+        lines.append("## Files Touched")
+        lines.append("")
+        for f in files:
+            lines.append(f"- {f['path']}")
+        lines.append("")
+
+    if tools:
+        lines.append("## Tools Used")
+        lines.append("")
+        for t in tools:
+            err = f" ({t['errors']} errors)" if t["errors"] else ""
+            lines.append(f"- {t['name']}: {t['total']}{err}")
+        lines.append("")
+
+    if messages:
+        lines.append("## Recent Messages")
+        lines.append("")
+        for msg in messages:
+            role = "User" if msg["role"] == "user" else "Assistant"
+            lines.append(f"### {role}")
+            if msg["text"]:
+                lines.append(msg["text"])
+            if msg["tools"]:
+                lines.append(f"*Tools: {', '.join(msg['tools'])}*")
+            lines.append("")
+
+    return "\n".join(lines)
+
+
+def format_list(sessions: list[dict]) -> str:
+    lines = ["# Recent Sessions", ""]
+    for i, s in enumerate(sessions, 1):
+        model_str = parse_model_id(s.get("model"))
+        lines.append(f"{i}. **{s['title']}**")
+        lines.append(
+            f"   `{s['id']}` · {format_time(s['time_updated'])} · {model_str} · {format_cost(s.get('cost', 0))}"
+        )
+        lines.append("")
+    if not sessions:
+        lines.append("No sessions found for this directory.")
+    return "\n".join(lines)
+
+
+def main():
+    p = argparse.ArgumentParser(
+        description="Extract a resume prompt from the most recent OpenCode session.",
+    )
+    p.add_argument("--directory", "-d", help="project directory (default: cwd)")
+    p.add_argument("--session", "-s", help="specific session ID")
+    p.add_argument(
+        "--messages",
+        "-m",
+        type=int,
+        default=0,
+        help="include last N message excerpts (default: 0)",
+    )
+    p.add_argument(
+        "--list",
+        "-l",
+        action="store_true",
+        help="list recent sessions instead of resuming",
+    )
+    p.add_argument(
+        "--limit",
+        type=int,
+        default=DEFAULT_LIST_LIMIT,
+        help=f"number of sessions to list (default: {DEFAULT_LIST_LIMIT})",
+    )
+    p.add_argument("--db", help=f"database path (default: {DB_PATH})")
+    args = p.parse_args()
+
+    db_path = Path(args.db or os.environ.get("OPENCODE_DB", str(DB_PATH)))
+
+    try:
+        conn = connect(db_path)
+
+        if args.list:
+            sessions = list_sessions(conn, args.directory, args.limit)
+            print(format_list(sessions))
+            return
+
+        session = find_session(conn, args.directory, args.session)
+        if not session:
+            directory = os.path.realpath(args.directory or os.getcwd())
+            print(f"error: no session found for {directory}", file=sys.stderr)
+            print(
+                "hint: use --list to see recent sessions, or --session <id> for a specific one",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        workspace = get_workspace(conn, session.get("workspace_id"))
+        prompts = get_user_prompts(conn, session["id"])
+        files = get_files_touched(conn, session["id"])
+        tools = get_tools_used(conn, session["id"])
+        todos = get_todos(conn, session["id"])
+        messages = (
+            get_recent_messages(conn, session["id"], args.messages)
+            if args.messages > 0
+            else None
+        )
+
+        print(format_resume(session, workspace, prompts, files, tools, todos, messages))
+    except sqlite3.Error as e:
+        print(
+            f"error: failed to read OpenCode database at {db_path}: {e}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
