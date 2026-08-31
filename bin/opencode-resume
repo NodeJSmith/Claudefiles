@@ -50,7 +50,11 @@ def find_session(
         ).fetchone()
         return dict(row) if row else None
 
-    directory = directory or os.getcwd()
+    # OpenCode stores session.directory/project.worktree as absolute,
+    # symlink-resolved paths (FSUtil.resolve() = path.resolve() +
+    # realpath), so a relative --directory like "." or "../project" must
+    # be normalized the same way or it will never match.
+    directory = os.path.realpath(directory or os.getcwd())
     # When invoked as a native OpenCode command, the invoking session's own
     # time_updated is bumped by the command message that triggered this
     # script, so it would otherwise outrank the session we actually want to
@@ -87,7 +91,10 @@ def find_session(
 def list_sessions(
     conn: sqlite3.Connection, directory: str | None, limit: int = DEFAULT_LIST_LIMIT
 ) -> list[dict]:
-    directory = directory or os.getcwd()
+    # See find_session()'s comment above: OpenCode's directory/worktree
+    # columns are absolute and symlink-resolved, so a relative --directory
+    # needs the same realpath() normalization here too.
+    directory = os.path.realpath(directory or os.getcwd())
     rows = conn.execute(
         """SELECT s.id, s.title, s.directory, s.model, s.cost,
                   s.time_created, s.time_updated
@@ -429,7 +436,7 @@ def main():
 
         session = find_session(conn, args.directory, args.session)
         if not session:
-            directory = args.directory or os.getcwd()
+            directory = os.path.realpath(args.directory or os.getcwd())
             print(f"error: no session found for {directory}", file=sys.stderr)
             print(
                 "hint: use --list to see recent sessions, or --session <id> for a specific one",
