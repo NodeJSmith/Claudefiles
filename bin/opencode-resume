@@ -51,14 +51,21 @@ def find_session(
         return dict(row) if row else None
 
     directory = directory or os.getcwd()
+    # When invoked as a native OpenCode command, the invoking session's own
+    # time_updated is bumped by the command message that triggered this
+    # script, so it would otherwise outrank the session we actually want to
+    # resume. opencode/claudefiles.ts's shell.env hook sets this env var to
+    # the calling session's id so it can be excluded here.
+    exclude_id = os.environ.get("OPENCODE_SESSION_ID") or None
     row = conn.execute(
         """SELECT s.* FROM session s
            WHERE s.parent_id IS NULL
              AND s.directory = ?
              AND s.time_archived IS NULL
+             AND (? IS NULL OR s.id != ?)
            ORDER BY s.time_updated DESC
            LIMIT 1""",
-        (directory,),
+        (directory, exclude_id, exclude_id),
     ).fetchone()
     if row:
         return dict(row)
@@ -69,9 +76,10 @@ def find_session(
            WHERE s.parent_id IS NULL
              AND p.worktree = ?
              AND s.time_archived IS NULL
+             AND (? IS NULL OR s.id != ?)
            ORDER BY s.time_updated DESC
            LIMIT 1""",
-        (directory,),
+        (directory, exclude_id, exclude_id),
     ).fetchone()
     return dict(row) if row else None
 
@@ -139,8 +147,7 @@ def get_files_touched(conn: sqlite3.Connection, session_id: str) -> list[dict]:
     ).fetchall()
     for row in patch_rows:
         data = json.loads(row["data"])
-        path = data.get("path") or data.get("filePath")
-        if path:
+        for path in data.get("files", []):
             file_counts[path] = file_counts.get(path, 0) + 2
 
     tool_rows = conn.execute(
@@ -411,35 +418,43 @@ def main():
     args = p.parse_args()
 
     db_path = Path(args.db or os.environ.get("OPENCODE_DB", str(DB_PATH)))
-    conn = connect(db_path)
 
-    if args.list:
-        sessions = list_sessions(conn, args.directory, args.limit)
-        print(format_list(sessions))
-        return
+    try:
+        conn = connect(db_path)
 
-    session = find_session(conn, args.directory, args.session)
-    if not session:
-        directory = args.directory or os.getcwd()
-        print(f"error: no session found for {directory}", file=sys.stderr)
+        if args.list:
+            sessions = list_sessions(conn, args.directory, args.limit)
+            print(format_list(sessions))
+            return
+
+        session = find_session(conn, args.directory, args.session)
+        if not session:
+            directory = args.directory or os.getcwd()
+            print(f"error: no session found for {directory}", file=sys.stderr)
+            print(
+                "hint: use --list to see recent sessions, or --session <id> for a specific one",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        workspace = get_workspace(conn, session.get("workspace_id"))
+        prompts = get_user_prompts(conn, session["id"])
+        files = get_files_touched(conn, session["id"])
+        tools = get_tools_used(conn, session["id"])
+        todos = get_todos(conn, session["id"])
+        messages = (
+            get_recent_messages(conn, session["id"], args.messages)
+            if args.messages > 0
+            else None
+        )
+
+        print(format_resume(session, workspace, prompts, files, tools, todos, messages))
+    except sqlite3.Error as e:
         print(
-            "hint: use --list to see recent sessions, or --session <id> for a specific one",
+            f"error: failed to read OpenCode database at {db_path}: {e}",
             file=sys.stderr,
         )
         sys.exit(1)
-
-    workspace = get_workspace(conn, session.get("workspace_id"))
-    prompts = get_user_prompts(conn, session["id"])
-    files = get_files_touched(conn, session["id"])
-    tools = get_tools_used(conn, session["id"])
-    todos = get_todos(conn, session["id"])
-    messages = (
-        get_recent_messages(conn, session["id"], args.messages)
-        if args.messages > 0
-        else None
-    )
-
-    print(format_resume(session, workspace, prompts, files, tools, todos, messages))
 
 
 if __name__ == "__main__":
