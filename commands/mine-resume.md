@@ -36,7 +36,7 @@ Add these only if present in the resume:
 
 ## Step 3: Ask
 
-```
+```text
 AskUserQuestion:
   question: "Want to pick up where you left off?"
   header: "Resume"
