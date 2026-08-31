@@ -355,6 +355,17 @@ function buildInstructions(
 
 export const ClaudefilesPlugin: Plugin = async () => {
   return {
+    // Lets shell-tool subprocesses (e.g. bin/opencode-resume, run as the
+    // native /mine-resume command) tell which OpenCode session invoked
+    // them. Without this, a script that queries "most recently active
+    // session" via time_updated would see its own invoking session --
+    // touched by the very message that triggered the command -- as the
+    // most recent, and resolve to itself instead of the prior session.
+    "shell.env": async (input, output) => {
+      if (input.sessionID) {
+        output.env.OPENCODE_SESSION_ID = input.sessionID;
+      }
+    },
     config: async (cfg: Config) => {
       const data = loadConfigData();
       if (!data) return;
