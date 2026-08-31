@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-08-31
+
+### Added
+
+- `/mine-resume` command and `opencode-resume` CLI: resume from the last OpenCode session by querying OpenCode's own session database (read-only) for session metadata, prompts, todos, files touched, and tools used, then presenting a structured handoff. (#553)
+
 ## 2026-08-29
 
 ### Added
