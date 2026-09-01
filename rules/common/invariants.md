@@ -127,6 +127,10 @@ Before restructuring, capture current behavior with a characterization test. Typ
 Define done as a checkable predicate before the first iteration of a long-running task.
 **Defined in:** `rules/common/autonomous-run-discipline.md`
 
+#### Self-Contained Comments
+A comment must make sense to a reader with no memory of how it got there — no narrating a specific incident or reviewer catch. State the durable invariant instead.
+**Defined in:** `rules/common/coding-style.md`
+
 #### No Dark Operations
 Every error recovery path (`except` that doesn't re-raise) and external I/O boundary (API call, DB query, file operation) must log its outcome on failure. If a failure path emits no signal, it's a dark operation — invisible until the downstream symptom surfaces.
 **Defined in:** `rules/common/logging.md`

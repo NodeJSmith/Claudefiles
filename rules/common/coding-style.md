@@ -77,6 +77,12 @@ All module-level constants go at the top of the file, after imports. Never defin
 
 Don't add decorated comment blocks between methods. If the class needs section headers to be readable, it needs fewer methods.
 
+## Self-Contained Comments
+
+<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
+
+A comment must make sense to a reader with no memory of how it got there. Don't narrate a specific incident, reviewer, or point-in-time event ("caught at ship-time by X's review," "nobody noticed until Y") — state the durable invariant or constraint instead. Strip the narrative: if the WHY still reads clearly in one sentence, the narrative was training-bias padding, not necessary context. Keep a ticket/issue link if one exists — drop the play-by-play around it.
+
 ## Logging
 
 Full conventions — where to log (role-based: library vs CLI vs unattended), what to log (mandatory coverage points, dark operation prevention), level selection (decision tree, `exception()` vs `error()`), and structured context — live in `logging.md`.
