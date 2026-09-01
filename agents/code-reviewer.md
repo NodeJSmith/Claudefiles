@@ -27,9 +27,21 @@ Do not modify source files or the working tree — no `git checkout`, `git resto
 
 ## Memory
 
-Before starting, read `.claude/agent-memory/code-reviewer/MEMORY.md` if it exists — it contains project-specific patterns from past reviews in this codebase.
+Before starting, resolve the stable repo root — a bare relative path resolves against the worktree's own cwd, and a worktree is deleted once its task is done, taking any memory written there with it:
 
-After completing a review, create or update that file — but only if the entry is specific and recurring, not a one-off. This is the sole permitted write; the no-writes rule above applies to source files under review, not this memory file.
+```bash
+git_common_dir=$(git rev-parse --git-common-dir 2>/dev/null)
+if [ -n "$git_common_dir" ]; then
+  repo_root=$(cd "$(dirname "$git_common_dir")" && pwd -P)
+else
+  repo_root=$(pwd -P)
+fi
+echo "$repo_root/.claude/agent-memory/code-reviewer/MEMORY.md"
+```
+
+Read the path printed above if it exists — it contains project-specific patterns from past reviews in this codebase.
+
+After completing a review, create or update that same file — but only if the entry is specific and recurring, not a one-off. This is the sole permitted write; the no-writes rule above applies to source files under review, not this memory file.
 
 **Worth recording:**
 - Recurring violation patterns you've seen more than once in this project (pattern, not individual instances)
