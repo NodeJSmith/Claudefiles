@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-09-01
+
+### Added
+
+- `llm-checker` flags narrated-history comments — comments/docstrings that narrate a specific incident or reviewer catch in essay form instead of stating the durable invariant. `coding-style.md`'s new "Self-Contained Comments" rule shapes the same guidance proactively, not just on review. (#554)
+
 ## 2026-08-31
 
 ### Added

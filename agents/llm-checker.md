@@ -176,6 +176,23 @@ Signs:
 
 The test: "What is the precondition for this pattern to pay off? Is that precondition present in this codebase?"
 
+### 7. Narrated-History Comments
+
+Comments and docstrings that narrate a specific incident, review catch, or point-in-time event in essay form instead of stating the durable invariant plainly — tutorial/PR-description training bias applied to permanent documentation. Distinct from Obvious-Comment Plague (dimension 1): that pattern is comments that say *too little* (redundant with the code); this one is comments that say *too much* — narrative padding that assumes the reader shared context they don't have.
+
+Signs:
+- References a specific named incident, service, or reviewer catch that isn't load-bearing for understanding the code today (e.g., "this field went unnoticed until a ship-time challenge caught it")
+- Reads like a war story or changelog entry rather than a statement of behavior/invariant
+- "We found," "someone forgot," "until X caught it," "nobody noticed" — narrative that only makes sense to someone who was present
+- The durable content (the invariant, the WHY) could be stated in one sentence; everything else is scene-setting
+
+Signs it may be legitimate:
+- The comment states the invariant plainly and cites a tracked issue or ticket as a short pointer for further detail, with no narrative wrapped around the link. A ticket link doesn't exempt narrative padding elsewhere in the comment — per `coding-style.md`'s rule, keep the link, still strip the play-by-play.
+- It documents a rejected alternative with the reason not to retry it (e.g., "tried caching here, broke X, don't reintroduce without Y")
+- The incident is the only record of a constraint that's still active — removing the narrative would remove the only explanation for why the code can't be simplified
+
+The test: "Strip the narrative — does the invariant still read clearly in one sentence? If yes, the narrative is training-bias padding, not necessary context."
+
 </checklist>
 
 <output_format>
@@ -201,7 +218,7 @@ End with:
 ```
 
 Verdict criteria:
-- **CLEAN**: No findings across all 6 dimensions
+- **CLEAN**: No findings across all 7 dimensions
 - **SMELLS (N)**: N findings total — count each finding row, not each category
 
 </output_format>
