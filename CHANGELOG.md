@@ -8,6 +8,10 @@ All notable changes to this Claudefiles repository are documented here.
 
 - `llm-checker` flags narrated-history comments — comments/docstrings that narrate a specific incident or reviewer catch in essay form instead of stating the durable invariant. `coding-style.md`'s new "Self-Contained Comments" rule shapes the same guidance proactively, not just on review. (#554)
 
+### Fixed
+
+- `code-reviewer`, `integration-reviewer`, and `wtf-reviewer` now resolve their `MEMORY.md` path against the stable repo root instead of the subagent's cwd, so memory written inside a git worktree survives after the worktree is torn down. (#556)
+
 ## 2026-08-31
 
 ### Added
