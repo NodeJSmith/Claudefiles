@@ -187,7 +187,7 @@ Signs:
 - The durable content (the invariant, the WHY) could be stated in one sentence; everything else is scene-setting
 
 Signs it may be legitimate:
-- The comment links to a tracked issue or ticket, so the incident detail is recoverable rather than tribal
+- The comment states the invariant plainly and cites a tracked issue or ticket as a short pointer for further detail, with no narrative wrapped around the link. A ticket link doesn't exempt narrative padding elsewhere in the comment — per `coding-style.md`'s rule, keep the link, still strip the play-by-play.
 - It documents a rejected alternative with the reason not to retry it (e.g., "tried caching here, broke X, don't reintroduce without Y")
 - The incident is the only record of a constraint that's still active — removing the narrative would remove the only explanation for why the code can't be simplified
 
