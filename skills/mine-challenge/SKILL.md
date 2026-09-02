@@ -21,8 +21,6 @@ $ARGUMENTS — optional scope:
 - `--target-type=<type>` — override heuristic classification. Values: `code`, `frontend-code`, `spec`, `design-doc`, `brief`, `skill-file`, `agent-file`, `rule`, `docs`, `research`, `other`
 - `--mode=passthrough` — present summary only; skip inline resolution (mine-brainstorm, mine-research)
 - `--no-specialists` — triage selects from generic personas only
-- `--cap=N` — mode switch, not a numeric ceiling: `0` selects automation mode (see step 5); any nonzero value (default 7) selects default mode, where CRITICAL, HIGH, and MEDIUM are always presented and only TENSION can overflow. The specific nonzero value has no further effect — passing `--cap=3` behaves identically to the default `--cap=7`.
-- `--verbose` — show all findings including overflow
 - `--critics=N` — pin the critic count to exactly N, clamped to the number of eligible personas (12 total: 3 generic, 9 specialist — fewer if `--no-specialists` is also set). Overrides triage's default 1–3 range and the re-challenge cap of 2. When `--focus` forces a specialist, that specialist occupies one of the N slots rather than adding to them.
 - `--re-challenge` — mark this run as a re-challenge. Replaces the file-based detection.
 
@@ -176,7 +174,6 @@ The synthesis subagent receives:
 - All critic report paths (`<tmpdir>/<slug>-report.md` for each critic)
 - Triage rationale and `target_summary`
 - Target type
-- Cap value (from `--cap`, default 7)
 - Output path: `<tmpdir>/challenge-results.md`
 - Contents of `<tmpdir>/validation-warnings.md` if it exists
 - The full synthesis procedure below
@@ -192,15 +189,12 @@ The synthesis subagent receives:
    - `type`: type best describing the root cause
    - `design-level`: Yes wins when critics disagree
    - `classification`: Auto-apply only when ALL critics agree on the same fix AND it's localized and additive AND severity is not CRITICAL. Otherwise User-directed. When ambiguous, default User-directed.
-   - `visibility`: `presented` for all in-cap findings; `overflow` for findings beyond the cap
-   - `disposition`: `pending` for all in-cap findings; NULL for overflow findings
+   - `visibility`: `presented` for every finding
+   - `disposition`: `pending` for every finding
 4. **CRITICAL guard**: CRITICAL findings MUST always be classified as `classification: User-directed` regardless of the classification field from any critic or agreement level. This is a non-negotiable override — do not classify any CRITICAL finding as Auto-apply under any circumstances.
-5. **Cap enforcement** (`--cap` is a mode switch — 0 vs. nonzero — not a numeric ceiling; see the flag doc above):
-   - If cap=0: pure automation mode — keep `classification: Auto-apply` findings as `disposition: pending` so Phase 4 applies them; mark `classification: User-directed` findings as `visibility: overflow`
-   - Otherwise (default mode, any nonzero cap): CRITICAL, HIGH, and MEDIUM are always included, never overflow. TENSION overflows if any CRITICAL or HIGH findings exist.
-6. **Copy presentation fields** from critic reports: `why-it-matters` (most concrete consequence statement), `evidence` (all file:line citations, deduped), `design-challenge` (strongest question). Write `not cited` for evidence when none; omit other fields when absent.
-7. **Write recommendation** for each User-directed finding (which option and why). For TENSION: write deciding-factor instead.
-8. **Validity assessment**: assess whether each finding holds up. Findings are valid by default — to flag one as likely invalid, you must provide concrete evidence: what the finding claims, what the code actually does, and why they conflict. Read the relevant code to verify claims. If you cannot articulate the evidence trail, the finding stays in the main list. Move likely-invalid findings to the `## Likely Invalid` section per the findings protocol; set each moved finding's `visibility` to `likely-invalid` and drop its `disposition` (omit the field — NULL). Renumber the remaining findings to stay contiguous (no gaps in the `## Finding N:` sequence).
+5. **Copy presentation fields** from critic reports: `why-it-matters` (most concrete consequence statement), `evidence` (all file:line citations, deduped), `design-challenge` (strongest question). Write `not cited` for evidence when none; omit other fields when absent.
+6. **Write recommendation** for each User-directed finding (which option and why). For TENSION: write deciding-factor instead.
+7. **Validity assessment**: assess whether each finding holds up. Findings are valid by default — to flag one as likely invalid, you must provide concrete evidence: what the finding claims, what the code actually does, and why they conflict. Read the relevant code to verify claims. If you cannot articulate the evidence trail, the finding stays in the main list. Move likely-invalid findings to the `## Likely Invalid` section per the findings protocol; set each moved finding's `visibility` to `likely-invalid` and drop its `disposition` (omit the field — NULL). Renumber the remaining findings to stay contiguous (no gaps in the `## Finding N:` sequence).
 
 **Write findings file** to the output path using `Format-version: 4` header. Include `**Likely-invalid:** N` in the header block (even when 0). Format per `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md`.
 
@@ -214,9 +208,7 @@ Read the findings file. Announce: "Specialists selected: [names from triage]" an
 
 **If standalone mode** (direct user invocation, mine-grill, or any caller not passing --mode=passthrough — includes orchestration callers driven via challenge-gate.md):
 
-Read and follow the Inline Resolution Flow in `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md` exactly. After all findings are processed, report: "Applied N findings. M skipped. K overflow (use `--verbose` to see all). L flagged as likely invalid." List critic report paths and findings file path.
-
-If `--verbose`: also present overflow findings (visibility: overflow) after the main flow, labeled as "Additional findings (beyond cap)".
+Read and follow the Inline Resolution Flow in `${CLAUDE_CONFIG_DIR:-~/.claude}/skills/mine-challenge/findings-protocol.md` exactly. After all findings are processed, report: "Applied N findings. M skipped. L flagged as likely invalid." List critic report paths and findings file path.
 
 ## Principles
 
