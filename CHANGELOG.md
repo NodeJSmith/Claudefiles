@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-09-02
+
+### Changed
+
+- `mine-challenge` removes the finding-cap/overflow mechanism — CRITICAL, HIGH, MEDIUM, and TENSION findings are all presented now, and the `--cap`/`--verbose` flags are gone. (#557)
+
 ## 2026-09-01
 
 ### Added

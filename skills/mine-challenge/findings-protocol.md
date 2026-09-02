@@ -33,8 +33,8 @@ Each finding is a top-level section:
 **Design-level:** Yes | No
 **Classification:** Auto-apply | User-directed
 **Raised-by:** <critic-name>
-**visibility:** presented | overflow | likely-invalid  <!-- lowercase: runtime-written by synthesis, never changes -->
-**disposition:** pending | applied | skipped | filed  <!-- lowercase: runtime-written by synthesis/resolution; omit this line entirely for overflow and likely-invalid findings, which are NULL -->
+**visibility:** presented | likely-invalid  <!-- lowercase: runtime-written by synthesis, never changes -->
+**disposition:** pending | applied | skipped | filed  <!-- lowercase: runtime-written by synthesis/resolution; omit this line entirely for likely-invalid findings, which are NULL -->
 
 **Why-it-matters:** <consequence if left unfixed>
 
@@ -67,9 +67,9 @@ match 1:1 with findings — no gaps.
 | Severity | Meaning |
 |---|---|
 | `CRITICAL` | Breaks a core requirement or contract; must be user-directed |
-| `HIGH` | Significant gap or fragility; shown to user |
-| `MEDIUM` | Meaningful but not blocking; always shown |
-| `TENSION` | Legitimate competing concerns; deferred unless user resolves |
+| `HIGH` | Significant gap or fragility |
+| `MEDIUM` | Meaningful but not blocking |
+| `TENSION` | Legitimate competing concerns; resolved via user choice |
 
 ## Type Taxonomy
 
@@ -94,12 +94,11 @@ and is updated by the inline resolution phase as findings are resolved.
 | Value | Meaning |
 |---|---|
 | `presented` | In scope for resolution |
-| `overflow` | Exceeded the cap; in file but not presented |
 | `likely-invalid` | Flagged by synthesis as likely invalid |
 
 **`disposition`** values — tracks resolution outcome; `pending` for findings
 that enter the resolution flow, then transitions to one of the terminal
-values below. NULL for `overflow` and `likely-invalid` findings, which never
+values below. NULL for `likely-invalid` findings, which never
 enter the resolution flow:
 
 | Value | Meaning |
@@ -127,19 +126,6 @@ The synthesis subagent classifies each finding as `Auto-apply` or
 - Critics disagreed on the resolution
 
 TENSION findings always classify as User-directed.
-
-## Finding Cap
-
-Findings are capped before presentation to prevent overwhelming the user:
-
-- If `cap=0`: all findings are auto-applied or overflow — pure automation mode
-- **CRITICAL, HIGH, and MEDIUM**: Always shown, no cap (except `cap=0`)
-- **TENSION**: Shown only when no CRITICAL/HIGH findings exist; otherwise
-  overflow
-
-Overflow findings are written to the findings file with `visibility: overflow`
-for the record. They are not presented during inline resolution but can be
-viewed with `--verbose`.
 
 ## Validity Assessment
 
@@ -175,7 +161,7 @@ and the finding must stay in the main list.
 ## Inline Resolution Flow
 
 After synthesis completes and the findings file is written, challenge resolves
-findings in cap order.
+findings in order.
 
 **Auto-apply** (`Classification: Auto-apply`, `disposition: pending`): Apply
 `better-approach` via Edit tool silently. Set `disposition: applied`. No prompt.
