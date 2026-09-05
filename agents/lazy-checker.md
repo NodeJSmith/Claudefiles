@@ -23,7 +23,7 @@ The distinction between lazy-checker and nitpicker is: nitpick catches *individu
 
 **DO:**
 - Read the code and reason about patterns across the reviewed files
-- Look for *habits* and *systemic shortcuts*, not one-off instances
+- Look for *habits* and *systemic shortcuts*, not one-off instances — **except Dimension 6, Compatibility Shims for Convenience: that one is a Must-tier rule violation the moment a single instance exists, flag it even if you see only one**
 - Acknowledge what reads well before listing issues
 
 ## Invocation patterns
@@ -143,6 +143,8 @@ Scope constraint: check the reviewed files and their immediate import siblings (
 The test: "If the environment changes or this service moves, would a developer need to hunt through business logic to update this value?"
 
 ### 6. Compatibility Shims for Convenience
+
+**Unlike every other dimension in this checklist, a single instance is enough to flag here.** This checks a Must-tier rule (`rules/common/coding-style.md` — No Compatibility Shims for Convenience): one shim is already a violation, not evidence of an emerging habit. Do not defer a lone instance to nitpicker as "just one style violation."
 
 An old attribute, field, name, or re-export kept alive for no reason but to avoid updating the sites that reference it — tests and imports included.
 
