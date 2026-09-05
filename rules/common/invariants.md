@@ -24,6 +24,10 @@ Scan this list at two points: **before writing code** (catch structural violatio
 Create new objects, never mutate existing ones. Return new copies with changes. (PySpark DataFrame reassignment is exempt — see coding-style.md.)
 **Defined in:** `rules/common/coding-style.md`
 
+#### No Compatibility Shims for Convenience
+Never keep an old attribute, field, name, or re-export alive just to avoid updating the sites that reference it — tests and imports included; ask whether it would still be needed if those sites were free to change. Migrate every caller and delete the old path once that migration completes — the staged "new path → migrate callers → delete old" sequence in `sequence-verifiable-units.md` is fine, an old path that outlives it is not. Exception: an actual consumer outside this repo, that you don't control, depends on the current shape today — not merely because something is published or installable.
+**Defined in:** `rules/common/coding-style.md`
+
 #### No Future Annotations
 Never add `from __future__ import annotations` — breaks Pydantic, FastAPI, dataclasses, and runtime type inspection.
 **Defined in:** `rules/common/python.md`

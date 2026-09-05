@@ -28,7 +28,7 @@ Each step is independently verifiable (tests still pass, linter clean).
 **Migrations:**
 1. New path alongside old
 2. Migrate callers
-3. Delete old path (see `coding-style.md` — Migrate Callers Then Delete Legacy APIs)
+3. Delete old path (see `coding-style.md` — No Compatibility Shims for Convenience)
 
 ## Rules
 

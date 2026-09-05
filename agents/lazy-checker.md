@@ -142,6 +142,22 @@ Scope constraint: check the reviewed files and their immediate import siblings (
 
 The test: "If the environment changes or this service moves, would a developer need to hunt through business logic to update this value?"
 
+### 6. Compatibility Shims for Convenience
+
+An old attribute, field, name, or re-export kept alive for no reason but to avoid updating the sites that reference it — tests and imports included.
+
+Signs:
+- A field or attribute left on a class/dataclass purely because a test asserts on it, with no other reader
+- A module re-exporting a symbol from its old location purely so existing `import` statements don't need updating
+- Two names or paths for the same thing where the old one exists only in case "something might still import it" — and every caller has already moved, with no scheduled step left to remove it
+- A comment like `# keep for backwards compat` or `# avoid breaking tests` with no named external consumer behind it
+
+**Not a shortcut:**
+- (a) the name/attribute/export is a genuine external contract — an actual consumer outside this repo, that its owner doesn't control, depends on the current shape today. Being published or installable doesn't by itself create that consumer — skip only when a real external user exists, not "might be reused someday."
+- (b) this is a staged migration still in progress per `rules/common/sequence-verifiable-units.md` (new path alongside old, callers not yet fully migrated) — old and new are meant to coexist until that sequence completes. Flag it only once every caller has moved and the old path is still there.
+
+The test: "If the tests and import sites were free to change today, and no migration is still in flight, would this old shape still need to exist?" If no, it's debt.
+
 </checklist>
 
 <output_format>
@@ -167,7 +183,7 @@ End with:
 ```
 
 Verdict criteria:
-- **CLEAN**: No findings across all 5 dimensions
+- **CLEAN**: No findings across all 6 dimensions
 - **DEBT (N)**: N findings total — count each finding row, not each category
 
 </output_format>

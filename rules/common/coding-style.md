@@ -93,9 +93,15 @@ Get the data shape right before writing logic. The right shape makes downstream 
 
 Use dataclasses when a structure is passed between multiple methods or stored. Don't introduce them for intermediate values within a single method.
 
-## Migrate Callers Then Delete Legacy APIs
+## No Compatibility Shims for Convenience
 
-When introducing a new internal API, migrate all callers and remove the old API in the same refactor wave. Do not keep legacy paths alive only because internal callers still exist. No compatibility shims, no parallel old-and-new paths waiting for cleanup later.
+<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
+
+"So the tests don't have to change" and "so the imports don't have to change" are the same shortcut wearing two names: an old attribute, field, name, or re-export kept alive not because anything actually needs it, but because updating the sites that reference it — tests and imports included — costs more than restructuring around them. Ask it directly: if the tests and import sites were free to change today, would this old shape still need to exist? If no, it's debt, not compatibility. When introducing a new internal API, migrate every caller in the same effort and delete the old one once that migration completes — don't let it quietly become a permanent parallel path because nobody went back to finish it.
+
+This doesn't forbid the staged shape in `sequence-verifiable-units.md`'s Migrations pattern (new path alongside old → migrate callers → delete old path) — old and new are meant to coexist for the length of that tracked sequence. It forbids the old path outliving its own migration: still there after every caller has moved, with no scheduled step left to remove it.
+
+**Exception:** an actual consumer outside this repo, that you don't control, depends on the current shape today — a published library's real external users, a wire format or schema another system parses. That's compatibility, not laziness, and a shim is the right tool there. Being installable, open source, or technically public does not by itself create that consumer, and being solo-developed does not rule one out either — the test is whether removing the old shape would break someone else's code right now, not who maintains the repo or how it's distributed.
 
 ## Functions Over Methods
 
