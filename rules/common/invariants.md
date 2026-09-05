@@ -25,7 +25,7 @@ Create new objects, never mutate existing ones. Return new copies with changes. 
 **Defined in:** `rules/common/coding-style.md`
 
 #### No Compatibility Shims for Convenience
-Never keep an old attribute, field, name, or re-export alive just to avoid updating the sites that reference it — tests and imports included; ask whether it would still be needed if those sites were free to change. Migrate every caller and delete the old path once that migration completes — the staged "new path → migrate callers → delete old" sequence in `sequence-verifiable-units.md` is fine, an old path that outlives it is not. Exception: an actual consumer outside this repo, that you don't control, depends on the current shape today — not merely because something is published or installable.
+Never keep an old attribute, field, name, or re-export alive just to avoid updating the sites that reference it — tests and imports included; ask whether it would still be needed if those sites were free to change. Migrate every caller and delete the old path once that migration completes — the staged "new path → migrate callers → delete old" sequence in `sequence-verifiable-units.md` is fine, an old path that outlives it is not. Exception: the surface is a published library with a declared, stable API contract (semver, changelog, documented public API) — there you presume unknown users exist rather than requiring one be named. Merely being installable or on GitHub doesn't create that contract.
 **Defined in:** `rules/common/coding-style.md`
 
 #### No Future Annotations

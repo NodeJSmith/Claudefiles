@@ -150,10 +150,10 @@ Signs:
 - A field or attribute left on a class/dataclass purely because a test asserts on it, with no other reader
 - A module re-exporting a symbol from its old location purely so existing `import` statements don't need updating
 - Two names or paths for the same thing where the old one exists only in case "something might still import it" — and every caller has already moved, with no scheduled step left to remove it
-- A comment like `# keep for backwards compat` or `# avoid breaking tests` with no named external consumer behind it
+- A comment like `# keep for backwards compat` or `# avoid breaking tests` where nothing in the repo declares this a published, versioned public API
 
 **Not a shortcut:**
-- (a) the name/attribute/export is a genuine external contract — an actual consumer outside this repo, that its owner doesn't control, depends on the current shape today. Being published or installable doesn't by itself create that consumer — skip only when a real external user exists, not "might be reused someday."
+- (a) the surface belongs to a published library with a declared, stable API contract — semver releases, a changelog, a documented public API — or a wire format another system parses. There, unknown users are presumed to exist, not required to be named first; a public, versioned API doesn't need an identified consumer to justify a compat shim. Being merely installable, on GitHub, or technically importable doesn't create that contract — check for an actual stated versioning/compatibility policy, not just reachability.
 - (b) this is a staged migration still in progress per `rules/common/sequence-verifiable-units.md` (new path alongside old, callers not yet fully migrated) — old and new are meant to coexist until that sequence completes. Flag it only once every caller has moved and the old path is still there.
 
 The test: "If the tests and import sites were free to change today, and no migration is still in flight, would this old shape still need to exist?" If no, it's debt.
