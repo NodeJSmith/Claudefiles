@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-09-05
+
+### Added
+
+- New Must-tier rule forbids keeping an old attribute, field, name, or re-export alive purely to avoid updating the sites that reference it (tests and imports included) — a staged migration in progress remains fine, but the old path can't outlive it with no scheduled removal step. `lazy-checker` gained a matching review dimension. (#568)
+
 ## 2026-09-02
 
 ### Changed

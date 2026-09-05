@@ -93,9 +93,17 @@ Get the data shape right before writing logic. The right shape makes downstream 
 
 Use dataclasses when a structure is passed between multiple methods or stored. Don't introduce them for intermediate values within a single method.
 
-## Migrate Callers Then Delete Legacy APIs
+## No Compatibility Shims for Convenience
 
-When introducing a new internal API, migrate all callers and remove the old API in the same refactor wave. Do not keep legacy paths alive only because internal callers still exist. No compatibility shims, no parallel old-and-new paths waiting for cleanup later.
+<!-- SYNC: rules/common/invariants.md — update the corresponding invariant entry when changing this rule. -->
+
+"So the tests don't have to change" and "so the imports don't have to change" are the same shortcut wearing two names: an old attribute, field, name, or re-export kept alive not because anything actually needs it, but because updating the sites that reference it — tests and imports included — costs more than restructuring around them. Ask it directly: if the tests and import sites were free to change today, would this old shape still need to exist? If no, it's debt, not compatibility. When introducing a new internal API, migrate every caller in the same effort and delete the old one once that migration completes — don't let it quietly become a permanent parallel path because nobody went back to finish it.
+
+This doesn't forbid the staged shape in `sequence-verifiable-units.md`'s Migrations pattern (new path alongside old → migrate callers → delete old path) — old and new are meant to coexist for the length of that tracked sequence. It forbids the old path outliving its own migration: still there after every caller has moved, with no scheduled step left to remove it.
+
+**Exception:** the specific name, attribute, or export in question is itself part of a library's declared public API surface — the documented, versioned interface it commits to (semver releases, a changelog, an explicit public/private boundary) — or is itself a wire format or schema another system parses. There, you can't enumerate every consumer, and that's the point of declaring the contract: the promise holds whether or not you can name who relies on it. Requiring a named consumer before honoring it gets the burden backwards — a public, versioned API is presumed to have unknown users unless you know otherwise, not the reverse. Being installable, on GitHub, or technically importable doesn't create that contract by itself; an internal package with no stated versioning policy and no external install path (`uv tool install -e`, editable installs, in-repo tooling) has made no such promise, no matter how public the repo is.
+
+The exception is scoped to that declared surface, not to the whole library it lives in: an internal helper, a private module, or a test fixture inside an otherwise-published package gets no shim just because the package around it is public. Tests never qualify for this exception under any circumstance — a test is not an external consumer, regardless of what it's testing.
 
 ## Functions Over Methods
 

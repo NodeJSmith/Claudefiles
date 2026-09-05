@@ -23,7 +23,7 @@ The distinction between lazy-checker and nitpicker is: nitpick catches *individu
 
 **DO:**
 - Read the code and reason about patterns across the reviewed files
-- Look for *habits* and *systemic shortcuts*, not one-off instances
+- Look for *habits* and *systemic shortcuts*, not one-off instances — **except Dimension 6, Compatibility Shims for Convenience: that one is a Must-tier rule violation the moment a single instance exists, flag it even if you see only one**
 - Acknowledge what reads well before listing issues
 
 ## Invocation patterns
@@ -142,6 +142,24 @@ Scope constraint: check the reviewed files and their immediate import siblings (
 
 The test: "If the environment changes or this service moves, would a developer need to hunt through business logic to update this value?"
 
+### 6. Compatibility Shims for Convenience
+
+**Unlike every other dimension in this checklist, a single instance is enough to flag here.** This checks a Must-tier rule (`rules/common/coding-style.md` — No Compatibility Shims for Convenience): one shim is already a violation, not evidence of an emerging habit. Do not defer a lone instance to nitpicker as "just one style violation."
+
+An old attribute, field, name, or re-export kept alive for no reason but to avoid updating the sites that reference it — tests and imports included.
+
+Signs:
+- A field or attribute left on a class/dataclass purely because a test asserts on it, with no other reader
+- A module re-exporting a symbol from its old location purely so existing `import` statements don't need updating
+- Two names or paths for the same thing where the old one exists only in case "something might still import it" — and every caller has already moved, with no scheduled step left to remove it
+- A comment like `# keep for backwards compat` or `# avoid breaking tests` where nothing in the repo declares this a published, versioned public API
+
+**Not a shortcut:**
+- (a) the specific name/attribute/export at issue is itself part of a library's declared public API surface — semver releases, a changelog, a documented public API — or a wire format another system parses. There, unknown users are presumed to exist, not required to be named first; a public, versioned API doesn't need an identified consumer to justify a compat shim. Being merely installable, on GitHub, or technically importable doesn't create that contract — check for an actual stated versioning/compatibility policy, not just reachability. Scoped to that declared surface only: an internal helper, private module, or test living inside an otherwise-published package does not inherit the exception just because the package around it is public. Tests never qualify, full stop.
+- (b) this is a staged migration still in progress per `rules/common/sequence-verifiable-units.md` (new path alongside old, callers not yet fully migrated) — old and new are meant to coexist until that sequence completes. Flag it only once every caller has moved and the old path is still there.
+
+The test: "If the tests and import sites were free to change today, and no migration is still in flight, would this old shape still need to exist?" If no, it's debt.
+
 </checklist>
 
 <output_format>
@@ -167,7 +185,7 @@ End with:
 ```
 
 Verdict criteria:
-- **CLEAN**: No findings across all 5 dimensions
+- **CLEAN**: No findings across all 6 dimensions
 - **DEBT (N)**: N findings total — count each finding row, not each category
 
 </output_format>
