@@ -23,7 +23,7 @@
 # shows, not a local token-count estimate, so any consumer that needs real
 # account usage (e.g. a preflight gate before unattended automation) should
 # read this file rather than re-deriving an estimate:
-#   ${CLAUDE_RATE_LIMITS_META:-/tmp/claude-rate-limits.meta} — key=value file with:
+#   ${CLAUDE_RATE_LIMITS_META:-/tmp/claude-rate-limits-<uid>.meta} — key=value file with:
 #     five_hour_pct=<int|empty>        used_percentage for the 5-hour window
 #     five_hour_resets_at=<epoch|empty>
 #     seven_day_pct=<int|empty>        used_percentage for the 7-day (weekly) window
@@ -137,12 +137,13 @@ if command -v jq > /dev/null 2>&1 && [ -n "$payload" ]; then
   # (both "field was null" and "field was legitimately absent" collapse to the same
   # empty string) — do not collapse these back into a single `[ -n "$_fhpct" ]` check.
   if [ "${_has_rl:-false}" = "true" ]; then
-    _rl_target="${CLAUDE_RATE_LIMITS_META:-/tmp/claude-rate-limits.meta}"
-    # PID-suffixed so concurrent statusline renders from different sessions never
-    # share a tmp path — unlike the per-session sidecar above, this file's name is
-    # the same for every session, so two writers racing here previously could
-    # interleave before either reached `mv -f`.
-    _rl_tmp="${_rl_target}.tmp.$$"
+    _rl_target="${CLAUDE_RATE_LIMITS_META:-/tmp/claude-rate-limits-$(id -u).meta}"
+    # mktemp-created (not PID-suffixed) so the tmp path is both unpredictable and
+    # atomically created — unlike the per-session sidecar above, this file's name is
+    # the same for every session, so a PID-derived name is guessable and, on a
+    # multi-user host, could be pre-planted as a symlink before this script writes
+    # to it. mktemp closes that race unconditionally.
+    _rl_tmp="$(mktemp "${_rl_target}.tmp.XXXXXX" 2> /dev/null)" || true
     _fh_pct="" _fh_reset=""
     if [ "${_has_fh:-false}" = "true" ]; then
       _fh_pct="${_fhpct:-}"
