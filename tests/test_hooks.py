@@ -20,6 +20,7 @@ REPO_ROOT = Path(__file__).parent.parent
 COMPACTION_HOOK = REPO_ROOT / "scripts" / "hooks" / "subagent-compaction-check.sh"
 BASH_HISTORY_HOOK = REPO_ROOT / "scripts" / "hooks" / "bash-history-capture.py"
 DOCS_CHECK_HOOK = REPO_ROOT / "scripts" / "hooks" / "project-docs-check.sh"
+CONTEXT_WRITER_HOOK = REPO_ROOT / "scripts" / "hooks" / "claude-context-writer"
 
 
 def run_hook(
@@ -1488,3 +1489,226 @@ class TestBashHistoryCapture:
             )
             assert result.returncode == 0
             assert not os.path.exists(db_path)
+
+
+# ---------------------------------------------------------------------------
+# claude-context-writer tests — rate_limits sidecar
+# ---------------------------------------------------------------------------
+
+
+def _read_meta(path: str) -> dict[str, str]:
+    fields: dict[str, str] = {}
+    with open(path) as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if "=" in line:
+                key, _, value = line.partition("=")
+                fields[key] = value
+    return fields
+
+
+class TestContextWriterRateLimits:
+    def test_writes_both_windows_when_present(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            meta_path = os.path.join(tmpdir, "rate-limits.meta")
+            stdin = json.dumps(
+                {
+                    "session_id": str(uuid.uuid4()),
+                    "rate_limits": {
+                        "five_hour": {"used_percentage": 16, "resets_at": 1788807600},
+                        "seven_day": {"used_percentage": 36, "resets_at": 1789048800},
+                    },
+                }
+            )
+            result = run_hook(
+                CONTEXT_WRITER_HOOK,
+                stdin,
+                tmpdir,
+                extra_env={"CLAUDE_RATE_LIMITS_META": meta_path},
+            )
+            assert result.returncode == 0
+            fields = _read_meta(meta_path)
+            assert fields["five_hour_pct"] == "16"
+            assert fields["five_hour_resets_at"] == "1788807600"
+            assert fields["seven_day_pct"] == "36"
+            assert fields["seven_day_resets_at"] == "1789048800"
+            assert fields["updated_at"].isdigit()
+
+    def test_does_not_write_file_when_rate_limits_absent(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            meta_path = os.path.join(tmpdir, "rate-limits.meta")
+            stdin = json.dumps({"session_id": str(uuid.uuid4())})
+            result = run_hook(
+                CONTEXT_WRITER_HOOK,
+                stdin,
+                tmpdir,
+                extra_env={"CLAUDE_RATE_LIMITS_META": meta_path},
+            )
+            assert result.returncode == 0
+            assert not os.path.exists(meta_path)
+
+    def test_never_overwrites_existing_file_when_rate_limits_absent(self):
+        # A session with no rate_limits (e.g. API-key billed) must not clobber
+        # a previously-good file written by an earlier subscription session.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            meta_path = os.path.join(tmpdir, "rate-limits.meta")
+            with open(meta_path, "w") as f:
+                f.write("five_hour_pct=16\nupdated_at=1700000000\n")
+            stdin = json.dumps({"session_id": str(uuid.uuid4())})
+            run_hook(
+                CONTEXT_WRITER_HOOK,
+                stdin,
+                tmpdir,
+                extra_env={"CLAUDE_RATE_LIMITS_META": meta_path},
+            )
+            fields = _read_meta(meta_path)
+            assert fields["five_hour_pct"] == "16"
+            assert fields["updated_at"] == "1700000000"
+
+    def test_zero_percent_used_round_trips_as_zero_not_blank(self):
+        # A legitimate 0% used must never be conflated with "window absent" — both
+        # currently collapse to the same jq `// ""` fallback internally, so this
+        # pins that the presence flags correctly keep them distinct in the output.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            meta_path = os.path.join(tmpdir, "rate-limits.meta")
+            stdin = json.dumps(
+                {
+                    "session_id": str(uuid.uuid4()),
+                    "rate_limits": {
+                        "five_hour": {"used_percentage": 0, "resets_at": 123},
+                        "seven_day": {"used_percentage": 0, "resets_at": 456},
+                    },
+                }
+            )
+            result = run_hook(
+                CONTEXT_WRITER_HOOK,
+                stdin,
+                tmpdir,
+                extra_env={"CLAUDE_RATE_LIMITS_META": meta_path},
+            )
+            assert result.returncode == 0
+            fields = _read_meta(meta_path)
+            assert fields["five_hour_pct"] == "0"
+            assert fields["seven_day_pct"] == "0"
+
+    def test_rate_limits_present_but_empty_object_writes_both_windows_blank(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            meta_path = os.path.join(tmpdir, "rate-limits.meta")
+            stdin = json.dumps({"session_id": str(uuid.uuid4()), "rate_limits": {}})
+            result = run_hook(
+                CONTEXT_WRITER_HOOK,
+                stdin,
+                tmpdir,
+                extra_env={"CLAUDE_RATE_LIMITS_META": meta_path},
+            )
+            assert result.returncode == 0
+            fields = _read_meta(meta_path)
+            assert fields["five_hour_pct"] == ""
+            assert fields["seven_day_pct"] == ""
+            assert fields["updated_at"].isdigit()
+
+    def test_malformed_rate_limits_shape_does_not_break_context_sidecar(self):
+        # Regression guard for the failure mode this design is built around: the
+        # rate_limits extraction runs as its own jq invocation specifically so a
+        # shape it doesn't expect (five_hour as a string instead of an object)
+        # can't take down the unrelated, load-bearing per-session context sidecar.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            meta_path = os.path.join(tmpdir, "rate-limits.meta")
+            sid = str(uuid.uuid4())
+            stdin = json.dumps(
+                {
+                    "session_id": sid,
+                    "context_window": {
+                        "context_window_size": 1000000,
+                        "current_usage": {
+                            "input_tokens": 50000,
+                            "cache_creation_input_tokens": 0,
+                            "cache_read_input_tokens": 0,
+                        },
+                    },
+                    "workspace": {"current_dir": "/home/jessica/Dotfiles"},
+                    "model": {"id": "claude-opus-5"},
+                    "rate_limits": {"five_hour": "oops"},
+                }
+            )
+            context_meta_path = f"/tmp/claude-context-{sid}.meta"
+            try:
+                result = run_hook(
+                    CONTEXT_WRITER_HOOK,
+                    stdin,
+                    tmpdir,
+                    extra_env={"CLAUDE_RATE_LIMITS_META": meta_path},
+                )
+                assert result.returncode == 0
+                assert result.stdout == stdin
+                assert os.path.exists(context_meta_path)
+                context_fields = _read_meta(context_meta_path)
+                assert context_fields["pct"] == "5"
+            finally:
+                if os.path.exists(context_meta_path):
+                    os.remove(context_meta_path)
+
+    def test_leaves_missing_window_blank_not_zero(self):
+        # five_hour absent (e.g. its resets_at already passed) must read as
+        # "unknown," never as "0% used" — a consumer gating unattended
+        # automation on remaining headroom must not treat this as safe.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            meta_path = os.path.join(tmpdir, "rate-limits.meta")
+            stdin = json.dumps(
+                {
+                    "session_id": str(uuid.uuid4()),
+                    "rate_limits": {
+                        "seven_day": {"used_percentage": 40, "resets_at": 1789048800}
+                    },
+                }
+            )
+            result = run_hook(
+                CONTEXT_WRITER_HOOK,
+                stdin,
+                tmpdir,
+                extra_env={"CLAUDE_RATE_LIMITS_META": meta_path},
+            )
+            assert result.returncode == 0
+            fields = _read_meta(meta_path)
+            assert fields["five_hour_pct"] == ""
+            assert fields["five_hour_resets_at"] == ""
+            assert fields["seven_day_pct"] == "40"
+
+    def test_still_writes_context_sidecar_and_passes_payload_through(self):
+        # Regression guard: the rate_limits addition must not disturb the
+        # existing per-session context sidecar or stdin->stdout passthrough.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            meta_path = os.path.join(tmpdir, "rate-limits.meta")
+            sid = str(uuid.uuid4())
+            stdin = json.dumps(
+                {
+                    "session_id": sid,
+                    "context_window": {
+                        "context_window_size": 1000000,
+                        "current_usage": {
+                            "input_tokens": 50000,
+                            "cache_creation_input_tokens": 0,
+                            "cache_read_input_tokens": 0,
+                        },
+                    },
+                    "workspace": {"current_dir": "/home/jessica/Dotfiles"},
+                    "model": {"id": "claude-opus-5"},
+                }
+            )
+            context_meta_path = f"/tmp/claude-context-{sid}.meta"
+            try:
+                result = run_hook(
+                    CONTEXT_WRITER_HOOK,
+                    stdin,
+                    tmpdir,
+                    extra_env={"CLAUDE_RATE_LIMITS_META": meta_path},
+                )
+                assert result.returncode == 0
+                assert result.stdout == stdin
+                assert os.path.exists(context_meta_path)
+                context_fields = _read_meta(context_meta_path)
+                assert context_fields["pct"] == "5"
+                assert context_fields["cwd"] == "/home/jessica/Dotfiles"
+            finally:
+                if os.path.exists(context_meta_path):
+                    os.remove(context_meta_path)
