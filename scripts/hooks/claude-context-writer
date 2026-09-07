@@ -17,6 +17,26 @@
 #                                    cwd read by child-context-check to join on worktree path;
 #                                    model read by cfl's session.read_model()
 #
+# A second, account-wide (not per-session) sidecar is also written whenever the
+# payload carries a `rate_limits` object — present for Claude.ai subscription
+# accounts, absent for API-key-billed sessions. This is the exact data `/usage`
+# shows, not a local token-count estimate, so any consumer that needs real
+# account usage (e.g. a preflight gate before unattended automation) should
+# read this file rather than re-deriving an estimate:
+#   ${CLAUDE_RATE_LIMITS_META:-/tmp/claude-rate-limits.meta} — key=value file with:
+#     five_hour_pct=<int|empty>        used_percentage for the 5-hour window
+#     five_hour_resets_at=<epoch|empty>
+#     seven_day_pct=<int|empty>        used_percentage for the 7-day (weekly) window
+#     seven_day_resets_at=<epoch|empty>
+#     updated_at=<epoch>               when this file was last written
+#   A field is empty when `rate_limits` was present but that specific window
+#   was not (e.g. a window whose resets_at has already passed) — a consumer
+#   must treat an empty/missing value as "unknown," never as "0% used." The
+#   whole file is skipped (previous contents left alone) only when
+#   `rate_limits` itself is absent from the payload entirely.
+#   CLAUDE_RATE_LIMITS_META overrides the path — for tests, and for any
+#   consumer that wants an isolated location instead of the shared default.
+#
 # Usage in settings.json (or settings.local.json / settings.machine.json):
 #   "statusLine": {
 #     "type": "command",
@@ -51,6 +71,14 @@ payload="$(cat || true)"
 if command -v jq > /dev/null 2>&1 && [ -n "$payload" ]; then
   # All variable refs below use ${var:-default} because eval may not have
   # set them (jq failure path under nounset).
+  #
+  # rate_limits is extracted via its OWN jq invocation (below), deliberately kept
+  # separate from this one: it's an evolving, less-predictable part of the payload
+  # shape than context_window/workspace/model, and a single shared jq expression
+  # fails atomically — one bad sub-expression anywhere in it would silently stop
+  # ALL variables from being set, including _sid/_sz/_cwd/_model, breaking the
+  # unrelated, load-bearing per-session context sidecar below. Isolating it means
+  # a future rate_limits shape change can only ever break the rate-limits sidecar.
   eval "$(printf '%s' "$payload" | jq -r '
     def safe(f): f // "";
     def safe_num(f): f // 0;
@@ -77,6 +105,57 @@ if command -v jq > /dev/null 2>&1 && [ -n "$payload" ]; then
     _meta_tmp="${_meta_target}.tmp"
     printf 'pct=%d\ncwd=%s\nmodel=%s\n' "$_pct" "${_cwd:-}" "${_model:-}" > "$_meta_tmp" 2> /dev/null &&
       mv -f "$_meta_tmp" "$_meta_target" 2> /dev/null || true
+  fi
+
+  # Account-wide rate-limit sidecar — extracted via its OWN jq invocation, deliberately
+  # kept separate from the one above (see the comment on that eval): a malformed or
+  # future-shaped rate_limits object must never be able to stop the context-percentage
+  # sidecar from being written. The whole filter is also wrapped in try/catch so an
+  # unexpected shape (a window value that isn't an object, same class of risk the
+  # existing .model type-check above guards against) degrades to "no rate-limit data
+  # this round" instead of erroring the entire eval and leaving every _rl_* var unset.
+  eval "$(printf '%s' "$payload" | jq -r '
+    def safe(f): (try f catch null) // "";
+    def has_window(w): (try (w != null) catch false);
+    try (
+      "_has_rl=" + ((.rate_limits != null) | tostring | @sh) +
+      " _has_fh=" + (has_window(.rate_limits.five_hour) | tostring | @sh) +
+      " _fhpct=" + (safe(.rate_limits.five_hour.used_percentage) | tostring | @sh) +
+      " _fhreset=" + (safe(.rate_limits.five_hour.resets_at) | tostring | @sh) +
+      " _has_sd=" + (has_window(.rate_limits.seven_day) | tostring | @sh) +
+      " _sdpct=" + (safe(.rate_limits.seven_day.used_percentage) | tostring | @sh) +
+      " _sdreset=" + (safe(.rate_limits.seven_day.resets_at) | tostring | @sh)
+    ) catch "_has_rl=false"
+  ' 2> /dev/null)" 2> /dev/null || true
+
+  # Only written when the payload actually carries rate_limits (subscription accounts
+  # only), so an API-key-billed session never overwrites a previously-good file with
+  # blanks. Per-window fields are left empty (not defaulted to 0) when that window
+  # itself is absent from the payload — see the file header for why a consumer must
+  # treat empty as "unknown," not "0% used": _has_fh/_has_sd carry that distinction
+  # because jq's `// ""` fallback above already erased it from _fhpct/_sdpct alone
+  # (both "field was null" and "field was legitimately absent" collapse to the same
+  # empty string) — do not collapse these back into a single `[ -n "$_fhpct" ]` check.
+  if [ "${_has_rl:-false}" = "true" ]; then
+    _rl_target="${CLAUDE_RATE_LIMITS_META:-/tmp/claude-rate-limits.meta}"
+    # PID-suffixed so concurrent statusline renders from different sessions never
+    # share a tmp path — unlike the per-session sidecar above, this file's name is
+    # the same for every session, so two writers racing here previously could
+    # interleave before either reached `mv -f`.
+    _rl_tmp="${_rl_target}.tmp.$$"
+    _fh_pct="" _fh_reset=""
+    if [ "${_has_fh:-false}" = "true" ]; then
+      _fh_pct="${_fhpct:-}"
+      _fh_reset="${_fhreset:-}"
+    fi
+    _sd_pct="" _sd_reset=""
+    if [ "${_has_sd:-false}" = "true" ]; then
+      _sd_pct="${_sdpct:-}"
+      _sd_reset="${_sdreset:-}"
+    fi
+    printf 'five_hour_pct=%s\nfive_hour_resets_at=%s\nseven_day_pct=%s\nseven_day_resets_at=%s\nupdated_at=%s\n' \
+      "$_fh_pct" "$_fh_reset" "$_sd_pct" "$_sd_reset" "$(date +%s)" > "$_rl_tmp" 2> /dev/null &&
+      mv -f "$_rl_tmp" "$_rl_target" 2> /dev/null || true
   fi
 fi
 
