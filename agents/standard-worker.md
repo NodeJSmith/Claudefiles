@@ -3,7 +3,7 @@ name: standard-worker
 model: sonnet
 effort: medium
 description: Generic worker for full-prompt dispatches that need no specialist — synthesis, drafting, exploration, and the orchestrate-executor fallback when a work package matches no specialist row.
-tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "WebSearch", "WebFetch"]
+tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "WebSearch", "WebFetch", "Skill", "Agent"]
 bundle: base
 ---
 
