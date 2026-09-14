@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-09-14
+
+### Fixed
+
+- `standard-worker` gains the `Skill` and `Agent` tools, so it can invoke skills and dispatch sub-agents during full-prompt dispatches — needed for its role as the orchestrate-executor fallback when a work package matches no specialist row. (#571)
+
 ## 2026-09-05
 
 ### Added
