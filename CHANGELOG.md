@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-09-15
+
+### Fixed
+
+- The comb gate now routes findings with no single fix through a `[Design decision]` tag: `fine-toothed-comb` surfaces concrete Options and a Recommendation, and `comb-gate.md` resolves them via their own `AskUserQuestion` instead of forcing the old "Fix and re-review" / "Stop" shape onto a trade-off that has no single fix. (#572)
+
 ## 2026-09-14
 
 ### Fixed
