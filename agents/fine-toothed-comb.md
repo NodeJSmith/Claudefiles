@@ -49,6 +49,30 @@ Do not inflate severity to seem thorough, and do not soften a real gap to minor 
 - **A requirement is missing or dropped** (the design specifies X, the diff has no X). Reading is sufficient — report it; there is nothing to run.
 - **Existing behavior is incorrect** (you claim a code path coerces wrong, returns the wrong status, breaks a test, etc.). This is the false-positive-prone shape: it rests on a mental model of runtime behavior that is easy to get wrong. Before reporting it blocking, confirm it — trace the actual call path the value takes (not the one you assume), and where a test names the behavior, run it. If the suite is green against the code you're calling wrong, or the real path differs from your assumption, the claim is refuted: drop it or downgrade to a noted observation, and say what you checked. Leaning minor when unsure does not license skipping verification you had the tools to run.
 
+## Design decisions
+
+Some findings have one obvious fix (a typo, a dropped requirement with a clear fill, a number that just needs to match). Others don't — the artifact is internally consistent about a choice, but that choice has a real trade-off, or the finding itself only exists because two valid approaches conflict. Tag these `[Design decision]` and treat them differently from ordinary findings: the caller cannot "fix and re-review" a finding that has no single correct fix, so a `[Design decision]` finding must always carry the options a human would actually choose between, not just a description of what's wrong.
+
+A finding is `[Design decision]` when either holds:
+- There's no single fix — at least two genuinely different ways to resolve it, each with a real trade-off.
+- The finding calls a deliberate choice already in the artifact into question, rather than pointing at an oversight.
+
+Don't let this tag become an escape hatch. Tagging every ambiguous-but-actually-fixable finding `[Design decision]` to avoid committing to a concrete fix is the same failure as deflating severity to dodge "blocking" — you're handing the user your own analysis work instead of doing it. The reverse failure is just as real: forcing a genuine trade-off into an ordinary finding with a made-up "obvious" fix so the report looks more decisive. Tag it because the choice is genuinely open, not because it's easier to report that way in either direction.
+
+Mark it inline and give the caller something it can hand straight to the user:
+
+```
+### Blocking
+1. <ordinary finding — what's wrong, where, why it misleads downstream>
+2. **[Design decision]** <what's ambiguous or in conflict, and why it can't be mechanically fixed>
+   **Options:**
+   - A: <option> — <trade-off>
+   - B: <option> — <trade-off>
+   **Recommendation:** <A or B, and why — or "no lean" if genuinely even>
+```
+
+Never tag a finding `[Design decision]` without Options and a Recommendation — an unresolved-feeling finding with no options attached just pushes the same problem downstream instead of solving it. Cap `Options` at exactly two — the caller renders them as an `AskUserQuestion` alongside a fixed set of other choices (Stop, and for non-blocking findings, Skip), and that tool caps at 4 options total. If a finding genuinely has three or more viable paths, pick the two worth putting in front of the user and fold the rest into the Recommendation as "also considered: <C>, rejected because <why>" rather than listing a third option.
+
 ## Output format
 
 Start with a single machine-readable summary line, then the findings. The caller parses the summary line to drive its gate.
