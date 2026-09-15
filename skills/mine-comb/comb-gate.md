@@ -16,7 +16,7 @@ Acknowledging a finding and moving on is not allowed. The only ways past a block
 
 ## Iteration tracking
 
-Track how many times the comb has run in this phase (starting at 1). Increment the counter each time the comb re-runs — whether that re-run came from "Fix and re-review" or from resolving design-decision findings with nothing left in the ordinary flow: run 2 exists either way. This is internal state — callers do not supply it.
+Track how many times the comb has run in this phase (starting at 1). Increment the counter each time the comb re-runs — whether that re-run came from "Fix and re-review" or from resolving a design-decision finding via an applied A/B option (which always triggers a re-comb, regardless of what else was left over): run 2 exists either way. This is internal state — callers do not supply it.
 
 ## The gate
 
@@ -54,9 +54,13 @@ The agent caps `Options` at two (see `${CLAUDE_CONFIG_DIR:-~/.claude}/agents/fin
 
 Apply the chosen option to the artifact immediately, per `<re_review_instructions>` — don't defer it into the ordinary flow's fix-and-re-review pass. "Stop" halts the whole gate right there, same as Stop below. "Skip" leaves the artifact untouched and carries the finding into the downstream summary as a noted item — and, same as a resolved (A/B) finding, it is done with this gate: it does not get folded into the "Ordinary findings" flow below or re-prompted this run. (The artifact still has an unresolved design decision in it, which the *next* comb run will find again and ask about fresh — "Skip" defers the decision, not the gate's memory of it.)
 
-If nothing chose Stop, drop every design-decision finding that was resolved (A/B applied) or skipped from the in-scope blocking/minor counts, and continue below with whatever's left (including any minor design-decision findings that were left untouched because `minor_blocks` was `false` — those flow into the ordinary minor-findings handling like any other minor finding). If nothing's left, skip the ordinary flow entirely: re-run the comb from the top if anything was actually applied to the artifact (a decision was the fix), or report the outcome directly if every design-decision finding was Skipped and nothing else needs fixing (there's nothing new to re-comb).
+If nothing chose Stop: **if any design-decision finding was resolved (an A/B option applied to the artifact), re-run the comb from the top now, before doing anything else in this gate.** An applied option is a substantive edit — the same kind of change "Fix and re-review" exists to re-verify — so it needs a fresh run regardless of what else happens to be left over. Don't let an unrelated leftover minor finding (with `minor_blocks: false`) route past this into the ordinary flow's silent "note and proceed"; that path is for findings nothing has touched, not for skipping verification of an edit you just made.
+
+Only when **no** design-decision finding was resolved this pass (every one still in scope was Skipped, or none were tagged) does the ordinary flow below apply, unmodified, to whatever's left. "Whatever's left" means ordinary (untagged) findings, plus any minor design-decision findings that were left untouched because `minor_blocks` was `false` — those flow into the ordinary minor-findings handling like any other minor finding. It does **not** include Skipped findings: those are already handled per the paragraph above (noted for the summary, never re-prompted this run) and drop out of the counts entirely, the same as a resolved one. If nothing's left after that exclusion, report the outcome directly — nothing was applied, so there's nothing new to re-comb.
 
 ### Ordinary findings
+
+Build `<summary>` below from what's actually left — exclude every design-decision finding that was resolved or Skipped above; only ordinary findings and untouched minor design-decision findings (`minor_blocks: false`) count.
 
 **Only minor findings:**
 - If `minor_blocks` is `false`: note the minor findings for the downstream summary and proceed. No prompt.
