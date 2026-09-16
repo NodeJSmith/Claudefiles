@@ -3,7 +3,7 @@ name: researcher
 model: opus
 effort: high
 description: Autonomous codebase research and feasibility analysis. Explores code with parallel subagents, conducts web research, and writes a structured research brief.
-tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "WebSearch", "WebFetch", "Task"]
+tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "WebSearch", "WebFetch", "Skill", "Agent"]
 bundle: base
 ---
 

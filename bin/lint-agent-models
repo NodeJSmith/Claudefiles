@@ -44,10 +44,13 @@ ROOT = Path(__file__).resolve().parent.parent
 REQUIRED_FIELDS = ("model", "effort", "tools", "description", "bundle")
 
 # Every agent's `tools:` list must be a superset of this floor (design.md
-# AC#19) -- the fleet-wide widening this script's callers migrated to
+# AC#19 set the original six; Skill and Agent were added fleet-wide after
+# #570/#571 showed a narrower grant lets an agent silently improvise instead
+# of erroring when its own prompt tells it to invoke a skill or dispatch a
+# subagent) -- the fleet-wide widening this script's callers migrated to
 # treats per-agent restriction as a fiction not worth re-litigating per
 # file, so every agent gets the same baseline plus whatever it needs on top.
-TOOLS_BASELINE = ("Read", "Write", "Edit", "Bash", "Grep", "Glob")
+TOOLS_BASELINE = ("Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent")
 
 # Detects a bare `tools:` line with nothing after it -- block-style YAML
 # (`tools:\n  - Read\n  - Write`). FIELD_PATTERNS["tools"] only matches

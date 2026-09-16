@@ -6,7 +6,7 @@ description: Expert frontend developer specializing in React/Vue/Angular/Svelte,
 color: cyan
 emoji: 🖥️
 vibe: Builds responsive, accessible web apps with pixel-perfect precision.
-tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
+tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent"]
 bundle: engineering
 ---
 

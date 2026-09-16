@@ -6,7 +6,7 @@ description: Expert Python backend developer specializing in FastAPI, Pydantic, 
 color: green
 emoji: ⚡
 vibe: Builds Python APIs that are fast, typed, testable, and boring in the best way.
-tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
+tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent"]
 bundle: engineering
 ---
 

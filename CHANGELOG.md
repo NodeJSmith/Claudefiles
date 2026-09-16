@@ -2,6 +2,12 @@
 
 All notable changes to this Claudefiles repository are documented here.
 
+## 2026-09-16
+
+### Fixed
+
+- Every custom agent in `agents/*.md` gains the `Skill` and `Agent` tools, closing the whole class of bug where an agent silently improvises instead of erroring when a dispatched task tells it to run a skill or delegate to a subagent it can't reach. `researcher.md`'s stale `"Task"` tool entry (never a valid tool name in this harness) is also corrected to `"Agent"`. (#573)
+
 ## 2026-09-15
 
 ### Fixed

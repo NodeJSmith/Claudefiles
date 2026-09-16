@@ -71,7 +71,7 @@ def _write_agent(
     fields = {
         "model": f"model: {model}{model_comment}",
         "effort": f"effort: {effort}",
-        "tools": 'tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]',
+        "tools": 'tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent"]',
         "description": f"description: {stem} test agent.",
         "bundle": f"bundle: {bundle}",
     }
@@ -212,7 +212,7 @@ def test_baseline_check_names_missing_tool(
         (tmp_path / "agents" / "foo.md")
         .read_text()
         .replace(
-            'tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]',
+            'tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent"]',
             'tools: ["Read", "Grep", "Glob"]',
         )
     )
@@ -242,8 +242,8 @@ def test_block_style_tools_rejected_with_distinct_message(
         (tmp_path / "agents" / "foo.md")
         .read_text()
         .replace(
-            'tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]',
-            "tools:\n  - Read\n  - Write\n  - Edit\n  - Bash\n  - Grep\n  - Glob",
+            'tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Skill", "Agent"]',
+            "tools:\n  - Read\n  - Write\n  - Edit\n  - Bash\n  - Grep\n  - Glob\n  - Skill\n  - Agent",
         )
     )
     module = _load_script()
